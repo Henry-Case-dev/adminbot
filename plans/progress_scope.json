@@ -1021,16 +1021,16 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 REVIEW); IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-15T17:10:00+12:00",
+      "updated": "2026-11-15T21:20:00+12:00",
       "queue_position": 5,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
       "blocker_sources": {},
       "execution_state": "active",
-      "active_work": "Owner resumed the whole queue 2026-11-15 and ordered a REVIEW RECOVERY PASS + cleanup + continuation. Three independent DeepSeek V4 Pro reviewers re-checked the deployed 2b419aa2 code: ONTO-A/B, M2/O-04, Slice A/B/C and SMART execution/corrective contracts are Approved with no blocking defects. Slice C evidence bookkeeping gap and live-vector/live-delivery gaps recorded without status inflation. Active engineering slice is now Slice D: MEM-04 (A1P ordinary twin / subject-bound multi-year parity), TIME-01/02/04/06/07; O-04 and V-01..V-04 stay parked.",
+      "active_work": "PM-привязка Slice D выполнена (15.11.2026): в карту добавлены `slice_candidate_bindings.mem_d` (код 456cf769, evidence tip 69b5c9f9, база 2b419aa2) и датированный `arch_contract_adjustment_2026_11_15`. В REVIEW переведены только реально покрытые строки — `VMQ-TIME-04` и `VMQ-TIME-06`. `VMQ-MEM-04`, `VMQ-TIME-01`, `VMQ-TIME-02`, `VMQ-TIME-07` остаются PENDING с точными gap-записями (неизмеренный L1 `memory_scope`, reply-путь, синтетическая разметка). Release candidate 2.58.205 — pending assembly: кандидат не влит в release-линию, верхнеуровневые candidate/deployed карты остаются 2b419aa2/2.58.204.",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: two approved vmq candidates ready for release handoff (M1 cfec9a1a; NEXT-02/05 96c8bc72). Map gates: plan errors=0; review/deploy VMQ-M1 errors=0; VMQ-MEM-NEXT review red only on NEXT-01 (postrelease), NEXT-03 (candidate-bound approval missing) and NEXT-04 (no archive positive case). Epic not DONE: 54 gaps. self-diag corrective P0 runs in parallel; release batching decision pending its core candidate. | 2026-11-14 re-entry: no live lane since 2026-11-13 16:46; approved candidates M1 cfec9a1a and NEXT-02/05 96c8bc72 await release batching decision inside the current release line; worktrees preserved. | 2026-11-15 RESUME: SMART-CORRECTIVE-01 engineering delivered at 2.58.203/c97c06e4. Git ancestry shows both VMQ candidates are already in the deployed line (merged in the 2.58.199 train and carried through 2.58.200-203); their map deployed=false is stale. PM binds the deployed state and proposes the next dependency-ready VMQ slice; Builder re-verifies the focused suites on the deployed code. IBM QPU hardware stays blocked_external; VMQ-MEM-TIME evidence remains open. | 2026-11-15 REVIEW RECOVERY PASS: three independent DeepSeek V4 Pro reviewers on deployed 2b419aa2 — Approved, no blocking defects; 4 pin-guard failures confirmed pre-existing; Slice C evidence lives on 8bc2bcf7 (code byte-identical), bookkeeping only; live vector and live overview delivery remain unverified. Owner resumed queue; Slice D active.",
+      "queue_note": "2026-11-13: two approved vmq candidates ready for release handoff (M1 cfec9a1a; NEXT-02/05 96c8bc72). Map gates: plan errors=0; review/deploy VMQ-M1 errors=0; VMQ-MEM-NEXT review red only on NEXT-01 (postrelease), NEXT-03 (candidate-bound approval missing) and NEXT-04 (no archive positive case). Epic not DONE: 54 gaps. self-diag corrective P0 runs in parallel; release batching decision pending its core candidate. | 2026-11-14 re-entry: no live lane since 2026-11-13 16:46; approved candidates M1 cfec9a1a and NEXT-02/05 96c8bc72 await release batching decision inside the current release line; worktrees preserved. | 2026-11-15 RESUME: SMART-CORRECTIVE-01 engineering delivered at 2.58.203/c97c06e4. Git ancestry shows both VMQ candidates are already in the deployed line (merged in the 2.58.199 train and carried through 2.58.200-203); their map deployed=false is stale. PM binds the deployed state and proposes the next dependency-ready VMQ slice; Builder re-verifies the focused suites on the deployed code. IBM QPU hardware stays blocked_external; VMQ-MEM-TIME evidence remains open. | 2026-11-15 REVIEW RECOVERY PASS: three independent DeepSeek V4 Pro reviewers on deployed 2b419aa2 — Approved, no blocking defects; 4 pin-guard failures confirmed pre-existing; Slice C evidence lives on 8bc2bcf7 (code byte-identical), bookkeeping only; live vector and live overview delivery remain unverified. Owner resumed queue; Slice D active. | 2026-11-15 SLICE D BINDING: независимое ревью Slice D завершено (r1/r2/r3 Needs Fixes → арбитраж `Approved (predeploy)` на продуктовый код 456cf769 / evidence tip 69b5c9f9). PM привязал `mem_d`: TIME-04 и TIME-06 → REVIEW; MEM-04/TIME-01/02/07 остаются PENDING (L1 `memory_scope` UNKNOWN, reply-путь под auto, синтетические разметки). Backlog без нового эпика: N7 (base-retrieval 2025), N8 (`period_fill` в аддитивной ветке), R4_ARTIFACT (durable-ревью-артефакта нет, вердикт записан в workflow_state.md). Карта: 48 PENDING / 9 REVIEW / 1 READY_FOR_LIVE / 12 VERIFIED. Гейты: plan errors=0; scoped review VMQ-MEM-TIME errors=8 (candidate mismatch + открытые строки + TIME-03), deploy errors=17 (в т.ч. замыкание зависимостей VMQ-MEM/VMQ-M2). VERIFIED не добавлялось.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -1112,14 +1112,14 @@
       "queue_after_note": "Владелец 2026-11-12: сразу после самодиагностики. Уточнение владельца: «квантовые рандомы» — это именно VMQ-ONTO-01, не goodmorning-quantum-media.",
       "progress": {
         "verified_rows": 12,
-        "review_rows": 7,
+        "review_rows": 9,
         "ready_for_live_rows": 1,
         "failed_rows": 0,
-        "pending_rows": 50,
+        "pending_rows": 48,
         "total_rows": 70,
         "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
         "deployed_version": "2.58.204",
-        "note": "2026-11-15: 2.58.204 deployed and verified; M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open; owner paused the project."
+        "note": "2026-11-15: 2.58.204 deployed and verified; M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/07 and TIME-03/05/08/09 open. Slice D review bound: TIME-04/TIME-06 REVIEW, no VERIFIED inflation."
       },
       "slice_status": {
         "VMQ-M1": "VERIFIED on deployed c97c06e4",
@@ -1127,7 +1127,8 @@
         "VMQ-M2": "M-04/M-05 VERIFIED, O-04 READY_FOR_LIVE; delivery PASS with deferred O-04",
         "VMQ-MEM-NEXT": "NEXT-02/05 VERIFIED; NEXT-01 postrelease, NEXT-03 REVIEW, NEXT-04 PENDING",
         "VMQ-V": "V-01..V-04 REVIEW; no real production voice event",
-        "epic": "12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING; open memory and V evidence; not DONE"
+        "VMQ-MEM / VMQ-MEM-TIME (Slice D)": "TIME-04 и TIME-06 REVIEW на кандидате 456cf769 (evidence tip 69b5c9f9), covers_row_acceptance=false там, где остаётся остаток; MEM-04/TIME-01/02/07 PENDING — L1 memory_scope UNKNOWN, reply-путь под auto, TIME-07 синтетика; кандидат не выложен",
+        "epic": "12 VERIFIED / 9 REVIEW / 1 READY_FOR_LIVE / 48 PENDING; open memory and V evidence; not DONE"
       },
       "recovery_pass_2026_11_15": {
         "verdict": "approved_no_blockers",
@@ -1165,7 +1166,8 @@
           "plans/features/smart-corrective-01/evidence/review-recovery-pass-2026-11-15.md"
         ],
         "no_status_change": true
-      }
+      },
+      "release_state": "Slice D candidate 456cf769 (evidence tip 69b5c9f9, base 2b419aa2, branch vmq/slice-d) is reviewed but NOT merged into the release line: release candidate for 2.58.205 is pending assembly. Top-level map candidate_commit/deployed_commit stay 2b419aa2 (2.58.204, verified). Scoped release of VMQ-MEM-TIME is structurally blocked by the slice graph (VMQ-MEM → VMQ-M2 with O-04 READY_FOR_LIVE, VMQ-MEM-01..08 open), so it must ship inside the next train, not as a separate scoped release."
     },
     {
       "id": "self-diag-01",

@@ -1,0 +1,1639 @@
+{
+  "artifact_kind": "candidate_probe_not_live",
+  "epic": "VMQ-ONTO-01",
+  "slice": "VMQ-MEM/TIME Slice D",
+  "date": "2026-11-15",
+  "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "candidate_commit": "ef568e6ffbe17f216348cf94b5adb173134f19bd",
+  "code_tip": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+  "copy": {
+    "db": "dbcopy.db (sqlite3 .backup from the read-only prod snapshot of 10.11.2026)",
+    "bytes": 1670549504,
+    "schema_user_version": 47,
+    "chat": -1002661910336,
+    "chat_messages": 2043181,
+    "graph_facts_total": 21704,
+    "graph_facts_confirmed": 20998,
+    "probe_identity": {
+      "clone": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-slice-d-963e66a7a511-6602ef7e",
+      "db": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d\\probe-2f1360636a\\dbcopy.db",
+      "db_bytes": 1670549504,
+      "chat": -1002661910336,
+      "vec_ok": true,
+      "generated_at": 1794731696
+    }
+  },
+  "config": {
+    "effective": "settings defaults (hot cache empty in the probe)",
+    "graph_rag_enabled": true,
+    "graph_rag_facts_limit": 10,
+    "embedding_provider": "gemini-embedding-001 (3072)",
+    "vector_leg_before_after": "compat_not_proven / vector_rows=0"
+  },
+  "classes_before": {
+    "A1_auto": {
+      "rows": 10,
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "intent": "historical",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 2,
+      "historical_quota": 1,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 3775,
+          "year": 2024,
+          "reason": "lexical_threshold_applied",
+          "subject_role": null,
+          "origin": "history_import"
+        },
+        {
+          "id": 3210,
+          "year": 2023,
+          "reason": "historical_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "A1_historical": {
+      "rows": 10,
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "intent": "historical",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 2,
+      "historical_quota": 1,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 3775,
+          "year": 2024,
+          "reason": "lexical_threshold_applied",
+          "subject_role": null,
+          "origin": "history_import"
+        },
+        {
+          "id": 3210,
+          "year": 2023,
+          "reason": "historical_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "A1P_auto": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "none",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 0,
+      "historical_quota": 0,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 7,
+        "block_chars": 1021
+      },
+      "period_rows": []
+    },
+    "A1P_historical": {
+      "rows": 9,
+      "row_years": {
+        "2025": 1,
+        "2026": 8
+      },
+      "intent": "historical",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 2,
+      "historical_quota": 0,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 6,
+        "block_chars": 871
+      },
+      "period_rows": [
+        {
+          "id": 8056,
+          "year": 2025,
+          "reason": "subject_soft_fallback",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "D_2023": {
+      "rows": 9,
+      "row_years": {
+        "2023": 1,
+        "2026": 8
+      },
+      "intent": "explicit_year",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 8,
+      "historical_quota": 0,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 3037,
+          "year": 2023,
+          "reason": "in_target_year",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "T2_auto": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "none",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 0,
+      "historical_quota": 0,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": []
+    },
+    "T2_plan_hist": {
+      "rows": 10,
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "intent": "multi_year",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 2,
+      "historical_quota": 0,
+      "multi_year_quota": 2,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 2721,
+          "year": 2023,
+          "reason": "multi_year_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        },
+        {
+          "id": 4700,
+          "year": 2024,
+          "reason": "multi_year_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "T3_current": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": []
+    },
+    "T3_alina": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 9,
+        "block_chars": 1367
+      },
+      "period_rows": []
+    },
+    "T3_mulyanka": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 8,
+        "block_chars": 952
+      },
+      "period_rows": []
+    }
+  },
+  "classes_after": {
+    "A1_auto": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "historical",
+      "intent_source": "query_marker",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": []
+    },
+    "A1_historical": {
+      "rows": 10,
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "intent": "historical",
+      "intent_source": "memory_scope",
+      "policy": "historical",
+      "replace_allowed": 1,
+      "period_skipped": "",
+      "kept": 2,
+      "historical_quota": 1,
+      "multi_year_quota": 0,
+      "dropped_status": 0,
+      "dropped_budget": 11,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 3775,
+          "year": 2024,
+          "reason": "lexical_threshold_applied",
+          "subject_role": null,
+          "origin": "history_import"
+        },
+        {
+          "id": 3210,
+          "year": 2023,
+          "reason": "historical_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "A1P_auto": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "none",
+      "intent_source": "",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": {
+          "policy": "auto",
+          "replace_allowed": 0,
+          "period_skipped": "auto_full_slice",
+          "intent": {
+            "kind": "none",
+            "years": [],
+            "source": ""
+          },
+          "intent_source": "",
+          "pool": 0,
+          "kept": 0,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 0,
+          "dropped_budget": 0,
+          "dropped_status": 0,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {},
+          "pool_expired": 0,
+          "age_policy": "",
+          "vector_leg": "",
+          "vector_rows": 0,
+          "vector_unavailable_reason": null
+        },
+        "years": {
+          "2026": 7
+        },
+        "source_ids": 7,
+        "block_chars": 1021
+      },
+      "period_rows": []
+    },
+    "A1P_historical": {
+      "rows": 10,
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "intent": "historical",
+      "intent_source": "memory_scope",
+      "policy": "historical",
+      "replace_allowed": 1,
+      "period_skipped": "",
+      "kept": 2,
+      "historical_quota": 0,
+      "multi_year_quota": 0,
+      "dropped_status": 0,
+      "dropped_budget": 0,
+      "product_trace": {
+        "period": {
+          "policy": "historical",
+          "replace_allowed": 1,
+          "period_skipped": "",
+          "intent": {
+            "kind": "historical",
+            "years": [],
+            "source": "memory_scope"
+          },
+          "intent_source": "memory_scope",
+          "pool": 16,
+          "kept": 2,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 14,
+          "dropped_budget": 0,
+          "dropped_status": 0,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {
+            "confirmed": 16,
+            "archived": 0,
+            "other": 0
+          },
+          "pool_expired": 0,
+          "age_policy": "not_applied",
+          "vector_leg": "compat_not_proven",
+          "vector_rows": 0,
+          "vector_unavailable_reason": "compat_not_proven"
+        },
+        "years": {
+          "2023": 1,
+          "2024": 1,
+          "2026": 5
+        },
+        "source_ids": 7,
+        "block_chars": 1060
+      },
+      "period_rows": [
+        {
+          "id": 2859,
+          "year": 2023,
+          "reason": "subject_soft_fallback",
+          "subject_role": null,
+          "origin": "history_import"
+        },
+        {
+          "id": 3324,
+          "year": 2024,
+          "reason": "subject_soft_fallback",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "D_2023": {
+      "rows": 9,
+      "row_years": {
+        "2023": 1,
+        "2026": 8
+      },
+      "intent": "explicit_year",
+      "intent_source": "query_year",
+      "policy": "auto",
+      "replace_allowed": 1,
+      "period_skipped": "",
+      "kept": 8,
+      "historical_quota": 0,
+      "multi_year_quota": 0,
+      "dropped_status": 0,
+      "dropped_budget": 2,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 3037,
+          "year": 2023,
+          "reason": "in_target_year",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "T2_auto": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "none",
+      "intent_source": "",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": []
+    },
+    "T2_plan_hist": {
+      "rows": 10,
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "intent": "multi_year",
+      "intent_source": "plan_act",
+      "policy": "auto",
+      "replace_allowed": 1,
+      "period_skipped": "",
+      "kept": 2,
+      "historical_quota": 0,
+      "multi_year_quota": 2,
+      "dropped_status": 0,
+      "dropped_budget": 9,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 2721,
+          "year": 2023,
+          "reason": "multi_year_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        },
+        {
+          "id": 4700,
+          "year": 2024,
+          "reason": "multi_year_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "T3_current": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "none",
+      "intent_source": "",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": []
+    },
+    "T3_alina": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": {
+          "policy": "auto",
+          "replace_allowed": 0,
+          "period_skipped": "auto_full_slice",
+          "intent": {
+            "kind": "none",
+            "years": [],
+            "source": ""
+          },
+          "intent_source": "",
+          "pool": 0,
+          "kept": 0,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 0,
+          "dropped_budget": 0,
+          "dropped_status": 0,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {},
+          "pool_expired": 0,
+          "age_policy": "",
+          "vector_leg": "",
+          "vector_rows": 0,
+          "vector_unavailable_reason": null
+        },
+        "years": {
+          "2026": 8
+        },
+        "source_ids": 8,
+        "block_chars": 1299
+      },
+      "period_rows": []
+    },
+    "T3_mulyanka": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": {
+          "policy": "auto",
+          "replace_allowed": 0,
+          "period_skipped": "auto_full_slice",
+          "intent": {
+            "kind": "none",
+            "years": [],
+            "source": ""
+          },
+          "intent_source": "",
+          "pool": 0,
+          "kept": 0,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 0,
+          "dropped_budget": 0,
+          "dropped_status": 0,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {},
+          "pool_expired": 0,
+          "age_policy": "",
+          "vector_leg": "",
+          "vector_rows": 0,
+          "vector_unavailable_reason": null
+        },
+        "years": {
+          "2026": 8
+        },
+        "source_ids": 8,
+        "block_chars": 899
+      },
+      "period_rows": []
+    }
+  },
+  "people_before": {
+    "P1": {
+      "uid": 485008070,
+      "subject_profile_facts": [],
+      "author_message_periods": {
+        "count": 6,
+        "years": {
+          "2022": 2,
+          "2023": 2,
+          "2024": 2
+        },
+        "roles": {
+          "speaker": 6
+        }
+      },
+      "reply_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "reply_historical_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 11,
+        "years": {
+          "2022": 2,
+          "2023": 2,
+          "2024": 2,
+          "2025": 2,
+          "2026": 2,
+          "no_date": 1
+        },
+        "roles": {
+          "speaker": 6
+        },
+        "unattributed": 4,
+        "subject_material": {
+          "subject_bound": 6,
+          "years": [
+            2022,
+            2023,
+            2024
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": [
+        {
+          "id": 1438186,
+          "year": 2024,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        },
+        {
+          "id": 1967903,
+          "year": 2023,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        }
+      ]
+    },
+    "P2_top_author": {
+      "uid": 138811255,
+      "subject_profile_facts": [
+        {
+          "id": 19327,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 19326,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 19325,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 19324,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 17374,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16873,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16872,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16871,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16868,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16398,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        }
+      ],
+      "author_message_periods": {
+        "count": 2,
+        "years": {
+          "2024": 2
+        },
+        "roles": {
+          "speaker": 2
+        }
+      },
+      "reply_years": {
+        "2024": 1,
+        "2025": 1,
+        "2026": 8
+      },
+      "reply_historical_years": {
+        "2024": 1,
+        "2025": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2026": 10
+        },
+        "roles": {
+          "subject": 10
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2026
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": [
+        {
+          "id": 1439224,
+          "year": 2024,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        },
+        {
+          "id": 7148,
+          "year": 2025,
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "P3_history_2023_2024": {
+      "uid": 1313107079,
+      "subject_profile_facts": [
+        {
+          "id": 20921,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20920,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20917,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20010,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19776,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19774,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19458,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19448,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19447,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19384,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        }
+      ],
+      "author_message_periods": {
+        "count": 6,
+        "years": {
+          "2022": 2,
+          "2023": 2,
+          "2024": 2
+        },
+        "roles": {
+          "speaker": 6
+        }
+      },
+      "reply_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "reply_historical_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2026": 10
+        },
+        "roles": {
+          "speaker": 3,
+          "subject": 7
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2026
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": [
+        {
+          "id": 1439255,
+          "year": 2024,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        },
+        {
+          "id": 1988959,
+          "year": 2023,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        }
+      ]
+    }
+  },
+  "people_after": {
+    "P1": {
+      "uid": 485008070,
+      "subject_profile_facts": [],
+      "author_message_periods": {
+        "count": 6,
+        "years": {
+          "2023": 2,
+          "2024": 2,
+          "2025": 2
+        },
+        "roles": {
+          "speaker": 6
+        }
+      },
+      "reply_years": {
+        "2026": 10
+      },
+      "reply_historical_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 11,
+        "years": {
+          "2023": 2,
+          "2024": 2,
+          "2025": 4,
+          "2026": 2,
+          "no_date": 1
+        },
+        "roles": {
+          "speaker": 6
+        },
+        "unattributed": 4,
+        "subject_material": {
+          "subject_bound": 6,
+          "years": [
+            2023,
+            2024,
+            2025
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": []
+    },
+    "P2_top_author": {
+      "uid": 138811255,
+      "subject_profile_facts": [
+        {
+          "id": 19327,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 19326,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 19325,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 19324,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 17374,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16873,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16872,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16871,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16868,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        },
+        {
+          "id": 16398,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 15612
+        }
+      ],
+      "author_message_periods": {
+        "count": 4,
+        "years": {
+          "2024": 2,
+          "2025": 2
+        },
+        "roles": {
+          "speaker": 4
+        }
+      },
+      "reply_years": {
+        "2026": 10
+      },
+      "reply_historical_years": {
+        "2024": 1,
+        "2025": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2024": 1,
+          "2025": 1,
+          "2026": 8
+        },
+        "roles": {
+          "speaker": 2,
+          "subject": 8
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2024,
+            2025,
+            2026
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": []
+    },
+    "P3_history_2023_2024": {
+      "uid": 1313107079,
+      "subject_profile_facts": [
+        {
+          "id": 20921,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20920,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20917,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20010,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19776,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19774,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19458,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19448,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19447,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19384,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        }
+      ],
+      "author_message_periods": {
+        "count": 6,
+        "years": {
+          "2023": 2,
+          "2024": 2,
+          "2025": 2
+        },
+        "roles": {
+          "speaker": 6
+        }
+      },
+      "reply_years": {
+        "2026": 10
+      },
+      "reply_historical_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2023": 1,
+          "2024": 1,
+          "2026": 8
+        },
+        "roles": {
+          "speaker": 5,
+          "subject": 5
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2023,
+            2024,
+            2026
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": []
+    }
+  },
+  "authority_measurement": {
+    "A1_auto": {
+      "row_years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "query_marker",
+        "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": null
+    },
+    "A1_historical": {
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "policy": "historical",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "memory_scope",
+        "selection_kept": 2,
+        "selection_rows": 16
+      },
+      "product_trace": null
+    },
+    "A1P_auto": {
+      "row_years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "",
+        "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent": {
+          "kind": "none",
+          "years": [],
+          "source": ""
+        },
+        "intent_source": "",
+        "pool": 0,
+        "kept": 0,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 0,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {},
+        "pool_expired": 0,
+        "age_policy": "",
+        "vector_leg": "",
+        "vector_rows": 0,
+        "vector_unavailable_reason": null
+      }
+    },
+    "A1P_historical": {
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "policy": "historical",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "memory_scope",
+        "selection_kept": 2,
+        "selection_rows": 16
+      },
+      "product_trace": {
+        "policy": "historical",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent": {
+          "kind": "historical",
+          "years": [],
+          "source": "memory_scope"
+        },
+        "intent_source": "memory_scope",
+        "pool": 16,
+        "kept": 2,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 14,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {
+          "confirmed": 16,
+          "archived": 0,
+          "other": 0
+        },
+        "pool_expired": 0,
+        "age_policy": "not_applied",
+        "vector_leg": "compat_not_proven",
+        "vector_rows": 0,
+        "vector_unavailable_reason": "compat_not_proven"
+      }
+    },
+    "D_2023": {
+      "row_years": {
+        "2023": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "query_year",
+        "selection_kept": 8,
+        "selection_rows": 10
+      },
+      "product_trace": null
+    },
+    "T2_auto": {
+      "row_years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "",
+        "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": null
+    },
+    "T2_plan_hist": {
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "plan_act",
+        "selection_kept": 2,
+        "selection_rows": 11
+      },
+      "product_trace": null
+    },
+    "T3_current": {
+      "row_years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "",
+        "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": null
+    },
+    "T3_alina": {
+      "row_years": null,
+      "period_stats": {
+        "policy": null,
+        "replace_allowed": null,
+        "period_skipped": null,
+        "intent_source": null,
+        "selection_kept": null,
+        "selection_rows": null
+      },
+      "product_trace": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent": {
+          "kind": "none",
+          "years": [],
+          "source": ""
+        },
+        "intent_source": "",
+        "pool": 0,
+        "kept": 0,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 0,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {},
+        "pool_expired": 0,
+        "age_policy": "",
+        "vector_leg": "",
+        "vector_rows": 0,
+        "vector_unavailable_reason": null
+      }
+    },
+    "T3_mulyanka": {
+      "row_years": null,
+      "period_stats": {
+        "policy": null,
+        "replace_allowed": null,
+        "period_skipped": null,
+        "intent_source": null,
+        "selection_kept": null,
+        "selection_rows": null
+      },
+      "product_trace": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent": {
+          "kind": "none",
+          "years": [],
+          "source": ""
+        },
+        "intent_source": "",
+        "pool": 0,
+        "kept": 0,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 0,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {},
+        "pool_expired": 0,
+        "age_policy": "",
+        "vector_leg": "",
+        "vector_rows": 0,
+        "vector_unavailable_reason": null
+      }
+    }
+  },
+  "l1_measurement": {
+    "model": "deepseek-v4-flash",
+    "base_url_present": true,
+    "key_present": false,
+    "context": "minimal build_l1_context(query) — no live bundle",
+    "rows": [
+      {
+        "class": "A1",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "A1P",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "P1",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "P2",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "P3",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      }
+    ]
+  },
+  "arch_decision_fixes": {
+    "A1": "authority = memory_scope + PeriodIntent.source; query_marker cannot replace (topic_parity removed)",
+    "A2": "_rag_unified_rows: replace=period_replace_allowed; auto full/thin => no period retrieve, period_skipped named; historical keeps trimmed slice",
+    "A3": "L1 card/usage allowlist carries memory_scope",
+    "A4": "tool biography reserve is a floor: fill free envelope, two passes (year diversity, then remaining old rows)",
+    "A5": "current-state and A1P parity under auto are not claimed; L1 historical/historical_recall is the only replacement authority",
+    "A6": "topic_parity/topic keys/guard/current markers removed (N3 by construction)"
+  },
+  "vector_leg": {
+    "rowids": 21771,
+    "facts_with_vector": 21152,
+    "embedding_cache_rows": 7543,
+    "generations": [
+      {
+        "generation": 2,
+        "status": "building",
+        "dims": 3072,
+        "model": "gemini-embedding-001",
+        "namespace": "default",
+        "index_name": "smart_archive"
+      },
+      {
+        "generation": 1,
+        "status": "building",
+        "dims": 3072,
+        "model": "gemini-embedding-001",
+        "namespace": "default",
+        "index_name": "smart_archive"
+      },
+      {
+        "generation": 1,
+        "status": "active",
+        "dims": 3072,
+        "model": "gemini-embedding-001",
+        "namespace": "default",
+        "index_name": "graph_facts_vec"
+      }
+    ],
+    "admission": {
+      "space": "e540d4ad890e121d",
+      "conn": "a93485483697c3c3",
+      "checked": 12,
+      "mean": 1.0,
+      "min": 1.0,
+      "hit5": 1.0,
+      "at": 1792734815
+    },
+    "compat": {
+      "state": "insufficient",
+      "reason_code": "compat_not_proven",
+      "class": "COMPATIBILITY_UNKNOWN",
+      "action": "retry_canary",
+      "needs_probe": true,
+      "serviceable": false,
+      "space": "e540d4ad890e121d",
+      "conn": "d2e6314e3586c547",
+      "dims": 3072,
+      "current_fp": "2d0efab0e8179490f357cc1257461c614d44dd088497be9372cab0988fa0a7c1"
+    }
+  },
+  "limitations": [
+    "copy, not the live systemd process: L1 emission, Global_Context, hot-cache, rerank and Writer generation did not participate",
+    "vector leg refused (compat_not_proven); provider embed failed (EMBED_API_FAILED) — semantic path not exercised",
+    "one chat, one formulation per class, one run per configuration",
+    "TIME-07 precision is measured on the controlled labeled fixture, not on human annotation of the real archive",
+    "live L1 memory_scope for A1/A1P/P1/P2/P3 is UNKNOWN: local LLM key is empty (LLMTransportError) and the DB copy has no durable L1 plan; the authority matrix is measured by passing memory_scope explicitly"
+  ]
+}

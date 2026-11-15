@@ -1,0 +1,112 @@
+{
+  "artifact_kind": "test_results",
+  "epic": "VMQ-ONTO-01",
+  "slice": "VMQ-MEM/TIME Slice D (ARCH_DECISION: L1 authority)",
+  "date": "2026-11-15",
+  "python": "3.12.0",
+  "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "candidate_commit": "ef568e6ffbe17f216348cf94b5adb173134f19bd",
+  "code_tip": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+  "code_tip_note": "period_replace_allowed aligned literally with the decision (try/except removed; normalize_memory_scope is total). Behaviour unchanged; affected files re-run after the tip.",
+  "review_r2": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r2.md",
+  "red_on_base": {
+    "command": "python -m pytest tests/test_vmq_mem_slice_d.py -v --tb=no",
+    "worktree": "vmq-slice-d-base-0aabd526eefb-ebe13480 (2b419aa2, final tests copied)",
+    "result": "16 failed, 6 passed",
+    "passed": [
+      "TestPlanSignal::test_apply_plan_memory_scope_replaces_and_reuses_pool",
+      "TestOperativeParity::test_operative_returns_base_slice_only",
+      "TestSubjectHalf::test_unconfirmed_subject_facts_are_not_biography",
+      "TestSubjectHalf::test_confirmed_subject_years_are_returned_with_roles",
+      "TestYearLossTrace::test_apply_filters_without_window_keeps_old_behaviour",
+      "TestVectorLegAndYearTrigger::test_year_in_question_is_the_only_window_trigger"
+    ],
+    "failed": [
+      "TestReplaceAuthority::test_sources_and_policy_matrix",
+      "TestCurrentStatePaths::test_build_rag_block_auto_keeps_slice_historical_control",
+      "TestCurrentStatePaths::test_unmarked_present_questions_keep_ids_and_skip",
+      "TestCurrentStatePaths::test_marker_present_question_auto_vs_historical",
+      "TestCurrentStatePaths::test_profile_reads_not_called_on_full_auto_slice",
+      "TestCurrentStatePaths::test_a1p_historical_vs_auto",
+      "TestPlanSignal::test_plan_act_multi_year_quota",
+      "TestSubjectHalf::test_author_messages_cover_three_completed_years",
+      "TestSubjectHalf::test_known_person_without_bound_material_is_named",
+      "TestSubjectHalf::test_biography_fills_free_envelope_beyond_reserve",
+      "TestSubjectHalf::test_subject_material_replaces_generic_period_row",
+      "TestYearLossTrace::test_unknown_time_is_not_presented_as_year_event",
+      "TestYearLossTrace::test_period_trace_carries_authority_fields",
+      "TestYearLossTrace::test_selection_payload_keeps_authority_and_block_years",
+      "TestYearLossTrace::test_l1_card_carries_memory_scope",
+      "TestLabeledRelevance::test_precision_under_historical_authority"
+    ]
+  },
+  "green_on_candidate": {
+    "command": "python -m pytest tests/test_vmq_mem_slice_d.py -q",
+    "result": "22 passed"
+  },
+  "focused": [
+    {
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_period_intent.py tests/test_semantic_contracts.py tests/test_memory_unified_retrieval.py tests/test_memory_unified_retrieval_06.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py tests/test_history_isolation.py tests/test_mca07_retrieval_context_round1027.py tests/test_memory_lookup_round1026.py tests/test_mem_time_profile.py tests/test_mem_time_asof.py tests/test_memory_attribution.py -q",
+      "result": "417 passed",
+      "note": "after the N9 test change (test-only; product unchanged)"
+    },
+    {
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py -q",
+      "result": "22 passed",
+      "note": "after the N9 test change"
+    },
+    {
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_period_intent.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py -q",
+      "result": "146 passed"
+    },
+    {
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_memory_period_vector_leg.py tests/test_mem_time_policy.py tests/test_vmq_mem_period_intent.py -q",
+      "result": "110 passed",
+      "note": "after the code tip 456cf769 (predicate alignment; no behaviour change)"
+    }
+  ],
+  "broad_selection": {
+    "command": "python -m pytest -q -k \"memory or retrieval or graphrag or persona or tool_router or mca07 or mca13 or mca22 or mem_time or mem08 or history_isolation or direct_chat or turn_trace or selection\" tests",
+    "result": "2364 passed, 5 failed, 1 error, 19174 deselected",
+    "failed_preexisting": [
+      "test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated",
+      "test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+      "test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools",
+      "test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona",
+      "test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken"
+    ],
+    "error_preexisting": [
+      "test_youtube_multimodal_download_round1024.py::TestDownloadPublishMultimodal::test_multimodal_success_writes_no_memory"
+    ],
+    "note": "Same six pre-existing failures reproduced on base and in r1/r2; no new failures."
+  },
+  "mutations": [
+    {"seam": "A1 period_replace_allowed", "mutation": "always True", "killed": 7, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_unmarked_present_questions_keep_ids_and_skip", "test_marker_present_question_auto_vs_historical", "test_profile_reads_not_called_on_full_auto_slice", "test_a1p_historical_vs_auto", "test_sources_and_policy_matrix", "test_precision_under_historical_authority"]},
+    {"seam": "A2 replace=False", "mutation": "always False", "killed": 8, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_marker_present_question_auto_vs_historical", "test_a1p_historical_vs_auto", "test_plan_act_multi_year_quota", "test_apply_plan_memory_scope_replaces_and_reuses_pool", "test_sources_and_policy_matrix", "test_single_foreign_row_does_not_assemble_block", "test_auto_then_historical_pays_one_period_leg"]},
+    {"seam": "A2 full/profile gates", "mutation": "remove both gates", "killed": 4, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_unmarked_present_questions_keep_ids_and_skip", "test_profile_reads_not_called_on_full_auto_slice", "test_a1p_historical_vs_auto"]},
+    {"seam": "A4 reserve floor", "mutation": "target = reserve", "killed": 1, "tests": ["test_biography_fills_free_envelope_beyond_reserve"]},
+    {"seam": "A2 trimmed under historical", "mutation": "trimmed = rows", "killed": 4, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_marker_present_question_auto_vs_historical", "test_a1p_historical_vs_auto", "test_plan_act_multi_year_quota"]},
+    {"seam": "N9 current-state branch (real pool via retrieve + _rag_unified_rows)", "mutation": "period_replace_allowed -> True", "killed": 1, "observed": "delivered period rows 1 (old 2023 row with 2 shared stems), replace_allowed=1, period_skipped empty (the full slice is trimmed before the old row is appended)", "tests": ["TestLabeledRelevance::test_precision_under_historical_authority"]}
+  ],
+  "n9_test_gap": {
+    "review_finding": "the kind=current branch used literals (pool=1, delivered=0) and never called retrieval/selector",
+    "fix": "the branch now seeds a competing old row with two shared stems, calls mrc.retrieve on the real old pool, then calls _rag_unified_rows(auto) on a full 10-row current slice",
+    "assertions": [
+      "pool non-empty (real fact_rows)",
+      "delivered period_fill rows == 0",
+      "all 10 current ids preserved",
+      "no period_fill retrieve call in the consumer",
+      "period stats replace_allowed == 0 and period_skipped == auto_full_slice"
+    ],
+    "pool_rows": 5,
+    "mutation_result": "with period_replace_allowed -> True the same test fails at delivered == 0 (one old row is appended and current ids are trimmed)"
+  },
+  "arch_decision_fixes": {
+    "authority": "memory_scope + PeriodIntent.source; query_marker excluded; topic_parity/topic keys/guard/current markers removed",
+    "unified_rows": "auto full/thin => no period retrieve, slice untouched, period_skipped named; historical keeps trimmed slice",
+    "profile": "allow_replace gate: no reads on full auto; replacement only when allowed",
+    "trace": "policy/replace_allowed/period_skipped/intent_source in log+selection; memory_scope in L1 card/usage",
+    "N2": "reserve is a floor; two-pass fill of free envelope",
+    "L1_measurement": "UNKNOWN: local LLM key absent; no durable L1 memory_scope in the DB copy (see l1-measure.json)"
+  }
+}

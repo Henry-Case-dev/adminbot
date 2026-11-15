@@ -420,3 +420,78 @@ stage=plan inventory=380 manual=69 scoped=0 errors=0
 Неоднозначности зафиксированы в карте, не скрыты: `VMQ-TIME-04` и `VMQ-TIME-09` делят owner-клаузу L23 (диагностическая трасса vs UI-виджет — не дубли); `VMQ-NEXT-04` якорится на freeze L16, тогда как его `source_line` (эпос L246) близок, но не тождественен; `VMQ-TIME-05` помечен как частично derived-форма (артефакт root-cause и порядок «до фикса» — инженерный контроль, обязательная проверка квоты/decay — owner-клауза L11/L15). Статусы и классификация не менялись.
 
 
+## 15. Slice D: авторитет L1 и привязка MEM/TIME (15.11.2026)
+
+Основание: ARCH_DECISION Architect'а 15.11.2026 и независимое ревью Slice D (r1 → r2 → r3 → арбитраж). История ревью не переписана: `evidence/vmq-mem/slice-d-review-r1..r3.md` сохранены как есть, их `Needs Fixes` относятся к своим tip'ам (`693b70e1`/`bfd87014`/`dbaf1a6d`, `743a3d1a`/`c4b2c1c2`, `8fbd2ffb`). Ветка `vmq/slice-d`, база — выложенная линия `2b419aa2` (2.58.204), продуктовый код `456cf769`, evidence tip `69b5c9f9`. DDL 0, новых флагов/hot_config нет, `services/database.py` изменён только в SELECT-пути годового окна профиля (2023/2024/2025), промпты и настройки владельца не тронуты.
+
+### 15.1. Что изменилось в контракте (не в пороге)
+
+- Авторитет замещения среза — `memory_scope` L1 + структурный `PeriodIntent.source`; словарный `query_marker` больше не замещает. `PERIOD_REPLACE_SOURCES = {query_year, request_intent, plan_act, request_mode, memory_scope}`; `operative` — никогда, `historical` — всегда, иначе решает `source`.
+- Под `auto` старый материал только аддитивен в свободные слоты: основной срез не режется, периодной ноги нет (`period_skipped=auto_full_slice|auto_thin_slice|auto_no_replace`), профиль при полном срезе не читается.
+- Удалены `is_current_state_query`, `_PERIOD_CURRENT_MARKERS`, `PERIOD_DROP_CURRENT_STATE`, guard, `topic_parity`/`topic_years`/`topic_common_stems` и их ключи трассы — N3 закрыт по построению.
+- N2: `reserve` — пол, не потолок (`target = max(1, reserve, free)`); добор свободного конверта двумя проходами.
+
+### 15.2. Приёмка, которую решение меняет (это не подгонка)
+
+- A1P-паритет (`VMQ-MEM-04`) под `auto` **не заявляется**: под `auto` двойник отдаёт `2026:10`. Паритет заявляется только под L1 `historical`/`historical_recall` или при явном годе.
+- Ответ `auto` на исторический вопрос — находка уровня L1/prompt, а не повод вернуть словарь в retrieval.
+- `VMQ-MEM-04` и `VMQ-TIME-01` не могут быть подтверждены без измерения реального L1 `memory_scope`; до этого обе строки остаются `PENDING` — ни `REVIEW`, ни `VERIFIED`.
+
+### 15.3. Привязка строк (что реально покрыто)
+
+| Строка | Было | Стало | Основание |
+|---|---|---|---|
+| `VMQ-TIME-04` | PENDING | **REVIEW** | трасса: `policy`/`replace_allowed`/`period_skipped`/`intent_source`, `memory_period`, per-block годы, allowlist только коды/enum; `covers_row_acceptance=false` (остаток: инструментальные источники Летописец/dig, N8) |
+| `VMQ-TIME-06` | PENDING | **REVIEW** | инвентарь 21 771 rowid / 21 152 факта с вектором из 21 704, dims 3072, `gemini-embedding-001`; DDL 0, новых хранилищ/пайплайна нет; ограничение `compat_not_proven` записано честно |
+| `VMQ-MEM-04` | PENDING | PENDING | L1 `memory_scope` UNKNOWN; паритет под `auto` не заявляется; релевантность и выдуманные связи против творческого класса не измерены |
+| `VMQ-TIME-01` | PENDING | PENDING | реальный дефолтный маршрут (`auto`) зависит от неизмеренного L1; контрпример «старое заменено более свежим при меньшей релевантности» целенаправленно не построен |
+| `VMQ-TIME-02` | PENDING | PENDING | reply-путь под `auto` = `2026:10`; многопериодность только в tool-биографии; у P1 нет подтверждённых субъектных фактов 2023/2024 |
+| `VMQ-TIME-07` | PENDING | PENDING | нет матрицы «до/после» против 2.58.179; разметка синтетическая (hard precision 0.5); порог строки опирается на TIME-02/03 |
+
+`VMQ-TIME-04`/`VMQ-TIME-06` стоят в `REVIEW` с `covers_row_acceptance=false` там, где остаётся остаток: живой Writer/Global_Context/реранк не участвовали, кандидат не выложен. Итог по карте после привязки: **48 PENDING / 9 REVIEW / 1 READY_FOR_LIVE / 12 VERIFIED** из 70 обязательных строк; `VERIFIED` не добавлялось.
+
+### 15.4. Гейты — точный вывод (15.11.2026, не подогнано)
+
+```
+plan --repo .:
+  stage=plan inventory=380 manual=69 scoped=0 errors=0
+
+review --slice VMQ-MEM-TIME --candidate 456cf769358d6c381c13f7d6ec62cac2fad255eb --repo .:
+  FAIL: candidate mismatch; map candidate_commit must match --candidate
+  FAIL: VMQ-TIME-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-02: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-03: no evidence bound to reviewed candidate
+  FAIL: VMQ-TIME-05: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-07: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-09: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  stage=review inventory=380 manual=69 scoped=9 errors=8
+
+review --slice VMQ-MEM --candidate 456cf769… --repo .:
+  FAIL: candidate mismatch; map candidate_commit must match --candidate
+  FAIL: VMQ-MEM-01: no evidence bound to reviewed candidate
+  FAIL: VMQ-MEM-02..08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  stage=review inventory=380 manual=69 scoped=8 errors=9
+
+deploy --slice VMQ-MEM-TIME --candidate 456cf769… --repo .:
+  FAIL: O-04: required dependency VMQ-M2 is not evidenced VERIFIED
+  FAIL: VMQ-MEM-01..08: required dependency VMQ-MEM is not evidenced VERIFIED
+  FAIL: candidate mismatch; map candidate_commit must match --candidate
+  FAIL: VMQ-TIME-01/02/05/07/08/09: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-03: no evidence bound to reviewed candidate
+  stage=deploy inventory=380 manual=69 scoped=9 errors=17
+```
+
+Как это читать. `VMQ-TIME-04` и `VMQ-TIME-06` из списка ошибок ушли — их candidate-bound доказательства и независимый approval на `456cf769` гейт принял. Остаются три разных класса причин, и ни одна не «чинится» статусом: (1) `candidate mismatch` — binding-shape факт: верхнеуровневый `candidate_commit` карты принадлежит выложенному `2b419aa2`, а кандидат Slice D не влит и поезд 2.58.205 не собран; (2) реально открытые строки среза `VMQ-TIME-01/02/05/07/08/09` и `VMQ-MEM-02..08`; (3) `VMQ-TIME-03` и `VMQ-MEM-01` связаны с прежними кандидатами (pre-existing bookkeeping). Scoped deploy дополнительно красный на замыкании зависимостей графа: `VMQ-MEM-TIME` требует `VMQ-MEM`, а `VMQ-MEM` — `VMQ-M2` с `O-04` в `READY_FOR_LIVE`, поэтому отдельный выпуск этого среза по графу невозможен — как и в случае `VMQ-MEM-NEXT` 13.11.2026.
+
+### 15.5. Отложенное наблюдение (не блокирует выпуск, владелец не привлекается)
+
+После выкладки кандидата, где `memory_scope` пишется в L1-карточку и durable allowlist: снять реальные `memory_scope`/`response_act` на A1/A1P/P1/P2/P3 из production `turn_trace`/`llm_usage_events` и приложить к строкам — это закрывает N10/N11 и открывает путь к `VMQ-MEM-04`/`VMQ-TIME-01`. Сейчас измерение невозможно по технической причине: локальный `.env` без ключа LLM (`LLMTransportError` на всех пяти классах, `l1-measure-2026-11-15.json`), в копии прод-БД нет durable L1-плана (`mca_events` без `L1_PLAN`, `turn_traces`/`llm_usage_events` отсутствуют), а поле `memory_scope` в durable `plan_meta` появилось только этим кандидатом. Наблюдает агент; отдельного согласования и нового гейта не создаётся.
+
+### 15.6. Backlog (не чинится в этом срезе)
+
+- **N7** — реальный вопрос «что нового у Алины?» под `auto` отдаёт `2025:6, 2026:4` из **базового** retrieval, а не из периодной инъекции: pre-existing ранжирование, не регрессия Slice D.
+- **N8** — в аддитивной ветке (`auto_no_replace`, база 8 строк) профиль добирает одну старую строку в свободный слот и пишет это как `period_fill=1`: поведение разрешено решением, но имя метрики смешивает заполнение и замещение.
+- **R4_ARTIFACT** — финальное `Approved (predeploy)` записано в `plans/workflow_state.md` и в сессии Reviewer (`ses_e2221abb6ffeSaFVCOq0pGps8K`); отдельного r4-файла в evidence нет, поэтому карта ссылается на фактическую запись, а не изобретает её.
+
+Машинная привязка — `slice_candidate_bindings.mem_d` и `arch_contract_adjustment_2026_11_15` в `requirements-map.json`; отчётных артефактов сверх существующих evidence не создавалось.

@@ -4026,7 +4026,8 @@
         "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
       },
       "slice_b_partial_2026_11_15": "Паритет НЕ достигнут: творческий путь A1 получает 2023:1+2024:1 (историческая квота), а обычный двойник A1P остаётся 2026:10; при этом творческий путь в сравнении с Chronicle-материалом (148 строк 2022-2023 по measurement) несопоставим — 2 старые строки против 148. Покрытие/хронология/релевантность обычного пути не превысили творческий. Строка остаётся PENDING",
-      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
+      "slice_d_partial_2026_11_15": "Slice D (456cf769 / 69b5c9f9): по решению Architect паритет A1P больше не заявляется под `auto`. Под `historical` оба двойника дают 2023:1,2024:1,2026:8 (равенство состава годов), под `auto` — оба 2026:10 (старый материал только аддитивен). Не закрыто: (1) реальный L1 `memory_scope` на A1/A1P — UNKNOWN (локально нет ключа LLM → `LLMTransportError` на всех пяти классах, в копии БД нет durable L1-плана; `l1-measure-2026-11-15.json`); (2) релевантность и число выдуманных связей обычного вопроса против творческого на одном наборе не измерены; (3) живая доставка Writer не наблюдалась. Строка остаётся PENDING; postdeploy-наблюдение `memory_scope` — в `arch_contract_adjustment_2026_11_15`."
     },
     {
       "source_id": "MAN-MEM-05",
@@ -4286,7 +4287,8 @@
       },
       "slice_a_partial_2026_11_15": "Slice A закрывает историческую половину: A1/A2/B/E (исторические формулировки без года) впервые получают старые строки (2022/2023/2024/2025) через bounded soft fallback, «что сейчас» остаётся 10/10 2026 (intent=none), приоритет свежести ограничен явно объявленным правилом (period intent + target-year + reason-коды), механических повышений квот нет. Person-половина НЕ закрыта: C_person_profile («что ты знаешь про P1?») остаётся 2026:10, потому что в графе у P1 только 2026-факты при 44 577 сообщениях 2023-2024 — это producer gap, а root-cause §7 прямо называет TIME-01 непроходимым до Slice B. Статус остаётся PENDING",
       "slice_b_partial_2026_11_15": "Улучшено: A1 и профиль/reply получают старые строки, «что сейчас» остаётся 2026. Не закрыто: обычный исторический вопрос без года (A1P «что за шизы были на конфе?») остаётся 2026:10, т.е. person/history-половина закрыта не полностью. Строка остаётся PENDING",
-      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
+      "slice_d_partial_2026_11_15": "Slice D: под `historical` A1P 2025:1,2026:8 → 2023:1,2024:1,2026:8, A1 reply и P1 — 2023/2024/2026; приоритет свежести больше не замещает срез (замещение решают L1/план/явный год). Не закрыто: (1) под `auto` (реальный дефолт) A1/A1P отдают 2026:10 и старый материал не вытесняет — это соответствует решению, но означает, что «вопрос без года не автоматически 2026» НЕ подтверждён для реального маршрута, пока неизвестен L1 `memory_scope`; (2) контрпример «элемент 2023-2024 заменён более свежим при более низкой семантической релевантности» целенаправленно не построен; (3) живой Writer/реранк не участвовал. Строка остаётся PENDING; postdeploy-наблюдение — в `arch_contract_adjustment_2026_11_15`."
     },
     {
       "source_id": "MAN-TIME-02",
@@ -4383,7 +4385,8 @@
         "note": "Конкретные участники/топ-автор в acceptance — инженерная конкретизация выборки."
       },
       "slice_b_partial_2026_11_15": "Профиль получает субъектные строки нескольких периодов: reply-путь — 2023/2024 с точным uid и subject_role=speaker; tool-envelope честно отдаёт limitation=no_subject_bound_material, author=subject нигде нет; get_subject_profile_facts на копии вернул 0 строк (35 фактов о P1 2026 найдены по target_user, но в чтение не вошли). Не закрыто: измерен только P1 (нужно ≥3 участников, включая топ-автора 138811255), источники 2023/2024 — собственные сообщения субъекта (не subject-bound факты), релевантность вопросу не оценена. Строка остаётся PENDING",
-      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
+      "slice_d_partial_2026_11_15": "Slice D: reply-путь под `historical` — P1 2023:1,2024:1,2026:8, P2 2024:1,2025:1,2026:8; tool-профиль P2 — 2026:8 + 2024:1 + 2025:1, P3 — 2026:8 + 2023:1 + 2024:1; N2 (резерв — пол) закрыт; участников трое (P1, топ-автор 138811255, P3). Не закрыто: (1) под `auto` reply-путь = 2026:10 — многопериодность только в tool-биографии и зависит от неизмеренного L1 `memory_scope` (N11); (2) у P1 нет подтверждённых субъектных фактов 2023/2024 (23 subject-bound строки `unconfirmed`, все 2026) — граница данных; (3) релевантность подтверждена не оригиналом сообщения по каждому делу. Строка остаётся PENDING."
     },
     {
       "source_id": "MAN-TIME-03",
@@ -4558,7 +4561,7 @@
       "acceptance": "Для каждого прогона сохраняется машинно-читаемая трасса блоков: RAG_Memory, Old_Episode, Global_Context (если применим), каналы subject/vector/lexical/episode и инструментальные источники (Летописец, dig) — с фактическим составом годов, числом элементов и причиной отбраковки на каждой ступени: кандидат → принят потребителем → отрендерен в блок → дошёл до Writer. По трассе для любого класса однозначно определяется ступень, на которой теряется год; отсутствие года в блоке фиксируется как явный ноль с причиной, а не как отсутствие данных. Уточнение владельца 10.11.2026: трасса обязана различать причины исключения факта на каждой ступени по категориям — квота активного набора, статус (archived_fact и др.), давность (GRAPH_TIME_DECAY_HALF_LIFE_DAYS/GRAPH_TIME_DECAY_FLOOR, бонус свежести), релевантность, контекстный бюджет. Нулевое покрытие года фиксируется как явный ноль с причиной. Постоянной доли свежих и архивных фактов в трассе быть не должно: подбор доказательств адаптивный, бюджеты остаются только технической защитой производительности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "REVIEW",
       "evidence": [
         {
           "type": "review",
@@ -4567,6 +4570,41 @@
           "candidate_commit": "709865f6dbae508843b9f1b3ec73d33705621589",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
           "artifact_sha256": "e48641af84c4a7caa6031d68f324b9adb626d4b9eda83c31e9ceed094ccae45c",
+          "covers_row_acceptance": false
+        },
+        {
+          "type": "test",
+          "candidate_commit": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+          "ref": "Slice D (авторитет L1): тесты предиката `period_replace_allowed`, полного/профильного среза и полей трассы на code tip 456cf769",
+          "observation": "RED на базе 2b419aa2 — 16 failed / 6 passed; GREEN на кандидате — 22 passed. N9-контроль идёт через реальный непустой пул: досеяна конкурирующая строка 2023 с двумя общими основами (pool 5), `mrc.retrieve` возвращает 5 старых строк, затем `_rag_unified_rows(auto)` на полном срезе из 10 текущих строк даёт `replace_allowed=0`, `period_skipped=auto_full_slice`, `period_fill=0`, все id 8000..8009 целы; мутация `period_replace_allowed→True` валит тест (delivered=1). Focused — 417 passed; broad selection — 2364 passed, 5 failed, 1 error — те же шесть предсуществующих, что на базе и в r1/r2. Трасса: `policy`, `replace_allowed`, `period_skipped`, `intent_source` в логе и selection payload; `memory_scope` в L1-карточке и durable allowlist `PLAN_META_FIELDS` (только коды/enum, без текста запроса); `_selection_payload` без текста.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-tests-2026-11-15.json",
+          "artifact_sha256": "c8f38239aee2feb62eb5eebf6774e61e4f3bb8e63939a3312db8499f34006825",
+          "evidence_tip": "69b5c9f92e564ca73b31a85d09da863929944261",
+          "covers_row_acceptance": false,
+          "remaining_gap": "инструментальные источники (Летописец, dig) в трассе Slice D не измерялись; вклад профиля не атрибутирован в аддитивной ветке (N8 — backlog)"
+        },
+        {
+          "type": "e2e",
+          "candidate_commit": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+          "ref": "Slice D: прогон классов на read-only копии прод-БД (2 043 181 сообщение, чат -1002661910336, schema 47) — состав годов по блокам и причины периодного исключения до/после",
+          "observation": "Ключевые следствия для трассы: под `auto` старый материал не замещает срез ни в одном классе (A1 «юмористический рассказ» 2023:1,2024:1,2026:8 → 2026:10 с `auto_full_slice`; A1P 2026:10; «что сейчас с Алиной?» с subject → 2026:10, профильных чтений 0; «как сейчас дела с мулянкой?» 2022:1,2024:1,2026:8 → 2026:10; T3 2026:10). Под `historical` A1P 2025:1,2026:8 → 2023:1,2024:1,2026:8 (исторический fallback берёт РАЗНЫЕ старые годы). Явный 2023 (`query_year`) и T2 + план `historical_recall` — без изменений. Нулевые покрытия фиксируются как явные нули с причиной (`auto_full_slice`/`auto_thin_slice`/`auto_no_replace`), а не как отсутствие данных. Локальный прогон на копии, не живой процесс: L1-эмиссия, Writer, Global_Context, hot-cache и реранк не участвовали.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/corpus-run-slice-d-2026-11-15.json",
+          "artifact_sha256": "683d2b83f08943d6ee4edd622053187f361f776c9bdbbe80bd3dd7e30993dd85",
+          "measurement_environment": "prod_db_copy_read_only",
+          "not_production": true,
+          "evidence_tip": "69b5c9f92e564ca73b31a85d09da863929944261",
+          "covers_row_acceptance": false,
+          "remaining_gap": "артефакт записан на `ef568e6f` (code_tip 456cf769, поведение не менялось — только выравнивание предиката); независимые числа r3 сняты на 456cf769 и совпадают"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+          "artifact_path": "plans/workflow_state.md",
+          "ref": "Арбитраж независимого Reviewer по Slice D: r1 → r2 → r3 (Needs Fixes) → арбитраж `Approved (predeploy)` на продуктовый код 456cf769 / evidence tip 69b5c9f9. Запись вердикта — plans/workflow_state.md (сессия Reviewer ses_e2221abb6ffeSaFVCOq0pGps8K); отдельного r4-файла нет, r1–r3 сохранены без изменений",
+          "artifact_note": "artifact_sha256 намеренно не фиксируется: workflow_state.md переписывается по мере работы (компактный checkpoint, а не неизменяемый отчёт). Сужающая таблица находок — plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r3.md (sha256 1ade76fa2b59b734a03b8c8de603faf7bd9fa79141b7f52d62428ecbe67129a5)",
+          "observation": "Вердикт: `Approved (predeploy)` на продуктовый код 456cf769 / evidence tip 69b5c9f9. Перед ним r3 оставался `Needs Fixes` на 8fbd2ffb (тот же код 456cf769) с остатком N7/N8/N9/N10/N11; N9 (вакуумный T3-тест) исправлен test-only на 69b5c9f9, `git diff 8fbd2ffb..69b5c9f9 -- services/` пуст, Reviewer подтвердил закрытие. N7 и N8 классифицированы как backlog (base-retrieval ранжирование и имя метрики аддитивной ветки), N10/N11 — как отложенное postdeploy-наблюдение L1 `memory_scope`. Приёмка строк этим вердиктом не заявляется: VERIFIED не ставится, кандидат не выложен.",
           "covers_row_acceptance": false
         }
       ],
@@ -4633,7 +4671,8 @@
       },
       "slice_a_partial_2026_11_15": "Трасса Slice A машинно-читаемая: по каждому классу годы в блоке RAG_Memory, периодный вклад с причинами (out_of_target_year/unknown_year/pool_cap/subject_soft_fallback/rejected_subject), old_episode состав, SQL-пробы и probes (profile/dig/relations). Ступень потери года определяется. Но владельческая клауза о категориях (квота/статус/давность/релевантность/бюджет) не покрыта, и путь Old_Episode для 2023 остаётся 2025+2026. Статус остаётся PENDING",
       "slice_b_partial_2026_11_15": "Клауза Old_Episode теперь закрыта: трасса показывает year_window=[2023] и состав {2023:18}; причины периода несут quota/relevance коды (historical_quota, multi_year_quota, rejected_subject). Не закрыто: категории статуса/давности/контекстного бюджета и инструментальные источники (Летописец, dig) в трассе отсутствуют. Строка остаётся PENDING",
-      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
+      "slice_d_binding_2026_11_15": "Строка переведена PENDING → REVIEW на кандидате 456cf769 (evidence tip 69b5c9f9) по независимому арбитражу Reviewer. Это НЕ приёмка строки: `covers_row_acceptance=false`, остаток — инструментальные источники в трассе и N8; VERIFIED не заявляется."
     },
     {
       "source_id": "MAN-TIME-05",
@@ -4751,7 +4790,7 @@
       "acceptance": "Дифф исправления меняет существующий маршрут (retrieve()/composer/отбор кандидатов/индексы/граф-факты) и не добавляет новую систему памяти, второй роутер, отдельный summary-пайплайн, словарные триггеры годов или повторный ingest архива. Embeddings не перестраиваются: модель, размерность (3072, gemini-embedding-001) и число векторов до и после совпадают, повторной эмбеддинг-генерации в прогоне нет. Приложена отрицательная проверка — инвентаризация изменённых владельцев данных и поиск по диффу новых таблиц/хранилищ/сервисов, — подтверждающая, что механизм исправлен, а не заменён; любое новое хранилище или изменение схемы требует отдельного решения Architect. Уточнение владельца 10.11.2026: помимо отсутствия новой системы памяти и перестройки embeddings, запрещено изменять сохранённые пользовательские настройки и вводить новые словарные триггеры. Контекстные бюджеты сохраняются как техническая защита производительности, но подбор доказательств адаптивный: постоянная доля свежих и архивных фактов для всех запросов не устанавливается. Для вопросов о текущем положении дел сохраняется существующий механизм определения действующих сведений и он не подменяется простой сортировкой по дате; пересмотр констант полураспада/пола и бонуса свежести касается исторического и субъектного retrieval, а не замены механизма актуальности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "REVIEW",
       "evidence": [
         {
           "type": "review",
@@ -4760,6 +4799,38 @@
           "candidate_commit": "709865f6dbae508843b9f1b3ec73d33705621589",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
           "artifact_sha256": "e48641af84c4a7caa6031d68f324b9adb626d4b9eda83c31e9ceed094ccae45c",
+          "covers_row_acceptance": false
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+          "ref": "Slice D: инвентаризация векторной ноги и неизменности embeddings на read-only копии прод-БД (отрицательная проверка вместо перестройки)",
+          "observation": "Инвентарь совпадает с базой: `graph_facts_vec_rowids` 21 771, фактов с вектором 21 152 из 21 704, `embedding_cache` 7 543; все три поколения — dims 3072, `gemini-embedding-001`; admission space `e540d4ad890e121d` (conn `a93485483697c3c3`, mean/min/hit5 1.0). Семантическая нога остаётся `compat_not_proven` (conn `d2e6314e3586c547`): KNN не вызывается не из-за отсутствия векторов, `provider_unavailable` — отдельный отказ embed. Перестройки/повторной эмбеддинг-генерации нет: код не вызывает embed/upsert/rebuild, один `retrieve()` на ход.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/vector-leg-inventory-2026-11-15.json",
+          "artifact_sha256": "90a60e543680d95786ca4c07f604e02318174ef7af0e910158dd099665667a8b",
+          "evidence_tip": "69b5c9f92e564ca73b31a85d09da863929944261",
+          "covers_row_acceptance": true,
+          "limitation": "годность семантической ноги не доказана (`compat_not_proven`); живой процесс и число векторов «до/после» на живой базе не наблюдались — фиксируется как ограничение, не как провал строки"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+          "ref": "Slice D: тесты инвариантности маршрута и отрицательной проверки новых хранилищ на code tip 456cf769",
+          "observation": "Подтверждено тестами и диффом: маршрут существующий, второго store/пайплайна/словаря годов нет (`_YEAR_IN_QUERY_RE` → `query_year`), новых флагов/hot_config нет, `services/database.py` не содержит DDL (правка только в SELECT-пути годового окна профиля 2023/2024/2025), схемных изменений 0, настройки владельца и промпты не тронуты, `composer`/LLM/embedding-пайплайн не менялись. Мутации: `period_replace_allowed→True/False`, снятие гейтов среза, `reserve` как потолок, `trimmed=rows` под `historical` — каждая убивает свой набор тестов (7/8/4/1/4).",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-tests-2026-11-15.json",
+          "artifact_sha256": "c8f38239aee2feb62eb5eebf6774e61e4f3bb8e63939a3312db8499f34006825",
+          "evidence_tip": "69b5c9f92e564ca73b31a85d09da863929944261",
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+          "artifact_path": "plans/workflow_state.md",
+          "ref": "Арбитраж независимого Reviewer по Slice D: r1 → r2 → r3 (Needs Fixes) → арбитраж `Approved (predeploy)` на продуктовый код 456cf769 / evidence tip 69b5c9f9. Запись вердикта — plans/workflow_state.md (сессия Reviewer ses_e2221abb6ffeSaFVCOq0pGps8K); отдельного r4-файла нет, r1–r3 сохранены без изменений",
+          "artifact_note": "artifact_sha256 намеренно не фиксируется: workflow_state.md переписывается по мере работы (компактный checkpoint, а не неизменяемый отчёт). Сужающая таблица находок — plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r3.md (sha256 1ade76fa2b59b734a03b8c8de603faf7bd9fa79141b7f52d62428ecbe67129a5)",
+          "observation": "Вердикт: `Approved (predeploy)` на продуктовый код 456cf769 / evidence tip 69b5c9f9. Перед ним r3 оставался `Needs Fixes` на 8fbd2ffb (тот же код 456cf769) с остатком N7/N8/N9/N10/N11; N9 (вакуумный T3-тест) исправлен test-only на 69b5c9f9, `git diff 8fbd2ffb..69b5c9f9 -- services/` пуст, Reviewer подтвердил закрытие. N7 и N8 классифицированы как backlog (base-retrieval ранжирование и имя метрики аддитивной ветки), N10/N11 — как отложенное postdeploy-наблюдение L1 `memory_scope`. Приёмка строк этим вердиктом не заявляется: VERIFIED не ставится, кандидат не выложен.",
           "covers_row_acceptance": false
         }
       ],
@@ -4826,7 +4897,8 @@
       },
       "slice_a_partial_2026_11_15": "Негативная проверка Slice A подтверждает: нет новой системы памяти/второго роутера/отдельного summary-пайплайна/повторного ingest, embeddings не перестраиваются (код не вызывает embed), настройки не менялись, «что сейчас» не подменено сортировкой по дате. Не покрыто: явная инвентаризация числа векторов до/после и формальный поиск новых таблиц по диффу, а также вопрос «словарных триггеров годов» (resolve_period_intent разбирает явный год и повествовательные формы). Статус остаётся PENDING",
       "slice_b_partial_2026_11_15": "Подтверждено: маршрут существующий, второго store/пайплайна/словаря годов нет (intent из плана), database.py-добавления только SELECT (Reviewer static diff), настройки/флаги не менялись, текущее состояние не подменено сортировкой по дате (в т.ч. при сигнале плана). Не закрыто: не снято число векторов до/после (только модель/размерность 3072) и нет отдельного артефакта инвентаризации владельцев данных. Строка остаётся PENDING",
-      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
+      "slice_d_binding_2026_11_15": "Строка переведена PENDING → REVIEW на кандидате 456cf769 (evidence tip 69b5c9f9): инвентаризация, инварианты и отрицательная проверка подтверждены, semantic-нога `compat_not_proven` записана как ограничение. VERIFIED не заявляется — живой процесс не участвовал."
     },
     {
       "source_id": "MAN-TIME-07",
@@ -4924,7 +4996,8 @@
       },
       "slice_a_partial_2026_11_15": "Матрица до/после на копии прод-БД есть: класс, запрос, годы в каждом блоке, покрытие периодов, число непроверяемых ссылок (absent=0), контрпример. Не хватает релевантности по размеченному эталону, а порог строки прямо опирается на TIME-02/03 (материал 2023-2024 по человеку и событию без года), которые остаются открытыми. Статус остаётся PENDING",
       "slice_b_partial_2026_11_15": "Матрица до/после расширена (Slice A 570a49db → Slice B d159ea8a): классы, годы по блокам, квоты, Old_Episode, сверка id/годов с SQL. Не закрыто: нет релевантности по размеченному эталону, а порог строки опирается на TIME-02/03, которые остаются частичными. Строка остаётся PENDING",
-      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
+      "slice_d_partial_2026_11_15": "Slice D: N9 закрыт — T3-контроль проходит реальный непустой пул через `retrieve`/`_rag_unified_rows` и ловится мутацией; labeled v2 под `historical`: core precision 1.0 (11/11), hard 0.5 (2/4), aggregate 0.867 (13/15), coverage 1.0. REVIEW не заявляется, потому что: (1) матрицы «до/после» против базового измерения 2.58.179 по релевантности и числу выдуманных связей нет; (2) размеченный набор синтетический — не независимая человеческая разметка архива (hard 0.5 это и фиксирует); (3) порог строки опирается на TIME-02/03, а TIME-02 остаётся PENDING. Строка остаётся PENDING."
     },
     {
       "source_id": "MAN-TIME-08",
@@ -14544,6 +14617,122 @@
         "resolution": "docs-трио отсутствовало в замороженной композиции 16931216 (лежало отдельным docs-коммитом 8bc2bcf7) — перенесено на master побайтово; код поезда не менялся",
         "status_effect": "статусы не менялись"
       }
+    },
+    "mem_d": {
+      "slice": "VMQ-MEM / VMQ-MEM-TIME (Slice D)",
+      "candidate_commit": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+      "candidate_short": "456cf769",
+      "implementation_commit": "ef568e6ffbe17f216348cf94b5adb173134f19bd",
+      "evidence_tip": "69b5c9f92e564ca73b31a85d09da863929944261",
+      "branch": "vmq/slice-d",
+      "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "base_commit_note": "база — выложенная линия 2b419aa2 (2.58.204), не срез карты",
+      "base_code_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "prod_ancestor": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "deployed": false,
+      "deployed_note": "кандидат не выложен; верхнеуровневые `candidate_commit`/`deployed_commit` карты остаются 2b419aa2 до сборки release-поезда 2.58.205 (release candidate pending assembly)",
+      "status": "REVIEW",
+      "recorded_at": "2026-11-15",
+      "rows": [
+        "VMQ-TIME-04",
+        "VMQ-TIME-06"
+      ],
+      "covered_rows": [
+        "VMQ-TIME-04",
+        "VMQ-TIME-06"
+      ],
+      "supports_rows": [
+        "VMQ-MEM-04",
+        "VMQ-TIME-01",
+        "VMQ-TIME-02",
+        "VMQ-TIME-07"
+      ],
+      "arch_contract_ref": "arch_contract_adjustment_2026_11_15",
+      "covered_contract_elements": [
+        "авторитет замещения — `memory_scope` L1 + `PeriodIntent.source`; `query_marker` не замещает",
+        "под `auto` основной срез не режется, периодной ноги нет; старый материал только аддитивен в свободные слоты",
+        "A1/A1P/T2/профиль под `auto` — 2026:10 с `replace_allowed=0` на всех заявленных полных путях (включая unmarked present-вопросы и профиль с реальным subject)",
+        "под `historical`/`historical_recall`/явным годом — 2023:1,2024:1,2026:8 (A1P historical раньше 2025:1,2026:8)",
+        "N2: резерв — пол; 1 факт + 6 сообщений → 7 фактов, три старых года, limit соблюдён",
+        "трасса: `policy`/`replace_allowed`/`period_skipped`/`intent_source` + `memory_period` + per-block годы; allowlist только коды/enum, без текста запроса",
+        "инварианты: один `retrieve()`, DDL 0, нет новых флагов/hot_config/второго пайплайна, embeddings не перестраиваются, промпты и настройки владельца не тронуты"
+      ],
+      "why_review_not_verified": "Независимое ревью даёт predeploy-уровень: живой процесс (L1-эмиссия, Writer, Global_Context, hot-cache, реранк) не участвовал, кандидат не выложен, L1 `memory_scope` не измерен. Поэтому строки стоят в REVIEW с `covers_row_acceptance=false` там, где остаётся остаток, а не в VERIFIED.",
+      "code_scope": [
+        "services/mca_retrieval_context.py (+147/−20): `PERIOD_REPLACE_SOURCES`, `period_replace_allowed`, удаление guard/topic-паритета, исторический fallback по разным годам",
+        "services/direct_chat_service.py (+243/−36): `replace`-гейт в `_rag_unified_rows`, `period_skipped`, `_rag_append_profile_rows(allow_replace=...)`, поля трассы",
+        "services/tool_router.py (+76/−18): N2 — резерв-пол и два прохода добора",
+        "services/turn_trace.py (+74/−1) и services/usage_events.py (+4/−0): `memory_scope` в L1-карточке и durable allowlist",
+        "services/database.py (+10/−3): только SELECT-путь годового окна профиля (2023/2024/2025); DDL 0",
+        "tests/test_vmq_mem_slice_d.py (новый, 740 строк) + правки test_mem_time_policy.py, test_memory_period_vector_leg.py, test_vmq_mem_period_intent.py, fixtures/vmq_slice_d_labeled.json"
+      ],
+      "ddl": 0,
+      "embeddings": 0,
+      "ddl_evidence": "`git diff --name-status 2b419aa2..456cf769` — только services/*.py, tests/* и evidence; миграций, новых таблиц и схемных изменений нет (schema 47 не менялась)",
+      "embeddings_evidence": "код не вызывает embed/upsert/rebuild; `vector-leg-inventory-2026-11-15.json`: 21 771 rowid, 21 152 факта с вектором, dims 3072, `gemini-embedding-001`, `compat_not_proven` (KNN не вызван)",
+      "tests": {
+        "slice_d": "22 passed (N9-контроль на реальном непустом пуле)",
+        "red_on_base": "16 failed / 6 passed на 2b419aa2",
+        "focused": "417 passed",
+        "broad_selection": "2364 passed, 5 failed, 1 error — те же шесть предсуществующих (r1/r2/база)",
+        "mutations": "7/8/4/1/4 + N9-мутация (delivered=1) — каждая валит свой набор",
+        "reviewer_independent": "r3: 22 slice_d, 272 focused, 496 direct/tool/trace; RED 16/6; мутации authority→True 7 failed, →False 4 failed, `trimmed=rows` 1 failed; реальная копия A1P auto 2026:10, historical 2023:1,2024:1,2026:8"
+      },
+      "not_covered": [
+        "реальный L1 `memory_scope`/`response_act` (UNKNOWN; см. `arch_contract_adjustment_2026_11_15`)",
+        "живой Writer/Global_Context/hot-cache/реранк и текст ответа",
+        "семантическая нога: `compat_not_proven`, KNN не вызван",
+        "A1P-паритет под `auto` — по решению не заявляется",
+        "релевантность по независимой человеческой разметке архива (TIME-07)",
+        "число векторов «до/после» на живой базе"
+      ],
+      "review": {
+        "history": [
+          {
+            "round": "r1",
+            "path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r1.md",
+            "sha256": "678316927befff1b5b2bf53d04f7f755df087f7e094dd1591b81d302ba599293",
+            "scope": "693b70e1 / bfd87014 / dbaf1a6d",
+            "verdict": "Needs Fixes",
+            "note": "D1 blocker: старый материал вытесняет текущий срез под `auto`; T3 не задействовал механизм"
+          },
+          {
+            "round": "r2",
+            "path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r2.md",
+            "sha256": "5d0f31484785f3ca32fab0945b2ead0c9bff62e42c7fd4f859c482f6c47e6b61",
+            "scope": "743a3d1a / c4b2c1c2",
+            "verdict": "Needs Fixes",
+            "note": "guard обходится профилем и unmarked present-вопросами; взято решение Architect, не новый патч"
+          },
+          {
+            "round": "r3",
+            "path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r3.md",
+            "sha256": "1ade76fa2b59b734a03b8c8de603faf7bd9fa79141b7f52d62428ecbe67129a5",
+            "scope": "8fbd2ffb (код ef568e6f + 456cf769)",
+            "verdict": "Needs Fixes (сужен)",
+            "note": "D1 закрыт на всех заявленных полных путях; остались N7 (base-retrieval 2025), N8 (аддитивный слот), N9 (вакуумный T3-тест), N10 (L1 не измерен), N11 (reply-путь под auto)"
+          },
+          {
+            "round": "arbitration",
+            "recorded_in": "plans/workflow_state.md",
+            "reviewer_session": "ses_e2221abb6ffeSaFVCOq0pGps8K",
+            "candidate": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+            "evidence_tip": "69b5c9f92e564ca73b31a85d09da863929944261",
+            "verdict": "Approved (predeploy)",
+            "note": "N9 исправлен test-only на 69b5c9f9 (`git diff 8fbd2ffb..69b5c9f9 -- services/` пуст), Reviewer подтвердил закрытие; N7/N8 — backlog, N10/N11 — отложенное postdeploy-наблюдение"
+          }
+        ],
+        "approval_artifact_note": "r4-файла нет: r1–r3 сохранены без изменений (их Needs Fixes историчны), финальный вердикт записан в `plans/workflow_state.md`; evidence-записи строк ссылаются на этот файл без `artifact_sha256`, т.к. checkpoint переписывается по мере работы"
+      },
+      "open_rows_after_binding_2026_11_15": {
+        "total_required": 70,
+        "verified": 12,
+        "review": 9,
+        "ready_for_live": 1,
+        "pending": 48,
+        "note": "изменены только VMQ-TIME-04 и VMQ-TIME-06 (PENDING → REVIEW); остальные строки не тронуты"
+      },
+      "gate_note": "scoped review-гейт `--slice VMQ-MEM-TIME --candidate 456cf769` пока не может быть зелёным по трём причинам, и это НЕ правится подгонкой: (1) верхнеуровневый `candidate_commit` карты — выложенный 2b419aa2, поэтому гейт даёт `candidate mismatch` до сборки release-поезда; (2) `VMQ-TIME-01/02/05/07/08/09` остаются PENDING; (3) `VMQ-TIME-03` связан с другим кандидатом (pre-existing). Точный вывод прогонов — в plan.md §15."
     }
   },
   "metric_contract_2026_11_13": {
@@ -15658,5 +15847,59 @@
       "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
       "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
     }
-  ]
+  ],
+  "arch_contract_adjustment_2026_11_15": {
+    "recorded_at": "2026-11-15",
+    "author_role": "PM (read-only planning) по решению Architect 2026-11-15",
+    "decision_source": "ARCH_DECISION 2026-11-15 (Architect) для Slice D; реализация `ef568e6f` + выравнивание `456cf769` на ветке `vmq/slice-d`, база `2b419aa2`; независимое ревью r1/r2/r3 и арбитраж",
+    "why": "D1 (старый материал вытесняет текущий срез под `auto`) проваливался дважды на одном шве: словарная эвристика (`topic_parity`, `is_current_state_query`, `_PERIOD_CURRENT_MARKERS`) пыталась решать «сейчас vs история», хотя это семантическое решение L1. Точечный патч под каждый неудачный пример запрещён контрактом слайса; меняется источник авторитета, а не порог.",
+    "decisions": [
+      "Авторитет замещения среза — `memory_scope` L1 + структурный `PeriodIntent.source`; словарный `query_marker` права замещения не имеет.",
+      "`PERIOD_REPLACE_SOURCES = {query_year, request_intent, plan_act, request_mode, memory_scope}`; `operative` — никогда не замещает, `historical` — замещает, иначе решает `source`.",
+      "Под `auto` старый материал только аддитивен в свободные слоты: основной срез не режется, периодной ноги нет (`period_skipped=auto_full_slice|auto_thin_slice|auto_no_replace`), профиль не читается при полном срезе.",
+      "Удалены `is_current_state_query`, `_PERIOD_CURRENT_MARKERS`, `PERIOD_DROP_CURRENT_STATE`, guard, `topic_parity`/`topic_years`/`topic_common_stems` и их ключи трассы (N3 закрыт по построению).",
+      "N2: `reserve` — пол, не потолок (`target = max(1, reserve, free)`), добор свободного конверта двумя проходами."
+    ],
+    "acceptance_adjustments": [
+      "A1P-паритет (VMQ-MEM-04) под `auto` НЕ заявляется: под `auto` двойник возвращает 2026:10 (аддитивное поведение). Паритет заявляется только под L1 `historical`/`historical_recall` или при явном годе в запросе.",
+      "Ответ `auto` на исторический вопрос — находка уровня L1/prompt, а не повод возвращать словарь в retrieval.",
+      "VMQ-MEM-04 и VMQ-TIME-01 не могут быть подтверждены без измерения реального L1 `memory_scope`; до этого они остаются PENDING (не VERIFIED и не REVIEW)."
+    ],
+    "postdeploy_observation": {
+      "owner": "агент (Reviewer/PM); владелец не привлекается",
+      "blocking": false,
+      "for_req_ids": [
+        "VMQ-MEM-04",
+        "VMQ-TIME-01",
+        "VMQ-TIME-02"
+      ],
+      "trigger": "первый production-ход после выкладки кандидата, где `memory_scope` пишется в L1-карточку и durable allowlist `turn_trace`/`llm_usage_events`",
+      "what": "снять РЕАЛЬНЫЕ `memory_scope`/`response_act` на классах A1/A1P/P1/P2/P3 из production `turn_trace`/`llm_usage_events` и приложить их к строкам; только это закрывает N10/N11",
+      "why_not_now": "локальный `.env` без ключа LLM (`LLMTransportError` на всех пяти классах; `l1-measure-2026-11-15.json`), в копии прод-БД нет durable L1-плана (`mca_events` без `L1_PLAN`, `turn_traces`/`llm_usage_events` отсутствуют), поле `memory_scope` в durable plan_meta появилось только этим кандидатом",
+      "not_a_new_gate": "наблюдение по уже существующей приёмке строк; выпуск слайса не блокирует, отдельного согласования не создаёт"
+    },
+    "backlog": [
+      {
+        "id": "N7",
+        "class": "BACKLOG_ONLY",
+        "issue": "реальный вопрос «что нового у Алины?» под `auto` отдаёт 2025:6, 2026:4 из БАЗОВОГО retrieval, а не из периодной инъекции — pre-existing ранжирование, не регрессия Slice D",
+        "owner": "следующий утверждённый этап памяти",
+        "evidence": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r3.md"
+      },
+      {
+        "id": "N8",
+        "class": "BACKLOG_ONLY",
+        "issue": "в аддитивной ветке (`auto_no_replace`, база 8 строк) профиль добирает одну старую строку в свободный слот и пишет это как `period_fill=1`; поведение разрешено решением, но имя метрики смешивает заполнение и замещение",
+        "owner": "следующий утверждённый этап памяти",
+        "evidence": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r3.md"
+      },
+      {
+        "id": "R4_ARTIFACT",
+        "class": "BACKLOG_ONLY",
+        "issue": "финальное `Approved (predeploy)` по Slice D существует как запись Orchestrator'а (`plans/workflow_state.md`) и сессия Reviewer; отдельного r4-файла в evidence нет, r1–r3 остаются Needs Fixes по своим tip'ам. При следующем ревью-цикле — durable r4-артефакт; сейчас карта ссылается на фактическую запись, не изобретая её",
+        "evidence": "plans/workflow_state.md"
+      }
+    ],
+    "history_note": "r1/r2/r3 не переписывались и не переклассифицируются; блок датирован и не отменяет прежние acceptance-формулировки строк — он фиксирует, какой контракт действует после решения."
+  }
 }
