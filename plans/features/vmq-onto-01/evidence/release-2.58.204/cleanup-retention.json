@@ -1,0 +1,14 @@
+{
+ "epic": "vmq-onto-01",
+ "unit": "vmq-onto-01-release-2.58.204",
+ "recorded_at": "2026-11-15T03:15:00Z",
+ "cleanup_retained": [
+  {
+   "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d-3177a5d0",
+   "owner": "Builder/Reviewer active session -> Orchestrator",
+   "reason": "release train worktree is still reported as used by an active process; branch is clean at 2b419aa2 and origin has the same SHA, so the checkout is reconstructible",
+   "evidence": "unit-close dry-run 2026-11-15: 'KEEP worktree ... active process is using this directory'; git status clean; origin/release/vmq-onto-01-2.58.204 = 2b419aa2",
+   "next_event": "after the active Builder/Reviewer session releases the worktree and PM binds the 2.58.204 deploy evidence; then rerun unit-close --apply"
+  }
+ ]
+}
