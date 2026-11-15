@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM bind postdeploy 2.58.204 ses_e2466fc41ffe29CK1Vz4tDm4SW
-Join barriers: Q1/Q2 Reviewer decisions + train 2.58.204 assembly -> delta review -> controlled deploy -> postdeploy e2e; memory rows stay open and are not claimed fixed
+Active lanes: DevOps postdeploy O-04/L1 probe ses_e22c50daaffe4jcEdIQ0egdFym
+Join barriers: O-04 correction-effect and live L1 probe -> Slice D (ordinary memory twin/person facts/trace/relevance); V rows await a real voice event; memory epic remains open
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
-Acceptance: VMQ map 70 required rows: 50 PENDING, 11 REVIEW, 2 READY_FOR_LIVE, 7 VERIFIED. VMQ-A-01 is VERIFIED as a document artifact (audit-head §13 + V review 9bdd76f0); M1/M-01..03/NEXT-02/05 VERIFIED; ONTO-A/B/M2 and Slices A/B/C approved; TIME-03 REVIEW; M-04/O-04 READY_FOR_LIVE with approved postrelease wait; MEM-04/TIME-01/02/04/06/07 open and not claimed fixed; V-01..V-04 REVIEW. Train 2.58.204 tip 2b419aa2; delta review pending; gate cannot bind a top-level train candidate (per-slice deploy gates: VMQ-A/ONTO-A 0; ONTO-B 2 on O-01/O-02; M2 3 on O-01/O-02/O-03; V 4 live).
+Acceptance: VMQ map 70 required rows: 50 PENDING, 7 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. Deployed 2b419aa2/2.58.204: M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (route/fingerprint pass, live correction effect unobserved); V-01..V-04 REVIEW; MEM-01 REVIEW, MEM-02..08 PENDING, TIME-03 REVIEW, TIME-01/02/04..09 PENDING. Release gates: VMQ-A/ONTO-A/ONTO-B 0; M2 release 1 (O-04) with delivery PASS and deferred O-04; MEM/TIME red on open rows. Full epic not DONE.
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
 Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T15:17:15+12:00
+Updated: 2026-11-15T15:22:44+12:00
 
 ## Facts
 
