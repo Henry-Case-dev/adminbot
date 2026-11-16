@@ -82,6 +82,49 @@ sha256 `BA6CF3D6…6FF92A7`). **Baseline:** `plans/features/mod-acl-ux-01/m0-bas
 писателя в `web/app.js`, `web/index.html`, `web/static/app.css`, `services/chat_params.py`,
 `services/mca_experience_jobs.py`, `web/api/memory_agi.py` одновременно.
 
+### 3.2. M0 refresh — 2026-11-16 (deployed 2.58.205)
+
+Датированное примечание к §M0. Таблица вех и baseline 09.11 выше сохранены как история и не
+переписаны.
+
+- **Артефакты:** `evidence/m0/mac-m0-01.md` (sha256 `41a4f95f…cb62`), raw DOM-проба
+  `evidence/m0/catalog-dom-probe-2026-11-16.json` (sha256 `caa49780…315c`); `m0-baseline.md`
+  дополнен разделом 8, `baseline_sha256` карты = `EAD79303…2351`.
+- **Deployed / HEAD:** 2.58.205 @ `bca18c1e` (identity `verified_deployed`), схема 47, DDL 0;
+  served `app.js` sha256 `3cf2c916…f594` = checkout; плановая линия `master` — старт
+  `ad06a034`, сдача `6f91b888` (плановая линия не runtime, аудит кода — по deployed checkout).
+- **Каталог:** 21 видимая карточка = 16 static `mod_*` + 5 registry-only (`stories, character,
+  experience, random, embeddings`); реестр — 11 ModuleSpec / 10 видимых, hidden
+  `factcheck_temporal`; DOM-проба 21/21. «11 модулей» из baseline — это Python-реестр, не UI;
+  ни один из трёх списков по отдельности не равен 21, совпадение даёт только union.
+- **ACL:** 249 route-decorators, единственный endpoint без auth — `GET /api/health`; 181
+  `get_tma_user`, 33 `requires_permission`, 40 `requires_global_admin`; M1 false-403 исправлен
+  (`memory_agi._require_global_admin` → `deps.user_is_global_admin`), 17/17 M1 + 2/2
+  truth-table тестов на deployed checkout. Остаётся локальная пере-реализация
+  `routes.py:4139–4160` — по коду эквивалентна.
+- **Расхождения с baseline 09.11:** 11 registry ≠ 21 UI; `app.js` уже merge реестра, не
+  fallback; effective-state сведён M2-резолвером; схема 46 → 47; строки Roles & Permissions
+  сдвинуты. Состав 21 не совпадает с перечнем `m3-design-freeze.md` §2 (число то же) — это
+  вопрос M3/M4, а не M0.
+- **Live-срез (догрузка 2026-11-16 16:06Z, `24b12016`):** `evidence/m0/effective-state-2.58.205.md`
+  (sha256 `983f43ad…9bfd`) и `.json` (`ac01a5cb…2cf`): read-only на проде `bca18c1e`, 16 capability ×
+  3 профиля = 48 пар, GLOBAL-строки мастеров 9/10 (memory.random_enabled — дефолт), гейты G8/DM5
+  поштучно, ровно одна пара GLOBAL OFF + CHAT ON (`gate:permsoc` у G32), `changed_pairs=0`, digest
+  `bot_settings`/`chat_profiles` совпадает с pre/post 2.58.205. Конфигурация сохранена серверным
+  gzip-JSON снапшотом обеих таблиц (read-back equal).
+- **Gaps:** (1) `pg_dump`/`pg_restore` на хосте нет — custom-format архив не создан; снапшот двух
+  конфиг-таблиц является заменой, но не pg_dump (задокументировано); (2) независимого
+  Reviewer-одобрения M0-доказательств нет; (3) живой Mini App с owner-сессией не открывался — это
+  проверка M4, не M0.
+- **Гейты (факт):** plan `errors=0`; scoped review M0 на `bca18c1e` — `errors=2` (candidate
+  mismatch из-за намеренно не перенесённого map-level кандидата `34213999` + отсутствие
+  независимого Reviewer-одобрения), на `34213999` — `errors=1` (evidence не привязан к старому
+  кандидату). Это binding-shape и отсутствие ревью, а не дефект содержимого M0.
+- **Статус:** `MAC-M0-01` = **REVIEW** на кандидате `bca18c1e`, не `VERIFIED`: live-матрица и
+  конфигурационный снапшот есть, но независимого Reviewer-одобрения нет; pg_dump-ограничение
+  зафиксировано. M0 не закрывает эпик; следующий dependency-ready срез — **M3 design freeze**
+  (M4A depends_on M3).
+
 ---
 
 ## 4. Соблюдение требования «не только тесты»

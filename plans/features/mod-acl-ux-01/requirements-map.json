@@ -9,7 +9,7 @@
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "baseline_artifact": "plans/features/mod-acl-ux-01/m0-baseline.md",
-  "baseline_sha256": "42C0103FEAF229F4176641D192157F75D32A519E1E1B7F1A3C551A55B5E03706",
+  "baseline_sha256": "EAD79303D21312093933C86410BDC5C4DB52F852FF113DB63B28F2710B432351",
   "deployment_evidence": {
     "version": "2.58.175",
     "deployed_commit": "3421399961c11a6b8d5441f3430a7bfb4e15ea0e",
@@ -104,9 +104,10 @@
   ],
   "gate_status": {
     "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после этой правки)",
+    "m0_review_gate_2026_11_16": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=1 errors=2: (1) candidate mismatch — map-level candidate_commit = 34213999 (2.58.175) намеренно не перенесён; (2) MAC-M0-01: missing candidate-bound independent Reviewer approval. Артефакты и sha256 валидны, live+static evidence привязаны к bca18c1e. С --candidate 34213999 → scoped=1 errors=1: evidence не привязан к старому кандидату, потому что M0-доказательство честно привязано к deployed bca18c1e. Это binding-shape/отсутствие ревью, а не дефект содержимого M0.",
     "release_gate": "КРАСНЫЙ и остаётся красным по причинам, не связанным с двумя доказанными фиксами",
     "release_gate_reasons": [
-      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 68 VERIFIED и 220 PENDING; --stage release требует VERIFIED по всем обязательным строкам (фактический прогон на map-level кандидате: errors=261, почти все — «mandatory not ['VERIFIED'] (got PENDING)»)",
+      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 68 VERIFIED и 220 PENDING (на 2026-11-16 после привязки M0: 68 VERIFIED / 1 REVIEW / 219 PENDING); --stage release требует VERIFIED по всем обязательным строкам (фактический прогон на map-level кандидате: errors=261, почти все — «mandatory not ['VERIFIED'] (got PENDING)»)",
       "map-level candidate_commit/deployed_commit = 34213999 (2.58.175) устарел относительно прод-линии (2.58.180 @ 721bab10, затем 2.58.181 @ 92070d0e): release-гейт требует совпадения --candidate с map-level полем, поэтому на 92070d0e он красный по построению. Поле намеренно не переставлено: 92070d0e не ревьюировался как кандидат всего эпика",
       "scoped release --slice M1 тоже красный: в M1 остаются PENDING MAC-M1-01, MAC-S4-157, MAC-S4-161, MAC-S4-171, MAC-S4-172, MAC-S4-173, MAC-S4-174, MAC-S10-11, MAC-S10-12, MAC-S10-13, MAC-AC-06, MAC-S15-10, MAC-S4-RPT-01, MAC-DEF-02"
     ],
@@ -1706,15 +1707,77 @@
       "acceptance": "M0 фиксирует HEAD и deployed revision, бэкап конфигурации, аудит 21 карточки, реестра, ключей и consumers, ACL guards и app.js, а также матрицу stored/effective по GLOBAL и 2–3 чатам без записи.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "live",
+          "ref": "M0 refresh 2026-11-16: deployed revision, live health и served frontend на 2.58.205",
+          "observation": "Живые чтения 2026-11-16 03:50Z: публичный /healthz -> 200 {\"status\":\"ok\",\"version\":\"2.58.205\"}; публичный GET /web/app.js -> 2 311 044 B, sha256 3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594, совпадает с checkout bca18c1e; deployed identity 2.58.205 @ bca18c1e, dirty=false, схема 47, DDL 0. Это доказывает deployed revision и байт-идентичность обслуживаемого фронтенда. На момент этого среза матрица stored/effective была реконструкцией по read-only артефактам 2.58.175/2.58.199 и digest pre=post; live-срез 2026-11-16 04:03Z (evidence/m0/effective-state-2.58.205.md) затем измерил 48 пар на bca18c1e и закрыл n/r-, dagger- и double-dagger-ячейки — см. отдельную evidence-запись.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m0/mac-m0-01.md",
+          "artifact_sha256": "41a4f95f8051f873b6b3c3bedd181d733b9ce37dbec7b573717e0a84c208cb62",
+          "partial": true,
+          "covers_row_acceptance": {
+            "HEAD_and_deployed_revision": "covered: deployed 2.58.205 @ bca18c1e (identity verified_deployed); planning HEAD ad06a034 -> 6f91b888",
+            "served_app_js_identity": "covered: served app.js sha256 = checkout bca18c1e",
+            "config_backup": "partial: SQLite pre-deploy snapshot + bot_settings/chat_profiles digest; no full PostgreSQL config dump on 2.58.205",
+            "stored_effective_matrix": "partial: reconstruction from read-only 2.58.175/2.58.199 artifacts + 2.58.205 pre/post digest; no live SELECT on 2.58.205",
+            "no_writes": "covered: read-only; no SSH, product code/config/tests unchanged"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "static",
+          "ref": "Статический аудит deployed checkout bca18c1e: 21 карточка, 11 ModuleSpec, consumers, 249 route-decorators, ACL guards",
+          "observation": "По checkout bca18c1e: 16 static mod_* + 5 registry-only (stories, character, experience, random, embeddings) = 21 видимая карточка; реестр 11 ModuleSpec (10 видимых, hidden factcheck_temporal); для мастер-ключей перечислены фактические runtime-consumers; 249 route-decorators в web/api/*.py, единственный endpoint без auth — GET /api/health; guard-инвентарь включает 181 Depends(get_tma_user), 33 Depends(requires_permission(...)), 40 Depends(requires_global_admin()). M1 false-403 исправлен: memory_agi._require_global_admin -> deps.user_is_global_admin; на bca18c1e pytest tests/test_mod_acl_ux_01_m1_acl_false_403.py -> 17 passed и six_case_table -> 2 passed. Плановая линия master не является runtime: app.js там 1 331 753 B против 2 311 044 B в выкате.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m0/mac-m0-01.md",
+          "artifact_sha256": "41a4f95f8051f873b6b3c3bedd181d733b9ce37dbec7b573717e0a84c208cb62",
+          "partial": true,
+          "covers_row_acceptance": {
+            "audit_21_cards": "covered statically: 21 = 16 static + 5 registry-only",
+            "registry_keys_consumers": "covered: 11 ModuleSpec, master keys and actual runtime consumers",
+            "acl_guards": "covered: canonical guards, local API helpers, 249 route-decorators, frontend guards",
+            "app_js": "covered: MODULES 16, f3ApplyModuleRegistry merge, module gate/edit guards",
+            "m1_false_403": "covered by 17/17 M1 + 2/2 truth-table tests on deployed checkout"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "static",
+          "ref": "Raw DOM-проба каталога на served index.html/app.js 2.58.205",
+          "observation": "21 элемент [data-mod], все 21 видимы, зафиксирован порядок карточек. /api/config — stub из deployed registry_for_frontend(), не живой ответ с прод-правами; живой Mini App с owner-сессией не открывался (для M0 не требуется, это проверка M4).",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m0/catalog-dom-probe-2026-11-16.json",
+          "artifact_sha256": "caa4978090fb318693555dfcd2af874c32523615e391534ddc4c70507920315c",
+          "partial": true,
+          "covers_row_acceptance": {
+            "catalog_dom": "covered: 21/21 visible on the served assets",
+            "live_mini_app": "not claimed: stub /api/config, no owner session (M4 check)"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "live",
+          "ref": "M0 effective-state 2.58.205: read-only production probe, 16 capabilities x 3 profiles",
+          "observation": "Read-only прогон на проде bca18c1e (PostgreSQL 16.15, транзакция read_only=on, 2026-11-16 04:03Z): 16 capability x 3 профиля = 48 пар измерены каноническим resolve_capability; GLOBAL-строки мастеров прочитаны (9 из 10 присутствуют, memory.random_enabled отсутствует -> дефолт True), alias-ключи flags.dream_enabled/flags.nostalgia_enabled отсутствуют и дают fallback; гейты G8/DM5 подтверждены поштучно (DM5 lore_auto=INH, permsoc=INH->OFF); ровно одна пара GLOBAL OFF + CHAT ON — gate:permsoc у G32; changed_pairs=0 (32 строки CLI old==new); digest bot_settings 548/e98edf0e и chat_profiles 3/323a6528 совпадает с pre/post 2.58.205; конфигурация не записывалась. Ограничения: CLI отдаёт 2 профиля из 3 (DM дочитан тем же резолвером), pg_dump/pg_restore на хосте отсутствуют, значения — один точечный срез. Полные значения обеих конфиг-таблиц сохранены серверным gzip-JSON снапшотом (92 356 B, sha256 1cae602d10dc8cd2fa3489e520e16065c77653a7e7c9d80e502ac2dec7029a4d, read-back equal).",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m0/effective-state-2.58.205.md",
+          "artifact_sha256": "983f43ad76ac332d348819eec58026c4a5ea8baa80e74082626670e39d9e9bfd",
+          "partial": false,
+          "covers_row_acceptance": {
+            "config_backup": "covered by the server-side gzip-JSON snapshot of bot_settings(548) + chat_profiles(3) with full values and read-back; a pg_dump custom archive was not produced (client absent) - documented limitation, not hidden",
+            "stored_effective_matrix": "covered: 48 pairs on bca18c1e/GLOBAL+3 profiles, global master rows read (9/10 present + 1 default), per-chat gates confirmed, changed_pairs=0",
+            "no_writes": "covered: read_only=on transaction; product/config/tests/DB unchanged; only a read-only SELECT and a server-side snapshot file in backups/"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/mod-acl-ux-01/evidence/m0/mac-m0-01.md",
           "description": "наблюдаемый артефакт проверки MAC-M0-01"
         }
-      ]
+      ],
+      "pending_condition": "REVIEW, не VERIFIED: evidence на bca18c1e полный (live effective-state 48 пар, GLOBAL-строки мастеров, per-chat гейты, конфигурационный снапшот с read-back), но независимого Reviewer-одобрения M0-доказательств ещё нет. Открытые ограничения: (1) pg_dump/pg_restore на хосте отсутствуют, custom-format архив не создан — снапшот обеих конфиг-таблиц с read-back является заменой, но не pg_dump; (2) живой Mini App с owner-сессией не открывался — это проверка M4, не M0.",
+      "bound_by": "PM binding 2026-11-16 (M0 refresh delivered in ad587012)"
     },
     {
       "source_id": "MAC-M1",
@@ -9021,5 +9084,104 @@
     "build": "721bab1000a36c55b59794c36b6aefa6322a367c",
     "build_label": "2.58.180 @ `721bab10`",
     "note": "M1-аудит на выкаченной сборке 2.58.180. Привязаны MAC-S4-169/170 (статический инвентарь ACL и разделение операций), частично MAC-S4-171/172/173, MAC-S10-13 и MAC-S4-174; исправлена причина PENDING у MAC-S4-161/MAC-AC-06 — аналитика и надзор идут через `requires_global_admin()`, а не `requires_permission`; зарегистрирован обязательный дефект MAC-DEF-01 (`requires_permission` не смотрит `role_type`). Map-level candidate_commit = 34213999 (2.58.175) не меняется: новые строки привязаны к 721bab10 в собственных evidence-записях."
+  },
+  "m0_refresh_2026_11_16": {
+    "status": "REVIEW (evidence complete on bca18c1e; independent Reviewer approval pending)",
+    "req_ids": [
+      "MAC-M0-01"
+    ],
+    "collected_at": "2026-11-16T15:50:00+12:00",
+    "bound_at": "2026-11-16T16:12:00+12:00",
+    "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "artifact_naming_note": "effective-state-2.58.205.md is headed MAC-M0-02, but it is a sub-artifact of MAC-M0-01 (closes its §7 gaps 2-4), not a separate requirement row; no phantom req_id was added.",
+    "planning": {
+      "git_root": "C:/Code/Python/adminbot",
+      "branch": "master",
+      "head_at_start": "ad06a034f044f5bb9a652bf245a586fc51b2d5b3",
+      "head_at_refresh_handoff": "6f91b88826a23281ec68f1825202e29958ebb6fb",
+      "head_at_binding_note": "d685544c (fixed-point note: the binding commit cannot contain its own SHA)",
+      "note": "planning line is not runtime; the code audit was performed on the deployed checkout bca18c1e"
+    },
+    "deployed": {
+      "version": "2.58.205",
+      "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "branch": "release/vmq-slice-d-2.58.205",
+      "deployed_at": "2026-11-15T09:47:15.317949Z",
+      "previous_deployment": "2b419aa2 (2.58.204)",
+      "schema": "user_version=47, schema_migrations=47, 130 tables",
+      "ddl": 0,
+      "healthz": "200 {\"status\":\"ok\",\"version\":\"2.58.205\"}",
+      "app_js": {
+        "served_bytes": 2311044,
+        "sha256": "3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594",
+        "equals_checkout": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1"
+      }
+    },
+    "catalog": {
+      "visible_cards": 21,
+      "static_mod_cards": 16,
+      "registry_only_cards": 5,
+      "registry_modulespec": 11,
+      "registry_visible": 10,
+      "hidden": [
+        "factcheck_temporal"
+      ],
+      "dom_probe": "21/21 visible on served index.html/app.js; order recorded in catalog-dom-probe-2026-11-16.json",
+      "composition_divergence": "m3-design-freeze.md §2 names 21 differently (Диалог/Анализ/Мем-ветка absent; mod_web, mod_checkup, mod_images+mod_vision present): the number matches, the composition does not -> M3/M4 decision, not an M0 defect"
+    },
+    "acl": {
+      "route_decorators": 249,
+      "only_unauthenticated_endpoint": "GET /api/health",
+      "counts": "181 Depends(get_tma_user), 33 Depends(requires_permission(...)), 40 Depends(requires_global_admin())",
+      "m1_false_403": "fixed: memory_agi._require_global_admin -> deps.user_is_global_admin; 17/17 M1 tests + 2/2 six_case_table on bca18c1e checkout",
+      "residual": "routes.py:4139-4160 local re-implementation remains; code-equivalent (wildcard / legacy admin / role_type=global_admin), no ADMIN_USER_ID shortcut"
+    },
+    "config_backup": {
+      "sqlite_predeploy": "pre_deploy_258205_20261115T094514Z.db, 3 354 996 736 B, sha256 b388f068...a02a7, user_version=47, integrity ok",
+      "settings_digest": "bot_settings 548 / digest e98edf0e...7460 and chat_profiles 3 / digest 323a6528...0f89 match the 2.58.205 pre/post snapshot; max(bot_settings.updated_at)=2026-11-14 18:56:52Z (before the deploy)",
+      "postgres_dump": "pg_dump/pg_restore are not installed on the production host: no custom-format archive was produced (documented limitation, not hidden)",
+      "snapshot_2026_11_16": "server-side gzip-JSON snapshot of both config tables: backups/m0-acl-config-2.58.205-20261116T040424Z/config-tables-2.58.205.json.gz, 92 356 B, sha256 1cae602d10dc8cd2fa3489e520e16065c77653a7e7c9d80e502ac2dec7029a4d; inner JSON 393 427 B, sha256 309f19473ff0fac3b362024b16e7751159ff07405ee5bcea023e238581cd9914, bot_settings=548, chat_profiles=3, mode 0600, read-back byte-equal"
+    },
+    "stored_effective": {
+      "method": "live read-only probe on deployed bca18c1e (PostgreSQL 16.15, transaction read_only=on, 2026-11-16 04:03Z)",
+      "scope": "16 capabilities x 3 profiles (G32, G8, DM5) = 48 pairs, canonical resolve_capability",
+      "changed_pairs": 0,
+      "findings": "global master rows 9/10 present (memory.random_enabled absent -> default True); gates G8/DM5 confirmed per chat (DM5 lore_auto=INH, permsoc=INH->OFF); exactly one GLOBAL OFF + CHAT ON pair is gate:permsoc on G32; all emergency_block=false"
+    },
+    "gaps": [
+      "pg_dump/pg_restore are absent on the production host, so no custom-format database archive exists; the two-table gzip-JSON snapshot (full values, read-back equal) is not a pg_dump substitute. Recorded as a limitation, not hidden.",
+      "No independent Reviewer approval of the M0 evidence yet: the row stays REVIEW.",
+      "The live Mini App with an owner session was not opened: the DOM probe ran on the real served assets, but /api/config was a stub; this is an M4 check, not an M0 blocker."
+    ],
+    "evidence": [
+      {
+        "path": "plans/features/mod-acl-ux-01/evidence/m0/mac-m0-01.md",
+        "sha256": "41a4f95f8051f873b6b3c3bedd181d733b9ce37dbec7b573717e0a84c208cb62"
+      },
+      {
+        "path": "plans/features/mod-acl-ux-01/evidence/m0/catalog-dom-probe-2026-11-16.json",
+        "sha256": "caa4978090fb318693555dfcd2af874c32523615e391534ddc4c70507920315c"
+      },
+      {
+        "path": "plans/features/mod-acl-ux-01/evidence/m0/effective-state-2.58.205.md",
+        "sha256": "983f43ad76ac332d348819eec58026c4a5ea8baa80e74082626670e39d9e9bfd"
+      },
+      {
+        "path": "plans/features/mod-acl-ux-01/evidence/m0/effective-state-2.58.205.json",
+        "sha256": "ac01a5cb7d6a3f7c47e5dc334c5c7e29a126de449b5a04ef599ebb918715b2cf"
+      },
+      {
+        "path": "plans/features/mod-acl-ux-01/m0-baseline.md",
+        "sha256": "EAD79303D21312093933C86410BDC5C4DB52F852FF113DB63B28F2710B432351"
+      }
+    ],
+    "gate_facts": {
+      "plan": "requirements_gate.py check --stage plan --repo . -> stage=plan inventory=279 manual=102 scoped=0 errors=0",
+      "review_M0_on_deployed_candidate": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . -> scoped=1 errors=2: (1) candidate mismatch, because map-level candidate_commit is the whole-epic review candidate 34213999 and is intentionally not moved to bca18c1e; (2) MAC-M0-01 missing candidate-bound independent Reviewer approval. Artifact existence, sha256 and live/static evidence bound to bca18c1e pass.",
+      "review_M0_on_map_candidate": "the same command with --candidate 3421399961c11a6b8d5441f3430a7bfb4e15ea0e -> scoped=1 errors=1: MAC-M0-01 has no evidence bound to that candidate, because the M0 evidence is honestly bound to the deployed bca18c1e rather than to the old 2.58.175 candidate.",
+      "must_not_be_read_as": "The candidate mismatch is the same whole-epic binding-shape fact recorded in gate_status.release_gate_reasons[1]; it is not evidence of wrong M0 content, and it does not close the epic."
+    },
+    "map_counts_after_binding": "288 mandatory: 68 VERIFIED / 1 REVIEW / 219 PENDING",
+    "not_claimed": "MAC-M0-01 stays REVIEW, not VERIFIED: the live matrix and the configuration snapshot now exist on bca18c1e, but no independent Reviewer approval of the M0 evidence is recorded, and the pg_dump absence remains a documented limitation. This block closes no other row and does not claim the MOD-ACL-UX-01 release."
   }
 }
