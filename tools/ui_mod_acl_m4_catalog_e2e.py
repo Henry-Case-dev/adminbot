@@ -327,6 +327,7 @@ def main() -> int:
     failures = []
     report = {"viewports": {}, "pages": {}, "flows": {}, "shots": SHOTS}
     posts = []
+    gets = []
     chat_scope = {"on": False}
     conflict_mode = {"on": False}
 
@@ -367,6 +368,7 @@ def main() -> int:
                           body=json.dumps({"ok": True}))
             return
         if url.endswith("/api/config"):
+            gets.append((req.headers or {}).get("x-chat-id"))
             payload = CONFIG_CHAT if (req.headers or {}).get("x-chat-id") \
                 else CONFIG_GLOBAL
             route.fulfill(status=200, content_type="application/json",
@@ -426,10 +428,33 @@ def main() -> int:
                           f"{probe['visibleInViewport']} карточек (<8)", bucket)
                 check("21 модуль" in probe["caption"],
                       f"{w}: caption «{probe['caption'].strip()}»", bucket)
+                # D2: подпись CHAT читаема — без ellipsis-обрезки до 1–3
+                # символов; перенос разрешён, overflow запрещён.
+                labels = page.evaluate(
+                    "() => Array.from(document.querySelectorAll("
+                    "'.module-catalog .module-control-row__label'))"
+                    ".map(el => ({w: el.clientWidth, sw: el.scrollWidth,"
+                    " t: (el.textContent || '').trim()}))")
+                bad_labels = [l for l in labels
+                              if l["t"] and (l["sw"] > l["w"] + 1
+                                             or l["w"] < 60)]
+                check(not bad_labels,
+                      f"{w}: подпись CHAT обрезана: {bad_labels[:2]}", bucket)
+                # D3: can_read=false — карточка только с отказом.
+                denied = page.evaluate(
+                    "() => { const c = document.querySelector("
+                    "'.module-catalog [data-mod=\"mod_budgets\"]');"
+                    "return c ? {denied: !!c.querySelector("
+                    "'[data-module-denied]'), ctrl: !!c.querySelector("
+                    "'[data-module-global-toggle], [data-module-chat-tristate]')}"
+                    " : null; }")
+                check(denied and denied["denied"] and not denied["ctrl"],
+                      f"{w}: can_read=false карточка показывает контрол", bucket)
                 # Тексты состояний из осей DTO (negative states).
                 by_id = {c["id"]: c for c in probe["cards"]}
-                check("Нет права смотреть" in by_id["mod_budgets"]["state"],
-                      f"{w}: can_read=false не показан", bucket)
+                check("Нет доступа к этому модулю"
+                      in by_id["mod_budgets"]["state"],
+                      f"{w}: can_read=false отказ не показан", bucket)
                 check("Выключено" in by_id["mod_web"]["state"],
                       f"{w}: desired=false не «Выключено»", bucket)
                 check("сейчас не работает: нет провайдера"
@@ -504,6 +529,18 @@ def main() -> int:
                 for chip in probe["chips"]:
                     check(len(chip.strip()) > 6,
                           f"{slug}: чип без текста («{chip}»)", bucket)
+                check(probe["tabpanel"],
+                      f"{slug}: role=tabpanel только у Обзора", bucket)
+            # D7: no-master — без фиктивного GLOBAL switch.
+            if slug == "time":
+                check(not probe["hasGlobal"] and not probe["hasChat"],
+                      "time: не должно быть switch/tri-state", bucket)
+                no_toggle_n = page.evaluate(
+                    "() => (document.querySelector('[data-workspace-head]')"
+                    ".innerText.match(/Без тумблера/g) || []).length")
+                check(no_toggle_n == 1,
+                      f"time: «Без тумблера» встречается {no_toggle_n} раз",
+                      bucket)
             failures.extend(bucket)
             page.screenshot(path=os.path.join(SHOTS, f"page-{slug}-1280.png"))
 
@@ -553,22 +590,258 @@ def main() -> int:
         chat_scope["on"] = True
         conflict_mode["on"] = True
         posts.clear()
+        gets.clear()
         page.click("[data-workspace-chat-tristate='off']")
         page.wait_for_timeout(900)
-        banner = page.evaluate(
-            "() => (document.querySelector('[data-workspace-save-error]')||{})"
-            ".textContent || ''")
+        conflict = page.evaluate(
+            "() => { const b = document.querySelector("
+            "'[data-workspace-conflict]');"
+            "return b ? {text: b.innerText,"
+            " apply: !!b.querySelector('[data-workspace-conflict-apply]'),"
+            " load: !!b.querySelector('[data-workspace-conflict-server-load]')}"
+            " : null; }")
         toasts = page.evaluate(
             "() => Array.from(document.querySelectorAll('.toast, [data-toast]'))"
             ".map(t => t.textContent || '')")
-        report["flows"]["409"] = {"banner": banner, "toasts": toasts,
-                                  "posts": list(posts)}
-        check("Настройка изменилась в другом окне" in banner,
-              f"409: баннера нет («{banner.strip()}»)", failures)
+        report["flows"]["409"] = {"conflict": conflict, "toasts": toasts,
+                                  "posts": list(posts), "gets": len(gets)}
+        check(conflict and "Настройка изменилась в другом окне"
+              in conflict["text"], f"409: нет баннера diff ({conflict})",
+              failures)
+        check(conflict and conflict["apply"] and conflict["load"],
+              "409: нет обеих кнопок выбора", failures)
+        check(conflict and "Ваше: Выключить" in conflict["text"]
+              and "На сервере: Включить" in conflict["text"],
+              "409: diff «ваше/на сервере» не показан", failures)
         check(len(posts) == 1, f"409: POST-ов {len(posts)} вместо 1", failures)
+        check(len(gets) == 1,
+              f"409: авто-перезагрузок {len(gets) - 1} (ожидался только diff-GET)",
+              failures)
         check(not any("Настройка сохранена" in t for t in toasts),
               "409: ложный тост «Настройка сохранена»", failures)
         page.screenshot(path=os.path.join(SHOTS, "page-chat-1280.png"))
+
+        # D4 «Применить свою» → ровно один явный повтор.
+        conflict_mode["on"] = False
+        posts.clear()
+        page.click("[data-workspace-conflict-apply]")
+        page.wait_for_timeout(900)
+        applied = page.evaluate(
+            "() => !document.querySelector('[data-workspace-conflict]')")
+        toasts = page.evaluate(
+            "() => Array.from(document.querySelectorAll('.toast, [data-toast]'))"
+            ".map(t => t.textContent || '')")
+        report["flows"]["409_apply"] = {"posts": len(posts),
+                                        "cleared": applied}
+        check(len(posts) == 1, f"409 apply: POST-ов {len(posts)} вместо 1",
+              failures)
+        check(applied, "409 apply: конфликт не снят", failures)
+        check(any("Настройка сохранена" in t for t in toasts),
+              "409 apply: нет подтверждения сохранения", failures)
+
+        # D4 «Загрузить серверное» → без POST, один reload.
+        page.click("[data-workspace-chat-tristate='inherit']")
+        page.wait_for_timeout(500)
+        conflict_mode["on"] = True
+        posts.clear()
+        gets.clear()
+        page.click("[data-workspace-chat-tristate='on']")
+        page.wait_for_timeout(700)
+        check(bool(page.query_selector("[data-workspace-conflict]")),
+              "409 load: конфликт не показан", failures)
+        conflict_mode["on"] = False
+        posts.clear()
+        gets.clear()
+        page.click("[data-workspace-conflict-server-load]")
+        page.wait_for_timeout(800)
+        check(len(posts) == 0, "409 load: отправлен лишний POST", failures)
+        check(len(gets) >= 1, "409 load: нет перечитывания серверного",
+              failures)
+        check(not page.query_selector("[data-workspace-conflict]"),
+              "409 load: конфликт не снят", failures)
+
+        # D3: страница модуля с can_read=false — только отказ.
+        page.goto("http://127.0.0.1:%d/web/index.html#/modules/budgets"
+                  % PORT, wait_until="load")
+        page.wait_for_selector("[data-workspace-head]", timeout=9000)
+        page.wait_for_timeout(400)
+        denied_page = page.evaluate(
+            "() => ({denied: !!document.querySelector('[data-workspace-denied]'),"
+            " chips: document.querySelectorAll("
+            "'[data-workspace-chips] .workspace-chip').length,"
+            " ctrl: !!document.querySelector("
+            "'[data-workspace-global-toggle], [data-workspace-chat-tristate]')})")
+        report["flows"]["denied_page"] = denied_page
+        check(denied_page["denied"] and denied_page["chips"] == 0
+              and not denied_page["ctrl"],
+              f"403: страница модуля показывает данные ({denied_page})",
+              failures)
+
+        # D7: embeddings в GLOBAL scope — без фиктивного master-switch.
+        page.click(".scope-trigger")
+        page.click(".scope-option:has-text('Весь бот')")
+        page.wait_for_timeout(600)
+        page.goto("http://127.0.0.1:%d/web/index.html#/modules/embeddings"
+                  % PORT, wait_until="load")
+        page.wait_for_selector("[data-workspace-head]", timeout=9000)
+        page.wait_for_timeout(400)
+        emb = page.evaluate(
+            "() => ({global: !!document.querySelector("
+            "'[data-workspace-global-toggle]'),"
+            " chat: !!document.querySelector('[data-workspace-chat-tristate]'),"
+            " noMaster: !!document.querySelector('[data-workspace-no-toggle]')})")
+        report["flows"]["embeddings_global"] = emb
+        check(not emb["global"], "embeddings: фиктивный GLOBAL switch",
+              failures)
+        check(emb["chat"], "embeddings: chat-use tri-state должен быть виден",
+              failures)
+
+        # ── D1: touch 390 — hit-area НЕ перекрывает соседнюю кнопку ──────
+        tctx = browser.new_context(viewport={"width": 390, "height": 844},
+                                   has_touch=True)
+        tctx.add_init_script(TMA_STUB)
+        tctx.route("**/api/**", _route)
+        tpage = tctx.new_page()
+        tpage.goto("http://127.0.0.1:%d/web/index.html#/modules" % PORT,
+                   wait_until="load")
+        tpage.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+        tpage.wait_for_timeout(500)
+
+        def _btn_rect(kind):
+            return tpage.evaluate(
+                "() => { const b = document.querySelector("
+                "'.module-catalog [data-mod=\"mod_summary\"] "
+                "[data-module-chat-tristate=\"%s\"]');"
+                "const r = b.getBoundingClientRect();"
+                "return {l: r.left, r: r.right, y: r.top + r.height / 2}; }"
+                % kind)
+
+        posts.clear()
+        on_rect = _btn_rect("on")
+        tpage.touchscreen.tap(on_rect["r"] - 2, on_rect["y"])
+        tpage.wait_for_timeout(800)
+        vals = []
+        for item in posts:
+            try:
+                vals.append(json.loads(item["body"])["items"][0]["value"])
+            except Exception:  # noqa: BLE001
+                pass
+        report["flows"]["touch_on_right_edge"] = {"posts": len(posts),
+                                                  "values": vals}
+        check(len(posts) == 1 and vals == [True],
+              f"D1: тап у правого края «Включить» → {vals} (ожидалось [true])",
+              failures)
+
+        posts.clear()
+        off_rect = _btn_rect("off")
+        tpage.touchscreen.tap(off_rect["l"] + 2, off_rect["y"])
+        tpage.wait_for_timeout(800)
+        vals = []
+        for item in posts:
+            try:
+                vals.append(json.loads(item["body"])["items"][0]["value"])
+            except Exception:  # noqa: BLE001
+                pass
+        report["flows"]["touch_off_left_edge"] = {"posts": len(posts),
+                                                  "values": vals}
+        check(len(posts) == 1 and vals == [False],
+              f"D1: тап у левого края «Выключить» → {vals} (ожидалось [false])",
+              failures)
+        tctx.close()
+
+        # ── D6: видимый badge GLOBAL◄►CHAT ──────────────────────────────
+        def _variant(global_off):
+            import copy
+            cfg = copy.deepcopy(CONFIG_CHAT)
+            for card in cfg["modules"]:
+                if card.get("id") != "summary":
+                    continue
+                st = card.get("state") or {}
+                st.update({"source": "chat", "chat_state":
+                           "on" if global_off else "off",
+                           "desired": bool(global_off),
+                           "global_value": (not global_off),
+                           "effective_runtime": bool(global_off)})
+                card["state"] = st
+            return cfg
+
+        for global_off, want, fname in [
+                (True, "Включено отдельно для этого чата",
+                 "d6-global-off-chat-on"),
+                (False, "Выключено в этом чате", "d6-global-on-chat-off")]:
+            vctx = browser.new_context(viewport={"width": 1280, "height": 800})
+            vctx.add_init_script(TMA_STUB)
+            payload = _variant(global_off)
+
+            def _make_vroute(vpayload):
+                def _vroute(route):
+                    url = route.request.url.split("?")[0]
+                    if url.endswith("/api/config"):
+                        route.fulfill(
+                            status=200, content_type="application/json",
+                            body=json.dumps(
+                                vpayload if (route.request.headers or {})
+                                .get("x-chat-id") else CONFIG_GLOBAL))
+                        return
+                    route.fulfill(status=200, content_type="application/json",
+                                  body=json.dumps(_stub_for(url)))
+                return _vroute
+
+            vctx.route("**/api/**", _make_vroute(payload))
+            vpage = vctx.new_page()
+            _verrs = []
+            vpage.on("pageerror", lambda e, b=_verrs: b.append(str(e)[:200]))
+            vpage.goto("http://127.0.0.1:%d/web/index.html#/modules/summary"
+                       % PORT, wait_until="load")
+            try:
+                vpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+            except Exception as _exc:  # noqa: BLE001
+                print("D6DEBUG", {
+                    "hash": vpage.evaluate("() => location.hash"),
+                    "cards": vpage.evaluate(
+                        "() => document.querySelectorAll('[data-mod]').length"),
+                    "errors": _verrs[:3],
+                })
+                raise
+            vpage.wait_for_timeout(400)
+            badge = vpage.evaluate(
+                "() => (document.querySelector("
+                "'[data-workspace-effective]')||{}).innerText || ''")
+            report["flows"][fname] = badge
+            check(want in badge,
+                  f"D6: badge «{want}» не показан («{badge.strip()}»)",
+                  failures)
+            vpage.screenshot(path=os.path.join(SHOTS, fname + ".png"))
+            vctx.close()
+
+        # ── D8: 403 каталога — отказ раздела, не пустой поиск ───────────
+        cctx = browser.new_context(viewport={"width": 1280, "height": 800})
+        cctx.add_init_script(TMA_STUB)
+
+        def _route_403(route):
+            url = route.request.url.split("?")[0]
+            if url.endswith("/api/config") and route.request.method == "GET":
+                route.fulfill(status=403, content_type="application/json",
+                              body=json.dumps({"detail": "нет доступа"}))
+                return
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps(_stub_for(url)))
+
+        cctx.route("**/api/**", _route_403)
+        cpage = cctx.new_page()
+        cpage.goto("http://127.0.0.1:%d/web/index.html#/modules" % PORT,
+                   wait_until="load")
+        cpage.wait_for_timeout(900)
+        denied = cpage.evaluate(
+            "() => { const e = document.querySelector('[data-module-empty]');"
+            "return {text: e ? e.innerText : '',"
+            " clear: !!document.querySelector('[data-module-clear-search]')}; }")
+        report["flows"]["catalog_403"] = denied
+        check("Нет доступа к разделу «Модули»" in denied["text"],
+              f"D8: 403 текст неверный («{denied['text'].strip()}»)", failures)
+        check(not denied["clear"], "D8: кнопка «Очистить поиск» при 403",
+              failures)
+        cctx.close()
 
         browser.close()
     httpd.shutdown()

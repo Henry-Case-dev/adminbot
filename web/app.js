@@ -6466,6 +6466,9 @@
         configSearch: '',          // 84.24: фильтр по title/description/key
         configLoading: false,
         configError: '',          // F-13 (AC-3, MED-021): баннер loadConfig
+        configErrorStatus: 0,     // M4A/D8: HTTP-статус причины (403 и т.д.)
+        moduleConflict: {},       // M4A/D4: 409 → diff/выбор (без автопоста)
+
                                   // (403/503/сеть) — объясняет пустую вкладку
         configChatUpdatedAt: null, // F-7: optimistic-метка чата (X-Chat-Id)
         // ── UR-F (UR-29.1/29.2): состояние «Модули → Время» ──────────────
@@ -8252,8 +8255,15 @@
         });
         return out;
       },
+      // D8: отказ доступа — не пустой поиск (без кнопки «Очистить поиск»).
+      moduleCatalogForbidden: function () {
+        return this.configErrorStatus === 403;
+      },
       // Текущая область каталога в чипе фильтров: «В этой области нет …».
       moduleFilterEmptyText: function () {
+        if ((this.configErrorStatus || 0) === 403) {
+          return 'Нет доступа к разделу «Модули»';
+        }
         var f = this.moduleFilter || 'all';
         if (this.moduleSearch) return 'Ничего не найдено. Очистить поиск.';
         if (f === 'on') return 'В этой области нет включённых модулей';
@@ -23148,6 +23158,8 @@
       // 5 подписанных чипов осей (design §5.1/И-7): у каждого И иконка, и
       // текст (WCAG 1.4.1 — состояние не только цветом).
       moduleStateChips: function (m) {
+        // D3: can_read=false → ни одного значения состояния (только отказ).
+        if (this.modulePermissions(m).can_read === false) return [];
         var st = this.moduleStateAxes(m);
         if (!st || st.desired === null || st.desired === undefined) {
           return (m && m.noToggle) ? [] : [{
@@ -23189,6 +23201,31 @@
             cls: 'badge-muted' },
         ];
       },
+      // D6: одна явная подпись исключения GLOBAL↔CHAT (design §5.3).
+      moduleEffectiveBadge: function (m) {
+        if (!m || this.modulePermissions(m).can_read === false) return null;
+        var st = this.moduleStateAxes(m);
+        if (!st || st.desired === null || st.desired === undefined) return null;
+        var chatScope = !this.moduleScopeIsGlobal();
+        if (chatScope && st.source === 'chat') {
+          if (st.desired === true && st.global_value === false) {
+            return { text: 'Включено отдельно для этого чата',
+                     cls: 'badge-info', icon: 'call_split',
+                     code: 'chat_on_global_off' };
+          }
+          if (st.desired === false && st.global_value === true) {
+            return { text: 'Выключено в этом чате',
+                     cls: 'badge-muted', icon: 'block',
+                     code: 'chat_off_global_on' };
+          }
+        }
+        if (!chatScope && st.desired === false) {
+          return { text: 'Общий режим: выключен (новые чаты наследуют)',
+                   cls: 'badge-muted', icon: 'public_off',
+                   code: 'global_off_inherit' };
+        }
+        return null;
+      },
       moduleChatLabel: function (m) {
         if (!m) return '';
         var id = String(m.id || '');
@@ -23205,6 +23242,11 @@
       moduleChatControlAvailable: function (m) {
         if (!m || m.noToggle) return false;
         return !!(m.gateFeature || m.toggleKey || m.scopeCapability);
+      },
+      // D7: чатовый tri-state имеет смысл только при выбранном чате; в
+      // GLOBAL scope он виден (И-1), но disabled с подсказкой.
+      moduleChatScopeAvailable: function () {
+        return this.storeScope().type !== 'global';
       },
       moduleChatCanEdit: function (m) {
         if (!this.moduleChatControlAvailable(m)) return false;
@@ -23248,7 +23290,7 @@
       // param → POST /api/config (mode:"inherit" | value). Scope+epoch
       // фиксируются ДО await; один POST на ключ (in-flight guard); 409 —
       // баннер + перечитывание, без автоповтора и второго POST.
-      setModuleChatTriState: async function (m, nextState) {
+      setModuleChatTriState: async function (m, nextState, opts) {
         if (!m) return { ok: false, error: 'unknown-module' };
         if (!this.moduleChatControlAvailable(m)) {
           return { ok: false, error: 'no-chat-control' };
@@ -23267,10 +23309,13 @@
         if (!key) return { ok: false, error: 'missing-item' };
         if (!this.moduleChatPending) this.moduleChatPending = {};
         if (!this.moduleChatError) this.moduleChatError = {};
+        if (!this.moduleConflict) this.moduleConflict = {};
         if (this.moduleChatPending[key]) return { ok: false, skipped: true };
         var epoch = this.scopeEpoch;      // И-6: epoch ДО await
         var chatId = scope.id;
         var opId = 'modc-' + (++this._opSeq);
+        var retryToken = (opts && opts.updatedAt !== undefined)
+          ? opts.updatedAt : this.configChatUpdatedAt;
         this.moduleChatPending[key] = true;
         this.moduleChatError[key] = '';
         var inherit = (nextState === 'inherit');
@@ -23287,7 +23332,7 @@
           var item = { key: this.moduleChatKey(m) };
           if (inherit) item.mode = 'inherit';
           else item.value = (nextState === 'on');
-          body = { items: [item], updated_at: this.configChatUpdatedAt,
+          body = { items: [item], updated_at: retryToken,
                    operation_id: opId };
           opts = { method: 'POST', body: JSON.stringify(body),
                    chatId: chatId };
@@ -23301,10 +23346,41 @@
           this.moduleChatPending[key] = false;
           var detail = (e && e.message) || null;
           if (e && e.status === 409 && detail && detail.code === 'conflict') {
-            this.stickyConflict = [this.moduleChatKey(m)];
+            // D4: НЕ перезагружаем состояние автоматически — показываем diff
+            // «ваше/на сервере» и ждём выбора. Серверное значение читается
+            // отдельным GET только для diff (в реактивное состояние не
+            // применяется). Один POST на явный повтор.
+            var serverState = null;
+            var serverUpdatedAt = null;
+            try {
+              var snap = await this.api('/api/config', { chatId: chatId });
+              serverUpdatedAt = (snap && snap.updated_at) || null;
+              var cards = (snap && snap.modules) || [];
+              var slug = m.routeSlug
+                || String(m.id || '').replace(/^mod_/, '');
+              for (var ci = 0; ci < cards.length; ci++) {
+                if (cards[ci] && cards[ci].id === slug) {
+                  serverState = cards[ci].state || null;
+                  break;
+                }
+              }
+            } catch (err) { /* diff строится best-effort, выбор остаётся */ }
+            if (this.scopeEpoch !== epoch) {
+              return { ok: false, stale: true };
+            }
+            this.stickyConflict = [
+              m.gateFeature || this.moduleChatKey(m) || m.id];
+            this.moduleConflict[key] = {
+              moduleId: m.id,
+              nextState: nextState,
+              localText: this.moduleTriStateText(nextState),
+              serverText: this.moduleTriStateText(
+                serverState && serverState.chat_state || ''),
+              serverUpdatedAt: serverUpdatedAt,
+              gateFeature: m.gateFeature || '',
+            };
             this.moduleChatError[key] = 'Настройка изменилась в другом окне';
             this.toast('Настройка изменилась в другом окне', 'warn');
-            try { await this.loadConfig(); } catch (err) { /* fail-open */ }
             return { ok: false, error: 'conflict' };
           }
           var reason = (detail && typeof detail === 'object')
@@ -23320,9 +23396,48 @@
         }
         this.moduleChatPending[key] = false;
         this.moduleChatError[key] = '';
+        if (this.moduleConflict) delete this.moduleConflict[key];
         this.stickyConflict = [];
         try { await this.loadConfig(); } catch (e) { /* fail-open */ }
         this.toast('Настройка сохранена', 'ok');
+        return { ok: true };
+      },
+      moduleTriStateText: function (state) {
+        if (state === 'on') return 'Включить';
+        if (state === 'off') return 'Выключить';
+        if (state === 'inherit') return 'Наследовать';
+        return 'неизвестно';
+      },
+      moduleConflictKey: function (m) {
+        if (!m) return '';
+        return m.gateFeature ? ('gate:' + m.gateFeature)
+          : this.moduleChatKey(m);
+      },
+      moduleConflictFor: function (m) {
+        var key = this.moduleConflictKey(m);
+        return (key && this.moduleConflict && this.moduleConflict[key]) || null;
+      },
+      // D4: «Применить свою» — один явный повтор с серверным optimistic-token.
+      applyModuleConflict: async function (m) {
+        var conflict = this.moduleConflictFor(m);
+        if (!conflict) return { ok: false, error: 'no-conflict' };
+        var res = await this.setModuleChatTriState(m, conflict.nextState, {
+          updatedAt: conflict.serverUpdatedAt,
+        });
+        if (res && res.ok) {
+          var key = this.moduleConflictKey(m);
+          if (this.moduleConflict) delete this.moduleConflict[key];
+        }
+        return res;
+      },
+      // D4: «Загрузить серверное» — применяем серверное значение ОДНИМ reload.
+      loadServerConflict: async function (m) {
+        var key = this.moduleConflictKey(m);
+        if (this.moduleConflict) delete this.moduleConflict[key];
+        if (this.moduleChatError) this.moduleChatError[key] = '';
+        this.stickyConflict = [];
+        try { await this.loadConfig(); } catch (e) { /* fail-open */ }
+        this.toast('Загружено серверное значение', 'ok');
         return { ok: true };
       },
 
@@ -28059,6 +28174,7 @@
           var data = await this.api('/api/config');
           if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.configError = '';      // F-13 (AC-3): успех — баннер скрыт
+          this.configErrorStatus = 0;
           // F4 (L-F4-2): успешный reload активной области снимает «залипшую»
           // ошибку сохранения модуля (ключ принадлежит прочитанной области).
           this.moduleSaveError = {};
@@ -28107,6 +28223,7 @@
           // (вкладка «пустая» из-за отказа сервера — баннер объясняет);
           // 401-тост и остальные тосты — как были. configError очищается
           // успешным loadConfig и setActiveChat.
+          this.configErrorStatus = (e && e.status) || 0;
           if (e.status === 401) {
             this.toast('Сессия Telegram недействительна — открой админку через кнопку меню в боте', 'warn');
           } else if (e.status === 403) {

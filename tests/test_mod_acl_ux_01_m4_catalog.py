@@ -148,6 +148,33 @@ def test_validate_spec_and_registry_clean():
         assert mr.validate_spec(spec) == [], spec.id
 
 
+def test_can_read_false_hides_state_d3():
+    """D3 (review): can_read=false — backend НЕ отдаёт state; остаются права.
+
+    Иначе UI показывал бы «Включено/Исполняется/Проверено» рядом с отказом.
+    `gate` в этом случае — только мастер-снимок (без осей state).
+    """
+    state = {
+        "capability": "budgets", "key": "flags.budgets_enabled",
+        "domain": "override", "chat_id": -100, "chat_state": "on",
+        "desired": True, "source": "chat", "global_value": True,
+        "global_source": "default", "emergency_block": False,
+        "effective_runtime": True, "ready": True, "authorized": None,
+        "observed": True, "observed_at": "2026-11-17T00:00:00+00:00",
+        "last_activity_at": None, "reason_code": None,
+        "pending_restart": False, "version": None,
+        "can_read": False, "can_edit": False, "consent": None,
+        "conflict": None, "checked_at": "2026-11-17T00:00:00+00:00",
+    }
+    dto = mr.registry_for_frontend({"budgets": state})
+    card = _card(dto, "budgets")
+    assert card["permissions"] == {"can_read": False, "can_edit": False}
+    assert card["state"] is None, "state запрещённого слоя не отдаётся"
+    assert "observed_at" not in card["gate"]
+    assert "last_activity_at" not in card["gate"]
+    assert "desired" not in card["gate"]
+
+
 def test_permissions_single_source_no_usage_state():
     state = {
         "capability": "sleep", "key": "memory.dream_enabled",

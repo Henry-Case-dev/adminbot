@@ -7673,7 +7673,7 @@ html.w9-sheet-bottom .modal-close {
        `text-size-adjust:100%` — детерминированная типографика: mobile Chrome
        иначе «раздувает» текст (font boosting) и высота карточки выходит за
        164 при том же CSS. Это не масштаб масштабирования пользователя. */
-    .module-card { padding: 10px 12px; gap: 2px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    .module-card { padding: 10px 12px; gap: 2px; min-height: 132px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .module-card-body {
   display: flex; flex-direction: column; gap: 4px; min-width: 0; cursor: pointer;
 }
@@ -7687,14 +7687,23 @@ html.w9-sheet-bottom .modal-close {
 }
 .module-card-footer {
   display: flex; align-items: center; gap: 6px;
-  margin-top: auto; padding-top: 4px;
+  margin-top: auto; padding-top: 2px;
 }
-/* Компактный контрол в карточке: одна строка контроля (design §4.1).
-   Тач-цель ≥44×44 на coarse/mobile — расширяем hit-area, не высоту
-   (карточка обязана остаться 132–164 px). */
-.module-card .module-control-row { min-height: 28px; }
+/* Компактный контрол в карточке: ДВЕ строки — читаемая подпись действия
+   (перенос, без ellipsis; review D2) и tri-state под ней. Тач-цель 44×44 —
+   ТОЛЬКО вертикальным расширением hit-area: горизонтальное перекрытие
+   соседних кнопок запрещено (review D1). */
+.module-card .module-control-row {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 1px; min-height: 0;
+}
 .module-card .module-control-row__label {
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: normal; overflow: visible; text-overflow: clip;
+  font-size: 11px; line-height: 1.2; color: var(--text-2);
+}
+.module-card .module-tristate { max-width: 100%; }
+.module-card .module-tristate-btn {
+  min-height: 22px; padding: 0 7px; line-height: 1.3;
 }
 .module-card .module-state {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -7706,20 +7715,44 @@ html.w9-sheet-bottom .modal-close {
   min-height: 24px; padding: 2px 8px; position: relative;
 }
 @media (pointer: coarse), (max-width: 767px) {
+  /* Вертикальный inset только: кнопки tri-state не перекрывают друг друга
+     по горизонтали (review D1 — тап у края должен попадать в свою кнопку). */
   .module-card .module-toggle::before,
   .app-shell .module-card .module-card-footer .btn-ghost::after,
-  .module-tristate-btn::after {
-    content: ''; position: absolute; inset: -10px;
+  .module-card .module-tristate-btn::after {
+    content: ''; position: absolute; inset: -11px 0;
   }
   .module-card .module-toggle,
   .app-shell .module-card .module-card-footer .btn-ghost,
-  .module-tristate-btn { position: relative; }
+  .module-card .module-tristate-btn { position: relative; }
   .app-shell .module-card .module-card-footer .btn-ghost {
     min-height: 24px;
   }
   .module-card .module-toggle { min-height: 28px; }
+  .module-card .module-tristate-btn { min-height: 22px; }
 }
 .module-kind { font-size: 11px; color: var(--text-3); }
+/* D3: отказ чтения — заметная строка, без контролов состояния. */
+.module-state--denied, .workspace-denied { color: var(--warn); }
+/* D6: badge исключения GLOBAL↔CHAT (иконка+текст). */
+.module-effective { font-size: 11px; }
+.module-effective .badge,
+[data-workspace-effective] .badge {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+/* D4: 409 — diff «ваше/на сервере» + выбор (не toast-заглушка). */
+.module-conflict {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 6px 8px; border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, .35);
+  background: rgba(248, 113, 113, .06);
+}
+.module-conflict__title { font-size: 11px; font-weight: 600; color: #fca5a5; }
+.module-conflict__diff {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  font-size: 11px; color: var(--text-2);
+}
+.module-conflict__actions { display: flex; flex-wrap: wrap; gap: 6px; }
 /* CHAT tri-state: Наследовать | Включить | Выключить (design §7.2.1). */
 .module-tristate {
   display: inline-flex; border: 1px solid var(--surface-border);

@@ -317,11 +317,17 @@ const MODULES = data.modules;
     const res = await methods.setModuleChatTriState.call(
       c409, m, 'inherit');
     eq(res.error, 'conflict', '7: 409 распознан');
-    eq(c409.apiCalls.length, 1, '7: автоповтора/второго POST нет');
+    const posts409 = c409.apiCalls.filter(function (c) {
+      return (c.opts || {}).method === 'POST';
+    });
+    eq(posts409.length, 1, '7: автоповтора/второго POST нет');
     eq(c409.stickyConflict.length, 1, '7: stickyConflict заполнен');
     eq(c409.stickyConflict[0], 'flags.summary_enabled',
       '7: конфликтующий ключ — в баннере');
-    eq(c409.loads.length, 1, '7: 409 → перечитывание серверного значения');
+    // D4 (review): 409 не перезагружает состояние автоматически; только
+    // отдельный GET для diff «на сервере» и явный выбор пользователя.
+    eq(c409.loads.length, 0, '7: 409 без авто-loadConfig (D4)');
+    ok(methods.moduleConflictFor.call(c409, m), '7: diff сохранён (D4)');
     ok(c409._toasts.some(function (t) {
       return t[0] === 'Настройка изменилась в другом окне';
     }), '7: человеческий баннер 409');

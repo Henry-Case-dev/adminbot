@@ -819,9 +819,13 @@ def registry_for_frontend(chat_states: dict | None = None) -> list[dict]:
         }
         state_out = None
         if isinstance(state, dict):
-            state_out = {k: v for k, v in state.items()
-                         if k not in ("can_read", "can_edit",
-                                      "capability", "key", "domain")}
+            # D3 (review): при can_read=false backend НЕ отдаёт состояние —
+            # отказ не должен соседствовать с «Включено/Исполняется». Права
+            # остаются в `permissions` (их достаточно для отказа с ролью).
+            if state.get("can_read") is not False:
+                state_out = {k: v for k, v in state.items()
+                             if k not in ("can_read", "can_edit",
+                                          "capability", "key", "domain")}
         out.append({
             "id": spec.id,
             "title": spec.title,
@@ -849,7 +853,10 @@ def registry_for_frontend(chat_states: dict | None = None) -> list[dict]:
             "route": f"#/modules/{spec.id}",
             "permissions": permissions,
             "state": state_out,
-            "gate": gate_snapshot(spec.id, state),
+            # D3: при отказе в чтении `gate` — только мастер-снимок, без
+            # пользовательских осей (state) запрещённого слоя.
+            "gate": gate_snapshot(
+                spec.id, state if state_out is not None else None),
         })
     return out
 

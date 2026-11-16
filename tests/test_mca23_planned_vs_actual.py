@@ -86,7 +86,10 @@ ROUTES_SHA256_F11 = (
     # URF backend honesty wave (06.11.2026, a5ee0864): +3 пути
     # (/config/timezones, /config/time, /direct/turn-diagnostics) —
     # переутверждён синхронно с каноном (L-F11S-1).
-    "8f5601a36c495c75ed3f45ad6f6da8f3bcb2ed082d1b72f8c91e51669c0640c1")
+    # MOD-ACL-UX-01 M4A (17.11.2026): синхронизировано с каноном
+    # tests/test_round1025_f8_registry.py (аддитивные state/permissions
+    # в GET /api/config; Δ маршрутов = 0).
+    "5a169fd4a3688895c82c6bbc161579bb28f4820a38223fcbc70cc0ace3e1fd1d")
 
 
 @pytest.fixture(autouse=True)
