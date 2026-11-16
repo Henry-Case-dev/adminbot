@@ -138,7 +138,7 @@
       "harness": "tools/ui_p0_llm_guard_e2e.py",
       "viewports": ["1280x800", "390x844"],
       "result": {"ok": true, "failures": []},
-      "assertions": ["prov_policy visible first", "llm_guard inside advanced", "details.open=false", "3 labels", "3 visible fields", "no horizontal overflow"],
+      "assertions": ["prov_policy visible first", "llm_guard visible outside advanced", "details.open=false", "3 labels", "3 visible fields", "no horizontal overflow"],
       "note": "2.58.207 run produced identical llm-guard-ui-e2e.json to the 2.58.206-slice capture"
     }
   ],

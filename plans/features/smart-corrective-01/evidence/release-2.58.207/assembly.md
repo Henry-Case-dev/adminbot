@@ -67,7 +67,8 @@ Cumulative diff `6a878fec..1519ec04` (content tip до evidence-коммита):
   `ctlDiskAlert`/`ctlDiskProg`, `status-disk`/`aria-live` разметка и CSS;
 - transport: `LLM_TIMEOUT=180.0`, `LLM_TOTAL_BUDGET=360.0`,
   `LLM_GUARD_MIGRATIONS` (30→180, 60→360, custom preserve),
-  `prov_policy` первой видимой группой, `llm_guard` в advanced;
+  `prov_policy` первой видимой группой, `llm_guard` видим вне advanced
+  (backoff/CB остаются в advanced);
 - checkup/S7: `research_requested`, `structural_diagnostic_research`,
   `report_sent_partial`/`report_sent_unresearched`, rich-Markdown;
 - `tests/test_round1025_f8_registry.py` несёт **оба** re-pin: routes-hash
@@ -139,7 +140,7 @@ tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_an
   (desktop 1280×800 и mobile 390×844; 92 crit, 86 warn, 50 ok, unknown;
   бар/текст/aria-live/console errors).
 - Transport: `tools/ui_p0_llm_guard_e2e.py` — `{"ok": true, "failures": []}`
-  на 1280×800 и 390×844: `prov_policy` видима первой, `llm_guard` внутри
+  на 1280×800 и 390×844: `prov_policy` видима первой, `llm_guard` видим вне
   advanced, `details.open=false`, 3 подписи, 3 видимых поля, overflow=false.
 - Оба прогона на дереве 2.58.207 дали **идентичный** check-JSON
   соответствующим прогонам 2.58.206-slice; отличались только байты PNG
