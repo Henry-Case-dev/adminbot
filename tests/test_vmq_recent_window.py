@@ -517,6 +517,13 @@ class TestWindowBoundaries:
                 {"time_window": {"since": _iso(T0),
                                  "until": _iso(T0 + 540)}, "depth": 3},
                 _ctx())
+            # depth больше окна: доступно ровно окно, requested честно
+            # сохранён (дефолт/запрос не подменяются).
+            out2 = await ToolRouter(_deps(db=db)).dispatch(
+                "get_recent_history",
+                {"time_window": {"since": _iso(T0),
+                                 "until": _iso(T0 + 540)}, "depth": 50},
+                _ctx())
         finally:
             await db.db.close()
         header = _header(out)
@@ -524,6 +531,10 @@ class TestWindowBoundaries:
         assert header["available"] == 3
         assert header["window_total"] == 10
         assert _texts(out) == ["m7", "m8", "m9"]
+        header2 = _header(out2)
+        assert header2["requested"] == 50
+        assert header2["available"] == 10
+        assert len(_body(out2)) == 10
 
     @pytest.mark.asyncio
     async def test_capture_without_window_is_byte_parity(self):
