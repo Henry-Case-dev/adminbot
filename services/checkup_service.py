@@ -677,6 +677,13 @@ class CheckupService:
         if telemetry is not None:
             telemetry.update(prompt_telemetry)
         started = time.monotonic()
+        # S2/S3: статус исследования и честная пометка неполноты — из
+        # существующего tool-loop (константы/заметка), без второго механизма.
+        from services.tool_loop import (
+            RESEARCH_COMPLETE as _RESEARCH_COMPLETE,
+            RESEARCH_NOT_EXECUTED as _RESEARCH_NOT_EXECUTED,
+            research_partial_note,
+        )
         # SMART-CORRECTIVE-01 §4: честная пометка частичного исследования
         # ('' — исследование завершено содержательно либо ответ уже
         # деградирован финальной фазой tool-loop с собственной причиной).
@@ -689,10 +696,7 @@ class CheckupService:
             # поэтому потребитель явно включает политику завершения: модель,
             # остановившаяся текстом при структурном пробеле, получает
             # продолжение в ТОМ ЖЕ цикле либо возвращает честный partial.
-            from services.tool_loop import (
-                chat_with_tools,
-                research_partial_note,
-            )
+            from services.tool_loop import chat_with_tools
             loop_result = await chat_with_tools(
                 self.llm,
                 [{"role": "system", "content": system},
@@ -731,12 +735,17 @@ class CheckupService:
                     "research_continuation_available": bool(
                         continuation.get("available")),
                 })
-            # Честный частичный результат: свободный ответ модели при
-            # незакрытом структурном пробеле помечается причиной и
-            # неподтверждёнными участками. Деградированные ответы уже
-            # получают причину в финальной фазе tool-loop (не дублируем).
-            if not loop_result.degraded:
-                research_note = research_partial_note(research_state)
+            # Честный частичный результат: статус исследования решает, а не
+            # только флаг деградации. Ответ, сформированный финальной фазой
+            # как детерминированный partial, уже несёт причину внутри текста
+            # (не дублируем); LLM-финализация по evidence — помечается.
+            state_status = str(research_state.get("status") or "")
+            if state_status and state_status != _RESEARCH_COMPLETE:
+                finalize_mode = str(
+                    getattr(loop_result, "finalize_mode", "") or "")
+                if finalize_mode not in ("structured_partial",
+                                         "fallback_phrase"):
+                    research_note = research_partial_note(research_state)
         else:
             raw = await self.llm.generate(
                 [
@@ -744,6 +753,29 @@ class CheckupService:
                     {"role": "user", "content": user},
                 ]
             )
+            # S3: исследование не выполнялось вовсе — это НЕ `complete`.
+            # Доставка такого отчёта не доказывает полную диагностику.
+            if telemetry is not None:
+                telemetry.update({
+                    "research_status": _RESEARCH_NOT_EXECUTED,
+                    "research_cause": "tools_unavailable",
+                    "research_reason": _RESEARCH_NOT_EXECUTED,
+                    "research_degraded": False,
+                    "research_rounds": 0,
+                    "research_calls": 0,
+                    "research_tools": "",
+                    "research_confirmed": 0,
+                    "research_unresolved": 0,
+                    "research_continuations": 0,
+                    "research_evidence_ref_count": 0,
+                    "research_continuation_available": False,
+                })
+            if isinstance(tool_runtime, dict):
+                # Runtime был запрошен, но не собрался/непригоден: чекап
+                # обязан пометить неполноту в самом отчёте.
+                research_note = research_partial_note(
+                    {"status": _RESEARCH_NOT_EXECUTED,
+                     "cause": "tools_unavailable"})
         logger.info(
             "checkup LLM OK | out_chars=%d | latency_ms=%.0f | used_fallback=%s",
             len(raw), (time.monotonic() - started) * 1000.0, used_fallback,

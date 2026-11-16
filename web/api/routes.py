@@ -3679,6 +3679,9 @@ _SELF_DIAG_FAIL_STATUSES = frozenset({
     "not_configured", "stale", "not_checked", "unknown", "unsupported",
     "llm_error", "logs_unavailable", "publication_blocked",
     "publication_guard_failed", "unexpected_error", "silent", "empty_answer",
+    # S5 (SMART P0 checkup): доставка состоялась, но исследование неполно
+    # (partial/premature_stop/not_executed) — не выдаём за complete.
+    "report_sent_partial", "report_sent_unresearched",
 })
 
 
@@ -3786,8 +3789,11 @@ def _self_diag_validation_coverage(rows: list) -> dict:
         stage = str(row.get("stage") or "")
         if stage:
             validated_by_tool[stage] = validated_by_tool.get(stage, 0) + 1
+    # S5 (SMART P0 checkup): доставкой считаются все исходы оси доставки;
+    # enforcement проверяется у каждой, независимо от полноты исследования.
     checkup_delivered = _self_diag_count_status(
-        rows, "checkup_triggered", {"report_sent"})
+        rows, "checkup_triggered", {"report_sent", "report_sent_partial",
+                                    "report_sent_unresearched"})
     # B3-residual: только РАЗРЕШЁННАЯ публикация (clean/partially_redacted)
     # доказывает enforcement для доставленного отчёта; blocked/denied —
     # не доставка и не закрывает gap.

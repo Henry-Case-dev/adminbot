@@ -213,14 +213,30 @@ class TestChatWithTools:
         assert llm.generated_plain == 1
 
     @pytest.mark.asyncio
-    async def test_empty_final_answer_raises_bad_response(self):
+    async def test_empty_final_with_evidence_degrades_not_raises(self):
+        """SMART P0 S1: пустой финал при собранных результатах — деградация
+        по evidence (`empty_final`), а не потеря исследования в исключении."""
         llm = FakeLLM([_tool_result("c1", "execute_web_search", "x"),
                        LLMChatResult(content=None, tool_calls=None,
                                      finish_reason="stop")])
         router = FakeRouter({"execute_web_search": "данные"})
+        out = await chat_with_tools(llm, MESSAGES, tools=[], router=router,
+                                    ctx=MagicMock())
+        assert isinstance(out, ToolLoopResult)
+        assert out.degraded is True and out.reason == "empty_final"
+        assert out.tool_results and \
+            out.tool_results[0]["tool"] == "execute_web_search"
+        assert "данные" in out.tool_context
+        assert str(out) == "обычный ответ"
+
+    @pytest.mark.asyncio
+    async def test_empty_final_without_evidence_raises_bad_response(self):
+        """FR-14/65.1 без evidence: пустой первый ответ — прежний контракт."""
+        llm = FakeLLM([LLMChatResult(content=None, tool_calls=None,
+                                     finish_reason="stop")])
         with pytest.raises(LLMBadResponseError):
-            await chat_with_tools(llm, MESSAGES, tools=[], router=router,
-                                  ctx=MagicMock())
+            await chat_with_tools(llm, MESSAGES, tools=[],
+                                  router=FakeRouter({}), ctx=MagicMock())
 
     @pytest.mark.asyncio
     async def test_first_answer_without_tools_is_final(self):

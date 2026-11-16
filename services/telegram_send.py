@@ -207,12 +207,22 @@ async def send_rich_message(bot, chat_id: int, text: str, *, media=None,
     УЖЕ готовый Rich HTML серверного форматтера (``summary_article_formatter``):
     отправляется как ``html`` без авто-детектора ``_looks_rich`` (который принял
     бы ``<h1`` за markdown). Заполняется РОВНО одно из ``html``/``markdown``.
+
+    ``content_format="markdown"`` (SMART P0 checkup, 16.11.2026) — аддитивная
+    ветка: источник уже Markdown (отчёт чекапа). Авто-детектор и HTML-сборка
+    не применяются, markdown-движка/converter'а нет — та же sanitize-граница.
     """
     from aiogram.types import InputRichMessage
     clean = _maybe_sanitize(text)
     media_list = list(media) if media else None
     if content_format == "html":
         rich = InputRichMessage(html=clean, media=media_list)
+    elif content_format == "markdown":
+        body = clean
+        if cover_id:
+            body = '![summary cover](tg://photo?id={})\n\n{}'.format(
+                cover_id, body)
+        rich = InputRichMessage(markdown=body, media=media_list)
     elif _looks_rich(clean):
         # review iter1 (High-1): в markdown-режиме обложка — Markdown-ссылка
         # на вложение (`![alt](tg://photo?id=…)`), а НЕ сырой HTML `<img>`:
