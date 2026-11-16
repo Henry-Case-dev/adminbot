@@ -41,8 +41,11 @@
 | Live `/web/app.js` | 2 311 044 B, sha256 `3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594` | публичный GET |
 | `web/app.js` в checkout `bca18c1e` | тот же sha256 и размер (git blob `59a42e6d…`) | release-worktree `vmq-slice-d-release-…` |
 
-Вывод: served frontend **байт-в-байт** соответствует checkout `bca18c1e`; аудит `app.js`/карточек
-относится к реально работающей версии, а не к плановой линии.
+Вывод: served `app.js` **байт-в-байт** соответствует checkout `bca18c1e` (2 311 044 B,
+sha256 `3cf2c916…f594`). Served `index.html` отличается только подстановкой `__APP_VERSION__`:
+17 вхождений в checkout (1 358 879 B) против 17 версий `2.58.205` в served (1 358 760 B),
+разница 119 B; DOM-структура идентична. Аудит `app.js`/карточек относится к реально работающей
+версии, а DOM-проба использовала checkout-шаблон `index.html` (см. 1.4, D3).
 
 ### 1.3. Конфигурационный бэкап: что есть и чего нет
 
@@ -52,8 +55,26 @@
 | `bot_settings` / `chat_profiles` snapshot pre/post | только counts + SHA-256 digest | 15.11.2026 | доказывает «deploy не менял настройки», но **не является restorable дампом** |
 | `WorkspaceData/backups/adminbot-postmigration-2026-10-29/postgres.dump` (604 265 B, sha256 `8ca17e3a…fec9`) | PostgreSQL dump | 29.10.2026, app 2.58.141 | исторический; на 2.58.205 **устарел** (18 дней, десятки релизов) — как текущий baseline не используется |
 
-**Итог:** актуального (на 2.58.205) полного бэкапа конфигурации PostgreSQL в репозитории нет;
-есть только digest-снимок. Это зафиксировано как gap §7, а не замаскировано.
+**Итог:** в репозитории на 2.58.205 есть digest-снимок и метаданные полного gz-JSON
+`bot_settings`/`chat_profiles` (MAC-M0-02, §6: файл на проде, 548/3 строки, read-back equal),
+но нет restorable `pg_dump` (client на хосте не установлен). Это уточнение к прежней редакции
+этого раздела, а не новый бэкап в репозитории.
+
+### 1.4. Поправки D1–D3 (2026-11-16)
+
+- **D1.** Внутренний sha256 распакованного JSON-снимка `config-tables-2.58.205.json.gz` —
+  `1c5312feca6eba7a8386aeb39aaf712516f7f789f4bdc107a701e489c188ea78`, а не записанный ранее
+  `309f1947…9914` (ошибочный хеш от `str(bytes)`). Gz не менялся: 92 356 B, sha256
+  `1cae602d…c9d4`; 393 427 B JSON, 548/3 строки, read-back equal. Sidecar на проде исправлен:
+  `.sha256` + `.meta.json` с `corrections[]`, `gz_modified_by_correction:false`; старый sidecar
+  сохранён. Детали: `evidence/m0/effective-state-2.58.205.md` §6 и
+  `evidence/m0/effective-state-2.58.205.json` (`snapshot.json_sha256_correction`).
+- **D2.** `registry_for_frontend()` возвращает **10** записей — hidden `factcheck_temporal`
+  отфильтрован внутри функции; **11** — это `MODULE_REGISTRY` целиком. Итоговый счёт
+  «11 ModuleSpec, 10 видимых» не меняется.
+- **D3.** «Байт-в-байт» верно только для `app.js`; `index.html` отличается подстановкой
+  `__APP_VERSION__` (17 вхождений, 1 358 879 B checkout vs 1 358 760 B served, DOM идентичен).
+  DOM-проба 21 карточки использовала checkout-шаблон `index.html`.
 
 ---
 
@@ -62,13 +83,15 @@
 ### 2.1. Метод
 
 1. Статический список `MODULES` в `web/app.js` — 16 `mod_*` (L600–717; записи L601–712).
-2. `GET /api/config.modules` ← `module_registry.registry_for_frontend()`: 11 записей,
-   10 видимых (`visibility="hidden"` отфильтрован), см. `services/module_registry.py:479–523`.
+2. `GET /api/config.modules` ← `module_registry.registry_for_frontend()` возвращает **10**
+   записей: hidden `factcheck_temporal` отфильтрован внутри функции; **11** — это
+   `MODULE_REGISTRY` целиком. См. `services/module_registry.py:479–523`.
 3. `f3ApplyModuleRegistry` (`web/app.js:17683–17786`) обогащает 16 статических карточек и
    добавляет отсутствующие записи реестра.
-4. Проверка на реальном DOM: release-worktree `web/index.html` + `web/app.js` (served sha
-   совпадает, §1.2), `/api/config` — stub из deployed `registry_for_frontend()`, viewport
-   1280×800, Chromium/Playwright. Селектор карточки — `index.html:7639` `:data-mod="m.id"`.
+4. Проверка на реальном DOM: checkout-шаблон `web/index.html` + `web/app.js` (served sha
+   совпадает, §1.2; `index.html` отличается только версией, 1.4/D3), `/api/config` — stub из
+   deployed `registry_for_frontend()`, viewport 1280×800, Chromium/Playwright. Селектор
+   карточки — `index.html:7639` `:data-mod="m.id"`.
    Результат: **21 элемент `[data-mod]`, 21 видимый**, порядок:
    `mod_summary, mod_direct, mod_factcheck, mod_search, mod_transcribe, mod_video_summary,
    mod_media_download, mod_web, mod_checkup, mod_sleep, mod_nostalgia, mod_budgets,
@@ -443,10 +466,10 @@ global gate flags — `m2-deploy-2.58.175.md:142–144`; списки override �
    только в п.2. До него ячейки `‡` — вывод, не факт.
 4. **Global-строки модульных мастеров.** Нужен SELECT по 10 `master_param` (есть/нет, значение,
    `updated_at`) — иначе `†` остаётся.
-5. **Live UI-каталог.** DOM-проба выполнена на реальных `index.html`/`app.js` deployed-версии,
-   но `/api/config` — stub из deployed-реестра, не живой ответ с прод-правами. Живой Mini App
-   с owner-сессией в этом срезе не открывался; для M4 это отдельная проверка Playwright +
-   Browser Use, не обязательная для M0.
+5. **Live UI-каталог.** DOM-проба выполнена на checkout-шаблоне `index.html` (served
+   отличается только подстановкой версии, D3) и served `app.js`; `/api/config` — stub из
+   deployed-реестра, не живой ответ с прод-правами. Живой Mini App с owner-сессией в этом срезе
+   не открывался; для M4 это отдельная проверка Playwright + Browser Use, не обязательная для M0.
 
 Ни один пункт не является вопросом владельцу: это read-only работа DevOps/Builder.
 

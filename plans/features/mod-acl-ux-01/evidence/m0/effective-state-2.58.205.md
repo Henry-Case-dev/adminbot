@@ -184,9 +184,16 @@ factcheck, factcheck_temporal`) **ноль** явных chat-значений у
 | Что сделано вместо | gzip-JSON снапшот обеих таблиц (полные значения, сервер-сайд, mode `0600`) |
 | Каталог | `/var/www/admin_bot/backups/m0-acl-config-2.58.205-20261116T040424Z/` |
 | Файл | `config-tables-2.58.205.json.gz` — **92 356 B**, sha256 `1cae602d10dc8cd2fa3489e520e16065c77653a7e7c9d80e502ac2dec7029a4d` |
-| Внутри | JSON **393 427 B**, sha256 `309f19473ff0fac3b362024b16e7751159ff07405ee5bcea023e238581cd9914`, `bot_settings=548`, `chat_profiles=3` |
+| Внутри | JSON **393 427 B**, sha256 `1c5312feca6eba7a8386aeb39aaf712516f7f789f4bdc107a701e489c188ea78`, `bot_settings=548`, `chat_profiles=3` |
 | Read-back | gunzip → байт-в-байт равен исходному JSON (`readback_equal=true`); рядом `.sha256` |
 | Продукт | не менялся (только чтение + файл в `backups/`) |
+
+**Поправка D1 (2026-11-16).** Фактический inner sha256 — `1c5312fe…ea78`
+(подтверждён `gzip -dc | sha256sum`). Ранее записанный `309f1947…9914` — ошибочный хеш от
+`str(bytes)`, а не от распакованных байт. Gz не менялся: **92 356 B**, sha256
+`1cae602d…c9d4`; размеры и строки прежние. Sidecar на проде исправлен: `.sha256` +
+`.meta.json` с `corrections[]`, `gz_modified_by_correction:false`; бэкап старого sidecar
+сохранён.
 
 ---
 

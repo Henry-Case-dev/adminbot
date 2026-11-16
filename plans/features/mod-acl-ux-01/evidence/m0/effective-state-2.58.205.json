@@ -1267,7 +1267,15 @@
   "gz_bytes": 92356,
   "gz_sha256": "1cae602d10dc8cd2fa3489e520e16065c77653a7e7c9d80e502ac2dec7029a4d",
   "json_bytes": 393427,
-  "json_sha256": "309f19473ff0fac3b362024b16e7751159ff07405ee5bcea023e238581cd9914",
+  "json_sha256": "1c5312feca6eba7a8386aeb39aaf712516f7f789f4bdc107a701e489c188ea78",
+  "json_sha256_correction": {
+   "previous_json_sha256": "309f19473ff0fac3b362024b16e7751159ff07405ee5bcea023e238581cd9914",
+   "reason": "str(bytes)",
+   "corrected_at": "2026-11-16T16:26:00+12:00",
+   "gz_modified_by_correction": false,
+   "verified_by": "gzip -dc | sha256sum",
+   "note": "sidecar .sha256 + .meta.json corrected on prod (corrections[]); backup of the old sidecar kept; gz bytes/sha256 unchanged"
+  },
   "mode": "0o600",
   "readback_equal": true,
   "rows": {
