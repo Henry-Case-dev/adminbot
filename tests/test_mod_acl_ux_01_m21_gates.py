@@ -362,6 +362,7 @@ def test_m21_consumers_use_existing_resolver():
     """12 потребителей не читают глобальный слой как решение о модуле."""
     expected = {
         "services/initiative_observer.py": "resolve_param_capability",
+        "services/mca_intents.py": "initiative_chat_enabled",
         "services/direct_chat_service.py": "module_enabled(",
         "services/media_download.py": "module_enabled(",
         "services/tool_router.py": "module_enabled(",
@@ -406,3 +407,116 @@ async def test_adapter_does_not_rewrite_stored_values(world, monkeypatch):
     await feature_gates.gate_state(CHAT, "nostalgia")
     assert cache.by_chat == snapshot
     assert cache.invalidated == []
+
+
+# ═══ D1: публикация инициативы при GLOBAL OFF + CHAT ON (реальные швы) ═════
+
+@pytest.mark.asyncio
+async def test_initiative_publishes_when_global_off_chat_on(world, monkeypatch):
+    """D1: GLOBAL OFF + CHAT ON проходит candidate → decision → отправку.
+
+    Проверяются РЕАЛЬНЫЕ функции (`mca_intents.candidate_from_trigger` и
+    `direct_chat_service.handle_initiative`), а не только pre-check:
+    `intents_enabled()` (product master AND) больше не глушит публикацию
+    этого чата. GLOBAL ON + CHAT OFF и аварийная env-ось — реальный запрет.
+    """
+    from services import direct_chat_service as dcs
+    from services import mca_intents as mi
+
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+    world.globals = {"flags.initiative_enabled": False,
+                     "flags.initiative_observer_enabled": True}
+    _set_chat(world, {"overrides": {"initiative.enabled": True},
+                      "gates": {}})
+    sent: list = []
+
+    async def _send(bot, chat_id, text, **kwargs):
+        sent.append((int(chat_id), str(text)))
+        return types.SimpleNamespace(message_id=900 + len(sent))
+
+    monkeypatch.setattr("services.telegram_send.send_text", _send)
+
+    candidate = mi.candidate_from_trigger(
+        trigger_kind="new_message", chat_id=CHAT, kind="topic_interest",
+        goal="обсудить итоги")
+    assert candidate is not None          # GLOBAL OFF не гасит кандидата
+    result = await dcs.handle_initiative(
+        bot=object(), chat_id=CHAT,
+        situation=mi.InitiativeSituation(trigger_kind="new_message",
+                                         chat_id=CHAT),
+        candidates=[candidate], prepared_text="итоги обсуждения")
+    assert result["status"] == "sent"
+    assert sent == [(CHAT, "итоги обсуждения")]
+
+    # GLOBAL ON + CHAT OFF — та же реальная цепочка публикует НЕЛЬЗЯ.
+    sent.clear()
+    world.globals = {"flags.initiative_enabled": True}
+    _set_chat(world, {"overrides": {"initiative.enabled": False},
+                      "gates": {}})
+    blocked = await dcs.handle_initiative(
+        bot=object(), chat_id=CHAT,
+        situation=mi.InitiativeSituation(trigger_kind="new_message",
+                                         chat_id=CHAT),
+        candidates=[candidate], prepared_text="итоги обсуждения")
+    assert blocked["status"] == "disabled"
+    assert sent == []
+
+    # CHAT ON + аварийная env-ось OFF — честный disabled, отправки нет.
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
+    _set_chat(world, {"overrides": {"initiative.enabled": True},
+                      "gates": {}})
+    emergency = await dcs.handle_initiative(
+        bot=object(), chat_id=CHAT,
+        situation=mi.InitiativeSituation(trigger_kind="new_message",
+                                         chat_id=CHAT),
+        candidates=[candidate], prepared_text="итоги обсуждения")
+    assert emergency["status"] == "disabled"
+    assert sent == []
+    # Чистый кандидат: аварийная ось останавливает и его.
+    assert mi.candidate_from_trigger(
+        trigger_kind="new_message", chat_id=CHAT) is None
+
+
+@pytest.mark.asyncio
+async def test_initiative_create_intent_is_per_chat(world, tmp_path,
+                                                    monkeypatch):
+    """D1: `IntentService.create_intent` решает per chat (реальная запись).
+
+    GLOBAL OFF + CHAT ON создаёт durable-намерение; CHAT OFF — нет.
+    Аварийная env-ось отключает и чат ON.
+    """
+    from services import mca_intents as mi
+    from services.database import DatabaseService
+
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+    world.globals = {"flags.initiative_enabled": False}
+    _set_chat(world, {"overrides": {"initiative.enabled": True},
+                      "gates": {}})
+    db = DatabaseService(str(tmp_path / "m21_intents.db"))
+    await db.initialize()
+    try:
+        svc = mi.get_service(db)
+        intent_id, created = await svc.create_intent(
+            CHAT, "follow_up", "unanswered_question", goal="итоги",
+            source_refs=("msg:1",))
+        assert created is True and intent_id
+        assert [row["intent_id"] for row in await svc.list_active(CHAT)] == \
+            [intent_id]
+
+        _set_chat(world, {"overrides": {"initiative.enabled": False},
+                          "gates": {}})
+        off_id, off_created = await svc.create_intent(
+            CHAT, "follow_up", "unanswered_question", goal="другая цель",
+            source_refs=("msg:2",))
+        assert (off_id, off_created) == (None, False)
+        assert await svc.list_active(CHAT) == []
+
+        monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
+        _set_chat(world, {"overrides": {"initiative.enabled": True},
+                          "gates": {}})
+        emergency_id, emergency_created = await svc.create_intent(
+            CHAT, "follow_up", "unanswered_question", goal="третья цель",
+            source_refs=("msg:3",))
+        assert (emergency_id, emergency_created) == (None, False)
+    finally:
+        await db.close()

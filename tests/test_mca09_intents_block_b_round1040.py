@@ -224,9 +224,9 @@ async def test_heartbeat_tick_module_and_host(tmp_path, monkeypatch):
     assert mm.MemoryMaintenanceService.JOB_INTENT_HEARTBEAT_ID == \
         "intent_heartbeat_tick"
     assert mm._INTENT_HEARTBEAT_TICK_SECONDS == 300
-    monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
     assert mm._intent_heartbeat_tick_enabled() is False
-    monkeypatch.setattr(mca_gates, "intents_enabled", lambda: True)
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
     monkeypatch.setattr(mca_gates, "intent_heartbeat_enabled",
                         lambda: False)
     assert mm._intent_heartbeat_tick_enabled() is False

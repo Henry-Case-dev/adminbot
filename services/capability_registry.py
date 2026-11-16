@@ -692,11 +692,12 @@ async def _build_health(chat_id: int | None, now: float | None = None
                         ) -> CapabilityState:
     """health (ADD-TR.3 п.4, слайс ADTR-TOOLS): состояние чекапа.
 
-    Те же гейты, что у РЕАЛЬНОГО исполнения (``tool_router._get_bot_health``
-    и роутера 0g): модуль ``flags.checkup_enabled`` (hot, глобальный — как в
-    обработчике; per-chat слоя у чекапа нет) + факт анонса инструмента.
-    Выключенный модуль → ``disabled`` с наблюдаемым
-    ``checkup_module_disabled`` (Writer не обещает недоступное)."""
+    Те же гейты, что у РЕАЛЬНОГО исполнения (`tool_router._get_bot_health`
+    и роутера 0g): модуль `flags.checkup_enabled` решается per chat тем же
+    каноническим резолвером (`feature_gates.module_enabled`: GLOBAL default
+    → CHAT override; заводской дефолт — `CHECKUP_ENABLED`) + факт анонса
+    инструмента. Выключенный модуль → `disabled` с наблюдаемым
+    `checkup_module_disabled` (Writer не обещает недоступное)."""
     canonical = _canonical_tool_names()
     declared = "get_bot_health" in canonical
     base = CapabilityState(

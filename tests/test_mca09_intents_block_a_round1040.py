@@ -437,7 +437,7 @@ async def test_no_hard_product_limit(tmp_path):
 async def test_k1_off_no_writes_reads_events(tmp_path, monkeypatch, events):
     db = await _db(tmp_path)
     try:
-        monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
+        monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
         svc = mi.get_service(db)
         assert (await _mk(svc))[0] is None
         assert await svc.due_candidates(now=NOW) == []

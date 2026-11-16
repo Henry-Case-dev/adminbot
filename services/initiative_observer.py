@@ -464,13 +464,35 @@ async def _param(chat_id: int | None, key: str, default):
         return default
 
 
+async def initiative_chat_enabled(chat_id, *, fresh: bool = False) -> bool:
+    """Исполняет ли инициатива в ЭТОМ чате — единственная per-chat проверка.
+
+    MOD-ACL-UX-01 M2.1 (D1): решение принимает канонический
+    `chat_capability_state` (GLOBAL-дефолт `flags.initiative_enabled` →
+    CHAT-override `initiative.enabled`; env `MCA_INTENTS_ENABLED` —
+    отдельный `emergency_block`). Продуктовый GLOBAL OFF НЕ является
+    запретом явного CHAT ON (owner §2.1/§2.3.1), поэтому им нельзя глушить
+    создание намерения, решение и публикацию в этом чате.
+
+    Этой функцией пользуются ВСЕ потребители чатового контура (наблюдатель,
+    `IntentService.create_intent/list_active/due_candidates`,
+    `handle_initiative`): второго резолвера нет. Fail-closed: неизвестное
+    состояние/ошибка → False (разрешение не выдумывается)."""
+    try:
+        state = await chat_capability_state(chat_id, fresh=fresh)
+    except Exception:      # pragma: no cover — защитная ветка
+        logger.warning("[b01] initiative chat gate failed — off | chat=%s",
+                       chat_id, exc_info=True)
+        return False
+    return bool(state is not None and state.effective_runtime)
+
+
 async def chat_observer_enabled(chat_id) -> bool:
     """Per-chat гейт наблюдателя (мастер уже проверен; None-чат → False:
     наблюдатель — про групповые чаты)."""
     if chat_id is None or int(chat_id) >= 0:
         return False
-    state = await chat_capability_state(int(chat_id))
-    return bool(state is not None and state.effective_runtime)
+    return await initiative_chat_enabled(int(chat_id))
 
 
 async def chat_capability_state(chat_id, *, fresh: bool = False):

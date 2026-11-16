@@ -238,10 +238,36 @@ async def resolve_bot_persona(chat_id: int | None) -> BotPersona:
 
 # ── Промпт-блок ─────────────────────────────────────────────────────────────
 
+def run_frame_for_chat(chat_id: int | None):
+    """Кадр ИМЕННО этого чата из пина хода (или None).
+
+    MOD-ACL-UX-01 M2.1 (D3): per-chat решение уже принято каноническим
+    резолвером в `resolve_character_context` (`self_model_enabled_for_chat`)
+    — он и ставит пин. Здесь второго резолва НЕТ: функция только проверяет
+    владельца пина (`RunFrame.chat_id == chat_id`), чтобы ambient ContextVar
+    не отдал характер чужого чата (тот же инвариант, что у
+    `_pinned_frame_for_turn`). Синхронная — вызывается из sync-точки сборки
+    промпта. Fail-open: пин отсутствует/чужой/ошибка → None (legacy)."""
+    if chat_id is None:
+        return None
+    try:
+        from services import mca_self_model as _msm
+        pin = _msm.current_run_frame_pin()
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+    if pin is None:
+        return None
+    owner = getattr(pin, "chat_id", None)
+    if owner is None or int(owner) != int(chat_id):
+        return None
+    return getattr(pin, "frame", None)
+
+
 def build_persona_prompt_block(persona: BotPersona,
                                traits: "list[str] | tuple[str, ...]" = (),
                                *, enabled: bool | None = None,
-                               frame=None) -> str:
+                               frame=None,
+                               chat_id: int | None = None) -> str:
     """Блок <Persona> для хвоста системного промпта (spec §3.2).
 
     Пусто/флаг OFF → '' (промпт байт-в-байт прежний). Пустые секции не
@@ -254,7 +280,15 @@ def build_persona_prompt_block(persona: BotPersona,
     `resolve_character_context` или явный `frame=`) → рендер ИЗ BehaviorFrame:
     правила во 2-м лице (≠ цитат), A58-минимум при пустой персоне,
     формулировка False ЗАМЕНЯЕТ `_NO_AI_DISCLOSURE_BLOCK`. Без кадра →
-    legacy-ветка байт-в-байт (K1 OFF/прямые вызовы тестов)."""
+    legacy-ветка байт-в-байт (K1 OFF/прямые вызовы тестов).
+
+    MOD-ACL-UX-01 M2.1 (D3): `chat_id` — канонический per-chat источник
+    кадра. Раньше здесь стоял глобальный `self_model_enabled()`, поэтому при
+    GLOBAL OFF + CHAT ON `resolve_character_context` уже резолвил кадр
+    (per-chat), а точка сборки его игнорировала и рендерила legacy — формат
+    отличался от GLOBAL ON. Теперь кадр берётся из пина ТОЛЬКО этого чата
+    (`run_frame_for_chat`; чужой/отсутствующий пин → None): второго резолва
+    нет, решение уже принято `self_model_enabled_for_chat`."""
     if enabled is None:
         enabled = hot.get("flags.persona_enabled", settings.PERSONA_ENABLED)
     if not enabled:
@@ -262,12 +296,17 @@ def build_persona_prompt_block(persona: BotPersona,
     if persona is None:
         return ""
     # ── mca-18: кадр запуска → рендер из BehaviorFrame (одна точка сборки).
-    if frame is None and mca_gates.self_model_enabled():
-        try:
-            from services import mca_self_model as msm
-            frame = msm.current_run_frame()
-        except Exception:
-            frame = None
+    if frame is None:
+        if chat_id is not None:
+            frame = run_frame_for_chat(chat_id)
+        elif mca_gates.self_model_enabled():
+            # Legacy-совместимость прямых вызовов БЕЗ чатового контекста
+            # (production-пути передают chat_id → per-chat пин).
+            try:
+                from services import mca_self_model as msm
+                frame = msm.current_run_frame()
+            except Exception:
+                frame = None
     if frame is not None:
         from services import mca_events
         try:
@@ -351,7 +390,7 @@ async def resolve_character_block(chat_id: int) -> tuple:
             ctx = await resolve_character_context(chat_id)
             block = build_persona_prompt_block(
                 ctx.persona, [str(t) for t in (ctx.traits or ())],
-                enabled=True)
+                enabled=True, chat_id=chat_id)
             rules = build_character_rules_block()
             if block and rules:
                 block = block + "\n\n" + rules
