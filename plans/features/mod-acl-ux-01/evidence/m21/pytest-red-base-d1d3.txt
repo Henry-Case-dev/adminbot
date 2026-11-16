@@ -1,0 +1,152 @@
+BASE bca18c1e (2.58.205) — RED для НОВЫХ тестов M2.1 D1/D2/D3
+command: python -m pytest <4 new node ids> -q
+workdir: temp archive of bca18c1e + current M2.1 test files
+==============================================================================
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+______________ test_initiative_publishes_when_global_off_chat_on ______________
+
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000022B9EE4F4D0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022B959C1A00>
+
+    @pytest.mark.asyncio
+    async def test_initiative_publishes_when_global_off_chat_on(world, monkeypatch):
+        """D1: GLOBAL OFF + CHAT ON проходит candidate → decision → отправку.
+    
+        Проверяются РЕАЛЬНЫЕ функции (`mca_intents.candidate_from_trigger` и
+        `direct_chat_service.handle_initiative`), а не только pre-check:
+        `intents_enabled()` (product master AND) больше не глушит публикацию
+        этого чата. GLOBAL ON + CHAT OFF и аварийная env-ось — реальный запрет.
+        """
+        from services import direct_chat_service as dcs
+        from services import mca_intents as mi
+    
+>       monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+E       AttributeError: <module 'services.mca_gates' from 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\m21_red_base_v3\\services\\mca_gates.py'> has no attribute 'intents_env_enabled'
+
+tests\test_mod_acl_ux_01_m21_gates.py:426: AttributeError
+__________________ test_initiative_create_intent_is_per_chat __________________
+
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000022B9EE58050>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/mod-acl-m21-78249a9f17a3-ab51af74-1444a8f11c93/tmp/pytest-of-main/pytest-44/test_initiative_create_intent_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022B9D7BD430>
+
+    @pytest.mark.asyncio
+    async def test_initiative_create_intent_is_per_chat(world, tmp_path,
+                                                        monkeypatch):
+        """D1: `IntentService.create_intent` решает per chat (реальная запись).
+    
+        GLOBAL OFF + CHAT ON создаёт durable-намерение; CHAT OFF — нет.
+        Аварийная env-ось отключает и чат ON.
+        """
+        from services import mca_intents as mi
+        from services.database import DatabaseService
+    
+>       monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+E       AttributeError: <module 'services.mca_gates' from 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\m21_red_base_v3\\services\\mca_gates.py'> has no attribute 'intents_env_enabled'
+
+tests\test_mod_acl_ux_01_m21_gates.py:491: AttributeError
+____________________ test_force_repeat_transcribe_per_chat ____________________
+
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000022B9EE62330>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022B9EE4FFE0>
+
+    @pytest.mark.asyncio
+    async def test_force_repeat_transcribe_per_chat(world, monkeypatch):
+        """D2: «транскрипт» по reply-ГС уважает чатовый OFF модуля.
+    
+        Реальная ветка: `handlers.voice_transcription.force_repeat_from_reply`
+        (её же зовёт `handlers/youtube._handle_voice_command`) → STT. При
+        GLOBAL ON + CHAT OFF транскрипт НЕ вызывается (fail-closed внутри
+        канонического резолвера); при GLOBAL OFF + CHAT ON — вызывается.
+        """
+        from handlers import voice_transcription as vt
+    
+        transcribe = AsyncMock(return_value=True)
+        monkeypatch.setattr(vt, "_service", object())
+        monkeypatch.setattr(vt, "transcribe_media_message", transcribe)
+        voice = types.SimpleNamespace(
+            message_id=21, chat=types.SimpleNamespace(id=ROOT_CHAT),
+            voice=types.SimpleNamespace(file_id="voice-file"),
+            video_note=None)
+        command = _msg("транскрипт", message_id=22)
+        command.reply_to_message = voice
+    
+        world.globals = {"flags.enable_voice_transcription": True}
+        _set_chat(world, _one({"flags.enable_voice_transcription": False}))
+>       assert await vt.force_repeat_from_reply(
+            object(), command) == vt.FORCE_REPEAT_NO_TARGET
+E       AssertionError: assert 'sent_ok' == 'no_target'
+E         
+E         - no_target
+E         + sent_ok
+
+tests\test_mod_acl_ux_01_m21_adapters.py:674: AssertionError
+____________ test_character_frame_renders_when_global_off_chat_on _____________
+
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000022B9EE623F0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022B9EE4F0E0>
+
+    @pytest.mark.asyncio
+    async def test_character_frame_renders_when_global_off_chat_on(
+            world, monkeypatch):
+        """D3: точка сборки промпта рендерит кадр этого чата, а не legacy.
+    
+        GLOBAL OFF + CHAT ON: `resolve_character_context` (канонический per-chat
+        резолвер) ставит кадр, `build_persona_prompt_block(chat_id=…)` его
+        использует — формат/семантика совпадают с GLOBAL ON (тот же
+        `render_frame_block`). GLOBAL ON + CHAT OFF — кадра нет, legacy.
+        """
+        from services import bot_persona, lore_runtime, mca_self_model as msm
+    
+        frame = types.SimpleNamespace(version="v1", applied_rules=())
+        snapshot = types.SimpleNamespace(
+            persona_enabled=types.SimpleNamespace(effective=lambda *a: True))
+    
+        async def _resolve(db, chat_id):
+            return snapshot
+    
+        rendered: list = []
+    
+        def _render(behavior_frame, **kwargs):
+            rendered.append((behavior_frame, kwargs))
+            return "<FRAME>"
+    
+        monkeypatch.setattr(msm, "resolve_self_model", _resolve)
+        monkeypatch.setattr(msm, "select_behavior", lambda snap: frame)
+        monkeypatch.setattr(msm, "render_frame_block", _render)
+        monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: object())
+        monkeypatch.setattr(
+            bot_persona, "resolve_bot_persona",
+            lambda chat_id: AsyncMock(return_value=bot_persona.BotPersona(
+                name="Бот", biography="", overrides=""))())
+        monkeypatch.setattr(bot_persona, "get_traits",
+                            lambda *a, **k: AsyncMock(return_value=[])())
+    
+        world.globals = {"flags.self_model_enabled": False}
+        _set_chat(world, _one({"flags.self_model_enabled": True}))
+        ctx = await bot_persona.resolve_character_context(ROOT_CHAT)
+>       assert ctx.frame_version == "v1"        # per-chat резолвер сработал
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert None == 'v1'
+E        +  where None = CharacterReadContext(persona=BotPersona(name='Бот', biography='', overrides='', is_aware_ai=True, scope_chat_id=None, is_global=False, updated_at=None), traits=(), traits_scope='global', frame_version=None).frame_version
+
+tests\test_mod_acl_ux_01_m21_adapters.py:728: AssertionError
+============================== warnings summary ===============================
+..\..\..\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_publishes_when_global_off_chat_on
+FAILED tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_create_intent_is_per_chat
+FAILED tests/test_mod_acl_ux_01_m21_adapters.py::test_force_repeat_transcribe_per_chat
+FAILED tests/test_mod_acl_ux_01_m21_adapters.py::test_character_frame_renders_when_global_off_chat_on
+4 failed, 2 warnings in 5.45s

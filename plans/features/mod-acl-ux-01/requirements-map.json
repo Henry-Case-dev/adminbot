@@ -124,17 +124,18 @@
     }
   ],
   "gate_status": {
+    "m21_review_gate_2026_11_16": "check --stage review --slice M2.1 --candidate 1a417917 --repo . -> фактические строки в slice_candidate_bindings.m21.gate_facts. Гейт остаётся красным по двум категориям, не связанным с привязкой строк: (1) candidate mismatch — map-level candidate_commit намеренно остаётся bca18c1e до выката; (2) live requirement lacks evidence для пяти live_required=true строк — это и есть незакрытые живые пары. Все пять строк имеют candidate-bound Reviewer approval, implementation evidence и strict artifact_sha256.",
     "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после привязки Approved design M3 и 18 M3 REVIEW; graph validator 14 узлов без циклов и пересечений write scope)",
     "m3_design_review_gate_2026_11_16": "check --stage review --slice M3 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=20 errors=2: MAC-S5-281 и MAC-AC-09 остаются PENDING с точными live-gap; 18 REVIEW-строк проходят candidate-bound approval и strict artifact_sha256. Это design-гейт, не VERIFIED и не релиз эпика.",
     "m0_review_gate_2026_11_16": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=1 errors=0 после привязки записи Reviewer Approved (type=review, candidate bca18c1e): candidate совпадает, strict-проверка artifact_sha256 всех 5 записей и независимого approval проходит. До approval тот же прогон давал errors=1 (только отсутствие approval), до rebind — errors=3 (candidate mismatch + live requirement lacks evidence из-за устаревших sha256). Прежнее утверждение «Артефакты и sha256 валидны» было неверным и снято ещё на rebind.",
     "release_gate": "КРАСНЫЙ и остаётся красным по причинам, не связанным с двумя доказанными фиксами",
     "release_gate_reasons": [
-      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 69 VERIFIED / 18 REVIEW / 201 PENDING (на 2026-11-16 после привязки Approved design M3); --stage release требует VERIFIED по всем обязательным строкам, поэтому он остаётся красным по 219 строкам (18 REVIEW + 201 PENDING). Последний измеренный прогон release давал errors=261 при 68 VERIFIED / 1 REVIEW — это состояние на момент прогона, а не текущее; типовая причина — «mandatory not ['VERIFIED'] (got PENDING)».",
+      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 69 VERIFIED / 23 REVIEW / 196 PENDING (на 2026-11-16 после привязки Approved design M3 и M2.1 REVIEW); --stage release требует VERIFIED по всем обязательным строкам, поэтому он остаётся красным по тем же 219 строкам (23 REVIEW + 196 PENDING). Последний измеренный прогон release давал errors=261 при 68 VERIFIED / 1 REVIEW — это состояние на момент прогона, а не текущее; типовая причина — «mandatory not ['VERIFIED'] (got PENDING)».",
       "map-level candidate_commit/deployed_commit приведены 2026-11-16 к фактическому deployed bca18c1e (2.58.205) датированной записью candidate_binding_2026_11_16; история 34213999 сохранена в deployment_evidence, evidence-записях строк и git log. Release-гейт эпика красный не из-за поля: 219 обязательных строк не VERIFIED, а строки, доказанные на 34213999/dd52cbf9/4e07817e/c51933d0/92070d0e/721bab10, для epic-wide релиза на bca18c1e потребуют собственной привязки",
       "scoped release --slice M1 тоже красный: в M1 остаются PENDING MAC-M1-01, MAC-S4-157, MAC-S4-161, MAC-S4-171, MAC-S4-172, MAC-S4-173, MAC-S4-174, MAC-S10-11, MAC-S10-12, MAC-S10-13, MAC-AC-06, MAC-S15-10, MAC-S4-RPT-01, MAC-DEF-02"
     ],
     "basis_for_two_fixes": "MAC-AVATAR-01 и MAC-DEF-01 доказаны не гейтом, а тремя независимыми основаниями: (1) вердикт независимого Reviewer'а с воспроизведением дефекта на базе 721bab10 и проверкой кандидатов c2255690/30cd8564, включая доказательство отсутствия расширения прав; (2) живые проверки на выкаченном SHA 92070d0e (см. slice_releases[0].live_facts); (3) байт-идентичность продуктовых файлов и контрактных тестов между одобренными кандидатами и выкатом, проверенная по git-блобам.",
-    "must_not_be_read_as": "Эта карта не закрывает эпик MOD-ACL-UX-01: 288 обязательных = 69 VERIFIED / 18 REVIEW / 201 PENDING, релиз эпика не заявлен; 18 REVIEW — design-приёмка M3, не VERIFIED."
+    "must_not_be_read_as": "Эта карта не закрывает эпик MOD-ACL-UX-01: 288 обязательных = 69 VERIFIED / 23 REVIEW / 196 PENDING, релиз эпика не заявлен; 23 REVIEW = 18 design-приёмка M3 + 5 M2.1 candidate-level, ни одна не VERIFIED."
   },
   "queue_position": "MOD-ACL-UX-01 стоит в конце действующей очереди после SELF-DIAG-01 и VMQ-ONTO-01; полный Builder стартует после освобождения шести файлов MEMORY-08 S3. Две независимые критические правки (M1 ACL false-403 и M5A EXP-FIX correctives) допускаются раньше остального эпика при доступности своих файлов.",
   "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью. | 2026-11-16 (M2.1): owning stages дополнены срезом M2.1 — per-chat adapters 12 потребителей и precedence nostalgia; пять строк (MAC-S2-TT-5, MAC-AC-04, MAC-S10-01, MAC-S15-12, MAC-S2-SHARED-01) перенесены из M2 без изменения acceptance и статуса; два VERIFIED-наблюдения (MAC-S0-01, MAC-S2-TT-4) остаются у M2 с consumer-level дополнением от M2.1, без понижения.",
@@ -256,12 +257,39 @@
       "reason": "",
       "req_id": "MAC-S2-TT-5",
       "slice": "M2.1",
-      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: при GLOBAL ON чатовый OFF должен останавливать вызов, а 12 потребителей читают глобальный слой (design §12.2). Текст acceptance и статус не менялись.",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: при GLOBAL ON чатовый OFF должен останавливать вызов, а 12 потребителей читают глобальный слой (design §12.2). Текст acceptance и статус не менялись. 2026-11-16: статус PENDING -> REVIEW на кандидате 1a417917 (Approved predeploy); текст acceptance не менялся.",
       "acceptance": "GLOBAL ON + CHAT OFF → OFF по явному выключению чата.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "test",
+          "ref": "M2.1: GLOBAL ON + CHAT OFF → OFF на фактических ветках 12 потребителей (кандидат 1a417917)",
+          "observation": "Product-код кандидата 1a417917 и evidence tip 0585f238 идентичны (git diff по services/handlers/web/bot.py пуст; разница tip'а — только 2 test-файла bd92838d). 24 focused-файла → 481 passed / 0 failed / 0 skipped (pytest-green.txt, pytest-green.xml, tests-summary.json). Кейс GLOBAL ON + CHAT OFF: test_module_adapter_truth_table (8 static-ключей, ожидание (True, False, False)), test_direct_handler_per_chat, test_factcheck_handler_per_chat, test_search_handler_per_chat, test_web_handler_per_chat, test_transcribe_handler_per_chat, test_video_summary_dispatch_per_chat, test_download_handler_per_chat, test_download_tool_path_per_chat, test_checkup_handler_per_chat, test_checkup_tool_per_chat, test_stories_read_api_per_chat, test_character_usage_per_chat, test_random_usage_per_chat, test_initiative_global_on_chat_off_is_off и test_initiative_publishes_when_global_off_chat_on (CHAT OFF → status=disabled, отправки нет на реальном telegram_send.send_text). Живая пара GLOBAL ON + CHAT OFF на задеплоенном SHA не наблюдалась.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/pytest-green.txt",
+          "artifact_sha256": "7d12ccee237b41f8b45714a4b8a731b8bc923321383740cc9c5c517e3e6cf09c",
+          "produced_on": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+          "covers_row_acceptance": {
+            "MAC-S2-TT-5": "covered at candidate level: GLOBAL ON + CHAT OFF → OFF в 12 модулях (truth table + реальные handler/tool/API/публикационные ветки); live-пара на выкате не наблюдена"
+          }
+        },
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M2.1 review, 2026-11-16: Approved (predeploy) для product 1a417917 / evidence tip 0585f238 (база bca18c1e)",
+          "observation": "Независимый Reviewer: Approved (predeploy), D1–D4 PASS; F1–F10 сохранены. Проверки: 24 focused-файла → 481 passed / 0 failed / 0 skipped (pytest-green.txt, pytest-green.xml, tests-summary.json); новые D1/D2/D3 node ids RED на базе bca18c1e — 4 failed / 0 passed (pytest-red-base-d1d3.txt); 3/3 мутации killed (mutations.json); 9 pre-existing идентичны базе; F1 test-debt закрыт в bd92838d (16 passed, все test_mca18_* 98 passed). PM привязывает строку к REVIEW: доказательство уровня кандидата, выката и живых событий нет. Вердикт передан Оркестратором; текста ревью в репозитории нет — происхождение зафиксировано в plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md §1.",
+          "artifact_role": "PM-запись привязки переданного вердикта (происхождение — §1 файла); не заявляет, что содержит собственный текст Reviewer'а.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md",
+          "artifact_sha256": "9dd2cfd26f22f20b6eef543b32fc57c0f2d5681183dcddbd230cb2240f0f8157",
+          "covers_row_acceptance": {
+            "MAC-S2-TT-5": "covered: независимый Reviewer Approved кандидат 1a417917; live-пара остаётся открытой"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -269,7 +297,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-TT-5"
         }
       ],
-      "pending_condition": "Не наблюдалось: нужен явный chat OFF при GLOBAL ON. Условие: живая пара GLOBAL ON + CHAT OFF."
+      "pending_condition": "На кандидате 1a417917 доказано (REVIEW): GLOBAL ON + CHAT OFF блокирует вызов 12 модулей на реальных ветках. Осталось живое: пара GLOBAL ON + CHAT OFF на задеплоенном SHA — чат не исполняет и не публикует, другие чаты не затронуты."
     },
     {
       "source_id": "MAC-TT-6",
@@ -486,12 +514,39 @@
       "reason": "",
       "req_id": "MAC-S2-SHARED-01",
       "slice": "M2.1",
-      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: acceptance проходит только после per-chat adapters 12 потребителей (design §12.2). Текст acceptance и статус не менялись.",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: acceptance проходит только после per-chat adapters 12 потребителей (design §12.2). Текст acceptance и статус не менялись. 2026-11-16: статус PENDING -> REVIEW на кандидате 1a417917 (Approved predeploy); текст acceptance не менялся.",
       "acceptance": "GLOBAL OFF не останавливает shared scheduler и регистрацию при наличии chat ON; тик выбирает только разрешённые чаты и повторяет проверку перед дорогим действием, финальным side effect и отправкой.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "test",
+          "ref": "M2.1: shared-тик/пул живы при GLOBAL OFF, тик выбирает только чаты с ON, повторная проверка перед side effect",
+          "observation": "mutations.json фиксирует три мутации, каждая снимает один механизм, все killed с returncode 1 — тесты не тавтологичны. Живость shared-типа: test_initiative_scheduler_ticks_when_chat_is_on (GLOBAL OFF + CHAT ON → observe_tick='running', due вызван), test_initiative_global_off_chat_on_per_chat, test_random_chat_off_keeps_global_pool (пул остаётся True даже при GLOBAL OFF), test_character_chat_off_does_not_stop_global_model, test_voice_transcription_di_is_not_conditional (DI не гейтится глобальным ON). Выбор чатов: test_initiative_due_scan_is_per_chat. Повторная проверка перед side effect: test_download_callback_rechecks_per_chat (меню, открытое до CHAT OFF, не запускает скачивание, pending цел) и test_initiative_publishes_when_global_off_chat_on (проверка в handle_initiative перед send). Реальный фоновый тик на проде не наблюдался.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/mutations.json",
+          "artifact_sha256": "d5c1673e80e3ecd1714b79c85d588031e3461925ecc4b82417d36714e47ad8ec",
+          "produced_on": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+          "covers_row_acceptance": {
+            "MAC-S2-SHARED-01": "covered at candidate level: GLOBAL OFF не останавливает shared-тик/регистрацию, выбор только чатов с ON, повторная проверка перед side effect; реальный тик на проде не наблюдался"
+          }
+        },
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M2.1 review, 2026-11-16: Approved (predeploy) для product 1a417917 / evidence tip 0585f238 (база bca18c1e)",
+          "observation": "Независимый Reviewer: Approved (predeploy), D1–D4 PASS; F1–F10 сохранены. Проверки: 24 focused-файла → 481 passed / 0 failed / 0 skipped (pytest-green.txt, pytest-green.xml, tests-summary.json); новые D1/D2/D3 node ids RED на базе bca18c1e — 4 failed / 0 passed (pytest-red-base-d1d3.txt); 3/3 мутации killed (mutations.json); 9 pre-existing идентичны базе; F1 test-debt закрыт в bd92838d (16 passed, все test_mca18_* 98 passed). PM привязывает строку к REVIEW: доказательство уровня кандидата, выката и живых событий нет. Вердикт передан Оркестратором; текста ревью в репозитории нет — происхождение зафиксировано в plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md §1.",
+          "artifact_role": "PM-запись привязки переданного вердикта (происхождение — §1 файла); не заявляет, что содержит собственный текст Reviewer'а.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md",
+          "artifact_sha256": "9dd2cfd26f22f20b6eef543b32fc57c0f2d5681183dcddbd230cb2240f0f8157",
+          "covers_row_acceptance": {
+            "MAC-S2-SHARED-01": "covered: независимый Reviewer Approved кандидат 1a417917; реальный фоновый тик остаётся открытым"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -499,7 +554,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S2-SHARED-01"
         }
       ],
-      "pending_condition": "Условие: наблюдение, что GLOBAL OFF не останавливает shared scheduler и регистрацию при наличии chat ON; тик выбирает только чаты с ON."
+      "pending_condition": "На кандидате 1a417917 доказано (REVIEW): GLOBAL OFF не останавливает shared-тик/регистрацию, тик выбирает только чаты с ON, повторная проверка перед side effect. Осталось живое: реальный фоновый тик на проде при GLOBAL OFF и одном чате с ON."
     },
     {
       "source_id": "MAC-GATE",
@@ -7543,12 +7598,39 @@
       "reason": "",
       "req_id": "MAC-S10-01",
       "slice": "M2.1",
-      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: оба явных override и смена GLOBAL проверяются на runtime 12 потребителей (design §12.2). Текст acceptance и статус не менялись.",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: оба явных override и смена GLOBAL проверяются на runtime 12 потребителей (design §12.2). Текст acceptance и статус не менялись. 2026-11-16: статус PENDING -> REVIEW на кандидате 1a417917 (Approved predeploy); текст acceptance не менялся.",
       "acceptance": "GLOBAL ON/OFF с CHAT inherit и оба явных override дают ожидаемое состояние; после смены GLOBAL явный chat ON продолжает работать.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "test",
+          "ref": "M2.1: четыре пары GLOBAL/CHAT, INHERIT и оба явных override (кандидат 1a417917)",
+          "observation": "pytest-green.xml содержит полный список node id прогона, включая параметризованный test_module_adapter_truth_table[flags.*] для 8 static-ключей: кейсы (True, None, True), (True, False, False), (False, None, False), (False, True, True) — каноническая таблица без второго bool. INHERIT = глобальное значение: test_initiative_global_default_is_master_not_legacy_global (исторический глобальный initiative.enabled не перекрывает master-дефолт). Оба явных override: test_character_global_off_chat_on_is_on, test_random_global_off_chat_on_is_on, test_stories_global_off_chat_on_and_emergency, test_nostalgia_chat_override_wins_over_both_global_keys. Stored values не переписаны: test_adapter_does_not_rewrite_stored_values (set_chat_params запрещён, кэш равен снимку). 481 passed. Реальная смена GLOBAL на проде с сохранённым chat ON не наблюдалась.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/pytest-green.xml",
+          "artifact_sha256": "324a52334dcf11deda5bb52588eca205a4a8cd09d1f523352316b1b47cdd635a",
+          "produced_on": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+          "covers_row_acceptance": {
+            "MAC-S10-01": "covered at candidate level: все четыре пары GLOBAL/CHAT, INHERIT, оба явных override, stored values не переписаны; живая смена GLOBAL не наблюдалась"
+          }
+        },
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M2.1 review, 2026-11-16: Approved (predeploy) для product 1a417917 / evidence tip 0585f238 (база bca18c1e)",
+          "observation": "Независимый Reviewer: Approved (predeploy), D1–D4 PASS; F1–F10 сохранены. Проверки: 24 focused-файла → 481 passed / 0 failed / 0 skipped (pytest-green.txt, pytest-green.xml, tests-summary.json); новые D1/D2/D3 node ids RED на базе bca18c1e — 4 failed / 0 passed (pytest-red-base-d1d3.txt); 3/3 мутации killed (mutations.json); 9 pre-existing идентичны базе; F1 test-debt закрыт в bd92838d (16 passed, все test_mca18_* 98 passed). PM привязывает строку к REVIEW: доказательство уровня кандидата, выката и живых событий нет. Вердикт передан Оркестратором; текста ревью в репозитории нет — происхождение зафиксировано в plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md §1.",
+          "artifact_role": "PM-запись привязки переданного вердикта (происхождение — §1 файла); не заявляет, что содержит собственный текст Reviewer'а.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md",
+          "artifact_sha256": "9dd2cfd26f22f20b6eef543b32fc57c0f2d5681183dcddbd230cb2240f0f8157",
+          "covers_row_acceptance": {
+            "MAC-S10-01": "covered: независимый Reviewer Approved кандидат 1a417917; live-смена GLOBAL остаётся открытой"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -7556,7 +7638,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S10-01"
         }
       ],
-      "pending_condition": "Частично доказано живой пробой: inherit -> global (dream/lore_auto/nostalgia) и явный chat ON при GLOBAL OFF (permsoc). Явного чатового OFF среди gated-capability нет. Условие: живая пара GLOBAL ON/OFF с явным chat OFF."
+      "pending_condition": "На кандидате 1a417917 доказано (REVIEW): все четыре пары GLOBAL/CHAT, INHERIT и оба явных override; stored values не переписаны. Осталось живое: реальная смена GLOBAL при сохранённом явном chat ON — чат продолжает работать."
     },
     {
       "source_id": "L00571",
@@ -8337,12 +8419,39 @@
       "reason": "",
       "req_id": "MAC-AC-04",
       "slice": "M2.1",
-      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: чатовое выключение останавливает вызов только при per-chat adapters 12 потребителей (design §12.2). Текст acceptance и статус не менялись.",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: чатовое выключение останавливает вызов только при per-chat adapters 12 потребителей (design §12.2). Текст acceptance и статус не менялись. 2026-11-16: статус PENDING -> REVIEW на кандидате 1a417917 (Approved predeploy); текст acceptance не менялся.",
       "acceptance": "Чатовое выключение прекращает вызов и публикацию функции в этом чате и не затрагивает другие чаты.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "test",
+          "ref": "M2.1: чатовое выключение останавливает вызов и публикацию только этого чата (кандидат 1a417917)",
+          "observation": "tests-summary.json фиксирует реальные швы (candidate_from_trigger, handle_initiative → telegram_send.send_text, IntentService.create_intent/list_active/due_candidates на реальном DatabaseService, force_repeat_from_reply, resolve_character_context → build_persona_prompt_block) и guard-checks. Публикация: test_initiative_publishes_when_global_off_chat_on (CHAT OFF → status=disabled, sent=[]); due-скан: test_initiative_due_scan_is_per_chat (CHAT OFF → [] при живом намерении); локальность: test_character_chat_off_does_not_stop_global_model, test_random_chat_off_keeps_global_pool, test_initiative_scheduler_ticks_when_chat_is_on; повторная проверка: test_download_callback_rechecks_per_chat. Focused-прогон 481 passed; 3/3 мутации killed. Живого события чата на выкате нет.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/tests-summary.json",
+          "artifact_sha256": "6ae197701c28969692a1e6c291e7c5094303d0acae13bda6671a5aed427ca989",
+          "produced_on": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+          "covers_row_acceptance": {
+            "MAC-AC-04": "covered at candidate level: chat OFF блокирует вызов/публикацию этого чата, shared-пул/модель/тик живы; реальное событие чата не наблюдалось"
+          }
+        },
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M2.1 review, 2026-11-16: Approved (predeploy) для product 1a417917 / evidence tip 0585f238 (база bca18c1e)",
+          "observation": "Независимый Reviewer: Approved (predeploy), D1–D4 PASS; F1–F10 сохранены. Проверки: 24 focused-файла → 481 passed / 0 failed / 0 skipped (pytest-green.txt, pytest-green.xml, tests-summary.json); новые D1/D2/D3 node ids RED на базе bca18c1e — 4 failed / 0 passed (pytest-red-base-d1d3.txt); 3/3 мутации killed (mutations.json); 9 pre-existing идентичны базе; F1 test-debt закрыт в bd92838d (16 passed, все test_mca18_* 98 passed). PM привязывает строку к REVIEW: доказательство уровня кандидата, выката и живых событий нет. Вердикт передан Оркестратором; текста ревью в репозитории нет — происхождение зафиксировано в plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md §1.",
+          "artifact_role": "PM-запись привязки переданного вердикта (происхождение — §1 файла); не заявляет, что содержит собственный текст Reviewer'а.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md",
+          "artifact_sha256": "9dd2cfd26f22f20b6eef543b32fc57c0f2d5681183dcddbd230cb2240f0f8157",
+          "covers_row_acceptance": {
+            "MAC-AC-04": "covered: независимый Reviewer Approved кандидат 1a417917; live-событие остаётся открытым"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -8350,7 +8459,7 @@
           "description": "наблюдаемый артефакт проверки MAC-AC-04"
         }
       ],
-      "pending_condition": "Условие закрытия: реальное событие чата — чатовое выключение прекращает вызов и публикацию функции в этом чате и не затрагивает другие. Тестовый путь есть, живого события на 2.58.175 нет."
+      "pending_condition": "На кандидате 1a417917 доказано (REVIEW): чатовый OFF блокирует вызов/публикацию этого чата, пул/модель/тик живы. Осталось живое: реальное событие чата после выката — выключение по чату не прекращает функцию у других чатов."
     },
     {
       "source_id": "L00619",
@@ -9188,12 +9297,39 @@
       "reason": "",
       "req_id": "MAC-S15-12",
       "slice": "M2.1",
-      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: инициатива и multimodal явно проверяются на per-chat effective-state (design §12.2). Текст acceptance и статус не менялись.",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: инициатива и multimodal явно проверяются на per-chat effective-state (design §12.2). Текст acceptance и статус не менялись. 2026-11-16: статус PENDING -> REVIEW на кандидате 1a417917 (Approved predeploy); текст acceptance не менялся.",
       "acceptance": "После GLOBAL OFF→ON чат со своим OFF остаётся OFF, а с explicit ON — ON; проверены саммари, сон, память, инициатива и multimodal.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "test",
+          "ref": "M2.1: GLOBAL OFF→ON не отменяет chat OFF и не гасит chat ON (кандидат 1a417917)",
+          "observation": "implementation.md §1–§2 фиксирует исправления D1–D4 и семантику GLOBAL default → CHAT override; §4 — прогоны и 9 pre-existing. Initiative: test_initiative_global_on_chat_off_is_off (GLOBAL ON + CHAT OFF → capability_off) и test_initiative_publishes_when_global_off_chat_on (GLOBAL OFF + CHAT ON → отправка; затем GLOBAL ON + CHAT OFF → disabled). Multimodal/transcribe: test_transcribe_handler_per_chat, test_video_summary_dispatch_per_chat, test_force_repeat_transcribe_per_chat. Character: test_character_frame_renders_when_global_off_chat_on — GLOBAL OFF→ON даёт тот же кадр при том же пине чата. summary/sleep/memory в этом кандидате не перепроверялись (их адаптация — M2). Живой смены GLOBAL OFF→ON на выкате нет.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/implementation.md",
+          "artifact_sha256": "bfabe1f20ca0b76b743dbf5a0e2d352e7966bdd8dd33b0e8ff916a3ea97e05d9",
+          "produced_on": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+          "covers_row_acceptance": {
+            "MAC-S15-12": "covered at candidate level для initiative/multimodal/character: GLOBAL OFF→ON не отменяет chat OFF и не гасит chat ON; summary/sleep/memory не перепроверялись; живая смена GLOBAL не наблюдалась"
+          }
+        },
+        {
+          "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M2.1 review, 2026-11-16: Approved (predeploy) для product 1a417917 / evidence tip 0585f238 (база bca18c1e)",
+          "observation": "Независимый Reviewer: Approved (predeploy), D1–D4 PASS; F1–F10 сохранены. Проверки: 24 focused-файла → 481 passed / 0 failed / 0 skipped (pytest-green.txt, pytest-green.xml, tests-summary.json); новые D1/D2/D3 node ids RED на базе bca18c1e — 4 failed / 0 passed (pytest-red-base-d1d3.txt); 3/3 мутации killed (mutations.json); 9 pre-existing идентичны базе; F1 test-debt закрыт в bd92838d (16 passed, все test_mca18_* 98 passed). PM привязывает строку к REVIEW: доказательство уровня кандидата, выката и живых событий нет. Вердикт передан Оркестратором; текста ревью в репозитории нет — происхождение зафиксировано в plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md §1.",
+          "artifact_role": "PM-запись привязки переданного вердикта (происхождение — §1 файла); не заявляет, что содержит собственный текст Reviewer'а.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md",
+          "artifact_sha256": "9dd2cfd26f22f20b6eef543b32fc57c0f2d5681183dcddbd230cb2240f0f8157",
+          "covers_row_acceptance": {
+            "MAC-S15-12": "covered: независимый Reviewer Approved кандидат 1a417917; живая смена GLOBAL и summary/sleep/memory остаются открытыми"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -9201,7 +9337,7 @@
           "description": "наблюдаемый артефакт проверки MAC-S15-12"
         }
       ],
-      "pending_condition": "Условие закрытия: реальная смена флага GLOBAL OFF->ON на 2.58.175 — чат со своим OFF остаётся OFF, с explicit ON — ON; проверить саммари, сон, память, инициативу и multimodal."
+      "pending_condition": "На кандидате 1a417917 доказано (REVIEW) для initiative/multimodal/character: GLOBAL OFF→ON не отменяет chat OFF и не гасит chat ON. Осталось живое: смена GLOBAL OFF→ON на выкате, включая summary/sleep/memory (в M2.1 не перепроверялись) и сохранённый явный chat ON."
     },
     {
       "source_id": "L00679",
@@ -9646,6 +9782,232 @@
     }
   ],
   "candidate_note": "Map-level candidate_commit = deployed_commit = 34213999 (2.58.175) — это коммит, против которого сверяется леджер сейчас. Его содержимое = отобранные коммиты M2 (97cfdef1, 3b1ba3b2, dd52cbf9) и M4 (0833035a, 7faa9d7c, 827d4a3b, 6e175ced) плюс version-пины; D2 (98bc424e) исключён. Перенос строк с прежних кандидатов сделан на проверенном основании, а не «на веру»: блобы M2-кода и M2-тестов в 34213999 равны dd52cbf9, guard-код M1 не менялся, изменений D2 в общих файлах нет — всё перечислено в observation каждой строки и в evidence/m2/m2-deploy-2.58.175.md §2–§3. Прежние привязки строк (dd52cbf9) сохранены без изменений; строки M5A/M5L сохраняют собственные привязки (4e07817e / c51933d0 -> bee14188) и к 2.58.175 не переносятся.",
+  "slice_candidate_bindings": {
+  "note": "Привязки «кандидат → независимое ревью» с 2026-11-16. Исторический блок slice_candidates (M2/M5A/M5L/M4A) сохранён без изменений; новые привязки не переписывают прежние доказательства.",
+  "m21": {
+    "at": "2026-11-16T19:36:00+12:00",
+    "slice": "M2.1",
+    "kind": "candidate-bound review binding: продукт-код проверен на уровне кандидата; не выкачен, live не заявлен, VERIFIED не заявляется",
+    "candidate_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+    "candidate_short": "1a417917",
+    "evidence_tip": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+    "base_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "base_version": "2.58.205",
+    "branch": "acl/m2.1-perchat-adapters",
+    "worktree": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/mod-acl-m21-78249a9f17a3-ab51af74",
+    "deployed": false,
+    "deployed_note": "Не выкачен. В проде остаётся 2.58.205 @ bca18c1e; map-level candidate_commit/deployed_commit не двигались, пока релиз не выложен.",
+    "lineage": {
+      "commits": 15,
+      "merges": 0,
+      "linear_range": "bca18c1e..0585f238",
+      "functional_commits": [
+        "be8e8ecf",
+        "def84275",
+        "b278a547",
+        "1a417917"
+      ],
+      "test_only_commits": [
+        "9b78b6ab",
+        "bd92838d"
+      ],
+      "candidate_commit_diff": {
+        "command": "git show --stat 1a417917",
+        "files": 16,
+        "insertions": 490,
+        "deletions": 76
+      },
+      "test_only_tip_diff": {
+        "command": "git diff --stat 1a417917 0585f238",
+        "files": 9,
+        "product_files": 0,
+        "note": "services/handlers/web/bot.py пусты; изменения — 2 test-файла bd92838d (+68/-3) и evidence-документы 0585f238"
+      },
+      "slice_cumulative_diff": {
+        "range": "bca18c1e..bd92838d",
+        "files": 46,
+        "insertions": 3815,
+        "deletions": 252,
+        "note": "включает предыдущие M2.1-коммиты и evidence"
+      },
+      "product_plus_tests": {
+        "range": "bca18c1e..1a417917 без evidence",
+        "files": 37,
+        "insertions": 2072,
+        "deletions": 249
+      }
+    },
+    "semantics": {
+      "contract": "GLOBAL default -> CHAT override (owner §0.1/§2.1/§2.3.1; design §12.2/§12.5.1; MAC-S2-TT-4)",
+      "pairs": {
+        "ON+INHERIT": "ON",
+        "ON+OFF": "OFF",
+        "OFF+INHERIT": "OFF",
+        "OFF+ON": "ON (только этот чат)"
+      },
+      "static_modules": [
+        "direct",
+        "factcheck",
+        "search",
+        "web",
+        "transcribe",
+        "video_summary",
+        "media_download",
+        "checkup"
+      ],
+      "shared_modules": {
+        "initiative": "чат решает использование; продуктовая мастер-строка наследуется, master-AND снят; тик/пул живы",
+        "character": "shared-модель и снапшот живы, использование решает чат; кадр берётся из пина этого чата",
+        "random": "пул жив (env-ось), использование решает чат"
+      },
+      "env_emergency_axes": [
+        "MCA_INTENTS_ENABLED",
+        "MCA_SELF_MODEL_ENABLED",
+        "MCA_RANDOM_SOURCE_ENABLED",
+        "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
+        "MCA_STORIES_VITRINA_ENABLED"
+      ],
+      "out_of_scope": "stories manage-контур (stories_manage_enabled) остаётся глобальным; M2.1 закрывает read-контур"
+    },
+    "reviewer": {
+      "role": "Reviewer",
+      "verdict": "Approved (predeploy)",
+      "verdict_scope": "product 1a417917 / evidence tip 0585f238; D1-D4 PASS; F1-F10 preserved",
+      "relayed_by": "Orchestrator -> PM, 2026-11-16",
+      "session_ref": "сессия ревьюера в передаче не указана",
+      "provenance": "Текста ревью в репозитории нет; единственный источник вердикта — передача Оркестратора. PM-запись привязки: plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md (sha256 9dd2cfd26f22f20b6eef543b32fc57c0f2d5681183dcddbd230cb2240f0f8157)",
+      "independent_checks_by_pm": [
+        "8 файлов evidence/m21/* скопированы с 0585f238 байт-в-байт (sha256 копии = sha256 источника)",
+        "продукт-код 1a417917 = 0585f238 (git diff по services/handlers/web/bot.py пуст)",
+        "числа совпадают с артефактами: 481 passed; 4 failed/0 passed; 44 failed/3 passed; 3/3 killed; 9 pre-existing"
+      ]
+    },
+    "checks": {
+      "focused": "24 focused-файла: 481 passed / 0 failed / 0 skipped (pytest-green.txt, pytest-green.xml, tests-summary.json)",
+      "red_on_base_d1d3": "4 новых node ids D1/D2/D3 на bca18c1e: 4 failed / 0 passed (pytest-red-base-d1d3.txt)",
+      "red_on_base_prior": "ранний набор F1-F10 на bca18c1e: 44 failed / 3 passed (pytest-red-base.txt)",
+      "mutations": "3/3 killed, returncode 1 (mutations.json): publication master-AND, force-repeat chat gate, persona frame global-only",
+      "pre_existing": "9, воспроизведены на базе и на кандидате (test_initiative_coordination 4, test_soul1_w5_observer_gates 1, test_initiative_speech_layers_chat_overrides 4)",
+      "test_debt": "F1 закрыт в bd92838d: test_mca18_block_ef_round1042.py 16 passed; все test_mca18_* 98 passed; возврат глобального гейта убивает тест",
+      "guards": "test_no_second_resolver_or_acl, test_m21_consumers_use_existing_resolver, test_adapter_does_not_rewrite_stored_values, test_module_enabled_fail_closed_on_resolver_error",
+      "configuration": "DDL 0, миграций 0, новых флагов/hot-ключей 0, второго ACL/registry 0, stored values не переписаны"
+    },
+    "evidence_bundle": [
+      {
+        "role": "implementation",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/implementation.md",
+        "sha256": "bfabe1f20ca0b76b743dbf5a0e2d352e7966bdd8dd33b0e8ff916a3ea97e05d9",
+        "source_path_in_candidate_branch": "evidence/m21/implementation.md",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "tests-summary",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/tests-summary.json",
+        "sha256": "6ae197701c28969692a1e6c291e7c5094303d0acae13bda6671a5aed427ca989",
+        "source_path_in_candidate_branch": "evidence/m21/tests-summary.json",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "green",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/pytest-green.txt",
+        "sha256": "7d12ccee237b41f8b45714a4b8a731b8bc923321383740cc9c5c517e3e6cf09c",
+        "source_path_in_candidate_branch": "evidence/m21/pytest-green.txt",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "green-junit",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/pytest-green.xml",
+        "sha256": "324a52334dcf11deda5bb52588eca205a4a8cd09d1f523352316b1b47cdd635a",
+        "source_path_in_candidate_branch": "evidence/m21/pytest-green.xml",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "red-base-prior",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/pytest-red-base.txt",
+        "sha256": "7c5c0aed77e62d39ac6be5bd205b513ed277ad61e27e0d3484f8837c9f124769",
+        "source_path_in_candidate_branch": "evidence/m21/pytest-red-base.txt",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "red-base-d1d3",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/pytest-red-base-d1d3.txt",
+        "sha256": "d62bb7ab6de554f1251f9279992e1372e840afde407c699355ecc268ec81ca11",
+        "source_path_in_candidate_branch": "evidence/m21/pytest-red-base-d1d3.txt",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "mutations-json",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/mutations.json",
+        "sha256": "d5c1673e80e3ecd1714b79c85d588031e3461925ecc4b82417d36714e47ad8ec",
+        "source_path_in_candidate_branch": "evidence/m21/mutations.json",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "mutations-text",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/mutations.txt",
+        "sha256": "edbc98407fb0bd52c6973519dc2f73f288723eaf029cacc1ccf187e386bb8556",
+        "source_path_in_candidate_branch": "evidence/m21/mutations.txt",
+        "source_commit": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+        "byte_identical": true
+      },
+      {
+        "role": "review-record",
+        "path": "plans/features/mod-acl-ux-01/evidence/m21/m21-review-2026-11-16.md",
+        "sha256": "9dd2cfd26f22f20b6eef543b32fc57c0f2d5681183dcddbd230cb2240f0f8157",
+        "note": "PM-запись привязки переданного вердикта; текста ревью не содержит (§1)"
+      }
+    ],
+    "covered_rows": {
+      "MAC-S2-TT-5": {
+        "status": "REVIEW",
+        "covered": "GLOBAL ON + CHAT OFF → OFF в 12 модулях (truth table + реальные ветки)",
+        "live_gap": "живая пара GLOBAL ON + CHAT OFF на задеплоенном SHA"
+      },
+      "MAC-AC-04": {
+        "status": "REVIEW",
+        "covered": "чатовый OFF блокирует вызов и публикацию только этого чата",
+        "live_gap": "реальное событие чата: выключение по чату не затрагивает другие"
+      },
+      "MAC-S10-01": {
+        "status": "REVIEW",
+        "covered": "четыре пары GLOBAL/CHAT, INHERIT, оба явных override, stored values не переписаны",
+        "live_gap": "реальная смена GLOBAL при сохранённом явном chat ON"
+      },
+      "MAC-S15-12": {
+        "status": "REVIEW",
+        "covered": "GLOBAL OFF→ON не отменяет chat OFF и не гасит chat ON для initiative/multimodal/character",
+        "live_gap": "живая смена GLOBAL OFF→ON, включая summary/sleep/memory (вне M2.1)"
+      },
+      "MAC-S2-SHARED-01": {
+        "status": "REVIEW",
+        "covered": "shared-тик/пул живы при GLOBAL OFF, выбор только чатов с ON, повторная проверка перед side effect",
+        "live_gap": "реальный фоновый тик на проде при GLOBAL OFF и одном чате с ON"
+      }
+    },
+    "consumer_proof_note": "Consumer-level доказательства добавлены к MAC-S0-01/MAC-S2-TT-4/MAC-S2-91/MAC-S2-116/MAC-AC-02 без изменения их статусов и владельца M2: две VERIFIED-строки не понижаются, частичное покрытие их универсальной формулировки зафиксировано в m2_1_mapping_2026_11_16.consumer_proof_note.",
+    "row_status_changes": {
+      "before": "5 строк M2.1 PENDING (карта 69 VERIFIED / 18 REVIEW / 201 PENDING из 288)",
+      "after": "5 строк M2.1 REVIEW (карта 69 VERIFIED / 23 REVIEW / 196 PENDING из 288)",
+      "verified_added": 0
+    },
+    "gate_facts": "check --stage plan --repo . -> inventory=279 manual=102 scoped=0 errors=0. check --stage review --slice M2.1 --candidate 1a417917f128521f988fca9845f45ed3a6c6a7a5 --repo . -> scoped=5 errors=6: (1) candidate mismatch (map-level candidate_commit намеренно остаётся bca18c1e до выката); (2)-(6) 'live requirement lacks evidence for stage review' для всех пяти live_required=true строк — это и есть незакрытые живые пары. Ошибок привязки нет: candidate-bound Reviewer approval (type=review, verdict Approved, reviewer_role=Reviewer), implementation evidence и strict artifact_sha256 проходят для всех пяти строк. Тот же прогон с короткой формой --candidate 1a417917 (тот же Git-объект) даёт те же errors=6, но вместо live-строк — пять 'no evidence bound to reviewed candidate': gate сравнивает candidate_commit точно, поэтому канонический вызов — полный SHA. workflow_progress --scope-file plans/progress_scope.json --require-queue --json -> exit 0, queue 41/41; глобальные статусы REVIEW 26 -> 31, PENDING 2369 -> 2364, VERIFIED 4751 без изменений.",
+    "not_claimed": [
+      "VERIFIED не заявляется ни по одной строке",
+      "выкат не выполнялся; deployed=false; production effective-state не измерялся",
+      "живые пары GLOBAL OFF+CHAT ON и GLOBAL ON+CHAT OFF на задеплоенном SHA не наблюдались",
+      "фабричные дефолты и сохранённые пользовательские настройки не менялись",
+      "текст ревьюера в репозитории отсутствует; источник вердикта — передача Оркестратора"
+    ],
+    "mapping_block": "m2_1_mapping_2026_11_16"
+  }
+  },
   "slice_candidates": {
     "M2": "dd52cbf93837b0a578a6aee84ffe9767d69870e3 (проверенный кандидат; в выкате 2.58.175 @34213999 M2-код и тесты байт-идентичны, строки привязаны к выкаченному SHA)",
     "M5A": "4e07817e9a4836a6e68837bbb815aa3ffdfe3dc8",

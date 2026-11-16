@@ -1,0 +1,36 @@
+{
+  "candidate": "acl/m2.1-perchat-adapters",
+  "candidate_code_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+  "base": "bca18c1e",
+  "note": "Corrective D1/D2/D3: ровно три мутации, каждая снимает один механизм. Предыдущий набор (b278a547) заменён этим: тот проверял master-AND наблюдателя, здесь проверяются реальные швы D1/D2/D3. Скрипт: %TEMP%/opencode/m21_mutations_v3.py; файлы восстанавливались в finally, дерево после прогона чистое (git status — только evidence).",
+  "mutations": [
+    {
+      "name": "publication_product_master_and_restored",
+      "file": "services/direct_chat_service.py",
+      "mutation": "в handle_initiative восстановлен product-AND (mca_gates.intents_enabled() AND intent_decision_enabled()), per-chat гейт удалён",
+      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_publishes_when_global_off_chat_on",
+      "killed": true,
+      "returncode": 1,
+      "failure": "1 failed, 2 warnings in 3.20s"
+    },
+    {
+      "name": "force_repeat_ignores_chat_off",
+      "file": "handlers/voice_transcription.py",
+      "mutation": "per-chat module_enabled в force_repeat_from_reply отключён (if False and ...)",
+      "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_force_repeat_transcribe_per_chat",
+      "killed": true,
+      "returncode": 1,
+      "failure": "1 failed, 2 warnings in 3.74s"
+    },
+    {
+      "name": "persona_frame_gate_global_only",
+      "file": "services/bot_persona.py",
+      "mutation": "build_persona_prompt_block снова берёт кадр только по глобальному self_model_enabled() (chat_id игнорируется)",
+      "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_character_frame_renders_when_global_off_chat_on",
+      "killed": true,
+      "returncode": 1,
+      "failure": "1 failed, 2 warnings in 2.97s"
+    }
+  ],
+  "all_killed": true
+}

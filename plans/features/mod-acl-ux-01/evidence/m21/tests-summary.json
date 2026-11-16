@@ -1,0 +1,227 @@
+{
+  "slice": "M2.1",
+  "candidate_branch": "acl/m2.1-perchat-adapters",
+  "candidate_base": "bca18c1e",
+  "candidate_code_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+  "test_only_commit": {
+    "sha": "bd92838d3af3c83065c005a9c57eab7ed1180b14",
+    "files": 2,
+    "insertions": 68,
+    "deletions": 3,
+    "scope": "F1 test-debt (per-chat axis) + committed D1 due-scan test",
+    "product_files_changed": 0
+  },
+  "corrective_scope": "D1-D4 re-review findings + F1 test-debt",
+  "candidate_diff": {
+    "command": "git show --stat 1a417917",
+    "files": 16,
+    "insertions": 490,
+    "deletions": 76,
+    "note": "D1/D2/D3 product fixes + D4 docstring + real-path tests + legacy K1-off parity test targets"
+  },
+  "slice_cumulative_diff": {
+    "range": "bca18c1e..bd92838d",
+    "command": "git diff --stat bca18c1e..bd92838d",
+    "files": 46,
+    "insertions": 3815,
+    "deletions": 252,
+    "note": "includes prior M2.1 commits + evidence; test_only_commit adds only 2 test files"
+  },
+  "requirement_ids": [
+    "MAC-AC-04",
+    "MAC-S2-TT-5",
+    "MAC-S10-01",
+    "MAC-S15-12",
+    "MAC-S2-SHARED-01"
+  ],
+  "consumer_proof_ids": [
+    "MAC-S0-01",
+    "MAC-S2-TT-4",
+    "MAC-S2-91",
+    "MAC-S2-116",
+    "MAC-AC-02"
+  ],
+  "findings_closed": {
+    "D1": "initiative не публикует при GLOBAL OFF + CHAT ON — исправлено в candidate_from_trigger / handle_initiative / intent_decision_enabled / IntentService.create_intent + due-scan/heartbeat",
+    "D2": "force-repeat transcribe игнорировал чатовый OFF — per-chat module_enabled в force_repeat_from_reply до STT",
+    "D3": "character frame не рендерился при GLOBAL OFF + CHAT ON — точка сборки берёт кадр из per-chat пина (run_frame_for_chat)",
+    "D4": "устаревший docstring _build_health про отсутствие per-chat слоя исправлен"
+  },
+  "command": "python -m pytest <24 focused files> -q --junitxml=evidence/m21/pytest-green.xml",
+  "focused_file_count": 24,
+  "focused_files": [
+    "tests/test_asap7_module_completeness.py",
+    "tests/test_asap7_module_registry.py",
+    "tests/test_asap8_f5_module_truth.py",
+    "tests/test_asap8_f7_stories.py",
+    "tests/test_asap8_v63_b07_temporal_factcheck.py",
+    "tests/test_asap8_v6_p1_d11_registry.py",
+    "tests/test_command_registry_round1015.py",
+    "tests/test_direct_chat_handlers.py",
+    "tests/test_epic72_gates.py",
+    "tests/test_mca12_stories_round1046.py",
+    "tests/test_mca18_self_model_block_a_round1042.py",
+    "tests/test_media_download.py",
+    "tests/test_mod_acl_ux_01_m21_adapters.py",
+    "tests/test_mod_acl_ux_01_m21_gates.py",
+    "tests/test_mod_acl_ux_m2_consumers.py",
+    "tests/test_mod_acl_ux_m2_resolver.py",
+    "tests/test_param_catalog.py",
+    "tests/test_qnd_event_path.py",
+    "tests/test_qnd_publication.py",
+    "tests/test_qnd_schedule.py",
+    "tests/test_smartsearch_handlers.py",
+    "tests/test_smoke_round1016_fixes.py",
+    "tests/test_web_handlers.py",
+    "tests/test_webapp_gates_api.py"
+  ],
+  "result": "green",
+  "tests": 481,
+  "passed": 481,
+  "failed_or_errors": 0,
+  "skipped": 0,
+  "verification": {
+    "focused_24": "481 passed",
+    "mca18_f1_file": "tests/test_mca18_block_ef_round1042.py -> 16 passed (было 15 passed / 1 failed)",
+    "mca18_all": "tests/test_mca18_*.py -> 98 passed",
+    "extra_run_red": "10-й красный (mca18 F1) закрыт; осталось 9 pre-existing (см. pre_existing_failures)",
+    "test_discrimination": [
+      {"mutation": "снят per-chat фильтр в IntentService.due_candidates", "test": "test_initiative_due_scan_is_per_chat", "result": "1 failed", "restored": true},
+      {"mutation": "product-строка возвращена к глобальному self_model_enabled()", "test": "test_resolve_character_context_legacy_on_error", "result": "1 failed", "restored": true}
+    ]
+  },
+  "new_tests": {
+    "count": 5,
+    "node_ids": [
+      "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_publishes_when_global_off_chat_on",
+      "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_create_intent_is_per_chat",
+      "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_due_scan_is_per_chat",
+      "tests/test_mod_acl_ux_01_m21_adapters.py::test_force_repeat_transcribe_per_chat",
+      "tests/test_mod_acl_ux_01_m21_adapters.py::test_character_frame_renders_when_global_off_chat_on"
+    ],
+    "updated_tests": [
+      "tests/test_mca18_block_ef_round1042.py::test_resolve_character_context_legacy_on_error"
+    ],
+    "real_seams": [
+      "mca_intents.candidate_from_trigger",
+      "direct_chat_service.handle_initiative (prepared_text -> telegram_send.send_text)",
+      "mca_intents.IntentService.create_intent/list_active/due_candidates (real DatabaseService)",
+      "handlers.voice_transcription.force_repeat_from_reply",
+      "bot_persona.resolve_character_context -> bot_persona.build_persona_prompt_block"
+    ]
+  },
+  "artifacts": {
+    "green_text": "evidence/m21/pytest-green.txt",
+    "green_xml": "evidence/m21/pytest-green.xml",
+    "red_base_text": "evidence/m21/pytest-red-base.txt",
+    "red_base_d1d3_text": "evidence/m21/pytest-red-base-d1d3.txt",
+    "mutations_json": "evidence/m21/mutations.json",
+    "mutations_text": "evidence/m21/mutations.txt"
+  },
+  "red_on_base": [
+    {
+      "commit": "bca18c1e",
+      "scope": "prior M2.1 re-review test set (F1-F10)",
+      "tests": 47,
+      "failed": 44,
+      "passed": 3,
+      "artifact": "evidence/m21/pytest-red-base.txt"
+    },
+    {
+      "commit": "bca18c1e",
+      "scope": "new D1/D2/D3 tests (4 node ids)",
+      "tests": 4,
+      "failed": 4,
+      "passed": 0,
+      "command": "temp archive of bca18c1e + current M2.1 test files",
+      "artifact": "evidence/m21/pytest-red-base-d1d3.txt"
+    }
+  ],
+  "mutations": [
+    {
+      "name": "publication_product_master_and_restored",
+      "file": "services/direct_chat_service.py",
+      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_publishes_when_global_off_chat_on",
+      "killed": true,
+      "returncode": 1
+    },
+    {
+      "name": "force_repeat_ignores_chat_off",
+      "file": "handlers/voice_transcription.py",
+      "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_force_repeat_transcribe_per_chat",
+      "killed": true,
+      "returncode": 1
+    },
+    {
+      "name": "persona_frame_gate_global_only",
+      "file": "services/bot_persona.py",
+      "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_character_frame_renders_when_global_off_chat_on",
+      "killed": true,
+      "returncode": 1
+    }
+  ],
+  "guard_checks": {
+    "no_second_resolver_or_acl": "tests/test_mod_acl_ux_01_m21_gates.py::test_no_second_resolver_or_acl",
+    "fail_closed_decision": "tests/test_mod_acl_ux_01_m21_gates.py::test_module_enabled_fail_closed_on_resolver_error",
+    "stored_values_not_rewritten": "tests/test_mod_acl_ux_01_m21_gates.py::test_adapter_does_not_rewrite_stored_values",
+    "initiative_consumers_use_per_chat_gate": "tests/test_mod_acl_ux_01_m21_gates.py::test_m21_consumers_use_existing_resolver",
+    "stories_acl_before_gate": "tests/test_mod_acl_ux_01_m21_adapters.py::test_stories_acl_precedes_per_chat_gate",
+    "transcribe_di_unconditional": "tests/test_mod_acl_ux_01_m21_adapters.py::test_voice_transcription_di_is_not_conditional",
+    "transcribe_two_runtime_points": "tests/test_asap8_f5_module_truth.py::test_m18_own_runtime_gates_present_in_handlers"
+  },
+  "test_files_touched_outside_focused_set": [
+    "tests/test_asap8_f6_initiative.py",
+    "tests/test_asap8_v6_c06a_heartbeat.py",
+    "tests/test_mca09_intents_block_a_round1040.py",
+    "tests/test_mca09_intents_block_b_round1040.py",
+    "tests/test_mca09_intents_block_c_round1040.py"
+  ],
+  "test_files_touched_outside_focused_set_reason": "эти тесты имитировали K1 OFF через mca_gates.intents_enabled (product master). После M2.1 product master — наследуемый GLOBAL-дефолт, поэтому аварийный OFF выражен env-осью intents_env_enabled; проверяемые инварианты (0 SQL/0 записей/disabled) сохранены и проходят",
+  "configuration": {
+    "ddl": 0,
+    "migrations": 0,
+    "new_flags_or_hot_keys": 0,
+    "second_acl_or_registry": 0,
+    "stored_values_rewritten": 0,
+    "env_axes_remain_emergency": [
+      "MCA_INTENTS_ENABLED",
+      "MCA_SELF_MODEL_ENABLED",
+      "MCA_RANDOM_SOURCE_ENABLED",
+      "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
+      "MCA_STORIES_VITRINA_ENABLED"
+    ],
+    "prohibited_files_untouched": [
+      "services/module_registry.py",
+      "services/permissions.py",
+      "services/access.py",
+      "prompt registry",
+      "VMQ QRNG",
+      "services/cognitive_map.py",
+      "services/config_cache.py",
+      "services/param_catalog.py"
+    ]
+  },
+  "test_debt_closed": {
+    "finding": "F1 (test-debt M2.1)",
+    "test": "tests/test_mca18_block_ef_round1042.py::test_resolve_character_context_legacy_on_error",
+    "classification": "test-debt, не pre-existing и не runtime-дефект",
+    "reason": "тест патчил устаревший глобальный mca_gates.self_model_enabled; resolve_character_context уже решает per chat (self_model_enabled_for_chat)",
+    "fix": "тест переведён на per-chat ось, обе ветки (CHAT ON -> boom/событие; CHAT OFF -> legacy без событий) заданы явно; инвариант legacy-on-error сохранён",
+    "status": "closed in bd92838d",
+    "verification": "файл 16 passed; все test_mca18_* 98 passed; возврат product-строки к глобальному гейту убивает тест"
+  },
+  "pre_existing_failures": [
+    "test_initiative_coordination: 4 теста (база bca18c1e; воспроизведено на кандидате bd92838d)",
+    "test_soul1_w5_observer_gates::test_initiative_writer_shares_core_style_and_persona (writer stub without _writer_evidence_capacity; воспроизведено на кандидате bd92838d)",
+    "test_initiative_speech_layers_chat_overrides: 4 теста (тот же writer stub; воспроизведено на кандидате bd92838d)"
+  ],
+  "limitations": [
+    "Кандидат не задеплоен; live production probe и effective-state прода не выполнялись.",
+    "Property: GLOBAL OFF + CHAT ON публикует проверена на реальных швах без Telegram/LLM: отправка через monkeypatched telegram_send.send_text; LLM-генерация не вызывается (prepared_text), writer не задействован.",
+    "Heartbeat due-скан закреплён committed-тестом test_initiative_due_scan_is_per_chat (CHAT ON -> кандидат; CHAT OFF/env OFF -> нет); реальный фоновый прогон на проде — после деплоя (вне задачи).",
+    "Per-chat резолв в due-скане делает один вызов резолвера на чат за тик (кэш chat_params TTL 120 с; холодный кэш → существующий read-path PG, без нового хранилища/DDL).",
+    "stories manage-контур остаётся глобальным (K2 MCA_STORIES_MANAGE_ENABLED); M2.1 закрывает read-контур.",
+    "Финальный VERIFIED не заявляется: требуется независимое ревью."
+  ],
+  "candidate_ref": "acl/m2.1-perchat-adapters"
+}

@@ -241,6 +241,50 @@ PENDING-строк M2 перенесены по полю `slice`, текст acc
 
 ---
 
+### 3.5. M2.1 — Approved (predeploy), 2026-11-16: adapters приняты, live остаётся
+
+Датированная запись к §3.4. История §3.4 сохранена; её пункт «Не приёмка» описывал состояние до
+кандидата и заменяется этой записью.
+
+- **Вердикт:** независимый Reviewer — **Approved (predeploy)** на product-кандидат `1a417917`
+  (16 files, +490/−76), evidence tip `0585f238` (test-only `bd92838d` + evidence), база `bca18c1e`
+  (2.58.205), ветка `acl/m2.1-perchat-adapters`, 15 линейных коммитов, 0 merge. D1–D4 PASS,
+  F1–F10 сохранены; F1 test-debt закрыт в `bd92838d`. Вердикт передан Оркестратором; текста ревью
+  в репозитории нет — происхождение, объём и ограничения зафиксированы в
+  `evidence/m21/m21-review-2026-11-16.md` §1 и в карте (`slice_candidate_bindings.m21`).
+- **Что проверено на кандидате:** 24 focused-файла → **481 passed / 0 failed**; новые D1/D2/D3
+  node ids на базе → **4 failed / 0 passed**; ранний набор F1–F10 → 44 failed / 3 passed;
+  **3/3 мутации killed**; 9 pre-existing идентичны базе (4 + 1 + 4); guard-checks (один резолвер,
+  fail-closed, stored values не переписаны). Продукт-код `1a417917` и tip `0585f238` идентичны
+  (`git diff` по `services/ handlers/ web/ bot.py` пуст), поэтому тесты tip'а применимы к кандидату.
+- **Семантика (owner §0.1/§2.1/§2.3.1; design §12.2/§12.5.1; `MAC-S2-TT-4`):** GLOBAL default →
+  CHAT override. static 8 (`direct, factcheck, search, web, transcribe, video_summary,
+  media_download, checkup`) через `feature_gates.module_enabled`; shared 3 (`initiative,
+  character, random`) — чат решает использование, пул/модель/тик живы; `stories` — read-контур;
+  env-оси остаются emergency и не подменяют сохранённый выбор. GLOBAL OFF + CHAT ON = ON в этом
+  чате; GLOBAL ON + CHAT OFF = OFF только здесь; INHERIT = глобальное значение.
+- **Строки (5 → REVIEW):** `MAC-S2-TT-5`, `MAC-AC-04`, `MAC-S10-01`, `MAC-S15-12`,
+  `MAC-S2-SHARED-01` — candidate-bound evidence (`artifact_path` + `artifact_sha256` +
+  `covers_row_acceptance` + `candidate_commit=1a417917…`), текст acceptance не менялся. Карта:
+  **69 VERIFIED / 23 REVIEW / 196 PENDING** из 288; VERIFIED не добавлялось. Consumer-level
+  доказательства добавлены к `MAC-S0-01`, `MAC-S2-TT-4`, `MAC-S2-91`, `MAC-S2-116`, `MAC-AC-02`
+  без смены статусов и владельца M2.
+- **Что осталось живым (честно):** ни одна строка не VERIFIED. Открыты: живая пара GLOBAL ON +
+  CHAT OFF; реальное событие чата с выключением по чату; реальная смена GLOBAL при сохранённом
+  chat ON; смена GLOBAL OFF→ON включая `summary/sleep/memory` (в M2.1 не перепроверялись);
+  реальный фоновый тик при GLOBAL OFF и одном чате с ON. Кандидат не выкачен; production
+  effective-state не измерялся; `stories` manage-контур остаётся глобальным.
+- **Гейты (факт):** plan `errors=0`; scoped review M2.1 `--candidate 1a417917…` → `scoped=5
+  errors=6`: `candidate mismatch` (map-level candidate намеренно `bca18c1e` до выката) + пять
+  `live requirement lacks evidence for stage review`. Ошибок привязки нет: Reviewer approval,
+  implementation evidence и strict `artifact_sha256` проходят по всем пяти строкам.
+  `workflow_progress --require-queue` → exit 0, queue 41/41; глобальные REVIEW 26 → 31,
+  PENDING 2369 → 2364, VERIFIED 4751 без изменений.
+- **Не приёмка:** выкат, live-поведение и эпик не закрыты; top-level `candidate_commit`/
+  `deployed_commit` карты не двигались (`bca18c1e`/2.58.205) до фактического релиза.
+
+---
+
 ## 4. Соблюдение требования «не только тесты»
 
 Правило из ТЗ §0.7/§9 и `AC-09`, `AC-19` записано как обязательный барьер приёмки, а не пожелание:
