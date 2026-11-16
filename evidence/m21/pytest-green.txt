@@ -1,10 +1,13 @@
-﻿........................................................................ [ 15%]
+M2.1 D1/D2/D3 corrective — GREEN: 24 focused files
+command: python -m pytest <24 focused files> -q --junitxml=evidence/m21/pytest-green.xml
+==============================================================================
+........................................................................ [ 15%]
 ........................................................................ [ 30%]
 ........................................................................ [ 45%]
 ........................................................................ [ 60%]
 ........................................................................ [ 75%]
 ........................................................................ [ 90%]
-............................................                             [100%]
+................................................                         [100%]
 ============================== warnings summary ===============================
 ..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
   C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
@@ -21,4 +24,4 @@
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-476 passed, 3 warnings in 19.41s
+480 passed, 3 warnings in 19.22s

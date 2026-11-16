@@ -1,24 +1,30 @@
-M2.1 corrective mutations — каждая снимает ровно один механизм.
-Скрипт: C:\Users\main\AppData\Local\Temp\opencode\m21_mutations_v2.py
-Файлы восстанавливались в finally; дерево после прогона чистое.
+M2.1 corrective D1/D2/D3 — мутации (ровно три, каждая снимает один механизм).
+Кандидат: 1a417917f128521f988fca9845f45ed3a6c6a7a5 (ветка acl/m2.1-perchat-adapters), база bca18c1e.
+Скрипт: %TEMP%\opencode\m21_mutations_v3.py. Файлы восстанавливались в finally;
+после прогона `git status` не содержит изменений кода (только evidence).
+Предыдущий набор мутаций (кандидат b278a547) заменён: он проверял master-AND
+наблюдателя, а этот — реальные швы D1/D2/D3.
 
-1. initiative_product_master_and_restored
-   file: services/initiative_observer.py
-   mutation: product-AND: emergency снова включает product master flags.initiative_enabled
-   test: tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_global_off_chat_on_is_on
-   result: KILLED (rc=1)
-   failure: 1 failed, 2 warnings in 2.99s
+1. publication_product_master_and_restored
+   file: services/direct_chat_service.py
+   mutation: в handle_initiative восстановлен product-AND
+             (`intents_enabled()` AND `intent_decision_enabled()`), per-chat
+             гейт удалён
+   test: tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_publishes_when_global_off_chat_on
+   result: KILLED (rc=1), 1 failed
 
-2. chat_override_ignored
-   file: services/feature_gates.py
-   mutation: chat override игнорируется: резолвер всегда в global scope
-   test: tests/test_mod_acl_ux_01_m21_gates.py::test_character_global_off_chat_on_is_on
-   result: KILLED (rc=1)
-   failure: 1 failed, 2 warnings in 3.03s
+2. force_repeat_ignores_chat_off
+   file: handlers/voice_transcription.py
+   mutation: per-chat `module_enabled` в force_repeat_from_reply отключён
+             (`if False and ...`)
+   test: tests/test_mod_acl_ux_01_m21_adapters.py::test_force_repeat_transcribe_per_chat
+   result: KILLED (rc=1), 1 failed
 
-3. emergency_env_ignored
-   file: services/mca_gates.py
-   mutation: аварийная env-ось MCA_INTENTS_ENABLED игнорируется
-   test: tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_emergency_env_overrides_chat
-   result: KILLED (rc=1)
-   failure: 1 failed, 2 warnings in 3.00s
+3. persona_frame_gate_global_only
+   file: services/bot_persona.py
+   mutation: build_persona_prompt_block снова читает кадр только по
+             глобальному `self_model_enabled()` (chat_id игнорируется)
+   test: tests/test_mod_acl_ux_01_m21_adapters.py::test_character_frame_renders_when_global_off_chat_on
+   result: KILLED (rc=1), 1 failed
+
+Итог: 3/3 killed.

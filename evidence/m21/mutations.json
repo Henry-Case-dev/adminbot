@@ -1,39 +1,36 @@
 {
   "candidate": "acl/m2.1-perchat-adapters",
+  "candidate_code_commit": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+  "base": "bca18c1e",
+  "note": "Corrective D1/D2/D3: ровно три мутации, каждая снимает один механизм. Предыдущий набор (b278a547) заменён этим: тот проверял master-AND наблюдателя, здесь проверяются реальные швы D1/D2/D3. Скрипт: %TEMP%/opencode/m21_mutations_v3.py; файлы восстанавливались в finally, дерево после прогона чистое (git status — только evidence).",
   "mutations": [
     {
-      "name": "initiative_product_master_and_restored",
-      "file": "services/initiative_observer.py",
-      "mutation": "product-AND: emergency снова включает product master flags.initiative_enabled",
-      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_global_off_chat_on_is_on",
+      "name": "publication_product_master_and_restored",
+      "file": "services/direct_chat_service.py",
+      "mutation": "в handle_initiative восстановлен product-AND (mca_gates.intents_enabled() AND intent_decision_enabled()), per-chat гейт удалён",
+      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_publishes_when_global_off_chat_on",
       "killed": true,
       "returncode": 1,
-      "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n..\\..\\..\\..\\..\\..\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\site-packages\\_pytest\\config\\__init__.py:1464\n  C:\\Users\\main\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\site-packages\\_pytest\\config\\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_global_off_chat_on_is_on\n1 failed, 2 warnings in 2.99s"
+      "failure": "1 failed, 2 warnings in 3.20s"
     },
     {
-      "name": "chat_override_ignored",
-      "file": "services/feature_gates.py",
-      "mutation": "chat override игнорируется: резолвер всегда в global scope",
-      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_character_global_off_chat_on_is_on",
+      "name": "force_repeat_ignores_chat_off",
+      "file": "handlers/voice_transcription.py",
+      "mutation": "per-chat module_enabled в force_repeat_from_reply отключён (if False and ...)",
+      "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_force_repeat_transcribe_per_chat",
       "killed": true,
       "returncode": 1,
-      "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n..\\..\\..\\..\\..\\..\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\site-packages\\_pytest\\config\\__init__.py:1464\n  C:\\Users\\main\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\site-packages\\_pytest\\config\\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_character_global_off_chat_on_is_on\n1 failed, 2 warnings in 3.03s"
+      "failure": "1 failed, 2 warnings in 3.74s"
     },
     {
-      "name": "emergency_env_ignored",
-      "file": "services/mca_gates.py",
-      "mutation": "аварийная env-ось MCA_INTENTS_ENABLED игнорируется",
-      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_emergency_env_overrides_chat",
+      "name": "persona_frame_gate_global_only",
+      "file": "services/bot_persona.py",
+      "mutation": "build_persona_prompt_block снова берёт кадр только по глобальному self_model_enabled() (chat_id игнорируется)",
+      "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_character_frame_renders_when_global_off_chat_on",
       "killed": true,
       "returncode": 1,
-      "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n..\\..\\..\\..\\..\\..\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\site-packages\\_pytest\\config\\__init__.py:1464\n  C:\\Users\\main\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\site-packages\\_pytest\\config\\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_emergency_env_overrides_chat\n1 failed, 2 warnings in 3.00s"
+      "failure": "1 failed, 2 warnings in 2.97s"
     }
   ],
-  "all_killed": true,
-  "candidate_code_commit": "b278a547eb3753d02e20dd016f560f966cfcf329",
-  "candidate_diff": {
-    "files": 13,
-    "insertions": 514,
-    "deletions": 155
-  }
+  "all_killed": true
 }
