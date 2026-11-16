@@ -60,7 +60,8 @@
 | Набор | Результат |
 |---|---|
 | Обязательный pytest-набор (M4A/M2/M2.1 + f8 + mca23 + webapp JS unit, 24 файла) | **386 passed, 0 failed** |
-| Дополнительно: перепиненные py-файлы (23 файла) | 826 passed, **5 known failed** (4 pre-existing + 1 stale-vs-M4A) |
+| Дополнительно: перепиненные py-файлы (23 файла) | 826 passed, **5 known failed** (4 pre-existing + 1 stale-vs-M4A, закрыт follow-up test-коммитом) |
+| Закрытие test-debt hotfix10 | **27 passed** (RED на CSS 37f6c76f подтверждён) |
 | JS review / catalog | **75 / 207 проверок**, 0 failed |
 | 4 перепиненных JS-файла | 4 passed |
 | Полный `tests/js/*.js` | 4 pre-existing fail (те же, что на базе) |
@@ -79,8 +80,10 @@ Playwright (свежий прогон после bump): сетка 4/3/2/1/1, в
   (tool canon 18 vs 17, forbidden-path allowlists), воспроизведены на базе
   2.58.209 и зафиксированы в `release-2.58.209/tests-2.58.209.json`;
 - 1 stale-vs-M4A: `test_webapp_hotfix10_round1025.py::test_card_limit_kept`
-  ожидает снятый M4A `.module-list max-width:1100px`; тест не правился в
-  этом bump-раунде — отдельное test-debt решение, не следствие bump.
+  ожидал снятый M4A `.module-list max-width:1100px`; **закрыт** follow-up
+  test-only коммитом (`test_catalog_width_contract`): контракт «нет 1100,
+  колонка до 1440, сетка 4/3/2/1, карточка 132–164», RED на CSS 37f6c76f
+  подтверждён; продуктовый код не менялся.
 - `git diff --check` по всему диапазону `37f6c76f..368e3001` даёт 2
   pre-existing whitespace-замечания одобренного кандидата
   (`tests/js/mod_acl_ux_m4_catalog_test.js:385` пустая строка в EOF;
@@ -105,14 +108,16 @@ bump-коммит отдельного отката не требует.
 ## 7. Tip и evidence
 
 - **Content tip** — `368e3001` (bump; весь продуктовый код и тесты M4A).
-- **Branch tip** — отдельный docs-коммит поверх content tip с этими пятью
-  evidence-файлами; продуктовый код он не меняет. SHA docs-коммита не может
-  быть указан внутри добавляемых им же файлов; актуальный tip — в отчёте
-  Builder/оркестратора и в `origin/release/mod-acl-m4a-2.58.210`.
+- **Branch tip** — docs-коммит с этими пятью evidence-файлами и следующий
+  test-only коммит закрытия test-debt; продуктовый код они не меняют. SHA
+  этих коммитов не может быть указан внутри добавляемых/правимых ими файлов;
+  актуальный tip — в отчёте Builder/оркестратора и в
+  `origin/release/mod-acl-m4a-2.58.210`.
 - Manifest dry-run снят на content tip; деплойный манифест должен записать
   фактический checkout-коммит.
 
 ## 8. Ограничения
 
 См. `limitations.md`: нет live TMA, W3 не реализован, desktop tri-state 32 px,
-topbar «0 — конфликт» — backlog, известный test-debt. Деплоя и VERIFIED нет.
+topbar «0 — конфликт» — backlog, 4 pre-existing epic-scope guard-падения
+(не M4A). Деплоя и VERIFIED нет.

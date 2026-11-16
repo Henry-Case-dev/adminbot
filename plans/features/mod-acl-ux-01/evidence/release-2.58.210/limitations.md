@@ -28,17 +28,19 @@
   живыми 409-состояниями карточек; sync счётчика — backlog, в M4A wave 1 не
   реализовывался.
 
-## 4. Известный test-debt (не скрывается)
+## 4. Известный test-debt
 
-- `tests/test_webapp_hotfix10_round1025.py::TestMainSurface::test_card_limit_kept`
-  ожидает прежний `.module-list max-width:1100px`, снятый принятым M4A.
-  Тест не правился в bump-раунде (ограничение скоупа: только bump/evidence);
-  нужно отдельное test-debt решение. На базе 2.58.209 тест проходил, на
-  кандидате M4A — падает.
+- Test-debt `tests/test_webapp_hotfix10_round1025.py` **закрыт** в этом
+  bump-цикле отдельным test-only коммитом. Устаревшая проверка
+  `.module-list max-width:1100px` заменена контрактом M4A (design-m3 §4.1,
+  `evidence/m4a/wave1-brief.md`): у `.module-list`/`.module-catalog` нет
+  потолка 1100, контентная колонка до 1440, сетка 4/3/2/1, карточка 132–164
+  (верхняя граница — измерением, не `max-height`). Продуктовый код не
+  менялся; RED на CSS 2.58.209 подтверждён.
 - 4 pre-existing pytest-падения в `test_tool_coordinator_round1026.py` /
-  `test_unified_image_request_round1026.py` — устаревшие epic-scope guards
-  (tool canon 18 vs 17, forbidden-path allowlists); воспроизведены на базе
-  2.58.209, к M4A/bump отношения не имеют.
+  `test_unified_image_request_round1026.py` (устаревшие epic-scope guards:
+  tool canon 18 vs 17, forbidden-path allowlists) **остаются pre-existing**
+  и к M4A не относятся; воспроизведены на базе 2.58.209.
 - 4 pre-existing node-падения: `asap6_wave2_ux_tabs_test.js`,
   `evol_cog_scene_test.js`, `round1025_ia_routing_test.js`,
   `ur_ui_settings_test.js`; те же на базе, новых нет.
@@ -49,8 +51,8 @@
   `deployed_sha` в dry-run — это SHA content tip, а не фактически выложенный
   SHA. При деплое штатный `tools/release_manifest.py` должен записать
   реальный checkout-коммит; иначе identity будет неверной.
-- Evidence-файлы этого релиза добавлены отдельным docs-коммитом поверх
-  content tip и не меняют продуктовый код; ветка заканчивается этим docs-коммитом.
+- Evidence-файлы этого релиза и закрытие test-debt добавлены отдельными
+  docs/test-only коммитами поверх content tip; продуктовый код они не меняют.
 - Production в этой сборке не читался: health/effective-state/schema на
   сервере не проверялись.
 

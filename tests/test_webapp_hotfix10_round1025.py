@@ -125,13 +125,43 @@ class TestMainSurface:
         assert "margin-inline: 0" in block
         assert "var(--work-surface-bg)" in block
 
-    def test_card_limit_kept(self):
-        assert re.search(r"\.module-list \{[\s\S]{0,160}max-width:\s*1100px",
-                         APP_CSS)
-        assert re.search(r"\.module-quick-wrap \{[\s\S]{0,120}max-width:\s*1100px",
-                         APP_CSS)
-        assert re.search(r"\.module-toolbar \{[\s\S]{0,120}max-width:\s*1100px",
-                         APP_CSS)
+    def test_catalog_width_contract(self):
+        # MOD-ACL-UX-01 M4A (design-m3 §4.1 + evidence/m4a/wave1-brief.md):
+        # потолок 1100 у каталога/списка снят; контентная колонка до 1440;
+        # сетка 4/3/2/1; natural height 132–164 проверяется измерением (e2e),
+        # не max-height.
+        assert not re.search(
+            r"\.module-(?:list|catalog)\s*\{[^}]*max-width:\s*1100px",
+            APP_CSS), "M4A: потолок 1100 у каталога/списка снят"
+
+        m = re.search(r"\.module-catalog\s*\{([^}]*)\}", APP_CSS)
+        assert m, "нет правила .module-catalog"
+        assert re.search(r"max-width:\s*1440px", m.group(1)), \
+            "контентная колонка каталога до 1440"
+
+        tiers = [
+            (r"@media \(min-width: 1400px\)", 4),
+            (r"@media \(min-width: 1100px\) and \(max-width: 1399px\)", 3),
+            (r"@media \(min-width: 700px\) and \(max-width: 1099px\)", 2),
+            (r"@media \(max-width: 699px\)", 1),
+        ]
+        for header, cols in tiers:
+            m = re.search(header + r"\s*\{", APP_CSS)
+            assert m, "нет media-тира: %s" % header
+            window = APP_CSS[m.end():m.end() + 400]
+            assert re.search(
+                r"\.module-catalog \.module-list\s*\{[^}]*"
+                r"grid-template-columns:\s*repeat\(%d," % cols, window), \
+                "тир %s: ожидалось %d колонок" % (header, cols)
+
+        card_blocks = re.findall(r"\.module-card\s*\{([^}]*)\}", APP_CSS)
+        assert any("min-height: 132px" in block for block in card_blocks), \
+            "карточка: natural height начинается с 132"
+        for block in card_blocks:
+            for value in re.findall(
+                    r"(?:min-height|max-height|height):\s*(\d+)px", block):
+                assert int(value) <= 164, \
+                    "карточка: фиксированная высота >164 (%s)" % value
 
     def test_no_negative_margins(self):
         assert not re.search(r"margin(?:-left|-inline)?:\s*-", APP_CSS)

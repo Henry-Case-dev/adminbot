@@ -89,7 +89,7 @@
         "failed": 5
       },
       "duration_s": 79.92,
-      "note": "extra diligence over the bumped pin files; all 5 failures are outside the required acceptance set, see known_failures"
+      "note": "extra diligence over the bumped pin files; all 5 failures are outside the required acceptance set, see known_failures; one of the 5 (hotfix10 stale cap) was closed by the follow-up test-debt commit, 4 pre-existing pytest guards remain"
     },
     {
       "id": "js-review-catalog",
@@ -178,6 +178,26 @@
         "bump_diff_check_rc": 0
       },
       "note": "full range 37f6c76f..368e3001 reports 2 pre-existing whitespace notes in the approved candidate (tests/js/mod_acl_ux_m4_catalog_test.js:385 blank line at EOF; web/app.js:602 trailing whitespace in a comment); not introduced by the bump"
+    },
+    {
+      "id": "test-debt-hotfix10",
+      "command": "python -m pytest tests/test_webapp_hotfix10_round1025.py -q",
+      "result": {
+        "passed": 27,
+        "failed": 0
+      },
+      "duration_s": 5.46,
+      "note": "stale test updated to the approved M4A catalog contract; RED confirmed against the 37f6c76f CSS (1100 cap); no product change"
+    },
+    {
+      "id": "bump-pin-pytest-extra-postfix",
+      "command": "python -m pytest 23 bumped py files -q (after test-debt closure)",
+      "result": {
+        "passed": 827,
+        "failed": 4
+      },
+      "duration_s": 81.09,
+      "note": "only the 4 pre-existing epic-scope guard failures remain; test_webapp_hotfix10 now passes"
     }
   ],
   "known_failures": [
@@ -190,13 +210,6 @@
       ],
       "pre_existing": true,
       "note": "stale epic-scope guards (tool canon 18 vs 17 and forbidden-path allowlists vs old baselines); reproduced on the 2.58.209 base and recorded in release-2.58.209/tests-2.58.209.json; unrelated to M4A/bump"
-    },
-    {
-      "node_ids": [
-        "tests/test_webapp_hotfix10_round1025.py::TestMainSurface::test_card_limit_kept"
-      ],
-      "pre_existing": false,
-      "note": "stale assertion of the pre-M4A .module-list max-width:1100px cap; M4A intentionally removed the cap (approved candidate); test was not adapted in this bump round -> separate test-debt decision, not caused by the version bump"
     }
   ],
   "requirement_ids": [
@@ -216,5 +229,18 @@
     "MAC-S5-SAVE-01",
     "MAC-AC-08"
   ],
-  "limitations": "limitations.md"
+  "limitations": "limitations.md",
+  "resolved_test_debt": [
+    {
+      "node_id": "tests/test_webapp_hotfix10_round1025.py::TestMainSurface::test_catalog_width_contract",
+      "superseded_node_id": "tests/test_webapp_hotfix10_round1025.py::TestMainSurface::test_card_limit_kept",
+      "fixed_by": "follow-up test-only commit on release/mod-acl-m4a-2.58.210 (no product change)",
+      "contract": "design-m3 §4.1 / evidence/m4a/wave1-brief.md: no max-width:1100 on .module-list/.module-catalog; content column up to 1440; grid 4/3/2/1; card 132–164 measured, not max-height",
+      "red_on": "37f6c76f CSS: AssertionError 'M4A: потолок 1100 у каталога/списка снят'",
+      "result": {
+        "passed": 27,
+        "failed": 0
+      }
+    }
+  ]
 }
