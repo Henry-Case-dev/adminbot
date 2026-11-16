@@ -30,7 +30,13 @@
   "deletions": 181,
   "composition": "17 cherry-pick files + 30 version-pin files",
   "pin_files": 30,
-  "pin_lines": 31
+  "pin_lines": 31,
+  "evidence_files_at_tip": 4,
+  "diff_at_evidence_tip": {
+   "files": 51,
+   "insertions": 1809,
+   "deletions": 181
+  }
  },
  "batches": [
   {
