@@ -116,14 +116,33 @@ sha256 `BA6CF3D6…6FF92A7`). **Baseline:** `plans/features/mod-acl-ux-01/m0-bas
   конфиг-таблиц является заменой, но не pg_dump (задокументировано); (2) независимого
   Reviewer-одобрения M0-доказательств нет; (3) живой Mini App с owner-сессией не открывался — это
   проверка M4, не M0.
-- **Гейты (факт):** plan `errors=0`; scoped review M0 на `bca18c1e` — `errors=2` (candidate
+- **Гейты (факт, до rebind):** plan `errors=0`; scoped review M0 на `bca18c1e` — `errors=2` (candidate
   mismatch из-за намеренно не перенесённого map-level кандидата `34213999` + отсутствие
   независимого Reviewer-одобрения), на `34213999` — `errors=1` (evidence не привязан к старому
-  кандидату). Это binding-shape и отсутствие ревью, а не дефект содержимого M0.
+  кандидату). Цифры этого пункта неполные: полный прогон до rebind давал `errors=3` (третья ошибка —
+  «live requirement lacks evidence» из-за устаревших `artifact_sha256`); актуальные значения — ниже.
 - **Статус:** `MAC-M0-01` = **REVIEW** на кандидате `bca18c1e`, не `VERIFIED`: live-матрица и
   конфигурационный снапшот есть, но независимого Reviewer-одобрения нет; pg_dump-ограничение
   зафиксировано. M0 не закрывает эпик; следующий dependency-ready срез — **M3 design freeze**
   (M4A depends_on M3).
+- **Поправка D1–D4 (2026-11-16, Builder `a4e1f12c` + `f300ecca`; rebind карты — коммит этого
+  примечания):** актуальные sha256 доказательств — `mac-m0-01.md` `D3D00E38…AE50`,
+  `effective-state-2.58.205.md` `BCC1EBBE…92DE`, `.json` `9A0CBA41…AD31`, DOM-проба `CAA49780…315C`,
+  `m0-baseline.md` `EAD79303…2351` (не менялся). D1: inner sha256 снимка — `1c5312fe…ea78` (прежний
+  `309f1947…9914` — хеш от `str(bytes)`; gz не менялся, sidecar на проде исправлен). D2:
+  `registry_for_frontend()` отдаёт 10 записей, 11 — это весь реестр. D3: байт-в-байт верно только для
+  `app.js`, `index.html` отличается подстановкой `__APP_VERSION__`. D4: два остаточных неверных хеша —
+  gz-суффикс в §6 и старый sha `.json` в §8 `effective-state-2.58.205.md`, gz-суффикс в §1.4
+  `mac-m0-01.md` — исправлены `f300ecca`. Значения sha256 в пунктах выше — исторические (до поправки),
+  их заменяет эта запись.
+- **Map-level candidate согласован (2026-11-16):** `candidate_commit` = `deployed_commit` = `bca18c1e`
+  (2.58.205); история `34213999` (2.58.175) сохранена в `deployment_evidence`, evidence-записях строк
+  и git log, строки не переоценивались. Живая сверка того же дня: публичный `/healthz` → 2.58.205,
+  `/web/app.js` 2 311 044 B, sha256 `3cf2c916…f594`.
+- **Гейты после rebind:** plan `errors=0`; scoped review M0 `--candidate bca18c1e` → `errors=1` —
+  только отсутствие независимого Reviewer-одобрения. До rebind тот же прогон давал `errors=3`
+  (candidate mismatch и «live requirement lacks evidence»: устаревшие `artifact_sha256` отбрасывались
+  при `strict_evidence`), поэтому прежнее утверждение «sha256 валидны» снято как неверное.
 
 ---
 
