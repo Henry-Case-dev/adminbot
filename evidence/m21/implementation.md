@@ -5,10 +5,12 @@
 
 **База:** `bca18c1e` (2.58.205, schema 47). **Ветка:**
 `acl/m2.1-perchat-adapters`. **Текущий corrective code commit:**
-`1a417917f128521f988fca9845f45ed3a6c6a7a5` (16 files, +490/−76). Предыдущие
+`1a417917f128521f988fca9845f45ed3a6c6a7a5` (16 files, +490/−76). **Test-only
+commit (F1 test-debt + committed due-scan test):**
+`bd92838d3af3c83065c005a9c57eab7ed1180b14` (2 files, +68/−3). Предыдущие
 шаги лейна: `b278a547` (F1–F10), `9b78b6ab` (test-only), `299ac2b7` (evidence).
-**Кумулятивный срез `bca18c1e..1a417917`:** 44 files, +3516/−249 (включает
-предыдущие M2.1-коммиты; evidence-коммит добавляет только `evidence/m21`).
+**Кумулятивный срез `bca18c1e..bd92838d`:** 46 files, +3815/−252 (включает
+предыдущие M2.1-коммиты и evidence; test-only commit не меняет `services/`).
 **Требования среза:** `MAC-AC-04`, `MAC-S2-TT-5`, `MAC-S10-01`, `MAC-S15-12`,
 `MAC-S2-SHARED-01`; consumer-proof для `MAC-S0-01`, `MAC-S2-TT-4`,
 `MAC-S2-91`, `MAC-S2-116`, `MAC-AC-02`.
@@ -17,7 +19,7 @@
 
 | # | Замечание | Фактическое исправление | Проверка |
 |---|---|---|---|
-| D1 | initiative не публикует при GLOBAL OFF + CHAT ON: `candidate_from_trigger`, `handle_initiative`, `intent_decision_enabled`, `IntentService.create_intent` держали product master-AND | Продуктовый master (`flags.initiative_enabled`) — наследуемый GLOBAL-дефолт, решает per chat. `candidate_from_trigger` читает только env-ось `MCA_INTENTS_ENABLED`; `IntentService.create_intent/list_active/due_candidates` и `handle_initiative` спрашивают `initiative_observer.initiative_chat_enabled` (канонический `chat_params`-резолвер); lifecycle (`defer/resume/mark_attempt/close/note_writer_failure`), гигиена и heartbeat-хост используют аварийную env-ось; `intent_decision_enabled`/`send_recheck_enabled`/`intent_heartbeat_enabled` больше не зависят от product master; due-скан фильтрует чаты per chat | `test_initiative_publishes_when_global_off_chat_on` (реальные `candidate_from_trigger` + `handle_initiative` → отправка через `telegram_send.send_text`), `test_initiative_create_intent_is_per_chat` (реальный `DatabaseService` + `IntentService.create_intent/list_active`), mutation 1 |
+| D1 | initiative не публикует при GLOBAL OFF + CHAT ON: `candidate_from_trigger`, `handle_initiative`, `intent_decision_enabled`, `IntentService.create_intent` держали product master-AND | Продуктовый master (`flags.initiative_enabled`) — наследуемый GLOBAL-дефолт, решает per chat. `candidate_from_trigger` читает только env-ось `MCA_INTENTS_ENABLED`; `IntentService.create_intent/list_active/due_candidates` и `handle_initiative` спрашивают `initiative_observer.initiative_chat_enabled` (канонический `chat_params`-резолвер); lifecycle (`defer/resume/mark_attempt/close/note_writer_failure`), гигиена и heartbeat-хост используют аварийную env-ось; `intent_decision_enabled`/`send_recheck_enabled`/`intent_heartbeat_enabled` больше не зависят от product master; due-скан фильтрует чаты per chat | `test_initiative_publishes_when_global_off_chat_on` (реальные `candidate_from_trigger` + `handle_initiative` → отправка через `telegram_send.send_text`), `test_initiative_create_intent_is_per_chat` (реальный `DatabaseService` + `IntentService.create_intent/list_active`), `test_initiative_due_scan_is_per_chat` (реальный due-скан: CHAT ON → кандидат; CHAT OFF/env OFF → нет), mutation 1 |
 | D2 | командный force-repeat transcribe игнорировал чатовый OFF | `handlers.voice_transcription.force_repeat_from_reply` (его зовёт `handlers/youtube._handle_voice_command`) проверяет `flags.enable_voice_transcription` per chat каноническим `feature_gates.module_enabled` ДО STT; ошибка резолвера → fail-closed | `test_force_repeat_transcribe_per_chat` (GLOBAL ON+CHAT OFF → STT не зван; GLOBAL OFF+CHAT ON → зван), mutation 2 |
 | D3 | character frame не рендерился при GLOBAL OFF + CHAT ON: точка сборки читала глобальный `self_model_enabled()` | `build_persona_prompt_block(..., chat_id=)` берёт кадр из пина ЭТОГО чата (`run_frame_for_chat`; чужой/отсутствующий пин → legacy). Production-точки (`resolve_character_block`, Direct system prompt, payload estimate) передают `chat_id`; сами не резолвят второй раз — решение уже принято `self_model_enabled_for_chat` | `test_character_frame_renders_when_global_off_chat_on` (ctx.frame_version + `<FRAME>`; GLOBAL ON даёт тот же блок; CHAT OFF → legacy), mutation 3 |
 | D4 | устаревший docstring `_build_health` («per-chat слоя нет») | docstring описывает реальный per-chat `feature_gates.module_enabled` | source-proof + focused GREEN |
@@ -85,15 +87,39 @@
 `param_catalog.py`. DDL/миграций/новых флагов/second ACL нет; stored values не
 переписываются.
 
+### Test-only commit `bd92838d` (F1 test-debt + D1 due-scan)
+
+- `tests/test_mca18_block_ef_round1042.py::test_resolve_character_context_legacy_on_error`
+  — **F1 test-debt, не pre-existing и не runtime-дефект.** Тест патчил
+  устаревший глобальный `mca_gates.self_model_enabled`; после M2.1
+  `resolve_character_context` решает per chat
+  (`self_model_enabled_for_chat`), поэтому вторая половина теста («K1 OFF →
+  legacy без событий») перестала действовать. Тест переведён на per-chat ось:
+  обе ветки (`CHAT ON` → boom/событие; `CHAT OFF` → legacy без frame-попыток)
+  заданы явно, инвариант legacy-on-error/событие сохранён. Проверка
+  дискриминации: возврат product-строки к глобальному гейту убивает тест
+  (1 failed).
+- `tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_due_scan_is_per_chat`
+  — committed-тест D1 due-фильтра на реальном `DatabaseService`: GLOBAL OFF +
+  CHAT ON → `due_candidates` отдаёт кандидата; CHAT OFF → нет; аварийная
+  env-ось OFF → нет; после фильтрации строка намерения остаётся `pending`
+  (фильтр только читает). Проверка дискриминации: снятие per-chat проверки в
+  `IntentService.due_candidates` убивает тест (1 failed).
+- Product-файлы (`services/`, `handlers/`, `web/`, `bot.py`) не менялись:
+  `git show --stat bd92838d` — только два test-файла.
+
 ## 4. Проверки
 
 - **RED на базе `bca18c1e`:** новые D1/D2/D3 тесты (4 node ids) в чистом
   архиве базы → **4 failed / 0 passed** (`pytest-red-base-d1d3.txt`).
   Предыдущий RED-набор F1–F10 сохранён: 44 failed / 3 passed
   (`pytest-red-base.txt`).
-- **GREEN на кандидате `1a417917`:** 24 focused-файла → **480 passed, 0
-  failed, 0 skipped** (`pytest-green.txt`, `pytest-green.xml`,
-  `tests-summary.json`).
+- **GREEN на кандидате `bd92838d` (tip после test-only):** 24 focused-файла →
+  **481 passed, 0 failed, 0 skipped** (`pytest-green.txt`,
+  `pytest-green.xml`, `tests-summary.json`). Прирост +1 — committed-тест
+  due-фильтра; F1-тест в focused-24 не входит.
+- **F1 test-debt:** `test_mca18_block_ef_round1042.py` → **16 passed**
+  (было 15 passed / 1 failed). Все `tests/test_mca18_*.py` → **98 passed**.
 - **Мутации:** 3/3 killed (`mutations.txt`, `mutations.json`):
   1. product-AND возвращён в `handle_initiative` → убит
      `test_initiative_publishes_when_global_off_chat_on`;
@@ -106,6 +132,10 @@
   `telegram_send.send_text`), `IntentService.create_intent/list_active` на
   реальном `DatabaseService`, `force_repeat_from_reply` (AST-ветка handler'а
   youtube), `resolve_character_context` → `build_persona_prompt_block`.
+- **Дискриминация новых/переведённых тестов (test-only probes):** снятие
+  per-chat проверки в `due_candidates` → 1 failed (due-тест); возврат
+  product-строки к глобальному `self_model_enabled()` → 1 failed (F1-тест).
+  Оба product-файла восстановлены, `services/` в tip не изменён.
 - **Дополнительные прогоны (не входят в 24):** `test_mca09_intents_block_{a–e}`,
   `test_mca09_intents_off_parity`, `test_asap8_f6_initiative`,
   `test_asap8_v6_c06a_{heartbeat,status_ui}`, `test_nostalgia_*`,
@@ -114,12 +144,16 @@
   `test_history_retention_toggle`, `test_media_transcribe_tool_round1024`,
   `test_bot_persona`, `test_persona_prompt`, `test_mca18_*` — все зелёные,
   кроме перечисленных ниже pre-existing.
-- **Pre-existing failures (вне M2.1; воспроизведены на HEAD `299ac2b7`):**
+- **Pre-existing failures (вне M2.1; воспроизведены на кандидате
+  `bd92838d`, ранее — на HEAD `299ac2b7`): ровно 9.**
   `test_initiative_coordination` (4),
   `test_soul1_w5_observer_gates::test_initiative_writer_shares_core_style_and_persona`,
-  `test_mca18_block_ef_round1042::test_resolve_character_context_legacy_on_error`,
   `test_initiative_speech_layers_chat_overrides` (4). Первые два класса — тот
   же сломанный writer-stub (`_StubService` без `_writer_evidence_capacity`).
+  **`test_mca18_block_ef_round1042::test_resolve_character_context_legacy_on_error`
+  в этот список больше не входит:** это была test-debt M2.1 (устаревший
+  глобальный патч), исправленная в `bd92838d`; 10-й красный extra-прогона
+  закрыт, остались только 9 реально pre-existing.
 
 ## 5. Конфигурация и ограничения
 
@@ -135,14 +169,16 @@
   effective-state не заявляется.
 - Per-chat резолв в due-скане: один вызов на чат за тик (кэш `chat_params`
   TTL 120 с; холодный кэш → существующий read-path PG, без нового
-  хранилища/DDL).
+  хранилища/DDL). Due-фильтр закреплён committed-тестом
+  `test_initiative_due_scan_is_per_chat`; реальный фоновый прогон на проде —
+  после деплоя (вне задачи).
 - `VERIFIED` не заявляется: требуется независимое ревью.
 
 ## 6. Артефакты
 
 - `evidence/m21/pytest-red-base.txt` — RED базы F1–F10 (44/3).
 - `evidence/m21/pytest-red-base-d1d3.txt` — RED базы для новых D1/D2/D3 (4/4).
-- `evidence/m21/pytest-green.txt` / `.xml` — GREEN кандидата (480).
+- `evidence/m21/pytest-green.txt` / `.xml` — GREEN кандидата `bd92838d` (481).
 - `evidence/m21/tests-summary.json` — машиночитаемая сводка с точными SHA,
   24 focused-файлами, новыми тестами, RED-наборами и diff-цифрами.
 - `evidence/m21/mutations.txt` / `mutations.json` — 3 мутации, все killed.
