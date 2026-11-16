@@ -191,7 +191,7 @@ factcheck, factcheck_temporal`) **ноль** явных chat-значений у
 **Поправка D1 (2026-11-16).** Фактический inner sha256 — `1c5312fe…ea78`
 (подтверждён `gzip -dc | sha256sum`). Ранее записанный `309f1947…9914` — ошибочный хеш от
 `str(bytes)`, а не от распакованных байт. Gz не менялся: **92 356 B**, sha256
-`1cae602d…c9d4`; размеры и строки прежние. Sidecar на проде исправлен: `.sha256` +
+`1cae602d…9a4d`; размеры и строки прежние. Sidecar на проде исправлен: `.sha256` +
 `.meta.json` с `corrections[]`, `gz_modified_by_correction:false`; бэкап старого sidecar
 сохранён.
 
@@ -218,7 +218,7 @@ factcheck, factcheck_temporal`) **ноль** явных chat-значений у
 
 | Файл | Что | sha256 |
 |---|---|---|
-| `evidence/m0/effective-state-2.58.205.json` | сводный бандл (identity, digest, CLI, матрица 48 пар, stored, snapshot) | `ac01a5cb7d6a3f7c47e5dc334c5c7e29a126de449b5a04ef599ebb918715b2cf` |
+| `evidence/m0/effective-state-2.58.205.json` | сводный бандл (identity, digest, CLI, матрица 48 пар, stored, snapshot) | `9A0CBA41C752D7B0017EEE6BB5E5A6CF0705870C4A5614AA6C6EC42CC9D7AD31` |
 | `effective-2.58.205.json` (prod `/tmp/m0_acl_20261116T040324Z/`) | вывод официального CLI | `85daf73a2bbd69b96aa130f2fe2f50cc42875d63cd621b3049c89f14c6a644cc` |
 | `stored-and-matrix.json` (prod) | stored-слой + digest + матрица | `c29a69d8a0fbf9af821c9d33750cbb1232144806806d416a5e55f3dbcd9ff200` |
 | `dm-and-snapshot.json` (prod) | DM5-профиль + серверный снапшот | `bcf516e9235b199f89044d124838416df3f39e6a293bb671cf19b836b7b56fc5` |

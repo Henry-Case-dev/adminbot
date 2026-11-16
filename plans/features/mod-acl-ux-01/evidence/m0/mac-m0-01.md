@@ -65,7 +65,7 @@ sha256 `3cf2c916…f594`). Served `index.html` отличается только
 - **D1.** Внутренний sha256 распакованного JSON-снимка `config-tables-2.58.205.json.gz` —
   `1c5312feca6eba7a8386aeb39aaf712516f7f789f4bdc107a701e489c188ea78`, а не записанный ранее
   `309f1947…9914` (ошибочный хеш от `str(bytes)`). Gz не менялся: 92 356 B, sha256
-  `1cae602d…c9d4`; 393 427 B JSON, 548/3 строки, read-back equal. Sidecar на проде исправлен:
+  `1cae602d…9a4d`; 393 427 B JSON, 548/3 строки, read-back equal. Sidecar на проде исправлен:
   `.sha256` + `.meta.json` с `corrections[]`, `gz_modified_by_correction:false`; старый sidecar
   сохранён. Детали: `evidence/m0/effective-state-2.58.205.md` §6 и
   `evidence/m0/effective-state-2.58.205.json` (`snapshot.json_sha256_correction`).
