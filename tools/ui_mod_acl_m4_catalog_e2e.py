@@ -793,16 +793,7 @@ def main() -> int:
             vpage.on("pageerror", lambda e, b=_verrs: b.append(str(e)[:200]))
             vpage.goto("http://127.0.0.1:%d/web/index.html#/modules/summary"
                        % PORT, wait_until="load")
-            try:
-                vpage.wait_for_selector("[data-workspace-head]", timeout=9000)
-            except Exception as _exc:  # noqa: BLE001
-                print("D6DEBUG", {
-                    "hash": vpage.evaluate("() => location.hash"),
-                    "cards": vpage.evaluate(
-                        "() => document.querySelectorAll('[data-mod]').length"),
-                    "errors": _verrs[:3],
-                })
-                raise
+            vpage.wait_for_selector("[data-workspace-head]", timeout=9000)
             vpage.wait_for_timeout(400)
             badge = vpage.evaluate(
                 "() => (document.querySelector("
