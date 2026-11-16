@@ -1,0 +1,22 @@
+{
+  "release": "2.58.208",
+  "target_rollback_commit": "8e68e48b8b13022e1361903701d3f1508ae2a911",
+  "target_rollback_version": "2.58.207",
+  "target_rollback_state": "deployed",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout 8e68e48b (2.58.207) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz returns version 2.58.207 and the release manifest identity"
+  ],
+  "notes": [
+    "VMQ/MEM-TIME is read-only at the DB layer: no new tables, columns, indexes or data migrations; schema stays 47 with DDL 0.",
+    "History cursors are signed in-memory tokens (process key); after a code rollback old 2.58.208 cursors become unknown_cursor instead of being reinterpreted — no stale data is read.",
+    "PG hot values models.llm_timeout=180 and models.llm_total_budget=360 were configured by 2.58.207 and remain in place on a code-only rollback; returning to 30/60 requires an explicit setting change, not a checkout.",
+    "The bump commit e4ca6c40 changes only version pins; once the checkout is at 8e68e48b it needs no separate rollback.",
+    "Backup/rollback copies of 2.58.207 are the ones produced by the 2.58.207 deploy (pre_deploy_258207_20261116T124016Z.db) and are managed by the existing keep=2 deploy-backup pool."
+  ]
+}

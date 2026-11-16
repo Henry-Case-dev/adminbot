@@ -1,0 +1,184 @@
+{
+ "feature": "vmq-onto-01 / MEM-TIME",
+ "release": "2.58.208",
+ "slice": "VMQ/MEM-TIME recent window for get_recent_history + one UTC time scale",
+ "assembled_at": "2026-11-17",
+ "branch": "release/vmq-recent-window-2.58.208",
+ "base_commit": "8e68e48b8b13022e1361903701d3f1508ae2a911",
+ "base_version": "2.58.207",
+ "approved_source": "5c29f377",
+ "cherry_picked": [
+  "0e47c0ec",
+  "5c29f377"
+ ],
+ "not_moved": "bca18c1e (docs base of the foreign 2.58.205 line)",
+ "code_tip": "252c99ad",
+ "bump_commit": "e4ca6c40",
+ "content_tip": "e4ca6c40b0122c202509601ee0b64af51f9c141f",
+ "environment": {
+  "python": "3.12.0",
+  "pytest": "9.1.1",
+  "venv": "C:/Code/Python/adminbot/.venv",
+  "cwd": "release worktree vmq-recent-window-8d57b3a83d31-e20af540",
+  "node": "v24.16.0",
+  "os": "Windows (PowerShell 5.1)",
+  "network": "none used by tests; local in-memory SQLite only"
+ },
+ "diff_vs_base": {
+  "files": 47,
+  "insertions": 1428,
+  "deletions": 181,
+  "composition": "17 cherry-pick files + 30 version-pin files",
+  "pin_files": 30,
+  "pin_lines": 31
+ },
+ "batches": [
+  {
+   "id": "recent-window-and-history",
+   "command": "python -m pytest tests/test_vmq_recent_window.py tests/test_recent_history_tool_round1015.py tests/test_history_pages.py tests/test_p0_history_depth_round1029.py tests/test_history_w4_fixes.py tests/test_vmq_mem_period_intent.py tests/test_vmq_mem_slice_d.py tests/test_memory_core_round1020.py tests/test_tool_router.py tests/test_tool_schemas.py -q -p no:randomly",
+   "result": {
+    "passed": 294,
+    "failed": 8
+   },
+   "note": "the 30 new A-G tests pass inside this batch; the 8 failures are pre-existing (see pre_existing)",
+   "log": "vmq208_batch1.txt (temp, not committed)"
+  },
+  {
+   "id": "new-window-only-confirmation-after-bump",
+   "command": "python -m pytest tests/test_vmq_recent_window.py -q -p no:randomly",
+   "result": {
+    "passed": 30,
+    "failed": 0
+   }
+  },
+  {
+   "id": "smart-s7-checkup-tool-loop-direct-l1-transport",
+   "command": "python -m pytest tests/test_smart_corrective_s7_reply.py tests/test_smart_p0_checkup.py tests/test_p0_checkup_core_contract.py tests/test_checkup_service.py tests/test_checkup_contract.py tests/test_tool_loop.py tests/test_smoke_round1016_tool_loop.py tests/test_direct_chat.py tests/test_direct_llm_decision_asap32.py tests/test_p0_llm_transport_258206.py -q -p no:randomly",
+   "result": {
+    "passed": 368,
+    "failed": 0
+   },
+   "note": "S7 (reply to delivered checkup report) and 2.58.207 LLM transport regressions stay green; _ha_fmt_ts change does not break S7"
+  },
+  {
+   "id": "disk-status-ui-pins-identity-manifest",
+   "command": "python -m pytest tests/test_disk_retention_deploy_backups.py tests/test_disk_retention_round1024.py tests/test_disk_retention_server_t4506.py tests/test_status_service.py tests/test_webapp_status_control.py tests/test_round1025_f8_registry.py tests/test_release_manifest.py tests/test_deploy_identity.py tests/test_deploy_identity_d4c.py tests/test_hotfix_round1025_cachebust.py -q -p no:randomly",
+   "result": {
+    "passed": 277,
+    "failed": 1
+   },
+   "note": "the single failure is pre-existing on base (README v-marker stale); 2.58.207 disk/SMART files are untouched"
+  },
+  {
+   "id": "changed-seams-and-js-unit",
+   "command": "python -m pytest tests/test_epic65.py tests/test_evol_reply_context_integrity_seam.py tests/test_factcheck_deep_context_round1023.py tests/test_diagnostic_probes.py tests/test_native_reply_media_context_round1024.py tests/test_webapp_js_unit.py -q -p no:randomly",
+   "result": {
+    "passed": 260,
+    "failed": 0
+   }
+  },
+  {
+   "id": "js-pins",
+   "command": "node tests/js/round1025_hotfix{7,8,9,10}_*.js",
+   "result": {
+    "passed": 4,
+    "failed": 0
+   },
+   "markers": [
+    "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+    "HOTFIX8-SHELL-AURORA-OK",
+    "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+    "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+   ]
+  }
+ ],
+ "pre_existing": [
+  {
+   "id": "history-w4-composer-banner",
+   "file": "tests/test_history_w4_fixes.py",
+   "failed": 8,
+   "base_reproduction": "8 failed, 27 passed on clean 8e68e48b worktree; identical node IDs",
+   "root_cause": "test double _Svc._render_thread() does not accept the existing kwarg projection (TypeError at direct_chat_service.py)",
+   "scope": "BACKLOG_ONLY: not caused by this candidate, not fixed in the release"
+  },
+  {
+   "id": "cachebust-readme-version",
+   "file": "tests/test_hotfix_round1025_cachebust.py::test_version_bumped_and_matches_readme",
+   "failed": 1,
+   "base_reproduction": "same failure on 8e68e48b: README contains v2.58.174 while APP_VERSION is 2.58.207",
+   "scope": "BACKLOG_ONLY: README is outside the approved 30-file pin set"
+  }
+ ],
+ "totals": {
+  "passed": 1199,
+  "failed": 9,
+  "failed_pre_existing": 9,
+  "failed_new": 0,
+  "note": "sum over the five python batches; the separate 30-test confirmation is a re-run of tests already counted in batch 1"
+ },
+ "red_on_base_8e68e48b": {
+  "worktree": "detached 8e68e48b (unit base-check-8e68e48b, removed after the check)",
+  "collection": "ImportError: cannot import name '_HISTORY_WINDOW_DEFAULT_SECONDS' from 'services.tool_router'",
+  "behavioural_probe": {
+   "scenario": "120 messages over 7140s, get_recent_history with time_window.last_seconds=7200, no query",
+   "base": {
+    "feature_present": false,
+    "status": null,
+    "window_from": null,
+    "window_label": null,
+    "processed": 50,
+    "page_rows_sequence": [40, 10]
+   },
+   "candidate": {
+    "feature_present": true,
+    "status": "ok",
+    "window_seconds": 7200,
+    "window_label": "16.11.2026 11:14 UTC - 16.11.2026 13:14 UTC",
+    "page_rows_sequence": [40, 40, 40],
+    "processed_sequence": [40, 80, 120],
+    "remaining_sequence": [80, 40, 0],
+    "first_last_text": [["m0", "m39"], ["m40", "m79"], ["m80", "m119"]]
+   }
+  }
+ },
+ "utc_and_claim_probes": {
+  "fmt_ts_msg": "14.11.2023 22:13 UTC",
+  "fmt_ts_fact": "11.2023",
+  "ha_fmt_ts": "14.11.2023 22:13 UTC",
+  "format_timestamp": "2023-11-14 22:13 UTC",
+  "claim_envelope": {
+   "utc_line": {"ref": "tg:123", "display_name_parsed": true},
+   "legacy_line": {"ref": "tg:123", "display_name_parsed": true},
+   "month_year_line": {"ref": "fact:42", "display_name_parsed": true},
+   "unknown_zone_msk": "stamp not accepted (display_name holds the raw field), no false parse"
+  }
+ },
+ "invariants": {
+  "app_version": "2.58.208",
+  "settings_fields": 472,
+  "registry": 645,
+  "groups": 121,
+  "tab_by_group": 119,
+  "tab_rules": 22,
+  "migration_steps": 47,
+  "migration_max_version": 47,
+  "user_version": 47,
+  "schema_migrations_max": 47,
+  "schema_migrations_rows": 47,
+  "ddl": 0,
+  "fresh_in_memory_tables": 101,
+  "param_registry_check": "CHECK OK: реестр 645 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.",
+  "new_flags": 0,
+  "new_migrations": 0,
+  "new_prompts": 0,
+  "new_models": 0,
+  "composer_changes": 0,
+  "deploy_script_changes": 0
+ },
+ "limitations": [
+  "No deployment and no production verification in this artifact.",
+  "REVIEW only, not VERIFIED; independent Reviewer approval is pending.",
+  "Two pre-existing failure groups are reproduced on base and left untouched.",
+  "Real-chat Telegram scenario with a user utterance about 'the last couple of hours' is not executed here; it belongs to post-deploy verification."
+ ]
+}
