@@ -652,8 +652,11 @@ async def _build_web_search(chat_id: int | None, now: float | None = None
 
 async def _build_fact_check(chat_id: int | None, now: float | None = None
                             ) -> CapabilityState:
-    """fact_check — инструмент анонсируется (реальные гейты factcheck/temporal)."""
-    names = _tool_names(lore_enabled=True)
+    """fact_check — инструмент анонсируется (реальные гейты factcheck/temporal).
+
+    MOD-ACL-UX-01 M2.1 (F5/F6): доступность решается per chat каноническим
+    резолвером, а не глобальным `hot.get`; readiness совпадает с runtime.
+    """
     canonical = _canonical_tool_names()
     declared = "fact_check" in canonical
     base = CapabilityState(
@@ -668,7 +671,8 @@ async def _build_fact_check(chat_id: int | None, now: float | None = None
     if not declared:
         return dataclasses.replace(base, status=STATUS_UNSUPPORTED,
                                    reason_code="tool_absent")
-    if "fact_check" not in names:
+    from services import tool_schemas
+    if not await tool_schemas.fact_check_tool_enabled_for_chat(chat_id):
         return dataclasses.replace(
             base, status=STATUS_DISABLED, reason_code="factcheck_module_disabled",
             detail="tool_not_announced")
@@ -707,8 +711,10 @@ async def _build_health(chat_id: int | None, now: float | None = None
     if not declared:
         return dataclasses.replace(base, status=STATUS_UNSUPPORTED,
                                    reason_code="tool_absent")
-    if not bool(_hot_get(CHECKUP_KEY, getattr(_settings(), "CHECKUP_ENABLED",
-                                              True))):
+    from services import feature_gates as _fg
+    if not await _fg.module_enabled(
+            chat_id, key=CHECKUP_KEY,
+            default=getattr(_settings(), "CHECKUP_ENABLED", True)):
         return dataclasses.replace(
             base, status=STATUS_DISABLED,
             reason_code="checkup_module_disabled",

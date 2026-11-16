@@ -3,16 +3,18 @@
 Проверяется:
 * `nostalgia`: `memory.nostalgia_enabled` — master; legacy
   `flags.nostalgia_enabled` не перекрывает его (design §12.3);
-* `initiative`: product master (`flags.initiative_enabled` + env) остаётся
-  AND-осью; chat ON не обходит глобальный master;
-* `character`/`random`: shared-модель/пул — глобальный master, чат может
-  только отключить использование у себя;
+* `initiative`: GLOBAL-дефолт `flags.initiative_enabled` — наследуемое
+  значение (не запрет); явный CHAT ON исполняется при GLOBAL OFF; env
+  `MCA_INTENTS_ENABLED` остаётся отдельной аварийной осью;
+* `character`/`random`: shared-модель/пул остаются живыми, чат решает
+  использование через тот же резолвер (GLOBAL default → CHAT override);
 * второго resolver/ACL/registry нет: адаптеры вызывают существующий
   `chat_params.resolve_capability`;
 * адаптеры только читают: stored values и кэш не переписываются.
 """
 import copy
 import pathlib
+import types
 
 import pytest
 
@@ -123,30 +125,67 @@ async def test_nostalgia_master_fallback_uses_memory_key(world, monkeypatch):
     assert seen == ["memory.nostalgia_enabled"]
 
 
-# ═══ initiative: product master + emergency env ═══════════════════════════
+# ═══ initiative: GLOBAL default, CHAT override, emergency env ═════════════
 
 @pytest.mark.asyncio
-async def test_initiative_product_master_and_stays(world, monkeypatch):
-    """Chat ON не обходит product master `flags.initiative_enabled`."""
-    monkeypatch.setattr(initiative_observer, "observer_enabled", lambda: False)
+async def test_initiative_global_off_chat_on_is_on(world, monkeypatch):
+    """GLOBAL OFF + явный CHAT ON → инициатива исполняется в этом чате.
+
+    `flags.initiative_enabled` — наследуемый дефолт, не запрет. Отдельный
+    глобальный `flags.initiative_observer_enabled` (гейт тика) остаётся ON;
+    env-аварийная ось не активна.
+    """
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
     world.globals = {"flags.initiative_enabled": False,
+                     "flags.initiative_observer_enabled": True,
                      "initiative.enabled": True}
     _set_chat(world, {"overrides": {"initiative.enabled": True},
                       "gates": {}})
+    assert initiative_observer.observer_enabled() is True
+    assert await initiative_observer.chat_observer_enabled(CHAT) is True
+    assert await initiative_observer.initiative_publish_block_reason(
+        CHAT) is None
+
+
+@pytest.mark.asyncio
+async def test_initiative_global_default_is_master_not_legacy_global(world,
+                                                                     monkeypatch):
+    """Глобальный `initiative.enabled` не перекрывает master-дефолт.
+
+    Если `flags.initiative_enabled=False`, а исторический глобальный
+    `initiative.enabled=True` сохранён, INHERIT-чат обязан наследовать OFF:
+    authoritative global — master карточки, не read-compat ключ.
+    """
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+    world.globals = {"flags.initiative_enabled": False,
+                     "initiative.enabled": True}
+    _set_chat(world, {"overrides": {}, "gates": {}})
+    assert await initiative_observer.chat_observer_enabled(CHAT) is False
     assert await initiative_observer.initiative_publish_block_reason(
         CHAT) == "capability_off"
-    # Тот же глобальный master остаётся аварийной осью и в chat-состоянии:
-    # чат ON не делает состояние исполняемым.
+
+
+@pytest.mark.asyncio
+async def test_initiative_global_on_chat_off_is_off(world, monkeypatch):
+    """GLOBAL ON + явный CHAT OFF → OFF только для этого чата."""
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+    world.globals = {"flags.initiative_enabled": True,
+                     "initiative.enabled": True}
+    _set_chat(world, {"overrides": {"initiative.enabled": False},
+                      "gates": {}})
     assert await initiative_observer.chat_observer_enabled(CHAT) is False
-    assert initiative_observer.observer_enabled() is False
+    assert await initiative_observer.initiative_publish_block_reason(
+        CHAT) == "capability_off"
 
 
 @pytest.mark.asyncio
 async def test_initiative_emergency_env_overrides_chat(world, monkeypatch):
     """Аварийная env-ось (K1) — отдельная ось, важнее chat; желание не
     подменяется (`desired=True`, `emergency_block=True`)."""
-    monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
+    monkeypatch.setattr(mca_gates, "settings",
+                        types.SimpleNamespace(MCA_INTENTS_ENABLED=False))
     world.globals = {"flags.initiative_enabled": True,
+                     "flags.initiative_observer_enabled": True,
                      "initiative.enabled": True}
     _set_chat(world, {"overrides": {"initiative.enabled": True},
                       "gates": {}})
@@ -159,7 +198,31 @@ async def test_initiative_emergency_env_overrides_chat(world, monkeypatch):
         CHAT) == "capability_off"
 
 
-# ═══ character / random: shared master, chat → usage ══════════════════════
+@pytest.mark.asyncio
+async def test_initiative_scheduler_ticks_when_chat_is_on(world, monkeypatch):
+    """GLOBAL OFF + CHAT ON: тик не ранний `disabled`, а выбирает чат."""
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+    world.globals = {"flags.initiative_enabled": False,
+                     "flags.initiative_observer_enabled": True,
+                     "initiative.enabled": True}
+    _set_chat(world, {"overrides": {"initiative.enabled": True},
+                      "gates": {}})
+    seen = []
+
+    async def _due(db, *, now=None):
+        seen.append("due")
+        return [CHAT]
+
+    async def _active(db):
+        return {"status": initiative_observer.JOB_RUNNING, "job_id": "job"}
+
+    monkeypatch.setattr(initiative_observer, "_due_chats", _due)
+    monkeypatch.setattr(initiative_observer, "get_active_observe", _active)
+    assert await initiative_observer.observe_tick(object()) == "running"
+    assert seen == ["due"]
+
+
+# ═══ character / random: shared resource alive, chat decides usage ════════
 
 @pytest.mark.asyncio
 async def test_character_chat_off_does_not_stop_global_model(world,
@@ -184,21 +247,93 @@ async def test_random_chat_off_keeps_global_pool(world, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_random_global_master_blocks_chat_on(world):
-    """GLOBAL OFF + CHAT ON не обходит выключенный shared-пул."""
+async def test_random_global_off_chat_on_is_on(world, monkeypatch):
+    """GLOBAL OFF + CHAT ON: пул жив, использование включено в чате."""
+    monkeypatch.setattr(module_registry, "env_enabled", lambda mid: True)
     world.globals = {"memory.random_enabled": False}
+    _set_chat(world, {"overrides": {"memory.random_enabled": True},
+                      "gates": {}})
+    assert await mca_gates.random_source_enabled_for_chat(CHAT) is True
+
+    # GLOBAL ON + CHAT OFF → OFF только в этом чате, пул не трогаем.
+    world.globals = {"memory.random_enabled": True}
+    _set_chat(world, {"overrides": {"memory.random_enabled": False},
+                      "gates": {}})
+    assert await mca_gates.random_source_enabled_for_chat(CHAT) is False
+    assert mca_gates.random_source_enabled() is True
+
+
+@pytest.mark.asyncio
+async def test_random_emergency_env_blocks_chat_on(world, monkeypatch):
+    monkeypatch.setattr(
+        module_registry, "env_enabled",
+        lambda mid: False if mid == "random" else True)
+    world.globals = {"memory.random_enabled": True}
     _set_chat(world, {"overrides": {"memory.random_enabled": True},
                       "gates": {}})
     assert await mca_gates.random_source_enabled_for_chat(CHAT) is False
 
 
 @pytest.mark.asyncio
-async def test_character_global_master_blocks_chat_on(world):
-    """GLOBAL OFF + CHAT ON не включает глобально выключенную модель."""
+async def test_character_global_off_chat_on_is_on(world, monkeypatch):
+    """GLOBAL OFF + CHAT ON: характер используется в этом чате."""
+    monkeypatch.setattr(module_registry, "env_enabled", lambda mid: True)
     world.globals = {"flags.self_model_enabled": False}
     _set_chat(world, {"overrides": {"flags.self_model_enabled": True},
                       "gates": {}})
+    assert await mca_gates.self_model_enabled_for_chat(CHAT) is True
+
+    world.globals = {"flags.self_model_enabled": True}
+    _set_chat(world, {"overrides": {"flags.self_model_enabled": False},
+                      "gates": {}})
     assert await mca_gates.self_model_enabled_for_chat(CHAT) is False
+
+
+@pytest.mark.asyncio
+async def test_character_emergency_env_blocks_chat_on(world, monkeypatch):
+    monkeypatch.setattr(
+        module_registry, "env_enabled",
+        lambda mid: False if mid == "character" else True)
+    world.globals = {"flags.self_model_enabled": True}
+    _set_chat(world, {"overrides": {"flags.self_model_enabled": True},
+                      "gates": {}})
+    assert await mca_gates.self_model_enabled_for_chat(CHAT) is False
+
+
+@pytest.mark.asyncio
+async def test_stories_global_off_chat_on_and_emergency(world, monkeypatch):
+    """Stories read-контур: GLOBAL OFF + CHAT ON = ON; env K1 — emergency."""
+    monkeypatch.setattr(module_registry, "env_enabled", lambda mid: True)
+    world.globals = {"flags.stories_vitrina_enabled": False}
+    _set_chat(world, {"overrides": {"flags.stories_vitrina_enabled": True},
+                      "gates": {}})
+    assert await mca_gates.stories_vitrina_enabled_for_chat(CHAT) is True
+
+    world.globals = {"flags.stories_vitrina_enabled": True}
+    _set_chat(world, {"overrides": {"flags.stories_vitrina_enabled": False},
+                      "gates": {}})
+    assert await mca_gates.stories_vitrina_enabled_for_chat(CHAT) is False
+
+    monkeypatch.setattr(
+        module_registry, "env_enabled",
+        lambda mid: False if mid == "stories" else True)
+    _set_chat(world, {"overrides": {"flags.stories_vitrina_enabled": True},
+                      "gates": {}})
+    assert await mca_gates.stories_vitrina_enabled_for_chat(CHAT) is False
+
+
+# ═══ fail-closed adapter (F9): решение зафиксировано явно ═════════════════
+
+@pytest.mark.asyncio
+async def test_module_enabled_fail_closed_on_resolver_error(world, monkeypatch):
+    """Ошибка резолвера не выдаёт разрешение: явный fail-closed."""
+    import services.chat_params as cp
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("resolver down")
+
+    monkeypatch.setattr(cp, "resolve_module_capability", _boom)
+    assert await feature_gates.module_enabled(CHAT, module_id="random") is False
 
 
 # ═══ один резолвер, без второго ACL/registry ══════════════════════════════

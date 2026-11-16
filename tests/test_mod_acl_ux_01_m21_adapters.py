@@ -5,9 +5,11 @@
 
 * GLOBAL ON + явный CHAT OFF → функция этого чата не исполняется;
 * GLOBAL OFF + явный CHAT ON → исполняется по канонической семантике
-  `GLOBAL default → CHAT override` (owner input §2/§5; MAC-S2-TT-4), кроме
-  shared-модулей (`initiative`, `character`, `random`), где глобальный master
-  сохраняется как AND-ось и чат не обходит его;
+  `GLOBAL default → CHAT override` (owner input §2/§5; MAC-S2-TT-4) для всех
+  12 модулей, включая shared-сервисы (`initiative`, `character`, `random`):
+  чат решает использование, общий пул/модель/планировщик не останавливаются;
+* аварийная env-ось (`MCA_INTENTS_ENABLED`, `MCA_SELF_MODEL_ENABLED`,
+  `MCA_RANDOM_SOURCE_ENABLED`) остаётся отдельным `emergency_block`;
 * INHERIT читает глобальный слой; stored values не переписываются.
 
 `nostalgia` проверяется отдельным файлом (`test_mod_acl_ux_01_m21_gates.py`)
@@ -390,6 +392,8 @@ async def test_stories_read_api_per_chat(world, monkeypatch):
     from web.api import stories as api
 
     monkeypatch.setattr(api, "_db_or_unavailable", lambda: None)
+    # ACL-порядок проверяется отдельным тестом F8; здесь — per-chat гейт.
+    monkeypatch.setattr(api, "_require_scope_access", AsyncMock())
     user = types.SimpleNamespace(id=1)
     request = object()
 
@@ -423,13 +427,19 @@ async def test_character_usage_per_chat(world, monkeypatch):
                             return_value=bot_persona.BotPersona.empty())())
     monkeypatch.setattr(bot_persona, "get_traits",
                         lambda *a, **k: AsyncMock(return_value=[])())
-    monkeypatch.setattr(mca_gates, "self_model_enabled", lambda: True)
 
     world.globals = {"flags.self_model_enabled": True}
     _set_chat(world, _one({"flags.self_model_enabled": False}))
     await bot_persona.resolve_character_context(ROOT_CHAT)
     assert called == []                         # CHAT OFF → модель не тронута
 
+    # GLOBAL OFF + CHAT ON → модель используется только в этом чате.
+    world.globals = {"flags.self_model_enabled": False}
+    _set_chat(world, _one({"flags.self_model_enabled": True}))
+    await bot_persona.resolve_character_context(ROOT_CHAT)
+    assert called == [ROOT_CHAT]
+
+    called.clear()
     world.globals = {"flags.self_model_enabled": True}
     _set_chat(world, _one({"flags.self_model_enabled": True}))
     await bot_persona.resolve_character_context(ROOT_CHAT)
@@ -454,6 +464,13 @@ async def test_random_usage_per_chat(world, monkeypatch):
         None, purpose, ROOT_CHAT)
     assert (allowed, reason) == (False, "disabled")
 
+    # GLOBAL OFF + CHAT ON → использование в чате разрешено (пул жив).
+    world.globals = {"memory.random_enabled": False}
+    _set_chat(world, _one({"memory.random_enabled": True}))
+    allowed, reason = await mca_exploration.exploration_allowed(
+        None, purpose, ROOT_CHAT)
+    assert (allowed, reason) == (True, None)
+
     world.globals = {"memory.random_enabled": True}
     _set_chat(world, _one({"memory.random_enabled": True}))
     allowed, reason = await mca_exploration.exploration_allowed(
@@ -461,34 +478,150 @@ async def test_random_usage_per_chat(world, monkeypatch):
     assert (allowed, reason) == (True, None)
 
 
-# ═══ 12. initiative — product master-AND + chat ═══════════════════════════
+# ═══ 12. initiative — GLOBAL default + CHAT override, scheduler alive ═════
 
 @pytest.mark.asyncio
-async def test_initiative_master_and_per_chat(world, monkeypatch):
+async def test_initiative_global_off_chat_on_per_chat(world, monkeypatch):
     from services import initiative_observer as io
 
-    # Глобальный product master OFF → chat ON не обходит master.
-    monkeypatch.setattr(io, "observer_enabled", lambda: False)
+    world.globals = {"flags.initiative_enabled": False,
+                     "flags.initiative_observer_enabled": True,
+                     "initiative.enabled": False}
     _set_chat(world, _one({"initiative.enabled": True}))
-    assert await io.initiative_publish_block_reason(ROOT_CHAT) == "capability_off"
+    # GLOBAL OFF + CHAT ON → публикация этого чата разрешена.
+    assert await io.initiative_publish_block_reason(ROOT_CHAT) is None
+    # Планировщик не ранний `disabled`: тик доходит до выбора чатов.
+    seen = []
 
-    # Master ON, чат OFF → публикация этого чата запрещена.
-    monkeypatch.setattr(io, "observer_enabled", lambda: True)
-    monkeypatch.setattr(mca_gates, "intents_enabled", lambda: True)
-    world.globals = {"initiative.enabled": True}
+    async def _due(db, *, now=None):
+        seen.append("due")
+        return [ROOT_CHAT]
+
+    async def _active(db):
+        return {"status": io.JOB_RUNNING, "job_id": "job"}
+
+    monkeypatch.setattr(io, "_due_chats", _due)
+    monkeypatch.setattr(io, "get_active_observe", _active)
+    assert await io.observe_tick(object()) == "running"
+    assert seen == ["due"]
+
+    # GLOBAL ON + CHAT OFF → публикация этого чата запрещена.
+    world.globals = {"flags.initiative_enabled": True,
+                     "initiative.enabled": True}
     _set_chat(world, _one({"initiative.enabled": False}))
     assert await io.initiative_publish_block_reason(ROOT_CHAT) == "capability_off"
 
-    # Master ON + чат ON → публикация разрешена (INHERIT/ON).
+    # Аварийная env-ось выключает даже CHAT ON (желание не подменяется).
+    monkeypatch.setattr(mca_gates, "settings",
+                        types.SimpleNamespace(MCA_INTENTS_ENABLED=False))
     _set_chat(world, _one({"initiative.enabled": True}))
-    assert await io.initiative_publish_block_reason(ROOT_CHAT) is None
+    state = await io.chat_capability_state(ROOT_CHAT, fresh=True)
+    assert state is not None
+    assert state.desired is True
+    assert state.emergency_block is True
+    assert state.effective_runtime is False
+    assert await io.initiative_publish_block_reason(ROOT_CHAT) == "capability_off"
 
-    # Тик не стартует при выключенном product master (chat ON не спасает).
-    monkeypatch.setattr(io, "observer_enabled", lambda: False)
-    assert await io.observe_tick(object()) == "disabled"
+
+# ═══ 14. factcheck tool announcement — per chat (F5) ═══════════════════════
+
+@pytest.mark.asyncio
+async def test_factcheck_tool_path_per_chat(world, monkeypatch):
+    from services import tool_schemas as ts
+
+    monkeypatch.setattr(ts, "_fact_check_tool_env_enabled", lambda: True)
+    monkeypatch.setattr(ts, "_temporal_tool_enabled", lambda: True)
+
+    world.globals = {"flags.factcheck_enabled": False}
+    _set_chat(world, _one({"flags.factcheck_enabled": True}))
+    names = {t["function"]["name"]
+             for t in await ts.active_tools_for_chat(ROOT_CHAT)}
+    assert "fact_check" in names          # GLOBAL OFF + CHAT ON → инструмент есть
+
+    world.globals = {"flags.factcheck_enabled": True}
+    _set_chat(world, _one({"flags.factcheck_enabled": False}))
+    names = {t["function"]["name"]
+             for t in await ts.active_tools_for_chat(ROOT_CHAT)}
+    assert "fact_check" not in names      # GLOBAL ON + CHAT OFF → скрыт
+
+    # Аварийная env-ось важнее чата.
+    monkeypatch.setattr(ts, "_fact_check_tool_env_enabled", lambda: False)
+    _set_chat(world, _one({"flags.factcheck_enabled": True}))
+    names = {t["function"]["name"]
+             for t in await ts.active_tools_for_chat(ROOT_CHAT)}
+    assert "fact_check" not in names
 
 
-# ═══ 13. feature_gates adapter — таблица для 8 static-карточек ════════════
+# ═══ 15. checkup readiness — effective per chat (F6) ═══════════════════════
+
+@pytest.mark.asyncio
+async def test_checkup_readiness_per_chat(world):
+    from services import capability_registry as cr
+
+    world.globals = {"flags.checkup_enabled": False}
+    _set_chat(world, _one({"flags.checkup_enabled": True}))
+    state = await cr._build_health(ROOT_CHAT)
+    assert state.status == cr.STATUS_READY
+
+    world.globals = {"flags.checkup_enabled": True}
+    _set_chat(world, _one({"flags.checkup_enabled": False}))
+    state = await cr._build_health(ROOT_CHAT)
+    assert state.status == cr.STATUS_DISABLED
+    assert state.reason_code == "checkup_module_disabled"
+
+
+# ═══ 16. stories ACL → per-chat gate order (F8) ════════════════════════════
+
+@pytest.mark.asyncio
+async def test_stories_acl_precedes_per_chat_gate(world, monkeypatch):
+    from fastapi import HTTPException
+    from web.api import stories as api
+
+    class _Request:
+        app = types.SimpleNamespace(
+            state=types.SimpleNamespace(cache=object()))
+
+    async def _deny(request, user, chat_id):
+        raise HTTPException(status_code=403, detail="permission denied")
+
+    monkeypatch.setattr(api, "_require_chat_access", _deny)
+    monkeypatch.setattr(api, "_db_or_unavailable", lambda: None)
+    world.globals = {"flags.stories_vitrina_enabled": False}
+    _set_chat(world, _one({"flags.stories_vitrina_enabled": False}))
+    with pytest.raises(HTTPException) as exc:
+        await api.stories_summary(_Request(), types.SimpleNamespace(id=1),
+                                  str(ROOT_CHAT))
+    assert exc.value.status_code == 403
+
+
+# ═══ 17. voice transcription DI не гейтится глобальным ON (F7) ═════════════
+
+def test_voice_transcription_di_is_not_conditional():
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    tree = ast.parse((root / "bot.py").read_text(encoding="utf-8"))
+    parents = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+
+    calls = [n for n in ast.walk(tree)
+             if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Name)
+             and n.func.id == "setup_voice_transcription"]
+    assert calls, "startup должен выполнять DI голосовой транскрипции"
+    for call in calls:
+        parent = parents.get(call)
+        while parent is not None:
+            assert not isinstance(parent, ast.If), (
+                "DI не должен зависеть от глобального flags.enable_voice_"
+                "transcription: per-chat гейт живёт в handler")
+            parent = parents.get(parent)
+
+
+# ═══ 18. feature_gates adapter — таблица для 8 static-карточек ════════════
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("key", [

@@ -254,7 +254,7 @@ from services.tool_router import (
     extract_history_depth,
     parse_history_sample,
 )
-from services.tool_schemas import active_tools
+from services.tool_schemas import active_tools, active_tools_for_chat
 from services.typing_manager import typing_active
 from services.user_relations import STAGE_RU
 from services.nostalgia_prompts import format_nostalgia_hint
@@ -5698,8 +5698,9 @@ class DirectChatService:
             # fallback-inference capability.
             try:
                 announced_l1_tools = {
-                    t["function"]["name"] for t in active_tools(
-                        bool(lore_enabled), bool(image_enabled))
+                    t["function"]["name"] for t in
+                    await active_tools_for_chat(
+                        chat_id, bool(lore_enabled), bool(image_enabled))
                     if isinstance(t, dict) and t.get("function")}
             except Exception:
                 announced_l1_tools = set()
@@ -6398,8 +6399,9 @@ class DirectChatService:
                         _fb_adapter = None
                         if _fb_factory is not None:
                             try:
-                                _tools_for_budget = active_tools(
-                                    bool(lore_enabled), bool(image_enabled))
+                                _tools_for_budget = await active_tools_for_chat(
+                                    chat_id, bool(lore_enabled),
+                                    bool(image_enabled))
                                 _tools_tokens = count_tokens(json.dumps(
                                     _tools_for_budget, ensure_ascii=False))
                             except Exception:
@@ -6420,8 +6422,9 @@ class DirectChatService:
                             try:
                                 _announced = {
                                     t["function"]["name"] for t in
-                                    active_tools(bool(lore_enabled),
-                                                 bool(image_enabled))}
+                                    await active_tools_for_chat(
+                                        chat_id, bool(lore_enabled),
+                                        bool(image_enabled))}
                                 _tool_plan = _extent.build_tool_plan(
                                     query, available_tools=_announced)
                             except Exception:  # план не роняет запрос
@@ -6443,8 +6446,9 @@ class DirectChatService:
                                     for m in payload))
                         raw = await chat_with_tools(
                             self.llm, payload,
-                            tools=active_tools(bool(lore_enabled),
-                                               bool(image_enabled)),
+                            tools=await active_tools_for_chat(
+                                chat_id, bool(lore_enabled),
+                                bool(image_enabled)),
                             router=self.tool_router, ctx=tool_ctx,
                             temperature=temperature, chat_id=chat_id,
                             module="direct_chat",
@@ -7448,7 +7452,9 @@ class DirectChatService:
                 lore_enabled, image_enabled = False, False
         try:
             announced = {t["function"]["name"] for t in
-                         active_tools(bool(lore_enabled), bool(image_enabled))
+                         await active_tools_for_chat(
+                             chat_id, bool(lore_enabled),
+                             bool(image_enabled))
                          if isinstance(t, dict) and t.get("function")}
         except Exception:      # pragma: no cover - защитная ветка
             announced = set()
@@ -8437,7 +8443,8 @@ class DirectChatService:
         ``capability_not_ready`` (никакого «формально tool есть» без блокера).
         Никогда не бросает."""
         try:
-            schemas = active_tools(bool(lore), bool(image))
+            schemas = await active_tools_for_chat(chat_id, bool(lore),
+                                                  bool(image))
             announced = {t["function"]["name"] for t in schemas
                          if isinstance(t, dict) and t.get("function")}
             skip = ()
@@ -9996,7 +10003,8 @@ class DirectChatService:
                             settings.LORE_COMPILER_ENABLED))
                 from services import image_generation as _img
                 image_enabled = await _img.resolve_module_enabled(chat_id)
-                tools = active_tools(bool(lore_enabled), bool(image_enabled))
+                tools = await active_tools_for_chat(
+                    chat_id, bool(lore_enabled), bool(image_enabled))
                 external += count_tokens(json.dumps(tools, ensure_ascii=False))
             except Exception:
                 logger.debug("[mca07] payload est: tools schemas failed",

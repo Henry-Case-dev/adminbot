@@ -77,6 +77,13 @@ async def _require_chat_access(request: Request, user: WebAppUser,
         raise HTTPException(status_code=403, detail="permission denied")
 
 
+async def _require_scope_access(request: Request, user: WebAppUser,
+                                chat_id: int | None) -> None:
+    """ACL ДО чтения per-chat гейта: бит настройки чужого чата не утекает."""
+    if chat_id is not None:
+        await _require_chat_access(request, user, chat_id)
+
+
 def _require_memory_editor(request: Request, user: WebAppUser) -> None:
     """Права правки памяти для мутаций (TH-2): прецедент мутаций «Памяти» —
     global admin (memory_agi lessons/dream). Server-side проверка КАЖДОГО
@@ -226,6 +233,9 @@ async def stories_summary(
     """Счётчики витрины + прогресс архивной обработки (D5). Без чата —
     честный `no_chat` (не нули); чужой чат → 403 (A25)."""
     chat_id = _chat_id_or_none(x_chat_id)
+    # F8: ACL чата — ДО per-chat гейта; иначе чужой чат различал бы бит
+    # настройки по `disabled`/`unavailable`.
+    await _require_scope_access(request, user, chat_id)
     # MOD-ACL-UX-01 M2.1: read-контур получает chat scope через канонический
     # резолвер (GLOBAL-дефолт → явный CHAT-override), а не глобальный флаг.
     if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
@@ -241,7 +251,6 @@ async def stories_summary(
                 "counters": None, "progress": None, "window_hours": 24,
                 "manage_enabled": bool(mca_gates.stories_manage_enabled()),
                 "generated_at": None}
-    await _require_chat_access(request, user, chat_id)
     summary = await web_stories.stories_summary(db, chat_id)
     summary["manage_enabled"] = bool(mca_gates.stories_manage_enabled())
     return summary
@@ -261,6 +270,7 @@ async def stories_feed(
     дедуп по event_id, bounded-страница (`has_more` — «история ограничена»).
     Обе даты (A11) — в entity каждого события."""
     chat_id = _chat_id_or_none(x_chat_id)
+    await _require_scope_access(request, user, chat_id)
     if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
         return {"enabled": False, "state": "disabled", "chat_id": None,
                 "cursor": int(cursor), "events": [], "has_more": False}
@@ -271,7 +281,6 @@ async def stories_feed(
     if chat_id is None:
         return {"enabled": True, "state": "no_chat", "chat_id": None,
                 "cursor": int(cursor), "events": [], "has_more": False}
-    await _require_chat_access(request, user, chat_id)
     payload = await web_stories.stories_feed(db, chat_id, cursor=cursor,
                                              limit=limit)
     names, resolver = await _names_ctx(db, chat_id)
@@ -309,6 +318,7 @@ async def stories_table(
     LIKE title/summary/claims (параметризованный, TH-7). Все параметры
     валидированы выше (Query-ограничения) — client-side trust запрещён."""
     chat_id = _chat_id_or_none(x_chat_id)
+    await _require_scope_access(request, user, chat_id)
     if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
         return {"enabled": False, "state": "disabled", "chat_id": None,
                 "items": [], "next_cursor": None, "has_more": False,
@@ -322,7 +332,6 @@ async def stories_table(
         return {"enabled": True, "state": "no_chat", "chat_id": None,
                 "items": [], "next_cursor": None, "has_more": False,
                 "manage_enabled": bool(mca_gates.stories_manage_enabled())}
-    await _require_chat_access(request, user, chat_id)
     page = await web_stories.stories_table(
         db, chat_id, limit=limit, before_updated_at=before_updated_at,
         before_story_id=before_story_id, title=title, q=q,
@@ -348,6 +357,7 @@ async def story_card(
     разрешённому чату ДО чтения (TH-1); чужой/несуществующий → 404 без
     раскрытия существования; redirect-источник резолвится фасадом."""
     chat_id = _chat_id_or_none(x_chat_id)
+    await _require_scope_access(request, user, chat_id)
     if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
         return {"enabled": False, "state": "disabled"}
     db = lore_runtime.get_lore_db()
@@ -355,7 +365,6 @@ async def story_card(
         return {"enabled": True, "state": "unavailable"}
     if chat_id is None:
         return {"enabled": True, "state": "no_chat"}
-    await _require_chat_access(request, user, chat_id)
     card = await web_stories.story_card(db, chat_id, str(story_id))
     if card is None:
         raise HTTPException(status_code=404, detail="история не найдена")

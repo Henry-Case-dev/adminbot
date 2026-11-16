@@ -427,15 +427,18 @@ def bot_username_hint() -> str:
 
 
 def observer_enabled() -> bool:
-    """Мастер-гейт наблюдателя: K1 (intents) + ``flags.initiative_observer_enabled``.
+    """Мастер-гейт наблюдателя: env K1 + ``flags.initiative_observer_enabled``.
 
-    env-аварийная ось — settings-атрибут (``INITIATIVE_OBSERVER_ENABLED``,
-    default ON); product-ось — каталоговый ключ (hot, без рестарта;
-    декларация ключа — патч каталога, чтение здесь generic).
+    MOD-ACL-UX-01 M2.1: product-ключ ``flags.initiative_enabled`` — НЕ
+    запрет тика, а наследуемый GLOBAL-дефолт чатового `initiative.enabled`
+    (owner §2.1/§2.3.1). Поэтому здесь читается только аварийная env-ось
+    ``MCA_INTENTS_ENABLED``; продуктовое состояние решает канонический
+    резолвер конкретного чата. ``flags.initiative_observer_enabled`` —
+    собственная ось наблюдателя (тик/не тик), не master инициативы.
     Fail-closed: ошибка чтения → OFF."""
     try:
         from services import mca_gates
-        if not mca_gates.intents_enabled():
+        if not mca_gates.intents_env_enabled():
             return False
         from config.settings import settings
         default = getattr(settings, "INITIATIVE_OBSERVER_ENABLED", True)
@@ -475,9 +478,10 @@ async def chat_capability_state(chat_id, *, fresh: bool = False):
 
     Ключ `initiative.enabled` (каталоговый bool, per-chat) резолвится
     `chat_params.resolve_param_capability`: явный выбор чата → глобальный
-    дефолт → заводской. Аварийная env-ось (`MCA_INTENTS_ENABLED`) передаётся
-    отдельным `emergency_block` и НЕ смешивается с пользовательской
-    настройкой (§2.3 ТЗ).
+    дефолт → заводской. Authoritative global — master карточки
+    `flags.initiative_enabled` (наследуемый дефолт, НЕ запрет). Аварийная
+    env-ось (`MCA_INTENTS_ENABLED`) передаётся отдельным `emergency_block`
+    и НЕ смешивается с пользовательской настройкой (§2.3 ТЗ).
 
     ``fresh=True`` — профиль читается из PG без TTL-кэша: только для
     проверки перед пользовательским side effect (§2.5).
@@ -490,14 +494,21 @@ async def chat_capability_state(chat_id, *, fresh: bool = False):
     emergency = False
     try:
         from services import mca_gates
-        emergency = not mca_gates.intents_enabled()
+        emergency = not mca_gates.intents_env_enabled()
     except Exception:      # pragma: no cover — защитная ветка
         emergency = False
     try:
         from services import chat_params
+        # MOD-ACL-UX-01 M2.1: authoritative global — master карточки
+        # `flags.initiative_enabled`, а не исторический read-compat
+        # `initiative.enabled` (иначе GLOBAL OFF не наследовался бы).
+        global_value, global_source = chat_params.read_global(
+            "flags.initiative_enabled", default)
         return await chat_params.resolve_param_capability(
             int(chat_id), KEY_CHAT_ENABLED, capability="initiative",
-            default=default, emergency_block=emergency, fresh=fresh)
+            default=default, global_value=bool(global_value),
+            global_source=global_source, emergency_block=emergency,
+            fresh=fresh)
     except Exception:      # pragma: no cover — защитная ветка
         logger.warning("[b01] chat capability resolve failed — allow | "
                        "chat=%s", chat_id, exc_info=True)

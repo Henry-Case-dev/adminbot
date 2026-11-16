@@ -1310,6 +1310,8 @@ async def _root_and_version(chat_id: int | None,
 async def resolve_param_capability(chat_id: int | None, key: str, *,
                                    capability: str = "", default=None,
                                    root=None, emergency_block: bool = False,
+                                   global_value: bool | None = None,
+                                   global_source: str | None = None,
                                    ready: bool | None = None,
                                    authorized: bool | None = None,
                                    observed: bool | None = None,
@@ -1324,14 +1326,22 @@ async def resolve_param_capability(chat_id: int | None, key: str, *,
     """Capability из ``chat_params.overrides`` (каталоговый параметр).
 
     GLOBAL-слой — существующий ``hot.get(key, default)`` этого же модуля;
-    второй копии чтения нет. ``with_observation=True`` добавляет
-    observed_at/last_activity_at/version (для API/UI; горячие пути воркеров
-    остаются без этих чтений). ``fresh=True`` — профиль читается из PG без
-    TTL-кэша (проверка перед side effect, §2.5)."""
+    второй копии чтения нет. ``global_value``/``global_source`` позволяют
+    владельцу capability передать уже разрешённый authoritative global
+    (например, master карточки, а не read-compat ключ): сам резолвер не
+    читает альтернативный ключ и не вводит второй приоритет.
+    ``with_observation=True`` добавляет observed_at/last_activity_at/version
+    (для API/UI; горячие пути воркеров остаются без этих чтений).
+    ``fresh=True`` — профиль читается из PG без TTL-кэша (проверка перед
+    side effect, §2.5)."""
     version = None
     if root is None:
         root, version = await _root_and_version(chat_id, fresh=fresh)
-    value, source = global_flag_value(key, default)
+    if global_value is None:
+        value, source = global_flag_value(key, default)
+    else:
+        value = bool(global_value)
+        source = global_source or SOURCE_GLOBAL
     cap = capability or key
     observed_at = last_activity = None
     if with_observation:

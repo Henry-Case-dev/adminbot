@@ -1718,35 +1718,28 @@ def money_limits_enabled() -> bool:
 
 # ── mca-10a (ADR-1028-14 D11): K1–K4 RandomSource + env-only лимиты ────────
 def random_source_enabled() -> bool:
-    """Effective-гейт RandomSource: product master AND env K1 (default ON).
+    """Effective-гейт ЖИВОСТИ RandomSource: только env K1 (default ON).
 
-    ASAP 8 F5 (ТЗ §28.12, архитектура §5.3): product-ось — каталоговый
-    тумблер ``memory.random_enabled`` (hot; UI-мастер модуля «Случайность»);
-    env ``MCA_RANDOM_SOURCE_ENABLED`` — аварийная AND-ось (важнее UI,
-    семантика K1 прежняя: OFF → бит-в-бит 2.58.57: dream = `default_source`,
-    сеть/записи v27/события/витрина не активны). AND честен: отключение
-    любой оси останавливает контур."""
-    if not bool(getattr(settings, "MCA_RANDOM_SOURCE_ENABLED", True)):
-        return False
-    try:
-        from services import hot_config as hot
-        return bool(hot.get("memory.random_enabled", True))
-    except Exception:      # pragma: no cover — fail-open (прежнее поведение)
-        return True
+    MOD-ACL-UX-01 M2.1: `memory.random_enabled` — наследуемый GLOBAL-дефолт
+    пользовательского модуля, а не запрет shared-пула. Глобальный OFF теперь
+    выключает использование по чатам (INHERIT → OFF), но не останавливает
+    общий пул/provider: явный CHAT ON должен получать случайность. Поэтому
+    product-AND здесь снят; env ``MCA_RANDOM_SOURCE_ENABLED`` остаётся
+    аварийной осью (OFF → бит-в-бит 2.58.57: dream = `default_source`,
+    сеть/записи v27/события/витрина не активны)."""
+    return bool(getattr(settings, "MCA_RANDOM_SOURCE_ENABLED", True))
 
 
 async def random_source_enabled_for_chat(chat_id) -> bool:
     """Per-chat использование RandomSource (MOD-ACL-UX-01 M2.1).
 
-    Shared-пул/провайдер — глобальная ось (`random_source_enabled`: env +
-    product master); чат может только ОТКЛЮЧИТЬ использование у себя, но не
-    обойти глобальный master. Поэтому это master-AND: глобальный effective
-    AND канонический per-chat резолвер `memory.random_enabled` (GLOBAL-
-    дефолт → явный CHAT-override). OFF одного чата не останавливает пул,
-    ANU/refill и другие чаты.
+    Единственный решатель — канонический `resolve_module_capability`:
+    GLOBAL-дефолт `memory.random_enabled` → явный CHAT-override; env
+    `MCA_RANDOM_SOURCE_ENABLED` приходит отдельным `emergency_block` из
+    реестра. Никакого product-AND поверх резолвера: иначе GLOBAL OFF
+    блокировал бы явный CHAT ON (owner §2.1/§2.3.1). OFF одного чата не
+    останавливает пул, ANU/refill и другие чаты.
     """
-    if not random_source_enabled():
-        return False
     from services import feature_gates
     try:
         return bool(await feature_gates.module_enabled(
@@ -1891,14 +1884,23 @@ def _intent_catalog_flag(pg_key: str, default: bool = True) -> bool:
         return default
 
 
+def intents_env_enabled() -> bool:
+    """Аварийная env-ось K1 (`MCA_INTENTS_ENABLED`) — БЕЗ product-ключа.
+
+    MOD-ACL-UX-01 M2.1: `flags.initiative_enabled` — наследуемый GLOBAL-дефолт
+    пользовательского модуля, а не запрет. Поэтому аварийная ось тика/чата
+    читает только env; продуктовое состояние решает канонический резолвер
+    чата (`initiative.enabled`: GLOBAL default → CHAT override)."""
+    return bool(getattr(settings, "MCA_INTENTS_ENABLED", True))
+
+
 def intents_enabled() -> bool:
     """`MCA_INTENTS_ENABLED` (мастер; effective = env AND `flags.initiative_enabled`).
 
-    env-emergency OFF → OFF (важнее UI, §3.3); product-тумблер OFF → OFF
-    (hot, без рестарта); оба ON → ON. OFF = бит-в-бит 2.58.59: ни записей,
-    ни чтений v29, ни heartbeat-джобы, ни кандидатов/событий; nostalgia —
-    legacy direct-send."""
-    if not bool(getattr(settings, "MCA_INTENTS_ENABLED", True)):
+    Для НЕ-чатовых (глобальных) путей волны 0. Per-chat наблюдатель/тик
+    используют `intents_env_enabled()` + канонический резолвер, чтобы
+    GLOBAL OFF не блокировал явный CHAT ON (M2.1, owner §2.1/§2.3.1)."""
+    if not intents_env_enabled():
         return False
     return _intent_catalog_flag("flags.initiative_enabled", True)
 
@@ -2008,14 +2010,12 @@ def self_model_enabled() -> bool:
 async def self_model_enabled_for_chat(chat_id) -> bool:
     """Per-chat использование SelfModel/характера (MOD-ACL-UX-01 M2.1).
 
-    Модель/снапшот — глобальный master (`self_model_enabled`: env +
-    `flags.self_model_enabled`); чат может отключить использование эволюции
-    у себя, но не обойти глобальный master. Master-AND с каноническим
-    per-chat резолвером `flags.self_model_enabled` (GLOBAL-дефолт → явный
-    CHAT-override). Глобальное хранение модели не удаляется.
+    Единственный решатель — канонический `resolve_module_capability`:
+    GLOBAL-дефолт `flags.self_model_enabled` → явный CHAT-override; env
+    `MCA_SELF_MODEL_ENABLED` приходит отдельным `emergency_block` из реестра.
+    Product-AND поверх резолвера снят: GLOBAL OFF не блокирует явный CHAT ON
+    (owner §2.1/§2.3.1), глобальное хранение модели не удаляется.
     """
-    if not self_model_enabled():
-        return False
     from services import feature_gates
     try:
         return bool(await feature_gates.module_enabled(
