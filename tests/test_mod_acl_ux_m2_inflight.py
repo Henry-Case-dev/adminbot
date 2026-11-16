@@ -133,13 +133,21 @@ class _FakeBot:
 
 
 class _FakeWriter:
-    """Duck-typed DirectChatService (контракт §13.2)."""
+    """Duck-typed DirectChatService (контракт §13.2).
 
-    def __init__(self, action="reply", text="Продолжим тему?"):
+    ``cache``/``chat_id`` — сценарий «OFF пришёл ПОСЛЕ входа»: чат
+    выключается внутри платной генерации, поэтому входной гейт видел ON,
+    а решение опубликовать блокирует publish guard.
+    """
+
+    def __init__(self, action="reply", text="Продолжим тему?", *,
+                 cache=None, chat_id=None):
         self.action = action
         self.text = text
         self.plan_calls = 0
         self.generate_calls = 0
+        self._cache = cache
+        self._chat_id = chat_id
 
     async def plan_initiative_decision(self, chat_id, intent_row, *,
                                        correlation_id=None):
@@ -151,6 +159,8 @@ class _FakeWriter:
     async def generate_initiative_reply(self, chat_id, intent_row, *,
                                         l1_plan=None, correlation_id=None):
         self.generate_calls += 1
+        if self._cache is not None:
+            self._cache.disable(self._chat_id)
         return self.text
 
 
@@ -158,18 +168,21 @@ class _FlippingLLM:
     """Оценщик наблюдателя: возвращает opportunity и «выключает чат» в полёте.
 
     Свитч происходит МЕЖДУ созданием задания (проверка чата пройдена) и
-    первым пользовательским side effect — ровно сценарий §2.5.
+    первым пользовательским side effect — ровно сценарий §2.5. ``flip=False``
+    оставляет чат включённым: OFF приходит позже (внутри генерации).
     """
 
-    def __init__(self, cache, chat_id, verdict):
+    def __init__(self, cache, chat_id, verdict, *, flip=True):
         self.cache = cache
         self.chat_id = int(chat_id)
         self.verdict = verdict
+        self.flip = bool(flip)
         self.calls = 0
 
     async def generate(self, messages, **kwargs):
         self.calls += 1
-        self.cache.disable(self.chat_id)
+        if self.flip:
+            self.cache.disable(self.chat_id)
         return self.verdict
 
 
@@ -235,11 +248,13 @@ def _emitted(event_name: str, *, chat_id=None):
 
 @pytest.mark.asyncio
 async def test_text_initiative_off_mid_flight_single_outcome(tmp_path):
-    """MAC-S2-113/114 + MAC-S10-07: чат выключили во время оценки/генерации.
+    """MAC-S2-113/114 + MAC-S10-07: чат выключили после оценки окна.
 
-    Ожидаем ровно один терминальный исход: ноль доставок, ноль событий
-    `initiative_sent`, одно `initiative_publication_cancelled` с машинной
-    причиной, сохранённые данные и сама настройка чата не переписаны.
+    OFF известен ДО платной генерации: входной гейт M2.1 не пускает в
+    Writer. Ожидаем ровно один терминальный исход: ноль доставок, ноль
+    событий `initiative_sent`, одно `initiative_publication_cancelled` с
+    машинной причиной и стадией входного гейта, сохранённые данные и сама
+    настройка чата не переписаны.
     """
     db = await _db(tmp_path, "inflight_text.db")
     cache = _set_caches({CHAT: dict(_ACTIVE)})
@@ -258,26 +273,82 @@ async def test_text_initiative_off_mid_flight_single_outcome(tmp_path):
         status = await obs.observe_tick(db, bot=bot, writer_service=writer,
                                         llm=llm)
         assert status == "completed"
+        # Оценка окна состоялась и именно она выключила чат: гейт входа
+        # видит OFF ещё до Writer.
+        assert cache.by_chat[CHAT]["initiative.enabled"] is False
 
         # 1) публикации нет — ни одного сообщения в выключенный чат
         assert bot.sent == []
         assert _emitted("initiative_sent", chat_id=CHAT) == []
-        # 2) текст сгенерирован ОДИН раз (дубля результата нет)
-        assert writer.generate_calls == 1
+        # 2) платной генерации не было вовсе (входной гейт до Writer)
+        assert writer.generate_calls == 0
+        assert writer.plan_calls == 0
         payload = await _payload_of(db)
         assert payload["counters"]["sent"] == 0
         assert payload["counters"].get("capability_blocked") == 1
-        # 3) один терминальный исход с машинной причиной
+        # 3) один терминальный исход с машинной причиной и стадией гейта
         cancelled = _emitted("initiative_publication_cancelled", chat_id=CHAT)
         assert len(cancelled) == 1
         assert cancelled[0]["reason_code"] == "capability_off"
-        assert cancelled[0]["stage"] == "capability:off"
+        assert cancelled[0]["stage"] == "capability:entry"
         # 4) сохранённые данные и настройка чата не тронуты
         after = await db.db.execute(
             "SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ?",
             (CHAT,))
         assert int((await after.fetchone())["n"]) == msg_count_before
         assert cache.by_chat[CHAT]["initiative.enabled"] is False
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_text_initiative_off_after_generation_cancels_publication(
+        tmp_path):
+    """MAC-S2-113/S10-07: чат выключили ПОСЛЕ входа и генерации.
+
+    Входной гейт видел ON (чат выключился внутри генерации Writer), поэтому
+    текст сгенерирован один раз. Публиковать его нельзя: единственный
+    терминальный исход даёт publish guard перед отправкой — ноль доставок
+    и одно `initiative_publication_cancelled` со стадией `capability:off`.
+    Это единственное e2e-покрытие финальной проверки перед side effect.
+    """
+    db = await _db(tmp_path, "inflight_after_generation.db")
+    cache = _set_caches({CHAT: dict(_ACTIVE)})
+    bot = _FakeBot()
+    writer = _FakeWriter(cache=cache, chat_id=CHAT)   # OFF — внутри генерации
+    try:
+        base = int(time.time()) - 3600
+        for i in range(6):
+            await _msg(db, user_id=42 + i % 2, text=f"живая тема {i}",
+                       ts=base + i)
+        before = await db.db.execute(
+            "SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ?",
+            (CHAT,))
+        msg_count_before = int((await before.fetchone())["n"])
+
+        llm = _FlippingLLM(cache, CHAT, _verdict(), flip=False)
+        status = await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                        llm=llm)
+        assert status == "completed"
+        # Чат был ON на входе (генерация состоялась), OFF пришёл позже.
+        assert cache.by_chat[CHAT]["initiative.enabled"] is False
+        # 1) генерация была ровно одна, но публикации нет
+        assert writer.generate_calls == 1
+        assert bot.sent == []
+        assert _emitted("initiative_sent", chat_id=CHAT) == []
+        payload = await _payload_of(db)
+        assert payload["counters"]["sent"] == 0
+        assert payload["counters"].get("capability_blocked") == 1
+        # 2) ровно один терминальный исход из publish guard
+        cancelled = _emitted("initiative_publication_cancelled", chat_id=CHAT)
+        assert len(cancelled) == 1
+        assert cancelled[0]["reason_code"] == "capability_off"
+        assert cancelled[0]["stage"] == "capability:off"
+        # 3) сохранённые данные не тронуты
+        after = await db.db.execute(
+            "SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ?",
+            (CHAT,))
+        assert int((await after.fetchone())["n"]) == msg_count_before
     finally:
         await db.close()
 
