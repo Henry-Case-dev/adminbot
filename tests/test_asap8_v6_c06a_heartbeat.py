@@ -72,7 +72,7 @@ async def test_hot_on_after_start_registers_job_and_ticks_without_restart(
         tmp_path, monkeypatch):
     """R1: master OFF при старте → джоба ВСЁ РАВНО зарегистрирована; hot-ON
     без рестарта → следующий тик работает (штамп обновлён, due найден)."""
-    monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
     db = await _db(tmp_path, "c06a_hoton.db")
     svc = MemoryMaintenanceService(db, memory=None, llm=None, bot=None)
     try:
@@ -87,7 +87,7 @@ async def test_hot_on_after_start_registers_job_and_ticks_without_restart(
         assert info["next_tick"] is not None
 
         # Хозяин включает тумблер (hot) — рестарта НЕТ, тот же сервис.
-        monkeypatch.setattr(mca_gates, "intents_enabled", lambda: True)
+        monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
         monkeypatch.setattr(mca_gates, "intent_heartbeat_enabled",
                             lambda: True)
         intent_id = await _mk_due(db)
@@ -116,7 +116,7 @@ async def test_hot_off_stops_heartbeat_work(tmp_path, monkeypatch, caplog):
     svc = MemoryMaintenanceService(db, memory=None, llm=None, bot=None)
     try:
         svc.start()
-        monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
+        monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
         with caplog.at_level(logging.INFO,
                              logger="services.memory_maintenance"):
             await svc._tick_intent_heartbeat()

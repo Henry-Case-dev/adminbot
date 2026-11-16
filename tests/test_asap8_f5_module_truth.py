@@ -162,8 +162,12 @@ def test_m18_own_runtime_gates_present_in_handlers():
     # summary_enabled из voice-гейта УДАЛЕН (архитектура §5.1)
     gate_line = [l for l in src_vt.splitlines()
                  if 'key="flags.enable_voice_transcription"' in l]
-    assert len(gate_line) == 1
-    assert "summary_enabled" not in gate_line[0]
+    # MOD-ACL-UX-01 M2.1 (D2): две runtime-точки ОДНОГО модуля (авто-путь и
+    # командный force-repeat) — обе через канонический per-chat резолвер;
+    # старый глобальный hot.get и Summary-AND не возвращаются.
+    assert len(gate_line) == 2
+    assert src_vt.count("feature_gates.module_enabled") == 2
+    assert all("summary_enabled" not in line for line in gate_line)
     src_dc = Path(dc.__file__).read_text(encoding="utf-8")
     # master-гейт — на входе _is_direct_trigger (reply/mention/имя/keyword)
     trigger_body = src_dc[src_dc.index("def _is_direct_trigger"):

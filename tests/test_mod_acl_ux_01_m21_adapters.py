@@ -644,3 +644,108 @@ async def test_module_adapter_truth_table(world, key):
         assert await feature_gates.module_enabled(ROOT_CHAT, key=key) is expected
     # stored values не переписаны
     assert world.cache.by_chat[ROOT_CHAT]["overrides"] == {key: True}
+
+
+# ═══ 19. transcribe: командный форс-повтор — per chat (D2) ════════════════
+
+@pytest.mark.asyncio
+async def test_force_repeat_transcribe_per_chat(world, monkeypatch):
+    """D2: «транскрипт» по reply-ГС уважает чатовый OFF модуля.
+
+    Реальная ветка: `handlers.voice_transcription.force_repeat_from_reply`
+    (её же зовёт `handlers/youtube._handle_voice_command`) → STT. При
+    GLOBAL ON + CHAT OFF транскрипт НЕ вызывается (fail-closed внутри
+    канонического резолвера); при GLOBAL OFF + CHAT ON — вызывается.
+    """
+    from handlers import voice_transcription as vt
+
+    transcribe = AsyncMock(return_value=True)
+    monkeypatch.setattr(vt, "_service", object())
+    monkeypatch.setattr(vt, "transcribe_media_message", transcribe)
+    voice = types.SimpleNamespace(
+        message_id=21, chat=types.SimpleNamespace(id=ROOT_CHAT),
+        voice=types.SimpleNamespace(file_id="voice-file"),
+        video_note=None)
+    command = _msg("транскрипт", message_id=22)
+    command.reply_to_message = voice
+
+    world.globals = {"flags.enable_voice_transcription": True}
+    _set_chat(world, _one({"flags.enable_voice_transcription": False}))
+    assert await vt.force_repeat_from_reply(
+        object(), command) == vt.FORCE_REPEAT_NO_TARGET
+    transcribe.assert_not_awaited()
+
+    world.globals = {"flags.enable_voice_transcription": False}
+    _set_chat(world, _one({"flags.enable_voice_transcription": True}))
+    assert await vt.force_repeat_from_reply(
+        object(), command) == vt.FORCE_REPEAT_SENT_OK
+    transcribe.assert_awaited_once()
+    assert transcribe.await_args.kwargs.get("force") is True
+    assert transcribe.await_args.args[0] is voice
+
+
+# ═══ 20. character: frame при GLOBAL OFF + CHAT ON (D3) ════════════════════
+
+@pytest.mark.asyncio
+async def test_character_frame_renders_when_global_off_chat_on(
+        world, monkeypatch):
+    """D3: точка сборки промпта рендерит кадр этого чата, а не legacy.
+
+    GLOBAL OFF + CHAT ON: `resolve_character_context` (канонический per-chat
+    резолвер) ставит кадр, `build_persona_prompt_block(chat_id=…)` его
+    использует — формат/семантика совпадают с GLOBAL ON (тот же
+    `render_frame_block`). GLOBAL ON + CHAT OFF — кадра нет, legacy.
+    """
+    from services import bot_persona, lore_runtime, mca_self_model as msm
+
+    frame = types.SimpleNamespace(version="v1", applied_rules=())
+    snapshot = types.SimpleNamespace(
+        persona_enabled=types.SimpleNamespace(effective=lambda *a: True))
+
+    async def _resolve(db, chat_id):
+        return snapshot
+
+    rendered: list = []
+
+    def _render(behavior_frame, **kwargs):
+        rendered.append((behavior_frame, kwargs))
+        return "<FRAME>"
+
+    monkeypatch.setattr(msm, "resolve_self_model", _resolve)
+    monkeypatch.setattr(msm, "select_behavior", lambda snap: frame)
+    monkeypatch.setattr(msm, "render_frame_block", _render)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: object())
+    monkeypatch.setattr(
+        bot_persona, "resolve_bot_persona",
+        lambda chat_id: AsyncMock(return_value=bot_persona.BotPersona(
+            name="Бот", biography="", overrides=""))())
+    monkeypatch.setattr(bot_persona, "get_traits",
+                        lambda *a, **k: AsyncMock(return_value=[])())
+
+    world.globals = {"flags.self_model_enabled": False}
+    _set_chat(world, _one({"flags.self_model_enabled": True}))
+    ctx = await bot_persona.resolve_character_context(ROOT_CHAT)
+    assert ctx.frame_version == "v1"        # per-chat резолвер сработал
+    block = bot_persona.build_persona_prompt_block(
+        ctx.persona, ctx.traits, enabled=True, chat_id=ROOT_CHAT)
+    assert block == "<FRAME>"               # кадр, а не legacy-ветка
+    off_frame = rendered[-1][0]
+
+    # Формат/семантика GLOBAL ON — тот же кадр/тот же рендер.
+    world.globals = {"flags.self_model_enabled": True}
+    _set_chat(world, _one({"flags.self_model_enabled": True}))
+    ctx_on = await bot_persona.resolve_character_context(ROOT_CHAT)
+    block_on = bot_persona.build_persona_prompt_block(
+        ctx_on.persona, ctx_on.traits, enabled=True, chat_id=ROOT_CHAT)
+    assert block_on == block
+    assert rendered[-1][0] is off_frame
+
+    # GLOBAL ON + CHAT OFF — кадр не резолвится, сборка остаётся legacy.
+    bot_persona.reset_turn_frame()
+    world.globals = {"flags.self_model_enabled": True}
+    _set_chat(world, _one({"flags.self_model_enabled": False}))
+    ctx_off = await bot_persona.resolve_character_context(ROOT_CHAT)
+    assert ctx_off.frame_version is None
+    legacy = bot_persona.build_persona_prompt_block(
+        ctx_off.persona, ctx_off.traits, enabled=True, chat_id=ROOT_CHAT)
+    assert legacy != "<FRAME>" and "<Persona>" in legacy

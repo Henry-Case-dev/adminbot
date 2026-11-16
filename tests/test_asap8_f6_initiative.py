@@ -193,7 +193,7 @@ async def test_pending_cap_skips_new_intents(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_producers_inert_when_intents_disabled(tmp_path, monkeypatch):
     db = await _db(tmp_path, "f6_off.db")
-    monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
     intent_id, created = await dcs._f6_maybe_create_unanswered_question(
         db, CHAT, "когда стрим?", 11)
     assert created is False and intent_id is None

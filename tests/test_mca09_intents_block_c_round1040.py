@@ -467,7 +467,7 @@ def test_k3_off_decision_disabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_k1_off_no_v29_reads(tmp_path, monkeypatch):
-    monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
     db = DatabaseService(str(tmp_path / "mca09_c.db"))
     await db.initialize()
     try:

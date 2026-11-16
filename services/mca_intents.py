@@ -157,6 +157,23 @@ def _db_ready(db) -> bool:
             and hasattr(db, "write_transaction"))
 
 
+async def _chat_consumption_enabled(chat_id) -> bool:
+    """Разрешено ли потребление инициативы в ЭТОМ чате (M2.1 D1).
+
+    Единственный источник — `initiative_observer.initiative_chat_enabled`
+    (канонический `chat_params`-резолвер: GLOBAL-дефолт
+    `flags.initiative_enabled` → CHAT-override `initiative.enabled`; env
+    `MCA_INTENTS_ENABLED` — emergency). Продуктовый master GLOBAL OFF больше
+    не глушит явный CHAT ON: именно поэтому проверка идёт здесь, а не через
+    глобальный `intents_enabled()`. Ленивый импорт: `initiative_observer`
+    сам потребляет этот модуль. Fail-closed (ошибка → False)."""
+    try:
+        from services import initiative_observer
+        return bool(await initiative_observer.initiative_chat_enabled(chat_id))
+    except Exception:      # pragma: no cover — защитная ветка
+        return False
+
+
 def _emit_close_event(status: str, *, reason_code: str, chat_id,
                       intent_id: str) -> None:
     """Notable-событие терминального перехода (литеральные call-site'ы —
@@ -287,8 +304,16 @@ def candidate_from_trigger(*, trigger_kind: str, chat_id: int,
                            ) -> InitiativeCandidate | None:
     """Триггер §13.1 → кандидат решения (НЕ автоотправка). Чистая функция:
     без БД, без LLM, без отправки; незнакомый триггер → None (тишина сама
-    по себе кандидата не порождает)."""
-    if not mca_gates.intents_enabled():
+    по себе кандидата не порождает).
+
+    MOD-ACL-UX-01 M2.1 (D1): здесь читается ТОЛЬКО аварийная env-ось
+    `MCA_INTENTS_ENABLED`. Продуктовый master `flags.initiative_enabled` —
+    наследуемый GLOBAL-дефолт чатового `initiative.enabled`, поэтому его
+    нельзя применять как глобальный запрет: кандидат — это ещё не
+    потребление/публикация. Per-chat решение принимают реальные потребители
+    (`IntentService.create_intent`, `due_candidates`,
+    `handle_initiative`), а не эта чистая функция."""
+    if not mca_gates.intents_env_enabled():
         return None
     if trigger_kind not in TRIGGER_KINDS:
         return None
@@ -1157,7 +1182,16 @@ async def _register_source_refs(db, chat_id: int, intent_id: str,
 
 
 class IntentService:
-    """Единый сервис намерений (второго IntentService нет; OFF K1 → инертен)."""
+    """Единый сервис намерений (второго IntentService нет; OFF K1 → инертен).
+
+    MOD-ACL-UX-01 M2.1 (D1): продуктовый master `flags.initiative_enabled` —
+    наследуемый GLOBAL-дефолт чатового `initiative.enabled`, а не глобальный
+    запрет. Поэтому чатовые операции (`create_intent`, `list_active`,
+    `due_candidates`) решают per chat (`_chat_consumption_enabled`), а
+    lifecycle существующего намерения (`defer`/`resume_on_event`/
+    `mark_attempt`/`close`/`note_writer_failure`) и гигиена управляются
+    ТОЛЬКО аварийной env-осью `MCA_INTENTS_ENABLED`. GLOBAL OFF + CHAT ON
+    иначе оставлял бы намерение вечно due и терял бы учёт попыток."""
 
     def __init__(self, db):
         self.db = db
@@ -1180,8 +1214,13 @@ class IntentService:
         False)` + notable `intent_merged`. Дисциплина: без явного сигнала
         origin обязательство НЕ создаётся. Терминальный канон освобождает
         dedup-ключ → новый повод = НОВАЯ запись со ссылкой на предшественника
-        (реактивации завершённого нет)."""
-        if not mca_gates.intents_enabled():
+        (реактивации завершённого нет).
+
+        MOD-ACL-UX-01 M2.1 (D1): решение per chat (GLOBAL-дефолт
+        `flags.initiative_enabled` → CHAT `initiative.enabled`; env
+        `MCA_INTENTS_ENABLED` — emergency). GLOBAL OFF + CHAT ON создаёт
+        намерение этого чата; CHAT OFF — не создаёт."""
+        if not await _chat_consumption_enabled(chat_id):
             return None, False
         chat_id = int(chat_id)
         kind = str(kind or "")
@@ -1303,7 +1342,7 @@ class IntentService:
                     activation_condition: str | None = None, reason_code:
                     str = "wrong_moment", now=None) -> dict | None:
         """pending → deferred (event-based ожидание; БЕЗ таймерного повтора)."""
-        if not mca_gates.intents_enabled():
+        if not mca_gates.intents_env_enabled():  # M2.1 D1: emergency-ось
             return None
         if activation_condition is not None and \
                 activation_condition not in ACTIVATION_CONDITIONS:
@@ -1319,7 +1358,7 @@ class IntentService:
                               now=None) -> dict | None:
         """deferred → pending по событию (`new_reply`/`topic_resume`/…);
         pending — no-op (None); терминальное НЕ активируется (None)."""
-        if not mca_gates.intents_enabled():
+        if not mca_gates.intents_env_enabled():  # M2.1 D1: emergency-ось
             return None
         if event_kind not in TRIGGER_KINDS:
             return None
@@ -1335,7 +1374,7 @@ class IntentService:
         """Фактическая попытка (не «домогательство»): мы спросили — результата
         нет → deferred на событие (`new_reply`, БЕЗ таймера); после
         `MCA_INTENT_MAX_ATTEMPTS` → `abandoned` (честное закрытие)."""
-        if not mca_gates.intents_enabled():
+        if not mca_gates.intents_env_enabled():  # M2.1 D1: emergency-ось
             return None
         row = await self.store.get_intent(intent_id)
         if row is None or row["status"] not in ("pending", "deferred"):
@@ -1362,7 +1401,7 @@ class IntentService:
                     now=None) -> dict | None:
         """Закрытие результатом/отказом (A15: результат сообщён → закрыто
         БЕЗ повторного вопроса). Терминальное не перезакрывается."""
-        if not mca_gates.intents_enabled():
+        if not mca_gates.intents_env_enabled():  # M2.1 D1: emergency-ось
             return None
         status = str(status or "")
         if status not in ("fulfilled", "abandoned"):
@@ -1381,7 +1420,7 @@ class IntentService:
         bounded backoff (не nag-таймер: expiry/hygiene ограничивают).
         Возвращает R17-safe словарь {"outcome": "abandoned"|"deferred"}."""
         outcome = {"outcome": "skipped"}
-        if not mca_gates.intents_enabled():
+        if not mca_gates.intents_env_enabled():  # M2.1 D1: emergency-ось
             return outcome
         row = await self.store.get_intent(intent_id)
         if row is None or row["status"] not in ("pending", "deferred"):
@@ -1412,7 +1451,12 @@ class IntentService:
     async def due_candidates(self, *, now=None) -> list[InitiativeCandidate]:
         """Due-скан SQL: bounded-батч (≤ `MCA_INTENT_HEARTBEAT_BATCH_MAX`,
         coalesce ≤1 кандидат/чат/тик); deferred с наступившим сроком →
-        pending. Без LLM; только SQL по `mca_intents`."""
+        pending. Без LLM; только SQL по `mca_intents`.
+
+        MOD-ACL-UX-01 M2.1 (D1): каждый чат проверяется каноническим
+        per-chat гейтом (`_chat_consumption_enabled`); GLOBAL OFF + CHAT ON
+        получает своего кандидата, CHAT OFF — нет (скан не создаёт поводов
+        для выключенного чата). Один резолв на чат за тик."""
         if not mca_gates.intent_heartbeat_enabled():
             return []
         ts = _now(now)
@@ -1424,11 +1468,13 @@ class IntentService:
             chat_id = int(row["chat_id"])
             if chat_id in seen_chats:
                 continue                     # coalesce ≤1 кандидат/чат/тик
+            seen_chats.add(chat_id)
+            if not await _chat_consumption_enabled(chat_id):
+                continue                     # чат выключен — не будим
             if row["status"] == "deferred":
                 await self.resume_on_event(row["intent_id"],
                                            event_kind="significant_event",
                                            now=ts)
-            seen_chats.add(chat_id)
             candidates.append(InitiativeCandidate(
                 trigger_kind="intent_due", chat_id=chat_id,
                 intent_id=row["intent_id"], kind=row["kind"],
@@ -1443,7 +1489,7 @@ class IntentService:
         старше `MCA_INTENT_RETENTION_DAYS` → `archived_at` (+ retention-прун
         архивных). Активные не прунятся; монотонного роста нет."""
         stats = {"expired": 0, "abandoned": 0, "archived": 0, "pruned": 0}
-        if not mca_gates.intents_enabled():
+        if not mca_gates.intents_env_enabled():  # M2.1 D1: emergency-ось
             return stats
         ts = _now(now)
         days = max(1, int(mca_gates.intent_retention_days()))
@@ -1470,8 +1516,8 @@ class IntentService:
 
     async def heartbeat_tick(self, *, now=None) -> dict:
         """Лёгкий тик (T-5026): due-намерения без LLM-вызова и без чтения
-        окна; + гигиена. OFF (K1/K2) → инертен (0 SQL)."""
-        if not mca_gates.intents_enabled() or \
+        окна; + гигиена. OFF (K1 emergency/K2) → инертен (0 SQL)."""
+        if not mca_gates.intents_env_enabled() or \
                 not mca_gates.intent_heartbeat_enabled():
             return {"enabled": False, "due": [], "expired": 0, "abandoned": 0,
                     "archived": 0}
@@ -1484,7 +1530,9 @@ class IntentService:
                 "abandoned": clean["abandoned"], "archived": clean["archived"]}
 
     async def list_active(self, chat_id: int) -> list[dict]:
-        if not mca_gates.intents_enabled():
+        """Живые намерения чата (per-chat решение M2.1 D1: GLOBAL-дефолт →
+        CHAT-override; env `MCA_INTENTS_ENABLED` — emergency)."""
+        if not await _chat_consumption_enabled(chat_id):
             return []
         return await self.store.list_active(chat_id)
 
@@ -1497,10 +1545,14 @@ def get_service(db) -> IntentService:
 async def heartbeat_tick(db, *, now=None) -> dict:
     """Тик хоста `intent_heartbeat_tick` (MemoryMaintenanceService, 300 с):
     due-скан + гигиена БЕЗ LLM и без чтения окна. Кандидаты отдаются единому
-    координатор-контуру; тик сам НИЧЕГО не отправляет (fail-open)."""
+    координатор-контуру; тик сам НИЧЕГО не отправляет (fail-open).
+
+    MOD-ACL-UX-01 M2.1 (D1): гейт хоста — аварийная env-ось K1 (+ K2), не
+    продуктовый master: иначе GLOBAL OFF останавливал бы shared-тик и
+    намерения явно включённого чата не доходили бы до решения/публикации."""
     stats = {"status": "disabled", "due": 0, "candidates": 0, "chats": 0}
     try:
-        if not mca_gates.intents_enabled() or \
+        if not mca_gates.intents_env_enabled() or \
                 not mca_gates.intent_heartbeat_enabled() or \
                 not _db_ready(db):
             return stats

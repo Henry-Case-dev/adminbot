@@ -183,10 +183,13 @@ def test_effective_gate_product_toggle_off(hot_with):
     assert (requested, effective, source) == (False, False, "product_toggle")
     # runtime-гейт совпадает с effective (M1)
     assert mca_gates.intents_enabled() is False
-    # подгейты инертны при мастере OFF
-    assert mca_gates.intent_heartbeat_enabled() is False
-    assert mca_gates.intent_decision_enabled() is False
-    assert mca_gates.send_recheck_enabled() is False
+    # MOD-ACL-UX-01 M2.1 (D1): продуктовый master — наследуемый GLOBAL-дефолт
+    # чатового `initiative.enabled`, а НЕ запрет подгейтов. K2/K3/K4 глушит
+    # только аварийная env-ось K1 (см. test_effective_gate_env_emergency_off
+    # и test_mca09_intents_off_parity::test_k1_off_bit_parity).
+    assert mca_gates.intent_heartbeat_enabled() is True
+    assert mca_gates.intent_decision_enabled() is True
+    assert mca_gates.send_recheck_enabled() is True
 
 
 def test_effective_gate_env_emergency_off(monkeypatch):
@@ -240,17 +243,52 @@ def test_intent_limits_hot_and_clamped(hot_with):
     assert mca_gates.intent_max_attempts() == 1            # clamp ≥1
 
 
+class _ChatRoots:
+    """Минимальный chat_params-кэш (root-лейаут) для per-chat резолва."""
+
+    def __init__(self, roots=None):
+        self.roots = dict(roots or {})
+
+    def _root(self, chat_id):
+        return dict(self.roots.get(int(chat_id))
+                    or {"overrides": {}, "gates": {}})
+
+    async def get_chat_params(self, chat_id):
+        return self._root(chat_id)
+
+    async def get_chat_params_full(self, chat_id):
+        return self._root(chat_id), None
+
+
 @pytest.mark.asyncio
 async def test_m1_intent_service_respects_product_toggle(hot_with):
-    """M1: product-тумблер OFF → Intent service инертен (кандидат не
-    создаётся) — настройки реально влияют на runtime, без рестарта."""
+    """M1/M2.1: продуктовый master — наследуемый GLOBAL-дефолт, не запрет.
+
+    INHERIT-чат наследует GLOBAL OFF (инициатива этого чата не исполняется),
+    явный CHAT ON исполняется даже при GLOBAL OFF (owner §2.1/§2.3.1).
+    Проверяется РЕАЛЬНЫЙ per-chat гейт потребителей (`initiative_observer`),
+    а не только чтение hot: `candidate_from_trigger` — чистая функция и
+    продуктовый master не читает (это фиксирует M2.1-тест адаптеров)."""
+    from services import chat_params, initiative_observer
+
     hot_with({"flags.initiative_enabled": False})
-    assert mi.candidate_from_trigger(trigger_kind="new_message",
-                                     chat_id=-100500) is None
-    hot_with({"flags.initiative_enabled": True})
-    candidate = mi.candidate_from_trigger(trigger_kind="new_message",
-                                          chat_id=-100500)
-    assert candidate is not None and candidate.chat_id == -100500
+    chat_params.set_chat_params_cache(_ChatRoots({}))
+    try:
+        assert await initiative_observer.initiative_chat_enabled(
+            -100500) is False                     # INHERIT → GLOBAL OFF
+        chat_params.set_chat_params_cache(_ChatRoots({
+            -100500: {"overrides": {"initiative.enabled": True},
+                      "gates": {}}}))
+        assert await initiative_observer.initiative_chat_enabled(
+            -100500) is True                      # CHAT ON важнее GLOBAL OFF
+        hot_with({"flags.initiative_enabled": True})
+        chat_params.set_chat_params_cache(_ChatRoots({
+            -100500: {"overrides": {"initiative.enabled": False},
+                      "gates": {}}}))
+        assert await initiative_observer.initiative_chat_enabled(
+            -100500) is False                     # CHAT OFF при GLOBAL ON
+    finally:
+        chat_params.set_chat_params_cache(None)
 
 
 @pytest.mark.asyncio

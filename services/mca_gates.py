@@ -1906,11 +1906,16 @@ def intents_enabled() -> bool:
 
 
 def intent_heartbeat_enabled() -> bool:
-    """`MCA_INTENT_HEARTBEAT_ENABLED` (K2; effective = env AND `flags.intent_heartbeat_enabled`).
+    """`MCA_INTENT_HEARTBEAT_ENABLED` (K2; effective = emergency env AND
+    `flags.intent_heartbeat_enabled`).
 
-    Инертен при K1 OFF. ON → due-скан/тик работает. OFF → тик не работает
-    (создание/закрытие намерений возможно, due-кандидатов нет)."""
-    if not intents_enabled():
+    MOD-ACL-UX-01 M2.1 (D1): K1-зависимость — ТОЛЬКО аварийная env-ось
+    `MCA_INTENTS_ENABLED`; продуктовый master `flags.initiative_enabled` —
+    наследуемый GLOBAL-дефолт чатового `initiative.enabled` (решает per chat
+    `initiative_observer.chat_capability_state`), а не запрет общего due-тика.
+    Инертен при аварийном K1 OFF. ON → due-скан/тик работает; чаты без
+    включённой инициативы отсекаются в самом скане."""
+    if not intents_env_enabled():
         return False
     if not bool(getattr(settings, "MCA_INTENT_HEARTBEAT_ENABLED", True)):
         return False
@@ -1920,10 +1925,12 @@ def intent_heartbeat_enabled() -> bool:
 def intent_decision_enabled() -> bool:
     """`MCA_INTENT_DECISION_ENABLED` (K3; effective = env AND `flags.intent_decision_enabled`).
 
-    Инертен при K1 OFF. ON → инициативные решения/делегирование nostalgia
-    выполняются. OFF → инициативные решения не выполняются (nostalgia
-    legacy), recheck-путь инертен."""
-    if not intents_enabled():
+    MOD-ACL-UX-01 M2.1 (D1): K1-зависимость — аварийная env-ось, не
+    продуктовый master (GLOBAL OFF + CHAT ON обязан решать/публиковать в
+    этом чате). Инертен при аварийном K1 OFF. ON → инициативные решения/
+    делегирование nostalgia выполняются. OFF → инициативные решения не
+    выполняются (nostalgia legacy), recheck-путь инертен."""
+    if not intents_env_enabled():
         return False
     if not bool(getattr(settings, "MCA_INTENT_DECISION_ENABLED", True)):
         return False
@@ -1933,10 +1940,13 @@ def intent_decision_enabled() -> bool:
 def send_recheck_enabled() -> bool:
     """`MCA_SEND_RECHECK_ENABLED` (K4; effective = env AND `flags.send_recheck_enabled`).
 
-    Инертен при K1 OFF. ON → единый `SendRecheck` выполняется на границе
-    отправки инициативных/отложенных решений. OFF → новый recheck-слой не
-    выполняется (документированное подмножество: существующие гейты)."""
-    if not intents_enabled():
+    MOD-ACL-UX-01 M2.1 (D1): K1-зависимость — аварийная env-ось, не
+    продуктовый master (иначе CHAT ON терял бы recheck при GLOBAL OFF).
+    Инертен при аварийном K1 OFF. ON → единый `SendRecheck` выполняется на
+    границе отправки инициативных/отложенных решений. OFF → новый
+    recheck-слой не выполняется (документированное подмножество:
+    существующие гейты)."""
+    if not intents_env_enabled():
         return False
     if not bool(getattr(settings, "MCA_SEND_RECHECK_ENABLED", True)):
         return False

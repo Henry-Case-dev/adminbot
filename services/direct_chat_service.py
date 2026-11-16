@@ -5597,7 +5597,8 @@ class DirectChatService:
                         traits=tuple(str(t.get("text") or "")
                                      for t in (traits or ())))
                 persona_block = bot_persona.build_persona_prompt_block(
-                    persona, [t.get("text") for t in traits], enabled=True)
+                    persona, [t.get("text") for t in traits], enabled=True,
+                    chat_id=chat_id)
                 if persona_block:
                     system_prompt = system_prompt + "\n\n" + persona_block
                     # Для verbalizer (System2) — та же владельческая основа
@@ -9982,7 +9983,8 @@ class DirectChatService:
                     traits = await bot_persona.get_traits(
                         int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
                     persona_block = bot_persona.build_persona_prompt_block(
-                        persona, [t.get("text") for t in traits], enabled=True)
+                        persona, [t.get("text") for t in traits], enabled=True,
+                        chat_id=chat_id)
                     if persona_block:
                         external += count_tokens(persona_block)
                         if mca_gates.character_layers_enabled():
@@ -16567,7 +16569,9 @@ async def _f6_maybe_create_unanswered_question(
     дисциплина origin — в `IntentService.create_intent`; кап pending на чат —
     существующий `limits.intent_candidates_max` (новый порог не вводится).
     Возвращает (intent_id, created); никогда не бросает."""
-    if db is None or not mca_gates.intents_enabled():
+    if db is None or not mca_gates.intents_env_enabled():
+        # M2.1 D1: аварийная env-ось — единственный глобальный гейт здесь;
+        # продуктовый master решает per chat внутри `create_intent`.
         return None, False
     subject = _f6_question_subject_token(query)
     if subject is None:
@@ -17063,10 +17067,19 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
     решением, и непосредственно перед отправкой. Неспособность сгенерировать
     → терминальный bounded исход `writer_failed` (не бесконечный defer).
     Третьего Writer нет. Silent НИКОГДА не отправляет; отправка — только
-    через `telegram_send.send_text` (chunks — одна логическая отправка)."""
+    через `telegram_send.send_text` (chunks — одна логическая отправка).
+
+    MOD-ACL-UX-01 M2.1 (D1): гейт входа — K3 (K1-зависимость у него уже
+    аварийная env-ось) и КАНОНИЧЕСКИЙ per-chat резолвер инициативы
+    (`initiative_observer.initiative_chat_enabled`: GLOBAL-дефолт
+    `flags.initiative_enabled` → CHAT `initiative.enabled`; env
+    `MCA_INTENTS_ENABLED` — emergency). GLOBAL OFF + CHAT ON публикует,
+    CHAT OFF — честный `disabled` (без второго резолвера)."""
     try:
-        if not (mca_gates.intents_enabled()
-                and mca_gates.intent_decision_enabled()):
+        if not mca_gates.intent_decision_enabled():
+            return {"status": "disabled", "delivery_kind": ""}
+        from services import initiative_observer as _io
+        if not await _io.initiative_chat_enabled(chat_id):
             return {"status": "disabled", "delivery_kind": ""}
         decision_candidates = tuple(
             c.to_decision_candidate() for c in (candidates or ())

@@ -381,7 +381,23 @@ async def force_repeat_from_reply(bot, command_message) -> str:
     (вызывающий отдаёт прежний нейтральный ответ); ``handled`` — цель была,
     но ASR деградировал и фраза деградации УЖЕ отправлена; ``sent_ok`` —
     цель была и успешный транскрипт отправлен. Исключения — наружу
-    (вызывающий делает нейтральный фолбэк)."""
+    (вызывающий делает нейтральный фолбэк).
+
+    MOD-ACL-UX-01 M2.1 (D2): командный форс-повтор — тоже потребление
+    модуля «Транскрипция»: гейт ``flags.enable_voice_transcription``
+    решается per chat каноническим резолвером ДО любого STT (GLOBAL default
+    → CHAT override). CHAT OFF при GLOBAL ON транскрипт по команде НЕ
+    запускает; ошибка резолвера → fail-closed (``module_enabled`` → False).
+    """
+    chat_id = getattr(getattr(command_message, "chat", None), "id", None)
+    if chat_id is None:
+        return FORCE_REPEAT_NO_TARGET
+    if not await feature_gates.module_enabled(
+            chat_id, key="flags.enable_voice_transcription",
+            default=settings.ENABLE_VOICE_TRANSCRIPTION):
+        logger.info("[transcribe] force repeat disabled for chat | chat=%s",
+                    chat_id)
+        return FORCE_REPEAT_NO_TARGET
     if _service is None or bot is None:
         return FORCE_REPEAT_NO_TARGET
     # Единый выбор цели (своё > реплай) — тот же хелпер, что в классификации
