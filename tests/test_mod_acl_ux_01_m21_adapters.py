@@ -14,6 +14,7 @@
 вместе с precedence и структурным отсутствием второго резолвера.
 """
 import copy
+import time
 import types
 from unittest.mock import AsyncMock
 
@@ -315,6 +316,32 @@ async def test_download_tool_path_per_chat(world, monkeypatch):
     _set_chat(world, _one({"flags.download_enabled": True}))
     on = await router._download_media({}, ctx)
     assert "Скачивание недоступно" in on    # гейт пройден, ветка дальше
+
+
+@pytest.mark.asyncio
+async def test_download_callback_rechecks_per_chat(world, monkeypatch):
+    """Меню качества, открытое до CHAT OFF, не запускает скачивание."""
+    from handlers import video_download as vd
+
+    monkeypatch.setattr(vd, "_downloader", object())
+    key = (ROOT_CHAT, 5)
+    vd._PENDING[key] = {
+        "urls": ["https://example.com/v"], "probes": [None], "selected": 0,
+        "trigger_message_id": 11, "expires": time.monotonic() + 60,
+    }
+    callback = types.SimpleNamespace(
+        message=types.SimpleNamespace(chat=types.SimpleNamespace(id=ROOT_CHAT)),
+        from_user=types.SimpleNamespace(id=5), data="vd:720",
+        answer=AsyncMock())
+    try:
+        world.globals = {"flags.download_enabled": True}
+        _set_chat(world, _one({"flags.download_enabled": False}))
+        await vd.cb_pick_quality(callback, bot=object())
+        callback.answer.assert_awaited_once()
+        assert callback.answer.await_args.args[0] == "Скачивание отключено"
+        assert key in vd._PENDING          # меню не исполнено, pending цел
+    finally:
+        vd._PENDING.pop(key, None)
 
 
 # ═══ 8. checkup: handler + tool path ══════════════════════════════════════
