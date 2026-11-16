@@ -16,7 +16,7 @@
 | Схема | `user_version=47`, DDL 0 (M0) |
 | Каталог | 21 видимая карточка = 16 static + 5 registry-only; 11 `ModuleSpec` (10 visible + hidden) |
 | Health | `https://admin-bot.duckdns.org/healthz` → `200 {"status":"ok","version":"2.58.205"}` |
-| Артефакты design | design + copy — коммит **`cc060b7631bfcd3be0ef53db821f23facda857e1`**; freeze — коммит **`36f3e603039de199ff4aea4b6e4fd4a29b0ec9f1`**; хеши §3 сняты после последней правки и совпадают с блобами на `HEAD` |
+| Артефакты design | design — коммит **`4e8a08c2f213d1ec8a42f782fff8a0cf28b4f1f7`**, copy — коммит **`cc060b7631bfcd3be0ef53db821f23facda857e1`**; freeze — коммит **`36f3e603039de199ff4aea4b6e4fd4a29b0ec9f1`**; хеши §3 сняты после последней правки и совпадают с блобами на `HEAD` |
 
 ## 2. Что проверено визуально
 
@@ -82,7 +82,7 @@
 
 | Артефакт | Содержание | git blob | sha256 |
 |---|---|---|---|
-| `design-m3-2026-11-16.md` | design specification rev2.1: IA, 21 карточка, per-card матрица, wireframes, состояния, API, DTO-имена, responsive, token mapping, acceptance, M2.1 | `cad07c07c67c9999fc1edbd28225504525ffc40d` | `1b363dafe25a16ceeaa62dc336228b26220eac7a0cec7ecbf77b7a6d80a65a3f` |
+| `design-m3-2026-11-16.md` | design specification rev2.1: IA, 21 карточка, per-card матрица, wireframes, состояния, API, DTO-имена, responsive, token mapping, acceptance, M2.1 | `2a75ba83ef3fc80f7b474751da55d689719d11e5` | `af36216207ca731acba15e0f884f1504b62257dfdbcfeb2676f8a73ea55c0aae` |
 | `copy-inventory.md` | полный copy inventory до/после: карточки, вкладки, управление, состояние, пустота, 401/403/404/503, 409, шапка каталога (§10), границы Статуса/Прав (§11) | `cc0b25b60ed4100c90e876217d5283d9a83e312c` | `f93e7573be60a7cbf099e40f96c12d751a2bb0a47787ff0daac3c14a16cb699e` |
 | `m3-design-freeze.md` | frozen §1–§7 + датированные дополнения §8 (rev2) и §9 (rev2.1) | `113ca5b1034c597d92c5abf5b2bfe8fd2d94a0be` | `e799224a86d21758404ed88f87c752078463f53409f1c32eb3fdffe16e4b4fd6` |
 | `evidence/m3/catalog-1280.png` | каталог 1280×800, реальные deployed-ассеты + stub | `9283dd07de745deb8832396f67375ff6f036d1c1` | `e19edc1b78cace5af036cc74f32cc733042cdc7d7d5ab3166d1a3fa8f090d7e4` |
@@ -93,9 +93,9 @@
 
 ```text
 git rev-parse HEAD:plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
-# → cad07c07c67c9999fc1edbd28225504525ffc40d
+# → 2a75ba83ef3fc80f7b474751da55d689719d11e5
 sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
-# → 1b363daf…0a65a3f  (Windows: Get-FileHash -Algorithm SHA256)
+# → af362162…5c0aae  (Windows: Get-FileHash -Algorithm SHA256)
 ```
 
 Хешей «до правки» в evidence нет: таблица выше снята после финальной правки и проверяется командами
@@ -173,7 +173,7 @@ sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
 
 | # | Закрытие |
 |---|---|
-| E1 | хеши §3 пересчитаны от фактических коммитов (`cc060b76…` — design/copy, `36f3e603…` — freeze), git blob + sha256 после финальной правки; «до правки» удалены |
+| E1 | хеши §3 пересчитаны от фактических коммитов (`4e8a08c2…` — design, `cc060b76…` — copy, `36f3e603…` — freeze), git blob + sha256 после финальной правки; «до правки» удалены |
 | D1 | design §2.4: per-card матрица 21 карточки (tabs/подписи, История/События, «Расширенные», default, viewport 1440/1280/768/390/320); `history_source` в DTO |
 | D2 | design §6.2 п.1: 8 `runtime_gate` (`initiative`, `stories`, `character`, `random`, `factcheck`, `vision`, `nostalgia`, `sleep`); summary/budgets/images — новые спеки; передача M2.1/M4A — §12.5 |
 | D3 | design §6.2 п.3: `feature_gates.gate_state`/`CapabilityState`, `global_value/source` из `FLAG_KEYS`, param как default/usage, один чатовый контрол |
