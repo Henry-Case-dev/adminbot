@@ -20,6 +20,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from services import command_prefix
 from services import command_registry
+from services import feature_gates
 from services import hot_config as hot
 from services.canonical_context import (
     SpeechProjection,
@@ -136,8 +137,12 @@ def _parse_search_query(raw: str) -> str | None:
 async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
-    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
-    if not hot.get("flags.search_enabled", settings.SEARCH_ENABLED):
+    # MOD-ACL-UX-01 M2.1: master-флаг модуля решается per chat (GLOBAL-дефолт
+    # → явный CHAT-override) через канонический резолвер, а не глобальным
+    # `hot.get` (раньше override этого чата не действовал).
+    if not await feature_gates.module_enabled(
+            message.chat.id, key="flags.search_enabled",
+            default=settings.SEARCH_ENABLED):
         return UNHANDLED
     query = _parse_search_query(message.text or message.caption or "")
     if query is None:

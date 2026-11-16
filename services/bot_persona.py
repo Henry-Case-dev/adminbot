@@ -714,9 +714,11 @@ async def resolve_character_context(chat_id: int | None
         limit = 50
     traits: tuple[str, ...] = ()
     frame_version: str | None = None
-    if mca_gates.self_model_enabled():
+    if await mca_gates.self_model_enabled_for_chat(chat_id):
         # mca-18: snapshot+frame на запуск; ошибки → честное событие,
-        # legacy-рендер (промпт не рушится).
+        # legacy-рендер (промпт не рушится). MOD-ACL-UX-01 M2.1: решение
+        # per-chat (master-AND с глобальной моделью) — OFF этого чата не
+        # удаляет модель, но не подмешивает эволюцию в его контекст.
         try:
             from services import mca_self_model as msm
             from services import lore_runtime

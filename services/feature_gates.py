@@ -62,10 +62,18 @@ DEFAULT_BY_FEATURE = {
 
 # F7/R10.18-3: фичи, у которых есть ОТДЕЛЬНЫЙ per-chat master-флаг, который
 # воркер передаёт в `gates_enabled(fallback=…)`. Статус-API обязан резолвить
-# тот же fallback — иначе UI «Гейты/Тяжёлые» расходится с воркером. Только
-# `dream`: `nostalgia`/`lore_auto` воркеры fallback не используют, их
-# поведение не меняем.
-MASTER_FALLBACK_KEYS: dict[str, str] = {"dream": "memory.dream_enabled"}
+# тот же fallback — иначе UI «Гейты/Тяжёлые» расходится с воркером.
+# `dream`: воркер передаёт `memory.dream_enabled`; `nostalgia` (M2.1 §12.3):
+# master карточки — `memory.nostalgia_enabled`, а не legacy
+# `flags.nostalgia_enabled`.
+MASTER_FALLBACK_KEYS: dict[str, str] = {
+    "dream": "memory.dream_enabled",
+    # MOD-ACL-UX-01 M2.1 §12.3: `memory.nostalgia_enabled` — master карточки;
+    # `flags.nostalgia_enabled` остаётся read-compat ключом, но НЕ перекрывает
+    # master. Иначе явный legacy-ON в `flags.*` не давал бы выключить модуль
+    # глобальным тумблером (M3 design §12.3).
+    "nostalgia": "memory.nostalgia_enabled",
+}
 
 # MOD-ACL-UX-01 / M2 (§2.4-4): документированный read-compat alias того же
 # capability в ДРУГОМ namespace. `permsoc` исторически имеет два чатовых поля
@@ -211,9 +219,19 @@ def _global_flag_sourced(feature: str) -> tuple[bool, str]:
     сохранён в bot_settings/ConfigCache; `default` — код-дефолт каталога.
 
     Источник нужен каноническому резолверу/UI, чтобы не выдавать дефолт за
-    пользовательскую настройку (§2.2)."""
+    пользовательскую настройку (§2.2).
+
+    MOD-ACL-UX-01 M2.1 §12.3: у `nostalgia` master-ключ —
+    `memory.nostalgia_enabled`; legacy `flags.nostalgia_enabled` читается
+    только как fallback, когда master-ключ не задан. Иначе явный
+    legacy-ON перекрывал бы глобальный тумблер карточки."""
     default = DEFAULT_BY_FEATURE[feature]
-    for key in FLAG_KEYS.get(feature, ()):
+    ordered = FLAG_KEYS.get(feature, ())
+    master_key = MASTER_FALLBACK_KEYS.get(feature)
+    if feature == "nostalgia" and master_key:
+        ordered = (master_key,) + tuple(
+            key for key in ordered if key != master_key)
+    for key in ordered:
         try:
             v = hot.get(key, None)
         except Exception:
@@ -324,6 +342,39 @@ async def gates_enabled(chat_id: int, feature: str,
     месте — `services/chat_params.resolve_gate_capability`.
     Fail-open: PG/кэш down → глобальный флаг (прецедентно безопасно)."""
     state = await gate_state(chat_id, feature, root, fallback=fallback)
+    return bool(state is not None and state.effective_runtime)
+
+
+async def module_enabled(chat_id, *, module_id: str | None = None,
+                         key: str | None = None, default=None) -> bool:
+    """Тонкий адаптер потребителя модуля к ЕДИНСТВЕННОМУ резолверу.
+
+    MOD-ACL-UX-01 M2.1: 12 продуктовых потребителей должны решать
+    «работает ли модуль в ЭТОМ чате» через канонический `chat_params`
+    (GLOBAL-дефолт → явный CHAT-override), а не читать `hot.get` напрямую.
+    Здесь нет второго приоритета/ACL/registry: либо
+    `resolve_module_capability` (для записей `module_registry`, где master и
+    env-ось уже объявлены), либо `resolve_param_capability` (для static-
+    карточек, которые ещё не заведены в registry — это M4A).
+
+    Fail-closed: неизвестный модуль/ошибка резолва → False (не выдаём
+    разрешение без состояния). ``chat_id=None`` — законный global scope:
+    резолвер вернёт глобальный слой без чатового override.
+    """
+    from services import chat_params as cp
+    try:
+        if module_id:
+            state = await cp.resolve_module_capability(chat_id, module_id)
+        elif key:
+            state = await cp.resolve_param_capability(
+                chat_id, key, capability=key, default=default)
+        else:
+            return False
+    except Exception:
+        logger.warning("[gates] module capability resolve failed | "
+                       "module=%s key=%s chat=%s", module_id, key, chat_id,
+                       exc_info=True)
+        return False
     return bool(state is not None and state.effective_runtime)
 
 

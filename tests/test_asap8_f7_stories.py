@@ -24,6 +24,7 @@ import asyncio
 import json
 import time
 import types
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -393,8 +394,8 @@ def test_api_no_chat_and_disabled_not_annotated(api_db, monkeypatch):
     client = _client(api_db)
     body = client.get("/api/stories/feed", headers=_hdr(chat=None)).json()
     assert body["state"] == "no_chat" and body["events"] == []
-    monkeypatch.setattr(mca_gates, "stories_vitrina_enabled",
-                        lambda: False)
+    monkeypatch.setattr(mca_gates, "stories_vitrina_enabled_for_chat",
+                        AsyncMock(return_value=False))
     body = client.get("/api/stories/feed", headers=_hdr()).json()
     assert body["enabled"] is False and body["state"] == "disabled"
 

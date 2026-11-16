@@ -314,8 +314,10 @@ class TestNotAModuleCard:
             set_config_cache(None)
 
     def test_factcheck_handler_gate_reads_master_flag(self):
-        """/factcheck — гейт модуля на границе исполнения (hot master)."""
+        """/factcheck — гейт модуля на границе исполнения (hot master →
+        канонический per-chat резолвер, MOD-ACL-UX-01 M2.1)."""
         import handlers.factcheck as hf
         import inspect
         src = inspect.getsource(hf)
-        assert 'hot.get("flags.factcheck_enabled"' in src
+        assert 'key="flags.factcheck_enabled"' in src
+        assert "feature_gates.module_enabled" in src

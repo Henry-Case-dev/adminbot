@@ -281,7 +281,7 @@ async def exploration_allowed(db, purpose: str, chat_id=None) -> tuple[bool,
         return False, "no_eligible_alternative"
     if not await use_enabled(db, str(purpose), chat_id):
         return False, "disabled"
-    if not (mca_gates.random_source_enabled()
+    if not (await mca_gates.random_source_enabled_for_chat(chat_id)
             and mca_gates.random_exploration_enabled()):
         return False, "disabled"
     return True, None

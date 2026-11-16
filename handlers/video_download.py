@@ -29,6 +29,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config.settings import settings
 from services import command_prefix
 from services import hot_config as hot
+from services import media_download
 from services import native_media as native_media_module
 from services import video_intent
 from services.external_log import trace_step
@@ -255,11 +256,12 @@ async def _delete_keyboard(bot: Bot, chat_id: int, trigger_message_id: int,
 async def video_download_handler(message: types.Message, bot: Bot = None):
     if _downloader is None or bot is None:
         return UNHANDLED
-    # R10.15-4: горячий гейт master-флага. Роутер зарегистрирован всегда
+    # MOD-ACL-UX-01 M2.1: флаг модуля решается per chat (GLOBAL-дефолт →
+    # CHAT-override) через канонический резолвер; глобальный hot.get
+    # игнорировал настройку этого чата. Роутер зарегистрирован всегда
     # (позиция 4e не меняется), поэтому выключенный модуль «спит» — сообщение
     # уходит дальше по штатной пропагации, а не теряется без ответа.
-    if not hot.get("flags.download_enabled",
-                   getattr(settings, "DOWNLOAD_ENABLED", False)):
+    if not await media_download.module_enabled(message.chat.id):
         return UNHANDLED
     text = message.text or message.caption or ""
     if not isinstance(text, str):

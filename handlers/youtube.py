@@ -64,6 +64,7 @@ from services import media_share
 from services import native_media
 from services import command_prefix
 from services import command_registry
+from services import feature_gates
 from services import video_intent
 from services.llm_client import LLMBadResponseError, LLMError
 from services.media_download import fetch_media_to_tmp
@@ -1678,8 +1679,12 @@ async def _dispatch_video_request(bot, message: types.Message,
         return None
     # Раунд 10.6 (T-1201/A1): master-флаг «Выжимка видео» гейтит ТОЛЬКО
     # summary-ветки (YouTube+media); «транскрипт» продолжает работать.
-    if getattr(request, "mode", "") == "summary" and not hot.get(
-            "flags.video_summary_enabled", settings.VIDEO_SUMMARY_ENABLED):
+    # MOD-ACL-UX-01 M2.1: флаг решается per chat (GLOBAL-дефолт →
+    # CHAT-override) через канонический резолвер.
+    if getattr(request, "mode", "") == "summary" and \
+            not await feature_gates.module_enabled(
+                message.chat.id, key="flags.video_summary_enabled",
+                default=settings.VIDEO_SUMMARY_ENABLED):
         return UNHANDLED
     chat_id = message.chat.id
     user_id = (request_user_id if isinstance(request_user_id, int)

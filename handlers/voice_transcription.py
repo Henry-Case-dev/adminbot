@@ -36,6 +36,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.enums import ChatAction
 
 from config.settings import settings
+from services import feature_gates
 from services import hot_config as hot
 from handlers.summary import _extract_forward_source
 # Bugfix 04.09.2026 (Часть 1): общие хелперы автора/факта — из media_common
@@ -409,10 +410,16 @@ async def voice_transcription_handler(message: types.Message, bot=None):
 
     F5 (ТЗ §18H(4), архитектура §5.1): AND-гейт bot.py переезжает в рантайм —
     только СВОЙ флаг ``flags.enable_voice_transcription`` (зависимость от
-    ``flags.summary_enabled`` УДАЛЕНА: роутер регистрируется всегда)."""
+    ``flags.summary_enabled`` УДАЛЕНА: роутер регистрируется всегда).
+    MOD-ACL-UX-01 M2.1: флаг решается per chat каноническим резолвером
+    (GLOBAL-дефолт → CHAT-override)."""
     try:
-        if not hot.get("flags.enable_voice_transcription",
-                       settings.ENABLE_VOICE_TRANSCRIPTION):
+        # MOD-ACL-UX-01 M2.1: флаг модуля решается per chat (GLOBAL-дефолт →
+        # CHAT-override) через канонический резолвер; глобальный hot.get
+        # игнорировал настройку этого чата.
+        if not await feature_gates.module_enabled(
+                message.chat.id, key="flags.enable_voice_transcription",
+                default=settings.ENABLE_VOICE_TRANSCRIPTION):
             return UNHANDLED
         if _service is None or bot is None:
             return UNHANDLED

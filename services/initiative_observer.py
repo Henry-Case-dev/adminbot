@@ -524,7 +524,7 @@ async def initiative_publish_block_reason(chat_id) -> str | None:
     try:
         if not observer_enabled():
             return "capability_off"
-    except Exception:      # pragma: no cover — защитная ветка
+    except Exception:      # pragma: no cover - защитная ветка
         pass
     state = await chat_capability_state(int(chat_id), fresh=True)
     if state is None:
@@ -812,6 +812,20 @@ async def random_trigger(source, *, chat_id: int | None, purpose: str,
         return TriggerDraw(False, SKIP_RANDOM_MISS, build_draw_trace(
             None, purpose=purpose, probability=p, hit=False,
             reason=DRAW_PROBABILITY_ZERO, ts=stamp))
+    # MOD-ACL-UX-01 M2.1: использование RandomSource — per chat (master-AND:
+    # глобальный пул/провайдер + явный CHAT-override `memory.random_enabled`).
+    # OFF этого чата не останавливает пул, ANU/refill и другие чаты.
+    try:
+        from services import mca_gates as _mca_gates
+        if not await _mca_gates.random_source_enabled_for_chat(chat_id):
+            return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE,
+                               build_draw_trace(
+                                   None, purpose=purpose, probability=p,
+                                   reason="random_disabled", ts=stamp))
+    except Exception:      # pragma: no cover — защитная ветка
+        return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE, build_draw_trace(
+            None, purpose=purpose, probability=p,
+            reason="random_service_unavailable", ts=stamp))
     try:
         from services import mca_random_source as mrs
         if not mrs.purpose_sanctioned(purpose):

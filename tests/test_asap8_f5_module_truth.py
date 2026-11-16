@@ -155,10 +155,13 @@ def test_m18_own_runtime_gates_present_in_handlers():
     # ровно 3 runtime-точки: observer + observer_edited + cmd_summary
     assert src_summary.count("_summary_enabled()") >= 4  # def + 3 call-sites
     src_vt = Path(vt.__file__).read_text(encoding="utf-8")
-    assert 'hot.get("flags.enable_voice_transcription"' in src_vt
+    # MOD-ACL-UX-01 M2.1: гейт тот же, но читается каноническим per-chat
+    # резолвером (структурная проверка не закрепляет старый hot.get).
+    assert 'key="flags.enable_voice_transcription"' in src_vt
+    assert "feature_gates.module_enabled" in src_vt
     # summary_enabled из voice-гейта УДАЛЕН (архитектура §5.1)
     gate_line = [l for l in src_vt.splitlines()
-                 if "enable_voice_transcription" in l and "hot.get" in l]
+                 if 'key="flags.enable_voice_transcription"' in l]
     assert len(gate_line) == 1
     assert "summary_enabled" not in gate_line[0]
     src_dc = Path(dc.__file__).read_text(encoding="utf-8")

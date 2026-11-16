@@ -225,7 +225,10 @@ async def stories_summary(
 ):
     """Счётчики витрины + прогресс архивной обработки (D5). Без чата —
     честный `no_chat` (не нули); чужой чат → 403 (A25)."""
-    if not mca_gates.stories_vitrina_enabled():
+    chat_id = _chat_id_or_none(x_chat_id)
+    # MOD-ACL-UX-01 M2.1: read-контур получает chat scope через канонический
+    # резолвер (GLOBAL-дефолт → явный CHAT-override), а не глобальный флаг.
+    if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
         return _summary_disabled()
     db = _db_or_unavailable()
     if db is None:
@@ -233,7 +236,6 @@ async def stories_summary(
                 "counters": None, "progress": None, "window_hours": 24,
                 "manage_enabled": bool(mca_gates.stories_manage_enabled()),
                 "generated_at": None}
-    chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         return {"enabled": True, "state": "no_chat", "chat_id": None,
                 "counters": None, "progress": None, "window_hours": 24,
@@ -258,14 +260,14 @@ async def stories_feed(
     """Лента событий историй (D4): инкрементальный курсор `id > cursor`,
     дедуп по event_id, bounded-страница (`has_more` — «история ограничена»).
     Обе даты (A11) — в entity каждого события."""
-    if not mca_gates.stories_vitrina_enabled():
+    chat_id = _chat_id_or_none(x_chat_id)
+    if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
         return {"enabled": False, "state": "disabled", "chat_id": None,
                 "cursor": int(cursor), "events": [], "has_more": False}
     db = lore_runtime.get_lore_db()
     if db is None:
         return {"enabled": True, "state": "unavailable", "chat_id": None,
                 "cursor": int(cursor), "events": [], "has_more": False}
-    chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         return {"enabled": True, "state": "no_chat", "chat_id": None,
                 "cursor": int(cursor), "events": [], "has_more": False}
@@ -306,7 +308,8 @@ async def stories_table(
     `(updated_at, story_id)` + фильтры на существующих колонках v21 + поиск
     LIKE title/summary/claims (параметризованный, TH-7). Все параметры
     валидированы выше (Query-ограничения) — client-side trust запрещён."""
-    if not mca_gates.stories_vitrina_enabled():
+    chat_id = _chat_id_or_none(x_chat_id)
+    if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
         return {"enabled": False, "state": "disabled", "chat_id": None,
                 "items": [], "next_cursor": None, "has_more": False,
                 "manage_enabled": bool(mca_gates.stories_manage_enabled())}
@@ -315,7 +318,6 @@ async def stories_table(
         return {"enabled": True, "state": "unavailable", "chat_id": None,
                 "items": [], "next_cursor": None, "has_more": False,
                 "manage_enabled": bool(mca_gates.stories_manage_enabled())}
-    chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         return {"enabled": True, "state": "no_chat", "chat_id": None,
                 "items": [], "next_cursor": None, "has_more": False,
@@ -345,12 +347,12 @@ async def story_card(
     """Карточка истории (D7). Story валидируется на принадлежность
     разрешённому чату ДО чтения (TH-1); чужой/несуществующий → 404 без
     раскрытия существования; redirect-источник резолвится фасадом."""
-    if not mca_gates.stories_vitrina_enabled():
+    chat_id = _chat_id_or_none(x_chat_id)
+    if not await mca_gates.stories_vitrina_enabled_for_chat(chat_id):
         return {"enabled": False, "state": "disabled"}
     db = lore_runtime.get_lore_db()
     if db is None:
         return {"enabled": True, "state": "unavailable"}
-    chat_id = _chat_id_or_none(x_chat_id)
     if chat_id is None:
         return {"enabled": True, "state": "no_chat"}
     await _require_chat_access(request, user, chat_id)
