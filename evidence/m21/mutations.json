@@ -1,0 +1,26 @@
+[
+  {
+    "name": "initiative_master_and_removed",
+    "file": "services/initiative_observer.py",
+    "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_product_master_and_stays",
+    "killed": true,
+    "returncode": 1,
+    "tail": "    async def test_initiative_product_master_and_stays(world, monkeypatch):\n        \"\"\"Chat ON не обходит product master `flags.initiative_enabled`.\"\"\"\n        monkeypatch.setattr(initiative_observer, \"observer_enabled\", lambda: False)\n        world.globals = {\"flags.initiative_enabled\": False,\n                         \"initiative.enabled\": True}\n        _set_chat(world, {\"overrides\": {\"initiative.enabled\": True},\n                          \"gates\": {}})\n>       assert await initiative_observer.initiative_publish_block_reason(\n            CHAT) == \"capability_off\"\nE       AssertionError: assert 'emergency_block' == 'capability_off'\nE         \nE         - capability_off\nE         + emergency_block\n\ntests\\test_mod_acl_ux_01_m21_gates.py:136: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_product_master_and_stays\n1 failed in 3.50s"
+  },
+  {
+    "name": "search_chat_override_removed",
+    "file": "handlers/search.py",
+    "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_search_handler_per_chat",
+    "killed": true,
+    "returncode": 1,
+    "tail": "    async def test_search_handler_per_chat(world, monkeypatch):\n        from handlers import search as sm\n    \n        service = types.SimpleNamespace(research=AsyncMock(return_value=\"ok\"))\n        sm.setup_search(service)\n        sm._cooldown._last.clear()\n        bot = AsyncMock()\n        try:\n            world.globals = {\"flags.search_enabled\": True}\n            _set_chat(world, _one({\"flags.search_enabled\": False}))\n>           assert await sm.smartsearch_handler(\n                _msg(\"Бот, найди X\"), bot=bot) is UNHANDLED\nE               assert None is sentinel.UNHANDLED\n\ntests\\test_mod_acl_ux_01_m21_adapters.py:188: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_adapters.py::test_search_handler_per_chat\n1 failed in 3.42s"
+  },
+  {
+    "name": "nostalgia_precedence_removed",
+    "file": "services/feature_gates.py",
+    "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_nostalgia_memory_master_beats_legacy_flags",
+    "killed": true,
+    "returncode": 1,
+    "tail": "world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000023CECEAA2D0>\n\n    @pytest.mark.asyncio\n    async def test_nostalgia_memory_master_beats_legacy_flags(world):\n        \"\"\"flags.nostalgia_enabled=True не перекрывает master=False.\"\"\"\n        world.globals = {\"flags.nostalgia_enabled\": True,\n                         \"memory.nostalgia_enabled\": False}\n        _set_chat(world, {\"overrides\": {}, \"gates\": {}})\n        state = await feature_gates.gate_state(CHAT, \"nostalgia\")\n        assert state is not None\n>       assert state.global_value is False\nE       AssertionError: assert True is False\nE        +  where True = CapabilityState(capability='nostalgia', key='nostalgia', domain='gate', chat_id=-100, chat_state='inherit', desired=Tr...None, reason_code=None, pending_restart=False, version=None, can_read=None, can_edit=None, consent=None, conflict=None).global_value\n\ntests\\test_mod_acl_ux_01_m21_gates.py:84: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_nostalgia_memory_master_beats_legacy_flags\n1 failed in 3.59s"
+  }
+]
