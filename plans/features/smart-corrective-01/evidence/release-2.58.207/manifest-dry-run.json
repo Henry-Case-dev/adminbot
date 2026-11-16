@@ -1,0 +1,11 @@
+{
+  "deployed_at": "2026-11-16T12:08:14.219052Z",
+  "deployed_sha": "1519ec04c17e8778ae4d5867b09713a7b0947f58",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": null,
+  "previous_version": null,
+  "release_branch": "release/smart-corrective-2.58.207",
+  "schema": 1,
+  "version": "2.58.207"
+}

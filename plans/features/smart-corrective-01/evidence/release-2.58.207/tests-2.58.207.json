@@ -1,0 +1,189 @@
+{
+  "release": "2.58.207",
+  "requirement_ids": ["SMART-CORRECTIVE-01", "P0-PROD-DISK-01 (preservation)"],
+  "candidate": {
+    "release_branch": "release/smart-corrective-2.58.207",
+    "base": "6a878fec2a3d8cc47c618772f3686e3df39d1de4",
+    "base_version": "2.58.206",
+    "base_note": "deployed 2.58.206 (disk retention keep=2 + Status thresholds 85/90); SMART deltas cherry-picked onto the deployed tree, not onto bca18c1e",
+    "source_commits": {
+      "checkup_range": ["612e6518", "b9f5ec88", "98338292", "a9a32b8b", "6c2ba4a4", "d47a0cda"],
+      "s7_r1": "bfa66930",
+      "transport_range": ["c292a1cf", "25df4f9e", "bf10e3f0", "411f8686"],
+      "bump": "new commit 1519ec04 (30 files / 31 lines)"
+    },
+    "new_history": [
+      "67828dec = cherry-pick 612e6518",
+      "13b248c7 = cherry-pick b9f5ec88",
+      "de92f0a5 = cherry-pick 98338292",
+      "3e447956 = cherry-pick a9a32b8b",
+      "da434d70 = cherry-pick 6c2ba4a4",
+      "c21a7fe0 = cherry-pick d47a0cda",
+      "38b56cd5 = cherry-pick bfa66930",
+      "8e87f883 = cherry-pick c292a1cf",
+      "aea3c640 = cherry-pick 25df4f9e",
+      "8eed2f92 = cherry-pick bf10e3f0",
+      "60cede96 = cherry-pick 411f8686",
+      "1519ec04 = bump 2.58.206 -> 2.58.207"
+    ],
+    "commits": 12,
+    "merges": 0,
+    "cumulative_diff": {"files": 70, "insertions": 4581, "deletions": 267},
+    "candidate_delta_excluding_bump": {"files": 40, "insertions": 4550, "deletions": 236},
+    "excluded": {
+      "release/mod-acl-m21-2.58.206": "historical M2.1 train, not used",
+      "bca18c1e-based SMART train": "not deployed and not pushed; would roll disk 2.58.206 back"
+    }
+  },
+  "conflicts": [
+    {
+      "file": "plans/docs/param-registry-round1025.meta.md",
+      "source": "bf10e3f0",
+      "cause": "transport re-pin changed HEAD(short) on the 2.58.205 line; base already carried the 2.58.206 bump",
+      "resolution": "kept base APP_VERSION=2.58.206 and HEAD(short)=5bdb80cb; final bump sets APP_VERSION=2.58.207; transport TSV/sha re-pin preserved",
+      "verified_by": "python -m pytest tests/test_round1025_f8_registry.py (frozen catalog/TSV/hash tests)"
+    }
+  ],
+  "auto_merged_preservation": {
+    "web/app.js": "disk status tokens STATUS_DISK_WARN_PERCENT=85 / STATUS_DISK_CRIT_PERCENT=90 / ctlDiskAlert present (8 disk-token hits base and head); transport prov_policy + llm_guard present",
+    "web/index.html": "disk .status-disk / ctl-progress / aria-live markup preserved; transport visible provider group text preserved",
+    "web/static/app.css": "status-disk alert CSS preserved",
+    "config/settings.py": "transport LLM_TIMEOUT=180 / LLM_TOTAL_BUDGET=360 + migration; disk 2.58.206 release note retained as Prior 2.58.206",
+    "tests/test_round1025_f8_registry.py": "both checkup S5 routes hash re-pin and transport param-catalog hash re-pin present",
+    "tests/test_webapp_js_unit.py": "disk JS suite plus transport F5 group doc/JS test preserved",
+    "services/disk_retention.py": "DEPLOY_BACKUP_KEEP=2, sidecars, keep=2 unchanged",
+    "services/config_migrations.py": "LLM_GUARD_MIGRATIONS 30->180 / 60->360, custom preserved"
+  },
+  "environment": {
+    "date": "2026-11-17",
+    "timezone": "+12:00",
+    "python": "3.12.0 (project .venv)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "playwright": "1.65.1",
+    "pytest_note": "-s and -p no:cacheprovider used; without -s subprocess-based node tests fail with Windows DuplicateHandle in this shell wrapper (environment defect, not product)"
+  },
+  "tests": [
+    {
+      "id": "smart-core",
+      "files": ["tests/test_smart_p0_checkup.py", "tests/test_smart_corrective_s7_reply.py", "tests/test_checkup_contract.py", "tests/test_checkup_handlers.py", "tests/test_checkup_logs_fetcher.py", "tests/test_tool_loop.py"],
+      "result": {"passed": 185, "failed": 0}
+    },
+    {
+      "id": "smart-transport-focused",
+      "files": ["tests/test_p0_llm_transport_258206.py", "tests/test_settings_helpers.py", "tests/test_round1025_f8_registry.py", "tests/test_round106_ia_smoke.py", "tests/test_summary_param_catalog_annotation_asap41.py", "tests/test_webapp_f5_round1025.py", "tests/test_webapp_round1011_ui.py", "tests/test_agentic_ai_round1020.py"],
+      "result": {"passed": 243, "failed": 0}
+    },
+    {
+      "id": "transport-affected",
+      "files": ["tests/test_llm_client.py", "tests/test_hotfix3_llm_timeout_metrics_round1025.py", "tests/test_hot_migration.py", "tests/test_summary_supervisor_asap41.py", "tests/test_summary_wave8_supervisor_runs_asap41.py", "tests/test_embedding_control_plane_asap4.py", "tests/test_llm_completion_metadata_ur18.py", "tests/test_evol013_reason_quality.py", "tests/test_speech_inspector_exact.py"],
+      "result": {"passed": 306, "failed": 0}
+    },
+    {
+      "id": "smart-affected",
+      "files": ["tests/test_direct_chat.py", "tests/test_direct_chat_handlers.py", "tests/test_direct_chat_prompts.py", "tests/test_direct_l1_corrective_r1.py", "tests/test_direct_l1_l1d_contract.py", "tests/test_checkup_service.py", "tests/test_checkup_prompts.py", "tests/test_p0_checkup_core_contract.py", "tests/test_smart_g_finalize_round1114.py"],
+      "result": {"passed": 374, "failed": 1},
+      "failure": {
+        "node_id": "tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit",
+        "assert": "all(len(ln) <= L1_REPLY_BLOCK_CHARS for ln in body_lines)",
+        "classification": "pre-existing",
+        "base_check": "same failure and assert on clean 6a878fec worktree: 1 failed, 11 passed"
+      }
+    },
+    {
+      "id": "disk-retention-focused",
+      "files": ["tests/test_disk_retention_deploy_backups.py", "tests/test_disk_retention_round1024.py", "tests/test_disk_retention_server_t4506.py", "tests/test_memory_backup.py"],
+      "result": {"passed": 112, "failed": 0}
+    },
+    {
+      "id": "status-ui-pytest",
+      "files": ["tests/test_webapp_js_unit.py", "tests/test_webapp_evol_w11_controls.py", "tests/test_webapp_status_control.py", "tests/test_status_service.py", "tests/test_webapp_f11_round1025.py", "tests/test_webapp_evol_w10_sections.py", "tests/test_status_section_ui_merge_round1019.py", "tests/test_evol032_health_glass.py", "tests/test_webapp_design_tokens_round1025.py", "tests/test_webapp_hotfix6_round1025.py", "tests/test_webapp_hotfix7_round1025.py", "tests/test_webapp_hotfix8_round1025.py", "tests/test_webapp_hotfix9_round1025.py", "tests/test_webapp_hotfix10_round1025.py", "tests/test_webapp_evol_w12_internals.py"],
+      "result": {"passed": 411, "failed": 0}
+    },
+    {
+      "id": "js-status-ui-and-pins",
+      "scripts": ["tests/js/p0_disk_status_thresholds_test.js", "tests/js/evol_w11_controls_test.js", "tests/js/round1025_f11_status_grid_test.js", "tests/js/asap_ui02_status_ribbons_test.js", "tests/js/evol032_health_glass_test.js", "tests/js/app_methods_dup_keys_guard_test.js", "tests/js/vue_mount_test.js", "tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js", "tests/js/round1025_hotfix8_shell_aurora_test.js", "tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js", "tests/js/round1025_hotfix10_glass_geometry_bg_test.js"],
+      "result": {"ok": 11, "failed": 0}
+    },
+    {
+      "id": "pin-guard",
+      "file_count": 24,
+      "result": {"passed": 856, "failed": 4},
+      "pre_existing_failures": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "base_check": {
+        "worktree": "detached 6a878fec (temporary, clean, removed after run)",
+        "result": {"passed": 0, "failed": 4},
+        "node_ids_and_asserts": "identical to candidate; pre-existing, not caused or fixed here"
+      }
+    },
+    {
+      "id": "broad",
+      "selection": "-k \"disk or retention or backup or status or release_manifest or deploy_identity\"",
+      "result": {"passed": 781, "failed": 0, "deselected": 20885}
+    },
+    {
+      "id": "ui-playwright-disk",
+      "harness": "plans/features/p0-prod-disk-01/evidence/ui/capture_p0_disk_status_ui.py",
+      "scenarios": ["desktop/92", "desktop/86", "desktop/50", "desktop/unknown", "mobile/92", "mobile/86", "mobile/50", "mobile/unknown"],
+      "result": {"checks": 8, "failures": 0, "console_errors": 0},
+      "note": "route-stub /api/* and mock Telegram SDK; 2.58.207 run produced identical ui-checks.json to 2.58.206 (screenshot bytes differ only by rendering, tracked PNGs restored)"
+    },
+    {
+      "id": "ui-playwright-transport",
+      "harness": "tools/ui_p0_llm_guard_e2e.py",
+      "viewports": ["1280x800", "390x844"],
+      "result": {"ok": true, "failures": []},
+      "assertions": ["prov_policy visible first", "llm_guard inside advanced", "details.open=false", "3 labels", "3 visible fields", "no horizontal overflow"],
+      "note": "2.58.207 run produced identical llm-guard-ui-e2e.json to the 2.58.206-slice capture"
+    }
+  ],
+  "static_checks": {
+    "app_version": "2.58.207",
+    "bump": {"changed_files": 30, "changed_lines": 31, "bom": true, "crlf_preserved": true},
+    "git_diff_check": {"exit_code": 0},
+    "ddl_in_services_config": 0,
+    "migration_steps_base": 47,
+    "migration_steps_head": 47,
+    "user_version_constant": 47,
+    "fresh_db": {"observed_user_version": 47, "table_count": 101, "migration_steps": 47},
+    "catalog": {"REGISTRY": 645, "GROUPS": 121, "_TAB_BY_GROUP": 119, "TAB_RULES": 22, "settings_fields": 472},
+    "preservation": {
+      "disk_keep": 2,
+      "disk_status_warn": 85,
+      "disk_status_crit": 90,
+      "transport_timeout": 180.0,
+      "transport_budget": 360.0,
+      "transport_migration": {"models.llm_timeout": [30.0, 180.0], "models.llm_total_budget": [60.0, 360.0]}
+    },
+    "deploy_harness_untouched": true
+  },
+  "manifest_dry_run": {
+    "version": "2.58.207",
+    "deployed_sha": "1519ec04c17e8778ae4d5867b09713a7b0947f58",
+    "release_branch": "release/smart-corrective-2.58.207",
+    "dirty_tracked": false,
+    "schema": 1,
+    "file": "manifest-dry-run.json"
+  },
+  "rollback": {
+    "target": "6a878fec2a3d8cc47c618772f3686e3df39d1de4",
+    "version": "2.58.206",
+    "previous": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 (2.58.205)",
+    "schema": 47,
+    "ddl": 0,
+    "data_caveat": "LLM_GUARD_MIGRATIONS may have changed PG models.llm_timeout/llm_total_budget from old defaults 30/60 to 180/360; custom values are preserved. Returning to old code leaves stored 180/360 unless explicitly reset."
+  },
+  "not_verified": [
+    "No deployment performed; production effective-state, live TMA and /healthz not checked.",
+    "Playwright runs use route-stubbed /api and mock Telegram SDK, not live production.",
+    "The 4 pin-guard failures and the direct_l1 line-cap failure are pre-existing and untouched.",
+    "No external LLM/network scenarios in the broad selection.",
+    "Version prose in transport comments/evidence still says 2.58.206 (slice draft label); see assembly.md note."
+  ],
+  "verdict": "REVIEW (assembly complete, not VERIFIED)"
+}

@@ -1,0 +1,33 @@
+{
+  "release": "2.58.207",
+  "release_branch": "release/smart-corrective-2.58.207",
+  "content_tip": "1519ec04c17e8778ae4d5867b09713a7b0947f58",
+  "rollback_target": "6a878fec2a3d8cc47c618772f3686e3df39d1de4",
+  "rollback_version": "2.58.206",
+  "rollback_branch": "release/p0-prod-disk-2.58.206",
+  "previous_deployed": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 (2.58.205)",
+  "schema": 47,
+  "ddl": 0,
+  "migrations": 0,
+  "data_changes": "conditional settings-default migration in PG (see caveat)",
+  "settings_defaults_changed": 2,
+  "prompts_changed": 0,
+  "procedure": [
+    "git fetch origin",
+    "git checkout 6a878fec2a3d8cc47c618772f3686e3df39d1de4 (deployment checkout only; no force-reset of others' work)",
+    "systemctl restart admin_bot",
+    "verify /healthz version=2.58.206 and schema 47"
+  ],
+  "data_caveat": {
+    "keys": ["models.llm_timeout", "models.llm_total_budget"],
+    "old_defaults": [30.0, 60.0],
+    "new_defaults": [180.0, 360.0],
+    "behavior": "migrate_llm_guard_defaults writes the new default when the key is absent or the stored value exactly equals the old default; owner custom values are preserved (INFO). After rollback, old code reads stored 180/360 as a valid hot config, so rollback restores code but not the pre-deploy default values.",
+    "full_revert": "explicitly set both keys back to 30/60 if the old effective defaults are required; no DDL and no data loss"
+  },
+  "notes": [
+    "No production deployment happened during this assembly task; no production data or backups were touched.",
+    "Rollback target is the deployed 2.58.206 disk release, not bca18c1e; the bca18c1e-based SMART train was stopped and is not a rollback target.",
+    "Disk retention deletions already executed by 2.58.206 are irreversible; this SMART release does not add deletion behavior."
+  ]
+}
