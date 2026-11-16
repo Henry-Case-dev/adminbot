@@ -6,6 +6,12 @@ SUDO_PASSWORD убраны. SSH-пароль: env DEPLOY_SSH_PASSWORD → ина
 (без эха). GIT_PASSWORD в исходнике был объявлен, но нигде не использовался —
 удалён как мёртвый секрет (git pull на сервере идёт под деплой-ключом/иным
 механизмом, скрипт его не применяет).
+
+P0-PROD-DISK-01 (deploy-backup lifecycle): после успешного деплоя харнесс
+вызывает `manage.py disk cleanup --apply` (деплой-копии — keep=2 новейших,
+daily/migration/history не трогаются), а в `finally` удаляет временные
+staging-копии `/tmp/predeploy-*`, `/tmp/pre_deploy_*`, `/tmp/pre_t*`.
+Никакой новый деплой-фреймворк не вводится — это существующий харнесс.
 """
 import getpass
 import json
@@ -19,6 +25,9 @@ HOST = "198.46.175.136"
 PORT = 22
 USER = "nik"
 PROJECT_DIR = "/var/www/admin_bot"
+# Временные staging-копии деплой-бэкапов (не должны переживать прогон).
+TMP_DEPLOY_BACKUPS_GLOB = "/tmp/predeploy-*.db /tmp/pre_deploy_*.db /tmp/pre_t*.db"
+DISK_CLEANUP_TIMEOUT = 300
 
 
 def _password() -> str:
@@ -122,6 +131,24 @@ def main():
         result["last_logs"] = parse_logs(journal_raw)
         print(f"  Got {len(result['last_logs'])} log lines.")
 
+        # P0-PROD-DISK-01: retention деплой-копий сразу после успешного деплоя.
+        # `--apply` удаляет только план disk_retention (deploy keep=2, daily
+        # keep=1, facts keep=1, не-history JSONL >180d); live DB/WAL/SHM и
+        # история не матчатся. Ошибка очистки не отменяет успешный деплой.
+        if result["active"] == "running" and result["pid"] is not None:
+            print("[+] manage.py disk cleanup --apply (deploy backups keep=2)...")
+            try:
+                rc, out, err = run_cmd(
+                    client,
+                    f"cd {PROJECT_DIR} && venv/bin/python manage.py disk cleanup --apply 2>&1 | tail -20",
+                    timeout=DISK_CLEANUP_TIMEOUT,
+                )
+                result["steps"]["disk_cleanup"] = f"rc={rc} " + clean(out + err).strip()
+                print(f"  disk cleanup rc={rc}")
+            except Exception as cleanup_error:
+                result["steps"]["disk_cleanup"] = f"failed: {cleanup_error!r}"
+                print(f"  disk cleanup FAILED (deploy stays ok): {cleanup_error}")
+
         # Final
         if result["active"] == "running" and result["pid"] is not None:
             result["status"] = "ok"
@@ -136,6 +163,18 @@ def main():
         print(f"\n[DEPLOY FAIL] {e}")
 
     finally:
+        # P0-PROD-DISK-01: staging-копии /tmp не переживают прогон (успешный
+        # или аварийный). Best-effort: транспорт мог уже умереть.
+        try:
+            transport = client.get_transport()
+            if transport is not None and transport.is_active():
+                run_cmd(
+                    client,
+                    f"rm -f {TMP_DEPLOY_BACKUPS_GLOB} 2>/dev/null || true",
+                    timeout=15,
+                )
+        except Exception:
+            pass
         client.close()
 
     # Clean output JSON

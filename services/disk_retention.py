@@ -3,6 +3,8 @@
 Политика владельца (UPD3 №5, жёсткая):
   * Бэкапы БД (`local_database_*.db` + `memory_rebuild_*.db`) — хранить
     **ровно 1** новейший (суммарно по обоим префиксам). 3+ запрещено.
+  * Деплой-копии (`pre_deploy_*.db`, legacy `predeploy-*.db`, `pre_t*.db`) —
+    **2 новейших** (rollback-readiness); пул входит в CLI cleanup.
   * JSONL — окно **180 дней**, НО файлы с дампами/архивами **истории
     сообщений** (`imported_history_*.jsonl` и любые history-подобные)
     **неприкосновенны**: не удаляются никогда и не попадают в план очистки.
@@ -72,7 +74,16 @@ MIGRATION_BACKUP_PATTERNS = ("pre_migration_*.db",)
 # нельзя (оба call-site держат «ровно 1»), в MIGRATION_BACKUP_PATTERNS нельзя
 # (call-site миграций передаёт keep=1 — снёс бы rollback-копии). keep=2
 # новейших — roll-back readiness (disk_diagnosis.md §5A/§5B).
-DEPLOY_BACKUP_PATTERNS = ("pre_t*.db",)
+# P0-PROD-DISK-01: реальные имена деплой-копий — `pre_deploy_<ver>_<ts>.db`
+# (VACUUM INTO в /tmp → перенос в backups/) и legacy `predeploy-<...>.db`
+# (снимок backups/predeploy-258196-...). Голый `pre_t*.db` матчил только
+# старые /tmp-копии, поэтому audit видел их как `other`, а plan_cleanup —
+# candidates=0. Паттерны покрывают все три семейства; живая `local_database.db`
+# не матчится ни одним (`local_database_*.db` требует `_` после `database`).
+DEPLOY_BACKUP_PATTERNS = ("pre_t*.db", "pre_deploy_*.db", "predeploy-*.db")
+# Пул деплой-копий: 2 новейших (rollback-readiness). Clamp ≥1 в prune.
+DEPLOY_BACKUP_KEEP = 2
+
 FACTS_PATTERNS = ("facts_*.txt",)
 
 # Жёсткий deny-list по имени: любые архивы/дампы истории сообщений.
@@ -215,7 +226,8 @@ def _mtime_ns(path: Path) -> int:
 # ── классификация ───────────────────────────────────────────────────────────
 
 def classify(path) -> str:
-    """Категория файла: immutable|db_backup|facts_export|jsonl_retention|other.
+    """Категория файла: immutable|db_backup|deploy_backup|facts_export|
+    jsonl_retention|other.
 
     IMMUTABLE имеет наивысший приоритет: история сообщений (по имени или
     содержимому) НИКОГДА не станет кандидатом на удаление. `_history_immutable()`
@@ -230,6 +242,8 @@ def classify(path) -> str:
         return "immutable"
     if _matches_any(name, DB_BACKUP_PATTERNS):
         return "db_backup"
+    if _matches_any(name, DEPLOY_BACKUP_PATTERNS):
+        return "deploy_backup"
     if _matches_any(name, FACTS_PATTERNS):
         return "facts_export"
     if name.endswith(".jsonl"):
@@ -271,6 +285,17 @@ def _all_db_backups(dirs) -> list[Path]:
         base = Path(entry)
         if base.is_dir():
             for path in _collect(base, DB_BACKUP_PATTERNS):
+                out[str(path)] = path
+    return list(out.values())
+
+
+def _all_deploy_backups(dirs) -> list[Path]:
+    """Все деплой-копии в `dirs` (все семейства `DEPLOY_BACKUP_PATTERNS`)."""
+    out: dict[str, Path] = {}
+    for entry in dirs or ():
+        base = Path(entry)
+        if base.is_dir():
+            for path in _collect(base, DEPLOY_BACKUP_PATTERNS):
                 out[str(path)] = path
     return list(out.values())
 
@@ -341,14 +366,18 @@ def prune_migration_backups(directory, *, keep: int = 1) -> list[str]:
     return removed
 
 
-def prune_deploy_backups(directory, *, keep: int = 2) -> list[str]:
-    """D1-disk-diag: держать `keep` новейших деплой-бэкапов `pre_t*.db`.
+def prune_deploy_backups(directory, *, keep: int = DEPLOY_BACKUP_KEEP) -> list[str]:
+    """P0-PROD-DISK-01: держать `keep` новейших деплой-бэкапов.
+
+    Покрывает все реальные семейства (`DEPLOY_BACKUP_PATTERNS`):
+    `pre_deploy_<ver>_<ts>.db` (VACUUM INTO из деплой-харнесса),
+    legacy `predeploy-<...>.db` (снимок в backups/) и старые `pre_t*.db`.
 
     Отдельная ротация (как `prune_migration_backups`): тулинг деплоя кладёт
     по копии ~1.3G за релизное окно, без ротации они не удалялись никогда.
     Daily-бэкапы (`local_database_*`/`memory_rebuild_*`) и `pre_migration_*`
-    не матчатся. Код для будущих прогонов retention; запуск на проде —
-    отдельное решение владельца."""
+    не матчатся. Вызывается из `plan_cleanup`/`apply_cleanup` (CLI
+    `manage.py disk cleanup`) и из ежедневного `memory_backup._rotate`."""
     if not _retention_enabled():
         return []
     base = Path(directory)
@@ -433,14 +462,19 @@ def _plan_item(path: Path, category: str, reason: str) -> dict:
 def plan_cleanup(dirs) -> list[dict]:
     """Кандидаты на удаление без побочных эффектов. IMMUTABLE исключены.
 
-    Кандидаты: DB-бэкапы за пределами `keep=1`; `facts_*.txt` за пределами
-    1; не-history JSONL старше окна (180 дней)."""
+    Кандидаты: DB-бэкапы за пределами `keep=1`; деплой-копии за пределами
+    `keep=2` (все семейства имён); `facts_*.txt` за пределами 1;
+    не-history JSONL старше окна (180 дней)."""
     if not _retention_enabled():
         return []
     plan: list[dict] = []
     db_keep = _db_keep()
     for old in _newest_last(_all_db_backups(dirs))[:-db_keep]:
         plan.append(_plan_item(old, "db_backup", "db_keep_newest_1"))
+    deploy_keep = max(1, int(DEPLOY_BACKUP_KEEP))
+    for old in _newest_last(_all_deploy_backups(dirs))[:-deploy_keep]:
+        plan.append(_plan_item(old, "deploy_backup",
+                               f"deploy_keep_newest_{deploy_keep}"))
     for old in _newest_last(_all_facts_exports(dirs))[:-1]:
         plan.append(_plan_item(old, "facts_export", "facts_keep_newest_1"))
     days = _jsonl_retention_days()
@@ -489,8 +523,11 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
         _emit_retention("silent", usage_json={"candidates": 0})
         return out
     if verify:
+        # P0-PROD-DISK-01: удаляемые деплой-копии тоже не подтверждают verify —
+        # страховкой считается только свежий daily/safety-бэкап.
         delete_paths = {str(item.get("path")) for item in items
-                        if item.get("category") == "db_backup"}
+                        if item.get("category") in
+                        ("db_backup", "deploy_backup")}
         scan_dirs = list(dirs) if dirs else sorted(
             {str(Path(item["path"]).parent) for item in items})
         if not _valid_fresh_backups(scan_dirs, exclude=delete_paths):

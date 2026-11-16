@@ -157,3 +157,29 @@ DevOps; скрипт их не покрывает сознательно):
   в юните) → `sudo systemctl restart adminbot-disk-retention.service`;
 - Снять с автозапуска: `sudo systemctl disable --now adminbot-disk-retention.timer`;
 - Скрипт без `--apply` ничего не удаляет — dry-run безопасен всегда.
+
+## 6. Деплой-копии: keep=2 и cleanup после деплоя (P0-PROD-DISK-01)
+
+Деплой-харнесс кладёт копию БД перед выкатом в `backups/`:
+`pre_deploy_<ver>_<ts>.db` (сейчас) или legacy `predeploy-<...>.db`
+(снимки 2.58.196–198), старые харнессы — `pre_t*.db`. Политика:
+
+- **Держать 2 новейших** деплой-копии (rollback-readiness); остальные
+  удаляются. `services/disk_retention.py::DEPLOY_BACKUP_PATTERNS` покрывает
+  все три семейства, `prune_deploy_backups(keep=2)`.
+- Пул включён в `manage.py disk cleanup` (`plan_cleanup`/`apply_cleanup`,
+  категория `deploy_backup`), поэтому dry-run показывает кандидатов, а
+  `--apply` реально удаляет старые копии. Дополнительно его вызывает
+  ежедневный `memory_backup._rotate` (если деплой прошёл мимо харнесса).
+- После успешного деплоя харнесс обязан вызвать
+  `python manage.py disk cleanup --apply` (в репозитории —
+  `deploy_v2.9.2.py`, шаблон `tools/_dep*.py`, шаг J).
+- Временные staging-копии `/tmp/predeploy-*.db`, `/tmp/pre_deploy_*.db`,
+  `/tmp/pre_t*.db` удаляются в `finally`; `/root/deploy-*`, `/root/vmq*`,
+  исследовательские корпуса на проде не оставляются (вне прода или удалить
+  сразу).
+- journald: `MaxRetentionSec=7d`, `SystemMaxUse=500M` (см.
+  `docs/runbook-disk-retention.md`).
+
+Живая `local_database.db`/`-wal`/`-shm` не матчится паттернами и не
+удаляется; `pre_migration_*.db` и история сообщений — вне деплой-пула.
