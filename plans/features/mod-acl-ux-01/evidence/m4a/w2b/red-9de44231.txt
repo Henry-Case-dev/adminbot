@@ -1,0 +1,90 @@
+MOD-ACL-UX-01 M4A W2b-B1 — RED на базе и мутационная проверка
+================================================================
+Base: 9de44231 (2.58.211, content 1e41afd5)
+Candidate: release/mod-acl-w2b-2.58.212
+Дата прогона: 2026-11-17
+Окружение: Windows, node v24.16.0, Python 3.12.0 (.venv),
+Chromium Playwright (локальный http-стенд самого e2e на реальных web/*).
+
+RED снят в ОТДЕЛЬНОМ detached-worktree на 9de44231, куда скопированы
+ТОЛЬКО изменённые тесты/стенд (web/* — базовая версия). Поэтому падения
+ниже вызваны отсутствием контракта B1, а не переносом кода кандидата.
+
+1. Node: tests/js/mod_acl_ux_m4a_w2b_history_test.js
+   exit=1
+   AssertionError: mod_sleep: history не объявлена в tabs
+   (первая проверка §1: WORKSPACE_TABS не содержит history у sleep/nostalgia;
+   далее не выполняются historyMeta/предикат/moduleHistoryLast).
+
+2. Node: tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js (+2 кейса B1)
+   exit=1
+   AssertionError: pending history НЕ удалён из памяти
+   (на базе history отсутствует в tabs, запись памяти считается устаревшей и
+   удаляется; после B1 pending сохраняет запись — H-4).
+
+3. Playwright: tools/ui_mod_acl_m4_catalog_e2e.py (секция W2b-B1)
+   exit=1; failures (bucket hfails, дубли в общем списке — штатное поведение
+   check(): сообщение пишется и в failures, и в локальный bucket):
+   - W2b sleep: нет вкладки history при 200+rows
+   - W2b sleep: в Обзоре 0 событий вместо 5
+   - W2b sleep: блоков событий 0 вместо 1
+   - W2b sleep: рядов чипов 1 (+дубль 1)
+   - W2b sleep/history: панель не открылась; hash=#/modules/sleep (deep link
+     канонизирован в bare, т.к. history не объявлена)
+   - W2b sleep/history: строк 0 вместо 6
+   - W2b sleep/history: фильтр не отрендерен
+   - W2b nostalgia: нет вкладки history
+   - W2b nostalgia: Обзор 0 строк/0 блоков
+   - W2b nostalgia: рядов чипов 1 (+дубль 1)
+   - W2b nostalgia/history: панель не открылась; hash=#/modules/nostalgia
+   - W2b: deep link не показал «Загружаем историю…»
+   - W2b: после загрузки deep link не показал строки
+   - W2b 403: причина None вместо denied
+   - W2b 503: нет вкладки/состояния (state=None)
+   - W2b available:false: нет вкладки/состояния (state=None)
+   - W2b 390: нет вкладки history
+   - W2b 390: история не открылась (hash=#/modules/sleep)
+
+4. Мутации (каждая применялась к кандидату, целевой тест должен упасть;
+   после каждой файл восстановлен байт-в-байт):
+   M1 historyIsReady допускает empty          -> KILLED
+      AssertionError: empty: вкладки истории нет
+   M2 workspaceTabHasContent('history')=true  -> KILLED
+      AssertionError: idle: вкладка истории не рендерится
+   M3 вернуть [data-overview-chips] в Обзор  -> KILLED
+      AssertionError: дубль [data-overview-chips] не удалён
+   M4 last event из m.state.checked_at        -> KILLED
+      AssertionError: sleep: взята САМАЯ НОВАЯ строка run_at (300)
+   M5 _maybeExitHistory() = return            -> KILLED (e2e)
+      W2b empty: deep link не вернул bare (#/modules/nostalgia/history)
+   M6 pending-ветка вызывает _wsTabMemoryForget -> KILLED
+      AssertionError: pending history НЕ удалён из памяти
+   M7 убрать фильтр remembered==='history'   -> KILLED
+      AssertionError: history никогда не дефолт
+   (M7 в первом автоматическом прогоне был записан как SURVIVED из-за
+   ошибочной no-op мутации `'hist' + 'ory'`; повторная РЕАЛЬНАЯ мутация
+   `if (false) remembered = ''` убита целевым W2a-тестом, результат выше.)
+
+5. Browser Use / CDP: канал недоступен, визуальная проверка НЕ заявляется.
+   Фактические проверки (2026-11-17):
+   - Test-NetConnection 127.0.0.1:9222  -> False
+   - Test-NetConnection 127.0.0.1:19988 -> False
+   - python socket connect_ex: 9222 -> 10035 (WSAECONNREFUSED), 19988 -> 10035
+   Playwright-прогон на реальных ассетах выполнен; Browser Use не имитирован.
+
+6. Кандидат (после реализации), фактические результаты:
+   - node tests/js/mod_acl_ux_m4a_w2b_history_test.js -> OK, 111 проверок
+   - node tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js -> OK, 141 проверка
+   - node tests/js/routing_test.js -> OK (MAJOR-2 сохранён)
+   - tools/ui_mod_acl_m4_catalog_e2e.py -> OK, failures=0
+     (1280x800 и 390x844: вкладка/панель/фильтр/5 событий/один ряд чипов/
+      deep link/empty/403/503/available:false/loading/scrollWidth)
+   - pytest: обязательный batch W2a (24 файла, 386 тестов) -> 386 passed;
+     включая test_webapp_js_unit.py, test_mod_acl_ux_01_m4_catalog.py,
+     test_mod_acl_ux_01_m3_module_routes.py,
+     test_mod_acl_ux_01_m4_module_params.py.
+   - test_webapp_agi_ui.py -> passed (в целевом наборе 84 passed).
+   - полный node-набор tests/js/*.js (module_fixture.js исключён):
+     117 passed, 4 failed — те же pre-existing файлы, что и в evidence W2a:
+     asap6_wave2_ux_tabs_test.js, evol_cog_scene_test.js,
+     round1025_ia_routing_test.js, ur_ui_settings_test.js.

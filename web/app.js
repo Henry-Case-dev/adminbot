@@ -727,8 +727,11 @@
       'testing'],
     mod_checkup: ['overview', 'settings', 'prompts', 'models', 'limits',
       'testing'],
-    mod_sleep: ['overview', 'settings', 'limits'],
-    mod_nostalgia: ['overview', 'settings', 'limits'],
+    // MOD-ACL-UX-01 M4A W2b-B1 (2.58.212): у «Сна»/«Ностальгии» появляется
+    // «История» — вкладка объявлена всегда, но рендерится только при
+    // `ready && rows > 0` (workspaceTabHasContent, H-2).
+    mod_sleep: ['overview', 'settings', 'limits', 'history'],
+    mod_nostalgia: ['overview', 'settings', 'limits', 'history'],
     mod_budgets: ['overview', 'settings', 'limits'],
     mod_images: ['overview', 'settings', 'limits', 'models', 'testing'],
     // MCA-19 (10.43): workspace-вкладки модуля «Распознавание изображений»
@@ -776,7 +779,52 @@
     styles: 'Стили обложки',
     // UR-F (UR-20.x): инспектор хода «Что бот видел при ответе».
     inspector: 'Что бот видел',
+    // MOD-ACL-UX-01 M4A W2b-B1 (2.58.212): журнал модуля «Сон»/«Ностальгия».
+    history: 'История',
   };
+  // ═══ MOD-ACL-UX-01 M4A W2b-B1 (H-1) ══════════════════════════════════════
+  // Presentation-map строки DTO `history_source` → СУЩЕСТВУЮЩИЙ read-API.
+  // B1 — только два журнала памяти (`memory.dream.log` /
+  // `memory.nostalgia.log`): плоские массивы, RBAC global admin, без гейтов
+  // доступности. Неизвестная строка источника → НИ запроса, НИ вкладки
+  // (fail-closed); новых эндпоинтов/полей/таблиц нет.
+  var HISTORY_SOURCES = {
+    'memory.dream.log': {
+      moduleId: 'mod_sleep', label: 'Журнал снов', tsField: 'run_at',
+      rowsField: 'dreamLog', loader: 'loadDreamLog',
+    },
+    'memory.nostalgia.log': {
+      moduleId: 'mod_nostalgia', label: 'Журнал ностальгии', tsField: 'ts',
+      rowsField: 'nostalgiaLog', loader: 'loadNostalgiaLog',
+    },
+  };
+  // H-3: закрытый набор состояний одного источника.
+  var HISTORY_STATES = ['idle', 'loading', 'ready', 'empty', 'denied',
+                        'off', 'error'];
+  // Строка DTO относится к этому модулю и поддержана в B1 — иначе null.
+  function _historySourceEntry(m) {
+    if (!m || !m.historySource) return null;
+    var entry = HISTORY_SOURCES[m.historySource];
+    if (!entry || entry.moduleId !== m.id) return null;
+    return { source: m.historySource, spec: entry };
+  }
+  // Псевдо-модуль для лоадеров: ключ мета-состояния тот же (scope|moduleId),
+  // что у страницы модуля, поэтому модалка и страница делят одно состояние.
+  function _historyModuleRef(source) {
+    var spec = HISTORY_SOURCES[source];
+    if (!spec) return null;
+    return { id: spec.moduleId, historySource: source, tabs: ['history'] };
+  }
+  // H-2/H-3: 200-массив = строки; `available:false`/`enabled:false` = off;
+  // любой другой payload (объект без массива) — честная ошибка парса, а не
+  // выдуманная пустота.
+  function _historyRowsFromPayload(data) {
+    if (Array.isArray(data)) return { rows: data };
+    if (data && (data.available === false || data.enabled === false)) {
+      return { rows: [], off: true };
+    }
+    return { rows: [], error: true };
+  }
   // UR-F (UR-20.1/20.2/20.9): подписи уровней «Прямых ответов» — три
   // смысловых уровня вместо десятков карточек. flat-карта выше остаётся
   // каноном для остальных модулей (Δ других вкладок нет).
@@ -850,6 +898,10 @@
     if (m.id === 'mod_time') return 'overview';
     var remembered = (ctx && typeof ctx._wsTabMemoryGet === 'function')
       ? ctx._wsTabMemoryGet(_wsScopeKeyOf(ctx), m) : '';
+    // H-4 (W2b-B1): `history` НИКОГДА не является дефолтной вкладкой.
+    // Запомненный history не подставляется автоматически; явный hash
+    // `#/modules/<slug>/history` по-прежнему побеждает до этого вызова.
+    if (remembered === 'history') remembered = '';
     if (remembered) return remembered;
     if (WS_OVERVIEW_LIVE.indexOf(m.id) >= 0) return 'overview';
     var known = _wsTabDataKnown(ctx)
@@ -865,6 +917,9 @@
     }
     for (var i = 0; i < declared.length; i++) {
       if (declared[i] === 'overview') continue;
+      // H-4 (W2b-B1): «История» не участвует в выборе первого содержательного
+      // таба — она открывается только явным адресом/кликом.
+      if (declared[i] === 'history') continue;
       if (canRender(declared[i])) return declared[i];
     }
     return 'overview';
@@ -6638,6 +6693,11 @@
         dreamBeliefs: [],              // последние beliefs (GET)
         dreamLog: [],                  // последние строки memory_dream_log
         nostalgiaLog: [],              // последние срабатывания (GET nostalgia)
+        // MOD-ACL-UX-01 M4A W2b-B1 (H-3): одно мета-состояние на
+        // `scopeKey|moduleId` (`idle|loading|ready|empty|denied|off|error`).
+        // Хранятся только коды состояния/источник/время, без контента.
+        historyMeta: {},
+        historyFilter: '',             // клиентский фильтр строк журнала
         // ── F5 (cognition-dashboard-round1013, ТЗ §5/§7): «Осмысление» +
         //    виджет «Интеллект и Память». Данные — аддитивные read-API
         //    (cognition/status, graph, stats, timeline, beliefs?kind=).
@@ -20280,10 +20340,24 @@
         if (m.id === 'mod_sleep') {
           if (!this.dreamBeliefs.length && !this.memoryRagBusy) {
             this.loadDreamBeliefs();
+          }
+          // W2b-B1 (H-7): журнал грузится ТОЛЬКО при поддержанном источнике
+          // и idle-состоянии своего scope — повторный вход не плодит запросы,
+          // неизвестный source не делает ни одного (fail-closed). В урезанных
+          // unit-стабах без history-хелперов сохраняется прежний вызов.
+          if (typeof this.historySupported !== 'function'
+              || typeof this.historyStateFor !== 'function') {
+            this.loadDreamLog();
+          } else if (this.historySupported(m)
+                     && this.historyStateFor(m) === 'idle') {
             this.loadDreamLog();
           }
         } else if (m.id === 'mod_nostalgia') {
-          if (!this.nostalgiaLog.length && !this.memoryRagBusy) {
+          if (typeof this.historySupported !== 'function'
+              || typeof this.historyStateFor !== 'function') {
+            this.loadNostalgiaLog();
+          } else if (this.historySupported(m)
+                     && this.historyStateFor(m) === 'idle') {
             this.loadNostalgiaLog();
           }
         } else if (m.id === 'mod_factcheck') {
@@ -24112,6 +24186,20 @@
         // механизмов в `mechanism-diagnostics`), поэтому строка берёт
         // РЕАЛЬНУЮ новейшую попытку, а не объявляет пустоту.
         if (id === 'mod_initiative') return this.initiativeLastActionFact();
+        // H-6 (W2b-B1): у «Сна»/«Ностальгии» последняя строка — РЕАЛЬНОЕ
+        // событие СВОЕГО журнала (max(ts)), а не момент снимка/health.
+        // `observed_at` активностью не является и здесь не участвует.
+        if (id === 'mod_sleep' || id === 'mod_nostalgia') {
+          var last = (typeof this.moduleHistoryLast === 'function')
+            ? this.moduleHistoryLast(m) : null;
+          if (last) {
+            var line = (typeof this.historyRowLine === 'function')
+              ? this.historyRowLine(m, last) : '';
+            return { kind: 'event',
+                     text: 'Последнее событие: '
+                           + (line || this.fmtLogTs(last.run_at || last.ts)) };
+          }
+        }
         var h = this.moduleHealthView(m);
         if (h && h.observedAt) {
           return { kind: 'event',
@@ -24395,6 +24483,28 @@
           this._wsTabMemoryForget(key);
           return '';
         }
+        // H-4 (W2b-B1): память `history` живёт отдельно от видимости таба.
+        // Pending (idle/loading) и error НЕ удаляют запись — холодный старт
+        // не должен стирать валидный выбор; удаление/подмена — только при
+        // разрешённом empty/denied/off.
+        if (tab === 'history') {
+          if (typeof this.historySupported === 'function'
+              && !this.historySupported(m)) {
+            this._wsTabMemoryForget(key);
+            return '';
+          }
+          if (typeof this.historyStateFor === 'function') {
+            var hstate = this.historyStateFor(m);
+            if (hstate === 'empty' || hstate === 'denied'
+                || hstate === 'off') {
+              this._wsTabMemoryForget(key);
+              return '';
+            }
+            if (hstate !== 'ready') return '';
+            if (typeof this.historyIsReady === 'function'
+                && !this.historyIsReady(m)) return '';
+          }
+        }
         // К-5: содержимое проверяется только когда данные scope загружены —
         // иначе на время перезагрузки scope память «терялась» бы и вкладка
         // падала в дефолт (К-4/3: страница при смене чата не «прыгает»).
@@ -24404,6 +24514,198 @@
           return '';
         }
         return tab;
+      },
+      // ═══ MOD-ACL-UX-01 M4A W2b-B1 (H-1…H-6): журнал «История» ═══════════
+      // Одно состояние на `scopeKey + moduleId`; строки читаются только из
+      // своего источника (dream ≠ nostalgia), поэтому чужая область/модуль
+      // не подставляются. Никаких новых API/поллеров: мета-состояние ставит
+      // существующий лоадер.
+      _wsHistoryKey: function (m) {
+        if (!m || !m.id) return '';
+        return _wsScopeKeyOf(this) + '|' + m.id;
+      },
+      _wsHistoryMeta: function (m) {
+        var entry = _historySourceEntry(m);
+        if (!entry) return null;
+        var map = this.historyMeta || {};
+        var meta = map[this._wsHistoryKey(m)];
+        if (!meta || meta.source !== entry.source) return null;
+        return meta;
+      },
+      _wsHistoryMetaSet: function (m, status, extra) {
+        var entry = _historySourceEntry(m);
+        if (!entry) return;
+        var key = this._wsHistoryKey(m);
+        var map = this.historyMeta || {};
+        var next = {};
+        Object.keys(map).forEach(function (k) { next[k] = map[k]; });
+        var meta = { source: entry.source, status: status, at: Date.now() };
+        if (extra && extra.rows != null) meta.rows = extra.rows;
+        next[key] = meta;
+        this.historyMeta = next;
+      },
+      historySupported: function (m) {
+        return !!_historySourceEntry(m);
+      },
+      // H-3: состояние ОДНОГО источника; ready без строк перечитывается как
+      // empty (защита от рассинхрона массива и мета), неизвестный код — error.
+      historyStateFor: function (m) {
+        if (!_historySourceEntry(m)) return 'idle';
+        var meta = this._wsHistoryMeta(m);
+        if (!meta) return 'idle';
+        var st = String(meta.status || '');
+        if (HISTORY_STATES.indexOf(st) < 0) return 'error';
+        if (st === 'ready' && !this.historyRowsFor(m).length) return 'empty';
+        return st;
+      },
+      historyRowsFor: function (m) {
+        var entry = _historySourceEntry(m);
+        if (!entry) return [];
+        var meta = this._wsHistoryMeta(m);
+        if (!meta || meta.status !== 'ready') return [];
+        var rows = this[entry.spec.rowsField];
+        return Array.isArray(rows) ? rows : [];
+      },
+      // H-2: вкладка рендерится ТОЛЬКО при `status === 'ready' && rows > 0`.
+      historyIsReady: function (m) {
+        return this.historyStateFor(m) === 'ready'
+          && this.historyRowsFor(m).length > 0;
+      },
+      historySourceLabel: function (m) {
+        var entry = _historySourceEntry(m);
+        return entry ? entry.spec.label : '';
+      },
+      // Честная подпись состояния (никогда «0 событий» вместо 403/unknown).
+      historyStateText: function (m) {
+        var st = this.historyStateFor(m);
+        if (st === 'loading') return 'загружаем журнал…';
+        if (st === 'denied') return 'нет доступа к журналу (403)';
+        if (st === 'off') return 'журнал недоступен: функция выключена';
+        if (st === 'error') return 'история недоступна: ошибка загрузки';
+        if (st === 'empty') return 'записей пока нет';
+        return 'журнал ещё не загружен';
+      },
+      refreshHistory: function (m) {
+        var entry = _historySourceEntry(m);
+        if (!entry) return;
+        if (entry.spec.loader === 'loadDreamLog') {
+          this.loadDreamLog(true);
+        } else {
+          this.loadNostalgiaLog(true);
+        }
+      },
+      historyRowTs: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return '';
+        return this.fmtLogTs(row[entry.spec.tsField]);
+      },
+      historyRowTimestamp: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return null;
+        return _tsNormalizeMs(row[entry.spec.tsField]);
+      },
+      historyRowStatusText: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return '';
+        if (entry.source === 'memory.dream.log') {
+          return this.dreamStatusLabel(row.status);
+        }
+        var reason = (row.meta && row.meta.reason)
+          ? String(row.meta.reason) : '';
+        return reason ? ('причина: ' + reason) : String(row.status || '');
+      },
+      historyRowBadgeClass: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return 'badge-muted';
+        if (entry.source === 'memory.dream.log') {
+          return this.dreamStatusBadgeClass(row);
+        }
+        if (row.status === 'sent') return 'badge-ok';
+        if (row.status === 'error') return 'badge-err';
+        return 'badge-warn';
+      },
+      // Компактная строка одного события: дата · тип · чат · статус/причина.
+      historyRowLine: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return '';
+        var parts = [this.historyRowTs(m, row) || '—'];
+        if (row.kind) parts.push(String(row.kind));
+        if (row.chat_id != null) parts.push('чат ' + row.chat_id);
+        var status = this.historyRowStatusText(m, row);
+        if (status) parts.push(status);
+        return parts.join(' · ');
+      },
+      // H-6: «Сейчас: …» — самый новый факт СВОЕГО журнала.
+      historyNowText: function (m) {
+        var last = this.moduleHistoryLast(m);
+        if (last) return this.historyRowLine(m, last);
+        return this.historyStateText(m);
+      },
+      // H-6: «Последние 3–5 событий» в «Обзоре» — из того же стора.
+      historyOverviewRows: function (m) {
+        return this.historyRowsFor(m).slice(0, 5);
+      },
+      // H-6: max(ts) СВОЕГО источника; строки без валидного времени
+      // пропускаются (не выдумываем порядок).
+      moduleHistoryLast: function (m) {
+        var rows = this.historyRowsFor(m);
+        var best = null;
+        var bestAt = null;
+        for (var i = 0; i < rows.length; i++) {
+          var at = this.historyRowTimestamp(m, rows[i]);
+          if (at == null) continue;
+          if (bestAt == null || at > bestAt) {
+            bestAt = at;
+            best = rows[i];
+          }
+        }
+        return best;
+      },
+      historyStatusOptions: function (m) {
+        var rows = this.historyRowsFor(m);
+        var seen = {};
+        var out = [];
+        var self = this;
+        rows.forEach(function (row) {
+          var code = (row && row.status != null) ? String(row.status) : '';
+          if (!code || seen[code]) return;
+          seen[code] = true;
+          var label = code;
+          if (typeof self.historyStatusLabel === 'function') {
+            label = self.historyStatusLabel(m, code) || code;
+          }
+          out.push({ value: code, label: label });
+        });
+        return out;
+      },
+      historyStatusLabel: function (m, code) {
+        var entry = _historySourceEntry(m);
+        if (!entry) return String(code || '');
+        if (entry.source === 'memory.dream.log') {
+          return this.dreamStatusLabel(code) || String(code || '');
+        }
+        return String(code || '');
+      },
+      // Клиентский фильтр по статусу: строки не запрашиваются повторно.
+      historyFilteredRows: function (m) {
+        var rows = this.historyRowsFor(m);
+        var filter = String(this.historyFilter || '');
+        if (!filter) return rows;
+        return rows.filter(function (row) {
+          return String((row && row.status) || '') === filter;
+        });
+      },
+      // H-5: deep link на пустой/закрытый журнал уводит РОВНО ОДИН раз на
+      // bare `#/modules/<slug>` (существующий путь applyRoute), без цикла.
+      _maybeExitHistory: function () {
+        var ws = this.workspace;
+        if (!ws || ws.tab !== 'history') return;
+        if (!_historySourceEntry(ws.module)) return;
+        var st = this.historyStateFor(ws.module);
+        if (st !== 'empty' && st !== 'denied' && st !== 'off') return;
+        var bare = '#/modules/' + ws.slug;
+        try { history.replaceState(null, '', bare); } catch (e) { /* no-op */ }
+        if (typeof this.applyRoute === 'function') this.applyRoute(bare);
       },
       // К-2: Vue-метод дефолта (один резолвер для computed и проверок).
       workspaceDefaultTab: function (m) {
@@ -25135,6 +25437,12 @@
                   'diagnostics'].indexOf(tabId) >= 0;
         }
         if (tabId === 'overview') return true;
+        // W2b-B1 (H-2): «История» — только реальные строки своего журнала
+        // (`ready && rows > 0`); 403/503/empty/error вкладку не создают.
+        if (tabId === 'history') {
+          return (typeof this.historyIsReady === 'function')
+            ? this.historyIsReady(m) : false;
+        }
         // UR-F (UR-20.3): инспектор «Что бот видел» — собственная секция
         // «Прямых ответов» (трасса хода из существующих событий turn_trace).
         if (tabId === 'inspector') {
@@ -35113,15 +35421,42 @@
       },
 
       // GET /api/memory/dream/log — «последние сны» (аудит).
-      loadDreamLog: async function () {
+      // W2b-B1 (H-3/H-7): тот же запрос, но с мета-состоянием своего scope;
+      // повторный вызов во время полёта объединяется (без нового поллера).
+      loadDreamLog: async function (force) {
+        var mref = _historyModuleRef('memory.dream.log');
+        if (!mref) return;
+        var meta = this._wsHistoryMeta(mref);
+        if (!force && meta && meta.status === 'loading') return;
+        var epoch = this.scopeEpoch;
+        this._wsHistoryMetaSet(mref, 'loading');
         try {
           var data = await this.api('/api/memory/dream/log?limit=20');
-          this.dreamLog = Array.isArray(data) ? data : [];
+          if (typeof this._scopeGuard === 'function'
+              && !this._scopeGuard(epoch)) return;
+          var parsed = _historyRowsFromPayload(data);
+          this.dreamLog = parsed.rows;
+          if (parsed.off) {
+            this._wsHistoryMetaSet(mref, 'off');
+          } else if (parsed.error) {
+            this._wsHistoryMetaSet(mref, 'error');
+          } else {
+            this._wsHistoryMetaSet(mref, parsed.rows.length ? 'ready' : 'empty',
+                                   { rows: parsed.rows.length });
+          }
+          this._maybeExitHistory();
         } catch (e) {
+          if (typeof this._scopeGuard === 'function'
+              && !this._scopeGuard(epoch)) return;
           this.dreamLog = [];
+          var st = 'error';
+          if (e && e.status === 403) st = 'denied';
+          else if (e && e.status === 503) st = 'off';
+          this._wsHistoryMetaSet(mref, st);
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
             this.toast('Не удалось загрузить лог снов: ' + e.message, 'err');
           }
+          this._maybeExitHistory();
         }
       },
 
@@ -35148,15 +35483,40 @@
       },
 
       // GET /api/memory/nostalgia/log — «последние срабатывания».
-      loadNostalgiaLog: async function () {
+      loadNostalgiaLog: async function (force) {
+        var mref = _historyModuleRef('memory.nostalgia.log');
+        if (!mref) return;
+        var meta = this._wsHistoryMeta(mref);
+        if (!force && meta && meta.status === 'loading') return;
+        var epoch = this.scopeEpoch;
+        this._wsHistoryMetaSet(mref, 'loading');
         try {
           var data = await this.api('/api/memory/nostalgia/log?limit=20');
-          this.nostalgiaLog = Array.isArray(data) ? data : [];
+          if (typeof this._scopeGuard === 'function'
+              && !this._scopeGuard(epoch)) return;
+          var parsed = _historyRowsFromPayload(data);
+          this.nostalgiaLog = parsed.rows;
+          if (parsed.off) {
+            this._wsHistoryMetaSet(mref, 'off');
+          } else if (parsed.error) {
+            this._wsHistoryMetaSet(mref, 'error');
+          } else {
+            this._wsHistoryMetaSet(mref, parsed.rows.length ? 'ready' : 'empty',
+                                   { rows: parsed.rows.length });
+          }
+          this._maybeExitHistory();
         } catch (e) {
+          if (typeof this._scopeGuard === 'function'
+              && !this._scopeGuard(epoch)) return;
           this.nostalgiaLog = [];
+          var st = 'error';
+          if (e && e.status === 403) st = 'denied';
+          else if (e && e.status === 503) st = 'off';
+          this._wsHistoryMetaSet(mref, st);
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
             this.toast('Не удалось загрузить ностальгию: ' + e.message, 'err');
           }
+          this._maybeExitHistory();
         }
       },
 

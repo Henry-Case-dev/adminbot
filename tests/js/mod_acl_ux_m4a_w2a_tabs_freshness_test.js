@@ -600,6 +600,33 @@ function eq(a, b, msg) {
       'observed_at не стал активностью');
   }
 
+  // ══ (9) W2b-B1: history не дефолт; pending не чистит память ═══════════
+  {
+    clearStorage();
+    const W2B_SLEEP = moduleById('mod_sleep');
+    const ctx = mkCtx({
+      _contentTabs: ['overview', 'settings', 'limits', 'history'],
+    });
+    ctx._wsTabMemoryLoad();
+    ctx._wsTabMemorySet('chat:-100', W2B_SLEEP.id, 'history');
+    // Pending (idle/loading) не применяет память, но и НЕ удаляет её.
+    eq(ctx._wsTabMemoryGet('chat:-100', W2B_SLEEP), '',
+      'pending history не применяется');
+    ok(!!memoryRaw()['chat:-100|mod_sleep'],
+      'pending history НЕ удалён из памяти');
+    // Даже готовый history не делает bare-адрес «историей».
+    ctx.historyMeta = {
+      'chat:-100|mod_sleep': {
+        source: 'memory.dream.log', status: 'ready', at: 0,
+      },
+    };
+    ctx.dreamLog = [{ id: 1, chat_id: -100, run_at: 1700000000,
+                      kind: 'dream', status: 'ok' }];
+    eq(methods.workspaceDefaultTab.call(ctx, W2B_SLEEP), 'overview',
+      'history никогда не дефолт');
+    clearStorage();
+  }
+
   console.log('MOD-ACL-UX-M4A-W2A-TABS-FRESHNESS-OK — ' + checks
     + ' проверок');
   process.exit(0);

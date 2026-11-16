@@ -244,6 +244,37 @@ def _config_stub(chat_scope: bool) -> dict:
 CONFIG_GLOBAL = _config_stub(False)
 CONFIG_CHAT = _config_stub(True)
 
+# ── W2b-B1: журналы «Сна»/«Ностальгии» (существующие read-API) ─────────────
+# 6 строк сна → «Обзор» показывает ровно 5, вкладка «История» — все 6.
+# 3 строки ностальгии (sent/skipped/error) — фильтр по статусу сужает набор.
+DREAM_ROWS = [
+    {"id": 1, "chat_id": CHAT_ID, "run_at": 1794909600, "kind": "dream",
+     "status": "ok", "tokens": 12},
+    {"id": 2, "chat_id": CHAT_ID, "run_at": 1794909500, "kind": "deep",
+     "status": "error", "tokens": 0},
+    {"id": 3, "chat_id": CHAT_ID, "run_at": 1794909400, "kind": "dream",
+     "status": "window_skip", "tokens": 0},
+    {"id": 4, "chat_id": CHAT_ID2, "run_at": 1794909300, "kind": "dream",
+     "status": "ok", "tokens": 8},
+    {"id": 5, "chat_id": CHAT_ID2, "run_at": 1794909200, "kind": "dream",
+     "status": "duplicate", "tokens": 0},
+    {"id": 6, "chat_id": CHAT_ID, "run_at": 1794909100, "kind": "dream",
+     "status": "budget_skip", "tokens": 0},
+]
+NOSTALGIA_ROWS = [
+    {"id": 1, "chat_id": CHAT_ID, "ts": 1794909600, "kind": "nostalgia",
+     "status": "sent", "fact_id": 11, "meta": {"reason": ""}},
+    {"id": 2, "chat_id": CHAT_ID, "ts": 1794909500, "kind": "nostalgia",
+     "status": "skipped", "fact_id": None, "meta": {"reason": "нет повода"}},
+    {"id": 3, "chat_id": CHAT_ID2, "ts": 1794909400, "kind": "nostalgia",
+     "status": "error", "fact_id": None, "meta": {"reason": "timeout"}},
+]
+# data | empty | denied | off | unavailable
+HISTORY_MODE = {"dream": "data", "nostalgia": "data"}
+HISTORY_GETS = {"dream": 0, "nostalgia": 0}
+HISTORY_HOLD = {"dream": None, "nostalgia": None}
+
+
 API_STUBS = [
     ("/api/me", ME_JSON),
     ("/api/access/me", {"is_local_admin": True,
@@ -394,6 +425,32 @@ def main() -> int:
                 else CONFIG_GLOBAL
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps(payload))
+            return
+        if url.endswith("/api/memory/dream/log") \
+                or url.endswith("/api/memory/nostalgia/log"):
+            kind = "dream" if url.endswith("/api/memory/dream/log") \
+                else "nostalgia"
+            HISTORY_GETS[kind] += 1
+            mode = HISTORY_MODE[kind]
+            if mode == "denied":
+                route.fulfill(status=403, content_type="application/json",
+                              body=json.dumps({"detail": "нет доступа"}))
+                return
+            if mode == "off":
+                route.fulfill(status=503, content_type="application/json",
+                              body=json.dumps({"detail": "журнал выключен"}))
+                return
+            if mode == "unavailable":
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"available": False}))
+                return
+            if mode == "hold":
+                HISTORY_HOLD[kind] = route
+                return
+            rows = [] if mode == "empty" else (
+                DREAM_ROWS if kind == "dream" else NOSTALGIA_ROWS)
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps(rows))
             return
         route.fulfill(status=200, content_type="application/json",
                       body=json.dumps(_stub_for(url)))
@@ -1160,8 +1217,19 @@ def main() -> int:
             "const scrollers = [document.querySelector('.scroll-area'),"
             " document.querySelector('main'), document.documentElement,"
             " document.body].filter(Boolean);"
-            "const sc = scrollers.filter(function (e) {"
+            "let sc = scrollers.filter(function (e) {"
             "  return e.scrollHeight > e.clientHeight + 4; })[0] || null;"
+            "if (!sc) {"
+            "  const host = document.querySelector('main.scroll-area')"
+            "    || document.querySelector('main') || null;"
+            "  if (host) {"
+            "    const spacer = document.createElement('div');"
+            "    spacer.style.height = '2400px';"
+            "    spacer.setAttribute('data-w2a-scroll-spacer', '1');"
+            "    host.appendChild(spacer);"
+            "    sc = host;"
+            "  }"
+            "}"
             "window.__w2aScroller = sc;"
             "if (sc) sc.scrollTop = Math.min(120, sc.scrollHeight - sc.clientHeight);"
             "return {h: a.getBoundingClientRect().height,"
@@ -1443,6 +1511,230 @@ def main() -> int:
                 SHOTS, f"w2a-cards-{nw}.png"))
             nctx.close()
         failures.extend(wfails)
+
+        # ═══ W2b-B1 (2.58.212): «История» для «Сна»/«Ностальгии» ══════════
+        # Контракты H-2…H-7 брифа W2b: вкладка только при 200+rows, один ряд
+        # чипов, 5 событий в Обзоре, фильтр, deep link и его возврат при
+        # empty/403/503/available:false, отсутствие горизонтального скролла.
+        HISTORY_MODE.update({"dream": "data", "nostalgia": "data"})
+        hctx = browser.new_context(viewport={"width": 1280, "height": 800})
+        hctx.add_init_script(TMA_STUB)
+        hctx.route("**/api/**", _route)
+        hpage = hctx.new_page()
+        herrs = []
+        hpage.on("pageerror", lambda e, b=herrs: b.append(str(e)[:300]))
+        hfails = []
+
+        def _hopen(pg, route):
+            # Смена HISTORY_MODE должна попадать в НОВЫЙ документ: навигация
+            # только по hash не перезагружает приложение (и не делает запрос).
+            pg.goto("about:blank")
+            pg.goto(WBASE + route, wait_until="load")
+            pg.wait_for_selector("[data-workspace-head]", timeout=9000)
+            pg.wait_for_timeout(520)
+
+        def _hprobe(pg):
+            return pg.evaluate(
+                "() => {"
+                " const tab = document.querySelector("
+                "  '[data-workspace-tabs] [data-workspace-tab=history]');"
+                " const hist = document.querySelector('[data-module-history]');"
+                " const st = document.querySelector("
+                "  '[data-overview-history-state]');"
+                " return {hash: location.hash,"
+                "  tab: !!tab,"
+                "  panel: !!hist,"
+                "  rows: document.querySelectorAll("
+                "   '[data-module-history-row]').length,"
+                "  ovRows: document.querySelectorAll("
+                "   '[data-overview-history-row]').length,"
+                "  ovBlocks: document.querySelectorAll("
+                "   '[data-overview-history]').length,"
+                "  chipsRows: document.querySelectorAll("
+                "   '[data-workspace-chips]').length,"
+                "  dupChips: document.querySelectorAll("
+                "   '[data-overview-chips]').length,"
+                "  state: st ? st.getAttribute("
+                "   'data-overview-history-state') : null,"
+                "  filter: !!document.querySelector("
+                "   '[data-module-history-filter]'),"
+                "  scrollWidth: document.documentElement.scrollWidth,"
+                "  vw: window.innerWidth}; }")
+
+        # ── Сон: вкладка есть при 200+rows; Обзор = «Сейчас» + 5 событий.
+        _hopen(hpage, "#/modules/sleep")
+        sp = _hprobe(hpage)
+        report["flows"]["w2b_sleep_overview"] = sp
+        check(sp["tab"], "W2b sleep: нет вкладки history при 200+rows", hfails)
+        check(sp["ovRows"] == 5,
+              f"W2b sleep: в Обзоре {sp['ovRows']} событий вместо 5", hfails)
+        check(sp["ovBlocks"] == 1,
+              f"W2b sleep: блоков событий {sp['ovBlocks']} вместо 1", hfails)
+        check(sp["chipsRows"] == 1 and sp["dupChips"] == 0,
+              f"W2b sleep: рядов чипов "
+              f"{sp['chipsRows']} (+дубль {sp['dupChips']})", hfails)
+        check(not sp["panel"], "W2b sleep: панель истории видна на Обзоре", hfails)
+        check(sp["scrollWidth"] <= sp["vw"] + 1,
+              f"W2b sleep: горизонтальный скролл ({sp['scrollWidth']})", hfails)
+
+        # ── История сна: deep link, все строки, клиентский фильтр.
+        _hopen(hpage, "#/modules/sleep/history")
+        hh = _hprobe(hpage)
+        report["flows"]["w2b_sleep_history"] = hh
+        check(hh["hash"].endswith("/sleep/history") and hh["panel"],
+              f"W2b sleep/history: панель не открылась ({hh})", hfails)
+        check(hh["rows"] == 6,
+              f"W2b sleep/history: строк {hh['rows']} вместо 6", hfails)
+        check(hh["filter"], "W2b sleep/history: фильтр не отрендерен", hfails)
+        if hh["filter"]:
+            hpage.select_option("#module-history-filter", "error")
+            hpage.wait_for_timeout(260)
+            flt = _hprobe(hpage)
+            report["flows"]["w2b_sleep_filter"] = flt
+            check(flt["rows"] == 1,
+                  f"W2b sleep: фильтр error дал {flt['rows']} строк вместо 1",
+                  hfails)
+            hpage.select_option("#module-history-filter", "")
+            hpage.wait_for_timeout(200)
+            check(_hprobe(hpage)["rows"] == 6,
+                  "W2b sleep: сброс фильтра не вернул все строки", hfails)
+        # Один автоматический запрос на источник; вкладка не плодит запросы.
+        HISTORY_GETS.update({"dream": 0, "nostalgia": 0})
+        _hopen(hpage, "#/modules/sleep")
+        try:
+            hpage.wait_for_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]",
+                timeout=6000)
+        except Exception:  # noqa: BLE001
+            pass
+        n1 = HISTORY_GETS["dream"]
+        if hpage.query_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]"):
+            hpage.click("[data-workspace-tabs] [data-workspace-tab=history]")
+        hpage.wait_for_timeout(420)
+        n2 = HISTORY_GETS["dream"]
+        report["flows"]["w2b_one_fetch"] = {"before": n1, "after": n2}
+        check(n1 == 1 and n2 == 1,
+              f"W2b sleep: запросов журнала {n1}→{n2} (ожидался 1)", hfails)
+
+        # ── Ностальгия: вкладка/Обзор/история.
+        _hopen(hpage, "#/modules/nostalgia/overview")
+        np = _hprobe(hpage)
+        report["flows"]["w2b_nostalgia_overview"] = np
+        check(np["tab"], "W2b nostalgia: нет вкладки history", hfails)
+        check(np["ovRows"] == 3 and np["ovBlocks"] == 1,
+              f"W2b nostalgia: Обзор {np['ovRows']} строк/{np['ovBlocks']} "
+              f"блоков", hfails)
+        check(np["chipsRows"] == 1 and np["dupChips"] == 0,
+              f"W2b nostalgia: рядов чипов {np['chipsRows']}", hfails)
+        _hopen(hpage, "#/modules/nostalgia/history")
+        nh = _hprobe(hpage)
+        report["flows"]["w2b_nostalgia_history"] = nh
+        check(nh["panel"] and nh["rows"] == 3,
+              f"W2b nostalgia/history: {nh}", hfails)
+
+        # ── Loading: deep link показывает «Загружаем историю…» (H-5).
+        HISTORY_MODE["dream"] = "hold"
+        hpage.goto("about:blank")
+        hpage.goto(WBASE + "#/modules/sleep/history", wait_until="load")
+        try:
+            hpage.wait_for_selector(
+                "[data-module-history-state=loading]", timeout=6000)
+            loading_seen = True
+        except Exception:  # noqa: BLE001
+            loading_seen = False
+        held = HISTORY_HOLD["dream"]
+        report["flows"]["w2b_loading"] = {"seen": loading_seen,
+                                          "held": held is not None}
+        check(loading_seen, "W2b: deep link не показал «Загружаем историю…»",
+              hfails)
+        if held is not None:
+            held.fulfill(status=200, content_type="application/json",
+                         body=json.dumps(DREAM_ROWS))
+        HISTORY_HOLD["dream"] = None
+        HISTORY_MODE["dream"] = "data"
+        try:
+            hpage.wait_for_selector("[data-module-history-row]", timeout=6000)
+        except Exception:  # noqa: BLE001
+            pass
+        check(_hprobe(hpage)["rows"] == 6,
+              "W2b: после загрузки deep link не показал строки", hfails)
+
+        # ── Empty deep link: однократный возврат на bare, без пустой панели.
+        HISTORY_MODE["nostalgia"] = "empty"
+        hpage.goto("about:blank")
+        hpage.goto(WBASE + "#/modules/nostalgia/history", wait_until="load")
+        hpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        hpage.wait_for_timeout(900)
+        ep = _hprobe(hpage)
+        report["flows"]["w2b_empty_deeplink"] = ep
+        check(ep["hash"] == "#/modules/nostalgia",
+              f"W2b empty: deep link не вернул bare ({ep['hash']})", hfails)
+        check(not ep["panel"], "W2b empty: осталась пустая панель истории",
+              hfails)
+        check(not ep["tab"], "W2b empty: вкладка history появилась при []",
+              hfails)
+
+        # ── 403: вкладки нет, честная причина в Обзоре (не «0 событий»).
+        HISTORY_MODE["dream"] = "denied"
+        _hopen(hpage, "#/modules/sleep")
+        dp = _hprobe(hpage)
+        body_403 = hpage.evaluate("() => document.body.innerText")
+        report["flows"]["w2b_denied"] = dict(dp, body=body_403[:400])
+        check(not dp["tab"], "W2b 403: вкладка history показана", hfails)
+        check(dp["state"] == "denied",
+              f"W2b 403: причина {dp['state']} вместо denied", hfails)
+        check("0 событий" not in body_403,
+              "W2b 403: выдуманные «0 событий»", hfails)
+
+        # ── 503 и available:false: вкладки нет, состояние off.
+        HISTORY_MODE["dream"] = "off"
+        _hopen(hpage, "#/modules/sleep")
+        offp = _hprobe(hpage)
+        report["flows"]["w2b_off_503"] = offp
+        check(not offp["tab"] and offp["state"] == "off",
+              f"W2b 503: {offp}", hfails)
+        HISTORY_MODE["nostalgia"] = "unavailable"
+        _hopen(hpage, "#/modules/nostalgia/overview")
+        offp2 = _hprobe(hpage)
+        report["flows"]["w2b_unavailable"] = offp2
+        check(not offp2["tab"] and offp2["state"] == "off",
+              f"W2b available:false: {offp2}", hfails)
+        HISTORY_MODE.update({"dream": "data", "nostalgia": "data"})
+
+        # ── 390: вкладка/история без горизонтального скролла.
+        hctx2 = browser.new_context(viewport={"width": 390, "height": 844})
+        hctx2.add_init_script(TMA_STUB)
+        hctx2.route("**/api/**", _route)
+        hp2 = hctx2.new_page()
+        hp2.goto(WBASE + "#/modules/sleep", wait_until="load")
+        hp2.wait_for_selector("[data-workspace-head]", timeout=9000)
+        hp2.wait_for_timeout(520)
+        m1 = _hprobe(hp2)
+        report["flows"]["w2b_390_overview"] = m1
+        check(m1["tab"], "W2b 390: нет вкладки history", hfails)
+        check(m1["scrollWidth"] <= m1["vw"] + 1,
+              f"W2b 390: скролл Обзора ({m1['scrollWidth']})", hfails)
+        if hp2.query_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]"):
+            hp2.click("[data-workspace-tabs] [data-workspace-tab=history]")
+            hp2.wait_for_timeout(520)
+        m2 = _hprobe(hp2)
+        report["flows"]["w2b_390_history"] = m2
+        check(m2["panel"] and m2["rows"] == 6,
+              f"W2b 390: история {m2}", hfails)
+        check(m2["scrollWidth"] <= m2["vw"] + 1,
+              f"W2b 390: скролл Истории ({m2['scrollWidth']})", hfails)
+        hp2.screenshot(path=os.path.join(SHOTS, "w2b-history-390.png"))
+        hctx2.close()
+
+        report["flows"]["w2b_pageerrors"] = herrs
+        failures.extend(hfails)
+        if herrs:
+            failures.extend(["W2b pageerror: " + e for e in herrs])
+        HISTORY_MODE.update({"dream": "data", "nostalgia": "data"})
+        HISTORY_HOLD.update({"dream": None, "nostalgia": None})
+        hctx.close()
 
         browser.close()
     httpd.shutdown()
