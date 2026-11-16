@@ -249,7 +249,13 @@ ROUTES_SHA256_F11 = (
     # (L-F11S-1) внутри того же GET /api/status/self-diagnosis: skipped-
     # статусы исключены из calls/p50/p95/by_stage; checkup_output_validated
     # учитывается только для реально разрешённой публикации. Δ routes=0.
-    "9829f29cc5379f9401446963d01b102e887cd4c2fce0b5b5104bf81aef2cfe19")
+    # SMART P0 checkup S5 (16.11.2026, L-F11S-1 conscious requalification):
+    # двойная ось доставки/полноты в ТОМ ЖЕ GET /api/status/self-diagnosis —
+    # `report_sent_partial`/`report_sent_unresearched` учитываются как
+    # доставки в validation-coverage и как partial в stats (report_sent
+    # остаётся complete). Новых @api_router-маршрутов НЕТ (Δ routes=0),
+    # RBAC/маскировка/DDL не менялись, f8_baseline не переиздавался.
+    "f87e0d8e473e23c6c1887502a8f5a8dcac77119e1da79729bb0ddcc498544a3a")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

@@ -185,9 +185,22 @@ class TestToolLoopFailSafe:
                                   tools=[], router=_Router(), ctx=object())
 
     @pytest.mark.asyncio
-    async def test_empty_final_still_raises(self):
+    async def test_empty_final_with_evidence_degrades(self):
+        """SMART P0 S1: evidence не теряется — деградация `empty_final`."""
         llm = _ScriptedLLM([_tool_call(),
                             LLMChatResult(content=None, tool_calls=None,
+                                          finish_reason="stop")])
+        out = await chat_with_tools(llm, [{"role": "user", "content": "q"}],
+                                    tools=[], router=_Router(), ctx=object())
+        assert isinstance(out, ToolLoopResult)
+        assert out.degraded is True and out.reason == "empty_final"
+        assert out.tool_results and out.tool_results[0]["status"] == "ok"
+        assert str(out) == "plain"
+
+    @pytest.mark.asyncio
+    async def test_empty_final_without_evidence_still_raises(self):
+        """FR-14/65.1: пустой ответ без исследования — прежний контракт."""
+        llm = _ScriptedLLM([LLMChatResult(content=None, tool_calls=None,
                                           finish_reason="stop")])
         with pytest.raises(LLMBadResponseError):
             await chat_with_tools(llm, [{"role": "user", "content": "q"}],

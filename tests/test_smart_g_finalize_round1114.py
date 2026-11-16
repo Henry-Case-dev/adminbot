@@ -471,7 +471,11 @@ class TestConsumersShareContract:
             tool_runtime={"router": router, "ctx": _ctx(),
                           "schemas": list(TOOLS),
                           "correlation_id": "corr-g"})
-        assert raw == "ОТЧЁТ: бот жив, логов новых нет"
+        # SMART P0 S2: llm-финализация по evidence сохраняется, но статус
+        # `partial` больше не скрывается — отчёт несёт пометку неполноты.
+        assert raw.startswith("ОТЧЁТ: бот жив, логов новых нет")
+        assert "это частичный результат" in raw
+        assert "прервал исследование технической ошибкой" in raw
         assert str(raw) != TOOL_LOOP_FALLBACK_PHRASE
         assert llm.finalize_calls == 1
 

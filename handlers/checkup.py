@@ -51,6 +51,7 @@ from services.smartmodule_utils import (
     throttle_phrase,
 )
 from services.system_logs_fetcher import CheckupLogsUnavailableException
+from services.telegram_send import send_rich_message
 from services.typing_manager import typing_active
 
 logger = logging.getLogger(__name__)
@@ -346,6 +347,100 @@ def emit_checkup_validation_event(*, chat_id: int | None, publication) -> None:
         return
 
 
+#: SMART P0 checkup (S5): двойная ось — доставка и полнота исследования.
+RESEARCH_VERDICT_COMPLETE = "complete"
+RESEARCH_VERDICT_PARTIAL = "partial"
+RESEARCH_VERDICT_PREMATURE_STOP = "premature_stop"
+RESEARCH_VERDICT_NOT_EXECUTED = "not_executed"
+RESEARCH_VERDICT_UNKNOWN = "unknown"
+
+#: Потолок rich-сообщения (транспортный предел Telegram), не квота текста:
+#: длиннее — существующий plain-чанкинг, без обрезки отчёта.
+CHECKUP_RICH_MARKDOWN_MAX_CHARS = 32000
+
+
+def research_verdict(telemetry: dict | None) -> str:
+    """Полнота исследования по per-run телеметрии чекапа.
+
+    ``complete`` — структурное исследование завершено (включая здоровый
+    чекап без вызовов: `no_research_needed`); ``partial`` — честный partial
+    по доказанной причине (отказ источника/неполная выдача/техническая
+    остановка); ``premature_stop`` — цикл/модель сами завершились, хотя
+    продолжение было структурно доступно (причина `continuation_not_taken`/
+    `no_progress` либо флаг доступного продолжения); ``not_executed`` —
+    исследование не выполнялось (нет tool-runtime либо провайдер отверг
+    tools); ``unknown`` — телеметрии нет. ``unknown`` НЕ равен ``complete``:
+    отсутствие данных не выдаётся за полную диагностику.
+    """
+    data = telemetry if isinstance(telemetry, dict) else {}
+    status = str(data.get("research_status") or "").strip()
+    if not status:
+        return RESEARCH_VERDICT_UNKNOWN
+    if status == "not_executed":
+        return RESEARCH_VERDICT_NOT_EXECUTED
+    if status == "complete":
+        return RESEARCH_VERDICT_COMPLETE
+    if status not in ("partial", "failed"):
+        return RESEARCH_VERDICT_UNKNOWN
+    cause = str(data.get("research_cause") or "")
+    if (cause in ("continuation_not_taken", "no_progress")
+            or bool(data.get("research_continuation_available"))):
+        return RESEARCH_VERDICT_PREMATURE_STOP
+    return RESEARCH_VERDICT_PARTIAL
+
+
+def checkup_delivery_status(verdict: str) -> str:
+    """Статус существующего события доставки по полноте исследования."""
+    return {
+        RESEARCH_VERDICT_COMPLETE: "report_sent",
+        RESEARCH_VERDICT_PARTIAL: "report_sent_partial",
+        RESEARCH_VERDICT_PREMATURE_STOP: "report_sent_partial",
+        RESEARCH_VERDICT_NOT_EXECUTED: "report_sent_unresearched",
+    }.get(str(verdict or ""), "report_sent_unresearched")
+
+
+async def _send_checkup_report(bot, message: types.Message, report: str
+                               ) -> tuple:
+    """Доставка отчёта чекапа: rich Markdown → существующий plain-фолбэк.
+
+    Отчёт модели содержит лёгкую Markdown-разметку; прежний
+    `send_chunked_reply(..., parse_mode=None)` доставлял её сырым текстом.
+    Используется СУЩЕСТВУЮЩИЙ rich-канал (`sendRichMessage`, обёртка
+    `send_rich_message` с sanitize) — без MarkdownV2 и без второго движка.
+    Любая недоступность/ошибка/транспортный предел → прежний plain-путь
+    (reply/чанки/`report_chunks`) без потери и обрезки текста.
+
+    Возвращает ``(sent_id, sent_ids, delivery_channel)``.
+    """
+    text = str(report or "")
+    sent_ids: list = []
+    if len(text) > CHECKUP_RICH_MARKDOWN_MAX_CHARS:
+        logger.warning(
+            "[checkup] rich markdown skipped (transport limit) | chat=%s | "
+            "chars=%d", message.chat.id, len(text))
+    elif text:
+        try:
+            sent = await send_rich_message(
+                bot, message.chat.id, text,
+                content_format="markdown",
+                reply_parameters=types.ReplyParameters(
+                    message_id=message.message_id,
+                    allow_sending_without_reply=True))
+            sent_id = getattr(sent, "message_id", None)
+            if isinstance(sent_id, int):
+                return int(sent_id), [int(sent_id)], "rich_markdown"
+            logger.warning(
+                "[checkup] rich markdown: no message id — plain fallback | "
+                "chat=%s", message.chat.id)
+        except Exception as exc:      # noqa: BLE001 — fail-open к plain
+            logger.warning(
+                "[checkup] rich markdown unavailable — plain fallback | "
+                "chat=%s | error=%s", message.chat.id, type(exc).__name__)
+    sent_id = await send_chunked_reply(
+        bot, message.chat.id, text, message.message_id, sent_ids=sent_ids)
+    return sent_id, sent_ids, "plain_raw"
+
+
 def emit_checkup_event(*, outcome: str, chat_id: int | None, status: str = "",
                        duration_ms: int = 0, bundle: dict | None = None,
                        telemetry: dict | None = None) -> None:
@@ -354,6 +449,11 @@ def emit_checkup_event(*, outcome: str, chat_id: int | None, status: str = "",
     Существующий контракт `mca_events`: имя события — `checkup_triggered`,
     машинные метаданные (prompt source/version/hash, bundle delivered/
     truncated, источники) — в `source_ref_json`. Текстов промпта/отчёта нет.
+
+    S5 (SMART P0 checkup): доставка и полнота исследования — РАЗНЫЕ оси.
+    Доставленный отчёт: `outcome="delivery"` + `status` из
+    `checkup_delivery_status` (`report_sent` только при `complete`); WARN —
+    для частичного и невыполненного исследования. Промпт/отчёт не пишутся.
     """
     try:
         from services import mca_events as _mca_events
@@ -375,7 +475,8 @@ def emit_checkup_event(*, outcome: str, chat_id: int | None, status: str = "",
             payload["bundle_delivered"] = False
         _mca_events.emit_mca_event(
             "checkup_triggered", outcome=outcome,
-            level=("INFO" if outcome == "success" else "WARN"),
+            level=("INFO" if (outcome == "success" or status == "report_sent")
+                   else "WARN"),
             component="checkup", stage="final",
             status=str(status or "")[:40] or None,
             duration_ms=int(duration_ms or 0),
@@ -578,19 +679,26 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         emit_checkup_validation_event(chat_id=message.chat.id,
                                       publication=publication)
         report = publication.text
-        sent_ids: list = []
-        sent_id = await send_chunked_reply(
-            bot, message.chat.id, report, message.message_id,
-            sent_ids=sent_ids)
+        # S6/S8: отчёт с лёгкой Markdown-разметкой идёт существующим rich-каналом;
+        # недоступность/ошибка/предел — прежний plain-путь (без MarkdownV2).
+        sent_id, sent_ids, delivery_channel = await _send_checkup_report(
+            bot, message, report)
         # SELF-DIAG-01 corrective (§4): доставленный отчёт становится
         # сообщением разговора для продолжения (reply-цепочка + ledger).
+        # Сохраняется ИСХОДНЫЙ отчёт, не HTML/rich-payload.
         await _persist_checkup_conversation(
             chat_id=message.chat.id, sent_id=sent_id, report=report,
             parent_id=message.message_id, correlation_id=correlation_id,
             bot=bot)
         run_telemetry["report_chunks"] = len(sent_ids)
-        logger.info("[checkup] report sent | chat=%s", message.chat.id)
-        _finish("success", "report_sent")
+        run_telemetry["delivery_channel"] = delivery_channel
+        logger.info("[checkup] report sent | chat=%s | channel=%s",
+                    message.chat.id, delivery_channel)
+        # S5: успешная ДОСТАВКА не равна завершённому исследованию. Статус
+        # существующего события — по второй оси (полнота), не «report_sent».
+        verdict = research_verdict(run_telemetry)
+        run_telemetry["research_verdict"] = verdict
+        _finish("delivery", checkup_delivery_status(verdict))
     except LLMBadResponseError as exc:
         # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).
         logger.warning("[checkup] empty answer — silence | chat=%s | error=%s",

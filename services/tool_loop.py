@@ -55,9 +55,23 @@ SMART-EXECUTION-RELIABILITY-01 §G (owner 2026-11-14, этап G) — обяза
 в тишину+🗿. При накопленном evidence ответ формирует финальная фаза §G
 (существующий LLM/Writer либо детерминированный partial); прежний частичный
 текст/саркастичная заглушка `TOOL_LOOP_FALLBACK_PHRASE` остаются только
-когда данных нет вовсе. Провайдер-reject на `round_index == 0` (plain-фолбэк,
-FR-15) и `NoApiKeyForChat` — без изменений; пустой финал (нет tool_calls и
-нет текста) — прежний `LLMBadResponseError` (FR-14/65.1, сохраняем контракт 🗿).
+когда данных нет вовсе. `NoApiKeyForChat` — без изменений.
+
+SMART P0 checkup (16.11.2026, S1/S2/S3 + S7-обёртка) — классификация
+`LLMError` без нового клиента/пайплайна:
+
+* «провайдер не умеет tools» — только детерминированный 4xx режима
+  инструментов (400/404/422); прежний plain-фолбэк FR-15 сохраняется, но
+  результат помечается `not_executed_cause=tools_unavailable`;
+* транзиент (`LLMTimeoutError`/`LLMTransportError`/`LLMServerError`/
+  `LLMRateLimitError` или транзиентный `cause_class`) НЕ считается
+  «нет tools»: при структурно неполном исследовании и новых данных раунд
+  продолжается существующей `_continuation_directive` (signature/прогресс-гейт,
+  без фиксированного лимита); на первом раунде с evidence — финализация по
+  данным, а plain остаётся последним средством только без evidence;
+* пустой финальный текст при НЕпустых `tool_results` — деградация
+  `empty_final` по накопленным данным, а не `LLMBadResponseError`; без
+  evidence контракт FR-14/65.1 (🗿) прежний.
 """
 import copy
 import hashlib
@@ -73,8 +87,13 @@ from config.settings import settings
 from services import tool_result
 from services.llm_client import (
     LLMBadResponseError,
+    LLMContextOverflowError,
     LLMError,
+    LLMRateLimitError,
+    LLMServerError,
+    LLMTimeoutError,
     LLMToolCall,
+    LLMTransportError,
     NoApiKeyForChat,
 )
 from services.reply_postprocess import strip_reasoning_tags
@@ -147,6 +166,61 @@ CHAIN_TIMEOUT_REASON = "chain_timeout"
 CHAIN_CALL_LIMIT_REASON = "chain_call_limit"
 CHAIN_COST_LIMIT_REASON = "chain_cost_limit"
 NO_PROGRESS_REASON = "no_progress"
+EMPTY_FINAL_REASON = "empty_final"
+TOOLS_UNAVAILABLE_REASON = "tools_unavailable"
+
+# ── SMART P0 checkup (16.11.2026): классификация LLMError цикла ─────────────
+# Продакшн-трасса: `LLMError` на первом раунде трактовался как «провайдер не
+# умеет tools» и превращался в plain-ответ (`degraded=False`), поэтому
+# накопленное evidence и продолжение исследования терялись. Здесь — только
+# структурная классификация СУЩЕСТВУЮЩИХ классов `llm_client`/`cause_class`/
+# `status`; текста ошибки как источника решения нет (кроме статус-кода в
+# сообщении, который клиент кладёт в `err.status` для 4xx).
+#: HTTP-статусы детерминированного отказа именно от режима tools.
+_TOOL_UNSUPPORTED_STATUSES = frozenset({400, 404, 422})
+#: `cause_class` httpx, которые клиент уже исчерпал ретраями — транзиент.
+_TRANSIENT_CAUSE_CLASSES = frozenset({
+    "TimeoutException", "ConnectTimeout", "ReadTimeout", "WriteTimeout",
+    "PoolTimeout", "ConnectError", "ReadError", "WriteError",
+    "RemoteProtocolError", "ProtocolError", "TransportError", "NetworkError",
+})
+_HTTP_STATUS_IN_MSG_RE = re.compile(r"\b(?:HTTP\s+|status=)(\d{3})\b")
+
+
+def _llm_error_status(exc) -> int | None:
+    """HTTP-статус причины из атрибута исключения либо его текста."""
+    for value in (getattr(exc, "status", None),
+                  getattr(exc, "status_code", None)):
+        if isinstance(value, int) and 100 <= value < 1000:
+            return value
+    match = _HTTP_STATUS_IN_MSG_RE.search(str(exc))
+    return int(match.group(1)) if match else None
+
+
+def _is_transient_llm_error(exc) -> bool:
+    """Транзиентный отказ провайдера — ПОСЛЕ его собственных ретраев.
+
+    Транспорт уже выполнил свои повторы (`llm_client`), поэтому цикл не
+    повторяет тот же запрос слепо: транзиентность здесь означает лишь право
+    продолжить исследование директивой либо финализировать по evidence."""
+    if isinstance(exc, (LLMTimeoutError, LLMTransportError, LLMServerError,
+                        LLMRateLimitError)):
+        return True
+    return str(getattr(exc, "cause_class", "") or "") \
+        in _TRANSIENT_CAUSE_CLASSES
+
+
+def _is_tool_unsupported(exc) -> bool:
+    """Провайдер детерминированно отверг запрос С tools (400/404/422).
+
+    Переполнение контекста — другой класс (не «нет tools»); `NoApiKeyForChat`
+    обрабатывается выше. Для остальных 4xx решение прежнее (plain FR-15),
+    но без пометки `tools_unavailable`: причина не доказана."""
+    if isinstance(exc, (LLMContextOverflowError, NoApiKeyForChat)):
+        return False
+    if _is_transient_llm_error(exc):
+        return False
+    return _llm_error_status(exc) in _TOOL_UNSUPPORTED_STATUSES
 
 # ── MCA-23 фаза 2 (§17/§39): multi-tool DAG плана ───────────────────────────
 # План строит ResponsePlanner (services/response_extent, 0 LLM); здесь —
@@ -300,6 +374,10 @@ _STOP_REASON_TEXT = {
     CHAIN_COST_LIMIT_REASON: "достигнут явный лимит платных вызовов оператора",
     NO_PROGRESS_REASON: "новые данные перестали поступать",
     "llm_error": "провайдер модели прервал исследование технической ошибкой",
+    EMPTY_FINAL_REASON: "модель вернула пустой финальный ответ, хотя результаты "
+                        "инструментов уже собраны",
+    TOOLS_UNAVAILABLE_REASON: "провайдер модели не принял работу с "
+                              "инструментами, поэтому диагностика не выполнялась",
     ROUTE_TERMINAL_REASON: "маршрут источника терминально недоступен",
     "loop_exhausted": "исследование остановлено без новых данных",
     # Reviewer S7 F1: финальный ответ Writer'а пришёл пустым — причина
@@ -351,6 +429,10 @@ def _finalize_error_text(error) -> str:
 RESEARCH_COMPLETE = "complete"
 RESEARCH_PARTIAL = "partial"
 RESEARCH_FAILED = "failed"
+#: S3/S5: исследование не выполнялось вовсе (нет tool-runtime в этом запуске
+#: либо провайдер отверг режим инструментов до первого раунда). Это НЕ
+#: ``complete``: доставка такого отчёта не подтверждает полную диагностику.
+RESEARCH_NOT_EXECUTED = "not_executed"
 
 #: Причины состояния (машинные коды; пользовательский текст — отдельно).
 RESEARCH_CAUSE_NO_RESEARCH = "no_research_needed"
@@ -825,6 +907,12 @@ class ToolLoopResult(str):
       сам решает, продолжать ли (opt-in ``ensure_research_completion``).
     * ``continuation_offers`` — сколько продолжений было предложено в этом
       прогоне (прогресс-гейт, без квоты).
+    * ``not_executed_cause`` — ``""`` (исследование реально шло) либо причина,
+      по которой оно не выполнялось: ``tools_unavailable`` (провайдер отверг
+      режим инструментов на первом раунде) / ``llm_error`` (первый раунд
+      прерван технической ошибкой без накопленного evidence). В этих случаях
+      ``research_state.status == "not_executed"``: доставленный ответ не
+      выдаётся за полную диагностику.
 
     Атрибуты не сериализуются и не влияют на строковое равенство.
     """
@@ -832,7 +920,7 @@ class ToolLoopResult(str):
     def __new__(cls, text, *, rounds_used=1, degraded=False, reason="ok",
                 tool_trace=None, tool_context=None, tool_results=None,
                 sent_body=None, finalize_mode="", research_state=None,
-                continuation_offers=0):
+                continuation_offers=0, not_executed_cause=""):
         obj = super().__new__(cls, str(text or ""))
         obj.rounds_used = int(rounds_used)
         obj.degraded = bool(degraded)
@@ -844,6 +932,7 @@ class ToolLoopResult(str):
         obj.research_state = (dict(research_state)
                               if isinstance(research_state, dict) else {})
         obj.continuation_offers = int(continuation_offers or 0)
+        obj.not_executed_cause = str(not_executed_cause or "")
         #: UR-F шаг 1 (delivery snapshot, Q1): фактически отправленный body
         #: ФИНАЛЬНОГО ответообразующего раунда (только in-process); None —
         #: доставка не доказана. Дополнительные раунды второй снимок не дают.
@@ -1747,7 +1836,18 @@ async def chat_with_tools(llm, messages: list[dict], *,
     текст либо ``TOOL_LOOP_FALLBACK_PHRASE`` (``degraded=True``), НЕ
     исключение (ADR-1020-7 §1). Провайдер-reject на 1-м раунде —
     plain-фолбэк без tools (FR-15); ``NoApiKeyForChat`` — проброс; пустой
-    финал — прежний ``LLMBadResponseError`` (FR-14/65.1).
+    финал БЕЗ evidence — прежний ``LLMBadResponseError`` (FR-14/65.1), а с
+    накопленными результатами — деградация ``empty_final``.
+
+    S1/S2/S3 (SMART P0 checkup): ``LLMError`` классифицируется по
+    существующим классам/``cause_class``/``status``, а не по факту «первый
+    раунд». Детерминированный 4xx режима инструментов (400/404/422) —
+    прежний plain-фолбэк с ``not_executed_cause=tools_unavailable``;
+    транзиентный отказ при неполном исследовании и новых данных продолжает
+    цикл той же ``_continuation_directive`` (сигнатура/прогресс, без
+    фиксированного лимита), при evidence на первом раунде — финализация по
+    данным; повторных transport-ретраев и повторного исполнения side
+    effects здесь нет.
 
     A2 (ADR-1026-15 D1/D3): на каждый вызов строится out-of-band envelope
     (``tool_results`` + ``ctx.tool_results``); модельно-видимый канал
@@ -1849,7 +1949,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
     # ── SMART-EXECUTION-RELIABILITY-01 §G: общие помощники финализации ─────
     def _wrap(text, *, degraded: bool = False, reason: str = "ok",
               finalize_mode: str = "", sent_body=None,
-              rounds: int | None = None) -> "ToolLoopResult":
+              rounds: int | None = None,
+              not_executed_cause: str = "") -> "ToolLoopResult":
         """Единая сборка результата + структурное состояние исследования."""
         stop = "" if str(reason or "ok") in ("", "ok") else str(reason)
         state = _research_state(
@@ -1858,6 +1959,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
             available_tools=announced_tools,
             continuation_passes=continuation_offers,
             requests_by_fp=requests_by_fp)
+        if not_executed_cause:
+            # S3: ответ получен plain-фолбэком без исследования — это не
+            # «complete/no_research_needed»: диагностика не выполнялась.
+            state = dict(state, status=RESEARCH_NOT_EXECUTED,
+                         cause=str(not_executed_cause),
+                         continuation={"available": False,
+                                       "next_action": "none",
+                                       "options": [], "token": ""})
         if (not degraded and not stop and continuation_signatures
                 and state.get("status") == RESEARCH_PARTIAL
                 and (state.get("continuation") or {}).get("available")):
@@ -1878,7 +1987,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
             tool_context="\n".join(tool_context_parts),
             tool_results=tool_results, sent_body=sent_body,
             finalize_mode=finalize_mode, research_state=state,
-            continuation_offers=continuation_offers)
+            continuation_offers=continuation_offers,
+            not_executed_cause=not_executed_cause)
 
     def _remember_terminal(name: str, info: dict) -> None:
         """Запомнить/снять терминальный маршрут по структурному результату.
@@ -1970,6 +2080,45 @@ async def chat_with_tools(llm, messages: list[dict], *,
         _log_degraded(reason, llm_rounds, tool_trace, text, limits=limits,
                       finalize_mode=mode)
         return _wrap(text, degraded=True, reason=reason, finalize_mode=mode)
+
+    def _offer_continuation(state, *, assistant_text: str | None = None
+                            ) -> bool:
+        """Продолжить исследование в ТОМ ЖЕ цикле (единый механизм).
+
+        Условия — структурные и прогрессные: политика потребителя включена,
+        состояние ``partial`` с доступным продолжением, отпечаток пробелов
+        новый, в журнале появились новые записи. Фиксированного числа
+        продолжений нет: границей служит прогресс/отпечаток (§6.4)."""
+        nonlocal continuation_offers, last_offer_journal
+        if not completion_enabled:
+            return False
+        if str((state or {}).get("status") or "") != RESEARCH_PARTIAL:
+            return False
+        if not ((state or {}).get("continuation") or {}).get("available"):
+            return False
+        signature = _research_signature(state)
+        if signature in continuation_signatures:
+            return False
+        if len(tool_results) <= last_offer_journal:
+            return False
+        continuation_signatures.add(signature)
+        continuation_offers += 1
+        last_offer_journal = len(tool_results)
+        if assistant_text:
+            payload_messages.append({"role": "assistant",
+                                     "content": assistant_text})
+        payload_messages.append({
+            "role": "user",
+            "content": _continuation_directive(state)})
+        logger.info(
+            "[tools] research continuation | round=%d | cause=%s | "
+            "gaps=%d | options=%s | attempts=%d",
+            round_index + 1, state.get("cause"),
+            len(state.get("gaps") or ()),
+            ",".join((state.get("continuation") or {})
+                     .get("options") or ()) or "-",
+            int(state.get("attempts") or 0))
+        return True
 
     if plan_steps:
         # A9: план ДО исполнения (постфактум-сигнал модельных tool_calls
@@ -2173,11 +2322,49 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 max_output_tokens=max_output_tokens)
         except NoApiKeyForChat:
             raise
-        except LLMError as exc:                 # провайдер не умеет tools
+        except LLMError as exc:                 # провайдер/транспорт прервал раунд
+            transient = _is_transient_llm_error(exc)
+            if transient:
+                # Транспорт уже исчерпал СВОИ ретраи (`llm_client`), поэтому
+                # цикл не повторяет тот же запрос слепо. Если исследование
+                # структурно неполно и в журнале появились новые данные —
+                # продолжаем его существующей директивой (§6.4).
+                state = _research_state(
+                    tool_results, available_tools=announced_tools,
+                    continuation_passes=continuation_offers,
+                    requests_by_fp=requests_by_fp)
+                if _offer_continuation(state):
+                    round_index += 1
+                    continue
             if round_index == 0:
-                logger.warning(
-                    "[tools] provider rejected tools — plain answer | error=%s",
-                    exc)
+                # S1: «провайдер не умеет tools» — только ДЕТЕРМИНИРОВАННЫЙ
+                # 4xx режима инструментов, а не любой LLMError первого раунда.
+                unsupported = _is_tool_unsupported(exc)
+                not_executed = (TOOLS_UNAVAILABLE_REASON if unsupported
+                                else "llm_error")
+                if transient and tool_results:
+                    # Есть накопленное evidence: plain-фолбэк потерял бы его и
+                    # выдал бы ответ за полный. Финализация — по данным.
+                    logger.warning(
+                        "[tools] transient LLM error with evidence — research "
+                        "finalization instead of plain | error=%s | "
+                        "cause_class=%s", type(exc).__name__,
+                        getattr(exc, "cause_class", "") or "-")
+                    return await _finish_degraded("llm_error")
+                if unsupported:
+                    logger.warning(
+                        "[tools] provider rejected tools — plain answer | "
+                        "status=%s | error=%s", _llm_error_status(exc), exc)
+                elif transient:
+                    logger.warning(
+                        "[tools] transient LLM error before research — plain "
+                        "answer as last resort | error=%s | cause_class=%s",
+                        type(exc).__name__,
+                        getattr(exc, "cause_class", "") or "-")
+                else:
+                    logger.warning(
+                        "[tools] provider rejected request — plain answer | "
+                        "error=%s", exc)
                 # degrade: 1 обычный вызов БЕЗ tools (FR-15, AC-2.5);
                 # ADR-1028-5 D10: recompose-адаптер прокидывается и сюда —
                 # plain-фолбэк тоже под бюджетом fallback-окна.
@@ -2199,14 +2386,16 @@ async def chat_with_tools(llm, messages: list[dict], *,
                         return _wrap(
                             str(getattr(_plain_completion, "text", "") or ""),
                             sent_body=getattr(_plain_completion, "sent_body",
-                                              None), rounds=1)
+                                              None), rounds=1,
+                            not_executed_cause=not_executed)
                     plain = await llm.generate(
                         payload_messages, temperature=temperature,
                         chat_id=chat_id, module=module, step="single",
                         correlation_id=correlation_id,
                         fallback_payload_adapter=fallback_payload_adapter,
                         max_output_tokens=max_output_tokens)
-                    return _wrap(plain, rounds=1)
+                    return _wrap(plain, rounds=1,
+                                 not_executed_cause=not_executed)
                 except NoApiKeyForChat:
                     raise
                 except LLMError as plain_exc:
@@ -2233,33 +2422,12 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     available_tools=announced_tools,
                     continuation_passes=continuation_offers,
                     requests_by_fp=requests_by_fp)
-                if (completion_enabled
-                        and state.get("status") == RESEARCH_PARTIAL
-                        and (state.get("continuation") or {}).get("available")):
-                    signature = _research_signature(state)
-                    progressed = len(tool_results) > last_offer_journal
-                    if signature not in continuation_signatures and progressed:
-                        # §4/§6.4: продолжение в ТОМ ЖЕ цикле. Пробелы и
-                        # родовые варианты — данные, направление выбирает
-                        # модель; повторные предложения ограничены прогрессом.
-                        continuation_signatures.add(signature)
-                        continuation_offers += 1
-                        last_offer_journal = len(tool_results)
-                        payload_messages.append({"role": "assistant",
-                                                 "content": text})
-                        payload_messages.append({
-                            "role": "user",
-                            "content": _continuation_directive(state)})
-                        logger.info(
-                            "[tools] research continuation | round=%d | "
-                            "cause=%s | gaps=%d | options=%s | attempts=%d",
-                            round_index + 1, state.get("cause"),
-                            len(state.get("gaps") or ()),
-                            ",".join((state.get("continuation") or {})
-                                     .get("options") or ()) or "-",
-                            int(state.get("attempts") or 0))
-                        round_index += 1
-                        continue
+                if _offer_continuation(state, assistant_text=text):
+                    # §4/§6.4: продолжение в ТОМ ЖЕ цикле. Пробелы и родовые
+                    # варианты — данные, направление выбирает модель;
+                    # повторные предложения ограничены прогрессом.
+                    round_index += 1
+                    continue
                 logger.info(
                     "[tools] final round | round=%d | out_chars=%d | "
                     "research=%s | cause=%s",
@@ -2268,6 +2436,15 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 # БЛОК 7.2b (T-1921): страховка tool-пути (idempotent).
                 return _wrap(strip_reasoning_tags(text),
                              sent_body=getattr(result, "sent_body", None))
+            if tool_results:
+                # S1: пустой финальный текст при уже собранных результатах —
+                # не «битый ответ провайдера» (FR-14/65.1), а деградация с
+                # сохранением evidence. Без evidence прежний контракт 🗿.
+                logger.warning(
+                    "[tools] empty final answer with evidence — degraded | "
+                    "round=%d | journal=%d", round_index + 1,
+                    len(tool_results))
+                return await _finish_degraded(EMPTY_FINAL_REASON)
             raise LLMBadResponseError("tool loop: empty final answer")
         # SMART-EXECUTION-RELIABILITY-01 §B1: список вызовов НЕ обрезается —
         # все корректно запрошенные вызовы исполняются и получают результат.
