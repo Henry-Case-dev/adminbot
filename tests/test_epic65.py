@@ -27,8 +27,8 @@ class TestFormatChatContext:
         assert out.startswith("<chat_context ")
         assert "НЕ доказательства" in out
         # 10.20 (БЛОК 0, точка 13): канонический контекст-элемент с ts+автором
-        assert "[01.01.1970 00:00 | Вася]: первое" in out
-        assert "[01.01.1970 00:00 | Петя]: второе" in out
+        assert "[01.01.1970 00:00 UTC | Вася]: первое" in out
+        assert "[01.01.1970 00:00 UTC | Петя]: второе" in out
         assert out.endswith("</chat_context>")
 
     def test_empty_rows_no_text(self):
@@ -38,14 +38,14 @@ class TestFormatChatContext:
     def test_char_cap(self):
         rows = [_row(text="x" * 600) for _ in range(10)]
         out = format_chat_context(rows, max_chars=1000)
-        # строка "[01.01.1970 00:00 | Вася]: xxx…" = 627 симв.: 1-я влезает
-        # (627<=1000), 2-я уже нет (627+627>1000)
+        # строка "[01.01.1970 00:00 UTC | Вася]: xxx…" = 631 симв.: 1-я
+        # влезает (631<=1000), 2-я уже нет (631+631>1000)
         assert len(out) < 1200
-        assert out.count("[01.01.1970 00:00 | Вася]:") == 1
+        assert out.count("[01.01.1970 00:00 UTC | Вася]:") == 1
 
     def test_missing_author_uses_id(self):
         out = format_chat_context([_row(name=None, uid=42)])
-        assert "[01.01.1970 00:00 | id42]: привет" in out
+        assert "[01.01.1970 00:00 UTC | id42]: привет" in out
 
 
 class TestFactcheckUserContentOrder:

@@ -642,12 +642,20 @@ class TestCursorFailClosed:
                  "oldest_ts": 1, "oldest_id": 1, "requested": 50,
                  "available": 50, "exp": int(time.time()) + 300}
         cursor = _history_cursor_encode(bound, 3, 4, processed=7)
-        assert cursor.startswith("v2.")
+        assert cursor.startswith("v3.")
         fields, reason = _history_cursor_decode(cursor, CHAT_ID)
         assert reason == "" and fields is not None
         assert fields["after_ts"] == 3 and fields["after_id"] == 4
         assert fields["sample_id"] == bound["sample_id"]
         assert fields["available"] == 50 and fields["processed"] == 7
+        assert fields["window_from"] == 0 and fields["window_to"] == 0
+        # Окно переживает cursor (v3): страницы не теряют запрошенный период.
+        windowed = dict(bound, window_from=1000, window_to=2000)
+        wcursor = _history_cursor_encode(windowed, 3, 4, processed=7)
+        wfields, wreason = _history_cursor_decode(wcursor, CHAT_ID)
+        assert wreason == "" and wfields is not None
+        assert wfields["window_from"] == 1000
+        assert wfields["window_to"] == 2000
         # чужой чат / битая подпись / мусор → unknown_cursor
         assert _history_cursor_decode(cursor, OTHER_CHAT)[1] == "unknown_cursor"
         assert _history_cursor_decode(cursor[:-2] + "xx", CHAT_ID)[1] == \
@@ -660,26 +668,34 @@ class TestCursorFailClosed:
         other_after = _history_cursor_encode(bound, 9, 9)
         assert other_after != cursor
 
-    def _signed_cursor(self, payload: str) -> str:
-        """Правильно подписанный (текущим ключом процесса) payload любой
-        версии — для fail-closed проверок НЕизвестных форматов."""
+    def _signed_cursor(self, payload: str, prefix: str = "") -> str:
+        """Правильно подписанный (текущим ключом процесса) payload — для
+        fail-closed проверок форматов. ``prefix`` — реальный префикс токена
+        (v1/v2/v3); пусто → берётся версия из payload."""
+        version = str(payload.split("|", 1)[0] or "v1")
         token = base64.urlsafe_b64encode(
             payload.encode("ascii")).decode("ascii").rstrip("=")
         sig = hmac.new(_HISTORY_CURSOR_KEY, payload.encode("ascii"),
                        hashlib.sha256).hexdigest()[:16]
-        return f"v1.{token}.{sig}"
+        return f"{prefix or version}.{token}.{sig}"
 
     @pytest.mark.asyncio
     async def test_old_format_cursor_fail_closed(self):
-        """H14 (ревью): cursor прежней сборки (v1, 11 полей, без захваченных
-        available/processed) — структурированный отказ unknown_cursor, НИКАКОГО
-        молчаливого чтения по ужатому живому COUNT. TTL 360 с делает
-        совместимость с pre-fix payload'ами бессмысленной."""
+        """H14 (ревью) + VMQ/MEM-TIME: cursor прежней сборки (v1 — 11 полей
+        без счётчиков; v2 — 13 полей без окна) — структурированный отказ
+        unknown_cursor, НИКАКОГО молчаливого чтения по ужатому/другому окну.
+        TTL 360 с делает совместимость с pre-fix payload'ами бессмысленной."""
         v1_payload = "|".join(str(v) for v in (
             "v1", CHAT_ID, 100, 5, 1, 1, 50, 3, 4,
             int(time.time()) + 300, _history_sample_id(CHAT_ID, 100, 5, 50)))
         cursor = self._signed_cursor(v1_payload)
         assert _history_cursor_decode(cursor, CHAT_ID)[1] == "unknown_cursor"
+        v2_payload = "|".join(str(v) for v in (
+            "v2", CHAT_ID, 100, 5, 1, 1, 50, 50, 0, 3, 4,
+            int(time.time()) + 300, _history_sample_id(CHAT_ID, 100, 5, 50)))
+        v2_cursor = self._signed_cursor(v2_payload)
+        assert _history_cursor_decode(v2_cursor, CHAT_ID)[1] == \
+            "unknown_cursor"
         # И через dispatch: та же структурная ошибка, без тел и без выборки.
         db = await _make_db(count=80)
         try:
@@ -691,29 +707,28 @@ class TestCursorFailClosed:
         assert parse_history_sample(out) is None
 
     def test_inconsistent_counter_cursor_fail_closed(self):
-        """Правильно подписанный v2 с несогласованными счётчиками выборки
-        (processed > available / available < 1) → unknown_cursor, не
+        """Правильно подписанный v3 (текущий формат) с несогласованными
+        счётчиками/окном выборки (processed > available / available < 1 /
+        только один край окна / перевёрнутое окно) → unknown_cursor, не
         «лучшая догадка»."""
-        base = {"chat_id": CHAT_ID, "anchor_ts": 100, "anchor_id": 5,
-                "oldest_ts": 1, "oldest_id": 1, "requested": 50,
-                "available": 50, "after_ts": 3, "after_id": 4,
-                "exp": int(time.time()) + 300,
-                "sample_id": _history_sample_id(CHAT_ID, 100, 5, 50)}
-        for processed in (51, -1):
-            payload = "|".join(str(v) for v in (
-                "v2", base["chat_id"], base["anchor_ts"], base["anchor_id"],
-                base["oldest_ts"], base["oldest_id"], base["requested"],
-                base["available"], processed, base["after_ts"],
-                base["after_id"], base["exp"], base["sample_id"]))
+        sample_id = _history_sample_id(CHAT_ID, 100, 5, 50)
+        exp = int(time.time()) + 300
+
+        def _payload(processed=0, available=50, window_from=0, window_to=0):
+            return "|".join(str(v) for v in (
+                "v3", CHAT_ID, 100, 5, 1, 1, 50, available, processed, 3, 4,
+                exp, sample_id, window_from, window_to))
+
+        for processed, available in ((51, 50), (-1, 50), (0, 0)):
             assert _history_cursor_decode(
-                self._signed_cursor(payload), CHAT_ID)[1] == "unknown_cursor"
-        payload = "|".join(str(v) for v in (
-            "v2", base["chat_id"], base["anchor_ts"], base["anchor_id"],
-            base["oldest_ts"], base["oldest_id"], base["requested"],
-            0, 0, base["after_ts"], base["after_id"], base["exp"],
-            base["sample_id"]))
-        assert _history_cursor_decode(
-            self._signed_cursor(payload), CHAT_ID)[1] == "unknown_cursor"
+                self._signed_cursor(_payload(processed=processed,
+                                             available=available)),
+                CHAT_ID)[1] == "unknown_cursor"
+        for window_from, window_to in ((1000, 0), (0, 1000), (2000, 1000)):
+            assert _history_cursor_decode(
+                self._signed_cursor(_payload(window_from=window_from,
+                                             window_to=window_to)),
+                CHAT_ID)[1] == "unknown_cursor"
 
 
 # ── 5. Маршрутизация §1 ───────────────────────────────────────────────────

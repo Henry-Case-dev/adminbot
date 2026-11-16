@@ -43,10 +43,11 @@ def _ctx(query="что обсуждали 10 минут назад") -> ToolCont
 
 
 def _stamp(ts) -> str:
-    """Ожидаемый канонический ts-сегмент (UTC, «ДД.ММ.ГГГГ ЧЧ:ММ») —
-    10.20 (БЛОК 0, точка 8): строки get_recent_history несут ts."""
+    """Ожидаемый канонический ts-сегмент (UTC, «ДД.ММ.ГГГГ ЧЧ:ММ UTC») —
+    10.20 (БЛОК 0, точка 8): строки get_recent_history несут ts;
+    VMQ/MEM-TIME: шкала помечена UTC явно."""
     return datetime.datetime.fromtimestamp(
-        int(ts), datetime.timezone.utc).strftime("%d.%m.%Y %H:%M")
+        int(ts), datetime.timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
 
 
 def _row(user_id=1, author_name="вася", text="сообщение", ts=None,

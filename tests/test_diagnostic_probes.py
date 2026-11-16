@@ -7,6 +7,7 @@ get_bot_health и свободного Tool Calling, отсутствие keywor
 """
 import asyncio
 import dataclasses
+import datetime
 import json
 import os
 import time
@@ -50,6 +51,11 @@ async def _collect(collector, probe, *, chat_id=-100, scope="current_chat",
     return await collector.collect(dc.CollectionRequest(
         probe=probe, chat_id=chat_id, scope=scope,
         arguments=arguments or {}, time_window=time_window, cursor=cursor))
+
+
+def _iso_utc(ts) -> str:
+    return datetime.datetime.fromtimestamp(
+        int(ts), datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class FakeFetcher:
@@ -346,8 +352,8 @@ class TestValidation:
             for window in ({"since": "2026-11-13T00:00:00Z",
                             "until": "2026-11-12T00:00:00Z"},
                            {"last_seconds": 10 ** 9},
-                           {"since": "2026-11-13T00:00:00Z",
-                            "until": "2026-11-14T00:00:00Z"}):
+                           {"since": _iso_utc(time.time() + 86400),
+                            "until": _iso_utc(time.time() + 2 * 86400)}):
                 _, page = await _collect(collector, "media.custom_probe",
                                          time_window=window)
                 reasons.append(page["reason_code"])

@@ -370,6 +370,12 @@ TOOL_GET_BOT_HEALTH = {
 # F9 (`recent-history-tool-round1015`): кратковременная память — сырая
 # хронологическая стенограмма недавних сообщений (НЕ векторный RAG). F8
 # регистрирует схему и dispatch-ветку; полная логика — в F9.
+# VMQ/MEM-TIME (16.11.2026, ARCH_DECISION): опциональное `time_window`
+# (`since`/`until` ISO-8601 UTC или `last_seconds`) — период запроса
+# передаётся СТРУКТУРОЙ, а не фразой в `query`; окно валидируется общим
+# `parse_time_window`, хронология окна читается существующей страницей
+# истории (filter-before-limit), статусы ok|empty_window|no_match|error
+# названы явно. Новых инструментов/пайплайнов нет.
 TOOL_GET_RECENT_HISTORY = {
     "type": "function",
     "function": {
@@ -382,14 +388,27 @@ TOOL_GET_RECENT_HISTORY = {
                         "pass the exact requested count ('last 400 messages' "
                         "→ depth=400, 'last 2000' → depth=2000); any "
                         "positive size is honored, there is no cap; OR query "
-                        "- search among the last hours' messages. If the "
-                        "result header @@HISTORY_SAMPLE contains "
-                        "has_next=1, there are more messages of the SAME "
-                        "sample: call this tool again passing the cursor "
-                        "value from that header to get the next page; "
-                        "repeat until has_next=0. Do not pass cursor for a "
-                        "fresh request. This is exact chronology, NOT "
-                        "semantic RAG."),
+                        "- search among the last hours' messages. For a "
+                        "RELATIVE PERIOD ('what happened in the last couple "
+                        "of hours', 'since this morning') pass time_window "
+                        "with last_seconds (2 hours → 7200) or since/until "
+                        "(ISO-8601 UTC) - never put that phrase into query. "
+                        "time_window WITHOUT query returns the full "
+                        "chronology of that period; time_window WITH query "
+                        "returns only matches inside it. If the result "
+                        "header @@HISTORY_SAMPLE has status=no_match, there "
+                        "were messages but none matched: call again without "
+                        "query to get the period's chronology; "
+                        "status=empty_window means that period itself had no "
+                        "messages; status=error is a technical failure, NOT "
+                        "an empty period; truncated=1 means more matches "
+                        "exist than were shown (narrow the query). If the "
+                        "header has has_next=1, "
+                        "there are more messages of the SAME sample: call "
+                        "this tool again passing the cursor value from that "
+                        "header to get the next page; repeat until "
+                        "has_next=0. Do not pass cursor for a fresh request. "
+                        "This is exact chronology, NOT semantic RAG."),
         "parameters": {
             "type": "object",
             "properties": {
@@ -400,7 +419,34 @@ TOOL_GET_RECENT_HISTORY = {
                                           "used as-is, no cap.")},
                 "query": {"type": "string",
                           "description": ("Fragment/topic to search among "
-                                          "recent messages (last hours).")},
+                                          "recent messages (last hours). Do "
+                                          "NOT put a human phrase that only "
+                                          "names a period here - use "
+                                          "time_window instead.")},
+                "time_window": {
+                    "type": "object",
+                    "properties": {
+                        "since": {"type": "string",
+                                  "description": "ISO-8601 start (UTC), "
+                                                 "e.g. 2026-11-16T06:33:51Z."},
+                        "until": {"type": "string",
+                                  "description": "ISO-8601 end (UTC); omit "
+                                                 "for now."},
+                        "last_seconds": {
+                            "type": "integer", "minimum": 1,
+                            "description": ("Alternative to since/until: the "
+                                            "last N seconds. Use for 'last N "
+                                            "hours/minutes' (2 hours → "
+                                            "7200)."),
+                        },
+                    },
+                    "additionalProperties": False,
+                    "description": ("Explicit period of the request. Without "
+                                    "query - full chronology of the period; "
+                                    "with query - matches inside it. Too "
+                                    "wide/invalid window is rejected "
+                                    "explicitly, never silently cut."),
+                },
                 "cursor": {"type": "string",
                            "description": ("Opaque continuation token from "
                                            "a previous result header "

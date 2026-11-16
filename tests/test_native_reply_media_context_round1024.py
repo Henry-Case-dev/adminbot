@@ -111,7 +111,7 @@ class TestMarkerInChainAndWindow:
         # поэтому узел адресуется меткой прогона, а реф медиа-маркера —
         # той же меткой (§9.2: служебный ref не выдаётся за слова участника).
         # Сырой вид сохранён в структуре (`chain[0].text`) и в `format_chain_line`.
-        assert "[01.01.1970 00:00 | вася (U1) | M1]: [медиа: video M1]" in out
+        assert "[01.01.1970 00:00 UTC | вася (U1) | M1]: [медиа: video M1]" in out
         assert "tg:123" not in out and "[10]" not in out
         assert MEDIA_MARKER_RE.match("[медиа: video M1]")
         assert MEDIA_MARKER_RE.match("[медиа: video tg:123]")

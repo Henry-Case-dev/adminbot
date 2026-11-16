@@ -6,7 +6,7 @@
 
 Канон формата (spec §2.2, ADR-1020-1 п.2):
 
-* ``msg``     — ``[ДД.ММ.ГГГГ ЧЧ:ММ | Автор | ID | Переслано: Источник]: Текст``
+* ``msg``     — ``[ДД.ММ.ГГГГ ЧЧ:ММ UTC | Автор | ID | Переслано: Источник]: Текст``
 * ``fact``    — ``[ММ.ГГГГ | Автор | fact:ID]: Текст``
 * ``archive`` — ``[Архивная справка: ДД.ММ.ГГГГ | Автор | ID]: Текст``
 
@@ -144,7 +144,9 @@ CONTEXT_POINTS: tuple[ContextPoint, ...] = (
     ContextPoint(
         "query_chat_memory", "services/tool_router.py", KIND_MSG,
         "query_chat_memory (основная ветка)", REPRESENTATION_BRACKET_HEADER,
-        r"^\[[^\]]+ \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}\]\]: "),
+        # VMQ/MEM-TIME: метка UTC обязательна в новых строках; легаси-строки
+        # без пометки (исторические снапшоты/входы) остаются валидными.
+        r"^\[[^\]]+ \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?:\s+UTC)?\]\]: "),
     ContextPoint(
         "get_recent_history", "services/tool_router.py", KIND_MSG,
         "get_recent_history", REPRESENTATION_CANONICAL,
@@ -216,8 +218,12 @@ def _squash(value) -> str:
 
 
 def _fmt_ts(ts, *, with_time: bool) -> str:
-    """unix ts → 'ДД.ММ.ГГГГ ЧЧ:ММ' (msg) / 'ММ.ГГГГ' (fact/archive).
+    """unix ts → 'ДД.ММ.ГГГГ ЧЧ:ММ UTC' (msg) / 'ММ.ГГГГ' (fact/archive).
 
+    VMQ/MEM-TIME (16.11.2026): одна явная шкала времени. Сообщения рендерятся
+    в UTC с ЯВНОЙ меткой ``UTC`` (раньше метка отсутствовала, и 08:30 UTC
+    читалось рядом с локальными 13:30 чата +05); факты/архив остаются
+    месяц-год — часов там нет, путаницы шкал не возникает.
     None/0/битый ts → '' (никогда не бросает — RAG не роняет мусорным ts).
     """
     if not ts:
@@ -233,7 +239,19 @@ def _fmt_ts(ts, *, with_time: bool) -> str:
             seconds, datetime.timezone.utc)
     except (ValueError, OSError, OverflowError):
         return ""
-    return moment.strftime("%d.%m.%Y %H:%M" if with_time else "%m.%Y")
+    if not with_time:
+        return moment.strftime("%m.%Y")
+    return moment.strftime("%d.%m.%Y %H:%M UTC")
+
+
+def format_utc_timestamp(ts) -> str:
+    """Единый UTC-рендер метки сообщения: ``ДД.ММ.ГГГГ ЧЧ:ММ UTC``.
+
+    Тот же рендер, что у канонической строки ``kind="msg"`` (``_fmt_ts``);
+    используется потребителями, которым нужна только метка (журнал
+    дополнения истории) — второго форматтера шкалы нет. Кривой/пустой ts →
+    ``""``."""
+    return _fmt_ts(ts, with_time=True)
 
 
 def resolve_item_id(*, tg_message_id=None, message_id=None,

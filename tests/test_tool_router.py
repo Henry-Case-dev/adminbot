@@ -462,7 +462,7 @@ class TestDigIntoLore:
         snippet = payload["snippets"][0]
         # канонический формат §2.2 (kind="msg"): дата ВРЕМЯ | автор | ID
         stamp = _dt.datetime.fromtimestamp(
-            ts, _dt.timezone.utc).strftime("%d.%m.%Y %H:%M")
+            ts, _dt.timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
         assert snippet == f"[{stamp} | вася | msg:1]: ездили тогда на море"
         assert payload["facts"] == []
 

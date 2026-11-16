@@ -565,8 +565,8 @@ class TestContextPartitioning:
         assert blocks[1] == "<RAG_Memory>\n[чат] [fact:1]: фон из памяти\n</RAG_Memory>"
         # C1/T-792 + 10.20 (БЛОК 0, точка 2): канонические строки Global_Context
         # («[ts | имя [uid] | ID]: текст»)
-        assert "01.01.1970 00:01 | вася [10]]: привет" in blocks[2]
-        assert "01.01.1970 00:01 | петя [20]]: как дела" in blocks[2]
+        assert "01.01.1970 00:01 UTC | вася [10]]: привет" in blocks[2]
+        assert "01.01.1970 00:01 UTC | петя [20]]: как дела" in blocks[2]
 
     @pytest.mark.asyncio
     async def test_sandwich_last_and_order_with_all_blocks(self, fake_time):
@@ -610,7 +610,7 @@ class TestContextPartitioning:
         service = _make_service(memory=memory)
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "01.01.1970 00:01 | старое имя [10]]: 1 &lt; 2 &amp; 3" in global_block
+        assert "01.01.1970 00:01 UTC | старое имя [10]]: 1 &lt; 2 &amp; 3" in global_block
         assert "1 < 2" not in global_block
 
     @pytest.mark.asyncio
@@ -719,9 +719,9 @@ class TestRound8RendersAndParticipants:
         service = _make_service(memory=FakeMemory(window=window))
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
-        assert "01.01.1970 00:01 | канал]: анонс" in global_block
+        assert "01.01.1970 00:01 UTC | канал]: анонс" in global_block
         assert "канал [None]" not in global_block and "[None]" not in global_block
-        assert "01.01.1970 00:01 | вася [10]]: спросил" in global_block
+        assert "01.01.1970 00:01 UTC | вася [10]]: спросил" in global_block
 
     @pytest.mark.asyncio
     async def test_active_participant_outside_window_in_map(self, fake_time):
