@@ -108,9 +108,11 @@ M3 DESIGN FROZEN — риски: (1) честное разделение desired
    Порядок регистрации в коде на рендер не влияет (design §3.2).
 2. **«Расширенные» (MAC-S5-TAB-07) — не отдельная вкладка.** В `bca18c1e` это раскрываемая зона
    `advancedItems(grp)` внутри существующей вкладки; отдельная вкладка создала бы второй дом для
-   технических параметров. Зона обязательна у 6 карточек, где есть `progressive_level="advanced"`
-   (`sleep`, `nostalgia`, `initiative`, `character`, `experience`, `random`), у остальных не
-   рисуется (design §2.4).
+   технических параметров. Зона обязательна там, где фактический `advancedItems(grp) > 0`
+   (`resolve_progressive_level(spec) == "advanced"` хотя бы у одного видимого параметра группы);
+   таких карточек **15/21** (`sleep`, `nostalgia`, `initiative`, `character`, `experience`, `random`
+   плюс `summary`, `direct`, `factcheck`, `search`, `transcribe`, `video_summary`, `vision`, `checkup`,
+   `budgets`), у остальных 6 зона не рисуется. Существующие зоны сохраняются (design §2.4).
 3. **«История/События» (MAC-S5-TAB-06) — вкладка `history` только при реальном источнике.**
    Источник именованный, при 403/503/`available:false`/пустоте вкладки нет; где уже есть
    собственный событийный таб (`inspector`, `publications`/`diagnostics`, инфраструктурные
@@ -127,7 +129,7 @@ M3 DESIGN FROZEN — риски: (1) честное разделение desired
    `ModuleSpec.runtime_gate` (`initiative`, `stories`, `character`, `random`, `factcheck`,
    `vision`, `nostalgia`, `sleep`) исправляются на `per_chat` в M4A после M2.1. Design §12.2/§12.5.
 7. **Оболочка:** sidebar 190–220; контентная колонка = viewport − sidebar − 48 (на 1440 при
-   sidebar 220 это 1192, не 1440); сетка `minmax(280px,1fr)` с потолком 4 → 4/3/2/1; state-чипы
+   sidebar 220 это 1172, не 1440); сетка `minmax(280px,1fr)` с потолком 4 → 4/3/2/1; state-чипы
    несут иконку и текст, цвет вторичен (design §4.1/§8/§9). Дубль заголовка «Модули» устранён:
    заголовок один, в topbar (design §3.3).
 8. **Copy:** шапка каталога/фильтры/счётчик — `copy-inventory.md` §10; «Статус»/«Права» — границы
