@@ -189,6 +189,7 @@
     "Кандидат не задеплоен; live production probe и effective-state прода не выполнялись.",
     "Property: GLOBAL OFF + CHAT ON публикует проверена на реальных швах без Telegram/LLM: отправка через monkeypatched telegram_send.send_text; LLM-генерация не вызывается (prepared_text), writer не задействован.",
     "Heartbeat due-скан проверен unit-тестами per-chat фильтра; реальный фоновый прогон на проде — после деплоя (вне задачи).",
+    "Per-chat резолв в due-скане делает один вызов резолвера на чат за тик (кэш chat_params TTL 120 с; холодный кэш → существующий read-path PG, без нового хранилища/DDL).",
     "stories manage-контур остаётся глобальным (K2 MCA_STORIES_MANAGE_ENABLED); M2.1 закрывает read-контур.",
     "Финальный VERIFIED не заявляется: требуется независимое ревью."
   ],
