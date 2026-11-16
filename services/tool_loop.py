@@ -302,6 +302,16 @@ _STOP_REASON_TEXT = {
     "llm_error": "провайдер модели прервал исследование технической ошибкой",
     ROUTE_TERMINAL_REASON: "маршрут источника терминально недоступен",
     "loop_exhausted": "исследование остановлено без новых данных",
+    # Reviewer S7 F1: финальный ответ Writer'а пришёл пустым — причина
+    # остановки обязана быть человекочитаемой (было «empty (empty)»).
+    "empty": "финальный ответ модели пришёл пустым",
+}
+
+#: Человекочитаемое имя технической ошибки финального LLM-вызова. Значения —
+#: классы исключений (`NoApiKeyForChat`, `LLMError`) остаются как есть: это
+#: точные идентификаторы причины, а не машинные коды продукта.
+_FINALIZE_ERROR_TEXT = {
+    "empty": "ответ модели пришёл пустым",
 }
 
 #: Поля структурного payload'а, которые безопасно показывать как provenance
@@ -314,6 +324,15 @@ def _stop_reason_text(reason: str) -> str:
     """Человекочитаемая причина остановки (неизвестный код → сам код)."""
     key = str(reason or "")
     return _STOP_REASON_TEXT.get(key) or key or "причина не зафиксирована"
+
+
+def _finalize_error_text(error) -> str:
+    """Человекочитаемая причина отказа финального LLM-вызова.
+
+    Известные коды (`empty`) переводятся; имена классов исключений и прочие
+    технические идентификаторы остаются как есть — это точная причина."""
+    key = str(error or "").strip()
+    return _FINALIZE_ERROR_TEXT.get(key) or key or "причина не зафиксирована"
 
 
 # ── SMART-CORRECTIVE-01 §4/§6.4: состояние исследования ────────────────────
@@ -1176,6 +1195,19 @@ def _usable_evidence(items) -> list[dict]:
             or item.get("partial")]
 
 
+def _item_has_content(item) -> bool:
+    """Есть ли в результате ФАКТИЧЕСКИ доставленные данные.
+
+    `status=ok` с нулевой длиной и `status=empty` (`{"status": "empty"}`,
+    «не найдено») данными не являются: публиковать их как «подтверждённые»
+    нельзя (Reviewer S7 F2). Пустое/пробельное содержимое — тоже нет."""
+    if not isinstance(item, dict):
+        return False
+    if str(item.get("status") or "") == tool_result.STATUS_EMPTY:
+        return False
+    return bool(str(item.get("output") or "").strip())
+
+
 def _failed_evidence(items) -> list[dict]:
     """Структурные отказы (ошибки/таймауты/отказы policy/пустые без partial)."""
     usable_ids = {id(item) for item in _usable_evidence(items)}
@@ -1217,13 +1249,36 @@ def _excerpt(text, limit: int) -> str:
     return value
 
 
+#: Служебный блок времени стадии (UR-25.6, `chat_clock`). Partial цитирует
+#: ИСХОДНЫЙ запрос человека, поэтому машинный блок в цитату не попадает.
+_CLOCK_TAG_PREFIX = "<Chat_Time_Context"
+_CLOCK_BLOCK_RE = re.compile(
+    re.escape(_CLOCK_TAG_PREFIX) + r"\b[^>]*>.*?</Chat_Time_Context>",
+    re.DOTALL)
+
+
+def _strip_clock_block(text) -> str:
+    """Убрать `<Chat_Time_Context>` из текста запроса (незакрытый — до конца).
+
+    Семантика та же, что у `chat_clock.refresh_time_context`: служебный блок
+    не является частью пользовательского текста. Никогда не бросает."""
+    value = str(text or "")
+    if _CLOCK_TAG_PREFIX not in value:
+        return value
+    value = _CLOCK_BLOCK_RE.sub("", value)
+    start = value.find(_CLOCK_TAG_PREFIX)
+    if start >= 0:
+        value = value[:start]
+    return value.strip()
+
+
 def _last_user_text(messages) -> str:
-    """Исходный запрос: последнее user-сообщение входа (без служебных блоков)."""
+    """Исходный запрос: последнее user-сообщение входа без служебных блоков."""
     for message in reversed(list(messages or ())):
         try:
             if message.get("role") == "user" \
                     and isinstance(message.get("content"), str):
-                return str(message["content"])
+                return _strip_clock_block(message["content"])
         except Exception:
             continue
     return ""
@@ -1247,26 +1302,42 @@ def _finalize_directive(stop_reason: str, items) -> str:
 
 
 def _structured_partial(stop_reason: str, items, messages,
-                        finalize_error: str) -> str:
+                        finalize_error: str, *, request_text: str = "",
+                        require_content: bool = False) -> str:
     """Детерминированный безопасный partial из структурированных фактов.
 
     Используется только когда финальный LLM-вызов недоступен/пуст: ответ
     строится по реальным tool-результатам, честно отделяет отказы и
-    непроверенное, не подменяется саркастичной заглушкой."""
+    непроверенное, не подменяется саркастичной заглушкой.
+
+    ``request_text`` — ИСХОДНЫЙ пользовательский запрос (если вызывающий его
+    знает: payload Writer'а — внутренняя сборка, цитировать её нельзя);
+    иначе берётся последнее user-сообщение без служебных блоков.
+
+    ``require_content`` — Reviewer S7 F2 (живой partial-шов): «подтверждённые
+    данные» публикуются только при наличии хотя бы одного результата с
+    непустым содержимым. Пустой `ok`/`empty`-envelope — не доказательство,
+    поэтому такие записи не выдаются за данные, а без них partial не
+    строится вовсе ("" → прежний silence-path потребителя)."""
     try:
         from services.system2_handoff import redact_secrets
     except Exception:       # pragma: no cover - защитная ветка
         def redact_secrets(value):      # type: ignore
             return value
 
-    request = _excerpt(_last_user_text(messages), 500)
+    request = _excerpt(
+        str(request_text or "") or _last_user_text(messages), 500)
     usable = _usable_evidence(items)
+    if require_content:
+        usable = [item for item in usable if _item_has_content(item)]
+        if not usable:
+            return ""
     failed = _failed_evidence(items)
     lines = ["Исследование остановлено: "
              f"{_stop_reason_text(stop_reason)} ({stop_reason}).",
              "Это частичный результат: финальный LLM-вызов недоступен "
-             f"({finalize_error or 'error'}), ниже собраны только фактически "
-             "полученные данные."]
+             f"({_finalize_error_text(finalize_error)}), ниже собраны только "
+             "фактически полученные данные."]
     if request:
         lines.extend(["", f"Запрос: {redact_secrets(request)}"])
     if usable:
@@ -1297,7 +1368,9 @@ def _structured_partial(stop_reason: str, items, messages,
     return "\n".join(lines)
 
 
-def structured_partial_from_result(result, messages, *, stop_reason: str = "",
+def structured_partial_from_result(result, messages=None, *,
+                                   request_text: str = "",
+                                   stop_reason: str = "",
                                    finalize_error: str = "") -> str:
     """Публичная тонкая обёртка :func:`_structured_partial` для живого пути.
 
@@ -1308,8 +1381,18 @@ def structured_partial_from_result(result, messages, *, stop_reason: str = "",
     заглушки. Тексты выводов берутся из `evidence_sources` ТОЛЬКО при
     точном совпадении числа записей с журналом `tool_results` (порядок
     добавления в обоих списках — один и тот же шаг); иначе excerpt пуст, а
-    статусы/provenance/refs остаются честными. Пусто → нет данных: ""
-    (заглушку не публикуем). Никогда не бросает."""
+    статусы/provenance/refs остаются честными.
+
+    Reviewer S7 F1/F2 (16.11.2026):
+    * ``request_text`` — исходный пользовательский запрос. Строка «Запрос:»
+      цитирует ЕГО, а не внутреннюю сборку Writer'а (`<Chat_Time_Context>`,
+      план/служебные блоки): payload стадии — не речь человека;
+    * «подтверждённые данные» требуют хотя бы одного результата с непустым
+      содержимым. Пустой `ok` (0 символов), `{"status": "empty"}` и
+      пробельная выдача не публикуются: пусто → нет данных: "" (потребитель
+      сохраняет прежний silence-path — заглушку не публикуем).
+
+    Никогда не бросает."""
     try:
         results = list(getattr(result, "tool_results", None) or ())
         if not results:
@@ -1328,7 +1411,9 @@ def structured_partial_from_result(result, messages, *, stop_reason: str = "",
         if not reason or reason == "ok":
             reason = "empty"
         return _structured_partial(reason, items, messages,
-                                   str(finalize_error or "empty"))
+                                   str(finalize_error or "empty"),
+                                   request_text=request_text,
+                                   require_content=True)
     except Exception:      # pragma: no cover - защитная ветка
         logger.warning("[tools] structured partial from result failed",
                        exc_info=True)

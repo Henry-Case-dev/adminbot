@@ -33,6 +33,7 @@ import pytest
 
 from services import diagnostic_policy as diag
 from services import direct_chat_service as dcs
+from services import direct_execution as dx
 from services import direct_l1 as l1
 from services import source_reader as sr
 from services import tool_loop
@@ -156,13 +157,19 @@ def _capture_tool_schemas(monkeypatch, svc):
 
 
 def _checkup_turn(monkeypatch, llm, *, text="Посмотри по коду по watchdog.jobs",
-                  reply=None, tool_router=None):
+                  reply=None, tool_router=None, reply_id=7,
+                  report_id=7):
     """Reply владельца на доставленный отчёт чекапа (структурный факт)."""
     svc, react, bot, msg, user = _drive(
-        monkeypatch, text, reply=reply if reply is not None else _bot_reply(),
+        monkeypatch, text, reply=(reply if reply is not None
+                                  else _bot_reply(message_id=reply_id)),
         llm=llm, tool_router=tool_router)
     svc._bot_replied_recently = AsyncMock(return_value=True)
     svc._recent_bot_replies = AsyncMock(return_value=(REPORT,))
+    # Доставленный отчёт живого окна: (текст, tg_message_id доставки).
+    monkeypatch.setattr(
+        dcs, "_recent_checkup_reports",
+        AsyncMock(return_value=[(REPORT, report_id)]))
     monkeypatch.setattr(dcs, "_recent_checkup_report_text",
                         AsyncMock(return_value=REPORT))
     return svc, react, bot, msg, user
@@ -180,7 +187,8 @@ class TestStructuralDiagnosticGrant:
 
     def test_grant_announces_existing_readonly_tools_target_self(self):
         grant = l1.structural_diagnostic_research(
-            REPORT, reply_to_bot=True)
+            REPORT, reply_to_bot=True,
+            report_message_id=501, reply_message_id=501)
         assert grant is not None
         assert grant.needed is True
         assert grant.target == "self"
@@ -436,3 +444,215 @@ def test_runtime_has_no_phrase_hardcode():
         text = (root / name).read_text(encoding="utf-8").lower()
         assert "watchdog" not in text, name
         assert "посмотри по коду" not in text, name
+
+
+# ── Reviewer «Needs Fixes» F1/F2: честность partial-шва ─────────────────────
+# F1: строка «Запрос:» partial'а — исходный пользовательский запрос, а НЕ
+#     внутренняя сборка Writer'а (`<Chat_Time_Context>` и служебные блоки);
+#     причина остановки — человекочитаемая, не повтор машинного кода.
+# F2: пустой envelope (`ok` с 0 символов / `{"status":"empty"}` / пробелы) —
+#     не «подтверждённые данные»: partial не публикуется, сохраняется
+#     существующий silence-path (🗿).
+
+
+def _chain(*, results, sources, text="", reason="ok"):
+    return dx.ChainResult(text, rounds_used=1, reason=reason,
+                          tool_results=list(results),
+                          evidence_sources=list(sources))
+
+
+def _source(*, status="ok", content="", tool="get_recent_history"):
+    return dx.EvidenceSource(tool=tool, status=status, content=content,
+                             total_chars=len(content))
+
+
+def _envelope(*, status="ok", out_chars=0, tool="get_recent_history"):
+    return {"tool": tool, "status": status, "error_code": "",
+            "data": {}, "out_chars": out_chars}
+
+
+class TestPartialSeamHonesty:
+    @pytest.mark.asyncio
+    async def test_partial_request_is_user_query_not_internal_payload(
+            self, monkeypatch):
+        """F1: «Запрос:» — текст человека, без служебных блоков payload'а."""
+        router = _FakeRouter(outputs={"get_recent_history":
+                                      "вчера обсуждали watchdog.jobs"})
+        llm = _ScriptedLLM(
+            l1=_plan_json(tool_policy="auto",
+                          capabilities_needed=["chat_history"]),
+            l2="")                       # Writer вернул пусто
+        query = "Что мы решали по watchdog.jobs?"
+        svc, react, bot, msg, user = _drive(
+            monkeypatch, query, llm=llm, tool_router=router)
+
+        await svc.handle(bot, msg, user)
+
+        delivered = svc._send_direct_answer.await_args.args[2]
+        request_lines = [line for line in delivered.splitlines()
+                         if line.startswith("Запрос:")]
+        assert request_lines, delivered
+        assert query in request_lines[0]
+        assert "<Chat_Time_Context" not in request_lines[0]
+        # Причина остановки человекочитаемая: не «empty (empty)».
+        assert "empty (empty)" not in delivered
+        # Не тавтология: payload L2 РЕАЛЬНО содержал служебный блок времени —
+        # именно он раньше уезжал в строку «Запрос:».
+        l2_text = "".join(str(m.get("content"))
+                          for m in llm.last_messages("l2_writer"))
+        assert "<Chat_Time_Context" in l2_text
+
+    def test_partial_request_sanitized_for_internal_messages(self):
+        """F1: общая обёртка не отдаёт служебный блок даже с payload'ом."""
+        result = _chain(results=[_envelope(out_chars=15)],
+                        sources=[_source(content="данные истории")])
+        messages = [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": (
+                '<Chat_Time_Context source="server" phase="answer">\n'
+                "local: 16.11.2026 14:39, Понедельник\n"
+                "</Chat_Time_Context>\n\n"
+                "Что мы решали по watchdog.jobs?")},
+        ]
+        text = tool_loop.structured_partial_from_result(
+            result, messages, stop_reason="chain_timeout")
+
+        assert text
+        assert "<Chat_Time_Context" not in text
+        assert "Что мы решали по watchdog.jobs?" in text
+
+    def test_zero_char_ok_evidence_returns_empty(self):
+        """F2: `status=ok` с 0 символов — не доказательство."""
+        result = _chain(results=[_envelope(out_chars=0)],
+                        sources=[_source(content="")])
+        assert tool_loop.structured_partial_from_result(
+            result, [], stop_reason="") == ""
+
+    def test_empty_status_evidence_returns_empty(self):
+        """F2: `{"status": "empty"}` — отсутствие данных, не partial."""
+        result = _chain(results=[_envelope(status="empty", out_chars=17)],
+                        sources=[_source(status="empty",
+                                         content='{"status": "empty"}')])
+        assert tool_loop.structured_partial_from_result(result, []) == ""
+
+    def test_whitespace_only_evidence_returns_empty(self):
+        result = _chain(results=[_envelope(out_chars=6)],
+                        sources=[_source(content="  \n\t  ")])
+        assert tool_loop.structured_partial_from_result(result, []) == ""
+
+    def test_real_content_still_publishes_partial(self):
+        """Positive-control: реальные данные публикуются как прежде."""
+        result = _chain(results=[_envelope(out_chars=14)],
+                        sources=[_source(content="данные истории")])
+        text = tool_loop.structured_partial_from_result(result, [])
+
+        assert "Подтверждённые данные (результаты инструментов)" in text
+        assert "данные истории" in text
+        assert "get_recent_history" in text
+        assert "0 символов" not in text
+
+    @pytest.mark.asyncio
+    async def test_empty_tool_output_keeps_existing_silence(self, monkeypatch):
+        """F2 e2e: инструмент вернул пусто → прежний silence-path (🗿)."""
+        router = _FakeRouter(outputs={"get_recent_history": ""}, default="")
+        llm = _ScriptedLLM(
+            l1=_plan_json(tool_policy="auto",
+                          capabilities_needed=["chat_history"]),
+            l2="")
+        svc, react, bot, msg, user = _drive(
+            monkeypatch, "Что мы решали по watchdog.jobs?", llm=llm,
+            tool_router=router)
+
+        await svc.handle(bot, msg, user)
+
+        # Прежний silence-path: реакция вместо выдуманного partial'а.
+        react.assert_awaited_once()
+        assert react.await_args.args[0] is bot
+        svc._send_direct_answer.assert_not_awaited()
+        # Не тавтология: инструмент РЕАЛЬНО исполнялся (пустая выдача), т.е.
+        # evidence-журнал был, но содержательных данных в нём нет.
+        assert [d["tool"] for d in router.dispatched] == ["get_recent_history"]
+
+
+# ── Reviewer «Needs Fixes» F3/F4: телеметрия grant'а и адресность reply ─────
+
+
+class TestGrantTelemetryAndAddressing:
+    @pytest.mark.asyncio
+    async def test_grant_visible_in_l1_telemetry(self, monkeypatch):
+        """F3: диагностика L1 фиксирует РЕАЛЬНО объявленные инструменты."""
+        _allow_policy(monkeypatch)
+        reader = _FakeReader()
+        router = ToolRouter(ToolDeps(search=None, memory=None,
+                                     aliases=None, source_reader=reader))
+        llm = _ScriptedLLM(l1=_plan_json(), l2="ответ по коду")
+        monkeypatch.setattr(sr, "resolve_self_repo_identity", _diag_ctx)
+        svc, react, bot, msg, user = _checkup_turn(
+            monkeypatch, llm, tool_router=router)
+
+        await svc.handle(bot, msg, user)
+
+        diag = l1.get_l1_diagnostics(int(msg.chat.id))
+        assert diag is not None, "диагностика L1 не записана"
+        assert diag.get("diagnostic_needed") is True, diag
+        assert diag.get("diagnostic_target") == "self", diag
+        assert "source_code" in str(diag.get("diagnostic_sources") or "")
+
+    def test_grant_requires_reply_to_the_delivered_report(self):
+        """F4: reply на другое сообщение бота в окне grant не даёт."""
+        assert l1.structural_diagnostic_research(
+            REPORT, reply_to_bot=True,
+            report_message_id=501, reply_message_id=777) is None
+        assert l1.structural_diagnostic_research(
+            REPORT, reply_to_bot=True,
+            report_message_id=501, reply_message_id=None) is None
+        grant = l1.structural_diagnostic_research(
+            REPORT, reply_to_bot=True,
+            report_message_id=501, reply_message_id=501)
+        assert grant is not None and grant.needed is True
+
+    @pytest.mark.asyncio
+    async def test_recent_reports_expose_delivered_message_id(self):
+        """F4: реальный durable ledger отдаёт id доставленного отчёта.
+
+        Проводка без подмены helper'а: именно эту пару (текст, tg id) сверяет
+        grant — иначе адресность была бы только на словах."""
+        import time
+
+        from services import bot_output_ledger as ledger
+        from services.database import DatabaseService
+
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        try:
+            await ledger.record_delivered_output(
+                db, chat_id=CHAT_ID, tg_message_id=501, text=REPORT,
+                output_kind="checkup_report", sent_at=int(time.time()),
+                correlation_id="s7:f4")
+            reports = await dcs._recent_checkup_reports(db, CHAT_ID)
+        finally:
+            await db.close()
+
+        assert reports == [(REPORT, 501)], reports
+        grant = l1.structural_diagnostic_research(
+            reports[-1][0], reply_to_bot=True,
+            report_message_id=reports[-1][1], reply_message_id=501)
+        assert grant is not None and grant.needed is True
+        assert l1.structural_diagnostic_research(
+            reports[-1][0], reply_to_bot=True,
+            report_message_id=reports[-1][1], reply_message_id=777) is None
+
+    @pytest.mark.asyncio
+    async def test_reply_to_other_bot_message_gets_no_grant(
+            self, monkeypatch):
+        """F4 e2e: reply на постороннее сообщение бота — инструментов нет."""
+        llm = _ScriptedLLM(l1=_plan_json(), l2="отвечаю без чтения кода")
+        svc, react, bot, msg, user = _checkup_turn(
+            monkeypatch, llm, reply_id=777, report_id=7)
+        announced = _capture_tool_schemas(monkeypatch, svc)
+
+        await svc.handle(bot, msg, user)
+
+        assert "read_source_code" not in announced.get("tools", set())
+        svc._send_direct_answer.assert_awaited_once()
+
