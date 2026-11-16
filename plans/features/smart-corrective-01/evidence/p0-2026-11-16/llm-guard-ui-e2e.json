@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "purpose": "P0 SMART transport admin visibility (llm_guard)",
+    "release": "2.58.206-slice",
+    "views": [
+      [
+        1280,
+        800
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "checks": [
+      "prov_policy first",
+      "llm_guard visible",
+      "advanced closed (details.open=false)",
+      "labels",
+      "note semantics",
+      "no h-overflow"
+    ],
+    "note": "Playwright headless Chromium; /api/* stubbed; no secrets"
+  },
+  "viewports": {
+    "1280x800": {
+      "probe": {
+        "href": "#/ai/llm",
+        "viewport": {
+          "w": 1280,
+          "h": 800
+        },
+        "groupOrder": [
+          "prov_policy",
+          "prov_text",
+          "prov_stt",
+          "prov_video",
+          "prov_embeddings",
+          "prov_background",
+          "prov_images",
+          "technical"
+        ],
+        "policyGroup": {
+          "visible": true,
+          "text": "Время ответа и защита"
+        },
+        "guard": {
+          "visible": true,
+          "inAdvanced": false,
+          "labels": [
+            "Таймаут одного запроса, сек",
+            "Повторов при сбое",
+            "Предел одной основной попытки, сек"
+          ],
+          "visibleFields": 3,
+          "text": "Таймауты и защитаВесь бот: применяется к следующему вызову без перезапуска. Таймаут — ожидание одного ответа; предел попытки — все повторы одной основной попытки, он не ограничивает всё исследование.Таймаут одного запроса, секПовторов при сбоеПредел одной основной попытки, секСохранить"
+        },
+        "advancedOpen": false,
+        "overflow": false
+      },
+      "console_errors": []
+    },
+    "390x844": {
+      "probe": {
+        "href": "#/ai/llm",
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "groupOrder": [
+          "prov_policy",
+          "prov_text",
+          "prov_stt",
+          "prov_video",
+          "prov_embeddings",
+          "prov_background",
+          "prov_images",
+          "technical"
+        ],
+        "policyGroup": {
+          "visible": true,
+          "text": "Время ответа и защита"
+        },
+        "guard": {
+          "visible": true,
+          "inAdvanced": false,
+          "labels": [
+            "Таймаут одного запроса, сек",
+            "Повторов при сбое",
+            "Предел одной основной попытки, сек"
+          ],
+          "visibleFields": 3,
+          "text": "Таймауты и защитаВесь бот: применяется к следующему вызову без перезапуска. Таймаут — ожидание одного ответа; предел попытки — все повторы одной основной попытки, он не ограничивает всё исследование.Таймаут одного запроса, секПовторов при сбоеПредел одной основной попытки, секСохранить"
+        },
+        "advancedOpen": false,
+        "overflow": false
+      },
+      "console_errors": []
+    }
+  },
+  "failures": [],
+  "ok": true
+}
