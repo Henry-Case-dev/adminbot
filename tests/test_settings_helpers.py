@@ -265,11 +265,13 @@ class TestEpic47SettingsDefaults:
 
     def test_defaults_without_env(self):
         importlib.reload(settings_mod)
-        assert settings_mod.settings.LLM_TIMEOUT == 30.0
+        # P0 SMART transport (2.58.206): timeout одного HTTP-ответа 180с,
+        # предел одной основной попытки 360с (было 30/60).
+        assert settings_mod.settings.LLM_TIMEOUT == 180.0
         assert settings_mod.settings.LLM_RETRY_BACKOFF_BASE == 1.0
         assert settings_mod.settings.LLM_RETRY_BACKOFF_CAP == 8.0
         assert settings_mod.settings.LLM_RETRY_JITTER_MAX == 2.0
-        assert settings_mod.settings.LLM_TOTAL_BUDGET == 60.0
+        assert settings_mod.settings.LLM_TOTAL_BUDGET == 360.0
         assert settings_mod.settings.GRAPH_MEMORIZE_MAX_BATCH_RETRIES == 2
         assert settings_mod.settings.GRAPH_MEMORIZE_BATCH_RETRY_BACKOFF == 2.0
         assert settings_mod.settings.SUMMARY_RETRY_ONCE_PAUSE == 5.0
@@ -294,11 +296,11 @@ class TestEpic47SettingsDefaults:
         assert settings_mod.settings.SUMMARY_RETRY_ONCE_PAUSE == 2.5
 
     def test_below_min_falls_back_with_warning(self, monkeypatch, caplog):
-        """LLM_TOTAL_BUDGET=0.5 (<1) → дефолт 60.0 + WARNING."""
+        """LLM_TOTAL_BUDGET=0.5 (<1) → дефолт 360.0 + WARNING."""
         monkeypatch.setenv("LLM_TOTAL_BUDGET", "0.5")
         with caplog.at_level(logging.WARNING):
             importlib.reload(settings_mod)
-        assert settings_mod.settings.LLM_TOTAL_BUDGET == 60.0
+        assert settings_mod.settings.LLM_TOTAL_BUDGET == 360.0
         assert any("LLM_TOTAL_BUDGET=0.5 < 1.0" in r.message for r in caplog.records)
 
 

@@ -92,8 +92,20 @@ class TestZonesAndLayout:
         chunk = JS[i:JS.index("];", i)]
         assert "zone: 'advanced'" in chunk
         assert "subBlocks:" in chunk
-        # llm_guard/search_keys/media_share — advanced.
-        assert chunk.count("zone: 'advanced'") == 3
+        # P0 SMART transport (2.58.206): llm_guard — ВИДИМАЯ группа политики
+        # («Время ответа и защита»), advanced остаются search_keys/media_share.
+        assert chunk.count("zone: 'advanced'") == 2
+        assert "id: 'llm_guard', title: 'Таймауты и защита'" in chunk
+        guard_at = chunk.index("id: 'llm_guard'")
+        guard_chunk = chunk[guard_at:chunk.index("id: 'search_keys'")]
+        assert "zone: 'advanced'" not in guard_chunk, \
+            "llm_guard не должен быть в расширенных"
+        assert "modules: 'Все модели'" not in guard_chunk
+        assert "Таймаут одного запроса, сек" in guard_chunk
+        assert "Повторов при сбое" in guard_chunk
+        assert "Предел одной основной попытки, сек" in guard_chunk
+        assert "без перезапуска" in guard_chunk
+        assert "не ограничивает всё исследование" in guard_chunk
 
     def test_nav_and_profile(self):
         assert ".nav-link .nav-icon { font-size: 22px" in HTML

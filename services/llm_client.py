@@ -15,6 +15,15 @@ Epic 53 (Section 62, D216): классы LLMServerError/LLMTransportError (62.3.
 диаг-лог финальных 5xx с body_5xx ≤500 (62.5), опциональный фоллбэк-провайдер
 LLM_FALLBACK_* (62.4, пустые env = ровно старое поведение). CB живёт в
 direct_chat_service (llm_client о нём НЕ знает — контракт 62.3).
+
+P0 SMART transport (2.58.206): `LLM_TIMEOUT` — окно ОДНОГО HTTP-ответа
+(180с по умолчанию), `LLM_TOTAL_BUDGET` — предел одной основной попытки со
+всеми ретраями (360с), НЕ дедлайн исследования. Модель/адрес и политика
+транспорта читаются из горячего конфига на входе каждого вызова и на входе
+`_post`/stream (per-request `httpx.Timeout`, кэшированный httpx-клиент не
+пересоздаётся); in-flight запрос держит снимок политики. Фоллбэк и
+эмбеддинги имеют СВОИ окна (фоллбэк — `LLM_FALLBACK_TIMEOUT_SECONDS`,
+эмбеддинги — min(policy, 60с)).
 """
 import asyncio
 import copy
@@ -39,13 +48,17 @@ logger = logging.getLogger(__name__)
 # fallback-срабатываний. R17-safe: только числа (без ключей/URL/содержимого).
 # Снимок — `llm_stats()`; счётчики сбрасываются при рестарте процесса (этого
 # достаточно для мониторинга «прямо сейчас» + лог-события для истории).
-_LLM_STATS: dict[str, int] = {"requests": 0, "timeouts": 0, "fallbacks": 0}
+_LLM_STATS: dict[str, int] = {"requests": 0, "timeouts": 0, "fallbacks": 0,
+                              "budget_exhausted": 0, "read_timeouts": 0}
 
 
 def llm_stats() -> dict:
     """Снимок LLM-метрик: ``requests``/``timeouts``/``fallbacks`` + доля
     таймаутов (0.0 без запросов). T-2501: наблюдаемость корня A — хронических
-    таймаутов провайдера (``nano-gpt.com``)."""
+    таймаутов провайдера (``nano-gpt.com``). P0 SMART transport: отдельно
+    ``budget_exhausted`` (предел попытки/бюджет) и ``read_timeouts`` (провайдер
+    не прислал HTTP-ответ в окно запроса) — чтобы отличать медленный ответ от
+    исчерпанного бюджета."""
     requests = _LLM_STATS["requests"]
     timeouts = _LLM_STATS["timeouts"]
     fallbacks = _LLM_STATS["fallbacks"]
@@ -53,11 +66,43 @@ def llm_stats() -> dict:
         "requests": requests,
         "timeouts": timeouts,
         "fallbacks": fallbacks,
+        "budget_exhausted": _LLM_STATS["budget_exhausted"],
+        "read_timeouts": _LLM_STATS["read_timeouts"],
         "timeout_share": (timeouts / requests) if requests else 0.0,
     }
 
 _BODY_MAX_CHARS = 500   # Epic 49 (57.4) / Epic 53 (62.5): тело 4xx/5xx-ответа в диагн-логе
 _AUTH_BODY_MAX_CHARS = 200   # Задача 2 (01.09.2026): тело 401/403 в LLMAuthError
+
+# P0 SMART transport: технический потолок транспорта эмбеддингов. Чат-таймаут
+# (180с) — про генерацию; «отпечатки» текста не должны висеть столько даже
+# при ошибочно завышенном значении каталога.
+_EMBED_TIMEOUT_CAP = 60.0
+_MISSING = object()      # отличает «ключа нет в PG» от сохранённого None
+
+
+def _policy_float(value, default: float, minimum: float) -> float:
+    """Число политики транспорта: мусор/NaN/inf → default, иначе clamp.
+
+    R17-safe: значения — тайминги, не секреты. Никогда не бросает."""
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    if parsed != parsed or parsed in (float("inf"), float("-inf")):
+        return float(default)
+    return max(float(minimum), parsed)
+
+
+def _policy_int(value, default: int, minimum: int) -> int:
+    """Целое политики транспорта: мусор → default, иначе clamp ≥ minimum."""
+    if isinstance(value, bool):
+        return int(default)
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        return int(default)
+    return max(int(minimum), parsed)
 
 # R17: маскировка потенциальных секретов в телах ошибок провайдера.
 # (а) ключ-значение: api key/key/token/secret/authorization (пробел допустим,
@@ -696,6 +741,31 @@ class LLMClient:
                  "model": _fb2_model, "key": self._embed_fallback_api_key_2})
         self._embed_fallback_active = bool(self._embed_fallback_profiles) \
             and any(p["base_url"] for p in self._embed_fallback_profiles)
+        # P0 SMART transport: снимок последних значений, пришедших ИЗ КОНФИГА
+        # (PG/settings/kwarg). Hot-apply меняет рабочий атрибут только когда
+        # конфиг реально изменился; ручные/тестовые переопределения атрибута
+        # (`client._timeout = 0.05`, `client.backoff_base = 0`) сохраняются.
+        self._policy_chat_model = self._chat_model
+        self._policy_base_url = self._base_url
+        self._policy_timeout = _policy_float(self._timeout, settings.LLM_TIMEOUT,
+                                             1.0)
+        self._policy_budget = _policy_float(self._budget,
+                                            settings.LLM_TOTAL_BUDGET, 1.0)
+        self._policy_max_retries = _policy_int(self._max_retries,
+                                               settings.LLM_MAX_RETRIES, 0)
+        self._policy_backoff_base = _policy_float(self.backoff_base,
+                                                  settings.LLM_RETRY_BACKOFF_BASE,
+                                                  0.0)
+        self._policy_backoff_cap = _policy_float(self._backoff_cap,
+                                                 settings.LLM_RETRY_BACKOFF_CAP,
+                                                 0.0)
+        self._policy_jitter_max = _policy_float(self._jitter_max,
+                                                settings.LLM_RETRY_JITTER_MAX,
+                                                0.0)
+        self._policy_fallback_timeout = _policy_float(
+            self._fallback_timeout, settings.LLM_FALLBACK_TIMEOUT_SECONDS, 1.0)
+        self._policy_fallback_max_retries = _policy_int(
+            self._fallback_max_retries, settings.LLM_FALLBACK_MAX_RETRIES, 0)
         self._client: httpx.AsyncClient | None = None
         self._client_key: str | None = None
         # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-канал имеет СВОЙ
@@ -736,6 +806,173 @@ class LLMClient:
     def _channel_label(self, model: str) -> str:
         """Канал trace: 'fallback' только когда реально ушёл fallback-модели."""
         return "fallback" if model == self._fallback_model else "primary"
+
+    # ── P0 SMART transport: hot-apply модели/адреса и политики транспорта ──
+    def _config_source(self, key: str) -> str:
+        """Источник действующего значения ключа: ``pg`` | ``settings``.
+
+        R17-safe диагностика (без значений): ключ есть в ConfigCache → pg,
+        иначе process-default/settings."""
+        cache = hot.get_config_cache()
+        if cache is None:
+            return "settings"
+        try:
+            return "pg" if cache.get(key, _MISSING) is not _MISSING else "settings"
+        except Exception:      # pragma: no cover — диагностика не рвёт вызов
+            return "settings"
+
+    def _refresh_chat_model(self) -> None:
+        """Модель/адрес чата — из горячего конфига на входе вызова.
+
+        Меняет рабочие ``_chat_model``/``_base_url`` только когда значение
+        конфига ОТЛИЧАЕТСЯ от последнего применённого (``_policy_*``): ручные
+        переопределения атрибутов (тест-двойники, per-call каналы) не
+        затираются. Пустое значение конфига — не подмена (паритет).
+        Двойники без полного ``__init__`` (subclass/__new__) безопасны —
+        отсутствующие ``_policy_*`` берутся из текущих атрибутов."""
+        tracked_model = getattr(self, "_policy_chat_model",
+                               getattr(self, "_chat_model", ""))
+        model = str(hot.get("models.llm_model_name", tracked_model)
+                    or "").strip()
+        if model and model != tracked_model:
+            self._chat_model = model
+        self._policy_chat_model = model or tracked_model
+        tracked_base = getattr(self, "_policy_base_url",
+                               getattr(self, "_base_url", ""))
+        base = str(hot.get("models.llm_base_url", tracked_base)
+                   or "").strip().rstrip("/")
+        if base and base != tracked_base:
+            self._base_url = base
+        self._policy_base_url = base or str(tracked_base or "").rstrip("/")
+
+    def _refresh_transport_policy(self) -> None:
+        """Политика транспорта — из горячего конфига на входе вызова.
+
+        timeout/budget/ретраи/backoff/фоллбэк: применяется к следующему
+        вызову без рестарта. Значение атрибута меняется только при реальной
+        смене конфига (см. ``_policy_*``), поэтому тест-хук
+        ``client.backoff_base = 0`` и ручные переопределения сохраняются.
+        Никакой адаптивности per-model/provider здесь нет (отложено до p95).
+        Двойники без полного ``__init__`` безопасны (getattr-дефолты)."""
+        timeout = _policy_float(
+            hot.get("models.llm_timeout",
+                    getattr(self, "_policy_timeout",
+                            getattr(self, "_timeout", settings.LLM_TIMEOUT))),
+            getattr(self, "_policy_timeout",
+                    getattr(self, "_timeout", settings.LLM_TIMEOUT)), 1.0)
+        if timeout != getattr(self, "_policy_timeout", timeout):
+            self._timeout = timeout
+        self._policy_timeout = timeout
+        budget = _policy_float(
+            hot.get("models.llm_total_budget",
+                    getattr(self, "_policy_budget",
+                            getattr(self, "_budget",
+                                    settings.LLM_TOTAL_BUDGET))),
+            getattr(self, "_policy_budget",
+                    getattr(self, "_budget", settings.LLM_TOTAL_BUDGET)), 1.0)
+        if budget != getattr(self, "_policy_budget", budget):
+            self._budget = budget
+        self._policy_budget = budget
+        retries = _policy_int(
+            hot.get("models.llm_max_retries",
+                    getattr(self, "_policy_max_retries",
+                            getattr(self, "_max_retries",
+                                    settings.LLM_MAX_RETRIES))),
+            getattr(self, "_policy_max_retries",
+                    getattr(self, "_max_retries", settings.LLM_MAX_RETRIES)), 0)
+        if retries != getattr(self, "_policy_max_retries", retries):
+            self._max_retries = retries
+        self._policy_max_retries = retries
+        tracked_backoff = getattr(self, "_policy_backoff_base",
+                                  getattr(self, "backoff_base",
+                                          settings.LLM_RETRY_BACKOFF_BASE))
+        backoff = _policy_float(
+            hot.get("models.llm_retry_backoff_base", tracked_backoff),
+            tracked_backoff, 0.0)
+        if backoff != tracked_backoff:
+            self.backoff_base = backoff
+        self._policy_backoff_base = backoff
+        tracked_cap = getattr(self, "_policy_backoff_cap",
+                              getattr(self, "_backoff_cap",
+                                      settings.LLM_RETRY_BACKOFF_CAP))
+        cap = _policy_float(
+            hot.get("models.llm_retry_backoff_cap", tracked_cap),
+            tracked_cap, 0.0)
+        if cap != tracked_cap:
+            self._backoff_cap = cap
+        self._policy_backoff_cap = cap
+        tracked_jitter = getattr(self, "_policy_jitter_max",
+                                 getattr(self, "_jitter_max",
+                                         settings.LLM_RETRY_JITTER_MAX))
+        jitter = _policy_float(
+            hot.get("models.llm_retry_jitter_max", tracked_jitter),
+            tracked_jitter, 0.0)
+        if jitter != tracked_jitter:
+            self._jitter_max = jitter
+        self._policy_jitter_max = jitter
+        tracked_fb_timeout = getattr(
+            self, "_policy_fallback_timeout",
+            getattr(self, "_fallback_timeout",
+                    settings.LLM_FALLBACK_TIMEOUT_SECONDS))
+        fallback_timeout = _policy_float(
+            hot.get("models.llm_fallback_timeout_seconds", tracked_fb_timeout),
+            tracked_fb_timeout, 1.0)
+        if fallback_timeout != tracked_fb_timeout:
+            self._fallback_timeout = fallback_timeout
+        self._policy_fallback_timeout = fallback_timeout
+        tracked_fb_retries = getattr(
+            self, "_policy_fallback_max_retries",
+            getattr(self, "_fallback_max_retries",
+                    settings.LLM_FALLBACK_MAX_RETRIES))
+        fallback_retries = _policy_int(
+            hot.get("models.llm_fallback_max_retries", tracked_fb_retries),
+            tracked_fb_retries, 0)
+        if fallback_retries != tracked_fb_retries:
+            self._fallback_max_retries = fallback_retries
+        self._policy_fallback_max_retries = fallback_retries
+        # Двойники/подклассы без полного __init__: гарантируем существование
+        # рабочих атрибутов (значения — из текущей политики), не перетирая
+        # уже заданные ручные переопределения.
+        for attr, value in (
+            ("_timeout", timeout),
+            ("_budget", budget),
+            ("_max_retries", retries),
+            ("backoff_base", backoff),
+            ("_backoff_cap", cap),
+            ("_jitter_max", jitter),
+            ("_fallback_timeout", fallback_timeout),
+            ("_fallback_max_retries", fallback_retries),
+        ):
+            if not hasattr(self, attr):
+                setattr(self, attr, value)
+
+    def _effective_timeout(self, *, channel: str = "chat",
+                           timeout: float | None = None) -> float:
+        """Действующий per-request таймаут HTTP-ответа.
+
+        ``timeout`` (per-call override Summary supervisor и пр.) — как есть
+        (без нижнего clamp: sub-second дедлайны легитимны). Иначе —
+        действующее policy-значение; для ``channel='embed'`` — технический
+        потолок ``_EMBED_TIMEOUT_CAP`` (60с), чтобы 180-секундный чат-таймаут
+        не растягивал память."""
+        if timeout is not None:
+            # Per-call окно (supervised Summary) — как передано; мусор/≤0 →
+            # policy (никакого clamp до 1с: sub-second дедлайны легитимны).
+            try:
+                explicit = float(timeout)
+            except (TypeError, ValueError):
+                explicit = 0.0
+            if explicit > 0:
+                return explicit
+        # self._timeout — уже действующее значение (конфиг clamp-ится ≥1 в
+        # `_refresh_transport_policy`); ручные/тестовые переопределения
+        # (например 0.05с) НЕ затираются повторным clamp'ом.
+        effective = _policy_float(self._timeout, settings.LLM_TIMEOUT, 0.0)
+        if effective <= 0:
+            effective = _policy_float(settings.LLM_TIMEOUT, 180.0, 1.0)
+        if channel == "embed":
+            effective = min(effective, _EMBED_TIMEOUT_CAP)
+        return effective
 
     def _record_sent_attempts(self, sent, *, payload: dict, messages, module,
                               step, correlation_id, chat_id,
@@ -1003,7 +1240,8 @@ class LLMClient:
             self._embed_client = None
         if self._embed_client is None:
             self._embed_client = httpx.AsyncClient(
-                timeout=httpx.Timeout(self._timeout, connect=10.0),
+                timeout=httpx.Timeout(self._effective_timeout(channel="embed"),
+                                      connect=10.0),
                 headers={"Authorization": f"Bearer {key}"},
             )
             self._embed_client_key = key
@@ -1011,14 +1249,17 @@ class LLMClient:
 
     def _get_fallback_client(self) -> httpx.AsyncClient:
         """Epic 53 (62.4): ленивый клиент фоллбэка, тот же таймаут-срез.
-        T-619: ключ фоллбэка — горячая точка (пересоздание при смене)."""
+        T-619: ключ фоллбэка — горячая точка (пересоздание при смене).
+        P0 SMART: клиент создаётся с СОБСТВЕННЫМ таймаутом фоллбэка (не
+        primary 180с); per-request окно всё равно передаётся в `_post_fallback`.
+        """
         key = self._current_fallback_key()
         if self._fallback_client is not None and key != self._fallback_key:
             self._close_async(self._fallback_client)
             self._fallback_client = None
         if self._fallback_client is None:
             self._fallback_client = httpx.AsyncClient(
-                timeout=httpx.Timeout(self._timeout, connect=10.0),
+                timeout=httpx.Timeout(self._fallback_timeout, connect=10.0),
                 headers={"Authorization": f"Bearer {key}"},
             )
             self._fallback_key = key
@@ -1058,6 +1299,10 @@ class LLMClient:
         attempt: int,
         status: int | None = None,
         headers: httpx.Headers | None = None,
+        *,
+        base: float | None = None,
+        cap: float | None = None,
+        jitter: float | None = None,
     ) -> float:
         """Epic 47 (56.3): сон перед retry.
 
@@ -1065,8 +1310,14 @@ class LLMClient:
         backoff; значение капится LLM_RETRY_BACKOFF_CAP. Кривой/отрицательный
         header либо статус ≠ 429/5xx → обычный backoff
         `min(BASE*2**attempt, CAP) + U(0, JITTER)`. backoff_base == 0 → сон 0.
-        """
-        if self.backoff_base == 0:
+
+        P0 SMART transport: ``base``/``cap``/``jitter`` — снимок политики
+        ОДНОГО вызова (``_post`` берёт его на входе), чтобы hot-apply
+        посреди in-flight запроса не менял ритм текущей попытки."""
+        base_value = self.backoff_base if base is None else base
+        cap_value = self._backoff_cap if cap is None else cap
+        jitter_value = self._jitter_max if jitter is None else jitter
+        if base_value == 0:
             return 0.0
         if status is not None and (status == 429 or 500 <= status < 600):
             raw = headers.get("Retry-After") if headers is not None else None
@@ -1076,9 +1327,9 @@ class LLMClient:
                 except (TypeError, ValueError):
                     header_seconds = -1.0
                 if header_seconds >= 0:
-                    return min(header_seconds, self._backoff_cap)
-        base_sleep = min(self.backoff_base * (2 ** attempt), self._backoff_cap)
-        return base_sleep + random.uniform(0, self._jitter_max)
+                    return min(header_seconds, cap_value)
+        base_sleep = min(base_value * (2 ** attempt), cap_value)
+        return base_sleep + random.uniform(0, jitter_value)
 
     async def _post(self, path: str, payload: dict,
                     api_key: str | None = None,
@@ -1089,7 +1340,9 @@ class LLMClient:
                     retry_statuses: tuple[int, ...] | None = None,
                     timeout: float | None = None,
                     budget_reason_label: str | None = None,
-                    sent: list | None = None) -> httpx.Response:
+                    sent: list | None = None,
+                    module: str | None = None,
+                    step: str | None = None) -> httpx.Response:
         """POST with retry on all transient errors; auth errors raised immediately.
 
         Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
@@ -1123,21 +1376,66 @@ class LLMClient:
         → ``execution_deadline_exceeded`` (fuse-ветка) / ``budget_exhausted``
         → ``retry_time_budget_exhausted`` (исчерпание попыток по времени)).
         Для всех остальных потребителей (None) — прежние строки байт-в-бит.
+
+        P0 SMART transport (2.58.206): на входе вызова политика обновляется
+        из горячего конфига и СНИМАЕТСЯ в локалы (in-flight изменения не
+        влияют на текущую попытку). Per-request `httpx.Timeout` передаётся
+        ВСЕГДА: `timeout` (если задан) либо действующий `LLM_TIMEOUT`
+        (для channel='embed' — min(…, 60с)); кэшированный клиент не
+        пересоздаётся. `module`/`step` — только R17-safe поля логов.
         """
+        # P0 SMART transport: hot-apply политики на входе вызова + СНИМОК
+        # значений. Всё, что ниже, читает локалы — изменение настроек
+        # посреди in-flight запроса не меняет текущую попытку.
+        self._refresh_transport_policy()
         client = (self._get_embed_client(api_key) if channel == "embed"
                   else self._get_client(api_key))
         base = (base_url or self._base_url).rstrip("/")
         url = f"{base}{path}"
         request_len = len(str(payload))
-        post_kwargs: dict = {}
-        if timeout is not None:
-            # Per-request transport-окно (watchdog Summary-канала): не
-            # пересоздаёт кешированный клиент, не трогает других потребителей.
-            post_kwargs["timeout"] = httpx.Timeout(timeout, connect=10.0)
-        # F1: per-call override (None = прежний self-дефолт).
-        call_budget = self._budget if budget is None else budget
-        call_retries = self._max_retries if max_retries is None else max_retries
+        model = str(payload.get("model") or self._chat_model) \
+            if isinstance(payload, dict) else str(self._chat_model)
+        tools_count = len(payload.get("tools") or []) \
+            if isinstance(payload, dict) else 0
+        effective_timeout = self._effective_timeout(channel=channel,
+                                                    timeout=timeout)
+        timeout_source = self._config_source("models.llm_timeout")
+        budget_source = self._config_source("models.llm_total_budget")
+        # Кэшированный httpx-клиент НЕ пересоздаётся: окно — per-request.
+        post_kwargs: dict = {
+            "timeout": httpx.Timeout(effective_timeout, connect=10.0),
+        }
+        # F1: per-call override (None = снимок политики этого вызова).
+        # Явный per-call бюджет НЕ clamp-ится до 1с: sub-second дедлайны
+        # supervised-канала легитимны (паритет байт-в-бит).
+        if budget is None:
+            # self._budget уже действующее (конфиг clamp-ится ≥1 при refresh);
+            # ручные/тестовые переопределения (0.05с) сохраняются.
+            call_budget = _policy_float(self._budget,
+                                        settings.LLM_TOTAL_BUDGET, 0.0)
+            if call_budget <= 0:
+                call_budget = _policy_float(settings.LLM_TOTAL_BUDGET, 360.0,
+                                            1.0)
+        else:
+            call_budget = _policy_float(budget, self._budget, 0.0)
+        call_retries = _policy_int(
+            self._max_retries if max_retries is None else max_retries,
+            self._max_retries, 0)
+        snapshot_backoff = self.backoff_base
+        snapshot_cap = self._backoff_cap
+        snapshot_jitter = self._jitter_max
         total_attempts = call_retries + 1
+        # R17-safe контекст диаг-логов: провайдер-хост, модель, канал, шаг и
+        # действующие лимиты. Промптов/ключей/тел здесь нет.
+        log_ctx = (
+            f"provider={_provider_host(base)} | model={model} | "
+            f"channel={channel} | module={module or '-'} | "
+            f"step={step or '-'} | effective_timeout={effective_timeout:.1f} | "
+            f"effective_budget={call_budget:.1f} | "
+            f"timeout_source={timeout_source} | budget_source={budget_source} | "
+            f"request_chars={request_len} | tools_count={tools_count} | "
+            f"streaming=False"
+        )
         # ASAP-4 / H-ASAP4-1: allowlist статус-ретраев (см. docstring).
         if retry_statuses is None:
 
@@ -1171,7 +1469,9 @@ class LLMClient:
                     except httpx.TransportError as exc:
                         # Транзиентное (timeout/connect/read/.../protocol) → ретрай
                         if attempt < call_retries:
-                            sleep = self._sleep_seconds(attempt)
+                            sleep = self._sleep_seconds(
+                                attempt, base=snapshot_backoff,
+                                cap=snapshot_cap, jitter=snapshot_jitter)
                             logger.warning(
                                 "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
                                 url, attempt + 1, total_attempts, sleep,
@@ -1183,11 +1483,14 @@ class LLMClient:
                             # T-2500 (ADR-1025-7 D4): R17-safe причина
                             # (класс: ReadTimeout/ConnectTimeout/…) + провайдер.
                             _LLM_STATS["timeouts"] += 1
+                            if isinstance(exc, httpx.ReadTimeout):
+                                _LLM_STATS["read_timeouts"] += 1
                             logger.error(
-                                "LLM timeout | url=%s | attempt=%d | "
-                                "reason=%s | provider=%s",
-                                url, attempt, type(exc).__name__,
-                                _provider_host(base))
+                                "LLM timeout | url=%s | attempt=%d/%d | "
+                                "elapsed_ms=%.0f | reason=%s | cause_class=%s | %s",
+                                url, attempt + 1, total_attempts,
+                                (time.monotonic() - started) * 1000.0,
+                                type(exc).__name__, type(exc).__name__, log_ctx)
                             raise LLMTimeoutError(
                                 f"LLM request timed out after {total_attempts} attempts: {url}",
                                 cause_class=type(exc).__name__,
@@ -1210,7 +1513,10 @@ class LLMClient:
                         # Статус разрешён allowlist'ом (или legacy-сетом при
                         # None) и бюджет ретраев не исчерпан → нижнеуровневый
                         # ретрай (Retry-After приоритетнее backoff — 56.3).
-                        sleep = self._sleep_seconds(attempt, status, response.headers)
+                        sleep = self._sleep_seconds(
+                            attempt, status, response.headers,
+                            base=snapshot_backoff, cap=snapshot_cap,
+                            jitter=snapshot_jitter)
                         logger.warning(
                             "LLM request retry | url=%s | attempt=%d/%d | sleep=%.1fs | reason=%s",
                             url, attempt + 1, total_attempts, sleep, f"status={status}",
@@ -1291,10 +1597,6 @@ class LLMClient:
                             raise overflow
                         raise err
 
-                    logger.info(
-                        "LLM request OK | url=%s | status=%d | latency_ms=%.0f | in=%d chars | out=%d chars",
-                        url, status, latency_ms, request_len, len(response.content),
-                    )
                     # Epic 60 (64.7, T-468): фактический лимит — usage из
                     # API-ответа (источник истины для бюджетов/метрик);
                     # парсинг fail-open (нет usage в ответе → нет лога).
@@ -1302,6 +1604,17 @@ class LLMClient:
                         data = response.json()
                     except Exception:
                         data = None
+                    finish_reason = (_choice_finish_reason(data)[0]
+                                     if isinstance(data, dict)
+                                     else _FINISH_REASON_UNKNOWN)
+                    logger.info(
+                        "LLM request OK | url=%s | status=%d | latency_ms=%.0f "
+                        "| in=%d chars | out=%d chars | elapsed_ms=%.0f | "
+                        "attempt=%d/%d | %s | finish_reason=%s",
+                        url, status, latency_ms, request_len,
+                        len(response.content), latency_ms, attempt + 1,
+                        total_attempts, log_ctx, finish_reason,
+                    )
                     if isinstance(data, dict):
                         usage = data.get("usage")
                         if isinstance(usage, dict):
@@ -1313,6 +1626,7 @@ class LLMClient:
                     return response
         except asyncio.TimeoutError:
             _LLM_STATS["timeouts"] += 1
+            _LLM_STATS["budget_exhausted"] += 1
             # ASAP 4.1 волна 4 (T-4615, §30 ТЗ): для supervised Summary-канала
             # fuse-ветка = execution_deadline_exceeded; не-Summary потребители —
             # прежняя строка total_budget_exceeded (байт-в-бит).
@@ -1320,13 +1634,18 @@ class LLMClient:
                              if budget_reason_label == "summary_supervised"
                              else "total_budget_exceeded")
             logger.error(
-                "LLM timeout | url=%s | reason=%s | "
-                "provider=%s", url, budget_reason, _provider_host(base))
+                "LLM timeout | url=%s | attempt=%d/%d | elapsed_ms=%.0f | "
+                "reason=%s | cause_class=budget | %s",
+                url, total_attempts, total_attempts,
+                (time.monotonic() - started_total) * 1000.0,
+                budget_reason, log_ctx)
             raise LLMTimeoutError(
-                f"LLM request timed out after {total_attempts} attempts: {url}"
+                f"LLM request timed out after {total_attempts} attempts: {url}",
+                cause_class="budget",
             ) from None
         if budget_exceeded:
             _LLM_STATS["timeouts"] += 1
+            _LLM_STATS["budget_exhausted"] += 1
             # T-4615: попытка не стартовала — время call_budget исчерпано →
             # supervised Summary-канал: retry_time_budget_exhausted;
             # не-Summary: прежний budget_exhausted.
@@ -1334,10 +1653,14 @@ class LLMClient:
                              if budget_reason_label == "summary_supervised"
                              else "budget_exhausted")
             logger.error(
-                "LLM timeout | url=%s | reason=%s | provider=%s",
-                url, budget_reason, _provider_host(base))
+                "LLM timeout | url=%s | attempt=%d/%d | elapsed_ms=%.0f | "
+                "reason=%s | cause_class=budget | %s",
+                url, total_attempts, total_attempts,
+                (time.monotonic() - started_total) * 1000.0,
+                budget_reason, log_ctx)
             raise LLMTimeoutError(
-                f"LLM request timed out after {total_attempts} attempts: {url}"
+                f"LLM request timed out after {total_attempts} attempts: {url}",
+                cause_class="budget",
             )
         raise LLMError(f"LLM request failed after retries: {url}")
 
@@ -1359,6 +1682,10 @@ class LLMClient:
         Транспортная ошибка/не-2xx классифицируются в те же LLM*-исключения,
         что и `_post` (fail-soft контур стадий не смещается). Никогда не
         логирует prompt/ключи/тело чанков (R17)."""
+        # P0 SMART transport: модель/адрес/политика — из горячего конфига на
+        # входе вызова (явные per-call model/base_url ниже имеют приоритет).
+        self._refresh_chat_model()
+        self._refresh_transport_policy()
         key = api_key if api_key is not None else self._current_api_key()
         base = (base_url or self._base_url).rstrip("/")
         url = f"{base}/chat/completions"
@@ -1370,8 +1697,9 @@ class LLMClient:
         if extra_payload:
             payload.update(extra_payload)
         headers = {"Authorization": f"Bearer {key}"} if key else {}
-        to = (httpx.Timeout(timeout, connect=10.0) if timeout is not None
-              else httpx.Timeout(self._timeout, connect=10.0))
+        to = httpx.Timeout(self._effective_timeout(channel="chat",
+                                                   timeout=timeout),
+                           connect=10.0)
         parts: list[str] = []
         usage: dict | None = None
         try:
@@ -1444,17 +1772,21 @@ class LLMClient:
     async def _post_with_key(self, path: str, payload: dict,
                              chat_id: int | None = None,
                              key: str | None = None,
-                             sent: list | None = None) -> httpx.Response:
+                             sent: list | None = None,
+                             module: str | None = None,
+                             step: str | None = None) -> httpx.Response:
         """Раунд 10 (F-7 §5.2): резолв ключа чата + _post с этим ключом.
         `key` — уже решённый per-call источник (фикс R6); None → резолв
         здесь (легаси-путь).
 
         ``sent`` — INS-EXACT: per-call список фактически отправленных тел
         (``(channel, body)``); дописывается ТОТ ЖЕ объект, что уходит в HTTP.
+        ``module``/``step`` — только для R17-safe полей диаг-лога транспорта.
         """
         if key is None:
             key, _source = await self._resolve_api_key_and_source(chat_id)
-        return await self._post(path, payload, api_key=key, sent=sent)
+        return await self._post(path, payload, api_key=key, sent=sent,
+                                module=module, step=step)
 
     async def _post_fallback(self, payload: dict, path: str = "/chat/completions",
                              model: str | None = None,
@@ -1467,11 +1799,12 @@ class LLMClient:
         Ошибки (транспорт/не-2xx) разбирает вызывающий — проброс исходного
         исключения primary.
         ASAP 4.1 волна 4 (spec §4 D.1/D.2, ADR-1028-8 D5): ``timeout`` —
-        per-request transport-окно supervised-попытки (None → прежний
-        клиентский таймаут, байт-в-бит; ретрай fallback-ноги решает
-        Supervisor — один транспорт-ретрай = ≤1 fallback-transport-retry
-        из attempt-потолка ≤4 HTTP).
+        per-request transport-окно supervised-попытки (None → СОБСТВЕННЫЙ
+        таймаут фоллбэка `LLM_FALLBACK_TIMEOUT_SECONDS`, не primary 180с;
+        ретрай fallback-ноги решает Supervisor — один транспорт-ретрай =
+        ≤1 fallback-transport-retry из attempt-потолка ≤4 HTTP).
         """
+        self._refresh_transport_policy()
         client = self._get_fallback_client()
         url = f"{self._fallback_base_url.rstrip('/')}{path}"
         fallback_payload = dict(payload)
@@ -1480,10 +1813,21 @@ class LLMClient:
         # а не payload до fallback-подмены.
         if sent is not None:
             sent.append(("fallback", fallback_payload))
-        post_kwargs: dict = {}
+        # P0 SMART: фоллбэк использует СОБСТВЕННОЕ окно попытки
+        # (LLM_FALLBACK_TIMEOUT_SECONDS), а не primary-таймаут 180с. Явный
+        # per-call timeout (supervised Summary) сохраняется как есть.
+        effective_fallback_timeout = _policy_float(
+            self._fallback_timeout, settings.LLM_FALLBACK_TIMEOUT_SECONDS, 1.0)
         if timeout is not None:
-            post_kwargs["timeout"] = httpx.Timeout(timeout, connect=10.0)
-        return await client.post(url, json=fallback_payload, **post_kwargs)
+            try:
+                explicit_fb = float(timeout)
+            except (TypeError, ValueError):
+                explicit_fb = 0.0
+            if explicit_fb > 0:
+                effective_fallback_timeout = explicit_fb
+        return await client.post(
+            url, json=fallback_payload,
+            timeout=httpx.Timeout(effective_fallback_timeout, connect=10.0))
 
     async def _fallback_with_retries(self, payload: dict,
                                      sent: list | None = None
@@ -1544,9 +1888,11 @@ class LLMClient:
                "/embeddings")
         fallback_payload = dict(payload)
         fallback_payload["model"] = model or self._embed_fallback_model
+        # P0 SMART: окно — СОБСТВЕННЫЙ таймаут embed-фоллбэка (не primary).
         return await client.post(
             url, json=fallback_payload,
-            headers={"Authorization": f"Bearer {api_key}"})
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=httpx.Timeout(self._embed_fallback_timeout, connect=10.0))
 
     async def _embed_fallback_with_retries(self,
                                            payload: dict,
@@ -1667,6 +2013,10 @@ class LLMClient:
         логи, аналитика) НЕ менялось: это ровно прежний generate + сбор
         метаданных из уже полученного ответа (никаких новых LLM-вызовов).
         """
+        # P0 SMART transport: hot-apply модели/адреса/политики ДО сборки
+        # payload — смена в админке действует на этот вызов без рестарта.
+        self._refresh_chat_model()
+        self._refresh_transport_policy()
         # ФИКС R6: key/source — per-call локалы (нет гонки параллельных чатов).
         key, source = await self._resolve_api_key_and_source(chat_id)
         payload = {"model": self._chat_model, "messages": messages}
@@ -1703,12 +2053,12 @@ class LLMClient:
                     timeout=supervised_transport.get("timeout"),
                     budget_reason_label=str(
                         supervised_transport.get("budget_reason_label") or ""),
-                    sent=sent,
+                    sent=sent, module=module, step=step,
                 )
             else:
                 response = await self._post_with_key(
                     "/chat/completions", payload, chat_id=chat_id, key=key,
-                    sent=sent)
+                    sent=sent, module=module, step=step)
         except NoApiKeyForChat:
             raise
         except LLMError as exc:
@@ -1850,6 +2200,9 @@ class LLMClient:
         При исчерпании попыток бросает ``LLMError``-подкласс — решение
         (повтор/отброс батча) принимает caller.
         """
+        # P0 SMART transport: hot-apply модели/адреса/политики на входе.
+        self._refresh_chat_model()
+        self._refresh_transport_policy()
         key = self._current_api_key()
         payload = {"model": self._chat_model, "messages": messages}
         sent: list = [("primary", payload)]
@@ -1857,7 +2210,8 @@ class LLMClient:
             response = await self._post(
                 "/chat/completions", payload, api_key=key,
                 budget=float(deadline),
-                max_retries=max(0, int(max_attempts) - 1))
+                max_retries=max(0, int(max_attempts) - 1),
+                module="background", step=str(purpose or "background"))
         except Exception as exc:
             self._record_sent_call(
                 sent, payload=payload, messages=messages, module="background",
@@ -1955,7 +2309,8 @@ class LLMClient:
         try:
             response = await self._post(
                 "/chat/completions", payload, api_key=key,
-                base_url=base, channel="chat")
+                base_url=base, channel="chat",
+                module="worker", step=str(role or "worker"))
             data = response.json()
             content = data["choices"][0]["message"]["content"]
             if not isinstance(content, str) or not content.strip():
@@ -2017,6 +2372,9 @@ class LLMClient:
         None/ошибка адаптера → payload байт-в-байт прежний (fail-open с
         громкой oversized-risk диагностикой, паритет generate()).
         """
+        # P0 SMART transport: hot-apply модели/адреса/политики на входе.
+        self._refresh_chat_model()
+        self._refresh_transport_policy()
         key, source = await self._resolve_api_key_and_source(chat_id)
         payload = {"model": self._chat_model, "messages": messages}
         if temperature is not None:
@@ -2040,7 +2398,7 @@ class LLMClient:
         try:
             response = await self._post_with_key(
                 "/chat/completions", payload, chat_id=chat_id, key=key,
-                sent=sent)
+                sent=sent, module=module, step=step)
         except NoApiKeyForChat:
             raise
         except LLMError as exc:
@@ -2204,6 +2562,9 @@ class LLMClient:
         {EMBEDDING_FALLBACK_BASE_URL}/embeddings; фейл ВСЕХ ключей → проброс
         ИСХОДНОГО исключения primary (KNN→FTS-каскад в summary_memory решает
         деградацию)."""
+        # P0 SMART transport: политика — на входе; для embed действует
+        # технический потолок 60с (не 180с чата), per-request окно в _post.
+        self._refresh_transport_policy()
         if not texts:
             return []
         used_model = self._embed_model
@@ -2214,6 +2575,7 @@ class LLMClient:
                 api_key=self._current_embed_api_key(),
                 base_url=self._embed_base_url,
                 channel="embed",
+                module="embedding", step="embed",
             )
         except LLMError as exc:
             if not self._embed_fallback_active or isinstance(exc, LLMBadResponseError):
@@ -2292,6 +2654,8 @@ class LLMClient:
 
         НЕ трогает каскад `embed()` (62.4) — тот остаётся legacy-контуром
         `EMBED_CONTROL_PLANE_ENABLED=false` (бит-в-бит)."""
+        # P0 SMART transport: политика — на входе (тот же embed-cap 60с).
+        self._refresh_transport_policy()
         if not texts:
             return []
         used_model = model or self._embed_model
@@ -2303,6 +2667,7 @@ class LLMClient:
             channel="embed",
             max_retries=max_retries,
             retry_statuses=retry_statuses,
+            module="embedding", step="embed",
         )
         try:
             data = response.json()
