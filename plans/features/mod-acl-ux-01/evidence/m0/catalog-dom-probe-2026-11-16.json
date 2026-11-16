@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "requirement": "MAC-M0-01",
+  "kind": "catalog_dom_probe",
+  "collected_at_local": "2026-11-16T15:50:15+12:00",
+  "collected_at_utc": "2026-11-16T03:50:15Z",
+  "mode": "read_only",
+  "deployed": {
+    "version": "2.58.205",
+    "sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "branch": "release/vmq-slice-d-2.58.205"
+  },
+  "checkout": {
+    "path": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/vmq-slice-d-release-7cbfe0890b57-dd600808",
+    "head": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1"
+  },
+  "served_app_js": {
+    "url": "https://admin-bot.duckdns.org/web/app.js",
+    "http": 200,
+    "bytes": 2311044,
+    "sha256": "3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594",
+    "checkout_sha256": "3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594",
+    "match": true
+  },
+  "method": {
+    "server": "tools/ui_round1025_matrix.py::_start_server (127.0.0.1:8791, real web/index.html + web/app.js from checkout bca18c1e)",
+    "api_config": "stub generated from services.module_registry.registry_for_frontend() of checkout bca18c1e via tools/ui_asap7_f4_e2e.py::CONFIG_STUB",
+    "api_other": "same Playwright route stubs as tools/ui_asap7_f4_e2e.py (ME_JSON, STATUS_STUB, API_EXTRA)",
+    "browser": "Chromium, Playwright sync, viewport 1280x800",
+    "route": "#/modules",
+    "selector": "index.html:7639 :data-mod=\"m.id\"",
+    "note": "static assets and registry code are the deployed version; /api/config payload is a stub, not a live owner request"
+  },
+  "result": {
+    "count": 21,
+    "visible": 21,
+    "ids": [
+      "mod_summary",
+      "mod_direct",
+      "mod_factcheck",
+      "mod_search",
+      "mod_transcribe",
+      "mod_video_summary",
+      "mod_media_download",
+      "mod_web",
+      "mod_checkup",
+      "mod_sleep",
+      "mod_nostalgia",
+      "mod_budgets",
+      "mod_images",
+      "mod_vision",
+      "mod_initiative",
+      "mod_time",
+      "mod_stories",
+      "mod_character",
+      "mod_experience",
+      "mod_random",
+      "mod_embeddings"
+    ]
+  },
+  "composition": {
+    "static_modules_in_app_js": 16,
+    "module_registry_specs": 11,
+    "module_registry_visible": 10,
+    "registry_only_added": [
+      "mod_stories",
+      "mod_character",
+      "mod_experience",
+      "mod_random",
+      "mod_embeddings"
+    ]
+  },
+  "limitations": [
+    "Live Mini App with owner initData was not opened; the DOM probe uses real static assets plus the deployed registry, not live prod API rights.",
+    "No product, test, config or requirements-map files were modified; no SSH was used."
+  ]
+}

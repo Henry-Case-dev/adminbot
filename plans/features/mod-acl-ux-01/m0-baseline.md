@@ -157,3 +157,28 @@ merge или явной координации. Пять Status-лент раб�
 Все 10 EXP-FIX дефектов локализованы с приоритетами; M1-M6 план готов для PM-леджера.
 
 MOD-ACL READY FOR PM LEDGER
+
+---
+
+## 8. Refresh 2026-11-16 — deployed 2.58.205 (M0)
+
+Снимок выше (09.11.2026, `integ/unify-release`) сохранён как исторический и не переписан.
+Актуальная read-only база: `evidence/m0/mac-m0-01.md`; raw DOM-проба 21 карточки —
+`evidence/m0/catalog-dom-probe-2026-11-16.json`.
+
+| Поле | Факт |
+|---|---|
+| Плановая линия | `master` @ `6f91b888` (старт среза — `ad06a034`) |
+| Deployed | **2.58.205 @ `bca18c1e`**, ветка `release/vmq-slice-d-2.58.205`, 15.11.2026 09:47Z |
+| Схема / DDL | `user_version=47`, 130 таблиц, migrations 47, `pending=[]` — **DDL 0** |
+| Served `app.js` | sha256 `3cf2c916…f594`, 2 311 044 B = checkout `bca18c1e` |
+| Каталог | **21** видимая карточка = 16 static `mod_*` + 5 registry-only; DOM-проба: 21/21 видимы |
+| Реестр | 11 ModuleSpec, 10 видимых (hidden `factcheck_temporal`), `embeddings` — infra без master |
+| ACL | M1 false-403 исправлен (`memory_agi._require_global_admin` → `deps.user_is_global_admin`); 17/17 M1-тестов на deployed checkout |
+| Матрица | 16 capability × 3 чата, 0 изменённых пар (2.58.175); digest 2.58.205 pre=post; live SELECT на 2.58.205 — gap §7 артефакта |
+
+Главные расхождения с разделами 1–7 выше: «11 модулей» — это Python-реестр, а не UI
+(фактически 21 карточка); `app.js` уже не fallback-only, а merge реестра; effective-state
+сведён каноническим резолвером M2; схема 46 → 47; строки Roles & Permissions сдвинуты
+(`index.html:10549+`). Точные строки, consumers, guards и ограничения — в
+`evidence/m0/mac-m0-01.md`.
