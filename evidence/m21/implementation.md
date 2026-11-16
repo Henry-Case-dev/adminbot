@@ -5,10 +5,13 @@
 
 **База:** `bca18c1e` (2.58.205, schema 47). **Ветка:**
 `acl/m2.1-perchat-adapters`. **Corrective code commit:** `b278a547`
-(13 files, +514/−155). **Срез целиком:** `bca18c1e..b278a547` — 37 files,
-+1885/−173. **Требования среза:** `MAC-AC-04`, `MAC-S2-TT-5`, `MAC-S10-01`,
-`MAC-S15-12`, `MAC-S2-SHARED-01`; consumer-proof для `MAC-S0-01`,
-`MAC-S2-TT-4`, `MAC-S2-91`, `MAC-S2-116`, `MAC-AC-02`.
+(13 files, +514/−155). **Test-only commit:** `9b78b6ab` (2 tautological
+assertions заменены реальными). **Кумулятивный срез `bca18c1e..b278a547`:**
+37 files, +1885/−173 (включает предыдущие M2.1-коммиты и evidence; отдельно
+не смешивается с функциональным diff corrective-коммита). **Требования
+среза:** `MAC-AC-04`, `MAC-S2-TT-5`, `MAC-S10-01`, `MAC-S15-12`,
+`MAC-S2-SHARED-01`; consumer-proof для `MAC-S0-01`, `MAC-S2-TT-4`,
+`MAC-S2-91`, `MAC-S2-116`, `MAC-AC-02`.
 
 ## 1. Что исправлено по замечаниям Reviewer
 

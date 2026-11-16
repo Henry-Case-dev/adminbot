@@ -10,10 +10,12 @@
     "deletions": 155
   },
   "slice_cumulative_diff": {
+    "range": "bca18c1e..b278a547",
     "command": "git diff --stat bca18c1e..b278a547",
     "files": 37,
     "insertions": 1885,
-    "deletions": 173
+    "deletions": 173,
+    "note": "includes prior M2.1 commits and evidence; functional corrective is candidate_diff b278a547"
   },
   "requirement_ids": [
     "MAC-AC-04",
@@ -137,5 +139,7 @@
     "stories manage-контур остаётся глобальным (K2 MCA_STORIES_MANAGE_ENABLED); M2.1 закрывает read-контур.",
     "flags.initiative_observer_enabled остаётся собственной осью тика наблюдателя; master инициативы — flags.initiative_enabled.",
     "Финальный VERIFIED не заявляется: требуется независимое ревью."
-  ]
+  ],
+  "candidate_test_commit": "9b78b6ab79edecca1f0aa43b1f75aebc1f9ec34b",
+  "candidate_ref": "acl/m2.1-perchat-adapters"
 }
