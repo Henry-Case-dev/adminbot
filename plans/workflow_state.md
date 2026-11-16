@@ -1,21 +1,21 @@
 # Workflow State
 
-Task: vmq-onto-01 (queue 5, P0) — owner resumed the whole queue 2026-11-15; REVIEW RECOVERY PASS completed; Slice D (MEM-04, TIME-01/02/04/06/07) is the active engineering slice
-Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + amendments 2026-11-10..13; owner continuity/recovery instruction 2026-11-15
+Task: vmq-onto-01 (queue 5, P0) Slice D delivered; next dependency-ready queue step is mod-acl-ux-01 (queue 6, P0) readiness assessment
+Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md + amendments; plans/owner_inputs/2026-11-09-mod-acl-ux-01.md; owner continuity/recovery instruction 2026-11-15
 Status: active
 Primary phase: implementation
-Active feature: vmq-onto-01
-Active lanes: Slice D N9 test fix; then PM binding and release readiness
+Active feature: mod-acl-ux-01 (assessment); vmq-onto-01 delivered with passive L1 observation parked
+Active lanes: PM mod-acl readiness assessment
 Join barriers: none
-Last verified: 2.58.204 deployed at 2b419aa2 (health 200/2.58.204, schema 47, identity verified_deployed, NRestarts 0, settings/prompt preserved); rollback c97c06e4/2.58.203 known.
-Acceptance: VMQ map 70 required rows: 48 PENDING, 9 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. Slice D binding `32363e88`: TIME-04 and TIME-06 at REVIEW on product `456cf769`; MEM-04/TIME-01/TIME-02/TIME-07 remain open with L1/reply/synthetic gaps; ARCH contract adjustment recorded in the map and plan §15. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open. Recovery pass confirmed ONTO-A/B, M2/O-04, Slice A/B/C at review level and did not raise map statuses. Release gates unchanged. Full epic not DONE.
-Next unlocks: Slice D verdict -> PM binding of the genuinely covered MEM/TIME rows -> release decision; O-04/V live remain parked observations.
+Last verified: **2.58.205 deployed at `bca18c1e`** (health local/public 200, schema 47/pending=[], identity verified_deployed, NRestarts 0, journal 159 lines with 0 ERROR/Traceback/CRITICAL, settings and manual prompt preserved); rollback `2b419aa2`/2.58.204.
+Acceptance: VMQ map 70 required rows: 48 PENDING, 8 REVIEW, 13 VERIFIED, 1 READY_FOR_LIVE. Slice D released in 2.58.205: **TIME-06 VERIFIED** on `bca18c1e` with candidate-bound inventory/review/deploy evidence; **TIME-04 REVIEW**; MEM-04, TIME-01, TIME-02 reply and TIME-07 remain open pending real L1 turns (postdeploy observation, no polling) and independent labels. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE; V-01..V-04 REVIEW. Full VMQ epic not DONE.
+Next unlocks: mod-acl readiness verdict (full Builder vs only M1/M5A vs blocked); VMQ L1 observation opens MEM-04/TIME-01/02 later without blocking independent work.
 Next execution: runnable
-Review: M1/NEXT2 VERIFIED; ONTO-A/B/M2/A/B/C deployed/accepted for released slices; M2 delivery PASS with O-04 deferred. REVIEW RECOVERY PASS 2026-11-15: three independent DeepSeek V4 Pro sessions, all Approved, no blocking defects; Slice C evidence bookkeeping gap and live-vector/live-delivery gaps recorded.
-Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
+Review: 2.58.205 delta review Approved for deploy; Slice D final predeploy approval preserved; REVIEW RECOVERY PASS 2026-11-15 Approved with no blocking defects.
+Deployment: **2.58.205 @ `bca18c1e`**, branch `release/vmq-slice-d-2.58.205`, base/rollback `2b419aa2` (2.58.204); backup `pre_deploy_258205_20261115T094514Z.db` sha256 `b388f068…02a7`, integrity ok.
 Human gate: none
-Progress scope: plans/progress_scope.json | vmq-onto-01 active (12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING); corrective parked delivered_awaiting_evidence; recovery pass recorded without status inflation.
-Updated: 2026-11-15T17:05:00+12:00
+Progress scope: plans/progress_scope.json | vmq-onto-01 active (13 VERIFIED / 8 REVIEW / 1 READY_FOR_LIVE / 48 PENDING, deployed bca18c1e); corrective parked delivered_awaiting_evidence; mod-acl assessment starting.
+Updated: 2026-11-16T15:32:00+12:00
 
 ## Facts
 
