@@ -139,6 +139,8 @@ class TestMainSurface:
         assert re.search(r"max-width:\s*1440px", m.group(1)), \
             "контентная колонка каталога до 1440"
 
+        # Тиры реализации (viewport 1400/1100/700); целевые 1440→4,
+        # 1280→3, 768→2, 390/320→1; фактические колонки проверяет e2e.
         tiers = [
             (r"@media \(min-width: 1400px\)", 4),
             (r"@media \(min-width: 1100px\) and \(max-width: 1399px\)", 3),
