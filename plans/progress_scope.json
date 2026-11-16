@@ -1362,25 +1362,16 @@
         "plans/features/mod-acl-ux-01/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Owner epic MOD-ACL-UX-01 FINAL v1.0 (09.11.2026), current_task.md lines 10016-10747, 732 lines. Reconciled into plans/features/mod-acl-ux-01/requirements-map.json: 274 required rows (AC-01..AC-19, EXP-FIX-01..10 in owner semantics, the six-case GLOBAL/CHAT truth table, five separated axes, amendment obligations including the mandatory native question), 279 source lines inventoried with 93 context and none unclassified, 11 stages M0->M6, slice-graph and plan.md; plan gate PASS (inventory=279 manual=88 scoped=0 errors=0). M0 baseline artifact m0-baseline.md (sha256 42C0103F…3706) confirms the ACL false-403 root cause (local `_is_global_admin` in memory_agi.py ignoring role_type on 15+ endpoints), fragmented params/gates effective-state, Roles and Permissions as modals, and all ten EXP-FIX defects present in the deployed line. Queue: last, after SELF-DIAG-01 and VMQ-ONTO-01; two independent critical fixes may run earlier (ACL false 403 in memory_agi.py; EXP-FIX correctives).",
-      "updated": "2026-11-09",
+      "source_note": "Owner epic MOD-ACL-UX-01 FINAL v1.0 (09.11.2026), current_task.md lines 10016-10747, 732 lines. Reconciled into plans/features/mod-acl-ux-01/requirements-map.json: 274 required rows (AC-01..AC-19, EXP-FIX-01..10 in owner semantics, the six-case GLOBAL/CHAT truth table, five separated axes, amendment obligations including the mandatory native question), 279 source lines inventoried with 93 context and none unclassified, 11 stages M0->M6, slice-graph and plan.md; plan gate PASS (inventory=279 manual=88 scoped=0 errors=0). M0 baseline artifact m0-baseline.md (sha256 42C0103F…3706) confirms the ACL false-403 root cause (local `_is_global_admin` in memory_agi.py ignoring role_type on 15+ endpoints), fragmented params/gates effective-state, Roles and Permissions as modals, and all ten EXP-FIX defects present in the deployed line. Queue: last, after SELF-DIAG-01 and VMQ-ONTO-01; two independent critical fixes may run earlier (ACL false 403 in memory_agi.py; EXP-FIX correctives). | 2026-11-16 delta: map now 288 mandatory (68 VERIFIED / 220 PENDING), plan gate inventory=279 manual=102 errors=0; M1/M2/M5A/M5L are already deployed in the 2.58.205 line; see readiness_2026_11_16.",
+      "updated": "2026-11-16T15:38:00+12:00",
       "queue_position": 6,
       "priority": "P0",
       "blocked_by": [],
-      "position_status": "fork",
-      "queue_fork": {
-        "question": "Position of this task among unfinished work was never established.",
-        "options": [
-          "A — keep as registered backlog until its own decision point",
-          "B — rank it explicitly when it becomes the next executable step"
-        ],
-        "decision_needed": "One triage pass over the unranked backlog; no per-task invention.",
-        "why_not_derived": "No accepted owner decision or dependency chain fixes its order; the queue never had a total order."
-      },
+      "position_status": "chained",
       "blocker_sources": {},
       "execution_state": "queued",
-      "position_basis": "owner decision",
-      "queue_note": "owner-priority epic; UI shares web/app.js with the active unified-reply lane, so UI slices wait for it, backend slices do not",
+      "position_basis": "owner decision + dependency order: next after VMQ-ONTO-01; no VMQ edge in the MOD-ACL slice graph",
+      "queue_note": "2026-11-16 PM readiness: FULL_BUILDER_ALLOWED — the six MEMORY-08 S3 files are not occupied by any active writer: S3 `d0127c29` is already an ancestor of deployed `bca18c1e`, memory-cognitive-02 is paused (queue 21, active_work=null, no assignment), MEM-08-S3 stays PENDING for its own acceptance, no memory branch/worktree exists, and the six files have 0 tracked modifications in all worktrees (main + 7). Plan gate errors=0 (inventory=279 manual=102). Map: 288 mandatory = 68 VERIFIED / 220 PENDING. The early-fix window is closed: M1 false-403 `adfd0d0c` and M5A EXP-FIX-01..07/09/10 `4e07817e` are already in deployed `bca18c1e`/2.58.205; M5B's core EXP-FIX-08 semantics are already in M2 `429184f3` (review_enabled reads only env K1/K3; per-chat learning_state/learning_enabled_for_chat; test_mod_acl_ux_m2_resolver::test_global_off_chat_on_worker_runs_and_selects), MAC-EXP-08 remains unbound. First dependency-ready slice: M0 refresh on `bca18c1e`/2.58.205 (read-only; MAC-M0-01), because m0-baseline.md is 09.11/integ line and audits 11 registry modules while the owner requires 21 visible cards; M3 is 20 PENDING without an accepted design specification, and M4A depends_on M3 (scoped review M4A: 35 rows, errors=36). Previous note's unified-reply lane is stale (queue 42, no live session since 2026-11-05) and does not lock web/app.js.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -1394,7 +1385,32 @@
           "to": 6,
           "why": "owner SMART-CORRECTIVE-01 inserted at queue position 2"
         }
-      ]
+      ],
+      "readiness_2026_11_16": {
+        "verdict": "FULL_BUILDER_ALLOWED",
+        "file_lock": "clear: MEMORY-08 S3 commit d0127c29 is an ancestor of deployed bca18c1e (2.58.170 line); memory-cognitive-02 is paused with no assignment; MEM-08-S3 is PENDING only for its own acceptance; no memory branch/worktree; 0 tracked modifications of the six files in all worktrees (main + 7)",
+        "early_fixes": {
+          "M1_false_403": "deployed; web/api/memory_agi.py on bca18c1e imports user_is_global_admin from web/api/deps.py; adfd0d0c is an ancestor of bca18c1e",
+          "M5A": "deployed; 4e07817e is an ancestor of bca18c1e (2.58.170 release)",
+          "M5B": "core semantics already in M2 429184f3; MAC-EXP-08 stays PENDING pending independent candidate-bound evidence, not a new Builder defect"
+        },
+        "map_counts": "288 mandatory: 68 VERIFIED / 220 PENDING (279 inventory incl. 93 context; 102 manual)",
+        "gates": "plan: inventory=279 manual=102 scoped=0 errors=0; review M0 scoped=1 errors=2 (candidate mismatch + MAC-M0-01 PENDING); review M5B scoped=1 errors=2; review M4A scoped=35 errors=36 (candidate mismatch + 35 open/no-evidence rows); map candidate 34213999 (2.58.175) is stale vs deployed bca18c1e (2.58.205)",
+        "first_slice": {
+          "id": "M0 refresh",
+          "write_scope": [
+            "plans/features/mod-acl-ux-01/m0-baseline.md",
+            "plans/features/mod-acl-ux-01/evidence/m0/**"
+          ],
+          "acceptance": "MAC-M0-01: record HEAD and deployed revision bca18c1e/2.58.205, config backup, audit of the 21 visible cards, module registry/keys/consumers, all ACL guards and app.js, and the stored/effective matrix for GLOBAL + 2-3 chats without writes.",
+          "dependencies": [],
+          "rows": [
+            "MAC-M0-01"
+          ],
+          "why_not_M4A": "M4A depends_on M3; M3 has 20 PENDING rows and no accepted design specification (m3-design-freeze.md is a FROZEN contract but lacks wireframes/copy inventory); M0 is stale/incomplete (11 registry modules audited vs the 21-card requirement, app.js currently has 16 module cards)"
+        },
+        "no_verified_added": true
+      }
     },
     {
       "id": "EPIC-ADMINBOT-CORRECTIVE-YM-NOST-20261108",
