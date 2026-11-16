@@ -70,6 +70,9 @@ global.Chart = function () {};
 global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
+
 assert(captured, 'Vue.createApp должен быть вызван');
 const methods = captured.methods;
 const computed = captured.computed;
@@ -114,8 +117,8 @@ const INDEX = fs.readFileSync(
   // Состав модулей (12 + «Генерация изображений» + «Инициатива») — F5 (10.24)
   // + ASAP 7 F3; пин переиздан в ASAP 8 F10.
   // UR-F (UR-29.1): +карточка «Время» (noToggle) → 15→16.
-  assert.strictEqual(data.modules.length, 16,
-    'T-1903: карточек модулей — 16 (+mod_time по UR-F)');
+  assert.strictEqual(data.modules.length, 21,
+    'T-1903: карточек модулей — 21 (каталог из DTO, M4A)');
 })();
 
 // ── T-1895a: binding — значение из БД попадает в инпут; секрет → маска ────

@@ -81,6 +81,8 @@ global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
 assert(captured, 'Vue.createApp должен быть вызван');
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
 const methods = captured.methods;
 const computed = captured.computed;
 const data = captured.data();
@@ -260,16 +262,16 @@ const CSS = fs.readFileSync(
     'sticky(M-1/L-3): фолбэк НЕ добавляет padding-bottom');
 }
 
-// ── 6. Инвариант меню: 28 вкладок / 6 NAV_ITEMS / 16 модулей (UR-F
-//       UR-29.1: +mod_time; история: ASAP 7 F3 +mod_initiative, EVOL-031
-//       `28d55bd1` −smart_cache) ────────────────────────────────────────────
+// ── 6. Инвариант меню: 28 вкладок / 6 NAV_ITEMS / 21 модуль (M4A: каталог
+//       больше не статический JS-массив — 21 карточка приходит из DTO;
+//       история: ASAP 7 F3 +mod_initiative, UR-F +mod_time) ──────────────
 {
   // Число — точный пин (новая/пропавшая вкладка = красный):
   // EVOL-031 удалил smart_cache (27), UR-F добавил mod_time (28).
   assert.strictEqual(data.tabs.length, 28,
     'меню: 28 вкладок (+mod_time по UR-F)');
-  assert.strictEqual(data.modules.length, 16,
-    'меню: 16 модулей (+mod_time по UR-F)');
+  assert.strictEqual(data.modules.length, 21,
+    'меню: 21 модуль (каталог из DTO, M4A)');
   const navBlock = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS = ['),
     APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS = [')));
   const navCount = (navBlock.match(/route:\s*'#/g) || []).length;

@@ -195,6 +195,10 @@ const ALLOWED = [
   // чистые функции агрегатов/подписей/счётчиков. Тоже не оптика: стекло, фон,
   // линза и остальные защищённые файлы по-прежнему побайтово неизменны.
   'web/static/cognitive-map.js',
+  // MOD-ACL-UX-01 M4A: аддитивные `state`/`permissions` в DTO модулей
+  // (`GET /api/config`). Это API-контракт, НЕ оптика: защищённые
+  // файлы стекла/фона/линзы по-прежнему проверяются побайтово.
+  'web/api/routes.py',
 ];
 changed.forEach(function (rel) {
   assert.ok(ALLOWED.indexOf(rel) >= 0,

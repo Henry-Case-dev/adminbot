@@ -62,6 +62,9 @@ global.Blob = function () {};
 global.URL = { createObjectURL() { return 'blob:x'; }, revokeObjectURL() {} };
 
 require(path.join(ROOT, 'web', 'app.js'));
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
+
 assert(captured, 'Vue.createApp должен быть вызван');
 const methods = captured.methods;
 const computed = captured.computed;

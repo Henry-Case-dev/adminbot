@@ -1121,100 +1121,152 @@
                    class="col-span-full card p-4 workspace-head"
                    :data-module="workspaceModule.id" data-workspace-head
                    :data-focus-id="'module-card:' + workspaceModule.id">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph(workspaceModule.icon) }}</span>
-                  <div class="min-w-0">
-                    <div class="text-base font-bold truncate">{{ workspaceModule.title }}</div>
-                    <div class="text-xs text-gray-500 truncate">{{ workspaceModule.subtitle }}</div>
-                  </div>
-                  <span class="flex-1"></span>
-                  <!-- EVOL-036 (W12): область настройки и здоровье — в шапке,
-                       отдельно от «включён/выключен». -->
+                <!-- design §3.3: крошка «Модули / <Название>» (12px). -->
+                <nav class="workspace-breadcrumb" aria-label="Хлебные крошки"
+                     data-workspace-breadcrumb>
+                  <a href="#/modules" class="underline">Модули</a>
+                  <span aria-hidden="true"> / </span>
+                  <span>{{ workspaceModule.title }}</span>
+                </nav>
+                <div class="workspace-title-row">
+                  <h1 class="workspace-h1" :data-workspace-title>{{ workspaceModule.title }}</h1>
                   <span class="badge badge-info shrink-0" data-workspace-scope>
                     {{ scopeLabel }}
                   </span>
-                  <span v-if="moduleHealthView(workspaceModule)"
-                        class="badge shrink-0"
-                        :class="moduleHealthView(workspaceModule).cls"
-                        data-workspace-health>{{ moduleHealthView(workspaceModule).text }}</span>
-                  <span class="badge" :class="moduleEnabled(workspaceModule) ? 'badge-ok' : 'badge-muted'">
-                    {{ moduleStateText(workspaceModule) }}
+                  <span v-if="workspaceModule.kind === 'infrastructure'"
+                        class="badge badge-muted shrink-0" data-workspace-kind>Общий сервис</span>
+                  <span v-else-if="workspaceModule.noToggle"
+                        class="badge badge-muted shrink-0" data-workspace-kind>Без тумблера</span>
+                </div>
+                <!-- Одна человеческая фраза ≤120 (из DTO; H1 не повторяет). -->
+                <div class="workspace-phrase" data-workspace-phrase>
+                  {{ workspaceModule.subtitle }}
+                </div>
+
+                <!-- design И-1/§5.3: GLOBAL и CHAT одновременно, с явными
+                     подписями «Весь бот» / «В этом чате». -->
+                <div class="workspace-controls" data-workspace-controls>
+                  <div v-if="workspaceModule.toggleKey" class="workspace-control"
+                       data-workspace-global-control>
+                    <span class="workspace-control__label">Весь бот</span>
+                    <label class="ctl-toggle module-toggle relative inline-flex items-center shrink-0"
+                           :class="{ 'is-saving': moduleGlobalPendingFor(workspaceModule),
+                                     'is-readonly': !moduleGlobalCanEdit(workspaceModule) }">
+                      <input type="checkbox" class="sr-only peer"
+                             data-workspace-global-toggle
+                             :checked="moduleGlobalState(workspaceModule).display === true"
+                             :disabled="!moduleGlobalCanEdit(workspaceModule) || moduleGlobalPendingFor(workspaceModule)"
+                             @change="setModuleGlobalState(workspaceModule, $event.target.checked)"
+                             :aria-label="moduleGlobalToggleAria(workspaceModule)">
+                      <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                    </label>
+                  </div>
+                  <div v-if="moduleChatControlAvailable(workspaceModule)"
+                       class="workspace-control" data-workspace-chat-control>
+                    <span class="workspace-control__label">{{ moduleChatLabel(workspaceModule) }}</span>
+                    <div class="module-tristate" role="group"
+                         :aria-label="moduleChatLabel(workspaceModule)">
+                      <button type="button" v-for="opt in moduleChatOptions" :key="'wsc-opt-' + opt.id"
+                              class="module-tristate-btn"
+                              :class="{ active: moduleChatCurrent(workspaceModule) === opt.id }"
+                              :aria-pressed="moduleChatCurrent(workspaceModule) === opt.id"
+                              :data-workspace-chat-tristate="opt.id"
+                              :disabled="!moduleChatCanEdit(workspaceModule) || moduleChatPendingFor(workspaceModule)"
+                              @click="setModuleChatTriState(workspaceModule, opt.id)">{{ opt.label }}</button>
+                    </div>
+                  </div>
+                  <div v-else-if="workspaceModule.noToggle" class="workspace-control"
+                       data-workspace-no-toggle>
+                    <span class="workspace-control__label">Без тумблера: часовой пояс — настройка контекста</span>
+                  </div>
+                  <div v-else class="workspace-control" data-workspace-global-only>
+                    <span class="workspace-control__label">В этом чате: управляется глобально</span>
+                  </div>
+                  <span v-if="moduleChatReadonlyReason(workspaceModule)"
+                        class="badge badge-muted shrink-0" data-workspace-readonly>
+                    {{ moduleChatReadonlyReason(workspaceModule) }}
                   </span>
-                  <!-- EVOL-027 v0.8: тождественный master-toggle в деталях
-                       ИСКЛЮЧЁН (он живёт только в карточке каталога). Здесь —
-                       read-only статус и ссылка «Управляется из каталога»;
-                       отдельные независимые оси модуля ниже не тронуты. -->
-                  <button v-if="!workspaceModule.noToggle"
-                          type="button" class="btn-ghost text-xs shrink-0"
-                          data-module-managed-link
-                          @click="backToModulesCatalog()">Управляется из каталога →</button>
-                  <span v-if="moduleChatToggleReadonly(workspaceModule)"
-                        class="badge badge-muted shrink-0">глобальный рубильник</span>
                 </div>
-                <div v-if="moduleRuntimeNotice(workspaceModule)" class="text-xs text-amber-300 mt-1">
-                  {{ moduleRuntimeNotice(workspaceModule) }}
+
+                <!-- design §5.1/И-7: 5 осей — иконка И текст (не только цвет). -->
+                <div class="workspace-chips" data-workspace-chips>
+                  <span v-for="c in moduleStateChips(workspaceModule)"
+                        :key="'wsc-' + c.id" class="badge workspace-chip" :class="c.cls"
+                        :data-workspace-chip="c.id">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph(c.icon) }}</span>
+                    {{ c.label }}: {{ c.text }}
+                  </span>
                 </div>
-                <div v-if="moduleSourceText(workspaceModule)" class="text-[10px] text-gray-500 mt-1">
-                  {{ moduleSourceText(workspaceModule) }}
+                <div v-if="moduleCheckedAt(workspaceModule)"
+                     class="text-[10px] text-gray-500 mt-1" data-workspace-checked>
+                  {{ moduleCheckedAt(workspaceModule) }}
                 </div>
-                <div class="flex gap-2 flex-wrap mt-3 workspace-tabs"
-                     :class="{ 'workspace-tabs--scroll': workspaceModule && workspaceModule.id === 'mod_initiative' }"
+                <div v-if="moduleChatPendingFor(workspaceModule)"
+                     class="text-xs text-gray-400 mt-1" data-workspace-saving>Сохраняем…</div>
+                <div v-if="moduleChatErrorFor(workspaceModule)"
+                     class="text-xs text-amber-300 mt-1" data-workspace-save-error>
+                  {{ moduleChatErrorFor(workspaceModule) }}
+                </div>
+                <div v-if="moduleStateText(workspaceModule) && !workspaceModule.noToggle"
+                     class="text-xs mt-1" data-workspace-state>
+                  {{ moduleStateText(workspaceModule) }}
+                </div>
+
+                <div class="flex gap-2 flex-wrap mt-3 workspace-tabs workspace-tabs--scroll"
                      role="tablist" data-workspace-tabs>
                   <button v-for="wt in workspaceTabs" :key="'wt-' + wt.id" role="tab"
                           :data-workspace-tab="wt.id"
                           :aria-selected="workspaceTab === wt.id"
+                          :aria-current="workspaceTab === wt.id ? 'page' : null"
                           class="btn-ghost text-xs"
                           :class="workspaceTab === wt.id ? 'btn-accent' : ''"
                           @click="openWorkspaceTab(wt.id)">{{ wt.label }}</button>
                 </div>
               </div>
 
-              <!-- Обзор: реальные данные/состояние, без фиктивных чисел. -->
+              <!-- «Обзор»: живые индикаторы + checked-at + адресные ссылки,
+                   без «Обзор модуля», без повтора описания и без CTA
+                   «Открыть настройки модуля» (MAC-S5-OVW-01). -->
               <div v-if="workspaceModule && workspaceTab === 'overview'
                             && workspaceModule.id !== 'mod_initiative'"
-                   class="col-span-full card p-4" data-workspace-overview>
-                <div class="text-sm font-bold mb-1">Обзор модуля</div>
-                <div class="text-xs text-gray-400 mb-2">
-                  {{ workspaceModule.subtitle }}. Настройки модуля сгруппированы по
-                  вкладкам; включение модуля — в каталоге «Модули» (здесь только
-                  состояние и вход).
-                </div>
-                <div class="text-xs text-gray-500">
-                  Состояние: <b>{{ moduleStateText(workspaceModule) }}</b>
-                  <span v-if="moduleSourceText(workspaceModule)"> · {{ moduleSourceText(workspaceModule) }}</span>
-                  <span v-if="activeChatTitle"> · область: {{ activeChatTitle }}</span>
-                </div>
-                <!-- EVOL-036 (W12): обзор = 2–4 честных состояния + последнее
-                     действие + ОДНО основное действие + переход в события.
-                     Второй панели «агрегированных чисел для красоты» нет. -->
-                <div class="flex flex-wrap items-center gap-2 mt-2"
-                     data-module-overview-actions>
-                  <span class="text-xs text-gray-500" data-module-last-action>
-                    Последнее действие: {{ moduleLastEventLine(workspaceModule) }}
+                   class="col-span-full card p-4" data-workspace-overview
+                   role="tabpanel" :aria-label="'Обзор: ' + workspaceModule.title">
+                <div class="workspace-chips" data-overview-chips>
+                  <span v-for="c in moduleStateChips(workspaceModule)"
+                        :key="'ovc-' + c.id" class="badge workspace-chip" :class="c.cls"
+                        :data-overview-chip="c.id">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph(c.icon) }}</span>
+                    {{ c.label }}: {{ c.text }}
                   </span>
+                </div>
+                <div v-if="moduleLastEventLine(workspaceModule)"
+                     class="text-xs text-gray-500 mt-2" data-module-last-action>
+                  {{ moduleLastEventLine(workspaceModule) }}
+                </div>
+                <div v-if="moduleCheckedAt(workspaceModule)"
+                     class="text-[10px] text-gray-500 mt-1" data-overview-checked>
+                  {{ moduleCheckedAt(workspaceModule) }}
+                </div>
+                <div class="flex flex-wrap items-center gap-2 mt-2" data-overview-links>
+                  <button type="button" class="btn-ghost text-xs"
+                          v-for="wt in overviewTabLinks" :key="'ovl-' + wt.id"
+                          :data-overview-link="wt.id"
+                          @click="openWorkspaceTab(wt.id)">{{ wt.label }} →</button>
                   <span class="flex-1"></span>
-                  <button type="button" class="btn-accent text-xs"
-                          data-module-primary-action
-                          @click="openWorkspaceTab('settings')">
-                    Открыть настройки модуля
-                  </button>
                   <a v-if="isGlobalAdmin && canViewTab('oversight')"
                      class="btn-ghost text-xs" data-module-events-link
                      href="#/oversight?tab=runs">События →</a>
                 </div>
-                <div v-if="!moduleEnabled(workspaceModule) && workspaceModule.toggleKey" class="text-xs text-amber-300 mt-1">
-                  Модуль выключен — включите его тумблером сверху.
+                <div v-if="modulePermissions(workspaceModule).can_read === false"
+                     class="text-xs text-amber-300 mt-2" data-overview-denied>
+                  Нет доступа к этому модулю. Ваша роль: {{ roleLabel() }}.
                 </div>
-                <!-- ASAP 7 F4 (§3.2): честный гейт подмодулей реестра
-                     (stories/character/experience/random) — requested/
-                     effective/source из registry_for_frontend (gate) +
-                     связанные контуры ссылками-переходами. «No master»-
-                     модули (Случайность) показывают env-ось как мастер. -->
-                <div v-if="workspaceModule.fromRegistry
+                <details v-if="workspaceModule.fromRegistry
                             && f4ModuleGate(workspaceModule)"
-                     class="mt-3 pt-2 border-t border-white/10 text-xs"
-                     data-f4-module-gate>
-                  <div class="flex flex-wrap gap-2 items-center mb-1">
+                         class="mt-3 pt-2 border-t border-white/10 text-xs"
+                         data-f4-module-gate>
+                  <summary class="text-gray-400">Технические детали</summary>
+                  <div class="flex flex-wrap gap-2 items-center mb-1 mt-2">
                     <span class="badge"
                           :class="f4ModuleGate(workspaceModule).effective ? 'badge-ok' : 'badge-warn'">
                       {{ f4ModuleGate(workspaceModule).effective ? 'Работает' : 'Не работает' }}
@@ -1245,7 +1297,8 @@
                       <span class="text-gray-600 ml-1">→ {{ l.hint }}</span>
                     </span>
                   </div>
-                </div>
+                </details>
+
                 <!-- B06.1: Summary — per-chat-operable (единый резолвер
                      emergency env → chat override → global default). Честная
                      env-ось: UI не читает env напрямую — только объясняет. -->
@@ -7586,23 +7639,10 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'modules'">
-            <!-- ═══ EVOL-027 (W10): «Модули» — единый каталог. ═══ -->
-            <div class="hub-head col-span-full">
-              <div class="hub-title">Модули</div>
-              <div class="hub-sub">Найдите модуль, посмотрите его состояние для выбранной области и включите или выключите его — прямо здесь, без перехода в настройки.</div>
-              <!-- EVOL-027 v0.8: тяжёлая агрегатная KPI-строка («20 всего /
-                   18 включено / …») удалена. Число результатов живёт в
-                   подписи списка, проблемы — фильтром и статусом конкретных
-                   модулей (аналитическая диагностика — в «Аналитике»). -->
-            </div>
-
-            <!-- §7 (v2.1): второй панели быстрого доступа нет —
-                 единственный список модулей каталог ниже. -->
-
-            <!-- F4 §32/§44: поиск по названию/описанию/тех.имени/синонимам.
-                 EVOL-027 v0.8: быстрые локальные фильтры сохранены; число
-                 результатов — в подписи под фильтрами, не отдельной панелью. -->
-            <div class="module-toolbar col-span-full">
+            <!-- ═══ MOD-ACL-UX-01 M4A: каталог из DTO (design §4.1/§3.3) ══
+                 H1 «Модули» живёт в topbar — в контенте НЕ дублируется,
+                 поэтому каталог начинается сразу с поиска и фильтров. ═══ -->
+            <div class="module-toolbar col-span-full" data-module-toolbar>
               <input class="field module-search" type="search"
                      placeholder="Найти модуль…" v-model="moduleSearch"
                      aria-label="Найти модуль">
@@ -7613,18 +7653,14 @@
                         @click="moduleFilter = f.id">{{ f.label }}</button>
               </div>
               <div class="module-catalog-caption col-span-full" data-module-caption>
-                Показано {{ filteredModules.length }} из {{ visibleModules.length }}
-                <template v-if="moduleSearch || moduleFilter !== 'all'">· фильтр активен</template>
-                · здоровье показывается там, где для модуля есть данные
+                {{ moduleCatalogCaption }}
               </div>
             </div>
 
-            <!-- F4 §32/D7: каталог ≤3/2/1 изолированными правилами .module-list -->
+            <!-- design §3.2: 5 групп каталога в порядке catalog_group;
+                 порядок карточек — серверный catalog_order (DOM == DTO). -->
             <div class="module-catalog col-span-full"
                  :aria-busy="catalogLoading ? 'true' : 'false'">
-              <!-- E.3 §4 (W14): пока каталог грузится, честный индикатор, а не
-                   пустой экран. Ошибка важнее загрузки — тогда показывается
-                   баннер configError, а скелетон не рисуется вовсе. -->
               <div v-if="catalogLoading" class="ctl-loading" role="status"
                    aria-live="polite" data-module-loading>
                 <div class="ctl-loading__text">
@@ -7635,101 +7671,95 @@
                 <div class="ctl-skeleton ctl-skeleton--mid" aria-hidden="true"></div>
                 <div class="ctl-skeleton ctl-skeleton--narrow" aria-hidden="true"></div>
               </div>
-              <div class="module-list" role="list" v-if="filteredModules.length">
-                <article class="module-card card p-4" v-for="m in filteredModules" :key="m.id"
-                         role="listitem" :data-mod="m.id"
-                         :data-focus-id="'module-card:' + m.id">
-                  <div class="module-card-head">
-                    <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
-                    <div class="module-meta min-w-0">
-                      <div class="module-title text-sm font-semibold">{{ m.title }}</div>
-                      <div class="module-sub text-xs text-gray-500">{{ m.subtitle }}</div>
-                    </div>
-                    <!-- Здоровье — ОТДЕЛЬНО от «включён» (enabled ≠ healthy).
-                         Данных нет → строка не показывается вовсе (не «ОК»). -->
-                    <span v-if="moduleHealthView(m)"
-                          class="module-health shrink-0"
-                          :class="moduleHealthView(m).badge === 'badge-ok' ? ''
-                            : (moduleHealthView(m).state === 'normal' ? ''
-                              : (moduleHealthView(m).state === 'unknown'
-                                ? 'module-health--unknown' : 'module-health--problem'))"
-                          :title="moduleHealthLine(m)">
-                      {{ moduleHealthView(m).label }}
-                    </span>
-                    <span v-if="m.noToggle" class="badge badge-muted shrink-0">без тумблера</span>
-                  </div>
+              <section v-for="g in moduleGroups" :key="'mg-' + g.id"
+                       class="module-group" :data-module-group="g.id">
+                <h2 class="module-group-title">
+                  {{ g.title }}<span class="module-group-count">{{ g.items.length }}</span>
+                </h2>
+                <div class="module-list" role="list">
+                  <article class="module-card card" v-for="m in g.items" :key="m.id"
+                           role="listitem" :data-mod="m.id"
+                           :data-module-order="m.catalogOrder"
+                           :data-focus-id="'module-card:' + m.id">
+                    <!-- Клик по телу карточки открывает workspace; контрол
+                         внутри (.module-control-row) не навигирует. -->
+                    <div class="module-card-body" @click="openModuleWorkspace(m)">
+                      <div class="module-card-head">
+                        <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
+                        <div class="module-meta min-w-0">
+                          <div class="module-title text-sm font-semibold">{{ m.title }}</div>
+                          <div class="module-sub text-xs text-gray-500 module-card-phrase">{{ m.subtitle }}</div>
+                        </div>
+                      </div>
 
-                  <!-- §5 v2.1 (решение владельца): РОВНО ОДИН переключатель.
-                       Его область — верхний селектор GLOBAL/чат: в GLOBAL он
-                       управляет только глобальным состоянием, в чате — только
-                       настройкой этого чата. Второго (global+chat) тумблера,
-                       а также «всегда глобального» контрола при выбранном чате
-                       здесь нет. -->
-                  <div class="module-controls" v-if="!m.noToggle">
-                    <div class="module-control-row" v-if="moduleScopeToggleAvailable(m)">
-                      <span class="module-control-row__label">
-                        {{ moduleScopeLabel() }}
-                        <span class="module-control-row__state">{{ moduleScopeStateText(m) }}</span>
-                        <span v-if="moduleScopeReadonlyReason(m)"
-                              class="text-[10px] text-gray-500"> · {{ moduleScopeReadonlyReason(m) }}</span>
-                      </span>
-                      <label class="ctl-toggle module-toggle relative inline-flex items-center shrink-0"
-                             :class="{ 'is-saving': moduleScopePending(m), 'is-readonly': !moduleScopeCanEdit(m) }">
-                        <input type="checkbox" class="sr-only peer"
-                               data-module-scope-toggle
-                               :data-module-scope="moduleScopeIsGlobal() ? 'global' : 'chat'"
-                               :checked="moduleScopeState(m).display === true"
-                               :disabled="!moduleScopeCanEdit(m) || moduleScopePending(m)"
-                               @change="setModuleScopeState(m, $event.target.checked)"
-                               :aria-label="moduleScopeToggleAria(m)">
-                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
-                      </label>
-                    </div>
-                    <!-- Модуль без chat-scope управления: фиктивный локальный
-                         override не создаём — только честный read-only статус. -->
-                    <div v-else class="module-control-row module-control-row--readonly"
-                         data-module-scope-readonly>
-                      <span class="module-control-row__label">
-                        {{ moduleScopeLabel() }} · управляется глобально
-                        <span class="module-control-row__state">{{ moduleStateText(m) }}</span>
-                      </span>
-                    </div>
-                    <!-- Возврат к наследованию — компактное ДЕЙСТВИЕ (не тумблер),
-                         только когда override реально существует. -->
-                    <button v-if="moduleOverrideResetAvailable(m)" type="button"
-                            class="btn-ghost module-override-reset text-xs"
-                            data-module-override-reset
-                            :disabled="moduleScopePending(m)"
-                            @click="resetModuleChatOverride(m)">
-                      Наследовать глобальное
-                    </button>
-                  </div>
+                      <div class="module-control-row" @click.stop>
+                        <!-- GLOBAL scope: карточка пишет ТОЛЬКО глобальный
+                             слой (И-1); второго контрола нет. -->
+                        <template v-if="moduleScopeIsGlobal()">
+                          <span class="module-control-row__label">Весь бот</span>
+                          <label class="ctl-toggle module-toggle relative inline-flex items-center shrink-0"
+                                 :class="{ 'is-saving': moduleGlobalPendingFor(m),
+                                           'is-readonly': !moduleGlobalCanEdit(m) }">
+                            <input type="checkbox" class="sr-only peer"
+                                   data-module-global-toggle
+                                   :checked="moduleGlobalState(m).display === true"
+                                   :disabled="!moduleGlobalCanEdit(m) || moduleGlobalPendingFor(m)"
+                                   @change="setModuleGlobalState(m, $event.target.checked)"
+                                   :aria-label="moduleGlobalToggleAria(m)">
+                            <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                          </label>
+                        </template>
+                        <!-- CHAT scope: глагольный tri-state (design §7.2.1).
+                             Карточка никогда не пишет глобальный слой. -->
+                        <template v-else>
+                          <template v-if="moduleChatControlAvailable(m)">
+                            <span class="module-control-row__label"
+                                  :title="moduleChatLabel(m)">{{ moduleChatLabel(m) }}</span>
+                            <div class="module-tristate" role="group"
+                                 :aria-label="moduleChatLabel(m)">
+                              <button type="button" v-for="opt in moduleChatOptions" :key="opt.id"
+                                      class="module-tristate-btn"
+                                      :class="{ active: moduleChatCurrent(m) === opt.id }"
+                                      :aria-pressed="moduleChatCurrent(m) === opt.id"
+                                      :data-module-chat-tristate="opt.id"
+                                      :disabled="!moduleChatCanEdit(m) || moduleChatPendingFor(m)"
+                                      @click="setModuleChatTriState(m, opt.id)">{{ opt.label }}</button>
+                            </div>
+                          </template>
+                          <span v-else class="module-control-row__label"
+                                data-module-scope-readonly>
+                            В этом чате: управляется глобально
+                          </span>
+                        </template>
+                      </div>
 
-                  <!-- Эффективное состояние области + источник отличия. -->
-                  <div class="module-state text-xs" v-if="moduleEffectiveLine(m)">
-                    <span class="module-state-value">{{ moduleEffectiveLine(m) }}</span>
-                  </div>
-                  <div v-if="moduleRuntimeNotice(m)" class="module-problem text-xs">
-                    ⚠ {{ moduleRuntimeNotice(m) }}
-                  </div>
-                  <div v-if="moduleScopeErrorFor(m)" class="module-error module-status-line module-status-line--error"
-                       data-module-scope-error>
-                    {{ moduleScopeErrorFor(m) }}
-                  </div>
-                  <div v-if="moduleLastEventLine(m)" class="module-status-line">
-                    {{ moduleLastEventLine(m) }}
-                  </div>
-
-                  <!-- §7 (v2.1): единственный путь в детали. Кнопка
-                       избранного удалена вместе с концепцией. -->
-                  <div class="module-card-actions">
-                    <button class="btn-ghost module-params-btn text-xs shrink-0"
-                            @click="openModuleWorkspace(m)">Настроить</button>
-                  </div>
-                </article>
-              </div>
-              <div v-if="!filteredModules.length && !catalogLoading" class="module-empty">
-                Ничего не найдено. Измените запрос или фильтр.
+                      <div class="module-state text-xs" data-module-state
+                           :title="moduleStateText(m)">
+                        <span class="module-state-value">{{ moduleStateText(m) }}</span>
+                      </div>
+                      <div v-if="moduleChatPendingFor(m)" class="module-status-line is-saving"
+                           data-module-saving>Сохраняем…</div>
+                      <div v-if="moduleChatErrorFor(m)"
+                           class="module-status-line module-status-line--error"
+                           data-module-scope-error>{{ moduleChatErrorFor(m) }}</div>
+                    </div>
+                    <div class="module-card-footer">
+                      <span v-if="m.kind === 'infrastructure'" class="module-kind">Общий сервис</span>
+                      <span v-else-if="m.noToggle" class="module-kind">Без тумблера</span>
+                      <span class="flex-1"></span>
+                      <button class="btn-ghost module-params-btn text-xs shrink-0"
+                              data-module-open
+                              @click="openModuleWorkspace(m)">Открыть</button>
+                    </div>
+                  </article>
+                </div>
+              </section>
+              <div v-if="!moduleGroups.length && !catalogLoading" class="module-empty"
+                   data-module-empty>
+                {{ moduleFilterEmptyText }}
+                <button v-if="moduleSearch || moduleFilter !== 'all'" type="button"
+                        class="btn-ghost text-xs ml-1" data-module-clear-search
+                        @click="clearModuleSearch()">Очистить поиск</button>
               </div>
             </div>
 
@@ -8088,8 +8118,36 @@
                полное поле IANA с поиском, серверные часы (клиент не
                вычисляет зоны), offset/DST, наследование, Save/Reset. -->
           <template v-else-if="activeTab === 'mod_time'">
+            <!-- M4A (design §3.3/§4.5): policy-страница «Время» живёт в том же
+                 shell: крошка `Модули / Время`, один H1, одна фраза, честное
+                 «Без тумблера» (часы не выключаются) и checked-at. -->
+            <div v-if="workspaceModule && workspace.door === 'modules'"
+                 class="col-span-full card p-4 workspace-head"
+                 :data-module="workspaceModule.id" data-workspace-head>
+              <nav class="workspace-breadcrumb" aria-label="Хлебные крошки"
+                   data-workspace-breadcrumb>
+                <a href="#/modules" class="underline">Модули</a>
+                <span aria-hidden="true"> / </span>
+                <span>{{ workspaceModule.title }}</span>
+              </nav>
+              <div class="workspace-title-row">
+                <h1 class="workspace-h1" data-workspace-title>{{ workspaceModule.title }}</h1>
+                <span class="badge badge-muted shrink-0" data-workspace-kind>Без тумблера</span>
+              </div>
+              <div class="workspace-phrase" data-workspace-phrase>
+                {{ workspaceModule.subtitle }}
+              </div>
+              <div class="workspace-controls" data-workspace-controls
+                   data-workspace-no-toggle>
+                <span class="workspace-control__label">Без тумблера: часовой пояс — настройка контекста</span>
+              </div>
+              <div v-if="moduleCheckedAt(workspaceModule)"
+                   class="text-[10px] text-gray-500 mt-1" data-workspace-checked>
+                {{ moduleCheckedAt(workspaceModule) }}
+              </div>
+            </div>
             <div class="col-span-full card p-4" data-time-editor>
-              <div class="text-sm font-bold mb-1">Часовой пояс</div>
+              <div class="text-sm font-bold mb-1">Часовой пояс чата</div>
               <div class="text-xs text-gray-400 mb-3">
                 В этом поясе бот называет текущее время в диалоге. Одно поле
                 на выбранный чат: пустое значение — наследование общей

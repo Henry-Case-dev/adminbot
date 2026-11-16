@@ -72,6 +72,9 @@ global.Chart = function () {};
 global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
+
 assert(captured, 'Vue.createApp должен быть вызван');
 const methods = captured.methods;
 const computed = captured.computed;
@@ -125,8 +128,8 @@ function makeSaveCtx(configItems, keyDrafts) {
     assert.deepStrictEqual(data.tabs.map((t) => t.id), expectedTabs,
       'меню: состав/порядок вкладок не изменён');
     // UR-F (UR-29.1): +карточка «Время» (noToggle) → 15→16.
-    assert.strictEqual(data.modules.length, 16,
-      'меню: 16 карточек модулей (+mod_time по UR-F)');
+    assert.strictEqual(data.modules.length, 21,
+      'меню: 21 карточка модулей (DTO, M4A)');
   }
 
   // ── sentinel: SECRET_MASK / isSecretMask ───────────────────────────────

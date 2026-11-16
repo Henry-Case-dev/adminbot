@@ -52,6 +52,8 @@ global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
 assert(captured, 'Vue.createApp должен быть вызван');
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
 const data = captured.data();
 const methods = captured.methods;
 const computed = captured.computed;
@@ -117,9 +119,8 @@ function mkCoverageCtx(m) {
 (async function run() {
   // ── (a) Витрина: routeSlug + tabs ────────────────────────────────────
   {
-    // UR-F (UR-29.1): +карточка «Время» (noToggle, единая поверхность
-    // пояса) → 15→16.
-    assert.strictEqual(MODULES.length, 16, 'a: 16 модулей (+mod_time по UR-F)');
+    // M4A: 21 карточка из DTO (было 16 в статическом JS-массиве).
+    assert.strictEqual(MODULES.length, 21, 'a: 21 модуль (DTO, M4A)');
     MODULES.forEach(function (m) {
       assert.strictEqual(m.routeSlug, String(m.id).replace(/^mod_/, ''),
         'a: routeSlug = id без mod_ (' + m.id + ')');
@@ -346,8 +347,24 @@ function mkCoverageCtx(m) {
 
   // ── (g) Инвариант покрытия §9.3 ───────────────────────────────────────
   {
+    // M4A: подмодули (§6.3) — сфокусированная страница: показывают ТОЛЬКО
+    // объявленные группы, а группы родителя остаются на родительской
+    // поверхности (`#/memory/rag`/`#/permsoc`) — покрытие «все группы
+    // вкладки родителя» к ним не применяется (иначе потребовался бы второй
+    // write-point, запрещённый design).
     MODULES.forEach(function (m) {
       const cov = computed.workspaceCoverage.call(mkCoverageCtx(m));
+      if (m.submoduleOf) {
+        // Подмодуль: только свои группы (без чужих write-point'ов §6.3).
+        const own = methods._workspaceGroupsFor.call(mkCoverageCtx(m), m,
+          'settings').map(function (g) { return g.id; });
+        assert.ok(own.length > 0, 'g: подмодуль показывает свои группы (' + m.id + ')');
+        own.forEach(function (gid) {
+          assert.ok((m.settingsGroups || []).indexOf(gid) >= 0,
+            'g: подмодуль не тянет чужую группу ' + gid + ' (' + m.id + ')');
+        });
+        return;
+      }
       assert.deepStrictEqual(cov.missing, [],
         'g: все группы вкладки модуля достижимы (' + m.id + ')');
     });

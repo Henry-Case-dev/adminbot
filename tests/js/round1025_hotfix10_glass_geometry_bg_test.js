@@ -212,13 +212,20 @@ function token(name) {
     'C: подложка работы на main.scroll-area');
   assert.ok(!/margin-left:\s*-/.test(CSS) && !/margin-inline:\s*-/.test(CSS),
     'C: без отрицательных отступов');
-  // Лимит карточек 1100px сохранён.
-  assert.ok(/\.module-list \{[\s\S]{0,160}max-width:\s*1100px/.test(CSS),
-    'C: .module-list ≤1100px');
-  assert.ok(/\.module-quick-wrap \{[\s\S]{0,120}max-width:\s*1100px/.test(CSS),
-    'C: .module-quick-wrap ≤1100px');
-  assert.ok(/\.module-toolbar \{[\s\S]{0,120}max-width:\s*1100px/.test(CSS),
-    'C: .module-toolbar ≤1100px');
+  // M4A (design §4.1): потолок 1100px у каталога СНЯТ — контентная колонка
+  // = viewport − sidebar − 48, потолок 1440 на колонке; иначе 4 колонки на
+  // 1440 недостижимы (было «2 колонки в островке»).
+  assert.ok(!/\.module-list \{[\s\S]{0,160}max-width:\s*1100px/.test(CSS),
+    'C: .module-list без потолка 1100px (M4A)');
+  assert.ok(!/\.module-toolbar \{[\s\S]{0,160}max-width:\s*1100px/.test(CSS),
+    'C: .module-toolbar без потолка 1100px (M4A)');
+  assert.ok(/\.module-catalog \{[\s\S]{0,200}max-width:\s*1440px/.test(CSS),
+    'C: .module-catalog ≤1440px (контентная колонка)');
+  // Сетка 4/3/2/1 (design §4.1/§8).
+  assert.ok(/@media \(min-width: 1400px\)/.test(CSS) &&
+            /@media \(min-width: 1100px\) and \(max-width: 1399px\)/.test(CSS) &&
+            /@media \(min-width: 700px\) and \(max-width: 1099px\)/.test(CSS),
+    'C: тиры каталога 4/3/2/1 объявлены');
   // Слои 1–5: canvas позади, z-index:0.
   assert.ok(/\.aurora-flow-canvas \{[\s\S]{0,160}z-index:\s*0/.test(CSS),
     'C: фоновый canvas — слой 1 (z-index:0)');

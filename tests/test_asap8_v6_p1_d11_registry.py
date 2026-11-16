@@ -123,10 +123,13 @@ class TestD11Inventory:
     def test_no_hundred_top_level_cards(self):
         """§4.2 «не делать 100 top-level карточек»: верхнеуровневых
         (parent None) записей — ограниченный закрытый набор."""
+        # M4A (design D1): 21 карточка = 15 top-level product_module +
+        # 4 submodule (stories/character/experience/random) + infrastructure
+        # (embeddings) + maintenance (time). «100 карточек» по-прежнему нет.
         top = [spec for spec in mr.MODULE_REGISTRY.values()
                if spec.parent_id is None
                and spec.classification == "product_module"]
-        assert len(top) <= 12, f"top-level карточек стало {len(top)}"
+        assert len(top) == 15, f"top-level карточек стало {len(top)}"
 
     def test_registry_payload_for_new_modules(self):
         data = {e["id"]: e for e in mr.registry_for_frontend()}

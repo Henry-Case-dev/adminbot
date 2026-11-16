@@ -65,6 +65,8 @@ global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
 assert(captured, 'Vue.createApp должен быть вызван');
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
 const data = captured.data();
 const methods = captured.methods;
 const computed = captured.computed;
@@ -295,50 +297,78 @@ function summaryItem(extra) {
     await p;
   }
 
-  // ── (h) Счётчики §45 ─────────────────────────────────────────────────
+  // ── (h) caption + «Требуют внимания» по осям DTO (M4A §7.4/§10) ───────
   {
-    const items = MODULES.map(function (m) {
-      return item(m.toggleKey, false,
-        { global_value: false, chat_source: '' });
+    const stateOf = function (patch) {
+      return Object.assign({
+        chat_state: 'inherit', desired: true, source: 'global',
+        effective_runtime: true, ready: null, observed: null,
+        observed_at: null, last_activity_at: null, emergency_block: false,
+        reason_code: null, pending_restart: false, conflict: null,
+        checked_at: '2026-11-17T00:00:00+00:00',
+      }, patch || {});
+    };
+    const OFF = function () {
+      return stateOf({ desired: false, effective_runtime: false });
+    };
+    const mods = MODULES.map(function (m) {
+      return Object.assign({}, m, {
+        state: OFF(), permissions: { can_read: true, can_edit: true },
+      });
     });
-    items.filter(function (i) { return i.key === SUM; })[0].value = true;
-    items.filter(function (i) {
-      return i.key === 'flags.search_enabled';
-    })[0].value = null;
-    const ctx = mkCtx({ configItems: items });
-    const c = computed.moduleCounters.call(ctx);
-    // UR-F (UR-29.1): +карточка «Время» (noToggle) — входит в «Всего»,
-    // но не в on/off/issues → 15→16.
-    assert.strictEqual(c.total, 16, 'h: всего 16 (ASAP 7 F3 +mod_initiative, UR-F +mod_time noToggle)');
-    assert.strictEqual(c.on, 1, 'h: включён ровно 1');
-    assert.strictEqual(c.off, 13, 'h: выключено 13');
-    assert.strictEqual(c.issues, 1, 'h: «Есть проблемы» = 1 (неизвестное)');
-    assert.strictEqual(c.total, c.on + c.off + c.issues + 1,
-      'h: Всего = Вкл + Выкл + Проблемы + 1 noToggle («Время» по UR-F)');
+    const replace = function (id, patch) {
+      return mods.map(function (m) {
+        return m.id === id ? Object.assign({}, m, patch) : m;
+      });
+    };
+    // Компактный провод computed-зависимостей тестового ctx.
+    const wire = function (ctx) {
+      ctx.visibleModules = computed.visibleModules.call(ctx);
+      ctx.filteredModules = computed.filteredModules.call(ctx);
+      ctx.moduleAttentionCount = computed.moduleAttentionCount.call(ctx);
+      return ctx;
+    };
 
-    // noToggle: только в «Всего», не в on/off/issues
-    const synth = MODULES.concat([{ id: 'mod_synthetic', title: 'Синтетика',
-      subtitle: 'x', icon: 'grid_view', toggleKey: 'flags.nonexistent',
-      noToggle: true }]);
-    const ctx2 = mkCtx({ configItems: items, modules: synth });
-    ctx2.visibleModules = computed.visibleModules.call(ctx2);
-    const c2 = computed.moduleCounters.call(ctx2);
-    assert.strictEqual(c2.total, 17,
-      'h: noToggle входит только в «Всего» (16 + синтетика noToggle)');
-    assert.strictEqual(c2.on, 1, 'h: noToggle не в «Включено»');
-    assert.strictEqual(c2.off, 13, 'h: noToggle не в «Выключено»');
-    assert.strictEqual(c2.issues, 1, 'h: noToggle не в «Есть проблемы»');
+    let ctx = wire(mkCtx({ modules: replace('mod_summary', {
+      state: stateOf({}), permissions: { can_read: true, can_edit: true },
+    }) }));
+    assert.strictEqual(computed.moduleCatalogCaption.call(ctx),
+      '21 модуль', 'h: caption — «21 модуль · …» (все выключены, проблем 0)');
+    assert.strictEqual(computed.moduleAttentionCount.call(ctx), 0,
+      'h: «требуют внимания» = 0 (observed=null — не проблема)');
 
-    // uiFlag OFF → mod_images вне витрины, поиска и ВСЕХ счётчиков
-    const ctx3 = mkCtx({ configItems: items,
-      uiFlag: function (n) { return n !== 'IMAGE_MODULE_CARD_ENABLED'; } });
-    ctx3.visibleModules = computed.visibleModules.call(ctx3);
-    const c3 = computed.moduleCounters.call(ctx3);
-    assert.strictEqual(c3.total, 15,
-      'h: uiFlag OFF убирает карточку из «Всего» (база 16 по UR-F − mod_images)');
-    const visIds = ctx3.visibleModules.map(function (m) { return m.id; });
+    ctx = wire(mkCtx({ modules: mods.map(function (m) {
+      if (m.id !== 'mod_search') return m;
+      return Object.assign({}, m, { state: stateOf({ desired: true,
+        effective_runtime: false, ready: false,
+        reason_code: 'provider_missing:llm' }) });
+    }) }));
+    assert.strictEqual(computed.moduleAttentionCount.call(ctx), 1,
+      'h: ready=false → «требует внимания»');
+    assert.ok(computed.moduleCatalogCaption.call(ctx)
+      .indexOf('1 требуют внимания') >= 0,
+      'h: caption показывает attention');
+
+    ctx = wire(mkCtx({ modules: mods.map(function (m) {
+      if (m.id !== 'mod_web') return m;
+      return Object.assign({}, m, { state: stateOf({ desired: null,
+        source: null, effective_runtime: null }) });
+    }) }));
+    assert.strictEqual(computed.moduleAttentionCount.call(ctx), 1,
+      'h: unknown ≠ OFF, но «требует внимания»');
+    assert.strictEqual(computed.filteredModules.call(
+      Object.assign({}, ctx, { moduleFilter: 'off' }))
+      .filter(function (m) { return m.id === 'mod_web'; }).length, 0,
+      'h: unknown НЕ попадает в «Выключены»');
+
+    // uiFlag OFF → mod_images вне витрины, поиска и caption
+    const ctxOff = wire(mkCtx({ modules: mods, uiFlag: function (n) {
+      return n !== 'IMAGE_MODULE_CARD_ENABLED'; } }));
+    const visIds = ctxOff.visibleModules.map(function (m) { return m.id; });
     assert.strictEqual(visIds.indexOf('mod_images'), -1,
       'h: uiFlag OFF — вне витрины');
+    assert.strictEqual(computed.moduleCatalogCaption.call(ctxOff),
+      '20 модулей', 'h: caption считается по видимым (uiFlag OFF)');
     // §7 (v2.1): панели/списка избранного больше нет — прятать в ней нечего,
     // поэтому проверяем именно отсутствие API избранного (см. блок j).
     assert.strictEqual(computed.quickpickCandidates, undefined,
@@ -399,14 +429,15 @@ function summaryItem(extra) {
 
   // ── (k) moduleRuntimeNotice §43 ──────────────────────────────────────
   {
-    // gate='global': локально включено при глобально выключенном → не работает
+    // M4A/M2.1: `direct` объявлен per_chat (design §2.1) — локальное
+    // включение при глобальном OFF законно работает, а не «inert».
     const ctxG = mkCtx({ scopeKind: 'chat', activeChatId: -100,
       configItems: [item('flags.direct_chat_botword_enabled', true,
         { global_value: false, chat_source: 'chat' })] });
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctxG, moduleById('mod_direct')),
-      'Не работает: отключён глобально (локальное значение сохранено)',
-      'k: gate=global');
+      'Включено для этой области (глобально выключено)',
+      'k: gate=per_chat (M4A: direct честно читает чат)');
     // gate='per_chat': локально включено работает
     const ctxP = mkCtx({ scopeKind: 'chat', activeChatId: -100,
       configItems: [item('memory.dream_enabled', true,
@@ -414,14 +445,14 @@ function summaryItem(extra) {
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctxP, moduleById('mod_sleep')),
       'Включено для этой области (глобально выключено)', 'k: gate=per_chat');
-    // override выключения при gate='global' не влияет
+    // M4A: `search` тоже per_chat — выключение для чата больше не «inert»,
+    // оно реально выключает модуль в этом чате (chat_off).
     const ctxI = mkCtx({ scopeKind: 'chat', activeChatId: -100,
       configItems: [item('flags.search_enabled', false,
         { global_value: false, chat_source: 'chat' })] });
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctxI, moduleById('mod_search')),
-      'Отключение для этой области не влияет: модуль управляется глобально',
-      'k: inert override');
+      'Выключено в этом чате', 'k: chat_off override');
     // глобальная область — выключено глобально (F5 §5.2: global_off текст
     // показывается ТОЛЬКО при selected scope = global)
     const ctxGlo = mkCtx({ configItems: [summaryItem({ value: false,
@@ -440,9 +471,20 @@ function summaryItem(extra) {
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctxPar, moduleById('mod_checkup')),
       '', 'k: parentGate удалён — Summary chat OFF не мешает checkup');
+    // M4A: текст состояния — из DTO-осей; injected state доказывает, что
+    // Summary chat OFF не влияет на независимый checkup.
+    const checkupCard = Object.assign({}, moduleById('mod_checkup'), {
+      state: { chat_state: 'inherit', desired: true, source: 'global',
+        effective_runtime: true, ready: null, observed: null,
+        observed_at: null, last_activity_at: null, emergency_block: false,
+        reason_code: null, pending_restart: false, conflict: null,
+        checked_at: '2026-11-17T00:00:00+00:00' },
+      permissions: { can_read: true, can_edit: true },
+    });
     assert.strictEqual(
-      methods.moduleStateText.call(ctxPar, moduleById('mod_checkup')),
-      'Включён', 'k: checkup работает (independent)');
+      methods.moduleStateText.call(ctxPar, checkupCard),
+      'Включено · работа ещё не подтверждена',
+      'k: checkup работает (independent)');
     const ctxParG = mkCtx({ configItems: [
       item('flags.checkup_enabled', true,
         { global_value: true, chat_source: '' }),
@@ -528,7 +570,7 @@ function summaryItem(extra) {
     // Подпись области и aria-label берутся из одного источника.
     assert.strictEqual(methods.moduleScopeLabel.call(
       Object.assign({}, methods, { scopeKind: 'global' })),
-      'Глобально', 'l2: подпись глобальной области');
+      'Весь бот', 'l2: подпись глобальной области');
     assert.strictEqual(methods.moduleScopeLabel.call(
       Object.assign({}, methods, { scopeKind: 'chat' })),
       'В этом чате', 'l2: подпись области чата');
@@ -541,8 +583,13 @@ function summaryItem(extra) {
     const gctx2 = mkCtx({ scopeKind: 'chat', activeChatId: -100 });
     assert.strictEqual(methods.moduleScopeToggleAvailable.call(gctx2, gOnly),
       false, 'l2: у global-only модуля в чате тумблера нет (read-only строка)');
-    assert.strictEqual((INDEX.match(/data-module-scope-toggle/g) || []).length, 1,
-      'l2: тумблер ровно один на шаблон карточки');
+    // И-1/M4A: карточка несёт ОДИН контрол на свою область — GLOBAL-тумблер
+    // в global scope и CHAT tri-state в чате (второго одновременного нет).
+    assert.strictEqual((INDEX.match(/data-module-global-toggle/g) || []).length,
+      1, 'l2: GLOBAL-тумблер ровно один на шаблон карточки');
+    assert.strictEqual(
+      (INDEX.match(/data-module-chat-tristate=/g) || []).length, 1,
+      'l2: CHAT tri-state ровно один на шаблон карточки');
   }
 
   // ── (m) refresh/subscribe/openModuleWorkspace ────────────────────────
@@ -613,9 +660,38 @@ function summaryItem(extra) {
     assert.strictEqual(st.globalValue, false, 'o: глобально выключен');
     assert.strictEqual(st.runtime, 'on',
       'o: B06.1 — gate=per_chat + global OFF + effective ON → работает');
+    // M4A И-2: человеческий текст — из ОСЕЙ DTO, а не из configItems.
+    const summaryState = {
+      chat_state: 'on', desired: true, source: 'chat',
+      effective_runtime: true, ready: null, observed: null,
+      observed_at: null, last_activity_at: null, emergency_block: false,
+      reason_code: null, pending_restart: false, conflict: null,
+      checked_at: '2026-11-17T00:00:00+00:00',
+    };
+    const summaryCard = Object.assign({}, moduleById('mod_summary'), {
+      state: summaryState,
+      permissions: { can_read: true, can_edit: true },
+    });
     assert.strictEqual(
-      methods.moduleStateText.call(ctx, moduleById('mod_summary')),
-      'Включён', 'o: текст фактического состояния');
+      methods.moduleStateText.call(ctx, summaryCard),
+      'Включено · работа ещё не подтверждена',
+      'o: desired=true, observed=null — нейтрально, не «Работает»');
+    assert.strictEqual(
+      methods.moduleStateText.call(ctx, Object.assign({}, summaryCard, {
+        state: Object.assign({}, summaryState, { desired: false,
+          effective_runtime: false }) })),
+      'Выключено', 'o: desired=false → «Выключено» независимо от ready');
+    assert.strictEqual(
+      methods.moduleStateText.call(ctx, Object.assign({}, summaryCard, {
+        state: Object.assign({}, summaryState, { ready: false,
+          reason_code: 'provider_missing:llm' }) })),
+      'Включено · сейчас не работает: нет провайдера',
+      'o: ready=false → человеческая причина');
+    assert.strictEqual(
+      methods.moduleStateText.call(ctx, Object.assign({}, summaryCard, {
+        state: Object.assign({}, summaryState, { desired: null,
+          source: null, effective_runtime: null }) })),
+      'Состояние неизвестно', 'o: unknown ≠ OFF');
     // Честный резолв: источник — настройки чата, глобально выключено.
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctx, moduleById('mod_summary')),
@@ -625,28 +701,35 @@ function summaryItem(extra) {
       methods.moduleSourceText.call(ctx, moduleById('mod_summary')),
       'Источник: настройки чата', 'o: источник — chat override');
 
-    // §45: счётчики честны — чат-включённый Summary в «Включено».
-    const c = computed.moduleCounters.call(ctx);
-    assert.strictEqual(c.on, 1, 'o: chat-ON при global OFF — в «Включено»');
-    assert.strictEqual(c.off, 14,
-      'o: остальные выключены (ASAP 7 F3: база 15)');
-    assert.strictEqual(c.issues, 0, 'o: конфликтов больше нет');
-    // UR-F (UR-29.1): «Время» — noToggle, в on/off/issues не входит,
-    // поэтому инвариант = Вкл + Выкл + Проблемы (+1 noToggle).
-    assert.strictEqual(c.total, c.on + c.off + c.issues + 1,
-      'o: инвариант Всего = Вкл + Выкл + Проблемы + noToggle «Время»');
+    // §45/M4A: caption и фильтры честны — DTO-оси, не догадка.
+    const modsWithStates = MODULES.map(function (m) {
+      return Object.assign({}, m, {
+        state: Object.assign({}, summaryState, {
+          desired: m.id === 'mod_summary' ? true : false,
+          effective_runtime: m.id === 'mod_summary' ? true : false,
+        }),
+        permissions: { can_read: true, can_edit: true },
+      });
+    });
+    const stateCtx = mkCtx({ modules: modsWithStates });
+    stateCtx.visibleModules = computed.visibleModules.call(stateCtx);
+    stateCtx.filteredModules = computed.filteredModules.call(stateCtx);
+    assert.strictEqual(computed.moduleAttentionCount.call(stateCtx), 0,
+      'o: chat-ON при global OFF — не проблема');
+    assert.ok(computed.moduleCatalogCaption.call(stateCtx)
+      .indexOf('21 модуль') === 0, 'o: caption — по видимым модулям');
 
-    // Фильтры: «Включённые» включают Summary; «Есть проблемы» — нет.
+    // Фильтры: «Включены» включают Summary; «Требуют внимания» — нет.
     const idsFor = function (f) {
-      return computed.filteredModules.call(mkConflict({ moduleFilter: f }))
-        .map(function (m) { return m.id; });
+      return computed.filteredModules.call(Object.assign({}, stateCtx,
+        { moduleFilter: f })).map(function (m) { return m.id; });
     };
     assert.ok(idsFor('on').indexOf('mod_summary') >= 0,
-      'o: фильтр «Включённые» включает chat-override');
+      'o: фильтр «Включены» включает chat-override');
     assert.strictEqual(idsFor('issues').indexOf('mod_summary'), -1,
-      'o: фильтр «Есть проблемы» не выдумывает проблему');
+      'o: фильтр «Требуют внимания» не выдумывает проблему');
     assert.strictEqual(idsFor('off').indexOf('mod_summary'), -1,
-      'o: фильтр «Выключенные» исключает включённый');
+      'o: фильтр «Выключены» исключает включённый');
 
     // F4-M1 (blocked) сохраняется для реально global-only карточек:
     // Direct локально включён при глобально выключенном — не работает.
@@ -667,14 +750,14 @@ function summaryItem(extra) {
     assert.strictEqual(
       methods.getModuleState.call(
         ctxDir, { type: 'chat', id: -100 }, 'mod_direct').runtime,
-      'blocked', 'o: gate=global + global OFF + local ON → blocked (Direct)');
+      'on', 'o: per_chat override работает (M2.1) — Direct честно чатовый');
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctxDir, moduleById('mod_direct')),
-      'Не работает: отключён глобально (локальное значение сохранено)',
-      'o: notice blocked-семантики у global-only');
+      'Включено для этой области (глобально выключено)',
+      'o: notice per_chat-резолва (не blocked)');
     assert.strictEqual(
       methods.moduleChatToggleReadonly.call(ctxDir, moduleById('mod_direct')),
-      true, 'o: B06.2 — Direct на чат-scope read-only');
+      false, 'o: M2.1 — Direct на чат-scope управляем');
     assert.strictEqual(
       methods.moduleChatToggleReadonly.call(ctxDir, moduleById('mod_summary')),
       false, 'o: B06.2 — Summary на чат-scope активен');
@@ -694,10 +777,31 @@ function summaryItem(extra) {
       '', 'o: негатив — глобально и локально ON — без пометки');
     assert.strictEqual(
       methods.moduleStateText.call(ok, moduleById('mod_summary')),
-      'Включён', 'o: negative — текст «Включён»');
-    const cOk = computed.moduleCounters.call(ok);
-    assert.strictEqual(cOk.on, 1, 'o: negative — в «Включено»');
-    assert.strictEqual(cOk.issues, 0, 'o: negative — нет проблем');
+      'Состояние неизвестно', 'o: negative — без DTO-осей состояние неизвестно');
+    // M4A: «Работает» — только при подтверждённом observed (И-2 п.6).
+    const okCard = Object.assign({}, moduleById('mod_summary'), {
+      state: Object.assign({}, summaryState, { desired: true,
+        effective_runtime: true, observed: true,
+        last_activity_at: '2026-11-17T12:00:00+00:00' }),
+      permissions: { can_read: true, can_edit: true },
+    });
+    assert.strictEqual(methods.moduleStateText.call(ok, okCard),
+      'Работает', 'o: negative — observed=true → «Работает»');
+    ok.filteredModules = computed.filteredModules.call(ok);
+    // M4A: «нет проблем» проверяем на DTO-осях (unknown ≠ нет проблемы).
+    const healthy = MODULES.map(function (m) {
+      return Object.assign({}, m, {
+        state: Object.assign({}, summaryState, {
+          desired: true, effective_runtime: true, observed: true,
+        }),
+        permissions: { can_read: true, can_edit: true },
+      });
+    });
+    const healthyCtx = mkCtx({ modules: healthy });
+    healthyCtx.visibleModules = computed.visibleModules.call(healthyCtx);
+    healthyCtx.filteredModules = computed.filteredModules.call(healthyCtx);
+    assert.strictEqual(computed.moduleAttentionCount.call(healthyCtx), 0,
+      'o: negative — нет проблем (все оси подтверждены)');
 
     // gate='per_chat': локальный override работает и при глобально OFF.
     const perChat = mkCtx({ scopeKind: 'chat', activeChatId: -100,

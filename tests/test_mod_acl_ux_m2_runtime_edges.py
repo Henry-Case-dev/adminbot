@@ -410,12 +410,22 @@ def test_every_legacy_write_path_stores_explicit_bool():
 # ═══ MAC-S10-14: «Время» без тумблера, timezone у всех потребителей ═════════
 
 def test_time_has_no_product_toggle():
-    """«Время» — настройка контекста, а не выключаемая способность."""
+    """«Время» — настройка контекста, а не выключаемая способность.
+
+    MOD-ACL-UX-01 M4A (design §2.1/§2.5): карточка «Время» теперь объявлена
+    в реестре, но БЕЗ master-тумблера: `master_param=""` и явный «no master»
+    в rationale; единственная ось — `scope_capability=limits.chat_timezone`
+    (policy-поле, не bool)."""
     from services import module_registry
     from services import param_catalog as pc
     for spec in module_registry.MODULE_REGISTRY.values():
-        joined = f"{spec.id} {spec.master_param}".lower()
-        assert "timezone" not in joined and joined.strip() != "time", spec.id
+        # Ни у одного модуля timezone не является выключаемым мастером.
+        assert "timezone" not in spec.master_param.lower(), spec.id
+        if spec.id == "time":
+            assert spec.master_param == "", "у «Времени» нет мастер-тумблера"
+            assert "no master" in spec.rationale.lower()
+    time_spec = module_registry.MODULE_REGISTRY["time"]
+    assert time_spec.scope_capability == "limits.chat_timezone"
     spec = pc.get_by_pg_key("limits.chat_timezone")
     assert spec is not None
     assert spec.type == "str"          # пояс, а не bool-тумблер

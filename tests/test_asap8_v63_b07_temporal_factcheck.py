@@ -276,10 +276,13 @@ class TestNotAModuleCard:
                 fromlist=["PROCESS_REGISTRY"]).PROCESS_REGISTRY}
 
     def test_no_new_top_level_card_added(self):
+        """M4A: канонический состав — 21 карточка (design D1), из них
+        ровно 15 top-level product_module; остальные — 4 submodule,
+        infrastructure (embeddings) и policy (time). «100 карточек» нет."""
         top = [spec for spec in mr.MODULE_REGISTRY.values()
                if spec.parent_id is None
                and spec.classification == "product_module"]
-        assert len(top) <= 12
+        assert len(top) == 15, sorted(s.id for s in top)
 
     def test_factcheck_off_blocks_tool_not_direct(self):
         """Выключение Factcheck: tool fact_check скрыт (функция блокирована),

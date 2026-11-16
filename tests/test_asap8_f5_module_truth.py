@@ -306,12 +306,17 @@ _UNRELATED_MODULE_IDS = ("mod_direct", "mod_factcheck", "mod_search",
 def test_m1_no_parent_gate_on_unrelated_modules():
     """§18H(1)/M1: у 7 unrelated карточек нет parentGate
     (flags.summary_enabled) — все independent (ТЗ §11.3)."""
-    assert APP_JS.count("parentGate: 'flags.summary_enabled'") == 0
-    mods = APP_JS[APP_JS.index("var MODULES = ["):APP_JS.index("];", APP_JS.index("var MODULES = ["))]
-    assert "parentGate:" not in mods
+    # M4A (design D2): статического MODULES нет — parentGate не объявляется
+    # как поле карточки (в комментариях слово встречается — это не объявление).
+    assert "parentGate: 'flags." not in APP_JS
+    assert "var MODULES = [" not in APP_JS
+    from services import module_registry as mr
+    dto = {row["id"]: row for row in mr.registry_for_frontend()}
     for mid in _UNRELATED_MODULE_IDS:
-        entry = [l for l in mods.splitlines() if f"id: '{mid}'" in l]
-        assert entry, mid
+        slug = mid[len("mod_"):] if mid.startswith("mod_") else mid
+        assert slug in dto, mid
+        assert dto[slug]["parent_id"] is None, mid
+        assert "parentGate" not in dto[slug], mid
 
 
 def test_m3_reason_model_enum_present():
@@ -485,7 +490,12 @@ def test_m6_registry_runtime_text_consistent():
     spec = mr.MODULE_REGISTRY["experience"]
     assert spec.master_param == "memory.experience_learning_enabled"
     assert spec.runtime_gate == "per_chat"
-    assert "по чатам" in spec.description
+    # M4A (copy-inventory §1/§7: технические термины — вне карточки):
+    # описание — одно предложение; scope-факт живёт в rationale.
+    assert spec.description == (
+        "Запоминает удачные и неудачные действия и использует "
+        "проверенные выводы.")
+    assert "per_chat" in spec.rationale or "чат" in spec.rationale
     from services import param_catalog as pc
     cspec = pc.get_by_pg_key("memory.experience_learning_enabled")
     assert cspec is not None and cspec.category == "memory"

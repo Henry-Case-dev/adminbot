@@ -54,6 +54,8 @@ global.Chart = function () {};
 global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
 const data = captured.data();
 const methods = captured.methods;
 const computed = captured.computed;

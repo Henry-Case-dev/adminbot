@@ -497,6 +497,137 @@ async def me(request: Request, user: Annotated[WebAppUser, Depends(get_tma_user)
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
+def _module_global_state(spec, cache: ConfigCache) -> dict:
+    """MOD-ACL-UX-01 M4A (design §6.2 п.2/§5): состояние оси для GLOBAL scope.
+
+    Источник — существующий `gate_snapshot` (master `hot.get` + PRODUCT_DEFAULTS
+    + env-ось) и `cache.get_updated_at` (есть ли явная глобальная строка).
+    `ready`/`observed` = None: на глобальном слое эти оси не оценивались и
+    показывать «Норма»/«Работает» было бы ложью (invariant И-2). `desired=None`
+    (нет master-оси: «Время», chat-use «Векторной памяти») — честное «неизвестно»,
+    а не «выключено».
+    """
+    from services import module_registry as registry
+    snapshot = registry.gate_snapshot(spec.id)
+    master = spec.master_param
+    desired: bool | None = None
+    source: str | None = None
+    if master:
+        desired = bool(hot.get(master, registry.PRODUCT_DEFAULTS.get(master,
+                                                                   True)))
+        source = ("global" if cache.get_updated_at(master) is not None
+                  else "default")
+    elif spec.scope_capability and spec.runtime_gate == "per_chat" \
+            and spec.id != "embeddings":
+        # chat-use ключ не является глобальным слоем: на GLOBAL scope его
+        # значение не читается (иначе показали бы чужую ось как master).
+        desired = None
+    return {
+        "capability": spec.id,
+        "key": master,
+        "domain": "gate" if spec.gate_feature else "override",
+        "chat_id": None,
+        "chat_state": None,
+        "desired": desired,
+        "source": source,
+        "global_value": desired,
+        "global_source": source,
+        "emergency_block": not bool(snapshot.get("env_enabled", True)),
+        "effective_runtime": (None if desired is None
+                              else bool(snapshot.get("effective"))),
+        "ready": None,
+        "authorized": None,
+        "observed": None,
+        "observed_at": None,
+        "last_activity_at": None,
+        "reason_code": None,
+        "pending_restart": False,
+        "version": None,
+        "consent": None,
+        "conflict": None,
+    }
+
+
+async def _module_states_for_config(
+    *, chat_id: int | None, chat_root: dict, ctx, cache: ConfigCache,
+    user_id: int, db_overrides: dict,
+) -> dict:
+    """MOD-ACL-UX-01 M4A (design §6.2 п.2–4): состояния/права всех карточек.
+
+    Единственные источники: `feature_gates.gate_state` (gate-домен
+    dream/nostalgia), `chat_params.resolve_module_capability` (per_chat +
+    master), `resolve_param_capability` (chat-use «Векторной памяти»),
+    `gate_snapshot` (GLOBAL). `permissions` считаются ТЕМИ ЖЕ guard'ами, что и
+    запись — новых ACL-функций нет. Никакого второго чтения chat_root.
+    """
+    from services import feature_gates as fc
+    from services import module_registry as registry
+    states: dict = {}
+    # design §5/И-4: `checked_at` — момент ЭТОГО снимка (не «последняя
+    # активность»); UI подписывает его «Проверено:».
+    checked_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    for mid, spec in registry.MODULE_REGISTRY.items():
+        if spec.visibility == "hidden":
+            continue
+        state = None
+        if chat_id is not None:
+            if spec.gate_feature:
+                state = await fc.gate_state(
+                    chat_id, spec.gate_feature, root=chat_root, ctx=ctx,
+                    with_readiness=True, with_observation=True)
+            elif spec.id == "embeddings":
+                state = await chat_params.resolve_param_capability(
+                    chat_id, "flags.memory_search_enabled",
+                    capability="embeddings",
+                    default=registry.PRODUCT_DEFAULTS.get(
+                        "flags.memory_search_enabled", True),
+                    root=chat_root, with_observation=True)
+            elif spec.runtime_gate == "per_chat" and spec.master_param:
+                state = await chat_params.resolve_module_capability(
+                    chat_id, mid, root=chat_root, with_observation=True)
+        state_dict = (state.as_dict() if state is not None
+                      else _module_global_state(spec, cache))
+        # ── permissions: те же guard'ы, что и запись (design §6.2 п.2) ──
+        can_read: bool | None
+        can_edit: bool | None
+        key = spec.master_param or spec.scope_capability
+        if chat_id is not None:
+            if spec.gate_feature:
+                can_read, can_edit = fc.gate_authorization(
+                    ctx, spec.gate_feature, chat_id)
+            elif spec.id == "time":
+                matrix = access_srv.effective_matrix(
+                    "limits.chat_timezone", db_overrides.get(
+                        "limits.chat_timezone"), None)
+                can_read = bool(ctx is not None
+                                and access_srv.can_access_chat(ctx, chat_id))
+                can_edit = bool(access_srv.can_edit_param(ctx, matrix))
+            elif key:
+                matrix = access_srv.effective_matrix(
+                    key, db_overrides.get(key),
+                    (chat_root.get("perm_overrides") or {}).get(key))
+                can_read = bool(access_srv.can_view_param(ctx, matrix))
+                can_edit = bool(access_srv.can_edit_param(ctx, matrix))
+            else:
+                can_read = bool(ctx is not None)
+                can_edit = False
+        elif spec.id == "time":
+            # «Время» — чатовая policy-страница: глобального контрола нет.
+            can_read = True
+            can_edit = False
+        elif spec.master_param:
+            can_read = True          # master-ключи не секреты
+            can_edit = bool(can_edit_param(cache, user_id, spec.master_param))
+        else:
+            can_read = True
+            can_edit = False
+        state_dict["can_read"] = can_read
+        state_dict["can_edit"] = can_edit
+        state_dict["checked_at"] = checked_at
+        states[mid] = state_dict
+    return states
+
+
 @api_router.get("/config")
 async def get_config(
     request: Request,
@@ -669,22 +800,19 @@ async def get_config(
     # витрина показывала бы глобальный requested/effective и расходилась с
     # фактическим поведением (E-инвентарь: ни один читатель не решает сам).
     module_states: dict = {}
-    if chat_id is not None:
+    if chat_id is not None or ctx is not None:
         try:
-            from services import module_registry as _registry
-            for _mid, _spec in _registry.MODULE_REGISTRY.items():
-                if _spec.runtime_gate != "per_chat" or not _spec.master_param:
-                    continue
-                _state = await chat_params.resolve_module_capability(
-                    chat_id, _mid, root=chat_root, with_observation=True)
-                if _state is not None:
-                    module_states[_mid] = _state.as_dict()
+            module_states = await _module_states_for_config(
+                chat_id=chat_id, chat_root=chat_root, ctx=ctx, cache=cache,
+                user_id=user.id, db_overrides=db_overrides)
         except Exception:          # pragma: no cover — fail-open
+            logger.warning("[api] module states failed", exc_info=True)
             module_states = {}
     try:
         from services.module_registry import registry_for_frontend
         out["modules"] = registry_for_frontend(module_states)
     except Exception:          # pragma: no cover — fail-open (fallback JS)
+        logger.warning("[api] module registry failed", exc_info=True)
         out["modules"] = []
     if chat_id is not None:
         out["chat_id"] = chat_id

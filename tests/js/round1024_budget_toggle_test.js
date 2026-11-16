@@ -70,14 +70,17 @@ global.Chart = function () {};
 global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
+
 assert(captured, 'Vue.createApp должен быть вызван');
 const data = captured.data();
 
 // 1) Карточка «Бюджеты» — рабочий мастер-тумблер.
 const card = data.modules.filter((m) => m.id === 'mod_budgets')[0];
 assert(card, 'карточка mod_budgets должна присутствовать');
-assert.strictEqual(card.noToggle, undefined,
-  'F21: у mod_budgets не должно быть noToggle');
+assert.strictEqual(card.noToggle, false,
+  'F21: у mod_budgets есть рабочий мастер-тумблер (noToggle=false)');
 assert.strictEqual(card.toggleKey, 'flags.budgets_enabled',
   'F21: toggleKey = flags.budgets_enabled');
 
@@ -85,8 +88,8 @@ assert.strictEqual(card.toggleKey, 'flags.budgets_enabled',
 // MCA-19 (10.43, ADR-1028-19 D16) санкционировал +1 карточку → 13→14.
 // UR-F (UR-29.1/UR-24.2) санкционировал +1 карточку «Время» (noToggle,
 // единая поверхность пояса) → 15→16.
-assert.strictEqual(data.modules.length, 16,
-  'карточек модулей — 16 (+mod_time по UR-F)');
+assert.strictEqual(data.modules.length, 21,
+  'карточек модулей — 21 (каталог из DTO, M4A)');
 
 // 2) Вкладка mod_budgets получила источник flags_module_budgets.
 const tab = data.tabs.filter((t) => t.id === 'mod_budgets')[0];

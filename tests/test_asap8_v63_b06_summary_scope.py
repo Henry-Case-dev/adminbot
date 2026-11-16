@@ -388,15 +388,23 @@ class TestCatalogRuntimeMatrix:
 
     def test_runtime_reads_match_per_chat_contract(self):
         """Ключи-перечень B06.2: per_chat-ключ, реально читаемый
-        резолвером чата (Summary), и global-only оси (module_registry
-        runtime_gate) — расхождение чтения закрыто."""
+        резолвером чата (Summary), и честный runtime_gate
+
+        MOD-ACL-UX-01 M4A (design §2.1/§6.2): после M2.1 продуктовые
+        модули (factcheck/vision/nostalgia/sleep/initiative) объявлены
+        `per_chat` — их runtime читает чат; `factcheck_temporal` остаётся
+        hidden/global (функция Фактчека, не карточка)."""
         assert sched.summary_global_default.__name__ == \
             "summary_global_default"
         from services import module_registry as mr
         for module_id in ("factcheck", "vision", "nostalgia", "sleep",
-                          "initiative", "factcheck_temporal"):
+                          "initiative"):
             spec = mr.MODULE_REGISTRY[module_id]
-            assert spec.runtime_gate == "global", module_id
+            assert spec.runtime_gate == "per_chat", module_id
+            assert spec.scope_capability or spec.gate_feature, module_id
+        assert mr.MODULE_REGISTRY["factcheck_temporal"].runtime_gate == \
+            "global"
+        assert mr.MODULE_REGISTRY["factcheck_temporal"].visibility == "hidden"
 
     def test_temporal_tool_toggle_read_through_hot(self, monkeypatch):
         """B07.2/B06.2: runtime-чтение temporal.tool_enabled идёт через

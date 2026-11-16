@@ -310,7 +310,8 @@ def test_m4_broken_product_module_is_red():
     base = dict(
         id="broken", title="X", parent_id=None, description="x",
         runtime_gate="global", settings_groups=(), status_source="s",
-        help_anchor="h")
+        help_anchor="h", rationale="r", catalog_group="communication",
+        catalog_order=1)
 
     def spec_with(**kw):
         params = dict(base)
@@ -347,6 +348,22 @@ def test_m4_broken_product_module_is_red():
                                       classification="wat",
                                       rationale="no master: x"))
     assert any("classification" in e for e in errs)
+    # M4A: presentation/оси — закрытые значения и допустимые домены
+    errs = mr.validate_spec(spec_with(master_param="",
+                                      classification="submodule",
+                                      rationale="no master: x",
+                                      catalog_group="nowhere"))
+    assert any("catalog_group" in e for e in errs)
+    errs = mr.validate_spec(spec_with(master_param="",
+                                      classification="submodule",
+                                      rationale="no master: x",
+                                      gate_feature="not_a_gate"))
+    assert any("gate_feature" in e for e in errs)
+    errs = mr.validate_spec(spec_with(master_param="",
+                                      classification="submodule",
+                                      rationale="no master: x",
+                                      history_source="made.up"))
+    assert any("history_source" in e for e in errs)
 
 
 # ═══ Фронт: подкарточки рендерятся из реестра (f3ApplyModuleRegistry) ═══════
@@ -355,9 +372,12 @@ def test_js_submodule_cards_via_registry():
     js = APP_JS.read_text(encoding="utf-8")
     # F4-ветка подмодулей в merge-механике F3 (каркас не сломан)
     assert "f3ApplyModuleRegistry" in js
-    assert "submoduleOf: spec.parent_id" in js
+    # M4A (design D2): карточки строятся из DTO; presentation-иконки — карта,
+    # а не статический массив MODULES.
+    assert "submoduleOf: spec.parent_id || null" in js
     assert "settingsGroups: Array.isArray(spec.settings_groups)" in js
-    assert "F4_ICONS" in js
+    assert "MODULE_ICONS" in js
+    assert "var MODULES = [" not in js
     # «только свои ключи»: фильтр групп у подмодулей
     assert "allow.indexOf(g.id) < 0" in js
     # честный гейт подмодуля на «Обзоре»

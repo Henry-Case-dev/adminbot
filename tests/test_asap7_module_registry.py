@@ -337,17 +337,23 @@ def test_registry_for_frontend_shape():
 
 
 def test_js_module_card_registered():
-    """JS-витрина содержит карточку mod_initiative (fallback-путь миграции
-    §3.1), а реестр — каноническую запись initiative."""
+    """JS-витрина больше НЕ содержит статическую карточку mod_initiative:
+    единственный источник каталога — DTO реестра (M4A design D2). Проверяем,
+    что JS строит карточку ИЗ полей реестра и оставляет presentation-map."""
     js = APP_JS.read_text(encoding="utf-8")
-    assert "id: 'mod_initiative'" in js
-    assert "toggleKey: 'flags.initiative_enabled'" in js
+    assert "var MODULES = [" not in js, (
+        "M4A: JS-копия каталога удалена (MODULES) — карточка из DTO")
+    assert "toggleKey: 'flags.initiative_enabled'" not in js, (
+        "M4A: master-ключ карточки берётся из DTO (spec.master_param)")
+    assert "f3ApplyModuleRegistry: function (modules)" in js
+    assert "toggleKey: spec.master_param || null" in js
+    assert "catalogGroup: spec.catalog_group" in js
+    assert "catalogOrder: spec.catalog_order" in js
+    # presentation-map вкладок сохранён (не реестр модулей):
     assert "mod_initiative: ['overview', 'text', 'memes', 'publications',\n                     'diagnostics']" in js
     # зеркала config-вкладки (TABS sources + порядок матрицы прав + иконка)
     assert "flags_intent" in js and "limits_intent" in js
     assert re.search(r"\{\s*id:\s*'mod_initiative',\s*icon:\s*'bolt'", js)
     assert "'mod_initiative'," in js      # TAB_SECTION_ORDER
     assert "mod_initiative: 'bolt'" in js  # TAB_ICON
-    # merge-механика реестра присутствует (аддитивный путь для F4)
-    assert "f3ApplyModuleRegistry" in js
     assert "data.modules" in js

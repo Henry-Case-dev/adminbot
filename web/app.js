@@ -597,123 +597,100 @@
   // Summary больше не bootstrap-master: роутеры 0a–0i регистрируются всегда,
   // фича-гейты — на своих границах исполнения). Механика `parentGate`
   // сохранена как parent_off (зарезервировано; сейчас не используется).
-  var MODULES = [
-    { id: 'mod_summary', title: 'Сводки чатов',
-      subtitle: 'Пересказы разговоров и каналов', icon: 'description',
-      toggleKey: 'flags.summary_enabled', tab: 'mod_summary',
-      // ASAP 8 v6.3 B06.1: Summary — per-chat-operable (единый резолвер
-      // services/summary_scheduler.summary_effective_enabled: emergency env
-      // → явный chat override `flags.summary_enabled` → global default).
-      // Локальный OFF глушит сводки только этого чата; явный chat ON при
-      // global OFF разрешает чат (если emergency не заблокирован).
-      runtimeGate: 'per_chat',
-      keywords: ['саммари', 'саммаризация', 'сводка', 'сводки', 'суммаризация',
-                 'summary', 'пересказ', 'пересказы'] },
-    { id: 'mod_direct', title: 'Ответы в чате',
-      subtitle: 'Ответы бота на обращения', icon: 'smart_toy',
-      toggleKey: 'flags.direct_chat_botword_enabled', tab: 'mod_direct',
-      runtimeGate: 'global',
-      keywords: ['ответы', 'ответы в чате', 'прямые ответы', 'direct',
-                 'botword', 'реплай', 'reply', 'бот'] },
-    { id: 'mod_factcheck', title: 'Фактчек',
-      subtitle: 'Проверка фактов', icon: 'radar',
-      toggleKey: 'flags.factcheck_enabled', tab: 'mod_factcheck',
-      runtimeGate: 'global',
-      keywords: ['фактчек', 'фактчекинг', 'факты', 'проверка фактов',
-                 'factcheck', 'check'] },
-    { id: 'mod_search', title: 'Поиск',
-      subtitle: 'Интернет-поиск', icon: 'grid_view',
-      toggleKey: 'flags.search_enabled', tab: 'mod_search',
-      runtimeGate: 'global',
-      keywords: ['поиск', 'найди', 'загугли', 'интернет', 'search', 'google',
-                 'гугл'] },
-    { id: 'mod_transcribe', title: 'Транскрипт голосовых и видео',
-      subtitle: 'Распознавание речи', icon: 'play_circle',
-      toggleKey: 'flags.enable_voice_transcription', tab: 'mod_transcribe',
-      runtimeGate: 'global',
-      keywords: ['транскрипт', 'транскрибация', 'голосовые', 'распознавание',
-                 'speech', 'stt', 'voice'] },
-    { id: 'mod_video_summary', title: 'Выжимка видео',
-      subtitle: 'Пересказ видео', icon: 'play_circle',
-      toggleKey: 'flags.video_summary_enabled', tab: 'mod_video_summary',
-      runtimeGate: 'global',
-      keywords: ['выжимка', 'видео', 'ютуб', 'youtube', 'video', 'пересказ'] },
-    { id: 'mod_media_download', title: 'Скачивание медиа',
-      subtitle: 'Скачивание видео по ссылке', icon: 'cloud',
-      toggleKey: 'flags.download_enabled', tab: 'mod_media_download',
-      runtimeGate: 'global',
-      keywords: ['скачивание', 'медиа', 'download', 'видео', 'файлы'] },
-    { id: 'mod_web', title: 'Веб-страницы',
-      subtitle: 'Пересказ страниц', icon: 'auto_stories',
-      toggleKey: 'flags.webpage_enabled', tab: 'mod_web',
-      runtimeGate: 'global',
-      keywords: ['веб', 'веб-страницы', 'страницы', 'web', 'webpage', 'url'] },
-    { id: 'mod_checkup', title: 'Диагностика',
-      subtitle: 'Чекап, метрики и логи', icon: 'monitoring',
-      toggleKey: 'flags.checkup_enabled', tab: 'mod_checkup',
-      runtimeGate: 'global',
-      keywords: ['диагностика', 'чекап', 'метрики', 'логи', 'checkup',
-                 'status'] },
-    { id: 'mod_sleep', title: 'Сон',
-      subtitle: 'Синтез убеждений', icon: 'bedtime',
-      toggleKey: 'memory.dream_enabled', tab: 'mod_sleep',
-      runtimeGate: 'per_chat',
-      keywords: ['сон', 'сны', 'синтез', 'убеждения', 'dream', 'beliefs'] },
-    { id: 'mod_nostalgia', title: 'Ностальгия',
-      subtitle: '«Кстати…» по старым сообщениям', icon: 'history',
-      toggleKey: 'memory.nostalgia_enabled', tab: 'mod_nostalgia',
-      runtimeGate: 'per_chat',
-      keywords: ['ностальгия', 'nostalgia', 'кстати', 'старые сообщения'] },
-    // F3 (10.19, ADR-1019-3 D1): «Бюджеты» — карточка с параметрами раздела
-    // (mod_budgets), внутри — тумблер «Безлимит по чату».
-    // F21 (10.24, ADR-1024-22 D7): master-тумблер бюджетов (снят noToggle);
-    // сохранение — штатным saveConfigItem (global/per-chat через X-Chat-Id).
-    { id: 'mod_budgets', title: 'Бюджеты',
-      subtitle: 'Лимиты интеллекта и фона, безлимит по чату',
-      icon: 'receipt_long', toggleKey: 'flags.budgets_enabled',
-      tab: 'mod_budgets', runtimeGate: 'per_chat',
-      keywords: ['бюджеты', 'бюджет', 'лимиты', 'безлимит', 'budget',
-                 'токены'] },
-    // F5 (10.24, ADR-1024-9 D1/D4): отдельная карточка «Генерация
-    // изображений» с главным тумблером (default ON); гейт видимости —
-    // uiFlag('IMAGE_MODULE_CARD_ENABLED') в computed `visibleModules`.
-    { id: 'mod_images', title: 'Генерация изображений',
-      subtitle: 'Рисунки по просьбе', icon: 'grid_view',
-      toggleKey: 'flags.image_generation_module_enabled', tab: 'mod_images',
-      runtimeGate: 'per_chat',
-      keywords: ['изображения', 'картинки', 'рисунки', 'генерация', 'image',
-                 'generation'] },
-    // MCA-19 (10.43, ADR-1028-19 D16/D17): карточка модуля «Распознавание
-    // изображений» — в существующем списке модулей; requested (тумблер
-    // владельца) отдельно от effective-статуса (resolve_effective_state,
-    // показ — Wave 2 «Аналитика»/диагностика).
-    { id: 'mod_vision', title: 'Распознавание изображений',
-      subtitle: 'Читает текст и описание картинок', icon: 'visibility',
-      toggleKey: 'flags.vision_enabled', tab: 'mod_vision',
-      runtimeGate: 'per_chat',
-      keywords: ['распознавание', 'изображения', 'картинки', 'ocr', 'скрин',
-                 'vision', 'фото'] },
-    // ═══ ASAP 7 F3 (§3.1/§3.2): модуль «Инициатива» — первая запись канона
-    // ModuleSpec (services/module_registry.py, ключ ответа /api/config
-    // `modules`). Витринная карточка — fallback-путь миграции (§3.1):
-    // эффективный гейт = env MCA_INTENTS_ENABLED AND тумблер (§3.3), честный
-    // requested/effective/source — intentModuleStatus() на вкладке «Обзор».
-    { id: 'mod_initiative', title: 'Инициатива',
-      subtitle: 'Проактивные намерения и напоминания', icon: 'bolt',
-      toggleKey: 'flags.initiative_enabled', tab: 'mod_initiative',
-      runtimeGate: 'global',
-      keywords: ['инициатива', 'намерения', 'интенты', 'напоминания',
-                 'проактив', 'heartbeat', 'intents', 'initiative',
-                 'кстати'] },
-    // ═══ UR-F (UR-29.1/UR-24.2): «Модули → Время» — единая поверхность ═══
-    // пояса чата (limits.chat_timezone из общего каталога выведен; его
-    // запись — ТОЛЬКО здесь, через /api/config/time). Мастер-тумблера нет
-    // (пояс не модуль-флаг) → noToggle.
-    { id: 'mod_time', title: 'Время',
-      subtitle: 'Часовой пояс чата и серверные часы', icon: 'history',
-      toggleKey: null, tab: 'mod_time', noToggle: true,
-      keywords: ['время', 'часовой пояс', 'часы', 'timezone', 'iana',
-                 'пояс'] },
+  // ═══ MOD-ACL-UX-01 M4A (design D2/И-3): ОДИН источник каталога ══════════
+  // Массив `MODULES` удалён: имена/описания/порядок/скоупы приходят из DTO
+  // `GET /api/config.modules[]` (services/module_registry.py → 
+  // registry_for_frontend). `WS_MODULES` ниже — НЕ каталог, а рантайм-кэш
+  // уже полученного DTO (тот же массив, что `data.modules`) для навигационных
+  // хелперов вне компонента (`_wsModuleById`). Ни одной строки названия,
+  // описания или порядка модуля в JS нет.
+  var WS_MODULES = [];
+
+  // Presentation-map (разрешено design И-3): иконки, поисковые синонимы,
+  // глагольные подписи CHAT-контрола (copy-inventory §3.1) и 5 групп каталога.
+  // Это НЕ каталог: порядок/названия/описания берутся из DTO.
+  var MODULE_ICONS = {
+    mod_summary: 'description', mod_direct: 'smart_toy',
+    mod_factcheck: 'radar', mod_search: 'grid_view',
+    mod_web: 'auto_stories', mod_stories: 'auto_stories',
+    mod_experience: 'school', mod_embeddings: 'grid_view',
+    mod_character: 'psychology', mod_random: 'casino',
+    mod_initiative: 'bolt', mod_sleep: 'bedtime',
+    mod_nostalgia: 'history', mod_transcribe: 'play_circle',
+    mod_video_summary: 'play_circle', mod_media_download: 'cloud',
+    mod_images: 'grid_view', mod_vision: 'visibility',
+    mod_checkup: 'monitoring', mod_budgets: 'receipt_long',
+    mod_time: 'history',
+  };
+  // §35/§44: синонимы поиска — presentation (title/description/id уже в DTO).
+  var MODULE_KEYWORDS = {
+    mod_summary: ['саммари', 'саммаризация', 'сводка', 'сводки',
+                  'суммаризация', 'summary', 'пересказ', 'пересказы'],
+    mod_direct: ['ответы', 'ответы в чате', 'прямые ответы', 'direct',
+                 'botword', 'реплай', 'reply', 'бот'],
+    mod_factcheck: ['фактчек', 'фактчекинг', 'факты', 'проверка фактов',
+                    'factcheck', 'check'],
+    mod_search: ['поиск', 'найди', 'загугли', 'интернет', 'search', 'google',
+                 'гугл'],
+    mod_web: ['веб', 'веб-страницы', 'страницы', 'web', 'webpage', 'url'],
+    mod_stories: ['истории', 'эпизоды', 'витрина', 'stories', 'episodes'],
+    mod_experience: ['опыт', 'уроки', 'experience', 'lessons'],
+    mod_embeddings: ['вектор', 'эмбеддинги', 'embeddings', 'graphrag',
+                     'индекс', 'память'],
+    mod_character: ['характер', 'черты', 'персона', 'character', 'selfmodel'],
+    mod_random: ['случайность', 'квантовый', 'random', 'anu', 'рандом'],
+    mod_initiative: ['инициатива', 'намерения', 'интенты', 'напоминания',
+                     'проактив', 'heartbeat', 'intents', 'initiative',
+                     'кстати'],
+    mod_sleep: ['сон', 'сны', 'синтез', 'убеждения', 'dream', 'beliefs'],
+    mod_nostalgia: ['ностальгия', 'nostalgia', 'кстати', 'старые сообщения'],
+    mod_transcribe: ['транскрипт', 'транскрибация', 'голосовые',
+                     'распознавание', 'speech', 'stt', 'voice'],
+    mod_video_summary: ['выжимка', 'видео', 'ютуб', 'youtube', 'video',
+                        'пересказ'],
+    mod_media_download: ['скачивание', 'медиа', 'download', 'видео', 'файлы'],
+    mod_images: ['изображения', 'картинки', 'рисунки', 'генерация', 'image',
+                 'generation'],
+    mod_vision: ['распознавание', 'изображения', 'картинки', 'ocr', 'скрин',
+                 'vision', 'фото'],
+    mod_checkup: ['диагностика', 'чекап', 'метрики', 'логи', 'checkup',
+                  'status'],
+    mod_budgets: ['бюджеты', 'бюджет', 'лимиты', 'безлимит', 'budget',
+                  'токены'],
+    mod_time: ['время', 'часовой пояс', 'часы', 'timezone', 'iana', 'пояс'],
+  };
+  // design §7.2.1: подпись перед CHAT tri-state — конкретное действие чата.
+  var MODULE_CHAT_LABELS = {
+    mod_summary: 'Формировать сводки в этом чате',
+    mod_direct: 'Отвечать в этом чате',
+    mod_factcheck: 'Проверять факты в этом чате',
+    mod_search: 'Искать в интернете для этого чата',
+    mod_web: 'Открывать веб-страницы для этого чата',
+    mod_transcribe: 'Распознавать голосовые и видео этого чата',
+    mod_video_summary: 'Делать выжимки видео для этого чата',
+    mod_media_download: 'Скачивать медиа по запросам этого чата',
+    mod_checkup: 'Проводить чекап для этого чата',
+    mod_sleep: 'Синтезировать сон для этого чата',
+    mod_nostalgia: 'Возвращать прошлые события в этом чате',
+    mod_initiative: 'Инициатива в этом чате',
+    mod_budgets: 'Ограничивать расходы в этом чате',
+    mod_images: 'Генерировать изображения в этом чате',
+    mod_vision: 'Распознавать изображения в этом чате',
+    mod_stories: 'Показывать истории в этом чате',
+    mod_character: 'Использовать характер в этом чате',
+    mod_experience: 'Учиться на опыте этого чата',
+    mod_random: 'Использовать случайность в этом чате',
+    mod_time: 'Часовой пояс этого чата',
+    mod_embeddings: 'Искать в памяти этого чата',
+  };
+  // design §3.2: 5 групп каталога — presentation-подписи; порядок групп
+  // задан нормативно (catalog_group и catalog_order — в DTO).
+  var MODULE_CATALOG_GROUPS = [
+    { id: 'communication', title: 'Общение' },
+    { id: 'memory', title: 'Память' },
+    { id: 'autonomy', title: 'Автономность' },
+    { id: 'media', title: 'Медиа' },
+    { id: 'system', title: 'Системные' },
   ];
 
   // ═══ F5 (ADR-1025-15 D1/D6): витринные метаданные workspace-маршрута ═══
@@ -768,10 +745,6 @@
     mod_initiative: ['overview', 'text', 'memes', 'publications',
                      'diagnostics'],
   };
-  MODULES.forEach(function (m) {
-    if (!m.routeSlug) m.routeSlug = String(m.id).replace(/^mod_/, '');
-    if (!m.tabs) m.tabs = WORKSPACE_TABS[m.id] || ['overview', 'settings'];
-  });
   // Тексты вкладок workspace (i18n-канон §46/§85).
   var WORKSPACE_TAB_LABELS = {
     overview: 'Обзор', settings: 'Основные настройки', prompts: 'Промпты',
@@ -1789,8 +1762,8 @@
   }
   function _wsModuleById(slug) {
     if (!slug) return null;
-    for (var i = 0; i < MODULES.length; i++) {
-      var m = MODULES[i];
+    for (var i = 0; i < WS_MODULES.length; i++) {
+      var m = WS_MODULES[i];
       var s = m.routeSlug || String(m.id || '').replace(/^mod_/, '');
       if (s === slug) return m;
     }
@@ -5872,7 +5845,7 @@
         tabs: TABS,
         activeTab: 'status',
         openModuleId: null,       // A2/T-1167: открытая модалка параметров
-        modules: MODULES,
+        modules: WS_MODULES,
         // ── F4 (10.25, ADR-1025-14 D1/D2): ModuleConfigurationStore ──
         // Канонический источник значений — существующий `configItems`
         // (loadConfig → GET /api/config). Store добавляет ТОЛЬКО «оверлей
@@ -5892,6 +5865,16 @@
         moduleGlobalOptimistic: {},   // globalKey → { value, opId }
         moduleGlobalPending: {},      // globalKey → true (in-flight)
         moduleGlobalError: {},        // globalKey → понятный текст ошибки
+        // MOD-ACL-UX-01 M4A: чатовая ось карточки (gate → PUT /gates,
+        // param → POST /api/config): in-flight/ошибка по ключу записи.
+        moduleChatPending: {},        // 'gate:<feature>' | pg-key → true
+        moduleChatError: {},          // тот же ключ → понятный текст
+        // design §7.2.1: один и тот же tri-state, подпись — у карточки.
+        moduleChatOptions: [
+          { id: 'inherit', label: 'Наследовать' },
+          { id: 'on', label: 'Включить' },
+          { id: 'off', label: 'Выключить' },
+        ],
         // ASAP-SUMMARY-COVER-INTEGRITY-01 §7: «Избранное» удалено как
         // концепция (замена запрещена) — ни состояния, ни ключа хранилища.
         // F4 (D5/§32/§44): поиск/фильтр каталога — представление.
@@ -7779,6 +7762,13 @@
           return self.workspaceTabHasContent(ws.module, t.id);
         });
       },
+      // design §3.3/§4.2: адресные ссылки «Обзора» на реальные вкладки
+      // (вместо запрещённого единственного CTA «Открыть настройки модуля»).
+      overviewTabLinks: function () {
+        return this.workspaceTabs.filter(function (t) {
+          return t.id !== 'overview';
+        });
+      },
       // §48: фокус промпта (объект один — config-item `prompts.*`).
       // ASAP-2.1 (T-3981, Q6 фикс 2): ключ не найден в непустом stage-списке
       // → фолбэк на ПОЛНЫЙ список модуля (stale stage не глушит редактор);
@@ -8182,71 +8172,96 @@
       paletteLoading: function () {
         return !!this.configLoading && !this.configItems.length;
       },
+      // ═══ MOD-ACL-UX-01 M4A: каталог из DTO (design §3.2/§4.1/§7.4) ══════
+      // 21 карточка, 5 групп, порядок — серверный `catalog_order`. JS не
+      // сортирует по регистрации и не знает названий/описаний: всё из DTO.
       visibleModules: function () {
         var self = this;
         return this.modules.filter(function (m) {
+          if (!m) return false;
           if (m.id === 'mod_images') {
             return self.uiFlag('IMAGE_MODULE_CARD_ENABLED');
           }
           return true;
         });
       },
-      // ═══ F4 (10.25, ADR-1025-14 D1/D5/D6): store-производные каталога ═══
-      // §45: счётчики для ВЫБРАННОЙ области по набору visibleModules.
-      // Инвариант «неизвестное ≠ выключено»: unknown/blocked/inert и
-      // провал сохранения идут в «Есть проблемы», НЕ в «Выключено».
-      // noToggle входит ТОЛЬКО в «Всего»; uiFlag-скрытые модули (по
-      // visibleModules) не входят никуда.
-      moduleCounters: function () {
+      moduleAttentionCount: function () {
         var self = this;
-        var scope = this.storeScope();
-        var total = 0, on = 0, off = 0, issues = 0;
-        this.visibleModules.forEach(function (m) {
-          total += 1;
-          if (m.noToggle) return;
-          var st = self.getModuleState(scope, m.id);
-          if (st.runtime === 'on') on += 1;
-          else if (st.runtime === 'off') off += 1;
-          if (st.runtime === 'unknown' || st.runtime === 'blocked'
-              || st.runtime === 'inert' || st.error
-              || self._moduleSaveFailed(m)) {
-            issues += 1;
-          }
+        var n = 0;
+        this.filteredModules.forEach(function (m) {
+          if (self.moduleNeedsAttention(m)) n += 1;
         });
-        return { total: total, on: on, off: off, issues: issues };
+        return n;
       },
-      // §7 (v2.1): панель/список избранного удалены — кандидатов, «видимых
-      // избранных» и раскрытия больше нет (замена «Закреплено» запрещена).
-      // §32/§44: фильтры каталога — представление (ноль мутаций).
+      // caption поверх плиток-KPI: «21 модуль · N требуют внимания».
+      moduleCatalogCaption: function () {
+        var total = this.filteredModules.length;
+        var attention = this.moduleAttentionCount;
+        var text = total + ' ' + this.modulesWord(total);
+        if (attention) text += ' · ' + attention + ' требуют внимания';
+        return text;
+      },
       moduleFilterOptions: function () {
         return [
           { id: 'all', label: 'Все' },
-          { id: 'on', label: 'Включённые' },
-          { id: 'off', label: 'Выключенные' },
-          { id: 'issues', label: 'Есть проблемы' },
+          { id: 'on', label: 'Включены' },
+          { id: 'off', label: 'Выключены' },
+          { id: 'issues', label: 'Требуют внимания' },
         ];
       },
       // §32/§44: основной каталог после поиска+фильтра (генеральные
-      // тумблеры сохраняются — фильтр их не сбрасывает).
+      // тумблеры сохраняются — фильтр их не сбрасывает). Критерий фильтра —
+      // ОСИ состояния DTO, не догадка по `items`.
       filteredModules: function () {
         var self = this;
-        var scope = this.storeScope();
         var q = String(this.moduleSearch || '').trim().toLowerCase();
         var f = this.moduleFilter || 'all';
-        return this.visibleModules.filter(function (m) {
+        var list = this.visibleModules.filter(function (m) {
           if (q && self._moduleSearchHaystack(m).indexOf(q) < 0) return false;
           if (f === 'all') return true;
-          if (m.noToggle) return false;
-          var st = self.getModuleState(scope, m.id);
-          if (f === 'on') return st.runtime === 'on';
-          if (f === 'off') return st.runtime === 'off';
-          if (f === 'issues') {
-            return st.runtime === 'unknown' || st.runtime === 'blocked'
-              || st.runtime === 'inert' || !!st.error
-              || self._moduleSaveFailed(m);
-          }
+          if (f === 'on') return self.moduleDesired(m) === true;
+          if (f === 'off') return self.moduleDesired(m) === false;
+          if (f === 'issues') return self.moduleNeedsAttention(m);
           return true;
         });
+        return list.slice().sort(function (a, b) {
+          return (a.catalogOrder || 0) - (b.catalogOrder || 0);
+        });
+      },
+      // 5 групп каталога в нормативном порядке; пустые группы не рисуются.
+      moduleGroups: function () {
+        var by = {};
+        this.filteredModules.forEach(function (m) {
+          var g = m.catalogGroup || '';
+          if (!by[g]) by[g] = [];
+          by[g].push(m);
+        });
+        var out = [];
+        MODULE_CATALOG_GROUPS.forEach(function (g) {
+          if (by[g.id] && by[g.id].length) {
+            out.push({ id: g.id, title: g.title, items: by[g.id] });
+          }
+        });
+        // Страховка от DTO с неизвестной группой: показываем как «Прочее»,
+        // чтобы карточка не исчезла молча (лучше видимая аномалия, чем 20/21).
+        Object.keys(by).forEach(function (gid) {
+          if (!gid || MODULE_CATALOG_GROUPS.some(function (g) {
+            return g.id === gid;
+          })) return;
+          out.push({ id: gid, title: 'Прочее', items: by[gid] });
+        });
+        return out;
+      },
+      // Текущая область каталога в чипе фильтров: «В этой области нет …».
+      moduleFilterEmptyText: function () {
+        var f = this.moduleFilter || 'all';
+        if (this.moduleSearch) return 'Ничего не найдено. Очистить поиск.';
+        if (f === 'on') return 'В этой области нет включённых модулей';
+        if (f === 'off') return 'В этой области нет выключенных модулей';
+        if (f === 'issues') {
+          return 'В этой области нет модулей, требующих внимания';
+        }
+        return 'Ничего не найдено. Очистить поиск.';
       },
       // 3.5.1: активная вкладка — конфиг (generic-рендер по sources)
       currentTabIsConfig: function () {
@@ -17730,110 +17745,106 @@
       // (новых вкладок нет), settingsGroups — фильтр «только свои группы»
       // в _workspaceGroupsFor, gate — честный requested/effective/source
       // (registry_for_frontend) для «Обзора». Дубли карточек не создаются.
+      // ═══ MOD-ACL-UX-01 M4A (design D2/И-3): применить DTO каталога ═══════
+      // Единственный источник — `GET /api/config.modules[]`
+      // (`services/module_registry.py → registry_for_frontend`). Никакого
+      // `known`/`push`-fallback и никакой JS-копии каталога: заголовок,
+      // описание, порядок, группа, скоупы и права берутся из DTO построчно.
+      // Порядок массива сохраняется серверный (`catalog_order`) — DOM обязан
+      // совпасть с нормативным (§3.2), JS сортирует только по catalogOrder
+      // как страховку от старого кэша.
       f3ApplyModuleRegistry: function (modules) {
         if (!Array.isArray(modules) || !modules.length) return;
-        if (this._f3RegistryApplied) return;
-        this._f3RegistryApplied = true;
         var self = this;
+        var cards = [];
         this._f4Registry = {};
-        var F4_ICONS = { stories: 'auto_stories', character: 'psychology',
-                         experience: 'school', random: 'casino',
-                         factcheck_temporal: 'schedule' };
-        var known = {};
-        (this.modules || []).forEach(function (m) { if (m) known[m.id] = m; });
         modules.forEach(function (spec) {
           if (!spec || !spec.id) return;
-          this._f4Registry[spec.id] = spec;
-          var cardId = 'mod_' + spec.id;
-          var ex = known[cardId];
-          if (ex) {
-            // Обогащение (витрина — источник отображения; реестр — канон).
-            ex.registryDescription = spec.description || '';
-            ex.registryStatusSource = spec.status_source || '';
-            ex.registryClassification = spec.classification || '';
-            ex.gate = spec.gate || null;
-            return;
-          }
+          var slug = String(spec.id).replace(/^mod_/, '');
+          // DTO отдаёт slug без префикса (spec.id = "summary"); карточка
+          // каталога сохраняет прежний идентификатор `mod_<slug>` (§2.2/тест
+          // 21 `[data-mod="mod_*"]`), роут — по slug.
+          var id = 'mod_' + slug;
+          self._f4Registry[slug] = spec;
           if (spec.visibility === 'hidden') return;
-          var slug = String(spec.id);
-          var card;
-          if (spec.parent_id) {
-            // F4: подмодуль — подкарточка на существующей поверхности
-            // родителя (config_tab); toggle нет у «no master»-модулей.
-            card = {
-              id: cardId,
-              title: spec.title || slug,
-              subtitle: spec.description || '',
-              icon: F4_ICONS[spec.id] || 'extension',
-              toggleKey: spec.master_param || '',
-              tab: spec.config_tab || ('mod_' + slug),
-              routeSlug: slug,
-              tabs: ['overview', 'settings'],
-              runtimeGate: spec.runtime_gate === 'per_chat'
-                ? 'per_chat' : 'global',
-              fromRegistry: true,
-              submoduleOf: spec.parent_id,
-              // «no master» (напр. «Случайность»): мёртвого переключателя нет
-              // (состояние — env-ось в data-f4-module-gate).
-              noToggle: !spec.master_param,
-              settingsGroups: Array.isArray(spec.settings_groups)
-                ? spec.settings_groups.slice() : [],
-              gate: spec.gate || null,
-              keywords: [spec.title || '', slug, String(spec.parent_id || '')],
-            };
-          } else {
-            card = {
-              id: cardId,
-              title: spec.title || slug,
-              subtitle: spec.description || '',
-              icon: 'extension',
-              toggleKey: spec.master_param || '',
-              tab: 'mod_' + slug,
-              routeSlug: slug,
-              tabs: ['overview', 'settings', 'limits'],
-              runtimeGate: spec.runtime_gate === 'per_chat'
-                ? 'per_chat' : 'global',
-              fromRegistry: true,
-              gate: spec.gate || null,
-              keywords: [spec.title || '', slug],
-            };
-          }
-          if (!self.modules.some(function (m) {
-            return m && m.id === cardId;
-          })) {
-            self.modules.push(card);
-          }
-        }, this);
+          var permissions = spec.permissions || {};
+          cards.push({
+            id: id,
+            slug: slug,
+            title: spec.title || id,
+            subtitle: spec.description || '',
+            description: spec.description || '',
+            icon: MODULE_ICONS[id] || 'extension',
+            toggleKey: spec.master_param || null,
+            runtimeGate: spec.runtime_gate === 'per_chat'
+              ? 'per_chat' : 'global',
+            gateFeature: spec.gate_feature || '',
+            scopeCapability: spec.scope_capability || '',
+            historySource: spec.history_source || '',
+            catalogGroup: spec.catalog_group || '',
+            catalogOrder: spec.catalog_order || 0,
+            kind: spec.kind || spec.classification || 'product_module',
+            // «Время» — policy-экран без тумблера; infra с chat-осью
+            // («Векторная память») — управление через scope_capability.
+            noToggle: !spec.master_param && !spec.gate_feature
+              && id !== 'mod_embeddings',
+            permissions: {
+              can_read: (permissions.can_read === undefined
+                ? null : permissions.can_read),
+              can_edit: (permissions.can_edit === undefined
+                ? null : permissions.can_edit),
+            },
+            state: spec.state || null,
+            gate: spec.gate || null,
+            parent_id: spec.parent_id || null,
+            submoduleOf: spec.parent_id || null,
+            settingsGroups: Array.isArray(spec.settings_groups)
+              ? spec.settings_groups.slice() : [],
+            routeSlug: slug,
+            // Подмодуль живёт на существующей config-вкладке родителя
+            // (`config_tab`), его собственная карточка открывает ту же
+            // поверхность; остальные — свой tab.
+            tab: spec.parent_id
+              ? (spec.config_tab || ('mod_' + slug))
+              : (spec.tab || id),
+            tabs: WORKSPACE_TABS[id] || ['overview', 'settings'],
+            keywords: MODULE_KEYWORDS[id] || [],
+            fromRegistry: true,
+          });
+        });
+        // Единственный живой список: заменяем содержимое in-place. В
+        // production `data.modules === WS_MODULES`, поэтому навигационные
+        // хелперы вне компонента видят тот же массив. Изолированные ctx
+        // (юниты) не перетирают глобальный кэш.
+        this.modules.length = 0;
+        Array.prototype.push.apply(this.modules, cards);
+        this._f3RegistryApplied = true;
         // MOD-ACL-UX-01 M3: холодный старт — boot-applyRoute отработал ДО
         // loadConfig, поэтому адрес модуля реестра им только отложен
-        // (`_pendingModuleRoute`), без ложного «Модуль не найден». После merge
-        // адрес разрешается РОВНО ОДИН раз обычным гейтом (одно честное
-        // сообщение вместо «не найден» + «нет доступа»).
+        // (`_pendingModuleRoute`), без ложного «Модуль не найден». После
+        // применения DTO адрес разрешается РОВНО ОДИН раз обычным гейтом.
         var pending = this._pendingModuleRoute;
         if (pending) {
           this._pendingModuleRoute = null;
           var pws = parseWorkspaceRoute(pending);
-          if (pws && this._f4Registry[pws.slug]) {
-            // Адрес модуля не менялся на витрину — состояние страницы всё
-            // равно нужно пересобрать после merge.
+          if (pws && (this._f4Registry[pws.slug]
+              || (typeof this.moduleBySlug === 'function'
+                  && this.moduleBySlug(pws.slug)))) {
             try { history.replaceState(null, '', pending); } catch (e) { /* file:// */ }
             self.applyRoute(pending);
           } else if (pws) {
-            // Реестр уже загружен, а модуля с таким slug нет — теперь это
-            // ДЕЙСТВИТЕЛЬНО неизвестный адрес: честное сообщение и витрина.
             self.toast('Модуль не найден', 'warn');
             self.applyRoute('#/modules');
           }
         } else if (!self.workspaceModule) {
-          // Прежний путь: hash уже указывает на запись реестра (например,
-          // адрес проставлен вручную) — переприменяем один раз.
           var h = String(window.location.hash || '');
           if (h.indexOf('#/modules/') === 0) {
             var deep = h.slice('#/modules/'.length).split('/')[0];
-            if (deep && this._f4Registry[deep]) self.applyRoute(h);
+            if (deep && self._f4Registry[deep]) self.applyRoute(h);
           }
         }
       },
+
       // ═══ ASAP 7 F4 (§3.2): гейт подмодуля для «Обзора» — честный
       // requested/effective/source из реестра (registry_for_frontend.gate);
       // requested живёт по configItems (свежее снапшота), env-ось — из
@@ -23048,22 +23059,287 @@
         }
         return '';
       },
+      // ═══ MOD-ACL-UX-01 M4A (design §5/И-2): оси состояния из DTO ════════
+      // `m.state` — снимок ЕДИНОГО резолвера для текущей области (chat →
+      // `resolve_module_capability`/`gate_state`, global → global-снимок).
+      // `null/unknown` НИКОГДА не превращается в «Выключено»/«Норма».
+      moduleStateAxes: function (m) {
+        if (!m || !m.state) return null;
+        var st = m.state;
+        if (st.desired === undefined && st.effective_runtime === undefined) {
+          return null;
+        }
+        return st;
+      },
+      modulePermissions: function (m) {
+        return (m && m.permissions) || { can_read: null, can_edit: null };
+      },
+      // Очистка поиска/фильтра каталога (кнопка пустого состояния).
+      clearModuleSearch: function () {
+        this.moduleSearch = '';
+        this.moduleFilter = 'all';
+      },
+      // Русская форма слова «модуль» для caption (methods, не computed: её
+      // вызывает другой computed как функцию — asap31 render-guard).
+      modulesWord: function (n) {
+        var tail = Math.abs(n) % 100;
+        if (tail >= 11 && tail <= 14) return 'модулей';
+        var last = tail % 10;
+        if (last === 1) return 'модуль';
+        if (last >= 2 && last <= 4) return 'модуля';
+        return 'модулей';
+      },
+      moduleCanRead: function (m) {
+        return this.modulePermissions(m).can_read !== false;
+      },
+      moduleDesired: function (m) {
+        var st = this.moduleStateAxes(m);
+        if (!st || st.desired === null || st.desired === undefined) return null;
+        return !!st.desired;
+      },
+      moduleReasonText: function (code) {
+        var c = String(code || '');
+        if (!c) return 'причина не указана';
+        if (c.indexOf('gate_conflict') === 0) return 'конфликт настроек';
+        if (c.indexOf('provider_missing') === 0) return 'нет провайдера';
+        if (c.indexOf('dependency_missing') === 0) return 'нет зависимости';
+        if (c.indexOf('index_missing') === 0) return 'нет индекса';
+        if (c.indexOf('permission_missing') === 0) return 'нет права';
+        return {
+          permission_denied: 'нет права',
+          emergency_block: 'аварийный переключатель сервера',
+          capability_off: 'выключено настройкой',
+          not_ready: 'не готова',
+          consent_required: 'нужно согласие',
+        }[c] || 'причина неизвестна';
+      },
+      // Одна строка статуса карточки/шапки (design §5.2, приоритет осей).
       moduleStateText: function (m) {
         if (!m) return '';
-        // ASAP 7 F4: подмодуль без собственного тумблера («no master»,
-        // напр. «Случайность») — состояние по гейту реестра (env-ось).
-        if (!m.toggleKey && m.fromRegistry) {
-          var g4 = this.f4ModuleGate(m);
-          if (g4) return g4.effective ? 'Работает' : 'Не работает';
-          return 'Управляется параметрами';
+        if (m.noToggle) {
+          if (m.id === 'mod_time') return 'Без тумблера';
+          return 'Общий сервис';
         }
-        if (m.noToggle) return 'Управляется параметрами';
-        var st = this.getModuleState(this.storeScope(), m.id);
-        if (st.runtime === 'unknown' || st.display === null) {
+        if (!this.moduleCanRead(m)) return 'Нет права смотреть';
+        var st = this.moduleStateAxes(m);
+        if (!st || st.desired === null || st.desired === undefined) {
           return 'Состояние неизвестно';
         }
-        if (st.runtime === 'blocked') return 'Включён, но не работает';
-        return st.display ? 'Включён' : 'Выключен';
+        if (st.desired === false) return 'Выключено';
+        if (st.emergency_block) {
+          return 'Включено, но заблокировано аварийным переключателем сервера';
+        }
+        if (st.ready === false) {
+          return 'Включено · сейчас не работает: '
+            + this.moduleReasonText(st.reason_code);
+        }
+        if (st.pending_restart) return 'Изменение применится после перезапуска';
+        if (st.conflict) return 'Конфликт настроек: ' + st.conflict;
+        if (st.observed === null || st.observed === undefined) {
+          return 'Включено · работа ещё не подтверждена';
+        }
+        if (st.observed === false) {
+          return st.last_activity_at
+            ? 'Последняя активность: ' + this.fmtLogTs(st.last_activity_at)
+            : 'Включено · нет подтверждённой активности';
+        }
+        return st.effective_runtime === false ? 'Не исполняется' : 'Работает';
+      },
+      // 5 подписанных чипов осей (design §5.1/И-7): у каждого И иконка, и
+      // текст (WCAG 1.4.1 — состояние не только цветом).
+      moduleStateChips: function (m) {
+        var st = this.moduleStateAxes(m);
+        if (!st || st.desired === null || st.desired === undefined) {
+          return (m && m.noToggle) ? [] : [{
+            id: 'desired', icon: 'help', label: 'Настройка',
+            text: 'Состояние неизвестно', cls: 'badge-muted',
+          }];
+        }
+        var readyText = st.ready === true ? 'Готово'
+          : (st.ready === false
+            ? 'Не готово: ' + this.moduleReasonText(st.reason_code)
+            : 'Готовность не проверяется');
+        var observedText = st.observed === true ? 'Подтверждено'
+          : (st.observed === false ? 'Нет подтверждённой активности'
+            : 'Измерение не подтверждено');
+        if (st.observed === true && st.last_activity_at) {
+          observedText = 'Подтверждено: ' + this.fmtLogTs(st.last_activity_at);
+        }
+        var sourceText = {
+          chat: 'настройка чата', global: 'общая настройка',
+          default: 'заводское значение',
+        }[st.source] || 'источник неизвестен';
+        return [
+          { id: 'desired', icon: st.desired ? 'toggle_on' : 'toggle_off',
+            label: 'Настройка', text: st.desired ? 'Включено' : 'Выключено',
+            cls: st.desired ? 'badge-ok' : 'badge-muted' },
+          { id: 'effective',
+            icon: st.effective_runtime ? 'play_circle' : 'pause_circle',
+            label: 'Исполняется',
+            text: st.effective_runtime ? 'Исполняется' : 'Не исполняется',
+            cls: st.effective_runtime ? 'badge-ok' : 'badge-muted' },
+          { id: 'ready', icon: st.ready === false ? 'error' : 'check_circle',
+            label: 'Готовность', text: readyText,
+            cls: st.ready === false ? 'badge-warn' : 'badge-muted' },
+          { id: 'observed',
+            icon: st.observed === true ? 'visibility' : 'help',
+            label: 'Измерение', text: observedText,
+            cls: st.observed === true ? 'badge-ok' : 'badge-warn' },
+          { id: 'source', icon: 'source', label: 'Источник', text: sourceText,
+            cls: 'badge-muted' },
+        ];
+      },
+      moduleChatLabel: function (m) {
+        if (!m) return '';
+        var id = String(m.id || '');
+        var known = MODULE_CHAT_LABELS[id];
+        if (known) return known;
+        return 'Использовать в этом чате: ' + (m.title || id);
+      },
+      // Ключ чатовой записи: gate-домен → PUT /gates (feature); иначе pg-ключ
+      // мастера, а у infra — его chat-use capability (scope_capability).
+      moduleChatKey: function (m) {
+        if (!m) return '';
+        return m.gateFeature ? '' : (m.toggleKey || m.scopeCapability || '');
+      },
+      moduleChatControlAvailable: function (m) {
+        if (!m || m.noToggle) return false;
+        return !!(m.gateFeature || m.toggleKey || m.scopeCapability);
+      },
+      moduleChatCanEdit: function (m) {
+        if (!this.moduleChatControlAvailable(m)) return false;
+        if (m.gateFeature) {
+          // gate-политика сервера: can_edit из gate_authorization.
+          return this.modulePermissions(m).can_edit !== false
+            && this.modulePermissions(m).can_edit !== null;
+        }
+        return this.modulePermissions(m).can_edit !== false
+          && this.modulePermissions(m).can_edit !== null;
+      },
+      moduleChatReadonlyReason: function (m) {
+        var perm = this.modulePermissions(m);
+        if (perm.can_read === false) return 'Нет права смотреть';
+        if (perm.can_edit === false) {
+          return 'Только просмотр. Ваша роль: ' + this.roleLabel();
+        }
+        return '';
+      },
+      roleLabel: function () {
+        return (this.me && (this.me.role_name || this.me.role)) || 'участник';
+      },
+      moduleChatCurrent: function (m) {
+        var st = this.moduleStateAxes(m);
+        if (!st || !st.chat_state) return '';
+        return st.chat_state;    // inherit | on | off
+      },
+      moduleChatPendingFor: function (m) {
+        if (!m) return false;
+        var key = m.gateFeature ? ('gate:' + m.gateFeature)
+          : this.moduleChatKey(m);
+        return !!(key && this.moduleChatPending && this.moduleChatPending[key]);
+      },
+      moduleChatErrorFor: function (m) {
+        if (!m) return '';
+        var key = m.gateFeature ? ('gate:' + m.gateFeature)
+          : this.moduleChatKey(m);
+        return (key && this.moduleChatError && this.moduleChatError[key]) || '';
+      },
+      // ЕДИНСТВЕННАЯ запись чатовой оси карточки: gate → PUT /gates,
+      // param → POST /api/config (mode:"inherit" | value). Scope+epoch
+      // фиксируются ДО await; один POST на ключ (in-flight guard); 409 —
+      // баннер + перечитывание, без автоповтора и второго POST.
+      setModuleChatTriState: async function (m, nextState) {
+        if (!m) return { ok: false, error: 'unknown-module' };
+        if (!this.moduleChatControlAvailable(m)) {
+          return { ok: false, error: 'no-chat-control' };
+        }
+        if (!this.moduleChatCanEdit(m)) {
+          this.toast('Нет права изменить. Ваша роль: ' + this.roleLabel(),
+                     'err');
+          return { ok: false, error: 'forbidden' };
+        }
+        var scope = this.storeScope();
+        if (scope.type === 'global' || scope.id == null) {
+          return { ok: false, error: 'inactive-scope' };
+        }
+        var key = m.gateFeature ? ('gate:' + m.gateFeature)
+          : this.moduleChatKey(m);
+        if (!key) return { ok: false, error: 'missing-item' };
+        if (!this.moduleChatPending) this.moduleChatPending = {};
+        if (!this.moduleChatError) this.moduleChatError = {};
+        if (this.moduleChatPending[key]) return { ok: false, skipped: true };
+        var epoch = this.scopeEpoch;      // И-6: epoch ДО await
+        var chatId = scope.id;
+        var opId = 'modc-' + (++this._opSeq);
+        this.moduleChatPending[key] = true;
+        this.moduleChatError[key] = '';
+        var inherit = (nextState === 'inherit');
+        var body;
+        var url;
+        var opts;
+        if (m.gateFeature) {
+          url = '/api/chat/' + chatId + '/gates';
+          body = { feature: m.gateFeature,
+                   enabled: inherit ? 'inherit' : (nextState === 'on') };
+          opts = { method: 'PUT', body: JSON.stringify(body) };
+        } else {
+          url = '/api/config';
+          var item = { key: this.moduleChatKey(m) };
+          if (inherit) item.mode = 'inherit';
+          else item.value = (nextState === 'on');
+          body = { items: [item], updated_at: this.configChatUpdatedAt,
+                   operation_id: opId };
+          opts = { method: 'POST', body: JSON.stringify(body),
+                   chatId: chatId };
+        }
+        try {
+          await this.api(url, opts);
+        } catch (e) {
+          if (this.scopeEpoch !== epoch) {
+            return { ok: false, stale: true };
+          }
+          this.moduleChatPending[key] = false;
+          var detail = (e && e.message) || null;
+          if (e && e.status === 409 && detail && detail.code === 'conflict') {
+            this.stickyConflict = [this.moduleChatKey(m)];
+            this.moduleChatError[key] = 'Настройка изменилась в другом окне';
+            this.toast('Настройка изменилась в другом окне', 'warn');
+            try { await this.loadConfig(); } catch (err) { /* fail-open */ }
+            return { ok: false, error: 'conflict' };
+          }
+          var reason = (detail && typeof detail === 'object')
+            ? (detail.detail || detail.message || detail.code || 'ошибка')
+            : (detail || 'ошибка');
+          this.moduleChatError[key] = 'Не удалось сохранить: ' + reason;
+          this.toast('Не удалось сохранить: ' + reason, 'err');
+          return { ok: false, error: reason };
+        }
+        if (this.scopeEpoch !== epoch) {
+          this.moduleChatPending[key] = false;
+          return { ok: true, stale: true };
+        }
+        this.moduleChatPending[key] = false;
+        this.moduleChatError[key] = '';
+        this.stickyConflict = [];
+        try { await this.loadConfig(); } catch (e) { /* fail-open */ }
+        this.toast('Настройка сохранена', 'ok');
+        return { ok: true };
+      },
+
+      // «Требуют внимания» — только доказанные состояния (§7.4/§10): нет
+      // права читать, unknown, аварийная блокировка, not-ready, ошибка
+      // сохранения. «Работа ещё не подтверждена» — НЕ проблема (observed=null
+      // при готовом модуле законен), поэтому в attention не входит.
+      moduleNeedsAttention: function (m) {
+        if (!m) return false;
+        if (this.modulePermissions(m).can_read === false) return true;
+        if (this._moduleSaveFailed(m)) return true;
+        if (this.moduleChatErrorFor && this.moduleChatErrorFor(m)) return true;
+        var st = this.moduleStateAxes(m);
+        if (!st) return !m.noToggle;
+        if (st.desired === null || st.desired === undefined) return true;
+        if (st.desired === false) return false;
+        return !!(st.emergency_block || st.ready === false || st.conflict);
       },
       moduleSourceText: function (m) {
         if (!m || !m.toggleKey) return '';
@@ -23293,11 +23569,23 @@
         if (!m || !m.toggleKey) return false;
         return !!this.isGlobalAdmin && this.canEditModule(m);
       },
-      moduleGlobalStateText: function (m) {
-        if (m && m.noToggle) return 'управляется параметрами';
+      moduleGlobalToggleAria: function (m) {
         var st = this.moduleGlobalState(m);
-        if (!st.known) return 'неизвестно';
-        return st.display ? 'включён' : 'выключен';
+        var v = st.known
+          ? (st.display ? 'включено' : 'выключено') : 'состояние неизвестно';
+        return 'Весь бот: ' + v + ' — ' + (m ? m.title : '');
+      },
+      // design И-4: «Проверено: <checked_at>» — момент снимка (не активность).
+      moduleCheckedAt: function (m) {
+        var st = this.moduleStateAxes(m);
+        var ts = (st && st.checked_at) || (m && m.gate && m.gate.checked_at);
+        return ts ? ('Проверено: ' + this.fmtLogTs(ts)) : '';
+      },
+      moduleGlobalStateText: function (m) {
+        if (m && m.noToggle) return 'Без тумблера';
+        var st = this.moduleGlobalState(m);
+        if (!st.known) return 'Состояние неизвестно';
+        return st.display ? 'Весь бот: включено' : 'Весь бот: выключено';
       },
       // Явная подпись глобального тумблера: имя области + текущее значение.
       moduleGlobalToggleLabel: function (m) {
@@ -23361,7 +23649,7 @@
                                           : this.moduleSaveErrorFor(m);
       },
       moduleScopeLabel: function () {
-        return this.moduleScopeIsGlobal() ? 'Глобально' : 'В этом чате';
+        return this.moduleScopeIsGlobal() ? 'Весь бот' : 'В этом чате';
       },
       moduleScopeStateText: function (m) {
         if (!this.moduleScopeToggleAvailable(m)) return this.moduleStateText(m);
@@ -23652,9 +23940,9 @@
           this.setTab('modules');
         }
       },
-      // Поиск модуля по slug среди ТЕКУЩЕГО `this.modules` (production/MODULES).
+      // Поиск модуля по slug среди ТЕКУЩЕГО `this.modules` (DTO реестра).
       moduleBySlug: function (slug) {
-        var list = this.modules || MODULES;
+        var list = this.modules || WS_MODULES;
         if (!slug) return null;
         for (var i = 0; i < list.length; i++) {
           var m = list[i];
@@ -23671,7 +23959,7 @@
       // `mod_*` (нет такого модуля) остаётся неразрешённым → отказ.
       moduleByTab: function (tabId) {
         if (!tabId) return null;
-        var list = this.modules || MODULES;
+        var list = this.modules || WS_MODULES;
         for (var i = 0; i < list.length; i++) {
           if (list[i] && list[i].tab === tabId) return list[i];
         }
@@ -24339,8 +24627,11 @@
         // ASAP 7 F4: подмодули-реестра показывают ТОЛЬКО свои группы
         // (m.settingsGroups; «Настройки блока» без чужих ключей — паттерн
         // Initiative §3.2), даже если config_tab — общая вкладка родителя.
-        var allow = (m.settingsGroups && m.settingsGroups.length)
-          ? m.settingsGroups : null;
+        // Обычные карточки (и derived-страница «Векторной памяти», у которой
+        // sources уже выведены из settings_groups+model_slots) фильтр не
+        // применяют — иначе терялись бы keys-слоты и чужие группы вкладки.
+        var allow = (m.submoduleOf && m.settingsGroups
+          && m.settingsGroups.length) ? m.settingsGroups : null;
         return this.groupedForTab(t).filter(function (g) {
           if (allow && allow.indexOf(g.id) < 0) return false;
           return self.workspaceGroupTab(m, g) === tabId;

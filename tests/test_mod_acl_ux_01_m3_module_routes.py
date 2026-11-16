@@ -27,15 +27,24 @@ SCRIPT = os.path.join("tests", "js", "mod_acl_ux_m3_module_routes_test.js")
 # выводит из них РЕАЛЬНЫЕ параметры (пустой sources давал ложную пустоту).
 FIELDS = ("id", "title", "description", "master_param", "runtime_gate",
           "parent_id", "config_tab", "visibility", "classification",
-          "settings_groups", "model_slots")
+          "settings_groups", "model_slots",
+          # MOD-ACL-UX-01 M4A (design §6.2): presentation/оси DTO — каталог
+          # в JS больше не существует, поэтому снимок для node-тестов обязан
+          # содержать группу/порядок/скоупы (иначе юнит проверял бы не DTO).
+          "catalog_group", "catalog_order", "scope_capability",
+          "gate_feature", "history_source")
 
 
 def _registry_snapshot():
     from services import module_registry as mr
     out = []
-    for spec in mr.MODULE_REGISTRY.values():
-        if spec.visibility == "hidden":
-            continue
+    # M4A: DTO отдаёт карточки в порядке `catalog_order` (§3.2/§6.2) —
+    # снимок для node-тестов обязан повторять ЖИВОЙ порядок, иначе юнит
+    # проверял бы порядок регистрации, а не контракт.
+    specs = sorted(
+        (s for s in mr.MODULE_REGISTRY.values() if s.visibility != "hidden"),
+        key=lambda s: (s.catalog_order or 10_000, s.id))
+    for spec in specs:
         row = {f: getattr(spec, f) for f in FIELDS}
         row["parent_id"] = spec.parent_id
         row["config_tab"] = spec.config_tab or ("mod_" + spec.id)

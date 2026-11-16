@@ -53,6 +53,8 @@ global.Chart = function () {};
 global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
 assert(captured, 'Vue.createApp должен быть вызван');
 const data = captured.data();
 const methods = captured.methods;

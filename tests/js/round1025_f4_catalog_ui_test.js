@@ -1,13 +1,21 @@
 'use strict';
-/* F4 round1025 — структура каталога/панели (§32–§35, ADR-1025-14 D6/D7):
- *   (a) порядок страницы «Модули»: заголовок+счётчики → панель избранного →
- *       поиск+фильтры → основной каталог;
- *   (b) сетка каталога ≤3/2/1 (изолированные правила .module-catalog),
- *       панель ≤4/2/2–1 (CSS Grid + minmax + container queries);
- *   (c) тач-цель тумблера ≥44×44 CSS px;
- *   (d) «карточка ≠ тумблер» (клик по телу не переключает);
- *   (e) «Настроить» → openModuleWorkspace → openModuleWindow (§D6);
- *   (f) нет карусели и второго каталога.
+/* MOD-ACL-UX-01 M4A — структура каталога модулей (design §3.2/§4.1/§7.4).
+ *
+ * Обновление round1025_f4_catalog_ui_test.js по frozen design (не ослабление):
+ *   (a) порядок страницы «Модули»: поиск+фильтры → каталог; H1 «Модули»
+ *       НЕ дублируется в контенте (единственный носитель — topbar, §3.3);
+ *       плиток-KPI нет — caption `21 модуль · N требуют внимания`;
+ *   (b) поиск/фильтры §44: подписи `Все/Включены/Выключены/Требуют внимания`,
+ *       пустота по причине (поиск vs фильтр), «Очистить поиск»;
+ *   (c) сетка 4/3/2/1 (тиры 1150/900/520, minmax 280), потолок 1100 снят;
+ *   (d) карусели/панели быстрого доступа нет;
+ *   (e) карточка: клик по телу → workspace, контрол не навигирует
+ *       (@click.stop); GLOBAL-тумблер в global scope и CHAT tri-state в чате
+ *       (И-1); тач-цель ≥44×44; role=listitem; aria-label у контрола;
+ *   (f) «Открыть» → openModuleWorkspace (openModuleWindow только fallback);
+ *   (g) ОДИН каталог: нет JS-массива MODULES (DTO — единственный источник,
+ *       И-3); карточки сгруппированы по moduleGroups; один write-вызов
+ *       на область.
  *
  * Запуск: node tests/js/round1025_f4_catalog_ui_test.js
  */
@@ -28,167 +36,183 @@ const MOD = INDEX.slice(branchStart, branchEnd);
 
 // ── (a) Порядок страницы ────────────────────────────────────────────────
 {
-  const posHead = MOD.indexOf('hub-title">Модули');
-  const posToolbar = MOD.indexOf('module-toolbar');
-  const posCatalog = MOD.indexOf('module-catalog');
-  // ASAP 4.2 (D5.3): панель «Быстрое управление» удалена полностью —
-  // единственный список модулей — каталог.
-  // L-F11S-1 (EVOL-027 v0.8, W10): тяжёлая агрегатная KPI-строка
-  // («всего/включено/выключено/проблемы») удалена из каталога
-  // (plans/current_task.md L389); число результатов живёт в подписи списка.
-  for (const [name, pos] of [['заголовок', posHead],
-    ['поиск/фильтры', posToolbar], ['каталог', posCatalog]]) {
-    assert.ok(pos >= 0, 'a: нет блока «' + name + '»');
-  }
-  assert.ok(posHead < posToolbar && posToolbar < posCatalog,
-    'a: порядок блоков §32 нарушен');
+  const posToolbar = MOD.indexOf('data-module-toolbar');
+  const posCatalog = MOD.indexOf('class="module-catalog');
+  assert.ok(posToolbar >= 0, 'a: нет тулбара каталога');
+  assert.ok(posCatalog >= 0, 'a: нет каталога');
+  assert.ok(posToolbar < posCatalog, 'a: тулбар обязан идти до каталога');
+  // design §3.3 п.1: H1 «Модули» в контенте не дублируется.
+  assert.strictEqual(MOD.indexOf('hub-title">Модули'), -1,
+    'a: H1 «Модули» в контенте не дублируется (носитель — topbar)');
+  assert.strictEqual(MOD.indexOf('hub-sub'), -1,
+    'a: вводная простыня удалена (контент начинается с поиска)');
+  // KPI-плитки запрещены; число — в caption.
   assert.strictEqual(MOD.indexOf('module-counters'), -1,
-    'a: KPI-строка модулей должна отсутствовать (EVOL-027 v0.8)');
+    'a: KPI-строка модулей отсутствует');
   assert.strictEqual(MOD.indexOf('module-counter'), -1,
-    'a: плитки KPI модулей должны отсутствовать');
-  assert.ok(MOD.indexOf('data-module-caption') >= 0,
-    'a: нет подписи числа результатов в списке');
+    'a: плитки KPI отсутствуют');
+  assert.ok(MOD.indexOf('data-module-caption') >= 0 &&
+            MOD.indexOf('moduleCatalogCaption') >= 0,
+    'a: caption «21 модуль · N требуют внимания» — из DTO');
   assert.strictEqual(MOD.indexOf('module-quick-wrap'), -1,
-    'a: Quick Access панель должна быть удалена');
+    'a: панели быстрого доступа нет');
   assert.strictEqual(MOD.indexOf('Быстрое управление'), -1,
     'a: «Быстрое управление» отсутствует');
-  // §5 v2.1 (решение владельца 26905a89): РОВНО ОДИН переключатель в
-  // карточке; его область берётся из верхнего селектора GLOBAL/чат
-  // (`data-module-scope`), второго (global+chat) тумблера нет.
-  const scopeToggles = (MOD.match(/data-module-scope-toggle/g) || []).length;
-  assert.strictEqual(scopeToggles, 1,
-    'a: в карточке РОВНО один тумблер модуля (data-module-scope-toggle)');
-  assert.strictEqual(MOD.indexOf('data-module-global-toggle'), -1,
-    'a: отдельного «глобального» тумблера в карточке нет');
-  assert.ok(/:data-module-scope="moduleScopeIsGlobal\(\) \? 'global' : 'chat'"/.test(MOD),
-    'a: область тумблера — из верхнего селектора (global/chat)');
-  assert.ok(MOD.indexOf('setModuleScopeState(m, $event.target.checked)') >= 0,
-    'a: тумблер вызывает серверную операцию сразу (в своей области)');
-  // Наследование — компактное ДЕЙСТВИЕ, не второй тумблер.
-  assert.strictEqual((MOD.match(/data-module-override-reset/g) || []).length, 1,
-    'a: возврат к наследованию — одно действие (data-module-override-reset)');
-  assert.ok(MOD.indexOf('Наследовать глобальное') >= 0,
-    'a: подпись действия наследования');
-  assert.ok(MOD.indexOf('data-module-scope-readonly') >= 0,
-    'a: честный read-only статус вместо фиктивного второго тумблера');
 }
 
-// ── (b) Поиск и фильтры §44/§32 ─────────────────────────────────────────
+// ── (b) Поиск и фильтры §44/§7.4 ────────────────────────────────────────
 {
-  assert.ok(MOD.indexOf('placeholder="Найти модуль…"') >= 0, 'b: нет поля поиска');
+  assert.ok(MOD.indexOf('placeholder="Найти модуль…"') >= 0, 'b: нет поиска');
   assert.ok(MOD.indexOf('v-model="moduleSearch"') >= 0, 'b: поиск не привязан');
   assert.ok(MOD.indexOf('moduleFilterOptions') >= 0, 'b: нет фильтров');
   assert.ok(MOD.indexOf('moduleFilter === f.id') >= 0, 'b: фильтр не активен');
-  for (const label of ['Все', 'Включённые', 'Выключенные',
-    'Есть проблемы']) {
+  for (const label of ['Все', 'Включены', 'Выключены', 'Требуют внимания']) {
     assert.ok(APP_JS.indexOf("label: '" + label + "'") >= 0,
       'b: нет фильтра «' + label + '»');
   }
-  // §7 (v2.1): концепция избранного/закрепления удалена полностью — фильтра
-  // «Избранные» в списке опций нет (и «Закреплено» его не заменяет).
-  assert.strictEqual(APP_JS.indexOf("label: 'Избранные'"), -1,
-    'b: фильтра «Избранные» нет (избранное удалено)');
-  assert.strictEqual(APP_JS.indexOf("label: 'Закреплено'"), -1,
-    'b: «Закреплено» не подменяет избранное');
-  assert.ok(MOD.indexOf('v-for="m in filteredModules"') >= 0,
-    'b: каталог не использует filteredModules');
-  assert.ok(MOD.indexOf('Ничего не найдено') >= 0, 'b: нет empty-state');
+  assert.strictEqual(APP_JS.indexOf("label: 'Есть проблемы'"), -1,
+    'b: жаргон «Есть проблемы» заменён на «Требуют внимания»');
+  // Фильтр — представление, критерий — оси DTO.
+  assert.ok(/if \(f === 'on'\) return self\.moduleDesired\(m\) === true;/
+    .test(APP_JS), 'b: «Включены» по оси desired');
+  assert.ok(/if \(f === 'off'\) return self\.moduleDesired\(m\) === false;/
+    .test(APP_JS), 'b: «Выключены» по оси desired');
+  assert.ok(/if \(f === 'issues'\) return self\.moduleNeedsAttention\(m\);/
+    .test(APP_JS), 'b: «Требуют внимания» по доказанным осям');
+  // Пустота различает поиск и фильтр (И-8).
+  assert.ok(MOD.indexOf('moduleFilterEmptyText') >= 0,
+    'b: пустота выбирает причину (поиск/фильтр)');
+  assert.ok(APP_JS.indexOf('Ничего не найдено. Очистить поиск.') >= 0,
+    'b: пустой поиск — «Очистить поиск»');
+  assert.ok(MOD.indexOf('data-module-clear-search') >= 0 &&
+            APP_JS.indexOf('clearModuleSearch: function') >= 0,
+    'b: действие «Очистить поиск» есть');
+  assert.ok(MOD.indexOf('v-for="m in g.items"') >= 0,
+    'b: карточки рендерятся из moduleGroups');
+  assert.ok(MOD.indexOf('v-for="g in moduleGroups"') >= 0,
+    'b: группы каталога рендерятся (5 групп)');
 }
 
-// ── (c) Каталог ≤3/2/1 (изолированные правила) ──────────────────────────
+// ── (c) Сетка 4/3/2/1 (design §4.1/§8) ──────────────────────────────────
 {
   assert.ok(/\.module-catalog\s*\{[^}]*container-type:\s*inline-size/.test(CSS),
     'c: .module-catalog без container-type');
-  assert.ok(/@container\s*\(max-width:\s*1023px\)\s*\{[^}]*\.module-catalog \.module-list\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(CSS),
-    'c: нет тира 2 колонки');
-  assert.ok(/@container\s*\(max-width:\s*479px\)\s*\{[^}]*\.module-catalog \.module-list\s*\{[^}]*minmax\(0,\s*1fr\)/.test(CSS),
-    'c: нет тира 1 колонка');
+  assert.ok(/\.module-list \{[\s\S]{0,200}minmax\(min\(100%, 280px\), 1fr\)/
+    .test(CSS), 'c: базовый трек 280px');
+  assert.strictEqual(/\.module-catalog \.module-list \{[\s\S]{0,160}max-width: 1100px/
+    .test(CSS), false, 'c: потолок 1100px каталога снят');
+  for (const tier of ['1400', '1100', '700']) {
+    assert.ok(CSS.indexOf('@media (min-width: ' + tier + 'px)') >= 0,
+      'c: нет тира ' + tier);
+  }
+  assert.ok(/repeat\(4, minmax\(0, 1fr\)\)/.test(CSS) &&
+            /repeat\(3, minmax\(0, 1fr\)\)/.test(CSS) &&
+            /repeat\(2, minmax\(0, 1fr\)\)/.test(CSS),
+    'c: тиры 4/3/2/1 объявлены');
   // базовый (top-level) triple-rule каталога по-прежнему существует
   assert.ok(/\.prov-grid,\s*\.module-list,\s*\.hub-grid\s*\{/.test(CSS),
     'c: сломан общий triple-rule (F1/F2 маркер)');
+  // 1440/1280/768/390 — 4/3/2/1 обеспечивается тирами выше.
+  assert.ok(/\.module-group-title \{[\s\S]{0,240}text-transform:\s*uppercase/
+    .test(CSS), 'c: групповой заголовок 12px uppercase');
 }
 
-// ── (d) Быстрое управление удалено (ASAP 4.2 D5.3) ──────────────────────
+// ── (d) Быстрое управление/карусель удалены ─────────────────────────────
 {
-  // DOM-панели нет; карусели тоже нет (инвариант сохранён).
-  assert.strictEqual(MOD.indexOf('module-quick-wrap'), -1,
-    'd: панель быстрого управления не должна присутствовать');
-  assert.strictEqual(MOD.indexOf('quickpickVisible'), -1,
-    'd: элементы панели не должны присутствовать');
   assert.strictEqual(MOD.indexOf('module-quick-item'), -1,
     'd: карточка панели не должна присутствовать');
-  assert.ok(MOD.indexOf('filteredModules') >= 0,
-    'd: модули по-прежнему рендерятся каталогом');
-  // карусели нет
   assert.ok(CSS.indexOf('module-carousel') < 0, 'd: карусель запрещена');
   assert.ok(MOD.indexOf('module-carousel') < 0, 'd: карусель запрещена (html)');
 }
 
-// ── (e) Тач-цель ≥44×44 + «карточка ≠ тумблер» ──────────────────────────
+// ── (e) Карточка: клик/контрол/тач-цель/a11y ───────────────────────────
 {
   const m = CSS.match(/\.module-toggle\s*\{([^}]*)\}/);
   assert.ok(m, 'e: нет правила .module-toggle');
   assert.ok(/min-width:\s*44px/.test(m[1]), 'e: тач-цель min-width < 44');
   assert.ok(/min-height:\s*44px/.test(m[1]), 'e: тач-цель min-height < 44');
-  // карточка не имеет обработчика клика-переключения
-  const cardTag = MOD.match(/<article class="module-card[^>]*>/);
-  assert.ok(cardTag, 'e: нет карточки модуля');
-  assert.ok(cardTag[0].indexOf('@click') < 0, 'e: карточка работает как тумблер');
+  // Клик по телу открывает workspace; контрол не навигирует.
+  assert.ok(/class="module-card-body" @click="openModuleWorkspace\(m\)"/
+    .test(MOD), 'e: клик по телу карточки открывает workspace');
+  const controlRow = MOD.match(/<div class="module-control-row"[^>]*>/);
+  assert.ok(controlRow, 'e: нет строки управления');
+  assert.ok(/@click\.stop/.test(controlRow[0]),
+    'e: контрол карточки не навигирует (@click.stop)');
   assert.ok(MOD.indexOf('role="listitem"') >= 0, 'e: нет роли listitem');
-  // aria-label на ЕДИНСТВЕННОМ тумблере: область (Глобально/В этом чате) +
-  // значение + название модуля — один подписанный контрол (§5 v2.1).
-  assert.strictEqual((MOD.match(/:aria-label="moduleScopeToggleAria\(m\)"/g)
+  assert.ok(MOD.indexOf('role="list"') >= 0, 'e: нет роли list');
+  // И-1: GLOBAL-тумблер в global scope, CHAT tri-state в чате.
+  assert.strictEqual((MOD.match(/data-module-global-toggle/g) || []).length, 1,
+    'e: GLOBAL-тумблер ровно один');
+  assert.ok(MOD.indexOf(':data-module-chat-tristate="opt.id"') >= 0,
+    'e: CHAT tri-state (Наследовать/Включить/Выключить)');
+  assert.ok(APP_JS.indexOf("id: 'inherit', label: 'Наследовать'") >= 0,
+    'e: подписи tri-state — человеческие');
+  assert.strictEqual((MOD.match(/:aria-label="moduleGlobalToggleAria\(m\)"/g)
     || []).length, 1,
-    'e: у единственного тумблера один aria-label (moduleScopeToggleAria)');
-  assert.ok(/moduleScopeToggleAria: function[\s\S]{0,600}'Глобально'[\s\S]{0,300}'В этом чате'/.test(
-    APP_JS.replace(/\n/g, ' ')),
-    'e: aria-label различает область (Глобально / В этом чате)');
-  assert.strictEqual(MOD.indexOf('moduleGlobalToggleLabel'), -1,
-    'e: подписи отдельного «глобального» тумблера больше нет');
-  assert.ok(MOD.indexOf('module-card-head') >= 0, 'e: нет верхней строки карточки');
-  assert.ok(MOD.indexOf('module-state') >= 0, 'e: нет фактического состояния');
+    'e: aria-label GLOBAL-тумблера (область+значение+название)');
+  assert.strictEqual((MOD.match(/:aria-label="moduleChatLabel\(m\)"/g) || [])
+    .length, 1,
+    'e: aria-label CHAT-группы — глагольная подпись');
+  assert.ok(MOD.indexOf('data-module-state') >= 0,
+    'e: одна строка статуса карточки');
+  assert.ok(INDEX.indexOf('data-workspace-chips') >= 0 &&
+            APP_JS.indexOf('moduleStateChips: function') >= 0,
+    'e: чипы осей на странице модуля (вне ветки каталога)');
 }
 
-// ── (f) «Настроить» → openModuleWorkspace (шов F5, §D6) ─────────────────
+// ── (f) «Открыть» → openModuleWorkspace (шов F5, §D6) ───────────────────
 {
+  assert.ok(MOD.indexOf('data-module-open') >= 0, 'f: нет кнопки входа');
+  assert.ok(MOD.indexOf('>Открыть</button>') >= 0, 'f: кнопка не «Открыть»');
   assert.ok(MOD.indexOf('openModuleWorkspace(m)') >= 0,
     'f: кнопка не вызывает openModuleWorkspace');
-  assert.ok(MOD.indexOf('>Настроить</button>') >= 0, 'f: кнопка не «Настроить»');
   assert.ok(MOD.indexOf('openModuleWindow(m)') < 0,
-    'f: новый маршрут/прямой вызов openModuleWindow в шаблоне запрещён');
+    'f: прямой вызов openModuleWindow в шаблоне запрещён');
   assert.ok(APP_JS.indexOf('openModuleWorkspace: function (m)') >= 0,
     'f: нет шва openModuleWorkspace');
-  assert.ok(APP_JS.indexOf('openModuleWindow: function (m)') >= 0,
-    'f: регресс-путь openModuleWindow потерян');
   assert.ok(APP_JS.indexOf('return this.openModuleWindow(m)') >= 0,
-    'f: шов не делегирует в модалку');
+    'f: fallback в модалку сохранён');
   assert.ok(MOD.indexOf('module-params-btn') >= 0,
     'f: класс module-params-btn (аудит) потерян');
 }
 
-// ── (g) Один каталог, один store для трёх представлений ─────────────────
+// ── (g) Один каталог (DTO), один write-вызов на область ─────────────────
 {
-  const listCount = (INDEX.match(/class="module-list\b/g) || []).length;
-  assert.strictEqual(listCount, 1, 'g: должен быть ровно один .module-list');
-  // §5 v2.1: единственный тумблер карточки идёт через ОДИН store —
-  // setModuleScopeState (область фиксирует верхний селектор), который
-  // делегирует в канонические write-path (global / этого чата).
-  const scopeCalls = (MOD.match(/setModuleScopeState\(/g) || []).length;
-  assert.strictEqual(scopeCalls, 1, 'g: в карточке ровно один write-вызов тумблера');
-  assert.strictEqual(MOD.indexOf('setModuleGlobalState('), -1,
-    'g: шаблон не вызывает глобальную операцию напрямую (только через scope)');
-  assert.strictEqual(MOD.indexOf('toggleModule('), -1,
-    'g: шаблон не вызывает чатовую операцию напрямую (только через scope)');
-  assert.ok(/setModuleScopeState: async function/.test(APP_JS),
-    'g: операция области не реализована методом store');
-  const sblock = APP_JS.slice(APP_JS.indexOf('setModuleScopeState: async function'),
-                              APP_JS.indexOf('moduleOverrideResetAvailable: function'));
-  assert.ok(sblock.indexOf('this.moduleScopeIsGlobal()') >= 0 &&
-            sblock.indexOf('setModuleGlobalState(m, enabled)') >= 0 &&
-            sblock.indexOf('setModuleState(this.storeScope(), m.id, enabled)') >= 0,
-    'g: область решает, какой канонический write-path вызвать');
-  assert.strictEqual(APP_JS.indexOf('data-module-scope-toggle'), -1,
-    'g: атрибут тумблера живёт только в index.html');
+  assert.strictEqual((INDEX.match(/class="module-catalog col-span-full"/g) || [])
+    .length, 1, 'g: должен быть ровно один .module-catalog');
+  // И-3: JS-копии каталога нет — ни массива, ни статического литерала.
+  assert.strictEqual(APP_JS.indexOf('var MODULES = ['), -1,
+    'g: JS-массив MODULES удалён (единственный источник — DTO)');
+  assert.ok(APP_JS.indexOf('var WS_MODULES = [];') >= 0,
+    'g: рантайм-кэш DTO (WS_MODULES), не каталог');
+  assert.ok(/f3ApplyModuleRegistry: function \(modules\)/.test(APP_JS),
+    'g: применить DTO — f3ApplyModuleRegistry');
+  assert.ok(APP_JS.indexOf('catalogGroup: spec.catalog_group') >= 0 &&
+            APP_JS.indexOf('catalogOrder: spec.catalog_order') >= 0,
+    'g: группа/порядок карточки берутся из DTO');
+  // Одна мутация на область: global → setModuleGlobalState,
+  // chat → setModuleChatTriState; смешения нет.
+  assert.strictEqual((MOD.match(/setModuleGlobalState\(/g) || []).length, 1,
+    'g: ровно один GLOBAL write-вызов в шаблоне');
+  assert.strictEqual((MOD.match(/setModuleChatTriState\(/g) || []).length, 1,
+    'g: ровно один CHAT write-вызов в шаблоне');
+  assert.strictEqual(MOD.indexOf('setModuleScopeState('), -1,
+    'g: старый «единый» scope-тумблер из карточки удалён (И-1)');
+}
+
+// ── (h) M4A: 409/оси/права в шаблонах (И-2/И-5) ─────────────────────────
+{
+  assert.ok(APP_JS.indexOf("'Настройка изменилась в другом окне'") >= 0,
+    'h: 409-баннер с человеческой причиной');
+  assert.ok(APP_JS.indexOf('stickyConflict') >= 0,
+    'h: 409 → stickyConflict (без автоповтора)');
+  assert.ok(APP_JS.indexOf("moduleChatError[key] = 'Не удалось сохранить: ' + reason")
+    >= 0, 'h: ошибка сохранения — с причиной');
+  assert.ok(APP_JS.indexOf('Состояние неизвестно') >= 0,
+    'h: unknown ≠ OFF (строка состояния)');
+  assert.ok(INDEX.indexOf('Сохраняем…') >= 0, 'h: «Сохраняем…» до ответа');
+  assert.ok(APP_JS.indexOf("'Настройка сохранена'") >= 0,
+    'h: успех — только после ответа');
 }
 
 console.log('MODULE-CATALOG-OK');

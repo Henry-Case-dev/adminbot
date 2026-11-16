@@ -102,6 +102,7 @@ function mkCtx(me) {
     _f4Registry: {},
   };
   ctx.toast = function (m, k) { ctx._toasts.push([m, k]); };
+  ctx.uiFlag = function () { return true; };   // M4A: 21 карточка, флаги ON
   ctx.syncBackButton = function () {};
   ctx.setTab = function (id) { ctx.activeTab = id; };
   ctx._flagTabHidden = methods._flagTabHidden;
@@ -187,6 +188,12 @@ function rendersAsConfig(ctx) {
     eq(ctx._toasts.length, 0,
       'admin: без тоста отказа на #/modules/' + spec.id);
     // Страница модуля РЕНДЕРИТСЯ: активная вкладка — config (не пустой экран).
+    // M4A: «Время» — policy-экран `type: timeEditor` (design §4.5), не config:
+    // это не пустой экран, а собственный редактор пояса.
+    if (spec.id === 'time') {
+      eq(ctx.activeTab, 'mod_time', 'admin: «Время» → policy-экран mod_time');
+      return;
+    }
     eq(rendersAsConfig(ctx), true,
       'admin: страница модуля «' + spec.id + '» рендерится как config');
   });

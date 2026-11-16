@@ -73,6 +73,8 @@ global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
 assert(captured, 'Vue.createApp должен быть вызван');
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
 const data = captured.data();
 const computed = captured.computed;
 const methods = captured.methods;
@@ -90,9 +92,9 @@ assert.strictEqual(card.icon, 'grid_view', 'F5: иконка — переисп�
 assert.strictEqual(card.title, 'Генерация изображений', 'F5: подпись карточки');
 
 // tma-menu-freeze: ровно +1 санкционированная карточка (12→13).
-// UR-F (UR-29.1): +«Время» (noToggle) → 15→16.
-assert.strictEqual(data.modules.length, 16,
-  'карточек модулей — 16 (+mod_time по UR-F)');
+// M4A: 21 видимая карточка из DTO (было 16 в статическом JS-массиве).
+assert.strictEqual(data.modules.length, 21,
+  'карточек модулей — 21 (каталог из DTO, M4A)');
 
 // 2) Вкладка mod_images: группы модуля — flags_module_images (F5) и
 // limits_images (CFG-02A §02A.1: суточная квота изображений видима в модуле;

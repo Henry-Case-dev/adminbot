@@ -12,10 +12,11 @@
  *          chat override OFF / inherit; «не влияет; глобально» у Summary
  *          НЕТ ни в одном состоянии; setModuleState на chat-scope реально
  *          пишет per_chat-ключ;
- *   B06.2: global-only карточки (Direct/Фактчек/Поиск/Инициатива) на чате —
- *          read-only (moduleChatToggleReadonly), setModuleState отказывает
- *          БЕЗ серверной мутации (инертный override не создаётся); на
- *          global-области тумблер активен;
+ *   B06.2 (M4A/M2.1): 12 продуктовых карточек стали честно чатовыми
+ *          (runtime_gate=per_chat) — на чате они НЕ read-only; read-only
+ *          остаётся только для глобальных infra-осей без master-тумблера
+ *          (moduleChatControlAvailable=false, фиктивного контрола нет);
+ *          «Настроить глобально» по-прежнему переключает область;
  *   B07:   TABS mod_factcheck содержит temporal-правило (зеркало TAB_RULES);
  *          группа temporal_factcheck рендерится на settings-вкладке
  *          workspace; человекочитаемые подписи (tool_enabled → «Проверять
@@ -67,6 +68,9 @@ global.Chart = function () {};
 global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
+const { applyModuleDto } = require('./module_fixture.js');
+applyModuleDto(captured);
+
 const fs = require('fs');
 const INDEX = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
 assert(captured, 'Vue.createApp должен быть вызван');
@@ -195,44 +199,56 @@ function writes(ctx) {
       'B06.1: Summary chat-scope — тумблер не read-only');
   }
 
-  // ═══ B06.2: global-only карточки — read-only на чате ════════════════════
+  // ═══ B06.2 (M4A/M2.1): 12 продуктовых карточек — честно чатовые ═════════
   {
     const chatCtx = mkCtx({ scopeKind: 'chat', activeChatId: -100 });
-    const globalOnly = ['mod_direct', 'mod_factcheck', 'mod_search',
-                        'mod_transcribe', 'mod_video_summary',
-                        'mod_media_download', 'mod_web', 'mod_checkup',
-                        'mod_initiative'];
-    globalOnly.forEach(function (id) {
+    // M2.1 закрыл per-chat adapters: Direct/Фактчек/Поиск/Транскрипт/Видео/
+    // Медиа/Веб/Чекап/Инициатива больше не «global-only» — их runtime читает
+    // чат, поэтому карточка управляет СВОЕЙ областью (И-1), а не read-only.
+    const becamePerChat = ['mod_direct', 'mod_factcheck', 'mod_search',
+                           'mod_transcribe', 'mod_video_summary',
+                           'mod_media_download', 'mod_web', 'mod_checkup',
+                           'mod_initiative'];
+    becamePerChat.forEach(function (id) {
+      const card = moduleById(id);
+      assert.strictEqual(card.runtimeGate, 'per_chat',
+        'B06.2: ' + id + ' объявлен per_chat (M2.1)');
       assert.strictEqual(
-        methods.moduleChatToggleReadonly.call(chatCtx, moduleById(id)),
-        true, 'B06.2: ' + id + ' на чате read-only');
-    });
-    const perChatCards = ['mod_summary', 'mod_sleep', 'mod_nostalgia',
-                          'mod_budgets', 'mod_images', 'mod_vision'];
-    perChatCards.forEach(function (id) {
+        methods.moduleChatToggleReadonly.call(chatCtx, card), false,
+        'B06.2: ' + id + ' на чате управляем');
       assert.strictEqual(
-        methods.moduleChatToggleReadonly.call(chatCtx, moduleById(id)),
-        false, 'B06.2: ' + id + ' на чате активен');
+        methods.moduleChatControlAvailable.call(chatCtx, card), true,
+        'B06.2: у ' + id + ' есть честный чатовый контрол');
     });
-    // На global-области все активны (для правящих).
-    globalOnly.concat(perChatCards).forEach(function (id) {
-      assert.strictEqual(
-        methods.moduleChatToggleReadonly.call(
-          mkCtx({ scopeKind: 'global' }), moduleById(id)),
-        false, 'B06.2: ' + id + ' на global активен');
-    });
+    // Инфраструктура: master нет, но chat-USE — законный tri-state
+    // (design §4.4/И-1: «использование», не master-тумблер).
+    const emb = moduleById('mod_embeddings');
+    assert.strictEqual(emb.runtimeGate, 'global', 'B06.2: embeddings — global');
+    assert.strictEqual(
+      methods.moduleChatControlAvailable.call(chatCtx, emb), true,
+      'B06.2: chat-use инфраструктуры — законный контрол');
+    assert.strictEqual(emb.toggleKey, null,
+      'B06.2: у инфраструктуры НЕТ master-тумблера');
+    // Policy-экран «Время» — без тумблера вовсе.
+    const tm = moduleById('mod_time');
+    assert.strictEqual(
+      methods.moduleChatControlAvailable.call(chatCtx, tm), false,
+      'B06.2: «Время» — без тумблера (policy-поле)');
+    assert.strictEqual(
+      methods.moduleChatToggleReadonly.call(chatCtx, tm), false,
+      'B06.2: «нет тумблера» ≠ «read-only»');
 
-    // setModuleState: инертный override не создаётся (нет серверной мутации).
+    // setModuleState на chat-scope пишет per_chat-ключ (одна мутация).
     const ctx = mkCtx({ scopeKind: 'chat', activeChatId: -100,
       configItems: [item('flags.factcheck_enabled', true,
         { global_value: true, chat_source: '' })] });
     const res = await methods.setModuleState.call(
       ctx, { type: 'chat', id: -100 }, 'mod_factcheck', false);
-    assert.strictEqual(res.ok, false, 'B06.2: global-only на чате — отказ');
-    assert.strictEqual(res.error, 'global-only',
-      'B06.2: причина отказа честная');
-    assert.strictEqual(writes(ctx).length, 0,
-      'B06.2: инертный override НЕ отправляется на сервер');
+    assert.strictEqual(res.ok, true, 'B06.2: per_chat запись выполнена');
+    assert.strictEqual(writes(ctx).length, 1,
+      'B06.2: ровно одна мутация (per_chat-ключ)');
+    assert.strictEqual(writes(ctx)[0].items[0].per_chat, true,
+      'B06.2: в чате пишется только ключ этого чата');
 
     // «Настроить глобально»: переход в «Весь бот» существующим каналом.
     const nav = [];
@@ -250,14 +266,13 @@ function writes(ctx) {
       'B06.2: без прав глобальной области перехода нет');
     assert.ok(den.toasts.indexOf('warn') >= 0,
       'B06.2: не глобальному админу — предупреждение');
-    // Хинт без жаргона.
+    // Хинт «управляется глобально» — только у реально глобальных карточек.
     assert.strictEqual(
-      methods.moduleGlobalHint.call(chatCtx, moduleById('mod_factcheck')),
-      'Управляется глобально — общий рубильник для всех чатов',
-      'B06.2: хинт read-only человекочитаем');
+      methods.moduleGlobalHint.call(chatCtx, moduleById('mod_factcheck')), '',
+      'B06.2: у per_chat карточек хинта нет');
     assert.strictEqual(
       methods.moduleGlobalHint.call(chatCtx, moduleById('mod_summary')), '',
-      'B06.2: у per_chat карточек хинта нет');
+      'B06.2: у per_chat карточки Summary хинта нет');
   }
 
   // ═══ B07: Temporal — секция Фактчека, НЕ карточка ═══════════════════════
@@ -462,10 +477,13 @@ function writes(ctx) {
         return i.key === 'initiative.min_gap_seconds';
       });
     }), 'B01.4: тонкие лимиты рядом с профилем');
-    // Витрина: мастер initiative_enabled — global (пер-чат гейт — отдельный
-    // ключ initiative.enabled своей строкой), поэтому read-only на чате честен.
-    assert.strictEqual(ini.runtimeGate, 'global',
-      'B01.4: мастер Инициативы global; per-chat — initiative.enabled');
+    // M4A/M2.1: «Инициатива» стала честно чатовой (runtime_gate=per_chat,
+    // master-AND снят) — мастер-ключ по-прежнему flags.initiative_enabled,
+    // а чатовый выбор живёт в initiative.enabled.
+    assert.strictEqual(ini.runtimeGate, 'per_chat',
+      'B01.4: Инициатива per_chat (M2.1 снял master-AND)');
+    assert.strictEqual(ini.toggleKey, 'flags.initiative_enabled',
+      'B01.4: мастер-ключ карточки — flags.initiative_enabled');
     assert.ok(INDEX.indexOf('data-initiative-master-link') >= 0,
       'B01.4: мастер-тумблер живёт в каталоге (ссылка «К каталогу»)');
   }
