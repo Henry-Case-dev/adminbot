@@ -66,6 +66,25 @@ Create new workflow-owned temporary output only through the installed global `to
 
 Server-side `backups/`, `pre_migration_*.db`, `local_database.db`, and live production assets are not temporary workspace trash. `plans/reports/disk-analysis-2026-10-28.md` documents the owner's preference to retain 1–2 usable recent backups; only apply targeted retention after checking actual backup provenance, recoverability, and the rollback requirement. Preserve project-specific SSH/fail2ban rules and PET_PROJECT release policy unchanged.
 
+## НЕ СРАТЬ НА PRODUCTION — постоянное правило проекта (P0-PROD-DISK-01, 16.11.2026)
+
+Production — рабочая среда приложения, а не свалка временных файлов, исследовательского сырья, тестовых копий, архивов агентов и бесконечно накапливающихся бэкапов. Правило обязательно для всех ролей: DevOps, Builder, Reviewer, Orchestrator, PM, Architect, Memory и любых диагностических/исследовательских задач.
+
+1. Каждый временный production-артефакт имеет конкретное назначение, владельца и понятное условие удаления.
+2. После завершения деплоя, диагностики, исследования, live-check, канарейки или иной работы агент обязан удалить созданные им ненужные временные файлы, если они больше не нужны для восстановления, активной задачи или обязательного evidence.
+3. Не оставлять полные копии БД и большие выгрузки ради формального evidence, если достаточно компактных результатов, хешей, метрик, фрагментов и воспроизводимых команд.
+4. Тяжёлые исследовательские/тестовые прогоны выполнять вне production; при работе с реальными данными — read-only и минимально необходимый объём.
+5. Любой backup/deployment workflow обязан иметь реально выполняющийся retention/cleanup lifecycle. Новая полная копия БД на каждый релиз без удаления устаревших дублей запрещена.
+6. Перед операциями, способными существенно увеличить диск (полная копия, массовая выгрузка, переиндексация, тяжёлый maintenance), проверять свободное место и ожидаемый объём; при недостатке места операцию не начинать.
+7. Логи и временные данные имеют действующую ротацию/хранение. Правило не распространяется на пользовательскую историю, долговременную память и полезные данные продукта.
+8. После деплоя проверять свободное место наряду с health, version, schema, identity и сохранностью настроек.
+9. Завершение агентской работы включает очистку созданных временных production-артефактов; нельзя молча оставлять гигабайты мусора.
+10. Запрещено удалять чужую работу, активные файлы, пользовательские данные, уникальные доказательства и необходимые копии восстановления ради cleanup; запрещены indiscriminate `rm -rf`, `docker system prune -a --volumes`, `git clean -fdx`, ручное удаление `pg_wal`/SQLite WAL, `VACUUM FULL`.
+11. Если крупный артефакт всё ещё необходим, явно зафиксировать его размер, назначение и событие, после которого он удаляется.
+12. Автоматическая очистка допускается только для явно определённых безопасных категорий с проверяемыми условиями; запрещено удалять произвольные файлы по достижении процента заполненности и запрещено «исправлять» проблему повышением порогов мониторинга.
+
+Для фактической очистки использовать существующие механизмы: `python manage.py disk audit` (read-only), `python manage.py disk cleanup` (dry-run) / `--apply`, `services/disk_retention.py` и `docs/runbook-disk-retention.md`. Если накопление вызвано существующим backup/deploy-механизмом, исправляется его lifecycle, а не только текст правила.
+
 ## Owner is not mandatory QA (project rule, 2026-11-10)
 
 Agents own verification. Never assign the owner unit, integration, regression or end-to-end tests; production observation; log, API, metric or scheduler checks; Telegram scenario checks; before/after comparisons; or "tell me if the bug returns". In this project the agents can reach the production host, the database, the logs and the Mini App harnesses, so these checks belong to Builder, Reviewer and DevOps.
