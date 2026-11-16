@@ -2,8 +2,8 @@
 ================================== FAILURES ===================================
 ________________________ test_direct_handler_per_chat _________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DCF2A75F0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCC37DD00>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E63E92510>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E62AED160>
 
     @pytest.mark.asyncio
     async def test_direct_handler_per_chat(world, monkeypatch):
@@ -24,8 +24,8 @@ E               assert None is sentinel.UNHANDLED
 tests\test_mod_acl_ux_01_m21_adapters.py:117: AssertionError
 __________________ test_direct_functional_yield_is_per_chat ___________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DCE5DDCA0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCCF9C260>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E641928D0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E63B58110>
 
     @pytest.mark.asyncio
     async def test_direct_functional_yield_is_per_chat(world, monkeypatch):
@@ -42,8 +42,8 @@ E       AttributeError: module 'handlers.direct_chat' has no attribute '_functio
 tests\test_mod_acl_ux_01_m21_adapters.py:143: AttributeError
 _______________________ test_factcheck_handler_per_chat _______________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DCF4DAC90>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCD687CB0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E643E30B0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E63E8C140>
 
     @pytest.mark.asyncio
     async def test_factcheck_handler_per_chat(world, monkeypatch):
@@ -69,8 +69,8 @@ E         Use -v to get more diff
 tests\test_mod_acl_ux_01_m21_adapters.py:169: AssertionError
 ________________________ test_search_handler_per_chat _________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DCF5D96D0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCF2A50D0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E644E9A60>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E63B1F710>
 
     @pytest.mark.asyncio
     async def test_search_handler_per_chat(world, monkeypatch):
@@ -90,7 +90,7 @@ E               assert None is sentinel.UNHANDLED
 tests\test_mod_acl_ux_01_m21_adapters.py:191: AssertionError
 __________________________ test_web_handler_per_chat __________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DCF679C70>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6458DF40>
 
     @pytest.mark.asyncio
     async def test_web_handler_per_chat(world):
@@ -111,7 +111,7 @@ E               assert None is sentinel.UNHANDLED
 tests\test_mod_acl_ux_01_m21_adapters.py:217: AssertionError
 ______________________ test_transcribe_handler_per_chat _______________________
 
-self = <AsyncMock id='2670653970656'>
+self = <AsyncMock id='1367482999792'>
 
     def assert_not_awaited(self):
         """
@@ -127,8 +127,8 @@ E           AssertionError: Expected mock to not have been awaited. Awaited 1 ti
 
 During handling of the above exception, another exception occurred:
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DCF619BB0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCF5DA240>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6456A0C0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E644E9B20>
 
     @pytest.mark.asyncio
     async def test_transcribe_handler_per_chat(world, monkeypatch):
@@ -148,7 +148,7 @@ E
 E       pytest introspection follows:
 E       
 E       Args:
-E       assert (namespace(te...026DCB116E40>) == ()
+E       assert (namespace(te...013E617E9820>) == ()
 E         
 E         Left contains 2 more items, first extra item: namespace(text='', caption=None, message_id=11, chat=namespace(id=-100), from_user=namespace(id=5), reply_to_message=None, photo=None, document=None, entities=(), caption_entities=())
 E         Use -v to get more diff
@@ -156,8 +156,8 @@ E         Use -v to get more diff
 tests\test_mod_acl_ux_01_m21_adapters.py:245: AssertionError
 ____________________ test_video_summary_dispatch_per_chat _____________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DCF62CE90>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCF679CA0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E64531460>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6458E060>
 
     @pytest.mark.asyncio
     async def test_video_summary_dispatch_per_chat(world, monkeypatch):
@@ -180,8 +180,8 @@ E       assert None is sentinel.UNHANDLED
 tests\test_mod_acl_ux_01_m21_adapters.py:270: AssertionError
 _______________________ test_download_handler_per_chat ________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD23BB590>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCF679FD0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E646C0D10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6458E480>
 
     @pytest.mark.asyncio
     async def test_download_handler_per_chat(world, monkeypatch):
@@ -204,8 +204,8 @@ E         Use -v to get more diff
 tests\test_mod_acl_ux_01_m21_adapters.py:293: AssertionError
 ______________________ test_download_tool_path_per_chat _______________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD23BA240>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCF61A6C0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E646C1850>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6456A2A0>
 
     @pytest.mark.asyncio
     async def test_download_tool_path_per_chat(world, monkeypatch):
@@ -227,8 +227,8 @@ E       assert '╨б╨║╨░╤З╨╕╨▓╨░╨╜╨╕╨╡ ╨�
 tests\test_mod_acl_ux_01_m21_adapters.py:315: AssertionError
 __________________ test_download_callback_rechecks_per_chat ___________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD23BAE40>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCF62C650>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E646C2270>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E64531D90>
 
     @pytest.mark.asyncio
     async def test_download_callback_rechecks_per_chat(world, monkeypatch):
@@ -253,8 +253,8 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DCF62C650>
 tests\test_mod_acl_ux_01_m21_adapters.py:341: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-callback = namespace(message=namespace(chat=namespace(id=-100)), from_user=namespace(id=5), data='vd:720', answer=<AsyncMock id='2670701818176'>)
-bot = <object object at 0x0000026DCB116EA0>
+callback = namespace(message=namespace(chat=namespace(id=-100)), from_user=namespace(id=5), data='vd:720', answer=<AsyncMock id='1367484403776'>)
+bot = <object object at 0x0000013E617E98B0>
 
     @video_download_router.callback_query(F.data.startswith("vd:"))
     async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
@@ -277,8 +277,8 @@ E       AttributeError: 'object' object has no attribute 'busy'
 handlers\video_download.py:580: AttributeError
 ________________________ test_checkup_handler_per_chat ________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD23B9820>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD23B9970>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E646C3920>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E646C16D0>
 
     @pytest.mark.asyncio
     async def test_checkup_handler_per_chat(world, monkeypatch):
@@ -302,8 +302,8 @@ E         Use -v to get more diff
 tests\test_mod_acl_ux_01_m21_adapters.py:364: AssertionError
 _________________________ test_checkup_tool_per_chat __________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD2467560>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD23BA150>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E64E7F680>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E646C3650>
 
     @pytest.mark.asyncio
     async def test_checkup_tool_per_chat(world, monkeypatch):
@@ -320,8 +320,8 @@ E       AssertionError: assert '╨╝╨╛╨┤╤Г╨╗╤М ╨▓╤Л�
 tests\test_mod_acl_ux_01_m21_adapters.py:381: AssertionError
 _______________________ test_stories_read_api_per_chat ________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD37C8230>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD23BAF90>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E64F005F0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E646C11C0>
 
     @pytest.mark.asyncio
     async def test_stories_read_api_per_chat(world, monkeypatch):
@@ -335,8 +335,8 @@ E       AttributeError: <module 'web.api.stories' from 'C:\\Users\\main\\AppData
 tests\test_mod_acl_ux_01_m21_adapters.py:396: AttributeError
 ________________________ test_character_usage_per_chat ________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD3C39DF0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD23BAFC0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E65C1DBE0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E646C3A70>
 
     @pytest.mark.asyncio
     async def test_character_usage_per_chat(world, monkeypatch):
@@ -376,11 +376,11 @@ Traceback (most recent call last):
   File "C:\Users\main\AppData\Local\Temp\opencode\m21_red_base_v2\tests\test_mod_acl_ux_01_m21_adapters.py", line 421, in _resolve
     raise RuntimeError("sentinel")
 RuntimeError: sentinel
-WARNING  services.mca_events:mca_events.py:730 mca_event=self_model | ts=1794808820 | event_name=self_model | outcome=failed | level=WARN | component=self_model | stage=prompt_render | reason_code=self_model_snapshot_error | chat_id=-100 | status=frame_failed_legacy
+WARNING  services.mca_events:mca_events.py:730 mca_event=self_model | ts=1794809212 | event_name=self_model | outcome=failed | level=WARN | component=self_model | stage=prompt_render | reason_code=self_model_snapshot_error | chat_id=-100 | status=frame_failed_legacy
 _________________________ test_random_usage_per_chat __________________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CB3C20>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD2467710>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B457C20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E64E7F950>
 
     @pytest.mark.asyncio
     async def test_random_usage_per_chat(world, monkeypatch):
@@ -405,8 +405,8 @@ E         Use -v to get more diff
 tests\test_mod_acl_ux_01_m21_adapters.py:465: AssertionError
 _________________ test_initiative_global_off_chat_on_per_chat _________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4C8ABA0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD37C8380>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B427020>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E64F00710>
 
     @pytest.mark.asyncio
     async def test_initiative_global_off_chat_on_per_chat(world, monkeypatch):
@@ -423,8 +423,8 @@ E       AssertionError: assert 'capability_off' is None
 tests\test_mod_acl_ux_01_m21_adapters.py:492: AssertionError
 ______________________ test_factcheck_tool_path_per_chat ______________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CCC680>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CB3FB0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B4B8800>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B457E60>
 
     @pytest.mark.asyncio
     async def test_factcheck_tool_path_per_chat(world, monkeypatch):
@@ -436,7 +436,7 @@ E       AttributeError: <module 'services.tool_schemas' from 'C:\\Users\\main\\A
 tests\test_mod_acl_ux_01_m21_adapters.py:532: AttributeError
 _______________________ test_checkup_readiness_per_chat _______________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CCD2B0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B4B9730>
 
     @pytest.mark.asyncio
     async def test_checkup_readiness_per_chat(world):
@@ -454,8 +454,8 @@ E         + disabled
 tests\test_mod_acl_ux_01_m21_adapters.py:564: AssertionError
 ___________________ test_stories_acl_precedes_per_chat_gate ___________________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CCF050>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CCF2C0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B4BB800>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4BB740>
 
     @pytest.mark.asyncio
     async def test_stories_acl_precedes_per_chat_gate(world, monkeypatch):
@@ -503,13 +503,13 @@ _______________ test_voice_transcription_di_is_not_conditional ________________
                     "transcription: per-chat ╨│╨╡╨╣╤В ╨╢╨╕╨▓╤С╤В ╨▓ handler")
 E               AssertionError: DI ╨╜╨╡ ╨┤╨╛╨╗╨╢╨╡╨╜ ╨╖╨░╨▓╨╕╤Б╨╡╤В╤М ╨╛╤В ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╨╛╨│╨╛ flags.enable_voice_transcription: per-chat ╨│╨╡╨╣╤В ╨╢╨╕╨▓╤С╤В ╨▓ handler
 E               assert not True
-E                +  where True = isinstance(<ast.If object at 0x0000026DD4E00DD0>, <class 'ast.If'>)
+E                +  where True = isinstance(<ast.If object at 0x0000013E6B574F50>, <class 'ast.If'>)
 E                +    where <class 'ast.If'> = <module 'ast' from 'C:\\Users\\main\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\ast.py'>.If
 
 tests\test_mod_acl_ux_01_m21_adapters.py:618: AssertionError
 _____ test_module_adapter_truth_table[flags.direct_chat_botword_enabled] ______
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CCEDB0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B4B9280>
 key = 'flags.direct_chat_botword_enabled'
 
     @pytest.mark.asyncio
@@ -537,7 +537,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 __________ test_module_adapter_truth_table[flags.factcheck_enabled] ___________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CCD520>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E64F00710>
 key = 'flags.factcheck_enabled'
 
     @pytest.mark.asyncio
@@ -565,7 +565,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 ____________ test_module_adapter_truth_table[flags.search_enabled] ____________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4C8A540>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B427EF0>
 key = 'flags.search_enabled'
 
     @pytest.mark.asyncio
@@ -593,7 +593,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 ___________ test_module_adapter_truth_table[flags.webpage_enabled] ____________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CB39B0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B456C00>
 key = 'flags.webpage_enabled'
 
     @pytest.mark.asyncio
@@ -621,7 +621,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 ______ test_module_adapter_truth_table[flags.enable_voice_transcription] ______
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4CB30E0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E646C0E30>
 key = 'flags.enable_voice_transcription'
 
     @pytest.mark.asyncio
@@ -649,7 +649,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 ________ test_module_adapter_truth_table[flags.video_summary_enabled] _________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4C5D0A0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B499B80>
 key = 'flags.video_summary_enabled'
 
     @pytest.mark.asyncio
@@ -677,7 +677,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 ___________ test_module_adapter_truth_table[flags.download_enabled] ___________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4C5C1D0>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B499190>
 key = 'flags.download_enabled'
 
     @pytest.mark.asyncio
@@ -705,7 +705,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 ___________ test_module_adapter_truth_table[flags.checkup_enabled] ____________
 
-world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000026DD4C5D100>
+world = <tests.test_mod_acl_ux_01_m21_adapters._World object at 0x0000013E6B499FA0>
 key = 'flags.checkup_enabled'
 
     @pytest.mark.asyncio
@@ -733,7 +733,7 @@ E           AttributeError: module 'services.feature_gates' has no attribute 'mo
 tests\test_mod_acl_ux_01_m21_adapters.py:644: AttributeError
 _______________ test_nostalgia_memory_master_beats_legacy_flags _______________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4C5DF10>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B49ADE0>
 
     @pytest.mark.asyncio
     async def test_nostalgia_memory_master_beats_legacy_flags(world):
@@ -750,8 +750,8 @@ E        +  where True = CapabilityState(capability='nostalgia', key='nostalgia'
 tests\test_mod_acl_ux_01_m21_gates.py:86: AssertionError
 _______________ test_nostalgia_master_fallback_uses_memory_key ________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4C5FC50>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5DF40>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4A01A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B499400>
 
     @pytest.mark.asyncio
     async def test_nostalgia_master_fallback_uses_memory_key(world, monkeypatch):
@@ -772,8 +772,8 @@ E       KeyError: 'nostalgia'
 tests\test_mod_acl_ux_01_m21_gates.py:122: KeyError
 __________________ test_initiative_global_off_chat_on_is_on ___________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CEC320>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5CD40>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B457EC0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6A3E3620>
 
     @pytest.mark.asyncio
     async def test_initiative_global_off_chat_on_is_on(world, monkeypatch):
@@ -789,8 +789,8 @@ E       AttributeError: <module 'services.mca_gates' from 'C:\\Users\\main\\AppD
 tests\test_mod_acl_ux_01_m21_gates.py:138: AttributeError
 _________ test_initiative_global_default_is_master_not_legacy_global __________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CB2E40>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD3C393A0>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4268D0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B456840>
 
     @pytest.mark.asyncio
     async def test_initiative_global_default_is_master_not_legacy_global(world,
@@ -807,8 +807,8 @@ E       AttributeError: <module 'services.mca_gates' from 'C:\\Users\\main\\AppD
 tests\test_mod_acl_ux_01_m21_gates.py:159: AttributeError
 __________________ test_initiative_global_on_chat_off_is_off __________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4C5DB80>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CB3170>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B499040>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B454B90>
 
     @pytest.mark.asyncio
     async def test_initiative_global_on_chat_off_is_off(world, monkeypatch):
@@ -819,8 +819,8 @@ E       AttributeError: <module 'services.mca_gates' from 'C:\\Users\\main\\AppD
 tests\test_mod_acl_ux_01_m21_gates.py:171: AttributeError
 _______________ test_initiative_scheduler_ticks_when_chat_is_on _______________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4C5F260>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CB30E0>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B49B4A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B427F20>
 
     @pytest.mark.asyncio
     async def test_initiative_scheduler_ticks_when_chat_is_on(world, monkeypatch):
@@ -831,13 +831,13 @@ E       AttributeError: <module 'services.mca_gates' from 'C:\\Users\\main\\AppD
 tests\test_mod_acl_ux_01_m21_gates.py:204: AttributeError
 _____________ test_character_chat_off_does_not_stop_global_model ______________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4C5E030>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5CB30>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B499460>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4994F0>
 
     @pytest.mark.asyncio
     async def test_character_chat_off_does_not_stop_global_model(world,
                                                                  monkeypatch):
-        monkeypatch.setattr(mca_gates, "self_model_enabled", lambda: True)
+        monkeypatch.setattr(module_registry, "env_enabled", lambda mid: True)
         world.globals = {"flags.self_model_enabled": True}
         _set_chat(world, {"overrides": {"flags.self_model_enabled": False},
                           "gates": {}})
@@ -848,12 +848,12 @@ E       AttributeError: module 'services.mca_gates' has no attribute 'self_model
 tests\test_mod_acl_ux_01_m21_gates.py:234: AttributeError
 ___________________ test_random_chat_off_keeps_global_pool ____________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4C5CA70>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5ECC0>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4B8FE0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B49B020>
 
     @pytest.mark.asyncio
     async def test_random_chat_off_keeps_global_pool(world, monkeypatch):
-        monkeypatch.setattr(mca_gates, "random_source_enabled", lambda: True)
+        monkeypatch.setattr(module_registry, "env_enabled", lambda mid: True)
         world.globals = {"memory.random_enabled": True}
         _set_chat(world, {"overrides": {"memory.random_enabled": False},
                           "gates": {}})
@@ -864,8 +864,8 @@ E       AttributeError: module 'services.mca_gates' has no attribute 'random_sou
 tests\test_mod_acl_ux_01_m21_gates.py:245: AttributeError
 ____________________ test_random_global_off_chat_on_is_on _____________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CCD280>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5F1A0>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4B99A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B49AF60>
 
     @pytest.mark.asyncio
     async def test_random_global_off_chat_on_is_on(world, monkeypatch):
@@ -878,11 +878,11 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5F1A0>
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E       AttributeError: module 'services.mca_gates' has no attribute 'random_source_enabled_for_chat'. Did you mean: 'random_source_enabled'?
 
-tests\test_mod_acl_ux_01_m21_gates.py:256: AttributeError
+tests\test_mod_acl_ux_01_m21_gates.py:260: AttributeError
 __________________ test_random_emergency_env_blocks_chat_on ___________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CCE270>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5D490>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4A3770>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4B88C0>
 
     @pytest.mark.asyncio
     async def test_random_emergency_env_blocks_chat_on(world, monkeypatch):
@@ -896,11 +896,11 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C5D490>
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E       AttributeError: module 'services.mca_gates' has no attribute 'random_source_enabled_for_chat'. Did you mean: 'random_source_enabled'?
 
-tests\test_mod_acl_ux_01_m21_gates.py:274: AttributeError
+tests\test_mod_acl_ux_01_m21_gates.py:278: AttributeError
 ___________________ test_character_global_off_chat_on_is_on ___________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4C8ABD0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CCF470>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4A10A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4B9670>
 
     @pytest.mark.asyncio
     async def test_character_global_off_chat_on_is_on(world, monkeypatch):
@@ -913,11 +913,11 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CCF470>
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E       AttributeError: module 'services.mca_gates' has no attribute 'self_model_enabled_for_chat'
 
-tests\test_mod_acl_ux_01_m21_gates.py:284: AttributeError
+tests\test_mod_acl_ux_01_m21_gates.py:288: AttributeError
 _________________ test_character_emergency_env_blocks_chat_on _________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CEF6E0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CCC140>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4A1C40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4A1CD0>
 
     @pytest.mark.asyncio
     async def test_character_emergency_env_blocks_chat_on(world, monkeypatch):
@@ -931,11 +931,11 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CCC140>
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E       AttributeError: module 'services.mca_gates' has no attribute 'self_model_enabled_for_chat'
 
-tests\test_mod_acl_ux_01_m21_gates.py:300: AttributeError
+tests\test_mod_acl_ux_01_m21_gates.py:304: AttributeError
 ________________ test_stories_global_off_chat_on_and_emergency ________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CEDCA0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C88950>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4A3620>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4A3320>
 
     @pytest.mark.asyncio
     async def test_stories_global_off_chat_on_and_emergency(world, monkeypatch):
@@ -948,11 +948,11 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C88950>
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E       AttributeError: module 'services.mca_gates' has no attribute 'stories_vitrina_enabled_for_chat'. Did you mean: 'stories_vitrina_enabled'?
 
-tests\test_mod_acl_ux_01_m21_gates.py:310: AttributeError
+tests\test_mod_acl_ux_01_m21_gates.py:314: AttributeError
 ______________ test_module_enabled_fail_closed_on_resolver_error ______________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CEDA60>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CEDB50>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4A4710>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4A2030>
 
     @pytest.mark.asyncio
     async def test_module_enabled_fail_closed_on_resolver_error(world, monkeypatch):
@@ -967,7 +967,7 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4CEDB50>
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E       AttributeError: module 'services.feature_gates' has no attribute 'module_enabled'
 
-tests\test_mod_acl_ux_01_m21_gates.py:336: AttributeError
+tests\test_mod_acl_ux_01_m21_gates.py:340: AttributeError
 __________________ test_m21_consumers_use_existing_resolver ___________________
 
     def test_m21_consumers_use_existing_resolver():
@@ -994,11 +994,11 @@ __________________ test_m21_consumers_use_existing_resolver ___________________
 E           AssertionError: services/media_download.py
 E           assert 'module_enabled(' in '"""Bugfix 04.09.2026 (╨з╨░╤Б╤В╤М 1, FR-4) тАФ ╨╛╨▒╤Й╨╡╨╡ ╤Б╨║╨░╤З╨╕╨▓╨░╨╜╨╕╨╡ TG-╨╝╨╡╨┤╨╕╨░ ╨▓ tmp.\n\n╨Я╨╡╤А╨╡╨╜╨╛╤Б ╨╕╨╖ handlers/voice_transcription.py...load",\n                   max_attempts, media.file_id)\n    await bot.download(media.file_id, destination=tmp_path)\n'
 
-tests\test_mod_acl_ux_01_m21_gates.py:377: AssertionError
+tests\test_mod_acl_ux_01_m21_gates.py:381: AssertionError
 _________________ test_adapter_does_not_rewrite_stored_values _________________
 
-world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000026DD4CCCB30>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C8AC60>
+world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000013E6B4A18B0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E6B4A2330>
 
     @pytest.mark.asyncio
     async def test_adapter_does_not_rewrite_stored_values(world, monkeypatch):
@@ -1022,7 +1022,7 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026DD4C8AC60>
             CHAT, key="flags.search_enabled") is False
 E       AttributeError: module 'services.feature_gates' has no attribute 'module_enabled'
 
-tests\test_mod_acl_ux_01_m21_gates.py:399: AttributeError
+tests\test_mod_acl_ux_01_m21_gates.py:403: AttributeError
 ============================== warnings summary ===============================
 ..\..\..\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
   C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
@@ -1080,4 +1080,4 @@ FAILED tests/test_mod_acl_ux_01_m21_gates.py::test_stories_global_off_chat_on_an
 FAILED tests/test_mod_acl_ux_01_m21_gates.py::test_module_enabled_fail_closed_on_resolver_error
 FAILED tests/test_mod_acl_ux_01_m21_gates.py::test_m21_consumers_use_existing_resolver
 FAILED tests/test_mod_acl_ux_01_m21_gates.py::test_adapter_does_not_rewrite_stored_values
-44 failed, 3 passed, 2 warnings in 5.17s
+44 failed, 3 passed, 2 warnings in 5.13s
