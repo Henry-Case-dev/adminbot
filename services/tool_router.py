@@ -5463,7 +5463,11 @@ class ToolRouter:
         source, url, native = self._resolve_tool_source(arguments, ctx)
         if source is None:
             return _download_status("error", "Некорректная ссылка")
-        if not hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
+        # MOD-ACL-UX-01 M2.1: гейт модуля — per chat (GLOBAL-дефолт → явный
+        # CHAT-override) через канонический резолвер; иначе настройка чата не
+        # действовала на tool-путь. Транспорт/DI не останавливаются.
+        from services import media_download as _media_download
+        if not await _media_download.module_enabled(ctx.chat_id):
             return _download_status("error", "Скачивание отключено")
         if ctx.bot is None:
             return _download_status("error", "Скачивание недоступно")
@@ -5811,8 +5815,13 @@ class ToolRouter:
 
         Follow-up R10.15-2: уважаем master-флаг модуля (`flags.checkup_enabled`,
         тот же гейт, что `handlers/checkup.py`) — при выключенном модуле
-        инструмент не делает сетевой/LLM-вызов, а возвращает честную ошибку."""
-        if not hot.get("flags.checkup_enabled", settings.CHECKUP_ENABLED):
+        инструмент не делает сетевой/LLM-вызов, а возвращает честную ошибку.
+        MOD-ACL-UX-01 M2.1: флаг решается per chat (GLOBAL-дефолт → явный
+        CHAT-override) через канонический резолвер."""
+        from services import feature_gates as _fg
+        if not await _fg.module_enabled(
+                ctx.chat_id, key="flags.checkup_enabled",
+                default=settings.CHECKUP_ENABLED):
             return "ОШИБКА get_bot_health: модуль выключен"
         # SELF-DIAG-01 D6 (`SD1-D6-17`): счётчик реальных вызовов входа.
         self._emit_diag_tool_event("get_bot_health_called", ctx,

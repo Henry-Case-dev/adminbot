@@ -42,6 +42,7 @@ from aiogram.filters import Command, CommandObject
 
 from config.settings import settings
 from services import command_prefix
+from services import feature_gates
 from services import hot_config as hot
 from services import bot_persona
 from services import mca_style_scope
@@ -125,6 +126,11 @@ _FUNCTIONAL_FLAGS: dict[str, tuple[str, bool]] = {
 def _functional_module_active(group: str | None) -> bool:
     """Включён ли воркер группы (master-флаг + доступность сервиса).
 
+    Синхронная legacy-форма для тестов и вызовов без чата: читает только
+    глобальный слой. Runtime-путь `direct_chat_handler` использует
+    `_functional_module_active_for_chat` — тот же вопрос, но per chat
+    (MOD-ACL-UX-01 M2.1).
+
     R10.15-4: для `download` одного hot-флага мало — роутер 4e регистрируется
     в `bot.py` всегда, но yield оправдан только когда поднят DI-сервис
     (`_downloader`). Иначе сообщение не должно покидать direct_chat без
@@ -138,6 +144,25 @@ def _functional_module_active(group: str | None) -> bool:
     if spec is None:
         return False
     if not hot.get(spec[0], spec[1]):
+        return False
+    if group == "download":
+        return download_available()
+    return True
+
+
+async def _functional_module_active_for_chat(chat_id, group: str | None) -> bool:
+    """Per-chat форма `_functional_module_active` (MOD-ACL-UX-01 M2.1).
+
+    GLOBAL-дефолт → явный CHAT-override через канонический резолвер; иначе
+    функциональная команда («Бот, скачай …») при GLOBAL OFF + CHAT ON не
+    доходила бы до своего воркера: direct_chat съедал бы её как обычный
+    ответ. Shared-сервис (download DI) остаётся отдельной проверкой.
+    """
+    spec = _FUNCTIONAL_FLAGS.get(group or "")
+    if spec is None:
+        return False
+    if not await feature_gates.module_enabled(
+            chat_id, key=spec[0], default=spec[1]):
         return False
     if group == "download":
         return download_available()
@@ -223,19 +248,33 @@ def _has_bot_mention(message: types.Message) -> bool:
     return False
 
 
-def _is_direct_trigger(message: types.Message) -> bool:
-    """Триггеры 1-4 (58.4 + R52-4). Вызывается ПОСЛЕ исключений (команды/пустой текст).
+def _is_direct_trigger(message: types.Message,
+                       module_enabled: bool | None = None) -> bool:
+    """Триггеры 1-4 (58.4 + R52-4) + master-гейт модуля.
+
+    MOD-ACL-UX-01 M2.1: ``module_enabled`` — уже разрешённое per-chat
+    состояние из канонического резолвера. ``None`` сохраняет синхронную
+    legacy-семантику по глобальному слою (прямые вызовы/тесты). Runtime-
+    handler использует `_is_direct_trigger_unscoped` после своего per-chat
+    гейта, чтобы GLOBAL OFF + CHAT ON действительно работал.
+    """
+    if module_enabled is None:
+        if not hot.get("flags.direct_chat_botword_enabled",
+                       settings.DIRECT_CHAT_BOTWORD_ENABLED):
+            return False
+    elif not module_enabled:
+        return False
+    return _is_direct_trigger_unscoped(message)
+
+
+def _is_direct_trigger_unscoped(message: types.Message) -> bool:
+    """Триггерная поверхность БЕЗ модульного master-гейта.
 
     Приоритет reply/mention ≥ keyword соблюдается автоматически (OR-ветки;
-    reply/mention дешевле и проверяются раньше).
-
-    F5 (ТЗ §18H(4), архитектура §5.1): ``flags.direct_chat_botword_enabled`` —
-    master-гейт МОДУЛЯ на всей триггерной поверхности (reply/mention/имя/
-    keyword), а не только keyword-ветки: роутер 0h зарегистрирован всегда,
-    флаг проверяется на границе исполнения. OFF → UNHANDLED (пропагация)."""
-    if not hot.get("flags.direct_chat_botword_enabled",
-                   settings.DIRECT_CHAT_BOTWORD_ENABLED):
-        return False
+    reply/mention дешевле и проверяются раньше). Гейт модуля проверяется
+    вызывающим: `_is_direct_trigger` (legacy/global) или
+    `direct_chat_handler` (per-chat резолвер).
+    """
     reply_to = message.reply_to_message
     if reply_to is not None:
         reply_from = getattr(reply_to, "from_user", None)
@@ -564,7 +603,16 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
         # доходит до триггер-гейта: сработать может только осознанное
         # обращение (reply боту) — keyword/mention без текста невозможны.
         return UNHANDLED
-    if not _is_direct_trigger(message):
+    # MOD-ACL-UX-01 M2.1: master-флаг модуля решается per chat через
+    # канонический резолвер (GLOBAL-дефолт → явный CHAT-override). Значение
+    # передаётся в триггер-гейт, чтобы GLOBAL OFF + CHAT ON действительно
+    # работал, а GLOBAL ON + CHAT OFF — нет.
+    module_enabled = await feature_gates.module_enabled(
+        message.chat.id, key="flags.direct_chat_botword_enabled",
+        default=settings.DIRECT_CHAT_BOTWORD_ENABLED)
+    if not module_enabled:
+        return UNHANDLED
+    if not _is_direct_trigger_unscoped(message):
         return UNHANDLED                       # не триггер → пропагация живёт
     # Раунд 10.15 (F6, T-1598, ADR-1015-1): «Префикс + канонический триггер» —
     # функциональная команда имеет наивысший приоритет и НЕ уходит в LLM.
@@ -573,7 +621,8 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
     # yield только при ВКЛЮЧЁННОМ воркере, иначе сообщение не теряется и идёт
     # обычным путём LLM. Триггер без цели консьюмится функциональным воркером.
     group = command_prefix.functional_group(text)
-    if group is not None and _functional_module_active(group):
+    if group is not None and await _functional_module_active_for_chat(
+            message.chat.id, group):
         return UNHANDLED
     # Раунд 4 (T-712, FR-D1): память-команды — ПОСЛЕ триггера, ДО handle.
     # Распознанный синтаксис → ответ/подтверждение + consumed (в LLM НЕ

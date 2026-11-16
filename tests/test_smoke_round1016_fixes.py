@@ -97,7 +97,9 @@ class TestDownloadAlwaysRegistered:
 
     def test_handler_has_hot_gate(self):
         src = _read("handlers/video_download.py")
-        assert 'hot.get("flags.download_enabled"' in src
+        # MOD-ACL-UX-01 M2.1: тот же master-гейт, но per-chat через
+        # канонический резолвер модуля (не глобальный hot.get).
+        assert "media_download.module_enabled" in src
         assert "def download_available()" in src
 
     @pytest.fixture

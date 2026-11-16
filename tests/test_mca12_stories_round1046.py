@@ -29,6 +29,7 @@ import json
 import re
 import time
 import types
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -615,8 +616,10 @@ def test_api_summary_no_chat_and_foreign_chat(api_db, monkeypatch):
 
 def test_api_k1_off_honest_disabled(api_db, monkeypatch):
     _patch_lore(monkeypatch, api_db)
-    monkeypatch.setattr(mca_gates, "stories_vitrina_enabled",
-                        lambda: False)
+    # MOD-ACL-UX-01 M2.1: read-API читает per-chat адаптер; глобальный
+    # sync-гейт остаётся для status/legacy и здесь не решает.
+    monkeypatch.setattr(mca_gates, "stories_vitrina_enabled_for_chat",
+                        AsyncMock(return_value=False))
     client = _client(api_db)
     r = client.get("/api/stories/summary",
                    headers=dict(_hdr(), **{"X-Chat-Id": str(CHAT)}))

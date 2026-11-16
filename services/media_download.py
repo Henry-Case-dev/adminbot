@@ -24,6 +24,23 @@ from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
+
+async def module_enabled(chat_id) -> bool:
+    """Per-chat гейт МОДУЛЯ «Скачивание медиа» (MOD-ACL-UX-01 M2.1).
+
+    Тонкий адаптер к каноническому резолверу: GLOBAL-дефолт
+    `flags.download_enabled` → явный CHAT-override. Сам общий транспорт
+    (`fetch_media_to_tmp`) этим гейтом не останавливается: голос/
+    транскрипция/видео-выжимка ходят через него независимо, а решение
+    «принимать ли новое скачивание этого чата» принимает потребитель
+    (handler 4e / tool `download_media`).
+    """
+    from services import feature_gates
+    return await feature_gates.module_enabled(
+        chat_id, key="flags.download_enabled",
+        default=getattr(settings, "DOWNLOAD_ENABLED", False))
+
+
 # D263 (ADR-1025-6) / P0 prod-incident (21.09.2026): каталог локального
 # Bot API В ПРОСТРАНСТВЕ КОНТЕЙНЕРА. bind-источник тома
 # `./docker/telegram-bot-api` (= settings.TELEGRAM_API_FILES_DIR на хосте)

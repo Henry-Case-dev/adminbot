@@ -451,13 +451,13 @@ async def resolve_self_model(db, scope_chat_id: int | None = None, *,
     `bot_user_id` — фактический runtime (get_me); если передан и отличается
     от явного binding — snapshot помечает `identity_binding='runtime'`
     (rebind — только явное admin-действие, не по похожему имени)."""
-    if not mca_gates.self_model_enabled():
+    if not await mca_gates.self_model_enabled_for_chat(scope_chat_id):
         mca_events.emit_mca_event(
             "self_model", outcome="skipped", component="self_model",
             stage="resolve", reason_code="self_model_disabled",
             status="disabled")
         raise SelfModelDisabled(
-            "self_model disabled (MCA_SELF_MODEL_ENABLED=OFF)")
+            "self_model disabled (MCA_SELF_MODEL_ENABLED=OFF / chat OFF)")
     ts = int(now if now is not None else time.time())
     try:
         identity = await db.get_self_identity()

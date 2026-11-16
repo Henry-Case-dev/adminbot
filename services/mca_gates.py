@@ -1735,6 +1735,26 @@ def random_source_enabled() -> bool:
         return True
 
 
+async def random_source_enabled_for_chat(chat_id) -> bool:
+    """Per-chat использование RandomSource (MOD-ACL-UX-01 M2.1).
+
+    Shared-пул/провайдер — глобальная ось (`random_source_enabled`: env +
+    product master); чат может только ОТКЛЮЧИТЬ использование у себя, но не
+    обойти глобальный master. Поэтому это master-AND: глобальный effective
+    AND канонический per-chat резолвер `memory.random_enabled` (GLOBAL-
+    дефолт → явный CHAT-override). OFF одного чата не останавливает пул,
+    ANU/refill и другие чаты.
+    """
+    if not random_source_enabled():
+        return False
+    from services import feature_gates
+    try:
+        return bool(await feature_gates.module_enabled(
+            chat_id, module_id="random"))
+    except Exception:      # pragma: no cover — защитная ветка
+        return False
+
+
 def random_quantum_enabled() -> bool:
     """`MCA_RANDOM_QUANTUM_ENABLED` (env-only, default ON; K2).
 
@@ -1983,6 +2003,25 @@ def self_model_enabled() -> bool:
     if not bool(getattr(settings, "MCA_SELF_MODEL_ENABLED", True)):
         return False
     return _module_catalog_flag("flags.self_model_enabled", True)
+
+
+async def self_model_enabled_for_chat(chat_id) -> bool:
+    """Per-chat использование SelfModel/характера (MOD-ACL-UX-01 M2.1).
+
+    Модель/снапшот — глобальный master (`self_model_enabled`: env +
+    `flags.self_model_enabled`); чат может отключить использование эволюции
+    у себя, но не обойти глобальный master. Master-AND с каноническим
+    per-chat резолвером `flags.self_model_enabled` (GLOBAL-дефолт → явный
+    CHAT-override). Глобальное хранение модели не удаляется.
+    """
+    if not self_model_enabled():
+        return False
+    from services import feature_gates
+    try:
+        return bool(await feature_gates.module_enabled(
+            chat_id, module_id="character"))
+    except Exception:      # pragma: no cover — защитная ветка
+        return False
 
 
 def trait_rules_enabled() -> bool:
@@ -2680,6 +2719,23 @@ def stories_vitrina_enabled() -> bool:
     if not bool(getattr(settings, "MCA_STORIES_VITRINA_ENABLED", True)):
         return False
     return _module_catalog_flag("flags.stories_vitrina_enabled", True)
+
+
+async def stories_vitrina_enabled_for_chat(chat_id) -> bool:
+    """Per-chat read-контур историй (MOD-ACL-UX-01 M2.1).
+
+    Канонический резолвер `flags.stories_vitrina_enabled` (GLOBAL-дефолт →
+    явный CHAT-override); env-ось `MCA_STORIES_VITRINA_ENABLED` остаётся
+    аварийной (registry `env_enabled` включён в `resolve_module_capability`).
+    Чтение чужого чата не открывается: chat_id — тот, что уже проверен ACL
+    вызывающего.
+    """
+    from services import feature_gates
+    try:
+        return bool(await feature_gates.module_enabled(
+            chat_id, module_id="stories"))
+    except Exception:      # pragma: no cover — защитная ветка
+        return False
 
 
 def stories_manage_enabled() -> bool:

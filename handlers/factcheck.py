@@ -22,6 +22,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from handlers.summary import _extract_forward_source
 from handlers.voice_transcription import _is_transcription_target
+from services import feature_gates
 from services import hot_config as hot
 from services.chat_params import get_chat_param as _cp_g
 from services.llm_client import LLMBadResponseError, LLMError
@@ -1150,8 +1151,12 @@ async def _transcription_forward_author(chat_id: int,
 async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
-    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
-    if not hot.get("flags.factcheck_enabled", settings.FACTCHECK_ENABLED):
+    # MOD-ACL-UX-01 M2.1: master-флаг решается per chat через канонический
+    # резолвер (GLOBAL-дефолт → явный CHAT-override); глобальный hot.get
+    # больше не игнорирует настройку этого чата.
+    if not await feature_gates.module_enabled(
+            message.chat.id, key="flags.factcheck_enabled",
+            default=settings.FACTCHECK_ENABLED):
         return UNHANDLED
     user_id = message.from_user.id if message.from_user else 0
     target, user_hint = _parse_trigger(message)

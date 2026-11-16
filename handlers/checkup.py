@@ -25,6 +25,7 @@ from config.settings import settings
 from services import command_prefix
 from services import command_registry
 from services import diagnostic_policy
+from services import feature_gates
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
@@ -430,8 +431,12 @@ async def _checkup_diagnostic_gate(actor_id, chat_id, bot=None):
 async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or _fetcher is None or bot is None:
         return UNHANDLED
-    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
-    if not hot.get("flags.checkup_enabled", settings.CHECKUP_ENABLED):
+    # MOD-ACL-UX-01 M2.1: флаг модуля решается per chat (GLOBAL-дефолт →
+    # CHAT-override) через канонический резолвер; глобальный hot.get
+    # игнорировал настройку этого чата.
+    if not await feature_gates.module_enabled(
+            message.chat.id, key="flags.checkup_enabled",
+            default=settings.CHECKUP_ENABLED):
         return UNHANDLED
     text = (message.text or message.caption or "").strip()
     if not text or not _is_checkup_trigger(text):

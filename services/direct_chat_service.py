@@ -4009,10 +4009,16 @@ async def _evidence_context(chat_id: int, required_caps=(), *,
     network: dict[str, bool] = {}
     states: dict[str, tuple[bool, str]] = {}
     try:
-        network["web_search"] = bool(hot.get(
-            "flags.search_enabled", getattr(settings, "SEARCH_ENABLED", True)))
-        network["fetch_url"] = bool(hot.get(
-            "flags.webpage_enabled", getattr(settings, "WEBPAGE_ENABLED", True)))
+        from services import feature_gates as _fg
+        # MOD-ACL-UX-01 M2.1: сетевые рубильники решаются per chat через
+        # канонический резолвер (GLOBAL-дефолт → явный CHAT-override), а не
+        # глобальным hot.get. Это тот же источник истины, что у хендлеров.
+        network["web_search"] = bool(await _fg.module_enabled(
+            chat_id, key="flags.search_enabled",
+            default=getattr(settings, "SEARCH_ENABLED", True)))
+        network["fetch_url"] = bool(await _fg.module_enabled(
+            chat_id, key="flags.webpage_enabled",
+            default=getattr(settings, "WEBPAGE_ENABLED", True)))
     except Exception:      # pragma: no cover - защитная ветка
         network.setdefault("web_search", True)
         network.setdefault("fetch_url", True)
@@ -8473,11 +8479,14 @@ class DirectChatService:
             net_off: dict[str, str] = {}
             blocked_tools: set[str] = set()
             try:
-                if not bool(hot.get("flags.search_enabled", getattr(
-                        settings, "SEARCH_ENABLED", True))):
+                from services import feature_gates as _fg
+                if not await _fg.module_enabled(
+                        chat_id, key="flags.search_enabled",
+                        default=getattr(settings, "SEARCH_ENABLED", True)):
                     net_off["web_search"] = _evp.BLOCK_EXTERNAL_DISABLED
-                if not bool(hot.get("flags.webpage_enabled", getattr(
-                        settings, "WEBPAGE_ENABLED", True))):
+                if not await _fg.module_enabled(
+                        chat_id, key="flags.webpage_enabled",
+                        default=getattr(settings, "WEBPAGE_ENABLED", True)):
                     net_off["fetch_url"] = _evp.BLOCK_EXTERNAL_DISABLED
             except Exception:      # pragma: no cover - защитная ветка
                 net_off = {}

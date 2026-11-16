@@ -15,6 +15,7 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from config.settings import settings
 from services import command_prefix
 from services import command_registry
+from services import feature_gates
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
@@ -138,8 +139,12 @@ def _parse(message: types.Message) -> tuple[types.Message | None, str | None]:
 async def web_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
-    # Раунд 10.6 (T-1201/A1): master-флаг модуля (default ON).
-    if not hot.get("flags.webpage_enabled", settings.WEBPAGE_ENABLED):
+    # MOD-ACL-UX-01 M2.1: master-флаг модуля решается per chat (GLOBAL-дефолт
+    # → явный CHAT-override) через канонический резолвер, а не глобальным
+    # `hot.get` (раньше override этого чата не действовал).
+    if not await feature_gates.module_enabled(
+            message.chat.id, key="flags.webpage_enabled",
+            default=settings.WEBPAGE_ENABLED):
         return UNHANDLED
     # Раунд 10.15 (F6, T-1595): обязательный префикс (Имя/«Бот,»). Нет
     # префикса или нет триггера в остатке → UNHANDLED (пропагация живёт).
