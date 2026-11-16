@@ -482,16 +482,34 @@ async def test_resolve_character_context_frame_path(db, monkeypatch,
 @pytest.mark.asyncio
 async def test_resolve_character_context_legacy_on_error(db, monkeypatch,
                                                          events):
-    """Ошибка frame-пути → честное событие + legacy-рендер (промпт жив)."""
+    """Ошибка frame-пути → честное событие + legacy-рендер (промпт жив).
+
+    MOD-ACL-UX-01 M2.1 (F1 test-debt): решение «использовать ли модель»
+    принимает per-chat ось `mca_gates.self_model_enabled_for_chat`; прежний
+    глобальный `self_model_enabled` в `resolve_character_context` больше не
+    читается. Обе ветки per-chat оси зафиксированы явно, чтобы инвариант не
+    зависел от окружения: CHAT ON → boom-путь даёт событие; CHAT OFF (и
+    аварийная env-ось, та же effective-семантика) → legacy целиком, без
+    frame-попыток и событий.
+    """
     async def _boom(db_, scope):
         raise RuntimeError("boom")
+
+    async def _chat_on(chat_id):
+        return True
+
+    async def _chat_off(chat_id):
+        return False
+
     monkeypatch.setattr(sm, "resolve_self_model", _boom)
+    # CHAT ON → frame-путь выполняется; ошибка видима событием, промпт жив.
+    monkeypatch.setattr(mca_gates, "self_model_enabled_for_chat", _chat_on)
     ctx = await bot_persona.resolve_character_context(CHAT)
     assert ctx.frame_version is None
     assert any(kw.get("reason_code") == "self_model_snapshot_error"
                for _, kw in events)
-    # K1 OFF → legacy целиком (нет frame-попыток).
-    monkeypatch.setattr(mca_gates, "self_model_enabled", lambda: False)
+    # CHAT OFF → legacy целиком (нет frame-попыток, нет событий).
+    monkeypatch.setattr(mca_gates, "self_model_enabled_for_chat", _chat_off)
     mca_events.reset_pending()
     events.clear()
     ctx = await bot_persona.resolve_character_context(CHAT)
