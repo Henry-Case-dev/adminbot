@@ -14191,17 +14191,31 @@
                            :aria-valuenow="ctlMemProg.ariaNow"
                            :aria-label="ctlMemProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlMemProg.ratio * 100) + '%' }"></div></div>
                     </div>
-                    <div>
+                    <div class="status-disk" :data-disk-level="ctlDiskAlert.level">
                       <div class="flex justify-between text-xs text-gray-400">
                         <span>Диск</span>
                         <span v-if="statusSys.disk && ctlDiskProg.percent != null">{{ fmtBytes(statusSys.disk.used) }} / {{ fmtBytes(statusSys.disk.total) }} ({{ ctlDiskProg.percent }}%)</span>
                         <span v-else>нет данных</span>
                       </div>
+                      <!-- P0-PROD-DISK-01: цвет бара — визуальная классификация
+                           существующей телеметрии (85 %/90 % — константы в
+                           app.js `ctlDiskAlert`); пороги не повышаются. -->
                       <div class="progress ctl-progress__track" role="progressbar"
                            aria-valuemin="0" aria-valuemax="100"
                            :data-state="ctlDiskProg.state"
                            :aria-valuenow="ctlDiskProg.ariaNow"
-                           :aria-label="ctlDiskProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlDiskProg.ratio * 100) + '%' }"></div></div>
+                           :aria-label="ctlDiskAlert.ariaText"><div class="ctl-progress__fill"
+                           :class="{ 'bar-red': ctlDiskAlert.level === 'crit' }"
+                           :style="{ width: (ctlDiskProg.ratio * 100) + '%' }"></div></div>
+                      <!-- Цвет — НЕ единственный сигнал: предупреждение несёт
+                           текст и живёт в aria-live (role=status). Нет данных →
+                           строки нет (уровень unknown, не ложное «здорово»). -->
+                      <div v-if="ctlDiskAlert.text" class="status-disk__alert"
+                           :class="'status-disk__alert--' + ctlDiskAlert.level"
+                           :data-disk-alert="ctlDiskAlert.level"
+                           role="status" aria-live="polite" aria-atomic="true">
+                        <span class="status-disk__icon" aria-hidden="true">⚠</span><span>{{ ctlDiskAlert.text }}</span>
+                      </div>
                     </div>
                     <div class="text-xs text-gray-400">Аптайм: {{ statusData ? humanizeUptime(statusData.bot.uptime_seconds) : '—' }}</div>
                     <div class="text-xs text-gray-400">Load: {{ statusSys.loadavg ? statusSys.loadavg.map(x => Number(x).toFixed(2)).join(' / ') : '—' }}</div>
