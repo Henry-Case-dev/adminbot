@@ -399,7 +399,9 @@ STRUCTURAL_DIAGNOSTIC_SOURCES = ("source_code", "runtime")
 
 
 def structural_diagnostic_research(delivered_report, *,
-                                   reply_to_bot: bool):
+                                   reply_to_bot: bool,
+                                   report_message_id=None,
+                                   reply_message_id=None):
     """Структурный grant для продолжения доставленного чекапа (S7).
 
     Отличие от :func:`preserved_diagnostic_research`: тот сохраняет УЖЕ
@@ -409,11 +411,27 @@ def structural_diagnostic_research(delivered_report, *,
     Поэтому объявляются только существующие read-only инструменты
     (`source_code`/`deep_diagnostics`) и каноническая identity своего repo
     (`target=self`); сам вызов по-прежнему выбирает модель в tool-фазе.
-    Ничего не запускает, прозу не пишет. Никогда не бросает."""
+    Ничего не запускает, прозу не пишет. Никогда не бросает.
+
+    Reviewer S7 F4: «ответ на сообщение бота» ещё не значит «ответ на
+    отчёт» — в окне может быть любое сообщение бота. Если переданы
+    ``report_message_id`` (tg id фактически доставленного отчёта) и
+    ``reply_message_id`` (tg id сообщения, на которое отвечает человек),
+    grant выдаётся ТОЛЬКО при их совпадении. Отсутствие любого из id —
+    сверка невозможна → grant не выдаётся (консервативно)."""
 
     if not reply_to_bot:
         return None
     if not isinstance(delivered_report, str) or not delivered_report.strip():
+        return None
+    try:
+        report_id = (int(report_message_id)
+                     if report_message_id is not None else None)
+        reply_id = (int(reply_message_id)
+                    if reply_message_id is not None else None)
+    except (TypeError, ValueError):
+        return None
+    if report_id is None or reply_id is None or report_id != reply_id:
         return None
     return DiagnosticResearch(
         needed=True, target="self",

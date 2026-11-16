@@ -4144,22 +4144,27 @@ def _reply_total_chars(message, alias_resolver=None, nickname_fn=None) -> int:
     return len((head + text).strip())
 
 
-async def _recent_checkup_report_text(db, chat_id: int) -> str:
-    """Последний ДОСТАВЛЕННЫЙ отчёт чекапа (SELF-DIAG-01 §4).
+async def _recent_checkup_reports(db, chat_id: int
+                                  ) -> list[tuple[str, int | None]]:
+    """Доставленные отчёты чекапа в окне: ``[(текст, tg_message_id), …]``.
 
     Модульная функция (не метод) — частичные DI-объекты тестов не обязаны
     реализовывать новый метод. Источник — существующий durable ledger
     (``mca_bot_outputs``, ``output_kind='checkup_report'``): структурная
     запись фактически отправленного сообщения, а не разбор слов запроса.
-    Окно — существующий ``CHAT_BOT_REPLIED_RECENTLY_SECONDS``; reply на
-    конкретный отчёт старше окна приходит обычной reply-цепочкой
-    (`bot_replies`). Fail-open → ""."""
+    Окно — существующий ``CHAT_BOT_REPLIED_RECENTLY_SECONDS``. Второй элемент
+    пары (``tg_message_id``) нужен адресности (Reviewer S7 F4): grant
+    сверяет id сообщения, на которое отвечает человек, с id доставленного
+    отчёта. Fail-open → [].
+
+    Reply на конкретный отчёт старше окна приходит обычной reply-цепочкой
+    (`bot_replies`) и grant не получает — это осознанная граница."""
     try:
         window_s = int(bot_replied_recently_window_seconds() or 0)
     except Exception:      # pragma: no cover - защитная ветка
         window_s = 0
     if window_s <= 0:
-        return ""
+        return []
     try:
         rows = await _ledger.list_bot_output_history(
             db, int(chat_id),
@@ -4167,11 +4172,46 @@ async def _recent_checkup_report_text(db, chat_id: int) -> str:
             kinds=("checkup_report",))
     except Exception:
         logger.debug("[l1] recent checkup report read failed", exc_info=True)
-        return ""
-    texts = [str(row.get("content_text") or "").strip()
-             for row in rows or () if isinstance(row, dict)]
-    texts = [text for text in texts if text]
-    return texts[-1] if texts else ""
+        return []
+    reports: list[tuple[str, int | None]] = []
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("content_text") or "").strip()
+        if not text:
+            continue
+        tg_id = row.get("tg_message_id")
+        try:
+            tg_id = int(tg_id) if tg_id is not None else None
+        except (TypeError, ValueError):
+            tg_id = None
+        reports.append((text, tg_id))
+    return reports
+
+
+async def _recent_checkup_report_text(db, chat_id: int) -> str:
+    """Последний ДОСТАВЛЕННЫЙ отчёт чекапа (SELF-DIAG-01 §4).
+
+    Тонкая обёртка над :func:`_recent_checkup_reports` (единый read-path):
+    контекст продолжения получает текст последнего отчёта окна."""
+    reports = await _recent_checkup_reports(db, chat_id)
+    return reports[-1][0] if reports else ""
+
+
+def _replied_message_id(message) -> int | None:
+    """tg id сообщения, на которое отвечает текущий ход (None — не reply).
+
+    Транспортный факт Telegram, без разбора текста: нужен адресности
+    структурного grant'а (Reviewer S7 F4: reply на отчёт ≠ reply на любое
+    сообщение бота). Никогда не бросает."""
+    parent = getattr(message, "reply_to_message", None)
+    if parent is None:
+        return None
+    try:
+        tg_id = getattr(parent, "message_id", None)
+        return int(tg_id) if tg_id is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -7070,10 +7110,14 @@ class DirectChatService:
                 # детерминированный partial из фактических результатов
                 # (существующий `_structured_partial`, без нового автора и
                 # без выдуманной заглушки). Пустые evidence → прежний исход.
+                # Reviewer F1: строке «Запрос:» передаётся ИСХОДНЫЙ текст
+                # человека, а не внутренняя сборка Writer'а (`payload` с
+                # `<Chat_Time_Context>`/планом/служебными блоками).
                 _partial_answer = ""
                 if getattr(raw, "evidence_sources", None):
                     _partial_answer = structured_partial_from_result(
-                        raw, payload, stop_reason="", finalize_error="")
+                        raw, request_text=str(query or ""),
+                        stop_reason="", finalize_error="")
                 if _partial_answer.strip():
                     answer = strip_reasoning_tags(_partial_answer)
                     logger.warning(
@@ -7626,7 +7670,8 @@ class DirectChatService:
                             l1_input_chars: int,
                             message_id: int | None = None,
                             meta: dict | None = None,
-                            started_monotonic: float | None = None) -> tuple:
+                            started_monotonic: float | None = None,
+                            structural_grant=None) -> tuple:
         """§2.1: единственный исполнитель планирующей стадии хода.
 
         Резолвит тип хода (слот/схема/repair — одна таблица), пишет ход в
@@ -7635,6 +7680,13 @@ class DirectChatService:
         bounded repair невалидного JSON, единственный retry без temperature,
         учёт usage/plan_meta. Возвращает ``(L1Plan | None, meta)``.
         ``NoApiKeyForChat`` не глотает — это делает адаптер по праву говорить.
+
+        ``structural_grant`` (Reviewer S7 F3) — уже вычисленное адаптером
+        структурное решение (`DiagnosticResearch`), которое применяется к
+        плану ДО записи телеметрии: диагностика L1 и durable plan_meta
+        обязаны показывать РЕАЛЬНО объявленные инструменты, а не решение
+        модели, дополненное уже после учёта. Явное решение модели (в т.ч.
+        ``needed=false``) не перезаписывается.
         """
         policy = _tt.turn_policy(req.trigger_type)
         _l1.record_turn_trace(req, policy=policy)
@@ -7783,6 +7835,15 @@ class DirectChatService:
                     "[direct] l1 planner attempt failed | chat=%s | "
                     "source=%s | error=%s", chat_id, label,
                     _exc_brief(exc))
+        # ── S7 (Reviewer F3): структурный grant применяется ДО записи
+        # телеметрии. Диагностика L1 и durable plan_meta хода обязаны
+        # отражать РЕАЛЬНО объявленные инструменты (`diagnostic_needed=true`),
+        # а не решение модели, которое код дополнил уже после учёта.
+        # Явное решение модели (в т.ч. `needed=false`) не перезаписывается.
+        if (structural_grant is not None and plan is not None
+                and getattr(plan, "diagnostic_research", None) is None):
+            plan.diagnostic_research = structural_grant
+            meta["diagnostic_research_structural"] = "1"
         # UR-20.6 (шаг 1 инспектора): слот и модель, которыми этот ход
         # РЕАЛЬНО планировался — значения известны ДО планирования, но в
         # событие трассы не доезжали, и карточка на каждом ходу писала
@@ -7971,9 +8032,30 @@ class DirectChatService:
         # Запрос только в существующем окне «бот недавно отвечал» — без
         # дополнительного чтения БД на каждый обычный ход.
         _diagnostic_report = ""
+        _report_rows: list = []
         if bot_replied_recently:
-            _diagnostic_report = await _recent_checkup_report_text(
-                self.db, chat_id)
+            _report_rows = await _recent_checkup_reports(self.db, chat_id)
+            if _report_rows:
+                _diagnostic_report = _report_rows[-1][0]
+        # ── S7 (§1, ARCH_DECISION SMART-CORRECTIVE, reply владельца
+        # 16.11.2026): ход — ответ на ДОСТАВЛЕННЫЙ отчёт чекапа, а план не
+        # задал `diagnostic_research`. Структурный grant объявляет те же
+        # существующие read-only инструменты и каноническую identity своего
+        # repo; сам вызов инструмента по-прежнему выбирает модель. Явное
+        # решение модели (в т.ч. needed=false) не перезаписывается.
+        # Reviewer F3: grant вычисляется ДО `_execute_turn`, чтобы телеметрия
+        # хода видела реально объявленные инструменты. Reviewer F4: grant
+        # адресный — reply обязан указывать на конкретный доставленный отчёт
+        # (id сверяется), а не на любое сообщение бота в окне.
+        _structural_grant = None
+        if reply_bot and _diagnostic_report.strip() and _report_rows:
+            # Адресность (F4): id доставленного отчёта из ledger'а против id
+            # сообщения, на которое отвечает человек, — сверяет сам grant.
+            _latest_report_text, _latest_report_id = _report_rows[-1]
+            _structural_grant = _l1.structural_diagnostic_research(
+                _latest_report_text, reply_to_bot=True,
+                report_message_id=_latest_report_id,
+                reply_message_id=_replied_message_id(message))
         # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
         # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
         _l1_gates = await _composer_resolve_gates(chat_id)
@@ -8053,27 +8135,20 @@ class DirectChatService:
         # ── UR-A (§2.1): единственный исполнитель планирующей стадии хода.
         # Тип хода/слот/схема/repair/учёт usage — одна копия кода на оба
         # триггера; адаптер отдаёт собранный контекст и TurnRequest.
+        # S7 (Reviewer F3): структурный grant едет ВНУТРЬ стадии — применяется
+        # к плану до записи телеметрии (`L1_PLAN`/plan_meta/диагностика видят
+        # реально объявленные инструменты). Явное решение модели не
+        # перезаписывается.
         plan, meta = await self._execute_turn(
             _turn_req, slot=slot, l1_messages=messages,
             l1_input_chars=input_chars,
             message_id=getattr(message, "message_id", None),
-            meta=meta, started_monotonic=started)
-        # ── S7 (§1, ARCH_DECISION SMART-CORRECTIVE, reply владельца
-        # 16.11.2026): ход — ответ на ДОСТАВЛЕННЫЙ отчёт чекапа, а план не
-        # задал `diagnostic_research`. Структурный grant объявляет те же
-        # существующие read-only инструменты и каноническую identity своего
-        # repo; сам вызов инструмента по-прежнему выбирает модель. Явное
-        # решение модели (в т.ч. needed=false) не перезаписывается.
-        _structural_grant = _l1.structural_diagnostic_research(
-            _diagnostic_report, reply_to_bot=bool(reply_bot))
-        if _structural_grant is not None:
-            if plan is None:
-                # Fallback-план строит вызывающий — grant едет к нему в мете
-                # (приоритет у уже принятого решения модели).
-                meta["structural_diagnostic_research"] = _structural_grant
-            elif getattr(plan, "diagnostic_research", None) is None:
-                plan.diagnostic_research = _structural_grant
-                meta["diagnostic_research_structural"] = "1"
+            meta=meta, started_monotonic=started,
+            structural_grant=_structural_grant)
+        if _structural_grant is not None and plan is None:
+            # Fallback-план строит вызывающий — grant едет к нему в мете
+            # (приоритет у уже принятого решения модели).
+            meta["structural_diagnostic_research"] = _structural_grant
         return plan, meta
 
     async def _attach_l1_plan_meta(self, correlation_id, plan, meta, *,
