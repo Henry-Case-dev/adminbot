@@ -5,11 +5,11 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md + amendments; plans/ow
 Status: active
 Primary phase: implementation
 Active feature: mod-acl-ux-01 (assessment); vmq-onto-01 delivered with passive L1 observation parked
-Active lanes: M0 binding (PM), M3 design (Architect), M0 read-only prod report (DevOps); M0 refresh delivered
+Active lanes: M0 binding (PM), M3 design (Architect); M0 prod report delivered (DevOps)
 Join barriers: none
 Last verified: **2.58.205 deployed at `bca18c1e`** (health local/public 200, schema 47/pending=[], identity verified_deployed, NRestarts 0, journal 159 lines with 0 ERROR/Traceback/CRITICAL, settings and manual prompt preserved); rollback `2b419aa2`/2.58.204.
 Acceptance: VMQ map 70 required rows: 48 PENDING, 8 REVIEW, 13 VERIFIED, 1 READY_FOR_LIVE. Slice D released in 2.58.205: **TIME-06 VERIFIED** on `bca18c1e` with candidate-bound inventory/review/deploy evidence; **TIME-04 REVIEW**; MEM-04, TIME-01, TIME-02 reply and TIME-07 remain open pending real L1 turns (postdeploy observation, no polling) and independent labels. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE; V-01..V-04 REVIEW. Full VMQ epic not DONE.
-Next unlocks: M0 binding + M3 design specification -> M4A Builder; the read-only prod effective-state report closes the remaining M0 live gap. VMQ L1 observation opens MEM-04/TIME-01/02 later without blocking independent work.
+Next unlocks: M0 binding + M3 design specification -> M4A Builder. The read-only prod effective-state report (2.58.205) is in: 48 capability/profile pairs, 0 changed pairs, 11 explicit chat values, global rows 9/10, exactly one GLOBAL OFF + CHAT ON (`gate:permsoc` G32); config digests pre=post; gzip JSON config snapshot saved (92,356 B, sha256 `1cae602d…9a4d`) because `pg_dump` is absent on the host. Open lineage note: `scripts/mod_acl_effective_state_report.py` exists only on `bca18c1e`/release, not on master. VMQ L1 observation opens MEM-04/TIME-01/02 later without blocking independent work.
 Next execution: runnable
 Review: 2.58.205 delta review Approved for deploy; Slice D final predeploy approval preserved; REVIEW RECOVERY PASS 2026-11-15 Approved with no blocking defects.
 Deployment: **2.58.205 @ `bca18c1e`**, branch `release/vmq-slice-d-2.58.205`, base/rollback `2b419aa2` (2.58.204); backup `pre_deploy_258205_20261115T094514Z.db` sha256 `b388f068…02a7`, integrity ok.
