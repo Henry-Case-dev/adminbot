@@ -8,9 +8,10 @@ WAL-БД). Обе операции ленивы (пустая память → I
 (ошибки → WARNING). Ротация делегирована единому источнику истины
 `services.disk_retention` (F9, ADR-1024-2 D1): DB-бэкапы — **ровно 1**
 новейший суммарно по обоим префиксам (`local_database_*` + `memory_rebuild_*`),
-`facts_*.txt` — 1 (пара к БД). Политика владельца (UPD3 №5): хранить 3+
-бэкапов запрещено, поэтому hot-config `limits.memory_backup_keep` больше НЕ
-расширяет окно БД.
+`facts_*.txt` — 1 (пара к БД), деплой-копии (`pre_deploy_*`/`predeploy-*`/
+`pre_t*`) — 2 новейших (P0-PROD-DISK-01). Политика владельца (UPD3 №5):
+хранить 3+ бэкапов БД запрещено, поэтому hot-config `limits.memory_backup_keep`
+больше НЕ расширяет окно БД.
 """
 import asyncio
 import datetime
@@ -199,8 +200,8 @@ class MemoryBackupService:
         Раньше ротация смотрела только `local_database_*` — safety-бэкапы
         `memory_rebuild_*.db` (~802 МБ) накапливались без ограничения
         (корневая причина роста диска +6.4 ГБ). Деплой-харнесс кладёт
-        `pre_deploy_*`/`predeploy-*` в этот же каталог (`backups/`), поэтому
-        ежедневный прогон закрывает и их, если деплой не успел вызвать
+        `pre_deploy_*`/`predeploy-*`/`pre_t*` в этот же каталог (`backups/`),
+        поэтому ежедневный прогон закрывает и их, если деплой не успел вызвать
         `manage.py disk cleanup --apply`."""
         try:
             from services.disk_retention import (

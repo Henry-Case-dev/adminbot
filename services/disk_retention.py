@@ -4,7 +4,8 @@
   * Бэкапы БД (`local_database_*.db` + `memory_rebuild_*.db`) — хранить
     **ровно 1** новейший (суммарно по обоим префиксам). 3+ запрещено.
   * Деплой-копии (`pre_deploy_*.db`, legacy `predeploy-*.db`, `pre_t*.db`) —
-    **2 новейших** (rollback-readiness); пул входит в CLI cleanup.
+    **2 новейших** (rollback-readiness); пул входит в CLI cleanup, а WAL/SHM
+    удалённой копии снимаются вместе с ней (не остаются сиротами).
   * JSONL — окно **180 дней**, НО файлы с дампами/архивами **истории
     сообщений** (`imported_history_*.jsonl` и любые history-подобные)
     **неприкосновенны**: не удаляются никогда и не попадают в план очистки.
@@ -28,6 +29,10 @@ safety-бэкапы `memory_rebuild_*.db` (≈802 МБ) не покрывали�
     блокирует `immutable` — примитив удаления не доверяет входному плану.
   * `apply_cleanup(verify=True)` — fail-closed: без валидного свежего
     `*.db`-бэкапа (size > 0, не в удаляемом наборе) удаление отменяется.
+  * WAL/SHM-компаньоны (`*.db-wal`/`*.db-shm`) удаляются ТОЛЬКО вместе с
+    собственной удаляемой деплой-копией (точные имена, без широких масок);
+    живая `local_database.db` и её `-wal`/`-shm` не матчатся паттернами и
+    не трогаются.
   * CLI по умолчанию dry-run; удаление — только с `--apply`.
   * R16/R17/R18: в логи/отчёт идут только имена файлов, размеры, категории и
     счётчики — без содержимого, путей-секретов и ключей.
@@ -80,6 +85,9 @@ MIGRATION_BACKUP_PATTERNS = ("pre_migration_*.db",)
 # старые /tmp-копии, поэтому audit видел их как `other`, а plan_cleanup —
 # candidates=0. Паттерны покрывают все три семейства; живая `local_database.db`
 # не матчится ни одним (`local_database_*.db` требует `_` после `database`).
+# Копии на проде лежат вместе с `*.db-wal`/`*.db-shm`: сами они под паттерны
+# не попадают (это не `.db`), но снимаются вместе со своей копией
+# (`_drop_sidecars`), иначе остаются вечными сиротами.
 DEPLOY_BACKUP_PATTERNS = ("pre_t*.db", "pre_deploy_*.db", "predeploy-*.db")
 # Пул деплой-копий: 2 новейших (rollback-readiness). Clamp ≥1 в prune.
 DEPLOY_BACKUP_KEEP = 2
@@ -314,6 +322,32 @@ def _newest_last(files) -> list[Path]:
     return sorted(files, key=lambda p: (_mtime_ns(p), p.name))
 
 
+def _sidecar_paths(path: Path) -> list[Path]:
+    """WAL/SHM-компаньоны копии БД (реальные имена прода: `*.db-wal/-shm`)."""
+    return [Path(f"{path}{suffix}") for suffix in ("-wal", "-shm")]
+
+
+def _drop_sidecars(path: Path) -> int:
+    """Удалить WAL/SHM-компаньоны уже удалённой копии БД (P0-PROD-DISK-01).
+
+    Деплой-копии на проде лежали вместе с `*.db-wal`/`*.db-shm`; если снести
+    только `.db`, эти файлы остаются сиротами навсегда (паттернами пула они
+    не матчатся — это не `.db`). Трогаем ТОЛЬКО компаньоны конкретной
+    удалённой копии — широких масок и глобов здесь нет, поэтому живая
+    `local_database.db`/`-wal`/`-shm` недостижима по построению.
+    Возвращает освобождённые байты (размер снимается до unlink)."""
+    freed = 0
+    for sidecar in _sidecar_paths(path):
+        try:
+            if sidecar.exists():
+                freed += _size(sidecar)
+                sidecar.unlink()
+        except OSError:
+            logger.warning("[disk_retention] sidecar unlink failed | name=%s",
+                           sidecar.name)
+    return freed
+
+
 # ── ротация бэкапов БД (единый источник; T-2258) ────────────────────────────
 
 def prune_db_backups(directory, *, keep: int = 1) -> list[str]:
@@ -377,7 +411,11 @@ def prune_deploy_backups(directory, *, keep: int = DEPLOY_BACKUP_KEEP) -> list[s
     по копии ~1.3G за релизное окно, без ротации они не удалялись никогда.
     Daily-бэкапы (`local_database_*`/`memory_rebuild_*`) и `pre_migration_*`
     не матчатся. Вызывается из `plan_cleanup`/`apply_cleanup` (CLI
-    `manage.py disk cleanup`) и из ежедневного `memory_backup._rotate`."""
+    `manage.py disk cleanup`) и из ежедневного `memory_backup._rotate`.
+
+    Вместе с каждой снесённой копией удаляются её `-wal`/`-shm`-компаньоны
+    (`_drop_sidecars`): на проде копии лежали с WAL/SHM и те оставались
+    вечными сиротами вне любого паттерна."""
     if not _retention_enabled():
         return []
     base = Path(directory)
@@ -391,6 +429,7 @@ def prune_deploy_backups(directory, *, keep: int = DEPLOY_BACKUP_KEEP) -> list[s
             removed.append(str(old))
             logger.info("[disk_retention] deploy backup rotated out | "
                         "name=%s", old.name)
+            _drop_sidecars(old)
         except OSError:
             logger.warning("[disk_retention] deploy backup unlink failed | "
                            "name=%s", old.name)
@@ -464,7 +503,9 @@ def plan_cleanup(dirs) -> list[dict]:
 
     Кандидаты: DB-бэкапы за пределами `keep=1`; деплой-копии за пределами
     `keep=2` (все семейства имён); `facts_*.txt` за пределами 1;
-    не-history JSONL старше окна (180 дней)."""
+    не-history JSONL старше окна (180 дней).
+    WAL/SHM-компаньоны в план НЕ входят (это не `.db` и не самостоятельные
+    кандидаты): они снимаются вместе со своей копией при `apply_cleanup`."""
     if not _retention_enabled():
         return []
     plan: list[dict] = []
@@ -513,6 +554,11 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
     `verify=True`: до удаления обязан существовать валидный свежий
     `*.db`-бэкап, НЕ входящий в план; иначе — abort без единого удаления.
     `dirs` — каталоги для проверки бэкапа (дефолт: родители элементов плана).
+    После плана исполняется deploy-ротация (`prune_deploy_backups`, keep=2):
+    для полного плана это no-op, но она добирает sidecar-файлы удалённых
+    копий и частично поданный план, т.е. lifecycle не зависит от вызывающего.
+    При `verify=True` отказ (нет свежего бэкапа) приоритетнее: до abort
+    ничего не удаляется, включая deploy-копии.
     Идемпотентно: отсутствующий файл считается уже удалённым (не ошибка)."""
     out = {"deleted": 0, "bytes_freed": 0, "aborted_reason": "",
            "skipped": 0, "errors": 0, "blocked": 0, "categories": {}}
@@ -522,14 +568,14 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
         # политики и не успех удаления).
         _emit_retention("silent", usage_json={"candidates": 0})
         return out
+    scan_dirs = list(dirs) if dirs else sorted(
+        {str(Path(item["path"]).parent) for item in items})
     if verify:
         # P0-PROD-DISK-01: удаляемые деплой-копии тоже не подтверждают verify —
         # страховкой считается только свежий daily/safety-бэкап.
         delete_paths = {str(item.get("path")) for item in items
                         if item.get("category") in
                         ("db_backup", "deploy_backup")}
-        scan_dirs = list(dirs) if dirs else sorted(
-            {str(Path(item["path"]).parent) for item in items})
         if not _valid_fresh_backups(scan_dirs, exclude=delete_paths):
             logger.warning("[disk_retention] cleanup aborted — no valid fresh "
                            "db backup (fail-closed)")
@@ -559,6 +605,9 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
         try:
             size = _size(path)
             path.unlink()
+            if real_category == "deploy_backup":
+                # WAL/SHM удалённой деплой-копии — не оставляем сиротами.
+                size += _drop_sidecars(path)
             out["deleted"] += 1
             out["bytes_freed"] += size
             bucket = out["categories"].setdefault(category, {"count": 0, "bytes": 0})
@@ -570,9 +619,19 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
             out["errors"] += 1
             logger.warning("[disk_retention] cleanup unlink failed | name=%s",
                            path.name)
+    # P0-PROD-DISK-01: enforce deploy-политики на фактическом пути очистки.
+    out["deploy_pruned"] = 0
+    for entry in scan_dirs:
+        try:
+            out["deploy_pruned"] += len(
+                prune_deploy_backups(entry, keep=DEPLOY_BACKUP_KEEP))
+        except Exception:
+            logger.warning("[disk_retention] deploy prune failed | dir=%s",
+                           entry, exc_info=True)
     logger.info("[disk_retention] cleanup done | deleted=%d freed=%d "
-                "skipped=%d blocked=%d", out["deleted"], out["bytes_freed"],
-                out["skipped"], out["blocked"])
+                "skipped=%d blocked=%d deploy_pruned=%d", out["deleted"],
+                out["bytes_freed"], out["skipped"], out["blocked"],
+                out["deploy_pruned"])
     # MCA-17 (`maintenance.retention`): терминал + счётчики файлов/байт
     # (usage_json — whitelist-поле контракта §17.1).
     _emit_retention(

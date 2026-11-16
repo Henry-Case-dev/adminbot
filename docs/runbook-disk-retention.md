@@ -8,7 +8,8 @@
   новейший. Хранить 3+ запрещено.
 - Деплой-копии (`pre_deploy_*.db`, legacy `predeploy-*.db`, старые
   `pre_t*.db`) — **2 новейших** (rollback-readiness). Ротируются и CLI
-  `disk cleanup`, и ежедневным `memory_backup._rotate`.
+  `disk cleanup`, и ежедневным `memory_backup._rotate`; WAL/SHM-компаньоны
+  уходят вместе со своей копией.
 - `imported_history_*.jsonl` и любые архивы истории сообщений —
   **неприкосновенны** (бессрочно).
 - Прочие не-history JSONL — окно **180 дней**.
@@ -28,16 +29,25 @@ python manage.py disk cleanup --apply    # удаление; verify свежег
 (по умолчанию `backups/` — там же лежат деплой-копии).
 
 План `cleanup` включает:
-`db_backup` (keep 1), `deploy_backup` (keep 2), `facts_export` (keep 1),
-`jsonl_retention` (>180 дней). Живая `local_database.db` и её `-wal`/`-shm`
-не матчатся ни одним паттерном и не удаляются; `pre_migration_*.db`
-ротируется только call-site миграции (keep 1).
+`db_backup` (keep 1), `deploy_backup` (keep 2, `reason=deploy_keep_newest_2`),
+`facts_export` (keep 1), `jsonl_retention` (>180 дней). Живая
+`local_database.db` и её `-wal`/`-shm` не матчатся ни одним паттерном и не
+удаляются; `pre_migration_*.db` ротируется только call-site миграции (keep 1).
+
+Первопричина инцидента 16.11.2026: в паттерне был только `pre_t*.db`, поэтому
+фактические имена деплой-копий (`pre_deploy_*`, `predeploy-*`) не ротировались
+никогда — 17 копий (44G) накопились за 4 дня, диск дошёл до 94%. Копии лежали
+вместе с `*.db-wal`/`*.db-shm`, которые тоже не попадали ни в один паттерн:
+`apply_cleanup` удаляет компаньоны строго вместе со своей копией (точные имена
+`<copy>.db-wal`/`<copy>.db-shm`, без масок). `apply_cleanup` дополнительно
+исполняет `prune_deploy_backups(keep=2)` сам — частично поданный план не
+отменяет политику; при fail-closed отказе (нет свежего daily/safety-бэкапа)
+не удаляется ничего, включая деплой-копии.
 
 ## После каждого деплоя (обязательный шаг харнесса)
 
 1. Деплой-харнесс после успешного healthz/version вызывает
-   `python manage.py disk cleanup --apply` (существующий `deploy_v2.9.2.py`
-   и шаблон `tools/_dep*.py`, шаг J).
+   `python manage.py disk cleanup --apply` (существующий `deploy_v2.9.2.py`).
 2. Временные staging-копии `/tmp/predeploy-*.db`, `/tmp/pre_deploy_*.db`,
    `/tmp/pre_t*.db` удаляются в `finally` — они не должны переживать прогон.
 3. Ошибка очистки не отменяет успешный деплой, но фиксируется в отчёте.
