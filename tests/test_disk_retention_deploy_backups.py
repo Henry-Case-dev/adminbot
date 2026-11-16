@@ -10,6 +10,7 @@
       WAL/SHM-компаньоны удалённых копий не остаются сиротами;
   (d) `plan_cleanup` и CLI `disk audit|cleanup` видят пул и применяют ту же
       политику (dry-run честный, `--apply` исполняет lifecycle, fail-closed);
+      sidecar-файлы входят в байты своей копии и не считаются мусором `other`;
   (e) прод-подобная фикстура из 17 фактических имён ротируется до 2 новейших;
   (f) существующий ежедневный джоб (`memory_backup._rotate`) исполняет lifecycle.
 Реальные файлы прода не используются.
@@ -127,6 +128,114 @@ def test_kill_switch_spares_deploy_backups(tmp_path, monkeypatch):
 
 
 # ── (c) защищённые данные, sidecar-файлы, план и fail-closed ────────────────
+
+def test_classify_sidecars_inherit_owner_pool(tmp_path):
+    """WAL/SHM-компаньон — часть своей копии, не отдельный `other`."""
+    deploy = _mk(tmp_path / "pre_deploy_258205_20261115T094514Z.db", days_ago=1)
+    daily = _mk(tmp_path / "local_database_20261116.db", days_ago=1)
+    live = _mk(tmp_path / "local_database.db", days_ago=0)
+    assert dr.classify(_mk(Path(str(deploy) + "-wal"), days_ago=1)) == "deploy_backup"
+    assert dr.classify(_mk(Path(str(deploy) + "-shm"), days_ago=1)) == "deploy_backup"
+    assert dr.classify(_mk(Path(str(daily) + "-wal"), days_ago=1)) == "db_backup"
+    assert dr.classify(_mk(Path(str(live) + "-shm"), days_ago=0)) == "other"
+    # sidecar-детект ограничен `*.db-wal/-shm`, произвольный `-wal` — не копия
+    assert dr.classify(_mk(tmp_path / "notes-wal", days_ago=1)) == "other"
+
+
+def test_prune_keeps_sidecars_only_of_two_newest_copies(tmp_path):
+    """3 deploy `.db` + sidecars → остаются 2 новейших `.db` и их sidecar;
+    sidecar старейшей копии удаляется; daily/migration/history и живая
+    `local_database.db` + её WAL/SHM не затрагиваются."""
+    live = _mk(tmp_path / "local_database.db", days_ago=0)
+    live_wal = _mk(tmp_path / "local_database.db-wal", days_ago=0)
+    live_shm = _mk(tmp_path / "local_database.db-shm", days_ago=0)
+    daily = _mk(tmp_path / "local_database_20261116.db", days_ago=0.5)
+    daily_wal = _mk(tmp_path / "local_database_20261116.db-wal", days_ago=0.5)
+    migration = _mk(tmp_path / "pre_migration_20261006_121956.db", days_ago=0.5)
+    migration_shm = _mk(tmp_path / "pre_migration_20261006_121956.db-shm",
+                        days_ago=0.5)
+    history = _mk(tmp_path / "imported_history_2026.jsonl", days_ago=0.5)
+    stale = _mk_with_sidecars(
+        tmp_path / "pre_deploy_258199_20261113T083507Z.db", days_ago=3)
+    keep1 = _mk_with_sidecars(
+        tmp_path / "pre_deploy_258204_20261115T025835Z.db", days_ago=2)
+    keep2 = _mk_with_sidecars(
+        tmp_path / "pre_deploy_258205_20261115T094514Z.db", days_ago=1)
+
+    removed = dr.prune_deploy_backups(tmp_path)  # keep=2 по умолчанию
+
+    assert removed == [str(stale[0])]
+    for path in stale:
+        assert not path.exists(), f"сирота удалённой копии {path.name}"
+    for protected in (keep1 + keep2 + [live, live_wal, live_shm, daily,
+                                        daily_wal, migration, migration_shm,
+                                        history]):
+        assert protected.exists(), f"затронут защищённый {protected.name}"
+
+
+def test_audit_folds_sidecars_into_their_copy(tmp_path, capsys):
+    """`disk audit` показывает sidecar в категории/байтах своей копии, а не
+    отдельным мусором в `other` (прод: 2×32K `.db-shm` + 2×0B `.db-wal`)."""
+    base = tmp_path / "pre_deploy_258205_20261115T094514Z.db"
+    base.write_bytes(b"x" * 10)
+    shm = tmp_path / (base.name + "-shm")
+    shm.write_bytes(b"y" * 32768)
+    wal = tmp_path / (base.name + "-wal")
+    wal.write_bytes(b"")
+
+    report = dr.audit([tmp_path])
+    assert report["categories"]["deploy_backup"] == {
+        "count": 1, "bytes": 10 + 32768}
+    assert "other" not in report["categories"], "sidecar не отдельный мусор"
+    assert report["sidecar_bytes"] == 32768
+    assert report["total_bytes"] == 10 + 32768
+
+    rc = manage.main(["disk", "audit", "--dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "deploy_backup: count=1 bytes=32778" in out
+    assert "other: count" not in out
+    assert "sidecar_bytes=32768" in out
+
+
+def test_cleanup_apply_removes_sidecars_with_rotated_copy(tmp_path, capsys):
+    live = _mk(tmp_path / "local_database.db", days_ago=0)
+    live_wal = _mk(tmp_path / "local_database.db-wal", days_ago=0)
+    daily = _mk(tmp_path / "local_database_20261116.db", days_ago=0)
+    stale = _mk_with_sidecars(
+        tmp_path / "pre_deploy_258199_20261113T083507Z.db", days_ago=3)
+    keep1 = _mk_with_sidecars(
+        tmp_path / "pre_deploy_258204_20261115T025835Z.db", days_ago=2)
+    keep2 = _mk_with_sidecars(
+        tmp_path / "pre_deploy_258205_20261115T094514Z.db", days_ago=1)
+
+    plan = dr.plan_cleanup([tmp_path])
+    stale_item = {item["path"]: item for item in plan}[str(stale[0])]
+    assert stale_item["bytes"] == 3, "dry-run учитывает байты sidecar"
+
+    rc = manage.main(["disk", "cleanup", "--apply", "--dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "bytes_freed=3" in out
+    for path in stale:
+        assert not path.exists(), f"sidecar пережил копию: {path.name}"
+    for protected in keep1 + keep2 + [live, live_wal, daily]:
+        assert protected.exists(), f"cleanup удалил защищённый {protected.name}"
+
+
+def test_apply_cleanup_never_deletes_standalone_sidecar(tmp_path):
+    """Примитив удаления не трогает WAL/SHM как самостоятельный план-элемент."""
+    live = _mk(tmp_path / "local_database.db", days_ago=0)
+    live_wal = _mk(tmp_path / "local_database.db-wal", days_ago=0)
+    _mk(tmp_path / "local_database_20261116.db", days_ago=0)   # свежий бэкап
+    plan = [{"path": str(live_wal), "category": "other",
+             "reason": "hand-made-plan", "bytes": 1}]
+
+    result = dr.apply_cleanup(plan, verify=True, dirs=[tmp_path])
+    assert result["aborted_reason"] == ""
+    assert result["deleted"] == 0 and result["skipped"] == 1
+    assert live.exists() and live_wal.exists()
+
 
 def test_prune_removes_wal_shm_of_deleted_backup_only(tmp_path):
     stale = _mk_with_sidecars(

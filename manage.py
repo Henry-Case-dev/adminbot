@@ -932,6 +932,9 @@ def _cmd_disk(args) -> int:
               f"({dr.human_bytes(report['immutable_bytes'])})")
         print(f"  total_bytes={report['total_bytes']} "
               f"({dr.human_bytes(report['total_bytes'])})")
+        print(f"  sidecar_bytes={report['sidecar_bytes']} "
+              f"({dr.human_bytes(report['sidecar_bytes'])}) "
+              "(WAL/SHM учтены в категориях своих копий)")
         print(f"  log_retention_days={report['log_retention_days']} "
               "(journald: docs/runbook-disk-retention.md)")
         for item in report["top_files"]:

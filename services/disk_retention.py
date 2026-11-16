@@ -107,6 +107,9 @@ FRESH_BACKUP_DAYS = 7
 # появились только что, делим на сутки, а не на ~0 (иначе «+∞/день»).
 MIN_FORECAST_SPAN_DAYS = 1.0
 
+# WAL/SHM-компаньоны копии БД (`local_database_20260101.db-wal` и т.п.).
+_SIDECAR_SUFFIXES = ("-wal", "-shm")
+
 
 # ── вспомогательное ─────────────────────────────────────────────────────────
 
@@ -239,6 +242,16 @@ def classify(path) -> str:
         return "immutable"
     if name.endswith(".jsonl") and _looks_like_history(p):
         return "immutable"
+    base = _sidecar_base(p)
+    if base is not None:
+        # P0-PROD-DISK-01: `<копия>.db-wal/-shm` — часть своей копии, а не
+        # отдельный файл-мусор; в пул попадает/уходит вместе с базой.
+        # Компаньоны живой `local_database.db` не входят ни в один пул (other).
+        if _matches_any(base.name, DEPLOY_BACKUP_PATTERNS):
+            return "deploy_backup"
+        if _matches_any(base.name, DB_BACKUP_PATTERNS):
+            return "db_backup"
+        return "other"
     if _matches_any(name, DB_BACKUP_PATTERNS):
         return "db_backup"
     if _matches_any(name, DEPLOY_BACKUP_PATTERNS):
@@ -315,7 +328,21 @@ def _newest_last(files) -> list[Path]:
 
 def _sidecar_paths(path: Path) -> list[Path]:
     """WAL/SHM-компаньоны копии БД (реальные имена прода: `*.db-wal/-shm`)."""
-    return [Path(f"{path}{suffix}") for suffix in ("-wal", "-shm")]
+    return [Path(f"{path}{suffix}") for suffix in _SIDECAR_SUFFIXES]
+
+
+def _sidecar_base(path) -> Path | None:
+    """Базовая копия для WAL/SHM-компаньона (`<copy>.db-wal/-shm`), иначе None.
+
+    P0-PROD-DISK-01: sidecar — часть своей копии; отдельного «файла-мусора»
+    из него делать нельзя (на проде read-only проверки оставили
+    2×32K `.db-shm` + 2×0B `.db-wal` у двух актуальных deploy-копий)."""
+    p = Path(path)
+    for suffix in _SIDECAR_SUFFIXES:
+        if p.name.endswith(suffix):
+            base = Path(str(p)[:-len(suffix)])
+            return base if base.name.endswith(".db") else None
+    return None
 
 
 def _drop_sidecars(path: Path) -> int:
@@ -444,15 +471,33 @@ def prune_facts_exports(directory, *, keep: int = 1) -> list[str]:
 # ── аудит (read-only) ───────────────────────────────────────────────────────
 
 def audit(dirs) -> dict:
-    """Read-only снимок: категории {count, bytes}, immutable/total, top-10."""
+    """Read-only снимок: категории {count, bytes}, immutable/total, top-10.
+
+    P0-PROD-DISK-01: WAL/SHM-компаньоны (`<copy>.db-wal/-shm`) учитываются в
+    категории и байтах своей копии, а не отдельной записью «мусор» — иначе
+    2×32K `.db-shm` + 2×0B `.db-wal` от read-only проверок выглядели как
+    самостоятельный хлам в `other`. `count` считает именно копии;
+    `sidecar_bytes` — сколько байт пришло из компаньонов (видимость без
+    отдельной категории)."""
     files = _iter_files(dirs)
+    present = {str(path) for path in files}
     categories: dict[str, dict] = {}
     sized: list[tuple[int, Path, str]] = []
     immutable_bytes = 0
     total_bytes = 0
+    sidecar_bytes = 0
     for path in files:
-        size = _size(path)
+        base = _sidecar_base(path)
+        if base is not None and str(base) in present:
+            continue                     # учтён в байтах своей копии ниже
+        companions = ([s for s in _sidecar_paths(path) if str(s) in present]
+                      if base is None else [])
+        companion_bytes = sum(_size(sidecar) for sidecar in companions)
+        size = _size(path) + companion_bytes
+        sidecar_bytes += companion_bytes
         category = classify(path)
+        if base is not None:
+            category = "other"           # сирота (базы нет) — честный мусор
         bucket = categories.setdefault(category, {"count": 0, "bytes": 0})
         bucket["count"] += 1
         bucket["bytes"] += size
@@ -470,6 +515,7 @@ def audit(dirs) -> dict:
         "categories": categories,
         "immutable_bytes": immutable_bytes,
         "total_bytes": total_bytes,
+        "sidecar_bytes": sidecar_bytes,
         "top_files": top_files,
         "log_retention_days": log_retention_days(),
     }
@@ -495,8 +541,11 @@ def plan_cleanup(dirs) -> list[dict]:
     for old in _newest_last(_all_db_backups(dirs))[:-db_keep]:
         plan.append(_plan_item(old, "db_backup", "db_keep_newest_1"))
     for old in _newest_last(_all_deploy_backups(dirs))[:-DEPLOY_BACKUP_KEEP]:
-        plan.append(_plan_item(old, "deploy_backup",
-                               f"deploy_keep_newest_{DEPLOY_BACKUP_KEEP}"))
+        item = _plan_item(old, "deploy_backup",
+                          f"deploy_keep_newest_{DEPLOY_BACKUP_KEEP}")
+        # WAL/SHM уходят вместе с копией — dry-run показывает реальные байты.
+        item["bytes"] += sum(_size(s) for s in _sidecar_paths(old))
+        plan.append(item)
     for old in _newest_last(_all_facts_exports(dirs))[:-1]:
         plan.append(_plan_item(old, "facts_export", "facts_keep_newest_1"))
     days = _jsonl_retention_days()
@@ -566,6 +615,13 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
         category = str(item.get("category") or "other")
         if not path.exists():
             out["skipped"] += 1
+            continue
+        if _sidecar_base(path) is not None:
+            # P0-PROD-DISK-01: WAL/SHM удаляются ТОЛЬКО вместе со своей
+            # копией (примитив не удаляет компаньон как самостоятельный файл).
+            out["skipped"] += 1
+            logger.warning("[disk_retention] cleanup skipped standalone "
+                           "sidecar | name=%s", path.name)
             continue
         # High/R2: деструктивный примитив НЕ доверяет входному плану —
         # повторно классифицируем каждый файл и блокируем immutable.
