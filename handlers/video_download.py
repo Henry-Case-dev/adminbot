@@ -577,6 +577,11 @@ async def cb_pick_quality(callback: types.CallbackQuery, bot: Bot = None):
     if pending is None or quality is None or pending["selected"] is None:
         await callback.answer("эта менюха протухла")
         return
+    # MOD-ACL-UX-01 M2.1: решение принимается и на фактическом side effect —
+    # чат мог быть выключен между меню и выбором качества.
+    if not await media_download.module_enabled(chat_id):
+        await callback.answer("Скачивание отключено", show_alert=True)
+        return
     # Лок занят → BUSY без ожидания (answer, не спамим чат — Section 70.8 #3).
     # 84.23: chat уже с активным прогресс-баром — тоже BUSY (реестр).
     if _downloader.busy or get_active(chat_id) is not None:
@@ -690,6 +695,11 @@ async def cb_tool_quality(callback: types.CallbackQuery, bot: Bot = None):
     if (quality is None or pending is None
             or f"{quality}p" not in (pending.get("qualities") or ())):
         await callback.answer("эта менюха протухла")
+        return
+    # MOD-ACL-UX-01 M2.1: recheck перед фактическим скачиванием (меню могло
+    # быть открыто до выключения модуля в этом чате).
+    if not await media_download.module_enabled(chat_id):
+        await callback.answer("Скачивание отключено", show_alert=True)
         return
     # Лок занят → BUSY без ожидания (как cb_pick_quality). Pending НЕ забираем:
     # после BUSY кнопка остаётся рабочей в пределах TTL.
