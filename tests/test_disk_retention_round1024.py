@@ -229,9 +229,12 @@ class TestFailClosed:
         assert second["skipped"] >= 1
 
     def test_empty_plan_is_noop(self):
+        # F2 (P0 retention port): `deploy_pruned` присутствует всегда, включая
+        # пустой план — API-контракт не зависит от раннего return.
         assert dr.apply_cleanup([]) == {
             "deleted": 0, "bytes_freed": 0, "aborted_reason": "",
-            "skipped": 0, "errors": 0, "blocked": 0, "categories": {}}
+            "skipped": 0, "errors": 0, "blocked": 0, "categories": {},
+            "deploy_pruned": 0}
 
 
 # ── (e) CLI ─────────────────────────────────────────────────────────────────

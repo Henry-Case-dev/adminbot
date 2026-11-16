@@ -157,3 +157,66 @@ DevOps; скрипт их не покрывает сознательно):
   в юните) → `sudo systemctl restart adminbot-disk-retention.service`;
 - Снять с автозапуска: `sudo systemctl disable --now adminbot-disk-retention.timer`;
 - Скрипт без `--apply` ничего не удаляет — dry-run безопасен всегда.
+
+## 6. Деплой-копии: keep=2, sidecar и cleanup после деплоя (P0-PROD-DISK-01)
+
+Раздел дополняет §1–§5 и не меняет поведение `tools/disk_retention.py`:
+каталог `backups/` приложения этот скрипт по-прежнему НЕ трогает.
+Деплой-копии (`pre_deploy_<ver>_<ts>.db`, `predeploy-<ver>*.db`,
+`pre_t<ticket>_*.db`) ротирует само приложение:
+
+- `services/disk_retention.py` — отдельный пул `deploy_backup`, **keep=2**
+  (текущий rollback + предыдущий релиз); `DEPLOY_BACKUP_PATTERNS` покрывает
+  все три схемы фактических имён, `prune_deploy_backups(keep=2)`;
+- пул включён в `manage.py disk cleanup` (`plan_cleanup`/`apply_cleanup`,
+  `reason=deploy_keep_newest_2`), поэтому dry-run показывает кандидатов, а
+  `--apply` реально удаляет старые копии. `apply_cleanup` дополнительно
+  исполняет `prune_deploy_backups(keep=2)` сам — частично поданный план не
+  отменяет политику, а fail-closed отказ (нет свежего daily/safety-бэкапа)
+  приоритетнее и не удаляет ничего;
+- ежедневный джоб `memory_backup._rotate` исполняет ту же политику
+  автоматически — отдельный таймер для деплой-копий не нужен;
+- WAL/SHM-компаньоны (`<copy>.db-wal`, `<copy>.db-shm`) удаляются строго
+  вместе со своей копией (точные имена, без масок): иначе они остаются
+  сиротами навсегда, потому что ни один паттерн пула их не матчит.
+
+Первопричина инцидента 16.11.2026: в паттерне был только `pre_t*.db`,
+поэтому фактические имена деплой-копий не ротировались — 17 копий (44G)
+накопились за 4 дня, диск дошёл до 94%.
+
+После успешного деплоя на `192.255.209.205` (реальный production-маршрут —
+ручной SSH `root@192.255.209.205`, каталог `/var/www/admin_bot`:
+`git pull --ff-only` → `systemctl restart admin_bot` → healthz/version)
+обязателен retention-шаг:
+
+1. `python manage.py disk audit` — read-only снимок (категория
+   `deploy_backup`, размеры, свободное место);
+2. `python manage.py disk cleanup --apply` — исполняет план и deploy-пул
+   keep=2. `deploy_v2.9.2.py` — **исторический** деплой-харнесс (старый хост
+   `198.46.175.136`/`nik`), это НЕ production-маршрут 2.58.205; полагаться на
+   его автоочистку нельзя, шаг выполняется вручную;
+3. временные staging-копии `/tmp/predeploy-*.db`, `/tmp/pre_deploy_*.db`,
+   `/tmp/pre_t*.db` удаляются сразу после переноса в `backups/` — они не
+   должны переживать прогон;
+4. `/root/deploy-*`, `/root/vmq*`, исследовательские корпуса на проде не
+   оставляются (вне прода либо удалить сразу);
+5. journald: `MaxRetentionSec=7d`, `SystemMaxUse=500M` (см.
+   `docs/runbook-disk-retention.md`).
+
+Если шаг 2 пропущен — ежедневный `memory_backup._rotate` всё равно подрежет
+деплой-пул до 2 новейших автоматически (страховка, а не замена шага).
+
+Проверка после выката:
+
+```bash
+cd /var/www/admin_bot && source venv/bin/activate
+python manage.py disk audit            # категория deploy_backup видна
+python manage.py disk cleanup --apply  # сохраняет 2 новейших deploy-копии
+ls -1t backups/pre_deploy_*.db backups/predeploy-*.db 2>/dev/null | head -3
+```
+
+Сохраняются: 2 новейших deploy-бэкапа (текущий rollback + предыдущий),
+daily `local_database_*` (ровно 1), `pre_migration_*` (ровно 1 в своём пуле),
+`facts_*.txt` (1) и вся история сообщений (immutable). Живая БД
+`local_database.db` + её `-wal`/`-shm` не совпадают с паттернами и не
+удаляются. Полный runbook — `docs/runbook-disk-retention.md`.
