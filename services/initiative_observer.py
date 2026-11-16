@@ -3245,6 +3245,22 @@ class InitiativeObserverRunner:
         elif status == "writer_failed":
             counters["writer_unavailable"] = int(
                 counters.get("writer_unavailable") or 0) + 1
+        elif status == "disabled":
+            # MOD-ACL-UX-01 M2.1 (ARCH_DECISION 2026-11-17): входной гейт
+            # `initiative_chat_enabled`/`intent_decision_enabled` срабатывает
+            # ДО генерации, поэтому `publish_guard` не вызывается вовсе. Но
+            # инвариант M2 «ровно один терминальный исход с машинной
+            # причиной» обязан сохраняться и здесь: иначе выключение чата
+            # оставляло бы попытку без названного терминального исхода.
+            # Решения НЕ было — `_record_result`/`initiative_decided` не
+            # вызываются, новых кодов нет (`capability_off` уже в словаре).
+            counters["capability_blocked"] = int(
+                counters.get("capability_blocked") or 0) + 1
+            reason = await initiative_publish_block_reason(chat_id) \
+                or "capability_off"
+            self._emit("initiative_publication_cancelled", outcome="skipped",
+                       stage="capability:entry", chat_id=chat_id,
+                       reason_code=reason)
 
     async def _create_durable_intent(self, chat_id: int, kind: str,
                                      goal: str, rows: list[dict],
