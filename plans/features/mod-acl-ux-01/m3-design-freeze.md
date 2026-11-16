@@ -64,3 +64,33 @@
 * Reviewer обязан проверить реальные экраны Playwright **и** реальный браузер: desktop 1440/1280, tablet 768, mobile 390/320; GLOBAL/CHAT, INHERIT/ON/OFF, `GLOBAL OFF + CHAT ON`, stale 409, ready=false, observed отсутствует, 403/503, пустой/деградировавший Status, длинные названия и reduced-motion. Для каждого: screenshot + network/API snapshot, отсутствие горизонтального overflow/пустых прокладок, рабочие tab/deep-links, поздний ответ не смешивает чаты. Тесты без визуального прохода недостаточны.
 
 M3 DESIGN FROZEN — риски: (1) честное разделение desired/effective/ready/observed без ложного OFF; (2) observer funnel без псевдоконверсий при разных окнах; (3) полноценная ACL-страница без второго реестра и с безопасным 409/revocation flow.
+
+---
+
+## 8. Дополнение 2026-11-16 — design revision 2 (актуальная)
+
+Разделы §1–§7 выше сохранены как история первой редакции. Действующая design specification —
+`design-m3-2026-11-16.md`; полный copy inventory — `copy-inventory.md`. Что изменено и почему:
+
+1. **§2 (состав 21 карточки) заменён.** Список названий первой редакции не совпадал с фактическим
+   каталогом 2.58.205 (`m0-baseline.md` §8, `evidence/m0/mac-m0-01.md` §2.4). Канон — 16 static
+   `mod_*` + 5 registry-only (`stories`, `character`, `experience`, `random`, `embeddings`);
+   «Диалог», «Анализ», «Мем-ветка» отдельными карточками не создаются. Карточки сгруппированы:
+   Общение / Память / Автономность / Медиа / Системные.
+2. **Каталог — серверный.** `MODULES` в `app.js` удаляется; 21 видимый `ModuleSpec` (+ hidden
+   `factcheck_temporal`) становятся единственным источником. `WORKSPACE_TABS` остаётся
+   presentation-map вкладок, не реестром модулей.
+3. **Scope исправлен по фактическому runtime:** `per_chat` у summary, sleep, nostalgia, budgets,
+   images, vision, experience, initiative (через `initiative.enabled`); 11 модулей требуют
+   per-chat adapters (M2.1) до полноценного M4A. Это блокирующая зависимость, а не UI-деталь.
+4. **Добавлены wireframes** каталога, малого/сложного/инфраструктурного модуля и страницы «Время»,
+   пять осей состояния, responsive, token mapping, Visual Preservation Map и точные UI/API-поля.
+5. **Copy inventory** полный, с сохранением «чекапа», пользовательских промптов и owner-описаний
+   Историй/Векторной памяти/Опыта/Случайности.
+6. **§4 (Статус) и §5 (права) не переписаны:** их концепция остаётся frozen; revision 2 добавляет
+   только карту экранов/навигацию и границы данных. M4B/M4C реализуют их как раньше.
+7. **Новые конфликты/риски:** дубли `experience/stories/character/random` на родительских
+   страницах (один write-point), `keys_llm` на странице embeddings (фильтр embedding-ключей),
+   `nostalgia` master precedence, live-флаг `IMAGE_MODULE_CARD_ENABLED`, MEMORY-08/VMQ/SELF-DIAG
+   границы. Product-код не менялся; статусы карты не менялись.
+
