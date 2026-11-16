@@ -787,7 +787,7 @@ class CheckupService:
                     "research_evidence_ref_count": 0,
                     "research_continuation_available": False,
                 })
-            if isinstance(tool_runtime, dict):
+            if research_requested_now:
                 # F1/F1b: runtime запрошен, но не собран/непригоден — отчёт
                 # не выдаётся за полную инструментальную диагностику, а
                 # причина нейтральна (модель tools не видела).
