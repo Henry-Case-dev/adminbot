@@ -483,3 +483,13 @@ def test_js_unit_self_diag_hard_rules_text():
             ok_marker="SELF-DIAG-HARD-RULES-TEXT-OK")
 
 
+def test_js_unit_p0_disk_status_thresholds():
+    """P0-PROD-DISK-01: видимая классификация заполнения диска на «Статусе».
+    84/85/89/90/95 и отсутствие данных; пороги 85/90 — именованные
+    константы; цвет не единственный сигнал (текст + aria-live); существующие
+    полосы ресурсов/бюджеты не переписаны."""
+    _run_js(os.path.join("tests", "js",
+                         "p0_disk_status_thresholds_test.js"),
+            ok_marker="P0-DISK-STATUS-OK")
+
+

@@ -2691,6 +2691,14 @@
     return Math.round(Math.min(used, total) / total * 100);
   }
 
+  // ═══ P0-PROD-DISK-01 («Статус»): пороги видимой классификации заполнения
+  // диска. Источник — СУЩЕСТВУЮЩАЯ телеметрия /api/status.server.disk
+  // (`percent` либо пара used/total): нового мониторинга нет, пороги не
+  // повышаются — только именованные константы вместо магических чисел.
+  // 85 % — предупреждение, 90 % — критично.
+  var STATUS_DISK_WARN_PERCENT = 85;
+  var STATUS_DISK_CRIT_PERCENT = 90;
+
   // Ближайший реально скроллящийся предок поля (не «угадываем» по классу:
   // контейнеры отличаются между shell-режимами).
   function _ctlScrollParent(el) {
@@ -11635,6 +11643,36 @@
         var pct = _ctlPartPercent(d);
         return _ctlProgressModel(pct, (pct == null) ? null : 100,
           { unit: '%', label: 'Диск', state: 'idle' });
+      },
+      // ═══ P0-PROD-DISK-01: классификация заполнения диска для «Статуса».
+      // Работает по УЖЕ полученной телеметрии (`ctlDiskProg` ← percent либо
+      // used/total). Цифра классификации — та же, что показана пользователю
+      // (округлённая): подпись, цвет и порог не расходятся. Нет данных →
+      // level 'unknown' (не «здорово»): текст предупреждения не выдумывается.
+      // Уровень — не только цвет: в разметке есть текст и `role=status`.
+      ctlDiskAlert: function () {
+        var prog = this.ctlDiskProg || null;
+        var pct = (prog && prog.percent != null) ? Number(prog.percent) : null;
+        if (pct === null || !isFinite(pct)) {
+          return { level: 'unknown', percent: null, text: '',
+                   ariaText: 'Диск: нет данных' };
+        }
+        if (pct >= STATUS_DISK_CRIT_PERCENT) {
+          return { level: 'crit', percent: pct,
+                   text: 'Критично: диск заполнен на ' + pct
+                         + '% — освободите место',
+                   ariaText: prog.ariaText + '. Диск заполнен на ' + pct
+                             + '% — освободите место' };
+        }
+        if (pct >= STATUS_DISK_WARN_PERCENT) {
+          return { level: 'warn', percent: pct,
+                   text: 'Внимание: диск заполнен на ' + pct
+                         + '% — место заканчивается',
+                   ariaText: prog.ariaText + '. Диск заполнен на ' + pct
+                             + '% — место заканчивается' };
+        }
+        return { level: 'ok', percent: pct, text: '',
+                 ariaText: prog.ariaText };
       },
       // Бюджеты: done/total — реальные числа, единицы и период подписаны.
       // «Безлимит» остаётся без бара (v-if в разметке), а не рисуется как 0 %.
