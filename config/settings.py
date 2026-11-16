@@ -425,7 +425,11 @@ class Settings:
         "EMBEDDING_FALLBACK_DISPLAY_NAME", "")
     EMBEDDING_FALLBACK2_DISPLAY_NAME: str = _env_str(
         "EMBEDDING_FALLBACK2_DISPLAY_NAME", "")
-    LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 30.0)   # Epic 47 (56.4): 60.0 → 30.0 (per-request)
+    # Таймаут ОДНОГО HTTP-ответа провайдера, сек (P0 SMART transport,
+    # 2.58.206): 30 → 180. Это НЕ дедлайн исследования и НЕ бюджет попытки:
+    # медленная reasoning-модель может отдавать ответ заметно дольше 30с.
+    # Применяется к следующему вызову без перезапуска (hot-apply в LLMClient).
+    LLM_TIMEOUT: float = _env_float("LLM_TIMEOUT", 180.0)
     # LLM_MAX_RETRIES сохраняется (default 2): число повторов, попыток = retries + 1 = 3.
     LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 2)
     EMBEDDING_DIM: int = _env_int("EMBEDDING_DIM", 3072)   # Epic 46 (D177): gemini-embedding-001 = 3072
@@ -458,8 +462,13 @@ class Settings:
     LLM_RETRY_BACKOFF_BASE: float = _env_float_min("LLM_RETRY_BACKOFF_BASE", 1.0, 0.0)
     LLM_RETRY_BACKOFF_CAP: float = _env_float_min("LLM_RETRY_BACKOFF_CAP", 8.0, 0.0)
     LLM_RETRY_JITTER_MAX: float = _env_float_min("LLM_RETRY_JITTER_MAX", 2.0, 0.0)
-    # Жёсткий дедлайн ВСЕЙ _post (все попытки + сны), asyncio.timeout (56.4).
-    LLM_TOTAL_BUDGET: float = _env_float_min("LLM_TOTAL_BUDGET", 60.0, 1.0)
+    # Предел ОДНОЙ основной попытки (все retry + backoff-паузы вместе),
+    # asyncio.timeout вокруг _post (56.4). P0 SMART transport (2.58.206):
+    # 60 → 360. Это НЕ дедлайн исследования: многошаговые сценарии состоят
+    # из нескольких попыток, и каждая ограничена этим пределом. Hot-apply на
+    # следующем вызове; Summary supervisor передаёт собственный per-call
+    # бюджет и этот ключ не использует.
+    LLM_TOTAL_BUDGET: float = _env_float_min("LLM_TOTAL_BUDGET", 360.0, 1.0)
     # ── LLM Circuit Breaker + Fallback (Epic 53, Section 62.6) ──
     # CB: скоуп ТОЛЬКО direct_chat (обёртка в direct_chat_service; llm_client
     # о CB не знает). Порог транзиентных фейлов подряд (5xx/транспорт/таймаут)

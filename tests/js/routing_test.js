@@ -1040,7 +1040,7 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     const html = require('fs').readFileSync(
       path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
     assert.ok(html.indexOf('v-for="g in providerGrouped"') >= 0,
-      '2.2/F5: шаблон итерирует computed providerGrouped (6 групп §49)');
+      '2.2/F5: шаблон итерирует computed providerGrouped (политика + 6 групп)');
     assert.ok(html.indexOf('v-for="b in providerAdvancedBlocks"') >= 0,
       '2.2: шаблон итерирует computed providerAdvancedBlocks');
     assert.ok(html.indexOf('providerConnectionBlocks()') < 0
@@ -1055,8 +1055,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.ok(conn.length > 0 && conn.every((b) => b.zone !== 'advanced'),
       '2.2: «Подключения» — без advanced-блоков');
     assert.deepStrictEqual(adv.map((b) => b.id),
-      ['llm_guard', 'search_keys', 'media_share'],
-      '2.2/2.5: в «Расширенных» — guard/search/media_share');
+      ['search_keys', 'media_share'],
+      '2.2/2.5/P0 SMART: в «Расширенных» — search/media_share (guard видим)');
     const ids = blocks.map((b) => b.id);
     assert.deepStrictEqual(
       ids.filter((id) => id.indexOf('llm_guard') < 0

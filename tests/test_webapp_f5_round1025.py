@@ -205,13 +205,25 @@ def test_single_prompt_source():
     assert "promptsShowAccordion: function" in APP_JS
 
 
-# ── D4/§49: 6 групп ────────────────────────────────────────────────────────
-def test_provider_six_groups():
+# ── D4/§49 + P0 SMART: группы витрины ──────────────────────────────────────
+def test_provider_policy_and_groups():
     assert "var PROVIDER_GROUPS = [" in APP_JS
-    for gid in ("id: 'prov_text'", "id: 'prov_stt'", "id: 'prov_video'",
-                "id: 'prov_embeddings'", "id: 'prov_background'",
-                "id: 'prov_images'"):
+    for gid in ("id: 'prov_policy'", "id: 'prov_text'", "id: 'prov_stt'",
+                "id: 'prov_video'", "id: 'prov_embeddings'",
+                "id: 'prov_background'", "id: 'prov_images'"):
         assert gid in APP_JS, gid
+    # P0 SMART transport (2.58.206): политика транспорта — ПЕРВАЯ видимая
+    # группа «Время ответа и защита»; llm_guard не в advanced.
+    policy_at = APP_JS.index("id: 'prov_policy'")
+    text_at = APP_JS.index("id: 'prov_text'")
+    assert policy_at < text_at, "prov_policy идёт первой"
+    assert "title: 'Время ответа и защита'" in APP_JS
+    guard_at = APP_JS.index("id: 'llm_guard'")
+    guard_chunk = APP_JS[guard_at:APP_JS.index("id: 'search_keys'")]
+    assert "zone: 'advanced'" not in guard_chunk
+    assert "label: 'Таймаут одного запроса, сек'" in guard_chunk
+    assert "label: 'Повторов при сбое'" in guard_chunk
+    assert "label: 'Предел одной основной попытки, сек'" in guard_chunk
     assert "providerGrouped: function" in APP_JS
     assert "workspaceModelGroups: function" in APP_JS
     assert 'data-provider-group' in INDEX

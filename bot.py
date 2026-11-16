@@ -1423,6 +1423,15 @@ async def main():
     from services.config_migrations import migrate_context_limit_defaults
     await migrate_context_limit_defaults(cache)
 
+    # ── P0 SMART transport (2.58.206): дефолты транспорта LLM — таймаут
+    # одного HTTP-ответа 30 → 180с, предел одной основной попытки 60 → 360с.
+    # Идемпотентно: нет ключа → запись нового дефолта; == прежнему дефолту →
+    # обновление; кастом владельца сохраняется; PG down → skip. Выполняется
+    # ДО создания LLMClient (клиент читает эти ключи при создании и на входе
+    # каждого вызова).
+    from services.config_migrations import migrate_llm_guard_defaults
+    await migrate_llm_guard_defaults(cache)
+
     # ── F2 (10.23, ADR-1023-2 §3.1): legacy-ключ окна фактчека
     # (`limits.factcheck_context_messages`) → одноразовый перенос значения в
     # `limits.factcheck_context_before`. Идемпотентно, кастом before не трогает,

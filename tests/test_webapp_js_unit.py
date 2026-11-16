@@ -232,10 +232,11 @@ def test_js_unit_round1025_f5_workspace_route():
 
 
 def test_js_unit_round1025_f5_models():
-    """F5 round 10.25 (ADR-1025-15 D4/§49): 6 групп «Моделей и подключений»
-    (каждый блок ровно раз), advanced-блоки, workspace-модели модуля,
-    «Проверить» → /api/llm/test,/api/images/test, §49 «сохранённая модель не
-    подменяется» (0 POST при открытии), R17."""
+    """F5 round 10.25 (ADR-1025-15 D4/§49) + P0 SMART transport: группы
+    «Моделей и подключений» (каждый блок ровно раз; «Время ответа и защита»
+    первой, llm_guard не advanced), workspace-модели модуля, «Проверить» →
+    /api/llm/test,/api/images/test, §49 «сохранённая модель не подменяется»
+    (0 POST при открытии), R17."""
     _run_js(os.path.join("tests", "js",
                          "round1025_f5_models_test.js"),
             ok_marker="MODELS-GROUPS-OK")

@@ -22,8 +22,10 @@ _MARKER_NOT_MANAGES = "не управляет"
 _MARKER_SUMMARY = "Summary"
 _MARKER_SUPERVISOR = "супервизор"
 
-# Ключи с обещанной строкой судьбы §8.1.
-ANNOTATED_KEYS = ("LLM_TIMEOUT", "LLM_TOTAL_BUDGET")
+# Ключи с обещанной строкой судьбы §8.1. P0 SMART transport (2.58.206):
+# аннотация расширена на LLM_MAX_RETRIES — число повторов тоже не управляет
+# Summary (там попытками управляет супервизор исполнения).
+ANNOTATED_KEYS = ("LLM_TIMEOUT", "LLM_MAX_RETRIES", "LLM_TOTAL_BUDGET")
 
 
 def _has_annotation(spec: pc.ParamSpec) -> bool:
@@ -51,11 +53,17 @@ class TestSpec81SummaryAnnotation:
     def test_marker_explain_supervisor_not_generic(self):
         # Пометка честно объясняет замену, а не обрывается: «…— длительность
         # Саммари определяет супервизор…» — поясняющих хвостов достаточно.
+        # P0 SMART (2.58.206): для LLM_MAX_RETRIES «длительность» не является
+        # предметом настройки (это число попыток) — там объясняется, что
+        # попытками Саммари управляет тот же супервизор.
         for key in ANNOTATED_KEYS:
             desc = pc.REGISTRY[key].description
-            assert "длительность" in desc.lower() and _MARKER_SUPERVISOR in desc, (
-                f"{key}: пометка должна объяснять, что длительность Саммари "
-                "определяет супервизор исполнения")
+            assert _MARKER_SUPERVISOR in desc, (
+                f"{key}: пометка должна указывать на супервизор исполнения")
+            if key != "LLM_MAX_RETRIES":
+                assert "длительность" in desc.lower(), (
+                    f"{key}: пометка должна объяснять, что длительность "
+                    "Саммари определяет супервизор исполнения")
 
     def test_sibling_keys_do_not_carry_exclusive_marker(self):
         # Точный охват пометки = ровно два ключа §8.1 (ловля случайного

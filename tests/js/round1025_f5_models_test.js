@@ -2,9 +2,10 @@
 /* F5 round1025 (ADR-1025-15 D4/§49) — «Модели и подключения».
  *
  * Проверяет РЕАЛЬНУЮ логику web/app.js:
- *   (a) 6 групп §49 покрывают КАЖДЫЙ блок-подключение ровно один раз
+ *   (a) группы витрины покрывают КАЖДЫЙ блок-подключение ровно один раз
  *       (нет блока вне групп и нет дубля) — ни один провайдер не потерян;
- *   (b) advanced-блоки (guard/search_keys/media_share) остаются техническими;
+ *       P0 SMART: «Время ответа и защита» (llm_guard) — первая видимая;
+ *   (b) advanced-блоки (search_keys/media_share) остаются техническими;
  *   (c) workspace-модели модуля = его блоки в его группах;
  *   (d) «Проверить» reuse существующих эндпоинтов (spy /api/llm/test,
  *       /api/images/test); новых API нет;
@@ -70,7 +71,7 @@ function groupedCtx() {
   const ctx = groupedCtx();
   const connIds = ctx.providerConnectionBlocks.map(function (b) { return b.id; });
 
-  // ── (a) 6 групп, каждый блок-подключение ровно один раз ──────────────
+  // ── (a) группы, каждый блок-подключение ровно один раз ──────────────
   {
     const seen = {};
     let dup = 0;
@@ -85,15 +86,35 @@ function groupedCtx() {
     assert.deepStrictEqual(missing, [], 'a: нет блока вне групп');
     assert.deepStrictEqual(Object.keys(seen).sort(), connIds.slice().sort(),
       'a: объединение групп == все блоки-подключения');
-    // Ровно 6 тематических групп §49 + (возможно) technical для остатка.
+    // P0 SMART transport (2.58.206): видимая группа «Время ответа и защита»
+    // (llm_guard) + 6 тематических групп §49; technical — для остатка.
     const thematic = ctx.providerGrouped.filter(function (g) {
       return g.id !== 'technical';
     });
-    assert.strictEqual(thematic.length, 6, 'a: 6 групп §49');
+    assert.strictEqual(thematic.length, 7, 'a: 7 групп витрины (политика + §49)');
     assert.deepStrictEqual(thematic.map(function (g) { return g.title; }),
-      ['Генерация текста', 'Распознавание речи', 'Видео', 'Эмбеддинги',
-       'Фоновые задачи', 'Генерация изображений'],
-      'a: порядок/названия групп §49');
+      ['Время ответа и защита', 'Генерация текста', 'Распознавание речи',
+       'Видео', 'Эмбеддинги', 'Фоновые задачи', 'Генерация изображений'],
+      'a: порядок/названия групп (политика первой)');
+    assert.deepStrictEqual(thematic[0].blocks.map(function (b) { return b.id; }),
+      ['llm_guard'], 'a: llm_guard — в видимой группе политики');
+  }
+
+  // ── (a2) P0 SMART: поля/подписи видимой группы политики ───────────────
+  {
+    const guard = BLOCKS.filter(function (b) { return b.id === 'llm_guard'; })[0];
+    assert.ok(guard, 'a2: llm_guard существует');
+    assert.strictEqual(guard.zone, undefined, 'a2: llm_guard НЕ advanced');
+    assert.strictEqual(guard.modules, undefined, 'a2: без модульной привязки');
+    assert.deepStrictEqual(guard.fields.map(function (f) { return f.label; }),
+      ['Таймаут одного запроса, сек', 'Повторов при сбое',
+       'Предел одной основной попытки, сек'],
+      'a2: подписи полей политики транспорта');
+    assert.ok(guard.note && guard.note.indexOf('без перезапуска') >= 0,
+      'a2: note — применяется без перезапуска');
+    assert.ok(guard.note.indexOf('не ограничивает всё исследование') >= 0,
+      'a2: note — предел попытки не дедлайн исследования');
+    assert.ok(guard.note.indexOf('Весь бот') >= 0, 'a2: scope «Весь бот»');
   }
 
   // ── (b) advanced-блоки НЕ в группах подключений ───────────────────────
@@ -102,12 +123,13 @@ function groupedCtx() {
     ctx.providerGrouped.forEach(function (g) {
       g.blocks.forEach(function (b) { all[b.id] = true; });
     });
-    ['llm_guard', 'search_keys', 'media_share'].forEach(function (id) {
+    ['search_keys', 'media_share'].forEach(function (id) {
       assert.ok(!all[id], 'b: advanced ' + id + ' вне групп §49');
     });
+    assert.ok(all['llm_guard'], 'b: llm_guard виден в группе (не advanced)');
     const adv = computed.providerAdvancedBlocks.call({ providerBlocks: BLOCKS });
     assert.deepStrictEqual(adv.map(function (b) { return b.id; }),
-      ['llm_guard', 'search_keys', 'media_share'],
+      ['search_keys', 'media_share'],
       'b: advanced-блоки сохранены («Расширенные системные»)');
   }
 

@@ -887,11 +887,15 @@
     return (key && SUMMARY_PROMPT_META[key]) || null;
   }
 
-  // ═══ F5 (ADR-1025-15 D4/§49): 6 групп «Моделей и подключений» ═══
+  // ═══ F5 (ADR-1025-15 D4/§49): группы «Моделей и подключений» ═══
   // Группировка — ВИТРИНА (Δ каталога = 0): каждый блок-подключение
   // (`providerConnectionBlocks`) принадлежит ровно одной группе; advanced
-  // блоки (`llm_guard`/`search_keys`/`media_share`) остаются «техническими».
+  // блоки (`search_keys`/`media_share`) остаются «техническими».
+  // P0 SMART transport (2.58.206): «Время ответа и защита» (llm_guard) —
+  // ВИДИМАЯ первая группа: таймаут/предел попытки — общая политика бота,
+  // а не расширенная техническая настройка.
   var PROVIDER_GROUPS = [
+    { id: 'prov_policy', title: 'Время ответа и защита', blocks: ['llm_guard'] },
     { id: 'prov_text', title: 'Генерация текста', blocks: ['direct'] },
     { id: 'prov_stt', title: 'Распознавание речи', blocks: ['transcription'] },
     { id: 'prov_video', title: 'Видео', blocks: ['video_summary'] },
@@ -1152,16 +1156,22 @@
         { key: 'keys.vision_api_key', label: 'Ключ (пусто — основной)', role: 'api_key',
           secret: true, globalSecret: true },
       ] },
-    // 10.11 (spec §2.5, OPEN-Q6): зона «Расширенные настройки».
-    { id: 'llm_guard', title: 'Таймауты и защита', modules: 'Общий',
-      zone: 'advanced',
+    // P0 SMART transport (2.58.206): политика транспорта — ВИДИМАЯ группа
+    // «Время ответа и защита» (первая в #/ai/llm), не advanced. Значения —
+    // глобальные для всего бота и применяются к следующему вызову без
+    // перезапуска (hot-apply LLMClient). Предел попытки НЕ является дедлайном
+    // всего исследования. Backoff/CB остаются в расширенных настройках.
+    { id: 'llm_guard', title: 'Таймауты и защита',
       // MAJOR-1: не сетевой провайдер — тест-кнопки нет; значения не
       // отправляются как `model` (role '').
       testable: false,
+      note: 'Весь бот: применяется к следующему вызову без перезапуска. '
+        + 'Таймаут — ожидание одного ответа; предел попытки — все повторы '
+        + 'одной основной попытки, он не ограничивает всё исследование.',
       fields: [
-        { key: 'models.llm_timeout', label: 'Сколько ждать ответ', role: '' },
-        { key: 'models.llm_max_retries', label: 'Повторов', role: '' },
-        { key: 'models.llm_total_budget', label: 'Общий дедлайн', role: '' },
+        { key: 'models.llm_timeout', label: 'Таймаут одного запроса, сек', role: '' },
+        { key: 'models.llm_max_retries', label: 'Повторов при сбое', role: '' },
+        { key: 'models.llm_total_budget', label: 'Предел одной основной попытки, сек', role: '' },
       ] },
     { id: 'search_keys', title: 'Поиск: ключи', modules: 'Поиск',
       zone: 'advanced',
@@ -8009,7 +8019,9 @@
         });
         return { groups: groups, missing: missing };
       },
-      // §49: 6 групп «Моделей и подключений» (все блоки-подключения ровно раз).
+      // §49/P0 SMART: 7 групп витрины «Моделей и подключений» — «Время
+      // ответа и защита» (llm_guard) + 6 групп подключений; каждый блок
+      // ровно один раз.
       providerGrouped: function () {
         var blocks = this.providerConnectionBlocks || [];
         var byId = {};

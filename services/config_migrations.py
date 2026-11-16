@@ -70,6 +70,19 @@ DEEP_SLEEP_THRESHOLD_MIGRATIONS: dict[str, tuple[int, int]] = {
 }
 
 
+# P0 SMART transport (2.58.206): новые code-дефолты транспорта LLM — таймаут
+# одного HTTP-ответа 30 → 180с и предел одной основной попытки 60 → 360с.
+# Сид `bot_settings` (`ON CONFLICT DO NOTHING`) старые значения не перетирает,
+# поэтому нужна идемпотентная миграция: записываем новый дефолт, если ключа
+# нет, и заменяем PG-значение ТОЛЬКО когда оно в точности равно прежнему
+# дефолту; кастом владельца сохраняем (INFO), PG down — skip.
+LLM_GUARD_MIGRATIONS: dict[str, tuple[float, float]] = {
+    # pg-key: (прежний дефолт, новый дефолт)
+    "models.llm_timeout": (30.0, 180.0),
+    "models.llm_total_budget": (60.0, 360.0),
+}
+
+
 def _threshold_int(value) -> int | None:
     """Приведение значения PG к int (bool/мусор → None).
 
@@ -81,6 +94,22 @@ def _threshold_int(value) -> int | None:
         return int(str(value).strip())
     except (TypeError, ValueError):
         return None
+
+
+def _threshold_float(value) -> float | None:
+    """Приведение значения PG к float (bool/мусор/NaN/inf → None).
+
+    Как `_threshold_int`, но для float-настроек: bool не считаем числом,
+    чтобы случайно не принять кастом за прежний дефолт."""
+    if isinstance(value, bool):
+        return None
+    try:
+        parsed = float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if parsed != parsed or parsed in (float("inf"), float("-inf")):
+        return None
+    return parsed
 
 
 def _custom_preserved(domain: str, key: str) -> None:
@@ -233,6 +262,47 @@ async def migrate_context_limit_defaults(cache) -> dict[str, str]:
                         "key=%s", key)
             continue
         _custom_preserved("context_migration", key)
+    return report
+
+
+async def migrate_llm_guard_defaults(cache) -> dict[str, str]:
+    """P0 SMART transport (2.58.206): идемпотентная миграция дефолтов
+    таймаута/предела попытки LLM в PG.
+
+    `LLM_GUARD_MIGRATIONS`: `models.llm_timeout` 30 → 180с,
+    `models.llm_total_budget` 60 → 360с. Ключа нет (current None) → записываем
+    новый дефолт (иначе hot.get отдал бы новый code-дефолт только в
+    process-default, а сид не перетирает существующие строки); current ==
+    прежнему дефолту → обновляем; кастом владельца → сохраняем (INFO);
+    PG down → skip. Обратимость: тот же путь с prev↔new. Вызывается из
+    `bot.py main()` рядом с `migrate_context_limit_defaults` ДО создания
+    LLMClient (fail-open)."""
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[llm_guard_migration] skip: PG недоступен")
+        return report
+    for key, (prev_default, new_default) in LLM_GUARD_MIGRATIONS.items():
+        current = cache.get(key)
+        if current is None:
+            await cache.set(key, new_default, "models")
+            report[key] = "seeded"
+            logger.info("[llm_guard_migration] ключа нет — записан новый "
+                        "дефолт | key=%s | value=%.1f", key, new_default)
+            continue
+        current_float = _threshold_float(current)
+        if current_float is None:
+            _custom_preserved("llm_guard_migration", key)
+            continue
+        if abs(current_float - new_default) < 1e-9:
+            logger.info("[llm_guard_migration] уже новый дефолт | key=%s", key)
+            continue
+        if abs(current_float - prev_default) < 1e-9:
+            await cache.set(key, new_default, "models")
+            report[key] = "updated"
+            logger.info("[llm_guard_migration] дефолт обновлён | key=%s | "
+                        "value=%.1f", key, new_default)
+            continue
+        _custom_preserved("llm_guard_migration", key)
     return report
 
 
