@@ -257,9 +257,9 @@ function mkCtx(overrides) {
 
     // ── D9: длинная причина доступна (title/aria-label) ────────────────
     {
-      const cardState = INDEX.slice(
-        INDEX.indexOf('class="module-state text-xs" data-module-state'),
-        INDEX.indexOf('class="module-state text-xs" data-module-state') + 400);
+      const cardStateAt = INDEX.indexOf('data-module-state',
+        INDEX.indexOf('v-else-if="!m.noToggle"'));
+      const cardState = INDEX.slice(cardStateAt, cardStateAt + 400);
       ok(/ :title="moduleStateText\(m\)"/.test(cardState) &&
         / :aria-label="moduleStateText\(m\)"/.test(cardState),
         'D9: причина доступна через title и aria-label');
@@ -307,12 +307,13 @@ function mkCtx(overrides) {
       ok(ctx._toasts.some(function (t) {
         return t[0] === 'Настройка изменилась в другом окне';
       }), 'D4: человеческий баннер');
-      ok(INDEX.indexOf('data-module-conflict-apply') >= 0 &&
-        INDEX.indexOf('data-module-conflict-server-load') >= 0,
-        'D4: обе кнопки выбора в карточке');
+      ok(INDEX.indexOf('data-module-conflict-open') >= 0,
+        'D4/R2: компактный 409-индикатор ведёт в workspace');
+      ok(INDEX.indexOf('data-module-conflict-apply') < 0,
+        'R2: полный diff/выбор не рендерится в карточке (высота)');
       ok(INDEX.indexOf('data-workspace-conflict-apply') >= 0 &&
         INDEX.indexOf('data-workspace-conflict-server-load') >= 0,
-        'D4: обе кнопки выбора в шапке');
+        'D4: обе кнопки выбора в workspace');
 
       // «Применить свою» → ровно один явный POST с серверным токеном.
       ctx.apiCalls.length = 0;
@@ -367,6 +368,66 @@ function mkCtx(overrides) {
       ok(gconf && gconf.serverText === 'Выключить',
         'D4: gate diff «на сервере» строится');
       eq(gctx.loads.length, 0, 'D4: gate 409 без авто-reload');
+    }
+
+    // ── R1: badge inline, не раздувает карточку ────────────────────────
+    {
+      const cardStart = INDEX.indexOf('class="module-card-body"');
+      const cardEnd = INDEX.indexOf('class="module-card-footer"', cardStart);
+      const CARD = INDEX.slice(cardStart, cardEnd);
+      ok(CARD.indexOf('module-effective-inline') >= 0,
+        'R1: badge эффективного состояния — inline в строке состояния');
+      ok(CARD.indexOf('class="module-effective"') < 0,
+        'R1: отдельного badge-блока в карточке нет');
+      ok(/\.module-effective-inline \{[^}]*font-size:\s*10px/.test(CSS),
+        'R1: inline badge компактный (10 px)');
+      const ctx = mkCtx();
+      const b = methods.moduleEffectiveBadge.call(ctx,
+        withState(byId('mod_summary'), { source: 'chat', chat_state: 'on',
+          desired: true, global_value: false }));
+      ok(b && b.short && b.short.length <= 24,
+        'R1: короткая подпись inline-badge (≤24 символов)');
+      eq(b.text, 'Включено отдельно для этого чата',
+        'R1: полная подпись сохранена для title/aria и шапки');
+    }
+
+    // ── R2: компактный 409 в карточке, diff/выбор — в workspace ────────
+    {
+      const cardStart = INDEX.indexOf('class="module-card-body"');
+      const cardEnd = INDEX.indexOf('class="module-card-footer"', cardStart);
+      const CARD = INDEX.slice(cardStart, cardEnd);
+      ok(CARD.indexOf('data-module-conflict') >= 0 &&
+        CARD.indexOf('data-module-conflict-open') >= 0,
+        'R2: карточка показывает компактный конфликт + «Разрешить»');
+      ok(CARD.indexOf('module-conflict__diff') < 0 &&
+        CARD.indexOf('module-conflict__actions') < 0,
+        'R2: diff/кнопки выбора не в карточке');
+      ok(/\.module-state--conflict \{[^}]*height:\s*16px/.test(CSS),
+        'R2: компактный конфликт фиксированной высоты 16 px');
+      // Полный diff/выбор доступен в workspace.
+      ok(INDEX.indexOf('data-workspace-conflict-local') >= 0 &&
+        INDEX.indexOf('data-workspace-conflict-server') >= 0,
+        'R2: diff «ваше/на сервере» доступен в workspace');
+    }
+
+    // ── R3: «Время» — один текст без дубля ─────────────────────────────
+    {
+      const cardStart = INDEX.indexOf('class="module-card-body"');
+      const cardEnd = INDEX.indexOf('class="module-card-footer"', cardStart);
+      const CARD = INDEX.slice(cardStart, cardEnd);
+      ok(/v-else-if="!m\.noToggle"[^>]*class="module-state/.test(CARD) ||
+        /class="module-state text-xs"\s*\n\s*data-module-state/.test(CARD),
+        'R3: строка состояния не рендерится для no-master');
+      ok(CARD.indexOf('v-else-if="!m.noToggle"') >= 0,
+        'R3: no-master (time) — только подпись контроля');
+    }
+
+    // ── R4: workspace tri-state — реальные 44 px ───────────────────────
+    {
+      ok(/@media \(pointer: coarse\), \(max-width: 767px\) \{[^}]*\[data-workspace-chat-tristate\]\s*\{[^}]*min-height:\s*44px/
+        .test(CSS), 'R4: workspace tri-state 44 px на coarse/mobile');
+      ok(CSS.indexOf('.module-card .module-tristate-btn::after') >= 0,
+        'R4: hit-area карточки остаётся scoped (без перекрытия workspace)');
     }
 
     console.log('M4-REVIEW-FIXES-OK — ' + checks + ' проверок');

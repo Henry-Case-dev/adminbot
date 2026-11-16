@@ -28,6 +28,7 @@ import tools.ui_mod_acl_m4_catalog_e2e as e2e  # noqa: E402
 
 PORT = int(os.environ.get("MOD_ACL_M4A_SERVE_PORT", "8796"))
 CONFLICT = {"on": False}
+BADGE = {"on": False}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -64,9 +65,27 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/__conflict/off":
             CONFLICT["on"] = False
             return self._json({"conflict": False})
+        if p == "/__badge/on":
+            BADGE["on"] = True
+            return self._json({"badge": True})
+        if p == "/__badge/off":
+            BADGE["on"] = False
+            return self._json({"badge": False})
         if p.startswith("/api/"):
             if p == "/api/config":
                 chat = bool(self.headers.get("X-Chat-Id"))
+                if chat and BADGE["on"]:
+                    import copy
+                    cfg = copy.deepcopy(e2e.CONFIG_CHAT)
+                    for card in cfg.get("modules", []):
+                        if card.get("id") == "summary":
+                            st = card.get("state") or {}
+                            st.update({"source": "chat", "chat_state": "on",
+                                       "desired": True,
+                                       "global_value": False,
+                                       "effective_runtime": True})
+                            card["state"] = st
+                    return self._json(cfg)
                 return self._json(e2e.CONFIG_CHAT if chat
                                   else e2e.CONFIG_GLOBAL)
             return self._json(e2e._stub_for(self.path))

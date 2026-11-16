@@ -7706,7 +7706,25 @@ html.w9-sheet-bottom .modal-close {
   min-height: 22px; padding: 0 7px; line-height: 1.3;
 }
 .module-card .module-state {
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 4px;
+  white-space: nowrap; overflow: hidden;
+}
+.module-card .module-state-value {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* R1: badge inline в строке состояния (10 px, не раздувает карточку). */
+.module-effective-inline {
+  flex: 0 0 auto; font-size: 10px; line-height: 14px;
+  padding: 0 4px; display: inline-flex; align-items: center; gap: 3px;
+}
+.module-effective-inline .msr { font-size: 12px; }
+/* R2: компактный 409-индикатор в карточке (diff/выбор — в workspace). */
+.module-state--conflict {
+  height: 16px; font-size: 10.5px; line-height: 1.2;
+}
+.module-conflict-open {
+  min-height: 16px; padding: 0 4px; font-size: 10px; line-height: 1.2;
 }
 .module-card .module-toggle { min-height: 28px; }
 /* Специфичность ≥ `.app-shell.shell-mobile .module-card .btn-ghost` (735x):
@@ -7769,6 +7787,11 @@ html.w9-sheet-bottom .modal-close {
   background: var(--surface-3); color: var(--text-1); font-weight: 600;
 }
 .module-tristate-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* R4: workspace CHAT tri-state — настоящая тач-высота 44 на coarse/mobile,
+   без горизонтального pseudo-перекрытия (оно scoped только карточкой). */
+@media (pointer: coarse), (max-width: 767px) {
+  .module-tristate-btn[data-workspace-chat-tristate] { min-height: 44px; }
+}
 /* Тач-цель tri-state расширяется псевдоэлементом (см. блок карточки),
    высота остаётся 32 px — карточка держит 132–164. */
 .module-tristate-btn { min-height: 32px; }

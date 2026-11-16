@@ -7805,44 +7805,39 @@
                           </template>
                         </div>
 
-                        <div class="module-state text-xs" data-module-state
+                        <!-- R1: badge — inline в строке состояния (не
+                             отдельным блоком): карточка держит 132–164. -->
+                        <div v-if="moduleConflictFor(m)"
+                             class="module-state module-state--conflict"
+                             data-module-conflict @click.stop
+                             :title="'Настройка изменилась в другом окне: ваше '
+                               + moduleConflictFor(m).localText + ', на сервере '
+                               + moduleConflictFor(m).serverText">
+                          <span class="badge badge-warn" data-module-conflict-local>
+                            Настройка изменилась
+                          </span>
+                          <button type="button" class="btn-ghost module-conflict-open"
+                                  data-module-conflict-open
+                                  @click="openModuleWorkspace(m)">Разрешить</button>
+                        </div>
+                        <div v-else-if="!m.noToggle" class="module-state text-xs"
+                             data-module-state
                              :title="moduleStateText(m)"
                              :aria-label="moduleStateText(m)">
                           <span class="module-state-value">{{ moduleStateText(m) }}</span>
-                        </div>
-                        <!-- D6: явное исключение GLOBAL↔CHAT (отдельный badge,
-                             не дублирует строку состояния). -->
-                        <div v-if="moduleEffectiveBadge(m)" class="module-effective"
-                             data-module-effective
-                             :data-module-effective-code="moduleEffectiveBadge(m).code">
-                          <span class="badge" :class="moduleEffectiveBadge(m).cls">
-                            <span class="msr" aria-hidden="true">{{ iconGlyph(moduleEffectiveBadge(m).icon) }}</span>
-                            {{ moduleEffectiveBadge(m).text }}
+                          <span v-if="moduleEffectiveBadge(m)"
+                                class="badge module-effective-inline"
+                                :class="moduleEffectiveBadge(m).cls"
+                                data-module-effective
+                                :data-module-effective-code="moduleEffectiveBadge(m).code"
+                                :title="moduleEffectiveBadge(m).text"
+                                :aria-label="moduleEffectiveBadge(m).text">
+                            <span class="msr" aria-hidden="true">{{ iconGlyph(moduleEffectiveBadge(m).icon) }}</span>{{ moduleEffectiveBadge(m).short }}
                           </span>
                         </div>
                         <div v-if="moduleChatPendingFor(m)" class="module-status-line is-saving"
                              data-module-saving>Сохраняем…</div>
-                        <!-- D4: 409 — diff «ваше/на сервере» и явный выбор. -->
-                        <div v-if="moduleConflictFor(m)" class="module-conflict"
-                             data-module-conflict @click.stop>
-                          <div class="module-conflict__title">
-                            Настройка изменилась в другом окне
-                          </div>
-                          <div class="module-conflict__diff">
-                            <span data-module-conflict-local>Ваше: {{ moduleConflictFor(m).localText }}</span>
-                            <span data-module-conflict-server>На сервере: {{ moduleConflictFor(m).serverText }}</span>
-                          </div>
-                          <div class="module-conflict__actions">
-                            <button type="button" class="btn-ghost text-xs"
-                                    data-module-conflict-apply
-                                    :disabled="moduleChatPendingFor(m)"
-                                    @click="applyModuleConflict(m)">Применить свою</button>
-                            <button type="button" class="btn-ghost text-xs"
-                                    data-module-conflict-server-load
-                                    @click="loadServerConflict(m)">Загрузить серверное</button>
-                          </div>
-                        </div>
-                        <div v-else-if="moduleChatErrorFor(m)"
+                        <div v-else-if="!moduleConflictFor(m) && moduleChatErrorFor(m)"
                              class="module-status-line module-status-line--error"
                              data-module-scope-error>{{ moduleChatErrorFor(m) }}</div>
                       </template>

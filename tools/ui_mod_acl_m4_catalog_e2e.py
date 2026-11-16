@@ -552,7 +552,7 @@ def main() -> int:
         before = page.evaluate("() => location.hash")
         # Начальный scope — чат (есть доступные чаты): карточка пишет ТОЛЬКО
         # свою область → CHAT tri-state, клик по нему не навигирует.
-        page.click('.module-catalog [data-mod="mod_summary"] '
+        page.click('.module-catalog [data-mod=mod_summary] '
                    '[data-module-chat-tristate="inherit"]')
         page.wait_for_timeout(400)
         after_control = page.evaluate("() => location.hash")
@@ -574,7 +574,7 @@ def main() -> int:
         page.click(".scope-trigger")
         page.click(".scope-option:has-text('%s')" % CHAT_TITLE)
         page.wait_for_timeout(500)
-        page.click('.module-catalog [data-mod="mod_summary"] .module-card-head')
+        page.click('.module-catalog [data-mod=mod_summary] .module-card-head')
         page.wait_for_timeout(450)
         after_body = page.evaluate("() => location.hash")
         report["flows"]["body_click"] = after_body
@@ -833,6 +833,155 @@ def main() -> int:
         check(not denied["clear"], "D8: кнопка «Очистить поиск» при 403",
               failures)
         cctx.close()
+
+        # ── R1: badge-state — карточка/ряд 132–164 ──────────────────────
+        def _measure_cards(vpage):
+            return vpage.evaluate(
+                "() => { const cards = Array.from(document.querySelectorAll("
+                "'.module-catalog [data-mod]'));"
+                "const hs = cards.map(c => c.getBoundingClientRect().height);"
+                "const tops = {}; cards.forEach(c => { const r = "
+                "c.getBoundingClientRect(); const k = Math.round(r.top);"
+                "tops[k] = Math.max(tops[k] || 0, r.height); });"
+                "return {maxCard: Math.max.apply(null, hs),"
+                " maxRow: Math.max.apply(null, Object.values(tops)),"
+                " cards: hs.length}; }")
+
+        badge_cfg = _variant(True)
+        for bw, bh in [(1440, 900), (1280, 800), (390, 844), (320, 568)]:
+            bctx = browser.new_context(viewport={"width": bw, "height": bh})
+            bctx.add_init_script(TMA_STUB)
+
+            def _make_badge_route(cfg):
+                def _badge_route(route):
+                    url = route.request.url.split("?")[0]
+                    if url.endswith("/api/config"):
+                        route.fulfill(
+                            status=200, content_type="application/json",
+                            body=json.dumps(
+                                cfg if (route.request.headers or {})
+                                .get("x-chat-id") else CONFIG_GLOBAL))
+                        return
+                    route.fulfill(status=200, content_type="application/json",
+                                  body=json.dumps(_stub_for(url)))
+                return _badge_route
+
+            bctx.route("**/api/**", _make_badge_route(badge_cfg))
+            bpage = bctx.new_page()
+            bpage.goto("http://127.0.0.1:%d/web/index.html#/modules" % PORT,
+                       wait_until="load")
+            bpage.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+            bpage.wait_for_timeout(500)
+            badge_meas = _measure_cards(bpage)
+            badge_badge = bpage.evaluate(
+                "() => (document.querySelector("
+                "'.module-catalog [data-mod=mod_summary] "
+                "[data-module-effective]')||{}).innerText || ''")
+            report["flows"]["r1_badge_%dx%d" % (bw, bh)] = badge_meas
+            check(131 <= badge_meas["maxCard"] <= 165
+                  and badge_meas["maxRow"] <= 165,
+                  f"R1 {bw}: badge-state height card={badge_meas['maxCard']:.1f} "
+                  f"row={badge_meas['maxRow']:.1f}", failures)
+            check("Отдельно для чата" in badge_badge,
+                  f"R1 {bw}: inline badge не показан («{badge_badge}»)",
+                  failures)
+            bctx.close()
+
+        # ── R2: conflict-state карточки/ряда ≤164; diff — в workspace ────
+        rctx = browser.new_context(viewport={"width": 1440, "height": 900})
+        rctx.add_init_script(TMA_STUB)
+        rctx.route("**/api/**", _route)
+        rpage = rctx.new_page()
+        rpage.goto("http://127.0.0.1:%d/web/index.html#/modules" % PORT,
+                   wait_until="load")
+        rpage.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+        rpage.wait_for_timeout(400)
+        conflict_mode["on"] = True
+        posts.clear()
+        rpage.click('.module-catalog [data-mod=mod_summary] '
+                    '[data-module-chat-tristate="off"]')
+        rpage.wait_for_timeout(900)
+        r_meas = _measure_cards(rpage)
+        r_conf = rpage.evaluate(
+            "() => ({compact: !!document.querySelector("
+            "'.module-catalog [data-mod=mod_summary] [data-module-conflict]'),"
+            " link: !!document.querySelector("
+            "'.module-catalog [data-mod=mod_summary] "
+            "[data-module-conflict-open]'),"
+            " diffInCard: !!document.querySelector("
+            "'.module-catalog [data-mod=mod_summary] .module-conflict__diff')})")
+        report["flows"]["r2_conflict_card"] = dict(r_meas, **r_conf,
+                                                   posts=len(posts))
+        check(r_meas["maxCard"] <= 164 and r_meas["maxRow"] <= 164,
+              f"R2: conflict-state card={r_meas['maxCard']:.1f} "
+              f"row={r_meas['maxRow']:.1f}", failures)
+        check(r_conf["compact"] and r_conf["link"] and not r_conf["diffInCard"],
+              f"R2: карточка не компактна ({r_conf})", failures)
+        check(len(posts) == 1, f"R2: POST-ов {len(posts)} вместо 1", failures)
+        rpage.click('.module-catalog [data-mod=mod_summary] '
+                    '[data-module-conflict-open]')
+        rpage.wait_for_timeout(700)
+        r_ws = rpage.evaluate(
+            "() => ({hash: location.hash,"
+            " diff: !!document.querySelector('[data-workspace-conflict]'),"
+            " apply: !!document.querySelector('[data-workspace-conflict-apply]'),"
+            " load: !!document.querySelector("
+            "'[data-workspace-conflict-server-load]')})")
+        report["flows"]["r2_conflict_workspace"] = r_ws
+        check(r_ws["hash"] == "#/modules/summary" and r_ws["diff"]
+              and r_ws["apply"] and r_ws["load"],
+              f"R2: diff/выбор недоступны в workspace ({r_ws})", failures)
+        conflict_mode["on"] = False
+        rctx.close()
+
+        # ── R3: «Время» — один текст в карточке (chat и global) ─────────
+        def _time_count(vpage):
+            return vpage.evaluate(
+                "() => { const c = document.querySelector("
+                "'.module-catalog [data-mod=mod_time]');"
+                "return c ? (c.innerText.match(/Без тумблера/g) || []).length"
+                " : -1; }")
+
+        tpage2 = page
+        tpage2.goto("http://127.0.0.1:%d/web/index.html#/modules" % PORT,
+                    wait_until="load")
+        tpage2.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+        tpage2.wait_for_timeout(400)
+        chat_time_n = _time_count(tpage2)
+        tpage2.click(".scope-trigger")
+        tpage2.click(".scope-option:has-text('Весь бот')")
+        tpage2.wait_for_timeout(600)
+        global_time_n = _time_count(tpage2)
+        report["flows"]["r3_time_labels"] = {"chat": chat_time_n,
+                                             "global": global_time_n}
+        check(chat_time_n == 1 and global_time_n == 1,
+              f"R3: «Время» дублирует «Без тумблера» "
+              f"(chat={chat_time_n}, global={global_time_n})", failures)
+
+        # ── R4: workspace tri-state 390 — реальная высота 44 ────────────
+        mctx = browser.new_context(viewport={"width": 390, "height": 844})
+        mctx.add_init_script(TMA_STUB)
+        mctx.route("**/api/**", _route)
+        mpage = mctx.new_page()
+        mpage.goto("http://127.0.0.1:%d/web/index.html#/modules/summary"
+                   % PORT, wait_until="load")
+        mpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        mpage.wait_for_timeout(500)
+        r4 = mpage.evaluate(
+            "() => { const on = document.querySelector("
+            "'[data-workspace-chat-tristate=\"on\"]');"
+            "const off = document.querySelector("
+            "'[data-workspace-chat-tristate=\"off\"]');"
+            "if (!on || !off) return null;"
+            "const a = on.getBoundingClientRect(), b = off.getBoundingClientRect();"
+            "return {onH: a.height, offH: b.height,"
+            " overlapX: a.right - b.left}; }")
+        report["flows"]["r4_workspace_touch"] = r4
+        check(r4 and r4["onH"] >= 44 and r4["offH"] >= 44,
+              f"R4: workspace tri-state height {r4}", failures)
+        check(r4 and r4["overlapX"] <= 1,
+              f"R4: соседние кнопки перекрываются по X ({r4})", failures)
+        mctx.close()
 
         browser.close()
     httpd.shutdown()

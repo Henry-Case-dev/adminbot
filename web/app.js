@@ -23210,17 +23210,20 @@
         if (chatScope && st.source === 'chat') {
           if (st.desired === true && st.global_value === false) {
             return { text: 'Включено отдельно для этого чата',
+                     short: 'Отдельно для чата',
                      cls: 'badge-info', icon: 'call_split',
                      code: 'chat_on_global_off' };
           }
           if (st.desired === false && st.global_value === true) {
             return { text: 'Выключено в этом чате',
+                     short: 'Выключено в чате',
                      cls: 'badge-muted', icon: 'block',
                      code: 'chat_off_global_on' };
           }
         }
         if (!chatScope && st.desired === false) {
           return { text: 'Общий режим: выключен (новые чаты наследуют)',
+                   short: 'Общий режим: выкл.',
                    cls: 'badge-muted', icon: 'public_off',
                    code: 'global_off_inherit' };
         }
