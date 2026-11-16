@@ -16,7 +16,7 @@
 | Схема | `user_version=47`, DDL 0 (M0) |
 | Каталог | 21 видимая карточка = 16 static + 5 registry-only; 11 `ModuleSpec` (10 visible + hidden) |
 | Health | `https://admin-bot.duckdns.org/healthz` → `200 {"status":"ok","version":"2.58.205"}` |
-| Артефакты design | design — коммит **`4e8a08c2f213d1ec8a42f782fff8a0cf28b4f1f7`**, copy — коммит **`cc060b7631bfcd3be0ef53db821f23facda857e1`**; freeze — коммит **`36f3e603039de199ff4aea4b6e4fd4a29b0ec9f1`**; хеши §3 сняты после последней правки и совпадают с блобами на `HEAD` |
+| Артефакты design | design, copy и freeze — коммит **`4268e5a4b70f618bbaefd9779ad64175d51aa927`**; хеши §3 сняты после последней правки и совпадают с блобами на `HEAD` |
 
 ## 2. Что проверено визуально
 
@@ -63,12 +63,19 @@
 **Дополнительно для rev2.1 (сверка «до», без нового прогона):** реальные строки шапки каталога —
 `Найти модуль…`, фильтры `Все`/`Включённые`/`Выключенные`/`Есть проблемы`, счётчик
 `Показано 21 из 21 · здоровье показывается там, где для модуля есть данные`, загрузка
-`Загружаем каталог модулей…` (`web/index.html`, deployed `bca18c1e`). Вкладки карточек и их
-подписи — `WORKSPACE_TABS` + `WORKSPACE_TAB_LABELS` + `WORKSPACE_TAB_LABELS_OVERRIDES`
-(`summary` 10, `direct` 8, `media_download` 3, registry-only — `overview/settings`). Зона
-«Расширенные» и её носитель проверены по `param_catalog.REGISTRY` (645 params,
-`progressive_level`, `_ADVANCED_GROUPS`): advanced-параметры есть у `sleep`, `nostalgia`,
-`initiative`, `character`, `experience`, `random`.
+`Загружаем каталог модулей…`, пустой каталог — `Ничего не найдено. Измените запрос или фильтр.`
+(`web/index.html`, deployed `bca18c1e`). Вкладки карточек и их подписи — `WORKSPACE_TABS` +
+`WORKSPACE_TAB_LABELS` + `WORKSPACE_TAB_LABELS_OVERRIDES` (`summary` 10, `direct` 8,
+`media_download` 3, registry-only — `overview/settings`). Зона «Расширенные» проверена по
+`param_catalog.REGISTRY` (645 params, `resolve_progressive_level`, `_ADVANCED_GROUPS`) и по
+deployed `web/api/routes.py:634–635,1002` / `web/app.js:27227–27247` / `web/index.html:7427+`:
+она рисуется по фактическому `advancedItems(grp) > 0`, а не по списку карточек. Advanced-группы
+есть у **15/21** карточек: `sleep`, `nostalgia`, `initiative`, `character`, `experience`, `random`
+плюс `summary`, `direct`, `factcheck`, `search`, `transcribe`, `video_summary`, `vision`, `checkup`,
+`budgets` (примеры: `factcheck/settings` 1, `checkup/settings` 1, `budgets/settings` 1,
+`summary/limits` 3, `direct/limits` 6/6/2, `search/limits` 1, `vision/limits` 2,
+`sleep/settings` 14/4). У остальных 6 (`web`, `media_download`, `images`, `time`, `stories`,
+`embeddings`) advanced-групп нет; hidden-параметры не считаются.
 
 **Ограничение.** `/api/config` — stub, значения синтетические (многие `false`); выводы сделаны
 только о структуре, текстах, плотности и DOM-контрактах. Живой Mini App с owner `initData` не
@@ -77,14 +84,14 @@
 
 ## 3. Артефакты M3
 
-Хеши сняты **после** финальной правки rev2.1. Колонки: `git blob` — id блоба файла на `HEAD`
+Хеши сняты **после** последней правки (re-review D1/D5/D12). Колонки: `git blob` — id блоба файла на `HEAD`
 (проверяется `git rev-parse HEAD:<path>`); `sha256` — хеш содержимого файла (полный).
 
 | Артефакт | Содержание | git blob | sha256 |
 |---|---|---|---|
-| `design-m3-2026-11-16.md` | design specification rev2.1: IA, 21 карточка, per-card матрица, wireframes, состояния, API, DTO-имена, responsive, token mapping, acceptance, M2.1 | `2a75ba83ef3fc80f7b474751da55d689719d11e5` | `af36216207ca731acba15e0f884f1504b62257dfdbcfeb2676f8a73ea55c0aae` |
-| `copy-inventory.md` | полный copy inventory до/после: карточки, вкладки, управление, состояние, пустота, 401/403/404/503, 409, шапка каталога (§10), границы Статуса/Прав (§11) | `cc0b25b60ed4100c90e876217d5283d9a83e312c` | `f93e7573be60a7cbf099e40f96c12d751a2bb0a47787ff0daac3c14a16cb699e` |
-| `m3-design-freeze.md` | frozen §1–§7 + датированные дополнения §8 (rev2) и §9 (rev2.1) | `113ca5b1034c597d92c5abf5b2bfe8fd2d94a0be` | `e799224a86d21758404ed88f87c752078463f53409f1c32eb3fdffe16e4b4fd6` |
+| `design-m3-2026-11-16.md` | design specification rev2.1: IA, 21 карточка, per-card матрица, wireframes, состояния, API, DTO-имена, responsive, token mapping, acceptance, M2.1 | `0cea464b5329b7dbf78796ebe04d190ec945c4ae` | `91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692` |
+| `copy-inventory.md` | полный copy inventory до/после: карточки, вкладки, управление, состояние, пустота, 401/403/404/503, 409, шапка каталога (§10), границы Статуса/Прав (§11) | `eaada4f35449c81395dad22141feccd1b35552b3` | `892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752` |
+| `m3-design-freeze.md` | frozen §1–§7 + датированные дополнения §8 (rev2) и §9 (rev2.1) | `0563d9a03257669eab75c8709f41c8f6fda16fad` | `cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9` |
 | `evidence/m3/catalog-1280.png` | каталог 1280×800, реальные deployed-ассеты + stub | `9283dd07de745deb8832396f67375ff6f036d1c1` | `e19edc1b78cace5af036cc74f32cc733042cdc7d7d5ab3166d1a3fa8f090d7e4` |
 | `evidence/m3/catalog-390.png` | каталог 390×844 | `3e159d84f7f394516b242149c48dcd053ba34950` | `d0937af90002efb83e98ff614b93b9d8bad09d1c2fa6201776b248c5956c3386` |
 | `evidence/m3/embeddings-1280.png` | «Векторная память» 1280×800 (текущее состояние) | `30d8271a47bf38bbe55a90dccebe3b495af44153` | `3143bcddadc3f54bb38be17f1aebb41b927a826c41c031fb1b5db140c596b4f9` |
@@ -93,12 +100,12 @@
 
 ```text
 git rev-parse HEAD:plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
-# → 2a75ba83ef3fc80f7b474751da55d689719d11e5
+# → 0cea464b5329b7dbf78796ebe04d190ec945c4ae
 sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
-# → af362162…5c0aae  (Windows: Get-FileHash -Algorithm SHA256)
+# → 91d60e5b…181692  (Windows: Get-FileHash -Algorithm SHA256)
 ```
 
-Хешей «до правки» в evidence нет: таблица выше снята после финальной правки и проверяется командами
+Хешей «до правки» в evidence нет: таблица выше снята после последней правки и проверяется командами
 из блока «Как проверить».
 
 ## 4. Что зафиксировано (соответствие 20 строкам M3)
@@ -153,8 +160,8 @@ sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
   карточка 148, gap 16), а не измерение нового макета; измеренный baseline — 4 карточки при
   1280×800. Проверка нового макета — M4A (Playwright, 5 viewport), не M3.
 - Наличие advanced-параметров проверено программно по `param_catalog.REGISTRY` из checkout
-  `bca18c1e`; отдельного прогона UI для зоны «Расширенные» не делалось (она уже рендерится
-  существующим `advancedItems`).
+  `bca18c1e` (15/21 карточек; критерий — `advancedItems(grp) > 0`); отдельного прогона UI для зоны
+  «Расширенные» не делалось (она уже рендерится существующим `advancedItems`).
 - Временные файлы стенда: сервер остановлен после снятия; исходные PNG остаются в
   `C:/Users/main/AppData/Local/Temp/opencode/acl_m3/`; в репозиторий добавлены три
   representative-снимка.
@@ -173,8 +180,8 @@ sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
 
 | # | Закрытие |
 |---|---|
-| E1 | хеши §3 пересчитаны от фактических коммитов (`4e8a08c2…` — design, `cc060b76…` — copy, `36f3e603…` — freeze), git blob + sha256 после финальной правки; «до правки» удалены |
-| D1 | design §2.4: per-card матрица 21 карточки (tabs/подписи, История/События, «Расширенные», default, viewport 1440/1280/768/390/320); `history_source` в DTO |
+| E1 | хеши §3 пересчитаны от фактического коммита `4268e5a4…` (design, copy, freeze), git blob + sha256 после последней правки; «до правки» удалены |
+| D1 | design §2.4: per-card матрица 21 карточки (tabs/подписи, История/События, «Расширенные», default, viewport 1440/1280/768/390/320); `history_source` в DTO. «Расширенные» — по фактическому `advancedItems(grp) > 0` (`resolve_progressive_level`), **15/21** карточек (а не 6); существующие зоны сохранены, hidden не считаются |
 | D2 | design §6.2 п.1: 8 `runtime_gate` (`initiative`, `stories`, `character`, `random`, `factcheck`, `vision`, `nostalgia`, `sleep`); summary/budgets/images — новые спеки; передача M2.1/M4A — §12.5 |
 | D3 | design §6.2 п.3: `feature_gates.gate_state`/`CapabilityState`, `global_value/source` из `FLAG_KEYS`, param как default/usage, один чатовый контрол |
 | D4 | design §12.2 (12 id), §12.5.1/12.5.2, §12.6 п.5: M2.1 — отдельный срез-предшественник; CHAT-контролы только после него |
