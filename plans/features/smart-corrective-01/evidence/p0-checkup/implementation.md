@@ -101,3 +101,50 @@
   temporary mutation backups under `%TEMP%\opencode` were deleted.
 - Full-suite side effects in `plans/features/evol/audit/evidence/*` (screenshot
   regeneration) were reverted; working tree is clean.
+
+## Review fixes (independent Reviewer, 16.11.2026)
+
+Findings F1/F1b/F2 against candidate `a9a32b8b` are fixed; S7 is untouched.
+
+- **F1** (`services/checkup_service.py`, `handlers/checkup.py`): explicit
+  `research_requested` marker; the handler always passes it. A requested checkup
+  with `loop_ready=False`/`tool_runtime=None` now gets a neutral report note
+  «инструментальное исследование не выполнялось», not only telemetry. A legacy
+  call (internal `get_bot_health`, no marker and no runtime) keeps the report
+  clean while telemetry stays `not_executed`.
+- **F1b** (`services/tool_loop.py`): separate cause
+  `diagnostic_runtime_unavailable` («диагностический runtime недоступен или не
+  собран в этом запуске»). It no longer reuses `tools_unavailable`, whose text
+  falsely claimed the provider rejected tools for a runtime the model never saw.
+- **F2** (`handlers/checkup.py`): deterministic rich-channel errors
+  (bad request/explicit refusal/unsupported method) keep the existing plain
+  fallback. Ambiguous timeout/network/5xx after a rich send return
+  `delivery_unknown`, do not send a second full report, and the terminal event
+  records `outcome=failed`, `status=delivery_unknown` (WARN).
+- **Event contract correction carried in the same working candidate** (not part
+  of F1/F2): delivered reports now use valid `outcome=success` with completeness
+  in `status`; the previous `outcome=delivery` was not in the closed
+  `mca_events` contract and the event could be silently dropped. Tests now
+  observe real `build_event` emission instead of replacing it.
+
+### Checks (working candidate on `a9a32b8b`)
+
+- Focused checkup/smart/self-diag set (26 files, includes
+  `tests/test_smart_p0_checkup.py` 31 tests): **562 passed, 0 failed** (project
+  venv, aiogram 3.31.0).
+- Targeted new tests: **7 passed** (F1 legacy/requested/handler, F1b, F2
+  deterministic/ambiguous/handler delivery_unknown).
+- RED on lane parent `b9f5ec88`: new suite collection fails —
+  `ImportError: cannot import name 'RESEARCH_NOT_EXECUTED'` (behavior absent).
+- Pre-fix RED on reviewed candidate `a9a32b8b`: **5 failed, 1 passed** —
+  false `tools_unavailable`, missing handler-requested note, missing
+  `research_requested` API, blind plain retry after rich timeout, clean report
+  on handler path without runtime; deterministic fallback already passed.
+- Mutations at the fixed tip: (A) note condition `if False` → 3 target tests
+  fail; (B) ambiguous branch disabled → blind-retry test fails (`plain=1`),
+  deterministic test still passes.
+- `py_compile` of all changed product/test files: clean.
+
+Honest limits: rich delivery is still proven at the wrapper/handler boundary,
+not against live Telegram; the `delivery_unknown` event is covered by the
+handler test, not a live timeout. No deploy, no VERIFIED claim.

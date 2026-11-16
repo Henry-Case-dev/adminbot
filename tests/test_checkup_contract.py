@@ -120,7 +120,8 @@ class _FillService:
         self.telemetry_seen: list[dict] = []
 
     async def checkup(self, logs_text, used_fallback, chat_id=None, *,
-                      telemetry=None, tool_runtime=None):
+                      telemetry=None, tool_runtime=None,
+                      research_requested=False):
         self.calls.append({"logs": logs_text,
                            "used_fallback": bool(used_fallback),
                            "chat_id": chat_id})

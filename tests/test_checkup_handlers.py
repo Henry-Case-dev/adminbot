@@ -377,6 +377,8 @@ class TestEpic60MemoryMetricsFlow:
         user = llm.generate.await_args.args[0][1]["content"]
         assert "graph_facts: 1" in user
         assert "&lt;memory_health&gt;" in user
-        assert bot.send_message.await_args.args[1] == "отчёт с данными"
+        assert bot.send_message.await_args.args[1].startswith("отчёт с данными")
+        assert "инструментальное исследование не выполнялось" in \
+            bot.send_message.await_args.args[1]
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
         await db.close()

@@ -14,15 +14,18 @@ Production-трасса 16.11.2026: чекап нашёл инциденты wat
   цикле; пустой финал с evidence → `empty_final`, а не `LLMBadResponseError`.
 * S2/S3: причина/human-текст `llm_error`/`empty_final`/`tools_unavailable`;
   телеметрия чекапа: `status != complete` даёт пометку неполноты (не только
-  `degraded`), отсутствие tool-runtime → `not_executed`/`tools_unavailable`.
+  `degraded`), отсутствие/непригодность tool-runtime → `not_executed` и
+  нейтральная причина `diagnostic_runtime_unavailable` (провайдер tools не
+  отвергал).
 * S5: двойная ось — `research_verdict` (complete/partial/premature_stop/
-  not_executed/unknown) и статус события доставки (`report_sent` только
-  complete; partial/unresearched — WARN); покрытие self-diag считает все
-  доставки.
+  not_executed/unknown) и валидный `outcome="success"` + `status` события
+  доставки (`report_sent` только complete; partial/unresearched — WARN);
+  покрытие self-diag считает все доставки.
 * S6/S8: отчёт доставляется существующим rich-каналом `markdown` с reply;
-  ошибка/транспортный предел → прежний plain; ledger/reply-история хранит
-  ИСХОДНЫЙ отчёт (Markdown, не HTML); аддендум разрешает лёгкий Markdown и
-  запрещает таблицы/HTML.
+  детерминированный отказ → прежний plain, неоднозначный timeout/сеть/5xx →
+  `delivery_unknown` без слепой повторной отправки; ledger/reply-история
+  хранит ИСХОДНЫЙ отчёт (Markdown, не HTML); аддендум разрешает лёгкий
+  Markdown и запрещает таблицы/HTML.
 
 LLM — граница провайдера (детерминированные двойники); ToolRouter,
 ToolContext, tool-loop, CheckupService, handler, delivery wrapper и
@@ -30,16 +33,19 @@ sanitize — реальный код. Сеть/БД/Telegram не использ
 """
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from aiogram.exceptions import TelegramBadRequest
 
 from handlers import checkup as checkup_mod
 from services import diagnostic_policy as diag
 from services import direct_capabilities as caps
+from services import mca_events
 from services import source_reader as sr
 from services import tool_schemas
 from services.checkup_prompts import CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM
@@ -222,6 +228,27 @@ def _last_call_messages(llm) -> list[dict]:
     return copy.deepcopy(llm.messages)
 
 
+def _capture_checkup_events(monkeypatch):
+    """Реальная эмиссия `mca_events`: наблюдение через durable pending-буфер.
+
+    `build_event`/`emit_mca_event` НЕ подменяются: подмена скрыла бы
+    отбрасывание невалидного outcome (именно так `outcome="delivery"`
+    терял событие). Форсируются только документированные default-ON
+    kill-switch'и контракта — тест не зависит от env прогона.
+    """
+    monkeypatch.setattr(
+        mca_events.mca_gates, "event_contract_enabled", lambda: True)
+    monkeypatch.setattr(
+        mca_events.mca_gates, "telemetry_store_enabled", lambda: True)
+    mca_events.reset_pending()
+
+    def _events(name=None):
+        return [ev for ev in list(mca_events._pending)
+                if name is None or ev.get("event_name") == name]
+
+    return _events
+
+
 # ── S1: классификация LLMError в цикле ─────────────────────────────────────
 
 class TestTransientClassification:
@@ -352,7 +379,7 @@ class TestCheckupHonesty:
     @pytest.mark.asyncio
     async def test_unusable_tool_runtime_marks_not_executed_and_note(
             self, monkeypatch):
-        """Runtime запрошен, но непригоден → not_executed + пометка в отчёте."""
+        """Runtime запрошен, но непригоден → not_executed + честная пометка."""
         llm = _ScriptedLLM([])
         telemetry: dict = {}
         report = await CheckupService(llm).checkup(
@@ -360,18 +387,18 @@ class TestCheckupHonesty:
             tool_runtime={"schemas": ()})
         assert llm.chat_calls == 0
         assert telemetry["research_status"] == RESEARCH_NOT_EXECUTED
-        assert telemetry["research_cause"] == "tools_unavailable"
+        # F1b: причина нейтральна — модель tools не видела.
+        assert telemetry["research_cause"] == "diagnostic_runtime_unavailable"
         assert report.startswith("ИТОГ по собранным данным")
-        assert "это частичный результат" in report
-        assert "инструментами" in report
+        assert "инструментальное исследование не выполнялось" in report
+        assert "провайдер модели не принял" not in report
 
     @pytest.mark.asyncio
-    async def test_no_research_requested_is_marked_without_report_noise(
-            self, monkeypatch):
-        """Легаси-путь без tool_runtime: not_executed в телеметрии, без пометки.
+    async def test_legacy_no_research_requested_keeps_report_clean(self):
+        """Легаси-вызов (внутренний tool-loop) не запрашивал исследование.
 
-        Исследование не запрашивалось вызывающим — отчёт не получает ложную
-        «частичность», но доставка честно не считается `complete`.
+        Телеметрия честно говорит not_executed, но отчёт не получает
+        ложную пометку: вызывающий не просил инструментальную диагностику.
         """
         llm = _ScriptedLLM([])
         telemetry: dict = {}
@@ -379,8 +406,21 @@ class TestCheckupHonesty:
             "logs", used_fallback=False, telemetry=telemetry)
         assert report == "ИТОГ по собранным данным"
         assert telemetry["research_status"] == RESEARCH_NOT_EXECUTED
-        assert telemetry["research_cause"] == "tools_unavailable"
+        assert telemetry["research_cause"] == "diagnostic_runtime_unavailable"
         assert "Примечание" not in report
+
+    @pytest.mark.asyncio
+    async def test_handler_requested_without_runtime_is_marked(self):
+        """Handler всегда запрашивает исследование, даже если runtime=None."""
+        llm = _ScriptedLLM([])
+        telemetry: dict = {}
+        report = await CheckupService(llm).checkup(
+            "logs", used_fallback=False, telemetry=telemetry,
+            tool_runtime=None, research_requested=True)
+        assert telemetry["research_status"] == RESEARCH_NOT_EXECUTED
+        assert telemetry["research_cause"] == "diagnostic_runtime_unavailable"
+        assert "инструментальное исследование не выполнялось" in report
+        assert "провайдер модели не принял" not in report
 
     @pytest.mark.asyncio
     async def test_degraded_llm_finalize_gets_partial_note(self, monkeypatch):
@@ -440,38 +480,54 @@ class TestResearchVerdictAxis:
                 "report_sent_unresearched"
 
     def test_event_level_warn_for_incomplete_delivery(self, monkeypatch):
-        captured: list = []
-        monkeypatch.setattr(
-            "services.mca_events.emit_mca_event",
-            lambda name, **kw: captured.append((name, kw)))
-        checkup_mod.emit_checkup_event(
-            outcome="delivery", chat_id=CHAT_ID, status="report_sent",
-            telemetry={})
-        checkup_mod.emit_checkup_event(
-            outcome="delivery", chat_id=CHAT_ID, status="report_sent_partial",
-            telemetry={})
-        checkup_mod.emit_checkup_event(
-            outcome="delivery", chat_id=CHAT_ID,
-            status="report_sent_unresearched", telemetry={})
-        levels = [kw["level"] for _name, kw in captured]
-        assert levels == ["INFO", "WARN", "WARN"]
+        """Реальный `build_event`: валидный `success` + ось полноты в status."""
+        events = _capture_checkup_events(monkeypatch)
+        for status in ("report_sent", "report_sent_partial",
+                       "report_sent_unresearched"):
+            checkup_mod.emit_checkup_event(
+                outcome="success", chat_id=CHAT_ID, status=status,
+                telemetry={})
+        emitted = events("checkup_triggered")
+        assert [ev["status"] for ev in emitted] == [
+            "report_sent", "report_sent_partial", "report_sent_unresearched"]
+        assert {ev["outcome"] for ev in emitted} == {"success"}
+        assert [ev["level"] for ev in emitted] == ["INFO", "WARN", "WARN"]
+
+    def test_delivery_outcome_is_not_in_mca_contract(self):
+        """`delivery` не существует в контракте: событие молча пропало бы."""
+        assert "success" in mca_events.ALL_OUTCOMES
+        assert "delivery" not in mca_events.ALL_OUTCOMES
+        assert mca_events.build_event(
+            "checkup_triggered", outcome="delivery",
+            status="report_sent") is None
+        # Полнота едет отдельной осью в валидном событии.
+        built = mca_events.build_event(
+            "checkup_triggered", outcome="success",
+            status="report_sent_partial", stage="final")
+        assert built is not None and built["status"] == "report_sent_partial"
 
     def test_self_diag_coverage_counts_all_deliveries(self):
-        rows = [
-            {"event_name": "checkup_triggered",
-             "status": "report_sent_partial", "outcome": "delivery",
-             "stage": "final", "duration_ms": 10, "ts": 1},
-            {"event_name": "checkup_output_validated", "status": "clean",
-             "stage": "", "outcome": "success", "duration_ms": None, "ts": 2},
-        ]
-        result = web_routes._self_diag_validation_coverage(rows)
+        delivered = mca_events.build_event(
+            "checkup_triggered", outcome="success",
+            status="report_sent_partial", stage="final", duration_ms=10)
+        validated = mca_events.build_event(
+            "checkup_output_validated", outcome="success", status="clean")
+        assert delivered is not None and validated is not None
+        result = web_routes._self_diag_validation_coverage(
+            [delivered, validated])
         assert result["deliveries"]["checkup"] == 1
         assert result["measured"] is True
 
     def test_self_diag_row_state_partial_not_complete(self):
-        row = {"event_name": "checkup_triggered",
-               "status": "report_sent_partial", "outcome": "delivery"}
-        assert web_routes._self_diag_row_state(row) == "partial"
+        partial = mca_events.build_event(
+            "checkup_triggered", outcome="success",
+            status="report_sent_partial", stage="final")
+        complete = mca_events.build_event(
+            "checkup_triggered", outcome="success",
+            status="report_sent", stage="final")
+        assert partial is not None and complete is not None
+        assert web_routes._self_diag_row_state(partial) == "partial"
+        assert web_routes._self_diag_row_state(complete) == "complete"
 
 
 # ── S6/S8: rich Markdown, plain fallback, ledger source ────────────────────
@@ -527,8 +583,11 @@ class TestRichMarkdownDelivery:
         assert kwargs["reply_parameters"].message_id == 11
 
     @pytest.mark.asyncio
-    async def test_rich_failure_falls_back_to_existing_plain(self, monkeypatch):
-        bot = _Bot(rich_error=RuntimeError("sendRichMessage unavailable"))
+    async def test_rich_deterministic_failure_falls_back_to_existing_plain(
+            self, monkeypatch):
+        """Детерминированный отказ rich (bad request) → plain, один отчёт."""
+        bot = _Bot(rich_error=TelegramBadRequest(
+            MagicMock(), "sendRichMessage unavailable"))
 
         async def _plain(_bot, _chat, _text, _reply, sent_ids=None):
             if sent_ids is not None:
@@ -541,9 +600,31 @@ class TestRichMarkdownDelivery:
             bot, _msg(11), REPORT_MD)
         assert channel == "plain_raw"
         assert sent_id == 901 and ids == [901]
+        assert plain.await_count == 1
         assert plain.await_args.args[2] == REPORT_MD   # без обрезки
         assert plain.await_args.args[3] == 11          # тот же reply
         assert bot.rich_calls == []
+
+    @pytest.mark.asyncio
+    async def test_ambiguous_rich_timeout_is_not_blindly_repeated(
+            self, monkeypatch):
+        """F2: rich мог дойти до Telegram, затем timeout → без второго отчёта."""
+        class _TimeoutAfterDeliveryBot(_Bot):
+            async def send_rich_message(self, chat_id, rich, **kwargs):
+                self.rich_calls.append((chat_id, rich, kwargs))
+                self._mid += 1
+                raise asyncio.TimeoutError()
+
+        bot = _TimeoutAfterDeliveryBot()
+        plain = AsyncMock()
+        monkeypatch.setattr(checkup_mod, "send_chunked_reply", plain)
+        sent_id, ids, channel = await checkup_mod._send_checkup_report(
+            bot, _msg(11), REPORT_MD)
+        assert len(bot.rich_calls) == 1     # rich-вызов реально ушёл
+        assert bot.sent == []
+        assert plain.await_count == 0       # слепого повтора нет
+        assert channel == checkup_mod.CHECKUP_DELIVERY_UNKNOWN
+        assert sent_id is None and ids == []
 
     @pytest.mark.asyncio
     async def test_transport_limit_uses_plain_without_truncation(
@@ -633,10 +714,7 @@ class TestHandlerDeliveryAxis:
         checkup_mod.setup_checkup(CheckupService(llm), fetcher,
                                   diagnostics=False)
         checkup_mod.setup_checkup_tool_router(router)
-        events: list = []
-        monkeypatch.setattr(
-            "services.mca_events.emit_mca_event",
-            lambda name, **kw: events.append((name, kw)))
+        events = _capture_checkup_events(monkeypatch)
         bot = _Bot()
 
         await checkup_mod.checkup_handler(_handler_msg(), bot=bot)
@@ -650,15 +728,14 @@ class TestHandlerDeliveryAxis:
         assert "```" in rich.markdown
         assert bot.rich_calls[0][2]["reply_parameters"].message_id == 11
 
-        delivered = [(name, kw) for name, kw in events
-                     if name == "checkup_triggered"
-                     and kw.get("status", "").startswith("report_sent")]
-        assert delivered, events
-        _name, fields = delivered[-1]
-        assert fields["outcome"] == "delivery"
+        delivered = [ev for ev in events("checkup_triggered")
+                     if str(ev.get("status") or "").startswith("report_sent")]
+        assert delivered, events("checkup_triggered")
+        fields = delivered[-1]
+        assert fields["outcome"] == "success"
         assert fields["status"] == "report_sent"
         assert fields["level"] == "INFO"
-        payload = fields["source_ref_json"]
+        payload = json.loads(fields["source_ref_json"])
         assert payload["research_status"] == RESEARCH_COMPLETE
         assert payload["research_cause"] == "evidence_sufficient"
         assert payload["research_verdict"] == "complete"
@@ -680,25 +757,110 @@ class TestHandlerDeliveryAxis:
         checkup_mod.setup_checkup(CheckupService(llm), fetcher,
                                   diagnostics=False)
         checkup_mod.setup_checkup_tool_router(_router(reader))
-        events: list = []
-        monkeypatch.setattr(
-            "services.mca_events.emit_mca_event",
-            lambda name, **kw: events.append((name, kw)))
+        events = _capture_checkup_events(monkeypatch)
         bot = _Bot()
 
         await checkup_mod.checkup_handler(_handler_msg(), bot=bot)
 
         assert reader.calls == []
         assert llm.chat_calls == 1
-        payload = [kw["source_ref_json"] for name, kw in events
-                   if name == "checkup_triggered"
-                   and kw.get("status") == "report_sent"][-1]
+        payload = json.loads(
+            [ev for ev in events("checkup_triggered")
+             if ev.get("status") == "report_sent"][-1]["source_ref_json"])
         assert payload["research_status"] == RESEARCH_COMPLETE
         assert payload["research_cause"] == "no_research_needed"
         assert payload["research_verdict"] == "complete"
         assert payload["research_calls"] == 0
         # Здоровый чекап без инструментов не получает пометку неполноты.
         assert "Примечание" not in bot.rich_calls[0][1].markdown
+
+    @pytest.mark.asyncio
+    async def test_handler_without_tool_runtime_marks_unresearched(
+            self, clean_checkup, monkeypatch):
+        """F1: handler запросил исследование, runtime=None → честная пометка.
+
+        Не только телеметрия: доставленный отчёт несёт нейтральную пометку,
+        а событие доставки — `report_sent_unresearched` (WARN).
+        """
+        _allow_policy(monkeypatch)
+        monkeypatch.setattr(sr, "resolve_self_repo_identity", _diag_ctx)
+        llm = _ScriptedLLM([_text("Всё здорово, аномалий нет.")])
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(return_value=("logs look clean", False))
+        fetcher.last_state = ""
+        fetcher.last_journal_state = ""
+        checkup_mod.setup_checkup(CheckupService(llm), fetcher,
+                                  diagnostics=False)
+        checkup_mod.setup_checkup_tool_router(None)
+        events = _capture_checkup_events(monkeypatch)
+        bot = _Bot()
+
+        await checkup_mod.checkup_handler(_handler_msg(), bot=bot)
+
+        assert llm.chat_calls == 0          # runtime не собран → plain-вызов
+        report = bot.rich_calls[0][1].markdown
+        assert "инструментальное исследование не выполнялось" in report
+        assert "провайдер модели не принял" not in report
+        delivered = [ev for ev in events("checkup_triggered")
+                     if str(ev.get("status") or "").startswith("report_sent")]
+        assert delivered, events("checkup_triggered")
+        fields = delivered[-1]
+        assert fields["outcome"] == "success"
+        assert fields["status"] == "report_sent_unresearched"
+        assert fields["level"] == "WARN"
+        payload = json.loads(fields["source_ref_json"])
+        assert payload["research_status"] == RESEARCH_NOT_EXECUTED
+        assert payload["research_cause"] == "diagnostic_runtime_unavailable"
+        assert payload["research_verdict"] == "not_executed"
+        assert payload["delivery_channel"] == "rich_markdown"
+
+    @pytest.mark.asyncio
+    async def test_handler_delivery_unknown_does_not_duplicate(
+            self, clean_checkup, monkeypatch):
+        """F2: rich ушёл, ответ потерян по timeout → без второго отчёта."""
+        _allow_policy(monkeypatch)
+        monkeypatch.setattr(sr, "resolve_self_repo_identity", _diag_ctx)
+        reader = _Reader([_base_payload()])
+        llm = _ScriptedLLM([
+            _round("c1", "read_source_code",
+                   {"operation": "read", "path": PATH}),
+            _text(REPORT_MD),
+        ])
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(return_value=("ERROR watchdog.jobs stuck",
+                                                 False))
+        fetcher.last_state = ""
+        fetcher.last_journal_state = ""
+        checkup_mod.setup_checkup(CheckupService(llm), fetcher,
+                                  diagnostics=False)
+        checkup_mod.setup_checkup_tool_router(_router(reader))
+        events = _capture_checkup_events(monkeypatch)
+
+        class _TimeoutAfterDeliveryBot(_Bot):
+            async def send_rich_message(self, chat_id, rich, **kwargs):
+                self.rich_calls.append((chat_id, rich, kwargs))
+                self._mid += 1
+                raise asyncio.TimeoutError()
+
+        bot = _TimeoutAfterDeliveryBot()
+        plain = AsyncMock()
+        monkeypatch.setattr(checkup_mod, "send_chunked_reply", plain)
+
+        await checkup_mod.checkup_handler(_handler_msg(), bot=bot)
+
+        assert len(bot.rich_calls) == 1
+        assert bot.sent == []
+        assert plain.await_count == 0
+        terminal = [ev for ev in events("checkup_triggered")
+                    if ev.get("stage") == "final"]
+        assert terminal, events("checkup_triggered")
+        fields = terminal[-1]
+        assert fields["outcome"] == "failed"
+        assert fields["status"] == "delivery_unknown"
+        assert fields["level"] == "WARN"
+        payload = json.loads(fields["source_ref_json"])
+        assert payload["delivery_channel"] == "delivery_unknown"
+        assert payload["research_verdict"] == "complete"
 
     @pytest.mark.asyncio
     async def test_round0_transient_reports_unresearched(
@@ -716,24 +878,21 @@ class TestHandlerDeliveryAxis:
         checkup_mod.setup_checkup(CheckupService(llm), fetcher,
                                   diagnostics=False)
         checkup_mod.setup_checkup_tool_router(_router(reader))
-        events: list = []
-        monkeypatch.setattr(
-            "services.mca_events.emit_mca_event",
-            lambda name, **kw: events.append((name, kw)))
+        events = _capture_checkup_events(monkeypatch)
         bot = _Bot()
 
         await checkup_mod.checkup_handler(_handler_msg(), bot=bot)
 
         assert reader.calls == []
         assert bot.rich_calls and bot.sent == []
-        delivered = [(name, kw) for name, kw in events
-                     if name == "checkup_triggered"
-                     and str(kw.get("status") or "").startswith("report_sent")]
-        assert delivered, events
-        _name, fields = delivered[-1]
+        delivered = [ev for ev in events("checkup_triggered")
+                     if str(ev.get("status") or "").startswith("report_sent")]
+        assert delivered, events("checkup_triggered")
+        fields = delivered[-1]
+        assert fields["outcome"] == "success"
         assert fields["status"] == "report_sent_unresearched"
         assert fields["level"] == "WARN"
-        payload = fields["source_ref_json"]
+        payload = json.loads(fields["source_ref_json"])
         assert payload["research_status"] == RESEARCH_NOT_EXECUTED
         assert payload["research_cause"] == "llm_error"
         assert payload["research_verdict"] == "not_executed"
