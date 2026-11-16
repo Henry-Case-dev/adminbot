@@ -1,0 +1,1534 @@
+{
+ "artifact": "MOD-ACL-UX-01 M0 — effective-state probe on production 2.58.205",
+ "artifacts": {
+  "dm-and-snapshot.json": {
+   "bytes": 4375,
+   "sha256": "bcf516e9235b199f89044d124838416df3f39e6a293bb671cf19b836b7b56fc5"
+  },
+  "effective-2.58.205.json": {
+   "bytes": 7309,
+   "sha256": "85daf73a2bbd69b96aa130f2fe2f50cc42875d63cd621b3049c89f14c6a644cc"
+  },
+  "stored-and-matrix.json": {
+   "bytes": 32694,
+   "sha256": "c29a69d8a0fbf9af821c9d33750cbb1232144806806d416a5e55f3dbcd9ff200"
+  }
+ },
+ "digests": {
+  "baseline_2_58_205": {
+   "bot_settings_count": 548,
+   "bot_settings_digest": "e98edf0ec3ea95d161a7bf7a61840df7dc9cd40a6ad01e1a9097645527627460",
+   "bot_settings_digest_excluding_checkup": "fefe4bca76adca6049572f3fe6f33f8c38bf0ba4bb37bb71e18896790a2ac86d",
+   "chat_profiles_count": 3,
+   "chat_profiles_digest": "323a6528d0c6cee592efabad757314bff517d666d0311b52f714d07c76510f89",
+   "post_ts": "2026-11-15T09:47:26Z",
+   "pre_ts": "2026-11-15T09:45:13Z",
+   "source": "plans/features/vmq-onto-01/evidence/release-2.58.205/snapshot-{pre,post}.json"
+  },
+  "match": true,
+  "note": "digest formula identical to harness/snapshot.py (sha256 over sorted key\\0value\\n; chat_profiles over chat_id + chat_params::text)",
+  "observed": {
+   "bot_settings_count": 548,
+   "bot_settings_digest": "e98edf0ec3ea95d161a7bf7a61840df7dc9cd40a6ad01e1a9097645527627460",
+   "bot_settings_digest_excluding_checkup": "fefe4bca76adca6049572f3fe6f33f8c38bf0ba4bb37bb71e18896790a2ac86d",
+   "bot_settings_max_updated_at": "2026-11-14 18:56:52.126739+00",
+   "chat_profiles_count": 3,
+   "chat_profiles_digest": "323a6528d0c6cee592efabad757314bff517d666d0311b52f714d07c76510f89",
+   "settings_categories": {
+    "content": 7,
+    "flags": 110,
+    "keys": 18,
+    "limits": 231,
+    "memory": 43,
+    "models": 67,
+    "prompts": 29,
+    "reactions": 39,
+    "temporal": 4
+   }
+  }
+ },
+ "dm_extension": {
+  "chat_id": 5885953495,
+  "gates": {
+   "dream": false,
+   "nostalgia": false
+  },
+  "overrides": [
+   "flags.chat_running_summary_enabled",
+   "flags.smart_cache_enabled",
+   "flags.summary_enabled",
+   "memory.dream_enabled",
+   "memory.nostalgia_enabled"
+  ],
+  "reason": "ChatLoreStore.list_profiles() filters chat_id < 0 (services/chat_lore_store.py list_profiles), so the official CLI structurally reports 2 of 3 profiles",
+  "rows": [
+   {
+    "capability": "module:initiative",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "flags.initiative_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:stories",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "flags.stories_vitrina_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:character",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "flags.self_model_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:experience",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "memory.experience_learning_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:random",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "memory.random_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:factcheck",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "flags.factcheck_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:factcheck_temporal",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "temporal.tool_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:vision",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "flags.vision_enabled",
+    "source": "global"
+   },
+   {
+    "capability": "module:nostalgia",
+    "chat_state": "off",
+    "desired": false,
+    "effective_runtime": false,
+    "emergency_block": false,
+    "key": "memory.nostalgia_enabled",
+    "source": "chat"
+   },
+   {
+    "capability": "module:sleep",
+    "chat_state": "off",
+    "desired": false,
+    "effective_runtime": false,
+    "emergency_block": false,
+    "key": "memory.dream_enabled",
+    "source": "chat"
+   },
+   {
+    "capability": "gate:dream",
+    "chat_state": "off",
+    "desired": false,
+    "effective_runtime": false,
+    "emergency_block": false,
+    "key": "dream",
+    "source": "chat"
+   },
+   {
+    "capability": "gate:lore_auto",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "lore_auto",
+    "source": "global"
+   },
+   {
+    "capability": "gate:nostalgia",
+    "chat_state": "off",
+    "desired": false,
+    "effective_runtime": false,
+    "emergency_block": false,
+    "key": "nostalgia",
+    "source": "chat"
+   },
+   {
+    "capability": "gate:permsoc",
+    "chat_state": "inherit",
+    "desired": false,
+    "effective_runtime": false,
+    "emergency_block": false,
+    "key": "permsoc",
+    "source": "global"
+   },
+   {
+    "capability": "gate:permsoc_reactions",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "permsoc_reactions",
+    "source": "global"
+   },
+   {
+    "capability": "gate:permsoc_schedule",
+    "chat_state": "inherit",
+    "desired": true,
+    "effective_runtime": true,
+    "emergency_block": false,
+    "key": "permsoc_schedule",
+    "source": "global"
+   }
+  ]
+ },
+ "generated_utc": "2026-11-16T04:03:24Z",
+ "identity": {
+  "app_dir": "/var/www/admin_bot",
+  "app_version": "2.58.205",
+  "branch": "release/vmq-slice-d-2.58.205",
+  "deployed_sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+  "health_local": {
+   "body": "{\"status\":\"ok\",\"version\":\"2.58.205\"}",
+   "code": 200
+  },
+  "host": "192.255.209.205",
+  "postgres": {
+   "name": "adminbot",
+   "read_only_txn": "on",
+   "server": "PostgreSQL 16.15 on x86_64-pc-linux-musl"
+  },
+  "python": "3.12.3 (venv/bin/python)",
+  "report_script_bytes": 17529,
+  "report_script_path": "scripts/mod_acl_effective_state_report.py",
+  "report_script_sha256_disk": "621bdf1f67867c50a262a81f2923017493fc8af7230c91d29a87f4e0401f35ec",
+  "report_script_sha256_head_blob": "621bdf1f67867c50a262a81f2923017493fc8af7230c91d29a87f4e0401f35ec",
+  "sqlite": {
+   "schema_migrations_max": 47,
+   "tables": 130,
+   "user_version": 47
+  },
+  "tracked_dirty": 0,
+  "unit": {
+   "exec_main_start": "2026-11-15 09:47:17 UTC",
+   "n_restarts": 0,
+   "state": "active"
+  },
+  "untracked_dirty": [
+   ".cache/"
+  ]
+ },
+ "limitations": [
+  "Official CLI covers 2 chat profiles (DM excluded by list_profiles); DM5 measured separately with the same resolver on the same read-only connection set.",
+  "pg_dump/pg_restore are not installed on the production host: no custom-format archive was produced. A gzipped JSON snapshot of both config tables (full values, mode 0600) was written instead; it is not a pg_dump substitute.",
+  "stored/effective values are a single point-in-time read (2026-11-16T04:03Z), not a continuous observation.",
+  "Emergency env gates (MCA_*) are read from config.settings of the deployed checkout; all report as non-blocking (emergency_block=false)."
+ ],
+ "matrix": [
+  {
+   "capability": "module:initiative",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "flags.initiative_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:stories",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "flags.stories_vitrina_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:character",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "flags.self_model_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:experience",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "memory.experience_learning_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:random",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": null,
+   "global_stored_present": false,
+   "key": "memory.random_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:factcheck",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "flags.factcheck_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:factcheck_temporal",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "temporal.tool_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:vision",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "flags.vision_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "on",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": true
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "on",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": true
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "module:nostalgia",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "memory.nostalgia_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "off",
+     "effective": false,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": false
+    }
+   ]
+  },
+  {
+   "capability": "module:sleep",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": true,
+   "global_stored_present": true,
+   "key": "memory.dream_enabled",
+   "kind": "module",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "off",
+     "effective": false,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": false
+    }
+   ]
+  },
+  {
+   "capability": "gate:dream",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": null,
+   "global_stored_present": false,
+   "key": "dream",
+   "kind": "gate",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "off",
+     "effective": false,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": false
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "off",
+     "effective": false,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": false
+    }
+   ]
+  },
+  {
+   "capability": "gate:lore_auto",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": null,
+   "global_stored_present": false,
+   "key": "lore_auto",
+   "kind": "gate",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "off",
+     "effective": false,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": false
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "gate:nostalgia",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": null,
+   "global_stored_present": false,
+   "key": "nostalgia",
+   "kind": "gate",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "on",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": true
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "off",
+     "effective": false,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": false
+    }
+   ]
+  },
+  {
+   "capability": "gate:permsoc",
+   "emergency_block": false,
+   "global_effective": false,
+   "global_layer": false,
+   "global_source": "global",
+   "global_stored": null,
+   "global_stored_present": false,
+   "key": "permsoc",
+   "kind": "gate",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "off",
+     "effective": false,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": false
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "on",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "chat",
+     "state": "EXPLICIT",
+     "stored": true
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": false,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "gate:permsoc_reactions",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": null,
+   "global_stored_present": false,
+   "key": "permsoc_reactions",
+   "kind": "gate",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  },
+  {
+   "capability": "gate:permsoc_schedule",
+   "emergency_block": false,
+   "global_effective": true,
+   "global_layer": true,
+   "global_source": "global",
+   "global_stored": null,
+   "global_stored_present": false,
+   "key": "permsoc_schedule",
+   "kind": "gate",
+   "profiles": [
+    {
+     "chat_id": -1004482340693,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G8",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": -1002661910336,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "official CLI --database",
+     "profile": "G32",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    },
+    {
+     "chat_id": 5885953495,
+     "chat_state": "inherit",
+     "effective": true,
+     "measured_by": "dm-extension (same resolver, DM profile)",
+     "profile": "DM5",
+     "source": "global",
+     "state": "INHERIT",
+     "stored": null
+    }
+   ]
+  }
+ ],
+ "matrix_pairs_observed": 48,
+ "mode": "read-only (SELECT only; no product writes, no restart)",
+ "official_cli": {
+  "capabilities": [
+   "module:initiative",
+   "module:stories",
+   "module:character",
+   "module:experience",
+   "module:random",
+   "module:factcheck",
+   "module:factcheck_temporal",
+   "module:vision",
+   "module:nostalgia",
+   "module:sleep",
+   "gate:dream",
+   "gate:lore_auto",
+   "gate:nostalgia",
+   "gate:permsoc",
+   "gate:permsoc_reactions",
+   "gate:permsoc_schedule"
+  ],
+  "changed_by_capability": {},
+  "changed_pairs": 0,
+  "command": "venv/bin/python -m scripts.mod_acl_effective_state_report --database --json --out /tmp/m0_acl_<ts>/effective-2.58.205.json",
+  "raw_rows": [
+   {
+    "capability": "module:initiative",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:stories",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:character",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:experience",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:random",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:factcheck",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:factcheck_temporal",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:vision",
+    "chat_id": -1004482340693,
+    "chat_state": "on",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "chat"
+   },
+   {
+    "capability": "module:nostalgia",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:sleep",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "gate:dream",
+    "chat_id": -1004482340693,
+    "chat_state": "off",
+    "emergency_block": false,
+    "new": false,
+    "old": false,
+    "source": "chat"
+   },
+   {
+    "capability": "gate:lore_auto",
+    "chat_id": -1004482340693,
+    "chat_state": "off",
+    "emergency_block": false,
+    "new": false,
+    "old": false,
+    "source": "chat"
+   },
+   {
+    "capability": "gate:nostalgia",
+    "chat_id": -1004482340693,
+    "chat_state": "on",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "chat"
+   },
+   {
+    "capability": "gate:permsoc",
+    "chat_id": -1004482340693,
+    "chat_state": "off",
+    "emergency_block": false,
+    "new": false,
+    "old": false,
+    "source": "chat"
+   },
+   {
+    "capability": "gate:permsoc_reactions",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "gate:permsoc_schedule",
+    "chat_id": -1004482340693,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:initiative",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:stories",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:character",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:experience",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:random",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:factcheck",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:factcheck_temporal",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:vision",
+    "chat_id": -1002661910336,
+    "chat_state": "on",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "chat"
+   },
+   {
+    "capability": "module:nostalgia",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "module:sleep",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "gate:dream",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "gate:lore_auto",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "gate:nostalgia",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "gate:permsoc",
+    "chat_id": -1002661910336,
+    "chat_state": "on",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "chat"
+   },
+   {
+    "capability": "gate:permsoc_reactions",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   },
+   {
+    "capability": "gate:permsoc_schedule",
+    "chat_id": -1002661910336,
+    "chat_state": "inherit",
+    "emergency_block": false,
+    "new": true,
+    "old": true,
+    "source": "global"
+   }
+  ],
+  "rc": 0,
+  "reported_chats": [
+   -1004482340693,
+   -1002661910336
+  ],
+  "rows": 32
+ },
+ "snapshot": {
+  "dir": "/var/www/admin_bot/backups/m0-acl-config-2.58.205-20261116T040424Z",
+  "file": "/var/www/admin_bot/backups/m0-acl-config-2.58.205-20261116T040424Z/config-tables-2.58.205.json.gz",
+  "gz_bytes": 92356,
+  "gz_sha256": "1cae602d10dc8cd2fa3489e520e16065c77653a7e7c9d80e502ac2dec7029a4d",
+  "json_bytes": 393427,
+  "json_sha256": "309f19473ff0fac3b362024b16e7751159ff07405ee5bcea023e238581cd9914",
+  "mode": "0o600",
+  "readback_equal": true,
+  "rows": {
+   "bot_settings": 548,
+   "chat_profiles": 3
+  }
+ },
+ "stored": {
+  "global_rows": {
+   "flags.dream_enabled": {
+    "present": false
+   },
+   "flags.factcheck_enabled": {
+    "category": "flags",
+    "present": true,
+    "updated_at": "2026-09-10 17:17:07.780186+00",
+    "value": true
+   },
+   "flags.initiative_enabled": {
+    "category": "flags",
+    "present": true,
+    "updated_at": "2026-10-08 22:57:43.22696+00",
+    "value": true
+   },
+   "flags.lore_auto_enabled": {
+    "category": "flags",
+    "present": true,
+    "updated_at": "2026-09-05 16:09:14.928119+00",
+    "value": true
+   },
+   "flags.nostalgia_enabled": {
+    "present": false
+   },
+   "flags.permsoc_enabled": {
+    "category": "flags",
+    "present": true,
+    "updated_at": "2026-09-07 14:21:35.605713+00",
+    "value": false
+   },
+   "flags.self_model_enabled": {
+    "category": "flags",
+    "present": true,
+    "updated_at": "2026-10-09 03:58:50.839037+00",
+    "value": true
+   },
+   "flags.stories_vitrina_enabled": {
+    "category": "flags",
+    "present": true,
+    "updated_at": "2026-10-09 03:58:50.830054+00",
+    "value": true
+   },
+   "flags.vision_enabled": {
+    "category": "flags",
+    "present": true,
+    "updated_at": "2026-10-29 09:51:13.686807+00",
+    "value": true
+   },
+   "memory.dream_enabled": {
+    "category": "memory",
+    "present": true,
+    "updated_at": "2026-09-06 14:50:25.415525+00",
+    "value": true
+   },
+   "memory.experience_learning_enabled": {
+    "category": "memory",
+    "present": true,
+    "updated_at": "2026-11-08 22:41:07.337488+00",
+    "value": true
+   },
+   "memory.nostalgia_enabled": {
+    "category": "memory",
+    "present": true,
+    "updated_at": "2026-09-06 14:52:42.840819+00",
+    "value": true
+   },
+   "memory.random_enabled": {
+    "present": false
+   },
+   "temporal.tool_enabled": {
+    "category": "temporal",
+    "present": true,
+    "updated_at": "2026-10-15 14:44:24.779728+00",
+    "value": true
+   }
+  },
+  "inventory": {
+   "modules_absent_global_row": [
+    "flags.dream_enabled",
+    "flags.nostalgia_enabled",
+    "memory.random_enabled"
+   ],
+   "modules_present_global_row": [
+    "flags.factcheck_enabled",
+    "flags.initiative_enabled",
+    "flags.lore_auto_enabled",
+    "flags.permsoc_enabled",
+    "flags.self_model_enabled",
+    "flags.stories_vitrina_enabled",
+    "flags.vision_enabled",
+    "memory.dream_enabled",
+    "memory.experience_learning_enabled",
+    "memory.nostalgia_enabled",
+    "temporal.tool_enabled"
+   ]
+  },
+  "profiles": {
+   "DM5": {
+    "all_gates": {
+     "dream": false,
+     "nostalgia": false
+    },
+    "all_override_keys": [
+     "flags.chat_running_summary_enabled",
+     "flags.smart_cache_enabled",
+     "flags.summary_enabled",
+     "memory.dream_enabled",
+     "memory.nostalgia_enabled"
+    ],
+    "capability_explicit": [
+     {
+      "capability": "module:nostalgia",
+      "stored": false
+     },
+     {
+      "capability": "module:sleep",
+      "stored": false
+     },
+     {
+      "capability": "gate:dream",
+      "stored": false
+     },
+     {
+      "capability": "gate:nostalgia",
+      "stored": false
+     }
+    ],
+    "chat_id": 5885953495,
+    "gates_count": 2,
+    "gates_opt_in": false,
+    "is_dm": true,
+    "overrides_count": 5,
+    "updated_at": "2026-10-28 08:54:24.139196+00"
+   },
+   "G32": {
+    "all_gates": {
+     "permsoc": true
+    },
+    "all_override_keys": [
+     "character.expression",
+     "flags.budgets_enabled",
+     "flags.chat_silent_ack_enabled",
+     "flags.deep_sleep_enabled",
+     "flags.irony_filter_enabled",
+     "flags.meme_initiative_enabled",
+     "flags.relations_tone_enabled",
+     "flags.summary_filter_enabled",
+     "flags.vision_enabled",
+     "humor.feedback",
+     "initiative.meme_length_limit",
+     "limits.chat_burst_limit",
+     "limits.chat_context_budget_tokens",
+     "limits.chat_global_context_max_tokens",
+     "limits.chat_global_key_budget_requests",
+     "limits.chat_global_key_budget_tokens",
+     "limits.chat_level2_max_chars",
+     "limits.chat_thread_max_depth",
+     "limits.chat_thread_max_tokens",
+     "limits.factcheck_context_after",
+     "limits.factcheck_context_before",
+     "limits.image_daily_limit",
+     "limits.import_history_retention_days",
+     "limits.summary_aliases",
+     "limits.worker_daily_llm_calls_per_chat",
+     "limits.worker_daily_llm_tokens_per_chat",
+     "limits.youtube_transcript_proxy_domain",
+     "prompts.checkup_system_prompt",
+     "prompts.meme_image",
+     "prompts.meme_joke",
+     "prompts.summary_cover_style",
+     "prompts.summary_cover_style_id"
+    ],
+    "capability_explicit": [
+     {
+      "capability": "module:vision",
+      "stored": true
+     },
+     {
+      "capability": "gate:permsoc",
+      "stored": true
+     }
+    ],
+    "chat_id": -1002661910336,
+    "gates_count": 1,
+    "gates_opt_in": true,
+    "is_dm": false,
+    "overrides_count": 32,
+    "updated_at": "2026-11-15 11:26:38.794991+00"
+   },
+   "G8": {
+    "all_gates": {
+     "dream": false,
+     "lore_auto": false,
+     "nostalgia": true,
+     "permsoc": false
+    },
+    "all_override_keys": [
+     "flags.budgets_enabled",
+     "flags.meme_initiative_enabled",
+     "flags.summary_enabled",
+     "flags.vision_enabled",
+     "initiative.meme_length_limit",
+     "memory.experience_review_cadence",
+     "prompts.meme_image",
+     "prompts.meme_joke"
+    ],
+    "capability_explicit": [
+     {
+      "capability": "module:vision",
+      "stored": true
+     },
+     {
+      "capability": "gate:dream",
+      "stored": false
+     },
+     {
+      "capability": "gate:lore_auto",
+      "stored": false
+     },
+     {
+      "capability": "gate:nostalgia",
+      "stored": true
+     },
+     {
+      "capability": "gate:permsoc",
+      "stored": false
+     }
+    ],
+    "chat_id": -1004482340693,
+    "gates_count": 4,
+    "gates_opt_in": true,
+    "is_dm": false,
+    "overrides_count": 8,
+    "updated_at": "2026-11-11 13:14:05.843018+00"
+   }
+  },
+  "profiles_meta": [
+   {
+    "chat_id": -1004482340693,
+    "gates_opt_in": true,
+    "updated_at": "2026-11-11 13:14:05.843018+00"
+   },
+   {
+    "chat_id": -1002661910336,
+    "gates_opt_in": true,
+    "updated_at": "2026-11-15 11:26:38.794991+00"
+   },
+   {
+    "chat_id": 5885953495,
+    "gates_opt_in": false,
+    "updated_at": "2026-10-28 08:54:24.139196+00"
+   }
+  ]
+ }
+}
