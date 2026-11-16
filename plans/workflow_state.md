@@ -3,8 +3,8 @@
 Task: vmq-onto-01 (queue 5, P0) Slice D delivered; next dependency-ready queue step is mod-acl-ux-01 (queue 6, P0) readiness assessment
 Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md + amendments; plans/owner_inputs/2026-11-09-mod-acl-ux-01.md; owner continuity/recovery instruction 2026-11-15
 Status: active
-Primary phase: implementation
-Active feature: mod-acl-ux-01 (assessment); vmq-onto-01 delivered with passive L1 observation parked
+Primary phase: P0 production disk incident (audit + cleanup); 2.58.206 release assembly paused at afcaf95f
+Active feature: P0-PROD-DISK-01 + mod-acl-ux-01
 Active lanes: M2.1 binding (PM) and 2.58.206 release assembly (Builder); M3 bound
 Join barriers: none
 Last verified: **2.58.205 deployed at `bca18c1e`** (health local/public 200, schema 47/pending=[], identity verified_deployed, NRestarts 0, journal 159 lines with 0 ERROR/Traceback/CRITICAL, settings and manual prompt preserved); rollback `2b419aa2`/2.58.204.
