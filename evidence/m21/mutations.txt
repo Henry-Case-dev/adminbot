@@ -1,29 +1,24 @@
-M2.1 mutations — каждая снимает ровно один механизм и убивает свой тест.
-Скрипт: C:\Users\main\AppData\Local\Temp\opencode\m21_mutations.py
-Файлы восстанавливались в finally; рабочее дерево после прогона чистое.
+M2.1 corrective mutations — каждая снимает ровно один механизм.
+Скрипт: C:\Users\main\AppData\Local\Temp\opencode\m21_mutations_v2.py
+Файлы восстанавливались в finally; дерево после прогона чистое.
 
-1. initiative_master_and_removed
+1. initiative_product_master_and_restored
    file: services/initiative_observer.py
-   mutation: удалён `if not observer_enabled(): return "capability_off"`
-             из `initiative_publish_block_reason`.
-   test: tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_product_master_and_stays
+   mutation: product-AND: emergency снова включает product master flags.initiative_enabled
+   test: tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_global_off_chat_on_is_on
    result: KILLED (rc=1)
-   failure: assert 'emergency_block' == 'capability_off'
+   failure: 1 failed, 2 warnings in 2.99s
 
-2. search_chat_override_removed
-   file: handlers/search.py
-   mutation: `feature_gates.module_enabled(chat_id, key="flags.search_enabled")`
-             заменён обратно на глобальный `hot.get("flags.search_enabled")`.
-   test: tests/test_mod_acl_ux_01_m21_adapters.py::test_search_handler_per_chat
-   result: KILLED (rc=1)
-   failure: GLOBAL ON + CHAT OFF снова исполняет: `assert None is UNHANDLED`
-
-3. nostalgia_precedence_removed
+2. chat_override_ignored
    file: services/feature_gates.py
-   mutation: удалён master-first reorder в `_global_flag_sourced`
-             (`memory.nostalgia_enabled` → `flags.nostalgia_enabled`).
-   test: tests/test_mod_acl_ux_01_m21_gates.py::test_nostalgia_memory_master_beats_legacy_flags
+   mutation: chat override игнорируется: резолвер всегда в global scope
+   test: tests/test_mod_acl_ux_01_m21_gates.py::test_character_global_off_chat_on_is_on
    result: KILLED (rc=1)
-   failure: `assert True is False` на `state.global_value`
+   failure: 1 failed, 2 warnings in 3.03s
 
-Машиночитаемый результат: evidence/m21/mutations.json (killed=true для всех трёх).
+3. emergency_env_ignored
+   file: services/mca_gates.py
+   mutation: аварийная env-ось MCA_INTENTS_ENABLED игнорируется
+   test: tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_emergency_env_overrides_chat
+   result: KILLED (rc=1)
+   failure: 1 failed, 2 warnings in 3.00s

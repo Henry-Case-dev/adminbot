@@ -1,5 +1,20 @@
 {
   "slice": "M2.1",
+  "candidate_branch": "acl/m2.1-perchat-adapters",
+  "candidate_base": "bca18c1e",
+  "candidate_code_commit": "b278a547eb3753d02e20dd016f560f966cfcf329",
+  "candidate_diff": {
+    "command": "git show --stat --oneline b278a547",
+    "files": 13,
+    "insertions": 514,
+    "deletions": 155
+  },
+  "slice_cumulative_diff": {
+    "command": "git diff --stat bca18c1e..b278a547",
+    "files": 37,
+    "insertions": 1885,
+    "deletions": 173
+  },
   "requirement_ids": [
     "MAC-AC-04",
     "MAC-S2-TT-5",
@@ -7,106 +22,120 @@
     "MAC-S15-12",
     "MAC-S2-SHARED-01"
   ],
-  "candidate_base": "bca18c1e",
-  "command": "pytest 24 focused files (exact list in implementation.md)",
-  "result": "green",
-  "tests": 465,
-  "passed": 465,
-  "failed_or_errors": 0,
-  "skipped": 0,
-  "test_files": [
+  "consumer_proof_ids": [
+    "MAC-S0-01",
+    "MAC-S2-TT-4",
+    "MAC-S2-91",
+    "MAC-S2-116",
+    "MAC-AC-02"
+  ],
+  "command": "python -m pytest <24 focused files> -q --junitxml=evidence/m21/pytest-green.xml",
+  "focused_file_count": 24,
+  "focused_files": [
     "tests/test_asap7_module_completeness.py",
     "tests/test_asap7_module_registry.py",
     "tests/test_asap8_f5_module_truth.py",
     "tests/test_asap8_f7_stories.py",
-    "tests/test_asap8_v63_b07_temporal_factcheck/TestGateLifecycle.py",
-    "tests/test_asap8_v63_b07_temporal_factcheck/TestNotAModuleCard.py",
-    "tests/test_asap8_v63_b07_temporal_factcheck/TestSeedTemporal.py",
-    "tests/test_asap8_v6_p1_d11_registry/TestD11EffectiveGates.py",
-    "tests/test_asap8_v6_p1_d11_registry/TestD11Inventory.py",
-    "tests/test_asap8_v6_p1_d11_registry/TestF5NoRegression.py",
-    "tests/test_command_registry_round1015/TestCheckup.py",
-    "tests/test_command_registry_round1015/TestCommandRegistry.py",
-    "tests/test_command_registry_round1015/TestDirectChatTrigger.py",
-    "tests/test_command_registry_round1015/TestDownload.py",
-    "tests/test_command_registry_round1015/TestPriority.py",
-    "tests/test_command_registry_round1015/TestSearch.py",
-    "tests/test_command_registry_round1015/TestSplitPrefix.py",
-    "tests/test_command_registry_round1015/TestYoutubeWeb.py",
-    "tests/test_direct_chat_handlers/TestBotwordDomainSeparators.py",
-    "tests/test_direct_chat_handlers/TestBotwordFromConfig.py",
-    "tests/test_direct_chat_handlers/TestBotwordPriorityIntegration.py",
-    "tests/test_direct_chat_handlers/TestBotwordRouterExclusionIntegration.py",
-    "tests/test_direct_chat_handlers/TestBotwordTriggers.py",
-    "tests/test_direct_chat_handlers/TestBotwordUserExclusions.py",
-    "tests/test_direct_chat_handlers/TestDialogCommands.py",
-    "tests/test_direct_chat_handlers/TestEditedMessage.py",
-    "tests/test_direct_chat_handlers/TestPersonaCardCommand.py",
-    "tests/test_direct_chat_handlers/TestTriggers.py",
-    "tests/test_epic72_gates/TestDirectChatTranscriptionGate.py",
+    "tests/test_asap8_v63_b07_temporal_factcheck.py",
+    "tests/test_asap8_v6_p1_d11_registry.py",
+    "tests/test_command_registry_round1015.py",
+    "tests/test_direct_chat_handlers.py",
+    "tests/test_epic72_gates.py",
     "tests/test_mca12_stories_round1046.py",
     "tests/test_mca18_self_model_block_a_round1042.py",
-    "tests/test_media_download/TestCloudMode.py",
-    "tests/test_media_download/TestLocalMode.py",
-    "tests/test_media_download/TestSubdirTokenNeverLogged.py",
+    "tests/test_media_download.py",
     "tests/test_mod_acl_ux_01_m21_adapters.py",
     "tests/test_mod_acl_ux_01_m21_gates.py",
     "tests/test_mod_acl_ux_m2_consumers.py",
     "tests/test_mod_acl_ux_m2_resolver.py",
-    "tests/test_param_catalog/TestChatTimezoneValueRule.py",
-    "tests/test_param_catalog/TestCompleteness.py",
-    "tests/test_param_catalog/TestDigCatalog.py",
-    "tests/test_param_catalog/TestGroups8424.py",
-    "tests/test_param_catalog/TestInfraExcluded.py",
-    "tests/test_param_catalog/TestPermsocGroupsRedesign.py",
-    "tests/test_param_catalog/TestPromptsContentPgOnly.py",
-    "tests/test_param_catalog/TestSecrets.py",
+    "tests/test_param_catalog.py",
     "tests/test_qnd_event_path.py",
     "tests/test_qnd_publication.py",
     "tests/test_qnd_schedule.py",
-    "tests/test_smartsearch_handlers/TestHandler.py",
-    "tests/test_smartsearch_handlers/TestParseSearchQuery.py",
-    "tests/test_smoke_round1016_fixes/TestArchivedBeliefsParadigmFilter.py",
-    "tests/test_smoke_round1016_fixes/TestDownloadAlwaysRegistered.py",
-    "tests/test_smoke_round1016_fixes/TestLinkFirstOccurrence.py",
-    "tests/test_smoke_round1016_fixes/TestUnifiedBeliefMetaParser.py",
-    "tests/test_smoke_round1016_fixes/TestValidVideoTargetOnly.py",
-    "tests/test_web_handlers/TestHandler.py",
-    "tests/test_web_handlers/TestParse.py",
-    "tests/test_webapp_gates_api/TestDmGates.py",
-    "tests/test_webapp_gates_api/TestWorkersBudget.py"
+    "tests/test_smartsearch_handlers.py",
+    "tests/test_smoke_round1016_fixes.py",
+    "tests/test_web_handlers.py",
+    "tests/test_webapp_gates_api.py"
   ],
+  "result": "green",
+  "tests": 476,
+  "passed": 476,
+  "failed_or_errors": 0,
+  "skipped": 0,
+  "artifacts": {
+    "green_text": "evidence/m21/pytest-green.txt",
+    "green_xml": "evidence/m21/pytest-green.xml",
+    "red_base_text": "evidence/m21/pytest-red-base.txt",
+    "mutations_json": "evidence/m21/mutations.json",
+    "mutations_text": "evidence/m21/mutations.txt"
+  },
   "red_on_base": {
-    "command": "pytest tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py on bca18c1e with only the new tests copied",
-    "failed": 31,
-    "passed": 5,
+    "commit": "bca18c1e",
+    "command": "git archive bca18c1e -> temp; copy updated M2.1 tests; pytest them",
+    "tests": 47,
+    "failed": 44,
+    "passed": 3,
     "artifact": "evidence/m21/pytest-red-base.txt"
   },
   "mutations": [
     {
-      "name": "initiative_master_and_removed",
+      "name": "initiative_product_master_and_restored",
       "file": "services/initiative_observer.py",
-      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_product_master_and_stays",
+      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_global_off_chat_on_is_on",
       "killed": true,
-      "returncode": 1,
-      "tail": "    async def test_initiative_product_master_and_stays(world, monkeypatch):\n        \"\"\"Chat ON не обходит product master `flags.initiative_enabled`.\"\"\"\n        monkeypatch.setattr(initiative_observer, \"observer_enabled\", lambda: False)\n        world.globals = {\"flags.initiative_enabled\": False,\n                         \"initiative.enabled\": True}\n        _set_chat(world, {\"overrides\": {\"initiative.enabled\": True},\n                          \"gates\": {}})\n>       assert await initiative_observer.initiative_publish_block_reason(\n            CHAT) == \"capability_off\"\nE       AssertionError: assert 'emergency_block' == 'capability_off'\nE         \nE         - capability_off\nE         + emergency_block\n\ntests\\test_mod_acl_ux_01_m21_gates.py:136: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_product_master_and_stays\n1 failed in 3.50s"
+      "returncode": 1
     },
     {
-      "name": "search_chat_override_removed",
-      "file": "handlers/search.py",
-      "test": "tests/test_mod_acl_ux_01_m21_adapters.py::test_search_handler_per_chat",
-      "killed": true,
-      "returncode": 1,
-      "tail": "    async def test_search_handler_per_chat(world, monkeypatch):\n        from handlers import search as sm\n    \n        service = types.SimpleNamespace(research=AsyncMock(return_value=\"ok\"))\n        sm.setup_search(service)\n        sm._cooldown._last.clear()\n        bot = AsyncMock()\n        try:\n            world.globals = {\"flags.search_enabled\": True}\n            _set_chat(world, _one({\"flags.search_enabled\": False}))\n>           assert await sm.smartsearch_handler(\n                _msg(\"Бот, найди X\"), bot=bot) is UNHANDLED\nE               assert None is sentinel.UNHANDLED\n\ntests\\test_mod_acl_ux_01_m21_adapters.py:188: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_adapters.py::test_search_handler_per_chat\n1 failed in 3.42s"
-    },
-    {
-      "name": "nostalgia_precedence_removed",
+      "name": "chat_override_ignored",
       "file": "services/feature_gates.py",
-      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_nostalgia_memory_master_beats_legacy_flags",
+      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_character_global_off_chat_on_is_on",
       "killed": true,
-      "returncode": 1,
-      "tail": "world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000023CECEAA2D0>\n\n    @pytest.mark.asyncio\n    async def test_nostalgia_memory_master_beats_legacy_flags(world):\n        \"\"\"flags.nostalgia_enabled=True не перекрывает master=False.\"\"\"\n        world.globals = {\"flags.nostalgia_enabled\": True,\n                         \"memory.nostalgia_enabled\": False}\n        _set_chat(world, {\"overrides\": {}, \"gates\": {}})\n        state = await feature_gates.gate_state(CHAT, \"nostalgia\")\n        assert state is not None\n>       assert state.global_value is False\nE       AssertionError: assert True is False\nE        +  where True = CapabilityState(capability='nostalgia', key='nostalgia', domain='gate', chat_id=-100, chat_state='inherit', desired=Tr...None, reason_code=None, pending_restart=False, version=None, can_read=None, can_edit=None, consent=None, conflict=None).global_value\n\ntests\\test_mod_acl_ux_01_m21_gates.py:84: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_nostalgia_memory_master_beats_legacy_flags\n1 failed in 3.59s"
+      "returncode": 1
+    },
+    {
+      "name": "emergency_env_ignored",
+      "file": "services/mca_gates.py",
+      "test": "tests/test_mod_acl_ux_01_m21_gates.py::test_initiative_emergency_env_overrides_chat",
+      "killed": true,
+      "returncode": 1
     }
   ],
-  "candidate_code_commit": "def842754e00be78c4fdcbc4a13501e06ca1c5ac"
+  "guard_checks": {
+    "no_second_resolver_or_acl": "tests/test_mod_acl_ux_01_m21_gates.py::test_no_second_resolver_or_acl",
+    "fail_closed_decision": "tests/test_mod_acl_ux_01_m21_gates.py::test_module_enabled_fail_closed_on_resolver_error",
+    "stored_values_not_rewritten": "tests/test_mod_acl_ux_01_m21_gates.py::test_adapter_does_not_rewrite_stored_values",
+    "stories_acl_before_gate": "tests/test_mod_acl_ux_01_m21_adapters.py::test_stories_acl_precedes_per_chat_gate",
+    "transcribe_di_unconditional": "tests/test_mod_acl_ux_01_m21_adapters.py::test_voice_transcription_di_is_not_conditional"
+  },
+  "configuration": {
+    "ddl": 0,
+    "migrations": 0,
+    "new_flags_or_hot_keys": 0,
+    "second_acl_or_registry": 0,
+    "stored_values_rewritten": 0,
+    "env_axes_remain_emergency": [
+      "MCA_INTENTS_ENABLED",
+      "MCA_SELF_MODEL_ENABLED",
+      "MCA_RANDOM_SOURCE_ENABLED",
+      "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
+      "MCA_STORIES_VITRINA_ENABLED"
+    ],
+    "prohibited_files_untouched": [
+      "services/module_registry.py",
+      "services/permissions.py",
+      "services/access.py",
+      "prompt registry",
+      "VMQ QRNG",
+      "services/cognitive_map.py",
+      "services/config_cache.py",
+      "services/param_catalog.py"
+    ]
+  },
+  "limitations": [
+    "Кандидат не задеплоен; live production probe и effective-state прода не выполнялись.",
+    "Pre-existing failures базы bca18c1e (вне M2.1): test_initiative_coordination 4 теста и test_soul1_w5_observer_gates::test_initiative_writer_shares_core_style_and_persona.",
+    "stories manage-контур остаётся глобальным (K2 MCA_STORIES_MANAGE_ENABLED); M2.1 закрывает read-контур.",
+    "flags.initiative_observer_enabled остаётся собственной осью тика наблюдателя; master инициативы — flags.initiative_enabled.",
+    "Финальный VERIFIED не заявляется: требуется независимое ревью."
+  ]
 }
