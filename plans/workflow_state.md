@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md + amendments; plans/ow
 Status: active
 Primary phase: implementation
 Active feature: mod-acl-ux-01 (assessment); vmq-onto-01 delivered with passive L1 observation parked
-Active lanes: M2.1 independent review (semantics static vs shared); M3 final D1 check
+Active lanes: M3 design binding (PM); M2.1 independent review
 Join barriers: none
 Last verified: **2.58.205 deployed at `bca18c1e`** (health local/public 200, schema 47/pending=[], identity verified_deployed, NRestarts 0, journal 159 lines with 0 ERROR/Traceback/CRITICAL, settings and manual prompt preserved); rollback `2b419aa2`/2.58.204.
 Acceptance: VMQ map 70 required rows: 48 PENDING, 8 REVIEW, 13 VERIFIED, 1 READY_FOR_LIVE. Slice D released in 2.58.205: **TIME-06 VERIFIED** on `bca18c1e` with candidate-bound inventory/review/deploy evidence; **TIME-04 REVIEW**; MEM-04, TIME-01, TIME-02 reply and TIME-07 remain open pending real L1 turns (postdeploy observation, no polling) and independent labels. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE; V-01..V-04 REVIEW. Full VMQ epic not DONE.
