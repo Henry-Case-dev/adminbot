@@ -153,6 +153,57 @@ sha256 `BA6CF3D6…6FF92A7`). **Baseline:** `plans/features/mod-acl-ux-01/m0-bas
 
 ---
 
+### 3.3. M2.1 — per-chat adapters для 12 модулей (2026-11-16, prerequisite M4A)
+
+Датированное дополнение к §3.2 и к design §12.2/§12.3. Новых требований не вводит: пять существующих
+PENDING-строк M2 перенесены по полю `slice`, текст acceptance и статусы не менялись.
+
+- **Почему отдельный срез.** На выкате 2.58.205 chat override без product master-AND читают только
+  7 модулей (`summary, sleep, nostalgia, budgets, images, vision, experience`); 11 читают глобальный
+  `hot.get`, хотя каталог объявляет `per_chat=True`, а `initiative_observer` сохраняет master-AND с
+  `flags.initiative_enabled`. Итого 12 модулей. Проверено по checkout `bca18c1e`:
+  `handlers/search.py:140`, `handlers/checkup.py:434`, `handlers/voice_transcription.py:414`,
+  `handlers/youtube.py:1682`, `handlers/direct_chat.py:236`, `handlers/web.py:142`,
+  `handlers/factcheck.py:1154`, `services/media_download.py:198`,
+  `services/mca_gates.py:2673/1974/1720`, `services/initiative_observer.py:438,493` — все читают
+  глобальный слой. Рисовать CHAT tri-state в M4A до этого — инертный контрол (owner §9.3), поэтому
+  M2.1 идёт первым.
+- **12 модулей:** `initiative, direct, factcheck, search, web, transcribe, video_summary,
+  media_download, checkup, stories, character, random`.
+- **Владение M2.1:** 5 существующих строк — `MAC-S2-TT-5`, `MAC-AC-04`, `MAC-S10-01`,
+  `MAC-S15-12`, `MAC-S2-SHARED-01` (перенос из M2 по полю slice, статусы PENDING сохранены).
+  Consumer-level доказательства добавляются к `MAC-S0-01`, `MAC-S2-TT-4`, `MAC-S2-91`,
+  `MAC-S2-116`, `MAC-AC-02`, которые остаются у M2 со своими статусами: две VERIFIED-строки не
+  понижаются, но их универсальная формулировка на 2.58.205 подтверждена только для резолвера и
+  адаптированных потребителей — это записано в карте, а не скрыто.
+- **M4A остаётся:** `MAC-S5-197` (tri-state/effective/readiness), `MAC-AC-08`, `MAC-M4-01`,
+  `MAC-S5-TAB-01..07`, `MAC-S5-CAT-01/02`, `MAC-S5-SAVE-01`, `MAC-S5-NAV-01`, `MAC-S9-BLD-01`.
+  **M3 остаётся:** `MAC-AC-01`, `MAC-S3-CAT-01`, `MAC-S3-SHARED-01`.
+- **Write scope (17 позиций):** 12 consumer-файлов (`services/initiative_observer.py`,
+  `handlers/direct_chat.py`, `factcheck.py`, `search.py`, `web.py`, `voice_transcription.py`,
+  `youtube.py`, `checkup.py`, `video_download.py`, `services/direct_chat_service.py`,
+  `services/media_download.py`, `services/mca_gates.py`), `services/tool_router.py`,
+  `services/feature_gates.py`, `tests/test_mod_acl_ux_01_m21_adapters.py`,
+  `tests/test_mod_acl_ux_01_m21_gates.py`, `evidence/m21/**`.
+- **Acceptance:** каждый из 12 модулей решает потребление через существующий
+  `resolve_capability(chat_id, …)` без второго resolver/ACL/registry; GLOBAL OFF + CHAT ON исполняет
+  только в этом чате; GLOBAL ON + CHAT OFF не исполняет в чате, не останавливая shared worker, индекс
+  и operative-историю; INHERIT = глобальное значение; initiative без product master-AND (emergency —
+  env); nostalgia precedence = `memory.nostalgia_enabled`; stored values не переписаны.
+- **Тесты:** `tests/test_mod_acl_ux_01_m21_adapters.py` (по модулю: GLOBAL OFF + CHAT ON, GLOBAL ON +
+  CHAT OFF, INHERIT, shared service alive при CHAT OFF), `tests/test_mod_acl_ux_01_m21_gates.py`
+  (nostalgia precedence, initiative emergency, отсутствие второго resolver).
+- **Зависимости:** M2.1 зависит от **M2** (резолвер и write-path; общие `mca_gates.py` и
+  `feature_gates.py`), но не от M3 как среза: замороженный design §12.2/§12.3 — контракт, а строки
+  M3 — UI/copy/wireframe. M4A `depends_on [M3, M2.1]`; M5B `depends_on [M2.1, M5A]` (общий
+  `services/mca_gates.py`).
+- **Evidence:** `evidence/m21/**` — прогон тестов на точном кандидате плюс read-only пара на проде
+  (GLOBAL OFF + CHAT ON и GLOBAL ON + CHAT OFF) с counters/ledger по `chat_id`.
+- **Не приёмка:** статусы не повышались, реализации нет; строки M2.1 остаются PENDING до кандидата и
+  независимого ревью.
+
+---
+
 ## 4. Соблюдение требования «не только тесты»
 
 Правило из ТЗ §0.7/§9 и `AC-09`, `AC-19` записано как обязательный барьер приёмки, а не пожелание:

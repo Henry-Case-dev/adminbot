@@ -4,15 +4,16 @@
   "created": "2026-11-09",
   "queue_position": "MOD-ACL-UX-01 — последний новый эпик действующей очереди: после SELF-DIAG-01 и VMQ-ONTO-01. Полный Builder стартует только после освобождения шести файлов, занятых MEMORY-08 S3 (memory_agi.py, mca_gates.py, config_cache.py, param_catalog.py, web/app.js, cognitive_map.py). M1 (ACL false-403) и M5A (EXP-FIX correctives) — две независимые критические правки, которые допускаются раньше остального эпика: M5A не касается ни одного из шести сериализованных файлов, M1 требует memory_agi.py и потому идёт либо после MEMORY-08, либо через явную PM-координацию патча.",
   "lanes": {
-    "L1_foundation": "M0 -> M1 -> M2 -> M3",
-    "L2_ui": "M3 -> M4A -> M4B -> M4C",
-    "L3_experience": "M5A + M2 -> M5L (контракт уроков, выкат 2.58.172) -> M5C; M5B (ждёт M2) -> M5C",
+    "L1_foundation": "M0 -> M1 -> M2 -> {M2.1, M3}; M2.1 закрывает adapter-часть M2 и открывает M4A",
+    "L2_ui": "M3 -> M4A (depends_on M3 + M2.1) -> M4B -> M4C",
+    "L3_experience": "M5A + M2 -> M5L (контракт уроков, выкат 2.58.172) -> M5C; M5B (ждёт M2.1, M5A) -> M5C",
     "join": "M6 после M4C и M5C"
   },
   "requirements_note": "Поле requirements в узле называет ведущую строку среза; фактическое владение — все строки requirements-map.json с совпадающим полем slice (один владелец = один срез).",
   "serialized_files": [
     "web/api/memory_agi.py — M1; сейчас M-статус MEMORY-08 S3, правка только после merge/close или координации",
-    "services/mca_gates.py — M2; занят MEMORY-08 S3",
+    "services/mca_gates.py — M2, затем M2.1 (read-контур stories/character/random), затем M5B (shared review); занят MEMORY-08 S3",
+    "services/feature_gates.py — M2, затем M2.1 (precedence nostalgia §12.3); не занят MEMORY-08 S3",
     "services/config_cache.py — M2; занят MEMORY-08 S3",
     "services/param_catalog.py — M2; занят MEMORY-08 S3",
     "web/app.js — M4A, затем M4B, затем M4C (одна UI-полоса, последовательно); занят MEMORY-08 S3",
@@ -34,6 +35,7 @@
       "affects": [
         "M1",
         "M2",
+        "M2.1",
         "M4A"
       ],
       "kind": "file_lock",
@@ -107,6 +109,85 @@
       "coherence": "Одна семантика effective-state на capability плюс adapters её потребителей; UI не входит, иначе срез нельзя проверить отдельно."
     },
     {
+      "id": "M2.1",
+      "title": "Per-chat adapters для 12 потребителей модулей + precedence nostalgia (prerequisite M4A)",
+      "owner_role": "Builder (backend) по контракту design §12.2/§12.3",
+      "depends_on": [
+        "M2"
+      ],
+      "write_scope": [
+        "services/initiative_observer.py",
+        "handlers/direct_chat.py",
+        "handlers/factcheck.py",
+        "handlers/search.py",
+        "handlers/web.py",
+        "handlers/voice_transcription.py",
+        "handlers/youtube.py",
+        "handlers/checkup.py",
+        "handlers/video_download.py",
+        "services/direct_chat_service.py",
+        "services/media_download.py",
+        "services/tool_router.py",
+        "services/mca_gates.py",
+        "services/feature_gates.py",
+        "tests/test_mod_acl_ux_01_m21_adapters.py",
+        "tests/test_mod_acl_ux_01_m21_gates.py",
+        "plans/features/mod-acl-ux-01/evidence/m21/**"
+      ],
+      "requirements": [
+        "MAC-AC-04",
+        "MAC-S2-TT-5",
+        "MAC-S10-01",
+        "MAC-S15-12",
+        "MAC-S2-SHARED-01"
+      ],
+      "consumer_proof_targets": [
+        "MAC-S0-01",
+        "MAC-S2-TT-4",
+        "MAC-S2-91",
+        "MAC-S2-116",
+        "MAC-AC-02"
+      ],
+      "contract_sources": [
+        "design-m3-2026-11-16.md §12.2 (12 модулей и файлы чтения), §12.3 (nostalgia precedence)",
+        "reports/m2-consumers-dd52cbf9.md §5–§6 (что читает только global и что вне домена M2)",
+        "owner-контракт GLOBAL default → CHAT override (MAC-S0-01, MAC-S2-TT-4)"
+      ],
+      "modules": [
+        "initiative",
+        "direct",
+        "factcheck",
+        "search",
+        "web",
+        "transcribe",
+        "video_summary",
+        "media_download",
+        "checkup",
+        "stories",
+        "character",
+        "random"
+      ],
+      "acceptance": "На кандидате каждый из 12 модулей решает потребление через существующий resolve_capability(chat_id, ...) без второго resolver/ACL/registry: GLOBAL OFF + явный CHAT ON исполняет функцию только в этом чате; GLOBAL ON + явный CHAT OFF не исполняет её в чате, не останавливая shared worker, индекс и operative-историю; INHERIT даёт глобальное значение; initiative не применяет product master-AND, emergency остаётся env; у nostalgia master precedence — memory.nostalgia_enabled; stored values не переписаны.",
+      "evidence_sets": {
+        "tests": [
+          "tests/test_mod_acl_ux_01_m21_adapters.py",
+          "tests/test_mod_acl_ux_01_m21_gates.py"
+        ],
+        "required_cases": [
+          "GLOBAL OFF + CHAT ON",
+          "GLOBAL ON + CHAT OFF",
+          "INHERIT",
+          "shared service alive при CHAT OFF"
+        ],
+        "live": "read-only probe на deployed SHA: один модуль в паре GLOBAL OFF + CHAT ON и один в паре GLOBAL ON + CHAT OFF; counters/ledger по chat_id без вызовов отключённого функционала",
+        "artifact_dir": "plans/features/mod-acl-ux-01/evidence/m21/**"
+      },
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "coherence": "Один шов: effective-state доходит до 12 продуктовых потребителей и до feature_gates; UI не входит. Без отдельного среза M4A рисует инертный tri-state, а M2 закрывается без adapter-части своего outcome.",
+      "note": "M2.1 не создаёт новых требований: он владеет пятью существующими PENDING-строками M2 и даёт consumer-level доказательства для MAC-S0-01/TT-4/S2-91/S2-116/AC-02 без изменения их статуса. M4A depends_on M2.1; M5B depends_on M2.1. Scoped release M2.1 отдельно не планируется: релиз эпика общий, а милстоун MAC-M2-01 закрывается после M2.1."
+    },
+    {
       "id": "M3",
       "title": "Design freeze: IA-карта, wireframes, тексты, responsive и token mapping",
       "owner_role": "Architect (Opus 5.5), редактура — Architect + Reviewer",
@@ -134,7 +215,8 @@
       "title": "Каталог модулей и рабочие workspace-страницы с реальными вкладками",
       "owner_role": "Builder (UI)",
       "depends_on": [
-        "M3"
+        "M3",
+        "M2.1"
       ],
       "write_scope": [
         "web/app.js",
@@ -226,7 +308,7 @@
       "title": "EXP-FIX-08: shared review при GLOBAL OFF + CHAT ON через единый resolver",
       "owner_role": "Builder (experience + gates)",
       "depends_on": [
-        "M2",
+        "M2.1",
         "M5A"
       ],
       "write_scope": [

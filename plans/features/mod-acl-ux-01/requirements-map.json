@@ -124,7 +124,7 @@
     }
   ],
   "gate_status": {
-    "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после этой правки)",
+    "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после M0 VERIFIED и M2.1 mapping; graph validator принял 14 узлов без циклов и пересечений write scope)",
     "m0_review_gate_2026_11_16": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=1 errors=0 после привязки записи Reviewer Approved (type=review, candidate bca18c1e): candidate совпадает, strict-проверка artifact_sha256 всех 5 записей и независимого approval проходит. До approval тот же прогон давал errors=1 (только отсутствие approval), до rebind — errors=3 (candidate mismatch + live requirement lacks evidence из-за устаревших sha256). Прежнее утверждение «Артефакты и sha256 валидны» было неверным и снято ещё на rebind.",
     "release_gate": "КРАСНЫЙ и остаётся красным по причинам, не связанным с двумя доказанными фиксами",
     "release_gate_reasons": [
@@ -136,7 +136,7 @@
     "must_not_be_read_as": "Эта карта не закрывает эпик MOD-ACL-UX-01: 288 обязательных = 69 VERIFIED / 0 REVIEW / 219 PENDING, релиз эпика не заявлен."
   },
   "queue_position": "MOD-ACL-UX-01 стоит в конце действующей очереди после SELF-DIAG-01 и VMQ-ONTO-01; полный Builder стартует после освобождения шести файлов MEMORY-08 S3. Две независимые критические правки (M1 ACL false-403 и M5A EXP-FIX correctives) допускаются раньше остального эпика при доступности своих файлов.",
-  "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью.",
+  "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью. | 2026-11-16 (M2.1): owning stages дополнены срезом M2.1 — per-chat adapters 12 потребителей и precedence nostalgia; пять строк (MAC-S2-TT-5, MAC-AC-04, MAC-S10-01, MAC-S15-12, MAC-S2-SHARED-01) перенесены из M2 без изменения acceptance и статуса; два VERIFIED-наблюдения (MAC-S0-01, MAC-S2-TT-4) остаются у M2 с consumer-level дополнением от M2.1, без понижения.",
   "additional_requirements": [
     {
       "source_id": "MAC-TT-1",
@@ -254,7 +254,8 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S2-TT-5",
-      "slice": "M2",
+      "slice": "M2.1",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: при GLOBAL ON чатовый OFF должен останавливать вызов, а 12 потребителей читают глобальный слой (design §12.2). Текст acceptance и статус не менялись.",
       "acceptance": "GLOBAL ON + CHAT OFF → OFF по явному выключению чата.",
       "live_required": true,
       "live_when": "preprod",
@@ -483,7 +484,8 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S2-SHARED-01",
-      "slice": "M2",
+      "slice": "M2.1",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: acceptance проходит только после per-chat adapters 12 потребителей (design §12.2). Текст acceptance и статус не менялись.",
       "acceptance": "GLOBAL OFF не останавливает shared scheduler и регистрацию при наличии chat ON; тик выбирает только разрешённые чаты и повторяет проверку перед дорогим действием, финальным side effect и отправкой.",
       "live_required": true,
       "live_when": "preprod",
@@ -7076,7 +7078,8 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S10-01",
-      "slice": "M2",
+      "slice": "M2.1",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: оба явных override и смена GLOBAL проверяются на runtime 12 потребителей (design §12.2). Текст acceptance и статус не менялись.",
       "acceptance": "GLOBAL ON/OFF с CHAT inherit и оба явных override дают ожидаемое состояние; после смены GLOBAL явный chat ON продолжает работать.",
       "live_required": true,
       "live_when": "preprod",
@@ -7841,7 +7844,8 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-AC-04",
-      "slice": "M2",
+      "slice": "M2.1",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: чатовое выключение останавливает вызов только при per-chat adapters 12 потребителей (design §12.2). Текст acceptance и статус не менялись.",
       "acceptance": "Чатовое выключение прекращает вызов и публикацию функции в этом чате и не затрагивает другие чаты.",
       "live_required": true,
       "live_when": "preprod",
@@ -8647,7 +8651,8 @@
       "disposition": "required",
       "reason": "",
       "req_id": "MAC-S15-12",
-      "slice": "M2",
+      "slice": "M2.1",
+      "m21_ownership": "Перенесено M2 -> M2.1 2026-11-16: инициатива и multimodal явно проверяются на per-chat effective-state (design §12.2). Текст acceptance и статус не менялись.",
       "acceptance": "После GLOBAL OFF→ON чат со своим OFF остаётся OFF, а с explicit ON — ON; проверены саммари, сон, память, инициатива и multimodal.",
       "live_required": true,
       "live_when": "preprod",
@@ -9252,5 +9257,88 @@
     },
     "map_counts_after_binding": "288 mandatory: 69 VERIFIED / 0 REVIEW / 219 PENDING (MAC-M0-01 moved REVIEW->VERIFIED on 2026-11-16 after the independent approval; no other row changed)",
     "not_claimed": "This block closes MAC-M0-01 only. The pg_dump absence stays a documented limitation, the live Mini App remains an M4 check, and 219 mandatory rows are still PENDING; the MOD-ACL-UX-01 release is not claimed."
+  },
+  "m2_1_mapping_2026_11_16": {
+    "at": "2026-11-16T17:05:00+12:00",
+    "kind": "mapping only: no new requirements, no status change, no implementation and no acceptance claim",
+    "prerequisite_for": [
+      "M4A"
+    ],
+    "depends_on": [
+      "M2"
+    ],
+    "dependency_rationale": "M2.1 requires the canonical resolver/write path from M2 and writes into mca_gates.py/feature_gates.py, so M2 must stay an ancestor. It does NOT depend on M3 as a slice: the frozen design (§12.2/§12.3, design-m3-2026-11-16.md) is the contract source, while M3's own rows are UI/copy/wireframe acceptance that do not gate backend adapters; M4A keeps its own depends_on M3.",
+    "why_separate_slice": "On the deployed 2.58.205 seven modules honor chat override without a product master-AND (summary, sleep, nostalgia, budgets, images, vision, experience) and 12 do not: 11 read the global hot.get although the catalog declares per_chat=True, and initiative keeps master-AND in initiative_observer. Drawing an inert CHAT tri-state in M4A would be a blocking UX defect, so the adapters are sequenced before M4A.",
+    "modules": [
+      "initiative",
+      "direct",
+      "factcheck",
+      "search",
+      "web",
+      "transcribe",
+      "video_summary",
+      "media_download",
+      "checkup",
+      "stories",
+      "character",
+      "random"
+    ],
+    "owned_rows": [
+      "MAC-S2-TT-5",
+      "MAC-AC-04",
+      "MAC-S10-01",
+      "MAC-S15-12",
+      "MAC-S2-SHARED-01"
+    ],
+    "rows_note": "Five existing PENDING rows moved M2 -> M2.1 (slice field only; acceptance text and status unchanged). They cannot pass until the 12 consumers read per-chat effective state.",
+    "consumer_proof_targets": [
+      "MAC-S0-01",
+      "MAC-S2-TT-4",
+      "MAC-S2-91",
+      "MAC-S2-116",
+      "MAC-AC-02"
+    ],
+    "consumer_proof_note": "These rows stay owned by M2 with their current status (two are VERIFIED at resolver/worker level on 34213999/dd52cbf9). M2.1 adds consumer-level evidence for the 12 modules; the map does not downgrade previously approved evidence. The universal wording of MAC-S0-01 and MAC-S2-TT-4 is therefore only partly evidenced on 2.58.205: 12 modules do not yet honor the chat override. This is recorded, not hidden; re-opening those two rows is an acceptance decision for the Orchestrator/Reviewer.",
+    "stays_m4a": [
+      "MAC-S5-197 (tri-state control row: GLOBAL ON/OFF, CHAT three states, effective and readiness separately)",
+      "MAC-AC-08 (catalog/internal pages show GLOBAL/CHAT/INHERIT consistently)",
+      "MAC-M4-01 (M4 milestone), MAC-S5-TAB-01..07, MAC-S5-CAT-01/02, MAC-S5-SAVE-01, MAC-S5-NAV-01, MAC-S9-BLD-01"
+    ],
+    "stays_m3": [
+      "MAC-AC-01 (kind/scope/real consumer inventory for 21/21 cards)",
+      "MAC-S3-CAT-01, MAC-S3-SHARED-01"
+    ],
+    "write_scope": [
+      "services/initiative_observer.py",
+      "handlers/direct_chat.py",
+      "handlers/factcheck.py",
+      "handlers/search.py",
+      "handlers/web.py",
+      "handlers/voice_transcription.py",
+      "handlers/youtube.py",
+      "handlers/checkup.py",
+      "handlers/video_download.py",
+      "services/direct_chat_service.py",
+      "services/media_download.py",
+      "services/tool_router.py",
+      "services/mca_gates.py",
+      "services/feature_gates.py",
+      "tests/test_mod_acl_ux_01_m21_adapters.py",
+      "tests/test_mod_acl_ux_01_m21_gates.py",
+      "plans/features/mod-acl-ux-01/evidence/m21/**"
+    ],
+    "acceptance": "Each of the 12 modules resolves consumption through the existing resolve_capability(chat_id, ...) with no second resolver/ACL/registry: GLOBAL OFF + explicit CHAT ON executes only in that chat; GLOBAL ON + explicit CHAT OFF does not execute there while shared worker, index and operative history stay alive; INHERIT yields the global value; initiative drops the product master-AND (emergency stays env-only); nostalgia master precedence is memory.nostalgia_enabled; stored values are not rewritten.",
+    "tests": [
+      "GLOBAL OFF + CHAT ON per module (12 assertions)",
+      "GLOBAL ON + CHAT OFF per module (12 assertions)",
+      "INHERIT per module",
+      "shared service alive when one chat is OFF",
+      "no second resolver/registry (test_no_second_resolver_module stays green)",
+      "feature_gates: global toggle of nostalgia reaches gate effective state"
+    ],
+    "evidence": "plans/features/mod-acl-ux-01/evidence/m21/** — test output on the exact candidate plus one read-only production pair per direction (GLOBAL OFF + CHAT ON, GLOBAL ON + CHAT OFF) with counters/ledger by chat_id.",
+    "serialization": "M2.1 writes services/mca_gates.py (shared with M2/M5B) and services/feature_gates.py (M2), so M5B now depends_on M2.1; no other overlap with concurrent slices (M5A/M5L/M4B/M4C scopes do not intersect).",
+    "not_claimed": "Mapping only: no row status changed, no implementation, no evidence, no VERIFIED increase. M2.1's own rows stay PENDING until built and reviewed on an exact candidate.",
+    "gate_facts": "plan gate: check --stage plan --repo . -> inventory=279 manual=102 scoped=0 errors=0, including graph validation (14 nodes, no cycles, no overlapping write scopes). Scope wiring check: review --slice M2.1 --candidate bca18c1e -> scoped=5 errors=5, all five rows 'mandatory not [REVIEW, VERIFIED] (got PENDING)' — expected before implementation; this proves the new slice owns exactly the five moved rows."
   }
 }
