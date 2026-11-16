@@ -600,8 +600,11 @@ class FindingIdentity:
 
 _HISTORY_LINE_HEAD_RE = re.compile(r"\]: ")
 _HISTORY_REF_FORMAT_RE = re.compile(r"^(?:tg|msg|fact):\d+$")
-_HISTORY_STAMP_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}(?:\s+\d{1,2}:\d{2})?$"
-                               r"|^\d{2}\.\d{4}$")
+# VMQ/MEM-TIME: канонический ts сообщения несёт явную метку UTC
+# («ДД.ММ.ГГГГ ЧЧ:ММ UTC»); легаси-строки без метки остаются валидными.
+_HISTORY_STAMP_RE = re.compile(
+    r"^\d{1,2}\.\d{1,2}\.\d{4}(?:\s+\d{1,2}:\d{2}(?:\s+UTC)?)?$"
+    r"|^\d{2}\.\d{4}$")
 _FORWARD_FIELD_PREFIX = "Переслано:"
 _UID_SUFFIX_RE = re.compile(r"\[(\d{1,18})\]\s*$")
 
@@ -609,7 +612,7 @@ _UID_SUFFIX_RE = re.compile(r"\[(\d{1,18})\]\s*$")
 def parse_finding_identity(line: str | None) -> FindingIdentity:
     """Разобрать заголовок канонической строки выборки (§12 материал).
 
-    Формат `format_context_item`: «[ДД.ММ.ГГГГ ЧЧ:ММ | Имя | tg:123 |
+    Формат `format_context_item`: «[ДД.ММ.ГГГГ ЧЧ:ММ UTC | Имя | tg:123 |
     Переслано: X]: текст» — поля-метаданные отсутствуют вместе с
     разделителем. Разметки нет → пустая identity (строка без заголовка не
     даёт ни ref, ни автора — refs на неё не дают трассировки). Никогда не

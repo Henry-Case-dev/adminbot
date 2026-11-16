@@ -283,7 +283,7 @@ class TestContextFidelity:
         line = format_speech_item(
             ts=TS_ROOT, author="Вася", author_uid=10, item_id="tg:100",
             text="вопрос", projection=projection)
-        assert line.startswith("[30.04.2024 16:00 | ")
+        assert line.startswith("[30.04.2024 16:00 UTC | ")
         # Порядковый номер массива не подменяет дату.
         assert "M1" in line and "30.04.2024" in line
 
@@ -356,7 +356,7 @@ class TestRawMachineFormUntouched:
     def test_format_context_item_keeps_typed_refs_and_numeric_uid(self):
         raw = format_context_item(
             ts=TS_ROOT, author="вася [10]", item_id="tg:100", text="привет")
-        assert raw == "[30.04.2024 16:00 | вася [10] | tg:100]: привет"
+        assert raw == "[30.04.2024 16:00 UTC | вася [10] | tg:100]: привет"
 
     def test_chain_line_stays_raw_for_machine_consumers(self):
         """`format_chain_line` — машинная сторона (direct-дедуп по `tg:`,

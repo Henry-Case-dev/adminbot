@@ -60,6 +60,7 @@ import datetime
 import dataclasses
 import hashlib
 import hmac
+import inspect
 import json
 import logging
 import re
@@ -243,6 +244,18 @@ _HISTORY_DEFAULT_DEPTH = 50              # default при отсутствии �
 _HISTORY_SEARCH_LIMIT = 80               # FTS-строк на этапе query (до фильтра)
 _HISTORY_QUERY_WINDOW_SECONDS = 12 * 3600  # «последние часы» для query
 _HISTORY_TOOL_TIMEOUT = 10.0             # страховочный wait_for (локальная SQLite)
+# VMQ/MEM-TIME (16.11.2026, ARCH_DECISION): технический предел ОДНОГО
+# запрошенного окна истории. Это НЕ тихий срез: окно шире/кривое получает
+# явный unsupported-отказ (`time_window_too_wide`/`...`), а не молча
+# обрезанную «пустоту». Месяц покрывает «последние часы/смену/сутки/неделю»;
+# более длинные периоды — задача query_chat_memory (не расширение этого
+# инструмента). Хвост для окна только с `until` — сутки.
+_HISTORY_WINDOW_MAX_SECONDS = 31 * 24 * 3600
+_HISTORY_WINDOW_DEFAULT_SECONDS = 24 * 3600
+# Верхняя граница ключа (timestamp, id) для окна по времени: `timestamp <=
+# time_to` включительно для любого id той же секунды.
+_HISTORY_WINDOW_EDGE_ID = (1 << 62) - 1
+_HISTORY_WINDOW_STATUSES = ("ok", "empty_window", "no_match", "error")
 # Технический предел ОДНОГО возврата инструмента — в целых сообщениях
 # (архконтракт §1 «Размер страницы»). НЕ потолок выборки: совпадает с уже
 # существующим техническим батчем эпизода (episode_max_messages, дефолт 40).
@@ -429,13 +442,17 @@ def _history_depth(raw) -> int:
 
 
 def _history_sample_id(chat_id: int, anchor_ts: int, anchor_id: int,
-                       requested: int) -> str:
+                       requested: int, *, window_from: int = 0,
+                       window_to: int = 0) -> str:
     """Стабильный id выборки (архконтракт §0): ``hs_`` + 12 hex от sha256
-    (chat_id|anchor_ts|anchor_id|requested). Не UUID: та же граница — тот же
-    id."""
-    digest = hashlib.sha256(
-        f"{int(chat_id)}|{int(anchor_ts)}|{int(anchor_id)}|{int(requested)}"
-        .encode("utf-8")).hexdigest()
+    (chat_id|anchor_ts|anchor_id|requested[|wfrom:wto]). Не UUID: та же
+    граница — тот же id. VMQ/MEM-TIME: окно по времени входит в материал id,
+    иначе «весь период» и N-выборка с тем же якорем неотличимы."""
+    material = (f"{int(chat_id)}|{int(anchor_ts)}|{int(anchor_id)}|"
+                f"{int(requested)}")
+    if window_from or window_to:
+        material += f"|w{int(window_from)}:{int(window_to)}"
+    digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
     return f"hs_{digest[:12]}"
 
 
@@ -457,43 +474,47 @@ def _history_cursor_ttl() -> float:
 
 def _history_cursor_encode(bound: dict, after_ts: int, after_id: int,
                            processed: int = 0) -> str:
-    """Подписанный самодостаточный cursor (архконтракт §1, формат v2).
+    """Подписанный самодостаточный cursor (архконтракт §1, формат v3).
 
     Payload (ASCII, без текста сообщений), base64url без padding:
-    ``v2|chat_id|anchor_ts|anchor_id|oldest_ts|oldest_id|requested|
-    available|processed|after_ts|after_id|exp|sample_id``; подпись — первые
-    16 hex hmac.sha256(process_key, payload). ``available``/``processed`` —
-    захваченные счётчики выборки (ревью H14, 2026-10-29): продолжение
-    сверяет обещанный остаток (available - processed) с живой БД и честно
-    рапортует удалённые строки, а не молча ужмёт available до выжившего
-    COUNT. Формат v2 принят fail-closed: payload прежней сборки без этих
-    полей не разбирается вовсе (unknown_cursor); TTL 360 с делает
-    совместимость с v1 бессмысленной. Тела страниц в состоянии НЕ хранятся:
+    ``v3|chat_id|anchor_ts|anchor_id|oldest_ts|oldest_id|requested|
+    available|processed|after_ts|after_id|exp|sample_id|window_from|
+    window_to``; подпись — первые 16 hex hmac.sha256(process_key, payload).
+    ``available``/``processed`` — захваченные счётчики выборки (ревью H14,
+    2026-10-29): продолжение сверяет обещанный остаток (available - processed)
+    с живой БД и честно рапортует удалённые строки, а не молча ужмёт available
+    до выжившего COUNT. VMQ/MEM-TIME: ``window_from``/``window_to`` (0/0 —
+    выборка без окна) сохраняют запрошенный период через страницы — заголовок
+    продолжения называет ТО ЖЕ окно, а не только границу N-й строки; страница
+    читается тем же окном. Формат v3 принят fail-closed: v2/v1 payload'ы
+    разбираются как unknown_cursor. Тела страниц в состоянии НЕ хранятся:
     следующая страница перечитывается из БД тем же предикатом."""
     payload = "|".join(str(v) for v in (
-        "v2", int(bound["chat_id"]), int(bound["anchor_ts"]),
+        "v3", int(bound["chat_id"]), int(bound["anchor_ts"]),
         int(bound["anchor_id"]), int(bound["oldest_ts"]),
         int(bound["oldest_id"]), int(bound["requested"]),
         int(bound["available"]), max(0, int(processed)),
         int(after_ts), int(after_id),
         int(bound.get("exp") or (time.time() + _history_cursor_ttl())),
         str(bound.get("sample_id") or ""),
+        max(0, int(bound.get("window_from") or 0)),
+        max(0, int(bound.get("window_to") or 0)),
     ))
     token = base64.urlsafe_b64encode(payload.encode("ascii")).decode("ascii").rstrip("=")
     sig = hmac.new(_HISTORY_CURSOR_KEY, payload.encode("ascii"),
                    hashlib.sha256).hexdigest()[:16]
-    return f"v2.{token}.{sig}"
+    return f"v3.{token}.{sig}"
 
 
 def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]:
     """Разбор + проверка cursor. (None, reason) при отказе — fail closed:
     путь B и дефолт 50 запрещены (архконтракт §1). Чужой chat_id и битая
     подпись неотличимы для caller'а — оба ``unknown_cursor``. Только формат
-    v2 (с захваченными available/processed): payload старой сборки (v1,
-    без счётчиков выборки) → ``unknown_cursor`` — молчаливое чтение по
-    уменьшенному окну запрещено (ревью H14)."""
+    v3 (с захваченными available/processed и окном): payload старой сборки
+    (v2/v1) → ``unknown_cursor`` — молчаливое чтение по другому/уменьшенному
+    окну запрещено (ревью H14, VMQ/MEM-TIME)."""
     parts = str(cursor or "").strip().split(".")
-    if len(parts) != 3 or parts[0] != "v2" or not parts[1] or not parts[2]:
+    if len(parts) != 3 or parts[0] != "v3" or not parts[1] or not parts[2]:
         return None, "unknown_cursor"
     try:
         pad = "=" * (-len(parts[1]) % 4)
@@ -505,7 +526,7 @@ def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]
     if not hmac.compare_digest(expected, parts[2]):
         return None, "unknown_cursor"
     fields = payload.split("|")
-    if len(fields) != 13 or fields[0] != "v2":
+    if len(fields) != 15 or fields[0] != "v3":
         return None, "unknown_cursor"
     try:
         cur_chat = int(fields[1])
@@ -515,6 +536,7 @@ def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]
         available, processed = int(fields[7]), int(fields[8])
         after_ts, after_id = int(fields[9]), int(fields[10])
         exp = int(fields[11])
+        window_from, window_to = int(fields[13]), int(fields[14])
     except (TypeError, ValueError):
         return None, "unknown_cursor"
     sample_id = fields[12]
@@ -523,6 +545,12 @@ def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]
     # Счётчики выборки обязательны и согласованы; кривые значения — отказ,
     # не «лучшая догадка» (fail closed).
     if available < 1 or processed < 0 or processed > available:
+        return None, "unknown_cursor"
+    if window_from < 0 or window_to < 0:
+        return None, "unknown_cursor"
+    if bool(window_from) != bool(window_to):
+        return None, "unknown_cursor"
+    if window_from and window_to and window_from > window_to:
         return None, "unknown_cursor"
     if cur_chat != int(chat_id):
         return None, "unknown_cursor"
@@ -534,6 +562,7 @@ def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]
         "requested": requested, "available": available,
         "processed": processed, "after_ts": after_ts, "after_id": after_id,
         "exp": exp, "sample_id": sample_id,
+        "window_from": window_from, "window_to": window_to,
     }, ""
 
 
@@ -582,17 +611,237 @@ def _row_field(row, key: str, default: int = 0) -> int:
     return _bound_int(value, default)
 
 
-async def capture_history_sample(db, chat_id: int, requested: int) -> dict | None:
-    """Захват границы выборки (архконтракт §0): два точечных чтения
-    метаданных (якорь + граница N-й строки) и COUNT в окне. Тела сообщений
-    НЕ выбирает — вторая полная копия истории в памяти процесса запрещена.
+_HISTORY_COUNT_IN_WINDOW_SQL = (
+    "SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ? "
+    "AND (timestamp < ? OR (timestamp = ? AND id <= ?)) "
+    "AND timestamp >= ?"
+)
 
-    Возвращает маленький объект границы (dict) или None (пустой чат).
-    Куда попадает: локальная переменная хода; волна SEGMENTS дополнительно
-    ставит его на ``tool_ctx.history_sample`` (setattr) ДО сборки контекста."""
+
+async def _history_count_all_in_window(db, chat_id: int, time_from: int,
+                                       time_to: int):
+    """COUNT всех сообщений чата в [time_from, time_to] (метаданные, не
+    тела). None — коннект недоступен/ошибка (честное «неизвестно», не ноль)."""
+    if db is None:
+        return None
+    try:
+        row = await _history_probe_row(
+            db, "SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ? "
+                "AND timestamp >= ? AND timestamp <= ?",
+            (int(chat_id), int(time_from), int(time_to)))
+    except (TypeError, AttributeError):
+        return None
+    if row is None:
+        return None
+    return _bound_int(row["n"] if row is not None else row, 0)
+
+
+def _history_window_label(time_from, time_to) -> str:
+    """Человекочитаемая метка окна: ``ДД.ММ.ГГГГ ЧЧ:ММ UTC – ... UTC``.
+
+    Одна явная шкала: каждая граница помечена UTC, поэтому локальное «13:30»
+    Chat_Time_Context больше не читается как то же время. Кривые значения →
+    ``""`` (не выдумываем время)."""
+    start = _history_utc_stamp(time_from)
+    end = _history_utc_stamp(time_to)
+    if not start or not end:
+        return ""
+    return f"{start} – {end}"
+
+
+def _history_utc_stamp(ts) -> str:
+    """unix ts → ``ДД.ММ.ГГГГ ЧЧ:ММ UTC`` (пусто при кривом/пустом ts)."""
+    try:
+        moment = datetime.datetime.fromtimestamp(
+            int(ts), datetime.timezone.utc)
+    except (TypeError, ValueError, OSError, OverflowError):
+        return ""
+    return moment.strftime("%d.%m.%Y %H:%M UTC")
+
+
+def _history_parse_time_window(raw) -> tuple[tuple[int, int] | None, str]:
+    """Валидация ``time_window`` инструмента через общий `parse_time_window`.
+
+    Здесь нет второй реализации: предел/хвост передаются как технические
+    параметры (`_HISTORY_WINDOW_MAX_SECONDS`/`_HISTORY_WINDOW_DEFAULT_SECONDS`).
+    Пустой объект — не «окно по умолчанию», а явный отказ: для истории
+    безымянный период вернул бы произвольный час. Непустой словарь
+    валидируется построчно."""
+    if not isinstance(raw, dict):
+        return None, "time_window_must_be_object"
+    if not raw:
+        return None, "invalid_time_window"
+    from services.runtime_probes import parse_time_window
+    return parse_time_window(
+        raw, now=time.time(),
+        default_seconds=_HISTORY_WINDOW_DEFAULT_SECONDS,
+        max_seconds=_HISTORY_WINDOW_MAX_SECONDS)
+
+
+def _history_window_unsupported(reason: str) -> str:
+    """Структурный отказ кривого окна (JSON, не «пусто» и не тихая обрезка).
+
+    R17: только код причины/схема, без текста запроса."""
+    return json.dumps({
+        "tool": "get_recent_history",
+        "status": "unsupported",
+        "reason_code": str(reason or "invalid_time_window"),
+        "time_window_contract": {
+            "since": "ISO-8601 UTC (optional)",
+            "until": "ISO-8601 UTC (optional)",
+            "last_seconds": "integer >= 1 (alternative to since/until)",
+        },
+        "hint": ("Pass a valid period; do not put the human period phrase "
+                 "into query."),
+    }, ensure_ascii=False)
+
+
+def _history_window_bound(chat_id: int, window: tuple[int, int], *,
+                          requested: int, available: int,
+                          window_total: int | None = None,
+                          matched: int | None = None,
+                          anchor: tuple[int, int] | None = None,
+                          oldest: tuple[int, int] | None = None,
+                          query_page: bool = False) -> dict:
+    """Граница выборки окна: верх ≤ time_to, низ — окно или N-я строка.
+
+    ``anchor``/``oldest`` — фактические границы строк (для запроса это
+    первый/последний матч); без них — края запрошенного интервала. Окно
+    входит в sample_id и переживает страницы через подписанный cursor."""
+    time_from, time_to = int(window[0]), int(window[1])
+    a_ts, a_id = anchor if anchor else (time_to, _HISTORY_WINDOW_EDGE_ID)
+    o_ts, o_id = oldest if oldest else (time_from, 0)
+    bound = {
+        "sample_id": _history_sample_id(
+            chat_id, a_ts, a_id, int(requested),
+            window_from=time_from, window_to=time_to),
+        "chat_id": int(chat_id),
+        "anchor_ts": int(a_ts), "anchor_id": int(a_id),
+        "oldest_ts": int(o_ts), "oldest_id": int(o_id),
+        "requested": int(requested),
+        "available": int(available),
+        "window_from": time_from,
+        "window_to": time_to,
+    }
+    if window_total is not None:
+        bound["window_total"] = int(window_total)
+    if matched is not None:
+        bound["matched"] = int(matched)
+    if query_page:
+        bound["query_page"] = True
+    return bound
+
+
+async def capture_history_sample(db, chat_id: int, requested: int | None = None,
+                                 *, time_from: int | None = None,
+                                 time_to: int | None = None) -> dict | None:
+    """Захват границы выборки (архконтракт §0): точечные чтения метаданных
+    (якорь + граница N-й строки) и COUNT в окне. Тела сообщений НЕ
+    выбирает — вторая полная копия истории в памяти процесса запрещена.
+
+    VMQ/MEM-TIME (16.11.2026): аддитивное окно по времени
+    ``time_from``/``time_to`` (epoch, оба края включительно). Тогда якорь —
+    последняя строка НЕ ПОЗЖЕ ``time_to``, нижний край — ``time_from``;
+    ``requested=None`` → ``0``: выборка = ВСЁ окно (available = COUNT окна),
+    ``requested`` > 0 — последние N строк внутри окна. Окно входит в
+    ``sample_id`` и границы. Без окна/с прежними аргументами поведение
+    байт-в-байт прежнее (дефолт requested=None без окна → 1 — защита от
+    пустой выборки). Возвращает маленький объект границы (dict) или None
+    (пустой чат/пустое окно)."""
     if db is None or not hasattr(db, "get_recent_messages"):
         raise RuntimeError("db недоступен")
-    wanted = max(1, int(requested))
+    windowed = time_from is not None or time_to is not None
+    wanted = 0 if requested is None else max(1, int(requested))
+    if windowed:
+        lower = max(0, int(time_from or 0))
+        upper = int(time_to) if time_to is not None else None
+        window_total = 0
+        try:
+            if upper is not None:
+                row = await _history_probe_row(
+                    db, "SELECT id, timestamp FROM smart_messages WHERE "
+                        "chat_id = ? AND timestamp <= ? "
+                        "ORDER BY timestamp DESC, id DESC LIMIT 1",
+                    (int(chat_id), upper))
+            else:
+                row = await _history_probe_row(
+                    db, "SELECT id, timestamp FROM smart_messages WHERE "
+                        "chat_id = ? ORDER BY timestamp DESC, id DESC LIMIT 1",
+                    (int(chat_id),))
+            if row is None:
+                return None
+            a_ts, a_id = _bound_int(row["timestamp"]), _bound_int(row["id"])
+            if a_ts < lower:
+                return None
+            count_row = await _history_probe_row(
+                db, _HISTORY_COUNT_IN_WINDOW_SQL,
+                (int(chat_id), a_ts, a_ts, a_id, lower))
+            in_window = _bound_int(
+                count_row["n"] if count_row is not None else count_row, 0)
+            if in_window <= 0:
+                return None
+            window_total = in_window
+            if wanted and in_window > wanted:
+                row = await _history_probe_row(
+                    db, "SELECT id, timestamp FROM smart_messages WHERE "
+                        "chat_id = ? AND (timestamp < ? OR (timestamp = ? "
+                        "AND id <= ?)) AND timestamp >= ? "
+                        "ORDER BY timestamp DESC, id DESC LIMIT 1 OFFSET ?",
+                    (int(chat_id), a_ts, a_ts, a_id, lower, wanted - 1))
+                if row is None:
+                    return None
+                o_ts, o_id = _bound_int(row["timestamp"]), _bound_int(row["id"])
+                available = min(in_window, wanted)
+            else:
+                row = await _history_probe_row(
+                    db, "SELECT id, timestamp FROM smart_messages WHERE "
+                        "chat_id = ? AND (timestamp < ? OR (timestamp = ? "
+                        "AND id <= ?)) AND timestamp >= ? "
+                        "ORDER BY timestamp ASC, id ASC LIMIT 1",
+                    (int(chat_id), a_ts, a_ts, a_id, lower))
+                if row is None:
+                    return None
+                o_ts, o_id = _bound_int(row["timestamp"]), _bound_int(row["id"])
+                available = in_window
+        except (TypeError, AttributeError):
+            # Duck-typed фейк без aiosqlite-коннекта: только bounded-чтение,
+            # честно ограниченное запрошенным объёмом (прод-путь — SQL выше).
+            rows = await db.get_recent_messages(
+                chat_id, wanted or _HISTORY_PAGE_ROWS)
+            in_window_rows = [
+                r for r in (rows or [])
+                if lower <= _row_field(r, "timestamp")
+                and (upper is None or _row_field(r, "timestamp") <= upper)
+            ]
+            if not in_window_rows:
+                return None
+            ordered = sorted(
+                in_window_rows,
+                key=lambda r: (_row_field(r, "timestamp"), _row_field(r, "id")))
+            if wanted and len(ordered) > wanted:
+                ordered = ordered[-wanted:]
+            a_ts, a_id = _row_field(
+                ordered[-1], "timestamp"), _row_field(ordered[-1], "id")
+            o_ts, o_id = _row_field(
+                ordered[0], "timestamp"), _row_field(ordered[0], "id")
+            available = len(ordered)
+            window_total = len(in_window_rows)
+        return {
+            "sample_id": _history_sample_id(
+                chat_id, a_ts, a_id, wanted,
+                window_from=lower, window_to=upper or a_ts),
+            "chat_id": int(chat_id),
+            "anchor_ts": a_ts, "anchor_id": a_id,
+            "oldest_ts": o_ts, "oldest_id": o_id,
+            "requested": wanted,
+            "available": max(1, available),
+            "window_from": lower,
+            "window_to": upper if upper is not None else a_ts,
+            "window_total": max(available, window_total),
+            "captured_wall": time.time(),
+        }
+    if wanted < 1:
+        wanted = 1
     anchor_row = await db.get_recent_messages(chat_id, 1)
     if not anchor_row:
         return None
@@ -747,7 +996,8 @@ def parse_history_sample(text: str) -> dict | None:
         key, _, val = line.partition("=")
         key, val = key.strip(), val.strip()
         if key in ("requested", "available", "processed", "remaining",
-                   "has_next", "incomplete"):
+                   "has_next", "incomplete", "window_from", "window_to",
+                   "window_total", "matched", "truncated"):
             try:
                 fields[key] = int(val)
             except (TypeError, ValueError):
@@ -1227,11 +1477,18 @@ async def resolve_lore_compiler_flag(chat_id: int | None) -> bool:
 
 
 def _format_timestamp(ts) -> str:
-    """timestamp (int/float) → 'YYYY-MM-DD HH:MM' (пусто при отсутствии)."""
+    """timestamp (int/float) → 'YYYY-MM-DD HH:MM UTC' (пусто при отсутствии).
+
+    VMQ/MEM-TIME (16.11.2026): явная UTC-шкала. Прежний `fromtimestamp`
+    без tz печатал контейнерное локальное время без метки — в чате +05:00
+    метка UTC-сообщения не совпадала с Chat_Time_Context и не называла шкалу.
+    Формат строки для query_chat_memory/dig сохранён (год-месяц-день), но
+    шкала теперь одна и помечена."""
     if not ts:
         return ""
     try:
-        return datetime.datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M")
+        return datetime.datetime.fromtimestamp(
+            int(ts), datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     except (ValueError, OSError, OverflowError):
         return ""
 
@@ -5902,7 +6159,19 @@ class ToolRouter:
                     ctx.chat_id, type(exc).__name__)
                 return f"ОШИБКА get_recent_history: {type(exc).__name__}"
 
-        # 2-6. Маршрутизация без cursor.
+        # 2-7. Маршрутизация без cursor.
+        # VMQ/MEM-TIME (16.11.2026): time_window валидируется общим
+        # parse_time_window; кривое окно — структурный unsupported-отказ,
+        # НЕ «пусто» и не тихая замена на дефолт.
+        window = None
+        if "time_window" in args:
+            window, window_error = _history_parse_time_window(
+                args.get("time_window"))
+            if window is None:
+                logger.info(
+                    "[tools] get_recent_history window rejected | chat=%s | "
+                    "reason=%s", ctx.chat_id, window_error)
+                return _history_window_unsupported(window_error)
         depth_raw = args.get("depth")
         explicit_depth = (None if depth_raw in (None, "")
                           else _history_depth(depth_raw))
@@ -5914,16 +6183,24 @@ class ToolRouter:
             requested = _bound_int(bound.get("requested"), 0)
             if requested < 1:
                 bound, requested = None, 0
-        elif explicit_depth is not None:            # 3. явный depth
+        elif window is not None:                    # 3. окно (+depth)
+            # ctx.query при явном окне НЕ становится FTS-фильтром: без
+            # аргумента query возвращается полная хронология периода.
+            if query_arg:
+                return await self._history_query_in_window(
+                    ctx, db, query_arg, window)
+            return await self._history_chronology_in_window(
+                ctx, db, window, explicit_depth)
+        elif explicit_depth is not None:            # 4. явный depth
             requested = explicit_depth
-        elif extracted_depth is not None:           # 4. N в тексте хода
+        elif extracted_depth is not None:           # 5. N в тексте хода
             requested = extracted_depth
         else:
             requested = 0
-        if requested < 1 and query_text:            # 5. путь B (FTS)
+        if requested < 1 and query_text:            # 6. путь B (FTS)
             try:
-                fetched, lines = await asyncio.wait_for(
-                    self._recent_history_by_query(ctx, query_text),
+                result = await asyncio.wait_for(
+                    self._recent_history_by_query(ctx, query_text, db=db),
                     timeout=_HISTORY_TOOL_TIMEOUT)
             except asyncio.TimeoutError:
                 logger.warning("[tools] get_recent_history timeout | chat=%s",
@@ -5938,6 +6215,8 @@ class ToolRouter:
                 return f"ОШИБКА get_recent_history: {type(exc).__name__}"
             # P0-HA §4.1: путь B больше НЕ проходит через символьную обрезку —
             # выборка ограничена собственным FTS-лимитом (_HISTORY_SEARCH_LIMIT).
+            lines = result["lines"]
+            fetched = result["fetched"]
             text = "\n".join(lines)
             if not lines:
                 logger.info("[tools] get_recent_history | chat=%s | mode=query "
@@ -5948,7 +6227,7 @@ class ToolRouter:
                         "fetched=%d | count=%d | out_chars=%d",
                         ctx.chat_id, fetched, len(lines), len(text))
             return text
-        if requested < 1:                           # 6. дефолт (не максимум)
+        if requested < 1:                           # 7. дефолт (не максимум)
             requested = _HISTORY_DEFAULT_DEPTH
         # Путь A: страница выборки (якорь фиксируется при необходимости).
         try:
@@ -5977,6 +6256,124 @@ class ToolRouter:
                 ctx.chat_id, type(exc).__name__)
             return f"ОШИБКА get_recent_history: {type(exc).__name__}"
         return self._format_history_page(bound, page, processed_before=0)
+
+    async def _history_chronology_in_window(self, ctx: ToolContext, db,
+                                            window: tuple[int, int],
+                                            depth: int | None) -> str:
+        """Хронология ОКНА (без query): существующая страница истории с
+        нижним краем time_from и верхним ≤ time_to. ``depth`` ограничивает
+        выборку последними N строками окна; без depth — всё окно (каждая
+        страница несёт честные счётчики и подписанный cursor)."""
+        requested = depth if depth is not None else None
+        try:
+            bound = await asyncio.wait_for(
+                capture_history_sample(db, ctx.chat_id, requested,
+                                       time_from=window[0],
+                                       time_to=window[1]),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+            if bound is None:
+                empty = _history_window_bound(
+                    ctx.chat_id, window, requested=requested or 0,
+                    available=0, window_total=0)
+                logger.info(
+                    "[tools] get_recent_history | chat=%s | mode=window | "
+                    "status=empty_window | window_from=%d | window_to=%d",
+                    ctx.chat_id, window[0], window[1])
+                return self._format_history_page(
+                    empty, {"rows": [], "lines": [], "fetched": 0,
+                            "page_from": "", "page_to": ""},
+                    processed_before=0, status="empty_window")
+            page = await asyncio.wait_for(
+                self._history_read_page(db, bound, after=None,
+                                        projection=getattr(ctx, "speech", None)),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] get_recent_history timeout | chat=%s",
+                           ctx.chat_id)
+            return self._history_window_error_page(
+                ctx, window, reason="timeout", requested=requested or 0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "[tools] get_recent_history failed | chat=%s | error=%s",
+                ctx.chat_id, type(exc).__name__)
+            return self._history_window_error_page(
+                ctx, window, reason="db_error", requested=requested or 0)
+        status = "ok" if page.get("fetched") else "empty_window"
+        return self._format_history_page(
+            bound, page, processed_before=0, status=status)
+
+    async def _history_query_in_window(self, ctx: ToolContext, db,
+                                       query: str,
+                                       window: tuple[int, int]) -> str:
+        """Совпадения query ВНУТРИ окна: since/until и order=time уходят в
+        SQL ДО limit (не пост-фильтр top-80 по корпусу). Заголовок честно
+        различает ok|empty_window|no_match|error и называет matched/
+        window_total/truncated; cursor для FTS-выдачи не выдаётся."""
+        try:
+            result = await asyncio.wait_for(
+                self._recent_history_by_query(
+                    ctx, query, time_from=window[0], time_to=window[1],
+                    db=db),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] get_recent_history timeout | chat=%s",
+                           ctx.chat_id)
+            return self._history_window_error_page(
+                ctx, window, reason="timeout",
+                requested=_HISTORY_SEARCH_LIMIT)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "[tools] get_recent_history failed | chat=%s | error=%s",
+                ctx.chat_id, type(exc).__name__)
+            return self._history_window_error_page(
+                ctx, window, reason="search_failed",
+                requested=_HISTORY_SEARCH_LIMIT)
+        lines = list(result.get("lines") or [])
+        window_total = result.get("window_total")
+        matched = int(result.get("matched") or 0)
+        truncated = 1 if result.get("truncated") else 0
+        if lines:
+            status = "ok"
+            bound = _history_window_bound(
+                ctx.chat_id, window, requested=_HISTORY_SEARCH_LIMIT,
+                available=matched, window_total=window_total,
+                matched=matched, anchor=result.get("last"),
+                oldest=result.get("first"), query_page=True)
+        else:
+            status = ("empty_window" if window_total == 0 else "no_match")
+            bound = _history_window_bound(
+                ctx.chat_id, window, requested=_HISTORY_SEARCH_LIMIT,
+                available=0, window_total=window_total, matched=matched,
+                query_page=True)
+        logger.info(
+            "[tools] get_recent_history | chat=%s | mode=window_query | "
+            "status=%s | window_total=%s | matched=%d | shown=%d | "
+            "truncated=%d", ctx.chat_id, status, window_total, matched,
+            len(lines), truncated)
+        page = {"rows": [], "lines": lines,
+                "page_from": result.get("page_from") or "",
+                "page_to": result.get("page_to") or "",
+                "fetched": len(lines)}
+        return self._format_history_page(
+            bound, page, processed_before=0, status=status,
+            truncated=truncated, next_cursor_enabled=False)
+
+    def _history_window_error_page(self, ctx: ToolContext,
+                                   window: tuple[int, int], *, reason: str,
+                                   requested: int) -> str:
+        """Структурный error-заголовок окна: техническая ошибка названа
+        (status=error/reason), а не выдаётся за пустой период."""
+        bound = _history_window_bound(
+            ctx.chat_id, window, requested=requested, available=0,
+            window_total=None)
+        return self._format_history_page(
+            bound, {"rows": [], "lines": [], "fetched": 0,
+                    "page_from": "", "page_to": ""},
+            processed_before=0, status="error", reason=reason)
 
     def _history_bound_from_ctx(self, ctx: ToolContext) -> dict | None:
         """Граница выборки хода (архконтракт §0: setattr ``tool_ctx.history_
@@ -6056,6 +6453,8 @@ class ToolRouter:
             "requested": fields["requested"],
             "available": int(fields["available"]),  # захваченный available
             "exp": fields["exp"],
+            "window_from": fields.get("window_from") or 0,
+            "window_to": fields.get("window_to") or 0,
         }
         page = await self._history_read_page(
             db, bound, after=after, projection=getattr(ctx, "speech", None))
@@ -6067,7 +6466,10 @@ class ToolRouter:
     def _format_history_page(self, bound: dict, page: dict,
                              *, processed_before: int,
                              expected_remaining: int | None = None,
-                             survivors_after: int | None = None) -> str:
+                             survivors_after: int | None = None,
+                             status: str = "ok", reason: str = "",
+                             truncated: int = 0,
+                             next_cursor_enabled: bool = True) -> str:
         """Голова @@HISTORY_SAMPLE (компактная, стабильная, разбирается кодом,
         без текста сообщений) + канонические строки целых сообщений +
         хвостовой сентинел (не «…», чтобы tool_result не помечал truncated).
@@ -6079,15 +6481,29 @@ class ToolRouter:
         живого числа строк после точки курсора. Живых строк меньше
         обещанных → incomplete=1/reason=tail_missing; выжившие строки всё
         равно отдаются, счётчик processed не пересчитывается живым COUNT —
-        потеря названа, не скрыта (ревью H14). Первая страница поведение не
-        меняет (H7: короткий архив честно полон)."""
+        потеря названа, не скрыта (ревью H14).
+
+        VMQ/MEM-TIME (16.11.2026): голова называет ОКНО (``window_from``/
+        ``window_to`` epoch + ``window_label`` UTC) и честный ``status``:
+        ``ok|empty_window|no_match|error``. Исходная семантика счётчиков
+        сохранена; ``truncated=1`` — хвост FTS-совпадений не показан
+        (``reason=match_limit``, cursor не выдаётся: продолжение FTS-выборки
+        не keyset-страница). Для ``query_page`` границы строк не печатаются:
+        у запроса нет «якоря выборки»."""
         fetched = int(page.get("fetched") or 0)
         processed = processed_before + fetched
         available = _bound_int(bound.get("available"), 0)
         remaining = max(0, available - processed)
-        has_next = remaining > 0 and fetched > 0
+        has_next = remaining > 0 and fetched > 0 and next_cursor_enabled
         incomplete = 0
-        reason = ""
+        page_status = str(status or "ok")
+        if page_status not in _HISTORY_WINDOW_STATUSES:
+            page_status = "ok"
+        if truncated and page_status == "ok":
+            # FTS-хвост сверх лимита: потеря названа; cursor не выдаётся.
+            incomplete = 1
+            if not reason:
+                reason = "match_limit"
         if expected_remaining is not None and survivors_after is not None:
             if survivors_after < expected_remaining:
                 # H14: часть недочитанного хвоста удалена из БД (retention)
@@ -6097,7 +6513,8 @@ class ToolRouter:
                 reason = "tail_missing"
             # has_next — по живым строкам: цепочка дочитывает выживших,
             # потеря уже названа в этой голове.
-            has_next = fetched > 0 and survivors_after > fetched
+            has_next = (next_cursor_enabled and fetched > 0
+                        and survivors_after > fetched)
             if fetched == 0 and remaining > 0 and incomplete == 0:
                 # Гонка: окно опустело между COUNT и чтением страницы.
                 has_next = False
@@ -6109,6 +6526,8 @@ class ToolRouter:
             has_next = False
             incomplete = 1
             reason = "anchor_missing"
+        if not next_cursor_enabled:
+            has_next = False
         cursor_field = ""
         if has_next and page.get("page_to"):
             to_ts, _, to_id = str(page["page_to"]).partition(":")
@@ -6116,7 +6535,14 @@ class ToolRouter:
             # продолжение наследует срок исходной выборки (не новый TTL).
             cursor_field = _history_cursor_encode(bound, int(to_ts), int(to_id),
                                                   processed)
-        header = "\n".join((
+        query_page = bool(bound.get("query_page"))
+        window_from = _bound_int(bound.get("window_from"), 0)
+        window_to = _bound_int(bound.get("window_to"), 0)
+        if window_from <= 0:
+            window_from = _bound_int(bound.get("oldest_ts"), 0)
+        if window_to <= 0:
+            window_to = _bound_int(bound.get("anchor_ts"), 0)
+        header_lines = [
             _HISTORY_SAMPLE_HEADER,
             f"sample_id={bound.get('sample_id') or ''}",
             f"requested={_bound_int(bound.get('requested'), 0)}",
@@ -6124,10 +6550,25 @@ class ToolRouter:
             f"processed={processed}",
             f"remaining={remaining}",
             f"has_next={1 if has_next else 0}",
-            f"boundary_to={_bound_int(bound.get('anchor_ts'))}:"
-            f"{_bound_int(bound.get('anchor_id'))}",
-            f"boundary_from={_bound_int(bound.get('oldest_ts'))}:"
-            f"{_bound_int(bound.get('oldest_id'))}",
+            f"window_from={window_from}",
+            f"window_to={window_to}",
+            f"window_label={_history_window_label(window_from, window_to)}",
+            f"status={page_status}",
+            f"truncated={1 if truncated else 0}",
+        ]
+        if bound.get("window_total") is not None:
+            header_lines.append(
+                f"window_total={_bound_int(bound.get('window_total'), 0)}")
+        if bound.get("matched") is not None:
+            header_lines.append(f"matched={_bound_int(bound.get('matched'), 0)}")
+        if not query_page:
+            header_lines.extend((
+                f"boundary_to={_bound_int(bound.get('anchor_ts'))}:"
+                f"{_bound_int(bound.get('anchor_id'))}",
+                f"boundary_from={_bound_int(bound.get('oldest_ts'))}:"
+                f"{_bound_int(bound.get('oldest_id'))}",
+            ))
+        header_lines.extend((
             f"page_from={page.get('page_from') or ''}",
             f"page_to={page.get('page_to') or ''}",
             f"incomplete={incomplete}",
@@ -6135,6 +6576,7 @@ class ToolRouter:
             f"cursor={cursor_field}",
             _HISTORY_HEADER_END,
         ))
+        header = "\n".join(header_lines)
         lines = list(page.get("lines") or [])
         text = header
         if lines:
@@ -6144,26 +6586,115 @@ class ToolRouter:
         # count (строк в стенограмме страницы); без текстов/URL/имён (R17).
         logger.info("[tools] get_recent_history | chat=%s | sample=%s | "
                     "page_from=%s | page_to=%s | fetched=%d | count=%d | "
-                    "processed=%d | remaining=%d | has_next=%d | out_chars=%d",
+                    "processed=%d | remaining=%d | has_next=%d | "
+                    "status=%s | out_chars=%d",
                     bound.get("chat_id"), bound.get("sample_id"),
                     page.get("page_from") or "-", page.get("page_to") or "-",
                     fetched, len(lines), processed, remaining,
-                    1 if has_next else 0, len(text))
+                    1 if has_next else 0, page_status, len(text))
         return text
 
-    async def _recent_history_by_query(self, ctx: ToolContext, query: str
-                                       ) -> tuple[int, list[str]]:
-        """Путь B: FTS по L1 + фильтр окна последних часов →
-        (fetched, ASC-стенограмма)."""
-        since = int(time.time()) - _HISTORY_QUERY_WINDOW_SECONDS
-        rows = await self.deps.memory.search_long_term(
-            ctx.chat_id, keywords(query), limit=_HISTORY_SEARCH_LIMIT)
+    async def _recent_history_by_query(self, ctx: ToolContext, query: str, *,
+                                       time_from: int | None = None,
+                                       time_to: int | None = None,
+                                       db=None) -> dict:
+        """Путь B: FTS по L1 ВНУТРИ окна [time_from, time_to].
+
+        VMQ/MEM-TIME (16.11.2026, ARCH_DECISION): окно уходит в SQL ДО limit
+        (`since_ts`/`until_ts`/`order="time"` у `search_long_term`) — прежний
+        пост-фильтр после top-80 по всему корпусу оставлял 1 строку из 80
+        при живых 163 сообщениях за 2 часа. Без явного окна — прежние
+        «последние часы» (`_HISTORY_QUERY_WINDOW_SECONDS`), но тоже
+        filter-before-limit. Пост-фильтр в Python остаётся страховкой для
+        memory-заглушек без SQL-фильтров (в проде он ничего не отбрасывает).
+
+        Возвращает dict: ``lines`` (ASC-стенограмма матчей), ``fetched``,
+        ``window_total`` (COUNT всех сообщений окна; None — неизвестно),
+        ``matched`` (полный счётчик совпадений в окне; при недоступном
+        счётчике — показанное), ``truncated`` (matched > показанного),
+        ``first``/``last`` — границы строк (timestamp, id) и
+        ``page_from``/``page_to`` для головы. Ошибки БД/поиска — наружу
+        (caller решает статус error)."""
+        now = int(time.time())
+        to_ts = int(time_to) if time_to is not None else now
+        from_ts = (int(time_from) if time_from is not None
+                   else max(0, to_ts - _HISTORY_QUERY_WINDOW_SECONDS))
+        search = self.deps.memory.search_long_term
+        window_kwargs_supported = True
+        try:
+            params = inspect.signature(search).parameters
+            window_kwargs_supported = (
+                "since_ts" in params
+                or any(item.kind is inspect.Parameter.VAR_KEYWORD
+                       for item in params.values()))
+        except (TypeError, ValueError):
+            # Неинтроспектируемый callable — считаем, что контракт штатный.
+            window_kwargs_supported = True
+        if window_kwargs_supported:
+            rows = await search(
+                ctx.chat_id, keywords(query), limit=_HISTORY_SEARCH_LIMIT,
+                since_ts=from_ts, until_ts=to_ts, order="time")
+        else:
+            # Duck-typed memory-заглушка без SQL-фильтров (прод-реализация
+            # `summary_memory.search_long_term` kwargs принимает): прежний
+            # вызов + честный пост-фильтр ниже. Внутренний TypeError
+            # штатного вызова НЕ маскируется этим путём.
+            logger.debug("[tools] get_recent_history: memory without SQL "
+                         "window kwargs — post-filter fallback")
+            rows = await search(
+                ctx.chat_id, keywords(query), limit=_HISTORY_SEARCH_LIMIT)
         # T-678: aiosqlite.Row не имеет .get → нормализация в dict.
         rows = [dict(row) for row in rows]
-        rows = [r for r in rows if int(r.get("timestamp") or 0) >= since]
-        rows.sort(key=lambda r: int(r.get("timestamp") or 0))
-        return len(rows), self._history_lines(
+        rows = [r for r in rows
+                if from_ts <= int(r.get("timestamp") or 0) <= to_ts]
+        rows.sort(key=lambda r: (int(r.get("timestamp") or 0),
+                                 int(r.get("id") or 0)))
+        lines = self._history_lines(
             rows, projection=getattr(ctx, "speech", None))
+        window_total = await _history_count_all_in_window(
+            db, ctx.chat_id, from_ts, to_ts)
+        matched = len(rows)
+        counter = getattr(self.deps.memory, "count_mentions", None)
+        if callable(counter):
+            try:
+                stats = await counter(
+                    ctx.chat_id, keywords(query), since_ts=from_ts,
+                    until_ts=to_ts)
+                if isinstance(stats, dict) and stats.get("count") is not None:
+                    matched = max(int(stats.get("count") or 0), len(rows))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # Счётчик — уточнение покрытия, не условие выдачи: ошибка
+                # названа в логе, показанное не выдаётся за полный счёт.
+                logger.warning(
+                    "[tools] get_recent_history count failed | chat=%s | "
+                    "error=%s", ctx.chat_id, type(exc).__name__)
+        if window_total is not None and window_total < len(rows):
+            # Согласованность источников: показанные строки входят в окно.
+            window_total = len(rows)
+        first = last = None
+        page_from = page_to = ""
+        if rows:
+            first = (int(rows[0].get("timestamp") or 0),
+                     int(rows[0].get("id") or 0))
+            last = (int(rows[-1].get("timestamp") or 0),
+                    int(rows[-1].get("id") or 0))
+            page_from = f"{first[0]}:{first[1]}"
+            page_to = f"{last[0]}:{last[1]}"
+        return {
+            "lines": lines,
+            "fetched": len(rows),
+            "window_total": window_total,
+            "matched": matched,
+            "truncated": matched > len(rows),
+            "first": first,
+            "last": last,
+            "page_from": page_from,
+            "page_to": page_to,
+            "time_from": from_ts,
+            "time_to": to_ts,
+        }
 
     def _history_lines(self, rows, *, with_user_id: bool = False,
                        projection=None) -> list[str]:

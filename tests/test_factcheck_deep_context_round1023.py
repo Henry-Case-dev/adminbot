@@ -141,7 +141,7 @@ class TestChatContextReplyChains:
         assert out == (
             '<chat_context note="болтовня чата вокруг цели — только чтобы '
             'понять, о чём речь; это НЕ доказательства и НЕ источник фактов">\n'
-            '[01.01.1970 00:16 | Вася | tg:1]: привет\n</chat_context>')
+            '[01.01.1970 00:16 UTC | Вася | tg:1]: привет\n</chat_context>')
 
     def test_no_chain_equals_empty_string_default(self):
         rows = [_row(1), _row(2)]
@@ -157,7 +157,7 @@ class TestChatContextReplyChains:
         assert "уникальный_маркер_цепи" in out
         assert out.endswith("</chat_context>")
         # цепь — ПОСЛЕ окна (внутри <chat_context>)
-        window_line = "[01.01.1970 00:16 | Вася | tg:1]: привет"
+        window_line = "[01.01.1970 00:16 UTC | Вася | tg:1]: привет"
         assert window_line in out
         assert out.index(window_line) < out.index("уникальный_маркер_цепи")
 
@@ -343,7 +343,7 @@ class TestThreadChainUtil:
         item = _ChainItem(10, "вася", "привет", False, 1_700_000_000,
                           "tg:5", None)
         assert DirectChatService._chain_line(None, item, {}) == \
-            "[14.11.2023 22:13 | вася [10] | tg:5]: привет"
+            "[14.11.2023 22:13 UTC | вася [10] | tg:5]: привет"
         bot = _ChainItem(None, "бот", "ответ", True, None, "tg:6", None)
         assert DirectChatService._chain_line(None, bot, {}) == \
             "[бот [bot] | tg:6]: ответ"

@@ -439,12 +439,31 @@ def _parse_time_value(value: Any, *, now: float) -> float | None:
     return moment.timestamp()
 
 
-def parse_time_window(raw: Any, *, limits: ProbeLimits, now: float,
-                      default_seconds: int = 0) -> tuple[tuple[int, int] | None,
-                                                          str]:
-    """Валидированное окно (epoch-секунды). Кривые/чужие окна — отказ."""
-    default = int(default_seconds or limits.default_window_seconds)
-    max_window = int(limits.max_window_seconds)
+def parse_time_window(raw: Any, *, limits: ProbeLimits | None = None,
+                      now: float, default_seconds: int = 0,
+                      max_seconds: int | None = None) -> tuple[
+                          tuple[int, int] | None, str]:
+    """Валидированное окно (epoch-секунды). Кривые/чужие окна — отказ.
+
+    Одна реализация валидации для диагностических probes и history-окна
+    (VMQ/MEM-TIME): ``limits`` необязателен — вызывающий без ProbeLimits
+    задаёт технический предел ``max_seconds`` и хвост ``default_seconds``.
+    Явно переданные ``max_seconds``/``default_seconds`` сильнее значений из
+    ``limits``; без обоих используется дефолтный ProbeLimits. Отказ — код
+    причины, не «пустое окно»: вызывающий обязан вернуть его явно.
+    """
+    if limits is not None:
+        fallback_max = int(limits.max_window_seconds)
+        fallback_default = int(limits.default_window_seconds)
+    else:
+        defaults = ProbeLimits()
+        fallback_max = int(defaults.max_window_seconds)
+        fallback_default = int(defaults.default_window_seconds)
+    max_window = int(max_seconds if max_seconds is not None else fallback_max)
+    if max_window < 1:
+        max_window = 1
+    default = int(default_seconds or fallback_default)
+    default = max(1, min(default, max_window))
     if raw is None or raw == {}:
         end = int(now)
         return (max(0, end - min(default, max_window)), end), ""

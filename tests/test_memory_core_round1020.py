@@ -30,7 +30,7 @@ class TestFormatContextItem:
             ts=1714500000, author="Толян", item_id="tg:4123",
             forward_source="канал X", text="текст", kind="msg")
         assert re.fullmatch(
-            r"\[\d{2}\.\d{2}\.\d{4} \d{2}:\d{2} \| Толян \| tg:4123 "
+            r"\[\d{2}\.\d{2}\.\d{4} \d{2}:\d{2} UTC \| Толян \| tg:4123 "
             r"\| Переслано: канал X\]: текст", line)
 
     def test_fact_month_year(self):
@@ -56,7 +56,7 @@ class TestFormatContextItem:
         assert cc.format_context_item(ts=None, author=None, item_id=None,
                                       text="голый", kind="msg") == "голый"
         assert cc.format_context_item(ts=1714500000, text="x") == \
-            "[30.04.2024 18:00]: x"
+            "[30.04.2024 18:00 UTC]: x"
 
     def test_whitespace_squashed(self):
         line = cc.format_context_item(
@@ -74,7 +74,7 @@ class TestFormatContextItem:
 
     def test_unknown_kind_falls_back_to_msg(self):
         line = cc.format_context_item(ts=1714500000, text="x", kind="bogus")
-        assert line == "[30.04.2024 18:00]: x"
+        assert line == "[30.04.2024 18:00 UTC]: x"
 
     def test_broken_ts_is_safe(self):
         assert cc.format_context_item(ts="not-a-ts", text="x") == "x"
@@ -330,7 +330,7 @@ class TestTierAPoints:
                "timestamp": 1714500000, "tg_message_id": 5, "id": 9,
                "is_forward": 1, "forward_source": "канал X"}
         line = svc._context_row_line(row, {})
-        assert line == ("[30.04.2024 18:00 | вася [10] | tg:5 | "
+        assert line == ("[30.04.2024 18:00 UTC | вася [10] | tg:5 | "
                         "Переслано: канал X]: привет")
 
     def test_point3_thread_user_ts_bot_no_ts(self):
@@ -341,7 +341,7 @@ class TestTierAPoints:
                                           1714500000, "tg:5", None), {})
         bot = svc._chain_line(_ChainItem(None, "test_bot", "ответ", True,
                                          None, "tg:6", None), {})
-        assert user == "[30.04.2024 18:00 | вася [10] | tg:5]: вопрос"
+        assert user == "[30.04.2024 18:00 UTC | вася [10] | tg:5]: вопрос"
         # бот: ts ОПУЩЕН (в bot_replies времени сообщения нет — R16),
         # ID = tg:<current_id>, автор присутствует
         assert bot == "[test_bot [bot] | tg:6]: ответ"
@@ -354,14 +354,14 @@ class TestTierAPoints:
             "user_id": 10, "author_name": "вася", "text": "привет",
             "timestamp": 1714500000, "tg_message_id": 5, "id": 9,
             "is_forward": 0, "forward_source": "x"}])
-        assert lines == ["[30.04.2024 18:00 | вася | tg:5]: привет"]
+        assert lines == ["[30.04.2024 18:00 UTC | вася | tg:5]: привет"]
 
     def test_point13_factcheck_context_canonical(self):
         from services.chat_context import format_chat_context
         row = {"user_id": 10, "author_name": "вася", "text": "привет",
                "timestamp": 1714500000, "tg_message_id": 5, "id": 9}
         out = format_chat_context([row])
-        assert "[30.04.2024 18:00 | вася | tg:5]: привет" in out
+        assert "[30.04.2024 18:00 UTC | вася | tg:5]: привет" in out
 
 
 # ── T-1876: ASC-хронология ───────────────────────────────────────────────────

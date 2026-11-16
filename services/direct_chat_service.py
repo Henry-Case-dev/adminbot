@@ -154,6 +154,7 @@ from services.canonical_context import (
     SpeechRelation,
     format_context_item,
     format_speech_item,
+    format_utc_timestamp,
     resolve_item_id,
     speech_projection_enabled,
     split_context_header,
@@ -419,11 +420,16 @@ def _ha_snippet(text, limit: int = _HA_SUPPLEMENT_SNIPPET_MAX) -> str:
 
 
 def _ha_fmt_ts(ts) -> str:
-    """«ДД.ММ.ГГГГ ЧЧ:ММ» для метки времени дополнения (кривое → "")."""
+    """«ДД.ММ.ГГГГ ЧЧ:ММ UTC» для метки времени дополнения (кривое → "").
+
+    VMQ/MEM-TIME (16.11.2026): единый UTC-шкальный рендер — делегирование
+    `canonical_context.format_utc_timestamp` (тот же, что у строк контекста).
+    Прежний `fromtimestamp` без tz печатал контейнерное локальное время без
+    метки: в чате +05:00 «08:30» сообщения стояло рядом с «13:30» Chat_Time.
+    """
     try:
-        return datetime.datetime.fromtimestamp(
-            int(ts or 0)).strftime("%d.%m.%Y %H:%M")
-    except (TypeError, ValueError, OverflowError, OSError):
+        return format_utc_timestamp(int(ts or 0))
+    except (TypeError, ValueError):
         return ""
 
 
