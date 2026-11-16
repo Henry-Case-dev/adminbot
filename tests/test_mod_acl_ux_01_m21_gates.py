@@ -227,7 +227,7 @@ async def test_initiative_scheduler_ticks_when_chat_is_on(world, monkeypatch):
 @pytest.mark.asyncio
 async def test_character_chat_off_does_not_stop_global_model(world,
                                                              monkeypatch):
-    monkeypatch.setattr(mca_gates, "self_model_enabled", lambda: True)
+    monkeypatch.setattr(module_registry, "env_enabled", lambda mid: True)
     world.globals = {"flags.self_model_enabled": True}
     _set_chat(world, {"overrides": {"flags.self_model_enabled": False},
                       "gates": {}})
@@ -238,11 +238,15 @@ async def test_character_chat_off_does_not_stop_global_model(world,
 
 @pytest.mark.asyncio
 async def test_random_chat_off_keeps_global_pool(world, monkeypatch):
-    monkeypatch.setattr(mca_gates, "random_source_enabled", lambda: True)
+    monkeypatch.setattr(module_registry, "env_enabled", lambda mid: True)
     world.globals = {"memory.random_enabled": True}
     _set_chat(world, {"overrides": {"memory.random_enabled": False},
                       "gates": {}})
     assert await mca_gates.random_source_enabled_for_chat(CHAT) is False
+    assert mca_gates.random_source_enabled() is True
+
+    # Даже при GLOBAL OFF пул остаётся живым (использование решает чат).
+    world.globals = {"memory.random_enabled": False}
     assert mca_gates.random_source_enabled() is True
 
 
