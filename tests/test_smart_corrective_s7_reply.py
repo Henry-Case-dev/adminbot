@@ -37,6 +37,7 @@ from services import direct_execution as dx
 from services import direct_l1 as l1
 from services import source_reader as sr
 from services import tool_loop
+from services.llm_client import LLMChatResult, LLMError, LLMToolCall
 from services.tool_router import ToolDeps, ToolRouter
 from tests.test_asap7_direct_l1 import (
     _FakeLLM,
@@ -572,6 +573,91 @@ class TestPartialSeamHonesty:
         # Не тавтология: инструмент РЕАЛЬНО исполнялся (пустая выдача), т.е.
         # evidence-журнал был, но содержательных данных в нём нет.
         assert [d["tool"] for d in router.dispatched] == ["get_recent_history"]
+
+
+# ── Reviewer «Needs Fixes» R1: честность ВНУТРЕННЕГО degraded-пути ──────────
+# R1: `_finish_degraded` вызывал `_structured_partial` без `require_content`,
+# поэтому пустая выдача инструмента (`""`, `{"status": "empty"}`, пробелы)
+# публиковалась как «Подтверждённые данные» с «0/N символов». Правило то же,
+# что у внешнего F2-шва: пустой/`empty`/пробельный результат — не данные; без
+# данных сохраняется прежний fallback деградации (не ложное «подтверждено»).
+# Проверяется РЕАЛЬНЫЙ `chat_with_tools` (роутер/цикл настоящие, LLM —
+# детерминированный двойник с пустым финальным Writer'ом).
+
+MESSAGES_R1 = [{"role": "user", "content": "почему упал деплой?"}]
+TOOLS_R1 = [{"type": "function", "function": {"name": "execute_web_search"}}]
+
+
+class _ToolLoopLLM:
+    """`generate_chat` — исследование (tool_calls → LLMError позднего раунда),
+    `generate` — существующий Writer-путь финальной фазы."""
+
+    def __init__(self, *, finalize_text="", finalize_error=None):
+        self.finalize_text = finalize_text
+        self.finalize_error = finalize_error
+        self.chat_calls = 0
+        self.finalize_calls = 0
+
+    async def generate_chat(self, messages, *, tools=None, **kwargs):
+        self.chat_calls += 1
+        if self.chat_calls == 1:
+            return LLMChatResult(
+                content=None,
+                tool_calls=[LLMToolCall(id="c1", name="execute_web_search",
+                                        arguments='{"query": "deploy"}')],
+                finish_reason="tool_calls")
+        raise LLMError("upstream 500")
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
+        self.finalize_calls += 1
+        if self.finalize_error is not None:
+            raise self.finalize_error
+        return self.finalize_text
+
+
+async def _degraded_run(output):
+    """Одна tool-выдача `output`, затем деградация + пустой финальный Writer."""
+    llm = _ToolLoopLLM(finalize_text="")
+    router = _FakeRouter(outputs={"execute_web_search": output})
+    out = await tool_loop.chat_with_tools(
+        llm, [dict(m) for m in MESSAGES_R1], tools=TOOLS_R1, router=router,
+        ctx=object(), chat_id=CHAT_ID)
+    return out, router, llm
+
+
+class TestInternalDegradedPartialHonesty:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("output", ["", '{"status": "empty"}', "  \n\t  "])
+    async def test_empty_tool_result_is_not_confirmed_data(self, output):
+        out, router, llm = await _degraded_run(output)
+        text = str(out)
+        # Не тавтология: инструмент РЕАЛЬНО исполнялся — журнал прогона есть.
+        assert [d["tool"] for d in router.dispatched] == ["execute_web_search"]
+        assert out.tool_results and out.tool_results[0]["tool"] == \
+            "execute_web_search"
+        assert out.degraded is True and out.reason == "llm_error"
+        assert llm.finalize_calls == 1
+        # Пустая выдача НЕ публикуется как «подтверждённые данные».
+        assert "Подтверждённые данные" not in text
+        assert "0 символов" not in text
+        # Сохранён прежний fallback деградации без данных.
+        assert out.finalize_mode == "fallback_phrase"
+        assert text == tool_loop.TOOL_LOOP_FALLBACK_PHRASE
+
+    @pytest.mark.asyncio
+    async def test_real_tool_data_still_publishes_partial(self):
+        """Positive-control: реальные данные публикуются как прежде."""
+        out, router, llm = await _degraded_run("данные поиска")
+        text = str(out)
+        assert out.degraded is True and out.reason == "llm_error"
+        assert out.finalize_mode == "structured_partial"
+        assert "Подтверждённые данные (результаты инструментов)" in text
+        assert "- execute_web_search: ok" in text
+        assert "данные поиска" in text
+        assert "0 символов" not in text
+        assert "почему упал деплой?" in text
+        assert text != tool_loop.TOOL_LOOP_FALLBACK_PHRASE
 
 
 # ── Reviewer «Needs Fixes» F3/F4: телеметрия grant'а и адресность reply ─────

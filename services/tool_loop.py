@@ -1286,6 +1286,7 @@ def _evidence_inventory(tool_results, outputs) -> list[dict]:
             "evidence_refs": [str(ref) for ref in
                               (env.get("evidence_refs") or ())],
             "provenance": provenance,
+            "data": data,
             "output": text,
             "out_chars": int(env.get("out_chars") or len(text)),
         })
@@ -1300,15 +1301,41 @@ def _usable_evidence(items) -> list[dict]:
             or item.get("partial")]
 
 
+def _item_payload(item) -> dict:
+    """Структурный payload выдачи инструмента (envelope.data либо JSON-текст).
+
+    Нужен, чтобы распознать пустой результат по самому payload'у: каноническая
+    классификация оставляет `{"status": "empty"}` в статусе `ok` (`empty` нет
+    в закрытом наборе payload-статусов пустоты), поэтому по `status` и длине
+    текста «пусто» не видно (Reviewer S7 R1)."""
+    if not isinstance(item, dict):
+        return {}
+    data = item.get("data")
+    if isinstance(data, dict) and data:
+        return data
+    text = str(item.get("output") or "").strip()
+    if not text.startswith("{"):
+        return {}
+    try:
+        value = json.loads(text)
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 def _item_has_content(item) -> bool:
     """Есть ли в результате ФАКТИЧЕСКИ доставленные данные.
 
-    `status=ok` с нулевой длиной и `status=empty` (`{"status": "empty"}`,
-    «не найдено») данными не являются: публиковать их как «подтверждённые»
-    нельзя (Reviewer S7 F2). Пустое/пробельное содержимое — тоже нет."""
+    `status=ok` с нулевой длиной, `status=empty` и payload `{"status":
+    "empty"}` («не найдено») данными не являются: публиковать их как
+    «подтверждённые» нельзя (Reviewer S7 F2/R1). Пустое/пробельное
+    содержимое — тоже нет."""
     if not isinstance(item, dict):
         return False
     if str(item.get("status") or "") == tool_result.STATUS_EMPTY:
+        return False
+    if str(_item_payload(item).get("status") or "").strip().lower() \
+            == tool_result.STATUS_EMPTY:
         return False
     return bool(str(item.get("output") or "").strip())
 
@@ -1419,11 +1446,12 @@ def _structured_partial(stop_reason: str, items, messages,
     знает: payload Writer'а — внутренняя сборка, цитировать её нельзя);
     иначе берётся последнее user-сообщение без служебных блоков.
 
-    ``require_content`` — Reviewer S7 F2 (живой partial-шов): «подтверждённые
+    ``require_content`` — Reviewer S7 F2/R1 (partial-шов): «подтверждённые
     данные» публикуются только при наличии хотя бы одного результата с
-    непустым содержимым. Пустой `ok`/`empty`-envelope — не доказательство,
-    поэтому такие записи не выдаются за данные, а без них partial не
-    строится вовсе ("" → прежний silence-path потребителя)."""
+    непустым содержимым. Пустой `ok`/`empty`/пробельный payload — не
+    доказательство, поэтому такие записи не выдаются за данные, а без них
+    partial не строится вовсе ("" → прежний silence/fallback-путь). Правило
+    общее для публичного F2-шва и внутреннего degraded-пути `_finish_degraded`."""
     try:
         from services.system2_handoff import redact_secrets
     except Exception:       # pragma: no cover - защитная ветка
@@ -2085,8 +2113,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
             if text:
                 mode = "llm"
             else:
+                # Reviewer S7 R1: внутренний шов подчиняется тому же правилу,
+                # что публичный F2-шов — пустая/`empty`/пробельная выдача не
+                # выдаётся за «подтверждённые данные». Нет содержательных
+                # данных → "" → прежний partial_text/fallback-путь
+                # деградации (ложное «подтверждено» не публикуется).
                 text = _structured_partial(reason, items, messages,
-                                           finalize_error)
+                                           finalize_error,
+                                           require_content=True)
                 mode = "structured_partial"
         if not text:
             text = strip_reasoning_tags(partial_text)
