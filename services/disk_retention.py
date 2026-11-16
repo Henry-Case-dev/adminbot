@@ -17,6 +17,12 @@ safety-бэкапы `memory_rebuild_*.db` (≈802 МБ) не покрывали�
 вызывается и из ежедневного бэкапа (`memory_backup._rotate`), и из
 `memory_rebuild.create_safety_backup` — единый путь ротации.
 
+P0-PROD-DISK-01 (16.11.2026): деплой-бэкапы (`pre_deploy_*`, `predeploy-*`,
+`pre_t*`) — отдельный пул **keep=2** (текущий rollback + предыдущий). Ротация
+исполняется ежедневным бэкапом (`memory_backup._rotate`) и `apply_cleanup`
+(`manage.py disk cleanup --apply`); до этого фактические имена деплой-копий не
+совпадали с паттерном и 17 копий (44G) не удалялись никогда.
+
 Гарантии безопасности:
   * IMMUTABLE-файлы никогда не попадают в `plan_cleanup` (deny-list по имени
     + content-sniff по ключам JSON — сырая история опознаётся и не удаляется).
@@ -66,13 +72,17 @@ DB_BACKUP_PATTERNS = ("local_database_*.db", "memory_rebuild_*.db")
 # L-MCA14-1: pre-migration копии (`pre_migration_*.db`) ротируются ОТДЕЛЬНО
 # (ровно 1), чтобы не смешиваться с daily-бэкапами и не копиться по апгрейду.
 MIGRATION_BACKUP_PATTERNS = ("pre_migration_*.db",)
-# D1-disk-diag: деплой-бэкапы (`pre_t<ticket>_<stamp>.db`, ~1.3G за релизное
-# окно) создаёт тулинг деплоя; паттерн не входил ни в один prune-пул — копии
-# копились без ротации (3.9G, диск 92%). Отдельный пул: в DB_BACKUP_PATTERNS
-# нельзя (оба call-site держат «ровно 1»), в MIGRATION_BACKUP_PATTERNS нельзя
-# (call-site миграций передаёт keep=1 — снёс бы rollback-копии). keep=2
-# новейших — roll-back readiness (disk_diagnosis.md §5A/§5B).
-DEPLOY_BACKUP_PATTERNS = ("pre_t*.db",)
+# P0-PROD-DISK-01 (16.11.2026): деплой-бэкапы. Пул исторически описан как
+# `pre_t<ticket>_<stamp>.db` (D1-disk-diag), но фактический тулинг деплоя
+# пишет `pre_deploy_<ver>_<ts>.db` (release-процедура) и `predeploy-<ver>*.db`
+# (ранние релизы). Ни одно из этих имён не совпадало с паттерном, поэтому 17
+# копий (44G) не ротировались никогда — диск 94%. Все три схемы образуют один
+# пул: держим `DEPLOY_BACKUP_KEEP` новейших (текущий rollback + предыдущий).
+# В DB_BACKUP_PATTERNS нельзя (оба call-site держат «ровно 1»), в
+# MIGRATION_BACKUP_PATTERNS нельзя (call-site миграций передаёт keep=1 —
+# снёс бы rollback-копии).
+DEPLOY_BACKUP_PATTERNS = ("pre_t*.db", "pre_deploy_*.db", "predeploy-*.db")
+DEPLOY_BACKUP_KEEP = 2
 FACTS_PATTERNS = ("facts_*.txt",)
 
 # Жёсткий deny-list по имени: любые архивы/дампы истории сообщений.
@@ -215,7 +225,8 @@ def _mtime_ns(path: Path) -> int:
 # ── классификация ───────────────────────────────────────────────────────────
 
 def classify(path) -> str:
-    """Категория файла: immutable|db_backup|facts_export|jsonl_retention|other.
+    """Категория файла: immutable|db_backup|deploy_backup|facts_export|
+    jsonl_retention|other.
 
     IMMUTABLE имеет наивысший приоритет: история сообщений (по имени или
     содержимому) НИКОГДА не станет кандидатом на удаление. `_history_immutable()`
@@ -230,6 +241,8 @@ def classify(path) -> str:
         return "immutable"
     if _matches_any(name, DB_BACKUP_PATTERNS):
         return "db_backup"
+    if _matches_any(name, DEPLOY_BACKUP_PATTERNS):
+        return "deploy_backup"
     if _matches_any(name, FACTS_PATTERNS):
         return "facts_export"
     if name.endswith(".jsonl"):
@@ -275,6 +288,17 @@ def _all_db_backups(dirs) -> list[Path]:
     return list(out.values())
 
 
+def _all_deploy_backups(dirs) -> list[Path]:
+    """Деплой-бэкапы всех трёх схем имён (P0-PROD-DISK-01): один пул."""
+    out: dict[str, Path] = {}
+    for entry in dirs or ():
+        base = Path(entry)
+        if base.is_dir():
+            for path in _collect(base, DEPLOY_BACKUP_PATTERNS):
+                out[str(path)] = path
+    return list(out.values())
+
+
 def _all_facts_exports(dirs) -> list[Path]:
     out: dict[str, Path] = {}
     for entry in dirs or ():
@@ -287,6 +311,30 @@ def _all_facts_exports(dirs) -> list[Path]:
 
 def _newest_last(files) -> list[Path]:
     return sorted(files, key=lambda p: (_mtime_ns(p), p.name))
+
+
+def _sidecar_paths(path: Path) -> list[Path]:
+    """WAL/SHM-компаньоны копии БД (реальные имена прода: `*.db-wal/-shm`)."""
+    return [Path(f"{path}{suffix}") for suffix in ("-wal", "-shm")]
+
+
+def _drop_sidecars(path: Path) -> int:
+    """Удалить WAL/SHM-компаньоны уже удалённой копии БД (P0-PROD-DISK-01).
+
+    Деплой-копии на проде лежали вместе с `*.db-wal`/`*.db-shm`; если снести
+    только `.db`, эти файлы остаются сиротами навсегда. Трогаем ТОЛЬКО
+    компаньоны конкретной удалённой копии — широких масок здесь нет.
+    Возвращает освобождённые байты (размер снимается до unlink)."""
+    freed = 0
+    for sidecar in _sidecar_paths(path):
+        try:
+            if sidecar.exists():
+                freed += _size(sidecar)
+                sidecar.unlink()
+        except OSError:
+            logger.warning("[disk_retention] sidecar unlink failed | name=%s",
+                           sidecar.name)
+    return freed
 
 
 # ── ротация бэкапов БД (единый источник; T-2258) ────────────────────────────
@@ -341,14 +389,17 @@ def prune_migration_backups(directory, *, keep: int = 1) -> list[str]:
     return removed
 
 
-def prune_deploy_backups(directory, *, keep: int = 2) -> list[str]:
-    """D1-disk-diag: держать `keep` новейших деплой-бэкапов `pre_t*.db`.
+def prune_deploy_backups(directory, *, keep: int = DEPLOY_BACKUP_KEEP) -> list[str]:
+    """P0-PROD-DISK-01: держать `keep` новейших деплой-бэкапов (все схемы).
 
     Отдельная ротация (как `prune_migration_backups`): тулинг деплоя кладёт
-    по копии ~1.3G за релизное окно, без ротации они не удалялись никогда.
-    Daily-бэкапы (`local_database_*`/`memory_rebuild_*`) и `pre_migration_*`
-    не матчатся. Код для будущих прогонов retention; запуск на проде —
-    отдельное решение владельца."""
+    по копии ~1.8–3.0G за релиз, без ротации они не удалялись никогда.
+    Паттерны покрывают фактические имена (`pre_deploy_*` — release-процедура,
+    `predeploy-*` — ранние релизы) и старые `pre_t*`. Daily-бэкапы
+    (`local_database_*`/`memory_rebuild_*`), `pre_migration_*` и история
+    сообщений не матчатся. Исполняется ежедневной ротацией
+    (`memory_backup._rotate`) и `apply_cleanup` (`manage.py disk cleanup
+    --apply`), т.е. lifecycle реально работает, а не только существует."""
     if not _retention_enabled():
         return []
     base = Path(directory)
@@ -362,6 +413,7 @@ def prune_deploy_backups(directory, *, keep: int = 2) -> list[str]:
             removed.append(str(old))
             logger.info("[disk_retention] deploy backup rotated out | "
                         "name=%s", old.name)
+            _drop_sidecars(old)
         except OSError:
             logger.warning("[disk_retention] deploy backup unlink failed | "
                            "name=%s", old.name)
@@ -433,14 +485,18 @@ def _plan_item(path: Path, category: str, reason: str) -> dict:
 def plan_cleanup(dirs) -> list[dict]:
     """Кандидаты на удаление без побочных эффектов. IMMUTABLE исключены.
 
-    Кандидаты: DB-бэкапы за пределами `keep=1`; `facts_*.txt` за пределами
-    1; не-history JSONL старше окна (180 дней)."""
+    Кандидаты: DB-бэкапы за пределами `keep=1`; деплой-бэкапы за пределами
+    `DEPLOY_BACKUP_KEEP` (2 новейших = текущий rollback + предыдущий);
+    `facts_*.txt` за пределами 1; не-history JSONL старше окна (180 дней)."""
     if not _retention_enabled():
         return []
     plan: list[dict] = []
     db_keep = _db_keep()
     for old in _newest_last(_all_db_backups(dirs))[:-db_keep]:
         plan.append(_plan_item(old, "db_backup", "db_keep_newest_1"))
+    for old in _newest_last(_all_deploy_backups(dirs))[:-DEPLOY_BACKUP_KEEP]:
+        plan.append(_plan_item(old, "deploy_backup",
+                               f"deploy_keep_newest_{DEPLOY_BACKUP_KEEP}"))
     for old in _newest_last(_all_facts_exports(dirs))[:-1]:
         plan.append(_plan_item(old, "facts_export", "facts_keep_newest_1"))
     days = _jsonl_retention_days()
@@ -479,6 +535,9 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
     `verify=True`: до удаления обязан существовать валидный свежий
     `*.db`-бэкап, НЕ входящий в план; иначе — abort без единого удаления.
     `dirs` — каталоги для проверки бэкапа (дефолт: родители элементов плана).
+    После плана исполняется deploy-ротация (`prune_deploy_backups`, keep=2):
+    для полного плана это no-op, но она добирает sidecar-файлы удалённых
+    копий и частично поданный план, т.е. lifecycle не зависит от вызывающего.
     Идемпотентно: отсутствующий файл считается уже удалённым (не ошибка)."""
     out = {"deleted": 0, "bytes_freed": 0, "aborted_reason": "",
            "skipped": 0, "errors": 0, "blocked": 0, "categories": {}}
@@ -488,11 +547,11 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
         # политики и не успех удаления).
         _emit_retention("silent", usage_json={"candidates": 0})
         return out
+    scan_dirs = list(dirs) if dirs else sorted(
+        {str(Path(item["path"]).parent) for item in items})
     if verify:
         delete_paths = {str(item.get("path")) for item in items
                         if item.get("category") == "db_backup"}
-        scan_dirs = list(dirs) if dirs else sorted(
-            {str(Path(item["path"]).parent) for item in items})
         if not _valid_fresh_backups(scan_dirs, exclude=delete_paths):
             logger.warning("[disk_retention] cleanup aborted — no valid fresh "
                            "db backup (fail-closed)")
@@ -522,6 +581,9 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
         try:
             size = _size(path)
             path.unlink()
+            if real_category == "deploy_backup":
+                # WAL/SHM удалённой деплой-копии — не оставляем сиротами.
+                size += _drop_sidecars(path)
             out["deleted"] += 1
             out["bytes_freed"] += size
             bucket = out["categories"].setdefault(category, {"count": 0, "bytes": 0})
@@ -533,9 +595,19 @@ def apply_cleanup(plan, *, verify: bool = True, dirs=None) -> dict:
             out["errors"] += 1
             logger.warning("[disk_retention] cleanup unlink failed | name=%s",
                            path.name)
+    # P0-PROD-DISK-01: enforce deploy-политики на фактическом пути очистки.
+    out["deploy_pruned"] = 0
+    for entry in scan_dirs:
+        try:
+            out["deploy_pruned"] += len(
+                prune_deploy_backups(entry, keep=DEPLOY_BACKUP_KEEP))
+        except Exception:
+            logger.warning("[disk_retention] deploy prune failed | dir=%s",
+                           entry, exc_info=True)
     logger.info("[disk_retention] cleanup done | deleted=%d freed=%d "
-                "skipped=%d blocked=%d", out["deleted"], out["bytes_freed"],
-                out["skipped"], out["blocked"])
+                "skipped=%d blocked=%d deploy_pruned=%d", out["deleted"],
+                out["bytes_freed"], out["skipped"], out["blocked"],
+                out["deploy_pruned"])
     # MCA-17 (`maintenance.retention`): терминал + счётчики файлов/байт
     # (usage_json — whitelist-поле контракта §17.1).
     _emit_retention(

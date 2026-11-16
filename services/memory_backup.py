@@ -8,9 +8,10 @@ WAL-БД). Обе операции ленивы (пустая память → I
 (ошибки → WARNING). Ротация делегирована единому источнику истины
 `services.disk_retention` (F9, ADR-1024-2 D1): DB-бэкапы — **ровно 1**
 новейший суммарно по обоим префиксам (`local_database_*` + `memory_rebuild_*`),
-`facts_*.txt` — 1 (пара к БД). Политика владельца (UPD3 №5): хранить 3+
-бэкапов запрещено, поэтому hot-config `limits.memory_backup_keep` больше НЕ
-расширяет окно БД.
+`facts_*.txt` — 1 (пара к БД), деплой-копии (`pre_deploy_*`/`predeploy-*`/
+`pre_t*`) — 2 новейших (P0-PROD-DISK-01). Политика владельца (UPD3 №5):
+хранить 3+ бэкапов БД запрещено, поэтому hot-config `limits.memory_backup_keep`
+больше НЕ расширяет окно БД.
 """
 import asyncio
 import datetime
@@ -197,11 +198,18 @@ class MemoryBackupService:
 
         Раньше ротация смотрела только `local_database_*` — safety-бэкапы
         `memory_rebuild_*.db` (~802 МБ) накапливались без ограничения
-        (корневая причина роста диска +6.4 ГБ)."""
+        (корневая причина роста диска +6.4 ГБ).
+
+        P0-PROD-DISK-01: тот же ежедневный путь держит деплой-копии
+        (`pre_deploy_*`/`predeploy-*`/`pre_t*`) — 2 новейших (текущий rollback
+        + предыдущий): деплой-тулинг кладёт их в этот же каталог и сам не
+        ротирует."""
         try:
             from services.disk_retention import (
-                prune_db_backups, prune_facts_exports)
+                DEPLOY_BACKUP_KEEP, prune_db_backups, prune_deploy_backups,
+                prune_facts_exports)
             prune_db_backups(directory, keep=1)
+            prune_deploy_backups(directory, keep=DEPLOY_BACKUP_KEEP)
             prune_facts_exports(directory, keep=1)
         except Exception:
             logger.warning("memory_backup: rotation failed", exc_info=True)

@@ -157,3 +157,37 @@ DevOps; скрипт их не покрывает сознательно):
   в юните) → `sudo systemctl restart adminbot-disk-retention.service`;
 - Снять с автозапуска: `sudo systemctl disable --now adminbot-disk-retention.timer`;
 - Скрипт без `--apply` ничего не удаляет — dry-run безопасен всегда.
+
+## 6. Деплой-бэкапы приложения (P0-PROD-DISK-01, 16.11.2026)
+
+Раздел дополняет §1–§5 и не меняет поведение `tools/disk_retention.py`:
+каталог `backups/` приложения этот скрипт по-прежнему НЕ трогает.
+Деплой-бэкапы (`pre_deploy_<ver>_<ts>.db`, `predeploy-<ver>*.db`,
+`pre_t<ticket>_*.db`) ротирует само приложение:
+
+- `services/disk_retention.py` — отдельный пул `deploy_backup`, **keep=2**
+  (текущий rollback + предыдущий релиз); паттерны покрывают все три схемы
+  фактических имён;
+- ежедневный джоб `memory_backup._rotate` исполняет ту же политику
+  автоматически — отдельный таймер для деплой-копий не нужен;
+- `python manage.py disk cleanup --apply` исполняет её же и дополнительно
+  снимает WAL/SHM-компаньоны удалённых копий.
+
+Первопричина инцидента 16.11.2026: в паттерне был только `pre_t*.db`,
+поэтому фактические имена не ротировались — 17 копий (44G) накопились за
+4 дня, диск дошёл до 94%.
+
+После успешного деплоя/приёмки — обязательный шаг:
+
+```bash
+cd /var/www/admin_bot && source venv/bin/activate
+python manage.py disk audit            # категория deploy_backup видна
+python manage.py disk cleanup --apply  # сохраняет 2 новейших deploy-копии
+ls -1t backups/pre_deploy_*.db backups/predeploy-*.db 2>/dev/null | head -3
+```
+
+Сохраняются: 2 новейших deploy-бэкапа (текущий rollback + предыдущий),
+daily `local_database_*` (ровно 1), `pre_migration_*` (ровно 1 в своём пуле),
+`facts_*.txt` (1) и вся история сообщений (immutable). Живая БД
+`local_database.db` + её `-wal`/`-shm` не совпадают с паттернами и не
+удаляются. Полный runbook — `docs/runbook-disk-retention.md`.
