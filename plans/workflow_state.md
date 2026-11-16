@@ -3,9 +3,9 @@
 Task: vmq-onto-01 (queue 5, P0) Slice D delivered; next dependency-ready queue step is mod-acl-ux-01 (queue 6, P0) readiness assessment
 Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md + amendments; plans/owner_inputs/2026-11-09-mod-acl-ux-01.md; owner continuity/recovery instruction 2026-11-15
 Status: active
-Primary phase: P0 production disk incident (audit + cleanup); 2.58.206 release assembly paused at afcaf95f
+Primary phase: P0 production disk incident (audit + cleanup); 2.58.206 release blocked by an M2/M2.1 mid-flight contract conflict (branch tip f9d914aa, not deployed)
 Active feature: P0-PROD-DISK-01 + mod-acl-ux-01
-Active lanes: M2.1 binding (PM) and 2.58.206 release assembly (Builder); M3 bound
+Active lanes: P0 disk audit/cleanup (DevOps); 2.58.206 blocked; M2.1/M3 bound at REVIEW
 Join barriers: none
 Last verified: **2.58.205 deployed at `bca18c1e`** (health local/public 200, schema 47/pending=[], identity verified_deployed, NRestarts 0, journal 159 lines with 0 ERROR/Traceback/CRITICAL, settings and manual prompt preserved); rollback `2b419aa2`/2.58.204.
 Acceptance: VMQ map 70 required rows: 48 PENDING, 8 REVIEW, 13 VERIFIED, 1 READY_FOR_LIVE. Slice D released in 2.58.205: **TIME-06 VERIFIED** on `bca18c1e` with candidate-bound inventory/review/deploy evidence; **TIME-04 REVIEW**; MEM-04, TIME-01, TIME-02 reply and TIME-07 remain open pending real L1 turns (postdeploy observation, no polling) and independent labels. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE; V-01..V-04 REVIEW. Full VMQ epic not DONE.
@@ -213,6 +213,10 @@ Policy: every role may search/read durable memory; write/modify only Orchestrato
 ## Housekeeping result (2026-11-15)
 
 Real cleanup performed with the installed housekeeping tool plus verified targeted removal. Worktrees: 56 agent worktrees removed (all clean after preserving unique local review artefacts; branches and commits kept). 12 unique files were absent from the planning line and were copied there (integration-review, fc-12-09/fc-anchor/fc-evidence reviewer probes, review-i1-a3841613, etc.); 3 disposable diffs saved as patches under `WorkspaceData/backups/recovery-artifacts-2026-11-15/`; two identical untracked `test_smart_e_local_first_source.py` copies quarantined. Kept: the three recovery review worktrees, the 2.58.204 release-train worktree, and the VMQ corpus run copy for Slice D measurement. Runs: 205 tool-owned runs inspected, 130+ closed, 36 mutation-copy runs purged after preserving their small metadata; the 10 GB VMQ corpus copy is retained deliberately. Free disk grew from 56.1 GB to ~131 GB (~75 GB freed). Remaining large retained item: the VMQ prod-DB corpus copy (needed for Slice D re-measurement, reproducible from prod if deleted later).
+
+## MOD-ACL M2.1 release 2.58.206 blocked (2026-11-16)
+
+Release branch `release/mod-acl-m21-2.58.206` tip `f9d914aa`, base `bca18c1e`, product M2.1 `0585f238`, bump `afcaf95f`; pushed, not deployed. Mechanical assembly is complete (30/31 bump wave, DDL 0, schema 47, 481 focused, pin-guard 4 pre-existing, JS OK), but broad test A found a **real non-pre-existing regression**: `tests/test_mod_acl_ux_m2_inflight.py::test_text_initiative_off_mid_flight_single_outcome` fails on the candidate (`writer.generate_calls == 0`, expected 1), while the base `bca18c1e` passes 5/5. M2.1 D1 added an input `initiative_chat_enabled(chat_id)` gate at the start of `handle_initiative`, so a chat turned OFF mid-flight returns `disabled` before generation and `publish_guard` is never reached; M2's contract expects one generation then `capability_off`. This is a contract conflict, not a flaky test. The release is BLOCKED until Architect/PM decide whether a mid-flight chat OFF must suppress generation (M2.1) or allow one generation and only cancel publication (M2), after which the affected test/contract and Reviewer approval must be updated. No product/test change was made during assembly. Disk P0 remains the top priority; the release resumes after disk cleanup.
 
 ## MOD-ACL-UX-01 progress (2026-11-16)
 
