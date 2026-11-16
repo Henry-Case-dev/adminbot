@@ -427,11 +427,11 @@ def bot_username_hint() -> str:
 
 
 def observer_enabled() -> bool:
-    """Мастер-гейт наблюдателя: env K1 + ``flags.initiative_observer_enabled``.
+    """Гейт тика наблюдателя: env K1 + ``flags.initiative_observer_enabled``.
 
-    MOD-ACL-UX-01 M2.1: product-ключ ``flags.initiative_enabled`` — НЕ
-    запрет тика, а наследуемый GLOBAL-дефолт чатового `initiative.enabled`
-    (owner §2.1/§2.3.1). Поэтому здесь читается только аварийная env-ось
+    MOD-ACL-UX-01 M2.1: product-ключ ``flags.initiative_enabled`` здесь НЕ
+    читается — это наследуемый GLOBAL-дефолт чатового `initiative.enabled`,
+    а не запрет тика (owner §2.1/§2.3.1). Аварийная ось —
     ``MCA_INTENTS_ENABLED``; продуктовое состояние решает канонический
     резолвер конкретного чата. ``flags.initiative_observer_enabled`` —
     собственная ось наблюдателя (тик/не тик), не master инициативы.
