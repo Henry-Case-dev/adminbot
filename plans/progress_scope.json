@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-16T16:42:00+12:00",
+  "updated": "2026-11-16T16:48:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1362,8 +1362,8 @@
         "plans/features/mod-acl-ux-01/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Owner epic MOD-ACL-UX-01 FINAL v1.0 (09.11.2026), current_task.md lines 10016-10747, 732 lines. Reconciled into plans/features/mod-acl-ux-01/requirements-map.json: 274 required rows (AC-01..AC-19, EXP-FIX-01..10 in owner semantics, the six-case GLOBAL/CHAT truth table, five separated axes, amendment obligations including the mandatory native question), 279 source lines inventoried with 93 context and none unclassified, 11 stages M0->M6, slice-graph and plan.md; plan gate PASS (inventory=279 manual=88 scoped=0 errors=0). M0 baseline artifact m0-baseline.md (sha256 42C0103F…3706) confirms the ACL false-403 root cause (local `_is_global_admin` in memory_agi.py ignoring role_type on 15+ endpoints), fragmented params/gates effective-state, Roles and Permissions as modals, and all ten EXP-FIX defects present in the deployed line. Queue: last, after SELF-DIAG-01 and VMQ-ONTO-01; two independent critical fixes may run earlier (ACL false 403 in memory_agi.py; EXP-FIX correctives). | 2026-11-16 delta: map now 288 mandatory (68 VERIFIED / 1 REVIEW / 219 PENDING after the M0 binding), plan gate inventory=279 manual=102 errors=0; M1/M2/M5A/M5L are already deployed in the 2.58.205 line; see readiness_2026_11_16.",
-      "updated": "2026-11-16T16:42:00+12:00",
+      "source_note": "Owner epic MOD-ACL-UX-01 FINAL v1.0 (09.11.2026), current_task.md lines 10016-10747, 732 lines. Reconciled into plans/features/mod-acl-ux-01/requirements-map.json: 274 required rows (AC-01..AC-19, EXP-FIX-01..10 in owner semantics, the six-case GLOBAL/CHAT truth table, five separated axes, amendment obligations including the mandatory native question), 279 source lines inventoried with 93 context and none unclassified, 11 stages M0->M6, slice-graph and plan.md; plan gate PASS (inventory=279 manual=88 scoped=0 errors=0). M0 baseline artifact m0-baseline.md (sha256 42C0103F…3706) confirms the ACL false-403 root cause (local `_is_global_admin` in memory_agi.py ignoring role_type on 15+ endpoints), fragmented params/gates effective-state, Roles and Permissions as modals, and all ten EXP-FIX defects present in the deployed line. Queue: last, after SELF-DIAG-01 and VMQ-ONTO-01; two independent critical fixes may run earlier (ACL false 403 in memory_agi.py; EXP-FIX correctives). | 2026-11-16 delta: map now 288 mandatory, plan gate inventory=279 manual=102 errors=0; M1/M2/M5A/M5L are already deployed in the 2.58.205 line; see readiness_2026_11_16. | 2026-11-16 after Reviewer Approved: MAC-M0-01 VERIFIED, map 69 VERIFIED / 0 REVIEW / 219 PENDING.",
+      "updated": "2026-11-16T16:48:00+12:00",
       "queue_position": 6,
       "priority": "P0",
       "blocked_by": [],
@@ -1371,7 +1371,7 @@
       "blocker_sources": {},
       "execution_state": "queued",
       "position_basis": "owner decision + dependency order: next after VMQ-ONTO-01; no VMQ edge in the MOD-ACL slice graph",
-      "queue_note": "2026-11-16 M0 bound: MAC-M0-01 = REVIEW (candidate bca18c1e/2.58.205), not VERIFIED — M0 evidence is now complete (read-only live effective-state 16 caps x 3 profiles = 48 pairs, config snapshot of both config tables with read-back), but no independent candidate-bound Reviewer approval exists yet; pg_dump is absent on the host, so no custom-format archive exists (documented limitation, not hidden). Map: 288 mandatory = 68 VERIFIED / 1 REVIEW / 219 PENDING; no VERIFIED added. Gates (pre-rebind, superseded by the 16:40 note below): plan inventory=279 manual=102 errors=0; review M0 --candidate bca18c1e errors=2 (stale map candidate 34213999 -> candidate mismatch; missing independent Reviewer approval), with --candidate 34213999 errors=1 (no evidence bound). File lock stays clear (MEMORY-08 S3 d0127c29 is an ancestor of bca18c1e; no active writer on the six files; memory-cognitive-02 paused). M1 false-403 and M5A are already in bca18c1e; MAC-EXP-08 stays PENDING pending independent candidate-bound evidence. Next dependency-ready slice: M3 design freeze (20 PENDING rows, no accepted design specification); M4A depends_on M3. The live Mini App with an owner session is an M4 check, not an M0 blocker. | 2026-11-16 rebind: map-level candidate/deployed aligned to bca18c1e (2.58.205) with a dated record (candidate_binding_2026_11_16; previous 34213999/2.58.175 kept in deployment_evidence and per-row evidence). M0 artifact sha256 rebound after Builder D1-D4 fixes (a4e1f12c, f300ecca): mac-m0-01 D3D00E38, effective-state md BCC1EBBE, json 9A0CBA41, snapshot inner 1c5312fe, gz unchanged 1cae602d. plan errors=0; scoped review M0 --candidate bca18c1e errors=1 (only the missing independent Reviewer approval; before the rebind the same run was errors=3). MAC-M0-01 stays REVIEW, not VERIFIED.",
+      "queue_note": "2026-11-16 M0 bound: MAC-M0-01 = REVIEW (candidate bca18c1e/2.58.205), not VERIFIED — M0 evidence is now complete (read-only live effective-state 16 caps x 3 profiles = 48 pairs, config snapshot of both config tables with read-back), but no independent candidate-bound Reviewer approval exists yet; pg_dump is absent on the host, so no custom-format archive exists (documented limitation, not hidden). Map: 288 mandatory = 68 VERIFIED / 1 REVIEW / 219 PENDING; no VERIFIED added. Gates (pre-rebind, superseded by the 16:40 note below): plan inventory=279 manual=102 errors=0; review M0 --candidate bca18c1e errors=2 (stale map candidate 34213999 -> candidate mismatch; missing independent Reviewer approval), with --candidate 34213999 errors=1 (no evidence bound). File lock stays clear (MEMORY-08 S3 d0127c29 is an ancestor of bca18c1e; no active writer on the six files; memory-cognitive-02 paused). M1 false-403 and M5A are already in bca18c1e; MAC-EXP-08 stays PENDING pending independent candidate-bound evidence. Next dependency-ready slice: M3 design freeze (20 PENDING rows, no accepted design specification); M4A depends_on M3. The live Mini App with an owner session is an M4 check, not an M0 blocker. | 2026-11-16 rebind: map-level candidate/deployed aligned to bca18c1e (2.58.205) with a dated record (candidate_binding_2026_11_16; previous 34213999/2.58.175 kept in deployment_evidence and per-row evidence). M0 artifact sha256 rebound after Builder D1-D4 fixes (a4e1f12c, f300ecca): mac-m0-01 D3D00E38, effective-state md BCC1EBBE, json 9A0CBA41, snapshot inner 1c5312fe, gz unchanged 1cae602d. plan errors=0; scoped review M0 --candidate bca18c1e errors=1 (only the missing independent Reviewer approval; before the rebind the same run was errors=3). MAC-M0-01 stayed REVIEW at that moment. | 2026-11-16 closure: independent Reviewer Approved on bca18c1e; review entry (type=review, artifact mac-m0-01.md D3D00E38...AE50) bound in MAC-M0-01.evidence, row REVIEW -> VERIFIED, scoped review M0 errors=0. Map: 69 VERIFIED / 0 REVIEW / 219 PENDING of 288; no other row raised. Accepted limitations stay: pg_dump absent (two-table snapshot is not pg_dump), live Mini App is an M4 check, matrix is a single 2026-11-16 04:03Z slice.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -1394,7 +1394,7 @@
           "M5A": "deployed; 4e07817e is an ancestor of bca18c1e (2.58.170 release)",
           "M5B": "core semantics already in M2 429184f3; MAC-EXP-08 stays PENDING pending independent candidate-bound evidence, not a new Builder defect"
         },
-        "map_counts": "288 mandatory: 68 VERIFIED / 1 REVIEW / 219 PENDING (279 inventory incl. 93 context; 102 manual)",
+        "map_counts": "288 mandatory: 69 VERIFIED / 0 REVIEW / 219 PENDING (279 inventory incl. 93 context; 102 manual)",
         "gates": "plan: inventory=279 manual=102 scoped=0 errors=0; review M0 --candidate bca18c1e scoped=1 errors=1 (only missing candidate-bound independent Reviewer approval: candidate and strict sha256 now match). Before the rebind the same run was errors=3 (candidate mismatch 34213999 + live requirement lacks evidence, because stale artifact_sha256 was dropped by strict verification). review M5B scoped=1 errors=2; review M4A scoped=35 errors=36 (35 open/no-evidence rows). map candidate/deployed now bca18c1e (2.58.205); history 34213999 preserved in deployment_evidence, evidence entries and git log",
         "first_slice": {
           "id": "M0 refresh",
@@ -1414,7 +1414,8 @@
           "at": "2026-11-16T16:12:00+12:00",
           "rebound_at": "2026-11-16T16:42:00+12:00",
           "req_id": "MAC-M0-01",
-          "status": "REVIEW",
+          "status": "VERIFIED",
+          "approval": "independent Reviewer Approved on bca18c1e (type=review entry, artifact mac-m0-01.md sha256 D3D00E38...AE50); scoped review M0 errors=0",
           "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
           "deployed_version": "2.58.205",
           "map_candidate_binding": "map-level candidate_commit and deployed_commit aligned to bca18c1e (2.58.205) with a dated record; previous 34213999 (2.58.175) preserved in deployment_evidence, per-row evidence and git log; no row status re-evaluated",
@@ -1445,11 +1446,10 @@
           "workflow_progress": "workflow_progress.py --scope-file plans/progress_scope.json --require-queue --json -> queue_registration_complete=true, open_tasks=41/registered=41, issues=[], unmapped_tasks=[], stale_sources=[], source_coverage 67/67 accounted (drift 0), mod-acl task queue_position=6 priority=P0 blocked_by=[] execution_state=queued",
           "open_gaps": [
             "pg_dump/pg_restore are absent on the production host: no custom-format archive exists; the two-table gzip-JSON snapshot (full values, read-back equal) is not a pg_dump substitute (documented limitation).",
-            "No candidate-bound independent Reviewer approval for MAC-M0-01 yet: the row stays REVIEW.",
             "The live Mini App with an owner session was not opened: the DOM probe used the real served assets with a stub /api/config; this is an M4 check, not an M0 blocker."
           ],
           "next_slice": "M3",
-          "note": "REVIEW is not VERIFIED: M0 evidence is complete on bca18c1e (live matrix + config snapshot), but independent Reviewer approval is still missing. M3 design freeze is the next dependency-ready slice; M4A depends_on M3."
+          "note": "MAC-M0-01 is VERIFIED: independent Reviewer Approved on bca18c1e, scoped review M0 errors=0. The pg_dump absence and the M4 Mini App check stay as documented, non-blocking limitations. Next dependency-ready backend slice is M2.1 (per-chat adapters); M3 design rows and M4A UI remain open."
         }
       }
     },

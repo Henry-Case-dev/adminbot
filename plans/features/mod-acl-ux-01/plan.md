@@ -121,7 +121,7 @@ sha256 `BA6CF3D6…6FF92A7`). **Baseline:** `plans/features/mod-acl-ux-01/m0-bas
   независимого Reviewer-одобрения), на `34213999` — `errors=1` (evidence не привязан к старому
   кандидату). Цифры этого пункта неполные: полный прогон до rebind давал `errors=3` (третья ошибка —
   «live requirement lacks evidence» из-за устаревших `artifact_sha256`); актуальные значения — ниже.
-- **Статус:** `MAC-M0-01` = **REVIEW** на кандидате `bca18c1e`, не `VERIFIED`: live-матрица и
+- **Статус (историческое состояние до одобрения):** `MAC-M0-01` = **REVIEW** на кандидате `bca18c1e`, не `VERIFIED`: live-матрица и
   конфигурационный снапшот есть, но независимого Reviewer-одобрения нет; pg_dump-ограничение
   зафиксировано. M0 не закрывает эпик; следующий dependency-ready срез — **M3 design freeze**
   (M4A depends_on M3).
@@ -139,10 +139,17 @@ sha256 `BA6CF3D6…6FF92A7`). **Baseline:** `plans/features/mod-acl-ux-01/m0-bas
   (2.58.205); история `34213999` (2.58.175) сохранена в `deployment_evidence`, evidence-записях строк
   и git log, строки не переоценивались. Живая сверка того же дня: публичный `/healthz` → 2.58.205,
   `/web/app.js` 2 311 044 B, sha256 `3cf2c916…f594`.
-- **Гейты после rebind:** plan `errors=0`; scoped review M0 `--candidate bca18c1e` → `errors=1` —
-  только отсутствие независимого Reviewer-одобрения. До rebind тот же прогон давал `errors=3`
+- **Гейты после rebind (до одобрения):** plan `errors=0`; scoped review M0 `--candidate bca18c1e` → `errors=1` —
+  только отсутствие независимого Reviewer-одобрения (после одобрения — `errors=0`, см. ниже). До rebind тот же прогон давал `errors=3`
   (candidate mismatch и «live requirement lacks evidence»: устаревшие `artifact_sha256` отбрасывались
   при `strict_evidence`), поэтому прежнее утверждение «sha256 валидны» снято как неверное.
+- **Закрытие M0 (2026-11-16):** независимый Reviewer выдал **Approved** по кандидату `bca18c1e`;
+  запись `type=review` (`reviewer_role: Reviewer`, `verdict: Approved`) привязана в
+  `MAC-M0-01.evidence` к артефакту `evidence/m0/mac-m0-01.md` (sha256 `D3D00E38…AE50`), строка
+  переведена **REVIEW → VERIFIED**. Scoped review M0 → **`errors=0`**. Принятые ограничения остаются
+  в силе и не скрыты: pg_dump/pg_restore на хосте нет (снапшот двух конфиг-таблиц — не pg_dump),
+  живой Mini App с owner-сессией — проверка M4, матрица 48 пар — срез 2026-11-16 04:03Z.
+  Карта: **69 VERIFIED / 0 REVIEW / 219 PENDING** из 288 обязательных; эпик не закрыт.
 
 ---
 

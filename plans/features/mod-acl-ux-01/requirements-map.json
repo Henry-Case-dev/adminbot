@@ -23,8 +23,8 @@
     },
     "why": "M0-доказательство собрано на deployed checkout bca18c1e, поэтому review-гейт с --candidate bca18c1e не должен упираться в устаревшее map-level поле 34213999. Поле описывает текущую точку сверки леджера, а не переоценку строк.",
     "live_check_2026_11_16": "Публичный GET https://admin-bot.duckdns.org/healthz -> 200 {\"status\":\"ok\",\"version\":\"2.58.205\"}; GET /web/app.js -> 2 311 044 B, sha256 3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594 = записанный checkout bca18c1e. Совпадает с M0 live-срезом того же дня; HTTP не доказывает Git-HEAD, identity опирается на deploy-запись плюс байт-идентичность app.js.",
-    "row_status_effect": "none: ни одна строка не переведена в VERIFIED и не понижена",
-    "historical_bindings_kept": "evidence-записи сохраняют собственные candidate_commit: 49 на 34213999, 36 на dd52cbf9, 9 на 4e07817e, 6 на c51933d0, 3 на 92070d0e, 2 на 721bab10, 4 на bca18c1e (M0). Перенос map-level поля их не покрывает и не аннулирует.",
+    "row_status_effect": "M0 only: MAC-M0-01 REVIEW -> VERIFIED on 2026-11-16 after the independent Reviewer approval (evidence entry type=review, candidate bca18c1e). No other row was raised, downgraded or edited.",
+    "historical_bindings_kept": "evidence-записи сохраняют собственные candidate_commit: 49 на 34213999, 36 на dd52cbf9, 9 на 4e07817e, 6 на c51933d0, 3 на 92070d0e, 2 на 721bab10, 5 на bca18c1e (M0: 4 доказательства + 1 review-запись). Перенос map-level поля их не покрывает и не аннулирует.",
     "must_not_be_read_as": "Не означает, что обязательные строки доказаны на 2.58.205, и не закрывает релиз MOD-ACL-UX-01: 288 обязательных = 68 VERIFIED / 1 REVIEW / 219 PENDING. Epic-wide release на bca18c1e потребует собственной привязки строк, доказанных на других SHA."
   },
   "strict_evidence": true,
@@ -125,15 +125,15 @@
   ],
   "gate_status": {
     "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после этой правки)",
-    "m0_review_gate_2026_11_16": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=1 errors=1: MAC-M0-01: missing candidate-bound independent Reviewer approval. Это единственная ошибка: candidate совпадает (map-level = bca18c1e), все artifact_sha256 сверены gate'ом в strict-режиме, live- и static-доказательства приняты. До rebind тот же прогон давал errors=3: candidate mismatch (map-level 34213999) и «live requirement lacks evidence for stage review» — устаревшие artifact_sha256 отбрасывались strict-проверкой, поэтому live-запись выпадала. Прежнее утверждение «Артефакты и sha256 валидны» было неверным и снято: фактическая сверка sha256 появилась только после rebind (D1/D4, коммиты a4e1f12c и f300ecca).",
+    "m0_review_gate_2026_11_16": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=1 errors=0 после привязки записи Reviewer Approved (type=review, candidate bca18c1e): candidate совпадает, strict-проверка artifact_sha256 всех 5 записей и независимого approval проходит. До approval тот же прогон давал errors=1 (только отсутствие approval), до rebind — errors=3 (candidate mismatch + live requirement lacks evidence из-за устаревших sha256). Прежнее утверждение «Артефакты и sha256 валидны» было неверным и снято ещё на rebind.",
     "release_gate": "КРАСНЫЙ и остаётся красным по причинам, не связанным с двумя доказанными фиксами",
     "release_gate_reasons": [
-      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 68 VERIFIED и 220 PENDING (на 2026-11-16 после привязки M0: 68 VERIFIED / 1 REVIEW / 219 PENDING); --stage release требует VERIFIED по всем обязательным строкам (фактический прогон на map-level кандидате: errors=261, почти все — «mandatory not ['VERIFIED'] (got PENDING)»)",
-      "map-level candidate_commit/deployed_commit приведены 2026-11-16 к фактическому deployed bca18c1e (2.58.205) датированной записью candidate_binding_2026_11_16; история 34213999 сохранена в deployment_evidence, evidence-записях строк и git log. Release-гейт эпика красный не из-за поля: 220 обязательных строк не VERIFIED, а строки, доказанные на 34213999/dd52cbf9/4e07817e/c51933d0/92070d0e/721bab10, для epic-wide релиза на bca18c1e потребуют собственной привязки",
+      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 69 VERIFIED и 219 PENDING (на 2026-11-16 после Reviewer Approved по MAC-M0-01); --stage release требует VERIFIED по всем обязательным строкам, поэтому он остаётся красным по 219 строкам. Последний измеренный прогон release давал errors=261 при 68 VERIFIED / 1 REVIEW — это состояние на момент прогона, а не текущее; типовая причина — «mandatory not ['VERIFIED'] (got PENDING)».",
+      "map-level candidate_commit/deployed_commit приведены 2026-11-16 к фактическому deployed bca18c1e (2.58.205) датированной записью candidate_binding_2026_11_16; история 34213999 сохранена в deployment_evidence, evidence-записях строк и git log. Release-гейт эпика красный не из-за поля: 219 обязательных строк не VERIFIED, а строки, доказанные на 34213999/dd52cbf9/4e07817e/c51933d0/92070d0e/721bab10, для epic-wide релиза на bca18c1e потребуют собственной привязки",
       "scoped release --slice M1 тоже красный: в M1 остаются PENDING MAC-M1-01, MAC-S4-157, MAC-S4-161, MAC-S4-171, MAC-S4-172, MAC-S4-173, MAC-S4-174, MAC-S10-11, MAC-S10-12, MAC-S10-13, MAC-AC-06, MAC-S15-10, MAC-S4-RPT-01, MAC-DEF-02"
     ],
     "basis_for_two_fixes": "MAC-AVATAR-01 и MAC-DEF-01 доказаны не гейтом, а тремя независимыми основаниями: (1) вердикт независимого Reviewer'а с воспроизведением дефекта на базе 721bab10 и проверкой кандидатов c2255690/30cd8564, включая доказательство отсутствия расширения прав; (2) живые проверки на выкаченном SHA 92070d0e (см. slice_releases[0].live_facts); (3) байт-идентичность продуктовых файлов и контрактных тестов между одобренными кандидатами и выкатом, проверенная по git-блобам.",
-    "must_not_be_read_as": "Эта карта не закрывает эпик MOD-ACL-UX-01 и не делает строки доказанными на 2.58.205: 288 обязательных = 68 VERIFIED / 1 REVIEW / 219 PENDING, релиз эпика не заявлен."
+    "must_not_be_read_as": "Эта карта не закрывает эпик MOD-ACL-UX-01: 288 обязательных = 69 VERIFIED / 0 REVIEW / 219 PENDING, релиз эпика не заявлен."
   },
   "queue_position": "MOD-ACL-UX-01 стоит в конце действующей очереди после SELF-DIAG-01 и VMQ-ONTO-01; полный Builder стартует после освобождения шести файлов MEMORY-08 S3. Две независимые критические правки (M1 ACL false-403 и M5A EXP-FIX correctives) допускаются раньше остального эпика при доступности своих файлов.",
   "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью.",
@@ -1728,7 +1728,7 @@
       "acceptance": "M0 фиксирует HEAD и deployed revision, бэкап конфигурации, аудит 21 карточки, реестра, ключей и consumers, ACL guards и app.js, а также матрицу stored/effective по GLOBAL и 2–3 чатам без записи.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
@@ -1788,6 +1788,18 @@
             "stored_effective_matrix": "covered: 48 pairs on bca18c1e/GLOBAL+3 profiles, global master rows read (9/10 present + 1 default), per-chat gates confirmed, changed_pairs=0",
             "no_writes": "covered: read_only=on transaction; product/config/tests/DB unchanged; only a read-only SELECT and a server-side snapshot file in backups/"
           }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer approval of MAC-M0-01 on bca18c1e (2.58.205), delivered 2026-11-16 after the D1-D4 evidence corrections",
+          "observation": "Reviewer подтвердил: (1) deployed identity 2.58.205 @ bca18c1e, served app.js 2 311 044 B / sha256 3cf2c916...f594 = checkout, схема 47, DDL 0; (2) 21 видимая карточка = 16 static mod_* + 5 registry-only, 11 ModuleSpec (10 видимых, hidden factcheck_temporal), 249 route-decorators, 181 get_tma_user / 33 requires_permission / 40 requires_global_admin, единственный endpoint без auth - GET /api/health; (3) live effective-state 48 пар (16 capability x 3 профиля G32/G8/DM5) каноническим resolve_capability, changed_pairs=0, GLOBAL-строки мастеров 9/10 (memory.random_enabled - дефолт True), DM5 дочитан тем же resolver (официальный CLI отдаёт 2 профиля), ровно одна пара GLOBAL OFF + CHAT ON - gate:permsoc у G32; (4) конфигурационный снапшот обеих таблиц 548/3, read-back equal, inner JSON 1c5312fe...ea78, gz 1cae602d...9a4d не менялся, sidecar с corrections[]; (5) M1 false-403 исправлен на bca18c1e, 17/17 M1 + 2/2 six_case_table. Ограничения приняты и не скрыты: pg_dump/pg_restore на хосте отсутствуют, custom-format архива нет, снапшот двух таблиц не является pg_dump; живой Mini App с owner-сессией не открывался - это проверка M4; матрица - один точечный срез 2026-11-16 04:03Z; продукт, конфиг и тесты не менялись (read-only). Вердикт: Approved для VERIFIED по MAC-M0-01; ревью не закрывает другие строки и не закрывает эпик.",
+          "artifact_role": "reviewed evidence artifact (the verdict itself was delivered by the independent Reviewer and is recorded in plans/workflow_state.md @ 1ec21d63); this entry does not claim the md contains the review text",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m0/mac-m0-01.md",
+          "artifact_sha256": "D3D00E38D450C4B706F57183627BA0F130E096700DC2E1F959A57A51AC75AE50",
+          "covers_row_acceptance": true
         }
       ],
       "expected_evidence": [
@@ -1797,8 +1809,8 @@
           "description": "наблюдаемый артефакт проверки MAC-M0-01"
         }
       ],
-      "pending_condition": "REVIEW, не VERIFIED: evidence на bca18c1e полный (live effective-state 48 пар, GLOBAL-строки мастеров, per-chat гейты, конфигурационный снапшот с read-back), но независимого Reviewer-одобрения M0-доказательств ещё нет. Открытые ограничения: (1) pg_dump/pg_restore на хосте отсутствуют, custom-format архив не создан — снапшот обеих конфиг-таблиц с read-back является заменой, но не pg_dump; (2) живой Mini App с owner-сессией не открывался — это проверка M4, не M0.",
-      "bound_by": "PM binding 2026-11-16 (M0 refresh delivered in ad587012); artifact hashes rebound 2026-11-16 after D1-D4 (Builder a4e1f12c + f300ecca); status unchanged REVIEW"
+      "status_note": "ЗАКРЫТО 2026-11-16: Reviewer Approved по кандидату bca18c1e (2.58.205), запись type=review в evidence. Закрытые ограничения и принятые допущения (не скрыты): (1) pg_dump/pg_restore на хосте отсутствуют — custom-format архив не создан, снапшот обеих конфиг-таблиц с read-back является заменой, но не pg_dump; (2) живой Mini App с owner-сессией не открывался — это проверка M4, не M0; (3) матрица 48 пар — точечный срез 2026-11-16 04:03Z, тренд не проверялся. Прежняя редакция этого поля (pending_condition) фиксировала REVIEW до одобрения; история сохранена в git.",
+      "bound_by": "PM binding 2026-11-16 (M0 refresh delivered in ad587012); artifact hashes rebound 2026-11-16 after D1-D4 (Builder a4e1f12c + f300ecca); Reviewer Approved -> VERIFIED 2026-11-16"
     },
     {
       "source_id": "MAC-M1",
@@ -9107,7 +9119,7 @@
     "note": "M1-аудит на выкаченной сборке 2.58.180. Привязаны MAC-S4-169/170 (статический инвентарь ACL и разделение операций), частично MAC-S4-171/172/173, MAC-S10-13 и MAC-S4-174; исправлена причина PENDING у MAC-S4-161/MAC-AC-06 — аналитика и надзор идут через `requires_global_admin()`, а не `requires_permission`; зарегистрирован обязательный дефект MAC-DEF-01 (`requires_permission` не смотрит `role_type`). Map-level candidate_commit = 34213999 (2.58.175) не меняется: новые строки привязаны к 721bab10 в собственных evidence-записях. | 2026-11-16: map-level candidate/deployed переставлены на bca18c1e (2.58.205) как binding-факт (candidate_binding_2026_11_16); фраза выше про 34213999 — историческая."
   },
   "m0_refresh_2026_11_16": {
-    "status": "REVIEW (evidence complete on bca18c1e; independent Reviewer approval pending)",
+    "status": "VERIFIED (Reviewer Approved on bca18c1e, 2026-11-16)",
     "req_ids": [
       "MAC-M0-01"
     ],
@@ -9182,9 +9194,19 @@
     },
     "gaps": [
       "pg_dump/pg_restore are absent on the production host, so no custom-format database archive exists; the two-table gzip-JSON snapshot (full values, read-back equal) is not a pg_dump substitute. Recorded as a limitation, not hidden.",
-      "No independent Reviewer approval of the M0 evidence yet: the row stays REVIEW.",
       "The live Mini App with an owner session was not opened: the DOM probe ran on the real served assets, but /api/config was a stub; this is an M4 check, not an M0 blocker."
     ],
+    "approval_2026_11_16": {
+      "verdict": "Approved (VERIFIED for MAC-M0-01)",
+      "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "reviewer_role": "Reviewer",
+      "entry": "MAC-M0-01.evidence[4] type=review",
+      "reviewed_artifact": "plans/features/mod-acl-ux-01/evidence/m0/mac-m0-01.md",
+      "artifact_sha256": "D3D00E38D450C4B706F57183627BA0F130E096700DC2E1F959A57A51AC75AE50",
+      "provenance": "verdict delivered by the independent Reviewer; the pointer to the reviewed artifact is deliberate and does not claim the md contains the review text (see artifact_role in the entry)",
+      "scope": "closes MAC-M0-01 only; no other row and no epic release",
+      "at": "2026-11-16T16:58:00+12:00"
+    },
     "corrections_2026_11_16": {
       "status": "D1-D4 closed in the evidence; independent Reviewer approval still pending",
       "D1_inner_hash": "inner JSON sha256 309f1947...9914 was a hash of str(bytes), not of the unpacked bytes; corrected to 1c5312feca6eba7a8386aeb39aaf712516f7f789f4bdc107a701e489c188ea78 (gzip -dc | sha256sum). Prod sidecar .sha256/.meta.json corrected with corrections[]; gz bytes and sha256 unchanged 1cae602d...9a4d. Builder commit a4e1f12c.",
@@ -9224,11 +9246,11 @@
     ],
     "gate_facts": {
       "plan": "requirements_gate.py check --stage plan --repo . -> stage=plan inventory=279 manual=102 scoped=0 errors=0 (after the rebind)",
-      "review_M0_on_deployed_candidate": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . -> scoped=1 errors=1: only the missing candidate-bound independent Reviewer approval. Candidate equality, strict artifact_sha256 verification and live/static evidence all pass.",
+      "review_M0_on_deployed_candidate": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . -> scoped=1 errors=0 after the Reviewer approval entry was bound (candidate equality, strict artifact_sha256 for all 5 entries and the type=review approval all pass). Before the approval the same run was errors=1 (only the missing approval); before the rebind it was errors=3.",
       "review_M0_before_rebind": "the same command before the rebind -> scoped=1 errors=3: candidate mismatch (map-level 34213999) and 'live requirement lacks evidence for stage review' because stale artifact_sha256 entries were dropped by strict verification. This is why the earlier claim 'artifacts and sha256 are valid' was removed.",
-      "must_not_be_read_as": "The single remaining error is the absence of independent review, not a defect of the M0 content; the row stays REVIEW and the epic is not closed."
+      "must_not_be_read_as": "errors=0 proves the structural review checkpoint for M0 only; it does not verify the remaining 219 mandatory rows and does not release the epic."
     },
-    "map_counts_after_binding": "288 mandatory: 68 VERIFIED / 1 REVIEW / 219 PENDING",
-    "not_claimed": "MAC-M0-01 stays REVIEW, not VERIFIED: the live matrix and the configuration snapshot now exist on bca18c1e, but no independent Reviewer approval of the M0 evidence is recorded, and the pg_dump absence remains a documented limitation. This block closes no other row and does not claim the MOD-ACL-UX-01 release."
+    "map_counts_after_binding": "288 mandatory: 69 VERIFIED / 0 REVIEW / 219 PENDING (MAC-M0-01 moved REVIEW->VERIFIED on 2026-11-16 after the independent approval; no other row changed)",
+    "not_claimed": "This block closes MAC-M0-01 only. The pg_dump absence stays a documented limitation, the live Mini App remains an M4 check, and 219 mandatory rows are still PENDING; the MOD-ACL-UX-01 release is not claimed."
   }
 }
