@@ -1,0 +1,18 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-slice-d-release-7cbfe0890b57-dd600808",
+      "owner": "Builder (VMQ-SliceD release train 2.58.205) -> Reviewer/DevOps",
+      "reason": "Clean worktree of branch release/vmq-slice-d-2.58.205 (code 69b5c9f9, bump bfcccb38, evidence commit follows) retained for the delta review of the exact 2.58.205 candidate and the following deployment; it is the only checked-out copy of this train and must not be retired before release.",
+      "evidence": "plans/features/vmq-onto-01/evidence/release-2.58.205/assembly.md; origin/release/vmq-slice-d-2.58.205",
+      "next_event": "After the Reviewer delta verdict and the 2.58.205 deployment (or rejection) is recorded, the owning role runs unit-close/unit-check on vmq-slice-d-release-2.58.205 and retires the worktree."
+    },
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-slice-d-release-7cbfe0890b57\\probe-55128b6434",
+      "owner": "Builder (VMQ-SliceD release train 2.58.205) -> Reviewer/DevOps",
+      "reason": "Assembly probe run retained: contains the fresh-DB probe file and per-batch test logs; run-close refused deletion because protected/unknown content is present. All numbers were transferred to tests-2.58.205.json and assembly.md.",
+      "evidence": "plans/features/vmq-onto-01/evidence/release-2.58.205/tests-2.58.205.json; assembly.md",
+      "next_event": "After the release verdict/deploy, the owning role reruns run-close; protected DB/log artifacts are deleted only with explicit confirmation, otherwise the run stays retained."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "release": "2.58.205",
+  "target_rollback_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "target_rollback_version": "2.58.204",
+  "target_rollback_state": "deployed",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout 2b419aa2 (2.58.204) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz and release manifest identity"
+  ],
+  "notes": [
+    "Slice D changes are read-only at the DB layer; no new tables/columns/indexes.",
+    "Rolling back only the product layer is safe: get_author_message_periods keeps the same signature and annual quota.",
+    "The bump commit changes only version pins; it needs no separate rollback once the checkout is at 2b419aa2."
+  ]
+}

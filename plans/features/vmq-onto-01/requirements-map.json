@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
   "source_sha256": "11fd732fed30e5ea2b78b1951d2e8df8b483ff55fea92285f6da57fcc7637cd0",
-  "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
-  "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+  "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
   "deployed_commit_note_2026_11_11": "[историческая запись: верна до 2026-11-15] Верхнеуровневый deployed_commit карты = 952b9ebd (2.58.187) с 11.11.2026: на проде выкачена следующая ступень памяти — периодный добор с векторной ногой. Прежнее значение 0fed5845 (2.58.183) остаётся исторической записью слайса VMQ-MEM-TIME в deployment_evidence.follow_up_2_58_183 и не переоценивается: привязки девяти строк VMQ-TIME-01..09 к замороженному кандидату 709865f6 сохраняются. candidate_commit карты по-прежнему указывает на кандидата в ревью замороженного слайса (709865f6), поэтому проверка release-гейта «deployed == candidate» для этой карты заведомо не сходится: одна карта несёт разные кандидаты разных ступеней, и это открытый bookkeeping-факт, а не признак неверной выкладки или неверного кандидата. Release-гейт ступени проверяется по строке-кандидату этой ступени, а не по верхнеуровневому полю. [2026-11-11, продолжение] Прод после этого ушёл на 2.58.188 @ c087253d (ступень SELF-DIAG-01 D2, рестарт 09:21:08Z): 952b9ebd — его предок, файлы памяти 2.58.188 не меняет. Верхнеуровневый deployed_commit оставлен 952b9ebd как привязка ИМЕННО этой ступени памяти, а не как «текущая версия прода»; фактическая версия прода фиксируется в deployment_evidence.follow_up_2_58_187.prod_after_2026_11_11.",
   "current_production_2026_11_13": {
     "version": "2.58.198",
@@ -4606,6 +4606,28 @@
           "artifact_note": "artifact_sha256 намеренно не фиксируется: workflow_state.md переписывается по мере работы (компактный checkpoint, а не неизменяемый отчёт). Сужающая таблица находок — plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r3.md (sha256 1ade76fa2b59b734a03b8c8de603faf7bd9fa79141b7f52d62428ecbe67129a5)",
           "observation": "Вердикт: `Approved (predeploy)` на продуктовый код 456cf769 / evidence tip 69b5c9f9. Перед ним r3 оставался `Needs Fixes` на 8fbd2ffb (тот же код 456cf769) с остатком N7/N8/N9/N10/N11; N9 (вакуумный T3-тест) исправлен test-only на 69b5c9f9, `git diff 8fbd2ffb..69b5c9f9 -- services/` пуст, Reviewer подтвердил закрытие. N7 и N8 классифицированы как backlog (base-retrieval ранжирование и имя метрики аддитивной ветки), N10/N11 — как отложенное postdeploy-наблюдение L1 `memory_scope`. Приёмка строк этим вердиктом не заявляется: VERIFIED не ставится, кандидат не выложен.",
           "covers_row_acceptance": false
+        },
+        {
+          "type": "production",
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "ref": "2.58.205 deploy (Slice D): код трассы выложен, но приёмка трассы строкой не закрыта",
+          "observation": "На выложенном bca18c1e код Slice D и поля трассы (`policy`/`replace_allowed`/`period_skipped`/`intent_source`, `memory_period`, годы по блокам) присутствуют в production-дереве (identity verified_deployed, deployed=checkout=bca18c1e). Приёмка строки требует машинно-читаемую трассу блоков RAG_Memory/Old_Episode/Global_Context и инструментальных источников (Летописец, dig) со ступенями кандидат → принят потребителем → отрендерен в блок → дошёл до Writer и причинами отбраковки по категориям (квота активного набора / статус / давность / релевантность / бюджет). Этого выкладка не добавляет: после рестарта 0 реальных ходов, живая трасса не снята; инструментальные источники в трассе Slice D не измерялись, вклад профиля в аддитивной ветке не атрибутирован (N8). VERIFIED был бы инфляцией.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy.md",
+          "artifact_sha256": "43f66764ccbc2e480d62660044db6692bb1ccc1177968889eefa922f3f2d203f",
+          "covers_row_acceptance": false,
+          "remaining_gap": "инструментальные источники (Летописец, dig) в трассе; четырёхступенчатая разбивка с причинами по категориям; живая трасса на реальном ходе"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "artifact_path": "plans/workflow_state.md",
+          "ref": "Независимое одобрение точного release tip bca18c1e (2.58.205); относится к выкладке кандидата, не к приёмке строки",
+          "artifact_note": "отдельного файла delta-review на bca18c1e в evidence нет; запись в plans/workflow_state.md + release-2.58.205/deploy.md §1",
+          "observation": "Reviewer `Approved for deploy` на exact tip bca18c1e после закрытия E1/E2/E4; условий, закрывающих остаток TIME-04, вердикт не содержит.",
+          "covers_row_acceptance": false
         }
       ],
       "expected_evidence": [
@@ -4672,7 +4694,8 @@
       "slice_a_partial_2026_11_15": "Трасса Slice A машинно-читаемая: по каждому классу годы в блоке RAG_Memory, периодный вклад с причинами (out_of_target_year/unknown_year/pool_cap/subject_soft_fallback/rejected_subject), old_episode состав, SQL-пробы и probes (profile/dig/relations). Ступень потери года определяется. Но владельческая клауза о категориях (квота/статус/давность/релевантность/бюджет) не покрыта, и путь Old_Episode для 2023 остаётся 2025+2026. Статус остаётся PENDING",
       "slice_b_partial_2026_11_15": "Клауза Old_Episode теперь закрыта: трасса показывает year_window=[2023] и состав {2023:18}; причины периода несут quota/relevance коды (historical_quota, multi_year_quota, rejected_subject). Не закрыто: категории статуса/давности/контекстного бюджета и инструментальные источники (Летописец, dig) в трассе отсутствуют. Строка остаётся PENDING",
       "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
-      "slice_d_binding_2026_11_15": "Строка переведена PENDING → REVIEW на кандидате 456cf769 (evidence tip 69b5c9f9) по независимому арбитражу Reviewer. Это НЕ приёмка строки: `covers_row_acceptance=false`, остаток — инструментальные источники в трассе и N8; VERIFIED не заявляется."
+      "slice_d_binding_2026_11_15": "Строка переведена PENDING → REVIEW на кандидате 456cf769 (evidence tip 69b5c9f9) по независимому арбитражу Reviewer. Это НЕ приёмка строки: `covers_row_acceptance=false`, остаток — инструментальные источники в трассе и N8; VERIFIED не заявляется.",
+      "status_reason_2026_11_15": "Остаётся REVIEW после выкладки: production-факт подтверждает, что код трассы Slice D выложен на bca18c1e, но приёмка требует машинно-читаемую трассу блоков и инструментальных источников (Летописец, dig) со ступенями кандидат → принят потребителем → отрендерен в блок → дошёл до Writer и причинами по категориям (квота/статус/давность/релевантность/бюджет). Slice D даёт `policy`/`replace_allowed`/`period_skipped`/`intent_source`, `memory_period` и годы по блокам, но не инструментальные источники и не полную четырёхступенчатую разбивку; после рестарта 0 реальных ходов, живая трасса не снята. Переводить в VERIFIED — инфляция."
     },
     {
       "source_id": "MAN-TIME-05",
@@ -4790,7 +4813,7 @@
       "acceptance": "Дифф исправления меняет существующий маршрут (retrieve()/composer/отбор кандидатов/индексы/граф-факты) и не добавляет новую систему памяти, второй роутер, отдельный summary-пайплайн, словарные триггеры годов или повторный ingest архива. Embeddings не перестраиваются: модель, размерность (3072, gemini-embedding-001) и число векторов до и после совпадают, повторной эмбеддинг-генерации в прогоне нет. Приложена отрицательная проверка — инвентаризация изменённых владельцев данных и поиск по диффу новых таблиц/хранилищ/сервисов, — подтверждающая, что механизм исправлен, а не заменён; любое новое хранилище или изменение схемы требует отдельного решения Architect. Уточнение владельца 10.11.2026: помимо отсутствия новой системы памяти и перестройки embeddings, запрещено изменять сохранённые пользовательские настройки и вводить новые словарные триггеры. Контекстные бюджеты сохраняются как техническая защита производительности, но подбор доказательств адаптивный: постоянная доля свежих и архивных фактов для всех запросов не устанавливается. Для вопросов о текущем положении дел сохраняется существующий механизм определения действующих сведений и он не подменяется простой сортировкой по дате; пересмотр констант полураспада/пола и бонуса свежести касается исторического и субъектного retrieval, а не замены механизма актуальности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -4832,6 +4855,62 @@
           "artifact_note": "artifact_sha256 намеренно не фиксируется: workflow_state.md переписывается по мере работы (компактный checkpoint, а не неизменяемый отчёт). Сужающая таблица находок — plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r3.md (sha256 1ade76fa2b59b734a03b8c8de603faf7bd9fa79141b7f52d62428ecbe67129a5)",
           "observation": "Вердикт: `Approved (predeploy)` на продуктовый код 456cf769 / evidence tip 69b5c9f9. Перед ним r3 оставался `Needs Fixes` на 8fbd2ffb (тот же код 456cf769) с остатком N7/N8/N9/N10/N11; N9 (вакуумный T3-тест) исправлен test-only на 69b5c9f9, `git diff 8fbd2ffb..69b5c9f9 -- services/` пуст, Reviewer подтвердил закрытие. N7 и N8 классифицированы как backlog (base-retrieval ранжирование и имя метрики аддитивной ветки), N10/N11 — как отложенное postdeploy-наблюдение L1 `memory_scope`. Приёмка строк этим вердиктом не заявляется: VERIFIED не ставится, кандидат не выложен.",
           "covers_row_acceptance": false
+        },
+        {
+          "type": "production",
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "ref": "2.58.205 deploy (Slice D): инвариантность схемы/хранилищ/embeddings и сохранность настроек на выложенном кандидате",
+          "observation": "На выложенном bca18c1e: schema 47, pending=[], миграций не применялось (DDL 0), таблиц 130 — новых таблиц/хранилищ нет; `bot_settings` 548 строк и `chat_profiles` 3 с совпавшими digest'ами; ручной промпт `rev:d31300ef35a0` 12 469 симв. / 31d17506… и `prompts.global_row` 3500 / 3cef66ec… pre==post; `prompt_release changed=0 retired=0`; `services/database.py` в дельте — только SELECT-путь годового окна. После рестарта 0 реальных ходов (`direct_turn_context`=0), т.е. повторной эмбеддинг-генерации в прогоне не было. Продуктовый код между ревью и выложенным tip не менялся (`git diff 456cf769..bca18c1e -- services/` пуст).",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy.md",
+          "artifact_sha256": "43f66764ccbc2e480d62660044db6692bb1ccc1177968889eefa922f3f2d203f",
+          "deployed_commit_note": "deployed = checkout = bca18c1e, dirty=false (identity.json)",
+          "covers_row_acceptance": true,
+          "limitation": "живой счётчик векторов «до/после» на прод-базе не снимался; семантическая нога `compat_not_proven`; живой процесс/Writer/реранк не наблюдались — ограничение, не провал строки (как в predeploy-записи)"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "artifact_path": "plans/workflow_state.md",
+          "ref": "Независимое одобрение точного release tip bca18c1e (2.58.205): последний delta review после E1/E2/E4",
+          "artifact_note": "отдельного файла delta-review на bca18c1e в evidence нет; вердикт записан в plans/workflow_state.md и в release-2.58.205/deploy.md §1; artifact_sha256 намеренно не фиксируется — workflow_state.md переписываемый компактный checkpoint",
+          "observation": "Reviewer: `Approved for deploy` на exact tip bca18c1e (до этого Needs Fixes на 525cf974 только по evidence/ops). Условия: fixed-point manifest, fail-closed backup read-back, postdeploy health/schema/identity/journal/settings и один read-only L1-срез. Одобрение относится к выкладке кандидата, не к приёмке строк; приёмка TIME-06 подтверждается инспекцией/тестами инвариантности и production-фактами выше.",
+          "covers_row_acceptance": false
+        },
+        {
+          "type": "test",
+          "type_detail": "independent vector-leg inventory + route invariants",
+          "ref": "slice-d-2026-11-15.md §4; vector-leg-inventory-2026-11-15.json; slice-d-tests-2026-11-15.json",
+          "observation": "Независимая инвентаризация и инварианты на выложенном кандидате: graph_facts_vec_rowids=21 771, facts_with_vector=21 152 из 21 704, dims=3072, model=gemini-embedding-001; DDL 0, 47 MigrationSteps, новых таблиц/хранилищ/embedding-пайплайна нет; один retrieve()/один bundle; сохранённые промпты и настройки не тронуты. Ограничение: семантическая нога compat_not_proven, живой счётчик векторов до/после не снимался.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/vector-leg-inventory-2026-11-15.json",
+          "artifact_sha256": "90A60E543680D95786CA4C07F604E02318174EF7AF0E910158DD099665667A8B",
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "covers_row_acceptance": true,
+          "coverage_scope": "inventory/invariants/no-new-store/no-embedding-rebuild"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved (predeploy)",
+          "ref": "slice-d-final-approval.md — сессия Reviewer ses_e2221abb6ffeSaFVCOq0pGps8K",
+          "observation": "Reviewer Approved (predeploy) для продуктового кода 456cf769 / evidence tip 69b5c9f9; между ревью и выложенным tip продуктовый код не менялся (git diff 456cf769..bca18c1e -- services/ пуст). N9 закрыт; TIME-06 подтверждён с ограничением недоступной семантической ноги; A1P parity под auto не заявляется по ARCH_DECISION.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-final-approval.md",
+          "artifact_sha256": "E5C99B6C80E158BF4DF17568CEEE1444CE570D2CF589A24BD1DD82D60BAE446F",
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "candidate_deployed": true,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "deploy",
+          "ref": "release-2.58.205/deploy.md + identity.json",
+          "observation": "2.58.205 deployed at bca18c1e; health 200/2.58.205, schema 47/pending=[], identity verified_deployed, NRestarts=0, journal без ERROR/traceback; bot_settings/chat_profiles и manual prompt pre==post; DDL 0, миграций не применялось.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy.md",
+          "artifact_sha256": "43F66764CCBC2E480D62660044DB6692BB1CCC1177968889EEFA922F3F2D203F",
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "candidate_deployed": true,
+          "covers_row_acceptance": true
         }
       ],
       "expected_evidence": [
@@ -4898,7 +4977,10 @@
       "slice_a_partial_2026_11_15": "Негативная проверка Slice A подтверждает: нет новой системы памяти/второго роутера/отдельного summary-пайплайна/повторного ingest, embeddings не перестраиваются (код не вызывает embed), настройки не менялись, «что сейчас» не подменено сортировкой по дате. Не покрыто: явная инвентаризация числа векторов до/после и формальный поиск новых таблиц по диффу, а также вопрос «словарных триггеров годов» (resolve_period_intent разбирает явный год и повествовательные формы). Статус остаётся PENDING",
       "slice_b_partial_2026_11_15": "Подтверждено: маршрут существующий, второго store/пайплайна/словаря годов нет (intent из плана), database.py-добавления только SELECT (Reviewer static diff), настройки/флаги не менялись, текущее состояние не подменено сортировкой по дате (в т.ч. при сигнале плана). Не закрыто: не снято число векторов до/после (только модель/размерность 3072) и нет отдельного артефакта инвентаризации владельцев данных. Строка остаётся PENDING",
       "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются",
-      "slice_d_binding_2026_11_15": "Строка переведена PENDING → REVIEW на кандидате 456cf769 (evidence tip 69b5c9f9): инвентаризация, инварианты и отрицательная проверка подтверждены, semantic-нога `compat_not_proven` записана как ограничение. VERIFIED не заявляется — живой процесс не участвовал."
+      "slice_d_binding_2026_11_15": "Строка переведена PENDING → REVIEW на кандидате 456cf769 (evidence tip 69b5c9f9): инвентаризация, инварианты и отрицательная проверка подтверждены, semantic-нога `compat_not_proven` записана как ограничение. VERIFIED не заявляется — живой процесс не участвовал.",
+      "status_reason_2026_11_15": "VERIFIED на выложенном bca18c1e (2.58.205). Основание: candidate-bound инспекция vector-leg-inventory (21 771 rowid, 21 152 факта с вектором из 21 704, dims 3072, gemini-embedding-001; covers_row_acceptance=true), тесты/дифф инвариантности маршрута (covers=true), независимый `Approved (predeploy)` на продуктовый код 456cf769 и production-факты выкладки: schema 47/pending=[]/таблиц 130/миграций 0, настройки и промпты владельца pre==post, после рестарта 0 ходов (перестройки embeddings не было). Продуктовый код между ревью и выложенным tip не менялся (`git diff 456cf769..bca18c1e -- services/` пуст). Ограничения записаны честно в evidence: живой счётчик векторов «до/после» не снимался, семантическая нога `compat_not_proven`; это ограничение приёмки, а не провал строки.",
+      "verified_candidate_2026_11_15": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "verified_note_2026_11_15": "Candidate-bound evidence добавлен к выложенному SHA: инвентаризация/инварианты, финальный Approved и deploy-факты. VERIFIED относится к выложенному bca18c1e; живой счётчик векторов и семантическая нога остаются ограничением."
     },
     {
       "source_id": "MAN-TIME-07",
@@ -14629,8 +14711,8 @@
       "base_commit_note": "база — выложенная линия 2b419aa2 (2.58.204), не срез карты",
       "base_code_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
       "prod_ancestor": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
-      "deployed": false,
-      "deployed_note": "кандидат не выложен; верхнеуровневые `candidate_commit`/`deployed_commit` карты остаются 2b419aa2 до сборки release-поезда 2.58.205 (release candidate pending assembly)",
+      "deployed": true,
+      "deployed_note": "Выложен 2026-11-15: 2.58.205 @ bca18c1e на `release/vmq-slice-d-2.58.205`, база/откат 2b419aa2 (2.58.204). Health local/public 200/2.58.205, schema 47/pending=[], identity verified_deployed, NRestarts=0, journal 0 Traceback/ERROR/CRITICAL, настройки и промпт владельца pre==post. L1-срез после рестарта не снят (0 реальных ходов) — запаркован как наблюдение без polling. Полный факт — `deploy_evidence_2_58_205`.",
       "status": "REVIEW",
       "recorded_at": "2026-11-15",
       "rows": [
@@ -14732,7 +14814,45 @@
         "pending": 48,
         "note": "изменены только VMQ-TIME-04 и VMQ-TIME-06 (PENDING → REVIEW); остальные строки не тронуты"
       },
-      "gate_note": "scoped review-гейт `--slice VMQ-MEM-TIME --candidate 456cf769` пока не может быть зелёным по трём причинам, и это НЕ правится подгонкой: (1) верхнеуровневый `candidate_commit` карты — выложенный 2b419aa2, поэтому гейт даёт `candidate mismatch` до сборки release-поезда; (2) `VMQ-TIME-01/02/05/07/08/09` остаются PENDING; (3) `VMQ-TIME-03` связан с другим кандидатом (pre-existing). Точный вывод прогонов — в plan.md §15."
+      "gate_note": "scoped review-гейт `--slice VMQ-MEM-TIME --candidate 456cf769` пока не может быть зелёным по трём причинам, и это НЕ правится подгонкой: (1) верхнеуровневый `candidate_commit` карты — выложенный 2b419aa2, поэтому гейт даёт `candidate mismatch` до сборки release-поезда; (2) `VMQ-TIME-01/02/05/07/08/09` остаются PENDING; (3) `VMQ-TIME-03` связан с другим кандидатом (pre-existing). Точный вывод прогонов — в plan.md §15.",
+      "deployed_note_previous_2026_11_15": "кандидат не выложен; верхнеуровневые `candidate_commit`/`deployed_commit` карты остаются 2b419aa2 до сборки release-поезда 2.58.205 (release candidate pending assembly)",
+      "release_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "release_commit_short": "bca18c1e",
+      "release_branch": "release/vmq-slice-d-2.58.205",
+      "release_base": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "release_tip_note": "Release tip bca18c1e содержит продуктовый код 456cf769 (предок), bump 2.58.205 и N9 test-only правку теста; `git diff 456cf769..bca18c1e -- services/` пуст, изменения вне services/ — версия, пины и evidence.",
+      "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "deployed_commit_short": "bca18c1e",
+      "deployed_version": "2.58.205",
+      "deployed_recorded_at": "2026-11-15",
+      "delta_review_2026_11_15": {
+        "exact_tip": "525cf974 → bca18c1e",
+        "first_pass": "Needs Fixes только по evidence/ops (E1 manifest dry-run, E2 stale поля tests-2.58.205.json, E4 predeploy backup + L1 checklist), продуктового блокера нет",
+        "closed": "E1/E2/E4 закрыты docs-only на bca18c1e (`git diff 525cf974..bca18c1e -- services tests config` пуст); Reviewer — Approved for deploy на exact tip bca18c1e",
+        "artifact_caveat": "отдельного файла delta-review на bca18c1e в evidence нет; запись в plans/workflow_state.md + release-2.58.205/deploy.md §1",
+        "conditions": "fixed-point manifest принят (content-tip d294e17f + metadata-only дельта), fail-closed backup read-back, postdeploy health/schema/identity/journal/settings и один read-only L1-срез"
+      },
+      "deploy_evidence": [
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy.md",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/identity.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/manifest-after.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy-run.log",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/journal-summary.txt",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/snapshot-pre.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/snapshot-post.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/predeploy.md",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/assembly.md",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/train-commits.txt",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/tests-2.58.205.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/manifest-dry-run.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/rollback.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/retention.json",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/diff-numstat-pre-bump.txt",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/diff-stat-pre-bump.txt",
+        "plans/features/vmq-onto-01/evidence/release-2.58.205/diff-stat-bumped.txt"
+      ],
+      "status_note_2026_11_15": "После выкладки: VMQ-TIME-06 → VERIFIED на bca18c1e (инспекция/тесты инвариантности + production-факты без новой схемы/хранилищ и без перестройки embeddings). VMQ-TIME-04 остаётся REVIEW: не закрыты инструментальные источники (Летописец, dig) и полная четырёхступенчатая трасса причин; MEM-04/TIME-01/TIME-02/TIME-07 остаются PENDING (реальный L1 `memory_scope`/`response_act` не наблюдался, reply-путь под `auto`, синтетическая разметка). Поле `why_review_not_verified` выше относится к pre-deploy состоянию и сохранено как история.",
+      "why_review_not_verified_current_2026_11_15": "Частично снято: кандидат выложен, поэтому VERIFIED стал возможен для строк, чья приёмка не требует живого L1/Writer (TIME-06). Для TIME-04 причина уже не «не выложен», а незакрытый остаток приёмки трассы; для MEM-04/TIME-01/02/07 — отсутствие реального L1-наблюдения и reply-пути."
     }
   },
   "metric_contract_2026_11_13": {
@@ -15370,6 +15490,78 @@
       "review": 14,
       "verified": 6,
       "note": "Slice B закрыл TIME-03 на REVIEW (с breadth-частичностью); Slice C усилил M-04/O-04 без смены статусов"
+    },
+    "open_rows_2026_11_15_slice_d_deployed": {
+      "total_required": 70,
+      "pending": 48,
+      "review": 8,
+      "ready_for_live": 1,
+      "verified": 13,
+      "verified_row_added": [
+        "VMQ-TIME-06"
+      ],
+      "review_rows": [
+        "V-01",
+        "V-02",
+        "V-03",
+        "V-04",
+        "VMQ-MEM-01",
+        "VMQ-NEXT-03",
+        "VMQ-TIME-03",
+        "VMQ-TIME-04"
+      ],
+      "open_rows": [
+        "I-01",
+        "I-02",
+        "I-03",
+        "I-04",
+        "I-05",
+        "I-06",
+        "O-04",
+        "Q-01",
+        "Q-02",
+        "Q-03",
+        "Q-04",
+        "Q-05",
+        "Q-06",
+        "Q-07",
+        "Q-08",
+        "Q-09",
+        "QM-01",
+        "QM-02",
+        "QM-03",
+        "QM-04",
+        "QM-05",
+        "QM-06",
+        "QM-07",
+        "QM-08",
+        "QM-09",
+        "R-01",
+        "R-02",
+        "R-03",
+        "R-04",
+        "S-01",
+        "S-02",
+        "S-03",
+        "U-01",
+        "U-02",
+        "VMQ-MEM-02",
+        "VMQ-MEM-03",
+        "VMQ-MEM-04",
+        "VMQ-MEM-05",
+        "VMQ-MEM-06",
+        "VMQ-MEM-07",
+        "VMQ-MEM-08",
+        "VMQ-NEXT-01",
+        "VMQ-NEXT-04",
+        "VMQ-TIME-01",
+        "VMQ-TIME-02",
+        "VMQ-TIME-05",
+        "VMQ-TIME-07",
+        "VMQ-TIME-08",
+        "VMQ-TIME-09"
+      ],
+      "note": "counts по карте после привязки деплоя 2.58.205; эпик остаётся открытым. TIME-04 REVIEW с точным остатком; MEM-04/TIME-01/02/07 PENDING (реальный L1 не наблюдался)"
     }
   },
   "candidate_commit_history": [
@@ -15383,6 +15575,12 @@
       "value": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
       "until": "2026-11-15",
       "why_replaced": "поезд 2.58.204 выложен: верхнеуровневый кандидат = deployed tip 2b419aa2"
+    },
+    {
+      "value": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "role": "поезд 2.58.204 / база Slice D (production до 2.58.205)",
+      "until": "2026-11-15",
+      "why_replaced": "2.58.205 выложен: верхнеуровневый candidate_commit = deployed tip bca18c1e (Slice D внутри release-линии)"
     }
   ],
   "deployed_commit_history": [
@@ -15412,6 +15610,12 @@
       "version": "2.58.203",
       "until": "2026-11-15",
       "why_replaced": "2.58.204 deployed 2026-11-15"
+    },
+    {
+      "value": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "version": "2.58.204",
+      "until": "2026-11-15",
+      "why_replaced": "2.58.205 deployed 2026-11-15 @ bca18c1e (база/откат 2b419aa2)"
     }
   ],
   "top_level_binding_note_2026_11_15": "candidate_commit и deployed_commit переведены на выложенную линию c97c06e4 (2.58.203). Прежние значения сохранены в candidate_commit_history/deployed_commit_history и в датированных блоках (candidate_note, deployed_commit_note_2026_11_11, current_production_2026_11_13/2026_11_15). Причина перевода: строки M-01..M-03 и VMQ-NEXT-02/05 получили уровень VERIFIED на точном выложенном кандидате по независимому ревью; release/delivery-гейты читают верхнеуровневые поля, поэтому без перевода гейт не мог бы проверить уже принятые строки. Это bookkeeping-перевод привязки, а не переоценка закрытых ранее evidence.",
@@ -15876,7 +16080,18 @@
       "trigger": "первый production-ход после выкладки кандидата, где `memory_scope` пишется в L1-карточку и durable allowlist `turn_trace`/`llm_usage_events`",
       "what": "снять РЕАЛЬНЫЕ `memory_scope`/`response_act` на классах A1/A1P/P1/P2/P3 из production `turn_trace`/`llm_usage_events` и приложить их к строкам; только это закрывает N10/N11",
       "why_not_now": "локальный `.env` без ключа LLM (`LLMTransportError` на всех пяти классах; `l1-measure-2026-11-15.json`), в копии прод-БД нет durable L1-плана (`mca_events` без `L1_PLAN`, `turn_traces`/`llm_usage_events` отсутствуют), поле `memory_scope` в durable plan_meta появилось только этим кандидатом",
-      "not_a_new_gate": "наблюдение по уже существующей приёмке строк; выпуск слайса не блокирует, отдельного согласования не создаёт"
+      "not_a_new_gate": "наблюдение по уже существующей приёмке строк; выпуск слайса не блокирует, отдельного согласования не создаёт",
+      "update_2026_11_15_after_deploy": {
+        "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+        "version": "2.58.205",
+        "state": "pending_real_event",
+        "observed": "после рестарта 09:47:17Z `mca_events` с ts >= рестарта = 0, `direct_turn_context` = 0; срез A1/A1P/P1/P2/P3 не снят",
+        "next_check": "первый реальный ход, где `memory_scope`/`response_act` пишутся в durable `turn_trace`/`llm_usage_events`",
+        "polling": false,
+        "owner": "агент (Reviewer/PM/DevOps)",
+        "blocking": false,
+        "note": "наблюдение не превращается в гейт и не требует новых релизов/сообщений от владельца"
+      }
     },
     "backlog": [
       {
@@ -15901,5 +16116,231 @@
       }
     ],
     "history_note": "r1/r2/r3 не переписывались и не переклассифицируются; блок датирован и не отменяет прежние acceptance-формулировки строк — он фиксирует, какой контракт действует после решения."
+  },
+  "top_level_binding_note_2026_11_15_slice_d": "candidate_commit и deployed_commit переведены на bca18c1e (2.58.205). Прежнее значение 2b419aa2 (2.58.204) сохранено в candidate_commit_history/deployed_commit_history и в датированных блоках current_production_2026_11_15/current_production_2026_11_15_deployed; 2b419aa2 остаётся базой/откатом. Причина перевода — фактическая production-выкладка: release/delivery-гейты читают верхнеуровневые поля. Это bookkeeping-перевод привязки, а не переоценка evidence: продуктовый код между ревью (456cf769) и выложенным tip не менялся (`git diff 456cf769..bca18c1e -- services/` пуст), изменения — config/settings.py (APP_VERSION), пины версии в 30 файлах тестов и tests/test_vmq_mem_slice_d.py (N9 test-only), docs/evidence. Следствие механики карты (не новый дефект): после перевода гейт литерально связывает доказательства только с bca18c1e, поэтому evidence прежних ступеней (c97c06e4/2b419aa2/… ) перестают матчиться как candidate-bound; ранее принятые VERIFIED-строки сохраняют приёмку, но scoped release старых срезов на bca18c1e потребует отдельной привязки доказательств. Ни одна строка этим полем не переоценивается.",
+  "current_production_2026_11_15_slice_d": {
+    "version": "2.58.205",
+    "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "deployed_commit_short": "bca18c1e",
+    "branch": "release/vmq-slice-d-2.58.205",
+    "base": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "base_version": "2.58.204",
+    "rollback": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "schema": 47,
+    "ddl": 0,
+    "recorded_at": "2026-11-15",
+    "why_here": "Текущая production-привязка карты после выкладки Slice D: 2.58.205 @ bca18c1e. Записи current_production_2026_11_15 (2.58.203) и current_production_2026_11_15_deployed (2.58.204) НЕ переписаны — это исторические ступени своих дат; 2b419aa2 остаётся базой и точкой отката.",
+    "source": "deploy_evidence_2_58_205",
+    "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy.md",
+    "artifact_sha256": "43f66764ccbc2e480d62660044db6692bb1ccc1177968889eefa922f3f2d203f",
+    "scope_effect": "Привязка «на какой прод-линии снят baseline»; строки карты этим полем не закрываются.",
+    "not_an_owner_input": "факт производства, а не требование владельца"
+  },
+  "deploy_evidence_2_58_205": {
+    "recorded_at": "2026-11-15",
+    "version": "2.58.205",
+    "deployed_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "deployed_commit_short": "bca18c1e",
+    "branch": "release/vmq-slice-d-2.58.205",
+    "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "base_version": "2.58.204",
+    "rollback": "`git checkout 2b419aa2` + `systemctl restart admin_bot`; БД не восстанавливать — DDL 0, схема и данные не менялись; backup `pre_deploy_258205_20261115T094514Z.db` проверен read-back. Манифест отката — с `--effect rollback`.",
+    "candidate_relation": {
+      "reviewed_product": "456cf769358d6c381c13f7d6ec62cac2fad255eb (Slice D, evidence tip 69b5c9f9)",
+      "release_tip": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "ancestry": "456cf769 — предок bca18c1e; 2b419aa2 — предок bca18c1e (обе проверки `git merge-base --is-ancestor` = 0). Поезд линейный, без merge.",
+      "product_diff_since_review": "`git diff --name-status 456cf769..bca18c1e -- services/` пуст; изменены config/settings.py (APP_VERSION 2.58.205), пины версии в 30 файлах тестов и tests/test_vmq_mem_slice_d.py (N9 test-only), плюс docs/evidence.",
+      "approval": "Reviewer `Approved for deploy` на exact tip bca18c1e после закрытия E1/E2/E4 (delta review на 525cf974 был Needs Fixes только по evidence/ops, без продуктового блокера)."
+    },
+    "backup": {
+      "path": "/var/www/admin_bot/backups/pre_deploy_258205_20261115T094514Z.db",
+      "bytes": 3354996736,
+      "sha256": "b388f0682cbea5aa2e1f373e186838a81b5560ae0a6f40aa7a91b39c198a02a7",
+      "integrity_check": "ok",
+      "user_version": 47,
+      "tables": 130,
+      "schema_migrations_max": 47,
+      "readback": "fail-closed read-back пройден (ok / 47 / 130 / 47); свободное место проверено до копии",
+      "source": "read-only SQLite `.backup()` модулем sqlite3 из venv (на сервере нет CLI sqlite3)"
+    },
+    "health": {
+      "local": "{\"status\":\"ok\",\"version\":\"2.58.205\"}",
+      "public": "https://admin-bot.duckdns.org/healthz → HTTP 200, version 2.58.205 (финальный публичный чек в конце прогона)",
+      "independent_pm_check_2026_11_15": "PM перепроверил публичный healthz по HTTPS (без SSH, без прод-коннекта): HTTP 200, {\"status\":\"ok\",\"version\":\"2.58.205\"}"
+    },
+    "schema": {
+      "user_version": 47,
+      "schema_migrations_max": 47,
+      "migrations_rows": 36,
+      "pending": [],
+      "tables": 130,
+      "ddl": 0,
+      "journal_line": "[database] migrations: start | current user_version=47 | pending=[]"
+    },
+    "identity": {
+      "code": "verified_deployed",
+      "deployed_sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "checkout_sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+      "dirty": false,
+      "previous_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "version_provenance": {
+        "runtime": "2.58.205",
+        "manifest": "2.58.205",
+        "consistent": true
+      },
+      "conflict": []
+    },
+    "unit": {
+      "ActiveState": "active",
+      "NRestarts": 0,
+      "MainPID": 1075058,
+      "started_at": "2026-11-15T09:47:17Z"
+    },
+    "journal": {
+      "lines_since_restart": 159,
+      "traceback": 0,
+      "error": 0,
+      "critical": 0,
+      "database_locked": 0,
+      "warning": 1,
+      "warning_detail": "services.summary_memory — `SmartModule: embedding generation not serviceable | index=smart_archive | status=superseded`; известный pre-existing класс, тот же при 2.58.204",
+      "prompt_release": "release=evol-016-cutover | blocks=112 | changed=0 | retired=0"
+    },
+    "settings_prompt_preserved": {
+      "bot_settings_rows": 548,
+      "bot_settings_digest_match": true,
+      "bot_settings_digest": "e98edf0e…7460",
+      "bot_settings_digest_ex_checkup_match": true,
+      "chat_profiles_rows": 3,
+      "chat_profiles_digest_match": true,
+      "chat_profiles_digest": "323a6528…0f89",
+      "manual_prompt": "rev:d31300ef35a0, origin=manual, scope=chat, retired=false, chars=12469, sha256=31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701",
+      "global_prompt": "prompts.global_row 3500 симв., sha256 3cef66ec…929d — pre==post",
+      "note": "существующие пользовательские настройки и промпты не сброшены и не перезаписаны"
+    },
+    "l1_postdeploy_slice": {
+      "state": "parked_no_events",
+      "mca_events_total": 350559,
+      "events_since_restart": 0,
+      "direct_turn_context_post_restart": 0,
+      "observed": "20 последних `direct_turn_context` — все до рестарта 09:47:17Z, `memory_scope` пуст (поле появилось этим кандидатом)",
+      "not_taken": "срез A1/A1P/P1/P2/P3 не снят: после рестарта 0 реальных ходов; искусственных сообщений не создавалось",
+      "why": "событие не наступило; polling не выполняется, новых релизов ради natural event не делается",
+      "owner": "агент (Reviewer/PM/DevOps); владелец не привлекается",
+      "next_check": "первый реальный ход после 2026-11-15T09:47:17Z, где `memory_scope`/`response_act` пишутся в durable `turn_trace`/`llm_usage_events`; триггер — событие, а не время",
+      "not_a_gate": "наблюдение по уже существующей приёмке MEM-04/TIME-01/02; выпуск не блокирует, отдельного согласования не создаёт"
+    },
+    "deviations": [
+      "указанный в runbook `harness/snapshot.py` отсутствует в Git; использован сохранённый harness прошлого выката (`identity.py` a73ec97e…, `snapshot.py` 99721a88… — те же суммы, что в provenance 2.58.204)",
+      "на сервере нет CLI sqlite3 — backup/read-back/проверки выполнены модулем sqlite3 из `venv/bin/python` (read-only URI, PRAGMA query_only=1)",
+      "соединений с продом: recon 1 + основной прогон 1 + одна read-only передача harness (`scp`, 1); параллельных коннектов и ретраев нет",
+      "отдельного файла независимого delta-review артефакта на bca18c1e в evidence нет: вердикт записан в `plans/workflow_state.md` и в `release-2.58.205/deploy.md` §1; карта ссылается на фактическую запись, а не изобретает артефакт"
+    ],
+    "evidence_files": [
+      {
+        "name": "deploy.md",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy.md",
+        "sha256": "43f66764ccbc2e480d62660044db6692bb1ccc1177968889eefa922f3f2d203f",
+        "role": "сводный deploy-отчёт: backup, checkout, manifest до рестарта, postdeploy health/schema/identity/journal/settings, L1 parked, rollback"
+      },
+      {
+        "name": "identity.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/identity.json",
+        "sha256": "e562ee62aac5fd859bae4ae79bd09e9a8438e2ff3328f8e0296eba1a24a2ded3",
+        "role": "identity harness: verified_deployed, deployed=checkout=bca18c1e, dirty=false, version provenance 2.58.205"
+      },
+      {
+        "name": "manifest-after.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/manifest-after.json",
+        "sha256": "d41de694e9c7fa667b5a78bc6a48aa5d6e346da04f620ef17349e3d5c5c4959b",
+        "role": "deploy-манифест, записанный до рестарта штатным tools/release_manifest.py"
+      },
+      {
+        "name": "deploy-run.log",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/deploy-run.log",
+        "sha256": "165497e7baa26f6ffc0015c910b3f372f631cb58020c0331d89df9a9cb06f23a",
+        "role": "сырой прогон DevOps: pre-state, backup+read-back, checkout, manifest, restart, schema, identity, journal, L1, settings/prompt compare"
+      },
+      {
+        "name": "journal-summary.txt",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/journal-summary.txt",
+        "sha256": "771ad00d54000a1b16bac79d27bbdaf14fdd3b10e9340528cf35bf56a8636f10",
+        "role": "журнал с момента рестарта: 159 строк, 0 Traceback/ERROR/CRITICAL, 1 известный WARNING"
+      },
+      {
+        "name": "snapshot-pre.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/snapshot-pre.json",
+        "sha256": "7fd5b85fd7c06173d096493f93cdbc199d2eb7c4ee88511fc4bb1ba8adca0d51",
+        "role": "read-only снапшот настроек/профилей/промптов/бюджетов ДО выкладки (2.58.204)"
+      },
+      {
+        "name": "snapshot-post.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/snapshot-post.json",
+        "sha256": "9fdda203316c9b56f3c6c59d59c3a385624146a2eb5d18e1f079a286307fe675",
+        "role": "тот же снапшот ПОСЛЕ выкладки (2.58.205); digests совпали"
+      },
+      {
+        "name": "predeploy.md",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/predeploy.md",
+        "sha256": "d2fad84146a5b6bd5fd66e754279c29e10427cd5e88345d44cd78ba12adb31ca",
+        "role": "runbook, на который ссылается deploy.md §1 (backup, rollback, postdeploy checklist)"
+      },
+      {
+        "name": "assembly.md",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/assembly.md",
+        "sha256": "5cc6fc96a3d5b1ee178e2362266f8a4050b4ca53c605959ac0b60a7ebbb8b5bc",
+        "role": "сборка поезда 2.58.205 на release-ветке"
+      },
+      {
+        "name": "train-commits.txt",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/train-commits.txt",
+        "sha256": "bec9d1bc0f83034d31f3ecbdb70eb55ad08ddb103f9e5c0fc84f148727135bec",
+        "role": "линейный состав поезда без merge"
+      },
+      {
+        "name": "tests-2.58.205.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/tests-2.58.205.json",
+        "sha256": "854f4c5ded949648bedaeca0bedc48ac78b31d5e1d13ed74fbb3fbf7eba2984d",
+        "role": "predeploy-тесты на выложенном tip (focused/pin/broad/JS)"
+      },
+      {
+        "name": "manifest-dry-run.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/manifest-dry-run.json",
+        "sha256": "d9bc791c431af8bb32ae5b76f3cb0b5d9a95de6c8af77b3f084d3b39c1f3ab92",
+        "role": "E1: manifest dry-run на content-tip d294e17f с честной fixed-point записью"
+      },
+      {
+        "name": "rollback.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/rollback.json",
+        "sha256": "d12f440e7a9485cd32591e65ed7c764011b3662523845770e83c537b5c134a3c",
+        "role": "параметры отката (2b419aa2, БД не восстанавливать)"
+      },
+      {
+        "name": "retention.json",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/retention.json",
+        "sha256": "5d036c60b90f0cc34cfab03d4d5cad8f5774667cfd476e48b29280134d8ebabc",
+        "role": "артефакты, сохранённые на сервере"
+      },
+      {
+        "name": "diff-numstat-pre-bump.txt",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/diff-numstat-pre-bump.txt",
+        "sha256": "d2194f0cbbcb9083aa7171113a639c19add982e40d064493b687f8b9f0694cc4",
+        "role": "numstat дельты поезда до bump"
+      },
+      {
+        "name": "diff-stat-pre-bump.txt",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/diff-stat-pre-bump.txt",
+        "sha256": "28af8f44ba49edaec2694b9572aea00e363725ca1fe0683605ce9840c408d10d",
+        "role": "stat дельты поезда до bump"
+      },
+      {
+        "name": "diff-stat-bumped.txt",
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.205/diff-stat-bumped.txt",
+        "sha256": "83d1318b4bda221d318fa7f411805c8d87e70a1b5b271f966e9737048a1b239d",
+        "role": "stat дельты поезда после bump 2.58.205"
+      }
+    ],
+    "verdict_scope": "deployed + health/schema/identity/journal/settings. Это НЕ приёмка строк: TIME-04 остаётся REVIEW, MEM-04/TIME-01/TIME-02/TIME-07 остаются PENDING.",
+    "not_an_owner_input": "факт производства, а не требование владельца"
   }
 }

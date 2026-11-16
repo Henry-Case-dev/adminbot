@@ -495,3 +495,66 @@ deploy --slice VMQ-MEM-TIME --candidate 456cf769… --repo .:
 - **R4_ARTIFACT** — финальное `Approved (predeploy)` записано в `plans/workflow_state.md` и в сессии Reviewer (`ses_e2221abb6ffeSaFVCOq0pGps8K`); отдельного r4-файла в evidence нет, поэтому карта ссылается на фактическую запись, а не изобретает её.
 
 Машинная привязка — `slice_candidate_bindings.mem_d` и `arch_contract_adjustment_2026_11_15` в `requirements-map.json`; отчётных артефактов сверх существующих evidence не создавалось.
+
+### 15.7. Факт выкладки 2.58.205 и postdeploy-наблюдение (15.11.2026)
+
+Выложено: **2.58.205 @ `bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1`**, ветка `release/vmq-slice-d-2.58.205`, база/откат `2b419aa2` (2.58.204). Выложенный tip содержит продуктовый код Slice D `456cf769` (предок) плюс bump версии и test-only правку N9: `git diff 456cf769..bca18c1e -- services/` пуст, изменения вне `services/` — `config/settings.py` (APP_VERSION), пины в 30 файлах тестов, `tests/test_vmq_mem_slice_d.py` (N9) и evidence.
+
+Факты прогона (agent-run, владелец не привлекался):
+
+- backup `/var/www/admin_bot/backups/pre_deploy_258205_20261115T094514Z.db`, sha256 `b388f068…02a7`, `integrity_check=ok`, `user_version=47`, 130 таблиц, read-back пройден; свободное место проверено до копии;
+- health local/public 200, version `2.58.205`; PM независимо перепроверил публичный `/healthz` по HTTPS (без SSH): 200 / 2.58.205;
+- schema 47, `pending=[]`, миграций не применялось (DDL 0), таблиц 130;
+- identity `verified_deployed`: `deployed_sha = checkout_sha = bca18c1e`, `dirty=false`, `version_provenance` runtime/manifest согласованы, `previous_sha=2b419aa2`, `conflict=[]`;
+- unit `active`, `NRestarts=0`, старт `2026-11-15T09:47:17Z`; journal с рестарта 159 строк, `Traceback=0`/`ERROR=0`/`CRITICAL=0`, 1 известный WARNING `summary_memory: embedding not serviceable | superseded`;
+- настройки и промпты владельца сохранены: `bot_settings` 548 (digest совпал), `chat_profiles` 3 (совпал), ручной промпт `rev:d31300ef35a0` 12 469 симв. / `31d17506…` (ожидаемый), `prompts.global_row` 3500 / `3cef66ec…`, `prompt_release changed=0 retired=0`;
+- L1-срез A1/A1P/P1/P2/P3 **не снят**: после рестарта 0 реальных ходов (`mca_events` с ts ≥ рестарта = 0, `direct_turn_context` post-restart = 0), искусственных сообщений не создавалось. Наблюдение запарковано: триггер — первый реальный ход, polling не выполняется, владелец не привлекается.
+
+Откат: `git checkout 2b419aa2` + `systemctl restart admin_bot` (манифест с `--effect rollback`); БД не восстанавливать — DDL 0, схема и данные не менялись, копия проверена. Откат не выполнялся: все обязательные postdeploy-гейты пройдены.
+
+Независимость и provenance: delta review на `525cf974` вернул `Needs Fixes` только по evidence/ops (E1 manifest dry-run, E2 устаревшие поля, E4 predeploy-раздел с backup и L1-чеклистом); после закрытия E1/E2/E4 docs-only tip `bca18c1e` получил `Approved for deploy`. Отдельного файла delta-review на `bca18c1e` в evidence нет — вердикт записан в `plans/workflow_state.md` и в `evidence/release-2.58.205/deploy.md` §1; карта ссылается на фактическую запись, а не изобретает артефакт.
+
+Привязка в карте: верхнеуровневые `candidate_commit`/`deployed_commit` переведены на `bca18c1e`, прежнее `2b419aa2` сохранено в `candidate_commit_history`/`deployed_commit_history` и остаётся базой/откатом; `slice_candidate_bindings.mem_d` — `deployed=true`, `deployed_commit=bca18c1e`, полный `deploy_evidence_2_58_205` (backup, health, schema, identity, journal, settings/prompt, L1 parked). Следствие механики карты (не новый дефект): гейт литерально связывает доказательства с верхнеуровневым кандидатом, поэтому evidence прежних ступеней (`c97c06e4`/`2b419aa2`/…) больше не матчится как candidate-bound; ранее принятые VERIFIED-строки сохраняют приёмку, но scoped release старых срезов на `bca18c1e` потребует отдельной привязки доказательств.
+
+Статусы после выкладки: **`VMQ-TIME-06` → VERIFIED** на `bca18c1e` (инспекция vector-leg-inventory `21 771 rowid / 21 152 факта с вектором / dims 3072 / gemini-embedding-001` + тесты и дифф инвариантности маршрута + независимый Approved на продуктовый код `456cf769`, плюс production-факты: schema 47/pending=[], таблиц 130, миграций 0, настройки и промпты pre==post, 0 ходов после рестарта ⇒ перестройки embeddings не было). Ограничения записаны честно: живой счётчик векторов «до/после» на прод-базе не снимался, семантическая нога `compat_not_proven`. **`VMQ-TIME-04` остался REVIEW**: выложенный код трассы не закрывает приёмку — нет инструментальных источников (Летописец, dig) и полной четырёхступенчатой разбивки «кандидат → принят потребителем → отрендерен в блок → дошёл до Writer» с причинами по категориям (квота/статус/давность/релевантность/бюджет); живая трасса не снята (0 ходов). **`VMQ-MEM-04`, `VMQ-TIME-01`, `VMQ-TIME-02`, `VMQ-TIME-07`** остаются PENDING с прежними gap-записями (реальный L1 `memory_scope`/`response_act` не наблюдался, reply-путь под `auto`, синтетическая разметка). Итог: **48 PENDING / 8 REVIEW / 1 READY_FOR_LIVE / 13 VERIFIED** из 70 обязательных строк.
+
+Гейты — точный вывод после привязки (не подогнано):
+
+```
+plan --repo .:
+  stage=plan inventory=380 manual=69 scoped=0 errors=0
+
+review --slice VMQ-MEM-TIME --candidate bca18c1e… --repo .:
+  FAIL: VMQ-TIME-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-02: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-03: no evidence bound to reviewed candidate
+  FAIL: VMQ-TIME-05: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-07: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-09: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  stage=review inventory=380 manual=69 scoped=9 errors=7
+
+deploy --slice VMQ-MEM-TIME --candidate bca18c1e… --repo .:
+  FAIL: O-04: required dependency VMQ-M2 is not evidenced VERIFIED
+  FAIL: VMQ-MEM-01..08: required dependency VMQ-MEM is not evidenced VERIFIED
+  FAIL: VMQ-TIME-01/02/05/07/08/09: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-03: no evidence bound to reviewed candidate
+  stage=deploy inventory=380 manual=69 scoped=9 errors=16
+
+release --slice VMQ-MEM-TIME --candidate bca18c1e… --deployed-commit bca18c1e… --repo .:
+  FAIL: O-04 + VMQ-MEM-01..08: required dependency not evidenced VERIFIED
+  FAIL: VMQ-TIME-01/02/05/07/08/09: mandatory not ['VERIFIED'] (got PENDING)
+  FAIL: VMQ-TIME-03, VMQ-TIME-04: mandatory not ['VERIFIED'] (got REVIEW)
+  stage=release inventory=380 manual=69 scoped=9 errors=17
+
+review --slice VMQ-MEM --candidate bca18c1e… --repo .:
+  FAIL: VMQ-MEM-01: no evidence bound to reviewed candidate
+  FAIL: VMQ-MEM-02..08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  stage=review inventory=380 manual=69 scoped=8 errors=8
+
+review --slice VMQ-M2 --candidate bca18c1e… --repo . (контроль последствий перепривязки):
+  FAIL: M-04, M-05, O-04: no evidence bound to reviewed candidate
+  stage=review inventory=380 manual=69 scoped=3 errors=3
+```
+
+Как читать: `VMQ-TIME-04` и `VMQ-TIME-06` из списка ошибок ушли на `review`/`deploy` — их bca18c1e-bound доказательства и независимое одобрение гейт принял. Остаются три разных класса причин, и ни одна не «чинится» статусом: (1) реально открытые строки `VMQ-TIME-01/02/05/07/08/09` и `VMQ-MEM-02..08`; (2) `VMQ-TIME-03`/`VMQ-MEM-01` связаны с прежними кандидатами (pre-existing bookkeeping); (3) замыкание зависимостей графа — `VMQ-MEM-TIME` требует `VMQ-MEM`, `VMQ-MEM` требует `VMQ-M2` с `O-04` в `READY_FOR_LIVE`, поэтому отдельный выпуск среза по графу невозможен. Контроль `VMQ-M2` показывает честное следствие перепривязки верхнеуровневого кандидата: доказательства, снятые на `2b419aa2`, не являются candidate-bound для `bca18c1e`; это не отмена прежней приёмки, а требование отдельной привязки при повторной оценке. `VERIFIED` не добавлен ни одной строке сверх `VMQ-TIME-06`.
