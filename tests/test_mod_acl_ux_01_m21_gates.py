@@ -520,3 +520,50 @@ async def test_initiative_create_intent_is_per_chat(world, tmp_path,
         assert (emergency_id, emergency_created) == (None, False)
     finally:
         await db.close()
+
+
+@pytest.mark.asyncio
+async def test_initiative_due_scan_is_per_chat(world, tmp_path, monkeypatch):
+    """D1: due-скан отдаёт кандидата только чату, где инициатива включена.
+
+    Реальный durable-путь: `IntentService.create_intent` (due в прошлом) →
+    `IntentService.due_candidates`. GLOBAL OFF + CHAT ON → кандидат есть
+    (master — наследуемый GLOBAL-дефолт, не запрет); CHAT OFF и аварийная
+    env-ось → кандидата нет; строка намерения при фильтрации не удаляется.
+    """
+    from services import mca_intents as mi
+    from services.database import DatabaseService
+
+    now = 1_800_000_000
+    monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+    world.globals = {"flags.initiative_enabled": False}
+    _set_chat(world, {"overrides": {"initiative.enabled": True}, "gates": {}})
+    db = DatabaseService(str(tmp_path / "m21_due.db"))
+    await db.initialize()
+    try:
+        svc = mi.get_service(db)
+        intent_id, created = await svc.create_intent(
+            CHAT, "follow_up", "unanswered_question", goal="итоги",
+            source_refs=("msg:1",), not_before=now - 10, created_at=now - 60)
+        assert created is True
+        due = await svc.due_candidates(now=now)
+        assert [c.intent_id for c in due] == [intent_id]
+        assert due[0].chat_id == CHAT
+
+        # CHAT OFF — тот же скан не отдаёт кандидата этого чата.
+        _set_chat(world, {"overrides": {"initiative.enabled": False},
+                          "gates": {}})
+        assert await svc.due_candidates(now=now) == []
+
+        # Аварийная env-ось важнее CHAT ON: кандидатов нет.
+        monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: False)
+        _set_chat(world, {"overrides": {"initiative.enabled": True},
+                          "gates": {}})
+        assert await svc.due_candidates(now=now) == []
+
+        # Фильтр только читает: намерение осталось живым (не удалено).
+        monkeypatch.setattr(mca_gates, "intents_env_enabled", lambda: True)
+        row = await svc.store.get_intent(intent_id)
+        assert row is not None and row["status"] == "pending"
+    finally:
+        await db.close()
