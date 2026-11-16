@@ -7719,12 +7719,14 @@ html.w9-sheet-bottom .modal-close {
   padding: 0 4px; display: inline-flex; align-items: center; gap: 3px;
 }
 .module-effective-inline .msr { font-size: 12px; }
-/* R2: компактный 409-индикатор в карточке (diff/выбор — в workspace). */
-.module-state--conflict {
-  height: 16px; font-size: 10.5px; line-height: 1.2;
+/* D2/R2: 409 в карточке — реальная 44-px строка действия (заменяет
+   контрол на время конфликта; state-строка скрыта). Полный diff — workspace. */
+.module-conflict-compact {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; width: 100%; min-height: 44px; font-size: 11px;
 }
-.module-conflict-open {
-  min-height: 16px; padding: 0 4px; font-size: 10px; line-height: 1.2;
+.module-conflict-compact .btn-ghost {
+  min-height: 44px; padding: 0 8px; font-size: 11px;
 }
 .module-card .module-toggle { min-height: 28px; }
 /* Специфичность ≥ `.app-shell.shell-mobile .module-card .btn-ghost` (735x):
@@ -7813,6 +7815,24 @@ html.w9-sheet-bottom .modal-close {
   display: inline-flex; align-items: center; gap: 8px; font-size: 12px;
 }
 .workspace-control__label { color: var(--text-2); }
+/* D1: label + tri-state переносятся, полные подписи кнопок не режутся. */
+.workspace-control[data-workspace-chat-control] {
+  flex-wrap: wrap; max-width: 100%;
+}
+.workspace-control[data-workspace-chat-control] .module-tristate {
+  max-width: 100%;
+}
+@media (pointer: coarse), (max-width: 767px) {
+  .workspace-control[data-workspace-chat-control] {
+    flex-direction: column; align-items: flex-start; width: 100%;
+  }
+  .workspace-control[data-workspace-chat-control] .module-tristate {
+    width: 100%;
+  }
+  .workspace-control[data-workspace-chat-control] .module-tristate-btn {
+    flex: 1 1 auto;
+  }
+}
 .workspace-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .workspace-chip {
   display: inline-flex; align-items: center; gap: 4px; font-size: 11px;

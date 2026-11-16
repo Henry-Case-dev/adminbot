@@ -7747,6 +7747,22 @@
                       </div>
                       <template v-else>
                         <div class="module-control-row" @click.stop>
+                          <!-- D2/R2: 409 — отдельная 44-px строка действия
+                               (единственный путь к full diff на мобиле). -->
+                          <div v-if="moduleConflictFor(m)"
+                               class="module-conflict-compact"
+                               data-module-conflict
+                               :title="'Настройка изменилась в другом окне: ваше '
+                                 + moduleConflictFor(m).localText + ', на сервере '
+                                 + moduleConflictFor(m).serverText">
+                            <span class="badge badge-warn" data-module-conflict-local>
+                              Настройка изменилась
+                            </span>
+                            <button type="button" class="btn-ghost"
+                                    data-module-conflict-open
+                                    @click="openModuleWorkspace(m)">Разрешить</button>
+                          </div>
+                          <template v-else>
                           <!-- GLOBAL scope: карточка пишет ТОЛЬКО глобальный
                                слой (И-1); switch есть только у master-оси. -->
                           <template v-if="moduleScopeIsGlobal()">
@@ -7803,24 +7819,13 @@
                               В этом чате: управляется глобально
                             </span>
                           </template>
+                          </template>
                         </div>
 
                         <!-- R1: badge — inline в строке состояния (не
                              отдельным блоком): карточка держит 132–164. -->
-                        <div v-if="moduleConflictFor(m)"
-                             class="module-state module-state--conflict"
-                             data-module-conflict @click.stop
-                             :title="'Настройка изменилась в другом окне: ваше '
-                               + moduleConflictFor(m).localText + ', на сервере '
-                               + moduleConflictFor(m).serverText">
-                          <span class="badge badge-warn" data-module-conflict-local>
-                            Настройка изменилась
-                          </span>
-                          <button type="button" class="btn-ghost module-conflict-open"
-                                  data-module-conflict-open
-                                  @click="openModuleWorkspace(m)">Разрешить</button>
-                        </div>
-                        <div v-else-if="!m.noToggle" class="module-state text-xs"
+                        <div v-if="!moduleConflictFor(m) && !m.noToggle"
+                             class="module-state text-xs"
                              data-module-state
                              :title="moduleStateText(m)"
                              :aria-label="moduleStateText(m)">

@@ -934,6 +934,71 @@ def main() -> int:
         conflict_mode["on"] = False
         rctx.close()
 
+        # R2/D2: мобильная 44-px hit-area «Разрешить» (390/320)
+        for cw, ch in [(390, 844), (320, 568)]:
+            c2 = browser.new_context(viewport={"width": cw, "height": ch},
+                                     has_touch=True)
+            c2.add_init_script(TMA_STUB)
+            c2.route("**/api/**", _route)
+            cp = c2.new_page()
+            cp.goto("http://127.0.0.1:%d/web/index.html#/modules" % PORT,
+                    wait_until="load")
+            cp.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+            cp.wait_for_timeout(400)
+            conflict_mode["on"] = True
+            posts.clear()
+            cp.click('.module-catalog [data-mod=mod_summary] '
+                     '[data-module-chat-tristate="off"]')
+            cp.wait_for_timeout(900)
+            m2 = cp.evaluate(
+                "() => { const row = document.querySelector("
+                "'.module-catalog [data-mod=mod_summary] [data-module-conflict]');"
+                "const btn = document.querySelector("
+                "'.module-catalog [data-mod=mod_summary] "
+                "[data-module-conflict-open]');"
+                "const cards = Array.from(document.querySelectorAll("
+                "'.module-catalog [data-mod]'));"
+                "const tops = {}; cards.forEach(c => { const r = "
+                "c.getBoundingClientRect(); const k = Math.round(r.top);"
+                "tops[k] = Math.max(tops[k] || 0, r.height); });"
+                "if (!row || !btn) return null;"
+                "const rb = row.getBoundingClientRect();"
+                "const bb = btn.getBoundingClientRect();"
+                "const hit = document.elementFromPoint("
+                "bb.left + bb.width / 2, bb.top + bb.height / 2);"
+                "return {rowH: rb.height, btnH: bb.height,"
+                " visibleHit: !!(hit && (hit === btn || btn.contains(hit))),"
+                " maxCard: Math.max.apply(null, cards.map(c => "
+                "c.getBoundingClientRect().height)),"
+                " maxRow: Math.max.apply(null, Object.values(tops))}; }")
+            report["flows"]["r2_mobile_%d" % cw] = dict(
+                m2 or {}, posts=len(posts))
+            check(m2 and m2["btnH"] >= 44 and m2["rowH"] >= 44
+                  and m2["visibleHit"],
+                  f"D2 {cw}: hit-area «Разрешить» {m2}", failures)
+            check(m2 and m2["maxCard"] <= 164 and m2["maxRow"] <= 164,
+                  f"D2 {cw}: card/row {m2 and m2['maxCard']}/"
+                  f"{m2 and m2['maxRow']}", failures)
+            check(len(posts) == 1,
+                  f"D2 {cw}: POST-ов {len(posts)} вместо 1", failures)
+            cp.click('.module-catalog [data-mod=mod_summary] '
+                     '[data-module-conflict-open]')
+            cp.wait_for_timeout(700)
+            ws = cp.evaluate(
+                "() => ({hash: location.hash,"
+                " diff: !!document.querySelector('[data-workspace-conflict]'),"
+                " apply: !!document.querySelector("
+                "'[data-workspace-conflict-apply]'),"
+                " load: !!document.querySelector("
+                "'[data-workspace-conflict-server-load]')})")
+            report["flows"]["r2_mobile_ws_%d" % cw] = ws
+            check(ws["hash"] == "#/modules/summary" and ws["diff"]
+                  and ws["apply"] and ws["load"],
+                  f"D2 {cw}: «Разрешить» не открыл diff/выбор ({ws})",
+                  failures)
+            conflict_mode["on"] = False
+            c2.close()
+
         # ── R3: «Время» — один текст в карточке (chat и global) ─────────
         def _time_count(vpage):
             return vpage.evaluate(
@@ -958,30 +1023,46 @@ def main() -> int:
               f"R3: «Время» дублирует «Без тумблера» "
               f"(chat={chat_time_n}, global={global_time_n})", failures)
 
-        # ── R4: workspace tri-state 390 — реальная высота 44 ────────────
-        mctx = browser.new_context(viewport={"width": 390, "height": 844})
-        mctx.add_init_script(TMA_STUB)
-        mctx.route("**/api/**", _route)
-        mpage = mctx.new_page()
-        mpage.goto("http://127.0.0.1:%d/web/index.html#/modules/summary"
-                   % PORT, wait_until="load")
-        mpage.wait_for_selector("[data-workspace-head]", timeout=9000)
-        mpage.wait_for_timeout(500)
-        r4 = mpage.evaluate(
-            "() => { const on = document.querySelector("
-            "'[data-workspace-chat-tristate=\"on\"]');"
-            "const off = document.querySelector("
-            "'[data-workspace-chat-tristate=\"off\"]');"
-            "if (!on || !off) return null;"
-            "const a = on.getBoundingClientRect(), b = off.getBoundingClientRect();"
-            "return {onH: a.height, offH: b.height,"
-            " overlapX: a.right - b.left}; }")
-        report["flows"]["r4_workspace_touch"] = r4
-        check(r4 and r4["onH"] >= 44 and r4["offH"] >= 44,
-              f"R4: workspace tri-state height {r4}", failures)
-        check(r4 and r4["overlapX"] <= 1,
-              f"R4: соседние кнопки перекрываются по X ({r4})", failures)
-        mctx.close()
+        # ── R4/D1: workspace tri-state — 44 px и полные подписи ─────────
+        for mw, mh in [(1440, 900), (1280, 800), (390, 844), (320, 568)]:
+            mctx = browser.new_context(viewport={"width": mw, "height": mh})
+            mctx.add_init_script(TMA_STUB)
+            mctx.route("**/api/**", _route)
+            mpage = mctx.new_page()
+            mpage.goto("http://127.0.0.1:%d/web/index.html#/modules/summary"
+                       % PORT, wait_until="load")
+            mpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+            mpage.wait_for_timeout(500)
+            r4 = mpage.evaluate(
+                "() => { const grp = document.querySelector("
+                "'[data-workspace-chat-control] .module-tristate');"
+                "const btns = Array.from(document.querySelectorAll("
+                "'[data-workspace-chat-tristate]'));"
+                "if (!grp || btns.length !== 3) return null;"
+                "const on = btns.find(b => b.getAttribute("
+                "'data-workspace-chat-tristate') === 'on');"
+                "const off = btns.find(b => b.getAttribute("
+                "'data-workspace-chat-tristate') === 'off');"
+                "const a = on.getBoundingClientRect(), b = off.getBoundingClientRect();"
+                "return {grpCW: grp.clientWidth, grpSW: grp.scrollWidth,"
+                " onH: a.height, offH: b.height, overlapX: a.right - b.left,"
+                " labels: btns.map(x => ({t: x.textContent.trim(),"
+                " cw: x.clientWidth, sw: x.scrollWidth}))}; }")
+            report["flows"]["r4_workspace_%dx%d" % (mw, mh)] = r4
+            check(r4 and r4["grpSW"] <= r4["grpCW"] + 1,
+                  f"D1 {mw}: tri-state обрезан "
+                  f"(client={r4 and r4['grpCW']}, scroll={r4 and r4['grpSW']})",
+                  failures)
+            check(r4 and all(l["sw"] <= l["cw"] + 1
+                             for l in r4["labels"]),
+                  f"D1 {mw}: подписи кнопок обрезаны ({r4 and r4['labels']})",
+                  failures)
+            if mw <= 767:
+                check(r4 and r4["onH"] >= 44 and r4["offH"] >= 44,
+                      f"D1 {mw}: workspace tri-state height {r4}", failures)
+                check(r4 and r4["overlapX"] <= 1,
+                      f"D1 {mw}: кнопки перекрываются по X ({r4})", failures)
+            mctx.close()
 
         browser.close()
     httpd.shutdown()

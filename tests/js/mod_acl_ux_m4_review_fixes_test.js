@@ -258,7 +258,7 @@ function mkCtx(overrides) {
     // ── D9: длинная причина доступна (title/aria-label) ────────────────
     {
       const cardStateAt = INDEX.indexOf('data-module-state',
-        INDEX.indexOf('v-else-if="!m.noToggle"'));
+        INDEX.indexOf('!moduleConflictFor(m) && !m.noToggle'));
       const cardState = INDEX.slice(cardStateAt, cardStateAt + 400);
       ok(/ :title="moduleStateText\(m\)"/.test(cardState) &&
         / :aria-label="moduleStateText\(m\)"/.test(cardState),
@@ -402,8 +402,10 @@ function mkCtx(overrides) {
       ok(CARD.indexOf('module-conflict__diff') < 0 &&
         CARD.indexOf('module-conflict__actions') < 0,
         'R2: diff/кнопки выбора не в карточке');
-      ok(/\.module-state--conflict \{[^}]*height:\s*16px/.test(CSS),
-        'R2: компактный конфликт фиксированной высоты 16 px');
+      ok(/\.module-conflict-compact \{[^}]*min-height:\s*44px/.test(CSS),
+        'D2: 409-строка карточки — реальные 44 px (hit-area)');
+      ok(CARD.indexOf('class="module-state module-state--conflict"') < 0,
+        'D2: конфликт не в 16-px строке состояния');
       // Полный diff/выбор доступен в workspace.
       ok(INDEX.indexOf('data-workspace-conflict-local') >= 0 &&
         INDEX.indexOf('data-workspace-conflict-server') >= 0,
@@ -418,7 +420,7 @@ function mkCtx(overrides) {
       ok(/v-else-if="!m\.noToggle"[^>]*class="module-state/.test(CARD) ||
         /class="module-state text-xs"\s*\n\s*data-module-state/.test(CARD),
         'R3: строка состояния не рендерится для no-master');
-      ok(CARD.indexOf('v-else-if="!m.noToggle"') >= 0,
+      ok(CARD.indexOf('!moduleConflictFor(m) && !m.noToggle') >= 0,
         'R3: no-master (time) — только подпись контроля');
     }
 
@@ -428,6 +430,13 @@ function mkCtx(overrides) {
         .test(CSS), 'R4: workspace tri-state 44 px на coarse/mobile');
       ok(CSS.indexOf('.module-card .module-tristate-btn::after') >= 0,
         'R4: hit-area карточки остаётся scoped (без перекрытия workspace)');
+      ok(/\.workspace-control\[data-workspace-chat-control\] \{[^}]*flex-wrap:\s*wrap/
+        .test(CSS), 'D1: workspace chat-control переносит label/tri-state');
+      ok(/@media \(pointer: coarse\), \(max-width: 767px\) \{[^}]*\[data-workspace-chat-control\] \{[^}]*flex-direction:\s*column/
+        .test(CSS), 'D1: на мобиле label и tri-state — две строки');
+      ok(CSS.indexOf('.workspace-control[data-workspace-chat-control] .module-tristate {') >= 0
+        && CSS.indexOf('max-width: 100%') >= 0,
+        'D1: tri-state ограничен шириной, а не обрезан');
     }
 
     console.log('M4-REVIEW-FIXES-OK — ' + checks + ' проверок');
