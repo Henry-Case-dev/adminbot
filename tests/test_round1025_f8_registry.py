@@ -403,8 +403,13 @@ PG_DB_SHA256_B07 = (
 # SELF-DIAG-01 final-fixes (13.11.2026, L-F11S-1 re-pin, DOC-ONLY): описание
 # flags.self_diag_repo_origin переписано без жаргона «URL» (значение/тип/
 # группа/секретность не менялись; REGISTRY 644 / delta 243).
+# P0 SMART transport (16.11.2026, L-F11S-1 re-pin, DOC-ONLY): переписаны
+# ТОЛЬКО описания/подписи LLM_TIMEOUT, LLM_MAX_RETRIES, LLM_TOTAL_BUDGET
+# (семантика «один HTTP-ответ» / «предел одной основной попытки», hot-apply,
+# «не дедлайн исследования»); ключи/типы/группы/секретность не менялись.
+# TSV/meta переэмитированы тем же инструментом; `--check` → OK.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "55d8f239d65abbbc592f5d6649e62cd3ce995fc727cf6c19494c5aafa623a9d0")
+    "466f7e35ab798cf6eb9e5fbf2c2532b234d30cbd223921d261e8556e2f892072")
 
 
 def _sha256(path: Path) -> str:

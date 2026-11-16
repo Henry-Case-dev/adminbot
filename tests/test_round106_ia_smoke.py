@@ -507,8 +507,10 @@ class TestProviderBlockTestability:
 
     def test_llm_guard_fields_no_model_role(self):
         # Значения llm_guard не отправляются как `model`.
+        # P0 SMART transport (2.58.206): у блока появились note/комментарий —
+        # срез берём до следующего блока, а не фиксированные 500 символов.
         i = JS.index("id: 'llm_guard'")
-        chunk = JS[i:i + 500]
+        chunk = JS[i:JS.index("id: 'search_keys'", i)]
         assert "role: ''" in chunk
         assert "role: 'model'" not in chunk
 

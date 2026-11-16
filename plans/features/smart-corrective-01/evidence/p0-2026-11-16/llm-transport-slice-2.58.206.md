@@ -80,3 +80,24 @@ app_has_prov_policy=false; guard_zone_advanced=true; guard_timeout_label=false
 - Adaptive per-model/provider намеренно не вводился (отложено до p95-данных).
 - `README.md` строка про «бюджет 30 секунд» у фоллбэка — существовавшая
   неточность вне среза (не менялась; кандидат в backlog).
+
+## Полный прогон suite (2026-11-16, локально)
+
+- `pytest -q` (весь `tests/`): **21378 passed, 130 failed, 41 skipped,
+  25 errors** (2066 c). Ошибки/падения — не транспорта, кроме перечисленного
+  ниже.
+- Из 130 падений 95 воспроизводятся на базе `bca18c1e` при прогоне того же
+  набора node-id (pre-existing). Остальные 34 в изолированном прогоне на
+  ветке: **30 passed** (full-suite ordering/global-state, класс существующих
+  order-dependent тестов; транспорт не задействуют) и **4 реальных
+  catalog-baseline** — исправлены:
+  - `services/param_catalog.py` переутверждён в
+    `tests/test_round1025_f8_registry.py` (`PARAM_CATALOG_SHA256_FOLLOWUP`,
+    DOC-ONLY: только описания трёх ключей);
+  - TSV/meta переэмитированы `tools/gen_param_registry_round1025.py`
+    (`plans/docs/param-registry-round1025.{tsv,meta.md}`), `--check` → OK;
+  - `tests/test_round106_ia_smoke.py::test_llm_guard_fields_no_model_role`
+    обновлён: срез блока до следующего `id:` вместо фиксированных 500 симв.
+- Отдельно: изменённые прогоном full-suite PNG/JSON под
+  `plans/features/evol/audit/evidence/` восстановлены к HEAD (артефакты
+  чужих прогонов не коммитились).
