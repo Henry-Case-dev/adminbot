@@ -1,0 +1,34 @@
+{
+ "captured_at_commit": "1e41afd559da04162c57112175e1cbd5a604fb03",
+ "command": "python tools/release_manifest.py --dry-run",
+ "exit_code": 0,
+ "deploy_dir_created_for_reconstruction": true,
+ "script_created_deploy_dir": false,
+ "deploy_dir_removed_after_run": true,
+ "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy input removed",
+ "manifest": {
+  "deployed_at": "2026-11-16T21:40:21.402082Z",
+  "deployed_sha": "1e41afd559da04162c57112175e1cbd5a604fb03",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "4f8d7007efc4e6546f390f5fef147e8fbd2e8f86",
+  "previous_version": "2.58.210",
+  "release_branch": "release/mod-acl-w2a-2.58.211",
+  "schema": 1,
+  "version": "2.58.211"
+ },
+ "prior_manifest_input": {
+  "path": ".deploy/release.json (git-ignored, local only)",
+  "origin": "reconstruction of the documented 2.58.210 production state (deployed 4f8d7007, previous 37f6c76f, branch release/mod-acl-m4a-2.58.210 per deploy-2.58.210.md)",
+  "production_file_read": false,
+  "content": {
+   "schema": 1,
+   "deployed_sha": "4f8d7007efc4e6546f390f5fef147e8fbd2e8f86",
+   "version": "2.58.210",
+   "effect": "deploy",
+   "release_branch": "release/mod-acl-m4a-2.58.210"
+  },
+  "removed_after_run": true
+ },
+ "note": "The manifest is produced at the content tip (bump commit; all W2a code, test-gap and pinned tests included). The release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
+}

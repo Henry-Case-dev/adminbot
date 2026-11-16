@@ -1,0 +1,24 @@
+{
+ "release": "2.58.211",
+ "target_rollback_commit": "4f8d7007efc4e6546f390f5fef147e8fbd2e8f86",
+ "target_rollback_version": "2.58.210",
+ "target_rollback_state": "previous release / current base; production not contacted in this assembly",
+ "schema": 47,
+ "ddl": 0,
+ "migrations_added": 0,
+ "data_changes": 0,
+ "procedure": [
+  "checkout 4f8d7007 (2.58.210) in the production checkout",
+  "systemctl restart admin_bot",
+  "verify /healthz returns version 2.58.210 and the release manifest identity (deployed_sha 4f8d7007, dirty=false)"
+ ],
+ "notes": [
+  "W2a is UI/test-only: no new tables, columns, indexes, settings keys or data migrations; schema stays 47 with DDL 0.",
+  "The tab memory lives in browser localStorage (client-side only); a rollback simply stops reading it, no server data to undo.",
+  "M4A wave-1 UI (catalog from DTO, workspace screens, CHAT tri-state, 409 flow) remains in 2.58.210; M2.1 per-chat gate/param rows remain in their existing tables and keep being read by the 2.58.210 code.",
+  "No settings are reset: the bump changes only version pins and the APP_VERSION changelog; PG hot values and owner settings are not touched by checkout or restart.",
+  "The bump commit 1e41afd5 changes only version pins; once the checkout is at 4f8d7007 it needs no separate rollback.",
+  "Rollback copies of 2.58.210 are the ones produced by the 2.58.210 deploy and are managed by the existing keep=2 deploy-backup pool.",
+  "deploy_v2.9.2.py is unchanged by this release."
+ ]
+}
