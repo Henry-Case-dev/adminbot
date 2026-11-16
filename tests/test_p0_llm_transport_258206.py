@@ -26,6 +26,7 @@ RED на базе `bca18c1e`: дефолты 30/60, нет миграции, н�
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 
 import httpx
@@ -273,6 +274,92 @@ class TestHotApply:
         assert id(client._client) == client_id
         assert client._timeout == 7.0
         assert client._budget == 11.0
+
+    @pytest.mark.asyncio
+    async def test_explicit_constructor_model_base_survive_hot_config(
+            self, hot_cache, monkeypatch):
+        """F1 regression: явный constructor-level model/base (Speech Try,
+        per-call каналы) не затирается hot-конфигом на первом вызове.
+
+        Раньше ``_policy_chat_model``/``_policy_base_url`` инициализировались
+        рабочим kwarg'ом, поэтому hot-значение всегда считалось «изменённым»
+        и молча подменяло явный выбор. Теперь хранится конфиг-снимок: hot
+        применяется только при реальной смене настроек.
+        """
+        calls = []
+        hot_cache.data.update({
+            "models.llm_model_name": "config-model",
+            "models.llm_base_url": "https://config.example/v1",
+        })
+        client = _make_client(
+            _ok_handler(calls), monkeypatch,
+            base_url="https://custom.example/v1", chat_model="custom-model")
+        first = await client.generate_with_metadata(
+            [{"role": "user", "content": "hi"}], module="speech_ui",
+            step="try_lab")
+        assert first.model == "custom-model"
+        assert str(calls[0].url) == "https://custom.example/v1/chat/completions"
+        assert client._chat_model == "custom-model"
+        assert client._base_url == "https://custom.example/v1"
+        client_id = id(client._client)
+
+        # Реальное изменение hot-конфига — СЛЕДУЮЩИЙ вызов уже с новым
+        # значением (и httpx-клиент не пересоздан: менялся не ключ).
+        hot_cache.data.update({
+            "models.llm_model_name": "config-model-2",
+            "models.llm_base_url": "https://config-two.example/v1",
+        })
+        second = await client.generate_with_metadata(
+            [{"role": "user", "content": "hi"}])
+        assert second.model == "config-model-2"
+        assert str(calls[1].url) == \
+            "https://config-two.example/v1/chat/completions"
+        assert client._chat_model == "config-model-2"
+        assert client._base_url == "https://config-two.example/v1"
+        assert id(client._client) == client_id
+
+    @pytest.mark.asyncio
+    async def test_inflight_model_snapshot_survives_hot_change(
+            self, hot_cache, monkeypatch):
+        """F1: in-flight запрос держит снимок модели/адреса, собранный на
+        входе вызова; смена hot-конфига посреди запроса его не меняет."""
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        seen = []
+
+        async def post(url, **kwargs):  # noqa: ARG001
+            seen.append((kwargs["json"]["model"], url))
+            entered.set()
+            await release.wait()
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "ok"},
+                                   "finish_reason": "stop"}]},
+                request=httpx.Request("POST", url))
+
+        hot_cache.data.update({"models.llm_model_name": "config-a",
+                               "models.llm_base_url": "https://a.example/v1"})
+        client = _make_client(_ok_handler([]), monkeypatch,
+                              base_url="https://a.example/v1",
+                              chat_model="config-a")
+        client._get_client = lambda key=None: _StubHttp(post)  # noqa: ARG005
+
+        task = asyncio.create_task(client.generate(
+            [{"role": "user", "content": "hi"}]))
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        hot_cache.data.update({"models.llm_model_name": "config-b",
+                               "models.llm_base_url": "https://b.example/v1"})
+        release.set()
+        await asyncio.wait_for(task, timeout=5)
+        # Текущий запрос — со снимком config-a (модель и адрес).
+        assert seen == [("config-a", "https://a.example/v1/chat/completions")]
+        assert client._chat_model == "config-a"
+
+        # Следующий вызов подхватывает config-b.
+        entered.clear()
+        await client.generate([{"role": "user", "content": "hi"}])
+        assert seen[-1] == ("config-b", "https://b.example/v1/chat/completions")
+        assert client._chat_model == "config-b"
 
     @pytest.mark.asyncio
     async def test_retries_and_fallback_policy_apply_hot(
@@ -607,3 +694,52 @@ class TestAdminContract:
         }
         assert "latency" not in block.lower()
         assert "percentile" not in block.lower()
+
+
+# ── G. Реальный потребитель F1: POST /api/speech/try ───────────────────────
+class TestSpeechTryConsumer:
+    @pytest.mark.asyncio
+    async def test_explicit_try_model_reaches_provider(self, hot_cache,
+                                                      monkeypatch):
+        """F1: явный ``TryRequest.chat_model`` («Попробовать» в речи) идёт в
+        payload провайдера, даже когда глобальная hot-модель другая.
+
+        Регресс: раньше hot-apply на входе ``generate`` молча подменял
+        constructor-level модель на ``models.llm_model_name``.
+
+        Примечание: ``_generate_variants`` содержит ПРЕДСУЩЕСТВУЮЩИЙ баг вне
+        скоупа слайса — ``from config import settings`` даёт модуль
+        ``config.settings`` (пустой ``config/__init__.py``), а не инстанс, и
+        ``settings.LLM_BASE_URL`` падает в ``client_unavailable``. Тест
+        подставляет инстанс в пакет, чтобы проверить именно транспортный шов
+        выбора модели; сам баг зафиксирован отдельно и здесь не чинится.
+        """
+        import config as config_pkg
+        from config.settings import settings as settings_instance
+
+        calls = []
+        transport = httpx.MockTransport(_ok_handler(calls))
+        original = httpx.AsyncClient
+
+        def factory(**kw):
+            return original(transport=transport, **kw)
+
+        monkeypatch.setattr("services.llm_client.httpx.AsyncClient", factory)
+        monkeypatch.setattr(config_pkg, "settings", settings_instance,
+                            raising=False)
+        hot_cache.data.update({
+            "models.llm_model_name": "global-hot-model",
+            "models.llm_base_url": "https://hot.example/v1",
+            "keys.llm_api_key": "test-key",
+        })
+        from web.api.speech import TryRequest, _generate_variants
+
+        body = TryRequest(text="привет", generate=True,
+                          chat_model="owner-picked-model")
+        out = await _generate_variants(
+            {"system_masked": "system prompt"}, None, body, None)
+        assert out["ok"] is True
+        assert len(calls) == 1
+        payload = json.loads(calls[0].content)
+        assert payload["model"] == "owner-picked-model"
+        assert str(calls[0].url) == "https://hot.example/v1/chat/completions"

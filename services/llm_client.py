@@ -745,8 +745,12 @@ class LLMClient:
         # (PG/settings/kwarg). Hot-apply меняет рабочий атрибут только когда
         # конфиг реально изменился; ручные/тестовые переопределения атрибута
         # (`client._timeout = 0.05`, `client.backoff_base = 0`) сохраняются.
-        self._policy_chat_model = self._chat_model
-        self._policy_base_url = self._base_url
+        # Модель/адрес — именно КОНФИГ-значение (``_MISSING`` — ключа нет), а
+        # не рабочий kwarg: иначе явный constructor-level model/base (Speech
+        # Try, per-call каналы) считался бы «изменившимся» и затирался
+        # hot-значением на первом же вызове.
+        self._policy_chat_model = hot.get("models.llm_model_name", _MISSING)
+        self._policy_base_url = hot.get("models.llm_base_url", _MISSING)
         self._policy_timeout = _policy_float(self._timeout, settings.LLM_TIMEOUT,
                                              1.0)
         self._policy_budget = _policy_float(self._budget,
@@ -824,26 +828,31 @@ class LLMClient:
     def _refresh_chat_model(self) -> None:
         """Модель/адрес чата — из горячего конфига на входе вызова.
 
-        Меняет рабочие ``_chat_model``/``_base_url`` только когда значение
-        конфига ОТЛИЧАЕТСЯ от последнего применённого (``_policy_*``): ручные
-        переопределения атрибутов (тест-двойники, per-call каналы) не
+        ``_policy_chat_model``/``_policy_base_url`` хранят последнее
+        КОНФИГ-значение (``_MISSING`` — ключа в конфиге не было), а НЕ рабочий
+        атрибут: hot-apply срабатывает только при реальном изменении настроек.
+        Поэтому явный constructor-level model/base (per-call каналы, Speech
+        Try) уважается на первом вызове, а ручные переопределения атрибутов не
         затираются. Пустое значение конфига — не подмена (паритет).
-        Двойники без полного ``__init__`` (subclass/__new__) безопасны —
-        отсутствующие ``_policy_*`` берутся из текущих атрибутов."""
-        tracked_model = getattr(self, "_policy_chat_model",
-                               getattr(self, "_chat_model", ""))
-        model = str(hot.get("models.llm_model_name", tracked_model)
-                    or "").strip()
-        if model and model != tracked_model:
-            self._chat_model = model
-        self._policy_chat_model = model or tracked_model
-        tracked_base = getattr(self, "_policy_base_url",
-                               getattr(self, "_base_url", ""))
-        base = str(hot.get("models.llm_base_url", tracked_base)
-                   or "").strip().rstrip("/")
-        if base and base != tracked_base:
-            self._base_url = base
-        self._policy_base_url = base or str(tracked_base or "").rstrip("/")
+        Двойники без полного ``__init__`` (subclass/__new__) безопасны:
+        отсутствующий ``_policy_*`` трактуется как «конфиг не наблюдался» →
+        первое доступное значение применяется как раньше."""
+        tracked_model = getattr(self, "_policy_chat_model", _MISSING)
+        config_model = hot.get("models.llm_model_name", _MISSING)
+        if config_model != tracked_model:
+            model = (str(config_model or "").strip()
+                     if config_model is not _MISSING else "")
+            if model:
+                self._chat_model = model
+            self._policy_chat_model = config_model
+        tracked_base = getattr(self, "_policy_base_url", _MISSING)
+        config_base = hot.get("models.llm_base_url", _MISSING)
+        if config_base != tracked_base:
+            base = (str(config_base or "").strip().rstrip("/")
+                    if config_base is not _MISSING else "")
+            if base:
+                self._base_url = base
+            self._policy_base_url = config_base
 
     def _refresh_transport_policy(self) -> None:
         """Политика транспорта — из горячего конфига на входе вызова.
