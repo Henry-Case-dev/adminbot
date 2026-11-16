@@ -1258,35 +1258,18 @@ def _vision_tool_enabled() -> bool:
         return bool(getattr(settings, "MCA_VISION_TOOL_ENABLED", True))
 
 
-def _fact_check_tool_enabled() -> bool:
-    """env-only kill-switch ``MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED`` (MCA-20,
-    ADR-1028-20 §8.3 K2; ON) + каталог-тумблер владельца
-    ``temporal.tool_enabled`` (B07.2: чтение через hot — PG-значение
-    применяется без рестарта; фолбэк — Settings-канон). Гейтит ТОЛЬКО
-    LLM-доступность ``fact_check``: OFF → инструмент скрыт из набора
-    (устаревшие вызовы получают честный disabled-ToolResult — серверная
-    проверка в диспетчере, defence in depth). Наличие схемы
-    ``TOOL_FACT_CHECK`` и канон 14 — безусловны. Инертен при мастере
-    OFF (K1)."""
+def _fact_check_tool_env_enabled() -> bool:
+    """env-only kill-switch ``MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED`` (K2)."""
     try:
         from services import mca_gates
-        if not mca_gates.temporal_factcheck_tool_enabled():
-            return False
+        return bool(mca_gates.temporal_factcheck_tool_enabled())
     except Exception:      # pragma: no cover - гейт не бросает
-        if not bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
-                            True)):
-            return False
-    # B07.3 (ASAP 8 v6.3): master Фактчека блокирует ЕГО функцию —
-    # инструмент fact_check недоступен при выключенном Factcheck
-    # (Direct продолжает работать: LLM просто не получает инструмент).
-    try:
-        from services import hot_config as hot_cfg
-        if not bool(hot_cfg.get("flags.factcheck_enabled", getattr(
-                settings, "FACTCHECK_ENABLED", True))):
-            return False
-    except Exception:      # pragma: no cover - кэш не поднят → Settings
-        if not bool(getattr(settings, "FACTCHECK_ENABLED", True)):
-            return False
+        return bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
+                            True))
+
+
+def _temporal_tool_enabled() -> bool:
+    """Каталог-тумблер владельца ``temporal.tool_enabled`` (глобальный)."""
     try:
         from services import hot_config as hot_cfg
         return bool(hot_cfg.get("temporal.tool_enabled", getattr(
@@ -1295,8 +1278,47 @@ def _fact_check_tool_enabled() -> bool:
         return bool(getattr(settings, "TEMPORAL_TOOL_ENABLED", True))
 
 
+def _fact_check_tool_enabled() -> bool:
+    """Legacy-глобальный гейт инструмента ``fact_check``.
+
+    env K2 + глобальный ``flags.factcheck_enabled`` + ``temporal.tool_enabled``.
+    Per-chat путь использует ``fact_check_tool_enabled_for_chat``; эта
+    функция остаётся для контекстов без chat_id (канон схем/диагностика).
+    """
+    if not _fact_check_tool_env_enabled():
+        return False
+    if not _temporal_tool_enabled():
+        return False
+    try:
+        from services import hot_config as hot_cfg
+        return bool(hot_cfg.get("flags.factcheck_enabled", getattr(
+            settings, "FACTCHECK_ENABLED", True)))
+    except Exception:      # pragma: no cover - кэш не поднят → Settings
+        return bool(getattr(settings, "FACTCHECK_ENABLED", True))
+
+
+async def fact_check_tool_enabled_for_chat(chat_id) -> bool:
+    """Per-chat доступность инструмента ``fact_check`` (F5).
+
+    Порядок: аварийные env/каталожные оси инструмента → канонический
+    резолвер модуля Фактчек (GLOBAL-дефолт ``flags.factcheck_enabled`` →
+    явный CHAT-override). GLOBAL OFF + CHAT ON не скрывает инструмент.
+    """
+    if not _fact_check_tool_env_enabled():
+        return False
+    if not _temporal_tool_enabled():
+        return False
+    from services import feature_gates
+    try:
+        return bool(await feature_gates.module_enabled(
+            chat_id, module_id="factcheck"))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def active_tools(lore_compiler_enabled: bool = True,
-                 image_generation_enabled: bool = False) -> list[dict]:
+                 image_generation_enabled: bool = False, *,
+                 factcheck_enabled: bool | None = None) -> list[dict]:
     """Tool-сет для LLM с учётом флагов «Летописец» (О3, T-1887),
     генерации изображений (F5, ADR-1023-5 §D2), транскрибации (F19,
     ADR-1024-20 §2.4), извлечения статьи (A2, ADR-1026-15 D5) и memory
@@ -1339,7 +1361,9 @@ def active_tools(lore_compiler_enabled: bool = True,
         disabled.add(MEMORY_LOOKUP_TOOL_NAME)
     if not _vision_tool_enabled():
         disabled.add(VISION_TOOL_NAME)
-    if not _fact_check_tool_enabled():
+    if factcheck_enabled is None:
+        factcheck_enabled = _fact_check_tool_enabled()
+    if not factcheck_enabled:
         disabled.add(FACT_CHECK_TOOL_NAME)
     if not read_source_code_enabled():
         disabled.add(SOURCE_READ_TOOL_NAME)
@@ -1347,6 +1371,20 @@ def active_tools(lore_compiler_enabled: bool = True,
         return list(TOOL_CALLING_TOOLS)
     return [tool for tool in TOOL_CALLING_TOOLS
             if tool["function"]["name"] not in disabled]
+
+
+async def active_tools_for_chat(chat_id, lore_compiler_enabled: bool = True,
+                                image_generation_enabled: bool = False
+                                ) -> list[dict]:
+    """Async-обёртка `active_tools` с per-chat гейтом Фактчека (F5).
+
+    Единственная точка анонса tool-сета для чата: остальные оси инструментов
+    остаются прежними, а `fact_check` решается каноническим резолвером
+    (GLOBAL-дефолт → CHAT-override), а не глобальным `hot.get`.
+    """
+    factcheck_enabled = await fact_check_tool_enabled_for_chat(chat_id)
+    return active_tools(lore_compiler_enabled, image_generation_enabled,
+                        factcheck_enabled=factcheck_enabled)
 
 
 # Раунд 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): tool-сет ФАКТЧЕКА —

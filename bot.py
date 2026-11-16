@@ -652,20 +652,17 @@ async def on_startup():
     # Epic 79.5 (D295): max_concurrency из настроек для защиты Groq Free Tier.
     # Bugfix 04.09.2026 (Часть 1): инстанс ЕДИНЫЙ с медиа-веткой youtube
     # (создан выше, в общем bootstrap) — здесь только DI роутера 0i.
-    # F5 (ТЗ §18H(4)): master-флаг проверяется и на своей границе исполнения
-    # (handlers/voice_transcription.py), DI-ось — startup-семантика как была.
-    if hot.get("flags.enable_voice_transcription", settings.ENABLE_VOICE_TRANSCRIPTION):
-        setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
-        logger.info(
-            "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s, "
-            "max_concurrency=%d)",
-            hot.get("limits.voice_max_duration_seconds", settings.VOICE_MAX_DURATION_SECONDS),
-            bool(hot.get("keys.groq_api_key", settings.GROQ_API_KEY)), bool(hot.get("keys.openrouter_api_key", settings.OPENROUTER_API_KEY)),
-            hot.get("models.groq_max_concurrency", settings.GROQ_MAX_CONCURRENCY),
-        )
-    else:
-        logger.info(
-            "VoiceTranscriber disabled (ENABLE_VOICE_TRANSCRIPTION=False)")
+    # MOD-ACL-UX-01 M2.1 (F7): DI выполняется ВСЕГДА. Глобальный
+    # `flags.enable_voice_transcription` — наследуемый дефолт, а не запрет:
+    # при GLOBAL OFF + CHAT ON сервис должен быть уже подключён, иначе
+    # handler вернёт UNHANDLED. Per-chat решение принимает сам handler; новый
+    # сервис не поднимается (используется общий voice_service).
+    setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
+    logger.info(
+        "VoiceTranscriber DI wired (per-chat gate; global default=%s)",
+        bool(hot.get("flags.enable_voice_transcription",
+                     settings.ENABLE_VOICE_TRANSCRIPTION)),
+    )
 
     # ── Memory backup (Epic 60, Section 64.3, T-464) ──
     # VACUUM INTO-бэкап + текстовый экспорт фактов, daily. Рубильник

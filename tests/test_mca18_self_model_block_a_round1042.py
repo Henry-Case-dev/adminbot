@@ -484,7 +484,12 @@ async def test_k1_off_disabled_no_reads(tmp_path, events, monkeypatch):
             calls["n"] += 1
             return await original()
         monkeypatch.setattr(db, "get_self_identity", _counting)
-        monkeypatch.setattr(mca_gates, "self_model_enabled", lambda: False)
+        # M2.1: K1-аварийная ось теперь принадлежит реестру модуля
+        # (MCA_SELF_MODEL_ENABLED); product-AND поверх per-chat резолвера снят.
+        from services import module_registry
+        monkeypatch.setattr(
+            module_registry, "env_enabled",
+            lambda mid: False if mid == "character" else True)
         _patch_settings_resolvers(monkeypatch)
         with pytest.raises(sm.SelfModelDisabled):
             await sm.resolve_self_model(db, CHAT)

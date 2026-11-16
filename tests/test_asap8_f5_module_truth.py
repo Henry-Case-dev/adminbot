@@ -340,12 +340,13 @@ def test_m7_random_product_master_default_on(hot_with, monkeypatch):
 
 def test_m7_random_product_off_stops_runtime_and_env_stays_and(hot_with,
                                                                monkeypatch):
-    """M7: product OFF → runtime-гейт закрыт (product_toggle); env OFF при
-    product ON → emergency_env (env важнее UI); обе OFF → effective False."""
+    """M7: product OFF → запрошенная ось модуля OFF (product_toggle), но
+    shared-пул жив (M2.1: чат ON исполняется); env OFF → emergency_env."""
     hot_with({"memory.random_enabled": False})
-    assert mca_gates.random_source_enabled() is False
+    # MOD-ACL-UX-01 M2.1: product-ось — наследуемый дефолт, не запрет пула.
+    assert mca_gates.random_source_enabled() is True
     assert mr.effective_gate("random")[1:] == (False, "product_toggle")
-    # env AND-ось: product ON + env OFF → False/emergency_env
+    # env-аварийная ось: product ON + env OFF → False/emergency_env
     hot_with({"memory.random_enabled": True})
     monkeypatch.setattr(type(settings), "MCA_RANDOM_SOURCE_ENABLED", False)
     assert mca_gates.random_source_enabled() is False
