@@ -158,4 +158,5 @@ subprocess-based node-тесты падают на `DuplicateHandle`
   сборки; base-check worktree `bca18c1e` удалён, unit-check = complete.
 - Доказательства: `assembly.md`, `tests-2.58.206.json`,
   `manifest-dry-run.json`, `rollback.json`, `train-log.md`,
-  `ui-playwright-2.58.206.json`.
+  `ui-playwright-2.58.206.json`, `retention.json` (worktree retained for
+  Reviewer/DevOps; unit-check с `--retention-file` — учтён).

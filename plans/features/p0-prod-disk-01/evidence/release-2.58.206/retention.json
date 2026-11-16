@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\p0-prod-disk-01-2a6b1cdc3425-df026980",
+      "owner": "Builder (P0-PROD-DISK-01 release train 2.58.206) -> Reviewer/DevOps",
+      "reason": "Clean worktree of branch release/p0-prod-disk-2.58.206 (base bca18c1e, retention 122b47de, UI da44543d, bump ebd0160b, evidence in plans/features/p0-prod-disk-01/evidence/release-2.58.206); it is the only checked-out copy of this train and must not be retired before the delta review and the 2.58.206 deployment or rejection.",
+      "evidence": "plans/features/p0-prod-disk-01/evidence/release-2.58.206/assembly.md; origin/release/p0-prod-disk-2.58.206",
+      "next_event": "After the Reviewer delta verdict and the 2.58.206 deployment (or rejection) is recorded, the owning role runs unit-close/unit-check on p0-prod-disk-release-2.58.206 and retires the worktree."
+    }
+  ]
+}
