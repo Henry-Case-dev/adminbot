@@ -93,4 +93,3 @@ M3 DESIGN FROZEN — риски: (1) честное разделение desired
    страницах (один write-point), `keys_llm` на странице embeddings (фильтр embedding-ключей),
    `nostalgia` master precedence, live-флаг `IMAGE_MODULE_CARD_ENABLED`, MEMORY-08/VMQ/SELF-DIAG
    границы. Product-код не менялся; статусы карты не менялись.
-
