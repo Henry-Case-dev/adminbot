@@ -153,7 +153,44 @@ sha256 `BA6CF3D6…6FF92A7`). **Baseline:** `plans/features/mod-acl-ux-01/m0-bas
 
 ---
 
-### 3.3. M2.1 — per-chat adapters для 12 модулей (2026-11-16, prerequisite M4A)
+### 3.3. M3 design — Approved (2026-11-16); M4A после M2.1
+
+Датированная запись к §3 (M3). История §3.2 сохранена; прежний §3.3 (M2.1) перенумерован в §3.4
+без изменения содержания.
+
+- **Вердикт:** независимый Reviewer — **Approved design** (кандидат docs
+  `ae937d9e6fae2870e4062b4389458c0e403d8e6d`, продукт-база
+  `bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1`). Ревью вернуло E1 и D1–D12; после исправлений
+  rev2.1 все D1–D12 PASS, E1 PASS, повторная проверка D1 — PASS.
+- **Артефакты (sha256):** `design-m3-2026-11-16.md` — `91d60e5b…181692`;
+  `copy-inventory.md` — `892f749c…b6519752`; `m3-design-freeze.md` — `cbc2cb96…c06ca9`;
+  `evidence/m3/mac-m3-01.md` — `8fbebdf0…82fc65`. Git blobs: `0cea464b…` / `eaada4f3…` /
+  `0563d9a0…` / `9d2e1adb…`.
+- **Строки M3 (20):** 18 REVIEW, 2 PENDING. Разбиение Reviewer — 15 covered / 5 partial; PM
+  закрыл три partial по acceptance: `MAC-S0-07` (содержательное ревью и редактура выполнены;
+  модельная оговорка Opus 5.5 условна и неприменима), `MAC-S9-ARCH-01` и `MAC-S13-ARCH-01`
+  (per-card вкладки закрыты D1 §2.4; все обязательные разделы design присутствуют). Остались
+  PENDING: `MAC-S5-281` — copy inventory готов (D5 закрыл шапку), но Reviewer не читал русский
+  текст в живом интерфейсе; `MAC-AC-09` — design утверждён, но реальные действия на живом
+  продукте не проверялись. Обе gap'ы закрываются live-preflight M4A/M6, не M3.
+- **Почему REVIEW, а не VERIFIED:** design принимает контракт, а не runtime/UI. Продуктовое
+  поведение, реальные переключатели, 409 и live-ACL проверяются M4A/M4B/M4C/M6; `VERIFIED` без
+  этих доказательств был бы инфляцией.
+- **Зависимость:** `M4A depends_on [M3, M2.1]`; **M2.1 остаётся обязательным предшественником**.
+  Design Approved не отменяет M2.1 и не разблокирует M4A: до закрытия M2.1 M4A не рисует
+  CHAT-контролы 12 модулей (§12.2/§12.5). M2.1 идёт отдельным лейном: его ревью вернуло
+  Needs Fixes (F1–F4; F5–F10), corrective уже запущен.
+- **Долг docs-accuracy (low, не блокер):** F1 — счётчики §2.4 включают hidden
+  (`limits_summary` 3/7, `limits_factcheck` 2/4, `limits_qnd` 24/27, `direct/limits` 6/7/2);
+  F2 — evidence §3 без self-sha; F3 — устаревший checkout-указатель. Записаны в карту
+  (`m3_design_2026_11_16.findings`); артефакты не переписаны, их хеши зафиксированы approval.
+- **Не приёмка:** продукт, тесты, конфиг и деплой не менялись; эпик не закрыт. Гейты: plan
+  errors=0; scoped review M3 `--candidate bca18c1e` scoped=20 errors=2 (две PENDING-строки,
+  фактические сообщения — в карте); workflow_progress exit 0, queue 41/41.
+
+---
+
+### 3.4. M2.1 — per-chat adapters для 12 модулей (2026-11-16, prerequisite M4A)
 
 Датированное дополнение к §3.2 и к design §12.2/§12.3. Новых требований не вводит: пять существующих
 PENDING-строк M2 перенесены по полю `slice`, текст acceptance и статусы не менялись.

@@ -124,16 +124,17 @@
     }
   ],
   "gate_status": {
-    "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после M0 VERIFIED и M2.1 mapping; graph validator принял 14 узлов без циклов и пересечений write scope)",
+    "plan_gate": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0 (после привязки Approved design M3 и 18 M3 REVIEW; graph validator 14 узлов без циклов и пересечений write scope)",
+    "m3_design_review_gate_2026_11_16": "check --stage review --slice M3 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=20 errors=2: MAC-S5-281 и MAC-AC-09 остаются PENDING с точными live-gap; 18 REVIEW-строк проходят candidate-bound approval и strict artifact_sha256. Это design-гейт, не VERIFIED и не релиз эпика.",
     "m0_review_gate_2026_11_16": "check --stage review --slice M0 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=1 errors=0 после привязки записи Reviewer Approved (type=review, candidate bca18c1e): candidate совпадает, strict-проверка artifact_sha256 всех 5 записей и независимого approval проходит. До approval тот же прогон давал errors=1 (только отсутствие approval), до rebind — errors=3 (candidate mismatch + live requirement lacks evidence из-за устаревших sha256). Прежнее утверждение «Артефакты и sha256 валидны» было неверным и снято ещё на rebind.",
     "release_gate": "КРАСНЫЙ и остаётся красным по причинам, не связанным с двумя доказанными фиксами",
     "release_gate_reasons": [
-      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 69 VERIFIED и 219 PENDING (на 2026-11-16 после Reviewer Approved по MAC-M0-01); --stage release требует VERIFIED по всем обязательным строкам, поэтому он остаётся красным по 219 строкам. Последний измеренный прогон release давал errors=261 при 68 VERIFIED / 1 REVIEW — это состояние на момент прогона, а не текущее; типовая причина — «mandatory not ['VERIFIED'] (got PENDING)».",
+      "эпик MOD-ACL-UX-01 = 279 инвентарных строк, 288 обязательных: 69 VERIFIED / 18 REVIEW / 201 PENDING (на 2026-11-16 после привязки Approved design M3); --stage release требует VERIFIED по всем обязательным строкам, поэтому он остаётся красным по 219 строкам (18 REVIEW + 201 PENDING). Последний измеренный прогон release давал errors=261 при 68 VERIFIED / 1 REVIEW — это состояние на момент прогона, а не текущее; типовая причина — «mandatory not ['VERIFIED'] (got PENDING)».",
       "map-level candidate_commit/deployed_commit приведены 2026-11-16 к фактическому deployed bca18c1e (2.58.205) датированной записью candidate_binding_2026_11_16; история 34213999 сохранена в deployment_evidence, evidence-записях строк и git log. Release-гейт эпика красный не из-за поля: 219 обязательных строк не VERIFIED, а строки, доказанные на 34213999/dd52cbf9/4e07817e/c51933d0/92070d0e/721bab10, для epic-wide релиза на bca18c1e потребуют собственной привязки",
       "scoped release --slice M1 тоже красный: в M1 остаются PENDING MAC-M1-01, MAC-S4-157, MAC-S4-161, MAC-S4-171, MAC-S4-172, MAC-S4-173, MAC-S4-174, MAC-S10-11, MAC-S10-12, MAC-S10-13, MAC-AC-06, MAC-S15-10, MAC-S4-RPT-01, MAC-DEF-02"
     ],
     "basis_for_two_fixes": "MAC-AVATAR-01 и MAC-DEF-01 доказаны не гейтом, а тремя независимыми основаниями: (1) вердикт независимого Reviewer'а с воспроизведением дефекта на базе 721bab10 и проверкой кандидатов c2255690/30cd8564, включая доказательство отсутствия расширения прав; (2) живые проверки на выкаченном SHA 92070d0e (см. slice_releases[0].live_facts); (3) байт-идентичность продуктовых файлов и контрактных тестов между одобренными кандидатами и выкатом, проверенная по git-блобам.",
-    "must_not_be_read_as": "Эта карта не закрывает эпик MOD-ACL-UX-01: 288 обязательных = 69 VERIFIED / 0 REVIEW / 219 PENDING, релиз эпика не заявлен."
+    "must_not_be_read_as": "Эта карта не закрывает эпик MOD-ACL-UX-01: 288 обязательных = 69 VERIFIED / 18 REVIEW / 201 PENDING, релиз эпика не заявлен; 18 REVIEW — design-приёмка M3, не VERIFIED."
   },
   "queue_position": "MOD-ACL-UX-01 стоит в конце действующей очереди после SELF-DIAG-01 и VMQ-ONTO-01; полный Builder стартует после освобождения шести файлов MEMORY-08 S3. Две независимые критические правки (M1 ACL false-403 и M5A EXP-FIX correctives) допускаются раньше остального эпика при доступности своих файлов.",
   "binding_note": "Единственный владелец строки = req_id; owning stage ровно один (M0…M6, включая под-срезы M4A/M4B/M4C и M5A/M5B/M5C, потому что один M4 и один M5 — слишком крупные неделимые outcomes). Строки L*-AC-* §12 и M0…M6 §11 — нормативный источник; manual-строки MAC-S2-TT-*, MAC-S2-AX-*, MAC-EXP-* и MAC-AMD-* ссылаются на нормативные строки таблиц/prose, потому что gate инвентаризует только заголовки и списки. Наблюдения §1 и адреса файлов §14 классифицированы как context с указанием несущей нормы; §16 дублирует §5–§8 и AC-*. Статусы PENDING до фактических доказательств; live/ui-строки требуют живого интерфейса, а не отчёта Builder. Поправка уроков 09.11.2026 добавлена двумя срезами: M5L (MAC-LSN-01…06 — реализация и выкат 2.58.172, доказано) и M5L-OBS (MAC-LSN-07…11 — живые наблюдения после дренажа свежего бэклога, первого противоречия, повторного подтверждения, применения в ответе и оставшихся событий аналитики). Источник поправки — plans/owner_inputs/2026-11-09-lesson-strategy-human-gate.md и замороженный план plans/features/mod-acl-ux-01/lesson-strategy-contract.md. Поправка 09.11.2026 (M2, clerical): MAC-S2-106, MAC-S10-10, MAC-S2-105 привязаны к production impact report plans/features/mod-acl-ux-01/reports/m2-impact-production-17c3a05e.md (sha256 f18dc7dc…, коммит 74f8f342 на release/2.58.173; read-only прогон кандидата 97cfdef1 по реальной базе 2.58.173 @ 17c3a05e: 3 профиля x 16 capability, 0 изменённых пар). Одиннадцать строк каталога/UI (MAC-S0-04, MAC-S2-49, MAC-S2-89, MAC-S2-90, MAC-S2-82, MAC-S2-83, MAC-S3-CAT-01, MAC-S3-TYPES-01, MAC-S3-SHARED-01, MAC-AC-01, MAC-AC-05) переназначены из M2 в M3/M4A по решению координатора 2026-11-09 (поле reassignment_rationale у каждой строки; acceptance не менялся). Пятнадцать live-строк M2 остаются PENDING с условием «живое наблюдение на задеплоенном SHA после выката M2» — это postdeploy-обязательства, а не блокеры ревью. | 2026-11-16 (M2.1): owning stages дополнены срезом M2.1 — per-chat adapters 12 потребителей и precedence nostalgia; пять строк (MAC-S2-TT-5, MAC-AC-04, MAC-S10-01, MAC-S15-12, MAC-S2-SHARED-01) перенесены из M2 без изменения acceptance и статуса; два VERIFIED-наблюдения (MAC-S0-01, MAC-S2-TT-4) остаются у M2 с consumer-level дополнением от M2.1, без понижения.",
@@ -552,8 +553,36 @@
       "acceptance": "Каждой из 21 видимой карточки и каждому скрытому подмодулю назначен серверный kind и scope_capability, подтверждённый реальным consumer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S3-CAT-01: design §2.1, §2.4; evidence §2 (evidence/m3/mac-m3-01.md, sha256 8fbebdf0)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md at sha256 8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65: Каждой из 21 видимой карточки и hidden factcheck_temporal назначены серверный kind и scope_capability, подтверждённые реальным consumer (file:line в §2.1). 11 static-карточек получают ModuleSpec в M4A; hidden-подмодуль не становится карточкой. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md",
+          "artifact_sha256": "8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S3-CAT-01": "covered at design level: design §2.1, §2.4; evidence §2"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S3-CAT-01 covered by design §2.1, §2.4; evidence §2. Каждой из 21 видимой карточки и hidden factcheck_temporal назначены серверный kind и scope_capability, подтверждённые реальным consumer (file:line в §2.1). 11 static-карточек получают ModuleSpec в M4A; hidden-подмодуль не становится карточкой. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (evidence/m3/mac-m3-01.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md",
+          "artifact_sha256": "8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65",
+          "covers_row_acceptance": {
+            "MAC-S3-CAT-01": "covered: independent Reviewer Approved the M3 design package; design §2.1, §2.4; evidence §2"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -577,8 +606,36 @@
       "acceptance": "Остальные карточки определены по фактическому каталогу; global_only не вводится искусственно, chat_id доведён до реальных точек потребления.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S3-TYPES-01: design §2.3, §12.2; evidence §2 (evidence/m3/mac-m3-01.md, sha256 8fbebdf0)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md at sha256 8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65: Типы определены по фактическому каталогу 2.58.205; искусственный global_only не вводится. Для 12 продуктовых модулей chat_id доводится до реальных точек потребления через M2.1; таблица §12.2 перечисляет файлы и строки текущего глобального чтения. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md",
+          "artifact_sha256": "8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S3-TYPES-01": "covered at design level: design §2.3, §12.2; evidence §2"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S3-TYPES-01 covered by design §2.3, §12.2; evidence §2. Типы определены по фактическому каталогу 2.58.205; искусственный global_only не вводится. Для 12 продуктовых модулей chat_id доводится до реальных точек потребления через M2.1; таблица §12.2 перечисляет файлы и строки текущего глобального чтения. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (evidence/m3/mac-m3-01.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md",
+          "artifact_sha256": "8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65",
+          "covers_row_acceptance": {
+            "MAC-S3-TYPES-01": "covered: independent Reviewer Approved the M3 design package; design §2.3, §12.2; evidence §2"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -602,8 +659,36 @@
       "acceptance": "Chat OFF не выключает общий Embeddings API и общий QRNG-пул; «индексация работает» и «поиск разрешён в чате» — разные поля.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S3-SHARED-01: §4.4, §6.3, §2.3 п.5 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: CHAT OFF выключает только потребление способности этим чатом: общий Embeddings API, индекс и QRNG-пул не останавливаются; shared worker продолжает работу для других чатов. «Индексация работает» и «поиск разрешён в чате» — разные поля, без второго тумблера индексации. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S3-SHARED-01": "covered at design level: §4.4, §6.3, §2.3 п.5"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S3-SHARED-01 covered by §4.4, §6.3, §2.3 п.5. CHAT OFF выключает только потребление способности этим чатом: общий Embeddings API, индекс и QRNG-пул не останавливаются; shared worker продолжает работу для других чатов. «Индексация работает» и «поиск разрешён в чате» — разные поля, без второго тумблера индексации. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S3-SHARED-01": "covered: independent Reviewer Approved the M3 design package; §4.4, §6.3, §2.3 п.5"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1598,8 +1683,36 @@
       "acceptance": "Architect выдаёт единый design specification: IA-карта всех карточек, реальные вкладки и owner-ключи, wireframes каталога и трёх классов модулей, «Статуса» и прав, responsive, token mapping, финальные тексты, навигация и данные первого viewport.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S9-ARCH-01: §2.1, §2.4, §3, §4.1–4.8, §7, §8, §9; freeze §4/§5 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Единый design specification содержит IA-карту 21 карточки, реальные вкладки и owner-ключи (D1 закрыл per-card матрицу §2.4), wireframes каталога, малого/сложного/инфраструктурного workspace, «Времени», «Статуса» и прав (§4.7/4.8 на frozen §4/§5), responsive, token mapping, финальные тексты, навигацию и данные первого viewport. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S9-ARCH-01": "covered at design level: §2.1, §2.4, §3, §4.1–4.8, §7, §8, §9; freeze §4/§5"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S9-ARCH-01 covered by §2.1, §2.4, §3, §4.1–4.8, §7, §8, §9; freeze §4/§5. Единый design specification содержит IA-карту 21 карточки, реальные вкладки и owner-ключи (D1 закрыл per-card матрицу §2.4), wireframes каталога, малого/сложного/инфраструктурного workspace, «Времени», «Статуса» и прав (§4.7/4.8 на frozen §4/§5), responsive, token mapping, финальные тексты, навигацию и данные первого viewport. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S9-ARCH-01": "covered: independent Reviewer Approved the M3 design package; §2.1, §2.4, §3, §4.1–4.8, §7, §8, §9; freeze §4/§5"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1620,8 +1733,36 @@
       "acceptance": "Architect критикует макеты как продуктовый редактор (лишние экраны, повторы, жаргон, низкая плотность) до CSS-работ; Builder не подменяет решение простейшим вариантом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S9-ARCH-02: §10, §3.3, §3.7, §7.2, §14 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Редакторская критика зафиксирована явно: убраны второй экран «Обзор модуля» с повтором описания и CTA «Открыть настройки модуля», технический жаргон заменён человеческими формулировками, плотность задана 132–164 px и 4/3/2/1; Visual Preservation Map фиксирует KEEP/REFINE/MOVE/REDESIGN/REMOVE с причиной, а не «простейший вариант». Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S9-ARCH-02": "covered at design level: §10, §3.3, §3.7, §7.2, §14"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S9-ARCH-02 covered by §10, §3.3, §3.7, §7.2, §14. Редакторская критика зафиксирована явно: убраны второй экран «Обзор модуля» с повтором описания и CTA «Открыть настройки модуля», технический жаргон заменён человеческими формулировками, плотность задана 132–164 px и 4/3/2/1; Visual Preservation Map фиксирует KEEP/REFINE/MOVE/REDESIGN/REMOVE с причиной, а не «простейший вариант». Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S9-ARCH-02": "covered: independent Reviewer Approved the M3 design package; §10, §3.3, §3.7, §7.2, §14"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1872,8 +2013,36 @@
       "acceptance": "M3 фиксирует design freeze: многостраничная навигация без объединения вкладок, переработка «Статуса» и матрицы прав, карта экранов, утверждённые тексты, responsive и проверка реальных полей с учётом SELF-DIAG и VMQ-ONTO.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-M3-01: §1, §3, §4.7–4.8, §11; freeze §1–§9 (m3-design-freeze.md, sha256 cbc2cb96)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/m3-design-freeze.md at sha256 cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9: Design freeze фиксирует многостраничную навигацию без объединения вкладок, карту экранов, переработку «Статуса» и матрицы прав в границах frozen §4/§5, утверждённые тексты, responsive и проверку реальных полей; пересечения с SELF-DIAG и VMQ учтены в §12.1. Реализация остаётся M4A/M4B/M4C. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/m3-design-freeze.md",
+          "artifact_sha256": "cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-M3-01": "covered at design level: §1, §3, §4.7–4.8, §11; freeze §1–§9"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-M3-01 covered by §1, §3, §4.7–4.8, §11; freeze §1–§9. Design freeze фиксирует многостраничную навигацию без объединения вкладок, карту экранов, переработку «Статуса» и матрицы прав в границах frozen §4/§5, утверждённые тексты, responsive и проверку реальных полей; пересечения с SELF-DIAG и VMQ учтены в §12.1. Реализация остаётся M4A/M4B/M4C. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (m3-design-freeze.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/m3-design-freeze.md",
+          "artifact_sha256": "cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9",
+          "covers_row_acceptance": {
+            "MAC-M3-01": "covered: independent Reviewer Approved the M3 design package; §1, §3, §4.7–4.8, §11; freeze §1–§9"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1960,8 +2129,36 @@
       "acceptance": "Пересечения с MEMORY-08, VMQ-ONTO-01 (включая QRNG panel), SELF-DIAG-01, prompt registry и frontend-работами проверены; у module_registry, ACL и web/app.js один владелец на integration slice.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-MX-01: §12.1, §12.5; freeze §7 (m3-design-freeze.md, sha256 cbc2cb96)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/m3-design-freeze.md at sha256 cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9: Пересечения проверены и назначен один владелец: module_registry.py — M4A; ACL-политика — SELF-DIAG/M4C, без второго ACL; web/app.js, index.html и app.css — одна UI-полоса M4A→M4B→M4C; prompt registry переиспользуется без принудительных ревизий; VMQ QRNG не дублируется; семантика MEMORY-08 S3 не меняется. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/m3-design-freeze.md",
+          "artifact_sha256": "cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-MX-01": "covered at design level: §12.1, §12.5; freeze §7"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-MX-01 covered by §12.1, §12.5; freeze §7. Пересечения проверены и назначен один владелец: module_registry.py — M4A; ACL-политика — SELF-DIAG/M4C, без второго ACL; web/app.js, index.html и app.css — одна UI-полоса M4A→M4B→M4C; prompt registry переиспользуется без принудительных ревизий; VMQ QRNG не дублируется; семантика MEMORY-08 S3 не меняется. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (m3-design-freeze.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/m3-design-freeze.md",
+          "artifact_sha256": "cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9",
+          "covers_row_acceptance": {
+            "MAC-MX-01": "covered: independent Reviewer Approved the M3 design package; §12.1, §12.5; freeze §7"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1982,8 +2179,36 @@
       "acceptance": "Architect выдаёт точные компоновки и тексты на существующих полях, отдельные вкладки, самостоятельную матрицу прав, статусные виджеты и контракт GLOBAL→CHAT без master-AND, проверив реализуемость каждого consumer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S13-ARCH-01: §2.4, §4, §5, §6.2, §7, §12.2 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Даны точные компоновки и тексты на существующих полях, отдельные вкладки по карточкам (D1), самостоятельная страница матрицы прав, статусные виджеты и контракт GLOBAL→CHAT без master-AND; реализуемость каждого consumer проверена: 8 исправлений runtime_gate, 12 модулей требуют M2.1, nostalgia precedence и initiative emergency зафиксированы. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S13-ARCH-01": "covered at design level: §2.4, §4, §5, §6.2, §7, §12.2"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S13-ARCH-01 covered by §2.4, §4, §5, §6.2, §7, §12.2. Даны точные компоновки и тексты на существующих полях, отдельные вкладки по карточкам (D1), самостоятельная страница матрицы прав, статусные виджеты и контракт GLOBAL→CHAT без master-AND; реализуемость каждого consumer проверена: 8 исправлений runtime_gate, 12 модулей требуют M2.1, nostalgia precedence и initiative emergency зафиксированы. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S13-ARCH-01": "covered: independent Reviewer Approved the M3 design package; §2.4, §4, §5, §6.2, §7, §12.2"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -2979,8 +3204,36 @@
       "acceptance": "Продуктовые возможности управляются по чатам; глобальными остаются только shared-инфраструктура и обязательные механизмы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S0-04: §2.1, §2.2, §5.3, §6.3 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: 19 карточек получают законный CHAT-контроль, 2 особые (Время — поле пояса, Векторная память — общий сервис + chat-use); shared-инфраструктура и обязательные механизмы без фиктивного тумблера. Runtime per-chat для 12 модулей явно вынесен в M2.1 (§12.2), поэтому это контракт, а не runtime-доказательство. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S0-04": "covered at design level: §2.1, §2.2, §5.3, §6.3"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S0-04 covered by §2.1, §2.2, §5.3, §6.3. 19 карточек получают законный CHAT-контроль, 2 особые (Время — поле пояса, Векторная память — общий сервис + chat-use); shared-инфраструктура и обязательные механизмы без фиктивного тумблера. Runtime per-chat для 12 модулей явно вынесен в M2.1 (§12.2), поэтому это контракт, а не runtime-доказательство. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S0-04": "covered: independent Reviewer Approved the M3 design package; §2.1, §2.2, §5.3, §6.3"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3066,8 +3319,36 @@
       "acceptance": "Architect и Reviewer проводят содержательное дизайн-ревью и редактуру; «скомпилировалось» и зелёные тесты не считаются приёмкой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S0-07: §11.1, §14; plan.md §3.3; source line 22 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Независимый Reviewer провёл содержательное дизайн-ревью: вернул E1 и D1–D12, они исправлены в rev2.1 и проверены повторно; вердикт Approved design. «Скомпилировалось/тесты зелёные» приёмкой не считались. Модельная оговорка источника («Opus 5.5, если эта модель реально настроена») условна: в этой среде роли обслуживает другая модель, поэтому пункт записан как неприменимый, а не как выполненный. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S0-07": "covered at design level: §11.1, §14; plan.md §3.3; source line 22"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S0-07 covered by §11.1, §14; plan.md §3.3; source line 22. Модельная оговорка источника условна и неприменима (Opus 5.5 не настроен для ролей); содержательное ревью и редактура выполнены, дефекты возвращены и закрыты. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S0-07": "covered: independent Reviewer Approved the M3 design package; §11.1, §14; plan.md §3.3; source line 22"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3762,8 +4043,36 @@
       "acceptance": "Секреты, авторизация, ограничения Telegram, приватность и сетевая доступность не выдаются за пользовательский выключатель.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S2-89: §2.2, §5.2, §6.4; copy §8; D9 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Секреты, авторизация, лимиты Telegram, приватность, сеть и scheduler core исключены из пользовательских тумблеров; emergency env показывается read-only в «Технических деталях», а 401/403/404/503 разведены по экранам. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S2-89": "covered at design level: §2.2, §5.2, §6.4; copy §8; D9"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S2-89 covered by §2.2, §5.2, §6.4; copy §8; D9. Секреты, авторизация, лимиты Telegram, приватность, сеть и scheduler core исключены из пользовательских тумблеров; emergency env показывается read-only в «Технических деталях», а 401/403/404/503 разведены по экранам. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S2-89": "covered: independent Reviewer Approved the M3 design package; §2.2, §5.2, §6.4; copy §8; D9"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -5063,8 +5372,36 @@
       "acceptance": "Название короткое; смысловая строка отвечает «что происходит, если модуль включён» одним предложением и соответствует backend.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S5-276: copy §1; design §7.1 (copy-inventory.md, sha256 892f749c)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/copy-inventory.md at sha256 892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752: 21/21 карточка имеет короткое имя и одно предложение «что происходит, если включено»; тексты сверены с фактическими consumer из §2.1, без рекламных оборотов. «Характер (SelfModel)» и «Векторная память (Embeddings/GraphRAG)» сокращены до «Характер»/«Векторная память». Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S5-276": "covered at design level: copy §1; design §7.1"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S5-276 covered by copy §1; design §7.1. 21/21 карточка имеет короткое имя и одно предложение «что происходит, если включено»; тексты сверены с фактическими consumer из §2.1, без рекламных оборотов. «Характер (SelfModel)» и «Векторная память (Embeddings/GraphRAG)» сокращены до «Характер»/«Векторная память». Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (copy-inventory.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "covers_row_acceptance": {
+            "MAC-S5-276": "covered: independent Reviewer Approved the M3 design package; copy §1; design §7.1"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -5085,8 +5422,36 @@
       "acceptance": "Термины master, runtime_gate, backfill, worker, pg_key, source_ref, fallback вынесены в технические детали, а не в основной UI.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S5-277: copy §8; design §7.2, §7.4 (copy-inventory.md, sha256 892f749c)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/copy-inventory.md at sha256 892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752: Термины master/runtime_gate/backfill/worker/pg_key/source_ref/fallback/env/requested вынесены в «Технические детали»; основной UI говорит о функции и результате. Таблица замен §7.2 фиксирует точные формулировки. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S5-277": "covered at design level: copy §8; design §7.2, §7.4"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S5-277 covered by copy §8; design §7.2, §7.4. Термины master/runtime_gate/backfill/worker/pg_key/source_ref/fallback/env/requested вынесены в «Технические детали»; основной UI говорит о функции и результате. Таблица замен §7.2 фиксирует точные формулировки. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (copy-inventory.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "covers_row_acceptance": {
+            "MAC-S5-277": "covered: independent Reviewer Approved the M3 design package; copy §8; design §7.2, §7.4"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -5107,8 +5472,36 @@
       "acceptance": "Описания Историй, Векторной памяти, Опыта и Случайности соответствуют ориентирам владельца и не обещают недоказанного улучшения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S5-278: copy §1, §9; design §7.1 (copy-inventory.md, sha256 892f749c)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/copy-inventory.md at sha256 892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752: Описания Историй («Сохраняет важные события переписки и помогает возвращаться к ним»), Векторной памяти («Находит сведения и связи в старых сообщениях»), Опыта («Запоминает удачные и неудачные действия и использует проверенные выводы») и Случайности («Добавляет непредсказуемость в выбор воспоминаний, идей и тем») совпадают с owner-ориентирами и не обещают недоказанного улучшения. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S5-278": "covered at design level: copy §1, §9; design §7.1"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S5-278 covered by copy §1, §9; design §7.1. Описания Историй («Сохраняет важные события переписки и помогает возвращаться к ним»), Векторной памяти («Находит сведения и связи в старых сообщениях»), Опыта («Запоминает удачные и неудачные действия и использует проверенные выводы») и Случайности («Добавляет непредсказуемость в выбор воспоминаний, идей и тем») совпадают с owner-ориентирами и не обещают недоказанного улучшения. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (copy-inventory.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "covers_row_acceptance": {
+            "MAC-S5-278": "covered: independent Reviewer Approved the M3 design package; copy §1, §9; design §7.1"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -5129,8 +5522,36 @@
       "acceptance": "Термин «чекап» и пользовательские промпты сохранены; меняются только UI-описания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S5-279: copy §9; design §7.1 (copy-inventory.md, sha256 892f749c)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/copy-inventory.md at sha256 892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752: «Чекап» сохранён в описании Диагностики; пользовательские/авторские промпты, их тексты, ревизии и история версий не меняются — меняются только UI-описания. Существующие подписи вкладок (HYBRID SUMMARY, LEGACY SUMMARY FALLBACK, Кластеризатор, Писатель, Стили обложки, Что бот видел) сохранены. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S5-279": "covered at design level: copy §9; design §7.1"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S5-279 covered by copy §9; design §7.1. «Чекап» сохранён в описании Диагностики; пользовательские/авторские промпты, их тексты, ревизии и история версий не меняются — меняются только UI-описания. Существующие подписи вкладок (HYBRID SUMMARY, LEGACY SUMMARY FALLBACK, Кластеризатор, Писатель, Стили обложки, Что бот видел) сохранены. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (copy-inventory.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "covers_row_acceptance": {
+            "MAC-S5-279": "covered: independent Reviewer Approved the M3 design package; copy §9; design §7.1"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -5151,8 +5572,36 @@
       "acceptance": "Состояние показано тремя сущностями «включено по настройке / исполняется / измерение не подтверждено» с указанием источника.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-S5-280: §5.1, §5.2, §6.2 п.3; copy §4 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Показаны три раздельные сущности («Включено по настройке» / «Исполняется» / «Измерение не подтверждено») плюс «Источник»; пять осей и source имеют точные русские подписи, unknown не маскируется под «Норма», состояние gate-backed карточек резолвится feature_gates.gate_state. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-S5-280": "covered at design level: §5.1, §5.2, §6.2 п.3; copy §4"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-S5-280 covered by §5.1, §5.2, §6.2 п.3; copy §4. Показаны три раздельные сущности («Включено по настройке» / «Исполняется» / «Измерение не подтверждено») плюс «Источник»; пять осей и source имеют точные русские подписи, unknown не маскируется под «Норма», состояние gate-backed карточек резолвится feature_gates.gate_state. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-S5-280": "covered: independent Reviewer Approved the M3 design package; §5.1, §5.2, §6.2 п.3; copy §4"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -5174,7 +5623,22 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "pending_gap": "Copy inventory до/после создан полностью: copy-inventory.md §1–§11, шапка каталога §10 закрыта D5, 401/403/404/503 и причины пустоты разведены. Не выполнена вторая часть acceptance: Reviewer не прочитал русский текст в живом интерфейсе — живая owner-TMA сессия недоступна; это live-preflight M4A/M6. Строка остаётся PENDING, хотя design Approved.",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design package partial inspection for MAC-S5-281: copy-inventory.md §1–§11 (copy-inventory.md, sha256 892f749c)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/copy-inventory.md at sha256 892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752: Copy inventory до/после создан для 21 карточки, вкладок/разделов, управления, состояния, пустоты, 401/403/404/503, 409 и шапки каталога; D5 закрыл §10. Independent Reviewer did not read the Russian text in a live interface (no owner TMA session).",
+          "artifact_path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+          "artifact_sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+          "partial": true,
+          "covers_row_acceptance": {
+            "copy_inventory": "covered: §1–§11 complete, D5 header closed",
+            "reviewer_live_read": "not covered: no live owner-TMA session; M4A/M6 live preflight"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -7769,8 +8233,36 @@
       "acceptance": "Для 21/21 видимых карточек доказаны kind, scope, актуальный параметр, реальные consumer и способ управления; неуправляемых функций без технического основания нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-AC-01: design §2.1, §2.4; evidence §2 (evidence/m3/mac-m3-01.md, sha256 8fbebdf0)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md at sha256 8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65: 21/21 видимых карточек + hidden factcheck_temporal имеют kind, runtime_gate, scope_capability, master/owner-ключ, реального consumer и способ управления; 16 static + 5 registry-only, 11 ModuleSpec. 11 static-карточек пока без серверного ModuleSpec — это явная обязанность M4A (§2.3 п.1), не скрытый пробел. Живая проверка IMAGE_MODULE_CARD_ENABLED остаётся preflight M4A (§12.6 п.1). Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md",
+          "artifact_sha256": "8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-AC-01": "covered at design level: design §2.1, §2.4; evidence §2"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-AC-01 covered by design §2.1, §2.4; evidence §2. 21/21 видимых карточек + hidden factcheck_temporal имеют kind, runtime_gate, scope_capability, master/owner-ключ, реального consumer и способ управления; 16 static + 5 registry-only, 11 ModuleSpec. 11 static-карточек пока без серверного ModuleSpec — это явная обязанность M4A (§2.3 п.1), не скрытый пробел. Живая проверка IMAGE_MODULE_CARD_ENABLED остаётся preflight M4A (§12.6 п.1). Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (evidence/m3/mac-m3-01.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md",
+          "artifact_sha256": "8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65",
+          "covers_row_acceptance": {
+            "MAC-AC-01": "covered: independent Reviewer Approved the M3 design package; design §2.1, §2.4; evidence §2"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -7872,8 +8364,36 @@
       "acceptance": "Shared Embeddings и QRNG не получают фиктивного общеботового chat toggle; чат управляет использованием.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design rev2.1 inspection for MAC-AC-05: §2.1 #21, §2.3 п.5, §4.4, §6.3 (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Векторная память — infrastructure без master: общий сервис (индексация/backlog/generation) отдельно от chat-use flags.memory_search_enabled; «индексация работает» и «поиск разрешён в чате» — разные поля. QRNG/ANU остаётся провайдером VMQ; карточка «Случайность» управляет только использованием в чате. Design-level evidence only; product code, tests and config unchanged.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": false,
+          "covers_row_acceptance": {
+            "MAC-AC-05": "covered at design level: §2.1 #21, §2.3 п.5, §4.4, §6.3"
+          }
+        },
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "Independent Reviewer M3 design review, 2026-11-16: docs candidate ae937d9e6fae2870e4062b4389458c0e403d8e6d, product base bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "observation": "Approved design (D1–D12 PASS; E1 PASS): MAC-AC-05 covered by §2.1 #21, §2.3 п.5, §4.4, §6.3. Векторная память — infrastructure без master: общий сервис (индексация/backlog/generation) отдельно от chat-use flags.memory_search_enabled; «индексация работает» и «поиск разрешён в чате» — разные поля. QRNG/ANU остаётся провайдером VMQ; карточка «Случайность» управляет только использованием в чате. Reviewer split was 15 covered / 5 partial; PM binds this row to REVIEW because its acceptance is a design deliverable. No product runtime/UI behavior is claimed; M4A/M6 remain.",
+          "artifact_role": "reviewed M3 design package artifact (design-m3-2026-11-16.md); the verdict itself was delivered by the independent Reviewer and is recorded in requirements-map.json m3_design_2026_11_16 and plan.md §3.3. This entry does not claim the artifact contains the review text.",
+          "reviewed_docs_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "covers_row_acceptance": {
+            "MAC-AC-05": "covered: independent Reviewer Approved the M3 design package; §2.1 #21, §2.3 п.5, §4.4, §6.3"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -7976,7 +8496,23 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "pending_gap": "Утверждённый design specification есть (Reviewer Approved; D1–D12/E1 PASS), композиция, русские тексты и адаптивность проверены. «Реальные действия» на живом продукте не проверялись — это M4A/M6. Строка остаётся PENDING.",
+      "evidence": [
+        {
+          "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+          "type": "inspection",
+          "ref": "M3 design package partial inspection for MAC-AC-09: design-m3-2026-11-16.md; evidence/m3/mac-m3-01.md (design-m3-2026-11-16.md, sha256 91d60e5b)",
+          "observation": "Inspected plans/features/mod-acl-ux-01/design-m3-2026-11-16.md at sha256 91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692: Design specification approved; composition/texts/responsiveness reviewed on deployed assets with stub /api/config; real product actions (toggles, saves, 409, live ACL) were not exercised — M4A/M6.",
+          "artifact_path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+          "artifact_sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+          "partial": true,
+          "covers_row_acceptance": {
+            "approved_design_spec": "covered: Reviewer Approved (D1–D12/E1 PASS)",
+            "composition_texts_responsive": "covered at design level: Playwright 1280/390 on deployed assets",
+            "real_actions": "not covered: M4A/M6 live product"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -9340,5 +9876,244 @@
     "serialization": "M2.1 writes services/mca_gates.py (shared with M2/M5B) and services/feature_gates.py (M2), so M5B now depends_on M2.1; no other overlap with concurrent slices (M5A/M5L/M4B/M4C scopes do not intersect).",
     "not_claimed": "Mapping only: no row status changed, no implementation, no evidence, no VERIFIED increase. M2.1's own rows stay PENDING until built and reviewed on an exact candidate.",
     "gate_facts": "plan gate: check --stage plan --repo . -> inventory=279 manual=102 scoped=0 errors=0, including graph validation (14 nodes, no cycles, no overlapping write scopes). Scope wiring check: review --slice M2.1 --candidate bca18c1e -> scoped=5 errors=5, all five rows 'mandatory not [REVIEW, VERIFIED] (got PENDING)' — expected before implementation; this proves the new slice owns exactly the five moved rows."
+  },
+  "m3_design_2026_11_16": {
+    "at": "2026-11-16T17:45:00+12:00",
+    "kind": "design gate binding: the independent Reviewer Approved the M3 design specification; no product code, tests, config or deployment changed; no row outside the 20 M3 rows changed status",
+    "candidate_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "docs_candidate_commit": "ae937d9e6fae2870e4062b4389458c0e403d8e6d",
+    "reviewer": {
+      "role": "Reviewer",
+      "verdict": "Approved design",
+      "verdict_scope": "20 M3 rows: 15 covered, 5 partial; D1–D12 PASS; E1 PASS",
+      "session_ref": "independent Reviewer session; verdict relayed by Orchestrator 2026-11-16 (session id not included in the handoff)",
+      "decisions": {
+        "E1": "PASS",
+        "D1": "PASS",
+        "D2": "PASS",
+        "D3": "PASS",
+        "D4": "PASS",
+        "D5": "PASS",
+        "D6": "PASS",
+        "D7": "PASS",
+        "D8": "PASS",
+        "D9": "PASS",
+        "D10": "PASS",
+        "D11": "PASS",
+        "D12": "PASS"
+      },
+      "partial_rows": {
+        "MAC-S0-07": "closed as REVIEW: substantive review + editorial completed; model clause conditional/not configured",
+        "MAC-S5-281": "PENDING: live-UI read not performed (no owner TMA session)",
+        "MAC-AC-09": "PENDING: real actions are M4A/M6",
+        "MAC-S9-ARCH-01": "closed as REVIEW: per-card tabs closed by D1 §2.4; all required sections present",
+        "MAC-S13-ARCH-01": "closed as REVIEW: per-card tabs D1 + exact layouts/texts/consumer feasibility"
+      }
+    },
+    "artifacts": [
+      {
+        "role": "design",
+        "path": "plans/features/mod-acl-ux-01/design-m3-2026-11-16.md",
+        "sha256": "91d60e5b1bacebc389d52b9069d78127c26728d9fe133c9c09d5ab57ee181692",
+        "git_blob": "0cea464b5329b7dbf78796ebe04d190ec945c4ae",
+        "reviewed": true
+      },
+      {
+        "role": "copy",
+        "path": "plans/features/mod-acl-ux-01/copy-inventory.md",
+        "sha256": "892f749c30c4889153a6e587f69354b13ee14a6e03ed68f9ad437c33b6519752",
+        "git_blob": "eaada4f35449c81395dad22141feccd1b35552b3",
+        "reviewed": true
+      },
+      {
+        "role": "freeze",
+        "path": "plans/features/mod-acl-ux-01/m3-design-freeze.md",
+        "sha256": "cbc2cb96d45800ae5a27411cfe6e902ad613256a3195a315f23d909481c06ca9",
+        "git_blob": "0563d9a03257669eab75c8709f41c8f6fda16fad",
+        "reviewed": true
+      },
+      {
+        "role": "evidence",
+        "path": "plans/features/mod-acl-ux-01/evidence/m3/mac-m3-01.md",
+        "sha256": "8fbebdf0eecf0c5dc2408af78d52c7ae5c6eb1ea893b9307255d78c01682fc65",
+        "git_blob": "9d2e1adbd37906d20c39b041be97dbd4ce40734a",
+        "reviewed": true
+      }
+    ],
+    "covers_row_acceptance": {
+      "MAC-S0-04": {
+        "status": "REVIEW",
+        "covered": "§2.1, §2.2, §5.3, §6.3",
+        "gap": ""
+      },
+      "MAC-S0-07": {
+        "status": "REVIEW",
+        "covered": "§11.1, §14; plan.md §3.3; source line 22",
+        "gap": ""
+      },
+      "MAC-S2-89": {
+        "status": "REVIEW",
+        "covered": "§2.2, §5.2, §6.4; copy §8; D9",
+        "gap": ""
+      },
+      "MAC-S5-276": {
+        "status": "REVIEW",
+        "covered": "copy §1; design §7.1",
+        "gap": ""
+      },
+      "MAC-S5-277": {
+        "status": "REVIEW",
+        "covered": "copy §8; design §7.2, §7.4",
+        "gap": ""
+      },
+      "MAC-S5-278": {
+        "status": "REVIEW",
+        "covered": "copy §1, §9; design §7.1",
+        "gap": ""
+      },
+      "MAC-S5-279": {
+        "status": "REVIEW",
+        "covered": "copy §9; design §7.1",
+        "gap": ""
+      },
+      "MAC-S5-280": {
+        "status": "REVIEW",
+        "covered": "§5.1, §5.2, §6.2 п.3; copy §4",
+        "gap": ""
+      },
+      "MAC-AC-01": {
+        "status": "REVIEW",
+        "covered": "design §2.1, §2.4; evidence §2",
+        "gap": ""
+      },
+      "MAC-AC-05": {
+        "status": "REVIEW",
+        "covered": "§2.1 #21, §2.3 п.5, §4.4, §6.3",
+        "gap": ""
+      },
+      "MAC-S3-CAT-01": {
+        "status": "REVIEW",
+        "covered": "design §2.1, §2.4; evidence §2",
+        "gap": ""
+      },
+      "MAC-S3-TYPES-01": {
+        "status": "REVIEW",
+        "covered": "design §2.3, §12.2; evidence §2",
+        "gap": ""
+      },
+      "MAC-S3-SHARED-01": {
+        "status": "REVIEW",
+        "covered": "§4.4, §6.3, §2.3 п.5",
+        "gap": ""
+      },
+      "MAC-S9-ARCH-01": {
+        "status": "REVIEW",
+        "covered": "§2.1, §2.4, §3, §4.1–4.8, §7, §8, §9; freeze §4/§5",
+        "gap": ""
+      },
+      "MAC-S9-ARCH-02": {
+        "status": "REVIEW",
+        "covered": "§10, §3.3, §3.7, §7.2, §14",
+        "gap": ""
+      },
+      "MAC-M3-01": {
+        "status": "REVIEW",
+        "covered": "§1, §3, §4.7–4.8, §11; freeze §1–§9",
+        "gap": ""
+      },
+      "MAC-MX-01": {
+        "status": "REVIEW",
+        "covered": "§12.1, §12.5; freeze §7",
+        "gap": ""
+      },
+      "MAC-S13-ARCH-01": {
+        "status": "REVIEW",
+        "covered": "§2.4, §4, §5, §6.2, §7, §12.2",
+        "gap": ""
+      },
+      "MAC-S5-281": {
+        "status": "PENDING",
+        "covered": {
+          "copy_inventory": "covered: §1–§11 complete, D5 header closed",
+          "reviewer_live_read": "not covered: no live owner-TMA session; M4A/M6 live preflight"
+        },
+        "gap": "Copy inventory до/после создан полностью: copy-inventory.md §1–§11, шапка каталога §10 закрыта D5, 401/403/404/503 и причины пустоты разведены. Не выполнена вторая часть acceptance: Reviewer не прочитал русский текст в живом интерфейсе — живая owner-TMA сессия недоступна; это live-preflight M4A/M6. Строка остаётся PENDING, хотя design Approved."
+      },
+      "MAC-AC-09": {
+        "status": "PENDING",
+        "covered": {
+          "approved_design_spec": "covered: Reviewer Approved (D1–D12/E1 PASS)",
+          "composition_texts_responsive": "covered at design level: Playwright 1280/390 on deployed assets",
+          "real_actions": "not covered: M4A/M6 live product"
+        },
+        "gap": "Утверждённый design specification есть (Reviewer Approved; D1–D12/E1 PASS), композиция, русские тексты и адаптивность проверены. «Реальные действия» на живом продукте не проверялись — это M4A/M6. Строка остаётся PENDING."
+      }
+    },
+    "row_status_changes": {
+      "before": "20 M3 rows PENDING (map 69 VERIFIED / 0 REVIEW / 219 PENDING of 288)",
+      "after": "18 M3 rows REVIEW, 2 M3 rows PENDING (map 69 VERIFIED / 18 REVIEW / 201 PENDING of 288)",
+      "review_rows": [
+        "MAC-S0-04",
+        "MAC-S0-07",
+        "MAC-S2-89",
+        "MAC-S5-276",
+        "MAC-S5-277",
+        "MAC-S5-278",
+        "MAC-S5-279",
+        "MAC-S5-280",
+        "MAC-AC-01",
+        "MAC-AC-05",
+        "MAC-S3-CAT-01",
+        "MAC-S3-TYPES-01",
+        "MAC-S3-SHARED-01",
+        "MAC-S9-ARCH-01",
+        "MAC-S9-ARCH-02",
+        "MAC-M3-01",
+        "MAC-MX-01",
+        "MAC-S13-ARCH-01"
+      ],
+      "pending_rows": [
+        "MAC-S5-281",
+        "MAC-AC-09"
+      ]
+    },
+    "findings": [
+      {
+        "id": "F1",
+        "severity": "low",
+        "blocking": false,
+        "area": "design §2.4 counters",
+        "detail": "Счётчики включают hidden-параметры: limits_summary 3/7 вместо 3/8, limits_factcheck 2/4 вместо 3/5, limits_qnd 24/27 вместо 25/28, direct/limits 6/7/2 вместо 6/6/2.",
+        "disposition": "docs-accuracy debt; recorded, not edited: the design blob is frozen by the approval hash; correct in a later docs-only edit with a fresh rebind."
+      },
+      {
+        "id": "F2",
+        "severity": "low",
+        "blocking": false,
+        "area": "evidence/m3/mac-m3-01.md §3",
+        "detail": "Таблица §3 не содержит self-sha256/git blob самого evidence-файла; self-hash cannot be embedded in itself, so the map-level artifacts list is the durable pointer.",
+        "disposition": "docs-accuracy debt; the map block records the evidence blob 9d2e1adb…734a and sha256 8fbebdf0…82fc65; no artifact rewrite."
+      },
+      {
+        "id": "F3",
+        "severity": "low",
+        "blocking": false,
+        "area": "evidence/m3/mac-m3-01.md §1 checkout pointer",
+        "detail": "Указатель «master @ ad587012 (на момент среза)» устарел относительно docs candidate ae937d9e / проверенного HEAD; это историческая подпись среза, а не reviewed commit.",
+        "disposition": "docs-accuracy debt; the design package identity is pinned by sha256 and the map block; no artifact rewrite."
+      }
+    ],
+    "gate_facts": {
+      "plan": "check --stage plan --repo . → stage=plan inventory=279 manual=102 scoped=0 errors=0",
+      "review_M3": "check --stage review --slice M3 --candidate bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 --repo . → scoped=20 errors=2: MAC-S5-281 и MAC-AC-09 остаются PENDING (mandatory not [REVIEW, VERIFIED]); 18 REVIEW-строк проходят candidate-bound approval и strict artifact_sha256. Это design-гейт, не VERIFIED и не релиз эпика.",
+      "workflow_progress": "workflow_progress.py --scope-file plans/progress_scope.json --require-queue --json → exit 0; queue_registration_complete=true; open_tasks=41/registered=41; issues=[]; source_coverage 67/67 accounted (drift 0); mod-acl task queue_position=6 priority=P0 blocked_by=[] status=PENDING execution_state=queued; global statuses PENDING 2387→2369, REVIEW 8→26, VERIFIED 4751 unchanged; lineage_checked=false (pre-existing certification caveat, not caused by this binding)."
+    },
+    "not_claimed": [
+      "Approved design is not product runtime/UI acceptance; M4A/M4B/M4C/M6 remain open.",
+      "18 M3 rows are REVIEW, not VERIFIED; MAC-S5-281 and MAC-AC-09 stay PENDING with exact live gaps.",
+      "No product code, tests, configuration or deployment changed.",
+      "No M2.1 status change; the M2.1 review returned Needs Fixes (shared master-AND F1–F4; F5–F10) and its corrective is running in a separate lane; M2.1 remains the M4A prerequisite.",
+      "No claim that Opus 5.5 was used; the source model clause is conditional and not applicable in this environment."
+    ]
   }
 }
