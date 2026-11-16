@@ -88,7 +88,7 @@
   consumer/control.
 - `MAC-AC-05`, `MAC-S3-SHARED-01` — Embeddings/QRNG: общий сервис отдельно от chat-use; индексация
   и поиск — разные поля.
-- `MAC-S3-TYPES-01` — типы по фактическому каталогу; 11 модулей требуют per-chat adapters.
+- `MAC-S3-TYPES-01` — типы по фактическому каталогу; 12 модулей требуют per-chat adapters.
 - `MAC-S9-ARCH-01/02` — IA, wireframes, responsive, tokens, тексты, первый viewport; редакторская
   критика и удаление повторов/жаргона.
 - `MAC-M3-01` — многостраничная навигация, карта экранов, Status/права без переписывания frozen §4/§5.
@@ -97,10 +97,11 @@
 
 ## 5. Блокирующие находки для M4A
 
-1. **11 модулей не имеют per-chat runtime** (direct, factcheck, search, web, transcribe, video,
-   media, checkup, stories, character, random): consumer читает `hot.get` глобально. Owner §3
-   требует GLOBAL+CHAT. Нужен backend-срез **M2.1**; M4A не должен рисовать инертный tri-state.
-   Доказательство — `reports/m2-consumers-dd52cbf9.md` §5–6 + точные файлы в design §12.2.
+1. **12 модулей не имеют честного per-chat runtime** (initiative — master-AND; direct, factcheck,
+   search, web, transcribe, video, media, checkup, stories, character, random — глобальный
+   `hot.get`): owner §3 требует GLOBAL+CHAT. Нужен backend-срез **M2.1**; M4A не должен рисовать
+   инертный tri-state. Доказательство — `reports/m2-consumers-dd52cbf9.md` §5–6, точные файлы —
+   design §12.2.
 2. **`nostalgia` master precedence:** `feature_gates.FLAG_KEYS` может взять
    `flags.nostalgia_enabled` раньше `memory.nostalgia_enabled`; глобальный тумблер карточки станет
    инертным. Нужно `MASTER_FALLBACK_KEYS["nostalgia"]` или эквивалент + тест.

@@ -80,9 +80,10 @@ M3 DESIGN FROZEN — риски: (1) честное разделение desired
 2. **Каталог — серверный.** `MODULES` в `app.js` удаляется; 21 видимый `ModuleSpec` (+ hidden
    `factcheck_temporal`) становятся единственным источником. `WORKSPACE_TABS` остаётся
    presentation-map вкладок, не реестром модулей.
-3. **Scope исправлен по фактическому runtime:** `per_chat` у summary, sleep, nostalgia, budgets,
-   images, vision, experience, initiative (через `initiative.enabled`); 11 модулей требуют
-   per-chat adapters (M2.1) до полноценного M4A. Это блокирующая зависимость, а не UI-деталь.
+3. **Scope исправлен по фактическому runtime:** `per_chat` без master-AND у summary, sleep,
+   nostalgia, budgets, images, vision, experience (7); ещё **12** модулей требуют per-chat adapters
+   (M2.1), включая initiative (master-AND с `flags.initiative_enabled`) и random (shared QRNG).
+   Это блокирующая зависимость, а не UI-деталь.
 4. **Добавлены wireframes** каталога, малого/сложного/инфраструктурного модуля и страницы «Время»,
    пять осей состояния, responsive, token mapping, Visual Preservation Map и точные UI/API-поля.
 5. **Copy inventory** полный, с сохранением «чекапа», пользовательских промптов и owner-описаний
