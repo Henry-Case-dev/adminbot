@@ -745,6 +745,22 @@
     mod_initiative: ['overview', 'text', 'memes', 'publications',
                      'diagnostics'],
   };
+  // ═══ MOD-ACL-UX-01 M4A W2a (design §12.2/§12.5) ═════════════════════════
+  // К-2: «живой» Обзор — СТАБИЛЬНЫЙ presentation-признак, не каталог и не
+  // асинхронные данные: `mod_sleep/experience/vision` рисуют реальный health
+  // (cognition / statusData.experience / adjacentVision), `mod_direct` —
+  // фактические режимы (`data-direct-modes`), `mod_initiative` — блок
+  // механизмов (`data-initiative-overview`). Загружаемые данные в предикате
+  // запрещены (иначе таб «прыгает» после loadConfig). `history_source`
+  // модуль живым Обзором НЕ делает (вкладка history — W2b).
+  var WS_OVERVIEW_LIVE = ['mod_direct', 'mod_initiative', 'mod_sleep',
+                          'mod_experience', 'mod_vision'];
+  // К-3: ОДИН ключ localStorage — `{ "<scopeKey>|<moduleId>": "<tabId>" }`.
+  // Хранятся ТОЛЬКО id (таба/модуля/чата): ни названий, ни значений
+  // параметров, ни контента, ни секретов. Лимит — 60 записей; при чтении и
+  // записи всё в try/catch (private mode → память живёт только в стейте).
+  var WS_TAB_MEMORY_KEY = 'adminbot.module_tab';
+  var WS_TAB_MEMORY_LIMIT = 60;
   // Тексты вкладок workspace (i18n-канон §46/§85).
   var WORKSPACE_TAB_LABELS = {
     overview: 'Обзор', settings: 'Основные настройки', prompts: 'Промпты',
@@ -793,6 +809,65 @@
     var alias = WORKSPACE_TAB_ALIAS[m.id] || null;
     if (alias && alias[tab]) return alias[tab];
     return tab;
+  }
+  // ═══ MOD-ACL-UX-01 M4A W2a (К-2/К-3/К-6) — чистые хелперы ═══════════════
+  // К-3: scopeKey = 'global' | 'chat:<id>' (по activeChatId). ЛС — тот же
+  // `chat:<id>`: отдельный тип не вводится.
+  function _wsScopeKeyOf(ctx) {
+    var id = (ctx && ctx.activeChatId != null) ? ctx.activeChatId : null;
+    return (id == null) ? 'global' : ('chat:' + id);
+  }
+  // Элемент полосы может быть объектом {id,label} или голым id.
+  function _wsTabIdOf(t) {
+    if (t == null) return '';
+    if (typeof t === 'object') return String(t.id == null ? '' : t.id);
+    return String(t);
+  }
+  // К-6: модификаторы и composition НЕ перехватываются (иначе Ctrl+→ и ввод
+  // через IME ломаются, а Tab-порядок становится непредсказуемым).
+  function _wsKeyIgnored(ev) {
+    if (!ev) return true;
+    if (ev.ctrlKey || ev.altKey || ev.metaKey || ev.shiftKey) return true;
+    if (ev.isComposing) return true;
+    return false;
+  }
+  // К-5/К-2: «содержимое вкладок известно» — данные активного scope
+  // загружены (`loadConfig` кладёт `configItems`; при смене чата они
+  // очищаются, а реестр модулей остаётся). Пока данные не пришли, объявленная
+  // вкладка считается рендерящейся: иначе на время перезагрузки scope дефолт
+  // падал бы в overview и страница «прыгала» (К-4/3 этого прямо не допускает).
+  function _wsTabDataKnown(ctx) {
+    return !!(ctx && (ctx.configItems || []).length);
+  }
+  // К-2: дефолт вкладки страницы модуля. Явный hash (включая `/overview`)
+  // всегда побеждает — его разбирает `workspace` ДО этого вызова. Порядок:
+  // память → живой Обзор → «Основные настройки» → первый содержательный →
+  // Обзор. Дефолт в память НЕ пишется (К-4): иначе холодный заход навсегда
+  // «залипал» бы в settings даже когда живые данные появились.
+  function _wsDefaultTab(ctx, m) {
+    if (!m) return 'overview';
+    // «Время» — policy-экран без полосы вкладок: только Обзор (К-2).
+    if (m.id === 'mod_time') return 'overview';
+    var remembered = (ctx && typeof ctx._wsTabMemoryGet === 'function')
+      ? ctx._wsTabMemoryGet(_wsScopeKeyOf(ctx), m) : '';
+    if (remembered) return remembered;
+    if (WS_OVERVIEW_LIVE.indexOf(m.id) >= 0) return 'overview';
+    var known = _wsTabDataKnown(ctx)
+      && (typeof ctx.workspaceTabHasContent === 'function');
+    var canRender = function (tabId) {
+      if (!_workspaceTabApplicable(m, tabId)) return false;
+      if (!known) return true;              // данные scope ещё не загружены
+      return !!ctx.workspaceTabHasContent(m, tabId);
+    };
+    var declared = m.tabs || [];
+    if (declared.indexOf('settings') >= 0 && canRender('settings')) {
+      return 'settings';
+    }
+    for (var i = 0; i < declared.length; i++) {
+      if (declared[i] === 'overview') continue;
+      if (canRender(declared[i])) return declared[i];
+    }
+    return 'overview';
   }
   // Модуль → группа промптов каталога (F5 D3/§48: один объект на два маршрута).
   // ASAP-speech-arch U-03 (§8): подпись Direct-вербализатора в UI описывает его
@@ -5869,6 +5944,11 @@
         // param → POST /api/config): in-flight/ошибка по ключу записи.
         moduleChatPending: {},        // 'gate:<feature>' | pg-key → true
         moduleChatError: {},          // тот же ключ → понятный текст
+        // MOD-ACL-UX-01 M4A W2a (К-3): память вкладок страницы модуля —
+        // `{ "chat:<id>|mod_search": "limits" }`, ТОЛЬКО id. Источник истины —
+        // localStorage['adminbot.module_tab']; здесь кэш на время сессии
+        // (private mode живёт только тут, без падения).
+        moduleTabMemory: {},
         // design §7.2.1: один и тот же tri-state, подпись — у карточки.
         moduleChatOptions: [
           { id: 'inherit', label: 'Наследовать' },
@@ -7688,11 +7768,17 @@
           tab = (parsed.stage && declared.indexOf(parsed.stage) >= 0)
             ? parsed.stage : _workspacePromptTabOf(m);
         } else {
-          tab = parsed.tab || 'overview';
-          // P1 «Инициатива»: старые адреса вкладок (settings/limits) ведут на
-          // «Текстовую инициативу» — закладки не ломаются, параметры на месте.
-          tab = _workspaceCanonicalTab(m, tab);
-          if (declared.indexOf(tab) < 0) tab = 'overview';
+          // К-1: явный таб в hash побеждает память/дефолт; bare
+          // `#/modules/<slug>` — память → живой Обзор → settings → первый
+          // содержательный → overview (единый резолвер, W2a).
+          // P1 «Инициатива»: старые адреса (settings/limits) канонизируются
+          // в «Текстовую инициативу» — закладки не ломаются.
+          if (parsed.tab) {
+            tab = _workspaceCanonicalTab(m, parsed.tab);
+            if (declared.indexOf(tab) < 0) tab = _wsDefaultTab(this, m);
+          } else {
+            tab = _wsDefaultTab(this, m);
+          }
         }
         var stage = parsed.stage || '';
         var promptKey = parsed.promptKey || '';
@@ -12876,6 +12962,9 @@
       this._syncShellMode();               // F1: shell-режим по ширине
       this.initSidebarCollapsed();         // EVOL-023 §3: rail на desktop
       this.initExpandState();              // F24: реактивный стейт аккордеонов
+      // К-3 (W2a): память вкладок читается ДО `initialRoute()`, иначе первый
+      // `workspace` разрешился бы без неё и стартовый таб «прыгнул».
+      this._wsTabMemoryLoad();
       var r = initialRoute();
       this.route = r;
       var tabId = routeToTab(r);
@@ -14009,6 +14098,19 @@
               'Переключение чата заменит их данными другого чата.')) {
           this.scopeOpen = false;
           return;
+        }
+        // К-4/3 (W2a): смена scope не «прыгает» — текущая вкладка пинится в
+        // память НОВОГО scope-ключа ДО присвоения `activeChatId`. Пишется
+        // ТОЛЬКО текущий модуль (память других модулей чужого чата не
+        // копируется) и только для bare-адреса: явный таб в hash и так
+        // побеждает (К-1). Данные/права перечитывает штатный `loadConfig`.
+        var wsCur = parseWorkspaceRoute(this.route || '');
+        if (typeof this._wsTabMemorySet === 'function'
+            && this.workspace && this.workspace.door === 'modules'
+            && this.workspace.tab && wsCur && !wsCur.tab) {
+          this._wsTabMemorySet(_wsScopeKeyOf({ activeChatId: id }),
+                               this.workspace.module.id,
+                               this.workspace.tab);
         }
         this.activeChatId = id;
         if (id == null) {
@@ -19257,9 +19359,17 @@
             if (!_workspaceTabApplicable(wsm, canonTab)) {
               route = '#/modules/' + wsParsed.slug;
               try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
-            } else if (canonTab !== wsParsed.tab) {
-              route = '#/modules/' + wsParsed.slug + '/' + canonTab;
-              try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+            } else {
+              if (canonTab !== wsParsed.tab) {
+                route = '#/modules/' + wsParsed.slug + '/' + canonTab;
+                try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+              }
+              // К-4/2: deep link на РЕАЛЬНЫЙ таб — явное намерение, оно
+              // записывается в память текущего скоупа (URL при этом НЕ
+              // канонизируется: закладка остаётся нейтральной).
+              if (typeof this._wsTabMemorySet === 'function') {
+                this._wsTabMemorySet(_wsScopeKeyOf(this), wsm.id, canonTab);
+              }
             }
           }
         }
@@ -23145,13 +23255,12 @@
         }
         if (st.pending_restart) return 'Изменение применится после перезапуска';
         if (st.conflict) return 'Конфликт настроек: ' + st.conflict;
-        if (st.observed === null || st.observed === undefined) {
+        var fresh = this.moduleFreshness(m);
+        if (fresh.observed === null) {
           return 'Включено · работа ещё не подтверждена';
         }
-        if (st.observed === false) {
-          return st.last_activity_at
-            ? 'Последняя активность: ' + this.fmtLogTs(st.last_activity_at)
-            : 'Включено · нет подтверждённой активности';
+        if (fresh.observed === false) {
+          return fresh.activity || 'Включено · нет подтверждённой активности';
         }
         return st.effective_runtime === false ? 'Не исполняется' : 'Работает';
       },
@@ -23171,10 +23280,14 @@
           : (st.ready === false
             ? 'Не готово: ' + this.moduleReasonText(st.reason_code)
             : 'Готовность не проверяется');
-        var observedText = st.observed === true ? 'Подтверждено'
-          : (st.observed === false ? 'Нет подтверждённой активности'
+        // К-8: наблюдение берётся из общего источника свежести (тот же
+        // `observed`, что у карточки/шапки); метка «Подтверждено: <ts>» —
+        // реальная активность провайдера (`last_activity_at`), не observed_at.
+        var fresh = this.moduleFreshness(m);
+        var observedText = fresh.observed === true ? 'Подтверждено'
+          : (fresh.observed === false ? 'Нет подтверждённой активности'
             : 'Измерение не подтверждено');
-        if (st.observed === true && st.last_activity_at) {
+        if (fresh.observed === true && st.last_activity_at) {
           observedText = 'Подтверждено: ' + this.fmtLogTs(st.last_activity_at);
         }
         var sourceText = {
@@ -23693,11 +23806,36 @@
           ? (st.display ? 'включено' : 'выключено') : 'состояние неизвестно';
         return 'Весь бот: ' + v + ' — ' + (m ? m.title : '');
       },
+      // ═══ MOD-ACL-UX-01 M4A W2a (К-7/К-8): ОДИН источник «свежести» ══════
+      // `checked` — момент ЭТОГО снимка (`state.checked_at`; fallback для
+      // старых payload — `m.gate.checked_at`). `activity` — ТОЛЬКО реальная
+      // активность провайдера (`state.last_activity_at`), иначе ''. `observed`
+      // — подтверждение работы (true/false/null). `state.observed_at` — момент
+      // снимка, а НЕ активность: сюда не попадает и нигде не выводится
+      // (провайдер не зарегистрирован → честное «Измерение не подтверждено»).
+      moduleFreshness: function (m) {
+        var st = this.moduleStateAxes(m);
+        var checkedTs = (st && st.checked_at)
+          || (m && m.gate && m.gate.checked_at) || '';
+        var activityTs = (st && st.last_activity_at) || '';
+        var observed = null;
+        if (st && (st.observed === true || st.observed === false)) {
+          observed = st.observed === true;
+        }
+        return {
+          checked: checkedTs
+            ? ('Проверено: ' + this.fmtLogTs(checkedTs)) : '',
+          activity: activityTs
+            ? ('Последняя активность: ' + this.fmtLogTs(activityTs)) : '',
+          observed: observed,
+        };
+      },
+      moduleActivityText: function (m) {
+        return this.moduleFreshness(m).activity;
+      },
       // design И-4: «Проверено: <checked_at>» — момент снимка (не активность).
       moduleCheckedAt: function (m) {
-        var st = this.moduleStateAxes(m);
-        var ts = (st && st.checked_at) || (m && m.gate && m.gate.checked_at);
-        return ts ? ('Проверено: ' + this.fmtLogTs(ts)) : '';
+        return this.moduleFreshness(m).checked;
       },
       moduleGlobalStateText: function (m) {
         if (m && m.noToggle) return 'Без тумблера';
@@ -24153,10 +24291,197 @@
           return { category: c, groups: catOf[c] };
         });
       },
+      // ═══ MOD-ACL-UX-01 M4A W2a: память вкладок страницы модуля ══════════
+      // К-3: scopeKey = 'global' | 'chat:<id>'; запись — `<scope>|<module>`.
+      // Без аргумента — АКТИВНЫЙ скоуп; с chatId — целевой (пин при смене).
+      _wsScopeKey: function (chatId) {
+        var id = (chatId === undefined) ? this.activeChatId : chatId;
+        return (id == null || id === '') ? 'global' : ('chat:' + id);
+      },
+      _wsTabMemoryKey: function (scopeKey, moduleId) {
+        return String(scopeKey || '') + '|' + String(moduleId || '');
+      },
+      // Чтение хранилища: битый JSON/не-объект → {} БЕЗ исключения;
+      // нестроковые/пустые значения отбрасываются (id таба — только строка).
+      _wsTabMemoryRead: function () {
+        var raw = null;
+        try { raw = window.localStorage.getItem(WS_TAB_MEMORY_KEY); }
+        catch (e) { return {}; }              // private mode / нет доступа
+        if (!raw) return {};
+        var parsed = null;
+        try { parsed = JSON.parse(raw); } catch (e) { return {}; }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return {};
+        }
+        var out = {};
+        Object.keys(parsed).forEach(function (k) {
+          var v = parsed[k];
+          if (k.indexOf('|') < 0) return;     // ключ обязан быть scope|module
+          if (typeof v !== 'string' || !v) return;
+          out[k] = v;
+        });
+        return out;
+      },
+      _wsTabMemorySave: function (map) {
+        try {
+          window.localStorage.setItem(WS_TAB_MEMORY_KEY, JSON.stringify(map));
+        } catch (e) { /* private mode: память живёт только в стейте */ }
+      },
+      // К-3: лимит 60; переполнение → вытеснение самых старых по порядку
+      // вставки (обновлённая запись переставляется в конец — см. set).
+      _wsTabMemoryPrune: function (map) {
+        var src = map || {};
+        var keys = Object.keys(src);
+        if (keys.length <= WS_TAB_MEMORY_LIMIT) return src;
+        var out = {};
+        keys.slice(keys.length - WS_TAB_MEMORY_LIMIT).forEach(function (k) {
+          out[k] = src[k];
+        });
+        return out;
+      },
+      _wsTabMemoryLoad: function () {
+        this.moduleTabMemory = this._wsTabMemoryRead();
+        return this.moduleTabMemory;
+      },
+      _wsTabMemorySet: function (scopeKey, moduleId, tab) {
+        if (!scopeKey || !moduleId || !tab) return;
+        var map = this.moduleTabMemory || this._wsTabMemoryRead();
+        var next = {};
+        Object.keys(map).forEach(function (k) { next[k] = map[k]; });
+        var key = this._wsTabMemoryKey(scopeKey, moduleId);
+        delete next[key];                    // обновление = свежесть записи
+        next[key] = String(tab);
+        var pruned = this._wsTabMemoryPrune(next);
+        this.moduleTabMemory = pruned;
+        this._wsTabMemorySave(pruned);
+      },
+      _wsTabMemoryForget: function (key) {
+        var map = this.moduleTabMemory || {};
+        if (!Object.prototype.hasOwnProperty.call(map, key)) return;
+        var next = {};
+        Object.keys(map).forEach(function (k) {
+          if (k !== key) next[k] = map[k];
+        });
+        this.moduleTabMemory = next;
+        this._wsTabMemorySave(next);
+      },
+      // К-5: значение ∈ `m.tabs`, вкладка применима и имеет содержимое.
+      // Запись с исчезнувшим id таба/неприменимой вкладкой удаляется.
+      // Вкладка, у которой ПОКА нет содержимого, игнорируется, но остаётся:
+      // содержимое зависит от загружаемого конфига, и удаление стёрло бы
+      // валидную память на холодном старте (данные приходят позже первого
+      // рендера). `moduleOrId` — объект модуля (предпочтительно) или его id.
+      _wsTabMemoryGet: function (scopeKey, moduleOrId) {
+        if (!scopeKey || !moduleOrId) return '';
+        var isObj = (typeof moduleOrId === 'object');
+        var moduleId = isObj ? moduleOrId.id : moduleOrId;
+        if (!moduleId) return '';
+        var map = this.moduleTabMemory || this._wsTabMemoryRead();
+        var key = this._wsTabMemoryKey(scopeKey, moduleId);
+        var tab = map[key];
+        if (typeof tab !== 'string' || !tab) return '';
+        var m = isObj ? moduleOrId
+          : ((typeof this._moduleById === 'function')
+            ? this._moduleById(moduleId) : null);
+        if (!m) {
+          // Реестр ещё не пришёл (this.modules пуст) — НЕ удаляем: иначе
+          // холодный старт стирал бы валидную память до загрузки DTO. Нет
+          // модуля в загруженном списке — запись устарела.
+          if ((this.modules || []).length) this._wsTabMemoryForget(key);
+          return '';
+        }
+        if ((m.tabs || []).indexOf(tab) < 0
+            || !_workspaceTabApplicable(m, tab)) {
+          this._wsTabMemoryForget(key);
+          return '';
+        }
+        // К-5: содержимое проверяется только когда данные scope загружены —
+        // иначе на время перезагрузки scope память «терялась» бы и вкладка
+        // падала в дефолт (К-4/3: страница при смене чата не «прыгает»).
+        if (_wsTabDataKnown(this)
+            && typeof this.workspaceTabHasContent === 'function'
+            && !this.workspaceTabHasContent(m, tab)) {
+          return '';
+        }
+        return tab;
+      },
+      // К-2: Vue-метод дефолта (один резолвер для computed и проверок).
+      workspaceDefaultTab: function (m) {
+        return _wsDefaultTab(this, m);
+      },
+      _moduleHasLiveOverview: function (m) {
+        return !!(m && WS_OVERVIEW_LIVE.indexOf(m.id) >= 0);
+      },
+      // К-6: соседний РЕНДЕРЯЩИЙСЯ таб (`workspaceTabs` уже отфильтрован по
+      // содержимому), без wrap. Принимает клавишу-строку ИЛИ KeyboardEvent
+      // (модификатор/composition → ''); необработанная клавиша → ''.
+      // `currentId` не найден → первый таб.
+      workspaceTabKeyTarget: function (currentId, key, tabs) {
+        var ev = (key && typeof key === 'object') ? key : null;
+        if (ev && _wsKeyIgnored(ev)) return '';
+        var name = ev ? String(ev.key || '') : String(key == null ? '' : key);
+        var ids = (tabs || []).map(_wsTabIdOf).filter(function (id) {
+          return !!id;
+        });
+        if (!ids.length) return '';
+        var idx = ids.indexOf(String(currentId == null ? '' : currentId));
+        // Неизвестный текущий таб (полоса перерисована/устаревший id) —
+        // однозначно первый таб, а не «сдвиг на соседа».
+        if (idx < 0) idx = 0;
+        if (name === 'ArrowRight') idx = Math.min(idx + 1, ids.length - 1);
+        else if (name === 'ArrowLeft') idx = Math.max(idx - 1, 0);
+        else if (name === 'Home') idx = 0;
+        else if (name === 'End') idx = ids.length - 1;
+        else return '';
+        return ids[idx] || '';
+      },
+      // К-6: roving tabindex + автоактивация (таб = навигация, как клик).
+      // `preventDefault` — ТОЛЬКО для обработанных клавиш (иначе стрелки
+      // скроллят страницу); на краю остаёмся на краю, но скролл подавлен.
+      onWorkspaceTabsKeydown: function (event) {
+        if (!event || _wsKeyIgnored(event)) return;
+        var target = event.target;
+        var btn = (target && typeof target.closest === 'function')
+          ? target.closest('[data-workspace-tab]') : null;
+        if (!btn) return;                    // событие не из полосы табов
+        var currentId = btn.getAttribute('data-workspace-tab')
+          || this.workspaceTab;
+        var next = this.workspaceTabKeyTarget(currentId, event,
+                                              this.workspaceTabs || []);
+        if (!next) return;                   // клавиша вне набора — не трогаем
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        if (next === currentId) return;      // край полосы: без wrap
+        this.openWorkspaceTab(next);
+        var self = this;
+        if (typeof this.$nextTick !== 'function') {
+          this._wsFocusWorkspaceTab(next);
+          return;
+        }
+        // Vue перерисовывает кнопки → фокус ставим ПОСЛЕ обновления.
+        this.$nextTick(function () { self._wsFocusWorkspaceTab(next); });
+      },
+      // Фокус на новый активный таб. Vue перерисовывает полосу, поэтому
+      // вызов идёт после `$nextTick`; корневой `$el` может быть текстовым
+      // узлом (компонент без единственного element-root), поэтому ищем по
+      // документу — полоса в приложении одна (scoped-селектор сохранён).
+      _wsFocusWorkspaceTab: function (tabId) {
+        if (!tabId || typeof document === 'undefined') return;
+        var node = null;
+        try {
+          node = document.querySelector(
+            '[data-workspace-tabs] [data-workspace-tab="' + tabId + '"]');
+        } catch (e) { return; }          // невалидный id — фокус не трогаем
+        if (node && typeof node.focus === 'function') node.focus();
+      },
       // Навигация по вкладке workspace (hash — источник истины).
       openWorkspaceTab: function (tabId) {
         var ws = this.workspace;
         if (!ws) return;
+        // К-4/1: осознанный выбор вкладки (клик/ссылка Обзора) — одна из
+        // ровно трёх точек записи памяти. Пишется только id таба и модуля.
+        if (typeof this._wsTabMemorySet === 'function') {
+          this._wsTabMemorySet(_wsScopeKeyOf(this), ws.module.id, tabId);
+        }
         var next = '#/modules/' + ws.slug;
         if (tabId && tabId !== 'overview') next += '/' + tabId;
         this.navigateTo(next);

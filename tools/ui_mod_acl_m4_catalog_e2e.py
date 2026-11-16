@@ -22,6 +22,21 @@
   * negative states: can_read=false → «Нет права смотреть», can_edit=false →
     disabled, desired=false → «Выключено», ready=false → причина, emergency.
 
+MOD-ACL-UX-01 M4A W2a (`MAC-S5-198`/`MAC-S5-OVW-01`/`MAC-AC-08`, 2.58.211):
+  * дефолт bare-адреса: `search → settings`, `direct/sleep → overview`,
+    явный `/overview` всегда уважается (К-1/К-2);
+  * клавиатура: `ArrowRight/Left` без wrap, `Home/End`, ровно один
+    `aria-current`, roving `tabindex`, `preventDefault` ТОЛЬКО обработанных
+    ключей (записан `defaultPrevented`, Tab — false), фокус переезжает,
+    контейнер не прокручивается, Tab выходит из полосы;
+  * память: клик «Лимиты» → каталог → повторный вход и reload дают «Лимиты»;
+    в localStorage только id (`scope|module → tab`); смена чата сохраняет
+    вкладку, пишет ключ НОВОГО scope, не копирует чужие модули; у чата B
+    своя вкладка, ключ чата A цел;
+  * свежесть: футер карточки `[data-module-checked]` = `[data-workspace-checked]`
+    страницы, нет «0 событий»/1970; на 320/390 футер не переполняется,
+    «Открыть» не выезжает, высота карточки 132–164.
+
 Запуск: .venv/Scripts/python.exe tools/ui_mod_acl_m4_catalog_e2e.py
 Артефакты: %MOD_ACL_M4A_SHOTS% (по умолчанию plans/features/mod-acl-ux-01/
 evidence/m4a/shots) + JSON-отчёт в stdout.
@@ -56,6 +71,10 @@ EXPECT_COLUMNS = {1440: 4, 1280: 3, 768: 2, 390: 1, 320: 1}
 
 CHAT_ID = -1001234567890
 CHAT_TITLE = "Audit Chat"
+# W2a: второй чат — проверка изоляции памяти вкладок по scope
+# (`chat:<id>|module`); сам каталог/страницы от числа чатов не зависят.
+CHAT_ID2 = -1001234567891
+CHAT_TITLE2 = "Second Chat"
 
 
 class _Handler(SimpleHTTPRequestHandler):
@@ -231,6 +250,8 @@ API_STUBS = [
                         "permissions": {"sections": ["modules"]}}),
     ("/api/access/chats", [
         {"chat_id": CHAT_ID, "title": CHAT_TITLE, "is_dm": False,
+         "photo_file_id": None, "access": "admin"},
+        {"chat_id": CHAT_ID2, "title": CHAT_TITLE2, "is_dm": False,
          "photo_file_id": None, "access": "admin"},
     ]),
     ("/api/access/param_permissions", {"items": {}, "roles": []}),
@@ -480,8 +501,14 @@ def main() -> int:
             ("nostalgia", {"global": True, "chat": True, "no_toggle": False}),
             ("time", {"global": False, "chat": False, "no_toggle": True}),
         ]:
-            page.goto("http://127.0.0.1:%d/web/index.html#/modules/%s"
-                      % (PORT, slug), wait_until="load")
+            # MOD-ACL-UX-01 M4A W2a (К-2): bare `#/modules/<slug>` больше не
+            # гарантирует «Обзор» (у summary/nostalgia дефолт — «Основные
+            # настройки»). Панель/чипы/gap проверяются на ЯВНОМ `/overview`,
+            # иначе проверка молча уехала бы на другую вкладку/исчезла.
+            route = ("#/modules/%s" % slug) if slug == "time" \
+                else ("#/modules/%s/overview" % slug)
+            page.goto("http://127.0.0.1:%d/web/index.html%s"
+                      % (PORT, route), wait_until="load")
             try:
                 page.wait_for_selector("[data-workspace-head]", timeout=9000)
             except Exception:  # noqa: BLE001
@@ -1063,6 +1090,359 @@ def main() -> int:
                 check(r4 and r4["overlapX"] <= 1,
                       f"D1 {mw}: кнопки перекрываются по X ({r4})", failures)
             mctx.close()
+
+        # ═══ W2a (MAC-S5-198 / MAC-S5-OVW-01 / MAC-AC-08) ═══════════════════
+        # К-1/К-2: явный hash (включая `/overview`) побеждает; bare-адрес —
+        # память → живой Обзор → «Основные настройки» → первый содержательный
+        # → «Обзор». Предикат «живого Обзора» статический (без async-данных).
+        WBASE = "http://127.0.0.1:%d/web/index.html" % PORT
+
+        def _wstate(pg):
+            return pg.evaluate(
+                "() => { const cur = document.querySelector("
+                "'[data-workspace-tabs] [data-workspace-tab][aria-current=page]');"
+                "return {hash: location.hash,"
+                " tab: cur ? cur.getAttribute('data-workspace-tab') : null,"
+                " current: document.querySelectorAll("
+                "'[data-workspace-tabs] [aria-current=page]').length}; }")
+
+        def _wfocus(pg):
+            return pg.evaluate(
+                "() => { const a = document.activeElement;"
+                "return {tab: a && a.getAttribute"
+                " ? a.getAttribute('data-workspace-tab') : null,"
+                " inStrip: !!(a && a.closest && a.closest('[data-workspace-tabs]')),"
+                " scroll: window.scrollY}; }")
+
+        def _wopen(pg, route, wait_head=True):
+            pg.goto(WBASE + route, wait_until="load")
+            if wait_head:
+                pg.wait_for_selector("[data-workspace-head]", timeout=9000)
+                pg.wait_for_timeout(420)
+
+        wctx = browser.new_context(viewport={"width": 390, "height": 844})
+        wctx.add_init_script(TMA_STUB)
+        wctx.route("**/api/**", _route)
+        wpage = wctx.new_page()
+        werrs = []
+        wpage.on("pageerror", lambda e, b=werrs: b.append(str(e)[:300]))
+        report["flows"]["w2a_pageerrors"] = werrs
+        wfails = []          # локальный bucket: check() не дублирует
+
+        # ── W2a-1: дефолт (К-2) ──────────────────────────────────────────
+        for wroute, want in [
+                ("#/modules/search", "settings"),
+                ("#/modules/direct", "overview"),
+                ("#/modules/sleep", "overview"),
+                ("#/modules/search/overview", "overview")]:
+            _wopen(wpage, wroute)
+            st = _wstate(wpage)
+            report["flows"]["w2a_default_" + wroute] = st
+            check(st["tab"] == want and st["current"] == 1,
+                  f"W2a {wroute}: вкладка {st['tab']} вместо {want}"
+                  f" (aria-current={st['current']})", wfails)
+
+        # ── W2a-2: клавиатура (К-6) ──────────────────────────────────────
+        _wopen(wpage, "#/modules/search/overview")
+        strip_ids = wpage.evaluate(
+            "() => Array.from(document.querySelectorAll("
+            "'[data-workspace-tabs] [data-workspace-tab]'))"
+            ".map(b => b.getAttribute('data-workspace-tab'))")
+        k0 = wpage.evaluate(
+            "() => { const a = document.querySelector("
+            "'[data-workspace-tabs] [data-workspace-tab][aria-current=page]');"
+            "a.focus();"
+            "window.__w2aKeys = [];"
+            "document.addEventListener('keydown', function (e) {"
+            "  setTimeout(function () { window.__w2aKeys.push({"
+            "    k: e.key, prevent: e.defaultPrevented}); }, 0);"
+            "}, false);"
+            "const scrollers = [document.querySelector('.scroll-area'),"
+            " document.querySelector('main'), document.documentElement,"
+            " document.body].filter(Boolean);"
+            "const sc = scrollers.filter(function (e) {"
+            "  return e.scrollHeight > e.clientHeight + 4; })[0] || null;"
+            "window.__w2aScroller = sc;"
+            "if (sc) sc.scrollTop = Math.min(120, sc.scrollHeight - sc.clientHeight);"
+            "return {h: a.getBoundingClientRect().height,"
+            " scroll: sc ? sc.scrollTop : null,"
+            " scroller: sc ? sc.tagName + '.' + (sc.className || '') : null,"
+            " tabindex: a.getAttribute('tabindex')}; }")
+        wpage.keyboard.press("ArrowRight")
+        wpage.wait_for_timeout(260)
+        k1 = _wfocus(wpage)
+        st1 = _wstate(wpage)
+        scroll1 = wpage.evaluate(
+            "() => window.__w2aScroller ? window.__w2aScroller.scrollTop"
+            " : null")
+        report["flows"]["w2a_keyboard_right"] = {"k0": k0, "k1": k1, "st": st1,
+                                                 "scroll_after": scroll1,
+                                                 "strip": strip_ids}
+        check(len(strip_ids) >= 2, "W2a: полоса без вкладок", wfails)
+        check(k0["tabindex"] == "0", "W2a: активный таб без tabindex=0", wfails)
+        check(38 <= k0["h"] <= 44,
+              f"W2a: высота таба {round(k0['h'], 1)}", wfails)
+        check(st1["tab"] == strip_ids[1] and k1["tab"] == strip_ids[1],
+              f"W2a →: активный/фокус {st1['tab']}/{k1['tab']} "
+              f"вместо {strip_ids[1]}", wfails)
+        # preventDefault доказуем: прокрутка контейнера не сдвинулась.
+        check(k0["scroller"] is not None and scroll1 == k0["scroll"],
+              f"W2a: стрелка прокрутила страницу "
+              f"({k0['scroll']}→{scroll1}) — нет preventDefault", wfails)
+        # Tab-порядок: полоса — ОДНА остановка (roving tabindex).
+        others = wpage.evaluate(
+            "() => Array.from(document.querySelectorAll("
+            "'[data-workspace-tabs] [data-workspace-tab]'))"
+            ".filter(b => b.getAttribute('tabindex') !== '0').length")
+        check(others == len(strip_ids) - 1,
+              f"W2a: roving tabindex не у одного таба "
+              f"({others}/{len(strip_ids)})", wfails)
+        # End → последний; → на последнем не меняет; ← назад; Home → первый.
+        wpage.keyboard.press("End")
+        wpage.wait_for_timeout(240)
+        end_st = _wstate(wpage)
+        end_focus = _wfocus(wpage)
+        check(end_st["tab"] == strip_ids[-1]
+              and end_focus["tab"] == strip_ids[-1],
+              f"W2a End: {end_st['tab']}/{end_focus['tab']}", wfails)
+        # На краю стрелка не навигирует → контейнер не должен прокрутиться.
+        scroll_before_edge = wpage.evaluate(
+            "() => window.__w2aScroller ? window.__w2aScroller.scrollTop"
+            " : null")
+        wpage.keyboard.press("ArrowRight")
+        wpage.wait_for_timeout(240)
+        no_wrap = _wstate(wpage)
+        no_wrap_focus = _wfocus(wpage)
+        check(no_wrap["tab"] == strip_ids[-1]
+              and no_wrap_focus["tab"] == strip_ids[-1],
+              f"W2a: wrap на последнем табе ({no_wrap['tab']})", wfails)
+        scroll_edge = wpage.evaluate(
+            "() => window.__w2aScroller ? window.__w2aScroller.scrollTop"
+            " : null")
+        check(scroll_before_edge is not None
+              and scroll_edge == scroll_before_edge,
+              f"W2a: стрелка на краю прокрутила страницу "
+              f"({scroll_before_edge}→{scroll_edge})", wfails)
+        wpage.keyboard.press("ArrowLeft")
+        wpage.wait_for_timeout(240)
+        left_st = _wstate(wpage)
+        check(left_st["tab"] == strip_ids[-2],
+              f"W2a ←: {left_st['tab']} вместо {strip_ids[-2]}", wfails)
+        wpage.keyboard.press("Home")
+        wpage.wait_for_timeout(240)
+        home_st = _wstate(wpage)
+        home_focus = _wfocus(wpage)
+        check(home_st["tab"] == strip_ids[0]
+              and home_focus["tab"] == strip_ids[0],
+              f"W2a Home: {home_st['tab']}/{home_focus['tab']}", wfails)
+        # Tab выходит из полосы (не «застревает» во вкладках).
+        wpage.keyboard.press("Tab")
+        wpage.wait_for_timeout(200)
+        tab_out = _wfocus(wpage)
+        report["flows"]["w2a_tab_exit"] = tab_out
+        check(not tab_out["inStrip"],
+              "W2a: Tab остался внутри полосы вкладок", wfails)
+        keys_seen = wpage.evaluate("() => window.__w2aKeys || []")
+        report["flows"]["w2a_keys"] = keys_seen
+        prevented = {k["k"]: k["prevent"] for k in keys_seen}
+        for key in ("ArrowRight", "End", "ArrowLeft", "Home"):
+            check(prevented.get(key) is True,
+                  f"W2a: {key} не помечен preventDefault ({prevented})",
+                  wfails)
+        check(prevented.get("Tab") is False,
+              f"W2a: Tab перехвачен (preventDefault) — вне набора"
+              f" ({prevented})", wfails)
+        wpage.screenshot(path=os.path.join(SHOTS, "w2a-keyboard-390.png"))
+
+        # ── W2a-3: память вкладок (К-3/К-4/К-5) ──────────────────────────
+        # Дальше — селектор области и каталог: desktop-ширина как у остальных
+        # сценариев этого e2e (клавиатура уже проверена на 390).
+        wpage.set_viewport_size({"width": 1280, "height": 800})
+        _wopen(wpage, "#/modules/search")
+        wpage.click('[data-workspace-tabs] [data-workspace-tab=limits]')
+        wpage.wait_for_timeout(420)
+        picked = _wstate(wpage)
+        check(picked["tab"] == "limits" and picked["hash"].endswith("/limits"),
+              f"W2a: клик «Лимиты» → {picked}", wfails)
+        wpage.goto(WBASE + "#/modules", wait_until="load")
+        wpage.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+        wpage.wait_for_timeout(320)
+        wpage.click(".module-catalog [data-mod=mod_search] .module-card-head")
+        wpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        wpage.wait_for_timeout(420)
+        reopened = _wstate(wpage)
+        check(reopened["tab"] == "limits",
+              f"W2a: повторное открытие «Поиска» → {reopened['tab']} "
+              f"(ожидалось limits)", wfails)
+        wpage.reload(wait_until="load")
+        wpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        wpage.wait_for_timeout(520)
+        reloaded = _wstate(wpage)
+        check(reloaded["tab"] == "limits",
+              f"W2a: после reload → {reloaded['tab']} (ожидалось limits)",
+              failures)
+        mem_raw = wpage.evaluate(
+            "() => localStorage.getItem('adminbot.module_tab')")
+        mem = json.loads(mem_raw or "{}")
+        report["flows"]["w2a_memory"] = {"raw": mem_raw, "state": reloaded}
+        key_a = "chat:%d|mod_search" % CHAT_ID
+        check(mem.get(key_a) == "limits",
+              f"W2a: память чата A {mem.get(key_a)} вместо limits", wfails)
+        # Хранятся ТОЛЬКО id (scope|mod_* → tab id), без контента/названий.
+        bad_keys = [k for k in mem
+                    if not k.startswith(("chat:%d|" % CHAT_ID, "global|"))]
+        check(not bad_keys, f"W2a: посторонние ключи памяти {bad_keys}",
+              failures)
+        check(all(isinstance(v, str) and v and " " not in v
+                  for v in mem.values()),
+              f"W2a: в памяти не id таба: {mem}", wfails)
+
+        # Смена scope: та же вкладка, данные перечитаны, ключ нового scope.
+        gets.clear()
+        pre_scope = _wstate(wpage)
+        wpage.click(".scope-trigger")
+        wpage.click(".scope-option:has-text('%s')" % CHAT_TITLE2)
+        wpage.wait_for_timeout(950)
+        post_scope = _wstate(wpage)
+        mem2 = json.loads(wpage.evaluate(
+            "() => localStorage.getItem('adminbot.module_tab')") or "{}")
+        key_b = "chat:%d|mod_search" % CHAT_ID2
+        report["flows"]["w2a_scope"] = {
+            "before": pre_scope, "after": post_scope,
+            "gets": len(gets), "memory": mem2}
+        check(post_scope["tab"] == pre_scope["tab"],
+              f"W2a: смена чата увела вкладку "
+              f"({pre_scope['tab']}→{post_scope['tab']})", wfails)
+        check(len(gets) >= 1, "W2a: данные нового scope не перечитаны",
+              failures)
+        check(mem2.get(key_b) == post_scope["tab"],
+              f"W2a: ключ нового scope {key_b}={mem2.get(key_b)} "
+              f"вместо {post_scope['tab']}", wfails)
+        check(mem2.get(key_a) == "limits",
+              f"W2a: память чата A перезаписана ({mem2.get(key_a)})",
+              failures)
+        check(not [k for k in mem2 if k.startswith("chat:%d|" % CHAT_ID2)
+                   and not k.endswith("|mod_search")],
+              "W2a: память чужих модулей скопирована в новый scope", wfails)
+
+        # Своя вкладка чата B: seed → reload → «models» (не «limits» чата A).
+        seeded = {"chat:%d|mod_search" % CHAT_ID: "limits",
+                  key_b: "models"}
+        wpage.evaluate(
+            "(raw) => localStorage.setItem('adminbot.module_tab', raw)",
+            json.dumps(seeded))
+        wpage.reload(wait_until="load")
+        wpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        wpage.wait_for_timeout(550)
+        own_b = _wstate(wpage)
+        mem3 = json.loads(wpage.evaluate(
+            "() => localStorage.getItem('adminbot.module_tab')") or "{}")
+        report["flows"]["w2a_scope_own_tab"] = {"state": own_b, "memory": mem3}
+        check(own_b["tab"] == "models",
+              f"W2a: чат B показал {own_b['tab']} вместо своей models",
+              failures)
+        check(mem3.get(key_a) == "limits",
+              f"W2a: ключ чата A пострадал ({mem3.get(key_a)})", wfails)
+        # Возврат в A: страница НЕ прыгает (pin текущей вкладки в новом scope).
+        wpage.click(".scope-trigger")
+        wpage.click(".scope-option:has-text('%s')" % CHAT_TITLE)
+        wpage.wait_for_timeout(950)
+        back_a = _wstate(wpage)
+        mem4 = json.loads(wpage.evaluate(
+            "() => localStorage.getItem('adminbot.module_tab')") or "{}")
+        report["flows"]["w2a_scope_back"] = {"state": back_a, "memory": mem4}
+        check(back_a["tab"] == "models",
+              f"W2a: возврат в чат A прыгнул в {back_a['tab']}", wfails)
+        check(mem4.get(key_a) == "models",
+              f"W2a: pin в чат A не записан ({mem4.get(key_a)})", wfails)
+        wctx.close()
+
+        # ── W2a-4: свежесть ≠ активность (К-7/К-8) ───────────────────────
+        fctx = browser.new_context(viewport={"width": 1280, "height": 900})
+        fctx.add_init_script(TMA_STUB)
+        fctx.route("**/api/**", _route)
+        fpage = fctx.new_page()
+        fpage.goto(WBASE + "#/modules", wait_until="load")
+        fpage.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+        fpage.wait_for_timeout(420)
+        card_fresh = fpage.evaluate(
+            "() => { const c = document.querySelector("
+            "'[data-mod=mod_summary] [data-module-checked]');"
+            "return c ? {text: c.innerText.trim(),"
+            " title: c.getAttribute('title'),"
+            " sw: c.scrollWidth, cw: c.clientWidth} : null; }")
+        catalog_text = fpage.evaluate(
+            "() => (document.querySelector('.module-catalog') || {})"
+            ".innerText || ''")
+        report["flows"]["w2a_fresh_card"] = card_fresh
+        check(card_fresh and card_fresh["text"].startswith("Проверено:"),
+              f"W2a: футер карточки без «Проверено:» ({card_fresh})", wfails)
+        check(card_fresh and card_fresh["title"] == card_fresh["text"],
+              "W2a: title не равен тексту свежести", wfails)
+        fpage.goto(WBASE + "#/modules/summary/overview", wait_until="load")
+        fpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        fpage.wait_for_timeout(420)
+        page_fresh = fpage.evaluate(
+            "() => (document.querySelector('[data-workspace-checked]') || {})"
+            ".innerText || ''")
+        page_text = fpage.evaluate("() => document.body.innerText")
+        report["flows"]["w2a_fresh_page"] = page_fresh.strip()
+        check(page_fresh.strip() == (card_fresh or {}).get("text"),
+              f"W2a: свежесть каталога «{card_fresh and card_fresh['text']}» "
+              f"!= страницы «{page_fresh.strip()}»", wfails)
+        check("0 событий" not in catalog_text + page_text,
+              "W2a: выдуманные «0 событий»", wfails)
+        check("1970" not in catalog_text + page_text,
+              "W2a: выдуманное время (1970)", wfails)
+        fpage.screenshot(path=os.path.join(SHOTS, "w2a-freshness-1280.png"))
+        fctx.close()
+
+        # 320/390: футер не переполняется, карточка остаётся 132–164.
+        for nw, nh in [(390, 844), (320, 568)]:
+            nctx = browser.new_context(viewport={"width": nw, "height": nh})
+            nctx.add_init_script(TMA_STUB)
+            nctx.route("**/api/**", _route)
+            npage = nctx.new_page()
+            npage.goto(WBASE + "#/modules", wait_until="load")
+            npage.wait_for_selector(".module-catalog [data-mod]", timeout=9000)
+            npage.wait_for_timeout(500)
+            meas = npage.evaluate(
+                "() => { const cards = Array.from(document.querySelectorAll("
+                "'.module-catalog [data-mod]'));"
+                "const foot = cards.map(c => c.querySelector("
+                "'.module-card-footer')).filter(Boolean);"
+                "const over = foot.filter(f => f.scrollWidth > f.clientWidth + 1);"
+                "const open = foot.map(f => { const b = f.querySelector("
+                "'[data-module-open]');"
+                "return b ? Math.round(b.getBoundingClientRect().right"
+                " - f.getBoundingClientRect().right) : null; });"
+                "return {cards: cards.length,"
+                " maxCard: Math.max.apply(null, cards.map(c => "
+                "c.getBoundingClientRect().height)),"
+                " minCard: Math.min.apply(null, cards.map(c => "
+                "c.getBoundingClientRect().height)),"
+                " overflow: over.length,"
+                " openOut: open.filter(x => x !== null && x > 1).length,"
+                " scrollWidth: document.documentElement.scrollWidth,"
+                " vw: window.innerWidth,"
+                " fresh: !!document.querySelector("
+                "'[data-module-checked]')}; }")
+            report["flows"]["w2a_narrow_%d" % nw] = meas
+            check(meas["fresh"], f"W2a {nw}: футер без свежести", wfails)
+            check(meas["overflow"] == 0,
+                  f"W2a {nw}: футер переполнен у {meas['overflow']} карточек",
+                  failures)
+            check(meas["openOut"] == 0,
+                  f"W2a {nw}: «Открыть» выходит за футер", wfails)
+            check(131 <= meas["minCard"] and meas["maxCard"] <= 165,
+                  f"W2a {nw}: высота карточки "
+                  f"{meas['minCard']:.1f}–{meas['maxCard']:.1f}", wfails)
+            check(meas["scrollWidth"] <= meas["vw"] + 1,
+                  f"W2a {nw}: горизонтальный скролл страницы", wfails)
+            npage.screenshot(path=os.path.join(
+                SHOTS, f"w2a-cards-{nw}.png"))
+            nctx.close()
+        failures.extend(wfails)
 
         browser.close()
     httpd.shutdown()

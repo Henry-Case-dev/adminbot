@@ -257,8 +257,16 @@ const keyItems = itemsOfGroup(CATALOG_ADMIN, 'keys_llm');
     'у страницы непустой счётчик — ложный пустой блок невозможен');
 
   // Переход на «Обзор»: пустого блока с ложной причиной нет.
-  const overview = mkCtx(ADMIN, CATALOG_ADMIN, { route: '#/modules/embeddings' });
-  eq(computed.workspaceTab.call(overview), 'overview', 'дефолт — «Обзор»');
+  // MOD-ACL-UX-01 M4A W2a (К-2): у «Векторной памяти» нет «живого Обзора»
+  // (WS_OVERVIEW_LIVE), поэтому bare-адрес открывает «Основные настройки».
+  // Проверка самого Обзора сохранена — но через ЯВНЫЙ `/overview`, иначе она
+  // молча проверяла бы уже другую вкладку.
+  eq(computed.workspaceTab.call(mkCtx(ADMIN, CATALOG_ADMIN,
+        { route: '#/modules/embeddings' })),
+     'settings', 'bare-адрес → «Основные настройки» (W2a)');
+  const overview = mkCtx(ADMIN, CATALOG_ADMIN,
+                         { route: '#/modules/embeddings/overview' });
+  eq(computed.workspaceTab.call(overview), 'overview', 'явный /overview — «Обзор»');
   ok(computed.currentTabItemCount.call(overview) > 0,
     '«Обзор» не показывает «нет параметров» при реальных параметрах');
 }

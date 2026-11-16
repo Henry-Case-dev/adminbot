@@ -7689,6 +7689,13 @@ html.w9-sheet-bottom .modal-close {
   display: flex; align-items: center; gap: 6px;
   margin-top: auto; padding-top: 2px;
 }
+/* W2a (К-7/Visual Preservation Map): «Проверено: <ts>» слева от «Открыть».
+   Компактная строка без новой высоты карточки (132–164 сохраняется):
+   ellipsis вместо переноса, полный текст — в :title. */
+.module-card-checked {
+  font-size: 10px; color: var(--text-3); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
 /* Компактный контрол в карточке: ДВЕ строки — читаемая подпись действия
    (перенос, без ellipsis; review D2) и tri-state под ней. Тач-цель 44×44 —
    ТОЛЬКО вертикальным расширением hit-area: горизонтальное перекрытие

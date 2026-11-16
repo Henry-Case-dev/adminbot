@@ -1260,9 +1260,11 @@
                 </template>
 
                 <div class="flex gap-2 flex-wrap mt-3 workspace-tabs workspace-tabs--scroll"
-                     role="tablist" data-workspace-tabs>
+                     role="tablist" data-workspace-tabs
+                     @keydown="onWorkspaceTabsKeydown($event)">
                   <button v-for="wt in workspaceTabs" :key="'wt-' + wt.id" role="tab"
                           :data-workspace-tab="wt.id"
+                          :tabindex="workspaceTab === wt.id ? 0 : -1"
                           :aria-selected="workspaceTab === wt.id"
                           :aria-current="workspaceTab === wt.id ? 'page' : null"
                           class="btn-ghost text-xs"
@@ -7848,6 +7850,13 @@
                       </template>
                     </div>
                     <div class="module-card-footer">
+                      <!-- W2a (К-7): свежесть из `state.checked_at` (helper —
+                           один источник с шапкой страницы). Компактно, 10 px,
+                           ellipsis + title; высоту карточки не меняет. -->
+                      <span v-if="moduleFreshness(m).checked"
+                            class="module-card-checked"
+                            :data-module-checked="m.id"
+                            :title="moduleFreshness(m).checked">{{ moduleFreshness(m).checked }}</span>
                       <span class="flex-1"></span>
                       <button class="btn-ghost module-params-btn text-xs shrink-0"
                               data-module-open

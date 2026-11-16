@@ -235,14 +235,28 @@ function mkCoverageCtx(m) {
     assert.strictEqual(ctx.activeTab, 'prompts', 'b3: activeTab prompts');
   }
 
-  // ── (d) Неприменимая вкладка → дефолт «Обзор» ─────────────────────────
+  // ── (d) Неприменимая вкладка → bare-адрес → дефолт (W2a: settings) ────
+  // MOD-ACL-UX-01 M4A W2a (К-2): дефолт больше НЕ безусловный «Обзор».
+  // У Фактчека нет живого Обзора (не входит в WS_OVERVIEW_LIVE), поэтому
+  // bare `#/modules/factcheck` открывает «Основные настройки»; у «Прямых
+  // ответов» живой Обзор есть — там дефолт остаётся «Обзор».
   {
     const ctx = mkCtx();
     methods.applyRoute.call(ctx, '#/modules/factcheck/prep');
     assert.strictEqual(ctx.route, '#/modules/factcheck',
       'd: неприменимая вкладка → модуль');
-    assert.strictEqual(computed.workspace.call(ctx).tab, 'overview',
-      'd: дефолт «Обзор»');
+    assert.strictEqual(computed.workspace.call(ctx).tab, 'settings',
+      'd: дефолт без живого Обзора = «Основные настройки»');
+    // Явный `/overview` по-прежнему побеждает дефолт (К-1).
+    const explicit = mkCtx();
+    methods.applyRoute.call(explicit, '#/modules/factcheck/overview');
+    assert.strictEqual(computed.workspace.call(explicit).tab, 'overview',
+      'd: явный /overview уважается');
+    // Живой Обзор (WS_OVERVIEW_LIVE) сохраняет дефолт «Обзор».
+    const live = mkCtx();
+    methods.applyRoute.call(live, '#/modules/direct');
+    assert.strictEqual(computed.workspace.call(live).tab, 'overview',
+      'd: у «Прямых ответов» дефолт «Обзор» (живой контент)');
     // Промпт-фокус глубины 2 резолвится в объект.
     const ctx2 = mkCtx();
     methods.applyRoute.call(ctx2, '#/modules/factcheck/synthesizer/foo');
