@@ -1,0 +1,15 @@
+﻿be8e8ecf feat(acl): M2.1 per-chat adapters for 12 module consumers
+3baebedb docs(acl): M2.1 evidence (RED base, GREEN 464, 3 mutations)
+def84275 fix(acl): M2.1 recheck media-download callback per chat
+5754ddb4 docs(acl): M2.1 evidence refresh (465 green, 31 red, download callback recheck)
+b278a547 fix(acl): M2.1 remove product master-AND per chat
+a45195a6 docs(acl): M2.1 corrective evidence (476 green, 44 red, 3/3 mutations)
+9b78b6ab test(acl): M2.1 remove tautological pool/model assertions
+42fc68e9 docs(acl): M2.1 evidence diff labels and test commit
+3f848604 docs(acl): M2.1 refresh RED artifact for final tests
+299ac2b7 docs(acl): clarify initiative observer tick axis
+1a417917 fix(acl): M2.1 D1-D3 per-chat publish, force-repeat, persona frame
+3577c2ca docs(acl): M2.1 D1-D4 corrective evidence (480 green, 4/4 RED base, 3/3 mutations)
+222a40e7 docs(acl): M2.1 D1-D4 note per-chat due-scan resolver cost
+bd92838d test(acl): M2.1 F1 test-debt + committed due-scan per-chat test
+0585f238 docs(acl): M2.1 F1 test-debt closure + due-scan evidence

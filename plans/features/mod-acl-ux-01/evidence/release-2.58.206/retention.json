@@ -1,0 +1,25 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-m21-release-ab60a0ebd92c-a64ea245",
+      "owner": "Builder (MOD-ACL-UX-01 M2.1 release train 2.58.206) -> Reviewer/DevOps",
+      "reason": "Clean worktree of branch release/mod-acl-m21-2.58.206 (base bca18c1e, code tip 0585f238, bump afcaf95f, evidence commit follows) retained for the delta review of the exact 2.58.206 candidate; it is the only checked-out copy of this train and must not be retired before the verdict/release.",
+      "evidence": "plans/features/mod-acl-ux-01/evidence/release-2.58.206/assembly.md; tests-2.58.206.json; origin/release/mod-acl-m21-2.58.206",
+      "next_event": "After the M2.1 blocker is resolved and the Reviewer verdict/deployment (or rejection) is recorded, the owning role runs unit-close/unit-check on mod-acl-m21-release-2.58.206 and retires the worktree."
+    },
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\mod-acl-m21-release-ab60a0ebd92c\\probe-d462211900",
+      "owner": "Builder (MOD-ACL-UX-01 M2.1 release train 2.58.206) -> Reviewer/DevOps",
+      "reason": "Assembly probe run retained: contains the bump script, per-batch pytest logs, manifest dry-run and fresh-DB probe results. All numbers are transferred to tests-2.58.206.json and assembly.md; the generated fresh-db probe database was deleted after the numbers were recorded, and the logs/scripts are kept for independent re-check of the exact candidate.",
+      "evidence": "plans/features/mod-acl-ux-01/evidence/release-2.58.206/tests-2.58.206.json; assembly.md; train-log.md",
+      "next_event": "After the release verdict, the owning role runs run-close; the logs/scripts are then retired with the run."
+    },
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-m21-base-check-5ed99b867ed1-f9d5e715",
+      "owner": "Builder (MOD-ACL-UX-01 M2.1 release train 2.58.206) -> Reviewer/DevOps",
+      "reason": "Temporary detached worktree at base bca18c1e used only for pre-existing/base comparisons (clean tracked tree; unit mod-acl-m21-base-check). It is not part of the release branch and is retained because bca18c1e is not contained in the master integration line; it must not be force-removed.",
+      "evidence": "plans/features/mod-acl-ux-01/evidence/release-2.58.206/tests-2.58.206.json (base_proofs); assembly.md §4",
+      "next_event": "After the 2.58.206 candidate verdict, the owning role may retire this measurement worktree via unit-close/unit-check if bca18c1e is integrated or separately retained; no branch refs are affected."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "release": "2.58.206",
+  "target_rollback_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+  "target_rollback_version": "2.58.205",
+  "target_rollback_state": "production baseline per assignment (not re-probed in this task)",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout bca18c1e (2.58.205) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz and release manifest identity"
+  ],
+  "notes": [
+    "M2.1 changes module gating/read paths only; no new tables, columns, indexes or migrations.",
+    "Rolling back the product layer keeps the database compatible: schema 47, DDL 0.",
+    "The bump commit changes only version pins; it needs no separate rollback once the checkout is at bca18c1e."
+  ]
+}

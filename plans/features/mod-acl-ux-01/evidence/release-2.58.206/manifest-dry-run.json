@@ -1,0 +1,17 @@
+{
+  "captured_at_commit": "afcaf95f75f35aafd1bf83ea1f6da912fcecc377",
+  "command": "python tools/release_manifest.py --dry-run",
+  "deploy_dir_created": false,
+  "manifest": {
+    "deployed_at": "2026-11-16T07:42:22.473288Z",
+    "deployed_sha": "afcaf95f75f35aafd1bf83ea1f6da912fcecc377",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": null,
+    "previous_version": null,
+    "release_branch": "release/mod-acl-m21-2.58.206",
+    "schema": 1,
+    "version": "2.58.206"
+  },
+  "note": "Captured at the content tip afcaf95f (bump commit, all M2.1 product/test commits included), dirty_tracked=false. The final branch tip differs from afcaf95f only by this evidence commit; a file cannot contain the SHA of the commit that adds it (cryptographic fixed point). The deploy-time manifest on the production checkout records the actually deployed commit itself. previous_* are null because this dev worktree has no local .deploy/release.json (the production manifest was never read)."
+}

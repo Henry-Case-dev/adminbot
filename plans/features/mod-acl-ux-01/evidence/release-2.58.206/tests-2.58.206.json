@@ -1,0 +1,194 @@
+{
+  "feature": "mod-acl-ux-01",
+  "release": "2.58.206",
+  "slice": "M2.1 per-chat adapters for 12 module consumers (MOD-ACL-UX-01)",
+  "assembled_at": "2026-11-16",
+  "status": "assembly_done_review_blocked",
+  "branch": "release/mod-acl-m21-2.58.206",
+  "base_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+  "base_version": "2.58.205",
+  "code_tip": "0585f23802af449aac9cf45c2df7bff399c97ebb",
+  "product_code_tip": "1a417917f128521f988fca9845f45ed3a6c6a7a5",
+  "test_only_tip": "bd92838d3af3c83065c005a9c57eab7ed1180b14",
+  "bump_commit": "afcaf95f75f35aafd1bf83ea1f6da912fcecc377",
+  "train_commits": 16,
+  "environment": {
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "venv": "C:/Code/Python/adminbot/.venv",
+    "node": "v24.16.0",
+    "cwd": "release worktree mod-acl-m21-release-ab60a0ebd92c-a64ea245"
+  },
+  "cumulative_diff": {
+    "pre_bump": {
+      "range": "bca18c1e..0585f238",
+      "files": 46,
+      "insertions": 3871,
+      "deletions": 252,
+      "product_files": 23,
+      "test_files": 15,
+      "evidence_files": 8
+    },
+    "after_bump": {
+      "range": "bca18c1e..afcaf95f",
+      "files": 76,
+      "insertions": 3902,
+      "deletions": 283
+    }
+  },
+  "batches": [
+    {
+      "id": "focused-m21-m2",
+      "purpose": "M2.1 corrective D1-D4 + M2 consumers/resolver on the bumped tip",
+      "file_count": 24,
+      "collected": 481,
+      "result": {"passed": 481, "failed": 0},
+      "note": "matches the M2.1 lane evidence (481 green)"
+    },
+    {
+      "id": "pin-guard",
+      "purpose": "standard 24 python version-pin files",
+      "file_count": 24,
+      "result": {"passed": 856, "failed": 4},
+      "base_result": {"passed": 856, "failed": 4},
+      "note": "same 4 IDs fail on base bca18c1e (separate run: 4 failed); pre-existing"
+    },
+    {
+      "id": "js-pins",
+      "purpose": "4 JS harnesses with escaped APP_VERSION regex",
+      "file_count": 4,
+      "result": {"passed": 4, "failed": 0},
+      "markers": [
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+      ]
+    },
+    {
+      "id": "broad-a",
+      "purpose": "module/ACL/gates/M2 consumers/QND/media neighbourhood",
+      "file_count": 30,
+      "result": {"passed": 483, "failed": 1, "errors": 0},
+      "failure_ids": [
+        "tests/test_mod_acl_ux_m2_inflight.py::test_text_initiative_off_mid_flight_single_outcome"
+      ],
+      "note": "the single failure is NEW vs base and blocks the candidate (see blocker)"
+    },
+    {
+      "id": "broad-b",
+      "purpose": "initiative/persona/direct_chat/tools/speech/stories/random/adjoining regression",
+      "file_count": 31,
+      "result": {"passed": 785, "failed": 15, "errors": 18},
+      "pre_existing_note": "all 15 failed and 18 errors are pre-existing; see pre_existing_failures/base_proofs"
+    }
+  ],
+  "blocker": {
+    "test": "tests/test_mod_acl_ux_m2_inflight.py::test_text_initiative_off_mid_flight_single_outcome",
+    "candidate": "1 failed, 4 passed (file); isolated node: 1 failed",
+    "base": "5 passed (whole file)",
+    "first_failing_assertion": "line 266: writer.generate_calls == 1; actual 0",
+    "classification": "new failure introduced by M2.1; not pre-existing, not caused by the bump",
+    "cause": "M2.1 D1 adds initiative_observer.initiative_chat_enabled(chat_id) at the entrance of handle_initiative (services/direct_chat_service.py); when the test's evaluator flips initiative.enabled=false mid-flight, handle_initiative returns {'status': 'disabled'} before writer.generate_initiative_reply, so publish_guard (initiative_observer.py:3142-3161) is never reached; the M2 test expects one generation and a capability_off cancellation",
+    "contract_refs": ["MAC-S2-113", "MAC-S2-114", "MAC-S10-07"],
+    "test_file_changed_by_m21": false,
+    "required_decision": "M2.1 lane must either restore generation-before-publication ordering or consciously revise the M2 contract/test with fresh Reviewer approval; release assembler did not change product code or tests"
+  },
+  "pre_existing_failures": {
+    "pin_guard_ids": [
+      "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+      "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+      "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+      "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+    ],
+    "broad_b_failed_ids": [
+      "tests/test_initiative_coordination.py::test_act_on_opportunity_conflict_defers_to_intent",
+      "tests/test_initiative_coordination.py::test_evaluate_phase_precheck_blocks_before_llm",
+      "tests/test_initiative_coordination.py::test_t1_nostalgia_delegated_refusal_sends_nothing",
+      "tests/test_initiative_coordination.py::test_t5_every_text_send_site_passes_publish_guard",
+      "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_uses_chat_level_core_style_and_expression",
+      "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[core-core_disabled-absent0-present0]",
+      "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[style-style_policy_disabled-absent1-present1]",
+      "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[expression-expression_disabled-absent2-present2]",
+      "tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona",
+      "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken",
+      "tests/test_image_generation_round1023.py::TestToolSchema::test_generate_image_is_ninth",
+      "tests/test_image_generation_round1023.py::TestToolSchema::test_active_tools_gate",
+      "tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools",
+      "tests/test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated",
+      "tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced"
+    ],
+    "broad_b_error_file": "tests/test_youtube_multimodal_download_round1024.py",
+    "broad_b_errors": 18,
+    "base_proofs": [
+      {"selection": "tests/test_mod_acl_ux_m2_inflight.py", "result": "5 passed"},
+      {"selection": "tests/test_initiative_coordination.py", "result": "4 failed, 56 passed"},
+      {"selection": "test_initiative_speech_layers_chat_overrides.py + test_soul1_w5_observer_gates.py + test_speech_p0_a2_memory.py", "result": "6 failed, 24 passed"},
+      {"selection": "tests/test_image_generation_round1023.py", "result": "3 failed, 55 passed"},
+      {"selection": "two graphrag warning tests", "result": "2 failed"},
+      {"selection": "pin-guard 4 ids", "result": "4 failed"}
+    ],
+    "youtube_error_proof": "fixture patches handlers.youtube.get_smart_cache; git grep finds no such attribute in base bca18c1e or candidate (pre-existing harness drift). The 2.58.205 evidence already recorded a pre-existing error in this file. Base execution of the whole file did not complete because the environment restarted during the run; this is stated as a limitation, not as proof of execution."
+  },
+  "static_checks": {
+    "ddl": 0,
+    "schema_target_constant": 47,
+    "migration_steps": 47,
+    "fresh_db": {
+      "APP_VERSION": "2.58.206",
+      "migration_steps": 47,
+      "observed_user_version": 47,
+      "table_count": 101
+    },
+    "catalog": {
+      "REGISTRY": 645,
+      "GROUPS": 121,
+      "TAB_BY_GROUP": 119,
+      "TAB_RULES": 22,
+      "settings_fields": 472
+    },
+    "forbidden_files_untouched": [
+      "services/module_registry.py",
+      "services/permissions.py",
+      "services/access.py",
+      "services/prompt_registry.py",
+      "services/prompt_composer.py",
+      "services/prompt_factory.py",
+      "services/param_catalog.py",
+      "services/hot_config.py"
+    ],
+    "config_diff": "config/settings.py only (APP_VERSION bump line)",
+    "app_version_import": "2.58.206",
+    "py_compile": {"files": ["config/settings.py"], "exit_code": 0},
+    "git_diff_check": {"exit_code": 0},
+    "settings_encoding": {"bom": true, "crlf": 3629, "changed_lines": 1},
+    "pins": {"changed_files": 30, "changed_lines": 31, "replacements": 32}
+  },
+  "manifest": {
+    "command": "python tools/release_manifest.py --dry-run",
+    "captured_at_commit": "afcaf95f75f35aafd1bf83ea1f6da912fcecc377",
+    "deploy_dir_created": false,
+    "dirty_tracked": false,
+    "version": "2.58.206",
+    "release_branch": "release/mod-acl-m21-2.58.206",
+    "previous_sha": null,
+    "previous_version": null,
+    "note": "The final branch tip differs from afcaf95f only by this evidence commit; a file cannot contain the SHA of the commit that adds it. The deploy-time manifest on the production checkout records the actually deployed commit itself."
+  },
+  "rollback": {
+    "target_rollback_commit": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "target_rollback_version": "2.58.205",
+    "schema": 47,
+    "ddl": 0,
+    "migrations_added": 0,
+    "data_changes": 0
+  },
+  "limits": [
+    "Assembly only: no deployment, no live Telegram/provider/UI proof; VERIFIED is not claimed.",
+    "Candidate is BLOCKED by the new M2 in-flight failure; predeploy approval requires an M2.1 lane decision and a re-run.",
+    "Broad selection is explicit file batches (61 files, 1302 tests), not the whole project suite; evol/ur/nostalgia and a global -k were not run.",
+    "Focused 24 and Broad A overlap by files; counts are per batch, not a disjoint total.",
+    "4 pin-guard failures and broad 15 failed/18 errors are pre-existing and were not fixed (out of scope).",
+    "The environment restarted the shell several times during long pytest runs; completed logs are preserved, incomplete runs are not presented as evidence."
+  ]
+}
