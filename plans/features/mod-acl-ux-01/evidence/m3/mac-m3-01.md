@@ -16,7 +16,7 @@
 | Схема | `user_version=47`, DDL 0 (M0) |
 | Каталог | 21 видимая карточка = 16 static + 5 registry-only; 11 `ModuleSpec` (10 visible + hidden) |
 | Health | `https://admin-bot.duckdns.org/healthz` → `200 {"status":"ok","version":"2.58.205"}` |
-| Артефакты design | коммит **`6d92cf23fd49f19b10c0d9e9515309224c9b5b02`** (rev2.1; design + copy + freeze); хеши §3 сняты после последней правки и совпадают с блобами этого коммита |
+| Артефакты design | design — коммит **`056ebd2bc5e16cf9334959d16da8547afc3cdb69`**; freeze — коммит **`36f3e603039de199ff4aea4b6e4fd4a29b0ec9f1`**; copy — коммит **`6d92cf23fd49f19b10c0d9e9515309224c9b5b02`**; хеши §3 сняты после последней правки и совпадают с блобами на `HEAD` |
 
 ## 2. Что проверено визуально
 
@@ -77,14 +77,14 @@
 
 ## 3. Артефакты M3
 
-Хеши сняты **после** финальной правки rev2.1. Колонки: `git blob` — id блоба в коммите
-`6d92cf23fd49f19b10c0d9e9515309224c9b5b02`; `sha256` — хеш содержимого файла (полный).
+Хеши сняты **после** финальной правки rev2.1. Колонки: `git blob` — id блоба файла на `HEAD`
+(проверяется `git rev-parse HEAD:<path>`); `sha256` — хеш содержимого файла (полный).
 
 | Артефакт | Содержание | git blob | sha256 |
 |---|---|---|---|
-| `design-m3-2026-11-16.md` | design specification rev2.1: IA, 21 карточка, per-card матрица, wireframes, состояния, API, DTO-имена, responsive, token mapping, acceptance, M2.1 | `b437ec174cd8ec1023c453a32388ff8273929cce` | `40243c875c30a647f021194c171aa55b5725e23d4bc549aa813f58cbaebc8fcb` |
+| `design-m3-2026-11-16.md` | design specification rev2.1: IA, 21 карточка, per-card матрица, wireframes, состояния, API, DTO-имена, responsive, token mapping, acceptance, M2.1 | `5d8b5f98b9d456ba4e9ac48cad8ca93fd2746485` | `9416a49c7d07d06ab4a11301aebd3741d83f0e4ac8e0f1e7e88a991c9fc50250` |
 | `copy-inventory.md` | полный copy inventory до/после: карточки, вкладки, управление, состояние, пустота, 401/403/404/503, 409, шапка каталога (§10), границы Статуса/Прав (§11) | `e388c487f9a8110ee8100c28a781432dbf273a50` | `21f28426f7de64650fbee98d67140bcbe47612903b2bc6ec1282140314d53178` |
-| `m3-design-freeze.md` | frozen §1–§7 + датированные дополнения §8 (rev2) и §9 (rev2.1) | `fd0c3750684ae8e247d0a3b0d474b78bcf5c2126` | `16d6833e41d69fee2bee38f77b0516d4139e5dadd9b58d1fbc6616731e6dfbd8` |
+| `m3-design-freeze.md` | frozen §1–§7 + датированные дополнения §8 (rev2) и §9 (rev2.1) | `113ca5b1034c597d92c5abf5b2bfe8fd2d94a0be` | `e799224a86d21758404ed88f87c752078463f53409f1c32eb3fdffe16e4b4fd6` |
 | `evidence/m3/catalog-1280.png` | каталог 1280×800, реальные deployed-ассеты + stub | `9283dd07de745deb8832396f67375ff6f036d1c1` | `e19edc1b78cace5af036cc74f32cc733042cdc7d7d5ab3166d1a3fa8f090d7e4` |
 | `evidence/m3/catalog-390.png` | каталог 390×844 | `3e159d84f7f394516b242149c48dcd053ba34950` | `d0937af90002efb83e98ff614b93b9d8bad09d1c2fa6201776b248c5956c3386` |
 | `evidence/m3/embeddings-1280.png` | «Векторная память» 1280×800 (текущее состояние) | `30d8271a47bf38bbe55a90dccebe3b495af44153` | `3143bcddadc3f54bb38be17f1aebb41b927a826c41c031fb1b5db140c596b4f9` |
@@ -92,10 +92,10 @@
 **Как проверить (машинально):**
 
 ```text
-git rev-parse 6d92cf23fd49f19b10c0d9e9515309224c9b5b02:plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
-# → b437ec174cd8ec1023c453a32388ff8273929cce
+git rev-parse HEAD:plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
+# → 5d8b5f98b9d456ba4e9ac48cad8ca93fd2746485
 sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
-# → 40243c87…bc8fcb  (Windows: Get-FileHash -Algorithm SHA256)
+# → 9416a49c…c50250  (Windows: Get-FileHash -Algorithm SHA256)
 ```
 
 Хешей «до правки» в evidence нет: предыдущие значения (`478BB0F2…`, `C1657BEB…`) не совпадали ни с
@@ -112,8 +112,8 @@ sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
 - `MAC-S2-89` — секреты/auth/Telegram/приватность/сеть не тумблеры.
 - `MAC-S5-276…281` — короткие имена, одно предложение, термины в «Технических деталях», owner-
   ориентиры, сохранённый «чекап»/промпты, пять осей + `source`, полный copy inventory.
-- `MAC-AC-01`, `MAC-S3-CAT-01` — 21/21 + hidden `factcheck_temporal`: kind/scope/owner-ключ/
-  consumer/control; per-card матрица вкладок и источников — §2.4.
+- `MAC-AC-01`, `MAC-S3-CAT-01` — 21/21 + hidden `factcheck_temporal`: kind, `runtime_gate`,
+  owner-ключ, consumer, control; per-card матрица вкладок и источников — §2.4.
 - `MAC-AC-05`, `MAC-S3-SHARED-01` — Embeddings/QRNG: общий сервис отдельно от chat-use; индексация
   и поиск — разные поля.
 - `MAC-S3-TYPES-01` — типы по фактическому каталогу; 12 модулей требуют per-chat adapters (M2.1).
@@ -173,7 +173,7 @@ sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
 
 | # | Закрытие |
 |---|---|
-| E1 | хеши §3 пересчитаны от коммита `6d92cf23…` (git blob + sha256 после финальной правки), «до правки» удалены |
+| E1 | хеши §3 пересчитаны от фактических коммитов (`056ebd2b…` — design, `36f3e603…` — freeze, `6d92cf23…` — copy), git blob + sha256 после финальной правки; «до правки» удалены |
 | D1 | design §2.4: per-card матрица 21 карточки (tabs/подписи, История/События, «Расширенные», default, viewport 1440/1280/768/390/320); `history_source` в DTO |
 | D2 | design §6.2 п.1: 8 `runtime_gate` (`initiative`, `stories`, `character`, `random`, `factcheck`, `vision`, `nostalgia`, `sleep`); summary/budgets/images — новые спеки; передача M2.1/M4A — §12.5 |
 | D3 | design §6.2 п.3: `feature_gates.gate_state`/`CapabilityState`, `global_value/source` из `FLAG_KEYS`, param как default/usage, один чатовый контрол |
@@ -183,6 +183,6 @@ sha256sum plans/features/mod-acl-ux-01/design-m3-2026-11-16.md
 | D7 | design §2.2/§3.2: чип `Часть «PERMsoc»` для «Характера» (`parent_id=persona`) |
 | D8 | design §11.1: ссылки исправлены (MAC-S2-89 → §2.2/§6.4; MAC-S5-279 → §7.1 + copy §9; MAC-AC-05 и MAC-S3-SHARED-01 → §4.4/§6.3) |
 | D9 | design §5.1: пять осей + `source` как атрибут `desired`; copy §4 согласован |
-| D10 | design §6.2 п.1–2: `runtime_scope`, `permissions{can_read,can_edit}` — единственное место, `state` вместо `usage_state` (`service_state` только infra) |
+| D10 | design §6.2 п.1–2: `runtime_gate` — одно имя в `ModuleSpec` и DTO (`scope` — только контекст), `permissions{can_read,can_edit}` — единственное место, `state` вместо `usage_state` (`service_state` только infra) |
 | D11 | design §2.5: `status_source`/`help_anchor`/`rationale` для 11 новых `ModuleSpec` + правило вывода |
 | D12 | design §3.3 (один заголовок), §4.1 (контент = viewport − sidebar − 48, 4/3/2/1), §8 (WCAG 1.4.1), §9 (state-чип), §10 п.13–15, §11.2 п.3/8 |
