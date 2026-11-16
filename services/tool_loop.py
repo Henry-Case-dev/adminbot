@@ -444,6 +444,10 @@ RESEARCH_CAUSE_INCOMPLETE = "incomplete_fragment"
 RESEARCH_CAUSE_AMBIGUOUS = "ambiguous_source"
 RESEARCH_CAUSE_NOT_TAKEN = "continuation_not_taken"
 RESEARCH_CAUSE_NO_PROGRESS = "no_progress"
+#: F1/F1b (review 16.11.2026): диагностический runtime не собран/непригоден —
+#: это НЕ отказ провайдера от режима tools (`tools_unavailable`). Модель
+#: инструментов вообще не видела, поэтому и причина обязана быть нейтральной.
+RESEARCH_CAUSE_RUNTIME_UNAVAILABLE = "diagnostic_runtime_unavailable"
 
 #: Коды причин, которые уже описаны в ``_STOP_REASON_TEXT`` (остановки).
 _RESEARCH_CAUSE_TEXT = {
@@ -458,6 +462,8 @@ _RESEARCH_CAUSE_TEXT = {
     RESEARCH_CAUSE_NOT_TAKEN: "возможность продолжить исследование "
                               "не была использована",
     RESEARCH_CAUSE_NO_PROGRESS: "продолжение не дало новых данных",
+    RESEARCH_CAUSE_RUNTIME_UNAVAILABLE: "диагностический runtime недоступен "
+                                        "или не собран в этом запуске",
 }
 
 #: Признаки payload'а источника/диагностики, по которым видна неполнота
@@ -869,6 +875,16 @@ def research_partial_note(state) -> str:
             shown += "; и др."
         lines.append(f"Неподтверждено: {shown}.")
     return "\n\n" + " ".join(lines)
+
+
+def research_not_executed_note(cause: str) -> str:
+    """Пометка к отчёту, когда ЗАПРОШЕННОЕ исследование не выполнялось.
+
+    Отличается от ``research_partial_note``: это не частичный результат
+    исследования, а его отсутствие (runtime не собран/непригоден). Причина —
+    нейтральный машинный код, без ложного «провайдер не принял tools»."""
+    return ("\n\nПримечание: инструментальное исследование не выполнялось — "
+            f"{research_cause_text(cause)}.")
 
 
 class ToolLoopResult(str):

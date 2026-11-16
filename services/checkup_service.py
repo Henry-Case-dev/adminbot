@@ -561,7 +561,8 @@ class CheckupService:
     async def checkup(self, logs_text: str, used_fallback: bool,
                       chat_id: int | None = None, *,
                       telemetry: dict | None = None,
-                      tool_runtime: dict | None = None) -> str:
+                      tool_runtime: dict | None = None,
+                      research_requested: bool = False) -> str:
         """logs_text = результат fetcher.fetch(); used_fallback → скрытая
         приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения (51.4).
 
@@ -588,7 +589,16 @@ class CheckupService:
         структурном пробеле модель получает продолжение в том же цикле, а
         если продолжение невозможно/исчерпано, ответ помечается как
         частичный с конкретной причиной. Здоровый чекап без инструментальных
-        попыток остаётся одним вызовом модели."""
+        попыток остаётся одним вызовом модели.
+
+        F1/F1b (review 16.11.2026): ``research_requested`` — явный маркер
+        того, что вызывающий запросил инструментальное исследование
+        (handler запрашивает его всегда, даже когда runtime не собрался).
+        Запрошенный чекап с ``loop_ready=False`` получает в отчёте
+        нейтральную пометку «инструментальное исследование не выполнялось»,
+        а телеметрия — причину ``diagnostic_runtime_unavailable`` (не
+        ``tools_unavailable``: провайдер модель tools не отвергал).
+        Легаси-вызов без маркера (внутренний tool-loop) остаётся без пометки."""
         # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
         # SMART-CORRECTIVE-01 §8.2 (S6-PROMPT): база — chat override → global
         # → factory существующим резолвером реестра; без chat_id — прежний
@@ -630,6 +640,11 @@ class CheckupService:
                           and _tool_ctx is not None)
         continuation_ready = bool(loop_ready
                                   and _has_runtime_tool(_tool_schemas))
+        # F1: запрос исследования — явный маркер вызывающего либо фактически
+        # переданный runtime (даже непригодный). Только легаси-вызов без
+        # обоих признаков не получает пометку в отчёте.
+        research_requested_now = bool(research_requested
+                                      or tool_runtime is not None)
         # Epic 49 (57.5, D196): scrub C0 (гипотеза (б) — невалидные управляющие
         # символы raw-логов). Единая точка — здесь, ДО escape_xml_text.
         user_content = _CONTROL_CHARS_RE.sub(" ", logs_text)
@@ -680,8 +695,10 @@ class CheckupService:
         # S2/S3: статус исследования и честная пометка неполноты — из
         # существующего tool-loop (константы/заметка), без второго механизма.
         from services.tool_loop import (
+            RESEARCH_CAUSE_RUNTIME_UNAVAILABLE as _RUNTIME_UNAVAILABLE,
             RESEARCH_COMPLETE as _RESEARCH_COMPLETE,
             RESEARCH_NOT_EXECUTED as _RESEARCH_NOT_EXECUTED,
+            research_not_executed_note,
             research_partial_note,
         )
         # SMART-CORRECTIVE-01 §4: честная пометка частичного исследования
@@ -758,7 +775,7 @@ class CheckupService:
             if telemetry is not None:
                 telemetry.update({
                     "research_status": _RESEARCH_NOT_EXECUTED,
-                    "research_cause": "tools_unavailable",
+                    "research_cause": _RUNTIME_UNAVAILABLE,
                     "research_reason": _RESEARCH_NOT_EXECUTED,
                     "research_degraded": False,
                     "research_rounds": 0,
@@ -771,11 +788,11 @@ class CheckupService:
                     "research_continuation_available": False,
                 })
             if isinstance(tool_runtime, dict):
-                # Runtime был запрошен, но не собрался/непригоден: чекап
-                # обязан пометить неполноту в самом отчёте.
-                research_note = research_partial_note(
-                    {"status": _RESEARCH_NOT_EXECUTED,
-                     "cause": "tools_unavailable"})
+                # F1/F1b: runtime запрошен, но не собран/непригоден — отчёт
+                # не выдаётся за полную инструментальную диагностику, а
+                # причина нейтральна (модель tools не видела).
+                research_note = research_not_executed_note(
+                    _RUNTIME_UNAVAILABLE)
         logger.info(
             "checkup LLM OK | out_chars=%d | latency_ms=%.0f | used_fallback=%s",
             len(raw), (time.monotonic() - started) * 1000.0, used_fallback,

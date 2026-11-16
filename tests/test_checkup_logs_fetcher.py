@@ -499,7 +499,11 @@ class TestNoBetterStackInCheckupRuntime:
             checkup_mod._cooldown._last.clear()
 
         assert result is None
-        assert bot.send_message.await_args.args[1] == "отчёт о здоровье"
+        # F1: handler запросил исследование, но tool-runtime не подключён —
+        # отчёт несёт нейтральную пометку о невыполненном исследовании.
+        sent_text = bot.send_message.await_args.args[1]
+        assert sent_text.startswith("отчёт о здоровье")
+        assert "инструментальное исследование не выполнялось" in sent_text
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 77
         user_content = llm.generate.await_args.args[0][1]["content"]
         assert "ERROR disk exploded" in user_content
