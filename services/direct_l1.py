@@ -390,6 +390,36 @@ def preserved_diagnostic_research(previous, *, reply_to_bot: bool = False):
     return DiagnosticResearch(needed=True, target=target, sources=sources)
 
 
+#: S7 (ARCH_DECISION SMART-CORRECTIVE, reply владельца 16.11.2026): источники
+#: структурного grant'а. Имена — из закрытого `DIAGNOSTIC_SOURCES`; они
+#: разворачиваются в существующие capability `source_code`/`deep_diagnostics`
+#: (`read_source_code`/`inspect_runtime`). Решение модели не подменяется:
+#: grant только объявляет инструменты и разрешает каноническую identity.
+STRUCTURAL_DIAGNOSTIC_SOURCES = ("source_code", "runtime")
+
+
+def structural_diagnostic_research(delivered_report, *,
+                                   reply_to_bot: bool):
+    """Структурный grant для продолжения доставленного чекапа (S7).
+
+    Отличие от :func:`preserved_diagnostic_research`: тот сохраняет УЖЕ
+    принятое решение модели при детерминированном fallback (fallback-only).
+    Здесь решения модели ещё нет — ход структурно является ответом на
+    доставленный `checkup_report`, и план не задал `diagnostic_research`.
+    Поэтому объявляются только существующие read-only инструменты
+    (`source_code`/`deep_diagnostics`) и каноническая identity своего repo
+    (`target=self`); сам вызов по-прежнему выбирает модель в tool-фазе.
+    Ничего не запускает, прозу не пишет. Никогда не бросает."""
+
+    if not reply_to_bot:
+        return None
+    if not isinstance(delivered_report, str) or not delivered_report.strip():
+        return None
+    return DiagnosticResearch(
+        needed=True, target="self",
+        sources=tuple(STRUCTURAL_DIAGNOSTIC_SOURCES))
+
+
 @dataclass
 class FutureIntent:
     """Валидированное будущее намерение (ASAP 8 F6 §13.1).
@@ -2801,6 +2831,7 @@ __all__ = [
     "DiagnosticResearch", "DIAGNOSTIC_TARGETS", "DIAGNOSTIC_SOURCES",
     "normalize_diagnostic_research", "diagnostic_source_capabilities",
     "diagnostic_decision_fields", "preserved_diagnostic_research",
+    "structural_diagnostic_research", "STRUCTURAL_DIAGNOSTIC_SOURCES",
     "DIAGNOSTIC_REPORT_SECTION",
     "TurnTraceEntry", "record_turn_trace", "get_turn_trace",
     "last_turn_request", "reset_turn_trace",

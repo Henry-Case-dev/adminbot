@@ -1297,6 +1297,44 @@ def _structured_partial(stop_reason: str, items, messages,
     return "\n".join(lines)
 
 
+def structured_partial_from_result(result, messages, *, stop_reason: str = "",
+                                   finalize_error: str = "") -> str:
+    """Публичная тонкая обёртка :func:`_structured_partial` для живого пути.
+
+    S7 (ARCH_DECISION SMART-CORRECTIVE, reply владельца 16.11.2026): если
+    финальный Writer (L2) вернул пусто, а tool-фаза УЖЕ получила данные,
+    пользователю отдаётся детерминированный partial из фактических
+    результатов инструментов — без нового автора/прозы и без выдуманной
+    заглушки. Тексты выводов берутся из `evidence_sources` ТОЛЬКО при
+    точном совпадении числа записей с журналом `tool_results` (порядок
+    добавления в обоих списках — один и тот же шаг); иначе excerpt пуст, а
+    статусы/provenance/refs остаются честными. Пусто → нет данных: ""
+    (заглушку не публикуем). Никогда не бросает."""
+    try:
+        results = list(getattr(result, "tool_results", None) or ())
+        if not results:
+            return ""
+        outputs = list(getattr(result, "tool_outputs", None) or ())
+        sources = list(getattr(result, "evidence_sources", None) or ())
+        if not outputs and len(sources) == len(results):
+            outputs = [str(getattr(src, "content", "") or "")
+                       for src in sources]
+        items = _evidence_inventory(results, outputs)
+        if not items:
+            return ""
+        reason = str(stop_reason or "").strip()
+        if not reason or reason == "ok":
+            reason = str(getattr(result, "reason", "") or "").strip()
+        if not reason or reason == "ok":
+            reason = "empty"
+        return _structured_partial(reason, items, messages,
+                                   str(finalize_error or "empty"))
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("[tools] structured partial from result failed",
+                       exc_info=True)
+        return ""
+
+
 async def _finalize_from_evidence(llm, payload_messages, *, stop_reason,
                                   items, temperature, chat_id, module,
                                   correlation_id, fallback_payload_adapter,

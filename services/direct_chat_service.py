@@ -241,6 +241,7 @@ from services.tool_loop import (
     ToolLoopResult,
     _chain_timeout_seconds,
     chat_with_tools,
+    structured_partial_from_result,
 )
 # ── P0-HA SEGMENTS (архконтракт §0/§2): захват/парсинг выборки — reuse ──────
 # существующих механизмов волны 2 (второй reader и новый движок запрещены).
@@ -2089,12 +2090,18 @@ def _decision_message_class(text: str) -> str:
 def _decision_pre_action(*, message_class: str, context: DecisionContext,
                          toggles: DecisionToggles, target_message_id=None,
                          image_pre_gate_fired: bool = False,
-                         dig_pre_gate_fired: bool = False
+                         dig_pre_gate_fired: bool = False,
+                         l1_decides: bool = False
                          ) -> tuple[str, str, str | None, int | None]:
     """Фаза P (§3.3): (action, reason_code, reaction, target_message_id).
 
     Детерминированный приоритет: реальные задачи (explicit/question) всегда
-    перевешивают; без случайности; fail-safe → ``reply``."""
+    перевешивают; без случайности; fail-safe → ``reply``.
+
+    ``l1_decides`` — ход планирует L1: адресованный ответ на сообщение бота
+    не глушится детерминированным шорт-катом ``recent_reply`` до
+    планировщика (S7, ARCH_DECISION SMART-CORRECTIVE). При L1 OFF
+    (legacy-паритет) поведение прежнее."""
     try:
         # (3) пре-гейт (image/dig) уже отправил результат — не глушим.
         if image_pre_gate_fired or dig_pre_gate_fired:
@@ -2151,7 +2158,11 @@ def _decision_pre_action(*, message_class: str, context: DecisionContext,
                         target_message_id)
             return ACTION_REPLY, REASON_DEFAULT, None, target_message_id
         # (9) бот недавно ответил, продолжение не нужно (reply-ветка §45).
-        if context.bot_replied_recently and toggles.ignore_trivial:
+        # S7: адресованный ответ на сообщение бота — это продолжение
+        # разговора, а не фон; такой ход не глушится до планировщика —
+        # смысл (reply/react/silent) решает L1 по содержанию.
+        if (context.bot_replied_recently and toggles.ignore_trivial
+                and not (l1_decides and context.reply_to_bot)):
             return ACTION_SILENT, REASON_RECENT_REPLY, None, target_message_id
         # (10) иначе — ответ.
         return ACTION_REPLY, REASON_DEFAULT, None, target_message_id
@@ -5286,6 +5297,11 @@ class DirectChatService:
             # глушатся (§43).
             pre_action = ACTION_REPLY
             decision_on = decision_making_enabled()
+            # S7 (ARCH_DECISION SMART-CORRECTIVE): прямой запрос человека —
+            # класс сообщения + структурный вопрос контекста (без словарей
+            # фраз). Для такого хода молчание не является ответом.
+            _message_class = _decision_message_class(query)
+            _direct_request = _message_class in (MSG_EXPLICIT, MSG_QUESTION)
             # A9 (ADR-1026-22 D5/D6): DECISION_START — вход Фазы P (0 LLM).
             _p_started = time.monotonic()
             _trigger_id = getattr(message, "message_id", None)
@@ -5387,6 +5403,7 @@ class DirectChatService:
                 _dctx.trigger_type = _trigger_type
                 _dctx.force_reply_required = _force_required
                 _toggles = await self._decision_toggles(chat_id)
+                _direct_request = _direct_request or bool(_dctx.has_question)
                 if _force_required:
                     # ── Приоритет 1 (§19A/§21, T-4019): FORCE DIRECT —
                     # гарантированный ACTION_REPLY; шорт-каты ignore_trivial/
@@ -5407,12 +5424,15 @@ class DirectChatService:
                 else:
                     pre_action, pre_reason, pre_reaction, pre_target = \
                         _decision_pre_action(
-                            message_class=_decision_message_class(query),
+                            message_class=_message_class,
                             context=_dctx, toggles=_toggles,
                             target_message_id=getattr(message, "message_id",
                                                       None),
                             image_pre_gate_fired=image_pre_gate_fired,
-                            dig_pre_gate_fired=dig_fired)
+                            dig_pre_gate_fired=dig_fired,
+                            # S7: ход планирует L1 — адресованный reply-to-bot
+                            # не глушится recent_reply до планировщика.
+                            l1_decides=bool(direct_l1_on))
                     if pre_action == ACTION_REACT:
                         _composer.record_direct_metric(
                             "direct_autonomous_react_total")
@@ -5432,12 +5452,17 @@ class DirectChatService:
                         # (Decision Task) в L1-пути НЕ вооружается — решение
                         # принимает L1 Planner, allowed-набор остаётся
                         # продуктовым правилом для SILENT/REACT.
+                        # S7 (ARCH_DECISION): прямой запрос человека не
+                        # получает SILENT в allowed-набор — молчание не
+                        # является ответом на явную просьбу/вопрос.
                         _actions: list = ["REPLY"]
                         if _toggles.reactions:
                             _actions.append("REACT")
-                        if _toggles.ignore_trivial:
+                        if _toggles.ignore_trivial and not _direct_request:
                             _actions.append("SILENT")
-                        if pre_action not in _actions:
+                        if pre_action not in _actions and not (
+                                pre_action == ACTION_SILENT
+                                and _direct_request):
                             _actions.append(pre_action)
                         _decision_allowed_actions = tuple(_actions)
                     elif _llm_react.llm_decision_enabled(
@@ -5464,7 +5489,7 @@ class DirectChatService:
                     reason=pre_reason,
                     trigger_type=_trigger_type,
                     force_reply_required=_force_required,
-                    message_class=_decision_message_class(query),
+                    message_class=_message_class,
                     duration_ms=int((time.monotonic() - _p_started) * 1000))
                 if (pre_action == ACTION_SILENT and not decision_llm_pending
                         and not direct_l1_on):
@@ -5772,13 +5797,33 @@ class DirectChatService:
                     _preserved_diag = _l1.preserved_diagnostic_research(
                         l1_meta.get("previous_diagnostic_research"),
                         reply_to_bot=bool(_reply_bot))
+                    # S7 (§1, ARCH_DECISION SMART-CORRECTIVE): ход — ответ на
+                    # доставленный отчёт чекапа, план решения не задал →
+                    # структурный grant объявляет существующие read-only
+                    # инструменты/identity. Принятое моделью решение
+                    # (`preserved`) имеет приоритет.
+                    _structural_diag = l1_meta.get(
+                        "structural_diagnostic_research")
+                    _fallback_diag = _preserved_diag or _structural_diag
+                    # S7 (§4): для адресованного reply-to-bot пустой/битый
+                    # L1 не завершает ход молчанием — существующий
+                    # fallback-план отвечает текстом (причина честно
+                    # фиксируется ниже в мете/трассе).
+                    _fb_action = ("reply" if pre_action == ACTION_REPLY
+                                  else ("react" if pre_action == ACTION_REACT
+                                        else "silent"))
+                    if (_fb_action == "silent" and _reply_bot
+                            and (_dctx is None or _dctx.addressed)):
+                        _fb_action = "reply"
+                        l1_meta["fallback_explicit_request"] = "1"
+                        logger.info(
+                            "[direct] l1 outage — addressed reply-to-bot "
+                            "fallback to reply | chat=%s", chat_id)
                     l1_plan = _l1.fallback_plan(
-                        query, action=("reply" if pre_action == ACTION_REPLY
-                                       else ("react" if pre_action ==
-                                             ACTION_REACT else "silent")),
+                        query, action=_fb_action,
                         allowed_actions=_decision_allowed_actions,
                         capabilities_needed=_fb_caps,
-                        diagnostic_research=_preserved_diag)
+                        diagnostic_research=_fallback_diag)
                     l1_meta["diagnostic_research_preserved"] = (
                         "1" if _preserved_diag is not None else "0")
                     l1_meta["fallback"] = "deterministic"
@@ -5819,6 +5864,15 @@ class DirectChatService:
                     _l1_action = "reply"
                     l1_plan.action = "reply"
                     l1_meta["override"] = "decision_off"
+                if _direct_request and _l1_action == "silent":
+                    # S7 (§3, ARCH_DECISION SMART-CORRECTIVE): прямой запрос
+                    # человека не может закончиться молчанием — даже если
+                    # план пришёл из детерминированного fallback при
+                    # пустом/битом ответе L1. Демотируется в текстовый ответ;
+                    # причина видна в трассе (`explicit_request`).
+                    _l1_action = "reply"
+                    l1_plan.action = "reply"
+                    l1_meta["override"] = "explicit_request"
                 # §7: L1-решение этого хода — в трассу (план, не речь).
                 _ttrace.note_l1(
                     correlation_id, action=str(_l1_action or ""),
@@ -7011,15 +7065,31 @@ class DirectChatService:
                         _ev_egress.get("char_start"),
                         _ev_egress.get("char_end"))
             if not answer:
-                if coordinator is not None:
-                    _log_coordinator_outcome(
-                        chat_id=chat_id, action=ACTION_REACT,
-                        style=response_mode, chars=0)
-                logger.warning(
-                    "[direct] empty answer — silence | chat=%s user=%s",
-                    chat_id, target_name)
-                await react_moai(bot, chat_id, message.message_id)
-                return
+                # ── S7 (§5, ARCH_DECISION SMART-CORRECTIVE): пустой финал
+                # Writer'а при УЖЕ полученных данных инструментов — не 🗿, а
+                # детерминированный partial из фактических результатов
+                # (существующий `_structured_partial`, без нового автора и
+                # без выдуманной заглушки). Пустые evidence → прежний исход.
+                _partial_answer = ""
+                if getattr(raw, "evidence_sources", None):
+                    _partial_answer = structured_partial_from_result(
+                        raw, payload, stop_reason="", finalize_error="")
+                if _partial_answer.strip():
+                    answer = strip_reasoning_tags(_partial_answer)
+                    logger.warning(
+                        "[direct] empty answer — deterministic partial from "
+                        "evidence | chat=%s | chars=%d", chat_id,
+                        len(answer))
+                else:
+                    if coordinator is not None:
+                        _log_coordinator_outcome(
+                            chat_id=chat_id, action=ACTION_REACT,
+                            style=response_mode, chars=0)
+                    logger.warning(
+                        "[direct] empty answer — silence | chat=%s user=%s",
+                        chat_id, target_name)
+                    await react_moai(bot, chat_id, message.message_id)
+                    return
             # ── RLR-04 (R-05.1–R-05.4; §4 «duplicate_guard_retry по совпадению
             # текстов»): reroll по совпадению текстов СНЯТ. Два РАЗНЫХ
             # входящих события могут законно получить одинаковый авторский
@@ -7983,11 +8053,28 @@ class DirectChatService:
         # ── UR-A (§2.1): единственный исполнитель планирующей стадии хода.
         # Тип хода/слот/схема/repair/учёт usage — одна копия кода на оба
         # триггера; адаптер отдаёт собранный контекст и TurnRequest.
-        return await self._execute_turn(
+        plan, meta = await self._execute_turn(
             _turn_req, slot=slot, l1_messages=messages,
             l1_input_chars=input_chars,
             message_id=getattr(message, "message_id", None),
             meta=meta, started_monotonic=started)
+        # ── S7 (§1, ARCH_DECISION SMART-CORRECTIVE, reply владельца
+        # 16.11.2026): ход — ответ на ДОСТАВЛЕННЫЙ отчёт чекапа, а план не
+        # задал `diagnostic_research`. Структурный grant объявляет те же
+        # существующие read-only инструменты и каноническую identity своего
+        # repo; сам вызов инструмента по-прежнему выбирает модель. Явное
+        # решение модели (в т.ч. needed=false) не перезаписывается.
+        _structural_grant = _l1.structural_diagnostic_research(
+            _diagnostic_report, reply_to_bot=bool(reply_bot))
+        if _structural_grant is not None:
+            if plan is None:
+                # Fallback-план строит вызывающий — grant едет к нему в мете
+                # (приоритет у уже принятого решения модели).
+                meta["structural_diagnostic_research"] = _structural_grant
+            elif getattr(plan, "diagnostic_research", None) is None:
+                plan.diagnostic_research = _structural_grant
+                meta["diagnostic_research_structural"] = "1"
+        return plan, meta
 
     async def _attach_l1_plan_meta(self, correlation_id, plan, meta, *,
                                    chat_id: int | None = None,
