@@ -1,0 +1,34 @@
+{
+  "captured_at_commit": "368e300117d7acfd4d696b42b1510a97259f7bea",
+  "command": "python tools/release_manifest.py --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy input removed",
+  "manifest": {
+    "deployed_at": "2026-11-16T19:08:51.367174Z",
+    "deployed_sha": "368e300117d7acfd4d696b42b1510a97259f7bea",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "37f6c76f7820bce1574e5e9d1cb2d83aa663614c",
+    "previous_version": "2.58.209",
+    "release_branch": "release/mod-acl-m4a-2.58.210",
+    "schema": 1,
+    "version": "2.58.210"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "reconstruction of the documented 2.58.209 state (previous release / rollback target 37f6c76f, per owner instruction)",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "37f6c76f7820bce1574e5e9d1cb2d83aa663614c",
+      "version": "2.58.209",
+      "effect": "deploy",
+      "release_branch": "release/mod-acl-m21-2.58.209"
+    },
+    "removed_after_run": true
+  },
+  "note": "The manifest is produced at the content tip 368e3001 (bump commit; all M4A code and tests included). The five release evidence files are added by the following docs commit on the same branch and change no product code; the docs commit SHA cannot be quoted inside the files it adds. The deploy-time manifest on production will record the actually deployed commit itself."
+}

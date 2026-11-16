@@ -1,0 +1,24 @@
+{
+  "release": "2.58.210",
+  "target_rollback_commit": "37f6c76f7820bce1574e5e9d1cb2d83aa663614c",
+  "target_rollback_version": "2.58.209",
+  "target_rollback_state": "previous release / current base (owner instruction); production not contacted in this assembly",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout 37f6c76f (2.58.209) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz returns version 2.58.209 and the release manifest identity (deployed_sha 37f6c76f, dirty=false)"
+  ],
+  "notes": [
+    "M4A wave 1 is code/UI-only at the DB layer: no new tables, columns, indexes or data migrations; schema stays 47 with DDL 0.",
+    "The module catalog is built from the existing DTO (module_registry.registry_for_frontend) and existing chat parameter/gate storage; the release adds no storage and writes nothing new at deploy time.",
+    "After a code rollback, persisted chat parameter overrides and gate rows (including M2.1 per-chat decisions) remain in their existing tables; the 2.58.209 code continues to read them as before, while the M4A catalog/workspace UI is gone and the previous module UI is restored.",
+    "No settings are reset: the bump changes only version pins and the APP_VERSION changelog; PG hot values and user settings are not touched by checkout or restart.",
+    "The bump commit 368e3001 changes only version pins; once the checkout is at 37f6c76f it needs no separate rollback.",
+    "Rollback copies of 2.58.209 are the ones produced by the 2.58.209 deploy and are managed by the existing keep=2 deploy-backup pool.",
+    "deploy_v2.9.2.py is unchanged by this release."
+  ]
+}

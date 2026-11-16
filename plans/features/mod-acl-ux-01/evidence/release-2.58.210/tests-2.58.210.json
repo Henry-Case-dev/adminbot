@@ -1,0 +1,220 @@
+{
+  "feature": "mod-acl-ux-01 / M4A wave 1 — каталог модулей из DTO, shell и CHAT tri-state",
+  "release": "2.58.210",
+  "slice": "release assembly: approved M4A wave 1 candidate 9bfc67e5 + bump 2.58.209 -> 2.58.210",
+  "assembled_at": "2026-11-17",
+  "branch": "release/mod-acl-m4a-2.58.210",
+  "base_commit": "37f6c76f7820bce1574e5e9d1cb2d83aa663614c",
+  "base_version": "2.58.209",
+  "base_state": "previous release / rollback target (owner instruction); production not contacted in this assembly",
+  "review_verdict": "Approved for 2.58.210 release preparation",
+  "candidate_tip": "9bfc67e5410bda7e2da342f3d1c675d843d98f69",
+  "candidate_commits": [
+    "44d3b6f653084a37d70357433a43dad1ca0f6c1a",
+    "bc3ca3de7f283953c5e4aed7d98339eb3bf12faf",
+    "a6348f8f86ceed3f67de668466436be3ec409abd",
+    "7e60e09d7dfcd9edccf83331002764ac0a377c19",
+    "9bfc67e5410bda7e2da342f3d1c675d843d98f69"
+  ],
+  "bump_commit": "368e300117d7acfd4d696b42b1510a97259f7bea",
+  "content_tip": "368e300117d7acfd4d696b42b1510a97259f7bea",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "cwd": "release worktree mod-acl-m4a-2-58-210-974a5f8ea6d3-cb5948dd",
+    "network": "none used by tests; local in-memory SQLite only"
+  },
+  "diff_vs_base": {
+    "files": 68,
+    "insertions": 6388,
+    "deletions": 1849,
+    "candidate_files": 40,
+    "candidate_insertions": 6357,
+    "candidate_deletions": 1818,
+    "pin_files": 30,
+    "pin_lines": 31,
+    "overlap_files": [
+      "config/settings.py",
+      "plans/docs/param-registry-round1025.meta.md"
+    ],
+    "product_files_one_line": [
+      "services/module_registry.py",
+      "web/api/routes.py",
+      "web/app.js",
+      "web/index.html",
+      "web/static/app.css",
+      "config/settings.py (bump/changelog)"
+    ],
+    "no_db_migration_composer_prompt_model_files": true,
+    "deploy_v2_9_2_changed": false
+  },
+  "invariants": {
+    "app_version": "2.58.210",
+    "settings_fields": 472,
+    "registry": 645,
+    "groups": 121,
+    "tab_by_group": 119,
+    "tab_rules": 22,
+    "param_registry_check": "CHECK OK: реестр 645 == REGISTRY",
+    "migration_steps": 47,
+    "migration_max_version": 47,
+    "ddl": 0,
+    "new_flags": 0,
+    "new_migrations": 0,
+    "new_prompts": 0,
+    "new_models": 0,
+    "new_composer": 0,
+    "new_endpoints": 0,
+    "deploy_script_changes": 0,
+    "pg_settings_touched": false
+  },
+  "batches": [
+    {
+      "id": "required-pytest",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q",
+      "result": {
+        "passed": 386,
+        "failed": 0
+      },
+      "duration_s": 30.15,
+      "note": "M4A + M2/M2.1 + f8 + mca23 + webapp JS unit"
+    },
+    {
+      "id": "bump-pin-pytest-extra",
+      "command": "python -m pytest 23 py files re-pinned to 2.58.210 (decision/image/mca17c/scope/summary*/telegram/tool_coordinator/unified_image/webapp*) -q",
+      "result": {
+        "passed": 826,
+        "failed": 5
+      },
+      "duration_s": 79.92,
+      "note": "extra diligence over the bumped pin files; all 5 failures are outside the required acceptance set, see known_failures"
+    },
+    {
+      "id": "js-review-catalog",
+      "command": "node tests/js/mod_acl_ux_m4_review_fixes_test.js; node tests/js/mod_acl_ux_m4_catalog_test.js",
+      "result": {
+        "review": 75,
+        "catalog": 207,
+        "failed": 0
+      }
+    },
+    {
+      "id": "js-bumped-pins",
+      "command": "node tests/js/round1025_hotfix{7,8,9,10}_*_test.js",
+      "result": {
+        "passed": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "js-full-catalog",
+      "command": "node tests/js/*.js (except module_fixture.js)",
+      "result": {
+        "failed": 4
+      },
+      "known_failures": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "note": "same 4 failures on base 37f6c76f; no new failures"
+    },
+    {
+      "id": "playwright-5-viewports",
+      "command": "MOD_ACL_M4A_SHOTS=... python tools/ui_mod_acl_m4_catalog_e2e.py",
+      "result": {
+        "rc": 0,
+        "failures": 0,
+        "flows": 27
+      },
+      "measurements": {
+        "grid_columns_1440_1280_768_390_320": [
+          4,
+          3,
+          2,
+          1,
+          1
+        ],
+        "card_height_px": 162.06,
+        "workspace_390": {
+          "client": 338,
+          "scroll": 338,
+          "labels_cw": [
+            118,
+            106,
+            111
+          ],
+          "height": 44,
+          "overlap_x": 0
+        },
+        "workspace_320": {
+          "client": 268,
+          "scroll": 268,
+          "height": 44,
+          "overlap_x": 0
+        },
+        "workspace_1440_1280": {
+          "client": 235,
+          "scroll": 235
+        },
+        "conflict_390_320": {
+          "row_h": 44,
+          "btn_h": 44,
+          "visible_hit": true,
+          "posts": 1
+        },
+        "conflict_opens_workspace_diff": true
+      },
+      "report": "plans/features/mod-acl-ux-01/evidence/m4a/shots/m4a-e2e-report.json"
+    },
+    {
+      "id": "syntax-diff",
+      "command": "node --check web/app.js; git diff --check 9bfc67e5..368e3001 (bump-only)",
+      "result": {
+        "node_check_rc": 0,
+        "bump_diff_check_rc": 0
+      },
+      "note": "full range 37f6c76f..368e3001 reports 2 pre-existing whitespace notes in the approved candidate (tests/js/mod_acl_ux_m4_catalog_test.js:385 blank line at EOF; web/app.js:602 trailing whitespace in a comment); not introduced by the bump"
+    }
+  ],
+  "known_failures": [
+    {
+      "node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "pre_existing": true,
+      "note": "stale epic-scope guards (tool canon 18 vs 17 and forbidden-path allowlists vs old baselines); reproduced on the 2.58.209 base and recorded in release-2.58.209/tests-2.58.209.json; unrelated to M4A/bump"
+    },
+    {
+      "node_ids": [
+        "tests/test_webapp_hotfix10_round1025.py::TestMainSurface::test_card_limit_kept"
+      ],
+      "pre_existing": false,
+      "note": "stale assertion of the pre-M4A .module-list max-width:1100px cap; M4A intentionally removed the cap (approved candidate); test was not adapted in this bump round -> separate test-debt decision, not caused by the version bump"
+    }
+  ],
+  "requirement_ids": [
+    "MAC-S2-49",
+    "MAC-S5-CAT-01",
+    "MAC-S5-CAT-02",
+    "MAC-S5-292",
+    "MAC-S9-BLD-01",
+    "MAC-S5-196",
+    "MAC-S5-197",
+    "MAC-S5-198",
+    "MAC-S5-199",
+    "MAC-S2-82",
+    "MAC-S2-83",
+    "MAC-S2-84",
+    "MAC-S5-OVW-01",
+    "MAC-S5-SAVE-01",
+    "MAC-AC-08"
+  ],
+  "limitations": "limitations.md"
+}
