@@ -78,6 +78,16 @@ function mkCtx(overrides) {
     toast(m, k) { toasts.push([m, k]); },
     syncBackButton() {},
     setTab(id) { this.activeTab = id; },
+    // MOD-ACL-UX-01 M4A W2a: реальные методы памяти вкладок — блок (b4)
+    // проверяет, что валидный deep link пишет `scope|module` в localStorage,
+    // а неприменимый — не пишет (тот же путь, что в app.js).
+    moduleTabMemory: {},
+    _wsTabMemoryRead: methods._wsTabMemoryRead,
+    _wsTabMemorySave: methods._wsTabMemorySave,
+    _wsTabMemoryKey: methods._wsTabMemoryKey,
+    _wsTabMemoryPrune: methods._wsTabMemoryPrune,
+    _wsTabMemorySet: methods._wsTabMemorySet,
+    _wsTabMemoryGet: methods._wsTabMemoryGet,
     _toasts: toasts,
   }, overrides || {});
   return ctx;
@@ -233,6 +243,68 @@ function mkCoverageCtx(m) {
     assert.strictEqual(ctx.route, '#/ai/prompts',
       'b3: модуль без промптов → #/ai/prompts (не пустая дверь)');
     assert.strictEqual(ctx.activeTab, 'prompts', 'b3: activeTab prompts');
+  }
+
+  // ── (b4) W2a test-gap: deep link ↔ память вкладок ──────────────────────
+  // Ревью Low: прямой assert на точку записи К-4/2. Валидный
+  // `#/modules/search/limits` пишет `scope|mod_search = limits` в
+  // `localStorage['adminbot.module_tab']`; неприменимый/неизвестный deep link
+  // НЕ пишет ничего (route переписывается на bare/каталог).
+  {
+    const MEM_KEY = 'adminbot.module_tab';
+    const memAfter = function () {
+      const raw = global.localStorage.getItem(MEM_KEY);
+      return raw ? JSON.parse(raw) : null;
+    };
+
+    // 1) Валидный таб чат-скоупа → ровно один ключ `chat:<id>|mod_search`.
+    global.localStorage.removeItem(MEM_KEY);
+    const okCtx = mkCtx({ activeChatId: -100 });
+    methods.applyRoute.call(okCtx, '#/modules/search/limits');
+    assert.strictEqual(okCtx.route, '#/modules/search/limits',
+      'b4: валидный deep link не переписывается');
+    assert.strictEqual(
+      computed.workspace.call(okCtx).tab, 'limits',
+      'b4: валидный deep link открывает свой таб');
+    const okMem = memAfter();
+    assert.ok(okMem, 'b4: память вкладок создана');
+    assert.strictEqual(okMem['chat:-100|mod_search'], 'limits',
+      'b4: ключ scope|mod_search = limits');
+    assert.deepStrictEqual(Object.keys(okMem), ['chat:-100|mod_search'],
+      'b4: других ключей нет');
+
+    // 2) Неприменимый таб Фактчека (`prep` не объявлен) → bare, памяти нет.
+    global.localStorage.removeItem(MEM_KEY);
+    const badTab = mkCtx({ activeChatId: -100 });
+    methods.applyRoute.call(badTab, '#/modules/search/prep');
+    assert.strictEqual(badTab.route, '#/modules/search',
+      'b4: неприменимый таб → bare-адрес');
+    assert.strictEqual(global.localStorage.getItem(MEM_KEY), null,
+      'b4: неприменимый таб не пишет память');
+
+    // 3) Статически неприменимая вкладка (`testing` без подключений).
+    const noTesting = mkCtx({ activeChatId: -100 });
+    methods.applyRoute.call(noTesting, '#/modules/checkup/testing');
+    assert.strictEqual(noTesting.route, '#/modules/checkup',
+      'b4: пустая вкладка → модуль');
+    assert.strictEqual(global.localStorage.getItem(MEM_KEY), null,
+      'b4: пустая вкладка не пишет память');
+
+    // 4) Неизвестный модуль → каталог, памяти нет.
+    const ghost = mkCtx({ activeChatId: -100 });
+    methods.applyRoute.call(ghost, '#/modules/ghost/limits');
+    assert.strictEqual(ghost.route, '#/modules',
+      'b4: неизвестный модуль → каталог');
+    assert.strictEqual(global.localStorage.getItem(MEM_KEY), null,
+      'b4: неизвестный модуль не пишет память');
+
+    // 5) Global-scope пишется отдельным ключом (без чата).
+    const globalCtx = mkCtx({ activeChatId: null });
+    methods.applyRoute.call(globalCtx, '#/modules/web/settings');
+    const globalMem = memAfter();
+    assert.strictEqual(globalMem['global|mod_web'], 'settings',
+      'b4: global-scope ключ scope|module');
+    global.localStorage.removeItem(MEM_KEY);
   }
 
   // ── (d) Неприменимая вкладка → bare-адрес → дефолт (W2a: settings) ────
