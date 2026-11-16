@@ -1,0 +1,11 @@
+{
+  "deployed_at": "2026-11-16T08:54:07.378673Z",
+  "deployed_sha": "ebd0160b9a8252b7fd91ec6c7b534cb6f4fecd4d",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": null,
+  "previous_version": null,
+  "release_branch": "release/p0-prod-disk-2.58.206",
+  "schema": 1,
+  "version": "2.58.206"
+}

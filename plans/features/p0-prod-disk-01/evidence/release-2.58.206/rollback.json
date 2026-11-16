@@ -1,0 +1,25 @@
+{
+  "release": "2.58.206",
+  "release_branch": "release/p0-prod-disk-2.58.206",
+  "content_tip": "ebd0160b9a8252b7fd91ec6c7b534cb6f4fecd4d",
+  "rollback_target": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+  "rollback_version": "2.58.205",
+  "rollback_branch": "release/vmq-slice-d-2.58.205",
+  "schema": 47,
+  "ddl": 0,
+  "migrations": 0,
+  "data_changes": "none",
+  "settings_defaults_changed": 0,
+  "prompts_changed": 0,
+  "procedure": [
+    "git fetch origin",
+    "git checkout bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1 (deployment checkout only; no force-reset of others' work)",
+    "systemctl restart admin_bot",
+    "verify /healthz version=2.58.205 and schema 47"
+  ],
+  "notes": [
+    "Rollback restores code only; deploy-copy files already deleted by the new retention policy are not restored.",
+    "No production deployment or retention deletion happened during this assembly task.",
+    "The old M2.1 release branch release/mod-acl-m21-2.58.206 is not part of this train and is not a rollback target."
+  ]
+}

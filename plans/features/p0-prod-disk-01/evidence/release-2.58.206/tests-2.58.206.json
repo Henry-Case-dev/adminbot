@@ -1,0 +1,159 @@
+{
+  "release": "2.58.206",
+  "requirement_ids": ["P0-PROD-DISK-01"],
+  "candidate": {
+    "release_branch": "release/p0-prod-disk-2.58.206",
+    "base": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "base_version": "2.58.205",
+    "retention_commit": "122b47de4c9e816fabf37482cba3d5619759377b",
+    "retention_approved": "Reviewer Approved (6 files, sidecar/keep=2/CLI/daily/fail-closed)",
+    "ui_commit_source": "0cbc545951898cfeb7eee6f9cb0c73a513237369",
+    "ui_commit_cherry_picked": "da44543d289747ee42fca73a965c9f293e856c7b",
+    "ui_approved": "Reviewer Approved (Playwright + Browser Use; thresholds 85/90)",
+    "bump_commit": "ebd0160b9a8252b7fd91ec6c7b534cb6f4fecd4d",
+    "content_tip": "ebd0160b9a8252b7fd91ec6c7b534cb6f4fecd4d",
+    "history": [
+      "bca18c1e (2.58.205, deployed, schema 47)",
+      "122b47de = merge --ff-only fix/p0-retention-port",
+      "da44543d = cherry-pick 0cbc5459 (clean, no conflicts)",
+      "ebd0160b = bump 2.58.205 -> 2.58.206 (30 files / 31 lines)"
+    ],
+    "cumulative_diff": {"files": 52, "insertions": 1593, "deletions": 68},
+    "excluded": {
+      "release/mod-acl-m21-2.58.206": "historical M2.1 train, not used; M2.1 becomes 2.58.207"
+    }
+  },
+  "environment": {
+    "date": "2026-11-16",
+    "timezone": "+12:00",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "playwright": "1.65.1",
+    "pytest_note": "Runs used -s: without it, subprocess-based node tests fail with Windows DuplicateHandle (WinError 50/6) in this shell wrapper; with -s the same tests pass. Not a product defect."
+  },
+  "tests": [
+    {
+      "id": "retention-focused",
+      "files": [
+        "tests/test_disk_retention_deploy_backups.py",
+        "tests/test_disk_retention_round1024.py",
+        "tests/test_disk_retention_server_t4506.py",
+        "tests/test_memory_backup.py"
+      ],
+      "result": {"passed": 112, "failed": 0, "errors": 0}
+    },
+    {
+      "id": "status-ui-pytest",
+      "files": [
+        "tests/test_webapp_js_unit.py",
+        "tests/test_webapp_evol_w11_controls.py",
+        "tests/test_webapp_status_control.py",
+        "tests/test_status_service.py",
+        "tests/test_webapp_f11_round1025.py",
+        "tests/test_webapp_evol_w10_sections.py",
+        "tests/test_status_section_ui_merge_round1019.py",
+        "tests/test_evol032_health_glass.py",
+        "tests/test_webapp_design_tokens_round1025.py",
+        "tests/test_webapp_hotfix6_round1025.py",
+        "tests/test_webapp_hotfix7_round1025.py",
+        "tests/test_webapp_hotfix8_round1025.py",
+        "tests/test_webapp_hotfix9_round1025.py",
+        "tests/test_webapp_hotfix10_round1025.py",
+        "tests/test_webapp_evol_w12_internals.py"
+      ],
+      "result": {"passed": 411, "failed": 0, "errors": 0}
+    },
+    {
+      "id": "ui-node",
+      "purpose": "P0 status UI + affected neighborhood (Status page, controls, methods dictionary, mount)",
+      "scripts": [
+        "tests/js/p0_disk_status_thresholds_test.js",
+        "tests/js/evol_w11_controls_test.js",
+        "tests/js/round1025_f11_status_grid_test.js",
+        "tests/js/asap_ui02_status_ribbons_test.js",
+        "tests/js/evol032_health_glass_test.js",
+        "tests/js/app_methods_dup_keys_guard_test.js",
+        "tests/js/vue_mount_test.js"
+      ],
+      "result": {"ok": 7, "failed": 0}
+    },
+    {
+      "id": "ui-playwright",
+      "harness": "plans/features/p0-prod-disk-01/evidence/ui/capture_p0_disk_status_ui.py (copy run at content tip)",
+      "scenarios": ["desktop/92", "desktop/86", "desktop/50", "desktop/unknown", "mobile/92", "mobile/86", "mobile/50", "mobile/unknown"],
+      "result": {"checks": 8, "failures": 0, "console_errors": 0},
+      "evidence": "ui-playwright-2.58.206.json",
+      "limits": "route-stub /api/* and mock Telegram SDK; not live TMA/production"
+    },
+    {
+      "id": "pin-guard",
+      "purpose": "version-pin wave (24 py files of the standard bump)",
+      "file_count": 24,
+      "result": {"passed": 856, "failed": 4},
+      "pre_existing_failures": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "base_check": {
+        "worktree": "detached bca18c1e (temporary, removed after run)",
+        "result": {"passed": 0, "failed": 4},
+        "assertions": ["assert not True", "assert 18 == 17", "canon list mismatch", "assert not True"],
+        "conclusion": "identical failures on base bca18c1e; pre-existing, not caused by candidate, not fixed here"
+      }
+    },
+    {
+      "id": "js-pins",
+      "purpose": "4 JS harnesses with escaped APP_VERSION regex 2\\.58\\.206",
+      "files": [
+        "tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js",
+        "tests/js/round1025_hotfix8_shell_aurora_test.js",
+        "tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js",
+        "tests/js/round1025_hotfix10_glass_geometry_bg_test.js"
+      ],
+      "result": {"ok": 4, "failed": 0}
+    },
+    {
+      "id": "broad",
+      "selection": "-k \"disk or retention or backup or status or release_manifest or deploy_identity\"",
+      "result": {"collected": 778, "passed": 778, "failed": 0, "errors": 0},
+      "note": "Status/retention/backup/release-manifest/deploy-identity affected neighborhood; no external LLM/network scenarios."
+    }
+  ],
+  "static_checks": {
+    "app_version": "2.58.206",
+    "bump": {"changed_files": 30, "changed_lines": 31},
+    "git_diff_check": {"exit_code": 0},
+    "py_compile": {"exit_code": 0, "files": ["services/disk_retention.py", "services/memory_backup.py", "config/settings.py"]},
+    "ddl": {"ddl_in_services_config_diff": 0, "tokens_checked": ["CREATE TABLE", "ALTER TABLE", "DROP TABLE", "CREATE INDEX", "DROP INDEX", "PRAGMA user_version", "executescript"]},
+    "schema": {"migration_steps_base": 47, "migration_steps_head": 47, "target_user_version_constant": 47, "observed_user_version_fresh_db": 47, "table_count": 101},
+    "catalog": {"REGISTRY": 645, "GROUPS": 121, "TAB_BY_GROUP": 119, "TAB_RULES": 22, "settings_fields": 472},
+    "no_new": ["flags", "hot_config", "composer", "migrations", "prompts", "models", "agents", "schedulers"],
+    "deploy_harness_untouched": "deploy_v2.9.2.py"
+  },
+  "manifest_dry_run": {
+    "version": "2.58.206",
+    "deployed_sha": "ebd0160b9a8252b7fd91ec6c7b534cb6f4fecd4d",
+    "release_branch": "release/p0-prod-disk-2.58.206",
+    "dirty_tracked": false,
+    "schema": 1,
+    "file": "manifest-dry-run.json"
+  },
+  "rollback": {
+    "target": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+    "version": "2.58.205",
+    "schema": 47,
+    "ddl": 0,
+    "data_changes": "none (no migrations, no settings defaults, no prompt/factory changes)",
+    "deletion_caveat": "retention deletions are irreversible; none were executed on production in this task"
+  },
+  "not_verified": [
+    "No deployment performed; production effective-state and /healthz not checked.",
+    "Playwright UI is a local harness with stubbed /api and mock Telegram SDK, not live TMA.",
+    "4 pin-guard failures are pre-existing and untouched.",
+    "No external LLM/network scenarios in the broad selection."
+  ],
+  "verdict": "REVIEW (assembly complete, not VERIFIED)"
+}
