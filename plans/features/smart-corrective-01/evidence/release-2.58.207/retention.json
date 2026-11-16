@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-b4585c29",
+      "owner": "Builder (SMART-CORRECTIVE-01 release train 2.58.207) -> Reviewer/DevOps",
+      "reason": "Clean worktree of branch release/smart-corrective-2.58.207 (base 6a878fec/2.58.206, SMART deltas + bump 1519ec04, evidence 336c2929 in plans/features/smart-corrective-01/evidence/release-2.58.207); it is the only checked-out copy of this train and must not be retired before the delta review and the 2.58.207 deployment or rejection.",
+      "evidence": "plans/features/smart-corrective-01/evidence/release-2.58.207/assembly.md; origin/release/smart-corrective-2.58.207",
+      "next_event": "After the Reviewer delta verdict and the 2.58.207 deployment (or rejection) is recorded, the owning role runs unit-close/unit-check on smart-release-2.58.207 and retires the worktree."
+    }
+  ]
+}

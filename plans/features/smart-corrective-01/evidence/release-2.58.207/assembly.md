@@ -199,7 +199,8 @@ Transport-slice готовился как кандидат `2.58.206` на `bca1
 ## 12. Housekeeping
 
 - Worktree и unit зарегистрированы; base-check worktree `6a878fec` создан
-  временно, проверен чистым и удалён без `--force`.
+  временно, проверен чистым и удалён без `--force`. Ретеншн worktree
+  зафиксирован в `retention.json` для Reviewer/DevOps (unit-check).
 - Прогонные логи и одноразовые скрипты — в tool-owned run
   `...\runs\c742e4de9e92c489\smart-corrective-01-0097aecc4a7a\temp-2af220cd55`,
   закрывается после сдачи evidence.
