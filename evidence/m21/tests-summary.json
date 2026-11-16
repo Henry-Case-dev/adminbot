@@ -10,8 +10,8 @@
   "candidate_base": "bca18c1e",
   "command": "pytest 24 focused files (exact list in implementation.md)",
   "result": "green",
-  "tests": 464,
-  "passed": 464,
+  "tests": 465,
+  "passed": 465,
   "failed_or_errors": 0,
   "skipped": 0,
   "test_files": [
@@ -78,7 +78,7 @@
   ],
   "red_on_base": {
     "command": "pytest tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py on bca18c1e with only the new tests copied",
-    "failed": 28,
+    "failed": 31,
     "passed": 5,
     "artifact": "evidence/m21/pytest-red-base.txt"
   },
@@ -108,5 +108,5 @@
       "tail": "world = <tests.test_mod_acl_ux_01_m21_gates.world.<locals>.World object at 0x0000023CECEAA2D0>\n\n    @pytest.mark.asyncio\n    async def test_nostalgia_memory_master_beats_legacy_flags(world):\n        \"\"\"flags.nostalgia_enabled=True не перекрывает master=False.\"\"\"\n        world.globals = {\"flags.nostalgia_enabled\": True,\n                         \"memory.nostalgia_enabled\": False}\n        _set_chat(world, {\"overrides\": {}, \"gates\": {}})\n        state = await feature_gates.gate_state(CHAT, \"nostalgia\")\n        assert state is not None\n>       assert state.global_value is False\nE       AssertionError: assert True is False\nE        +  where True = CapabilityState(capability='nostalgia', key='nostalgia', domain='gate', chat_id=-100, chat_state='inherit', desired=Tr...None, reason_code=None, pending_restart=False, version=None, can_read=None, can_edit=None, consent=None, conflict=None).global_value\n\ntests\\test_mod_acl_ux_01_m21_gates.py:84: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_mod_acl_ux_01_m21_gates.py::test_nostalgia_memory_master_beats_legacy_flags\n1 failed in 3.59s"
     }
   ],
-  "candidate_code_commit": "be8e8ecfcf2bca89d013f5ca99f1c5cd5091b7e6"
+  "candidate_code_commit": "def842754e00be78c4fdcbc4a13501e06ca1c5ac"
 }

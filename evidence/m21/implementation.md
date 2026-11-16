@@ -4,8 +4,8 @@
 заявляется, деплой не выполнялся.
 
 **База:** `bca18c1e` (2.58.205, schema 47). **Ветка:**
-`acl/m2.1-perchat-adapters`. **Code commit:** `be8e8ecf` (25 files,
-+1078/−69; этот файл — evidence-коммит поверх него). **Требования среза:**
+`acl/m2.1-perchat-adapters`. **Code commit:** `def84275` (25 files,
++1115/−69; evidence-коммит поверх него). **Требования среза:**
 `MAC-AC-04`, `MAC-S2-TT-5`, `MAC-S10-01`, `MAC-S15-12`,
 `MAC-S2-SHARED-01`; consumer-proof для `MAC-S0-01`, `MAC-S2-TT-4`,
 `MAC-S2-91`, `MAC-S2-116`, `MAC-AC-02`.
@@ -61,14 +61,14 @@ product (initiative, character, random), а не default пользовател�
 
 - `handlers/`: `direct_chat.py` (+62/−13), `factcheck.py` (+7/−2),
   `search.py` (+7/−2), `web.py` (+7/−2), `voice_transcription.py` (+10/−3),
-  `youtube.py` (+7/−2), `checkup.py` (+7/−2), `video_download.py` (+5/−3).
+  `youtube.py` (+7/−2), `checkup.py` (+7/−2), `video_download.py` (+15/−3).
 - `services/`: `feature_gates.py` (+57/−6), `mca_gates.py` (+56),
   `initiative_observer.py` (+15/−1), `direct_chat_service.py` (+17/−8),
   `media_download.py` (+17), `tool_router.py` (+12/−3),
   `bot_persona.py` (+4/−2), `mca_self_model.py` (+2/−2),
   `mca_exploration.py` (+1/−1).
 - `web/api/stories.py` (+10/−8).
-- Новые тесты: `tests/test_mod_acl_ux_01_m21_adapters.py` (486 строк),
+- Новые тесты: `tests/test_mod_acl_ux_01_m21_adapters.py` (513 строк),
   `tests/test_mod_acl_ux_01_m21_gates.py` (269 строк).
 - Обновлены 5 существующих структурных тестов, которые закрепляли старый
   глобальный `hot.get`-паттерн: `tests/test_asap8_f5_module_truth.py`,
@@ -91,10 +91,10 @@ read/usage-ветки характера с `chat_id`; `services/mca_exploration
 ## 4. Проверки
 
 - **RED на базе `bca18c1e`:** только новые тесты скопированы в чистый
-  checkout базы → **28 failed / 5 passed** (`pytest-red-base.txt`).
+  checkout базы → **31 failed / 5 passed** (`pytest-red-base.txt`).
 - **GREEN на кандидате:** 24 focused-файла, включая оба новых,
   M2/ACL, handler-тесты, stories/character/random/initiative, структурные
-  тесты → **464 passed, 0 failed** (`pytest-green.txt`,
+  тесты → **465 passed, 0 failed** (`pytest-green.txt`,
   `pytest-green.xml`, `tests-summary.json`).
 - **Мутации:** 3/3 killed (`mutations.txt`, `mutations.json`):
   снятие initiative master-AND, возврат глобального `hot.get` в search,
