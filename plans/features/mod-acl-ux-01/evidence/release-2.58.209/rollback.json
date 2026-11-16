@@ -1,0 +1,24 @@
+{
+  "release": "2.58.209",
+  "target_rollback_commit": "a32624033f04820792bcb44bc701c2d252a2bd8b",
+  "target_rollback_version": "2.58.208",
+  "target_rollback_state": "deployed (health 200, schema 47)",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout a3262403 (2.58.208) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz returns version 2.58.208 and the release manifest identity (deployed_sha a3262403, dirty=false)"
+  ],
+  "notes": [
+    "M2.1 is code-only at the DB layer: no new tables, columns, indexes or data migrations; schema stays 47 with DDL 0.",
+    "The per-chat decisions use existing chat parameter overrides and existing resolve_capability/resolve_param_capability storage; the candidate adds no new storage and writes nothing new at deploy time.",
+    "After a code rollback, persisted chat overrides remain in their existing tables (no destructive downgrade); the 2.58.208 code simply stops consulting the new per-chat paths for these consumers and returns to the previous product master-AND behaviour.",
+    "Initiative entry-OFF events (initiative_publication_cancelled, stage=capability:entry) stop being emitted after rollback; this is a behaviour change only, no schema or data cleanup is required.",
+    "The bump commit e45335c2 changes only version pins; once the checkout is at a3262403 it needs no separate rollback.",
+    "PG hot values models.llm_timeout=180 and models.llm_total_budget=360 were configured by 2.58.207 and remain in place on a code-only rollback; 2.58.209 does not change them, and returning to 30/60 would require an explicit setting change, not a checkout.",
+    "Backup/rollback copies of 2.58.208 are the ones produced by the 2.58.208 deploy (pre_deploy_258208_20261116T140510Z.db) and are managed by the existing keep=2 deploy-backup pool."
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "captured_at_commit": "e45335c2e3508c598b863d7d616dba6c1a374344",
+  "command": "python tools/release_manifest.py --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean (git status --porcelain empty) before the run and after removing the reconstructed .deploy input",
+  "manifest": {
+    "deployed_at": "2026-11-16T14:33:23.530955Z",
+    "deployed_sha": "e45335c2e3508c598b863d7d616dba6c1a374344",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "a32624033f04820792bcb44bc701c2d252a2bd8b",
+    "previous_version": "2.58.208",
+    "release_branch": "release/mod-acl-m21-2.58.209",
+    "schema": 1,
+    "version": "2.58.209"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "reconstruction of the documented deployed 2.58.208 state; values from plans/features/vmq-onto-01/evidence/release-2.58.208/deploy.md and the deployed checkout a3262403",
+    "production_file_read": false,
+    "content": {
+      "deployed_sha": "a32624033f04820792bcb44bc701c2d252a2bd8b",
+      "version": "2.58.208",
+      "deployed_at": "2026-11-17T14:09:22Z",
+      "previous_sha": "8e68e48b8b13022e1361903701d3f1508ae2a911",
+      "previous_version": "2.58.207",
+      "release_branch": "release/vmq-recent-window-2.58.208"
+    },
+    "removed_after_run": true
+  },
+  "note": "The manifest is produced at the content tip e45335c2 (bump commit; all M2.1 code and tests included). The final branch tip differs from e45335c2 only by the evidence files in plans/features/mod-acl-ux-01/evidence/release-2.58.209/ and the matching SHA quoted in assembly.md; a file cannot contain the SHA of the commit that adds it. The deploy-time manifest on the production checkout will record the actually deployed commit itself."
+}

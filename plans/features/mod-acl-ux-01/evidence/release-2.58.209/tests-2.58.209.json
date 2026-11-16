@@ -1,0 +1,247 @@
+{
+  "feature": "mod-acl-ux-01 / M2.1 per-chat adapters + terminal-outcome correction",
+  "release": "2.58.209",
+  "slice": "per-chat decision for 12 module consumers; initiative entry gate; disabled -> single terminal outcome",
+  "assembled_at": "2026-11-17",
+  "branch": "release/mod-acl-m21-2.58.209",
+  "base_commit": "a32624033f04820792bcb44bc701c2d252a2bd8b",
+  "base_version": "2.58.208",
+  "base_state": "deployed, health 200, schema 47",
+  "source_lineage": "bca18c1e",
+  "approved_commits": [
+    "be8e8ecf",
+    "def84275",
+    "b278a547",
+    "9b78b6ab",
+    "1a417917",
+    "bd92838d",
+    "aa130334"
+  ],
+  "cherry_picked": {
+    "be8e8ecf": "0a47f16a",
+    "def84275": "eb556b51",
+    "b278a547": "1e068dcc",
+    "9b78b6ab": "991caf12",
+    "1a417917": "64cd6f5f",
+    "bd92838d": "79a03b3a",
+    "aa130334": "68c82c80"
+  },
+  "not_moved": [
+    "0585f238 docs evidence",
+    "299ac2b7 docs axis note",
+    "other M2.1 docs/evidence commits",
+    "afcaf95f chore(release): 2.58.206 bump",
+    "branch release/mod-acl-m21-2.58.206",
+    "evidence 2.58.206",
+    "evidence/m21/pytest-green.{txt,xml}"
+  ],
+  "bump_commit": "e45335c2e3508c598b863d7d616dba6c1a374344",
+  "content_tip": "e45335c2e3508c598b863d7d616dba6c1a374344",
+  "environment": {
+    "python": "3.12 (C:/Code/Python/adminbot/.venv)",
+    "pytest": "9.x",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "cwd": "release worktree mod-acl-m21-2-58-209-a85c7e98549b-50581165",
+    "network": "none used by tests; local in-memory SQLite only"
+  },
+  "diff_vs_base": {
+    "files": 69,
+    "insertions": 2271,
+    "deletions": 296,
+    "composition": "39 product/test files + 30 version-pin files",
+    "product_test_files": 39,
+    "product_test_insertions": 2240,
+    "product_test_deletions": 265,
+    "pin_files": 30,
+    "pin_lines": 31,
+    "evidence_files_at_tip": 5,
+    "diff_at_evidence_tip": {
+      "files": 74,
+      "note": "the content-tip numbers above are pinned to e45335c2; the 5 evidence files are added by the following docs commit and do not change product code"
+    }
+  },
+  "batches": [
+    {
+      "id": "m2-m21-suites",
+      "command": "python -m pytest tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_01_m21_adapters.py -q -p no:randomly",
+      "result": {"passed": 118, "failed": 0},
+      "note": "includes the rewritten mid-flight tests: disabled entry OFF -> capability_blocked=1, one initiative_publication_cancelled (stage=capability:entry, reason_code=capability_off), no initiative_sent, writer generate_calls=0; OFF after generation -> one cancelled at capability:off (publish guard)"
+    },
+    {
+      "id": "changed-seams-asap7-asap8-mca09-mca12-mca18-smoke",
+      "command": "python -m pytest tests/test_asap7_module_registry.py tests/test_asap8_f5_module_truth.py tests/test_asap8_f6_initiative.py tests/test_asap8_f7_stories.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_c06a_heartbeat.py tests/test_mca09_intents_block_a_round1040.py tests/test_mca09_intents_block_b_round1040.py tests/test_mca09_intents_block_c_round1040.py tests/test_mca12_stories_round1046.py tests/test_mca18_block_ef_round1042.py tests/test_mca18_self_model_block_a_round1042.py tests/test_smoke_round1016_fixes.py -q -p no:randomly",
+      "result": {"passed": 196, "failed": 0}
+    },
+    {
+      "id": "nostalgia",
+      "command": "python -m pytest tests/test_nostalgia_corrective_r1.py tests/test_nostalgia_history_rework.py tests/test_nostalgia_layer_a.py tests/test_nostalgia_proactive_recall.py tests/test_nostalgia_prompts.py tests/test_nostalgia_revamp_round1015.py tests/test_nostalgia_w2.py tests/test_nostalgia_worker.py tests/test_p0_followup_nostalgia_ab.py tests/test_smoke_round1016_nostalgia_persona.py -q -p no:randomly",
+      "result": {"passed": 217, "failed": 0}
+    },
+    {
+      "id": "webapp-pins-and-invariants",
+      "command": "python -m pytest tests/test_decision_making_round1026.py tests/test_image_context_memory_round1026.py tests/test_mca17c_invariants_round1047.py tests/test_round1025_f8_registry.py tests/test_scope_selector_round1025.py tests/test_summary_deploy_round1026.py tests/test_summary_fact_package.py tests/test_summary_logging_runid.py tests/test_summary_publish_integration_round1026.py tests/test_summary_test_run.py tests/test_telegram_reactions_round1026.py tests/test_tool_coordinator_round1026.py tests/test_unified_image_request_round1026.py tests/test_webapp_design_tokens_round1025.py tests/test_webapp_f11_round1025.py tests/test_webapp_f6_round1025.py tests/test_webapp_f7_round1025.py tests/test_webapp_f9_round1025.py tests/test_webapp_hotfix10_round1025.py tests/test_webapp_hotfix6_round1025.py tests/test_webapp_hotfix7_round1025.py tests/test_webapp_hotfix8_round1025.py tests/test_webapp_hotfix9_round1025.py tests/test_webapp_round1026_polygon.py -q -p no:randomly",
+      "result": {"passed": 856, "failed": 4},
+      "note": "all 4 failures are pre-existing stale canon/baseline assertions, reproduced on a3262403 (see pre_existing)"
+    },
+    {
+      "id": "vmq-recent-window-regression-258208",
+      "command": "python -m pytest tests/test_vmq_recent_window.py -q -p no:randomly",
+      "result": {"passed": 30, "failed": 0}
+    },
+    {
+      "id": "smart-checkup-tool-loop-direct-l1-transport-regression-258207-258208",
+      "command": "python -m pytest tests/test_smart_corrective_s7_reply.py tests/test_smart_p0_checkup.py tests/test_p0_checkup_core_contract.py tests/test_checkup_service.py tests/test_checkup_contract.py tests/test_tool_loop.py tests/test_smoke_round1016_tool_loop.py tests/test_direct_chat.py tests/test_direct_llm_decision_asap32.py tests/test_p0_llm_transport_258206.py -q -p no:randomly",
+      "result": {"passed": 368, "failed": 0}
+    },
+    {
+      "id": "disk-status-ui-pins-identity-manifest",
+      "command": "python -m pytest tests/test_disk_retention_deploy_backups.py tests/test_disk_retention_round1024.py tests/test_disk_retention_server_t4506.py tests/test_status_service.py tests/test_webapp_status_control.py tests/test_round1025_f8_registry.py tests/test_release_manifest.py tests/test_deploy_identity.py tests/test_deploy_identity_d4c.py tests/test_hotfix_round1025_cachebust.py -q -p no:randomly",
+      "result": {"passed": 277, "failed": 1},
+      "note": "the single failure is the pre-existing README v-marker mismatch (README outside the approved pin set)"
+    },
+    {
+      "id": "changed-seams-and-webapp-js-unit",
+      "command": "python -m pytest tests/test_epic65.py tests/test_evol_reply_context_integrity_seam.py tests/test_factcheck_deep_context_round1023.py tests/test_diagnostic_probes.py tests/test_native_reply_media_context_round1024.py tests/test_webapp_js_unit.py -q -p no:randomly",
+      "result": {"passed": 260, "failed": 0}
+    },
+    {
+      "id": "js-pins",
+      "command": "node tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js; node tests/js/round1025_hotfix8_shell_aurora_test.js; node tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js; node tests/js/round1025_hotfix10_glass_geometry_bg_test.js",
+      "result": {"passed": 4, "failed": 0},
+      "markers": [
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+      ]
+    },
+    {
+      "id": "acl-m1-m3-m4-checkpoint",
+      "command": "python -m pytest tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py -q -p no:randomly",
+      "result": {"passed": 44, "failed": 0}
+    },
+    {
+      "id": "initiative-coordination",
+      "command": "python -m pytest tests/test_initiative_coordination.py -q -p no:randomly",
+      "result": {"passed": 56, "failed": 4},
+      "note": "4 failures pre-existing on a3262403 with identical node ids"
+    }
+  ],
+  "pre_existing": [
+    {
+      "id": "initiative-coordination-4",
+      "files": ["tests/test_initiative_coordination.py"],
+      "failed": 4,
+      "node_ids": [
+        "test_act_on_opportunity_conflict_defers_to_intent",
+        "test_evaluate_phase_precheck_blocks_before_llm",
+        "test_t1_nostalgia_delegated_refusal_sends_nothing",
+        "test_t5_every_text_send_site_passes_publish_guard"
+      ],
+      "base_reproduction": "same 4 failed, 56 passed on clean a3262403 worktree (vmq-recent-window-8d57b3a83d31-e20af540), identical node ids",
+      "root_cause": "wall-clock vs fixed NOW claim fixtures; tools/rlr_live_proof.py seam flagged by the static send-site guard",
+      "scope": "BACKLOG_ONLY: not caused by this candidate, not fixed in the release"
+    },
+    {
+      "id": "cachebust-readme-version",
+      "files": ["tests/test_hotfix_round1025_cachebust.py::test_version_bumped_and_matches_readme"],
+      "failed": 1,
+      "base_reproduction": "same failure on clean a3262403: README contains v2.58.174 while APP_VERSION is 2.58.208",
+      "root_cause": "README version marker stale; README is outside the approved 30-file pin set",
+      "scope": "BACKLOG_ONLY"
+    },
+    {
+      "id": "stale-canon-baseline-pins",
+      "files": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "failed": 4,
+      "base_reproduction": "same 4 failed on clean a3262403 (canon is already 18 while the test pins 17; forbidden-paths baseline stale)",
+      "root_cause": "these two 2.58.208-era pin files were never updated for later tool additions; M2.1 adds no tool",
+      "scope": "BACKLOG_ONLY"
+    }
+  ],
+  "source_proofs": {
+    "mca_events_unchanged": {
+      "path": "services/mca_events.py",
+      "base_sha256": "8a6f67b65232",
+      "head_sha256": "8a6f67b65232",
+      "equal": true
+    },
+    "resolve_capability_unchanged": {
+      "path": "services/chat_params.py",
+      "function": "resolve_capability",
+      "base_function_sha256": "fa658447e493",
+      "head_function_sha256": "fa658447e493",
+      "equal": true,
+      "note": "only resolve_param_capability (different function) was extended with global_value/global_source"
+    },
+    "publish_guard_unchanged": {
+      "path": "services/initiative_observer.py",
+      "function": "publish_guard",
+      "base_function_sha256": "1d8a854c0af7",
+      "head_function_sha256": "1d8a854c0af7",
+      "equal": true
+    },
+    "disabled_terminal_outcome": {
+      "path": "services/initiative_observer.py",
+      "branch": "status == 'disabled'",
+      "emits": "initiative_publication_cancelled",
+      "counters": "capability_blocked += 1",
+      "stage": "capability:entry",
+      "reason": "initiative_publish_block_reason(chat_id) or 'capability_off'",
+      "record_result_called": false,
+      "note": "the branch contains no _record_result / initiative_decided call"
+    },
+    "acl_not_extended": {
+      "acl_rbac_files_in_diff": [],
+      "stories_change": "ACL chat check moved BEFORE the per-chat gate (tightening)",
+      "routes_py_unchanged": true
+    },
+    "ui_not_changed": {
+      "web_assets_in_diff": [],
+      "note": "only web/api/stories.py is in web/; no app.js, templates, CSS or Mini App changes"
+    }
+  },
+  "invariants": {
+    "app_version": "2.58.209",
+    "settings_fields": 472,
+    "registry": 645,
+    "groups": 121,
+    "tab_by_group": 119,
+    "tab_rules": 22,
+    "param_registry_check": "CHECK OK: реестр 645 == REGISTRY",
+    "migration_steps": 47,
+    "migration_max_version": 47,
+    "ddl": 0,
+    "new_flags": 0,
+    "new_migrations": 0,
+    "new_prompts": 0,
+    "new_models": 0,
+    "composer_changes": 0,
+    "deploy_script_changes": 0,
+    "pg_settings_touched": false
+  },
+  "requirement_ids": [
+    "MAC-AC-04",
+    "MAC-S2-TT-5",
+    "MAC-S10-01",
+    "MAC-S15-12",
+    "MAC-S2-SHARED-01",
+    "MAC-S0-01 (consumer proof)",
+    "MAC-S2-TT-4 (consumer proof)",
+    "MAC-S2-91 (consumer proof)",
+    "MAC-S2-116 (consumer proof)",
+    "MAC-AC-02 (consumer proof)"
+  ],
+  "limitations": [
+    "No deployment and no production verification in this artifact.",
+    "REVIEW only, not VERIFIED; independent Reviewer approval is pending.",
+    "9 pre-existing failures are reproduced on base and left untouched.",
+    "Real Telegram scenario (chat OFF -> no publication; GLOBAL OFF + CHAT ON -> publication) remains a post-deploy check."
+  ]
+}
