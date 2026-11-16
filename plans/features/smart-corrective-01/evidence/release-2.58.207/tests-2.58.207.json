@@ -29,7 +29,7 @@
     "commits": 12,
     "merges": 0,
     "cumulative_diff": {"files": 70, "insertions": 4581, "deletions": 267},
-    "candidate_delta_excluding_bump": {"files": 40, "insertions": 4550, "deletions": 236},
+    "smart_delta_before_bump": {"files": 42, "insertions": 4550, "deletions": 236, "tip": "60cede96"},
     "excluded": {
       "release/mod-acl-m21-2.58.206": "historical M2.1 train, not used",
       "bca18c1e-based SMART train": "not deployed and not pushed; would roll disk 2.58.206 back"
