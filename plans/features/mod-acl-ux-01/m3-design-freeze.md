@@ -116,7 +116,8 @@ M3 DESIGN FROZEN — риски: (1) честное разделение desired
    собственный событийный таб (`inspector`, `publications`/`diagnostics`, инфраструктурные
    `События`), второй не создаётся. Перечень источников — design §2.4.
 4. **Пять осей + `source`.** `source` — атрибут `desired`, не шестая ось (design §5.1).
-5. **Имена DTO — по одному на ось:** `runtime_scope` (не `scope`; `scope` — контекст global/chat),
+5. **Имена DTO — по одному на ось:** `runtime_gate` (одно имя в `ModuleSpec` и DTO; `scope` —
+   только контекст global/chat),
    `permissions{can_read,can_edit}` — единственное место прав, `state` — единственное имя осей
    (`usage_state` не вводится; для инфраструктуры — `service_state`). Design §6.2.
 6. **M2.1 — отдельный backend-срез, обязательный предшественник M4A** (решение Оркестратора):
