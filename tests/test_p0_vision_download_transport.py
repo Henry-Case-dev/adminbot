@@ -440,6 +440,62 @@ def test_cloud_relative_path_strips_token_and_rejects_traversal(files_root):
     assert md.cloud_relative_path(bot, "") is None
 
 
+@pytest.mark.asyncio
+async def test_cloud_redirect_not_followed_token_never_leaves(
+        files_root, monkeypatch):
+    """F5 (security): 302 с токеном в URL НЕ выполняется.
+
+    Реальный `httpx.AsyncClient` (проверяются фактические kwargs) + только
+    HTTP-граница подменена `MockTransport`: обработчик вызывается ровно один
+    раз и только на `api.telegram.org`; редирект-адрес не запрашивается,
+    возвращается типизированный отказ, токен не уходит на чужой хост и не
+    попадает в текст исключения. TLS-verify не ослабляется."""
+    import httpx
+
+    real_client = httpx.AsyncClient
+    seen_calls: list[str] = []
+    client_kwargs: list[dict] = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        seen_calls.append(str(request.url))
+        if request.url.host == "api.telegram.org":
+            return httpx.Response(
+                302, headers={"Location": "https://evil.example/collect"})
+        # Если redirect всё-таки выполнился — «успешный» ответ чужого хоста.
+        return httpx.Response(200, content=make_png())
+
+    def _client_factory(*args, **kwargs):
+        client_kwargs.append(dict(kwargs))
+        kwargs["transport"] = httpx.MockTransport(_handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(md.httpx, "AsyncClient", _client_factory)
+
+    with pytest.raises(md.MediaDownloadError) as ei:
+        await md._default_cloud_fetch(TOKEN, "fid", "photos/a.png", timeout=5)
+    exc = ei.value
+    assert exc.stage == md.STAGE_CLOUD_DOWNLOAD
+    assert exc.error_class in (md.ERROR_PROVIDER_ERROR, md.ERROR_NETWORK)
+    assert "redirect_refused" in (exc.detail or "") or exc.error_class == \
+        md.ERROR_NETWORK
+    assert all(str(url).startswith("https://api.telegram.org/")
+               for url in seen_calls), seen_calls
+    assert len(seen_calls) == 1, "redirect не должен выполняться"
+    assert TOKEN not in str(exc) and "evil.example" not in str(exc)
+    assert client_kwargs and client_kwargs[0].get("follow_redirects") is False
+    assert client_kwargs[0].get("verify", True) is not False
+
+    # getFile-ступень (тоже с токеном в URL) — та же политика.
+    seen_calls.clear()
+    client_kwargs.clear()
+    with pytest.raises(md.MediaDownloadError) as ei2:
+        await md._cloud_api_file_path(TOKEN, "fid", timeout=5)
+    assert ei2.value.error_class == md.ERROR_PROVIDER_ERROR
+    assert "redirect_refused" in (ei2.value.detail or "")
+    assert len(seen_calls) == 1 and "evil.example" not in seen_calls[0]
+    assert client_kwargs[0].get("follow_redirects") is False
+
+
 def test_safe_path_tail_never_contains_token(files_root):
     bot = _Bot(local=True)
     tail = md.safe_path_tail(f"{CONTAINER_ROOT}/{TOKEN_DIR}/photos/a.png")

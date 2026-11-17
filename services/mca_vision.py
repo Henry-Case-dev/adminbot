@@ -12,9 +12,13 @@ requested/effective-состояние, обязательная последо�
   * владелец флага `can_analyze_images` (mca-18) — mca-19: делегация
     `mca_self_model.py` в `resolve_effective_state()` — шов Wave 2 (ADR D14);
     до включения vision поведение mca-18 бит-в-бит;
-  * Telegram-медиа — только Bot API (getFile); URL с bot token НЕ строится,
-    НЕ передаётся внешней модели и НЕ логируется (TH-3); произвольные
-    внешние ссылки — только через SafeFetcher mca-02 (TH-2);
+  * Telegram-медиа — только Bot API (getFile). URL с bot token строится
+    ТОЛЬКО в облачном fallback единого транспорта
+    (`services/media_download.py`, фиксированный хост `api.telegram.org`,
+    TLS-verify не ослабляется, redirect не выполняется); этот URL/токен НЕ
+    логируется, НЕ отдаётся наружу, НЕ передаётся внешней модели и НЕ
+    попадает в события (TH-3 сохраняется); произвольные внешние ссылки —
+    только через SafeFetcher mca-02 (TH-2);
   * OCR/описание/подпись — один канал НЕдоверенных данных (GEN-R18 `:43`);
     OCR никогда не попадает в system prompt и не конкатенируется с системными
     инструкциями (TH-1);
@@ -1890,9 +1894,12 @@ async def download_telegram_file(bot, file_id: str, *,
     """Telegram-файл ТОЛЬКО через Bot API (D7/TH-2). Единый транспорт байтов —
     `services.media_download.download_api_file_bytes` (локальный Bot API →
     штатный транспорт aiogram → облачный fallback; image-специфичные причины
-    остаются здесь). aiogram строит getFile-URL с токеном ВНУТРИ сессии: URL
-    не возвращается, не передаётся внешней модели и не логируется (TH-3).
-    Лимит одновременных загрузок — `MCA_VISION_DOWNLOAD_CONCURRENCY`.
+    остаются здесь). Токен-URL строится ТОЛЬКО в облачном fallback этого
+    транспорта: фиксированный хост `api.telegram.org`, redirect НЕ
+    выполняется, TLS-verify не ослабляется; URL/токен не логируются, не
+    отдаются наружу, не передаются внешней модели и не попадают в события
+    (TH-3). Лимит одновременных загрузок —
+    `MCA_VISION_DOWNLOAD_CONCURRENCY`.
 
     Отказ получения/чтения файла — `media_download.MediaDownloadError`
     (`stage`+`error_class`); отказ валидации — `VisionError` как раньше

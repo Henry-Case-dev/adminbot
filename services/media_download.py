@@ -31,7 +31,10 @@ API `bot.download` читает файл С ДИСКА, и отсутствие 
      когда локальный файл недоступен/не прочитан. Env-рубильник
      `MEDIA_DOWNLOAD_CLOUD_FALLBACK` (default ON). Локальный Bot API сам
      cloud-файлы НЕ отдаёт (`--local` без `/file/bot…`), поэтому без этого
-     шага «файла нет на диске» = потерянная картинка.
+     шага «файла нет на диске» = потерянная картинка. F5 (security):
+     `follow_redirects=False` — токен в пути не уходит на чужой хост по
+     302; 3xx → типизированный `provider_error` (`redirect_refused`);
+     TLS-verify не ослабляется.
 
 Наружу — только байты либо `MediaDownloadError(stage, error_class)`
 (`get_file` | `local_read` | `cloud_download`; классы `invalid_file_id`,
@@ -397,11 +400,15 @@ async def _aiogram_transport_bytes(bot, tg_file, file_id: str,
 async def _cloud_api_file_path(token: str, file_id: str, *,
                                timeout: float) -> str:
     """Облачный getFile (api.telegram.org) → file_path. R17: URL с токеном
-    не логируется; наружу — только класс ошибки."""
+    не логируется; наружу — только класс ошибки.
+
+    F5 (security): `follow_redirects=False` — токен в пути не должен уйти на
+    чужой хост по 302; любой 3xx — типизированный отказ, TLS-verify не
+    ослабляется."""
     url = f"{CLOUD_API_BASE}/bot{token}/getFile"
     try:
         async with httpx.AsyncClient(timeout=timeout,
-                                     follow_redirects=True) as client:
+                                     follow_redirects=False) as client:
             response = await client.get(url, params={"file_id": file_id})
             status = int(response.status_code)
             payload = response.json() if status == 200 else {}
@@ -414,6 +421,11 @@ async def _cloud_api_file_path(token: str, file_id: str, *,
     if status in (400, 404):
         raise MediaDownloadError(STAGE_CLOUD_DOWNLOAD, ERROR_INVALID_FILE_ID,
                                  f"http_{status}", retryable=False)
+    if 300 <= status < 400:
+        # Редирект с токеном в URL не выполняется принципиально.
+        raise MediaDownloadError(STAGE_CLOUD_DOWNLOAD, ERROR_PROVIDER_ERROR,
+                                 f"redirect_refused/http_{status}",
+                                 retryable=False)
     if status != 200:
         raise MediaDownloadError(STAGE_CLOUD_DOWNLOAD, ERROR_PROVIDER_ERROR,
                                  f"http_{status}", retryable=status >= 500)
@@ -431,6 +443,9 @@ async def _default_cloud_fetch(token: str, file_id: str, rel_path: str,
     """Облачный fallback: файл Bot API с api.telegram.org.
 
     Используется только когда локальный файл недоступен/не прочитан.
+    F5 (security): `follow_redirects=False` — токен в пути не уходит на
+    адрес редиректа; 3xx — типизированный `provider_error`
+    (`redirect_refused`), TLS-verify не ослабляется (httpx default).
     R17: URL (с токеном) не логируется и не попадает в текст исключения;
     наружу — только `MediaDownloadError(stage, class)`."""
     if not token:
@@ -445,13 +460,18 @@ async def _default_cloud_fetch(token: str, file_id: str, rel_path: str,
     limit = int(max_bytes) if max_bytes else 0
     try:
         async with httpx.AsyncClient(timeout=timeout,
-                                     follow_redirects=True) as client:
+                                     follow_redirects=False) as client:
             async with client.stream("GET", url) as response:
                 status = int(response.status_code)
                 if status == 404:
                     raise MediaDownloadError(
                         STAGE_CLOUD_DOWNLOAD, ERROR_INVALID_FILE_ID,
                         "http_404", retryable=False)
+                if 300 <= status < 400:
+                    # Редирект с токеном в URL не выполняется принципиально.
+                    raise MediaDownloadError(
+                        STAGE_CLOUD_DOWNLOAD, ERROR_PROVIDER_ERROR,
+                        f"redirect_refused/http_{status}", retryable=False)
                 if status >= 400:
                     raise MediaDownloadError(
                         STAGE_CLOUD_DOWNLOAD, ERROR_PROVIDER_ERROR,
