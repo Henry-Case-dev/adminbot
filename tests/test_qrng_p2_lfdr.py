@@ -208,6 +208,29 @@ class TestFetchContract:
         assert exc.value.sent is True and len(calls) == 1
 
     @pytest.mark.asyncio
+    async def test_declared_length_digit_bomb_is_validation_failed(self):
+        """F1: 4301-значная length-строка не роняет fetch сырым ValueError.
+
+        CPython int-max-str-digits (4300) превращал `int(text)` в ValueError,
+        который вылетал мимо контракта AnuError/LfdrError и не отмечал failure
+        у breaker'а. Ожидание: `validation_failed`, fails=1, sent=True."""
+        bomb = "9" * 4301
+        payload = json.dumps({"length": bomb, "qrn": "aabb"})
+        client, calls = make_client([(200, {}, payload)])
+        with pytest.raises(mrs.AnuError) as exc:
+            await client.fetch(length=2)
+        assert isinstance(exc.value, mrs.LfdrError)
+        assert exc.value.code == "validation_failed"
+        assert exc.value.sent is True and len(calls) == 1
+        assert client.status()["fails"] == 1
+        # та же защита на пути проверки подключения (check не бросает)
+        check_client, _ = make_client([(200, {}, payload)])
+        result = await check_client.check()
+        assert result["healthy"] is False
+        assert result["blocker"] == "validation_failed"
+        assert check_client.status()["fails"] == 1
+
+    @pytest.mark.asyncio
     async def test_broken_json_is_validation_failed(self):
         client, calls = make_client([(200, {}, "not json")])
         with pytest.raises(mrs.AnuError) as exc:

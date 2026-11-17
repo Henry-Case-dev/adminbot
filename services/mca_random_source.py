@@ -958,7 +958,18 @@ class LfdrClient:
         text = str(declared).strip()
         if not (text.isascii() and text.isdigit()):
             raise _bad("length missing")
-        if int(text) != length:
+        # Длина ответа — короткое десятичное число (≤4 цифр по контракту,
+        # запас до 12). Строку длиннее заведомо вне диапазона отвергаем, не
+        # вызывая int(): CPython бросает ValueError на >4300 цифрах
+        # (int-max-str-digits), и он вылетал бы из fetch()/check() мимо
+        # контракта AnuError/LfdrError, не отмечая failure у breaker'а (F1).
+        if len(text) > 12:
+            raise _bad("length out of range")
+        try:
+            declared_length = int(text)
+        except ValueError:      # pragma: no cover - защитная ветка
+            raise _bad("length out of range")
+        if declared_length != length:
             raise _bad(f"length mismatch: {text[:12]}")
         qrn = payload.get("qrn")
         if not isinstance(qrn, str):
@@ -2804,8 +2815,10 @@ class RandomSourceService:
                 "title": spec.title,
                 "entropy_class": spec.entropy_class,
                 "requires_key": bool(spec.requires_key),
-                # P1: подключён только ANU-адаптер; IBM/LfDR — честно «не
-                # подключён» до P2/P5 (без фейковых зелёных статусов).
+                # P2 (D9): адаптер LfDR реализован и подключён к реестру, но в
+                # runtime-резолв/refill не включён до P3; IBM без адаптера до
+                # P5. `configured` здесь — состояние подключения ANU-ключа,
+                # поэтому у остальных провайдеров False (без фейкового green).
                 "configured": (key_present if pid == PROVIDER_ID_ANU
                                else False),
                 # `reserve` — расходуемый остаток действующей конфигурации;
