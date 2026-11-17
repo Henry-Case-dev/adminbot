@@ -1113,20 +1113,25 @@ class TaskJobStore:
             _body, op_name="task_jobs_requeue"))
 
     async def set_next_retry(self, job_id: str, next_retry_at: int,
-                             *, reason_code: str | None = None) -> bool:
+                             *, reason_code: str | None = None,
+                             error_code: str | None = None) -> bool:
         """Запланировать bounded-retry: `next_retry_at` + `retry_scheduled`.
 
-        F-S5A-03: для `delivery_unknown` (reason/error) re-arm запрещён."""
+        F-S5A-03: для `delivery_unknown` (reason/error) re-arm запрещён.
+        `error_code` (P0 vision download): R17-safe класс причины временного
+        отказа сохраняется в durable-строке — причина видна в очереди и
+        чекапе ещё до терминального исхода."""
         now = int(time.time())
 
         async def _body(conn):
             cursor = await conn.execute(
                 "UPDATE task_jobs SET next_retry_at = ?, status = ?, "
-                "reason_code = COALESCE(?, reason_code), updated_at = ? "
+                "reason_code = COALESCE(?, reason_code), "
+                "error_code = COALESCE(?, error_code), updated_at = ? "
                 "WHERE job_id = ? AND status != ?"
                 + _DELIVERY_UNKNOWN_GUARD_SQL,
-                (int(next_retry_at), JOB_QUEUED, reason_code, now, job_id,
-                 JOB_INTERRUPTED))
+                (int(next_retry_at), JOB_QUEUED, reason_code, error_code, now,
+                 job_id, JOB_INTERRUPTED))
             return cursor.rowcount
 
         return bool(await self._db.write_transaction(
