@@ -1,0 +1,128 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ TestFetchContract.test_declared_length_digit_bomb_is_validation_failed ____
+
+self = <tests.test_qrng_p2_lfdr.TestFetchContract object at 0x000001F893B2F4A0>
+
+    @pytest.mark.asyncio
+    async def test_declared_length_digit_bomb_is_validation_failed(self):
+        """F1: 4301-╨╖╨╜╨░╤З╨╜╨░╤П length-╤Б╤В╤А╨╛╨║╨░ ╨╜╨╡ ╤А╨╛╨╜╤П╨╡╤В fetch ╤Б╤Л╤А╤Л╨╝ ValueError.
+    
+        CPython int-max-str-digits (4300) ╨┐╤А╨╡╨▓╤А╨░╤Й╨░╨╗ `int(text)` ╨▓ ValueError,
+        ╨║╨╛╤В╨╛╤А╤Л╨╣ ╨▓╤Л╨╗╨╡╤В╨░╨╗ ╨╝╨╕╨╝╨╛ ╨║╨╛╨╜╤В╤А╨░╨║╤В╨░ AnuError/LfdrError ╨╕ ╨╜╨╡ ╨╛╤В╨╝╨╡╤З╨░╨╗ failure
+        ╤Г breaker'╨░. ╨Ю╨╢╨╕╨┤╨░╨╜╨╕╨╡: `validation_failed`, fails=1, sent=True."""
+        bomb = "9" * 4301
+        payload = json.dumps({"length": bomb, "qrn": "aabb"})
+        client, calls = make_client([(200, {}, payload)])
+        with pytest.raises(mrs.AnuError) as exc:
+>           await client.fetch(length=2)
+
+tests\test_qrng_p2_lfdr.py:221: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <services.mca_random_source.LfdrClient object at 0x000001F89F50AA80>
+length = 2, endpoint = 'https://lfdr.de/qrng_api/qrng'
+
+    async def fetch(self, *, length: int = DEFAULT_BATCH_LENGTH,
+                    endpoint: str = LFDR_ENDPOINT) -> AnuBatch:
+        if isinstance(length, bool) or not isinstance(length, (int, str)):
+            raise LfdrError("validation_failed", "bad length", sent=False)
+        try:
+            length = int(length)
+        except (TypeError, ValueError):
+            raise LfdrError("validation_failed", "bad length", sent=False)
+        if not (LFDR_MIN_LENGTH <= length <= LFDR_MAX_LENGTH):
+            raise LfdrError("validation_failed",
+                            f"length out of range: {length}", sent=False)
+        url = validate_lfdr_endpoint(endpoint)   # origin-guard ╨Ф╨Ю ╨╖╨░╨┐╤А╨╛╤Б╨░
+        now = self._clock()
+        if now < self._open_until:
+            raise LfdrError("provider_unavailable", "circuit_open",
+                            retryable=True, sent=False)
+        if now < self._next_allowed_at:
+            raise LfdrError("rate_limit", "backoff", retryable=True,
+                            sent=False)
+        if (self._last_request_at is not None
+                and now - self._last_request_at < self._min_interval):
+            raise LfdrError("rate_limit", "min_interval", retryable=True,
+                            sent=False)
+        if self._open_until and not self._probe_used:
+            self._probe_used = True      # half-open: ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╕╨╜ probe
+        params: dict[str, Any] = {"length": length, "format": LFDR_FORMAT}
+        headers: dict[str, str] = {}     # ╨║╨╗╤О╤З╨░ ╨╜╨╡╤В: ╨╖╨░╨│╨╛╨╗╨╛╨▓╨║╨╛╨▓ ╨░╨▓╤В╨╛╤А╨╕╨╖╨░╤Ж╨╕╨╕ ╨╜╨╡╤В
+        self._last_request_at = now
+        started = time.monotonic()
+        try:
+            resp = await self._http_get(url, headers, params, self._timeout)
+        except asyncio.TimeoutError:
+            self._note_failure(now, None)
+            raise LfdrError("timeout", "request timeout", retryable=True,
+                            sent=True)
+        except Exception as exc:  # ╤В╤А╨░╨╜╤Б╨┐╨╛╤А╤В; ╤В╨╡╨╗╨░ ╨╛╤В╨▓╨╡╤В╨░ ╨╡╤Й╤С ╨╜╨╡╤В
+            name = type(exc).__name__
+            is_timeout = "Timeout" in name
+            # ConnectTimeout/PoolTimeout тАФ ╨╖╨░╨┐╤А╨╛╤Б ╨╜╨╡ ╤Г╤И╤С╨╗; Read/Write тАФ ╤Г╤И╤С╨╗.
+            sent = is_timeout and "Connect" not in name and "Pool" not in name
+            self._note_failure(now, None)
+            raise LfdrError("timeout" if is_timeout else "provider_unavailable",
+                            f"transport error: {name}",
+                            retryable=True, sent=sent)
+        status = int(getattr(resp, "status", 0) or 0)
+        resp_headers = getattr(resp, "headers", {}) or {}
+        text = str(getattr(resp, "text", "") or "")
+        if 300 <= status < 400:
+            self._note_failure(now, None)
+            raise LfdrError("redirect_blocked", f"http {status}", sent=True)
+        if status in (401, 403):
+            self._note_failure(now, None)
+            raise LfdrError("auth_failed", f"http {status}", sent=True)
+        if status == 429:
+            retry_after = _parse_retry_after(resp_headers)
+            self._note_failure(now, retry_after)
+            raise LfdrError("rate_limit", "http 429", retryable=True,
+                            sent=True, retry_after=retry_after)
+        if status != 200:
+            # ╨в╨╡╨╗╨╛ ╨╛╤И╨╕╨▒╨║╨╕ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А ╨╛╤В╨┤╨░╤С╤В ╨║╨░╨║ `{"error": "..."}`; ╤В╨╡╨║╤Б╤В
+            # ╨╛╤З╨╕╤Й╨░╨╡╤В╤Б╤П ╨╕ ╨╛╨▒╤А╨╡╨╖╨░╨╡╤В╤Б╤П, ╨╖╨╜╨░╤З╨╡╨╜╨╕╤П ╨┐╨░╤А╤В╨╕╨╕ ╨╜╨╡ ╨┐╨╛╤П╨▓╨╗╤П╤О╤В╤Б╤П.
+            self._note_failure(now, None)
+            code = "provider_unavailable" if status >= 500 else "client_error"
+            raise LfdrError(code, self._error_reason(text, status),
+                            retryable=(status >= 500), sent=True)
+        try:
+            payload = json.loads(text)
+        except Exception:
+            self._note_failure(now, None)
+            raise LfdrError("validation_failed", "invalid json", sent=True)
+>       values = self._validate_payload(payload, length=length)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+services\mca_random_source.py:929: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <services.mca_random_source.LfdrClient object at 0x000001F89F50AA80>
+payload = {'length': '9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999...999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999', 'qrn': 'aabb'}
+length = 2
+
+    def _validate_payload(self, payload, *, length: int) -> list[int]:
+        def _bad(reason: str):
+            self._note_failure(self._clock(), None)
+            return LfdrError("validation_failed", reason, sent=True)
+    
+        if not isinstance(payload, dict):
+            raise _bad("schema: not an object")
+        if payload.get("error") is not None:
+            raise _bad(_clean_error_text(payload.get("error")))
+        declared = payload.get("length")
+        if isinstance(declared, bool) or not isinstance(declared, (int, str)):
+            raise _bad("length missing")
+        text = str(declared).strip()
+        if not (text.isascii() and text.isdigit()):
+            raise _bad("length missing")
+>       if int(text) != length:
+           ^^^^^^^^^
+E       ValueError: Exceeds the limit (4300 digits) for integer string conversion: value has 4301 digits; use sys.set_int_max_str_digits() to increase the limit
+
+services\mca_random_source.py:961: ValueError
+=========================== short test summary info ===========================
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_declared_length_digit_bomb_is_validation_failed
+1 failed in 4.96s

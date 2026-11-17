@@ -47,7 +47,7 @@ MUTATIONS = [
     {
         "id": "M4",
         "mutation": "заявленная length ответа не сверяется с запросом",
-        "anchor": b"if int(text) != length:",
+        "anchor": b"if declared_length != length:",
         "replacement": b"if False:",
         "targets": [
             f"{TESTS}::TestFetchContract::test_invalid_payload_is_validation_failed"],
@@ -79,6 +79,24 @@ MUTATIONS = [
         "targets": [
             f"{TESTS}::TestFetchContract::"
             "test_valid_hex_to_uint8_and_request_shape"],
+    },
+    {
+        "id": "M8",
+        "mutation": "F1: снят guard длины/int-обёртка (возврат к int(text) без try)",
+        "anchor": (
+            '        if len(text) > 12:\n'
+            '            raise _bad("length out of range")\n'
+            '        try:\n'
+            '            declared_length = int(text)\n'
+            '        except ValueError:'
+            '      # pragma: no cover - защитная ветка\n'
+            '            raise _bad("length out of range")\n'
+            '        if declared_length != length:'
+        ).encode("utf-8"),
+        "replacement": b"        if int(text) != length:",
+        "targets": [
+            f"{TESTS}::TestFetchContract::"
+            "test_declared_length_digit_bomb_is_validation_failed"],
     },
 ]
 

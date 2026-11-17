@@ -1,6 +1,6 @@
 {
   "module": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p2-85a8e292fe59-472d23c8\\services\\mca_random_source.py",
-  "original_sha256": "993e1678b08bc5655ed3117c39d30bf54fd86893b655ac0d2b3b009ca5fb6376",
+  "original_sha256": "f99a9c90197d96ed741bcc88a59f2152922a012eaea1e72f2a664acc0169c1e7",
   "mutations": [
     {
       "id": "M1",
@@ -9,7 +9,7 @@
         "tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint"
       ],
       "returncode": 1,
-      "summary": "1 failed, 12 passed in 3.22s",
+      "summary": "1 failed, 12 passed in 3.29s",
       "failed": [
         "tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[http://lfdr.de/qrng_api/qrng-scheme_not_allowed]"
       ],
@@ -22,7 +22,7 @@
         "tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint"
       ],
       "returncode": 1,
-      "summary": "3 failed, 10 passed in 3.19s",
+      "summary": "3 failed, 10 passed in 3.21s",
       "failed": [
         "tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de/qrng-invalid_url]",
         "tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de/qrng_api/qrng/-invalid_url]",
@@ -37,7 +37,7 @@
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed"
       ],
       "returncode": 1,
-      "summary": "2 failed, 13 passed in 3.20s",
+      "summary": "2 failed, 13 passed in 3.11s",
       "failed": [
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload4-2]",
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload5-2]"
@@ -51,7 +51,7 @@
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed"
       ],
       "returncode": 1,
-      "summary": "1 failed, 14 passed in 3.10s",
+      "summary": "1 failed, 14 passed in 3.12s",
       "failed": [
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload1-2]"
       ],
@@ -64,7 +64,7 @@
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request"
       ],
       "returncode": 1,
-      "summary": "4 failed, 4 passed in 3.15s",
+      "summary": "4 failed, 4 passed in 3.46s",
       "failed": [
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[0]",
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[-1]",
@@ -81,7 +81,7 @@
         "tests/test_qrng_p1_isolation.py::TestProvenanceDto::test_registry_three_hardware_providers_no_lizaonair"
       ],
       "returncode": 1,
-      "summary": "2 failed, 1 warning in 3.58s",
+      "summary": "2 failed, 1 warning in 3.71s",
       "failed": [
         "tests/test_qrng_p2_lfdr.py::TestRegistry::test_lfdr_registered_hardware_keyless_with_hooks",
         "tests/test_qrng_p1_isolation.py::TestProvenanceDto::test_registry_three_hardware_providers_no_lizaonair"
@@ -95,14 +95,27 @@
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_valid_hex_to_uint8_and_request_shape"
       ],
       "returncode": 1,
-      "summary": "1 failed in 3.15s",
+      "summary": "1 failed in 3.22s",
       "failed": [
         "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_valid_hex_to_uint8_and_request_shape"
       ],
       "killed": true
+    },
+    {
+      "id": "M8",
+      "mutation": "F1: ╤Б╨╜╤П╤В guard ╨┤╨╗╨╕╨╜╤Л/int-╨╛╨▒╤С╤А╤В╨║╨░ (╨▓╨╛╨╖╨▓╤А╨░╤В ╨║ int(text) ╨▒╨╡╨╖ try)",
+      "targets": [
+        "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_declared_length_digit_bomb_is_validation_failed"
+      ],
+      "returncode": 1,
+      "summary": "1 failed in 3.24s",
+      "failed": [
+        "tests/test_qrng_p2_lfdr.py::TestFetchContract::test_declared_length_digit_bomb_is_validation_failed"
+      ],
+      "killed": true
     }
   ],
-  "restored_sha256": "993e1678b08bc5655ed3117c39d30bf54fd86893b655ac0d2b3b009ca5fb6376",
+  "restored_sha256": "f99a9c90197d96ed741bcc88a59f2152922a012eaea1e72f2a664acc0169c1e7",
   "restored_ok": true,
   "all_killed": true
 }

@@ -4,7 +4,7 @@
   "related_ids": ["QAN-REC-PROV-02 (regression)", "QAN-REC-EXC-01..05 (absence)"],
   "branch": "fix/qrng-p2",
   "base": "2e4c11cf (P1 approved tip, fix/qrng-p1; not master/deployed)",
-  "candidate": "27591ede (implementation + tests) and the evidence commit containing this file",
+  "candidate": "fix/qrng-p2 tip after corrective F1/N3 (parent ba1619bc; exact SHA in the returned handoff)",
   "environment": {
     "python": "3.12 (C:/Code/Python/adminbot/.venv)",
     "node": "v24.16.0",
@@ -15,7 +15,7 @@
     {
       "id": "p2-focused",
       "command": "python -m pytest tests/test_qrng_p2_lfdr.py -q",
-      "result": {"passed": 62, "failed": 0},
+      "result": {"passed": 63, "failed": 0},
       "covers": [
         "registry: lfdr with hardware_quantum, requires_key=false, no key setting, fetch/check entry points; IBM still has no adapter",
         "origin-guard: only https://lfdr.de:443/qrng_api/qrng; rejects http/ftp, foreign/suffix hosts, userinfo, non-443 port, arbitrary path/query/fragment; no request performed on rejection",
@@ -25,6 +25,7 @@
         "circuit breaker: 3 fails -> open (no further HTTP) -> half-open single probe closes; state independent from an AnuClient instance",
         "keys: no API key setting or header; lfdr check returns metadata only (no qrn/values)",
         "consumption: lfdr batch goes through existing RandomStore.insert_batch/reserve_chunk/reserve_draw as uint8 with provider lfdr",
+        "F1: 4301-digit declared length string -> LfdrError validation_failed, sent=true, breaker fails=1 (no raw ValueError); check() returns blocker without raising",
         "ANU client contract unchanged (header/params/guard)"
       ]
     },
@@ -62,7 +63,7 @@
     "base": "2e4c11cf detached worktree (removed after the run; worktree list checked)",
     "tests": {
       "command": "python -m pytest tests/test_qrng_p2_lfdr.py -q --tb=line -rA",
-      "result": {"failed": 60, "passed": 2},
+      "result": {"failed": 61, "passed": 2},
       "artifact": "red-tests-2e4c11cf.txt",
       "passing_on_base": [
         "TestRegistry::test_no_lfdr_api_key_setting_or_header (absence guard)",
@@ -74,6 +75,16 @@
       "candidate_artifact": "green-probe-p2.json",
       "base": {"has_lfdr_client": false, "has_validate_lfdr_endpoint": false, "registry_fetch": null, "registry_check": null},
       "candidate": {"has_lfdr_client": true, "has_validate_lfdr_endpoint": true, "registry_fetch": "lfdr_fetch", "registry_check": "lfdr_check", "request": {"url": "https://lfdr.de/qrng_api/qrng", "params": {"length": 2, "format": "HEX"}, "headers": {}}, "values": [94, 241], "guard_codes": {"http://lfdr.de/qrng_api/qrng": "scheme_not_allowed", "https://lfdr.de/qrng": "invalid_url", "https://user@lfdr.de/qrng_api/qrng": "invalid_url", "https://lfdr.de:8443/qrng_api/qrng": "invalid_url", "https://lfdr.de/qrng_api/qrng?length=1": "invalid_url"}}
+    },
+    "f1": {
+      "base": "ba1619bc (pre-fix tip; detached worktree removed after the run)",
+      "test": "TestFetchContract::test_declared_length_digit_bomb_is_validation_failed",
+      "artifact_base": "red-tests-f1-ba1619bc.txt",
+      "artifact_probe_base": "red-f1-ba1619bc.json",
+      "artifact_probe_fixed": "green-f1.json",
+      "payload": "{\"length\": \"9\"*4301, \"qrn\": \"aabb\"}, HTTP 200",
+      "base": {"outcome": "RAW_EXCEPTION", "error_type": "ValueError", "message": "Exceeds the limit (4300 digits) for integer string conversion: value has 4301 digits", "breaker_fails_before": 0, "breaker_fails_after": 0, "pytest": "1 failed (ValueError at services/mca_random_source.py:961)"},
+      "fixed": {"outcome": "AnuError", "error_type": "LfdrError", "code": "validation_failed", "reason": "length out of range", "sent": true, "breaker_fails_after": 1}
     }
   },
   "mutations": {
@@ -88,7 +99,8 @@
       {"id": "M4", "mutation": "declared length not compared to request", "killed": true, "summary": "1 failed, 14 passed"},
       {"id": "M5", "mutation": "request length bounds removed", "killed": true, "summary": "4 failed, 4 passed"},
       {"id": "M6", "mutation": "lfdr requires_key=True (P2 + P1 registry tests)", "killed": true, "summary": "2 failed"},
-      {"id": "M7", "mutation": "key header added to request", "killed": true, "summary": "1 failed"}
+      {"id": "M7", "mutation": "key header added to request", "killed": true, "summary": "1 failed"},
+      {"id": "M8", "mutation": "F1 guard removed (back to bare int(text) without try/except)", "killed": true, "summary": "1 failed"}
     ]
   },
   "live_probe": {
@@ -126,7 +138,8 @@
   },
   "limitations": [
     "LfDR is not wired into the runtime draw/refill path: selector/fallback and refill stay ANU-only until P3.",
-    "status_snapshot per-provider DTO is unchanged (lfdr still reports configured=false / provider_unconfigured); honest per-provider runtime state is P3, no fake green.",
+    "N1 (P3 acceptance, not P2): lfdr_fetch/lfdr_check without a client create a one-shot LfdrClient, so breaker/min-interval state is not preserved between such calls; P3 must pass the shared service LfdrClient when wiring LfDR to refill/draw.",
+    "status_snapshot per-provider DTO is unchanged (lfdr still reports configured=false / provider_unconfigured); the stale P1 comment was updated (N3), honest per-provider runtime state is P3, no fake green.",
     "The LfDR circuit breaker mirrors AnuClient semantics in a separate class because P2 must not modify the ANU client; unification belongs to P3 when both adapters share a dispatch path.",
     "LfDR is a public service without SLA; availability was proven by one small live GET, latency is not guaranteed.",
     "P1 test placeholder 'PROVIDERS[lfdr].fetch is None' superseded by D9 (now is not None); P1 invariants otherwise untouched.",

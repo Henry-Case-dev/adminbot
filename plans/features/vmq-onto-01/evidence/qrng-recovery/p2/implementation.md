@@ -58,6 +58,27 @@ provider="lfdr", latency_ms)`, поэтому `RandomStore.insert_batch`/`reserv
 Ключа нет и не создаётся: новое setting-поле отсутствует, `PROVIDER_KEY_SETTINGS`
 не менялся (9 ключей ANU), заголовок `x-api-key` не отправляется.
 
+### 2.1 F1 corrective (independent review на `ba1619bc`)
+
+Дефект: `length` в ответе — строка; `int(text)` на строке >4300 цифр бросает
+`ValueError` (CPython int-max-str-digits=4300), который вылетал из `fetch()`/
+`check()` мимо контракта `AnuError`/`LfdrError` и **не** отмечал failure у
+breaker'а (fails=0). ANU на том же теле отдаёт `validation_failed`, fails=1.
+
+Исправление в `_validate_payload`: сначала `text.isascii() and text.isdigit()`,
+затем `len(text) > 12 → validation_failed("length out of range")` **до** любого
+`int()`, и дополнительно `int(text)` обёрнут в `try/except ValueError` (защитная
+ветка). Семантика сохранена: ответ получен и разобран → `sent=True`; `_bad`
+вызывает `_note_failure` → `fails=1`; наружу — только `LfdrError`. Регресс-тест
+`test_declared_length_digit_bomb_is_validation_failed` (4301-значная строка:
+`validation_failed`, fails=1, `check()` возвращает blocker без исключения).
+
+RED на pre-fix tip `ba1619bc` (detached worktree): `red-tests-f1-ba1619bc.txt`
+(ValueError на `services/mca_random_source.py:961`) и `red-f1-ba1619bc.json`
+(`outcome=RAW_EXCEPTION`, `ValueError`, `breaker_fails_after=0`); после фикса —
+`green-f1.json` (`LfdrError validation_failed`, `sent=true`, `fails=1`).
+Мутация M8 («снять guard → вернуть `int(text)` без try») убивается этим тестом.
+
 ## 3. Что НЕ изменено
 
 - ANU-клиент, `validate_endpoint`, ANU-коды/квоты — без изменений (доказано тестом
@@ -69,6 +90,8 @@ provider="lfdr", latency_ms)`, поэтому `RandomStore.insert_batch`/`reserv
 - `status_snapshot` DTO не менялся: `providers[lfdr]` остаётся в P1-схеме
   (`configured=false`, `state=provider_unconfigured`), потому что runtime LfDR пока
   не использует; per-provider runtime-состояние — P3. Фейкового «готов» нет.
+  Комментарий у `configured` обновлён (N3): адаптер LfDR есть (P2), runtime-резолв
+  ещё нет (P3), IBM без адаптера до P5; поведение поля не изменено.
 
 ## 4. Тесты и доказательства
 
@@ -94,15 +117,21 @@ provider="lfdr", latency_ms)`, поэтому `RandomStore.insert_batch`/`reserv
 1. LfDR **не включён** в runtime-путь: `resolve_effective`/`refill_if_needed`/
    `_fetch_batch` остаются ANU-only — это P3 (селектор/fallback). P2 даёт адаптер,
    реестровую точку входа и совместимый носитель партии.
-2. Circuit breaker LfDR повторяет семантику `AnuClient`, но не вынесен в общий
+2. **N1 (условие P3, не P2):** реестровая точка входа `lfdr_fetch`/`lfdr_check` без
+   переданного клиента создаёт **одноразовый** `LfdrClient` (удобно для проверки/
+   тестов), поэтому breaker/min-interval между такими вызовами не сохраняются.
+   P3 при подключении LfDR к refill/резолву обязан передавать общий (сервисный)
+   `LfdrClient` — иначе реестровый путь не сохраняет состояние и breaker не
+   ограничивает поток запросов. Это приёмочный пункт P3.
+3. Circuit breaker LfDR повторяет семантику `AnuClient`, но не вынесен в общий
    класс: постановка P2 прямо запрещает менять ANU-клиент; унификация уместна в P3,
    когда оба адаптера окажутся в одном dispatch-пути. Состояние breaker'ов уже
    независимое (падение LfDR не должно открывать ANU-цепь).
-3. `/api/status` не заявляет LfDR как подключённый к runtime; честные per-provider
+4. `/api/status` не заявляет LfDR как подключённый к runtime; честные per-provider
    состояния/остатки — P3/P4.
-4. Публичный сервис без SLA: доступность проверена одним запросом; latency не
+5. Публичный сервис без SLA: доступность проверена одним запросом; latency не
    нормируется, при недоступности — `provider_unavailable`/`timeout` и breaker.
-5. P1-плейсхолдер-утверждение «`PROVIDERS[lfdr].fetch is None`» заменено на
+6. P1-плейсхолдер-утверждение «`PROVIDERS[lfdr].fetch is None`» заменено на
    `is not None` (D9 подключает адаптер); остальные P1-инварианты не изменены,
    P1-набор 29/29 проходит.
 
