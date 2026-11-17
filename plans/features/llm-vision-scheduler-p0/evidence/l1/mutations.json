@@ -1,7 +1,7 @@
 {
  "baseline": {
   "returncode": 0,
-  "summary": "37 passed in 4.16s"
+  "summary": "38 passed in 4.68s"
  },
  "mutations": [
   {
@@ -11,11 +11,25 @@
    "killed": true,
    "tests": [
     "tests/test_p0_l1_model_switch.py::TestL1Turn::test_deadline_follows_transport_policy_not_15s",
-    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_turn_source_has_no_local_15_second_wait"
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_turn_source_has_no_local_15_second_wait",
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_dedicated_deadline_follows_policy_too"
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed in 4.17s"
+    "summary": "2 failed, 1 passed in 4.07s"
+   }
+  },
+  {
+   "id": "M1b-restore-15s-dedicated",
+   "requirement": "LVS-L1-12/L1-15 (dedicated)",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_dedicated_deadline_follows_policy_too"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "1 failed in 4.01s"
    }
   },
   {
@@ -29,7 +43,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed in 3.88s"
+    "summary": "2 failed in 3.85s"
    }
   },
   {
@@ -42,7 +56,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "1 failed in 3.64s"
+    "summary": "1 failed in 3.69s"
    }
   },
   {
@@ -56,7 +70,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed in 3.87s"
+    "summary": "2 failed in 3.85s"
    }
   },
   {
@@ -70,7 +84,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed in 3.46s"
+    "summary": "2 failed in 3.75s"
    }
   }
  ]

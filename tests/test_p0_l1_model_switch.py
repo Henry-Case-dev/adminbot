@@ -846,6 +846,42 @@ class TestL1Turn:
         svc._send_direct_answer.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_dedicated_deadline_follows_policy_too(self, monkeypatch):
+        """LVS-L1-15/26: dedicated-нога ограничена тем же транспортным
+        deadline (не 15 s и не произвольным per-model числом), а её отказ
+        уходит на разрешённую main-ногу (provider_fallback)."""
+        from services import hot_config as hot
+        hot.set_config_cache(_CatalogCache({
+            "models.llm_base_url": "https://main.example/v1",
+            "models.llm_model_name": "main-model",
+            "keys.llm_api_key": "sk-main",
+            "models.direct_l1_base_url": "https://l1.example/v1",
+            "models.direct_l1_model_name": "l1-model",
+            "keys.direct_l1_api_key": "sk-l1",
+            "flags.direct_l1_fallback_enabled": True,
+        }))
+        posts = []
+
+        async def slow_post(*args, **kwargs):
+            posts.append(args)
+            await asyncio.sleep(0.25)
+            raise AssertionError("deadline должен остановить попытку раньше")
+
+        llm = _ScriptLLM([_plan_json(extent="micro")], budget=0.05)
+        llm._post = slow_post
+        svc, react, bot, msg, user = _drive(monkeypatch, "а этот?", llm=llm)
+        await svc.handle(bot, msg, user)
+        assert posts, "dedicated-попытка должна была стартовать"
+        assert len(llm.calls_of("l1_planner")) == 1   # план дала main-нога
+        diag = _diag()
+        assert diag["l1_failure_mode"] == "provider_fallback"
+        assert diag["l1_transport_deadline"] == 0.05
+        # Отказ dedicated-ноги — ИМЕННО дедлайн политики (0.05 s), а не
+        # произвольная ошибка/15 s: иначе причина была бы "unknown".
+        assert diag["l1_failure_reason"] == "timeout", diag
+        svc._send_direct_answer.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_deadline_follows_transport_policy_not_15s(
             self, monkeypatch):
         """LVS-L1-15: верхняя граница хода — действующая transport-политика

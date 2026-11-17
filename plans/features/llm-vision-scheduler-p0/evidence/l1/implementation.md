@@ -90,7 +90,9 @@ LVS-L1-02/03/04/05/12/13/14/15/16/17/19/20/23/24/26/27/28/29/34/35/37).
   каждая успешная попытка учитывается (`record_l1_usage`), отмена — управляемая
   (`CancelledError` → `l1_aborted`, проброс).
 - Внешний `wait_for(15)` заменён верхней границей хода `route.deadline_seconds`
-  (действующий транспортный бюджет).
+  (действующий транспортный бюджет) — одинаково для main- и dedicated-ноги;
+  per-attempt HTTP-окно (180) применяет сам `_post` из действующей политики,
+  поэтому разведение «per-attempt vs общий deadline» сохраняется.
 - Метаданные хода: `l1_transport_timeout/deadline/source`, `l1_output_field/limit/reserve/source`,
   `l1_window_source/confidence/estimated`, `l1_supports_reasoning`, `l1_key_slot`,
   `l1_provider/endpoint/route_model`, `l1_failure_mode/attempts/finish_reason/failure_reason`.

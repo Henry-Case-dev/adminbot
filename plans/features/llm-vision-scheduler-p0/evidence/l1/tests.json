@@ -122,7 +122,7 @@
    "id": "new-slice-tests",
    "command": "python -m pytest tests/test_p0_l1_model_switch.py -q",
    "result": {
-    "passed": 37,
+    "passed": 38,
     "failed": 0
    },
    "covers": "все LVS-L1 из requirement_ids (см. tests.json → mapping)"
@@ -140,7 +140,7 @@
    "id": "focused-l1-llm-capacity",
    "command": "python -m pytest tests/test_p0_l1_model_switch.py tests/test_asap7_direct_l1.py tests/test_asap8_v6_wc_direct_d03.py tests/test_direct_l1_corrective_r1.py tests/test_direct_l1_l1d_contract.py tests/test_asap7_direct_settings.py tests/test_llm_client.py tests/test_llm_completion_metadata_ur18.py tests/test_p0_llm_transport_258206.py tests/test_capacity_nanogpt_asap32.py tests/test_capacity_resolver_asap31.py tests/test_capacity_stage_d_smart.py tests/test_er08_limits_context.py tests/test_ur_f_inspector_step1.py tests/test_rlr_acceptance_rows.py -q",
    "result": {
-    "passed": 475,
+    "passed": 476,
     "failed": 1
    },
    "failed_pre_existing": [
@@ -176,13 +176,19 @@
  "mutations": {
   "file": "evidence/l1/mutations.json",
   "baseline": "37 passed",
-  "killed": "5/5",
+  "killed": "6/6",
   "items": [
    {
     "id": "M1-restore-15s",
-    "requirement": "LVS-L1-12/L1-15",
+    "requirement": "LVS-L1-12/L1-15 (main)",
     "killed": true,
     "killed_tests": 2
+   },
+   {
+    "id": "M1b-restore-15s-dedicated",
+    "requirement": "LVS-L1-12/L1-15 (dedicated)",
+    "killed": true,
+    "killed_tests": 1
    },
    {
     "id": "M2-restore-512",
@@ -411,6 +417,10 @@
   ],
   "existing:tests/test_llm_completion_metadata_ur18.py": [
    "LVS-L1-23"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_dedicated_deadline_follows_policy_too": [
+   "LVS-L1-15",
+   "LVS-L1-26"
   ]
  },
  "not_covered_locally": {

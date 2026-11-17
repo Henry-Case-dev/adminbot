@@ -7785,7 +7785,10 @@ class DirectChatService:
                         self.llm, attempt_messages, current_slot,
                         max_output_tokens=(route.max_output_tokens
                                            if route is not None else None),
-                        timeout_seconds=(route.timeout_seconds
+                        # Внешняя граница — общий deadline хода (как у
+                        # main-ноги); per-attempt HTTP-окно (180) применяет
+                        # сам `_post` из действующей политики.
+                        timeout_seconds=(route.deadline_seconds
                                          if route is not None else None),
                         output_field=(route.output_field
                                       if route is not None else None),
