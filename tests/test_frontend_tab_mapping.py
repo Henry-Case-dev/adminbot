@@ -19,6 +19,7 @@ from services.param_catalog import (
     TAB_MOD_INITIATIVE,
     TAB_MOD_MEDIA_DOWNLOAD,
     TAB_MOD_NOSTALGIA,
+    TAB_MOD_RANDOM,
     TAB_MOD_SEARCH,
     TAB_MOD_SLEEP,
     TAB_MOD_SUMMARY,
@@ -47,6 +48,9 @@ ALL_TABS = [
     # ASAP 7 (F3, §3.2): вкладка модуля «Инициатива» (23-я; nav «Модули»;
     # группы flags_intent/limits_intent; env K1–K4 — аварийные).
     TAB_MOD_INITIATIVE,
+    # QRNG P4 (17.11.2026, arch D4/§9): вкладка «Случайность» (nav «Модули»;
+    # memory_random + keys_random перенесены с mod_sleep/llm_providers).
+    TAB_MOD_RANDOM,
     # EVOL-031 (30.10.2026): вкладка «Умный кэш» (TAB_SMART_CACHE) удалена
     # вместе с Exact Match Cache → 23 → 22 config-вкладок.
     TAB_LLM_PROVIDERS, TAB_PROMPTS, TAB_MEMORY_RAG,
@@ -61,10 +65,12 @@ class TestTabMappingAudit:
         # nav «Модули»; группа flags_module_images перенесена из mod_direct).
         # ASAP 7 (F3, §3.2): +1 — mod_initiative («Инициатива», nav «Модули»;
         # product-оси Intent + лимиты; env K1–K4 — аварийные).
+        # QRNG P4 (17.11.2026, arch D4/§9): +1 — mod_random («Случайность»,
+        # nav «Модули»; memory_random+keys_random перенесены, групп не добавлено).
         # EVOL-031 (30.10.2026): −1 — «Умный кэш» удалена вместе с Exact
-        # Match Cache → 22.
-        assert len(ALL_TABS) == 22
-        assert len(pc.TAB_RULES) == 22
+        # Match Cache → 22; QRNG P4 → 23.
+        assert len(ALL_TABS) == 23
+        assert len(pc.TAB_RULES) == 23
         assert set(pc.CONFIG_TAB_TITLES) == set(ALL_TABS)
 
     def test_tab_nav_covers_all_21_tabs(self):
@@ -314,13 +320,25 @@ class TestModuleTabs:
             "limits_chat_key", "limits_chat_context", "limits_worker"}
 
     def test_mod_sleep_and_nostalgia(self):
-        # MCA-10a (ADR-1028-14 D8, ТЗ §14.4): на «Сне» — memory_dream +
-        # memory_random («Случайность»; TAB_RULES in-place).
-        assert tab_group_ids(TAB_MOD_SLEEP) == {"memory_dream", "memory_random"}
+        # MCA-10a (ADR-1028-14 D8, ТЗ §14.4): на «Сне» — memory_dream.
+        # QRNG P4 (17.11.2026): memory_random ПЕРЕНЕСЕНА на mod_random
+        # («Случайность»; перенос, не копия) — на «Сне» её больше нет.
+        assert tab_group_ids(TAB_MOD_SLEEP) == {"memory_dream"}
         # QND-NONDET (10.11.2026): на вкладке «Ностальгия» появилась группа
         # квантового расписания/вероятности публикации (in-place).
         assert tab_group_ids(TAB_MOD_NOSTALGIA) == {
             "memory_nostalgia", "limits_qnd_nostalgia"}
+
+    def test_mod_random_composition(self):
+        """QRNG P4 (arch D4/§9): «Случайность» — memory_random (селектор P3,
+        применения, вероятности) + keys_random (ANU-ключ и технические поля).
+        Оба «дома» перенесены с mod_sleep/llm_providers; новых групп нет."""
+        assert tab_group_ids(TAB_MOD_RANDOM) == {
+            "memory_random", "keys_random"}
+        assert pc.tab_nav(TAB_MOD_RANDOM) == pc.NAV_MODULES
+        assert pc.CONFIG_TAB_TITLES[TAB_MOD_RANDOM] == "Случайность"
+        assert "memory_random" not in tab_group_ids(TAB_MOD_SLEEP)
+        assert "keys_random" not in tab_group_ids(TAB_LLM_PROVIDERS)
 
 
 class TestAiTabs:
@@ -331,9 +349,11 @@ class TestAiTabs:
         # ASAP-2: models_summary_hybrid живёт на mod_summary (секция Hybrid).
         # ASAP 7 F2 (§1.6/§19): models_direct_l1 — слот L1 Planner на
         # mod_direct (keys-слот в той же группе, прецедент Hybrid).
+        # QRNG P4 (17.11.2026): keys_random ПЕРЕНЕСЕНА на mod_random
+        # («Случайность»), поэтому на LLM-провайдерах её больше нет.
         assert tab_group_ids(TAB_LLM_PROVIDERS) == (
             models | keys) - {"keys_youtube", "models_summary_hybrid",
-                              "models_direct_l1"}
+                              "models_direct_l1", "keys_random"}
 
     def test_memory_rag_has_limits_rag(self):
         # A3/T-1208: RAG-доли/дедуп → «Память».

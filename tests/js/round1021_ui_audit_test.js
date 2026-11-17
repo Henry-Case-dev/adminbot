@@ -262,14 +262,16 @@ const CSS = fs.readFileSync(
     'sticky(M-1/L-3): фолбэк НЕ добавляет padding-bottom');
 }
 
-// ── 6. Инвариант меню: 28 вкладок / 6 NAV_ITEMS / 21 модуль (M4A: каталог
+// ── 6. Инвариант меню: 29 вкладок / 6 NAV_ITEMS / 21 модуль (M4A: каталог
 //       больше не статический JS-массив — 21 карточка приходит из DTO;
-//       история: ASAP 7 F3 +mod_initiative, UR-F +mod_time) ──────────────
+//       история: ASAP 7 F3 +mod_initiative, UR-F +mod_time, QRNG P4
+//       +mod_random) ────────────────────────────────────────────────────
 {
   // Число — точный пин (новая/пропавшая вкладка = красный):
-  // EVOL-031 удалил smart_cache (27), UR-F добавил mod_time (28).
-  assert.strictEqual(data.tabs.length, 28,
-    'меню: 28 вкладок (+mod_time по UR-F)');
+  // EVOL-031 удалил smart_cache (27), UR-F добавил mod_time (28),
+  // QRNG P4 добавил mod_random (29).
+  assert.strictEqual(data.tabs.length, 29,
+    'меню: 29 вкладок (+mod_time UR-F, +mod_random QRNG P4)');
   assert.strictEqual(data.modules.length, 21,
     'меню: 21 модуль (каталог из DTO, M4A)');
   const navBlock = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS = ['),

@@ -440,6 +440,20 @@ function mkCoverageCtx(m) {
     // вкладки родителя» к ним не применяется (иначе потребовался бы второй
     // write-point, запрещённый design).
     MODULES.forEach(function (m) {
+      // QRNG P4 (17.11.2026): «Случайность» — кастомная страница из 4 блоков
+      // (A–D), generic-сетка намеренно НЕ рендерится (селектор/применения не
+      // дублируются). Поэтому инвариант «свои группы в generic» к ней не
+      // применяется; вместо этого проверяются маркеры кастомной страницы.
+      if (m.id === 'mod_random') {
+        const htmlR = require('fs').readFileSync(
+          path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
+        ['data-random-sources', 'data-random-uses', 'data-random-activity',
+         'data-random-advanced'].forEach(function (marker) {
+          assert.ok(htmlR.indexOf(marker) >= 0,
+            'g: кастомная страница «Случайность» содержит ' + marker);
+        });
+        return;
+      }
       const cov = computed.workspaceCoverage.call(mkCoverageCtx(m));
       if (m.submoduleOf) {
         // Подмодуль: только свои группы (без чужих write-point'ов §6.3).

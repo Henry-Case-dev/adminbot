@@ -1,0 +1,73 @@
+﻿{
+  "checks": {
+    "cards": 3,
+    "options": 3,
+    "lizaonair_absent": true,
+    "draft_hint": true,
+    "fallback_order": true,
+    "selector_post": true,
+    "selector_order_cleaned": true,
+    "summary_effective": true,
+    "details_zero_network": true,
+    "prng_no_fake_green": true,
+    "llm_no_random_keys": true,
+    "llm_policy_last": true,
+    "llm_timeouts": true,
+    "mobile_one_column": true,
+    "mobile_no_overflow": true,
+    "mobile_font_ok": true,
+    "no_page_errors": true
+  },
+  "posts": [
+    [
+      {
+        "items": [
+          {
+            "key": "random.primary_provider",
+            "value": "anu"
+          },
+          {
+            "key": "random.fallback_order",
+            "value": [
+              "lfdr"
+            ]
+          }
+        ],
+        "keys": [
+          "random.primary_provider",
+          "random.fallback_order"
+        ]
+      }
+    ]
+  ],
+  "requests": 95,
+  "provider_groups": [
+    "prov_text",
+    "prov_stt",
+    "prov_video",
+    "prov_embeddings",
+    "prov_background",
+    "prov_images",
+    "prov_policy",
+    "technical"
+  ],
+  "provider_group_titles": [
+    "╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╤В╨╡╨║╤Б╤В╨░",
+    "╨а╨░╤Б╨┐╨╛╨╖╨╜╨░╨▓╨░╨╜╨╕╨╡ ╤А╨╡╤З╨╕",
+    "╨Т╨╕╨┤╨╡╨╛",
+    "╨н╨╝╨▒╨╡╨┤╨┤╨╕╨╜╨│╨╕",
+    "╨д╨╛╨╜╨╛╨▓╤Л╨╡ ╨╖╨░╨┤╨░╤З╨╕",
+    "╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╣",
+    "╨Т╤А╨╡╨╝╤П ╨╛╤В╨▓╨╡╤В╨░ ╨╕ ╨╖╨░╤Й╨╕╤В╨░",
+    "╨в╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╤П"
+  ],
+  "mobile": {
+    "vw": 390,
+    "scrollW": 390,
+    "oneColumn": true,
+    "minCardFont": 16,
+    "stateFont": 16
+  },
+  "page_errors": [],
+  "ok": true
+}

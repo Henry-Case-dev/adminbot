@@ -1,0 +1,117 @@
+{
+  "feature": "qrng-recovery / P4 UI «Модули → Случайность»",
+  "requirement_ids": [
+    "QAN-REC-UI-01", "QAN-REC-UI-02", "QAN-REC-UI-03",
+    "QAN-REC-UI-04", "QAN-REC-UI-05", "QAN-REC-ACT-01",
+    "QAN-REC-LLM-01", "QAN-REC-EXC-01..05",
+    "QAN-REC-LFDR-01 (UI-часть)", "QAN-REC-KEY-02", "QAN-REC-KEY-04"
+  ],
+  "branch": "fix/qrng-p4",
+  "base": "6cf4c32c (P3 corrective evidence; code 835b2433, fix/qrng-p3)",
+  "candidate": "HEAD of fix/qrng-p4 at handoff",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "node": "v24.16.0",
+    "playwright": "Chromium 1234 headless (real web assets + local API stubs)",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none: ANU/IBM/LfDR/LLM не вызываются; Playwright — только 127.0.0.1"
+  },
+  "batches": [
+    {
+      "id": "p3-focused",
+      "command": "python -m pytest tests/test_qrng_p3_selector.py -q",
+      "result": {"passed": 51, "failed": 0}
+    },
+    {
+      "id": "p1-regression",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py -q",
+      "result": {"passed": 29, "failed": 0}
+    },
+    {
+      "id": "p2-regression",
+      "command": "python -m pytest tests/test_qrng_p2_lfdr.py -q",
+      "result": {"passed": 63, "failed": 0}
+    },
+    {
+      "id": "affected-random-qnd",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py tests/test_qrng_p2_lfdr.py tests/test_qrng_p3_selector.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q",
+      "result": {"passed": 310, "failed": 0},
+      "note": "Единственная осознанная правка регрессии: tests/test_mca10a_random_source_block_c_round1037.py — group_tab/keys_random-on-LLM/счётчик TAB_RULES отражают перенос на mod_random."
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest <24-file batch from plans/features/mod-acl-ux-01/evidence/release-2.58.210/tests-2.58.210.json> -q",
+      "result": {"passed": 386, "failed": 0},
+      "note": "Включает test_webapp_js_unit.py (47 JS-тестов) и test_asap7_module_completeness.py; fixture module_registry_visible.json переиздан из живого реестра."
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/<each>.js (module_fixture.js excluded)",
+      "result": {"passed": 118, "failed": 4},
+      "new_test": "tests/js/qrng_p4_random_ui_test.js (QRNG-P4-UI-OK)",
+      "known_failures": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "note": "Те же 4 pre-existing падения, что на base 6cf4c32c (проверено в qrng-p3 worktree). Новый тест — +1 к 117."
+    },
+    {
+      "id": "catalog-guards",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_cfg03_param_audit.py -q",
+      "result": {"passed": 45, "failed": 1},
+      "known_failures": [
+        "tests/test_cfg03_param_audit.py::TestConsumerCoverage::test_visible_dead_knobs_are_exactly_documented"
+      ],
+      "note": "flags.dig_pre_gate_enabled — pre-existing (та же нода падает на 6cf4c32c)."
+    },
+    {
+      "id": "count-affected",
+      "command": "python -m pytest tests/test_help_guide_round1014.py tests/test_decision_making_round1026.py tests/test_image_context_memory_round1026.py tests/test_budget_settings_round1019.py -q",
+      "result": {"passed": 244, "failed": 0},
+      "note": "TAB_RULES 22→23 и mod_random в пинах просмотрены осознанно."
+    },
+    {
+      "id": "playwright-e2e",
+      "command": "python tools/ui_qrng_p4_e2e.py",
+      "result": {"checks": 17, "ok": true},
+      "evidence": "playwright-e2e.json",
+      "covers": [
+        "3 карточки, 3 опции, Lizaonair=0",
+        "реальный POST random.primary_provider + очистка fallback_order; статус перерисован",
+        "fallback up/down → тот же random.fallback_order",
+        "draft-подсказка «не зачисляются», старой нет",
+        "PRNG Activity: badge не badge-ok, текст «псевдослучайный»",
+        "раскрытие ANU details: 0 сетевых запросов",
+        "#/ai/llm: 0 keys.random, «Время ответа и защита» последняя, 180/360",
+        "desktop 1280 + mobile 390: одна колонка, scrollWidth=390, шрифт 16px"
+      ]
+    },
+    {
+      "id": "red-base-6cf4c32c",
+      "command": "python plans/features/vmq-onto-01/evidence/qrng-recovery/p4/red_probe.py",
+      "result": {"ok": true, "node_exit": 1, "assertion": "вкладок 29 (28 + mod_random)"},
+      "base_facts": {
+        "mod_random_config_tab_absent": true,
+        "keys_random_on_llm": true,
+        "old_accrual_hint_present": true
+      },
+      "evidence": "red-probe-6cf4c32c.json"
+    },
+    {
+      "id": "mutations",
+      "command": "python plans/features/vmq-onto-01/evidence/qrng-recovery/p4/mutation_probe.py",
+      "result": {"killed": 10, "total": 10, "all_restored": true},
+      "evidence": "mutations.json",
+      "note": "M1 dummy-селектор без POST, M2 Lizaonair, M3 зачисление draft, M4 keys_random на LLM — обязательные; M5/M10 3 опции/3 карточки, M6 порядок таймаутов, M7 fake green, M8 старая подсказка, M9 primary в fallback_order. Каждая убивает tests/js/qrng_p4_random_ui_test.js; sha256 файлов восстановлен."
+    }
+  ],
+  "browser_use": {
+    "status": "unavailable",
+    "reason": "BU_CDP_URL=http://127.0.0.1:9222 unreachable (dedicated automation Chrome not running). Playwright Chromium использован как обязательный визуальный контур."
+  },
+  "not_run": {
+    "full_webapp_pytest": "Сознательно не запускался полный tests/test_webapp_*.py: он перезаписывает tracked W10–W12 evidence-блобы. git status после прогонов не содержит изменённых evidence-блобов."
+  }
+}

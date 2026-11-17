@@ -47,7 +47,7 @@ F4_CONFIG_TABS = {
     "stories": "memory_rag",     # «Память»
     "character": "permsoc",      # PERMsoc (Advanced)
     "experience": "memory_rag",  # «Память»
-    "random": "mod_sleep",       # «Сон» (дом memory_random)
+    "random": "mod_random",     # QRNG P4: страница «Случайность»
 }
 
 # Новые каталоговые оси §3.2: env-атрибут → pg_key (product-ось, AND-гейт).
@@ -389,11 +389,15 @@ def test_js_submodule_cards_via_registry():
 
 def test_js_hardcoded_modules_not_duplicated():
     """Новые подмодули приходят ИЗ РЕЕСТРА: в fallback-витрине MODULES
-    дублирующих карточек нет (kanon = registry, §3.1)."""
+    дублирующих карточек нет (kanon = registry, §3.1). QRNG P4: `mod_random`
+    теперь ещё и config-вкладка («Модули → Случайность») — это НЕ дубль
+    карточки каталога, поэтому допустима ровно одна запись TABS."""
     js = APP_JS.read_text(encoding="utf-8")
-    for card in ("mod_stories", "mod_character", "mod_experience",
-                 "mod_random"):
+    assert "var MODULES = [" not in js
+    for card in ("mod_stories", "mod_character", "mod_experience"):
         assert f"id: '{card}'" not in js, f"{card} задублирован в витрине"
+    assert js.count("id: 'mod_random'") == 1, (
+        "mod_random: одна config-вкладка (QRNG P4), без дубля карточки")
 
 
 def test_html_overview_gate_block():

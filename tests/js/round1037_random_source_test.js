@@ -205,15 +205,19 @@ function rs(statusData) {
   assert(INDEX.indexOf('data-random-draws') !== -1, 'раскрытие решений не найдено');
   assert(INDEX.indexOf('Проверить подключение') !== -1);
   assert(INDEX.indexOf('Последние решения') !== -1);
-  assert(INDEX.indexOf("item.key === 'keys.random_quantum_api_key'") !== -1);
+  assert(INDEX.indexOf("item.key === 'keys.random_quantum_api_key'") !== -1 ||
+    INDEX.indexOf('randomAnuKeyItem()') !== -1,
+    'ANU-ключ связан с карточкой провайдера');
+  assert(INDEX.indexOf('data-random-draft-hint') !== -1,
+    'честная подсказка о черновом ключе на месте');
   assert(INDEX.indexOf('randomSource.quantum ?') !== -1,
     'quantum-бейдж должен зависеть от фактического источника');
   assert(INDEX.indexOf('randomDrawsOpen') !== -1);
   assert(APP_JS.indexOf("groups: ['memory_dream']") !== -1);
   assert(APP_JS.indexOf("groups: ['memory_random']") !== -1,
-    'зеркало TABS: memory_random на mod_sleep');
+    'зеркало TABS: memory_random на mod_random');
   assert(APP_JS.indexOf("'keys_random'") !== -1,
-    'зеркало TABS: keys_random на llm_providers');
+    'зеркало TABS: keys_random на mod_random');
   assert(APP_JS.indexOf("'/api/random/test'") !== -1);
   // R17: ключ ANU (значение) не пишется в localStorage/sessionStorage —
   // черновик живёт только в in-memory keyDrafts.

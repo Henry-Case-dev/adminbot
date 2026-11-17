@@ -431,7 +431,7 @@ PG_DB_SHA256_B07 = (
 # «не дедлайн исследования»); ключи/типы/группы/секретность не менялись.
 # TSV/meta переэмитированы тем же инструментом; `--check` → OK.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "0ee10dc96bc829cbdf83fca6434bf85d7632b5a48242c73da75c8b88530342cf")
+    "f3d21fb95cac9b0888e9d4d8612e24c1e036ea64b810cb041416e92b87c0269b")
 
 
 def _sha256(path: Path) -> str:
@@ -550,7 +550,7 @@ class TestFrozenInvariants:
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             FIXTURE["counts"]["TAB_BY_GROUP"] == 119
-        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
+        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
 
     def test_registry_keys_match_catalog_baseline(self):
         # F1-baseline фиксирует ключи REGISTRY (settings_field/env), не pg_key.

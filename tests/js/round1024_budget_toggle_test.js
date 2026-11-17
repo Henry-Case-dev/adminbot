@@ -113,8 +113,10 @@ assert(groups.indexOf('flags_module_budgets') >= 0,
 // Exact Match Cache / direct_dedup (TAB_RULES 23→22) → 28−1 = 27.
 // UR-F (UR-29.1/UR-24.2): +mod_time («Модули → Время», тип timeEditor,
 // вне TAB_RULES — у вкладки нет каталоговых групп) → 27→28.
-assert.strictEqual(data.tabs.length, 28,
-  'tma-menu-freeze: вкладок 28 (+mod_time по UR-F)');
+// QRNG P4 (17.11.2026): +mod_random («Модули → Случайность»; TAB_RULES
+// 22→23) → 28→29.
+assert.strictEqual(data.tabs.length, 29,
+  'tma-menu-freeze: вкладок 29 (+mod_time UR-F, +mod_random QRNG P4)');
 const ids = data.tabs.map((t) => t.id);
 assert.strictEqual(ids.indexOf('smart_cache'), -1,
   'EVOL-031: вкладка smart_cache снята и не вернулась');

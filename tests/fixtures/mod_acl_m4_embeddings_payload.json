@@ -217,7 +217,7 @@
       "model_slots": [
         "keys_random"
       ],
-      "config_tab": "mod_sleep",
+      "config_tab": "mod_random",
       "visibility": "visible",
       "classification": "submodule",
       "status_source": "status_service «Источник случайности»",

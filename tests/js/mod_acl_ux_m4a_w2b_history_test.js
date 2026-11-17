@@ -220,7 +220,10 @@ function eq(a, b, msg) {
     });
     MODULES.forEach(function (m) {
       if (m.id === 'mod_sleep' || m.id === 'mod_nostalgia'
-          || m.id === 'mod_factcheck' || m.id === 'mod_experience') return;
+          || m.id === 'mod_factcheck' || m.id === 'mod_experience'
+          // QRNG P4 (17.11.2026): mod_random несёт B3-источник
+          // oversight:random.uses — «История» объявлена легально.
+          || m.id === 'mod_random') return;
       ok((m.tabs || []).indexOf('history') < 0,
         m.id + ': history не должна быть объявлена');
     });

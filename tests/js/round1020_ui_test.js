@@ -94,6 +94,8 @@ const INDEX = fs.readFileSync(
     // ASAP 7 F3 (module registry): +mod_initiative; пин переиздан
     // в ASAP 8 F10 (pre-existing gap, REV-F7 nb-4).
     'mod_initiative',
+    // QRNG P4 (17.11.2026): +mod_random («Случайность»).
+    'mod_random',
     // EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена из витрины.
     // UR-F (UR-29.1/UR-24.2): +mod_time («Модули → Время») после
     // mod_initiative — единая поверхность пояса чата.

@@ -195,7 +195,9 @@ _register(ModuleSpec(
 ))
 
 # Random / Quantum → Submodule «Случайность» (shared, parent «Память»);
-# настройки СУЩЕСТВУЮТ (memory_random + random.uses + keys_random).
+# настройки СУЩЕСТВУЮТ (memory_random + random.uses + keys_random) и живут
+# на отдельной config-вкладке mod_random (QRNG P4, 17.11.2026; перенос с
+# mod_sleep/llm_providers — не копия).
 # F5 (ТЗ §10/§28.12, архитектура §5.3): product master memory.random_enabled
 # добавлен в каталог — модуль больше не «no master»; env MCA_RANDOM_SOURCE_ENABLED
 # остаётся аварийной AND-осью (module_registry.effective_gate/env_enabled).
@@ -214,7 +216,7 @@ _register(ModuleSpec(
     help_anchor="Источник случайности",
     visibility="visible",
     classification="submodule",
-    config_tab="mod_sleep",
+    config_tab="mod_random",
     catalog_group="memory",
     catalog_order=10,
     scope_capability="memory.random_enabled",

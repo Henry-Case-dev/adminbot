@@ -55,6 +55,8 @@ EXPECTED_TAB_RULES_IDS = [
     "mod_vision",
     # ASAP 7 (F3, §3.2): +mod_initiative (23-я вкладка — «Инициатива»).
     "mod_initiative",
+    # QRNG P4 (17.11.2026, arch D4/§9): +mod_random («Случайность»).
+    "mod_random",
     # EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена вместе с Exact
     # Match Cache → 22 config-вкладки (пин обновлён — frozen-contract).
     "llm_providers", "prompts", "memory_rag", "people_names",
@@ -83,7 +85,10 @@ EXPECTED_TAB_IDS = [
     "llm_providers", "prompts", "mod_summary", "mod_direct", "mod_factcheck",
     "mod_search", "mod_transcribe", "mod_video_summary", "mod_media_download",
     "mod_web", "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
-    "mod_images", "mod_vision", "mod_initiative", "modules", "memory_rag",
+    "mod_images", "mod_vision", "mod_initiative",
+    # QRNG P4 (17.11.2026): +mod_random («Случайность»); UR-F: +mod_time.
+    "mod_random", "mod_time",
+    "modules", "memory_rag",
     "people_names", "relations", "permsoc", "access",
     "chat_lore", "status", "info", "oversight",
 ]
@@ -144,9 +149,10 @@ class TestCatalogPins:
         assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
-        assert len(pc.TAB_NAV) == 22
-        assert len(pc.CONFIG_TAB_TITLES) == 22
+        # QRNG P4 (17.11.2026): TAB_RULES/TAB_NAV/TITLES 22→23 (+mod_random).
+        assert len(pc.TAB_RULES) == 23
+        assert len(pc.TAB_NAV) == 23
+        assert len(pc.CONFIG_TAB_TITLES) == 23
 
     def test_budgets_enabled_spec_pinned(self):
         spec = pc.get("BUDGETS_ENABLED")
@@ -224,8 +230,8 @@ class TestMenuFreeze:
         # СОСТАВ и порядок (rev1: раньше пинилось только число — подмена
         # вкладки при count=26 проходила молча).
         assert ids == EXPECTED_TAB_IDS
-        # EVOL-031: «Умный кэш» удалена из витрины → 28 → 27.
-        assert len(ids) == 27
+        # EVOL-031: «Умный кэш» удалена из витрины; QRNG P4: +mod_random.
+        assert len(ids) == 29
         assert len(ids) == len(set(ids))
         assert ids.count("mod_budgets") == 1
 
