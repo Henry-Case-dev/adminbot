@@ -61,6 +61,12 @@ SHUTDOWN_DRAIN_DEFAULT = 20.0
 SLOT_TIMES: tuple[tuple[int, int], ...] = ((0, 0), (6, 0), (12, 0), (18, 0))
 CLAIM_KIND = "summary"
 TICKER_INTERVAL_SECONDS = 60
+#: Явный grace тика (P0 scheduler, LVS-SCH-01/03): заводской 1 s APScheduler
+#: 3.x превращал поздний тик (event-loop lag) в «missed». 30 s < интервала
+#: 60 s и < due-окна слота 120 s: late tick либо берёт ТЕКУЩИЙ слот, либо
+#: честно фиксирует `missed_slot_expired`; grace НЕ заменяет устранение
+#: блокирующего участка (slot_claims claim уходит в worker-thread).
+TICKER_MISFIRE_GRACE_SECONDS = 30
 
 
 def shutdown_drain_seconds() -> float:
@@ -167,6 +173,7 @@ class SummarySchedulerService:
             replace_existing=True,
             max_instances=1,
             coalesce=True,
+            misfire_grace_time=TICKER_MISFIRE_GRACE_SECONDS,
         )
         self._scheduler.start()
         logger.info(
@@ -200,6 +207,13 @@ class SummarySchedulerService:
             SUMMARY_DUE_WINDOW_SECONDS,
             claim_slot_if_due,
         )
+        # P0 scheduler B2 (LVS-SCH-03, backpressure): СНАЧАЛА бронируем все
+        # due-слоты, ЗАТЕМ генерируем. Прежний переплёт claim→generate держал
+        # claim следующего чата за первым 12–13-минутным прогоном и позволял
+        # его 120-секундному due-окну истечь (`missed_slot_expired` = потеря
+        # работы). Порядок чатов и `chat_timeout` сохранены; новой
+        # конкурентности нет — генерация по-прежнему последовательная.
+        due_chats: list[int] = []
         for raw_chat_id in target:
             # Хотфикс-5 (round10.25): chat_id из PG приходит строкой/NULL —
             # приводим к int ДО вызова, иначе per-chat override стиля не
@@ -239,8 +253,9 @@ class SummarySchedulerService:
                     "summary: slot resolution failed — tick continues | "
                     "chat_id=%s", chat_id)
                 continue
-            if verdict.action != "fire":
-                continue
+            if verdict.action == "fire":
+                due_chats.append(chat_id)
+        for chat_id in due_chats:
             try:
                 if chat_timeout and chat_timeout > 0:
                     async with asyncio.timeout(chat_timeout):

@@ -263,6 +263,8 @@ _FACTS_SQL = (
 )
 
 _JOB_ID = "lore_worker_tick"
+#: Явный grace тика (P0 scheduler, LVS-SCH-01/03): 60 s < 30 мин интервала.
+_TICK_MISFIRE_GRACE_SECONDS = 60
 _NEVER_USER_ID = -1  # bot_id=None → фильтр «не бот» не накладывается
 # mca-04b: сентинеллы верхней границы области для COUNT/BOUNDARY-запросов
 # (timestamp ~1.7e9 / id AUTOINCREMENT; 2**62 заведомо больше любых строк).
@@ -436,7 +438,10 @@ class LoreWorker:
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=_JOB_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            # P0 scheduler (LVS-SCH-01/03): 60 s < 30 мин интервала; PG
+            # advisory lock + period/cooldown делают поздний тик безопасным.
+            misfire_grace_time=_TICK_MISFIRE_GRACE_SECONDS)
         self._scheduler.start()
         logger.info(
             "LoreWorker started | tick_minutes=%s | chats=auto loop",

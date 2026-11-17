@@ -39,6 +39,7 @@ skip (``fired=0``, ``reason_code='missed_slot_expired'``) ровно один р
 """
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import datetime
 import logging
@@ -440,7 +441,12 @@ async def claim_slot_if_due(*, kind: str, db, chat_id, now_utc,
         now_ts = int(now.timestamp())
         if in_due_window(now, slot, due_window_s):
             try:
-                granted = store.try_claim(
+                # P0 scheduler (LVS-SCH-02/03): sync-запись `try_claim` ждёт
+                # write-lock до busy_timeout=5000 МС — ожидание уходит в
+                # worker-thread, а не в event loop (схема/CAS/timeout те же;
+                # соединение по-прежнему создаётся внутри вызова).
+                granted = await asyncio.to_thread(
+                    store.try_claim,
                     kind=kind, chat_id=chat_id,
                     local_date=slot.local_date.isoformat(),
                     local_slot=slot.label,
@@ -466,7 +472,8 @@ async def claim_slot_if_due(*, kind: str, db, chat_id, now_utc,
             return SlotVerdict(ACTION_SKIP_BUSY, slot, iana, tz_source, cv)
         # Окно прошло: честный skip ровно один раз (fired=0).
         try:
-            marked = store.try_claim(
+            marked = await asyncio.to_thread(
+                store.try_claim,
                 kind=kind, chat_id=chat_id,
                 local_date=slot.local_date.isoformat(),
                 local_slot=slot.label,

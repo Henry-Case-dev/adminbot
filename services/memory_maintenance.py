@@ -173,6 +173,14 @@ _INITIATIVE_OBSERVER_TICK_SECONDS = 300
 # раз в час достаточно, а при выключенном гейте тик даже не читает БД.
 _COMMUNITIES_TICK_SECONDS = 3600
 
+#: Явный grace джоб обслуживания (P0 scheduler, LVS-SCH-01/03): заводской
+#: 1 s APScheduler 3.x превращал поздний тик (event-loop lag) в «missed».
+#: Значение ≤ интервала и ≤ due/lease-окна: 60 s для 5–15-минутных тиков,
+#: 300 s для часового WAL, 3600 s для суточных проходов.
+_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS = 60
+_HOURLY_MISFIRE_GRACE_SECONDS = 300
+_DAILY_MISFIRE_GRACE_SECONDS = 3600
+
 # v6.3 B01: честный штамп последнего тика наблюдателя (in-memory вид для
 # Status; durable-состояние — payload durable-задачи initiative.observe).
 _initiative_observer_last_tick: dict = {"ts": None, "status": None,
@@ -354,7 +362,8 @@ class MemoryMaintenanceService:
                     days=hot.get("limits.graph_episode_merge_interval_days", settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS),
                     timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_MERGE_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
+                max_instances=1, coalesce=True,
+                misfire_grace_time=_DAILY_MISFIRE_GRACE_SECONDS)
         if hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED):
             self._scheduler.add_job(
                 self._tick_review,
@@ -362,7 +371,8 @@ class MemoryMaintenanceService:
                     days=hot.get("limits.graph_review_interval_days", settings.GRAPH_REVIEW_INTERVAL_DAYS),
                     timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_REVIEW_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
+                max_instances=1, coalesce=True,
+                misfire_grace_time=_DAILY_MISFIRE_GRACE_SECONDS)
         # Epic 64: периодический WAL-checkpoint(TRUNCATE) — без него -wal
         # разрастался (наблюдалось 18 МБ при БД 43 МБ).
         if hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED):
@@ -372,7 +382,8 @@ class MemoryMaintenanceService:
                     hours=hot.get("limits.db_wal_checkpoint_hours", settings.DB_WAL_CHECKPOINT_HOURS),
                     timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_WAL_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
+                max_instances=1, coalesce=True,
+                misfire_grace_time=_HOURLY_MISFIRE_GRACE_SECONDS)
         # MCA-16 (T-5003, ADR-1028-15 D7): тик review опыта — тот же
         # планировщик обслуживания (второй очереди/планировщика нет). Тик
         # каждые 15 минут: каденция (hourly/daily/weekly) и UI-настройка
@@ -389,7 +400,8 @@ class MemoryMaintenanceService:
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=self.JOB_EXPERIENCE_REVIEW_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
         # MCA-09 (T-5026, ADR-1028-16 D5) + v6 C06A: лёгкий heartbeat
         # due-намерений — тот же планировщик. Раньше джоба регистрировалась
         # ТОЛЬКО если гейт был ON при старте процесса → hot-ON тумблера
@@ -405,7 +417,8 @@ class MemoryMaintenanceService:
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=self.JOB_INTENT_HEARTBEAT_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
         # mca-18 (T-5084, ADR-1028-18 D8): тик идемпотентного разбора
         # persona_traits (K3 OFF → джоб не регистрируется — бит-в-бит).
         if _legacy_traits_parse_tick_enabled():
@@ -416,7 +429,8 @@ class MemoryMaintenanceService:
                     timezone=hot.get("limits.summary_timezone",
                                      settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_LEGACY_TRAITS_PARSE_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
+                max_instances=1, coalesce=True,
+                misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
         # ASAP 8 F8 (E4/§28.19): re-probe embed-деградации + backfill text-only
         # backlog — регистрируется ВСЕГДА (не зависит от других флагов):
         # recovery памяти не должен зависеть от read-трафика/прочих джобов.
@@ -427,7 +441,8 @@ class MemoryMaintenanceService:
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=self.JOB_EMBED_RECOVERY_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
         # ASAP 8 v6.3 (B01): тик initiative opportunity observer — регистри-
         # руется ВСЕГДА (прецедент intent_heartbeat C06A): gate
         # flags.initiative_observer_enabled + K1 читается тиком на каждом
@@ -439,7 +454,8 @@ class MemoryMaintenanceService:
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=self.JOB_INITIATIVE_OBSERVER_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
         # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (C-6 §6, волна 3): сборка
         # сообществ — регистрируется ВСЕГДА (прецедент intent_heartbeat/
         # initiative_observer), гейт `MCA_MEMORY_COMMUNITIES_ENABLED`
@@ -453,7 +469,8 @@ class MemoryMaintenanceService:
                 timezone=hot.get("limits.summary_timezone",
                                  settings.SUMMARY_TIMEZONE)),
             id=self.JOB_COMMUNITIES_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
         self._scheduler.start()
         # v6 C06A: сервис запущен → registered/next_tick доступны Status;
         # durable-штамп последнего тика восстанавливается (fail-open) —

@@ -154,6 +154,11 @@ _STATUS_SENT = "sent"
 _STATUS_SKIPPED = "skipped"
 _STATUS_ERROR = "error"
 
+#: Явный grace тика (P0 scheduler, LVS-SCH-01/03): 30 s < heartbeat
+#: (`limits.qnd_heartbeat_seconds`, ≥60 s) и < due/lease-окна события;
+#: поздний тик исполняет наступившее событие или честно фиксирует skip.
+_TICK_MISFIRE_GRACE_SECONDS = 30
+
 # ── P0 NOSTALGIA REWORK W1 (NOST-02/03/04/07): исторические эпизоды ────────
 _HISTORY_LEVEL_DAY = "day"     # уровень A: календарный день годовщины
 _HISTORY_LEVEL_WEEK = "week"   # уровень B: календарная ISO-неделя
@@ -929,7 +934,11 @@ class NostalgiaWorker:
                 seconds=heartbeat,
                 timezone=self._tz_name),
             id=self.JOB_NOSTALGIA_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            # P0 scheduler (LVS-SCH-01/03): 30 s < heartbeat (≥60 s) и <
+            # semantic lease; поздний тик исполняет наступившее событие или
+            # честно фиксирует skip — дубля нет.
+            misfire_grace_time=_TICK_MISFIRE_GRACE_SECONDS)
         if not self._scheduler.running:
             self._scheduler.start()
         logger.info(

@@ -23,6 +23,13 @@ _CLEANUP_INTERVAL_HOURS = 1
 _HEARTBEAT_RETRIES = 3
 _HEARTBEAT_RETRY_DELAY = 1.0
 
+#: Явный grace (P0 scheduler, LVS-SCH-01/03): заводской 1 s APScheduler 3.x
+#: превращает поздний тик (event-loop lag) в «missed». Heartbeat 30 s <
+#: интервала 60 s; cleanup 300 s < 1 ч. Grace не восстанавливает пропущенную
+#: минуту heartbeat — это честная граница, а не «разрывов нет».
+_HEARTBEAT_MISFIRE_GRACE_SECONDS = 30
+_CLEANUP_MISFIRE_GRACE_SECONDS = 300
+
 _INSERT_SQL = "INSERT INTO uptime_events (status) VALUES ('up')"
 
 
@@ -55,10 +62,16 @@ class UptimeHeartbeatService:
             return
         self._scheduler.add_job(
             self._heartbeat, IntervalTrigger(seconds=self._heartbeat_seconds),
-            id="uptime_heartbeat", max_instances=1, coalesce=True)
+            id="uptime_heartbeat", max_instances=1, coalesce=True,
+            # P0 scheduler (LVS-SCH-01/03): 30 s < 60 s интервала; late
+            # sample не восстанавливает пропущенную минуту, но и не создаёт
+            # дубль того же запуска (один INSERT на запуск).
+            misfire_grace_time=_HEARTBEAT_MISFIRE_GRACE_SECONDS)
         self._scheduler.add_job(
             self._cleanup, IntervalTrigger(hours=_CLEANUP_INTERVAL_HOURS),
-            id="uptime_cleanup", max_instances=1, coalesce=True)
+            id="uptime_cleanup", max_instances=1, coalesce=True,
+            # Идемпотентный DELETE по retention: 300 s < 1 ч интервала.
+            misfire_grace_time=_CLEANUP_MISFIRE_GRACE_SECONDS)
         self._scheduler.start()
         self._running = True
         logger.info("[uptime] heartbeat started: interval=%ds retention=%dh",
