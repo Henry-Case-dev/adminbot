@@ -1,0 +1,28 @@
+{
+  "endpoint": "https://lfdr.de/qrng_api/qrng",
+  "method": "GET",
+  "params": {
+    "length": 2,
+    "format": "HEX"
+  },
+  "requires_key": false,
+  "key_header_sent": false,
+  "checked_at_utc": "2026-11-17T06:48:57.285640+00:00",
+  "status": "ok",
+  "provider": "lfdr",
+  "entropy_class": "hardware_quantum",
+  "data_type": "uint8",
+  "declared_length": 2,
+  "values_count": 2,
+  "qrn_hex_len": 4,
+  "values_uint8": true,
+  "sample_hex": "9051",
+  "adapter_latency_ms": 1078,
+  "elapsed_ms": 1078,
+  "breaker": {
+    "fails": 0,
+    "circuit_open_until": 0.0,
+    "next_allowed_at": 0.0,
+    "last_request_at": 1375033.14
+  }
+}

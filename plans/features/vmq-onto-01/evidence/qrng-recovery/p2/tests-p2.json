@@ -1,0 +1,135 @@
+{
+  "feature": "qrng-recovery / P2 LfDR adapter",
+  "requirement_ids": ["QAN-REC-LFDR-01"],
+  "related_ids": ["QAN-REC-PROV-02 (regression)", "QAN-REC-EXC-01..05 (absence)"],
+  "branch": "fix/qrng-p2",
+  "base": "2e4c11cf (P1 approved tip, fix/qrng-p1; not master/deployed)",
+  "candidate": "27591ede (implementation + tests) and the evidence commit containing this file",
+  "environment": {
+    "python": "3.12 (C:/Code/Python/adminbot/.venv)",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "one live public LfDR GET (length=2); no ANU/IBM/LLM requests; provider HTTP otherwise injected via http_get"
+  },
+  "batches": [
+    {
+      "id": "p2-focused",
+      "command": "python -m pytest tests/test_qrng_p2_lfdr.py -q",
+      "result": {"passed": 62, "failed": 0},
+      "covers": [
+        "registry: lfdr with hardware_quantum, requires_key=false, no key setting, fetch/check entry points; IBM still has no adapter",
+        "origin-guard: only https://lfdr.de:443/qrng_api/qrng; rejects http/ftp, foreign/suffix hosts, userinfo, non-443 port, arbitrary path/query/fragment; no request performed on rejection",
+        "contract: {length,qrn} schema, declared length equality, 2*N hex chars, case-insensitive hex, HEX->uint8, request params exactly {length,format=HEX}, empty headers",
+        "bounds: 1..1024 inclusive (0,-1,1025,4096,'abc',True,2.5,None rejected before HTTP), 1024 accepted",
+        "errors: 429->rate_limit(+Retry-After/backoff), 500->provider_unavailable, 400->client_error, 302->redirect_blocked (single request), 401->auth_failed, timeout sent/not-sent semantics, min-interval",
+        "circuit breaker: 3 fails -> open (no further HTTP) -> half-open single probe closes; state independent from an AnuClient instance",
+        "keys: no API key setting or header; lfdr check returns metadata only (no qrn/values)",
+        "consumption: lfdr batch goes through existing RandomStore.insert_batch/reserve_chunk/reserve_draw as uint8 with provider lfdr",
+        "ANU client contract unchanged (header/params/guard)"
+      ]
+    },
+    {
+      "id": "p1-regression",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py -q",
+      "result": {"passed": 29, "failed": 0},
+      "note": "One P1 placeholder assertion updated by D9: PROVIDERS[lfdr].fetch is None -> is not None; no other P1 invariant touched."
+    },
+    {
+      "id": "affected-random-qnd",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q",
+      "result": {"passed": 196, "failed": 0},
+      "note": "Same 196-case baseline as P1; P2 file adds 62 cases on top (combined run: 258 passed)."
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest <24-file required batch from plans/features/mod-acl-ux-01/evidence/release-2.58.210/tests-2.58.210.json> -q",
+      "result": {"passed": 386, "failed": 0}
+    },
+    {
+      "id": "webapp-batch",
+      "command": "python -m pytest <64 tests/test_webapp_*.py files> -q --tb=no",
+      "result": {"passed": 1455, "failed": 33},
+      "note": "Identical failing node ids on base 2e4c11cf and on P2 (set comparison of 33 FAILED lines: equal); no new failures. The run regenerates W10/W11/W12 screenshot blobs; restored to base bytes with git checkout before commit."
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/<each>.js (module_fixture.js excluded)",
+      "result": {"passed": 117, "failed": 4},
+      "note": "Same four pre-existing failing files as on base/P1: asap6_wave2_ux_tabs, evol_cog_scene, round1025_ia_routing, ur_ui_settings."
+    }
+  ],
+  "red": {
+    "base": "2e4c11cf detached worktree (removed after the run; worktree list checked)",
+    "tests": {
+      "command": "python -m pytest tests/test_qrng_p2_lfdr.py -q --tb=line -rA",
+      "result": {"failed": 60, "passed": 2},
+      "artifact": "red-tests-2e4c11cf.txt",
+      "passing_on_base": [
+        "TestRegistry::test_no_lfdr_api_key_setting_or_header (absence guard)",
+        "TestAnuUnchanged::test_anu_client_contract_still_intact (unchanged guard)"
+      ]
+    },
+    "probe": {
+      "base_artifact": "red-probe-base-2e4c11cf.json",
+      "candidate_artifact": "green-probe-p2.json",
+      "base": {"has_lfdr_client": false, "has_validate_lfdr_endpoint": false, "registry_fetch": null, "registry_check": null},
+      "candidate": {"has_lfdr_client": true, "has_validate_lfdr_endpoint": true, "registry_fetch": "lfdr_fetch", "registry_check": "lfdr_check", "request": {"url": "https://lfdr.de/qrng_api/qrng", "params": {"length": 2, "format": "HEX"}, "headers": {}}, "values": [94, 241], "guard_codes": {"http://lfdr.de/qrng_api/qrng": "scheme_not_allowed", "https://lfdr.de/qrng": "invalid_url", "https://user@lfdr.de/qrng_api/qrng": "invalid_url", "https://lfdr.de:8443/qrng_api/qrng": "invalid_url", "https://lfdr.de/qrng_api/qrng?length=1": "invalid_url"}}
+    }
+  },
+  "mutations": {
+    "artifact": "mutations.json",
+    "module": "services/mca_random_source.py",
+    "restored_ok": true,
+    "all_killed": true,
+    "items": [
+      {"id": "M1", "mutation": "scheme guard accepts http", "killed": true, "summary": "1 failed, 12 passed"},
+      {"id": "M2", "mutation": "path check removed (any path)", "killed": true, "summary": "3 failed, 10 passed"},
+      {"id": "M3", "mutation": "hex character validation removed", "killed": true, "summary": "2 failed, 13 passed"},
+      {"id": "M4", "mutation": "declared length not compared to request", "killed": true, "summary": "1 failed, 14 passed"},
+      {"id": "M5", "mutation": "request length bounds removed", "killed": true, "summary": "4 failed, 4 passed"},
+      {"id": "M6", "mutation": "lfdr requires_key=True (P2 + P1 registry tests)", "killed": true, "summary": "2 failed"},
+      {"id": "M7", "mutation": "key header added to request", "killed": true, "summary": "1 failed"}
+    ]
+  },
+  "live_probe": {
+    "artifact": "live-probe-2026-11-17.json",
+    "endpoint": "https://lfdr.de/qrng_api/qrng",
+    "method": "GET",
+    "params": {"length": 2, "format": "HEX"},
+    "requires_key": false,
+    "key_header_sent": false,
+    "status": "ok",
+    "provider": "lfdr",
+    "entropy_class": "hardware_quantum",
+    "data_type": "uint8",
+    "declared_length": 2,
+    "values_count": 2,
+    "qrn_hex_len": 4,
+    "values_uint8": true,
+    "sample_hex": "9051",
+    "elapsed_ms": 1078,
+    "breaker_fails": 0,
+    "checked_at_utc": "2026-11-17T06:48:57Z"
+  },
+  "invariants": {
+    "new_endpoints": 0,
+    "new_settings": 0,
+    "new_env_flags": 0,
+    "new_tables_or_columns": 0,
+    "schema_version": "unchanged v48 (P1)",
+    "anu_client_changed": false,
+    "ibm_adapter_added": false,
+    "ui_changed": false,
+    "keys_changed": false,
+    "llm_changed": false,
+    "second_store_or_queue": false
+  },
+  "limitations": [
+    "LfDR is not wired into the runtime draw/refill path: selector/fallback and refill stay ANU-only until P3.",
+    "status_snapshot per-provider DTO is unchanged (lfdr still reports configured=false / provider_unconfigured); honest per-provider runtime state is P3, no fake green.",
+    "The LfDR circuit breaker mirrors AnuClient semantics in a separate class because P2 must not modify the ANU client; unification belongs to P3 when both adapters share a dispatch path.",
+    "LfDR is a public service without SLA; availability was proven by one small live GET, latency is not guaranteed.",
+    "P1 test placeholder 'PROVIDERS[lfdr].fetch is None' superseded by D9 (now is not None); P1 invariants otherwise untouched.",
+    "No P3/P4/P5 work, no deployment, no version bump, no VERIFIED."
+  ]
+}

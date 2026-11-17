@@ -1,0 +1,39 @@
+{
+  "module": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p2-85a8e292fe59-472d23c8\\services\\mca_random_source.py",
+  "has_lfdr_client": true,
+  "has_validate_lfdr_endpoint": true,
+  "has_lfdr_fetch_entry": true,
+  "registry_lfdr": {
+    "id": "lfdr",
+    "entropy_class": "hardware_quantum",
+    "requires_key": false,
+    "key_setting": null,
+    "fetch": "lfdr_fetch",
+    "check": "lfdr_check"
+  },
+  "fetch": {
+    "values": [
+      94,
+      241
+    ],
+    "provider": "lfdr",
+    "data_type": "uint8",
+    "calls": [
+      {
+        "url": "https://lfdr.de/qrng_api/qrng",
+        "headers": {},
+        "params": {
+          "length": 2,
+          "format": "HEX"
+        }
+      }
+    ]
+  },
+  "guard": {
+    "http://lfdr.de/qrng_api/qrng": "scheme_not_allowed",
+    "https://lfdr.de/qrng": "invalid_url",
+    "https://user@lfdr.de/qrng_api/qrng": "invalid_url",
+    "https://lfdr.de:8443/qrng_api/qrng": "invalid_url",
+    "https://lfdr.de/qrng_api/qrng?length=1": "invalid_url"
+  }
+}
