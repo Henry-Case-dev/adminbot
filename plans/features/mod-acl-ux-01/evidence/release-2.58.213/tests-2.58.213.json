@@ -1,0 +1,207 @@
+{
+  "feature": "mod-acl-ux-01 / M4A W2b B2 — история «Фактчека» и «Опыта»",
+  "release": "2.58.213",
+  "slice": "release assembly: approved W2b B2 candidate 7441fd8f + bump 2.58.212 -> 2.58.213",
+  "assembled_at": "2026-11-17",
+  "branch": "release/mod-acl-w2b2-2.58.213",
+  "base_commit": "e070c229bfdafcc9b07115ad55fba8dde2e8cffb",
+  "base_version": "2.58.212",
+  "base_state": "deployed previous release / rollback target; production not contacted in this assembly",
+  "review_verdict": "Approved for 2.58.213 release preparation",
+  "candidate_tip": "7441fd8facb282e8b1c2117ee9307268a119545a",
+  "candidate_commits": [
+    "7441fd8facb282e8b1c2117ee9307268a119545a"
+  ],
+  "bump_commit": "86d39a48151d1a881c00516fced3aec56d39172f",
+  "content_tip": "86d39a48151d1a881c00516fced3aec56d39172f",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none used by tests; local in-memory SQLite only"
+  },
+  "diff_vs_base": {
+    "files": 36,
+    "insertions": 1523,
+    "deletions": 134,
+    "candidate_files": 6,
+    "candidate_insertions": 1492,
+    "candidate_deletions": 103,
+    "bump_files": 30,
+    "bump_lines": 31,
+    "product_files": [
+      "web/app.js",
+      "web/index.html",
+      "config/settings.py (bump/changelog)",
+      "plans/docs/param-registry-round1025.meta.md (pin)"
+    ],
+    "no_db_migration_composer_prompt_model_endpoint_files": true,
+    "deploy_v2_9_2_changed": false
+  },
+  "invariants": {
+    "app_version": "2.58.213",
+    "settings_fields": 472,
+    "registry": 645,
+    "groups": 121,
+    "tab_by_group": 119,
+    "tab_rules": 22,
+    "migration_steps": 47,
+    "migration_max_version": 47,
+    "ddl": 0,
+    "new_flags": 0,
+    "new_migrations": 0,
+    "new_prompts": 0,
+    "new_models": 0,
+    "new_composer": 0,
+    "new_endpoints": 0,
+    "deploy_script_changes": 0,
+    "pg_settings_touched": false
+  },
+  "batches": [
+    {
+      "id": "required-pytest",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q",
+      "result": {
+        "passed": 386,
+        "failed": 0
+      }
+    },
+    {
+      "id": "bumped-pins-pytest",
+      "command": "python -m pytest <24 py-файла из bump-набора> -q --tb=no",
+      "result": {
+        "passed": 856,
+        "failed": 4,
+        "failed_node_ids": [
+          "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+          "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+          "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+          "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+        ],
+        "note": "same pre-existing epic-scope guards as on the 2.58.212 assembly; no new failures"
+      }
+    },
+    {
+      "id": "js-w2b-unit",
+      "command": "node tests/js/mod_acl_ux_m4a_w2b_history_test.js",
+      "result": {
+        "checks": 217,
+        "failed": 0,
+        "covers": "B1 126 + B2: sources/tabs, state machine, detail по run_id, конверт уроков enabled/state/count, fail-closed source, default≠history, pending memory, max(ts), observed_at, cross-source, фильтры"
+      }
+    },
+    {
+      "id": "js-w2a-unit",
+      "command": "node tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js",
+      "result": {
+        "checks": 141,
+        "failed": 0
+      }
+    },
+    {
+      "id": "js-routing",
+      "command": "node tests/js/routing_test.js",
+      "result": {
+        "marker": "JS-UNIT-OK",
+        "failed": 0
+      }
+    },
+    {
+      "id": "w11-w12-guards",
+      "command": "python -m pytest tests/test_webapp_evol_w11_controls.py::TestControlTokens::test_one_role_one_component tests/test_webapp_evol_w12_internals.py::TestGlobalSearch::test_palette_css_is_safe_area_and_motion_aware -q",
+      "result": {
+        "passed": 2,
+        "failed": 0
+      }
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/*.js (121 файл, module_fixture.js исключён)",
+      "result": {
+        "passed": 117,
+        "failed": 4,
+        "failed_files": [
+          "asap6_wave2_ux_tabs_test.js",
+          "evol_cog_scene_test.js",
+          "round1025_ia_routing_test.js",
+          "ur_ui_settings_test.js"
+        ],
+        "note": "same four files fail on base e070c229; no new failures"
+      }
+    },
+    {
+      "id": "playwright-5-viewports",
+      "command": "python tools/ui_mod_acl_m4_catalog_e2e.py",
+      "result": {
+        "rc": 0,
+        "failures": 0,
+        "viewports": 5,
+        "viewports_list": ["1440x900", "1280x800", "768x1024", "390x844", "320x568"],
+        "flows": 83,
+        "b2_flows": 20,
+        "b2_facts": {
+          "factcheck_overview": {"rows": 5, "blocks": 1, "detail_buttons": 5, "tab": true},
+          "factcheck_history": {"rows": 6, "unique_keys": 6, "filter_options": 5, "detail_buttons": 6},
+          "factcheck_filter_refuted": {"rows": 2, "statuses": ["refuted", "refuted"]},
+          "factcheck_detail": {"run_id_gets": 1, "modal_opened": true, "modal_closed": true},
+          "experience_overview": {"rows": 3, "blocks": 1, "envelope": "уроков: 4 / implemented"},
+          "experience_history": {"rows": 4, "envelope": "уроков: 4 / implemented", "filter_options": 4},
+          "experience_filter_candidate": {"rows": 1},
+          "states": {
+            "factcheck_empty": "empty, no tab, 0 run buttons",
+            "factcheck_403": "denied, no tab, no '0 событий'",
+            "factcheck_503": "off, no tab",
+            "factcheck_available_false": "off, no tab",
+            "experience_enabled_false": "off, no tab, 'уроков: 0 / disabled'",
+            "experience_empty": "empty, no tab, 'уроков: 0 / not_run'",
+            "deeplink_empty_factcheck": "bare #/modules/factcheck, no panel",
+            "deeplink_empty_experience": "bare #/modules/experience, no panel"
+          },
+          "one_fetch": {
+            "factcheck": {"before": 2, "after_tab": 2, "idle": 2, "note": "cold-start bootstrap ≤2; tab/idle adds 0"},
+            "experience": {"before": 1, "after_tab": 1}
+          },
+          "390": {
+            "factcheck": {"rows": 6, "scrollWidth": 390, "vw": 390, "row_font": "12px"},
+            "experience": {"rows": 4, "scrollWidth": 390, "vw": 390, "row_font": "12px"}
+          },
+          "chips_rows": 1,
+          "duplicate_chips": 0,
+          "pageerrors": []
+        }
+      }
+    },
+    {
+      "id": "webapp-batch",
+      "command": "python -m pytest tests/test_webapp_*.py -q --tb=no",
+      "result": {
+        "files": 64,
+        "passed": 1455,
+        "failed": 33,
+        "note": "identical pre-existing set reproduced on base e070c229 in a separate worktree; no new failures"
+      }
+    },
+    {
+      "id": "manifest-dry-run",
+      "command": "python tools/release_manifest.py --dry-run",
+      "result": {
+        "rc": 0,
+        "version": "2.58.213",
+        "deployed_sha": "86d39a48151d1a881c00516fced3aec56d39172f",
+        "previous_sha": "e070c229bfdafcc9b07115ad55fba8dde2e8cffb",
+        "previous_version": "2.58.212",
+        "dirty_tracked": false,
+        "release_branch": "release/mod-acl-w2b2-2.58.213"
+      }
+    },
+    {
+      "id": "syntax-diff",
+      "command": "node --check web/app.js; git diff --check e070c229..86d39a48",
+      "result": {
+        "node_check_rc": 0,
+        "diff_check_rc": 0
+      }
+    }
+  ],
+  "note": "The manifest is produced at the content tip (bump commit; all W2b B2 code/tests included). Release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
+}
