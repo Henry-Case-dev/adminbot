@@ -1,7 +1,7 @@
 {
  "baseline": {
   "returncode": 0,
-  "summary": "38 passed in 4.68s"
+  "summary": "49 passed in 4.12s"
  },
  "mutations": [
   {
@@ -10,13 +10,11 @@
    "applied": true,
    "killed": true,
    "tests": [
-    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_deadline_follows_transport_policy_not_15s",
-    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_turn_source_has_no_local_15_second_wait",
-    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_dedicated_deadline_follows_policy_too"
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_deadline_follows_transport_policy_not_15s"
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed, 1 passed in 4.07s"
+    "summary": "1 failed in 4.12s"
    }
   },
   {
@@ -29,7 +27,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "1 failed in 4.01s"
+    "summary": "1 failed in 3.86s"
    }
   },
   {
@@ -43,7 +41,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed in 3.85s"
+    "summary": "2 failed in 3.69s"
    }
   },
   {
@@ -56,7 +54,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "1 failed in 3.69s"
+    "summary": "1 failed in 3.78s"
    }
   },
   {
@@ -70,7 +68,7 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed in 3.85s"
+    "summary": "2 failed in 3.79s"
    }
   },
   {
@@ -84,7 +82,33 @@
    ],
    "pytest": {
     "returncode": 1,
-    "summary": "2 failed in 3.75s"
+    "summary": "2 failed in 3.48s"
+   }
+  },
+  {
+   "id": "M6-raw-choices-indexing",
+   "requirement": "D1 (review)",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestRawChoicesShapes"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "2 failed, 4 passed in 3.34s"
+   }
+  },
+  {
+   "id": "M7-ignore-output-field",
+   "requirement": "D2 (review)",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestOutputFieldContract::test_client_writes_route_field_and_reports_sent"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "1 failed in 3.31s"
    }
   }
  ]

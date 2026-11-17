@@ -122,7 +122,7 @@
    "id": "new-slice-tests",
    "command": "python -m pytest tests/test_p0_l1_model_switch.py -q",
    "result": {
-    "passed": 38,
+    "passed": 49,
     "failed": 0
    },
    "covers": "все LVS-L1 из requirement_ids (см. tests.json → mapping)"
@@ -140,13 +140,13 @@
    "id": "focused-l1-llm-capacity",
    "command": "python -m pytest tests/test_p0_l1_model_switch.py tests/test_asap7_direct_l1.py tests/test_asap8_v6_wc_direct_d03.py tests/test_direct_l1_corrective_r1.py tests/test_direct_l1_l1d_contract.py tests/test_asap7_direct_settings.py tests/test_llm_client.py tests/test_llm_completion_metadata_ur18.py tests/test_p0_llm_transport_258206.py tests/test_capacity_nanogpt_asap32.py tests/test_capacity_resolver_asap31.py tests/test_capacity_stage_d_smart.py tests/test_er08_limits_context.py tests/test_ur_f_inspector_step1.py tests/test_rlr_acceptance_rows.py -q",
    "result": {
-    "passed": 476,
+    "passed": 487,
     "failed": 1
    },
    "failed_pre_existing": [
     "tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit"
    ],
-   "note": "этот тест красный и на базе ea9f760f (проверено тем же node id) — не регрессия слайса"
+   "note": "1 падение — предсуществующее (test_direct_l1_corrective_r1::test_build_l1_context_bot_replies_caps_and_limit), воспроизведено на базе"
   },
   {
    "id": "consumers-initiative-factcheck-summary",
@@ -176,17 +176,17 @@
  "mutations": {
   "file": "evidence/l1/mutations.json",
   "baseline": "37 passed",
-  "killed": "6/6",
+  "killed": "8/8",
   "items": [
    {
-    "id": "M1-restore-15s",
-    "requirement": "LVS-L1-12/L1-15 (main)",
+    "id": "M1-restore-15s (main)",
+    "requirement": "LVS-L1-12/L1-15",
     "killed": true,
-    "killed_tests": 2
+    "killed_tests": 1
    },
    {
-    "id": "M1b-restore-15s-dedicated",
-    "requirement": "LVS-L1-12/L1-15 (dedicated)",
+    "id": "M1b-restore-15s (dedicated)",
+    "requirement": "LVS-L1-12/L1-15",
     "killed": true,
     "killed_tests": 1
    },
@@ -213,6 +213,18 @@
     "requirement": "LVS-L1-19/L1-20",
     "killed": true,
     "killed_tests": 2
+   },
+   {
+    "id": "M6-raw-choices-indexing",
+    "requirement": "D1 (review)",
+    "killed": true,
+    "killed_tests": 2
+   },
+   {
+    "id": "M7-ignore-output-field",
+    "requirement": "D2 (review)",
+    "killed": true,
+    "killed_tests": 1
    }
   ]
  },
@@ -421,11 +433,104 @@
   "tests/test_p0_l1_model_switch.py::TestL1Turn::test_dedicated_deadline_follows_policy_too": [
    "LVS-L1-15",
    "LVS-L1-26"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestRawChoicesShapes": [
+   "LVS-L1-23",
+   "D1"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestOutputFieldContract": [
+   "LVS-L1-17",
+   "LVS-L1-24",
+   "D2"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_successful_main_reports_real_finish_reason": [
+   "LVS-L1-04",
+   "LVS-L1-29",
+   "N1"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_failed_dedicated_attempt_is_provider_fallback": [
+   "LVS-L1-26",
+   "LVS-L1-28",
+   "N2"
   ]
  },
  "not_covered_locally": {
   "LVS-L1-31": "реальный provider-вызов после деплоя (live_required, preprod)",
   "LVS-L1-32 (live part)": "смена main-модели без рестарта на production hot-config — после деплоя",
   "LVS-L1-37 (live part)": "сверка системной метрики с реальной трассой на проде — после деплоя"
+ },
+ "review_r1": {
+  "verdict": "Needs Fixes на ff2d11c4 (код bed0ad30)",
+  "fixed": {
+   "D1": {
+    "finding": "generate_chat индексировал сырой choices после классификатора -> KeyError/TypeError мимо LLMError (tool_loop ловит только LLMError)",
+    "fix": "сырой choices больше не индексируется; finish_reason берётся из классификатора (finish_reason_raw)",
+    "tests": [
+     "TestRawChoicesShapes (5 форм choices + metadata-путь)"
+    ]
+   },
+   "D2": {
+    "finding": "main-нога не передавала route.output_field; клиент всегда писал max_tokens",
+    "fix": "generate/generate_with_metadata принимают additive output_field; main-нога передаёт поле маршрута; неизвестное поле -> max_tokens",
+    "tests": [
+     "TestOutputFieldContract::test_client_writes_route_field_and_reports_sent",
+     "TestOutputFieldContract::test_turn_passes_route_field_to_main_leg",
+     "TestOutputFieldContract::test_incompatible_max_tokens_retries_with_other_field"
+    ]
+   },
+   "N1": {
+    "finding": "l1_finish_reason пуст на успешной main-попытке",
+    "fix": "main-нога идёт metadata-путём клиента, когда он доступен (узкие двойники — прежний generate); finish_reason/usage попадают в L1_PLAN и диагностику",
+    "tests": [
+     "TestL1Turn::test_successful_main_reports_real_finish_reason"
+    ]
+   },
+   "N2": {
+    "finding": "пропуск dedicated-ноги без ключа помечался provider_fallback",
+    "fix": "provider_fallback только если предыдущая нога реально пыталась; пропуск = success + l1_skipped_leg (ось всегда свежая, 'none' по умолчанию)",
+    "tests": [
+     "TestL1Turn::test_dedicated_without_key_skips_leg_never_leaks_key (success + l1_skipped_leg)",
+     "TestL1Turn::test_failed_dedicated_attempt_is_provider_fallback"
+    ]
+   },
+   "N4": {
+    "finding": "provider/endpoint_host/key_slot были только в Inspector",
+    "fix": "те же R17-safe поля добавлены в существующее событие L1_PLAN (endpoint — только host)",
+    "tests": [
+     "TestL1Event::test_event_fields_survive_whitelist"
+    ]
+   },
+   "N8": {
+    "finding": "тавтологичный assert messages != []",
+    "fix": "проверка payload-контракта: бюджет повтора = min(ceiling, first*2) и то же поле лимита"
+   },
+   "N7": {
+    "finding": "affected-run.txt chunk 240-280 без результатов (обрыв региона)",
+    "fix": "полный повторный прогон region (324 файла, 30/chunk) без таймаутов + сверка того же набора node-id с базой",
+    "artifacts": [
+     "affected-run-r2.txt",
+     "affected-r2.json",
+     "affected-r2-base-compare.json"
+    ]
+   }
+  },
+  "not_changed": [
+   "Vision",
+   "scheduler",
+   "UI",
+   "QRNG",
+   "модель/промпты/флаги",
+   "версия"
+  ]
+ },
+ "affected_r2": {
+  "files": 324,
+  "chunks": 11,
+  "chunk_size": 30,
+  "timeouts": [],
+  "failed_nodes": 59,
+  "base_same_node_set": "58 failed / 1 passed — идентично кандидату",
+  "candidate_only_failures": [],
+  "classification": "все падения воспроизводятся на ea9f760f; 0 регрессий слайса"
  }
 }

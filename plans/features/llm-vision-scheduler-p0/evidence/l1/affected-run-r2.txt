@@ -1,0 +1,71 @@
+# affected-rerun (r2) files=324 chunk=30
+### chunk 0-30 rc=1 | 6 failed, 755 passed, 1 warning in 72.18s (0:01:12)
+FAILED tests/test_104_backend_additions.py::test_user_facing_text_updated
+FAILED tests/test_addtr_tools_minifix.py::test_l1_seam_announce_then_execute_once
+FAILED tests/test_asap2_clar_contract.py::test_34_factory_and_ladder_and_custom_preserved
+FAILED tests/test_asap2_clar_contract.py::test_24_truncated_window_and_branch_are_honest
+FAILED tests/test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated
+FAILED tests/test_asap8_initreply_binding.py::test_case7b_stale_target_with_addressee_cancels
+### chunk 30-60 rc=1 | 10 failed, 973 passed, 1 warning in 145.01s (0:02:25)
+FAILED tests/test_budget_global_toggle_round1024.py::TestMasterPriority::test_master_off_overrides_context_on
+FAILED tests/test_budget_global_toggle_round1024.py::TestMasterPriority::test_master_on_context_off
+FAILED tests/test_budget_global_toggle_round1024.py::TestMasterPriority::test_master_on_context_on
+FAILED tests/test_budget_guardrails_round1024.py::TestNoCatalogDesync::test_js_budget_card_toggle_pinned
+FAILED tests/test_budget_guardrails_round1024.py::TestNoCatalogDesync::test_python_flag_and_js_toggle_are_same_key
+FAILED tests/test_budget_guardrails_round1024.py::TestMenuFreeze::test_modules_menu_composition_frozen
+FAILED tests/test_budget_guardrails_round1024.py::TestMenuFreeze::test_tabs_menu_composition_frozen
+FAILED tests/test_budget_guardrails_round1024.py::TestMenuFreeze::test_budget_card_reuses_existing_tab_not_new_menu_item
+FAILED tests/test_cfg03_param_audit.py::TestConsumerCoverage::test_visible_dead_knobs_are_exactly_documented
+FAILED tests/test_chat_keys.py::test_parallel_generate_usage_attributed_per_chat
+### chunk 60-90 rc=1 | 7 failed, 837 passed in 209.63s (0:03:29)
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud
+FAILED tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit
+FAILED tests/test_er65_sent_segment_snapshot.py::test_snapshot_regenerates_byte_stable_from_code
+### chunk 90-120 rc=1 | 20 failed, 851 passed, 1 warning in 100.51s (0:01:40)
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_banner_on_conspect_only_in_range_lines_unlabeled
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_inrange_region_covers_all_window_lines
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_verbatim_only_global_gets_no_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_sample_parity_no_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_overflow_conspect_remainder_stays_under_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_inrange_lines_no_boundary
+FAILED tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_partial_trim_boundary_before_first_survivor
+FAILED tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_fully_trimmed_tail_emits_no_boundary
+FAILED tests/test_hotfix_round1025_logging.py::TestFallbackLogRound1025::test_log_has_text_provider_model_timeout_attempts
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_generate_image_is_ninth
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_active_tools_gate
+FAILED tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools
+FAILED tests/test_initiative_coordination.py::test_act_on_opportunity_conflict_defers_to_intent
+FAILED tests/test_initiative_coordination.py::test_evaluate_phase_precheck_blocks_before_llm
+FAILED tests/test_initiative_coordination.py::test_t1_nostalgia_delegated_refusal_sends_nothing
+FAILED tests/test_initiative_coordination.py::test_t5_every_text_send_site_passes_publish_guard
+FAILED tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_uses_chat_level_core_style_and_expression
+FAILED tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[core-core_disabled-absent0-present0]
+FAILED tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[style-style_policy_disabled-absent1-present1]
+FAILED tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[expression-expression_disabled-absent2-present2]
+### chunk 120-150 rc=1 | 2 failed, 842 passed in 386.07s (0:06:26)
+FAILED tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+FAILED tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons
+### chunk 150-180 rc=1 | 1 failed, 880 passed, 1 warning in 49.81s
+FAILED tests/test_outgoing_guard_round1022.py::TestSendPointsCoverage::test_every_send_point_is_registered_or_allowlisted
+### chunk 180-210 rc=0 | 799 passed, 1 warning in 29.18s
+### chunk 210-240 rc=1 | 1 failed, 547 passed in 21.93s
+FAILED tests/test_soul1_registry_completeness.py::test_registry_consumer_pointers_point_at_real_lines
+### chunk 240-270 rc=1 | 4 failed, 761 passed, 2 warnings in 108.80s (0:01:48)
+FAILED tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona
+FAILED tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken
+FAILED tests/test_summary_generator.py::TestEpic60RunningSummary::test_below_ratio_no_trigger
+FAILED tests/test_summary_generator.py::TestEpic60RunningSummary::test_expired_summary_stays_then_retriggers_on_new_messages
+### chunk 270-300 rc=1 | 6 failed, 884 passed, 1 warning in 125.21s (0:02:05)
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_tool_download_quality_round1017.py::TestToolQualityCallback::test_callback_downloads_chosen_quality
+FAILED tests/test_tool_download_quality_round1017.py::TestToolQualityCallback::test_callback_busy_keeps_pending
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+### chunk 300-324 rc=1 | 2 failed, 676 passed, 2 errors in 43.25s
+FAILED tests/test_ur_c_clock.py::TestFallbackAdapterClock::test_generous_budget_keeps_block_intact_same_asof
+FAILED tests/test_verbilizer_response_modes_round1023.py::TestTwoCallModes::test_summary_kill_switch_off_prev_narrator

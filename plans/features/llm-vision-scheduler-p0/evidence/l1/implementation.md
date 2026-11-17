@@ -127,3 +127,25 @@ LVS-L1-02/03/04/05/12/13/14/15/16/17/19/20/23/24/26/27/28/29/34/35/37).
 - Аллокация L1-контекста для unknown-модели по-прежнему считается от 1M-оценки; изменена
   только честность её маркировки (изменение арифметики — строка LVS-L1-08 вне scope слайса).
 - 54 предсуществующих падения affected-набора воспроизводятся на `ea9f760f` и не исправлялись.
+
+## Review r1 (Needs Fixes на `ff2d11c4`) — точечные исправления
+
+| # | Находка | Изменение | Доказательство |
+|---|---|---|---|
+| **D1** | `generate_chat` индексировал сырой `choices` после классификатора: `{"0": …}`/`5`/`{}`/`None` давали `KeyError`/`TypeError` мимо `LLMError`, и tool-раунд выходил из штатной деградации | сырой `choices` больше не индексируется; `finish_reason` берётся из классификатора (`finish_reason_raw`) | `TestRawChoicesShapes` (5 форм + текстовый путь): штатный `LLMBadResponseError`, `tool_loop` деградирует |
+| **D2** | main-нога не передавала `route.output_field`; клиент всегда писал `max_tokens` — повтор мог 3× слать несовместимый payload | аддитивный `output_field` в `generate`/`generate_with_metadata`; main-нога передаёт поле маршрута; неизвестное поле → `max_tokens`; `max_output_tokens_sent` читает фактическое поле | `TestOutputFieldContract` (3 теста): payload, ход, повтор при 4xx «max_tokens не поддерживается» |
+| **N1** | успешная main-попытка не имела finish_reason | main-нога идёт metadata-путём клиента, когда он доступен (узкие двойники — прежний `generate`); finish_reason/usage попадают в `L1_PLAN` и диагностику; `unknown` не затирает известную причину | `test_successful_main_reports_real_finish_reason` (`stop` в диагностике и событии) |
+| **N2** | пропуск dedicated-ноги без ключа помечался `provider_fallback` | `provider_fallback` только после РЕАЛЬНОЙ неудачной попытки предыдущей ноги; пропуск = `success` + `l1_skipped_leg` (ось всегда свежая, по умолчанию `none`) | оба теста: skip→`success`, failed dedicated→`provider_fallback` |
+| **N4** | provider/endpoint/key slot были только в Inspector | те же R17-safe поля добавлены в существующее событие `L1_PLAN` (`endpoint_host` — только host) | `test_event_fields_survive_whitelist` (+ отсутствие URL/ключа) |
+| **N8** | тавтологичный `messages != []` | проверка payload-контракта: бюджет повтора = `min(ceiling, first*2)` и то же поле лимита | `test_length_truncated_empty_content_retried_with_budget` |
+| **N7** | `affected-run.txt` chunk 240–280 без результатов | полный повторный прогон 324 файлов (30/chunk, без таймаутов) + сверка того же набора node-id с базой | `affected-run-r2.txt`, `affected-r2.json`, `affected-r2-base-compare.json` |
+
+Дополнительно: главный путь `generate` теперь принимает `output_field` только
+как additive kwarg; все прежние потребители (`tool_loop`, Summary, Factcheck,
+Initiative) вызывают его без изменений. Двойники с узкой сигнатурой не ломаются:
+`_supported_kwargs` передаёт лишь объявленные параметры.
+
+Итог повторных проверок: 49 новых тестов, mandatory 386, focused 487/488
+(1 предсуществующий), consumers 374, affected-набор 324 файла без таймаутов,
+сверка node-id с базой `ea9f760f` — 58/58 и 0 candidate-only падений;
+8/8 мутаций убиты (включая возврат сырой индексации `choices` и игнор `output_field`).
