@@ -261,7 +261,14 @@ ROUTES_SHA256_F11 = (
     # в СУЩЕСТВУЮЩЕМ POST /api/config. Новых @api_router-маршрутов НЕТ
     # (Δ routes=0), маскировка секретов не менялась, f8_baseline не
     # переиздавался.
-    "f12c01c6f5d00f4d8a9932a4d4903126c650860415b3f44f9af9a47b90b7603a")
+    # QRNG P3 (17.11.2026, arch D4/D5/SEL-01/SEL-02/FALL-01, L-F11S-1
+    # conscious re-pin): контентная Δ в СУЩЕСТВУЮЩЕМ POST /api/config —
+    # правила каталога теперь применяются и к json-значениям
+    # (`random.fallback_order`: только id реестра, без дублей) и
+    # кросс-полевой инвариант `primary ∉ fallback_order` на итоговом
+    # состоянии пакета. Новых @api_router-маршрутов НЕТ (Δ routes=0),
+    # RBAC/маскировка/DDL не менялись, набор путей f8_baseline не менялся.
+    "3ea159b2014bc50298b5697251633739114cc5eb001bd64516be736b4e4b1da9")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
@@ -421,7 +428,7 @@ PG_DB_SHA256_B07 = (
 # «не дедлайн исследования»); ключи/типы/группы/секретность не менялись.
 # TSV/meta переэмитированы тем же инструментом; `--check` → OK.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "466f7e35ab798cf6eb9e5fbf2c2532b234d30cbd223921d261e8556e2f892072")
+    "0ee10dc96bc829cbdf83fca6434bf85d7632b5a48242c73da75c8b88530342cf")
 
 
 def _sha256(path: Path) -> str:
@@ -536,7 +543,7 @@ class TestFrozenInvariants:
         # EVOL-031 (30.10.2026): −5 ключей Exact Match Cache / direct_dedup
         # (replay готовых ответов удалён; вкладка smart_cache снята) →
         # 581/119/117/22 (см. PARAM_CATALOG_SHA256_FOLLOWUP выше).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 645
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 648
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             FIXTURE["counts"]["TAB_BY_GROUP"] == 119
@@ -592,7 +599,7 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
         # P0-FACTCHECK §6.3 (FC-06C): −2 (TEMPORAL_FRESHNESS_*) → 586.
         # EVOL-031 (30.10.2026): −5 (Exact Match Cache / direct_dedup) → 581.
-        assert len(rows) == 645
+        assert len(rows) == 648
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -614,7 +621,7 @@ class TestRegistry:
         # EVOL-031 (30.10.2026): снятые 5 ключей — исторические (Epic 51,
         # до инвентаря round1014), в delta-набор не входили → дельта 175
         # без изменений (FIXTURE см. tools/_evol031_reissue_f8.py).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 244
+        assert len(delta) == FIXTURE["counts"]["delta"] == 247
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -653,12 +660,16 @@ class TestRegistry:
         # QND-NONDET (10.11.2026): +1 hidden — initiative.trigger_probability
         # (прежний бинарный гейт стал верхней границей вероятности; значение
         # читается как p_max) → 16.
-        assert len(hidden) == 16
+        # QRNG P3 (17.11.2026, arch D4): +1 hidden — keys.random_quantum_
+        # provider (информационное имя провайдера; выбор источника — в
+        # random.primary_provider/fallback_order; строка/значение остаются) → 17.
+        assert len(hidden) == 17
         hidden_keys = {r["internal_key"] for r in hidden}
         assert hidden_keys == {
             "flags.chat_mood_enabled",
             "flags.chat_style_anchors_enabled",
             "initiative.trigger_probability",
+            "keys.random_quantum_provider",
             "limits.chat_budget_anchors_ratio",
             "limits.chat_budget_response_ratio",
             "limits.chat_lock_max_entries",
@@ -699,7 +710,7 @@ class TestRegistry:
         # (+2 ключа подачи фактчека).
         # MOD-ACL-UX-01 amendment (09.11.2026): reissue под 606/205
         # (+11 PG-only порогов/бюджетов уроков).
-        assert "645" in meta and "411" in meta and "244" in meta
+        assert "648" in meta and "411" in meta and "247" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -719,7 +730,7 @@ class TestScreenMap:
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
         # P0-FACTCHECK §6.3 (FC-06C): санкционированная Δ −2 → 586.
         # EVOL-031 (30.10.2026): санкционированная Δ −5 → 581.
-        assert len(keys) == 645
+        assert len(keys) == 648
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

@@ -949,7 +949,11 @@ class TestPrngHonesty:
             result = await svc.draw_index(10, chat_id=1, purpose="p")
             assert result.deferred is True
             assert result.index is None
-            assert result.reason == "provider_unconfigured"
+            # QRNG P3: действующий порядок IBM→ANU→LfDR; LfDR сконфигурирован
+            # (ключ не требуется), но значений ещё нет → deferred с честной
+            # причиной `provider_unavailable` (прежний `provider_unconfigured`
+            # описывал единственный ANU-провайдер).
+            assert result.reason == "provider_unavailable"
             assert await svc.recent_draws(limit=5) == []
         finally:
             await db.close()

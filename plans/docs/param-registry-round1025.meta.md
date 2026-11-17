@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
 - **APP_VERSION:** `2.58.213`
-- **HEAD (short):** `5bdb80cb`
+- **HEAD (short):** `84abc2e5`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **645** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **22**.
-- **Реестр:** 645 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **648** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **22**.
+- **Реестр:** 648 строк == REGISTRY.
 - **inventory.tsv (10.14):** 401 baseline-ключей.
-- **Дельта 411 → 645 = 244** новых ключей (`status=new`).
+- **Дельта 411 → 648 = 247** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 645 = 244 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 648 = 247 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -259,6 +259,9 @@
 - `prompts.verbilizer_mode_casual`
 - `prompts.verbilizer_mode_deep_research`
 - `prompts.verbilizer_mode_serious`
+- `random.fallback_enabled`
+- `random.fallback_order`
+- `random.primary_provider`
 - `sentry_dsn`
 - `telegram_api_files_dir`
 - `telegram_api_hash`

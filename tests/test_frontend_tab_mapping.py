@@ -199,7 +199,7 @@ class TestTabMappingAudit:
         # дрейфовал от фактического значения — см. комментарий выше).
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(GROUPS) == 121
-        assert len(pc.REGISTRY) == 645
+        assert len(pc.REGISTRY) == 648
 
 
 class TestModuleTabs:
@@ -504,6 +504,9 @@ def test_widget_keyvalue_on_summary_aliases():
         # CFG-02B (§02B.2.3, ADR-1031-1): +1 select — режим счёта частотного
         # лимита (per_user/per_chat; один контрол, не две галочки).
         "limits.image_freq_limit_mode",
+        # QRNG P3 (17.11.2026, arch D4): +1 select — основной провайдер
+        # квантовых значений (ibm_quantum/anu/lfdr; глобальная настройка).
+        "random.primary_provider",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

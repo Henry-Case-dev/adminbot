@@ -300,7 +300,11 @@ async def test_prng_auto_seed_source_impl_and_probability(tmp_path, mem):
         result = await svc.draw_index(10, chat_id=1, purpose="p")
         assert result.source == "pseudorandom"
         assert result.source_impl == mrs.SOURCE_IMPL_PRNG
-        assert result.fallback_reason == "provider_unconfigured"
+        # QRNG P3: действующий порядок IBM→ANU→LfDR; LfDR сконфигурирован
+        # (ключ не требуется), но расходуемого запаса ещё нет — блокер честно
+        # `provider_unavailable` (прежний `provider_unconfigured` описывал
+        # мир одного ANU-провайдера).
+        assert result.fallback_reason == "provider_unavailable"
         assert 0 <= result.index < 10
         prob = await svc.draw_probability(chat_id=1, purpose="p")
         assert prob.source == "pseudorandom"
@@ -336,11 +340,14 @@ async def test_fallback_off_defers_optional(tmp_path, mem):
         svc = mrs.RandomSourceService(db, auto_refill=False)
         result = await svc.draw_index(10, chat_id=1, purpose="p")
         assert result.deferred is True and result.index is None
-        assert result.reason == "provider_unconfigured"
+        # QRNG P3: ни одного провайдера с расходуемым запасом; LfDR
+        # сконфигурирован (без ключа), но значений ещё нет.
+        assert result.reason == "provider_unavailable"
         assert await svc.recent_draws(limit=5) == []   # draw не состоялся
-        # K2 OFF → причина disabled, PRNG не подставляется при fallback OFF
+        # PRNG OFF + нет квантового источника → deferred (не pseudorandom):
+        # «не quantum, не PRNG» — явное состояние, а не скрытая подмена.
         svc2 = mrs.RandomSourceService(db, auto_refill=False)
-        assert (await svc2.resolve_effective(1))[0] == "pseudorandom"
+        assert (await svc2.resolve_effective(1))[0] == "deferred"
     finally:
         await db.close()
 
@@ -474,11 +481,13 @@ async def test_for_dream_fallback_off_empty_returns_none(tmp_path, mem):
         src = await mrs.for_dream(7, k_hint=3, chat_id=5)
         assert isinstance(src, mrs.CoreDreamRandomSource)
         assert src.source == "pseudorandom" and src.fallback is True
-        assert src.fallback_reason == "provider_unconfigured"
+        # QRNG P3: явный PRNG-откат с честной причиной действующего порядка
+        # (LfDR сконфигурирован без ключа, запаса ещё нет).
+        assert src.fallback_reason == "provider_unavailable"
         _, meta = src.pick([{"id": i} for i in range(5)], chat_id=5,
                            purpose="less_studied_periods", k=2)
         assert meta["source"] == "pseudorandom"
-        assert meta["fallback_reason"] == "provider_unconfigured"
+        assert meta["fallback_reason"] == "provider_unavailable"
         assert meta["source_impl"] == mrs.SOURCE_IMPL_PRNG
     finally:
         mrs.reset_service()

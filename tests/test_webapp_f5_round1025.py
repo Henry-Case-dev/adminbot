@@ -347,7 +347,7 @@ def test_ai_hub_five_pages_order():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 645
+    assert len(pc.REGISTRY) == 648
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22

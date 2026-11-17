@@ -280,7 +280,10 @@ class TestCompleteness:
         # chat_params/hot по этим строкам — B01-снапшот 37423-EOF), при
         # категориях flags/limits. Осознанное ns-исключение, прецедент
         # названия-осей §3.3 (effective = env AND product).
-        NS_EXCEPTIONS = ("initiative.",)
+        # QRNG P3 (17.11.2026, arch D4): селектор источника живёт в
+        # namespace `random.*` при категории memory (глобальные оси
+        # primary/fallback; чатовый override запрещён global_only).
+        NS_EXCEPTIONS = ("initiative.", "random.")
         for spec in REGISTRY.values():
             if spec.category is None:
                 continue
@@ -697,9 +700,11 @@ class TestGroups8424:
         # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 prompts
         # (prompts.factcheck_subject_system_prompt — ключ читался рантаймом
         # через resolve_prompt, записи каталога не имел) → prompts 29.
+        # QRNG P3 (17.11.2026, arch D4): +3 memory (глобальные random.*
+        # селектора) → memory 62.
         assert counts == {"prompts": 29, "models": 74, "keys": 33,
                           "limits": 269, "flags": 109, "reactions": 39,
-                          "content": 5, "memory": 59, "temporal": 2}
+                          "content": 5, "memory": 62, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

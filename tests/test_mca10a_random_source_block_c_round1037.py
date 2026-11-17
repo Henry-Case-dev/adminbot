@@ -88,7 +88,9 @@ class TestCatalogContract:
         # initiative.trigger_probability), +2 GROUPS (limits_qnd /
         # limits_qnd_nostalgia), +2 mapped (mod_initiative/mod_nostalgia);
         # TAB_RULES 22 без роста (группы — на существующих вкладках).
-        assert len(pc.REGISTRY) == 645
+        # QRNG P3 (arch D4): +3 глобальных ключа селектора (REGISTRY 645→648);
+        # группы/вкладки in-place.
+        assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
@@ -361,7 +363,10 @@ class TestAnuSecretTaxonomy:
         assert resp.status_code == 200
         group = {k: v for k, v in resp.json()["items"].items()
                  if v["group"] == "keys_random"}
-        assert len(group) == 9
+        # QRNG P3 (arch D4): информационный `keys.random_quantum_provider`
+        # скрыт из UI/params-meta (остаётся в реестре/БД) → 9→8.
+        assert len(group) == 8
+        assert "keys.random_quantum_provider" not in group
         secrets = sorted(k for k, v in group.items() if v["secret_mask"])
         assert secrets == [ANU_KEY]
 
@@ -377,8 +382,11 @@ class TestAnuSecretTaxonomy:
         # Не-секретные — открытые значения (синтетика каталоговых дефолтов).
         from services.pg_db import coerce_catalog_value
         settings = Settings()
-        for pg_key in ("keys.random_quantum_provider",
-                       "keys.random_quantum_endpoint",
+        # QRNG P3 (arch D4): `keys.random_quantum_provider` скрыт (hidden) и
+        # в /api/config больше не отдаётся — выбор источника живёт в
+        # random.primary_provider/fallback_order. Строка БД не удаляется.
+        assert "keys.random_quantum_provider" not in by_key
+        for pg_key in ("keys.random_quantum_endpoint",
                        "keys.random_quantum_plan",
                        "keys.random_quantum_batch_length",
                        "keys.random_quantum_request_timeout_seconds"):

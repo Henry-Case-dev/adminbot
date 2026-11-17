@@ -363,7 +363,11 @@ async def test_activation_no_key_blocker_visible(tmp_path, cfg, mem, events):
         assert snapshot["anu_state"] == "provider_unconfigured"
         assert snapshot["key_present"] is False
         assert snapshot["effective_source"] == "pseudorandom"
-        assert snapshot["fallback_reason"] == "provider_unconfigured"
+        # QRNG P3: ANU-активация по-прежнему честно blocked (выше), но
+        # действующий порядок IBM→ANU→LfDR уже имеет сконфигурированного
+        # LfDR (ключ не требуется) без значений → общий блокер
+        # `provider_unavailable`; ANU-состояние не подменяется.
+        assert snapshot["fallback_reason"] == "provider_unavailable"
     finally:
         await db.close()
 
@@ -500,14 +504,18 @@ async def test_fallback_on_transition_event_once_and_recovery(tmp_path, mem,
         first = await svc.draw_index(10, chat_id=1, purpose="p")
         second = await svc.draw_index(10, chat_id=1, purpose="p")
         assert first.source == "pseudorandom" and second.source == "pseudorandom"
-        assert first.fallback_reason == "provider_unconfigured"
+        # QRNG P3: действующий запасной провайдер — LfDR (без ключа), у него
+        # пока нет значений; причина честная.
+        assert first.fallback_reason == "provider_unavailable"
         assert calls == []      # чат не ждёт сеть — draw локальный
         fallbacks = [e for e in events if e["event_name"] == "random_fallback"]
         assert len(fallbacks) == 1      # один раз на переход, не на draw
         assert fallbacks[0]["reason_code"] == "random_fallback"
         snapshot = await svc.status_snapshot(chat_id=1)
         assert snapshot["effective_source"] == "pseudorandom"
-        assert snapshot["last_fallback_reason"] == "provider_unconfigured"
+        # ANU durable-состояние (G16) не пачкается чужой причиной: блокер
+        # LfDR в `mca_random_state` не пишется (там только ANU).
+        assert snapshot["last_fallback_reason"] is None
         # восстановление: реальная партия → quantum; затем исчерпание → снова
         # один notable-переход
         await svc._store.insert_batch(mrs.AnuBatch(
@@ -536,12 +544,14 @@ async def test_fallback_off_defers_with_reason_direct_path_alive(
         svc, calls = make_service(db, cfg, responses=[])
         result = await svc.draw_index(10, chat_id=1, purpose="p")
         assert result.deferred is True and result.index is None
-        assert result.reason == "provider_unconfigured"
+        # QRNG P3: ни quantum, ни разрешённого PRNG — deferred с честной
+        # причиной действующего порядка (LfDR без значений).
+        assert result.reason == "provider_unavailable"
         assert calls == []      # сеть не вызывается; прямой путь не блокируется
         assert await svc.recent_draws(limit=5) == []
         fallbacks = [e for e in events if e["event_name"] == "random_fallback"]
         assert len(fallbacks) == 1
-        assert fallbacks[0]["reason_code"] == "provider_unconfigured"
+        assert fallbacks[0]["reason_code"] == "provider_unavailable"
     finally:
         await db.close()
 
