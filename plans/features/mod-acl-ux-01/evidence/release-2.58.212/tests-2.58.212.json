@@ -1,0 +1,220 @@
+{
+  "feature": "mod-acl-ux-01 / M4A W2b B1 — история «Сна» и «Ностальгии»",
+  "release": "2.58.212",
+  "slice": "release assembly: approved W2b B1 candidate 71d055fc + bump 2.58.211 -> 2.58.212",
+  "assembled_at": "2026-11-17",
+  "branch": "release/mod-acl-w2b-2.58.212",
+  "base_commit": "9de44231cd773951fb53670bf94cb626ffd7c1bb",
+  "base_version": "2.58.211",
+  "base_state": "previous release / rollback target; production not contacted in this assembly",
+  "review_verdict": "Approved for 2.58.212 release preparation",
+  "candidate_tip": "71d055fc130aedd38369f5f8f20e44c0c355cad5",
+  "candidate_commits": [
+    "fae3eab2",
+    "b5e22245",
+    "18ced316",
+    "71d055fc130aedd38369f5f8f20e44c0c355cad5"
+  ],
+  "bump_commit": "f7e61eb05b448c92a30f316dedc7fb96c4767062",
+  "content_tip": "f7e61eb05b448c92a30f316dedc7fb96c4767062",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none used by tests; local in-memory SQLite only"
+  },
+  "diff_vs_base": {
+    "files": 39,
+    "insertions": 1955,
+    "deletions": 73,
+    "candidate_files": 9,
+    "candidate_insertions": 1924,
+    "candidate_deletions": 42,
+    "bump_files": 30,
+    "bump_lines": 31,
+    "product_files_one_line": [
+      "config/settings.py (bump/changelog)",
+      "plans/docs/param-registry-round1025.meta.md (pin)"
+    ],
+    "no_db_migration_composer_prompt_model_endpoint_files": true,
+    "deploy_v2_9_2_changed": false
+  },
+  "invariants": {
+    "app_version": "2.58.212",
+    "settings_fields": 472,
+    "registry": 645,
+    "groups": 121,
+    "tab_by_group": 119,
+    "tab_rules": 22,
+    "migration_steps": 47,
+    "migration_max_version": 47,
+    "ddl": 0,
+    "new_flags": 0,
+    "new_migrations": 0,
+    "new_prompts": 0,
+    "new_models": 0,
+    "new_composer": 0,
+    "new_endpoints": 0,
+    "deploy_script_changes": 0,
+    "pg_settings_touched": false
+  },
+  "batches": [
+    {
+      "id": "required-pytest",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q",
+      "result": {
+        "passed": 386,
+        "failed": 0
+      }
+    },
+    {
+      "id": "bumped-pins-pytest",
+      "command": "python -m pytest <24 py-файла из bump-набора> -q --tb=no",
+      "result": {
+        "passed": 856,
+        "failed": 4,
+        "failed_node_ids": [
+          "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+          "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+          "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+          "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+        ]
+      }
+    },
+    {
+      "id": "js-w2b-unit",
+      "command": "node tests/js/mod_acl_ux_m4a_w2b_history_test.js",
+      "result": {
+        "checks": 126,
+        "failed": 0,
+        "covers": "H-1…H-7: состояния, fail-closed source, вкладка, дефолт/память, max(ts), cross-scope, один фетч, F2/F3/F4"
+      }
+    },
+    {
+      "id": "js-w2a-unit",
+      "command": "node tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js",
+      "result": {
+        "checks": 141,
+        "failed": 0
+      }
+    },
+    {
+      "id": "js-routing",
+      "command": "node tests/js/routing_test.js",
+      "result": {
+        "marker": "JS-UNIT-OK",
+        "failed": 0
+      }
+    },
+    {
+      "id": "w11-w12-guards",
+      "command": "python -m pytest tests/test_webapp_evol_w11_controls.py::TestControlTokens::test_one_role_one_component tests/test_webapp_evol_w12_internals.py::TestGlobalSearch::test_palette_css_is_safe_area_and_motion_aware -q",
+      "result": {
+        "passed": 2,
+        "failed": 0
+      }
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/*.js (121 файл, module_fixture.js исключён)",
+      "result": {
+        "passed": 117,
+        "failed": 4,
+        "failed_files": [
+          "asap6_wave2_ux_tabs_test.js",
+          "evol_cog_scene_test.js",
+          "round1025_ia_routing_test.js",
+          "ur_ui_settings_test.js"
+        ],
+        "note": "same four files fail on base 9de44231 / fae3eab2; no new failures"
+      }
+    },
+    {
+      "id": "playwright-5-viewports",
+      "command": "python tools/ui_mod_acl_m4_catalog_e2e.py",
+      "result": {
+        "rc": 0,
+        "failures": 0,
+        "viewports": 5,
+        "pages": 3,
+        "flows": 63,
+        "w2b_computed_font_sizes": {
+          "1280x800": {"overview_row": "12px", "history_row": "12px", "history_title": "14px", "history_filter": "12px"},
+          "390x844": {"overview_row": "12px", "history_row": "12px", "history_title": "14px", "history_filter": "12px"}
+        }
+      }
+    },
+    {
+      "id": "webapp-batch",
+      "command": "python -m pytest tests/test_webapp_*.py -q --tb=no",
+      "result": {
+        "files": 64,
+        "passed": 1455,
+        "failed": 33,
+        "note": "identical pre-existing set on 18ced316/fae3eab2; two F1 guard failures fixed, no new failures"
+      }
+    },
+    {
+      "id": "syntax-diff",
+      "command": "node --check web/app.js; git diff --check 9de44231..f7e61eb0",
+      "result": {
+        "node_check_rc": 0,
+        "diff_check_rc": 0
+      }
+    },
+    {
+      "id": "manifest-dry-run",
+      "command": "python tools/release_manifest.py --dry-run",
+      "result": {
+        "rc": 0,
+        "version": "2.58.212",
+        "deployed_sha": "f7e61eb05b448c92a30f316dedc7fb96c4767062",
+        "previous_sha": "9de44231cd773951fb53670bf94cb626ffd7c1bb",
+        "previous_version": "2.58.211",
+        "dirty_tracked": false,
+        "release_branch": "release/mod-acl-w2b-2.58.212"
+      }
+    }
+  ],
+  "known_failures": [
+    {
+      "node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "pre_existing": true,
+      "note": "stale epic-scope canon/forbidden-path guards; reproduced on base"
+    },
+    {
+      "files": [
+        "tests/js/asap6_wave2_ux_tabs_test.js",
+        "tests/js/evol_cog_scene_test.js",
+        "tests/js/round1025_ia_routing_test.js",
+        "tests/js/ur_ui_settings_test.js"
+      ],
+      "pre_existing": true,
+      "note": "same four files fail on base 9de44231 / fae3eab2"
+    },
+    {
+      "batch": "tests/test_webapp_*.py",
+      "failed": 33,
+      "passed": 1455,
+      "pre_existing": true,
+      "note": "identical set on 18ced316/fae3eab2; B2/B3/W2c/W3 live checks remain outside this release"
+    }
+  ],
+  "requirement_ids": [
+    "MAC-S5-TAB-06",
+    "MAC-S5-EMPTY-01",
+    "MAC-AC-07"
+  ],
+  "baseline_requirement_ids": [
+    "MAC-S5-198",
+    "MAC-S5-OVW-01",
+    "MAC-AC-08"
+  ],
+  "scope_note": "B1 only: sleep/nostalgia history. MAC-S5-TAB-01/02/03/04/05/07, B2, B3, W2c and W3 remain open; no VERIFIED claim.",
+  "limitations": "limitations.md"
+}

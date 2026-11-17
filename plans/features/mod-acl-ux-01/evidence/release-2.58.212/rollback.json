@@ -1,0 +1,23 @@
+{
+  "release": "2.58.212",
+  "target_rollback_commit": "9de44231cd773951fb53670bf94cb626ffd7c1bb",
+  "target_rollback_version": "2.58.211",
+  "target_rollback_state": "previous release / current base; production not contacted in this assembly",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout 9de44231 (2.58.211) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz returns version 2.58.211 and the release manifest identity (deployed_sha 9de44231, dirty=false)"
+  ],
+  "notes": [
+    "W2b B1 is UI/test-only: no new tables, columns, indexes, settings keys or data migrations; schema stays 47 with DDL 0.",
+    "History state is in-memory/client-side: historyMeta lives in the current JS session and the remembered tab is only an id in localStorage; a rollback stops reading the new UI, no server data to undo.",
+    "No settings are reset: the bump changes only version pins and APP_VERSION changelog; PG hot values and owner settings are not touched by checkout or restart.",
+    "The bump commit f7e61eb0 changes only version pins; once the checkout is at 9de44231 it needs no separate rollback.",
+    "Rollback copies of 2.58.211 are the ones produced by the 2.58.211 deploy and are managed by the existing keep=2 deploy-backup pool.",
+    "deploy_v2.9.2.py is unchanged by this release."
+  ]
+}
