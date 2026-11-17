@@ -30,7 +30,7 @@
     },
     {
       "id": "E4",
-      "what": "стрелки fallback уходят на отдельную строку (flex-wrap+basis-full)",
+      "what": "стрелки fallback уходят на отдельную строку (flex-wrap+width:100%)",
       "file": "web\\index.html",
       "exit": 1,
       "killed": true,
