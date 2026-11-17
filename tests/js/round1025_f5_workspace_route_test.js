@@ -139,7 +139,8 @@ function mkCoverageCtx(m) {
     });
     assert.deepStrictEqual(moduleById('mod_factcheck').tabs,
       ['overview', 'settings', 'synthesizer', 'verbalizer', 'models',
-       'limits', 'testing'], 'a: карта вкладок Фактчека (§4.2)');
+       'limits', 'testing', 'history'],
+      'a: карта вкладок Фактчека (§4.2 + W2b-B2 history)');
     assert.deepStrictEqual(moduleById('mod_summary').tabs,
       ['overview', 'settings', 'clusterizer', 'writer',
        // ASAP-2 round1027 (§13/ADR-1027-10 D11): секции Hybrid/Legacy.

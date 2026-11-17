@@ -276,6 +276,49 @@ HISTORY_MODE = {"dream": "data", "nostalgia": "data"}
 HISTORY_GETS = {"dream": 0, "nostalgia": 0}
 HISTORY_HOLD = {"dream": None, "nostalgia": None}
 
+# ── W2b-B2: временной фактчек и уроки «Опыта» (существующие read-API) ───────
+# 6 прогонов → «Обзор» показывает «Сейчас» + 5, вкладка «История» — все 6.
+# 4 урока (active/candidate/suspended) → фильтр по статусу сужает набор.
+TEMPORAL_ROWS = [
+    {"run_id": "tfr-1", "created_at": 1794909600, "chat_id": CHAT_ID,
+     "assessment_mode": "contextual", "factual_verdict": "supported",
+     "temporal_status": "current", "reason": None},
+    {"run_id": "tfr-2", "created_at": 1794909500, "chat_id": CHAT_ID2,
+     "assessment_mode": "historical_truth", "factual_verdict": "refuted",
+     "temporal_status": "outdated", "reason": None},
+    {"run_id": "tfr-3", "created_at": 1794909400, "chat_id": CHAT_ID,
+     "assessment_mode": "current", "factual_verdict": "mixed",
+     "temporal_status": "current", "reason": None},
+    {"run_id": "tfr-4", "created_at": 1794909300, "chat_id": CHAT_ID,
+     "assessment_mode": "contextual", "factual_verdict": "refuted",
+     "temporal_status": "misleading_reuse", "reason": None},
+    {"run_id": "tfr-5", "created_at": 1794909200, "chat_id": CHAT_ID2,
+     "assessment_mode": "knowable_at_time",
+     "factual_verdict": "insufficient_evidence",
+     "temporal_status": "unknown", "reason": None},
+    {"run_id": "tfr-6", "created_at": 1794909100, "chat_id": CHAT_ID,
+     "assessment_mode": "contextual", "factual_verdict": "supported",
+     "temporal_status": "old_but_valid", "reason": None},
+]
+LESSON_ROWS = [
+    {"lesson_id": "L1", "version": 1, "type": "tool_usage",
+     "scope": "chat", "scope_chat_id": CHAT_ID, "status": "active",
+     "created_at": 1794909600, "updated_at": 1794909600},
+    {"lesson_id": "L2", "version": 1, "type": "retrieval",
+     "scope": "global", "scope_chat_id": None, "status": "candidate",
+     "created_at": 1794909500, "updated_at": 1794909500},
+    {"lesson_id": "L3", "version": 2, "type": "failure_pattern",
+     "scope": "chat", "scope_chat_id": CHAT_ID2, "status": "suspended",
+     "created_at": 1794909400, "updated_at": 1794909400},
+    {"lesson_id": "L4", "version": 1, "type": "context",
+     "scope": "chat", "scope_chat_id": CHAT_ID, "status": "active",
+     "created_at": 1794909300, "updated_at": 1794909300},
+]
+# data | empty | denied | off | unavailable | disabled | disabled_503
+B2_MODE = {"temporal": "data", "lessons": "data"}
+B2_GETS = {"temporal": 0, "lessons": 0}
+B2_DETAIL_GETS = {"temporal": 0}
+
 
 API_STUBS = [
     ("/api/me", ME_JSON),
@@ -427,6 +470,69 @@ def main() -> int:
                 else CONFIG_GLOBAL
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps(payload))
+            return
+        if url.endswith("/api/factcheck/temporal/runs"):
+            B2_GETS["temporal"] += 1
+            mode = B2_MODE["temporal"]
+            if mode == "denied":
+                route.fulfill(status=403, content_type="application/json",
+                              body=json.dumps({"detail": "нет доступа"}))
+                return
+            if mode == "off":
+                route.fulfill(status=503, content_type="application/json",
+                              body=json.dumps({"detail": "выключено"}))
+                return
+            if mode == "unavailable":
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"available": False}))
+                return
+            rows = [] if mode == "empty" else TEMPORAL_ROWS
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps({"runs": rows}))
+            return
+        if "/api/factcheck/temporal/runs/" in url:
+            B2_DETAIL_GETS["temporal"] += 1
+            run_id = url.rsplit("/", 1)[-1]
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps({
+                              "run": {"run_id": run_id,
+                                      "claim_text": "пример утверждения",
+                                      "factual_verdict": "refuted",
+                                      "temporal_status": "outdated",
+                                      "assessment_mode": "contextual",
+                                      "date_source": "telegram_origin",
+                                      "stage_trace": [],
+                                      "reason": None},
+                              "evidence": []}))
+            return
+        if url.endswith("/api/memory/lessons"):
+            B2_GETS["lessons"] += 1
+            mode = B2_MODE["lessons"]
+            if mode == "denied":
+                route.fulfill(status=403, content_type="application/json",
+                              body=json.dumps({"detail": "нет доступа"}))
+                return
+            if mode == "off":
+                route.fulfill(status=503, content_type="application/json",
+                              body=json.dumps({"detail": "выключено"}))
+                return
+            if mode == "disabled":
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"enabled": False,
+                                               "state": "disabled",
+                                               "count": 0, "lessons": []}))
+                return
+            if mode == "empty":
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"enabled": True,
+                                               "state": "not_run",
+                                               "count": 0, "lessons": []}))
+                return
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps({"enabled": True,
+                                           "state": "implemented",
+                                           "count": len(LESSON_ROWS),
+                                           "lessons": LESSON_ROWS}))
             return
         if url.endswith("/api/memory/dream/log") \
                 or url.endswith("/api/memory/nostalgia/log"):
@@ -1878,6 +1984,384 @@ def main() -> int:
               f"W2b 390: скролл Истории ({m2['scrollWidth']})", hfails)
         hp2.screenshot(path=os.path.join(SHOTS, "w2b-history-390.png"))
         hctx2.close()
+
+        # ═══ W2b-B2 (2.58.213): «История» Фактчека и «Опыта» ════════════════
+        # H-2/H-3/H-5/H-6/H-7: вкладка только при 200+rows; состояния
+        # empty/403/503/available:false/enabled:false; detail прогона по
+        # run_id; строки конверта уроков; один фетч; 390 без overflow.
+        B2_MODE.update({"temporal": "data", "lessons": "data"})
+        B2_GETS.update({"temporal": 0, "lessons": 0})
+        B2_DETAIL_GETS.update({"temporal": 0})
+
+        def _b2probe(pg):
+            return pg.evaluate(
+                "() => {"
+                " const tab = document.querySelector("
+                "  '[data-workspace-tabs] [data-workspace-tab=history]');"
+                " const hist = document.querySelector('[data-module-history]');"
+                " const ovstate = document.querySelector("
+                "  '[data-overview-history-state]');"
+                " const cnt = document.querySelector("
+                "  '[data-module-history-count]');"
+                " const ovcnt = document.querySelector("
+                "  '[data-overview-history-count]');"
+                " const sel = document.querySelector('#module-history-filter');"
+                " return {hash: location.hash, tab: !!tab, panel: !!hist,"
+                "  rows: document.querySelectorAll("
+                "   '[data-module-history-row]').length,"
+                "  ovRows: document.querySelectorAll("
+                "   '[data-overview-history-row]').length,"
+                "  ovBlocks: document.querySelectorAll("
+                "   '[data-overview-history]').length,"
+                "  chipsRows: document.querySelectorAll("
+                "   '[data-workspace-chips]').length,"
+                "  dupChips: document.querySelectorAll("
+                "   '[data-overview-chips]').length,"
+                "  state: ovstate ? ovstate.getAttribute("
+                "   'data-overview-history-state') : null,"
+                "  count: cnt ? (cnt.textContent || '').trim() : null,"
+                "  ovCount: ovcnt ? (ovcnt.textContent || '').trim() : null,"
+                "  fcBlocks: document.querySelectorAll("
+                "   '[data-factcheck-temporal]').length,"
+                "  expBlocks: document.querySelectorAll("
+                "   '[data-experience-history]').length,"
+                "  ovRunBtns: document.querySelectorAll("
+                "   '[data-factcheck-temporal] [data-temporal-run-btn]').length,"
+                "  panelRunBtns: document.querySelectorAll("
+                "   '[data-module-history] [data-temporal-run-btn]').length,"
+                "  filterOpts: sel ? sel.options.length : 0,"
+                "  filterValue: sel ? sel.value : null,"
+                "  rowKeys: Array.from(document.querySelectorAll("
+                "   '[data-module-history-row]')).map(function (r) {"
+                "    return r.getAttribute('data-history-row-key'); }),"
+                "  rowStatuses: Array.from(document.querySelectorAll("
+                "   '[data-module-history-row]')).map(function (r) {"
+                "    return r.getAttribute('data-history-status'); }),"
+                "  historyFontSize: (() => {"
+                "    const r = document.querySelector("
+                "     '[data-module-history-row]');"
+                "    return r ? getComputedStyle(r).fontSize : null; })(),"
+                "  lastAction: !!document.querySelector("
+                "   '[data-module-last-action]'),"
+                "  histLink: document.querySelectorAll("
+                "   '[data-overview-link=history]').length,"
+                "  scrollWidth: document.documentElement.scrollWidth,"
+                "  vw: window.innerWidth}; }")
+
+        # ── Фактчек: Обзор = «Сейчас» + 5 прогонов (6-й — строка «Сейчас»);
+        #    один блок `data-factcheck-temporal`, детали по run_id.
+        _hopen(hpage, "#/modules/factcheck/overview")
+        fco = _b2probe(hpage)
+        report["flows"]["w2b_b2_factcheck_overview"] = fco
+        check(fco["tab"], "W2b B2 factcheck: нет вкладки history при 200+runs",
+              hfails)
+        check(fco["fcBlocks"] == 1,
+              f"W2b B2 factcheck: блоков журнала {fco['fcBlocks']} вместо 1",
+              hfails)
+        check(fco["ovBlocks"] == 1 and fco["ovRows"] == 5,
+              f"W2b B2 factcheck: Обзор {fco['ovRows']} строк/"
+              f"{fco['ovBlocks']} блоков (нужно 5/1)", hfails)
+        check(fco["ovRunBtns"] == 5,
+              f"W2b B2 factcheck: кнопок деталей {fco['ovRunBtns']} вместо 5",
+              hfails)
+        check(fco["chipsRows"] == 1 and fco["dupChips"] == 0,
+              f"W2b B2 factcheck: рядов чипов {fco['chipsRows']} "
+              f"(+дубль {fco['dupChips']})", hfails)
+        check(not fco["lastAction"] and fco["histLink"] == 1,
+              f"W2b B2 factcheck: дубли факта/CTA (last={fco['lastAction']}, "
+              f"link={fco['histLink']})", hfails)
+        check(fco["scrollWidth"] <= fco["vw"] + 1,
+              f"W2b B2 factcheck: горизонтальный скролл Обзора "
+              f"({fco['scrollWidth']})", hfails)
+
+        detail_before = B2_DETAIL_GETS["temporal"]
+        if hpage.query_selector(
+                "[data-factcheck-temporal] [data-temporal-run-btn]"):
+            hpage.click(
+                "[data-factcheck-temporal] [data-temporal-run-btn]")
+            hpage.wait_for_selector(".modal-backdrop", timeout=6000)
+            hpage.wait_for_timeout(360)
+            modal_text = hpage.evaluate(
+                "() => (document.querySelector('.modal-backdrop') || {})"
+                ".innerText || ''")
+            report["flows"]["w2b_b2_factcheck_detail"] = {
+                "text": modal_text[:200],
+                "gets": B2_DETAIL_GETS["temporal"] - detail_before,
+                "run_gets": B2_GETS["temporal"],
+            }
+            check("пример утверждения" in modal_text,
+                  "W2b B2 factcheck: модалка деталей не показала прогон",
+                  hfails)
+            check(B2_DETAIL_GETS["temporal"] == detail_before + 1,
+                  "W2b B2 factcheck: detail не запрошен по run_id", hfails)
+            hpage.evaluate(
+                "(() => { const m = document.querySelector('.modal-backdrop');"
+                " if (!m) return; const b = Array.from("
+                "m.querySelectorAll('button')).find(function (x) {"
+                " return x.textContent.trim() === 'Закрыть'; });"
+                " if (b) b.click(); })()")
+            hpage.wait_for_timeout(260)
+            check(hpage.evaluate(
+                "document.querySelector('.modal-backdrop') === null"),
+                "W2b B2 factcheck: модалка деталей не закрылась", hfails)
+        else:
+            report["flows"]["w2b_b2_factcheck_detail"] = None
+            check(False, "W2b B2 factcheck: кнопка деталей не найдена",
+                  hfails)
+
+        # ── Фактчек/История: 6 строк, уникальные ключи, фильтр по вердикту,
+        #    детали строки.
+        _hopen(hpage, "#/modules/factcheck/history")
+        fch = _b2probe(hpage)
+        report["flows"]["w2b_b2_factcheck_history"] = fch
+        check(fch["hash"].endswith("/factcheck/history") and fch["panel"],
+              f"W2b B2 factcheck/history: панель не открылась ({fch})",
+              hfails)
+        check(fch["rows"] == 6,
+              f"W2b B2 factcheck/history: строк {fch['rows']} вместо 6",
+              hfails)
+        check(len(set(fch["rowKeys"])) == 6 and all(fch["rowKeys"]),
+              f"W2b B2 factcheck/history: ключи строк {fch['rowKeys']}",
+              hfails)
+        check(fch["panelRunBtns"] == 6,
+              f"W2b B2 factcheck/history: кнопок деталей "
+              f"{fch['panelRunBtns']} вместо 6", hfails)
+        check(fch["filterOpts"] >= 5,
+              f"W2b B2 factcheck/history: опций фильтра "
+              f"{fch['filterOpts']} (нужно ≥5)", hfails)
+        if fch["filterOpts"] >= 2:
+            hpage.select_option("#module-history-filter", "refuted")
+            hpage.wait_for_timeout(260)
+            fcf = _b2probe(hpage)
+            report["flows"]["w2b_b2_factcheck_filter"] = fcf
+            check(fcf["rows"] == 2 and all(
+                s == "refuted" for s in fcf["rowStatuses"]),
+                f"W2b B2 factcheck: фильтр refuted дал {fcf['rows']} строк "
+                f"{fcf['rowStatuses']}", hfails)
+            hpage.select_option("#module-history-filter", "")
+            hpage.wait_for_timeout(220)
+            check(_b2probe(hpage)["rows"] == 6,
+                  "W2b B2 factcheck: сброс фильтра не вернул строки", hfails)
+
+        # ── H-7: один автоматический фетч фактчека (вкладка не плодит).
+        B2_GETS.update({"temporal": 0, "lessons": 0})
+        _hopen(hpage, "#/modules/factcheck")
+        try:
+            hpage.wait_for_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]",
+                timeout=6000)
+        except Exception:  # noqa: BLE001
+            pass
+        n1 = B2_GETS["temporal"]
+        if hpage.query_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]"):
+            hpage.click("[data-workspace-tabs] [data-workspace-tab=history]")
+        hpage.wait_for_timeout(420)
+        n2 = B2_GETS["temporal"]
+        hpage.wait_for_timeout(900)
+        n3 = B2_GETS["temporal"]
+        report["flows"]["w2b_b2_factcheck_one_fetch"] = {
+            "before": n1, "after": n2, "idle": n3,
+            "activeChatId": hpage.evaluate(
+                "() => (window.__adminbotVm || {}).activeChatId"),
+            "metaKeys": hpage.evaluate(
+                "() => Object.keys((window.__adminbotVm || {})"
+                ".historyMeta || {})"),
+        }
+        # Холодный старт допускает 2 запроса (глобальный bootstrap до
+        # разрешения чата + повтор для фактической области — путь H-4/F2);
+        # вкладка и ожидание не добавляют ни одного, фонового поллера нет.
+        check(n2 == n1 and n3 == n2 and n1 <= 2,
+              f"W2b B2 factcheck: запросов {n1}→{n2}→{n3} "
+              f"(вкладка не добавляет, bootstrap ≤2)", hfails)
+
+        # ── Опыт: конверт «уроков: N / state», Обзор = «Сейчас» + 3 события.
+        _hopen(hpage, "#/modules/experience")
+        eo = _b2probe(hpage)
+        report["flows"]["w2b_b2_experience_overview"] = eo
+        check(eo["tab"],
+              "W2b B2 experience: нет вкладки history при 200+lessons", hfails)
+        check(eo["expBlocks"] == 1 and eo["ovBlocks"] == 1
+              and eo["ovRows"] == 3,
+              f"W2b B2 experience: Обзор {eo['ovRows']} строк/"
+              f"{eo['ovBlocks']} блоков/{eo['expBlocks']} адресов", hfails)
+        check(eo["ovCount"] == "уроков: 4 / implemented",
+              f"W2b B2 experience: строка конверта «{eo['ovCount']}»", hfails)
+        check(eo["chipsRows"] == 1 and eo["dupChips"] == 0,
+              f"W2b B2 experience: рядов чипов {eo['chipsRows']}", hfails)
+        check(eo["scrollWidth"] <= eo["vw"] + 1,
+              f"W2b B2 experience: скролл Обзора ({eo['scrollWidth']})",
+              hfails)
+        _hopen(hpage, "#/modules/experience/history")
+        eh = _b2probe(hpage)
+        report["flows"]["w2b_b2_experience_history"] = eh
+        check(eh["panel"] and eh["rows"] == 4,
+              f"W2b B2 experience/history: {eh}", hfails)
+        check(eh["count"] == "уроков: 4 / implemented",
+              f"W2b B2 experience/history: конверт «{eh['count']}»", hfails)
+        check(len(set(eh["rowKeys"])) == 4,
+              f"W2b B2 experience/history: ключи {eh['rowKeys']}", hfails)
+        check(eh["panelRunBtns"] == 0,
+              "W2b B2 experience: детали уроков не должны открываться", hfails)
+        if eh["filterOpts"] >= 2:
+            hpage.select_option("#module-history-filter", "candidate")
+            hpage.wait_for_timeout(260)
+            ef = _b2probe(hpage)
+            report["flows"]["w2b_b2_experience_filter"] = ef
+            check(ef["rows"] == 1,
+                  f"W2b B2 experience: фильтр candidate дал {ef['rows']}",
+                  hfails)
+            hpage.select_option("#module-history-filter", "")
+            hpage.wait_for_timeout(220)
+            check(_b2probe(hpage)["rows"] == 4,
+                  "W2b B2 experience: сброс фильтра не вернул строки", hfails)
+
+        # ── H-7: один автоматический фетч уроков.
+        B2_GETS.update({"temporal": 0, "lessons": 0})
+        _hopen(hpage, "#/modules/experience")
+        try:
+            hpage.wait_for_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]",
+                timeout=6000)
+        except Exception:  # noqa: BLE001
+            pass
+        e1 = B2_GETS["lessons"]
+        if hpage.query_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]"):
+            hpage.click("[data-workspace-tabs] [data-workspace-tab=history]")
+        hpage.wait_for_timeout(420)
+        e2 = B2_GETS["lessons"]
+        report["flows"]["w2b_b2_experience_one_fetch"] = {
+            "before": e1, "after": e2}
+        check(e1 == 1 and e2 == 1,
+              f"W2b B2 experience: запросов {e1}→{e2} (ожидался 1)", hfails)
+
+        # ── H-2/H-3: пусто/403/503/available:false/enabled:false — вкладки
+        #    нет, честная причина, без «0 событий» и выдуманных строк.
+        B2_MODE["temporal"] = "empty"
+        _hopen(hpage, "#/modules/factcheck/overview")
+        fe = _b2probe(hpage)
+        report["flows"]["w2b_b2_factcheck_empty"] = fe
+        check(not fe["tab"] and fe["state"] == "empty",
+              f"W2b B2 factcheck []: {fe}", hfails)
+        check(fe["ovRunBtns"] == 0,
+              "W2b B2 factcheck []: выдуманные строки", hfails)
+
+        B2_MODE["temporal"] = "denied"
+        _hopen(hpage, "#/modules/factcheck/overview")
+        fd = _b2probe(hpage)
+        body_403 = hpage.evaluate("() => document.body.innerText")
+        report["flows"]["w2b_b2_factcheck_denied"] = dict(
+            fd, body=body_403[:300])
+        check(not fd["tab"] and fd["state"] == "denied",
+              f"W2b B2 factcheck 403: {fd}", hfails)
+        check("0 событий" not in body_403,
+              "W2b B2 factcheck 403: выдуманные «0 событий»", hfails)
+
+        B2_MODE["temporal"] = "off"
+        _hopen(hpage, "#/modules/factcheck/overview")
+        fo = _b2probe(hpage)
+        report["flows"]["w2b_b2_factcheck_off"] = fo
+        check(not fo["tab"] and fo["state"] == "off",
+              f"W2b B2 factcheck 503: {fo}", hfails)
+
+        B2_MODE["temporal"] = "unavailable"
+        _hopen(hpage, "#/modules/factcheck/overview")
+        fu = _b2probe(hpage)
+        report["flows"]["w2b_b2_factcheck_unavailable"] = fu
+        check(not fu["tab"] and fu["state"] == "off",
+              f"W2b B2 factcheck available:false: {fu}", hfails)
+
+        B2_MODE["lessons"] = "disabled"
+        _hopen(hpage, "#/modules/experience")
+        ed = _b2probe(hpage)
+        report["flows"]["w2b_b2_experience_disabled"] = ed
+        check(not ed["tab"] and ed["state"] == "off",
+              f"W2b B2 experience enabled:false: {ed}", hfails)
+        check(ed["ovCount"] == "уроков: 0 / disabled",
+              f"W2b B2 experience: off-конверт «{ed['ovCount']}»", hfails)
+
+        B2_MODE["lessons"] = "empty"
+        _hopen(hpage, "#/modules/experience")
+        ee = _b2probe(hpage)
+        report["flows"]["w2b_b2_experience_empty"] = ee
+        check(not ee["tab"] and ee["state"] == "empty",
+              f"W2b B2 experience []: {ee}", hfails)
+        check(ee["ovCount"] == "уроков: 0 / not_run",
+              f"W2b B2 experience: empty-конверт «{ee['ovCount']}»", hfails)
+
+        # ── H-5: deep link на пустой источник возвращает bare один раз.
+        hpage.goto("about:blank")
+        hpage.goto(WBASE + "#/modules/experience/history", wait_until="load")
+        hpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        hpage.wait_for_timeout(900)
+        edp = _b2probe(hpage)
+        report["flows"]["w2b_b2_experience_deeplink_empty"] = edp
+        check(edp["hash"] == "#/modules/experience",
+              f"W2b B2 experience: deep link не вернул bare ({edp['hash']})",
+              hfails)
+        check(not edp["panel"] and not edp["tab"],
+              f"W2b B2 experience: пустая панель/вкладка ({edp})", hfails)
+
+        B2_MODE["temporal"] = "empty"
+        hpage.goto("about:blank")
+        hpage.goto(WBASE + "#/modules/factcheck/history", wait_until="load")
+        hpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        hpage.wait_for_timeout(900)
+        fdp = _b2probe(hpage)
+        report["flows"]["w2b_b2_factcheck_deeplink_empty"] = fdp
+        check(fdp["hash"] == "#/modules/factcheck",
+              f"W2b B2 factcheck: deep link не вернул bare ({fdp['hash']})",
+              hfails)
+        check(not fdp["panel"] and not fdp["tab"],
+              f"W2b B2 factcheck: пустая панель/вкладка ({fdp})", hfails)
+
+        # ── 390: История фактчека/опыта без горизонтального скролла.
+        B2_MODE.update({"temporal": "data", "lessons": "data"})
+        b2ctx = browser.new_context(viewport={"width": 390, "height": 844})
+        b2ctx.add_init_script(TMA_STUB)
+        b2ctx.route("**/api/**", _route)
+        bp = b2ctx.new_page()
+        berrs = []
+        bp.on("pageerror", lambda e, b=berrs: b.append(str(e)[:300]))
+        bp.goto(WBASE + "#/modules/factcheck/history", wait_until="load")
+        try:
+            bp.wait_for_selector("[data-workspace-head]", timeout=9000)
+        except Exception:  # noqa: BLE001
+            pass
+        bp.wait_for_timeout(900)
+        bfc = _b2probe(bp)
+        report["flows"]["w2b_b2_factcheck_390"] = bfc
+        check(bfc["panel"] and bfc["rows"] == 6,
+              f"W2b B2 390 factcheck: {bfc}", hfails)
+        check(bfc["historyFontSize"] == "12px",
+              f"W2b B2 390 factcheck: font-size={bfc['historyFontSize']}",
+              hfails)
+        check(bfc["scrollWidth"] <= bfc["vw"] + 1,
+              f"W2b B2 390 factcheck: скролл ({bfc['scrollWidth']})", hfails)
+        bp.goto(WBASE + "#/modules/experience/history", wait_until="load")
+        try:
+            bp.wait_for_selector("[data-workspace-head]", timeout=9000)
+        except Exception:  # noqa: BLE001
+            pass
+        bp.wait_for_timeout(900)
+        bex = _b2probe(bp)
+        report["flows"]["w2b_b2_experience_390"] = bex
+        check(bex["panel"] and bex["rows"] == 4,
+              f"W2b B2 390 experience: {bex}", hfails)
+        check(bex["historyFontSize"] == "12px",
+              f"W2b B2 390 experience: font-size={bex['historyFontSize']}",
+              hfails)
+        check(bex["scrollWidth"] <= bex["vw"] + 1,
+              f"W2b B2 390 experience: скролл ({bex['scrollWidth']})", hfails)
+        bp.screenshot(path=os.path.join(SHOTS, "w2b-b2-history-390.png"))
+        report["flows"]["w2b_b2_pageerrors"] = berrs
+        if berrs:
+            failures.extend(["W2b B2 pageerror: " + e for e in berrs])
+            hfails.extend(["W2b B2 pageerror: " + e for e in berrs])
+        b2ctx.close()
+        B2_MODE.update({"temporal": "data", "lessons": "data"})
+        B2_GETS.update({"temporal": 0, "lessons": 0})
 
         report["flows"]["w2b_pageerrors"] = herrs
         failures.extend(hfails)

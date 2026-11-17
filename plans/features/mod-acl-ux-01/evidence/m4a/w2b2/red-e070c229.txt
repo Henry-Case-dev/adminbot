@@ -1,0 +1,89 @@
+MOD-ACL-UX-01 M4A W2b-B2 — фактчек и «Опыт» («История», H-1…H-7)
+====================================================================
+Дата: 2026-11-17
+Base:    e070c229 (2.58.212, content f7e61eb0) — deployed B1
+Branch:  release/mod-acl-w2b2-2.58.213
+Окружение: Windows, node v24.16.0, Python 3.12 (.venv),
+Chromium Playwright (локальный стенд на реальных web/*).
+
+1. RED на базе e070c229 (отдельный detached-worktree; web/* — база,
+   скопированы только новые тесты/стенд; после прогона worktree удалён):
+   a) node tests/js/mod_acl_ux_m4a_w2b_history_test.js -> exit=1
+      AssertionError: mod_factcheck: history не объявлена в tabs
+      (B2-источники/вкладки/строки отсутствуют; далее не выполняются
+      state machine, конверт уроков, detail по run_id).
+   b) node tests/js/round1025_f5_workspace_route_test.js -> exit=1
+      AssertionError: a: карта вкладок Фактчека (§4.2 + W2b-B2 history)
+      actual: [... 'limits', 'testing'] без 'history'.
+   c) Playwright tools/ui_mod_acl_m4_catalog_e2e.py (секция B2) -> FAIL,
+      52 ошибки, все B2: нет вкладки history для factcheck/experience;
+      Обзор 0 строк/0 блоков (нужно 5/1 и 3/1); строка конверта «None»;
+      панель истории не открылась (deep link канонизирован в bare);
+      состояния 403/503/available:false/enabled:false без denied/off;
+      фильтр не отрендерен; 390 font-size=None.
+
+2. Мутации (каждая применялась к кандидату, целевой node-тест падал;
+   после каждой файл восстановлен):
+   M1 historyIsReady допускает empty -> KILLED
+      AssertionError: idle: вкладка истории не рендерится
+   M2 detail без run_id: openTemporalDetail(row.run_id || 'unknown')
+      -> KILLED
+      AssertionError: detail без run_id — no-op
+   M3 конверт уроков без state ('уроков: N') -> KILLED
+      AssertionError: experience: строка «уроков: N / state»
+   M4 «Последние события» включают строку «Сейчас» -> KILLED
+      AssertionError: Обзор: из 3 строк исключена строка «Сейчас»
+
+3. Кандидат — фактические результаты:
+   - node tests/js/mod_acl_ux_m4a_w2b_history_test.js -> OK, 217 проверок
+     (B1 126 + B2: sources/tabs, state machine, detail run_id, конверт
+     уроков enabled/state/count, fail-closed source, default≠history,
+     pending memory, max(ts), observed_at, cross-source, фильтры);
+   - node tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js -> OK, 141;
+   - node tests/js/routing_test.js -> OK (JS-UNIT-OK);
+   - tests/test_webapp_evol_w11_controls.py::...test_one_role_one_component
+     + tests/test_webapp_evol_w12_internals.py::...test_palette_css_is_safe_area_and_motion_aware
+     -> 2 passed;
+   - обязательный pytest batch (24 файла) -> 386 passed;
+   - pytest tests/test_webapp_*.py (64 файла) -> 33 failed / 1455 passed;
+     тот же полный список 33 падений воспроизведён на e070c229 в отдельном
+     worktree (187 с) — новых падений нет;
+   - полный node tests/js/*.js (121 файл, module_fixture.js исключён)
+     -> 117 passed / 4 failed; те же pre-existing: asap6_wave2_ux_tabs,
+     evol_cog_scene, round1025_ia_routing, ur_ui_settings;
+   - tools/ui_mod_acl_m4_catalog_e2e.py -> OK, failures=0 (5 viewports +
+     B1 + B2: 1280/390, 5/1 и 3/1 событий в Обзоре, конверт уроков,
+     detail-модалка по run_id, фильтры, 403/503/available:false/disabled,
+     deep-link fallback, один автоматический фетч, scrollWidth≤vw+1);
+   - node --check web/app.js -> 0; git diff --check -> 0.
+
+4. Контрактные уточнения (в рамках H-1…H-7, без новых API):
+   - `memory.lessons`: конверт `{enabled,state,count,lessons}`; строка
+     «уроков: N / state» показывает СЫРОЕ состояние сервера
+     (implemented/not_run/disabled). Чатовая область сохраняет прежний
+     адрес `?chat_id=…` (существующий контракт «Памяти», round1039 green);
+     глобальная — `?limit=50` (H-1).
+   - `factcheck.temporal.runs`: compact-список `{runs}` + существующая
+     модалка `openTemporalDetail(run_id)`; detail доступен только при
+     наличии run_id. Для не-владельца состояние `denied` (RBAC API) —
+     вкладки нет, deep link однократно уходит на bare.
+   - H-7: вкладка «История» не делает собственных запросов; повторный вход
+     использует 30-с кэш `loadTemporalRuns` / idle-guard `loadLessons`.
+     Холодный старт factcheck допускает 2 запроса: bootstrap глобальной
+     области до разрешения чата + повтор для фактической области (путь
+     H-4/F2), далее — 0; e2e фиксирует «вкладка и простой не добавляют
+     запросов» (n1→n2→n3 равны).
+
+5. Ограничения:
+   - Browser Use / CDP недоступен на сессии: 127.0.0.1:9222 = False,
+     127.0.0.1:19988 = False. Живая визуальная проверка этими каналами
+     не заявляется; выполнена Playwright-проверка на реальных ассетах.
+   - tools/ui_asap8_w3_modules_e2e.py содержит MCA-20-ожидания
+     («проверок пока нет» при 403, блок `data-factcheck-temporal` на bare
+     `#/modules/factcheck`). После W2a bare-адрес фактчека = settings
+     (2.58.211), поэтому эти проверки уже были несовместимы; H-3 заменяет
+     fail-open текст на честный denied. Инструмент не входит в обязательный
+     regression-набор и не менялся (вне файлового scope B2).
+   - Изменена одна существующая тестовая строка контракта:
+     tests/js/round1025_f5_workspace_route_test.js ожидает `history` в
+     карте вкладок Фактчека (иначе 117/4 станет 116/5).

@@ -716,7 +716,7 @@
     mod_direct: ['overview', 'inspector', 'settings', 'synthesizer',
       'verbalizer', 'models', 'limits', 'testing'],
     mod_factcheck: ['overview', 'settings', 'synthesizer', 'verbalizer',
-      'models', 'limits', 'testing'],
+      'models', 'limits', 'testing', 'history'],
     mod_search: ['overview', 'settings', 'prompts', 'models', 'limits',
       'testing'],
     mod_transcribe: ['overview', 'settings', 'models', 'limits', 'testing'],
@@ -732,6 +732,10 @@
     // `ready && rows > 0` (workspaceTabHasContent, H-2).
     mod_sleep: ['overview', 'settings', 'limits', 'history'],
     mod_nostalgia: ['overview', 'settings', 'limits', 'history'],
+    // MOD-ACL-UX-01 M4A W2b-B2 (2.58.213): «Опыт и уроки» — журнал изменений
+    // уроков (`memory.lessons`); вкладка рендерится только при `ready &&
+    // rows > 0`, «Обзор» несёт «Сейчас» + события (H-2/H-6).
+    mod_experience: ['overview', 'settings', 'history'],
     mod_budgets: ['overview', 'settings', 'limits'],
     mod_images: ['overview', 'settings', 'limits', 'models', 'testing'],
     // MCA-19 (10.43): workspace-вкладки модуля «Распознавание изображений»
@@ -782,11 +786,11 @@
     // MOD-ACL-UX-01 M4A W2b-B1 (2.58.212): журнал модуля «Сон»/«Ностальгия».
     history: 'История',
   };
-  // ═══ MOD-ACL-UX-01 M4A W2b-B1 (H-1) ══════════════════════════════════════
+  // ═══ MOD-ACL-UX-01 M4A W2b (H-1) ═════════════════════════════════════════
   // Presentation-map строки DTO `history_source` → СУЩЕСТВУЮЩИЙ read-API.
-  // B1 — только два журнала памяти (`memory.dream.log` /
-  // `memory.nostalgia.log`): плоские массивы, RBAC global admin, без гейтов
-  // доступности. Неизвестная строка источника → НИ запроса, НИ вкладки
+  // B1 — журналы памяти (`memory.dream.log` / `memory.nostalgia.log`),
+  // B2 — временной фактчек (`factcheck.temporal.runs`) и уроки
+  // (`memory.lessons`). Неизвестная строка источника → НИ запроса, НИ вкладки
   // (fail-closed); новых эндпоинтов/полей/таблиц нет.
   var HISTORY_SOURCES = {
     'memory.dream.log': {
@@ -796,6 +800,28 @@
     'memory.nostalgia.log': {
       moduleId: 'mod_nostalgia', label: 'Журнал ностальгии', tsField: 'ts',
       rowsField: 'nostalgiaLog', loader: 'loadNostalgiaLog',
+    },
+    // B2: тот же `GET /api/factcheck/temporal/runs?limit=20` (compact-список
+    // уже R17-safe), детали — существующая модалка `openTemporalDetail`.
+    'factcheck.temporal.runs': {
+      moduleId: 'mod_factcheck', label: 'Проверки во времени',
+      tsField: 'created_at', rowsField: 'temporalRuns',
+      loader: 'loadTemporalRuns', rowKeyField: 'run_id',
+      statusField: 'factual_verdict', adminOnly: true, detail: 'temporal',
+      parse: _historyTemporalParse,
+    },
+    // B2: `GET /api/memory/lessons` — конверт `{enabled,state,count,lessons}`.
+    // Строка урока — реальное изменение/проверка; `updated_at` (fallback
+    // `created_at`) — время события, `scope`/`scope_chat_id` — область.
+    'memory.lessons': {
+      moduleId: 'mod_experience', label: 'Уроки и правки',
+      tsField: 'updated_at', tsFallback: 'created_at',
+      rowsFrom: function (ctx) {
+        var data = ctx && ctx.lessonsData;
+        return (data && Array.isArray(data.lessons)) ? data.lessons : [];
+      },
+      loader: 'loadLessons', rowKeyField: 'lesson_id',
+      statusField: 'status', parse: _historyLessonsParse,
     },
   };
   // H-3: закрытый набор состояний одного источника.
@@ -824,6 +850,56 @@
       return { rows: [], off: true };
     }
     return { rows: [], error: true };
+  }
+  // B2: компактный список прогонов временного фактчека — `{runs: []}`.
+  function _historyTemporalParse(data) {
+    if (data && Array.isArray(data.runs)) return { rows: data.runs };
+    if (data && (data.available === false || data.enabled === false)) {
+      return { rows: [], off: true };
+    }
+    return { rows: [], error: true };
+  }
+  // B2: конверт уроков; `enabled:false`/`state:'disabled'` — функция
+  // выключена (off), а не «0 событий». `count` — серверный счётчик (может
+  // превышать отданные строки при limit — это честно).
+  function _historyLessonsEnvelope(data) {
+    var rows = (data && Array.isArray(data.lessons)) ? data.lessons : [];
+    var raw = (data && data.count != null) ? Number(data.count) : NaN;
+    return {
+      count: isFinite(raw) ? raw : rows.length,
+      state: String((data && data.state) || ''),
+    };
+  }
+  function _historyLessonsParse(data) {
+    if (data && (data.enabled === false || data.state === 'disabled')) {
+      return { rows: [], off: true, envelope: _historyLessonsEnvelope(data) };
+    }
+    if (data && Array.isArray(data.lessons)) {
+      return { rows: data.lessons, envelope: _historyLessonsEnvelope(data) };
+    }
+    return { rows: [], error: true };
+  }
+  // Единая точка парса payload по источнику: специфичный парсер спеки либо
+  // плоский массив B1 (fail-closed для неизвестного источника — null).
+  function _historyPayloadFor(source, data) {
+    var spec = HISTORY_SOURCES[source] || null;
+    if (!spec) return null;
+    return (typeof spec.parse === 'function')
+      ? spec.parse(data) : _historyRowsFromPayload(data);
+  }
+  // Код статуса строки для строки/фильтра: уроки и прогоны несут разные
+  // поля; пустой код не выдумывается.
+  function _historyRowStatusCode(source, row) {
+    if (!row) return '';
+    var spec = HISTORY_SOURCES[source] || null;
+    if (!spec) return '';
+    var code = (spec.statusField && row[spec.statusField] != null)
+      ? row[spec.statusField] : row.status;
+    if (spec.statusField === 'factual_verdict'
+        && (code == null || code === '')) {
+      code = row.temporal_status;
+    }
+    return (code == null || code === '') ? '' : String(code);
   }
   // UR-F (UR-20.1/20.2/20.9): подписи уровней «Прямых ответов» — три
   // смысловых уровня вместо десятков карточек. flat-карта выше остаётся
@@ -17198,8 +17274,16 @@
       // Таблица/карточка lessons + права (suspend/activate/correct). Данные —
       // GET /api/memory/lessons (существующий memory-API, admin); trace —
       // только разрешённого чата (сервер не отдаёт чужой trace). R17-safe.
-      loadLessons: async function () {
+      loadLessons: async function (force) {
+        // W2b-B2 (H-3/H-7): тот же лоадер «Памяти» ведёт мета-состояние
+        // истории «Опыта». Запрос в полёте не дублируется (кнопка ⟳ — force).
+        var mref = _historyModuleRef('memory.lessons');
+        var track = !!(mref && typeof this._wsHistoryMeta === 'function'
+                       && typeof this._wsHistoryMetaSet === 'function');
+        var meta = track ? this._wsHistoryMeta(mref) : null;
+        if (!force && meta && meta.status === 'loading') return;
         this.lessonsBusy = true;
+        if (track) this._wsHistoryMetaSet(mref, 'loading');
         // D05 (§18E.7): цепочка обучения/полезность — из СУЩЕСТВУЮЩЕЙ
         // read-only воронки oversight (глобальный админ; для не-админа
         // остаются счётчики самой таблицы уроков).
@@ -17209,9 +17293,45 @@
         }
         try {
           var q = this._cidQuery ? this._cidQuery(true) : '';
-          this.lessonsData = await this.api('/api/memory/lessons' + q);
+          // B2/H-1: в глобальной области — limit=50 (конверт не меняется);
+          // чатовая область сохраняет прежний адрес `?chat_id=…` (R17/scoping
+          // уроков чата — существующий контракт «Памяти»).
+          this.lessonsData = await this.api('/api/memory/lessons'
+            + (q || '?limit=50'));
+          if (track) {
+            var parsed = _historyPayloadFor('memory.lessons',
+                                            this.lessonsData)
+              || { rows: [], error: true };
+            if (parsed.off) {
+              var envOff = parsed.envelope || _historyLessonsEnvelope(
+                this.lessonsData);
+              this._wsHistoryMetaSet(mref, 'off',
+                { rows: 0, count: envOff.count, state: envOff.state });
+            } else if (parsed.error) {
+              this._wsHistoryMetaSet(mref, 'error');
+            } else {
+              var env = parsed.envelope || _historyLessonsEnvelope(
+                this.lessonsData);
+              this._wsHistoryMetaSet(mref,
+                parsed.rows.length ? 'ready' : 'empty',
+                { rows: parsed.rows.length, count: env.count,
+                  state: env.state });
+            }
+            if (typeof this._maybeExitHistory === 'function') {
+              this._maybeExitHistory();
+            }
+          }
         } catch (e) {
           this.lessonsData = null;
+          if (track) {
+            var st = 'error';
+            if (e && e.status === 403) st = 'denied';
+            else if (e && e.status === 503) st = 'off';
+            this._wsHistoryMetaSet(mref, st);
+            if (typeof this._maybeExitHistory === 'function') {
+              this._maybeExitHistory();
+            }
+          }
         } finally {
           this.lessonsBusy = false;
         }
@@ -19570,6 +19690,12 @@
           if (typeof this._ensureModuleData === 'function') {
             this._ensureModuleData(wsm2);
           }
+          // H-5 (B2): недоступный источник (403/оффлайн/пусто из кэша, в т.ч.
+          // не-владелец) уводит deep link на bare один раз; загрузчики
+          // вызывают тот же путь после ответа.
+          if (typeof this._maybeExitHistory === 'function') {
+            this._maybeExitHistory();
+          }
         }
         this.syncBackButton();
         // EVOL-037 (W12): deep-link `?focus=<токен>` — прокрутить и
@@ -20382,7 +20508,25 @@
           // B07: временная линия evidence в детализации Фактчека — те же
           // данные/API, что в «Аналитике» (runs + общий detail-modal);
           // лениво, ~30с кэш (loadTemporalRuns внутри).
-          this.loadTemporalRuns();
+          // W2b-B2 (H-1/H-7): неизвестный/пустой history_source не делает
+          // запроса (fail-closed); повторный вход использует кэш лоадера.
+          if (typeof this.historySupported !== 'function'
+              || typeof this.historyStateFor !== 'function') {
+            this.loadTemporalRuns();
+          } else if (this.historySupported(m)) {
+            this.loadTemporalRuns();
+          }
+        } else if (m.id === 'mod_experience') {
+          // W2b-B2 (H-7): история уроков — сущ. лоадер «Памяти», один
+          // автоматический запрос на область (pending/ready не повторяют).
+          if (typeof this.loadLessons !== 'function') return;
+          if (typeof this.historySupported !== 'function'
+              || typeof this.historyStateFor !== 'function') {
+            this.loadLessons();
+          } else if (this.historySupported(m)
+                     && this.historyStateFor(m) === 'idle') {
+            this.loadLessons();
+          }
         } else if (m.id === 'mod_initiative') {
           // EVOL-014 (Wave 4 UI): настройки мемов/квота/аналитика этого чата
           // — тот же единственный источник, что и на вкладке «Настройки».
@@ -24204,10 +24348,12 @@
         // механизмов в `mechanism-diagnostics`), поэтому строка берёт
         // РЕАЛЬНУЮ новейшую попытку, а не объявляет пустоту.
         if (id === 'mod_initiative') return this.initiativeLastActionFact();
-        // H-6 (W2b-B1): у «Сна»/«Ностальгии» последняя строка — РЕАЛЬНОЕ
-        // событие СВОЕГО журнала (max(ts)), а не момент снимка/health.
-        // `observed_at` активностью не является и здесь не участвует.
-        if (id === 'mod_sleep' || id === 'mod_nostalgia') {
+        // H-6 (W2b): у модулей с поддержанным источником истории последняя
+        // строка — РЕАЛЬНОЕ событие СВОЕГО журнала (max(ts)), а не момент
+        // снимка/health. `observed_at` активностью не является и здесь не
+        // участвует. B1 — сон/ностальгия, B2 — фактчек/опыт (общий путь).
+        if (typeof this.historySupported === 'function'
+            && this.historySupported(m)) {
           var last = (typeof this.moduleHistoryLast === 'function')
             ? this.moduleHistoryLast(m) : null;
           if (last) {
@@ -24558,7 +24704,11 @@
         var next = {};
         Object.keys(map).forEach(function (k) { next[k] = map[k]; });
         var meta = { source: entry.source, status: status, at: Date.now() };
-        if (extra && extra.rows != null) meta.rows = extra.rows;
+        if (extra) {
+          if (extra.rows != null) meta.rows = extra.rows;
+          if (extra.count != null) meta.count = extra.count;
+          if (extra.state != null) meta.state = extra.state;
+        }
         next[key] = meta;
         this.historyMeta = next;
       },
@@ -24587,6 +24737,13 @@
             || this.historyStateFor(m) !== 'idle') return;
         if (m.id === 'mod_sleep') this.loadDreamLog();
         else if (m.id === 'mod_nostalgia') this.loadNostalgiaLog();
+        else if (m.id === 'mod_factcheck'
+                 && typeof this.loadTemporalRuns === 'function') {
+          this.loadTemporalRuns();
+        } else if (m.id === 'mod_experience'
+                   && typeof this.loadLessons === 'function') {
+          this.loadLessons();
+        }
       },
       // F4: фильтр строк принадлежит паре module|tab и не переезжает на
       // другой экран (иначе nostalgia показывает 0 строк под фильтром sleep).
@@ -24599,10 +24756,22 @@
       historySupported: function (m) {
         return !!_historySourceEntry(m);
       },
+      // B2: источник доступен только владельцу (фактчек-аналитика — global
+      // admin по RBAC API). Используется для честной подсказки в «Обзоре».
+      historyNeedsOwner: function (m) {
+        var entry = _historySourceEntry(m);
+        return !!(entry && entry.spec.adminOnly);
+      },
       // H-3: состояние ОДНОГО источника; ready без строк перечитывается как
       // empty (защита от рассинхрона массива и мета), неизвестный код — error.
       historyStateFor: function (m) {
         if (!_historySourceEntry(m)) return 'idle';
+        // B2: источник только для владельца (RBAC API) — честный denied, а
+        // не «журнал ещё не загружен»; вкладка/панель не притворяются пустыми.
+        if (typeof this.historyNeedsOwner === 'function'
+            && this.historyNeedsOwner(m) && !this.isGlobalAdmin) {
+          return 'denied';
+        }
         var meta = this._wsHistoryMeta(m);
         if (!meta) return 'idle';
         var st = String(meta.status || '');
@@ -24615,7 +24784,12 @@
         if (!entry) return [];
         var meta = this._wsHistoryMeta(m);
         if (!meta || meta.status !== 'ready') return [];
-        var rows = this[entry.spec.rowsField];
+        var spec = entry.spec;
+        if (typeof spec.rowsFrom === 'function') {
+          var list = spec.rowsFrom(this);
+          return Array.isArray(list) ? list : [];
+        }
+        var rows = this[spec.rowsField];
         return Array.isArray(rows) ? rows : [];
       },
       // H-2: вкладка рендерится ТОЛЬКО при `status === 'ready' && rows > 0`.
@@ -24642,25 +24816,80 @@
         if (!entry) return;
         if (entry.spec.loader === 'loadDreamLog') {
           this.loadDreamLog(true);
-        } else {
+        } else if (entry.spec.loader === 'loadNostalgiaLog') {
           this.loadNostalgiaLog(true);
+        } else if (entry.spec.loader === 'loadTemporalRuns') {
+          this.loadTemporalRuns(true);
+        } else if (entry.spec.loader === 'loadLessons') {
+          this.loadLessons(true);
         }
       },
       historyRowTs: function (m, row) {
-        var entry = _historySourceEntry(m);
-        if (!entry || !row) return '';
-        return this.fmtLogTs(row[entry.spec.tsField]);
+        var ms = this.historyRowTimestamp(m, row);
+        return (ms == null) ? '' : this.fmtLogTs(ms);
       },
       historyRowTimestamp: function (m, row) {
         var entry = _historySourceEntry(m);
         if (!entry || !row) return null;
-        return _tsNormalizeMs(row[entry.spec.tsField]);
+        var spec = entry.spec;
+        var at = _tsNormalizeMs(row[spec.tsField]);
+        if (at == null && spec.tsFallback) {
+          at = _tsNormalizeMs(row[spec.tsFallback]);
+        }
+        return at;
+      },
+      // Идентичность строки для :key и дедупликации: id (B1) | run_id
+      // (фактчек) | lesson_id@version (уроки, версии различаются).
+      historyRowKey: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return '';
+        var keyField = entry.spec.rowKeyField;
+        var base = '';
+        if (keyField && row[keyField] != null) {
+          base = String(row[keyField]);
+        } else if (row.id != null) {
+          base = String(row.id);
+        }
+        if (base && row.version != null) base += '@' + row.version;
+        return base;
+      },
+      historyRowKindText: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return '';
+        if (entry.source === 'factcheck.temporal.runs') {
+          return this.temporalModeLabel(row.assessment_mode);
+        }
+        if (entry.source === 'memory.lessons') {
+          return this.lessonTypeLabel(row.type);
+        }
+        return row.kind ? String(row.kind) : '';
+      },
+      historyRowChatText: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !row) return '';
+        if (entry.source === 'memory.lessons') {
+          if (row.scope === 'global') return 'глобально';
+          if (row.scope_chat_id != null) return 'чат ' + row.scope_chat_id;
+          return '';
+        }
+        return (row.chat_id != null) ? ('чат ' + row.chat_id) : '';
+      },
+      historyRowStatusCode: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry) return '';
+        return _historyRowStatusCode(entry.source, row);
       },
       historyRowStatusText: function (m, row) {
         var entry = _historySourceEntry(m);
         if (!entry || !row) return '';
         if (entry.source === 'memory.dream.log') {
           return this.dreamStatusLabel(row.status);
+        }
+        if (entry.source === 'factcheck.temporal.runs') {
+          return this.temporalFactualLabel(row.factual_verdict);
+        }
+        if (entry.source === 'memory.lessons') {
+          return this.lessonStatusLabel(row.status);
         }
         var reason = (row.meta && row.meta.reason)
           ? String(row.meta.reason) : '';
@@ -24672,20 +24901,65 @@
         if (entry.source === 'memory.dream.log') {
           return this.dreamStatusBadgeClass(row);
         }
+        if (entry.source === 'factcheck.temporal.runs') {
+          var verdict = String(row.factual_verdict || '');
+          if (verdict === 'supported') return 'badge-ok';
+          if (verdict === 'refuted') return 'badge-err';
+          if (verdict === 'mixed') return 'badge-warn';
+          return 'badge-muted';
+        }
+        if (entry.source === 'memory.lessons') {
+          return this.lessonStatusClass(row.status);
+        }
         if (row.status === 'sent') return 'badge-ok';
         if (row.status === 'error') return 'badge-err';
         return 'badge-warn';
+      },
+      // Детали строки есть только у источника, у которого объявлен detail
+      // (B2: фактчек → существующая модалка run_id). Нет run_id — no-op.
+      historyRowHasDetail: function (m) {
+        var entry = _historySourceEntry(m);
+        return !!(entry && entry.spec.detail);
+      },
+      openHistoryRowDetail: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !entry.spec.detail || !row) return;
+        if (entry.spec.detail === 'temporal' && row.run_id
+            && typeof this.openTemporalDetail === 'function') {
+          this.openTemporalDetail(row.run_id);
+        }
       },
       // Компактная строка одного события: дата · тип · чат · статус/причина.
       historyRowLine: function (m, row) {
         var entry = _historySourceEntry(m);
         if (!entry || !row) return '';
         var parts = [this.historyRowTs(m, row) || '—'];
-        if (row.kind) parts.push(String(row.kind));
-        if (row.chat_id != null) parts.push('чат ' + row.chat_id);
+        var kind = this.historyRowKindText(m, row);
+        if (kind) parts.push(kind);
+        var chat = this.historyRowChatText(m, row);
+        if (chat) parts.push(chat);
         var status = this.historyRowStatusText(m, row);
         if (status) parts.push(status);
         return parts.join(' · ');
+      },
+      // B2: честная строка конверта уроков «уроков: N / state» (сырое
+      // состояние сервера — implemented/not_run/disabled, без подмены).
+      historyEnvelopeText: function (m) {
+        var entry = _historySourceEntry(m);
+        if (!entry || entry.source !== 'memory.lessons') return '';
+        var meta = this._wsHistoryMeta(m);
+        var count = null;
+        var state = '';
+        if (meta && meta.count != null) {
+          count = meta.count;
+          state = String(meta.state || '');
+        } else if (this.lessonsData && typeof this.lessonsData === 'object') {
+          var env = _historyLessonsEnvelope(this.lessonsData);
+          count = env.count;
+          state = env.state;
+        }
+        if (count == null) return '';
+        return 'уроков: ' + count + ' / ' + (state || '—');
       },
       // H-6: «Сейчас: …» — самый новый факт СВОЕГО журнала.
       historyNowText: function (m) {
@@ -24724,7 +24998,7 @@
         var out = [];
         var self = this;
         rows.forEach(function (row) {
-          var code = (row && row.status != null) ? String(row.status) : '';
+          var code = self.historyRowStatusCode(m, row);
           if (!code || seen[code]) return;
           seen[code] = true;
           var label = code;
@@ -24741,6 +25015,12 @@
         if (entry.source === 'memory.dream.log') {
           return this.dreamStatusLabel(code) || String(code || '');
         }
+        if (entry.source === 'factcheck.temporal.runs') {
+          return this.temporalFactualLabel(code);
+        }
+        if (entry.source === 'memory.lessons') {
+          return this.lessonStatusLabel(code);
+        }
         return String(code || '');
       },
       // Клиентский фильтр по статусу: строки не запрашиваются повторно.
@@ -24748,8 +25028,9 @@
         var rows = this.historyRowsFor(m);
         var filter = String(this.historyFilter || '');
         if (!filter) return rows;
+        var self = this;
         return rows.filter(function (row) {
-          return String((row && row.status) || '') === filter;
+          return self.historyRowStatusCode(m, row) === filter;
         });
       },
       // H-5: deep link на пустой/закрытый журнал уводит РОВНО ОДИН раз на
@@ -25007,21 +25288,65 @@
       loadTemporalRuns: function (force) {
         if (!this.isGlobalAdmin) return;
         var self = this;
+        var mref = _historyModuleRef('factcheck.temporal.runs');
+        var track = !!(mref && typeof this._wsHistoryMeta === 'function'
+                       && typeof this._wsHistoryMetaSet === 'function');
+        var meta = track ? this._wsHistoryMeta(mref) : null;
+        // H-7: один полёт на источник; force (кнопка ⟳) разрешает повтор.
+        if (track && meta && meta.status === 'loading' && !force) return;
         if (!force && this.temporalRuns && this.temporalRunsAt
             && (Date.now() - this.temporalRunsAt) < 30000) {
+          // Кэш 30 с — данные уже СВОЕГО источника. Новая область (смена
+          // чата) восстанавливает состояние из кэша без второго запроса.
+          if (track && (!meta || meta.status === 'idle')) {
+            this._wsHistoryMetaSet(mref,
+              this.temporalRuns.length ? 'ready' : 'empty',
+              { rows: this.temporalRuns.length });
+            if (typeof this._maybeExitHistory === 'function') {
+              this._maybeExitHistory();
+            }
+          }
           return;
         }
         this.temporalRunsBusy = true;
-        this.api('/api/factcheck/temporal/runs?limit=20')
+        if (track) this._wsHistoryMetaSet(mref, 'loading');
+        return this.api('/api/factcheck/temporal/runs?limit=20')
           .then(function (s) {
-            self.temporalRuns = (s && s.runs) || [];
+            var parsed = _historyPayloadFor('factcheck.temporal.runs', s)
+              || { rows: [], error: true };
+            // H-3: available:false/битый конверт — не «пустой журнал»,
+            // строки не подменяются выдуманной пустотой.
+            self.temporalRuns = (parsed.off || parsed.error)
+              ? null : parsed.rows;
             self.temporalRunsAt = Date.now();
+            if (track) {
+              if (parsed.off) {
+                self._wsHistoryMetaSet(mref, 'off');
+              } else if (parsed.error) {
+                self._wsHistoryMetaSet(mref, 'error');
+              } else {
+                self._wsHistoryMetaSet(mref,
+                  parsed.rows.length ? 'ready' : 'empty',
+                  { rows: parsed.rows.length });
+              }
+            }
           })
-          .catch(function () {
+          .catch(function (e) {
             self.temporalRuns = null;
             self.temporalRunsAt = Date.now();
+            if (track) {
+              var st = 'error';
+              if (e && e.status === 403) st = 'denied';
+              else if (e && e.status === 503) st = 'off';
+              self._wsHistoryMetaSet(mref, st);
+            }
           })
-          .finally(function () { self.temporalRunsBusy = false; });
+          .finally(function () {
+            self.temporalRunsBusy = false;
+            if (typeof self._maybeExitHistory === 'function') {
+              self._maybeExitHistory();
+            }
+          });
       },
       openTemporalDetail: function (runId) {
         if (!runId || this.temporalDetailBusy) return;
@@ -35495,7 +35820,7 @@
           var data = await this.api('/api/memory/dream/log?limit=20');
           if (typeof this._scopeGuard === 'function'
               && !this._scopeGuard(epoch)) return;
-          var parsed = _historyRowsFromPayload(data);
+          var parsed = _historyPayloadFor('memory.dream.log', data);
           this.dreamLog = parsed.rows;
           if (parsed.off) {
             this._wsHistoryMetaSet(mref, 'off');
@@ -35555,7 +35880,7 @@
           var data = await this.api('/api/memory/nostalgia/log?limit=20');
           if (typeof this._scopeGuard === 'function'
               && !this._scopeGuard(epoch)) return;
-          var parsed = _historyRowsFromPayload(data);
+          var parsed = _historyPayloadFor('memory.nostalgia.log', data);
           this.nostalgiaLog = parsed.rows;
           if (parsed.off) {
             this._wsHistoryMetaSet(mref, 'off');

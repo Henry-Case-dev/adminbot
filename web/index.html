@@ -1280,8 +1280,7 @@
                             && workspaceModule.id !== 'mod_initiative'"
                    class="col-span-full card p-4" data-workspace-overview>
                 <div v-if="moduleLastEventLine(workspaceModule)
-                             && workspaceModule.id !== 'mod_sleep'
-                             && workspaceModule.id !== 'mod_nostalgia'"
+                             && !historySupported(workspaceModule)"
                      class="text-xs text-gray-500 mt-2" data-module-last-action>
                   {{ moduleLastEventLine(workspaceModule) }}
                 </div>
@@ -1355,66 +1354,42 @@
                   выставлена на сервере, сводки заблокированы во всех чатах,
                   важнее любых тумблеров (снимается только в .env).
                 </div>
-                <!-- B07: временная линия evidence — детализация Фактчека.
-                     Данные те же, что в «Аналитике» (runs + общий
-                     detail-modal с evidence-карточками); RBAC API — global
-                     admin, остальным честная подсказка (без выдуманных
-                     данных). -->
-                <div v-if="workspaceModule.id === 'mod_factcheck'"
-                     class="mt-3 pt-2 border-t border-white/10 text-xs"
-                     data-factcheck-temporal>
-                  <div class="flex flex-wrap gap-2 items-center mb-1">
-                    <span class="text-gray-400">Проверки во времени
-                      (детализация):</span>
-                    <button v-if="isGlobalAdmin" type="button"
-                            class="btn-ghost text-xs shrink-0"
-                            :disabled="temporalRunsBusy"
-                            @click="loadTemporalRuns(true)"
-                            aria-label="Обновить журнал проверок">⟳</button>
-                  </div>
-                  <template v-if="isGlobalAdmin">
-                    <div v-if="temporalRunsBusy" class="spinner my-2"></div>
-                    <div v-else-if="!temporalRuns || !temporalRuns.length"
-                         class="text-gray-500">проверок пока нет</div>
-                    <div v-else class="flex flex-col gap-1">
-                      <button v-for="r in temporalRuns.slice(0, 5)"
-                              :key="'ws-tfr-' + r.run_id" type="button"
-                              class="btn-ghost text-xs text-left truncate"
-                              data-temporal-run-btn
-                              @click="openTemporalDetail(r.run_id)">
-                        {{ fmtTs(r.created_at) }} · чат {{ r.chat_id == null ? '—' : r.chat_id }}
-                        · {{ temporalModeLabel(r.assessment_mode) }}
-                        · {{ temporalFactualLabel(r.factual_verdict) }}
-                      </button>
-                    </div>
-                    <div class="text-gray-500 mt-1">
-                      Полный журнал и карточки источников — «Аналитика» →
-                      «Память и интеллект».
-                    </div>
-                  </template>
-                  <div v-else class="text-gray-500">
-                    Журнал проверок с источниками доступен владельцу бота
-                    («Аналитика» → «Память и интеллект»).
-                  </div>
-                </div>
-                <!-- MOD-ACL-UX-01 M4A W2b-B1 (H-6): «Обзор» несёт ОДИН
+                <!-- B07 (MCA-20): «Проверки во времени» больше не отдельный
+                     блок: B2 сводит журнал в ОДИН блок истории Обзора
+                     (`data-factcheck-temporal` ниже), без второго списка и
+                     без дубля строк «Сейчас». -->
+                <!-- MOD-ACL-UX-01 M4A W2b (H-6): «Обзор» несёт ОДИН
                      компактный блок фактов своего журнала — «Сейчас» + до 5
                      событий; второго ряда чипов и второй копии журнала нет.
-                     `data-dream-panel` сохранён для «Сна» как прежний адрес
-                     блока (визуальная преемственность). -->
+                     B1 — сон/ностальгия; B2 — фактчек (детали по run_id) и
+                     опыт (строка конверта «уроков: N / state»).
+                     `data-dream-panel`/`data-nostalgia-panel` сохранены как
+                     прежние адреса блоков; `data-factcheck-temporal` —
+                     прежний адрес журнала Фактчека (MCA-20/B07). -->
                 <div v-if="workspaceModule
                           && (workspaceModule.id === 'mod_sleep'
-                              || workspaceModule.id === 'mod_nostalgia')
-                          && isGlobalAdmin"
+                              || workspaceModule.id === 'mod_nostalgia'
+                              || workspaceModule.id === 'mod_factcheck'
+                              || workspaceModule.id === 'mod_experience')
+                          && (isGlobalAdmin
+                              || workspaceModule.id === 'mod_factcheck')"
                      class="mt-3 pt-2 border-t border-white/10 text-xs"
                      :data-dream-panel="workspaceModule.id === 'mod_sleep'
                        ? '' : null"
                      :data-nostalgia-panel="workspaceModule.id === 'mod_nostalgia'
                        ? '' : null"
+                     :data-factcheck-temporal="workspaceModule.id === 'mod_factcheck'
+                       ? '' : null"
+                     :data-experience-history="workspaceModule.id === 'mod_experience'
+                       ? '' : null"
                      data-overview-history>
-                  <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <div v-if="isGlobalAdmin" class="flex flex-wrap items-center gap-2 mb-1">
                     <span class="text-gray-400" data-overview-history-now>
                       Сейчас: {{ historyNowText(workspaceModule) }}
+                    </span>
+                    <span v-if="historyEnvelopeText(workspaceModule)"
+                          class="text-gray-500" data-overview-history-count>
+                      {{ historyEnvelopeText(workspaceModule) }}
                     </span>
                     <button type="button" class="btn-ghost text-xs shrink-0 ml-auto"
                             :disabled="historyStateFor(workspaceModule) === 'loading'"
@@ -1428,6 +1403,11 @@
                   <div v-else-if="historyStateFor(workspaceModule) === 'empty'"
                        class="text-gray-500" data-overview-history-state="empty">
                     Записей пока нет.
+                  </div>
+                  <div v-else-if="!isGlobalAdmin && historyNeedsOwner(workspaceModule)"
+                       class="text-gray-500" data-overview-history-state="off">
+                    Журнал проверок с источниками доступен владельцу бота
+                    («Аналитика» → «Память и интеллект»).
                   </div>
                   <div v-else-if="historyStateFor(workspaceModule) === 'denied'"
                        class="text-gray-500" data-overview-history-state="denied">
@@ -1445,14 +1425,21 @@
                     <div class="text-gray-400 mb-1">Последние события:</div>
                     <div class="flex flex-col gap-1" data-overview-history-rows>
                       <div v-for="l in historyOverviewRows(workspaceModule)"
-                           :key="'ovh-' + workspaceModule.id + '-' + l.id"
+                           :key="'ovh-' + workspaceModule.id + '-'
+                             + historyRowKey(workspaceModule, l)"
                            class="module-history__row"
-                           data-overview-history-row>
+                           data-overview-history-row
+                           :data-history-row-key="historyRowKey(workspaceModule, l)">
                         <span class="module-history__ts">{{ historyRowTs(workspaceModule, l) }}</span>
                         <span class="badge shrink-0"
-                              :class="historyRowBadgeClass(workspaceModule, l)">{{ l.kind || '—' }}</span>
-                        <span class="text-gray-400">чат {{ l.chat_id }}</span>
+                              :class="historyRowBadgeClass(workspaceModule, l)">{{ historyRowKindText(workspaceModule, l) || '—' }}</span>
+                        <span v-if="historyRowChatText(workspaceModule, l)"
+                              class="text-gray-400">{{ historyRowChatText(workspaceModule, l) }}</span>
                         <span class="module-history__status">{{ historyRowStatusText(workspaceModule, l) }}</span>
+                        <button v-if="historyRowHasDetail(workspaceModule)"
+                                type="button" class="btn-ghost text-xs shrink-0"
+                                data-temporal-run-btn
+                                @click="openHistoryRowDetail(workspaceModule, l)">Детали</button>
                       </div>
                     </div>
                   </template>
@@ -1464,6 +1451,11 @@
                   <div v-else class="text-gray-500"
                        data-overview-history-state="idle">
                     {{ historyStateText(workspaceModule) }}
+                  </div>
+                  <div v-if="workspaceModule.id === 'mod_factcheck' && isGlobalAdmin"
+                       class="text-gray-500 mt-1" data-overview-history-hint>
+                    Полный журнал и карточки источников — «Аналитика» →
+                    «Память и интеллект».
                   </div>
                 </div>
               </div>
@@ -1480,6 +1472,9 @@
                   <div class="text-sm font-bold">История</div>
                   <span class="text-xs text-gray-500"
                         data-module-history-source>{{ historySourceLabel(workspaceModule) }}</span>
+                  <span v-if="historyEnvelopeText(workspaceModule)"
+                        class="text-xs text-gray-500"
+                        data-module-history-count>{{ historyEnvelopeText(workspaceModule) }}</span>
                   <button type="button" class="btn-ghost text-xs ml-auto shrink-0"
                           :disabled="historyStateFor(workspaceModule) === 'loading'"
                           @click="refreshHistory(workspaceModule)"
@@ -1519,15 +1514,22 @@
                   </div>
                   <div class="flex flex-col gap-1" data-module-history-rows>
                     <div v-for="l in historyFilteredRows(workspaceModule)"
-                         :key="'mh-' + workspaceModule.id + '-' + l.id"
+                         :key="'mh-' + workspaceModule.id + '-'
+                           + historyRowKey(workspaceModule, l)"
                          class="module-history__row"
                          data-module-history-row
-                         :data-history-status="l.status">
+                         :data-history-row-key="historyRowKey(workspaceModule, l)"
+                         :data-history-status="historyRowStatusCode(workspaceModule, l)">
                       <span class="module-history__ts">{{ historyRowTs(workspaceModule, l) }}</span>
                       <span class="badge shrink-0"
-                            :class="historyRowBadgeClass(workspaceModule, l)">{{ l.kind || '—' }}</span>
-                      <span class="text-gray-400 module-history__chat">чат {{ l.chat_id }}</span>
+                            :class="historyRowBadgeClass(workspaceModule, l)">{{ historyRowKindText(workspaceModule, l) || '—' }}</span>
+                      <span v-if="historyRowChatText(workspaceModule, l)"
+                            class="text-gray-400 module-history__chat">{{ historyRowChatText(workspaceModule, l) }}</span>
                       <span class="module-history__status">{{ historyRowStatusText(workspaceModule, l) }}</span>
+                      <button v-if="historyRowHasDetail(workspaceModule)"
+                              type="button" class="btn-ghost text-xs shrink-0"
+                              data-temporal-run-btn
+                              @click="openHistoryRowDetail(workspaceModule, l)">Детали</button>
                     </div>
                   </div>
                   <div v-if="!historyFilteredRows(workspaceModule).length"

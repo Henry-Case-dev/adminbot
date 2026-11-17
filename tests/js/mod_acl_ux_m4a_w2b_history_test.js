@@ -1,22 +1,25 @@
 'use strict';
-/* MOD-ACL-UX-01 M4A W2b-B1 (2.58.212) — «История» для «Сна»/«Ностальгии».
+/* MOD-ACL-UX-01 M4A W2b (B1 2.58.212 + B2 2.58.213) — «История» модулей.
 
-Предмет: `memory.dream.log` + `memory.nostalgia.log` на СУЩЕСТВУЮЩИХ
-read-API (brief W2b §2–§3, контракты H-1…H-7):
-  1) presentation-map HISTORY_SOURCES: dream/nostalgia; неизвестный source —
-     ни запроса, ни вкладки (fail-closed);
+Предмет: B1 `memory.dream.log` + `memory.nostalgia.log`, B2
+`factcheck.temporal.runs` + `memory.lessons` на СУЩЕСТВУЮЩИХ read-API
+(brief W2b §2–§3, контракты H-1…H-7):
+  1) presentation-map HISTORY_SOURCES: dream/nostalgia/factcheck/lessons;
+     неизвестный source — ни запроса, ни вкладки (fail-closed);
   2) одно состояние на `scopeKey + moduleId` (`idle|loading|ready|empty|
-     denied|off|error`): 403 → denied, 503/available:false → off, сеть →
-     error; никогда «0 событий» вместо 403;
+     denied|off|error`): 403 → denied, 503/available:false/enabled:false →
+     off, сеть → error; никогда «0 событий» вместо 403;
   3) вкладка `history` видна ТОЛЬКО при `status==='ready' && rows>0`;
-     у sleep/nostalgia объявлена, у остальных модулей — нет;
+     объявлена у sleep/nostalgia/factcheck/experience, у остальных — нет;
   4) `history` никогда не дефолт; pending не удаляет запомненный history,
      удаление — только при empty/denied/off;
-  5) `moduleLastEventState` для sleep/nostalgia — max(ts) своего журнала,
+  5) `moduleLastEventState` для этих модулей — max(ts) своего источника,
      `observed_at` активностью не становится, чужая область не подставляется;
   6) один автоматический фетч на источник (`_ensureModuleData`), без поллера;
      явное обновление остаётся возможным;
-  7) статические срезы: панель `data-module-history`, фильтр, ровно один ряд
+  7) B2: конверт уроков `{enabled,state,count}` → строка «уроков: N / state»,
+     detail прогона фактчека — только по run_id (существующая модалка);
+  8) статические срезы: панель `data-module-history`, фильтр, ровно один ряд
      `[data-workspace-chips]`, `[data-overview-chips]` удалён.
 
 Всё проверяется на РЕАЛЬНОМ `web/app.js` (Vue-опции перехватываются),
@@ -83,6 +86,8 @@ const SLEEP_SOURCE = 'memory.dream.log';
 const NOSTALGIA_SOURCE = 'memory.nostalgia.log';
 const SLEEP = moduleById('mod_sleep');
 const NOSTALGIA = moduleById('mod_nostalgia');
+const FACTCHECK = moduleById('mod_factcheck');
+const EXPERIENCE = moduleById('mod_experience');
 
 function moduleById(id) {
   return MODULES.filter(function (m) { return m.id === id; })[0];
@@ -112,6 +117,20 @@ function nostalgiaRow(id, ts, status, reason) {
            status: status || 'sent',
            meta: reason ? { reason: reason } : null };
 }
+// B2: компактный прогон временного фактчека / строка урока.
+function temporalRow(id, ts, chat, mode, verdict) {
+  return { run_id: id, created_at: ts,
+           chat_id: (chat === undefined ? -100 : chat),
+           assessment_mode: mode || 'contextual',
+           factual_verdict: verdict || 'supported' };
+}
+function lessonRow(id, version, at, status, type, scope, scopeChat) {
+  return { lesson_id: id, version: version || 1,
+           created_at: at, updated_at: at,
+           type: type || 'tool_usage', status: status || 'active',
+           scope: scope || 'chat',
+           scope_chat_id: (scopeChat === undefined ? -100 : scopeChat) };
+}
 
 // Контекст «как на странице»: методы app.js + минимальные данные scope.
 function mkCtx(overrides) {
@@ -125,6 +144,8 @@ function mkCtx(overrides) {
     scopeEpoch: 0,
     configItems: [{ key: 'stub.item', value: true }],
     configGroups: [],
+    workspaceModelGroups: [],
+    workspaceTestingBlocks: [],
     moduleTabMemory: {},
     historyMeta: {},
     historyFilter: '',
@@ -132,6 +153,16 @@ function mkCtx(overrides) {
     nostalgiaLog: [],
     dreamBeliefs: [{ id: 1 }],
     memoryRagBusy: false,
+    temporalRuns: [],
+    temporalRunsBusy: false,
+    temporalRunsAt: 0,
+    temporalDetail: null,
+    temporalDetailBusy: false,
+    lessonsData: null,
+    lessonsBusy: false,
+    mca17cFunnel: { enabled: false },
+    lessonCard: null,
+    lessonDraft: { applicability: '', exceptions: '' },
     isGlobalAdmin: true,
     toasts: [],
     toast: function (msg, kind) { this.toasts.push({ msg: msg, kind: kind }); },
@@ -180,13 +211,14 @@ function eq(a, b, msg) {
 (async function run() {
   // ══ (1) Статические срезы W2b-B1 ═══════════════════════════════════════
   {
-    // history объявлена ТОЛЬКО у sleep/nostalgia.
-    [SLEEP, NOSTALGIA].forEach(function (m) {
+    // history объявлена ТОЛЬКО у модулей с поддержанным источником B1/B2.
+    [SLEEP, NOSTALGIA, FACTCHECK, EXPERIENCE].forEach(function (m) {
       ok((m.tabs || []).indexOf('history') >= 0,
         m.id + ': history не объявлена в tabs');
     });
     MODULES.forEach(function (m) {
-      if (m.id === 'mod_sleep' || m.id === 'mod_nostalgia') return;
+      if (m.id === 'mod_sleep' || m.id === 'mod_nostalgia'
+          || m.id === 'mod_factcheck' || m.id === 'mod_experience') return;
       ok((m.tabs || []).indexOf('history') < 0,
         m.id + ': history не должна быть объявлена');
     });
@@ -196,8 +228,16 @@ function eq(a, b, msg) {
       'data(): historyMeta отсутствует');
     ok(APP_JS.indexOf('HISTORY_SOURCES') >= 0 &&
        APP_JS.indexOf('memory.dream.log') >= 0 &&
-       APP_JS.indexOf('memory.nostalgia.log') >= 0,
-      'HISTORY_SOURCES не содержит dream/nostalgia');
+       APP_JS.indexOf('memory.nostalgia.log') >= 0 &&
+       APP_JS.indexOf('factcheck.temporal.runs') >= 0 &&
+       APP_JS.indexOf('memory.lessons') >= 0,
+      'HISTORY_SOURCES не содержит B1/B2 источники');
+    // B2: журнал фактчека (detail по run_id) и конверт уроков.
+    ['data-factcheck-temporal', 'data-experience-history',
+     'data-module-history-count', 'уроков: '].forEach(function (needle) {
+      ok(APP_JS.indexOf(needle) >= 0 || INDEX_HTML.indexOf(needle) >= 0,
+        'B2: нет «' + needle + '»');
+    });
     // Панель Истории, фильтр, честные состояния, обзорный блок.
     ['data-module-history', 'data-module-history-filter',
      'data-module-history-row', 'data-module-history-state',
@@ -631,6 +671,454 @@ function eq(a, b, msg) {
     eq(ctx.nav, '#/modules/sleep/limits',
       'openWorkspaceTab сохранил навигацию');
     clearStorage();
+  }
+
+  // ══ (11) B2: фактчек — state machine, detail по run_id, один запрос ═════
+  {
+    clearStorage();
+    const ctx = mkCtx({ route: '#/modules/factcheck',
+                         activeTab: 'mod_factcheck' });
+    const urls = [];
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'idle',
+      'factcheck: начальное состояние idle');
+    ok(!methods.workspaceTabHasContent.call(ctx, FACTCHECK, 'history'),
+      'factcheck idle: вкладки нет');
+    ok(methods.historyRowHasDetail.call(ctx, FACTCHECK),
+      'factcheck: detail объявлен');
+    ok(!methods.historyRowHasDetail.call(ctx, EXPERIENCE),
+      'experience: detail не объявлен');
+
+    const d = deferred();
+    ctx.api = function (u) { urls.push(u); return d.p; };
+    const load = methods.loadTemporalRuns.call(ctx);
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'loading',
+      'factcheck: в полёте loading');
+    d.resolve({ runs: [temporalRow('tfr-1', 1700000100),
+                       temporalRow('tfr-2', 1700000300, -200,
+                                   'historical_truth', 'refuted')] });
+    await load;
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'ready',
+      'factcheck 200+runs → ready');
+    eq(methods.historyRowsFor.call(ctx, FACTCHECK).length, 2,
+      'factcheck: строки своего источника');
+    ok(methods.workspaceTabHasContent.call(ctx, FACTCHECK, 'history'),
+      'factcheck ready+rows: вкладка истории есть');
+    eq(urls[0], '/api/factcheck/temporal/runs?limit=20',
+      'factcheck: существующий API limit=20');
+
+    // detail: строка без run_id — no-op; с run_id — модалка по id.
+    methods.openHistoryRowDetail.call(ctx, FACTCHECK, { chat_id: -100 });
+    eq(ctx.temporalDetail, null, 'detail без run_id — no-op');
+    const detailCalls = [];
+    ctx.api = async function (u) {
+      detailCalls.push(u);
+      return { run: { run_id: 'tfr-2', claim_text: 'x' }, evidence: [] };
+    };
+    methods.openHistoryRowDetail.call(ctx, FACTCHECK, { run_id: 'tfr-2' });
+    await tick();
+    eq(detailCalls[0], '/api/factcheck/temporal/runs/tfr-2',
+      'detail: существующий эндпоинт run_id');
+    eq(ctx.temporalDetail.run.run_id, 'tfr-2',
+      'detail: модалка получила прогон');
+    methods.openHistoryRowDetail.call(ctx, EXPERIENCE, { lesson_id: 'L1' });
+    eq(detailCalls.length, 1, 'experience: detail не вызывается');
+  }
+
+  {
+    // empty / malformed / 403 / 503 / available:false — честные состояния.
+    const ctx = mkCtx({ route: '#/modules/factcheck',
+                         activeTab: 'mod_factcheck' });
+    ctx.api = async function () { return { runs: [] }; };
+    await methods.loadTemporalRuns.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'empty',
+      'factcheck [] → empty');
+    ok(!methods.workspaceTabHasContent.call(ctx, FACTCHECK, 'history'),
+      'factcheck empty: вкладки нет');
+
+    ctx.api = async function () { return {}; };
+    await methods.loadTemporalRuns.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'error',
+      'factcheck битый конверт → error');
+
+    ctx.api = async function () {
+      const e = new Error('forbidden'); e.status = 403; throw e;
+    };
+    await methods.loadTemporalRuns.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'denied',
+      'factcheck 403 → denied');
+    ok(!methods.workspaceTabHasContent.call(ctx, FACTCHECK, 'history'),
+      'factcheck denied: вкладки нет');
+
+    ctx.api = async function () {
+      const e = new Error('unavailable'); e.status = 503; throw e;
+    };
+    await methods.loadTemporalRuns.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'off',
+      'factcheck 503 → off');
+
+    ctx.api = async function () { return { available: false }; };
+    await methods.loadTemporalRuns.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'off',
+      'factcheck available:false → off');
+    eq(methods.historyRowsFor.call(ctx, FACTCHECK).length, 0,
+      'factcheck off: строк не выдумано');
+  }
+
+  {
+    // H-1: неизвестный/чужой source → 0 запросов; fail-closed вкладки.
+    const ghost = {
+      id: 'mod_factcheck', routeSlug: 'factcheck', title: 'Фактчек',
+      tabs: ['overview', 'settings', 'history'],
+      historySource: 'factcheck.unknown',
+    };
+    const ctx = mkCtx({ modules: MODULES.concat([ghost]) });
+    let calls = 0;
+    ctx.api = async function () { calls += 1; return { runs: [] }; };
+    ok(!methods.historySupported.call(ctx, ghost),
+      'factcheck: неизвестный source не поддержан');
+    eq(methods.historyStateFor.call(ctx, ghost), 'idle',
+      'factcheck: неизвестный source idle');
+    ok(!methods.workspaceTabHasContent.call(ctx, ghost, 'history'),
+      'factcheck: неизвестный source без вкладки');
+    methods._ensureModuleData.call(ctx, ghost);
+    eq(calls, 0, 'factcheck: неизвестный source — ни одного запроса');
+
+    const wrong = Object.assign({}, EXPERIENCE, {
+      historySource: 'factcheck.temporal.runs',
+    });
+    ok(!methods.historySupported.call(ctx, wrong),
+      'чужой moduleId в строке источника не принимается');
+    eq(calls, 0, 'чужой источник не делает запросов');
+  }
+
+  {
+    // H-7: один автоматический фетч; кэш 30 с не плодит запросов,
+    // смена области восстанавливает состояние из кэша без сети.
+    const ctx = mkCtx({ route: '#/modules/factcheck',
+                         activeTab: 'mod_factcheck' });
+    let calls = 0;
+    const d = deferred();
+    ctx.api = function () { calls += 1; return d.p; };
+    methods._ensureModuleData.call(ctx, FACTCHECK);
+    methods._ensureModuleData.call(ctx, FACTCHECK);
+    eq(calls, 1, 'factcheck: один запрос при повторном входе');
+    d.resolve({ runs: [temporalRow('tfr-1', 1700000100)] });
+    await tick();
+    await tick();
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'ready',
+      'factcheck: ответ применён');
+    methods._ensureModuleData.call(ctx, FACTCHECK);
+    eq(calls, 1, 'factcheck: ready не запускает новый запрос');
+
+    // Смена области: pending-мета удалена, данные из кэша → ready без сети.
+    ctx.historyMeta = {};
+    methods._ensureModuleData.call(ctx, FACTCHECK);
+    eq(calls, 1, 'factcheck: кэш 30 с не делает второй запрос');
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'ready',
+      'factcheck: состояние новой области из кэша');
+  }
+
+  // ══ (12) B2: опыт — конверт уроков, URL, состояния, обзор ═══════════════
+  {
+    clearStorage();
+    const ctx = mkCtx({ route: '#/modules/experience',
+                         activeTab: 'mod_experience' });
+    const urls = [];
+    ctx.api = async function (u) {
+      urls.push(u);
+      return { enabled: true, state: 'implemented', count: 2,
+               lessons: [lessonRow('L1', 1, 1700000100, 'active'),
+                         lessonRow('L2', 2, 1700000300, 'candidate',
+                                   'retrieval')] };
+    };
+    await methods.loadLessons.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'ready',
+      'experience: конверт → ready');
+    eq(methods.historyRowsFor.call(ctx, EXPERIENCE).length, 2,
+      'experience: строки lessons');
+    ok(methods.workspaceTabHasContent.call(ctx, EXPERIENCE, 'history'),
+      'experience ready+rows: вкладка истории есть');
+    eq(methods.historyEnvelopeText.call(ctx, EXPERIENCE),
+      'уроков: 2 / implemented',
+      'experience: строка «уроков: N / state»');
+    eq(urls[0], '/api/memory/lessons?chat_id=-100',
+      'experience: чатовая область сохраняет прежний адрес');
+    eq(methods.historyRowKey.call(ctx, EXPERIENCE,
+      methods.historyRowsFor.call(ctx, EXPERIENCE)[1]), 'L2@2',
+      'experience: ключ строки — lesson_id@version');
+    eq(methods.historyRowStatusCode.call(ctx, EXPERIENCE,
+      methods.historyRowsFor.call(ctx, EXPERIENCE)[1]), 'candidate',
+      'experience: код статуса — status урока');
+    eq(methods.historyRowChatText.call(ctx, EXPERIENCE,
+      methods.historyRowsFor.call(ctx, EXPERIENCE)[0]), 'чат -100',
+      'experience: чатовая область строки');
+  }
+
+  {
+    // Глобальная область: limit=50 (H-1), пустой конверт → empty,
+    // выключенная функция → off, без «0 событий».
+    const ctx = mkCtx({ route: '#/modules/experience',
+                         activeTab: 'mod_experience',
+                         activeChatId: null });
+    const urls = [];
+    ctx.api = async function (u) {
+      urls.push(u);
+      return { enabled: true, state: 'not_run', count: 0, lessons: [] };
+    };
+    await methods.loadLessons.call(ctx, true);
+    eq(urls[0], '/api/memory/lessons?limit=50',
+      'experience: глобальная область limit=50');
+    eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'empty',
+      'experience: пустой конверт → empty');
+    eq(methods.historyEnvelopeText.call(ctx, EXPERIENCE),
+      'уроков: 0 / not_run',
+      'experience: честное состояние not_run');
+    ok(!methods.workspaceTabHasContent.call(ctx, EXPERIENCE, 'history'),
+      'experience empty: вкладки нет');
+
+    ctx.api = async function () {
+      return { enabled: false, state: 'disabled', count: 0, lessons: [] };
+    };
+    await methods.loadLessons.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'off',
+      'experience enabled:false → off');
+    eq(methods.historyEnvelopeText.call(ctx, EXPERIENCE),
+      'уроков: 0 / disabled',
+      'experience: off показывает сырое состояние конверта');
+    ok(!methods.workspaceTabHasContent.call(ctx, EXPERIENCE, 'history'),
+      'experience off: вкладки нет');
+    ok(methods.historyStateText.call(ctx, EXPERIENCE).indexOf('0 событий') < 0,
+      'experience off не превращается в «0 событий»');
+
+    ctx.api = async function () {
+      const e = new Error('forbidden'); e.status = 403; throw e;
+    };
+    await methods.loadLessons.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'denied',
+      'experience 403 → denied');
+    ctx.api = async function () {
+      const e = new Error('unavailable'); e.status = 503; throw e;
+    };
+    await methods.loadLessons.call(ctx, true);
+    eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'off',
+      'experience 503 → off');
+  }
+
+  {
+    // H-7: опыт — один автоматический запрос на область.
+    const ctx = mkCtx({ route: '#/modules/experience',
+                         activeTab: 'mod_experience' });
+    let calls = 0;
+    ctx.api = async function () {
+      calls += 1;
+      return { enabled: true, state: 'implemented', count: 1,
+               lessons: [lessonRow('L1', 1, 1700000100, 'active')] };
+    };
+    methods._ensureModuleData.call(ctx, EXPERIENCE);
+    methods._ensureModuleData.call(ctx, EXPERIENCE);
+    await tick();
+    eq(calls, 1, 'experience: повторный вход не дублирует запрос');
+    methods._ensureModuleData.call(ctx, EXPERIENCE);
+    await tick();
+    eq(calls, 1, 'experience: ready не запускает новый запрос');
+
+    const ghostExp = Object.assign({}, EXPERIENCE, {
+      historySource: 'memory.unknown',
+    });
+    const ctx2 = mkCtx();
+    let calls2 = 0;
+    ctx2.api = async function () { calls2 += 1; return {}; };
+    methods._ensureModuleData.call(ctx2, ghostExp);
+    eq(calls2, 0, 'experience: неизвестный source — ни одного запроса');
+  }
+
+  // ══ (13) B2: H-4 — history не дефолт; pending не чистит память ═════════
+  {
+    clearStorage();
+    const ctx = mkCtx({
+      route: '#/modules/experience',
+      workspaceTabHasContent: function (m, tabId) {
+        return (m.tabs || []).indexOf(tabId) >= 0 &&
+          this._contentTabs.indexOf(tabId) >= 0;
+      },
+      _contentTabs: ['overview', 'settings', 'limits', 'history'],
+    });
+    ctx._wsTabMemoryLoad();
+    methods._wsHistoryMetaSet.call(ctx, EXPERIENCE, 'ready',
+      { rows: 1, count: 1, state: 'implemented' });
+    ctx.lessonsData = { enabled: true, state: 'implemented', count: 1,
+                        lessons: [lessonRow('L1', 1, 1700000100, 'active')] };
+    eq(methods.workspaceDefaultTab.call(ctx, EXPERIENCE), 'overview',
+      'experience: дефолт «Обзор», не history');
+    methods._wsTabMemorySet.call(ctx, 'chat:-100', EXPERIENCE.id, 'history');
+    eq(methods.workspaceDefaultTab.call(ctx, EXPERIENCE), 'overview',
+      'experience: память history не делает её дефолтом');
+
+    // Фактчек: дефолт — «Основные настройки», не history.
+    const fctx = mkCtx({
+      route: '#/modules/factcheck',
+      workspaceTabHasContent: function (m, tabId) {
+        return (m.tabs || []).indexOf(tabId) >= 0 &&
+          this._contentTabs.indexOf(tabId) >= 0;
+      },
+      _contentTabs: ['overview', 'settings', 'history'],
+    });
+    fctx._wsTabMemoryLoad();
+    methods._wsHistoryMetaSet.call(fctx, FACTCHECK, 'ready', { rows: 1 });
+    fctx.temporalRuns = [temporalRow('tfr-1', 1700000100)];
+    eq(methods.workspaceDefaultTab.call(fctx, FACTCHECK), 'settings',
+      'factcheck: дефолт «Основные настройки», не history');
+
+    // Пустой settings → «Обзор», history первой не подставляется.
+    const narrow = mkCtx({
+      route: '#/modules/factcheck',
+      workspaceTabHasContent: function (m, tabId) {
+        return (m.tabs || []).indexOf(tabId) >= 0 &&
+          this._contentTabs.indexOf(tabId) >= 0;
+      },
+      _contentTabs: ['overview', 'history'],
+    });
+    narrow._wsTabMemoryLoad();
+    methods._wsHistoryMetaSet.call(narrow, FACTCHECK, 'ready', { rows: 1 });
+    narrow.temporalRuns = [temporalRow('tfr-1', 1700000100)];
+    eq(methods.workspaceDefaultTab.call(narrow, FACTCHECK), 'overview',
+      'factcheck: без settings history не подставляется первой');
+
+    // Pending (idle/loading/error) не стирает запомненный history.
+    clearStorage();
+    const pctx = mkCtx({ route: '#/modules/experience' });
+    pctx._wsTabMemoryLoad();
+    methods._wsTabMemorySet.call(pctx, 'chat:-100', EXPERIENCE.id, 'history');
+    ['idle', 'loading', 'error'].forEach(function (state) {
+      if (state !== 'idle') {
+        methods._wsHistoryMetaSet.call(pctx, EXPERIENCE, state);
+      }
+      eq(methods._wsTabMemoryGet.call(pctx, 'chat:-100', EXPERIENCE), '',
+        'experience ' + state + ': history не применяется');
+      ok(!!memoryRaw()['chat:-100|mod_experience'],
+        'experience ' + state + ': память не удалена');
+    });
+    methods._wsHistoryMetaSet.call(pctx, EXPERIENCE, 'ready',
+      { rows: 1, count: 1, state: 'implemented' });
+    pctx.lessonsData = { enabled: true, state: 'implemented', count: 1,
+                         lessons: [lessonRow('L1', 1, 1700000100, 'active')] };
+    eq(methods._wsTabMemoryGet.call(pctx, 'chat:-100', EXPERIENCE), 'history',
+      'experience ready+rows: память применяется');
+    methods._wsHistoryMetaSet.call(pctx, EXPERIENCE, 'empty');
+    eq(methods._wsTabMemoryGet.call(pctx, 'chat:-100', EXPERIENCE), '',
+      'experience empty: history не применяется');
+    ok(!memoryRaw()['chat:-100|mod_experience'],
+      'experience empty: запись удалена');
+    clearStorage();
+  }
+
+  // ══ (14) B2: H-6 — max(ts) своего источника, без observed_at ═══════════
+  {
+    const ctx = mkCtx({ route: '#/modules/factcheck',
+                         activeTab: 'mod_factcheck' });
+    methods._wsHistoryMetaSet.call(ctx, FACTCHECK, 'ready', { rows: 3 });
+    ctx.temporalRuns = [
+      temporalRow('tfr-1', 1700000100, -100, 'contextual', 'supported'),
+      temporalRow('tfr-2', 1700000500, -200, 'historical_truth', 'refuted'),
+      temporalRow('tfr-3', 1700000300, -100, 'current', 'mixed'),
+    ];
+    FACTCHECK.state = {
+      observed_at: '2099-01-01T00:00:00+00:00',
+      checked_at: '2026-11-17T10:00:00+00:00',
+    };
+    const st = methods.moduleLastEventState.call(ctx, FACTCHECK);
+    eq(st.kind, 'event', 'factcheck: состояние события');
+    ok(st.text.indexOf(methods.fmtLogTs.call(ctx, 1700000500)) >= 0,
+      'factcheck: взята самая новая строка created_at: ' + st.text);
+    ok(st.text.indexOf('опровергнуто') >= 0,
+      'factcheck: вердикт строки сохранён');
+    ok(st.text.indexOf('чат -200') >= 0,
+      'factcheck: чат строки сохранён');
+    ok(st.text.indexOf(methods.fmtLogTs.call(ctx,
+      '2099-01-01T00:00:00+00:00')) < 0,
+    'factcheck: observed_at не выдан за активность');
+
+    const ectx = mkCtx({ route: '#/modules/experience',
+                         activeTab: 'mod_experience' });
+    methods._wsHistoryMetaSet.call(ectx, EXPERIENCE, 'ready',
+      { rows: 2, count: 2, state: 'implemented' });
+    ectx.lessonsData = { enabled: true, state: 'implemented', count: 2,
+      lessons: [
+        lessonRow('L1', 1, 1700000100, 'active', 'tool_usage'),
+        lessonRow('L2', 1, 1700000900, 'suspended', 'failure_pattern'),
+      ] };
+    EXPERIENCE.state = { observed_at: '2099-02-02T00:00:00+00:00' };
+    const est = methods.moduleLastEventState.call(ectx, EXPERIENCE);
+    eq(est.kind, 'event', 'experience: состояние события');
+    ok(est.text.indexOf(methods.fmtLogTs.call(ectx, 1700000900)) >= 0,
+      'experience: max(updated_at) строки урока');
+    ok(est.text.indexOf('приостановлен') >= 0,
+      'experience: статус урока сохранён');
+    ok(est.text.indexOf(methods.fmtLogTs.call(ectx,
+      '2099-02-02T00:00:00+00:00')) < 0,
+    'experience: observed_at не активность');
+
+    // Чужой источник не подставляется в опыт/фактчек наоборот.
+    eq(methods.moduleHistoryLast.call(ectx, FACTCHECK), null,
+      'мета опыта не подставлена фактчеку');
+    eq(methods.moduleHistoryLast.call(ctx, EXPERIENCE), null,
+      'мета фактчека не подставлена опыту');
+  }
+
+  // ══ (15) B2: клиентский фильтр по статусу источника ════════════════════
+  {
+    const ctx = mkCtx({ route: '#/modules/factcheck' });
+    methods._wsHistoryMetaSet.call(ctx, FACTCHECK, 'ready', { rows: 3 });
+    ctx.temporalRuns = [
+      temporalRow('tfr-1', 1700000100, -100, 'contextual', 'supported'),
+      temporalRow('tfr-2', 1700000300, -100, 'current', 'refuted'),
+      temporalRow('tfr-3', 1700000200, -100, 'current', 'refuted'),
+    ];
+    const opts = methods.historyStatusOptions.call(ctx, FACTCHECK);
+    eq(opts.length, 2, 'factcheck: фильтр по вердиктам (2 уникальных)');
+    eq(methods.historyStatusLabel.call(ctx, FACTCHECK, 'refuted'),
+      'опровергнуто', 'factcheck: подпись вердикта');
+    ctx.historyFilter = 'refuted';
+    eq(methods.historyFilteredRows.call(ctx, FACTCHECK).length, 2,
+      'factcheck: фильтр сужает строки');
+    ctx.historyFilter = '';
+
+    const ectx = mkCtx({ route: '#/modules/experience' });
+    methods._wsHistoryMetaSet.call(ectx, EXPERIENCE, 'ready',
+      { rows: 3, count: 3, state: 'implemented' });
+    ectx.lessonsData = { enabled: true, state: 'implemented', count: 3,
+      lessons: [
+        lessonRow('L1', 1, 1700000100, 'active'),
+        lessonRow('L2', 2, 1700000300, 'candidate'),
+        lessonRow('L3', 1, 1700000200, 'active'),
+      ] };
+    eq(methods.historyStatusLabel.call(ectx, EXPERIENCE, 'candidate'),
+      'кандидат', 'experience: подпись статуса урока');
+    ectx.historyFilter = 'candidate';
+    eq(methods.historyFilteredRows.call(ectx, EXPERIENCE).length, 1,
+      'experience: фильтр сужает строки урока');
+    ectx.historyFilter = '';
+    eq(methods.historyRowBadgeClass.call(ectx, EXPERIENCE,
+      { status: 'active' }), 'badge-ok',
+      'experience: badge активного урока');
+  }
+
+  {
+    // B2: источник только для владельца — не-админ получает честный denied,
+    // без запроса, без вкладки и без пустой панели deep link.
+    const ctx = mkCtx({ route: '#/modules/factcheck/history',
+                         activeTab: 'mod_factcheck', isGlobalAdmin: false });
+    let calls = 0;
+    ctx.api = async function () { calls += 1; return { runs: [] }; };
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'denied',
+      'factcheck не-админ: честный denied');
+    ok(!methods.workspaceTabHasContent.call(ctx, FACTCHECK, 'history'),
+      'factcheck не-админ: вкладки нет');
+    methods._ensureModuleData.call(ctx, FACTCHECK);
+    eq(calls, 0, 'factcheck не-админ: ни одного запроса');
+    methods._maybeExitHistory.call(ctx);
+    eq((ctx.applied || [])[0], '#/modules/factcheck',
+      'factcheck не-админ: deep link уведён на bare');
   }
 
   console.log('MOD-ACL-UX-M4A-W2B-HISTORY-OK — ' + checks + ' проверок');
