@@ -2,10 +2,12 @@
   "feature": "qrng-recovery / P1 isolation and honesty",
   "branch": "fix/qrng-p1",
   "base": "34c25d09 (2.58.213, deployed)",
-  "candidate": "product commit f6451669 + test/evidence commit (tip on fix/qrng-p1)",
+  "review_round": "independent review Needs Fixes on 438046d6 (F1-F5); corrective same branch",
+  "candidate": "fix/qrng-p1 tip after corrective F1-F5 (see returned tip)",
   "environment": {
     "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
     "sqlite": "3.42.0",
+    "node": "v24.16.0",
     "os": "Windows (PowerShell 5.1)",
     "network": "none; ANU HTTP injected via http_get fakes; no live provider call"
   },
@@ -13,15 +15,17 @@
     {
       "id": "p1-focused",
       "command": "python -m pytest tests/test_qrng_p1_isolation.py -q",
-      "result": {"passed": 25, "failed": 0},
+      "result": {"passed": 29, "failed": 0},
       "covers": [
         "v48 columns + step registry + idempotent re-run on a pre-v48 copy",
-        "legacy NULL-fingerprint batches consumable",
+        "legacy NULL-fingerprint batches consumable (incl. empty-current strict F4)",
         "fingerprint-scoped reserve (A/B/NULL), key rotation A->B isolation",
+        "F4: rotation A->B->key deletion keeps A batches quarantined (no quantum draw)",
         "backfill only on confirmed same key, idempotent, wrong key = 0",
         "draft check 0 rows + deposited=false; saved check 1 batch + fingerprint",
         "canonical provider id / legacy mapping / external_ref",
-        "per-provider reserve + status registry (3 x hardware_quantum, no Lizaonair)",
+        "per-provider scoped reserve + quarantine + status registry (F3)",
+        "F2: /api/status has no *_fingerprint and no state.key_fingerprint value",
         "entropy_class never claimed for PRNG; source_impl derived from provider",
         "cooldown window, different-key bypass, singleflight preserved, cooldown=0 disables",
         "RBAC: view right does not open POST /api/random/test; provider key write needs global admin",
@@ -30,9 +34,15 @@
       ]
     },
     {
+      "id": "f1-schema-pins",
+      "command": "python -m pytest tests/test_memory_communities_migration.py tests/test_evol016_prompt_journal_v39.py tests/test_memory_identity.py tests/test_lesson_strategy_contract.py tests/test_mca17c_invariants_round1047.py tests/test_ur_c_sched.py tests/test_memory_quality_contract_07.py -q",
+      "result": {"passed": 102, "failed": 0},
+      "note": "F1: schema tail pins updated 47 -> 48 in 7 files (exact equality kept, no assertion weakened); before the fix these were 13 failed / 89 passed"
+    },
+    {
       "id": "affected-random-qnd",
       "command": "python -m pytest tests/test_qrng_p1_isolation.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q",
-      "result": {"passed": 192, "failed": 0}
+      "result": {"passed": 196, "failed": 0}
     },
     {
       "id": "affected-applications-schema",
@@ -48,13 +58,19 @@
       "id": "webapp-batch",
       "command": "python -m pytest tests/test_webapp_*.py -q --tb=no",
       "result": {"passed": 1455, "failed": 33},
-      "note": "identical pre-existing set documented for 2.58.213 (same 33/1455); no new failures"
+      "note": "identical pre-existing set documented for 2.58.213 (same 33/1455); no new failures. The run regenerates W10/W11/W12 audit screenshots; those outside-P1 blobs were restored to base bytes before commit"
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/*.js (module_fixture.js excluded)",
+      "result": {"passed": 117, "failed": 4},
+      "note": "same four pre-existing files fail on base: asap6_wave2_ux_tabs, evol_cog_scene, round1025_ia_routing, ur_ui_settings"
     },
     {
       "id": "initiative-coordination",
       "command": "python -m pytest tests/test_initiative_coordination.py -q",
       "result": {"passed": 56, "failed": 4},
-      "note": "same 4 failures reproduced on base 34c25d09 in a separate worktree (rlr_live_proof guard + 3 coordination asserts); pre-existing, not caused by P1"
+      "note": "same 4 failures reproduced on base 34c25d09 in a separate worktree; pre-existing, not caused by P1"
     }
   ],
   "invariants": {
@@ -71,25 +87,39 @@
     "deploy_v2_9_2_changed": false
   },
   "red": {
-    "base": "34c25d09 (worktree detached, no product edits)",
-    "p1_test_file": {"failed": 21, "passed": 3, "artifact": "red-tests-34c25d09.txt",
-                      "note": "snapshot before the 25th test (source_impl provenance) was added; behavioural RED is authoritative"},
-    "probe": {
-      "artifact_base": "red-probe-base-34c25d09.json",
-      "artifact_p1": "green-probe-p1.json",
-      "draft_base": {"deposited": null, "batch_rows": 1},
-      "draft_p1": {"deposited": false, "batch_rows": 0},
-      "rotation_base": {"state": "unverified", "draw_source": "quantum", "reserved_upto": [1, 2]},
-      "rotation_p1": {"state": "unverified", "draw_source": "pseudorandom", "reserved_upto": [1, 1]}
+    "base_for_f1": "438046d6 (13 schema-pin failures reproduced before the fix)",
+    "base_for_f2f3f4": "438046d6 detached worktree",
+    "f2f3f4_tests": {
+      "failed": 4,
+      "artifact": "red-tests-f2f3f4-438046d6.txt",
+      "failures": [
+        "empty-current store scope: 3 consumable vs 1 expected",
+        "rotation+delete: provider_reserve anu 7 vs 0",
+        "rotation status: provider_reserve anu 7 vs 0",
+        "status payload: KeyError config_matches / leaked config_fingerprint"
+      ]
     },
-    "rbac_base": "POST /api/random/test as a role holding key.keys.random_quantum_api_key = 200 (provider request executed); POST /api/config key write = 200",
-    "rbac_p1": "both = 403; global admin = 200"
+    "f2f3f4_probe": {
+      "artifact_base": "red-f2f3f4-438046d6.json",
+      "artifact_fixed": "green-f2f3f4.json",
+      "f2_base": {"fingerprint_keys_in_status": ["last_batch.config_fingerprint"], "state_fingerprint_value_in_status": true},
+      "f2_fixed": {"fingerprint_keys_in_status": [], "state_fingerprint_value_in_status": false},
+      "f3_base": {"provider_reserve": {"anu": 7}, "provider_quarantined": null, "effective": "pseudorandom"},
+      "f3_fixed": {"provider_reserve": {"anu": 0}, "provider_quarantined": {"anu": 7}, "effective": "pseudorandom"},
+      "f4_base": {"draw_source": "quantum", "reserved_upto": [1, 2]},
+      "f4_fixed": {"draw_source": "pseudorandom", "draw_deferred": false, "reserved_upto": [1, 1]}
+    },
+    "legacy_p1_red": {
+      "artifact": "red-tests-34c25d09.txt + red-probe-base-34c25d09.json",
+      "note": "initial P1 RED on 34c25d09 (24-test snapshot; 21 failed / 3 passed)"
+    }
   },
-  "migration_evidence": "migration-v48.json (pre-v48 copy: 7 legacy ANU batches, user_version 47 -> 48, rows identical, old SQL compatible, idempotent, backfill 7 then 0)",
-  "mutations": "mutations.json (M1 filter off, M2 draft insert restored, M3 RBAC removed, M4 source_impl hardcoded, M5 provider-write guard removed — all killed)",
+  "migration_evidence": "migration-v48.json (synthetic pre-v48 copy, NOT production: 7 legacy ANU batches, user_version 47 -> 48, rows identical, old SQL compatible, idempotent, backfill 7 then 0)",
+  "mutations": "mutations.json (M1 filter off, M2 draft insert restored, M3 RBAC removed, M4 source_impl hardcoded, M5 provider-write guard removed, M6 F2 leak re-added, M7 unscoped reserve, M8 empty-current filter removed — all killed)",
   "limitations": [
-    "UI text promising deposit for the draft check remains until P4 (scope P1 has no UI changes)",
+    "UI text promising deposit for the draft check remains until P4; P1 must not ship as a separate release before P4",
     "no live ANU request in P1; provider HTTP is injected",
-    "production DDL not applied; migration proven on a temporary pre-v48 copy"
+    "production DDL not applied; migration proven on a temporary synthetic pre-v48 copy",
+    "legacy NULL-fingerprint batches stay consumable under any configuration (documented compatibility)"
   ]
 }

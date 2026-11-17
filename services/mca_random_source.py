@@ -278,6 +278,19 @@ def source_impl_for(provider_id) -> str:
     return f"{pid}-quantum" if pid else "quantum"
 
 
+def config_matches(batch_fingerprint, current_fingerprint) -> bool:
+    """Совместима ли партия с действующей конфигурацией (F4 strict).
+
+    NULL-партия (легаси/без привязки) — совместима; партия с отпечатком —
+    только при непустом совпадающем текущем. Пустой текущий (ключа нет) НЕ
+    делает партии старого ключа совместимыми."""
+    bf = str(batch_fingerprint or "").strip()
+    cf = str(current_fingerprint or "").strip()
+    if not bf:
+        return True
+    return bool(cf) and bf == cf
+
+
 # ANU-контракт §14.3 (endpoint/header/defaults предзаполнены; owner вводит
 # только ключ).
 ANU_HOST = "api.quantumnumbers.anu.edu.au"
@@ -767,14 +780,19 @@ class RandomStore:
     # ── batches ────────────────────────────────────────────────────────────
     @staticmethod
     def _fingerprint_clause(config_fingerprint: str | None) -> tuple[str, tuple]:
-        """Аддитивный фильтр расходования (arch P1 D3).
+        """Аддитивный фильтр расходования (arch P1 D3, F4 strict).
 
-        Партия расходуется, если `config_fingerprint IS NULL` (история/партия
-        без привязки — совместимо) ИЛИ совпадает с текущей конфигурацией.
-        `None`/пусто — без фильтра (легаси-вызовы/тесты, поведение 2.58.213)."""
-        fp = str(config_fingerprint or "").strip()
-        if not fp:
+        `config_fingerprint is None` — без фильтра (внутренние/легаси чтения
+        запаса, backfill, тесты store). Строка (в т.ч. пустая) — strict:
+        партия расходуется, только если `config_fingerprint IS NULL` (легаси —
+        совместимо) ИЛИ равна действующей конфигурации. Пустая действующая
+        конфигурация (ключа нет) допускает ТОЛЬКО NULL-партии: партии старого
+        ключа после удаления ключа остаются нерасходуемыми."""
+        if config_fingerprint is None:
             return "", ()
+        fp = str(config_fingerprint).strip()
+        if not fp:
+            return " AND config_fingerprint IS NULL", ()
         return (" AND (config_fingerprint IS NULL OR config_fingerprint = ?)",
                 (fp,))
 
@@ -812,12 +830,17 @@ class RandomStore:
         row = await cursor.fetchone()
         return int(row["r"] if row is not None else 0)
 
-    async def provider_reserve(self) -> dict:
-        """Остаток по провайдерам (канонические id; легаси-строки суммируются)."""
+    async def provider_reserve(self, *,
+                               config_fingerprint: str | None = None) -> dict:
+        """Остаток по провайдерам (канонические id; легаси-строки суммируются).
+
+        `config_fingerprint is None` — все партии (внутренний расчёт
+        quarantine); строка — strict-фильтр расходования (F4)."""
+        clause, params = self._fingerprint_clause(config_fingerprint)
         cursor = await self._db.db.execute(
             "SELECT provider, COALESCE(SUM(length - reserved_upto), 0) AS r "
-            "FROM mca_random_batches WHERE reserved_upto < length "
-            "GROUP BY provider")
+            "FROM mca_random_batches WHERE reserved_upto < length" + clause
+            + " GROUP BY provider", params)
         out: dict[str, int] = {}
         for row in await cursor.fetchall():
             pid = canonical_provider_id(row["provider"])
@@ -1649,9 +1672,10 @@ class RandomSourceService:
     def _current_fingerprint(self) -> str:
         """Fingerprint действующей конфигурации провайдера (P1: ANU-ключ).
 
-        Пусто — ключа нет: фильтр не применяется (легаси-семантика 2.58.213:
-        уже полученная энтропия остаётся расходуемой; новых запросов без ключа
-        нет). Секрет/ключ наружу не отдаётся — только `sha256(key)[:12]`."""
+        Пусто — ключа нет: strict-фильтр (F4) допускает только NULL-партии
+        (легаси), партии удалённого ключа остаются нерасходуемыми; новых
+        запросов без ключа нет. Секрет/ключ наружу не отдаётся — только
+        `sha256(key)[:12]`."""
         key = self._resolve_key()
         return key_fingerprint(key) if key else ""
 
@@ -1680,13 +1704,28 @@ class RandomSourceService:
             return 0
 
     async def provider_reserve(self) -> dict:
-        """Остаток по провайдерам (read-only; канонические id)."""
+        """Остаток по провайдерам ТОЛЬКО для действующей конфигурации (F4).
+
+        Read-only; канонические id. Партии старой конфигурации сюда не входят
+        (они — `provider_stock - provider_reserve` = quarantined)."""
+        if self._store is None:
+            return {}
+        try:
+            return await self._store.provider_reserve(
+                config_fingerprint=self._current_fingerprint())
+        except Exception:
+            logger.warning("[random_source] provider reserve read failed",
+                           exc_info=True)
+            return {}
+
+    async def provider_stock(self) -> dict:
+        """Весь физический остаток по провайдерам (для quarantine в статусе)."""
         if self._store is None:
             return {}
         try:
             return await self._store.provider_reserve()
         except Exception:
-            logger.warning("[random_source] provider reserve read failed",
+            logger.warning("[random_source] provider stock read failed",
                            exc_info=True)
             return {}
 
@@ -2422,35 +2461,54 @@ class RandomSourceService:
         return ANU_STATE_ACTIVE
 
     async def status_snapshot(self, chat_id=None) -> dict:
-        """R17-safe статус (без ключа/сырого текста): selected/effective,
-        состояние ANU, запас, последнее пополнение, счётчики, fallback.
+        """R17-safe статус (без ключа/сырого текста/отпечатков): selected/
+        effective, состояние ANU, запас, последнее пополнение, счётчики,
+        fallback.
 
         Provenance (arch P1 D1/G4, без UI): канонический `provider` +
         `entropy_class` (только когда квантовая случайность фактически
-        действует), реестр трёх провайдеров и per-provider остаток.
-        История (`last_batch`) не переписывается — рядом `provider_id`."""
+        действует), реестр трёх провайдеров, per-provider расходуемый остаток
+        (strict F4) и `quarantined` (партии другой конфигурации). История
+        (`last_batch`) не переписывается — рядом `provider_id` и
+        `config_matches`; сам `config_fingerprint` НАРУЖУ НЕ ОТДАЁТСЯ (F2:
+        он совпадает с `state.key_fingerprint`, а `/api/status` доступен
+        без permission)."""
         selected = await self.selected_mode(chat_id)
         effective, blocker = await self.resolve_effective(chat_id)
         state = await self._read_state() or {}
-        last_batch = None
+        current_fingerprint = self._current_fingerprint()
+        last_batch_raw = None
         stats = {"quantum": 0, "pseudorandom": 0}
         quota = None
-        provider_reserve: dict = {}
+        consumable: dict = {}
+        stock: dict = {}
         if self._store is not None:
             try:
-                last_batch = await self._store.last_batch_info()
+                last_batch_raw = await self._store.last_batch_info()
                 stats = await self._store.journal_stats()
                 quota = await self._store.quota_get(
                     account_key=self._account_key())
-                provider_reserve = await self._store.provider_reserve()
+                consumable = await self._store.provider_reserve(
+                    config_fingerprint=current_fingerprint)
+                stock = await self._store.provider_reserve()
             except Exception:
                 pass
-        if last_batch is not None:
-            last_batch = dict(last_batch)
+        last_batch = None
+        if last_batch_raw is not None:
+            public_fields = (
+                "batch_id", "provider", "data_type", "length",
+                "reserved_upto", "consumed_upto", "created_at", "external_ref")
+            last_batch = {k: last_batch_raw.get(k) for k in public_fields}
             last_batch["provider_id"] = canonical_provider_id(
-                last_batch.get("provider"))
-        reserve_by_provider = {pid: int(provider_reserve.get(pid, 0) or 0)
+                last_batch_raw.get("provider"))
+            last_batch["config_matches"] = config_matches(
+                last_batch_raw.get("config_fingerprint"),
+                current_fingerprint)
+        reserve_by_provider = {pid: int(consumable.get(pid, 0) or 0)
                                for pid in PROVIDER_IDS}
+        quarantined_by_provider = {
+            pid: max(0, int(stock.get(pid, 0) or 0) - reserve_by_provider[pid])
+            for pid in PROVIDER_IDS}
         key_present = bool(self._resolve_key())
         anu_state = await self.anu_state()
         quantum = effective == MODE_QUANTUM
@@ -2466,7 +2524,13 @@ class RandomSourceService:
                 # подключён» до P2/P5 (без фейковых зелёных статусов).
                 "configured": (key_present if pid == PROVIDER_ID_ANU
                                else False),
+                # `reserve` — расходуемый остаток действующей конфигурации;
+                # `quarantined` — физический остаток другой конфигурации;
+                # `consumable` — есть ли что расходовать сейчас.
                 "reserve": reserve_by_provider[pid],
+                "consumable": reserve_by_provider[pid] > 0,
+                "quarantined": quarantined_by_provider[pid],
+                "config_matches": quarantined_by_provider[pid] == 0,
                 "state": (anu_state if pid == PROVIDER_ID_ANU
                           else ANU_STATE_UNCONFIGURED),
             })
@@ -2487,6 +2551,8 @@ class RandomSourceService:
             "entropy_class": (ENTROPY_CLASS_HARDWARE if quantum else None),
             "providers": providers,
             "provider_reserve": reserve_by_provider,
+            "provider_quarantined": quarantined_by_provider,
+            "reserve_quarantined": sum(quarantined_by_provider.values()),
             "anu_state": anu_state,
             "key_present": key_present,
             "key_fingerprint": state.get("key_fingerprint"),

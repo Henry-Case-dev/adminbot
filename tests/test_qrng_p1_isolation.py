@@ -291,6 +291,62 @@ class TestFingerprintScope:
             await db.close()
 
     @pytest.mark.asyncio
+    async def test_empty_current_admits_only_null_batches(self, tmp_path):
+        """F4 strict: пустой current (ключа нет) → только NULL-партии."""
+        db = await _fresh_db(tmp_path)
+        try:
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            await svc._store.insert_batch(
+                mrs.AnuBatch(values=[10, 11], data_type="uint16", length=2),
+                created_at=100, config_fingerprint="A")
+            await svc._store.insert_batch(
+                mrs.AnuBatch(values=[20], data_type="uint16", length=1),
+                created_at=200)                       # NULL — совместимо
+            assert await svc._store.reserve_remaining(
+                config_fingerprint="") == 1           # strict: только NULL
+            assert await svc._store.reserve_remaining() == 3   # без фильтра
+            draw = await svc._store.reserve_draw(
+                n=None, meta={"purpose": "p"}, config_fingerprint="")
+            assert draw is not None and draw.value == 20      # NULL-партия
+            rows = {(r["config_fingerprint"], r["created_at"]): r
+                    for r in await _batch_rows(db)}
+            assert rows[("A", 100)]["reserved_upto"] == 0      # A не тронута
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_rotation_then_key_removal_keeps_a_quarantined(
+            self, tmp_path, cfg, mem):
+        """A→B→удаление ключа: партии A не расходуются и после удаления."""
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg[mrs.SETTING_KEY] = "anu-key-A"
+            svc, _ = make_service(db, cfg, responses=[ok_uint16(8)])
+            assert (await svc.activate())["activated"] is True
+            used = (await _batch_rows(db))[0]["reserved_upto"]
+            cfg[mrs.SETTING_KEY] = "anu-key-B"
+            # Ключ удалён: resolve_key → "" (env-ключ в тесте не участвует).
+            svc._resolve_key = lambda: ""
+            assert await svc._reserve_remaining() == 0
+            snap = await svc.status_snapshot(chat_id=1)
+            assert snap["effective_source"] == mrs.MODE_PSEUDORANDOM
+            assert snap["provider_reserve"][mrs.PROVIDER_ID_ANU] == 0
+            assert snap["provider_quarantined"][mrs.PROVIDER_ID_ANU] == 7
+            assert snap["last_batch"]["config_matches"] is False
+            draw = await svc.draw_index(5, chat_id=1, purpose="p")
+            assert draw.source == mrs.MODE_PSEUDORANDOM
+            assert draw.entropy_class is None
+            # Явный режим без PRNG-откатов: значение не выдаётся, quantum нет.
+            mem[mrs.SETTING_FALLBACK] = False
+            deferred = await svc.draw_index(5, chat_id=1, purpose="p")
+            assert deferred.deferred is True
+            assert deferred.source == mrs.MODE_PSEUDORANDOM
+            row = (await _batch_rows(db))[0]
+            assert row["reserved_upto"] == used         # A не расходована
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
     async def test_backfill_only_for_confirmed_same_key(self, tmp_path, cfg):
         db = await _fresh_db(tmp_path)
         try:
@@ -469,6 +525,34 @@ class TestProvenanceDto:
             assert meta["provider_id"] == mrs.PROVIDER_ID_LFDR
             assert meta["entropy_class"] == "hardware_quantum"
             assert meta["source_impl"] == "lfdr-quantum"
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_status_quarantines_old_configuration_after_rotation(
+            self, tmp_path, cfg, mem):
+        """F3: provider_reserve scoped; партии A после A→B — quarantined."""
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg[mrs.SETTING_KEY] = "anu-key-A"
+            svc, _ = make_service(db, cfg, responses=[ok_uint16(8)])
+            assert (await svc.activate())["activated"] is True
+            cfg[mrs.SETTING_KEY] = "anu-key-B"
+            snap = await svc.status_snapshot(chat_id=1)
+            by_id = {p["id"]: p for p in snap["providers"]}
+            assert snap["effective_source"] == mrs.MODE_PSEUDORANDOM
+            assert snap["provider_reserve"][mrs.PROVIDER_ID_ANU] == 0
+            assert snap["provider_quarantined"][mrs.PROVIDER_ID_ANU] == 7
+            assert snap["reserve_quarantined"] == 7
+            assert snap["reserve_remaining"] == 0
+            assert by_id[mrs.PROVIDER_ID_ANU]["reserve"] == 0
+            assert by_id[mrs.PROVIDER_ID_ANU]["consumable"] is False
+            assert by_id[mrs.PROVIDER_ID_ANU]["quarantined"] == 7
+            assert by_id[mrs.PROVIDER_ID_ANU]["config_matches"] is False
+            # История: fingerprint не публикуется, только bool-совместимость.
+            assert "config_fingerprint" not in snap["last_batch"]
+            assert snap["last_batch"]["config_matches"] is False
+            assert snap["last_batch"]["provider_id"] == mrs.PROVIDER_ID_ANU
         finally:
             await db.close()
 
@@ -702,6 +786,67 @@ def api_env(monkeypatch, tmp_path):
 
 
 class TestProviderOperationRbac:
+    def _bind_status_service(self, monkeypatch, tmp_path):
+        """Сервис с реальной партией/state для проверки `/api/status`."""
+        async def _setup():
+            db = await _fresh_db(tmp_path, "qrng_status.db")
+            key = "anu-key-status-secret"
+            cfg = {mrs.SETTING_BATCH_LENGTH: 8,
+                   mrs.SETTING_KEY: key}
+            monkeypatch.setattr(
+                mrs, "_hot_setting",
+                lambda name, default: cfg.get(name, default))
+
+            async def _mem(name, chat_id, default):
+                return default
+            monkeypatch.setattr(mrs, "_read_memory_setting", _mem)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            fp = mrs.key_fingerprint(key)
+            await svc._store.insert_batch(
+                mrs.AnuBatch(values=list(range(8)), data_type="uint16",
+                             length=8), config_fingerprint=fp)
+            await svc._store.write_state(
+                key_fingerprint=fp, activated_at=1750000000)
+            monkeypatch.setattr(mrs, "_service", svc)
+            return svc, fp
+
+        return asyncio.run(_setup())
+
+    def test_api_status_has_no_key_fingerprint(self, api_env, monkeypatch,
+                                               tmp_path):
+        """F2 (R17): `/api/status` не отдаёт `*_fingerprint` и значение
+        `state.key_fingerprint`; `last_batch` — только `config_matches`."""
+        from services.status_service import StatusService
+
+        async def _no_health(self, module_id, base_url, key, model="",
+                             kind="chat"):
+            return {"ok": False, "status": "not_configured",
+                    "http_status": None, "latency_ms": None,
+                    "checked_at": None}
+
+        async def _no_uptime(self, pg):
+            return []
+
+        monkeypatch.setattr(StatusService, "_check_health", _no_health)
+        monkeypatch.setattr(StatusService, "fetch_uptime_rows", _no_uptime)
+        svc, fingerprint = self._bind_status_service(monkeypatch, tmp_path)
+        try:
+            resp = api_env.get("/api/status", headers=_hdr())
+            assert resp.status_code == 200, resp.text
+            rnd = resp.json()["random"]
+            assert rnd["last_batch"]["config_matches"] is True
+            assert "config_fingerprint" not in rnd["last_batch"]
+            blob = resp.text
+            assert fingerprint not in blob
+            assert "fingerprint" not in json.dumps(rnd).lower()
+            # Публичные агрегаты присутствуют и не содержат секретов.
+            assert rnd["provider_reserve"][mrs.PROVIDER_ID_ANU] == 8
+            assert rnd["provider_quarantined"][mrs.PROVIDER_ID_ANU] == 0
+            assert "anu-key-status-secret" not in blob
+        finally:
+            asyncio.run(svc.db.close())
+            mrs.reset_service()
+
     def test_view_right_does_not_open_random_test(self, api_env, monkeypatch,
                                                   tmp_path):
         async def _setup():

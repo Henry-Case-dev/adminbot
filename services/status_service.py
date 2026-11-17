@@ -569,6 +569,8 @@ class StatusService:
                 "entropy_class": snap.get("entropy_class"),
                 "providers": snap.get("providers") or [],
                 "provider_reserve": snap.get("provider_reserve") or {},
+                "provider_quarantined": snap.get("provider_quarantined") or {},
+                "reserve_quarantined": snap.get("reserve_quarantined"),
                 "fallback_setting_label": snap.get("fallback_setting_label"),
                 "reserve_remaining": snap.get("reserve_remaining"),
                 "buffer_max": snap.get("buffer_max"),
