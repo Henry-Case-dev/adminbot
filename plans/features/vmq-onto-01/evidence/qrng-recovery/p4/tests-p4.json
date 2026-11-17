@@ -210,5 +210,6 @@
       "F2 (non-blocking): mutation_e2e_probe.py normalizes CRLF (anchors compared in LF, file written back with original endings) — reproducible regardless of core.autocrlf."
     ]
   },
-  "probes_crlf": "mutation_probe.py и mutation_e2e_probe.py сравнивают anchors в LF и пишут файл в исходных окончаниях строк — результат не зависит от core.autocrlf (F2 non-blocking)."
+  "probes_crlf": "mutation_probe.py и mutation_e2e_probe.py сравнивают anchors в LF и пишут файл в исходных окончаниях строк — результат не зависит от core.autocrlf (F2 non-blocking).",
+  "evidence_tip": "901f569d"
 }
