@@ -1579,6 +1579,20 @@ def main() -> int:
                 "  refreshDisabled: (() => {"
                 "    const b = hist ? hist.querySelector('button') : null;"
                 "    return b ? b.disabled : null; })(),"
+                "  overviewFontSize: (() => {"
+                "    const r = document.querySelector("
+                "     '[data-overview-history-row]');"
+                "    return r ? getComputedStyle(r).fontSize : null; })(),"
+                "  historyFontSize: (() => {"
+                "    const r = document.querySelector("
+                "     '[data-module-history-row]');"
+                "    return r ? getComputedStyle(r).fontSize : null; })(),"
+                "  historyTitleFontSize: (() => {"
+                "    const t = hist ? hist.querySelector('.text-sm.font-bold') : null;"
+                "    return t ? getComputedStyle(t).fontSize : null; })(),"
+                "  historyFilterFontSize: (() => {"
+                "    const f = document.querySelector('#module-history-filter');"
+                "    return f ? getComputedStyle(f).fontSize : null; })(),"
                 "  scrollWidth: document.documentElement.scrollWidth,"
                 "  vw: window.innerWidth}; }")
 
@@ -1599,6 +1613,9 @@ def main() -> int:
               and sp["histCta"] == 0,
               f"W2b sleep: дубли факта/CTA (last={sp['lastAction']}, "
               f"link={sp['histLink']}, cta={sp['histCta']})", hfails)
+        check(sp["overviewFontSize"] == "12px",
+              f"W2b sleep: Обзор font-size={sp['overviewFontSize']} (нужно 12px)",
+              hfails)
         check(sp["scrollWidth"] <= sp["vw"] + 1,
               f"W2b sleep: горизонтальный скролл ({sp['scrollWidth']})", hfails)
 
@@ -1611,6 +1628,17 @@ def main() -> int:
         check(hh["rows"] == 6,
               f"W2b sleep/history: строк {hh['rows']} вместо 6", hfails)
         check(hh["filter"], "W2b sleep/history: фильтр не отрендерен", hfails)
+        check(hh["historyFontSize"] == "12px",
+              f"W2b sleep/history: font-size={hh['historyFontSize']} "
+              f"(нужно 12px)", hfails)
+        check(float((hh["historyTitleFontSize"] or "0").replace("px", ""))
+              > float((hh["historyFontSize"] or "0").replace("px", "")),
+              f"W2b sleep/history: инверсия иерархии "
+              f"(title={hh['historyTitleFontSize']}, "
+              f"row={hh['historyFontSize']})", hfails)
+        check(hh["historyFilterFontSize"] == "12px",
+              f"W2b sleep/history: фильтр font-size="
+              f"{hh['historyFilterFontSize']} (нужно 12px)", hfails)
         if hh["filter"]:
             hpage.select_option("#module-history-filter", "error")
             hpage.wait_for_timeout(260)
@@ -1822,6 +1850,9 @@ def main() -> int:
         m1 = _hprobe(hp2)
         report["flows"]["w2b_390_overview"] = m1
         check(m1["tab"], "W2b 390: нет вкладки history", hfails)
+        check(m1["overviewFontSize"] == "12px",
+              f"W2b 390: Обзор font-size={m1['overviewFontSize']} "
+              f"(нужно 12px)", hfails)
         check(m1["scrollWidth"] <= m1["vw"] + 1,
               f"W2b 390: скролл Обзора ({m1['scrollWidth']})", hfails)
         if hp2.query_selector(
@@ -1832,6 +1863,17 @@ def main() -> int:
         report["flows"]["w2b_390_history"] = m2
         check(m2["panel"] and m2["rows"] == 6,
               f"W2b 390: история {m2}", hfails)
+        check(m2["historyFontSize"] == "12px",
+              f"W2b 390: История font-size={m2['historyFontSize']} "
+              f"(нужно 12px)", hfails)
+        check(float((m2["historyTitleFontSize"] or "0").replace("px", ""))
+              > float((m2["historyFontSize"] or "0").replace("px", "")),
+              f"W2b 390: инверсия иерархии "
+              f"(title={m2['historyTitleFontSize']}, "
+              f"row={m2['historyFontSize']})", hfails)
+        check(m2["historyFilterFontSize"] == "12px",
+              f"W2b 390: фильтр font-size={m2['historyFilterFontSize']} "
+              f"(нужно 12px)", hfails)
         check(m2["scrollWidth"] <= m2["vw"] + 1,
               f"W2b 390: скролл Истории ({m2['scrollWidth']})", hfails)
         hp2.screenshot(path=os.path.join(SHOTS, "w2b-history-390.png"))

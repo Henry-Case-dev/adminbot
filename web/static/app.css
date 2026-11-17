@@ -9602,7 +9602,7 @@ body > .sticky-save[data-save-panel] {
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
   min-width: 0; padding: 3px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 0.91em; line-height: 1.35;
+  font-size: var(--tx-tiny); line-height: 1.35;
 }
 .module-history__row:last-child { border-bottom: 0; }
 .module-history__ts {

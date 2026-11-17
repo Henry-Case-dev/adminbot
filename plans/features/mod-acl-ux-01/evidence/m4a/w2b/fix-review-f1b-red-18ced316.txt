@@ -1,0 +1,38 @@
+MOD-ACL-UX-01 M4A W2b-B1 — RED F1-B (computed font-size)
+=========================================================
+Base RED: 18ced316 (текущий tip до фикса)
+Дата: 2026-11-17
+Окружение: Windows, Chromium Playwright (локальный e2e-стенд),
+node v24.16.0, Python 3.12.0 (.venv).
+
+1. RED на 18ced316 — computed font-size строки журнала:
+   tools/ui_mod_acl_m4_catalog_e2e.py (новые assertions):
+   - W2b sleep: Обзор font-size=10.92px (нужно 12px);
+   - W2b sleep/history: font-size=14.56px (нужно 12px);
+   - W2b sleep/history: инверсия иерархии (title=14px, row=14.56px);
+   - W2b 390: Обзор font-size=10.92px;
+   - W2b 390: История font-size=14.56px;
+   - W2b 390: инверсия иерархии (title=14px, row=14.56px).
+   Причина: `.module-history__row { font-size: 0.91em; }` — 0.91×12px
+   внутри Обзора (`text-xs`) = 10.92px; 0.91×16px в панели Истории = 14.56px.
+
+2. Fix: font-size: var(--tx-tiny) (0.75rem = 12px, существующий токен).
+   Другие размеры/сетка/плотность не менялись.
+   W11/W12 guard пропускает var(...): регэксп ищет только числовые
+   px/rem, оба теста passed.
+
+3. Проверка после фикса:
+   - 1280×800: Обзор row=12px, История row=12px, заголовок=14px,
+     фильтр=12px; 390×844: те же значения (12/12/14/12).
+   - W2b e2e -> failures=0.
+   - test_webapp_evol_w11_controls.py::TestControlTokens::
+     test_one_role_one_component -> passed;
+     test_webapp_evol_w12_internals.py::TestGlobalSearch::
+     test_palette_css_is_safe_area_and_motion_aware -> passed.
+   - node tests/js/mod_acl_ux_m4a_w2b_history_test.js -> 126 проверок OK.
+   - node tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js -> 141 OK.
+   - node tests/js/routing_test.js -> OK.
+   - mandatory pytest batch (24 файла) -> 386 passed.
+   - полный tests/test_webapp_*.py -> 33 failed, 1455 passed; тот же набор
+     pre-existing, что и на 18ced316 (без новых падений).
+   - полный tests/js/*.js -> 117 passed, 4 pre-existing.
