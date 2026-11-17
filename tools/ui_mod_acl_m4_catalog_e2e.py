@@ -2490,8 +2490,6 @@ def main() -> int:
         B2_GETS["temporal"] = 0
         _switch_chat_vm(bp, CHAT_ID2)
         f3b = _b2probe(bp)
-        report["flows"]["w2b_b2_f1_390_factcheck_b"] = dict(
-            f3b, gets=B2_GETS["temporal"])
         check(f3b["rows"] == 1 and f3b["rowKeys"] == ["B-run"],
               f"W2b B2 F1 390 factcheck B: {f3b['rowKeys']}", hfails)
         check("A-run" not in f3b["rowKeys"]
@@ -2501,6 +2499,21 @@ def main() -> int:
         check(f3b["scrollWidth"] <= f3b["vw"] + 1,
               f"W2b B2 F1 390 factcheck B: скролл ({f3b['scrollWidth']})",
               hfails)
+        B2_GETS["temporal"] = 0
+        _switch_chat_vm(bp, CHAT_ID)
+        f3r = _b2probe(bp)
+        report["flows"]["w2b_b2_f1_390_factcheck_b"] = {
+            "b": dict(f3b, gets=1), "back": f3r,
+            "back_gets": B2_GETS["temporal"]}
+        check(f3r["rows"] == 1 and f3r["rowKeys"] == ["A-run"],
+              f"W2b B2 F1 390 factcheck back: {f3r['rowKeys']}", hfails)
+        check("B-run" not in f3r["rowKeys"]
+              and B2_GETS["temporal"] == 1,
+              f"W2b B2 F1 390 factcheck back: протёк B/запросов "
+              f"{B2_GETS['temporal']}", hfails)
+        check(f3r["scrollWidth"] <= f3r["vw"] + 1,
+              f"W2b B2 F1 390 factcheck back: скролл "
+              f"({f3r['scrollWidth']})", hfails)
 
         _switch_chat_vm(bp, CHAT_ID)
         bp.goto("about:blank")
@@ -2517,8 +2530,6 @@ def main() -> int:
         B2_GETS["lessons"] = 0
         _switch_chat_vm(bp, CHAT_ID2)
         e3b = _b2probe(bp)
-        report["flows"]["w2b_b2_f1_390_experience_b"] = dict(
-            e3b, gets=B2_GETS["lessons"])
         check(e3b["rows"] == 1 and e3b["rowKeys"] == ["B-lesson@1"],
               f"W2b B2 F1 390 experience B: {e3b['rowKeys']}", hfails)
         check("A-lesson@1" not in e3b["rowKeys"]
@@ -2528,6 +2539,21 @@ def main() -> int:
         check(e3b["scrollWidth"] <= e3b["vw"] + 1,
               f"W2b B2 F1 390 experience B: скролл ({e3b['scrollWidth']})",
               hfails)
+        B2_GETS["lessons"] = 0
+        _switch_chat_vm(bp, CHAT_ID)
+        e3r = _b2probe(bp)
+        report["flows"]["w2b_b2_f1_390_experience_b"] = {
+            "b": dict(e3b, gets=1), "back": e3r,
+            "back_gets": B2_GETS["lessons"]}
+        check(e3r["rows"] == 1 and e3r["rowKeys"] == ["A-lesson@1"],
+              f"W2b B2 F1 390 experience back: {e3r['rowKeys']}", hfails)
+        check("B-lesson@1" not in e3r["rowKeys"]
+              and B2_GETS["lessons"] == 1,
+              f"W2b B2 F1 390 experience back: протёк B/запросов "
+              f"{B2_GETS['lessons']}", hfails)
+        check(e3r["scrollWidth"] <= e3r["vw"] + 1,
+              f"W2b B2 F1 390 experience back: скролл "
+              f"({e3r['scrollWidth']})", hfails)
         B2_MODE.update({"temporal": "data", "lessons": "data"})
 
         bp.screenshot(path=os.path.join(SHOTS, "w2b-b2-history-390.png"))

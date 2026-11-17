@@ -30,5 +30,6 @@
     },
     "removed_after_run": true
   },
-  "note": "The manifest is produced at the content tip (bump + F1 fix; all W2b B2 code/tests included). The release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
+  "note": "The manifest is produced at the content tip (bump + F1 fix; all W2b B2 code/tests included). The release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself.",
+  "post_capture_note": "E2E/docs-only changes after this capture (390-back check, wording) do not change product/version; deployed_sha remains a2f92b7d97310c66a1786556c2794c5386887e89."
 }

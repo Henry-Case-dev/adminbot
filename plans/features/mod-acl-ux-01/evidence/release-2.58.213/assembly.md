@@ -90,7 +90,7 @@
 | Полный `tests/js/*.js` (121, без fixture) | **117 passed**, те же 4 pre-existing fail |
 | Playwright e2e, 5 viewport | **failures=0**, 5 viewports, 93 flows (30 B2) |
 | B2 e2e факты | factcheck: Обзор 5 строк/1 блок, История 6 строк/6 ключей; experience: Обзор 3/1, История 4 строки, «уроков: 4 / implemented»; detail по `run_id` = 1 запрос; 403/503/available:false/enabled:false → нет вкладки; deep link → bare; один ряд чипов; 390: 6/4 строк, scrollWidth 390 |
-| F1 e2e (cross-scope) | 1280 и 390, factcheck и experience: A→B→A, строки только своей области (`A-run`/`B-run`, `A-lesson@1`/`B-lesson@1`), по 1 своему запросу на область, `scrollWidth=vw`, строки 12px |
+| F1 e2e (cross-scope) | 1280 и 390, factcheck и experience: A→B→A (390-back добавлен e2e-only после content tip), строки только своей области (`A-run`/`B-run`, `A-lesson@1`/`B-lesson@1`), по 1 своему запросу на область, `scrollWidth=vw`, строки 12px; factcheck-perchat — синтетический стаб по `X-Chat-Id` (реальный per-chat кейс — `memory.lessons`, `?chat_id=`) |
 | `node --check web/app.js` | rc 0 |
 | `git diff --check e070c229..a2f92b7d` | rc 0 |
 
@@ -106,7 +106,8 @@ previous_sha **e070c229bfdafcc9b07115ad55fba8dde2e8cffb**, previous_version
 2.58.212, release_branch **release/mod-acl-w2b2-2.58.213**, dirty_tracked
 **false**, effect deploy, schema 1. `.deploy` создан только для реконструкции
 и удалён после прогона; дерево чистое до и после. Полный JSON —
-`manifest-dry-run.json`.
+`manifest-dry-run.json`. Последующие e2e/docs-only правки (390-back,
+формулировки) продукт/версию не меняют — `deployed_sha` остаётся `a2f92b7d`.
 
 ## Откат
 
@@ -123,6 +124,9 @@ in-memory/client-side (`historyMeta` в JS и id вкладки в localStorage)
   (F1 RED/мутации — в `tests-2.58.213.json`, раздел `f1_cross_scope`);
 - W2b B1 baseline: `evidence/release-2.58.212/`;
 - W2a baseline: `evidence/release-2.58.211/`.
+- Product content tip — `a2f92b7d`; последующие docs/e2e-only правки
+  (390-back проверка в `tools/ui_mod_acl_m4_catalog_e2e.py` и evidence)
+  продукт/версию не меняют, `deployed_sha` манифеста остаётся `a2f92b7d`.
 
 ## Что этот релиз не делает
 

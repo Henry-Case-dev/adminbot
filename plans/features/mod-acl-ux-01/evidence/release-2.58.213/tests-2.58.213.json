@@ -180,9 +180,11 @@
               "experience": {"A": ["A-lesson@1"], "B": ["B-lesson@1"], "back": ["A-lesson@1"], "own_requests_per_switch": 1}
             },
             "390": {
-              "factcheck": {"A": ["A-run"], "B": ["B-run"], "own_requests_per_switch": 1, "scrollWidth": 390, "vw": 390},
-              "experience": {"A": ["A-lesson@1"], "B": ["B-lesson@1"], "own_requests_per_switch": 1, "scrollWidth": 390, "vw": 390}
-            }
+              "factcheck": {"A": ["A-run"], "B": ["B-run"], "back": ["A-run"], "own_requests_per_switch": 1, "back_requests": 1, "scrollWidth": 390, "vw": 390},
+              "experience": {"A": ["A-lesson@1"], "B": ["B-lesson@1"], "back": ["A-lesson@1"], "own_requests_per_switch": 1, "back_requests": 1, "scrollWidth": 390, "vw": 390}
+            },
+            "stub_note": "factcheck-perchat — синтетический стаб по X-Chat-Id; реальный per-chat кейс — memory.lessons (?chat_id=)",
+            "post_content_tip": "390-back проверка добавлена e2e-only после product content tip a2f92b7d; продукт/версия не менялись"
           }
         }
       }
@@ -246,7 +248,13 @@
       {"id": "M1", "change": "снять epoch-guard в loadTemporalRuns", "result": "KILLED: F1 inflight: поздний ответ A не перезаписал temporalRuns"},
       {"id": "M2", "change": "вернуть глобальный 30-с кэш (без scopeKey/epoch)", "result": "KILLED: F1 cache: область B делает свой запрос (кэш A не засевает)"},
       {"id": "M3", "change": "снять epoch-guard в loadLessons", "result": "KILLED: F1 lessons inflight: строки B остались"}
-    ]
+    ],
+    "cache_scope_note": "«Без запроса в пределах 30 с» — только в той же области/epoch; смена чата всегда даёт новый запрос.",
+    "fixed_e2e_a2f92b7d": {
+      "1280": "A→B→A: factcheck A-run/B-run/A-run, experience A-lesson@1/B-lesson@1/A-lesson@1; по 1 запросу на область",
+      "390": "A→B→A: те же ключи; back-проверка добавлена e2e-only после content tip; scrollWidth=390",
+      "stub_note": "factcheck-perchat — синтетический стаб по X-Chat-Id; реальный per-chat кейс — memory.lessons (?chat_id=)"
+    }
   },
   "note": "The manifest is produced at the content tip (bump + F1 fix; all W2b B2 code/tests included). Release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
 }

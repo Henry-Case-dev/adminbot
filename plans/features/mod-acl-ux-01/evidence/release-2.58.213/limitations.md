@@ -24,9 +24,15 @@ Cross-scope history (blocker High, дельта-ревью `fc4e9a7c`) испр�
 засевает чужую область; `loadTemporalRuns`/`loadLessons` фиксируют
 `scopeEpoch` до запроса и отбрасывают поздний ответ/ошибку другой области
 (then/catch/finally). Область B получает только свои строки (`B-run`/
-`B-lesson`) и делает свой запрос; A→B→A на 1280 и 390 — по одному запросу
-на область, без чужих строк и без overflow. RED/мутации — в
-`tests-2.58.213.json` (`f1_cross_scope`).
+`B-lesson`) и делает свой запрос. E2E: 1280 — A→B→A для factcheck и
+experience; 390 — A→B→A для обоих (back-проверка 390 добавлена
+e2e-only после content tip), по одному запросу на область, без чужих
+строк и без overflow. «Без запроса в пределах 30 с» кэш даёт **только в
+той же области/epoch**; смена чата всегда даёт новый запрос. RED/мутации —
+в `tests-2.58.213.json` (`f1_cross_scope`).
+
+INFO: factcheck-perchat e2e — **синтетический стаб по `X-Chat-Id`**
+(реальный per-chat кейс — `memory.lessons`, запрос `?chat_id=`).
 
 ## Browser Use / CDP
 Browser Use недоступен в этой сессии:
@@ -34,7 +40,7 @@ Browser Use недоступен в этой сессии:
 - `Test-NetConnection 127.0.0.1:19988` → **False**.
 
 Визуальная проверка выполнена только Playwright на локальном стенде
-(5 viewport, 83 flows, 20 B2, failures=0). Живой TMA и Browser Use **не
+(5 viewport, 93 flows, 30 B2, failures=0). Живой TMA и Browser Use **не
 заявляются**; после появления CDP/relay нужен тот же стенд, скриншоты —
 отдельным evidence.
 
