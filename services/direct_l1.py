@@ -3277,7 +3277,10 @@ def emit_l1_plan_event(*, run_id=None, chat_id=None, message_id=None,
                        model: str = "",
                        correlation_id: str | None = None,
                        window_source: str = "",
-                       window_estimated: bool | None = None) -> None:
+                       window_estimated: bool | None = None,
+                       provider: str = "",
+                       endpoint_host: str = "",
+                       key_slot: str = "") -> None:
     """``L1_PLAN`` (§1.5, R17-whitelist поля; fail-open).
 
     P0 L1 (2026-11-17): те же события дополнены исходом попытки
@@ -3316,7 +3319,12 @@ def emit_l1_plan_event(*, run_id=None, chat_id=None, message_id=None,
                             if correlation_id else None),
             window_source=str(window_source or ""),
             window_estimated=(None if window_estimated is None
-                              else bool(window_estimated)))
+                              else bool(window_estimated)),
+            # N4 (review): провайдер/хост endpoint'а/слот ключа. Только
+            # R17-safe коды: ни ключей, ни полного URL с токеном.
+            provider=str(provider or ""),
+            endpoint_host=str(endpoint_host or "")[:96],
+            key_slot=str(key_slot or ""))
     except Exception:          # pragma: no cover - fail-open
         pass
 

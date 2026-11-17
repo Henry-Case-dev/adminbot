@@ -4643,6 +4643,43 @@ _TURN_DIAGNOSTIC_KEYS = (
 )
 
 
+def _supported_kwargs(callable_obj, kwargs: dict) -> dict:
+    """Только те kwargs, которые callable реально принимает.
+
+    P0 L1 (review D1/D2): двойники/подписчики канала могут иметь узкую
+    сигнатуру. Передаём `output_field`/`max_output_tokens` лишь когда они
+    объявлены (или есть `**kwargs`), чтобы не превращать additive-параметр в
+    TypeError и не терять оплаченную попытку. Не бросает."""
+    try:
+        import inspect
+        parameters = inspect.signature(callable_obj).parameters
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return dict(kwargs)
+    if any(p.kind is p.VAR_KEYWORD for p in parameters.values()):
+        return dict(kwargs)
+    return {key: value for key, value in kwargs.items() if key in parameters}
+
+
+def _accepts_kwargs(callable_obj, name: str) -> bool:
+    """Принимает ли callable kwarg `name` (или `**kwargs`). Не бросает."""
+    try:
+        import inspect
+        parameters = inspect.signature(callable_obj).parameters
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return False
+    if name in parameters:
+        return True
+    return any(p.kind is p.VAR_KEYWORD for p in parameters.values())
+
+
+async def _l1_bounded(call, route):
+    """Верхняя граница попытки = действующий deadline хода (не микролимит)."""
+    if route is not None and route.deadline_seconds:
+        return await asyncio.wait_for(
+            call, timeout=float(route.deadline_seconds))
+    return await call
+
+
 class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
@@ -7801,18 +7838,47 @@ class DirectChatService:
                 # действующий транспортный (LLM_TOTAL_BUDGET) внутри _post,
                 # плюс явный верхний предел хода из снимка маршрута: отмена
                 # остаётся управляемой, «вечного» ожидания нет.
-                call = self.llm.generate(
-                    attempt_messages,
-                    temperature=temperature,
-                    chat_id=chat_id, module="direct_chat",
-                    step="l1_planner", correlation_id=correlation_id,
-                    max_output_tokens=(route.max_output_tokens
-                                       if route is not None else None))
-                if route is not None and route.deadline_seconds:
-                    text = await asyncio.wait_for(
-                        call, timeout=float(route.deadline_seconds))
-                else:
-                    text = await call
+                #
+                # D2: поле output-лимита — из снимка маршрута (capability
+                # модели), а не всегда `max_tokens`.
+                # N1: metadata-путь даёт реальный finish_reason успешной
+                # main-попытки; текстовый контракт ответа не меняется.
+                call_kwargs = {
+                    "temperature": temperature,
+                    "chat_id": chat_id, "module": "direct_chat",
+                    "correlation_id": correlation_id,
+                    "max_output_tokens": (route.max_output_tokens
+                                          if route is not None else None),
+                }
+                if route is not None and route.output_field:
+                    call_kwargs["output_field"] = str(route.output_field)
+                meta_call = getattr(self.llm, "generate_with_metadata", None)
+                if callable(meta_call) and _accepts_kwargs(
+                        meta_call, "max_output_tokens"):
+                    # Узкие двойники без нужных kwargs не ломаются: тогда
+                    # остаётся прежний текстовый путь `generate`.
+                    allowed = _supported_kwargs(meta_call, call_kwargs)
+                    call = meta_call(attempt_messages,
+                                     step="l1_planner", **allowed)
+                    completion = await _l1_bounded(
+                        call, route)
+                    text = getattr(completion, "text", None)
+                    if text is None:
+                        text = (completion if isinstance(completion, str)
+                                else "")
+                    return _l1.L1Generation(
+                        str(text or ""), getattr(completion, "usage", None),
+                        response_kind=str(getattr(
+                            completion, "response_kind", "text") or "text"),
+                        finish_reason=str(getattr(
+                            completion, "finish_reason", "unknown")
+                            or "unknown"),
+                        reasoning_chars=int(getattr(
+                            completion, "reasoning_chars", 0) or 0))
+                allowed = _supported_kwargs(self.llm.generate, call_kwargs)
+                call = self.llm.generate(attempt_messages,
+                                         step="l1_planner", **allowed)
+                text = await _l1_bounded(call, route)
                 return _l1.L1Generation(str(text or ""), None)
             return _call
 
@@ -7884,6 +7950,7 @@ class DirectChatService:
         finish_reason_last = ""
         last_known_finish = ""
         failure_reason_last = ""
+        prior_leg_attempted = False
         for leg_index, label in enumerate(legs):
             route = routes.get(label)
             if route is None or not route.usable:
@@ -7897,7 +7964,11 @@ class DirectChatService:
                     "[direct] l1 leg skipped | chat=%s | leg=%s | reason=%s",
                     chat_id, label, "no_usable_route")
                 continue
-            if leg_index > 0:
+            # N2 (review): `provider_fallback` — только когда предыдущая нога
+            # реально сделала платную попытку и не дала план. Пропуск ноги
+            # без собственного ключа — не fallback, а single-leg ход (причина
+            # видна в `l1_skipped_leg`).
+            if leg_index > 0 and prior_leg_attempted:
                 provider_fallback_used = True
             leg_slot = slot if label == "l1_slot" else main_slot
             leg_calls = 0
@@ -8045,6 +8116,8 @@ class DirectChatService:
                 break
             if plan is not None:
                 break
+            if leg_calls > 0:
+                prior_leg_attempted = True
             logger.warning(
                 "[direct] l1 leg exhausted | chat=%s | source=%s | "
                 "failure=%s | finish_reason=%s",
@@ -8061,6 +8134,9 @@ class DirectChatService:
             corrected_budget=corrected_budget,
             repaired=repaired,
             aborted=bool(meta.get("l1_aborted")))
+        # Свежесть оси: ход без пропущенных ног не должен наследовать
+        # `l1_skipped_leg` предыдущего хода (диагностика накопительная).
+        meta.setdefault("l1_skipped_leg", "none")
         known_finish = (last_known_finish
                         or (finish_reason_last
                             if finish_reason_last not in ("", "unknown")
@@ -8136,7 +8212,10 @@ class DirectChatService:
                       or getattr(self.llm, "_chat_model", "") or ""),
             correlation_id=correlation_id,
             window_source=str(meta.get("l1_window_source") or ""),
-            window_estimated=meta.get("l1_window_estimated"))
+            window_estimated=meta.get("l1_window_estimated"),
+            provider=str(meta.get("l1_provider") or ""),
+            endpoint_host=str(meta.get("l1_endpoint") or ""),
+            key_slot=str(meta.get("l1_key_slot") or ""))
         # Диагностика: одни и те же оси у обоих триггеров + прикладные extras
         # адаптера (капы цитаты, профиль решений) — читает Inspector.
         diag: dict = {}

@@ -169,6 +169,37 @@ class _ScriptLLM:
         return [c for c in self.calls if c["step"] == step]
 
 
+class _MetaScriptLLM(_ScriptLLM):
+    """Двойник с metadata-путём: отдаёт `LLMCompletion` как настоящий клиент.
+
+    Нужен для N1: успешная main-попытка обязана принести РЕАЛЬНЫЙ
+    finish_reason, а не `unknown`."""
+
+    def __init__(self, script, *, timeout=180.0, budget=360.0,
+                 finish_reason="stop"):
+        super().__init__(script, timeout=timeout, budget=budget)
+        self.meta_used = 0
+        self.finish_reason = finish_reason
+
+    async def generate_with_metadata(self, messages, temperature=None,
+                                     chat_id=None, module=None, step=None,
+                                     correlation_id=None, **kwargs):
+        self.meta_used += 1
+        self.calls.append({"step": step, "messages": messages,
+                           "kwargs": kwargs, "temperature": temperature,
+                           "correlation_id": correlation_id})
+        text = self.script.pop(0) if self.script else "{}"
+        if isinstance(text, Exception):
+            raise text
+        return lc.LLMCompletion(
+            text=text, finish_reason=self.finish_reason,
+            provider="primary.example", model="main-model",
+            usage={"prompt_tokens": 7, "completion_tokens": 5},
+            max_output_tokens_sent=kwargs.get("max_output_tokens"),
+            attempt=1, correlation_id=correlation_id,
+            response_kind="text")
+
+
 def _bad_response(kind="truncated_reasoning", finish="length"):
     exc = LLMBadResponseError(
         f"chat/completions: no final text | kind={kind} | "
@@ -500,6 +531,133 @@ class TestConsumerParsers:
         assert "prompt with" not in combined
 
 
+class TestRawChoicesShapes:
+    """D1 (review): сырой `choices` любой формы — штатный LLMError.
+
+    `tool_loop` ловит только `NoApiKeyForChat`/`LLMError`; KeyError/TypeError
+    из парсера выходили мимо деградации tool-раунда."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("choices", [
+        {"0": {"message": {"content": "x"}}},   # dict вместо list
+        5,                                      # не список
+        {},                                     # пустой dict
+        None,                                   # null
+        [],                                     # пустой list
+    ])
+    async def test_generate_chat_classifies_without_raw_exceptions(
+            self, monkeypatch, choices):
+        client = _client(_json_handler({"choices": choices}), monkeypatch)
+        degraded = False
+        try:
+            await client.generate_chat(
+                [{"role": "user", "content": "hi"}])
+        except lc.LLMError as exc:            # ровно то, что ловит tool_loop
+            degraded = True
+            assert isinstance(exc, LLMBadResponseError)
+            assert "kind=no_choices" in str(exc)
+        assert degraded is True, "tool-раунд обязан деградировать штатно"
+
+    @pytest.mark.asyncio
+    async def test_generate_with_metadata_same_shapes(self, monkeypatch):
+        """Тот же контракт у текстового пути (общий классификатор)."""
+        for choices in ({"0": {}}, 5, {}, None):
+            client = _client(_json_handler({"choices": choices}), monkeypatch)
+            with pytest.raises(LLMBadResponseError):
+                await client.generate([{"role": "user", "content": "hi"}])
+
+
+class TestOutputFieldContract:
+    """D2 (review): capability-поле маршрута реально уходит в payload."""
+
+    @pytest.mark.asyncio
+    async def test_client_writes_route_field_and_reports_sent(self,
+                                                              monkeypatch):
+        import json as _json
+        import httpx
+        captured = []
+
+        def handler(request):
+            captured.append(_json.loads(request.content))
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ok"},
+                                        "finish_reason": "stop"}]},
+                request=request)
+
+        client = _client(handler, monkeypatch)
+        completion = await client.generate_with_metadata(
+            [{"role": "user", "content": "hi"}], max_output_tokens=3000,
+            output_field="max_completion_tokens")
+        body = captured[-1]
+        assert body["max_completion_tokens"] == 3000
+        assert "max_tokens" not in body
+        assert completion.max_output_tokens_sent == 3000   # sent == computed
+        # Неизвестное поле не выдумывается: консервативный max_tokens.
+        await client.generate_with_metadata(
+            [{"role": "user", "content": "hi"}], max_output_tokens=1200,
+            output_field="output_tokens_v9")
+        assert captured[-1]["max_tokens"] == 1200
+        assert "output_tokens_v9" not in captured[-1]
+
+    @pytest.mark.asyncio
+    async def test_turn_passes_route_field_to_main_leg(self, monkeypatch):
+        """computed (capability) == effective (route) == sent (kwargs хода)."""
+        async def catalog(url, *, headers=None):
+            return {"data": [{
+                "id": "vendor/meta-model", "context_length": 131072,
+                "max_output_tokens": 4096,
+                "output_field": "max_completion_tokens",
+                "capabilities": ["reasoning"]}]}
+        monkeypatch.setattr(mc, "_http_get_json", catalog)
+        _set_hot(monkeypatch, {
+            "models.llm_base_url": "https://nano-gpt.com/api/v1",
+            "models.llm_model_name": "vendor/meta-model",
+            "keys.llm_api_key": "sk-main",
+        })
+        llm = _ScriptLLM([_plan_json(extent="micro")])
+        svc, react, bot, msg, user = _drive(monkeypatch, "а этот?", llm=llm)
+        await svc.handle(bot, msg, user)
+        calls = llm.calls_of("l1_planner")
+        assert calls, "main-нога должна вызвать модель"
+        sent_field = calls[0]["kwargs"].get("output_field")
+        assert sent_field == "max_completion_tokens"
+        assert calls[0]["kwargs"]["max_output_tokens"] <= 4096
+        assert _diag()["l1_output_field"] == sent_field
+
+    @pytest.mark.asyncio
+    async def test_incompatible_max_tokens_retries_with_other_field(
+            self, monkeypatch):
+        """4xx «max_tokens не поддерживается» → повтор с другим полем."""
+        class _FieldRejectingLLM(_ScriptLLM):
+            """Первый вызов: 4xx «max_tokens не поддерживается»; второй — план."""
+
+            async def generate(self, messages, temperature=None, chat_id=None,
+                               module=None, step=None, correlation_id=None,
+                               **kwargs):
+                self.calls.append({"step": step, "messages": messages,
+                                   "kwargs": kwargs,
+                                   "temperature": temperature})
+                if step != "l1_planner":
+                    return "готовый ответ"
+                if len(self.calls) == 1:
+                    exc = lc.LLMError("LLM HTTP 400: x")
+                    exc.status = 400
+                    exc.body = ('{"error": {"message": '
+                                '"Unsupported parameter: max_tokens"}}')
+                    raise exc
+                return _plan_json(extent="micro")
+
+        llm = _FieldRejectingLLM([])
+        svc, react, bot, msg, user = _drive(monkeypatch, "а этот?", llm=llm)
+        await svc.handle(bot, msg, user)
+        calls = llm.calls_of("l1_planner")
+        assert len(calls) == 2
+        assert calls[0]["kwargs"]["output_field"] == "max_tokens"
+        # Повтор — ДРУГОЕ поле запроса, а не тот же payload.
+        assert calls[1]["kwargs"]["output_field"] == "max_completion_tokens"
+        assert _diag()["l1_failure_mode"] == "compatibility_repaired"
+
+
 # ═══ C. L1: слот / транспорт / бюджет / ключи ═══════════════════════════════
 
 
@@ -792,8 +950,13 @@ class TestL1Turn:
         first_budget = calls[0]["kwargs"]["max_output_tokens"]
         second_budget = calls[1]["kwargs"]["max_output_tokens"]
         assert second_budget > first_budget > 512
-        # Повтор — не тот же payload: бюджет реально изменён.
-        assert calls[0]["messages"] != [] and calls[1]["messages"]
+        # N8 (review): проверяем ИМЕННО payload-контракт, а не «сообщения
+        # непустые»: повтор несёт бюджет следующей попытки (не тот же) и то
+        # же поле output-лимита, что и первичная попытка.
+        assert second_budget == min(_l1.L1_OUTPUT_CEILING_TOKENS,
+                                    first_budget * 2)
+        assert (calls[0]["kwargs"].get("output_field")
+                == calls[1]["kwargs"].get("output_field"))
         plan_text = "".join(str(m.get("content"))
                             for m in llm.calls_of("l2_writer")[0]["messages"])
         assert "МИКРО" in plan_text
@@ -842,7 +1005,9 @@ class TestL1Turn:
         assert len(llm.calls_of("l1_planner")) == 1
         diag = _diag()
         assert diag["l1_skipped_leg"] == "l1_slot"
-        assert diag["l1_failure_mode"] == "provider_fallback"
+        # N2 (review): dedicated-нога НЕ пыталась (нет своего ключа) → это
+        # single-leg ход, а не provider_fallback: фактический провайдер один.
+        assert diag["l1_failure_mode"] == "success"
         svc._send_direct_answer.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -897,6 +1062,67 @@ class TestL1Turn:
                                             llm=normal)
         await svc2.handle(bot2, msg2, user2)
         assert _diag()["l1_failure_mode"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_successful_main_reports_real_finish_reason(
+            self, monkeypatch):
+        """N1 (review): успешная main-попытка несёт РЕАЛЬНЫЙ finish_reason.
+
+        Metadata-путь клиента отдаёт `LLMCompletion.finish_reason`; он же
+        попадает в диагностику и в существующее событие `L1_PLAN` (без
+        prompt/ответа)."""
+        events = []
+        real_emit = _l1.emit_l1_plan_event
+
+        def _spy(**kwargs):
+            events.append(dict(kwargs))
+            return real_emit(**kwargs)
+
+        monkeypatch.setattr(_l1, "emit_l1_plan_event", _spy)
+        llm = _MetaScriptLLM([_plan_json(extent="micro")],
+                             finish_reason="stop")
+        svc, react, bot, msg, user = _drive(monkeypatch, "а этот?", llm=llm)
+        await svc.handle(bot, msg, user)
+        assert llm.meta_used >= 1, "main-нога должна идти metadata-путём"
+        diag = _diag()
+        assert diag["l1_failure_mode"] == "success"
+        assert diag["l1_finish_reason"] == "stop"      # не "unknown"
+        plan_events = [e for e in events if e.get("failure_mode") == "success"]
+        assert plan_events and plan_events[-1]["finish_reason"] == "stop"
+        # R17: ни ответа, ни reasoning в событии нет.
+        blob = json.dumps(plan_events[-1], ensure_ascii=False, default=str)
+        assert "МИКРО" not in blob and "reasoning" not in blob.lower()
+
+    @pytest.mark.asyncio
+    async def test_failed_dedicated_attempt_is_provider_fallback(
+            self, monkeypatch):
+        """N2 (review): provider_fallback — только когда dedicated-нога
+        РЕАЛЬНО пыталась и не дала план; main ответила."""
+        from services import hot_config as hot
+        hot.set_config_cache(_CatalogCache({
+            "models.llm_base_url": "https://main.example/v1",
+            "models.llm_model_name": "main-model",
+            "keys.llm_api_key": "sk-main",
+            "models.direct_l1_base_url": "https://l1.example/v1",
+            "models.direct_l1_model_name": "l1-model",
+            "keys.direct_l1_api_key": "sk-l1",
+            "flags.direct_l1_fallback_enabled": True,
+        }))
+        tried = []
+
+        async def down_post(*args, **kwargs):
+            tried.append(args)
+            raise lc.LLMError("slot down")
+
+        llm = _ScriptLLM([_plan_json(extent="micro")])
+        llm._post = down_post
+        svc, react, bot, msg, user = _drive(monkeypatch, "а этот?", llm=llm)
+        await svc.handle(bot, msg, user)
+        assert tried, "dedicated-попытка должна была состояться"
+        diag = _diag()
+        assert diag["l1_failure_mode"] == "provider_fallback"
+        assert diag["l1_skipped_leg"] == "none"   # ни одна нога не пропущена
+        svc._send_direct_answer.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_attempt_ceiling_per_leg(self, monkeypatch):
@@ -972,7 +1198,8 @@ class TestL1Event:
                 output_field="max_tokens", timeout_seconds=180.0,
                 deadline_seconds=360.0, attempts=2, model="z-ai/glm-5.3",
                 correlation_id="run1", window_source="provider_catalog",
-                window_estimated=False)
+                window_estimated=False, provider="nanogpt",
+                endpoint_host="nano-gpt.com", key_slot="main")
         finally:
             module.emit_agentic_event = real
         assert captured, "событие должно быть эмитировано"
@@ -982,9 +1209,15 @@ class TestL1Event:
         assert fields["output_limit"] == 8192
         assert fields["attempts"] == 2
         assert fields["deadline_seconds"] == 360.0
+        # N4 (review): провайдер/хост/слот ключа — в существующем событии.
+        assert fields["provider"] == "nanogpt"
+        assert fields["endpoint_host"] == "nano-gpt.com"
+        assert fields["key_slot"] == "main"
+        assert "://" not in fields["endpoint_host"]          # без URL
         blob = json.dumps(fields, ensure_ascii=False, default=str)
         assert "prompt" not in blob.lower()
         assert "reasoning" not in blob.lower()
+        assert "sk-" not in blob and "api_key" not in blob
 
 
 # ═══ G. production-конфигурация: 1M estimate не ломает бюджет ══════════════

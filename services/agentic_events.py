@@ -212,7 +212,10 @@ EVENT_FIELDS = {
         # коды/enum/числа — ни prompt, ни ответа, ни reasoning, ни ключей.
         "failure_mode", "finish_reason", "output_limit", "output_field",
         "timeout_seconds", "deadline_seconds", "attempts", "model",
-        "correlation_id", "window_source", "window_estimated"}),
+        "correlation_id", "window_source", "window_estimated",
+        # N4 (review): провайдер/endpoint-хост/слот ключа — те же R17-safe
+        # поля, что видит Inspector; endpoint — только host (без URL/токена).
+        "provider", "endpoint_host", "key_slot"}),
     L1_CAPABILITY_REJECTED: frozenset({"capability", "reason"}),
 }
 

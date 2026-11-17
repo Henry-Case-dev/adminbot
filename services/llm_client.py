@@ -456,6 +456,12 @@ RESPONSE_KIND_INVALID_PAYLOAD = "invalid_payload"
 #: Алиасы reasoning-черновика (провайдеры кладут его в разные поля).
 _REASONING_ALIASES = ("reasoning_content", "reasoning", "thinking")
 
+#: Документированные поля output-лимита OpenAI-compatible запроса. Клиент
+#: пишет ровно то поле, которое выбрал маршрут (capability-слой
+#: `services.model_capacity` объявляет то же имя модели/провайдера). Набор
+#: закрытый: неизвестное поле не выдумывается, действует `max_tokens`.
+_OUTPUT_LIMIT_FIELDS = ("max_tokens", "max_completion_tokens")
+
 # Провайдерские эквиваленты «output оборван по лимиту длины» (нормализованные,
 # т.е. уже strip().lower()): OpenAI/DeepSeek — 'length'; Anthropic — 'max_tokens'.
 # Ничего не додумываем: значения вне этого сета остаются как есть.
@@ -591,12 +597,19 @@ def _sent_body(sent, payload: dict) -> tuple[str, dict]:
 
 
 def _sent_max_output_tokens(body: dict) -> int | None:
-    """``max_tokens`` из отправленного тела; ключа нет/некорректный/<=0 → None."""
-    try:
-        value = int(body.get("max_tokens"))
-    except (TypeError, ValueError):
-        return None
-    return value if value > 0 else None
+    """Лимит вывода из отправленного тела (любое документированное поле).
+
+    P0 L1: маршрут может использовать `max_tokens` ИЛИ
+    `max_completion_tokens`; отчёт обязан показывать ФАКТИЧЕСКИ отправленное
+    значение, а не только `max_tokens`. Ключа нет/некорректный/<=0 → None."""
+    for field in _OUTPUT_LIMIT_FIELDS:
+        try:
+            value = int(body.get(field))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return None
 
 
 def _context_overflow_exc(err: LLMError, *, status: int,
@@ -2309,7 +2322,8 @@ class LLMClient:
                        correlation_id: str | None = None,
                        fallback_payload_adapter=None,
                        supervised_transport: dict | None = None,
-                       max_output_tokens: int | None = None) -> str:
+                       max_output_tokens: int | None = None,
+                       output_field: str | None = None) -> str:
         """Текстовый фасад: ровно ``(await generate_with_metadata(...)).text``.
 
         UR-18: сигнатура и возвращаемый ``str`` не менялись — все прежние
@@ -2322,7 +2336,8 @@ class LLMClient:
             correlation_id=correlation_id,
             fallback_payload_adapter=fallback_payload_adapter,
             supervised_transport=supervised_transport,
-            max_output_tokens=max_output_tokens)
+            max_output_tokens=max_output_tokens,
+            output_field=output_field)
         return completion.text
 
     async def generate_with_metadata(self, messages: list[dict[str, str]],
@@ -2333,7 +2348,8 @@ class LLMClient:
                                      correlation_id: str | None = None,
                                      fallback_payload_adapter=None,
                                      supervised_transport: dict | None = None,
-                                     max_output_tokens: int | None = None
+                                     max_output_tokens: int | None = None,
+                                     output_field: str | None = None
                                      ) -> LLMCompletion:
         """POST /chat/completions → choices[0].message.content.
 
@@ -2342,10 +2358,16 @@ class LLMClient:
         остальных вызовов; дефолт провайдера).
 
         MCA-23 (Wave 3, §Model slots): ``max_output_tokens`` — опциональный
-        kwarg; None/<=0 → ключ ``max_tokens`` в payload НЕ добавляется
+        kwarg; None/<=0 → ключ лимита в payload НЕ добавляется
         (байт-паритет всех прежних вызовов). Передаётся только явно
         longform-планами (services/response_extent); fallback-адаптер
         затрагивает только messages, ключ переживает recompose.
+
+        P0 L1 (2026-11-17): ``output_field`` — какое поле лимита использовать
+        у этого маршрута (`max_tokens` по умолчанию, либо
+        `max_completion_tokens`, если так объявил провайдер/каталог). None →
+        прежнее поведение (`max_tokens`); значение вне документированного
+        набора → fallback на `max_tokens` (без выдуманных полей).
 
         Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (свой ключ чата →
         глобальный с бюджетом; None → ровно старое поведение — глобальный
@@ -2392,13 +2414,17 @@ class LLMClient:
             payload["temperature"] = temperature
         # MCA-23 (Wave 3): модельный слот длины для longform-планов. Не-верхняя
         # граница ответа, а потолок; None → ключ отсутствует (паритет).
+        # P0 L1: поле лимита выбирает вызывающий по capability маршрута.
         if max_output_tokens is not None:
             try:
                 _max_out = int(max_output_tokens)
             except (TypeError, ValueError):
                 _max_out = 0
             if _max_out > 0:
-                payload["max_tokens"] = _max_out
+                _field = str(output_field or "").strip()
+                if _field not in _OUTPUT_LIMIT_FIELDS:
+                    _field = "max_tokens"
+                payload[_field] = _max_out
         # F7 (review iter1): фактически использованная модель — при срабатывании
         # фоллбэка цена/токены атрибутируются правильной модели.
         used_model = self._chat_model
@@ -2842,10 +2868,10 @@ class LLMClient:
         # tool_calls, reasoning-алиасы и ошибка внутри HTTP 200 разбираются
         # один раз и одинаково. Reasoning НЕ смешивается с content.
         classified = classify_chat_response(data)
-        choice = (data.get("choices") or [{}])[0] \
-            if isinstance(data, dict) else {}
-        if not isinstance(choice, dict):
-            choice = {}
+        # P0 L1 (review D1): сырой `choices` здесь больше НЕ индексируется —
+        # `{"0": {...}}`/`5`/`{}`/None давали KeyError/TypeError мимо
+        # LLMError-обработки (`tool_loop` ловит только LLMError). Всё, что
+        # нужно, отдаёт единый классификатор.
         content = classified.content
         tool_calls = list(classified.tool_calls) or None
         reasoning_text = classified.reasoning
@@ -2899,7 +2925,7 @@ class LLMClient:
         return LLMChatResult(
             content=content_text,
             tool_calls=tool_calls,
-            finish_reason=choice.get("finish_reason"),
+            finish_reason=classified.finish_reason_raw,
             reasoning=reasoning_text,
             response_kind=classified.kind,
             # UR-F шаг 1 (Q1): фактически отправленный body (после fallback).
