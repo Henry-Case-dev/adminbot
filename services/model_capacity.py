@@ -541,6 +541,55 @@ CONFIDENCE_ESTIMATED = "estimated"
 CONFIDENCE_OVERRIDE = "override"
 CONFIDENCE_FALLBACK = "fallback"
 
+#: Источники, которые подтверждены провайдером/рантаймом (или доказанным
+#: физическим пределом): только они дают право называть окно `model_window`.
+#: `estimated_unknown`/`fallback` — ПЛАНИРОВОЧНАЯ оценка (1 000 000 по
+#: умолчанию), она не должна выдаваться потребителю как подтверждённое окно.
+WINDOW_VERIFIED_SOURCES = frozenset({
+    SOURCE_PROVEN_LIMIT,
+    SOURCE_RUNTIME,
+    SOURCE_PROVIDER_CATALOG,
+    SOURCE_VERIFIED_REGISTRY,
+    SOURCE_REGISTRY,
+    # Legacy-контур (kill-switch OFF): прежние имена источников. Семейная
+    # карта/явный env — заданное человеком значение, а не 1M-оценка.
+    WINDOW_SOURCE_MAP,
+    WINDOW_SOURCE_ENV,
+})
+
+#: Поля задания output-лимита у OpenAI-compatible шлюзов. Выбор поля — по
+#: фактическим возможностям маршрута (каталог/сигнал провайдера), а НЕ по
+#: имени модели: `max_tokens` — консервативный дефолт, `max_completion_tokens`
+#: только когда его явно объявил каталог/принял провайдер.
+OUTPUT_FIELD_MAX_TOKENS = "max_tokens"
+OUTPUT_FIELD_MAX_COMPLETION_TOKENS = "max_completion_tokens"
+OUTPUT_TOKEN_FIELDS = (OUTPUT_FIELD_MAX_TOKENS, OUTPUT_FIELD_MAX_COMPLETION_TOKENS)
+OUTPUT_FIELD_SOURCE_DEFAULT = "default"
+OUTPUT_FIELD_SOURCE_PROVIDER = "provider_catalog"
+
+#: Документированные ключи каталога, которыми провайдер объявляет поле
+#: output-лимита (не угадывание по имени модели).
+_CATALOG_OUTPUT_FIELD_KEYS = ("output_token_field", "output_field",
+                              "max_output_field")
+#: Токены capability, которые провайдер объявляет в каталоге (reasoning/
+#: tools/json). Список описывает ВОЗМОЖНОСТИ, а не модели.
+_CAPABILITY_REASONING_TOKENS = ("reasoning", "thinking", "reasoning_content",
+                                "chain_of_thought")
+_CAPABILITY_TOOL_TOKENS = ("tools", "tool_calling", "function_calling",
+                           "functions")
+_CAPABILITY_JSON_TOKENS = ("json", "json_mode", "structured_output",
+                           "response_format")
+
+
+def window_is_verified(source: str, confidence: str = "") -> bool:
+    """Окно подтверждено провайдером/рантаймом, а не планировочной оценкой.
+
+    Один предикат для всех потребителей (L1/телеметрия/админка): `registry`
+    считается проверенным реестром (точное совпадение ID), `developer_override`
+    — решение владельца, но НЕ подтверждение провайдера (confidence=override),
+    поэтому здесь False (его видно отдельным полем `confidence`)."""
+    return str(source or "") in WINDOW_VERIFIED_SOURCES
+
 
 # ── ASAP 4.1 (эпик asap-4-1-durable-whole-window-summary, T-4604/T-4605;
 # spec §1 A.2 + ADR-1028-8 D2/AM-2 AMEND ADR-1028-3): решения режима входа
@@ -620,6 +669,26 @@ class CapacityResult:
     override_value: int | None = None
     proven_limit: int | None = None
     clamped_by_proven_limit: bool = False
+    # P0 L1 (2026-11-17): capability-поля модели. Значения из каталога/рантайма
+    # провайдера; `None` = НЕ подтверждено (не выдумываем поддержку). Поле
+    # output-лимита по умолчанию `max_tokens` (консервативный OpenAI-compatible
+    # контракт) и меняется только по явному сигналу провайдера.
+    supports_reasoning: bool | None = None
+    supports_tool_calling: bool | None = None
+    supports_json_mode: bool | None = None
+    output_token_field: str | None = None
+    output_field_source: str = OUTPUT_FIELD_SOURCE_DEFAULT
+
+    @property
+    def window_verified(self) -> bool:
+        """Окно подтверждено (не планировочная 1M-оценка)."""
+        return window_is_verified(self.source, self.confidence)
+
+    @property
+    def estimated(self) -> bool:
+        """Значение — оценка (`estimated_unknown`/`fallback`), не гарантия."""
+        return str(self.source or "") in (SOURCE_ESTIMATED_UNKNOWN,
+                                          SOURCE_FALLBACK)
 
     def as_window_meta(self) -> dict:
         """R17-safe поля для событий/логов (без ключей и текста запроса)."""
@@ -636,6 +705,13 @@ class CapacityResult:
             "proven_limit": self.proven_limit,
             "clamped_by_proven_limit": bool(self.clamped_by_proven_limit),
             "fallback_used": bool(self.fallback_used),
+            "window_verified": bool(self.window_verified),
+            "window_estimated": bool(self.estimated),
+            "supports_reasoning": self.supports_reasoning,
+            "supports_tool_calling": self.supports_tool_calling,
+            "supports_json_mode": self.supports_json_mode,
+            "output_token_field": self.output_token_field,
+            "output_field_source": self.output_field_source,
         }
 
 
@@ -755,6 +831,16 @@ def _strip_v1(base_url: str) -> str:
 
 async def _adapter_openrouter(base_url: str, model: str) -> int | None:
     """Каталог OpenRouter: `/api/v1/models` → `context_length` (по id)."""
+    entry = await _adapter_openrouter_entry(base_url, model)
+    return entry[0] if entry is not None else None
+
+
+async def _adapter_openrouter_entry(base_url: str, model: str
+                                    ) -> tuple[int, int | None, dict] | None:
+    """OpenRouter: `(context_length, max_output_tokens, catalog_item)`.
+
+    Item нужен capability-слою (reasoning/tools/json/output-поле) — без него
+    потребитель получал бы только окно и вынужден был бы угадывать остальное."""
     data = await _http_get_json("https://openrouter.ai/api/v1/models")
     items = data.get("data") if isinstance(data, dict) else None
     if not isinstance(items, list):
@@ -762,7 +848,19 @@ async def _adapter_openrouter(base_url: str, model: str) -> int | None:
     item = catalog_item_for_model(items, model)
     if item is None:
         return None
-    return _first_positive_int(item, _CATALOG_CONTEXT_FIELDS)
+    window = _first_positive_int(item, _CATALOG_CONTEXT_FIELDS)
+    if window is None:
+        return None
+    output = item.get("top_provider")
+    max_output = None
+    if isinstance(output, dict):
+        try:
+            max_output = int(output.get("max_completion_tokens"))
+        except (TypeError, ValueError):
+            max_output = None
+        if max_output is not None and max_output <= 0:
+            max_output = None
+    return window, max_output, item
 
 
 
@@ -794,6 +892,190 @@ def _first_positive_int(item: dict, fields) -> int | None:
         if value > 0:
             return value
     return None
+
+
+def _catalog_tokens(item: dict) -> set[str]:
+    """Токены capability из item'а каталога (lower-case), без догадок.
+
+    Поддерживаются документированные формы: список строк (`capabilities`),
+    список объектов (`{"type"|"name"|"id": "reasoning"}`) и словарь флагов
+    (`{"reasoning": true}`). Неизвестная форма → пустое множество (честное
+    «не подтверждено»), а не выдуманная поддержка."""
+    tokens: set[str] = set()
+    raw = item.get("capabilities")
+    values: list = []
+    if isinstance(raw, list):
+        values = raw
+    elif isinstance(raw, dict):
+        values = [key for key, flag in raw.items() if flag is True]
+    elif isinstance(raw, str):
+        values = [part.strip() for part in raw.split(",")]
+    for probe_key in ("supported_parameters", "supported_parameters_list"):
+        extra = item.get(probe_key)
+        if isinstance(extra, list):
+            values.extend(extra)
+    for value in values:
+        if isinstance(value, str):
+            tokens.add(value.strip().lower())
+        elif isinstance(value, dict):
+            for field in ("type", "name", "id", "capability"):
+                candidate = value.get(field)
+                if isinstance(candidate, str) and candidate.strip():
+                    tokens.add(candidate.strip().lower())
+    return {token for token in tokens if token}
+
+
+def _catalog_flag(item: dict, explicit_fields, capability_tokens) -> bool | None:
+    """Три-состояние: явный bool каталога → True/False, иначе токен → True,
+    иначе ``None`` (НЕ выдумываем поддержку).
+
+    Bool читается и на верхнем уровне item'а, и внутри документированного
+    словаря ``capabilities`` (обе формы встречаются у шлюзов). Отсутствие
+    сигнала — ``None``; ``False`` считается только явно объявленным."""
+    for field in explicit_fields:
+        value = item.get(field)
+        if isinstance(value, bool):
+            return value
+    caps = item.get("capabilities")
+    if isinstance(caps, dict):
+        for token in tuple(explicit_fields) + tuple(capability_tokens):
+            value = caps.get(token)
+            if isinstance(value, bool):
+                return value
+    present = _catalog_tokens(item)
+    if present and any(token in present for token in capability_tokens):
+        return True
+    return None
+
+
+def catalog_capability_fields(item: dict) -> dict:
+    """Capability-поля модели из item'а каталога (R17-safe, без имён моделей).
+
+    Reasoning/tools/json — только по явному сигналу каталога (bool-флаг или
+    документированный capability-токен); отсутствие сигнала → ``None``
+    («не подтверждено», не «нет»). Поле output-лимита — только если провайдер
+    назвал его сам (`output_token_field`/`output_field`/`max_output_field`),
+    иначе консервативный `max_tokens`."""
+    item = item if isinstance(item, dict) else {}
+    output_field = None
+    for key in _CATALOG_OUTPUT_FIELD_KEYS:
+        candidate = item.get(key)
+        if isinstance(candidate, str) \
+                and candidate.strip() in OUTPUT_TOKEN_FIELDS:
+            output_field = candidate.strip()
+            break
+    return {
+        "supports_reasoning": _catalog_flag(
+            item, ("supports_reasoning", "reasoning"),
+            _CAPABILITY_REASONING_TOKENS),
+        "supports_tool_calling": _catalog_flag(
+            item, ("supports_tools", "supports_tool_calling",
+                   "function_calling"),
+            _CAPABILITY_TOOL_TOKENS),
+        "supports_json_mode": _catalog_flag(
+            item, ("supports_json", "supports_json_mode",
+                   "supports_structured_output"),
+            _CAPABILITY_JSON_TOKENS),
+        "output_token_field": output_field,
+        "output_field_source": (OUTPUT_FIELD_SOURCE_PROVIDER if output_field
+                                else OUTPUT_FIELD_SOURCE_DEFAULT),
+    }
+
+
+@dataclass(frozen=True)
+class ModelCapability:
+    """Единый capability-снимок маршрута model/provider (P0 L1, 2026-11-17).
+
+    Собирается из существующего `CapacityResult` — нового резолвера ёмкости НЕ
+    создаёт. Разделяет:
+      * окно контекста (`context_window`) и максимум вывода (`max_output`) —
+        1M контекста НЕ означает 1M `max_tokens`;
+      * подтверждённое провайдером (`confidence`/`window_verified`) и
+        планировочную оценку (`estimated`, 1M — НЕ гарантия);
+      * capability модели (reasoning/tools/json) — tri-state (`None` =
+        не подтверждено, не «нет»).
+    """
+
+    model: str
+    provider: str
+    endpoint: str
+    context_window: int
+    max_output: int | None
+    source: str
+    confidence: str
+    window_verified: bool
+    estimated: bool
+    proven_limit: int | None = None
+    supports_reasoning: bool | None = None
+    supports_tool_calling: bool | None = None
+    supports_json_mode: bool | None = None
+    output_token_field: str = OUTPUT_FIELD_MAX_TOKENS
+    output_field_source: str = OUTPUT_FIELD_SOURCE_DEFAULT
+
+    def as_event_fields(self) -> dict:
+        """R17-safe поля (числа/enum; без ключей, промптов, URL-путей)."""
+        return {
+            "provider": self.provider,
+            "endpoint": self.endpoint,
+            "context_window": int(self.context_window),
+            "max_output": self.max_output,
+            "capacity_source": self.source,
+            "window_confidence": self.confidence,
+            "window_verified": bool(self.window_verified),
+            "window_estimated": bool(self.estimated),
+            "proven_limit": self.proven_limit,
+            "supports_reasoning": self.supports_reasoning,
+            "supports_tool_calling": self.supports_tool_calling,
+            "supports_json_mode": self.supports_json_mode,
+            "output_token_field": self.output_token_field,
+            "output_field_source": self.output_field_source,
+        }
+
+
+def model_capability(result: "CapacityResult",
+                     *, endpoint: str | None = None) -> ModelCapability:
+    """`CapacityResult` → `ModelCapability` (без I/O, никогда не бросает)."""
+    output_field = getattr(result, "output_token_field", None)
+    if output_field not in OUTPUT_TOKEN_FIELDS:
+        output_field = OUTPUT_FIELD_MAX_TOKENS
+    return ModelCapability(
+        model=str(getattr(result, "model", "") or ""),
+        provider=str(getattr(result, "provider", "") or ""),
+        endpoint=str(endpoint or ""),
+        context_window=int(getattr(result, "effective_context_window", 0) or 0),
+        max_output=getattr(result, "max_output_tokens", None),
+        source=str(getattr(result, "source", "") or ""),
+        confidence=str(getattr(result, "confidence", "") or ""),
+        window_verified=bool(getattr(result, "window_verified", False)),
+        estimated=bool(getattr(result, "estimated", False)),
+        proven_limit=getattr(result, "proven_limit", None),
+        supports_reasoning=getattr(result, "supports_reasoning", None),
+        supports_tool_calling=getattr(result, "supports_tool_calling", None),
+        supports_json_mode=getattr(result, "supports_json_mode", None),
+        output_token_field=output_field,
+        output_field_source=str(getattr(
+            result, "output_field_source", OUTPUT_FIELD_SOURCE_DEFAULT)),
+    )
+
+
+async def resolve_model_capability(base_url: str, model: str, *,
+                                   slot: str | None = None,
+                                   route: str | None = None
+                                   ) -> ModelCapability:
+    """Capability-снимок фактического маршрута через `resolve_capacity`.
+
+    Никогда не бросает: недоступность каталога/рантайма уже обработана внутри
+    резолвера (источник честно `estimated_unknown`/`fallback`)."""
+    try:
+        result = await resolve_capacity(base_url, model, slot=slot, route=route)
+    except Exception:      # pragma: no cover - резолвер сам не бросает
+        result = CapacityResult(
+            provider=detect_provider_class(base_url), model=str(model or ""),
+            declared_context_window=None, runtime_context_window=None,
+            effective_context_window=_unknown_window(), max_output_tokens=None,
+            source=SOURCE_FALLBACK, confidence=CONFIDENCE_FALLBACK,
+            resolved_at=time.time(), fallback_used=True)
+    return model_capability(result, endpoint=_base_url_host(base_url))
 
 
 #: Документированные поля ёмкости каталогов (NanoGPT: `context_length`,
@@ -859,6 +1141,17 @@ async def _adapter_nanogpt_catalog(base_url: str, model: str
     `catalog_item_for_model`); каталог недоступен / модели нет / формат
     неоднозначен → None (→ exact registry или 1M estimated с честным
     source; выдуманных записей и семейных догадок нет). НЕ бросает."""
+    entry = await _adapter_nanogpt_entry(base_url, model)
+    return (entry[0], entry[1]) if entry is not None else None
+
+
+async def _adapter_nanogpt_entry(base_url: str, model: str
+                                 ) -> tuple[int, int | None, dict] | None:
+    """NanoGPT: `(context_length, max_output_tokens, catalog_item)`.
+
+    Item отдаётся capability-слою (reasoning/tools/json/output-поле): без него
+    поддержка возможностей модели осталась бы неизвестной, хотя каталог её
+    объявляет. Не бросает."""
     wanted = str(model or "").strip()
     if not wanted:
         return None
@@ -879,7 +1172,7 @@ async def _adapter_nanogpt_catalog(base_url: str, model: str
             # Модель есть, документированного окна нет — честный miss
             # (следующий URL/слой), НЕ 0 и НЕ 16384.
             continue
-        return window, _first_positive_int(item, _CATALOG_OUTPUT_FIELDS)
+        return window, _first_positive_int(item, _CATALOG_OUTPUT_FIELDS), item
     return None
 
 
@@ -1581,8 +1874,9 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
         runtime_window = await _adapter_ollama(base_url, name)
     elif provider_class == PROVIDER_OPENROUTER:
         # 3) provider catalog (класс OpenRouter) — context_length каталога.
-        catalog_window = await _adapter_openrouter(base_url, name)
-        if catalog_window is not None:
+        entry = await _adapter_openrouter_entry(base_url, name)
+        if entry is not None:
+            catalog_window, catalog_max_output, catalog_item = entry
             declared = _registry_exact_window(name) or catalog_window
             effective = catalog_window if (live or declared is None) \
                 else min(catalog_window, declared)
@@ -1591,17 +1885,18 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
                 declared_context_window=declared,
                 runtime_context_window=None,
                 effective_context_window=effective,
-                max_output_tokens=None, source=SOURCE_PROVIDER_CATALOG,
+                max_output_tokens=catalog_max_output, source=SOURCE_PROVIDER_CATALOG,
                 confidence=CONFIDENCE_VERIFIED, resolved_at=now,
-                fallback_used=False)
+                fallback_used=False,
+                **catalog_capability_fields(catalog_item))
     elif provider_class == PROVIDER_NANOGPT:
         # 3) provider catalog (§53, D3): live/public каталог NanoGPT —
         # context window + max output; точное сопоставление ID
         # (namespace/suffix/alias), без семейных догадок. Miss → exact
         # registry → 1M estimated (ниже).
-        catalog = await _adapter_nanogpt_catalog(base_url, name)
-        if catalog is not None:
-            catalog_window, max_output = catalog
+        entry = await _adapter_nanogpt_entry(base_url, name)
+        if entry is not None:
+            catalog_window, max_output, catalog_item = entry
             declared = _registry_exact_window(name) or catalog_window
             # T-4808: live precedence ON → live catalog суверенен, exact
             # registry НЕ занижает live capability (declared — для
@@ -1616,7 +1911,8 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
                 max_output_tokens=max_output,
                 source=SOURCE_PROVIDER_CATALOG,
                 confidence=CONFIDENCE_VERIFIED, resolved_at=now,
-                fallback_used=False)
+                fallback_used=False,
+                **catalog_capability_fields(catalog_item))
     # ── 3b) verified route metadata (live precedence ON) ───────────────────
     # Маршрут-специфичная metadata (например, endpoint-лимиты) — только из
     # верифицированного адаптера; без подтверждения слой честно пропускается.

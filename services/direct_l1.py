@@ -32,6 +32,7 @@ import re
 import time
 from collections import deque
 from dataclasses import dataclass
+from dataclasses import replace as dataclass_replace
 
 from config.settings import settings
 # ASAP-FC-VOICE-01 / B: имя секции профиля решений живёт в единственной точке
@@ -1023,17 +1024,50 @@ REPAIR_ANNOTATION = (
     "Ответь СТРОГО одной JSON-строкой по схеме из системной роли, без "
     "пояснений и без markdown.")
 
+#: P0 L1 (2026-11-17): причины ремонта. Текст инструкции различается, потому
+#: что «невалидный JSON» и «нет финального текста» — разные дефекты; слепой
+#: идентичный повтор запрещён (он не меняет причину отказа).
+REPAIR_REASON_INVALID_JSON = "invalid_json"
+REPAIR_REASON_REASONING_ONLY = "reasoning_only"
+REPAIR_REASON_TRUNCATED = "finish_length"
 
-def build_repair_messages(messages, previous_raw: str) -> list[dict]:
+#: Аннотация «нет финального текста»: reasoning-черновик не считается ответом
+#: (в prompt он не переносится — только требование вернуть финальный JSON).
+REPAIR_ANNOTATION_NO_TEXT = (
+    "\n\n[SYSTEM] В предыдущем ответе не было финального JSON-плана "
+    "(только reasoning или пустой content). Верни СТРОГО одну JSON-строку по "
+    "схеме из системной роли: план, а не рассуждение, без markdown.")
+
+#: Аннотация «ответ оборван по лимиту длины»: просим компактный финальный
+#: план, чтобы он поместился в увеличенный (не бесконечный) бюджет.
+REPAIR_ANNOTATION_TRUNCATED = (
+    "\n\n[SYSTEM] Предыдущий ответ был оборван по лимиту длины до финального "
+    "JSON. Верни ту же схему компактно: без пояснений, без reasoning, "
+    "значения полей — короткими.")
+
+
+def build_repair_messages(messages, previous_raw: str, *,
+                          reason: str = REPAIR_REASON_INVALID_JSON
+                          ) -> list[dict]:
     """Bounded repair (D14): ровно 1 повтор — тот же пакет + аннотация
-    ошибки и прежний (мусорный) ответ как user-хвост. Никогда не бросает."""
+    причины и прежний (мусорный) ответ как user-хвост. Никогда не бросает.
+
+    ``reason`` (P0 L1): ``invalid_json`` (прежний контракт байт-в-байт),
+    ``reasoning_only``/``finish_length`` — своя аннотация вместо копии
+    прежнего ответа (reasoning в prompt НЕ переносится)."""
     try:
         repaired = [dict(m) for m in (messages or [])]
-        tail = json_escape_snippet(previous_raw)
+        if str(reason or "") == REPAIR_REASON_REASONING_ONLY:
+            annotation, tail = REPAIR_ANNOTATION_NO_TEXT, ""
+        elif str(reason or "") == REPAIR_REASON_TRUNCATED:
+            annotation, tail = REPAIR_ANNOTATION_TRUNCATED, ""
+        else:
+            annotation = REPAIR_ANNOTATION
+            tail = f"[ПРЕДЫДУЩИЙ ОТВЕТ]: {json_escape_snippet(previous_raw)}\n"
         if repaired and repaired[-1].get("role") == "user":
             repaired[-1]["content"] = (
                 str(repaired[-1].get("content") or "") + "\n"
-                + f"[ПРЕДЫДУЩИЙ ОТВЕТ]: {tail}\n" + REPAIR_ANNOTATION)
+                + (f"{tail}\n" if tail else "") + annotation)
         return repaired
     except Exception:      # pragma: no cover - защитная ветка
         return list(messages or [])
@@ -1094,6 +1128,31 @@ def _hot_int(key: str, attr: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def explicit_int_setting(key: str, attr: str) -> int | None:
+    """ТОЛЬКО явно сохранённое значение (PG-ключ или env-переменная).
+
+    ``None`` = владелец ничего не сохранял: автоматический код-дефолт
+    (``Settings.DIRECT_L1_*``) НЕ является ручным выбором и не должен
+    подменять действующую политику (P0 L1, 2026-11-17). Именно так различаются
+    «явный override» и «аварийный default» — по факту наличия значения."""
+    try:
+        from services import hot_config as hot
+        raw = hot.get(key, None)
+    except Exception:      # pragma: no cover - защитная ветка
+        raw = None
+    if raw is None:
+        import os
+        if str(attr) in os.environ:
+            raw = getattr(settings, attr, None)
+    if raw is None:
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
 def l1_context_tokens() -> int:
     """§1.5: кап бюджета L1-контекста (каталог-ключ добавит F2;
     код-дефолт 1600 — ClassVar ``DIRECT_L1_CONTEXT_TOKENS``)."""
@@ -1101,16 +1160,30 @@ def l1_context_tokens() -> int:
                     "DIRECT_L1_CONTEXT_TOKENS", 1600)
 
 
-def l1_timeout_seconds() -> int:
-    """§1.6: timeout L1-вызова (дефолт 15)."""
-    return _hot_int("limits.direct_l1_timeout_seconds",
-                    "DIRECT_L1_TIMEOUT_SECONDS", 15)
+def l1_timeout_seconds() -> int | None:
+    """Явный owner-override таймаута L1 (PG ``limits.direct_l1_timeout_seconds``
+    или env ``DIRECT_L1_TIMEOUT_SECONDS``); ``None`` = наследовать
+    действующий транспорт.
+
+    P0 L1 (2026-11-17): код-дефолт 15 s больше НЕ является универсальным
+    аварийным значением ни в одной ветке (main/dedicated/retry/repair/
+    unknown-модель) — медленная или reasoning-модель получает общий
+    transport-deadline, а не микролимит."""
+    return explicit_int_setting("limits.direct_l1_timeout_seconds",
+                                "DIRECT_L1_TIMEOUT_SECONDS")
 
 
-def l1_max_output_tokens() -> int:
-    """§1.6: JSON-бюджет вывода L1 (дефолт 512)."""
-    return _hot_int("limits.direct_l1_max_output_tokens",
-                    "DIRECT_L1_MAX_OUTPUT_TOKENS", 512)
+def l1_max_output_tokens() -> int | None:
+    """Явный owner-override бюджета ответа L1 (PG
+    ``limits.direct_l1_max_output_tokens`` или env
+    ``DIRECT_L1_MAX_OUTPUT_TOKENS``); ``None`` = вывести бюджет из контракта
+    JSON-плана и capability модели (с резервом на reasoning).
+
+    P0 L1 (2026-11-17): 512 как универсальный аварийный потолок удалён —
+    при reasoning-модели он обрезал план до пустого content. Замены другим
+    скрытым микролимитом нет: бюджет считается по схеме плана."""
+    return explicit_int_setting("limits.direct_l1_max_output_tokens",
+                                "DIRECT_L1_MAX_OUTPUT_TOKENS")
 
 
 def l1_temperature(default=None):
@@ -1126,12 +1199,285 @@ def l1_temperature(default=None):
         return default
 
 
+# ── P0 L1 (2026-11-17): контракт output-бюджета и transport-снимок хода ─────
+# JSON-план L1 — короткий служебный объект (закрытые enum'ы + несколько
+# списков), а НЕ свободный текст: бюджет ответа выводится из контракта схемы,
+# а не из окна контекста (1M контекста ≠ 1M max_tokens) и не из код-константы
+# 512. Значения — измеренная граница эмиссии плана + документированный запас
+# на заполненные поля; проверяются тестом-инвариантом (не 512 / не 1M).
+L1_PLAN_OUTPUT_TOKENS = 2048
+#: Резерв на reasoning, если он входит в completion-бюджет модели. Добавляется
+#: только когда поддержка reasoning подтверждена каталогом ИЛИ неизвестна
+#: (`None` — нельзя утверждать, что reasoning не тратит completion-токены).
+L1_REASONING_RESERVE_TOKENS = 2048
+#: Запас протокола/JSON на измеренное поле плана (относительный, от плана).
+L1_OUTPUT_MARGIN_RATIO = 0.25
+#: Абсолютный верх бюджета ответа L1 при неизвестном `max_output` модели:
+#: выше — гигантский `max_completion_tokens`, который шлюз резервирует под
+#: деньги/отклоняет. Это НЕ микролимит: он выше контракта плана на порядок.
+L1_OUTPUT_CEILING_TOKENS = 8192
+#: Сколько всего платных вызовов допускается на одну ногу ladder'а
+#: (первичная попытка + не больше двух разных коррекций). Гарантия «нет
+#: удвоения попыток/двойной оплаты» измерима и проверяется тестом.
+L1_MAX_CALLS_PER_LEG = 3
+
+OUTPUT_SOURCE_OWNER = "owner_override"
+OUTPUT_SOURCE_CONTRACT = "plan_contract"
+OUTPUT_SOURCE_CAPABILITY = "model_capability"
+TIMEOUT_SOURCE_OWNER = "owner_override"
+TIMEOUT_SOURCE_TRANSPORT = "transport_policy"
+
+
+def l1_plan_output_budget(capability=None, *, owner_limit: int | None = None,
+                          attempt: int = 1) -> tuple[int, int, str]:
+    """``(max_output_tokens, reasoning_reserve, source)`` для попытки L1.
+
+    * явный owner-override — высший приоритет (не перезаписывается);
+    * иначе бюджет = контракт плана + запас + (резерв reasoning, если
+      поддержка подтверждена или неизвестна);
+    * известный ``max_output`` модели (каталог/рантайм) — жёсткий потолок;
+    * ``attempt > 1`` (повтор после обрезки/пустого ответа) — бюджет
+      удваивается от базового, но не выше ``L1_OUTPUT_CEILING_TOKENS`` и не
+      выше ``max_output`` модели. Слепой идентичный повтор не делается."""
+    if owner_limit is not None and int(owner_limit) > 0:
+        return int(owner_limit), 0, OUTPUT_SOURCE_OWNER
+    reasoning = getattr(capability, "supports_reasoning", None)
+    reserve = (0 if reasoning is False else int(L1_REASONING_RESERVE_TOKENS))
+    margin = max(256, int(L1_PLAN_OUTPUT_TOKENS * L1_OUTPUT_MARGIN_RATIO))
+    base = int(L1_PLAN_OUTPUT_TOKENS) + int(reserve) + margin
+    source = (OUTPUT_SOURCE_CONTRACT if not reserve
+              else OUTPUT_SOURCE_CAPABILITY)
+    if int(attempt or 1) > 1:
+        base = min(int(L1_OUTPUT_CEILING_TOKENS), base * int(attempt))
+    max_output = getattr(capability, "max_output", None)
+    if isinstance(max_output, int) and max_output > 0:
+        base = min(base, int(max_output))
+        source = f"{source}+max_output"
+    return max(1, int(base)), int(reserve), source
+
+
+@dataclass(frozen=True)
+class L1RouteSnapshot:
+    """Immutable снимок маршрута L1 на ход (P0 L1, 2026-11-17).
+
+    Резолвится ОДИН раз в начале хода: новые ходы берут новую конфигурацию
+    (смена модели без рестарта), начатые — свою (in-flight смена настроек не
+    меняет отправленный payload/дедлайн попытки). Поля — R17-safe (без
+    ключей; endpoint — только host).
+
+    ``key_slot``: ``l1`` (собственный ключ слота), ``main`` (тот же endpoint и
+    ключ основной модели), ``none`` (ключ другого endpoint'а НЕ переносится —
+    dedicated-попытка запрещена)."""
+
+    model: str
+    provider: str
+    endpoint: str
+    key_slot: str
+    dedicated: bool
+    timeout_seconds: float | None
+    deadline_seconds: float | None
+    timeout_source: str
+    output_field: str
+    max_output_tokens: int | None
+    output_reserve: int
+    output_source: str
+    context_window: int
+    context_source: str
+    window_confidence: str
+    window_estimated: bool
+    supports_reasoning: bool | None = None
+    max_output_ceiling: int | None = None
+    usable: bool = True
+
+    @property
+    def key_available(self) -> bool:
+        return self.key_slot in ("l1", "main")
+
+    def as_event_fields(self) -> dict:
+        """R17-safe поля события/диагностики (числа/enum; без ключей)."""
+        return {
+            "model": str(self.model or ""),
+            "provider": str(self.provider or ""),
+            "endpoint": str(self.endpoint or ""),
+            "key_slot": self.key_slot,
+            "dedicated": bool(self.dedicated),
+            "timeout_seconds": self.timeout_seconds,
+            "deadline_seconds": self.deadline_seconds,
+            "timeout_source": self.timeout_source,
+            "output_field": self.output_field,
+            "max_output_tokens": self.max_output_tokens,
+            "output_reserve": int(self.output_reserve),
+            "output_source": self.output_source,
+            "context_window": int(self.context_window),
+            "capacity_source": str(self.context_source or ""),
+            "window_confidence": str(self.window_confidence or ""),
+            "window_estimated": bool(self.window_estimated),
+            "supports_reasoning": self.supports_reasoning,
+        }
+
+    def with_attempt(self, attempt: int, capability=None,
+                     owner_limit: int | None = None) -> "L1RouteSnapshot":
+        """Снимок следующей попытки (исправленный бюджет) — НОВЫЙ объект.
+
+        Immutable-контракт сохраняется: уже отправленная попытка продолжает
+        ссылаться на свой снимок, новая — на исправленный."""
+        budget, reserve, source = l1_plan_output_budget(
+            capability, owner_limit=owner_limit, attempt=attempt)
+        if self.max_output_ceiling and budget > int(self.max_output_ceiling):
+            # Доказанный потолок модели сильнее «повышающего» повтора.
+            budget = int(self.max_output_ceiling)
+        return dataclass_replace(
+            self, max_output_tokens=budget, output_reserve=reserve,
+            output_source=source)
+
+    def with_output_field(self, field: str,
+                          source: str = "compatibility_repaired"
+                          ) -> "L1RouteSnapshot":
+        """Снимок с другим полем output-лимита (совместимость шлюза).
+
+        Меняется ТОЛЬКО поле задания лимита — значение и маршрут те же; это
+        исправление по фактическому 4xx-сигналу провайдера (не угадывание)."""
+        from services import model_capacity as _capacity
+        value = str(field or "").strip()
+        if value not in _capacity.OUTPUT_TOKEN_FIELDS:
+            return self
+        return dataclass_replace(
+            self, output_field=value, output_source=str(source or ""))
+
+
+def _transport_deadlines(llm) -> tuple[float | None, float | None, str]:
+    """``(per_attempt_timeout, total_deadline, source)`` из действующей
+    transport-политики клиента (LLM_TIMEOUT/LLM_TOTAL_BUDGET, 180/360).
+
+    Ручные/тестовые переопределения двойников (`client._timeout`) читаются
+    как есть; отсутствие атрибутов (тест-двойник) → действующие Settings-
+    defaults, а НЕ локальный микролимит."""
+    timeout = None
+    deadline = None
+    try:
+        refresh = getattr(llm, "_refresh_transport_policy", None)
+        if callable(refresh):
+            refresh()
+        effective = getattr(llm, "_effective_timeout", None)
+        if callable(effective):
+            timeout = float(effective(channel="chat"))
+        else:
+            value = getattr(llm, "_timeout", None)
+            if value is not None:
+                timeout = float(value)
+        value = getattr(llm, "_budget", None)
+        if value is not None:
+            deadline = float(value)
+    except Exception:      # pragma: no cover - защитная ветка
+        timeout, deadline = None, None
+    if timeout is None or timeout <= 0:
+        timeout = float(getattr(settings, "LLM_TIMEOUT", 180.0) or 180.0)
+    if deadline is None or deadline <= 0:
+        deadline = float(getattr(settings, "LLM_TOTAL_BUDGET", 360.0) or 360.0)
+    return timeout, deadline, TIMEOUT_SOURCE_TRANSPORT
+
+
+async def resolve_l1_route(slot: "L1ModelSlot", llm=None, *,
+                           context_meta: dict | None = None,
+                           owner_timeout: int | None = None,
+                           owner_output: int | None = None,
+                           attempt: int = 1) -> L1RouteSnapshot:
+    """Единственный резолв маршрута попытки L1 (модель/endpoint/ключ/
+    deadline/output) — общий для main и dedicated.
+
+    Вызывается один раз на ход (и один раз на ногу ladder'а). Никогда не
+    бросает: недоступность capability-метаданных — документированный
+    безопасный путь (source/confidence честно видны), модель не меняется."""
+    from services import model_capacity as _capacity
+
+    model = str(getattr(slot, "model", "") or "")
+    base_url = str(getattr(slot, "base_url", "") or "")
+    dedicated = bool(getattr(slot, "dedicated", False))
+    key = str(getattr(slot, "api_key", "") or "")
+    try:
+        capability = await _capacity.resolve_model_capability(
+            base_url, model, slot="direct.l1")
+    except Exception:      # pragma: no cover - резолвер сам не бросает
+        capability = None
+    timeout, deadline, timeout_source = _transport_deadlines(llm)
+    if owner_timeout is not None and int(owner_timeout) > 0:
+        timeout = float(int(owner_timeout))
+        deadline = max(float(deadline or 0.0), timeout)
+        timeout_source = TIMEOUT_SOURCE_OWNER
+    budget, reserve, output_source = l1_plan_output_budget(
+        capability, owner_limit=owner_output, attempt=attempt)
+    field = str(getattr(capability, "output_token_field", "")
+                or _capacity.OUTPUT_FIELD_MAX_TOKENS)
+    if field not in _capacity.OUTPUT_TOKEN_FIELDS:
+        field = _capacity.OUTPUT_FIELD_MAX_TOKENS
+    ctx_meta = dict(context_meta or {})
+    return L1RouteSnapshot(
+        model=model,
+        provider=str(getattr(capability, "provider", "") or ""),
+        endpoint=str(getattr(capability, "endpoint", "") or ""),
+        key_slot=("l1" if (dedicated and key) else
+                  ("main" if key else "none")),
+        dedicated=dedicated,
+        timeout_seconds=timeout,
+        deadline_seconds=deadline,
+        timeout_source=timeout_source,
+        output_field=field,
+        max_output_tokens=budget,
+        output_reserve=reserve,
+        output_source=output_source,
+        context_window=int(ctx_meta.get("context_window")
+                           or getattr(capability, "context_window", 0) or 0),
+        context_source=str(ctx_meta.get("capacity_source")
+                           or getattr(capability, "source", "") or ""),
+        window_confidence=str(ctx_meta.get("window_confidence")
+                              or getattr(capability, "confidence", "") or ""),
+        window_estimated=bool(ctx_meta.get("window_estimated",
+                                           getattr(capability, "estimated",
+                                                   False))),
+        supports_reasoning=getattr(capability, "supports_reasoning", None),
+        max_output_ceiling=getattr(capability, "max_output", None),
+        usable=(not dedicated or bool(key)),
+    )
+
+
+def _same_endpoint(left: str, right: str) -> bool:
+    """Один и тот же endpoint (scheme+host+port+path), а не «оба непустые».
+
+    Ключ принадлежит endpoint'у: перенос ключа на ДРУГОЙ адрес — утечка
+    секрета чужому провайдеру (P0 L1, 2026-11-17)."""
+    from urllib.parse import urlsplit
+
+    def _norm(value: str):
+        raw = str(value or "").strip().rstrip("/")
+        if not raw:
+            return None
+        try:
+            parts = urlsplit(raw)
+        except Exception:      # pragma: no cover - защитная ветка
+            return raw.lower()
+        if not parts.hostname:
+            return raw.lower()
+        return (parts.scheme.lower(), parts.hostname.lower(), parts.port,
+                parts.path.rstrip("/").lower())
+
+    left_norm, right_norm = _norm(left), _norm(right)
+    if left_norm is None or right_norm is None:
+        return False
+    return left_norm == right_norm
+
+
 def resolve_l1_model(chat_id: int | None = None, *, hot_get=None,
                      settings_obj=None) -> L1ModelSlot:
     """§1.6 ``resolve_l1_model(chat_id)``: configured L1 slot (hot-first
     ``models.direct_l1_base_url``/``models.direct_l1_model_name``/
     ``keys.direct_l1_api_key``; env-фолбэк ``DIRECT_L1_*``) → пусто =
-    inherit main. Секрет не логируется (R17). Никогда не бросает."""
+    inherit main. Секрет не логируется (R17). Никогда не бросает.
+
+    P0 L1 (2026-11-17): ключ НИКОГДА не переносится на чужой endpoint. Если у
+    dedicated-слота свой адрес и нет своего ключа, слот остаётся без ключа
+    (`key_slot='none'`, `usable=False`) — попытка не выполняется, вместо
+    отправки main-ключа другому провайдеру. Тот же адрес, что у main, —
+    ключ main легитимен (он принадлежит этому endpoint'у)."""
     try:
         hg = hot_get
         if hg is None:
@@ -1152,9 +1498,17 @@ def resolve_l1_model(chat_id: int | None = None, *, hot_get=None,
         main_model = _read("models.llm_model_name", "LLM_MODEL_NAME")
         main_key = _read("keys.llm_api_key", "LLM_API_KEY")
         if base or model or key:
-            return L1ModelSlot(base_url=base or main_base,
+            target_base = base or main_base
+            same_endpoint = _same_endpoint(target_base, main_base)
+            if key:
+                api_key = key
+            elif same_endpoint:
+                api_key = main_key          # ключ этого же endpoint'а
+            else:
+                api_key = ""                # НЕ переносим ключ чужому адресу
+            return L1ModelSlot(base_url=target_base,
                                model=model or main_model,
-                               api_key=key or main_key,
+                               api_key=api_key,
                                dedicated=True, source="l1")
         return L1ModelSlot(base_url=main_base, model=main_model,
                            api_key=main_key, dedicated=False, source="main")
@@ -1162,9 +1516,45 @@ def resolve_l1_model(chat_id: int | None = None, *, hot_get=None,
         return L1ModelSlot(dedicated=False, source="main")
 
 
+class L1Generation:
+    """Результат одного вызова L1: распаковывается как ``(content, usage)``.
+
+    Обратная совместимость: документированный контракт ``dedicated_generate``
+    — 2-tuple, его и держат тесты/двойники. Дополнительные атрибуты
+    (``response_kind``/``finish_reason``/``reasoning_chars``) нужны матрице
+    исхода хода (P0 L1): без них причина repair/retry неотличима."""
+
+    __slots__ = ("content", "usage", "response_kind", "finish_reason",
+                 "reasoning_chars")
+
+    def __init__(self, content, usage=None, *, response_kind: str = "text",
+                 finish_reason: str = "unknown",
+                 reasoning_chars: int = 0) -> None:
+        self.content = str(content or "")
+        self.usage = usage if isinstance(usage, dict) else None
+        self.response_kind = str(response_kind or "text")
+        self.finish_reason = str(finish_reason or "unknown")
+        self.reasoning_chars = int(reasoning_chars or 0)
+
+    def __iter__(self):
+        # ``raw_text, usage = await call()`` — прежний 2-tuple-контракт.
+        return iter((self.content, self.usage))
+
+    def __len__(self) -> int:
+        return 2
+
+    def __getitem__(self, index):
+        return (self.content, self.usage)[index]
+
+    def __repr__(self) -> str:      # R17: содержимое в repr не попадает
+        return (f"L1Generation(chars={len(self.content)}, "
+                f"kind={self.response_kind}, "
+                f"finish_reason={self.finish_reason})")
+
+
 async def dedicated_generate(llm, messages, slot: L1ModelSlot, *,
                              max_output_tokens=None, timeout_seconds=None,
-                             temperature=None):
+                             temperature=None, output_field=None):
     """Выделенный слот §1.6 через существующий транзитный канал LLMClient.
 
     Контракт (прецедент ``summary_l1_clusterizer._dedicated_generate``):
@@ -1177,14 +1567,31 @@ async def dedicated_generate(llm, messages, slot: L1ModelSlot, *,
     L1 РЕАЛЬНО применяется в payload (None → ключ не добавляется, дефолт
     провайдера). Авторизация ключа/бюджета — вне этой функции (см.
     :func:`authorize_l1_call`): транспорт остаётся на слоте, а permission
-    policy — общая с обычными вызовами."""
+    policy — общая с обычными вызовами.
+
+    P0 L1 (2026-11-17): ``output_field`` — фактическое поле output-лимита
+    маршрута (`max_tokens`/`max_completion_tokens`), ``timeout_seconds`` —
+    действующий транспортный дедлайн (``None`` → политика ``_post``). Разбор
+    ответа — единый нормализатор ``llm_client.classify_chat_response``:
+    reasoning-only/пустой content/content-parts различаются, а не падают на
+    индексации словаря."""
     import asyncio
 
+    from services import model_capacity as _capacity
+    from services.llm_client import (
+        RESPONSE_KIND_TEXT,
+        LLMBadResponseError,
+        classify_chat_response,
+    )
+
+    field = str(output_field or _capacity.OUTPUT_FIELD_MAX_TOKENS)
+    if field not in _capacity.OUTPUT_TOKEN_FIELDS:
+        field = _capacity.OUTPUT_FIELD_MAX_TOKENS
     payload: dict = {"model": slot.model, "messages": messages}
     if temperature is not None:
         payload["temperature"] = float(temperature)
     if max_output_tokens:
-        payload["max_tokens"] = int(max_output_tokens)
+        payload[field] = int(max_output_tokens)
     call = llm._post(      # noqa: SLF001 - документированный мост (§1.6)
         "/chat/completions", payload, api_key=slot.api_key,
         base_url=slot.base_url)
@@ -1195,20 +1602,26 @@ async def dedicated_generate(llm, messages, slot: L1ModelSlot, *,
     try:
         data = response.json()
     except ValueError as exc:
-        from services.llm_client import LLMBadResponseError
         raise LLMBadResponseError(
             "direct L1 dedicated: invalid JSON response") from exc
-    try:
-        content = data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        from services.llm_client import LLMBadResponseError
-        raise LLMBadResponseError(
-            "direct L1 dedicated: no choices[0].message.content") from exc
-    if not isinstance(content, str) or not content.strip():
-        from services.llm_client import LLMBadResponseError
-        raise LLMBadResponseError("direct L1 dedicated: empty content")
-    usage = data.get("usage") if isinstance(data, dict) else None
-    return content, (usage if isinstance(usage, dict) else None)
+    classified = classify_chat_response(data)
+    if classified.kind != RESPONSE_KIND_TEXT or not classified.content:
+        reason = classified.kind
+        if classified.error_code:
+            reason = f"{reason}:{classified.error_code}"
+        exc = LLMBadResponseError(
+            "direct L1 dedicated: no final text | "
+            f"kind={reason} | finish_reason={classified.finish_reason}")
+        # Класс исхода нужен матрице хода (repair/retry по причине).
+        exc.response_kind = classified.kind
+        exc.llm_finish_reason = classified.finish_reason
+        exc.reasoning_chars = int(classified.reasoning_chars)
+        raise exc
+    usage = classified.usage
+    return L1Generation(
+        classified.content, usage, response_kind=classified.kind,
+        finish_reason=classified.finish_reason,
+        reasoning_chars=int(classified.reasoning_chars))
 
 
 async def authorize_l1_call(llm, chat_id: int | None) -> str:
@@ -1709,6 +2122,19 @@ def reply_delivery_stats(context_text: str, budget_tokens: int | None = None,
                 "delivered_chars": 0, "truncated": False, "kept_mid": False}
 
 
+def _capacity_window_verified(source: str) -> bool:
+    """Источник окна Л1 — подтверждённый (не планировочная 1M-оценка).
+
+    Тонкий делегат одного предиката (`model_capacity.window_is_verified`):
+    второго определения «verified» не заводим. Fail-open: ошибка импорта →
+    False (оценка), чтобы 1M никогда не выдавалась за подтверждённое окно."""
+    try:
+        from services import model_capacity as _capacity
+        return bool(_capacity.window_is_verified(str(source or "")))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def _explicit_l1_context_cap() -> int | None:
     """Явный операторский cap пакета L1 (hot `limits.direct_l1_context_tokens`).
 
@@ -1761,7 +2187,8 @@ async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
     floor = L1_CONTEXT_FLOOR_TOKENS
     meta: dict = {"effective_limit": floor, "source": "floor",
                   "capacity_source": "", "context_window": 0,
-                  "model": str(model or "")}
+                  "model": str(model or ""), "window_confidence": "fallback",
+                  "window_estimated": True}
     try:
         from services import auto_budget as _ab
         manual_cap = _explicit_l1_context_cap()
@@ -1769,15 +2196,21 @@ async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
             "direct.l1", base_url=str(base_url or ""),
             model=str(model or ""),
             mandatory_tokens=int(mandatory_tokens or 0),
+            # P0 L1: только ЯВНЫЙ owner-override; иначе резерв вывода —
+            # существующая арифметика стадии (не код-константа 512).
             max_output_tokens=l1_max_output_tokens(),
             manual_cap=manual_cap)
         budget = int(stage.effective_input_budget or 0)
         # Физический вход стадии (без policy-капа) — верхняя граница бюджета.
         available = max(0, int(stage.auto_input_budget or 0))
+        window_verified = _capacity_window_verified(str(stage.source or ""))
         meta.update({
             "capacity_source": str(stage.source or ""),
             "context_window": int(stage.context_window or 0),
             "model": str(stage.model or model or ""),
+            "window_confidence": ("verified" if window_verified
+                                  else "estimated"),
+            "window_estimated": not window_verified,
         })
         # L1-слот умеет откатиться на main-модель: композер не знает, кто
         # ответит, поэтому берём МИНИМУМ. Для fallback'а — существующий
@@ -1789,14 +2222,19 @@ async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
             from services import model_capacity as _capacity
             from services.token_counter import safe_budget as _safe
             window, _src = _capacity.fallback_window_for_model(other)
-            reserve = max(_capacity.OUTPUT_RESERVE_FLOOR,
-                          l1_max_output_tokens())
+            owner_output = l1_max_output_tokens()
+            if owner_output is not None:
+                reserve = max(_capacity.OUTPUT_RESERVE_FLOOR, owner_output)
+            else:
+                # Та же арифметика стадии: резерв вывода от окна fallback'а.
+                reserve = _capacity.output_reserve_tokens(int(window or 0))
             fb_available = max(1, _safe(max(1, int(window) - int(
                 mandatory_tokens or 0) - reserve)))
             if fb_available < budget:
                 budget = fb_available
                 fallback_clamped = True
                 meta["fallback_model"] = other
+                meta["fallback_window_source"] = str(_src or "")
             if available <= 0 or fb_available < available:
                 available = fb_available if available <= 0 \
                     else min(available, fb_available)
@@ -1815,6 +2253,10 @@ async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
                 meta["clamped_by_window"] = True
         elif fallback_clamped:
             meta["source"] = "model_window_fallback"
+        elif meta["window_estimated"]:
+            # P0 L1: 1M — ПЛАНИРОВОЧНАЯ оценка, а не подтверждённое окно.
+            # Не выдаём её за `model_window` (источник окна виден отдельно).
+            meta["source"] = "model_window_estimate"
         else:
             meta["source"] = "model_window"
         meta["available_input_budget"] = int(available)
@@ -2660,12 +3102,188 @@ def fallback_plan(query, *, action: str = "reply",
 # ── §1.5: R17-whitelist события (эмиссия через agentic_events) ──────────────
 
 
+# ── P0 L1 (2026-11-17): taxonomy исхода хода планировщика ───────────────────
+# Ровно одна категория на ход (LVS-L1-28/LVS-L1-37): deterministic fallback не
+# считается успехом, а обычный валидный ответ не выглядит как fallback.
+FAILURE_MODE_SUCCESS = "success"
+FAILURE_MODE_COMPATIBILITY_REPAIRED = "compatibility_repaired"
+FAILURE_MODE_RETRY_SUCCESS = "retry_success"
+FAILURE_MODE_PROVIDER_FALLBACK = "provider_fallback"
+FAILURE_MODE_DETERMINISTIC_FALLBACK = "deterministic_fallback"
+FAILURE_MODE_FAILED = "failed"
+FAILURE_MODES = (
+    FAILURE_MODE_SUCCESS,
+    FAILURE_MODE_COMPATIBILITY_REPAIRED,
+    FAILURE_MODE_RETRY_SUCCESS,
+    FAILURE_MODE_PROVIDER_FALLBACK,
+    FAILURE_MODE_DETERMINISTIC_FALLBACK,
+    FAILURE_MODE_FAILED,
+)
+
+
+def resolve_failure_mode(*, plan_present: bool, fallback_leg: bool = False,
+                         corrected_fields: bool = False,
+                         corrected_budget: bool = False,
+                         repaired: bool = False,
+                         aborted: bool = False) -> str:
+    """Единственная категория исхода L1 (порядок приоритетов документирован).
+
+    1. ``failed`` — ход прерван без плана (отмена/дедлайн/нечем платить);
+    2. нет плана → ``deterministic_fallback`` (детерминированный путь ответа);
+    3. план получен не с первой ноги ladder'а → ``provider_fallback``;
+    4. план потребовал исправления request-параметров (температура/поле
+       output/JSON-режим) → ``compatibility_repaired``;
+    5. план получен повтором с исправленным бюджетом/ремонтом по причине →
+       ``retry_success``;
+    6. иначе ``success`` (никакой подмены «на всякий случай» нет)."""
+    if aborted:
+        return FAILURE_MODE_FAILED
+    if not plan_present:
+        return FAILURE_MODE_DETERMINISTIC_FALLBACK
+    if fallback_leg:
+        return FAILURE_MODE_PROVIDER_FALLBACK
+    if corrected_fields:
+        return FAILURE_MODE_COMPATIBILITY_REPAIRED
+    if corrected_budget or repaired:
+        return FAILURE_MODE_RETRY_SUCCESS
+    return FAILURE_MODE_SUCCESS
+
+
+# ── P0 L1: корректирующие действия матрицы исхода (одно место) ──────────────
+CORRECTION_DROP_TEMPERATURE = "drop_temperature"
+CORRECTION_OUTPUT_FIELD = "output_field"
+CORRECTION_BUDGET = "budget"
+CORRECTION_JSON_REPAIR = "json_repair"
+
+
+def classify_l1_failure(exc: BaseException) -> str:
+    """Класс отказа L1-вызова (делегат `llm_client.classify_llm_failure`)."""
+    try:
+        from services.llm_client import classify_llm_failure
+        return classify_llm_failure(exc)
+    except Exception:      # pragma: no cover - защитная ветка
+        return "unknown"
+
+
+def next_l1_correction(exc: BaseException, *, failure: str = "",
+                       response_kind: str = "", finish_reason: str = "",
+                       corrected_fields: bool = False,
+                       corrected_budget: bool = False,
+                       repaired: bool = False,
+                       has_temperature: bool = False,
+                       output_field: str = "") -> dict | None:
+    """Следующее корректирующее действие для Л1 (или ``None`` = не повторять).
+
+    Владелец повтора остаётся прежним (``_post`` → transport, LLMClient →
+    провайдеры, L1 → матрица хода), поэтому здесь нет ретраев: только выбор
+    ОДНОГО осмысленного изменения payload/prompt по фактической причине.
+    Слепой идентичный повтор запрещён: ``None``, если причина не исправляется
+    параметром запроса (429/5xx/timeout/auth/context/provider-error внутри
+    200 — ими владеют другие слои)."""
+    failure = str(failure or "")
+    kind = str(response_kind or "")
+    finish = str(finish_reason or "").strip().lower()
+    text = str(exc or "").lower()
+    from services.llm_client import (
+        FAILURE_AUTH,
+        FAILURE_BAD_REQUEST,
+        FAILURE_BAD_RESPONSE,
+        FAILURE_CANCELLED,
+        FAILURE_CONTEXT_OVERFLOW,
+        FAILURE_DEADLINE_EXCEEDED,
+        FAILURE_INCOMPATIBLE_REQUEST,
+        FAILURE_NO_KEY,
+        FAILURE_RATE_LIMIT,
+        FAILURE_SERVER_ERROR,
+        FAILURE_TIMEOUT,
+        FAILURE_TRANSPORT,
+        RESPONSE_KIND_EMPTY,
+        RESPONSE_KIND_INVALID_CONTENT,
+        RESPONSE_KIND_REASONING_ONLY,
+        RESPONSE_KIND_TRUNCATED_REASONING,
+        incompatible_parameter,
+    )
+
+    if failure == FAILURE_INCOMPATIBLE_REQUEST:
+        parameter = incompatible_parameter(exc) or ""
+        if parameter == "temperature" and has_temperature \
+                and not corrected_fields:
+            return {"kind": CORRECTION_DROP_TEMPERATURE}
+        if parameter == "max_completion_tokens" and not corrected_fields:
+            return {"kind": CORRECTION_OUTPUT_FIELD,
+                    "field": "max_tokens"}
+        if parameter == "max_tokens" and not corrected_fields:
+            return {"kind": CORRECTION_OUTPUT_FIELD,
+                    "field": "max_completion_tokens"}
+        return None
+    if failure == FAILURE_BAD_REQUEST:
+        # D03-прецедент: провайдер мог не дать структурированного тела, но
+        # текст прямо называет температуру — единственное осмысленное
+        # исправление то же (без угадывания других параметров).
+        if "temperature" in text and has_temperature and not corrected_fields:
+            return {"kind": CORRECTION_DROP_TEMPERATURE}
+        return None
+    handled_elsewhere = {
+        FAILURE_RATE_LIMIT, FAILURE_SERVER_ERROR, FAILURE_TIMEOUT,
+        FAILURE_DEADLINE_EXCEEDED, FAILURE_TRANSPORT, FAILURE_AUTH,
+        FAILURE_NO_KEY, FAILURE_CANCELLED, FAILURE_CONTEXT_OVERFLOW,
+    }
+    if failure in handled_elsewhere:
+        # Владелец повтора — транспорт/LLMClient/контекст-recovery; матрица
+        # хода не дублирует их попытки (и не оплачивает их дважды).
+        return None
+    if failure != FAILURE_BAD_RESPONSE:
+        # Неизвестный класс/LLMError без структурного статуса (D03-прецедент):
+        # единственный безопасный сигнал — явный текст о температуре.
+        if "temperature" in text and has_temperature and not corrected_fields:
+            return {"kind": CORRECTION_DROP_TEMPERATURE}
+        return None
+    if kind in (RESPONSE_KIND_REASONING_ONLY, RESPONSE_KIND_TRUNCATED_REASONING):
+        if not corrected_budget:
+            return {"kind": CORRECTION_BUDGET, "reason": "reasoning_only"}
+        if not repaired:
+            return {"kind": CORRECTION_JSON_REPAIR,
+                    "reason": REPAIR_REASON_REASONING_ONLY}
+        return None
+    if finish in ("length", "max_tokens"):
+        if not corrected_budget:
+            return {"kind": CORRECTION_BUDGET, "reason": REPAIR_REASON_TRUNCATED}
+        if not repaired:
+            return {"kind": CORRECTION_JSON_REPAIR,
+                    "reason": REPAIR_REASON_TRUNCATED}
+        return None
+    if kind in (RESPONSE_KIND_EMPTY, RESPONSE_KIND_INVALID_CONTENT):
+        # Пустой content при stop/неизвестном finish: повтор с явным
+        # требованием финального JSON (другой prompt), не тот же payload.
+        if not repaired:
+            return {"kind": CORRECTION_JSON_REPAIR,
+                    "reason": REPAIR_REASON_INVALID_JSON}
+        return None
+    return None
+
+
 def emit_l1_plan_event(*, run_id=None, chat_id=None, message_id=None,
                        plan: L1Plan | None, requested=(), resolved=(),
                        inherited: bool = False, fallback: str = "",
                        latency_ms: int = 0, input_chars: int = 0,
-                       source: str = "l1") -> None:
-    """``L1_PLAN`` (§1.5, R17-whitelist поля; fail-open)."""
+                       source: str = "l1",
+                       failure_mode: str = "",
+                       finish_reason: str = "",
+                       output_limit: int | None = None,
+                       output_field: str = "",
+                       timeout_seconds: float | None = None,
+                       deadline_seconds: float | None = None,
+                       attempts: int = 0,
+                       model: str = "",
+                       correlation_id: str | None = None,
+                       window_source: str = "",
+                       window_estimated: bool | None = None) -> None:
+    """``L1_PLAN`` (§1.5, R17-whitelist поля; fail-open).
+
+    P0 L1 (2026-11-17): те же события дополнены исходом попытки
+    (`failure_mode`/`finish_reason`/`output_limit`/timeout/attempts) — новой
+    системы наблюдаемости не создаётся. Тексты prompt/ответа/reasoning сюда
+    не попадают (только числа/enum), ключи и токены — тоже."""
     try:
         from services.agentic_events import L1_PLAN, emit_agentic_event
         p = plan or L1Plan()
@@ -2683,7 +3301,22 @@ def emit_l1_plan_event(*, run_id=None, chat_id=None, message_id=None,
             latency_ms=int(max(0, latency_ms)),
             input_chars=int(max(0, input_chars)),
             confidence=float(p.confidence),
-            source=str(source or "l1"))
+            source=str(source or "l1"),
+            failure_mode=str(failure_mode or ""),
+            finish_reason=str(finish_reason or ""),
+            output_limit=(int(output_limit) if output_limit else None),
+            output_field=str(output_field or ""),
+            timeout_seconds=(float(timeout_seconds)
+                             if timeout_seconds else None),
+            deadline_seconds=(float(deadline_seconds)
+                              if deadline_seconds else None),
+            attempts=int(max(0, attempts)),
+            model=str(model or "")[:64],
+            correlation_id=(str(correlation_id)[:64]
+                            if correlation_id else None),
+            window_source=str(window_source or ""),
+            window_estimated=(None if window_estimated is None
+                              else bool(window_estimated)))
     except Exception:          # pragma: no cover - fail-open
         pass
 
@@ -2702,7 +3335,11 @@ def record_l1_diagnostics(chat_id: int | None, **fields) -> None:
     try:
         if chat_id is None:
             return
-        safe: dict = {"ts": int(time.time())}
+        # P0 L1: оси последнего прогона накапливаются, а не перезаписываются
+        # целиком: адаптер хода (fallback) дописывает свои оси ПОСЛЕ
+        # исполнителя, и замена словаря теряла исход попытки (наблюдалось).
+        safe: dict = dict(_l1_diagnostics.get(int(chat_id)) or {})
+        safe["ts"] = int(time.time())
         for key, value in (fields or {}).items():
             if value is None:
                 continue
@@ -2832,6 +3469,19 @@ __all__ = [
     "ACTIONS", "L1_EXTENTS", "LONGFORM_L1_EXTENTS", "L1Plan", "L1ModelSlot",
     "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
     "FORCE_LINE", "AUTONOMOUS_LINE", "INITIATIVE_LINE", "REPAIR_ANNOTATION",
+    "REPAIR_ANNOTATION_NO_TEXT", "REPAIR_ANNOTATION_TRUNCATED",
+    "REPAIR_REASON_INVALID_JSON", "REPAIR_REASON_REASONING_ONLY",
+    "REPAIR_REASON_TRUNCATED", "L1RouteSnapshot", "resolve_l1_route",
+    "l1_plan_output_budget",
+    "L1_PLAN_OUTPUT_TOKENS", "L1_REASONING_RESERVE_TOKENS",
+    "L1_OUTPUT_CEILING_TOKENS", "L1_MAX_CALLS_PER_LEG",
+    "OUTPUT_SOURCE_OWNER", "OUTPUT_SOURCE_CONTRACT",
+    "OUTPUT_SOURCE_CAPABILITY", "TIMEOUT_SOURCE_OWNER",
+    "TIMEOUT_SOURCE_TRANSPORT", "explicit_int_setting",
+    "resolve_failure_mode", "FAILURE_MODE_SUCCESS",
+    "FAILURE_MODE_COMPATIBILITY_REPAIRED", "FAILURE_MODE_RETRY_SUCCESS",
+    "FAILURE_MODE_PROVIDER_FALLBACK", "FAILURE_MODE_DETERMINISTIC_FALLBACK",
+    "FAILURE_MODE_FAILED", "FAILURE_MODES",
     "L1_DELIVERY_MODES", "EXECUTION_MODES", "normalize_l1_plan",
     "parse_l1_plan", "reply_binding_requested", "L1_PROFILE_SECTION",
     "build_repair_messages", "confidence_bucket", "direct_l1_enabled",

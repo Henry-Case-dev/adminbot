@@ -775,6 +775,21 @@ def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
         _flag = meta.get(_key)
         if isinstance(_flag, bool):
             out[_key] = bool(_flag)
+    # P0 L1 (2026-11-17): durable-оси исхода попытки (R17: коды/числа).
+    for _key in ("l1_failure_mode", "l1_finish_reason", "l1_failure_reason",
+                 "l1_output_source", "l1_output_field", "l1_window_source",
+                 "l1_window_confidence", "l1_timeout_source"):
+        _value = str(meta.get(_key) or "")
+        if _value:
+            out[_key] = _value[:64]
+    for _key in ("l1_output_limit", "l1_output_reserve", "l1_attempts"):
+        _value = meta.get(_key)
+        if isinstance(_value, int) and not isinstance(_value, bool) \
+                and _value > 0:
+            out[_key] = int(_value)
+    _estimated = meta.get("l1_window_estimated")
+    if isinstance(_estimated, bool):
+        out["l1_window_estimated"] = _estimated
     if fallback_flag:
         out["fallback"] = str(fallback_flag)
     return out
@@ -4616,6 +4631,15 @@ _TURN_DIAGNOSTIC_KEYS = (
     "l1_reply_total_chars", "l1_reply_delivered_chars", "l1_reply_truncated",
     "l1_kept_mid", "l1_profile_source", "l1_profile_chars",
     "social_attribution",
+    # P0 L1 (2026-11-17): исход попытки виден в существующей диагностике
+    # (числа/enum; ни prompt, ни ответа, ни reasoning).
+    "l1_failure_mode", "l1_finish_reason", "l1_failure_reason",
+    "l1_attempts", "l1_output_limit", "l1_output_reserve",
+    "l1_output_field", "l1_output_source", "l1_transport_timeout",
+    "l1_transport_deadline", "l1_timeout_source", "l1_window_source",
+    "l1_window_confidence", "l1_window_estimated", "l1_provider",
+    "l1_endpoint", "l1_key_slot", "l1_supports_reasoning", "l1_model",
+    "l1_skipped_leg",
 )
 
 
@@ -5889,7 +5913,22 @@ class DirectChatService:
                         required_capability=(",".join(_fb_caps)
                                              if _fb_caps else ""),
                         execution_mode=str(
-                            getattr(l1_plan, "execution_mode", "") or "none"))
+                            getattr(l1_plan, "execution_mode", "") or "none"),
+                        # P0 L1: исход попытки этого хода не теряется при
+                        # детерминированном fallback (адаптер пишет ПОСЛЕ
+                        # исполнителя).
+                        l1_failure_mode=str(
+                            l1_meta.get("l1_failure_mode") or ""),
+                        l1_attempts=l1_meta.get("l1_attempts"),
+                        l1_finish_reason=str(
+                            l1_meta.get("l1_finish_reason") or ""),
+                        l1_failure_reason=str(
+                            l1_meta.get("l1_failure_reason") or ""),
+                        l1_output_limit=l1_meta.get("l1_output_limit"),
+                        l1_skipped_leg=str(
+                            l1_meta.get("l1_skipped_leg") or "none"),
+                        l1_window_estimated=l1_meta.get(
+                            "l1_window_estimated"))
                 # ── F6 (§13.1): producer `explicit_request` — allowlisted
                 # future-intent от L1. Парсер валидирует схему, intent пишет
                 # СЕРВИС (LLM в DB не пишет); guard-ы (дедуп по содержанию,
@@ -7735,125 +7774,302 @@ class DirectChatService:
         input_chars = int(l1_input_chars)
 
         def _record_llm_call(source_label: str, attempt_messages,
-                             current_slot, *, temperature=None):
+                             current_slot, *, temperature=None, route=None):
             # §7: классификация LLM-вызовов хода — планирующая стадия.
             _ttrace.note_llm_call(correlation_id, _ttrace.CALL_PLANNING)
             async def _call():
-                if source_label == "l1_slot":
-                    assert current_slot is not None and current_slot.dedicated
-                    # dedicated: (content, usage)
-                    return await _l1.dedicated_generate(
+                if source_label == "l1_slot" and current_slot is not None \
+                        and current_slot.dedicated:
+                    # dedicated: (content, usage) + атрибуты исхода
+                    result = await _l1.dedicated_generate(
                         self.llm, attempt_messages, current_slot,
-                        max_output_tokens=_l1.l1_max_output_tokens(),
-                        timeout_seconds=_l1.l1_timeout_seconds(),
+                        max_output_tokens=(route.max_output_tokens
+                                           if route is not None else None),
+                        timeout_seconds=(route.timeout_seconds
+                                         if route is not None else None),
+                        output_field=(route.output_field
+                                      if route is not None else None),
                         temperature=temperature)
-                text = await asyncio.wait_for(
-                    self.llm.generate(
-                        attempt_messages,
-                        temperature=temperature,
-                        chat_id=chat_id, module="direct_chat",
-                        step="l1_planner", correlation_id=correlation_id,
-                        max_output_tokens=_l1.l1_max_output_tokens()),
-                    timeout=float(_l1.l1_timeout_seconds()))
-                return str(text or ""), None
+                    if isinstance(result, _l1.L1Generation):
+                        return result
+                    content, usage = result
+                    return _l1.L1Generation(content, usage)
+                # P0 L1 (2026-11-17): НЕТ локального wait_for(15). Дедлайн —
+                # действующий транспортный (LLM_TOTAL_BUDGET) внутри _post,
+                # плюс явный верхний предел хода из снимка маршрута: отмена
+                # остаётся управляемой, «вечного» ожидания нет.
+                call = self.llm.generate(
+                    attempt_messages,
+                    temperature=temperature,
+                    chat_id=chat_id, module="direct_chat",
+                    step="l1_planner", correlation_id=correlation_id,
+                    max_output_tokens=(route.max_output_tokens
+                                       if route is not None else None))
+                if route is not None and route.deadline_seconds:
+                    text = await asyncio.wait_for(
+                        call, timeout=float(route.deadline_seconds))
+                else:
+                    text = await call
+                return _l1.L1Generation(str(text or ""), None)
             return _call
 
         plan: _l1.L1Plan | None = None
         last_error: str = ""
-        # §1.6 ladder: (1) configured L1 slot — только если dedicated;
-        # (2) main model — при fallback ON. Не-dedicated слот = inherit main:
-        # попытка одна (повтор того же вызова бессмыслен), далее
-        # deterministic fallback вызывающего.
-        attempts: list[tuple[str, bool]] = []
+        # ── P0 L1: immutable снимок маршрута на ход ─────────────────────────
+        # Модель/endpoint/ключ/deadline/output резолвятся ОДИН раз на ногу
+        # ladder'а; смена настроек посреди хода не меняет уже выбранную
+        # конфигурацию, а следующий ход берёт новую (без рестарта).
+        owner_timeout = _l1.l1_timeout_seconds()
+        owner_output = _l1.l1_max_output_tokens()
+
+        def _main_only_hot(key, default=None):
+            # Слот main-ноги: те же ключи, что у обычного LLM-вызова, но БЕЗ
+            # dedicated-слота L1 (иначе main-нога ушла бы на L1-endpoint).
+            if str(key).startswith(("models.direct_l1", "keys.direct_l1",
+                                    "limits.direct_l1")):
+                return ""
+            try:
+                return hot.get(key, default)
+            except Exception:      # pragma: no cover - защитная ветка
+                return default
+
+        main_slot = _l1.resolve_l1_model(chat_id, hot_get=_main_only_hot)
+        legs: list[str] = []
         if slot.dedicated:
-            attempts.append(("l1_slot", True))
-            attempts.append(("main", True))       # fallback ON-гейт ниже
+            legs.append("l1_slot")
+            if _l1.l1_fallback_enabled():
+                legs.append("main")
         else:
-            attempts.append(("main", False))
+            legs.append("main")
+        routes: dict = {}
+        for leg in legs:
+            leg_slot = slot if leg == "l1_slot" else main_slot
+            routes[leg] = await _l1.resolve_l1_route(
+                leg_slot, self.llm, owner_timeout=owner_timeout,
+                owner_output=owner_output)
+        primary_route = routes[legs[0]]
+        meta.update({
+            # `l1_model` — только модель dedicated-слота (UR-20.6);
+            # main-ходу модель даёт фактический клиент. Резолв маршрута
+            # пишется отдельной осью, чтобы не подменять источник.
+            "l1_route_model": str(primary_route.model or ""),
+            "l1_provider": str(primary_route.provider or ""),
+            "l1_endpoint": str(primary_route.endpoint or ""),
+            "l1_key_slot": str(primary_route.key_slot or ""),
+            "l1_transport_timeout": primary_route.timeout_seconds,
+            "l1_transport_deadline": primary_route.deadline_seconds,
+            "l1_timeout_source": str(primary_route.timeout_source or ""),
+            "l1_output_field": str(primary_route.output_field or ""),
+            "l1_output_limit": primary_route.max_output_tokens,
+            "l1_output_reserve": int(primary_route.output_reserve or 0),
+            "l1_output_source": str(primary_route.output_source or ""),
+            "l1_window_source": str(primary_route.context_source or ""),
+            "l1_window_confidence": str(primary_route.window_confidence or ""),
+            "l1_window_estimated": bool(primary_route.window_estimated),
+            "l1_supports_reasoning": primary_route.supports_reasoning,
+        })
         raw_text = ""
         temperature = _l1.l1_temperature(None)
         meta["temperature_configured"] = (
             float(temperature) if temperature is not None else None)
-        for attempt_index, (label, needs_fallback_gate) in enumerate(attempts):
-            if needs_fallback_gate and attempt_index > 0 \
-                    and not _l1.l1_fallback_enabled():
-                break
-            try:
-                raw_text, usage = await _record_llm_call(
-                    label, l1_messages, slot, temperature=temperature)()
+        # Матрица исхода: какие исправления request-параметров уже применены.
+        corrected_fields = False
+        corrected_budget = False
+        repaired = False
+        attempts_used = 0
+        provider_fallback_used = False
+        finish_reason_last = ""
+        last_known_finish = ""
+        failure_reason_last = ""
+        for leg_index, label in enumerate(legs):
+            route = routes.get(label)
+            if route is None or not route.usable:
+                # dedicated без собственного ключа: чужой ключ не переносим —
+                # попытка не выполняется, управление уходит на main-ногу.
+                meta["l1_skipped_legs"] = list(
+                    meta.get("l1_skipped_legs", ())) + [
+                    f"{label}:no_usable_route"]
+                meta["l1_skipped_leg"] = str(label)
+                logger.warning(
+                    "[direct] l1 leg skipped | chat=%s | leg=%s | reason=%s",
+                    chat_id, label, "no_usable_route")
+                continue
+            if leg_index > 0:
+                provider_fallback_used = True
+            leg_slot = slot if label == "l1_slot" else main_slot
+            leg_calls = 0
+            active_temperature = temperature
+            pending_repair = ""
+            # Внутри ноги: 1 первичный вызов + до 2 РАЗНЫХ коррекций
+            # (`L1_MAX_CALLS_PER_LEG`): слепой идентичный повтор запрещён —
+            # каждая следующая попытка меняет бюджет, поле или prompt.
+            while leg_calls < _l1.L1_MAX_CALLS_PER_LEG:
+                leg_calls += 1
+                attempts_used += 1
+                send_messages = (
+                    _l1.build_repair_messages(
+                        l1_messages, raw_text, reason=pending_repair)
+                    if pending_repair else l1_messages)
+                try:
+                    result = await _record_llm_call(
+                        label, send_messages, leg_slot,
+                        temperature=active_temperature, route=route)()
+                except NoApiKeyForChat:
+                    # D03: политика ключей/бюджета блокирует попытку целиком —
+                    # НЕ ladder (fallback на main те же ключи не получит).
+                    raise
+                except asyncio.CancelledError:
+                    meta["l1_aborted"] = True
+                    raise
+                except Exception as exc:      # LLMError/TimeoutError → ladder
+                    last_error = f"{type(exc).__name__}"
+                    failure_reason_last = _l1.classify_l1_failure(exc)
+                    finish_reason_last = str(getattr(
+                        exc, "llm_finish_reason", "") or "")
+                    if finish_reason_last not in ("", "unknown"):
+                        last_known_finish = finish_reason_last
+                    response_kind = str(getattr(exc, "response_kind", "") or "")
+                    logger.warning(
+                        "[direct] l1 planner attempt failed | chat=%s | "
+                        "source=%s | error=%s | failure=%s | kind=%s | "
+                        "finish_reason=%s | attempt=%d",
+                        chat_id, label, _exc_brief(exc), failure_reason_last,
+                        response_kind or "-", finish_reason_last or "-",
+                        leg_calls)
+                    correction = _l1.next_l1_correction(
+                        exc, failure=failure_reason_last,
+                        response_kind=response_kind,
+                        finish_reason=finish_reason_last,
+                        corrected_fields=corrected_fields,
+                        corrected_budget=corrected_budget,
+                        repaired=repaired,
+                        has_temperature=active_temperature is not None,
+                        output_field=route.output_field)
+                    if correction is None:
+                        break               # → следующая нога/fallback
+                    kind = correction["kind"]
+                    if kind == _l1.CORRECTION_DROP_TEMPERATURE:
+                        corrected_fields = True
+                        meta["temperature_unsupported"] = True
+                        meta["temperature_applied"] = False
+                        active_temperature = None
+                        logger.warning(
+                            "[direct] l1 temperature unsupported — retry "
+                            "without | chat=%s", chat_id)
+                        continue
+                    if kind == _l1.CORRECTION_OUTPUT_FIELD:
+                        corrected_fields = True
+                        route = route.with_output_field(correction["field"])
+                        meta["l1_output_field"] = route.output_field
+                        meta["l1_output_source"] = route.output_source
+                        logger.warning(
+                            "[direct] l1 output field incompatible — retry "
+                            "with %s | chat=%s", correction["field"], chat_id)
+                        continue
+                    if kind == _l1.CORRECTION_BUDGET:
+                        # Обрезка/пустой content при finish_reason=length или
+                        # reasoning-only: повтор с УВЕЛИЧЕННЫМ бюджетом — не
+                        # тот же payload (иначе причина отказа не меняется).
+                        corrected_budget = True
+                        route = route.with_attempt(
+                            leg_calls + 1, owner_limit=owner_output)
+                        meta["l1_output_limit"] = route.max_output_tokens
+                        meta["l1_output_reserve"] = route.output_reserve
+                        meta["l1_output_source"] = route.output_source
+                        logger.warning(
+                            "[direct] l1 output budget corrected | chat=%s | "
+                            "limit=%s | reason=%s", chat_id,
+                            route.max_output_tokens,
+                            correction.get("reason", "unfinished"))
+                        continue
+                    # json/compat repair: тот же маршрут, ДРУГОЙ prompt —
+                    # reasoning-черновик в prompt НЕ переносится.
+                    repaired = True
+                    meta["repair"] = 1
+                    pending_repair = str(
+                        correction.get("reason")
+                        or _l1.REPAIR_REASON_INVALID_JSON)
+                    continue
+                # ── вызов вернул финальный текст ───────────────────────────
+                raw_text = str(result.content or "")
+                finish_reason_last = str(getattr(
+                    result, "finish_reason", "") or "")
+                if finish_reason_last not in ("", "unknown"):
+                    # main-путь через `generate()` не отдаёт finish_reason —
+                    # «unknown» не должен затирать известную причину отказа
+                    # предыдущей попытки (length/max_tokens).
+                    last_known_finish = finish_reason_last
+                    meta["l1_finish_reason"] = finish_reason_last
                 if label == "l1_slot":
                     # D03: dedicated-слот — учёт вручную (llm.generate не
                     # задействован); температура реально ушла в payload.
-                    meta["temperature_applied"] = temperature is not None
+                    meta["temperature_applied"] = active_temperature is not None
                     await _l1.record_l1_usage(
-                        self.llm, usage=usage, messages=l1_messages,
-                        content=raw_text, model=slot.model, chat_id=chat_id,
+                        self.llm, usage=result.usage, messages=send_messages,
+                        content=raw_text, model=leg_slot.model, chat_id=chat_id,
                         correlation_id=correlation_id,
                         credential_source=credential_source)
                 plan = _l1.parse_l1_plan(raw_text)
                 if plan is not None:
-                    plan.source = "llm"
+                    plan.source = ("repair" if pending_repair else "llm")
                     meta["source"] = label
                     meta["inherited"] = label != "l1_slot"
                     break
-                # §1.3 (D14): невалидный JSON → bounded repair, ровно 1.
-                if meta["repair"] == 0:
-                    meta["repair"] = 1
-                    repair_messages = _l1.build_repair_messages(l1_messages,
-                                                                raw_text)
-                    raw_text, usage2 = await _record_llm_call(
-                        label, repair_messages, slot, temperature=temperature)()
-                    if label == "l1_slot":
-                        # D03 (§18C.1): repair-попытка учтена ТАКЖЕ.
-                        await _l1.record_l1_usage(
-                            self.llm, usage=usage2,
-                            messages=repair_messages, content=raw_text,
-                            model=slot.model, chat_id=chat_id,
-                            correlation_id=correlation_id,
-                            credential_source=credential_source)
-                    plan = _l1.parse_l1_plan(raw_text)
-                    if plan is not None:
-                        plan.source = "repair"
-                        meta["source"] = label
-                        meta["inherited"] = label != "l1_slot"
-                        break
-            except NoApiKeyForChat:
-                # D03: политика ключей/бюджета блокирует попытку целиком —
-                # НЕ ladder (fallback на main те же ключи не получит).
-                raise
-            except Exception as exc:      # LLMError/TimeoutError → ladder
-                # D03 (§18C.6): dedicated-провайдер отверг temperature →
-                # честный единственный retry БЕЗ неё + флаг unsupported.
-                last_error = f"{type(exc).__name__}"
-                if (label == "l1_slot" and temperature is not None
-                        and not meta.get("temperature_unsupported")
-                        and "temperature" in str(exc).lower()):
-                    meta["temperature_unsupported"] = True
-                    meta["temperature_applied"] = False
+                # Bounded repair (D14) и обрезка: ровно одна коррекция
+                # каждого типа на ногу; слепого повтора нет.
+                if finish_reason_last in ("length", "max_tokens") \
+                        and not corrected_budget:
+                    corrected_budget = True
+                    pending_repair = ""
+                    route = route.with_attempt(
+                        leg_calls + 1, owner_limit=owner_output)
+                    meta["l1_output_limit"] = route.max_output_tokens
+                    meta["l1_output_reserve"] = route.output_reserve
+                    meta["l1_output_source"] = route.output_source
                     logger.warning(
-                        "[direct] l1 dedicated temperature unsupported — "
-                        "retry without | chat=%s", chat_id)
-                    try:
-                        raw_text, usage = await _record_llm_call(
-                            label, l1_messages, slot, temperature=None)()
-                        await _l1.record_l1_usage(
-                            self.llm, usage=usage, messages=l1_messages,
-                            content=raw_text, model=slot.model,
-                            chat_id=chat_id,
-                            correlation_id=correlation_id,
-                            credential_source=credential_source)
-                        plan = _l1.parse_l1_plan(raw_text)
-                        if plan is not None:
-                            plan.source = "llm"
-                            meta["source"] = label
-                            meta["inherited"] = False
-                            break
-                    except Exception as retry_exc:
-                        last_error = f"{type(retry_exc).__name__}"
-                logger.warning(
-                    "[direct] l1 planner attempt failed | chat=%s | "
-                    "source=%s | error=%s", chat_id, label,
-                    _exc_brief(exc))
+                        "[direct] l1 plan truncated — retry with larger "
+                        "output budget | chat=%s | limit=%s",
+                        chat_id, route.max_output_tokens)
+                    continue
+                if not repaired:
+                    repaired = True
+                    meta["repair"] = 1
+                    pending_repair = (
+                        _l1.REPAIR_REASON_TRUNCATED
+                        if finish_reason_last in ("length", "max_tokens")
+                        else _l1.REPAIR_REASON_INVALID_JSON)
+                    continue
+                break
+            if plan is not None:
+                break
+            logger.warning(
+                "[direct] l1 leg exhausted | chat=%s | source=%s | "
+                "failure=%s | finish_reason=%s",
+                chat_id, label, failure_reason_last or "-",
+                finish_reason_last or "-")
+        # ── P0 L1: единственная категория исхода хода (R17: коды/числа) ────
+        # Разведены success / compatibility_repaired / retry_success /
+        # provider_fallback / deterministic_fallback / failed: обычный valидный
+        # ответ не выглядит fallback'ом, а deterministic fallback — успехом.
+        failure_mode = _l1.resolve_failure_mode(
+            plan_present=plan is not None,
+            fallback_leg=provider_fallback_used,
+            corrected_fields=corrected_fields,
+            corrected_budget=corrected_budget,
+            repaired=repaired,
+            aborted=bool(meta.get("l1_aborted")))
+        known_finish = (last_known_finish
+                        or (finish_reason_last
+                            if finish_reason_last not in ("", "unknown")
+                            else "")
+                        or str(meta.get("l1_finish_reason") or ""))
+        meta.update({
+            "l1_failure_mode": failure_mode,
+            "l1_attempts": int(attempts_used),
+            "l1_finish_reason": known_finish,
+            "l1_failure_reason": str(failure_reason_last or ""),
+        })
+
         # ── S7 (Reviewer F3): структурный grant применяется ДО записи
         # телеметрии. Диагностика L1 и durable plan_meta хода обязаны
         # отражать РЕАЛЬНО объявленные инструменты (`diagnostic_needed=true`),
@@ -7905,7 +8121,19 @@ class DirectChatService:
             inherited=bool(meta.get("inherited")),
             fallback=fallback_flag, latency_ms=latency_ms,
             input_chars=input_chars,
-            source=str(meta.get("source") or "main"))
+            source=str(meta.get("source") or "main"),
+            failure_mode=str(meta.get("l1_failure_mode") or ""),
+            finish_reason=str(meta.get("l1_finish_reason") or ""),
+            output_limit=meta.get("l1_output_limit"),
+            output_field=str(meta.get("l1_output_field") or ""),
+            timeout_seconds=meta.get("l1_transport_timeout"),
+            deadline_seconds=meta.get("l1_transport_deadline"),
+            attempts=int(meta.get("l1_attempts") or 0),
+            model=str(meta.get("l1_model")
+                      or getattr(self.llm, "_chat_model", "") or ""),
+            correlation_id=correlation_id,
+            window_source=str(meta.get("l1_window_source") or ""),
+            window_estimated=meta.get("l1_window_estimated"))
         # Диагностика: одни и те же оси у обоих триггеров + прикладные extras
         # адаптера (капы цитаты, профиль решений) — читает Inspector.
         diag: dict = {}

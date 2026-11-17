@@ -413,8 +413,15 @@ PG_DB_SHA256_B07 = (
 # (семантика «один HTTP-ответ» / «предел одной основной попытки», hot-apply,
 # «не дедлайн исследования»); ключи/типы/группы/секретность не менялись.
 # TSV/meta переэмитированы тем же инструментом; `--check` → OK.
+# P0 L1 llm-vision-scheduler-p0 (18.11.2026, L-F11S-1 re-pin, DOC-ONLY):
+# переписаны ТОЛЬКО описания limits.direct_l1_timeout_seconds и
+# limits.direct_l1_max_output_tokens — 15 s / 512 больше не универсальный
+# аварийный fallback (пусто = наследовать транспорт/контракт плана,
+# значение = явный override владельца). Ключи/типы/группы/счётчики/дефолты
+# каталога не менялись (REGISTRY 645 / GROUPS 121 / delta 244);
+# TSV/meta переэмитированы генератором, `--check` → OK.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "466f7e35ab798cf6eb9e5fbf2c2532b234d30cbd223921d261e8556e2f892072")
+    "3333142f91566a8ec212cae222579d504fa34461a26a1e16431502d8316f6c60")
 
 
 def _sha256(path: Path) -> str:

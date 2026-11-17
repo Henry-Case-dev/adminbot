@@ -69,11 +69,18 @@ PLAN_META_FIELDS = frozenset({
     # решение L1 (`memory_scope`); durable-ось нужна для проверки, что старый
     # материал не замещает текущий срез по словарю. Значение — enum-код.
     "memory_scope",
+    # P0 L1 (2026-11-17): durable-оси исхода попытки планировщика. R17:
+    # только коды/enum и числа — ни prompt, ни ответа, ни reasoning.
+    "l1_failure_mode", "l1_finish_reason", "l1_failure_reason",
+    "l1_output_limit", "l1_output_reserve", "l1_output_field",
+    "l1_output_source", "l1_attempts", "l1_window_source",
+    "l1_window_confidence", "l1_window_estimated", "l1_timeout_source",
 })
 _PLAN_META_LIST_FIELDS = frozenset({"capabilities", "tools"})
 _PLAN_META_NUM_FIELDS = frozenset(
     {"confidence", "latency_ms", "input_chars", "temperature",
-     "l1_context_budget"})
+     "l1_context_budget", "l1_output_limit", "l1_output_reserve",
+     "l1_attempts"})
 _IDENT_VALUE_RE = re.compile(r"^[A-Za-z0-9_\-:.]{0,64}$")
 _MODEL_VALUE_RE = re.compile(r"^[A-Za-z0-9_\-./:]{0,64}$")
 _PLAN_META_MAX_BYTES = 2048   # bounded durable-колонка (одна строка JSON)
