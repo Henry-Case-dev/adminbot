@@ -453,8 +453,12 @@ def main() -> int:
                 HISTORY_HOLD[kind] = route
                 HISTORY_MODE[kind] = "data"
                 return
-            rows = [] if mode == "empty" else (
-                DREAM_ROWS if kind == "dream" else NOSTALGIA_ROWS)
+            if mode == "single":
+                rows = (DREAM_ROWS if kind == "dream"
+                        else NOSTALGIA_ROWS)[:1]
+            else:
+                rows = [] if mode == "empty" else (
+                    DREAM_ROWS if kind == "dream" else NOSTALGIA_ROWS)
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps(rows))
             return
@@ -1723,6 +1727,20 @@ def main() -> int:
               and after_f4["rows"] == 4,
               f"W2b F4: фильтр не сброшен при смене модуля ({after_f4})",
               hfails)
+
+        # ── F3 edge: единственная строка уже показана в «Сейчас»; блок не
+        # должен выдавать ложное «журнал ещё не загружен».
+        HISTORY_MODE["dream"] = "single"
+        _hopen(hpage, "#/modules/sleep")
+        one = _hprobe(hpage)
+        one_body = hpage.evaluate("() => document.body.innerText")
+        report["flows"]["w2b_single_row"] = dict(one, body=one_body[:300])
+        check(one["tab"] and one["ovRows"] == 0 and one["state"] == "ready",
+              f"W2b single: {one}", hfails)
+        check("Других событий нет." in one_body
+              and "журнал ещё не загружен" not in one_body,
+              "W2b single: ложное «журнал ещё не загружен»", hfails)
+        HISTORY_MODE["dream"] = "data"
 
         # ── Loading: deep link показывает «Загружаем историю…» (H-5).
         HISTORY_MODE["dream"] = "hold"

@@ -46,6 +46,8 @@ RED снят в отдельном detached-worktree на fae3eab2; туда с�
    CTA Истории.
    После фикса: lastAction=False, histLink=1, histCta=0; sleep Overview=5,
    nostalgia Overview=3; строка «Сейчас» исключена из «Последних событий».
+   Краевой случай одной строки: state="ready", ovRows=0, в блоке
+   «Других событий нет.» — ложного «журнал ещё не загружен» нет.
 
 4. F4 — общий historyFilter не сбрасывается.
    Probe (node, реальный openWorkspaceTab):

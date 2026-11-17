@@ -1456,6 +1456,11 @@
                       </div>
                     </div>
                   </template>
+                  <div v-else-if="historyStateFor(workspaceModule) === 'ready'"
+                       class="text-gray-500"
+                       data-overview-history-state="ready">
+                    Других событий нет.
+                  </div>
                   <div v-else class="text-gray-500"
                        data-overview-history-state="idle">
                     {{ historyStateText(workspaceModule) }}
