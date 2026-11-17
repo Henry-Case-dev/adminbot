@@ -1,0 +1,62 @@
+{
+ "capability_api": {
+  "supports_reasoning": true,
+  "supports_tool_calling": null,
+  "supports_json_mode": null,
+  "output_token_field": null,
+  "output_field_source": "default"
+ },
+ "normalizer_api": {
+  "reasoning_only": {
+   "kind": "reasoning_only",
+   "content_is_answer": false
+  },
+  "length_empty": {
+   "kind": "empty",
+   "content_is_answer": false
+  },
+  "content_parts": {
+   "kind": "text",
+   "content_is_answer": true
+  }
+ },
+ "l1_defaults": {
+  "timeout_seconds": null,
+  "max_output_tokens": null
+ },
+ "dedicated_key": {
+  "dedicated": true,
+  "key_empty": true,
+  "key_equals_main": false,
+  "base_url": "https://other.example/v1"
+ },
+ "output_budget_api": [
+  4608,
+  2048,
+  "model_capability"
+ ],
+ "route_api": {
+  "timeout": 180.0,
+  "deadline": 360.0,
+  "output_field": "max_tokens",
+  "max_output": 4608,
+  "output_source": "model_capability",
+  "window_estimated": true
+ },
+ "context_budget_source": {
+  "source": "model_window_estimate",
+  "capacity_source": "estimated_unknown",
+  "context_window": 1000000,
+  "window_estimated": true,
+  "model_window_as_verified": false
+ },
+ "incident_09_27": {
+  "planner_calls": 2,
+  "sent_max_output_tokens": [
+   4608,
+   8192
+  ],
+  "failure_mode": "retry_success",
+  "finish_reason": "length"
+ }
+}

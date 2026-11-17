@@ -1,0 +1,77 @@
+{
+ "baseline": {
+  "returncode": 0,
+  "summary": "37 passed in 4.16s"
+ },
+ "mutations": [
+  {
+   "id": "M1-restore-15s",
+   "requirement": "LVS-L1-12/L1-15",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_deadline_follows_transport_policy_not_15s",
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_turn_source_has_no_local_15_second_wait"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "2 failed in 4.17s"
+   }
+  },
+  {
+   "id": "M2-restore-512",
+   "requirement": "LVS-L1-12/L1-14",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_no_universal_15s_and_512",
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_plain_answer_is_success_not_fallback"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "2 failed in 3.88s"
+   }
+  },
+  {
+   "id": "M3-blind-retry",
+   "requirement": "LVS-L1-26/L1-34",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_length_truncated_empty_content_retried_with_budget"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "1 failed in 3.64s"
+   }
+  },
+  {
+   "id": "M4-cross-keys",
+   "requirement": "LVS-L1-13 (security)",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_dedicated_key_never_crosses_endpoint",
+    "tests/test_p0_l1_model_switch.py::TestL1Turn::test_dedicated_without_key_skips_leg_never_leaks_key"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "2 failed in 3.87s"
+   }
+  },
+  {
+   "id": "M5-reasoning-as-content",
+   "requirement": "LVS-L1-19/L1-20",
+   "applied": true,
+   "killed": true,
+   "tests": [
+    "tests/test_p0_l1_model_switch.py::TestResponseNormalizer::test_reasoning_is_never_the_answer",
+    "tests/test_p0_l1_model_switch.py::TestConsumerParsers::test_generate_rejects_reasoning_only_with_reason"
+   ],
+   "pytest": {
+    "returncode": 1,
+    "summary": "2 failed in 3.46s"
+   }
+  }
+ ]
+}

@@ -1,0 +1,421 @@
+{
+ "slice": "L1",
+ "task": "llm-vision-scheduler-p0",
+ "title": "Смена модели не должна ломать планировщик",
+ "branch": "fix/p0-l1-model-switch",
+ "base": "ea9f760f (release/mod-acl-w2b3-2.58.214, production 2.58.214)",
+ "owner_input": "plans/owner_inputs/2026-11-17-llm-vision-scheduler-p0.md (sha256 51d321c0…b8e0f2)",
+ "requirement_ids": [
+  "LVS-L1-02",
+  "LVS-L1-03",
+  "LVS-L1-04",
+  "LVS-L1-05",
+  "LVS-L1-12",
+  "LVS-L1-13",
+  "LVS-L1-14",
+  "LVS-L1-15",
+  "LVS-L1-16",
+  "LVS-L1-17",
+  "LVS-L1-19",
+  "LVS-L1-20",
+  "LVS-L1-23",
+  "LVS-L1-24",
+  "LVS-L1-26",
+  "LVS-L1-27",
+  "LVS-L1-28",
+  "LVS-L1-29",
+  "LVS-L1-34",
+  "LVS-L1-35",
+  "LVS-L1-37"
+ ],
+ "evidence_status": "implementation + local verification; independent review and deploy are separate gates (NOT VERIFIED)",
+ "red_on_base": {
+  "probe": "evidence/l1/probe_base_ea9f760f.json (запуск того же probe_l1_red.py на worktree ea9f760f)",
+  "facts": {
+   "capability_api": "{} — полей max_output/confidence/proven_limit/supports_reasoning/output_token_field в CapacityResult нет",
+   "normalizer_api": "absent — classify_chat_response нет; три парсера разбирают ответ независимо",
+   "l1_defaults": {
+    "timeout_seconds": 15,
+    "max_output_tokens": 512
+   },
+   "dedicated_key": {
+    "key_equals_main": true,
+    "base_url": "https://other.example/v1"
+   },
+   "context_budget_source": {
+    "source": "model_window",
+    "capacity_source": "estimated_unknown",
+    "context_window": 1000000,
+    "model_window_as_verified": true
+   },
+   "incident_09_27": {
+    "planner_calls": 1,
+    "sent_max_output_tokens": [
+     512
+    ],
+    "failure_mode": null,
+    "finish_reason": null
+   }
+  },
+  "interpretation": "Инцидент воспроизведён на ea9f760f: пустой content + finish_reason=length при max_tokens=512 → одна попытка → deterministic fallback; 1M-оценка выдана как model_window; dedicated-ключ main уходил на чужой endpoint; локальные 15 s/512 — единственные действующие значения."
+ },
+ "green_on_candidate": {
+  "probe": "evidence/l1/probe_candidate.json",
+  "facts": {
+   "capability_api": {
+    "supports_reasoning": true,
+    "supports_tool_calling": null,
+    "supports_json_mode": null,
+    "output_field_source": "default"
+   },
+   "normalizer_api": {
+    "reasoning_only": {
+     "kind": "reasoning_only",
+     "content_is_answer": false
+    },
+    "content_parts": {
+     "kind": "text",
+     "content_is_answer": true
+    }
+   },
+   "l1_defaults": {
+    "timeout_seconds": null,
+    "max_output_tokens": null
+   },
+   "dedicated_key": {
+    "key_empty": true,
+    "key_equals_main": false
+   },
+   "output_budget_api": [
+    4608,
+    2048,
+    "model_capability"
+   ],
+   "route_api": {
+    "timeout": 180.0,
+    "deadline": 360.0,
+    "output_field": "max_tokens",
+    "max_output": 4608,
+    "output_source": "model_capability",
+    "window_estimated": true
+   },
+   "context_budget_source": {
+    "source": "model_window_estimate",
+    "capacity_source": "estimated_unknown",
+    "window_estimated": true,
+    "model_window_as_verified": false
+   },
+   "incident_09_27": {
+    "planner_calls": 2,
+    "sent_max_output_tokens": [
+     4608,
+     8192
+    ],
+    "failure_mode": "retry_success",
+    "finish_reason": "length"
+   }
+  },
+  "interpretation": "Тот же вход даёт валидный план: один осмысленный повтор с увеличенным бюджетом (4608→8192), категория retry_success, finish_reason сохранён; dedicated-ключ не переносится; 15 s/512 больше не действуют без явной настройки."
+ },
+ "test_batches": [
+  {
+   "id": "new-slice-tests",
+   "command": "python -m pytest tests/test_p0_l1_model_switch.py -q",
+   "result": {
+    "passed": 37,
+    "failed": 0
+   },
+   "covers": "все LVS-L1 из requirement_ids (см. tests.json → mapping)"
+  },
+  {
+   "id": "mandatory-386",
+   "command": "python -m pytest <24 файла mandatory-набора 2.58.210> -q",
+   "result": {
+    "passed": 386,
+    "failed": 0
+   },
+   "note": "тот же набор, что в release-2.58.210/tests-2.58.210.json (M4A + M2/M2.1 + f8 + mca23 + webapp JS unit)"
+  },
+  {
+   "id": "focused-l1-llm-capacity",
+   "command": "python -m pytest tests/test_p0_l1_model_switch.py tests/test_asap7_direct_l1.py tests/test_asap8_v6_wc_direct_d03.py tests/test_direct_l1_corrective_r1.py tests/test_direct_l1_l1d_contract.py tests/test_asap7_direct_settings.py tests/test_llm_client.py tests/test_llm_completion_metadata_ur18.py tests/test_p0_llm_transport_258206.py tests/test_capacity_nanogpt_asap32.py tests/test_capacity_resolver_asap31.py tests/test_capacity_stage_d_smart.py tests/test_er08_limits_context.py tests/test_ur_f_inspector_step1.py tests/test_rlr_acceptance_rows.py -q",
+   "result": {
+    "passed": 475,
+    "failed": 1
+   },
+   "failed_pre_existing": [
+    "tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit"
+   ],
+   "note": "этот тест красный и на базе ea9f760f (проверено тем же node id) — не регрессия слайса"
+  },
+  {
+   "id": "consumers-initiative-factcheck-summary",
+   "command": "python -m pytest tests/test_asap8_f6_initiative.py tests/test_asap8_v63_b01_initiative_observer.py tests/test_soul1_w5_initiative_vitality.py tests/test_factcheck_p0_fc.py tests/test_summary_l1_clusterizer.py tests/test_summary_l2_writer.py tests/test_summary_scheduler.py tests/test_tool_loop.py tests/test_tool_router.py tests/test_rlr_length_continuation.py tests/test_ur_d_writer.py tests/test_summary_inc01_pregen_bounds.py -q",
+   "result": {
+    "passed": 374,
+    "failed": 0
+   }
+  },
+  {
+   "id": "affected-set",
+   "command": "python -m pytest <324 тест-файла, импортирующих llm_client/direct_l1/direct_chat_service/model_capacity/auto_budget/usage_events/agentic_events> -q (chunks of 40, evidence/l1/affected-run.txt)",
+   "result": {
+    "files": 324,
+    "candidate_first_pass_failed_nodes": 57,
+    "base_failed_same_nodes": 54,
+    "regressions_found_and_fixed": [
+     "tests/test_er08_limits_context.py::TestL1PackageLosses::test_live_path_emits_reply_cap_axes (порядок осей _l1_usage_plan_meta, 4000-char окно теста)",
+     "tests/test_rlr_acceptance_rows.py::test_r0813_invalid_plan_json_repaired_on_machine_stage (двойник build_repair_messages без reason=)",
+     "tests/test_ur_f_inspector_step1.py::test_l1_event_records_main_slot_when_main_model_plans (l1_model перетирался резолвом маршрута)"
+    ],
+    "candidate_after_fix_failed_nodes": 54,
+    "classification": "54 оставшихся падений идентичны базе ea9f760f (pre-existing: environment/known), 0 регрессий слайса"
+   }
+  }
+ ],
+ "mutations": {
+  "file": "evidence/l1/mutations.json",
+  "baseline": "37 passed",
+  "killed": "5/5",
+  "items": [
+   {
+    "id": "M1-restore-15s",
+    "requirement": "LVS-L1-12/L1-15",
+    "killed": true,
+    "killed_tests": 2
+   },
+   {
+    "id": "M2-restore-512",
+    "requirement": "LVS-L1-12/L1-14",
+    "killed": true,
+    "killed_tests": 2
+   },
+   {
+    "id": "M3-blind-retry",
+    "requirement": "LVS-L1-26/L1-34",
+    "killed": true,
+    "killed_tests": 1
+   },
+   {
+    "id": "M4-cross-keys",
+    "requirement": "LVS-L1-13 (security)",
+    "killed": true,
+    "killed_tests": 2
+   },
+   {
+    "id": "M5-reasoning-as-content",
+    "requirement": "LVS-L1-19/L1-20",
+    "killed": true,
+    "killed_tests": 2
+   }
+  ]
+ },
+ "real_provider_call": {
+  "performed": false,
+  "reason": "На этом этапе реальный вызов провайдера не входит в обязательные проверки брифа: контролируемый live-check GLM 5.3 Uncensored (LVS-L1-31/32/37) выполняется после деплоя кандидата.",
+  "status": "unverified"
+ },
+ "configuration": {
+  "effective_l1_timeout_seconds": "не задано (PG limits.direct_l1_timeout_seconds и env DIRECT_L1_TIMEOUT_SECONDS отсутствуют) → наследуется транспорт (LLM_TIMEOUT 180 / LLM_TOTAL_BUDGET 360)",
+  "effective_l1_max_output_tokens": "не задано → контракт плана + reasoning-резерв, потолок max_output модели (пример кандидата: 4608; повтор 8192; выше L1_OUTPUT_CEILING_TOKENS=8192 не поднимается)",
+  "kill_switches": "MODEL_CAPACITY_RESOLVER_ENABLED=ON (prod default) — используется существующий резолвер; новых флагов нет",
+  "owner_overrides_preserved": "явные PG/env значения L1 читаются как есть (не сбрасываются, не перезаписываются) и маркируются source=owner_override"
+ },
+ "limitations": [
+  "Реальный provider-вызов (GLM 5.3 Uncensored) не выполнялся: live-check после деплоя; LVS-L1-31/32/37 остаются live_required.",
+  "Локальный прогон не подтверждает поведение конкретного шлюза NanoGPT (429/5xx/латентность): матрица исхода проверена на детерминированных двойниках.",
+  "main-путь `generate()` не возвращает finish_reason (контракт str), поэтому телеметрия успешного main-вызова показывает последний ИЗВЕСТНЫЙ finish_reason (обычно unknown); finish_reason каждого HTTP-ответа остаётся в существующем логе `LLM request OK`.",
+  "Bug-репорт не проверен на 100%: `resolve_l1_context_budget` для неизвестной модели по-прежнему рассчитывает бюджет от 1M-оценки, но теперь честно маркирует источник `model_window_estimate` и `window_estimated=true` (изменение аллокации — отдельная строка LVS-L1-08 вне scope L1-слайса).",
+  "Предсуществующие падения (54) не исправлялись: они воспроизводятся на базе ea9f760f и не относятся к слайсу."
+ ],
+ "files": {
+  "product": [
+   "services/model_capacity.py",
+   "services/llm_client.py",
+   "services/direct_l1.py",
+   "services/direct_chat_service.py",
+   "services/agentic_events.py",
+   "services/usage_events.py",
+   "services/param_catalog.py"
+  ],
+  "catalog_artifacts": [
+   "plans/docs/param-registry-round1025.tsv (re-emitted, Δ=0)",
+   "plans/docs/param-registry-round1025.meta.md (re-emitted)",
+   "tests/fixtures/round1025/f8_baseline.json (sha re-approved, counts unchanged)",
+   "tests/test_round1025_f8_registry.py (sha re-approved consciously, L-F11S-1)",
+   "tools/_p0_l1_reissue_catalog.py (reissue tool, precedent)"
+  ],
+  "tests": [
+   "tests/test_p0_l1_model_switch.py (new, 37)",
+   "tests/test_rlr_acceptance_rows.py (double signature mirrors reason=; assertions unchanged)"
+  ]
+ },
+ "test_mapping": {
+  "tests/test_p0_l1_model_switch.py::TestCapabilityLayer::test_catalog_capability_fields_tristate": [
+   "LVS-L1-03",
+   "LVS-L1-05"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestCapabilityLayer::test_catalog_metadata_reaches_capability": [
+   "LVS-L1-02",
+   "LVS-L1-03",
+   "LVS-L1-05"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestCapabilityLayer::test_estimated_1m_is_not_verified_window": [
+   "LVS-L1-16",
+   "LVS-L1-33"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestCapabilityLayer::test_proven_limit_beats_estimate": [
+   "LVS-L1-33"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestCapabilityLayer::test_model_switch_refreshes_capability_without_restart": [
+   "LVS-L1-32"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestCapabilityLayer::test_unknown_variant_does_not_inherit_family_window": [
+   "LVS-L1-05"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestResponseNormalizer::test_content_shapes": [
+   "LVS-L1-19"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestResponseNormalizer::test_reasoning_is_never_the_answer": [
+   "LVS-L1-20"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestResponseNormalizer::test_tool_calls_no_choices_and_http200_error": [
+   "LVS-L1-23",
+   "LVS-L1-24"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestResponseNormalizer::test_failure_taxonomy": [
+   "LVS-L1-23",
+   "LVS-L1-24"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestConsumerParsers::test_generate_rejects_reasoning_only_with_reason": [
+   "LVS-L1-20",
+   "LVS-L1-23"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestConsumerParsers::test_generate_chat_parts_text_and_reasoning_separate": [
+   "LVS-L1-19",
+   "LVS-L1-20"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestConsumerParsers::test_r17_secret_not_in_logs": [
+   "LVS-L1-29"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_no_universal_15s_and_512": [
+   "LVS-L1-12"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_env_override_is_explicit_owner_choice": [
+   "LVS-L1-13"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_route_inherits_transport_and_plan_budget": [
+   "LVS-L1-12",
+   "LVS-L1-14",
+   "LVS-L1-15",
+   "LVS-L1-17"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_owner_override_wins_and_is_reported": [
+   "LVS-L1-13"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_output_budget_reasoning_and_ceiling": [
+   "LVS-L1-14",
+   "LVS-L1-35"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_snapshot_is_immutable_across_model_switch": [
+   "LVS-L1-32"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_dedicated_key_never_crosses_endpoint": [
+   "LVS-L1-13"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_context_budget_estimate_is_labelled": [
+   "LVS-L1-16",
+   "LVS-L1-33"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1RouteContract::test_dedicated_generate_uses_route_output_field": [
+   "LVS-L1-17",
+   "LVS-L1-24",
+   "LVS-L1-34"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestRetryMatrix::test_length_and_reasoning_get_correction_not_blind_repeat": [
+   "LVS-L1-26",
+   "LVS-L1-34"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestRetryMatrix::test_transport_and_provider_classes_are_not_retried_here": [
+   "LVS-L1-26"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestRetryMatrix::test_incompatible_param_corrections": [
+   "LVS-L1-24"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestRetryMatrix::test_failure_mode_one_category": [
+   "LVS-L1-28"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestRetryMatrix::test_repair_prompt_does_not_carry_reasoning": [
+   "LVS-L1-20"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_length_truncated_empty_content_retried_with_budget": [
+   "LVS-L1-12",
+   "LVS-L1-14",
+   "LVS-L1-26",
+   "LVS-L1-28",
+   "LVS-L1-34",
+   "LVS-L1-35"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_plain_answer_is_success_not_fallback": [
+   "LVS-L1-28",
+   "LVS-L1-36"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_dedicated_without_key_skips_leg_never_leaks_key": [
+   "LVS-L1-13"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_deadline_follows_transport_policy_not_15s": [
+   "LVS-L1-12",
+   "LVS-L1-15"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_attempt_ceiling_per_leg": [
+   "LVS-L1-26"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_turn_source_has_no_local_15_second_wait": [
+   "LVS-L1-12"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Turn::test_plan_meta_carries_outcome_fields": [
+   "LVS-L1-28",
+   "LVS-L1-29"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestL1Event::test_event_fields_survive_whitelist": [
+   "LVS-L1-28",
+   "LVS-L1-29"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestEffectiveConfiguration::test_reasoning_model_gets_budget_above_512": [
+   "LVS-L1-35"
+  ],
+  "tests/test_p0_l1_model_switch.py::TestEffectiveConfiguration::test_route_budget_matches_capability_max_output": [
+   "LVS-L1-04",
+   "LVS-L1-17"
+  ],
+  "existing:tests/test_asap7_direct_l1.py": [
+   "LVS-L1-27",
+   "LVS-L1-36"
+  ],
+  "existing:tests/test_llm_client.py": [
+   "LVS-L1-19",
+   "LVS-L1-23"
+  ],
+  "existing:tests/test_p0_llm_transport_258206.py": [
+   "LVS-L1-15"
+  ],
+  "existing:tests/test_er08_limits_context.py": [
+   "LVS-L1-16",
+   "LVS-L1-17"
+  ],
+  "existing:tests/test_capacity_nanogpt_asap32.py": [
+   "LVS-L1-05"
+  ],
+  "existing:tests/test_asap7_direct_settings.py": [
+   "LVS-L1-13"
+  ],
+  "existing:tests/test_llm_completion_metadata_ur18.py": [
+   "LVS-L1-23"
+  ]
+ },
+ "not_covered_locally": {
+  "LVS-L1-31": "реальный provider-вызов после деплоя (live_required, preprod)",
+  "LVS-L1-32 (live part)": "смена main-модели без рестарта на production hot-config — после деплоя",
+  "LVS-L1-37 (live part)": "сверка системной метрики с реальной трассой на проде — после деплоя"
+ }
+}
