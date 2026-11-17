@@ -72,6 +72,7 @@ from web.api.deps import (
     get_tma_user,
     requires_global_admin,
     requires_permission,
+    user_is_global_admin,
 )
 
 logger = logging.getLogger(__name__)
@@ -2992,6 +2993,11 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
     if not cache.pg_available:
         raise HTTPException(status_code=503,
                             detail="PostgreSQL недоступен (R6)")
+    # QRNG P1 (arch D8, `QAN-REC-RBAC-01/02`): ключи подключения провайдера —
+    # операция провайдера, а не «просмотр секрета»: запись/удаление только
+    # global admin. Право `key.keys.random_quantum_*` (`can_view_key_value`)
+    # такие операции больше не открывает; новая матрица ролей не вводится.
+    from services import mca_random_source as _random_source
     prepared: list[dict] = []
     # ── Проход 1: валидация ВСЕГО пакета ДО любой записи ───────────────────
     for item in payload.items:
@@ -3008,7 +3014,15 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
             raise HTTPException(status_code=422,
                                 detail=f"неизвестный ключ: {item.key}")
         if spec.category == CATEGORY_KEYS:
-            allowed = can_view_key_value(cache, user.id, item.key)
+            if item.key in _random_source.PROVIDER_KEY_SETTINGS:
+                if not user_is_global_admin(cache, user.id):
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"{item.key}: операция провайдера — только для "
+                               "глобального админа")
+                allowed = True
+            else:
+                allowed = can_view_key_value(cache, user.id, item.key)
         else:
             allowed = can_edit_param(cache, user.id, item.key)
         if not allowed:
@@ -4537,25 +4551,21 @@ async def post_youtube_proxy_test(
 
 
 # ── Раунд 10.37 (MCA-10a, ADR-1028-14 D8/T-4977): POST /api/random/test ─────
-# «Проверить подключение» ANU: backend-only, draft-ключ в POST-body (не URL,
-# не эхо), RBAC существующих секретных прав (global admin ИЛИ право на
-# `key.keys.random_quantum_api_key`). Singleflight/rate-limit — в сервисе
-# (`RandomSourceService.test_connection`: общий результат на повторные клики +
-# min interval провайдера). Ответ: status/latency/дата/размер партии/
-# очищенная ошибка/key_present; проверочные числа зачисляются в запас.
+# «Проверить подключение» QRNG: backend-only, draft-ключ в POST-body (не URL,
+# не эхо), RBAC — ТОЛЬКО global admin (QRNG P1 / arch D8, `QAN-REC-RBAC-01/02`:
+# право просмотра секрета больше НЕ является правом запускать операцию с
+# глобальным аккаунтом). Singleflight/cooldown — в сервисе
+# (`RandomSourceService.test_connection`: общий результат на повторные клики,
+# окно cooldown и min interval провайдера). Ответ: status/latency/дата/размер
+# партии/очищенная ошибка/key_present/deposited; значения ЧЕРНОВОЙ проверки в
+# рабочий запас не зачисляются (`deposited=false`).
 @api_router.post("/random/test")
 async def post_random_test(
     request: Request,
     payload: RandomTestRequest,
-    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
     """Проверка подключения квантового источника (ANU) по ключу из body."""
-    cache: ConfigCache = get_cache(request)
-    ctx = await _ctx_global_admin(cache, user)
-    if not (ctx.is_global_admin or can_view_key_value(
-            cache, user.id, "keys.random_quantum_api_key")):
-        raise HTTPException(status_code=403,
-                            detail="нет прав на управление ключом ANU")
     from services import lore_runtime, mca_random_source
     service = mca_random_source.get_service(lore_runtime.get_lore_db())
     result = await service.test_connection(draft_key=payload.key or None)

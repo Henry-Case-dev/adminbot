@@ -89,7 +89,10 @@ ROUTES_SHA256_F11 = (
     # MOD-ACL-UX-01 M4A (17.11.2026): синхронизировано с каноном
     # tests/test_round1025_f8_registry.py (аддитивные state/permissions
     # в GET /api/config; Δ маршрутов = 0).
-    "5a169fd4a3688895c82c6bbc161579bb28f4820a38223fcbc70cc0ace3e1fd1d")
+    # QRNG P1 (17.11.2026): синхронизировано с каноном — RBAC
+    # POST /api/random/test (только global admin) и guard записи ключей
+    # провайдера в POST /api/config; Δ маршрутов = 0.
+    "f12c01c6f5d00f4d8a9932a4d4903126c650860415b3f44f9af9a47b90b7603a")
 
 
 @pytest.fixture(autouse=True)

@@ -625,7 +625,9 @@ class TestGoodmorningRandomSourceIntegration:
 
         media = by_purpose["goodmorning_media"]
         assert media["source"] == "quantum"
-        assert media["provider"] == "ANU Quantum Numbers"
+        # QRNG P1 (arch D1): новые записи пишутся каноническим provider id
+        # (`anu`); легаси-строка "ANU Quantum Numbers" остаётся читаемой.
+        assert media["provider"] == mrs.PROVIDER_ID_ANU
         assert media["draw_id"]
         assert media["created_at"] > 0
         assert media["chat_id"] == 42

@@ -8,8 +8,10 @@
     hot-применение без рестарта (ConfigCache → hot.get);
   * per-chat override (mode/probability) vs глобальная квота (account_key);
   * кнопка «Проверить подключение»: POST /api/random/test — backend-only,
-    RBAC секретных прав, draft-ключ только в body (не URL/не эхо), healthy
-    только после реальной валидной партии; singleflight на повторные клики.
+    RBAC global admin (QRNG P1: право просмотра секрета операцию не
+    открывает), draft-ключ только в body (не URL/не эхо), healthy только
+    после реальной валидной партии; draft НЕ зачисляется в запас
+    (`deposited=false`); singleflight/cooldown на повторные клики.
 """
 import asyncio
 import dataclasses
@@ -476,14 +478,25 @@ class TestRandomTestRoute:
         assert len(calls) == 1
         assert calls[0]["headers"]["x-api-key"] == "draft-anu-key-abc"
 
-    def test_check_credits_batch_to_reserve(self, client, api_service):
-        # «Проверочные числа зачисляются в запас» — запрос не тратится впустую.
+    def test_draft_check_does_not_credit_batch(self, client, api_service):
+        # QRNG P1 (arch D3, G3): черновой ключ изолирован — запрос провайдера
+        # и квота есть, но партия в рабочий запас НЕ зачисляется (0 rows,
+        # deposited=false); второй store нет.
         svc, calls = api_service
         assert asyncio.run(svc._reserve_remaining()) == 0
         resp = client.post("/api/random/test", headers=_hdr(),
                            json={"key": "draft-anu-key-abc"})
-        assert resp.status_code == 200 and resp.json()["healthy"] is True
-        assert asyncio.run(svc._reserve_remaining()) == 8
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["healthy"] is True
+        assert body["deposited"] is False
+        assert asyncio.run(svc._reserve_remaining()) == 0
+        cur = asyncio.run(svc.db.db.execute(
+            "SELECT COUNT(*) AS c FROM mca_random_batches"))
+        assert (asyncio.run(cur.fetchone()))["c"] == 0
+        # Квота честно учтена (запрос реально израсходован провайдером).
+        quota = asyncio.run(svc.quota_snapshot())
+        assert quota["success"] == 1 and quota["manual_checks"] == 1
 
     def test_draft_key_not_in_logs(self, client, api_service, caplog):
         import logging

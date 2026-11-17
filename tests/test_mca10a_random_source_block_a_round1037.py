@@ -440,7 +440,11 @@ async def test_for_dream_quantum_chunk_meta_and_flush(tmp_path, mem, cfg):
         assert len(items) == 3
         assert len(set(meta["picked"])) == 3
         assert meta["source"] == "quantum" and meta["seed"] is None
-        assert meta["provider"] == mrs.PROVIDER_ANU
+        # QRNG P1 (arch D1): новые записи — канонический provider id + класс
+        # энтропии; легаси-строка "ANU Quantum Numbers" остаётся читаемой.
+        assert meta["provider"] == mrs.PROVIDER_ID_ANU
+        assert meta["provider_id"] == mrs.PROVIDER_ID_ANU
+        assert meta["entropy_class"] == mrs.ENTROPY_CLASS_HARDWARE
         assert meta["batch_id"] == src.batch_id
         assert meta["fallback"] is False and meta["fallback_reason"] is None
         assert meta["draw_ids"] and meta["picked"] == sorted(meta["picked"])

@@ -2110,6 +2110,15 @@ def random_min_request_interval_seconds() -> float:
                               1.0, 0.0)
 
 
+def random_manual_check_cooldown_seconds() -> int:
+    """`MCA_RANDOM_MANUAL_CHECK_COOLDOWN_SECONDS` (env-only, default 10; ≥0).
+
+    Cooldown ручных проверок подключения (QRNG P1, G14): после завершённой
+    проверки повторное нажатие в окне НЕ делает квотный/платный запрос.
+    0 — выключить окно (singleflight «в полёте» сохраняется). Не бросает."""
+    return _int_setting_min("MCA_RANDOM_MANUAL_CHECK_COOLDOWN_SECONDS", 10, 0)
+
+
 def random_draw_retention_days() -> int:
     """`MCA_RANDOM_DRAW_RETENTION_DAYS` (env-only, default 90; ≥1)."""
     return _int_setting_min("MCA_RANDOM_DRAW_RETENTION_DAYS", 90, 1)
