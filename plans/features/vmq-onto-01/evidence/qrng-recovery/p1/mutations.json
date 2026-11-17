@@ -55,8 +55,37 @@
       "failures": [
         "test_provider_key_write_requires_global_admin"
       ]
+    },
+    {
+      "id": "M6",
+      "target": "F2: публичный last_batch снова включает config_fingerprint",
+      "command": "pytest ...::TestProviderOperationRbac::test_api_status_has_no_key_fingerprint -q",
+      "result": "KILLED: 1 failed (/api/status снова содержит fingerprint и его значение)",
+      "failures": [
+        "test_api_status_has_no_key_fingerprint"
+      ]
+    },
+    {
+      "id": "M7",
+      "target": "F3: status считает provider_reserve без scope (все партии)",
+      "command": "pytest ...::TestProvenanceDto::test_status_quarantines_old_configuration_after_rotation ...::TestFingerprintScope::test_rotation_then_key_removal_keeps_a_quarantined -q",
+      "result": "KILLED: 2 failed (после A→B reserve=7 вместо 0; quarantine не отражает старую конфигурацию)",
+      "failures": [
+        "test_status_quarantines_old_configuration_after_rotation",
+        "test_rotation_then_key_removal_keeps_a_quarantined"
+      ]
+    },
+    {
+      "id": "M8",
+      "target": "F4: пустой current снова без фильтра (партии любого ключа расходуемы)",
+      "command": "pytest ...::TestFingerprintScope::test_empty_current_admits_only_null_batches ...::TestFingerprintScope::test_rotation_then_key_removal_keeps_a_quarantined -q",
+      "result": "KILLED: 2 failed (A-партия расходуется после удаления ключа; reserve 3 вместо 1)",
+      "failures": [
+        "test_empty_current_admits_only_null_batches",
+        "test_rotation_then_key_removal_keeps_a_quarantined"
+      ]
     }
   ],
-  "restoration": "git checkout -- <mutated file> после каждой мутации; финальный прогон 25 passed",
+  "restoration": "git checkout -- <mutated file> после каждой мутации; финальные прогоны 29 passed (P1) / 102 passed (F1-файлы)",
   "note": "Все мутации точечные, по одной; каждая убивает ровно целевой тест и не маскируется падением импорта."
 }
