@@ -1436,7 +1436,7 @@
                         <span v-if="historyRowChatText(workspaceModule, l)"
                               class="text-gray-400">{{ historyRowChatText(workspaceModule, l) }}</span>
                         <span class="module-history__status">{{ historyRowStatusText(workspaceModule, l) }}</span>
-                        <button v-if="historyRowHasDetail(workspaceModule)"
+                        <button v-if="historyRowCanDetail(workspaceModule, l)"
                                 type="button" class="btn-ghost text-xs shrink-0"
                                 data-temporal-run-btn
                                 @click="openHistoryRowDetail(workspaceModule, l)">Детали</button>
@@ -1526,7 +1526,7 @@
                       <span v-if="historyRowChatText(workspaceModule, l)"
                             class="text-gray-400 module-history__chat">{{ historyRowChatText(workspaceModule, l) }}</span>
                       <span class="module-history__status">{{ historyRowStatusText(workspaceModule, l) }}</span>
-                      <button v-if="historyRowHasDetail(workspaceModule)"
+                      <button v-if="historyRowCanDetail(workspaceModule, l)"
                               type="button" class="btn-ghost text-xs shrink-0"
                               data-temporal-run-btn
                               @click="openHistoryRowDetail(workspaceModule, l)">Детали</button>

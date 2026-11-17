@@ -6394,6 +6394,10 @@
         temporalRuns: null,
         temporalRunsBusy: false,
         temporalRunsAt: 0,
+        // W2b-B2 F1: кэш принадлежит конкретной области (scopeKey + epoch);
+        // чужая область не засевает из него ни строк, ни состояния.
+        temporalRunsScope: '',
+        temporalRunsEpoch: null,
         temporalDetail: null,
         temporalDetailBusy: false,
         dossierFeedBusy: false,
@@ -17282,6 +17286,9 @@
                        && typeof this._wsHistoryMetaSet === 'function');
         var meta = track ? this._wsHistoryMeta(mref) : null;
         if (!force && meta && meta.status === 'loading') return;
+        // F1: фиксируем epoch до запроса; поздний ответ другой области
+        // (после A→B) не перезаписывает lessonsData/мету текущего ключа.
+        var epoch = this.scopeEpoch;
         this.lessonsBusy = true;
         if (track) this._wsHistoryMetaSet(mref, 'loading');
         // D05 (§18E.7): цепочка обучения/полезность — из СУЩЕСТВУЮЩЕЙ
@@ -17296,8 +17303,11 @@
           // B2/H-1: в глобальной области — limit=50 (конверт не меняется);
           // чатовая область сохраняет прежний адрес `?chat_id=…` (R17/scoping
           // уроков чата — существующий контракт «Памяти»).
-          this.lessonsData = await this.api('/api/memory/lessons'
+          var data = await this.api('/api/memory/lessons'
             + (q || '?limit=50'));
+          if (typeof this._scopeGuard === 'function'
+              && !this._scopeGuard(epoch)) return;
+          this.lessonsData = data;
           if (track) {
             var parsed = _historyPayloadFor('memory.lessons',
                                             this.lessonsData)
@@ -17322,6 +17332,8 @@
             }
           }
         } catch (e) {
+          if (typeof this._scopeGuard === 'function'
+              && !this._scopeGuard(epoch)) return;
           this.lessonsData = null;
           if (track) {
             var st = 'error';
@@ -24921,6 +24933,14 @@
         var entry = _historySourceEntry(m);
         return !!(entry && entry.spec.detail);
       },
+      // F2: row-level guard — кнопка «Детали» только у строки, которую
+      // действительно можно открыть (для фактчека нужен run_id).
+      historyRowCanDetail: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || !entry.spec.detail || !row) return false;
+        if (entry.spec.detail === 'temporal') return !!row.run_id;
+        return true;
+      },
       openHistoryRowDetail: function (m, row) {
         var entry = _historySourceEntry(m);
         if (!entry || !entry.spec.detail || !row) return;
@@ -25294,10 +25314,18 @@
         var meta = track ? this._wsHistoryMeta(mref) : null;
         // H-7: один полёт на источник; force (кнопка ⟳) разрешает повтор.
         if (track && meta && meta.status === 'loading' && !force) return;
-        if (!force && this.temporalRuns && this.temporalRunsAt
-            && (Date.now() - this.temporalRunsAt) < 30000) {
-          // Кэш 30 с — данные уже СВОЕГО источника. Новая область (смена
-          // чата) восстанавливает состояние из кэша без второго запроса.
+        // F1: область и epoch фиксируются ДО запроса. Поздний ответ/кэш
+        // другой области не применяется (иначе B получал строки A).
+        var scopeKey = (typeof this._wsScopeKey === 'function')
+          ? this._wsScopeKey() : '';
+        var epoch = this.scopeEpoch;
+        var cacheFresh = !force && this.temporalRuns && this.temporalRunsAt
+          && this.temporalRunsScope === scopeKey
+          && this.temporalRunsEpoch === epoch
+          && (Date.now() - this.temporalRunsAt) < 30000;
+        if (cacheFresh) {
+          // Кэш 30 с — данные уже СВОЕЙ области; состояние текущего ключа
+          // восстанавливается только из него (чужой кэш не используется).
           if (track && (!meta || meta.status === 'idle')) {
             this._wsHistoryMetaSet(mref,
               this.temporalRuns.length ? 'ready' : 'empty',
@@ -25312,6 +25340,8 @@
         if (track) this._wsHistoryMetaSet(mref, 'loading');
         return this.api('/api/factcheck/temporal/runs?limit=20')
           .then(function (s) {
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
             var parsed = _historyPayloadFor('factcheck.temporal.runs', s)
               || { rows: [], error: true };
             // H-3: available:false/битый конверт — не «пустой журнал»,
@@ -25319,6 +25349,8 @@
             self.temporalRuns = (parsed.off || parsed.error)
               ? null : parsed.rows;
             self.temporalRunsAt = Date.now();
+            self.temporalRunsScope = scopeKey;
+            self.temporalRunsEpoch = epoch;
             if (track) {
               if (parsed.off) {
                 self._wsHistoryMetaSet(mref, 'off');
@@ -25332,8 +25364,12 @@
             }
           })
           .catch(function (e) {
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
             self.temporalRuns = null;
             self.temporalRunsAt = Date.now();
+            self.temporalRunsScope = scopeKey;
+            self.temporalRunsEpoch = epoch;
             if (track) {
               var st = 'error';
               if (e && e.status === 403) st = 'denied';
@@ -25343,6 +25379,8 @@
           })
           .finally(function () {
             self.temporalRunsBusy = false;
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
             if (typeof self._maybeExitHistory === 'function') {
               self._maybeExitHistory();
             }

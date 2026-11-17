@@ -314,6 +314,27 @@ LESSON_ROWS = [
      "scope": "chat", "scope_chat_id": CHAT_ID, "status": "active",
      "created_at": 1794909300, "updated_at": 1794909300},
 ]
+# F1: per-chat rows для проверки cross-scope истории (кэш/поздний ответ).
+PERCHAT_TEMPORAL = {
+    str(CHAT_ID): [{"run_id": "A-run", "created_at": 1794909900,
+                    "chat_id": CHAT_ID, "assessment_mode": "contextual",
+                    "factual_verdict": "supported",
+                    "temporal_status": "current", "reason": None}],
+    str(CHAT_ID2): [{"run_id": "B-run", "created_at": 1794909950,
+                     "chat_id": CHAT_ID2, "assessment_mode": "current",
+                     "factual_verdict": "refuted",
+                     "temporal_status": "outdated", "reason": None}],
+}
+PERCHAT_LESSONS = {
+    str(CHAT_ID): [{"lesson_id": "A-lesson", "version": 1,
+                    "type": "tool_usage", "scope": "chat",
+                    "scope_chat_id": CHAT_ID, "status": "active",
+                    "created_at": 1794909900, "updated_at": 1794909900}],
+    str(CHAT_ID2): [{"lesson_id": "B-lesson", "version": 1,
+                     "type": "retrieval", "scope": "chat",
+                     "scope_chat_id": CHAT_ID2, "status": "candidate",
+                     "created_at": 1794909950, "updated_at": 1794909950}],
+}
 # data | empty | denied | off | unavailable | disabled | disabled_503
 B2_MODE = {"temporal": "data", "lessons": "data"}
 B2_GETS = {"temporal": 0, "lessons": 0}
@@ -486,6 +507,13 @@ def main() -> int:
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps({"available": False}))
                 return
+            if mode == "perchat":
+                chat_hdr = str((req.headers or {}).get("x-chat-id") or "")
+                rows = PERCHAT_TEMPORAL.get(
+                    chat_hdr, PERCHAT_TEMPORAL[str(CHAT_ID)])
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"runs": rows}))
+                return
             rows = [] if mode == "empty" else TEMPORAL_ROWS
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps({"runs": rows}))
@@ -527,6 +555,19 @@ def main() -> int:
                               body=json.dumps({"enabled": True,
                                                "state": "not_run",
                                                "count": 0, "lessons": []}))
+                return
+            if mode == "perchat":
+                chat_q = None
+                if "chat_id=" in req.url:
+                    chat_q = req.url.split("chat_id=")[1].split("&")[0]
+                chat_hdr = str((req.headers or {}).get("x-chat-id") or "")
+                rows = PERCHAT_LESSONS.get(
+                    str(chat_q or chat_hdr), PERCHAT_LESSONS[str(CHAT_ID)])
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"enabled": True,
+                                               "state": "implemented",
+                                               "count": len(rows),
+                                               "lessons": rows}))
                 return
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps({"enabled": True,
@@ -2316,6 +2357,83 @@ def main() -> int:
         check(not fdp["panel"] and not fdp["tab"],
               f"W2b B2 factcheck: пустая панель/вкладка ({fdp})", hfails)
 
+        # ── F1 (2.58.213 fix): cross-scope — кэш/строки области A не
+        #    попадают в область B; каждая область делает свой запрос.
+        def _switch_chat_ui(pg, title):
+            pg.click(".scope-trigger")
+            pg.click(".scope-option:has-text('%s')" % title)
+            pg.wait_for_timeout(1300)
+
+        def _switch_chat_vm(pg, chat_id):
+            pg.evaluate("(id) => window.__adminbotVm.setActiveChat(id)",
+                        chat_id)
+            pg.wait_for_timeout(1300)
+
+        B2_MODE.update({"temporal": "perchat", "lessons": "perchat"})
+        B2_GETS.update({"temporal": 0, "lessons": 0})
+        _hopen(hpage, "#/modules/factcheck/history")
+        fca = _b2probe(hpage)
+        report["flows"]["w2b_b2_f1_factcheck_a"] = fca
+        check(fca["rows"] == 1 and fca["rowKeys"] == ["A-run"],
+              f"W2b B2 F1 factcheck A: {fca['rowKeys']}", hfails)
+        B2_GETS["temporal"] = 0
+        _switch_chat_ui(hpage, CHAT_TITLE2)
+        fcb = _b2probe(hpage)
+        report["flows"]["w2b_b2_f1_factcheck_b"] = dict(
+            fcb, gets=B2_GETS["temporal"])
+        check(fcb["rows"] == 1 and fcb["rowKeys"] == ["B-run"],
+              f"W2b B2 F1 factcheck B: строки {fcb['rowKeys']} "
+              f"(ожидался B-run)", hfails)
+        check("A-run" not in fcb["rowKeys"],
+              "W2b B2 F1 factcheck B: протёк A-run из области A", hfails)
+        check(B2_GETS["temporal"] == 1,
+              f"W2b B2 F1 factcheck B: своих запросов "
+              f"{B2_GETS['temporal']} вместо 1", hfails)
+        check(fcb["scrollWidth"] <= fcb["vw"] + 1,
+              f"W2b B2 F1 factcheck B: скролл ({fcb['scrollWidth']})",
+              hfails)
+        B2_GETS["temporal"] = 0
+        _switch_chat_ui(hpage, CHAT_TITLE)
+        fcr = _b2probe(hpage)
+        report["flows"]["w2b_b2_f1_factcheck_back"] = dict(
+            fcr, gets=B2_GETS["temporal"])
+        check(fcr["rows"] == 1 and fcr["rowKeys"] == ["A-run"],
+              f"W2b B2 F1 factcheck back: {fcr['rowKeys']}", hfails)
+        check(B2_GETS["temporal"] == 1,
+              f"W2b B2 F1 factcheck back: запросов "
+              f"{B2_GETS['temporal']} вместо 1", hfails)
+
+        B2_GETS.update({"temporal": 0, "lessons": 0})
+        _hopen(hpage, "#/modules/experience/history")
+        eca = _b2probe(hpage)
+        report["flows"]["w2b_b2_f1_experience_a"] = eca
+        check(eca["rows"] == 1 and eca["rowKeys"] == ["A-lesson@1"],
+              f"W2b B2 F1 experience A: {eca['rowKeys']}", hfails)
+        B2_GETS["lessons"] = 0
+        _switch_chat_ui(hpage, CHAT_TITLE2)
+        ecb = _b2probe(hpage)
+        report["flows"]["w2b_b2_f1_experience_b"] = dict(
+            ecb, gets=B2_GETS["lessons"])
+        check(ecb["rows"] == 1 and ecb["rowKeys"] == ["B-lesson@1"],
+              f"W2b B2 F1 experience B: строки {ecb['rowKeys']} "
+              f"(ожидался B-lesson)", hfails)
+        check("A-lesson@1" not in ecb["rowKeys"],
+              "W2b B2 F1 experience B: протёк A-lesson из области A", hfails)
+        check(B2_GETS["lessons"] == 1,
+              f"W2b B2 F1 experience B: своих запросов "
+              f"{B2_GETS['lessons']} вместо 1", hfails)
+        B2_GETS["lessons"] = 0
+        _switch_chat_ui(hpage, CHAT_TITLE)
+        ecr = _b2probe(hpage)
+        report["flows"]["w2b_b2_f1_experience_back"] = dict(
+            ecr, gets=B2_GETS["lessons"])
+        check(ecr["rows"] == 1 and ecr["rowKeys"] == ["A-lesson@1"],
+              f"W2b B2 F1 experience back: {ecr['rowKeys']}", hfails)
+        check(B2_GETS["lessons"] == 1,
+              f"W2b B2 F1 experience back: запросов "
+              f"{B2_GETS['lessons']} вместо 1", hfails)
+        B2_MODE.update({"temporal": "data", "lessons": "data"})
+
         # ── 390: История фактчека/опыта без горизонтального скролла.
         B2_MODE.update({"temporal": "data", "lessons": "data"})
         b2ctx = browser.new_context(viewport={"width": 390, "height": 844})
@@ -2354,6 +2472,64 @@ def main() -> int:
               hfails)
         check(bex["scrollWidth"] <= bex["vw"] + 1,
               f"W2b B2 390 experience: скролл ({bex['scrollWidth']})", hfails)
+
+        # F1 (390): тот же cross-scope контракт на узком экране.
+        B2_MODE.update({"temporal": "perchat", "lessons": "perchat"})
+        B2_GETS.update({"temporal": 0, "lessons": 0})
+        bp.goto("about:blank")
+        bp.goto(WBASE + "#/modules/factcheck/history", wait_until="load")
+        try:
+            bp.wait_for_selector("[data-workspace-head]", timeout=9000)
+        except Exception:  # noqa: BLE001
+            pass
+        bp.wait_for_timeout(900)
+        f3a = _b2probe(bp)
+        report["flows"]["w2b_b2_f1_390_factcheck_a"] = f3a
+        check(f3a["rows"] == 1 and f3a["rowKeys"] == ["A-run"],
+              f"W2b B2 F1 390 factcheck A: {f3a['rowKeys']}", hfails)
+        B2_GETS["temporal"] = 0
+        _switch_chat_vm(bp, CHAT_ID2)
+        f3b = _b2probe(bp)
+        report["flows"]["w2b_b2_f1_390_factcheck_b"] = dict(
+            f3b, gets=B2_GETS["temporal"])
+        check(f3b["rows"] == 1 and f3b["rowKeys"] == ["B-run"],
+              f"W2b B2 F1 390 factcheck B: {f3b['rowKeys']}", hfails)
+        check("A-run" not in f3b["rowKeys"]
+              and B2_GETS["temporal"] == 1,
+              f"W2b B2 F1 390 factcheck B: протёк A/запросов "
+              f"{B2_GETS['temporal']}", hfails)
+        check(f3b["scrollWidth"] <= f3b["vw"] + 1,
+              f"W2b B2 F1 390 factcheck B: скролл ({f3b['scrollWidth']})",
+              hfails)
+
+        _switch_chat_vm(bp, CHAT_ID)
+        bp.goto("about:blank")
+        bp.goto(WBASE + "#/modules/experience/history", wait_until="load")
+        try:
+            bp.wait_for_selector("[data-workspace-head]", timeout=9000)
+        except Exception:  # noqa: BLE001
+            pass
+        bp.wait_for_timeout(900)
+        e3a = _b2probe(bp)
+        report["flows"]["w2b_b2_f1_390_experience_a"] = e3a
+        check(e3a["rows"] == 1 and e3a["rowKeys"] == ["A-lesson@1"],
+              f"W2b B2 F1 390 experience A: {e3a['rowKeys']}", hfails)
+        B2_GETS["lessons"] = 0
+        _switch_chat_vm(bp, CHAT_ID2)
+        e3b = _b2probe(bp)
+        report["flows"]["w2b_b2_f1_390_experience_b"] = dict(
+            e3b, gets=B2_GETS["lessons"])
+        check(e3b["rows"] == 1 and e3b["rowKeys"] == ["B-lesson@1"],
+              f"W2b B2 F1 390 experience B: {e3b['rowKeys']}", hfails)
+        check("A-lesson@1" not in e3b["rowKeys"]
+              and B2_GETS["lessons"] == 1,
+              f"W2b B2 F1 390 experience B: протёк A/запросов "
+              f"{B2_GETS['lessons']}", hfails)
+        check(e3b["scrollWidth"] <= e3b["vw"] + 1,
+              f"W2b B2 F1 390 experience B: скролл ({e3b['scrollWidth']})",
+              hfails)
+        B2_MODE.update({"temporal": "data", "lessons": "data"})
+
         bp.screenshot(path=os.path.join(SHOTS, "w2b-b2-history-390.png"))
         report["flows"]["w2b_b2_pageerrors"] = berrs
         if berrs:

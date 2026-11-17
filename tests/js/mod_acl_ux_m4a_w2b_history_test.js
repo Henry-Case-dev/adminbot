@@ -156,6 +156,8 @@ function mkCtx(overrides) {
     temporalRuns: [],
     temporalRunsBusy: false,
     temporalRunsAt: 0,
+    temporalRunsScope: '',
+    temporalRunsEpoch: null,
     temporalDetail: null,
     temporalDetailBusy: false,
     lessonsData: null,
@@ -722,6 +724,14 @@ function eq(a, b, msg) {
       'detail: модалка получила прогон');
     methods.openHistoryRowDetail.call(ctx, EXPERIENCE, { lesson_id: 'L1' });
     eq(detailCalls.length, 1, 'experience: detail не вызывается');
+    // F2: кнопка деталей — row-level guard (нужен run_id), а не только
+    // модульная возможность источника.
+    ok(methods.historyRowCanDetail.call(ctx, FACTCHECK,
+      { run_id: 'tfr-2' }), 'factcheck: строка с run_id открывает детали');
+    ok(!methods.historyRowCanDetail.call(ctx, FACTCHECK, { chat_id: -100 }),
+      'factcheck: строка без run_id не рендерит кнопку');
+    ok(!methods.historyRowCanDetail.call(ctx, EXPERIENCE,
+      { lesson_id: 'L1' }), 'experience: row-level detail отсутствует');
   }
 
   {
@@ -1101,6 +1111,128 @@ function eq(a, b, msg) {
     eq(methods.historyRowBadgeClass.call(ectx, EXPERIENCE,
       { status: 'active' }), 'badge-ok',
       'experience: badge активного урока');
+  }
+
+  // ══ (16) F1: cross-scope history — кэш/поздние ответы не текут ═════════
+  {
+    clearStorage();
+    const mkF1 = function (route) {
+      return mkCtx({
+        route: route,
+        activeChatId: -100,
+        scopeEpoch: 0,
+        workspaceTabHasContent: function (m, tabId) {
+          return (m.tabs || []).indexOf(tabId) >= 0 &&
+            this._contentTabs.indexOf(tabId) >= 0;
+        },
+        _contentTabs: ['overview', 'settings', 'history'],
+      });
+    };
+
+    // F1-a: 30-с кэш области A не засевает область B.
+    const ctx = mkF1('#/modules/factcheck/history');
+    ctx._wsTabMemoryLoad();
+    methods._wsHistoryMetaSet.call(ctx, FACTCHECK, 'ready', { rows: 1 });
+    ctx.temporalRuns = [temporalRow('old-run', 1700000100)];
+    ctx.temporalRunsAt = Date.now();
+    ctx.temporalRunsScope = 'chat:-100';
+    ctx.temporalRunsEpoch = 0;
+    let calls = 0;
+    ctx.api = async function () {
+      calls += 1;
+      return { runs: [temporalRow('new-run', 1700000200)] };
+    };
+    methods.setActiveChat.call(ctx, -200);
+    await tick();
+    await tick();
+    eq(calls, 1,
+      'F1 cache: область B делает свой запрос (кэш A не засевает)');
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'ready',
+      'F1 cache: B получает своё ready');
+    const brows = methods.historyRowsFor.call(ctx, FACTCHECK);
+    eq(brows.length, 1, 'F1 cache: у B ровно свои строки');
+    eq(brows[0].run_id, 'new-run',
+      'F1 cache: B не получил old-run из области A');
+    ok(brows.every(function (r) { return r.run_id !== 'old-run'; }),
+      'F1 cache: строк области A в B нет');
+    eq(ctx.temporalRunsScope, 'chat:-200',
+      'F1 cache: кэш помечен областью B');
+    eq(ctx.temporalRunsEpoch, 1, 'F1 cache: кэш помечен epoch B');
+
+    // F1-b: пустой кэш A не даёт B ложный empty без запроса.
+    const ectx = mkF1('#/modules/factcheck/history');
+    ectx._wsTabMemoryLoad();
+    methods._wsHistoryMetaSet.call(ectx, FACTCHECK, 'empty', { rows: 0 });
+    ectx.temporalRuns = [];
+    ectx.temporalRunsAt = Date.now();
+    ectx.temporalRunsScope = 'chat:-100';
+    ectx.temporalRunsEpoch = 0;
+    let ecalls = 0;
+    ectx.api = async function () {
+      ecalls += 1;
+      return { runs: [] };
+    };
+    methods.setActiveChat.call(ectx, -200);
+    await tick();
+    await tick();
+    eq(ecalls, 1, 'F1 cache: пустой кэш A не отменяет запрос B');
+    eq(methods.historyStateFor.call(ectx, FACTCHECK), 'empty',
+      'F1 cache: B получает свой empty после запроса');
+
+    // F1-c: поздний in-flight ответ A не перезаписывает фактчек B.
+    const ictx = mkF1('#/modules/factcheck/history');
+    ictx._wsTabMemoryLoad();
+    let icalls = 0;
+    const dA = deferred();
+    ictx.api = function () {
+      icalls += 1;
+      if (icalls === 1) return dA.p;
+      return Promise.resolve({ runs: [temporalRow('new-run', 1700000200)] });
+    };
+    const loadA = methods.loadTemporalRuns.call(ictx);
+    methods.setActiveChat.call(ictx, -200);
+    await tick();
+    await tick();
+    eq(methods.historyRowsFor.call(ictx, FACTCHECK)[0].run_id, 'new-run',
+      'F1 inflight: B получил свои строки');
+    dA.resolve({ runs: [temporalRow('old-run', 1700000100)] });
+    await loadA;
+    await tick();
+    eq(ictx.temporalRuns[0].run_id, 'new-run',
+      'F1 inflight: поздний ответ A не перезаписал temporalRuns');
+    eq(methods.historyRowsFor.call(ictx, FACTCHECK)[0].run_id, 'new-run',
+      'F1 inflight: строки B остались');
+    eq((ictx.historyMeta || {})['chat:-200|mod_factcheck'].rows, 1,
+      'F1 inflight: мета B не получила строк A');
+
+    // F1-d: поздний in-flight ответ A не перезаписывает уроки B.
+    const lctx = mkF1('#/modules/experience/history');
+    lctx._wsTabMemoryLoad();
+    let lcalls = 0;
+    const dlA = deferred();
+    lctx.api = function () {
+      lcalls += 1;
+      if (lcalls === 1) return dlA.p;
+      return Promise.resolve({ enabled: true, state: 'implemented', count: 1,
+        lessons: [lessonRow('B-lesson', 1, 1700000200, 'active')] });
+    };
+    const loadLA = methods.loadLessons.call(lctx);
+    methods.setActiveChat.call(lctx, -200);
+    await tick();
+    await tick();
+    eq(methods.historyRowsFor.call(lctx, EXPERIENCE)[0].lesson_id,
+      'B-lesson', 'F1 lessons inflight: B получил свои уроки');
+    dlA.resolve({ enabled: true, state: 'implemented', count: 1,
+      lessons: [lessonRow('OLD', 1, 1700000100, 'active')] });
+    await loadLA;
+    await tick();
+    eq(methods.historyRowsFor.call(lctx, EXPERIENCE)[0].lesson_id,
+      'B-lesson', 'F1 lessons inflight: строки B остались');
+    eq(lctx.lessonsData.lessons[0].lesson_id, 'B-lesson',
+      'F1 lessons inflight: поздний A не перезаписал lessonsData');
+    eq(methods.historyStateFor.call(lctx, EXPERIENCE), 'ready',
+      'F1 lessons inflight: состояние B осталось ready');
+    clearStorage();
   }
 
   {
