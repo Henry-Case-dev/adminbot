@@ -1,5 +1,5 @@
 {
-  "captured_at_commit": "86d39a48151d1a881c00516fced3aec56d39172f",
+  "captured_at_commit": "a2f92b7d97310c66a1786556c2794c5386887e89",
   "command": "python tools/release_manifest.py --dry-run",
   "exit_code": 0,
   "deploy_dir_created_for_reconstruction": true,
@@ -7,8 +7,8 @@
   "deploy_dir_removed_after_run": true,
   "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy input removed",
   "manifest": {
-    "deployed_at": "2026-11-17T02:45:24.342643Z",
-    "deployed_sha": "86d39a48151d1a881c00516fced3aec56d39172f",
+    "deployed_at": "2026-11-17T03:27:54.028510Z",
+    "deployed_sha": "a2f92b7d97310c66a1786556c2794c5386887e89",
     "dirty_tracked": false,
     "effect": "deploy",
     "previous_sha": "e070c229bfdafcc9b07115ad55fba8dde2e8cffb",
@@ -30,5 +30,5 @@
     },
     "removed_after_run": true
   },
-  "note": "The manifest is produced at the content tip (bump commit; all W2b B2 code/tests included). The release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
+  "note": "The manifest is produced at the content tip (bump + F1 fix; all W2b B2 code/tests included). The release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
 }

@@ -10,10 +10,11 @@
   "review_verdict": "Approved for 2.58.213 release preparation",
   "candidate_tip": "7441fd8facb282e8b1c2117ee9307268a119545a",
   "candidate_commits": [
-    "7441fd8facb282e8b1c2117ee9307268a119545a"
+    "7441fd8facb282e8b1c2117ee9307268a119545a",
+    "a2f92b7d97310c66a1786556c2794c5386887e89"
   ],
   "bump_commit": "86d39a48151d1a881c00516fced3aec56d39172f",
-  "content_tip": "86d39a48151d1a881c00516fced3aec56d39172f",
+  "content_tip": "a2f92b7d97310c66a1786556c2794c5386887e89",
   "environment": {
     "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
     "node": "v24.16.0",
@@ -21,14 +22,19 @@
     "network": "none used by tests; local in-memory SQLite only"
   },
   "diff_vs_base": {
-    "files": 36,
-    "insertions": 1523,
-    "deletions": 134,
+    "files": 41,
+    "insertions": 2355,
+    "deletions": 136,
     "candidate_files": 6,
     "candidate_insertions": 1492,
     "candidate_deletions": 103,
     "bump_files": 30,
     "bump_lines": 31,
+    "evidence_files": 5,
+    "evidence_insertions": 475,
+    "fix_files": 5,
+    "fix_insertions": 369,
+    "fix_deletions": 14,
     "product_files": [
       "web/app.js",
       "web/index.html",
@@ -85,9 +91,9 @@
       "id": "js-w2b-unit",
       "command": "node tests/js/mod_acl_ux_m4a_w2b_history_test.js",
       "result": {
-        "checks": 217,
+        "checks": 237,
         "failed": 0,
-        "covers": "B1 126 + B2: sources/tabs, state machine, detail по run_id, конверт уроков enabled/state/count, fail-closed source, default≠history, pending memory, max(ts), observed_at, cross-source, фильтры"
+        "covers": "B1 126 + B2: sources/tabs, state machine, detail по run_id, конверт уроков enabled/state/count, fail-closed source, default≠history, pending memory, max(ts), observed_at, cross-source, фильтры; F1: cross-scope кэш/epoch и поздние ответы"
       }
     },
     {
@@ -137,8 +143,8 @@
         "failures": 0,
         "viewports": 5,
         "viewports_list": ["1440x900", "1280x800", "768x1024", "390x844", "320x568"],
-        "flows": 83,
-        "b2_flows": 20,
+        "flows": 93,
+        "b2_flows": 30,
         "b2_facts": {
           "factcheck_overview": {"rows": 5, "blocks": 1, "detail_buttons": 5, "tab": true},
           "factcheck_history": {"rows": 6, "unique_keys": 6, "filter_options": 5, "detail_buttons": 6},
@@ -167,7 +173,17 @@
           },
           "chips_rows": 1,
           "duplicate_chips": 0,
-          "pageerrors": []
+          "pageerrors": [],
+          "f1_cross_scope": {
+            "1280": {
+              "factcheck": {"A": ["A-run"], "B": ["B-run"], "back": ["A-run"], "own_requests_per_switch": 1},
+              "experience": {"A": ["A-lesson@1"], "B": ["B-lesson@1"], "back": ["A-lesson@1"], "own_requests_per_switch": 1}
+            },
+            "390": {
+              "factcheck": {"A": ["A-run"], "B": ["B-run"], "own_requests_per_switch": 1, "scrollWidth": 390, "vw": 390},
+              "experience": {"A": ["A-lesson@1"], "B": ["B-lesson@1"], "own_requests_per_switch": 1, "scrollWidth": 390, "vw": 390}
+            }
+          }
         }
       }
     },
@@ -187,7 +203,7 @@
       "result": {
         "rc": 0,
         "version": "2.58.213",
-        "deployed_sha": "86d39a48151d1a881c00516fced3aec56d39172f",
+        "deployed_sha": "a2f92b7d97310c66a1786556c2794c5386887e89",
         "previous_sha": "e070c229bfdafcc9b07115ad55fba8dde2e8cffb",
         "previous_version": "2.58.212",
         "dirty_tracked": false,
@@ -203,5 +219,34 @@
       }
     }
   ],
-  "note": "The manifest is produced at the content tip (bump commit; all W2b B2 code/tests included). Release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
+  "f1_cross_scope": {
+    "finding": "F1 (blocker, High): loadTemporalRuns/loadLessons применяли ответ/кэш без scopeEpoch; 30-с кэш засевал meta текущего scope строками A, поздний in-flight A перезаписывал B.",
+    "fix": "scope-aware кэш {scopeKey, epoch, at, rows}; epoch фиксируется до запроса; then/catch/finally отбрасывают чужой ответ; meta/строки/lessonsData текущего ключа не перезаписываются.",
+    "red_candidate": "fc4e9a7c",
+    "red_probe_fc4e9a7c": {
+      "cache": {"calls": 0, "stateB": "ready", "rowsB": ["old-run"], "cacheScope": "chat:-100", "cacheEpoch": 0},
+      "factcheck_inflight": {"afterB": ["new-run"], "finalRows": ["old-run"], "temporalRuns": ["old-run"]},
+      "lessons_inflight": {"afterB": ["B-lesson"], "finalRows": ["OLD"], "lessonsData": ["OLD"]}
+    },
+    "red_test_fc4e9a7c": [
+      "AssertionError: F1 cache: область B делает свой запрос (кэш A не засевает)",
+      "AssertionError: F1 inflight: поздний ответ A не перезаписал temporalRuns",
+      "AssertionError: F1 lessons inflight: строки B остались"
+    ],
+    "red_e2e_fc4e9a7c": {
+      "failures": 12,
+      "factcheck": "B получил A-run, 0 своих запросов (1280 и 390)"
+    },
+    "fixed_probe_a2f92b7d": {
+      "cache": {"calls": 1, "stateB": "ready", "rowsB": ["new-run"], "cacheScope": "chat:-200", "cacheEpoch": 1},
+      "factcheck_inflight": {"afterB": ["new-run"], "finalRows": ["new-run"], "temporalRuns": ["new-run"]},
+      "lessons_inflight": {"afterB": ["B-lesson"], "finalRows": ["B-lesson"], "lessonsData": ["B-lesson"]}
+    },
+    "mutations": [
+      {"id": "M1", "change": "снять epoch-guard в loadTemporalRuns", "result": "KILLED: F1 inflight: поздний ответ A не перезаписал temporalRuns"},
+      {"id": "M2", "change": "вернуть глобальный 30-с кэш (без scopeKey/epoch)", "result": "KILLED: F1 cache: область B делает свой запрос (кэш A не засевает)"},
+      {"id": "M3", "change": "снять epoch-guard в loadLessons", "result": "KILLED: F1 lessons inflight: строки B остались"}
+    ]
+  },
+  "note": "The manifest is produced at the content tip (bump + F1 fix; all W2b B2 code/tests included). Release evidence files are added by the following docs commit on the same branch and change no product code. The deploy-time manifest on production records the actually deployed commit itself."
 }

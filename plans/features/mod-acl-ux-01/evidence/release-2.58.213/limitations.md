@@ -18,6 +18,16 @@
 - Backend/ACL/storage/composer/prompt registry не менялись; новых API, таблиц,
   полей и миграций нет.
 
+## F1 (fixed in this tip)
+Cross-scope history (blocker High, дельта-ревью `fc4e9a7c`) исправлен в
+`a2f92b7d`: 30-с кэш `temporalRuns` помечен `{scopeKey, epoch}` и не
+засевает чужую область; `loadTemporalRuns`/`loadLessons` фиксируют
+`scopeEpoch` до запроса и отбрасывают поздний ответ/ошибку другой области
+(then/catch/finally). Область B получает только свои строки (`B-run`/
+`B-lesson`) и делает свой запрос; A→B→A на 1280 и 390 — по одному запросу
+на область, без чужих строк и без overflow. RED/мутации — в
+`tests-2.58.213.json` (`f1_cross_scope`).
+
 ## Browser Use / CDP
 Browser Use недоступен в этой сессии:
 - `Test-NetConnection 127.0.0.1:9222` → **False**;

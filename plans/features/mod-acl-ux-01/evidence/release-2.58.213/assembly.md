@@ -5,11 +5,11 @@
 | Дата сборки | 2026-11-17 |
 | Ветка | `release/mod-acl-w2b2-2.58.213` |
 | База (предыдущий релиз / откат) | `e070c229bfdafcc9b07115ad55fba8dde2e8cffb` (2.58.212) |
-| Approved candidate | `7441fd8facb282e8b1c2117ee9307268a119545a` (W2b B2; Reviewer: **Approved for 2.58.213 release preparation**) |
-| Candidate commits | `7441fd8f` (W2b B2 код/тесты/e2e + RED-evidence) |
+| Approved candidate | `7441fd8facb282e8b1c2117ee9307268a119545a` (W2b B2; Reviewer: **Approved for 2.58.213 release preparation**, затем дельта-ревью Needs Fixes F1) |
+| Fix commit (F1/F2/F3/F4) | `a2f92b7d97310c66a1786556c2794c5386887e89` |
+| Content tip | `a2f92b7d97310c66a1786556c2794c5386887e89` |
 | Bump commit | `86d39a48151d1a881c00516fced3aec56d39172f` |
-| Content tip | `86d39a48151d1a881c00516fced3aec56d39172f` |
-| Версия | 2.58.213 |
+| Версия | 2.58.213 (bump не менялся) |
 | Статус | **REVIEW** (не деплой, не VERIFIED) |
 | Деплой | не выполнялся; production не затронут |
 
@@ -19,23 +19,27 @@
 |---|---|---|
 | W2b B2 candidate (`e070c229..7441fd8f`) | 6 | +1492 / -103 |
 | Bump 2.58.212→2.58.213 (`7441fd8f..86d39a48`) | 30 | +31 / -31 |
-| **Итого от базы** (`e070c229..86d39a48`) | **36** | **+1523 / -134** |
+| Release evidence (`86d39a48..fc4e9a7c`) | 5 | +475 |
+| F1/F2/F3/F4 fix (`fc4e9a7c..a2f92b7d`) | 5 | +369 / -14 |
+| **Итого от базы до content tip** (`e070c229..a2f92b7d`) | **41** | **+2355 / -136** |
 
-W2b B2-файлы: `web/app.js`, `web/index.html`,
+Продуктовый diff fix-коммита: `web/app.js` (scope-aware кэш + epoch-guard
+`loadTemporalRuns`/`loadLessons`, row-level `historyRowCanDetail`),
+`web/index.html` (кнопка «Детали» только при `run_id`); тесты и e2e —
 `tests/js/mod_acl_ux_m4a_w2b_history_test.js`,
-`tests/js/round1025_f5_workspace_route_test.js` (снимок карты вкладок
-Фактчека +`history`), `tools/ui_mod_acl_m4_catalog_e2e.py`,
-`plans/features/mod-acl-ux-01/evidence/m4a/w2b2/red-e070c229.txt`.
+`tools/ui_mod_acl_m4_catalog_e2e.py`; `limitations.md` (F2/F3/F4).
 `web/static/app.css` не изменялся (использованы существующие
-`.module-history*`). Продуктовых файлов сверх B2 и bump нет; `services/`,
-`web/api/`, `database/`, `deploy_v2.9.2.py`, `module_registry.py`, ACL,
-prompt registry, storage и `WS_OVERVIEW_LIVE` не изменялись.
+`.module-history*`). Продуктовых файлов сверх B2/B2-fix/bump нет;
+`services/`, `web/api/`, `database/`, `deploy_v2.9.2.py`,
+`module_registry.py`, ACL, prompt registry, storage и `WS_OVERVIEW_LIVE`
+не изменялись. Версия/пины остались 2.58.213.
 
-## Содержание B2 (H-1…H-7)
+## Содержание B2 (H-1…H-7) и F1
 
 - `factcheck.temporal.runs` → существующий
   `GET /api/factcheck/temporal/runs?limit=20` (`{runs}`), детали —
-  существующая модалка `openTemporalDetail(run_id)` только при наличии id.
+  существующая модалка `openTemporalDetail(run_id)` только при наличии id
+  (row-level guard, F2).
 - `memory.lessons` → существующий `GET /api/memory/lessons` (конверт
   `{enabled,state,count,lessons}`); строка «уроков: N / state», фильтр по
   статусу урока, `updated_at`/`created_at`, `scope`/`scope_chat_id`.
@@ -51,6 +55,12 @@ prompt registry, storage и `WS_OVERVIEW_LIVE` не изменялись.
   не-владельца — `denied` без запроса).
 - Один существующий лоадер на источник, без нового поллера; вкладка и
   простой не добавляют запросов.
+- **F1 (cross-scope):** 30-с кэш `temporalRuns` помечен `{scopeKey, epoch}` и
+  используется только в своей области; `loadTemporalRuns`/`loadLessons`
+  фиксируют `scopeEpoch` до запроса и отбрасывают поздний ответ другой
+  области (then/catch/finally), не перезаписывая `temporalRuns`/
+  `lessonsData`/мету текущего ключа. Область B не получает строк/`ready`/
+  `empty` области A без своего запроса.
 
 ## Bump (30 файлов / 31 строка)
 
@@ -72,16 +82,17 @@ prompt registry, storage и `WS_OVERVIEW_LIVE` не изменялись.
 |---|---|
 | Обязательный pytest (M4A/M2/M2.1 + f8 + mca23 + webapp JS unit), 24 файла | **386 passed, 0 failed** |
 | 24 bumped py-файла (пины) | **856 passed, 4 failed** — те же pre-existing epic-scope guards |
-| W2b node-юнит (B1+B2) | **217 проверок OK** |
+| W2b node-юнит (B1+B2+F1) | **237 проверок OK** |
 | W2a node-юнит | **141 проверка OK** |
 | `routing_test.js` | **JS-UNIT-OK** |
 | W11/W12 guard-тесты | **2 passed** |
 | `tests/test_webapp_*.py` (64 файла) | 33 failed / 1455 passed — **те же 33 pre-existing**, новых нет |
 | Полный `tests/js/*.js` (121, без fixture) | **117 passed**, те же 4 pre-existing fail |
-| Playwright e2e, 5 viewport | **failures=0**, 5 viewports, 83 flows (20 B2) |
+| Playwright e2e, 5 viewport | **failures=0**, 5 viewports, 93 flows (30 B2) |
 | B2 e2e факты | factcheck: Обзор 5 строк/1 блок, История 6 строк/6 ключей; experience: Обзор 3/1, История 4 строки, «уроков: 4 / implemented»; detail по `run_id` = 1 запрос; 403/503/available:false/enabled:false → нет вкладки; deep link → bare; один ряд чипов; 390: 6/4 строк, scrollWidth 390 |
+| F1 e2e (cross-scope) | 1280 и 390, factcheck и experience: A→B→A, строки только своей области (`A-run`/`B-run`, `A-lesson@1`/`B-lesson@1`), по 1 своему запросу на область, `scrollWidth=vw`, строки 12px |
 | `node --check web/app.js` | rc 0 |
-| `git diff --check e070c229..86d39a48` | rc 0 |
+| `git diff --check e070c229..a2f92b7d` | rc 0 |
 
 ## Manifest (dry-run на чистом дереве content tip)
 
@@ -90,7 +101,7 @@ prompt registry, storage и `WS_OVERVIEW_LIVE` не изменялись.
 `e070c229bfdafcc9b07115ad55fba8dde2e8cffb`, previous manifest branch
 `release/mod-acl-w2b-2.58.212`; production не читался):
 
-version **2.58.213**, deployed_sha **86d39a48151d1a881c00516fced3aec56d39172f**,
+version **2.58.213**, deployed_sha **a2f92b7d97310c66a1786556c2794c5386887e89**,
 previous_sha **e070c229bfdafcc9b07115ad55fba8dde2e8cffb**, previous_version
 2.58.212, release_branch **release/mod-acl-w2b2-2.58.213**, dirty_tracked
 **false**, effect deploy, schema 1. `.deploy` создан только для реконструкции
@@ -108,7 +119,8 @@ in-memory/client-side (`historyMeta` в JS и id вкладки в localStorage)
 
 - `assembly.md` (этот файл), `tests-2.58.213.json`,
   `manifest-dry-run.json`, `rollback.json`, `limitations.md`;
-- W2b B2 RED/мутации: `evidence/m4a/w2b2/red-e070c229.txt`;
+- W2b B2 RED/мутации и F1 RED: `evidence/m4a/w2b2/red-e070c229.txt`
+  (F1 RED/мутации — в `tests-2.58.213.json`, раздел `f1_cross_scope`);
 - W2b B1 baseline: `evidence/release-2.58.212/`;
 - W2a baseline: `evidence/release-2.58.211/`.
 
