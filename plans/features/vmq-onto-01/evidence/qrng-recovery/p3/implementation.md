@@ -4,7 +4,7 @@
 **Стадия:** P3 из arch-decision `plans/features/vmq-onto-01/evidence/qrng-recovery/arch-decision-2026-11-17.md` (§3 D4/D5/D6, §6 P3).
 **Требования:** `QAN-REC-REG-01` (расширение реестра), `QAN-REC-SEL-01`, `QAN-REC-SEL-02`, `QAN-REC-FALL-01`, `QAN-REC-FALL-02`; регрессия `QAN-REC-EXC-01…05`, `QAN-REC-PROV-02`, `QAN-REC-LFDR-01` (N1).
 **База:** P2 approved tip `84abc2e5` (ветка `fix/qrng-p2`), не master/deployed.
-**Ветка:** `fix/qrng-p3`; кандидат кода/тестов: **`d2ce1907`** (+ этот evidence-коммит).
+**Ветка:** `fix/qrng-p3`; кандидат: **`835b2433`** (F2/F3/F1 corrective; предыдущий review target — `79b1e6ba`, code `d2ce1907`) + этот evidence-коммит.
 **Статус:** REVIEW (не VERIFIED, не деплой, версия не bumped). P4/P5 не начаты.
 
 ## 1. Что сделано (ровно P3)
@@ -24,6 +24,9 @@
 | `RandomStore.provider_ids` | аддитивный фильтр `reserve_draw`/`reserve_chunk`: значения берутся у выбранного провайдера, а не у «самой старой партии» любого |
 | LfDR refill | `_do_lfdr_refill` через ОДИН сервисный `LfdrClient` (`set_lfdr_client`/`_get_lfdr_client`), N1 закрыт: breaker/min-interval общие между вызовами |
 | `startup()`/`refill_if_needed()` | цель — первый запрашиваемый провайдер действующего порядка; ANU-путь прежний (квота/активация/fingerprint), LfDR — публичная партия с NULL-fingerprint; `mca_random_state` (ANU-scoped, G16) LfDR не пишет |
+| **F2 failover** | `_refill_plan`/`_provider_skip_reason`: bounded-проход по порядку, breaker/постоянные блокеры исключаются, при неудаче — следующий; `completed` только с зачисленной партией, полный провал — `failed`+`attempts` |
+| **F3 factory default** | `DEFAULT_FALLBACK=False`, `Settings.RANDOM_FALLBACK_TO_PSEUDORANDOM=False` для новых установок; сохранённая строка владельца не перезаписывается (PG seed ON CONFLICT DO NOTHING) |
+| **F1 chat read scope** | chat-scope `GET /api/config` скрывает три `SELECTOR_SETTING_KEYS` от non-global-admin; global admin/global scope видят |
 | `status_snapshot` | селектор + `prng_active`/`prng_setting`, per-provider `configured/state/consumable/quarantined/reserve`, `lfdr_state`, суммарный `reserve_remaining` |
 
 ## 2. Контракт резолва (D5/D6)
