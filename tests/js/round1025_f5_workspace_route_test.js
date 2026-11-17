@@ -147,8 +147,15 @@ function mkCoverageCtx(m) {
        // ASAP-2.1 (T-3973/ADR-1028-1 контракт (i)): 'prep' удалён вместе
        // с группами префильтра.
        // EXTRA (ADR-1028-4 D12/§56): редактор обложечных стилей.
-       'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles'],
-      'a: карта вкладок Саммари (§85 + ASAP-2 + ASAP-2.1 без prep + EXTRA styles)');
+       // MOD-ACL-UX-01 M4A W2b-B3 (2.58.214): «История» прогонов сводок.
+       'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles',
+       'history'],
+      'a: карта вкладок Саммари (§85 + ASAP-2 + ASAP-2.1 без prep + EXTRA styles + W2b-B3 history)');
+    // W2b-B3: подмодуль «Источник случайности» получает собственную страницу
+    // с историей прогонов `random.uses`.
+    assert.deepStrictEqual(moduleById('mod_random').tabs,
+      ['overview', 'settings', 'history'],
+      'a: карта вкладок «Источника случайности» (W2b-B3 history)');
   }
 
   // ── (b) Динамический резолвер + RBAC/kill-switch ─────────────────────

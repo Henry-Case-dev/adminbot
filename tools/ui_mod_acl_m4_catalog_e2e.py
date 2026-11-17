@@ -340,6 +340,56 @@ B2_MODE = {"temporal": "data", "lessons": "data"}
 B2_GETS = {"temporal": 0, "lessons": 0}
 B2_DETAIL_GETS = {"temporal": 0}
 
+# ── W2b-B3: прогоны «Сводок»/«Источника случайности» (oversight read-API) ──
+# 6 прогонов → «Обзор»: «Сейчас» + 5, вкладка «История» — все 6.
+SUMMARY_RUNS = [
+    {"pipeline_run_id": "srun-1", "pipeline_type": "summary.window",
+     "pipeline_version": "1", "status": "succeeded", "started_ts": 1794909600,
+     "updated_ts": 1794909604, "events_total": 3, "stages_total": 2,
+     "stages_failed": 0, "stages_ok": 2, "chat_id": CHAT_ID},
+    {"pipeline_run_id": "srun-2", "pipeline_type": "summary.window",
+     "pipeline_version": "1", "status": "failed", "started_ts": 1794909500,
+     "updated_ts": 1794909510, "events_total": 3, "stages_total": 2,
+     "stages_failed": 1, "stages_ok": 1, "chat_id": CHAT_ID},
+    {"pipeline_run_id": "srun-3", "pipeline_type": "summary.window",
+     "pipeline_version": "1", "status": "partial", "started_ts": 1794909400,
+     "updated_ts": 1794909408, "events_total": 3, "stages_total": 2,
+     "stages_failed": 1, "stages_ok": 1, "chat_id": CHAT_ID2},
+    {"pipeline_run_id": "srun-4", "pipeline_type": "summary.window",
+     "pipeline_version": "1", "status": "failed", "started_ts": 1794909300,
+     "updated_ts": 1794909310, "events_total": 2, "stages_total": 2,
+     "stages_failed": 2, "stages_ok": 0, "chat_id": CHAT_ID},
+    {"pipeline_run_id": "srun-5", "pipeline_type": "summary.window",
+     "pipeline_version": "1", "status": "succeeded", "started_ts": 1794909200,
+     "updated_ts": 1794909204, "events_total": 3, "stages_total": 2,
+     "stages_failed": 0, "stages_ok": 2, "chat_id": CHAT_ID2},
+    {"pipeline_run_id": "srun-6", "pipeline_type": "summary.window",
+     "pipeline_version": "1", "status": "degraded", "started_ts": 1794909100,
+     "updated_ts": 1794909110, "events_total": 3, "stages_total": 2,
+     "stages_failed": 1, "stages_ok": 1, "chat_id": CHAT_ID},
+]
+RANDOM_RUNS = [
+    {"pipeline_run_id": "rrun-1", "pipeline_type": "random.uses",
+     "pipeline_version": "1", "status": "succeeded", "started_ts": 1794909600,
+     "updated_ts": 1794909601, "events_total": 2, "stages_total": 1,
+     "stages_failed": 0, "stages_ok": 1, "chat_id": CHAT_ID},
+    {"pipeline_run_id": "rrun-2", "pipeline_type": "random.uses",
+     "pipeline_version": "1", "status": "failed", "started_ts": 1794909500,
+     "updated_ts": 1794909503, "events_total": 2, "stages_total": 1,
+     "stages_failed": 1, "stages_ok": 0, "chat_id": CHAT_ID2},
+    {"pipeline_run_id": "rrun-3", "pipeline_type": "random.uses",
+     "pipeline_version": "1", "status": "succeeded", "started_ts": 1794909400,
+     "updated_ts": 1794909401, "events_total": 2, "stages_total": 1,
+     "stages_failed": 0, "stages_ok": 1, "chat_id": CHAT_ID},
+]
+# data | empty | denied | off | unavailable
+B3_MODE = {"summary": "data", "random": "data"}
+B3_GETS = {"summary": 0, "random": 0, "detail": 0}
+# Ряды, которые отдаёт стаб (для A→B→A: ответы разных областей различаются —
+# `GET /api/oversight/runs` серверно НЕ фильтруется по чату, поэтому
+# изоляцию состояния проверяем на явно разных ответах).
+B3_ROWS = {"summary": SUMMARY_RUNS, "random": RANDOM_RUNS}
+
 
 API_STUBS = [
     ("/api/me", ME_JSON),
@@ -491,6 +541,56 @@ def main() -> int:
                 else CONFIG_GLOBAL
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps(payload))
+            return
+        if url.endswith("/api/oversight/runs"):
+            # B3: прогоны сводок/случайности. `run_id=` — режим детали
+            # (deep link `#/oversight?view=runs&run_id=`).
+            if "run_id=" in req.url:
+                B3_GETS["detail"] += 1
+                run_id = req.url.split("run_id=")[1].split("&")[0]
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({
+                                  "available": True, "enabled": True,
+                                  "run": {"pipeline_run_id": run_id,
+                                          "pipeline_type": "summary.window",
+                                          "status": "failed",
+                                          "started_ts": 1794909500,
+                                          "updated_ts": 1794909510,
+                                          "duration_ms": 10000,
+                                          "stages_total": 2,
+                                          "stages_failed": 1,
+                                          "stages_ok": 1,
+                                          "chat_id": CHAT_ID,
+                                          "stages": []}}))
+                return
+            kind = "summary" if "pipeline_type=summary.window" in req.url \
+                else ("random" if "pipeline_type=random.uses" in req.url
+                      else "")
+            if not kind:
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"available": True,
+                                               "enabled": True, "runs": []}))
+                return
+            B3_GETS[kind] += 1
+            mode = B3_MODE[kind]
+            if mode == "denied":
+                route.fulfill(status=403, content_type="application/json",
+                              body=json.dumps({"detail": "нет доступа"}))
+                return
+            if mode == "off":
+                route.fulfill(status=503, content_type="application/json",
+                              body=json.dumps({"detail": "выключено"}))
+                return
+            if mode == "unavailable":
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps({"available": False,
+                                               "enabled": False, "runs": []}))
+                return
+            rows = [] if mode == "empty" else B3_ROWS[kind]
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps({"available": True, "enabled": True,
+                                           "runs": rows, "counts": {},
+                                           "next_cursor": None}))
             return
         if url.endswith("/api/factcheck/temporal/runs"):
             B2_GETS["temporal"] += 1
@@ -2564,6 +2664,363 @@ def main() -> int:
         b2ctx.close()
         B2_MODE.update({"temporal": "data", "lessons": "data"})
         B2_GETS.update({"temporal": 0, "lessons": 0})
+
+        # ═══ W2b-B3 (2.58.214): «История» Сводок и Источника случайности ═════
+        # H-1/H-2/H-3/H-5/H-6/H-7: те же вкладка/состояния/фильтр/deep link,
+        # источник — существующий `GET /api/oversight/runs?pipeline_type=…`;
+        # деталь — существующий deep link `#/oversight?view=runs&run_id=`.
+        B3_MODE.update({"summary": "data", "random": "data"})
+        B3_GETS.update({"summary": 0, "random": 0, "detail": 0})
+        B3_ROWS.update({"summary": SUMMARY_RUNS, "random": RANDOM_RUNS})
+
+        def _b3probe(pg):
+            return pg.evaluate(
+                "() => {"
+                " const tab = document.querySelector("
+                "  '[data-workspace-tabs] [data-workspace-tab=history]');"
+                " const sel = document.querySelector('#module-history-filter');"
+                " const cur = document.querySelector("
+                "  '[data-workspace-tabs] [aria-selected=\"true\"]');"
+                " return {hash: location.hash,"
+                "  tab: !!tab,"
+                "  activeTab: cur ? cur.getAttribute('data-workspace-tab')"
+                "                  : null,"
+                "  panel: !!document.querySelector('[data-module-history]'),"
+                "  rows: document.querySelectorAll("
+                "   '[data-module-history-row]').length,"
+                "  ovRows: document.querySelectorAll("
+                "   '[data-overview-history-row]').length,"
+                "  ovBlocks: document.querySelectorAll("
+                "   '[data-overview-history]').length,"
+                "  sumBlocks: document.querySelectorAll("
+                "   '[data-summary-runs]').length,"
+                "  rndBlocks: document.querySelectorAll("
+                "   '[data-random-runs]').length,"
+                "  chipsRows: document.querySelectorAll("
+                "   '[data-workspace-chips]').length,"
+                "  dupChips: document.querySelectorAll("
+                "   '[data-overview-chips]').length,"
+                "  state: (() => { const s = document.querySelector("
+                "   '[data-overview-history-state]');"
+                "   return s ? s.getAttribute('data-overview-history-state')"
+                "            : null; })(),"
+                "  filterOpts: sel ? sel.options.length : 0,"
+                "  rowKeys: Array.from(document.querySelectorAll("
+                "   '[data-module-history-row]')).map(function (r) {"
+                "    return r.getAttribute('data-history-row-key'); }),"
+                "  rowStatuses: Array.from(document.querySelectorAll("
+                "   '[data-module-history-row]')).map(function (r) {"
+                "    return r.getAttribute('data-history-status'); }),"
+                "  ovKeys: Array.from(document.querySelectorAll("
+                "   '[data-overview-history-row]')).map(function (r) {"
+                "    return r.getAttribute('data-history-row-key'); }),"
+                "  runLinks: document.querySelectorAll("
+                "   '[data-module-history] [data-history-run-link]').length,"
+                "  ovRunLinks: document.querySelectorAll("
+                "   '[data-overview-history] [data-history-run-link]').length,"
+                "  firstHref: (() => { const a = document.querySelector("
+                "   '[data-history-run-link]');"
+                "   return a ? a.getAttribute('href') : null; })(),"
+                "  historyFontSize: (() => { const r = document.querySelector("
+                "   '[data-module-history-row]');"
+                "   return r ? getComputedStyle(r).fontSize : null; })(),"
+                "  scrollWidth: document.documentElement.scrollWidth,"
+                "  vw: window.innerWidth}; }")
+
+        # ── Сводки: дефолт — не history; Обзор = «Сейчас» + 5 прогонов.
+        _hopen(hpage, "#/modules/summary")
+        sdef = _b3probe(hpage)
+        report["flows"]["w2b_b3_summary_default"] = sdef
+        check(sdef["tab"] and sdef["activeTab"] != "history",
+              f"W2b B3 summary: history стала дефолтной вкладкой "
+              f"({sdef['activeTab']})", hfails)
+        _hopen(hpage, "#/modules/summary/overview")
+        so = _b3probe(hpage)
+        report["flows"]["w2b_b3_summary_overview"] = so
+        check(so["tab"], "W2b B3 summary: нет вкладки history при 200+runs",
+              hfails)
+        check(so["sumBlocks"] == 1 and so["ovBlocks"] == 1
+              and so["ovRows"] == 5,
+              f"W2b B3 summary: Обзор {so['ovRows']} строк/"
+              f"{so['ovBlocks']} блоков/{so['sumBlocks']} адресов", hfails)
+        check(so["ovRunLinks"] == 5,
+              f"W2b B3 summary: ссылок деталей {so['ovRunLinks']} вместо 5",
+              hfails)
+        check(so["chipsRows"] == 1 and so["dupChips"] == 0,
+              f"W2b B3 summary: рядов чипов {so['chipsRows']} "
+              f"(+дубль {so['dupChips']})", hfails)
+        check(so["firstHref"] == "#/oversight?view=runs&run_id=srun-2",
+              f"W2b B3 summary: первая ссылка Обзора «{so['firstHref']}» "
+              f"(строка «Сейчас» не дублируется)", hfails)
+        check(so["scrollWidth"] <= so["vw"] + 1,
+              f"W2b B3 summary: горизонтальный скролл Обзора "
+              f"({so['scrollWidth']})", hfails)
+
+        # ── Сводки/История: 6 строк, уникальные ключи, фильтр по статусу.
+        _hopen(hpage, "#/modules/summary/history")
+        sh = _b3probe(hpage)
+        report["flows"]["w2b_b3_summary_history"] = sh
+        check(sh["hash"].endswith("/summary/history") and sh["panel"],
+              f"W2b B3 summary/history: панель не открылась ({sh})", hfails)
+        check(sh["rows"] == 6,
+              f"W2b B3 summary/history: строк {sh['rows']} вместо 6", hfails)
+        check(len(set(sh["rowKeys"])) == 6 and all(sh["rowKeys"]),
+              f"W2b B3 summary/history: ключи {sh['rowKeys']}", hfails)
+        check(all(k.startswith("srun-") for k in sh["rowKeys"]),
+              f"W2b B3 summary/history: чужие строки {sh['rowKeys']}", hfails)
+        check(sh["runLinks"] == 6,
+              f"W2b B3 summary/history: ссылок деталей {sh['runLinks']} "
+              f"вместо 6", hfails)
+        check(sh["filterOpts"] >= 4,
+              f"W2b B3 summary/history: опций фильтра {sh['filterOpts']} "
+              f"(нужно ≥4)", hfails)
+        if sh["filterOpts"] >= 2:
+            hpage.select_option("#module-history-filter", "failed")
+            hpage.wait_for_timeout(260)
+            sf = _b3probe(hpage)
+            report["flows"]["w2b_b3_summary_filter"] = sf
+            check(sf["rows"] == 2 and all(s == "failed"
+                                          for s in sf["rowStatuses"]),
+                  f"W2b B3 summary: фильтр failed дал {sf['rows']} строк "
+                  f"{sf['rowStatuses']}", hfails)
+            hpage.select_option("#module-history-filter", "")
+            hpage.wait_for_timeout(220)
+            check(_b3probe(hpage)["rows"] == 6,
+                  "W2b B3 summary: сброс фильтра не вернул строки", hfails)
+
+        # ── Деталь прогона: существующий deep link наблюдаемости по run_id.
+        detail_before = B3_GETS["detail"]
+        if hpage.query_selector(
+                "[data-module-history] [data-history-run-link]"):
+            hpage.click("[data-module-history] [data-history-run-link]")
+            hpage.wait_for_timeout(900)
+            dprobe = _b3probe(hpage)
+            report["flows"]["w2b_b3_run_detail"] = {
+                "hash": dprobe["hash"],
+                "gets": B3_GETS["detail"] - detail_before,
+            }
+            check("view=runs" in dprobe["hash"]
+                  and "run_id=srun-1" in dprobe["hash"],
+                  f"W2b B3 detail: deep link не открыт ({dprobe['hash']})",
+                  hfails)
+            check(B3_GETS["detail"] >= detail_before + 1,
+                  "W2b B3 detail: прогон не запрошен по run_id", hfails)
+            check(not dprobe["panel"],
+                  "W2b B3 detail: панель истории осталась на экране "
+                  "наблюдаемости", hfails)
+        else:
+            report["flows"]["w2b_b3_run_detail"] = None
+            check(False, "W2b B3 summary: ссылка детали не найдена", hfails)
+
+        # ── H-7: один автоматический фетч сводок (вкладка не плодит).
+        B3_GETS.update({"summary": 0, "random": 0, "detail": 0})
+        _hopen(hpage, "#/modules/summary")
+        try:
+            hpage.wait_for_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]",
+                timeout=6000)
+        except Exception:  # noqa: BLE001
+            pass
+        n1 = B3_GETS["summary"]
+        if hpage.query_selector(
+                "[data-workspace-tabs] [data-workspace-tab=history]"):
+            hpage.click("[data-workspace-tabs] [data-workspace-tab=history]")
+        hpage.wait_for_timeout(420)
+        n2 = B3_GETS["summary"]
+        hpage.wait_for_timeout(900)
+        n3 = B3_GETS["summary"]
+        report["flows"]["w2b_b3_summary_one_fetch"] = {
+            "before": n1, "after": n2, "idle": n3}
+        # Холодный старт допускает 2 запроса (bootstrap до разрешения чата +
+        # повтор для фактической области — путь H-4/F2); вкладка/ожидание не
+        # добавляют ни одного, фонового поллера нет.
+        check(n2 == n1 and n3 == n2 and 1 <= n1 <= 2,
+              f"W2b B3 summary: запросов {n1}→{n2}→{n3} "
+              f"(вкладка не добавляет, bootstrap ≤2)", hfails)
+
+        # ── Случайность: свой источник, свои строки (без смешения со сводками).
+        _hopen(hpage, "#/modules/random/overview")
+        ro = _b3probe(hpage)
+        report["flows"]["w2b_b3_random_overview"] = ro
+        check(ro["tab"], "W2b B3 random: нет вкладки history при 200+runs",
+              hfails)
+        check(ro["rndBlocks"] == 1 and ro["ovBlocks"] == 1
+              and ro["ovRows"] == 2,
+              f"W2b B3 random: Обзор {ro['ovRows']} строк/"
+              f"{ro['ovBlocks']} блоков/{ro['rndBlocks']} адресов", hfails)
+        check(ro["chipsRows"] == 1 and ro["dupChips"] == 0,
+              f"W2b B3 random: рядов чипов {ro['chipsRows']}", hfails)
+        _hopen(hpage, "#/modules/random/history")
+        rh = _b3probe(hpage)
+        report["flows"]["w2b_b3_random_history"] = rh
+        check(rh["panel"] and rh["rows"] == 3,
+              f"W2b B3 random/history: {rh}", hfails)
+        check(all(k.startswith("rrun-") for k in rh["rowKeys"]),
+              f"W2b B3 random/history: строки чужого источника "
+              f"{rh['rowKeys']}", hfails)
+        check(rh["runLinks"] == 3,
+              f"W2b B3 random/history: ссылок деталей {rh['runLinks']}",
+              hfails)
+
+        # ── H-2/H-3: пусто/403/503/available:false — вкладки нет, причина честная.
+        B3_MODE["summary"] = "empty"
+        _hopen(hpage, "#/modules/summary/overview")
+        se = _b3probe(hpage)
+        report["flows"]["w2b_b3_summary_empty"] = se
+        check(not se["tab"] and se["state"] == "empty",
+              f"W2b B3 summary []: {se}", hfails)
+        check(se["ovRunLinks"] == 0,
+              "W2b B3 summary []: выдуманные строки", hfails)
+
+        B3_MODE["summary"] = "denied"
+        _hopen(hpage, "#/modules/summary/overview")
+        sd = _b3probe(hpage)
+        body_403 = hpage.evaluate("() => document.body.innerText")
+        report["flows"]["w2b_b3_summary_denied"] = dict(
+            sd, body=body_403[:300])
+        check(not sd["tab"] and sd["state"] == "denied",
+              f"W2b B3 summary 403: {sd}", hfails)
+        check("0 событий" not in body_403,
+              "W2b B3 summary 403: выдуманные «0 событий»", hfails)
+
+        B3_MODE["summary"] = "off"
+        _hopen(hpage, "#/modules/summary/overview")
+        soff = _b3probe(hpage)
+        report["flows"]["w2b_b3_summary_off"] = soff
+        check(not soff["tab"] and soff["state"] == "off",
+              f"W2b B3 summary 503: {soff}", hfails)
+
+        B3_MODE["summary"] = "unavailable"
+        _hopen(hpage, "#/modules/summary/overview")
+        su = _b3probe(hpage)
+        report["flows"]["w2b_b3_summary_unavailable"] = su
+        check(not su["tab"] and su["state"] == "off",
+              f"W2b B3 summary available:false: {su}", hfails)
+
+        # ── H-5: deep link на пустой источник возвращает bare один раз.
+        B3_MODE["summary"] = "empty"
+        hpage.goto("about:blank")
+        hpage.goto(WBASE + "#/modules/summary/history", wait_until="load")
+        hpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        hpage.wait_for_timeout(900)
+        sdp = _b3probe(hpage)
+        report["flows"]["w2b_b3_summary_deeplink_empty"] = sdp
+        check(sdp["hash"] == "#/modules/summary",
+              f"W2b B3 summary: deep link не вернул bare ({sdp['hash']})",
+              hfails)
+        check(not sdp["panel"] and not sdp["tab"],
+              f"W2b B3 summary: пустая панель/вкладка ({sdp})", hfails)
+
+        B3_MODE["random"] = "denied"
+        _hopen(hpage, "#/modules/random/overview")
+        rd = _b3probe(hpage)
+        report["flows"]["w2b_b3_random_denied"] = rd
+        check(not rd["tab"] and rd["state"] == "denied",
+              f"W2b B3 random 403: {rd}", hfails)
+        B3_MODE.update({"summary": "data", "random": "data"})
+
+        # ── F1/B3: A→B→A — состояние/кэш своей области, без чужих строк.
+        B3_SUM_A = [dict(r) for r in SUMMARY_RUNS[:1]]
+        B3_SUM_B = [{"pipeline_run_id": "srun-B", "pipeline_type":
+                     "summary.window", "pipeline_version": "1",
+                     "status": "succeeded", "started_ts": 1794909999,
+                     "updated_ts": 1794910001, "events_total": 2,
+                     "stages_total": 1, "stages_failed": 0, "stages_ok": 1,
+                     "chat_id": CHAT_ID2}]
+        B3_ROWS["summary"] = B3_SUM_A
+        B3_GETS["summary"] = 0
+        _hopen(hpage, "#/modules/summary/history")
+        ba = _b3probe(hpage)
+        report["flows"]["w2b_b3_f1_a"] = ba
+        check(ba["rowKeys"] == ["srun-1"],
+              f"W2b B3 F1 A: строки {ba['rowKeys']}", hfails)
+        B3_ROWS["summary"] = B3_SUM_B
+        B3_GETS["summary"] = 0
+        _switch_chat_ui(hpage, CHAT_TITLE2)
+        bb = _b3probe(hpage)
+        report["flows"]["w2b_b3_f1_b"] = dict(bb, gets=B3_GETS["summary"])
+        check(bb["rowKeys"] == ["srun-B"],
+              f"W2b B3 F1 B: строки {bb['rowKeys']} (ожидался srun-B)",
+              hfails)
+        check("srun-1" not in bb["rowKeys"],
+              "W2b B3 F1 B: протёк srun-1 из области A", hfails)
+        check(B3_GETS["summary"] == 1,
+              f"W2b B3 F1 B: своих запросов {B3_GETS['summary']} вместо 1",
+              hfails)
+        B3_ROWS["summary"] = B3_SUM_A
+        B3_GETS["summary"] = 0
+        _switch_chat_ui(hpage, CHAT_TITLE)
+        br = _b3probe(hpage)
+        report["flows"]["w2b_b3_f1_back"] = dict(br, gets=B3_GETS["summary"])
+        check(br["rowKeys"] == ["srun-1"],
+              f"W2b B3 F1 back: строки {br['rowKeys']}", hfails)
+        check("srun-B" not in br["rowKeys"],
+              "W2b B3 F1 back: протёк srun-B из области B", hfails)
+        check(B3_GETS["summary"] == 1,
+              f"W2b B3 F1 back: запросов {B3_GETS['summary']} вместо 1",
+              hfails)
+        B3_ROWS.update({"summary": SUMMARY_RUNS, "random": RANDOM_RUNS})
+
+        # ── 390: История сводок без горизонтального скролла + A→B→A.
+        B3_MODE.update({"summary": "data", "random": "data"})
+        b3ctx = browser.new_context(viewport={"width": 390, "height": 844})
+        b3ctx.add_init_script(TMA_STUB)
+        b3ctx.route("**/api/**", _route)
+        b3p = b3ctx.new_page()
+        b3errs = []
+        b3p.on("pageerror", lambda e, b=b3errs: b.append(str(e)[:300]))
+        B3_ROWS["summary"] = B3_SUM_A
+        b3p.goto(WBASE + "#/modules/summary/history", wait_until="load")
+        try:
+            b3p.wait_for_selector("[data-workspace-head]", timeout=9000)
+        except Exception:  # noqa: BLE001
+            pass
+        b3p.wait_for_timeout(900)
+        b3a = _b3probe(b3p)
+        report["flows"]["w2b_b3_summary_390"] = b3a
+        check(b3a["panel"] and b3a["rowKeys"] == ["srun-1"],
+              f"W2b B3 390 summary: {b3a['rowKeys']}", hfails)
+        check(b3a["historyFontSize"] == "12px",
+              f"W2b B3 390 summary: font-size={b3a['historyFontSize']}",
+              hfails)
+        check(b3a["scrollWidth"] <= b3a["vw"] + 1,
+              f"W2b B3 390 summary: скролл ({b3a['scrollWidth']})", hfails)
+        B3_ROWS["summary"] = B3_SUM_B
+        B3_GETS["summary"] = 0
+        _switch_chat_vm(b3p, CHAT_ID2)
+        b3b = _b3probe(b3p)
+        check(b3b["rowKeys"] == ["srun-B"],
+              f"W2b B3 F1 390 B: строки {b3b['rowKeys']}", hfails)
+        check("srun-1" not in b3b["rowKeys"]
+              and B3_GETS["summary"] == 1,
+              f"W2b B3 F1 390 B: протёк A/запросов "
+              f"{B3_GETS['summary']}", hfails)
+        check(b3b["scrollWidth"] <= b3b["vw"] + 1,
+              f"W2b B3 F1 390 B: скролл ({b3b['scrollWidth']})", hfails)
+        B3_ROWS["summary"] = B3_SUM_A
+        B3_GETS["summary"] = 0
+        _switch_chat_vm(b3p, CHAT_ID)
+        b3r = _b3probe(b3p)
+        report["flows"]["w2b_b3_f1_390"] = {
+            "b": dict(b3b, gets=1), "back": b3r,
+            "back_gets": B3_GETS["summary"]}
+        check(b3r["rowKeys"] == ["srun-1"],
+              f"W2b B3 F1 390 back: {b3r['rowKeys']}", hfails)
+        check("srun-B" not in b3r["rowKeys"]
+              and B3_GETS["summary"] == 1,
+              f"W2b B3 F1 390 back: протёк B/запросов "
+              f"{B3_GETS['summary']}", hfails)
+        check(b3r["scrollWidth"] <= b3r["vw"] + 1,
+              f"W2b B3 F1 390 back: скролл ({b3r['scrollWidth']})", hfails)
+        b3p.screenshot(path=os.path.join(SHOTS, "w2b-b3-history-390.png"))
+        report["flows"]["w2b_b3_pageerrors"] = b3errs
+        if b3errs:
+            failures.extend(["W2b B3 pageerror: " + e for e in b3errs])
+            hfails.extend(["W2b B3 pageerror: " + e for e in b3errs])
+        b3ctx.close()
+        B3_MODE.update({"summary": "data", "random": "data"})
+        B3_ROWS.update({"summary": SUMMARY_RUNS, "random": RANDOM_RUNS})
+        B3_GETS.update({"summary": 0, "random": 0, "detail": 0})
 
         report["flows"]["w2b_pageerrors"] = herrs
         failures.extend(hfails)

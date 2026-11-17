@@ -1,16 +1,18 @@
 'use strict';
-/* MOD-ACL-UX-01 M4A W2b (B1 2.58.212 + B2 2.58.213) — «История» модулей.
+/* MOD-ACL-UX-01 M4A W2b (B1 2.58.212 + B2 2.58.213 + B3 2.58.214) — «История».
 
 Предмет: B1 `memory.dream.log` + `memory.nostalgia.log`, B2
-`factcheck.temporal.runs` + `memory.lessons` на СУЩЕСТВУЮЩИХ read-API
-(brief W2b §2–§3, контракты H-1…H-7):
-  1) presentation-map HISTORY_SOURCES: dream/nostalgia/factcheck/lessons;
-     неизвестный source — ни запроса, ни вкладки (fail-closed);
+`factcheck.temporal.runs` + `memory.lessons`, B3 `oversight:summary.window` +
+`oversight:random.uses` на СУЩЕСТВУЮЩИХ read-API (brief W2b §2–§3, контракты
+H-1…H-7):
+  1) presentation-map HISTORY_SOURCES: dream/nostalgia/factcheck/lessons/
+     summary.window/random.uses; неизвестный source — ни запроса, ни вкладки
+     (fail-closed);
   2) одно состояние на `scopeKey + moduleId` (`idle|loading|ready|empty|
      denied|off|error`): 403 → denied, 503/available:false/enabled:false →
      off, сеть → error; никогда «0 событий» вместо 403;
   3) вкладка `history` видна ТОЛЬКО при `status==='ready' && rows>0`;
-     объявлена у sleep/nostalgia/factcheck/experience, у остальных — нет;
+     объявлена у sleep/nostalgia/factcheck/experience/summary/random;
   4) `history` никогда не дефолт; pending не удаляет запомненный history,
      удаление — только при empty/denied/off;
   5) `moduleLastEventState` для этих модулей — max(ts) своего источника,
@@ -19,7 +21,11 @@
      явное обновление остаётся возможным;
   7) B2: конверт уроков `{enabled,state,count}` → строка «уроков: N / state»,
      detail прогона фактчека — только по run_id (существующая модалка);
-  8) статические срезы: панель `data-module-history`, фильтр, ровно один ряд
+  8) B3: прогоны `summary.window`/`random.uses` через
+     `GET /api/oversight/runs?pipeline_type=…&limit=20` (global admin),
+     detail — существующий deep link `#/oversight?view=runs&run_id=`;
+     30-с кэш scope-aware + epoch-guard; строки источников не смешиваются;
+  9) статические срезы: панель `data-module-history`, фильтр, ровно один ряд
      `[data-workspace-chips]`, `[data-overview-chips]` удалён.
 
 Всё проверяется на РЕАЛЬНОМ `web/app.js` (Vue-опции перехватываются),
@@ -84,10 +90,16 @@ const MEMORY_KEY = 'adminbot.module_tab';
 
 const SLEEP_SOURCE = 'memory.dream.log';
 const NOSTALGIA_SOURCE = 'memory.nostalgia.log';
+const SUMMARY_SOURCE = 'oversight:summary.window';
+const RANDOM_SOURCE = 'oversight:random.uses';
 const SLEEP = moduleById('mod_sleep');
 const NOSTALGIA = moduleById('mod_nostalgia');
 const FACTCHECK = moduleById('mod_factcheck');
 const EXPERIENCE = moduleById('mod_experience');
+const SUMMARY = moduleById('mod_summary');
+const RANDOM = moduleById('mod_random');
+const HISTORY_MODULES = ['mod_sleep', 'mod_nostalgia', 'mod_factcheck',
+  'mod_experience', 'mod_summary', 'mod_random'];
 
 function moduleById(id) {
   return MODULES.filter(function (m) { return m.id === id; })[0];
@@ -131,6 +143,14 @@ function lessonRow(id, version, at, status, type, scope, scopeChat) {
            scope: scope || 'chat',
            scope_chat_id: (scopeChat === undefined ? -100 : scopeChat) };
 }
+// B3: хедер прогона oversight (`GET /api/oversight/runs` → runs[]).
+function runRow(id, ts, type, status, chat) {
+  return { pipeline_run_id: id, pipeline_type: type || 'summary.window',
+           pipeline_version: '1', status: status || 'succeeded',
+           started_ts: ts, updated_ts: ts + 4,
+           events_total: 3, stages_total: 2, stages_failed: 0, stages_ok: 2,
+           chat_id: (chat === undefined ? -100 : chat) };
+}
 
 // Контекст «как на странице»: методы app.js + минимальные данные scope.
 function mkCtx(overrides) {
@@ -162,6 +182,15 @@ function mkCtx(overrides) {
     temporalDetailBusy: false,
     lessonsData: null,
     lessonsBusy: false,
+    // B3: прогоны oversight по источнику + 30-с кэш своей области/epoch.
+    moduleRuns: {},
+    moduleRunsCache: {},
+    moduleRunsBusy: {},
+    // B3: словарь имён процессов (data() в app.js) — человеческий тип строки.
+    vizProcessNames: {
+      'summary.window': 'Окно и краткое резюме',
+      'random.uses': 'Применения случайности',
+    },
     mca17cFunnel: { enabled: false },
     lessonCard: null,
     lessonDraft: { applicability: '', exceptions: '' },
@@ -211,16 +240,19 @@ function eq(a, b, msg) {
 }
 
 (async function run() {
-  // ══ (1) Статические срезы W2b-B1 ═══════════════════════════════════════
+  // ══ (1) Статические срезы W2b-B1/B2/B3 ═════════════════════════════════
   {
-    // history объявлена ТОЛЬКО у модулей с поддержанным источником B1/B2.
-    [SLEEP, NOSTALGIA, FACTCHECK, EXPERIENCE].forEach(function (m) {
-      ok((m.tabs || []).indexOf('history') >= 0,
-        m.id + ': history не объявлена в tabs');
-    });
+    // history объявлена ТОЛЬКО у модулей с поддержанным источником
+    // B1/B2/B3 (шесть источников H-1).
+    [SLEEP, NOSTALGIA, FACTCHECK, EXPERIENCE, SUMMARY, RANDOM]
+      .forEach(function (m) {
+        ok(m, m && m.id ? m.id + ': модуль отсутствует в DTO'
+          : 'модуль отсутствует в DTO');
+        ok((m.tabs || []).indexOf('history') >= 0,
+          m.id + ': history не объявлена в tabs');
+      });
     MODULES.forEach(function (m) {
-      if (m.id === 'mod_sleep' || m.id === 'mod_nostalgia'
-          || m.id === 'mod_factcheck' || m.id === 'mod_experience') return;
+      if (HISTORY_MODULES.indexOf(m.id) >= 0) return;
       ok((m.tabs || []).indexOf('history') < 0,
         m.id + ': history не должна быть объявлена');
     });
@@ -232,14 +264,26 @@ function eq(a, b, msg) {
        APP_JS.indexOf('memory.dream.log') >= 0 &&
        APP_JS.indexOf('memory.nostalgia.log') >= 0 &&
        APP_JS.indexOf('factcheck.temporal.runs') >= 0 &&
-       APP_JS.indexOf('memory.lessons') >= 0,
-      'HISTORY_SOURCES не содержит B1/B2 источники');
+       APP_JS.indexOf('memory.lessons') >= 0 &&
+       APP_JS.indexOf('oversight:summary.window') >= 0 &&
+       APP_JS.indexOf('oversight:random.uses') >= 0,
+      'HISTORY_SOURCES не содержит все шесть источников H-1');
     // B2: журнал фактчека (detail по run_id) и конверт уроков.
     ['data-factcheck-temporal', 'data-experience-history',
      'data-module-history-count', 'уроков: '].forEach(function (needle) {
       ok(APP_JS.indexOf(needle) >= 0 || INDEX_HTML.indexOf(needle) >= 0,
         'B2: нет «' + needle + '»');
     });
+    // B3: адреса обзорных блоков сводок/случайности и deep link прогона.
+    ['data-summary-runs', 'data-random-runs', 'data-history-run-link']
+      .forEach(function (needle) {
+        ok(INDEX_HTML.indexOf(needle) >= 0,
+          'B3 index.html: нет «' + needle + '»');
+      });
+    ok(APP_JS.indexOf('#/oversight?view=runs&run_id=') >= 0,
+      'B3: deep link прогона отсутствует');
+    ok(APP_JS.indexOf('mod_random: [\'overview\', \'settings\', \'history\']')
+       >= 0, 'B3: у mod_random нет собственной карты вкладок с history');
     // Панель Истории, фильтр, честные состояния, обзорный блок.
     ['data-module-history', 'data-module-history-filter',
      'data-module-history-row', 'data-module-history-state',
@@ -1253,8 +1297,469 @@ function eq(a, b, msg) {
       'factcheck не-админ: deep link уведён на bare');
   }
 
-  console.log('MOD-ACL-UX-M4A-W2B-HISTORY-OK — ' + checks + ' проверок');
-  process.exit(0);
+  // ══ (17) B3: summary.window / random.uses через oversight/runs ═════════
+  {
+    // H-1: карта источника — один эндпоинт, свой модуль, свой pipeline_type,
+    // деталь — существующий deep link наблюдаемости.
+    clearStorage();
+    const ctx = mkCtx();
+    ok(methods.historySupported.call(ctx, SUMMARY),
+      'B3: summary не поддержан в HISTORY_SOURCES');
+    ok(methods.historySupported.call(ctx, RANDOM),
+      'B3: random не поддержан в HISTORY_SOURCES');
+    eq(methods.historySourceLabel.call(ctx, SUMMARY), 'Прогоны сводок',
+      'B3: подпись источника summary');
+    eq(methods.historySourceLabel.call(ctx, RANDOM), 'Прогоны случайности',
+      'B3: подпись источника random');
+    // Чужой источник не подставляется «по имени»: источник сна не делает
+    // страницу сводок исторической.
+    ok(!methods.historySupported.call(ctx,
+      { id: 'mod_summary', historySource: SLEEP_SOURCE }),
+      'B3: чужой source не поддержан у summary');
+
+    const calls = [];
+    ctx.api = function (path, opts) {
+      calls.push({ path: path, opts: opts || {} });
+      return Promise.resolve({ available: true, enabled: true, runs: [
+        runRow('srun-1', 1700000200, 'summary.window', 'succeeded'),
+        runRow('srun-2', 1700000100, 'summary.window', 'failed')] });
+    };
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(calls.length, 1, 'B3 summary: должен быть ровно один запрос');
+    eq(calls[0].path,
+      '/api/oversight/runs?pipeline_type=summary.window&limit=20',
+      'B3 summary: неверный адрес источника');
+    eq(calls[0].opts.global, true,
+      'B3: oversight-API вызывается как global (без X-Chat-Id)');
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'ready',
+      'B3 summary: 200+runs → ready');
+    eq(methods.historyRowsFor.call(ctx, SUMMARY).length, 2,
+      'B3 summary: строки своего источника');
+    ok(methods.workspaceTabHasContent.call(ctx, SUMMARY, 'history'),
+      'B3 summary: вкладка истории при ready+rows');
+    // Соседний источник НЕ получает строки summary (общий стор запрещён).
+    eq(methods.historyStateFor.call(ctx, RANDOM), 'idle',
+      'B3: random не получает состояние summary');
+    eq(methods.historyRowsFor.call(ctx, RANDOM).length, 0,
+      'B3: строки summary не текут в random');
+
+    await methods.loadModuleRuns.call(ctx, RANDOM_SOURCE);
+    eq(calls.length, 2, 'B3: второй источник — свой запрос');
+    eq(calls[1].path,
+      '/api/oversight/runs?pipeline_type=random.uses&limit=20',
+      'B3 random: неверный адрес источника');
+    eq(methods.historyStateFor.call(ctx, RANDOM), 'ready',
+      'B3 random: 200+runs → ready');
+    eq(methods.historyRowsFor.call(ctx, SUMMARY).length, 2,
+      'B3: строки summary не затёрты загрузкой random');
+    eq(methods.historyRowKey.call(ctx, SUMMARY,
+      methods.historyRowsFor.call(ctx, SUMMARY)[0]), 'srun-1',
+      'B3: ключ строки — pipeline_run_id');
+    eq(methods.historyRowStatusText.call(ctx, SUMMARY, runRow('x', 1,
+      'summary.window', 'failed')), 'неуспешно',
+      'B3: статус прогона — существующая RU-подпись');
+    eq(methods.historyRowBadgeClass.call(ctx, SUMMARY, runRow('x', 1,
+      'summary.window', 'succeeded')), 'badge-ok',
+      'B3: бейдж успешного прогона');
+    eq(methods.historyRowKindText.call(ctx, SUMMARY, runRow('x', 1,
+      'summary.window')), 'Окно и краткое резюме',
+      'B3: тип строки — человеческое имя процесса');
+  }
+
+  {
+    // H-3: переходы состояний — 403 → denied, 503 → off,
+    // available:false/enabled:false → off, битый конверт → error.
+    clearStorage();
+    const mk = function () {
+      const ctx = mkCtx();
+      ctx.api = async function () { return { available: true, enabled: true,
+        runs: [] }; };
+      return ctx;
+    };
+    let ctx = mk();
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'empty',
+      'B3: runs:[] → empty (не «ready» и не «0 событий» как ready)');
+    ok(!methods.workspaceTabHasContent.call(ctx, SUMMARY, 'history'),
+      'B3 empty: вкладки истории нет');
+    eq(ctx.toasts.length, 0, 'B3 empty: без тоста');
+
+    ctx = mk();
+    ctx.api = async function () {
+      const e = new Error('нет доступа'); e.status = 403; throw e;
+    };
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'denied',
+      'B3: 403 → denied, а не «0 событий»');
+    ok(!methods.workspaceTabHasContent.call(ctx, SUMMARY, 'history'),
+      'B3 403: вкладки нет');
+    eq(methods.historyStateText.call(ctx, SUMMARY),
+      'нет доступа к журналу (403)', 'B3 403: честная причина');
+
+    ctx = mk();
+    ctx.api = async function () {
+      const e = new Error('выключено'); e.status = 503; throw e;
+    };
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'off',
+      'B3: 503 → off');
+
+    ctx = mk();
+    ctx.api = async function () { return { available: false }; };
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'off',
+      'B3: available:false → off (гейт наблюдаемости выключен)');
+
+    ctx = mk();
+    ctx.api = async function () { return { enabled: false, runs: [] }; };
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'off',
+      'B3: enabled:false → off');
+
+    ctx = mk();
+    ctx.api = async function () { return { unexpected: true }; };
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'error',
+      'B3: конверт без runs → error (не выдуманная пустота)');
+
+    ctx = mk();
+    ctx.api = async function () { throw new Error('network'); };
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'error',
+      'B3: сеть → error');
+    eq(methods.historyRowsFor.call(ctx, SUMMARY).length, 0,
+      'B3 error: строк нет');
+  }
+
+  {
+    // H-2/H-3: пока запрос в полёте — loading и НЕТ вкладки; поздний ответ
+    // применяется только своей областью.
+    clearStorage();
+    const ctx = mkCtx();
+    const d = deferred();
+    ctx.api = function () { return d.p; };
+    const load = methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'loading',
+      'B3: в полёте — loading');
+    ok(!methods.workspaceTabHasContent.call(ctx, SUMMARY, 'history'),
+      'B3 loading: вкладки нет');
+    // H-7: повторный вход во время полёта не плодит запрос.
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    d.resolve({ available: true, enabled: true,
+      runs: [runRow('srun-1', 1700000200)] });
+    await load;
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'ready',
+      'B3: ответ применён к своей области');
+  }
+
+  {
+    // H-3 (RBAC): oversight-API — только владелец. Не-админ: ноль запросов,
+    // честный denied, вкладки нет, deep link уводится на bare один раз.
+    clearStorage();
+    const ctx = mkCtx({ route: '#/modules/summary/history',
+                         activeTab: 'mod_summary', isGlobalAdmin: false });
+    let calls = 0;
+    ctx.api = async function () { calls += 1; return { runs: [] }; };
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'denied',
+      'B3 не-админ: честный denied без запроса');
+    eq(methods.historyStateFor.call(ctx, RANDOM), 'denied',
+      'B3 не-админ: random тоже denied');
+    methods._ensureModuleData.call(ctx, SUMMARY);
+    methods._ensureModuleData.call(ctx, RANDOM);
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    await methods.loadModuleRuns.call(ctx, RANDOM_SOURCE);
+    eq(calls, 0, 'B3 не-админ: ни одного запроса к oversight API');
+    ok(!methods.workspaceTabHasContent.call(ctx, SUMMARY, 'history'),
+      'B3 не-админ: вкладки истории нет');
+    ok(methods.historyNeedsOwner.call(ctx, SUMMARY),
+      'B3: источник помечен «только владелец» (честная подсказка)');
+    methods._maybeExitHistory.call(ctx);
+    eq((ctx.applied || [])[0], '#/modules/summary',
+      'B3 не-админ: deep link уведён на bare');
+  }
+
+  {
+    // H-1 fail-closed: неизвестный источник — 0 запросов и НЕТ вкладки.
+    clearStorage();
+    const ctx = mkCtx();
+    let calls = 0;
+    ctx.api = async function () { calls += 1; return { runs: [] }; };
+    await methods.loadModuleRuns.call(ctx, 'oversight:unknown.source');
+    await methods.loadModuleRuns.call(ctx, 'nope');
+    eq(calls, 0, 'B3: неизвестный source → ноль запросов');
+    const unknownModule = { id: 'mod_summary', tabs: ['overview', 'settings',
+      'history'], historySource: 'oversight:unknown.source' };
+    ok(!methods.historySupported.call(ctx, unknownModule),
+      'B3: неизвестная строка DTO не поддержана');
+    eq(methods.historyStateFor.call(ctx, unknownModule), 'idle',
+      'B3: неизвестный source остаётся idle');
+    ok(!methods.workspaceTabHasContent.call(ctx, unknownModule, 'history'),
+      'B3: неизвестный source не создаёт вкладку');
+    methods._ensureModuleData.call(ctx, unknownModule);
+    eq(calls, 0, 'B3: неизвестный source в _ensureModuleData — 0 запросов');
+  }
+
+  {
+    // H-7: один фетч на источник; 30-с кэш СВОЕЙ области; force — повтор.
+    clearStorage();
+    const ctx = mkCtx();
+    let calls = 0;
+    ctx.api = async function () {
+      calls += 1;
+      return { available: true, enabled: true,
+        runs: [runRow('srun-1', 1700000200)] };
+    };
+    methods._ensureModuleData.call(ctx, SUMMARY);
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(calls, 1, 'B3: первый вход на страницу — ровно один запрос');
+    methods._ensureModuleData.call(ctx, SUMMARY);
+    await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    eq(calls, 1, 'B3: кэш 30 с — повторный вход не запрашивает');
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'ready',
+      'B3: состояние из кэша своей области (ready)');
+    methods.refreshHistory.call(ctx, SUMMARY);
+    await tick();
+    eq(calls, 2, 'B3: ⟳ (refresh) делает явный повторный запрос');
+    // Кэш помечен СВОЕЙ областью и epoch.
+    const cache = (ctx.moduleRunsCache || {})[SUMMARY_SOURCE];
+    ok(cache && cache.scope === 'chat:-100' && cache.epoch === 0,
+      'B3: кэш помечен scope/epoch');
+    // Второй источник не засевается кэшем первого.
+    let rcalls = 0;
+    ctx.api = async function () {
+      rcalls += 1;
+      return { available: true, enabled: true,
+        runs: [runRow('rrun-1', 1700000300, 'random.uses')] };
+    };
+    await methods.loadModuleRuns.call(ctx, RANDOM_SOURCE);
+    eq(rcalls, 1, 'B3: random делает свой запрос (кэш summary не общий)');
+    eq(methods.historyRowsFor.call(ctx, RANDOM)[0].pipeline_run_id, 'rrun-1',
+      'B3: у random свои строки');
+    eq(methods.historyRowsFor.call(ctx, SUMMARY)[0].pipeline_run_id,
+      'srun-1', 'B3: у summary остались свои строки');
+  }
+
+  {
+    // F1/B3: scope-aware кэш и epoch-guard. A→B→A: каждая область делает
+    // свой запрос, чужие строки не показываются, поздний ответ A не
+    // перезаписывает B.
+    clearStorage();
+    const mk = function () {
+      return mkCtx({
+        route: '#/modules/summary/history', activeTab: 'mod_summary',
+        workspaceTabHasContent: function (m, tabId) {
+          return (m.tabs || []).indexOf(tabId) >= 0 &&
+            this._contentTabs.indexOf(tabId) >= 0;
+        },
+        _contentTabs: ['overview', 'settings', 'history'],
+      });
+    };
+    const ctx = mk();
+    ctx._wsTabMemoryLoad();
+    let calls = 0;
+    ctx.api = async function (path, opts) {
+      calls += 1;
+      const chat = (ctx.activeChatId === -200) ? -200 : -100;
+      return { available: true, enabled: true,
+        runs: [runRow('run-' + Math.abs(chat), 1700000200,
+                      'summary.window', 'succeeded', chat)] };
+    };
+    methods._ensureModuleData.call(ctx, SUMMARY);
+    await tick();
+    eq(calls, 1, 'B3 A→B→A: область A сделала свой запрос');
+    eq(methods.historyRowsFor.call(ctx, SUMMARY)[0].pipeline_run_id,
+      'run-100', 'B3 A→B→A: строки области A');
+    methods._ensureModuleData.call(ctx, SUMMARY);
+    eq(calls, 1, 'B3 A→B→A: свежий кэш A повторно не запрашивает');
+
+    let bcalls = 0;
+    const dB = deferred();
+    ctx.api = function () { bcalls += 1; return dB.p; };
+    methods.setActiveChat.call(ctx, -200);
+    await tick();
+    eq(bcalls, 1, 'B3 A→B→A: область B делает свой запрос (кэш A не засевает)');
+    // Поздний ответ B не смешивается с A: пока B в полёте строк нет.
+    eq(methods.historyRowsFor.call(ctx, SUMMARY).length, 0,
+      'B3 A→B→A: до ответа B строк области A не видно');
+    dB.resolve({ available: true, enabled: true,
+      runs: [runRow('run-200', 1700000300, 'summary.window', 'failed', -200)] });
+    await tick();
+    await tick();
+    const brows = methods.historyRowsFor.call(ctx, SUMMARY);
+    eq(brows.length, 1, 'B3 A→B→A: у B ровно свои строки');
+    eq(brows[0].pipeline_run_id, 'run-200', 'B3 A→B→A: B — свои строки');
+    ok(brows.every(function (r) { return r.pipeline_run_id !== 'run-100'; }),
+      'B3 A→B→A: строк A в области B нет');
+    const bmeta = (ctx.historyMeta || {})['chat:-200|mod_summary'];
+    eq(bmeta && bmeta.rows, 1, 'B3 A→B→A: мета B помечена своими строками');
+
+    let acalls = 0;
+    ctx.api = async function () { acalls += 1;
+      return { available: true, enabled: true,
+        runs: [runRow('run-100b', 1700000400, 'summary.window', 'succeeded',
+                      -100)] }; };
+    methods.setActiveChat.call(ctx, -100);
+    await tick();
+    await tick();
+    eq(acalls, 1, 'B3 A→B→A: возврат в A — свой запрос');
+    const arows = methods.historyRowsFor.call(ctx, SUMMARY);
+    eq(arows.length, 1, 'B3 A→B→A: в A одна своя строка');
+    eq(arows[0].pipeline_run_id, 'run-100b',
+      'B3 A→B→A: возврат в A показывает строки A');
+    ok(arows.every(function (r) { return r.pipeline_run_id !== 'run-200'; }),
+      'B3 A→B→A: строк B в A нет');
+    clearStorage();
+  }
+
+  {
+    // F1: поздний in-flight ответ старой области не перезаписывает новую.
+    clearStorage();
+    const ctx = mkCtx({ route: '#/modules/summary/history' });
+    ctx._wsTabMemoryLoad();
+    let calls = 0;
+    const dA = deferred();
+    ctx.api = function () {
+      calls += 1;
+      if (calls === 1) return dA.p;
+      return Promise.resolve({ available: true, enabled: true,
+        runs: [runRow('run-B', 1700000300, 'summary.window', 'succeeded',
+                      -200)] });
+    };
+    const loadA = methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
+    methods.setActiveChat.call(ctx, -200);
+    await tick();
+    await tick();
+    eq(methods.historyRowsFor.call(ctx, SUMMARY)[0].pipeline_run_id, 'run-B',
+      'B3 inflight: B получил свои строки');
+    dA.resolve({ available: true, enabled: true,
+      runs: [runRow('run-A', 1700000100, 'summary.window', 'succeeded',
+                    -100)] });
+    await loadA;
+    await tick();
+    eq(methods.historyRowsFor.call(ctx, SUMMARY)[0].pipeline_run_id, 'run-B',
+      'B3 inflight: поздний ответ A не перезаписал строки B');
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'ready',
+      'B3 inflight: состояние B осталось ready');
+    eq(((ctx.moduleRunsCache || {})[SUMMARY_SOURCE] || {}).scope, 'chat:-200',
+      'B3 inflight: кэш остался помечен областью B');
+    clearStorage();
+  }
+
+  {
+    // H-6/B3: max(started_ts) СВОЕГО источника; `observed_at` — не событие.
+    clearStorage();
+    const ctx = mkCtx();
+    const rows = [
+      runRow('old', 1700000100, 'summary.window', 'succeeded'),
+      runRow('new', 1700009000, 'summary.window', 'failed'),
+      runRow('mid', 1700005000, 'summary.window', 'partial'),
+    ];
+    methods._wsHistoryMetaSet.call(ctx, SUMMARY, 'ready', { rows: 3 });
+    ctx.moduleRuns = {}; ctx.moduleRuns[SUMMARY_SOURCE] = rows;
+    const last = methods.moduleHistoryLast.call(ctx, SUMMARY);
+    eq(last && last.pipeline_run_id, 'new',
+      'B3: последнее событие — max(started_ts) своего источника');
+    const state = methods.moduleLastEventState.call(ctx, SUMMARY);
+    eq(state.kind, 'event', 'B3: последнее событие — реальный факт журнала');
+    ok(state.text.indexOf('Последнее событие:') === 0,
+      'B3: строка «Последнее событие» из журнала (' + state.text + ')');
+    ok(state.text.indexOf('неуспешно') >= 0,
+      'B3: строка несёт статус новейшего прогона');
+    // Строка без started_ts (только observed_at) не выдумывает время.
+    ctx.moduleRuns = {}; ctx.moduleRuns[SUMMARY_SOURCE] = [
+      { pipeline_run_id: 'only-observed', observed_at: 1799999999,
+        status: 'succeeded' }];
+    eq(methods.moduleHistoryLast.call(ctx, SUMMARY), null,
+      'B3: observed_at не является временем события');
+    eq(methods.moduleLastEventState.call(ctx, SUMMARY).kind, 'unknown',
+      'B3: без времени события — честное «нет данных», не выдумка');
+  }
+
+  {
+    // H-4: history никогда не дефолт; pending не чистит память,
+    // empty/denied/off — чистит.
+    clearStorage();
+    [['#/modules/summary', SUMMARY, 'mod_summary'],
+     ['#/modules/random', RANDOM, 'mod_random']].forEach(function (pair) {
+      const route = pair[0];
+      const m = pair[1];
+      const ctx = mkCtx({ route: route, activeTab: m.id });
+      ctx._wsTabMemoryLoad();
+      methods._wsTabMemorySet.call(ctx, 'chat:-100', m.id, 'history');
+      methods._wsHistoryMetaSet.call(ctx, m, 'loading');
+      eq(methods._wsTabMemoryGet.call(ctx, 'chat:-100', m), '',
+        'B3 ' + m.id + ': pending не подставляет history');
+      ok(memoryRaw() && memoryRaw()['chat:-100|' + m.id] === 'history',
+        'B3 ' + m.id + ': pending НЕ стирает запомненный history');
+      eq(methods.workspaceDefaultTab.call(ctx, m) === 'history', false,
+        'B3 ' + m.id + ': history никогда не дефолт');
+      methods._wsHistoryMetaSet.call(ctx, m, 'empty');
+      eq(methods._wsTabMemoryGet.call(ctx, 'chat:-100', m), '',
+        'B3 ' + m.id + ': empty не открывает history');
+      ok(!memoryRaw() || memoryRaw()['chat:-100|' + m.id] === undefined,
+        'B3 ' + m.id + ': empty стирает запись истории');
+    });
+    clearStorage();
+  }
+
+  {
+    // H-1/B3: деталь прогона — существующий deep link по run_id; строки без
+    // run_id не дают ссылки (никакой «пустой» детали).
+    clearStorage();
+    const ctx = mkCtx();
+    const row = runRow('run /1', 1700000200);
+    eq(methods.historyRowDetailHref.call(ctx, SUMMARY, row),
+      '#/oversight?view=runs&run_id=run%20%2F1',
+      'B3: deep link детали по run_id (с кодированием)');
+    eq(methods.historyRowDetailHref.call(ctx, RANDOM,
+      runRow('rrun-1', 1700000200, 'random.uses')),
+      '#/oversight?view=runs&run_id=rrun-1',
+      'B3 random: deep link детали по run_id');
+    ok(methods.historyRowCanDetail.call(ctx, SUMMARY, row),
+      'B3: строка с run_id открывает деталь');
+    const noRun = { started_ts: 1700000200, status: 'succeeded' };
+    eq(methods.historyRowDetailHref.call(ctx, SUMMARY, noRun), '',
+      'B3: без pipeline_run_id ссылки нет');
+    ok(!methods.historyRowCanDetail.call(ctx, SUMMARY, noRun),
+      'B3: без pipeline_run_id деталь недоступна');
+    // Источник без detail (сон/ностальгия/уроки) ссылки не получает.
+    eq(methods.historyRowDetailHref.call(ctx, EXPERIENCE,
+      lessonRow('L1', 1, 1700000200)), '',
+      'B3: уроки не получают run-ссылку');
+    eq(methods.historyRowDetailHref.call(ctx, SLEEP,
+      dreamRow(1, 1700000200)), '', 'B3: сон не получает run-ссылку');
+  }
+
+  {
+    // B3: фильтр по статусу прогона — чело­веческие подписи, клиентский
+    // набор строк не запрашивается повторно.
+    clearStorage();
+    const ctx = mkCtx();
+    const rows = [
+      runRow('s1', 1700000200, 'summary.window', 'succeeded'),
+      runRow('s2', 1700000100, 'summary.window', 'failed'),
+      runRow('s3', 1700000050, 'summary.window', 'failed'),
+    ];
+    methods._wsHistoryMetaSet.call(ctx, SUMMARY, 'ready', { rows: 3 });
+    ctx.moduleRuns = {}; ctx.moduleRuns[SUMMARY_SOURCE] = rows;
+    const opts = methods.historyStatusOptions.call(ctx, SUMMARY);
+    eq(opts.length, 2, 'B3: фильтр — два реальных статуса');
+    eq(opts.filter(function (o) { return o.value === 'failed'; })[0].label,
+      'неуспешно', 'B3: подпись статуса в фильтре');
+    ctx.historyFilter = 'failed';
+    eq(methods.historyFilteredRows.call(ctx, SUMMARY).length, 2,
+      'B3: фильтр failed сужает до двух строк');
+    ctx.historyFilter = '';
+    eq(methods.historyFilteredRows.call(ctx, SUMMARY).length, 3,
+      'B3: сброс фильтра возвращает все строки');
+    // Строка события: дата · тип · чат · статус.
+    const line = methods.historyRowLine.call(ctx, SUMMARY, rows[0]);
+    ok(line.indexOf('Окно и краткое резюме') >= 0 &&
+       line.indexOf('чат -100') >= 0 && line.indexOf('успешно') >= 0,
+      'B3: строка события собрана из реальных полей (' + line + ')');
+  }
+
+  console.log('MOD-ACL-UX-M4A-W2B-HISTORY-OK — ' + checks + ' проверок');  process.exit(0);
 })().catch(function (e) {
   console.error(e && e.stack ? e.stack : e);
   process.exit(1);

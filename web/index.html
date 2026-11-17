@@ -1362,7 +1362,9 @@
                      компактный блок фактов своего журнала — «Сейчас» + до 5
                      событий; второго ряда чипов и второй копии журнала нет.
                      B1 — сон/ностальгия; B2 — фактчек (детали по run_id) и
-                     опыт (строка конверта «уроков: N / state»).
+                     опыт (строка конверта «уроков: N / state»);
+                     B3 — сводки/случайность (прогоны oversight, деталь —
+                     deep link `#/oversight?view=runs&run_id=`).
                      `data-dream-panel`/`data-nostalgia-panel` сохранены как
                      прежние адреса блоков; `data-factcheck-temporal` —
                      прежний адрес журнала Фактчека (MCA-20/B07). -->
@@ -1370,9 +1372,11 @@
                           && (workspaceModule.id === 'mod_sleep'
                               || workspaceModule.id === 'mod_nostalgia'
                               || workspaceModule.id === 'mod_factcheck'
-                              || workspaceModule.id === 'mod_experience')
+                              || workspaceModule.id === 'mod_experience'
+                              || workspaceModule.id === 'mod_summary'
+                              || workspaceModule.id === 'mod_random')
                           && (isGlobalAdmin
-                              || workspaceModule.id === 'mod_factcheck')"
+                              || historyNeedsOwner(workspaceModule))"
                      class="mt-3 pt-2 border-t border-white/10 text-xs"
                      :data-dream-panel="workspaceModule.id === 'mod_sleep'
                        ? '' : null"
@@ -1381,6 +1385,10 @@
                      :data-factcheck-temporal="workspaceModule.id === 'mod_factcheck'
                        ? '' : null"
                      :data-experience-history="workspaceModule.id === 'mod_experience'
+                       ? '' : null"
+                     :data-summary-runs="workspaceModule.id === 'mod_summary'
+                       ? '' : null"
+                     :data-random-runs="workspaceModule.id === 'mod_random'
                        ? '' : null"
                      data-overview-history>
                   <div v-if="isGlobalAdmin" class="flex flex-wrap items-center gap-2 mb-1">
@@ -1436,7 +1444,11 @@
                         <span v-if="historyRowChatText(workspaceModule, l)"
                               class="text-gray-400">{{ historyRowChatText(workspaceModule, l) }}</span>
                         <span class="module-history__status">{{ historyRowStatusText(workspaceModule, l) }}</span>
-                        <button v-if="historyRowCanDetail(workspaceModule, l)"
+                        <a v-if="historyRowDetailHref(workspaceModule, l)"
+                           class="btn-ghost text-xs shrink-0"
+                           :href="historyRowDetailHref(workspaceModule, l)"
+                           :data-history-run-link="historyRowKey(workspaceModule, l)">Детали</a>
+                        <button v-else-if="historyRowCanDetail(workspaceModule, l)"
                                 type="button" class="btn-ghost text-xs shrink-0"
                                 data-temporal-run-btn
                                 @click="openHistoryRowDetail(workspaceModule, l)">Детали</button>
@@ -1526,7 +1538,11 @@
                       <span v-if="historyRowChatText(workspaceModule, l)"
                             class="text-gray-400 module-history__chat">{{ historyRowChatText(workspaceModule, l) }}</span>
                       <span class="module-history__status">{{ historyRowStatusText(workspaceModule, l) }}</span>
-                      <button v-if="historyRowCanDetail(workspaceModule, l)"
+                      <a v-if="historyRowDetailHref(workspaceModule, l)"
+                         class="btn-ghost text-xs shrink-0"
+                         :href="historyRowDetailHref(workspaceModule, l)"
+                         :data-history-run-link="historyRowKey(workspaceModule, l)">Детали</a>
+                      <button v-else-if="historyRowCanDetail(workspaceModule, l)"
                               type="button" class="btn-ghost text-xs shrink-0"
                               data-temporal-run-btn
                               @click="openHistoryRowDetail(workspaceModule, l)">Детали</button>

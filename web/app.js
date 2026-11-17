@@ -706,8 +706,12 @@
     // ASAP-2.1 (T-3973, контракт (i)): вкладка 'prep' («Подготовка
     // сообщений») УДАЛЕНА вместе с группами префильтра — вкладка неприменима,
     // мёртвых тумблеров нет (§5:2963).
+    // MOD-ACL-UX-01 M4A W2b-B3 (2.58.214): «История» сводок — прогоны
+    // `summary.window` из существующего oversight-API (вкладка рендерится
+    // только при `ready && rows > 0`, H-2).
     mod_summary: ['overview', 'settings', 'clusterizer', 'writer',
-      'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles'],
+      'hybrid', 'legacy', 'models', 'limits', 'testing', 'styles',
+      'history'],
     // UR-F (UR-20.1/20.2/20.3/20.9): «Прямые ответы» — три смысловых уровня:
     // overview = «Как бот отвечает», inspector = «Что бот видел при ответе»,
     // settings = «Дополнительные настройки». Промпт-редакторы (synthesizer/
@@ -736,6 +740,10 @@
     // уроков (`memory.lessons`); вкладка рендерится только при `ready &&
     // rows > 0`, «Обзор» несёт «Сейчас» + события (H-2/H-6).
     mod_experience: ['overview', 'settings', 'history'],
+    // MOD-ACL-UX-01 M4A W2b-B3 (2.58.214): «Источник случайности» —
+    // прогоны `random.uses` (тот же oversight-API); подмодуль «Памяти»
+    // (`config_tab` = mod_sleep) получает СВОЮ страницу с историей.
+    mod_random: ['overview', 'settings', 'history'],
     mod_budgets: ['overview', 'settings', 'limits'],
     mod_images: ['overview', 'settings', 'limits', 'models', 'testing'],
     // MCA-19 (10.43): workspace-вкладки модуля «Распознавание изображений»
@@ -790,8 +798,10 @@
   // Presentation-map строки DTO `history_source` → СУЩЕСТВУЮЩИЙ read-API.
   // B1 — журналы памяти (`memory.dream.log` / `memory.nostalgia.log`),
   // B2 — временной фактчек (`factcheck.temporal.runs`) и уроки
-  // (`memory.lessons`). Неизвестная строка источника → НИ запроса, НИ вкладки
-  // (fail-closed); новых эндпоинтов/полей/таблиц нет.
+  // (`memory.lessons`), B3 — прогоны сводок/случайности
+  // (`oversight:summary.window` / `oversight:random.uses`). Неизвестная
+  // строка источника → НИ запроса, НИ вкладки (fail-closed); новых
+  // эндпоинтов/полей/таблиц нет.
   var HISTORY_SOURCES = {
     'memory.dream.log': {
       moduleId: 'mod_sleep', label: 'Журнал снов', tsField: 'run_at',
@@ -822,6 +832,32 @@
       },
       loader: 'loadLessons', rowKeyField: 'lesson_id',
       statusField: 'status', parse: _historyLessonsParse,
+    },
+    // B3: `GET /api/oversight/runs?pipeline_type=summary.window&limit=20` —
+    // тот же read-API наблюдаемости (global admin), ответ
+    // `{available,enabled,runs}` с хедером прогона. Деталь — существующий
+    // deep link `#/oversight?view=runs&run_id=` (парсер app.js).
+    'oversight:summary.window': {
+      moduleId: 'mod_summary', label: 'Прогоны сводок',
+      tsField: 'started_ts', pipelineType: 'summary.window',
+      rowsFrom: function (ctx) {
+        return _moduleRunsRows(ctx, 'oversight:summary.window');
+      },
+      loader: 'loadModuleRuns', rowKeyField: 'pipeline_run_id',
+      statusField: 'status', adminOnly: true, detail: 'run',
+      parse: _historyRunsParse,
+    },
+    // B3: `GET /api/oversight/runs?pipeline_type=random.uses&limit=20`.
+    // Строки своего источника (не общий стор со сводками).
+    'oversight:random.uses': {
+      moduleId: 'mod_random', label: 'Прогоны случайности',
+      tsField: 'started_ts', pipelineType: 'random.uses',
+      rowsFrom: function (ctx) {
+        return _moduleRunsRows(ctx, 'oversight:random.uses');
+      },
+      loader: 'loadModuleRuns', rowKeyField: 'pipeline_run_id',
+      statusField: 'status', adminOnly: true, detail: 'run',
+      parse: _historyRunsParse,
     },
   };
   // H-3: закрытый набор состояний одного источника.
@@ -878,6 +914,23 @@
       return { rows: data.lessons, envelope: _historyLessonsEnvelope(data) };
     }
     return { rows: [], error: true };
+  }
+  // B3: конверт oversight-runs `{available,enabled,runs}`. `available:false`/
+  // `enabled:false` (гейты наблюдаемости OFF) — честное off, а не «0 прогонов»
+  // (проверяется ДО массива: серверный disabled отдаёт и пустой `runs`).
+  function _historyRunsParse(data) {
+    if (data && (data.available === false || data.enabled === false)) {
+      return { rows: [], off: true };
+    }
+    if (data && Array.isArray(data.runs)) return { rows: data.runs };
+    return { rows: [], error: true };
+  }
+  // B3: строки СВОЕГО источника (summary ≠ random). Пустой/не загруженный
+  // стор — пустой список, а не строки соседнего источника.
+  function _moduleRunsRows(ctx, source) {
+    var store = (ctx && ctx.moduleRuns) || {};
+    var rows = store[source];
+    return Array.isArray(rows) ? rows : [];
   }
   // Единая точка парса payload по источнику: специфичный парсер спеки либо
   // плоский массив B1 (fail-closed для неизвестного источника — null).
@@ -6779,6 +6832,12 @@
         historyMeta: {},
         historyFilter: '',             // клиентский фильтр строк журнала
         historyFilterKey: '',          // moduleId|tab, к которому применён фильтр
+        // MOD-ACL-UX-01 M4A W2b-B3 (H-7): строки oversight-прогонов по
+        // источнику (`summary.window` ≠ `random.uses`) + 30-с кэш своей
+        // области/epoch и флаг полёта. Второго поллера нет.
+        moduleRuns: {},                // source → rows | null (off/error)
+        moduleRunsCache: {},           // source → {at, scope, epoch}
+        moduleRunsBusy: {},            // source → bool
         // ── F5 (cognition-dashboard-round1013, ТЗ §5/§7): «Осмысление» +
         //    виджет «Интеллект и Память». Данные — аддитивные read-API
         //    (cognition/status, graph, stats, timeline, beliefs?kind=).
@@ -20539,6 +20598,18 @@
                      && this.historyStateFor(m) === 'idle') {
             this.loadLessons();
           }
+        } else if (m.id === 'mod_summary' || m.id === 'mod_random') {
+          // W2b-B3 (H-7): прогоны своего источника через существующий
+          // oversight-API. Нет поддержанного источника (неизвестная строка
+          // DTO) → ни одного запроса; pending/ready кэш не перезапрашивают.
+          if (typeof this.loadModuleRuns !== 'function') return;
+          if (typeof this.historySupported !== 'function'
+              || typeof this.historyStateFor !== 'function') {
+            return;
+          }
+          if (this.historySupported(m) && this.historyStateFor(m) === 'idle') {
+            this.loadModuleRuns(m.historySource);
+          }
         } else if (m.id === 'mod_initiative') {
           // EVOL-014 (Wave 4 UI): настройки мемов/квота/аналитика этого чата
           // — тот же единственный источник, что и на вкладке «Настройки».
@@ -24755,6 +24826,9 @@
         } else if (m.id === 'mod_experience'
                    && typeof this.loadLessons === 'function') {
           this.loadLessons();
+        } else if ((m.id === 'mod_summary' || m.id === 'mod_random')
+                   && typeof this.loadModuleRuns === 'function') {
+          this.loadModuleRuns(m.historySource);
         }
       },
       // F4: фильтр строк принадлежит паре module|tab и не переезжает на
@@ -24834,6 +24908,8 @@
           this.loadTemporalRuns(true);
         } else if (entry.spec.loader === 'loadLessons') {
           this.loadLessons(true);
+        } else if (entry.spec.loader === 'loadModuleRuns') {
+          this.loadModuleRuns(entry.source, true);
         }
       },
       historyRowTs: function (m, row) {
@@ -24874,6 +24950,13 @@
         if (entry.source === 'memory.lessons') {
           return this.lessonTypeLabel(row.type);
         }
+        // B3: человеческое имя процесса из существующего словаря
+        // (`summary.window` / `random.uses`), иначе — честный технический id.
+        if (entry.spec.pipelineType) {
+          var pid = String(row.pipeline_type || entry.spec.pipelineType);
+          var names = this.vizProcessNames || {};
+          return names[pid] || pid;
+        }
         return row.kind ? String(row.kind) : '';
       },
       historyRowChatText: function (m, row) {
@@ -24903,6 +24986,10 @@
         if (entry.source === 'memory.lessons') {
           return this.lessonStatusLabel(row.status);
         }
+        // B3: статус прогона — существующая RU-подпись наблюдаемости.
+        if (entry.spec.pipelineType) {
+          return this.oversightRunStatusLabel(row.status);
+        }
         var reason = (row.meta && row.meta.reason)
           ? String(row.meta.reason) : '';
         return reason ? ('причина: ' + reason) : String(row.status || '');
@@ -24923,23 +25010,40 @@
         if (entry.source === 'memory.lessons') {
           return this.lessonStatusClass(row.status);
         }
+        // B3: бейдж статуса прогона (succeeded/partial/failed/…) — тот же
+        // существующий маппинг наблюдаемости, а не «sent/error» чужих строк.
+        if (entry.spec.pipelineType) {
+          return this.oversightRunBadge(row.status);
+        }
         if (row.status === 'sent') return 'badge-ok';
         if (row.status === 'error') return 'badge-err';
         return 'badge-warn';
       },
       // Детали строки есть только у источника, у которого объявлен detail
-      // (B2: фактчек → существующая модалка run_id). Нет run_id — no-op.
+      // (B2: фактчек → существующая модалка run_id; B3: прогон → deep link
+      // наблюдаемости по run_id). Нет run_id — no-op.
       historyRowHasDetail: function (m) {
         var entry = _historySourceEntry(m);
         return !!(entry && entry.spec.detail);
       },
-      // F2: row-level guard — кнопка «Детали» только у строки, которую
-      // действительно можно открыть (для фактчека нужен run_id).
+      // F2: row-level guard — кнопка/ссылка «Детали» только у строки,
+      // которую действительно можно открыть (нужен run_id).
       historyRowCanDetail: function (m, row) {
         var entry = _historySourceEntry(m);
         if (!entry || !entry.spec.detail || !row) return false;
         if (entry.spec.detail === 'temporal') return !!row.run_id;
-        return true;
+        if (entry.spec.detail === 'run') return !!row.pipeline_run_id;
+        return false;
+      },
+      // B3: адрес детали прогона — СУЩЕСТВУЮЩИЙ deep link наблюдаемости
+      // (`#/oversight?view=runs&run_id=`, парсер `oversightParseDeepLink`).
+      // Нет run_id — пустая строка (ссылки/кнопки не рисуем).
+      historyRowDetailHref: function (m, row) {
+        var entry = _historySourceEntry(m);
+        if (!entry || entry.spec.detail !== 'run' || !row
+            || !row.pipeline_run_id) return '';
+        return '#/oversight?view=runs&run_id='
+          + encodeURIComponent(String(row.pipeline_run_id));
       },
       openHistoryRowDetail: function (m, row) {
         var entry = _historySourceEntry(m);
@@ -25040,6 +25144,9 @@
         }
         if (entry.source === 'memory.lessons') {
           return this.lessonStatusLabel(code);
+        }
+        if (entry.spec.pipelineType) {
+          return this.oversightRunStatusLabel(code);
         }
         return String(code || '');
       },
@@ -25379,6 +25486,120 @@
           })
           .finally(function () {
             self.temporalRunsBusy = false;
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
+            if (typeof self._maybeExitHistory === 'function') {
+              self._maybeExitHistory();
+            }
+          });
+      },
+      // ── MOD-ACL-UX-01 M4A W2b-B3 (H-1/H-7, 2.58.214): прогоны
+      // `summary.window`/`random.uses` из СУЩЕСТВУЮЩЕГО oversight-API
+      // (`GET /api/oversight/runs?pipeline_type=…&limit=20`, global admin).
+      // Один тонкий лоадер на источник по образцу `loadTemporalRuns`:
+      // 30-с кэш СВОЕЙ области/epoch, один полёт на источник, без поллера.
+      // Неизвестный источник — ноль запросов (fail-closed).
+      loadModuleRuns: function (source, force) {
+        var spec = HISTORY_SOURCES[source] || null;
+        if (!spec || !spec.pipelineType) return;
+        // RBAC API — только владелец; у остальных запроса нет вовсе
+        // (`historyStateFor` отдаёт честный denied).
+        if (!this.isGlobalAdmin) return;
+        var self = this;
+        var mref = _historyModuleRef(source);
+        if (!mref) return;
+        var track = (typeof this._wsHistoryMeta === 'function'
+                     && typeof this._wsHistoryMetaSet === 'function');
+        // H-7: один полёт на источник ВНУТРИ своей области (ключ мета-состояния
+        // = scope|module, поэтому смена области не блокирует загрузку новой).
+        // force (⟳) разрешает повтор.
+        var meta = track ? this._wsHistoryMeta(mref) : null;
+        if (!force && meta && meta.status === 'loading') return;
+        var busyInfo = (this.moduleRunsBusy || {})[source] || null;
+        // F1: область и epoch фиксируются ДО запроса — поздний ответ чужой
+        // области не применяется и не засевает её кэш.
+        var scopeKey = (typeof this._wsScopeKey === 'function')
+          ? this._wsScopeKey() : '';
+        var epoch = this.scopeEpoch;
+        if (!force && busyInfo && busyInfo.scope === scopeKey
+            && busyInfo.epoch === epoch) return;
+        var cache = (this.moduleRunsCache || {})[source] || null;
+        var cacheFresh = !force && cache
+          && cache.scope === scopeKey && cache.epoch === epoch
+          && (Date.now() - Number(cache.at || 0)) < 30000;
+        if (cacheFresh) {
+          // Кэш уже СВОЕЙ области: состояние текущего ключа восстанавливается
+          // из него, повторного запроса нет (H-7).
+          var cached = _moduleRunsRows(this, source);
+          if (track && !this._wsHistoryMeta(mref)) {
+            this._wsHistoryMetaSet(mref, cached.length ? 'ready' : 'empty',
+                                   { rows: cached.length });
+            if (typeof this._maybeExitHistory === 'function') {
+              this._maybeExitHistory();
+            }
+          }
+          return;
+        }
+        var busy = {};
+        var busyMap = this.moduleRunsBusy || {};
+        Object.keys(busyMap).forEach(function (k) { busy[k] = busyMap[k]; });
+        busy[source] = { scope: scopeKey, epoch: epoch };
+        this.moduleRunsBusy = busy;
+        if (track) this._wsHistoryMetaSet(mref, 'loading');
+        return this.api('/api/oversight/runs?pipeline_type='
+                         + encodeURIComponent(spec.pipelineType)
+                         + '&limit=20', { global: true })
+          .then(function (data) {
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
+            var parsed = _historyPayloadFor(source, data)
+              || { rows: [], error: true };
+            var store = {};
+            var runs = self.moduleRuns || {};
+            Object.keys(runs).forEach(function (k) { store[k] = runs[k]; });
+            store[source] = (parsed.off || parsed.error) ? null : parsed.rows;
+            self.moduleRuns = store;
+            var cacheMap = {};
+            var prev = self.moduleRunsCache || {};
+            Object.keys(prev).forEach(function (k) { cacheMap[k] = prev[k]; });
+            cacheMap[source] = { at: Date.now(), scope: scopeKey,
+                                 epoch: epoch };
+            self.moduleRunsCache = cacheMap;
+            if (!track) return;
+            if (parsed.off) {
+              self._wsHistoryMetaSet(mref, 'off');
+            } else if (parsed.error) {
+              self._wsHistoryMetaSet(mref, 'error');
+            } else {
+              self._wsHistoryMetaSet(mref,
+                parsed.rows.length ? 'ready' : 'empty',
+                { rows: parsed.rows.length });
+            }
+          })
+          .catch(function (e) {
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
+            var errStore = {};
+            var runsPrev = self.moduleRuns || {};
+            Object.keys(runsPrev).forEach(function (k) {
+              errStore[k] = runsPrev[k];
+            });
+            errStore[source] = null;
+            self.moduleRuns = errStore;
+            if (!track) return;
+            var st = 'error';
+            if (e && e.status === 403) st = 'denied';
+            else if (e && e.status === 503) st = 'off';
+            self._wsHistoryMetaSet(mref, st);
+          })
+          .finally(function () {
+            var endBusy = {};
+            var nowBusy = self.moduleRunsBusy || {};
+            Object.keys(nowBusy).forEach(function (k) {
+              endBusy[k] = nowBusy[k];
+            });
+            delete endBusy[source];
+            self.moduleRunsBusy = endBusy;
             if (typeof self._scopeGuard === 'function'
                 && !self._scopeGuard(epoch)) return;
             if (typeof self._maybeExitHistory === 'function') {
