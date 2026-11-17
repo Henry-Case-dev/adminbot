@@ -7179,7 +7179,10 @@
                       <b data-random-summary-primary>{{ randomActivityView.primaryLabel }}</b>
                       <span v-if="randomActivityView.primaryRaw" class="text-gray-500">
                         · {{ randomActivityView.primaryRaw }}</span>
-                      <span v-else class="text-gray-500">· заводское значение</span>
+                      <span v-else-if="randomActivityView.ready
+                                       && randomActivityView.primaryProvider"
+                            class="text-gray-500">· заводское значение</span>
+                      <span v-else class="text-gray-500">· нет данных</span>
                     </div>
                     <div>Сейчас используется:
                       <b data-random-summary-effective>{{ randomActivityView.effectiveLabel }}</b>
@@ -7244,27 +7247,30 @@
                          data-cfg-key="random.fallback_order">
                       <div class="text-xs text-gray-400 mb-1">Порядок запасных источников</div>
                       <div v-for="row in randomFallbackRows()" :key="'rnd-fb-' + row.id"
-                           class="flex items-center gap-2 flex-wrap rounded-lg bg-white/5 px-2 py-1 mb-1"
+                           class="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1 mb-1"
                            :data-random-fallback="row.id">
-                        <input type="checkbox" :checked="row.enabled"
-                               :disabled="!isGlobalAdmin"
-                               data-random-fallback-include
-                               :aria-label="'Включить в резерв: ' + row.label"
-                               @change="setRandomFallbackIncluded(row.id, $event.target.checked)">
-                        <span class="text-sm">{{ row.label }}</span>
-                        <span class="text-xs text-gray-500">{{ row.type }}</span>
-                        <span v-if="!row.enabled" class="badge badge-muted">не в резерве</span>
-                        <span class="flex-1"></span>
-                        <button type="button" class="btn-ghost text-xs px-2"
-                                :disabled="!isGlobalAdmin || !row.canUp"
-                                data-random-fallback-up
-                                :aria-label="'Выше: ' + row.label"
-                                @click="moveRandomFallback(row.id, -1)">↑</button>
-                        <button type="button" class="btn-ghost text-xs px-2"
-                                :disabled="!isGlobalAdmin || !row.canDown"
-                                data-random-fallback-down
-                                :aria-label="'Ниже: ' + row.label"
-                                @click="moveRandomFallback(row.id, 1)">↓</button>
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                          <input type="checkbox" :checked="row.enabled"
+                                 :disabled="!isGlobalAdmin"
+                                 data-random-fallback-include
+                                 :aria-label="'Включить в резерв: ' + row.label"
+                                 @change="setRandomFallbackIncluded(row.id, $event.target.checked)">
+                          <span class="text-sm truncate">{{ row.label }}</span>
+                          <span class="hidden sm:inline text-xs text-gray-500 shrink-0">{{ row.type }}</span>
+                          <span v-if="!row.enabled" class="badge badge-muted shrink-0">не в резерве</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                          <button type="button" class="btn-ghost text-xs px-2"
+                                  :disabled="!isGlobalAdmin || !row.canUp"
+                                  data-random-fallback-up
+                                  :aria-label="'Выше: ' + row.label"
+                                  @click="moveRandomFallback(row.id, -1)">↑</button>
+                          <button type="button" class="btn-ghost text-xs px-2"
+                                  :disabled="!isGlobalAdmin || !row.canDown"
+                                  data-random-fallback-down
+                                  :aria-label="'Ниже: ' + row.label"
+                                  @click="moveRandomFallback(row.id, 1)">↓</button>
+                        </div>
                       </div>
                     </div>
                   </template>
@@ -7273,7 +7279,7 @@
                     (в чатовом scope настройка скрыта сервером).
                   </div>
 
-                  <div class="grid gap-3 md:grid-cols-2 mt-4" data-random-cards>
+                  <div class="grid gap-3 md:grid-cols-2 mt-4 items-start" data-random-cards>
                     <!-- IBM Quantum: P5 ещё не подключён — честное состояние,
                          НИКАКИХ неработающих полей и зелёного «подключён». -->
                     <article class="card p-3" data-random-provider="ibm_quantum">
@@ -8135,6 +8141,16 @@
                   </div>
                 </div>
               </div>
+              <!-- QRNG P4 (F1 review): карточка-вход на ФАКТИЧЕСКОЙ
+                   workspace-странице «Сна» (#/modules/sleep, overview/settings).
+                   Один компонент с legacy-модалкой (`random-entry-card`). -->
+              <div v-if="isGlobalAdmin && workspaceModule
+                        && workspaceModule.id === 'mod_sleep'
+                        && (workspaceTab === 'overview'
+                            || workspaceTab === 'settings')"
+                   class="col-span-full" data-random-entry-host>
+                <random-entry-card :view="randomSleepView"></random-entry-card>
+              </div>
               <!-- S10.20-1 (High, регресс T-1900) + D13 (§18I.13): sticky-
                    панель — ЕДИНСТВЕННЫЙ способ сохранить textarea/input/JSON/
                    промпты и key-drafts на конфиг-вкладках; рендерится ТОЛЬКО
@@ -8522,6 +8538,12 @@
                     </div>
                   </template>
 
+                <!-- QRNG P4 (F1 review): в legacy-модалке — тот же компонент,
+                     что и на workspace-странице «Сна» (одна разметка). -->
+                <random-entry-card
+                  v-if="isGlobalAdmin && activeModule && activeModule.id === 'mod_sleep'"
+                  :view="randomSleepView"></random-entry-card>
+
                 <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): мини-блоки
                      «Синтез (сон)» и «Ностальгия» — ПОД generic-рендером
                      соответствующих вкладок (раунд 10.4 C-4: «Сон» →
@@ -8530,37 +8552,6 @@
                      (spec §3.6.2). -->
                 <div v-if="activeModule && activeModule.id === 'mod_sleep' && isGlobalAdmin"
                      class="space-y-4" style="grid-column: 1 / -1;">
-                  <!-- QRNG P4: точка входа «Случайность и источники» —
-                       selected/effective/ANU-state из /api/status + кнопка на
-                       отдельную страницу «Случайность» (#/modules/random).
-                       Ключ и проверка живут там же (перенос с LLM). -->
-                  <div class="card p-4" data-random-entry>
-                    <div class="flex items-center gap-2 flex-wrap mb-2">
-                      <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Случайность и источники</div>
-                      <template v-if="randomSleepView && randomSleepView.ready && randomSleepView.enabled">
-                        <span class="badge"
-                              :class="randomSleepView.quantum ? 'badge-ok' : 'badge-muted'">
-                          {{ randomSleepView.quantum ? 'квантовый' : 'псевдослучайный' }}
-                        </span>
-                        <span class="text-xs text-gray-500">
-                          выбрано: {{ randomSleepView.selected || '—' }} · фактически:
-                          {{ randomSleepView.effective || '—' }}
-                          <span v-if="randomSleepView.blockerLabel"> · причина:
-                            {{ randomSleepView.blockerLabel }}</span>
-                        </span>
-                      </template>
-                      <span v-else class="text-xs text-gray-500">состояние недоступно</span>
-                      <button class="btn-accent text-xs ml-auto shrink-0" type="button"
-                              @click="openTab('mod_random')"
-                              data-random-entry-goto>
-                        Случайность и источники →
-                      </button>
-                    </div>
-                    <div class="text-xs text-gray-500">
-                      Источник, ключ ANU, резерв и порядок fallback — на странице
-                      «Случайность» (Модули → Случайность).
-                    </div>
-                  </div>
                   <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
                   <div class="card p-4">
                     <div class="flex items-center gap-2 flex-wrap mb-1">
@@ -18142,6 +18133,38 @@
       </div>
     </div>
   </div>
+
+  <!-- QRNG P4 (F1 review): ОДНА карточка-вход «Случайность и источники»,
+       используемая и на workspace-странице «Сна», и в legacy-модалке.
+       Компонент зарегистрирован в web/app.js (provide/inject: root). -->
+  <script type="text/x-template" id="random-entry-card-tpl">
+    <div class="card p-4" data-random-entry>
+      <div class="flex items-center gap-2 flex-wrap mb-2">
+        <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Случайность и источники</div>
+        <template v-if="view && view.ready && view.enabled">
+          <span class="badge"
+                :class="view.quantum ? 'badge-ok' : 'badge-muted'">
+            {{ view.quantum ? 'квантовый' : 'псевдослучайный' }}
+          </span>
+          <span class="text-xs text-gray-500">
+            выбрано: {{ view.selected || '—' }} · фактически:
+            {{ view.effective || '—' }}
+            <span v-if="view.blockerLabel"> · причина:
+              {{ view.blockerLabel }}</span>
+          </span>
+        </template>
+        <span v-else class="text-xs text-gray-500">состояние недоступно</span>
+        <a class="btn-accent text-xs ml-auto shrink-0" href="#/modules/random"
+           data-random-entry-goto>
+          Случайность и источники →
+        </a>
+      </div>
+      <div class="text-xs text-gray-500">
+        Источник, ключ ANU, резерв и порядок fallback — на странице
+        «Случайность» (Модули → Случайность).
+      </div>
+    </div>
+  </script>
 
   <!-- F9 (10.25, ADR-1025-22 D1/D4): единый шаблон секрет-поля.
        Маска/«Ключ установлен» — display-индикатор, НЕ значение input (§50).

@@ -28,11 +28,11 @@ def sha(rel: str) -> str:
 
 def _write_json_crlf(path: Path, data: dict) -> None:
     """Сохранять JSON, сохраняя CRLF-окончания файла (min diff)."""
-    raw = path.read_bytes()
+    raw = path.read_bytes() if path.exists() else b""
     text = json.dumps(data, ensure_ascii=False, indent=2)
     if b"\r\n" in raw:
         text = text.replace("\n", "\r\n")
-    path.write_bytes((text + ("\r\n" if b"\r\n" in raw else "\n"))
+    path.write_bytes((text + ("\r\n" if b"\r\n" in raw or not raw else "\n"))
                      .encode("utf-8"))
 
 
@@ -85,6 +85,25 @@ if isinstance(provenance, dict) and "QRNG P4" not in str(
     cb["_provenance"] = provenance
 _write_json_crlf(cb_path, cb)
 print("catalog_baseline keys:", len(cb["registry_keys"]))
+
+# QRNG P4: каталог-производная фикстура ключей страницы «Случайность».
+# Нужна JS-тесту F5, чтобы новый ключ в memory_random/keys_random не осиротел
+# молча: страница обязана отрендерить ВСЕ ключи групп, кроме hidden и
+# read-only master (memory.random_enabled).
+qrng_path = ROOT / "tests/fixtures/qrng_p4_random_keys.json"
+qrng_groups = {}
+for gid in ("memory_random", "keys_random"):
+    qrng_groups[gid] = sorted(
+        s.pg_key for s in pc.REGISTRY.values()
+        if s.group == gid and not s.hidden
+        and s.pg_key != "memory.random_enabled")
+qrng_data = {
+    "groups": qrng_groups,
+    "master": "memory.random_enabled",
+    "page_keys": sorted({k for keys in qrng_groups.values() for k in keys}),
+}
+_write_json_crlf(qrng_path, qrng_data)
+print("qrng_p4_random_keys:", len(qrng_data["page_keys"]))
 
 # Пин sha256 followed-up каталога (единственный прямой hash-пин).
 changed = 0

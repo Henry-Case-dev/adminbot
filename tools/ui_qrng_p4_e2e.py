@@ -69,6 +69,8 @@ STATE = {
     "order": ["anu", "lfdr"],
     "fallback": True,
     "prng": False,
+    "reject": False,
+    "off": False,
     "posts": [],
     "random_tests": 0,
 }
@@ -141,63 +143,100 @@ def _config_items():
 
 
 def _status_payload():
-    prng = bool(STATE["prng"])
+    """Честная семантика P3, не эхо селектора.
+
+    IBM не сконфигурирован; ANU имеет key/reserve; LfDR — публичный
+    (configured, без запаса). effective — первый ДОСТУПНЫЙ в разрешённом
+    порядке, иначе PRNG (если настройка разрешает) или deferred. Поэтому
+    primary=IBM + fallback -> «сейчас используется ANU», без зелёного IBM.
+    """
+    if STATE["off"]:
+        return {"enabled": False, "available": False, "quantum_active": False,
+                "state": "disabled", "providers": [],
+                "provider_reserve": {}, "provider_quarantined": {},
+                "reserve_remaining": 0, "prng_active": False,
+                "recent_draws": [], "recent_draws_scope": "global",
+                "uses": {"enabled": False, "events": [], "cursor": None,
+                         "scope": ""}}
+    prng_forced = bool(STATE["prng"])
     primary = STATE["primary"]
+    fallback_on = bool(STATE["fallback"])
+    configured = {"ibm_quantum": False, "anu": True, "lfdr": True}
+    reserve = {"ibm_quantum": 0, "anu": 512, "lfdr": 0}
+    order = [primary]
+    if fallback_on:
+        order += [p for p in STATE["order"] if p != primary]
+    effective = None
+    if not prng_forced:
+        for pid in order:
+            if configured.get(pid) or reserve.get(pid, 0) > 0:
+                effective = pid
+                break
+    if prng_forced:
+        mode = "pseudorandom"
+    elif effective:
+        mode = "quantum"
+    elif fallback_on:
+        mode = "pseudorandom"
+    else:
+        mode = "deferred"
+    quantum = mode == "quantum"
     providers = []
     for pid, title in (("ibm_quantum", "IBM Quantum"),
                        ("anu", "ANU Quantum Numbers"),
                        ("lfdr", "LfDR QRNG")):
-        configured = (pid == "anu") or (pid == "lfdr")
         providers.append({
             "id": pid, "title": title,
             "entropy_class": "hardware_quantum",
             "requires_key": pid == "anu",
-            "configured": configured,
-            "reserve": 512 if pid == "anu" else 0,
-            "consumable": pid == "anu",
+            "configured": configured[pid],
+            "reserve": reserve[pid],
+            "consumable": reserve[pid] > 0,
             "quarantined": 0,
             "config_matches": True,
             "state": "active" if pid == "anu" else
                      ("unverified" if pid == "lfdr" else "unconfigured"),
         })
     return {
-        "enabled": True, "available": True,
-        "selected_source": "pseudorandom" if prng else "quantum",
-        "effective_source": "pseudorandom" if prng else "quantum",
-        "quantum_active": not prng,
+        "enabled": True, "available": bool(effective),
+        "selected_source": "pseudorandom" if prng_forced else "quantum",
+        "effective_source": mode,
+        "quantum_active": quantum,
         "anu_state": "active",
-        "blocker": None if not prng else "no_eligible_alternative",
+        "blocker": None if quantum else "no_eligible_alternative",
         "key_present": True,
-        "provider": None if prng else primary,
-        "entropy_class": None if prng else "hardware_quantum",
+        "provider": effective,
+        "entropy_class": "hardware_quantum" if quantum else None,
         "providers": providers,
-        "provider_reserve": {"ibm_quantum": 0, "anu": 512, "lfdr": 0},
+        "provider_reserve": reserve,
         "provider_quarantined": {"ibm_quantum": 0, "anu": 0, "lfdr": 0},
         "reserve_quarantined": 0,
         "fallback_setting_label": "псевдослучайный откат (не квантовый)",
-        "reserve_remaining": 0 if prng else 512,
+        "reserve_remaining": sum(reserve.values()) if quantum else 0,
         "buffer_max": 8192, "low_watermark": 256,
         "last_batch": {"batch_id": "b1", "provider": "ANU Quantum Numbers",
                        "provider_id": "anu", "data_type": "uint16",
                        "length": 1024, "created_at": 1794909600,
                        "config_matches": True},
-        "draws": {"quantum": 0 if prng else 37, "pseudorandom": 3 if prng else 0},
-        "last_fallback_reason": "no_eligible_alternative" if prng else None,
-        "last_fallback_at": 1794909900 if prng else None,
+        "draws": {"quantum": 37 if quantum else 0,
+                  "pseudorandom": 3 if mode == "pseudorandom" else 0},
+        "last_fallback_reason": (None if quantum
+                                 else "no_eligible_alternative"),
+        "last_fallback_at": 1794909900 if not quantum else None,
         "activated_at": 1794900000,
         "primary_provider": primary,
         "primary_setting_raw": primary,
         "primary_setting_state": "set",
-        "resolved_primary": state_resolved(prng, primary),
-        "effective_provider": None if prng else primary,
-        "fallback_enabled": bool(STATE["fallback"]),
+        "resolved_primary": effective if quantum else None,
+        "effective_provider": effective if quantum else None,
+        "fallback_enabled": fallback_on,
         "fallback_order": list(STATE["order"]),
         "fallback_order_raw": list(STATE["order"]),
         "fallback_order_state": "set",
-        "effective_order": [primary] + list(STATE["order"]),
-        "prng_active": prng,
-        "prng_setting": bool(STATE["fallback"]),
-        "fallback_setting": bool(STATE["fallback"]),
+        "effective_order": order,
+        "prng_active": mode == "pseudorandom",
+        "prng_setting": fallback_on,
+        "fallback_setting": fallback_on,
         "lfdr_state": "unverified",
         "plan": "Trial",
         "policy_version": "p4-e2e",
@@ -251,6 +290,22 @@ def _registry():
     return mr.registry_for_frontend(states)
 
 
+_MIME = {
+    ".html": "text/html",
+    ".js": "application/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".woff2": "font/woff2",
+    ".woff": "application/font-woff",
+    ".ttf": "font/ttf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _json(self, payload, status=200):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -260,14 +315,21 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _file(self, rel, ctype="application/octet-stream"):
+    def _file(self, rel, ctype=None):
         p = os.path.join(REPO, rel.replace("/", os.sep))
         if not os.path.isfile(p):
             self.send_error(404)
             return
+        if ctype is None:
+            ctype = _MIME.get(os.path.splitext(rel)[1].lower(),
+                              "application/octet-stream")
         data = open(p, "rb").read()
+        headers = ctype
+        if ctype.startswith("text/") or "javascript" in ctype \
+                or "json" in ctype:
+            headers += "; charset=utf-8"
         self.send_response(200)
-        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        self.send_header("Content-Type", headers)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -280,7 +342,17 @@ class Handler(BaseHTTPRequestHandler):
                 STATE["prng"] = True
             if "prng=0" in q:
                 STATE["prng"] = False
-            return self._json({"prng": STATE["prng"]})
+            if "reject=1" in q:
+                STATE["reject"] = True
+            if "reject=0" in q:
+                STATE["reject"] = False
+            if "off=1" in q:
+                STATE["off"] = True
+            if "off=0" in q:
+                STATE["off"] = False
+            return self._json({"prng": STATE["prng"],
+                               "reject": STATE["reject"],
+                               "off": STATE["off"]})
         if p == "/api/me":
             return self._json(_me_payload())
         if p == "/api/access/me":
@@ -334,17 +406,20 @@ class Handler(BaseHTTPRequestHandler):
                 items = json.loads(raw).get("items") or []
             except Exception:  # noqa: BLE001
                 items = []
-            keys = []
+            keys = [it.get("key") for it in items]
+            STATE["posts"].append({"items": items, "keys": keys})
+            if STATE["reject"]:
+                return self._json({
+                    "detail": ("чатовая запись глобального ключа запрещена "
+                               "(global_only, 422)")}, status=422)
             for it in items:
                 key = it.get("key")
-                keys.append(key)
                 if key == "random.primary_provider":
                     STATE["primary"] = it.get("value")
                 elif key == "random.fallback_order":
                     STATE["order"] = it.get("value") or []
                 elif key == "random.fallback_enabled":
                     STATE["fallback"] = bool(it.get("value"))
-            STATE["posts"].append({"items": items, "keys": keys})
             return self._json({"saved": keys, "updated_at": None})
         return self._json({"ok": True})
 
@@ -395,6 +470,73 @@ def run() -> dict:
             report["checks"]["draft_hint"] = (
                 "не зачисляются" in body and
                 "зачисляет полученную партию" not in body)
+            # F2 review: CSS реально применён (иначе «одна колонка» — на
+            # unstyled DOM). cssRules>0 + computed font-size.
+            css = page.evaluate("""() => {
+              let rules = 0, sheets = 0;
+              for (const s of Array.from(document.styleSheets)) {
+                sheets += 1;
+                try { rules += s.cssRules ? s.cssRules.length : 0; } catch (e) {}
+              }
+              const el = document.querySelector('[data-random-provider-state]');
+              return {sheets: sheets, rules: rules,
+                      stateFont: el ? (parseFloat(getComputedStyle(el).fontSize) || 0) : 0};
+            }""")
+            report["css"] = css
+            report["checks"]["css_applied"] = (
+                css["rules"] > 0 and css["stateFont"] >= 12)
+            # F2 review: IBM не сконфигурирован → НЕ зелёный; фактический
+            # источник — доступный ANU, не эхо primary.
+            report["checks"]["ibm_not_green"] = page.locator(
+                '[data-random-provider="ibm_quantum"] .badge-ok').count() == 0
+            report["card_heights_1280"] = page.locator(
+                "[data-random-provider]").evaluate_all(
+                "els => els.map(e => Math.round(e.getBoundingClientRect().height))")
+            initial_effective = page.locator(
+                "[data-random-summary-effective]").inner_text()
+            report["checks"]["effective_not_primary_echo"] = (
+                "ANU" in initial_effective and "IBM" not in initial_effective)
+
+            # F1 review: Sleep-карточка на фактической workspace-странице
+            # (deep link) и после перехода из каталога; кнопка → random.
+            page.goto(BASE + "/web/index.html#/modules/sleep")
+            page.wait_for_selector("[data-random-entry]", timeout=20000)
+            report["checks"]["sleep_entry_visible"] = page.locator(
+                "[data-random-entry]").is_visible()
+            report["checks"]["sleep_entry_text"] = (
+                "Случайность и источники" in page.locator(
+                    "[data-random-entry]").inner_text())
+            report["checks"]["sleep_entry_chips"] = page.locator(
+                "[data-random-entry] .badge").count() >= 1
+            page.locator("[data-random-entry-goto]").click()
+            page.wait_for_selector("[data-random-sources]", timeout=20000)
+            report["checks"]["sleep_entry_navigates"] = (
+                "#/modules/random" in page.url)
+
+            page.goto(BASE + "/web/index.html#/modules")
+            page.wait_for_selector('[data-mod="mod_sleep"]', timeout=20000)
+            page.locator('[data-mod="mod_sleep"] [data-module-open]').click()
+            page.wait_for_selector("[data-random-entry]", timeout=20000)
+            report["checks"]["sleep_entry_from_catalog"] = (
+                "#/modules/sleep" in page.url)
+            page.goto(BASE + "/web/index.html#/modules/random")
+            page.wait_for_selector("[data-random-sources]", timeout=20000)
+            page.wait_for_timeout(700)
+
+            # F4 review: при random.enabled=false нет ложного «заводское
+            # значение» — сохранённое значение селектора или «нет данных».
+            page.goto(BASE + "/__state?off=1")
+            page.goto(BASE + "/web/index.html#/modules/random")
+            page.wait_for_selector("[data-random-summary]", timeout=20000)
+            page.wait_for_timeout(700)
+            summary_txt = page.locator("[data-random-summary]").inner_text()
+            report["checks"]["off_no_fake_default"] = (
+                "заводское значение" not in summary_txt
+                and "нет данных" in summary_txt)
+            page.goto(BASE + "/__state?off=0")
+            page.goto(BASE + "/web/index.html#/modules/random")
+            page.wait_for_selector("[data-random-sources]", timeout=20000)
+            page.wait_for_timeout(700)
 
             # Fallback order: down у ANU (primary=ibm, в резерве anu+lfdr)
             before = len(STATE["posts"])
@@ -450,6 +592,27 @@ def run() -> dict:
                 "badge-ok" not in state_cls and "псевдослучайный" in state_txt)
             page.goto(BASE + "/__state?prng=0")
 
+            # 422-ветка: сервер отклоняет запись (chat-scope/global_only) —
+            # UI не выдаёт ложный успех и не меняет фактический источник.
+            page.goto(BASE + "/__state?reject=1")
+            page.goto(BASE + "/web/index.html#/modules/random")
+            page.wait_for_selector("[data-random-sources]", timeout=20000)
+            page.wait_for_timeout(700)
+            before = len(STATE["posts"])
+            page.select_option("[data-random-primary]", "lfdr")
+            page.wait_for_timeout(900)
+            rejected = STATE["posts"][before:]
+            rejected_primary = None
+            for post in rejected:
+                for it in post["items"]:
+                    if it["key"] == "random.primary_provider":
+                        rejected_primary = it.get("value")
+            report["checks"]["selector_422_post"] = (rejected_primary == "lfdr")
+            report["checks"]["selector_422_no_fake_state"] = (
+                "ANU" in page.locator(
+                    "[data-random-summary-effective]").inner_text())
+            page.goto(BASE + "/__state?reject=0")
+
             # #/ai/llm: no keys.random, таймауты последние, 180/360
             page.goto(BASE + "/web/index.html#/ai/llm")
             page.wait_for_selector("[data-provider-group]", timeout=20000)
@@ -469,36 +632,92 @@ def run() -> dict:
                 "els => els.map(e => e.value)")
             report["checks"]["llm_timeouts"] = ("180" in vals and "360" in vals)
 
-            # Mobile 390: одна колонка, без overflow, шрифт ≥12px
+            # Mobile 390/320: одна колонка, без overflow, шрифт ≥12px,
+            # стрелки fallback визуально в СВОЕЙ строке (review F3).
+            STATE["primary"] = "ibm_quantum"
+            STATE["order"] = ["anu", "lfdr"]
+            STATE["fallback"] = True
+            STATE["prng"] = False
+            STATE["reject"] = False
+
+            def _mobile_metrics(p):
+                return p.evaluate("""() => {
+                  const cards = Array.from(
+                    document.querySelectorAll('[data-random-provider]'));
+                  const rects = cards.map(c => c.getBoundingClientRect());
+                  const fonts = cards.map(c => parseFloat(
+                    getComputedStyle(c).fontSize) || 0);
+                  const row = document.querySelector(
+                    '[data-random-fallback="anu"]');
+                  let arrowsAttached = false, rowH = 0;
+                  if (row) {
+                    const rr = row.getBoundingClientRect();
+                    rowH = rr.height;
+                    const label = row.querySelector('.text-sm.truncate');
+                    const lr = label ? label.getBoundingClientRect() : null;
+                    const btns = Array.from(row.querySelectorAll(
+                      '[data-random-fallback-up],[data-random-fallback-down]'));
+                    arrowsAttached = !!lr && btns.length === 2 && btns.every(b => {
+                      const r = b.getBoundingClientRect();
+                      const cy = (r.top + r.bottom) / 2;
+                      const lcy = (lr.top + lr.bottom) / 2;
+                      return r.height > 0 && Math.abs(cy - lcy) <= 8;
+                    });
+                  }
+                  let rules = 0;
+                  for (const s of Array.from(document.styleSheets)) {
+                    try { rules += s.cssRules ? s.cssRules.length : 0; }
+                    catch (e) {}
+                  }
+                  return {
+                    vw: window.innerWidth,
+                    scrollW: document.documentElement.scrollWidth,
+                    oneColumn: rects.every(r => Math.abs(r.x - rects[0].x) < 2),
+                    minCardFont: Math.min.apply(null, fonts.concat([99])),
+                    stateFont: parseFloat(getComputedStyle(
+                      document.querySelector('[data-random-provider-state]')
+                    ).fontSize) || 0,
+                    arrowsAttached: arrowsAttached,
+                    rowH: rowH,
+                    cssRules: rules,
+                  };
+                }""")
+
             mctx = browser.new_context(viewport={"width": 390, "height": 844})
             mctx.add_init_script(TMA_STUB)
             mp = mctx.new_page()
             mp.goto(BASE + "/web/index.html#/modules/random")
             mp.wait_for_selector("[data-random-sources]", timeout=20000)
             mp.wait_for_timeout(900)
-            m = mp.evaluate("""() => {
-              const cards = Array.from(
-                document.querySelectorAll('[data-random-provider]'));
-              const rects = cards.map(c => c.getBoundingClientRect());
-              const fonts = cards.map(c => parseFloat(
-                getComputedStyle(c).fontSize) || 0);
-              return {
-                vw: window.innerWidth,
-                scrollW: document.documentElement.scrollWidth,
-                oneColumn: rects.every(r => Math.abs(r.x - rects[0].x) < 2),
-                minCardFont: Math.min.apply(null, fonts.concat([99])),
-                stateFont: parseFloat(getComputedStyle(
-                  document.querySelector('[data-random-provider-state]')
-                ).fontSize) || 0,
-              };
-            }""")
+            m = _mobile_metrics(mp)
             report["checks"]["mobile_one_column"] = bool(m["oneColumn"])
             report["checks"]["mobile_no_overflow"] = (
                 m["scrollW"] <= m["vw"] + 1)
             report["checks"]["mobile_font_ok"] = (
                 m["stateFont"] >= 12 and m["minCardFont"] >= 12)
+            report["checks"]["mobile_arrows_attached"] = bool(
+                m["arrowsAttached"])
+            report["checks"]["mobile_css_applied"] = m["cssRules"] > 0
             report["mobile"] = m
             mctx.close()
+
+            nctx = browser.new_context(viewport={"width": 320, "height": 568})
+            nctx.add_init_script(TMA_STUB)
+            np_ = nctx.new_page()
+            np_.goto(BASE + "/web/index.html#/modules/random")
+            np_.wait_for_selector("[data-random-sources]", timeout=20000)
+            np_.wait_for_timeout(900)
+            n = _mobile_metrics(np_)
+            report["checks"]["mobile320_one_column"] = bool(n["oneColumn"])
+            report["checks"]["mobile320_no_overflow"] = (
+                n["scrollW"] <= n["vw"] + 1)
+            report["checks"]["mobile320_font_ok"] = (
+                n["stateFont"] >= 12 and n["minCardFont"] >= 12)
+            report["checks"]["mobile320_arrows_attached"] = bool(
+                n["arrowsAttached"])
+            report["checks"]["mobile320_css_applied"] = n["cssRules"] > 0
+            report["mobile320"] = n
+            nctx.close()
 
             report["checks"]["no_page_errors"] = not errors
             report["page_errors"] = errors[:5]

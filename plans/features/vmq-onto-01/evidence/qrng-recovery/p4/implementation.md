@@ -44,14 +44,42 @@
    `WORKSPACE_TABS.mod_random` уже B3-совместима; на этой базе вкладка
    «История» честно не рендерится (`historyIsReady=false`), после merge B3 —
    заработает без правок P4.
-4. **Browser Use недоступен:** `BU_CDP_URL=http://127.0.0.1:9222` — connection
-   refused (dedicated automation Chrome не запущен). Обязательный визуальный
-   контур выполнен Playwright/Chromium (реальные `index.html`/`app.js`/CSS).
+4. **Browser Use недоступен (проверено повторно 2026-11-18):**
+   `BU_CDP_URL=http://127.0.0.1:9222` — connection refused (dedicated
+   automation Chrome не запущен). Обязательный визуальный контур выполнен
+   Playwright/Chromium (реальные `index.html`/`app.js`/CSS).
 5. **Скриншоты не сохранены** (бинарные файлы не нужны для приёмки); вместо
    них — измеренные метрики viewport в `playwright-e2e.json`.
 6. **Полный `tests/test_webapp_*.py` не запускался** по указанию родителя
    (перезаписывает tracked W10–W12 evidence-блобы). `git status` после
    прогонов не содержит изменённых evidence-блобов.
+
+### 2.1. Review F1–F5 (2026-11-18)
+
+1. **F1 — Sleep-карточка.** Причина: блок жил под `activeModule`
+   (`openModuleId`), который рабочий UI не выставляет. Разметка вынесена в
+   ОДИН компонент `random-entry-card` (шаблон `#random-entry-card-tpl`);
+   workspace-вход рендерится по `workspaceModule.id === 'mod_sleep'` на
+   overview/settings, legacy-модалка использует тот же компонент. e2e:
+   deep link `#/modules/sleep` и переход из каталога → карточка видима, ссылка
+   ведёт на `#/modules/random`.
+2. **F2 — e2e CSS/статус.** MIME исправлен (`text/css`, `font/woff2`,
+   `application/javascript`); e2e проверяет `document.styleSheets`:
+   `cssRules=2143`, `stateFont=12px` (иначе FAIL). Status stub больше не эхо
+   primary: IBM `configured=false`; effective — первый доступный (ANU при
+   key/reserve), иначе PRNG/deferred. Добавлены `ibm_not_green`,
+   `effective_not_primary_echo`, 422-ветка и `no_fake_default` при disabled.
+3. **F3 — fallback-стрелки.** Label+actions разведены в non-wrapping группы;
+   на 390 и 320 стрелки в одной строке с провайдером (`arrowsAttached=true`,
+   `scrollWidth=vw`), тип скрыт только на узком экране.
+4. **F4 — ложный factory-default.** При `random.enabled=false` сводка больше
+   не печатает «заводское значение»: только сохранённый raw или «нет данных»
+   (e2e `off_no_fake_default`).
+5. **F5 — test-gap.** `round1025_f5_workspace_route_test.js` для mod_random
+   сверяет ПОЛНОЕ множество ключей страницы с каталог-фикстурой
+   `tests/fixtures/qrng_p4_random_keys.json` (группы memory_random/keys_random,
+   hidden и read-only master исключены). Новый ключ без страницы/фикстуры
+   краснит тест.
 
 ## 3. Визуальный контракт (Visual Preservation Map)
 
@@ -63,9 +91,11 @@
   `[data-cfg-key^="keys.random"]`; группа больше не приходит с сервера.
 - «Время ответа и защита» — последняя группа; поля/значения 180/360 не
   менялись.
-- Карточка-вход «Случайность и источники» на «Сне» сохранена (чипы
-  selected/effective/причина), кнопка ведёт на новую страницу.
-- Mobile 390: одна колонка, `scrollWidth=390`, шрифт карточек 16px (≥12px).
+- Карточка-вход «Случайность и источники» на «Сне» — один компонент на
+  workspace-странице (overview/settings) и в legacy-модалке; чипы
+  selected/effective/причина сохранены, ссылка ведёт на `#/modules/random`.
+- Mobile 390/320: одна колонка, `scrollWidth=vw`, шрифт карточек 16px (≥12px),
+  fallback-стрелки в строке своего провайдера.
 
 ## 4. Проверка (фактические результаты)
 
@@ -77,11 +107,14 @@
 - JS full — 118 passed / 4 pre-existing failing (те же на базе).
 - catalog guards — 45/1 (pre-existing dead knob).
 - счётчиковые пины (help/decision/image/budget) — 244/244.
-- Playwright — 17/17 проверок, `ok=true`, page_errors=[].
+- Playwright — 35/35 проверок, `ok=true`, page_errors=[]; CSS реально
+  применён (`cssRules=2143`, `stateFont=12px`), 1280/390/320.
 - RED на `6cf4c32c`: новый тест падает (`вкладок 29 (28 + mod_random)`);
   подтверждены три факта базы (нет вкладки, `keys_random` на LLM, старая
   подсказка). `red-probe-6cf4c32c.json`.
-- Мутации: 10/10 убивают тест, sha256 файлов восстановлен (`mutations.json`).
+- Мутации UI — 10/10 (`mutations.json`); e2e-мутации — 4/4
+  (`mutations-e2e.json`: octet-stream CSS, IBM-зелёный stub, удалённая
+  Sleep-карточка, оторванные стрелки). Все файлы восстановлены по sha256.
 
 ## 5. Что осталось непокрытым
 
@@ -92,4 +125,11 @@
   на реальных ассетах выполнен.
 - B3-history merge: проверить в релизном поезде, что
   `HISTORY_SOURCES['oversight:random.uses']` и `WORKSPACE_TABS.mod_random`
-  сходятся без конфликта (строка добавлена рядом, B3-код не перестраивался).
+  сходятся без конфликта. **F6:** наша запись `WORKSPACE_TABS.mod_random`
+  дублирует B3 (строки 832/852 merged); при сборке поезда удалить НАШУ строку
+  в пользу B3, не перестраивая B3-код. Конфликты
+  `param-registry-round1025.meta.md` и history-теста также разрешаются на
+  сборке, в этой ветке не трогаются.
+- F7 (опционально, non-blocking): IBM-карточка на 1280 имеет ту же высоту
+  grid-ряда, что ANU/LfDR (`card_heights_1280` в `playwright-e2e.json`);
+  отдельная правка не требуется.

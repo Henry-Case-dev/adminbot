@@ -43859,6 +43859,26 @@
     template: QRNG_FIELD_TPL,
   });
 
+  // QRNG P4 (F1 review): единственная карточка-вход «Случайность и
+  // источники» для workspace-страницы «Сна» и legacy-модалки. Не вторая
+  // копия разметки — один компонент (шаблон #random-entry-card-tpl).
+  app.component('random-entry-card', {
+    name: 'random-entry-card',
+    inject: ['root'],
+    props: {
+      view: { type: Object, default: null },
+    },
+    methods: {
+      iconGlyph: function (name) {
+        if (this.root && typeof this.root.iconGlyph === 'function') {
+          return this.root.iconGlyph(name);
+        }
+        return '';
+      },
+    },
+    template: '#random-entry-card-tpl',
+  });
+
   // ═══ D07 (v6 §9B.2/§9B.3): global-view avatar stack + popover ═════════════
   // Компактный стек [чат A][чат B][+N] на карточке параметра в global view;
   // клик → popover со списком переопределивших чатов и их значениями

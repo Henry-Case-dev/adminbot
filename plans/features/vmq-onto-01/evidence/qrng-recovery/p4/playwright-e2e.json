@@ -4,18 +4,36 @@
     "options": 3,
     "lizaonair_absent": true,
     "draft_hint": true,
+    "css_applied": true,
+    "ibm_not_green": true,
+    "effective_not_primary_echo": true,
+    "sleep_entry_visible": true,
+    "sleep_entry_text": true,
+    "sleep_entry_chips": true,
+    "sleep_entry_navigates": true,
+    "sleep_entry_from_catalog": true,
+    "off_no_fake_default": true,
     "fallback_order": true,
     "selector_post": true,
     "selector_order_cleaned": true,
     "summary_effective": true,
     "details_zero_network": true,
     "prng_no_fake_green": true,
+    "selector_422_post": true,
+    "selector_422_no_fake_state": true,
     "llm_no_random_keys": true,
     "llm_policy_last": true,
     "llm_timeouts": true,
     "mobile_one_column": true,
     "mobile_no_overflow": true,
     "mobile_font_ok": true,
+    "mobile_arrows_attached": true,
+    "mobile_css_applied": true,
+    "mobile320_one_column": true,
+    "mobile320_no_overflow": true,
+    "mobile320_font_ok": true,
+    "mobile320_arrows_attached": true,
+    "mobile320_css_applied": true,
     "no_page_errors": true
   },
   "posts": [
@@ -40,7 +58,17 @@
       }
     ]
   ],
-  "requests": 95,
+  "requests": 182,
+  "css": {
+    "sheets": 3,
+    "rules": 2143,
+    "stateFont": 12
+  },
+  "card_heights_1280": [
+    128,
+    416,
+    218
+  ],
   "provider_groups": [
     "prov_text",
     "prov_stt",
@@ -52,21 +80,34 @@
     "technical"
   ],
   "provider_group_titles": [
-    "╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╤В╨╡╨║╤Б╤В╨░",
-    "╨а╨░╤Б╨┐╨╛╨╖╨╜╨░╨▓╨░╨╜╨╕╨╡ ╤А╨╡╤З╨╕",
-    "╨Т╨╕╨┤╨╡╨╛",
-    "╨н╨╝╨▒╨╡╨┤╨┤╨╕╨╜╨│╨╕",
-    "╨д╨╛╨╜╨╛╨▓╤Л╨╡ ╨╖╨░╨┤╨░╤З╨╕",
-    "╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╣",
-    "╨Т╤А╨╡╨╝╤П ╨╛╤В╨▓╨╡╤В╨░ ╨╕ ╨╖╨░╤Й╨╕╤В╨░",
-    "╨в╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╤П"
+    "╨У╨Х╨Э╨Х╨а╨Р╨ж╨Ш╨п ╨в╨Х╨Ъ╨б╨в╨Р",
+    "╨а╨Р╨б╨Я╨Ю╨Ч╨Э╨Р╨Т╨Р╨Э╨Ш╨Х ╨а╨Х╨з╨Ш",
+    "╨Т╨Ш╨Ф╨Х╨Ю",
+    "╨н╨Ь╨С╨Х╨Ф╨Ф╨Ш╨Э╨У╨Ш",
+    "╨д╨Ю╨Э╨Ю╨Т╨л╨Х ╨Ч╨Р╨Ф╨Р╨з╨Ш",
+    "╨У╨Х╨Э╨Х╨а╨Р╨ж╨Ш╨п ╨Ш╨Ч╨Ю╨С╨а╨Р╨Ц╨Х╨Э╨Ш╨Щ",
+    "╨Т╨а╨Х╨Ь╨п ╨Ю╨в╨Т╨Х╨в╨Р ╨Ш ╨Ч╨Р╨й╨Ш╨в╨Р",
+    "╨в╨Х╨е╨Э╨Ш╨з╨Х╨б╨Ъ╨Ш╨Х ╨Я╨Ю╨Ф╨Ъ╨Ы╨о╨з╨Х╨Э╨Ш╨п"
   ],
   "mobile": {
     "vw": 390,
     "scrollW": 390,
     "oneColumn": true,
     "minCardFont": 16,
-    "stateFont": 16
+    "stateFont": 12,
+    "arrowsAttached": true,
+    "rowH": 42,
+    "cssRules": 2143
+  },
+  "mobile320": {
+    "vw": 320,
+    "scrollW": 320,
+    "oneColumn": true,
+    "minCardFont": 16,
+    "stateFont": 12,
+    "arrowsAttached": true,
+    "rowH": 42,
+    "cssRules": 2143
   },
   "page_errors": [],
   "ok": true
