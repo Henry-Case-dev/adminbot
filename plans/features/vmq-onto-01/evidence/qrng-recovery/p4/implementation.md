@@ -130,6 +130,6 @@
   в пользу B3, не перестраивая B3-код. Конфликты
   `param-registry-round1025.meta.md` и history-теста также разрешаются на
   сборке, в этой ветке не трогаются.
-- F7 (опционально, non-blocking): IBM-карточка на 1280 имеет ту же высоту
-  grid-ряда, что ANU/LfDR (`card_heights_1280` в `playwright-e2e.json`);
-  отдельная правка не требуется.
+- F7 (опционально, non-blocking): пустая высота IBM-карточки убрана
+  `items-start` (128px против stretch 416px на 1280; `card_heights_1280` в
+  `playwright-e2e.json`); мобильная раскладка не изменилась.
