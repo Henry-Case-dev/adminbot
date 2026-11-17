@@ -7240,7 +7240,8 @@
                         {{ randomFallbackOn() ? 'включено' : 'выключено' }}
                       </span>
                     </div>
-                    <div class="mt-2" data-random-fallback-order>
+                    <div class="mt-2" data-random-fallback-order
+                         data-cfg-key="random.fallback_order">
                       <div class="text-xs text-gray-400 mb-1">Порядок запасных источников</div>
                       <div v-for="row in randomFallbackRows()" :key="'rnd-fb-' + row.id"
                            class="flex items-center gap-2 flex-wrap rounded-lg bg-white/5 px-2 py-1 mb-1"
@@ -7470,8 +7471,8 @@
                         ? 'активен (не квантовый)'
                         : (randomActivityView.prngSetting ? 'разрешён настройкой' : 'не активен') }}</b>
                     </div>
-                    <div v-if="randomActivityView.fallbackReason">Причина fallback:
-                      <b>{{ randomActivityView.fallbackReason }}</b>
+                    <div v-if="randomActivityView.fallbackReasonLabel">Причина fallback:
+                      <b>{{ randomActivityView.fallbackReasonLabel }}</b>
                     </div>
                     <div v-if="randomActivityView.fallbackAt">Последний fallback:
                       <b>{{ fmtTs(randomActivityView.fallbackAt) }}</b>

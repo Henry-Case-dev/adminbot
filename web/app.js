@@ -11886,6 +11886,7 @@
                    effectiveProvider: null, entropyClass: null,
                    providers: [], lastBatch: null, draws: null,
                    fallbackReason: null, fallbackAt: null,
+                   fallbackReasonLabel: null,
                    fallbackEnabled: null,
                    prngActive: false, prngSetting: null,
                    reserveQuarantined: 0 };
@@ -11924,6 +11925,7 @@
           resolvedPrimary: v.resolvedPrimary || null,
           fallbackOrderState: v.fallbackOrderState || '',
           fallbackReason: v.fallbackReason || null,
+          fallbackReasonLabel: v.blockerLabel || v.fallbackReason || null,
           fallbackAt: v.lastFallbackAt || null,
           fallbackEnabled: (v.fallbackEnabled === undefined)
             ? null : v.fallbackEnabled,
