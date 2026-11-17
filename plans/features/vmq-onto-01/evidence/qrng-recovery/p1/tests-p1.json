@@ -1,0 +1,95 @@
+{
+  "feature": "qrng-recovery / P1 isolation and honesty",
+  "branch": "fix/qrng-p1",
+  "base": "34c25d09 (2.58.213, deployed)",
+  "candidate": "product commit f6451669 + test/evidence commit (tip on fix/qrng-p1)",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "sqlite": "3.42.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none; ANU HTTP injected via http_get fakes; no live provider call"
+  },
+  "batches": [
+    {
+      "id": "p1-focused",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py -q",
+      "result": {"passed": 25, "failed": 0},
+      "covers": [
+        "v48 columns + step registry + idempotent re-run on a pre-v48 copy",
+        "legacy NULL-fingerprint batches consumable",
+        "fingerprint-scoped reserve (A/B/NULL), key rotation A->B isolation",
+        "backfill only on confirmed same key, idempotent, wrong key = 0",
+        "draft check 0 rows + deposited=false; saved check 1 batch + fingerprint",
+        "canonical provider id / legacy mapping / external_ref",
+        "per-provider reserve + status registry (3 x hardware_quantum, no Lizaonair)",
+        "entropy_class never claimed for PRNG; source_impl derived from provider",
+        "cooldown window, different-key bypass, singleflight preserved, cooldown=0 disables",
+        "RBAC: view right does not open POST /api/random/test; provider key write needs global admin",
+        "PRNG honesty: saved fallback=true reported/not rewritten; fallback off -> deferred, 0 rows",
+        "quantum draw never labelled pseudorandom"
+      ]
+    },
+    {
+      "id": "affected-random-qnd",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q",
+      "result": {"passed": 192, "failed": 0}
+    },
+    {
+      "id": "affected-applications-schema",
+      "command": "python -m pytest tests/test_mca10b_random_applications_block_{a,b,c,d}_round1041.py tests/test_evol014_meme_initiative.py tests/test_mca14_schema_additive_round1027.py tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py -q",
+      "result": {"passed": 197, "failed": 0}
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest <24-file required-pytest batch from evidence/release-2.58.213/tests-2.58.213.json> -q",
+      "result": {"passed": 386, "failed": 0}
+    },
+    {
+      "id": "webapp-batch",
+      "command": "python -m pytest tests/test_webapp_*.py -q --tb=no",
+      "result": {"passed": 1455, "failed": 33},
+      "note": "identical pre-existing set documented for 2.58.213 (same 33/1455); no new failures"
+    },
+    {
+      "id": "initiative-coordination",
+      "command": "python -m pytest tests/test_initiative_coordination.py -q",
+      "result": {"passed": 56, "failed": 4},
+      "note": "same 4 failures reproduced on base 34c25d09 in a separate worktree (rlr_live_proof guard + 3 coordination asserts); pre-existing, not caused by P1"
+    }
+  ],
+  "invariants": {
+    "schema_version": 48,
+    "migration_steps": 48,
+    "migration_max_version": 48,
+    "v47_step_unchanged": "semantic_schedule_v47",
+    "settings_fields": 472,
+    "ddl": "+2 nullable columns in mca_random_batches (v48)",
+    "new_endpoints": 0,
+    "new_flags": 0,
+    "new_prompts": 0,
+    "new_models": 0,
+    "deploy_v2_9_2_changed": false
+  },
+  "red": {
+    "base": "34c25d09 (worktree detached, no product edits)",
+    "p1_test_file": {"failed": 21, "passed": 3, "artifact": "red-tests-34c25d09.txt",
+                      "note": "snapshot before the 25th test (source_impl provenance) was added; behavioural RED is authoritative"},
+    "probe": {
+      "artifact_base": "red-probe-base-34c25d09.json",
+      "artifact_p1": "green-probe-p1.json",
+      "draft_base": {"deposited": null, "batch_rows": 1},
+      "draft_p1": {"deposited": false, "batch_rows": 0},
+      "rotation_base": {"state": "unverified", "draw_source": "quantum", "reserved_upto": [1, 2]},
+      "rotation_p1": {"state": "unverified", "draw_source": "pseudorandom", "reserved_upto": [1, 1]}
+    },
+    "rbac_base": "POST /api/random/test as a role holding key.keys.random_quantum_api_key = 200 (provider request executed); POST /api/config key write = 200",
+    "rbac_p1": "both = 403; global admin = 200"
+  },
+  "migration_evidence": "migration-v48.json (pre-v48 copy: 7 legacy ANU batches, user_version 47 -> 48, rows identical, old SQL compatible, idempotent, backfill 7 then 0)",
+  "mutations": "mutations.json (M1 filter off, M2 draft insert restored, M3 RBAC removed, M4 source_impl hardcoded, M5 provider-write guard removed — all killed)",
+  "limitations": [
+    "UI text promising deposit for the draft check remains until P4 (scope P1 has no UI changes)",
+    "no live ANU request in P1; provider HTTP is injected",
+    "production DDL not applied; migration proven on a temporary pre-v48 copy"
+  ]
+}

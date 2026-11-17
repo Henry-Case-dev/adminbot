@@ -1,0 +1,62 @@
+{
+  "feature": "qrng-recovery / P1 isolation and honesty",
+  "candidate_tip": "f6451669 (product) + test/evidence commit on fix/qrng-p1",
+  "base": "34c25d09 (2.58.213, deployed)",
+  "arch_decision": "plans/features/vmq-onto-01/evidence/qrng-recovery/arch-decision-2026-11-17.md @ 458fafc3",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "sqlite": "3.42.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none — provider HTTP is injected (http_get fakes)"
+  },
+  "mutations": [
+    {
+      "id": "M1",
+      "target": "RandomStore._fingerprint_clause — фильтр отключён (return \"\", ())",
+      "command": "pytest tests/test_qrng_p1_isolation.py::TestFingerprintScope -q",
+      "result": "KILLED: 2 failed, 1 passed",
+      "failures": [
+        "test_reserve_only_matching_or_null (чужой fingerprint расходуется)",
+        "test_key_rotation_a_to_b_does_not_consume_a (assert 'quantum' == 'pseudorandom')"
+      ]
+    },
+    {
+      "id": "M2",
+      "target": "_run_check draft-ветка — возвращён store.insert_batch(batch)",
+      "command": "pytest tests/test_qrng_p1_isolation.py::TestDraftKeyIsolation -q",
+      "result": "KILLED: 1 failed, 1 passed",
+      "failures": [
+        "test_draft_check_zero_rows_deposited_false (batch_rows: 1 строка вместо 0)"
+      ]
+    },
+    {
+      "id": "M3",
+      "target": "POST /api/random/test — returns to Depends(get_tma_user) без global-admin проверки",
+      "command": "pytest ...::TestProviderOperationRbac::test_view_right_does_not_open_random_test -q",
+      "result": "KILLED: 1 failed (200 вместо 403; провайдерский запрос выполнен)",
+      "failures": [
+        "test_view_right_does_not_open_random_test"
+      ]
+    },
+    {
+      "id": "M4",
+      "target": "source_impl_for() — хардкод \"anu-quantum\"",
+      "command": "pytest ...::TestProvenanceDto::test_source_impl_and_entropy_derived_from_provider -q",
+      "result": "KILLED: 1 failed (lfdr-партия выдана как anu-quantum)",
+      "failures": [
+        "test_source_impl_and_entropy_derived_from_provider"
+      ]
+    },
+    {
+      "id": "M5",
+      "target": "POST /api/config — снят global-admin guard записи keys.random_quantum_*",
+      "command": "pytest ...::TestProviderOperationRbac::test_provider_key_write_requires_global_admin -q",
+      "result": "KILLED: 1 failed (роль с правом просмотра записала ключ, 200 вместо 403)",
+      "failures": [
+        "test_provider_key_write_requires_global_admin"
+      ]
+    }
+  ],
+  "restoration": "git checkout -- <mutated file> после каждой мутации; финальный прогон 25 passed",
+  "note": "Все мутации точечные, по одной; каждая убивает ровно целевой тест и не маскируется падением импорта."
+}

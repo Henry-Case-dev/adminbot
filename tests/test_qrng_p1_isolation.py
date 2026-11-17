@@ -450,6 +450,29 @@ class TestProvenanceDto:
             await db.close()
 
     @pytest.mark.asyncio
+    async def test_source_impl_and_entropy_derived_from_provider(self, tmp_path):
+        """`source_impl`/`entropy_class` — от провайдера партии, не хардкод."""
+        db = await _fresh_db(tmp_path)
+        try:
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            await svc._store.insert_batch(mrs.AnuBatch(
+                values=[5, 6], data_type="uint16", length=2,
+                provider=mrs.PROVIDER_ID_LFDR))
+            draw = await svc.draw_index(2, chat_id=1, purpose="p")
+            assert draw.source == mrs.MODE_QUANTUM
+            assert draw.provider_id == mrs.PROVIDER_ID_LFDR
+            assert draw.entropy_class == "hardware_quantum"
+            assert draw.source_impl == "lfdr-quantum"
+            adapter = await svc.build_dream_source(1, k_hint=2, chat_id=1)
+            _items, meta = adapter.pick(
+                [{"id": "a"}, {"id": "b"}], chat_id=1, purpose="p", k=1)
+            assert meta["provider_id"] == mrs.PROVIDER_ID_LFDR
+            assert meta["entropy_class"] == "hardware_quantum"
+            assert meta["source_impl"] == "lfdr-quantum"
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
     async def test_entropy_class_never_claimed_for_prng(self, tmp_path, cfg,
                                                         mem):
         db = await _fresh_db(tmp_path)
@@ -467,7 +490,6 @@ class TestProvenanceDto:
                                 for r in rows)
         finally:
             await db.close()
-
 
 # ── cooldown ручных проверок ───────────────────────────────────────────────
 class TestManualCheckCooldown:

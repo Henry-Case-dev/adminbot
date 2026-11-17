@@ -127,14 +127,14 @@
       "storiesPreview": 0,
       "storiesFeed": 0,
       "storiesAnalytics": 0,
-      "moduleCards": 16,
-      "moduleScopeToggles": 6,
-      "moduleScopeReadonly": 9,
-      "moduleControlRows": 15,
-      "moduleMaxTogglesPerCard": 1,
+      "moduleCards": 0,
+      "moduleScopeToggles": 0,
+      "moduleScopeReadonly": 0,
+      "moduleControlRows": 0,
+      "moduleMaxTogglesPerCard": 0,
       "moduleGlobalToggles": 0,
       "moduleChatToggles": 0,
-      "moduleResetActions": 6,
+      "moduleResetActions": 0,
       "moduleKpi": 0,
       "moduleCaption": 1,
       "moduleDetailToggle": 0,
@@ -552,14 +552,14 @@
       "storiesPreview": 0,
       "storiesFeed": 0,
       "storiesAnalytics": 0,
-      "moduleCards": 16,
-      "moduleScopeToggles": 6,
-      "moduleScopeReadonly": 9,
-      "moduleControlRows": 15,
-      "moduleMaxTogglesPerCard": 1,
+      "moduleCards": 0,
+      "moduleScopeToggles": 0,
+      "moduleScopeReadonly": 0,
+      "moduleControlRows": 0,
+      "moduleMaxTogglesPerCard": 0,
       "moduleGlobalToggles": 0,
       "moduleChatToggles": 0,
-      "moduleResetActions": 6,
+      "moduleResetActions": 0,
       "moduleKpi": 0,
       "moduleCaption": 1,
       "moduleDetailToggle": 0,
@@ -871,33 +871,33 @@
     "heatKeyboard": {
       "steps": [
         {
-          "cell": "2026-11-14:10",
+          "cell": "2026-11-17:10",
           "pressed": "true",
-          "label": "2026-11-14 10:00 — событий: 70 (ошибок: 1)",
+          "label": "2026-11-17 10:00 — событий: 70 (ошибок: 1)",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
         },
         {
-          "cell": "2026-11-14:9",
+          "cell": "2026-11-17:9",
           "pressed": "true",
-          "label": "2026-11-14 09:00 — событий: 36",
+          "label": "2026-11-17 09:00 — событий: 36",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
         },
         {
-          "cell": "2026-11-14:9",
+          "cell": "2026-11-17:9",
           "pressed": "true",
-          "label": "2026-11-14 09:00 — событий: 36",
+          "label": "2026-11-17 09:00 — событий: 36",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
         },
         {
-          "cell": "2026-11-13:9",
+          "cell": "2026-11-16:9",
           "pressed": "true",
-          "label": "2026-11-13 09:00 — событий: 1",
+          "label": "2026-11-16 09:00 — событий: 1",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
@@ -910,9 +910,9 @@
       "tab": "runs",
       "view": "runs",
       "activeTabText": "Запуски",
-      "meta": "Активные фильтры: период: 7 дней · Выбранный час: 2026-11-14 10:00 (время сервера)"
+      "meta": "Активные фильтры: период: 7 дней · Выбранный час: 2026-11-17 10:00 (время сервера)"
     },
-    "globalTogglePost": 1,
+    "globalTogglePost": 0,
     "speechPersona": true,
     "memoryCardFound": true,
     "memoryModalTech": [
@@ -1355,6 +1355,6 @@
         "errors": []
       }
     },
-    "failures": 0
+    "failures": 3
   }
 }
