@@ -16,9 +16,8 @@
     "W2b B3 — UI/test-only: нет новых таблиц, колонок, индексов, ключей настроек и миграций данных; схема остаётся 47 при DDL 0.",
     "Состояние истории — in-memory/client-side: `historyMeta`, `moduleRuns`/`moduleRunsCache` живут в текущей JS-сессии, запомненная вкладка — только id в localStorage; на сервере откатывать нечего.",
     "Настройки не сбрасываются: bump меняет только version pins и changelog APP_VERSION; PG hot-значения и настройки владельца не затрагиваются ни checkout'ом, ни restart'ом.",
+    "F1 меняет только ЗНАЧЕНИЕ существующего presentation-поля `history_source` у «Сводок» (`oversight:summary.window` → `oversight:summary`) и карту источника во фронте; новых полей/API/таблиц нет, schema/DDL не меняются. Откат на 34c25d09 возвращает и старую метку, и старую карту — согласованно.",
     "Bump-коммит 2b57443a меняет только пины версии; при откате на 34c25d09 отдельного отката для него не нужно.",
-    "Кандидат 283fc89a — только web/app.js, web/index.html и тесты/e2e; backend (`services/`, `web/api/`), ACL, prompt registry, param_catalog, storage не менялись.",
-    "Новый read-доступ не появляется: источник использует существующий global-admin oversight-API и не расширяет RBAC; для не-владельца — denied без запроса.",
     "Rollback-копии 2.58.213 — это копии, созданные деплоем 2.58.213, и они управляются существующим пулом deploy_backup keep=2.",
     "deploy_v2.9.2.py этим релизом не изменён."
   ]

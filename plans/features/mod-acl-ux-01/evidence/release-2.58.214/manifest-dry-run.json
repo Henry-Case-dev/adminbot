@@ -1,5 +1,5 @@
 {
-  "captured_at_commit": "2b57443ad0b08195c07822a0c2c5b7eb13ee5d71",
+  "captured_at_commit": "885b43e1c167f4efa30fdd5f86a22ea1ebb40efe",
   "command": "python tools/release_manifest.py --dry-run",
   "exit_code": 0,
   "deploy_dir_created_for_reconstruction": true,
@@ -7,8 +7,8 @@
   "deploy_dir_removed_after_run": true,
   "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy input removed",
   "manifest": {
-    "deployed_at": "2026-11-17T05:16:33.783565Z",
-    "deployed_sha": "2b57443ad0b08195c07822a0c2c5b7eb13ee5d71",
+    "deployed_at": "2026-11-17T05:54:50.126844Z",
+    "deployed_sha": "885b43e1c167f4efa30fdd5f86a22ea1ebb40efe",
     "dirty_tracked": false,
     "effect": "deploy",
     "previous_sha": "34c25d0949f3d29edd6f8230fa27913608719526",
@@ -30,6 +30,6 @@
     },
     "removed_after_run": true
   },
-  "note": "Манифест снят на content tip (bump 2b57443a; весь W2b B3 код/тесты уже включены кандидатом 283fc89a). Evidence-файлы добавляются следующим docs-коммитом на той же ветке и не меняют продукт/версию.",
-  "post_capture_note": "Bump commit меняет только version pins/APP_VERSION changelog. Dry-run captured deployed_sha=2b57443a (checkout на момент снятия). Если production выкатит более поздний docs/evidence-only коммит этой ветки, честный deploy-time манифест запишет фактический checkout SHA (продуктовые байты идентичны, отличается только evidence)."
+  "note": "Манифест снят на content tip 885b43e1: bump 2b57443a + delta-review fix F1 (реальный pipeline_type=summary; random.uses не менялся). Evidence-файлы добавляются следующим docs-коммитом на той же ветке и не меняют продукт/версию.",
+  "post_capture_note": "Dry-run captured deployed_sha=885b43e1 (checkout на момент снятия). Если production выкатит более поздний docs/evidence-only коммит этой ветки, честный deploy-time манифест запишет фактический checkout SHA (продуктовые байты идентичны, отличается только evidence)."
 }

@@ -1,17 +1,18 @@
 {
   "feature": "mod-acl-ux-01 / M4A W2b B3 — история «Сводок» и «Источника случайности»",
   "release": "2.58.214",
-  "slice": "release assembly: approved W2b B3 candidate 283fc89a + bump 2.58.213 -> 2.58.214",
+  "slice": "release assembly: approved W2b B3 candidate 283fc89a + bump 2.58.213 -> 2.58.214 + delta-review F1 fix 885b43e1",
   "assembled_at": "2026-11-17",
   "branch": "release/mod-acl-w2b3-2.58.214",
   "base_commit": "34c25d0949f3d29edd6f8230fa27913608719526",
   "base_version": "2.58.213",
   "base_state": "deployed previous release / rollback target; production not contacted in this assembly",
-  "review_verdict": "Approved for 2.58.214 release preparation",
+  "review_verdict": "Approved for 2.58.214 release preparation; delta review Needs Fixes F1 (Summary history source) fixed in 885b43e1, focused re-review pending",
   "candidate_tip": "283fc89ae1cc9f9bb7327c38323c9359d2286ccf",
   "candidate_commits": ["283fc89ae1cc9f9bb7327c38323c9359d2286ccf"],
   "bump_commit": "2b57443ad0b08195c07822a0c2c5b7eb13ee5d71",
-  "content_tip": "2b57443ad0b08195c07822a0c2c5b7eb13ee5d71",
+  "fix_commit": "885b43e1c167f4efa30fdd5f86a22ea1ebb40efe",
+  "content_tip": "885b43e1c167f4efa30fdd5f86a22ea1ebb40efe",
   "environment": {
     "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
     "node": "v24.16.0",
@@ -19,22 +20,26 @@
     "network": "none used by tests; local in-memory SQLite only"
   },
   "diff_vs_base": {
-    "files": 36,
-    "insertions": 1391,
-    "deletions": 64,
+    "files": 44,
+    "insertions": 2071,
+    "deletions": 65,
     "candidate_files": 6,
     "candidate_insertions": 1360,
     "candidate_deletions": 33,
     "bump_files": 30,
     "bump_lines": 31,
+    "fix_files": 7,
+    "fix_insertions": 241,
+    "fix_deletions": 52,
     "product_files": [
       "web/app.js",
       "web/index.html",
-      "config/settings.py (bump/changelog)"
+      "services/module_registry.py (F1: значение существующего history_source)",
+      "config/settings.py (bump/changelog; версия 2.58.214)"
     ],
-    "backend_files": 0,
-    "deploy_script_changes": 0,
-    "no_db_migration_composer_prompt_model_endpoint_files": true
+    "backend_api_files": 0,
+    "no_db_migration_composer_prompt_model_endpoint_files": true,
+    "deploy_script_changes": 0
   },
   "invariants": {
     "app_version": "2.58.214",
@@ -53,21 +58,40 @@
     "new_composer": 0,
     "new_endpoints": 0,
     "deploy_script_changes": 0,
-    "pg_settings_touched": false
+    "pg_settings_touched": false,
+    "history_sources": [
+      "oversight:summary",
+      "oversight:random.uses",
+      "memory.dream.log",
+      "memory.nostalgia.log",
+      "memory.lessons",
+      "factcheck.temporal.runs"
+    ]
+  },
+  "summary_source": {
+    "dto_label": "oversight:summary",
+    "api_param": "pipeline_type=summary",
+    "why": "реальные прогоны Summary идут через pipeline_events.py -> mca_trace.span_fields(run_id, pipeline_type='summary') и несут pipeline_run_id; summary.window — компонентные события summary_memory._emit_mca('SUMMARY_WINDOW_BUILD') без pipeline_run_id, /api/oversight/runs их не группирует (F1)",
+    "legacy_label_rejected": "oversight:summary.window — не источник: ни запроса, ни вкладки (fail-closed)"
+  },
+  "random_source": {
+    "dto_label": "oversight:random.uses",
+    "api_param": "pipeline_type=random.uses",
+    "changed_by_f1": false
   },
   "batches": [
     {
       "id": "required-pytest",
       "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q",
-      "result": {"passed": 386, "failed": 0}
+      "result": {"passed": 386, "failed": 0, "note": "включает drift-guard tests/fixtures/module_registry_visible.json после F1"}
     },
     {
       "id": "js-w2b-unit",
       "command": "node tests/js/mod_acl_ux_m4a_w2b_history_test.js",
       "result": {
-        "checks": 348,
+        "checks": 356,
         "failed": 0,
-        "covers": "B1 126 + B2 + B3: шесть источников H-1, mapping pipeline_type summary.window/random.uses, state machine (403/503/available:false/enabled:false/битый конверт/сеть), fail-closed source, не-админ 0 запросов, один фетч, 30-с кэш scope+epoch, A→B→A, поздний in-flight, run_id-detail, max(ts), observed_at, default≠history, pending memory, фильтр по статусу"
+        "covers": "B1 + B2 + B3/F1: шесть источников, реальный pipeline_type=summary (не summary.window), mapping/URL, state machine (403/503/available:false/enabled:false/битый конверт/сеть), fail-closed source, не-админ 0 запросов, один фетч, 30-с кэш scope+epoch, A→B→A, поздний in-flight, run_id-detail, max(ts), observed_at, default≠history, pending memory, фильтр"
       }
     },
     {
@@ -86,7 +110,7 @@
       "result": {
         "marker": "MODULE-WORKSPACE-OK",
         "failed": 0,
-        "note": "ожидание карт вкладок Саммари и mod_random обновлено под W2b B3 (history в конце массивов), без ослабления прочих проверок"
+        "note": "ожидание карт вкладок Саммари и mod_random обновлено под W2b B3 (history в конце массивов)"
       }
     },
     {
@@ -117,15 +141,17 @@
         "failures": 0,
         "viewports": 5,
         "viewports_list": ["1440x900", "1280x800", "768x1024", "390x844", "320x568"],
-        "flows": 113,
-        "b3_flows": 20,
+        "flows": 114,
+        "b3_flows": 21,
         "b3_facts": {
+          "pipeline_types_seen": ["random.uses", "summary"],
+          "pipeline_types_assertion": "set == {summary, random.uses}; summary.window никогда не запрашивается",
           "summary_default": "bare URL -> active tab settings (history never default), history tab present with 200+runs",
           "summary_overview": {"rows": 5, "blocks": 1, "addresses": 1, "run_links": 5, "first_href_run": "srun-2", "chips_rows": 1, "duplicate_chips": 0},
           "summary_history": {"rows": 6, "keys": ["srun-1", "srun-2", "srun-3", "srun-4", "srun-5", "srun-6"], "run_links": 6, "filter_options": 5},
           "summary_filter_failed": {"rows": 2, "statuses": ["failed", "failed"]},
           "run_detail": {"hash": "#/oversight?view=runs&run_id=srun-1", "detail_gets": 2, "note": "двойной apply deep link — прежнее поведение пути applyRoute+oversightApplyDeepLink; запрос по run_id выполнен"},
-          "one_fetch": {"before": 1, "after_tab": 1, "idle": 1, "note": "вкладка и простой не добавляют запросов"},
+          "one_fetch": {"before": 1, "after_tab": 1, "idle": 1},
           "random_overview": {"rows": 2, "blocks": 1, "addresses": 1},
           "random_history": {"rows": 3, "keys": ["rrun-1", "rrun-2", "rrun-3"], "run_links": 3},
           "states": {
@@ -140,7 +166,7 @@
             "1280": {"A": ["srun-1"], "B": ["srun-B"], "back": ["srun-1"], "own_requests_per_switch": 1},
             "390": {"A": ["srun-1"], "B": ["srun-B"], "back": ["srun-1"], "own_requests_per_switch": 1, "scrollWidth": 390, "vw": 390, "row_font": "12px"}
           },
-          "stub_note": "GET /api/oversight/runs серверно не фильтруется по чату — ответы областей в e2e различаются стабом B3_ROWS; проверяется изоляция клиентского состояния/кэша, не серверная фильтрация",
+          "stub_note": "ряды Summary/Random в e2e — СИНТЕТИЧЕСКИЙ стаб (production-строки не запрашивались); форма — контракт GET /api/oversight/runs; серверно API не фильтруется по чату, поэтому cross-scope ответы различаются стабом B3_ROWS",
           "pageerrors": []
         }
       }
@@ -157,7 +183,7 @@
     },
     {
       "id": "syntax-diff",
-      "command": "node --check web/app.js; git diff --check 34c25d09..2b57443a",
+      "command": "node --check web/app.js; git diff --check 34c25d09..885b43e1",
       "result": {"node_check_rc": 0, "diff_check_rc": 0}
     }
   ],
@@ -171,10 +197,12 @@
   },
   "limits": {
     "cross_chat_content": "loadModuleRuns не передаёт chat_id: GET /api/oversight/runs отдаёт до 20 последних прогонов всех чатов (global-admin API); строки подписаны «чат <id>», фильтр по чату — W2c/W3, design-ограничение, не дефект реализации",
+    "summary_window_not_a_source": "компонентные события summary.window (SUMMARY_WINDOW_BUILD) не несут pipeline_run_id и в runs не попадают; источник истории Summary — только реальные прогоны pipeline_type=summary",
     "owner_copy": "не-владельцу на Summary/Random показывается текст «Журнал проверок с источниками доступен владельцу…» (фактчек-формулировка) — LOW/backlog",
     "off_wording": "available:false печатается как «журнал выключен (503)» — причина в UI обобщена, LOW/backlog",
     "browser_use": "blocked (CDP/relay недоступны) — живая визуальная проверка этим каналом не заявляется",
     "w3_live": "живые 403/503/stale/disabled/permissions на production — W3, не в этом релизе",
+    "e2e_rows": "синтетические; production-данные Summary/Random в e2e не читались, «данные summary.window в проде» не заявляется",
     "verified": false
   }
 }
