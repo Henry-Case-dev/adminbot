@@ -1329,6 +1329,15 @@ def _clean_mca_events():
     mca_events.reset_pending()
 
 
+@pytest.fixture(autouse=True)
+def _owner_prng_policy(monkeypatch):
+    """QRNG P3/F3: сценарии координации рассчитаны на ЯВНЫЙ PRNG-откат
+    (в проде сохранённый true). Заводской дефолт новых установок — false,
+    поэтому политика задаётся явно в тесте, а не меняется в продукте."""
+    from services import mca_random_source as _mrs
+    monkeypatch.setattr(_mrs, "DEFAULT_FALLBACK", True)
+
+
 def test_text_publish_guard_cancels_without_send(tmp_path, monkeypatch):
     """Отказ брони перед отправкой: реплика отменена, intent жив (§3.5)."""
     from services import direct_chat_service as dcs

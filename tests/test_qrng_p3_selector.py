@@ -911,3 +911,251 @@ class TestStatusDto:
             assert snap["resolved_primary"] == "anu"   # ключ B есть, запаса нет
         finally:
             await db.close()
+
+
+# ── 8. F2: refill failover между провайдерами (bounded, один проход) ────────
+def _refill_service(db, cfg, *, anu_responses, lfdr_responses, anu_key=None,
+                    circuit_fails=3, clock=None):
+    cfg[mrs.SETTING_BATCH_LENGTH] = 8
+    clock = clock or FakeClock()
+    anu_http, anu_calls = make_http(list(anu_responses))
+    anu = mrs.AnuClient(http_get=anu_http, min_interval=0.0,
+                        circuit_fails=circuit_fails, clock=clock)
+    svc = mrs.RandomSourceService(db, client=anu, auto_refill=False,
+                                  clock=clock)
+    lfdr_http, lfdr_calls = make_http(list(lfdr_responses))
+    svc.set_lfdr_client(mrs.LfdrClient(http_get=lfdr_http, min_interval=0.0,
+                                       circuit_fails=circuit_fails,
+                                       clock=clock))
+    if anu_key is not None:
+        cfg[mrs.SETTING_KEY] = anu_key
+    return svc, anu_calls, lfdr_calls
+
+
+class TestRefillFailover:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("anu_response,expected_code", [
+        ((401, {}, '{"error": "bad key"}'), "auth_failed"),
+        # ANU-клиент исторически отдаёт 429 как quota_exhausted (квота
+        # аккаунта), не rate_limit — фиксируем фактический код.
+        ((429, {}, '{"error": "slow down"}'), "quota_exhausted"),
+        ((500, {}, '{"error": "boom"}'), "provider_unavailable"),
+    ])
+    async def test_anu_failure_falls_to_lfdr_and_draw_uses_it(
+            self, tmp_path, cfg, mem, anu_response, expected_code):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg[PRIMARY] = "anu"
+            cfg[ORDER] = ["lfdr"]
+            svc, anu_calls, lfdr_calls = _refill_service(
+                db, cfg, anu_key="anu-key-A",
+                anu_responses=[anu_response],
+                lfdr_responses=[ok_lfdr(8, 1)])
+            result = await svc.refill_if_needed()
+            assert result["status"] == "completed", result
+            assert result.get("provider") == "lfdr"
+            assert len(anu_calls) == 1
+            assert len(lfdr_calls) == 1
+            attempts = result.get("attempts") or []
+            assert attempts and attempts[0]["provider"] == "anu"
+            assert attempts[0]["reason"] == expected_code
+            rows = await _rows(db, "SELECT provider FROM mca_random_batches")
+            assert [r["provider"] for r in rows] == ["lfdr"]
+            draw = await svc.draw_index(2, chat_id=1, purpose="p")
+            assert draw.source == "quantum"
+            assert draw.provider_id == "lfdr"
+            snap = await svc.status_snapshot(chat_id=1)
+            assert snap["effective_provider"] == "lfdr"
+            assert snap["prng_active"] is False
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_fallback_disabled_does_not_call_secondary(
+            self, tmp_path, cfg, mem):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg[PRIMARY] = "anu"
+            cfg[ORDER] = ["lfdr"]
+            cfg[FB_ENABLED] = False
+            mem[mrs.SETTING_FALLBACK] = True     # PRNG разрешён политикой
+            svc, anu_calls, lfdr_calls = _refill_service(
+                db, cfg, anu_key="anu-key-A",
+                anu_responses=[(401, {}, '{"error": "bad key"}')],
+                lfdr_responses=[ok_lfdr(8, 1)])
+            result = await svc.refill_if_needed()
+            # Честный провал fetch, НЕ completed; LfDR не вызывался.
+            assert result["status"] == "failed", result
+            assert result["reason"] == "auth_failed"
+            assert len(anu_calls) == 1
+            assert lfdr_calls == []
+            assert await _rows(db, "SELECT provider FROM mca_random_batches") \
+                == []
+            # Политика fallback OFF: PRNG разрешён явно, квантовых значений нет.
+            draw = await svc.draw_index(2, chat_id=1, purpose="p")
+            assert draw.source == "pseudorandom"
+            assert draw.entropy_class is None
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_all_fetches_fail_is_not_completed(self, tmp_path, cfg, mem):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg[PRIMARY] = "anu"
+            cfg[ORDER] = ["lfdr"]
+            svc, anu_calls, lfdr_calls = _refill_service(
+                db, cfg, anu_key="anu-key-A",
+                anu_responses=[(401, {}, '{"error": "bad key"}')],
+                lfdr_responses=[(500, {}, '{"error": "boom"}')])
+            result = await svc.refill_if_needed()
+            assert result["status"] == "failed", result
+            assert result["reason"] == "provider_unavailable"
+            assert len(anu_calls) == 1 and len(lfdr_calls) == 1
+            assert await _rows(db, "SELECT provider FROM mca_random_batches") \
+                == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_same_provider_not_retried_in_one_call(self, tmp_path, cfg,
+                                                         mem):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg[PRIMARY] = "anu"
+            cfg[ORDER] = ["lfdr"]
+            # Ровно один ANU-ответ и один LfDR-ответ: повторный вызов любого
+            # провайдера уронил бы тест (make_http без элементов).
+            svc, anu_calls, lfdr_calls = _refill_service(
+                db, cfg, anu_key="anu-key-A",
+                anu_responses=[(500, {}, '{"error": "boom"}')],
+                lfdr_responses=[(500, {}, '{"error": "boom"}')])
+            result = await svc.refill_if_needed()
+            assert result["status"] == "failed", result
+            assert len(anu_calls) == 1
+            assert len(lfdr_calls) == 1
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_open_breaker_skips_primary_on_next_call(self, tmp_path,
+                                                           cfg, mem):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg[PRIMARY] = "anu"
+            cfg[ORDER] = ["lfdr"]
+            svc, anu_calls, lfdr_calls = _refill_service(
+                db, cfg, anu_key="anu-key-A", circuit_fails=1,
+                anu_responses=[(401, {}, '{"error": "bad key"}')],
+                lfdr_responses=[ok_lfdr(8, 1), ok_lfdr(8, 9)])
+            first = await svc.refill_if_needed()
+            assert first["status"] == "completed"
+            assert first["provider"] == "lfdr"
+            second = await svc.refill_if_needed()
+            assert second["status"] == "completed"
+            assert second["provider"] == "lfdr"
+            # ANU не дёргается повторно: breaker open → кандидат исключён.
+            assert len(anu_calls) == 1
+            assert len(lfdr_calls) == 2
+        finally:
+            await db.close()
+
+
+# ── 9. F3: заводской PRNG default false; сохранённое true не перетирается ───
+class TestFactoryPrngDefault:
+    def test_factory_default_is_false(self):
+        assert mrs.DEFAULT_FALLBACK is False
+        from config.settings import Settings
+        assert Settings.RANDOM_FALLBACK_TO_PSEUDORANDOM is False
+        assert Settings().RANDOM_FALLBACK_TO_PSEUDORANDOM is False
+
+    @pytest.mark.asyncio
+    async def test_new_install_without_saved_value_defers(self, tmp_path, cfg,
+                                                          mem):
+        db = await _fresh_db(tmp_path)
+        try:
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            assert await svc.fallback_enabled(1) is False
+            res = await svc.resolve_selection(1)
+            assert res.mode == "deferred"        # не quantum и не PRNG
+            draw = await svc.draw_index(4, chat_id=1, purpose="p")
+            assert draw.deferred is True and draw.index is None
+            assert await svc.recent_draws(limit=5) == []
+            snap = await svc.status_snapshot(chat_id=1)
+            assert snap["fallback_setting"] is False
+            assert snap["prng_active"] is False
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_saved_true_preserved_and_explicit(self, tmp_path, cfg,
+                                                      mem):
+        db = await _fresh_db(tmp_path)
+        try:
+            mem[mrs.SETTING_FALLBACK] = True
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            res = await svc.resolve_selection(1)
+            assert res.mode == "pseudorandom"
+            snap = await svc.status_snapshot(chat_id=1)
+            assert snap["fallback_setting"] is True
+            assert snap["prng_active"] is True
+            assert mem[mrs.SETTING_FALLBACK] is True   # не перезаписано
+        finally:
+            await db.close()
+
+    def test_seed_new_install_false_and_existing_true_kept(self, tmp_path):
+        import sqlite3
+        from services import pg_db
+        key = mrs.SETTING_FALLBACK
+
+        def _seed(name, preexisting):
+            conn = sqlite3.connect(str(tmp_path / name))
+            conn.execute("CREATE TABLE bot_settings (key TEXT PRIMARY KEY, "
+                         "value TEXT, category TEXT)")
+            if preexisting is not None:
+                conn.execute("INSERT INTO bot_settings VALUES (?,?,?)",
+                             (key, json.dumps(preexisting), "memory"))
+
+            class _Conn:
+                async def execute(self, sql, *args):
+                    conn.execute(
+                        sql.replace("$1", "?").replace("$2", "?")
+                        .replace("$3", "?"), args)
+
+            asyncio.run(pg_db._seed_settings_into(_Conn()))
+            row = conn.execute(
+                "SELECT value FROM bot_settings WHERE key=?", (key,)).fetchone()
+            conn.close()
+            return json.loads(row[0])
+
+        assert _seed("fresh.db", None) is False          # новая установка
+        assert _seed("existing.db", True) is True        # строка владельца цела
+
+
+# ── 10. F1: global-only селектор не виден чатовому non-admin ────────────────
+class TestChatVisibility:
+    SELECTOR_KEYS = (PRIMARY, ORDER, FB_ENABLED)
+
+    @staticmethod
+    def _keys(resp):
+        assert resp.status_code == 200, resp.text
+        return {i["key"] for i in resp.json()["items"]}
+
+    def test_member_chat_scope_hides_selector(self, api_env):
+        keys = self._keys(api_env.get(
+            "/api/config", headers=_hdr(MEMBER_ID, chat_id=MEMBER_ID)))
+        for key in self.SELECTOR_KEYS:
+            assert key not in keys, key
+        # Ответ не пустой: фильтр узкий (только селектор), прочие ключи живы.
+        assert keys
+
+    def test_global_admin_chat_scope_sees_selector(self, api_env):
+        keys = self._keys(api_env.get(
+            "/api/config", headers=_hdr(ADMIN_ID, chat_id=ADMIN_ID)))
+        for key in self.SELECTOR_KEYS:
+            assert key in keys, key
+
+    def test_global_scope_sees_selector(self, api_env):
+        keys = self._keys(api_env.get("/api/config", headers=_hdr()))
+        for key in self.SELECTOR_KEYS:
+            assert key in keys, key

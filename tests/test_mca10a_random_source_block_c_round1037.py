@@ -124,7 +124,10 @@ class TestCatalogContract:
     def test_settings_defaults(self):
         s = Settings()
         assert s.RANDOM_SOURCE == "quantum"
-        assert s.RANDOM_FALLBACK_TO_PSEUDORANDOM is True
+        # QRNG P3/F3 (arch D6): заводской дефолт явного PRNG-отката для новых
+        # установок — false; сохранённое значение владельца (прод: true) не
+        # перезаписывается (сид ON CONFLICT DO NOTHING, рантайм читает строку).
+        assert s.RANDOM_FALLBACK_TO_PSEUDORANDOM is False
         assert s.RANDOM_EXPLORATION_PROBABILITY == 0.05
         assert s.RANDOM_SLEEP_EXPLORATION_PROBABILITY == 0.05
         assert s.RANDOM_QUANTUM_PROVIDER == "ANU Quantum Numbers"

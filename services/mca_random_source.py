@@ -175,7 +175,12 @@ SETTING_LOW_WATERMARK = "keys.random_quantum_refill_low_watermark"
 SETTING_BUFFER_MAX = "keys.random_quantum_buffer_max_values"
 
 DEFAULT_SOURCE = MODE_QUANTUM
-DEFAULT_FALLBACK = True
+# QRNG P3/F3 (arch D6): заводской дефолт «честного» PRNG-отката для НОВЫХ
+# установок — выключен. Сохранённое `true` владельца (прод) не перезаписывается:
+# значение читается из bot_settings/chat_params, дефолт применяется только при
+# отсутствии явной настройки. Параметр существующий — Settings-поле и сид
+# (INSERT ... ON CONFLICT DO NOTHING) получают false, существующая строка цела.
+DEFAULT_FALLBACK = False
 DEFAULT_EXPLORATION_PROBABILITY = 0.05
 DEFAULT_BATCH_LENGTH = 1024
 DEFAULT_DATA_TYPE = "uint16"
@@ -263,6 +268,11 @@ ANU_PROVIDER_IDS = (PROVIDER_ID_ANU, PROVIDER_ANU)
 SETTING_PRIMARY_PROVIDER = "random.primary_provider"
 SETTING_PROVIDER_FALLBACK_ENABLED = "random.fallback_enabled"
 SETTING_FALLBACK_ORDER = "random.fallback_order"
+# F1 (D4): три глобальных ключа селектора. В chat-scope GET /api/config их
+# видит только global admin (чатовый админ — нет); запись уже 422 (global_only).
+SELECTOR_SETTING_KEYS = (SETTING_PRIMARY_PROVIDER,
+                         SETTING_PROVIDER_FALLBACK_ENABLED,
+                         SETTING_FALLBACK_ORDER)
 
 DEFAULT_PRIMARY_PROVIDER = PROVIDER_ID_IBM
 # Заводской запасной порядок — относительно primary по умолчанию (IBM):
@@ -439,6 +449,10 @@ _DEGRADED_REASONS = frozenset({
     "provider_unavailable", "auth_failed", "timeout", "validation_failed",
     "delivery_unknown", "rate_limit", "redirect_blocked", "client_error",
 })
+# Причины, при которых повторный запрос ANU в refill заведомо не изменит
+# исход (неверный ключ/исчерпанная месячная квота). Транзиентные 5xx/timeout
+# сюда НЕ входят: их ограничивает breaker, а не постоянный skip.
+ANU_STATE_PERSISTENT_BLOCKERS = frozenset({"auth_failed", "quota_exhausted"})
 
 
 def _utc_period(now: float | None = None) -> str:
@@ -2992,16 +3006,57 @@ class RandomSourceService:
             return True         # публичный, ключа нет; адаптер P2
         return False            # IBM-адаптер — P5
 
+    async def _provider_skip_reason(self, provider_id: str) -> str | None:
+        """Почему провайдера не стоит пытать в ЭТОМ проходе refill.
+
+        Без сети и без записи: открытый breaker/backoff клиента; постоянные
+        причины ANU (неверный ключ `auth_failed`, исчерпанная месячная квота).
+        Транзиентные 5xx/timeout не кэшируются навсегда — их ограничивает
+        breaker, а в текущем вызове провайдер повторно не пробуется."""
+        if provider_id == PROVIDER_ID_ANU:
+            try:
+                if not self._get_client().available():
+                    return "circuit_open"
+            except Exception:      # pragma: no cover — fail-open
+                pass
+            state = await self._read_state() or {}
+            reason = str(state.get("last_fallback_reason") or "")
+            if reason in ANU_STATE_PERSISTENT_BLOCKERS:
+                return reason
+            return None
+        if provider_id == PROVIDER_ID_LFDR:
+            client = self._lfdr_client
+            if client is not None and not client.available():
+                return "circuit_open"
+            return None
+        return "no_adapter"
+
+    async def _refill_plan(self) -> tuple[list[str], list[dict]]:
+        """Bounded-план refill: очередь попыток + пропущенные по health.
+
+        Один проход по действующему порядку (≤ числа провайдеров), каждый
+        провайдер — не более одной попытки за вызов."""
+        selection = await self.resolve_selection(None)
+        queue: list[str] = []
+        skipped: list[dict] = []
+        for pid in selection.effective_order:
+            if not self._provider_can_fetch(pid):
+                continue
+            reason = await self._provider_skip_reason(pid)
+            if reason:
+                skipped.append({"provider": pid, "status": "skipped",
+                                "reason": reason})
+            else:
+                queue.append(pid)
+        return queue, skipped
+
     async def _refill_target(self) -> str | None:
         """Первый запрашиваемый провайдер действующего порядка (D5).
 
-        Цель refill не зависит от текущего запаса (иначе пустой запас нечем
-        заполнить): берётся первый провайдер, у которого есть всё для запроса."""
-        selection = await self.resolve_selection(None)
-        for pid in selection.effective_order:
-            if self._provider_can_fetch(pid):
-                return pid
-        return None
+        Цель startup: первый провайдер, у которого есть всё для запроса и
+        health не запрещает попытку (breaker/постоянный блокер исключены)."""
+        queue, _skipped = await self._refill_plan()
+        return queue[0] if queue else None
 
     async def refill_if_needed(self, *, force: bool = False) -> dict:
         """Фоновое пополнение партиями (не запрос на каждый draw).
@@ -3009,61 +3064,102 @@ class RandomSourceService:
         Singleflight через `TaskSupervisor.run(owner="random.source",
         kind="refill", coalesce_key="random.refill:<account>:<provider>")` +
         durable `task_jobs`; watermark/buffer_max bounded; K3 OFF → не
-        запускается. Цель P3 — первый запрашиваемый провайдер действующего
-        порядка (ANU при действующем ключе; LfDR без ключа; IBM до P5 — нет)."""
+        запускается.
+
+        QRNG P3 (F2): провайдеры действующего порядка пробуются
+        ПОСЛЕДОВАТЕЛЬНО, один проход, каждый не более одного раза. Провайдер
+        с открытым breaker/постоянным блокером пропускается; при неудачном
+        fetch (auth/rate/5xx/timeout) — следующий. `completed` возвращается
+        только при реально зачисленной партии; полностью провалившийся проход
+        — честный `failed` с причиной и списком попыток."""
         if not mca_gates.random_source_enabled() or \
                 not mca_gates.random_quantum_enabled():
             return {"status": "disabled"}
         if not mca_gates.random_refill_enabled() and not force:
             return {"status": "disabled", "reason": "refill_disabled"}
-        target = await self._refill_target()
-        if target is None:
-            if not self._resolve_key():
+        queue, attempts = await self._refill_plan()
+        if not queue:
+            if not self._resolve_key() and not attempts:
                 await self._mark_state_failure("provider_unconfigured")
-                return {"status": "blocked", "reason": "provider_unconfigured"}
-            return {"status": "blocked", "reason": "provider_unavailable"}
+                return {"status": "blocked", "reason": "provider_unconfigured",
+                        "attempts": attempts}
+            last = attempts[-1]["reason"] if attempts else "provider_unavailable"
+            return {"status": "blocked", "reason": last,
+                    "attempts": attempts}
         if self._store is None or self.db is None:
             return {"status": "blocked", "reason": "provider_unavailable"}
-        reserve = await self._provider_reserve_map()
-        remaining = int(reserve.get(target, 0) or 0)
         buffer_max = self._buffer_max()
         # Пол партии: при buffer_max < batch_length одна партия всё же
         # помещается (иначе запас нечем заполнить); bound = max(...).
         limit_max = max(buffer_max, self._batch_length())
-        if not force:
-            if remaining >= limit_max:
-                return {"status": "skipped", "reason": "buffer_full",
-                        "remaining": remaining}
-            if remaining >= self._low_watermark():
-                return {"status": "skipped", "reason": "watermark_ok",
-                        "remaining": remaining}
-        if remaining > 0 and remaining + self._batch_length() > limit_max:
-            return {"status": "skipped", "reason": "buffer_full",
-                    "remaining": remaining}
         from services.task_supervisor import (QueueFullError, TaskJobStore,
                                               get_task_supervisor)
         supervisor = get_task_supervisor()
         job_store = TaskJobStore(self.db)
-        coalesce = f"random.refill:{self._account_key()}:{target}"
-        try:
-            # kind="refill" (D2): TaskSupervisor трактует его как
-            # второстепенный класс — при переполнении bounded-очереди job
-            # отклоняется с видимой причиной `queue_full` (singleflight
-            # coalesce_key защищает от дублей; следующий draw/старт повторит).
-            record = await supervisor.run(
-                lambda: self._do_refill(target), owner="random.source",
-                kind="refill", coalesce_key=coalesce,
-                job_store=job_store)
-        except QueueFullError:
-            logger.info("[random_source] refill queue full — deferred | "
-                        "account=%s", self._account_key())
-            return {"status": "deferred", "reason": "queue_full"}
-        except Exception as exc:
-            logger.warning("[random_source] refill job failed | error=%s",
-                           type(exc).__name__, exc_info=True)
-            return {"status": "failed", "reason": "provider_unavailable"}
-        return {"status": record.status, "job_id": record.job_id,
-                "task_id": record.task_id, "reason": self._last_refill_reason}
+        reserve = await self._provider_reserve_map()
+        for target in queue:
+            remaining = int(reserve.get(target, 0) or 0)
+            if not force:
+                if remaining >= limit_max:
+                    return {"status": "skipped", "reason": "buffer_full",
+                            "provider": target, "remaining": remaining,
+                            "attempts": attempts}
+                if remaining >= self._low_watermark():
+                    return {"status": "skipped", "reason": "watermark_ok",
+                            "provider": target, "remaining": remaining,
+                            "attempts": attempts}
+                if remaining > 0 and remaining + self._batch_length() > limit_max:
+                    return {"status": "skipped", "reason": "buffer_full",
+                            "provider": target, "remaining": remaining,
+                            "attempts": attempts}
+            coalesce = f"random.refill:{self._account_key()}:{target}"
+            outcome: dict = {}
+
+            async def _job(pid: str = target, box: dict = outcome) -> str:
+                box["result"] = await self._do_refill(pid)
+                return "ok" if box["result"].get("ok") else "fail"
+
+            try:
+                # kind="refill" (D2): TaskSupervisor трактует его как
+                # второстепенный класс — при переполнении bounded-очереди job
+                # отклоняется с видимой причиной `queue_full` (singleflight
+                # coalesce_key защищает от дублей; следующий draw/старт повторит).
+                record = await supervisor.run(
+                    _job, owner="random.source", kind="refill",
+                    coalesce_key=coalesce, job_store=job_store)
+            except QueueFullError:
+                logger.info("[random_source] refill queue full — deferred | "
+                            "account=%s", self._account_key())
+                return {"status": "deferred", "reason": "queue_full",
+                        "provider": target, "attempts": attempts}
+            except Exception as exc:
+                logger.warning("[random_source] refill job failed | error=%s",
+                               type(exc).__name__, exc_info=True)
+                attempts.append({"provider": target, "status": "failed",
+                                 "reason": "provider_unavailable"})
+                continue
+            result = outcome.get("result")
+            if result is None:
+                # Коалесцировано с уже идущей задачей: исход не наш —
+                # completed без доказанной партии не заявляется.
+                return {"status": record.status, "job_id": record.job_id,
+                        "task_id": record.task_id, "reason": "coalesced",
+                        "coalesced": True, "provider": target,
+                        "attempts": attempts}
+            if result.get("ok"):
+                return {"status": record.status, "job_id": record.job_id,
+                        "task_id": record.task_id, "reason": None,
+                        "provider": target,
+                        "batch_id": result.get("batch_id"),
+                        "length": result.get("length"),
+                        "attempts": attempts}
+            attempts.append({"provider": target, "status": "failed",
+                             "reason": result.get("reason")})
+            self._last_refill_reason = result.get("reason")
+        last = attempts[-1] if attempts else {"provider": None,
+                                               "reason": "provider_unavailable"}
+        return {"status": "failed", "reason": last.get("reason"),
+                "provider": last.get("provider"), "attempts": attempts}
 
     async def _do_refill(self, provider: str) -> dict:
         """Одна партия выбранного провайдера.

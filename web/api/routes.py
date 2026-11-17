@@ -667,6 +667,9 @@ async def get_config(
         # любой TMA-роли (фикс S1).
         ctx = await roles_srv.access_for(user.id, cache=cache)
     items = []
+    # QRNG P3/F1 (arch D4): глобальные ключи селектора источника не
+    # показываются чатовому non-admin (см. фильтр в chat-scope ниже).
+    from services import mca_random_source as _random_source
     for key, value in sorted(cache.get_all().items()):
         spec = get_by_pg_key(key)
         # F2 (10.23, ADR-1023-2): внутренние ключи (hidden) — вне UI-каталога
@@ -679,6 +682,12 @@ async def get_config(
             # F-7 §6: фильтр видимости per-chat (hidden/min-роль view);
             # keys-секция: локальному админу — полностью исключается
             if secret and not ctx.is_global_admin:
+                continue
+            # QRNG P3/F1 (arch D4): селектор источника — глобальная настройка
+            # (global_only). Чатовому non-admin её не видно; global admin
+            # видит как раньше. Запись в chat-scope уже отбивается 422.
+            if (not ctx.is_global_admin
+                    and key in _random_source.SELECTOR_SETTING_KEYS):
                 continue
             matrix = access_srv.effective_matrix(
                 key, db_overrides.get(key),

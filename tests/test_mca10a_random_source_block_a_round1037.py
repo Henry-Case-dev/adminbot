@@ -296,6 +296,9 @@ async def test_modes_hot_resolve_and_persistence(tmp_path, mem, cfg):
 async def test_prng_auto_seed_source_impl_and_probability(tmp_path, mem):
     db = await _fresh_db(tmp_path)
     try:
+        # PRNG-откат разрешён явно (заводской дефолт новых установок — false,
+        # QRNG P3/F3); тест проверяет сам PRNG-путь.
+        mem[mrs.SETTING_FALLBACK] = True
         svc = mrs.RandomSourceService(db, auto_refill=False)
         result = await svc.draw_index(10, chat_id=1, purpose="p")
         assert result.source == "pseudorandom"

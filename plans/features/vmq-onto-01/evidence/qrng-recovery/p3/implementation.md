@@ -60,19 +60,52 @@
 `fallback_order_state=requires_resolution`; резолв применяет защитную
 нормализацию, строка в БД не меняется.
 
-**PRNG-дефолт.** Параметр `memory.random_fallback_to_pseudorandom` P3 **не
-создаёт** (он существует с заводским `true`, у владельца сохранён `true`).
-Условие D6 «заводской дефолт новых установок = false» относится к созданию
-параметра; здесь оно не применимо, поэтому значение/дефолт не менялись (иначе
-изменилось бы поведение установок без сохранённой строки). Сохранённое `true`
-не перезаписывается — проверено тестом и `prng_setting`/`fallback_setting`.
+**PRNG-дефолт (F3 corrective).** Заводской дефолт явного PRNG-отката для
+**новых установок** — `false`: `mca_random_source.DEFAULT_FALLBACK=False` и
+`Settings.RANDOM_FALLBACK_TO_PSEUDORANDOM=False`. Это дефолт только для
+отсутствующей настройки: сохранённая строка владельца (в проде `true`)
+читается как раньше и **не перезаписывается** — сид PG идёт
+`INSERT ... ON CONFLICT (key) DO NOTHING`, рантайм читает bot_settings/
+chat_params. Доказано тестом `test_seed_new_install_false_and_existing_true_kept`
+(новая установка получает `false`, существующая строка `true` остаётся) и
+`test_saved_true_preserved_and_explicit` (сохранённый `true` действует,
+status показывает `fallback_setting=true` + `prng_active`).
 
-## 3. Per-chat и RBAC
+### 2.1 F2 corrective: failover внутри refill
+
+`refill_if_needed` больше не выбирает «единственную цель»: план refill —
+**bounded-проход** по действующему порядку (≤ числа провайдеров), каждый
+провайдер не более одной попытки за вызов.
+
+- `_refill_plan()`: провайдер включается, если он fetchable (ANU — действующий
+  ключ; LfDR — публичный адаптер; IBM — нет) и health не запрещает попытку.
+- `_provider_skip_reason()`: открытый breaker/backoff клиента (`circuit_open`)
+  и постоянные ANU-блокеры (`auth_failed`, `quota_exhausted`) исключают
+  провайдера из прохода. Транзиентные 5xx/timeout не кэшируются навсегда —
+  их ограничивает breaker, но в текущем вызове тот же провайдер не
+  повторяется.
+- Watermark/buffer-гейт считается ПО провайдеру; при неудачном fetch
+  (auth/rate/quota/5xx/timeout) — следующий кандидат. Провайдер с уже
+  достаточным запасом даёт `skipped: watermark_ok` без сети.
+- `completed` возвращается **только** при реально зачисленной партии. Полный
+  провал — `{"status":"failed","reason":<last>,"attempts":[...]}`; очередь
+  попыток и причины видны в ответе. Коалесцированный вызов не выдаёт
+  `completed` без доказанной партии (`coalesced: true`).
+- Успешная LfDR-партия попадает в обычный reserve и сразу расходуема: при
+  ANU 401/429/500 + LfDR 200 draw идёт из LfDR, PRNG не используется, пока
+  fallback доступен; при `random.fallback_enabled=false` LfDR не вызывается,
+  а результат — `failed` (refill) / политика PRNG или deferred (draw).
+
+Мутация «убрать переход к следующему» (M10) убивает F2-тест.
 
 - Все три параметра `global_only=True` → `per_chat=False`; чатовая запись
   (`X-Chat-Id`) отбивается существующим 422 «ключ нельзя переносить на
   уровень чата»; чатовый админ их не видит (`GET /api/config` с чатом).
 - Per-chat override провайдера **не поддерживается** (его нет в контракте).
+- **F1 corrective (read):** в chat-scope `GET /api/config` три ключа
+  `SELECTOR_SETTING_KEYS` скрываются для НЕ-global-admin; global admin и
+  глобальный scope видят их как раньше. Фильтр узкий (ровно три ключа), прочие
+  `global_only`-параметры не затронуты. Запись уже отбивается 422.
 - Запись селектора — обычное право параметра (`can_edit_param`), как у прочих
   глобальных настроек; новых ролей/матриц нет. Ключи провайдера остаются
   global-admin-only (P1 D8).
@@ -116,10 +149,14 @@
   старейшую ANU-партию, provider `anu`); на кандидате — provider `lfdr`,
   `resolved_primary/effective_provider=lfdr`, retired → `requires_resolution` +
   порядок IBM→ANU→LfDR без перезаписи raw.
-- `mutations.json` — 9 мутаций, все убиты целевыми тестами; модули
+- `mutations.json` — 12 мутаций, все убиты целевыми тестами; модули
   восстановлены (sha256 совпал): фильтр провайдера, silent-replace retired,
   per-chat accepted, скрытый PRNG, игнор fallback_order, снятая валидация id,
-  one-shot LfDR-клиент (N1), fake-green IBM, подмена raw при чтении.
+  one-shot LfDR-клиент (N1), fake-green IBM, подмена raw при чтении,
+  **F2: без перехода к следующему**, **F3: дефолт true**, **F1: chat-scope
+  снова видит селектор**.
+- `red-f2f3f1-79b1e6ba.txt` — RED corrective на `79b1e6ba` (финальные тесты):
+  11 failed / 40 passed (F2 ×7, F3 ×3, F1 ×1); после исправлений 51/51.
 - `red_probe.py`, `mutation_probe.py` — воспроизводимые скрипты.
 
 ## 6. Осознанные обновления существующих ассертов
@@ -137,14 +174,24 @@
   `last_fallback_reason` в ANU-scoped `mca_random_state` (G16) — проверяется,
   что ANU-состояние не пачкается.
 - `test_mca10a_random_source_block_c`: `keys.random_quantum_provider` скрыт →
-  отсутствует в `/api/config`/params-meta (9→8), REGISTRY 648.
+  отсутствует в `/api/config`/params-meta (9→8), REGISTRY 648; заводской
+  `Settings.RANDOM_FALLBACK_TO_PSEUDORANDOM` теперь `False` (F3).
 - `test_mca10a_random_source_block_d`: статус использует `resolve_selection`
   (детальный резолвер); monkeypatch обновлён.
 - `test_cfg03_param_audit`: hidden-set +1; мёртвая ручка
   `keys.random_quantum_provider` удалена из DEAD_KNOBS (ключ стал consumed
   в P1 и теперь hidden).
+- **F3 corrective:** тесты, которые проверяют PRNG-путь/откат, теперь задают
+  политику владельца явно (`mem[SETTING_FALLBACK]=True` или hot-ключ): P1
+  rotation/quarantine ×3 + entropy, block_a PRNG, block_b fallback/activation/
+  auto-return, `test_mod_acl_ux_m2_inflight` (мем), `test_initiative_coordination`
+  (autouse), `test_p0_init_arch_fix_observer` (hot-слой). Тест нового дефолта —
+  `test_new_install_without_saved_value_defers` (deferred, 0 строк) и
+  `test_seed_new_install_false_and_existing_true_kept` (новая установка false,
+  сохранённая true цела).
 - Пины каталога/маршрутов переутверждены осознанно (L-F11S-1), счётчики
-  переизданы генератором.
+  переизданы генератором; guard `NS_KEY_EXCEPTIONS` в `test_param_catalog`
+  сужен до трёх точных ключей (не префикс).
 
 ## 7. Ограничения и передача
 
@@ -152,21 +199,24 @@
    делались. Существующий generic-рендер параметров покажет три новые
    глобальные настройки в группе «Случайность» (Sleep-вкладка) — данные
    честные (`per_chat=false`, source default/global), но это не P4-UI;
-   `web/*` не менялся. Скрытый provider-ключ в UI не появится.
+   `web/*` не менялся (кроме backend `web/api/routes.py`: F1 read-фильтр).
+   Скрытый provider-ключ в UI не появится.
 2. **Live-запросы:** в P3 не выполнялись (адаптер LfDR не менялся с P2, где
    есть live-проба; ANU-клиент не менялся; ключ ANU доступен только в PG на
    проде, деплой запрещён). Живая проверка ANU действующим ключом остаётся
    последеплойной/контролируемой задачей (arch §10).
-3. **Migrations/DDL:** нет; v48 не менялся.
-4. **PRNG-дефолт:** см. §2 — параметр существует, дефолт не менялся.
+3. **Migrations/DDL:** нет; v48 не менялся. F3 не требует миграции: дефолт
+   применяется только к отсутствующей настройке, сид не перетирает строку.
+4. **PRNG-дефолт:** см. §2 — новых установок `false`; сохранённый `true`
+   владельца (прод) действует и не перезаписывается.
 5. **IBM:** `configured=false`, адаптера/job нет (P5); в статусе нет
    фейковых зелёных.
 6. **`fallback_order` с повреждённым сохранённым значением:** защитная
    нормализация + видимый `requires_resolution`; значение не перезаписывается.
-7. **Pre-existing failures** (воспроизведены на `84abc2e5`, не P3):
-   `test_cfg03_param_audit::test_visible_dead_knobs...` (мёртвая ручка
-   `flags.dig_pre_gate_enabled` — P1 сделал provider-ключ consumed);
-   26 в broad-catalog, 33 в webapp-batch, 4 JS-файла — те же node id на базе.
+7. **Pre-existing failures** (воспроизведены на базе, не P3): cfg03 dead-knob
+   (`flags.dig_pre_gate_enabled`, база `84abc2e5`); 26 broad-catalog, 33
+   webapp-batch, 4 JS-файла — те же node id на базе; в consumer-batch
+   (`initiative_coordination` ×4, `mca16` ×1) — те же node id на `79b1e6ba`.
 
 ## 8. Rollback
 

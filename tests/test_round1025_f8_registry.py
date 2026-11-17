@@ -268,7 +268,10 @@ ROUTES_SHA256_F11 = (
     # кросс-полевой инвариант `primary ∉ fallback_order` на итоговом
     # состоянии пакета. Новых @api_router-маршрутов НЕТ (Δ routes=0),
     # RBAC/маскировка/DDL не менялись, набор путей f8_baseline не менялся.
-    "3ea159b2014bc50298b5697251633739114cc5eb001bd64516be736b4e4b1da9")
+    # QRNG P3 F1 corrective (17.11.2026, arch D4): chat-scope GET /api/config
+    # скрывает три глобальных ключа селектора от НЕ-global-admin (глобальный
+    # админ и глобальный scope видят как раньше). Новых маршрутов нет.
+    "eee84f5ac2fc68a1306ee327b0bea265107e6cf61dbdccbb9afe4a0b0a79a037")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

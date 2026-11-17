@@ -1,0 +1,78 @@
+.....................................FFFFFFFFF.FF..                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert None == 'lfdr'
+     +  where None = <built-in method get of dict object at 0x00000147A559A700>('provider')
+     +    where <built-in method get of dict object at 0x00000147A559A700> = {'status': 'completed', 'job_id': 'ee14f3d41db942a7a390c830d02536d3', 'task_id': '902dc90b150a4613b431a5b521f0e11d', 'reason': 'auth_failed'}.get
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_batch | ts=1794908946 | event_name=random_batch | outcome=failed | level=WARN | component=random | reason_code=auth_failed | stage=receive | provider=anu | error_json={"type": "AnuError", "code": "auth_failed", "retryable": false, "sent": true}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:956: AssertionError: assert None == 'lfdr'
+E   AssertionError: assert None == 'lfdr'
+     +  where None = <built-in method get of dict object at 0x00000147AF0C2000>('provider')
+     +    where <built-in method get of dict object at 0x00000147AF0C2000> = {'status': 'completed', 'job_id': 'd5c56b17d526495aad52a0b8bef0733c', 'task_id': '2bcf877831ae4319be849781ba2e6db7', 'reason': 'quota_exhausted'}.get
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_batch | ts=1794908946 | event_name=random_batch | outcome=failed | level=WARN | component=random | reason_code=quota_exhausted | stage=receive | provider=anu | error_json={"type": "AnuError", "code": "quota_exhausted", "retryable": true, "sent": true}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:956: AssertionError: assert None == 'lfdr'
+E   AssertionError: assert None == 'lfdr'
+     +  where None = <built-in method get of dict object at 0x00000147AF0A6EC0>('provider')
+     +    where <built-in method get of dict object at 0x00000147AF0A6EC0> = {'status': 'completed', 'job_id': '55d48b34409d4582b1605cd3064978d2', 'task_id': '80689eca374a4b3ab2af76d2ace1881d', 'reason': 'provider_unavailable'}.get
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_batch | ts=1794908946 | event_name=random_batch | outcome=failed | level=WARN | component=random | reason_code=provider_unavailable | stage=receive | provider=anu | error_json={"type": "AnuError", "code": "provider_unavailable", "retryable": true, "sent": true}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:956: AssertionError: assert None == 'lfdr'
+E   AssertionError: {'status': 'completed', 'job_id': 'f196d5f2753041999c394325f5631843', 'task_id': '1555d5c4fd8a48c6ae415d8feebafb27', 'reason': 'auth_failed'}
+    assert 'completed' == 'failed'
+      
+      - failed
+      + completed
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_batch | ts=1794908946 | event_name=random_batch | outcome=failed | level=WARN | component=random | reason_code=auth_failed | stage=receive | provider=anu | error_json={"type": "AnuError", "code": "auth_failed", "retryable": false, "sent": true}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:988: AssertionError: {'status': 'completed', 'job_id': 'f196d5f2753041999c394325f5631843', 'task_id': '1555d5c4fd8a48c6ae415d8feebafb27', 'reason': 'auth_failed'}
+E   AssertionError: {'status': 'completed', 'job_id': '1881c51ed1e2427d817cf0ed8207400a', 'task_id': '38e14dc92b904df78dae6d61bcfecf6f', 'reason': 'auth_failed'}
+    assert 'completed' == 'failed'
+      
+      - failed
+      + completed
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_batch | ts=1794908946 | event_name=random_batch | outcome=failed | level=WARN | component=random | reason_code=auth_failed | stage=receive | provider=anu | error_json={"type": "AnuError", "code": "auth_failed", "retryable": false, "sent": true}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:1012: AssertionError: {'status': 'completed', 'job_id': '1881c51ed1e2427d817cf0ed8207400a', 'task_id': '38e14dc92b904df78dae6d61bcfecf6f', 'reason': 'auth_failed'}
+E   AssertionError: {'status': 'completed', 'job_id': 'e3cd04ca85ad4c199a070a37a8feed97', 'task_id': 'efc89bd1495b4e2e9b85374de6a9e593', 'reason': 'provider_unavailable'}
+    assert 'completed' == 'failed'
+      
+      - failed
+      + completed
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_batch | ts=1794908946 | event_name=random_batch | outcome=failed | level=WARN | component=random | reason_code=provider_unavailable | stage=receive | provider=anu | error_json={"type": "AnuError", "code": "provider_unavailable", "retryable": true, "sent": true}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:1034: AssertionError: {'status': 'completed', 'job_id': 'e3cd04ca85ad4c199a070a37a8feed97', 'task_id': 'efc89bd1495b4e2e9b85374de6a9e593', 'reason': 'provider_unavailable'}
+E   KeyError: 'provider'
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_batch | ts=1794908946 | event_name=random_batch | outcome=failed | level=WARN | component=random | reason_code=auth_failed | stage=receive | provider=anu | error_json={"type": "AnuError", "code": "auth_failed", "retryable": false, "sent": true}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:1053: KeyError: 'provider'
+E   assert True is False
+     +  where True = mrs.DEFAULT_FALLBACK
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:1067: assert True is False
+E   assert True is False
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:1078: assert True is False
+E   AssertionError: assert True is False
+     +  where True = <function TestFactoryPrngDefault.test_seed_new_install_false_and_existing_true_kept.<locals>._seed at 0x00000147AF14E3E0>('fresh.db', None)
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:1131: AssertionError: assert True is False
+E   AssertionError: random.primary_provider
+    assert 'random.primary_provider' not in {'content.info_how_it_works', 'content.intelligence_guide', 'content.no_key_reply', 'flags.chat_silent_ack_enabled', 'flags.direct_l1_enabled', 'flags.direct_l1_fallback_enabled', ...}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p3-cmp79-6b3c07930afd-47efb270\tests\test_qrng_p3_selector.py:1148: AssertionError: random.primary_provider
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_qrng_p3_selector.py::TestRefillFailover::test_anu_failure_falls_to_lfdr_and_draw_uses_it[anu_response0-auth_failed]
+FAILED tests/test_qrng_p3_selector.py::TestRefillFailover::test_anu_failure_falls_to_lfdr_and_draw_uses_it[anu_response1-quota_exhausted]
+FAILED tests/test_qrng_p3_selector.py::TestRefillFailover::test_anu_failure_falls_to_lfdr_and_draw_uses_it[anu_response2-provider_unavailable]
+FAILED tests/test_qrng_p3_selector.py::TestRefillFailover::test_fallback_disabled_does_not_call_secondary
+FAILED tests/test_qrng_p3_selector.py::TestRefillFailover::test_all_fetches_fail_is_not_completed
+FAILED tests/test_qrng_p3_selector.py::TestRefillFailover::test_same_provider_not_retried_in_one_call
+FAILED tests/test_qrng_p3_selector.py::TestRefillFailover::test_open_breaker_skips_primary_on_next_call
+FAILED tests/test_qrng_p3_selector.py::TestFactoryPrngDefault::test_factory_default_is_false
+FAILED tests/test_qrng_p3_selector.py::TestFactoryPrngDefault::test_new_install_without_saved_value_defers
+FAILED tests/test_qrng_p3_selector.py::TestFactoryPrngDefault::test_seed_new_install_false_and_existing_true_kept
+FAILED tests/test_qrng_p3_selector.py::TestChatVisibility::test_member_chat_scope_hides_selector
+11 failed, 40 passed, 1 warning in 9.63s

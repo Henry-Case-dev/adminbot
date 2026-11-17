@@ -261,6 +261,10 @@ class TestFingerprintScope:
                                                           mem):
         db = await _fresh_db(tmp_path)
         try:
+            # QRNG P3/F3: заводской PRNG-дефолт новых установок — false;
+            # этот тест проверяет ПУТЬ отказа владельца (как в проде:
+            # сохранённый true), поэтому политика задаётся явно.
+            mem[mrs.SETTING_FALLBACK] = True
             cfg[mrs.SETTING_KEY] = "anu-key-A"
             svc, _ = make_service(db, cfg, responses=[ok_uint16(8)])
             activated = await svc.activate()
@@ -320,6 +324,9 @@ class TestFingerprintScope:
         """A→B→удаление ключа: партии A не расходуются и после удаления."""
         db = await _fresh_db(tmp_path)
         try:
+            # Явная политика владельца (прод: сохранённый true); заводской
+            # дефолт новых установок — false (QRNG P3/F3).
+            mem[mrs.SETTING_FALLBACK] = True
             cfg[mrs.SETTING_KEY] = "anu-key-A"
             svc, _ = make_service(db, cfg, responses=[ok_uint16(8)])
             assert (await svc.activate())["activated"] is True
@@ -534,6 +541,8 @@ class TestProvenanceDto:
         """F3: provider_reserve scoped; партии A после A→B — quarantined."""
         db = await _fresh_db(tmp_path)
         try:
+            # Политика владельца задана явно (прод: сохранённый true).
+            mem[mrs.SETTING_FALLBACK] = True
             cfg[mrs.SETTING_KEY] = "anu-key-A"
             svc, _ = make_service(db, cfg, responses=[ok_uint16(8)])
             assert (await svc.activate())["activated"] is True
@@ -561,6 +570,9 @@ class TestProvenanceDto:
                                                         mem):
         db = await _fresh_db(tmp_path)
         try:
+            # PRNG-путь проверяется при ЯВНО разрешённом откате (дефолт новых
+            # установок — false, QRNG P3/F3).
+            mem[mrs.SETTING_FALLBACK] = True
             svc = mrs.RandomSourceService(db, auto_refill=False)
             draw = await svc.draw_index(4, chat_id=1, purpose="p")
             assert draw.source == mrs.MODE_PSEUDORANDOM

@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[6]
 MODULE = ROOT / "services" / "mca_random_source.py"
 CATALOG = ROOT / "services" / "param_catalog.py"
+ROUTES = ROOT / "web" / "api" / "routes.py"
 TESTS = "tests/test_qrng_p3_selector.py"
 
 MUTATIONS = [
@@ -183,6 +184,57 @@ MUTATIONS = [
             f"{TESTS}::TestRetiredValue::"
             "test_unknown_saved_primary_requires_resolution"],
     },
+    {
+        "id": "M10",
+        "file": MODULE,
+        "mutation": "F2: нет перехода к следующему провайдеру после неудачи "
+                    "(failover выключен)",
+        "anchor": (
+            '            attempts.append({"provider": target, "status": "failed",\n'
+            '                             "reason": result.get("reason")})\n'
+            '            self._last_refill_reason = result.get("reason")\n'
+            '        last = attempts[-1] if attempts else {"provider": None,\n'
+        ).encode("utf-8"),
+        "replacement": (
+            '            attempts.append({"provider": target, "status": "failed",\n'
+            '                             "reason": result.get("reason")})\n'
+            '            self._last_refill_reason = result.get("reason")\n'
+            '            break\n'
+            '        last = attempts[-1] if attempts else {"provider": None,\n'
+        ).encode("utf-8"),
+        "targets": [
+            f"{TESTS}::TestRefillFailover::"
+            "test_anu_failure_falls_to_lfdr_and_draw_uses_it"],
+    },
+    {
+        "id": "M11",
+        "file": MODULE,
+        "mutation": "F3: заводской PRNG-дефолт возвращён в true",
+        "anchor": b"DEFAULT_FALLBACK = False\n",
+        "replacement": b"DEFAULT_FALLBACK = True\n",
+        "targets": [
+            f"{TESTS}::TestFactoryPrngDefault::test_factory_default_is_false",
+            f"{TESTS}::TestFactoryPrngDefault::"
+            "test_new_install_without_saved_value_defers"],
+    },
+    {
+        "id": "M12",
+        "file": ROUTES,
+        "mutation": "F1: chat-scope снова показывает глобальные ключи "
+                    "селектора non-admin",
+        "anchor": (
+            '            if (not ctx.is_global_admin\n'
+            '                    and key in _random_source.SELECTOR_SETTING_KEYS):\n'
+            '                continue\n'
+        ).encode("utf-8"),
+        "replacement": (
+            '            if False:\n'
+            '                continue\n'
+        ).encode("utf-8"),
+        "targets": [
+            f"{TESTS}::TestChatVisibility::"
+            "test_member_chat_scope_hides_selector"],
+    },
 ]
 
 
@@ -201,7 +253,8 @@ def _run(targets: list[str]) -> dict:
 
 
 def main() -> dict:
-    originals = {path: path.read_bytes() for path in (MODULE, CATALOG)}
+    originals = {path: path.read_bytes()
+                 for path in (MODULE, CATALOG, ROUTES)}
     shas = {str(path): hashlib.sha256(data).hexdigest()
             for path, data in originals.items()}
     out = {"modules": {str(k): v for k, v in shas.items()},

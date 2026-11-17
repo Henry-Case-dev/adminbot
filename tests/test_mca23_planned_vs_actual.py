@@ -95,7 +95,9 @@ ROUTES_SHA256_F11 = (
     # QRNG P3 (17.11.2026): синхронизировано с каноном — правила каталога
     # для json-значений и кросс-полевой инвариант селектора в СУЩЕСТВУЮЩЕМ
     # POST /api/config; Δ маршрутов = 0.
-    "3ea159b2014bc50298b5697251633739114cc5eb001bd64516be736b4e4b1da9")
+    # QRNG P3 F1 corrective: chat-scope GET /api/config скрывает глобальные
+    # ключи селектора от non-admin (новых маршрутов нет).
+    "eee84f5ac2fc68a1306ee327b0bea265107e6cf61dbdccbb9afe4a0b0a79a037")
 
 
 @pytest.fixture(autouse=True)

@@ -280,16 +280,22 @@ class TestCompleteness:
         # chat_params/hot по этим строкам — B01-снапшот 37423-EOF), при
         # категориях flags/limits. Осознанное ns-исключение, прецедент
         # названия-осей §3.3 (effective = env AND product).
-        # QRNG P3 (17.11.2026, arch D4): селектор источника живёт в
-        # namespace `random.*` при категории memory (глобальные оси
-        # primary/fallback; чатовый override запрещён global_only).
-        NS_EXCEPTIONS = ("initiative.", "random.")
+        NS_EXCEPTIONS = ("initiative.",)
+        # QRNG P3 (17.11.2026, arch D4): ровно три глобальных ключа селектора
+        # источника живут в namespace `random.*` при категории memory. Не
+        # префикс: новый `random.*`-ключ обязан быть явно добавлен сюда.
+        NS_KEY_EXCEPTIONS = {
+            "random.primary_provider",
+            "random.fallback_order",
+            "random.fallback_enabled",
+        }
         for spec in REGISTRY.values():
             if spec.category is None:
                 continue
             assert spec.pg_key.count(".") >= 1
             assert (spec.pg_key.startswith(spec.category + ".")
-                    or spec.pg_key.startswith(NS_EXCEPTIONS))
+                    or spec.pg_key.startswith(NS_EXCEPTIONS)
+                    or spec.pg_key in NS_KEY_EXCEPTIONS)
 
     def test_titles_and_types(self):
         for spec in REGISTRY.values():

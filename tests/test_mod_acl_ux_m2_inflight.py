@@ -430,6 +430,12 @@ async def test_meme_off_mid_flight_cancels_publication(tmp_path):
     svc = DatabaseService(str(tmp_path / "meme_inflight.db"))
     await svc.initialize()
     cache = _set_caches({})
+    # QRNG P3/F3: заводской PRNG-дефолт новых установок — false; сценарий
+    # мема требует вероятностного draw, поэтому политика владельца (в проде
+    # сохранённый true) задаётся явно в глобальном слое.
+    from services import hot_config as _hot
+    _hot.get_config_cache().values[
+        "memory.random_fallback_to_pseudorandom"] = True
     ledger = _meme_ledger(tmp_path)
     provider = _MemeProvider(cache, -100)
     sent: list = []

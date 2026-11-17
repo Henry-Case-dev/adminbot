@@ -352,6 +352,9 @@ async def test_activation_http200_without_valid_content_not_activation(
 async def test_activation_no_key_blocker_visible(tmp_path, cfg, mem, events):
     db = await _fresh_db(tmp_path)
     try:
+        # Политика владельца явно (прод: сохранённый true); заводской дефолт
+        # новых установок — false (QRNG P3/F3).
+        mem[mrs.SETTING_FALLBACK] = True
         svc, calls = make_service(db, cfg, responses=[])
         result = await svc.activate()
         assert result["state"] == "provider_unconfigured"
@@ -500,6 +503,9 @@ async def test_fallback_on_transition_event_once_and_recovery(tmp_path, mem,
                                                               cfg, events):
     db = await _fresh_db(tmp_path)
     try:
+        # «fallback ON» — явная политика владельца (прод: true); заводской
+        # дефолт новых установок — false (QRNG P3/F3).
+        mem[mrs.SETTING_FALLBACK] = True
         svc, calls = make_service(db, cfg, responses=[])
         first = await svc.draw_index(10, chat_id=1, purpose="p")
         second = await svc.draw_index(10, chat_id=1, purpose="p")
@@ -622,6 +628,9 @@ async def test_auto_return_to_quantum_after_recovery(tmp_path, cfg, mem,
                                                     events):
     db = await _fresh_db(tmp_path)
     try:
+        # PRNG-откат разрешён явно (прод: сохранённый true; заводской дефолт
+        # новых установок — false, QRNG P3/F3).
+        mem[mrs.SETTING_FALLBACK] = True
         cfg[mrs.SETTING_KEY] = "anu-key-A"
         cfg[mrs.SETTING_BATCH_LENGTH] = 16
         svc, _ = make_service(db, cfg, responses=[ok_uint16(16)])
