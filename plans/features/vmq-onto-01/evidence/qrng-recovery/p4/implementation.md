@@ -2,7 +2,8 @@
 
 **Ветка:** `fix/qrng-p4`  
 **База:** `6cf4c32c` (P3 corrective evidence; code `835b2433`, `fix/qrng-p3`)  
-**Статус:** REVIEW (не VERIFIED, не deploy, версия не поднималась). P5 не начат.
+**Статус:** REVIEW (не VERIFIED, не deploy, версия не поднималась). P5 не начат.  
+**Кандидат:** `59c8d780`.
 
 ## 1. Что реализовано
 
