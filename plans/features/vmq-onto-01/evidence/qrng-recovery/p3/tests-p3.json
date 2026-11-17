@@ -1,0 +1,191 @@
+{
+  "feature": "qrng-recovery / P3 selector-fallback-normalization",
+  "requirement_ids": [
+    "QAN-REC-REG-01",
+    "QAN-REC-SEL-01",
+    "QAN-REC-SEL-02",
+    "QAN-REC-FALL-01",
+    "QAN-REC-FALL-02"
+  ],
+  "related_ids": [
+    "QAN-REC-EXC-01..05 (retired/absence, no silent replacement)",
+    "QAN-REC-LFDR-01 (N1 shared client)",
+    "QAN-REC-PROV-02 (provenance/per-provider reserve regression)",
+    "QAN-REC-KEY-03/RBAC-01/02 (regression, unchanged)"
+  ],
+  "branch": "fix/qrng-p3",
+  "base": "84abc2e5 (P2 approved tip, fix/qrng-p2; not master/deployed)",
+  "candidate": "d2ce1907 (code+tests; evidence commit follows)",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none used by tests; provider HTTP injected via http_get; no ANU/IBM/LLM requests"
+  },
+  "batches": [
+    {
+      "id": "p3-focused",
+      "command": "python -m pytest tests/test_qrng_p3_selector.py -q",
+      "result": {"passed": 37, "failed": 0},
+      "covers": [
+        "catalog: 3 global-only memory params, select options = registry ids, hidden provider-info key, defaults visible without DB row, validation rules",
+        "API: chat-scope write of primary/order/fallback_enabled -> 422; unknown/alias provider -> 422; order with unknown/duplicate/primary -> 422; valid batch saved; hidden key absent from /api/config + params-meta and not writable",
+        "resolution matrix: default IBM unavailable -> configured ANU; explicit primary chosen; primary without values -> next provider with reserve; fallback disabled -> primary only then deferred; all unavailable -> deferred (0 journal rows); explicit PRNG fallback labeled and not hidden; quantum <-> PRNG never mislabelled",
+        "retired value: raw preserved, requires_resolution, canonical IBM->ANU->LfDR order, saved custom order ignored, history rows unchanged, alias maps (set) without rewrite",
+        "LfDR runtime: refill uses one shared client across calls (N1), min-interval/breaker persist, LfDR failure does not poison ANU state, ANU refill path unchanged",
+        "preserved settings: memory.random_source=pseudorandom (no quantum consumption), saved PRNG true not rewritten, selector keys never written by runtime",
+        "status DTO: selector fields, per-provider configured/state/consumable/quarantined, no fake-green IBM, quarantine after key rotation"
+      ]
+    },
+    {
+      "id": "p1-regression",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py -q",
+      "result": {"passed": 29, "failed": 0},
+      "note": "One exact blocker assertion updated by the P3 resolver (provider_unconfigured -> provider_unavailable when LfDR is the configured-but-empty source); all other P1 invariants unchanged."
+    },
+    {
+      "id": "p2-regression",
+      "command": "python -m pytest tests/test_qrng_p2_lfdr.py -q",
+      "result": {"passed": 63, "failed": 0}
+    },
+    {
+      "id": "affected-random-qnd",
+      "command": "python -m pytest tests/test_qrng_p1_isolation.py tests/test_qrng_p2_lfdr.py tests/test_qrng_p3_selector.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q",
+      "result": {"passed": 296, "failed": 0},
+      "note": "196 baseline + 63 P2 + 37 P3. Deliberate assertion updates in block_a/b/c/d (blocker strings, hidden key, resolve_selection) and P1 are documented in implementation.md §6."
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest <24-file required batch from plans/features/mod-acl-ux-01/evidence/release-2.58.210/tests-2.58.210.json> -q",
+      "result": {"passed": 386, "failed": 0},
+      "note": "Catalog/route pins reissued for +3 params (REGISTRY 648, delta 247, categorized 622, routes hash) via tools/_qrng_p3_reissue_f8.py; F8/cfg03 guards are outside this 24-file set."
+    },
+    {
+      "id": "webapp-batch",
+      "command": "python -m pytest <64 tests/test_webapp_*.py files> -q --tb=no",
+      "result": {"passed": 1455, "failed": 33},
+      "parity": "same 33 failing node ids as base 84abc2e5 (set comparison in parity-failures-p3.json: only_in_candidate=[], only_in_base=[])",
+      "note": "Run regenerates W10/W11/W12 screenshot blobs; restored to base bytes with git checkout before commit."
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/<each>.js (module_fixture.js excluded)",
+      "result": {"passed": 117, "failed": 4},
+      "note": "Same four pre-existing failing files as on base/P1/P2: asap6_wave2_ux_tabs, evol_cog_scene, round1025_ia_routing, ur_ui_settings."
+    },
+    {
+      "id": "catalog-guards",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_cfg03_param_audit.py -q",
+      "result": {"passed": 45, "failed": 1},
+      "known_failures": [
+        "tests/test_cfg03_param_audit.py::TestConsumerCoverage::test_visible_dead_knobs_are_exactly_documented"
+      ],
+      "note": "Pre-existing on 84abc2e5 (verified by running the same node on the base worktree): flags.dig_pre_gate_enabled is a dead knob while the audit list is stale. P3 only removed the now-consumed/hidden keys.random_quantum_provider entry from DEAD_KNOBS."
+    },
+    {
+      "id": "broad-catalog-parity",
+      "command": "python -m pytest <57 changed tests + test_param_catalog.py + test_ia_inventory_round1025.py> -q --tb=no",
+      "result": {"passed": 1892, "failed": 26},
+      "parity": "same 26 failing node ids as base 84abc2e5 (parity-failures-p3.json: only_in_candidate=[], only_in_base=[])"
+    },
+    {
+      "id": "generator-check",
+      "command": "python tools/gen_param_registry_round1025.py --check",
+      "result": "CHECK OK: реестр 648 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны"
+    }
+  ],
+  "red": {
+    "base": "84abc2e5 detached worktree (removed after evidence; worktree list checked)",
+    "tests": {
+      "command": "python -m pytest tests/test_qrng_p3_selector.py -q --tb=line",
+      "result": {"collected": 0, "errors": 1},
+      "artifact": "red-tests-84abc2e5.txt",
+      "error": "AttributeError: module 'services.mca_random_source' has no attribute 'SETTING_PRIMARY_PROVIDER'"
+    },
+    "probe": {
+      "base_artifact": "red-probe-base-84abc2e5.json",
+      "candidate_artifact": "green-probe-p3.json",
+      "base": {
+        "has_resolve_selection": false,
+        "has_primary_setting": false,
+        "catalog_has_primary": false,
+        "catalog_has_order": false,
+        "catalog_has_fb_enabled": false,
+        "provider_info_hidden": false,
+        "draw_provider_on_selected_lfdr": "anu",
+        "status_has_selector": false
+      },
+      "candidate": {
+        "has_resolve_selection": true,
+        "has_primary_setting": true,
+        "catalog_has_primary": true,
+        "catalog_has_order": true,
+        "catalog_has_fb_enabled": true,
+        "provider_info_hidden": true,
+        "draw_provider_on_selected_lfdr": "lfdr",
+        "status_has_selector": true,
+        "status_resolved_primary": "lfdr",
+        "status_effective_provider": "lfdr",
+        "retired": {"raw": "lizaonair", "state": "requires_resolution", "order": ["ibm_quantum", "anu", "lfdr"], "resolved_primary": "anu"}
+      }
+    }
+  },
+  "mutations": {
+    "artifact": "mutations.json",
+    "modules": ["services/mca_random_source.py", "services/param_catalog.py"],
+    "restored_ok": true,
+    "all_killed": true,
+    "items": [
+      {"id": "M1", "mutation": "provider filter disabled in reserve_draw/chunk", "killed": true, "summary": "1 failed"},
+      {"id": "M2", "mutation": "retired primary silently treated as set", "killed": true, "summary": "1 failed, 1 passed"},
+      {"id": "M3", "mutation": "primary_provider loses global_only (per-chat accepted)", "killed": true, "summary": "1 failed"},
+      {"id": "M4", "mutation": "PRNG enabled without explicit setting (hidden fallback)", "killed": true, "summary": "2 failed"},
+      {"id": "M5", "mutation": "fallback_order ignored (primary only)", "killed": true, "summary": "1 failed, 1 passed"},
+      {"id": "M6", "mutation": "fallback_order ids not validated", "killed": true, "summary": "2 failed"},
+      {"id": "M7", "mutation": "LfDR refill creates one-shot client (N1 broken)", "killed": true, "summary": "2 failed"},
+      {"id": "M8", "mutation": "configured=true fake green for IBM", "killed": true, "summary": "1 failed"},
+      {"id": "M9", "mutation": "raw primary replaced by canonical on read", "killed": true, "summary": "1 failed"}
+    ]
+  },
+  "invariants": {
+    "new_endpoints": 0,
+    "new_settings_fields": 0,
+    "new_env_flags": 0,
+    "new_tables_or_columns": 0,
+    "schema_version": "unchanged v48 (P1)",
+    "registry": 648,
+    "registry_delta": 247,
+    "categorized": 622,
+    "groups": 121,
+    "tab_by_group": 119,
+    "tab_rules": 22,
+    "ui_files_changed": 0,
+    "anu_client_changed": false,
+    "lfdr_adapter_changed_since_p2": false,
+    "ibm_adapter_added": false,
+    "ibm_job_added": false,
+    "second_store_or_queue": false,
+    "lizaonair_present": false,
+    "prng_in_fallback_order": false,
+    "per_chat_provider_override": false
+  },
+  "status_matrix": {
+    "primary configured (ANU key) + reserve": "resolved=anu, effective=anu, quantum, entropy=hardware_quantum",
+    "primary configured, no values, next has reserve": "resolved=primary, effective=next, quantum; draw provider=next",
+    "primary unavailable (IBM/default, no adapter)": "next configured provider (ANU with key), else LfDR",
+    "fallback disabled": "order=(primary,); unavailable -> deferred (PRNG off) / explicit pseudorandom (PRNG on)",
+    "all unavailable + PRNG off": "deferred, 0 journal rows, no quantum label",
+    "all unavailable + PRNG on": "pseudorandom with blocker, fallback_setting=true, prng_active=true, label present",
+    "retired saved primary (lizaonair-class)": "requires_resolution + raw preserved + canonical IBM->ANU->LfDR + resolved/effective actual; history untouched; new writes 422",
+    "memory.random_source=pseudorandom": "explicit PRNG, quantum reserve untouched, no fallback marking",
+    "unknown new provider id via API": "422 (global path); chat-scope any selector key -> 422"
+  },
+  "limitations": [
+    "No live ANU/LfDR request in P3: LfDR adapter unchanged since P2 (which has a live probe); ANU client unchanged; the ANU key exists only in production PG and deployment is out of scope.",
+    "P4 UI work not done: no web/app.js/index.html changes; the existing generic parameter renderer will display the three new global settings in the memory_random group on the Sleep tab. Nothing is visually restructured; the hidden provider-info key is not rendered.",
+    "PRNG factory default was NOT changed: memory.random_fallback_to_pseudorandom already exists (with an owner-saved true); the D6 conditional 'new default false if the parameter is created' is not applicable, and existing/default behaviour is preserved.",
+    "Pre-existing failures are recorded with base parity: cfg03 dead-knob audit (flags.dig_pre_gate_enabled), 26 broad-catalog, 33 webapp, 4 JS files.",
+    "The canonical ordered resolution when the saved primary is retired intentionally ignores a saved custom fallback_order (it was built for the invalid setting); status exposes fallback_order_raw/state and never rewrites the row.",
+    "No deployment, no version bump, no VERIFIED; P4/P5 not started."
+  ]
+}

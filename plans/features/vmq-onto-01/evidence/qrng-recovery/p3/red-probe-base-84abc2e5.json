@@ -1,0 +1,15 @@
+{
+  "python": "3.12.0",
+  "has_resolve_selection": false,
+  "has_primary_setting": false,
+  "catalog_has_primary": false,
+  "catalog_has_order": false,
+  "catalog_has_fb_enabled": false,
+  "provider_info_hidden": false,
+  "draw_provider_on_selected_lfdr": "anu",
+  "status_has_selector": false,
+  "status_resolved_primary": null,
+  "status_primary_setting_raw": null,
+  "status_effective_provider": null,
+  "retired_state_supported": false
+}
