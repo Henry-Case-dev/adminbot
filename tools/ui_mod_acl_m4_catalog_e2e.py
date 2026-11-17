@@ -341,29 +341,34 @@ B2_GETS = {"temporal": 0, "lessons": 0}
 B2_DETAIL_GETS = {"temporal": 0}
 
 # ── W2b-B3: прогоны «Сводок»/«Источника случайности» (oversight read-API) ──
+# F1: реальный тип прогонов Summary — `summary` (`pipeline_events.py` несёт
+# `span_fields(run_id, pipeline_type="summary")`); `summary.window` —
+# компонентные события окна без `pipeline_run_id` и в runs не попадает.
+# Ряды ниже — СИНТЕТИЧЕСКИЙ стаб e2e (реальные production-строки не
+# запрашивались); форма — контракт `GET /api/oversight/runs`.
 # 6 прогонов → «Обзор»: «Сейчас» + 5, вкладка «История» — все 6.
 SUMMARY_RUNS = [
-    {"pipeline_run_id": "srun-1", "pipeline_type": "summary.window",
+    {"pipeline_run_id": "srun-1", "pipeline_type": "summary",
      "pipeline_version": "1", "status": "succeeded", "started_ts": 1794909600,
      "updated_ts": 1794909604, "events_total": 3, "stages_total": 2,
      "stages_failed": 0, "stages_ok": 2, "chat_id": CHAT_ID},
-    {"pipeline_run_id": "srun-2", "pipeline_type": "summary.window",
+    {"pipeline_run_id": "srun-2", "pipeline_type": "summary",
      "pipeline_version": "1", "status": "failed", "started_ts": 1794909500,
      "updated_ts": 1794909510, "events_total": 3, "stages_total": 2,
      "stages_failed": 1, "stages_ok": 1, "chat_id": CHAT_ID},
-    {"pipeline_run_id": "srun-3", "pipeline_type": "summary.window",
+    {"pipeline_run_id": "srun-3", "pipeline_type": "summary",
      "pipeline_version": "1", "status": "partial", "started_ts": 1794909400,
      "updated_ts": 1794909408, "events_total": 3, "stages_total": 2,
      "stages_failed": 1, "stages_ok": 1, "chat_id": CHAT_ID2},
-    {"pipeline_run_id": "srun-4", "pipeline_type": "summary.window",
+    {"pipeline_run_id": "srun-4", "pipeline_type": "summary",
      "pipeline_version": "1", "status": "failed", "started_ts": 1794909300,
      "updated_ts": 1794909310, "events_total": 2, "stages_total": 2,
      "stages_failed": 2, "stages_ok": 0, "chat_id": CHAT_ID},
-    {"pipeline_run_id": "srun-5", "pipeline_type": "summary.window",
+    {"pipeline_run_id": "srun-5", "pipeline_type": "summary",
      "pipeline_version": "1", "status": "succeeded", "started_ts": 1794909200,
      "updated_ts": 1794909204, "events_total": 3, "stages_total": 2,
      "stages_failed": 0, "stages_ok": 2, "chat_id": CHAT_ID2},
-    {"pipeline_run_id": "srun-6", "pipeline_type": "summary.window",
+    {"pipeline_run_id": "srun-6", "pipeline_type": "summary",
      "pipeline_version": "1", "status": "degraded", "started_ts": 1794909100,
      "updated_ts": 1794909110, "events_total": 3, "stages_total": 2,
      "stages_failed": 1, "stages_ok": 1, "chat_id": CHAT_ID},
@@ -385,6 +390,9 @@ RANDOM_RUNS = [
 # data | empty | denied | off | unavailable
 B3_MODE = {"summary": "data", "random": "data"}
 B3_GETS = {"summary": 0, "random": 0, "detail": 0}
+# F1: значения `pipeline_type`, которые клиент реально запросил (должны быть
+# только `summary` и `random.uses`; `summary.window` — запрещён).
+B3_TYPES_SEEN = []
 # Ряды, которые отдаёт стаб (для A→B→A: ответы разных областей различаются —
 # `GET /api/oversight/runs` серверно НЕ фильтруется по чату, поэтому
 # изоляцию состояния проверяем на явно разных ответах).
@@ -552,7 +560,7 @@ def main() -> int:
                               body=json.dumps({
                                   "available": True, "enabled": True,
                                   "run": {"pipeline_run_id": run_id,
-                                          "pipeline_type": "summary.window",
+                                          "pipeline_type": "summary",
                                           "status": "failed",
                                           "started_ts": 1794909500,
                                           "updated_ts": 1794909510,
@@ -563,10 +571,18 @@ def main() -> int:
                                           "chat_id": CHAT_ID,
                                           "stages": []}}))
                 return
-            kind = "summary" if "pipeline_type=summary.window" in req.url \
-                else ("random" if "pipeline_type=random.uses" in req.url
-                      else "")
+            # F1: точное сравнение значения `pipeline_type` (подстрочный
+            # матч путал бы `summary` и `summary.window`).
+            ptype = ""
+            if "pipeline_type=" in req.url:
+                ptype = req.url.split("pipeline_type=")[1].split("&")[0]
+            if ptype:
+                B3_TYPES_SEEN.append(ptype)
+            kind = "summary" if ptype == "summary" \
+                else ("random" if ptype == "random.uses" else "")
             if not kind:
+                # `summary.window` и прочие типы: в runs не попадают
+                # (`pipeline_run_id IS NULL`) — честный пустой ответ.
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps({"available": True,
                                                "enabled": True, "runs": []}))
@@ -2669,9 +2685,13 @@ def main() -> int:
         # H-1/H-2/H-3/H-5/H-6/H-7: те же вкладка/состояния/фильтр/deep link,
         # источник — существующий `GET /api/oversight/runs?pipeline_type=…`;
         # деталь — существующий deep link `#/oversight?view=runs&run_id=`.
+        # F1: реальный тип прогонов Summary — `summary`; `summary.window`
+        # (`summary_memory` SUMMARY_WINDOW_BUILD без pipeline_run_id) в runs не
+        # попадает и клиентом запрашиваться не должен.
         B3_MODE.update({"summary": "data", "random": "data"})
         B3_GETS.update({"summary": 0, "random": 0, "detail": 0})
         B3_ROWS.update({"summary": SUMMARY_RUNS, "random": RANDOM_RUNS})
+        del B3_TYPES_SEEN[:]
 
         def _b3probe(pg):
             return pg.evaluate(
@@ -3013,6 +3033,13 @@ def main() -> int:
         check(b3r["scrollWidth"] <= b3r["vw"] + 1,
               f"W2b B3 F1 390 back: скролл ({b3r['scrollWidth']})", hfails)
         b3p.screenshot(path=os.path.join(SHOTS, "w2b-b3-history-390.png"))
+        report["flows"]["w2b_b3_types_seen"] = sorted(set(B3_TYPES_SEEN))
+        check(set(B3_TYPES_SEEN) == {"summary", "random.uses"},
+              f"W2b B3 F1: запрошены pipeline_type {sorted(set(B3_TYPES_SEEN))} "
+              f"(нужны только summary и random.uses)", hfails)
+        check("summary.window" not in B3_TYPES_SEEN,
+              "W2b B3 F1: клиент запросил несуществующий "
+              "pipeline_type=summary.window", hfails)
         report["flows"]["w2b_b3_pageerrors"] = b3errs
         if b3errs:
             failures.extend(["W2b B3 pageerror: " + e for e in b3errs])

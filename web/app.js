@@ -833,15 +833,22 @@
       loader: 'loadLessons', rowKeyField: 'lesson_id',
       statusField: 'status', parse: _historyLessonsParse,
     },
-    // B3: `GET /api/oversight/runs?pipeline_type=summary.window&limit=20` —
-    // тот же read-API наблюдаемости (global admin), ответ
-    // `{available,enabled,runs}` с хедером прогона. Деталь — существующий
-    // deep link `#/oversight?view=runs&run_id=` (парсер app.js).
-    'oversight:summary.window': {
+    // B3 (review-fix F1): `GET /api/oversight/runs?pipeline_type=summary
+    // &limit=20` — РЕАЛЬНЫЕ прогоны Summary (`services/pipeline_events.py`
+    // несёт `span_fields(run_id, pipeline_type="summary")`, поэтому строки
+    // имеют `pipeline_run_id` и группируются `oversight/_scan_runs`).
+    // `summary.window` источником истории НЕ является: это компонентные
+    // события окна (`summary_memory._emit_mca` → SUMMARY_WINDOW_BUILD) без
+    // `pipeline_run_id`, которые `/api/oversight/runs` отфильтровывает
+    // (`pipeline_run_id IS NOT NULL`) — такая метка не создаёт вкладку
+    // (fail-closed). Деталь — существующий deep link
+    // `#/oversight?view=runs&run_id=` (парсер app.js).
+    'oversight:summary': {
       moduleId: 'mod_summary', label: 'Прогоны сводок',
-      tsField: 'started_ts', pipelineType: 'summary.window',
+      tsField: 'started_ts', pipelineType: 'summary',
+      kindLabel: 'Сводки',
       rowsFrom: function (ctx) {
-        return _moduleRunsRows(ctx, 'oversight:summary.window');
+        return _moduleRunsRows(ctx, 'oversight:summary');
       },
       loader: 'loadModuleRuns', rowKeyField: 'pipeline_run_id',
       statusField: 'status', adminOnly: true, detail: 'run',
@@ -24951,11 +24958,13 @@
           return this.lessonTypeLabel(row.type);
         }
         // B3: человеческое имя процесса из существующего словаря
-        // (`summary.window` / `random.uses`), иначе — честный технический id.
+        // (`random.uses`), затем собственная подпись источника
+        // (`summary` — тип прогона без словарной записи), иначе — честный
+        // технический id.
         if (entry.spec.pipelineType) {
           var pid = String(row.pipeline_type || entry.spec.pipelineType);
           var names = this.vizProcessNames || {};
-          return names[pid] || pid;
+          return names[pid] || entry.spec.kindLabel || pid;
         }
         return row.kind ? String(row.kind) : '';
       },

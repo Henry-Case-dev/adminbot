@@ -1,0 +1,113 @@
+MOD-ACL-UX-01 M4A W2b B3 — review-fix F1 (Summary history source)
+=================================================================
+Дата:     2026-11-17
+Ветка:    release/mod-acl-w2b3-2.58.214
+Предыдущий tip (дельта-ревью Needs Fixes): 089cc636 (content 2b57443a, 2.58.214)
+База релиза / откат: 34c25d09 (2.58.213)
+Версия:   2.58.214 (bump не менялся: ни APP_VERSION, ни пины версии)
+
+1. Finding F1 (Reviewer, delta review): «Summary history source is
+   synthetic/nonexistent». B3 мапил «Сводки» на pipeline_type='summary.window'.
+
+2. Root cause (по фактическому коду, до правки):
+   a) `services/summary_memory.py` 3897/3902/3909: `_emit_mca(
+      "SUMMARY_WINDOW_BUILD", ...)`; `_emit_mca` (466-476) → `emit_mca_event(
+      event_name, outcome, level, component, **fields)` — БЕЗ span-полей.
+      Значит у этих событий нет `pipeline_run_id` (и нет `pipeline_type`).
+   b) `web/api/oversight_router.py`: `_runs_where` (165) всегда добавляет
+      `pipeline_run_id IS NOT NULL`, фильтр типа — точное `pipeline_type = ?`
+      (172-174); `_scan_runs` группирует `GROUP BY pipeline_run_id`.
+      → `pipeline_type=summary.window` не может вернуть ни одной строки.
+   c) Реальные прогоны Summary: `services/pipeline_events.py` 99-134 —
+      `trace.span_fields(run_id=str(run_id), pipeline_type="summary")`, т.е.
+      строки `mca_events` с `pipeline_run_id` и `pipeline_type='summary'`
+      (`SUMMARY_RUN_START`/`SUMMARY_SOURCE_WINDOW`/…).
+   d) `services/module_registry.py` объявлял presentation-метку
+      `history_source="oversight:summary.window"`, а фронт переводил её 1:1 в
+      API-параметр → синтетический тип. `random.uses` — реальный, не менялся.
+
+3. RED на предыдущем tip 089cc636 (product-файлы web/app.js,
+   services/module_registry.py, config/settings.py возвращены из коммита
+   байт-идентично, сохранены во временном каталоге и восстановлены; новые
+   тесты/стаб/фикстура — как в фиксе):
+   a) node tests/js/mod_acl_ux_m4a_w2b_history_test.js -> exit=1
+      AssertionError: HISTORY_SOURCES не содержит все шесть источников H-1
+      (карта на базе содержит `oversight:summary.window`; новый контракт —
+      `oversight:summary`).
+   b) Playwright tools/ui_mod_acl_m4_catalog_e2e.py -> rc=1,
+      28 уникальных B3-провалов (56 записей = двойной bucket), в т.ч.:
+      - `w2b_b3_types_seen = ['random.uses', 'summary.window']`;
+      - «W2b B3 F1: клиент запросил несуществующий pipeline_type=summary.window»;
+      - «W2b B3 summary: нет вкладки history при 200+runs»;
+      - «W2b B3 summary: Обзор 0 строк/1 блоков/1 адресов»;
+      - «W2b B3 summary/history: панель не открылась», «строк 0 вместо 6»;
+      - «W2b B3 summary: ссылка детали не найдена»;
+      - F1 A/B/A и 390: строки пусты; состояния 403/503/available:false не
+        доходят до denied/off, т.к. строк нет вовсе.
+      Стаб отдаёт runs ТОЛЬКО для `pipeline_type=summary` (как реальный API,
+      где `summary.window` отфильтровывается) → старый клиент получает 0
+      строк. Random (`random.uses`) в этом прогоне остался рабочим.
+   Это прямое воспроизведение F1: реальные прогоны Summary невидимы.
+
+4. Мутации на исправленном коде (каждая убита целевым ассертом; файл
+   восстановлен, итоговый прогон снова 356 OK):
+   M1 «use summary.window»: pipelineType 'summary' → 'summary.window'
+      -> KILLED: «F1: summary обязан запрашивать РЕАЛЬНЫЙ pipeline_type=summary»
+   M2 «hide summary»: убрать 'history' из WORKSPACE_TABS.mod_summary
+      -> KILLED: «mod_summary: history не объявлена в tabs»
+   M3 «use summary.window as source»: вернуть ключ oversight:summary.window
+      -> KILLED: «F1: HISTORY_SOURCES всё ещё содержит oversight:summary.window»
+
+5. Исправление (минимальное, без новых API/таблиц/полей):
+   - `services/module_registry.py`: `history_source="oversight:summary"`
+     (presentation-метка DTO; закрытый набор `HISTORY_SOURCES` обновлён).
+     Новых полей/эндпоинтов нет — исправлено ЗНАЧЕНИЕ существующего поля.
+   - `tests/fixtures/module_registry_visible.json`: снимок DTO обновлён
+     (drift-guard `test_js_fixture_matches_live_registry` зелёный).
+   - `web/app.js`: ключ карты `'oversight:summary'`, `pipelineType: 'summary'`,
+     `rowsField` через `moduleRuns['oversight:summary']`, `ts=started_ts`,
+     ключ строки `pipeline_run_id`, `status`, detail `'run'`,
+     `kindLabel: 'Сводки'` (у типа `summary` нет записи в словаре процессов;
+     подпись источника — не выдуманный «сырой» id); `summary.window` в карте
+     отсутствует → fail-closed (ни запроса, ни вкладки).
+   - `config/settings.py`: changelog-строка bump'а уточнена (`summary`,
+     `summary.window` без run_id вкладку не создаёт). Версия/пины не менялись.
+   - `tests/js/…w2b_history_test.js`: SUMMARY_SOURCE='oversight:summary',
+     ожидаемый URL `pipeline_type=summary`; новый ассерт «summary.window — не
+     источник» + «в карте/коде нет oversight:summary.window и
+     pipeline_type=summary.window»; random-ожидания не менялись.
+   - `tools/ui_mod_acl_m4_catalog_e2e.py`: SUMMARY_RUNS помечены как
+     СИНТЕТИЧЕСКИЙ стаб с реальным `pipeline_type='summary'`; точное сравнение
+     `pipeline_type` (без подстрочного матча); учёт всех запрошенных типов
+     `B3_TYPES_SEEN` и два ассерта (только `summary`+`random.uses`;
+     `summary.window` не запрашивался).
+
+6. Проверки после фикса (cwd = release worktree):
+   - node B3: 356 проверок OK (было 348; +8 на F1);
+   - W2a: 141 OK; routing_test: JS-UNIT-OK;
+     round1025_f5_workspace_route_test: MODULE-WORKSPACE-OK;
+   - обязательный pytest batch (24 файла): 386 passed;
+   - W11/W12 guards: 2 passed;
+   - tests/test_webapp_*.py (64 файла): 1455 passed / 33 failed — те же
+     pre-existing (тот же список node id, что на 34c25d09 и на 089cc636);
+   - полный tests/js/*.js: 117 passed / 4 failed — те же четыре;
+   - e2e: failures=0, 114 flows (21 B3), 5 viewport,
+     `types_seen = ['random.uses', 'summary']`, pageerrors [];
+     summary: Обзор 5/1 + 5 ссылок (первая srun-2), История 6 строк,
+     фильтр failed→2, detail `#/oversight?view=runs&run_id=srun-1`;
+     random: Обзор 2/1, История 3 строки (не менялось);
+     состояния summary: empty/denied/off/off, random: denied;
+     deep link при [] → bare; один фетч 1→1→1;
+     A→B→A (1280 и 390): по 1 своему запросу, без чужих строк, 390: 390/12px;
+   - node --check web/app.js = 0; git diff --check = 0.
+
+7. Границы:
+   - `random.uses` не менялся (URL, строки, состояния, e2e-ожидания).
+   - Новых API/таблиц/полей/флагов нет; schema 47, DDL 0, MigrationStep 47,
+     каталог 645/121/119/22, Settings 472.
+   - Cross-chat ограничение остаётся: `loadModuleRuns` не передаёт `chat_id`,
+     API отдаёт до 20 последних прогонов всех чатов, строки подписаны
+     `чат <id>`; фильтр — W2c/W3 (см. limitations.md).
+   - e2e-ряды Summary/Случайности — синтетические; production-строки не
+     запрашивались, «данные summary.window в проде» не заявляются.
+   - Browser Use заблокирован; живые 403/503/stale — W3.

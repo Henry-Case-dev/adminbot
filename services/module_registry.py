@@ -432,7 +432,14 @@ _register(ModuleSpec(
     catalog_group="communication",
     catalog_order=1,
     scope_capability="flags.summary_enabled",
-    history_source="oversight:summary.window",
+    # W2b B3 review-fix F1: источник истории — РЕАЛЬНЫЕ прогоны Summary
+    # (`pipeline_events.py` → `mca_trace.span_fields(run_id, pipeline_type=
+    # "summary")`, строки с `pipeline_run_id`). Прежнее значение
+    # `oversight:summary.window` указывало на компонентные события окна
+    # (`summary_memory._emit_mca` → SUMMARY_WINDOW_BUILD) БЕЗ
+    # `pipeline_run_id`, которые `/api/oversight/runs` не группирует в runs.
+    # Это исправление presentation-метки DTO, новых полей/API нет.
+    history_source="oversight:summary",
     rationale=("M4A (design §2.5): product_module, master "
                "flags.summary_enabled + prompts/limits; runtime уже per_chat "
                "(M2), поэтому ось чата честная."),
@@ -866,8 +873,10 @@ def registry_for_frontend(chat_states: dict | None = None) -> list[dict]:
 CATALOG_GROUPS: tuple[str, ...] = ("communication", "memory", "autonomy",
                                    "media", "system")
 #: Именованные источники вкладки «История» (design §2.4); "" — вкладки нет.
+#: Строка — presentation-метка источника; API-фильтр `pipeline_type` задаётся
+#: картой фронта (`HISTORY_SOURCES` в web/app.js) по РЕАЛЬНЫМ типам прогонов.
 HISTORY_SOURCES: frozenset[str] = frozenset({
-    "oversight:summary.window",
+    "oversight:summary",
     "factcheck.temporal.runs",
     "memory.dream.log",
     "memory.nostalgia.log",

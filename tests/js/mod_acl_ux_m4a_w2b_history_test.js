@@ -2,12 +2,13 @@
 /* MOD-ACL-UX-01 M4A W2b (B1 2.58.212 + B2 2.58.213 + B3 2.58.214) — «История».
 
 Предмет: B1 `memory.dream.log` + `memory.nostalgia.log`, B2
-`factcheck.temporal.runs` + `memory.lessons`, B3 `oversight:summary.window` +
+`factcheck.temporal.runs` + `memory.lessons`, B3 `oversight:summary` +
 `oversight:random.uses` на СУЩЕСТВУЮЩИХ read-API (brief W2b §2–§3, контракты
 H-1…H-7):
   1) presentation-map HISTORY_SOURCES: dream/nostalgia/factcheck/lessons/
-     summary.window/random.uses; неизвестный source — ни запроса, ни вкладки
-     (fail-closed);
+     summary/random.uses; неизвестный source — ни запроса, ни вкладки
+     (fail-closed); `summary.window` — НЕ источник (компонентные события окна
+     без `pipeline_run_id`, F1);
   2) одно состояние на `scopeKey + moduleId` (`idle|loading|ready|empty|
      denied|off|error`): 403 → denied, 503/available:false/enabled:false →
      off, сеть → error; никогда «0 событий» вместо 403;
@@ -21,7 +22,7 @@ H-1…H-7):
      явное обновление остаётся возможным;
   7) B2: конверт уроков `{enabled,state,count}` → строка «уроков: N / state»,
      detail прогона фактчека — только по run_id (существующая модалка);
-  8) B3: прогоны `summary.window`/`random.uses` через
+  8) B3: прогоны `summary`/`random.uses` через
      `GET /api/oversight/runs?pipeline_type=…&limit=20` (global admin),
      detail — существующий deep link `#/oversight?view=runs&run_id=`;
      30-с кэш scope-aware + epoch-guard; строки источников не смешиваются;
@@ -90,7 +91,8 @@ const MEMORY_KEY = 'adminbot.module_tab';
 
 const SLEEP_SOURCE = 'memory.dream.log';
 const NOSTALGIA_SOURCE = 'memory.nostalgia.log';
-const SUMMARY_SOURCE = 'oversight:summary.window';
+const SUMMARY_SOURCE = 'oversight:summary';
+const LEGACY_SUMMARY_SOURCE = 'oversight:summary.window';   // НЕ источник
 const RANDOM_SOURCE = 'oversight:random.uses';
 const SLEEP = moduleById('mod_sleep');
 const NOSTALGIA = moduleById('mod_nostalgia');
@@ -144,8 +146,12 @@ function lessonRow(id, version, at, status, type, scope, scopeChat) {
            scope_chat_id: (scopeChat === undefined ? -100 : scopeChat) };
 }
 // B3: хедер прогона oversight (`GET /api/oversight/runs` → runs[]).
+// F1: реальный тип прогонов Summary — `summary` (pipeline_events.py несёт
+// `span_fields(run_id, pipeline_type="summary")`); `summary.window` —
+// компонентные события окна без `pipeline_run_id`, источником истории не
+// является.
 function runRow(id, ts, type, status, chat) {
-  return { pipeline_run_id: id, pipeline_type: type || 'summary.window',
+  return { pipeline_run_id: id, pipeline_type: type || 'summary',
            pipeline_version: '1', status: status || 'succeeded',
            started_ts: ts, updated_ts: ts + 4,
            events_total: 3, stages_total: 2, stages_failed: 0, stages_ok: 2,
@@ -265,9 +271,14 @@ function eq(a, b, msg) {
        APP_JS.indexOf('memory.nostalgia.log') >= 0 &&
        APP_JS.indexOf('factcheck.temporal.runs') >= 0 &&
        APP_JS.indexOf('memory.lessons') >= 0 &&
-       APP_JS.indexOf('oversight:summary.window') >= 0 &&
+       APP_JS.indexOf("'oversight:summary'") >= 0 &&
        APP_JS.indexOf('oversight:random.uses') >= 0,
       'HISTORY_SOURCES не содержит все шесть источников H-1');
+    // F1: старый синтетический ключ и его pipeline_type отсутствуют в карте.
+    ok(APP_JS.indexOf("'oversight:summary.window'") < 0,
+      'F1: HISTORY_SOURCES всё ещё содержит oversight:summary.window');
+    ok(APP_JS.indexOf('pipeline_type=summary.window') < 0,
+      'F1: в коде остался запрос pipeline_type=summary.window');
     // B2: журнал фактчека (detail по run_id) и конверт уроков.
     ['data-factcheck-temporal', 'data-experience-history',
      'data-module-history-count', 'уроков: '].forEach(function (needle) {
@@ -1297,7 +1308,7 @@ function eq(a, b, msg) {
       'factcheck не-админ: deep link уведён на bare');
   }
 
-  // ══ (17) B3: summary.window / random.uses через oversight/runs ═════════
+  // ══ (17) B3: summary / random.uses через oversight/runs ════════════════
   {
     // H-1: карта источника — один эндпоинт, свой модуль, свой pipeline_type,
     // деталь — существующий deep link наблюдаемости.
@@ -1311,6 +1322,14 @@ function eq(a, b, msg) {
       'B3: подпись источника summary');
     eq(methods.historySourceLabel.call(ctx, RANDOM), 'Прогоны случайности',
       'B3: подпись источника random');
+    // F1: `summary.window` — компонентные события окна БЕЗ pipeline_run_id,
+    // источником истории не является: ни вкладки, ни запроса.
+    ok(!methods.historySupported.call(ctx,
+      { id: 'mod_summary', historySource: LEGACY_SUMMARY_SOURCE }),
+      'F1: summary.window не должен поддерживаться как источник');
+    ok(!methods.historySupported.call(ctx,
+      { id: 'mod_summary', historySource: 'summary.window' }),
+      'F1: голый summary.window тоже не источник');
     // Чужой источник не подставляется «по имени»: источник сна не делает
     // страницу сводок исторической.
     ok(!methods.historySupported.call(ctx,
@@ -1321,14 +1340,16 @@ function eq(a, b, msg) {
     ctx.api = function (path, opts) {
       calls.push({ path: path, opts: opts || {} });
       return Promise.resolve({ available: true, enabled: true, runs: [
-        runRow('srun-1', 1700000200, 'summary.window', 'succeeded'),
-        runRow('srun-2', 1700000100, 'summary.window', 'failed')] });
+        runRow('srun-1', 1700000200, 'summary', 'succeeded'),
+        runRow('srun-2', 1700000100, 'summary', 'failed')] });
     };
     await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
     eq(calls.length, 1, 'B3 summary: должен быть ровно один запрос');
     eq(calls[0].path,
-      '/api/oversight/runs?pipeline_type=summary.window&limit=20',
-      'B3 summary: неверный адрес источника');
+      '/api/oversight/runs?pipeline_type=summary&limit=20',
+      'F1: summary обязан запрашивать РЕАЛЬНЫЙ pipeline_type=summary');
+    ok(calls[0].path.indexOf('summary.window') < 0,
+      'F1: синтетический pipeline_type=summary.window не запрашивается');
     eq(calls[0].opts.global, true,
       'B3: oversight-API вызывается как global (без X-Chat-Id)');
     eq(methods.historyStateFor.call(ctx, SUMMARY), 'ready',
@@ -1356,14 +1377,23 @@ function eq(a, b, msg) {
       methods.historyRowsFor.call(ctx, SUMMARY)[0]), 'srun-1',
       'B3: ключ строки — pipeline_run_id');
     eq(methods.historyRowStatusText.call(ctx, SUMMARY, runRow('x', 1,
-      'summary.window', 'failed')), 'неуспешно',
+      'summary', 'failed')), 'неуспешно',
       'B3: статус прогона — существующая RU-подпись');
     eq(methods.historyRowBadgeClass.call(ctx, SUMMARY, runRow('x', 1,
-      'summary.window', 'succeeded')), 'badge-ok',
+      'summary', 'succeeded')), 'badge-ok',
       'B3: бейдж успешного прогона');
     eq(methods.historyRowKindText.call(ctx, SUMMARY, runRow('x', 1,
-      'summary.window')), 'Окно и краткое резюме',
-      'B3: тип строки — человеческое имя процесса');
+      'summary')), 'Сводки',
+      'F1: тип строки summary — собственная подпись источника');
+    // Random не изменился: человеческое имя из существующего словаря.
+    eq(methods.historyRowKindText.call(ctx, RANDOM, runRow('x', 1,
+      'random.uses')), 'Применения случайности',
+      'B3 random: тип строки из словаря процессов');
+    // F1: сама метка старого источника в карте отсутствует.
+    ok(APP_JS.indexOf("'oversight:summary.window'") < 0,
+      'F1: карта всё ещё содержит синтетический oversight:summary.window');
+    ok(APP_JS.indexOf('pipeline_type=summary.window') < 0,
+      'F1: синтетический pipeline_type=summary.window остался в коде');
   }
 
   {
@@ -1562,7 +1592,7 @@ function eq(a, b, msg) {
       const chat = (ctx.activeChatId === -200) ? -200 : -100;
       return { available: true, enabled: true,
         runs: [runRow('run-' + Math.abs(chat), 1700000200,
-                      'summary.window', 'succeeded', chat)] };
+                      'summary', 'succeeded', chat)] };
     };
     methods._ensureModuleData.call(ctx, SUMMARY);
     await tick();
@@ -1582,7 +1612,7 @@ function eq(a, b, msg) {
     eq(methods.historyRowsFor.call(ctx, SUMMARY).length, 0,
       'B3 A→B→A: до ответа B строк области A не видно');
     dB.resolve({ available: true, enabled: true,
-      runs: [runRow('run-200', 1700000300, 'summary.window', 'failed', -200)] });
+      runs: [runRow('run-200', 1700000300, 'summary', 'failed', -200)] });
     await tick();
     await tick();
     const brows = methods.historyRowsFor.call(ctx, SUMMARY);
@@ -1596,7 +1626,7 @@ function eq(a, b, msg) {
     let acalls = 0;
     ctx.api = async function () { acalls += 1;
       return { available: true, enabled: true,
-        runs: [runRow('run-100b', 1700000400, 'summary.window', 'succeeded',
+        runs: [runRow('run-100b', 1700000400, 'summary', 'succeeded',
                       -100)] }; };
     methods.setActiveChat.call(ctx, -100);
     await tick();
@@ -1622,7 +1652,7 @@ function eq(a, b, msg) {
       calls += 1;
       if (calls === 1) return dA.p;
       return Promise.resolve({ available: true, enabled: true,
-        runs: [runRow('run-B', 1700000300, 'summary.window', 'succeeded',
+        runs: [runRow('run-B', 1700000300, 'summary', 'succeeded',
                       -200)] });
     };
     const loadA = methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
@@ -1632,7 +1662,7 @@ function eq(a, b, msg) {
     eq(methods.historyRowsFor.call(ctx, SUMMARY)[0].pipeline_run_id, 'run-B',
       'B3 inflight: B получил свои строки');
     dA.resolve({ available: true, enabled: true,
-      runs: [runRow('run-A', 1700000100, 'summary.window', 'succeeded',
+      runs: [runRow('run-A', 1700000100, 'summary', 'succeeded',
                     -100)] });
     await loadA;
     await tick();
@@ -1650,9 +1680,9 @@ function eq(a, b, msg) {
     clearStorage();
     const ctx = mkCtx();
     const rows = [
-      runRow('old', 1700000100, 'summary.window', 'succeeded'),
-      runRow('new', 1700009000, 'summary.window', 'failed'),
-      runRow('mid', 1700005000, 'summary.window', 'partial'),
+      runRow('old', 1700000100, 'summary', 'succeeded'),
+      runRow('new', 1700009000, 'summary', 'failed'),
+      runRow('mid', 1700005000, 'summary', 'partial'),
     ];
     methods._wsHistoryMetaSet.call(ctx, SUMMARY, 'ready', { rows: 3 });
     ctx.moduleRuns = {}; ctx.moduleRuns[SUMMARY_SOURCE] = rows;
@@ -1736,9 +1766,9 @@ function eq(a, b, msg) {
     clearStorage();
     const ctx = mkCtx();
     const rows = [
-      runRow('s1', 1700000200, 'summary.window', 'succeeded'),
-      runRow('s2', 1700000100, 'summary.window', 'failed'),
-      runRow('s3', 1700000050, 'summary.window', 'failed'),
+      runRow('s1', 1700000200, 'summary', 'succeeded'),
+      runRow('s2', 1700000100, 'summary', 'failed'),
+      runRow('s3', 1700000050, 'summary', 'failed'),
     ];
     methods._wsHistoryMetaSet.call(ctx, SUMMARY, 'ready', { rows: 3 });
     ctx.moduleRuns = {}; ctx.moduleRuns[SUMMARY_SOURCE] = rows;
@@ -1754,12 +1784,13 @@ function eq(a, b, msg) {
       'B3: сброс фильтра возвращает все строки');
     // Строка события: дата · тип · чат · статус.
     const line = methods.historyRowLine.call(ctx, SUMMARY, rows[0]);
-    ok(line.indexOf('Окно и краткое резюме') >= 0 &&
+    ok(line.indexOf('Сводки') >= 0 &&
        line.indexOf('чат -100') >= 0 && line.indexOf('успешно') >= 0,
       'B3: строка события собрана из реальных полей (' + line + ')');
   }
 
-  console.log('MOD-ACL-UX-M4A-W2B-HISTORY-OK — ' + checks + ' проверок');  process.exit(0);
+  console.log('MOD-ACL-UX-M4A-W2B-HISTORY-OK — ' + checks + ' проверок');
+  process.exit(0);
 })().catch(function (e) {
   console.error(e && e.stack ? e.stack : e);
   process.exit(1);

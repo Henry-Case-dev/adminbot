@@ -25,7 +25,7 @@
     "catalog_order": 1,
     "scope_capability": "flags.summary_enabled",
     "gate_feature": "",
-    "history_source": "oversight:summary.window",
+    "history_source": "oversight:summary",
     "tab": "mod_summary",
     "route": "#/modules/summary"
   },
