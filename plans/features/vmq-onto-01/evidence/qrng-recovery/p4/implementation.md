@@ -75,11 +75,23 @@
 4. **F4 — ложный factory-default.** При `random.enabled=false` сводка больше
    не печатает «заводское значение»: только сохранённый raw или «нет данных»
    (e2e `off_no_fake_default`).
-5. **F5 — test-gap.** `round1025_f5_workspace_route_test.js` для mod_random
-   сверяет ПОЛНОЕ множество ключей страницы с каталог-фикстурой
-   `tests/fixtures/qrng_p4_random_keys.json` (группы memory_random/keys_random,
-   hidden и read-only master исключены). Новый ключ без страницы/фикстуры
-   краснит тест.
+5. **F5 — test-gap (re-review).** Гарантия coverage сделана автоматической:
+   - `round1025_f5_workspace_route_test.js` для mod_random собирает шесть
+     «динамических» ключей из ФАКТИЧЕСКОЙ разметки `web/index.html`
+     (`data-random-primary` — точный маркер, не префикс; `data-cfg-key=...`;
+     ANU-ключ через `randomAnuKeyItem().key` + draft) — удаление контрола
+     краснит тест;
+   - Python-пин `test_frontend_tab_mapping.TestModuleTabs.
+     test_qrng_page_keys_fixture_matches_catalog` сверяет fixture
+     `tests/fixtures/qrng_p4_random_keys.json` с `param_catalog`
+     (`memory_random`/`keys_random` минус hidden и минус read-only master
+     `memory.random_enabled`) — новый ключ без переэмиссии fixture краснит
+     тест; fixture генерируется `tools/_qrng_p4_reissue_f8.py` (один источник
+     истины, файл — осознанный снапшот);
+   - три RED-пробы (`red_f5_probe.py`, `red-f5.json`): (a) новый ключ каталога
+     без fixture → Python-пин падает; (b) удалён `data-random-primary` →
+     JS-тест падает; (c) удалён `data-cfg-key="memory.random_source"` →
+     JS-тест падает. GREEN базовой линии подтверждён до проб.
 
 ## 3. Визуальный контракт (Visual Preservation Map)
 
@@ -112,9 +124,14 @@
 - RED на `6cf4c32c`: новый тест падает (`вкладок 29 (28 + mod_random)`);
   подтверждены три факта базы (нет вкладки, `keys_random` на LLM, старая
   подсказка). `red-probe-6cf4c32c.json`.
-- Мутации UI — 10/10 (`mutations.json`); e2e-мутации — 4/4
-  (`mutations-e2e.json`: octet-stream CSS, IBM-зелёный stub, удалённая
-  Sleep-карточка, оторванные стрелки). Все файлы восстановлены по sha256.
+- RED F5 (re-review): три пробы убиты (`red-f5.json`) — новый ключ каталога
+  без fixture; удалённый `data-random-primary`; удалённый
+  `data-cfg-key="memory.random_source"`; GREEN базовой линии в том же прогоне.
+- Мутации UI — 12/12 (`mutations.json`, включая M11/M12 на F5-маркеры);
+  e2e-мутации — 4/4 (`mutations-e2e.json`: octet-stream CSS, IBM-зелёный stub,
+  удалённая Sleep-карточка, оторванные стрелки). Оба probe нормализуют CRLF
+  (LF-сравнение anchors, запись в исходных окончаниях) — воспроизводимость не
+  зависит от `core.autocrlf`. Все файлы восстановлены по sha256.
 
 ## 5. Что осталось непокрытым
 
@@ -130,6 +147,8 @@
   в пользу B3, не перестраивая B3-код. Конфликты
   `param-registry-round1025.meta.md` и history-теста также разрешаются на
   сборке, в этой ветке не трогаются.
-- F7 (опционально, non-blocking): пустая высота IBM-карточки убрана
-  `items-start` (128px против stretch 416px на 1280; `card_heights_1280` в
-  `playwright-e2e.json`); мобильная раскладка не изменилась.
+- F7 (опционально, non-blocking) — фактически сделано: на grid карточек
+  добавлен `items-start`; на 1280 IBM-карточка 127–128 px вместо stretch
+  416 px (ANU 414–416 px, LfDR 218 px; `card_heights_1280` в
+  `playwright-e2e.json`). Mobile 390/320 — одна колонка, раскладка не
+  изменилась.

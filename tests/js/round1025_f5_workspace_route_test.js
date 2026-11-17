@@ -468,11 +468,37 @@ function mkCoverageCtx(m) {
           randomProbabilityItems: methods.randomProbabilityItems,
         });
         const rendered = {};
-        ['random.primary_provider', 'random.fallback_order',
-         'random.fallback_enabled', 'memory.random_source',
-         'memory.random_fallback_to_pseudorandom',
-         'keys.random_quantum_api_key'].forEach(function (k) {
-          rendered[k] = true;
+        // F5 review: шесть «динамических» ключей не хардкодятся в rendered —
+        // берутся из ФАКТИЧЕСКОЙ разметки web/index.html. Удаление контрола
+        // (data-random-primary / data-cfg-key=...) сразу краснит тест.
+        const html = require('fs').readFileSync(
+          path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
+        const markerOf = {
+          'random.primary_provider': ['data-random-primary'],
+          'random.fallback_order': [
+            'data-cfg-key="random.fallback_order"'],
+          'random.fallback_enabled': [
+            'data-cfg-key="random.fallback_enabled"'],
+          'memory.random_source': [
+            'data-cfg-key="memory.random_source"'],
+          'memory.random_fallback_to_pseudorandom': [
+            'data-cfg-key="memory.random_fallback_to_pseudorandom"'],
+          'keys.random_quantum_api_key': [
+            ':tech-key="randomAnuKeyItem().key"',
+            "keyDrafts['keys.random_quantum_api_key']"],
+        };
+        Object.keys(markerOf).forEach(function (k) {
+          let present = false;
+          if (k === 'random.primary_provider') {
+            // Маркер — именно контрол, не префикс мутации
+            // `data-random-primary-removed`.
+            present = /data-random-primary(?![-\w])/.test(html);
+          } else {
+            present = markerOf[k].some(function (m) {
+              return html.indexOf(m) >= 0;
+            });
+          }
+          if (present) rendered[k] = true;
         });
         computed.randomUsesList.call(rctx).forEach(function (it) {
           rendered[it.key] = true;

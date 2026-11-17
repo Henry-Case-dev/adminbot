@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "probes": [
+    {
+      "id": "a",
+      "what": "новый ключ каталога без fixture",
+      "killed": true,
+      "first_assertion": "qrng_p4_random_keys.json: группы/ключи разошлись с каталогом — переэмитите fixture (tools/_qrng_p4_reissue_f8.py)"
+    },
+    {
+      "id": "b",
+      "what": "удалён data-random-primary",
+      "killed": true,
+      "exit": 1,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: g: все ключи memory_random/keys_random отрендерены (без сирот)"
+    },
+    {
+      "id": "c",
+      "what": "удалён data-cfg-key=memory.random_source",
+      "killed": true,
+      "exit": 1,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: g: все ключи memory_random/keys_random отрендерены (без сирот)"
+    }
+  ],
+  "green": {
+    "python_pin": true,
+    "js_f5": true
+  }
+}

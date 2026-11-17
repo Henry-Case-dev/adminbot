@@ -88,7 +88,10 @@ for mut in MUTATIONS:
     path = mut["file"]
     original = path.read_bytes()
     before = sha(path)
-    text = original.decode("utf-8")
+    # F2 review: checkout с core.autocrlf=true не должен ломать multi-line
+    # anchors — сравниваем в LF, записываем в исходных окончаниях строк.
+    had_crlf = b"\r\n" in original
+    text = original.decode("utf-8").replace("\r\n", "\n")
     ok_anchor = True
     for anchor, repl in mut["pairs"]:
         if anchor not in text:
@@ -102,7 +105,8 @@ for mut in MUTATIONS:
         rows.append(row)
         continue
     try:
-        path.write_text(text, encoding="utf-8", newline="")
+        out_text = text.replace("\n", "\r\n") if had_crlf else text
+        path.write_bytes(out_text.encode("utf-8"))
         res = subprocess.run(
             [PY, str(TOOL)], cwd=str(ROOT), capture_output=True, text=True,
             timeout=180)

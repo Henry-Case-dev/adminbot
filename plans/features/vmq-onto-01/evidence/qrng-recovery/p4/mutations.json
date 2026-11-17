@@ -90,10 +90,28 @@
       "killed": true,
       "first_assertion": "AssertionError [ERR_ASSERTION]: ровно 3 карточки провайдеров",
       "restored_sha_ok": true
+    },
+    {
+      "id": "M11",
+      "what": "F5: удалён контрол data-random-primary (маркер ключа)",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: g: все ключи memory_random/keys_random отрендерены (без сирот)",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M12",
+      "what": "F5: удалён data-cfg-key=memory.random_source",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: g: все ключи memory_random/keys_random отрендерены (без сирот)",
+      "restored_sha_ok": true
     }
   ],
-  "killed": 10,
-  "total": 10,
+  "killed": 12,
+  "total": 12,
   "all_restored": true,
   "ok": true
 }

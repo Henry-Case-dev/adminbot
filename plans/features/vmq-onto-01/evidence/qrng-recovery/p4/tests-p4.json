@@ -142,15 +142,37 @@
       "evidence": "red-probe-6cf4c32c.json"
     },
     {
+      "id": "red-f5",
+      "command": "python plans/features/vmq-onto-01/evidence/qrng-recovery/p4/red_f5_probe.py",
+      "result": {
+        "ok": true,
+        "killed": 3,
+        "total": 3,
+        "green_python_pin": true,
+        "green_js_f5": true
+      },
+      "evidence": "red-f5.json",
+      "covers": [
+        "(a) новый ключ каталога без fixture -> Python-пин падает",
+        "(b) удалён data-random-primary -> JS F5-тест падает",
+        "(c) удалён data-cfg-key=memory.random_source -> JS F5-тест падает",
+        "GREEN базовой линии (Python-пин и JS-тест) до проб"
+      ]
+    },
+    {
       "id": "mutations",
       "command": "python plans/features/vmq-onto-01/evidence/qrng-recovery/p4/mutation_probe.py",
       "result": {
-        "killed": 10,
-        "total": 10,
+        "killed": 12,
+        "total": 12,
         "all_restored": true
       },
       "evidence": "mutations.json",
-      "note": "M1 dummy-селектор без POST, M2 Lizaonair, M3 зачисление draft, M4 keys_random на LLM — обязательные; M5/M10 3 опции/3 карточки, M6 порядок таймаутов, M7 fake green, M8 старая подсказка, M9 primary в fallback_order. Каждая убивает tests/js/qrng_p4_random_ui_test.js; sha256 файлов восстановлен."
+      "note": "M1 dummy-селектор без POST, M2 Lizaonair, M3 зачисление draft, M4 keys_random на LLM — обязательные; M5/M10 3 опции/3 карточки, M6 порядок таймаутов, M7 fake green, M8 старая подсказка, M9 primary в fallback_order. Каждая убивает tests/js/qrng_p4_random_ui_test.js; sha256 файлов восстановлен.",
+      "covers": [
+        "M11: удалён data-random-primary -> F5 JS-тест падает",
+        "M12: удалён data-cfg-key=memory.random_source -> F5 JS-тест падает"
+      ]
     },
     {
       "id": "mutations-e2e",
@@ -178,13 +200,15 @@
     "full_webapp_pytest": "Сознательно не запускался полный tests/test_webapp_*.py: он перезаписывает tracked W10–W12 evidence-блобы. git status после прогонов не содержит изменённых evidence-блобов."
   },
   "review": {
-    "round": "P4 review Needs Fixes on 0fe92544 (code cbb3f9f7)",
+    "round": "P4 re-review Needs Fixes only on F5/F7 (product code frozen at 52662927)",
+    "prior_round": "P4 review Needs Fixes on 0fe92544 (code cbb3f9f7)",
     "fixes": [
-      "F1 Sleep card: one random-entry-card component rendered by workspace (overview/settings) and legacy modal; e2e deep link + catalog.",
-      "F2 e2e: correct MIME (text/css, font/woff2, javascript); CSS applied assertion (cssRules>0, stateFont>=12); honest P3 status stub (IBM unconfigured -> ANSI effective, no primary echo); 422 branch.",
-      "F3 fallback arrows grouped with provider on 390/320.",
-      "F4 no factory-default without data (enabled=false -> \"нет данных\").",
-      "F5 workspace-route test compares full key set of memory_random/keys_random via generated fixture; master excluded."
+      "F5 (blocking): six dynamic keys are now derived from real markup in web/index.html (data-random-primary exact marker, data-cfg-key, ANU key bindings) — removing a control fails the JS test.",
+      "F5 (blocking): Python pin test_frontend_tab_mapping.TestModuleTabs.test_qrng_page_keys_fixture_matches_catalog compares tests/fixtures/qrng_p4_random_keys.json with param_catalog groups memory_random/keys_random minus hidden and read-only master; a new catalog key without fixture re-emission fails.",
+      "F5 (blocking): three RED probes (red_f5_probe.py / red-f5.json): (a) new catalog key without fixture -> Python pin fails; (b) removed data-random-primary -> JS test fails; (c) removed data-cfg-key=\"memory.random_source\" -> JS test fails. GREEN baseline checked in the same run.",
+      "F7 (evidence): implementation.md states items-start, IBM 127-128 px vs ANU 414-416 px on 1280, mobile 390/320 one column.",
+      "F2 (non-blocking): mutation_e2e_probe.py normalizes CRLF (anchors compared in LF, file written back with original endings) — reproducible regardless of core.autocrlf."
     ]
-  }
+  },
+  "probes_crlf": "mutation_probe.py и mutation_e2e_probe.py сравнивают anchors в LF и пишут файл в исходных окончаниях строк — результат не зависит от core.autocrlf (F2 non-blocking)."
 }

@@ -130,6 +130,28 @@ MUTATIONS = [
             'data-random-provider="lfdr">',
         )],
     },
+    {
+        "id": "M11",
+        "what": "F5: удалён контрол data-random-primary (маркер ключа)",
+        "file": INDEX,
+        "test": "tests/js/round1025_f5_workspace_route_test.js",
+        "ok_marker": "MODULE-WORKSPACE-OK",
+        "pairs": [(
+            "data-random-primary",
+            "data-random-primary-removed",
+        )],
+    },
+    {
+        "id": "M12",
+        "what": "F5: удалён data-cfg-key=memory.random_source",
+        "file": INDEX,
+        "test": "tests/js/round1025_f5_workspace_route_test.js",
+        "ok_marker": "MODULE-WORKSPACE-OK",
+        "pairs": [(
+            'data-cfg-key="memory.random_source"',
+            'data-cfg-key-removed="memory.random_source"',
+        )],
+    },
 ]
 
 
@@ -137,8 +159,8 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_test() -> tuple[int, str]:
-    res = subprocess.run([NODE, str(TEST)], cwd=str(ROOT),
+def run_test(test_path: str, ok_marker: str) -> tuple[int, str]:
+    res = subprocess.run([NODE, str(ROOT / test_path)], cwd=str(ROOT),
                          capture_output=True, text=True, timeout=120)
     out = (res.stdout or "") + (res.stderr or "")
     return res.returncode, out
@@ -149,7 +171,8 @@ for mut in MUTATIONS:
     path = mut["file"]
     original = path.read_bytes()
     before = sha(path)
-    text = original.decode("utf-8")
+    had_crlf = b"\r\n" in original
+    text = original.decode("utf-8").replace("\r\n", "\n")
     applied = True
     for anchor, replacement in mut["pairs"]:
         if anchor not in text:
@@ -162,10 +185,14 @@ for mut in MUTATIONS:
         rows.append(row)
         continue
     try:
-        path.write_text(text, encoding="utf-8", newline="")
-        code, out = run_test()
+        out_text = text.replace("\n", "\r\n") if had_crlf else text
+        path.write_bytes(out_text.encode("utf-8"))
+        code, out = run_test(
+            mut.get("test", "tests/js/qrng_p4_random_ui_test.js"),
+            mut.get("ok_marker", "QRNG-P4-UI-OK"))
         row["exit"] = code
-        row["killed"] = (code != 0) and ("QRNG-P4-UI-OK" not in out)
+        row["killed"] = (code != 0) and (
+            mut.get("ok_marker", "QRNG-P4-UI-OK") not in out)
         row["first_assertion"] = next(
             (ln.strip() for ln in out.splitlines()
              if ln.strip().startswith("AssertionError")), "")

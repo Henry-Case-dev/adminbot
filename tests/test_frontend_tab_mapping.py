@@ -2,6 +2,9 @@
 11 модулей (mod_*) + 7 подразделов AI; каждая конфиг-группа ровно на одной
 вкладке; зеркало TABS (web/app.js) синхронно с TAB_RULES.
 """
+import json
+from pathlib import Path
+
 import pytest
 
 from services import param_catalog as pc
@@ -339,6 +342,30 @@ class TestModuleTabs:
         assert pc.CONFIG_TAB_TITLES[TAB_MOD_RANDOM] == "Случайность"
         assert "memory_random" not in tab_group_ids(TAB_MOD_SLEEP)
         assert "keys_random" not in tab_group_ids(TAB_LLM_PROVIDERS)
+
+    def test_qrng_page_keys_fixture_matches_catalog(self):
+        """F5 review: fixture ключей страницы == каталог (один источник истины).
+
+        Новый ключ в memory_random/keys_random без переэмиссии fixture
+        краснит этот пин; hidden и read-only master (memory.random_enabled)
+        исключены — они не рендерятся как записываемые поля страницы.
+        """
+        root = Path(__file__).resolve().parents[1]
+        fx = json.loads(
+            (root / "tests" / "fixtures" / "qrng_p4_random_keys.json")
+            .read_text(encoding="utf-8"))
+        groups = {}
+        for gid in ("memory_random", "keys_random"):
+            groups[gid] = sorted(
+                spec.pg_key for spec in pc.REGISTRY.values()
+                if spec.group == gid and not spec.hidden
+                and spec.pg_key != "memory.random_enabled")
+        expected = sorted({key for keys in groups.values() for key in keys})
+        assert fx["groups"] == groups, (
+            "qrng_p4_random_keys.json: группы/ключи разошлись с каталогом — "
+            "переэмитите fixture (tools/_qrng_p4_reissue_f8.py)")
+        assert fx["page_keys"] == expected
+        assert fx["master"] == "memory.random_enabled"
 
 
 class TestAiTabs:
