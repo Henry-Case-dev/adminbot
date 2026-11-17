@@ -100,6 +100,9 @@ function deferred() {
   const p = new Promise(function (res, rej) { resolve = res; reject = rej; });
   return { p: p, resolve: resolve, reject: reject };
 }
+function tick() {
+  return new Promise(function (resolve) { setImmediate(resolve); });
+}
 function dreamRow(id, ts, status, kind) {
   return { id: id, chat_id: -100, run_at: ts, kind: kind || 'dream',
            status: status || 'ok' };
@@ -134,6 +137,14 @@ function mkCtx(overrides) {
     toast: function (msg, kind) { this.toasts.push({ msg: msg, kind: kind }); },
     moduleScopeErrorFor: function () { return ''; },
     moduleHealthView: function () { return null; },
+    navigateTo: function (r) { this.nav = r; },
+    _dirtyLeaveGuard: function () { return true; },
+    _memeDraftLeaveGuard: function () { return true; },
+    syncActiveChatTitle: function () {},
+    loadConfig: function () { this.loads = (this.loads || 0) + 1; },
+    loadKeyStatus: function () {},
+    iniResetChatScope: function () {},
+    resetSpeechState: function () {},
     applyRoute: function (r) {
       this.applied = (this.applied || []).concat([r]);
     },
@@ -195,6 +206,10 @@ function eq(a, b, msg) {
       ok(INDEX_HTML.indexOf(needle) >= 0,
         'index.html: нет «' + needle + '»');
     });
+    // F3: один вход в Историю — generic `[data-overview-link]`, без
+    // собственной CTA, дублирующей ссылку.
+    ok(INDEX_HTML.indexOf('data-overview-history-open') < 0,
+      'index.html: осталась дублирующая CTA Истории');
     // H-6: дубль ряда чипов удалён, авторитетный ряд — один.
     eq((INDEX_HTML.match(/data-workspace-chips/g) || []).length, 1,
       'должен остаться РОВНО один ряд [data-workspace-chips]');
@@ -474,6 +489,13 @@ function eq(a, b, msg) {
       'sleep-мета не подставлена ностальгии');
     eq(methods.moduleHistoryLast.call(nctx, SLEEP), null,
       'nostalgia-мета не подставлена сну');
+
+    // F3: «Последние события» не повторяют строку, уже показанную в «Сейчас».
+    const ovRows = methods.historyOverviewRows.call(ctx, SLEEP);
+    const lastRow = methods.moduleHistoryLast.call(ctx, SLEEP);
+    eq(ovRows.length, 2, 'Обзор: из 3 строк исключена строка «Сейчас»');
+    ok(ovRows.every(function (r) { return r !== lastRow; }),
+      'Обзор: строка «Сейчас» не дублирована в «Последних событиях»');
   }
 
   // ══ (7) H-7: один автоматический фетч на источник, без поллера ═════════
@@ -543,6 +565,72 @@ function eq(a, b, msg) {
       'bare-адрес остаётся bare');
     ok(computed.workspaceTab.call(bare) !== 'history',
       'bare nostalgia не открывает history');
+  }
+
+  // ══ (9) F2: смена чата не залипает в loading; tab/refresh живы ═════════
+  {
+    clearStorage();
+    const ctx = mkCtx({
+      route: '#/modules/sleep/history',
+      activeChatId: -100,
+      scopeEpoch: 0,
+      workspaceTabHasContent: function (m, tabId) {
+        return (m.tabs || []).indexOf(tabId) >= 0 &&
+          this._contentTabs.indexOf(tabId) >= 0;
+      },
+      _contentTabs: ['overview', 'settings', 'limits', 'history'],
+    });
+    ctx._wsTabMemoryLoad();
+    setMeta(ctx, SLEEP, 'loading');       // запрос покинутой области
+    let calls = 0;
+    ctx.api = async function () {
+      calls += 1;
+      return [dreamRow(1, 1700000000, 'ok')];
+    };
+    methods.setActiveChat.call(ctx, -200);
+    await tick();
+    await tick();
+    eq(ctx.activeChatId, -200, 'scope переключён на новый чат');
+    eq(methods.historyStateFor.call(ctx, SLEEP), 'ready',
+      'новый чат: история загружена, не loading');
+    ok(methods.workspaceTabHasContent.call(ctx, SLEEP, 'history'),
+      'новый чат: вкладка История восстановлена');
+    ok(!(ctx.historyMeta || {})['chat:-100|mod_sleep'],
+      'мета покинутого чата удалена');
+
+    methods.setActiveChat.call(ctx, -100);
+    await tick();
+    await tick();
+    eq(methods.historyStateFor.call(ctx, SLEEP), 'ready',
+      'возврат: state ready, не залипший loading');
+    ok(methods.workspaceTabHasContent.call(ctx, SLEEP, 'history'),
+      'возврат: вкладка История восстановлена');
+    eq(calls, 2, 'по одному запросу на каждый вход в чат');
+    methods._ensureModuleData.call(ctx, SLEEP);
+    await tick();
+    eq(calls, 2, 'после возврата нет второго поллера');
+    clearStorage();
+  }
+
+  // ══ (10) F4: фильтр журнала сбрасывается при смене module|tab ══════════
+  {
+    clearStorage();
+    const ctx = mkCtx({ route: '#/modules/sleep/history' });
+    ctx._wsTabMemoryLoad();
+    ctx.historyFilter = 'duplicate';
+    ctx.historyFilterKey = 'mod_sleep|history';
+    methods._wsResetHistoryFilter.call(ctx, NOSTALGIA, 'history');
+    eq(ctx.historyFilter, '', 'фильтр sleep не переехал на nostalgia');
+    eq(ctx.historyFilterKey, 'mod_nostalgia|history',
+      'ключ фильтра обновлён на новый module|tab');
+
+    ctx.historyFilter = 'duplicate';
+    ctx.historyFilterKey = 'mod_sleep|history';
+    methods.openWorkspaceTab.call(ctx, 'limits');
+    eq(ctx.historyFilter, '', 'openWorkspaceTab сбрасывает фильтр');
+    eq(ctx.nav, '#/modules/sleep/limits',
+      'openWorkspaceTab сохранил навигацию');
+    clearStorage();
   }
 
   console.log('MOD-ACL-UX-M4A-W2B-HISTORY-OK — ' + checks + ' проверок');

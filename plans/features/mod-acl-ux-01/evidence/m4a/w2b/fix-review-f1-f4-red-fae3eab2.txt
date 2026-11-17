@@ -1,0 +1,76 @@
+MOD-ACL-UX-01 M4A W2b-B1 — RED по Findings F1–F4 (review fae3eab2)
+===================================================================
+Base для RED: fae3eab2 (первый кандидат B1)
+Дата: 2026-11-17
+Окружение: Windows, node v24.16.0, Python 3.12.0 (.venv), Chromium Playwright.
+
+RED снят в отдельном detached-worktree на fae3eab2; туда скопированы только
+обновлённые тесты/стенд (web/* — версия fae3eab2). После RED worktree удалён.
+
+1. F1 — литеральные font-size / border-radius в конце app.css.
+   W11 guard: tests/test_webapp_evol_w11_controls.py::
+              TestControlTokens::test_one_role_one_component
+   W12 guard: tests/test_webapp_evol_w12_internals.py::
+              TestGlobalSearch::test_palette_css_is_safe_area_and_motion_aware
+   На fae3eab2 оба падают:
+   - AssertionError: в системе контролов размеры шрифта — только через токены
+     match='font-size: 12px' (.module-history__row);
+   - AssertionError: font-size: 12px в W12_CSS (тот же матч от баннера W12-01
+     до конца файла). В блоке также был border-radius: 8px.
+   После фикса (0.91em + var(--radius-md)): оба теста passed.
+
+2. F2 — залипающий loading после смены чата.
+   Probe (node, реальный setActiveChat из web/app.js):
+   fae3eab2:
+   {"before":"loading","atB":"idle","back":"loading","refreshDisabled":true,
+    "oldMetaPresent":true,"hasDropScope":false,"hasEnsureHistory":false}
+   fixed:
+   {"before":"loading","atB":"ready","back":"ready","refreshDisabled":false,
+    "oldMetaPresent":true,"hasDropScope":true,"hasEnsureHistory":true}
+   То есть на fae3eab2 возврат в чат A оставляет state=loading и refresh
+   disabled; после фикса state=ready, refresh доступен, запрос ровно один на
+   вход в чат (второго поллера нет).
+
+   E2E RED на fae3eab2 (секция W2b, probe смены чата):
+   - W2b F2: новый чат залип: tab=False, panel=True, rows=0, refreshDisabled=False;
+   - W2b F2: возврат залип: tab=False, panel=True, rows=0,
+     refreshDisabled=True (кнопка обновления заблокирована навсегда);
+   - W2b F2: refresh недоступен.
+
+3. F3 — дубли факта и CTA в Обзоре.
+   E2E RED на fae3eab2:
+   - W2b sleep: дубли факта/CTA (last=True, link=1, cta=1);
+   - W2b nostalgia: дубли факта/CTA (last=True, link=1, cta=1);
+   - W2b nostalgia: Обзор 4 строк/1 блок (первая строка повторяет «Сейчас»).
+   Node RED на fae3eab2: AssertionError: index.html: осталась дублирующая
+   CTA Истории.
+   После фикса: lastAction=False, histLink=1, histCta=0; sleep Overview=5,
+   nostalgia Overview=3; строка «Сейчас» исключена из «Последних событий».
+
+4. F4 — общий historyFilter не сбрасывается.
+   Probe (node, реальный openWorkspaceTab):
+   fae3eab2: {"f4Filter":"duplicate","hasResetFilter":false}
+   fixed:    {"f4Filter":"","hasResetFilter":true}
+   E2E RED на fae3eab2: фильтр недоступен после залипшего loading (F2), поэтому
+   F4-сценарий не смог выставить duplicate; после фикса e2e:
+   - before switch: filterValue="duplicate", rows=1;
+   - after hash switch sleep→nostalgia: filterValue="", rows=4 (сброшен).
+
+5. Полный batch tests/test_webapp_*.py (64 файла):
+   fae3eab2: 35 failed, 1453 passed.
+   fixed:    33 failed, 1455 passed.
+   Разница ровно две записи — F1 guard-тесты W11 и W12; НОВЫХ падений нет.
+   Остальные 33 — pre-existing (подтверждены на fae3eab2 тем же batch).
+
+6. Кандидат после фиксов:
+   - node tests/js/mod_acl_ux_m4a_w2b_history_test.js -> 126 проверок, OK;
+   - node tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js -> 141, OK;
+   - node tests/js/routing_test.js -> OK;
+   - W11/W12 guard-тесты -> 2 passed;
+   - tools/ui_mod_acl_m4_catalog_e2e.py -> failures=0; F2 probe: stall=True,
+     after_new tab=True/state!=loading, after_back tab=True/refresh enabled,
+     no poller; F4: filter сброшен, rows=4;
+   - mandatory pytest batch (24 файла) -> 386 passed;
+   - полный node tests/js/*.js -> 117 passed, 4 pre-existing (те же файлы, что
+     в evidence W2a: asap6_wave2_ux_tabs, evol_cog_scene, round1025_ia_routing,
+     ur_ui_settings).

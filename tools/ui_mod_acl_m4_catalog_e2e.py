@@ -268,6 +268,8 @@ NOSTALGIA_ROWS = [
      "status": "skipped", "fact_id": None, "meta": {"reason": "нет повода"}},
     {"id": 3, "chat_id": CHAT_ID2, "ts": 1794909400, "kind": "nostalgia",
      "status": "error", "fact_id": None, "meta": {"reason": "timeout"}},
+    {"id": 4, "chat_id": CHAT_ID, "ts": 1794909300, "kind": "nostalgia",
+     "status": "skipped", "fact_id": None, "meta": {"reason": "лимит"}},
 ]
 # data | empty | denied | off | unavailable
 HISTORY_MODE = {"dream": "data", "nostalgia": "data"}
@@ -446,6 +448,10 @@ def main() -> int:
                 return
             if mode == "hold":
                 HISTORY_HOLD[kind] = route
+                return
+            if mode == "hold_once":
+                HISTORY_HOLD[kind] = route
+                HISTORY_MODE[kind] = "data"
                 return
             rows = [] if mode == "empty" else (
                 DREAM_ROWS if kind == "dream" else NOSTALGIA_ROWS)
@@ -1558,6 +1564,17 @@ def main() -> int:
                 "   'data-overview-history-state') : null,"
                 "  filter: !!document.querySelector("
                 "   '[data-module-history-filter]'),"
+                "  filterValue: (document.querySelector("
+                "   '#module-history-filter') || {}).value || '',"
+                "  lastAction: !!document.querySelector("
+                "   '[data-module-last-action]'),"
+                "  histLink: document.querySelectorAll("
+                "   '[data-overview-link=history]').length,"
+                "  histCta: document.querySelectorAll("
+                "   '[data-overview-history-open]').length,"
+                "  refreshDisabled: (() => {"
+                "    const b = hist ? hist.querySelector('button') : null;"
+                "    return b ? b.disabled : null; })(),"
                 "  scrollWidth: document.documentElement.scrollWidth,"
                 "  vw: window.innerWidth}; }")
 
@@ -1574,6 +1591,10 @@ def main() -> int:
               f"W2b sleep: рядов чипов "
               f"{sp['chipsRows']} (+дубль {sp['dupChips']})", hfails)
         check(not sp["panel"], "W2b sleep: панель истории видна на Обзоре", hfails)
+        check(not sp["lastAction"] and sp["histLink"] == 1
+              and sp["histCta"] == 0,
+              f"W2b sleep: дубли факта/CTA (last={sp['lastAction']}, "
+              f"link={sp['histLink']}, cta={sp['histCta']})", hfails)
         check(sp["scrollWidth"] <= sp["vw"] + 1,
               f"W2b sleep: горизонтальный скролл ({sp['scrollWidth']})", hfails)
 
@@ -1627,11 +1648,81 @@ def main() -> int:
               f"блоков", hfails)
         check(np["chipsRows"] == 1 and np["dupChips"] == 0,
               f"W2b nostalgia: рядов чипов {np['chipsRows']}", hfails)
+        check(not np["lastAction"] and np["histLink"] == 1
+              and np["histCta"] == 0,
+              f"W2b nostalgia: дубли факта/CTA (last={np['lastAction']}, "
+              f"link={np['histLink']}, cta={np['histCta']})", hfails)
         _hopen(hpage, "#/modules/nostalgia/history")
         nh = _hprobe(hpage)
         report["flows"]["w2b_nostalgia_history"] = nh
-        check(nh["panel"] and nh["rows"] == 3,
+        check(nh["panel"] and nh["rows"] == 4,
               f"W2b nostalgia/history: {nh}", hfails)
+
+        # ── F2: смена чата не оставляет loading; возврат восстанавливает
+        # вкладку/refresh, без второго поллера.
+        HISTORY_MODE["dream"] = "hold_once"
+        hpage.goto("about:blank")
+        hpage.goto(WBASE + "#/modules/sleep/history", wait_until="load")
+        try:
+            hpage.wait_for_selector("[data-module-history-state=loading]",
+                                    timeout=6000)
+            stalled = True
+        except Exception:  # noqa: BLE001
+            stalled = False
+        held_old = HISTORY_HOLD["dream"]
+        report["flows"]["w2b_chat_switch"] = {"stalled": stalled,
+                                              "held": held_old is not None}
+        check(stalled and held_old is not None,
+              "W2b F2: запрос покидаемого чата не удержан", hfails)
+        hpage.click(".scope-trigger")
+        hpage.click(".scope-option:has-text('%s')" % CHAT_TITLE2)
+        hpage.wait_for_timeout(950)
+        if held_old is not None:
+            held_old.fulfill(status=200, content_type="application/json",
+                             body=json.dumps(DREAM_ROWS))
+        hpage.wait_for_timeout(500)
+        after_b = _hprobe(hpage)
+        report["flows"]["w2b_chat_switch_new"] = after_b
+        check(after_b["tab"] and after_b["state"] != "loading",
+              f"W2b F2: новый чат залип в loading ({after_b})", hfails)
+        hpage.click(".scope-trigger")
+        hpage.click(".scope-option:has-text('%s')" % CHAT_TITLE)
+        hpage.wait_for_timeout(1000)
+        after_a = _hprobe(hpage)
+        report["flows"]["w2b_chat_switch_back"] = after_a
+        check(after_a["tab"] and after_a["state"] != "loading",
+              f"W2b F2: возврат залип в loading ({after_a})", hfails)
+        check(after_a["refreshDisabled"] is False,
+              f"W2b F2: refresh недоступен ({after_a})", hfails)
+        poll_before = HISTORY_GETS["dream"]
+        hpage.wait_for_timeout(900)
+        poll_after = HISTORY_GETS["dream"]
+        check(poll_after == poll_before,
+              f"W2b F2: фоновый поллер ({poll_before}->{poll_after})", hfails)
+        HISTORY_HOLD["dream"] = None
+        HISTORY_MODE["dream"] = "data"
+
+        # ── F4: активный фильтр не переезжает на другой модуль.
+        if hpage.query_selector("#module-history-filter"):
+            hpage.select_option("#module-history-filter", "duplicate")
+            hpage.wait_for_timeout(260)
+            before_f4 = _hprobe(hpage)
+            report["flows"]["w2b_filter_before_switch"] = before_f4
+            check(before_f4["rows"] == 1,
+                  f"W2b F4: фильтр duplicate дал {before_f4['rows']} строк",
+                  hfails)
+        else:
+            report["flows"]["w2b_filter_before_switch"] = _hprobe(hpage)
+            check(False, "W2b F4: фильтр журнала не отрендерен", hfails)
+        hpage.evaluate(
+            "() => { location.hash = '#/modules/nostalgia/history'; }")
+        hpage.wait_for_timeout(1000)
+        after_f4 = _hprobe(hpage)
+        report["flows"]["w2b_filter_after_switch"] = after_f4
+        check(after_f4["panel"] and after_f4["filterValue"] == ""
+              and after_f4["rows"] == 4,
+              f"W2b F4: фильтр не сброшен при смене модуля ({after_f4})",
+              hfails)
 
         # ── Loading: deep link показывает «Загружаем историю…» (H-5).
         HISTORY_MODE["dream"] = "hold"

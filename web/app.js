@@ -6698,6 +6698,7 @@
         // Хранятся только коды состояния/источник/время, без контента.
         historyMeta: {},
         historyFilter: '',             // клиентский фильтр строк журнала
+        historyFilterKey: '',          // moduleId|tab, к которому применён фильтр
         // ── F5 (cognition-dashboard-round1013, ТЗ §5/§7): «Осмысление» +
         //    виджет «Интеллект и Память». Данные — аддитивные read-API
         //    (cognition/status, graph, stats, timeline, beliefs?kind=).
@@ -14172,6 +14173,7 @@
                                this.workspace.module.id,
                                this.workspace.tab);
         }
+        var prevScopeKey = _wsScopeKeyOf(this);
         this.activeChatId = id;
         if (id == null) {
           localStorage.removeItem('adminbot.active_chat_id');
@@ -14183,6 +14185,16 @@
         // (обобщение R10.4-2): epoch отбрасывает устаревшие in-flight
         // ответы, чистим relations/лор/гейты/локальных админов/модалки.
         this.scopeEpoch++;
+        // W2b-B1 (F2): покинутая область не оставляет `loading`-мету
+        // (ответ отброшен epoch-guard'ом), а история текущего экрана сразу
+        // грузится для НОВОЙ области — вкладка/refresh восстанавливаются.
+        if (typeof this._wsHistoryDropScope === 'function') {
+          this._wsHistoryDropScope(prevScopeKey);
+        }
+        if (typeof this._ensureHistoryForWorkspace === 'function') {
+          this._ensureHistoryForWorkspace();
+        }
+        if (this.historyFilter) this.historyFilter = '';
         // F4 (L-F4-3): операции модулей привязаны к scope-ключу; при смене
         // области карты overlay/блокировок/ошибок не переносятся в новую
         // область (состояние читается из configItems новой области).
@@ -19501,6 +19513,12 @@
         }
         this.route = route;
         _routeApplied = true;
+        // F4 (W2b-B1): смена модуля/таба по hash сбрасывает клиентский
+        // фильтр журнала (он принадлежит паре module|tab).
+        var wsFilterNow = this.workspace;
+        if (wsFilterNow && typeof this._wsResetHistoryFilter === 'function') {
+          this._wsResetHistoryFilter(wsFilterNow.module, wsFilterNow.tab);
+        }
         // Восстановление позиции — ПОСЛЕ рендера нового экрана и после
         // штатного сброса `setTab` (он обнуляет скролл в $nextTick).
         _restoreRouteScroll(route);
@@ -24544,6 +24562,40 @@
         next[key] = meta;
         this.historyMeta = next;
       },
+      // H-3/F2: уходящая область не оставляет `loading`-мету. Иначе
+      // отброшенный epoch-guard'ом ответ навсегда блокировал бы refresh.
+      _wsHistoryDropScope: function (scopeKey) {
+        if (!scopeKey) return;
+        var prefix = String(scopeKey) + '|';
+        var map = this.historyMeta || {};
+        var next = {};
+        var changed = false;
+        Object.keys(map).forEach(function (k) {
+          if (k.indexOf(prefix) === 0) { changed = true; return; }
+          next[k] = map[k];
+        });
+        if (changed) this.historyMeta = next;
+      },
+      // F2: при смене чата история текущего экрана грузится заново для
+      // НОВОЙ области (idle), не дожидаясь повторного applyRoute.
+      _ensureHistoryForWorkspace: function () {
+        var ws = this.workspace;
+        var m = ws && ws.module;
+        if (!m || typeof this.historySupported !== 'function'
+            || typeof this.historyStateFor !== 'function'
+            || !this.historySupported(m)
+            || this.historyStateFor(m) !== 'idle') return;
+        if (m.id === 'mod_sleep') this.loadDreamLog();
+        else if (m.id === 'mod_nostalgia') this.loadNostalgiaLog();
+      },
+      // F4: фильтр строк принадлежит паре module|tab и не переезжает на
+      // другой экран (иначе nostalgia показывает 0 строк под фильтром sleep).
+      _wsResetHistoryFilter: function (m, tabId) {
+        var key = (m && m.id ? m.id : '') + '|' + (tabId || '');
+        if (this.historyFilterKey === key) return;
+        this.historyFilterKey = key;
+        if (this.historyFilter) this.historyFilter = '';
+      },
       historySupported: function (m) {
         return !!_historySourceEntry(m);
       },
@@ -24641,9 +24693,14 @@
         if (last) return this.historyRowLine(m, last);
         return this.historyStateText(m);
       },
-      // H-6: «Последние 3–5 событий» в «Обзоре» — из того же стора.
+      // H-6: «Последние 3–5 событий» в «Обзоре» — из того же стора, но БЕЗ
+      // повторения строки, уже показанной в «Сейчас» (F3).
       historyOverviewRows: function (m) {
-        return this.historyRowsFor(m).slice(0, 5);
+        var rows = this.historyRowsFor(m);
+        var last = this.moduleHistoryLast(m);
+        return rows.filter(function (row) {
+          return row !== last;
+        }).slice(0, 5);
       },
       // H-6: max(ts) СВОЕГО источника; строки без валидного времени
       // пропускаются (не выдумываем порядок).
@@ -24779,6 +24836,10 @@
       openWorkspaceTab: function (tabId) {
         var ws = this.workspace;
         if (!ws) return;
+        // F4 (W2b-B1): фильтр строк не переезжает на другой модуль/таб.
+        if (typeof this._wsResetHistoryFilter === 'function') {
+          this._wsResetHistoryFilter(ws.module, tabId);
+        }
         // К-4/1: осознанный выбор вкладки (клик/ссылка Обзора) — одна из
         // ровно трёх точек записи памяти. Пишется только id таба и модуля.
         if (typeof this._wsTabMemorySet === 'function') {

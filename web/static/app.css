@@ -9594,14 +9594,15 @@ body > .sticky-save[data-save-panel] {
 .module-history__filter select {
   min-height: 32px; max-width: 220px;
   background: rgba(255, 255, 255, 0.06); color: var(--text-1);
-  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
   padding: 0 8px;
 }
 .module-history__row {
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
   min-width: 0; padding: 3px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12px; line-height: 1.35;
+  font-size: 0.91em; line-height: 1.35;
 }
 .module-history__row:last-child { border-bottom: 0; }
 .module-history__ts {

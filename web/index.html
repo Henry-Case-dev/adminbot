@@ -1279,7 +1279,9 @@
               <div v-if="workspaceModule && workspaceTab === 'overview'
                             && workspaceModule.id !== 'mod_initiative'"
                    class="col-span-full card p-4" data-workspace-overview>
-                <div v-if="moduleLastEventLine(workspaceModule)"
+                <div v-if="moduleLastEventLine(workspaceModule)
+                             && workspaceModule.id !== 'mod_sleep'
+                             && workspaceModule.id !== 'mod_nostalgia'"
                      class="text-xs text-gray-500 mt-2" data-module-last-action>
                   {{ moduleLastEventLine(workspaceModule) }}
                 </div>
@@ -1453,9 +1455,6 @@
                         <span class="module-history__status">{{ historyRowStatusText(workspaceModule, l) }}</span>
                       </div>
                     </div>
-                    <button type="button" class="btn-ghost text-xs mt-1"
-                            data-overview-history-open
-                            @click="openWorkspaceTab('history')">История →</button>
                   </template>
                   <div v-else class="text-gray-500"
                        data-overview-history-state="idle">
