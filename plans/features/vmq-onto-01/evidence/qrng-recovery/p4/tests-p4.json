@@ -15,7 +15,7 @@
   ],
   "branch": "fix/qrng-p4",
   "base": "6cf4c32c (P3 corrective evidence; code 835b2433, fix/qrng-p3)",
-  "candidate": "PENDING",
+  "candidate": "52662927",
   "environment": {
     "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
     "node": "v24.16.0",
