@@ -1244,6 +1244,21 @@ class RandomStore:
             return " AND 0", ()
         return (" AND provider IN (" + ",".join("?" * len(ids)) + ")", ids)
 
+    @staticmethod
+    def _batch_clause(batch_id: str | None) -> tuple[str, tuple]:
+        """Аддитивный точный фильтр партии (F-01, активация).
+
+        `batch_id is None` — без фильтра (прежний выбор для refill/dream
+        chunk). Строка — только эта партия; пустая строка — пустой
+        SQL-предикат (``AND 0``), а не «любая партия»: self-check не должен
+        молча израсходовать чужую партию при пустом/потерянном id."""
+        if batch_id is None:
+            return "", ()
+        bid = str(batch_id).strip()
+        if not bid:
+            return " AND 0", ()
+        return " AND batch_id = ?", (bid,)
+
     async def insert_batch(self, batch: AnuBatch, *,
                            created_at: int | None = None,
                            config_fingerprint: str | None = None,
@@ -1331,26 +1346,32 @@ class RandomStore:
 
     async def reserve_chunk(self, k: int, *,
                             config_fingerprint: str | None = None,
-                            provider_ids=None
+                            provider_ids=None,
+                            batch_id: str | None = None
                             ) -> list[ReservedChunkValue]:
         """Durably зарезервировать bounded chunk значений (D7, mca-06).
 
         Watermark фиксируется до использования: crash → значения потеряны,
         повторно не выдаются. Журнал для chunk пишется на flush (async-вход).
         `config_fingerprint` — аддитивный фильтр (arch P1 D3);
-        `provider_ids` — выбранный селектором провайдер (P3)."""
+        `provider_ids` — выбранный селектором провайдер (P3);
+        `batch_id` — точная партия (F-01: self-check активации расходует
+        только зачисленную партию; `None` — прежний порядок выбора)."""
         k = max(0, int(k))
         if k <= 0:
             return []
         clause, clause_params = self._fingerprint_clause(config_fingerprint)
         provider_sql, provider_params = self._provider_clause(provider_ids)
-        params = tuple(clause_params) + tuple(provider_params)
+        batch_sql, batch_params = self._batch_clause(batch_id)
+        params = (tuple(clause_params) + tuple(provider_params)
+                  + tuple(batch_params))
 
         async def _body(conn):
             cursor = await conn.execute(
                 "SELECT batch_id, provider, data_type, values_json, "
                 "reserved_upto, length FROM mca_random_batches "
                 "WHERE reserved_upto < length" + clause + provider_sql
+                + batch_sql
                 + " ORDER BY created_at, batch_id LIMIT 1", params)
             row = await cursor.fetchone()
             if row is None:
@@ -2739,14 +2760,24 @@ class RandomSourceService:
 
     async def _confirm_activation(self, batch_id: str) -> bool:
         """Внутренний self-check через адаптер (один draw purpose
-        `activation_selfcheck`, без отправки сообщения в чат) + active."""
+        `activation_selfcheck`, без отправки сообщения в чат) + active.
+
+        F-01: расходуется ТОЛЬКО зачисленная партия `batch_id`. Если в ней
+        нет расходуемого значения — честный отказ; более старая LfDR/NULL-
+        партия не подменяет self-check, а `activation_batch_id` в state
+        всегда называет партию фактически израсходованного значения."""
         if self._store is None:
             return False
         chunk = await self._store.reserve_chunk(
-            1, config_fingerprint=self._current_fingerprint())
+            1, config_fingerprint=self._current_fingerprint(),
+            batch_id=str(batch_id))
         if not chunk:
             return False
         item = chunk[0]
+        if str(item.batch_id) != str(batch_id):
+            # Защита контракта: store обязан вернуть только запрошенную
+            # партию; чужое значение не должно подтверждать активацию.
+            return False
         adapter = CoreDreamRandomSource(
             pipeline_run_id=None, chat_id=0, source=MODE_QUANTUM,
             provider=item.provider, batch_id=item.batch_id,
