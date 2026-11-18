@@ -1,0 +1,28 @@
+VMQ-TIME-09 corrective R1 RED на tip eefd555c (до фикса)
+Новые F1-F4/B6/B7-assertions добавлены первыми; код не менялся.
+
+=== node tests/js/vmq_time09_year_coverage_ui_test.js ===
+  throw new AssertionError(obj);
+
+=== pytest tests/test_vmq_time09_turn_coverage.py -q ===
+13 passed in 9.67s
+  (cap-тест B1 — новый; поведение cap на старом коде уже корректно)
+
+=== python tests/ui_vmq_status_analytics_e2e.py ===
+{
+  "ok": false,
+  "checks": 65,
+  "failed_checks": [
+    "status_aria_busy_on_block_1280",
+    "status_single_latest_label_1280",
+    "analytics_no_unknown_next_to_years",
+    "analytics_turn2_label",
+    "status_last_request_turn1",
+    "status_aria_busy_on_block_390",
+    "status_single_latest_label_390",
+    "status_aria_busy_on_block_320",
+    "status_single_latest_label_320",
+    "status_excluded_unknown",
+    "status_zero_writer_no_facts"
+  ]
+}

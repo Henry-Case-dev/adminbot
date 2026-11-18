@@ -7,6 +7,11 @@
     "content": "b6c9bb0b",
     "schema": 48
   },
+  "commits": {
+    "original_product": "738bd3a2",
+    "corrective_r1": "ee94ddf9",
+    "review_r1": "plans/features/vmq-onto-01/evidence/time09/review-r1.md (source commit 3507b8f3)"
+  },
   "environment": {
     "python": "C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe (3.12.0)",
     "pytest": "9.1.1",
@@ -20,6 +25,31 @@
     "pytest": "11 failed, 1 passed",
     "playwright": "ok=false, 27 проверок провалено"
   },
+  "corrective_r1": {
+    "tip_before_fix": "eefd555c24231bacbf91209332351b6de96515ce",
+    "artifact": "red-corrective-time09.txt / red-corrective-time09.json",
+    "red": {
+      "node": "AssertionError: F1: view model обязан нести yearsPresent",
+      "pytest": "13 passed (cap-тест B1 — новый; cap уже работал)",
+      "playwright": "ok=false, 11 проваленных проверок: F1-F4/B6/B7"
+    },
+    "fixes": {
+      "F1": "web/static/status-analytics.js: _runView возвращает yearsPresent; горячий дефект шаблона устранён",
+      "F2": "web/index.html + helper: excluded_present=false → «Исключено: нет данных» (Status и Analytics)",
+      "F3": "_writerRow/_runView: years_present=true + years=null → «нет фактов»; unknown → «нет данных»",
+      "F4": "web/app.js: вход в Статус сбрасывает turn=1; memoryYearCoverageTurnLabel показывает «ход N из M» для выбранного старого хода; no_selection — «выбранного хода»",
+      "B1": "новый pytest: 8 вызовов → ровно 6 первых по ts",
+      "B6": "дубль «последний ход» удалён из заголовка Status",
+      "B7": "aria-busy перенесён на контейнеры Status/Analytics",
+      "B8": "измеренный ноль retrieval показывает причину retrieval_empty",
+      "B9": "комментарий re-pin: 63 уникальных пути"
+    },
+    "not_changed": {
+      "B3": "latestRun оставлен: обязательный helper контракта brief §5.1 (stale-run test); UI использует primaryRun",
+      "B4": "явный trace_id оставлен: поле store по контракту brief §3.1; UI его не выставляет — осознанно",
+      "B5": "маркер «показаны не все» не добавлен: cap=6 практически недостижим, расширение scope не требуется"
+    }
+  },
   "candidate": {
     "node": {
       "command": "node tests/js/vmq_time09_year_coverage_ui_test.js",
@@ -27,7 +57,7 @@
     },
     "pytest_new": {
       "command": "python -m pytest tests/test_vmq_time09_turn_coverage.py -q",
-      "result": "12 passed"
+      "result": "13 passed"
     },
     "pytest_inspector": {
       "command": "python -m pytest tests/test_ur_f_inspector_step2.py -q",
@@ -35,30 +65,35 @@
     },
     "pytest_affected": {
       "command": "python -m pytest tests/test_vmq_time09_turn_coverage.py tests/test_ur_f_inspector_step2.py tests/test_mem_time_policy.py tests/test_mem_time_asof.py tests/test_mem_time_l1_scope.py tests/test_mem_time_profile.py tests/test_vmq_mem_period_intent.py tests/test_vmq_mem_retrieval_fixes.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_slice_d.py tests/test_vmq_m1_episode_contract.py tests/test_webapp_api.py tests/test_webapp_parity_smoke.py tests/test_webapp_f11_round1025.py tests/test_frontend_tab_mapping.py -q",
-      "result": "481 passed"
+      "result": "482 passed"
     },
     "mandatory_386": {
       "command": "python -m pytest <24 files mandatory-386> -q",
       "result": "386 passed",
-      "note": "routes.py re-pin (L-F11S-1): tests/test_round1025_f8_registry.py + tests/test_mca23_planned_vs_actual.py обновлены осознанно; каталог не менялся"
+      "note": "routes.py re-pin (L-F11S-1) сохранён; каталог не менялся"
     },
     "js_full": {
-      "candidate": "124 файлов, 4 failed",
-      "base_clean_worktree": "123 файлов, 4 failed (те же: asap6_wave2_ux_tabs, evol_cog_scene, round1025_ia_routing, ur_ui_settings)",
-      "regressions": 0
+      "candidate": "124 файла, 4 failed",
+      "base_clean_worktree": "123 файла, те же 4 failed (asap6_wave2_ux_tabs, evol_cog_scene, round1025_ia_routing, ur_ui_settings)",
+      "regressions": 0,
+      "note": "evol_glass_seam_test allowlist дополнен новым status-analytics.js (не оптика; защищённые файлы байт-в-байт)"
     },
     "playwright": {
       "command": "python tests/ui_vmq_status_analytics_e2e.py --out time09-playwright.json",
       "ok": true,
-      "checks": 51,
+      "checks": 66,
       "failed": [],
+      "console_errors": 0,
+      "retrieval_coverage_calls": 0,
       "screenshots": [
-        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_status_1280.png",
-        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_analytics_1280.png",
-        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_block_390.png",
-        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_block_320.png",
-        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_status_390.png",
-        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_status_320.png"
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_status_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_analytics_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_analytics_turn2_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_status_after_return_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_unknown_excluded_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_zero_writer_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_block_390.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-749e5a090fef-b9948207-bc10625dd08e/tmp/time09-shots/time09_block_320.png"
       ]
     },
     "browser_use": "blocked: BU_CDP_URL=http://127.0.0.1:9222 недоступен (нет Chrome с --remote-debugging-port=9222); Playwright-прогон не отменяется"
