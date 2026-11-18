@@ -334,26 +334,49 @@ async def test_missing_local_file_classified_without_cloud(files_root):
 
 
 @pytest.mark.asyncio
-async def test_invalid_file_id_is_permanent_and_skips_cloud(files_root,
-                                                            monkeypatch):
-    """`get_file` «invalid file identifier» → постоянный класс; облако не
-    вызывается (повтор/фолбэк не помогут)."""
+async def test_local_400_is_local_read_failure_and_uses_cloud(
+        files_root, monkeypatch):
+    """Prod-диагноз 18.11.2026: локальный 400 — не доказательство invalid id.
+
+    Файл мог не записаться на диск; одна попытка local → cloud даёт
+    авторитетный ответ (200 → байты)."""
     monkeypatch.setenv(md.CLOUD_FALLBACK_ENV, "1")
-    cloud = _CloudOk(make_png())
+    payload = make_png(15, 15)
+    cloud = _CloudOk(payload)
 
     class _BadRequest(Exception):
         pass
 
     bot = _Bot(local=True,
                get_file_exc=_BadRequest(
+                   "Bad Request: wrong file_id or the file is temporarily "
+                   "unavailable"))
+    diag: dict = {}
+    data = await md.download_api_file_bytes(
+        bot, "fid", site="vision", attempts=2, sleep=0,
+        cloud_fetcher=cloud, diagnostics=diag)
+    assert data == payload
+    assert bot.get_file_calls == 1
+    assert cloud.calls
+    assert diag["outcome"] == "cloud_fallback"
+    assert diag.get("error_class") == md.ERROR_LOCAL_READ_FAILED
+
+
+@pytest.mark.asyncio
+async def test_cloud_400_is_invalid_file_id_terminal(files_root):
+    """invalid_file_id авторитетно определяет облачный ответ: терминально."""
+    class _BadRequest(Exception):
+        pass
+
+    bot = _Bot(local=False,
+               get_file_exc=_BadRequest(
                    "Bad Request: invalid file identifier specified"))
     with pytest.raises(md.MediaDownloadError) as ei:
         await md.download_api_file_bytes(bot, "fid", site="vision",
-                                         attempts=2, sleep=0,
-                                         cloud_fetcher=cloud)
+                                         attempts=2, sleep=0)
     assert ei.value.error_class == md.ERROR_INVALID_FILE_ID
     assert ei.value.retryable is False
-    assert cloud.calls == []
+    assert bot.get_file_calls == 1
 
 
 @pytest.mark.asyncio
@@ -731,7 +754,9 @@ async def test_invalid_file_id_is_honest_terminal(tmp_path, files_root,
         mca_vision.bind_runtime(db)
         _cap_ok()
         asset_id, job_id = await _enqueue(db, _photo_message(503))
-        bot = _Bot(local=True,
+        # invalid_file_id авторитетно определяет ОБЛАКО (local 400 не
+        # доказывает невалидность id — prod-диагноз 18.11.2026).
+        bot = _Bot(local=False,
                    get_file_exc=RuntimeError("Bad Request: file is not found"))
         job = await _claimed_job(db, job_id, attempt=1)
         await mca_vision.process_asset_job(job, db=db, bot=bot,

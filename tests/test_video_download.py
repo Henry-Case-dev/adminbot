@@ -8,6 +8,7 @@ import asyncio
 import logging
 import re
 import time
+from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import aiohttp
@@ -2161,34 +2162,40 @@ class TestDirectMedia:
 class TestNativeMedia:
     """3: «скачай <видео-сообщение>» — fetch_media_to_tmp → temp → send_video.
     Bugfix 04.09.2026 (Часть 1b, FR-12): скачивание через общий
-    services.media_download.fetch_media_to_tmp (облако — bot.download;
-    локальный режим — копия с диска), tmp-уборка в finally."""
+    services.media_download.fetch_media_to_tmp (P0 18.11.2026: единый
+    транспорт getFile → download_file; локальный режим — копия с диска),
+    tmp-уборка в finally."""
 
-    @pytest.mark.asyncio
-    async def test_native_video_flow(self, tmp_path, monkeypatch):
+    @staticmethod
+    def _native_bot():
         from pathlib import Path
         from types import SimpleNamespace
 
+        async def _fake_download_file(file_path, destination=None, timeout=30):
+            Path(destination).write_bytes(b"DATA" * 100)
+
+        return SimpleNamespace(
+            session=SimpleNamespace(api=SimpleNamespace(is_local=False)),
+            get_file=AsyncMock(return_value=SimpleNamespace(
+                file_path="video/file_0.mp4")),
+            download_file=AsyncMock(side_effect=_fake_download_file),
+            download=AsyncMock(),
+            send_video=AsyncMock(),
+            send_message=AsyncMock(),
+        )
+
+    @pytest.mark.asyncio
+    async def test_native_video_flow(self, tmp_path, monkeypatch):
         from handlers import video_download as vd_mod
         from tools import video_downloader as vdm
 
         vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
                                                  str(tmp_path))
-
-        async def _fake_download(file_id, destination=None):
-            Path(destination).write_bytes(b"DATA" * 100)
-
-        class _Bot:
-            def __init__(self):
-                self.download = AsyncMock(side_effect=_fake_download)
-                self.send_video = AsyncMock()
-                self.send_message = AsyncMock()
-
-        bot = _Bot()
+        bot = self._native_bot()
         msg = _make_msg("Бот, скачай", chat_type="private")
         msg.video = SimpleNamespace(file_id="fid123")
         await vd_mod.video_download_handler(msg, bot=bot)
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
         assert bot.send_video.await_count == 1
         vd_mod._downloader = None
 
@@ -2196,32 +2203,19 @@ class TestNativeMedia:
     async def test_reply_scachay_on_foreign_video(self, tmp_path, monkeypatch):
         """Bugfix 04.09.2026 (FR-12): реплай «скачай» на чужое видео без
         ссылок → нативная пересылка по медиа реплая (а не VD_NO_LINK)."""
-        from pathlib import Path
-        from types import SimpleNamespace
-
         from handlers import video_download as vd_mod
         from tools import video_downloader as vdm
 
         vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
                                                  str(tmp_path))
-
-        async def _fake_download(file_id, destination=None):
-            Path(destination).write_bytes(b"DATA" * 100)
-
-        class _Bot:
-            def __init__(self):
-                self.download = AsyncMock(side_effect=_fake_download)
-                self.send_video = AsyncMock()
-                self.send_message = AsyncMock()
-
-        bot = _Bot()
+        bot = self._native_bot()
         target = _make_msg("видео без ссылок", message_id=55, chat_type="private")
         target.video = SimpleNamespace(file_id="foreign_fid", file_name=None)
         msg = _make_msg("Бот, скачай", message_id=56, chat_type="private")
         msg.video = None
         msg.reply_to_message = target
         await vd_mod.video_download_handler(msg, bot=bot)
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
         assert bot.send_video.await_count == 1
         assert msg.reply.await_count == 1        # «нативное видео: N МБ…»
         vd_mod._downloader = None
@@ -2229,25 +2223,12 @@ class TestNativeMedia:
     @pytest.mark.asyncio
     async def test_reply_scachay_on_video_document(self, tmp_path, monkeypatch):
         """FR-12: реплай «скачай» на документ с mime video/* → пересылка."""
-        from pathlib import Path
-        from types import SimpleNamespace
-
         from handlers import video_download as vd_mod
         from tools import video_downloader as vdm
 
         vd_mod._downloader = vdm.VideoDownloader("http://localhost:9000/",
                                                  str(tmp_path))
-
-        async def _fake_download(file_id, destination=None):
-            Path(destination).write_bytes(b"DATA" * 100)
-
-        class _Bot:
-            def __init__(self):
-                self.download = AsyncMock(side_effect=_fake_download)
-                self.send_video = AsyncMock()
-                self.send_message = AsyncMock()
-
-        bot = _Bot()
+        bot = self._native_bot()
         target = _make_msg("документ", message_id=66, chat_type="private")
         target.document = SimpleNamespace(
             file_id="doc_fid", mime_type="video/mp4", file_name="ролик.mp4")
@@ -2256,7 +2237,7 @@ class TestNativeMedia:
         msg.document = None
         msg.reply_to_message = target
         await vd_mod.video_download_handler(msg, bot=bot)
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
         assert bot.send_video.await_count == 1
         vd_mod._downloader = None
 

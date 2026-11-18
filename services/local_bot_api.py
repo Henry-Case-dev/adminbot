@@ -123,6 +123,79 @@ def local_files_dir_readable(root: str | os.PathLike | None = None) -> bool:
         return False
 
 
+def telegram_local_mode_enabled() -> bool:
+    """True — инфраструктура Telegram Bot API в локальном режиме.
+
+    ЕДИНЫЙ сигнал паритета с образом `aiogram/telegram-bot-api`:
+    ЛЮБОЕ непустое значение `TELEGRAM_LOCAL` → `--local` (getFile до 2000 МБ);
+    не задано/пусто → облако (20 МБ). Читается при каждом вызове: env общий
+    для контейнера и хостового процесса (systemd `EnvironmentFile`), поэтому
+    режим endpoint'а и режим сервера не расходятся. Это НЕ функциональный
+    флаг модуля (`flags.download_enabled`): выключение функции не меняет
+    endpoint Bot API.
+    """
+    raw = os.getenv("TELEGRAM_LOCAL")
+    return bool(raw and raw.strip())
+
+
+def session_local_mode(bot) -> bool | None:
+    """Фактический режим aiogram-сессии: True/False либо None (неизвестно).
+
+    Источник истины для транспорта — реальная сессия бота
+    (`session.api.is_local`). Двойники/обвязки без настоящего bool-флага
+    возвращают None: вызывающий берёт инфраструктурный сигнал, а НЕ
+    функциональный флаг модуля. MagicMock/строки не считаются режимом.
+    """
+    try:
+        api = getattr(getattr(bot, "session", None), "api", None)
+        flag = getattr(api, "is_local", None)
+    except Exception:
+        return None
+    return flag if isinstance(flag, bool) else None
+
+
+def bot_api_mode(bot) -> dict:
+    """Снимок режима Bot API для старта/диагностики (R17-safe).
+
+    ``mode`` — фактический режим транспорта (`local`|`cloud`); ``session`` —
+    что объявила сессия; ``infra`` — что требует инфраструктурная
+    конфигурация (`TELEGRAM_LOCAL`). ``mismatch`` — сессия и инфраструктура
+    разошлись (это надо явно видеть, а не молча работать «как получилось»).
+    Значений токена/путей в снимке нет.
+    """
+    infra_local = telegram_local_mode_enabled()
+    actual = session_local_mode(bot)
+    mode = "local" if (actual if actual is not None else infra_local) \
+        else "cloud"
+    mismatch = actual is not None and actual != infra_local
+    return {
+        "mode": mode,
+        "session": actual,
+        "infra": infra_local,
+        "mismatch": mismatch,
+        "reason": ("session_vs_infra" if mismatch else ""),
+    }
+
+
+def log_bot_api_mode(bot, *, site: str = "bot-api") -> dict:
+    """Явная фиксация режима Bot API при старте; mismatch — WARNING.
+
+    Возвращает тот же снимок `bot_api_mode` (для тестов/диагностики).
+    R17: только режимы и признак расхождения, без токена и URL.
+    """
+    snapshot = bot_api_mode(bot)
+    if snapshot["mismatch"]:
+        logger.warning(
+            "[%s] mode mismatch | session=%s infra=%s (TELEGRAM_LOCAL) — "
+            "endpoint выбран по фактической сессии; выровняйте "
+            "инфраструктурную конфигурацию", site, snapshot["session"],
+            snapshot["infra"])
+    else:
+        logger.info("[%s] mode=%s source=%s", site, snapshot["mode"],
+                    "session" if snapshot["session"] is not None else "infra")
+    return snapshot
+
+
 def build_local_api_session(url: str | None = None, *,
                             files_dir: str | os.PathLike | None = None,
                             app_dir: str | os.PathLike | None = None

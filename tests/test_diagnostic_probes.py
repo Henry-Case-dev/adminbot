@@ -504,6 +504,48 @@ class TestMeasurements:
         assert "stt_timeout" in json.dumps(page, ensure_ascii=False)
 
     @pytest.mark.asyncio
+    async def test_download_failure_reason_stage_is_observable(self, db):
+        """P0 18.11.2026: стадия/класс отказа скачивания видны в чекапе."""
+        now = int(time.time())
+        await db.save_smart_message(1, -100, None, None, now - 600, "voice",
+                                    "A", message_id=55)
+        await db.set_smart_message_transcript(
+            -100, 55, status="failed",
+            reason="download_get_file_local_read_failed")
+        collector = _collector(db)
+        _, page = await _collect(collector, "media.stt", chat_id=-100)
+        source = page["sources"][0]
+        assert source["status"] == "degraded"
+        assert source["reason_code"] == "transcript_failures"
+        assert source["facts"]["failed"] == 1
+        assert source["facts"]["pending"] == 0
+        assert source["facts"]["stale_pending"] == 0
+        assert (source["facts"]["last_error"]["reason_code"]
+                == "download_get_file_local_read_failed")
+
+    @pytest.mark.asyncio
+    async def test_stale_pending_is_degraded_not_running(self, db):
+        """Протухший pending — функциональный отказ, а не «идёт» (P0 18.11)."""
+        now = int(time.time())
+        # Сообщение в окне чекапа (последний час), но статус pending записан
+        # два часа назад и уже не может быть «идёт».
+        await db.save_smart_message(1, -100, None, None, now - 600,
+                                    "voice", "A")
+        await db.db.execute(
+            "UPDATE smart_messages SET transcript_status = 'pending', "
+            "transcript_updated_at = ? WHERE chat_id = ?",
+            (now - 7200, -100))
+        await db.db.commit()
+        collector = _collector(db)
+        _, page = await _collect(collector, "media.stt", chat_id=-100)
+        source = page["sources"][0]
+        assert source["status"] == "degraded"
+        assert source["reason_code"] == "transcript_stale"
+        assert source["facts"]["stale_pending"] == 1
+        assert source["facts"]["stale_reason"] == "stale_pending"
+        assert source["facts"]["pending"] == 0
+
+    @pytest.mark.asyncio
     async def test_deploy_fields_are_separate_and_honest(self, db):
         def identity(root, *, process_started_at=None):
             return {"code": "local_unverified",

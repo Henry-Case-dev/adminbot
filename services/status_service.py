@@ -32,6 +32,7 @@ import psutil
 from config.settings import APP_VERSION, settings
 from services import hot_config as hot
 from services.key_history import KeyHistory
+from services.local_bot_api import telegram_local_mode_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -1187,8 +1188,13 @@ class StatusService:
                                         - self.started_monotonic, 1),
                 "state": self.state,
                 "mode": "polling",
-                # F11: local_api — признак локального Bot API (DOWNLOAD_ENABLED)
-                "local_api": bool(hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED)),
+                # P0 18.11.2026: local_api — ФАКТИЧЕСКИЙ режим endpoint'а
+                # (инфраструктурный TELEGRAM_LOCAL, паритет с контейнером), а
+                # не функциональный flags.download_enabled. Флаг модуля
+                # остаётся отдельным полем download_enabled.
+                "local_api": telegram_local_mode_enabled(),
+                "download_enabled": bool(hot.get(
+                    "flags.download_enabled", settings.DOWNLOAD_ENABLED)),
                 "version": self.version,
                 "errors_total": get_log_ring().get_errors_total(),
                 "started_at": self.started_at,
