@@ -87,15 +87,17 @@
     },
     {
       "id": "broad-catalog-parity",
-      "command": "python -m pytest <61 changed tests + test_param_catalog.py + test_ia_inventory_round1025.py> -q --tb=no",
-      "result": {"passed": 1949, "failed": 26},
-      "parity": "same 26 failing node ids as base 84abc2e5 (parity-failures-p3.json: only_in_candidate=[], only_in_base=[])"
+      "command_file": "repro-commands.txt",
+      "command_label": "broad-catalog (exact 63-file list, one line)",
+      "result": {"passed": 1932, "failed": 28},
+      "parity": "same 28 failing node ids as accepted base 84abc2e5 (parity-failures-p3.json: only_in_candidate=[], only_in_base=[]; candidate and base runs both 1932/28)"
     },
     {
       "id": "consumer-extra-parity",
-      "command": "python -m pytest <19 consumer files: meme/initiative/nostalgia/experience/mca10b/mca10c/...> -q --tb=no",
+      "command_file": "repro-commands.txt",
+      "command_label": "consumer-extra (exact 20-file list, one line)",
       "result": {"passed": 443, "failed": 5},
-      "parity": "same 5 failing node ids as review target 79b1e6ba (initiative_coordination x4, mca16 deep_sleep x1); F3-dependent consumer tests now set the owner PRNG policy explicitly"
+      "parity": "same 5 failing node ids as review target 79b1e6ba; independently re-verified on accepted base 84abc2e5 (5 failed, same ids). F3-dependent consumer tests set the owner PRNG policy explicitly. One intermediate run had a transient extra t4 co-ordinated failure that is not reproducible (standalone/in-file/repeat pass) and is not counted."
     },
     {
       "id": "generator-check",
@@ -227,7 +229,7 @@
     "No live ANU/LfDR request in P3: LfDR adapter unchanged since P2 (which has a live probe); ANU client unchanged; the ANU key exists only in production PG and deployment is out of scope.",
     "P4 UI work not done: no web/app.js/index.html changes; the existing generic parameter renderer will display the three new global settings in the memory_random group on the Sleep tab. Nothing is visually restructured; the hidden provider-info key is not rendered.",
     "PRNG factory default is now false for NEW installs (DEFAULT_FALLBACK + Settings). The owner-saved true in production is preserved (PG seed ON CONFLICT DO NOTHING; runtime reads the row) and is shown explicitly in status.",
-    "Pre-existing failures are recorded with base parity: cfg03 dead-knob audit (flags.dig_pre_gate_enabled) on 84abc2e5; 26 broad-catalog, 33 webapp, 4 JS files on 84abc2e5; 5 consumer tests (initiative_coordination x4, mca16 x1) on 79b1e6ba.",
+    "Pre-existing failures are recorded with base parity: cfg03 dead-knob audit (flags.dig_pre_gate_enabled) on 84abc2e5; 28 broad-catalog, 33 webapp, 4 JS files on 84abc2e5; 5 consumer tests (initiative_coordination x4, mca16 x1) on 79b1e6ba, independently re-verified on 84abc2e5.",
     "The canonical ordered resolution when the saved primary is retired intentionally ignores a saved custom fallback_order (it was built for the invalid setting); status exposes fallback_order_raw/state and never rewrites the row.",
     "No deployment, no version bump, no VERIFIED; P4/P5 not started."
   ]

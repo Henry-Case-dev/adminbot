@@ -132,7 +132,8 @@ status показывает `fallback_setting=true` + `prng_active`).
   `PARAM_CATALOG_SHA256_FOLLOWUP`/`ROUTES_SHA256_F11` переутверждены осознанно
   (L-F11S-1), hidden 16→17.
 - UI (`web/app.js`, `web/index.html`, `web/static/*`) **не изменялся**.
-- Тесты: новый `tests/test_qrng_p3_selector.py` (**37**); осознанные обновления
+- Тесты: новый `tests/test_qrng_p3_selector.py` (**51**: 37 базовых P3 +
+  14 F2/F3/F1 corrective); осознанные обновления
   пинов каталога (50+ файлов: счётчики 645→648 / 619→622, hidden-set, select-set,
   memory 59→62, routes-hash, namespace `random.`) и точных ожиданий
   резолва, изменившихся по контракту P3 (см. §6).
@@ -141,9 +142,15 @@ status показывает `fallback_setting=true` + `prng_active`).
 
 Артефакты в этом каталоге:
 
-- `tests-p3.json` — полный прогон (P3 37, P1 29, P2 63, affected random/QND 296,
-  mandatory 386, webapp 1455/33, JS 117/4, catalog-guards 45/1 pre-existing,
-  broad-catalog 1892/26 pre-existing) + RED и мутации.
+- `tests-p3.json` — полный прогон (P3 **51**, P1 29, P2 63, affected random/QND
+  **310**, mandatory 386, webapp 1455/33, JS 117/4, catalog-guards 45/1
+  pre-existing, broad-catalog **1932/28** pre-existing, consumer-extra
+  **443/5** pre-existing) + RED и мутации.
+- `repro-commands.txt` — **точные** воспроизводимые команды со списками файлов:
+  `[p3-focused]`, `[random-qnd-310]` (15 файлов), `[mandatory-386]` (24 файла),
+  `[broad-catalog]` (63 файла), `[consumer-extra]` (20 файлов). Все цифры в
+  этом документе и `tests-p3.json` получены исполнением этих строк из корня
+  worktree (venv python); broad/consumer-команды больше не плейсхолдеры.
 - `red-tests-84abc2e5.txt` — RED на базе: новый файл не собирается
   (`AttributeError: ... has no attribute 'SETTING_PRIMARY_PROVIDER'`).
 - `red-probe-base-84abc2e5.json` / `green-probe-p3.json` — поведенческий
@@ -217,9 +224,11 @@ status показывает `fallback_setting=true` + `prng_active`).
 6. **`fallback_order` с повреждённым сохранённым значением:** защитная
    нормализация + видимый `requires_resolution`; значение не перезаписывается.
 7. **Pre-existing failures** (воспроизведены на базе, не P3): cfg03 dead-knob
-   (`flags.dig_pre_gate_enabled`, база `84abc2e5`); 26 broad-catalog, 33
-   webapp-batch, 4 JS-файла — те же node id на базе; в consumer-batch
-   (`initiative_coordination` ×4, `mca16` ×1) — те же node id на `79b1e6ba`.
+   (`flags.dig_pre_gate_enabled`, база `84abc2e5`); **28** broad-catalog,
+   33 webapp-batch, 4 JS-файла — те же node id на базе `84abc2e5`; в
+   consumer-batch (`initiative_coordination` ×4, `mca16` ×1) — те же 5 node id
+   на `79b1e6ba`, независимо перепроверены на `84abc2e5`
+   (`parity-failures-p3.json`).
 
 ## 8. Rollback
 
@@ -229,3 +238,34 @@ status показывает `fallback_setting=true` + `prng_active`).
 безопасный откат поведения без ревёрта: `random.primary_provider=anu` +
 `random.fallback_enabled=false` → эквивалент 2.58.213 (ANU-запас; PRNG только
 при сохранённом `memory.random_fallback_to_pseudorandom=true`).
+
+## 9. Known follow-up (post-P3)
+
+Зафиксировано по итогам focused re-review (`E1/N1`); **в P3 сознательно не
+чинится** (принятый scope не переоткрывается). Отдельный follow-up для
+последующего релиза (до/вместе с P4).
+
+1. **ANU-скип до ручного `activate()`.** `_provider_skip_reason()` исключает ANU
+   из refill-прохода при сохранённом `last_fallback_reason` из
+   `{"auth_failed", "quota_exhausted"}`. Сброс этого состояния происходит только
+   при успешной активации/проверке ключа (`activate()`/`test_connection`) или
+   смене ключа — автоматического пере-входа в порядок по времени/PG-состоянию
+   нет.
+2. **429 → `quota_exhausted`.** Историческая семантика ANU-клиента маппит
+   HTTP 429 в `quota_exhausted` (не `rate_limit`), поэтому транзиентный
+   rate-limit может выглядеть как исчерпанная месячная квота и попасть в
+   постоянный skip.
+3. **Скип не key/period-aware.** Проверка не сверяет `key_fingerprint` с
+   текущим ключом и не учитывает период квоты (`YYYY-MM`); смена ключа/новый
+   период сами по себе не снимают skip (снимает только успешный
+   `activate()`/проверка).
+
+**Влияние.** LfDR (если он в порядке) продолжает давать квантовые значения —
+скрытого PRNG нет; деградирует только ordering: ANU может оставаться
+пропущенным дольше необходимого, а причина видна в `attempts`/status.
+Честный след: `status_snapshot` (`providers[anu].state`,
+`last_fallback_reason`) и `attempts` ответа refill.
+
+**Требование к P4:** честно показывать skipped/blocked состояние ANU/LfDR из
+`/api/status` (не выдавать «зелёное» подключение при активном skip) и не
+скрывать причину. Исправление самого скипа — отдельный follow-up, не часть P3.
