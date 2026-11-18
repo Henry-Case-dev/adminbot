@@ -1516,6 +1516,9 @@ async def _probe_media_stt(ctx: ProbeContext) -> ProbeObservation:
         if status == "pending" and _voice_transcripts is not None:
             # P0 18.11.2026: протухший pending — не «идёт», а функциональный
             # отказ; тот же deadline, что у Writer'а (derive_transcript_state).
+            # Меняем статус ТОЛЬКО на доказанный `stale_pending`: legacy-строка
+            # с уже записанным текстом читается как ready, но это не про
+            # свежесть операции и не повод объявлять деградацию probe'а.
             try:
                 derived, derived_reason, _text = (
                     _voice_transcripts.derive_transcript_state(
@@ -1523,10 +1526,11 @@ async def _probe_media_stt(ctx: ProbeContext) -> ProbeObservation:
             except Exception:
                 derived = status
                 derived_reason = ""
-            if derived != "pending":
+            if (derived == _voice_transcripts.TRANSCRIPT_UNAVAILABLE
+                    and derived_reason == "stale_pending"):
                 status = derived
                 stale_pending += 1
-                stale_reason = derived_reason or "stale_pending"
+                stale_reason = derived_reason
         statuses[status] = statuses.get(status, 0) + 1
         if status in ("ready", "ok", "completed"):
             stamp = row.get("transcript_updated_at") or row.get("timestamp")

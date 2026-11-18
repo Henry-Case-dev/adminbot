@@ -59,10 +59,17 @@ _FIRST_NINE = [
 
 
 class _NativeBot:
-    """Bot: download пишет байты (cloud-режим), send_* — фейки."""
+    """Bot: единый транспорт media_download (get_file → download_file).
+
+    P0 18.11.2026: облачный endpoint тоже идёт через штатный транспорт
+    aiogram (`get_file` → `download_file`), как и локальный, поэтому двойник
+    обязан поддержать оба шага; `download` оставлен для легаси-ветвей.
+    """
 
     def __init__(self):
         self.download = AsyncMock(side_effect=self._download)
+        self.download_file = AsyncMock(side_effect=self._write_file)
+        self.get_file_calls = 0
         self.send_video = AsyncMock(return_value=SimpleNamespace(message_id=1))
         self.send_document = AsyncMock(
             return_value=SimpleNamespace(message_id=1))
@@ -71,23 +78,39 @@ class _NativeBot:
         self.delete_message = AsyncMock()
 
     @staticmethod
-    async def _download(file_id, destination=None):
+    def _payload() -> bytes:
+        return b"DATA" * 100
+
+    async def _download(self, file_id, destination=None):
         from pathlib import Path
-        Path(destination).write_bytes(b"DATA" * 100)
+        Path(destination).write_bytes(self._payload())
+
+    async def get_file(self, file_id):
+        self.get_file_calls += 1
+        return SimpleNamespace(file_id=file_id, file_path="video/native.mp4",
+                               file_size=len(self._payload()),
+                               file_unique_id="native-u1")
+
+    async def _write_file(self, file_path, destination=None, timeout=30):
+        from pathlib import Path
+        Path(destination).write_bytes(self._payload())
 
 
 @pytest.fixture(autouse=True)
 def _env(monkeypatch):
-    """download-гейт ON (как боевой .env) + cloud-режим media_download
-    (bot.download напрямую — без локального retry-цикла)."""
-    from services import media_download
+    """download-гейт ON (как боевой .env) + облачный endpoint.
+
+    P0 18.11.2026: режим endpoint'а выбирает ФАКТИЧЕСКАЯ сессия бота
+    (`session.api.is_local`), а не `flags.download_enabled`. У двойника сессии
+    нет → берётся инфраструктурный `TELEGRAM_LOCAL`; здесь он снят, поэтому
+    путь облачный (`bot.download`), как и раньше.
+    """
     real_get = hot.get
     monkeypatch.setattr(
         hot, "get",
         lambda key, default=None: True
         if key == "flags.download_enabled" else real_get(key, default))
-    monkeypatch.setattr(media_download, "hot",
-                        SimpleNamespace(get=lambda *a, **k: False))
+    monkeypatch.delenv("TELEGRAM_LOCAL", raising=False)
     yield
 
 
@@ -148,7 +171,7 @@ class TestFastTrackNativeFirst:
                         video=SimpleNamespace(file_id="fid"),
                         caption=f"смотри {URL}")
         await vd.video_download_handler(msg, bot=bot)
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
         assert bot.send_video.await_count == 1
         vd_env.probe.assert_not_awaited()          # URL-ветка не тронута
         vd_env.download.assert_not_awaited()
@@ -161,7 +184,7 @@ class TestFastTrackNativeFirst:
                         reply_to_message=target)
         bot = _NativeBot()
         await vd.video_download_handler(msg, bot=bot)
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
         assert bot.send_video.await_count == 1
         vd_env.probe.assert_not_awaited()
 
@@ -175,7 +198,7 @@ class TestFastTrackNativeFirst:
                                      file_name="док.pdf"))
         await vd.video_download_handler(msg, bot=bot)
         assert bot.send_video.await_count == 0
-        assert bot.download.await_count == 0
+        assert bot.download_file.await_count == 0
         assert msg.reply.await_args.args[0] in VD_NO_LINK_PHRASES
 
     @pytest.mark.asyncio
@@ -200,7 +223,7 @@ class TestFastTrackNativeFirst:
                         video=SimpleNamespace(file_id="fid"))
         await vd.video_download_handler(msg, bot=bot)
         vd_env.probe.assert_awaited_once()
-        assert bot.download.await_count == 0
+        assert bot.download_file.await_count == 0
 
 
 # ── (b) инструменты: native источник без url ─────────────────────────────
@@ -215,7 +238,7 @@ class TestToolsNativeSource:
         out = await router.dispatch("download_media", {"source": "reply"},
                                     ctx)
         assert json.loads(out)["status"] == "success"
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
         assert bot.send_video.await_count == 1
 
     @pytest.mark.asyncio
@@ -232,7 +255,7 @@ class TestToolsNativeSource:
         assert out == "выжимка из STT"
         transcriber.transcribe_voice.assert_awaited_once()
         video.summarize_transcript.assert_awaited_once()
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
 
     @pytest.mark.asyncio
     async def test_no_source_is_error_string_not_exception(self):
@@ -271,7 +294,7 @@ class TestToolsNativeSource:
         dl = await router.dispatch("download_media", {}, ctx)
         assert json.loads(dl)["status"] == "error"
         assert json.loads(dl)["message"] == "Некорректная ссылка"
-        assert bot.download.await_count == 0
+        assert bot.download_file.await_count == 0
         assert bot.send_video.await_count == 0
 
     @pytest.mark.asyncio
@@ -283,7 +306,7 @@ class TestToolsNativeSource:
         out = await router.dispatch(
             "download_media", {"url": URL, "source": "reply"}, ctx)
         assert json.loads(out)["status"] == "success"
-        assert bot.download.await_count == 1
+        assert bot.download_file.await_count == 1
 
     @pytest.mark.asyncio
     async def test_source_reply_without_native_is_error(self):
