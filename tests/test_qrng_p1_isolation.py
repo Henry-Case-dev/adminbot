@@ -424,9 +424,9 @@ class TestProvenanceDto:
             mrs.PROVIDER_ID_IBM, mrs.PROVIDER_ID_ANU, mrs.PROVIDER_ID_LFDR}
         for pid in mrs.PROVIDER_IDS:
             assert mrs.PROVIDERS[pid].entropy_class == "hardware_quantum"
-        # P1: адаптеры у IBM/LfDR не подключены (P2/P5), каркас без поведения.
+        # P1: каркас без поведения; P2 подключил адаптер LfDR (D9), IBM — P5.
         assert mrs.PROVIDERS[mrs.PROVIDER_ID_IBM].fetch is None
-        assert mrs.PROVIDERS[mrs.PROVIDER_ID_LFDR].fetch is None
+        assert mrs.PROVIDERS[mrs.PROVIDER_ID_LFDR].fetch is not None
         assert mrs.PROVIDERS[mrs.PROVIDER_ID_LFDR].requires_key is False
         source = Path(mrs.__file__).read_text(encoding="utf-8").lower()
         assert "lizaonair" not in source

@@ -1,0 +1,8 @@
+{
+  "has_lfdr_client": true,
+  "breaker_fails_before": 0,
+  "outcome": "RAW_EXCEPTION",
+  "error_type": "ValueError",
+  "message": "Exceeds the limit (4300 digits) for integer string conversion: value has 4301 digits; use sys.set_int_max_str_digits() t",
+  "breaker_fails_after": 0
+}

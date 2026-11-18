@@ -1,0 +1,192 @@
+F.FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.          [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert (False)
+     +  where False = callable(None)
+     +    where None = ProviderSpec(id='lfdr', title='LfDR QRNG', entropy_class='hardware_quantum', requires_key=False, key_setting=None, docs_url='https://lfdr.de', fetch=None, check=None).fetch
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:81: AssertionError: assert (False)
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LFDR_HOST'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:103: AttributeError: module 'services.mca_random_source' has no attribute 'LFDR_HOST'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:115: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:138: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:157: AttributeError: module 'services.mca_random_source' has no attribute 'validate_lfdr_endpoint'. Did you mean: 'validate_endpoint'?
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LFDR_MAX_LENGTH'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:254: AttributeError: module 'services.mca_random_source' has no attribute 'LFDR_MAX_LENGTH'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'lfdr_fetch'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:409: AttributeError: module 'services.mca_random_source' has no attribute 'lfdr_fetch'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'lfdr_fetch'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:436: AttributeError: module 'services.mca_random_source' has no attribute 'lfdr_fetch'
+E   AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\qrng-p2-red-final-d07e24fd86d8-d20efc7a\tests\test_qrng_p2_lfdr.py:64: AttributeError: module 'services.mca_random_source' has no attribute 'LfdrClient'
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/test_qrng_p2_lfdr.py::TestRegistry::test_no_lfdr_api_key_setting_or_header
+PASSED tests/test_qrng_p2_lfdr.py::TestAnuUnchanged::test_anu_client_contract_still_intact
+FAILED tests/test_qrng_p2_lfdr.py::TestRegistry::test_lfdr_registered_hardware_keyless_with_hooks
+FAILED tests/test_qrng_p2_lfdr.py::TestRegistry::test_lfdr_constants_match_documented_contract
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_accepts_only_documented_endpoint
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[http://lfdr.de/qrng_api/qrng-scheme_not_allowed]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[ftp://lfdr.de/qrng_api/qrng-scheme_not_allowed]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://evil.example.com/qrng_api/qrng-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de.evil.example.com/qrng_api/qrng-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://evil-lfdr.de/qrng_api/qrng-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://user:pass@lfdr.de/qrng_api/qrng-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de:8443/qrng_api/qrng-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de/qrng-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de/qrng_api/qrng/-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de/qrng_api/qrng/x-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de/qrng_api/qrng?length=1&format=HEX-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[https://lfdr.de/qrng_api/qrng#frag-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_rejects_arbitrary_endpoint[-invalid_url]
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_guard_runs_before_any_request
+FAILED tests/test_qrng_p2_lfdr.py::TestOriginGuard::test_guards_of_both_providers_are_separate
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_valid_hex_to_uint8_and_request_shape
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_string_length_field_accepted_and_uppercase_hex
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload0-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload1-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload2-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload3-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload4-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload5-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload6-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload7-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload8-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload9-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload10-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload11-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload12-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload13-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_invalid_payload_is_validation_failed[payload14-2]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_declared_length_digit_bomb_is_validation_failed
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_broken_json_is_validation_failed
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[0]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[-1]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[1025]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[4096]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[abc]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[True]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[2.5]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_bounds_rejected_before_request[None]
+FAILED tests/test_qrng_p2_lfdr.py::TestFetchContract::test_max_length_boundary_accepted
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_429_rate_limit_retry_after_then_backoff
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_5xx_provider_unavailable_retryable
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_4xx_client_error_not_retryable
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_redirect_blocked_single_request
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_401_auth_failed_honest
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_timeout_after_send_marks_sent
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_connect_timeout_not_sent
+FAILED tests/test_qrng_p2_lfdr.py::TestTransportErrors::test_min_interval_blocks_second_request
+FAILED tests/test_qrng_p2_lfdr.py::TestCircuitBreaker::test_three_failures_open_then_single_probe
+FAILED tests/test_qrng_p2_lfdr.py::TestCircuitBreaker::test_breaker_state_is_not_shared_with_anu
+FAILED tests/test_qrng_p2_lfdr.py::TestRegistryEntryPoints::test_lfdr_fetch_uses_shared_client
+FAILED tests/test_qrng_p2_lfdr.py::TestRegistryEntryPoints::test_lfdr_fetch_one_shot_with_injected_http
+FAILED tests/test_qrng_p2_lfdr.py::TestRegistryEntryPoints::test_lfdr_check_success_has_no_raw_values
+FAILED tests/test_qrng_p2_lfdr.py::TestRegistryEntryPoints::test_lfdr_batch_consumed_by_existing_atomic_store
+FAILED tests/test_qrng_p2_lfdr.py::TestRegistryEntryPoints::test_lfdr_check_failure_is_honest
+61 failed, 2 passed in 5.64s

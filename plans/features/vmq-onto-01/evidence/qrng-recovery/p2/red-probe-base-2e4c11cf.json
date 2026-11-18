@@ -1,0 +1,14 @@
+{
+  "module": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p2-red2e4c11cf-41b3249da8cc-57fd3fee\\services\\mca_random_source.py",
+  "has_lfdr_client": false,
+  "has_validate_lfdr_endpoint": false,
+  "has_lfdr_fetch_entry": false,
+  "registry_lfdr": {
+    "id": "lfdr",
+    "entropy_class": "hardware_quantum",
+    "requires_key": false,
+    "key_setting": null,
+    "fetch": null,
+    "check": null
+  }
+}

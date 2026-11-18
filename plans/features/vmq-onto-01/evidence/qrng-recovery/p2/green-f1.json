@@ -1,0 +1,10 @@
+{
+  "has_lfdr_client": true,
+  "breaker_fails_before": 0,
+  "outcome": "AnuError",
+  "error_type": "LfdrError",
+  "code": "validation_failed",
+  "sent": true,
+  "reason": "length out of range",
+  "breaker_fails_after": 1
+}

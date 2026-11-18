@@ -6,7 +6,8 @@ pseudorandom), ANU-клиент, политика exploration, durable-запа�
 Границы (вторые механизмы запрещены):
   * один сервис: `RandomSourceService` (async) + `ExplorationPolicy`
     (чистая логика + инъекция источника) + `CoreDreamRandomSource`
-    (sync-адаптер стыка mca-06) + `AnuClient` (async) + `RandomStore`
+    (sync-адаптер стыка mca-06) + `AnuClient` (async) + `LfdrClient`
+    (async, публичный QRNG без ключа) + `RandomStore`
     (v27-таблицы через `write_transaction`/DatabaseService);
   * события — только единый `emit_mca_event` (`mca_events`, компонент
     `random`, notable-only); second словарь/канал не создаётся;
@@ -51,7 +52,7 @@ import platform
 import random
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.parse import urlsplit
@@ -189,9 +190,9 @@ PLANS = ("Trial", "Paid", "Custom")
 # Ровно три записи; снятый владельцем провайдер (owner_inputs 2026-11-17,
 # `QAN-REC-EXC-01…05`) отсутствует — ни адаптера, ни id, ни ветки
 # совместимости. `entropy_class` — производное от провайдера значение (в БД
-# колонкой не дублируется, отдаётся в DTO). В P1 адаптеры заполнены только у
-# ANU: `fetch`/`check` — точки подключения P2 (LfDR) и P5 (IBM); самих
-# адаптеров, кнопок и параметров здесь нет.
+# колонкой не дублируется, отдаётся в DTO). P2 подключает адаптер LfDR
+# (`LfdrClient` + точки входа `lfdr_fetch`/`lfdr_check` — ниже, после класса);
+# у IBM адаптера нет до P5 — `fetch`/`check` остаются `None`.
 ENTROPY_CLASS_HARDWARE = "hardware_quantum"
 PROVIDER_ID_IBM = "ibm_quantum"
 PROVIDER_ID_ANU = "anu"
@@ -226,7 +227,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
         docs_url="https://quantumnumbers.anu.edu.au"),
     PROVIDER_ID_LFDR: ProviderSpec(
         id=PROVIDER_ID_LFDR, title="LfDR QRNG",
-        requires_key=False, docs_url="https://lfdr.de"),
+        requires_key=False, docs_url="https://lfdr.de/QRNG/"),
 }
 
 # Легаси/человекочитаемые имена → канонический id (чтение; запись не
@@ -727,6 +728,300 @@ class AnuClient:
         else:
             return None
         return value if 0 <= value <= maximum else None
+
+
+# ── LfDR QRNG адаптер (P2; arch D9, `QAN-REC-LFDR-01`) ──────────────────────
+# Публичный документированный endpoint без ключа (lfdr.de/QRNG). Используются
+# те же механизмы, что у ANU: инъекция `http_get`, origin-guard до запроса,
+# circuit breaker/min-interval, существующие коды ошибок и носитель партии
+# `AnuBatch` (D9). Ключа нет и поле ключа не создаётся; ANU-клиент этим
+# блоком не изменяется.
+LFDR_HOST = "lfdr.de"
+LFDR_PATH = "/qrng_api/qrng"
+LFDR_ENDPOINT = f"https://{LFDR_HOST}{LFDR_PATH}"
+LFDR_FORMAT = "HEX"
+# Документированный предел сервера — 2147483647 байт; собственный безопасный
+# предел равен действующему контракту партии (`MAX_LENGTH` = 1024), чтобы
+# запрос/ответ оставались ограниченными. Провайдерский контракт не расширяется
+# и не сужается — ограничение объёма действует и для ANU.
+LFDR_MIN_LENGTH = MIN_LENGTH
+LFDR_MAX_LENGTH = MAX_LENGTH
+_LFDR_HEX_CHARS = frozenset("0123456789abcdefABCDEF")
+
+
+class LfdrError(AnuError):
+    """Ошибка LfDR: те же коды/семантика, что `AnuError` (ключа нет).
+
+    Наследование сохраняет существующую обработку (`except AnuError`) и не
+    создаёт второй контракт ошибок."""
+
+
+def validate_lfdr_endpoint(url: str) -> str:
+    """Origin-guard LfDR (не SSRF): только https + точный host + ровно
+    документированный путь, без userinfo/порта/query/fragment. Иное →
+    `scheme_not_allowed`/`invalid_url`; запрос не выполняется."""
+    raw = str(url or "").strip()
+    if not raw:
+        raise LfdrError("invalid_url", "empty endpoint", sent=False)
+    try:
+        parts = urlsplit(raw)
+    except Exception:
+        raise LfdrError("invalid_url", "unparsable endpoint", sent=False)
+    if parts.scheme.lower() != "https":
+        raise LfdrError("scheme_not_allowed",
+                        f"scheme={parts.scheme or 'none'}", sent=False)
+    if parts.username or parts.password:
+        raise LfdrError("invalid_url", "userinfo not allowed", sent=False)
+    host = (parts.hostname or "").lower()
+    if host != LFDR_HOST:
+        raise LfdrError("invalid_url", f"host not allowed: {host}", sent=False)
+    try:
+        port = parts.port
+    except ValueError:
+        raise LfdrError("invalid_url", "bad port", sent=False)
+    if port not in (None, 443):
+        raise LfdrError("invalid_url", "port not allowed", sent=False)
+    if (parts.path or "") != LFDR_PATH:
+        raise LfdrError("invalid_url", "path not allowed", sent=False)
+    if parts.query or parts.fragment:
+        raise LfdrError("invalid_url", "query/fragment not allowed", sent=False)
+    return LFDR_ENDPOINT
+
+
+class LfdrClient:
+    """Клиент LfDR QRNG (публичный; без ключа и без поля ключа).
+
+    Контракт https://lfdr.de/QRNG: GET `lfdr.de/qrng_api/qrng` с
+    `length` (1..1024) и `format=HEX`; ответ `{"length": N, "qrn": "<2N hex>"}`.
+    Один байт = пара hex-символов → uint8. Таймаут; 3xx → `redirect_blocked`
+    (redirect не выполняется); 429 → `rate_limit` (+Retry-After); 4xx →
+    `client_error`; 5xx → `provider_unavailable`; битый JSON/схема/длина/hex →
+    `validation_failed`. Circuit breaker/min-interval — та же семантика, что в
+    `AnuClient` (3 fails → open 60 c → half-open один probe), но состояние
+    отдельное: падение LfDR не открывает ANU-цепь. Значения партии — uint8.
+    """
+
+    def __init__(self, *, http_get: Callable | None = None,
+                 timeout: float = DEFAULT_TIMEOUT_SECONDS,
+                 min_interval: float = 1.0, circuit_fails: int = 3,
+                 circuit_cooldown: float = 60.0, clock: Callable | None = None
+                 ) -> None:
+        self._http_get = http_get or _default_http_get
+        self._timeout = float(timeout)
+        self._min_interval = float(min_interval)
+        self._circuit_fails = max(1, int(circuit_fails))
+        self._cooldown = float(circuit_cooldown)
+        self._clock = clock or time.monotonic
+        self._fails = 0
+        self._open_until = 0.0
+        self._probe_used = False
+        self._last_request_at: float | None = None
+        self._next_allowed_at = 0.0
+
+    # ── конфигурация (hot-значения передаёт владелец клиента) ──────────────
+    def configure(self, *, timeout: float, min_interval: float,
+                  circuit_fails: int, circuit_cooldown: float) -> None:
+        self._timeout = float(timeout)
+        self._min_interval = max(0.0, float(min_interval))
+        self._circuit_fails = max(1, int(circuit_fails))
+        self._cooldown = max(1.0, float(circuit_cooldown))
+
+    def status(self) -> dict:
+        return {
+            "fails": int(self._fails),
+            "circuit_open_until": float(self._open_until),
+            "next_allowed_at": float(self._next_allowed_at),
+            "last_request_at": self._last_request_at,
+        }
+
+    def available(self) -> bool:
+        now = self._clock()
+        return now >= self._open_until and now >= self._next_allowed_at
+
+    # ── breaker/backoff (паритет с AnuClient; состояние независимое) ───────
+    def _note_failure(self, now: float, retry_after: int | None) -> None:
+        self._fails += 1
+        backoff = min(self._cooldown, float(2 ** min(self._fails, 6)))
+        if retry_after:
+            backoff = max(backoff, float(retry_after))
+        self._next_allowed_at = now + backoff
+        if self._fails >= self._circuit_fails:
+            self._open_until = now + self._cooldown
+            self._probe_used = False
+
+    def _note_success(self) -> None:
+        self._fails = 0
+        self._open_until = 0.0
+        self._probe_used = False
+        self._next_allowed_at = 0.0
+
+    # ── fetch ──────────────────────────────────────────────────────────────
+    async def fetch(self, *, length: int = DEFAULT_BATCH_LENGTH,
+                    endpoint: str = LFDR_ENDPOINT) -> AnuBatch:
+        if isinstance(length, bool) or not isinstance(length, (int, str)):
+            raise LfdrError("validation_failed", "bad length", sent=False)
+        try:
+            length = int(length)
+        except (TypeError, ValueError):
+            raise LfdrError("validation_failed", "bad length", sent=False)
+        if not (LFDR_MIN_LENGTH <= length <= LFDR_MAX_LENGTH):
+            raise LfdrError("validation_failed",
+                            f"length out of range: {length}", sent=False)
+        url = validate_lfdr_endpoint(endpoint)   # origin-guard ДО запроса
+        now = self._clock()
+        if now < self._open_until:
+            raise LfdrError("provider_unavailable", "circuit_open",
+                            retryable=True, sent=False)
+        if now < self._next_allowed_at:
+            raise LfdrError("rate_limit", "backoff", retryable=True,
+                            sent=False)
+        if (self._last_request_at is not None
+                and now - self._last_request_at < self._min_interval):
+            raise LfdrError("rate_limit", "min_interval", retryable=True,
+                            sent=False)
+        if self._open_until and not self._probe_used:
+            self._probe_used = True      # half-open: ровно один probe
+        params: dict[str, Any] = {"length": length, "format": LFDR_FORMAT}
+        headers: dict[str, str] = {}     # ключа нет: заголовков авторизации нет
+        self._last_request_at = now
+        started = time.monotonic()
+        try:
+            resp = await self._http_get(url, headers, params, self._timeout)
+        except asyncio.TimeoutError:
+            self._note_failure(now, None)
+            raise LfdrError("timeout", "request timeout", retryable=True,
+                            sent=True)
+        except Exception as exc:  # транспорт; тела ответа ещё нет
+            name = type(exc).__name__
+            is_timeout = "Timeout" in name
+            # ConnectTimeout/PoolTimeout — запрос не ушёл; Read/Write — ушёл.
+            sent = is_timeout and "Connect" not in name and "Pool" not in name
+            self._note_failure(now, None)
+            raise LfdrError("timeout" if is_timeout else "provider_unavailable",
+                            f"transport error: {name}",
+                            retryable=True, sent=sent)
+        status = int(getattr(resp, "status", 0) or 0)
+        resp_headers = getattr(resp, "headers", {}) or {}
+        text = str(getattr(resp, "text", "") or "")
+        if 300 <= status < 400:
+            self._note_failure(now, None)
+            raise LfdrError("redirect_blocked", f"http {status}", sent=True)
+        if status in (401, 403):
+            self._note_failure(now, None)
+            raise LfdrError("auth_failed", f"http {status}", sent=True)
+        if status == 429:
+            retry_after = _parse_retry_after(resp_headers)
+            self._note_failure(now, retry_after)
+            raise LfdrError("rate_limit", "http 429", retryable=True,
+                            sent=True, retry_after=retry_after)
+        if status != 200:
+            # Тело ошибки провайдер отдаёт как `{"error": "..."}`; текст
+            # очищается и обрезается, значения партии не появляются.
+            self._note_failure(now, None)
+            code = "provider_unavailable" if status >= 500 else "client_error"
+            raise LfdrError(code, self._error_reason(text, status),
+                            retryable=(status >= 500), sent=True)
+        try:
+            payload = json.loads(text)
+        except Exception:
+            self._note_failure(now, None)
+            raise LfdrError("validation_failed", "invalid json", sent=True)
+        values = self._validate_payload(payload, length=length)
+        self._note_success()
+        return AnuBatch(
+            values=values, data_type="uint8", length=length,
+            provider=PROVIDER_ID_LFDR,
+            latency_ms=int((time.monotonic() - started) * 1000))
+
+    @staticmethod
+    def _error_reason(text: str, status: int) -> str:
+        try:
+            payload = json.loads(text)
+        except Exception:
+            return f"http {status}"
+        if isinstance(payload, dict) and payload.get("error") is not None:
+            return _clean_error_text(payload.get("error"))
+        return f"http {status}"
+
+    def _validate_payload(self, payload, *, length: int) -> list[int]:
+        def _bad(reason: str):
+            self._note_failure(self._clock(), None)
+            return LfdrError("validation_failed", reason, sent=True)
+
+        if not isinstance(payload, dict):
+            raise _bad("schema: not an object")
+        if payload.get("error") is not None:
+            raise _bad(_clean_error_text(payload.get("error")))
+        declared = payload.get("length")
+        if isinstance(declared, bool) or not isinstance(declared, (int, str)):
+            raise _bad("length missing")
+        text = str(declared).strip()
+        if not (text.isascii() and text.isdigit()):
+            raise _bad("length missing")
+        # Длина ответа — короткое десятичное число (≤4 цифр по контракту,
+        # запас до 12). Строку длиннее заведомо вне диапазона отвергаем, не
+        # вызывая int(): CPython бросает ValueError на >4300 цифрах
+        # (int-max-str-digits), и он вылетал бы из fetch()/check() мимо
+        # контракта AnuError/LfdrError, не отмечая failure у breaker'а (F1).
+        if len(text) > 12:
+            raise _bad("length out of range")
+        try:
+            declared_length = int(text)
+        except ValueError:      # pragma: no cover - защитная ветка
+            raise _bad("length out of range")
+        if declared_length != length:
+            raise _bad(f"length mismatch: {text[:12]}")
+        qrn = payload.get("qrn")
+        if not isinstance(qrn, str):
+            raise _bad("qrn not a string")
+        if len(qrn) != length * 2:
+            raise _bad(f"qrn length: {len(qrn)}")
+        if any(c not in _LFDR_HEX_CHARS for c in qrn):
+            raise _bad("qrn invalid hex")
+        return [int(qrn[i:i + 2], 16) for i in range(0, len(qrn), 2)]
+
+    async def check(self, *, length: int = LFDR_MIN_LENGTH) -> dict:
+        """Одна малая живая проверка (без ключа): формат/длина/латентность.
+
+        Возвращает только метаданные — сырые значения наружу не отдаются."""
+        try:
+            batch = await self.fetch(length=length)
+        except AnuError as exc:
+            return {"provider": PROVIDER_ID_LFDR, "healthy": False,
+                    "blocker": exc.code, "reason": exc.reason,
+                    "requires_key": False, "checked_at": int(time.time())}
+        return {"provider": PROVIDER_ID_LFDR, "healthy": True, "blocker": None,
+                "length": batch.length, "latency_ms": batch.latency_ms,
+                "requires_key": False, "checked_at": int(time.time())}
+
+
+async def lfdr_fetch(*, length: int = DEFAULT_BATCH_LENGTH,
+                     client: LfdrClient | None = None,
+                     http_get: Callable | None = None,
+                     timeout: float = DEFAULT_TIMEOUT_SECONDS) -> AnuBatch:
+    """Реестровая точка входа LfDR (arch D1): один батч через адаптер.
+
+    `client` — общий клиент владельца (breaker/min-interval сохраняются между
+    вызовами). Без него создаётся одноразовый клиент без min-interval
+    (проверка/тесты); состояние breaker между такими вызовами не переносится."""
+    adapter = client if client is not None else LfdrClient(
+        http_get=http_get, timeout=timeout, min_interval=0.0)
+    return await adapter.fetch(length=length)
+
+
+async def lfdr_check(*, client: LfdrClient | None = None,
+                     http_get: Callable | None = None,
+                     timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict:
+    """Реестровая точка входа проверки LfDR (малая выборка, без ключа)."""
+    adapter = client if client is not None else LfdrClient(
+        http_get=http_get, timeout=timeout, min_interval=0.0)
+    return await adapter.check()
+
+
+# P2: адаптер подключён к реестру (D9). IBM остаётся без адаптера до P5;
+# реестр читается call-time, поэтому поздняя привязка точки входа безопасна.
+PROVIDERS[PROVIDER_ID_LFDR] = replace(
+    PROVIDERS[PROVIDER_ID_LFDR], fetch=lfdr_fetch, check=lfdr_check)
 
 
 # ── durable-стор v27 (только через write_transaction mca-01) ───────────────
@@ -2520,8 +2815,10 @@ class RandomSourceService:
                 "title": spec.title,
                 "entropy_class": spec.entropy_class,
                 "requires_key": bool(spec.requires_key),
-                # P1: подключён только ANU-адаптер; IBM/LfDR — честно «не
-                # подключён» до P2/P5 (без фейковых зелёных статусов).
+                # P2 (D9): адаптер LfDR реализован и подключён к реестру, но в
+                # runtime-резолв/refill не включён до P3; IBM без адаптера до
+                # P5. `configured` здесь — состояние подключения ANU-ключа,
+                # поэтому у остальных провайдеров False (без фейкового green).
                 "configured": (key_present if pid == PROVIDER_ID_ANU
                                else False),
                 # `reserve` — расходуемый остаток действующей конфигурации;
