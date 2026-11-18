@@ -19243,6 +19243,12 @@
       },
       selectMemoryYearCoverageTurn: function (n) {
         var turn = Math.max(1, Math.min(8, parseInt(n, 10) || 1));
+        // F4: старые числа не показываются под новой меткой ни кадра —
+        // на время запроса виден spinner, а не данные другого хода.
+        if (turn !== this.memoryYearCoverageTurn) {
+          this.memoryYearCoverage = null;
+          this.memoryYearCoverageAt = 0;
+        }
         this.memoryYearCoverageTurn = turn;
         this.memoryYearCoverageTrace = '';
         this.loadMemoryYearCoverage(true);
@@ -28938,6 +28944,10 @@
           // F4 — Статус по контракту показывает ПОСЛЕДНИЙ ход, поэтому
           // выбранный в Аналитике старый ход сбрасывается до turn=1.
           if (typeof this.loadMemoryYearCoverage === 'function') {
+            if (this.memoryYearCoverageTurn !== 1) {
+              this.memoryYearCoverage = null;
+              this.memoryYearCoverageAt = 0;
+            }
             this.memoryYearCoverageTurn = 1;
             this.memoryYearCoverageTrace = '';
             this.loadMemoryYearCoverage(true);

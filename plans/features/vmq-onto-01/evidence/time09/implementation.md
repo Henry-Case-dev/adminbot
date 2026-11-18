@@ -189,7 +189,7 @@ pytest 13 passed — cap-тест B1 закрывает пробел, повед
 | F1 | `_runView` возвращает `yearsPresent` (и `emptyText`); шаблон больше не печатает «нет данных» рядом с годами | `web/static/status-analytics.js:203-233`; шаблоны `web/index.html:9502/9529` |
 | F2 | `excluded_present=false` → «Исключено: нет данных»; `exclusionText` уже отдаёт «нет данных» для пустого измерения | `web/index.html:15615` + `status-analytics.js:exclusionText` |
 | F3 | `years_present=true` + `years=null` → «нет фактов»; unknown остаётся «нет данных» | `status-analytics.js:134`, `:218` |
-| F4 | вход в Статус сбрасывает `turn=1`; подпись `turnLabel` — «последний ход» только для turn=1, иначе «ход N из M»; `no_selection` — «выбранного хода» | `web/app.js:28941`, `:10275`; `status-analytics.js:238`; `index.html:9447/15588` |
+| F4 | вход в Статус сбрасывает `turn=1`; подпись `turnLabel` — «последний ход» только для turn=1, иначе «ход N из M»; `no_selection` — «выбранного хода»; при смене хода старые числа скрываются до ответа | `web/app.js:28941`, `:10275`; `status-analytics.js:238`; `index.html:9447/15588` |
 | B1 | новый pytest: 8 вызовов → ровно 6 первых по `ts` | `tests/test_vmq_time09_turn_coverage.py::test_api_retrieval_cap_is_six_first_by_time` |
 | B6 | дубль «последний ход» убран из заголовка Status | `web/index.html:15562` |
 | B7 | `aria-busy` на контейнерах обеих поверхностей | `web/index.html:9406/15560` |
