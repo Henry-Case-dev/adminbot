@@ -1,0 +1,27 @@
+{
+  "release": "2.58.215",
+  "target_rollback_commit": "ea9f760f398a5859c5e8b981c1710b1c8bf9e787",
+  "target_rollback_version": "2.58.214",
+  "target_rollback_state": "deployed previous release / rollback base; production not contacted in this assembly",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout ea9f760f (2.58.214) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz returns version 2.58.214 and the release identity (git rev-parse HEAD = ea9f760f, dirty=false)"
+  ],
+  "notes": [
+    "Поезд — код-only: нет новых таблиц, колонок, индексов, ключей настроек и миграций данных; схема остаётся 47 при DDL 0 (services/database.py не изменён, MigrationStep 47/max 47).",
+    "L1: меняется только то, как код резолвит маршрут/бюджет/таймаут и классифицирует ответ. Новые оси (`l1_finish_reason`, `l1_provider`, `l1_endpoint`, `l1_key_slot`, `l1_attempts`, …) пишутся в существующие JSON-поля (plan_meta / диагностика); старый код читает известные ключи и игнорирует незнакомые. Событие `L1_PLAN` сохраняет имя; новые поля — аддитивные ключи whitelist'а.",
+    "L1: `limits.direct_l1_timeout_seconds`/`max_output_tokens` остаются существующими ключами каталога; меняются только их описания. Сохранённые владельцем значения не сбрасываются ни bump'ом, ни откатом.",
+    "Vision: `error_code` в `task_jobs` — существующая nullable-колонка (использовалась до 2.58.214 в E1-запросе runbook); новые значения — строковые коды класса отказа. `error_json` в `mca_events` — существующее JSON-поле, новые ключи (`detail`/`class`/`stage`) аддитивны. Имена событий и стадий (`download`, `validate`) не менялись, реестр стадий не расширялся.",
+    "Vision: откат возвращает прежний (двухкопийный) download-транспорт; это не удаляет уже записанные анализы и не требует миграции. `MEDIA_DOWNLOAD_CLOUD_FALLBACK` — env существующего рубильника, новых настроек не появляется.",
+    "Scheduler: `slot_claims` (v42) не менялась — те же колонки, INSERT OR IGNORE/CAS, `timeout=5`/`busy_timeout=5000`; меняется только место ожидания (worker-thread). `misfire_grace_time` — runtime-параметр APScheduler, не данные. Публикационные CAS/watermark не менялись.",
+    "Данные не сбрасываются: откат на ea9f760f оставляет все строки `slot_claims`, `summary_runs`, `task_jobs`, `mca_media_analyses`, `mca_events`, `llm_usage_events` читаемыми прежним кодом.",
+    "Настройки не сбрасываются: bump меняет только version pins и changelog APP_VERSION; PG hot-значения и настройки владельца не затрагиваются ни checkout'ом, ни restart'ом.",
+    "Rollback-копии 2.58.214 — это копии, созданные деплоем 2.58.214; они управляются существующим пулом deploy_backup keep=2 (2.58.206).",
+    "deploy_v2.9.2.py этим релизом не изменён."
+  ]
+}

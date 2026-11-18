@@ -1,0 +1,164 @@
+{
+  "feature": "llm-vision-scheduler-p0 — P0 train (L1 model switch + Vision download + Scheduler loop)",
+  "release": "2.58.215",
+  "slice": "release assembly: approved L1 bf529e17 + Vision e2edd11f + Scheduler 4174cd478 merged from ea9f760f; bump 2.58.214 -> 2.58.215",
+  "assembled_at": "2026-11-18",
+  "branch": "release/p0-2.58.215",
+  "base_commit": "ea9f760f398a5859c5e8b981c1710b1c8bf9e787",
+  "base_version": "2.58.214",
+  "base_state": "deployed previous release / rollback target; production not contacted in this assembly",
+  "candidates": {
+    "l1": "bf529e17803c8f4928b03df6ba342c81e31b461e",
+    "vision": "e2edd11fcdbe02b5cba709ac0d1388f7f3261d8c",
+    "scheduler": "4174cd478377257ca47c0fa1ce04629403f09837"
+  },
+  "merge_commits": {
+    "l1": "96f394a4e",
+    "vision": "bfa57103b",
+    "scheduler": "0e3050042"
+  },
+  "conflicts": 0,
+  "byte_identity_vs_branches": {
+    "files_checked": 43,
+    "mismatches": 0,
+    "method": "git rev-parse <branch>:<file> == git rev-parse HEAD:<file> for every file changed by a slice vs ea9f760f"
+  },
+  "bump_commit": "2b00ad035f4c19cb32f718383c429611172c0709",
+  "content_tip": "2b00ad035f4c19cb32f718383c429611172c0709",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv, pytest 9.1.1)",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none used by tests or smoke; code path only, no Telegram/LLM HTTP",
+    "env": "ADMINBOT_SKIP_DOTENV=1, PYTHONPATH=<release worktree>"
+  },
+  "diff_vs_base": {
+    "files": 71,
+    "insertions": 8085,
+    "deletions": 371,
+    "product_files_outside_plans_docs": 27,
+    "config_settings_diff": "APP_VERSION line only (1 insertion / 1 deletion)",
+    "database_py_diff": "none (DDL 0)"
+  },
+  "invariants": {
+    "app_version": "2.58.215",
+    "catalog": {"REGISTRY": 645, "GROUPS": 121, "_TAB_BY_GROUP": 119, "TAB_RULES": 22},
+    "settings_fields": 472,
+    "migration_steps": 47,
+    "migration_max": 47,
+    "migration_ids_unique_contiguous_sorted": true,
+    "target_user_version": 47,
+    "ddl": 0,
+    "new_flags": 0,
+    "new_migrations": 0,
+    "new_endpoints": 0,
+    "new_prompts": 0,
+    "new_models": 0,
+    "composer_changed": false,
+    "deploy_v2_9_2_py_changed": false
+  },
+  "bump_pins": {
+    "replacements": 30,
+    "files": 29,
+    "polygon_replacements": 2,
+    "python_pin_files": 24,
+    "js_escaped_pin_files": 4,
+    "settings": 1,
+    "meta": 1,
+    "diff_stat": "30 files changed, 31 insertions(+), 31 deletions(-)",
+    "bom_crlf": "preserved (byte-level replacement)"
+  },
+  "batches": [
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q -p no:cacheprovider",
+      "result": {"passed": 386, "failed": 0},
+      "note": "тот же 24-файловый mandatory-набор, что в release-2.58.210/214; полный tests/test_webapp_*.py batch в этом прогоне НЕ запускался (не перезаписывает W10-W12 evidence), дерево после тестов git status --porcelain пусто"
+    },
+    {
+      "id": "l1-new-slice",
+      "command": "python -m pytest tests/test_p0_l1_model_switch.py -q -p no:cacheprovider",
+      "result": {"passed": 49, "failed": 0}
+    },
+    {
+      "id": "vision-new-slice",
+      "command": "python -m pytest tests/test_p0_vision_download_transport.py -q -p no:cacheprovider",
+      "result": {"passed": 28, "failed": 0}
+    },
+    {
+      "id": "scheduler-new-slice",
+      "command": "python -m pytest tests/test_p0_scheduler_loop.py -q -p no:cacheprovider",
+      "result": {"passed": 12, "failed": 0}
+    },
+    {
+      "id": "scheduler-targeted-298",
+      "command": "python -m pytest tests/test_p0_scheduler_loop.py tests/test_uptime_heartbeat.py tests/test_lore_worker.py tests/test_dream_worker.py tests/test_nostalgia_worker.py tests/test_goodmorning.py tests/test_scheduler.py tests/test_summary_scheduler.py tests/test_memory_maintenance.py tests/test_p0_meme_publication_hotfix.py tests/test_meme_init_diagnostics.py -q -p no:cacheprovider",
+      "result": {"passed": 298, "failed": 0},
+      "note": "298 == сумма r2-батчей 168 + 37 + 93 из scheduler evidence; включает новые 12"
+    },
+    {
+      "id": "l1-consumers-374",
+      "command": "python -m pytest tests/test_asap8_f6_initiative.py tests/test_asap8_v63_b01_initiative_observer.py tests/test_soul1_w5_initiative_vitality.py tests/test_factcheck_p0_fc.py tests/test_summary_l1_clusterizer.py tests/test_summary_l2_writer.py tests/test_summary_scheduler.py tests/test_tool_loop.py tests/test_tool_router.py tests/test_rlr_length_continuation.py tests/test_ur_d_writer.py tests/test_summary_inc01_pregen_bounds.py -q -p no:cacheprovider",
+      "result": {"passed": 374, "failed": 0}
+    },
+    {
+      "id": "vision-focus",
+      "command": "python -m pytest tests/test_p0_vision_download_transport.py tests/test_p0_vision_fix_core.py tests/test_media_download.py tests/test_vision_dl_fix.py tests/test_mca19_block_b_round1043.py tests/test_postgen_diag.py -q -p no:cacheprovider",
+      "result": {"passed": 189, "skipped": 1, "failed": 0},
+      "note": "файл из vis/README записан как test_mca19_block_b.py; фактическое имя в репозитории — tests/test_mca19_block_b_round1043.py"
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/<each>.js, module_fixture.js исключён",
+      "result": {"files": 121, "passed": 117, "failed": 4},
+      "failed_files": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "note": "те же 4 файла и те же падения, что в release-2.58.214 (pre-existing; воспроизведены на базе в 2.58.214)"
+    },
+    {
+      "id": "static",
+      "command": "node --check web/app.js; git diff --check; python tools/gen_param_registry_round1025.py --check",
+      "result": {"node_check_rc": 0, "diff_check_rc": 0, "catalog_check": "CHECK OK: реестр 645 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны", "catalog_check_rc": 0}
+    },
+    {
+      "id": "invariants",
+      "command": "venv python - <<'PY' (import config.settings / services.param_catalog / services.database)",
+      "result": {"app_version": "2.58.215", "REGISTRY": 645, "GROUPS": 121, "_TAB_BY_GROUP": 119, "TAB_RULES": 22, "settings_fields": 472, "migration_steps": 47, "migration_max": 47, "target_user_version": 47}
+    },
+    {
+      "id": "smoke-no-network",
+      "command": "venv python plans/features/llm-vision-scheduler-p0/evidence/release-2.58.215/smoke-2.58.215.py <release worktree>",
+      "result": {
+        "l1_route": {"model": "z-ai/glm-5.3-uncensored", "provider": "nanogpt", "endpoint": "nano-gpt.com", "key_slot": "main", "dedicated": false, "timeout_seconds": 180.0, "deadline_seconds": 360.0, "timeout_source": "transport_policy", "output_field": "max_tokens", "max_output_tokens": 4608, "output_reserve": 2048, "context_window": 128000, "window_confidence": "verified", "supports_reasoning": true, "usable": true},
+        "vision": {"bytes": 16, "diagnostics": {"stage": "local_read", "attempt": 1, "error_class": "local_read_failed", "outcome": "cloud_fallback"}, "warnings": ["[vision] local file unavailable (attempt 1/1) | tail=photos/gone.png | class=local_read_failed", "[vision] bot transport failed | class=provider_error", "[vision] cloud fallback used | file_id=smoke-file | local=local_read_failed"]},
+        "scheduler": {"sync": {"claim_ms": 547, "max_gap_ms": 547.0}, "thread": {"claim_ms": 547, "max_gap_ms": 16.0}},
+        "injections": ["model_capacity.resolve_model_capability (capability seam, no HTTP; route composition real)", "media_download cloud_fetcher (documented injection point; transport code real)"]
+      },
+      "assertions": {
+        "l1": ["model/endpoint/provider as configured", "key_slot=main, dedicated=false, usable", "180/360 transport_policy", "output_field=max_tokens, budget 4608 > 512", "window verified 128000"],
+        "vision": ["bytes returned by injected fetcher", "diagnostics.outcome=cloud_fallback", "warning matches ^\\[vision\\] cloud fallback used \\| file_id=smoke-file \\| local=[a-z_]+$", "bot transport failure class provider_error"],
+        "scheduler": ["sync claim >= 400 ms and gap == claim", "thread claim >= 400 ms and gap < 100 ms", "thread gap < sync gap / 3"]
+      }
+    }
+  ],
+  "mutations": {
+    "rerun": false,
+    "reason": "мутации убиты и зафиксированы в слайсах; в сборке код не менялся после одобрения",
+    "artifacts": [
+      "plans/features/llm-vision-scheduler-p0/evidence/l1/mutations.json (8/8 killed, baseline 37 passed)",
+      "plans/features/llm-vision-scheduler-p0/evidence/vis/README.md §4 (M1-M6 killed)",
+      "plans/features/llm-vision-scheduler-p0/evidence/sch/scheduler-p0-evidence-2026-11-18.md §4 (M1-M7 killed)"
+    ]
+  },
+  "not_run": [
+    "tests/test_webapp_*.py batch (64 files) — перезаписывает W10-W12 evidence; явно исключён из сборки",
+    "полный tests/ (21 770 тестов) — вне слайса",
+    "любые сети/LLM/Telegram вызовы"
+  ],
+  "manifest": "manifest-dry-run.json (deployed_sha=content tip, previous=ea9f760f/2.58.214, dirty_tracked=false)",
+  "rollback": "rollback.json (ea9f760f, schema 47, DDL 0)"
+}
