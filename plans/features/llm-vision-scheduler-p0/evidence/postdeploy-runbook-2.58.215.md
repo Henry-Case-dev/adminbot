@@ -24,7 +24,7 @@ ROLLBACK=$BASE
 DOMAIN=admin-bot.duckdns.org
 CHAT=-1002661910336
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-NEW_SHA=2b00ad035f4c19cb32f718383c429611172c0709   # content tip; deploy-time HEAD обязан совпасть (или быть evidence-коммитом этой же ветки — сверка git rev-parse HEAD)
+NEW_SHA=$(git rev-parse HEAD)   # фактический checkout (record it); product-tree обязан совпасть с content tip 2b00ad03 (docs-only коммиты допустимы, сверка git diff 2b00ad03..HEAD -- . ':(exclude)plans')
 RELEASE_BRANCH=release/p0-2.58.215
 ```
 
@@ -124,7 +124,7 @@ python manage.py disk audit 2>&1 | head -40 || true
 python manage.py disk cleanup --apply
 ```
 
-Критерии: `HEAD = NEW_SHA`, `APP_VERSION = 2.58.215`, `release.json` c `version=2.58.215` и
+Критерии: `HEAD = зафиксированный NEW_SHA` (фактический checkout, а не content tip), `product-tree = 2b00ad03…` (docs-only коммиты не меняют продукт), `APP_VERSION = 2.58.215`, `release.json` c `version=2.58.215` и
 `previous_sha = ea9f760f…`, `/healthz` = `{"status":"ok","version":"2.58.215"}`, `user_version = 47`
 (никаких миграций), `NRestarts = 0`. `disk cleanup --apply` — обязательный шаг после деплоя
 (deploy-пул keep=2): подтвердить, что удалён только устаревший `predeploy-*`, свежий `$TARGET`
@@ -348,7 +348,7 @@ PY
 |---|---|---|
 | model/endpoint | `route.model = z-ai/glm-5.3-uncensored`, `route.provider = nanogpt`, `route.endpoint = nano-gpt.com`, `key_slot=main`, `dedicated=false` | другой model/host ⇒ конфиг перетёрт |
 | payload | `completion.max_output_tokens_sent == route.max_output_tokens` (> 512, ожидаемо 4608); `route.output_field` — имя поля, которое клиент обязан отправить (`max_tokens` для GLM по capability); фактическое применение подтверждают HTTP 200 и совпадение отправленного бюджета | `max_output_tokens_sent` пуст/512 ⇒ старый дефолт жив; 400/422 ⇒ несовместимое поле |
-| дедлайн | `route.timeout_seconds = 180`, `route.deadline_seconds = 360`, `timeout_source=transport` | 15/360 или `owner` без owner-override |
+| дедлайн | `route.timeout_seconds = 180`, `route.deadline_seconds = 360`, `timeout_source=transport_policy` | 15/360 или `owner` без owner-override |
 | ответ | `finish_reason` ≠ `length`; `plan` не `null`; `failure_mode = success` | `length`+`plan=null` ⇒ бюджет снова мал; `plan=null` при `stop` ⇒ валидатор/формат |
 | стоимость | `usage.prompt_tokens`/`completion_tokens` заполнены; ровно одна строка `LLM request OK` в stderr | 2+ строки без явного решения |
 | fallback | `fallback_chain` пуст | непустой chain ⇒ провайдер/ключ |
@@ -843,10 +843,10 @@ systemctl restart admin_bot
 |---|---|---|
 | 1 | **SCH F2**: канонический SQL сверки `slot_claims(fired=1)` ↔ `summary_runs` | **ЗАКРЫТО** — `evidence/sch/sch_reconcile.sql` (r2 `491066378`); §F3 запускает именно этот файл, второй копии в runbook нет |
 | 2 | **L1 N1**: реальный `finish_reason` в `L1_PLAN` для main-ноги | **ЗАКРЫТО** — поле `l1_finish_reason` есть в `L1_PLAN`/plan_meta (`b733e29e`); проверка в §D по журналу |
-| 3 | **L1 N4**: `provider`/`endpoint_host`/`key_slot` в `L1_PLAN` | **ЗАКРЫТО для primary маршрута** — поля в whitelist события и durable plan_meta; residual при `provider_fallback` описан в §D/`limitations.md` и не блокирует деплой |
+| 3 | **L1 N4**: `provider`/`endpoint_host`/`key_slot` в `L1_PLAN` | **ЗАКРЫТО для primary маршрута** — поля в whitelist события `L1_PLAN` и turn-diagnostics (durable `plan_meta` не расширялся); residual при `provider_fallback` описан в §D/`limitations.md` и не блокирует деплой |
 | 4 | **SCH F3** (`grace <= interval` для env-интервалов) | **ЗАКРЫТО** — кламп `max(1, min(константа, интервал))` в r2 (`491066378`); проверка — §F4 (`TestSchedulerJobContract`, 3 passed) |
 | 5 | **VIS**: точная формулировка warning'а cloud fallback | **ЗАКРЫТО** — `[vision] cloud fallback used \| file_id=<id> \| local=<error_class>` (`services/media_download.py`); проверка в §E |
-| 6 | **Релизный манифест**: `NEW_SHA` и имя release-ветки | **ЗАКРЫТО на сборке** — `release/p0-2.58.215`, content tip `2b00ad03…` (`manifest-dry-run.json`); deploy-time сверка `git rev-parse HEAD` = `NEW_SHA` обязательна |
+| 6 | **Релизный манифест**: `NEW_SHA` и имя release-ветки | **ЗАКРЫТО на сборке** — `release/p0-2.58.215`, content tip `2b00ad03…` (`manifest-dry-run.json`); deploy-time фиксируется фактический `git rev-parse HEAD` как `NEW_SHA`; product-tree сверяется с content tip `2b00ad03` |
 
 ## 9. Evidence (заполняется по ходу)
 
@@ -866,7 +866,7 @@ post_state=HEAD:<sha> branch:<name> version:2.58.215 dirty:0 unit:active NRestar
 live_user_version=47
 healthz={"status":"ok","version":"2.58.215"}
 config_diff=empty|explained:<что именно>
-l1_route=model:z-ai/glm-5.3-uncensored provider:nano-gpt.com key_slot:main dedicated:false
+l1_route=model:z-ai/glm-5.3-uncensored provider:nanogpt endpoint:nano-gpt.com key_slot:main dedicated:false
 l1_route_policy=timeout:180 deadline:360 source:transport output_field:max_tokens limit:<N> reserve:<N>
 l1_call=finish_reason:<x> max_output_tokens_sent:<N> attempt:1 failure_mode:success usage_in:<N> usage_out:<N> calls:1
 l1_plan=action:<x> response_act:<x> execution_mode:<x> confidence:<x>
