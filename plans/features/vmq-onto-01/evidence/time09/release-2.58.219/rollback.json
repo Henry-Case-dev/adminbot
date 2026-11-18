@@ -1,0 +1,25 @@
+{
+  "release": "2.58.219",
+  "target_rollback_commit": "e6239230656dd807ba1ba63a9913a86c09ccefef",
+  "target_rollback_version": "2.58.218",
+  "target_rollback_state": "deployed previous release / rollback base; production not contacted in this assembly",
+  "schema": 48,
+  "ddl": 0,
+  "migrations_added": 0,
+  "migration_scope": "none; services/database.py and services/pg_db.py are byte-identical to e6239230, schema is already 48",
+  "data_changes": 0,
+  "feature_scope": "VMQ-TIME-09 is a read-only additive projection over existing durable events plus Status/Analytics UI; no new store, table, column, flag, prompt, model, agent or scheduler",
+  "procedure": [
+    "checkout e6239230 (2.58.218) in the production checkout",
+    "python tools/release_manifest.py --effect rollback",
+    "sudo systemctl restart admin_bot",
+    "verify /healthz, version 2.58.218, release identity (git rev-parse HEAD = e6239230, dirty=false), schema 48"
+  ],
+  "notes": [
+    "Код 2.58.218 уже знает схему 48: services/database.py и services/pg_db.py байт-идентичны, pending-шагов нет.",
+    "TIME-09 не менял БД и не писал новые данные; откат не требует миграций, восстановления или DROP.",
+    "Новые UI-файлы (web/static/status-analytics.js, вставки в index.html/app.js) при checkout старого коммита исчезают вместе с релизом; старый UI не запрашивает новые поля turn-diagnostics.",
+    "Аддитивные поля `selection.blocks[].years/years_present`, `selection.memory_period`, `retrieval[]`, `stages.retrieval` остаются только в коде 2.58.219; durable-события совместимы с обеими версиями.",
+    "deploy_v2.9.2.py не тронут; production-ключи/флаги/настройки в этой сборке не менялись."
+  ]
+}

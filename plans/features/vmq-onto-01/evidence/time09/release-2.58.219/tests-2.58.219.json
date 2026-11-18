@@ -1,0 +1,262 @@
+{
+  "release": "2.58.219",
+  "feature": "VMQ-TIME-09 per-run years/exclusions coverage UI",
+  "branch": "release/vmq-time09-2.58.219",
+  "base": {
+    "sha": "e6239230656dd807ba1ba63a9913a86c09ccefef",
+    "version": "2.58.218",
+    "content_tip": "50b1dd6b32160d1ffbe393ebfa1701987fdde7b6",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "merge_commit": "7db82f57dbc7ee56813d382ee720a83d244ffc46",
+    "merge_parents": [
+      "e6239230656dd807ba1ba63a9913a86c09ccefef",
+      "f4d67b332705b54892b86faca52f5a7545c12bf2"
+    ],
+    "content_tip": "f80cba08ff6c444395753e77885ea2e37e2f308f",
+    "bump_commit": "f80cba08ff6c444395753e77885ea2e37e2f308f",
+    "approved_source_tip": "f4d67b332705b54892b86faca52f5a7545c12bf2",
+    "product_commits": ["738bd3a2", "ee94ddf9", "4c23f4b4"],
+    "review": "plans/features/vmq-onto-01/evidence/time09/review-r2.md (master commit 33766776, APPROVED FOR RELEASE PREPARATION)",
+    "product_equality": {
+      "git_diff_vs_f4d67b33": "only tests/test_round1025_f8_registry.py APP_VERSION pin (2.58.217 -> 2.58.219); all product and TIME-09 test files byte-identical",
+      "files": {
+        "services/mca_retrieval_context.py": {"blob": "1bf39528ba99f699e52818c90dc69803fb2b5df8", "sha256": "65be9ff0bc50d834d3f635b13facc0731bd5288875a0c062186b7a0e5781bcdd"},
+        "services/direct_chat_service.py": {"blob": "8bb4aad039dc9a74d62f62aaaa499531538badc0", "sha256": "ae4c659bcb2ac5303b84f546ef29bf11282d702d8b01b1df262737b653b91472"},
+        "web/api/routes.py": {"blob": "a7b51bd3ce3c82aaa3b4e2af0edd3e1827f71aaa", "sha256": "4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7"},
+        "web/app.js": {"blob": "9ce4e337982fcd6257c1a74549ffbc52d85abbd9", "sha256": "ac08167bf5c79524e72915c8c3a4989c3aa7f2f686414124d15dfc7efe0f8191"},
+        "web/index.html": {"blob": "8cae227a9e14ec83744410c9bc909e054326c33b", "sha256": "d9193e9b0970afbb591d270d2dcf2a23b9b7e70a5580e1b6f24acfba197d64b8"},
+        "web/static/status-analytics.js": {"blob": "5ae81a330569f6067569940bb8b54add64533514", "sha256": "39b00422bcf2c4b43494ff962cb52ea57a361ee14fa679417585a23af17ed7c2"},
+        "tests/js/vmq_time09_year_coverage_ui_test.js": {"blob": "55faf50ec319b7b9d5cde3a301bec2e29cd1df21", "sha256": "e16fc0682d4535f511c5e8f60cc2e045d8fa3bfaa66a4b8967a8a53b03f08da4"},
+        "tests/test_vmq_time09_turn_coverage.py": {"blob": "687ddccd8186ca5082fee068c538c800b1d9e91e", "sha256": "c302cdcceb9cbae0d8a0f87e0c605d75184c675905b154c5db21e7167218b432"},
+        "tests/ui_vmq_status_analytics_e2e.py": {"blob": "373557d0635de76e76a4df3be7be4d4af8ff4f7a", "sha256": "d9fdacf2249891b327a4ef451db9d8f5698bf2eaf541c580df5c21855419ca78"},
+        "tests/js/evol_glass_seam_test.js": {"blob": "c20b2d1a4f354ce2bf598249ad61f2626efb1ccb", "sha256": "41b45fa8f63497dd28bfcfd9dd0066f1a701af755b8e249dd998ccc29158473d"},
+        "tests/test_ur_f_inspector_step2.py": {"blob": "4e7cfc9f042032556a45a0c4875bdfeed1c95a6b", "sha256": "970ff4bfb1ef14849bef02c0a893c24205f09a8cb356f68b4c3d17e1b252f9f6"},
+        "tests/test_mca23_planned_vs_actual.py": {"blob": "79fcd88ec8573d706ec72bb0fffebc4d5fde5396", "sha256": "780ffd2d6b62e398cab146b22a0e3ba5c450191f7ba27fd32c9890fa883b10b4"}
+      }
+    },
+    "f01_preserved": {
+      "git_diff_vs_00d9ce3f": "empty for services/mca_random_source.py and tests/test_qrng_f01_activation_batch_scope.py",
+      "blob_services": "4192f0338fa4c6766dc721c68c4989ab73538589",
+      "blob_test": "17d754ab6a23f879c09a1696867e3f2fc977ba3a",
+      "sha256_services": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+      "sha256_test": "fb7f6951d33934d71b754b545175293e6d2a50760cc1a983e73400123bacc09a"
+    }
+  },
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "playwright": "chromium, viewports 1280/390/320, mobile contexts has_touch=true",
+    "os": "Windows (PowerShell 5.1)",
+    "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/vmq-time09-release-2-58-219-32fa164aef74-386e6702",
+    "base_repro_worktree": "WorkspaceData/worktrees/c742e4de9e92c489/vmq-time09-219-base-repro-344d8f7370ca-b04314f9 (detached e6239230)",
+    "network": "none; provider HTTP and diagnostic payloads are stubbed/injected; temp SQLite per test; no production access",
+    "configuration": "test fixtures only; no environment gate, factory default or persisted/tenant override changed; no paid provider job"
+  },
+  "tested_tip_note": "Batches were executed at content tip f80cba08. The evidence commit that follows changes only files under plans/features/vmq-onto-01/evidence/time09/release-2.58.219/ (no product, tests, config or version pins). Post-commit delta is checked with `git diff --name-only f80cba08..HEAD -- ':!plans/features/vmq-onto-01/evidence/time09/release-2.58.219'` = empty.",
+  "batches": [
+    {
+      "id": "node-time09",
+      "command": "node tests/js/vmq_time09_year_coverage_ui_test.js",
+      "result": "VMQ-TIME09-UNIT-OK",
+      "exit": 0
+    },
+    {
+      "id": "pytest-time09-new",
+      "command": "python -m pytest tests/test_vmq_time09_turn_coverage.py -q --tb=short",
+      "result": {"passed": 13, "failed": 0, "skipped": 0},
+      "duration_s": 11.62,
+      "covers": [
+        "trace_id propagation direct_chat_service -> retrieval context -> mca07_retrieval",
+        "years/memory_period projection and durable link",
+        "bounded retrieval[] (cap 6 first by ts, period_selection excluded)",
+        "measured zero vs unknown, R17-safe fields, 403 isolation, truncated selection"
+      ]
+    },
+    {
+      "id": "pytest-inspector",
+      "command": "python -m pytest tests/test_ur_f_inspector_step2.py -q --tb=short",
+      "result": {"passed": 19, "failed": 0, "skipped": 0},
+      "duration_s": 9.76
+    },
+    {
+      "id": "pytest-affected-482",
+      "command": "python -m pytest <16 files below> -q --tb=short",
+      "files": [
+        "tests/test_vmq_time09_turn_coverage.py",
+        "tests/test_ur_f_inspector_step2.py",
+        "tests/test_mem_time_policy.py",
+        "tests/test_mem_time_asof.py",
+        "tests/test_mem_time_l1_scope.py",
+        "tests/test_mem_time_profile.py",
+        "tests/test_vmq_mem_period_intent.py",
+        "tests/test_vmq_mem_retrieval_fixes.py",
+        "tests/test_vmq_mem_slice_b.py",
+        "tests/test_vmq_mem_slice_c.py",
+        "tests/test_vmq_mem_slice_d.py",
+        "tests/test_vmq_m1_episode_contract.py",
+        "tests/test_webapp_api.py",
+        "tests/test_webapp_parity_smoke.py",
+        "tests/test_webapp_f11_round1025.py",
+        "tests/test_frontend_tab_mapping.py"
+      ],
+      "result": {"passed": 482, "failed": 0, "skipped": 0},
+      "duration_s": 57.19
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest <24 files below> -q --tb=short",
+      "files": [
+        "tests/test_round1025_f8_registry.py",
+        "tests/test_mca23_planned_vs_actual.py",
+        "tests/test_mod_acl_ux_01_m4_catalog.py",
+        "tests/test_mod_acl_ux_01_m3_module_routes.py",
+        "tests/test_mod_acl_ux_01_m4_module_params.py",
+        "tests/test_asap7_module_registry.py",
+        "tests/test_asap7_module_completeness.py",
+        "tests/test_asap8_f5_module_truth.py",
+        "tests/test_asap8_v63_b06_summary_scope.py",
+        "tests/test_asap8_v63_b07_temporal_factcheck.py",
+        "tests/test_asap8_v6_p1_d11_registry.py",
+        "tests/test_asap8_v6_wa1_config_cache.py",
+        "tests/test_factcheck_post_release_w2.py",
+        "tests/test_mca18_self_model_block_a_round1042.py",
+        "tests/test_mod_acl_ux_m2_capability_state.py",
+        "tests/test_mod_acl_ux_m2_consumers.py",
+        "tests/test_mod_acl_ux_m2_resolver.py",
+        "tests/test_mod_acl_ux_m2_runtime_edges.py",
+        "tests/test_mod_acl_ux_01_m21_adapters.py",
+        "tests/test_mod_acl_ux_01_m21_gates.py",
+        "tests/test_mod_acl_ux_m2_tristate_write.py",
+        "tests/test_mod_acl_ux_m2_inflight.py",
+        "tests/test_mod_acl_ux_01_m1_acl_false_403.py",
+        "tests/test_webapp_js_unit.py"
+      ],
+      "result": {"passed": 386, "failed": 0, "skipped": 0},
+      "duration_s": 34.75,
+      "note": "same 24-file shared-code mandatory batch recorded for 2.58.210/2.58.217/2.58.218"
+    },
+    {
+      "id": "schema-apps-197",
+      "command": "python -m pytest <8 files below> -q --tb=short",
+      "files": [
+        "tests/test_mca10b_random_applications_block_a_round1041.py",
+        "tests/test_mca10b_random_applications_block_b_round1041.py",
+        "tests/test_mca10b_random_applications_block_c_round1041.py",
+        "tests/test_mca10b_random_applications_block_d_round1041.py",
+        "tests/test_evol014_meme_initiative.py",
+        "tests/test_mca14_schema_additive_round1027.py",
+        "tests/test_round1025_f8_registry.py",
+        "tests/test_mca23_planned_vs_actual.py"
+      ],
+      "result": {"passed": 197, "failed": 0, "skipped": 0},
+      "duration_s": 42.17,
+      "note": "schema pins stay 48; catalog 648/121/119/23"
+    },
+    {
+      "id": "f01-focused",
+      "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py -q --tb=short",
+      "result": {"passed": 4, "failed": 0, "skipped": 0},
+      "duration_s": 6.87
+    },
+    {
+      "id": "random-p1-p2-p3-314",
+      "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py tests/test_qrng_p1_isolation.py tests/test_qrng_p2_lfdr.py tests/test_qrng_p3_selector.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q --tb=short",
+      "result": {"passed": 314, "failed": 0, "skipped": 0},
+      "duration_s": 49.68,
+      "note": "no QRNG regression; F-01 source blob identical to 00d9ce3f"
+    },
+    {
+      "id": "js-full-suite",
+      "command": "for each tests/js/*.js except module_fixture.js: node <file>",
+      "candidate": {"files": 123, "passed": 119, "failed": 4},
+      "base_reproduction": {
+        "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/vmq-time09-219-base-repro-344d8f7370ca-b04314f9 (detached e6239230)",
+        "files": 122,
+        "passed": 118,
+        "failed": 4
+      },
+      "failed_files": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "regressions": 0,
+      "note": "Same four files fail on the clean base. Including module_fixture.js (shared helper, not executed as a test) the directory has 124 vs 123 files; the TIME-09 node test adds one passing file (119 vs 118)."
+    },
+    {
+      "id": "playwright",
+      "command": "python tests/ui_vmq_status_analytics_e2e.py --out <temp>/playwright.json --shots <temp>/shots",
+      "result": {"ok": true, "checks": 66, "all_true": true, "failed": []},
+      "console_errors": 0,
+      "retrieval_coverage_calls": 0,
+      "no_overflow": {"1280": true, "390": true, "320": true},
+      "screenshots": 10,
+      "note": "1280/390/320; 10 PNG including analytics turn2, status after return, unknown-excluded, zero-writer; retrieval-coverage endpoint never requested"
+    }
+  ],
+  "static_checks": {
+    "node_check": {
+      "web/app.js": 0,
+      "web/static/status-analytics.js": 0,
+      "tests/js/vmq_time09_year_coverage_ui_test.js": 0,
+      "tests/js/round1025_hotfix10_glass_geometry_bg_test.js": 0,
+      "tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js": 0,
+      "tests/js/round1025_hotfix8_shell_aurora_test.js": 0,
+      "tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js": 0
+    },
+    "gen_param_registry_check": {"exit": 0, "message": "CHECK OK: реестр 648 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны."},
+    "git_diff_check_worktree": {"exit": 0},
+    "git_diff_check_e6239230_HEAD": {
+      "exit": 2,
+      "only_finding": "plans/features/vmq-onto-01/evidence/time09/red-base-time09.txt:39: trailing whitespace (raw RED transcript, known N2, evidence-only; source not rewritten)"
+    },
+    "schema_smoke_temp_sqlite": {
+      "user_version": 48,
+      "v48_constant": 48,
+      "columns_present": ["config_fingerprint", "external_ref"],
+      "schema_migrations": "48 -> 48",
+      "second_initialize_noop": true,
+      "cleanup": "probe printed all values, then Windows blocked temp-dir removal on the open SQLite handle; the leftover temp directory was removed manually. No product/config effect."
+    },
+    "catalog": {"REGISTRY": 648, "GROUPS": 121, "_TAB_BY_GROUP": 119, "TAB_RULES": 23, "Settings_fields": 472},
+    "routes": {"api_router_decorators": 76, "api_router_unique_paths": 63, "sha256": "4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7"},
+    "unchanged_vs_base": {
+      "services/database.py": "c1c9650ede9a7474bd506a50172e86be616e3919",
+      "services/pg_db.py": "00c641333703fe28c6bb75819d17cb3fefeb4f4a",
+      "deploy_v2.9.2.py": "7dd5e02bf7f2909e201c7e4e17f30ab6b991f725",
+      "web/static/app.css": "4021724ba7913bbaa124ff4ad6338c045b1a9ee3",
+      "web/app.py": "aea70d9b7bf0980a3fe212a5f99c1b22d1f1dac7",
+      "handlers/web.py": "8d7ca8eb619f60981757ea556d1a71af411603e7",
+      "web/api/memory_overview.py": "354b08f7d778f4d412c3dbe44cc35186a635b1fa",
+      "services/memory_diagnostics.py": "f9fb920b3df41f564ed98b1fd70f95e672c65dcf"
+    }
+  },
+  "manifest_dry_run": {
+    "artifact": "release-2.58.219/manifest-dry-run.json",
+    "command": "python tools/release_manifest.py --dry-run",
+    "exit": 0
+  },
+  "red_and_mutations": {
+    "status": "already proven on fix/vmq-time09 and independently reproduced in review-r2; not re-executed for this assembly and not re-claimed as new evidence",
+    "artifacts": [
+      "plans/features/vmq-onto-01/evidence/time09/red-base-time09.txt/json",
+      "plans/features/vmq-onto-01/evidence/time09/red-corrective-time09.txt/json",
+      "plans/features/vmq-onto-01/evidence/time09/mutations-time09.json",
+      "plans/features/vmq-onto-01/evidence/time09/review-r2.md"
+    ]
+  },
+  "limitations": [
+    "No production access, no deploy, no real turn after deploy; live trace/UI cross-check remains agent post-deploy work.",
+    "Browser Use blocked: BU_CDP_URL=http://127.0.0.1:9222 unreachable (WinError 10061); visual contract covered by Playwright and review-r2 real-browser pass on the same product bytes.",
+    "N1 (low, evidence): red-corrective-time09.json still records 65/11 RED while the final test has 66/12; product unaffected.",
+    "N3 (nit, a11y): refresh of the same turn does not set aria-busy/spinner because memoryYearCoverageLoading stays false; matches the brief, busy semantics of same-turn refresh incomplete.",
+    "N2 (evidence-only): trailing whitespace in red-base-time09.txt line 39 makes `git diff --check e6239230..HEAD` exit 2; not a product file.",
+    "period_selection is not durable (producer outcome selection is not stored); the API filter is defensive and unit-proven, not live-observed. retrieval[] cap is 6 first-by-time.",
+    "Turns before deploy have no retrieval trace_id; UI shows the Writer part and an honest 'no linked retrieval events' state (unit-covered, not live-observed)."
+  ]
+}
