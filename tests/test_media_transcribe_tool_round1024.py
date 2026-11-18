@@ -102,7 +102,8 @@ def clean_env(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "services.command_prefix.command_prefix_tokens", lambda: ("бот",))
 
-    async def _fake_fetch(bot, media, path):
+    async def _fake_fetch(bot, media, path, **_kwargs):
+        # P0 18.11.2026: единый транспорт принимает site= (лог-тег call-site).
         Path(path).write_bytes(b"audiodata")
 
     monkeypatch.setattr(vt, "_fetch_media_to_tmp", _fake_fetch)

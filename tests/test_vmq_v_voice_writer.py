@@ -634,7 +634,7 @@ class TestHandlerStatuses:
             bot = MagicMock()
             bot.send_chat_action = _noop
 
-            async def _fake_fetch(_bot, _media, path):
+            async def _fake_fetch(_bot, _media, path, **_kwargs):
                 with open(path, "wb") as handle:
                     handle.write(b"data")
             monkeypatch.setattr(hvt, "_fetch_media_to_tmp", _fake_fetch)
@@ -673,7 +673,7 @@ class TestHandlerStatuses:
                 video_note=None, forward_origin=None)
             msg.reply = _noop
 
-            async def _fake_fetch(_bot, _media, path):
+            async def _fake_fetch(_bot, _media, path, **_kwargs):
                 with open(path, "wb") as handle:
                     handle.write(b"data")
             monkeypatch.setattr(hvt, "_fetch_media_to_tmp", _fake_fetch)
