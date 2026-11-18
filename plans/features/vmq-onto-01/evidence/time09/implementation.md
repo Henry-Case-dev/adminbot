@@ -8,7 +8,7 @@ review/деплоя не было). Production не менялся, deploy/SSH/�
 | База | `f68e7631dede326995b985bf8c3849d62def1bcb` (2.58.217, content `b6c9bb0b`, schema 48) |
 | Ветка | `fix/vmq-time09` (tip corrective R1 — `ee94ddf9`) |
 | Контракт | `plans/features/vmq-onto-01/evidence/time09-ui-brief-2026-11-19.md` |
-| Product-коммит | `738bd3a2` (исходный), `ee94ddf9` (corrective R1 по `review-r1.md`) |
+| Product-коммит | `738bd3a2` (исходный), `ee94ddf9` + `4c23f4b4` (corrective R1 по `review-r1.md`) |
 | Бампа/манифеста/деплоя | нет |
 
 ## 1. Что реализовано
