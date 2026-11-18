@@ -1,0 +1,123 @@
+{
+  "feature": "QRNG-RECOVERY-01 / F-01 activation self-check batch scope",
+  "defect": "2.58.217 delta review F-01 (non-blocking): services/mca_random_source.py::_confirm_activation reserved a chunk without exact batch scope, so an older LfDR/NULL-fingerprint batch could satisfy the activation self-check while mca_random_state.activation_batch_id named the newly fetched ANU batch (wrong provenance, no false hardware-quantum claim).",
+  "branch": "fix/qrng-activation-reserve",
+  "base": {
+    "sha": "f68e7631dede326995b985bf8c3849d62def1bcb",
+    "release": "2.58.217",
+    "content_tip": "b6c9bb0bdec0f26ee72a3b7ab54c0a19f26610a0",
+    "schema": 48
+  },
+  "candidate": {
+    "product_sha": "00d9ce3f84b4b83126d3f5544268c627e82df13c",
+    "product_files": 2,
+    "product_insertions": 270,
+    "product_deletions": 5,
+    "product_numstat": {
+      "services/mca_random_source.py": {"added": 36, "deleted": 5},
+      "tests/test_qrng_f01_activation_batch_scope.py": {"added": 234, "deleted": 0}
+    },
+    "product_file_sha256": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+    "test_file_sha256": "FB7F6951D33934D71B754B545175293E6D2A50760CC1A983E73400123BACC09A"
+  },
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "pytest": "9.1.1",
+    "os": "Windows (PowerShell 5.1)",
+    "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/fix-qrng-activation-reserve-38726cc85e3e-98242be1",
+    "network": "none; ANU HTTP is injected via mrs._HttpResponse; temp SQLite per test; no production access",
+    "config": "test fixtures only (_hot_setting/_read_memory_setting fakes); no environment gate or factory default changed"
+  },
+  "change": {
+    "store_api": "RandomStore.reserve_chunk(k, *, config_fingerprint=None, provider_ids=None, batch_id=None) — additive optional exact-batch predicate; None preserves the existing oldest-first selection for all existing callers (dream chunk, tests). Empty/unknown batch_id yields an empty SQL predicate (AND 0), never an unscoped fallback.",
+    "activation": "RandomSourceService._confirm_activation(batch_id) passes batch_id to reserve_chunk and refuses a chunk whose batch_id differs from the requested one (contract guard). Journal provider/batch_id come from the consumed item; mca_random_state.activation_batch_id is written only after that item is consumed, so state names the batch actually consumed.",
+    "no_fallback": "If the target batch has no consumable value, _confirm_activation returns False: no foreign value is consumed, no journal row and no activation state are written; activate() reports validation_failed with deposited=false.",
+    "invariants": {
+      "schema_version": 48,
+      "ddl": 0,
+      "new_migrations": 0,
+      "app_version_bump": 0,
+      "new_flags": 0,
+      "new_prompts": 0,
+      "new_endpoints": 0,
+      "ordinary_refill_fallback_draws": "unchanged (no batch_id argument)"
+    }
+  },
+  "batches": [
+    {
+      "id": "f01-focused",
+      "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py -q --tb=short",
+      "result": {"passed": 4, "failed": 0},
+      "duration_s": 4.06,
+      "covers": ["mixed LfDR+ANU batch", "target batch exhausted -> honest failure", "single batch no-regression", "store exact scope + empty/unknown safety + legacy order"]
+    },
+    {
+      "id": "focused-random-expanded",
+      "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py tests/test_qrng_p1_isolation.py tests/test_qrng_p2_lfdr.py tests/test_qrng_p3_selector.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q --tb=short",
+      "result": {"passed": 314, "failed": 0},
+      "duration_s": 34.95,
+      "note": "the 2.58.217 expanded random/QND batch (310) plus the 4 new F-01 tests; no skips"
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest <24-file required batch from plans/features/mod-acl-ux-01/evidence/release-2.58.210/tests-2.58.210.json> -q --tb=short",
+      "result": {"passed": 386, "failed": 0},
+      "duration_s": 34.83,
+      "note": "shared-code mandatory batch; exact 24 node files as recorded for 2.58.210/2.58.217"
+    },
+    {
+      "id": "schema-apps-197",
+      "command": "python -m pytest tests/test_mca10b_random_applications_block_{a,b,c,d}_round1041.py tests/test_evol014_meme_initiative.py tests/test_mca14_schema_additive_round1027.py tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py -q --tb=short",
+      "result": {"passed": 197, "failed": 0},
+      "duration_s": 31.78,
+      "note": "schema pins stay at 48; catalog pins unchanged"
+    }
+  ],
+  "red_on_base": {
+    "worktree": "clean detached f68e7631d at WorkspaceData/worktrees/c742e4de9e92c489/fix-qrng-activation-reserve-ba-ee1ed27f3c69-6aab48c1",
+    "product_untouched": true,
+    "only_test_file_added": "tests/test_qrng_f01_activation_batch_scope.py (sha256 FB7F6951...)",
+    "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py -q --tb=line",
+    "result": {"passed": 1, "failed": 3},
+    "failed_node_ids": [
+      "tests/test_qrng_f01_activation_batch_scope.py::test_activation_selfcheck_consumes_only_new_anu_batch",
+      "tests/test_qrng_f01_activation_batch_scope.py::test_activation_no_value_in_target_batch_is_honest_failure",
+      "tests/test_qrng_f01_activation_batch_scope.py::test_reserve_chunk_batch_scope_exact_and_empty_safe"
+    ],
+    "failure_reasons": [
+      "mixed batch: ANU batch reserved_upto/consumed_upto stayed (0,0) while the older LfDR batch was consumed",
+      "_confirm_activation returned True using the older LfDR batch (false activation confirmation)",
+      "RandomStore.reserve_chunk() has no batch_id keyword on base (TypeError)"
+    ],
+    "raw": "red-base.txt"
+  },
+  "mutations": {
+    "probe": "plans/features/vmq-onto-01/evidence/qrng-recovery/f01-activation-reserve/mutation_probe.py",
+    "result_file": "mutations.json",
+    "killed": 3,
+    "total": 3,
+    "all_restored": true,
+    "sha256_before_after": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+    "items": [
+      {"id": "F01-M1", "seam": "exact batch scope removed in reserve_chunk", "result": "KILLED: 3 failed"},
+      {"id": "F01-M2", "seam": "silent fallback to unscoped reserve when the target batch is empty", "result": "KILLED: 1 failed (negative case)"},
+      {"id": "F01-M3", "seam": "original defect + forced journal attribution (scope removed, guard removed, journal names the requested batch)", "result": "KILLED: 3 failed"}
+    ]
+  },
+  "no_regression_evidence": {
+    "existing_activation_test": "tests/test_mca10a_random_source_block_b_round1037.py::test_activation_real_batch_quantum_activated passed both on base (single batch) and candidate (part of the 314 batch)",
+    "store_callers": "the only other reserve_chunk caller (dream chunk, services/mca_random_source.py:3589) passes no batch_id and keeps oldest-first selection",
+    "qnd_p1_p2_p3": "29 + 63 + 51 passed within the 314 batch"
+  },
+  "limitations": [
+    "The negative (no consumable value in the target batch) case calls _confirm_activation directly: no public path can leave a freshly inserted batch exhausted without a crash between insert and self-check; the direct seam is the same production code that activate()/_do_refill call.",
+    "No production access and no real ANU request were made; provider responses are injected. This is a provenance/scope fix, not a statistical randomness change.",
+    "A crash after reserve_chunk but before journal flush can still lose the reserved value (pre-existing watermark contract); the fix does not change that behavior."
+  ],
+  "reviewer_questions": [
+    "Is the additive batch_id predicate on RandomStore.reserve_chunk (default None) acceptable as the minimal shared-mechanism fix, versus adding provider_ids to the activation self-check?",
+    "Is the contract guard (consumed item batch_id must equal the requested batch) considered part of the required invariant or redundant defense?",
+    "Is the direct _confirm_activation negative test acceptable, given the public activation path always inserts a fresh consumable batch?"
+  ],
+  "release": "no bump, no deploy, no production access; product commit 00d9ce3f8 expects independent review before integration"
+}

@@ -1,0 +1,56 @@
+{
+  "feature": "F-01 activation self-check batch scope",
+  "product_file": "services/mca_random_source.py",
+  "base_sha": "f68e7631dede326995b985bf8c3849d62def1bcb",
+  "test": "tests/test_qrng_f01_activation_batch_scope.py",
+  "sha256_original": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+  "sha256_final": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+  "all_restored": true,
+  "killed": 3,
+  "total": 3,
+  "mutations": [
+    {
+      "returncode": 1,
+      "summary": "3 failed, 1 passed in 4.24s",
+      "failed_node_ids": [
+        "test_activation_selfcheck_consumes_only_new_anu_batch",
+        "test_activation_no_value_in_target_batch_is_honest_failure",
+        "test_reserve_chunk_batch_scope_exact_and_empty_safe"
+      ],
+      "id": "F01-M1",
+      "seam": "exact batch scope removed in RandomStore.reserve_chunk",
+      "killed": true,
+      "restored": true,
+      "sha256_before": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+      "sha256_after": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111"
+    },
+    {
+      "returncode": 1,
+      "summary": "1 failed, 3 passed in 4.20s",
+      "failed_node_ids": [
+        "test_activation_no_value_in_target_batch_is_honest_failure"
+      ],
+      "id": "F01-M2",
+      "seam": "silent fallback to unscoped reserve when target batch is empty",
+      "killed": true,
+      "restored": true,
+      "sha256_before": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+      "sha256_after": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111"
+    },
+    {
+      "returncode": 1,
+      "summary": "3 failed, 1 passed in 4.16s",
+      "failed_node_ids": [
+        "test_activation_selfcheck_consumes_only_new_anu_batch",
+        "test_activation_no_value_in_target_batch_is_honest_failure",
+        "test_reserve_chunk_batch_scope_exact_and_empty_safe"
+      ],
+      "id": "F01-M3",
+      "seam": "original defect + forced journal attribution (scope removed, guard removed, journal names requested batch)",
+      "killed": true,
+      "restored": true,
+      "sha256_before": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+      "sha256_after": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111"
+    }
+  ]
+}
