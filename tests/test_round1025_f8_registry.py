@@ -266,7 +266,7 @@ ROUTES_SHA256_F11 = (
     # blocks[].years`/`years_present`, `selection.memory_period`, bounded
     # `retrieval[]` (≤6 вызовов, `period_selection` исключён) и
     # `stages.retrieval`; R17-allowlist не ослаблен. Новых @api_router-маршрутов
-    # НЕТ (Δ routes=0: 76 -> 76 декораторов, 62 -> 62 уникальных пути),
+    # НЕТ (Δ routes=0: 76 -> 76 декораторов, 63 -> 63 уникальных пути),
     # RBAC/маскировка не менялись, DDL=0 (схема v48), f8_baseline не
     # переиздавался. Осознанная Δ хэша (L-F11S-1).
     "4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7")

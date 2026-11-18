@@ -127,9 +127,11 @@
       kind: block.kind,
       delivered: block.rendered === true,
       skipReason: block.skip_reason || '',
-      years: years || null,
+      years: present ? (years || {}) : null,
       yearsPresent: present,
-      yearsText: present ? yearsText(years) : 'нет данных',
+      // F3: при `years_present=true` API отдаёт `years: null` для
+      // измеренного пустого набора — это «нет фактов», а не «нет данных».
+      yearsText: present ? yearsText(years || {}) : 'нет данных',
       chips: present ? sortedYears(years).slice(0, CHIPS_MAX) : [],
       chipsTotal: present ? sortedYears(years).length : 0,
     };
@@ -201,24 +203,48 @@
   function _runView(run) {
     var yearsPresent = run.years_present === true;
     var excludedPresent = run.excluded_present === true;
+    var emptyYears = yearsPresent && !sortedYears(run.years).length;
+    var reason = String(run.reason_code || '');
     return {
       ts: _int(run.ts),
       outcome: run.outcome || '',
-      reason: run.reason_code || '',
+      reason: reason,
       policy: run.policy || '',
       period: run.period === true,
+      // F1: шаблон читает `run.yearsPresent`; поле обязано быть в модели,
+      // иначе рядом с реальными годами печатается «нет данных».
+      yearsPresent: yearsPresent,
       years: yearsPresent ? (run.years || {}) : null,
-      yearsText: yearsPresent ? yearsText(run.years) : 'нет данных',
+      yearsText: yearsPresent ? yearsText(run.years || {}) : 'нет данных',
       chips: yearsPresent ? sortedYears(run.years).slice(0, CHIPS_MAX) : [],
+      // B8: измеренный ноль с причиной `retrieval_empty` показывает код
+      // причины (brief §3.4), а не только «нет фактов».
+      emptyText: !emptyYears ? ''
+        : (reason === 'retrieval_empty'
+          ? '0 фактов (выдача пуста, причина: retrieval_empty)'
+          : 'нет фактов'),
       excluded: run.excluded || {},
       excludedPresent: excludedPresent,
       exclusionText: exclusionText(run.excluded, excludedPresent),
-      emptyYears: yearsPresent && !sortedYears(run.years).length,
+      emptyYears: emptyYears,
       emptyExcluded: excludedPresent
         && !exclusionRows(run.excluded, true).some(function (row) {
           return row.count > 0;
         }),
     };
+  }
+
+  /** Подпись хода: «последний ход» только для turn=1 (F4). */
+  function turnLabel(turn, turnsCount) {
+    var number = _int(turn);
+    if (number === null || number <= 1) {
+      return 'последний ход';
+    }
+    var total = _int(turnsCount);
+    if (total !== null && total >= number) {
+      return 'ход ' + number + ' из ' + total;
+    }
+    return 'ход ' + number;
   }
 
   function _limitations(selection, truncated) {
@@ -284,7 +310,7 @@
       ? data.selection : null;
     if (selection === null) {
       var noSelection = _base('no_selection',
-        'У последнего хода нет снимка памяти (ответ без памяти / '
+        'У выбранного хода нет снимка памяти (ответ без памяти / '
         + 'трасса неполная).');
       noSelection.limitations = _limitations(null, false);
       return noSelection;
@@ -337,6 +363,7 @@
     primaryRun: primaryRun,
     latestRun: latestRun,
     sortRuns: sortRuns,
+    turnLabel: turnLabel,
     view: view,
   };
 });

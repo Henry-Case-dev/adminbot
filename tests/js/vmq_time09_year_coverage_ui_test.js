@@ -223,6 +223,61 @@ function main() {
     'нет вызовов retrieval — честная причина, Writer-часть показана');
   assert.strictEqual(noRetrieval.writer.facts.delivered, true);
 
+  // ── TIME-09 corrective R1: presence/unknown/zero, turn label (F1-F4) ───
+  const f1 = A.view({
+    available: true, selection: { blocks: [], truncated: false },
+    retrieval: [
+      { ts: 1, years: { '2023': 2 }, years_present: true,
+        excluded: { budget: 1 }, excluded_present: true },
+      { ts: 2, years: null, years_present: true,
+        excluded: {}, excluded_present: true },
+      { ts: 3, years: null, years_present: false,
+        excluded: null, excluded_present: false },
+    ],
+  });
+  assert.strictEqual(f1.runs[0].yearsPresent, true,
+    'F1: view model обязан нести yearsPresent (его читает шаблон)');
+  assert.strictEqual(f1.runs[0].yearsText, '2023 — 2');
+  assert.strictEqual(f1.runs[1].yearsPresent, true);
+  assert.strictEqual(f1.runs[1].yearsText, 'нет фактов',
+    'F3: измеренный ноль — «нет фактов», не «нет данных»');
+  assert.strictEqual(f1.runs[2].yearsPresent, false);
+  assert.strictEqual(f1.runs[2].yearsText, 'нет данных');
+  assert.strictEqual(f1.runs[0].excludedPresent, true);
+  assert.strictEqual(f1.runs[2].excludedPresent, false);
+  assert.strictEqual(f1.runs[2].exclusionText, 'нет данных',
+    'F2: excluded_present=false — честное «нет данных»');
+  assert.strictEqual(f1.runs[1].exclusionText, 'исключений не было');
+  assert.strictEqual(f1.runs[0].emptyText, '');
+  assert.strictEqual(f1.runs[1].emptyText, 'нет фактов');
+
+  const f3 = A.writerBlocks([
+    { kind: 'rag', rendered: true, years: null, years_present: true },
+    { kind: 'episode', rendered: true, years: null,
+      years_present: false },
+  ]);
+  assert.strictEqual(f3.facts.yearsText, 'нет фактов',
+    'F3: Writer measured zero — «нет фактов»');
+  assert.strictEqual(f3.episodes.yearsText, 'нет данных',
+    'F3: Writer unknown — «нет данных»');
+
+  const withReason = A.view({
+    available: true, selection: { blocks: [], truncated: false },
+    retrieval: [{ ts: 1, years: null, years_present: true,
+      reason_code: 'retrieval_empty', excluded_present: true,
+      excluded: {} }],
+  });
+  assert.ok(withReason.runs[0].emptyText.indexOf('retrieval_empty') >= 0,
+    'B8: причина retrieval_empty видна при измеренном нуле');
+
+  assert.strictEqual(A.turnLabel(1, 2), 'последний ход');
+  assert.strictEqual(A.turnLabel(2, 2), 'ход 2 из 2',
+    'F4: метка обязана отражать выбранный ход');
+  assert.strictEqual(A.turnLabel(3, 8), 'ход 3 из 8');
+  assert.ok(A.view({ available: true, selection: null }).text
+    .indexOf('последнего') < 0,
+    'F4: no_selection не называет выбранный ход последним');
+
   [ready, noTurns, truncated, noRetrieval].forEach(function (v) {
     const dump = JSON.stringify(v);
     assert.ok(!hasPercent(dump), 'в view не должно быть процентов: ' + dump);
@@ -241,6 +296,14 @@ function main() {
     'Status: строка исключений');
   assert.ok(analyticsWin.indexOf('data-rc-run') >= 0,
     'Analytics: список вызовов (не таблица)');
+  assert.ok(analyticsWin.indexOf('run.emptyText') >= 0,
+    'B8: причина пустой выдачи берётся из view, не захардкожена');
+  assert.ok(statusWin.indexOf('.excludedPresent') >= 0,
+    'F2: Status различает excluded_present=false');
+  assert.ok(statusWin.indexOf('memoryYearCoverageTurnLabel') >= 0,
+    'F4: подпись хода динамическая');
+  assert.ok(analyticsWin.indexOf('memoryYearCoverageTurnLabel') >= 0,
+    'F4: Analytics не называет выбранный ход последним');
   assert.ok(analyticsWin.indexOf('[data-rc-run]') < 0, 'служебный маркер');
   [statusWin, analyticsWin].forEach(function (win) {
     assert.ok(win.toLowerCase().indexOf('<canvas') < 0,

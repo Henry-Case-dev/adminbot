@@ -199,6 +199,10 @@ const ALLOWED = [
   // (`GET /api/config`). Это API-контракт, НЕ оптика: защищённые
   // файлы стекла/фона/линзы по-прежнему проверяются побайтово.
   'web/api/routes.py',
+  // VMQ-TIME-09 (19.11.2026): новый UMD-helper чистой арифметики покрытия
+  // памяти (годы/причины/подписи) без DOM-оптики. Стекло/фон/линза и
+  // защищённые файлы по-прежнему проверяются побайтово.
+  'web/static/status-analytics.js',
 ];
 changed.forEach(function (rel) {
   assert.ok(ALLOWED.indexOf(rel) >= 0,

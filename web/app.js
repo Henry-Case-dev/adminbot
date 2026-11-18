@@ -10270,6 +10270,18 @@
         var count = (turns && turns.length) ? turns.length : 1;
         return this.memoryYearCoverageTurn < Math.min(8, count);
       },
+      // F4: «последний ход» — только для turn=1; выбранный старый ход
+      // подписывается своим номером (не выдаётся за последний).
+      memoryYearCoverageTurnLabel: function () {
+        var api = this.memoryYearCoverageApi;
+        var turns = (this.memoryYearCoverage || {}).turns;
+        var count = (turns && turns.length) ? turns.length : 0;
+        if (api && typeof api.turnLabel === 'function') {
+          return api.turnLabel(this.memoryYearCoverageTurn, count);
+        }
+        return this.memoryYearCoverageTurn > 1
+          ? ('ход ' + this.memoryYearCoverageTurn) : 'последний ход';
+      },
       // B03.3 «Просрочено N»: раскладка expired-памяти
       // (/api/memory/expired-overview → MemoryManager.expired_memory_overview,
       // W1-MEMORY-MIG §7). unavailable → честная метка, не нули.
@@ -28922,9 +28934,12 @@
           // лениво догружаем при входе (как раньше на входе в Аналитику;
           // счётчики — по-прежнему в loadStatus, fetch один).
           if (!this.logs.length && !this.logsLoading) this.loadLogs();
-          // VMQ-TIME-09: один запрос покрытия по годам на вход в «Статус»
-          // (тот же store использует Аналитика; фонового опроса нет).
+          // VMQ-TIME-09: один запрос покрытия по годам на вход в «Статус»;
+          // F4 — Статус по контракту показывает ПОСЛЕДНИЙ ход, поэтому
+          // выбранный в Аналитике старый ход сбрасывается до turn=1.
           if (typeof this.loadMemoryYearCoverage === 'function') {
+            this.memoryYearCoverageTurn = 1;
+            this.memoryYearCoverageTrace = '';
             this.loadMemoryYearCoverage(true);
           }
           this.startStatusPolling();

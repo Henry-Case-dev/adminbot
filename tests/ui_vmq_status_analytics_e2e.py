@@ -104,7 +104,8 @@ RUN_PERIOD = {
 }
 
 
-def diagnostics_payload(*, turn=1, empty=False, truncated=False):
+def diagnostics_payload(*, turn=1, empty=False, truncated=False,
+                        unknown_excluded=False, zero_writer=False):
     if empty:
         return {"chat_id": CHAT, "available": False,
                 "reason": "no_turn_traces", "turns": []}
@@ -122,11 +123,22 @@ def diagnostics_payload(*, turn=1, empty=False, truncated=False):
              "source_ids": ["episode:1"], "tokens": 200,
              "years": {"2023": 1}, "years_present": True},
         ])
+    if zero_writer:
+        # API-проекция схлопывает измеренный `{}` в `years: null` при
+        # `years_present: true` — UI обязан сказать «нет фактов», не «нет данных».
+        for block in blocks:
+            if block["kind"] == "rag":
+                block["years"] = None
+                block["years_present"] = True
     current = "trace-current" if turn == 1 else "trace-prev%d" % turn
     runs = [copy.deepcopy(RUN_MAIN), copy.deepcopy(RUN_PERIOD)]
     if turn > 1:
         runs = [copy.deepcopy(RUN_PERIOD)]
         runs[0]["ts"] = NOW - 60
+    if unknown_excluded:
+        runs = [copy.deepcopy(RUN_MAIN)]
+        runs[0]["excluded"] = None
+        runs[0]["excluded_present"] = False
     return {
         "chat_id": CHAT,
         "available": True,
@@ -208,7 +220,9 @@ def main() -> int:
                             turn = 1
                 body = diagnostics_payload(
                     turn=turn, empty=(mode == "empty"),
-                    truncated=(mode == "truncated"))
+                    truncated=(mode == "truncated"),
+                    unknown_excluded=(mode == "unknown_excluded"),
+                    zero_writer=(mode == "zero_writer"))
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps(body, ensure_ascii=False))
                 return
@@ -273,6 +287,14 @@ def main() -> int:
                    " if (!m || !b || !i) return false;"
                    " return !!(m.compareDocumentPosition(b) & 4)"
                    " && !!(b.compareDocumentPosition(i) & 4); })()"))
+        _check(checks, "status_aria_busy_on_block_" + tag,
+               page.evaluate("(() => { const b = document.querySelector("
+                             "'[data-retrieval-coverage-status]');"
+                             " return !!b && b.getAttribute('aria-busy')"
+                             " !== null; })()"))
+        visible = " ".join(text.lower().split())
+        _check(checks, "status_single_latest_label_" + tag,
+               visible.count("последний ход") == 1)
 
     try:
         with sync_playwright() as p:
@@ -317,6 +339,13 @@ def main() -> int:
                        ("квота", "статус", "давность", "релевантность",
                         "бюджет")))
             _check(checks, "analytics_no_percent", "%" not in analytics)
+            _check(checks, "analytics_no_unknown_next_to_years",
+                   "нет данных" not in analytics)
+            _check(checks, "analytics_runs_show_years", page.evaluate(
+                "(() => { const rows = Array.from(document.querySelectorAll("
+                "'[data-retrieval-coverage-analytics] [data-rc-run]'));"
+                " return rows.length > 0 && rows.every(function (row) {"
+                " return row.textContent.indexOf('2023 —') >= 0; }); })()"))
             _check(checks, "analytics_period_details",
                    page.evaluate("!!document.querySelector("
                                  "'[data-retrieval-coverage-analytics] "
@@ -337,6 +366,9 @@ def main() -> int:
                                  "'.oversight-tab').length") == 7)
             _check(checks, "analytics_shared_cache_no_second_request",
                    len(result["routes"]["diagnostics"]) == 1)
+            shot = os.path.join(shots, "time09_analytics_1280.png")
+            page.screenshot(path=shot, full_page=True)
+            result["screenshots"].append(shot)
             prev = page.query_selector(
                 "[data-retrieval-coverage-analytics] [data-rc-prev]")
             _check(checks, "analytics_prev_present", prev is not None)
@@ -349,9 +381,36 @@ def main() -> int:
                 next_btn = page.query_selector(
                     "[data-retrieval-coverage-analytics] [data-rc-next]")
                 _check(checks, "analytics_next_appears", next_btn is not None)
-            shot = os.path.join(shots, "time09_analytics_1280.png")
-            page.screenshot(path=shot, full_page=True)
-            result["screenshots"].append(shot)
+                analytics_runline = " ".join(_safe_text(
+                    page, "[data-retrieval-coverage-analytics] "
+                          "[data-rc-runline]").split())
+                _check(checks, "analytics_turn2_label",
+                       "ход 2" in analytics_runline
+                       and "последний ход" not in analytics_runline)
+                shot = os.path.join(shots,
+                                    "time09_analytics_turn2_1280.png")
+                page.screenshot(path=shot, full_page=True)
+                result["screenshots"].append(shot)
+                page.evaluate("window.location.hash = '#/'")
+                page.wait_for_timeout(1800)
+                status_runline = " ".join(_safe_text(
+                    page, "[data-retrieval-coverage-status] "
+                          "[data-rc-runline]").split())
+                _check(checks, "status_resets_to_latest",
+                       "последний ход" in status_runline
+                       and "ход 2" not in status_runline)
+                _check(checks, "status_last_request_turn1",
+                       bool(result["routes"]["diagnostics"])
+                       and result["routes"]["diagnostics"][-1].endswith(
+                           "turn=1"))
+                status_copy = " ".join(_safe_text(
+                    page, "[data-retrieval-coverage-status]").split())
+                _check(checks, "status_latest_shows_current_run",
+                       "ещё вызовов: 1" in status_copy)
+                shot = os.path.join(
+                    shots, "time09_status_after_return_1280.png")
+                page.screenshot(path=shot, full_page=True)
+                result["screenshots"].append(shot)
             ctx.close()
 
             # ── 390/320: реальные мобильные ширины ──────────────────────
@@ -416,6 +475,47 @@ def main() -> int:
                    "усечена" in trunc_text)
             _check(checks, "truncated_no_zero_for_missing",
                    "RAG" not in trunc_text or "не зафиксировано" in trunc_text)
+            ctx.close()
+
+            ctx, page = scenario_context(browser, width=1280, height=900,
+                                         mode="unknown_excluded")
+            page.goto(base, wait_until="load")
+            page.wait_for_timeout(1800)
+            unknown_text = " ".join(_safe_text(
+                page, "[data-retrieval-coverage-status]").split())
+            _check(checks, "status_excluded_unknown",
+                   "Исключено: нет данных" in unknown_text)
+            shot = os.path.join(shots, "time09_unknown_excluded_1280.png")
+            element = page.query_selector(
+                "[data-retrieval-coverage-status]")
+            if element is not None:
+                element.screenshot(path=shot)
+                result["screenshots"].append(shot)
+            page.evaluate("window.location.hash ="
+                          " '#/oversight?tab=memory'")
+            page.wait_for_timeout(1600)
+            analytics_unknown = " ".join(_safe_text(
+                page, "[data-retrieval-coverage-analytics]").split())
+            _check(checks, "analytics_excluded_unknown",
+                   "исключено: нет данных" in analytics_unknown)
+            ctx.close()
+
+            ctx, page = scenario_context(browser, width=1280, height=900,
+                                         mode="zero_writer")
+            page.goto(base, wait_until="load")
+            page.wait_for_timeout(1800)
+            writer_text = " ".join(_safe_text(
+                page, "[data-retrieval-coverage-status] "
+                      "[data-rc-writer-block]").split())
+            _check(checks, "status_zero_writer_no_facts",
+                   "нет фактов" in writer_text
+                   and "нет данных" not in writer_text)
+            shot = os.path.join(shots, "time09_zero_writer_1280.png")
+            element = page.query_selector(
+                "[data-retrieval-coverage-status]")
+            if element is not None:
+                element.screenshot(path=shot)
+                result["screenshots"].append(shot)
             ctx.close()
 
             before = len(result["routes"]["diagnostics"])

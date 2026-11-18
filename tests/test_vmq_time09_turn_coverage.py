@@ -506,6 +506,36 @@ async def test_api_retrieval_is_bounded_sorted_and_excludes_period_selection(
 
 
 @pytest.mark.asyncio
+async def test_api_retrieval_cap_is_six_first_by_time(tmp_path, monkeypatch):
+    """B1 (review R1): реальный cap `_TURN_RETRIEVAL_MAX=6`, первые по ts.
+
+    Прежний тест проверял только «не больше 6» на 5+1 строках; здесь 8
+    основных вызовов одного хода — API обязан вернуть ровно шесть самых
+    ранних (главный вызов хода не теряется) в возрастающем порядке.
+    """
+    db = await _make_db(tmp_path)
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
+    _emit_chain("corr-cap")
+    _emit_selection("corr-cap", payload=_selection_payload())
+    for index in range(8):
+        await _insert_event(
+            db, trace_id="corr-cap", ts=1_700_001_000 + index,
+            reason_code="retrieval_empty",
+            usage={"policy": "auto", "years": {"2023": index + 1}})
+    await mca_events.flush_events(db)
+
+    async with await _make_client(monkeypatch) as client:
+        body = (await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-cap")
+                ).json()
+    runs = body["retrieval"]
+    assert len(runs) == 6, f"cap=6, получено {len(runs)}"
+    assert [row["ts"] for row in runs] == [
+        1_700_001_000 + index for index in range(6)], (
+        "первые шесть по времени, возрастающий порядок")
+    assert body["stages"]["retrieval"] is True
+
+
+@pytest.mark.asyncio
 async def test_api_retrieval_distinguishes_measured_empty_from_missing(
         tmp_path, monkeypatch):
     db = await _make_db(tmp_path)

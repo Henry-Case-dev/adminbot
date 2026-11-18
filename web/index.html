@@ -9403,6 +9403,7 @@
               <div class="card p-4 col-span-full mb-3"
                    data-retrieval-coverage-analytics
                    v-if="oversightTab === 'memory' && isGlobalAdmin"
+                   :aria-busy="memoryYearCoverageLoading ? 'true' : 'false'"
                    role="group" aria-label="Покрытие памяти по годам: вызовы">
                 <div class="flex items-center gap-2 flex-wrap mb-1">
                   <div class="text-xs font-bold">Покрытие памяти по годам</div>
@@ -9426,8 +9427,7 @@
                             aria-label="Обновить покрытие" title="Обновить">⟳</button>
                   </div>
                 </div>
-                <div v-if="memoryYearCoverageLoading" class="spinner my-2"
-                     aria-busy="true"></div>
+                <div v-if="memoryYearCoverageLoading" class="spinner my-2"></div>
                 <div v-else-if="memoryYearCoverageView.state === 'error'"
                      class="text-xs text-red-300" role="alert">
                   {{ memoryYearCoverageView.text }}
@@ -9444,7 +9444,7 @@
                 </div>
                 <template v-else>
                   <div class="text-xs text-gray-500" data-rc-runline>
-                    последний ход<template v-if="memoryYearCoverageAt"> · {{ fmtTs(memoryYearCoverageAt) }}</template>
+                    {{ memoryYearCoverageTurnLabel }}<template v-if="memoryYearCoverageAt"> · {{ fmtTs(memoryYearCoverageAt) }}</template>
                     <template v-if="memoryYearCoveragePolicy"> · политика {{ memoryYearCoveragePolicy }}</template>
                     <template v-if="memoryYearCoverageTraceShort"> · trace {{ memoryYearCoverageTraceShort }}</template>
                   </div>
@@ -9500,7 +9500,7 @@
                               class="badge badge-muted text-[10px]"
                               :aria-label="'Год ' + chip.year + ': ' + chip.count">{{ chip.year }} — {{ chip.count }}</span>
                         <span v-if="!run.yearsPresent" class="text-gray-500">нет данных</span>
-                        <span v-else-if="!run.chips.length" class="text-gray-500">нет фактов</span>
+                        <span v-else-if="!run.chips.length" class="text-gray-500">{{ run.emptyText }}</span>
                       </div>
                       <div class="text-xs flex flex-wrap gap-1 items-center">
                         <span class="text-gray-500">исключено:</span>
@@ -9527,7 +9527,7 @@
                                 class="badge badge-muted text-[10px]"
                                 :aria-label="'Год ' + chip.year + ': ' + chip.count">{{ chip.year }} — {{ chip.count }}</span>
                           <span v-if="!run.yearsPresent" class="text-gray-500">нет данных</span>
-                          <span v-else-if="!run.chips.length" class="text-gray-500">нет фактов</span>
+                          <span v-else-if="!run.chips.length" class="text-gray-500">{{ run.emptyText }}</span>
                         </div>
                         <div class="text-xs flex flex-wrap gap-1 items-center">
                           <span class="text-gray-500">исключено:</span>
@@ -15557,18 +15557,18 @@
                    причин исключения; пусто/неизвестно — честной подписью. -->
               <div class="mt-3 pt-2 border-t border-white/10"
                    data-retrieval-coverage-status role="group"
+                   :aria-busy="memoryYearCoverageLoading ? 'true' : 'false'"
                    aria-label="Покрытие памяти по годам">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
                   <div class="text-xs font-bold">Покрытие памяти по годам</div>
-                  <span class="text-xs text-gray-500">последний ход · годы источника (UTC)</span>
+                  <span class="text-xs text-gray-500">годы источника (UTC)</span>
                   <button class="btn-ghost text-xs ml-auto"
                           style="min-width:44px;min-height:44px"
                           :disabled="memoryYearCoverageBusy"
                           @click="loadMemoryYearCoverage(true)"
                           aria-label="Обновить покрытие" title="Перечитать последний ход">⟳</button>
                 </div>
-                <div v-if="memoryYearCoverageLoading" class="spinner my-2"
-                     aria-busy="true"></div>
+                <div v-if="memoryYearCoverageLoading" class="spinner my-2"></div>
                 <div v-else-if="memoryYearCoverageView.state === 'error'"
                      class="text-xs text-red-300" role="alert">
                   {{ memoryYearCoverageView.text }}
@@ -15585,7 +15585,7 @@
                 </div>
                 <template v-else>
                   <div class="text-xs text-gray-500" data-rc-runline>
-                    последний ход<template v-if="memoryYearCoverageAt"> · {{ fmtTs(memoryYearCoverageAt) }}</template>
+                    {{ memoryYearCoverageTurnLabel }}<template v-if="memoryYearCoverageAt"> · {{ fmtTs(memoryYearCoverageAt) }}</template>
                     <template v-if="memoryYearCoveragePolicy"> · {{ memoryYearCoveragePolicy }}</template>
                     <template v-if="memoryYearCoverageTraceShort"> · ход {{ memoryYearCoverageTraceShort }}</template>
                   </div>
@@ -15612,6 +15612,8 @@
                     <span class="text-gray-500">Исключено:</span>
                     <span v-if="!memoryYearCoverageView.primary"
                           class="text-gray-500">нет событий retrieval</span>
+                    <span v-else-if="!memoryYearCoverageView.primary.excludedPresent"
+                          class="text-gray-500">нет данных</span>
                     <span v-else-if="memoryYearCoverageView.primary.emptyExcluded"
                           class="text-gray-500">исключений не было</span>
                     <template v-else>
