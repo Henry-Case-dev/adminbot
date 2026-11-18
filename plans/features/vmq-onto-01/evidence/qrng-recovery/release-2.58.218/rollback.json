@@ -1,0 +1,23 @@
+{
+  "release": "2.58.218",
+  "target_rollback_commit": "f68e7631dede326995b985bf8c3849d62def1bcb",
+  "target_rollback_version": "2.58.217",
+  "target_rollback_state": "deployed previous release / rollback base; production not contacted in this assembly",
+  "schema": 48,
+  "ddl": 0,
+  "migrations_added": 0,
+  "migration_scope": "none; schema 48 and its two nullable mca_random_batches columns were introduced by 2.58.217 and are unchanged",
+  "data_changes": 0,
+  "procedure": [
+    "checkout f68e7631d (2.58.217) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz, version 2.58.217, and release identity (git rev-parse HEAD = f68e7631d, dirty=false)"
+  ],
+  "notes": [
+    "Код 2.58.217 уже знает схему 48 (он её и ввёл): шаг random_batch_provenance_v48 остаётся в книге, current=48 принимается без pending-шагов.",
+    "Две nullable-колонки config_fingerprint/external_ref остаются инертными; 2.58.217 их читает, откат данных не требуется.",
+    "F-01 не менял схему, DDL и данные, поэтому откат 2.58.218 → 2.58.217 не требует миграций или восстановления БД.",
+    "Полный откат схемы (DROP COLUMN + user_version=47) НЕ требуется и в runbook не входит.",
+    "deploy_v2.9.2.py не тронут; production-ключи/флаги/настройки в этой сборке не менялись."
+  ]
+}

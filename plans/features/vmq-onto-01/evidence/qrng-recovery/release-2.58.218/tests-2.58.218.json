@@ -1,0 +1,159 @@
+{
+  "release": "2.58.218",
+  "feature": "QRNG-RECOVERY-01 / F-01 activation self-check batch scope",
+  "branch": "release/qrng-f01-2.58.218",
+  "base": {
+    "sha": "f68e7631dede326995b985bf8c3849d62def1bcb",
+    "version": "2.58.217",
+    "content_tip": "b6c9bb0bdec0f26ee72a3b7ab54c0a19f26610a0",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "content_tip": "50b1dd6b32160d1ffbe393ebfa1701987fdde7b6",
+    "product_commit": "6f2b7da62b94b09175bb9360866887c631ab5e9b",
+    "source_product_commit": "00d9ce3f84b4b83126d3f5544268c627e82df13c",
+    "bump_commit": "50b1dd6b32160d1ffbe393ebfa1701987fdde7b6",
+    "product_equality": {
+      "git_diff_vs_00d9ce3f": "empty (rc=0) for services/mca_random_source.py and tests/test_qrng_f01_activation_batch_scope.py",
+      "blob_services": "4192f0338fa4c6766dc721c68c4989ab73538589",
+      "blob_test": "17d754ab6a23f879c09a1696867e3f2fc977ba3a",
+      "sha256_services": "0827075acf8f63004d16f31b8fa33e08c2c353f23d7717b141c2bf98f8d58111",
+      "sha256_test": "fb7f6951d33934d71b754b545175293e6d2a50760cc1a983e73400123bacc09a"
+    }
+  },
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/qrng-f01-2-58-218-bc2c7b2cd5b6-efb3d33a",
+    "network": "none; ANU/LfDR HTTP is injected in tests; temp SQLite per test; no production access",
+    "configuration": "test fixtures only; no environment gate or factory default changed; no paid IBM/ANU job"
+  },
+  "tested_tip_note": "Batches were executed at content tip 50b1dd6b3. The evidence commit that follows changes only files under plans/features/vmq-onto-01/evidence/qrng-recovery/release-2.58.218/ (no product, tests, config or version pins). The post-commit delta is verified with `git diff --name-only 50b1dd6b3..HEAD -- ':!plans/features/vmq-onto-01/evidence/qrng-recovery/release-2.58.218'` = empty.",
+  "batches": [
+    {
+      "id": "f01-focused",
+      "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py -q --tb=short",
+      "result": {"passed": 4, "failed": 0, "skipped": 0},
+      "duration_s": 5.33,
+      "covers": [
+        "mixed older LfDR/NULL + new ANU batch: self-check consumes only the deposited ANU batch",
+        "target batch exhausted -> honest failure, no foreign consumption",
+        "single batch: previous behavior, no regression",
+        "store API: exact batch scope, empty/unknown id safe, legacy call keeps oldest-first"
+      ]
+    },
+    {
+      "id": "focused-random-expanded",
+      "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py tests/test_qrng_p1_isolation.py tests/test_qrng_p2_lfdr.py tests/test_qrng_p3_selector.py tests/test_mca10a_random_source_block_{a,b,c,d,e}_round1037.py tests/test_asap5_random_bootstrap_config.py tests/test_goodmorning.py tests/test_qnd_{event_path,metrics,publication,schedule}.py tests/test_mca10a_random_source_js_round1037.py -q --tb=short",
+      "result": {"passed": 314, "failed": 0, "skipped": 0},
+      "duration_s": 45.53,
+      "note": "2.58.217 expanded random/QND batch (310) plus the 4 F-01 tests; no skips"
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest <24 files below> -q --tb=short",
+      "files": [
+        "tests/test_round1025_f8_registry.py",
+        "tests/test_mca23_planned_vs_actual.py",
+        "tests/test_mod_acl_ux_01_m4_catalog.py",
+        "tests/test_mod_acl_ux_01_m3_module_routes.py",
+        "tests/test_mod_acl_ux_01_m4_module_params.py",
+        "tests/test_asap7_module_registry.py",
+        "tests/test_asap7_module_completeness.py",
+        "tests/test_asap8_f5_module_truth.py",
+        "tests/test_asap8_v63_b06_summary_scope.py",
+        "tests/test_asap8_v63_b07_temporal_factcheck.py",
+        "tests/test_asap8_v6_p1_d11_registry.py",
+        "tests/test_asap8_v6_wa1_config_cache.py",
+        "tests/test_factcheck_post_release_w2.py",
+        "tests/test_mca18_self_model_block_a_round1042.py",
+        "tests/test_mod_acl_ux_m2_capability_state.py",
+        "tests/test_mod_acl_ux_m2_consumers.py",
+        "tests/test_mod_acl_ux_m2_resolver.py",
+        "tests/test_mod_acl_ux_m2_runtime_edges.py",
+        "tests/test_mod_acl_ux_01_m21_adapters.py",
+        "tests/test_mod_acl_ux_01_m21_gates.py",
+        "tests/test_mod_acl_ux_m2_tristate_write.py",
+        "tests/test_mod_acl_ux_m2_inflight.py",
+        "tests/test_mod_acl_ux_01_m1_acl_false_403.py",
+        "tests/test_webapp_js_unit.py"
+      ],
+      "result": {"passed": 386, "failed": 0, "skipped": 0},
+      "duration_s": 44.66,
+      "note": "same 24-file shared-code mandatory batch recorded for 2.58.210/2.58.217"
+    },
+    {
+      "id": "schema-apps-197",
+      "command": "python -m pytest <8 files below> -q --tb=short",
+      "files": [
+        "tests/test_mca10b_random_applications_block_a_round1041.py",
+        "tests/test_mca10b_random_applications_block_b_round1041.py",
+        "tests/test_mca10b_random_applications_block_c_round1041.py",
+        "tests/test_mca10b_random_applications_block_d_round1041.py",
+        "tests/test_evol014_meme_initiative.py",
+        "tests/test_mca14_schema_additive_round1027.py",
+        "tests/test_round1025_f8_registry.py",
+        "tests/test_mca23_planned_vs_actual.py"
+      ],
+      "result": {"passed": 197, "failed": 0, "skipped": 0},
+      "duration_s": 45.71,
+      "note": "schema pins stay at 48; catalog pins 648/121/119/23"
+    },
+    {
+      "id": "js-full-suite",
+      "command": "for each tests/js/*.js except module_fixture.js: node <file>",
+      "result": {"files": 122, "passed": 118, "failed": 4},
+      "failed_files": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "base_reproduction": {
+        "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/qrng-2-58-217-6d90e3721fac-b73cf1ce (f68e7631d)",
+        "method": "ran the same 4 failing files on clean base",
+        "result": "all 4 exit 1 on base as well"
+      },
+      "note": "2.58.217 evidence recorded 118/4 at content tip b6c9bb0b; tests/js is byte-identical between b6c9bb0b and f68e7631d (empty diff). The 2.58.218 bump only re-pins 4 JS version assertions, all passing."
+    }
+  ],
+  "static_checks": {
+    "node_check_web_app_js": {"exit": 0},
+    "gen_param_registry_check": {"exit": 0, "message": "CHECK OK: реестр 648 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны."},
+    "git_diff_check_worktree": {"exit": 0},
+    "git_diff_check_f68e7631d_HEAD": {"exit": 0},
+    "schema_smoke_temp_sqlite": {
+      "user_version": 48,
+      "v48_constant": 48,
+      "columns_present": ["config_fingerprint", "external_ref"],
+      "second_initialize_noop": true,
+      "cleanup": "temp directory removed after run"
+    },
+    "unchanged_product_files": {
+      "services/database.py": "blob identical to f68e7631d",
+      "services/pg_db.py": "blob identical to f68e7631d",
+      "deploy_v2.9.2.py": "blob identical to f68e7631d",
+      "web/ handlers/ bot.py": "no diff in train"
+    }
+  },
+  "red_and_mutations": {
+    "status": "already proven in f01-activation-reserve; not re-executed for this assembly and not re-claimed as new evidence",
+    "artifacts": [
+      "plans/features/vmq-onto-01/evidence/qrng-recovery/f01-activation-reserve/red-base.txt",
+      "plans/features/vmq-onto-01/evidence/qrng-recovery/f01-activation-reserve/tests.json",
+      "plans/features/vmq-onto-01/evidence/qrng-recovery/f01-activation-reserve/mutations.json",
+      "plans/features/vmq-onto-01/evidence/qrng-recovery/f01-activation-reserve/mutation_probe.py",
+      "plans/features/vmq-onto-01/evidence/qrng-recovery/f01-activation-reserve/review-r1.md"
+    ],
+    "summary": "Base f68e7631d: 3 failed / 1 passed for the F-01 test file. Mutations 3/3 killed, source bytes restored (sha256 0827075a...). Independent review Approved (commit a46825de)."
+  },
+  "limitations": [
+    "No production access, no deploy, no real ANU/LfDR request; provider responses are injected. This is a provenance/scope fix, not a randomness-quality change.",
+    "Live activation with a real key save was not observed (not_checked).",
+    "F-01 review backlog B1-B3 stays open: direct unit test of the contract guard, direct public validation_failed/deposited=false branch test, strip asymmetry between _batch_clause and the guard.",
+    "The pre-existing crash window between reserve_chunk and journal flush is unchanged (a reserved value may be lost, never reissued)."
+  ]
+}

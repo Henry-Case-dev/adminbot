@@ -1,0 +1,34 @@
+{
+  "captured_at_commit": "50b1dd6b32160d1ffbe393ebfa1701987fdde7b6",
+  "command": "python tools/release_manifest.py --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy input removed",
+  "manifest": {
+    "deployed_at": "2026-11-18T15:12:42.812406Z",
+    "deployed_sha": "50b1dd6b32160d1ffbe393ebfa1701987fdde7b6",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "f68e7631dede326995b985bf8c3849d62def1bcb",
+    "previous_version": "2.58.217",
+    "release_branch": "release/qrng-f01-2.58.218",
+    "schema": 1,
+    "version": "2.58.218"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "reconstruction of the documented 2.58.217 production state (deployed f68e7631d, branch release/qrng-2.58.217); production file was not read",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "f68e7631dede326995b985bf8c3849d62def1bcb",
+      "version": "2.58.217",
+      "effect": "deploy",
+      "release_branch": "release/qrng-2.58.217"
+    },
+    "removed_after_run": true
+  },
+  "note": "Dry-run captured at content tip 50b1dd6b3 (F-01 product + bump/pins). The following evidence commit is docs-only and does not change version/product tree. A real deploy must rebuild the manifest on the actual production checkout after git pull, so deployed_sha there will be the actual HEAD; this capture proves version 2.58.218, previous_sha f68e7631d, dirty_tracked=false."
+}
