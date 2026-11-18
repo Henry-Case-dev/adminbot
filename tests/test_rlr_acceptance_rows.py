@@ -647,8 +647,8 @@ async def test_r0813_invalid_plan_json_repaired_on_machine_stage(monkeypatch):
     repairs: list = []
     real_build = _l1.build_repair_messages
 
-    def _build(messages, previous_raw):
-        out = real_build(messages, previous_raw)
+    def _build(messages, previous_raw, **kwargs):
+        out = real_build(messages, previous_raw, **kwargs)
         repairs.append({"previous": previous_raw, "messages": out})
         return out
 

@@ -396,6 +396,10 @@ class LLMChatResult:
     # сериализуется и не логируется. ``None`` у двойников/старых конструкторов
     # → доставка не доказана (under-count, ложного кредита нет).
     sent_body: dict | None = None
+    #: P0 L1 (2026-11-17): класс формы ответа по единому нормализатору
+    #: (`text`|`tool_calls`|`reasoning_only`|…). Аддитивно: прежние
+    #: конструкторы/двойники без поля получают `text`.
+    response_kind: str = "text"
 
 
 # EMBED-META-WIRE (CANARY-03): метаданные embed-ответа провайдера.
@@ -437,6 +441,26 @@ def _embed_response_meta(data, vectors) -> dict:
 # Обратная совместимость: `generate()` остаётся текстовым фасадом над
 # `generate_with_metadata()`; новые потребители получают объект с
 # finish_reason/usage/max_output_tokens_sent и диагностикой fallback.
+
+# ── P0 L1 (2026-11-17): классы исхода формы ответа (один нормализатор ниже) ─
+RESPONSE_KIND_TEXT = "text"
+RESPONSE_KIND_TOOL_CALLS = "tool_calls"
+RESPONSE_KIND_REASONING_ONLY = "reasoning_only"
+RESPONSE_KIND_TRUNCATED_REASONING = "truncated_reasoning"
+RESPONSE_KIND_EMPTY = "empty"
+RESPONSE_KIND_INVALID_CONTENT = "invalid_content"
+RESPONSE_KIND_NO_CHOICES = "no_choices"
+RESPONSE_KIND_PROVIDER_ERROR = "provider_error"
+RESPONSE_KIND_INVALID_PAYLOAD = "invalid_payload"
+
+#: Алиасы reasoning-черновика (провайдеры кладут его в разные поля).
+_REASONING_ALIASES = ("reasoning_content", "reasoning", "thinking")
+
+#: Документированные поля output-лимита OpenAI-compatible запроса. Клиент
+#: пишет ровно то поле, которое выбрал маршрут (capability-слой
+#: `services.model_capacity` объявляет то же имя модели/провайдера). Набор
+#: закрытый: неизвестное поле не выдумывается, действует `max_tokens`.
+_OUTPUT_LIMIT_FIELDS = ("max_tokens", "max_completion_tokens")
 
 # Провайдерские эквиваленты «output оборван по лимиту длины» (нормализованные,
 # т.е. уже strip().lower()): OpenAI/DeepSeek — 'length'; Anthropic — 'max_tokens'.
@@ -524,6 +548,10 @@ class LLMCompletion:
     #: UR-F шаг 1 (delivery snapshot, Q1): что ФАКТИЧЕСКИ ушло провайдеру
     #: (после primary/fallback и recompose). Только in-process.
     sent_body: dict | None = None
+    #: P0 L1 (2026-11-17): нормализованный класс формы ответа (`text` для
+    #: штатного текста) + длина reasoning-черновика (число, без содержимого).
+    response_kind: str = RESPONSE_KIND_TEXT
+    reasoning_chars: int = 0
 
     @property
     def fallback_used(self) -> bool:
@@ -569,12 +597,19 @@ def _sent_body(sent, payload: dict) -> tuple[str, dict]:
 
 
 def _sent_max_output_tokens(body: dict) -> int | None:
-    """``max_tokens`` из отправленного тела; ключа нет/некорректный/<=0 → None."""
-    try:
-        value = int(body.get("max_tokens"))
-    except (TypeError, ValueError):
-        return None
-    return value if value > 0 else None
+    """Лимит вывода из отправленного тела (любое документированное поле).
+
+    P0 L1: маршрут может использовать `max_tokens` ИЛИ
+    `max_completion_tokens`; отчёт обязан показывать ФАКТИЧЕСКИ отправленное
+    значение, а не только `max_tokens`. Ключа нет/некорректный/<=0 → None."""
+    for field in _OUTPUT_LIMIT_FIELDS:
+        try:
+            value = int(body.get(field))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return None
 
 
 def _context_overflow_exc(err: LLMError, *, status: int,
@@ -612,6 +647,343 @@ def _context_overflow_exc(err: LLMError, *, status: int,
     overflow.context_info = info
     overflow.context_recovery = plan
     return overflow
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# P0 L1 (2026-11-17) — ЕДИНЫЙ нормализатор ответа /chat/completions.
+#
+# Один разбор формы ответа для всех трёх потребителей (`generate_with_metadata`,
+# `generate_chat`, `direct_l1.dedicated_generate`): content (строка/null/пустая/
+# content-parts), reasoning-алиасы без финального текста, finish_reason,
+# tool_calls, отсутствие choices и ошибка ВНУТРИ HTTP 200. Ничего не публикует
+# и не логирует текст ответа/reasoning: только класс исхода и счётчики.
+#
+# Контракт исхода (ровно один класс):
+#   text                 — есть непустой финальный текст (возможен truncated);
+#   tool_calls           — текста нет, есть валидные tool_calls;
+#   reasoning_only       — есть reasoning, финального текста нет (НЕ ответ);
+#   truncated_reasoning  — reasoning + finish_reason=length|max_tokens;
+#   empty                — content пуст/null без reasoning/tools;
+#   invalid_content      — content неподдерживаемого типа;
+#   no_choices           — choices отсутствуют/пусты/не список;
+#   provider_error       — внутри HTTP 200 пришёл provider error payload;
+#   invalid_payload      — ответ не JSON-объект.
+# Reasoning никогда не становится `content` и не уходит как ответ.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Классы отказа вызова (единый taxonomy; R17 — коды, не тексты) ───────────
+FAILURE_NO_KEY = "no_key"
+FAILURE_RATE_LIMIT = "rate_limit"
+FAILURE_AUTH = "auth"
+FAILURE_INCOMPATIBLE_REQUEST = "incompatible_request"
+FAILURE_BAD_REQUEST = "bad_request"
+FAILURE_CONTEXT_OVERFLOW = "context_overflow"
+FAILURE_SERVER_ERROR = "server_error"
+FAILURE_TIMEOUT = "timeout"
+FAILURE_DEADLINE_EXCEEDED = "deadline_exceeded"
+FAILURE_CANCELLED = "cancelled"
+FAILURE_BAD_RESPONSE = "bad_response"
+FAILURE_TRANSPORT = "transport"
+FAILURE_UNKNOWN = "unknown"
+
+#: Параметры запроса, на которые провайдер отвечает «не поддерживается»
+#: (4xx). Разбор по фактическому телу/тексту ответа, без имён моделей.
+_INCOMPATIBLE_PARAMETERS = (
+    ("max_completion_tokens", ("max_completion_tokens",)),
+    ("max_tokens", ("max_tokens", "max_output_tokens")),
+    ("temperature", ("temperature", "top_p")),
+    ("response_format", ("response_format", "json mode", "json_mode",
+                         "json_object", "structured output")),
+)
+_INCOMPATIBLE_HINTS = (
+    "unsupported", "not supported", "unknown parameter", "unrecognized",
+    "unexpected keyword", "invalid parameter", "not allowed", "does not support",
+    "extra fields", "additional properties",
+)
+
+
+@dataclass(frozen=True)
+class ChatResponse:
+    """Нормализованный ответ /chat/completions (один класс исхода)."""
+
+    kind: str
+    content: str | None
+    reasoning_chars: int
+    tool_calls: tuple["LLMToolCall", ...]
+    finish_reason: str
+    finish_reason_raw: str | None
+    usage: dict | None
+    error_code: str | None
+    content_parts: int = 0
+    #: reasoning-черновик ТОЛЬКО для существующего in-process контракта
+    #: `LLMChatResult.reasoning`; никогда не становится `content`, никогда не
+    #: логируется (в события идут только `reasoning_chars`).
+    reasoning: str | None = None
+
+    @property
+    def has_text(self) -> bool:
+        return self.kind == RESPONSE_KIND_TEXT and bool(self.content)
+
+    @property
+    def truncated(self) -> bool:
+        return is_truncation_finish_reason(self.finish_reason)
+
+    @property
+    def reasoning_only(self) -> bool:
+        return self.kind in (RESPONSE_KIND_REASONING_ONLY,
+                             RESPONSE_KIND_TRUNCATED_REASONING)
+
+    def as_event_fields(self) -> dict:
+        """R17-safe поля телеметрии (без текста/reasoning/ключей)."""
+        return {
+            "response_kind": self.kind,
+            "finish_reason": self.finish_reason,
+            "reasoning_chars": int(self.reasoning_chars),
+            "tool_calls": len(self.tool_calls),
+            "content_parts": int(self.content_parts),
+            "error_code": self.error_code,
+        }
+
+
+def _content_text(value) -> tuple[str | None, int]:
+    """content → ``(текст|None, число content-parts)``.
+
+    * строка: пустая/пробельная → ``(None, 0)`` (не «ответ из пробелов»);
+    * список content-parts: склеиваются ТОЛЬКО текстовые части (документ.
+      форма OpenAI `{"type": "text", "text": ...}`); остальные типы
+      игнорируются (изображения инструментов не становятся ответом);
+    * None/иное → ``(None, 0)``."""
+    if isinstance(value, str):
+        text = value
+        return (text if text.strip() else None), 0
+    if isinstance(value, (list, tuple)):
+        chunks: list[str] = []
+        parts = 0
+        for part in value:
+            if isinstance(part, str):
+                parts += 1
+                if part.strip():
+                    chunks.append(part)
+                continue
+            if not isinstance(part, dict):
+                continue
+            parts += 1
+            part_type = str(part.get("type") or "text").strip().lower()
+            if part_type not in ("text", "output_text", "input_text"):
+                continue
+            chunk = part.get("text")
+            if isinstance(chunk, str) and chunk.strip():
+                chunks.append(chunk)
+        joined = "\n".join(chunks).strip()
+        return (joined or None), parts
+    return None, 0
+
+
+def _parse_tool_calls(raw_calls) -> tuple["LLMToolCall", ...]:
+    """Валидные tool_calls (без имени функции — malformed, не ответ)."""
+    parsed: list[LLMToolCall] = []
+    if not isinstance(raw_calls, (list, tuple)):
+        return ()
+    for call in raw_calls:
+        if not isinstance(call, dict):
+            continue
+        function = call.get("function")
+        if not isinstance(function, dict):
+            continue
+        name = str(function.get("name") or "").strip()
+        if not name:
+            continue
+        parsed.append(LLMToolCall(
+            id=str(call.get("id", "") or ""),
+            name=name,
+            arguments=str(function.get("arguments", "") or ""),
+        ))
+    return tuple(parsed)
+
+
+def _provider_error_code(data: dict) -> tuple[str | None, str]:
+    """Ошибка провайдера ВНУТРИ HTTP 200: ``(код, короткая причина)``."""
+    error = data.get("error")
+    if error is None:
+        return None, ""
+    if isinstance(error, dict):
+        code = str(error.get("code") or error.get("type") or "").strip()
+        return (code[:48] or "provider_error"), "error_payload"
+    if isinstance(error, str):
+        return "provider_error", "error_payload"
+    return "provider_error", "error_payload"
+
+
+def classify_chat_response(data) -> ChatResponse:
+    """Единый разбор формы ответа (pure; никогда не бросает).
+
+    Один и тот же класс исхода для всех потребителей: «HTTP 200» сам по себе
+    НЕ означает валидный ответ. Текст ответа/reasoning здесь только
+    классифицируется и счётчиком измеряется — не логируется."""
+    if not isinstance(data, dict):
+        return ChatResponse(
+            kind=RESPONSE_KIND_INVALID_PAYLOAD, content=None,
+            reasoning_chars=0, tool_calls=(), finish_reason=_FINISH_REASON_UNKNOWN,
+            finish_reason_raw=None, usage=None, error_code=None)
+    error_code, _reason = _provider_error_code(data)
+    if error_code:
+        finish_reason, finish_raw = _choice_finish_reason(data)
+        return ChatResponse(
+            kind=RESPONSE_KIND_PROVIDER_ERROR, content=None,
+            reasoning_chars=0, tool_calls=(), finish_reason=finish_reason,
+            finish_reason_raw=finish_raw, usage=_usage_dict(data),
+            error_code=error_code)
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices \
+            or not isinstance(choices[0], dict):
+        return ChatResponse(
+            kind=RESPONSE_KIND_NO_CHOICES, content=None, reasoning_chars=0,
+            tool_calls=(), finish_reason=_FINISH_REASON_UNKNOWN,
+            finish_reason_raw=None, usage=_usage_dict(data), error_code=None)
+    choice = choices[0]
+    finish_reason, finish_raw = _choice_finish_reason(data)
+    usage = _usage_dict(data)
+    message = choice.get("message")
+    if not isinstance(message, dict):
+        # choices есть, но сообщения нет — ответа нет (не пустой content).
+        return ChatResponse(
+            kind=RESPONSE_KIND_NO_CHOICES, content=None, reasoning_chars=0,
+            tool_calls=(), finish_reason=finish_reason,
+            finish_reason_raw=finish_raw, usage=usage, error_code=None)
+    reasoning_chars = 0
+    reasoning_text = None
+    for alias in _REASONING_ALIASES:
+        raw_reasoning = message.get(alias)
+        if isinstance(raw_reasoning, str) and raw_reasoning.strip():
+            reasoning_chars = len(raw_reasoning)
+            reasoning_text = raw_reasoning
+            break
+    text, parts = _content_text(message.get("content"))
+    tool_calls = _parse_tool_calls(message.get("tool_calls"))
+    if text:
+        return ChatResponse(
+            kind=RESPONSE_KIND_TEXT, content=text,
+            reasoning_chars=reasoning_chars, tool_calls=tool_calls,
+            finish_reason=finish_reason, finish_reason_raw=finish_raw,
+            usage=usage, error_code=None, content_parts=parts,
+            reasoning=reasoning_text)
+    raw_content = message.get("content")
+    if raw_content is not None and not isinstance(raw_content, (str, list, tuple)):
+        return ChatResponse(
+            kind=RESPONSE_KIND_INVALID_CONTENT, content=None,
+            reasoning_chars=reasoning_chars, tool_calls=tool_calls,
+            finish_reason=finish_reason, finish_reason_raw=finish_raw,
+            usage=usage, error_code=None, content_parts=parts,
+            reasoning=reasoning_text)
+    if tool_calls:
+        return ChatResponse(
+            kind=RESPONSE_KIND_TOOL_CALLS, content=None,
+            reasoning_chars=reasoning_chars, tool_calls=tool_calls,
+            finish_reason=finish_reason, finish_reason_raw=finish_raw,
+            usage=usage, error_code=None, content_parts=parts,
+            reasoning=reasoning_text)
+    if reasoning_chars:
+        kind = (RESPONSE_KIND_TRUNCATED_REASONING
+                if is_truncation_finish_reason(finish_reason)
+                else RESPONSE_KIND_REASONING_ONLY)
+        return ChatResponse(
+            kind=kind, content=None, reasoning_chars=reasoning_chars,
+            tool_calls=(), finish_reason=finish_reason,
+            finish_reason_raw=finish_raw, usage=usage, error_code=None,
+            content_parts=parts, reasoning=reasoning_text)
+    return ChatResponse(
+        kind=RESPONSE_KIND_EMPTY, content=None, reasoning_chars=0,
+        tool_calls=(), finish_reason=finish_reason,
+        finish_reason_raw=finish_raw, usage=usage, error_code=None,
+        content_parts=parts)
+
+
+def _usage_dict(data) -> dict | None:
+    usage = data.get("usage") if isinstance(data, dict) else None
+    return usage if isinstance(usage, dict) else None
+
+
+def usage_output_tokens(usage) -> tuple[int | None, int | None]:
+    """``(completion_tokens, reasoning_tokens)`` из usage (None = не сообщено).
+
+    Провайдеры кладут reasoning-токены в разные места
+    (`completion_tokens_details.reasoning_tokens`); отсутствие поля — честный
+    None, а не 0."""
+    if not isinstance(usage, dict):
+        return None, None
+    completion = usage.get("completion_tokens")
+    try:
+        completion = int(completion) if completion is not None else None
+    except (TypeError, ValueError):
+        completion = None
+    details = usage.get("completion_tokens_details")
+    reasoning = details.get("reasoning_tokens") \
+        if isinstance(details, dict) else None
+    try:
+        reasoning = int(reasoning) if reasoning is not None else None
+    except (TypeError, ValueError):
+        reasoning = None
+    return completion, reasoning
+
+
+def incompatible_parameter(exc: BaseException) -> str | None:
+    """Какой request-параметр провайдер отверг (только реальный 4xx-сигнал).
+
+    Возвращает имя параметра либо ``None``. Источник — `status` и `body`
+    исключения (in-memory, не логируется). Никаких догадок по имени модели:
+    без 4xx и без явного маркера «unsupported/unknown parameter» → None."""
+    status = getattr(exc, "status", None)
+    if status not in (400, 404, 409, 415, 422):
+        return None
+    body = str(getattr(exc, "body", "") or "")
+    text = f"{body} {exc}".lower()
+    if not any(hint in text for hint in _INCOMPATIBLE_HINTS):
+        return None
+    for parameter, needles in _INCOMPATIBLE_PARAMETERS:
+        if any(needle in text for needle in needles):
+            return parameter
+    return "unknown"
+
+
+def classify_llm_failure(exc: BaseException, *,
+                         body: str | None = None) -> str:
+    """Единый класс отказа вызова (R17: код, не текст исключения).
+
+    Владелец повтора остаётся у существующих слоёв: transport-ретраи — `_post`
+    (единственный владелец), LLM-канал — `LLMClient`, L1 — матрица исхода
+    хода. Эта функция только КЛАССИФИЦИРУЕТ, ничего не ретраит."""
+    if isinstance(exc, asyncio.CancelledError):
+        return FAILURE_CANCELLED
+    if isinstance(exc, NoApiKeyForChat):
+        return FAILURE_NO_KEY
+    if isinstance(exc, LLMContextOverflowError):
+        return FAILURE_CONTEXT_OVERFLOW
+    if isinstance(exc, LLMRateLimitError):
+        return FAILURE_RATE_LIMIT
+    if isinstance(exc, LLMAuthError):
+        return FAILURE_AUTH
+    if isinstance(exc, LLMTimeoutError):
+        cause = str(getattr(exc, "cause_class", "") or "")
+        return (FAILURE_DEADLINE_EXCEEDED
+                if cause == "budget" else FAILURE_TIMEOUT)
+    if isinstance(exc, LLMServerError):
+        return FAILURE_SERVER_ERROR
+    if isinstance(exc, LLMBadResponseError):
+        return FAILURE_BAD_RESPONSE
+    if isinstance(exc, LLMTransportError):
+        return FAILURE_TRANSPORT
+    if isinstance(exc, LLMError):
+        status = getattr(exc, "status", None)
+        if status in (400, 404, 409, 415, 422) and incompatible_parameter(exc):
+            return FAILURE_INCOMPATIBLE_REQUEST
+        if status in (400, 404, 409, 415, 422):
+            return FAILURE_BAD_REQUEST
+        if status is not None:
+            return FAILURE_UNKNOWN
+        return FAILURE_UNKNOWN
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+        return FAILURE_TIMEOUT
+    return FAILURE_UNKNOWN
 
 
 class LLMClient:
@@ -1950,7 +2322,8 @@ class LLMClient:
                        correlation_id: str | None = None,
                        fallback_payload_adapter=None,
                        supervised_transport: dict | None = None,
-                       max_output_tokens: int | None = None) -> str:
+                       max_output_tokens: int | None = None,
+                       output_field: str | None = None) -> str:
         """Текстовый фасад: ровно ``(await generate_with_metadata(...)).text``.
 
         UR-18: сигнатура и возвращаемый ``str`` не менялись — все прежние
@@ -1963,7 +2336,8 @@ class LLMClient:
             correlation_id=correlation_id,
             fallback_payload_adapter=fallback_payload_adapter,
             supervised_transport=supervised_transport,
-            max_output_tokens=max_output_tokens)
+            max_output_tokens=max_output_tokens,
+            output_field=output_field)
         return completion.text
 
     async def generate_with_metadata(self, messages: list[dict[str, str]],
@@ -1974,7 +2348,8 @@ class LLMClient:
                                      correlation_id: str | None = None,
                                      fallback_payload_adapter=None,
                                      supervised_transport: dict | None = None,
-                                     max_output_tokens: int | None = None
+                                     max_output_tokens: int | None = None,
+                                     output_field: str | None = None
                                      ) -> LLMCompletion:
         """POST /chat/completions → choices[0].message.content.
 
@@ -1983,10 +2358,16 @@ class LLMClient:
         остальных вызовов; дефолт провайдера).
 
         MCA-23 (Wave 3, §Model slots): ``max_output_tokens`` — опциональный
-        kwarg; None/<=0 → ключ ``max_tokens`` в payload НЕ добавляется
+        kwarg; None/<=0 → ключ лимита в payload НЕ добавляется
         (байт-паритет всех прежних вызовов). Передаётся только явно
         longform-планами (services/response_extent); fallback-адаптер
         затрагивает только messages, ключ переживает recompose.
+
+        P0 L1 (2026-11-17): ``output_field`` — какое поле лимита использовать
+        у этого маршрута (`max_tokens` по умолчанию, либо
+        `max_completion_tokens`, если так объявил провайдер/каталог). None →
+        прежнее поведение (`max_tokens`); значение вне документированного
+        набора → fallback на `max_tokens` (без выдуманных полей).
 
         Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (свой ключ чата →
         глобальный с бюджетом; None → ровно старое поведение — глобальный
@@ -2033,13 +2414,17 @@ class LLMClient:
             payload["temperature"] = temperature
         # MCA-23 (Wave 3): модельный слот длины для longform-планов. Не-верхняя
         # граница ответа, а потолок; None → ключ отсутствует (паритет).
+        # P0 L1: поле лимита выбирает вызывающий по capability маршрута.
         if max_output_tokens is not None:
             try:
                 _max_out = int(max_output_tokens)
             except (TypeError, ValueError):
                 _max_out = 0
             if _max_out > 0:
-                payload["max_tokens"] = _max_out
+                _field = str(output_field or "").strip()
+                if _field not in _OUTPUT_LIMIT_FIELDS:
+                    _field = "max_tokens"
+                payload[_field] = _max_out
         # F7 (review iter1): фактически использованная модель — при срабатывании
         # фоллбэка цена/токены атрибутируются правильной модели.
         used_model = self._chat_model
@@ -2144,22 +2529,29 @@ class LLMClient:
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
                 status="error", error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: invalid JSON response") from exc
-        try:
-            content = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
+        # P0 L1 (2026-11-17): ЕДИНЫЙ нормализатор формы ответа. «HTTP 200» сам
+        # по себе не ответ: content-parts/reasoning-only/пустой content/ошибка
+        # провайдера внутри 200 получают явный класс вместо падения на
+        # индексации словаря. Reasoning в текст ответа НЕ подставляется.
+        classified = classify_chat_response(data)
+        content = classified.content
+        if classified.kind != RESPONSE_KIND_TEXT or not content:
             self._record_sent_call(
                 sent, payload=payload, messages=messages, module=module,
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
                 status="error", error="LLMBadResponseError")
-            raise LLMBadResponseError(
-                "chat/completions: no choices[0].message.content in response"
-            ) from exc
-        if not isinstance(content, str) or not content.strip():
-            self._record_sent_call(
-                sent, payload=payload, messages=messages, module=module,
-                step=step, correlation_id=correlation_id, chat_id=chat_id,
-                status="error", error="LLMBadResponseError")
-            raise LLMBadResponseError("chat/completions: empty content")
+            reason = classified.kind
+            if classified.error_code:
+                reason = f"{reason}:{classified.error_code}"
+            exc = LLMBadResponseError(
+                "chat/completions: no final text | "
+                f"kind={reason} | finish_reason={classified.finish_reason}")
+            # P0 L1: класс исхода/причина доступны вызывающему in-process
+            # (матрица repair/retry решает по ним, а не по тексту сообщения).
+            exc.response_kind = classified.kind
+            exc.llm_finish_reason = classified.finish_reason
+            exc.reasoning_chars = int(classified.reasoning_chars)
+            raise exc
         logger.info(
             "LLM generate OK | model=%s | out_chars=%d", self._chat_model, len(content)
         )
@@ -2195,6 +2587,8 @@ class LLMClient:
             finish_reason_raw=finish_reason_raw,
             sent_body=copy.deepcopy(sent_body) if isinstance(sent_body, dict)
             else None,
+            response_kind=classified.kind,
+            reasoning_chars=int(classified.reasoning_chars),
         )
 
     async def generate_background(self, messages: list[dict[str, str]], *,
@@ -2469,74 +2863,52 @@ class LLMClient:
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
                 status="error", error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: invalid JSON response") from exc
-        try:
-            choice = data["choices"][0]
-        except (KeyError, IndexError, TypeError) as exc:
-            self._record_sent_call(
-                sent, payload=payload, messages=messages, module=module,
-                step=step, correlation_id=correlation_id, chat_id=chat_id,
-                status="error", error="LLMBadResponseError")
-            raise LLMBadResponseError(
-                "chat/completions: no choices[0] in response"
-            ) from exc
-        message = choice.get("message") or {}
-        content = message.get("content")
-        # Раунд 10.20 (БЛОК 7.2a, ADR-1020-7 §2, T-1920): reasoning-черновик
-        # reasoning-моделей. Первое непустое из алиасов reasoning_content →
-        # reasoning → thinking. В content НЕ помешивается (черновик не уходит
-        # пользователю — сюда попадает только для деградации/телеметрии).
-        reasoning_text = None
-        for alias in ("reasoning_content", "reasoning", "thinking"):
-            raw_reasoning = message.get(alias)
-            if isinstance(raw_reasoning, str) and raw_reasoning.strip():
-                reasoning_text = raw_reasoning
-                break
-        tool_calls = None
-        raw_calls = message.get("tool_calls")
-        if raw_calls:
-            parsed = []
-            for call in raw_calls:
-                try:
-                    function = call.get("function") or {}
-                    name = str(function.get("name", "") or "").strip()
-                    if not name:
-                        logger.warning(
-                            "LLM generate_chat: malformed tool_call skipped | model=%s",
-                            self._chat_model)
-                        continue
-                    parsed.append(LLMToolCall(
-                        id=str(call.get("id", "")),
-                        name=name,
-                        arguments=str(function.get("arguments", "") or ""),
-                    ))
-                except (KeyError, TypeError, AttributeError):
-                    logger.warning(
-                        "LLM generate_chat: malformed tool_call skipped | model=%s",
-                        self._chat_model)
-            if parsed:
-                tool_calls = parsed
-        if content is None and not tool_calls and not reasoning_text:
+        # P0 L1 (2026-11-17): тот же единый нормализатор, что у generate()/
+        # dedicated-Generate: content (строка/null/пустая/content-parts),
+        # tool_calls, reasoning-алиасы и ошибка внутри HTTP 200 разбираются
+        # один раз и одинаково. Reasoning НЕ смешивается с content.
+        classified = classify_chat_response(data)
+        # P0 L1 (review D1): сырой `choices` здесь больше НЕ индексируется —
+        # `{"0": {...}}`/`5`/`{}`/None давали KeyError/TypeError мимо
+        # LLMError-обработки (`tool_loop` ловит только LLMError). Всё, что
+        # нужно, отдаёт единый классификатор.
+        content = classified.content
+        tool_calls = list(classified.tool_calls) or None
+        reasoning_text = classified.reasoning
+        if classified.kind not in (RESPONSE_KIND_TEXT,
+                                   RESPONSE_KIND_TOOL_CALLS) \
+                and not reasoning_text:
             # review r2 F3: HTTP 200 с пустым content — реальный вызов, но
             # ответ невалиден: журнал не должен молча терять эту попытку.
             self._record_sent_call(
                 sent, payload=payload, messages=messages, module=module,
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
                 status="error", error="LLMBadResponseError")
-            raise LLMBadResponseError("chat/completions: empty content (no tool_calls)")
+            reason = classified.kind
+            if classified.error_code:
+                reason = f"{reason}:{classified.error_code}"
+            exc = LLMBadResponseError(
+                "chat/completions: empty content (no tool_calls) | "
+                f"kind={reason} | finish_reason={classified.finish_reason}")
+            exc.response_kind = classified.kind
+            exc.llm_finish_reason = classified.finish_reason
+            exc.reasoning_chars = int(classified.reasoning_chars)
+            raise exc
         logger.info(
             "LLM generate_chat OK | model=%s | out_chars=%s | tool_calls=%d",
             self._chat_model,
             len(str(content)) if content is not None else "-",
             len(tool_calls) if tool_calls else 0,
         )
-        if reasoning_text and not tool_calls and not (
-                isinstance(content, str) and content.strip()):
+        if classified.reasoning_only:
             # Reasoning-only ответ: штатной деградации (молчание/🗿) — без
             # нештатного LLMBadResponseError. Содержимое черновика не логируем.
             logger.warning(
-                "LLM generate_chat reasoning-only | model=%s | reasoning_chars=%d",
-                self._chat_model, len(reasoning_text))
-        content_text = content if (isinstance(content, str) and content.strip()) else None
+                "LLM generate_chat reasoning-only | model=%s | "
+                "reasoning_chars=%d | finish_reason=%s",
+                self._chat_model, int(classified.reasoning_chars),
+                classified.finish_reason)
+        content_text = content if classified.kind == RESPONSE_KIND_TEXT else None
         # INS-TRACE: tool-calling вызов фиксируется тем же журналом (реальный
         # Stage-1/tool вызов — не только generate()).
         self._record_sent_call(
@@ -2544,7 +2916,7 @@ class LLMClient:
             step=step or "tool_call", correlation_id=correlation_id,
             chat_id=chat_id)
         await self._record_global_usage(chat_id, content_text, source=source)
-        usage = data.get("usage") if isinstance(data, dict) else None
+        usage = classified.usage
         await self._record_analytics(usage, messages, content, source=source,
                                      module=module, step=step,
                                      correlation_id=correlation_id,
@@ -2553,8 +2925,9 @@ class LLMClient:
         return LLMChatResult(
             content=content_text,
             tool_calls=tool_calls,
-            finish_reason=choice.get("finish_reason"),
+            finish_reason=classified.finish_reason_raw,
             reasoning=reasoning_text,
+            response_kind=classified.kind,
             # UR-F шаг 1 (Q1): фактически отправленный body (после fallback).
             sent_body=(copy.deepcopy(_sent_body(sent, payload)[1])
                        if isinstance(_sent_body(sent, payload)[1], dict)
