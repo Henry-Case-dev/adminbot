@@ -212,11 +212,14 @@ def test_provider_policy_and_groups():
                 "id: 'prov_video'", "id: 'prov_embeddings'",
                 "id: 'prov_background'", "id: 'prov_images'"):
         assert gid in APP_JS, gid
-    # P0 SMART transport (2.58.206): политика транспорта — ПЕРВАЯ видимая
-    # группа «Время ответа и защита»; llm_guard не в advanced.
+    # P0 SMART transport (2.58.206): политика транспорта — видимая группа
+    # «Время ответа и защита»; llm_guard не в advanced.
+    # QRNG P4 / LLM-01 (2.58.217): порядок переставлен осознанно — модели/
+    # подключения первыми, «Время ответа и защита» последняя расширенная
+    # группа; поля/значения 180/360 не менялись.
     policy_at = APP_JS.index("id: 'prov_policy'")
     text_at = APP_JS.index("id: 'prov_text'")
-    assert policy_at < text_at, "prov_policy идёт первой"
+    assert policy_at > text_at, "prov_policy идёт последней группой"
     assert "title: 'Время ответа и защита'" in APP_JS
     guard_at = APP_JS.index("id: 'llm_guard'")
     guard_chunk = APP_JS[guard_at:APP_JS.index("id: 'search_keys'")]

@@ -185,7 +185,10 @@ class TestModulesRework106:
         import services.param_catalog as pc
         mem = {g.id for g in pc.GROUPS if g.category == "memory"}
         groups = set()
-        for tab in ("memory_rag", "mod_sleep", "mod_nostalgia"):
+        for tab in ("memory_rag", "mod_sleep", "mod_nostalgia",
+                    # QRNG P4 (2.58.217): memory_random живёт на своей
+                    # вкладке «Случайность», а не на «Сне».
+                    "mod_random"):
             groups |= pc.tab_group_ids(tab)
         # stale-пин счётчика снят: при написании (round1025) в категории
         # memory было 3 группы; MCA-10a (+memory_random) и MCA-16
