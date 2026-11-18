@@ -525,7 +525,7 @@ class TestBoundaries:
                     if s.category is not None]) == 622
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
 
     def test_canon_twelve_and_version(self):
         # SELF-DIAG-01 D3/D5-D6: канон → 18 (+inspect_runtime, +prompt_readback).

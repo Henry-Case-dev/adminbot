@@ -51,7 +51,7 @@ class TestCatalogInvariant106:
         assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
         # Settings-поля: EVOL-031 все 5 smart/dedup-ключей СОХРАЕНЫ (no-op) —
         # дрейф 466→465 внешний (закоммиченный EVOL-016/012), не этой задачи.
         assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471

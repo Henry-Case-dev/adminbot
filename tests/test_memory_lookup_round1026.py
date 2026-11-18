@@ -259,7 +259,7 @@ class TestContract:
         assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
 
 
 # ── §52 п.14: невалидные аргументы ───────────────────────────────────────

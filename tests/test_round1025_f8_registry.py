@@ -261,7 +261,7 @@ ROUTES_SHA256_F11 = (
     # в СУЩЕСТВУЮЩЕМ POST /api/config. Новых @api_router-маршрутов НЕТ
     # (Δ routes=0), маскировка секретов не менялась, f8_baseline не
     # переиздавался.
-    "f12c01c6f5d00f4d8a9932a4d4903126c650860415b3f44f9af9a47b90b7603a")
+    "eee84f5ac2fc68a1306ee327b0bea265107e6cf61dbdccbb9afe4a0b0a79a037")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
@@ -547,7 +547,7 @@ class TestFrozenInvariants:
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             FIXTURE["counts"]["TAB_BY_GROUP"] == 119
-        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
+        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
 
     def test_registry_keys_match_catalog_baseline(self):
         # F1-baseline фиксирует ключи REGISTRY (settings_field/env), не pg_key.
@@ -660,12 +660,16 @@ class TestRegistry:
         # QND-NONDET (10.11.2026): +1 hidden — initiative.trigger_probability
         # (прежний бинарный гейт стал верхней границей вероятности; значение
         # читается как p_max) → 16.
-        assert len(hidden) == 16
+        # QRNG P3 (17.11.2026, arch D4): +1 hidden — keys.random_quantum_provider
+        # (информационное имя провайдера; runtime читает random.primary_provider,
+        # строка/значение в БД остаются) → 17.
+        assert len(hidden) == 17
         hidden_keys = {r["internal_key"] for r in hidden}
         assert hidden_keys == {
             "flags.chat_mood_enabled",
             "flags.chat_style_anchors_enabled",
             "initiative.trigger_probability",
+            "keys.random_quantum_provider",
             "limits.chat_budget_anchors_ratio",
             "limits.chat_budget_response_ratio",
             "limits.chat_lock_max_entries",

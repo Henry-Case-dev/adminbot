@@ -169,7 +169,7 @@ def test_t3960_js_workspace_sections():
 def test_t3960_tab_rules_mod_summary_covers_new_groups():
     """Правило mod_summary правится in-place (TAB_RULES 21 без роста)."""
     # EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена → TAB_RULES 23→22.
-    assert len(pc.TAB_RULES) == 22
+    assert len(pc.TAB_RULES) == 23
     rules = dict(pc.TAB_RULES)[pc.TAB_MOD_SUMMARY]
     claimed: set[str] = set()
     for _cat, sel in rules:

@@ -474,7 +474,7 @@ def test_catalog_zero_delta():
                 if s.category is not None]) == 622
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
-    assert len(pc.TAB_RULES) == 22
+    assert len(pc.TAB_RULES) == 23
 
 
 def test_no_new_env_catalog_key():

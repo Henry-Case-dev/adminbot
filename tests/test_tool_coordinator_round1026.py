@@ -901,7 +901,7 @@ class TestBounds:
                     if s.category is not None]) == 622   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
 
     def test_canon_twelve_tools(self):
         # A2 (ADR-1026-15 D5): канон 10 → 11 (+fetch_article);

@@ -893,7 +893,7 @@ class TestBoundsA3:
         assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
 
     def test_two_llm_calls_intact(self):
         # SC-A3-12: A3 не добавляет LLM-вызовов (тест уже в coordinator-сете);

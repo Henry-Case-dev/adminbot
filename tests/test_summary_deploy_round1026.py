@@ -514,7 +514,7 @@ class TestBounds:
         assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
 
     def test_app_version_bumped(self):
         assert APP_VERSION == "2.58.217"

@@ -273,7 +273,7 @@ def test_blockE_catalog_random_uses_keys():
     assert len(pc.REGISTRY) == 648
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
-    assert len(pc.TAB_RULES) == 22
+    assert len(pc.TAB_RULES) == 23
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
     for key in uses:
@@ -324,7 +324,7 @@ def test_blockE_f8_check_green_and_baselines():
     assert fx["counts"]["REGISTRY"] == 648
     assert fx["counts"]["GROUPS"] == 121
     assert fx["counts"]["TAB_BY_GROUP"] == 119
-    assert fx["counts"]["TAB_RULES"] == 22
+    assert fx["counts"]["TAB_RULES"] == 23
     # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
     # SOUL-1 mobile-prompts (2026-10-16): delta 160→161 (+1 L1 Planner).
     # ASAP-VISION-SYNC-01 wave2 (31.10.2026): 177→189 (+12 PG-only ключей

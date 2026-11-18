@@ -49,11 +49,11 @@ def test_catalog_counts_sanctioned():
     assert len(pc.REGISTRY) == 648          # 510 → 519 (+9) → 586 → 581
     assert len(pc.GROUPS) == 121            # 108 → 112 (+4) → 121 → 119
     assert len(pc._TAB_BY_GROUP) == 119     # 106 → 110 → 119 → 117
-    assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
+    assert len(pc.TAB_RULES) == 23          # 21 → 22 (mod_vision)
     # ASAP 7 (F3, §3.2): +mod_initiative (TAB_NAV/CONFIG_TAB_TITLES 22→23);
     # EVOL-031: tab smart_cache удалён → 22.
-    assert len(pc.TAB_NAV) == 22
-    assert len(pc.CONFIG_TAB_TITLES) == 22
+    assert len(pc.TAB_NAV) == 23
+    assert len(pc.CONFIG_TAB_TITLES) == 23
 
 
 def test_vision_keys_registered():
