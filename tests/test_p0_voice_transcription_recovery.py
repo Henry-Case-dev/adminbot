@@ -280,6 +280,58 @@ async def test_handler_local_400_cloud_200_recovers(
 # ─────────────── C. Протухший pending и гонка завершения ───────────────────
 
 @pytest.mark.asyncio
+async def test_force_repeat_download_failure_gets_neutral_answer(
+        wire, db, tmp_track, monkeypatch):
+    """Явная команда «транскрипт» при отказе скачивания: ответ даёт вызывающий.
+
+    Авто-путь молчит (нет второго ответа), но командный путь не должен
+    оставлять пользователя без реакции: тристейт = no_target.
+    """
+    await _seed_voice(db, message_id=720)
+
+    async def _enabled(*args, **kwargs):
+        return True
+
+    monkeypatch.setattr(vt.feature_gates, "module_enabled", _enabled)
+    bot = _Bot(local=True)
+    bot.get_file_exc = _BadRequest(
+        "Bad Request: wrong file_id or the file is temporarily unavailable")
+    command = _msg(message_id=721)
+    command.voice = None
+    command.reply_to_message = _msg(message_id=720)
+
+    result = await vt.force_repeat_from_reply(bot, command)
+
+    assert result == vt.FORCE_REPEAT_NO_TARGET
+    assert bot.sent_messages == []
+    row = await _row(db, 720)
+    assert row["transcript_status"] == "failed"
+    assert row["transcript_reason"].startswith("download_")
+
+
+@pytest.mark.asyncio
+async def test_force_repeat_asr_failure_stays_handled(wire, db, tmp_track,
+                                                     monkeypatch):
+    """Деградация ASR уже отправила фразу — второго ответа нет (handled)."""
+    await _seed_voice(db, message_id=722)
+
+    async def _enabled(*args, **kwargs):
+        return True
+
+    monkeypatch.setattr(vt.feature_gates, "module_enabled", _enabled)
+    service, _memory = wire
+    service.results = [TranscriptionUnavailable("all failed")]
+    bot = _Bot(local=False, data=b"voice-bytes")
+    command = _msg(message_id=723)
+    command.voice = None
+    command.reply_to_message = _msg(message_id=722)
+
+    result = await vt.force_repeat_from_reply(bot, command)
+
+    assert result == vt.FORCE_REPEAT_HANDLED
+
+
+@pytest.mark.asyncio
 async def test_stale_pending_becomes_unavailable_with_reason(wire, db):
     now = int(time.time())
     await _seed_voice(db, message_id=710, ts=now - 7200, status="pending",

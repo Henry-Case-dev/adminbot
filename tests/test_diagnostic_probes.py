@@ -507,7 +507,9 @@ class TestMeasurements:
     async def test_stale_pending_is_degraded_not_running(self, db):
         """Протухший pending — функциональный отказ, а не «идёт» (P0 18.11)."""
         now = int(time.time())
-        await db.save_smart_message(1, -100, "[voice]", None, now - 7200,
+        # Сообщение в окне чекапа (последний час), но статус pending записан
+        # два часа назад и уже не может быть «идёт».
+        await db.save_smart_message(1, -100, None, None, now - 600,
                                     "voice", "A")
         await db.db.execute(
             "UPDATE smart_messages SET transcript_status = 'pending', "

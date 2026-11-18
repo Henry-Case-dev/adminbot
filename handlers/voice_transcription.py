@@ -418,9 +418,40 @@ async def transcribe_media_message(media_message, bot, *,
 # вызывающего уместен ТОЛЬКО при отсутствии цели/сервиса. После деградации ASR
 # фраза деградации уже отправлена `transcribe_media_message` — второй ответ
 # слать нельзя (иначе «нет цели» поверх реальной причины).
+# P0 18.11.2026: отказ СКАЧИВАНИЯ ответа не отправляет (авто-путь не должен
+# шуметь), поэтому командный форс-повтор возвращает NO_TARGET — вызывающий
+# даёт один нейтральный ответ, а пользователь не остаётся без реакции бота.
 FORCE_REPEAT_NO_TARGET = "no_target"   # цели/сервиса нет — ответа НЕ было
 FORCE_REPEAT_HANDLED = "handled"       # цель была: ответ (деградация) отправлен
 FORCE_REPEAT_SENT_OK = "sent_ok"       # цель была: успешный транскрипт отправлен
+
+
+async def _download_failure_row(message) -> bool:
+    """True — строка-источник осталась с терминальной download-причиной.
+
+    Читает существующий durable-статус (без второго поиска и новых API):
+    причина `download_*` значит, что `transcribe_media_message` НЕ отправлял
+    ответ в чат. Нужна командному пути, чтобы отличить «деградация уже
+    сказана» от «мы молча не смогли получить файл».
+    """
+    if _db is None:
+        return False
+    getter = getattr(_db, "get_smart_message_by_tg_id", None)
+    if getter is None:
+        return False
+    try:
+        row = await getter(message.chat.id,
+                           getattr(message, "message_id", None))
+    except Exception:
+        logger.debug("[transcribe] download-failure row read failed",
+                     exc_info=True)
+        return False
+    try:
+        reason = str(dict(row).get("transcript_reason") or "")
+    except (TypeError, ValueError):
+        return False
+    return reason.startswith("download")
+
 
 
 async def force_repeat_from_reply(bot, command_message) -> str:
@@ -461,7 +492,13 @@ async def force_repeat_from_reply(bot, command_message) -> str:
     sent = await transcribe_media_message(
         media_message, bot,
         reply_to_id=getattr(media_message, "message_id", None), force=True)
-    return FORCE_REPEAT_SENT_OK if sent else FORCE_REPEAT_HANDLED
+    if sent:
+        return FORCE_REPEAT_SENT_OK
+    # P0 18.11.2026: download-отказ ответа не отправлял — нейтральный ответ
+    # даёт вызывающий (иначе на явную команду «транскрипт» бот молчит).
+    if await _download_failure_row(media_message):
+        return FORCE_REPEAT_NO_TARGET
+    return FORCE_REPEAT_HANDLED
 
 
 def _id_prefix(value, limit: int = 6) -> str:
@@ -579,7 +616,7 @@ async def replay_saved_media(bot, *, chat_id: int, message_id: int,
     try:
         try:
             await _fetch_media_to_tmp(bot, pytypes.SimpleNamespace(
-                file_id=file_id), path, site="transcribe")
+                file_id=file_id), path)
         except MediaDownloadError as exc:
             reason = _download_failure_reason(exc.stage, exc.error_class)
             return await _fail(reason, stage=exc.stage,
