@@ -50,6 +50,7 @@ from handlers.media_common import (
     wrap_media_fact,
 )
 from services.media_download import (
+    MediaDownloadError,
     fetch_media_to_tmp as _fetch_media_to_tmp,
     local_files_subdir as _local_files_subdir,
 )
@@ -143,7 +144,8 @@ _PLACEHOLDER_TEXTS = frozenset(_MEDIA_PLACEHOLDERS.values())
 
 
 async def _row_has_transcript(chat_id: int, message_id: int,
-                              media_caption: str | None = None) -> bool:
+                              media_caption: str | None = None,
+                              db=None) -> bool:
     """True — строка smart_messages уже несла расшифровку.
 
     F19 (ADR-1024-20 §2.6): защита от дублей GraphRAG-фактов при
@@ -151,9 +153,10 @@ async def _row_has_transcript(chat_id: int, message_id: int,
     плейсхолдер медиа и **подпись исходного медиа** (observer кладёт в ``text``
     ``message.text or message.caption`` — на ГС/кружке с подписью это caption,
     а не транскрипт). Нет БД/API/строки → False (поведение прежнее)."""
-    if _db is None:
+    source = db if db is not None else _db
+    if source is None:
         return False
-    getter = getattr(_db, "get_smart_message_by_tg_id", None)
+    getter = getattr(source, "get_smart_message_by_tg_id", None)
     if getter is None:
         return False
     try:
@@ -179,7 +182,7 @@ async def _row_has_transcript(chat_id: int, message_id: int,
 async def _inject_memory(message: types.Message, name: str, text: str,
                          is_video_note: bool,
                          forward_source: str | None = None, *,
-                         force: bool = False) -> None:
+                         force: bool = False, db=None, memory=None) -> int:
     """CRITICAL (D267): двойная инъекция — L2-строка + GraphRAG-факт.
     Epic 72 (74.B.3): у форвардов факт несёт forward_from-атрибуцию.
     F19: при ``force=True`` ``memorize_facts`` пропускается, если строка уже
@@ -190,15 +193,23 @@ async def _inject_memory(message: types.Message, name: str, text: str,
     монотонная `transcript_revision`, `transcript_updated_at`), а не как
     независимая реплика «пользователь сказал ещё раз». Ответ бота с
     расшифровкой в `smart_messages` не попадает вовсе (observer бот-сообщения
-    не сохраняет), поэтому второй пользовательской реплики не возникает."""
+    не сохраняет), поэтому второй пользовательской реплики не возникает.
+
+    Возвращает `transcript_revision` (=-1, если строки нет/запись не удалась):
+    replay-путь использует это же значение для честного отчёта, не создавая
+    второй записи."""
+    db = db if db is not None else _db
+    memory = memory if memory is not None else _memory
     chat_id = message.chat.id
     # Подпись медиа (observer пишет её в text): не путать с расшифровкой.
     caption = (getattr(message, "text", None)
                or getattr(message, "caption", None))
-    already = (await _row_has_transcript(chat_id, message.message_id, caption)
+    already = (await _row_has_transcript(chat_id, message.message_id, caption,
+                                         db=db)
                if force else False)
+    revision = -1
     try:
-        revision = await _db.set_smart_message_transcript(
+        revision = await db.set_smart_message_transcript(
             chat_id, message.message_id, status="ready", text=text)
         if revision < 0:
             logger.info("[transcribe] smart_message row not found | chat=%s msg=%s",
@@ -209,18 +220,19 @@ async def _inject_memory(message: types.Message, name: str, text: str,
     except Exception:
         logger.warning("[transcribe] smart_message transcript write failed | "
                        "chat=%s", chat_id, exc_info=True)
-    if _memory is None or already:
+    if memory is None or already:
         if already:
             logger.info("[transcribe] repeat — memorize skipped (row already "
                         "has transcript) | chat=%s msg=%s",
                         chat_id, message.message_id)
-        return
+        return revision
     media_type = "video_note" if is_video_note else "voice"
     wrapped = wrap_media_fact(media_type, name, text,
                               forward_source=forward_source)
     fire_and_forget(
-        _memory.memorize_facts(chat_id, wrapped, source_type="voice_transcript"),
+        memory.memorize_facts(chat_id, wrapped, source_type="voice_transcript"),
         "voice_transcript")
+    return revision
 
 
 async def _reply_media(bot, media_message, reply_to_id, text,
@@ -242,23 +254,39 @@ async def _reply_media(bot, media_message, reply_to_id, text,
     await bot.send_message(media_message.chat.id, text, **kwargs)
 
 
-async def _mark_transcript_status(message, status: str, reason: str = "") -> None:
+async def _mark_transcript_status(message, status: str, reason: str = "",
+                                  *, db=None) -> None:
     """Честный статус версии расшифровки у исходного source-ref (VMQ-V).
 
     Вызывается ДО/вместо записи текста, чтобы Writer мог отличить «ещё идёт»,
     «не удалось» и «расшифровки нет» — без выдумывания содержимого. Ошибка
     записи статуса НЕ ломает STT-поток (fail-open): отсутствие статуса
     читатель трактует как «ещё не расшифровано»."""
-    if _db is None:
+    source = db if db is not None else _db
+    if source is None:
         return
     try:
-        await _db.set_smart_message_transcript(
+        await source.set_smart_message_transcript(
             message.chat.id, getattr(message, "message_id", None),
             status=status, reason=reason)
     except Exception:
         logger.debug("[transcribe] transcript status write failed | chat=%s",
                      getattr(getattr(message, "chat", None), "id", None),
                      exc_info=True)
+
+
+def _download_failure_reason(stage: str, error_class: str) -> str:
+    """Терминальная причина отказа скачивания для `transcript_reason`.
+
+    Формат `download_<stage>_<class>` (только `[a-z0-9_]`, ≤120 симв.) —
+    стадия и класс из `MediaDownloadError`, без путей/токена/URL. Причина
+    доезжает до Writer'а и чекапа (`last_error.reason_code`) как есть.
+    """
+    clean = []
+    for part in (stage, error_class):
+        value = re.sub(r"[^a-z0-9_]", "", str(part or "").lower())
+        clean.append(value or "unknown")
+    return ("download_" + "_".join(clean))[:120]
 
 
 async def transcribe_media_message(media_message, bot, *,
@@ -303,13 +331,35 @@ async def transcribe_media_message(media_message, bot, *,
     await _safe_typing(bot, chat_id)
     fd, path = tempfile.mkstemp(prefix="vt_", suffix=suffix)
     os.close(fd)
-    # VMQ-V: «расшифровка идёт» — durable статус ДО STT, чтобы параллельный
-    # Writer-ход не принял отсутствие текста за «сообщения нет».
-    await _mark_transcript_status(media_message, "pending")
     try:
-        # Хотфикс v2.46.1 (Epic 69) + Epic 78 (D292): при локальном Bot API
-        # файл берётся с диска хоста; иначе — прежний bot.download.
-        await _fetch_media_to_tmp(bot, media, path)
+        # Хотфикс v2.46.1 (Epic 69) + Epic 78 (D292) + P0 18.11.2026: медиа
+        # получает единый транспорт (local file → aiogram → cloud fallback).
+        # Отказ скачивания — ТЕРМИНАЛЬНЫЙ статус с конкретной стадией/классом,
+        # а не вечный pending: STT ещё не запускался, и pending здесь был бы
+        # ложью. Ответ в чат не отправляем (у голосового пути уже может быть
+        # прежняя расшифровка; ошибка скачивания не повод для второго ответа).
+        try:
+            await _fetch_media_to_tmp(bot, media, path, site="transcribe")
+        except MediaDownloadError as exc:
+            reason = _download_failure_reason(exc.stage, exc.error_class)
+            await _mark_transcript_status(media_message, "failed", reason)
+            logger.warning(
+                "[transcribe] download failed | chat=%s msg=%s | stage=%s | "
+                "class=%s | retryable=%s", chat_id,
+                getattr(media_message, "message_id", None), exc.stage,
+                exc.error_class, exc.retryable)
+            return False
+        except Exception:
+            await _mark_transcript_status(
+                media_message, "failed", "download_error")
+            logger.warning(
+                "[transcribe] download failed | chat=%s msg=%s | "
+                "unclassified", chat_id,
+                getattr(media_message, "message_id", None), exc_info=True)
+            raise
+        # VMQ-V: «расшифровка идёт» — durable статус ТОЛЬКО когда файл уже
+        # получен и STT реально запускается (а не до скачивания).
+        await _mark_transcript_status(media_message, "pending")
         await _safe_typing(bot, chat_id)          # индикация на время API-запросов
         try:
             text = await _service.transcribe_voice(path, audio_format)
@@ -411,6 +461,190 @@ async def force_repeat_from_reply(bot, command_message) -> str:
         media_message, bot,
         reply_to_id=getattr(media_message, "message_id", None), force=True)
     return FORCE_REPEAT_SENT_OK if sent else FORCE_REPEAT_HANDLED
+
+
+def _id_prefix(value, limit: int = 6) -> str:
+    """R17-safe префикс идентификатора для логов (полный не пишем)."""
+    return str(value or "")[:limit]
+
+
+def _row_field(row, name: str):
+    """Поле sqlite Row/словаря без падения на чужом типе."""
+    try:
+        return dict(row).get(name)
+    except (TypeError, ValueError):
+        return None
+
+
+async def replay_saved_media(bot, *, chat_id: int, message_id: int,
+                             file_id: str, media_type: str = "",
+                             service=None, db=None, memory=None) -> dict:
+    """Повторная транскрибация СОХРАНЁННОГО voice/video_note без Update.
+
+    P0 18.11.2026 (уточнение владельца): Telegram не отдаёт файл по
+    `message_id`, поэтому replay получает `file_id` сохранённого сообщения
+    явно (из ранее наблюдённого update/ручного списка) и привязывает его к
+    существующему source-ref `(chat_id, message_id)`. Никакого нового
+    Telegram-клиента/сессии/флагов: тот же `fetch_media_to_tmp` → тот же STT →
+    та же durable-версия `smart_messages` (+ существующая идемпотентная
+    инъекция памяти).
+
+    Replay НИКОГДА не отвечает в чат: ни успех, ни ошибка не отправляют
+    сообщение. Повторный replay с тем же текстом не создаёт дубль (та же
+    `transcript_revision`, `memorize_facts` пропускается). Ошибка скачивания
+    даёт терминальный `failed` с причиной `download_<stage>_<class>` и НЕ
+    трогает ранее полученный текст; `pending` ставится только перед реальным
+    STT.
+
+    Возвращает R17-safe отчёт: `{chat_id, message_id, source_ref, status,
+    reason, stage, revision, chars, asr, persisted}`. Полный `file_id` в
+    отчёт/логи не попадает (только префикс).
+    """
+    db = db if db is not None else _db
+    service = service if service is not None else _service
+    memory = memory if memory is not None else _memory
+    report = {
+        "chat_id": chat_id, "message_id": message_id,
+        "source_ref": f"tg:{message_id}", "status": "unavailable",
+        "reason": "", "stage": "", "revision": 0, "chars": 0,
+        "asr": "not_run", "persisted": False,
+        "file_id_prefix": _id_prefix(file_id),
+    }
+    try:
+        chat_id = int(chat_id)
+        message_id = int(message_id)
+    except (TypeError, ValueError):
+        report["reason"] = "invalid_ids"
+        return report
+    if db is None:
+        report["reason"] = "no_db"
+        return report
+    getter = getattr(db, "get_smart_message_by_tg_id", None)
+    if getter is None:
+        report["reason"] = "no_db_reader"
+        return report
+    try:
+        row = await getter(chat_id, message_id)
+    except Exception:
+        report["reason"] = "source_read_failed"
+        return report
+    if row is None:
+        report["reason"] = "source_missing"
+        return report
+    row_type = str(_row_field(row, "media_type") or "")
+    status_raw = str(_row_field(row, "transcript_status") or "")
+    is_video_note = (str(media_type) == "video_note"
+                     or (not media_type and row_type == "video"))
+    if str(media_type) == "voice":
+        is_video_note = False
+    if row_type not in ("voice", "video") and not media_type:
+        report["reason"] = "not_voice_source"
+        return report
+    if row_type == "video" and not status_raw and str(media_type) != "video_note":
+        report["reason"] = "not_voice_source"
+        return report
+    if service is None:
+        report["reason"] = "stt_unavailable"
+        return report
+    try:
+        report["revision"] = int(_row_field(row, "transcript_revision") or 0)
+    except (TypeError, ValueError):
+        report["revision"] = 0
+    previous_text = str(_row_field(row, "text") or "").strip()
+    if previous_text:
+        report["chars"] = len(previous_text)
+    author = str(_row_field(row, "author_name") or MEDIA_UNKNOWN_AUTHOR)
+    caption = _row_field(row, "caption")
+    proxy = types.SimpleNamespace(
+        chat=types.SimpleNamespace(id=chat_id), message_id=message_id,
+        text=None, caption=caption, from_user=None)
+    suffix = ".mp4" if is_video_note else ".ogg"
+    audio_format = "mp4" if is_video_note else "ogg"
+
+    fd, path = tempfile.mkstemp(prefix="vt_replay_", suffix=suffix)
+    os.close(fd)
+
+    async def _fail(reason: str, *, stage: str = "",
+                    error_class: str = "") -> dict:
+        await _mark_transcript_status(proxy, "failed", reason, db=db)
+        report.update(status="failed", reason=reason, stage=stage,
+                      persisted=True, asr="not_run")
+        logger.warning(
+            "[transcribe] replay failed | chat=%s msg=%s | stage=%s | "
+            "class=%s", chat_id, message_id, stage or "-",
+            error_class or "-")
+        return report
+
+    try:
+        try:
+            await _fetch_media_to_tmp(bot, types.SimpleNamespace(
+                file_id=file_id), path, site="transcribe")
+        except MediaDownloadError as exc:
+            reason = _download_failure_reason(exc.stage, exc.error_class)
+            return await _fail(reason, stage=exc.stage,
+                               error_class=exc.error_class)
+        except Exception:
+            await _mark_transcript_status(proxy, "failed", "download_error",
+                                          db=db)
+            report.update(status="failed", reason="download_error",
+                          stage="download", persisted=True, asr="not_run")
+            logger.warning(
+                "[transcribe] replay download failed | chat=%s msg=%s | "
+                "unclassified", chat_id, message_id, exc_info=True)
+            return report
+        await _mark_transcript_status(proxy, "pending", db=db)
+        report["stage"] = "asr"
+        try:
+            text = await service.transcribe_voice(path, audio_format)
+        except EmptyTranscript:
+            await _mark_transcript_status(proxy, "unavailable",
+                                          "empty_transcript", db=db)
+            report.update(status="unavailable",
+                          reason="empty_transcript", persisted=True,
+                          asr="empty")
+            return report
+        except TranscriptionUnavailable as exc:
+            logger.warning("[transcribe] replay STT unavailable | chat=%s "
+                           "msg=%s | error=%s", chat_id, message_id, exc)
+            await _mark_transcript_status(proxy, "failed", "stt_failed",
+                                          db=db)
+            report.update(status="failed", reason="stt_failed",
+                          persisted=True, asr="failed")
+            return report
+        except Exception:
+            await _mark_transcript_status(proxy, "failed", "stt_error",
+                                          db=db)
+            report.update(status="failed", reason="stt_error",
+                          persisted=True, asr="error")
+            logger.warning("[transcribe] replay STT error | chat=%s msg=%s",
+                           chat_id, message_id, exc_info=True)
+            return report
+        if not str(text or "").strip():
+            await _mark_transcript_status(proxy, "unavailable",
+                                          "empty_transcript", db=db)
+            report.update(status="unavailable",
+                          reason="empty_transcript", persisted=True,
+                          asr="empty")
+            return report
+        revision = await _inject_memory(
+            proxy, author, text, is_video_note, force=True,
+            db=db, memory=memory)
+        if revision < 0:
+            report.update(status="failed", reason="persist_failed",
+                          stage="persist", persisted=False, asr="ok")
+            return report
+        report.update(status="ready", reason="", stage="persisted",
+                      revision=revision, chars=len(str(text or "")),
+                      asr="ok", persisted=True)
+        logger.info("[transcribe] replay OK | chat=%s msg=%s | revision=%s | "
+                    "chars=%d", chat_id, message_id, report["revision"],
+                    report["chars"])
+        return report
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 
 
 async def _process(message: types.Message, bot) -> None:

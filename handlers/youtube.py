@@ -171,9 +171,13 @@ def telegram_local_mode_enabled() -> bool:
     Паритет с образом `aiogram/telegram-bot-api`: ЛЮБОЕ непустое значение
     `TELEGRAM_LOCAL` → local; не задано/пусто → cloud. Оба режима достижимы
     (мёртвых ветвей нет): env-сигнал единый для контейнера и хоста.
+
+    Источник истины один — `services.local_bot_api.telegram_local_mode_enabled`
+    (тот же адаптер использует транспорт медиа и диагностика); обёртка
+    сохраняет прежнее публичное имя этого модуля.
     """
-    raw = os.getenv("TELEGRAM_LOCAL")
-    return bool(raw and raw.strip())
+    from services.local_bot_api import telegram_local_mode_enabled as _detect
+    return _detect()
 
 
 def video_bot_api_mode() -> str:

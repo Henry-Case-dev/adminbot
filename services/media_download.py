@@ -5,13 +5,13 @@ D292/Section 79) БЕЗ изменения поведения: голосовы�
 кружочки и нативные видео (youtube.py Часть 1), «скачай»-нативные медиа
 (handlers/video_download.py Часть 1b) ходят через один хелпер.
 
-Гейт локального режима = hot.get("flags.download_enabled",
-settings.DOWNLOAD_ENABLED) (D262 import-time сессия с is_local=True).
+Гейт режима endpoint'а — фактическая aiogram-сессия
+(`session.api.is_local`; при её отсутствии инфраструктурный `TELEGRAM_LOCAL`),
+НЕ функциональный `flags.download_enabled`.
 Локальный режим И file_path под корнем TELEGRAM_API_FILES_DIR (относительный
 → root/<bot_id:token>/<path>; абсолютный — только если он внутри корня;
 контейнерный `/var/lib/telegram-bot-api/…` нормализуется к host-корню) →
-копирование с диска; файла нет / get_file упал / path вне корня / облако →
-bot.download (облачный режим байт-в-байт, без get_file-двойного запроса).
+копирование с диска; файла нет → облачный fallback (если разрешён).
 Секреты (R17): строка '<bot_id>:<token>' нигде не логируется.
 
 **P0 vision download (2026-11-17).** `services/mca_vision.py::download_telegram_file`
@@ -36,6 +36,18 @@ API `bot.download` читает файл С ДИСКА, и отсутствие 
      302; 3xx → типизированный `provider_error` (`redirect_refused`);
      TLS-verify не ослабляется.
 
+**P0 voice-transcription recovery (2026-11-18).** Голос/кружок больше не
+ходят отдельной тройкой `get_file` + `bot.download`: `fetch_media_to_tmp`
+использует тот же транспорт (`download_api_file_to_path` — streaming-адаптер
+`download_api_file_bytes` с теми же стадиями/классами). Локальный 400
+«wrong file_id or the file is temporarily unavailable» — НЕ `invalid_file_id`
+(файл мог не записаться на диск): это `local_read_failed` с ОДНОЙ попыткой и
+правом облачного fallback; `invalid_file_id` терминален и определяется
+облаком/формой id. Transient (timeout/network/5xx) — bounded retry. Режим
+endpoint'а берётся из фактической aiogram-сессии, а при её отсутствии — из
+инфраструктурного `TELEGRAM_LOCAL`; функциональный
+`flags.download_enabled` endpoint НЕ выбирает.
+
 Наружу — только байты либо `MediaDownloadError(stage, error_class)`
 (`get_file` | `local_read` | `cloud_download`; классы `invalid_file_id`,
 `missing_local_file`, `permission_denied`, `timeout`, `network`,
@@ -53,7 +65,6 @@ from pathlib import Path, PurePosixPath
 import httpx
 
 from config.settings import settings
-from services import hot_config as hot
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +179,7 @@ DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 30.0
 STAGE_GET_FILE = "get_file"
 STAGE_LOCAL_READ = "local_read"
 STAGE_CLOUD_DOWNLOAD = "cloud_download"
+STAGE_VALIDATE = "validate"
 
 ERROR_INVALID_FILE_ID = "invalid_file_id"
 ERROR_MISSING_LOCAL_FILE = "missing_local_file"
@@ -249,18 +261,13 @@ def local_api_enabled(bot) -> bool:
     """Использует ли бот локальный Bot API (`session.api.is_local`).
 
     Источник истины — фактическая сессия aiogram (прод-путь
-    `services.local_bot_api.build_local_api_session`). Двойники/старые
-    обвязки без сессии → прежний проектный гейт
-    `flags.download_enabled`/`DOWNLOAD_ENABLED` (fail-safe, без новых
-    отказов)."""
-    try:
-        return bool(getattr(bot.session.api, "is_local", False))
-    except Exception:
-        try:
-            return bool(hot.get("flags.download_enabled",
-                                settings.DOWNLOAD_ENABLED))
-        except Exception:
-            return False
+    `services.local_bot_api.build_local_api_session`), а при её отсутствии —
+    инфраструктурная конфигурация `TELEGRAM_LOCAL` (тот же сигнал, что у
+    контейнера telegram-bot-api). Функциональный флаг
+    `flags.download_enabled` сюда НЕ входит: выключение функции модуля не
+    меняет выбранный endpoint и не маскирует расхождение режимов."""
+    from services.local_bot_api import bot_api_mode
+    return bot_api_mode(bot)["mode"] == "local"
 
 
 def cloud_fallback_enabled() -> bool:
@@ -532,6 +539,15 @@ async def download_api_file_bytes(bot, file_id: str, *, site: str = "media",
                 file_path = getattr(tg_file, "file_path", None)
             except Exception as exc:
                 cls, retryable = classify_transport_error(exc)
+                # P0 18.11.2026 (prod-диагноз): локальный 400
+                # «wrong file_id or the file is temporarily unavailable» —
+                # НЕ доказательство невалидного id: файл мог не записаться на
+                # диск (uid 101 без права записи). Такой отказ — local
+                # read failure с правом облачного fallback; invalid_file_id
+                # авторитетно определяет только облако/форма id.
+                if cls == ERROR_INVALID_FILE_ID:
+                    cls = ERROR_LOCAL_READ_FAILED
+                    retryable = False
                 diag.update(stage=STAGE_GET_FILE, error_class=cls,
                             attempt=attempt)
                 last_stage, last_class, last_retryable = (
@@ -621,7 +637,7 @@ async def download_api_file_bytes(bot, file_id: str, *, site: str = "media",
     # aiogram уже облачный (второй облачный путь не нужен).
     last_error: MediaDownloadError | None = None
     if (is_local and cloud_fallback_enabled()
-            and last_class != ERROR_INVALID_FILE_ID):
+            and last_class not in (ERROR_INVALID_FILE_ID, ERROR_OVERSIZED)):
         fetcher = cloud_fetcher or _default_cloud_fetch
         try:
             data = await fetcher(_bot_token(bot), text_id,
@@ -660,6 +676,288 @@ async def download_api_file_bytes(bot, file_id: str, *, site: str = "media",
                              retryable=last_retryable)
 
 
+async def download_api_file_to_path(
+        bot, file_id: str, destination, *, site: str = "media",
+        attempts: int = 3, sleep: float = 1.0,
+        timeout: float | None = None, max_bytes: int | None = None,
+        cloud_fetcher=None, diagnostics: dict | None = None) -> None:
+    """Streaming-адаптер ЕДИНОГО транспорта: байты файла Bot API → файл.
+
+    Те же стадии/классы, что у `download_api_file_bytes` (get_file |
+    local_read | cloud_download | validate), но без буферизации всего файла:
+    локальный Bot API копирует файл с диска, aiogram пишет поток в
+    destination, облачный fallback использует общий `_default_cloud_fetch`.
+    Нужен голосу/кружку/нативному видео, где файл не помещается в памяти
+    без нужды (voice — маленький, видео — нет).
+
+    Политика отказов: локальный 400 не выдаётся за `invalid_file_id`
+    (это `local_read_failed`, ОДНА попытка, облачный fallback разрешён);
+    `invalid_file_id` — только авторитетный ответ облака/форма id, он
+    терминален и без fallback. timeout/network/5xx — bounded retry. 0 байт
+    после транспорта — не успех (обрыв), а повторяемый отказ. Наружу — только
+    `MediaDownloadError`; R17: полный file_id/путь/URL не логируются
+    (только id-префикс и хвост имени файла).
+    """
+    text_id = str(file_id or "").strip()
+    if not text_id:
+        raise MediaDownloadError(STAGE_GET_FILE, ERROR_INVALID_FILE_ID,
+                                 "empty file id", retryable=False)
+    if not destination:
+        raise MediaDownloadError(STAGE_VALIDATE, ERROR_PROVIDER_ERROR,
+                                 "no destination", retryable=False)
+    attempts = max(1, int(attempts or 1))
+    timeout = float(timeout or DEFAULT_DOWNLOAD_TIMEOUT_SECONDS)
+    diag: dict = diagnostics if diagnostics is not None else {}
+    is_local = local_api_enabled(bot)
+    file_path = None
+    tg_file = None
+    last_stage = STAGE_LOCAL_READ if is_local else STAGE_GET_FILE
+    last_class = ERROR_MISSING_LOCAL_FILE if is_local else ERROR_PROVIDER_ERROR
+    last_retryable = True
+    permanent = (ERROR_INVALID_FILE_ID, ERROR_PERMISSION_DENIED)
+
+    if is_local:
+        # 1) Локальный Bot API: файл уже на диске хоста (bind-mount).
+        # Повторяем только появление файла/transient-ошибки; постоянный
+        # отказ Telegram не превращаем в 3 одинаковых запроса.
+        for attempt in range(1, attempts + 1):
+            try:
+                tg_file = await bot.get_file(text_id)
+                file_path = getattr(tg_file, "file_path", None)
+            except Exception as exc:
+                cls, retryable = classify_transport_error(exc)
+                # P0 18.11.2026 (prod-диагноз): локальный 400 «wrong file_id or
+                # the file is temporarily unavailable» НЕ доказывает
+                # невалидный id — файл мог не записаться на диск. Это local
+                # read failure с правом облачного fallback; invalid_file_id
+                # авторитетно определяет облако/форма id.
+                if cls == ERROR_INVALID_FILE_ID:
+                    cls = ERROR_LOCAL_READ_FAILED
+                    retryable = False
+                diag.update(stage=STAGE_GET_FILE, error_class=cls,
+                            attempt=attempt)
+                last_stage, last_class, last_retryable = (
+                    STAGE_GET_FILE, cls, retryable)
+                logger.warning(
+                    "[%s] get_file failed (attempt %d/%d) | id_prefix=%s | "
+                    "%s", site, attempt, attempts, _id_prefix(text_id),
+                    type(exc).__name__)
+                tg_file = None
+                file_path = None
+                if not retryable or cls in permanent:
+                    break
+                if attempt < attempts:
+                    await asyncio.sleep(sleep)
+                continue
+            diag.pop("error_class", None)
+            diag.update(stage="", attempt=attempt)
+            src = local_file_path(bot, file_path)
+            if src is None:
+                last_stage = STAGE_LOCAL_READ
+                last_class = ERROR_MISSING_LOCAL_FILE
+                last_retryable = True
+                logger.warning(
+                    "[%s] local path unavailable (attempt %d/%d) | "
+                    "tail=%s", site, attempt, attempts,
+                    safe_path_tail(file_path))
+            else:
+                try:
+                    await _copy_local_file_to_path(
+                        src, destination, max_bytes)
+                    diag["outcome"] = "local_read"
+                    return
+                except MediaDownloadError:
+                    raise            # oversized — постоянный класс
+                except FileNotFoundError:
+                    last_stage, last_class = (STAGE_LOCAL_READ,
+                                              ERROR_MISSING_LOCAL_FILE)
+                except PermissionError:
+                    last_stage, last_class = (STAGE_LOCAL_READ,
+                                              ERROR_PERMISSION_DENIED)
+                except OSError:
+                    last_stage, last_class = (STAGE_LOCAL_READ,
+                                              ERROR_LOCAL_READ_FAILED)
+                last_retryable = last_class != ERROR_PERMISSION_DENIED
+                diag.update(stage=last_stage, error_class=last_class)
+                logger.warning(
+                    "[%s] local file unavailable (attempt %d/%d) | tail=%s "
+                    "| class=%s", site, attempt, attempts,
+                    safe_path_tail(file_path), last_class)
+                if last_class in permanent:
+                    break
+            if attempt < attempts:
+                await asyncio.sleep(sleep)
+        # В локальном режиме второе чтение того же файла через aiogram не
+        # помогает: сразу облачный fallback (если разрешён).
+    else:
+        # 2) Облачный режим: getFile → штатный транспорт aiogram. Сессия
+        # облачная, диск хоста не участвует.
+        for attempt in range(1, attempts + 1):
+            try:
+                tg_file = await bot.get_file(text_id)
+                file_path = getattr(tg_file, "file_path", None)
+            except Exception as exc:
+                cls, retryable = classify_transport_error(exc)
+                diag.update(stage=STAGE_GET_FILE, error_class=cls,
+                            attempt=attempt)
+                last_stage, last_class, last_retryable = (
+                    STAGE_GET_FILE, cls, retryable)
+                logger.warning(
+                    "[%s] get_file failed (attempt %d/%d) | id_prefix=%s | "
+                    "%s", site, attempt, attempts, _id_prefix(text_id),
+                    type(exc).__name__)
+                tg_file = None
+                if not retryable or cls in permanent:
+                    break
+                if attempt < attempts:
+                    await asyncio.sleep(sleep)
+                continue
+            diag.pop("error_class", None)
+            diag.update(stage="", attempt=attempt)
+            break
+        if tg_file is None and not file_path:
+            diag.setdefault("stage", last_stage)
+            diag.setdefault("error_class", last_class)
+            diag["outcome"] = "failed"
+            raise MediaDownloadError(last_stage, last_class,
+                                     retryable=last_retryable)
+        for attempt in range(1, attempts + 1):
+            try:
+                await _aiogram_transport_to_path(
+                    bot, tg_file, text_id, file_path, destination,
+                    timeout=timeout)
+                _check_destination(destination, max_bytes,
+                                   STAGE_CLOUD_DOWNLOAD)
+                diag["outcome"] = "aiogram_transport"
+                return
+            except MediaDownloadError:
+                raise
+            except Exception as exc:
+                cls, retryable = classify_transport_error(exc)
+                last_stage, last_class, last_retryable = (
+                    STAGE_CLOUD_DOWNLOAD, cls, retryable)
+                diag.update(stage=last_stage, error_class=cls,
+                            attempt=attempt)
+                logger.warning(
+                    "[%s] bot transport failed (attempt %d/%d) | "
+                    "id_prefix=%s | class=%s", site, attempt, attempts,
+                    _id_prefix(text_id), cls)
+                if not retryable or cls in permanent:
+                    break
+                if attempt < attempts:
+                    await asyncio.sleep(sleep)
+
+    # 3) Облачный fallback — только локальный Bot API и только когда он
+    # разрешён. Постоянный local-отказ (400/права/файла нет) — как раз повод
+    # получить авторитетный ответ облака; не повторяем в облаке только
+    # невалидный id (его определило облако) и превышение размера.
+    if (is_local and cloud_fallback_enabled()
+            and last_class not in (ERROR_INVALID_FILE_ID, ERROR_OVERSIZED)):
+        fetcher = cloud_fetcher or _default_cloud_fetch
+        try:
+            data = await fetcher(_bot_token(bot), text_id,
+                                 cloud_relative_path(bot, file_path) or "",
+                                 timeout=timeout, max_bytes=max_bytes)
+        except MediaDownloadError as exc:
+            last_stage = exc.stage or STAGE_CLOUD_DOWNLOAD
+            last_class = exc.error_class
+            last_retryable = exc.retryable
+            diag.update(stage=last_stage, error_class=last_class)
+            logger.warning("[%s] cloud fallback failed | id_prefix=%s | "
+                           "class=%s", site, _id_prefix(text_id), last_class)
+        except Exception as exc:
+            cls, retryable = classify_transport_error(exc)
+            last_stage, last_class, last_retryable = (
+                STAGE_CLOUD_DOWNLOAD, cls, retryable)
+            diag.update(stage=last_stage, error_class=last_class)
+            logger.warning("[%s] cloud fallback failed | id_prefix=%s | "
+                           "class=%s", site, _id_prefix(text_id), cls)
+        else:
+            await _write_bytes_to_path(destination, bytes(data or b""),
+                                       max_bytes)
+            diag["outcome"] = "cloud_fallback"
+            logger.warning("[%s] cloud fallback used | id_prefix=%s | "
+                           "local=%s", site, _id_prefix(text_id), last_class)
+            return
+
+    diag.setdefault("stage", last_stage)
+    diag.setdefault("error_class", last_class)
+    diag["outcome"] = "failed"
+    raise MediaDownloadError(last_stage, last_class,
+                             retryable=last_retryable)
+
+
+def _id_prefix(file_id) -> str:
+    """R17-safe префикс file_id для логов (полный идентификатор не пишем)."""
+    text = str(file_id or "")
+    return text[:6]
+
+
+async def _copy_local_file_to_path(src: Path, destination,
+                                   max_bytes) -> None:
+    """Копия локального файла Bot API в destination с проверкой размера."""
+    def _copy() -> None:
+        size = src.stat().st_size
+        limit = int(max_bytes) if max_bytes else 0
+        if limit > 0 and size > limit:
+            raise MediaDownloadError(STAGE_VALIDATE, ERROR_OVERSIZED,
+                                     f"file exceeds {limit} bytes",
+                                     retryable=False)
+        shutil.copyfile(src, destination)
+
+    await asyncio.to_thread(_copy)
+
+
+async def _write_bytes_to_path(destination, data: bytes, max_bytes) -> None:
+    """Запись готовых байтов (cloud fallback) с проверкой размера."""
+    limit = int(max_bytes) if max_bytes else 0
+    if limit > 0 and len(data) > limit:
+        raise MediaDownloadError(STAGE_VALIDATE, ERROR_OVERSIZED,
+                                 f"file exceeds {limit} bytes",
+                                 retryable=False)
+    if not data:
+        raise MediaDownloadError(STAGE_CLOUD_DOWNLOAD, ERROR_PROVIDER_ERROR,
+                                 "empty file", retryable=True)
+
+    def _write() -> None:
+        with open(destination, "wb") as fh:
+            fh.write(data)
+
+    await asyncio.to_thread(_write)
+
+
+def _check_destination(destination, max_bytes, stage: str) -> None:
+    """Проверка записанного файла: не пустой и не больше лимита."""
+    try:
+        size = os.path.getsize(destination)
+    except OSError:
+        raise MediaDownloadError(stage, ERROR_LOCAL_READ_FAILED,
+                                 "destination unavailable",
+                                 retryable=True) from None
+    limit = int(max_bytes) if max_bytes else 0
+    if limit > 0 and size > limit:
+        raise MediaDownloadError(STAGE_VALIDATE, ERROR_OVERSIZED,
+                                 f"file exceeds {limit} bytes",
+                                 retryable=False)
+    if size <= 0:
+        raise MediaDownloadError(stage, ERROR_PROVIDER_ERROR,
+                                 "empty file", retryable=True)
+
+
+async def _aiogram_transport_to_path(bot, tg_file, file_id, file_path,
+                                     destination, *, timeout: float) -> None:
+    """Штатный транспорт aiogram: поток в destination (не в память)."""
+    download_file = getattr(bot, "download_file", None)
+    if file_path and callable(download_file):
+        await download_file(
+            file_path, destination=destination,
+            timeout=max(1, int(timeout or DEFAULT_DOWNLOAD_TIMEOUT_SECONDS)))
+    elif tg_file is not None:
+        await bot.download(tg_file, destination=destination)
+    else:
+        await bot.download(file_id, destination=destination)
+
+
 async def _read_local_source(bot, file_id, on_found, *, attempts: int = 3,
                              sleep: float = 1.0, site: str = "transcribe") -> bool:
     """Общий retry-цикл локального чтения файла Bot API (F6/ADR-1019-5 D1).
@@ -675,9 +973,17 @@ async def _read_local_source(bot, file_id, on_found, *, attempts: int = 3,
             tg_file = await bot.get_file(file_id)
             file_path = getattr(tg_file, "file_path", None)
         except Exception as exc:
+            cls, retryable = classify_transport_error(exc)
             logger.warning("[%s] get_file failed (attempt %d/%d) | "
-                           "file_id=%s | %s", site, attempt, attempts,
-                           file_id, type(exc).__name__)
+                           "file_id_prefix=%s | %s",
+                           site, attempt, attempts, _id_prefix(file_id),
+                           type(exc).__name__)
+            # Постоянный отказ Telegram (invalid file_id/auth) не повторяем:
+            # 3 одинаковых запроса не меняют ответ. Transient — повторяем,
+            # чтобы файл успел появиться.
+            if not retryable or cls in (ERROR_INVALID_FILE_ID,
+                                        ERROR_PERMISSION_DENIED):
+                return False
         src = local_file_path(bot, file_path)
         if src is not None:
             try:
@@ -714,40 +1020,26 @@ async def read_local_file_bytes(bot, file_id: str, *, attempts: int = 3,
     return box.get("data") if ok else None
 
 
-async def fetch_media_to_tmp(bot, media, tmp_path) -> None:
-    """Epic 78 (D292/Section 79): получить медиа во tmp-файл.
-    Гейт локального режима = hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED) (D262 import-time
-    сессия с is_local=True). Локальный режим И относительный file_path →
-    копирование с диска из TELEGRAM_API_FILES_DIR/<bot_id>:<token>/
-    (root cause: локальный Bot API возвращает file_path ОТНОСИТЕЛЬНЫМ,
-    aiogram читает исходник относительно cwd → FileNotFoundError).
-    Файла нет / get_file упал / path абсолютный / облако → прежний
-    bot.download (облачный режим байт-в-байт, без get_file-двойного запроса).
-    Секреты (R17): строка '<bot_id>:<token>' нигде не логируется — в логах
-    только file_path-хвост или src.name.
+async def fetch_media_to_tmp(bot, media, tmp_path, *, site: str = "media",
+                             max_bytes: int | None = None) -> None:
+    """Получить медиа Bot API во tmp-файл ОДНИМ транспортом.
 
-    F6 (ADR-1019-5 D1): локальный retry-цикл вынесен в общий
-    `_read_local_source`/`local_file_path` (без дублирования с аватарами).
-    Поведение прежнее: 3 попытки/1.0s, fallback `bot.download`."""
-    if not hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):            # облачный режим: как раньше
-        await bot.download(media.file_id, destination=tmp_path)
-        return
-    # Epic 78 (D292): локальный Bot API возвращает относительный file_path,
-    # файл лежит на диске в TELEGRAM_API_FILES_DIR/<bot_id>:<token>/.
-    # Epic 79 hotfix (aiogram 3.31+ race): retry с задержкой (локальный API
-    # успевает за ~1-2с), после чего — bot.download.
-    max_attempts = 3
+    P0 voice-transcription recovery (18.11.2026): раньше голос/кружок шли
+    отдельной тройкой `bot.get_file` + `bot.download` (постоянный 400
+    повторялся 3 раза, а «fallback» был тем же облачным путём). Теперь это
+    streaming-адаптер `download_api_file_to_path` того же транспорта, что у
+    Vision: стадии `get_file|local_read|cloud_download|validate`, классы
+    `invalid_file_id|missing_local_file|permission_denied|timeout|network|
+    oversized|provider_error`. Постоянный отказ не повторяется, transient —
+    bounded retry; облачный fallback — только при разрешённом
+    `MEDIA_DOWNLOAD_CLOUD_FALLBACK` и только из локального режима.
 
-    async def _copy(src: Path) -> None:
-        await asyncio.to_thread(shutil.copyfile, src, tmp_path)
-
-    if await _read_local_source(bot, media.file_id, _copy,
-                                attempts=max_attempts, sleep=1.0):
-        return
-    # Все retry исчерпаны. Последняя попытка: bot.download.
-    # В локальном режиме (is_local=True) падает FileNotFoundError, если файл
-    # всё ещё не на диске — но попытка лучше, чем молчание + 0 ответ.
-    logger.warning("[transcribe] local file unavailable after %d attempts | "
-                   "file_id=%s | falling back to bot.download",
-                   max_attempts, media.file_id)
-    await bot.download(media.file_id, destination=tmp_path)
+    Режим endpoint'а — фактическая aiogram-сессия (или инфраструктурный
+    `TELEGRAM_LOCAL`), НЕ функциональный `flags.download_enabled`: горячее
+    выключение модуля не меняет выбранный API и не маскирует расхождение.
+    Ошибки — типизированные `MediaDownloadError` (R17: без полного file_id,
+    пути `<bot_id>:<token>` и URL с токеном); temp-файл убирает вызывающий.
+    """
+    file_id = getattr(media, "file_id", None)
+    await download_api_file_to_path(bot, file_id, tmp_path, site=site,
+                                    max_bytes=max_bytes)

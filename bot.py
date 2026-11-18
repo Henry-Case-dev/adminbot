@@ -21,6 +21,11 @@ from services.control_service import ControlService
 from services.hot_config import set_config_cache
 from services.log_ring import SecretMaskFilter as _SecretMaskFilter
 from services.log_ring import log_ring as _log_ring_singleton
+from services.local_bot_api import (
+    build_local_api_session,
+    log_bot_api_mode,
+    telegram_local_mode_enabled,
+)
 from services.status_service import status
 from services.uptime_heartbeat import UptimeHeartbeatService
 from web.app import create_app
@@ -244,7 +249,14 @@ else:
         "[betterstack] disabled (no token/host) — логи НЕ отправляются "
         "в панель")
 
-if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
+# P0 voice-transcription recovery (18.11.2026): endpoint Bot API выбирается
+# ИНФРАСТРУКТУРНОЙ конфигурацией (`TELEGRAM_LOCAL` — тот же рубильник, что у
+# контейнера telegram-bot-api), а НЕ функциональным `flags.download_enabled`.
+# Горячее включение/выключение модуля не пересоздаёт `Bot.session` и не может
+# молча развести «контейнер local / приложение cloud». Cloud-режим — прежний
+# штатный `Bot(token=...)`; расхождение фактической сессии и env фиксируется
+# явным WARNING в `log_bot_api_mode`.
+if telegram_local_mode_enabled():
     # VISION-DL-FIX (ACCEPTANCE-92C): локальный Bot API отдаёт в getFile
     # АБСОЛЮТНЫЙ путь контейнера (`/var/lib/telegram-bot-api/<token>/…`), а
     # aiogram при is_local=True читает этот путь с ФС ХОСТА → FileNotFoundError
@@ -259,6 +271,7 @@ if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
     )
 else:
     bot = Bot(token=settings.API_TOKEN)
+log_bot_api_mode(bot)
 dp = Dispatcher(storage=MemoryStorage())
 
 # SmartModule (Epic 24) — module-level refs for on_shutdown

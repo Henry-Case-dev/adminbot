@@ -297,12 +297,46 @@ def is_voice_source_row(row) -> bool:
     return media_type == "video" and status in _STATUSES
 
 
-def _derive_status(row, *, now: int) -> tuple:
+def _row_age_seconds(row, *, now: int) -> int | None:
+    """Возраст durable-статуса строки (updated_at → timestamp), секунды."""
+    for key in ("transcript_updated_at", "timestamp"):
+        try:
+            value = int(row_get(row, key) or 0)
+        except (TypeError, ValueError):
+            value = 0
+        if value > 0:
+            try:
+                return max(0, int(now) - value)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _pending_lease_seconds() -> int:
+    """Разумный deadline действительно идущего STT (lease для pending).
+
+    Использует существующий ключ `limits.voice_transcript_stale_seconds`
+    (default 3600): STT-таймауты провайдеров измеряются секундами, час без
+    завершения — уже не «идёт». Новых флагов нет.
+    """
+    return max(1, int(_num(STALE_SECONDS_KEY, _DEFAULT_STALE_SECONDS,
+                           integer=True)))
+
+
+def derive_transcript_state(row, *, now: int) -> tuple:
     """(status, reason, text) версии расшифровки строки — БЕЗ догадок о речи.
 
     Приоритет durable-статуса; legacy-строка с текстом (расшифровка писалась
     до v45) — готовое содержимое с revision 0. Пустой текст без статуса:
-    «ещё идёт», пока сообщение свежее, иначе честное «расшифровки нет»."""
+    «ещё идёт», пока сообщение свежее, иначе честное «расшифровки нет».
+
+    P0 18.11.2026: явный `pending` — НЕ бессрочный. Для действительно
+    выполняемой операции он честен до deadline/lease (updated_at статуса);
+    протухший превращается в `unavailable` с причиной `stale_pending` —
+    Writer больше не видит вечное «расшифровка идёт». Уже полученный текст
+    сохраняется (история не удаляется), а завершение гонки обрабатывается
+    повторным чтением (`refresh_voice_bundle`): поздно записанный `ready`
+    побеждает протухший снимок."""
     raw_status = str(row_get(row, "transcript_status") or "")
     reason = str(row_get(row, "transcript_reason") or "")
     text = _row_text(row).strip()
@@ -321,7 +355,10 @@ def _derive_status(row, *, now: int) -> tuple:
         # версию — отдаём прежний текст, а не «неизвестно».
         if text:
             return TRANSCRIPT_READY, "", text
-        return TRANSCRIPT_PENDING, "", text
+        age = _row_age_seconds(row, now=now)
+        if age is not None and age >= _pending_lease_seconds():
+            return TRANSCRIPT_UNAVAILABLE, "stale_pending", ""
+        return TRANSCRIPT_PENDING, "", ""
     if text:
         return TRANSCRIPT_READY, "", text
     try:
@@ -332,6 +369,10 @@ def _derive_status(row, *, now: int) -> tuple:
     if ts and now - ts >= stale:
         return TRANSCRIPT_UNAVAILABLE, "no_transcript", ""
     return TRANSCRIPT_PENDING, "", ""
+
+
+# Прежнее приватное имя — внутренняя совместимость (модуль читает только он).
+_derive_status = derive_transcript_state
 
 
 def _num(key: str, default, *, integer: bool = False):
@@ -358,7 +399,7 @@ def _int_or_none(value):
 
 def _to_source(row, *, now: int, primary: bool = False,
                quote_fragment: str = "") -> VoiceSource:
-    status, reason, text = _derive_status(row, now=now)
+    status, reason, text = derive_transcript_state(row, now=now)
     try:
         tg_id = int(row_get(row, "tg_message_id") or 0)
     except (TypeError, ValueError):
@@ -559,7 +600,7 @@ async def resolve_voice_bundle(db, *, chat_id: int, message, query: str,
             for row in above:
                 if not is_voice_source_row(row):
                     continue          # цитата текста ≠ голосовой source-ref
-                status, _reason, text = _derive_status(row, now=now)
+                status, _reason, text = derive_transcript_state(row, now=now)
                 if status != TRANSCRIPT_READY or not text:
                     continue
                 if needle in _normalize_for_match(text):
@@ -715,7 +756,36 @@ _HONEST_FAILED = ("расшифровка не удалась ({reason}) — с�
                   "проверено; сообщение существует, не утверждай обратное.")
 
 
+_DOWNLOAD_REASON_TEXT = {
+    "invalid_file_id": "Telegram не принимает file_id (недействителен/устарел)",
+    "missing_local_file": "файла нет в каталоге локального Bot API",
+    "permission_denied": "нет доступа к файлу или Bot API",
+    "timeout": "таймаут Telegram API",
+    "network": "сетевая ошибка Telegram API",
+    "oversized": "файл превышает допустимый размер",
+    "provider_error": "ошибка Telegram API",
+    "local_read_failed": "файл не прочитан",
+    "unreadable_raster": "файл не читается",
+}
+_DOWNLOAD_STAGE_TEXT = {
+    "get_file": "стадия getFile",
+    "local_read": "чтение локального файла",
+    "cloud_download": "облачное скачивание",
+    "validate": "проверка файла",
+}
+
+
 def _reason_text(reason: str) -> str:
+    text = str(reason or "")
+    if text.startswith("download_"):
+        rest = text[len("download_"):]
+        for stage, stage_text in _DOWNLOAD_STAGE_TEXT.items():
+            if rest.startswith(stage + "_"):
+                cls = rest[len(stage) + 1:]
+                return "%s; %s" % (
+                    _DOWNLOAD_REASON_TEXT.get(cls, "файл не получен"),
+                    stage_text)
+        return "файл не получен из Telegram"
     return {
         "stt_failed": "сбой распознавания",
         "stt_error": "техническая ошибка распознавания",
@@ -723,7 +793,10 @@ def _reason_text(reason: str) -> str:
         "duration_limit": "превышен лимит длительности",
         "no_transcript": "расшифровка не сохранялась",
         "source_missing": "исходное сообщение недоступно",
-    }.get(str(reason or ""), str(reason or "причина неизвестна"))
+        "stale_pending": "распознавание не завершилось за отведённое время",
+        "download_error": "файл не получен из Telegram",
+        "persist_failed": "расшифровка не сохранена",
+    }.get(text, text or "причина неизвестна")
 
 
 def _iso(ts) -> str:
@@ -832,6 +905,7 @@ __all__ = [
     "TRANSCRIPT_UNAVAILABLE",
     "VoiceQuery", "VoiceSource", "VoiceBundle",
     "analyze_voice_query", "is_voice_source_row",
+    "derive_transcript_state",
     "resolve_voice_bundle", "refresh_voice_bundle", "wait_for_voice_bundle",
     "prepare_voice_evidence", "render_voice_block",
 ]

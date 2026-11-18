@@ -8,6 +8,7 @@ MediaMessage-обёртка для GraphRAG и UPDATE smart_messages_text.
 import asyncio
 import logging
 import os
+import types
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -99,11 +100,56 @@ def _make_msg(**kwargs):
     return msg
 
 
-def _make_bot():
-    bot = AsyncMock()
-    bot.get_file = AsyncMock()      # хендлер НЕ должен звать напрямую (T-543)
-    bot.download = AsyncMock()
-    return bot
+class _Session:
+    def __init__(self, is_local: bool):
+        self.api = types.SimpleNamespace(is_local=is_local)
+
+
+class _Bot:
+    """Двойник бота: фактическая сессия + запись в destination.
+
+    Cloud (default) — getFile + download_file; local — транспорт читает
+    disk-path, который находит `media_download.local_file_path`."""
+
+    def __init__(self, *, local: bool = False, data: bytes = b"audio-bytes",
+                 file_path: str = "voice/file.ogg"):
+        self.session = _Session(local)
+        self.id = 4242
+        self.data = data
+        self.file_path = file_path
+        self.get_file_calls = 0
+        self.download_file_calls = 0
+        self.download_calls = 0
+        self.get_file_exc: BaseException | None = None
+        self.download_exc: BaseException | None = None
+
+    async def get_file(self, file_id):
+        self.get_file_calls += 1
+        if self.get_file_exc is not None:
+            raise self.get_file_exc
+        return types.SimpleNamespace(file_path=self.file_path)
+
+    async def download_file(self, file_path, destination=None, timeout=30):
+        self.download_file_calls += 1
+        if self.download_exc is not None:
+            raise self.download_exc
+        if isinstance(destination, str):
+            Path(destination).write_bytes(self.data)
+        else:
+            destination.write(self.data)
+
+    async def download(self, file, destination=None):
+        self.download_calls += 1
+        if self.download_exc is not None:
+            raise self.download_exc
+        if isinstance(destination, str):
+            Path(destination).write_bytes(self.data)
+        else:
+            destination.write(self.data)
+
+
+def _make_bot(*, local: bool = False):
+    return _Bot(local=local)
 
 
 @pytest.fixture
@@ -295,7 +341,7 @@ class TestHandlerPools:
             result = await vt.voice_transcription_handler(msg, bot=bot)
             assert result is UNHANDLED
             msg.reply.assert_not_called()
-            bot.get_file.assert_not_called()
+            assert bot.get_file_calls == 0
 
     @pytest.mark.asyncio
     async def test_own_voice_skipped(self, vt_env):
@@ -303,7 +349,7 @@ class TestHandlerPools:
         bot = _make_bot()
         await vt.voice_transcription_handler(msg, bot=bot)
         msg.reply.assert_not_called()
-        bot.get_file.assert_not_called()
+        assert bot.get_file_calls == 0
 
 
 # ── 3. Формат вывода (D268) ─────────────────────────────────────────
@@ -383,7 +429,7 @@ class TestTempCleanup:
     async def test_temp_removed_even_on_error(self, vt_env, tmp_file_path):
         """Ошибка скачивания → UNHANDLED без реплая, temp удалён в finally."""
         bot = _make_bot()
-        bot.download.side_effect = RuntimeError("download boom")
+        bot.download_exc = RuntimeError("download boom")
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED
@@ -402,17 +448,16 @@ class TestTempCleanup:
 
 class TestBotDownloadPattern:
     @pytest.mark.asyncio
-    async def test_download_called_with_file_id_and_destination(
+    async def test_transport_downloads_to_created_tmp_path(
             self, vt_env, tmp_file_path):
-        """T-543: bot.download(media.file_id, destination=path), destination —
-        созданный mkstemp-путь."""
+        """P0 18.11.2026: transport = getFile → download_file; destination —
+        созданный mkstemp-путь (единый транспорт, не отдельный bot.download)."""
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         bot = _make_bot()
         await vt.voice_transcription_handler(msg, bot=bot)
-        bot.download.assert_awaited_once()
-        args, kwargs = bot.download.await_args
-        assert args[0] == "f1"
-        assert kwargs["destination"] == tmp_file_path[0]
+        assert bot.get_file_calls == 1
+        assert bot.download_file_calls == 1
+        assert bot.download_calls == 0
 
     def test_handler_source_has_no_legacy_call(self):
         """Регрессия v2.46.1 (+ Epic 78 T-579) и Bugfix 04.09.2026 (Часть 1,
@@ -426,29 +471,35 @@ class TestBotDownloadPattern:
         assert "_fetch_media_to_tmp" in src
         assert "services.media_download" in src
         assert "def fetch_media_to_tmp" in inspect.getsource(md)
-        assert "bot.download(" in inspect.getsource(md)
+        assert "def download_api_file_to_path" in inspect.getsource(md)
 
     @pytest.mark.asyncio
-    async def test_no_direct_get_file_at_runtime(self, vt_env, tmp_file_path):
-        """Хендлер использует bot.download → get_file НЕ вызывается напрямую."""
+    async def test_handler_does_not_call_get_file_directly(
+            self, vt_env, tmp_file_path):
+        """getFile вызывает транспорт, а не текст хендлера."""
+        import inspect
+        assert ".get_file(" not in inspect.getsource(vt)
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         bot = _make_bot()
         await vt.voice_transcription_handler(msg, bot=bot)
-        bot.get_file.assert_not_called()
-        bot.download.assert_awaited_once()
+        assert bot.get_file_calls == 1
+        assert bot.download_file_calls == 1
 
     @pytest.mark.asyncio
-    async def test_temp_cleaned_up_when_bot_download_raises(
+    async def test_temp_cleaned_up_when_transport_raises(
             self, vt_env, tmp_file_path):
-        """Ошибка bot.download → UNHANDLED без реплая, temp удалён в finally."""
+        """Ошибка транспорта → терминальный failed, UNHANDLED без реплая,
+        temp удалён в finally."""
         bot = _make_bot()
-        bot.download.side_effect = RuntimeError("download boom")
+        bot.download_exc = RuntimeError("download boom")
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED
         assert len(tmp_file_path) == 1
         assert not os.path.exists(tmp_file_path[0])
         msg.reply.assert_not_called()
+        assert vt._db.set_smart_message_transcript.await_args_list[-1].kwargs[
+            "status"] == "failed"
 
 
 # ── 5c. Epic 78 (T-579, Section 79/D292): резолв host-пути ──────────
@@ -476,9 +527,12 @@ class TestEpic78LocalApiResolve:
         # (корневой conftest: ADMINBOT_SKIP_DOTENV) реального токена в
         # окружении нет, а тестам «секрет не логируется» нужен непустой.
         cfg = self._cfg(
-            DOWNLOAD_ENABLED=True,
             TELEGRAM_API_FILES_DIR=str(files_dir),
             API_TOKEN=f"{self.BOT_ID}:vt-test-secret-4242")
+        # P0 18.11.2026: endpoint выбирает инфраструктурный TELEGRAM_LOCAL,
+        # а не функциональный DOWNLOAD_ENABLED.
+        monkeypatch.setenv("TELEGRAM_LOCAL", "1")
+        monkeypatch.setenv(md.CLOUD_FALLBACK_ENV, "0")
         # Bugfix 04.09.2026 (Часть 1): хелпер скачивания теперь в
         # services.media_download — патчим settings ОБОИХ модулей.
         monkeypatch.setattr(vt, "settings", cfg)
@@ -489,18 +543,20 @@ class TestEpic78LocalApiResolve:
     def vsrc(self, local_mode, monkeypatch):
         """Виртуальный файл(ы) внутри '<dir>/<bot_id>:<token>/'. На Windows
         ':' в имени каталога запрещён, поэтому FS-слой подменяется ТОЧЕЧНО
-        (только пути под TELEGRAM_API_FILES_DIR): Path.exists и
-        shutil.copyfile хелпера (services.media_download)."""
+        (только пути под TELEGRAM_API_FILES_DIR): Path.stat (размер для
+        size-guard) и shutil.copyfile хелпера (services.media_download)."""
         files = {}                       # str(abs_path) -> bytes
         copied = {}                      # str(abs_src) -> str(dst)
         root = str(local_mode)
-        real_exists = Path.exists
+        real_stat = Path.stat
 
-        def fake_exists(pself):
+        def fake_stat(pself, *args, **kwargs):
             s = str(pself)
             if s.startswith(root):
-                return s in files
-            return real_exists(pself)
+                if s in files:
+                    return types.SimpleNamespace(st_size=len(files[s]))
+                raise FileNotFoundError(2, "No such file", s)
+            return real_stat(pself, *args, **kwargs)
 
         def fake_copyfile(src, dst):
             assert str(src) in files, str(src)
@@ -508,7 +564,7 @@ class TestEpic78LocalApiResolve:
             with open(dst, "wb") as fh:
                 fh.write(files[str(src)])
 
-        monkeypatch.setattr(Path, "exists", fake_exists)
+        monkeypatch.setattr(Path, "stat", fake_stat)
         monkeypatch.setattr(md.shutil, "copyfile", fake_copyfile)
         return files, copied
 
@@ -521,9 +577,7 @@ class TestEpic78LocalApiResolve:
         return str(files_dir / dirname / rel)
 
     def _local_bot(self):
-        bot = _make_bot()
-        bot.id = self.BOT_ID
-        return bot
+        return _make_bot(local=True)
 
     @staticmethod
     def _tg_file(file_path):
@@ -540,58 +594,63 @@ class TestEpic78LocalApiResolve:
         files[src_key] = b"circldata"
         msg = _make_msg(video_note=MagicMock(duration=10, file_id="f2"))
         bot = self._local_bot()
-        bot.get_file.return_value = self._tg_file("video_notes/file_0.mp4")
+        bot.file_path = "video_notes/file_0.mp4"
         result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED
         # tmp удалён в finally ПОСЛЕ успешной расшифровки — содержимое
         # проверяем через запись fake-копирования
         assert copied == {src_key: tmp_file_path[0]}
-        bot.download.assert_not_awaited()
+        assert bot.download_calls == 0
         assert "заглушка" in msg.reply.call_args.args[0]
 
     @pytest.mark.asyncio
-    async def test_missing_file_falls_back_to_download(
-            self, vt_env, tmp_file_path, local_mode, caplog):
-        """Кейс 2: файла нет → WARNING без токена + bot.download как раньше."""
+    async def test_missing_file_terminal_failure_no_second_reply(
+            self, vt_env, tmp_file_path, local_mode, caplog, vsrc):
+        """Кейс 2: файла нет, облако выключено → терминальный failed с
+        безопасной причиной, без pending, без второго ответа."""
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         bot = self._local_bot()
-        bot.get_file.return_value = self._tg_file("music/file_1.ogg")
-        with caplog.at_level(logging.WARNING,
-                             logger="handlers.voice_transcription"):
+        bot.file_path = "music/file_1.ogg"
+        with caplog.at_level(logging.WARNING):
             result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED
-        bot.download.assert_awaited_once_with(
-            "f1", destination=tmp_file_path[0])
-        assert any("local api file missing" in r.message for r in caplog.records)
+        msg.reply.assert_not_called()
+        reasons = [c.kwargs.get("reason") for c in
+                   vt._db.set_smart_message_transcript.await_args_list]
+        assert reasons == ["download_local_read_missing_local_file"]
+        assert any("local file unavailable" in r.message
+                   for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_cloud_mode_straight_download_no_get_file(
+    async def test_cloud_mode_uses_gateway_transport(
             self, vt_env, tmp_file_path, monkeypatch):
-        """Кейс 3: DOWNLOAD_ENABLED=False → сразу bot.download, get_file и
-        резолв диска не выполняются."""
-        cfg = self._cfg(DOWNLOAD_ENABLED=False)
+        """Кейс 3: облачный режим → getFile + штатный aiogram-транспорт;
+        локальный диск хоста не участвует."""
+        monkeypatch.setenv("TELEGRAM_LOCAL", "")
+        cfg = self._cfg()
         monkeypatch.setattr(vt, "settings", cfg)
         monkeypatch.setattr(md, "settings", cfg)
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f1"))
         bot = _make_bot()
         result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED
-        bot.get_file.assert_not_awaited()
-        bot.download.assert_awaited_once_with(
-            "f1", destination=tmp_file_path[0])
+        assert bot.get_file_calls == 1
+        assert bot.download_file_calls == 1
+        assert bot.download_calls == 0
 
     @pytest.mark.asyncio
-    async def test_absolute_file_path_skips_host_resolve(
-            self, vt_env, tmp_file_path, local_mode):
-        """Кейс 4: абсолютный file_path → без host-resolve, ветка bot.download."""
+    async def test_absolute_file_path_inside_root_without_file_fails_typed(
+            self, vt_env, tmp_file_path, local_mode, vsrc):
+        """Кейс 4: абсолютный путь без файла → typed local_read, без
+        несуществующего «fallback bot.download»."""
         abs_path = "/var/lib/telegram-bot-api/data/file_2.mp4"
         msg = _make_msg(video_note=MagicMock(duration=10, file_id="f3"))
         bot = self._local_bot()
-        bot.get_file.return_value = self._tg_file(abs_path)
+        bot.file_path = abs_path
         result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED
-        bot.download.assert_awaited_once_with(
-            "f3", destination=tmp_file_path[0])
+        msg.reply.assert_not_called()
+        assert bot.download_calls == 0
         # ничего не скопировано с диска (root даже не создавался)
         assert not local_mode.exists()
 
@@ -600,7 +659,8 @@ class TestEpic78LocalApiResolve:
             self, vt_env, tmp_file_path, local_mode, caplog, monkeypatch,
             vsrc):
         """Кейс 5: токен и '<bot_id>:<token>' отсутствуют во всех логах
-        (существующий файл / файл missing / копирование упало / облако)."""
+        (существующий файл / файл missing / копирование упало / get_file
+        упал / облако)."""
         token = vt.settings.API_TOKEN
         prefix = f"{self.BOT_ID}:"
         secret = token if token.startswith(prefix) else prefix + token
@@ -616,36 +676,31 @@ class TestEpic78LocalApiResolve:
 
         bot = self._local_bot()
 
-        with caplog.at_level(logging.DEBUG,
-                             logger="handlers.voice_transcription"):
+        with caplog.at_level(logging.DEBUG):
             # A: существующий файл (копирование ок)
             m1 = _make_msg(voice=MagicMock(duration=10, file_id="a"))
-            bot.get_file.return_value = self._tg_file("music/ok.ogg")
+            bot.file_path = "music/ok.ogg"
             await vt.voice_transcription_handler(m1, bot=bot)
-            # B: файл отсутствует → WARNING fallback
+            # B: файл отсутствует → typed local_read, облако выключено
             m2 = _make_msg(voice=MagicMock(duration=10, file_id="b"))
-            bot.get_file.return_value = self._tg_file("music/gone.ogg")
+            bot.file_path = "music/gone.ogg"
             await vt.voice_transcription_handler(m2, bot=bot)
-            # C: копирование упало → fallback download (тоже падает)
-            bot.download.side_effect = RuntimeError("dl boom")
+            # C: копирование упало → typed local_read
             prev_copyfile = md.shutil.copyfile
             md.shutil.copyfile = _boom_copy
             try:
                 m3 = _make_msg(voice=MagicMock(duration=10, file_id="c"))
-                bot.get_file.return_value = self._tg_file("music/ok.ogg")
+                bot.file_path = "music/ok.ogg"
                 await vt.voice_transcription_handler(m3, bot=bot)
             finally:
                 md.shutil.copyfile = prev_copyfile
-            bot.download.side_effect = None
-            # D: get_file упал → fallback download
-            bot.get_file.side_effect = RuntimeError("api boom")
+            # D: get_file упал (transient) → bounded retry → typed
+            bot.get_file_exc = RuntimeError("api boom")
             m4 = _make_msg(voice=MagicMock(duration=10, file_id="d"))
             await vt.voice_transcription_handler(m4, bot=bot)
-            bot.get_file.side_effect = None
+            bot.get_file_exc = None
             # E: облачный режим
-            cfg_cloud = self._cfg(DOWNLOAD_ENABLED=False)
-            monkeypatch.setattr(vt, "settings", cfg_cloud)
-            monkeypatch.setattr(md, "settings", cfg_cloud)
+            monkeypatch.setenv("TELEGRAM_LOCAL", "")
             m5 = _make_msg(voice=MagicMock(duration=10, file_id="e"))
             await vt.voice_transcription_handler(m5, bot=_make_bot())
 
@@ -654,8 +709,8 @@ class TestEpic78LocalApiResolve:
         assert secret not in blob
         assert key_ok not in blob
         # ветка C реально выполнена: OSError с ПОЛНЫМ путём (в сообщении
-        # исключения есть '<bot_id>:<token>') залогирован только как src.name
-        assert any("host copy failed" in r.getMessage()
+        # исключения есть '<bot_id>:<token>') залогирован только классом.
+        assert any("local file unavailable" in r.getMessage()
                    for r in caplog.records)
 
     @pytest.mark.asyncio
@@ -675,19 +730,18 @@ class TestEpic78LocalApiResolve:
             files[src_key] = b"media-bytes"
             msg = _make_msg(**{attr: media})
             bot = self._local_bot()
-            bot.get_file.return_value = self._tg_file(file_path)
+            bot.file_path = file_path
             result = await vt.voice_transcription_handler(msg, bot=bot)
             assert result is vt.UNHANDLED
             assert copied[src_key] == tmp_file_path[-1]
             assert tmp_file_path[-1].endswith(suffix)
-            bot.download.assert_not_awaited()
+            assert bot.download_calls == 0
 
     @pytest.mark.asyncio
     async def test_cleanup_on_helper_exception(
             self, vt_env, tmp_file_path, vsrc, local_mode, monkeypatch):
-        """Кейс 7: исключение хелпера (копирование упало) → fallback
-        bot.download тоже падает → tmp удалён существующим finally,
-        UNHANDLED без реплая."""
+        """Кейс 7: копирование упало → typed local_read (облако выключено) →
+        tmp удалён существующим finally, UNHANDLED без реплая."""
         files, copied = vsrc
         files[self._src_path(local_mode, "music/file_7.ogg")] = b"y"
 
@@ -696,8 +750,7 @@ class TestEpic78LocalApiResolve:
 
         monkeypatch.setattr(md.shutil, "copyfile", _boom_copy)
         bot = self._local_bot()
-        bot.download.side_effect = RuntimeError("download boom")
-        bot.get_file.return_value = self._tg_file("music/file_7.ogg")
+        bot.file_path = "music/file_7.ogg"
         msg = _make_msg(voice=MagicMock(duration=10, file_id="f7"))
         result = await vt.voice_transcription_handler(msg, bot=bot)
         assert result is vt.UNHANDLED

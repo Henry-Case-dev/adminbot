@@ -1498,7 +1498,13 @@ async def _probe_media_stt(ctx: ProbeContext) -> ProbeObservation:
     statuses: dict[str, int] = {}
     last_success = None
     last_error = None
+    stale_pending = 0
+    stale_reason = ""
     voice_rows = 0
+    try:
+        from services import voice_transcripts as _voice_transcripts
+    except Exception:                    # pragma: no cover - defensive
+        _voice_transcripts = None
     for row in rows or ():
         row = dict(row)
         is_voice = (str(row.get("media_type") or "") == "voice"
@@ -1507,6 +1513,20 @@ async def _probe_media_stt(ctx: ProbeContext) -> ProbeObservation:
             continue
         voice_rows += 1
         status = str(row.get("transcript_status") or "pending")
+        if status == "pending" and _voice_transcripts is not None:
+            # P0 18.11.2026: протухший pending — не «идёт», а функциональный
+            # отказ; тот же deadline, что у Writer'а (derive_transcript_state).
+            try:
+                derived, derived_reason, _text = (
+                    _voice_transcripts.derive_transcript_state(
+                        row, now=int(ctx.now)))
+            except Exception:
+                derived = status
+                derived_reason = ""
+            if derived != "pending":
+                status = derived
+                stale_pending += 1
+                stale_reason = derived_reason or "stale_pending"
         statuses[status] = statuses.get(status, 0) + 1
         if status in ("ready", "ok", "completed"):
             stamp = row.get("transcript_updated_at") or row.get("timestamp")
@@ -1542,16 +1562,20 @@ async def _probe_media_stt(ctx: ProbeContext) -> ProbeObservation:
                 store="sqlite", entity_type="message",
                 entity_id=f"chat:{ctx.chat_id}", chat_id=int(ctx.chat_id)))
     facts = dict(base_facts, statuses=statuses, failed=failed,
-                 pending=pending, last_success_at=last_success,
+                 pending=pending, stale_pending=stale_pending,
+                 stale_reason=stale_reason or None,
+                 last_success_at=last_success,
                  last_error=last_error)
-    healthy = False if failed else None
+    degraded = bool(failed or stale_pending)
+    healthy = False if degraded else None
     return _observation(
         "media",
-        status=bundle.STATUS_DEGRADED if failed else bundle.STATUS_OK,
+        status=bundle.STATUS_DEGRADED if degraded else bundle.STATUS_OK,
         facts=facts, source_id=f"media:stt:chat:{ctx.chat_id}",
         health_criterion="no_failed_transcripts",
         healthy=healthy,
         reason_code=("transcript_failures" if failed else
+                     "transcript_stale" if stale_pending else
                      "transcripts_pending" if pending else None),
         source_ref=bundle.source_ref(
             store="sqlite", entity_type="message",
