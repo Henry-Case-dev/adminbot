@@ -2,7 +2,7 @@
   "tip_before_fix": "eefd555c24231bacbf91209332351b6de96515ce",
   "node": {
     "failed": true,
-    "assertion": "throw new AssertionError(obj);"
+    "assertion": "AssertionError [ERR_ASSERTION]: F1: view model ╨╛╨▒╤П╨╖╨░╨╜ ╨╜╨╡╤Б╤В╨╕ yearsPresent (╨╡╨│╨╛ ╤З╨╕╤В╨░╨╡╤В ╤И╨░╨▒╨╗╨╛╨╜)"
   },
   "pytest": {
     "failed": 0,
