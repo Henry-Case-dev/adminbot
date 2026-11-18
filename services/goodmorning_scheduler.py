@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 CLAIM_KIND = "goodmorning"
 TICKER_INTERVAL_SECONDS = 60
+#: Явный grace тика (P0 scheduler, LVS-SCH-01/03): заводской 1 s превращал
+#: поздний тик в «missed». 30 s < 60 s интервала и < 120 s due-окна утра.
+TICKER_MISFIRE_GRACE_SECONDS = 30
 
 
 def _emit_goodmorning(event_name: str, outcome: str, *, level: str = "INFO",
@@ -110,6 +113,7 @@ class GoodmorningSchedulerService:
             replace_existing=True,
             max_instances=1,
             coalesce=True,
+            misfire_grace_time=TICKER_MISFIRE_GRACE_SECONDS,
         )
         # ОБЯЗАТЕЛЬНО внутри работающего event loop (APScheduler 3.11+, 39.1 п.4)
         self._scheduler.start()

@@ -50,6 +50,8 @@ class MemoryBackupService:
     """Daily VACUUM INTO-бэкап + построчный текстовый экспорт фактов."""
 
     JOB_ID = "memory_backup_job"
+    #: Явный grace (P0 scheduler, LVS-SCH-01/03): daily cron, 3600 s < суток.
+    _MISFIRE_GRACE_SECONDS = 3600
 
     def __init__(self, db) -> None:
         self._db = db
@@ -75,6 +77,9 @@ class MemoryBackupService:
             replace_existing=True,
             max_instances=1,
             coalesce=True,
+            # P0 scheduler (LVS-SCH-01/03): daily backup — 3600 s < суток;
+            # поздний запуск лучше пропуска, grace не маскирует сбой backup.
+            misfire_grace_time=self._MISFIRE_GRACE_SECONDS,
         )
         self._scheduler.start()
         logger.info(

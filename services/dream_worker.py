@@ -287,6 +287,10 @@ _DEEP_SLEEP_WEIGHT = 0.55             # вес парадигмы в конте�
 # эволюции характера бота.
 _PERSONA_SELF_LOOKBACK_DAYS = 30
 _DEEP_SLEEP_USER_JOB_ID = "deep_sleep_tick"
+#: Явный grace тиков сна (P0 scheduler, LVS-SCH-01/03): 300 s < ~60 мин
+#: интервала; `_run_lock`/`_deep_lock` и durable watermark делают поздний
+#: тик безопасным (дубля нет).
+_TICK_MISFIRE_GRACE_SECONDS = 300
 # R10.18-5: кап deep-прогонов при manual-каскаде БЕЗ явной цели — не более
 # одного чата (а не до max_chats_per_run LLM-прогонов за один клик).
 _MANUAL_DEEP_CASCADE_MAX = 1
@@ -645,11 +649,19 @@ class DreamWorker:
         base_minutes = int(self._key("tick_minutes",
                                      settings.DREAM_TICK_MINUTES) or 60)
         tick_minutes = base_minutes + _tick_jitter(base_minutes)
+        # F3: grace ≤ effective интервала (hot-настройка может быть меньше
+        # 300 s; APScheduler требует целые секунды).
+        tick_grace = max(1, min(_TICK_MISFIRE_GRACE_SECONDS,
+                                max(1, int(tick_minutes)) * 60))
         self._scheduler.add_job(
             self._tick,
             IntervalTrigger(minutes=tick_minutes, timezone=self._tz_name),
             id=self.JOB_DREAM_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            # P0 scheduler (LVS-SCH-01/03): 300 s или интервал, если он
+            # меньше; `_run_lock` + durable watermark делают поздний тик
+            # безопасным.
+            misfire_grace_time=tick_grace)
         logger.info(
             "DreamWorker job registered (enabled resolved per-tick) | "
             "tick_minutes=%s (applies on restart)", base_minutes)
@@ -657,7 +669,10 @@ class DreamWorker:
             self._deep_tick,
             IntervalTrigger(minutes=tick_minutes, timezone=self._tz_name),
             id=_DEEP_SLEEP_USER_JOB_ID, replace_existing=True,
-            max_instances=1, coalesce=True)
+            max_instances=1, coalesce=True,
+            # P0 scheduler (LVS-SCH-01/03): 300 s или интервал, если он
+            # меньше; `_deep_lock` исключает наложение, late tick безопасен.
+            misfire_grace_time=tick_grace)
         logger.info(
             "DeepSleep job registered (enabled resolved per-tick) | "
             "tick_minutes=%s (applies on restart)", base_minutes)

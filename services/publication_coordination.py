@@ -249,6 +249,11 @@ UPDATE {CLAIM_TABLE}
 #: глобальная блокировка: ожидание ограничено по времени и только для
 #: ручного приоритетного запроса.
 _RELEASE_EVENTS: dict[int, asyncio.Event] = {}
+#: Event loop, в котором создано событие. `SqliteClaimStore.release` может
+#: выполняться в worker-thread (`asyncio.to_thread`), поэтому `Event.set()`
+#: нельзя звать напрямую (P0 scheduler F1): сигнал идёт через
+#: `loop.call_soon_threadsafe`.
+_RELEASE_EVENT_LOOPS: dict[int, asyncio.AbstractEventLoop] = {}
 
 #: Предел ожидания чужой отправки ручным запросом (с).
 MANUAL_IN_FLIGHT_WAIT_SECONDS = 20
@@ -286,16 +291,55 @@ def _connect(path: str) -> sqlite3.Connection:
 
 
 def _release_event(chat_id: int) -> asyncio.Event:
-    event = _RELEASE_EVENTS.get(int(chat_id))
+    cid = int(chat_id)
+    event = _RELEASE_EVENTS.get(cid)
     if event is None:
         event = asyncio.Event()
-        _RELEASE_EVENTS[int(chat_id)] = event
+        _RELEASE_EVENTS[cid] = event
+    try:
+        _RELEASE_EVENT_LOOPS[cid] = asyncio.get_running_loop()
+    except RuntimeError:      # pragma: no cover - вызов вне loop (тесты)
+        pass
     return event
+
+
+def _signal_release(chat_id: int) -> None:
+    """Разбудить ожидающего `acquire(manual=True)` — из любого потока.
+
+    ``SqliteClaimStore`` остаётся sync-store и вызывается в том числе из
+    worker-thread (`asyncio.to_thread`). ``asyncio.Event.set()`` не
+    потокобезопасен: в debug-loop это RuntimeError, в обычном режиме —
+    потерянный wakeup (гонка на завершении `to_thread`). Поэтому сигнал
+    отправляется в loop владельца события через ``call_soon_threadsafe``;
+    вызов из того же loop выполняется напрямую. ``clear()``/``wait()``
+    остаются в loop-thread (async-обёртки координатора).
+    """
+    cid = int(chat_id)
+    event = _RELEASE_EVENTS.get(cid)
+    if event is None:
+        return
+    loop = _RELEASE_EVENT_LOOPS.get(cid)
+    if loop is None:
+        event.set()           # событие без loop (тесты/ручная инъекция)
+        return
+    try:
+        if asyncio.get_running_loop() is loop:
+            event.set()       # уже loop-владелец: прямой set безопасен
+            return
+    except RuntimeError:
+        pass                  # worker-thread: loop не запущен в этом потоке
+    if loop.is_closed():
+        return                # ждать на закрытом loop некому
+    try:
+        loop.call_soon_threadsafe(event.set)
+    except RuntimeError:      # pragma: no cover - loop закрылся в гонке
+        return
 
 
 def reset_release_events() -> None:
     """Сброс in-process событий освобождения брони (тесты)."""
     _RELEASE_EVENTS.clear()
+    _RELEASE_EVENT_LOOPS.clear()
 
 
 @dataclass(frozen=True)
@@ -547,9 +591,9 @@ class SqliteClaimStore:
             return False
         finally:
             conn.close()
-        event = _RELEASE_EVENTS.get(int(chat_id))
-        if event is not None:
-            event.set()
+        # P0 scheduler F1: сигнал потокобезопасен (release может выполняться в
+        # worker-thread через `asyncio.to_thread`); CAS/SQL не затронуты.
+        _signal_release(chat_id)
         return changed
 
     def claim_manual_priority(self, *, chat_id: int, now: int,
@@ -779,7 +823,7 @@ class PublicationCoordinator:
             self._degraded("claim_table_absent", chat_id=chat_id)
             out["coordination"] = COORDINATION_DEGRADED
             return out
-        row = self._store.snapshot(int(chat_id)) or {}
+        row = await asyncio.to_thread(self._store.snapshot, int(chat_id)) or {}
         other_ts, other_kind = await self._other_publish_ts(
             chat_id, str(holder_kind))
         # Два источника «последней чужой публикации»: журнал выводов (доставки)
@@ -871,7 +915,11 @@ class PublicationCoordinator:
                 holder_kind=str(holder_kind))
         other_ts, other_kind = await self._other_publish_ts(
             chat_id, str(holder_kind))
-        decision = self._store.acquire(
+        # P0 scheduler B3 (LVS-SCH-02/03): sync store-запись ждёт write-lock
+        # до busy_timeout=5000 МС — ожидание уходит в worker-thread, а не в
+        # event loop. CAS/таблица/release-event не меняются.
+        decision = await asyncio.to_thread(
+            self._store.acquire,
             chat_id=int(chat_id), holder_kind=str(holder_kind),
             holder_ref=holder_ref, now=stamp, interval_seconds=interval,
             other_ts=other_ts, manual=manual, ttl=ttl)
@@ -885,7 +933,8 @@ class PublicationCoordinator:
                 await asyncio.wait_for(event.wait(), timeout=wait_for_sending)
             except asyncio.TimeoutError:
                 pass
-            decision = self._store.acquire(
+            decision = await asyncio.to_thread(
+                self._store.acquire,
                 chat_id=int(chat_id), holder_kind=str(holder_kind),
                 holder_ref=holder_ref, now=int(self._now_fn()),
                 interval_seconds=interval, other_ts=None, manual=True,
@@ -903,9 +952,10 @@ class PublicationCoordinator:
             return ClaimDecision(granted=True, claim_id=str(claim_id or ""),
                                  state="sending",
                                  coordination=COORDINATION_DEGRADED)
-        return self._store.begin_sending(chat_id=int(chat_id),
-                                         claim_id=str(claim_id), now=stamp,
-                                         manual=manual, ttl=ttl)
+        return await asyncio.to_thread(
+            self._store.begin_sending,
+            chat_id=int(chat_id), claim_id=str(claim_id), now=stamp,
+            manual=manual, ttl=ttl)
 
     async def release(self, chat_id: int, claim_id: str, *,
                       published: bool, holder_kind: str,
@@ -914,10 +964,11 @@ class PublicationCoordinator:
         stamp = int(now if now is not None else self._now_fn())
         if not self.available() or not claim_id:
             return False
-        return self._store.release(chat_id=int(chat_id), claim_id=str(claim_id),
-                                   now=stamp, published=published,
-                                   holder_kind=str(holder_kind),
-                                   holder_ref=holder_ref)
+        return await asyncio.to_thread(
+            self._store.release,
+            chat_id=int(chat_id), claim_id=str(claim_id), now=stamp,
+            published=published, holder_kind=str(holder_kind),
+            holder_ref=holder_ref)
 
     async def claim_manual_priority(self, chat_id: int, *,
                                     now: int | None = None,
@@ -927,8 +978,9 @@ class PublicationCoordinator:
         if not self.available():
             self._degraded("claim_table_absent", chat_id=chat_id)
             return 0
-        return self._store.claim_manual_priority(chat_id=int(chat_id),
-                                                 now=stamp, ttl=ttl)
+        return await asyncio.to_thread(
+            self._store.claim_manual_priority,
+            chat_id=int(chat_id), now=stamp, ttl=ttl)
 
     async def release_manual_priority(self, chat_id: int, *, until: int,
                                       now: int | None = None) -> bool:
@@ -941,8 +993,9 @@ class PublicationCoordinator:
         stamp = int(now if now is not None else self._now_fn())
         if not self.available() or not _as_int(until, 0):
             return False
-        return self._store.release_manual_priority(chat_id=int(chat_id),
-                                                   now=stamp, until=int(until))
+        return await asyncio.to_thread(
+            self._store.release_manual_priority,
+            chat_id=int(chat_id), now=stamp, until=int(until))
 
     async def snapshot(self, chat_id: int, *, now: int | None = None) -> dict:
         """Диагностика брони чата (read-only, для payload/аналитики)."""
@@ -955,7 +1008,7 @@ class PublicationCoordinator:
                     "interval_seconds": await resolve_cross_type_interval(
                         chat_id),
                     "manual_priority_until": None, "checked_at": stamp}
-        row = self._store.snapshot(int(chat_id)) or {}
+        row = await asyncio.to_thread(self._store.snapshot, int(chat_id)) or {}
         interval = await resolve_cross_type_interval(chat_id)
         age = SqliteClaimStore._age(stamp, row.get("last_publish_ts"))
         return {
