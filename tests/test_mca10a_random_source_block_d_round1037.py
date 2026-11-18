@@ -75,9 +75,9 @@ async def _block(svc, *, chat_id=None, is_global_admin=False):
 
 def test_block_composition_and_honest_quantum_flag(svc, monkeypatch):
     monkeypatch.setattr(
-        svc, "resolve_effective",
-        lambda chat_id=None: _async_result(("pseudorandom",
-                                            "provider_unavailable")))
+        svc, "resolve_selection",
+        lambda chat_id=None: _async_result(_resolution(
+            "pseudorandom", "provider_unavailable")))
     block = asyncio.run(_block(svc, chat_id=1))
     assert block["enabled"] is True
     assert block["available"] is True
@@ -106,8 +106,8 @@ def test_block_composition_and_honest_quantum_flag(svc, monkeypatch):
 
 def test_quantum_effective_shows_quantum(svc, monkeypatch):
     monkeypatch.setattr(
-        svc, "resolve_effective",
-        lambda chat_id=None: _async_result(("quantum", None)))
+        svc, "resolve_selection",
+        lambda chat_id=None: _async_result(_resolution("quantum", None)))
     block = asyncio.run(_block(svc, chat_id=1))
     assert block["quantum_active"] is True
     assert block["blocker"] is None
@@ -205,3 +205,14 @@ def test_build_snapshot_contains_random_block(svc, monkeypatch):
 
 async def _async_result(value):
     return value
+
+
+def _resolution(mode, blocker):
+    """QRNG P3: статус использует детальный `resolve_selection`."""
+    return mrs.ProviderResolution(
+        mode=mode, selected_mode="quantum", primary_provider="anu",
+        primary_setting_raw="anu", primary_setting_state="set",
+        resolved_primary=("anu" if mode == "quantum" else None),
+        effective_provider=("anu" if mode == "quantum" else None),
+        fallback_enabled=True, fallback_order=("lfdr",),
+        effective_order=("anu", "lfdr"), blocker=blocker)

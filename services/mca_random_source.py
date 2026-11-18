@@ -175,7 +175,12 @@ SETTING_LOW_WATERMARK = "keys.random_quantum_refill_low_watermark"
 SETTING_BUFFER_MAX = "keys.random_quantum_buffer_max_values"
 
 DEFAULT_SOURCE = MODE_QUANTUM
-DEFAULT_FALLBACK = True
+# QRNG P3/F3 (arch D6): заводской дефолт «честного» PRNG-отката для НОВЫХ
+# установок — выключен. Сохранённое `true` владельца (прод) не перезаписывается:
+# значение читается из bot_settings/chat_params, дефолт применяется только при
+# отсутствии явной настройки. Параметр существующий — Settings-поле и сид
+# (INSERT ... ON CONFLICT DO NOTHING) получают false, существующая строка цела.
+DEFAULT_FALLBACK = False
 DEFAULT_EXPLORATION_PROBABILITY = 0.05
 DEFAULT_BATCH_LENGTH = 1024
 DEFAULT_DATA_TYPE = "uint16"
@@ -254,6 +259,50 @@ PROVIDER_KEY_SETTINGS = (
 # фильтр расходования). Оба написания: история + каноническая запись.
 ANU_PROVIDER_IDS = (PROVIDER_ID_ANU, PROVIDER_ANU)
 
+# ── QRNG P3: селектор провайдера/fallback (arch D4/D5/D6) ──────────────────
+# ГЛОБАЛЬНЫЕ настройки (категория memory + global_only в каталоге): чатовый
+# override невозможен (POST chat-scope → 422), чатовый админ их не видит.
+# PRNG — НЕ провайдер и НЕ элемент fallback_order: только явный режим
+# `memory.random_source=pseudorandom` либо явный переключатель
+# `memory.random_fallback_to_pseudorandom` (ниже, без дублирования).
+SETTING_PRIMARY_PROVIDER = "random.primary_provider"
+SETTING_PROVIDER_FALLBACK_ENABLED = "random.fallback_enabled"
+SETTING_FALLBACK_ORDER = "random.fallback_order"
+# F1 (D4): три глобальных ключа селектора. В chat-scope GET /api/config их
+# видит только global admin (чатовый админ — нет); запись уже 422 (global_only).
+SELECTOR_SETTING_KEYS = (SETTING_PRIMARY_PROVIDER,
+                         SETTING_PROVIDER_FALLBACK_ENABLED,
+                         SETTING_FALLBACK_ORDER)
+
+DEFAULT_PRIMARY_PROVIDER = PROVIDER_ID_IBM
+# Заводской запасной порядок — относительно primary по умолчанию (IBM):
+# ANU, затем публичный LfDR. Примиривается с выбранным primary при чтении
+# (сам primary из порядка исключается — см. effective_order()).
+DEFAULT_FALLBACK_ORDER = (PROVIDER_ID_ANU, PROVIDER_ID_LFDR)
+DEFAULT_PROVIDER_FALLBACK_ENABLED = True
+
+# Состояние сохранённого значения primary (arch D5/EXC-03):
+#   absent              — строки нет, действует заводской default;
+#   set                 — известный id реестра (включая читаемый легаси-алиас);
+#   requires_resolution — значение вне действующего контракта (снятый
+#                         провайдер/неизвестный id): НЕ действует, НЕ
+#                         подменяется молча, НЕ перезаписывается.
+PRIMARY_SETTING_ABSENT = "absent"
+PRIMARY_SETTING_SET = "set"
+PRIMARY_SETTING_REQUIRES_RESOLUTION = "requires_resolution"
+
+# Канонический порядок разрешения снятого значения (arch D5, EXC-03):
+# ровно три действующих провайдера, IBM → ANU → LfDR.
+CANONICAL_PROVIDER_ORDER = (PROVIDER_ID_IBM, PROVIDER_ID_ANU, PROVIDER_ID_LFDR)
+
+# Исторические написания provider в durable-партиях каждого канонического id
+# (фильтр reserve_draw/reserve_chunk; история не переписывается).
+PROVIDER_STORAGE_IDS: dict[str, tuple[str, ...]] = {
+    PROVIDER_ID_IBM: (PROVIDER_ID_IBM,),
+    PROVIDER_ID_ANU: ANU_PROVIDER_IDS,
+    PROVIDER_ID_LFDR: (PROVIDER_ID_LFDR,),
+}
+
 
 def canonical_provider_id(value) -> str:
     """Канонический id провайдера или `""` (неизвестное не подменяется)."""
@@ -292,6 +341,90 @@ def config_matches(batch_fingerprint, current_fingerprint) -> bool:
     return bool(cf) and bf == cf
 
 
+def primary_setting_state(raw) -> str:
+    """Состояние сохранённого `random.primary_provider` (D5/EXC-03).
+
+    Неизвестный/снятый id НЕ действует и НЕ подменяется молча: состояние
+    `requires_resolution`, значение остаётся как сохранено."""
+    text = str(raw or "").strip()
+    if not text:
+        return PRIMARY_SETTING_ABSENT
+    return (PRIMARY_SETTING_SET if canonical_provider_id(text)
+            else PRIMARY_SETTING_REQUIRES_RESOLUTION)
+
+
+def normalize_fallback_order(raw) -> list[str]:
+    """Сохранённый `random.fallback_order` → список канонических id реестра.
+
+    Чтение защитное: неизвестные id/не-строки/дубли отбрасываются (значение
+    в БД НЕ переписывается), чтобы повреждённая строка не ломала резолв.
+    Строка JSON-текста (двойное кодирование jsonb) распаковывается."""
+    value = raw
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return []
+    if not isinstance(value, (list, tuple)):
+        return []
+    out: list[str] = []
+    for item in value:
+        pid = canonical_provider_id(item)
+        if pid and pid not in out:
+            out.append(pid)
+    return out
+
+
+def fallback_order_state(raw) -> str:
+    """Состояние сохранённого `random.fallback_order` (без перезаписи).
+
+    `absent` — строки нет (действует заводской порядок); `set` — корректный
+    список канонических id; `requires_resolution` — сохранённое значение не
+    соответствует контракту (неизвестный id/дубль/не список) и не действует
+    как есть — резолв применяет защитную нормализацию, значение остаётся."""
+    if raw is None:
+        return PRIMARY_SETTING_ABSENT
+    value = raw
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return PRIMARY_SETTING_REQUIRES_RESOLUTION
+    if not isinstance(value, (list, tuple)):
+        return PRIMARY_SETTING_REQUIRES_RESOLUTION
+    if any(not isinstance(item, str) or item not in PROVIDERS
+           for item in value):
+        return PRIMARY_SETTING_REQUIRES_RESOLUTION
+    if len(set(value)) != len(value):
+        return PRIMARY_SETTING_REQUIRES_RESOLUTION
+    if len(value) > len(PROVIDER_IDS):
+        return PRIMARY_SETTING_REQUIRES_RESOLUTION
+    return PRIMARY_SETTING_SET
+
+
+def build_effective_order(primary: str | None, order,
+                          fallback_enabled: bool) -> tuple[str, ...]:
+    """Действующий порядок провайдеров (D5): primary → fallback_order.
+
+    `primary` — канонический id либо None (снятое/неизвестное значение:
+    действует КАНОНИЧЕСКИЙ порядок IBM→ANU→LfDR, arch P3/EXC-03). Сохранённый
+    fallback_order при снятом primary не применяется (он был построен под
+    недействительную настройку). Дубли и сам primary из хвоста исключаются;
+    при выключенном fallback остаётся только primary."""
+    tail = list(order or ())
+    if primary is None:
+        if not fallback_enabled:
+            return (DEFAULT_PRIMARY_PROVIDER,)
+        return tuple(CANONICAL_PROVIDER_ORDER)
+    if not fallback_enabled:
+        return (primary,)
+    head = [primary]
+    for pid in tail:
+        if pid != primary and pid not in head:
+            head.append(pid)
+    return tuple(head)
+
+
 # ANU-контракт §14.3 (endpoint/header/defaults предзаполнены; owner вводит
 # только ключ).
 ANU_HOST = "api.quantumnumbers.anu.edu.au"
@@ -316,6 +449,10 @@ _DEGRADED_REASONS = frozenset({
     "provider_unavailable", "auth_failed", "timeout", "validation_failed",
     "delivery_unknown", "rate_limit", "redirect_blocked", "client_error",
 })
+# Причины, при которых повторный запрос ANU в refill заведомо не изменит
+# исход (неверный ключ/исчерпанная месячная квота). Транзиентные 5xx/timeout
+# сюда НЕ входят: их ограничивает breaker, а не постоянный skip.
+ANU_STATE_PERSISTENT_BLOCKERS = frozenset({"auth_failed", "quota_exhausted"})
 
 
 def _utc_period(now: float | None = None) -> str:
@@ -1091,6 +1228,22 @@ class RandomStore:
         return (" AND (config_fingerprint IS NULL OR config_fingerprint = ?)",
                 (fp,))
 
+    @staticmethod
+    def _provider_clause(provider_ids) -> tuple[str, tuple]:
+        """Аддитивный фильтр провайдера (QRNG P3, arch D5).
+
+        `None` — без фильтра (внутренние/легаси чтения). Кортеж — расходование
+        только партий перечисленных провайдеров (канонический id + его
+        исторические написания). Неизвестный/пустой набор — пустой SQL-предикат
+        (``AND 0``), а не «все провайдеры»: иначе резолв мог бы молча
+        израсходовать чужие значения."""
+        if provider_ids is None:
+            return "", ()
+        ids = tuple(str(p) for p in provider_ids if str(p))
+        if not ids:
+            return " AND 0", ()
+        return (" AND provider IN (" + ",".join("?" * len(ids)) + ")", ids)
+
     async def insert_batch(self, batch: AnuBatch, *,
                            created_at: int | None = None,
                            config_fingerprint: str | None = None,
@@ -1177,24 +1330,28 @@ class RandomStore:
         return dict(row) if row is not None else None
 
     async def reserve_chunk(self, k: int, *,
-                            config_fingerprint: str | None = None
+                            config_fingerprint: str | None = None,
+                            provider_ids=None
                             ) -> list[ReservedChunkValue]:
         """Durably зарезервировать bounded chunk значений (D7, mca-06).
 
         Watermark фиксируется до использования: crash → значения потеряны,
         повторно не выдаются. Журнал для chunk пишется на flush (async-вход).
-        `config_fingerprint` — аддитивный фильтр (arch P1 D3)."""
+        `config_fingerprint` — аддитивный фильтр (arch P1 D3);
+        `provider_ids` — выбранный селектором провайдер (P3)."""
         k = max(0, int(k))
         if k <= 0:
             return []
         clause, clause_params = self._fingerprint_clause(config_fingerprint)
+        provider_sql, provider_params = self._provider_clause(provider_ids)
+        params = tuple(clause_params) + tuple(provider_params)
 
         async def _body(conn):
             cursor = await conn.execute(
                 "SELECT batch_id, provider, data_type, values_json, "
                 "reserved_upto, length FROM mca_random_batches "
-                "WHERE reserved_upto < length" + clause
-                + " ORDER BY created_at, batch_id LIMIT 1", clause_params)
+                "WHERE reserved_upto < length" + clause + provider_sql
+                + " ORDER BY created_at, batch_id LIMIT 1", params)
             row = await cursor.fetchone()
             if row is None:
                 return []
@@ -1229,23 +1386,27 @@ class RandomStore:
 
     async def reserve_draw(self, *, n: int | None,
                            meta: dict,
-                           config_fingerprint: str | None = None
+                           config_fingerprint: str | None = None,
+                           provider_ids=None
                            ) -> ReservedDraw | None:
         """Одна транзакция: watermark +1 (до использования) + journal-запись.
 
         `n=None` — probability-draw (value/range); `n>=2` — index-draw
         (rejection sampling; отвергнутое значение тоже журналируется честно).
         `None` — запаса нет (честная деградация у вызывающего).
-        `config_fingerprint` — аддитивный фильтр расходования (arch P1 D3)."""
+        `config_fingerprint` — аддитивный фильтр расходования (arch P1 D3);
+        `provider_ids` — выбранный селектором провайдер (P3, arch D5)."""
         created = int(time.time())
         clause, clause_params = self._fingerprint_clause(config_fingerprint)
+        provider_sql, provider_params = self._provider_clause(provider_ids)
+        params = tuple(clause_params) + tuple(provider_params)
 
         async def _body(conn):
             cursor = await conn.execute(
                 "SELECT batch_id, provider, data_type, values_json, "
                 "reserved_upto, length FROM mca_random_batches "
-                "WHERE reserved_upto < length" + clause
-                + " ORDER BY created_at, batch_id LIMIT 1", clause_params)
+                "WHERE reserved_upto < length" + clause + provider_sql
+                + " ORDER BY created_at, batch_id LIMIT 1", params)
             row = await cursor.fetchone()
             if row is None:
                 return None
@@ -1794,6 +1955,33 @@ def _hot_setting(key: str, default):
     return default if value is None else value
 
 
+@dataclass
+class ProviderResolution:
+    """Действующий выбор провайдера (QRNG P3, arch D5) — без расхода значений.
+
+    `primary_setting_raw` — сохранённое значение КАК ЕСТЬ (для честного
+    `requires_resolution`); `primary_provider` — канонический id, который
+    реально возглавляет порядок (заводской IBM при отсутствии/снятом
+    значении). `resolved_primary` — первый доступный провайдер (сконфигурирован
+    ИЛИ имеет расходуемый запас текущей конфигурации); `effective_provider` —
+    тот, из чьего запаса будет взято следующее значение (только расходуемый
+    запас); `mode` — quantum | pseudorandom | deferred."""
+
+    mode: str
+    selected_mode: str
+    primary_provider: str | None
+    primary_setting_raw: str
+    primary_setting_state: str
+    resolved_primary: str | None
+    effective_provider: str | None
+    fallback_enabled: bool
+    fallback_order: tuple[str, ...]
+    effective_order: tuple[str, ...]
+    blocker: str | None
+    fallback_order_raw: Any = None
+    fallback_order_state: str = PRIMARY_SETTING_ABSENT
+
+
 class RandomSourceService:
     """Единственный сервис RandomSource (D1–D5)."""
 
@@ -1820,6 +2008,17 @@ class RandomSourceService:
         # существующего singleflight, отдельного планировщика нет.
         self._clock = clock or time.monotonic
         self._recent_checks: dict[str, tuple[float, dict]] = {}
+        # QRNG P3 (arch D5/D9, N1): ОДИН общий LfdrClient на сервис —
+        # breaker/min-interval сохраняются между refill/проверками (второй
+        # клиент/второй контур не создаются). Состояние здоровья — in-memory
+        # диагностика с момента старта (ANU durable-состояние `mca_random_state`
+        # остаётся ANU-scoped, G16; LfDR его не пишет).
+        self._lfdr_client: LfdrClient | None = None
+        self._lfdr_client_pinned = False
+        self._lfdr_health: dict[str, Any] = {
+            "state": ANU_STATE_UNVERIFIED, "last_error": None,
+            "last_success_at": None, "last_failure_at": None,
+        }
 
     # ── DI/жизненный цикл ──────────────────────────────────────────────────
     def bind_db(self, db) -> None:
@@ -1847,6 +2046,33 @@ class RandomSourceService:
                     mca_gates.random_circuit_cooldown_seconds()))
         return self._client
 
+    def set_lfdr_client(self, client: LfdrClient | None) -> None:
+        """Инъекция общего LfDR-клиента (тесты/DI); None — сброс."""
+        self._lfdr_client = client
+        self._lfdr_client_pinned = client is not None
+
+    def _get_lfdr_client(self) -> LfdrClient:
+        """Единственный LfDR-клиент сервиса (N1: breaker/min-interval общие).
+
+        Конфигурация — существующие env-гейты (те же, что у ANU); новых
+        настроек/эндпоинтов нет."""
+        if self._lfdr_client is None:
+            self._lfdr_client = LfdrClient(
+                timeout=self._timeout_seconds(),
+                min_interval=mca_gates.random_min_request_interval_seconds(),
+                circuit_fails=mca_gates.random_circuit_fails(),
+                circuit_cooldown=float(
+                    mca_gates.random_circuit_cooldown_seconds()),
+                clock=self._clock)
+        elif not self._lfdr_client_pinned:
+            self._lfdr_client.configure(
+                timeout=self._timeout_seconds(),
+                min_interval=mca_gates.random_min_request_interval_seconds(),
+                circuit_fails=mca_gates.random_circuit_fails(),
+                circuit_cooldown=float(
+                    mca_gates.random_circuit_cooldown_seconds()))
+        return self._lfdr_client
+
     # ── настройки (per-call; hot; валидация на чтении) ─────────────────────
     async def selected_mode(self, chat_id=None) -> str:
         raw = await _read_memory_setting(SETTING_SOURCE, chat_id,
@@ -1861,6 +2087,72 @@ class RandomSourceService:
         raw = await _read_memory_setting(SETTING_FALLBACK, chat_id,
                                          DEFAULT_FALLBACK)
         return _as_bool(raw, DEFAULT_FALLBACK)
+
+    # ── QRNG P3: селектор провайдера (глобальный слой) ─────────────────────
+    def _primary_setting_raw(self) -> str:
+        """Сохранённое `random.primary_provider` как есть (глобально)."""
+        raw = _hot_setting(SETTING_PRIMARY_PROVIDER, None)
+        return str(raw or "").strip()
+
+    def _provider_fallback_enabled(self) -> bool:
+        """`random.fallback_enabled` — фолбэк ПО ПРОВАЙДЕРАМ (не PRNG).
+
+        Отдельная ось от `memory.random_fallback_to_pseudorandom`: PRNG не
+        входит в порядок и не включается этим переключателем."""
+        raw = _hot_setting(SETTING_PROVIDER_FALLBACK_ENABLED,
+                           DEFAULT_PROVIDER_FALLBACK_ENABLED)
+        return _as_bool(raw, DEFAULT_PROVIDER_FALLBACK_ENABLED)
+
+    def _fallback_order_saved(self) -> list[str]:
+        """Сохранённый `random.fallback_order` → канонические id (read-only)."""
+        return normalize_fallback_order(self._fallback_order_raw())
+
+    def _fallback_order_raw(self):
+        """Сырое сохранённое `random.fallback_order` (None — строки нет)."""
+        return _hot_setting(SETTING_FALLBACK_ORDER, None)
+
+    def provider_configured(self, provider_id: str) -> bool:
+        """Есть ли у провайдера всё необходимое для запросов (НЕ health).
+
+        ANU — действующий ключ; LfDR — ключ не требуется (документированный
+        публичный endpoint, адаптер P2); IBM — в P3 нет IAM/instance/CRN
+        (P5), поэтому `False` (без фейкового зелёного)."""
+        pid = str(provider_id or "")
+        if pid == PROVIDER_ID_ANU:
+            return bool(self._resolve_key())
+        if pid == PROVIDER_ID_LFDR:
+            return True
+        return False
+
+    def _lfdr_state(self) -> str:
+        if not mca_gates.random_source_enabled() or \
+                not mca_gates.random_quantum_enabled():
+            return ANU_STATE_DISABLED
+        state = str(self._lfdr_health.get("state") or ANU_STATE_UNVERIFIED)
+        if self._lfdr_client is not None:
+            status = self._lfdr_client.status()
+            if float(status.get("circuit_open_until") or 0.0) > self._clock():
+                return ANU_STATE_DEGRADED
+        return state
+
+    def _lfdr_blocker(self) -> str:
+        return str(self._lfdr_health.get("last_error") or "provider_unavailable")
+
+    def _note_lfdr_success(self, *, latency_ms: int | None = None) -> None:
+        self._lfdr_health = {
+            "state": ANU_STATE_ACTIVE, "last_error": None,
+            "last_success_at": int(time.time()),
+            "last_failure_at": self._lfdr_health.get("last_failure_at"),
+            "latency_ms": latency_ms,
+        }
+
+    def _note_lfdr_failure(self, code: str) -> None:
+        self._lfdr_health = {
+            "state": ANU_STATE_DEGRADED, "last_error": str(code)[:80],
+            "last_success_at": self._lfdr_health.get("last_success_at"),
+            "last_failure_at": int(time.time()),
+            "latency_ms": self._lfdr_health.get("latency_ms"),
+        }
 
     async def exploration_probability(self, purpose: str,
                                       chat_id=None) -> float:
@@ -1974,19 +2266,103 @@ class RandomSourceService:
         key = self._resolve_key()
         return key_fingerprint(key) if key else ""
 
-    async def resolve_effective(self, chat_id=None) -> tuple[str, str | None]:
-        """(effective, blocker). quantum — только при K1/K2 ON, выбранном
-        quantum и непустом durable-запасе действующей конфигурации; иначе
-        pseudorandom + причина (None — выбран pseudorandom явно)."""
+    async def resolve_selection(self, chat_id=None) -> ProviderResolution:
+        """Действующий выбор источника (arch D5/D6) — без расхода значений.
+
+        Порядок: primary → `random.fallback_order` (если fallback включён).
+        Провайдер «доступен», если сконфигурирован и/или имеет расходуемый
+        запас действующей конфигурации; иначе — следующий. Снятое/неизвестное
+        сохранённое значение (`requires_resolution`) НЕ действует и НЕ
+        подменяется молча: применяется канонический порядок IBM→ANU→LfDR, а
+        сырое значение остаётся в `primary_setting_raw`.
+
+        `mode`: quantum — есть провайдер с расходуемым запасом; pseudorandom —
+        квантового запаса нет, но PRNG-откат явно разрешён настройкой;
+        deferred — ни квантового источника, ни разрешённого PRNG (не quantum,
+        не PRNG)."""
         selected = await self.selected_mode(chat_id)
+        raw = self._primary_setting_raw()
+        state = primary_setting_state(raw)
+        fallback_on = self._provider_fallback_enabled()
+        raw_order = self._fallback_order_raw()
+        saved_order = normalize_fallback_order(raw_order)
+        order_state = fallback_order_state(raw_order)
+        # Снятое значение не действует: голова порядка — канонический IBM,
+        # и сохранённый fallback_order под недействительную настройку не
+        # применяется (arch P3/EXC-03).
+        primary_canonical = canonical_provider_id(raw) or None
+        order_source = saved_order
+        if state == PRIMARY_SETTING_REQUIRES_RESOLUTION:
+            primary_canonical = None
+            order_source = []
+        elif raw_order is None:
+            # Строки нет — действует заводской хвост (ANU→LfDR после IBM).
+            order_source = list(DEFAULT_FALLBACK_ORDER)
+        effective = build_effective_order(primary_canonical, order_source,
+                                          fallback_on)
+        primary_head = effective[0] if effective else None
+        resolved: str | None = None
+        effective_provider: str | None = None
+        blocker: str | None = None
         if selected == MODE_PSEUDORANDOM:
-            return MODE_PSEUDORANDOM, None
-        if not mca_gates.random_quantum_enabled():
-            return MODE_PSEUDORANDOM, "disabled"
-        remaining = await self._reserve_remaining()
-        if remaining > 0:
-            return MODE_QUANTUM, None
-        return MODE_PSEUDORANDOM, await self._provider_blocker()
+            mode = MODE_PSEUDORANDOM
+        elif not mca_gates.random_quantum_enabled():
+            mode = MODE_PSEUDORANDOM
+            blocker = "disabled"
+        else:
+            reserve = await self._provider_reserve_map()
+            for pid in effective:
+                configured = self.provider_configured(pid)
+                has_reserve = int(reserve.get(pid, 0) or 0) > 0
+                if resolved is None and (configured or has_reserve):
+                    resolved = pid
+                if effective_provider is None and has_reserve:
+                    effective_provider = pid
+            if effective_provider is not None:
+                mode = MODE_QUANTUM
+            elif await self.fallback_enabled(chat_id):
+                mode = MODE_PSEUDORANDOM
+            else:
+                mode = "deferred"
+            if effective_provider is None:
+                blocker = await self._resolution_blocker(resolved)
+        return ProviderResolution(
+            mode=mode, selected_mode=selected, primary_provider=primary_head,
+            primary_setting_raw=raw, primary_setting_state=state,
+            resolved_primary=resolved, effective_provider=effective_provider,
+            fallback_enabled=bool(fallback_on),
+            fallback_order=tuple(effective[1:]),
+            effective_order=tuple(effective), blocker=blocker,
+            fallback_order_raw=raw_order, fallback_order_state=order_state)
+
+    async def resolve_effective(self, chat_id=None) -> tuple[str, str | None]:
+        """(effective, blocker) — совместимый фасад `resolve_selection`.
+
+        quantum — только при K1/K2 ON, выбранном quantum и расходуемом запасе
+        выбранного провайдера; pseudorandom — явный PRNG-откат; deferred —
+        ни квантового источника, ни разрешённого PRNG."""
+        result = await self.resolve_selection(chat_id)
+        return result.mode, result.blocker
+
+    async def _resolution_blocker(self, resolved: str | None) -> str:
+        """Причина отсутствия квантового значения при выбранном провайдере."""
+        if resolved == PROVIDER_ID_ANU:
+            return await self._provider_blocker()
+        if resolved == PROVIDER_ID_LFDR:
+            return self._lfdr_blocker()
+        return "provider_unconfigured"
+
+    async def _provider_reserve_map(self) -> dict:
+        """Расходуемый остаток по провайдерам действующей конфигурации."""
+        if self._store is None:
+            return {}
+        try:
+            return await self._store.provider_reserve(
+                config_fingerprint=self._current_fingerprint())
+        except Exception:
+            logger.warning("[random_source] provider reserve read failed",
+                           exc_info=True)
+            return {}
 
     async def _reserve_remaining(self) -> int:
         if self._store is None:
@@ -2003,15 +2379,7 @@ class RandomSourceService:
 
         Read-only; канонические id. Партии старой конфигурации сюда не входят
         (они — `provider_stock - provider_reserve` = quarantined)."""
-        if self._store is None:
-            return {}
-        try:
-            return await self._store.provider_reserve(
-                config_fingerprint=self._current_fingerprint())
-        except Exception:
-            logger.warning("[random_source] provider reserve read failed",
-                           exc_info=True)
-            return {}
+        return await self._provider_reserve_map()
 
     async def provider_stock(self) -> dict:
         """Весь физический остаток по провайдерам (для quarantine в статусе)."""
@@ -2072,20 +2440,24 @@ class RandomSourceService:
         if not mca_gates.random_source_enabled():
             return DrawResult(index=None, deferred=True, reason="disabled",
                               selected_source=selected, policy_version=pv)
-        effective, blocker = await self.resolve_effective(chat_id)
-        if effective == MODE_QUANTUM:
+        selection = await self.resolve_selection(chat_id)
+        blocker = selection.blocker
+        if selection.mode == MODE_QUANTUM:
             result = await self._quantum_index_draw(
-                n, chat_id=chat_id, purpose=purpose, policy_version=pv,
-                candidates=candidates, probability=probability)
+                n, selection=selection, chat_id=chat_id, purpose=purpose,
+                policy_version=pv, candidates=candidates,
+                probability=probability)
             if result is not None:
                 self._note_quantum_success()
                 return result
-            blocker = await self._provider_blocker()
+            blocker = await self._resolution_blocker(
+                selection.resolved_primary)
         fallback = await self.fallback_enabled(chat_id)
         if blocker is None or fallback:
             if blocker is not None:
                 self._note_transition(key=f"prng:{blocker}", reason=blocker)
-                await self._mark_fallback(blocker)
+                await self._mark_fallback(blocker,
+                                          provider=selection.resolved_primary)
             return await self._prng_index_draw(
                 n, chat_id=chat_id, purpose=purpose, policy_version=pv,
                 fallback_reason=blocker, candidates=candidates,
@@ -2107,20 +2479,23 @@ class RandomSourceService:
         if not mca_gates.random_source_enabled():
             return DrawResult(value=None, deferred=True, reason="disabled",
                               selected_source=selected, policy_version=pv)
-        effective, blocker = await self.resolve_effective(chat_id)
-        if effective == MODE_QUANTUM:
+        selection = await self.resolve_selection(chat_id)
+        blocker = selection.blocker
+        if selection.mode == MODE_QUANTUM:
             result = await self._quantum_probability_draw(
-                chat_id=chat_id, purpose=purpose, policy_version=pv,
-                probability=probability)
+                selection=selection, chat_id=chat_id, purpose=purpose,
+                policy_version=pv, probability=probability)
             if result is not None:
                 self._note_quantum_success()
                 return result
-            blocker = await self._provider_blocker()
+            blocker = await self._resolution_blocker(
+                selection.resolved_primary)
         fallback = await self.fallback_enabled(chat_id)
         if blocker is None or fallback:
             if blocker is not None:
                 self._note_transition(key=f"prng:{blocker}", reason=blocker)
-                await self._mark_fallback(blocker)
+                await self._mark_fallback(blocker,
+                                          provider=selection.resolved_primary)
             return await self._prng_probability_draw(
                 chat_id=chat_id, purpose=purpose, policy_version=pv,
                 fallback_reason=blocker, probability=probability)
@@ -2157,7 +2532,7 @@ class RandomSourceService:
             "config_version": APP_VERSION,
         }
 
-    async def _quantum_index_draw(self, n: int, *, chat_id, purpose,
+    async def _quantum_index_draw(self, n: int, *, selection, chat_id, purpose,
                                   policy_version, candidates=None,
                                   probability=None) -> DrawResult | None:
         if self._store is None:
@@ -2170,30 +2545,31 @@ class RandomSourceService:
                           candidates=pool_candidates, probability=probability)
         fingerprint = self._current_fingerprint()
         attempts = 0
-        for _ in range(MAX_DRAW_ATTEMPTS):
-            reserved = await self._store.reserve_draw(
-                n=n, meta=meta, config_fingerprint=fingerprint)
-            if reserved is None:
-                return None
-            attempts += 1
-            if reserved.index is not None:
-                return DrawResult(
-                    index=int(reserved.index), value=int(reserved.value),
-                    source=MODE_QUANTUM, selected_source=MODE_QUANTUM,
-                    provider=reserved.provider,
-                    provider_id=reserved.provider_id or None,
-                    entropy_class=entropy_class_for(reserved.provider_id),
-                    batch_id=reserved.batch_id, draw_id=reserved.draw_id,
-                    source_impl=source_impl_for(reserved.provider_id),
-                    policy_version=str(policy_version or POLICY_VERSION),
-                    attempts=attempts)
-        return DrawResult(index=None, deferred=True,
-                          reason="validation_failed",
-                          source=MODE_QUANTUM, provider=PROVIDER_ID_ANU,
-                          attempts=attempts,
-                          policy_version=str(policy_version or POLICY_VERSION))
+        for pid in selection.effective_order:
+            provider_ids = PROVIDER_STORAGE_IDS.get(pid)
+            if provider_ids is None:
+                continue
+            for _ in range(MAX_DRAW_ATTEMPTS):
+                reserved = await self._store.reserve_draw(
+                    n=n, meta=meta, config_fingerprint=fingerprint,
+                    provider_ids=provider_ids)
+                if reserved is None:
+                    break          # у этого провайдера запаса нет/кончился
+                attempts += 1
+                if reserved.index is not None:
+                    return DrawResult(
+                        index=int(reserved.index), value=int(reserved.value),
+                        source=MODE_QUANTUM, selected_source=MODE_QUANTUM,
+                        provider=reserved.provider,
+                        provider_id=reserved.provider_id or None,
+                        entropy_class=entropy_class_for(reserved.provider_id),
+                        batch_id=reserved.batch_id, draw_id=reserved.draw_id,
+                        source_impl=source_impl_for(reserved.provider_id),
+                        policy_version=str(policy_version or POLICY_VERSION),
+                        attempts=attempts)
+        return None
 
-    async def _quantum_probability_draw(self, *, chat_id, purpose,
+    async def _quantum_probability_draw(self, *, selection, chat_id, purpose,
                                         policy_version,
                                         probability=None) -> DrawResult | None:
         if self._store is None:
@@ -2201,19 +2577,25 @@ class RandomSourceService:
         meta = self._meta(chat_id=chat_id, purpose=purpose,
                           policy_version=policy_version,
                           probability=probability)
-        reserved = await self._store.reserve_draw(
-            n=None, meta=meta,
-            config_fingerprint=self._current_fingerprint())
-        if reserved is None:
-            return None
-        return DrawResult(value=float(reserved.value) / float(
-            reserved.value_range or 1), source=MODE_QUANTUM,
-            selected_source=MODE_QUANTUM, provider=reserved.provider,
-            provider_id=reserved.provider_id or None,
-            entropy_class=entropy_class_for(reserved.provider_id),
-            batch_id=reserved.batch_id, draw_id=reserved.draw_id,
-            source_impl=source_impl_for(reserved.provider_id),
-            policy_version=str(policy_version or POLICY_VERSION))
+        fingerprint = self._current_fingerprint()
+        for pid in selection.effective_order:
+            provider_ids = PROVIDER_STORAGE_IDS.get(pid)
+            if provider_ids is None:
+                continue
+            reserved = await self._store.reserve_draw(
+                n=None, meta=meta, config_fingerprint=fingerprint,
+                provider_ids=provider_ids)
+            if reserved is None:
+                continue
+            return DrawResult(value=float(reserved.value) / float(
+                reserved.value_range or 1), source=MODE_QUANTUM,
+                selected_source=MODE_QUANTUM, provider=reserved.provider,
+                provider_id=reserved.provider_id or None,
+                entropy_class=entropy_class_for(reserved.provider_id),
+                batch_id=reserved.batch_id, draw_id=reserved.draw_id,
+                source_impl=source_impl_for(reserved.provider_id),
+                policy_version=str(policy_version or POLICY_VERSION))
+        return None
 
     async def _prng_index_draw(self, n: int, *, chat_id, purpose,
                                policy_version,
@@ -2286,8 +2668,16 @@ class RandomSourceService:
             return None
         return draw_id
 
-    async def _mark_fallback(self, reason: str) -> None:
+    async def _mark_fallback(self, reason: str, *,
+                             provider: str | None = None) -> None:
+        """Зафиксировать причину отката.
+
+        `mca_random_state` — ANU-scoped (G16): писать в него причину ЧУЖОГО
+        провайдера нельзя (иначе `anu_state()` показывал бы деградацию ANU из-за
+        LfDR). Для LfDR причина живёт в in-memory health и событиях."""
         if self._store is None:
+            return
+        if provider not in (None, PROVIDER_ID_ANU):
             return
         try:
             await self._store.write_state(last_fallback_reason=str(reason)[:160],
@@ -2296,8 +2686,25 @@ class RandomSourceService:
             logger.warning("[random_source] fallback state write failed",
                            exc_info=True)
 
-    # ── ANU: fetch/активация/refill/квота ──────────────────────────────────
-    async def _fetch_batch(self, key: str, *, manual: bool) -> AnuBatch:
+    # ── ANU/LfDR: fetch/активация/refill/квота ─────────────────────────────
+    async def _fetch_batch(self, key: str, *, manual: bool,
+                           provider: str = PROVIDER_ID_ANU) -> AnuBatch:
+        """Один запрос к выбранному провайдеру (P3: ANU + LfDR).
+
+        ANU — существующий клиент/контракт (ключ, endpoint, data_type).
+        LfDR — общий сервисный `LfdrClient` (N1: breaker/min-interval одни и
+        те же между refill/проверками), публичный вход без ключа, uint8.
+        IBM-адаптера нет до P5 → честная ошибка, без сети."""
+        if provider == PROVIDER_ID_LFDR:
+            started = time.monotonic()
+            batch = await lfdr_fetch(client=self._get_lfdr_client(),
+                                     length=self._batch_length())
+            batch.latency_ms = int((time.monotonic() - started) * 1000)
+            self._last_latency_ms = batch.latency_ms
+            return batch
+        if provider != PROVIDER_ID_ANU:
+            raise AnuError("provider_unconfigured",
+                           "adapter not implemented", sent=False)
         data_type = self._data_type()
         size = (mca_gates.random_quantum_hex_block_size()
                 if data_type in HEX_TYPES else None)
@@ -2591,66 +2998,184 @@ class RandomSourceService:
                 "latency_ms": batch.latency_ms,
                 "checked_at": int(time.time())}
 
+    def _provider_can_fetch(self, provider_id: str) -> bool:
+        """Может ли P3 сделать запрос этому провайдеру (адаптер + конфиг)."""
+        if provider_id == PROVIDER_ID_ANU:
+            return bool(self._resolve_key())
+        if provider_id == PROVIDER_ID_LFDR:
+            return True         # публичный, ключа нет; адаптер P2
+        return False            # IBM-адаптер — P5
+
+    async def _provider_skip_reason(self, provider_id: str) -> str | None:
+        """Почему провайдера не стоит пытать в ЭТОМ проходе refill.
+
+        Без сети и без записи: открытый breaker/backoff клиента; постоянные
+        причины ANU (неверный ключ `auth_failed`, исчерпанная месячная квота).
+        Транзиентные 5xx/timeout не кэшируются навсегда — их ограничивает
+        breaker, а в текущем вызове провайдер повторно не пробуется."""
+        if provider_id == PROVIDER_ID_ANU:
+            try:
+                if not self._get_client().available():
+                    return "circuit_open"
+            except Exception:      # pragma: no cover — fail-open
+                pass
+            state = await self._read_state() or {}
+            reason = str(state.get("last_fallback_reason") or "")
+            if reason in ANU_STATE_PERSISTENT_BLOCKERS:
+                return reason
+            return None
+        if provider_id == PROVIDER_ID_LFDR:
+            client = self._lfdr_client
+            if client is not None and not client.available():
+                return "circuit_open"
+            return None
+        return "no_adapter"
+
+    async def _refill_plan(self) -> tuple[list[str], list[dict]]:
+        """Bounded-план refill: очередь попыток + пропущенные по health.
+
+        Один проход по действующему порядку (≤ числа провайдеров), каждый
+        провайдер — не более одной попытки за вызов."""
+        selection = await self.resolve_selection(None)
+        queue: list[str] = []
+        skipped: list[dict] = []
+        for pid in selection.effective_order:
+            if not self._provider_can_fetch(pid):
+                continue
+            reason = await self._provider_skip_reason(pid)
+            if reason:
+                skipped.append({"provider": pid, "status": "skipped",
+                                "reason": reason})
+            else:
+                queue.append(pid)
+        return queue, skipped
+
+    async def _refill_target(self) -> str | None:
+        """Первый запрашиваемый провайдер действующего порядка (D5).
+
+        Цель startup: первый провайдер, у которого есть всё для запроса и
+        health не запрещает попытку (breaker/постоянный блокер исключены)."""
+        queue, _skipped = await self._refill_plan()
+        return queue[0] if queue else None
+
     async def refill_if_needed(self, *, force: bool = False) -> dict:
         """Фоновое пополнение партиями (не запрос на каждый draw).
 
         Singleflight через `TaskSupervisor.run(owner="random.source",
-        kind="refill", coalesce_key="random.refill:<account>")` + durable
-        `task_jobs`; watermark/buffer_max bounded; K3 OFF → не запускается."""
+        kind="refill", coalesce_key="random.refill:<account>:<provider>")` +
+        durable `task_jobs`; watermark/buffer_max bounded; K3 OFF → не
+        запускается.
+
+        QRNG P3 (F2): провайдеры действующего порядка пробуются
+        ПОСЛЕДОВАТЕЛЬНО, один проход, каждый не более одного раза. Провайдер
+        с открытым breaker/постоянным блокером пропускается; при неудачном
+        fetch (auth/rate/5xx/timeout) — следующий. `completed` возвращается
+        только при реально зачисленной партии; полностью провалившийся проход
+        — честный `failed` с причиной и списком попыток."""
         if not mca_gates.random_source_enabled() or \
                 not mca_gates.random_quantum_enabled():
             return {"status": "disabled"}
         if not mca_gates.random_refill_enabled() and not force:
             return {"status": "disabled", "reason": "refill_disabled"}
-        key = self._resolve_key()
-        if not key:
-            await self._mark_state_failure("provider_unconfigured")
-            return {"status": "blocked", "reason": "provider_unconfigured"}
+        queue, attempts = await self._refill_plan()
+        if not queue:
+            if not self._resolve_key() and not attempts:
+                await self._mark_state_failure("provider_unconfigured")
+                return {"status": "blocked", "reason": "provider_unconfigured",
+                        "attempts": attempts}
+            last = attempts[-1]["reason"] if attempts else "provider_unavailable"
+            return {"status": "blocked", "reason": last,
+                    "attempts": attempts}
         if self._store is None or self.db is None:
             return {"status": "blocked", "reason": "provider_unavailable"}
-        remaining = await self._reserve_remaining()
         buffer_max = self._buffer_max()
         # Пол партии: при buffer_max < batch_length одна партия всё же
         # помещается (иначе запас нечем заполнить); bound = max(...).
         limit_max = max(buffer_max, self._batch_length())
-        if not force:
-            if remaining >= limit_max:
-                return {"status": "skipped", "reason": "buffer_full",
-                        "remaining": remaining}
-            if remaining >= self._low_watermark():
-                return {"status": "skipped", "reason": "watermark_ok",
-                        "remaining": remaining}
-        if remaining > 0 and remaining + self._batch_length() > limit_max:
-            return {"status": "skipped", "reason": "buffer_full",
-                    "remaining": remaining}
         from services.task_supervisor import (QueueFullError, TaskJobStore,
                                               get_task_supervisor)
         supervisor = get_task_supervisor()
         job_store = TaskJobStore(self.db)
-        coalesce = f"random.refill:{self._account_key()}"
-        try:
-            # kind="refill" (D2): TaskSupervisor трактует его как
-            # второстепенный класс — при переполнении bounded-очереди job
-            # отклоняется с видимой причиной `queue_full` (singleflight
-            # coalesce_key защищает от дублей; следующий draw/старт повторит).
-            record = await supervisor.run(
-                lambda: self._do_refill(key), owner="random.source",
-                kind="refill", coalesce_key=coalesce,
-                job_store=job_store)
-        except QueueFullError:
-            logger.info("[random_source] refill queue full — deferred | "
-                        "account=%s", self._account_key())
-            return {"status": "deferred", "reason": "queue_full"}
-        except Exception as exc:
-            logger.warning("[random_source] refill job failed | error=%s",
-                           type(exc).__name__, exc_info=True)
-            return {"status": "failed", "reason": "provider_unavailable"}
-        return {"status": record.status, "job_id": record.job_id,
-                "task_id": record.task_id, "reason": self._last_refill_reason}
+        reserve = await self._provider_reserve_map()
+        for target in queue:
+            remaining = int(reserve.get(target, 0) or 0)
+            if not force:
+                if remaining >= limit_max:
+                    return {"status": "skipped", "reason": "buffer_full",
+                            "provider": target, "remaining": remaining,
+                            "attempts": attempts}
+                if remaining >= self._low_watermark():
+                    return {"status": "skipped", "reason": "watermark_ok",
+                            "provider": target, "remaining": remaining,
+                            "attempts": attempts}
+                if remaining > 0 and remaining + self._batch_length() > limit_max:
+                    return {"status": "skipped", "reason": "buffer_full",
+                            "provider": target, "remaining": remaining,
+                            "attempts": attempts}
+            coalesce = f"random.refill:{self._account_key()}:{target}"
+            outcome: dict = {}
 
-    async def _do_refill(self, key: str) -> dict:
+            async def _job(pid: str = target, box: dict = outcome) -> str:
+                box["result"] = await self._do_refill(pid)
+                return "ok" if box["result"].get("ok") else "fail"
+
+            try:
+                # kind="refill" (D2): TaskSupervisor трактует его как
+                # второстепенный класс — при переполнении bounded-очереди job
+                # отклоняется с видимой причиной `queue_full` (singleflight
+                # coalesce_key защищает от дублей; следующий draw/старт повторит).
+                record = await supervisor.run(
+                    _job, owner="random.source", kind="refill",
+                    coalesce_key=coalesce, job_store=job_store)
+            except QueueFullError:
+                logger.info("[random_source] refill queue full — deferred | "
+                            "account=%s", self._account_key())
+                return {"status": "deferred", "reason": "queue_full",
+                        "provider": target, "attempts": attempts}
+            except Exception as exc:
+                logger.warning("[random_source] refill job failed | error=%s",
+                               type(exc).__name__, exc_info=True)
+                attempts.append({"provider": target, "status": "failed",
+                                 "reason": "provider_unavailable"})
+                continue
+            result = outcome.get("result")
+            if result is None:
+                # Коалесцировано с уже идущей задачей: исход не наш —
+                # completed без доказанной партии не заявляется.
+                return {"status": record.status, "job_id": record.job_id,
+                        "task_id": record.task_id, "reason": "coalesced",
+                        "coalesced": True, "provider": target,
+                        "attempts": attempts}
+            if result.get("ok"):
+                return {"status": record.status, "job_id": record.job_id,
+                        "task_id": record.task_id, "reason": None,
+                        "provider": target,
+                        "batch_id": result.get("batch_id"),
+                        "length": result.get("length"),
+                        "attempts": attempts}
+            attempts.append({"provider": target, "status": "failed",
+                             "reason": result.get("reason")})
+            self._last_refill_reason = result.get("reason")
+        last = attempts[-1] if attempts else {"provider": None,
+                                               "reason": "provider_unavailable"}
+        return {"status": "failed", "reason": last.get("reason"),
+                "provider": last.get("provider"), "attempts": attempts}
+
+    async def _do_refill(self, provider: str) -> dict:
+        """Одна партия выбранного провайдера.
+
+        ANU — прежний путь (квота, durable state/активация, fingerprint ключа).
+        LfDR — публичный путь: без ключа, без квоты ANU и без записи в
+        ANU-scoped `mca_random_state` (G16); партия привязывается как NULL
+        (секретной конфигурации у LfDR нет) и сразу расходуема."""
+        if provider == PROVIDER_ID_LFDR:
+            return await self._do_lfdr_refill()
+        if provider != PROVIDER_ID_ANU:
+            return {"ok": False, "reason": "provider_unconfigured"}
+        key = self._resolve_key()
         try:
-            batch = await self._fetch_batch(key, manual=False)
+            batch = await self._fetch_batch(key, manual=False,
+                                            provider=PROVIDER_ID_ANU)
         except AnuError as exc:
             await self._record_quota_error(exc, manual=False)
             await self._mark_state_failure(exc.code,
@@ -2686,6 +3211,36 @@ class RandomSourceService:
         await self._prune_bounded()
         return {"ok": True, "batch_id": batch_id, "length": len(batch.values)}
 
+    async def _do_lfdr_refill(self) -> dict:
+        """LfDR-партия через ОБЩИЙ клиент (N1: breaker/min-interval)."""
+        try:
+            batch = await self._fetch_batch("", manual=False,
+                                            provider=PROVIDER_ID_LFDR)
+        except AnuError as exc:
+            self._note_lfdr_failure(exc.code)
+            self._last_refill_reason = exc.code
+            self._emit("random_batch", outcome=mca_events.OUTCOME_FAILED,
+                       level=mca_events.LEVEL_WARN, reason_code=exc.code,
+                       stage="receive", provider=PROVIDER_ID_LFDR,
+                       error_json={"type": "LfdrError", "code": exc.code,
+                                   "retryable": exc.retryable,
+                                   "sent": exc.sent})
+            return {"ok": False, "reason": exc.code}
+        # NULL-fingerprint: у LfDR нет секретной конфигурации, которую нужно
+        # изолировать; партия расходуема и не привязана к ANU-ключу.
+        batch_id = await self._store.insert_batch(
+            batch, config_fingerprint=None)
+        self._last_refill_reason = None
+        self._note_lfdr_success(latency_ms=batch.latency_ms)
+        self._note_quantum_success()
+        self._emit("random_batch", outcome=mca_events.OUTCOME_SUCCESS,
+                   reason_code=None, stage="receive",
+                   provider=PROVIDER_ID_LFDR,
+                   entity_ids={"batch_id": batch_id},
+                   duration_ms=batch.latency_ms)
+        await self._prune_bounded()
+        return {"ok": True, "batch_id": batch_id, "length": len(batch.values)}
+
     async def _prune_bounded(self) -> None:
         if self._store is None:
             return
@@ -2697,9 +3252,12 @@ class RandomSourceService:
             logger.warning("[random_source] prune failed", exc_info=True)
 
     async def startup(self) -> dict:
-        """Один refill/активация при старте (K1/K2 ON, key_present):
-        state unverified/новый ключ → активация; active + запас < watermark →
-        обычный refill; иначе no-op. Fail-open (ошибка не роняет старт).
+        """Один refill/активация при старте (K1/K2 ON).
+
+        Цель P3 — первый запрашиваемый провайдер действующего порядка:
+        ANU (действующий ключ) — прежняя активация/self-check; LfDR — только
+        фоновое пополнение общего запаса (активации/ANU-state у него нет);
+        IBM до P5 недоступен. Fail-open (ошибка не роняет старт).
 
         Перед решением — идемпотентный backfill `config_fingerprint` легаси-
         партий ANU (arch P1 D2): старт после миграции v48 — единственная
@@ -2709,28 +3267,35 @@ class RandomSourceService:
             if not mca_gates.random_source_enabled() or \
                     not mca_gates.random_quantum_enabled():
                 return {"status": "disabled"}
-            if not self._resolve_key():
-                await self._mark_state_failure("provider_unconfigured")
-                return {"status": "blocked",
-                        "reason": "provider_unconfigured"}
-            state = await self._read_state()
-            fingerprint = key_fingerprint(self._resolve_key())
-            active = bool(state and state.get("activated_at")
-                          and state.get("key_fingerprint") == fingerprint)
-            if active:
-                await self.sync_batch_provenance()
-            remaining = await self._reserve_remaining()
-            if not active:
-                result = await self.activate(manual=False)
-                return {"status": "activated" if result.get("activated")
-                        else "blocked",
-                        "reason": result.get("blocker"),
-                        "state": result.get("state")}
+            target = await self._refill_target()
+            if target is None:
+                if not self._resolve_key():
+                    await self._mark_state_failure("provider_unconfigured")
+                    return {"status": "blocked",
+                            "reason": "provider_unconfigured"}
+                return {"status": "blocked", "reason": "provider_unavailable"}
+            if target == PROVIDER_ID_ANU:
+                state = await self._read_state()
+                fingerprint = key_fingerprint(self._resolve_key())
+                active = bool(state and state.get("activated_at")
+                              and state.get("key_fingerprint") == fingerprint)
+                if active:
+                    await self.sync_batch_provenance()
+                if not active:
+                    result = await self.activate(manual=False)
+                    return {"status": "activated" if result.get("activated")
+                            else "blocked",
+                            "reason": result.get("blocker"),
+                            "state": result.get("state")}
+            reserve = await self._provider_reserve_map()
+            remaining = int(reserve.get(target, 0) or 0)
             if remaining < self._low_watermark():
                 result = await self.refill_if_needed()
                 return {"status": result.get("status"),
-                        "reason": result.get("reason")}
-            return {"status": "ok", "remaining": remaining}
+                        "reason": result.get("reason"),
+                        "provider": target}
+            return {"status": "ok", "remaining": remaining,
+                    "provider": target}
         except Exception:
             logger.warning("[random_source] startup failed — fail-open",
                            exc_info=True)
@@ -2767,9 +3332,17 @@ class RandomSourceService:
         (`last_batch`) не переписывается — рядом `provider_id` и
         `config_matches`; сам `config_fingerprint` НАРУЖУ НЕ ОТДАЁТСЯ (F2:
         он совпадает с `state.key_fingerprint`, а `/api/status` доступен
-        без permission)."""
-        selected = await self.selected_mode(chat_id)
-        effective, blocker = await self.resolve_effective(chat_id)
+        без permission).
+
+        QRNG P3 (arch D4/D5/D6): селектор (`primary_provider`,
+        `primary_setting_raw/_state`, `fallback_enabled/order`), фактический
+        `resolved_primary`/`effective_provider`, явный PRNG-режим
+        (`fallback_setting`+`prng_active`). Снятое сохранённое значение
+        показывается КАК ЕСТЬ со state `requires_resolution` — статус не
+        подменяет его фактическим выбором."""
+        selection = await self.resolve_selection(chat_id)
+        effective = selection.mode
+        blocker = selection.blocker
         state = await self._read_state() or {}
         current_fingerprint = self._current_fingerprint()
         last_batch_raw = None
@@ -2807,53 +3380,89 @@ class RandomSourceService:
         key_present = bool(self._resolve_key())
         anu_state = await self.anu_state()
         quantum = effective == MODE_QUANTUM
+        lfdr_state = self._lfdr_state()
+        lfdr_status = (self._lfdr_client.status()
+                       if self._lfdr_client is not None else None)
         providers = []
         for pid in PROVIDER_IDS:
             spec = PROVIDERS[pid]
+            configured = self.provider_configured(pid)
+            reserve = reserve_by_provider[pid]
+            provider_state = ANU_STATE_UNCONFIGURED
+            extra: dict = {}
+            if pid == PROVIDER_ID_ANU:
+                provider_state = anu_state
+            elif pid == PROVIDER_ID_LFDR:
+                provider_state = lfdr_state
+                extra = {
+                    "last_error": self._lfdr_health.get("last_error"),
+                    "last_success_at": self._lfdr_health.get(
+                        "last_success_at"),
+                    "last_failure_at": self._lfdr_health.get(
+                        "last_failure_at"),
+                    "breaker": lfdr_status,
+                }
             providers.append({
                 "id": spec.id,
                 "title": spec.title,
                 "entropy_class": spec.entropy_class,
                 "requires_key": bool(spec.requires_key),
-                # P2 (D9): адаптер LfDR реализован и подключён к реестру, но в
-                # runtime-резолв/refill не включён до P3; IBM без адаптера до
-                # P5. `configured` здесь — состояние подключения ANU-ключа,
-                # поэтому у остальных провайдеров False (без фейкового green).
-                "configured": (key_present if pid == PROVIDER_ID_ANU
-                               else False),
+                # `configured` — наличие всех ПРЕДУСЛОВИЙ запроса (ANU —
+                # действующий ключ; LfDR — ключ не требуется, публичный
+                # endpoint и адаптер P2 есть), НЕ health/наличие значений.
+                # IBM в P3 без IAM/instance/CRN (P5) → False: фейкового
+                # зелёного нет. Здоровье — `state` (lfdr: unverified/active/
+                # degraded/disabled), наличие значений — `consumable`.
+                "configured": bool(configured),
                 # `reserve` — расходуемый остаток действующей конфигурации;
                 # `quarantined` — физический остаток другой конфигурации;
                 # `consumable` — есть ли что расходовать сейчас.
-                "reserve": reserve_by_provider[pid],
-                "consumable": reserve_by_provider[pid] > 0,
+                "reserve": reserve,
+                "consumable": reserve > 0,
                 "quarantined": quarantined_by_provider[pid],
                 "config_matches": quarantined_by_provider[pid] == 0,
-                "state": (anu_state if pid == PROVIDER_ID_ANU
-                          else ANU_STATE_UNCONFIGURED),
+                "state": provider_state,
+                **extra,
             })
-        available_provider = (PROVIDER_ID_ANU
-                              if (key_present or reserve_by_provider[
-                                  PROVIDER_ID_ANU] > 0 or quantum) else None)
+        prng_setting = await self.fallback_enabled(chat_id)
         return {
-            "selected_source": selected,
+            "selected_source": selection.selected_mode,
             "effective_source": effective,
             "fallback_reason": blocker,
             # T-5261 (asap5-final-fixes, §14): настройка fallback — проверяемое
             # поле config-state (владелец видит, что PRNG-откаты разрешены).
             # QRNG P1 (arch D6/FALL-02): значение НЕ перезаписывается, но
             # отдаётся явно как «псевдослучайный откат (не квантовый)».
-            "fallback_setting": await self.fallback_enabled(chat_id),
+            "fallback_setting": prng_setting,
             "fallback_setting_label": "псевдослучайный откат (не квантовый)",
-            "provider": available_provider,
+            # QRNG P3: PRNG-режим явный, а не скрытая подмена.
+            "prng_active": bool(effective == MODE_PSEUDORANDOM
+                                and selection.selected_mode == MODE_QUANTUM),
+            "prng_setting": prng_setting,
+            # ── селектор провайдера (arch D4/D5) ──────────────────────────
+            "primary_provider": selection.primary_provider,
+            "primary_setting_raw": selection.primary_setting_raw,
+            "primary_setting_state": selection.primary_setting_state,
+            "resolved_primary": selection.resolved_primary,
+            "effective_provider": selection.effective_provider,
+            "fallback_enabled": selection.fallback_enabled,
+            "fallback_order": list(selection.fallback_order),
+            "fallback_order_raw": selection.fallback_order_raw,
+            "fallback_order_state": selection.fallback_order_state,
+            "effective_order": list(selection.effective_order),
+            "provider": selection.effective_provider,
             "entropy_class": (ENTROPY_CLASS_HARDWARE if quantum else None),
             "providers": providers,
             "provider_reserve": reserve_by_provider,
             "provider_quarantined": quarantined_by_provider,
             "reserve_quarantined": sum(quarantined_by_provider.values()),
             "anu_state": anu_state,
+            "lfdr_state": lfdr_state,
             "key_present": key_present,
             "key_fingerprint": state.get("key_fingerprint"),
-            "reserve_remaining": await self._reserve_remaining(),
+            # Суммарный расходуемый запас (все провайдеры действующей
+            # конфигурации) — одно число «сколько квантовых значений есть».
+            "reserve_remaining": sum(reserve_by_provider.values()),
             "buffer_max": self._buffer_max(),
             "low_watermark": self._low_watermark(),
             "last_batch": last_batch,
@@ -2923,10 +3532,13 @@ class RandomSourceService:
     async def build_dream_source(self, pipeline_run_id: int | None,
                                  *, k_hint: int = 10, chat_id=None):
         """K1 ON: core-адаптер с durably зарезервированным bounded chunk;
-        fallback OFF + пусто → None (mca-06-семантика: ранжированный путь)."""
+        fallback OFF + пусто → None (mca-06-семантика: ранжированный путь).
+
+        QRNG P3: chunk берётся из первого провайдера действующего порядка, у
+        которого есть расходуемый запас (не из «самой старой партии» вообще)."""
         await self.flush_journal()
-        selected = await self.selected_mode(chat_id)
-        if selected == MODE_PSEUDORANDOM:
+        selection = await self.resolve_selection(chat_id)
+        if selection.selected_mode == MODE_PSEUDORANDOM:
             return CoreDreamRandomSource(
                 pipeline_run_id=pipeline_run_id, chat_id=chat_id,
                 source=MODE_PSEUDORANDOM, provider=PROVIDER_PRNG,
@@ -2936,25 +3548,31 @@ class RandomSourceService:
                                               "disabled")
         chunk_size = min(max(2 * int(k_hint) + 4, DREAM_CHUNK_MIN),
                          DREAM_CHUNK_MAX)
-        if self._store is not None:
-            try:
-                chunk = await self._store.reserve_chunk(
-                    chunk_size,
-                    config_fingerprint=self._current_fingerprint())
-            except Exception:
-                logger.warning("[random_source] dream reserve failed",
-                               exc_info=True)
-                chunk = []
-            if chunk:
-                first = chunk[0]
-                return CoreDreamRandomSource(
-                    pipeline_run_id=pipeline_run_id, chat_id=chat_id,
-                    source=MODE_QUANTUM, provider=first.provider,
-                    batch_id=first.batch_id, data_type=first.data_type,
-                    values=[c.value for c in chunk],
-                    draw_ids=[c.draw_id for c in chunk],
-                    journal_sink=self._enqueue_journal)
-        blocker = await self._provider_blocker()
+        if self._store is not None and selection.mode == MODE_QUANTUM:
+            fingerprint = self._current_fingerprint()
+            for pid in selection.effective_order:
+                provider_ids = PROVIDER_STORAGE_IDS.get(pid)
+                if provider_ids is None:
+                    continue
+                try:
+                    chunk = await self._store.reserve_chunk(
+                        chunk_size, config_fingerprint=fingerprint,
+                        provider_ids=provider_ids)
+                except Exception:
+                    logger.warning("[random_source] dream reserve failed",
+                                   exc_info=True)
+                    chunk = []
+                if chunk:
+                    first = chunk[0]
+                    return CoreDreamRandomSource(
+                        pipeline_run_id=pipeline_run_id, chat_id=chat_id,
+                        source=MODE_QUANTUM, provider=first.provider,
+                        batch_id=first.batch_id, data_type=first.data_type,
+                        values=[c.value for c in chunk],
+                        draw_ids=[c.draw_id for c in chunk],
+                        journal_sink=self._enqueue_journal)
+        blocker = selection.blocker or await self._resolution_blocker(
+            selection.resolved_primary)
         if self._auto_refill:
             self._schedule_refill()
         return await self._dream_fallback(pipeline_run_id, chat_id, blocker)
@@ -2981,9 +3599,9 @@ class RandomSourceService:
             return
         if self._refill_task is not None and not self._refill_task.done():
             return
-        if not self._resolve_key():
-            return
-
+        # QRNG P3: наличие ANU-ключа больше не единственное условие — цель
+        # (ANU/LfDR) выбирает refill_if_needed по действующему порядку; нет
+        # запрашиваемого провайдера → честный blocked, без сети.
         async def _runner():
             try:
                 await self.refill_if_needed()

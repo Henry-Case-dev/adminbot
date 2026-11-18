@@ -1,0 +1,25 @@
+{
+  "python": "3.12.0",
+  "has_resolve_selection": true,
+  "has_primary_setting": true,
+  "catalog_has_primary": true,
+  "catalog_has_order": true,
+  "catalog_has_fb_enabled": true,
+  "provider_info_hidden": true,
+  "draw_provider_on_selected_lfdr": "lfdr",
+  "status_has_selector": true,
+  "status_resolved_primary": "lfdr",
+  "status_primary_setting_raw": "lfdr",
+  "status_effective_provider": "lfdr",
+  "retired_state_supported": true,
+  "retired": {
+    "raw": "lizaonair",
+    "state": "requires_resolution",
+    "order": [
+      "ibm_quantum",
+      "anu",
+      "lfdr"
+    ],
+    "resolved_primary": "anu"
+  }
+}

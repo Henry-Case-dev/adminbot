@@ -281,12 +281,21 @@ class TestCompleteness:
         # категориях flags/limits. Осознанное ns-исключение, прецедент
         # названия-осей §3.3 (effective = env AND product).
         NS_EXCEPTIONS = ("initiative.",)
+        # QRNG P3 (17.11.2026, arch D4): ровно три глобальных ключа селектора
+        # источника живут в namespace `random.*` при категории memory. Не
+        # префикс: новый `random.*`-ключ обязан быть явно добавлен сюда.
+        NS_KEY_EXCEPTIONS = {
+            "random.primary_provider",
+            "random.fallback_order",
+            "random.fallback_enabled",
+        }
         for spec in REGISTRY.values():
             if spec.category is None:
                 continue
             assert spec.pg_key.count(".") >= 1
             assert (spec.pg_key.startswith(spec.category + ".")
-                    or spec.pg_key.startswith(NS_EXCEPTIONS))
+                    or spec.pg_key.startswith(NS_EXCEPTIONS)
+                    or spec.pg_key in NS_KEY_EXCEPTIONS)
 
     def test_titles_and_types(self):
         for spec in REGISTRY.values():
@@ -697,9 +706,11 @@ class TestGroups8424:
         # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 prompts
         # (prompts.factcheck_subject_system_prompt — ключ читался рантаймом
         # через resolve_prompt, записи каталога не имел) → prompts 29.
+        # QRNG P3 (17.11.2026, arch D4): +3 memory (глобальные random.*
+        # селектора) → memory 62.
         assert counts == {"prompts": 29, "models": 74, "keys": 33,
                           "limits": 269, "flags": 109, "reactions": 39,
-                          "content": 5, "memory": 59, "temporal": 2}
+                          "content": 5, "memory": 62, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

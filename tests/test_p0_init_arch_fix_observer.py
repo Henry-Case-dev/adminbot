@@ -60,7 +60,11 @@ class _FakeChatParams:
 
 
 def _caches(by_chat=None, hot=None):
-    hot_config.set_config_cache(_FakeHot(hot or {}))
+    # QRNG P3/F3: сценарии наблюдателя рассчитаны на явный PRNG-откат
+    # (в проде сохранённый true); заводской дефолт новых установок — false.
+    hot = dict(hot or {})
+    hot.setdefault("memory.random_fallback_to_pseudorandom", True)
+    hot_config.set_config_cache(_FakeHot(hot))
     chat_params.set_chat_params_cache(_FakeChatParams(by_chat or {}))
 
 

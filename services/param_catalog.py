@@ -3889,6 +3889,56 @@ def provider_ignores_temperature(model: str) -> bool:
         return False
 
 
+# ── QRNG P3 (arch D4/D5/D6, QAN-REC-REG-01/SEL-01/SEL-02/FALL-01) ──────────
+# Селектор источника квантовых значений — ГЛОБАЛЬНЫЕ настройки категории
+# memory (`global_only=True`): чатовый админ их не видит, чатовая запись →
+# существующий 422 «ключ нельзя переносить на уровень чата». Новых
+# GROUPS/TAB-маппингов нет: группа memory_random уже существует. Заводские
+# значения — код-константы services.mca_random_source
+# (DEFAULT_PRIMARY_PROVIDER/DEFAULT_FALLBACK_ORDER/
+# DEFAULT_PROVIDER_FALLBACK_ENABLED); здесь только метаданные/типы/опции.
+# PRNG в этот список НЕ входит: он не провайдер и не ступень fallback.
+_RANDOM_SELECTOR: list[ParamSpec] = [
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность: основной провайдер", "str",
+        pg_id="random.primary_provider", group="memory_random",
+        description=(
+            "Основной источник квантовых значений. Если он недоступен, "
+            "бот переходит к запасному порядку; псевдослучайная подмена "
+            "без явной настройки не выполняется. Выбор источника общий "
+            "для всех чатов."),
+        widget="select",
+        select_options=("ibm_quantum", "anu", "lfdr"),
+        select_labels=("IBM Quantum (аппаратный QPU)",
+                       "ANU Quantum Numbers (квантовые числа)",
+                       "LfDR QRNG (аппаратный QRNG)"),
+        global_only=True, sensitivity=SENSITIVITY_CONFIG),
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность: запасные провайдеры", "json",
+        pg_id="random.fallback_order", group="memory_random",
+        description=(
+            "Порядок запасных провайдеров, если основной недоступен. "
+            "Допустимы только действующие источники, без повторов и без "
+            "основного провайдера. Пустой список — без запасных. "
+            "Псевдослучайный источник сюда не входит."),
+        progressive_level="advanced", global_only=True,
+        sensitivity=SENSITIVITY_CONFIG),
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность: автоматический запасной порядок", "bool",
+        pg_id="random.fallback_enabled", group="memory_random",
+        description=(
+            "Разрешить автоматически переходить к запасным провайдерам "
+            "(по порядку выше), если основной недоступен. Выключено — "
+            "используется только основной; при его недоступности "
+            "квантовое значение не выдаётся. Не включает "
+            "псевдослучайную подмену."),
+        global_only=True, sensitivity=SENSITIVITY_CONFIG),
+]
+
+
 def _build_registry() -> dict[str, ParamSpec]:
     """Единый реестр: ключ — settings_field (или env_name для env-only)."""
     registry: dict[str, ParamSpec] = {}
@@ -4120,6 +4170,10 @@ def _build_registry() -> dict[str, ParamSpec]:
                               "не используются. Адрес вида owner/name с "
                               "логином или секретом в начале нормализуется, "
                               "сами секреты не сохраняются."))
+    # QRNG P3 (arch D4/D5/D6): селектор провайдера/fallback — глобальные
+    # настройки (global_only). REGISTRY 645→648; GROUPS/TAB без изменений.
+    for spec in _RANDOM_SELECTOR:
+        add(spec)
     return registry
 
 
@@ -4129,6 +4183,12 @@ REGISTRY: dict[str, ParamSpec] = _build_registry()
 # правах, но исключаются из UI-каталога (get_config/params-meta).
 _HIDDEN_CATALOG_FIELDS: frozenset[str] = frozenset({
     "FACTCHECK_CONTEXT_MESSAGES",   # legacy окна фактчека — источник миграции
+    # QRNG P3 (arch D4, G2/SEL-02): `keys.random_quantum_provider` —
+    # информационное имя провайдера, runtime его не читает (действующий выбор
+    # живёт в random.primary_provider/fallback_order). Строка в БД НЕ
+    # удаляется и значение остаётся читаемым; из UI/params-meta ключ уходит,
+    # ручная запись через /api/config → существующий 422 hidden-гейт.
+    "RANDOM_QUANTUM_PROVIDER",
 })
 for _hidden_name in _HIDDEN_CATALOG_FIELDS:
     _hidden_spec = REGISTRY.get(_hidden_name)
@@ -4840,27 +4900,76 @@ def normalize_value(pg_key: str, value):
 #: цепочки ChatClock ("" — наследование, валидно).
 _TZ_STRICT_PG_KEY = "limits.chat_timezone"
 
+#: QRNG P3 (arch D4/D5): селектор провайдера. Новые записи принимают ТОЛЬКО
+#: канонические id реестра; снятые/неизвестные id (Lizaonair-класс) → 422, а
+#: уже сохранённое такое значение не действует и не перезаписывается.
+_QRNG_PRIMARY_PG_KEY = "random.primary_provider"
+_QRNG_ORDER_PG_KEY = "random.fallback_order"
+
+
+def _provider_registry_ids() -> tuple[str, ...]:
+    """Канонические id провайдеров — без импорт-цикла на module load."""
+    from services import mca_random_source as random_source
+    return tuple(random_source.PROVIDER_IDS)
+
 
 def validate_value_rule(pg_key: str, value) -> str | None:
     """Правило валидации значения сверх типа каталога (путь СОХРАНЕНИЯ).
 
-    Возвращает текст ошибки или None. Для ``limits.chat_timezone``:
-    непустая строка, не резолвящаяся через ``zoneinfo.ZoneInfo`` → отказ
-    (мусорная «Mars/Olympus_Mons» не сохраняется); ``""``/пробелы —
-    наследование, валидно. Остальные ключи — без правил (None)."""
-    if pg_key != _TZ_STRICT_PG_KEY or value is None:
+    Возвращает текст ошибки или None. ``limits.chat_timezone``: непустая
+    строка, не резолвящаяся через ``zoneinfo.ZoneInfo`` → отказ. QRNG P3:
+    ``random.primary_provider`` — только действующий id реестра;
+    ``random.fallback_order`` — JSON-список только действующих id, без
+    дублей, не длиннее реестра. Остальные ключи — без правил (None)."""
+    if value is None:
         return None
-    text = str(value).strip()
-    if not text:
-        return None                     # "" = наследование, не зона
-    try:
-        import zoneinfo
-        zoneinfo.ZoneInfo(text)
-    except Exception:
-        return (f"{_TZ_STRICT_PG_KEY}: неизвестный IANA-часовой пояс "
-                f"{text!r} — укажите корректный идентификатор zoneinfo "
-                f"(например Europe/Berlin) или оставьте пустым для "
-                f"наследования")
+    if pg_key == _TZ_STRICT_PG_KEY:
+        text = str(value).strip()
+        if not text:
+            return None                 # "" = наследование, не зона
+        try:
+            import zoneinfo
+            zoneinfo.ZoneInfo(text)
+        except Exception:
+            return (f"{_TZ_STRICT_PG_KEY}: неизвестный IANA-часовой пояс "
+                    f"{text!r} — укажите корректный идентификатор zoneinfo "
+                    f"(например Europe/Berlin) или оставьте пустым для "
+                    f"наследования")
+        return None
+    if pg_key == _QRNG_PRIMARY_PG_KEY:
+        ids = _provider_registry_ids()
+        text = str(value).strip()
+        if not text:
+            return None                 # "" = заводской default
+        if text not in ids:
+            return (f"{_QRNG_PRIMARY_PG_KEY}: неизвестный провайдер {text!r} "
+                    f"— допустимы только действующие id: {', '.join(ids)}")
+        return None
+    if pg_key == _QRNG_ORDER_PG_KEY:
+        items = value
+        if isinstance(items, str):
+            try:
+                items = json.loads(items)
+            except ValueError:
+                return (f"{_QRNG_ORDER_PG_KEY}: ожидается JSON-список "
+                        f"провайдеров")
+        if not isinstance(items, (list, tuple)):
+            return (f"{_QRNG_ORDER_PG_KEY}: ожидается JSON-список "
+                    f"провайдеров")
+        ids = _provider_registry_ids()
+        seen: list[str] = []
+        for item in items:
+            if not isinstance(item, str) or item not in ids:
+                return (f"{_QRNG_ORDER_PG_KEY}: недопустимый провайдер "
+                        f"{item!r} — допустимы только действующие id: "
+                        f"{', '.join(ids)}")
+            if item in seen:
+                return (f"{_QRNG_ORDER_PG_KEY}: провайдер {item!r} указан "
+                        f"дважды")
+            seen.append(item)
+        if len(seen) > len(ids):
+            return f"{_QRNG_ORDER_PG_KEY}: слишком длинный список"
+        return None
     return None
 
 

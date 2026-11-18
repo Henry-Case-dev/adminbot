@@ -54,8 +54,10 @@ DEAD_KNOBS = {
         "runtime-читателя нет (repo-wide scan)",
     "limits.memory_backup_keep":
         "отключено политикой владельца UPD3 №5 (см. services/memory_backup.py)",
-    "keys.random_quantum_provider":
-        "информационное имя провайдера; ANU захардкожен (mca_random_source)",
+    # QRNG P3 (17.11.2026, arch D4): `keys.random_quantum_provider` БОЛЬШЕ НЕ
+    # мёртвая ручка — литерал ключа есть в services/mca_random_source.py
+    # (SETTING_PROVIDER_INFO; P1), а сам ключ скрыт из UI. Действующий выбор
+    # источника — random.primary_provider/fallback_order. Строка БД остаётся.
     "limits.youtube_transcript_proxy_locations":
         "runtime-читателя нет (движок использует URL/логин-пароль прокси)",
     "limits.youtube_transcript_proxy_retries":
@@ -422,6 +424,10 @@ class TestCatalogConsistency:
             "flags.chat_mood_enabled",
             "flags.chat_style_anchors_enabled",
             "initiative.trigger_probability",
+            # QRNG P3 (arch D4): информационное имя провайдера скрыто из UI
+            # (выбор источника — random.primary_provider/fallback_order;
+            # строка/значение в БД остаются читаемыми).
+            "keys.random_quantum_provider",
             "limits.chat_budget_anchors_ratio",
             "limits.chat_budget_response_ratio",
             "limits.chat_lock_max_entries",
@@ -510,7 +516,7 @@ class TestClassNegatives:
 
 class TestPins:
     def test_counts_and_artifacts(self):
-        assert len(pc.REGISTRY) == 645
+        assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
@@ -520,7 +526,7 @@ class TestPins:
         # VMQ-MEM-TIME (10.11.2026): +5 ключей limits.graph_hist_* /
         # limits.graph_mmr_fetch_k_historical → 643.
         # SELF-DIAG-01 D4-B: +1 flags.self_diag_repo_origin → 644.
-        assert len(tsv) - 1 == 645
+        assert len(tsv) - 1 == 648
         screen_keys = set()
         for line in (ROOT / "plans/docs/screen-map-round1025.md").read_text(
                 encoding="utf-8").splitlines():

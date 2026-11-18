@@ -1,0 +1,196 @@
+{
+  "modules": {
+    "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p3-86d0ded975ae-2b315ecf\\services\\mca_random_source.py": "48ace4b68a24b8dfdf2069537da57337ea1f2f582f15660949e92f790b47526d",
+    "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p3-86d0ded975ae-2b315ecf\\services\\param_catalog.py": "0ee10dc96bc829cbdf83fca6434bf85d7632b5a48242c73da75c8b88530342cf",
+    "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p3-86d0ded975ae-2b315ecf\\web\\api\\routes.py": "eee84f5ac2fc68a1306ee327b0bea265107e6cf61dbdccbb9afe4a0b0a79a037"
+  },
+  "mutations": [
+    {
+      "id": "M1",
+      "mutation": "фильтр провайдера в reserve_draw/chunk отключён (рисуется самая старая партия любого провайдера)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_primary_lfdr_uses_lfdr_batch_not_oldest"
+      ],
+      "returncode": 1,
+      "summary": "1 failed, 1 warning in 3.79s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_primary_lfdr_uses_lfdr_batch_not_oldest"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M2",
+      "mutation": "снятое сохранённое значение молча считается известным (requires_resolution → set)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestRetiredValue::test_unknown_saved_primary_requires_resolution",
+        "tests/test_qrng_p3_selector.py::TestConfigApi::test_global_unknown_provider_is_422"
+      ],
+      "returncode": 1,
+      "summary": "1 failed, 1 passed, 1 warning in 4.07s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestRetiredValue::test_unknown_saved_primary_requires_resolution"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M3",
+      "mutation": "primary_provider теряет global_only (чатовая запись принимается)",
+      "file": "services\\param_catalog.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestConfigApi::test_chat_scope_write_is_422_for_all_three"
+      ],
+      "returncode": 1,
+      "summary": "1 failed, 1 warning in 4.30s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestConfigApi::test_chat_scope_write_is_422_for_all_three"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M4",
+      "mutation": "PRNG включается без явной настройки (скрытая подмена)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_all_unavailable_deferred_not_prng",
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_fallback_disabled_only_primary_then_deferred"
+      ],
+      "returncode": 1,
+      "summary": "2 failed, 1 warning in 4.03s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_all_unavailable_deferred_not_prng",
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_fallback_disabled_only_primary_then_deferred"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M5",
+      "mutation": "fallback_order игнорируется (всегда только primary)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_primary_unavailable_falls_to_next_with_reserve",
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_primary_default_ibm_unavailable_goes_to_configured_anu"
+      ],
+      "returncode": 1,
+      "summary": "1 failed, 1 passed, 1 warning in 4.00s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestResolveMatrix::test_primary_unavailable_falls_to_next_with_reserve"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M6",
+      "mutation": "validation fallback_order не проверяет id реестра",
+      "file": "services\\param_catalog.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestCatalogContract::test_validation_rules",
+        "tests/test_qrng_p3_selector.py::TestConfigApi::test_global_order_validation_422"
+      ],
+      "returncode": 1,
+      "summary": "2 failed, 1 warning in 4.05s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestCatalogContract::test_validation_rules",
+        "tests/test_qrng_p3_selector.py::TestConfigApi::test_global_order_validation_422"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M7",
+      "mutation": "LfDR refill создаёт одноразовый клиент (N1: breaker/min-interval теряются)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestLfdrRuntime::test_refill_lfdr_uses_one_shared_client",
+        "tests/test_qrng_p3_selector.py::TestLfdrRuntime::test_shared_client_min_interval_and_breaker"
+      ],
+      "returncode": 1,
+      "summary": "2 failed, 1 warning in 6.85s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestLfdrRuntime::test_refill_lfdr_uses_one_shared_client",
+        "tests/test_qrng_p3_selector.py::TestLfdrRuntime::test_shared_client_min_interval_and_breaker"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M8",
+      "mutation": "configured=true фейково-зелёный для всех провайдеров (IBM без конфигурации)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestStatusDto::test_dto_fields_and_no_fake_green"
+      ],
+      "returncode": 1,
+      "summary": "1 failed, 1 warning in 3.80s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestStatusDto::test_dto_fields_and_no_fake_green"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M9",
+      "mutation": "сырое сохранённое primary подменяется каноническим при чтении (trace снятого значения теряется)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestRetiredValue::test_unknown_saved_primary_requires_resolution"
+      ],
+      "returncode": 1,
+      "summary": "1 failed, 1 warning in 3.79s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestRetiredValue::test_unknown_saved_primary_requires_resolution"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M10",
+      "mutation": "F2: нет перехода к следующему провайдеру после неудачи (failover выключен)",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestRefillFailover::test_anu_failure_falls_to_lfdr_and_draw_uses_it"
+      ],
+      "returncode": 1,
+      "summary": "3 failed, 1 warning in 3.98s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestRefillFailover::test_anu_failure_falls_to_lfdr_and_draw_uses_it[anu_response0-auth_failed]",
+        "tests/test_qrng_p3_selector.py::TestRefillFailover::test_anu_failure_falls_to_lfdr_and_draw_uses_it[anu_response1-quota_exhausted]",
+        "tests/test_qrng_p3_selector.py::TestRefillFailover::test_anu_failure_falls_to_lfdr_and_draw_uses_it[anu_response2-provider_unavailable]"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M11",
+      "mutation": "F3: заводской PRNG-дефолт возвращён в true",
+      "file": "services\\mca_random_source.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestFactoryPrngDefault::test_factory_default_is_false",
+        "tests/test_qrng_p3_selector.py::TestFactoryPrngDefault::test_new_install_without_saved_value_defers"
+      ],
+      "returncode": 1,
+      "summary": "2 failed, 1 warning in 3.80s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestFactoryPrngDefault::test_factory_default_is_false",
+        "tests/test_qrng_p3_selector.py::TestFactoryPrngDefault::test_new_install_without_saved_value_defers"
+      ],
+      "killed": true
+    },
+    {
+      "id": "M12",
+      "mutation": "F1: chat-scope снова показывает глобальные ключи селектора non-admin",
+      "file": "web\\api\\routes.py",
+      "targets": [
+        "tests/test_qrng_p3_selector.py::TestChatVisibility::test_member_chat_scope_hides_selector"
+      ],
+      "returncode": 1,
+      "summary": "1 failed, 1 warning in 4.43s",
+      "failed": [
+        "tests/test_qrng_p3_selector.py::TestChatVisibility::test_member_chat_scope_hides_selector"
+      ],
+      "killed": true
+    }
+  ],
+  "restored_sha256": {
+    "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p3-86d0ded975ae-2b315ecf\\services\\mca_random_source.py": "48ace4b68a24b8dfdf2069537da57337ea1f2f582f15660949e92f790b47526d",
+    "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p3-86d0ded975ae-2b315ecf\\services\\param_catalog.py": "0ee10dc96bc829cbdf83fca6434bf85d7632b5a48242c73da75c8b88530342cf",
+    "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p3-86d0ded975ae-2b315ecf\\web\\api\\routes.py": "eee84f5ac2fc68a1306ee327b0bea265107e6cf61dbdccbb9afe4a0b0a79a037"
+  },
+  "restored_ok": true,
+  "all_killed": true
+}

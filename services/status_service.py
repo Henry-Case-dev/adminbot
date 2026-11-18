@@ -585,6 +585,24 @@ class StatusService:
                 # T-5261 (asap5-final-fixes, §14): проверяемое поле
                 # config-state — разрешены ли PRNG-откаты настройкой.
                 "fallback_setting": snap.get("fallback_setting"),
+                # QRNG P3 (arch D4/D5/D6): селектор источника и явный
+                # PRNG-режим. Сырое сохранённое значение отдаётся как есть
+                # (строка провайдера, не секрет) вместе с состоянием
+                # requires_resolution — статус не подменяет его фактическим.
+                "primary_provider": snap.get("primary_provider"),
+                "primary_setting_raw": str(
+                    snap.get("primary_setting_raw") or "")[:64],
+                "primary_setting_state": snap.get("primary_setting_state"),
+                "resolved_primary": snap.get("resolved_primary"),
+                "effective_provider": snap.get("effective_provider"),
+                "fallback_enabled": snap.get("fallback_enabled"),
+                "fallback_order": snap.get("fallback_order") or [],
+                "fallback_order_raw": snap.get("fallback_order_raw"),
+                "fallback_order_state": snap.get("fallback_order_state"),
+                "effective_order": snap.get("effective_order") or [],
+                "prng_active": snap.get("prng_active"),
+                "prng_setting": snap.get("prng_setting"),
+                "lfdr_state": snap.get("lfdr_state"),
                 "plan": snap.get("plan"),
                 "policy_version": snap.get("policy_version"),
                 "recent_draws": [self._public_draw(r) for r in recent],

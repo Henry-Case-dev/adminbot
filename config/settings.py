@@ -1894,8 +1894,12 @@ class Settings:
     # Дефолты: quantum / fallback ON / 0.05 / 0.05 / ANU / 1024 uint16 /
     # timeout 5 / watermark 256 / buffer 2048.
     RANDOM_SOURCE: str = _env_str("RANDOM_SOURCE", "quantum")
+    # QRNG P3/F3 (arch D6): заводской дефолт явного PRNG-отката — выключен
+    # для новых установок. Существующая сохранённая строка владельца (true в
+    # проде) не перезаписывается: сид идёт ON CONFLICT DO NOTHING, рантайм
+    # читает значение из настроек, а не из этого дефолта.
     RANDOM_FALLBACK_TO_PSEUDORANDOM: bool = _env_bool(
-        "RANDOM_FALLBACK_TO_PSEUDORANDOM", True)
+        "RANDOM_FALLBACK_TO_PSEUDORANDOM", False)
     RANDOM_EXPLORATION_PROBABILITY: float = _env_float(
         "RANDOM_EXPLORATION_PROBABILITY", 0.05)
     RANDOM_SLEEP_EXPLORATION_PROBABILITY: float = _env_float(

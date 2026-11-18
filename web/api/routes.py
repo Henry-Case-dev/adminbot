@@ -226,51 +226,55 @@ def _coerce_value(spec, raw) -> Any:
     UR-24.4: после типа применяются правила каталога
     (`param_catalog.validate_value_rule`) — непустой не-IANA
     ``limits.chat_timezone`` отклоняется на сохранении (оба write-пути,
-    global и per-chat, идут через эту функцию)."""
+    global и per-chat, идут через эту функцию). QRNG P3: правила действуют
+    также для json-значений (`random.fallback_order` — только id реестра,
+    без дублей) и для select-строки primary (только действующие id)."""
     if raw is None:
         raise ValueError("value не может быть null")
     if spec.type == "bool":
         if isinstance(raw, bool):
-            return raw
-        if isinstance(raw, str) and raw.strip().lower() in ("true", "false"):
-            return raw.strip().lower() == "true"
-        if isinstance(raw, int) and raw in (0, 1):
-            return bool(raw)
-        raise ValueError(f"ожидается bool, получено {type(raw).__name__}")
-    if spec.type == "int":
+            value = raw
+        elif isinstance(raw, str) and raw.strip().lower() in ("true", "false"):
+            value = raw.strip().lower() == "true"
+        elif isinstance(raw, int) and raw in (0, 1):
+            value = bool(raw)
+        else:
+            raise ValueError(f"ожидается bool, получено {type(raw).__name__}")
+    elif spec.type == "int":
         if isinstance(raw, bool):
             raise ValueError("ожидается int, получено bool")
         if isinstance(raw, int):
-            return raw
-        if isinstance(raw, str) and raw.strip().lstrip("-").isdigit():
-            return int(raw)
-        raise ValueError(f"ожидается int, получено {type(raw).__name__}")
-    if spec.type == "float":
+            value = raw
+        elif isinstance(raw, str) and raw.strip().lstrip("-").isdigit():
+            value = int(raw)
+        else:
+            raise ValueError(f"ожидается int, получено {type(raw).__name__}")
+    elif spec.type == "float":
         if isinstance(raw, bool):
             raise ValueError("ожидается float, получено bool")
         if isinstance(raw, (int, float)):
-            return float(raw)
-        if isinstance(raw, str):
+            value = float(raw)
+        elif isinstance(raw, str):
             try:
-                return float(raw.strip())
+                value = float(raw.strip())
             except ValueError:
-                pass
-        raise ValueError(f"ожидается float, получено {type(raw).__name__}")
-    if spec.type == "json":
+                raise ValueError(f"ожидается float, получено {type(raw).__name__}")
+        else:
+            raise ValueError(f"ожидается float, получено {type(raw).__name__}")
+    elif spec.type == "json":
         if isinstance(raw, (dict, list, tuple)):
-            return raw
-        if isinstance(raw, str):
+            value = raw
+        elif isinstance(raw, str):
             try:
-                return json.loads(raw)
+                value = json.loads(raw)
             except ValueError:
-                return raw
-        return raw
-    if isinstance(raw, str):
-        value = raw
+                value = raw
+        else:
+            value = raw
     else:
-        value = str(raw)
-    # UR-24.4: правила каталога поверх типа — невалидный IANA-пояс чата
-    # блокируется на сохранении понятным сообщением (422), "" = наследование.
+        value = raw if isinstance(raw, str) else str(raw)
+    # UR-24.4 + QRNG P3: правила каталога поверх типа — невалидный пояс чата
+    # или неизвестный id провайдера блокируются на сохранении (422).
     rule_error = validate_value_rule(spec.pg_key, value)
     if rule_error:
         raise ValueError(rule_error)
@@ -663,6 +667,9 @@ async def get_config(
         # любой TMA-роли (фикс S1).
         ctx = await roles_srv.access_for(user.id, cache=cache)
     items = []
+    # QRNG P3/F1 (arch D4): глобальные ключи селектора источника не
+    # показываются чатовому non-admin (см. фильтр в chat-scope ниже).
+    from services import mca_random_source as _random_source
     for key, value in sorted(cache.get_all().items()):
         spec = get_by_pg_key(key)
         # F2 (10.23, ADR-1023-2): внутренние ключи (hidden) — вне UI-каталога
@@ -675,6 +682,12 @@ async def get_config(
             # F-7 §6: фильтр видимости per-chat (hidden/min-роль view);
             # keys-секция: локальному админу — полностью исключается
             if secret and not ctx.is_global_admin:
+                continue
+            # QRNG P3/F1 (arch D4): селектор источника — глобальная настройка
+            # (global_only). Чатовому non-admin её не видно; global admin
+            # видит как раньше. Запись в chat-scope уже отбивается 422.
+            if (not ctx.is_global_admin
+                    and key in _random_source.SELECTOR_SETTING_KEYS):
                 continue
             matrix = access_srv.effective_matrix(
                 key, db_overrides.get(key),
@@ -3050,6 +3063,9 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
                          "token": getattr(item, "updated_at", None)})
     if not prepared:
         raise HTTPException(status_code=422, detail="items пуст")
+    # QRNG P3 (arch D4/D5): кросс-полевой инвариант селектора проверяется на
+    # ИТОГОВОМ состоянии пакета ДО атомарной записи (primary ∉ fallback_order).
+    _random_selector_guard(cache, prepared)
     # ── Проход 2: per-key optimistic + атомарная запись пакета ─────────────
     # §3.5: промптные ключи пишутся ЕДИНЫМ журнальным слоем (одна транзакция,
     # all-or-nothing по промптам) и ДО остальных настроек; непромптные —
@@ -6839,6 +6855,52 @@ def _meme_template_guard(key: str, value: Any) -> None:
     reason = mi.template_validation_error(str(value))
     if reason:
         raise HTTPException(status_code=422, detail=f"{key}: {reason}")
+
+
+_RANDOM_PRIMARY_KEY = "random.primary_provider"
+_RANDOM_ORDER_KEY = "random.fallback_order"
+
+
+def _random_selector_guard(cache, prepared: list[dict]) -> None:
+    """Кросс-полевой инвариант селектора QRNG P3: primary ∉ fallback_order.
+
+    Проверяется ИТОГОВОЕ состояние пакетной записи (значение из payload, иначе
+    текущее сохранённое). Заводской порядок (строки в bot_settings нет) не
+    проверяется: он выводится относительно действующего primary и сам его
+    исключает. Осознанный 422 вместо тихой правки чужого поля."""
+    from services import mca_random_source as random_source
+    primary = None
+    order = None
+    order_present = False
+    for entry in prepared:
+        if entry["key"] == _RANDOM_PRIMARY_KEY:
+            primary = entry["value"]
+        elif entry["key"] == _RANDOM_ORDER_KEY:
+            order = entry["value"]
+            order_present = True
+    if primary is None:
+        try:
+            primary = cache.get(_RANDOM_PRIMARY_KEY, None)
+        except Exception:
+            primary = None
+    if not order_present:
+        try:
+            saved = cache.get(_RANDOM_ORDER_KEY, None)
+        except Exception:
+            saved = None
+        if saved is None:
+            return            # заводской порядок — производный, не хранится
+        order = saved
+    text = str(primary or "").strip()
+    primary_id = (random_source.canonical_provider_id(text)
+                  or random_source.DEFAULT_PRIMARY_PROVIDER)
+    items = random_source.normalize_fallback_order(order)
+    if primary_id in items:
+        raise HTTPException(
+            status_code=422,
+            detail=(f"{_RANDOM_ORDER_KEY}: основной провайдер "
+                    f"{primary_id!r} не может быть в запасном порядке — "
+                    "исключите его из списка"))
 
 
 async def _meme_settings_payload(chat_id: int, db) -> dict:
