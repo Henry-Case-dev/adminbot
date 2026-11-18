@@ -1,0 +1,61 @@
+{
+  "base": "f68e7631dede326995b985bf8c3849d62def1bcb",
+  "version": "2.58.217",
+  "node": {
+    "command": "node tests/js/vmq_time09_year_coverage_ui_test.js",
+    "failed": true,
+    "error": "AssertionError: web/static/status-analytics.js обязателен для VMQ-TIME-09"
+  },
+  "pytest": {
+    "command": "python -m pytest tests/test_vmq_time09_turn_coverage.py -q",
+    "failed": 11,
+    "passed": 1,
+    "failed_tests": [
+      "tests/test_vmq_time09_turn_coverage.py::test_retrieval_request_trace_id_is_optional_and_additive",
+      "tests/test_vmq_time09_turn_coverage.py::test_retrieval_event_carries_trace_id_and_parity_without_it",
+      "tests/test_vmq_time09_turn_coverage.py::test_rag_retrieve_passes_trace_id_to_request",
+      "tests/test_vmq_time09_turn_coverage.py::test_build_old_episodes_passes_trace_id",
+      "tests/test_vmq_time09_turn_coverage.py::test_build_rag_block_period_event_carries_trace",
+      "tests/test_vmq_time09_turn_coverage.py::test_api_preserves_writer_years_and_memory_period",
+      "tests/test_vmq_time09_turn_coverage.py::test_api_retrieval_is_bounded_sorted_and_excludes_period_selection",
+      "tests/test_vmq_time09_turn_coverage.py::test_api_retrieval_distinguishes_measured_empty_from_missing",
+      "tests/test_vmq_time09_turn_coverage.py::test_api_r17_projection_rejects_free_text",
+      "tests/test_vmq_time09_turn_coverage.py::test_api_truncated_selection_does_not_substitute_years",
+      "tests/test_vmq_time09_turn_coverage.py::test_exclusion_keys_are_single_source"
+    ]
+  },
+  "playwright": {
+    "command": "python tests/ui_vmq_status_analytics_e2e.py",
+    "ok": false,
+    "checks": 47,
+    "failed_checks": [
+      "status_block_present_1280",
+      "status_years_1280",
+      "status_exclusions_1280",
+      "status_refresh_44_1280",
+      "status_after_memory_before_intents_1280",
+      "diag_one_request_on_entry",
+      "analytics_card_present",
+      "analytics_runs_count",
+      "analytics_five_reasons",
+      "analytics_between_flow_and_embeddings",
+      "analytics_shared_cache_no_second_request",
+      "analytics_prev_present",
+      "status_block_present_390",
+      "status_years_390",
+      "status_exclusions_390",
+      "status_refresh_44_390",
+      "status_after_memory_before_intents_390",
+      "mobile_tabs_44_390",
+      "status_block_present_320",
+      "status_years_320",
+      "status_exclusions_320",
+      "status_refresh_44_320",
+      "status_after_memory_before_intents_320",
+      "mobile_tabs_44_320",
+      "empty_reason_honest",
+      "error_reason_honest",
+      "truncated_warning_present"
+    ]
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "requirement": "VMQ-TIME-09",
+  "candidate_branch": "fix/vmq-time09",
+  "base": {
+    "sha": "f68e7631dede326995b985bf8c3849d62def1bcb",
+    "version": "2.58.217",
+    "content": "b6c9bb0b",
+    "schema": 48
+  },
+  "environment": {
+    "python": "C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe (3.12.0)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "playwright": "chromium, viewports 1280/390/320; mobile contexts has_touch=true",
+    "production_access": "none (deploy/SSH/DB не затрагивались)"
+  },
+  "red_on_base": {
+    "artifact": "red-base-time09.txt / red-base-time09.json",
+    "node": "fail: нет web/static/status-analytics.js",
+    "pytest": "11 failed, 1 passed",
+    "playwright": "ok=false, 27 проверок провалено"
+  },
+  "candidate": {
+    "node": {
+      "command": "node tests/js/vmq_time09_year_coverage_ui_test.js",
+      "result": "VMQ-TIME09-UNIT-OK (1/1)"
+    },
+    "pytest_new": {
+      "command": "python -m pytest tests/test_vmq_time09_turn_coverage.py -q",
+      "result": "12 passed"
+    },
+    "pytest_inspector": {
+      "command": "python -m pytest tests/test_ur_f_inspector_step2.py -q",
+      "result": "19 passed"
+    },
+    "pytest_affected": {
+      "command": "python -m pytest tests/test_vmq_time09_turn_coverage.py tests/test_ur_f_inspector_step2.py tests/test_mem_time_policy.py tests/test_mem_time_asof.py tests/test_mem_time_l1_scope.py tests/test_mem_time_profile.py tests/test_vmq_mem_period_intent.py tests/test_vmq_mem_retrieval_fixes.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_slice_d.py tests/test_vmq_m1_episode_contract.py tests/test_webapp_api.py tests/test_webapp_parity_smoke.py tests/test_webapp_f11_round1025.py tests/test_frontend_tab_mapping.py -q",
+      "result": "481 passed"
+    },
+    "mandatory_386": {
+      "command": "python -m pytest <24 files mandatory-386> -q",
+      "result": "386 passed",
+      "note": "routes.py re-pin (L-F11S-1): tests/test_round1025_f8_registry.py + tests/test_mca23_planned_vs_actual.py обновлены осознанно; каталог не менялся"
+    },
+    "js_full": {
+      "candidate": "124 файлов, 4 failed",
+      "base_clean_worktree": "123 файлов, 4 failed (те же: asap6_wave2_ux_tabs, evol_cog_scene, round1025_ia_routing, ur_ui_settings)",
+      "regressions": 0
+    },
+    "playwright": {
+      "command": "python tests/ui_vmq_status_analytics_e2e.py --out time09-playwright.json",
+      "ok": true,
+      "checks": 49,
+      "failed": [],
+      "screenshots": [
+        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_status_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_analytics_1280.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_block_390.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_block_320.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_status_390.png",
+        "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_status_320.png"
+      ]
+    },
+    "browser_use": "blocked: BU_CDP_URL=http://127.0.0.1:9222 недоступен (нет Chrome с --remote-debugging-port=9222); Playwright-прогон не отменяется"
+  },
+  "preservation": {
+    "byte_identical_expected": [
+      "web/static/app.css",
+      "web/app.py",
+      "handlers/web.py",
+      "web/api/memory_overview.py",
+      "services/memory_diagnostics.py"
+    ],
+    "no_ddl": true,
+    "no_new_flags": true,
+    "no_new_endpoint": true,
+    "aggregate_endpoint_called": 0
+  }
+}
