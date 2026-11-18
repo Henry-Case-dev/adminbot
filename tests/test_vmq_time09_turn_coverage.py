@@ -197,22 +197,21 @@ def _emit_chain(trace_id, *, chat_id=CHAT_ID):
                              tg_message_ids=[42])
 
 
-def _selection_payload(*, truncated=False, with_rag=True,
-                       memory_period=None):
+def _selection_payload(*, with_rag=True, memory_period=None):
     blocks = [
         {"kind": "global_tail", "role": "p1", "rendered": True,
          "source_ids": ["msg:1"], "tokens": 300,
-         "years": {"2026": 3}},
+         "years": {2026: 3}},
     ]
     if with_rag:
         blocks.append(
             {"kind": "rag", "role": "p2", "rendered": True,
              "source_ids": ["fact:1", "fact:2"], "tokens": 800,
-             "years": {"2023": 2, "2026": 7}})
+             "years": {2023: 2, 2026: 7}})
         blocks.append(
             {"kind": "episode", "role": "p2", "rendered": True,
              "source_ids": ["episode:1"], "tokens": 200,
-             "years": {"2023": 1}})
+             "years": {2023: 1}})
     payload = {
         "counts": {"available_messages": 40, "included_messages": 12,
                    "window_messages": 25},
@@ -236,10 +235,7 @@ def _selection_payload(*, truncated=False, with_rag=True,
             "vector_leg": "knn", "vector_rows": 12,
         },
     }
-    if truncated:
-        payload["truncated"] = True
     return payload
-
 
 def _emit_selection(trace_id, *, chat_id=CHAT_ID, payload=None):
     turn_trace.note_selection(
@@ -260,6 +256,29 @@ async def _insert_event(db, *, trace_id, chat_id=CHAT_ID, ts=None,
          outcome, trace_id, int(chat_id), "retrieval_context", "retrieval",
          reason_code,
          json.dumps(usage, ensure_ascii=False) if usage is not None else None))
+    await db.db.commit()
+
+
+async def _force_truncated(db, trace_id):
+    """Привести реальное событие выбора к состоянию усечения payload.
+
+    `turn_trace._selection_payload` помечает `truncated` только при реальной
+    обрезке; здесь слой доводится до такого состояния (RAG/эпизоды выброшены
+    лимитом JSON, `memory_period` пуст) — проверяется API, а не упаковщик.
+    """
+    rows = await mca_events.query_events(db, trace_id=trace_id, limit=200)
+    for row in rows:
+        if row.get("event_name") != "direct_turn_selection":
+            continue
+        data = json.loads(row.get("usage_json") or "{}")
+        data["blocks"] = [item for item in (data.get("blocks") or ())
+                          if item.get("kind") in ("global_tail",
+                                                   "global_middle")]
+        data.pop("memory_period", None)
+        data["truncated"] = True
+        await db.db.execute(
+            "UPDATE mca_events SET usage_json = ? WHERE id = ?",
+            (json.dumps(data, ensure_ascii=False), row["id"]))
     await db.db.commit()
 
 
@@ -343,10 +362,25 @@ async def test_build_old_episodes_passes_trace_id(monkeypatch):
 async def test_build_rag_block_period_event_carries_trace(
         monkeypatch, tmp_path):
     class _FakeHot:
+        _defaults = {
+            "flags.chat_rag_rerank_enabled": False,
+            "memory.nostalgia_layer_a_enabled": False,
+        }
+        _setting_names = {
+            "flags.graph_rag_enabled": "GRAPH_RAG_ENABLED",
+            "limits.graph_rag_facts_limit": "GRAPH_RAG_FACTS_LIMIT",
+            "limits.graph_rag_context_max_chars":
+                "GRAPH_RAG_CONTEXT_MAX_CHARS",
+            "limits.chat_rag_dedup_overlap_ratio":
+                "CHAT_RAG_DEDUP_OVERLAP_RATIO",
+        }
+
         def get(self, key, default=None):
-            return {"flags.chat_rag_rerank_enabled": False,
-                    "memory.nostalgia_layer_a_enabled": False}.get(
-                        key, hot.get(key, default))
+            if key in self._defaults:
+                return self._defaults[key]
+            from config import settings
+            name = self._setting_names.get(key)
+            return getattr(settings, name, default) if name else default
 
     monkeypatch.setattr(hot, "_cache", _FakeHot())
     ts = 1672574400            # 2023-01-01 UTC
@@ -431,9 +465,10 @@ async def test_api_retrieval_is_bounded_sorted_and_excludes_period_selection(
     db = await _make_db(tmp_path)
     monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: db)
     _emit_chain("corr-runs")
-    _emit_selection("corr-runs", payload=_selection_payload(truncated=False))
-    # 8 основных вызовов + защитный period_selection (в проде не durable).
-    for index in range(8):
+    _emit_selection("corr-runs", payload=_selection_payload())
+    # 5 основных вызовов + защитный period_selection (в проде не durable):
+    # без фильтра он вошёл бы шестым и дал бы двойной счёт годов.
+    for index in range(5):
         await _insert_event(
             db, trace_id="corr-runs", ts=1_700_000_100 + index,
             reason_code="retrieval_empty",
@@ -452,8 +487,8 @@ async def test_api_retrieval_is_bounded_sorted_and_excludes_period_selection(
                 ).json()
     runs = body["retrieval"]
     assert body["stages"]["retrieval"] is True
-    assert isinstance(runs, list) and len(runs) == 6, (
-        "bounded: не больше 6 вызовов на ход")
+    assert isinstance(runs, list) and len(runs) == 5, (
+        "bounded: не больше 6 вызовов на ход, period_selection не строка")
     assert [row["ts"] for row in runs] == sorted(row["ts"] for row in runs), (
         "вызовы отсортированы по времени")
     assert all(row["reason_code"] != "period_selection" for row in runs), (
@@ -525,9 +560,9 @@ async def test_api_truncated_selection_does_not_substitute_years(
     _emit_chain("corr-trunc")
     # RAG-блок мог не попасть в слой из-за лимита payload: его лет нет,
     # подставлять `{}` (измеренный ноль) нельзя.
-    _emit_selection("corr-trunc", payload=_selection_payload(
-        truncated=True, with_rag=False, memory_period={}))
+    _emit_selection("corr-trunc")
     await mca_events.flush_events(db)
+    await _force_truncated(db, "corr-trunc")
 
     async with await _make_client(monkeypatch) as client:
         body = (await _get(client, f"chat_id={CHAT_ID}&trace_id=corr-trunc")

@@ -354,7 +354,7 @@ async def test_new_trace_projects_all_sections(tmp_path, monkeypatch):
     assert body["stages"] == {"context": True, "writer": True,
                               "delivery": True, "selection": True,
                               "search": True, "tool_phase": True,
-                              "style": True}
+                              "style": True, "retrieval": False}
     assert body["source"]["message_id"] == SOURCE_TG_ID
     assert body["source"]["author_id"] == 10
     assert body["source"]["author_alias"] == "Вася"
@@ -435,7 +435,7 @@ async def test_old_trace_returns_null_sections(tmp_path, monkeypatch):
     assert body["stages"] == {"context": True, "writer": True,
                               "delivery": True, "selection": False,
                               "search": False, "tool_phase": False,
-                              "style": False}
+                              "style": False, "retrieval": False}
     assert body["selection"] is None
     assert body["search"] is None
     assert body["style"] is None

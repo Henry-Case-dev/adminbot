@@ -110,16 +110,17 @@ def diagnostics_payload(*, turn=1, empty=False, truncated=False):
                 "reason": "no_turn_traces", "turns": []}
     blocks = [
         {"kind": "global_tail", "role": "p1", "rendered": True,
-         "source_ids": ["msg:1"], "tokens": 300, "years": {"2026": 3}},
+         "source_ids": ["msg:1"], "tokens": 300, "years": {"2026": 3},
+         "years_present": True},
     ]
     if not truncated:
         blocks.extend([
             {"kind": "rag", "role": "p2", "rendered": True,
              "source_ids": ["fact:1", "fact:2"], "tokens": 800,
-             "years": {"2023": 2, "2026": 7}},
+             "years": {"2023": 2, "2026": 7}, "years_present": True},
             {"kind": "episode", "role": "p2", "rendered": True,
              "source_ids": ["episode:1"], "tokens": 200,
-             "years": {"2023": 1}},
+             "years": {"2023": 1}, "years_present": True},
         ])
     current = "trace-current" if turn == 1 else "trace-prev%d" % turn
     runs = [copy.deepcopy(RUN_MAIN), copy.deepcopy(RUN_PERIOD)]
@@ -182,9 +183,12 @@ def main() -> int:
 
     from playwright.sync_api import sync_playwright
 
-    def scenario_context(browser, *, width, height, mode="normal"):
+    def scenario_context(browser, *, width, height, mode="normal",
+                         touch=False):
         ctx = browser.new_context(viewport={"width": width, "height": height},
-                                  reduced_motion="reduce")
+                                  reduced_motion="reduce",
+                                  has_touch=bool(touch),
+                                  is_mobile=bool(touch))
         ctx.add_init_script(M.TMA_STUB)
 
         def handler(route):
@@ -228,8 +232,10 @@ def main() -> int:
 
         ctx.route("**/api/**", handler)
         page = ctx.new_page()
-        page.on("console", lambda m: result["console_errors"].append(
-            m.text[:200]) if m.type == "error" else None)
+        if mode != "error":
+            # Намеренный 500 в сценарии ошибки — не JS-ошибка страницы.
+            page.on("console", lambda m: result["console_errors"].append(
+                m.text[:200]) if m.type == "error" else None)
         page.on("pageerror", lambda e: result["console_errors"].append(
             "pageerror: " + str(e)[:200]))
         page.on("dialog", lambda d: d.accept())
@@ -346,7 +352,7 @@ def main() -> int:
             # ── 390/320: реальные мобильные ширины ──────────────────────
             for width in (390, 320):
                 ctx, page = scenario_context(browser, width=width,
-                                             height=844)
+                                             height=844, touch=True)
                 page.goto(base, wait_until="load")
                 page.wait_for_timeout(2200)
                 block_shape(page, str(width))
@@ -363,6 +369,13 @@ def main() -> int:
                                     "time09_status_%d.png" % width)
                 page.screenshot(path=shot, full_page=True)
                 result["screenshots"].append(shot)
+                block_shot = os.path.join(
+                    shots, "time09_block_%d.png" % width)
+                el = page.query_selector(
+                    "[data-retrieval-coverage-status]")
+                if el is not None:
+                    el.screenshot(path=block_shot)
+                    result["screenshots"].append(block_shot)
                 ctx.close()
 
             # ── empty / error / truncated / non-admin ───────────────────

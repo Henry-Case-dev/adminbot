@@ -42,10 +42,16 @@ function read(file) {
   return fs.readFileSync(path.join(ROOT, file), 'utf8');
 }
 
-function blockWindow(html, marker, size) {
+function blockWindow(html, marker, endMarker, size) {
   const start = html.indexOf(marker);
   assert.ok(start >= 0, 'render-маркер отсутствует: ' + marker);
-  return html.slice(start, start + (size || 9000));
+  let end = html.length;
+  if (endMarker) {
+    const stop = html.indexOf(endMarker, start);
+    assert.ok(stop > start, 'конец блока не найден: ' + endMarker);
+    end = stop;
+  }
+  return html.slice(start, Math.min(end, start + (size || 12000)));
 }
 
 function hasPercent(text) {
@@ -100,7 +106,8 @@ function main() {
 
   // ── Writer-блоки: rendered=false не доставлено ─────────────────────────
   const skipped = A.writerBlocks([
-    { kind: 'rag', rendered: false, skip_reason: 'budget', years: {} },
+    { kind: 'rag', rendered: false, skip_reason: 'budget', years: {},
+      years_present: true },
   ]);
   assert.ok(skipped.facts, 'Writer-блок rag обязан быть виден');
   assert.strictEqual(skipped.facts.delivered, false,
@@ -112,8 +119,10 @@ function main() {
   const delivered = A.writerBlocks([
     { kind: 'global_tail', rendered: true, years: { '2023': 9 } },
     { kind: 'global_middle', rendered: true, years: { '2024': 4 } },
-    { kind: 'rag', rendered: true, years: { '2023': 2, '2026': 7 } },
-    { kind: 'episode', rendered: true, years: { '2023': 1 } },
+    { kind: 'rag', rendered: true, years: { '2023': 2, '2026': 7 },
+      years_present: true },
+    { kind: 'episode', rendered: true, years: { '2023': 1 },
+      years_present: true },
   ]);
   assert.strictEqual(delivered.facts.delivered, true);
   assert.strictEqual(delivered.facts.yearsText, '2023 — 2 · 2026 — 7');
@@ -148,8 +157,10 @@ function main() {
     selection: {
       policy_version: 'alloc_v3',
       blocks: [
-        { kind: 'rag', rendered: true, years: { '2023': 2, '2026': 7 } },
-        { kind: 'episode', rendered: true, years: { '2023': 1 } },
+        { kind: 'rag', rendered: true, years: { '2023': 2, '2026': 7 },
+          years_present: true },
+        { kind: 'episode', rendered: true, years: { '2023': 1 },
+          years_present: true },
       ],
       memory_period: { policy: 'auto', period_skipped: 'auto_no_replace',
         pool: 12, kept: 3, dropped_status: 1, pool_expired: 0,
@@ -172,15 +183,16 @@ function main() {
   const ready = A.view(basePayload);
   assert.strictEqual(ready.state, 'ready');
   assert.strictEqual(ready.runs.length, 2);
-  assert.strictEqual(ready.primaryRun.period, false,
+  assert.strictEqual(ready.primary.period, false,
     'Status показывает основной вызов, а не периодный добор');
-  assert.strictEqual(ready.statusLines.length >= 2
-    && ready.statusLines.length <= 3, true,
-    'Status — 2–3 строки, не «стена»');
-  assert.ok(ready.statusLines.join(' ').indexOf('2023 — 2') >= 0,
+  assert.strictEqual(ready.writer.facts.yearsText, '2023 — 2 · 2026 — 7',
     'годы Writer-фактов видны в Статусе');
-  assert.ok(ready.statusLines.join(' ').indexOf('квота 4') >= 0,
+  assert.ok(ready.primary.exclusionText.indexOf('квота 4') >= 0,
     'исключения основного вызова видны в Статусе');
+  assert.strictEqual(ready.writer.episodes.yearsText, '2023 — 1',
+    'эпизоды — отдельная строка, не смешиваются с фактами');
+  assert.strictEqual(ready.extraRuns, 1,
+    'второй вызов хода не теряется: в Аналитике он отдельной строкой');
 
   assert.strictEqual(A.view({ no_chat: true }).state, 'no_chat');
   assert.ok(A.view({ no_chat: true }).text.indexOf('Выберите чат') >= 0);
@@ -219,8 +231,10 @@ function main() {
 
   // ── render-маркеры и запрет графика/процентов в блоках ─────────────────
   const html = read('web/index.html');
-  const statusWin = blockWindow(html, 'data-retrieval-coverage-status');
-  const analyticsWin = blockWindow(html, 'data-retrieval-coverage-analytics');
+  const statusWin = blockWindow(html, 'data-retrieval-coverage-status',
+    'data-intents');
+  const analyticsWin = blockWindow(html, 'data-retrieval-coverage-analytics',
+    '<!-- mca-17c');
   assert.ok(statusWin.indexOf('data-rc-writer-block') >= 0,
     'Status: строка Writer-блоков');
   assert.ok(statusWin.indexOf('data-rc-exclusions') >= 0,
