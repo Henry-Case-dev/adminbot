@@ -30,5 +30,5 @@
     },
     "removed_after_run": true
   },
-  "note": "Dry-run captured at content tip f80cba08 (merge + bump). The following evidence commit is docs-only and does not change version/product tree. A real deploy must rebuild the manifest on the actual production checkout after git pull, so deployed_sha there will be the actual HEAD; this capture proves version 2.58.219, previous_sha e6239230, dirty_tracked=false."
+  "note": "Dry-run captured at content tip f80cba08 (merge + bump). Evidence commits that follow are docs-only and do not change version/product tree. A real deploy must rebuild the manifest on the actual production checkout after git pull, so deployed_sha there will be the actual HEAD; this capture proves version 2.58.219, previous_sha e6239230, dirty_tracked=false."
 }

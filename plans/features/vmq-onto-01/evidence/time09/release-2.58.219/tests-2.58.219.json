@@ -56,7 +56,7 @@
     "network": "none; provider HTTP and diagnostic payloads are stubbed/injected; temp SQLite per test; no production access",
     "configuration": "test fixtures only; no environment gate, factory default or persisted/tenant override changed; no paid provider job"
   },
-  "tested_tip_note": "Batches were executed at content tip f80cba08. The evidence commit that follows changes only files under plans/features/vmq-onto-01/evidence/time09/release-2.58.219/ (no product, tests, config or version pins). Post-commit delta is checked with `git diff --name-only f80cba08..HEAD -- ':!plans/features/vmq-onto-01/evidence/time09/release-2.58.219'` = empty.",
+  "tested_tip_note": "Batches were executed at content tip f80cba08. Evidence commits that follow change only files under plans/features/vmq-onto-01/evidence/time09/release-2.58.219/ (no product, tests, config or version pins). Post-evidence delta is checked with `git diff --name-only f80cba08..HEAD -- ':!plans/features/vmq-onto-01/evidence/time09/release-2.58.219'` = empty.",
   "batches": [
     {
       "id": "node-time09",

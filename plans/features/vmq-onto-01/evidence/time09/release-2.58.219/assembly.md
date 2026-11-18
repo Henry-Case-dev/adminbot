@@ -54,8 +54,9 @@ Merge выполнен `git merge --no-ff f4d67b33`. Конфликтов нет
 | `tests/test_ur_f_inspector_step2.py` | `4e7cfc9f042032556a45a0c4875bdfeed1c95a6b` | `970ff4bfb1ef14849bef02c0a893c24205f09a8cb356f68b4c3d17e1b252f9f6` |
 | `tests/test_mca23_planned_vs_actual.py` | `79fcd88ec8573d706ec72bb0fffebc4d5fde5396` | `780ffd2d6b62e398cab146b22a0e3ba5c450191f7ba27fd32c9890fa883b10b4` |
 
-`git diff f4d67b33 HEAD -- <эти 13 файлов>` = только APP_VERSION-пин в
-`test_round1025_f8_registry.py` (1 строка). Продуктовый diff
+`git diff f4d67b33 HEAD -- <эти 12 файлов>` пуст. Отдельно
+`tests/test_round1025_f8_registry.py` отличается только APP_VERSION-пином
+`2.58.219` вместо `2.58.217` (1 строка). Продуктовый diff
 `f68e7631d..f4d67b33` остаётся исходным (+1000/−22 в шести product-файлах;
 initial `738bd3a2` + corrective `ee94ddf9`/`4c23f4b4`), новых правок в
 релизной сборке нет.
@@ -121,7 +122,8 @@ initial `738bd3a2` + corrective `ee94ddf9`/`4c23f4b4`), новых правок 
 `f80cba08`: node TIME-09 OK; pytest **13/0**; inspector **19/0**; affected
 **482/0**; mandatory **386/0**; schema/apps **197/0**; F-01 **4/0**;
 random/P1/P2/P3 **314/0**; JS candidate **119/4** vs base **118/4** (те же
-4 файла); Playwright **66/66**, console 0, overflow 0, aggregate 0;
+4 файла; в каталоге 124/123 файла вместе с `module_fixture.js`, исполнено
+123/122 теста); Playwright **66/66**, console 0, overflow 0, aggregate 0;
 `node --check` rc=0; `git diff --check` рабочего дерева rc=0;
 `gen_param_registry --check` rc=0.
 
