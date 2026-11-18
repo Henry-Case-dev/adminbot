@@ -12,9 +12,13 @@ requested/effective-состояние, обязательная последо�
   * владелец флага `can_analyze_images` (mca-18) — mca-19: делегация
     `mca_self_model.py` в `resolve_effective_state()` — шов Wave 2 (ADR D14);
     до включения vision поведение mca-18 бит-в-бит;
-  * Telegram-медиа — только Bot API (getFile); URL с bot token НЕ строится,
-    НЕ передаётся внешней модели и НЕ логируется (TH-3); произвольные
-    внешние ссылки — только через SafeFetcher mca-02 (TH-2);
+  * Telegram-медиа — только Bot API (getFile). URL с bot token строится
+    ТОЛЬКО в облачном fallback единого транспорта
+    (`services/media_download.py`, фиксированный хост `api.telegram.org`,
+    TLS-verify не ослабляется, redirect не выполняется); этот URL/токен НЕ
+    логируется, НЕ отдаётся наружу, НЕ передаётся внешней модели и НЕ
+    попадает в события (TH-3 сохраняется); произвольные внешние ссылки —
+    только через SafeFetcher mca-02 (TH-2);
   * OCR/описание/подпись — один канал НЕдоверенных данных (GEN-R18 `:43`);
     OCR никогда не попадает в system prompt и не конкатенируется с системными
     инструкциями (TH-1);
@@ -81,7 +85,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config.settings import settings
 from services import hot_config as hot
-from services import mca_events, mca_gates
+from services import mca_events, mca_gates, media_download
 
 logger = logging.getLogger(__name__)
 
@@ -1814,22 +1818,98 @@ async def validate_or_normalize(data: bytes, *, declared_mime: str = "") \
             img, declared_mime=declared_mime or img.declared_mime)
 
 
+# ── Классы отказа получения файла (R17-safe) ────────────────────────────────
+# Словарь reason_code (`mca_events.REASON_CODES`) ФИНАЛЕН (269): новые коды не
+# вводятся. Различие классов передаётся `error_json` (`class`/`stage`),
+# durable-полем `task_jobs.error_code` и `detail` — они и доходят до
+# `vision.media` событий, очереди и чекапа (`runtime_snapshot.last_error`).
+_DOWNLOAD_REASON_BY_CLASS = {
+    # Постоянные классы: источника нет / содержимое не анализируется.
+    media_download.ERROR_INVALID_FILE_ID: "vision_missing_source",
+    media_download.ERROR_OVERSIZED: "vision_unreadable",
+    media_download.ERROR_UNREADABLE_RASTER: "vision_unreadable",
+}
+# Временные классы (инфраструктура/сеть/появление файла) → существующий
+# retryable-код `vision_unavailable` (bounded retry + backfill re-arm).
+_DOWNLOAD_TRANSIENT_CLASSES = frozenset({
+    media_download.ERROR_MISSING_LOCAL_FILE,
+    media_download.ERROR_LOCAL_READ_FAILED,
+    media_download.ERROR_PERMISSION_DENIED,
+    media_download.ERROR_TIMEOUT,
+    media_download.ERROR_NETWORK,
+    media_download.ERROR_PROVIDER_ERROR,
+})
+
+# Полустадии получения файла (подстадии стадии `download`; реестр процесса
+# `mca_process_registry` не расширяется — сами стадии остаются `download`/
+# `validate`, точное место отказа едет в `error_json.stage`).
+DOWNLOAD_SUBSTAGES = ("get_file", "local_read", "cloud_download", "validate")
+
+
+def download_reason_for(error_class: str) -> str:
+    """Класс отказа загрузки → существующий reason_code (269).
+
+    `invalid_file_id` → `vision_missing_source` (постоянный: файла нет и не
+    будет — повтор не поможет); `oversized` → `vision_unreadable`
+    (контент-детерминированный отказ); временные классы
+    (`missing_local_file`/`permission_denied`/`timeout`/`network`/…)
+    → retryable `vision_unavailable` (bounded retry + backfill re-arm)."""
+    cls = str(error_class or "")
+    if cls in _DOWNLOAD_TRANSIENT_CLASSES:
+        return "vision_unavailable"
+    return _DOWNLOAD_REASON_BY_CLASS.get(cls, "vision_unavailable")
+
+
+def validate_error_class(detail: str) -> str:
+    """Класс отказа `validate` по R17-safe `detail` VisionError.
+
+    `detail` — стабильные строки `validate_image_bytes`; приватных данных в
+    них нет. Неизвестный detail → `unreadable_raster` (честно «не читается»),
+    а НЕ «неизвестная ошибка»."""
+    text = str(detail or "").lower()
+    if "exceeds" in text:
+        return media_download.ERROR_OVERSIZED
+    if "empty image" in text:
+        return "empty_image"
+    if "unsupported format" in text:
+        return "unsupported_format"
+    if "not a supported raster" in text:
+        return media_download.ERROR_UNREADABLE_RASTER
+    return media_download.ERROR_UNREADABLE_RASTER
+
+
+def classify_download_exception(exc: BaseException) -> tuple[str, str]:
+    """Класс последней инстанции для неожиданного исключения загрузки.
+
+    Общий `except Exception` больше НЕ «чёрная дыра»: возвращается
+    (класс, detail) — тип исключения (R17-safe: имена классов без текста
+    сообщения, где бывает путь/URL с токеном)."""
+    cls, _retryable = media_download.classify_transport_error(exc)
+    return cls, f"{cls}:{type(exc).__name__}"
+
+
 async def download_telegram_file(bot, file_id: str, *,
                                  semaphore: asyncio.Semaphore | None = None
                                  ) -> DownloadedImage:
-    """Telegram-файл ТОЛЬКО через Bot API (D7/TH-2). aiogram сам строит
-    getFile-URL с токеном ВНУТРИ сессии: URL не возвращается, не передаётся
-    внешней модели и не логируется (TH-3). Лимит одновременных загрузок —
-    `MCA_VISION_DOWNLOAD_CONCURRENCY`."""
-    import asyncio as _asyncio
-    import io as _io
-    sem = semaphore or _asyncio.Semaphore(
+    """Telegram-файл ТОЛЬКО через Bot API (D7/TH-2). Единый транспорт байтов —
+    `services.media_download.download_api_file_bytes` (локальный Bot API →
+    штатный транспорт aiogram → облачный fallback; image-специфичные причины
+    остаются здесь). Токен-URL строится ТОЛЬКО в облачном fallback этого
+    транспорта: фиксированный хост `api.telegram.org`, redirect НЕ
+    выполняется, TLS-verify не ослабляется; URL/токен не логируются, не
+    отдаются наружу, не передаются внешней модели и не попадают в события
+    (TH-3). Лимит одновременных загрузок —
+    `MCA_VISION_DOWNLOAD_CONCURRENCY`.
+
+    Отказ получения/чтения файла — `media_download.MediaDownloadError`
+    (`stage`+`error_class`); отказ валидации — `VisionError` как раньше
+    (класс вычисляет вызывающий через `validate_error_class`)."""
+    sem = semaphore or asyncio.Semaphore(
         mca_gates.vision_download_concurrency())
     async with sem:
-        tg_file = await bot.get_file(file_id)
-        buffer = _io.BytesIO()
-        await bot.download(tg_file, destination=buffer)
-        data = buffer.getvalue()
+        data = await media_download.download_api_file_bytes(
+            bot, file_id, site="vision", attempts=3, sleep=1.0,
+            max_bytes=mca_gates.vision_max_bytes())
     return await validate_or_normalize(data)
 
 
@@ -3860,13 +3940,16 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
     correlation_id = str(job.get("job_id") or "")
 
     async def _finish(status: str, reason: str | None,
-                      result_ref: str | None = None) -> None:
+                      result_ref: str | None = None,
+                      error_code: str | None = None) -> None:
         if store is not None and job.get("job_id"):
             try:
-                await store.finish(job["job_id"], status=status,
-                                   reason_code=reason,
-                                   result_ref=result_ref,
-                                   fencing_token=job.get("fencing_token"))
+                kwargs = dict(status=status, reason_code=reason,
+                              result_ref=result_ref,
+                              fencing_token=job.get("fencing_token"))
+                if error_code:
+                    kwargs["error_code"] = error_code
+                await store.finish(job["job_id"], **kwargs)
             except Exception:
                 logger.warning("[vision] job finish failed | %s",
                                job.get("job_id"), exc_info=True)
@@ -3947,7 +4030,7 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
         pipeline_stage_event("vision", "success", chat_id=chat_id,
                              operation_id=asset_id,
                              model=str(ready.get("analyzer_model") or ""))
-        _note_breaker(True)
+        _note_job_outcome(None)
         return
 
     # Антиспам (D20): bucket по участнику/чату (справедливо по
@@ -3972,30 +4055,57 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
 
     # download (Bot API только; TH-2/TH-3) → validate (сниффер внутри).
     file_id = str(payload.get("file_id") or asset.get("file_id") or "")
+    job_attempt = int(job.get("attempt") or 0)
     pipeline_stage_event("download", "started", chat_id=chat_id,
-                         operation_id=asset_id)
+                         operation_id=asset_id, job_id=job.get("job_id"),
+                         attempt=job_attempt)
     try:
         image = await download_telegram_file(bot, file_id)
+    except media_download.MediaDownloadError as exc:
+        # R17-safe классификация: стадия получения (get_file/local_read/
+        # cloud_download) + класс причины доезжают до события, durable-строки
+        # (`reason_code` из финального словаря + `error_code`=класс) и чекапа.
+        # Путь с токеном/URL/байты сюда не попадают.
+        reason = download_reason_for(exc.error_class)
+        detail = str(getattr(exc, "detail", "") or "") or exc.error_class
+        await _finish_analysis_or_job(
+            db, None, 0, job, _finish, reason,
+            _STATUS_BY_REASON.get(reason, "failed"),
+            chat_id=chat_id, asset_id=asset_id, stage="download",
+            detail=detail, error_class=exc.error_class,
+            substage=exc.stage, error_code=exc.error_class)
+        _note_job_outcome(reason)
+        return
     except VisionError as exc:
-        # POSTGEN-DIAG: класс причины (`detail`) доезжает до stage-события —
-        # прод-факт «6 unreadable без класса» больше не повторится.
+        # Отказ ВАЛИДАЦИИ (не «загрузки»): честная стадия + класс класса
+        # `validate` (oversized/unreadable_raster/unsupported_format), а не
+        # общий `download`.
+        error_class = validate_error_class(getattr(exc, "detail", ""))
         await _finish_analysis_or_job(
             db, None, 0, job, _finish, exc.reason,
             _STATUS_BY_REASON.get(exc.reason, "failed"),
-            chat_id=chat_id, asset_id=asset_id, stage="download",
-            detail=str(getattr(exc, "detail", "") or ""))
-        _note_breaker(exc.reason in ("vision_unavailable",
-                                     "vision_rate_limited"))
+            chat_id=chat_id, asset_id=asset_id, stage="validate",
+            detail=str(getattr(exc, "detail", "") or ""),
+            error_class=error_class, substage="validate",
+            error_code=error_class)
+        # Контент-детерминированный исход (формат/размер) — нейтрален для
+        # breaker: это не массовый сбой инфраструктуры.
+        _note_job_outcome(exc.reason)
         return
-    except Exception:
+    except Exception as exc:
+        # Последняя инстанция: класс по типу исключения (R17: только имя
+        # класса) + подстадия `download` — «generic без detail» невозможен.
+        error_class, detail = classify_download_exception(exc)
         await _finish_analysis_or_job(
             db, None, 0, job, _finish,
             "vision_unavailable", "unavailable",
-            chat_id=chat_id, asset_id=asset_id, stage="download")
-        _note_breaker(True)
+            chat_id=chat_id, asset_id=asset_id, stage="download",
+            detail=detail, error_class=error_class, substage="download",
+            error_code=error_class)
+        _note_job_outcome("vision_unavailable")
         return
     pipeline_stage_event("validate", "success", chat_id=chat_id,
-                         operation_id=asset_id)
+                         operation_id=asset_id, job_id=job.get("job_id"))
     # content_hash → CAS-привязка (D19; ключ кросс-ассетного кеша).
     content_hash = hashlib.sha256(image.data).hexdigest()
     try:
@@ -4022,7 +4132,7 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
                              operation_id=asset_id,
                              model=str(ready_by_hash.get("analyzer_model")
                                        or ""))
-        _note_breaker(True)
+        _note_job_outcome(None)
         return
 
     # Singleflight-гранула (D2/D19): вторая джоба того же актива получает
@@ -4047,7 +4157,7 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
         await _finish("completed", None, result_ref=str(analysis_id))
         pipeline_stage_event("vision", "success", chat_id=chat_id,
                              operation_id=asset_id, model=route.model)
-        _note_breaker(True)
+        _note_job_outcome(None)
         return
     if row_status in ("unreadable", "unsupported"):
         # Содержимо-детерминированные исходы: повтор не поможет (D19:
@@ -4078,15 +4188,17 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
             chat_id=chat_id, asset_id=asset_id,
             detail=str(getattr(exc, "detail", "") or ""),
             analysis_reason=_fine_analysis_reason(exc))
-        _note_breaker(exc.reason in ("vision_unavailable",
-                                     "vision_rate_limited"))
+        _note_job_outcome(exc.reason)
         return
-    except Exception:
+    except Exception as exc:
+        error_class, detail = classify_download_exception(exc)
         await _finish_analysis_or_job(
             db, analysis_id, row_revision, job, _finish,
             "vision_failed", "failed",
-            chat_id=chat_id, asset_id=asset_id)
-        _note_breaker(True)
+            chat_id=chat_id, asset_id=asset_id,
+            detail=detail, error_class=error_class,
+            error_code=error_class)
+        _note_job_outcome("vision_failed")
         return
 
     # store (CAS): stale job НЕ перезаписывает (A66).
@@ -4118,7 +4230,7 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
                          reason_code=consumers_reason, chat_id=chat_id,
                          operation_id=asset_id)
     await _finish("completed", None, result_ref=str(analysis_id))
-    _note_breaker(True)
+    _note_job_outcome(None)
 
 
 def consumers_stage_outcome() -> tuple[str, str | None]:
@@ -4172,6 +4284,9 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                                   status: str, *, chat_id: int,
                                   asset_id: str, stage: str = "vision",
                                   detail: str = "",
+                                  error_class: str = "",
+                                  substage: str = "",
+                                  error_code: str = "",
                                   analysis_reason: str = ""
                                   ) -> None:
     """Честная фиксация неуспеха: CAS-finish analysis-строки (если наша) +
@@ -4181,7 +4296,16 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
     POSTGEN-DIAG: ``detail`` — R17-safe класс причины (VisionError.detail:
     `empty image`/`not a supported raster image`/`unsupported format …`/
     `image exceeds …`) уходит в stage-события (`error_json`), чтобы отказы
-    не были «без класса» (прод-факт VISION_DL_STAGE=6)."""
+    не были «без класса» (прод-факт VISION_DL_STAGE=6).
+
+    P0 vision download (2026-11-17): к `detail` добавлены ``error_class``
+    (класс отказа: `missing_local_file`/`invalid_file_id`/… — R17-safe
+    строка без путей) и ``substage`` (`get_file`|`local_read`|
+    `cloud_download`|`validate`). Оба едут в `vision.media` событие
+    (`error_json`), а класс — ещё и в durable-поле очереди `error_code`,
+    поэтому причина видна в событиях, очереди и чекапе
+    (`runtime_snapshot.last_error`). Новых reason-кодов НЕ вводится (269).
+    """
     try:
         if analysis_id:
             await db.finish_media_analysis(
@@ -4189,10 +4313,18 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                 error_reason=(analysis_reason or reason))
     except Exception:
         logger.warning("[vision] analysis finish failed", exc_info=True)
-    error_json = {"detail": detail} if detail else None
+    error_json: dict = {}
+    if detail:
+        error_json["detail"] = detail
+    if error_class:
+        error_json["class"] = error_class
+    if substage:
+        error_json["stage"] = substage
+    payload_json = error_json or None
+    attempt = int(job.get("attempt") or 0)
+    event_extra = {"job_id": job.get("job_id"), "attempt": attempt}
     retryable = reason in ("vision_unavailable", "vision_rate_limited")
     if retryable:
-        attempt = int(job.get("attempt") or 0)
         if _retry_allowed(job, reason, attempt):
             store = _job_store()
             if store is not None and job.get("job_id"):
@@ -4200,20 +4332,25 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                     await store.set_next_retry(
                         job["job_id"],
                         int(time.time()) + _backoff(attempt + 1),
-                        reason_code=reason)
+                        reason_code=reason,
+                        error_code=(error_code or None))
                     pipeline_stage_event(stage, "skipped",
                                          reason_code=reason,
                                          chat_id=chat_id,
                                          operation_id=asset_id,
-                                         error_json=error_json)
+                                         error_json=payload_json,
+                                         **event_extra)
                     return
                 except Exception:
                     logger.warning("[vision] retry schedule failed",
                                    exc_info=True)
-    await finish_job("failed", reason)
+    if error_code:
+        await finish_job("failed", reason, error_code=error_code)
+    else:
+        await finish_job("failed", reason)
     pipeline_stage_event(stage, "failed", reason_code=reason,
                          chat_id=chat_id, operation_id=asset_id,
-                         error_json=error_json)
+                         error_json=payload_json, **event_extra)
     notify_analysis_ready(asset_id)
 
 
@@ -4234,7 +4371,15 @@ async def _album_registered(db, chat_id: int, media_group_id: str) -> bool:
 
 def _note_breaker(success: bool) -> None:
     """Circuit breaker (D20): массовый сбой → пауза pull без бесконечного
-    обхода моделей; успех гасит счётчик."""
+    обхода моделей; успех гасит счётчик.
+
+    P0 vision download (2026-11-17): семантика прежняя и однозначная —
+    True = успех (streak=0), False = сбой (streak++). Раньше вызывающие
+    передавали инвертированный аргумент (`_note_breaker(True)` на ошибке
+    скачивания и `_note_breaker(False)` на нечитаемом формате), из-за чего
+    сбой СБРАСЫВАЛ счётчик. Контент-детерминированные исходы
+    (unreadable/unsupported/missing_source) сюда не передаются —
+    см. `_note_job_outcome`."""
     if success:
         _RUNTIME["breaker_streak"] = 0
         _RUNTIME["breaker_until"] = 0.0
@@ -4242,6 +4387,29 @@ def _note_breaker(success: bool) -> None:
     _RUNTIME["breaker_streak"] = int(_RUNTIME.get("breaker_streak") or 0) + 1
     if int(_RUNTIME["breaker_streak"]) >= BREAKER_THRESHOLD:
         _RUNTIME["breaker_until"] = time.monotonic() + BREAKER_COOLDOWN_SECONDS
+
+
+# Причины, которые считаются сбоем ИНФРАСТРУКТУРЫ/провайдера (streak++):
+# временная недоступность/лимит. Постоянные контентные исходы
+# (vision_unreadable/vision_unsupported/vision_missing_source/vision_failed)
+# нейтральны: три битые картинки не должны останавливать очередь.
+_BREAKER_FAILURE_REASONS = frozenset({"vision_unavailable",
+                                      "vision_rate_limited"})
+
+
+def _note_job_outcome(reason: str | None) -> None:
+    """Единая точка учёта исхода джобы для breaker.
+
+    ``None`` — успех (сброс streak). Временный класс
+    (`vision_unavailable`/`vision_rate_limited`) — сбой (streak++).
+    Постоянный контентный исход — НЕ трогает breaker вовсе (ни успех, ни
+    сбой): временное отсутствие файла/сети и постоянная несовместимость
+    формата различимы и не смешиваются."""
+    if reason is None:
+        _note_breaker(True)
+        return
+    if str(reason) in _BREAKER_FAILURE_REASONS:
+        _note_breaker(False)
 
 
 def breaker_open() -> bool:
@@ -5249,10 +5417,13 @@ async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
     except Exception:
         snapshot["last"] = None
     # §22: последняя существенная ошибка (существующая запись очереди —
-    # task_jobs failed; R17: reason_code/время, без приватных данных).
+    # task_jobs failed; R17: reason_code/класс/время, без приватных данных).
+    # P0 vision download (2026-11-17): класс отказа (`error_code`:
+    # missing_local_file/invalid_file_id/...) попадает в чекап — «последняя
+    # ошибка» больше не безликая (`vision_unavailable` без причины).
     try:
         cur = await db.db.execute(
-            "SELECT reason_code, updated_at FROM task_jobs "
+            "SELECT reason_code, error_code, updated_at FROM task_jobs "
             "WHERE kind IN (?, ?) AND status = 'failed' "
             "ORDER BY updated_at DESC, created_at DESC LIMIT 1",
             (VISION_JOB_KIND, VISION_BACKFILL_KIND))
