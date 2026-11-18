@@ -29,6 +29,7 @@ import os
 import random
 import re
 import tempfile
+import types as pytypes
 from pathlib import Path
 
 from aiogram import F, Router, types
@@ -555,8 +556,8 @@ async def replay_saved_media(bot, *, chat_id: int, message_id: int,
         report["chars"] = len(previous_text)
     author = str(_row_field(row, "author_name") or MEDIA_UNKNOWN_AUTHOR)
     caption = _row_field(row, "caption")
-    proxy = types.SimpleNamespace(
-        chat=types.SimpleNamespace(id=chat_id), message_id=message_id,
+    proxy = pytypes.SimpleNamespace(
+        chat=pytypes.SimpleNamespace(id=chat_id), message_id=message_id,
         text=None, caption=caption, from_user=None)
     suffix = ".mp4" if is_video_note else ".ogg"
     audio_format = "mp4" if is_video_note else "ogg"
@@ -577,7 +578,7 @@ async def replay_saved_media(bot, *, chat_id: int, message_id: int,
 
     try:
         try:
-            await _fetch_media_to_tmp(bot, types.SimpleNamespace(
+            await _fetch_media_to_tmp(bot, pytypes.SimpleNamespace(
                 file_id=file_id), path, site="transcribe")
         except MediaDownloadError as exc:
             reason = _download_failure_reason(exc.stage, exc.error_class)

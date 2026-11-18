@@ -456,6 +456,20 @@ class TestSnapshot:
         assert snapshot["bot"]["local_api"] is False   # DOWNLOAD_ENABLED=False в тестах
 
     @pytest.mark.asyncio
+    async def test_local_api_follows_infra_not_download_flag(self, monkeypatch):
+        """P0 18.11.2026: local_api — инфраструктурный режим endpoint'а,
+        а не функциональный flags.download_enabled."""
+        monkeypatch.setenv("TELEGRAM_LOCAL", "1")
+        hot.set_config_cache(_FakeCache(_NO_KEYS))
+        svc = StatusService()
+        monkeypatch.setattr(
+            "services.status_service.StatusService._server_metrics",
+            staticmethod(lambda: {}))
+        snapshot = await svc.build_snapshot(_FakeCache(pg=_FakePg()))
+        assert snapshot["bot"]["local_api"] is True
+        assert snapshot["bot"]["download_enabled"] is False
+
+    @pytest.mark.asyncio
     async def test_health_checks_run_in_parallel(self, monkeypatch):
         """F19: health-check'и провайдеров идут asyncio.gather'ом —
         суммарное время ≈ одному пингу, а не N×пинг."""
