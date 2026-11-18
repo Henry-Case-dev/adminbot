@@ -50,7 +50,7 @@
     "playwright": {
       "command": "python tests/ui_vmq_status_analytics_e2e.py --out time09-playwright.json",
       "ok": true,
-      "checks": 49,
+      "checks": 51,
       "failed": [],
       "screenshots": [
         "WorkspaceData/temp/intelligence/vmq-time09-<...>/tmp/time09-shots/time09_status_1280.png",

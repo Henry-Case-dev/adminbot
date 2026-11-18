@@ -317,6 +317,11 @@ def main() -> int:
                        ("квота", "статус", "давность", "релевантность",
                         "бюджет")))
             _check(checks, "analytics_no_percent", "%" not in analytics)
+            _check(checks, "analytics_period_details",
+                   page.evaluate("!!document.querySelector("
+                                 "'[data-retrieval-coverage-analytics] "
+                                 "[data-rc-period]')"))
+            _check(checks, "analytics_episode_row", "Эпизоды" in analytics)
             _check(checks, "analytics_between_flow_and_embeddings",
                    page.evaluate(
                        "(() => { const a = document.querySelector("

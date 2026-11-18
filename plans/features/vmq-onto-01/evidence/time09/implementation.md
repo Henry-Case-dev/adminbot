@@ -119,7 +119,7 @@ UI-helper: новый `web/static/status-analytics.js` (UMD, 342 строки) �
 | affected pytest | 481 passed |
 | mandatory 386 | 386 passed |
 | JS full | 124 файла, 4 failed — ровно базовые (чистый worktree базы: 123 файла, те же 4); регрессий 0 |
-| Playwright 1280/390/320 | 49/49 проверок, `ok=true`; console/pageerror 0; overflow 0; `retrieval-coverage` = 0 вызовов |
+| Playwright 1280/390/320 | 51/51 проверок, `ok=true`; console/pageerror 0; overflow 0; `retrieval-coverage` = 0 вызовов |
 | мутации M1–M4 | каждая падает на целевом node-тесте и откатывается |
 | M5 (опц.) | падает на целевом pytest (period_selection в `retrieval[]`) |
 
