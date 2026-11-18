@@ -1,0 +1,24 @@
+{
+  "release": "2.58.217",
+  "target_rollback_commit": "5046090c7c3a9cdc59a37a0082a5effbdda9f1c7",
+  "target_rollback_version": "2.58.216",
+  "target_rollback_state": "deployed previous release / rollback base; production not contacted in this assembly",
+  "schema": 48,
+  "ddl": 0,
+  "migrations_added": 1,
+  "migration_scope": "SQLite only (mca_random_batches +2 nullable columns); PostgreSQL DDL 0",
+  "data_changes": 0,
+  "procedure": [
+    "checkout 5046090c7 (2.58.216) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz and release identity (git rev-parse HEAD = 5046090c7, dirty=false)"
+  ],
+  "notes": [
+    "Код 2.58.216 не читает новые колонки mca_random_batches.config_fingerprint/external_ref; они nullable и остаются инертными.",
+    "SQLite user_version остаётся 48, книга schema_migrations содержит шаг 48. Runner 2.58.216 принимает current=48 без pending-шагов (шаги сортируются по version > current), поэтому старт не падает.",
+    "Откат данных не требуется: v48 не делала UPDATE/DELETE и не переписывала строки; backfill выполняет сервис, а не миграция.",
+    "Полный откат схемы (DROP COLUMN + user_version=47) НЕ требуется и в runbook не входит; выполнять только по отдельному решению при доказанной проблеме.",
+    "Повторный выкат 2.58.217 после code-rollback безопасен: шаг v48 идемпотентен, повторный запуск — no-op.",
+    "deploy_v2.9.2.py не тронут; production-ключи/флаги/настройки в этой сборке не менялись."
+  ]
+}

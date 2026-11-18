@@ -1,0 +1,35 @@
+{
+  "captured_at_commit": "b6c9bb0bdec0f26ee72a3b7ab54c0a19f26610a0",
+  "command": "python tools/release_manifest.py --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy input removed",
+  "manifest": {
+    "deployed_at": "2026-11-18T09:47:48.432923Z",
+    "deployed_sha": "b6c9bb0bdec0f26ee72a3b7ab54c0a19f26610a0",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "5046090c7c3a9cdc59a37a0082a5effbdda9f1c7",
+    "previous_version": "2.58.216",
+    "release_branch": "release/qrng-2.58.217",
+    "schema": 1,
+    "version": "2.58.217"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "reconstruction of the documented 2.58.216 production state (deployed 5046090c7, branch release/p0-2.58.216); production file was not read",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "5046090c7c3a9cdc59a37a0082a5effbdda9f1c7",
+      "version": "2.58.216",
+      "effect": "deploy",
+      "release_branch": "release/p0-2.58.216"
+    },
+    "removed_after_run": true
+  },
+  "note": "Манифест снят на content tip b6c9bb0b: 5 merge-коммитов QRNG-поезда + bump 2.58.216->2.58.217 + две ассемблерные правки. Evidence-файлы добавляются следующим docs-коммитом на той же ветке и не меняют продукт/версию.",
+  "post_capture_note": "Dry-run печатает deployed_sha=b6c9bb0b (текущий checkout на момент снятия). Реальный деплой обязан пересобрать манифест на фактическом checkout SHA после git pull; docs/evidence-only коммит не меняет product tree, но deployed_sha production будет указывать на фактический HEAD."
+}
