@@ -1,0 +1,169 @@
+{
+  "feature": "VOICE-TRANSCRIPTION-RECOVERY-01",
+  "release": "2.58.216",
+  "slice": "release assembly: approved voice 6a3e7ba2f merged into base f20645f13; bump 2.58.215 -> 2.58.216",
+  "assembled_at": "2026-11-18",
+  "branch": "release/p0-2.58.216",
+  "base_commit": "f20645f13bbd742aae380596dd9ead52b5888a84",
+  "base_version": "2.58.215",
+  "base_state": "deployed previous release / rollback target; production not contacted in this assembly",
+  "candidate": "6a3e7ba2f",
+  "candidate_state": "Reviewer Approved for voice release preparation",
+  "merge_commit": "a19e03ff6",
+  "bump_commit": "faa2125c79c811d68ac8635be9f7e8532d477f70",
+  "content_tip": "faa2125c79c811d68ac8635be9f7e8532d477f70",
+  "conflicts": 0,
+  "byte_identity_vs_candidate": {
+    "files_checked": 21,
+    "mismatches": 0,
+    "method": "git rev-parse 6a3e7ba2f:<file> == git rev-parse HEAD:<file> for every file changed by the voice branch vs 642fa3cde"
+  },
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv, pytest 9.1.1)",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none used by tests or smoke; no Telegram/LLM HTTP",
+    "env": "ADMINBOT_SKIP_DOTENV=1, PYTHONPATH=<release worktree>"
+  },
+  "diff_vs_base": {
+    "files": 51,
+    "insertions": 3342,
+    "deletions": 493,
+    "voice_only_files": 21,
+    "voice_only_lines": "+3310 / -461",
+    "bump_files": 30,
+    "bump_lines": "+32 / -32",
+    "product_files_outside_plans_docs": 18,
+    "config_settings_diff": "APP_VERSION line only (1 insertion / 1 deletion)",
+    "database_py_diff": "none (DDL 0)"
+  },
+  "invariants": {
+    "app_version": "2.58.216",
+    "catalog": {"REGISTRY": 645, "GROUPS": 121, "_TAB_BY_GROUP": 119, "TAB_RULES": 22},
+    "settings_fields": 472,
+    "migration_steps": 47,
+    "migration_max": 47,
+    "migration_ids_unique_contiguous_sorted": true,
+    "target_user_version": 47,
+    "ddl": 0,
+    "new_flags": 0,
+    "new_migrations": 0,
+    "new_endpoints": 0,
+    "new_prompts": 0,
+    "new_models": 0,
+    "composer_changed": false,
+    "deploy_v2_9_2_py_changed": false
+  },
+  "bump_pins": {
+    "files": 30,
+    "replacements": 33,
+    "breakdown": "settings=2, meta=2, py pins=25 (24 files, polygon 2), js escaped=4",
+    "diff_stat": "30 files changed, 32 insertions(+), 32 deletions(-)",
+    "bom_crlf": "preserved (byte-level replacement)"
+  },
+  "batches": [
+    {
+      "id": "voice-core-10",
+      "command": "python -m pytest tests/test_p0_voice_transcription_recovery.py tests/test_voice_transcription.py tests/test_media_download.py tests/test_video_download.py tests/test_media_transcribe_tool_round1024.py tests/test_native_media_tools_round1024.py tests/test_p0_vision_download_transport.py tests/test_vmq_v_voice_writer.py tests/test_status_service.py tests/test_diagnostic_probes.py -q -p no:cacheprovider",
+      "result": {"passed": 436, "failed": 0},
+      "seconds": 48.95
+    },
+    {
+      "id": "voice-profile-43",
+      "command": "python -m pytest <43 files: core 10 + importers/consumers of media_download/voice_transcripts/local_bot_api + STT/media/status neighbours> -q -p no:cacheprovider",
+      "files": [
+        "tests/test_p0_voice_transcription_recovery.py", "tests/test_voice_transcription.py", "tests/test_media_download.py",
+        "tests/test_video_download.py", "tests/test_media_transcribe_tool_round1024.py", "tests/test_native_media_tools_round1024.py",
+        "tests/test_p0_vision_download_transport.py", "tests/test_vmq_v_voice_writer.py", "tests/test_status_service.py",
+        "tests/test_diagnostic_probes.py", "tests/test_asap7_direct_l1.py", "tests/test_avatars_round1019.py",
+        "tests/test_caps_tool_results.py", "tests/test_download_round1016.py", "tests/test_evol_video_intent.py",
+        "tests/test_frontend_tab_mapping.py", "tests/test_hotfix_round1025_media.py", "tests/test_mca17_perimeter_events.py",
+        "tests/test_mca23_phase2.py", "tests/test_media_integrity_round1019.py", "tests/test_media_local_path_round1025.py",
+        "tests/test_mod_acl_ux_01_m21_gates.py", "tests/test_mod_acl_ux_01_m4_catalog.py", "tests/test_p0b_current_question_priority.py",
+        "tests/test_smart_exec_selfdiag.py", "tests/test_smoke_round1016_fixes.py", "tests/test_video_router.py",
+        "tests/test_vision_dl_fix.py", "tests/test_self_diag_golden.py", "tests/test_hotfix3_stt_audio_prep_round1025.py",
+        "tests/test_video_stt_timeouts.py", "tests/test_youtube_handlers.py", "tests/test_smoke_round1016_download.py",
+        "tests/test_native_reply_media_context_round1024.py", "tests/test_media_execution_asap32.py",
+        "tests/test_media_group_buffer.py", "tests/test_media_picker.py", "tests/test_media_share.py",
+        "tests/test_slavik_media_types.py", "tests/test_status_section_ui_merge_round1019.py",
+        "tests/test_asap8_v6_c06a_status_ui.py", "tests/test_rc_target_media_evidence.py",
+        "tests/test_factcheck_media_2026_10_25.py"
+      ],
+      "result": {"passed": 1340, "failed": 0},
+      "seconds": 102.71,
+      "note": "equivalent-or-broader replacement for the candidate's 1262/0 43-file run; same fixture/env"
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q -p no:cacheprovider",
+      "result": {"passed": 386, "failed": 0},
+      "seconds": 24.38
+    },
+    {
+      "id": "js-full-suite",
+      "command": "node tests/js/<each>.js (module_fixture.js excluded), one process per file",
+      "result": {"files": 121, "passed": 117, "failed": 4},
+      "failed_files": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "note": "same 4 files as on base 2.58.214/2.58.215 (pre-existing; product JS not changed by this release)"
+    },
+    {
+      "id": "static",
+      "command": "node --check web/app.js; git diff --check; python tools/gen_param_registry_round1025.py --check; python -m py_compile <7 changed modules>",
+      "result": {"node_check_rc": 0, "diff_check_rc": 0, "catalog_check_rc": 0, "catalog_check": "CHECK OK: registry 645 == REGISTRY", "py_compile_rc": 0}
+    },
+    {
+      "id": "pre-existing-stale-baseline",
+      "command": "python -m pytest tests/test_budget_guardrails_round1024.py tests/test_help_ui_round1020.py tests/test_tool_download_quality_round1017.py tests/test_youtube_multimodal_download_round1024.py -q -p no:cacheprovider",
+      "release_result": {"failed": 8, "errors": 18},
+      "base_result": {"failed": 8, "errors": 18, "commit": "f20645f13"},
+      "verdict": "identical on base and release -> pre-existing stale tests, excluded from the voice profile; not a candidate regression"
+    }
+  ],
+  "smoke": {
+    "script": "plans/features/voice-transcription-recovery-01/evidence/release-2.58.216/smoke-2.58.216.py",
+    "network": "none",
+    "telegram_sends": 0,
+    "result": {
+      "local_path": {"bytes": 1536, "outcome": "local_read", "stage": ""},
+      "empty_cloud": {
+        "error_class": "provider_error",
+        "stage": "cloud_download",
+        "retryable": true,
+        "diag_observed": {"stage": "get_file", "error_class": "local_read_failed", "attempt": 1},
+        "note": "typed error, no false success; diag keeps pre-fallback stage and has no outcome=failed (limitation F2)"
+      },
+      "lifecycle": {
+        "fresh_pending": "pending",
+        "expired_pending": "unavailable/stale_pending",
+        "failed": "failed/download_get_file_local_read_failed",
+        "ready": "ready",
+        "legacy_pending_with_text": "ready"
+      },
+      "bot_api_mode": {"mismatch_detected": true, "aligned_local": true}
+    }
+  },
+  "production_replay_reuse": {
+    "evidence": "plans/features/voice-transcription-recovery-01/evidence/replay-2026-11-18.md + replay-run3.json",
+    "production": "2.58.215 @ f20645f13, dirty_tracked=0",
+    "objects": 3,
+    "result": "3/3 ready rev 1 (321 / 355 / 10 chars), pending 12 -> 9, no failed, no sends",
+    "blob_identity": {
+      "services/local_bot_api.py": "880116ff7 (exact)",
+      "services/voice_transcripts.py": "d5a2e97bf (exact)",
+      "handlers/voice_transcription.py": "493ccc46f (exact)",
+      "services/media_download.py": "release d0ace7ebd vs replay 1f8b2c208 — later empty-cloud retry commit only; not exercised on the local path in replay"
+    },
+    "new_production_write": "none in this assembly"
+  },
+  "artifacts": [
+    "manifest-dry-run.json (version=2.58.216, deployed_sha=faa2125c7, previous=f20645f13/2.58.215, dirty_tracked=false)",
+    "rollback.json (f20645f13, schema 47, DDL 0)",
+    "limitations.md (F1-F5 non-blocking review findings, verbatim)",
+    "postdeploy-runbook-2.58.216.md"
+  ]
+}

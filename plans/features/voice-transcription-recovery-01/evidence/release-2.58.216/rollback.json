@@ -1,0 +1,24 @@
+{
+  "release": "2.58.216",
+  "target_rollback_commit": "f20645f13bbd742aae380596dd9ead52b5888a84",
+  "target_rollback_version": "2.58.215",
+  "target_rollback_state": "deployed previous release / rollback base; production not contacted in this assembly",
+  "schema": 47,
+  "ddl": 0,
+  "migrations_added": 0,
+  "data_changes": 0,
+  "procedure": [
+    "checkout f20645f13 (2.58.215) in the production checkout",
+    "systemctl restart admin_bot",
+    "verify /healthz returns version 2.58.215 and the release identity (git rev-parse HEAD = f20645f13, dirty=false)"
+  ],
+  "notes": [
+    "Схема не меняется: services/database.py в релизе не изменён, MigrationStep 47/max 47, target user_version 47, DDL 0 — откат не требует ни миграций вперёд/назад, ни сброса пользовательских данных.",
+    "Голосовой релиз — кодовый: изменены handlers/voice_transcription.py, handlers/youtube.py, services/local_bot_api.py, services/media_download.py, services/runtime_probes.py, services/status_service.py, services/voice_transcripts.py, bot.py. Таблицы и колонки не добавлялись.",
+    "Новые значения reason/error-классов (например, download_get_file_local_read_failed, stale_pending) — строковые коды в существующих полях; откат на 2.58.215 их не создаёт, но уже записанные значения остаются читаемым текстом журнала и не блокируют работу.",
+    "transcript_status/revision не меняли формат схемы (v45 lifecycle уже был в 2.58.215); данные, записанные 2.58.216 (расшифровки replay/входящих), сохраняются при откате и не требуют back-fill.",
+    "Откат не восстанавливает предыдущий код локального транспортного fallback: на 2.58.215 поведение прежнее (в т.ч. возможный pending при download-отказе), это и есть цель rollback.",
+    "Rollback-копии 2.58.215 — это копии, созданные деплоем 2.58.215; они управляются существующим пулом deploy_backup keep=2 (2.58.206).",
+    "deploy_v2.9.2.py не изменён."
+  ]
+}

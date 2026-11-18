@@ -1,0 +1,35 @@
+{
+  "captured_at_commit": "faa2125c79c811d68ac8635be9f7e8532d477f70",
+  "command": "python tools/release_manifest.py --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy input removed",
+  "manifest": {
+    "deployed_at": "2026-11-18T07:12:53.702175Z",
+    "deployed_sha": "faa2125c79c811d68ac8635be9f7e8532d477f70",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "f20645f13bbd742aae380596dd9ead52b5888a84",
+    "previous_version": "2.58.215",
+    "release_branch": "release/p0-2.58.216",
+    "schema": 1,
+    "version": "2.58.216"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "reconstruction of the documented 2.58.215 production state (deployed f20645f13, branch release/p0-2.58.215)",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "f20645f13bbd742aae380596dd9ead52b5888a84",
+      "version": "2.58.215",
+      "effect": "deploy",
+      "release_branch": "release/p0-2.58.215"
+    },
+    "removed_after_run": true
+  },
+  "note": "Манифест снят на content tip faa2125c7: 1 merge голосового кандидата + bump 2.58.215->2.58.216. Evidence-файлы добавляются следующим docs-коммитом на той же ветке и не меняют продукт/версию.",
+  "post_capture_note": "Dry-run записал deployed_sha=faa2125c7 (фактический checkout на момент снятия). Реальный деплой обязан повторить снятие манифеста на фактическом checkout SHA после git pull; docs/evidence-only коммиты не меняют product tree, поэтому product-tree сверяется с content tip faa2125c7."
+}
