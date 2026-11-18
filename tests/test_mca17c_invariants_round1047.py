@@ -116,7 +116,8 @@ def test_no_ddl_catalog_ks_tools_delta():
         # Δ каталога/KS/тулов по-прежнему нулевой.
         # Точное равенство сохранено; второй assert ловит расхождение
         # реестра шагов и фактического `user_version` свежей БД.
-        assert int(row[0]) == 47
+        # QRNG P1 (17.11.2026): голова 47 -> 48 (аддитивный провенанс партий).
+        assert int(row[0]) == 48
         assert int(row[0]) == max(
             s.version for s in DatabaseService.migration_steps())
     finally:

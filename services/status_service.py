@@ -562,6 +562,17 @@ class StatusService:
                 "anu_state": snap.get("anu_state"),
                 "blocker": snap.get("fallback_reason"),
                 "key_present": bool(snap.get("key_present")),
+                # QRNG P1 (arch D1/G4/D6): канонический провайдер, класс
+                # энтропии (только при фактическом quantum), реестр трёх
+                # провайдеров и per-provider остаток; явная подпись PRNG-отката
+                # (значение настройки не перезаписывается).
+                "provider": snap.get("provider"),
+                "entropy_class": snap.get("entropy_class"),
+                "providers": snap.get("providers") or [],
+                "provider_reserve": snap.get("provider_reserve") or {},
+                "provider_quarantined": snap.get("provider_quarantined") or {},
+                "reserve_quarantined": snap.get("reserve_quarantined"),
+                "fallback_setting_label": snap.get("fallback_setting_label"),
                 "reserve_remaining": snap.get("reserve_remaining"),
                 "buffer_max": snap.get("buffer_max"),
                 "low_watermark": snap.get("low_watermark"),

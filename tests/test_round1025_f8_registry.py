@@ -254,7 +254,14 @@ ROUTES_SHA256_F11 = (
     # (module_states: gate_state/resolve_module_capability/chat-use) и
     # `checked_at` снимка. Новых @api_router-маршрутов НЕТ (Δ routes=0),
     # RBAC/маскировка/DDL не менялись, f8_baseline не переиздавался.
-    "5a169fd4a3688895c82c6bbc161579bb28f4820a38223fcbc70cc0ace3e1fd1d")
+    # QRNG P1 (17.11.2026, QAN-REC RBAC-01/02/SEC-01, L-F11S-1 conscious
+    # re-pin): RBAC СУЩЕСТВУЮЩЕГО POST /api/random/test — только global
+    # admin (право просмотра `key.keys.random_quantum_api_key` операцию
+    # больше не открывает) + guard записи 9 ключей `keys.random_quantum_*`
+    # в СУЩЕСТВУЮЩЕМ POST /api/config. Новых @api_router-маршрутов НЕТ
+    # (Δ routes=0), маскировка секретов не менялась, f8_baseline не
+    # переиздавался.
+    "f12c01c6f5d00f4d8a9932a4d4903126c650860415b3f44f9af9a47b90b7603a")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

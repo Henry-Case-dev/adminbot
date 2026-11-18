@@ -1,0 +1,27 @@
+﻿{
+  "base": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p1-red-34c25d09\\services\\mca_random_source.py",
+  "draft": {
+    "healthy": true,
+    "deposited": null,
+    "batch_rows": 1
+  },
+  "rotation": {
+    "activated": true,
+    "state_after_rotation": "unverified",
+    "reserved_before": [
+      {
+        "reserved_upto": 1,
+        "length": 8
+      }
+    ],
+    "draw_source": "quantum",
+    "draw_provider_id": null,
+    "draw_deferred": false,
+    "reserved_after": [
+      {
+        "reserved_upto": 2,
+        "length": 8
+      }
+    ]
+  }
+}

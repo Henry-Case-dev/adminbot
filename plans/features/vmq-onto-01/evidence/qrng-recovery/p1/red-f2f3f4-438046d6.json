@@ -1,0 +1,45 @@
+﻿{
+  "module": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-p1-fix-red-438046d6\\services\\mca_random_source.py",
+  "f2": {
+    "state_fingerprint_len": 12,
+    "fingerprint_keys_in_status": [
+      "last_batch.config_fingerprint"
+    ],
+    "state_fingerprint_value_in_status": true,
+    "last_batch_keys": [
+      "batch_id",
+      "config_fingerprint",
+      "consumed_upto",
+      "created_at",
+      "data_type",
+      "external_ref",
+      "length",
+      "provider",
+      "provider_id",
+      "reserved_upto"
+    ]
+  },
+  "f3": {
+    "effective": "pseudorandom",
+    "provider_reserve": {
+      "ibm_quantum": 0,
+      "anu": 7,
+      "lfdr": 0
+    },
+    "provider_quarantined": null,
+    "last_batch_config_matches": null
+  },
+  "f4": {
+    "draw_source": "quantum",
+    "draw_deferred": false,
+    "reserved_before": [
+      1
+    ],
+    "reserved_after": [
+      2
+    ],
+    "fingerprints": [
+      "158ca93a089a"
+    ]
+  }
+}

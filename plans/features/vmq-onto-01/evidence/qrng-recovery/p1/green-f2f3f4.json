@@ -1,0 +1,47 @@
+﻿{
+  "module": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\qrng-recovery-d99bf407dbfe-5c725ffc\\services\\mca_random_source.py",
+  "f2": {
+    "state_fingerprint_len": 12,
+    "fingerprint_keys_in_status": [],
+    "state_fingerprint_value_in_status": false,
+    "last_batch_keys": [
+      "batch_id",
+      "config_matches",
+      "consumed_upto",
+      "created_at",
+      "data_type",
+      "external_ref",
+      "length",
+      "provider",
+      "provider_id",
+      "reserved_upto"
+    ]
+  },
+  "f3": {
+    "effective": "pseudorandom",
+    "provider_reserve": {
+      "ibm_quantum": 0,
+      "anu": 0,
+      "lfdr": 0
+    },
+    "provider_quarantined": {
+      "ibm_quantum": 0,
+      "anu": 7,
+      "lfdr": 0
+    },
+    "last_batch_config_matches": false
+  },
+  "f4": {
+    "draw_source": "pseudorandom",
+    "draw_deferred": false,
+    "reserved_before": [
+      1
+    ],
+    "reserved_after": [
+      1
+    ],
+    "fingerprints": [
+      "158ca93a089a"
+    ]
+  }
+}

@@ -339,9 +339,10 @@ async def test_build_stores_proven_ids_without_ddl(tmp_path):
         # Никакого DDL: шаг схемы и набор таблиц/колонок не изменились.
         assert (await _rows(db, "PRAGMA user_version"))[0] == user_version
         # Голова схемы = 46 (v46 — семантический контракт уроков; шаг
-        # аддитивный и на сообщества/сборку не влияет).
+        # аддитивный и на сообщества/сборку не влияет). QRNG P1 (17.11.2026):
+        # хвост 47 -> 48 (аддитивный провенанс партий, без DDL этих таблиц).
         assert max(step.version
-                   for step in DatabaseService.migration_steps()) == 47
+                   for step in DatabaseService.migration_steps()) == 48
         tables = {row["name"] for row in await _rows(
             db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
         assert "mca_community_builds" in tables

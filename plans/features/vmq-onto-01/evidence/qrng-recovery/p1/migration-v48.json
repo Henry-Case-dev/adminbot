@@ -1,0 +1,58 @@
+﻿{
+  "db": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\temp\\intelligence\\qrng-recovery-d99bf407dbfe-5c725ffc-802b7f78c1e1\\tmp\\qrng_p1_migration_kssgnps6\\pre_v48_copy.db",
+  "before": {
+    "user_version": 47,
+    "columns": [
+      "batch_id",
+      "provider",
+      "data_type",
+      "length",
+      "values_json",
+      "reserved_upto",
+      "consumed_upto",
+      "source",
+      "created_at"
+    ],
+    "batch_rows": 7,
+    "state_rows": 1,
+    "book_has_48": 0
+  },
+  "migration_seconds": 0.093,
+  "after": {
+    "user_version": 48,
+    "has_config_fingerprint": true,
+    "has_external_ref": true,
+    "config_fingerprint_nullable": true,
+    "book_48_rows": 1
+  },
+  "rows": {
+    "count": 7,
+    "providers": [
+      "ANU Quantum Numbers"
+    ],
+    "all_fingerprint_null": true,
+    "all_external_ref_null": true,
+    "identical_to_before": true
+  },
+  "old_code": {
+    "select_ok": true,
+    "legacy_batch_consumable": true,
+    "reserve_remaining_unfiltered": 385
+  },
+  "idempotent": {
+    "batch_rows": 7,
+    "book_48_rows": 1,
+    "book_48_rows_after_manual_rerun": 1
+  },
+  "backfill": {
+    "first_run": 7,
+    "second_run": 0,
+    "fingerprinted_rows": 7,
+    "reserve_scoped": 385,
+    "reserve_other_key": 0,
+    "provider_reserve": {
+      "anu": 385
+    },
+    "wrong_key_run": 0
+  }
+}

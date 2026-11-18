@@ -1612,6 +1612,9 @@ class Settings:
         "MCA_RANDOM_CIRCUIT_COOLDOWN_SECONDS", 60, 1)
     MCA_RANDOM_MIN_REQUEST_INTERVAL_SECONDS: ClassVar[float] = _env_float(
         "MCA_RANDOM_MIN_REQUEST_INTERVAL_SECONDS", 1.0)
+    # QRNG P1 (G14): окно cooldown ручных проверок; 0 = окно выключено.
+    MCA_RANDOM_MANUAL_CHECK_COOLDOWN_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_RANDOM_MANUAL_CHECK_COOLDOWN_SECONDS", 10, 0)
     MCA_RANDOM_DRAW_RETENTION_DAYS: ClassVar[int] = _env_int_min(
         "MCA_RANDOM_DRAW_RETENTION_DAYS", 90, 1)
     MCA_RANDOM_DRAW_MAX_ROWS: ClassVar[int] = _env_int_min(

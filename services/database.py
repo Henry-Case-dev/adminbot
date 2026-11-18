@@ -1861,6 +1861,25 @@ _SCHEMA_VERSION_LESSON_SEMANTIC = 46
 # down-миграции нет (таблица остаётся инертной).
 _SCHEMA_VERSION_SEMANTIC_SCHEDULE = 47
 
+# ── QRNG P1 (QAN-REC `PROV-02`/`KEY-01..04`, arch-decision 2026-11-17 §3 D2):
+# v48 — RandomStore schema step: ровно две аддитивные nullable-колонки
+# `mca_random_batches` (`config_fingerprint` — привязка партии к действующей
+# конфигурации провайдера, `external_ref` — batch_id/job_id провайдера).
+# Отдельный version-константа random-стора: шаг v47 (`semantic_schedule`) НЕ
+# меняется. Аддитивно (`ALTER TABLE ADD COLUMN` под guard `PRAGMA table_info`),
+# повтор — no-op, PG — no-op (random-таблиц в pg_db нет). Старый код колонки не
+# читает (rollback-safe), существующие строки/значения не переписываются;
+# backfill fingerprint выполняется сервисом при известном действующем ключе
+# (`RandomSourceService.sync_batch_provenance`), не миграцией: у миграции нет
+# доступа к effective-ключу (PG bot_settings), а выдуманный отпечаток был бы
+# ложным provenance.
+_SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE = 48
+
+_RANDOM_BATCHES_PROVENANCE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("config_fingerprint", "TEXT"),
+    ("external_ref", "TEXT"),
+)
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -3169,6 +3188,14 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_SEMANTIC_SCHEDULE,
                           "semantic_schedule_v47",
                           lambda svc: svc._migrate_semantic_schedule_v47()),
+            # QRNG P1 (QAN-REC PROV-02/KEY-01..04, arch §3 D2): v48 —
+            # RandomStore-шаг схемы: две аддитивные nullable-колонки
+            # `mca_random_batches` (`config_fingerprint`, `external_ref`).
+            # Идемпотентно (guard `sqlite_master` + `PRAGMA table_info`),
+            # повтор — no-op, PG — no-op, старый код колонки не читает.
+            MigrationStep(_SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE,
+                          "random_batch_provenance_v48",
+                          lambda svc: svc._migrate_random_batch_provenance_v48()),
         ]
 
     @staticmethod
@@ -3756,6 +3783,38 @@ class DatabaseService:
         logger.info("[database] migration v47: semantic_schedule table ready")
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_SEMANTIC_SCHEDULE}")
+        await self.db.commit()
+
+    async def _migrate_random_batch_provenance_v48(self) -> None:
+        """v48 (QRNG P1, QAN-REC PROV-02/KEY-01..04; arch §3 D2): две
+        аддитивные nullable-колонки `mca_random_batches`
+        (`config_fingerprint`, `external_ref`).
+
+        Аддитивно (`ALTER TABLE ADD COLUMN` под guard `PRAGMA table_info`),
+        НИ ОДНОГО UPDATE/DELETE существующих строк (backfill fingerprint
+        делает сервис при известном действующем ключе — у миграции его нет),
+        повтор — no-op, PG — no-op (random-стора в pg_db нет). Старый код
+        колонки не читает (cold rollback-safe). Фиксирует
+        `PRAGMA user_version = 48`."""
+        if not await self._table_exists("mca_random_batches"):
+            # v27 создаёт таблицу раньше; на частично-мигрированной БД без неё
+            # шаг честно no-op (колонки появятся вместе с таблицей).
+            await self.db.execute(
+                f"PRAGMA user_version = "
+                f"{_SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE}")
+            await self.db.commit()
+            return
+        cols = await self._table_columns("mca_random_batches")
+        for name, decl in _RANDOM_BATCHES_PROVENANCE_COLUMNS:
+            if name in cols:
+                continue
+            await self.db.execute(
+                f"ALTER TABLE mca_random_batches ADD COLUMN {name} {decl}")
+            logger.info("[database] migration v48: random_batches.%s added",
+                        name)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:
