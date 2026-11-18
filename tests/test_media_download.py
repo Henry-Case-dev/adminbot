@@ -379,6 +379,54 @@ async def test_large_file_size_limit_is_oversized(
     assert not dst.exists()
 
 
+class _EmptyOnceBot(_Bot):
+    """Облачный транспорт: первая запись пустая (обрыв), вторая — данные."""
+
+    def __init__(self, *, always_empty: bool = False, **kwargs):
+        super().__init__(**kwargs)
+        self.always_empty = always_empty
+
+    async def download_file(self, file_path, destination=None, timeout=30):
+        self.download_file_calls += 1
+        if self.always_empty or self.download_file_calls == 1:
+            Path(destination).write_bytes(b"")
+            return
+        Path(destination).write_bytes(self.data)
+
+
+@pytest.mark.asyncio
+async def test_cloud_empty_file_is_retried_then_succeeds(
+        tmp_path, monkeypatch, no_hot_flag):
+    """0 байт после транспорта — повторяемый обрыв, а не готовый файл."""
+    monkeypatch.setenv("TELEGRAM_LOCAL", "")
+    monkeypatch.setattr(md, "settings", _cfg(API_TOKEN=TOKEN))
+    bot = _EmptyOnceBot(local=False, data=b"cloud-audio")
+    dst = tmp_path / "out.ogg"
+    diag: dict = {}
+    await md.download_api_file_to_path(bot, "f1", str(dst), attempts=3,
+                                       sleep=0, diagnostics=diag)
+    assert bot.download_file_calls == 2
+    assert dst.read_bytes() == b"cloud-audio"
+    assert diag.get("outcome") == "aiogram_transport"
+
+
+@pytest.mark.asyncio
+async def test_cloud_always_empty_is_typed_retryable(
+        tmp_path, monkeypatch, no_hot_flag):
+    """Пустой файл на всех попытках — typed provider_error, не «успех»."""
+    monkeypatch.setenv("TELEGRAM_LOCAL", "")
+    monkeypatch.setattr(md, "settings", _cfg(API_TOKEN=TOKEN))
+    bot = _EmptyOnceBot(local=False, always_empty=True)
+    dst = tmp_path / "out.ogg"
+    with pytest.raises(md.MediaDownloadError) as ei:
+        await md.download_api_file_to_path(bot, "f1", str(dst), attempts=2,
+                                           sleep=0)
+    assert bot.download_file_calls == 2
+    assert ei.value.stage == md.STAGE_CLOUD_DOWNLOAD
+    assert ei.value.error_class == md.ERROR_PROVIDER_ERROR
+    assert ei.value.retryable is True
+
+
 @pytest.mark.asyncio
 async def test_container_path_maps_to_host_root(local_cfg):
     """Контейнерный путь `--local` нормализуется к host-корню."""

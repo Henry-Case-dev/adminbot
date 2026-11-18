@@ -830,8 +830,21 @@ async def download_api_file_to_path(
                                    STAGE_CLOUD_DOWNLOAD)
                 diag["outcome"] = "aiogram_transport"
                 return
-            except MediaDownloadError:
-                raise
+            except MediaDownloadError as exc:
+                # Проверка записи: 0 байт/обрыв — повторяемый класс (см.
+                # docstring), превышение размера — постоянный.
+                last_stage = exc.stage or STAGE_CLOUD_DOWNLOAD
+                last_class, last_retryable = exc.error_class, exc.retryable
+                diag.update(stage=last_stage, error_class=last_class,
+                            attempt=attempt)
+                if not exc.retryable or last_class in permanent:
+                    raise
+                logger.warning(
+                    "[%s] transport validation failed (attempt %d/%d) | "
+                    "id_prefix=%s | class=%s", site, attempt, attempts,
+                    _id_prefix(text_id), last_class)
+                if attempt < attempts:
+                    await asyncio.sleep(sleep)
             except Exception as exc:
                 cls, retryable = classify_transport_error(exc)
                 last_stage, last_class, last_retryable = (
