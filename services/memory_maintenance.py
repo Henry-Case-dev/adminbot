@@ -175,11 +175,30 @@ _COMMUNITIES_TICK_SECONDS = 3600
 
 #: Явный grace джоб обслуживания (P0 scheduler, LVS-SCH-01/03): заводской
 #: 1 s APScheduler 3.x превращал поздний тик (event-loop lag) в «missed».
-#: Значение ≤ интервала и ≤ due/lease-окна: 60 s для 5–15-минутных тиков,
-#: 300 s для часового WAL, 3600 s для суточных проходов.
+#: 60 s для 5–15-минутных тиков, 300 s для часового WAL, 3600 s для суточных
+#: проходов. Для hot-настраиваемых интервалов (merge/review/WAL) значение
+#: клампится к фактическому интервалу при создании job (`_job_grace`), поэтому
+#: инвариант `grace ≤ интервал` держится для любой валидной конфигурации.
 _MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS = 60
 _HOURLY_MISFIRE_GRACE_SECONDS = 300
 _DAILY_MISFIRE_GRACE_SECONDS = 3600
+
+
+def _interval_seconds(value, unit_seconds: float) -> float | None:
+    """Hot-значение интервала → секунды (мусор → None: trigger сам откажет)."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, number) * float(unit_seconds)
+
+
+def _job_grace(grace_seconds: int, interval_seconds: float | None) -> int:
+    """`min(grace, интервал)` в целых секундах (APScheduler требует int)."""
+    if interval_seconds is None or interval_seconds <= 0:
+        return int(grace_seconds)
+    return max(1, min(int(grace_seconds), int(interval_seconds)))
+
 
 # v6.3 B01: честный штамп последнего тика наблюдателя (in-memory вид для
 # Status; durable-состояние — payload durable-задачи initiative.observe).
@@ -355,35 +374,50 @@ class MemoryMaintenanceService:
         self._scheduler = AsyncIOScheduler(timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
 
     def start(self) -> None:
+        merge_days = hot.get(
+            "limits.graph_episode_merge_interval_days",
+            settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS)
+        review_days = hot.get(
+            "limits.graph_review_interval_days",
+            settings.GRAPH_REVIEW_INTERVAL_DAYS)
+        wal_hours = hot.get(
+            "limits.db_wal_checkpoint_hours",
+            settings.DB_WAL_CHECKPOINT_HOURS)
         if hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED):
             self._scheduler.add_job(
                 self._tick_merge,
                 IntervalTrigger(
-                    days=hot.get("limits.graph_episode_merge_interval_days", settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS),
+                    days=merge_days,
                     timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_MERGE_ID, replace_existing=True,
                 max_instances=1, coalesce=True,
-                misfire_grace_time=_DAILY_MISFIRE_GRACE_SECONDS)
+                misfire_grace_time=_job_grace(
+                    _DAILY_MISFIRE_GRACE_SECONDS,
+                    _interval_seconds(merge_days, 86400)))
         if hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED):
             self._scheduler.add_job(
                 self._tick_review,
                 IntervalTrigger(
-                    days=hot.get("limits.graph_review_interval_days", settings.GRAPH_REVIEW_INTERVAL_DAYS),
+                    days=review_days,
                     timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_REVIEW_ID, replace_existing=True,
                 max_instances=1, coalesce=True,
-                misfire_grace_time=_DAILY_MISFIRE_GRACE_SECONDS)
+                misfire_grace_time=_job_grace(
+                    _DAILY_MISFIRE_GRACE_SECONDS,
+                    _interval_seconds(review_days, 86400)))
         # Epic 64: периодический WAL-checkpoint(TRUNCATE) — без него -wal
         # разрастался (наблюдалось 18 МБ при БД 43 МБ).
         if hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED):
             self._scheduler.add_job(
                 self._tick_wal_checkpoint,
                 IntervalTrigger(
-                    hours=hot.get("limits.db_wal_checkpoint_hours", settings.DB_WAL_CHECKPOINT_HOURS),
+                    hours=wal_hours,
                     timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_WAL_ID, replace_existing=True,
                 max_instances=1, coalesce=True,
-                misfire_grace_time=_HOURLY_MISFIRE_GRACE_SECONDS)
+                misfire_grace_time=_job_grace(
+                    _HOURLY_MISFIRE_GRACE_SECONDS,
+                    _interval_seconds(wal_hours, 3600)))
         # MCA-16 (T-5003, ADR-1028-15 D7): тик review опыта — тот же
         # планировщик обслуживания (второй очереди/планировщика нет). Тик
         # каждые 15 минут: каденция (hourly/daily/weekly) и UI-настройка

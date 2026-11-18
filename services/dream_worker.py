@@ -649,14 +649,19 @@ class DreamWorker:
         base_minutes = int(self._key("tick_minutes",
                                      settings.DREAM_TICK_MINUTES) or 60)
         tick_minutes = base_minutes + _tick_jitter(base_minutes)
+        # F3: grace ≤ effective интервала (hot-настройка может быть меньше
+        # 300 s; APScheduler требует целые секунды).
+        tick_grace = max(1, min(_TICK_MISFIRE_GRACE_SECONDS,
+                                max(1, int(tick_minutes)) * 60))
         self._scheduler.add_job(
             self._tick,
             IntervalTrigger(minutes=tick_minutes, timezone=self._tz_name),
             id=self.JOB_DREAM_ID, replace_existing=True,
             max_instances=1, coalesce=True,
-            # P0 scheduler (LVS-SCH-01/03): 300 s < ~60 мин интервала;
-            # `_run_lock` + durable watermark делают поздний тик безопасным.
-            misfire_grace_time=_TICK_MISFIRE_GRACE_SECONDS)
+            # P0 scheduler (LVS-SCH-01/03): 300 s или интервал, если он
+            # меньше; `_run_lock` + durable watermark делают поздний тик
+            # безопасным.
+            misfire_grace_time=tick_grace)
         logger.info(
             "DreamWorker job registered (enabled resolved per-tick) | "
             "tick_minutes=%s (applies on restart)", base_minutes)
@@ -665,9 +670,9 @@ class DreamWorker:
             IntervalTrigger(minutes=tick_minutes, timezone=self._tz_name),
             id=_DEEP_SLEEP_USER_JOB_ID, replace_existing=True,
             max_instances=1, coalesce=True,
-            # P0 scheduler (LVS-SCH-01/03): 300 s < ~60 мин интервала;
-            # `_deep_lock` исключает наложение, late tick безопасен.
-            misfire_grace_time=_TICK_MISFIRE_GRACE_SECONDS)
+            # P0 scheduler (LVS-SCH-01/03): 300 s или интервал, если он
+            # меньше; `_deep_lock` исключает наложение, late tick безопасен.
+            misfire_grace_time=tick_grace)
         logger.info(
             "DeepSleep job registered (enabled resolved per-tick) | "
             "tick_minutes=%s (applies on restart)", base_minutes)

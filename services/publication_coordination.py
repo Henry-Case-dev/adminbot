@@ -249,6 +249,11 @@ UPDATE {CLAIM_TABLE}
 #: глобальная блокировка: ожидание ограничено по времени и только для
 #: ручного приоритетного запроса.
 _RELEASE_EVENTS: dict[int, asyncio.Event] = {}
+#: Event loop, в котором создано событие. `SqliteClaimStore.release` может
+#: выполняться в worker-thread (`asyncio.to_thread`), поэтому `Event.set()`
+#: нельзя звать напрямую (P0 scheduler F1): сигнал идёт через
+#: `loop.call_soon_threadsafe`.
+_RELEASE_EVENT_LOOPS: dict[int, asyncio.AbstractEventLoop] = {}
 
 #: Предел ожидания чужой отправки ручным запросом (с).
 MANUAL_IN_FLIGHT_WAIT_SECONDS = 20
@@ -286,16 +291,55 @@ def _connect(path: str) -> sqlite3.Connection:
 
 
 def _release_event(chat_id: int) -> asyncio.Event:
-    event = _RELEASE_EVENTS.get(int(chat_id))
+    cid = int(chat_id)
+    event = _RELEASE_EVENTS.get(cid)
     if event is None:
         event = asyncio.Event()
-        _RELEASE_EVENTS[int(chat_id)] = event
+        _RELEASE_EVENTS[cid] = event
+    try:
+        _RELEASE_EVENT_LOOPS[cid] = asyncio.get_running_loop()
+    except RuntimeError:      # pragma: no cover - вызов вне loop (тесты)
+        pass
     return event
+
+
+def _signal_release(chat_id: int) -> None:
+    """Разбудить ожидающего `acquire(manual=True)` — из любого потока.
+
+    ``SqliteClaimStore`` остаётся sync-store и вызывается в том числе из
+    worker-thread (`asyncio.to_thread`). ``asyncio.Event.set()`` не
+    потокобезопасен: в debug-loop это RuntimeError, в обычном режиме —
+    потерянный wakeup (гонка на завершении `to_thread`). Поэтому сигнал
+    отправляется в loop владельца события через ``call_soon_threadsafe``;
+    вызов из того же loop выполняется напрямую. ``clear()``/``wait()``
+    остаются в loop-thread (async-обёртки координатора).
+    """
+    cid = int(chat_id)
+    event = _RELEASE_EVENTS.get(cid)
+    if event is None:
+        return
+    loop = _RELEASE_EVENT_LOOPS.get(cid)
+    if loop is None:
+        event.set()           # событие без loop (тесты/ручная инъекция)
+        return
+    try:
+        if asyncio.get_running_loop() is loop:
+            event.set()       # уже loop-владелец: прямой set безопасен
+            return
+    except RuntimeError:
+        pass                  # worker-thread: loop не запущен в этом потоке
+    if loop.is_closed():
+        return                # ждать на закрытом loop некому
+    try:
+        loop.call_soon_threadsafe(event.set)
+    except RuntimeError:      # pragma: no cover - loop закрылся в гонке
+        return
 
 
 def reset_release_events() -> None:
     """Сброс in-process событий освобождения брони (тесты)."""
     _RELEASE_EVENTS.clear()
+    _RELEASE_EVENT_LOOPS.clear()
 
 
 @dataclass(frozen=True)
@@ -547,9 +591,9 @@ class SqliteClaimStore:
             return False
         finally:
             conn.close()
-        event = _RELEASE_EVENTS.get(int(chat_id))
-        if event is not None:
-            event.set()
+        # P0 scheduler F1: сигнал потокобезопасен (release может выполняться в
+        # worker-thread через `asyncio.to_thread`); CAS/SQL не затронуты.
+        _signal_release(chat_id)
         return changed
 
     def claim_manual_priority(self, *, chat_id: int, now: int,

@@ -928,6 +928,9 @@ class NostalgiaWorker:
                                 _sched.PARAM_DEFAULTS[
                                     "limits.qnd_heartbeat_seconds"]) or 0)
         heartbeat = max(10, heartbeat)
+        # F3: grace ≤ effective интервала (heartbeat hot-настраиваемый: при
+        # значении < 30 s константа 30 s нарушила бы инвариант).
+        tick_grace = max(1, min(_TICK_MISFIRE_GRACE_SECONDS, heartbeat))
         self._scheduler.add_job(
             self._tick,
             IntervalTrigger(
@@ -935,10 +938,10 @@ class NostalgiaWorker:
                 timezone=self._tz_name),
             id=self.JOB_NOSTALGIA_ID, replace_existing=True,
             max_instances=1, coalesce=True,
-            # P0 scheduler (LVS-SCH-01/03): 30 s < heartbeat (≥60 s) и <
-            # semantic lease; поздний тик исполняет наступившее событие или
+            # P0 scheduler (LVS-SCH-01/03): 30 s (или интервал, если он меньше)
+            # < semantic lease; поздний тик исполняет наступившее событие или
             # честно фиксирует skip — дубля нет.
-            misfire_grace_time=_TICK_MISFIRE_GRACE_SECONDS)
+            misfire_grace_time=tick_grace)
         if not self._scheduler.running:
             self._scheduler.start()
         logger.info(

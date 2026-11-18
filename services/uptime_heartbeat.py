@@ -63,10 +63,13 @@ class UptimeHeartbeatService:
         self._scheduler.add_job(
             self._heartbeat, IntervalTrigger(seconds=self._heartbeat_seconds),
             id="uptime_heartbeat", max_instances=1, coalesce=True,
-            # P0 scheduler (LVS-SCH-01/03): 30 s < 60 s интервала; late
+            # P0 scheduler (LVS-SCH-01/03): 30 s или effective интервал, если
+            # он меньше (heartbeat параметризован в тестах/конструкторе); late
             # sample не восстанавливает пропущенную минуту, но и не создаёт
             # дубль того же запуска (один INSERT на запуск).
-            misfire_grace_time=_HEARTBEAT_MISFIRE_GRACE_SECONDS)
+            misfire_grace_time=max(
+                1, min(_HEARTBEAT_MISFIRE_GRACE_SECONDS,
+                       self._heartbeat_seconds)))
         self._scheduler.add_job(
             self._cleanup, IntervalTrigger(hours=_CLEANUP_INTERVAL_HOURS),
             id="uptime_cleanup", max_instances=1, coalesce=True,

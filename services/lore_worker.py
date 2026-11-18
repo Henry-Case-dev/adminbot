@@ -431,6 +431,10 @@ class LoreWorker:
         base_minutes = int(hot.get("limits.lore_tick_minutes",
                                    settings.LORE_TICK_MINUTES) or 30)
         tick_minutes = base_minutes + _jitter(base_minutes)
+        # F3: grace ≤ effective интервала (hot-настройка может быть < 1 мин
+        # grace при крошечном интервале).
+        tick_grace = max(1, min(_TICK_MISFIRE_GRACE_SECONDS,
+                                max(1, int(tick_minutes)) * 60))
         self._scheduler.add_job(
             self.tick,
             IntervalTrigger(
@@ -439,9 +443,9 @@ class LoreWorker:
                                  settings.SUMMARY_TIMEZONE)),
             id=_JOB_ID, replace_existing=True,
             max_instances=1, coalesce=True,
-            # P0 scheduler (LVS-SCH-01/03): 60 s < 30 мин интервала; PG
-            # advisory lock + period/cooldown делают поздний тик безопасным.
-            misfire_grace_time=_TICK_MISFIRE_GRACE_SECONDS)
+            # P0 scheduler (LVS-SCH-01/03): 60 s или интервал, если он меньше;
+            # PG advisory lock + period/cooldown делают поздний тик безопасным.
+            misfire_grace_time=tick_grace)
         self._scheduler.start()
         logger.info(
             "LoreWorker started | tick_minutes=%s | chats=auto loop",

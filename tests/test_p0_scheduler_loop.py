@@ -252,6 +252,81 @@ class TestPublicationDoesNotBlockLoop:
         assert snapshot["last_publish_ts"] == now + 1
 
 
+class _ProbeEvent(asyncio.Event):
+    """Event с публичным сигналом «waiter реально вошёл в wait()»."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = asyncio.Event()
+
+    async def wait(self):
+        self.entered.set()
+        return await super().wait()
+
+
+class TestReleaseEventThreadSafety:
+    @pytest.mark.asyncio
+    async def test_manual_waiter_wakes_after_release_from_worker_thread(
+            self, tmp_path, monkeypatch):
+        """F1: `store.release` выполняется в worker-thread (`to_thread`).
+
+        `Event.set()` из чужого потока недопустим: в debug-loop это
+        RuntimeError, без debug — потерянный wakeup/гонка. Проверяем
+        production-путь `coordinator.release` → `SqliteClaimStore.release`
+        при `loop.set_debug(True)`: ошибки нет, ручной waiter просыпается
+        сразу (<1 s) и получает слот.
+        """
+        loop = asyncio.get_running_loop()
+        loop.set_debug(True)
+        try:
+            path = str(tmp_path / "pub-wake.db")
+            conn = sqlite3.connect(path)
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+            finally:
+                conn.close()
+            store = pub.SqliteClaimStore(path)
+            store.apply_schema()
+            now = 1_000_000
+            coordinator = pub.PublicationCoordinator(
+                store=store, now_fn=lambda: now)
+            foreign = await coordinator.acquire(
+                -1001, pub.KIND_TEXT_INITIATIVE, interval_seconds=0)
+            assert foreign.granted
+            sending = await coordinator.begin_sending(
+                -1001, foreign.claim_id, now=now)
+            assert sending.granted
+
+            # Событие создаётся production-путём (loop запоминается) и
+            # подменяется пробником, чтобы детерминированно знать, что
+            # waiter уже внутри wait().
+            pub.reset_release_events()
+            assert pub._release_event(-1001) is not None
+            probe = _ProbeEvent()
+            pub._RELEASE_EVENTS[-1001] = probe
+            monkeypatch.setattr(pub, "_release_event", lambda _cid: probe)
+
+            waiter = asyncio.create_task(coordinator.acquire(
+                -1001, pub.KIND_MEME_INITIATIVE, interval_seconds=0,
+                manual=True, wait_for_sending=5.0))
+            await asyncio.wait_for(probe.entered.wait(), 2.0)
+            assert not waiter.done()
+
+            started = time.perf_counter()
+            released = await coordinator.release(
+                -1001, foreign.claim_id, published=True,
+                holder_kind=pub.KIND_TEXT_INITIATIVE, now=now + 1)
+            decision = await asyncio.wait_for(waiter, 1.0)
+            elapsed = time.perf_counter() - started
+            assert released is True
+            assert decision.granted is True
+            assert elapsed < 1.0, (
+                f"waiter проснулся только через {elapsed:.2f}s")
+        finally:
+            loop.set_debug(False)
+            pub.reset_release_events()
+
+
 # ── APScheduler misfire: blocked loop → late run вне grace пропускается ────
 
 
@@ -543,6 +618,80 @@ class TestSchedulerJobContract:
                 if scheduler is not None and scheduler.running:
                     scheduler.shutdown(wait=False)
         assert set(EXPECTED_GRACE) - set(seen) <= {"legacy_traits_parse_tick"}
+
+    @pytest.mark.asyncio
+    async def test_grace_is_clamped_to_effective_not_default_interval(
+            self, monkeypatch):
+        """F3: `grace ≤ интервал` держится и на не-дефолтных значениях.
+
+        Hot/конструктор может задать интервал меньше константы grace
+        (uptime 10 s, nostalgia 10 s, lore/dream 1 min, merge/WAL hot-доли);
+        job обязан получить grace не больше фактического интервала.
+        """
+        uptime = UptimeHeartbeatService(
+            pg=_FakePg(_CountingConn()), heartbeat_seconds=10)
+        uptime.start()
+        monkeypatch.setattr(
+            "services.nostalgia_worker.hot.get",
+            lambda key, default=None: 10
+            if key == "limits.qnd_heartbeat_seconds" else default)
+        nostalgia = NostalgiaWorker(MagicMock())
+        nostalgia.start()
+        monkeypatch.setattr(
+            "services.lore_worker.hot.get",
+            lambda key, default=None: True
+            if key == "flags.lore_worker_enabled"
+            else (1 if key == "limits.lore_tick_minutes" else default))
+        monkeypatch.setattr("services.lore_worker._jitter", lambda _m: 0)
+        lore = LoreWorker(MagicMock())
+        await lore.start()
+        monkeypatch.setattr(
+            "services.dream_worker.hot.get",
+            lambda key, default=None: 1
+            if key == "memory.dream_tick_minutes" else default)
+        monkeypatch.setattr("services.dream_worker._tick_jitter",
+                            lambda _m: 0)
+        dream = DreamWorker(MagicMock())
+        dream.start()
+        monkeypatch.setattr(
+            "services.memory_maintenance.hot.get",
+            lambda key, default=None: {
+                "limits.graph_episode_merge_interval_days": 0.01,
+                "limits.db_wal_checkpoint_hours": 0.05,
+            }.get(key, default))
+        maintenance = MemoryMaintenanceService(_NullDb(), None, None)
+        maintenance.start()
+
+        expected = {
+            "uptime_heartbeat": 10,        # min(30, 10 s)
+            "nostalgia_tick": 10,          # min(30, 10 s)
+            "lore_worker_tick": 60,        # min(60, 1 min)
+            "dream_tick": 60,              # min(300, 1 min)
+            "deep_sleep_tick": 60,         # min(300, 1 min)
+            "graph_episode_merge": 864,    # min(3600, 0.01 дня)
+            "db_wal_checkpoint": 180,      # min(300, 0.05 ч)
+        }
+        services = [uptime, nostalgia, lore, dream, maintenance]
+        seen: dict[str, int] = {}
+        try:
+            for service in services:
+                for job in service._scheduler.get_jobs():
+                    assert isinstance(job.trigger, IntervalTrigger)
+                    interval = job.trigger.interval.total_seconds()
+                    assert job.misfire_grace_time <= interval, (
+                        f"{job.id}: grace={job.misfire_grace_time} > "
+                        f"interval={interval}")
+                    if job.id in expected:
+                        assert job.misfire_grace_time == expected[job.id], (
+                            f"{job.id}: grace={job.misfire_grace_time}, "
+                            f"ожидалось {expected[job.id]}")
+                        seen[job.id] = job.misfire_grace_time
+        finally:
+            for service in services:
+                scheduler = getattr(service, "_scheduler", None)
+                if scheduler is not None and scheduler.running:
+                    scheduler.shutdown(wait=False)
+        assert set(expected) <= set(seen), set(expected) - set(seen)
 
     def test_every_add_job_call_declares_explicit_misfire_grace(self):
         """Статический контракт: `add_job` без `misfire_grace_time` в
