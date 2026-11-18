@@ -1,0 +1,78 @@
+{
+  "requirement": "VMQ-TIME-09",
+  "method": "каждая мутация применялась к кандидату, целевой тест падал, мутация откатывалась; логи — mutation-m*.txt (temp)",
+  "mutations": [
+    {
+      "id": "M1",
+      "change": "web/static/status-analytics.js: view() добавляет поле share = count*100/10 + '%'",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (no percent)",
+      "observed": "AssertionError: в view не должно быть процентов",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M2",
+      "change": "web/static/status-analytics.js: latestRun() возвращает последний элемент массива вместо max(ts)",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (stale-run)",
+      "observed": "AssertionError: latestRun — максимум ts, а не порядок массива (100 !== 300)",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M3",
+      "change": "web/static/status-analytics.js: _writerRow().delivered = true (игнорирует rendered=false)",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (rendered=false)",
+      "observed": "AssertionError: rendered=false не считается доставленным до Writer (true !== false)",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M4",
+      "change": "web/static/status-analytics.js: view() при truncated=true возвращает state='ready' и без limitations",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (truncated)",
+      "observed": "AssertionError: 'ready' !== 'truncated'",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M5",
+      "change": "web/api/routes.py: _turn_retrieval_view() не отбрасывает reason_code=period_selection",
+      "target": "tests/test_vmq_time09_turn_coverage.py::test_api_retrieval_is_bounded_sorted_and_excludes_period_selection",
+      "observed": "AssertionError: bounded: не больше 6 вызовов на ход, period_selection не строка (6 строк вместо 5)",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M6",
+      "change": "corrective R1: _runView() не возвращает yearsPresent (исходный дефект F1)",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (F1)",
+      "observed": "AssertionError: F1: view model обязан нести yearsPresent (его читает шаблон)",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M7",
+      "change": "corrective R1: _writerRow().yearsText = yearsText(years) при years_present=true и years=null (F3)",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (F3)",
+      "observed": "AssertionError: F3: Writer measured zero — «нет фактов» (null !== {})",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M8",
+      "change": "corrective R1: turnLabel() всегда возвращает «последний ход» (F4)",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (F4)",
+      "observed": "AssertionError: F4: метка обязана отражать выбранный ход",
+      "failed": true,
+      "reverted": true
+    },
+    {
+      "id": "M9",
+      "change": "corrective R1: exclusionText() при present=false возвращает '' вместо «нет данных» (F2)",
+      "target": "tests/js/vmq_time09_year_coverage_ui_test.js (F2)",
+      "observed": "AssertionError: '' !== 'нет данных'",
+      "failed": true,
+      "reverted": true
+    }
+  ]
+}

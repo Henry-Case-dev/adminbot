@@ -261,7 +261,15 @@ ROUTES_SHA256_F11 = (
     # в СУЩЕСТВУЮЩЕМ POST /api/config. Новых @api_router-маршрутов НЕТ
     # (Δ routes=0), маскировка секретов не менялась, f8_baseline не
     # переиздавался.
-    "eee84f5ac2fc68a1306ee327b0bea265107e6cf61dbdccbb9afe4a0b0a79a037")
+    # VMQ-TIME-09 (19.11.2026, L-F11S-1 conscious requalification): аддитивная
+    # проекция СУЩЕСТВУЮЩЕГО GET /api/direct/turn-diagnostics — `selection.
+    # blocks[].years`/`years_present`, `selection.memory_period`, bounded
+    # `retrieval[]` (≤6 вызовов, `period_selection` исключён) и
+    # `stages.retrieval`; R17-allowlist не ослаблен. Новых @api_router-маршрутов
+    # НЕТ (Δ routes=0: 76 -> 76 декораторов, 63 -> 63 уникальных пути),
+    # RBAC/маскировка не менялись, DDL=0 (схема v48), f8_baseline не
+    # переиздавался. Осознанная Δ хэша (L-F11S-1).
+    "4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

@@ -9394,6 +9394,177 @@
                   </div>
                 </div>
               </div>
+              <!-- VMQ-TIME-09 (19.11.2026): покрытие памяти по годам — полный
+                   per-run список вызовов retrieve() выбранного хода (3 видимых
+                   + остальные раскрытием). Живёт в существующей суб-вкладке
+                   «Память и интеллект», сразу после «Цикла памяти (24ч)» и до
+                   «Embeddings»: НЕ новый таб/маршрут и не таблица (на 320 px
+                   таблица дала бы горизонтальный скролл). Процентов/доната нет. -->
+              <div class="card p-4 col-span-full mb-3"
+                   data-retrieval-coverage-analytics
+                   v-if="oversightTab === 'memory' && isGlobalAdmin"
+                   :aria-busy="memoryYearCoverageLoading ? 'true' : 'false'"
+                   role="group" aria-label="Покрытие памяти по годам: вызовы">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Покрытие памяти по годам</div>
+                  <span class="text-xs text-gray-500">один ход · не среднее · годы источника (UTC)</span>
+                  <div class="ml-auto flex gap-1 flex-wrap">
+                    <button class="btn-ghost text-xs" data-rc-prev
+                            style="min-width:44px;min-height:44px"
+                            :disabled="memoryYearCoverageBusy || !memoryYearCoverageHasMore"
+                            @click="selectMemoryYearCoverageTurn(memoryYearCoverageTurn + 1)"
+                            aria-label="Предыдущий ход" title="Предыдущий ход">← предыдущий</button>
+                    <button v-if="memoryYearCoverageTurn > 1"
+                            class="btn-ghost text-xs" data-rc-next
+                            style="min-width:44px;min-height:44px"
+                            :disabled="memoryYearCoverageBusy"
+                            @click="selectMemoryYearCoverageTurn(memoryYearCoverageTurn - 1)"
+                            aria-label="Следующий ход" title="Следующий ход">следующий →</button>
+                    <button class="btn-ghost text-xs"
+                            style="min-width:44px;min-height:44px"
+                            :disabled="memoryYearCoverageBusy"
+                            @click="loadMemoryYearCoverage(true)"
+                            aria-label="Обновить покрытие" title="Обновить">⟳</button>
+                  </div>
+                </div>
+                <div v-if="memoryYearCoverageLoading" class="spinner my-2"></div>
+                <div v-else-if="memoryYearCoverageView.state === 'error'"
+                     class="text-xs text-red-300" role="alert">
+                  {{ memoryYearCoverageView.text }}
+                  <button class="btn-ghost text-xs"
+                          style="min-width:44px;min-height:44px"
+                          @click="loadMemoryYearCoverage(true)"
+                          aria-label="Повторить" title="Повторить">⟳</button>
+                </div>
+                <div v-else-if="memoryYearCoverageView.state !== 'ready'
+                               && memoryYearCoverageView.state !== 'truncated'
+                               && memoryYearCoverageView.state !== 'no_retrieval'"
+                     class="text-xs text-gray-500">
+                  {{ memoryYearCoverageView.text }}
+                </div>
+                <template v-else>
+                  <div class="text-xs text-gray-500" data-rc-runline>
+                    {{ memoryYearCoverageTurnLabel }}<template v-if="memoryYearCoverageAt"> · {{ fmtTs(memoryYearCoverageAt) }}</template>
+                    <template v-if="memoryYearCoveragePolicy"> · политика {{ memoryYearCoveragePolicy }}</template>
+                    <template v-if="memoryYearCoverageTraceShort"> · trace {{ memoryYearCoverageTraceShort }}</template>
+                  </div>
+                  <div class="mt-2" data-rc-writer-block>
+                    <div class="text-xs font-bold">Дошло до Writer</div>
+                    <div v-if="memoryYearCoverageView.writer.facts"
+                         class="text-xs flex flex-wrap gap-1 items-center">
+                      <span class="text-gray-500">Факты памяти (RAG)</span>
+                      <template v-if="memoryYearCoverageView.writer.facts.delivered">
+                        <span v-for="chip in memoryYearCoverageView.writer.facts.chips"
+                              :key="'rcaf' + chip.year"
+                              class="badge badge-muted text-[10px]"
+                              :aria-label="'Факты ' + chip.year + ': ' + chip.count">{{ chip.year }} — {{ chip.count }}</span>
+                        <span v-if="!memoryYearCoverageView.writer.facts.chips.length"
+                              class="text-gray-500">{{ memoryYearCoverageView.writer.facts.yearsText }}</span>
+                      </template>
+                      <span v-else class="text-amber-300">не дошло — причина: {{ memoryYearCoverageView.writer.facts.skipReason || 'не зафиксирована' }}</span>
+                    </div>
+                    <div v-if="memoryYearCoverageView.writer.episodes"
+                         class="text-xs flex flex-wrap gap-1 items-center">
+                      <span class="text-gray-500">Эпизоды</span>
+                      <template v-if="memoryYearCoverageView.writer.episodes.delivered">
+                        <span v-for="chip in memoryYearCoverageView.writer.episodes.chips"
+                              :key="'rcae' + chip.year"
+                              class="badge badge-muted text-[10px]"
+                              :aria-label="'Строки эпизодов ' + chip.year + ': ' + chip.count">{{ chip.year }} — {{ chip.count }}</span>
+                        <span v-if="!memoryYearCoverageView.writer.episodes.chips.length"
+                              class="text-gray-500">{{ memoryYearCoverageView.writer.episodes.yearsText }}</span>
+                      </template>
+                      <span v-else class="text-amber-300">не дошло — причина: {{ memoryYearCoverageView.writer.episodes.skipReason || 'не зафиксирована' }}</span>
+                    </div>
+                    <div v-if="memoryYearCoverageView.writerNote"
+                         class="text-xs text-amber-300" data-rc-writer-note>
+                      {{ memoryYearCoverageView.writerNote }}
+                    </div>
+                  </div>
+                  <div class="mt-2 border-t border-white/10 pt-2" data-rc-runs>
+                    <div class="text-xs font-bold">Выдано retrieval (этот ход)</div>
+                    <div v-if="!memoryYearCoverageVisibleRuns.length"
+                         class="text-xs text-gray-500">Событий retrieval с привязкой к этому ходу нет.</div>
+                    <div v-for="(run, index) in memoryYearCoverageVisibleRuns"
+                         :key="'rcr' + index" data-rc-run class="mt-1"
+                         role="group"
+                         :aria-label="'Вызов retrieval: ' + (run.ts ? fmtTs(run.ts) : 'без времени') + ', политика ' + (run.policy || 'не зафиксирована') + ', ' + (run.period ? 'периодный добор' : 'основной')">
+                      <div class="text-xs text-gray-500">
+                        вызов {{ index + 1 }}<template v-if="run.ts"> · {{ fmtTs(run.ts) }}</template>
+                        <template v-if="run.policy"> · {{ run.policy }}</template>
+                        · {{ run.period ? 'периодный добор' : 'основной' }}
+                      </div>
+                      <div class="text-xs flex flex-wrap gap-1 items-center">
+                        <span class="text-gray-500">годы:</span>
+                        <span v-for="chip in run.chips" :key="'rcc' + index + chip.year"
+                              class="badge badge-muted text-[10px]"
+                              :aria-label="'Год ' + chip.year + ': ' + chip.count">{{ chip.year }} — {{ chip.count }}</span>
+                        <span v-if="!run.yearsPresent" class="text-gray-500">нет данных</span>
+                        <span v-else-if="!run.chips.length" class="text-gray-500">{{ run.emptyText }}</span>
+                      </div>
+                      <div class="text-xs flex flex-wrap gap-1 items-center">
+                        <span class="text-gray-500">исключено:</span>
+                        <span class="text-gray-400">{{ run.exclusionText }}</span>
+                      </div>
+                    </div>
+                    <details v-if="memoryYearCoverageHiddenRuns.length" class="mt-1"
+                             data-rc-runs-more>
+                      <summary class="cursor-pointer select-none text-xs text-gray-400">
+                        ещё {{ memoryYearCoverageHiddenRuns.length }} вызовов
+                      </summary>
+                      <div v-for="(run, index) in memoryYearCoverageHiddenRuns"
+                           :key="'rcm' + index" data-rc-run class="mt-1"
+                           role="group"
+                           :aria-label="'Вызов retrieval: ' + (run.ts ? fmtTs(run.ts) : 'без времени') + ', политика ' + (run.policy || 'не зафиксирована') + ', ' + (run.period ? 'периодный добор' : 'основной')">
+                        <div class="text-xs text-gray-500">
+                          вызов {{ index + 4 }}<template v-if="run.ts"> · {{ fmtTs(run.ts) }}</template>
+                          <template v-if="run.policy"> · {{ run.policy }}</template>
+                          · {{ run.period ? 'периодный добор' : 'основной' }}
+                        </div>
+                        <div class="text-xs flex flex-wrap gap-1 items-center">
+                          <span class="text-gray-500">годы:</span>
+                          <span v-for="chip in run.chips" :key="'rcmc' + index + chip.year"
+                                class="badge badge-muted text-[10px]"
+                                :aria-label="'Год ' + chip.year + ': ' + chip.count">{{ chip.year }} — {{ chip.count }}</span>
+                          <span v-if="!run.yearsPresent" class="text-gray-500">нет данных</span>
+                          <span v-else-if="!run.chips.length" class="text-gray-500">{{ run.emptyText }}</span>
+                        </div>
+                        <div class="text-xs flex flex-wrap gap-1 items-center">
+                          <span class="text-gray-500">исключено:</span>
+                          <span class="text-gray-400">{{ run.exclusionText }}</span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                  <details v-if="memoryYearCoverageView.memoryPeriod" class="mt-2"
+                           data-rc-period>
+                    <summary class="cursor-pointer select-none text-xs text-gray-400">
+                      Периодный добор — объяснение ограничений
+                    </summary>
+                    <div class="text-xs mt-1 flex flex-wrap gap-1">
+                      <span class="badge badge-muted">политика: {{ memoryYearCoverageView.memoryPeriod.policy || 'не зафиксирована' }}</span>
+                      <span class="badge badge-muted">пул → принято: {{ memoryYearCoverageView.memoryPeriod.pool }} → {{ memoryYearCoverageView.memoryPeriod.kept }}</span>
+                      <span class="badge badge-muted">отброшено по статусу: {{ memoryYearCoverageView.memoryPeriod.dropped_status }}</span>
+                      <span class="badge badge-muted">давность: {{ memoryYearCoverageView.memoryPeriod.pool_expired }}</span>
+                      <span class="badge badge-muted">бюджет: {{ memoryYearCoverageView.memoryPeriod.dropped_budget }}</span>
+                      <span class="badge badge-muted">вне целевого года: {{ memoryYearCoverageView.memoryPeriod.dropped_out_of_target_year }}</span>
+                      <span class="badge badge-muted">год неизвестен: {{ memoryYearCoverageView.memoryPeriod.dropped_unknown_year }}</span>
+                    </div>
+                    <div v-if="memoryYearCoverageView.memoryPeriod.period_skipped"
+                         class="text-xs text-gray-500 mt-1">
+                      добор пропущен: {{ memoryYearCoveragePeriodSkippedLabel(memoryYearCoverageView.memoryPeriod.period_skipped) }}
+                    </div>
+                  </details>
+                  <div v-if="memoryYearCoverageView.limitations.length"
+                       class="text-xs text-amber-300 mt-1" data-rc-truncated>
+                    {{ memoryYearCoverageView.limitations[0] }}
+                  </div>
+                  <div class="text-xs text-gray-600 mt-1">
+                    один ход, не среднее; старые ходы без trace — только Writer-часть;
+                    усечённая детализация видна, отсутствующее не считается нулём
+                  </div>
+                </template>
+              </div>
               <!-- mca-17c (round 10.47, ADR-1028-23): представления «Обзор
                    процессов»/«Запуски»/«Инциденты»/«Самообучение» ВНУТРИ
                    существующего #/oversight (новых маршрутов/страниц нет;
@@ -15376,6 +15547,95 @@
                   Проверьте retention импорта (удаление сырья по сроку).
                 </div>
               </div>
+              <!-- VMQ-TIME-09 (19.11.2026): покрытие памяти по годам ОДНОГО
+                   прогона — компактная секция внутри существующей карточки
+                   «Мониторинг интеллекта», после «Здоровья памяти» и до
+                   «Инициативы». Источник — существующий
+                   /api/direct/turn-diagnostics (aggregate-эндпоинт покрытия
+                   здесь не вызывается).
+                   Процентов/графиков нет: целые счётчики, чипы годов и пять
+                   причин исключения; пусто/неизвестно — честной подписью. -->
+              <div class="mt-3 pt-2 border-t border-white/10"
+                   data-retrieval-coverage-status role="group"
+                   :aria-busy="memoryYearCoverageLoading ? 'true' : 'false'"
+                   aria-label="Покрытие памяти по годам">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <div class="text-xs font-bold">Покрытие памяти по годам</div>
+                  <span class="text-xs text-gray-500">годы источника (UTC)</span>
+                  <button class="btn-ghost text-xs ml-auto"
+                          style="min-width:44px;min-height:44px"
+                          :disabled="memoryYearCoverageBusy"
+                          @click="loadMemoryYearCoverage(true)"
+                          aria-label="Обновить покрытие" title="Перечитать последний ход">⟳</button>
+                </div>
+                <div v-if="memoryYearCoverageLoading" class="spinner my-2"></div>
+                <div v-else-if="memoryYearCoverageView.state === 'error'"
+                     class="text-xs text-red-300" role="alert">
+                  {{ memoryYearCoverageView.text }}
+                  <button class="btn-ghost text-xs"
+                          style="min-width:44px;min-height:44px"
+                          @click="loadMemoryYearCoverage(true)"
+                          aria-label="Повторить" title="Повторить">⟳</button>
+                </div>
+                <div v-else-if="memoryYearCoverageView.state !== 'ready'
+                               && memoryYearCoverageView.state !== 'truncated'
+                               && memoryYearCoverageView.state !== 'no_retrieval'"
+                     class="text-xs text-gray-500">
+                  {{ memoryYearCoverageView.text }}
+                </div>
+                <template v-else>
+                  <div class="text-xs text-gray-500" data-rc-runline>
+                    {{ memoryYearCoverageTurnLabel }}<template v-if="memoryYearCoverageAt"> · {{ fmtTs(memoryYearCoverageAt) }}</template>
+                    <template v-if="memoryYearCoveragePolicy"> · {{ memoryYearCoveragePolicy }}</template>
+                    <template v-if="memoryYearCoverageTraceShort"> · ход {{ memoryYearCoverageTraceShort }}</template>
+                  </div>
+                  <div v-if="memoryYearCoverageView.writerNote"
+                       class="text-xs text-amber-300" data-rc-writer-note>
+                    {{ memoryYearCoverageView.writerNote }}
+                  </div>
+                  <div v-else class="text-xs flex flex-wrap gap-1 items-center"
+                       data-rc-writer-block>
+                    <span>Дошло до Writer:</span>
+                    <template v-if="memoryYearCoverageView.writer.facts.delivered">
+                      <span v-for="chip in memoryYearCoverageView.writer.facts.chips"
+                            :key="'rcf' + chip.year"
+                            class="badge badge-muted text-[10px]"
+                            :aria-label="'Факты ' + chip.year + ': ' + chip.count">{{ chip.year }} — {{ chip.count }}</span>
+                      <span v-if="!memoryYearCoverageView.writer.facts.chips.length"
+                            class="text-gray-500">{{ memoryYearCoverageView.writer.facts.yearsText }}</span>
+                    </template>
+                    <span v-else class="text-amber-300">RAG-блок не дошёл
+                      ({{ memoryYearCoverageView.writer.facts.skipReason || 'причина не зафиксирована' }})</span>
+                  </div>
+                  <div class="text-xs flex flex-wrap gap-1 items-center"
+                       data-rc-exclusions>
+                    <span class="text-gray-500">Исключено:</span>
+                    <span v-if="!memoryYearCoverageView.primary"
+                          class="text-gray-500">нет событий retrieval</span>
+                    <span v-else-if="!memoryYearCoverageView.primary.excludedPresent"
+                          class="text-gray-500">нет данных</span>
+                    <span v-else-if="memoryYearCoverageView.primary.emptyExcluded"
+                          class="text-gray-500">исключений не было</span>
+                    <template v-else>
+                      <span v-for="row in memoryYearCoveragePrimaryExclusions"
+                            :key="'rcx' + row.key"
+                            class="badge badge-muted text-[10px]"
+                            :aria-label="row.label + ': ' + row.count">{{ row.short }} {{ row.count }}</span>
+                    </template>
+                  </div>
+                  <div class="text-xs mt-1 flex flex-wrap gap-2 items-center">
+                    <span v-if="memoryYearCoverageView.extraRuns"
+                          class="text-gray-500">ещё вызовов: {{ memoryYearCoverageView.extraRuns }} — в Аналитике</span>
+                    <button class="btn-ghost text-xs" data-rc-open-analytics
+                            @click="openMemoryCoverage()"
+                            aria-label="Подробнее в Аналитике">Подробнее в Аналитике →</button>
+                  </div>
+                  <div v-if="memoryYearCoverageView.limitations.length"
+                       class="text-xs text-amber-300 mt-1" data-rc-truncated>
+                    {{ memoryYearCoverageView.limitations[0] }}
+                  </div>
+                </template>
+              </div>
               <!-- Раунд 10.46 (MCA-12, ADR-1028-21 D10, §16.3): компактное
                    фактическое состояние инициативы — рендер замороженного
                    контракта `intent_snapshot()` mca-09 (поле `intents` уже в
@@ -18943,6 +19203,11 @@
        БЕЗ записи --tg-* (их пишет только telegram-init.js). ДО app.js:
        app.js монтирует зеркало по window.__FullscreenPolicy.subscribe(). -->
   <script src="/static/fullscreen-policy.js?v=__APP_VERSION__"></script>
+  <!-- VMQ-TIME-09 (19.11.2026): чистые helper'ы «покрытие памяти по годам»
+       (UMD, как адаптеры выше). Zero-build, CSP `script-src 'self'`, ДО
+       app.js: computed берут `window.StatusAnalytics`. Процентов/шкал не
+       вводит: только целые счётчики одного прогона. -->
+  <script src="/static/status-analytics.js?v=__APP_VERSION__"></script>
   <script src="/web/app.js?v=__APP_VERSION__"></script>
   <!-- F4 10.16 (T-1653): Telegram-init вынесен из inline → external, чтобы
        CSP `script-src 'self'` работал без 'unsafe-inline'/nonce/hash. -->

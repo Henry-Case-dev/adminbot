@@ -1845,6 +1845,10 @@ _TURN_BLOCK_SCHEMA = {
     "first_ts": "int",
     "last_ts": "int",
     "tokens": "int",
+    # VMQ-TIME-09: покрытие Writer-блока по годам источника (UTC). `None` —
+    # не зафиксировано; измеренный `{}` отличим по `years_present`.
+    "years": ("map", 4, "int", 8),
+    "years_present": "bool",
 }
 _TURN_DROPPED_SCHEMA = {
     "reason_code": ("code", 40),
@@ -1856,6 +1860,35 @@ _TURN_SELF_OUTPUT_SCHEMA = {
     "tg_message_id": "int",
     "ts": "int",
 }
+_TURN_PERIOD_SCHEMA = {
+    "policy": ("code", 32),
+    "replace_allowed": "int",
+    "period_skipped": ("code", 32),
+    "intent": ("dict", {
+        "kind": ("code", 32),
+        "years": ("ints", 8),
+        "source": ("code", 32),
+    }),
+    "intent_source": ("code", 32),
+    "pool": "int",
+    "kept": "int",
+    "historical_quota": "int",
+    "multi_year_quota": "int",
+    "dropped_subject": "int",
+    "dropped_budget": "int",
+    "dropped_status": "int",
+    "dropped_out_of_target_year": "int",
+    "dropped_unknown_year": "int",
+    "pool_status": ("dict", {
+        "confirmed": "int",
+        "archived": "int",
+        "other": "int",
+    }),
+    "pool_expired": "int",
+    "age_policy": ("code", 32),
+    "vector_leg": ("code", 32),
+    "vector_rows": "int",
+}
 _TURN_SELECTION_SCHEMA = {
     "policy_version": ("code", 32),
     "counts": ("dict", _TURN_COUNTS_SCHEMA),
@@ -1865,6 +1898,28 @@ _TURN_SELECTION_SCHEMA = {
     "dropped_total": "int",
     "self_outputs": ("list", ("dict", _TURN_SELF_OUTPUT_SCHEMA), 6),
     "truncated": "bool",
+    "memory_period": ("dict", _TURN_PERIOD_SCHEMA),
+}
+#: VMQ-TIME-09: причина исключения кандидата-факта из выдачи retrieval.
+#: Единственный источник значений — `memory_diagnostics._RETRIEVAL_EXCLUSION_KEYS`;
+#: равенство списков защищено тестом (дрейф невозможен молча). Числа — это
+#: кандидаты-факты данного вызова, не «доли» и не сообщения.
+_RETRIEVAL_EXCLUSION_KEYS = ("policy_operative", "status", "expired",
+                             "relevance", "budget")
+#: Максимум вызовов retrieve() в ответе (bounded; UI показывает 3 + details).
+_TURN_RETRIEVAL_MAX = 6
+#: Окно отдельного запроса retrieval-событий выбранного хода (не 400 строк).
+_TURN_RETRIEVAL_QUERY_LIMIT = 32
+_TURN_RETRIEVAL_SCHEMA = {
+    "ts": "int",
+    "outcome": ("code", 32),
+    "reason_code": ("code", 40),
+    "policy": ("code", 16),
+    "period": "bool",
+    "years": ("map", 4, "int", 8),
+    "years_present": "bool",
+    "excluded": ("map", 24, "int", 8),
+    "excluded_present": "bool",
 }
 _TURN_LINK_SCHEMA = {
     "source_id": ("id",),
@@ -2081,12 +2136,19 @@ def _turn_source_view(payload: dict) -> dict | None:
 
 
 def _turn_block_view(row) -> dict | None:
-    """Один блок контекста: kind/role/rendered/ссылки/даты/токены.
+    """Один блок контекста: kind/role/rendered/ссылки/даты/токены/годы.
 
     ``role`` здесь — ПРИОРИТЕТ ВЫТЕСНЕНИЯ piece'а в аллокации композера
     (`p0`…`p3`: P0 не вытесняется, P3 режется первым), а НЕ авторская роль
     участника. Это разные сущности, и UI обязан подписывать его как
-    приоритет."""
+    приоритет.
+
+    VMQ-TIME-09: `years_present` — присутствовал ли словарь `years` в
+    событии. Так измеренный `{}` (ноль фактов) не путается с «не
+    зафиксировано» (событие старше TIME-04 или детализация усечена)."""
+    if isinstance(row, dict):
+        row = dict(row)
+        row["years_present"] = isinstance(row.get("years"), dict)
     block = _turn_project(("dict", _TURN_BLOCK_SCHEMA), row)
     if not block or not block.get("kind"):
         return None      # блок без объявленного kind — не блок
@@ -2150,6 +2212,80 @@ def _turn_selection_view(payload: dict) -> dict:
     view["dropped"] = _turn_dropped_views(raw.get("dropped"))
     view["self_outputs"] = _turn_self_output_views(raw.get("self_outputs"))
     return view
+
+
+def _turn_retrieval_view(row) -> dict | None:
+    """VMQ-TIME-09: ОДИН вызов `retrieve()` этого хода — только коды/числа.
+
+    Источник — durable-событие `mca07_retrieval` (тот же `trace_id`, что у
+    `direct_turn_selection`). Схема закрыта: свободный текст (`fact_text`,
+    `note`, ids сообщений) в ответ не проходит (R17).
+
+    `period_selection` — не второй вызов: его данные уже в
+    `selection.memory_period`, поэтому строка отбрасывается (иначе двойной
+    счёт годов). `years_present`/`excluded_present` отличают измеренный
+    пустой набор от отсутствия данных."""
+    if not isinstance(row, dict):
+        return None
+    if str(row.get("event_name") or "") != "mca07_retrieval":
+        return None
+    reason = _turn_code(row.get("reason_code"), 40)
+    if reason == "period_selection":
+        return None
+    payload = _turn_usage_json(row)
+    years = payload.get("years")
+    excluded = payload.get("excluded")
+    years_present = isinstance(years, dict)
+    excluded_present = isinstance(excluded, dict)
+    normalized_excluded = None
+    if excluded_present:
+        # Producer пишет только ненулевые категории. Если в событии есть
+        # хотя бы одна причина — ответ несёт закрытый набор из пяти ключей
+        # (отсутствующие = 0). Измеренный пустой словарь остаётся `{}`:
+        # UI скажет «исключений не было», а не нарисует пять нулей.
+        non_zero = {}
+        for key in _RETRIEVAL_EXCLUSION_KEYS:
+            number = _turn_int(excluded.get(key))
+            if number is not None and number > 0:
+                non_zero[key] = number
+        normalized_excluded = (
+            {key: non_zero.get(key, 0) for key in _RETRIEVAL_EXCLUSION_KEYS}
+            if non_zero else {})
+    candidate = {
+        "ts": _turn_int(row.get("ts")),
+        "outcome": row.get("outcome"),
+        "reason_code": reason or None,
+        "policy": payload.get("policy"),
+        "period": isinstance(payload.get("period_fill"), dict),
+        "years": years if years_present else None,
+        "years_present": years_present,
+        "excluded": normalized_excluded,
+        "excluded_present": excluded_present,
+    }
+    view = _turn_project(("dict", _TURN_RETRIEVAL_SCHEMA), candidate)
+    if view is not None and years_present and view.get("years") is None:
+        # Замеренный пустой набор: `map`-проекция схлопывает `{}` в None,
+        # но presence=true говорит UI «ноль измерен», а не «нет данных».
+        view["years"] = {}
+    if view is not None and excluded_present and view.get("excluded") is None:
+        view["excluded"] = {}      # измеренный пустой набор причин
+    return view
+
+
+def _turn_retrieval_views(rows: list[dict]) -> list[dict]:
+    """Bounded-список вызовов retrieve() одного хода (≤6, по времени).
+
+    Один запрос к слою (`limit=32`), без расширения окна 400 строк.
+    `period_selection` отфильтрован в `_turn_retrieval_view`."""
+    out: list[dict] = []
+    for row in sorted(rows or (), key=_turn_row_order):
+        item = _turn_retrieval_view(row)
+        if not item:
+            continue
+        out.append(item)
+        if len(out) >= _TURN_RETRIEVAL_MAX:
+            break
+    return out
 
 
 def _turn_search_view(rows: list[dict], coverage: dict) -> dict | None:
@@ -2327,6 +2463,9 @@ def _turn_chain_view(rows: list[dict]) -> dict:
             "search": bool(search_rows),
             "tool_phase": bool(tool_rows),
             "style": bool(style_rows),
+            # VMQ-TIME-09: retrieval-вызовы приклеиваются отдельным bounded
+            # запросом по тому же trace_id; значение ставит endpoint.
+            "retrieval": False,
         },
         # UR-20.4: источник хода (id/дата/два алиаса).
         "source": _turn_source_view(context_payload) if context else None,
@@ -2597,6 +2736,23 @@ async def direct_turn_diagnostics(
         selected_id = ordered[index]
         selected = chains[selected_id]
     view = _turn_chain_view(selected)
+    # VMQ-TIME-09: retrieval-вызовы ТОГО ЖЕ хода — отдельным bounded-запросом
+    # по `trace_id` (окно 400 строк не расширяется). Событие
+    # `mca07_retrieval` не создаёт свою цепочку: связь только с выбранным
+    # ходом, чужие чаты отсечены и запросом, и проверкой ниже.
+    try:
+        retrieval_rows = await mca_events_query(
+            db, trace_id=selected_id, chat_id=chat_id,
+            limit=_TURN_RETRIEVAL_QUERY_LIMIT)
+    except Exception:
+        logger.warning("[turn-diagnostics] retrieval query failed",
+                       exc_info=True)
+        retrieval_rows = []
+    retrieval_rows = [
+        row for row in (retrieval_rows or ())
+        if _turn_int(row.get("chat_id")) == int(chat_id)]
+    view["retrieval"] = _turn_retrieval_views(retrieval_rows)
+    view["stages"]["retrieval"] = bool(view["retrieval"])
     out["available"] = True
     out["trace_id"] = _turn_text(selected_id, 128)
     out.update(view)

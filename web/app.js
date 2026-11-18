@@ -6861,6 +6861,22 @@
         // UR-F шаг 3 (§5): раскрытые длинные списки инспектора. Только
         // локальное состояние экрана: по умолчанию всё свёрнуто.
         turnDiagOpen: {},          // {'blocks'|'links'|'rules': true}
+        // ── VMQ-TIME-09 (19.11.2026): покрытие памяти по годам ОДНОГО хода ──
+        // Один store/loader на Status и Analytics (не два запроса и не два
+        // разных числа); источник — существующий /api/direct/turn-diagnostics,
+        // aggregate-эндпоинт покрытия здесь НЕ вызывается.
+        memoryYearCoverage: null,          // payload выбранного хода
+        memoryYearCoverageTurn: 1,         // 1 = последний (1..8)
+        memoryYearCoverageTrace: '',       // явный trace_id (старые ходы)
+        memoryYearCoverageAt: 0,           // ts выбранного хода
+        memoryYearCoverageSeq: 0,          // поколение запроса (stale-ответ)
+        memoryYearCoverageScope: null,     // chat_id, которому принадлежит ответ
+        memoryYearCoverageBusy: false,
+        memoryYearCoverageError: '',
+        // Небольшой TTL-кэш в памяти: Status и Analytics не делают второй
+        // запрос за тот же ход; фонового опроса нет.
+        _memoryYearCoverageCache: null,
+        _memoryYearCoverageInflightKey: '',
         // Раунд 10.23 (F8, ADR-1023-8): вкладка «Промпты» — активный режим
         // Вербализатора (Tabs) и блок мониторинга динамического анти-клише.
         promptMode: 'casual',      // редактируемый режим: casual|serious|deep_research
@@ -10190,6 +10206,82 @@
                  cls: 'badge-muted' };
       },
       // ── U03 (v6.3 W3-STATUS): проекции честных блоков Статуса ──────────
+      // ── VMQ-TIME-09 (19.11.2026): покрытие памяти по годам ОДНОГО хода ─
+      // Чистая арифметика — в UMD-helper'е покрытия (node-тест); здесь
+      // только состояние загрузчика и единый store для Status/Analytics.
+      memoryYearCoverageApi: function () {
+        return (typeof window !== 'undefined' && window.StatusAnalytics)
+          ? window.StatusAnalytics : null;
+      },
+      memoryYearCoverageLoading: function () {
+        return !!(this.memoryYearCoverageBusy && !this.memoryYearCoverage);
+      },
+      memoryYearCoverageView: function () {
+        var api = this.memoryYearCoverageApi;
+        var payload = this.memoryYearCoverage || {};
+        var probe = {
+          loading: this.memoryYearCoverageLoading,
+          no_chat: this.activeChatId == null,
+          error: this.memoryYearCoverageError || '',
+          available: payload.available,
+          reason: payload.reason,
+          selection: payload.selection,
+          retrieval: payload.retrieval,
+        };
+        if (!api || typeof api.view !== 'function') {
+          return { state: 'error', text: 'Модуль покрытия не загружен',
+                   writer: { facts: null, episodes: null, ignoredHistory: 0 },
+                   writerNote: '', runs: [], primary: null, runCount: 0,
+                   extraRuns: 0, memoryPeriod: null, limitations: [] };
+        }
+        return api.view(probe);
+      },
+      // Сужение идентификатора хода для подписи (полный id — в title).
+      memoryYearCoverageTraceShort: function () {
+        var trace = String((this.memoryYearCoverage || {}).trace_id
+          || this.memoryYearCoverageTrace || '');
+        return trace ? trace.slice(0, 8) : '';
+      },
+      memoryYearCoveragePolicy: function () {
+        var view = this.memoryYearCoverageView;
+        if (view && view.primary && view.primary.policy) {
+          return String(view.primary.policy);
+        }
+        var period = view && view.memoryPeriod;
+        return (period && period.policy) ? String(period.policy) : '';
+      },
+      memoryYearCoveragePrimaryExclusions: function () {
+        var api = this.memoryYearCoverageApi;
+        var view = this.memoryYearCoverageView;
+        if (!api || !view || !view.primary) return null;
+        return api.exclusionRows(view.primary.excluded,
+                                 view.primary.excludedPresent);
+      },
+      memoryYearCoverageVisibleRuns: function () {
+        var view = this.memoryYearCoverageView;
+        return (view && view.runs) ? view.runs.slice(0, 3) : [];
+      },
+      memoryYearCoverageHiddenRuns: function () {
+        var view = this.memoryYearCoverageView;
+        return (view && view.runs) ? view.runs.slice(3) : [];
+      },
+      memoryYearCoverageHasMore: function () {
+        var turns = (this.memoryYearCoverage || {}).turns;
+        var count = (turns && turns.length) ? turns.length : 1;
+        return this.memoryYearCoverageTurn < Math.min(8, count);
+      },
+      // F4: «последний ход» — только для turn=1; выбранный старый ход
+      // подписывается своим номером (не выдаётся за последний).
+      memoryYearCoverageTurnLabel: function () {
+        var api = this.memoryYearCoverageApi;
+        var turns = (this.memoryYearCoverage || {}).turns;
+        var count = (turns && turns.length) ? turns.length : 0;
+        if (api && typeof api.turnLabel === 'function') {
+          return api.turnLabel(this.memoryYearCoverageTurn, count);
+        }
+        return this.memoryYearCoverageTurn > 1
+          ? ('ход ' + this.memoryYearCoverageTurn) : 'последний ход';
+      },
       // B03.3 «Просрочено N»: раскладка expired-памяти
       // (/api/memory/expired-overview → MemoryManager.expired_memory_overview,
       // W1-MEMORY-MIG §7). unavailable → честная метка, не нули.
@@ -13214,6 +13306,14 @@
         if (this.activeTab === 'mod_direct'
             && this.workspaceTab === 'inspector') {
           this.inspectorTabEnter();
+        }
+        // VMQ-TIME-09: покрытие памяти по годам привязано к чату — смена
+        // чата сбрасывает выбранный ход и перечитывает ОДИН раз (кэш
+        // инвалидируется ключом чата, не таймером).
+        if (this.activeTab === 'status' || this.oversightTab === 'memory') {
+          this.memoryYearCoverageTurn = 1;
+          this.memoryYearCoverageTrace = '';
+          this.loadMemoryYearCoverage(false);
         }
       },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
@@ -19076,6 +19176,103 @@
         this.turnDiagTraceId = tid || '';
         this.loadTurnDiagnostics(true);
       },
+      // ═══ VMQ-TIME-09: покрытие памяти по годам (ОДИН ход, не среднее) ═══
+      // Один loader/store на Status и Analytics: источник — существующий
+      // /api/direct/turn-diagnostics (никакого aggregate-эндпоинта), один
+      // запрос на вход/⟳/смену чата, TTL-кэш в памяти без фонового опроса.
+      loadMemoryYearCoverage: async function (force) {
+        var chatId = this.activeChatId;
+        if (chatId == null || !this.isGlobalAdmin) {
+          this.memoryYearCoverage = null;
+          this.memoryYearCoverageError = '';
+          return;
+        }
+        var turn = Math.max(1, Math.min(8,
+          parseInt(this.memoryYearCoverageTurn, 10) || 1));
+        this.memoryYearCoverageTurn = turn;
+        var trace = this.memoryYearCoverageTrace || '';
+        var key = String(chatId) + '|' + turn + '|' + trace;
+        var cached = this._memoryYearCoverageCache;
+        var now = Date.now();
+        if (!force && cached && cached.key === key
+            && (now - cached.at) < 15000 && this.memoryYearCoverage
+            && this.memoryYearCoverageScope === chatId) {
+          return;
+        }
+        // Single-flight ТОЛЬКО для того же ключа: смена чата/хода не ждёт
+        // чужой ответ, а старый отбрасывается по `seq` ниже.
+        if (this.memoryYearCoverageBusy
+            && this._memoryYearCoverageInflightKey === key) {
+          return;
+        }
+        if (this.memoryYearCoverage
+            && this.memoryYearCoverageScope !== chatId) {
+          // Числа другого чата не показываются ни кадра.
+          this.memoryYearCoverage = null;
+          this.memoryYearCoverageAt = 0;
+        }
+        var seq = (this.memoryYearCoverageSeq || 0) + 1;
+        this.memoryYearCoverageSeq = seq;
+        this.memoryYearCoverageBusy = true;
+        this._memoryYearCoverageInflightKey = key;
+        this.memoryYearCoverageError = '';
+        var self = this;
+        try {
+          var qs = '?chat_id=' + encodeURIComponent(chatId)
+            + '&turn=' + encodeURIComponent(turn);
+          if (trace) qs += '&trace_id=' + encodeURIComponent(trace);
+          var data = await this.api('/api/direct/turn-diagnostics' + qs);
+          if (seq !== self.memoryYearCoverageSeq) return;   // stale-ответ
+          if (String(self.activeChatId) !== String(chatId)) return;
+          self.memoryYearCoverage = data || null;
+          self.memoryYearCoverageAt = (data && data.ts) || 0;
+          self.memoryYearCoverageScope = chatId;
+          self._memoryYearCoverageCache = { key: key, at: Date.now() };
+        } catch (e) {
+          if (seq !== self.memoryYearCoverageSeq) return;
+          // 403/500 не превращаются в «0 фактов»: честная причина + ⟳.
+          self.memoryYearCoverage = null;
+          self.memoryYearCoverageError = (e && e.message)
+            || 'трасса недоступна';
+        } finally {
+          if (seq === self.memoryYearCoverageSeq) {
+            self.memoryYearCoverageBusy = false;
+            self._memoryYearCoverageInflightKey = '';
+          }
+        }
+      },
+      selectMemoryYearCoverageTurn: function (n) {
+        var turn = Math.max(1, Math.min(8, parseInt(n, 10) || 1));
+        // F4: старые числа не показываются под новой меткой ни кадра —
+        // на время запроса виден spinner, а не данные другого хода.
+        if (turn !== this.memoryYearCoverageTurn) {
+          this.memoryYearCoverage = null;
+          this.memoryYearCoverageAt = 0;
+        }
+        this.memoryYearCoverageTurn = turn;
+        this.memoryYearCoverageTrace = '';
+        this.loadMemoryYearCoverage(true);
+      },
+      // Адресный переход из Статуса — существующий маршрут/суб-вкладка
+      // (тот же паттерн, что openStoriesAnalytics; новых маршрутов нет).
+      openMemoryCoverage: function () {
+        if (typeof this.oversightSetTab === 'function') {
+          this.oversightSetTab('memory');
+        }
+        if (typeof this.navigateTo === 'function') {
+          this.navigateTo('#/oversight?tab=memory');
+        } else if (typeof this.setTab === 'function') {
+          this.setTab('oversight');
+        }
+      },
+      memoryYearCoveragePeriodSkippedLabel: function (code) {
+        var map = {
+          auto_full_slice: 'основной срез полон — добор не нужен',
+          auto_thin_slice: 'основной срез тонкий — добор не заменяет',
+          auto_no_replace: 'замена не разрешена планом',
+        };
+        return map[code] || (code || 'не пропускался');
+      },
       turnFlowLabel: function (flow) {
         // Поток — код бэкенда: известный подписан, неизвестный назван
         // «код: …», а не выведен сырым токеном.
@@ -22025,6 +22222,11 @@
         if (t === 'memory') {
           if (!this.temporalRuns && !this.temporalRunsBusy) {
             this.loadTemporalRuns();
+          }
+          // VMQ-TIME-09: тот же store, что у Статуса; не-force — общий
+          // TTL-кэш не делает второй запрос при переходе с «Статуса».
+          if (typeof this.loadMemoryYearCoverage === 'function') {
+            this.loadMemoryYearCoverage(false);
           }
           // W3-ANALYTICS: цикл памяти (flow) считает рёбра по тем же
           // durable-событиям процессов — один и тот же запрос, кэш 60с.
@@ -28738,6 +28940,18 @@
           // лениво догружаем при входе (как раньше на входе в Аналитику;
           // счётчики — по-прежнему в loadStatus, fetch один).
           if (!this.logs.length && !this.logsLoading) this.loadLogs();
+          // VMQ-TIME-09: один запрос покрытия по годам на вход в «Статус»;
+          // F4 — Статус по контракту показывает ПОСЛЕДНИЙ ход, поэтому
+          // выбранный в Аналитике старый ход сбрасывается до turn=1.
+          if (typeof this.loadMemoryYearCoverage === 'function') {
+            if (this.memoryYearCoverageTurn !== 1) {
+              this.memoryYearCoverage = null;
+              this.memoryYearCoverageAt = 0;
+            }
+            this.memoryYearCoverageTurn = 1;
+            this.memoryYearCoverageTrace = '';
+            this.loadMemoryYearCoverage(true);
+          }
           this.startStatusPolling();
           this.loadCognition();          // F5/§5: блок «Осмысление»
           this.startCognitionPolling();  // F5-Q3: polling 15с

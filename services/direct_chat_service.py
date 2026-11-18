@@ -6190,7 +6190,8 @@ class DirectChatService:
             # тем же чтением и заменяется на месте. План `auto` — работы нет.
             if _rag_ctx:
                 user_blocks = await self._apply_plan_memory_scope(
-                    user_blocks, _rag_ctx, l1_plan)
+                    user_blocks, _rag_ctx, l1_plan,
+                    trace_id=correlation_id)
                 # VMQ-M2 (M-04): пересборка блока под политикой плана — тот
                 # же `retrieve` мог прочитать overview (historical). Тот же
                 # ЕДИНЫЙ bundle получает слоты; второго retrieval/бандла нет.
@@ -10601,7 +10602,7 @@ class DirectChatService:
             chat_id, message, global_ctx, history_sample=history_sample,
             projection=projection, memory_scope=memory_scope,
             subject_name=target_name, subject_uid=target_user_id,
-            out_memory=_rag_out)
+            out_memory=_rag_out, trace_id=correlation_id)
         if rag_block:
             blocks.append(("rag", rag_block))
         if out_rag_ctx is not None:
@@ -11038,7 +11039,8 @@ class DirectChatService:
             self, chat_id: int, query: str, tail_rows: list,
             suffix_map: dict[int, str],
             history_sample: dict | None = None,
-            projection=None) -> tuple[str, dict]:
+            projection=None,
+            trace_id: str | None = None) -> tuple[str, dict]:
         """ASAP-3 (ADR-1028-2 D4, §9–§11): old verbatim episode retrieval.
 
         Вход — хиты ЕДИНОГО retrieval-контракта mca-07 (`mode="history"`,
@@ -11083,7 +11085,7 @@ class DirectChatService:
         # поля → запрос без связки (прежний путь, capture даёт валидные).
         request = _mca_rc.RetrievalRequest(
             chat_id=chat_id, query=text, mode="history", top_k=8,
-            reply_depth=0)
+            reply_depth=0, trace_id=trace_id)
         year_window: tuple[int, ...] = ()
         if period_intent.is_explicit_year:
             year = int(period_intent.years[0])
@@ -11327,7 +11329,8 @@ class DirectChatService:
         try:
             episode_block, episode_stats = await self._build_old_episodes(
                 chat_id, query, global_parts["tail_rows"], suffix_map,
-                history_sample=history_sample, projection=projection)
+                history_sample=history_sample, projection=projection,
+                trace_id=correlation_id)
         except Exception:
             logger.warning("direct: episode build failed — skip | chat=%s",
                            chat_id, exc_info=True)
@@ -14690,7 +14693,8 @@ class DirectChatService:
                                 subject_name: str | None = None,
                                 subject_uid: int | None = None,
                                 include_overview: bool = False,
-                                plan_act: str = ""):
+                                plan_act: str = "",
+                                trace_id: str | None = None):
         """MEMORY-06 (§7.5): отбор фактов direct-RAG через ЕДИНЫЙ `retrieve`.
 
         Возвращает кандидатов в прежней форме `get_rag_facts(with_meta=True)`
@@ -14742,16 +14746,20 @@ class DirectChatService:
                 return None
             policy = _mca_rc._mc.normalize_memory_scope(
                 memory_scope if memory_scope is not None else "auto").value
+            # VMQ-TIME-09: при `trace_id=None` вызов байт-паритетен — kwarg не
+            # добавляется (двойники/тесты с узкой подписью `_rag_retrieve`
+            # продолжают работать обычным путём).
+            _trace_kwargs = {"trace_id": trace_id} if trace_id else {}
             if include_overview:
                 base = await self._rag_retrieve(
                     db, memory, chat_id, query, self._RAG_FACT_CHANNELS,
-                    limit, policy, include_overview=True)
+                    limit, policy, include_overview=True, **_trace_kwargs)
             else:
                 # Прежняя форма вызова байт-в-байт: двойники/тесты с узкой
                 # подписью `_rag_retrieve` не ломаются обычным путём.
                 base = await self._rag_retrieve(
                     db, memory, chat_id, query, self._RAG_FACT_CHANNELS,
-                    limit, policy)
+                    limit, policy, **_trace_kwargs)
             # VMQ-M2 (M-04): тот же RetrievalResult (base этого вызова) несёт
             # bounded overview; он запоминается для ЕДИНОГО bundle хода —
             # второго retrieval/чтения не появляется. Не запрошен → None
@@ -14846,7 +14854,8 @@ class DirectChatService:
                     include_archived=policy in ("historical", "auto"),
                     period_fill=True,
                     exclude_years=base_years,
-                    period_intent=period_intent)
+                    period_intent=period_intent,
+                    **_trace_kwargs)
                 extra_rows = self._rag_rows_from_result(
                     extra, self._RAG_PERIOD_POOL)
                 period_meta = dict(getattr(extra, "period_fill", None) or {})
@@ -14918,7 +14927,8 @@ class DirectChatService:
                             period_fill: bool = False,
                             exclude_years=(),
                             period_intent=None,
-                            include_overview: bool = False):
+                            include_overview: bool = False,
+                            trace_id: str | None = None):
         """Один вызов существующего `retrieve` (без второго контура).
 
         `lexical_stem`/`include_archived`/`period_fill`/`exclude_years`/
@@ -14926,7 +14936,10 @@ class DirectChatService:
         11.11.2026; VMQ-MEM/TIME Slice A — периодный intent 15.11.2026);
         основной срез и `operative` остаются с прежними значениями по
         умолчанию. `include_overview` (VMQ-M2, M-04) — аддитивная bounded
-        overview-проекция того же вызова; default False = паритет."""
+        overview-проекция того же вызова; default False = паритет.
+        `trace_id` (VMQ-TIME-09) — correlation_id ЭТОГО хода: durable-событие
+        `mca07_retrieval` обязано быть связано с Writer-блоками того же хода;
+        default None — прежнее событие без поля."""
         request = _mca_rc.RetrievalRequest(
             chat_id=int(chat_id), query=str(query or ""),
             mode="specific", purpose="reply", top_k=max(1, int(limit)),
@@ -14940,7 +14953,8 @@ class DirectChatService:
             period_fill=bool(period_fill),
             exclude_years=tuple(exclude_years or ()),
             period_intent=period_intent,
-            include_overview=bool(include_overview))
+            include_overview=bool(include_overview),
+            trace_id=trace_id)
         return await _mca_rc.retrieve(db, memory, request)
 
     @classmethod
@@ -15193,7 +15207,8 @@ class DirectChatService:
                                subject_uid: int | None = None,
                                out_memory: dict | None = None,
                                include_overview: bool = False,
-                               plan_act: str = ""
+                               plan_act: str = "",
+                               trace_id: str | None = None,
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -15267,7 +15282,8 @@ class DirectChatService:
                 subject_name=subject_name,
                 subject_uid=subject_uid,
                 include_overview=overview_on,
-                plan_act=plan_act)
+                plan_act=plan_act,
+                trace_id=trace_id)
         except TypeError:
             # Двойник/альтернативная реализация без поля политики/субъекта:
             # прежний вызов (политика не навязывается несовместимому API).
@@ -15475,7 +15491,7 @@ class DirectChatService:
             try:
                 _mca_rc.emit_stage_event(
                     "retrieval", "selection", reason_code="period_selection",
-                    chat_id=chat_id,
+                    chat_id=chat_id, trace_id=trace_id,
                     usage_json={"period_trace": period_trace,
                                 "years": rag_years})
             except Exception:      # pragma: no cover - наблюдение не рвёт блок
@@ -15517,7 +15533,8 @@ class DirectChatService:
         return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
 
     async def _apply_plan_memory_scope(self, user_blocks, rag_ctx: dict,
-                                       l1_plan) -> list:
+                                       l1_plan, trace_id: str | None = None
+                                       ) -> list:
         """Политика охвата из плана L1 → сам блок `<RAG_Memory>` (§2).
 
         Блок памяти собирается ДО плана (нужен для L1-контекста) и до этой
@@ -15539,13 +15556,15 @@ class DirectChatService:
         self._rag_period_reuse = getattr(self, "_rag_period_pool", None)
         try:
             return await self._apply_plan_memory_scope_locked(
-                user_blocks, rag_ctx, l1_plan)
+                user_blocks, rag_ctx, l1_plan, trace_id)
         finally:
             self._rag_period_reuse = None
             self._rag_period_pool = None
 
     async def _apply_plan_memory_scope_locked(self, user_blocks, rag_ctx: dict,
-                                              l1_plan) -> list:
+                                              l1_plan,
+                                              trace_id: str | None = None
+                                              ) -> list:
         if rag_ctx is None:
             return user_blocks
         plan_scope = _mca_rc._mc.normalize_memory_scope(
@@ -15580,7 +15599,8 @@ class DirectChatService:
             # multi-year intent; это не словарь и не повторная классификация
             # запроса. Старый двойник без поля получает прежний вызов.
             _plan_kwargs = {
-                "plan_act": str(getattr(l1_plan, "response_act", "") or "")}
+                "plan_act": str(getattr(l1_plan, "response_act", "") or ""),
+                "trace_id": trace_id}
             try:
                 block, _hint = await self._build_rag_block(
                     rag_ctx["chat_id"], rag_ctx["message"],

@@ -1127,6 +1127,12 @@ class RetrievalRequest:
     #: Проекция ничего не выбирает и не ранжирует: кандидаты/каналы/порядок
     #: остаются прежними (semantic definitions — hint, не router).
     include_overview: bool = False
+    #: VMQ-TIME-09 (19.11.2026): correlation_id хода direct-пути. Аддитивное
+    #: поле для СВЯЗИ durable-событий `mca07_retrieval` с Writer-блоками того
+    #: же хода (`direct_turn_selection`) по одному `trace_id`. `None` =
+    #: прежнее поведение байт-в-байт: поле в событие не добавляется, отбор,
+    #: ранжирование, бюджеты и лимиты не меняются.
+    trace_id: str | None = None
 
 
 
@@ -2536,7 +2542,8 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     invalid = request_reason_code(request)
     if invalid:
         emit_stage_event("retrieval", "invalid", reason_code=invalid,
-                         chat_id=request.chat_id)
+                         chat_id=request.chat_id,
+                         trace_id=request.trace_id)
         return RetrievalResult(status=RETRIEVAL_ERROR, reason_code=invalid,
                                purpose=str(request.purpose or ""),
                                mode=str(request.mode or "auto"),
@@ -3180,6 +3187,7 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     emit_stage_event(
         "retrieval", "success" if ordered else "silent",
         reason_code=reason, chat_id=request.chat_id,
+        trace_id=request.trace_id,
         entity_ids=[c.id for c in ordered[:20]],
         message_id=request.trigger_ref,
         usage_json=usage_json)

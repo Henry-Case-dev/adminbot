@@ -97,7 +97,11 @@ ROUTES_SHA256_F11 = (
     # POST /api/config; Δ маршрутов = 0.
     # QRNG P3 F1 corrective: chat-scope GET /api/config скрывает глобальные
     # ключи селектора от non-admin (новых маршрутов нет).
-    "eee84f5ac2fc68a1306ee327b0bea265107e6cf61dbdccbb9afe4a0b0a79a037")
+    # VMQ-TIME-09 (19.11.2026): аддитивная проекция СУЩЕСТВУЮЩЕГО
+    # GET /api/direct/turn-diagnostics (годы Writer-блоков, memory_period,
+    # bounded retrieval[], stages.retrieval); Δ routes=0, RBAC/DDL не менялись.
+    # Re-pin синхронно с каноном tests/test_round1025_f8_registry.py (L-F11S-1).
+    "4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7")
 
 
 @pytest.fixture(autouse=True)

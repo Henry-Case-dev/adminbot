@@ -1,0 +1,29 @@
+{
+  "tip_before_fix": "eefd555c24231bacbf91209332351b6de96515ce",
+  "node": {
+    "failed": true,
+    "assertion": "AssertionError [ERR_ASSERTION]: F1: view model обязан нести yearsPresent (его читает шаблон)"
+  },
+  "pytest": {
+    "failed": 0,
+    "passed": 13,
+    "note": "B1 cap-тест новый; cap уже работал — test gap"
+  },
+  "playwright": {
+    "ok": false,
+    "checks": 65,
+    "failed_checks": [
+      "status_aria_busy_on_block_1280",
+      "status_single_latest_label_1280",
+      "analytics_no_unknown_next_to_years",
+      "analytics_turn2_label",
+      "status_last_request_turn1",
+      "status_aria_busy_on_block_390",
+      "status_single_latest_label_390",
+      "status_aria_busy_on_block_320",
+      "status_single_latest_label_320",
+      "status_excluded_unknown",
+      "status_zero_writer_no_facts"
+    ]
+  }
+}

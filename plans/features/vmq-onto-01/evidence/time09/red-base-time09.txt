@@ -1,0 +1,121 @@
+VMQ-TIME-09 RED на deployed base f68e7631dede326995b985bf8c3849d62def1bcb (2.58.217)
+До кода; точные команды и хвосты вывода.
+
+=== node tests/js/vmq_time09_year_coverage_ui_test.js ===
+﻿=== node RED (base f68e7631d) ===
+node : node:internal/assert/utils:77
+строка:3 знак:1
++ node tests/js/vmq_time09_year_coverage_ui_test.js 2>&1 | Out-File -En ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (node:internal/assert/utils:77:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+    throw err;
+    ^
+AssertionError [ERR_ASSERTION]: web/static/status-analytics.js ╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╨╡╨╜ ╨┤╨╗╤П VMQ-TIME-09
+    at loadHelper (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b994
+8207\tests\js\vmq_time09_year_coverage_ui_test.js:36:10)
+    at main (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\t
+ests\js\vmq_time09_year_coverage_ui_test.js:56:13)
+    at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090
+fef-b9948207\tests\js\vmq_time09_year_coverage_ui_test.js:250:1)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+Node.js v24.16.0
+exit=1
+
+=== pytest tests/test_vmq_time09_turn_coverage.py -q ===
+﻿python.exe : 
+строка:1 знак:1
++ & C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/te ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+WARNING: closed 7 leaked aiosqlite connection(s)
+FFFFFFFFFF.F                                                             [100%]
+================================== FAILURES ===================================
+E   AttributeError: 'RetrievalRequest' object has no attribute 'trace_id'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:277: AttributeError: 'RetrievalRequest' object has no attribute 'trace_id'
+E   TypeError: RetrievalRequest.__init__() got an unexpected keyword argument 'trace_id'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:288: TypeError: RetrievalRequest.__init__() got an unexpected keyword argument 'trace_id'
+E   TypeError: DirectChatService._rag_retrieve() got an unexpected keyword argument 'trace_id'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:315: TypeError: DirectChatService._rag_retrieve() got an unexpected keyword argument 'trace_id'
+E   TypeError: DirectChatService._build_old_episodes() got an unexpected keyword argument 'trace_id'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:335: TypeError: DirectChatService._build_old_episodes() got an unexpected keyword argument 'trace_id'
+E   RecursionError: maximum recursion depth exceeded
+!!! Recursion detected (same locals & position)
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:349: RecursionError: maximum recursion depth exceeded
+E   KeyError: 'years'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:413: KeyError: 'years'
+E   KeyError: 'retrieval'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:453: KeyError: 'retrieval'
+E   KeyError: 'retrieval'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:487: KeyError: 'retrieval'
+E   KeyError: 'retrieval'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:513: KeyError: 'retrieval'
+E   assert None is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:536: assert None is True
+E   AttributeError: module 'web.api.routes' has no attribute '_RETRIEVAL_EXCLUSION_KEYS'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-time09-749e5a090fef-b9948207\tests\test_vmq_time09_turn_coverage.py:569: AttributeError: module 'web.api.routes' has no attribute '_RETRIEVAL_EXCLUSION_KEYS'
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_time09_turn_coverage.py::test_retrieval_request_trace_id_is_optional_and_additive
+FAILED tests/test_vmq_time09_turn_coverage.py::test_retrieval_event_carries_trace_id_and_parity_without_it
+FAILED tests/test_vmq_time09_turn_coverage.py::test_rag_retrieve_passes_trace_id_to_request
+FAILED tests/test_vmq_time09_turn_coverage.py::test_build_old_episodes_passes_trace_id
+FAILED tests/test_vmq_time09_turn_coverage.py::test_build_rag_block_period_event_carries_trace
+FAILED tests/test_vmq_time09_turn_coverage.py::test_api_preserves_writer_years_and_memory_period
+FAILED tests/test_vmq_time09_turn_coverage.py::test_api_retrieval_is_bounded_sorted_and_excludes_period_selection
+FAILED tests/test_vmq_time09_turn_coverage.py::test_api_retrieval_distinguishes_measured_empty_from_missing
+FAILED tests/test_vmq_time09_turn_coverage.py::test_api_r17_projection_rejects_free_text
+FAILED tests/test_vmq_time09_turn_coverage.py::test_api_truncated_selection_does_not_substitute_years
+FAILED tests/test_vmq_time09_turn_coverage.py::test_exclusion_keys_are_single_source
+11 failed, 1 passed in 8.17s
+
+=== python tests/ui_vmq_status_analytics_e2e.py (Playwright) ===
+{
+  "ok": false,
+  "failed_checks": [
+    "status_block_present_1280",
+    "status_years_1280",
+    "status_exclusions_1280",
+    "status_refresh_44_1280",
+    "status_after_memory_before_intents_1280",
+    "diag_one_request_on_entry",
+    "analytics_card_present",
+    "analytics_runs_count",
+    "analytics_five_reasons",
+    "analytics_between_flow_and_embeddings",
+    "analytics_shared_cache_no_second_request",
+    "analytics_prev_present",
+    "status_block_present_390",
+    "status_years_390",
+    "status_exclusions_390",
+    "status_refresh_44_390",
+    "status_after_memory_before_intents_390",
+    "mobile_tabs_44_390",
+    "status_block_present_320",
+    "status_years_320",
+    "status_exclusions_320",
+    "status_refresh_44_320",
+    "status_after_memory_before_intents_320",
+    "mobile_tabs_44_320",
+    "empty_reason_honest",
+    "error_reason_honest",
+    "truncated_warning_present"
+  ],
+  "routes": {
+    "diagnostics": [],
+    "retrieval_coverage": 0
+  }
+}
