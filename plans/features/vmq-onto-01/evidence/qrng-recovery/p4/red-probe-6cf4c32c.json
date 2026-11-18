@@ -1,0 +1,12 @@
+{
+  "base": "6cf4c32c",
+  "node_test_exit": 1,
+  "node_test_failed_as_expected": true,
+  "node_first_assertion": "AssertionError [ERR_ASSERTION]: вкладок 29 (28 + mod_random)",
+  "base_facts": {
+    "mod_random_config_tab_absent": true,
+    "keys_random_on_llm": true,
+    "old_accrual_hint_present": true
+  },
+  "ok": true
+}

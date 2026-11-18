@@ -75,10 +75,14 @@ class TestCatalogContract:
         assert groups["keys_random"].category == "keys"
         assert groups["memory_random"].order == 4
         assert groups["keys_random"].order == 9
-        assert pc.group_tab("memory_random") == pc.TAB_MOD_SLEEP
-        assert pc.group_tab("keys_random") == pc.TAB_LLM_PROVIDERS
-        assert "memory_random" in pc.tab_group_ids(pc.TAB_MOD_SLEEP)
-        assert "keys_random" in pc.tab_group_ids(pc.TAB_LLM_PROVIDERS)
+        # QRNG P4 (17.11.2026, arch D4/§9): обе группы перенесены на отдельную
+        # config-вкладку mod_random («Случайность»), не копируются.
+        assert pc.group_tab("memory_random") == pc.TAB_MOD_RANDOM
+        assert pc.group_tab("keys_random") == pc.TAB_MOD_RANDOM
+        assert "memory_random" in pc.tab_group_ids(pc.TAB_MOD_RANDOM)
+        assert "keys_random" in pc.tab_group_ids(pc.TAB_MOD_RANDOM)
+        assert "memory_random" not in pc.tab_group_ids(pc.TAB_MOD_SLEEP)
+        assert "keys_random" not in pc.tab_group_ids(pc.TAB_LLM_PROVIDERS)
 
     def test_counts_sanctioned_delta(self):
         # Санкция §13.2: +13/+2/+2, TAB_RULES 21 in-place.
@@ -90,10 +94,12 @@ class TestCatalogContract:
         # TAB_RULES 22 без роста (группы — на существующих вкладках).
         # QRNG P3 (arch D4): +3 глобальных ключа селектора (REGISTRY 645→648);
         # группы/вкладки in-place.
+        # QRNG P4 (17.11.2026, arch D4/§9): +1 config-вкладка mod_random
+        # (TAB_RULES 22→23); группы перенесены, не добавлены.
         assert len(pc.REGISTRY) == 648
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
 
     def test_per_chat_vs_global(self):
         # memory.* — per-chat (mode/probability/fallback); keys.* — глобальные

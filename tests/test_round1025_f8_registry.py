@@ -428,7 +428,7 @@ PG_DB_SHA256_B07 = (
 # каталога не менялись (REGISTRY 645 / GROUPS 121 / delta 244);
 # TSV/meta переэмитированы генератором, `--check` → OK.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "733430efe8f7da7734f2c558d0fc33ccdab1ac847c3ffa35afa45b5e5020c3e8")
+    "f840f68a32a1b9cf336c4b481b973e7ed246cf851b5464581bcf68c1b6dedb0c")
 
 
 def _sha256(path: Path) -> str:

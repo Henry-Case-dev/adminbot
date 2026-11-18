@@ -228,7 +228,7 @@
     "master_param": "memory.random_enabled",
     "runtime_gate": "per_chat",
     "parent_id": "memory",
-    "config_tab": "mod_sleep",
+    "config_tab": "mod_random",
     "visibility": "visible",
     "classification": "submodule",
     "settings_groups": [

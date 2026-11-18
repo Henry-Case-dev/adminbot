@@ -1,0 +1,45 @@
+{
+  "test": "tools/ui_qrng_p4_e2e.py",
+  "mutations": [
+    {
+      "id": "E1",
+      "what": "CSS отдаётся как application/octet-stream (не применён)",
+      "file": "tools\\ui_qrng_p4_e2e.py",
+      "exit": 1,
+      "killed": true,
+      "first_failure": "",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "E2",
+      "what": "status stub: IBM зелёный при configured=false (эхо primary)",
+      "file": "tools\\ui_qrng_p4_e2e.py",
+      "exit": 1,
+      "killed": true,
+      "first_failure": "\"ok\": false",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "E3",
+      "what": "Sleep-карточка удалена с workspace-страницы",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_failure": "playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 20000ms exceeded.",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "E4",
+      "what": "стрелки fallback уходят на отдельную строку (flex-wrap+width:100%)",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_failure": "\"ok\": false",
+      "restored_sha_ok": true
+    }
+  ],
+  "killed": 4,
+  "total": 4,
+  "all_restored": true,
+  "ok": true
+}

@@ -447,6 +447,84 @@ function mkCoverageCtx(m) {
     // вкладки родителя» к ним не применяется (иначе потребовался бы второй
     // write-point, запрещённый design).
     MODULES.forEach(function (m) {
+      // QRNG P4 (review F5): «Случайность» — кастомная страница из 4 блоков
+      // (A–D). Проверяем не presence-маркеры, а ПОЛНОЕ множество ключей
+      // страницы против групп memory_random/keys_random из каталога
+      // (master `memory.random_enabled` — read-only, исключён). Новый ключ в
+      // этих группах без обновления страницы/фикстуры уронит тест.
+      if (m.id === 'mod_random') {
+        const fx = JSON.parse(require('fs').readFileSync(
+          path.join(__dirname, '..', 'fixtures', 'qrng_p4_random_keys.json'),
+          'utf8'));
+        const src = ((TABS.find(function (t) {
+          return t.id === 'mod_random';
+        }) || {}).sources || []);
+        const srcGroups = [];
+        src.forEach(function (s) { srcGroups.push.apply(srcGroups, s.groups || []); });
+        assert.deepStrictEqual(srcGroups.slice().sort(),
+          ['keys_random', 'memory_random'],
+          'g: страница подключена ровно к двум группам каталога');
+        const rctx = Object.assign(mkCoverageCtx(m), {
+          configItems: fx.page_keys.map(function (key) {
+            return { key: key, value: null };
+          }),
+          randomCfg: methods.randomCfg,
+          randomUsesList: computed.randomUsesList,
+          randomAnuDetailItems: methods.randomAnuDetailItems,
+          randomAdvancedItems: methods.randomAdvancedItems,
+          randomProbabilityItems: methods.randomProbabilityItems,
+        });
+        const rendered = {};
+        // F5 review: шесть «динамических» ключей не хардкодятся в rendered —
+        // берутся из ФАКТИЧЕСКОЙ разметки web/index.html. Удаление контрола
+        // (data-random-primary / data-cfg-key=...) сразу краснит тест.
+        const html = require('fs').readFileSync(
+          path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
+        const markerOf = {
+          'random.primary_provider': ['data-random-primary'],
+          'random.fallback_order': [
+            'data-cfg-key="random.fallback_order"'],
+          'random.fallback_enabled': [
+            'data-cfg-key="random.fallback_enabled"'],
+          'memory.random_source': [
+            'data-cfg-key="memory.random_source"'],
+          'memory.random_fallback_to_pseudorandom': [
+            'data-cfg-key="memory.random_fallback_to_pseudorandom"'],
+          'keys.random_quantum_api_key': [
+            ':tech-key="randomAnuKeyItem().key"',
+            "keyDrafts['keys.random_quantum_api_key']"],
+        };
+        Object.keys(markerOf).forEach(function (k) {
+          let present = false;
+          if (k === 'random.primary_provider') {
+            // Маркер — именно контрол, не префикс мутации
+            // `data-random-primary-removed`.
+            present = /data-random-primary(?![-\w])/.test(html);
+          } else {
+            present = markerOf[k].some(function (m) {
+              return html.indexOf(m) >= 0;
+            });
+          }
+          if (present) rendered[k] = true;
+        });
+        computed.randomUsesList.call(rctx).forEach(function (it) {
+          rendered[it.key] = true;
+        });
+        methods.randomAnuDetailItems.call(rctx).forEach(function (it) {
+          rendered[it.key] = true;
+        });
+        methods.randomAdvancedItems.call(rctx).forEach(function (it) {
+          rendered[it.key] = true;
+        });
+        methods.randomProbabilityItems.call(rctx).forEach(function (it) {
+          rendered[it.key] = true;
+        });
+        assert.deepStrictEqual(Object.keys(rendered).sort(), fx.page_keys,
+          'g: все ключи memory_random/keys_random отрендерены (без сирот)');
+        assert.strictEqual(rendered[fx.master], undefined,
+          'g: read-only master не рендерится как запись');
+        return;
+      }
       const cov = computed.workspaceCoverage.call(mkCoverageCtx(m));
       if (m.submoduleOf) {
         // Подмодуль: только свои группы (без чужих write-point'ов §6.3).

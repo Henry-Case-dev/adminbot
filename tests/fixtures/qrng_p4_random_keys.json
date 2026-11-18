@@ -1,0 +1,53 @@
+{
+  "groups": {
+    "memory_random": [
+      "memory.random_exploration_probability",
+      "memory.random_fallback_to_pseudorandom",
+      "memory.random_sleep_exploration_probability",
+      "memory.random_source",
+      "memory.random_uses_archive_sample",
+      "memory.random_uses_association_pair",
+      "memory.random_uses_belief_review",
+      "memory.random_uses_conversation_variant",
+      "memory.random_uses_memory_recall",
+      "memory.random_uses_ui_visualization",
+      "random.fallback_enabled",
+      "random.fallback_order",
+      "random.primary_provider"
+    ],
+    "keys_random": [
+      "keys.random_quantum_api_key",
+      "keys.random_quantum_batch_length",
+      "keys.random_quantum_buffer_max_values",
+      "keys.random_quantum_data_type",
+      "keys.random_quantum_endpoint",
+      "keys.random_quantum_plan",
+      "keys.random_quantum_refill_low_watermark",
+      "keys.random_quantum_request_timeout_seconds"
+    ]
+  },
+  "master": "memory.random_enabled",
+  "page_keys": [
+    "keys.random_quantum_api_key",
+    "keys.random_quantum_batch_length",
+    "keys.random_quantum_buffer_max_values",
+    "keys.random_quantum_data_type",
+    "keys.random_quantum_endpoint",
+    "keys.random_quantum_plan",
+    "keys.random_quantum_refill_low_watermark",
+    "keys.random_quantum_request_timeout_seconds",
+    "memory.random_exploration_probability",
+    "memory.random_fallback_to_pseudorandom",
+    "memory.random_sleep_exploration_probability",
+    "memory.random_source",
+    "memory.random_uses_archive_sample",
+    "memory.random_uses_association_pair",
+    "memory.random_uses_belief_review",
+    "memory.random_uses_conversation_variant",
+    "memory.random_uses_memory_recall",
+    "memory.random_uses_ui_visualization",
+    "random.fallback_enabled",
+    "random.fallback_order",
+    "random.primary_provider"
+  ]
+}

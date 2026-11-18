@@ -1,0 +1,117 @@
+{
+  "test": "tests/js/qrng_p4_random_ui_test.js",
+  "mutations": [
+    {
+      "id": "M1",
+      "what": "dummy-селектор: значение не уходит в POST /api/config",
+      "file": "web\\app.js",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: ровно один POST-батч",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M2",
+      "what": "Lizaonair возвращён в UI-бандл",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: Lizaonair отсутствует во всём UI/JS-бандле",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M3",
+      "what": "подсказка снова обещает зачисление draft-партии",
+      "file": "web\\app.js",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M4",
+      "what": "keys_random оставлен на вкладке LLM-провайдеров",
+      "file": "web\\app.js",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: keys_random НЕ остаётся на llm_providers (перенос)",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M5",
+      "what": "4-я опция селектора (дубль ANU) — UI расширяет контракт",
+      "file": "web\\app.js",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: ровно 3 опции селектора (real provider ids)",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M6",
+      "what": "«Время ответа и защита» снова первая группа моделей",
+      "file": "web\\app.js",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: таймауты — последняя расширенная группа",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M7",
+      "what": "fake green: PRNG-режим помечен badge-ok",
+      "file": "web\\app.js",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: PRNG-откат — предупреждение, не «работает»",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M8",
+      "what": "старая подсказка про зачисление возвращена рядом",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: старая подсказка про зачисление удалена",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M9",
+      "what": "fallback_order оставляет primary (серверный guard 422)",
+      "file": "web\\app.js",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: primary вычищается из fallback_order перед POST",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M10",
+      "what": "4-я карточка провайдера (дубль ANU)",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: ровно 3 карточки провайдеров",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M11",
+      "what": "F5: удалён контрол data-random-primary (маркер ключа)",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: g: все ключи memory_random/keys_random отрендерены (без сирот)",
+      "restored_sha_ok": true
+    },
+    {
+      "id": "M12",
+      "what": "F5: удалён data-cfg-key=memory.random_source",
+      "file": "web\\index.html",
+      "exit": 1,
+      "killed": true,
+      "first_assertion": "AssertionError [ERR_ASSERTION]: g: все ключи memory_random/keys_random отрендерены (без сирот)",
+      "restored_sha_ok": true
+    }
+  ],
+  "killed": 12,
+  "total": 12,
+  "all_restored": true,
+  "ok": true
+}

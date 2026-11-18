@@ -62,8 +62,10 @@ const APP_JS = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
     'условие `category === keys || secret` должно исчезнуть из index.html');
   assert(!/v-else-if="item\.category === 'keys'"/.test(INDEX),
     'не должно остаться веток рендера по категории целиком');
-  // Группа keys_random рендерится (зеркало TABS) и панель проверки жива.
-  assert(INDEX.includes("item.key === 'keys.random_quantum_api_key'"),
+  // Группа keys_random используется карточкой ANU на странице «Случайность»
+  // (QRNG P4: перенос с LLM-провайдеров), панель проверки жива.
+  assert(INDEX.includes("item.key === 'keys.random_quantum_api_key'") ||
+    INDEX.includes('randomAnuKeyItem()'),
     'guard панели «Проверить подключение» должен остаться');
   assert(INDEX.includes('data-random-check'), 'панель проверки на месте');
   assert(INDEX.includes('data-random-entry'),

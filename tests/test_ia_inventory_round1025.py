@@ -67,7 +67,7 @@ class TestCatalogFrozen:
         assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             BASELINE["counts"]["_TAB_BY_GROUP"] == 119
-        assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 22
+        assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 23
 
 
 class TestIaMapCoverage:

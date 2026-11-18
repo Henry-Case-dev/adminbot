@@ -88,18 +88,20 @@ function groupedCtx() {
     assert.deepStrictEqual(missing, [], 'a: нет блока вне групп');
     assert.deepStrictEqual(Object.keys(seen).sort(), connIds.slice().sort(),
       'a: объединение групп == все блоки-подключения');
-    // P0 SMART transport (2.58.206): видимая группа «Время ответа и защита»
-    // (llm_guard) + 6 тематических групп §49; technical — для остатка.
+    // QRNG P4 / LLM-01: модели/подключения первыми, «Время ответа и защита»
+    // (llm_guard) — ПОСЛЕДНЯЯ расширенная группа (порядок §9 поручения).
     const thematic = ctx.providerGrouped.filter(function (g) {
       return g.id !== 'technical';
     });
-    assert.strictEqual(thematic.length, 7, 'a: 7 групп витрины (политика + §49)');
+    assert.strictEqual(thematic.length, 7, 'a: 7 групп витрины (§49 + политика)');
     assert.deepStrictEqual(thematic.map(function (g) { return g.title; }),
-      ['Время ответа и защита', 'Генерация текста', 'Распознавание речи',
-       'Видео', 'Эмбеддинги', 'Фоновые задачи', 'Генерация изображений'],
-      'a: порядок/названия групп (политика первой)');
-    assert.deepStrictEqual(thematic[0].blocks.map(function (b) { return b.id; }),
-      ['llm_guard'], 'a: llm_guard — в видимой группе политики');
+      ['Генерация текста', 'Распознавание речи',
+       'Видео', 'Эмбеддинги', 'Фоновые задачи', 'Генерация изображений',
+       'Время ответа и защита'],
+      'a: порядок/названия групп (политика последней)');
+    assert.deepStrictEqual(
+      thematic[thematic.length - 1].blocks.map(function (b) { return b.id; }),
+      ['llm_guard'], 'a: llm_guard — в последней группе политики');
   }
 
   // ── (a2) P0 SMART: поля/подписи видимой группы политики ───────────────

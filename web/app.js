@@ -82,6 +82,77 @@
   var GLOBAL_SECRET_KEYS = ['keys.image_api_key'];
   function isGlobalSecretKey(k) { return GLOBAL_SECRET_KEYS.indexOf(k) >= 0; }
 
+  // ═══ QRNG P4 (17.11.2026, arch D4/§9): presentation трёх действующих
+  // провайдеров. Ровно три записи — IBM Quantum / ANU Quantum Numbers /
+  // LfDR QRNG. Селектор сохраняет РЕАЛЬНЫЙ provider id (ParamSpec P3), а не
+  // произвольную строку. Снятые владельцем источники в UI отсутствуют.
+  var QRNG_PROVIDERS = ['ibm_quantum', 'anu', 'lfdr'];
+  var QRNG_PROVIDER_LABELS = {
+    ibm_quantum: 'IBM Quantum',
+    anu: 'ANU Quantum Numbers',
+    lfdr: 'LfDR QRNG',
+  };
+  var QRNG_PROVIDER_TYPES = {
+    ibm_quantum: 'аппаратный QPU',
+    anu: 'квантовые числа',
+    lfdr: 'аппаратный QRNG',
+  };
+  var QRNG_PROVIDER_DOCS = {
+    ibm_quantum: 'https://quantum.cloud.ibm.com/docs/en/api/qiskit-runtime-rest',
+    anu: 'https://quantumnumbers.anu.edu.au/documentation',
+    lfdr: 'https://www.lfdr.de/QRNG/',
+  };
+  var QRNG_PROVIDER_STATE_RU = {
+    active: 'работает',
+    unverified: 'не проверен',
+    provider_unconfigured: 'не настроен',
+    unconfigured: 'не настроен',
+    disabled: 'выключен',
+    degraded: 'недоступен',
+    quota_exhausted: 'квота исчерпана',
+    unknown: 'нет данных',
+  };
+  var QRNG_DRAFT_HINT = 'Проверка черновым ключом расходует квоту провайдера; '
+    + 'значения не зачисляются в рабочий запас. Сохранённый ключ при '
+    + 'проверке активируется.';
+  function qrngProviderLabel(id) {
+    return QRNG_PROVIDER_LABELS[id] || (id || '—');
+  }
+
+  // ═══ QRNG P4: единый (и единственный) компонент одного технического поля
+  // каталога на странице «Случайность» (endpoint/timeout/watermark/buffer/
+  // plan/batch/type). Пишет ТЕМ ЖЕ saveConfigItem (POST /api/config); новых
+  // ключей/эндпоинтов нет. `data-cfg-key` совпадает с каталогом (тесты).
+  var QRNG_FIELD_TPL =
+    '<div class="text-sm font-semibold">{{ item.title }}</div>'
+    + '<tech-key :value="item.key" class="mb-1"></tech-key>'
+    + '<div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>'
+    + '<template v-if="item.widget === \'select\'">'
+    + '<select class="field" :data-cfg-key="item.key" :value="item.value"'
+    + ' :disabled="!canEdit" @change="$emit(\'save\', $event.target.value)">'
+    + '<option v-for="(o, i) in (item.select_options || [])" :key="o"'
+    + ' :value="o">{{ (item.select_labels && item.select_labels[i]) || o }}</option>'
+    + '</select>'
+    + '</template>'
+    + '<template v-else-if="item.type === \'bool\'">'
+    + '<label class="ctl-toggle relative inline-flex items-center cursor-pointer">'
+    + '<input type="checkbox" class="sr-only peer" :data-cfg-key="item.key"'
+    + ' :checked="!!item.value" :disabled="!canEdit"'
+    + ' @change="$emit(\'save\', $event.target.checked)">'
+    + '<span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>'
+    + '</label>'
+    + '</template>'
+    + '<template v-else-if="item.type === \'int\' || item.type === \'float\'">'
+    + '<input class="field" type="number" :data-cfg-key="item.key"'
+    + ' :value="item.value" :disabled="!canEdit"'
+    + ' @change="$emit(\'save\', $event.target.value)">'
+    + '</template>'
+    + '<template v-else>'
+    + '<input class="field" type="text" :data-cfg-key="item.key"'
+    + ' :value="item.value" :disabled="!canEdit"'
+    + ' @change="$emit(\'save\', $event.target.value)">'
+    + '</template>';
+
   // ═══ Вкладки (3.5.1; зеркало TAB_RULES/CONFIG_TAB_TITLES бэка) ═══
   // sources: [{category, groups|null|except:[...]}] — groups = белый список
   // групп категории, except = вся категория кроме перечисленного, null = вся.
@@ -97,10 +168,7 @@
             'models_extra_providers', 'models_video_summary'] },
         { category: 'keys', groups: [
             'keys_llm', 'keys_groq', 'keys_openrouter', 'keys_search',
-            'keys_media',
-            // Раунд 10.37 (MCA-10a, ADR-1028-14 D8): зеркало TAB_RULES —
-            // «Случайность: подключение ANU» на вкладке LLM Провайдеры.
-            'keys_random'] },
+            'keys_media'] },
       ] },
     { id: 'prompts', icon: 'description', label: 'Промпты', type: 'config', menu: 'ai',
       sources: [
@@ -196,9 +264,8 @@
       type: 'config', menu: 'modules',
       sources: [
         { category: 'memory', groups: ['memory_dream'] },
-        // Раунд 10.37 (MCA-10a, ADR-1028-14 D8, ТЗ §14.4): группа
-        // «Случайность» — на ТОЙ ЖЕ вкладке «Сон» (зеркало TAB_RULES).
-        { category: 'memory', groups: ['memory_random'] },
+        // QRNG P4 (17.11.2026): memory_random перенесена на отдельную
+        // config-вкладку mod_random (перенос, не копия).
       ] },
     { id: 'mod_nostalgia', icon: 'history', label: 'Ностальгия',
       type: 'config', menu: 'modules',
@@ -264,6 +331,19 @@
       sections: [
         { id: 'text-limits', title: 'Частота и лимиты',
           category: null, groups: ['limits_intent', 'limits_qnd'] },
+      ] },
+    // QRNG P4 (17.11.2026, arch D4/§9): отдельная config-вкладка «Случайность»
+    // (nav «Модули») — источники, применения, активность и технические поля.
+    // Источники — существующие группы memory_random (P3 selector/resolution) и
+    // keys_random (ANU-ключ). Перенос с mod_sleep/llm_providers, не копия;
+    // TAB_RULES 22→23 (прямое разрешение владельца §9). Кастомная страница
+    // (4 блока) рендерится в index.html, generic-сетка для неё отключена.
+    // Иконка — bolt из существующего PUA-сабсета (правки шрифтов нет).
+    { id: 'mod_random', icon: 'bolt', label: 'Случайность',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'memory', groups: ['memory_random'] },
+        { category: 'keys', groups: ['keys_random'] },
       ] },
     // UR-F (UR-29.1/UR-24.2): «Модули → Время» — ЕДИНСТВЕННАЯ поверхность
     // пояса чата (limits.chat_timezone скрыт из общего каталога): полный
@@ -366,6 +446,9 @@
     'mod_vision',
     // ASAP 7 F3 (§3.2): +mod_initiative (23-я config-вкладка; зеркало TAB_RULES).
     'mod_initiative',
+    // QRNG P4 (17.11.2026): +mod_random (24-я запись списка; 23-я config-
+    // вкладка TAB_RULES — mod_time не каталоговая).
+    'mod_random',
     'llm_providers', 'prompts',
     'memory_rag', 'people_names', 'relations', 'chat_lore',
     'permsoc',
@@ -436,6 +519,9 @@
     mod_vision: 'visibility',
     // ASAP 7 F3 (§3.2): bolt — из сабсета (инициатива/импульс).
     mod_initiative: 'bolt',
+    // QRNG P4 (17.11.2026): «Случайность» — bolt (та же PUA-иконка из
+    // сабсета; «casino» в шрифтовом субсете нет — правки шрифтов запрещены).
+    mod_random: 'bolt',
     // UR-F (UR-29.1): «Модули → Время» — history (часы) из сабсета.
     mod_time: 'history',
     memory_rag: 'memory', people_names: 'badge',
@@ -741,8 +827,9 @@
     // rows > 0`, «Обзор» несёт «Сейчас» + события (H-2/H-6).
     mod_experience: ['overview', 'settings', 'history'],
     // MOD-ACL-UX-01 M4A W2b-B3 (2.58.214): «Источник случайности» —
-    // прогоны `random.uses` (тот же oversight-API); подмодуль «Памяти»
-    // (`config_tab` = mod_sleep) получает СВОЮ страницу с историей.
+    // прогоны `random.uses` (тот же oversight-API); QRNG P4 (2.58.217)
+    // перенёс config-вкладку модуля на отдельную страницу `mod_random`
+    // («Обзор»/«Основные настройки»/B3-«История»).
     mod_random: ['overview', 'settings', 'history'],
     mod_budgets: ['overview', 'settings', 'limits'],
     mod_images: ['overview', 'settings', 'limits', 'models', 'testing'],
@@ -1130,11 +1217,10 @@
   // Группировка — ВИТРИНА (Δ каталога = 0): каждый блок-подключение
   // (`providerConnectionBlocks`) принадлежит ровно одной группе; advanced
   // блоки (`search_keys`/`media_share`) остаются «техническими».
-  // P0 SMART transport (2.58.206): «Время ответа и защита» (llm_guard) —
-  // ВИДИМАЯ первая группа: таймаут/предел попытки — общая политика бота,
-  // а не расширенная техническая настройка.
+  // QRNG P4 / LLM-01 (§9 поручения, 17.11.2026): порядок — модели/подключения
+  // первыми; «Время ответа и защита» (llm_guard) — ПОСЛЕДНЯЯ расширенная
+  // группа. Поля/значения/транспорт не меняются (180/360 сохранены).
   var PROVIDER_GROUPS = [
-    { id: 'prov_policy', title: 'Время ответа и защита', blocks: ['llm_guard'] },
     { id: 'prov_text', title: 'Генерация текста', blocks: ['direct'] },
     { id: 'prov_stt', title: 'Распознавание речи', blocks: ['transcription'] },
     { id: 'prov_video', title: 'Видео', blocks: ['video_summary'] },
@@ -1143,6 +1229,7 @@
       blocks: ['intel_history', 'intel_background', 'intel_reflection'] },
     { id: 'prov_images', title: 'Генерация изображений',
       blocks: ['image_generation'] },
+    { id: 'prov_policy', title: 'Время ответа и защита', blocks: ['llm_guard'] },
   ];
   // Модуль → блоки-подключения для его вкладки «Модели» (§46/§49).
   var MODULE_MODEL_BLOCKS = {
@@ -1153,6 +1240,9 @@
     // MCA-19 (10.43): блок подключения vision-модели на вкладке «Модели».
     mod_vision: ['vision'],
     mod_sleep: [], mod_nostalgia: [], mod_budgets: [], mod_media_download: [],
+    // QRNG P4 (17.11.2026): у «Случайности» нет моделей-подключений LLM —
+    // generic-вкладка «Модели» не рендерится (и не дублирует источники).
+    mod_random: [],
   };
 
   // F6 round1025 (ADR-1025-19 D6 §52–§56): 5 подгрупп витрины «Память →
@@ -1901,6 +1991,9 @@
     // маршрут (симметрично images/budgets); при OFF kill-switch `applyRoute`
     // откатывает на витрину `#/modules` (тот же механизм).
     '#/modules/vision': 'mod_vision',
+    // QRNG P4 (17.11.2026, arch D4/§9): «Модули → Случайность» — канонический
+    // маршрут config-вкладки (workspace-страница модуля random).
+    '#/modules/random': 'mod_random',
     // UR-F (UR-29.1): «Модули → Время» — канонический маршрут.
     '#/modules/time': 'mod_time',
     '#/permsoc': 'permsoc',
@@ -1944,6 +2037,8 @@
     mod_budgets: '#/modules/budgets',
     mod_images: '#/modules/images',
     mod_vision: '#/modules/vision',
+    // QRNG P4 (17.11.2026): «Случайность» — тот же workspace-маршрут модуля.
+    mod_random: '#/modules/random',
     // UR-F (UR-29.1): «Время» — свой маршрут в разделе «Модули».
     mod_time: '#/modules/time',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
@@ -1990,6 +2085,7 @@
     '#/access/admins': '#/access',
     '#/modules/budgets': '#/modules',
     '#/modules/images': '#/modules',
+    '#/modules/random': '#/modules',
   };
 
   // ═══ F5 (ADR-1025-15 D1/D6): динамический резолвер workspace-маршрутов ═══
@@ -8576,6 +8672,10 @@
       currentTabGroups: function () {
         var t = this.currentTab;
         if (!t || t.type !== 'config') return [];
+        // QRNG P4 (17.11.2026): «Случайность» — КАСТОМНАЯ страница из 4
+        // блоков (A–D) в index.html; generic-сетка не рендерится (иначе
+        // селектор/применения дублировались бы рядом с блоками).
+        if (t.id === 'mod_random') return [];
         // F5 (§46): на странице модуля generic-группы фильтруются вкладкой.
         if (this.workspaceModule) {
           var m = this.workspaceModule;
@@ -11822,6 +11922,91 @@
       randomSleepView: function () {
         return this._randomSourceView(this.randomSleepState);
       },
+      // QRNG P4 (17.11.2026, arch D4): «Применения» — существующие
+      // memory.random_uses_* (без второго механизма использования).
+      randomUsesList: function () {
+        return (this.configItems || []).filter(function (it) {
+          return it && String(it.key || '').indexOf('memory.random_uses_') === 0;
+        });
+      },
+      // QRNG P4: ровно три действующих провайдера (id/подпись/тип).
+      randomPrimaryOptions: function () {
+        return QRNG_PROVIDERS.map(function (id) {
+          return { id: id, label: QRNG_PROVIDER_LABELS[id],
+                   type: QRNG_PROVIDER_TYPES[id] };
+        });
+      },
+      // QRNG P4: агрегированная «Активность» из /api/status.random. Никаких
+      // подстановок: нет данных — ready=false (не зелёный статус).
+      randomActivityView: function () {
+        var v = this.randomSource;
+        if (!v || !v.ready) {
+          return { ready: false, enabled: false, quantum: false,
+                   stateLabel: 'нет данных', stateCls: 'badge-muted',
+                   effectiveLabel: '—', primaryLabel: '—',
+                   primaryRaw: '', primaryState: '', reserveText: '—',
+                   effectiveProvider: null, entropyClass: null,
+                   providers: [], lastBatch: null, draws: null,
+                   fallbackReason: null, fallbackAt: null,
+                   fallbackReasonLabel: null,
+                   fallbackEnabled: null,
+                   prngActive: false, prngSetting: null,
+                   reserveQuarantined: 0 };
+        }
+        var eff = v.effectiveProvider
+          ? qrngProviderLabel(v.effectiveProvider) : 'нет доступного';
+        var prim = v.primaryProvider
+          ? qrngProviderLabel(v.primaryProvider) : '—';
+        var stateCls = 'badge-muted';
+        var stateLabel = 'нет данных';
+        if (!v.enabled) {
+          stateCls = 'badge-muted';
+          stateLabel = 'выключено';
+        } else if (v.quantum && v.effectiveProvider) {
+          stateCls = 'badge-ok';
+          stateLabel = 'квантовый источник: ' + qrngProviderLabel(
+            v.effectiveProvider);
+        } else if (v.prngActive) {
+          stateCls = 'badge-warn';
+          stateLabel = 'псевдослучайный откат (не квантовый)';
+        } else if (v.ready) {
+          stateCls = 'badge-warn';
+          stateLabel = 'нет доступного квантового источника';
+        }
+        return {
+          ready: true,
+          enabled: !!v.enabled,
+          quantum: !!v.quantum,
+          effective: v.effective || null,
+          effectiveProvider: v.effectiveProvider || null,
+          effectiveLabel: eff,
+          primaryProvider: v.primaryProvider || null,
+          primaryLabel: prim,
+          primaryRaw: v.primaryRaw || '',
+          primaryState: v.primaryState || '',
+          resolvedPrimary: v.resolvedPrimary || null,
+          fallbackOrderState: v.fallbackOrderState || '',
+          fallbackReason: v.fallbackReason || null,
+          fallbackReasonLabel: v.blockerLabel || v.fallbackReason || null,
+          fallbackAt: v.lastFallbackAt || null,
+          fallbackEnabled: (v.fallbackEnabled === undefined)
+            ? null : v.fallbackEnabled,
+          prngActive: !!v.prngActive,
+          prngSetting: v.prngSetting,
+          entropyClass: v.entropyClass || null,
+          reserve: v.reserve,
+          reserveText: (v.reserve == null) ? '—' : String(v.reserve),
+          bufferMax: v.bufferMax,
+          reserveQuarantined: v.reserveQuarantined || 0,
+          providers: Array.isArray(v.providersList) ? v.providersList : [],
+          providerReserve: v.providerReserve || {},
+          providerQuarantined: v.providerQuarantined || {},
+          lastBatch: v.lastBatch || null,
+          draws: v.draws || null,
+          stateCls: stateCls,
+          stateLabel: stateLabel,
+        };
+      },
       // QND-NONDET §5 (2026-11-10): «Квантовая недетерминистика» — read-only
       // проекция аддитивного /api/status.quantum. Честность: при отсутствии
       // квантовых значений слово «работает» не появляется вовсе
@@ -12620,8 +12805,7 @@
       // Значения, изменённые относительно baseline (configSnapshot), для
       // которых есть право записи. Секреты — отдельно (dirtyKeyItems).
       // P0 round1028: гейт только it.secret (spec.secret). Не-секретные
-      // параметры категории keys (keys_random: endpoint/plan/batch/…) —
-      // обычные dirty-поля → POST /api/config.
+      // параметры категории keys — обычные dirty-поля → POST /api/config.
       dirtyItems: function () {
         var self = this;
         var snap = this.configSnapshot || {};
@@ -15202,7 +15386,12 @@
                  hours: q.hours || null };
       },
       _randomSourceView: function (r) {
-        if (!r) return { ready: false, enabled: false, quantum: false };
+        if (!r) return { ready: false, enabled: false, quantum: false,
+                         providersList: [], providerReserve: {},
+                         providerQuarantined: {}, effectiveProvider: null,
+                         primaryProvider: null, primaryRaw: '',
+                         primaryState: '', resolvedPrimary: null,
+                         entropyClass: null, prngActive: false };
         if (!r.enabled) {
           return { ready: true, enabled: false, available: false,
                    quantum: false, keyPresent: false, effective: null,
@@ -15210,7 +15399,13 @@
                    stateLabel: 'выключено', blockerLabel: null,
                    reserve: null, bufferMax: null, watermark: null,
                    lastBatch: null, draws: null, lastFallback: null,
-                   lastFallbackAt: null, plan: null, recent: [], scope: '' };
+                   lastFallbackAt: null, plan: null, recent: [], scope: '',
+                   providersList: [], providerReserve: {},
+                   providerQuarantined: {}, effectiveProvider: null,
+                   primaryProvider: null, primaryRaw: '', primaryState: '',
+                   resolvedPrimary: null, entropyClass: null,
+                   prngActive: false, prngSetting: null,
+                   fallbackReason: null, reserveQuarantined: 0 };
         }
         var stateRu = {
           active: 'ANU активен (квантовые числа)',
@@ -15238,6 +15433,10 @@
         };
         var quantum = !!r.quantum_active;
         var blocker = r.blocker || null;
+        var providers = Array.isArray(r.providers) ? r.providers : [];
+        var primaryRaw = String(r.primary_setting_raw || '');
+        var primaryState = String(r.primary_setting_state || '');
+        var effectiveProvider = r.effective_provider || null;
         return {
           ready: true,
           enabled: true,
@@ -15262,6 +15461,33 @@
           plan: r.plan || null,
           recent: r.recent_draws || [],
           scope: r.recent_draws_scope || '',
+          // QRNG P3/P4 (arch D4/D5/D6): селектор и фактический выбор —
+          // ТОЛЬКО из runtime diagnostics (/api/status), не из положения
+          // контрола. PRNG-режим явный (`prngActive`/`prngSetting`).
+          primaryProvider: r.primary_provider || null,
+          primaryRaw: primaryRaw,
+          primaryState: primaryState,
+          resolvedPrimary: r.resolved_primary || null,
+          effectiveProvider: effectiveProvider,
+          fallbackEnabled: (r.fallback_enabled === undefined)
+            ? null : !!r.fallback_enabled,
+          fallbackOrder: Array.isArray(r.fallback_order)
+            ? r.fallback_order.slice() : [],
+          fallbackOrderRaw: r.fallback_order_raw,
+          fallbackOrderState: r.fallback_order_state || '',
+          effectiveOrder: Array.isArray(r.effective_order)
+            ? r.effective_order.slice() : [],
+          entropyClass: quantum ? (r.entropy_class || null) : null,
+          prngActive: !!r.prng_active,
+          prngSetting: (r.prng_setting === undefined)
+            ? null : !!r.prng_setting,
+          fallbackSetting: (r.fallback_setting === undefined)
+            ? null : !!r.fallback_setting,
+          providersList: providers,
+          providerReserve: r.provider_reserve || {},
+          providerQuarantined: r.provider_quarantined || {},
+          reserveQuarantined: r.reserve_quarantined || 0,
+          fallbackReason: r.fallback_reason || null,
         };
       },
       // F3 (10.24, ADR-1024-13): UI-флаг из `GET /api/me.ui_flags`.
@@ -23620,7 +23846,7 @@
           chat: 'настройка чата', global: 'общая настройка',
           default: 'заводское значение',
         }[st.source] || 'источник неизвестен';
-        return [
+        var chips = [
           { id: 'desired', icon: st.desired ? 'toggle_on' : 'toggle_off',
             label: 'Настройка', text: st.desired ? 'Включено' : 'Выключено',
             cls: st.desired ? 'badge-ok' : 'badge-muted' },
@@ -23639,6 +23865,36 @@
           { id: 'source', icon: 'source', label: 'Источник', text: sourceText,
             cls: 'badge-muted' },
         ];
+        // QRNG P4 (архитектурная карта Visual Preservation Map + §5.2):
+        // три честных чипа из runtime diagnostics. «Основной (настройка)» —
+        // сохранённый выбор, «Сейчас используется» — фактический источник;
+        // зелёный ТОЛЬКО при подтверждённом квантовом effective.
+        if (m && m.id === 'mod_random') {
+          var act = this.randomActivityView || null;
+          var primaryText = act && act.primaryLabel
+            ? act.primaryLabel : 'нет данных';
+          if (act && act.primaryState === 'requires_resolution') {
+            primaryText += ' · требует разрешения';
+          }
+          chips.push({
+            id: 'random_primary', icon: 'key',
+            label: 'Основной (настройка)', text: primaryText,
+            cls: 'badge-muted',
+          });
+          chips.push({
+            id: 'random_effective', icon: 'bolt',
+            label: 'Сейчас используется',
+            text: act && act.effectiveLabel ? act.effectiveLabel : 'нет данных',
+            cls: act && act.quantum ? 'badge-ok' : 'badge-warn',
+          });
+          chips.push({
+            id: 'random_reserve', icon: 'trending_up',
+            label: 'Квантовый запас',
+            text: act && act.reserveText ? act.reserveText : '—',
+            cls: 'badge-muted',
+          });
+        }
+        return chips;
       },
       // D6: одна явная подпись исключения GLOBAL↔CHAT (design §5.3).
       moduleEffectiveBadge: function (m) {
@@ -26083,6 +26339,9 @@
       workspaceTabHasContent: function (m, tabId) {
         if (!m) return false;
         if (!_workspaceTabApplicable(m, tabId)) return false;
+        // QRNG P4 (17.11.2026): «Основные настройки» — собственные 4 блока
+        // (кастомный рендер, не generic-группы); вкладка существует всегда.
+        if (m.id === 'mod_random' && tabId === 'settings') return true;
         // P1 «Инициатива»: все пять вкладок — собственные секции страницы
         // (состояние двух механизмов, параметры текста, мем-конвейер, журнал
         // попыток, трасса одной попытки). Пустых вкладок нет.
@@ -27692,7 +27951,7 @@
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         if (!it) return '';
         // P0 round1028: секретность — только по флагу секрета (spec.secret);
-        // не-секретные параметры keys_random показывают сохранённое значение.
+        // не-секретные keys-параметры показывают сохранённое значение.
         var isSecret = !!(f.secret || it.secret);
         if (isSecret) return '';
         if (it.value && typeof it.value === 'object') return '';
@@ -27768,8 +28027,8 @@
         var it = this.configItems.find(function (i) { return i.key === f.key; });
         // F9 (ADR-1025-22 D1): секрет-поле — всегда пустое; подсказка говорит,
         // что делать (заменить), а не показывает маску как значение.
-        // P0 round1028: гейт без категории keys — не-секретные параметры
-        // keys_random получают обычную подсказку f.label.
+        // P0 round1028: гейт без категории keys — не-секретные keys-параметры
+        // получают обычную подсказку f.label.
         if (it && (f.secret || it.secret)) {
           var configured = !!(it.value && typeof it.value === 'object'
                               && it.value.configured);
@@ -28443,6 +28702,14 @@
         if (id === 'mod_video_summary' && this.isGlobalAdmin
             && !this.ytProxyHealth && !this.ytProxyHealthBusy) {
           this.loadYoutubeProxyHealth();
+        }
+        // QRNG P4 (17.11.2026): блок «Активность» читает существующий
+        // /api/status (новых endpoint'ов нет). Один запрос при входе в
+        // глобальном scope; раскрытие карточек сети НЕ делает.
+        if ((id === 'mod_random' || (this.workspaceModule
+              && this.workspaceModule.id === 'mod_random'))
+            && this.isGlobalAdmin && !this.statusData) {
+          this.loadStatus();
         }
         // P0 Vision (D12/P0V-UI-DISPLAY): «LLM Провайдеры» — факты
         // фактического подключения Vision (GET /api/vision/state, fail-open,
@@ -30425,6 +30692,309 @@
         };
         return { cls: 'badge-err',
                  label: map[c.blocker] || c.blocker || 'ошибка проверки' };
+      },
+      // ═══ QRNG P4 (17.11.2026, arch D4/§9): «Модули → Случайность» ══════
+      // Страница из 4 блоков A–D. Все записи — ТЕ ЖЕ ParamSpec/API:
+      // selector/order/fallback_enabled — P3-параметры (global_only), ключ/
+      // технические поля — существующая keys_random, применения —
+      // memory.random_uses_*. Новых ключей/эндпоинтов/второго механизма нет.
+      // Сеть: один /api/status при входе (существующий loadStatus); раскрытие
+      // карточек и details НЕ делает запросов.
+      randomCfg: function (key) {
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === key) return items[i];
+        }
+        return null;
+      },
+      randomPrimaryValue: function () {
+        var it = this.randomCfg('random.primary_provider');
+        var raw = it && it.value != null ? String(it.value) : '';
+        if (raw && QRNG_PROVIDERS.indexOf(raw) >= 0) return raw;
+        var act = this.randomActivityView;
+        return (act && act.primaryProvider) || 'ibm_quantum';
+      },
+      randomFallbackEnabledItem: function () {
+        return this.randomCfg('random.fallback_enabled');
+      },
+      randomFallbackOn: function () {
+        var it = this.randomFallbackEnabledItem();
+        if (it) return !!it.value;
+        var act = this.randomActivityView;
+        return !!(act && act.fallbackEnabled);
+      },
+      randomFallbackOrderItem: function () {
+        return this.randomCfg('random.fallback_order');
+      },
+      randomFallbackValue: function () {
+        var it = this.randomFallbackOrderItem();
+        var raw = it ? it.value : null;
+        if (typeof raw === 'string') {
+          try { raw = JSON.parse(raw); } catch (e) { raw = []; }
+        }
+        var out = [];
+        (Array.isArray(raw) ? raw : []).forEach(function (id) {
+          if (QRNG_PROVIDERS.indexOf(id) >= 0 && out.indexOf(id) < 0) {
+            out.push(id);
+          }
+        });
+        return out;
+      },
+      // Упорядоченный список: сначала включённые в резерв (в сохранённом
+      // порядке), затем исключённые — в каноническом порядке провайдеров.
+      // Основной источник в резерв не входит (сервер это же проверяет, 422).
+      randomFallbackRows: function () {
+        var primary = this.randomPrimaryValue();
+        var included = this.randomFallbackValue().filter(function (id) {
+          return id !== primary;
+        });
+        var rows = included.map(function (id, idx) {
+          return { id: id, enabled: true, index: idx,
+                   canUp: idx > 0, canDown: idx < included.length - 1 };
+        });
+        QRNG_PROVIDERS.forEach(function (id) {
+          if (id === primary || included.indexOf(id) >= 0) return;
+          rows.push({ id: id, enabled: false, index: rows.length,
+                      canUp: false, canDown: false });
+        });
+        return rows.map(function (row) {
+          return Object.assign({}, row, {
+            label: QRNG_PROVIDER_LABELS[row.id],
+            type: QRNG_PROVIDER_TYPES[row.id],
+          });
+        });
+      },
+      // Единый write-path страницы (POST /api/config через persistItems).
+      qrngPersist: async function (items) {
+        if (typeof this.persistItems !== 'function') return null;
+        var res = await this.persistItems(items.map(function (it) {
+          return { key: it.key, value: it.value, per_chat: it.per_chat };
+        }));
+        if (res && (res.saved || []).length) {
+          if (typeof this.loadConfig === 'function') await this.loadConfig();
+          if (typeof this.loadStatus === 'function') await this.loadStatus();
+        }
+        return res;
+      },
+      // Настоящий селектор: сохраняет РЕАЛЬНЫЙ provider id (не текст). Если
+      // выбранный id был в fallback-порядке — порядок чистится ТЕМ ЖЕ
+      // атомарным POST (серверный guard: primary ∉ fallback_order).
+      saveRandomPrimary: async function (id) {
+        if (!this.isGlobalAdmin) {
+          this.toast('Выбор источника — только глобальный администратор', 'warn');
+          return false;
+        }
+        if (QRNG_PROVIDERS.indexOf(id) < 0) return false;
+        var item = this.randomCfg('random.primary_provider');
+        if (!item) return false;
+        var oldOrder = this.randomFallbackValue();
+        var items = [{ key: item.key, value: id, per_chat: item.per_chat }];
+        var orderItem = this.randomFallbackOrderItem();
+        if (orderItem && oldOrder.indexOf(id) >= 0) {
+          items.push({ key: orderItem.key, per_chat: orderItem.per_chat,
+                       value: oldOrder.filter(function (p) { return p !== id; }) });
+        }
+        var res = await this.qrngPersist(items);
+        var ok = !!(res && (res.saved || []).indexOf(item.key) >= 0);
+        if (ok) this.toast('Основной источник: ' + qrngProviderLabel(id), 'ok');
+        return ok;
+      },
+      saveRandomFallbackOrder: async function (order) {
+        if (!this.isGlobalAdmin) return false;
+        var item = this.randomFallbackOrderItem();
+        if (!item) return false;
+        var primary = this.randomPrimaryValue();
+        var clean = (order || []).filter(function (id) {
+          return QRNG_PROVIDERS.indexOf(id) >= 0 && id !== primary;
+        });
+        var res = await this.qrngPersist([{ key: item.key, value: clean,
+                                            per_chat: item.per_chat }]);
+        return !!(res && (res.saved || []).indexOf(item.key) >= 0);
+      },
+      setRandomFallbackIncluded: async function (id, enabled) {
+        if (QRNG_PROVIDERS.indexOf(id) < 0) return false;
+        if (id === this.randomPrimaryValue()) return false;   // основной ≠ резерв
+        var order = this.randomFallbackValue().filter(function (p) {
+          return p !== id;
+        });
+        if (enabled) order.push(id);
+        return await this.saveRandomFallbackOrder(order);
+      },
+      moveRandomFallback: async function (id, delta) {
+        var primary = this.randomPrimaryValue();
+        var included = this.randomFallbackValue().filter(function (p) {
+          return p !== primary;
+        });
+        var idx = included.indexOf(id);
+        if (idx < 0) return false;
+        var target = idx + (delta > 0 ? 1 : -1);
+        if (target < 0 || target >= included.length) return false;
+        var moved = included.slice();
+        moved.splice(idx, 1);
+        moved.splice(target, 0, id);
+        return await this.saveRandomFallbackOrder(moved);
+      },
+      toggleRandomFallback: async function (enabled) {
+        if (!this.isGlobalAdmin) return false;
+        var item = this.randomFallbackEnabledItem();
+        if (!item) return false;
+        item.value = !!enabled;
+        return await this.saveConfigItem(item);
+      },
+      // Сохранение одного технического поля (endpoint/plan/batch/type/
+      // timeout/watermark/buffer). Типы — из каталога; мусор не уходит.
+      saveRandomField: async function (item, raw) {
+        if (!item) return false;
+        if (item.type === 'int' || item.type === 'float') {
+          var num = Number(raw);
+          if (!isFinite(num)) {
+            this.toast('Некорректное значение для ' + item.key, 'err');
+            return false;
+          }
+          item.value = item.type === 'int' ? parseInt(num, 10) : num;
+        } else {
+          item.value = raw;
+        }
+        return await this.saveConfigItem(item);
+      },
+      randomProviderEntry: function (id) {
+        var act = this.randomActivityView;
+        var list = (act && act.providers) || [];
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].id === id) return list[i];
+        }
+        return null;
+      },
+      randomProviderCard: function (id) {
+        var entry = this.randomProviderEntry(id);
+        var state = entry && entry.state ? String(entry.state) : '';
+        var configured = !!(entry && entry.configured);
+        var stateText;
+        if (id === 'ibm_quantum') {
+          // P5 ещё не реализован: честное «не подключён», без полей/зелени.
+          stateText = 'не подключён — ожидает доступов IBM Cloud (этап P5)';
+        } else if (id === 'anu') {
+          stateText = configured
+            ? ('ключ сохранён · '
+               + (QRNG_PROVIDER_STATE_RU[state] || state || 'не проверен'))
+            : 'ключ не настроен';
+        } else {
+          stateText = 'ключ не требуется · '
+            + (QRNG_PROVIDER_STATE_RU[state] || state || 'не проверено');
+        }
+        var lastCheck = 'не проверялось';
+        if (id === 'anu') {
+          var chk = this.randomCheck;
+          if (chk && chk.checked_at) lastCheck = this.fmtTs(chk.checked_at);
+        } else if (entry && entry.last_success_at) {
+          lastCheck = this.fmtTs(entry.last_success_at);
+        }
+        return {
+          id: id,
+          label: QRNG_PROVIDER_LABELS[id],
+          type: QRNG_PROVIDER_TYPES[id],
+          docs: QRNG_PROVIDER_DOCS[id],
+          state: state,
+          stateText: stateText,
+          configured: configured,
+          consumable: !!(entry && entry.consumable),
+          quarantined: entry ? (entry.quarantined || 0) : 0,
+          reserve: entry ? (entry.reserve || 0) : 0,
+          lastCheck: lastCheck,
+          canCheck: id === 'anu' && this.isGlobalAdmin,
+          checkReason: id === 'lfdr'
+            ? 'Проверка LfDR появится вместе с отдельным backend-маршрутом '
+              + '(сейчас доступно состояние из /api/status)'
+            : '',
+        };
+      },
+      randomAnuKeyItem: function () {
+        return this.randomCfg('keys.random_quantum_api_key');
+      },
+      randomProviderLabel: function (id) {
+        return qrngProviderLabel(id);
+      },
+      randomDraftHint: function () { return QRNG_DRAFT_HINT; },
+      randomResolvedLabel: function () {
+        var act = this.randomActivityView;
+        if (!act) return '—';
+        if (act.resolvedPrimary) return qrngProviderLabel(act.resolvedPrimary);
+        if (act.effectiveProvider) return qrngProviderLabel(act.effectiveProvider);
+        return 'нет доступного';
+      },
+      // D6/§4.4: режим «квантовый | псевдослучайный» — существующий ключ
+      // memory.random_source; select только presentation (write-path тот же).
+      randomPrngModeItem: function () {
+        return this.randomCfg('memory.random_source');
+      },
+      randomPrngMode: function () {
+        var it = this.randomPrngModeItem();
+        var v = it && it.value != null ? String(it.value) : 'quantum';
+        return (v === 'pseudorandom') ? 'pseudorandom' : 'quantum';
+      },
+      setRandomPrngMode: async function (mode) {
+        var item = this.randomPrngModeItem();
+        if (!item) return false;
+        item.value = (mode === 'pseudorandom') ? 'pseudorandom' : 'quantum';
+        return await this.saveConfigItem(item);
+      },
+      randomPrngFallbackItem: function () {
+        return this.randomCfg('memory.random_fallback_to_pseudorandom');
+      },
+      randomProbabilityItems: function () {
+        var keys = ['memory.random_exploration_probability',
+                    'memory.random_sleep_exploration_probability'];
+        var self = this;
+        return keys.map(function (k) { return self.randomCfg(k); })
+          .filter(Boolean);
+      },
+      randomAnuDetailItems: function () {
+        var keys = ['keys.random_quantum_plan',
+                    'keys.random_quantum_batch_length',
+                    'keys.random_quantum_data_type'];
+        var self = this;
+        return keys.map(function (k) { return self.randomCfg(k); })
+          .filter(Boolean);
+      },
+      randomAdvancedItems: function () {
+        var keys = ['keys.random_quantum_endpoint',
+                    'keys.random_quantum_request_timeout_seconds',
+                    'keys.random_quantum_refill_low_watermark',
+                    'keys.random_quantum_buffer_max_values'];
+        var self = this;
+        return keys.map(function (k) { return self.randomCfg(k); })
+          .filter(Boolean);
+      },
+      randomActivityRows: function () {
+        var act = this.randomActivityView;
+        return (act.providers || []).filter(function (p) {
+          return p && QRNG_PROVIDERS.indexOf(p.id) >= 0;
+        }).map(function (p) {
+          return {
+            id: p.id,
+            label: qrngProviderLabel(p.id),
+            type: QRNG_PROVIDER_TYPES[p.id] || '',
+            configured: !!p.configured,
+            state: QRNG_PROVIDER_STATE_RU[p.state] || p.state || 'нет данных',
+            reserve: p.reserve || 0,
+            consumable: !!p.consumable,
+            quarantined: p.quarantined || 0,
+            configMatches: p.config_matches !== false,
+          };
+        });
+      },
+      randomLastBatchLabel: function () {
+        var act = this.randomActivityView;
+        var lb = act.lastBatch;
+        if (!lb) return 'ещё не было';
+        var parts = [];
+        if (lb.length != null) parts.push(lb.length + ' значений');
+        parts.push(qrngProviderLabel(lb.provider_id || lb.provider));
+        if (lb.created_at) parts.push(this.fmtTs(lb.created_at));
+        if (lb.config_matches === false) {
+          parts.push('не расходуется (другая конфигурация)');
+        }
+        return parts.join(' · ');
       },
       // Раунд 10.41 (MCA-10b, D11/T-5060): воспроизведение записанного
       // события применений (A35/THR-12): НИКАКИХ новых QRNG/LLM-запросов —
@@ -43499,6 +44069,40 @@
       },
     },
     template: '#secret-field-tpl',
+  });
+
+  // ═══ QRNG P4 (17.11.2026, arch D4/§9): одно техническое поле страницы
+  // «Случайность» (endpoint/plan/batch/type/timeout/watermark/buffer). НЕ
+  // второй механизм настроек: значение уходит через saveConfigItem (тот же
+  // POST /api/config), ключ/заголовок — из существующего ParamSpec.
+  // `data-cfg-key` = каталоговый ключ (проверяется e2e/скриншотами).
+  app.component('qrng-field', {
+    name: 'qrng-field',
+    props: {
+      item: { type: Object, required: true },
+      canEdit: { type: Boolean, default: false },
+    },
+    template: QRNG_FIELD_TPL,
+  });
+
+  // QRNG P4 (F1 review): единственная карточка-вход «Случайность и
+  // источники» для workspace-страницы «Сна» и legacy-модалки. Не вторая
+  // копия разметки — один компонент (шаблон #random-entry-card-tpl).
+  app.component('random-entry-card', {
+    name: 'random-entry-card',
+    inject: ['root'],
+    props: {
+      view: { type: Object, default: null },
+    },
+    methods: {
+      iconGlyph: function (name) {
+        if (this.root && typeof this.root.iconGlyph === 'function') {
+          return this.root.iconGlyph(name);
+        }
+        return '';
+      },
+    },
+    template: '#random-entry-card-tpl',
   });
 
   // ═══ D07 (v6 §9B.2/§9B.3): global-view avatar stack + popover ═════════════

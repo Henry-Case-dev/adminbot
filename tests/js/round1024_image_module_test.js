@@ -138,15 +138,18 @@ data.tabs.filter((t) => t.id !== 'mod_images').forEach((t) => {
     'CFG-02A: один дом — limits_images живёт только на mod_images (' + t.id + ')');
 });
 
-// 4) Всего вкладок 28, без дублей.
+// 4) Всего вкладок 29, без дублей.
 //    ASAP 7 F3: +mod_initiative (было 28 после Этапа F3);
 //    EVOL-031 (`28d55bd1`, released): вкладка `smart_cache` удалена вместе с
 //    Exact Match Cache / direct_dedup (TAB_RULES 23→22), маршрут
 //    `#/ai/smart-cache` алиасится на «ИИ» → 28−1 = 27.
 //    UR-F (UR-29.1/UR-24.2): +mod_time («Модули → Время», type timeEditor,
-//    вне TAB_RULES — нет каталоговых групп) → 27→28. Точный пин: любая
-//    новая/пропавшая вкладка снова покраснеет.
-assert.strictEqual(data.tabs.length, 28, 'F5: вкладок 28 (+mod_time по UR-F)');
+//    вне TAB_RULES — у вкладки нет каталоговых групп) → 27→28.
+//    QRNG P4 (17.11.2026): +mod_random («Модули → Случайность»; TAB_RULES
+//    22→23) → 28→29. Точный пин: любая новая/пропавшая вкладка снова
+//    покраснеет.
+assert.strictEqual(data.tabs.length, 29,
+  'F5: вкладок 29 (+mod_time UR-F, +mod_random QRNG P4)');
 const ids = data.tabs.map((t) => t.id);
 assert.strictEqual(ids.indexOf('smart_cache'), -1,
   'EVOL-031: вкладка smart_cache снята и не вернулась');

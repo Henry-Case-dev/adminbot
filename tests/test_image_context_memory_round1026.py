@@ -1163,7 +1163,7 @@ class TestFlagsAndCanon:
         assert len(dataclasses.fields(Settings)) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_RULES) == 23
 
     def test_canon_stays_twelve(self):
         from services.tool_schemas import TOOL_CALLING_TOOLS

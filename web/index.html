@@ -7172,6 +7172,410 @@
                   </div>
                 </div>
               </template>
+              <!-- ═══ QRNG P4 (17.11.2026, arch D4/§9 поручения): «Модули →
+                   Случайность» — кастомная config-страница из 4 смысловых
+                   блоков A–D. Источники — существующие ParamSpec (P3 selector,
+                   keys_random) и существующий /api/status; новых endpoint'ов,
+                   ключей и второго механизма настроек нет. Раскрытие карточек
+                   (details) НЕ делает сетевых запросов — данные уже загружены. -->
+              <template v-if="activeTab === 'mod_random' && (!workspaceModule || workspaceTab === 'settings')">
+                <!-- Верхняя сводка (§5.2): runtime diagnostics, не положение
+                     селектора. Нет данных — «нет данных», без зелёного. -->
+                <div class="card p-4 col-span-full" data-random-summary>
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <div class="text-sm font-bold">Источники случайности</div>
+                    <span class="badge" :class="randomActivityView.stateCls"
+                          data-random-summary-state>{{ randomActivityView.stateLabel }}</span>
+                    <span class="text-xs text-gray-500">
+                      Квантовые источники для памяти, инициативы и неожиданных решений
+                    </span>
+                  </div>
+                  <div class="grid gap-1 text-xs md:grid-cols-2">
+                    <div>Основной (настройка):
+                      <b data-random-summary-primary>{{ randomActivityView.primaryLabel }}</b>
+                      <span v-if="randomActivityView.primaryRaw" class="text-gray-500">
+                        · {{ randomActivityView.primaryRaw }}</span>
+                      <span v-else-if="randomActivityView.ready
+                                       && randomActivityView.primaryProvider"
+                            class="text-gray-500">· заводское значение</span>
+                      <span v-else class="text-gray-500">· нет данных</span>
+                    </div>
+                    <div>Сейчас используется:
+                      <b data-random-summary-effective>{{ randomActivityView.effectiveLabel }}</b>
+                    </div>
+                    <div>Квантовый запас:
+                      <b data-random-summary-reserve>{{ randomActivityView.reserveText }}</b>
+                    </div>
+                    <div>Последнее получение:
+                      <b data-random-summary-last>{{ randomLastBatchLabel() }}</b>
+                    </div>
+                  </div>
+                  <div v-if="randomActivityView.primaryState === 'requires_resolution'"
+                       class="text-xs text-amber-300 mt-2" data-random-retired-warning>
+                    Сохранённая настройка источника вне действующего контракта.
+                    Сейчас используется: {{ randomResolvedLabel() }}.
+                  </div>
+                </div>
+
+                <!-- ═══ A. Источники ═══════════════════════════════════════ -->
+                <div class="card p-4 col-span-full" data-random-sources>
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <div class="text-sm font-bold">A. Источники</div>
+                    <span class="text-xs text-gray-500">выбор основного и автоматического резерва</span>
+                  </div>
+                  <div v-if="!isGlobalAdmin" class="text-xs text-amber-300 mb-2"
+                       data-random-global-only>
+                    Выбор источника — общая настройка «Весь бот». Ваша роль видит
+                    только применения этого чата.
+                  </div>
+                  <template v-if="randomCfg('random.primary_provider')">
+                    <div class="text-xs text-gray-400 mb-1">Основной источник случайности</div>
+                    <select class="field" :value="randomPrimaryValue()"
+                            :disabled="!isGlobalAdmin"
+                            data-random-primary
+                            data-cfg-key="random.primary_provider"
+                            @change="saveRandomPrimary($event.target.value)">
+                      <option v-for="opt in randomPrimaryOptions" :key="opt.id"
+                              :value="opt.id">{{ opt.label }} — {{ opt.type }}</option>
+                    </select>
+                    <div class="text-xs text-gray-500 mt-1">
+                      Сохраняется реальный provider ID. Если основной источник
+                      временно недоступен, используются следующие разрешённые
+                      источники; выбор источника общий для всех чатов.
+                    </div>
+
+                    <div class="flex items-center gap-2 flex-wrap mt-3">
+                      <span class="text-xs text-gray-400">Автоматическое резервирование</span>
+                      <label class="ctl-toggle relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer"
+                               :checked="randomFallbackOn()"
+                               :disabled="!isGlobalAdmin || !randomFallbackEnabledItem()"
+                               data-random-fallback-toggle
+                               data-cfg-key="random.fallback_enabled"
+                               @change="toggleRandomFallback($event.target.checked)">
+                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                      </label>
+                      <span class="badge" :class="randomFallbackOn() ? 'badge-info' : 'badge-muted'">
+                        {{ randomFallbackOn() ? 'включено' : 'выключено' }}
+                      </span>
+                    </div>
+                    <div class="mt-2" data-random-fallback-order
+                         data-cfg-key="random.fallback_order">
+                      <div class="text-xs text-gray-400 mb-1">Порядок запасных источников</div>
+                      <div v-for="row in randomFallbackRows()" :key="'rnd-fb-' + row.id"
+                           class="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1 mb-1"
+                           :data-random-fallback="row.id">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                          <input type="checkbox" :checked="row.enabled"
+                                 :disabled="!isGlobalAdmin"
+                                 data-random-fallback-include
+                                 :aria-label="'Включить в резерв: ' + row.label"
+                                 @change="setRandomFallbackIncluded(row.id, $event.target.checked)">
+                          <span class="text-sm truncate">{{ row.label }}</span>
+                          <span class="hidden sm:inline text-xs text-gray-500 shrink-0">{{ row.type }}</span>
+                          <span v-if="!row.enabled" class="badge badge-muted shrink-0">не в резерве</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                          <button type="button" class="btn-ghost text-xs px-2"
+                                  :disabled="!isGlobalAdmin || !row.canUp"
+                                  data-random-fallback-up
+                                  :aria-label="'Выше: ' + row.label"
+                                  @click="moveRandomFallback(row.id, -1)">↑</button>
+                          <button type="button" class="btn-ghost text-xs px-2"
+                                  :disabled="!isGlobalAdmin || !row.canDown"
+                                  data-random-fallback-down
+                                  :aria-label="'Ниже: ' + row.label"
+                                  @click="moveRandomFallback(row.id, 1)">↓</button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                  <div v-else class="text-xs text-gray-500" data-random-selector-unavailable>
+                    Выбор источника доступен только глобальному администратору
+                    (в чатовом scope настройка скрыта сервером).
+                  </div>
+
+                  <div class="grid gap-3 md:grid-cols-2 mt-4 items-start" data-random-cards>
+                    <!-- IBM Quantum: P5 ещё не подключён — честное состояние,
+                         НИКАКИХ неработающих полей и зелёного «подключён». -->
+                    <article class="card p-3" data-random-provider="ibm_quantum">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <b class="text-sm">IBM Quantum</b>
+                        <span class="badge badge-muted">не подключён</span>
+                        <span class="text-xs text-gray-500">аппаратный QPU</span>
+                      </div>
+                      <div class="text-xs text-gray-400 mt-1" data-random-provider-state>
+                        не подключён — ожидает доступов IBM Cloud (этап P5)
+                      </div>
+                      <div class="text-xs text-gray-500 mt-1">
+                        Пока доступов нет, выбор IBM разрешится в ANU или в
+                        «нет доступного источника» — это видно в статусе, без
+                        подмены на псевдослучайность.
+                      </div>
+                      <a class="text-xs underline text-violet-300 mt-1 inline-block"
+                         :href="randomProviderCard('ibm_quantum').docs"
+                         target="_blank" rel="noopener">Документация IBM →</a>
+                    </article>
+
+                    <!-- ANU Quantum Numbers: существующие ключ/технические поля. -->
+                    <article class="card p-3" data-random-provider="anu">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <b class="text-sm">ANU Quantum Numbers</b>
+                        <span class="badge"
+                              :class="randomProviderCard('anu').configured ? 'badge-info' : 'badge-muted'">
+                          {{ randomProviderCard('anu').configured ? 'ключ сохранён' : 'ключ не настроен' }}
+                        </span>
+                        <span class="text-xs text-gray-500">квантовые числа</span>
+                      </div>
+                      <div class="text-xs text-gray-400 mt-1" data-random-provider-state>
+                        {{ randomProviderCard('anu').stateText }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Последняя проверка: {{ randomProviderCard('anu').lastCheck }}
+                      </div>
+                      <template v-if="isGlobalAdmin && randomAnuKeyItem()">
+                        <secret-field class="mt-2"
+                          :title="randomAnuKeyItem().title"
+                          :tech-key="randomAnuKeyItem().key"
+                          :description="randomAnuKeyItem().description"
+                          :configured="isKeyConfigured(randomAnuKeyItem())"
+                          :last4="last4(randomAnuKeyItem())"
+                          :draft="keyDrafts['keys.random_quantum_api_key'] || ''"
+                          placeholder="Новый ключ (заменить)…"
+                          @update:draft="onKeyDraft(randomAnuKeyItem(), $event)"
+                          @delete="deleteKeyItem(randomAnuKeyItem())"></secret-field>
+                        <div class="flex items-center gap-2 flex-wrap mt-2">
+                          <button type="button" class="btn-ghost text-xs shrink-0"
+                                  :disabled="randomCheckBusy || !canEditConfig('keys.random_quantum_api_key')"
+                                  data-random-check
+                                  @click="checkRandomConnection(randomAnuKeyItem())">
+                            {{ randomCheckBusy ? 'Проверка…' : 'Проверить подключение' }}
+                          </button>
+                          <span v-if="randomCheckStatus()" class="badge"
+                                :class="randomCheckStatus().cls">{{ randomCheckStatus().label }}</span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1" data-random-draft-hint>
+                          {{ randomDraftHint() }}
+                        </div>
+                        <div v-if="randomCheck" class="text-xs text-gray-400 mt-1"
+                             data-random-check-result>
+                          <template v-if="randomCheck.healthy">
+                            <div>Получена партия: {{ randomCheck.length }} чисел
+                              <span v-if="randomCheck.latency_ms != null"> · {{ randomCheck.latency_ms }} мс</span>
+                              <span v-if="randomCheck.checked_at"> · {{ fmtTs(randomCheck.checked_at) }}</span>
+                            </div>
+                            <div v-if="randomCheck.deposited === false" class="text-amber-300">
+                              Значения не зачислены в рабочий запас — проверка
+                              черновым ключом.
+                            </div>
+                            <div v-else-if="randomCheck.persisted === false" class="text-amber-300">
+                              Черновой ключ не сохранён — нажмите «Сохранить», чтобы применить.
+                            </div>
+                          </template>
+                          <div v-else>
+                            <span v-if="randomCheck.reason">{{ randomCheck.reason }}</span>
+                            <span v-else>Подключение не подтверждено — проверьте ключ.</span>
+                          </div>
+                        </div>
+                        <details class="mt-2 text-xs" data-random-anu-details>
+                          <summary class="cursor-pointer select-none text-gray-400">Дополнительно</summary>
+                          <div class="grid gap-3 md:grid-cols-2 mt-2">
+                            <qrng-field v-for="it in randomAnuDetailItems()" :key="it.key"
+                                        :item="it" :can-edit="isGlobalAdmin && canEditConfig(it.key)"
+                                        @save="saveRandomField(it, $event)"></qrng-field>
+                          </div>
+                        </details>
+                      </template>
+                      <div v-else class="text-xs text-gray-500 mt-1">
+                        Ключ и проверка — только глобальный администратор.
+                      </div>
+                      <a class="text-xs underline text-violet-300 mt-1 inline-block"
+                         :href="randomProviderCard('anu').docs"
+                         target="_blank" rel="noopener">Документация ANU →</a>
+                    </article>
+
+                    <!-- LfDR QRNG: ключ не требуется; проверка соединения —
+                         отдельный backend-маршрут появится позже (честная
+                         недоступность вместо фиктивной кнопки). -->
+                    <article class="card p-3" data-random-provider="lfdr">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <b class="text-sm">LfDR QRNG</b>
+                        <span class="badge badge-muted">ключ не требуется</span>
+                        <span class="text-xs text-gray-500">аппаратный QRNG</span>
+                      </div>
+                      <div class="text-xs text-gray-400 mt-1" data-random-provider-state>
+                        {{ randomProviderCard('lfdr').stateText }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Доступность: {{ randomProviderCard('lfdr').configured
+                          ? 'настроен (публичный endpoint)' : 'не настроен' }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Резерв: {{ randomProviderCard('lfdr').reserve }}
+                        · {{ randomProviderCard('lfdr').consumable ? 'расходуется' : 'нет расходуемых значений' }}
+                        <span v-if="randomProviderCard('lfdr').quarantined > 0">
+                          · карантин: {{ randomProviderCard('lfdr').quarantined }} (не расходуются)
+                        </span>
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Последняя проверка: {{ randomProviderCard('lfdr').lastCheck }}
+                      </div>
+                      <button type="button" class="btn-ghost text-xs mt-2"
+                              disabled
+                              data-random-check-lfdr
+                              :title="randomProviderCard('lfdr').checkReason">
+                        Проверить подключение
+                      </button>
+                      <div class="text-xs text-gray-500 mt-1">
+                        {{ randomProviderCard('lfdr').checkReason }}
+                      </div>
+                      <a class="text-xs underline text-violet-300 mt-1 inline-block"
+                         :href="randomProviderCard('lfdr').docs"
+                         target="_blank" rel="noopener">Документация LfDR →</a>
+                    </article>
+                  </div>
+                </div>
+
+                <!-- ═══ B. Применения ══════════════════════════════════════ -->
+                <div class="card p-4 col-span-full" data-random-uses>
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <div class="text-sm font-bold">B. Применения</div>
+                    <span class="text-xs text-gray-500">где бот использует случайность</span>
+                  </div>
+                  <div v-if="!randomUsesList.length" class="text-xs text-gray-500">
+                    Параметры применений недоступны вашей роли.
+                  </div>
+                  <div v-for="it in randomUsesList" :key="'rnd-use-' + it.key"
+                       class="rounded-lg bg-white/5 px-2 py-1 mb-1"
+                       :data-random-use="it.key">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <div class="text-sm">{{ it.title }}</div>
+                      <span class="flex-1"></span>
+                      <label class="ctl-toggle relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer"
+                               :data-cfg-key="it.key"
+                               :checked="!!it.value"
+                               :disabled="!canEditConfig(it.key)"
+                               @change="it.value = $event.target.checked; saveConfigItem(it)">
+                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                      </label>
+                    </div>
+                    <div class="text-xs text-gray-400">{{ it.description }}</div>
+                    <details class="text-xs text-gray-500">
+                      <summary class="cursor-pointer select-none">Что это?</summary>
+                      <div class="mt-1">{{ it.description }}</div>
+                    </details>
+                  </div>
+                </div>
+
+                <!-- ═══ C. Активность (только /api/status) ═════════════════ -->
+                <div class="card p-4 col-span-full" data-random-activity>
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <div class="text-sm font-bold">C. Активность</div>
+                    <span class="badge" :class="randomActivityView.stateCls"
+                          data-random-activity-state>{{ randomActivityView.stateLabel }}</span>
+                    <span class="text-xs text-gray-500">фактический источник, запас, fallback</span>
+                  </div>
+                  <div class="grid gap-1 text-xs md:grid-cols-2">
+                    <div>Фактический провайдер:
+                      <b>{{ randomActivityView.effectiveProvider
+                        ? randomProviderLabel(randomActivityView.effectiveProvider)
+                        : 'нет доступного' }}</b>
+                    </div>
+                    <div>Класс энтропии:
+                      <b>{{ randomActivityView.entropyClass || '—' }}</b>
+                    </div>
+                    <div>Последнее получение:
+                      <b data-random-last-batch>{{ randomLastBatchLabel() }}</b>
+                    </div>
+                    <div>Псевдослучайный откат:
+                      <b>{{ randomActivityView.prngActive
+                        ? 'активен (не квантовый)'
+                        : (randomActivityView.prngSetting ? 'разрешён настройкой' : 'не активен') }}</b>
+                    </div>
+                    <div v-if="randomActivityView.fallbackReasonLabel">Причина fallback:
+                      <b>{{ randomActivityView.fallbackReasonLabel }}</b>
+                    </div>
+                    <div v-if="randomActivityView.fallbackAt">Последний fallback:
+                      <b>{{ fmtTs(randomActivityView.fallbackAt) }}</b>
+                    </div>
+                    <div v-if="randomActivityView.draws">Решений на случайности:
+                      <b>квантовых {{ randomActivityView.draws.quantum || 0 }} ·
+                        псевдослучайных {{ randomActivityView.draws.pseudorandom || 0 }}</b>
+                    </div>
+                    <div v-if="randomActivityView.reserveQuarantined > 0">
+                      Партий другой конфигурации (не расходуются):
+                      <b>{{ randomActivityView.reserveQuarantined }}</b>
+                    </div>
+                  </div>
+                  <div class="mt-2" data-random-activity-providers>
+                    <div v-for="p in randomActivityRows()" :key="'rnd-act-' + p.id"
+                         class="text-xs rounded-lg bg-white/5 px-2 py-1 mb-1"
+                         :data-random-activity-provider="p.id">
+                      <b>{{ p.label }}</b> · {{ p.type }} · {{ p.state }}
+                      · запас: {{ p.reserve }}
+                      · {{ p.consumable ? 'расходуется' : 'нет расходуемых значений' }}
+                      <span v-if="p.quarantined > 0">· карантин: {{ p.quarantined }} (не расходуются)</span>
+                    </div>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    Источник — существующий GET /api/status (тот же, что у
+                    «Статуса» и «Аналитики»); открытие страницы не делает QRNG-запросов.
+                  </div>
+                </div>
+
+                <!-- ═══ D. Дополнительно ═══════════════════════════════════ -->
+                <details class="card p-4 col-span-full" data-random-advanced>
+                  <summary class="cursor-pointer select-none text-sm font-bold">
+                    D. Дополнительно — вероятности, batching, refill и лимиты
+                  </summary>
+                  <div class="text-xs text-gray-500 mt-1">
+                    Технические параметры существующего контура случайности.
+                    Поля не новые и не дублируются на других страницах.
+                  </div>
+                  <div class="mt-3 grid gap-3 md:grid-cols-2">
+                    <div v-if="randomPrngModeItem()">
+                      <div class="text-sm font-semibold">Режим источника</div>
+                      <tech-key :value="'memory.random_source'" class="mb-1"></tech-key>
+                      <div class="text-xs text-gray-400 mb-2">
+                        Явный режим: квантовый или псевдослучайный. Скрытой
+                        подмены нет; при отсутствии источника случайное действие
+                        может быть пропущено.
+                      </div>
+                      <select class="field" :value="randomPrngMode()"
+                              :disabled="!canEditConfig('memory.random_source')"
+                              data-random-prng-mode
+                              data-cfg-key="memory.random_source"
+                              @change="setRandomPrngMode($event.target.value)">
+                        <option value="quantum">квантовый</option>
+                        <option value="pseudorandom">псевдослучайный (локальный)</option>
+                      </select>
+                    </div>
+                    <div v-if="randomPrngFallbackItem()">
+                      <div class="text-sm font-semibold">Псевдослучайный откат (не квантовый)</div>
+                      <tech-key :value="'memory.random_fallback_to_pseudorandom'" class="mb-1"></tech-key>
+                      <div class="text-xs text-gray-400 mb-2">
+                        Разрешает локальный источник при недоступности провайдера.
+                        Это видно в статусе; квантовым такой результат не маркируется.
+                      </div>
+                      <label class="ctl-toggle relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer"
+                               data-cfg-key="memory.random_fallback_to_pseudorandom"
+                               :checked="!!randomPrngFallbackItem().value"
+                               :disabled="!canEditConfig('memory.random_fallback_to_pseudorandom')"
+                               @change="randomPrngFallbackItem().value = $event.target.checked; saveConfigItem(randomPrngFallbackItem())">
+                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                      </label>
+                    </div>
+                    <qrng-field v-for="it in randomProbabilityItems()" :key="'rnd-prob-' + it.key"
+                                :item="it" :can-edit="canEditConfig(it.key)"
+                                @save="saveRandomField(it, $event)"></qrng-field>
+                    <qrng-field v-for="it in randomAdvancedItems()" :key="'rnd-tech-' + it.key"
+                                :item="it" :can-edit="canEditConfig(it.key)"
+                                @save="saveRandomField(it, $event)"></qrng-field>
+                  </div>
+                </details>
+              </template>
               <template v-for="grp in currentTabGroups" :key="grp.uid">
               <!-- Раунд 10.4 (E-3): заголовок секции витрины — перед первой
                    группой секции (sectionTitle возвращает null для остальных:
@@ -7333,10 +7737,9 @@
                     </template>
                     <template v-else-if="item.secret">
                       <!-- P0 round1028 (таксономия секретов): ветка ТОЛЬКО по
-                           item.secret (spec.secret). Группа keys_random:
-                           secret-поле ровно одно (ANU-ключ); остальные 8
-                           параметров — обычные редактируемые поля (else-
-                           ветки ниже). Категория keys ≠ секрет. -->
+                           item.secret (spec.secret). Категория keys ≠ секрет.
+                           QRNG P4: ANU-ключ и «Проверить подключение» перенесены
+                           на страницу «Случайность» (здесь второго блока нет). -->
                       <secret-field
                         :title="item.title" :tech-key="item.key"
                         :description="item.description"
@@ -7346,45 +7749,6 @@
                         placeholder="Новый ключ (заменить)…"
                         @update:draft="onKeyDraft(item, $event)"
                         @delete="deleteKeyItem(item)"></secret-field>
-                      <!-- Раунд 10.37 (MCA-10a, T-4977): «Проверить
-                           подключение» — только для ключа ANU; backend-only
-                           POST /api/random/test (черновой ключ из поля, пусто
-                           → сохранённый). Ответ: статус/задержка/дата/размер
-                           партии/очищенная ошибка; ключ не эхо-ится. -->
-                      <div v-if="item.key === 'keys.random_quantum_api_key'"
-                           class="random-check mt-2" data-random-check>
-                        <div class="flex items-center gap-2 flex-wrap">
-                          <button type="button" class="btn-ghost text-xs shrink-0"
-                                  :disabled="randomCheckBusy || !canEditConfig(item.key)"
-                                  @click="checkRandomConnection(item)">
-                            {{ randomCheckBusy ? 'Проверка…' : 'Проверить подключение' }}
-                          </button>
-                          <span v-if="randomCheckStatus()" class="badge"
-                                :class="randomCheckStatus().cls">
-                            {{ randomCheckStatus().label }}
-                          </span>
-                        </div>
-                        <div v-if="randomCheck" class="text-xs text-gray-400 mt-1">
-                          <template v-if="randomCheck.healthy">
-                            <div>
-                              Получена партия: {{ randomCheck.length }} чисел
-                              <span v-if="randomCheck.latency_ms != null"> · {{ randomCheck.latency_ms }} мс</span>
-                              <span v-if="randomCheck.checked_at"> · {{ fmtTs(randomCheck.checked_at) }}</span>
-                            </div>
-                            <div v-if="!randomCheck.persisted" class="text-amber-300">
-                              Черновой ключ не сохранён — нажмите «Сохранить», чтобы применить.
-                            </div>
-                          </template>
-                          <div v-else>
-                            <span v-if="randomCheck.reason">{{ randomCheck.reason }}</span>
-                            <span v-else>Подключение не подтверждено — проверьте ключ.</span>
-                          </div>
-                        </div>
-                        <div v-else class="text-[10px] text-gray-500 mt-1">
-                          Проверка использует ключ из поля (или сохранённый, если
-                          поле пусто) и зачисляет полученную партию в запас.
-                        </div>
-                      </div>
                     </template>
                     <template v-else-if="item.widget === 'select'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -7704,8 +8068,8 @@
                       <div v-else-if="item.secret">
                         <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля.
                              P0 round1028: условие только item.secret — не-
-                             секретные параметры keys_random (endpoint/plan/
-                             batch/…) проваливаются в обычные ветки ниже. -->
+                             секретные keys-параметры проваливаются в обычные
+                             ветки ниже (QRNG P4: ANU-поля — на «Случайности»). -->
                         <secret-field
                           :title="item.title" :tech-key="item.key"
                           :description="item.description"
@@ -7792,6 +8156,16 @@
                        }}
                   </div>
                 </div>
+              </div>
+              <!-- QRNG P4 (F1 review): карточка-вход на ФАКТИЧЕСКОЙ
+                   workspace-странице «Сна» (#/modules/sleep, overview/settings).
+                   Один компонент с legacy-модалкой (`random-entry-card`). -->
+              <div v-if="isGlobalAdmin && workspaceModule
+                        && workspaceModule.id === 'mod_sleep'
+                        && (workspaceTab === 'overview'
+                            || workspaceTab === 'settings')"
+                   class="col-span-full" data-random-entry-host>
+                <random-entry-card :view="randomSleepView"></random-entry-card>
               </div>
               <!-- S10.20-1 (High, регресс T-1900) + D13 (§18I.13): sticky-
                    панель — ЕДИНСТВЕННЫЙ способ сохранить textarea/input/JSON/
@@ -8180,6 +8554,12 @@
                     </div>
                   </template>
 
+                <!-- QRNG P4 (F1 review): в legacy-модалке — тот же компонент,
+                     что и на workspace-странице «Сна» (одна разметка). -->
+                <random-entry-card
+                  v-if="isGlobalAdmin && activeModule && activeModule.id === 'mod_sleep'"
+                  :view="randomSleepView"></random-entry-card>
+
                 <!-- Раунд 9 (AGI Memory, spec §3.6.3, T-831/F4): мини-блоки
                      «Синтез (сон)» и «Ностальгия» — ПОД generic-рендером
                      соответствующих вкладок (раунд 10.4 C-4: «Сон» →
@@ -8188,40 +8568,6 @@
                      (spec §3.6.2). -->
                 <div v-if="activeModule && activeModule.id === 'mod_sleep' && isGlobalAdmin"
                      class="space-y-4" style="grid-column: 1 / -1;">
-                  <!-- D13 (asap5-final-fixes, T-5262, 14A.0): точка входа
-                       «Случайность» — selected/effective/ANU-state + кнопка
-                       на реально отображаемую карточку подключения
-                       (keys_random на «LLM Провайдерах»). До настройки ключа
-                       карточка видна (bootstrap-фикс /api/config) и
-                       переживает reload/restart (деривация на чтении). -->
-                  <div class="card p-4" data-random-entry>
-                    <div class="flex items-center gap-2 flex-wrap mb-2">
-                      <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Случайность</div>
-                      <template v-if="randomSleepView && randomSleepView.ready && randomSleepView.enabled">
-                        <span class="badge"
-                              :class="randomSleepView.quantum ? 'badge-ok' : 'badge-muted'">
-                          {{ randomSleepView.quantum ? 'квантовый' : 'псевдослучайный' }}
-                        </span>
-                        <span class="text-xs text-gray-500">
-                          выбрано: {{ randomSleepView.selected || '—' }} · фактически:
-                          {{ randomSleepView.effective || '—' }}
-                          <span v-if="randomSleepView.blockerLabel"> · причина:
-                            {{ randomSleepView.blockerLabel }}</span>
-                        </span>
-                      </template>
-                      <span v-else class="text-xs text-gray-500">состояние недоступно</span>
-                      <button class="btn-accent text-xs ml-auto shrink-0" type="button"
-                              @click="openTab('llm_providers')"
-                              data-random-entry-goto>
-                        Настроить подключение ANU →
-                      </button>
-                    </div>
-                    <div class="text-xs text-gray-500">
-                      Ключ ANU: <b>{{ randomSleepView && randomSleepView.keyPresent ? 'настроен' : 'не настроен' }}</b>.
-                      Подключение и параметры — карточка «Случайность: подключение ANU»
-                      на вкладке LLM Провайдеры.
-                    </div>
-                  </div>
                   <!-- Синтез (сон): ручной запуск + последние убеждения + лог -->
                   <div class="card p-4">
                     <div class="flex items-center gap-2 flex-wrap mb-1">
@@ -17803,6 +18149,38 @@
       </div>
     </div>
   </div>
+
+  <!-- QRNG P4 (F1 review): ОДНА карточка-вход «Случайность и источники»,
+       используемая и на workspace-странице «Сна», и в legacy-модалке.
+       Компонент зарегистрирован в web/app.js (provide/inject: root). -->
+  <script type="text/x-template" id="random-entry-card-tpl">
+    <div class="card p-4" data-random-entry>
+      <div class="flex items-center gap-2 flex-wrap mb-2">
+        <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Случайность и источники</div>
+        <template v-if="view && view.ready && view.enabled">
+          <span class="badge"
+                :class="view.quantum ? 'badge-ok' : 'badge-muted'">
+            {{ view.quantum ? 'квантовый' : 'псевдослучайный' }}
+          </span>
+          <span class="text-xs text-gray-500">
+            выбрано: {{ view.selected || '—' }} · фактически:
+            {{ view.effective || '—' }}
+            <span v-if="view.blockerLabel"> · причина:
+              {{ view.blockerLabel }}</span>
+          </span>
+        </template>
+        <span v-else class="text-xs text-gray-500">состояние недоступно</span>
+        <a class="btn-accent text-xs ml-auto shrink-0" href="#/modules/random"
+           data-random-entry-goto>
+          Случайность и источники →
+        </a>
+      </div>
+      <div class="text-xs text-gray-500">
+        Источник, ключ ANU, резерв и порядок fallback — на странице
+        «Случайность» (Модули → Случайность).
+      </div>
+    </div>
+  </script>
 
   <!-- F9 (10.25, ADR-1025-22 D1/D4): единый шаблон секрет-поля.
        Маска/«Ключ установлен» — display-индикатор, НЕ значение input (§50).

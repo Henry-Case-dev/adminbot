@@ -4532,6 +4532,12 @@ TAB_MOD_VISION = "mod_vision"
 # flags.initiative_enabled + группы flags_intent/limits_intent; env-kill-switches
 # K1–K4 остаются аварийными (AND-гейт, effective = env AND product).
 TAB_MOD_INITIATIVE = "mod_initiative"
+# QRNG P4 (17.11.2026, arch D4/§9 поручения): отдельная config-вкладка
+# «Случайность» (nav «Модули»). Перенос — НЕ копия: keys_random уходит из
+# llm_providers, memory_random — из mod_sleep; TAB_RULES 22→23 (прямое
+# разрешение владельца §9, supersession правила «без роста» только для этой
+# страницы). Новых GROUPS/ParamSpec нет — те же существующие группы.
+TAB_MOD_RANDOM = "mod_random"
 TAB_LLM_PROVIDERS = "llm_providers"
 TAB_PROMPTS = "prompts"
 TAB_MEMORY_RAG = "memory_rag"
@@ -4558,6 +4564,7 @@ CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_MOD_IMAGES: "Генерация изображений",
     TAB_MOD_VISION: "Распознавание изображений",
     TAB_MOD_INITIATIVE: "Инициатива",
+    TAB_MOD_RANDOM: "Случайность",
     TAB_LLM_PROVIDERS: "LLM Провайдеры",
     TAB_PROMPTS: "Промпты",
     TAB_MEMORY_RAG: "Память",
@@ -4586,11 +4593,12 @@ NAV_TITLES: dict[str, str] = {
 
 NAV_ORDER: tuple[str, ...] = (NAV_MODULES, NAV_AI, NAV_MEMORY, NAV_PERMSOC)
 
-# tab_id → nav (исчерпывающе, все 21 config-вкладок TAB_RULES). Паритет с
-# фактической картой мини-аппа (web/app.js): 13 mod_* → Модули, 4 «ИИ» → ИИ,
+# tab_id → nav (исчерпывающе, все 23 config-вкладки TAB_RULES). Паритет с
+# фактической картой мини-аппа (web/app.js): 14 mod_* → Модули, 4 «ИИ» → ИИ,
 # 3 «Память» → Память, permsoc → PERMsoc. `#/access` и `#/ai/persona` — НЕ
 # per-param секции матрицы (нет ParamSpec; ADR-1018-6 D5).
 # MCA-19 (10.43): +mod_vision → Модули (22-я вкладка, ADR-1028-19 D16).
+# QRNG P4 (17.11.2026, arch D4): +mod_random → Модули (23-я вкладка).
 TAB_NAV: dict[str, str] = {
     TAB_MOD_SUMMARY: NAV_MODULES,
     TAB_MOD_DIRECT: NAV_MODULES,
@@ -4607,6 +4615,7 @@ TAB_NAV: dict[str, str] = {
     TAB_MOD_IMAGES: NAV_MODULES,
     TAB_MOD_VISION: NAV_MODULES,
     TAB_MOD_INITIATIVE: NAV_MODULES,
+    TAB_MOD_RANDOM: NAV_MODULES,
     TAB_LLM_PROVIDERS: NAV_AI,
     TAB_PROMPTS: NAV_AI,
     TAB_PEOPLE_NAMES: NAV_AI,
@@ -4697,10 +4706,9 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     )),
     (TAB_MOD_SLEEP, (
         (CATEGORY_MEMORY, frozenset({"memory_dream"})),
-        # Раунд 10.37 (MCA-10a, ADR-1028-14 D8, ТЗ §14.4): группа
-        # «Случайность» (memory_random) — на ТОЙ ЖЕ вкладке «Сон»
-        # (правило in-place, TAB_RULES 21 без роста).
-        (CATEGORY_MEMORY, frozenset({"memory_random"})),
+        # QRNG P4 (17.11.2026, arch D4/§9): группа «Случайность» (memory_random)
+        # ПЕРЕНЕСЕНА на отдельную вкладку mod_random — на «Сне» её больше нет
+        # (перенос, не копия).
     )),
     (TAB_MOD_NOSTALGIA, (
         (CATEGORY_MEMORY, frozenset({"memory_nostalgia"})),
@@ -4739,6 +4747,14 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_FLAGS, frozenset({"flags_intent"})),
         (CATEGORY_LIMITS, frozenset({"limits_intent", "limits_qnd"})),
     )),
+    # QRNG P4 (arch D4/§9 поручения): отдельная config-вкладка «Случайность».
+    # Источники — существующие группы: memory_random (селектор P3, применения,
+    # вероятности) и keys_random (ANU-ключ/технические поля). Оба «дома»
+    # перенесены сюда (llm_providers/mod_sleep их больше не содержат).
+    (TAB_MOD_RANDOM, (
+        (CATEGORY_MEMORY, frozenset({"memory_random"})),
+        (CATEGORY_KEYS, frozenset({"keys_random"})),
+    )),
     # ── Настройки AI (7 подразделов) ───────────────────────────────────────
     # A8: keys_youtube → М6. SELF-DIAG-01 D1: checkup-only Better Stack
     # группы удалены целиком (мёртвые ключи не остаются в каталоге).
@@ -4754,9 +4770,8 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_KEYS, frozenset({
             "keys_llm", "keys_groq", "keys_openrouter", "keys_search",
             "keys_media", "keys_images",
-            # Раунд 10.37 (MCA-10a, ADR-1028-14 D8): «Случайность:
-            # подключение ANU» — keys-секция вкладки LLM Провайдеры.
-            "keys_random",
+            # QRNG P4 (17.11.2026, arch D4/§9): «Случайность: подключение ANU»
+            # ПЕРЕНЕСЕНА на отдельную вкладку mod_random (перенос, не копия).
             # MCA-19 (10.43, ADR-1028-19 D5): ключ модели распознавания.
             "keys_vision"})),
     )),
