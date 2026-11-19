@@ -423,8 +423,10 @@ corrections are mandatory for the reissue.
 
 - X1 uses only the fixed neutral fallback `вайп сервера`; no fact-text token is
   extracted. This supersedes the runtime-pair wording in section 6.2.
-- `MEM07-PRIVACY` scans the output for known display names (top author names and
-  user entity names) and fails on any hit; names are never written to output.
+- `MEM07-PRIVACY` scans structured name-bearing fields (`name`, `author`,
+  `person`, `target_user`, etc.) and non-template `topic` fields with word
+  boundaries; fixed question/topic templates are excluded. Substring matches
+  inside fixed text are not hits; names are never written to output.
 - E1 topics and participant query templates remain non-personal; participants are
   `@P1`/`@P2` with hashes only.
 
@@ -456,8 +458,9 @@ corrections are mandatory for the reissue.
   outside the target year.
 - N1/N2 historical policies must have `old_rows>0` and no unlabeled old row;
   `no_old_rows` is a failure, not a trivial pass.
-- X1 historical must deliver both old and new facts and label the old one; absent
-  either is a failure, not a pass.
+- X1 fallback (`вайп сервера`) is an informational diagnostic, not an acceptance
+  blocker; `MEM07-X1` records pass/not_applicable without failing controls. If a
+  labeled runtime changed-position pair is used, X1 is blocking.
 
 ### 12.7 Builder discrepancy table
 

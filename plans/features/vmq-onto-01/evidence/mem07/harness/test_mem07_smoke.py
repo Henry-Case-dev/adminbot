@@ -56,7 +56,8 @@ def test_fixture_run_structural(tmp_path):
                 "MEM07-REFERENCES", "MEM07-TRACE", "MEM07-METRICS",
                 "MEM07-CONTROLS", "MEM07-NO-TEXT", "MEM07-DIAGNOSTICS",
                 "MEM07-PRIVACY", "MEM07-BUILDER-DIFF", "MEM07-OLDEP-2023",
-                "MEM07-OLDEP-2024", "MEM07-READONLY", "MEM07-NO-NETWORK"):
+                "MEM07-OLDEP-2024", "MEM07-X1", "MEM07-READONLY",
+                "MEM07-NO-NETWORK"):
         assert assertions[aid] == "pass", (aid, assertions)
     matrix = [q for q in payload["questions"] if q["class"] in "HRPCE"]
     assert len(matrix) == 12
@@ -111,6 +112,16 @@ def test_fixture_run_structural(tmp_path):
     assert "SECRET_MSG_TEXT_MEM07" not in text
     assert "Участник Один" not in text
     assert "Участник Два" not in text
+
+
+def test_privacy_scan_false_positive_and_real_leak():
+    sys.path.insert(0, str(HARNESS.parent))
+    import mem07
+    fixed = {"questions": [{"query_template":
+                            "расскажи смешную историю про ремонт ванной"}]}
+    assert mem07.privacy_scan(fixed, ("история",))["hits"] == 0
+    leak = {"participants": {"P1": {"name": "Участник Один"}}}
+    assert mem07.privacy_scan(leak, ("Участник Один",))["hits"] == 1
 
 
 def test_handwritten_config_rejected(tmp_path):

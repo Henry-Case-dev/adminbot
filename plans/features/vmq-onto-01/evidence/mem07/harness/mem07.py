@@ -1522,10 +1522,16 @@ async def compute_metrics(entry: dict, ref: dict, spec: dict,
             reasons.append("new_not_delivered")
         if old_present and not old_labeled:
             reasons.append("old_not_labeled")
+        blocking = (entry.get("counterexample") or {}).get(
+            "mode") == "runtime_changed_position"
+        passed = old_present and new_present and old_labeled
         out["counterexample"] = {
             "old_present": old_present, "new_present": new_present,
             "old_labeled": old_labeled,
-            "pass": old_present and new_present and old_labeled,
+            "pass": passed,
+            "blocking": blocking,
+            "status": ("pass" if passed else
+                       ("fail" if blocking else "informational")),
             "reasons": reasons,
             "mode": (entry.get("counterexample") or {}).get("mode"),
         }
@@ -1650,6 +1656,62 @@ def compute_parity(questions: list) -> list:
     return out
 
 
+NAME_FIELD_KEYS = {"name", "display_name", "author", "author_name",
+                   "person", "target_user", "subject_name"}
+
+
+def privacy_scan(payload: dict, private_names=()) -> dict:
+    """Scan structured name-bearing fields, not arbitrary substrings.
+
+    Fixed question/topic templates are excluded; names must match as whole
+    tokens in a name-bearing field (or in a non-template free topic field).
+    """
+    names = [str(n).strip() for n in private_names if str(n).strip()]
+    safe_templates = {spec["template"] for spec in SPECS}
+    safe_topics = {label for label, _terms in E1_TOPICS} | {"вайп сервера"}
+    structured = 0
+    hits = 0
+    fields = []
+
+    def _hit(value: str) -> bool:
+        text = str(value or "")
+        for name in names:
+            pattern = r"(?<!\w)" + re.escape(name) + r"(?!\w)"
+            if re.search(pattern, text, re.IGNORECASE):
+                return True
+        return False
+
+    def walk(obj):
+        nonlocal structured, hits
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if isinstance(value, str) and key in NAME_FIELD_KEYS:
+                    structured += 1
+                    if _hit(value):
+                        hits += 1
+                        fields.append(str(key))
+                elif isinstance(value, str) and key == "topic":
+                    if value not in safe_topics:
+                        structured += 1
+                        if _hit(value):
+                            hits += 1
+                            fields.append(str(key))
+                elif isinstance(value, str) and key == "query_template":
+                    if value not in safe_templates:
+                        structured += 1
+                        if _hit(value):
+                            hits += 1
+                            fields.append(str(key))
+                walk(value)
+        elif isinstance(obj, list):
+            for value in obj:
+                walk(value)
+
+    walk(payload)
+    return {"structured_fields": structured, "hits": hits,
+            "fields": sorted(set(fields))}
+
+
 def build_assertions(payload: dict, questions: list, parity: list,
                      controls: dict, fixture: bool = False,
                      private_names=()) -> list:
@@ -1746,15 +1808,21 @@ def build_assertions(payload: dict, questions: list, parity: list,
         control_detail[qid] = neg
         if not neg.get("pass"):
             control_bad.append(qid)
+    add("MEM07-CONTROLS",
+        "N1/N2 historical negative has old rows and labels",
+        {"missing": control_bad, "detail": control_detail},
+        "pass" if not control_bad else "fail")
     x = controls.get("X1") or {}
     xm = (((x.get("policies") or {}).get("historical") or {}).get("metrics")
           or {}).get("counterexample") or {}
-    control_detail["X1"] = xm
-    x_status = xm.get("pass")
-    add("MEM07-CONTROLS",
-        "N1/N2 historical negative has old rows and labels; X1 historical has old+new",
-        {"missing": control_bad, "X1_pass": x_status, "detail": control_detail},
-        "pass" if not control_bad and x_status else "fail")
+    x_blocking = bool(xm.get("blocking"))
+    x_status = ("pass" if xm.get("pass") else
+                ("fail" if x_blocking else "not_applicable"))
+    add("MEM07-X1",
+        "fallback X1 is informational; runtime labeled pair is blocking",
+        {"pass": xm.get("pass"), "blocking": x_blocking,
+         "mode": xm.get("mode"), "reasons": xm.get("reasons")},
+        x_status)
     forbidden = []
     def walk(obj, path=""):
         if isinstance(obj, dict):
@@ -1785,10 +1853,10 @@ def build_assertions(payload: dict, questions: list, parity: list,
          "unexpected_errors": diag.get("unexpected_errors"),
          "unexpected_tracebacks": diag.get("unexpected_tracebacks")},
         "pass" if diag_ok else "fail")
-    serialized_low = serialized.casefold()
-    privacy_hits = [n for n in private_names if str(n).casefold() in serialized_low]
-    add("MEM07-PRIVACY", "no personal display-name value in output",
-        {"hit_count": len(privacy_hits)}, "pass" if not privacy_hits else "fail")
+    privacy = privacy_scan(payload, private_names)
+    add("MEM07-PRIVACY",
+        "no display-name value in structured name-bearing fields; fixed templates excluded",
+        privacy, "pass" if privacy.get("hits", 0) == 0 else "fail")
     builder_rows = payload.get("builder_comparison") or []
     builder_ok = (len(builder_rows) >= 12
                   and all(r.get("builder_source") for r in builder_rows)

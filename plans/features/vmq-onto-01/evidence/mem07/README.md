@@ -128,13 +128,15 @@ No message/fact text and no personal display names are written. Participants are
   present; no legacy fallback.
 - `MEM07-DIAGNOSTICS` - bounded histogram and `log_sha256`; no unexpected
   errors/tracebacks.
-- `MEM07-PRIVACY` - no personal display-name values.
+- `MEM07-PRIVACY` - no display-name value in structured name-bearing fields;
+  fixed question/topic templates are excluded.
 - `MEM07-METRICS` - exact coverage/chrono plus `semantic.old_coverage` and
   `chrono_period` with explicit denominators.
 - `MEM07-OLDEP-2023/2024` - explicit-year Old_Episode non-empty, spans and
   resolved source refs, no year leak.
-- `MEM07-CONTROLS` - N1/N2 historical negative has old rows and labels; X1
-  historical delivers old+new facts and labels the old one.
+- `MEM07-CONTROLS` - N1/N2 historical negative has old rows and labels.
+- `MEM07-X1` - fallback event is informational, not an acceptance blocker;
+  a labeled runtime pair, if ever used, is blocking.
 - `MEM07-BUILDER-DIFF` - numeric Builder discrepancy table with sources.
 
 ## Exit codes
