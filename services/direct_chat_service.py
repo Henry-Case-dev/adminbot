@@ -84,6 +84,7 @@ import contextvars
 import datetime
 import dataclasses
 import hashlib
+import inspect
 import json
 import logging
 import random
@@ -11085,12 +11086,14 @@ class DirectChatService:
         # временное окно episode-retrieval. Раньше 8 слотов занимал свежий
         # аналог, а пост-фильтр не добирал материал (замер: `<Old_Episode>`
         # для вопроса про 2023 = 2025+2026, 0 строк 2023).
-        # TIME-03 natural memory (контракт 2026-11-20 §4.1): запрос идёт
-        # ТОЛЬКО message-каналами (`exact`/`lexical`) — половина прежнего
-        # среза больше не тратится на episode/vector кандидаты, которые этот
-        # цикл всё равно отбрасывал. `no_age_bias=True`: старый якорь не
+        # TIME-03 natural memory (контракт 2026-11-20 §4.1): основной запрос
+        # идёт message-каналами (`exact`/`lexical`) — episode/vector кандидаты
+        # этот цикл всё равно отбрасывал. `no_age_bias=True`: старый якорь не
         # проигрывает свежему аналогу только по дате. Временного окна без
         # явного года нет.
+        # TIME-03 episode-r2: отдельный bounded vector-leg ниже восстанавливает
+        # message-якоря, которые в baseline приходили через default `vector`
+        # канал (graph_fact → source message), не возвращая age bias/календарь.
         period_intent = _mca_rc.resolve_period_intent(text)
         stats["period_intent"] = period_intent.as_dict()
         # P0-HA ISOLATION (§3): связка реальных краёв выборки; некорректные
@@ -11136,6 +11139,46 @@ class DirectChatService:
             logger.warning("direct: episode retrieval failed — skip | chat=%s",
                            chat_id, exc_info=True)
             return "", stats
+        # TIME-03 episode-r2: baseline default channels included `vector`, but
+        # the episode loop consumes only message candidates. Recover that
+        # bounded semantic leg as a separate vector call and convert graph-fact
+        # hits to their source message anchor. No calendar filter/quota and no
+        # age bonus: candidates are kept only if the existing lexical relevance
+        # threshold passes. This is the ablation seam: disabling this constant
+        # reproduces the channel-restriction regression.
+        vector_candidates: list = []
+        vector_reader = getattr(self.memory, "retrieve_fact_candidates", None)
+        if (self._RAG_EPISODE_VECTOR_CHANNELS
+                and callable(vector_reader)
+                and inspect.iscoroutinefunction(vector_reader)):
+            try:
+                vector_request = dataclasses.replace(
+                    request,
+                    channels=tuple(self._RAG_EPISODE_VECTOR_CHANNELS),
+                    top_k=max(1, int(self._RAG_EPISODE_VECTOR_TOP_K)))
+                vector_result = await _mca_rc.retrieve(
+                    self.db, self.memory, vector_request)
+                query_stems = _mca_rc.period_subject_stems(text)
+                for cand in vector_result.candidates:
+                    if cand.entity_type not in ("graph_fact", "message"):
+                        continue
+                    hit_tg, hit_row = _episode_anchor_of_ref(cand.id)
+                    if hit_tg is None and hit_row is None:
+                        continue
+                    preview = str(getattr(cand, "preview", "") or "")
+                    if query_stems and _mca_rc.period_subject_shared(
+                            query_stems, preview) \
+                            < self._RAG_EPISODE_VECTOR_MIN_STEMS:
+                        continue
+                    vector_candidates.append(cand)
+            except Exception:
+                logger.warning(
+                    "direct: episode vector leg failed — skip | chat=%s",
+                    chat_id, exc_info=True)
+        stats["vector_message_candidates"] = len(vector_candidates)
+        vector_ids = {id(cand) for cand in vector_candidates}
+        candidate_order = list(vector_candidates) + [
+            cand for cand in result.candidates if id(cand) not in vector_ids]
         tail_tg = {_tg_id_of_row(row) for row in tail_rows}
         tail_tg.discard(None)
         tail_rows_ids = {_row_id_of_row(row) for row in tail_rows}
@@ -11156,10 +11199,10 @@ class DirectChatService:
             # как помеченное дополнение (§3; не второй поиск по корпусу).
             supplement_lines = _ha_supplement_hit_lines(
                 result, sample_id=sample_id, exclude_tg=used_tg)
-        for cand in result.candidates:
+        for cand in candidate_order:
             if stats["count"] >= max_count:
                 break
-            if cand.entity_type != "message":
+            if cand.entity_type != "message" and id(cand) not in vector_ids:
                 skipped["not_message"] += 1
                 continue
             # VMQ-MEM (дефект 2): `msg:<row>` — полноценная ссылка на строку
@@ -11238,6 +11281,9 @@ class DirectChatService:
                     used_rows.add(row_id)
             episode_lines.extend(lines)
             stats["count"] += 1
+            if id(cand) in vector_ids:
+                stats["vector_message_used"] = int(
+                    stats.get("vector_message_used") or 0) + 1
             stats["messages"] += len(lines)
             # UR-F шаг 1 (UR-20.5): спан эпизода — какие сообщения реально
             # вошли (ids и даты), без текста. Список id хранится ПОЛНЫМ (без
@@ -14702,6 +14748,15 @@ class DirectChatService:
     #: исключает год, не требует старого материала и не задаёт календарную
     #: квоту; порядок внутри предела — смысл/доказательство/валидность.
     _RAG_PERIOD_SLOT_DIV = 5
+    #: TIME-03 episode-r2: bounded message-anchor vector leg for
+    #: `<Old_Episode>`. Baseline default channels included `vector`, but the
+    #: episode loop only consumes message candidates; graph-fact vector hits
+    #: are converted to their source message anchor here, with the existing
+    #: lexical relevance threshold. This restores message coverage without
+    #: calendar quotas/windows or an age bonus.
+    _RAG_EPISODE_VECTOR_CHANNELS = ("vector",)
+    _RAG_EPISODE_VECTOR_TOP_K = 8
+    _RAG_EPISODE_VECTOR_MIN_STEMS = 2
     #: Порог «тот же предмет, не то же слово» (§2): лексическая строка входит,
     #: только если вопрос и текст делят ≥2 разных основы (длина основы ≥4).
     #: При пороге 1 остаётся шум одного слова (на архиве: айтишники, покупк,

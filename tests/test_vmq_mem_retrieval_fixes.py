@@ -199,6 +199,140 @@ class TestOldEpisodeBlock:
         assert after == before, "пустой ПУЛ не должен считаться «блок пуст»"
 
 
+# ── TIME-03 episode-r2: vector message-anchor leg for S3/S4 ──────────────
+
+
+class _EpisodeResult:
+    def __init__(self, candidates):
+        self.candidates = tuple(candidates)
+
+
+class _EpisodeCandidate:
+    def __init__(self, cid, entity_type, channel, preview):
+        self.id = cid
+        self.entity_type = entity_type
+        self.channel = channel
+        self.preview = preview
+        self.sent_at = 0
+
+
+class TestEpisodeVectorMessageLeg:
+    @staticmethod
+    async def _seed(db):
+        # 2026 current window and 2025 older analog: same topic, different years.
+        for tg, ts, uid, text in (
+                (9001, _ts(2026, 8, 1, 10), 111,
+                 "работа и зарплата в 2026"),
+                (9002, _ts(2026, 8, 1, 10) + 120, 222,
+                 "обсуждали зарплату и работу"),
+                (8001, _ts(2025, 8, 1, 10), 111,
+                 "работа и зарплата в 2025"),
+                (8002, _ts(2025, 8, 1, 10) + 120, 222,
+                 "старая зарплата и работа")):
+            await _seed_message(db, text, ts, uid=uid, author=f"U{uid}",
+                                tg_id=tg)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("query", (
+        pytest.param("как менялось отношение к работе и зарплате?",
+                     id="S3_relationship_change"),
+        pytest.param("что сейчас с работой и зарплатой?",
+                     id="S4_current_state"),
+    ))
+    async def test_vector_message_anchor_restores_current_span(
+            self, db, legacy_episode_store, monkeypatch, query):
+        await self._seed(db)
+        calls = []
+        lexical = _EpisodeCandidate("tg:8001", "message", "lexical",
+                                    "работа и зарплата в 2025")
+        vector = _EpisodeCandidate("tg:9001", "graph_fact", "vector",
+                                   "работа и зарплата в 2026")
+        vector_calls = []
+        original = rc.retrieve
+
+        async def fake(_db, _memory, request):
+            calls.append(request)
+            if tuple(request.channels) == ("vector",):
+                vector_calls.append(request)
+                return _EpisodeResult([vector])
+            return _EpisodeResult([lexical])
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        svc = _service(db)
+        block, stats = await svc._build_old_episodes(
+            CHAT_ID, query, [], {})
+        assert block
+        assert stats["vector_message_candidates"] == 1
+        assert stats["vector_message_used"] == 1
+        assert time.gmtime(stats["spans"][0]["first_ts"]).tm_year == 2026, \
+            stats["spans"]
+        assert 2026 in stats["years"], stats["years"]
+        main = [r for r in calls if tuple(r.channels) != ("vector",)]
+        assert main and tuple(main[0].channels) == ("exact", "lexical")
+        assert main[0].no_age_bias is True
+        assert main[0].time_from is None and main[0].time_to is None
+        assert vector_calls and vector_calls[0].no_age_bias is True
+        assert vector_calls[0].time_from is None
+        assert vector_calls[0].time_to is None
+
+    @pytest.mark.asyncio
+    async def test_vector_anchor_requires_relevance_threshold(
+            self, db, legacy_episode_store, monkeypatch):
+        """A vector hit without the lexical subject threshold is not used:
+        no calendar/age workaround, no junk span."""
+        await self._seed(db)
+        lexical = _EpisodeCandidate("tg:8001", "message", "lexical",
+                                    "работа и зарплата в 2025")
+        vector = _EpisodeCandidate("tg:9001", "graph_fact", "vector",
+                                   "погода и рыбалка")
+
+        async def fake(_db, _memory, request):
+            if tuple(request.channels) == ("vector",):
+                return _EpisodeResult([vector])
+            return _EpisodeResult([lexical])
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, "что сейчас с работой и зарплатой?", [], {})
+        assert block
+        assert stats["vector_message_candidates"] == 0
+        assert time.gmtime(stats["spans"][0]["first_ts"]).tm_year == 2025
+
+    @pytest.mark.asyncio
+    async def test_ablation_channel_restriction_reproduces_2025_span(
+            self, db, legacy_episode_store, monkeypatch):
+        """Ablation seam: disable only the vector message-anchor leg; the same
+        query/fixture then selects the 2025 lexical span, proving the channel
+        restriction (not a calendar rule) was the cause."""
+        await self._seed(db)
+        lexical = _EpisodeCandidate("tg:8001", "message", "lexical",
+                                    "работа и зарплата в 2025")
+        vector = _EpisodeCandidate("tg:9001", "graph_fact", "vector",
+                                   "работа и зарплата в 2026")
+        calls = []
+
+        async def fake(_db, _memory, request):
+            calls.append(request)
+            if tuple(request.channels) == ("vector",):
+                return _EpisodeResult([vector])
+            return _EpisodeResult([lexical])
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        monkeypatch.setattr(DirectChatService, "_RAG_EPISODE_VECTOR_CHANNELS",
+                            ())
+        block, stats = await svc_build(db, "что сейчас с работой и зарплатой?")
+        assert block
+        assert time.gmtime(stats["spans"][0]["first_ts"]).tm_year == 2025, \
+            stats["spans"]
+        assert stats["years"] == {2025: 2}, stats["years"]
+        assert int(stats.get("vector_message_candidates") or 0) == 0
+        assert all(tuple(r.channels) != ("vector",) for r in calls)
+
+
+async def svc_build(db, query):
+    return await _service(db)._build_old_episodes(CHAT_ID, query, [], {})
+
+
 # ── (b) дефект 2: `msg:<row>` — полноценная ссылка ────────────────────────
 
 
