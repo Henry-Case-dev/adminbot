@@ -277,7 +277,11 @@ class TestCurrentStatePaths:
         assert stats["intent_source"] == "query_marker"
         assert stats["replace_allowed"] == 0
         assert {row["id"] for row in rows} == set(range(8000, 8010))
-        assert len(calls) == 1
+        # Current-state query: base call + bounded current-fact leg, but the
+        # Slice D boundary still keeps the base composition (no period fill).
+        assert len(calls) == 2
+        assert stats["current_leg_calls"] == 1
+        assert stats["current_leg_used"] == 0
 
         rows = await service._rag_unified_rows(
             CHAT, CURRENT_MARKER, _stub(text=CURRENT_MARKER),
@@ -568,7 +572,9 @@ class TestNaturalBreadth:
         assert stats["breadth_allowed"] == 0
         assert stats["period_skipped"] == "auto_full_slice"
         assert {row["id"] for row in rows} == set(range(8000, 8010))
-        assert len(calls) == 1
+        assert len(calls) == 2
+        assert stats["current_leg_calls"] == 1
+        assert stats["current_leg_used"] == 0
 
     @pytest.mark.asyncio
     async def test_t17_added_rows_never_leave_chat_scope(self, db,
@@ -706,14 +712,22 @@ class TestR4EvidenceRank:
         base_row = _row(77, "работа и зарплата в 2026", year=2026)
         base_row["tg_message_id"] = 9001
         base_row["item_id"] = "tg:9001"
+        query = "что сейчас с работой и зарплатой?"
+
+        async def fake(_db, _memory, request):
+            return types.SimpleNamespace(candidates=(), fact_rows=())
+
+        monkeypatch.setattr(mrc, "retrieve", fake)
         service = _service(monkeypatch, [], [], db=db)
         from services.summary_aliases import AliasResolver
         service.aliases = AliasResolver("{}")
-        # Rows remembered for a different question must not anchor this one.
+        # Same query, matching stems and a real source message: only the turn
+        # key differs. This discriminates the key guard from the >=2-stem
+        # threshold (the old "квазар" variant did not).
         service._rag_last_rows = [base_row]
         service._rag_last_rows_key = (CHAT, "другой вопрос")
         block, stats = await service._build_old_episodes(
-            CHAT, "квазар", [], {})
+            CHAT, query, [], {})
         assert block == ""
         assert stats["anchor_candidates"] == 0
 
@@ -762,6 +776,96 @@ class TestR4EvidenceRank:
         years = [mrc.period_row_year({"message_timestamp": s["first_ts"]})
                  for s in stats["spans"][:2]]
         assert years == [2022, 2022], years
+
+
+class TestR5CurrentFactLeg:
+    """S4: bounded current-fact leg outside the base top-10."""
+
+    @staticmethod
+    def _fake_retrieve(base, extra, calls):
+        async def fake(_db, _memory, chat_id, query, channels, limit, policy,
+                       *, period_fill=False, **_kwargs):
+            calls.append(int(limit))
+            if period_fill:
+                return _Result([])
+            if int(limit) >= 32:
+                return _Result(base + extra)
+            return _Result(base)
+        return fake
+
+    @pytest.mark.asyncio
+    async def test_three_current_facts_outside_top10_are_added(
+            self, monkeypatch):
+        base = [_row(9000 + i, f"текущий факт {i}", year=2026)
+                for i in range(10)]
+        required = [
+            _row(15172, "вайп сервера завершён", year=2026, weight=0.9,
+                 importance=9),
+            _row(18330, "вайп сервера перенесён", year=2026, weight=0.9,
+                 importance=9),
+            _row(20419, "вайп сервера подтверждён", year=2026, weight=0.9,
+                 importance=9),
+        ]
+        archived = _row(15175, "вайп сервера архивный", year=2026,
+                        status="archived_fact", weight=0.9, importance=9)
+        calls: list = []
+        service = _service(monkeypatch, [], [])
+        monkeypatch.setattr(
+            service, "_rag_retrieve",
+            self._fake_retrieve(base, required + [archived], calls))
+        query = "что сейчас с вайпом и сервером?"
+        rows = await service._rag_unified_rows(
+            CHAT, query, _stub(text=query), memory_scope="auto",
+            plan_act="answer")
+        ids = {row["id"] for row in rows}
+        assert {15172, 18330, 20419} <= ids, ids
+        assert 15175 not in ids, "archived fact must not be current"
+        assert len(rows) == 10, rows
+        assert calls == [10, 32], calls
+        stats = service._rag_period_stats
+        assert stats["current_leg_calls"] == 1
+        assert stats["current_leg_rows"] == 14
+        assert stats["current_leg_used"] == 3
+        assert all(row.get("current_fill") for row in rows
+                   if row["id"] in {15172, 18330, 20419})
+
+    @pytest.mark.asyncio
+    async def test_non_current_question_keeps_one_call(self, monkeypatch):
+        base = [_row(9000 + i, f"текущий факт {i}", year=2026)
+                for i in range(10)]
+        extra = [_row(15172, "вайп сервера завершён", year=2026)]
+        calls: list = []
+        service = _service(monkeypatch, [], [])
+        monkeypatch.setattr(
+            service, "_rag_retrieve", self._fake_retrieve(base, extra, calls))
+        rows = await service._rag_unified_rows(
+            CHAT, "расскажи про вайп и сервер", _stub(
+                text="расскажи про вайп и сервер"), memory_scope="auto",
+            plan_act="answer")
+        assert {row["id"] for row in rows} == set(range(9000, 9010))
+        assert calls == [10], calls
+        assert service._rag_period_stats["current_leg_calls"] == 0
+        assert service._rag_period_stats["current_leg_used"] == 0
+
+    @pytest.mark.asyncio
+    async def test_current_gate_is_load_bearing(self, monkeypatch):
+        base = [_row(9000 + i, f"текущий факт {i}", year=2026)
+                for i in range(10)]
+        required = [_row(15172, "вайп сервера завершён", year=2026)]
+        calls: list = []
+        service = _service(monkeypatch, [], [])
+        monkeypatch.setattr(
+            service, "_rag_retrieve",
+            self._fake_retrieve(base, required, calls))
+        monkeypatch.setattr(_dcs, "_is_current_state_query",
+                            lambda _query: False)
+        query = "что сейчас с вайпом и сервером?"
+        rows = await service._rag_unified_rows(
+            CHAT, query, _stub(text=query), memory_scope="auto",
+            plan_act="answer")
+        assert 15172 not in {row["id"] for row in rows}
+        assert calls == [10], calls
+        assert service._rag_period_stats["current_leg_calls"] == 0
 
 
 class TestOperativeParity:

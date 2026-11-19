@@ -21,6 +21,7 @@ import asyncio
 import datetime as _dt
 import json
 import time
+import types
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -355,13 +356,187 @@ class TestR4MultiAnchor:
         block, stats = await _service(db)._build_old_episodes(
             CHAT_ID, "что ты знаешь про Артёма за всё время?", [], {})
         assert block
-        # All three source anchors resolve; the frozen 2-episode cap still
-        # fences rendering, so reachability is proven in the anchor pool.
+        # All three year anchors are evidence-backed (person-name match) and
+        # the multi-year extension renders all three; the normal 2-episode cap
+        # still applies to same-year/similar islands.
         assert stats["anchor_candidates"] == 3, stats
         assert stats["anchor_ranked"] == 3, stats
+        assert stats["count"] == 3, stats
+        assert {time.gmtime(span["first_ts"]).tm_year
+                for span in stats["spans"]} == {2022, 2023, 2024}
+
+
+class TestR5CrowdingAndMultiYear:
+    """R5: current base rows must not crowd old anchors; 3-year evidence."""
+
+    @staticmethod
+    async def _seed_old_episodes(db):
+        anchors = []
+        for year, first_tg in ((2022, 7501), (2023, 7601), (2024, 7701)):
+            for index, text in enumerate((
+                    f"Артём и переезд в {year}",
+                    f"Артём обсуждал переезд в {year}")):
+                await _seed_message(
+                    db, text, _ts(year, 6, 1, 12) + index * 120,
+                    tg_id=first_tg + index)
+            anchors.append(_EpisodeCandidate(
+                f"tg:{first_tg}", "message", "lexical",
+                f"Артём и переезд в {year}"))
+        return anchors
+
+    @staticmethod
+    async def _seed_current_base(db):
+        rows = []
+        for index in range(10):
+            tg = 9100 + index
+            await _seed_message(
+                db, f"Артём и переезд, текущий эпизод {index}",
+                _ts(2026, 1, 1) + index * 10 * 86400, tg_id=tg)
+            rows.append({
+                "id": 9000 + index, "item_id": f"tg:{tg}",
+                "tg_message_id": tg, "fact": "Артём и переезд в 2026",
+                "weight": 0.9, "importance": 9, "status": "confirmed",
+                "expires_at": None, "origin": "chat_history",
+            })
+        return rows
+
+    @pytest.mark.asyncio
+    async def test_crowding_regression_keeps_old_anchors(
+            self, db, legacy_episode_store, monkeypatch):
+        anchors = await self._seed_old_episodes(db)
+        base_rows = await self._seed_current_base(db)
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult(anchors)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        service = _service(db)
+        query = "что ты знаешь про Артёма и переезд за всё время?"
+        service._rag_last_rows = base_rows
+        service._rag_last_rows_key = (CHAT_ID, query)
+        block, stats = await service._build_old_episodes(
+            CHAT_ID, query, [], {})
+        assert block
+        # The base/current rows are for a current-state question only; they
+        # must not occupy the 8-slot anchor cap here.
+        assert stats["anchor_candidates"] == 3, stats
+        years = {time.gmtime(span["first_ts"]).tm_year
+                 for span in stats["spans"]}
+        assert years == {2022, 2023, 2024}, stats["spans"]
+        for tg in (7501, 7601, 7701):
+            assert f"tg:{tg}" in block, block
+        assert "tg:9100" not in block, "current base row leaked into old query"
+
+        # Same base rows ARE appropriate for a current-state question.
+        current_query = "что сейчас с Артёмом и переездом?"
+        service._rag_last_rows_key = (CHAT_ID, current_query)
+        current_block, current_stats = await service._build_old_episodes(
+            CHAT_ID, current_query, [], {})
+        assert current_block
+        assert any(time.gmtime(span["first_ts"]).tm_year == 2026
+                   for span in current_stats["spans"]), current_stats["spans"]
+
+    @pytest.mark.asyncio
+    async def test_crowding_gate_is_load_bearing(
+            self, db, legacy_episode_store, monkeypatch):
+        anchors = await self._seed_old_episodes(db)
+        base_rows = await self._seed_current_base(db)
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult(anchors)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        monkeypatch.setattr(dcs, "_is_current_state_query",
+                            lambda _query: True)
+        service = _service(db)
+        query = "что ты знаешь про Артёма и переезд за всё время?"
+        service._rag_last_rows = base_rows
+        service._rag_last_rows_key = (CHAT_ID, query)
+        _block, stats = await service._build_old_episodes(
+            CHAT_ID, query, [], {})
+        # Mutation witness: with the gate forced open, 13 anchors compete and
+        # the old 2022/23/24 spans are crowded out.
+        assert stats["anchor_candidates"] == 13, stats
+        assert not ({2022, 2023, 2024}
+                    <= {time.gmtime(span["first_ts"]).tm_year
+                        for span in stats["spans"]}), stats["spans"]
+
+    @pytest.mark.asyncio
+    async def test_period_fact_anchor_survives_non_current_gate(
+            self, db, legacy_episode_store, monkeypatch):
+        await _seed_message(
+            db, "Артём и переезд в 2023", _ts(2023, 4, 1, 10),
+            tg_id=9301)
+        await _seed_message(
+            db, "Артём и переезд в 2026", _ts(2026, 4, 1, 10),
+            tg_id=9302)
+        period_row = {
+            "id": 88, "item_id": "tg:9301", "tg_message_id": 9301,
+            "fact": "Артём и переезд в 2023", "period_fill": True,
+            "weight": 0.6, "importance": 5, "status": "confirmed",
+            "origin": "history_import",
+        }
+        current_row = {
+            "id": 89, "item_id": "tg:9302", "tg_message_id": 9302,
+            "fact": "Артём и переезд в 2026", "weight": 0.9,
+            "importance": 9, "status": "confirmed",
+            "origin": "chat_history",
+        }
+
+        async def fake(_db, _memory, request):
+            return types.SimpleNamespace(candidates=(), fact_rows=())
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        service = _service(db)
+        query = "что ты знаешь про Артёма и переезд за всё время?"
+        service._rag_last_rows = [period_row, current_row]
+        service._rag_last_rows_key = (CHAT_ID, query)
+        block, stats = await service._build_old_episodes(
+            CHAT_ID, query, [], {})
+        assert block
+        assert "tg:9301" in block, block
+        assert "tg:9302" not in block, block
+        assert {time.gmtime(span["first_ts"]).tm_year
+                for span in stats["spans"]} == {2023}
+
+    @pytest.mark.asyncio
+    async def test_three_complete_multi_year_spans_with_subject(
+            self, db, legacy_episode_store, monkeypatch):
+        anchors = await self._seed_old_episodes(db)
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult(anchors)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        service = _service(db)
+        block, stats = await service._build_old_episodes(
+            CHAT_ID, "что ты знаешь про Артёма и переезд за всё время?",
+            [], {})
+        assert block
+        assert stats["count"] == 3, stats
+        assert stats["messages"] == 6, stats
+        assert {time.gmtime(span["first_ts"]).tm_year
+                for span in stats["spans"]} == {2022, 2023, 2024}
+        assert block.count("Артём") == 6, block
+        assert all(len(span["source_ids"]) >= 2 for span in stats["spans"])
+
+    @pytest.mark.asyncio
+    async def test_multi_year_cap_is_load_bearing(
+            self, db, legacy_episode_store, monkeypatch):
+        anchors = await self._seed_old_episodes(db)
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult(anchors)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        service = _service(db)
+        service._RAG_EPISODE_MULTI_YEAR_CAP = 2
+        _block, stats = await service._build_old_episodes(
+            CHAT_ID, "что ты знаешь про Артёма и переезд за всё время?",
+            [], {})
         assert stats["count"] == 2, stats
-        assert len({time.gmtime(span["first_ts"]).tm_year
-                    for span in stats["spans"]}) == 2, stats["spans"]
+        assert 2024 not in {time.gmtime(span["first_ts"]).tm_year
+                            for span in stats["spans"]}
 
 
 class TestEpisodeVectorMessageLeg:
