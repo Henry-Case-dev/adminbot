@@ -699,6 +699,25 @@ class TestR4EvidenceRank:
             <= mrc.year_time_bounds(2026)[1]
 
     @pytest.mark.asyncio
+    async def test_foreign_turn_base_rows_are_not_used(self, db, monkeypatch):
+        await db.save_smart_message(
+            111, CHAT, "работа и зарплата в 2026", None, _ts(2026),
+            "text", "U111", message_id=9001)
+        base_row = _row(77, "работа и зарплата в 2026", year=2026)
+        base_row["tg_message_id"] = 9001
+        base_row["item_id"] = "tg:9001"
+        service = _service(monkeypatch, [], [], db=db)
+        from services.summary_aliases import AliasResolver
+        service.aliases = AliasResolver("{}")
+        # Rows remembered for a different question must not anchor this one.
+        service._rag_last_rows = [base_row]
+        service._rag_last_rows_key = (CHAT, "другой вопрос")
+        block, stats = await service._build_old_episodes(
+            CHAT, "квазар", [], {})
+        assert block == ""
+        assert stats["anchor_candidates"] == 0
+
+    @pytest.mark.asyncio
     async def test_second_similar_2022_anchor_is_ranked(self, db, monkeypatch):
         for tg, ts, text in (
                 (9001, _ts(2022), "ссорились и ругались первый раз"),
