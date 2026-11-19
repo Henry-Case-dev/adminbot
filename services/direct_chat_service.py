@@ -2871,6 +2871,9 @@ def _period_trace(period_stats: dict, kept) -> tuple[dict, dict]:
         "age_policy": str(stats.get("age_policy") or ""),
         "vector_leg": str(stats.get("vector_leg") or ""),
         "vector_rows": int(stats.get("vector_rows") or 0),
+        "current_leg_calls": int(stats.get("current_leg_calls") or 0),
+        "current_leg_rows": int(stats.get("current_leg_rows") or 0),
+        "current_leg_used": int(stats.get("current_leg_used") or 0),
         "vector_unavailable_reason": (
             str(stats.get("vector_unavailable_reason") or "") or None),
     }
