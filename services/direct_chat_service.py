@@ -14822,7 +14822,9 @@ class DirectChatService:
                         or intent_source == "memory_scope":
                     breadth_reason = "policy_historical"
                 else:
-                    breadth_reason = "request_signal"
+                    # request_intent/request_mode — тоже структурный
+                    # multi-year сигнал (не словарь запроса).
+                    breadth_reason = "plan_historical"
             elif review:
                 breadth_reason = "plan_research"
             elif thin:
