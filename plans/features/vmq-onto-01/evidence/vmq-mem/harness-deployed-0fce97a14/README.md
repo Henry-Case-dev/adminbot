@@ -24,7 +24,10 @@ snapshot; it records sha256 before/after.
 ## Exact DevOps command (real snapshot)
 
 ```powershell
-# Windows, code worktree at 0fce97a14 (product tree unchanged).
+# Windows: run from the worktree that contains this harness
+# (branch `vmq/g2-mem06`). Its product tree must equal candidate
+# 0fce97a14; the harness checks `product_diff_clean` and records
+# `code_root_head` (the harness commit, not the product candidate).
 # Use the repository .venv (Python 3.12 + sqlite-vec); a bare `py`/`python`
 # may resolve to another interpreter and then §5.1 is not met.
 & C:\Code\Python\adminbot\.venv\Scripts\python.exe `
@@ -32,17 +35,17 @@ snapshot; it records sha256 before/after.
   --db <snapshot.db> `
   --chat-id -1002661910336 `
   --out <evidence-output-dir> `
-  --code-root <worktree-at-0fce97a14>
+  --code-root <worktree-with-harness>
 ```
 
 ```bash
-# POSIX, same .venv (Python 3.12 + sqlite-vec)
+# POSIX, same .venv (Python 3.12 + sqlite-vec) and harness worktree
 .venv/bin/python \
   plans/features/vmq-onto-01/evidence/vmq-mem/harness-deployed-0fce97a14/measure_g2.py \
   --db <snapshot.db> \
   --chat-id -1002661910336 \
   --out <evidence-output-dir> \
-  --code-root <worktree-at-0fce97a14>
+  --code-root <worktree-with-harness>
 ```
 
 Optional: `--other-chat <id>` for the scope probe; by default the harness
