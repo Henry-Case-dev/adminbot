@@ -1,17 +1,17 @@
 {
  "schema": "vmq-mem07-independent/1",
  "mode": "fixture",
- "generated_at": 1795079265,
+ "generated_at": 1795079410,
  "candidate_sha": "0fce97a14338521a24d94f560e896ebcb19f9492",
  "code_root": ".",
- "code_root_head": "d4abf5bc51d108eacf8e1b621f661ce6a84b85e0",
+ "code_root_head": "e411199796139d74412fa918e89e5648ac92c843",
  "product_diff_clean": true,
  "chat_id": -1002661910336,
  "snapshot": {
   "exists": true,
   "path_name": "fixture.db",
   "bytes": 1425408,
-  "sha256": "be686f390d22caa374a4106d9294924344f49d9c818d360332934db8e0dc5661",
+  "sha256": "e9b054615cb7e2777f1e852ff6b18a00db1e6d2e141299db35339351b1b0cb1f",
   "quick_check": "ok",
   "user_version": 48,
   "tables": {
@@ -39,7 +39,7 @@
    "current_year": 2026
   }
  },
- "snapshot_sha256_after": "be686f390d22caa374a4106d9294924344f49d9c818d360332934db8e0dc5661",
+ "snapshot_sha256_after": "e9b054615cb7e2777f1e852ff6b18a00db1e6d2e141299db35339351b1b0cb1f",
  "environment": {
   "python": "3.12.0",
   "sqlite": "3.42.0",
@@ -69,7 +69,7 @@
    "vec_error": null
   }
  },
- "seed": "7a22340ed95a973c368e4c675920479969d9d4ec5619c5f91ff96d1ee394dad8",
+ "seed": "b80789402911383d62f4241598f1fd6bddef5fd646857d186973e0e2d693429a",
  "questions": [
   {
    "id": "H1",
@@ -119,10 +119,21 @@
       }
      }
     },
-    "reference_sha256": "630845cd5e6a294c0d0fb9b704d57fc5b94cf1448c2ca1fe1b1b3db2a5e2fb20",
+    "reference_sha256": "e5daf99a279ca5f9b870993b398da7998053152e0918be01bdf39230c6bf7d74",
     "not_executed": null,
     "subject": null,
     "anchors": [
+     {
+      "kind": "fact",
+      "id": 5002,
+      "year": 2022,
+      "ref": "fact:5002",
+      "tg": 55002,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
      {
       "kind": "fact",
       "id": 5000,
@@ -140,17 +151,6 @@
       "year": 2022,
       "ref": "fact:5004",
       "tg": 55004,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5002,
-      "year": 2022,
-      "ref": "fact:5002",
-      "tg": 55002,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -180,10 +180,10 @@
      },
      {
       "kind": "message",
-      "id": 1005,
+      "id": 1003,
       "year": 2022,
-      "ref": "row:1005",
-      "tg": 51005,
+      "ref": "row:1003",
+      "tg": 51003,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -191,10 +191,10 @@
      },
      {
       "kind": "message",
-      "id": 1004,
+      "id": 1000,
       "year": 2022,
-      "ref": "row:1004",
-      "tg": 51004,
+      "ref": "row:1000",
+      "tg": 51000,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -224,10 +224,10 @@
      },
      {
       "kind": "message",
-      "id": 1003,
+      "id": 1004,
       "year": 2022,
-      "ref": "row:1003",
-      "tg": 51003,
+      "ref": "row:1004",
+      "tg": 51004,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -235,14 +235,47 @@
      },
      {
       "kind": "message",
-      "id": 1000,
+      "id": 1005,
       "year": 2022,
-      "ref": "row:1000",
-      "tg": 51000,
+      "ref": "row:1005",
+      "tg": 51005,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
       "by_author": false
+     },
+     {
+      "kind": "fact",
+      "id": 5010,
+      "year": 2023,
+      "ref": "fact:5010",
+      "tg": 55010,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5011,
+      "year": 2023,
+      "ref": "fact:5011",
+      "tg": 55011,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5012,
+      "year": 2023,
+      "ref": "fact:5012",
+      "tg": 55012,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "fact",
@@ -265,72 +298,6 @@
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5011,
-      "year": 2023,
-      "ref": "fact:5011",
-      "tg": 55011,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5010,
-      "year": 2023,
-      "ref": "fact:5010",
-      "tg": 55010,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5012,
-      "year": 2023,
-      "ref": "fact:5012",
-      "tg": 55012,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "message",
-      "id": 1015,
-      "year": 2023,
-      "ref": "row:1015",
-      "tg": 51015,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1010,
-      "year": 2023,
-      "ref": "row:1010",
-      "tg": 51010,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1014,
-      "year": 2023,
-      "ref": "row:1014",
-      "tg": 51014,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
      },
      {
       "kind": "message",
@@ -356,10 +323,43 @@
      },
      {
       "kind": "message",
+      "id": 1010,
+      "year": 2023,
+      "ref": "row:1010",
+      "tg": 51010,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1013,
       "year": 2023,
       "ref": "row:1013",
       "tg": 51013,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1014,
+      "year": 2023,
+      "ref": "row:1014",
+      "tg": 51014,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1015,
+      "year": 2023,
+      "ref": "row:1015",
+      "tg": 51015,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -371,6 +371,17 @@
       "year": 2024,
       "ref": "fact:5019",
       "tg": 55019,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5018,
+      "year": 2024,
+      "ref": "fact:5018",
+      "tg": 55018,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -410,15 +421,15 @@
       "by_author": null
      },
      {
-      "kind": "fact",
-      "id": 5018,
+      "kind": "message",
+      "id": 1021,
       "year": 2024,
-      "ref": "fact:5018",
-      "tg": 55018,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
+      "ref": "row:1021",
+      "tg": 51021,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -455,28 +466,6 @@
      },
      {
       "kind": "message",
-      "id": 1023,
-      "year": 2024,
-      "ref": "row:1023",
-      "tg": 51023,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1021,
-      "year": 2024,
-      "ref": "row:1021",
-      "tg": 51021,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
       "id": 1022,
       "year": 2024,
       "ref": "row:1022",
@@ -487,11 +476,22 @@
       "by_author": false
      },
      {
+      "kind": "message",
+      "id": 1023,
+      "year": 2024,
+      "ref": "row:1023",
+      "tg": 51023,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
       "kind": "fact",
-      "id": 5027,
+      "id": 5030,
       "year": 2025,
-      "ref": "fact:5027",
-      "tg": 55027,
+      "ref": "fact:5030",
+      "tg": 55030,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -510,17 +510,6 @@
      },
      {
       "kind": "fact",
-      "id": 5028,
-      "year": 2025,
-      "ref": "fact:5028",
-      "tg": 55028,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
       "id": 5029,
       "year": 2025,
       "ref": "fact:5029",
@@ -532,14 +521,36 @@
      },
      {
       "kind": "fact",
-      "id": 5030,
+      "id": 5028,
       "year": 2025,
-      "ref": "fact:5030",
-      "tg": 55030,
+      "ref": "fact:5028",
+      "tg": 55028,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5027,
+      "year": 2025,
+      "ref": "fact:5027",
+      "tg": 55027,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "message",
+      "id": 1032,
+      "year": 2025,
+      "ref": "row:1032",
+      "tg": 51032,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -565,10 +576,10 @@
      },
      {
       "kind": "message",
-      "id": 1031,
+      "id": 1030,
       "year": 2025,
-      "ref": "row:1031",
-      "tg": 51031,
+      "ref": "row:1030",
+      "tg": 51030,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -587,21 +598,10 @@
      },
      {
       "kind": "message",
-      "id": 1030,
+      "id": 1031,
       "year": 2025,
-      "ref": "row:1030",
-      "tg": 51030,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1032,
-      "year": 2025,
-      "ref": "row:1032",
-      "tg": 51032,
+      "ref": "row:1031",
+      "tg": 51031,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -609,10 +609,10 @@
      },
      {
       "kind": "fact",
-      "id": 5040,
+      "id": 5036,
       "year": 2026,
-      "ref": "fact:5040",
-      "tg": 55040,
+      "ref": "fact:5036",
+      "tg": 55036,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -620,10 +620,10 @@
      },
      {
       "kind": "fact",
-      "id": 5037,
+      "id": 5040,
       "year": 2026,
-      "ref": "fact:5037",
-      "tg": 55037,
+      "ref": "fact:5040",
+      "tg": 55040,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -642,17 +642,6 @@
      },
      {
       "kind": "fact",
-      "id": 5036,
-      "year": 2026,
-      "ref": "fact:5036",
-      "tg": 55036,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
       "id": 5039,
       "year": 2026,
       "ref": "fact:5039",
@@ -663,26 +652,15 @@
       "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1042,
+      "kind": "fact",
+      "id": 5037,
       "year": 2026,
-      "ref": "row:1042",
-      "tg": 51042,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1040,
-      "year": 2026,
-      "ref": "row:1040",
-      "tg": 51040,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
+      "ref": "fact:5037",
+      "tg": 55037,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "message",
@@ -690,6 +668,17 @@
       "year": 2026,
       "ref": "row:1043",
       "tg": 51043,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1044,
+      "year": 2026,
+      "ref": "row:1044",
+      "tg": 51044,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -708,10 +697,21 @@
      },
      {
       "kind": "message",
-      "id": 1044,
+      "id": 1042,
       "year": 2026,
-      "ref": "row:1044",
-      "tg": 51044,
+      "ref": "row:1042",
+      "tg": 51042,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1040,
+      "year": 2026,
+      "ref": "row:1040",
+      "tg": 51040,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -783,7 +783,12 @@
       "episode_messages": 12,
       "payload_chars": 1960,
       "payload_sha256": "e92b17ac02b4c9b60055f35a0dbf60621ba13a0f8cd23153c368e8095bda0cfb",
-      "payload_refs": 20
+      "payload_refs": 20,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55028",
@@ -808,6 +813,14 @@
       "tg:51015"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 4,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 4,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -909,7 +922,12 @@
       "episode_messages": 12,
       "payload_chars": 2180,
       "payload_sha256": "3e98257e932f81340e13c07dd09a54e0fcd8744a3e922eca88ca560ebd937c60",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55001",
@@ -936,6 +954,14 @@
       "tg:51015"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 4,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 4,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -1036,7 +1062,12 @@
       "episode_messages": 12,
       "payload_chars": 2180,
       "payload_sha256": "3e98257e932f81340e13c07dd09a54e0fcd8744a3e922eca88ca560ebd937c60",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55001",
@@ -1063,6 +1094,14 @@
       "tg:51015"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 4,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 4,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -1183,10 +1222,43 @@
       }
      }
     },
-    "reference_sha256": "34636891f3fa78eef009b213f62a21cc2208824e432f8c0fd739e6e289aafd14",
+    "reference_sha256": "7efa24d440d2e5f72bf07ccc8669a5689f481cb815779d51d4480a94747dfc63",
     "not_executed": null,
     "subject": null,
     "anchors": [
+     {
+      "kind": "fact",
+      "id": 5048,
+      "year": 2022,
+      "ref": "fact:5048",
+      "tg": 55048,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5047,
+      "year": 2022,
+      "ref": "fact:5047",
+      "tg": 55047,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5049,
+      "year": 2022,
+      "ref": "fact:5049",
+      "tg": 55049,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
      {
       "kind": "fact",
       "id": 5045,
@@ -1221,37 +1293,26 @@
       "by_author": null
      },
      {
-      "kind": "fact",
-      "id": 5047,
+      "kind": "message",
+      "id": 1056,
       "year": 2022,
-      "ref": "fact:5047",
-      "tg": 55047,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
+      "ref": "row:1056",
+      "tg": 51056,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
-      "kind": "fact",
-      "id": 5048,
+      "kind": "message",
+      "id": 1057,
       "year": 2022,
-      "ref": "fact:5048",
-      "tg": 55048,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5049,
-      "year": 2022,
-      "ref": "fact:5049",
-      "tg": 55049,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
+      "ref": "row:1057",
+      "tg": 51057,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -1277,10 +1338,10 @@
      },
      {
       "kind": "message",
-      "id": 1057,
+      "id": 1055,
       "year": 2022,
-      "ref": "row:1057",
-      "tg": 51057,
+      "ref": "row:1055",
+      "tg": 51055,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -1299,32 +1360,10 @@
      },
      {
       "kind": "message",
-      "id": 1055,
-      "year": 2022,
-      "ref": "row:1055",
-      "tg": 51055,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
       "id": 1051,
       "year": 2022,
       "ref": "row:1051",
       "tg": 51051,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1056,
-      "year": 2022,
-      "ref": "row:1056",
-      "tg": 51056,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -1392,7 +1431,12 @@
       "episode_messages": 14,
       "payload_chars": 2295,
       "payload_sha256": "ce1d585643e3cfccf6cc7d35e6305861673860fbaeea0a5d166e4c894eb56e13",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55048",
@@ -1419,6 +1463,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -1517,7 +1569,12 @@
       "episode_messages": 14,
       "payload_chars": 2523,
       "payload_sha256": "68734e6ab9c7e130f96bbebda4cb671994c263ec968698e02713b32b523e42ba",
-      "payload_refs": 24
+      "payload_refs": 24,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55048",
@@ -1546,6 +1603,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -1663,16 +1728,60 @@
       }
      }
     },
-    "reference_sha256": "8c971b168e02153278f1d64ca4a3e511295e00b02f960e247154fdbd5c621b85",
+    "reference_sha256": "d7e4466fe79edf087d4ebd1fe28e38fe627b8b2d7e7123b743c5571732997481",
     "not_executed": null,
     "subject": null,
     "anchors": [
      {
       "kind": "fact",
-      "id": 5063,
+      "id": 5150,
       "year": 2024,
-      "ref": "fact:5063",
-      "tg": 55063,
+      "ref": "fact:5150",
+      "tg": 55150,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5026,
+      "year": 2024,
+      "ref": "fact:5026",
+      "tg": 55026,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5132,
+      "year": 2024,
+      "ref": "fact:5132",
+      "tg": 55132,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5131,
+      "year": 2024,
+      "ref": "fact:5131",
+      "tg": 55131,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5067,
+      "year": 2024,
+      "ref": "fact:5067",
+      "tg": 55067,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -1684,39 +1793,6 @@
       "year": 2024,
       "ref": "fact:5051",
       "tg": 55051,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5117,
-      "year": 2024,
-      "ref": "fact:5117",
-      "tg": 55117,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5066,
-      "year": 2024,
-      "ref": "fact:5066",
-      "tg": 55066,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5172,
-      "year": 2024,
-      "ref": "fact:5172",
-      "tg": 55172,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -1746,10 +1822,10 @@
      },
      {
       "kind": "fact",
-      "id": 5025,
+      "id": 5133,
       "year": 2024,
-      "ref": "fact:5025",
-      "tg": 55025,
+      "ref": "fact:5133",
+      "tg": 55133,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -1757,32 +1833,10 @@
      },
      {
       "kind": "fact",
-      "id": 5152,
+      "id": 5129,
       "year": 2024,
-      "ref": "fact:5152",
-      "tg": 55152,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5026,
-      "year": 2024,
-      "ref": "fact:5026",
-      "tg": 55026,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5149,
-      "year": 2024,
-      "ref": "fact:5149",
-      "tg": 55149,
+      "ref": "fact:5129",
+      "tg": 55129,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -1801,10 +1855,21 @@
      },
      {
       "kind": "fact",
-      "id": 5150,
+      "id": 5018,
       "year": 2024,
-      "ref": "fact:5150",
-      "tg": 55150,
+      "ref": "fact:5018",
+      "tg": 55018,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5021,
+      "year": 2024,
+      "ref": "fact:5021",
+      "tg": 55021,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -1823,10 +1888,10 @@
      },
      {
       "kind": "fact",
-      "id": 5052,
+      "id": 5020,
       "year": 2024,
-      "ref": "fact:5052",
-      "tg": 55052,
+      "ref": "fact:5020",
+      "tg": 55020,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -1834,10 +1899,10 @@
      },
      {
       "kind": "fact",
-      "id": 5023,
+      "id": 5055,
       "year": 2024,
-      "ref": "fact:5023",
-      "tg": 55023,
+      "ref": "fact:5055",
+      "tg": 55055,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -1845,32 +1910,10 @@
      },
      {
       "kind": "message",
-      "id": 1058,
+      "id": 1295,
       "year": 2024,
-      "ref": "row:1058",
-      "tg": 51058,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1171,
-      "year": 2024,
-      "ref": "row:1171",
-      "tg": 51171,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1286,
-      "year": 2024,
-      "ref": "row:1286",
-      "tg": 51286,
+      "ref": "row:1295",
+      "tg": 51295,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -1889,10 +1932,10 @@
      },
      {
       "kind": "message",
-      "id": 1062,
+      "id": 1075,
       "year": 2024,
-      "ref": "row:1062",
-      "tg": 51062,
+      "ref": "row:1075",
+      "tg": 51075,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -1900,10 +1943,10 @@
      },
      {
       "kind": "message",
-      "id": 1065,
+      "id": 1169,
       "year": 2024,
-      "ref": "row:1065",
-      "tg": 51065,
+      "ref": "row:1169",
+      "tg": 51169,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -1911,10 +1954,10 @@
      },
      {
       "kind": "message",
-      "id": 1289,
+      "id": 1230,
       "year": 2024,
-      "ref": "row:1289",
-      "tg": 51289,
+      "ref": "row:1230",
+      "tg": 51230,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -1922,65 +1965,10 @@
      },
      {
       "kind": "message",
-      "id": 1297,
+      "id": 1061,
       "year": 2024,
-      "ref": "row:1297",
-      "tg": 51297,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1299,
-      "year": 2024,
-      "ref": "row:1299",
-      "tg": 51299,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1024,
-      "year": 2024,
-      "ref": "row:1024",
-      "tg": 51024,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1239,
-      "year": 2024,
-      "ref": "row:1239",
-      "tg": 51239,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1234,
-      "year": 2024,
-      "ref": "row:1234",
-      "tg": 51234,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1291,
-      "year": 2024,
-      "ref": "row:1291",
-      "tg": 51291,
+      "ref": "row:1061",
+      "tg": 51061,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -1999,6 +1987,61 @@
      },
      {
       "kind": "message",
+      "id": 1235,
+      "year": 2024,
+      "ref": "row:1235",
+      "tg": 51235,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1226,
+      "year": 2024,
+      "ref": "row:1226",
+      "tg": 51226,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1296,
+      "year": 2024,
+      "ref": "row:1296",
+      "tg": 51296,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1232,
+      "year": 2024,
+      "ref": "row:1232",
+      "tg": 51232,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1172,
+      "year": 2024,
+      "ref": "row:1172",
+      "tg": 51172,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1288,
       "year": 2024,
       "ref": "row:1288",
@@ -2010,10 +2053,32 @@
      },
      {
       "kind": "message",
-      "id": 1025,
+      "id": 1021,
       "year": 2024,
-      "ref": "row:1025",
-      "tg": 51025,
+      "ref": "row:1021",
+      "tg": 51021,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1059,
+      "year": 2024,
+      "ref": "row:1059",
+      "tg": 51059,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1027,
+      "year": 2024,
+      "ref": "row:1027",
+      "tg": 51027,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -2074,7 +2139,12 @@
       "episode_messages": 30,
       "payload_chars": 3723,
       "payload_sha256": "b2e7edbf826bb35b72a2d4f9db5d72e705b14c3d5458750f769d02a9a174e3fc",
-      "payload_refs": 39
+      "payload_refs": 39,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55019",
@@ -2118,6 +2188,13 @@
       "tg:51240"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 9,
+     "bundle_relations": 0,
+     "authors": {
+      "556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017": 15,
+      "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f": 15
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -2127,15 +2204,15 @@
         "applicable": true
        },
        "anchor": {
-        "num": 9,
+        "num": 8,
         "den": 32,
-        "value": 0.28125,
+        "value": 0.25,
         "applicable": true
        }
       },
       "chrono": {
-       "num": 9,
-       "den": 9,
+       "num": 8,
+       "den": 8,
        "value": 1.0,
        "applicable": true
       },
@@ -2158,8 +2235,8 @@
        2025,
        2026
       ],
-      "anchor_hits": 9,
-      "old_anchor_hits": 9,
+      "anchor_hits": 8,
+      "old_anchor_hits": 8,
       "old_anchor_den": 32
      }
     },
@@ -2215,7 +2292,12 @@
       "episode_messages": 30,
       "payload_chars": 3723,
       "payload_sha256": "b2e7edbf826bb35b72a2d4f9db5d72e705b14c3d5458750f769d02a9a174e3fc",
-      "payload_refs": 39
+      "payload_refs": 39,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55019",
@@ -2259,6 +2341,13 @@
       "tg:51240"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 9,
+     "bundle_relations": 0,
+     "authors": {
+      "556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017": 15,
+      "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f": 15
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -2268,15 +2357,15 @@
         "applicable": true
        },
        "anchor": {
-        "num": 9,
+        "num": 8,
         "den": 32,
-        "value": 0.28125,
+        "value": 0.25,
         "applicable": true
        }
       },
       "chrono": {
-       "num": 9,
-       "den": 9,
+       "num": 8,
+       "den": 8,
        "value": 1.0,
        "applicable": true
       },
@@ -2299,8 +2388,8 @@
        2025,
        2026
       ],
-      "anchor_hits": 9,
-      "old_anchor_hits": 9,
+      "anchor_hits": 8,
+      "old_anchor_hits": 8,
       "old_anchor_den": 32
      }
     }
@@ -2316,15 +2405,15 @@
       "applicable": true
      },
      "anchor": {
-      "num": 9,
+      "num": 8,
       "den": 32,
-      "value": 0.28125,
+      "value": 0.25,
       "applicable": true
      }
     },
     "chrono": {
-     "num": 9,
-     "den": 9,
+     "num": 8,
+     "den": 8,
      "value": 1.0,
      "applicable": true
     },
@@ -2347,8 +2436,8 @@
      2025,
      2026
     ],
-    "anchor_hits": 9,
-    "old_anchor_hits": 9,
+    "anchor_hits": 8,
+    "old_anchor_hits": 8,
     "old_anchor_den": 32
    }
   },
@@ -2376,7 +2465,7 @@
       }
      }
     },
-    "reference_sha256": "fc4ac2b2e8b2cbfed78d41c2173f70af544139980b8dd2c0bdc3bb50cda39e60",
+    "reference_sha256": "234551ffb0bdf8de23ff63982cf2dae153fa1e02f75c91f512bbbc602f21f14e",
     "not_executed": null,
     "subject": null,
     "anchors": [
@@ -2397,28 +2486,6 @@
       "year": 2024,
       "ref": "fact:5056",
       "tg": 55056,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5052,
-      "year": 2024,
-      "ref": "fact:5052",
-      "tg": 55052,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5054,
-      "year": 2024,
-      "ref": "fact:5054",
-      "tg": 55054,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -2447,59 +2514,26 @@
       "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1058,
+      "kind": "fact",
+      "id": 5052,
       "year": 2024,
-      "ref": "row:1058",
-      "tg": 51058,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
+      "ref": "fact:5052",
+      "tg": 55052,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1062,
+      "kind": "fact",
+      "id": 5054,
       "year": 2024,
-      "ref": "row:1062",
-      "tg": 51062,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1065,
-      "year": 2024,
-      "ref": "row:1065",
-      "tg": 51065,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1060,
-      "year": 2024,
-      "ref": "row:1060",
-      "tg": 51060,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1063,
-      "year": 2024,
-      "ref": "row:1063",
-      "tg": 51063,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
+      "ref": "fact:5054",
+      "tg": 55054,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "message",
@@ -2525,10 +2559,65 @@
      },
      {
       "kind": "message",
+      "id": 1063,
+      "year": 2024,
+      "ref": "row:1063",
+      "tg": 51063,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1065,
+      "year": 2024,
+      "ref": "row:1065",
+      "tg": 51065,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1064,
       "year": 2024,
       "ref": "row:1064",
       "tg": 51064,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1058,
+      "year": 2024,
+      "ref": "row:1058",
+      "tg": 51058,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1062,
+      "year": 2024,
+      "ref": "row:1062",
+      "tg": 51062,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1060,
+      "year": 2024,
+      "ref": "row:1060",
+      "tg": 51060,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -2582,7 +2671,11 @@
       "episode_messages": 0,
       "payload_chars": 899,
       "payload_sha256": "3e3208ab8657eedf3dfecd9c9129f8344176ead0c010a208912910237fbc7bc8",
-      "payload_refs": 8
+      "payload_refs": 8,
+      "block_tags": [
+       "Current_Question",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55131",
@@ -2595,6 +2688,12 @@
       "tg:55138"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae": 10
+     },
+     "subject_refs": 10,
      "metrics": {
       "coverage": {
        "period": {
@@ -2684,7 +2783,11 @@
       "episode_messages": 0,
       "payload_chars": 899,
       "payload_sha256": "3e3208ab8657eedf3dfecd9c9129f8344176ead0c010a208912910237fbc7bc8",
-      "payload_refs": 8
+      "payload_refs": 8,
+      "block_tags": [
+       "Current_Question",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55131",
@@ -2697,6 +2800,12 @@
       "tg:55138"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae": 10
+     },
+     "subject_refs": 10,
      "metrics": {
       "coverage": {
        "period": {
@@ -2836,10 +2945,21 @@
       }
      }
     },
-    "reference_sha256": "630845cd5e6a294c0d0fb9b704d57fc5b94cf1448c2ca1fe1b1b3db2a5e2fb20",
+    "reference_sha256": "e5daf99a279ca5f9b870993b398da7998053152e0918be01bdf39230c6bf7d74",
     "not_executed": null,
     "subject": null,
     "anchors": [
+     {
+      "kind": "fact",
+      "id": 5002,
+      "year": 2022,
+      "ref": "fact:5002",
+      "tg": 55002,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
      {
       "kind": "fact",
       "id": 5000,
@@ -2857,17 +2977,6 @@
       "year": 2022,
       "ref": "fact:5004",
       "tg": 55004,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5002,
-      "year": 2022,
-      "ref": "fact:5002",
-      "tg": 55002,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -2897,10 +3006,10 @@
      },
      {
       "kind": "message",
-      "id": 1005,
+      "id": 1003,
       "year": 2022,
-      "ref": "row:1005",
-      "tg": 51005,
+      "ref": "row:1003",
+      "tg": 51003,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -2908,10 +3017,10 @@
      },
      {
       "kind": "message",
-      "id": 1004,
+      "id": 1000,
       "year": 2022,
-      "ref": "row:1004",
-      "tg": 51004,
+      "ref": "row:1000",
+      "tg": 51000,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -2941,10 +3050,10 @@
      },
      {
       "kind": "message",
-      "id": 1003,
+      "id": 1004,
       "year": 2022,
-      "ref": "row:1003",
-      "tg": 51003,
+      "ref": "row:1004",
+      "tg": 51004,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -2952,14 +3061,47 @@
      },
      {
       "kind": "message",
-      "id": 1000,
+      "id": 1005,
       "year": 2022,
-      "ref": "row:1000",
-      "tg": 51000,
+      "ref": "row:1005",
+      "tg": 51005,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
       "by_author": false
+     },
+     {
+      "kind": "fact",
+      "id": 5010,
+      "year": 2023,
+      "ref": "fact:5010",
+      "tg": 55010,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5011,
+      "year": 2023,
+      "ref": "fact:5011",
+      "tg": 55011,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5012,
+      "year": 2023,
+      "ref": "fact:5012",
+      "tg": 55012,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "fact",
@@ -2982,72 +3124,6 @@
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5011,
-      "year": 2023,
-      "ref": "fact:5011",
-      "tg": 55011,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5010,
-      "year": 2023,
-      "ref": "fact:5010",
-      "tg": 55010,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5012,
-      "year": 2023,
-      "ref": "fact:5012",
-      "tg": 55012,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "message",
-      "id": 1015,
-      "year": 2023,
-      "ref": "row:1015",
-      "tg": 51015,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1010,
-      "year": 2023,
-      "ref": "row:1010",
-      "tg": 51010,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1014,
-      "year": 2023,
-      "ref": "row:1014",
-      "tg": 51014,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
      },
      {
       "kind": "message",
@@ -3073,10 +3149,43 @@
      },
      {
       "kind": "message",
+      "id": 1010,
+      "year": 2023,
+      "ref": "row:1010",
+      "tg": 51010,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1013,
       "year": 2023,
       "ref": "row:1013",
       "tg": 51013,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1014,
+      "year": 2023,
+      "ref": "row:1014",
+      "tg": 51014,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1015,
+      "year": 2023,
+      "ref": "row:1015",
+      "tg": 51015,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -3088,6 +3197,17 @@
       "year": 2024,
       "ref": "fact:5019",
       "tg": 55019,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5018,
+      "year": 2024,
+      "ref": "fact:5018",
+      "tg": 55018,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -3127,15 +3247,15 @@
       "by_author": null
      },
      {
-      "kind": "fact",
-      "id": 5018,
+      "kind": "message",
+      "id": 1021,
       "year": 2024,
-      "ref": "fact:5018",
-      "tg": 55018,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
+      "ref": "row:1021",
+      "tg": 51021,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -3172,28 +3292,6 @@
      },
      {
       "kind": "message",
-      "id": 1023,
-      "year": 2024,
-      "ref": "row:1023",
-      "tg": 51023,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1021,
-      "year": 2024,
-      "ref": "row:1021",
-      "tg": 51021,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
       "id": 1022,
       "year": 2024,
       "ref": "row:1022",
@@ -3204,11 +3302,22 @@
       "by_author": false
      },
      {
+      "kind": "message",
+      "id": 1023,
+      "year": 2024,
+      "ref": "row:1023",
+      "tg": 51023,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
       "kind": "fact",
-      "id": 5027,
+      "id": 5030,
       "year": 2025,
-      "ref": "fact:5027",
-      "tg": 55027,
+      "ref": "fact:5030",
+      "tg": 55030,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -3227,17 +3336,6 @@
      },
      {
       "kind": "fact",
-      "id": 5028,
-      "year": 2025,
-      "ref": "fact:5028",
-      "tg": 55028,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
       "id": 5029,
       "year": 2025,
       "ref": "fact:5029",
@@ -3249,14 +3347,36 @@
      },
      {
       "kind": "fact",
-      "id": 5030,
+      "id": 5028,
       "year": 2025,
-      "ref": "fact:5030",
-      "tg": 55030,
+      "ref": "fact:5028",
+      "tg": 55028,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5027,
+      "year": 2025,
+      "ref": "fact:5027",
+      "tg": 55027,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "message",
+      "id": 1032,
+      "year": 2025,
+      "ref": "row:1032",
+      "tg": 51032,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -3282,10 +3402,10 @@
      },
      {
       "kind": "message",
-      "id": 1031,
+      "id": 1030,
       "year": 2025,
-      "ref": "row:1031",
-      "tg": 51031,
+      "ref": "row:1030",
+      "tg": 51030,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -3304,21 +3424,10 @@
      },
      {
       "kind": "message",
-      "id": 1030,
+      "id": 1031,
       "year": 2025,
-      "ref": "row:1030",
-      "tg": 51030,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1032,
-      "year": 2025,
-      "ref": "row:1032",
-      "tg": 51032,
+      "ref": "row:1031",
+      "tg": 51031,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -3326,10 +3435,10 @@
      },
      {
       "kind": "fact",
-      "id": 5040,
+      "id": 5036,
       "year": 2026,
-      "ref": "fact:5040",
-      "tg": 55040,
+      "ref": "fact:5036",
+      "tg": 55036,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -3337,10 +3446,10 @@
      },
      {
       "kind": "fact",
-      "id": 5037,
+      "id": 5040,
       "year": 2026,
-      "ref": "fact:5037",
-      "tg": 55037,
+      "ref": "fact:5040",
+      "tg": 55040,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -3359,17 +3468,6 @@
      },
      {
       "kind": "fact",
-      "id": 5036,
-      "year": 2026,
-      "ref": "fact:5036",
-      "tg": 55036,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
       "id": 5039,
       "year": 2026,
       "ref": "fact:5039",
@@ -3380,26 +3478,15 @@
       "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1042,
+      "kind": "fact",
+      "id": 5037,
       "year": 2026,
-      "ref": "row:1042",
-      "tg": 51042,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1040,
-      "year": 2026,
-      "ref": "row:1040",
-      "tg": 51040,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
+      "ref": "fact:5037",
+      "tg": 55037,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "message",
@@ -3407,6 +3494,17 @@
       "year": 2026,
       "ref": "row:1043",
       "tg": 51043,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1044,
+      "year": 2026,
+      "ref": "row:1044",
+      "tg": 51044,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -3425,10 +3523,21 @@
      },
      {
       "kind": "message",
-      "id": 1044,
+      "id": 1042,
       "year": 2026,
-      "ref": "row:1044",
-      "tg": 51044,
+      "ref": "row:1042",
+      "tg": 51042,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1040,
+      "year": 2026,
+      "ref": "row:1040",
+      "tg": 51040,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -3500,7 +3609,12 @@
       "episode_messages": 12,
       "payload_chars": 1944,
       "payload_sha256": "dbbd4b9d4e39ba41c696a0ed738a22bc46e24b7fb7b0d49900b9664bd821a25c",
-      "payload_refs": 20
+      "payload_refs": 20,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55028",
@@ -3525,6 +3639,14 @@
       "tg:51015"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 4,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 4,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -3626,7 +3748,12 @@
       "episode_messages": 12,
       "payload_chars": 2164,
       "payload_sha256": "4b040e23311695ba00ce7d1ff3864fdc5cc68936311e06a4633a8b3d1ee1114f",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55001",
@@ -3653,6 +3780,14 @@
       "tg:51015"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 4,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 4,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -3753,7 +3888,12 @@
       "episode_messages": 12,
       "payload_chars": 2164,
       "payload_sha256": "4b040e23311695ba00ce7d1ff3864fdc5cc68936311e06a4633a8b3d1ee1114f",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55001",
@@ -3780,6 +3920,14 @@
       "tg:51015"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 4,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 4,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -3900,10 +4048,43 @@
       }
      }
     },
-    "reference_sha256": "34636891f3fa78eef009b213f62a21cc2208824e432f8c0fd739e6e289aafd14",
+    "reference_sha256": "7efa24d440d2e5f72bf07ccc8669a5689f481cb815779d51d4480a94747dfc63",
     "not_executed": null,
     "subject": null,
     "anchors": [
+     {
+      "kind": "fact",
+      "id": 5048,
+      "year": 2022,
+      "ref": "fact:5048",
+      "tg": 55048,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5047,
+      "year": 2022,
+      "ref": "fact:5047",
+      "tg": 55047,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5049,
+      "year": 2022,
+      "ref": "fact:5049",
+      "tg": 55049,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
      {
       "kind": "fact",
       "id": 5045,
@@ -3938,37 +4119,26 @@
       "by_author": null
      },
      {
-      "kind": "fact",
-      "id": 5047,
+      "kind": "message",
+      "id": 1056,
       "year": 2022,
-      "ref": "fact:5047",
-      "tg": 55047,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
+      "ref": "row:1056",
+      "tg": 51056,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
-      "kind": "fact",
-      "id": 5048,
+      "kind": "message",
+      "id": 1057,
       "year": 2022,
-      "ref": "fact:5048",
-      "tg": 55048,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5049,
-      "year": 2022,
-      "ref": "fact:5049",
-      "tg": 55049,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
+      "ref": "row:1057",
+      "tg": 51057,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -3994,10 +4164,10 @@
      },
      {
       "kind": "message",
-      "id": 1057,
+      "id": 1055,
       "year": 2022,
-      "ref": "row:1057",
-      "tg": 51057,
+      "ref": "row:1055",
+      "tg": 51055,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4016,32 +4186,10 @@
      },
      {
       "kind": "message",
-      "id": 1055,
-      "year": 2022,
-      "ref": "row:1055",
-      "tg": 51055,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
       "id": 1051,
       "year": 2022,
       "ref": "row:1051",
       "tg": 51051,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1056,
-      "year": 2022,
-      "ref": "row:1056",
-      "tg": 51056,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4110,7 +4258,12 @@
       "episode_messages": 14,
       "payload_chars": 2274,
       "payload_sha256": "efbd819f881712fcb8b1be795ea0ebe78844467c6f34e6937da32f1ff4cefcc0",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55054",
@@ -4137,6 +4290,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -4233,7 +4394,12 @@
       "episode_messages": 14,
       "payload_chars": 2395,
       "payload_sha256": "e031d8efcdab5df0779f2eb5837c0c40d91ad0b3c12526ec9d5c115cc6357caa",
-      "payload_refs": 23
+      "payload_refs": 23,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55045",
@@ -4261,6 +4427,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 9,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -4396,20 +4570,20 @@
       }
      }
     },
-    "reference_sha256": "de61d4c1ce1453366f630251edcd9ed4dcc70d1c00c0d8647b07dcac18d960d8",
+    "reference_sha256": "13d5792209d9abe5fcb4aa6f9dfc550fce62cf478c1142405d17c1f2a4c35d28",
     "not_executed": null,
     "subject": {
      "pseudo": "P1",
-     "uid_sha256": "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae",
-     "name_sha256": "5e1632b8ff8c26df44022d60f2bf1d65b8a1562114000b39bfb4521ed15da3eb"
+     "uid_sha256": "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f",
+     "name_sha256": "a2f38db0c4fdd72915a8655ef45125907f8346a66a899886101db06c1dc20cab"
     },
     "anchors": [
      {
       "kind": "fact",
-      "id": 5120,
+      "id": 5143,
       "year": 2022,
-      "ref": "fact:5120",
-      "tg": 55120,
+      "ref": "fact:5143",
+      "tg": 55143,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4417,10 +4591,10 @@
      },
      {
       "kind": "fact",
-      "id": 5121,
+      "id": 5141,
       "year": 2022,
-      "ref": "fact:5121",
-      "tg": 55121,
+      "ref": "fact:5141",
+      "tg": 55141,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4428,10 +4602,10 @@
      },
      {
       "kind": "fact",
-      "id": 5119,
+      "id": 5139,
       "year": 2022,
-      "ref": "fact:5119",
-      "tg": 55119,
+      "ref": "fact:5139",
+      "tg": 55139,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4439,10 +4613,10 @@
      },
      {
       "kind": "fact",
-      "id": 5122,
+      "id": 5142,
       "year": 2022,
-      "ref": "fact:5122",
-      "tg": 55122,
+      "ref": "fact:5142",
+      "tg": 55142,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4450,10 +4624,10 @@
      },
      {
       "kind": "fact",
-      "id": 5123,
+      "id": 5140,
       "year": 2022,
-      "ref": "fact:5123",
-      "tg": 55123,
+      "ref": "fact:5140",
+      "tg": 55140,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4461,10 +4635,10 @@
      },
      {
       "kind": "message",
-      "id": 1141,
+      "id": 1208,
       "year": 2022,
-      "ref": "row:1141",
-      "tg": 51141,
+      "ref": "row:1208",
+      "tg": 51208,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4472,10 +4646,10 @@
      },
      {
       "kind": "message",
-      "id": 1140,
+      "id": 1202,
       "year": 2022,
-      "ref": "row:1140",
-      "tg": 51140,
+      "ref": "row:1202",
+      "tg": 51202,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4483,10 +4657,10 @@
      },
      {
       "kind": "message",
-      "id": 1147,
+      "id": 1204,
       "year": 2022,
-      "ref": "row:1147",
-      "tg": 51147,
+      "ref": "row:1204",
+      "tg": 51204,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4494,10 +4668,10 @@
      },
      {
       "kind": "message",
-      "id": 1148,
+      "id": 1201,
       "year": 2022,
-      "ref": "row:1148",
-      "tg": 51148,
+      "ref": "row:1201",
+      "tg": 51201,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4505,10 +4679,10 @@
      },
      {
       "kind": "message",
-      "id": 1137,
+      "id": 1207,
       "year": 2022,
-      "ref": "row:1137",
-      "tg": 51137,
+      "ref": "row:1207",
+      "tg": 51207,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4516,10 +4690,10 @@
      },
      {
       "kind": "message",
-      "id": 1139,
+      "id": 1210,
       "year": 2022,
-      "ref": "row:1139",
-      "tg": 51139,
+      "ref": "row:1210",
+      "tg": 51210,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4527,10 +4701,10 @@
      },
      {
       "kind": "message",
-      "id": 1136,
+      "id": 1198,
       "year": 2022,
-      "ref": "row:1136",
-      "tg": 51136,
+      "ref": "row:1198",
+      "tg": 51198,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4538,10 +4712,10 @@
      },
      {
       "kind": "message",
-      "id": 1149,
+      "id": 1209,
       "year": 2022,
-      "ref": "row:1149",
-      "tg": 51149,
+      "ref": "row:1209",
+      "tg": 51209,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4549,10 +4723,10 @@
      },
      {
       "kind": "message",
-      "id": 1138,
+      "id": 1197,
       "year": 2022,
-      "ref": "row:1138",
-      "tg": 51138,
+      "ref": "row:1197",
+      "tg": 51197,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4560,10 +4734,10 @@
      },
      {
       "kind": "message",
-      "id": 1143,
+      "id": 1205,
       "year": 2022,
-      "ref": "row:1143",
-      "tg": 51143,
+      "ref": "row:1205",
+      "tg": 51205,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4571,10 +4745,10 @@
      },
      {
       "kind": "message",
-      "id": 1142,
+      "id": 1199,
       "year": 2022,
-      "ref": "row:1142",
-      "tg": 51142,
+      "ref": "row:1199",
+      "tg": 51199,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4582,10 +4756,10 @@
      },
      {
       "kind": "message",
-      "id": 1146,
+      "id": 1203,
       "year": 2022,
-      "ref": "row:1146",
-      "tg": 51146,
+      "ref": "row:1203",
+      "tg": 51203,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4593,10 +4767,10 @@
      },
      {
       "kind": "message",
-      "id": 1144,
+      "id": 1206,
       "year": 2022,
-      "ref": "row:1144",
-      "tg": 51144,
+      "ref": "row:1206",
+      "tg": 51206,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4604,10 +4778,10 @@
      },
      {
       "kind": "message",
-      "id": 1150,
+      "id": 1200,
       "year": 2022,
-      "ref": "row:1150",
-      "tg": 51150,
+      "ref": "row:1200",
+      "tg": 51200,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4615,10 +4789,10 @@
      },
      {
       "kind": "message",
-      "id": 1145,
+      "id": 1196,
       "year": 2022,
-      "ref": "row:1145",
-      "tg": 51145,
+      "ref": "row:1196",
+      "tg": 51196,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4626,10 +4800,10 @@
      },
      {
       "kind": "fact",
-      "id": 5127,
+      "id": 5147,
       "year": 2023,
-      "ref": "fact:5127",
-      "tg": 55127,
+      "ref": "fact:5147",
+      "tg": 55147,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4637,10 +4811,10 @@
      },
      {
       "kind": "fact",
-      "id": 5126,
+      "id": 5148,
       "year": 2023,
-      "ref": "fact:5126",
-      "tg": 55126,
+      "ref": "fact:5148",
+      "tg": 55148,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4648,10 +4822,10 @@
      },
      {
       "kind": "fact",
-      "id": 5125,
+      "id": 5145,
       "year": 2023,
-      "ref": "fact:5125",
-      "tg": 55125,
+      "ref": "fact:5145",
+      "tg": 55145,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4659,10 +4833,10 @@
      },
      {
       "kind": "fact",
-      "id": 5124,
+      "id": 5144,
       "year": 2023,
-      "ref": "fact:5124",
-      "tg": 55124,
+      "ref": "fact:5144",
+      "tg": 55144,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4670,10 +4844,10 @@
      },
      {
       "kind": "fact",
-      "id": 5128,
+      "id": 5146,
       "year": 2023,
-      "ref": "fact:5128",
-      "tg": 55128,
+      "ref": "fact:5146",
+      "tg": 55146,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4681,10 +4855,10 @@
      },
      {
       "kind": "message",
-      "id": 1163,
+      "id": 1224,
       "year": 2023,
-      "ref": "row:1163",
-      "tg": 51163,
+      "ref": "row:1224",
+      "tg": 51224,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4692,10 +4866,10 @@
      },
      {
       "kind": "message",
-      "id": 1164,
+      "id": 1219,
       "year": 2023,
-      "ref": "row:1164",
-      "tg": 51164,
+      "ref": "row:1219",
+      "tg": 51219,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4703,10 +4877,10 @@
      },
      {
       "kind": "message",
-      "id": 1157,
+      "id": 1213,
       "year": 2023,
-      "ref": "row:1157",
-      "tg": 51157,
+      "ref": "row:1213",
+      "tg": 51213,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4714,10 +4888,10 @@
      },
      {
       "kind": "message",
-      "id": 1165,
+      "id": 1222,
       "year": 2023,
-      "ref": "row:1165",
-      "tg": 51165,
+      "ref": "row:1222",
+      "tg": 51222,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4725,10 +4899,10 @@
      },
      {
       "kind": "message",
-      "id": 1161,
+      "id": 1223,
       "year": 2023,
-      "ref": "row:1161",
-      "tg": 51161,
+      "ref": "row:1223",
+      "tg": 51223,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4736,10 +4910,10 @@
      },
      {
       "kind": "message",
-      "id": 1154,
+      "id": 1218,
       "year": 2023,
-      "ref": "row:1154",
-      "tg": 51154,
+      "ref": "row:1218",
+      "tg": 51218,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4747,10 +4921,10 @@
      },
      {
       "kind": "message",
-      "id": 1156,
+      "id": 1221,
       "year": 2023,
-      "ref": "row:1156",
-      "tg": 51156,
+      "ref": "row:1221",
+      "tg": 51221,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4758,10 +4932,10 @@
      },
      {
       "kind": "message",
-      "id": 1151,
+      "id": 1217,
       "year": 2023,
-      "ref": "row:1151",
-      "tg": 51151,
+      "ref": "row:1217",
+      "tg": 51217,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4769,10 +4943,10 @@
      },
      {
       "kind": "message",
-      "id": 1162,
+      "id": 1211,
       "year": 2023,
-      "ref": "row:1162",
-      "tg": 51162,
+      "ref": "row:1211",
+      "tg": 51211,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4780,10 +4954,10 @@
      },
      {
       "kind": "message",
-      "id": 1158,
+      "id": 1225,
       "year": 2023,
-      "ref": "row:1158",
-      "tg": 51158,
+      "ref": "row:1225",
+      "tg": 51225,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4791,10 +4965,10 @@
      },
      {
       "kind": "message",
-      "id": 1153,
+      "id": 1212,
       "year": 2023,
-      "ref": "row:1153",
-      "tg": 51153,
+      "ref": "row:1212",
+      "tg": 51212,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4802,10 +4976,10 @@
      },
      {
       "kind": "message",
-      "id": 1160,
+      "id": 1216,
       "year": 2023,
-      "ref": "row:1160",
-      "tg": 51160,
+      "ref": "row:1216",
+      "tg": 51216,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4813,10 +4987,10 @@
      },
      {
       "kind": "message",
-      "id": 1152,
+      "id": 1215,
       "year": 2023,
-      "ref": "row:1152",
-      "tg": 51152,
+      "ref": "row:1215",
+      "tg": 51215,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4824,10 +4998,10 @@
      },
      {
       "kind": "message",
-      "id": 1155,
+      "id": 1220,
       "year": 2023,
-      "ref": "row:1155",
-      "tg": 51155,
+      "ref": "row:1220",
+      "tg": 51220,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4835,10 +5009,10 @@
      },
      {
       "kind": "message",
-      "id": 1159,
+      "id": 1214,
       "year": 2023,
-      "ref": "row:1159",
-      "tg": 51159,
+      "ref": "row:1214",
+      "tg": 51214,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4846,10 +5020,10 @@
      },
      {
       "kind": "fact",
-      "id": 5130,
+      "id": 5150,
       "year": 2024,
-      "ref": "fact:5130",
-      "tg": 55130,
+      "ref": "fact:5150",
+      "tg": 55150,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4857,10 +5031,10 @@
      },
      {
       "kind": "fact",
-      "id": 5133,
+      "id": 5153,
       "year": 2024,
-      "ref": "fact:5133",
-      "tg": 55133,
+      "ref": "fact:5153",
+      "tg": 55153,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4868,10 +5042,10 @@
      },
      {
       "kind": "fact",
-      "id": 5131,
+      "id": 5152,
       "year": 2024,
-      "ref": "fact:5131",
-      "tg": 55131,
+      "ref": "fact:5152",
+      "tg": 55152,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4879,10 +5053,10 @@
      },
      {
       "kind": "fact",
-      "id": 5129,
+      "id": 5151,
       "year": 2024,
-      "ref": "fact:5129",
-      "tg": 55129,
+      "ref": "fact:5151",
+      "tg": 55151,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4890,10 +5064,10 @@
      },
      {
       "kind": "fact",
-      "id": 5132,
+      "id": 5149,
       "year": 2024,
-      "ref": "fact:5132",
-      "tg": 55132,
+      "ref": "fact:5149",
+      "tg": 55149,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -4901,10 +5075,10 @@
      },
      {
       "kind": "message",
-      "id": 1171,
+      "id": 1230,
       "year": 2024,
-      "ref": "row:1171",
-      "tg": 51171,
+      "ref": "row:1230",
+      "tg": 51230,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4912,10 +5086,10 @@
      },
      {
       "kind": "message",
-      "id": 1170,
+      "id": 1235,
       "year": 2024,
-      "ref": "row:1170",
-      "tg": 51170,
+      "ref": "row:1235",
+      "tg": 51235,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4923,10 +5097,10 @@
      },
      {
       "kind": "message",
-      "id": 1168,
+      "id": 1226,
       "year": 2024,
-      "ref": "row:1168",
-      "tg": 51168,
+      "ref": "row:1226",
+      "tg": 51226,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4934,10 +5108,10 @@
      },
      {
       "kind": "message",
-      "id": 1173,
+      "id": 1232,
       "year": 2024,
-      "ref": "row:1173",
-      "tg": 51173,
+      "ref": "row:1232",
+      "tg": 51232,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4945,10 +5119,10 @@
      },
      {
       "kind": "message",
-      "id": 1172,
+      "id": 1228,
       "year": 2024,
-      "ref": "row:1172",
-      "tg": 51172,
+      "ref": "row:1228",
+      "tg": 51228,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4956,10 +5130,10 @@
      },
      {
       "kind": "message",
-      "id": 1178,
+      "id": 1237,
       "year": 2024,
-      "ref": "row:1178",
-      "tg": 51178,
+      "ref": "row:1237",
+      "tg": 51237,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4967,10 +5141,10 @@
      },
      {
       "kind": "message",
-      "id": 1169,
+      "id": 1236,
       "year": 2024,
-      "ref": "row:1169",
-      "tg": 51169,
+      "ref": "row:1236",
+      "tg": 51236,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4978,10 +5152,10 @@
      },
      {
       "kind": "message",
-      "id": 1174,
+      "id": 1240,
       "year": 2024,
-      "ref": "row:1174",
-      "tg": 51174,
+      "ref": "row:1240",
+      "tg": 51240,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -4989,10 +5163,10 @@
      },
      {
       "kind": "message",
-      "id": 1166,
+      "id": 1239,
       "year": 2024,
-      "ref": "row:1166",
-      "tg": 51166,
+      "ref": "row:1239",
+      "tg": 51239,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5000,10 +5174,10 @@
      },
      {
       "kind": "message",
-      "id": 1167,
+      "id": 1227,
       "year": 2024,
-      "ref": "row:1167",
-      "tg": 51167,
+      "ref": "row:1227",
+      "tg": 51227,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5011,10 +5185,10 @@
      },
      {
       "kind": "message",
-      "id": 1175,
+      "id": 1233,
       "year": 2024,
-      "ref": "row:1175",
-      "tg": 51175,
+      "ref": "row:1233",
+      "tg": 51233,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5022,10 +5196,10 @@
      },
      {
       "kind": "message",
-      "id": 1180,
+      "id": 1229,
       "year": 2024,
-      "ref": "row:1180",
-      "tg": 51180,
+      "ref": "row:1229",
+      "tg": 51229,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5033,10 +5207,10 @@
      },
      {
       "kind": "message",
-      "id": 1177,
+      "id": 1234,
       "year": 2024,
-      "ref": "row:1177",
-      "tg": 51177,
+      "ref": "row:1234",
+      "tg": 51234,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5044,10 +5218,10 @@
      },
      {
       "kind": "message",
-      "id": 1179,
+      "id": 1231,
       "year": 2024,
-      "ref": "row:1179",
-      "tg": 51179,
+      "ref": "row:1231",
+      "tg": 51231,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5055,10 +5229,10 @@
      },
      {
       "kind": "message",
-      "id": 1176,
+      "id": 1238,
       "year": 2024,
-      "ref": "row:1176",
-      "tg": 51176,
+      "ref": "row:1238",
+      "tg": 51238,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5066,10 +5240,10 @@
      },
      {
       "kind": "fact",
-      "id": 5135,
+      "id": 5155,
       "year": 2025,
-      "ref": "fact:5135",
-      "tg": 55135,
+      "ref": "fact:5155",
+      "tg": 55155,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -5077,10 +5251,10 @@
      },
      {
       "kind": "fact",
-      "id": 5136,
+      "id": 5154,
       "year": 2025,
-      "ref": "fact:5136",
-      "tg": 55136,
+      "ref": "fact:5154",
+      "tg": 55154,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -5088,10 +5262,10 @@
      },
      {
       "kind": "fact",
-      "id": 5138,
+      "id": 5156,
       "year": 2025,
-      "ref": "fact:5138",
-      "tg": 55138,
+      "ref": "fact:5156",
+      "tg": 55156,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -5099,10 +5273,10 @@
      },
      {
       "kind": "fact",
-      "id": 5137,
+      "id": 5158,
       "year": 2025,
-      "ref": "fact:5137",
-      "tg": 55137,
+      "ref": "fact:5158",
+      "tg": 55158,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -5110,10 +5284,10 @@
      },
      {
       "kind": "fact",
-      "id": 5134,
+      "id": 5157,
       "year": 2025,
-      "ref": "fact:5134",
-      "tg": 55134,
+      "ref": "fact:5157",
+      "tg": 55157,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -5121,10 +5295,10 @@
      },
      {
       "kind": "message",
-      "id": 1186,
+      "id": 1243,
       "year": 2025,
-      "ref": "row:1186",
-      "tg": 51186,
+      "ref": "row:1243",
+      "tg": 51243,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5132,10 +5306,10 @@
      },
      {
       "kind": "message",
-      "id": 1191,
+      "id": 1245,
       "year": 2025,
-      "ref": "row:1191",
-      "tg": 51191,
+      "ref": "row:1245",
+      "tg": 51245,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5143,10 +5317,10 @@
      },
      {
       "kind": "message",
-      "id": 1184,
+      "id": 1255,
       "year": 2025,
-      "ref": "row:1184",
-      "tg": 51184,
+      "ref": "row:1255",
+      "tg": 51255,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5154,10 +5328,10 @@
      },
      {
       "kind": "message",
-      "id": 1190,
+      "id": 1254,
       "year": 2025,
-      "ref": "row:1190",
-      "tg": 51190,
+      "ref": "row:1254",
+      "tg": 51254,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5165,10 +5339,10 @@
      },
      {
       "kind": "message",
-      "id": 1182,
+      "id": 1250,
       "year": 2025,
-      "ref": "row:1182",
-      "tg": 51182,
+      "ref": "row:1250",
+      "tg": 51250,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5176,10 +5350,10 @@
      },
      {
       "kind": "message",
-      "id": 1195,
+      "id": 1248,
       "year": 2025,
-      "ref": "row:1195",
-      "tg": 51195,
+      "ref": "row:1248",
+      "tg": 51248,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5187,10 +5361,10 @@
      },
      {
       "kind": "message",
-      "id": 1194,
+      "id": 1252,
       "year": 2025,
-      "ref": "row:1194",
-      "tg": 51194,
+      "ref": "row:1252",
+      "tg": 51252,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5198,10 +5372,10 @@
      },
      {
       "kind": "message",
-      "id": 1185,
+      "id": 1251,
       "year": 2025,
-      "ref": "row:1185",
-      "tg": 51185,
+      "ref": "row:1251",
+      "tg": 51251,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5209,10 +5383,10 @@
      },
      {
       "kind": "message",
-      "id": 1183,
+      "id": 1244,
       "year": 2025,
-      "ref": "row:1183",
-      "tg": 51183,
+      "ref": "row:1244",
+      "tg": 51244,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5220,10 +5394,10 @@
      },
      {
       "kind": "message",
-      "id": 1188,
+      "id": 1253,
       "year": 2025,
-      "ref": "row:1188",
-      "tg": 51188,
+      "ref": "row:1253",
+      "tg": 51253,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5231,10 +5405,10 @@
      },
      {
       "kind": "message",
-      "id": 1187,
+      "id": 1241,
       "year": 2025,
-      "ref": "row:1187",
-      "tg": 51187,
+      "ref": "row:1241",
+      "tg": 51241,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5242,10 +5416,10 @@
      },
      {
       "kind": "message",
-      "id": 1192,
+      "id": 1246,
       "year": 2025,
-      "ref": "row:1192",
-      "tg": 51192,
+      "ref": "row:1246",
+      "tg": 51246,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5253,10 +5427,10 @@
      },
      {
       "kind": "message",
-      "id": 1181,
+      "id": 1247,
       "year": 2025,
-      "ref": "row:1181",
-      "tg": 51181,
+      "ref": "row:1247",
+      "tg": 51247,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5264,10 +5438,10 @@
      },
      {
       "kind": "message",
-      "id": 1189,
+      "id": 1242,
       "year": 2025,
-      "ref": "row:1189",
-      "tg": 51189,
+      "ref": "row:1242",
+      "tg": 51242,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5275,10 +5449,10 @@
      },
      {
       "kind": "message",
-      "id": 1193,
+      "id": 1249,
       "year": 2025,
-      "ref": "row:1193",
-      "tg": 51193,
+      "ref": "row:1249",
+      "tg": 51249,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5321,48 +5495,59 @@
      },
      "writer": {
       "rag_rendered": true,
-      "rag_chars": 916,
+      "rag_chars": 912,
       "rag_years": {
        "2023": 2,
        "2026": 6
       },
       "rag_source_ids": 8,
       "episode_rendered": true,
-      "episode_chars": 1323,
+      "episode_chars": 1293,
       "episode_years": {
        "2022": 15
       },
       "episode_messages": 15,
-      "payload_chars": 2342,
-      "payload_sha256": "3fc11c1b66b45e624a2578592438d1998cad044343c7d7e3a6c624aeed152166",
-      "payload_refs": 23
+      "payload_chars": 2307,
+      "payload_sha256": "d5eb9693425382a9d57fe2b2941f940af421515a4682fb45c8436ac18a2fa2c1",
+      "payload_refs": 23,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
-      "tg:55125",
-      "tg:55126",
+      "tg:55145",
+      "tg:55146",
       "tg:55075",
       "tg:55076",
       "tg:55077",
       "tg:55078",
       "tg:55079",
       "tg:55080",
-      "tg:51136",
-      "tg:51137",
-      "tg:51138",
-      "tg:51139",
-      "tg:51140",
-      "tg:51141",
-      "tg:51142",
-      "tg:51143",
-      "tg:51144",
-      "tg:51145",
-      "tg:51146",
-      "tg:51147",
-      "tg:51148",
-      "tg:51149",
-      "tg:51150"
+      "tg:51196",
+      "tg:51197",
+      "tg:51198",
+      "tg:51199",
+      "tg:51200",
+      "tg:51201",
+      "tg:51202",
+      "tg:51203",
+      "tg:51204",
+      "tg:51205",
+      "tg:51206",
+      "tg:51207",
+      "tg:51208",
+      "tg:51209",
+      "tg:51210"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f": 18
+     },
+     "subject_refs": 3,
      "metrics": {
       "coverage": {
        "period": {
@@ -5436,16 +5621,16 @@
       },
       "intent_source": "plan_act",
       "pool": 16,
-      "kept": 15,
-      "dropped_subject": 1,
-      "dropped_budget": 0,
+      "kept": 2,
+      "dropped_subject": 14,
+      "dropped_budget": 14,
       "dropped_status": 0,
       "vector_leg": "embed_unavailable",
       "vector_rows": 0
      },
      "writer": {
       "rag_rendered": true,
-      "rag_chars": 1116,
+      "rag_chars": 1112,
       "rag_years": {
        "2022": 1,
        "2023": 2,
@@ -5454,19 +5639,24 @@
       },
       "rag_source_ids": 10,
       "episode_rendered": true,
-      "episode_chars": 1323,
+      "episode_chars": 1293,
       "episode_years": {
        "2022": 15
       },
       "episode_messages": 15,
-      "payload_chars": 2542,
-      "payload_sha256": "6a62466a7519284926ae53bc8d6167de75b07378ad58c5aad367eb4d34eedcee",
-      "payload_refs": 25
+      "payload_chars": 2507,
+      "payload_sha256": "4ebfce0deb20aacd81876c3a7385fdece92ea9e64fec6e6d5383a4231a35127c",
+      "payload_refs": 25,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55119",
-      "tg:55125",
-      "tg:55126",
+      "tg:55145",
+      "tg:55146",
       "tg:55129",
       "tg:55075",
       "tg:55076",
@@ -5474,23 +5664,30 @@
       "tg:55078",
       "tg:55079",
       "tg:55080",
-      "tg:51136",
-      "tg:51137",
-      "tg:51138",
-      "tg:51139",
-      "tg:51140",
-      "tg:51141",
-      "tg:51142",
-      "tg:51143",
-      "tg:51144",
-      "tg:51145",
-      "tg:51146",
-      "tg:51147",
-      "tg:51148",
-      "tg:51149",
-      "tg:51150"
+      "tg:51196",
+      "tg:51197",
+      "tg:51198",
+      "tg:51199",
+      "tg:51200",
+      "tg:51201",
+      "tg:51202",
+      "tg:51203",
+      "tg:51204",
+      "tg:51205",
+      "tg:51206",
+      "tg:51207",
+      "tg:51208",
+      "tg:51209",
+      "tg:51210"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f": 17,
+      "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae": 2
+     },
+     "subject_refs": 4,
      "metrics": {
       "coverage": {
        "period": {
@@ -5500,15 +5697,15 @@
         "applicable": true
        },
        "anchor": {
-        "num": 19,
+        "num": 17,
         "den": 80,
-        "value": 0.2375,
+        "value": 0.2125,
         "applicable": true
        }
       },
       "chrono": {
-       "num": 19,
-       "den": 19,
+       "num": 17,
+       "den": 17,
        "value": 1.0,
        "applicable": true
       },
@@ -5532,8 +5729,8 @@
        2024,
        2026
       ],
-      "anchor_hits": 19,
-      "old_anchor_hits": 3,
+      "anchor_hits": 17,
+      "old_anchor_hits": 2,
       "old_anchor_den": 40
      }
     },
@@ -5565,8 +5762,8 @@
       },
       "intent_source": "memory_scope",
       "pool": 16,
-      "kept": 15,
-      "dropped_subject": 1,
+      "kept": 2,
+      "dropped_subject": 14,
       "dropped_budget": 0,
       "dropped_status": 0,
       "vector_leg": "embed_unavailable",
@@ -5574,7 +5771,7 @@
      },
      "writer": {
       "rag_rendered": true,
-      "rag_chars": 1116,
+      "rag_chars": 1112,
       "rag_years": {
        "2022": 1,
        "2023": 2,
@@ -5583,19 +5780,24 @@
       },
       "rag_source_ids": 10,
       "episode_rendered": true,
-      "episode_chars": 1323,
+      "episode_chars": 1293,
       "episode_years": {
        "2022": 15
       },
       "episode_messages": 15,
-      "payload_chars": 2542,
-      "payload_sha256": "6a62466a7519284926ae53bc8d6167de75b07378ad58c5aad367eb4d34eedcee",
-      "payload_refs": 25
+      "payload_chars": 2507,
+      "payload_sha256": "4ebfce0deb20aacd81876c3a7385fdece92ea9e64fec6e6d5383a4231a35127c",
+      "payload_refs": 25,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55119",
-      "tg:55125",
-      "tg:55126",
+      "tg:55145",
+      "tg:55146",
       "tg:55129",
       "tg:55075",
       "tg:55076",
@@ -5603,23 +5805,30 @@
       "tg:55078",
       "tg:55079",
       "tg:55080",
-      "tg:51136",
-      "tg:51137",
-      "tg:51138",
-      "tg:51139",
-      "tg:51140",
-      "tg:51141",
-      "tg:51142",
-      "tg:51143",
-      "tg:51144",
-      "tg:51145",
-      "tg:51146",
-      "tg:51147",
-      "tg:51148",
-      "tg:51149",
-      "tg:51150"
+      "tg:51196",
+      "tg:51197",
+      "tg:51198",
+      "tg:51199",
+      "tg:51200",
+      "tg:51201",
+      "tg:51202",
+      "tg:51203",
+      "tg:51204",
+      "tg:51205",
+      "tg:51206",
+      "tg:51207",
+      "tg:51208",
+      "tg:51209",
+      "tg:51210"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f": 17,
+      "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae": 2
+     },
+     "subject_refs": 4,
      "metrics": {
       "coverage": {
        "period": {
@@ -5629,15 +5838,15 @@
         "applicable": true
        },
        "anchor": {
-        "num": 19,
+        "num": 17,
         "den": 80,
-        "value": 0.2375,
+        "value": 0.2125,
         "applicable": true
        }
       },
       "chrono": {
-       "num": 19,
-       "den": 19,
+       "num": 17,
+       "den": 17,
        "value": 1.0,
        "applicable": true
       },
@@ -5661,14 +5870,14 @@
        2024,
        2026
       ],
-      "anchor_hits": 19,
-      "old_anchor_hits": 3,
+      "anchor_hits": 17,
+      "old_anchor_hits": 2,
       "old_anchor_den": 40
      }
     }
    },
    "not_executed": null,
-   "query_sha256": "9ba74143d9ccb90dcf24115ef2df839a37bb226f9524ffc38a30f46c091abd3c",
+   "query_sha256": "edc85e2e55b580d5ab41754ce40f0206f8ca98c7ce6a88b84dd5e8001c2d9f35",
    "metrics": {
     "coverage": {
      "period": {
@@ -5756,7 +5965,7 @@
       }
      }
     },
-    "reference_sha256": "b69d5abdde8b81fc175baafbb338f99e6b87d2bfc22f80ecc6414ad37133651c",
+    "reference_sha256": "d24e7bff4e100e2a185b9dd96e0a51230197df792c1d396f9a391ca6f3fa07fb",
     "not_executed": null,
     "subject": {
      "pseudo": "P2",
@@ -5764,39 +5973,6 @@
      "name_sha256": "3a61a0cfd817aa3d3cdd2f125901442057ee30ae365dd55ef0cf31833fd615bb"
     },
     "anchors": [
-     {
-      "kind": "fact",
-      "id": 5160,
-      "year": 2022,
-      "ref": "fact:5160",
-      "tg": 55160,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5161,
-      "year": 2022,
-      "ref": "fact:5161",
-      "tg": 55161,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5162,
-      "year": 2022,
-      "ref": "fact:5162",
-      "tg": 55162,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
      {
       "kind": "fact",
       "id": 5159,
@@ -5820,70 +5996,37 @@
       "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1270,
+      "kind": "fact",
+      "id": 5160,
       "year": 2022,
-      "ref": "row:1270",
-      "tg": 51270,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
+      "ref": "fact:5160",
+      "tg": 55160,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1267,
+      "kind": "fact",
+      "id": 5162,
       "year": 2022,
-      "ref": "row:1267",
-      "tg": 51267,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
+      "ref": "fact:5162",
+      "tg": 55162,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1257,
+      "kind": "fact",
+      "id": 5161,
       "year": 2022,
-      "ref": "row:1257",
-      "tg": 51257,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1258,
-      "year": 2022,
-      "ref": "row:1258",
-      "tg": 51258,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1261,
-      "year": 2022,
-      "ref": "row:1261",
-      "tg": 51261,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1256,
-      "year": 2022,
-      "ref": "row:1256",
-      "tg": 51256,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
+      "ref": "fact:5161",
+      "tg": 55161,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "message",
@@ -5898,10 +6041,10 @@
      },
      {
       "kind": "message",
-      "id": 1262,
+      "id": 1264,
       "year": 2022,
-      "ref": "row:1262",
-      "tg": 51262,
+      "ref": "row:1264",
+      "tg": 51264,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5931,10 +6074,10 @@
      },
      {
       "kind": "message",
-      "id": 1266,
+      "id": 1270,
       "year": 2022,
-      "ref": "row:1266",
-      "tg": 51266,
+      "ref": "row:1270",
+      "tg": 51270,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5942,10 +6085,10 @@
      },
      {
       "kind": "message",
-      "id": 1264,
+      "id": 1261,
       "year": 2022,
-      "ref": "row:1264",
-      "tg": 51264,
+      "ref": "row:1261",
+      "tg": 51261,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5953,10 +6096,43 @@
      },
      {
       "kind": "message",
-      "id": 1260,
+      "id": 1258,
       "year": 2022,
-      "ref": "row:1260",
-      "tg": 51260,
+      "ref": "row:1258",
+      "tg": 51258,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1268,
+      "year": 2022,
+      "ref": "row:1268",
+      "tg": 51268,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1256,
+      "year": 2022,
+      "ref": "row:1256",
+      "tg": 51256,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1257,
+      "year": 2022,
+      "ref": "row:1257",
+      "tg": 51257,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5975,10 +6151,43 @@
      },
      {
       "kind": "message",
-      "id": 1268,
+      "id": 1262,
       "year": 2022,
-      "ref": "row:1268",
-      "tg": 51268,
+      "ref": "row:1262",
+      "tg": 51262,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1267,
+      "year": 2022,
+      "ref": "row:1267",
+      "tg": 51267,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1260,
+      "year": 2022,
+      "ref": "row:1260",
+      "tg": 51260,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1266,
+      "year": 2022,
+      "ref": "row:1266",
+      "tg": 51266,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -5990,17 +6199,6 @@
       "year": 2023,
       "ref": "fact:5165",
       "tg": 55165,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5168,
-      "year": 2023,
-      "ref": "fact:5168",
-      "tg": 55168,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -6030,6 +6228,17 @@
      },
      {
       "kind": "fact",
+      "id": 5168,
+      "year": 2023,
+      "ref": "fact:5168",
+      "tg": 55168,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
       "id": 5167,
       "year": 2023,
       "ref": "fact:5167",
@@ -6041,54 +6250,10 @@
      },
      {
       "kind": "message",
-      "id": 1274,
+      "id": 1280,
       "year": 2023,
-      "ref": "row:1274",
-      "tg": 51274,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1284,
-      "year": 2023,
-      "ref": "row:1284",
-      "tg": 51284,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1273,
-      "year": 2023,
-      "ref": "row:1273",
-      "tg": 51273,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1272,
-      "year": 2023,
-      "ref": "row:1272",
-      "tg": 51272,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1279,
-      "year": 2023,
-      "ref": "row:1279",
-      "tg": 51279,
+      "ref": "row:1280",
+      "tg": 51280,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6107,10 +6272,10 @@
      },
      {
       "kind": "message",
-      "id": 1285,
+      "id": 1272,
       "year": 2023,
-      "ref": "row:1285",
-      "tg": 51285,
+      "ref": "row:1272",
+      "tg": 51272,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6118,10 +6283,21 @@
      },
      {
       "kind": "message",
-      "id": 1276,
+      "id": 1277,
       "year": 2023,
-      "ref": "row:1276",
-      "tg": 51276,
+      "ref": "row:1277",
+      "tg": 51277,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1279,
+      "year": 2023,
+      "ref": "row:1279",
+      "tg": 51279,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6140,10 +6316,10 @@
      },
      {
       "kind": "message",
-      "id": 1280,
+      "id": 1274,
       "year": 2023,
-      "ref": "row:1280",
-      "tg": 51280,
+      "ref": "row:1274",
+      "tg": 51274,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6151,10 +6327,10 @@
      },
      {
       "kind": "message",
-      "id": 1281,
+      "id": 1276,
       "year": 2023,
-      "ref": "row:1281",
-      "tg": 51281,
+      "ref": "row:1276",
+      "tg": 51276,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6184,10 +6360,43 @@
      },
      {
       "kind": "message",
-      "id": 1277,
+      "id": 1284,
       "year": 2023,
-      "ref": "row:1277",
-      "tg": 51277,
+      "ref": "row:1284",
+      "tg": 51284,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1273,
+      "year": 2023,
+      "ref": "row:1273",
+      "tg": 51273,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1281,
+      "year": 2023,
+      "ref": "row:1281",
+      "tg": 51281,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1285,
+      "year": 2023,
+      "ref": "row:1285",
+      "tg": 51285,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6206,32 +6415,21 @@
      },
      {
       "kind": "fact",
+      "id": 5171,
+      "year": 2024,
+      "ref": "fact:5171",
+      "tg": 55171,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
       "id": 5172,
       "year": 2024,
       "ref": "fact:5172",
       "tg": 55172,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5169,
-      "year": 2024,
-      "ref": "fact:5169",
-      "tg": 55169,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5170,
-      "year": 2024,
-      "ref": "fact:5170",
-      "tg": 55170,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -6250,10 +6448,21 @@
      },
      {
       "kind": "fact",
-      "id": 5171,
+      "id": 5170,
       "year": 2024,
-      "ref": "fact:5171",
-      "tg": 55171,
+      "ref": "fact:5170",
+      "tg": 55170,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5169,
+      "year": 2024,
+      "ref": "fact:5169",
+      "tg": 55169,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -6261,10 +6470,10 @@
      },
      {
       "kind": "message",
-      "id": 1286,
+      "id": 1295,
       "year": 2024,
-      "ref": "row:1286",
-      "tg": 51286,
+      "ref": "row:1295",
+      "tg": 51295,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6272,43 +6481,10 @@
      },
      {
       "kind": "message",
-      "id": 1289,
+      "id": 1296,
       "year": 2024,
-      "ref": "row:1289",
-      "tg": 51289,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1297,
-      "year": 2024,
-      "ref": "row:1297",
-      "tg": 51297,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1299,
-      "year": 2024,
-      "ref": "row:1299",
-      "tg": 51299,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1291,
-      "year": 2024,
-      "ref": "row:1291",
-      "tg": 51291,
+      "ref": "row:1296",
+      "tg": 51296,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6338,43 +6514,54 @@
      },
      {
       "kind": "message",
+      "id": 1290,
+      "year": 2024,
+      "ref": "row:1290",
+      "tg": 51290,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1289,
+      "year": 2024,
+      "ref": "row:1289",
+      "tg": 51289,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1297,
+      "year": 2024,
+      "ref": "row:1297",
+      "tg": 51297,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1300,
+      "year": 2024,
+      "ref": "row:1300",
+      "tg": 51300,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
       "id": 1294,
       "year": 2024,
       "ref": "row:1294",
       "tg": 51294,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1295,
-      "year": 2024,
-      "ref": "row:1295",
-      "tg": 51295,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1293,
-      "year": 2024,
-      "ref": "row:1293",
-      "tg": 51293,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1298,
-      "year": 2024,
-      "ref": "row:1298",
-      "tg": 51298,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6393,10 +6580,10 @@
      },
      {
       "kind": "message",
-      "id": 1290,
+      "id": 1293,
       "year": 2024,
-      "ref": "row:1290",
-      "tg": 51290,
+      "ref": "row:1293",
+      "tg": 51293,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6404,10 +6591,10 @@
      },
      {
       "kind": "message",
-      "id": 1296,
+      "id": 1299,
       "year": 2024,
-      "ref": "row:1296",
-      "tg": 51296,
+      "ref": "row:1299",
+      "tg": 51299,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6415,14 +6602,58 @@
      },
      {
       "kind": "message",
-      "id": 1300,
+      "id": 1286,
       "year": 2024,
-      "ref": "row:1300",
-      "tg": 51300,
+      "ref": "row:1286",
+      "tg": 51286,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
       "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1291,
+      "year": 2024,
+      "ref": "row:1291",
+      "tg": 51291,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1298,
+      "year": 2024,
+      "ref": "row:1298",
+      "tg": 51298,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "fact",
+      "id": 5177,
+      "year": 2025,
+      "ref": "fact:5177",
+      "tg": 55177,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5175,
+      "year": 2025,
+      "ref": "fact:5175",
+      "tg": 55175,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "fact",
@@ -6448,28 +6679,6 @@
      },
      {
       "kind": "fact",
-      "id": 5175,
-      "year": 2025,
-      "ref": "fact:5175",
-      "tg": 55175,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5177,
-      "year": 2025,
-      "ref": "fact:5177",
-      "tg": 55177,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
       "id": 5178,
       "year": 2025,
       "ref": "fact:5178",
@@ -6481,142 +6690,10 @@
      },
      {
       "kind": "message",
-      "id": 1308,
-      "year": 2025,
-      "ref": "row:1308",
-      "tg": 51308,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1310,
-      "year": 2025,
-      "ref": "row:1310",
-      "tg": 51310,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1302,
-      "year": 2025,
-      "ref": "row:1302",
-      "tg": 51302,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1301,
-      "year": 2025,
-      "ref": "row:1301",
-      "tg": 51301,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1307,
-      "year": 2025,
-      "ref": "row:1307",
-      "tg": 51307,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1312,
-      "year": 2025,
-      "ref": "row:1312",
-      "tg": 51312,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1315,
-      "year": 2025,
-      "ref": "row:1315",
-      "tg": 51315,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1311,
-      "year": 2025,
-      "ref": "row:1311",
-      "tg": 51311,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1309,
-      "year": 2025,
-      "ref": "row:1309",
-      "tg": 51309,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
       "id": 1304,
       "year": 2025,
       "ref": "row:1304",
       "tg": 51304,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1305,
-      "year": 2025,
-      "ref": "row:1305",
-      "tg": 51305,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1314,
-      "year": 2025,
-      "ref": "row:1314",
-      "tg": 51314,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": true
-     },
-     {
-      "kind": "message",
-      "id": 1306,
-      "year": 2025,
-      "ref": "row:1306",
-      "tg": 51306,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6635,10 +6712,142 @@
      },
      {
       "kind": "message",
+      "id": 1308,
+      "year": 2025,
+      "ref": "row:1308",
+      "tg": 51308,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1301,
+      "year": 2025,
+      "ref": "row:1301",
+      "tg": 51301,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1309,
+      "year": 2025,
+      "ref": "row:1309",
+      "tg": 51309,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1312,
+      "year": 2025,
+      "ref": "row:1312",
+      "tg": 51312,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
       "id": 1303,
       "year": 2025,
       "ref": "row:1303",
       "tg": 51303,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1311,
+      "year": 2025,
+      "ref": "row:1311",
+      "tg": 51311,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1310,
+      "year": 2025,
+      "ref": "row:1310",
+      "tg": 51310,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1307,
+      "year": 2025,
+      "ref": "row:1307",
+      "tg": 51307,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1306,
+      "year": 2025,
+      "ref": "row:1306",
+      "tg": 51306,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1315,
+      "year": 2025,
+      "ref": "row:1315",
+      "tg": 51315,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1314,
+      "year": 2025,
+      "ref": "row:1314",
+      "tg": 51314,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1302,
+      "year": 2025,
+      "ref": "row:1302",
+      "tg": 51302,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": true
+     },
+     {
+      "kind": "message",
+      "id": 1305,
+      "year": 2025,
+      "ref": "row:1305",
+      "tg": 51305,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -6692,7 +6901,11 @@
       "episode_messages": 0,
       "payload_chars": 896,
       "payload_sha256": "9e6304f730e682b37f7fc2d6febb66665664a7cf52cec9132681d77d0fe0d730",
-      "payload_refs": 8
+      "payload_refs": 8,
+      "block_tags": [
+       "Current_Question",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55171",
@@ -6705,6 +6918,12 @@
       "tg:55178"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017": 10
+     },
+     "subject_refs": 10,
      "metrics": {
       "coverage": {
        "period": {
@@ -6797,7 +7016,11 @@
       "episode_messages": 0,
       "payload_chars": 1017,
       "payload_sha256": "4bd106596b8ec46aef8b972ecd218c367a3f11cd695f889d951e468716293297",
-      "payload_refs": 9
+      "payload_refs": 9,
+      "block_tags": [
+       "Current_Question",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55045",
@@ -6811,6 +7034,12 @@
       "tg:55178"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 9,
+     "bundle_relations": 0,
+     "authors": {
+      "556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017": 8
+     },
+     "subject_refs": 8,
      "metrics": {
       "coverage": {
        "period": {
@@ -6927,49 +7156,16 @@
       }
      }
     },
-    "reference_sha256": "5b00891f17bf8631204e17d945edcdde9768b33acae9b6bad223d86907db6518",
+    "reference_sha256": "d42f9a0fd8a89fe4bcc9b2067401ca46a2c4cda3a09139cb6d7226c1538c18c9",
     "not_executed": null,
     "subject": null,
     "anchors": [
-     {
-      "kind": "fact",
-      "id": 5062,
-      "year": 2023,
-      "ref": "fact:5062",
-      "tg": 55062,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5058,
-      "year": 2023,
-      "ref": "fact:5058",
-      "tg": 55058,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
      {
       "kind": "fact",
       "id": 5059,
       "year": 2023,
       "ref": "fact:5059",
       "tg": 55059,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5060,
-      "year": 2023,
-      "ref": "fact:5060",
-      "tg": 55060,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -6988,6 +7184,39 @@
      },
      {
       "kind": "fact",
+      "id": 5060,
+      "year": 2023,
+      "ref": "fact:5060",
+      "tg": 55060,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5058,
+      "year": 2023,
+      "ref": "fact:5058",
+      "tg": 55058,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5062,
+      "year": 2023,
+      "ref": "fact:5062",
+      "tg": 55062,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
       "id": 5057,
       "year": 2023,
       "ref": "fact:5057",
@@ -6999,54 +7228,21 @@
      },
      {
       "kind": "message",
+      "id": 1072,
+      "year": 2023,
+      "ref": "row:1072",
+      "tg": 51072,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1071,
       "year": 2023,
       "ref": "row:1071",
       "tg": 51071,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1068,
-      "year": 2023,
-      "ref": "row:1068",
-      "tg": 51068,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1066,
-      "year": 2023,
-      "ref": "row:1066",
-      "tg": 51066,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1070,
-      "year": 2023,
-      "ref": "row:1070",
-      "tg": 51070,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1073,
-      "year": 2023,
-      "ref": "row:1073",
-      "tg": 51073,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -7065,10 +7261,43 @@
      },
      {
       "kind": "message",
-      "id": 1072,
+      "id": 1066,
       "year": 2023,
-      "ref": "row:1072",
-      "tg": 51072,
+      "ref": "row:1066",
+      "tg": 51066,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1068,
+      "year": 2023,
+      "ref": "row:1068",
+      "tg": 51068,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1073,
+      "year": 2023,
+      "ref": "row:1073",
+      "tg": 51073,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1070,
+      "year": 2023,
+      "ref": "row:1070",
+      "tg": 51070,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -7135,7 +7364,12 @@
       "episode_messages": 8,
       "payload_chars": 1890,
       "payload_sha256": "777872b642a3de967e62c6f727d633677869eb9a923504b4f52a2cf5a5d12d26",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55061",
@@ -7156,6 +7390,14 @@
       "tg:51073"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -7253,7 +7495,12 @@
       "episode_messages": 8,
       "payload_chars": 2110,
       "payload_sha256": "d782e10ea060df085f9e1e99407e6ba4a32bdcd773241ed2593522ffa6ed82a3",
-      "payload_refs": 18
+      "payload_refs": 18,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55001",
@@ -7276,6 +7523,14 @@
       "tg:51073"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 10,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -7393,16 +7648,49 @@
       }
      }
     },
-    "reference_sha256": "14bba68da7f760cdc9ee93466bc820535ea9c4f6a760a0f7d1b3cec0dc775640",
+    "reference_sha256": "00ce57a697f53be4fed97643e1c4b8853d7a256a0635b20441299d211aaa595a",
     "not_executed": null,
     "subject": null,
     "anchors": [
+     {
+      "kind": "fact",
+      "id": 5026,
+      "year": 2024,
+      "ref": "fact:5026",
+      "tg": 55026,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5067,
+      "year": 2024,
+      "ref": "fact:5067",
+      "tg": 55067,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
      {
       "kind": "fact",
       "id": 5063,
       "year": 2024,
       "ref": "fact:5063",
       "tg": 55063,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5024,
+      "year": 2024,
+      "ref": "fact:5024",
+      "tg": 55024,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -7432,10 +7720,10 @@
      },
      {
       "kind": "fact",
-      "id": 5026,
+      "id": 5065,
       "year": 2024,
-      "ref": "fact:5026",
-      "tg": 55026,
+      "ref": "fact:5065",
+      "tg": 55065,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -7454,21 +7742,10 @@
      },
      {
       "kind": "fact",
-      "id": 5065,
+      "id": 5064,
       "year": 2024,
-      "ref": "fact:5065",
-      "tg": 55065,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5067,
-      "year": 2024,
-      "ref": "fact:5067",
-      "tg": 55067,
+      "ref": "fact:5064",
+      "tg": 55064,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -7480,28 +7757,6 @@
       "year": 2024,
       "ref": "fact:5068",
       "tg": 55068,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5024,
-      "year": 2024,
-      "ref": "fact:5024",
-      "tg": 55024,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5064,
-      "year": 2024,
-      "ref": "fact:5064",
-      "tg": 55064,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -7520,6 +7775,17 @@
      },
      {
       "kind": "message",
+      "id": 1075,
+      "year": 2024,
+      "ref": "row:1075",
+      "tg": 51075,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1028,
       "year": 2024,
       "ref": "row:1028",
@@ -7531,10 +7797,10 @@
      },
      {
       "kind": "message",
-      "id": 1077,
+      "id": 1027,
       "year": 2024,
-      "ref": "row:1077",
-      "tg": 51077,
+      "ref": "row:1027",
+      "tg": 51027,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -7553,10 +7819,10 @@
      },
      {
       "kind": "message",
-      "id": 1074,
+      "id": 1078,
       "year": 2024,
-      "ref": "row:1074",
-      "tg": 51074,
+      "ref": "row:1078",
+      "tg": 51078,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -7575,10 +7841,32 @@
      },
      {
       "kind": "message",
-      "id": 1027,
+      "id": 1026,
       "year": 2024,
-      "ref": "row:1027",
-      "tg": 51027,
+      "ref": "row:1026",
+      "tg": 51026,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1074,
+      "year": 2024,
+      "ref": "row:1074",
+      "tg": 51074,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1077,
+      "year": 2024,
+      "ref": "row:1077",
+      "tg": 51077,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -7601,39 +7889,6 @@
       "year": 2024,
       "ref": "row:1080",
       "tg": 51080,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1075,
-      "year": 2024,
-      "ref": "row:1075",
-      "tg": 51075,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1078,
-      "year": 2024,
-      "ref": "row:1078",
-      "tg": 51078,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1026,
-      "year": 2024,
-      "ref": "row:1026",
-      "tg": 51026,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -7694,7 +7949,12 @@
       "episode_messages": 30,
       "payload_chars": 3609,
       "payload_sha256": "cf894466004516ea38d5c8f1c200a359d14511faa5d3f6e92a58d94a5d3194cd",
-      "payload_refs": 38
+      "payload_refs": 38,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55067",
@@ -7737,6 +7997,13 @@
       "tg:51240"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017": 15,
+      "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f": 15
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -7834,7 +8101,12 @@
       "episode_messages": 30,
       "payload_chars": 3595,
       "payload_sha256": "ab7912bf50d5340a6080ab07696c7b79202595718e5f4caabe7355a6dea299aa",
-      "payload_refs": 38
+      "payload_refs": 38,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55067",
@@ -7877,6 +8149,13 @@
       "tg:51240"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017": 15,
+      "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f": 15
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -8000,7 +8279,7 @@
       }
      }
     },
-    "reference_sha256": "2a28b4e61add62bb1156880953a4b2fc920ccca860174189a5ffa0ec4a3c5ad4",
+    "reference_sha256": "ce0797960645eca7c1e27aa805205b4da5e73a9673bc533ea97db434cc102fc8",
     "not_executed": null,
     "subject": {
      "topic": "работе и зарплатам",
@@ -8013,21 +8292,10 @@
     "anchors": [
      {
       "kind": "fact",
-      "id": 5071,
+      "id": 5074,
       "year": 2023,
-      "ref": "fact:5071",
-      "tg": 55071,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5070,
-      "year": 2023,
-      "ref": "fact:5070",
-      "tg": 55070,
+      "ref": "fact:5074",
+      "tg": 55074,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8039,6 +8307,17 @@
       "year": 2023,
       "ref": "fact:5069",
       "tg": 55069,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5071,
+      "year": 2023,
+      "ref": "fact:5071",
+      "tg": 55071,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8068,10 +8347,10 @@
      },
      {
       "kind": "fact",
-      "id": 5074,
+      "id": 5070,
       "year": 2023,
-      "ref": "fact:5074",
-      "tg": 55074,
+      "ref": "fact:5070",
+      "tg": 55070,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8079,21 +8358,10 @@
      },
      {
       "kind": "message",
-      "id": 1086,
+      "id": 1088,
       "year": 2023,
-      "ref": "row:1086",
-      "tg": 51086,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1082,
-      "year": 2023,
-      "ref": "row:1082",
-      "tg": 51082,
+      "ref": "row:1088",
+      "tg": 51088,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8112,10 +8380,10 @@
      },
      {
       "kind": "message",
-      "id": 1088,
+      "id": 1087,
       "year": 2023,
-      "ref": "row:1088",
-      "tg": 51088,
+      "ref": "row:1087",
+      "tg": 51087,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8134,17 +8402,6 @@
      },
      {
       "kind": "message",
-      "id": 1084,
-      "year": 2023,
-      "ref": "row:1084",
-      "tg": 51084,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
       "id": 1085,
       "year": 2023,
       "ref": "row:1085",
@@ -8156,10 +8413,32 @@
      },
      {
       "kind": "message",
-      "id": 1087,
+      "id": 1086,
       "year": 2023,
-      "ref": "row:1087",
-      "tg": 51087,
+      "ref": "row:1086",
+      "tg": 51086,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1084,
+      "year": 2023,
+      "ref": "row:1084",
+      "tg": 51084,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1082,
+      "year": 2023,
+      "ref": "row:1082",
+      "tg": 51082,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8167,43 +8446,10 @@
      },
      {
       "kind": "fact",
-      "id": 5076,
+      "id": 5118,
       "year": 2026,
-      "ref": "fact:5076",
-      "tg": 55076,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5079,
-      "year": 2026,
-      "ref": "fact:5079",
-      "tg": 55079,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5080,
-      "year": 2026,
-      "ref": "fact:5080",
-      "tg": 55080,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5078,
-      "year": 2026,
-      "ref": "fact:5078",
-      "tg": 55078,
+      "ref": "fact:5118",
+      "tg": 55118,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8222,10 +8468,43 @@
      },
      {
       "kind": "fact",
-      "id": 5118,
+      "id": 5078,
       "year": 2026,
-      "ref": "fact:5118",
-      "tg": 55118,
+      "ref": "fact:5078",
+      "tg": 55078,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5080,
+      "year": 2026,
+      "ref": "fact:5080",
+      "tg": 55080,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5079,
+      "year": 2026,
+      "ref": "fact:5079",
+      "tg": 55079,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5076,
+      "year": 2026,
+      "ref": "fact:5076",
+      "tg": 55076,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8244,10 +8523,21 @@
      },
      {
       "kind": "message",
-      "id": 1095,
+      "id": 1097,
       "year": 2026,
-      "ref": "row:1095",
-      "tg": 51095,
+      "ref": "row:1097",
+      "tg": 51097,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1091,
+      "year": 2026,
+      "ref": "row:1091",
+      "tg": 51091,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8266,21 +8556,10 @@
      },
      {
       "kind": "message",
-      "id": 1097,
+      "id": 1092,
       "year": 2026,
-      "ref": "row:1097",
-      "tg": 51097,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1096,
-      "year": 2026,
-      "ref": "row:1096",
-      "tg": 51096,
+      "ref": "row:1092",
+      "tg": 51092,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8310,10 +8589,10 @@
      },
      {
       "kind": "message",
-      "id": 1092,
+      "id": 1095,
       "year": 2026,
-      "ref": "row:1092",
-      "tg": 51092,
+      "ref": "row:1095",
+      "tg": 51095,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8321,10 +8600,10 @@
      },
      {
       "kind": "message",
-      "id": 1091,
+      "id": 1096,
       "year": 2026,
-      "ref": "row:1091",
-      "tg": 51091,
+      "ref": "row:1096",
+      "tg": 51096,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8383,7 +8662,12 @@
       "episode_messages": 8,
       "payload_chars": 1856,
       "payload_sha256": "f48d629a5f8d56bf784b13f6eae9064e0a94ab68de28a0c375b4a892dbcb2e1f",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55081",
@@ -8404,6 +8688,14 @@
       "tg:51073"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -8500,7 +8792,12 @@
       "episode_messages": 8,
       "payload_chars": 1971,
       "payload_sha256": "24c93d76cd13c910e604e4c0aa87176985083572686dc7c96a390327b4ef866a",
-      "payload_refs": 17
+      "payload_refs": 17,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55069",
@@ -8522,6 +8819,14 @@
       "tg:51073"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 9,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -8664,32 +8969,10 @@
       }
      }
     },
-    "reference_sha256": "d6cb7519c3f9796ab352a155a107c8aa7ae23f8f801354f904216c51c24bc6d9",
+    "reference_sha256": "745a6f72ca6519670b907c66e299ebb5277e336d60d6c357684f378036dbd49c",
     "not_executed": null,
     "subject": null,
     "anchors": [
-     {
-      "kind": "fact",
-      "id": 5006,
-      "year": 2022,
-      "ref": "fact:5006",
-      "tg": 55006,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5005,
-      "year": 2022,
-      "ref": "fact:5005",
-      "tg": 55005,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
      {
       "kind": "fact",
       "id": 5008,
@@ -8713,11 +8996,33 @@
       "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1008,
+      "kind": "fact",
+      "id": 5006,
       "year": 2022,
-      "ref": "row:1008",
-      "tg": 51008,
+      "ref": "fact:5006",
+      "tg": 55006,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5005,
+      "year": 2022,
+      "ref": "fact:5005",
+      "tg": 55005,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "message",
+      "id": 1006,
+      "year": 2022,
+      "ref": "row:1006",
+      "tg": 51006,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8736,6 +9041,17 @@
      },
      {
       "kind": "message",
+      "id": 1008,
+      "year": 2022,
+      "ref": "row:1008",
+      "tg": 51008,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1007,
       "year": 2022,
       "ref": "row:1007",
@@ -8746,44 +9062,11 @@
       "by_author": false
      },
      {
-      "kind": "message",
-      "id": 1006,
-      "year": 2022,
-      "ref": "row:1006",
-      "tg": 51006,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
       "kind": "fact",
-      "id": 5062,
+      "id": 5059,
       "year": 2023,
-      "ref": "fact:5062",
-      "tg": 55062,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5058,
-      "year": 2023,
-      "ref": "fact:5058",
-      "tg": 55058,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5016,
-      "year": 2023,
-      "ref": "fact:5016",
-      "tg": 55016,
+      "ref": "fact:5059",
+      "tg": 55059,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8802,10 +9085,10 @@
      },
      {
       "kind": "fact",
-      "id": 5059,
+      "id": 5016,
       "year": 2023,
-      "ref": "fact:5059",
-      "tg": 55059,
+      "ref": "fact:5016",
+      "tg": 55016,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8824,10 +9107,10 @@
      },
      {
       "kind": "fact",
-      "id": 5015,
+      "id": 5061,
       "year": 2023,
-      "ref": "fact:5015",
-      "tg": 55015,
+      "ref": "fact:5061",
+      "tg": 55061,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8846,10 +9129,21 @@
      },
      {
       "kind": "fact",
-      "id": 5061,
+      "id": 5058,
       "year": 2023,
-      "ref": "fact:5061",
-      "tg": 55061,
+      "ref": "fact:5058",
+      "tg": 55058,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5062,
+      "year": 2023,
+      "ref": "fact:5062",
+      "tg": 55062,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -8867,11 +9161,22 @@
       "by_author": null
      },
      {
-      "kind": "message",
-      "id": 1071,
+      "kind": "fact",
+      "id": 5015,
       "year": 2023,
-      "ref": "row:1071",
-      "tg": 51071,
+      "ref": "fact:5015",
+      "tg": 55015,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "message",
+      "id": 1018,
+      "year": 2023,
+      "ref": "row:1018",
+      "tg": 51018,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8890,10 +9195,10 @@
      },
      {
       "kind": "message",
-      "id": 1068,
+      "id": 1072,
       "year": 2023,
-      "ref": "row:1068",
-      "tg": 51068,
+      "ref": "row:1072",
+      "tg": 51072,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8901,43 +9206,10 @@
      },
      {
       "kind": "message",
-      "id": 1018,
+      "id": 1071,
       "year": 2023,
-      "ref": "row:1018",
-      "tg": 51018,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1066,
-      "year": 2023,
-      "ref": "row:1066",
-      "tg": 51066,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1070,
-      "year": 2023,
-      "ref": "row:1070",
-      "tg": 51070,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1073,
-      "year": 2023,
-      "ref": "row:1073",
-      "tg": 51073,
+      "ref": "row:1071",
+      "tg": 51071,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8956,10 +9228,10 @@
      },
      {
       "kind": "message",
-      "id": 1072,
+      "id": 1066,
       "year": 2023,
-      "ref": "row:1072",
-      "tg": 51072,
+      "ref": "row:1066",
+      "tg": 51066,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -8978,10 +9250,43 @@
      },
      {
       "kind": "message",
+      "id": 1068,
+      "year": 2023,
+      "ref": "row:1068",
+      "tg": 51068,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1073,
+      "year": 2023,
+      "ref": "row:1073",
+      "tg": 51073,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1017,
       "year": 2023,
       "ref": "row:1017",
       "tg": 51017,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1070,
+      "year": 2023,
+      "ref": "row:1070",
+      "tg": 51070,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9000,10 +9305,43 @@
      },
      {
       "kind": "fact",
+      "id": 5026,
+      "year": 2024,
+      "ref": "fact:5026",
+      "tg": 55026,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5067,
+      "year": 2024,
+      "ref": "fact:5067",
+      "tg": 55067,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
       "id": 5063,
       "year": 2024,
       "ref": "fact:5063",
       "tg": 55063,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5024,
+      "year": 2024,
+      "ref": "fact:5024",
+      "tg": 55024,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -9033,10 +9371,10 @@
      },
      {
       "kind": "fact",
-      "id": 5026,
+      "id": 5065,
       "year": 2024,
-      "ref": "fact:5026",
-      "tg": 55026,
+      "ref": "fact:5065",
+      "tg": 55065,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -9055,21 +9393,10 @@
      },
      {
       "kind": "fact",
-      "id": 5065,
+      "id": 5064,
       "year": 2024,
-      "ref": "fact:5065",
-      "tg": 55065,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5067,
-      "year": 2024,
-      "ref": "fact:5067",
-      "tg": 55067,
+      "ref": "fact:5064",
+      "tg": 55064,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -9081,28 +9408,6 @@
       "year": 2024,
       "ref": "fact:5068",
       "tg": 55068,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5024,
-      "year": 2024,
-      "ref": "fact:5024",
-      "tg": 55024,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5064,
-      "year": 2024,
-      "ref": "fact:5064",
-      "tg": 55064,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -9121,6 +9426,17 @@
      },
      {
       "kind": "message",
+      "id": 1075,
+      "year": 2024,
+      "ref": "row:1075",
+      "tg": 51075,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1028,
       "year": 2024,
       "ref": "row:1028",
@@ -9132,10 +9448,10 @@
      },
      {
       "kind": "message",
-      "id": 1077,
+      "id": 1027,
       "year": 2024,
-      "ref": "row:1077",
-      "tg": 51077,
+      "ref": "row:1027",
+      "tg": 51027,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9154,10 +9470,10 @@
      },
      {
       "kind": "message",
-      "id": 1074,
+      "id": 1078,
       "year": 2024,
-      "ref": "row:1074",
-      "tg": 51074,
+      "ref": "row:1078",
+      "tg": 51078,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9176,10 +9492,32 @@
      },
      {
       "kind": "message",
-      "id": 1027,
+      "id": 1026,
       "year": 2024,
-      "ref": "row:1027",
-      "tg": 51027,
+      "ref": "row:1026",
+      "tg": 51026,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1074,
+      "year": 2024,
+      "ref": "row:1074",
+      "tg": 51074,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1077,
+      "year": 2024,
+      "ref": "row:1077",
+      "tg": 51077,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9208,37 +9546,15 @@
       "by_author": false
      },
      {
-      "kind": "message",
-      "id": 1075,
-      "year": 2024,
-      "ref": "row:1075",
-      "tg": 51075,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1078,
-      "year": 2024,
-      "ref": "row:1078",
-      "tg": 51078,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1026,
-      "year": 2024,
-      "ref": "row:1026",
-      "tg": 51026,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
+      "kind": "fact",
+      "id": 5034,
+      "year": 2025,
+      "ref": "fact:5034",
+      "tg": 55034,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
      },
      {
       "kind": "fact",
@@ -9274,22 +9590,11 @@
       "by_author": null
      },
      {
-      "kind": "fact",
-      "id": 5034,
-      "year": 2025,
-      "ref": "fact:5034",
-      "tg": 55034,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
       "kind": "message",
-      "id": 1038,
+      "id": 1039,
       "year": 2025,
-      "ref": "row:1038",
-      "tg": 51038,
+      "ref": "row:1039",
+      "tg": 51039,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9297,10 +9602,10 @@
      },
      {
       "kind": "message",
-      "id": 1039,
+      "id": 1038,
       "year": 2025,
-      "ref": "row:1039",
-      "tg": 51039,
+      "ref": "row:1038",
+      "tg": 51038,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9330,10 +9635,10 @@
      },
      {
       "kind": "fact",
-      "id": 5041,
+      "id": 5044,
       "year": 2026,
-      "ref": "fact:5041",
-      "tg": 55041,
+      "ref": "fact:5044",
+      "tg": 55044,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -9341,10 +9646,10 @@
      },
      {
       "kind": "fact",
-      "id": 5042,
+      "id": 5041,
       "year": 2026,
-      "ref": "fact:5042",
-      "tg": 55042,
+      "ref": "fact:5041",
+      "tg": 55041,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -9363,25 +9668,14 @@
      },
      {
       "kind": "fact",
-      "id": 5044,
+      "id": 5042,
       "year": 2026,
-      "ref": "fact:5044",
-      "tg": 55044,
+      "ref": "fact:5042",
+      "tg": 55042,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
-     },
-     {
-      "kind": "message",
-      "id": 1047,
-      "year": 2026,
-      "ref": "row:1047",
-      "tg": 51047,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
      },
      {
       "kind": "message",
@@ -9396,10 +9690,10 @@
      },
      {
       "kind": "message",
-      "id": 1048,
+      "id": 1046,
       "year": 2026,
-      "ref": "row:1048",
-      "tg": 51048,
+      "ref": "row:1046",
+      "tg": 51046,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9407,10 +9701,21 @@
      },
      {
       "kind": "message",
-      "id": 1046,
+      "id": 1047,
       "year": 2026,
-      "ref": "row:1046",
-      "tg": 51046,
+      "ref": "row:1047",
+      "tg": 51047,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
+      "id": 1048,
+      "year": 2026,
+      "ref": "row:1048",
+      "tg": 51048,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9466,7 +9771,12 @@
       "episode_messages": 14,
       "payload_chars": 2146,
       "payload_sha256": "84db67284fee1ff330596ccf91d916385cc418adbc373b9a37a1e1537d207bf9",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55112",
@@ -9493,6 +9803,14 @@
       "tg:51135"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -9584,7 +9902,12 @@
       "episode_messages": 14,
       "payload_chars": 2146,
       "payload_sha256": "84db67284fee1ff330596ccf91d916385cc418adbc373b9a37a1e1537d207bf9",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55112",
@@ -9611,6 +9934,14 @@
       "tg:51135"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -9726,7 +10057,7 @@
       }
      }
     },
-    "reference_sha256": "65c4c911a52f4d5b9c1ffe920f5e3a4a803c80049b819a5b595fd375cf475a3c",
+    "reference_sha256": "efa4f10ebbdcdae1685a52199f9099839f2d471356819a344c7b26c634028027",
     "not_executed": null,
     "subject": null,
     "anchors": [
@@ -9736,6 +10067,17 @@
       "year": 2026,
       "ref": "fact:5111",
       "tg": 55111,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5110,
+      "year": 2026,
+      "ref": "fact:5110",
+      "tg": 55110,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -9765,17 +10107,6 @@
      },
      {
       "kind": "fact",
-      "id": 5110,
-      "year": 2026,
-      "ref": "fact:5110",
-      "tg": 55110,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
       "id": 5109,
       "year": 2026,
       "ref": "fact:5109",
@@ -9784,6 +10115,17 @@
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
+     },
+     {
+      "kind": "message",
+      "id": 1125,
+      "year": 2026,
+      "ref": "row:1125",
+      "tg": 51125,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -9798,10 +10140,10 @@
      },
      {
       "kind": "message",
-      "id": 1125,
+      "id": 1128,
       "year": 2026,
-      "ref": "row:1125",
-      "tg": 51125,
+      "ref": "row:1128",
+      "tg": 51128,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9835,17 +10177,6 @@
       "year": 2026,
       "ref": "row:1129",
       "tg": 51129,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1128,
-      "year": 2026,
-      "ref": "row:1128",
-      "tg": 51128,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -9903,7 +10234,12 @@
       "episode_messages": 14,
       "payload_chars": 2290,
       "payload_sha256": "d3d37b3c03537b6d781f60d60458713ca65f5cbdae5ffc04c6bb2efc8aaa027e",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55054",
@@ -9930,6 +10266,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -10035,7 +10379,12 @@
       "episode_messages": 14,
       "payload_chars": 2411,
       "payload_sha256": "a09f5366d0fcad4a65bbd8fcfcfc39bb95103b27d4ff89105dc26500291c6ad0",
-      "payload_refs": 23
+      "payload_refs": 23,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55045",
@@ -10063,6 +10412,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 9,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -10198,32 +10555,10 @@
       }
      }
     },
-    "reference_sha256": "356e465ffafd0558cbdc06630b03c42f148c8048048dbf3830b7db689fe5b282",
+    "reference_sha256": "ee52581ed3e1d250c1ccbc40a8576ad0edf64664b5e2e844bd43ab7d3804f1eb",
     "not_executed": null,
     "subject": null,
     "anchors": [
-     {
-      "kind": "fact",
-      "id": 5114,
-      "year": 2026,
-      "ref": "fact:5114",
-      "tg": 55114,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5113,
-      "year": 2026,
-      "ref": "fact:5113",
-      "tg": 55113,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
      {
       "kind": "fact",
       "id": 5112,
@@ -10248,6 +10583,28 @@
      },
      {
       "kind": "fact",
+      "id": 5113,
+      "year": 2026,
+      "ref": "fact:5113",
+      "tg": 55113,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5114,
+      "year": 2026,
+      "ref": "fact:5114",
+      "tg": 55114,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
       "id": 5116,
       "year": 2026,
       "ref": "fact:5116",
@@ -10256,17 +10613,6 @@
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
-     },
-     {
-      "kind": "message",
-      "id": 1133,
-      "year": 2026,
-      "ref": "row:1133",
-      "tg": 51133,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
      },
      {
       "kind": "message",
@@ -10292,6 +10638,17 @@
      },
      {
       "kind": "message",
+      "id": 1130,
+      "year": 2026,
+      "ref": "row:1130",
+      "tg": 51130,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1134,
       "year": 2026,
       "ref": "row:1134",
@@ -10303,10 +10660,10 @@
      },
      {
       "kind": "message",
-      "id": 1130,
+      "id": 1133,
       "year": 2026,
-      "ref": "row:1130",
-      "tg": 51130,
+      "ref": "row:1133",
+      "tg": 51133,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -10373,7 +10730,12 @@
       "episode_messages": 8,
       "payload_chars": 1698,
       "payload_sha256": "0b7d6dfaa22afdab5536f075aca77f50e056d2cc22afb8ba2189abad04cf88dd",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55068",
@@ -10394,6 +10756,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -10494,7 +10864,12 @@
       "episode_messages": 8,
       "payload_chars": 1694,
       "payload_sha256": "3c8863f0769867ce3c7dd8b0a2b2af8d1811ce375b514196f532384cdf4de3c3",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55056",
@@ -10515,6 +10890,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -10726,7 +11109,12 @@
       "episode_messages": 8,
       "payload_chars": 1680,
       "payload_sha256": "00feae5d935bbc74ca76d84d92a9f2e3bc5b07e50067ea196b95c62ab1893363",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55056",
@@ -10747,6 +11135,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -10845,7 +11241,12 @@
       "episode_messages": 8,
       "payload_chars": 1680,
       "payload_sha256": "00feae5d935bbc74ca76d84d92a9f2e3bc5b07e50067ea196b95c62ab1893363",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55056",
@@ -10866,6 +11267,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -11017,9 +11426,9 @@
     "R4"
    ],
    "coverage_anchor": {
-    "num": 39,
+    "num": 38,
     "den": 115,
-    "value": 0.3391304347826087,
+    "value": 0.33043478260869563,
     "applicable": true
    },
    "coverage_period": {
@@ -11029,8 +11438,8 @@
     "applicable": true
    },
    "chrono": {
-    "num": 39,
-    "den": 39,
+    "num": 38,
+    "den": 38,
     "value": 1.0,
     "applicable": true
    },
@@ -11326,7 +11735,7 @@
      2024,
      2026
     ],
-    "old_anchor_hits": 3,
+    "old_anchor_hits": 2,
     "old_anchor_den": 40,
     "pass": true
    }
@@ -11522,15 +11931,15 @@
     2026
    ],
    "auto_coverage_anchor": {
-    "num": 9,
+    "num": 8,
     "den": 32,
-    "value": 0.28125,
+    "value": 0.25,
     "applicable": true
    },
    "plan_coverage_anchor": {
-    "num": 9,
+    "num": 8,
     "den": 32,
-    "value": 0.28125,
+    "value": 0.25,
     "applicable": true
    },
    "auto_relevance": {
@@ -11746,9 +12155,9 @@
     "applicable": true
    },
    "plan_coverage_anchor": {
-    "num": 19,
+    "num": 17,
     "den": 80,
-    "value": 0.2375,
+    "value": 0.2125,
     "applicable": true
    },
    "auto_relevance": {
@@ -12158,7 +12567,7 @@
       2024,
       2026
      ],
-     "old_anchor_hits": 3,
+     "old_anchor_hits": 2,
      "old_anchor_den": 40,
      "pass": true
     }
@@ -12324,7 +12733,7 @@
       }
      }
     },
-    "reference_sha256": "65c4c911a52f4d5b9c1ffe920f5e3a4a803c80049b819a5b595fd375cf475a3c",
+    "reference_sha256": "efa4f10ebbdcdae1685a52199f9099839f2d471356819a344c7b26c634028027",
     "not_executed": null,
     "subject": null,
     "anchors": [
@@ -12334,6 +12743,17 @@
       "year": 2026,
       "ref": "fact:5111",
       "tg": 55111,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5110,
+      "year": 2026,
+      "ref": "fact:5110",
+      "tg": 55110,
       "status": "confirmed",
       "origin": "chat_history",
       "derived_no_tg": false,
@@ -12363,17 +12783,6 @@
      },
      {
       "kind": "fact",
-      "id": 5110,
-      "year": 2026,
-      "ref": "fact:5110",
-      "tg": 55110,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
       "id": 5109,
       "year": 2026,
       "ref": "fact:5109",
@@ -12382,6 +12791,17 @@
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
+     },
+     {
+      "kind": "message",
+      "id": 1125,
+      "year": 2026,
+      "ref": "row:1125",
+      "tg": 51125,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
      },
      {
       "kind": "message",
@@ -12396,10 +12816,10 @@
      },
      {
       "kind": "message",
-      "id": 1125,
+      "id": 1128,
       "year": 2026,
-      "ref": "row:1125",
-      "tg": 51125,
+      "ref": "row:1128",
+      "tg": 51128,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -12433,17 +12853,6 @@
       "year": 2026,
       "ref": "row:1129",
       "tg": 51129,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
-     },
-     {
-      "kind": "message",
-      "id": 1128,
-      "year": 2026,
-      "ref": "row:1128",
-      "tg": 51128,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -12501,7 +12910,12 @@
       "episode_messages": 14,
       "payload_chars": 2290,
       "payload_sha256": "d3d37b3c03537b6d781f60d60458713ca65f5cbdae5ffc04c6bb2efc8aaa027e",
-      "payload_refs": 22
+      "payload_refs": 22,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55054",
@@ -12528,6 +12942,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -12633,7 +13055,12 @@
       "episode_messages": 14,
       "payload_chars": 2411,
       "payload_sha256": "a09f5366d0fcad4a65bbd8fcfcfc39bb95103b27d4ff89105dc26500291c6ad0",
-      "payload_refs": 23
+      "payload_refs": 23,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55045",
@@ -12661,6 +13088,14 @@
       "tg:51129"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 9,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 5,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 5,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 4
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -12796,32 +13231,10 @@
       }
      }
     },
-    "reference_sha256": "356e465ffafd0558cbdc06630b03c42f148c8048048dbf3830b7db689fe5b282",
+    "reference_sha256": "ee52581ed3e1d250c1ccbc40a8576ad0edf64664b5e2e844bd43ab7d3804f1eb",
     "not_executed": null,
     "subject": null,
     "anchors": [
-     {
-      "kind": "fact",
-      "id": 5114,
-      "year": 2026,
-      "ref": "fact:5114",
-      "tg": 55114,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
-     {
-      "kind": "fact",
-      "id": 5113,
-      "year": 2026,
-      "ref": "fact:5113",
-      "tg": 55113,
-      "status": "confirmed",
-      "origin": "chat_history",
-      "derived_no_tg": false,
-      "by_author": null
-     },
      {
       "kind": "fact",
       "id": 5112,
@@ -12846,6 +13259,28 @@
      },
      {
       "kind": "fact",
+      "id": 5113,
+      "year": 2026,
+      "ref": "fact:5113",
+      "tg": 55113,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
+      "id": 5114,
+      "year": 2026,
+      "ref": "fact:5114",
+      "tg": 55114,
+      "status": "confirmed",
+      "origin": "chat_history",
+      "derived_no_tg": false,
+      "by_author": null
+     },
+     {
+      "kind": "fact",
       "id": 5116,
       "year": 2026,
       "ref": "fact:5116",
@@ -12854,17 +13289,6 @@
       "origin": "chat_history",
       "derived_no_tg": false,
       "by_author": null
-     },
-     {
-      "kind": "message",
-      "id": 1133,
-      "year": 2026,
-      "ref": "row:1133",
-      "tg": 51133,
-      "status": null,
-      "origin": null,
-      "derived_no_tg": null,
-      "by_author": false
      },
      {
       "kind": "message",
@@ -12890,6 +13314,17 @@
      },
      {
       "kind": "message",
+      "id": 1130,
+      "year": 2026,
+      "ref": "row:1130",
+      "tg": 51130,
+      "status": null,
+      "origin": null,
+      "derived_no_tg": null,
+      "by_author": false
+     },
+     {
+      "kind": "message",
       "id": 1134,
       "year": 2026,
       "ref": "row:1134",
@@ -12901,10 +13336,10 @@
      },
      {
       "kind": "message",
-      "id": 1130,
+      "id": 1133,
       "year": 2026,
-      "ref": "row:1130",
-      "tg": 51130,
+      "ref": "row:1133",
+      "tg": 51133,
       "status": null,
       "origin": null,
       "derived_no_tg": null,
@@ -12971,7 +13406,12 @@
       "episode_messages": 8,
       "payload_chars": 1698,
       "payload_sha256": "0b7d6dfaa22afdab5536f075aca77f50e056d2cc22afb8ba2189abad04cf88dd",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55068",
@@ -12992,6 +13432,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -13092,7 +13540,12 @@
       "episode_messages": 8,
       "payload_chars": 1694,
       "payload_sha256": "3c8863f0769867ce3c7dd8b0a2b2af8d1811ce375b514196f532384cdf4de3c3",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55056",
@@ -13113,6 +13566,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -13324,7 +13785,12 @@
       "episode_messages": 8,
       "payload_chars": 1680,
       "payload_sha256": "00feae5d935bbc74ca76d84d92a9f2e3bc5b07e50067ea196b95c62ab1893363",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55056",
@@ -13345,6 +13811,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -13443,7 +13917,12 @@
       "episode_messages": 8,
       "payload_chars": 1680,
       "payload_sha256": "00feae5d935bbc74ca76d84d92a9f2e3bc5b07e50067ea196b95c62ab1893363",
-      "payload_refs": 16
+      "payload_refs": 16,
+      "block_tags": [
+       "Current_Question",
+       "Old_Episode",
+       "RAG_Memory"
+      ]
      },
      "payload_refs": [
       "tg:55056",
@@ -13464,6 +13943,14 @@
       "tg:51065"
      ],
      "bundle_status": "ok",
+     "bundle_ref_count": 8,
+     "bundle_relations": 0,
+     "authors": {
+      "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5": 3,
+      "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8": 3,
+      "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918": 2
+     },
+     "subject_refs": 0,
      "metrics": {
       "coverage": {
        "period": {
@@ -13741,8 +14228,8 @@
    "id": "MEM07-READONLY",
    "expected": "snapshot sha256 unchanged",
    "actual": {
-    "before": "be686f390d22caa374a4106d9294924344f49d9c818d360332934db8e0dc5661",
-    "after": "be686f390d22caa374a4106d9294924344f49d9c818d360332934db8e0dc5661"
+    "before": "e9b054615cb7e2777f1e852ff6b18a00db1e6d2e141299db35339351b1b0cb1f",
+    "after": "e9b054615cb7e2777f1e852ff6b18a00db1e6d2e141299db35339351b1b0cb1f"
    },
    "status": "pass"
   },
@@ -13768,8 +14255,8 @@
  ],
  "participants": {
   "P1": {
-   "uid_sha256": "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae",
-   "name_sha256": "5e1632b8ff8c26df44022d60f2bf1d65b8a1562114000b39bfb4521ed15da3eb"
+   "uid_sha256": "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f",
+   "name_sha256": "a2f38db0c4fdd72915a8655ef45125907f8346a66a899886101db06c1dc20cab"
   },
   "P2": {
    "uid_sha256": "556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017",

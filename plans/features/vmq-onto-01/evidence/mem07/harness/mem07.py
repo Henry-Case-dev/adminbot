@@ -956,6 +956,7 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
                              time_line="")
     payload_text = payload[1]["content"] if len(payload) > 1 else ""
     bundle_refs = []
+    bundle_relations = 0
     bundle_status = "not_requested"
     try:
         bundle_stub = SimpleNamespace(text=query, chat_id=chat_id, message_id=None)
@@ -966,6 +967,7 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
             bundle_status = "gate_off"
         else:
             bundle_status = "ok"
+            bundle_relations = len(getattr(bundle, "relations", ()) or ())
             for item in getattr(bundle, "evidence", ()) or ():
                 ref = str(getattr(item, "entity_id", "") or "")
                 if REF_RE.fullmatch(ref):
@@ -994,6 +996,7 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
             "user_id": as_int(row.get("user_id")),
             "speaker_author_id": as_int(row.get("speaker_author_id")),
             "target_user": str(row.get("target_user") or ""),
+            "subject_ref_id": row.get("subject_ref_id"),
         })
     span_refs = []
     for span in (ep_stats or {}).get("spans") or ():
@@ -1015,7 +1018,7 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
             "text": str(row.get("text") or ""), "origin": "episode",
             "status": "confirmed", "period_fill": False, "subject_proxy": None,
             "user_id": as_int(row.get("user_id")), "speaker_author_id": None,
-            "target_user": "",
+            "target_user": "", "subject_ref_id": None,
         })
     payload_refs = []
     for ref in REF_RE.findall(payload_text):
@@ -1024,6 +1027,11 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
     for ref in bundle_refs:
         if ref not in payload_refs:
             payload_refs.append(ref)
+    author_hashes = hist([
+        sha256_text(str(i.get("speaker_author_id") or i.get("user_id")))
+        for i in items if (i.get("speaker_author_id") or i.get("user_id"))])
+    subject_refs = sum(1 for i in items if i.get("subject_ref_id"))
+    block_tags = sorted(set(re.findall(r"<([A-Za-z_]+)>", payload_text)))
     rag_lines = []
     for line in str(rag_block or "").splitlines():
         refs = REF_RE.findall(line)
@@ -1059,9 +1067,14 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
             "payload_chars": len(payload_text),
             "payload_sha256": sha256_text(payload_text),
             "payload_refs": len(payload_refs),
+            "block_tags": block_tags,
         },
         "payload_refs": payload_refs,
         "bundle_status": bundle_status,
+        "bundle_ref_count": len(bundle_refs),
+        "bundle_relations": bundle_relations,
+        "authors": author_hashes,
+        "subject_refs": subject_refs,
         "rag_lines": rag_lines,
         "_items": items,
         "_payload": payload_text,

@@ -70,6 +70,10 @@ def test_fixture_run_structural(tmp_path):
     h1 = next(q for q in payload["questions"] if q["id"] == "H1")
     assert h1["query_template"] == OWNER
     assert len(h1["query_sha256"]) == 64
+    auto = h1["policies"]["auto"]
+    assert "authors" in auto
+    assert "bundle_ref_count" in auto
+    assert "block_tags" in auto["writer"]
     for q in matrix:
         m = q["metrics"]
         for key in ("coverage", "chrono", "relevance", "fabricated"):
