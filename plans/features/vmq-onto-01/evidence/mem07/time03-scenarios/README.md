@@ -102,7 +102,7 @@ Each scenario records explicitly denominated:
 
 * `required_fact_recall` - actual required anchors hit / anchors, using the
   fact-row universe for fact anchors and payload+episode refs for message
-  anchors; S4 is one-of-set (`match_policy=any`, `anchor_count=3`);
+  anchors; S4 is one-of-set (`match_policy=any`, anchor count up to 3);
 * `relevance` - delivered rows matching the scenario predicate / judged rows;
 * `episode_completeness` - every expected year covered by a complete span
   (>=2 sources, >=2 participants, ordered timestamps), first span in an
