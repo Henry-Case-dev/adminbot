@@ -84,12 +84,14 @@ import contextvars
 import datetime
 import dataclasses
 import hashlib
+import inspect
 import json
 import logging
 import random
 import re
 import threading
 import time
+import types
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -955,6 +957,76 @@ def _episode_anchor_of_ref(ref: str) -> tuple[int | None, int | None]:
         except ValueError:
             return None, None
     return None, None
+
+
+def _episode_anchor_of_fact_row(row) -> tuple[int | None, int | None]:
+    """Source message anchor of an existing `graph_facts` row.
+
+    TIME-03 r4: a ``fact:<id>`` candidate is not itself an episode anchor,
+    but the fact row already carries its source message provenance
+    (`tg_message_id`, and `item_id` in ``tg:``/``msg:`` form). Convert it with
+    the same canonical ID policy as message candidates; never invent a link.
+    """
+    if not isinstance(row, dict):
+        return None, None
+    item = str(row.get("item_id") or "").strip()
+    hit_tg, hit_row = _episode_anchor_of_ref(item)
+    if hit_tg is not None or hit_row is not None:
+        return hit_tg, hit_row
+    tg_id = _rag_row_get(row, "tg_message_id")
+    if tg_id not in (None, "", 0):
+        try:
+            return int(tg_id), None
+        except (TypeError, ValueError):
+            return None, None
+    return None, None
+
+
+#: Closed markers of a question about the CURRENT state/validity of a
+#: situation. This is NOT the period/historical intent (`resolve_period_intent`
+#: deliberately has no "сейчас" dictionary): it only decides whether the
+#: already retrieved current fact slice may contribute anchors/current facts.
+#: No calendar year participates.
+_CURRENT_STATE_MARKERS = (
+    "сейчас", "на данный момент", "в настоящее время",
+    "на сегодняшний день", "текущее состояние", "текущий", "текущая",
+)
+
+
+def _is_current_state_query(query) -> bool:
+    """Whether the question explicitly asks about the current state.
+
+    A narrow, deterministic gate for the validity leg; it never chooses a
+    year, quota, window or historical mode. ``auto``/``research`` semantics
+    and the Slice D query-marker boundary stay untouched.
+    """
+    text = str(query or "").casefold()
+    return any(marker in text for marker in _CURRENT_STATE_MARKERS)
+
+
+def _rag_row_is_current(row) -> bool:
+    """Existing-row validity for the bounded current-fact leg.
+
+    Validity is the row's own status/TTL (`confirmed`, not expired), not the
+    calendar year and not recency. Rows from doubles without status keep the
+    old fail-open contract; an explicit non-confirmed/expired row is never
+    presented as current.
+    """
+    if not isinstance(row, dict):
+        return False
+    if row.get("expired") is True:
+        return False
+    expires_at = row.get("expires_at")
+    if expires_at not in (None, ""):
+        try:
+            if int(expires_at) <= int(time.time()):
+                return False
+        except (TypeError, ValueError):
+            pass
+    status = str(row.get("status") or "").strip().lower()
+    if status and status != "confirmed":
+        return False
+    return True
 
 
 def _row_id_of_row(row) -> int | None:
@@ -2780,6 +2852,12 @@ def _period_trace(period_stats: dict, kept) -> tuple[dict, dict]:
                                  "source") or ""),
         "pool": int(stats.get("selection_rows") or 0),
         "kept": int(stats.get("selection_kept") or 0),
+        # TIME-03 natural memory (§4.1): почему добор разрешён/не разрешён и
+        # сколько строк он реально добавил. Коды/числа, без текстов.
+        "breadth_allowed": int(stats.get("breadth_allowed") or 0),
+        "breadth_reason": str(stats.get("breadth_reason") or "none"),
+        "breadth_cap": int(stats.get("breadth_cap") or 0),
+        "breadth_used": int(stats.get("breadth_used") or 0),
         "historical_quota": int(stats.get("historical_quota") or 0),
         "multi_year_quota": int(stats.get("multi_year_quota") or 0),
         "dropped_subject": int(stats.get("rejected_subject") or 0),
@@ -2793,6 +2871,9 @@ def _period_trace(period_stats: dict, kept) -> tuple[dict, dict]:
         "age_policy": str(stats.get("age_policy") or ""),
         "vector_leg": str(stats.get("vector_leg") or ""),
         "vector_rows": int(stats.get("vector_rows") or 0),
+        "current_leg_calls": int(stats.get("current_leg_calls") or 0),
+        "current_leg_rows": int(stats.get("current_leg_rows") or 0),
+        "current_leg_used": int(stats.get("current_leg_used") or 0),
         "vector_unavailable_reason": (
             str(stats.get("vector_unavailable_reason") or "") or None),
     }
@@ -3621,6 +3702,20 @@ def _rag_period_keys(rows: list) -> set:
     out: set = set()
     for row in rows or ():
         if not isinstance(row, dict) or not row.get("period_fill"):
+            continue
+        out.add(row.get("item_id") or (row.get("origin"), row.get("fact")))
+    return out
+
+
+def _rag_current_keys(rows: list) -> set:
+    """Ключи строк bounded current-fact ноги (`current_fill`).
+
+    Строка выбрана по действующему статусу/TTL и evidence, а не по ответу
+    reranker'а; как и period-fill, она не должна молча исчезнуть из блока.
+    Только текущий слой, без года/квоты."""
+    out: set = set()
+    for row in rows or ():
+        if not isinstance(row, dict) or not row.get("current_fill"):
             continue
         out.add(row.get("item_id") or (row.get("origin"), row.get("fact")))
     return out
@@ -11079,13 +11174,22 @@ class DirectChatService:
         # временное окно episode-retrieval. Раньше 8 слотов занимал свежий
         # аналог, а пост-фильтр не добирал материал (замер: `<Old_Episode>`
         # для вопроса про 2023 = 2025+2026, 0 строк 2023).
+        # TIME-03 natural memory (контракт 2026-11-20 §4.1): основной запрос
+        # идёт message-каналами (`exact`/`lexical`) — episode/vector кандидаты
+        # этот цикл всё равно отбрасывал. `no_age_bias=True`: старый якорь не
+        # проигрывает свежему аналогу только по дате. Временного окна без
+        # явного года нет.
+        # TIME-03 episode-r2: отдельный bounded vector-leg ниже восстанавливает
+        # message-якоря, которые в baseline приходили через default `vector`
+        # канал (graph_fact → source message), не возвращая age bias/календарь.
         period_intent = _mca_rc.resolve_period_intent(text)
         stats["period_intent"] = period_intent.as_dict()
         # P0-HA ISOLATION (§3): связка реальных краёв выборки; некорректные
         # поля → запрос без связки (прежний путь, capture даёт валидные).
         request = _mca_rc.RetrievalRequest(
             chat_id=chat_id, query=text, mode="history", top_k=8,
-            reply_depth=0, trace_id=trace_id)
+            reply_depth=0, trace_id=trace_id,
+            channels=("exact", "lexical"), no_age_bias=True)
         year_window: tuple[int, ...] = ()
         if period_intent.is_explicit_year:
             year = int(period_intent.years[0])
@@ -11123,6 +11227,186 @@ class DirectChatService:
             logger.warning("direct: episode retrieval failed — skip | chat=%s",
                            chat_id, exc_info=True)
             return "", stats
+        # TIME-03 r4: recover message anchors from ALL existing fact channels,
+        # not only the vector leg. Baseline default `vector` graph facts were
+        # dropped; the same is true for lexical/period/base graph facts that
+        # already carry `tg_message_id`. Convert every resolvable fact hit to
+        # its source message anchor, keep the existing >=2-stem threshold, and
+        # rank anchors by evidence (shared stems, weight×importance), never by
+        # year or age. The vector leg is secondary, not the only recovery.
+        query_stems = _mca_rc.period_subject_stems(text)
+
+        def _fact_row_map(result_obj):
+            out = {}
+            for row in getattr(result_obj, "fact_rows", ()) or ():
+                if not isinstance(row, dict):
+                    continue
+                fid = row.get("id")
+                if fid is not None:
+                    out[str(fid)] = row
+                item = str(row.get("item_id") or "")
+                if item.startswith("fact:"):
+                    out[item.split(":", 1)[1]] = row
+            return out
+
+        def _cand_fact_key(cand) -> str:
+            key = str(getattr(cand, "entity_id", "") or "")
+            if key:
+                return key
+            cand_ref = str(getattr(cand, "id", "") or "")
+            if cand_ref.startswith("fact:"):
+                return cand_ref.split(":", 1)[1]
+            return ""
+
+        main_fact_rows = _fact_row_map(result)
+        vector_candidates: list = []
+        vector_fact_rows = {}
+        vector_reader = getattr(self.memory, "retrieve_fact_candidates", None)
+        if (self._RAG_EPISODE_VECTOR_CHANNELS
+                and callable(vector_reader)
+                and inspect.iscoroutinefunction(vector_reader)):
+            try:
+                vector_request = dataclasses.replace(
+                    request,
+                    channels=tuple(self._RAG_EPISODE_VECTOR_CHANNELS),
+                    top_k=max(1, int(self._RAG_EPISODE_VECTOR_TOP_K)))
+                vector_result = await _mca_rc.retrieve(
+                    self.db, self.memory, vector_request)
+                vector_fact_rows = _fact_row_map(vector_result)
+                for cand in vector_result.candidates:
+                    if cand.entity_type not in ("graph_fact", "message"):
+                        continue
+                    fact_key = _cand_fact_key(cand)
+                    fact_row = vector_fact_rows.get(fact_key)
+                    hit_tg, hit_row = _episode_anchor_of_ref(
+                        getattr(cand, "id", ""))
+                    if hit_tg is None and hit_row is None:
+                        hit_tg, hit_row = _episode_anchor_of_fact_row(fact_row)
+                    if hit_tg is None and hit_row is None:
+                        continue
+                    preview = str(getattr(cand, "preview", "") or "") or \
+                        str((fact_row or {}).get("fact") or "")
+                    if cand.entity_type == "graph_fact" and query_stems and \
+                            _mca_rc.period_subject_shared(
+                                query_stems, preview) \
+                            < self._RAG_EPISODE_VECTOR_MIN_STEMS:
+                        continue
+                    vector_candidates.append(cand)
+            except Exception:
+                logger.warning(
+                    "direct: episode vector leg failed — skip | chat=%s",
+                    chat_id, exc_info=True)
+        stats["vector_message_candidates"] = len(vector_candidates)
+
+        anchors: dict = {}
+
+        def _add_anchor(cand, *, priority: int, fact_row=None,
+                        graph_fact: bool = False,
+                        vector_origin: bool = False):
+            hit_tg, hit_row = _episode_anchor_of_ref(
+                getattr(cand, "id", ""))
+            preview = str(getattr(cand, "preview", "") or "")
+            row_text = ""
+            if fact_row:
+                row_text = str(fact_row.get("fact") or "")
+                if not preview:
+                    preview = row_text
+                if hit_tg is None and hit_row is None:
+                    hit_tg, hit_row = _episode_anchor_of_fact_row(fact_row)
+            if hit_tg is None and hit_row is None:
+                return
+            shared = _mca_rc.period_subject_shared(query_stems, preview)
+            if row_text and row_text != preview:
+                shared = max(shared, _mca_rc.period_subject_shared(
+                    query_stems, row_text))
+            if graph_fact and query_stems and \
+                    shared < self._RAG_EPISODE_VECTOR_MIN_STEMS:
+                return
+            evidence = 0.0
+            if fact_row:
+                try:
+                    evidence = (float(fact_row.get("weight") or 0.0)
+                                * float(fact_row.get("importance") or 0.0))
+                except (TypeError, ValueError):
+                    evidence = 0.0
+            # A graph-fact candidate (`fact:<id>`) is replaced by its source
+            # message anchor; the downstream span loop understands only
+            # `tg:`/`msg:` and must receive the resolved canonical ref.
+            resolved = (f"tg:{hit_tg}" if hit_tg is not None
+                        else f"msg:{hit_row}")
+            cand = types.SimpleNamespace(
+                id=resolved,
+                entity_type=getattr(cand, "entity_type", "graph_fact"),
+                channel=getattr(cand, "channel", ""),
+                preview=preview,
+                score=getattr(cand, "score", 0.0) or 0.0,
+                shared_stems=int(shared or 0),
+                anchor_evidence=float(evidence),
+                vector_origin=bool(vector_origin))
+            key = (hit_tg, hit_row)
+            current = anchors.get(key)
+            entry = (int(shared or 0), evidence, int(priority), cand)
+            if current is None:
+                anchors[key] = entry
+            elif entry[0] > current[0]:
+                anchors[key] = entry
+            elif entry[0] == current[0] and entry[1] > current[1]:
+                anchors[key] = entry
+            elif (entry[0] == current[0] and entry[1] == current[1]
+                  and entry[2] < current[2]):
+                # Lower priority number = primary channel (message before
+                # lexical/base graph, vector last); the vector leg must not
+                # take credit for an anchor already recovered by the main
+                # lexical/base result.
+                anchors[key] = entry
+
+        for cand in result.candidates:
+            if cand.entity_type == "message":
+                _add_anchor(cand, priority=0)
+            elif cand.entity_type == "graph_fact":
+                _add_anchor(
+                    cand, priority=1,
+                    fact_row=main_fact_rows.get(_cand_fact_key(cand)),
+                    graph_fact=True)
+        base_rows = []
+        if (getattr(self, "_rag_last_rows_key", None)
+                == (int(chat_id), text)):
+            base_rows = list(getattr(self, "_rag_last_rows", None) or ())
+        # R4-F0: current base facts carry weight*importance and could crowd out
+        # old lexical message anchors at the same 8-slot cap. The base/current
+        # part is included only for an explicit current-state question; the
+        # period-fill part stays available for historical/research questions.
+        current_intent = _is_current_state_query(text)
+        base_rows = [row for row in base_rows
+                     if isinstance(row, dict)
+                     and (current_intent or row.get("period_fill"))]
+        for row in base_rows:
+            ref = str(row.get("item_id") or "")
+            if not (ref.startswith("tg:") or ref.startswith("msg:")):
+                tg = _rag_row_get(row, "tg_message_id")
+                ref = f"tg:{int(tg)}" if tg not in (None, "") else ""
+            if not ref:
+                continue
+            fact_text = str(row.get("fact") or "")
+            shared = _mca_rc.period_subject_shared(query_stems, fact_text)
+            if query_stems and shared < self._RAG_EPISODE_VECTOR_MIN_STEMS:
+                continue
+            cand = types.SimpleNamespace(
+                id=ref, entity_type="graph_fact", channel="base",
+                preview=fact_text, score=0.0)
+            _add_anchor(cand, priority=1, fact_row=row, graph_fact=True)
+        for cand in vector_candidates:
+            _add_anchor(
+                cand, priority=2,
+                fact_row=vector_fact_rows.get(_cand_fact_key(cand)),
+                graph_fact=(cand.entity_type == "graph_fact"),
+                vector_origin=True)
+        ranked = sorted(anchors.values(),
+                        key=lambda item: (-item[0], -item[1], item[2]))
+        cap = max(1, int(self._RAG_EPISODE_ANCHOR_CAP))
+        candidate_order = [item[3] for item in ranked[:cap]]
+        stats["anchor_candidates"] = len(anchors)
+        stats["anchor_ranked"] = len(candidate_order)
         tail_tg = {_tg_id_of_row(row) for row in tail_rows}
         tail_tg.discard(None)
         tail_rows_ids = {_row_id_of_row(row) for row in tail_rows}
@@ -11130,10 +11414,13 @@ class DirectChatService:
         used_tg: set[int] = set(tail_tg)
         used_rows: set[int] = set(tail_rows_ids)
         max_count = _composer.episode_max_count()
+        multi_year_cap = max(max_count,
+                             int(self._RAG_EPISODE_MULTI_YEAR_CAP))
         max_msgs = _composer.episode_max_messages()
         gap_s = _composer.episode_gap_seconds()
         episode_lines: list[str] = []
         supplement_lines: list[str] = []
+        span_years_seen: set[int] = set()
         # VMQ-MEM (измерение 2.58.179 §5): учёт причин отказа — пустой блок при
         # непустом пуле больше не выдаётся за «эпизоды использованы».
         skipped = {"not_message": 0, "ref": 0, "seen": 0, "anchor": 0,
@@ -11143,12 +11430,7 @@ class DirectChatService:
             # как помеченное дополнение (§3; не второй поиск по корпусу).
             supplement_lines = _ha_supplement_hit_lines(
                 result, sample_id=sample_id, exclude_tg=used_tg)
-        for cand in result.candidates:
-            if stats["count"] >= max_count:
-                break
-            if cand.entity_type != "message":
-                skipped["not_message"] += 1
-                continue
+        for cand in candidate_order:
             # VMQ-MEM (дефект 2): `msg:<row>` — полноценная ссылка на строку
             # корпуса; выбрасывать её за отсутствие tg-формы нельзя.
             hit_tg, hit_row = _episode_anchor_of_ref(cand.id)
@@ -11212,6 +11494,38 @@ class DirectChatService:
                              and _row_id_of_row(row) not in used_rows]
             if not span_rows:
                 continue
+            # Multi-year evidence extension: after both normal slots are
+            # occupied, admit one more span only when it covers a new year and
+            # its anchor passed the existing >=2-stem relevance threshold.
+            # Same-year/similar decoys still stop at the normal cap.
+            candidate_years: set[int] = set()
+            for span_row in span_rows:
+                try:
+                    span_ts = _sel_row_ref(span_row)[2]
+                except Exception:          # pragma: no cover - защита
+                    continue
+                span_year = _utc_year(span_ts) if span_ts else None
+                if span_year is not None:
+                    candidate_years.add(int(span_year))
+            allowed_max = max_count
+            shared_stems = int(getattr(cand, "shared_stems", 0))
+            # A message anchor from exact/lexical retrieval is evidence even
+            # when the question has only the person's name (one stem: the
+            # real S1 query). Graph-fact anchors still need the existing
+            # >=2-stem threshold already enforced in `_add_anchor`.
+            evidence_ok = (shared_stems >= 2
+                           or (shared_stems >= 1
+                               and getattr(cand, "entity_type", "")
+                               == "message"))
+            if (stats["count"] >= max_count
+                    and multi_year_cap > max_count
+                    and len(span_years_seen) >= 2
+                    and candidate_years
+                    and candidate_years.isdisjoint(span_years_seen)
+                    and evidence_ok):
+                allowed_max = multi_year_cap
+            if stats["count"] >= allowed_max:
+                break
             lines = [self._context_row_line(row, suffix_map,
                                             trigger_message_id=None,
                                             projection=projection)
@@ -11225,6 +11539,10 @@ class DirectChatService:
                     used_rows.add(row_id)
             episode_lines.extend(lines)
             stats["count"] += 1
+            span_years_seen.update(candidate_years)
+            if getattr(cand, "vector_origin", False):
+                stats["vector_message_used"] = int(
+                    stats.get("vector_message_used") or 0) + 1
             stats["messages"] += len(lines)
             # UR-F шаг 1 (UR-20.5): спан эпизода — какие сообщения реально
             # вошли (ids и даты), без текста. Список id хранится ПОЛНЫМ (без
@@ -12273,8 +12591,15 @@ class DirectChatService:
             branch = tuple(dict.fromkeys(
                 _REF_ID_RE.findall(branch_block)))[:_BUNDLE_BLOCK_MAX_REFS]
             rag_block = _block_with_tag(user_blocks, "RAG_Memory")
+            # TIME-03 natural memory (контракт 2026-11-20 §4.1): спаны
+            # `<Old_Episode>` — такой же источник фактов хода, как
+            # `<RAG_Memory>`. Их refs входят в ТОТ ЖЕ EvidenceBundle (тот же
+            # `_REF_ID_RE` и cap); новых полей/бандла нет. Текст эпизода не
+            # копируется — только каноническая ссылка.
+            episode_block = _block_with_tag(user_blocks, "Old_Episode")
             evidence_refs = tuple(dict.fromkeys(
-                _REF_ID_RE.findall(rag_block)))[:_BUNDLE_BLOCK_MAX_REFS]
+                _REF_ID_RE.findall(rag_block + "\n" + episode_block)
+            ))[:_BUNDLE_BLOCK_MAX_REFS]
             current_q = _inner_tag_text(
                 _block_with_tag(user_blocks, "Current_Question"),
                 "Current_Question")
@@ -14676,11 +15001,33 @@ class DirectChatService:
     #: сообщениями и факты не доходили. Срез `extra, limit=10` снимал A8 —
     #: в обход передаётся САМ пул, не `limit`.
     _RAG_PERIOD_POOL = 32
-    #: Сколько слотов среза может занять материал ДРУГОГО периода
-    #: (`limit // N`). Это периодное разнообразие, а не квота памяти: при
-    #: `limit=10` — максимум 2 строки, поэтому вопрос о текущем состоянии
-    #: остаётся доминированным текущим годом (≥80 %).
+    #: Сколько ДОПОЛНИТЕЛЬНЫХ строк среза может занять добор
+    #: (`limit // N`). TIME-03 natural memory (контракт 2026-11-20 §3.1/§4.1):
+    #: это ТОЛЬКО ресурсный предел числа строк. Он не выбирает год, не
+    #: исключает год, не требует старого материала и не задаёт календарную
+    #: квоту; порядок внутри предела — смысл/доказательство/валидность.
     _RAG_PERIOD_SLOT_DIV = 5
+    #: TIME-03 episode-r2: bounded message-anchor vector leg for
+    #: `<Old_Episode>`. Baseline default channels included `vector`, but the
+    #: episode loop only consumes message candidates; graph-fact vector hits
+    #: are converted to their source message anchor here, with the existing
+    #: lexical relevance threshold. This restores message coverage without
+    #: calendar quotas/windows or an age bonus.
+    _RAG_EPISODE_VECTOR_CHANNELS = ("vector",)
+    _RAG_EPISODE_VECTOR_TOP_K = 8
+    _RAG_EPISODE_VECTOR_MIN_STEMS = 2
+    #: Evidence-ranked anchor cap for `<Old_Episode>` (existing 8-slot cap).
+    _RAG_EPISODE_ANCHOR_CAP = 8
+    #: Resource upper bound for evidence-supported multi-year episodes. The
+    #: normal `episode_max_count()` (2) still applies to same-year/similar
+    #: episodes; a third span is allowed only when the already admitted spans
+    #: cover >=2 distinct years and the next anchor shares the existing >=2
+    #: topic stems. No year, era or calendar window is selected here.
+    _RAG_EPISODE_MULTI_YEAR_CAP = 3
+    #: Bounded current-fact leg for explicit current-state questions. Slots
+    #: are a resource limit only (not a year share); existing pool 32 is read
+    #: through the same `_rag_retrieve` path.
+    _RAG_CURRENT_SLOT_DIV = 3
     #: Порог «тот же предмет, не то же слово» (§2): лексическая строка входит,
     #: только если вопрос и текст делят ≥2 разных основы (длина основы ≥4).
     #: При пороге 1 остаётся шум одного слова (на архиве: айтишники, покупк,
@@ -14717,19 +15064,24 @@ class DirectChatService:
         * `operative` — прежний `("vector",)` байт-паритет: один вызов, тот
           же состав/порядок (текущее состояние вопроса).
         * `historical`/`auto` — основной срез строится ТЕМ ЖЕ вызовом (канал
-          `vector`, порядок сохранён), после чего в свободные слоты
-          добирается материал ДРУГОГО периода: (1) второй вызов того же
-          `retrieve` с каналами `("lexical", "vector")` и пулом 32 —
-          векторная нога есть БЛИЖАЙШИЙ СОСЕД в окне (не доказанный ответ),
-          лексическая входит только при ≥2 общих основах с вопросом, и
-          SQL-окно по годам базового среза; (2) профиль субъекта из
-          существующего чтения `get_user_context_facts` (строки без
-          привязки помечены `unattributed`). Добор ограничен
-          `limit // _RAG_PERIOD_SLOT_DIV` слотами и берёт только годы, которых
-          в срезе ещё нет, — поэтому состав основного среза не меняется, а
-          вопрос о текущем состоянии остаётся доминированным текущим годом.
-          Обход пула: сначала строки векторной ноги, затем лексические."""
+          `vector`, порядок сохранён). TIME-03 natural memory (контракт
+          2026-11-20 §3.1/§3.2): bounded-добор запускается только при
+          структурном сигнале (`period_replace_allowed`: явный год,
+          `historical`, `historical_recall`), существующем L1-сигнале
+          `research` или тонком/пустом базовом срезе (`usable < limit//2`).
+          Полный `auto`+`answer` остаётся базовым срезом. Добор — второй
+          вызов того же `retrieve` с каналами `("lexical", "vector")` и
+          пулом 32: векторная нога — БЛИЖАЙШИЙ СОСЕД (не доказанный ответ),
+          лексическая входит по существующему порогу основ; календарных
+          фильтров/квот нет. Профиль человека читается `scope="whole"` и
+          только если имя субъекта есть в вопросе. Ресурсный предел —
+          `limit // _RAG_PERIOD_SLOT_DIV` строк, не выбор года. Обход пула:
+          сначала строки векторной ноги, затем лексические."""
         self._rag_period_stats = {}
+        # Base/current rows belong to THIS turn; an early None/operative exit
+        # must not leave a previous turn's rows for the episode leg.
+        self._rag_last_rows = []
+        self._rag_last_rows_key = None
         try:
             memory = getattr(self, "memory", None)
             db = getattr(self, "db", None)
@@ -14768,64 +15120,149 @@ class DirectChatService:
             if policy == "operative":
                 return self._rag_rows_from_result(base, limit)
             rows = self._rag_rows_from_result(base, limit)
+            # TIME-03 r5: a bounded current-fact leg for an explicit
+            # current-state question. The normal top-`limit` slice can omit
+            # currently valid facts that are outside it; read the existing
+            # bounded pool (32) through the same `_rag_retrieve` path, keep
+            # only rows valid NOW (status/TTL, never calendar year), and
+            # append up to a resource-limited number of new facts. The base
+            # order is preserved; only tail slots make room. Non-current
+            # questions keep the byte-identical one-call path.
+            current_stats = {"current_leg_calls": 0, "current_leg_rows": 0,
+                             "current_leg_used": 0}
+            if (_is_current_state_query(query)
+                    and len(rows) >= int(limit)):
+                current_pool = max(int(limit), int(self._RAG_PERIOD_POOL))
+                try:
+                    current_result = await self._rag_retrieve(
+                        db, memory, chat_id, query, self._RAG_FACT_CHANNELS,
+                        current_pool, policy, **_trace_kwargs)
+                    pool_rows = self._rag_rows_from_result(
+                        current_result, current_pool)
+                    base_ids = {row.get("id") for row in rows}
+                    candidates = [
+                        row for row in pool_rows
+                        if row.get("id") not in base_ids
+                        and _rag_row_is_current(row)
+                        and not _prov.is_self_referential_origin(
+                            row.get("origin"))]
+                    candidates = self._rag_evidence_rank(
+                        candidates, str(query or ""))
+                    budget = max(1, int(limit)
+                                 // self._RAG_CURRENT_SLOT_DIV)
+                    to_add = candidates[:budget]
+                    if to_add:
+                        drop = max(0, len(rows) + len(to_add) - int(limit))
+                        rows = list(rows[:max(0, len(rows) - drop)])
+                        for row in to_add:
+                            row["current_fill"] = True
+                        rows.extend(to_add)
+                    current_stats = {
+                        "current_leg_calls": 1,
+                        "current_leg_rows": len(pool_rows),
+                        "current_leg_used": len(to_add),
+                    }
+                except Exception:
+                    logger.warning(
+                        "direct: current fact leg failed — base slice kept | "
+                        "chat=%s", chat_id, exc_info=True)
+                    current_stats = {"current_leg_calls": 1,
+                                     "current_leg_rows": 0,
+                                     "current_leg_used": 0}
+            # TIME-03 r4: the base rows of THIS turn are the bounded current
+            # fact leg for `<Old_Episode>`; remember them before any early
+            # return so current 2026 source anchors stay reachable.
+            self._rag_last_rows = list(rows or ())
+            self._rag_last_rows_key = (int(chat_id),
+                                       str(query or "").strip())
             if policy == "historical":
                 # `historical` — L1 явно разрешил исторический охват.
                 pass
             # Slice D (ARCH_DECISION 15.11.2026): право ЗАМЕЩАТЬ текущий срез
             # старым материалом даёт только структурный сигнал L1/плана или
             # явный год (`period_replace_allowed`), не словарь формулировки.
+            # TIME-03 natural memory (контракт 2026-11-20 §3.1/§4.1):
+            # `research` — существующий L1-сигнал разбора материала, а не
+            # новый historical-режим. Он (и тонкий/пустой базовый срез)
+            # разрешает bounded post-plan добор; полный `auto`+`answer`
+            # остаётся базовым срезом без добора — это ресурсный баланс, а
+            # не «только новое»: базовый поиск уже идёт по всему чату.
             period_intent = _mca_rc.resolve_period_intent(
                 query, memory_scope=policy, plan_act=plan_act)
             replace_allowed = _mca_rc.period_replace_allowed(
                 period_intent, policy)
-            period_slots = (max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
-                            if replace_allowed else 0)
             usable = sum(1 for row in rows
                          if not _prov.is_self_referential_origin(
                              row.get("origin")))
+            review = str(plan_act or "").strip().lower() == "research"
+            thin = usable < max(1, int(limit) // 2)
+            breadth_reason = "none"
+            if replace_allowed:
+                intent_source = str(period_intent.source or "")
+                if intent_source == "query_year":
+                    breadth_reason = "explicit_year"
+                elif intent_source == "plan_act":
+                    breadth_reason = "plan_historical"
+                elif policy == "historical" \
+                        or intent_source == "memory_scope":
+                    breadth_reason = "policy_historical"
+                else:
+                    # request_intent/request_mode — тоже структурный
+                    # multi-year сигнал (не словарь запроса).
+                    breadth_reason = "plan_historical"
+            elif review:
+                breadth_reason = "plan_research"
+            elif thin:
+                breadth_reason = "thin_base"
+            breadth_allowed = (policy != "operative"
+                               and breadth_reason != "none")
+            period_slots = (max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
+                            if breadth_allowed else 0)
+            # Наблюдательные метки прежнего раннего выхода сохраняются, но
+            # `auto_thin_slice` больше НЕ ранний выход: тонкий срез — повод
+            # добрать доказательный пробел, а не оставить пустоту.
+            if replace_allowed:
+                skipped = ""
+            elif len(rows) >= int(limit):
+                skipped = "auto_full_slice"
+            elif thin:
+                skipped = "auto_thin_slice"
+            else:
+                skipped = "auto_no_replace"
             trace_base = {
                 "policy": policy,
                 "replace_allowed": int(bool(replace_allowed)),
-                "period_skipped": "",
+                "period_skipped": skipped,
                 "period_intent": period_intent.as_dict(),
                 "intent_source": str(period_intent.source or ""),
+                "breadth_allowed": int(bool(breadth_allowed)),
+                "breadth_reason": breadth_reason,
+                "breadth_cap": int(period_slots),
+                **current_stats,
             }
-            if not replace_allowed:
-                # Основной срез НЕ режем. Полный/тонкий срез — периодного
-                # чтения нет вовсе; иначе старые строки не замещают текущие,
-                # а профиль может добирать только свободные слоты.
-                if len(rows) >= int(limit):
-                    skipped = "auto_full_slice"
-                elif usable < max(1, int(limit) // 2):
-                    skipped = "auto_thin_slice"
-                else:
-                    skipped = "auto_no_replace"
+            if not breadth_allowed:
+                # Основной срез НЕ режем. Полный `auto`+`answer` добора не
+                # запускает; профиль может занять только свободные слоты.
                 self._rag_period_stats = dict(
-                    trace_base, period_skipped=skipped,
-                    selection_rows=0, selection_kept=0)
-                if skipped in ("auto_full_slice", "auto_thin_slice"):
-                    return rows
-                trial = await self._rag_append_profile_rows(
-                    db, rows, chat_id, subject_name, subject_uid, limit,
-                    allow_replace=False)
-                return trial if len(trial) > len(rows) else rows
-            # Слоты под другой период резервируются только когда замена
-            # разрешена структурным сигналом: если добрать нечего, состав
-            # среза остаётся прежним (паритет принятой выдачи direct-RAG).
-            trimmed = rows[:max(1, int(limit) - period_slots)]
+                    trace_base, selection_rows=0, selection_kept=0,
+                    breadth_used=0)
+                if len(rows) < int(limit):
+                    trial = await self._rag_append_profile_rows(
+                        db, rows, chat_id, str(query or ""), subject_name,
+                        subject_uid, limit, allow_replace=False)
+                    result_rows = trial if len(trial) >= len(rows) else rows
+                    self._rag_last_rows = list(result_rows or ())
+                    self._rag_last_rows_key = (int(chat_id),
+                                               str(query or "").strip())
+                    return result_rows
+                return rows
+            # Слоты под добор — только ресурсный предел числа строк; состав
+            # основного среза не меняется, пока добор фактически не добавил
+            # строку. Год не выбирается и не исключается нигде.
             # (1) периодный добор из того же retrieval: старый факт, который
-            #     найден по смыслу/тексту, но не попал в срез основного канала.
-            #     VMQ-MEM next stage (11.11.2026): в добор входят ОБА пути —
-            #     векторный (фиксированный пул 32, JOIN по rowid, фильтр по
-            #     годам ПОСЛЕ среза) и лексический (словоформа вопроса и
-            #     словоформа в старом тексте сводятся к одной основе,
-            #     `lexical_stem`; вытесненные квотой `archived_fact` тоже
-            #     видны — `include_archived`). Векторная нога — ближайший
-            #     сосед, а не оракул предмета: порог §2 к ней не применяется,
-            #     и это видно в `subject_proxy`.
-            base_years = tuple(sorted(
-                {year for year in (_rag_row_year(row) for row in rows)
-                 if year is not None}))
+            #     найден по смыслу/тексту, но не попал в срез основного
+            #     канала. Векторная нога — ближайший сосед, а не оракул
+            #     предмета; лексическая входит по существующему порогу основ.
             # ОДНА векторная нога на ход (§5, 12.11.2026): при `auto → historical`
             # блок памяти пересобирается тем же чтением после плана L1, и без
             # повторного использования пула KNN k=32 (embed + KNN) платился бы
@@ -14845,7 +15282,8 @@ class DirectChatService:
             # VMQ-MEM/TIME Slice A (15.11.2026): структурированное периодное
             # намерение (явный год / исторический запрос) передаётся И в
             # retrieval-контракт, И в отбор пула — одно вычисление, один
-            # смысл.
+            # смысл. TIME-03 (§4.1): `exclude_years` прямого пути пуст —
+            # календарный фильтр не сужает кандидатов.
             if extra_rows is None:
                 extra = await self._rag_retrieve(
                     db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
@@ -14853,7 +15291,7 @@ class DirectChatService:
                     lexical_stem=True,
                     include_archived=policy in ("historical", "auto"),
                     period_fill=True,
-                    exclude_years=base_years,
+                    exclude_years=(),
                     period_intent=period_intent,
                     **_trace_kwargs)
                 extra_rows = self._rag_rows_from_result(
@@ -14866,11 +15304,37 @@ class DirectChatService:
                                          "meta": dict(period_meta)}
             accepted, selection = _mca_rc.select_period_rows(
                 extra_rows, query=str(query or ""), intent=period_intent,
-                policy=policy, slots=period_slots)
+                policy=policy, slots=period_slots, review=review)
+            accepted = self._rag_evidence_rank(
+                list(accepted or ()), str(query or ""))
             selection = dict(selection or {})
             rejected = int(selection.get("dropped_subject") or 0)
+            # Базовый срез режется только настолько, насколько добавленные
+            # строки не помещаются в `limit`. R1 (review r1, IN_SCOPE High):
+            # тонкий/текущий base СОХРАНЯЕТСЯ целиком и добор занимает
+            # оставшуюся ёмкость; полный base по-прежнему отдаёт хвостовые
+            # слоты (T2/T2b). Старое не вытесняет более релевантное новое.
+            base_ids = {row.get("id") for row in rows}
+            budget = max(1, int(period_slots))
+            to_append: list = []
+            for row in accepted:
+                if len(to_append) >= budget:
+                    break
+                if row.get("id") in base_ids:
+                    continue
+                if _prov.is_self_referential_origin(row.get("origin")):
+                    continue
+                to_append.append(row)
+            remaining = max(0, int(limit) - len(rows))
+            drop = max(0, len(to_append) - remaining)
+            keep = max(0, len(rows) - drop)
+            trimmed = list(rows[:keep])
+            trial = self._rag_append_period_rows(
+                trimmed, to_append, limit, slots=budget)
+            breadth_used = len(trial) - len(trimmed)
             self._rag_period_stats = {
                 **trace_base,
+                "breadth_used": int(breadth_used),
                 "rejected_subject": rejected,
                 "vector_pool_miss": int(period_meta.get("vector_pool_miss")
                                         or 0),
@@ -14901,18 +15365,22 @@ class DirectChatService:
                     selection.get("dropped_pool_cap") or 0),
                 "selection_rows": int(selection.get("rows") or 0),
                 "selection_kept": int(selection.get("kept") or 0),
-                "exclude_years": len(base_years),
                 "period_leg_reused": int(period_reused),
             }
-            trial = self._rag_append_period_rows(
-                trimmed, accepted, limit, slots=period_slots)
-            # (2) периодный добор из профиля субъекта (без привязки —
-            #     помечается `unattributed`, чтобы не читалось как сведение
-            #     о человеке).
-            trial = await self._rag_append_profile_rows(
-                db, trial, chat_id, subject_name, subject_uid, limit,
-                allow_replace=True)
-            return trial if len(trial) > len(trimmed) else rows
+            # (2) профиль субъекта (subject guard: имя адресата обязано быть
+            #     в вопросе, иначе профиль чужого человека не читается).
+            #     `historical`/`recall`/явный год — структурный сигнал,
+            #     профиль может замещать period-строки; тонкий `auto` и
+            #     `research` — только свободные слоты / без профиля.
+            if replace_allowed or thin:
+                trial = await self._rag_append_profile_rows(
+                    db, trial, chat_id, str(query or ""), subject_name,
+                    subject_uid, limit,
+                    allow_replace=bool(replace_allowed))
+            self._rag_last_rows = list(trial or ())
+            self._rag_last_rows_key = (int(chat_id),
+                                       str(query or "").strip())
+            return trial
         except Exception:
             logger.warning(
                 "direct: unified rag retrieval failed — legacy read | chat=%s",
@@ -14976,9 +15444,40 @@ class DirectChatService:
         return rows
 
     @classmethod
+    def _rag_evidence_rank(cls, rows: list, query: str) -> list:
+        """Rank existing fact rows by evidence, never by calendar year.
+
+        TIME-03 r4: shared stems first, then weight×importance (the existing
+        `graph_facts` evidence fields), then the original retrieval order.
+        No year, age, quota or old-fact share participates. Used for the
+        period append so reachable 2022/2024/2026 facts are not displaced by
+        arbitrary row order.
+        """
+        stems = _mca_rc.period_subject_stems(query)
+        indexed = list(enumerate(rows or ()))
+        def _key(item):
+            index, row = item
+            shared = row.get("stems_shared")
+            if shared is None:
+                shared = _mca_rc.period_subject_shared(
+                    stems, row.get("fact") or "")
+            try:
+                weight = float(row.get("weight") or 0.0)
+            except (TypeError, ValueError):
+                weight = 0.0
+            try:
+                importance = float(row.get("importance") or 0.0)
+            except (TypeError, ValueError):
+                importance = 0.0
+            return (-int(shared or 0), -(weight * importance), index)
+        indexed.sort(key=_key)
+        return [row for _index, row in indexed]
+
+    @classmethod
     def _rag_period_subject_filter(cls, query: str, extra_rows: list,
                                    policy: str = "historical", *,
-                                   intent=None, slots=None) -> tuple[list, int]:
+                                   intent=None, slots=None,
+                                   review: bool = False) -> tuple[list, int]:
         """Отбор пула периодного добора — ЕДИНАЯ политика retrieval-контракта.
 
         VMQ-MEM/TIME Slice A (15.11.2026): порог §2 (≥2 общих основы) больше не
@@ -15005,13 +15504,20 @@ class DirectChatService:
         статистика причин отсева — в `_rag_period_stats` вызывающего."""
         accepted, stats = _mca_rc.select_period_rows(
             extra_rows, query=str(query or ""), intent=intent, policy=policy,
-            slots=(2 if slots is None else slots))
+            slots=(2 if slots is None else slots), review=bool(review))
         return accepted, int((stats or {}).get("dropped_subject") or 0)
 
     @classmethod
     def _rag_append_period_rows(cls, rows: list, extra: list, limit: int,
                                 slots: int | None = None) -> list:
-        """Добрать в срез строки ДРУГИХ лет (периодное разнообразие, §3).
+        """Добрать в срез до `slots` строк, выбранных по смыслу/доказательствам.
+
+        TIME-03 natural memory (контракт 2026-11-20 §3.1/§4.1): `slots` —
+        ТОЛЬКО ресурсный предел числа дополнительных строк. Фильтра
+        «другой год» и `year in seen_years` больше нет: год не выбирает и не
+        исключает строку. Порядок добора — порядок `accepted` (смысл);
+        дедупликация — по `id`; прошлые ответы бота (`self-referential
+        origin`) фактами мира не считаются.
 
         Каждая добавленная строка помечается `period_fill` — признаком того,
         что она добыта политикой охвата, а не отобрана релевантностью, и
@@ -15021,8 +15527,6 @@ class DirectChatService:
                   if slots is None else max(1, int(slots)))
         rows = list(rows or ())
         seen_ids = {row.get("id") for row in rows}
-        seen_years = {_rag_row_year(row) for row in rows}
-        seen_years.discard(None)
         added = 0
         for row in extra or ():
             if added >= budget or len(rows) >= int(limit):
@@ -15031,38 +15535,46 @@ class DirectChatService:
                 continue
             if _prov.is_self_referential_origin(row.get("origin")):
                 continue
-            year = _rag_row_year(row)
-            if year is None or year in seen_years:
-                continue
             row["period_fill"] = True
             rows.append(row)
             seen_ids.add(row.get("id"))
-            seen_years.add(year)
             added += 1
         return rows
 
     async def _rag_append_profile_rows(self, db, rows: list, chat_id: int,
-                                       subject_name, subject_uid,
+                                       query: str, subject_name, subject_uid,
                                        limit: int,
                                        allow_replace: bool = True) -> list:
-        """Добрать периоды профиля субъекта (существующее чтение, §5).
+        """Добрать профиль человека из существующих чтений (TIME-03 §4.1).
 
-        VMQ-MEM/TIME Slice B (15.11.2026): кроме фактов О субъекте
-        (`get_user_context_facts`, где у P1 бывают только свежие строки)
-        читается его собственная атрибуция (`get_subject_profile_facts`:
-        `speaker_author_id`), с годами 2023/2024 и явной ролью
-        `subject|speaker`. Это не fallback `author=subject`: чужие строки не
-        подмешиваются, роль остаётся в строке. Нет субъектных данных → добора
-        нет (честное пусто), второй поиск не создаётся.
+        TIME-03 natural memory (контракт 2026-11-20 §4.1/§4.4):
 
-        Slice D (ARCH_DECISION): `allow_replace` — право замещать текущий
-        срез (структурный сигнал L1). При `False` и полном срезе чтения не
-        выполняются вовсе; добор возможен только в свободные слоты и никогда
-        не вытесняет текущие строки."""
+        * оба чтения идут со `scope="whole"` — один bounded-запрос без
+          годового partition/квоты и без фиксированного 3-летнего окна:
+          `get_user_context_facts` (факты О человеке) и
+          `get_subject_profile_facts` (его собственная атрибуция;
+          `speaker_author_id`, роль `subject|speaker`);
+        * `get_author_message_periods` из прямого пути УДАЛЁН — профиль не
+          читает календарные окна сообщений автора;
+        * `unattributed`-добор «непривязанной истории чата» больше не
+          вызывается: профиль — это сведения о человеке, а не общий фон;
+        * subject guard: профиль читается, только если имя субъекта есть в
+          тексте вопроса. `subject_name` прямого пути — адресат сообщения,
+          а не обязательно человек вопроса; без guard профиль чужого
+          человека выдавался бы за ответ о нём;
+        * `allow_replace` (Slice D) сохраняется: при `False` и полном срезе
+          чтения не выполняются; иначе добор занимает только свободные слоты
+          и не вытесняет текущие строки.
+
+        Нет субъектных данных → добора нет (честное пусто), второй поиск не
+        создаётся."""
         if not allow_replace and len(list(rows or ())) >= max(1, int(limit)):
             return rows
         name = str(subject_name or "").strip()
         if not name:
+            return rows
+        if name.casefold() not in str(query or "").casefold():
+            # Guard от чужого человека: имя адресата не прозвучало в вопросе.
             return rows
         about_rows: list = []
         reader = getattr(db, "get_user_context_facts", None)
@@ -15073,7 +15585,7 @@ class DirectChatService:
                                        user_id=(int(subject_uid)
                                                 if subject_uid is not None
                                                 else None),
-                                       scope="historical")
+                                       scope="whole")
             except TypeError:
                 profile = []
             except Exception:
@@ -15096,7 +15608,18 @@ class DirectChatService:
                     int(chat_id), name, max(1, int(limit)),
                     int(time.time()),
                     user_id=(int(subject_uid)
-                             if subject_uid is not None else None))
+                             if subject_uid is not None else None),
+                    scope="whole")
+            except TypeError:
+                # Старый двойник без аддитивного `scope` — прежняя форма.
+                try:
+                    raw_subject_rows = await subject_reader(
+                        int(chat_id), name, max(1, int(limit)),
+                        int(time.time()),
+                        user_id=(int(subject_uid)
+                                 if subject_uid is not None else None))
+                except Exception:
+                    raw_subject_rows = []
             except Exception:
                 logger.warning("direct: subject profile rows failed | "
                                "chat=%s", chat_id, exc_info=True)
@@ -15109,35 +15632,9 @@ class DirectChatService:
                 meta["subject_role"] = str(
                     row.get("subject_role") or "subject")
                 subject_rows.append(meta)
-        message_rows: list = []
-        message_reader = getattr(db, "get_author_message_periods", None)
-        current_year = datetime.datetime.now(datetime.timezone.utc).year
-        covered_old = any(
-            meta.get("message_timestamp")
-            and datetime.datetime.fromtimestamp(
-                int(meta["message_timestamp"]), datetime.timezone.utc).year
-            != current_year
-            for meta in subject_rows)
-        if callable(message_reader) and subject_uid is not None \
-                and not covered_old:
-            try:
-                raw_messages = await message_reader(
-                    int(chat_id), int(subject_uid), max(1, int(limit)))
-            except Exception:
-                logger.warning("direct: subject message periods failed | "
-                               "chat=%s", chat_id, exc_info=True)
-                raw_messages = []
-            for row in raw_messages or ():
-                if not isinstance(row, dict):
-                    continue
-                meta = self._rag_meta_from_record(
-                    row, int(row.get("id") or 0), 0, limit)
-                meta["subject_role"] = "speaker"
-                meta["authored_by_subject"] = True
-                message_rows.append(meta)
-        # Субъектный материал — ПЕРВЫМ: иначе unattributed-контекст чата
-        # занимает свободные слоты периода и факты о человеке не доходят.
-        profile_rows = subject_rows + message_rows + about_rows
+        # Субъектный материал — ПЕРВЫМ: факты о человеке не должны уступать
+        # общему профилю.
+        profile_rows = subject_rows + about_rows
         # Slice D (ARCH_DECISION 15.11.2026): вытеснять generic period-строки
         # субъектным материалом можно ТОЛЬКО когда замена разрешена
         # структурным сигналом L1 (`allow_replace`). Иначе профиль добирает
@@ -15178,6 +15675,9 @@ class DirectChatService:
             "forward_from": _rag_row_get(row, "forward_from") or "",
             "item_id": resolve_item_id(tg_message_id=tg_id, fact_id=fact_id),
             "score": float(max(1, int(limit)) - position),
+            "weight": _rag_row_get(row, "weight"),
+            "importance": _rag_row_get(row, "importance"),
+            "stems_shared": row.get("stems_shared"),
             "expired": expired,
             "expires_at": expires_at,
             "chat_id": _rag_row_get(row, "chat_id"),
@@ -15270,6 +15770,8 @@ class DirectChatService:
         # этому ходу — сбрасываем до чтения, чтобы повторный сбор блока на
         # том же экземпляре не унаследовал счётчики прошлого вопроса.
         self._rag_period_stats = {}
+        self._rag_last_rows = []
+        self._rag_last_rows_key = None
         # VMQ-M2: результат того же вызова (с overview) — для ЕДИНОГО bundle.
         self._rag_overview_result = None
         # Пул периодной ноги этого вызова: без периода он пуст (окно
@@ -15309,6 +15811,9 @@ class DirectChatService:
         # VMQ-MEM next stage (§4): счётчики периодного добора того же хода —
         # только числа/коды (`_rag_unified_rows` их владелец; двойники их не
         # ставят → пустая телеметрия, рендер не меняется).
+        self._rag_last_rows = list(rows or ())
+        self._rag_last_rows_key = (int(chat_id),
+                                       str(query or "").strip())
         period_stats = getattr(self, "_rag_period_stats", None) or {}
         facts, ranks = _rag_rows_with_ranks(rows)
         # VMQ-MEM-TIME (§6): актуальность/V по тем же строкам — источник
@@ -15339,12 +15844,14 @@ class DirectChatService:
         # здесь, у потребителя: общий `summary_memory.rerank_rag_facts` не
         # получает понятия «период» (у него другие потребители).
         period_keys = _rag_period_keys(rows)
+        current_keys = _rag_current_keys(rows)
         # VMQ-MEM next stage (§3): реранк судит только строки, которые он
         # УВИДЕЛ. Векторная периодная строка (`subject_proxy=knn`) уходит в
         # него вместе с непериодным срезом, поэтому валидный пустой вердикт
         # снимает и её; лексическая строка, прошедшая порог §2, в реранк не
         # отправлялась и его молчанием не гасится.
-        protected_keys = period_keys - _rag_period_judged_keys(rows)
+        protected_keys = ((period_keys | current_keys)
+                          - _rag_period_judged_keys(rows))
         period_kept_despite_empty = 0
         # Гейт реранка — per-chat цепочкой 2.58.186 (`_cp_g`: override чата →
         # глобальный hot → env/фабричный дефолт). Оба изменения складываются
@@ -15574,7 +16081,12 @@ class DirectChatService:
         # multi-year материала даже при `memory_scope=auto` (L1 не обязан
         # называть год или слово «вспомни»). Пересборка идёт тем же чтением;
         # периодный пул переиспользуется, второй векторной ноги нет.
-        if plan_scope == "auto" and plan_act != "historical_recall":
+        # TIME-03 natural memory (контракт 2026-11-20 §4.1): существующий
+        # L1-сигнал `research` (разбор сообщений/переписки/истории) — тоже
+        # сигнал полноты материала, а не новый historical-режим. Блок
+        # пересобирается тем же чтением; остальные блоки не трогаются.
+        if plan_scope == "auto" and plan_act not in (
+                "historical_recall", "research"):
             return user_blocks
         blocks = list(user_blocks or ())
         position = next((index for index, block in enumerate(blocks)

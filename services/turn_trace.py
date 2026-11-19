@@ -1043,14 +1043,15 @@ def _sel_memory_period(value) -> dict | None:
             clean_intent["source"] = source
         if clean_intent:
             out["intent"] = clean_intent
-    for key in ("replace_allowed", "pool", "kept", "historical_quota",
+    for key in ("replace_allowed", "breadth_allowed", "breadth_cap",
+                "breadth_used", "pool", "kept", "historical_quota",
                 "multi_year_quota", "dropped_subject", "dropped_budget",
                 "dropped_status", "dropped_out_of_target_year",
                 "dropped_unknown_year", "pool_expired", "vector_rows"):
         number = _sel_int(value.get(key))
         if number is not None:
             out[key] = number
-    for key in ("policy", "period_skipped", "intent_source"):
+    for key in ("policy", "period_skipped", "intent_source", "breadth_reason"):
         code = _code(value.get(key), 32)
         if code:
             out[key] = code

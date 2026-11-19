@@ -331,7 +331,64 @@ class TestExplicitYearPreserved:
         assert fill["dropped_out_of_target_year"] >= 1
 
 
-# ── §2: историческое намерение и ограниченный мягкий fallback ──────────────
+# ── TIME-03: год не выбирает и не исключает строки ───────────────────────
+
+
+class TestNaturalYearSelection:
+    """TIME-03 (контракт 2026-11-20 §3.3/§4.2): прямой отбор не исключает год
+    базового среза, не требует «другого года» и не сортирует по возрасту."""
+
+    def test_t4_yearless_pool_keeps_relevant_year_including_current(self):
+        pool = [_row(1, "шизы и конф в 2026", year=2026),
+                _row(2, "шизы и конф в 2023", year=2023)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query="что было про шизы и конф?", policy="auto",
+            slots=2, review=True, reference_year=2026)
+        assert [row["id"] for row in accepted] == [1, 2], (
+            "текущий год не исключается и не заменяется «другим»")
+        assert stats["dropped_out_of_target_year"] == 0
+        assert stats["historical_quota"] == 0
+        assert stats["multi_year_quota"] == 0
+        assert {mrc.period_row_year(row) for row in accepted} == {2023, 2026}
+
+    def test_t4_weak_old_row_enters_by_meaning_not_by_year(self):
+        """Review-путь: при ≥2 строках «одного предмета» старая 2023 входит
+        по основам, а не потому, что она старый год."""
+        pool = [_row(3, "шизы обсуждали", year=2023),
+                _row(4, "шизы вспоминали", year=2024),
+                _row(5, "совсем другая тема", year=2025)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query="что было про шизы и конф?", policy="auto",
+            slots=2, review=True)
+        assert {row["id"] for row in accepted} == {3, 4}
+        assert stats["soft_fallback"] == 2
+        assert stats["dropped_subject"] == 1
+        assert stats["dropped_out_of_target_year"] == 0
+
+    def test_t5_explicit_year_is_target_filter_not_calendar_quota(self):
+        pool = [_row(11, "конфликт на конфе", year=2023),
+                _row(12, "ссорились и ругались на конфе", year=2023),
+                _row(13, "ссорились и ругались на конфе", year=2026)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query=CONFLICT_2023, policy="auto", slots=2,
+            reference_year=2026)
+        assert {row["id"] for row in accepted} == {11, 12}
+        # Порядок — число общих основ, а не год.
+        assert accepted[0]["id"] == 12
+        assert stats["dropped_out_of_target_year"] == 1
+        assert stats["kept_in_target"] == 2
+        assert stats["historical_quota"] == 0
+
+    def test_t6_operative_keeps_only_current_year(self):
+        pool = [_row(21, "происходит сейчас", year=2026),
+                _row(22, "происходило раньше", year=2025)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query="что сейчас происходит?", policy="operative",
+            slots=2, reference_year=2026)
+        assert [row["id"] for row in accepted] == [21]
+        assert stats["dropped_out_of_target_year"] == 1
+
+
 
 
 class TestHistoricalSoftFallback:
@@ -344,10 +401,11 @@ class TestHistoricalSoftFallback:
             pool, query=OWNER_CREATIVE, policy="auto", slots=2)
         assert stats["intent"]["kind"] == mrc.PERIOD_INTENT_HISTORICAL
         assert stats["soft_fallback"] == 2
-        # Slice D (ARCH_DECISION): исторический fallback берёт РАЗНЫЕ старые
-        # годы, порядок — год по возрастанию (2022, затем 2023), а не индекс.
+        # TIME-03 (контракт 2026-11-20 §3.3): порядок — смысл (`-shared`),
+        # затем индекс пула; год не выбирает строки. Обе строки делят с
+        # вопросом по одной основе, поэтому входят пуловым порядком 2023→2022.
         assert {row["id"] for row in accepted} == {1, 2}
-        assert [mrc.period_row_year(row) for row in accepted] == [2022, 2023]
+        assert [mrc.period_row_year(row) for row in accepted] == [2023, 2022]
         assert all(row["stems_shared_reason"] ==
                    mrc.PERIOD_KEEP_SOFT_FALLBACK for row in accepted)
         assert stats["dropped_subject"] == 2

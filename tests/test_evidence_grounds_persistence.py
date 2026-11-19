@@ -930,3 +930,40 @@ async def test_recover_grounds_on_schema_without_v46_is_honest(tmp_path):
         assert report["refused"] == [{"reason": "schema_without_v46_columns"}]
     finally:
         await db.close()
+
+
+# ── TIME-03 natural memory (§4.1): эпизодные refs в EvidenceBundle ────────
+
+
+class _BundleMsg:
+    def __init__(self, message_id=100):
+        self.message_id = message_id
+        self.chat = type("Chat", (), {"id": CHAT})()
+        self.text = "что было?"
+
+
+@pytest.mark.asyncio
+async def test_t15_bundle_includes_old_episode_refs_without_new_fields():
+    """T15: refs `<Old_Episode>` входят в ТОТ ЖЕ bundle; cap не превышен;
+    выдуманных ссылок нет (bundle ссылается только на реальные канонические
+    ID из построенных блоков)."""
+    svc = DirectChatService.__new__(DirectChatService)
+    blocks = [
+        "<RAG_Memory>\n[2026 | факт | fact:7]: текущее\n</RAG_Memory>",
+        "<Old_Episode>\n"
+        "[01.06.2023 | A | tg:501]: старый эпизод\n"
+        "[01.06.2023 | B | msg:777]: продолжение\n"
+        "</Old_Episode>",
+        "<Current_Question>\nчто было?\n</Current_Question>",
+    ]
+    bundle = await svc._build_evidence_bundle(
+        CHAT, _BundleMsg(message_id=100), "что было?", "A", 7, blocks)
+    assert bundle is not None
+    evidence = {item.entity_id for item in bundle.evidence}
+    assert {"fact:7", "tg:501", "msg:777", "tg:100"} <= evidence
+    # Cap и отсутствие выдуманных refs: только канонические ID блоков/триггера.
+    assert len(evidence) <= 20 + 1
+    assert evidence <= {"fact:7", "tg:501", "msg:777", "tg:100"}
+    # Старый эпизод — evidence, а не новая ветка/поле bundle.
+    assert "tg:501" in {item.entity_id for item in bundle.evidence
+                        if item.entity_type == "message"}

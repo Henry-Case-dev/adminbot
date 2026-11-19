@@ -247,7 +247,65 @@ class TestPeriodVectorLeg:
         assert await memory._period_vector_guard() == ""
 
 
-# ── §2/§4: порог основ — «тот же предмет, не то же слово» ──────────────────
+# ── TIME-03: прямой добор не передаёт календарный фильтр ──────────────────
+
+
+class TestDirectBreadthNoCalendarFilter:
+    @pytest.mark.asyncio
+    async def test_t12_direct_breadth_uses_empty_exclude_years(
+            self, db, monkeypatch):
+        """TIME-03 §4.1: `_rag_unified_rows` передаёт `exclude_years=()`;
+        честный `vector_leg` не маскируется, `vector_pool_miss` остаётся."""
+        old = await db.insert_graph_fact(
+            CHAT, "старый факт про ванную", "history_import", None,
+            weight=0.5, importance=5, message_timestamp=_ts(2023))
+        strong = await db.insert_graph_fact(
+            CHAT, "ванная и ремонт закончились", "history_import", None,
+            weight=0.5, importance=5, message_timestamp=_ts(2023))
+        requests: list = []
+        real = mrc.retrieve
+
+        async def _spy(db_, memory_, request):
+            requests.append(request)
+            return await real(db_, memory_, request)
+
+        monkeypatch.setattr(mrc, "retrieve", _spy)
+
+        async def _not_proven(_db, _memory):
+            return {"state": "insufficient",
+                    "reason_code": "compat_not_proven",
+                    "class": "COMPATIBILITY_UNKNOWN",
+                    "action": "retry_canary", "admitted": False,
+                    "proven": False}
+
+        monkeypatch.setattr(mrc, "_period_vector_admission", _not_proven)
+
+        class _NoVectorMemory:
+            async def retrieve_fact_candidates(self, *_a, **_k):
+                return []
+
+            async def period_fill_candidates(self, *_a, **_k):
+                raise AssertionError(
+                    "недопущенная векторная нога не должна вызываться")
+
+        service = dcs.DirectChatService(memory=_NoVectorMemory(), db=db,
+                                        llm=None, aliases=None)
+        rows = await service._rag_unified_rows(
+            CHAT, "что известно про ванную и ремонт?", None,
+            memory_scope="auto", plan_act="research")
+        period = [request for request in requests if request.period_fill]
+        assert len(period) == 1, requests
+        assert period[0].exclude_years == ()
+        stats = service._rag_period_stats
+        assert stats["vector_leg"] == "compat_not_proven"
+        assert stats["vector_unavailable"] == 1
+        assert stats["vector_rows"] == 0
+        assert "vector_pool_miss" in stats
+        ids = {row["id"] for row in rows}
+        assert strong in ids
+        assert old in ids or stats["rejected_subject"] >= 1
+
+
 
 
 def _period_row(fid, text, *, year=2023, source="lexical"):

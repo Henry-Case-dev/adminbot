@@ -334,3 +334,27 @@ class TestPlanScopeReachesRagBlock:
             blocks, self._ctx(), _plan(memory_scope="historical"))
         assert out == blocks
         assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_t16_research_plan_rebuilds_rag_block(self, monkeypatch):
+        """TIME-03 §4.1: существующий L1-сигнал `research` разрешает
+        пересборку `<RAG_Memory>` тем же чтением (не historical-режим)."""
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        blocks = ["<Global_Context>фон</Global_Context>",
+                  "<RAG_Memory>auto</RAG_Memory>"]
+        plan = _plan(memory_scope="auto", response_act="research")
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+        assert calls == [{"scope": "auto", "name": "Aleksey", "uid": 7}]
+        assert out[0] == blocks[0]
+        assert out[1].startswith("<RAG_Memory>")
+
+    @pytest.mark.asyncio
+    async def test_t16_answer_plan_keeps_zero_extra_reads(self, monkeypatch):
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        blocks = ["<RAG_Memory>auto</RAG_Memory>"]
+        plan = _plan(memory_scope="auto", response_act="answer")
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+        assert calls == []
+        assert out == blocks

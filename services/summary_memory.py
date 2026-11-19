@@ -1078,44 +1078,24 @@ def _apply_policy_guarantees(chosen: list, ordered: list, slots: int,
                              policy: str) -> list:
     """Гарантии/страховки политики на ИТОГОВОМ составе (§4).
 
-    * `historical` — минимум `HIST_MIN_SLOTS = max(1, slots//5)` исторических
-      (V=0) записей, и только если кандидат не слабее
-      `HIST_REL_FLOOR × max(H среди V=1)`; иначе 0 (честно пусто, без подмены).
-    * `auto` — потолок `HIST_MAX_SHARE` от вытеснения актуального состояния
-      (правило вытеснения по H×R уже обеспечено порядком).
-    Заменяются только САМЫЕ СЛАБЫЕ слоты; порядок остальных сохраняется.
+    TIME-03 natural memory (контракт 2026-11-20 §4.3): обязательной доли
+    исторических (V=0) записей больше НЕТ. `historical` — это охват, а не
+    квота «старое обязано присутствовать»: состав определяется H×R и
+    tie-window валидности, поэтому `chosen` возвращается как есть.
+
+    `auto` сохраняет ТОЛЬКО временный потолок `HIST_MAX_SHARE` для V=0 —
+    защиту текущего состояния (валидность, не календарь). Это не требование
+    TIME-03 и не квота старого: потолок снимается, когда адресный S4-probe
+    докажет, что без него текущее состояние не подменяется.
     """
     policy = _memory_policy(policy)
     limit = max(1, int(slots or 1))
     chosen = [fid for fid in (chosen or ())]
     if policy == "operative" or not ordered:
         return chosen[:limit]
-    by_fid = {entry["fid"]: entry for entry in ordered}
     valid_by_fid = {entry["fid"]: bool(entry.get("valid"))
                     for entry in ordered}
     if policy == "historical":
-        min_slots = max(1, limit // 5)
-        floor = float(hot.get("limits.graph_hist_rel_floor",
-                              settings.GRAPH_HIST_REL_FLOOR) or 0.0)
-        best_valid = max((float(entry.get("significance") or 0.0)
-                          for entry in ordered if entry.get("valid")),
-                         default=0.0)
-        qualifying = [entry["fid"] for entry in ordered
-                      if not entry.get("valid")
-                      and float(entry.get("significance") or 0.0)
-                      >= floor * best_valid]
-        have = sum(1 for fid in chosen if not valid_by_fid.get(fid, True))
-        for fid in qualifying:
-            if have >= min_slots:
-                break
-            if fid in chosen:
-                continue
-            victim = next((f for f in reversed(chosen)
-                           if valid_by_fid.get(f)), None)
-            if victim is None:
-                break                     # действующих слотов нет — уже 0
-            chosen[chosen.index(victim)] = fid
-            have += 1
         return chosen[:limit]
     share = float(hot.get("limits.graph_hist_max_share",
                           settings.GRAPH_HIST_MAX_SHARE) or 0.0)
@@ -1165,11 +1145,12 @@ def _effective_weight(weight, confirmed_at, now: int, *,
     (ничего не удаляется). Выключатель → weight как есть.
 
     VMQ-MEM-TIME (§1/§3, уточнение владельца 10.11.2026): полураспад и пол —
-    ТОЛЬКО оперативная политика («что действует сейчас»). Для
-    `historical`/`auto` возрастной член перестаёт быть множителем
-    значимости: остаётся ограниченный tie-break свежести
-    `weight × (1 − FRESH_TIEBREAK × min(1, возраст/HORIZON))` (≤ 5 %), который
-    не способен перевесить разницу смысловой значимости. `operative` —
+    ТОЛЬКО оперативная политика («что действует сейчас»).
+
+    TIME-03 natural memory (контракт 2026-11-20 §4.3): в `historical`/`auto`
+    возраст НЕ ранжирует вовсе — freshness-множитель (прежний ≤5 % tie-break)
+    удалён. Валидность (V) остаётся tie-window и меткой, но не бустом
+    свежести; «старое» не проигрывает «новому» только по дате. `operative` —
     байт-в-байт прежняя формула.
     """
     if _memory_policy(policy) == "operative":
@@ -1186,15 +1167,7 @@ def _effective_weight(weight, confirmed_at, now: int, *,
         # N4: floor — or 0 по смыслу (пол не может быть None)
         return max(hot.get("limits.graph_time_decay_floor",
                            settings.GRAPH_TIME_DECAY_FLOOR) or 0.0, w_eff)
-    if confirmed_at is None:
-        confirmed_at = now
-    days = max(0.0, (now - confirmed_at) / 86400.0)
-    tiebreak = float(hot.get("limits.graph_hist_fresh_tiebreak",
-                             settings.GRAPH_HIST_FRESH_TIEBREAK) or 0.0)
-    horizon = max(1, int(hot.get("limits.graph_hist_horizon_days",
-                                 settings.GRAPH_HIST_HORIZON_DAYS) or 1))
-    freshness = tiebreak * min(1.0, days / float(horizon))
-    return float(weight or 0.5) * max(0.0, 1.0 - freshness)
+    return float(weight or 0.5)
 
 
 def _cosine(a, b) -> float:

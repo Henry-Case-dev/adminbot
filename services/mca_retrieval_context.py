@@ -762,7 +762,8 @@ def _mark_period_row(row, shared, reason: str) -> None:
 
 def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" = None,
                        policy: str = "auto", slots: int = 2,
-                       reference_year: int | None = None) -> tuple[list, dict]:
+                       reference_year: int | None = None,
+                       review: bool = False) -> tuple[list, dict]:
     """Отбор периодного пула: время-цель ПЕРВЫМ, предмет — с мягким fallback.
 
     VMQ-MEM/TIME Slice A (15.11.2026). Прежний безусловный порог ≥2 основ
@@ -772,16 +773,25 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     * `explicit_year` — строки ВНУТРИ целевого года сохраняются (порядок — по
       числу общих основ), строки другого года и с неизвестным временем
       отбрасываются с кодом причины: 2026-строка не выдаёт себя за 2023;
-    * `historical` — действующий порог ≥2 сохраняется, но если принятых
-      меньше слотов и пул даёт не меньше двух строк с одной общей основой,
-      добираются они (`subject_soft_fallback`, bounded) — «тот же предмет»
-      без потери темы; одна слабая строка блок не собирает;
+    * `historical`/`review` — действующий порог ≥2 сохраняется, но если
+      принятых меньше слотов и пул даёт не меньше двух строк с одной общей
+      основой, добираются они (`subject_soft_fallback`, bounded) — «тот же
+      предмет» без потери темы; одна слабая строка блок не собирает;
     * `none` — прежний путь (порог ≥2, векторная строка под `auto` тоже
       проходит порог): текущее состояние не ослабляется, словаря «сейчас»
       нет. Slice D (ARCH_DECISION 15.11.2026): паритет обычного вопроса
       удалён — замещать текущий срез имеет право только структурный сигнал
       L1/плана/явного года (`period_replace_allowed` у потребителя), а не
-      формулировка запроса. Здесь `none` больше не даёт старого вклада.
+      формулировка запроса.
+
+    TIME-03 natural memory (контракт 2026-11-20 §3.3/§4.2): календарной
+    квоты/«другого года» здесь НЕТ. `review=True` — существующий L1-сигнал
+    `research` (разбор материала), который разрешает тот же предметный
+    soft-fallback, что `historical`, но не делает запрос «историческим
+    режимом». Порядок добора — `-stems_shared`, затем индекс пула; год не
+    участвует. `historical_quota`/`multi_year_quota` остаются нулями только
+    для совместимости читателей трассы. Порядок строк внутри принятого
+    набора — смысл/доказательство; `slots` — ресурсный предел вызывающего.
 
     Возвращает ``(принятые, статистика)``; статистика — только коды и числа
     (`dropped_*`, `kept_*`, `soft_fallback`, `intent`), без текстов фактов.
@@ -927,78 +937,35 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     # Здесь остаётся только исторический/много-летний вклад, разрешённый
     # структурным сигналом (его проверяет потребитель через
     # `period_replace_allowed`).
-    if intent.is_historical and soft_pool and len(accepted) < slots \
+    #
+    # TIME-03 natural memory (§3.3/§4.2): `review` — существующий L1-сигнал
+    # `research`; он разрешает тот же предметный soft-fallback, что
+    # `historical`. `multi_year` — прежний `historical_recall`/request-сигнал:
+    # его материал тоже не должен исчезать вместе с удалённой календарной
+    # квотой (доставка старого не хуже NEXT-02). Календарного выбора нет —
+    # только «тот же предмет» (одна общая основа) при ≥2 строках пула.
+    if (intent.is_historical or intent.is_multi_year or review) and soft_pool \
+            and len(accepted) < slots \
             and lexical_strict_passed == 0 \
             and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
         # Мягкий fallback: порог §2 не дал ни одной лексической строки, но пул
         # даёт не меньше двух строк «одного предмета» с одной основой. Тогда
         # добираем лучшие из них (bounded слотами) с явным кодом причины.
-        # Slice D (ARCH_DECISION): исторический вопрос обязан получить РАЗНЫЕ
-        # старые годы, поэтому порядок — год по возрастанию (более старый
-        # материал), затем индекс пула. Одна слабая строка блок не собирает —
-        # контракт §2/§5 сохранён.
-        need = slots - len(accepted)
-        soft_pool.sort(key=lambda item: (
-            -item[0], period_row_year(item[2]) or 9999, item[1]))
-        seen_soft_years: set = set()
+        # TIME-03: год НЕ выбирает строки — порядок `-stems_shared`, затем
+        # индекс пула; годичной квоты и требования «другой год» больше нет.
+        # Одна слабая строка блок не собирает — контракт §2/§5 сохранён.
+        soft_pool.sort(key=lambda item: (-item[0], item[1]))
         for shared, _index, row in soft_pool:
-            if len(accepted) >= slots or need <= 0:
+            if len(accepted) >= slots:
                 break
-            year = period_row_year(row)
-            if year in seen_soft_years:
-                continue
             _mark_period_row(row, shared, PERIOD_KEEP_SOFT_FALLBACK)
             accepted.append(row)
             stats["soft_fallback"] += 1
             stats["dropped_subject"] -= 1
-            seen_soft_years.add(year)
-            need -= 1
-    want_quota = intent.wants_year_diverse
-    #: Строки «того же предмета» старого года, ещё не вошедшие в набор.
-    quota_pool: list[tuple[int, int, dict]] = []
-    if want_quota and soft_pool and len(accepted) < slots \
-            and (lexical_strict_passed > 0 or intent.is_multi_year) \
-            and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
-        # Slice B: ограниченная историческая/multi-year квота. Строгий порог
-        # §2 уже дал строку (owner-формулировка A1: 2024), поэтому мягкий
-        # fallback не включался — но исторический вопрос обязан получить
-        # материал ДРУГОГО старого года. Квота bounded слотами, берёт только
-        # строки «того же предмета» (≥1 основа), не текущий год и только годы,
-        # которых ещё нет в принятом наборе; одна слабая строка блок не
-        # собирает (тот же контракт §2/§5).
-        seen_years = {period_row_year(row) for row in accepted}
-        seen_years.discard(None)
-        for shared, index, row in soft_pool:
-            year = period_row_year(row)
-            if year is None or year == current_year or year in seen_years:
-                continue
-            quota_pool.append((shared, index, row))
-        quota_pool.sort(key=lambda item: (-item[0], period_row_year(
-            item[2]) or 9999, item[1]))
-        if intent.is_multi_year:
-            keep_reason, quota_stat = (PERIOD_KEEP_MULTI_YEAR,
-                                       "multi_year_quota")
-        else:
-            keep_reason, quota_stat = (PERIOD_KEEP_HISTORICAL_QUOTA,
-                                       "historical_quota")
-        need = slots - len(accepted)
-        for shared, _index, row in quota_pool:
-            if need <= 0:
-                break
-            year = period_row_year(row)
-            if year in seen_years:
-                continue
-            _mark_period_row(row, shared, keep_reason)
-            accepted.append(row)
-            stats[quota_stat] += 1
-            stats["dropped_subject"] -= 1
-            seen_years.add(year)
-            need -= 1
-    # Бюджет: строки «того же предмета» старого года, не вошедшие из-за
-    # заполненных слотов (под-категория `dropped_subject`, не второй счётчик:
-    # суммы причин не удваиваются).
-    admitted_quota = (stats["historical_quota"] + stats["multi_year_quota"])
-    stats["dropped_budget"] += max(0, len(quota_pool) - admitted_quota)
+    # TIME-03 natural memory (§4.2): календарной квоты (`historical_quota`/
+    # `multi_year_quota`) больше нет — ключи остаются нулями только для
+    # совместимости существующих читателей трассы. Строки, не вошедшие из-за
+    # предмета/предела, остаются в `dropped_subject` (без второго счётчика).
     stats["lexical_strict_passed"] = lexical_strict_passed
     stats["kept"] = len(accepted)
     return accepted, stats
@@ -1114,6 +1081,13 @@ class RetrievalRequest:
     #: периода сохраняет строки целевого года до предметного порога, а
     #: строки другого года отбрасываются с кодом причины (2026 ≠ 2023).
     period_intent: "PeriodIntent | None" = None
+    #: TIME-03 natural memory (контракт 2026-11-20 §4.2): аддитивный запрет
+    #: возрастного бонуса типизированного ранга. Default False сохраняет
+    #: прежнее поведение прочих вызывающих; эпизодный путь direct-ответа
+    #: ставит True — старый якорь не проигрывает свежему аналогу только по
+    #: дате. Бонус «внутри запрошенного окна» остаётся: это период вопроса,
+    #: а не свежесть. Читается через `getattr(request, ...)` для двойников.
+    no_age_bias: bool = False
     #: VMQ-MEM/TIME Slice B (15.11.2026): лексический канал учитывает
     #: `time_from`/`time_to` В SQL (`search_messages_fts(since_ts/until_ts,
     #: order='time')`) вместо пост-фильтра top-N. Нужен только явному
@@ -1416,15 +1390,17 @@ def typed_rank_score(candidate: RetrievalCandidate, request: RetrievalRequest,
     """Типизированный ранг (MEM-06.4): канал + доверие источника +
     актуальность времени + режим. Никогда не заменяет канальный вес.
 
-    Бонусы ограничены так, чтобы канал оставался доминирующим: старый
-    «сомнительный» vector-hit не выигрывает у свежего точного assertion
-    только за счёт similarity, но и не перебивает более сильный канал."""
+    TIME-03 natural memory (§4.2): при `request.no_age_bias=True` возрастного
+    бонуса нет (эпизодный путь direct-ответа); бонус «внутри запрошенного
+    окна» остаётся, потому что это период вопроса, а не свежесть. Default
+    False сохраняет прежнее поведение прочих путей байт-в-байт."""
+
     score = float(candidate.score)
     if candidate.provenance_backed:
         score += _TYPED_TRUST_BONUS
     elif candidate.entity_type == "graph_fact":
         score -= _TYPED_LEGACY_PENALTY      # legacy/unverified — weak hint
-    if candidate.sent_at:
+    if candidate.sent_at and not getattr(request, "no_age_bias", False):
         age_days = max(0.0, (int(now if now is not None else time.time())
                              - int(candidate.sent_at)) / 86400.0)
         if age_days < 365.0:
