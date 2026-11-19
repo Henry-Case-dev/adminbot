@@ -14917,9 +14917,11 @@ class DirectChatService:
                 policy=policy, slots=period_slots, review=review)
             selection = dict(selection or {})
             rejected = int(selection.get("dropped_subject") or 0)
-            # Базовый срез режется ровно на число строк, которые добор
-            # фактически добавит (не на `period_slots` заранее): accepted
-            # пуст → срез цел; добавлена 1 строка → теряется 1 хвостовая.
+            # Базовый срез режется только настолько, насколько добавленные
+            # строки не помещаются в `limit`. R1 (review r1, IN_SCOPE High):
+            # тонкий/текущий base СОХРАНЯЕТСЯ целиком и добор занимает
+            # оставшуюся ёмкость; полный base по-прежнему отдаёт хвостовые
+            # слоты (T2/T2b). Старое не вытесняет более релевантное новое.
             base_ids = {row.get("id") for row in rows}
             budget = max(1, int(period_slots))
             to_append: list = []
@@ -14931,7 +14933,9 @@ class DirectChatService:
                 if _prov.is_self_referential_origin(row.get("origin")):
                     continue
                 to_append.append(row)
-            keep = max(0, len(rows) - len(to_append))
+            remaining = max(0, int(limit) - len(rows))
+            drop = max(0, len(to_append) - remaining)
+            keep = max(0, len(rows) - drop)
             trimmed = list(rows[:keep])
             trial = self._rag_append_period_rows(
                 trimmed, to_append, limit, slots=budget)

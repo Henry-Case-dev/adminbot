@@ -467,9 +467,11 @@ class TestNaturalBreadth:
         assert period_calls[0]["exclude_years"] == ()
         added = [row for row in rows if row.get("period_fill")]
         assert {row["id"] for row in added} == {1, 2}
-        # База урезана ровно на число фактически добавленных строк.
-        assert {8000, 8001, 8002} & {row["id"] for row in rows} == {8000}
-        assert len(rows) == 3
+        # R1: тонкий base сохраняется целиком; добор занимает свободную
+        # ёмкость среза, а не вытесняет текущие строки.
+        assert [row["id"] for row in rows] == [8000, 8001, 8002, 1, 2]
+        assert len(rows) == 5
+        assert stats["breadth_used"] == 2
 
     @pytest.mark.asyncio
     async def test_t1b_empty_base_stays_empty_when_nothing_accepted(
@@ -529,6 +531,27 @@ class TestNaturalBreadth:
             plan_act="research")
         assert {row["id"] for row in rows} == set(range(8000, 8010))
         assert service._rag_period_stats["breadth_used"] == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("plan_act", ["research", "answer"])
+    async def test_r1_thin_base_survives_when_accepted_equals_base(
+            self, monkeypatch, plan_act):
+        """R1 regression (review r1, IN_SCOPE High): 2 текущих факта + 2
+        строго релевантных старых при `limit=10` не должны обнулять base.
+
+        Тонкий/текущий срез сохраняется целиком; старые строки занимают
+        только оставшуюся ёмкость. Полный срез по-прежнему отдаёт хвостовые
+        слоты (T2/T2b), это отдельное поведение."""
+        base = _current_rows(2)
+        service = _service(monkeypatch, base, self.POOL)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act=plan_act)
+        ids = [row["id"] for row in rows]
+        assert ids == [8000, 8001, 1, 2], ids
+        assert {8000, 8001} <= set(ids), "оба base-факта обязаны остаться"
+        assert all(row.get("period_fill") for row in rows[2:]), rows
+        assert service._rag_period_stats["breadth_used"] == 2
 
     @pytest.mark.asyncio
     async def test_t3_query_marker_keeps_slice_d_boundary(self, monkeypatch):
