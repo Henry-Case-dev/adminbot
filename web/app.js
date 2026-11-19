@@ -778,6 +778,21 @@
     { id: 'media', title: 'Медиа' },
     { id: 'system', title: 'Системные' },
   ];
+  // ═══ MOD-ACL-UX-01 M4A W2c (NAV-01): parent_id → родительская поверхность.
+  // Фактический `parent_id` приходит в DTO (`services/module_registry.py`);
+  // здесь — только presentation-словарь двух существующих поверхностей.
+  // Карточка/шапка подмодуля показывает чип-ссылку владельца, родительская
+  // поверхность — одну строку «Настраивается в …» (design §3.2/§6.3).
+  var MODULE_PARENT_SURFACES = {
+    memory: {
+      label: 'Часть «Памяти»', title: 'Память', route: '#/memory/rag',
+      icon: 'memory',
+    },
+    persona: {
+      label: 'Часть «PERMsoc»', title: 'PERMsoc', route: '#/permsoc',
+      icon: 'admin_panel_settings',
+    },
+  };
 
   // ═══ F5 (ADR-1025-15 D1/D6): витринные метаданные workspace-маршрута ═══
   // `routeSlug` и `tabs` живут В JS-витрине (services/param_catalog.py НЕ
@@ -8116,6 +8131,15 @@
       workspaceTab: function () {
         return this.workspace ? this.workspace.tab : '';
       },
+      // ═══ MOD-ACL-UX-01 M4A W2c (LAY-01): класс поверхности модуля ═══════
+      // Только дверь `#/modules` (не библиотека промптов): сложный/малый/
+      // инфраструктурный/policy получают реальные ширины (design §4.1–§4.5).
+      workspaceSurfaceClass: function () {
+        var ws = this.workspace;
+        if (!ws || ws.door !== 'modules' || !ws.module) return '';
+        return 'workspace-surface workspace-surface--'
+          + this.moduleClass(ws.module);
+      },
       // S9 (ADR-1026-8 D1/D8): секция «Тестирование пайплайна» видна только для
       // модуля «Сводки чатов» на вкладке `testing` и при подтверждённой
       // доступности API (env-флаг ON → probe 200; OFF → 404 → скрыта).
@@ -8804,9 +8828,11 @@
       memorySubgroupChips: function () {
         var self = this;
         var base = this.groupedForTab(this.currentTab);
+        var owned = this.submoduleOwnedGroups('memory');
         var present = {};
         (base || []).forEach(function (g) {
           (g.items || []).forEach(function (it) {
+            if (owned[it.group]) return;   // владелец — страница подмодуля
             present[self._memorySubgroupOf(it)] = true;
           });
         });
@@ -24986,6 +25012,93 @@
         if (!m) return '';
         return m.routeSlug || String(m.id || '').replace(/^mod_/, '');
       },
+      // ═══ MOD-ACL-UX-01 M4A W2c (NAV-01): родитель/владелец подмодуля ═══
+      // Единственный источник — фактический `parent_id` DTO; неизвестный
+      // parent_id не выдумывает ссылку (fail-closed).
+      moduleParentInfo: function (m) {
+        if (!m || !m.parent_id) return null;
+        var pid = String(m.parent_id);
+        var surface = MODULE_PARENT_SURFACES[pid];
+        if (!surface) return null;
+        return {
+          parentId: pid,
+          label: surface.label,
+          title: surface.title,
+          route: surface.route,
+          icon: surface.icon,
+          href: '#/modules/' + this.routeSlugOf(m),
+          ownerHint: 'Открыть родительскую поверхность «'
+            + surface.title + '»',
+        };
+      },
+      // Строки-ссылки «Настраивается в «<Модуль>» →» для родительской
+      // поверхности: подмодули по фактическому parent_id, порядок — DTO
+      // `catalog_order` (второго каталога нет).
+      submoduleOwnerLinks: function (parentId) {
+        var pid = String(parentId || '');
+        if (!pid) return [];
+        var list = this.modules || [];
+        var out = [];
+        list.forEach(function (m) {
+          if (!m || !m.parent_id || String(m.parent_id) !== pid) return;
+          var slug = m.routeSlug || String(m.id || '').replace(/^mod_/, '');
+          out.push({
+            id: m.id,
+            title: m.title,
+            route: '#/modules/' + slug,
+            label: 'Настраивается в «' + (m.title || slug) + '» →',
+            order: m.catalogOrder || 0,
+          });
+        });
+        out.sort(function (a, b) { return a.order - b.order; });
+        return out;
+      },
+      // Поверхность → parent_id для строки-ссылки владельца.
+      submoduleOwnerLinksForTab: function (tabId) {
+        var map = { memory_rag: 'memory', permsoc: 'persona' };
+        var pid = map[tabId] || '';
+        return pid ? this.submoduleOwnerLinks(pid) : [];
+      },
+      // Группы каталога, принадлежащие подмодулям этой родительской
+      // поверхности: на родителе они не рендерятся полями (design §6.3),
+      // а показываются одной ссылкой на страницу владельца.
+      submoduleOwnedGroups: function (parentId) {
+        var pid = String(parentId || '');
+        var owned = {};
+        if (!pid) return owned;
+        (this.modules || []).forEach(function (m) {
+          if (!m || !m.parent_id || String(m.parent_id) !== pid) return;
+          var groups = m.settingsGroups || m.settings_groups || [];
+          (groups || []).forEach(function (g) { if (g) owned[g] = true; });
+        });
+        return owned;
+      },
+      // ═══ MOD-ACL-UX-01 M4A W2c (LAY-01/WF-01): класс модуля ═══════════
+      // Закрытый набор: infrastructure/maintenance — из `kind` DTO; сложный
+      // (несколько реальных смысловых вкладок) и малый — по фактическому
+      // числу вкладок + нормативным примерам design §4.3. Класс меняет
+      // только ширину поверхности, не данные и не права.
+      moduleClass: function (m) {
+        if (!m) return 'small';
+        var kind = m.kind || '';
+        if (kind === 'infrastructure') return 'infrastructure';
+        if (kind === 'maintenance') return 'maintenance';
+        var complexIds = {
+          mod_summary: true, mod_direct: true, mod_factcheck: true,
+          mod_initiative: true,
+        };
+        var tabs = m.tabs || [];
+        if (complexIds[m.id] || tabs.length >= 6) return 'complex';
+        return 'small';
+      },
+      // Прямой deep link на подраздел (якорь: можно открыть в новой вкладке).
+      workspaceTabHref: function (tabId) {
+        var ws = this.workspace;
+        if (!ws) return '#/modules';
+        var slug = ws.slug || this.routeSlugOf(ws.module);
+        return '#/modules/' + slug
+          + (tabId && tabId !== 'overview' ? '/' + tabId : '');
+      },
       // EVOL-027 v0.8: из деталей модуля — назад к каталогу, где живёт
       // единственный глобальный тумблер («Управляется из каталога»).
       backToModulesCatalog: function () {
@@ -30094,6 +30207,10 @@
       _memoryGroups: function () {
         var self = this;
         var base = this.groupedForTab(this.currentTab);
+        // W2c (NAV-01/design §6.3): группы подмодулей «Истории», «Опыта»,
+        // «Случайности» на родительской «Памяти» — одной ссылкой владельца,
+        // без второго набора полей и второго write-point.
+        var owned = this.submoduleOwnedGroups('memory');
         var buckets = {};
         MEMORY_SUBGROUPS.forEach(function (s) {
           buckets[s.id] = {
@@ -30104,6 +30221,7 @@
         });
         (base || []).forEach(function (g) {
           (g.items || []).forEach(function (it) {
+            if (owned[it.group]) return;   // владелец — страница подмодуля
             var sid = self._memorySubgroupOf(it);
             buckets[sid].items.push(it);
           });
@@ -30224,8 +30342,12 @@
         });
         var byId = {};
         result.forEach(function (r) { byId[r.id] = r; });
+        // W2c (NAV-01/design §6.3): группы подмодуля «Характер» принадлежат
+        // его собственной странице; на PERMsoc — только ссылка владельца.
+        var owned = self.submoduleOwnedGroups('persona');
         grouped.forEach(function (g) {
           g.items.forEach(function (it) {
+            if (owned[it.group]) return;               // страница «Характера»
             if (PERMSOC_TOGGLE_KEYS[it.key]) return;   // только в <summary>
             var oid = ownerOf(it);
             if (oid && byId[oid]) byId[oid].items.push(it);
