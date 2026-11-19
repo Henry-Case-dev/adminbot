@@ -282,6 +282,8 @@ class TestCurrentStatePaths:
             CHAT, CURRENT_MARKER, _stub(text=CURRENT_MARKER),
             memory_scope="historical")
         assert any(row.get("period_fill") for row in rows), rows
+        assert service._rag_period_stats["breadth_reason"] == \
+            "policy_historical"
 
     @pytest.mark.asyncio
     async def test_profile_reads_not_called_on_full_auto_slice(self,

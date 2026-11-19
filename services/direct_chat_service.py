@@ -14813,11 +14813,16 @@ class DirectChatService:
             thin = usable < max(1, int(limit) // 2)
             breadth_reason = "none"
             if replace_allowed:
-                breadth_reason = {
-                    "query_year": "explicit_year",
-                    "plan_act": "plan_historical",
-                    "memory_scope": "policy_historical",
-                }.get(str(period_intent.source or ""), "request_signal")
+                intent_source = str(period_intent.source or "")
+                if intent_source == "query_year":
+                    breadth_reason = "explicit_year"
+                elif intent_source == "plan_act":
+                    breadth_reason = "plan_historical"
+                elif policy == "historical" \
+                        or intent_source == "memory_scope":
+                    breadth_reason = "policy_historical"
+                else:
+                    breadth_reason = "request_signal"
             elif review:
                 breadth_reason = "plan_research"
             elif thin:
