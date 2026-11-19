@@ -456,6 +456,8 @@ class TestNaturalBreadth:
         stats = service._rag_period_stats
         assert stats["breadth_allowed"] == 1
         assert stats["breadth_reason"] == "thin_base"
+        # Тонкий срез добирается строгой лексикой (без мягкого fallback).
+        assert stats["soft_fallback"] == 0
         # Тонкий срез добран, а не оставлен пустым; лишних вызовов нет.
         assert len(calls) == 2
         period_calls = [call for call in calls if call["period_fill"]]
@@ -585,6 +587,14 @@ class TestNaturalBreadth:
             assert sum(1 for call in calls if call["period_fill"]) == \
                 expected_period_calls
             assert len(calls) <= 1 + expected_period_calls
+        # `historical` — тот же предел: базовый срез + один bounded добор.
+        calls = []
+        service = _service(monkeypatch, _current_rows(10), self.POOL,
+                           calls=calls)
+        await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="historical")
+        assert sum(1 for call in calls if call["period_fill"]) == 1
+        assert len(calls) == 2
         calls = []
         service = _service(monkeypatch, _current_rows(10), self.POOL,
                            calls=calls)
