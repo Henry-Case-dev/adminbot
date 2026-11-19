@@ -7,6 +7,7 @@ harness.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import subprocess
@@ -19,6 +20,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = Path(__file__).resolve().parents[6]
 HARNESS = HERE / "time03_scenarios.py"
 CHAT = -1002661910336
+sys.path.insert(0, str(HERE))
+import time03_scenarios as harness  # noqa: E402
 
 
 def _run(args, tmp_path, env_extra=None):
@@ -47,7 +50,7 @@ def test_dry_run(tmp_path):
                 tmp_path)
     assert proc.returncode == 0, proc.stderr[-2000:]
     payload = json.loads(proc.stdout)
-    assert payload["schema"] == "vmq-time03-scenarios/1"
+    assert payload["schema"] == "vmq-time03-scenarios/2"
     assert payload["expected_code_root_sha"].startswith("65edc92dc")
 
 
@@ -57,7 +60,7 @@ def test_fixture_run_structural(tmp_path):
                  "--chat-id", str(CHAT), "--out", str(out)], tmp_path)
     assert proc.returncode in (0, 1), proc.stderr[-4000:]
     payload = _load(out / "time03-scenarios-candidate.json")
-    assert payload["schema"] == "vmq-time03-scenarios/1"
+    assert payload["schema"] == "vmq-time03-scenarios/2"
     assert payload["mode"] == "fixture"
     assert payload["variant"] == "candidate"
     assert payload["scenario_count"] == 7
@@ -66,8 +69,8 @@ def test_fixture_run_structural(tmp_path):
     assert payload["snapshot_sha256_after"] == payload["snapshot"]["sha256"]
     assertions = {a["id"]: a["status"] for a in payload["assertions"]}
     for aid in ("SNAPSHOT-READONLY", "CONFIG-FAIL-CLOSED", "NETWORK-OFF",
-                "SCENARIOS-EXECUTED", "NO-FABRICATED-REFS",
-                "NO-TEXT-NAMES"):
+                "SCENARIOS-EXECUTED", "REFERENCE-VALID",
+                "NO-FABRICATED-REFS", "NO-TEXT-NAMES"):
         assert assertions[aid] == "pass", (aid, assertions)
     rows = {row["id"]: row for row in payload["scenarios"]}
     assert set(rows) == {"S1", "S2", "S3", "S4", "S5", "S6", "S7"}
@@ -95,6 +98,172 @@ def test_fixture_run_structural(tmp_path):
         assert marker not in text, marker
     # No year-share success metric in the acceptance output.
     assert "year_share" not in text and "share_2026" not in text
+
+
+def test_reference_kind_and_actual_universe():
+    class _Db:
+        db = None
+        def __init__(self):
+            self.db = self
+        async def execute(self, *_a, **_k):
+            class _Cur:
+                async def fetchall(self):
+                    return []
+                async def fetchone(self):
+                    return None
+            return _Cur()
+
+    msg_ref = {"expected_years": [2022], "terms": [],
+               "anchors": [{"kind": "message", "id": 1, "ref": "row:1",
+                            "refs": ["row:1", "msg:1"]}],
+               "required_match": "all", "subject": None}
+    msg_entry = {"payload_refs": ["msg:1"], "_items": [],
+                 "episode": {"spans": []}, "writer": {}}
+    msg_metrics = asyncio.run(harness._scenario_metrics(
+        msg_entry, msg_ref, {"id": "S6", "predicate": None}, {}, 2026,
+        _Db(), -1, 1, 0))
+    assert msg_metrics["required_fact_recall"]["value"] == 1.0
+    assert msg_metrics["required_fact_recall"]["anchor_kind"] == "message"
+    assert msg_metrics["required_fact_recall"]["universe"] == \
+        "payload_plus_episode"
+
+    fact_ref = {"expected_years": [2022], "terms": [],
+                "anchors": [{"kind": "fact", "id": 1, "ref": "fact:1",
+                             "refs": ["fact:1"]}],
+                "required_match": "all", "subject": None}
+    fact_entry = {"payload_refs": [], "writer": {},
+                  "_items": [{"refs": ["fact:1"], "year": 2022,
+                              "text": "x"}]}
+    fact_metrics = asyncio.run(harness._scenario_metrics(
+        fact_entry, fact_ref, {"id": "S2", "predicate": None}, {}, 2026,
+        _Db(), -1, 1, 0))
+    assert fact_metrics["required_fact_recall"]["value"] == 1.0
+    assert fact_metrics["required_fact_recall"]["anchor_kind"] == "fact"
+    assert fact_metrics["required_fact_recall"]["universe"] == "fact_rows"
+
+
+def test_temporal_is_independent_of_anchor_hits():
+    class _Db:
+        db = None
+        def __init__(self):
+            self.db = self
+        async def execute(self, *_a, **_k):
+            class _Cur:
+                async def fetchall(self):
+                    return []
+                async def fetchone(self):
+                    return None
+            return _Cur()
+
+    ref = {"expected_years": [2022, 2026], "terms": [],
+           "anchors": [{"kind": "fact", "id": 999, "ref": "fact:999",
+                        "refs": ["fact:999"]}],
+           "required_match": "all", "subject": None}
+    entry = {"payload_refs": [], "writer": {},
+             "_items": [{"refs": ["fact:1"], "year": 2022, "text": "x"},
+                        {"refs": ["fact:2"], "year": 2026, "text": "y"}],
+             "episode": {"spans": []}}
+    metrics = asyncio.run(harness._scenario_metrics(
+        entry, ref, {"id": "S3", "predicate": None}, {}, 2026,
+        _Db(), -1, 1, 0))
+    assert metrics["required_fact_recall"]["value"] == 0.0
+    assert metrics["temporal_correctness"]["value"] == 1.0
+    assert metrics["temporal_correctness"]["delivered_years"] == [2022, 2026]
+    assert metrics["temporal_correctness"]["basis"] == \
+        "resolved_fact_rows+period_rows+episode_spans"
+
+
+def _span(years, *, participants=2, sources=2, first=1, last=2,
+          subject_hash=None):
+    return {"years": years, "participants": participants,
+            "source_count": sources, "first_ts": first, "last_ts": last,
+            "participants_sha256": ([subject_hash] if subject_hash else [])}
+
+
+def test_episode_multiyear_and_s1_attribution():
+    ref = {"expected_years": [2022, 2023, 2024],
+           "subject": {"uid_sha256": "subject-hash"},
+           "anchors": [], "terms": [], "required_match": "all"}
+    one = {"episode": {"spans": [
+        _span([2024], participants=3, sources=4,
+              subject_hash="subject-hash")]}}
+    metric = harness._episode_metric(one, ref, {"id": "S1"})
+    assert metric["value"] == 0.0
+    assert metric["coverage"] == 1 / 3
+    assert metric["first_span_subject"] is True
+
+    full = {"episode": {"spans": [
+        _span([year], participants=3, sources=4,
+              subject_hash="subject-hash") for year in (2022, 2023, 2024)]}}
+    assert harness._episode_metric(full, ref, {"id": "S1"})["value"] == 1.0
+
+    class _Db:
+        db = None
+        def __init__(self):
+            self.db = self
+        async def execute(self, *_a, **_k):
+            class _Cur:
+                async def fetchall(self):
+                    return []
+                async def fetchone(self):
+                    return None
+            return _Cur()
+
+    one_entry = dict(one, payload_refs=[], writer={}, _items=[])
+    metrics = asyncio.run(harness._scenario_metrics(
+        one_entry, ref, {"id": "S1", "person": ("Person", 7),
+                         "predicate": None}, {}, 2026, _Db(), -1, 1, 0))
+    assert metrics["participant_attribution"]["applicable"] is True
+    assert metrics["participant_attribution"]["value"] == 1.0
+    assert metrics["participant_attribution"]["basis"] == \
+        "episode_first_span_subject"
+
+
+def test_fixture_reference_validation_and_terms(tmp_path):
+    out = tmp_path / "fixture-ref"
+    proc = _run(["--fixture", "--variant", "candidate",
+                 "--chat-id", str(CHAT), "--out", str(out)], tmp_path)
+    assert proc.returncode in (0, 1), proc.stderr[-4000:]
+    payload = _load(out / "time03-scenarios-candidate.json")
+    rows = {row["id"]: row for row in payload["scenarios"]}
+    assertions = {a["id"]: a["status"] for a in payload["assertions"]}
+    assert assertions["REFERENCE-VALID"] == "pass"
+    for row in rows.values():
+        ref = row.get("reference") or {}
+        validation = ref.get("validation") or {}
+        if ref.get("not_executed"):
+            continue
+        assert validation.get("valid") is True, row["id"]
+    assert rows["S6"]["reference"]["anchors"][0]["kind"] == "message"
+    assert rows["S6"]["metrics"]["required_fact_recall"]["anchor_kind"] == \
+        "message"
+    assert rows["S5"]["reference"]["terms"], rows["S5"].get("reference")
+    assert rows["S5"]["reference"]["validation"]["query_terms_present"] is True
+    assert rows["S4"]["metrics"]["required_fact_recall"]["match_policy"] == \
+        "any"
+    assert rows["S4"]["metrics"]["required_fact_recall"]["anchor_count"] >= 1
+
+
+def test_reference_invalid_fails_closed():
+    class _Db:
+        db = None
+        def __init__(self):
+            self.db = self
+        async def execute(self, *_a, **_k):
+            class _Cur:
+                async def fetchall(self):
+                    return []
+                async def fetchone(self):
+                    return None
+            return _Cur()
+
+    ref = {"expected_years": [2022], "terms": [],
+           "anchors": [{"kind": "fact", "id": 999, "ref": "fact:999",
+                        "refs": ["fact:999"]}]}
+    result = asyncio.run(harness.validate_reference(
+        _Db(), CHAT, ref, {"query": "q"}, 2026))
+    assert result["valid"] is False
+    assert result["invalid"][0]["ref"] == "fact:999"
 
 
 def test_handwritten_config_rejected(tmp_path):

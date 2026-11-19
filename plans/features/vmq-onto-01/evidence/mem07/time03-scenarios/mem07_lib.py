@@ -488,13 +488,15 @@ class ReferenceBuilder:
         match = self._match(terms, and_terms)
         col = await self._cols_of("graph_facts")
         sql = ("SELECT f.id, COALESCE(f.message_timestamp, f.created_at) AS ts, "
-               "f.tg_message_id, f.status, f.kind, f.origin, f.target_user, "
-               "f.speaker_author_id FROM graph_facts f ")
+               "f.weight, f.importance, f.tg_message_id, f.status, f.kind, "
+               "f.origin, f.target_user, f.speaker_author_id "
+               "FROM graph_facts f ")
         params = []
         if match:
             sql = ("SELECT f.id, COALESCE(f.message_timestamp, f.created_at) AS ts, "
-                   "f.tg_message_id, f.status, f.kind, f.origin, f.target_user, "
-                   "f.speaker_author_id FROM graph_facts_fts "
+                   "f.weight, f.importance, f.tg_message_id, f.status, "
+                   "f.kind, f.origin, f.target_user, f.speaker_author_id "
+                   "FROM graph_facts_fts "
                    "JOIN graph_facts f ON f.id=graph_facts_fts.rowid ")
             where = ["graph_facts_fts MATCH ?", "f.chat_id=?"]
             params.extend([match, self.chat_id])
@@ -532,6 +534,8 @@ class ReferenceBuilder:
                 "ref": "fact:%d" % fact_id, "refs": refs, "tg": tg,
                 "status": str(row.get("status") or ""),
                 "origin": str(row.get("origin") or ""),
+                "weight": float(row.get("weight") or 0.0),
+                "importance": float(row.get("importance") or 0.0),
                 "derived_no_tg": not bool(tg),
             })
         return anchors
@@ -572,6 +576,7 @@ class ReferenceBuilder:
                 "kind": "message", "id": msg_id,
                 "year": year_of(row.get("timestamp")),
                 "ref": "row:%d" % msg_id, "refs": refs, "tg": tg,
+                "timestamp": as_int(row.get("timestamp")),
                 "user_id": as_int(row.get("user_id")),
                 "by_author": bool(person and as_int(row.get("user_id")) == person[1]),
             })
@@ -593,6 +598,7 @@ class ReferenceBuilder:
                     "kind": "message", "id": msg_id,
                     "year": year_of(row.get("timestamp")),
                     "ref": "row:%d" % msg_id, "refs": refs, "tg": tg,
+                    "timestamp": as_int(row.get("timestamp")),
                     "user_id": as_int(row.get("user_id")), "by_author": True,
                 })
         return anchors
@@ -606,8 +612,14 @@ class ReferenceBuilder:
                 continue
             seen.add(key)
             unique.append(anchor)
-        unique.sort(key=lambda a: sha256_text(
-            "%s:%s:%s" % (self.seed, kind, a.get("id"))))
+        if kind == "fact":
+            unique.sort(key=lambda a: (
+                -float(a.get("weight") or 0.0),
+                -float(a.get("importance") or 0.0),
+                int(a.get("id") or 0)))
+        else:
+            unique.sort(key=lambda a: (
+                int(a.get("timestamp") or 0), int(a.get("id") or 0)))
         return unique[:16]
 
     async def build(self, spec: dict) -> dict:
@@ -762,7 +774,8 @@ class ReferenceBuilder:
     async def _fact_by_id(self, fact_id: int):
         rows = await self._rows(
             "SELECT f.id, COALESCE(f.message_timestamp, f.created_at) AS ts, "
-            "f.tg_message_id, f.status, f.kind, f.origin FROM graph_facts f "
+            "f.weight, f.importance, f.tg_message_id, f.status, "
+            "f.kind, f.origin FROM graph_facts f "
             "WHERE f.id=? AND f.chat_id=?", (int(fact_id), self.chat_id))
         if not rows:
             return None

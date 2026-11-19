@@ -53,7 +53,7 @@ import mem07_lib as _base  # noqa: E402
 
 BASELINE_SHA = "0fce97a14338521a24d94f560e896ebcb19f9492"
 CANDIDATE_SHA = "65edc92dc9b06b1589e68c98ed51e2fc1a1e4f5c"
-SCHEMA = "vmq-time03-scenarios/1"
+SCHEMA = "vmq-time03-scenarios/2"
 EXPECTED_SCHEMA = 48
 CURRENT_YEAR = 2026
 MAX_REPORTED_ITEMS = 200
@@ -152,7 +152,12 @@ def compact_ref(ref: dict) -> dict:
         "reference_sha256": ref.get("reference_sha256"),
         "not_executed": ref.get("not_executed"),
         "subject": ref.get("subject"),
+        "terms": list(ref.get("terms") or ()),
+        "required_match": str(ref.get("required_match") or "all"),
+        "validation": dict(ref.get("validation") or {}),
         "anchors": [compact_anchor(a) for a in (ref.get("anchors") or ())],
+        "old_anchors": [compact_anchor(a)
+                        for a in (ref.get("old_anchors") or ())],
     }
 
 
@@ -162,7 +167,7 @@ def _pick(anchors: list, limit: int = 1) -> list:
 
 async def _make_ref(builder, key: str, years: list, terms=(), *, person=None,
                     and_terms=(), per_year: int = 1, mode: str = "custom",
-                    kind: str = "any") -> dict:
+                    kind: str = "any", required_match: str = "all") -> dict:
     years = sorted({int(y) for y in years})
     support = await builder.support_years(terms, "or", person, and_terms)
     anchors = []
@@ -185,13 +190,19 @@ async def _make_ref(builder, key: str, years: list, terms=(), *, person=None,
             "picked": len(picked)}
     out = {
         "key": key, "mode": mode, "expected_years": years,
+        "terms": [str(term) for term in (terms or ())],
+        "required_match": str(required_match or "all"),
         "anchors": anchors,
         "counts": {"facts": sum(1 for a in anchors if a["kind"] == "fact"),
                    "messages": sum(1 for a in anchors if a["kind"] == "message"),
                    "by_year": by_year},
         "support": support, "reference_sha256": sha256_text(json.dumps(
-            [{"kind": a["kind"], "id": a["id"], "year": a["year"],
-              "ref": a["ref"]} for a in anchors],
+            {"anchors": [{"kind": a["kind"], "id": a["id"],
+                          "year": a["year"], "ref": a["ref"]}
+                         for a in anchors],
+             "expected_years": years,
+             "terms": [str(term) for term in (terms or ())],
+             "required_match": str(required_match or "all")},
             ensure_ascii=False, sort_keys=True)),
         "not_executed": None, "as_of": builder.as_of, "subject": None,
     }
@@ -302,7 +313,8 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
         scenarios.append({
             "id": "S2", "scope": "auto", "plan_act": "research",
             "ref": ref,
-            "query": "помнишь, что говорили про %s?" % e1["topic"][0],
+            "query": "помнишь, что говорили про %s, темы: %s?" % (
+                e1["topic"][0], " ".join(e1["topic"][1])),
             "predicate": tuple(e1["topic"][1])})
         years = [min(int(y) for y in e1["years"]),
                  max(int(y) for y in e1["years"])]
@@ -315,7 +327,8 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
             scenarios.append({
                 "id": "S3", "scope": "auto", "plan_act": "research",
                 "ref": ref3,
-                "query": "как менялось отношение к %s?" % e1["topic"][0],
+                "query": "как менялось отношение к %s, темы: %s?" % (
+                    e1["topic"][0], " ".join(e1["topic"][1])),
                 "predicate": tuple(e1["topic"][1])})
     else:
         scenarios.append({"id": "S2", "not_executed":
@@ -327,7 +340,8 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
         years = sorted({int(y) for y in ce["years"]})
         current = [y for y in years if y == current_year]
         ref4 = await _make_ref(builder, "s4_current", current,
-                               ("вайп", "сервер"), mode="current")
+                               ("вайп", "сервер"), mode="current",
+                               per_year=3, required_match="any")
         old_years = [y for y in years if y < current_year]
         old_ref = await _make_ref(builder, "s4_stale", old_years,
                                   ("вайп", "сервер"), mode="year")
@@ -341,19 +355,25 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
             scenarios.append({
                 "id": "S4", "scope": "auto", "plan_act": "",
                 "ref": ref4,
-                "query": "что сейчас с %s?" % (ce.get("topic") or "сервером"),
+                "query": "что сейчас с %s, темы: вайп сервер?" % (
+                    ce.get("topic") or "сервером"),
                 "predicate": ("вайп", "сервер")})
     else:
         scenarios.append({"id": "S4", "not_executed":
                           "current_state_support_insufficient"})
 
-    year = 2024
-    support = await builder.support_years((), "or")
-    if not support.get(str(year)):
-        candidates = [int(y) for y in support if int(y) < current_year]
-        year = max(candidates) if candidates else year
-    ref5 = await _make_ref(builder, "s5_year", [year], per_year=2,
-                           mode="year")
+    s5_topic = (e1.get("topic") if e1 else ("обстановка", ("вайп", "сервер")))
+    s5_terms = tuple(str(term) for term in (s5_topic[1] or ())
+                     if str(term).strip()) or ("вайп", "сервер")
+    s5_support = await builder.support_years(s5_terms, "or")
+    s5_years = [int(y) for y in (e1.get("years") if e1 else ())
+                if int(y) < current_year
+                and (s5_support.get(str(y), {}).get("facts", 0) >= 2
+                     or s5_support.get(str(y), {}).get("messages", 0) >= 2)]
+    year = 2024 if 2024 in s5_years else (
+        max(s5_years) if s5_years else 2024)
+    ref5 = await _make_ref(builder, "s5_year", [year], s5_terms,
+                           per_year=2, mode="year")
     if ref5.get("not_executed") or len(ref5.get("anchors") or ()) < 2:
         scenarios.append({"id": "S5", "not_executed":
                           "year_sequence_unavailable"})
@@ -361,7 +381,8 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
         scenarios.append({
             "id": "S5", "scope": "auto", "plan_act": "",
             "ref": ref5,
-            "query": "что происходило в чате в %d году?" % year,
+            "query": "что происходило в чате в %d году про %s, темы: %s?" % (
+                year, s5_topic[0], " ".join(s5_terms)),
             "predicate": ("__year__", year)})
 
     s6 = await _select_s6(builder)
@@ -625,23 +646,206 @@ async def _resolve_claim(db, chat_id: int, ref: str) -> dict:
     return info
 
 
+async def _fetch_rows(db, sql: str, params=()):
+    cur = await db.db.execute(sql, params)
+    return [dict(row) for row in await cur.fetchall()]
+
+
+async def validate_reference(db, chat_id: int, ref: dict, spec: dict,
+                             as_of: int) -> dict:
+    """Read-only reachability/eligibility audit for required anchors.
+
+    No text or names are emitted: only ref/kind/year/reason codes and counts.
+    A reference with any invalid anchor is not executed by the scenario loop.
+    """
+    anchors = list(ref.get("anchors") or ())
+    old_anchors = list(ref.get("old_anchors") or ())
+    all_anchors = anchors + old_anchors
+    expected = set(int(y) for y in (ref.get("expected_years") or ()))
+    terms = [str(t).lower() for t in (ref.get("terms") or ())
+             if str(t).strip()]
+    query = str(spec.get("query") or "").lower()
+    kinds = {}
+    for anchor in all_anchors:
+        kinds[str(anchor.get("kind") or "")] = kinds.get(
+            str(anchor.get("kind") or ""), 0) + 1
+    fact_refs = [a for a in all_anchors if a.get("kind") == "fact"]
+    query_terms_present = (
+        all(term in query for term in terms) if terms and fact_refs else True)
+    checked = []
+    invalid = []
+    match = _base.fs_terms(terms, "or") if terms else ""
+    for anchor in all_anchors:
+        reasons = []
+        kind = str(anchor.get("kind") or "")
+        rid = _base.as_int(anchor.get("id"))
+        year = _base.as_int(anchor.get("year"))
+        is_old = anchor in old_anchors
+        if rid is None:
+            reasons.append("missing_id")
+        if expected and not is_old and year not in expected:
+            reasons.append("year_not_expected")
+        if rid is not None and kind == "message":
+            rows = await _fetch_rows(
+                db,
+                "SELECT id, timestamp, user_id, tg_message_id, text "
+                "FROM smart_messages WHERE id=? AND chat_id=?",
+                (rid, int(chat_id)))
+            if not rows:
+                reasons.append("message_missing")
+            else:
+                row = rows[0]
+                if _base.year_of(row.get("timestamp")) != year:
+                    reasons.append("message_year")
+                person = spec.get("person")
+                if person:
+                    name, uid = person
+                    if (int(row.get("user_id") or 0) != int(uid)
+                            and str(name).casefold()
+                            not in str(row.get("text") or "").casefold()):
+                        reasons.append("message_person")
+                if match:
+                    found = await _fetch_rows(
+                        db,
+                        "SELECT 1 FROM smart_messages_fts WHERE rowid=? "
+                        "AND smart_messages_fts MATCH ?",
+                        (rid, match))
+                    if not found:
+                        reasons.append("message_topic")
+        elif rid is not None and kind == "fact":
+            rows = await _fetch_rows(
+                db,
+                "SELECT id, message_timestamp, created_at, status, kind, "
+                "origin, expires_at, target_user, speaker_author_id "
+                "FROM graph_facts WHERE id=? AND chat_id=?",
+                (rid, int(chat_id)))
+            if not rows:
+                reasons.append("fact_missing")
+            else:
+                row = rows[0]
+                ts = int(row.get("message_timestamp")
+                         or row.get("created_at") or 0)
+                if _base.year_of(ts) != year:
+                    reasons.append("fact_year")
+                if str(row.get("status") or "") != "confirmed":
+                    reasons.append("fact_status")
+                if str(row.get("kind") or "") != "fact":
+                    reasons.append("fact_kind")
+                if str(row.get("origin") or "") in (
+                        "bot_direct_reply", "bot_self_reply"):
+                    reasons.append("fact_origin")
+                expires_at = row.get("expires_at")
+                if expires_at not in (None, ""):
+                    try:
+                        if int(expires_at) <= int(as_of):
+                            reasons.append("fact_expired")
+                    except (TypeError, ValueError):
+                        reasons.append("fact_expiry")
+                person = spec.get("person")
+                if person:
+                    name, uid = person
+                    if (int(row.get("speaker_author_id") or 0) != int(uid)
+                            and str(name).casefold() not in str(
+                                row.get("target_user") or "").casefold()):
+                        reasons.append("fact_person")
+                if match:
+                    found = await _fetch_rows(
+                        db,
+                        "SELECT 1 FROM graph_facts_fts WHERE rowid=? "
+                        "AND graph_facts_fts MATCH ?",
+                        (rid, match))
+                    if not found:
+                        reasons.append("fact_topic")
+                if terms and not query_terms_present:
+                    reasons.append("query_terms")
+        else:
+            reasons.append("unknown_kind")
+        checked.append({"ref": anchor.get("ref"), "kind": kind,
+                        "year": year, "old": is_old,
+                        "valid": not reasons, "reasons": reasons})
+        if reasons:
+            invalid.append({"ref": anchor.get("ref"), "reason": reasons[0]})
+    return {
+        "valid": not invalid,
+        "checked": len(checked),
+        "invalid": invalid,
+        "anchor_kinds": dict(sorted(kinds.items())),
+        "old_checked": len(old_anchors),
+        "expected_years": sorted(expected),
+        "terms": terms,
+        "query_terms_present": query_terms_present,
+        "as_of": int(as_of),
+        "anchors": checked,
+    }
+
+
 async def _scenario_metrics(entry, ref, spec, participants, current_year, db,
                             chat_id, elapsed_ms, retrieve_calls) -> dict:
     items = list(entry.get("_items") or ())
     anchors = list(ref.get("anchors") or ())
     expected = [int(y) for y in (ref.get("expected_years") or [])]
-    required = anchors
-    anchor_refs = _anchor_refs(required)
-    hits = [i for i in items
-            if anchor_refs & set(i.get("refs") or ())]
-    hit_anchor_refs = {
-        a.get("ref") for a in required
-        if set(a.get("refs") or ()) & {
-            ref for i in items for ref in (i.get("refs") or ())}}
-    required_recall = _metric(len(hit_anchor_refs),
-                              len({a.get("ref") for a in required}))
-    delivered_years = {i.get("year") for i in hits if i.get("year")}
-    temporal = _metric(len(set(expected) & delivered_years), len(expected))
+    expected_set = set(expected)
+
+    fact_refs = set()
+    for item in items:
+        fact_refs.update(item.get("refs") or ())
+    message_refs = set(entry.get("payload_refs") or ())
+    for span in (entry.get("episode") or {}).get("spans") or ():
+        message_refs.update(span.get("source_refs") or ())
+
+    hits = []
+    misses = []
+    for anchor in anchors:
+        refs = set(anchor.get("refs") or ())
+        kind = str(anchor.get("kind") or "")
+        universe = message_refs if kind == "message" else fact_refs
+        if refs & universe:
+            hits.append(anchor)
+        else:
+            misses.append(anchor)
+    match_policy = str(ref.get("required_match") or "all")
+    if match_policy == "any":
+        required = _metric(1 if hits else 0, 1)
+    else:
+        required = _metric(len(hits), len(anchors))
+    kinds = {str(a.get("kind") or ""): sum(
+        1 for item in anchors if str(item.get("kind") or "") ==
+        str(a.get("kind") or "")) for a in anchors}
+    required.update({
+        "anchor_kind": ("message" if anchors and all(
+            a.get("kind") == "message" for a in anchors) else
+            "fact" if anchors and all(a.get("kind") == "fact" for a in anchors)
+            else "mixed" if anchors else "none"),
+        "anchor_kinds": dict(sorted(kinds.items())),
+        "anchor_count": len(anchors),
+        "hit_refs": sorted(str(a.get("ref")) for a in hits),
+        "missing_refs": sorted(str(a.get("ref")) for a in misses),
+        "match_policy": match_policy,
+        "universe": ("payload_plus_episode" if any(
+            a.get("kind") == "message" for a in anchors) else "fact_rows"),
+    })
+
+    evidence_years = set()
+    for item in items:
+        year = item.get("year")
+        if year:
+            evidence_years.add(int(year))
+    for span in (entry.get("episode") or {}).get("spans") or ():
+        for year in span.get("years") or ():
+            evidence_years.add(int(year))
+    for year in ((entry.get("writer") or {}).get("rag_years") or {}).keys():
+        try:
+            evidence_years.add(int(year))
+        except (TypeError, ValueError):
+            continue
+    delivered_years = sorted(expected_set & evidence_years)
+    temporal = _metric(len(delivered_years), len(expected))
+    temporal.update({
+        "evidence_years": sorted(evidence_years),
+        "delivered_years": delivered_years,
+        "basis": "resolved_fact_rows+period_rows+episode_spans",
+    })
+
     claims = list(entry.get("payload_refs") or ())
     unresolved = 0
     weak = 0
@@ -656,6 +860,7 @@ async def _scenario_metrics(entry, ref, spec, participants, current_year, db,
             weak += 1
     source_proof = _metric(len(claims) - unresolved, len(claims))
     source_proof.update({"unresolved": unresolved, "weak": weak})
+
     judged = len([i for i in items if str(i.get("text") or "").strip()])
     relevant = 0
     if spec.get("predicate"):
@@ -669,7 +874,8 @@ async def _scenario_metrics(entry, ref, spec, participants, current_year, db,
                      "applicable": False}
     else:
         relevance = _metric(relevant, judged)
-    # Participant attribution for person scenarios; episode participants for S2/S6.
+
+    episode = _episode_metric(entry, ref, spec)
     attribution = {"num": 0, "den": 0, "value": None, "applicable": False}
     person = spec.get("person")
     if person:
@@ -682,15 +888,21 @@ async def _scenario_metrics(entry, ref, spec, participants, current_year, db,
                    or _base.as_int(i.get("user_id")) == uid
                    or str(i.get("subject_ref_id") or "") == str(uid)]
         attribution = _metric(len(matched), len(attributed))
-    episode = _episode_metric(entry, ref, spec)
+        if episode.get("applicable"):
+            first = ((entry.get("episode") or {}).get("spans") or [{}])[0]
+            subject = bool(first.get("subject_participant"))
+            attribution = _metric(1 if subject else 0, 1)
+            attribution["basis"] = "episode_first_span_subject"
+            attribution["fact_attribution"] = {
+                "num": len(matched), "den": len(attributed)}
     if episode.get("applicable") and spec.get("id") in ("S2", "S6"):
         participants_n = min(2, int(episode.get("first_span_participants", 0)))
         attribution = {"num": participants_n, "den": 2,
                        "value": participants_n / 2.0,
-                       "applicable": True}
-    years = sorted({i.get("year") for i in items if i.get("year")})
+                       "applicable": True, "basis": "episode_participants"}
+    years = sorted(evidence_years)
     return {
-        "required_fact_recall": required_recall,
+        "required_fact_recall": required,
         "relevance": relevance,
         "episode_completeness": episode,
         "temporal_correctness": temporal,
@@ -717,27 +929,52 @@ def _episode_metric(entry, ref, spec) -> dict:
     ep = entry.get("episode") or {}
     spans = ep.get("spans") or []
     expected = set(int(y) for y in (ref.get("expected_years") or ()))
-    correct_spans = []
+    subject_hash = (ref.get("subject") or {}).get("uid_sha256")
+    covered = set()
+    complete = []
+    complete_years = set()
     for span in spans:
-        if set(span.get("years") or ()) & expected:
-            correct_spans.append(span)
+        years = set(int(y) for y in (span.get("years") or ()))
+        covered.update(years)
+        span["subject_participant"] = bool(
+            subject_hash and subject_hash in
+            (span.get("participants_sha256") or ()))
+        if (int(span.get("source_count") or 0) >= 2
+                and int(span.get("participants") or 0) >= 2
+                and int(span.get("first_ts") or 0) < int(
+                    span.get("last_ts") or 0)):
+            complete.append(span)
+            complete_years.update(years)
     if not expected or not spans:
         return {"num": 0, "den": 0, "value": None, "applicable": False,
-                "spans": len(spans), "messages": ep.get("messages", 0)}
+                "spans": len(spans), "messages": ep.get("messages", 0),
+                "expected_years": sorted(expected),
+                "covered_years": sorted(covered),
+                "complete_years": sorted(complete_years)}
     first = spans[0]
-    correct = bool(set(first.get("years") or ()) & expected)
-    complete = (first.get("source_count", 0) >= 2
-                and first.get("participants", 0) >= 2
-                and first.get("first_ts", 0) < first.get("last_ts", 0))
-    value = 1 if (correct and complete) else 0
-    return {"num": value, "den": 1, "value": float(value),
-            "applicable": True, "spans": len(spans),
-            "messages": int(ep.get("messages") or 0),
-            "first_span_correct": correct,
-            "first_span_participants": int(first.get("participants") or 0),
-            "first_span_sources": int(first.get("source_count") or 0),
-            "first_span_years": list(first.get("years") or ()),
-            "correct_spans": len(correct_spans)}
+    first_correct = bool(set(first.get("years") or ()) & expected)
+    all_expected = bool(expected) and expected <= complete_years
+    value = 1 if (all_expected and first_correct) else 0
+    return {
+        "num": value, "den": 1, "value": float(value), "applicable": True,
+        "spans": len(spans), "messages": int(ep.get("messages") or 0),
+        "expected_years": sorted(expected),
+        "covered_years": sorted(covered),
+        "complete_years": sorted(complete_years),
+        "coverage": (len(expected & complete_years) / len(expected)
+                     if expected else 0.0),
+        "all_expected_covered": all_expected,
+        "complete_spans": len(complete),
+        "first_span_correct": first_correct,
+        "first_span_participants": int(first.get("participants") or 0),
+        "first_span_sources": int(first.get("source_count") or 0),
+        "first_span_years": list(first.get("years") or ()),
+        "correct_spans": len([span for span in spans
+                              if set(span.get("years") or ()) & expected]),
+        "subject_spans": sum(1 for span in spans
+                             if span.get("subject_participant")),
+        "first_span_subject": bool(first.get("subject_participant")),
+    }
 
 
 def _strip_scenario(entry: dict) -> dict:
@@ -764,11 +1001,11 @@ def _verdict(scenario: dict, metrics: dict) -> str:
     src = metrics["source_proof"].get("unresolved")
     temporal = metrics["temporal_correctness"].get("value")
     mandatory = (req == 1.0 and src == 0 and temporal == 1.0)
-    if sid in ("S2", "S6"):
-        ep = metrics["episode_completeness"]
-        mandatory = mandatory and bool(ep.get("value") == 1.0)
+    episode = metrics["episode_completeness"]
+    if episode.get("applicable"):
+        mandatory = mandatory and bool(episode.get("value") == 1.0)
         if sid == "S6":
-            mandatory = mandatory and bool(ep.get("first_span_correct"))
+            mandatory = mandatory and bool(episode.get("first_span_correct"))
     if sid == "S4":
         mandatory = mandatory and (scenario.get("current_recall") == 1.0
                                    or req == 1.0)
@@ -945,6 +1182,21 @@ async def run_on_snapshot(args, code_root: Path, head: str, meta: dict,
         builder.counterexample = ce
         scenarios = await _scenario_refs(builder, participants, e1, ce,
                                          current_year)
+        reference_checks = []
+        for spec in scenarios:
+            if spec.get("not_executed"):
+                continue
+            ref = spec.get("ref") or {}
+            validation = await validate_reference(
+                db, args.chat_id, ref, spec, as_of)
+            ref["validation"] = validation
+            reference_checks.append({
+                "id": spec.get("id"), "valid": bool(validation.get("valid")),
+                "checked": int(validation.get("checked") or 0),
+                "invalid": list(validation.get("invalid") or ()),
+            })
+            if not validation.get("valid"):
+                spec["_reference_invalid"] = validation
         gates = {}
         for key, fn in (("retrieval_context",
                          mca_gates.retrieval_context_enabled),
@@ -972,6 +1224,13 @@ async def run_on_snapshot(args, code_root: Path, head: str, meta: dict,
                     "reason": spec["not_executed"], "metrics": {}})
                 continue
             ref = spec.get("ref") or {}
+            if spec.get("_reference_invalid") or not (
+                    ref.get("validation") or {}).get("valid", True):
+                out_scenarios.append({
+                    "id": spec["id"], "status": "not_executed",
+                    "reason": "reference_invalid",
+                    "reference": compact_ref(ref), "metrics": {}})
+                continue
             if ref.get("not_executed"):
                 out_scenarios.append({
                     "id": spec["id"], "status": "not_executed",
@@ -1018,12 +1277,6 @@ async def run_on_snapshot(args, code_root: Path, head: str, meta: dict,
                     "unlabeled": unlabeled,
                     "pass": unlabeled == 0,
                 }
-                metrics["required_fact_recall"] = _metric(
-                    len({a.get("ref") for a in (ref.get("anchors") or ())
-                         if set(a.get("refs") or ())
-                         & {r for i in (entry.get("_items") or ())
-                            for r in (i.get("refs") or ())}}),
-                    len(ref.get("anchors") or ()))
             row = {
                 "id": spec.get("id"),
                 "status": None,
@@ -1083,6 +1336,16 @@ async def run_on_snapshot(args, code_root: Path, head: str, meta: dict,
             "actual": {"rows": len(out_scenarios),
                        "executed": payload["executed"]},
             "status": ("pass" if len(out_scenarios) == 7 else "fail"),
+        })
+        invalid_references = [
+            check for check in reference_checks if not check.get("valid")]
+        assertions.append({
+            "id": "REFERENCE-VALID",
+            "expected": "every non-S7 anchor resolves in chat/year, is eligible, and query/topic matches",
+            "actual": {"checked": len(reference_checks),
+                       "invalid": [c.get("id") for c in invalid_references],
+                       "details": invalid_references},
+            "status": "pass" if not invalid_references else "fail",
         })
         assertions.append({
             "id": "NO-FABRICATED-REFS",
