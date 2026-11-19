@@ -988,8 +988,8 @@ def _episode_anchor_of_fact_row(row) -> tuple[int | None, int | None]:
 #: already retrieved current fact slice may contribute anchors/current facts.
 #: No calendar year participates.
 _CURRENT_STATE_MARKERS = (
-    "сейчас", "текущ", "на данный момент", "в настоящее время",
-    "на сегодняшний день", "ныне",
+    "сейчас", "на данный момент", "в настоящее время",
+    "на сегодняшний день", "текущее состояние", "текущий", "текущая",
 )
 
 
