@@ -153,8 +153,8 @@ class TestThreeProperties:
         assert sm._effective_weight(0.5, now - 4000 * _DAY, now) == \
             pytest.approx(0.1)
 
-    def test_historical_and_auto_have_no_freshness_multiplier(self,
-                                                              monkeypatch):
+    def test_t7_historical_and_auto_have_no_freshness_multiplier(
+            self, monkeypatch):
         """TIME-03 §4.3: `historical`/`auto` не ранжируют по возрасту вовсе.
 
         Прежний ≤5 % freshness tie-break удалён: даже намеренно выставленный

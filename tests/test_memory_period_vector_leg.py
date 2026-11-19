@@ -271,9 +271,22 @@ class TestDirectBreadthNoCalendarFilter:
 
         monkeypatch.setattr(mrc, "retrieve", _spy)
 
+        async def _not_proven(_db, _memory):
+            return {"state": "insufficient",
+                    "reason_code": "compat_not_proven",
+                    "class": "COMPATIBILITY_UNKNOWN",
+                    "action": "retry_canary", "admitted": False,
+                    "proven": False}
+
+        monkeypatch.setattr(mrc, "_period_vector_admission", _not_proven)
+
         class _NoVectorMemory:
             async def retrieve_fact_candidates(self, *_a, **_k):
                 return []
+
+            async def period_fill_candidates(self, *_a, **_k):
+                raise AssertionError(
+                    "недопущенная векторная нога не должна вызываться")
 
         service = dcs.DirectChatService(memory=_NoVectorMemory(), db=db,
                                         llm=None, aliases=None)
@@ -284,7 +297,8 @@ class TestDirectBreadthNoCalendarFilter:
         assert len(period) == 1, requests
         assert period[0].exclude_years == ()
         stats = service._rag_period_stats
-        assert stats["vector_leg"] == "unsupported_memory"
+        assert stats["vector_leg"] == "compat_not_proven"
+        assert stats["vector_unavailable"] == 1
         assert stats["vector_rows"] == 0
         assert "vector_pool_miss" in stats
         ids = {row["id"] for row in rows}

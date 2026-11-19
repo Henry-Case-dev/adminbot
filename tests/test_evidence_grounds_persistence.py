@@ -943,7 +943,7 @@ class _BundleMsg:
 
 
 @pytest.mark.asyncio
-async def test_bundle_includes_old_episode_refs_without_new_fields():
+async def test_t15_bundle_includes_old_episode_refs_without_new_fields():
     """T15: refs `<Old_Episode>` входят в ТОТ ЖЕ bundle; cap не превышен;
     выдуманных ссылок нет (bundle ссылается только на реальные канонические
     ID из построенных блоков)."""
