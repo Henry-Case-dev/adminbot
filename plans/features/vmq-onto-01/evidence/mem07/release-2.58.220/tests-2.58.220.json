@@ -1,0 +1,201 @@
+{
+  "release": "2.58.220",
+  "feature": "TIME-03 natural memory",
+  "branch": "release/time03-natural-2.58.220",
+  "status": "REVIEW",
+  "verified": false,
+  "deployed": false,
+  "base": {
+    "sha": "0fce97a14338521a24d94f560e896ebcb19f9492",
+    "version": "2.58.219",
+    "content_tip": "f80cba08ff6c444395753e77885ea2e37e2f308f",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "sha": "da7908982d0b36ff677f57f17c631ebf2585a870",
+    "branch": "vmq/time03-r5",
+    "merge_commit": "44bb28539d751d0a2e2942782c94c472670720bc",
+    "merge_parents": [
+      "0fce97a14338521a24d94f560e896ebcb19f9492",
+      "da7908982d0b36ff677f57f17c631ebf2585a870"
+    ],
+    "content_commit": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5",
+    "content_tree": "22c4625af515bcaccdd3f4d8d65049c99215fd8c",
+    "bump_commit": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5"
+  },
+  "decision": {
+    "path": "plans/features/vmq-onto-01/evidence/mem07/time03-final-release-decision.md",
+    "sha256": "981bfa38f9e684cedb654ec8f808e1b334dd5085390f4575133b00515f122a0a",
+    "commit": "099c41734ba40b1bef550e53c98b19b564755a66",
+    "decision": "RELEASE_WITH_BACKLOG",
+    "verified": false
+  },
+  "review": {
+    "path": "plans/features/vmq-onto-01/evidence/mem07/time03-r5-review-r1.md",
+    "sha256": "2dbb8680f64eac7daa13ed93fd3ae99f7290d2d858c1243a62c31626e628daba",
+    "verdict": "APPROVED_FOR_MINIMAL_REAL_PROBE"
+  },
+  "probe": {
+    "evidence_commit": "1acc82270c74598ae74f719407980d445ce34895",
+    "harness": "0eb027f65846386412f292e9eba922da80ce0f09",
+    "s2s3": "not_executed/reference_unreachable",
+    "s4_critical": "fact 1/1 any-of, temporal 1/1, stale_unlabeled 0, archived_as_current false",
+    "s4_episode": "fail (2024/2025 vs expected 2026) - backlog"
+  },
+  "environment": {
+    "python": "3.12 (project .venv)",
+    "pytest": "installed project version",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/time03-release-2-58-220-b76800a534ba-0fe5ab01",
+    "network": "none; tests use fixtures/temp SQLite; no production access",
+    "configuration": "test fixtures only; no effective gate, factory default or persisted override changed"
+  },
+  "delta": {
+    "product_files_from_base_to_candidate": [
+      "services/database.py",
+      "services/direct_chat_service.py",
+      "services/mca_retrieval_context.py",
+      "services/summary_memory.py",
+      "services/turn_trace.py"
+    ],
+    "release_content_adds": [
+      "config/settings.py (APP_VERSION 2.58.220 + changelog)",
+      "plans/docs/param-registry-round1025.meta.md",
+      "24 Python version-pin tests",
+      "4 JS escaped version-pin tests"
+    ],
+    "candidate_product_equality": "git diff da7908982..8e05e9a4d -- services handlers web/api web/static = empty",
+    "candidate_config_delta": "only config/settings.py",
+    "git_diff_shortstat_base_content": "49 files changed, 2859 insertions(+), 358 deletions(-)",
+    "product_hashes": {
+      "services/database.py": {"blob": "dc736070a9c17d2a25d88d2ffd90bdd40bf44915", "sha256": "cac5f1ff89c638a9b8c8ccf47880ca5b0a65b650e18d59ba9e5fdca25c2044ab"},
+      "services/direct_chat_service.py": {"blob": "b6e3d9dbbdb3c95326ecee1e9830f0d2f71709b7", "sha256": "ff3fbbdccd3dadd6eb10aaf5d6d96be154bf93ad3593fc741263e3ba8f736e02"},
+      "services/mca_retrieval_context.py": {"blob": "3ddfe1fbd25dd320a85f864bdc0693b8c4a8a5b6", "sha256": "f17ed99f6dd027563b025aa4b8e8ef91088b01f55971ee4cb5a7032550590871"},
+      "services/summary_memory.py": {"blob": "03722fbd30a5f848cf65bd07cc0b471565cd93a6", "sha256": "70313b94872c29c30e3c18a4c10c992094e52c9c15101892109c008561532f36"},
+      "services/turn_trace.py": {"blob": "72733671a7ef2437d8e3271d583ccc9e2c2c4791", "sha256": "fce183912102a6788b7bdc26cc8cff78e2da980e2d281c5cb4d8a608e979d9ff"}
+    }
+  },
+  "batches": [
+    {
+      "id": "targeted-r5-25",
+      "command": "python -m pytest -q -p no:cacheprovider tests/test_vmq_mem_retrieval_fixes.py tests/test_vmq_mem_slice_d.py -k \"R4 or FactRowAnchor or (EpisodeVectorMessageLeg and (lexical or main_anchor or vector_leg_secondary)) or vector_anchor_requires_relevance_threshold or ablation_channel_restriction or R5\"",
+      "result": {"passed": 25, "failed": 0, "deselected": 45},
+      "duration_s": 6.48
+    },
+    {
+      "id": "affected-15-files",
+      "command": "python -m pytest -q -p no:cacheprovider <15 files below>",
+      "files": [
+        "tests/test_mem_time_natural_scenarios.py",
+        "tests/test_memory_unified_retrieval.py",
+        "tests/test_memory_unified_retrieval_06.py",
+        "tests/test_evidence_grounds_persistence.py",
+        "tests/test_mem_time_policy.py",
+        "tests/test_mem_time_profile.py",
+        "tests/test_vmq_mem_period_intent.py",
+        "tests/test_memory_period_vector_leg.py",
+        "tests/test_vmq_mem_slice_b.py",
+        "tests/test_vmq_mem_slice_c.py",
+        "tests/test_mem_time_l1_scope.py",
+        "tests/test_mem_time_asof.py",
+        "tests/test_vmq_time09_turn_coverage.py",
+        "tests/test_vmq_mem_retrieval_fixes.py",
+        "tests/test_vmq_mem_slice_d.py"
+      ],
+      "result": {"passed": 366, "failed": 0},
+      "duration_s": 25.85
+    },
+    {
+      "id": "mandatory-386",
+      "command": "python -m pytest -q -p no:cacheprovider <24 files below> --junitxml=mandatory.xml",
+      "files": [
+        "tests/test_round1025_f8_registry.py",
+        "tests/test_mca23_planned_vs_actual.py",
+        "tests/test_mod_acl_ux_01_m4_catalog.py",
+        "tests/test_mod_acl_ux_01_m3_module_routes.py",
+        "tests/test_mod_acl_ux_01_m4_module_params.py",
+        "tests/test_asap7_module_registry.py",
+        "tests/test_asap7_module_completeness.py",
+        "tests/test_asap8_f5_module_truth.py",
+        "tests/test_asap8_v63_b06_summary_scope.py",
+        "tests/test_asap8_v63_b07_temporal_factcheck.py",
+        "tests/test_asap8_v6_p1_d11_registry.py",
+        "tests/test_asap8_v6_wa1_config_cache.py",
+        "tests/test_factcheck_post_release_w2.py",
+        "tests/test_mca18_self_model_block_a_round1042.py",
+        "tests/test_mod_acl_ux_m2_capability_state.py",
+        "tests/test_mod_acl_ux_m2_consumers.py",
+        "tests/test_mod_acl_ux_m2_resolver.py",
+        "tests/test_mod_acl_ux_m2_runtime_edges.py",
+        "tests/test_mod_acl_ux_01_m21_adapters.py",
+        "tests/test_mod_acl_ux_01_m21_gates.py",
+        "tests/test_mod_acl_ux_m2_tristate_write.py",
+        "tests/test_mod_acl_ux_m2_inflight.py",
+        "tests/test_mod_acl_ux_01_m1_acl_false_403.py",
+        "tests/test_webapp_js_unit.py"
+      ],
+      "result": {"tests": 386, "failures": 0, "errors": 0, "skipped": 0},
+      "duration_s": 22.35
+    },
+    {
+      "id": "broad-1141",
+      "command": "python -m pytest <40 files from r5 review> --deselect <six pre-existing nodeids> --junitxml=broad.xml",
+      "result": {"tests": 1141, "failures": 0, "errors": 0, "skipped": 0, "deselected": 6},
+      "duration_s": 206.46,
+      "deselected_pre_existing": [
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud",
+        "tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit"
+      ],
+      "pre_existing_note": "Same six nodeids/causes fail on baseline 0fce97a14 (r5 review: candidate 6 failed, base 6 failed; LLMError primary down/down, TypeError unexpected keyword 'sent', assert False)."
+    },
+    {
+      "id": "js-baseline-comparison",
+      "command": "for each tests/js/*.js except module_fixture.js: node <file>",
+      "candidate": {"files": 123, "passed": 119, "failed": 4},
+      "base": {"sha": "0fce97a14338521a24d94f560e896ebcb19f9492", "files": 123, "passed": 119, "failed": 4},
+      "failed_files_both": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "regressions": 0
+    },
+    {
+      "id": "mutations",
+      "r4_f0_gate_forced_open": {
+        "test": "tests/test_vmq_mem_retrieval_fixes.py::TestR5CrowdingAndMultiYear::test_crowding_regression_keeps_old_anchors",
+        "patch": "_is_current_state_query -> True",
+        "result": "KILLED: assert 13 == 3"
+      },
+      "s4_current_gate_closed": {
+        "test": "tests/test_vmq_mem_slice_d.py::TestR5CurrentFactLeg::test_three_current_facts_outside_top10_are_added",
+        "patch": "_is_current_state_query -> False",
+        "result": "KILLED: required {15172,18330,20419} missing"
+      }
+    }
+  ],
+  "static_checks": {
+    "app_version": "2.58.220",
+    "schema_smoke": {"user_version": 48, "schema_constant": 48, "schema_migrations": 48},
+    "ddl_grep": {"pattern": "CREATE TABLE|ALTER TABLE|DROP TABLE|CREATE INDEX|ALTER INDEX", "matches": 0},
+    "gen_param_registry_check": {"exit": 0, "message": "CHECK OK: реестр 648 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны."},
+    "git_diff_check": {"worktree": 0, "base_to_head": 0},
+    "node_check": {"tests/js/round1025_hotfix10_glass_geometry_bg_test.js": 0, "tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js": 0, "tests/js/round1025_hotfix8_shell_aurora_test.js": 0, "tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js": 0, "web/app.js": 0},
+    "manifest_dry_run": {"artifact": "manifest-dry-run.json", "exit": 0, "version": "2.58.220", "previous_sha": "0fce97a14338521a24d94f560e896ebcb19f9492", "previous_version": "2.58.219", "dirty_tracked": false}
+  },
+  "limitations": [
+    "No production access, SSH, deploy or live turn; postdeploy checks are in the runbook.",
+    "S2/S3 real probe is not_executed/reference_unreachable per RELEASE_WITH_BACKLOG; S1/S4/S5/S6 and vector residuals are backlog, not claimed pass.",
+    "Vector semantic leg remains unproven under stubs; r5 does not credit it.",
+    "Broad suite is the 40-file sampled set, not the full 21k suite.",
+    "Two mutations killed the focused tests; S1 cap mutation was independently reviewed but not re-run in this assembly."
+  ],
+  "decision_reference": "plans/features/vmq-onto-01/evidence/mem07/time03-final-release-decision.md (sha256 981bfa38..., commit 099c41734, RELEASE_WITH_BACKLOG)"
+}

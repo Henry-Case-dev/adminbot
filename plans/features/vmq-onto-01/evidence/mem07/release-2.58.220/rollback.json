@@ -1,0 +1,33 @@
+{
+  "release": "2.58.220",
+  "target": {
+    "version": "2.58.220",
+    "branch": "release/time03-natural-2.58.220",
+    "content_commit": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5",
+    "schema": 48,
+    "ddl": 0
+  },
+  "rollback": {
+    "sha": "0fce97a14338521a24d94f560e896ebcb19f9492",
+    "version": "2.58.219",
+    "content_tip": "f80cba08ff6c444395753e77885ea2e37e2f308f",
+    "schema": 48,
+    "ddl": 0,
+    "migrations": "none (schema 48 -> 48; no DDL)",
+    "data_action": "none; no destructive migration or store change; database/settings remain compatible",
+    "settings_action": "none; no new flags/settings/store/embedding/LLM, existing values preserved"
+  },
+  "commands": {
+    "rollback_checkout": "git -C /var/www/admin_bot fetch --prune && git -C /var/www/admin_bot reset --hard 0fce97a14338521a24d94f560e896ebcb19f9492",
+    "manifest": "python tools/release_manifest.py --effect rollback",
+    "restart": "sudo systemctl restart admin_bot",
+    "verify": "HTTP /healthz 200; identity/version 2.58.219; schema 48; no new journal errors; existing settings unchanged"
+  },
+  "safety": [
+    "Keep the pre-deploy backup and the deploy_backup keep=2 pool; do not prune rollback copies.",
+    "Do not run schema downgrades; 2.58.220 has DDL 0 and schema 48.",
+    "Rollback only the checkout/restart and record a rollback manifest; no production data deletion.",
+    "Old VPS 198.46.175.136 is not a rollback target (decommissioned)."
+  ],
+  "decision_reference": "plans/features/vmq-onto-01/evidence/mem07/time03-final-release-decision.md (sha256 981bfa38..., commit 099c41734, RELEASE_WITH_BACKLOG)"
+}

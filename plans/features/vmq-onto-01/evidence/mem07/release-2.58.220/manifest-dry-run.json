@@ -1,0 +1,35 @@
+{
+  "captured_at_commit": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5",
+  "command": "python tools/release_manifest.py --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy previous-manifest input removed",
+  "manifest": {
+    "deployed_at": "2026-11-19T20:46:35.208476Z",
+    "deployed_sha": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "0fce97a14338521a24d94f560e896ebcb19f9492",
+    "previous_version": "2.58.219",
+    "release_branch": "release/time03-natural-2.58.220",
+    "schema": 1,
+    "version": "2.58.220"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "reconstruction of the documented deployed state: 0fce97a14 / 2.58.219 / content f80cba08",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "0fce97a14338521a24d94f560e896ebcb19f9492",
+      "version": "2.58.219",
+      "effect": "deploy",
+      "release_branch": "release/vmq-time09-2.58.219"
+    },
+    "removed_after_run": true
+  },
+  "note": "Dry-run captured the content tip 8e05e9a4d, not the later evidence-only tip. The deploy-time manifest must record the actual checkout SHA; product bytes are identical between content and evidence-only commits.",
+  "post_capture_note": "If production deploys a later docs/evidence-only commit on this branch, the honest deploy-time manifest records that checkout SHA (only evidence differs)."
+}
