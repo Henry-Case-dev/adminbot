@@ -74,6 +74,9 @@ PEOPLE = (
     ("P3_history_2023_2024", 1313107079),
 )
 REF_ID_RE = re.compile(r"(?:tg|msg|fact):\d+")
+#: G4 resolver sample categories; "other" = recognised but unsupported prefix
+#: (e.g. `bot_output_tg:`), "unparseable" = no/lousy `<prefix>:<int>` shape.
+SAMPLE_PREFIXES = ("row", "tg", "msg", "other", "unparseable")
 GRAPH_TABLES = (
     "smart_messages", "smart_messages_fts", "graph_facts", "graph_facts_fts",
     "nodes", "edges", "lore_stories", "mca_source_refs",
@@ -658,6 +661,78 @@ async def g1_probe(svc, mrc, db, chat_id, stub) -> dict:
     return out
 
 
+def sample_ref_prefix(ref: str) -> tuple[str, int | None]:
+    """Classify a G4 span source id; never guess across prefixes."""
+    text = str(ref or "").strip()
+    head, sep, tail = text.partition(":")
+    if not sep or not head or not tail:
+        return "unparseable", None
+    if head not in ("row", "tg", "msg"):
+        return "other", None
+    value = as_int(tail)
+    if value is None or value <= 0:
+        return "unparseable", None
+    return head, value
+
+
+async def resolve_sample_ref(db, chat_id: int,
+                             ref: str) -> tuple[str, bool, bool]:
+    """(prefix, resolved, same_chat) for one sampled episode source id.
+
+    `row:<smart_messages.id>` is the shape emitted by
+    `direct_context_composer.row_to_fragment` for imported rows without a
+    Telegram id; `msg:` keeps its documented dual id/tg meaning. Unknown
+    prefixes stay unresolved (§5.4: no guessing).
+    """
+    prefix, value = sample_ref_prefix(ref)
+    if prefix == "row":
+        sql = ("SELECT chat_id FROM smart_messages WHERE chat_id=? AND "
+               "id=? LIMIT 1")
+        params = (chat_id, value)
+    elif prefix == "tg":
+        sql = ("SELECT chat_id FROM smart_messages WHERE chat_id=? AND "
+               "tg_message_id=? LIMIT 1")
+        params = (chat_id, value)
+    elif prefix == "msg":
+        sql = ("SELECT chat_id FROM smart_messages WHERE chat_id=? AND "
+               "(id=? OR tg_message_id=?) LIMIT 1")
+        params = (chat_id, value, value)
+    else:
+        return prefix, False, False
+    cur = await db.db.execute(sql, params)
+    row = await cur.fetchone()
+    if row is None:
+        return prefix, False, False
+    return prefix, True, int(row["chat_id"]) == int(chat_id)
+
+
+async def resolve_episode_sample(db, chat_id: int, refs, *,
+                                 limit: int = 5) -> dict:
+    """Resolve first `limit` span source ids and record per-prefix counts."""
+    sample = [str(ref) for ref in list(refs or ())[:int(limit)] if str(ref)]
+    by_prefix = {key: 0 for key in SAMPLE_PREFIXES}
+    resolved_by_prefix = {key: 0 for key in SAMPLE_PREFIXES}
+    resolved = 0
+    same_chat = 0
+    for ref in sample:
+        prefix, ok, same = await resolve_sample_ref(db, chat_id, ref)
+        by_prefix[prefix] += 1
+        if ok:
+            resolved += 1
+            resolved_by_prefix[prefix] += 1
+            if same:
+                same_chat += 1
+    return {
+        "sampled": len(sample),
+        "resolved": resolved,
+        "same_chat": same_chat,
+        "unresolved": len(sample) - resolved,
+        "by_prefix": by_prefix,
+        "resolved_by_prefix": resolved_by_prefix,
+        "sample_refs": sample,
+    }
+
+
 async def g4_probe(svc, mrc, db, chat_id, stub, tail) -> dict:
     out = {"query_sha256": sha256_text(D_QUERY)}
     try:
@@ -726,38 +801,11 @@ async def g4_probe(svc, mrc, db, chat_id, stub, tail) -> dict:
                 text = str(ref)
                 if text and text not in seen:
                     seen.append(text)
-        sample = seen[:5]
-        resolved = 0
-        same_chat = 0
-        for ref in sample:
-            head, _, tail = ref.partition(":")
-            try:
-                value = int(tail)
-            except (TypeError, ValueError):
-                continue
-            if head == "tg":
-                cur = await db.db.execute(
-                    "SELECT chat_id FROM smart_messages WHERE chat_id=? AND "
-                    "tg_message_id=? LIMIT 1", (chat_id, value))
-            elif head == "msg":
-                # `row_to_fragment` emits `msg:<tg>` while the imported-history
-                # path may emit `msg:<smart_messages.id>`; accept both.
-                cur = await db.db.execute(
-                    "SELECT chat_id FROM smart_messages WHERE chat_id=? AND "
-                    "(id=? OR tg_message_id=?) LIMIT 1",
-                    (chat_id, value, value))
-            else:
-                continue
-            row = await cur.fetchone()
-            if row is not None:
-                resolved += 1
-                if int(row["chat_id"]) == int(chat_id):
-                    same_chat += 1
+        episode_sample = await resolve_episode_sample(
+            db, chat_id, seen, limit=5)
         out.update({
             "episode_source_ids": len(seen),
-            "episode_sample": {"sampled": len(sample),
-                               "resolved": resolved,
-                               "same_chat": same_chat},
+            "episode_sample": episode_sample,
             "episode_stats": {
                 "hits": int((stats_raw or {}).get("hits") or 0),
                 "messages": int((stats_raw or {}).get("messages") or 0),
@@ -1238,21 +1286,27 @@ def evaluate(classes, old_episodes, people, thematic, lore, g1, g4,
     g4 = g4 or {}
     if g4.get("error"):
         add("MEM06-G4-REFS", "episode refs are not bundle refs; episode "
-            "source ids resolve same-chat 5/5", g4, None, "probe_error")
+            "source ids resolve same-chat sampled=resolved=same_chat",
+            g4, None, "probe_error")
     else:
         raw = g4.get("raw") or {}
         sample = g4.get("episode_sample") or {}
+        expected_sampled = min(5, int(g4.get("episode_source_ids") or 0))
         okv = (raw.get("bundle") is True
                and int(raw.get("old_episode_refs") or 0) > 0
                and int(raw.get("episode_refs_in_evidence") or 0) == 0
                and int(g4.get("episode_source_ids") or 0) > 0
-               and int(sample.get("sampled") or 0) > 0
-               and sample.get("resolved") == sample.get("sampled")
-               and sample.get("same_chat") == sample.get("sampled"))
+               and expected_sampled > 0
+               and int(sample.get("sampled") or 0) == expected_sampled
+               and sample.get("resolved") == expected_sampled
+               and sample.get("same_chat") == expected_sampled
+               and int(sample.get("unresolved") or 0) == 0)
         add("MEM06-G4-REFS", "episode refs are not bundle refs; episode "
-            "source ids resolve same-chat 5/5",
+            "source ids resolve same-chat sampled=resolved=same_chat=min(5, "
+            "episode_source_ids)",
             {"raw": raw, "episode_source_ids": g4.get(
                 "episode_source_ids"), "episode_sample": sample,
+             "expected_sampled": expected_sampled,
              "fact_refs": raw.get("fact_refs"),
              "speech_projection": g4.get("speech_projection")}, okv)
 

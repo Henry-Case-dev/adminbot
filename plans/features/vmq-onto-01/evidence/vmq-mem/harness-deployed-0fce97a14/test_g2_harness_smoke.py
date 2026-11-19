@@ -6,6 +6,7 @@ and the no-message/fact-text guarantee. It never touches production.
 """
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import os
@@ -107,6 +108,17 @@ def test_harness_outputs_and_assertions(fixture_db, tmp_path):
     assert environment["sqlite_vec_off_reason"] == "embed"
     assert environment["vec_ok"] is False
     assert payload["configuration"]["sqlite_vec_loaded"] is True
+    # G4 resolver: the fixture has an imported 2023 row without a tg id, so
+    # the span sample must contain `row:<id>` alongside `msg:<tg>` and every
+    # sampled ref must resolve in the same chat.
+    sample = payload["g4"]["episode_sample"]
+    assert sample["sample_refs"]
+    assert sample["by_prefix"]["row"] >= 1
+    assert sample["by_prefix"]["msg"] >= 1
+    assert sample["resolved"] == sample["sampled"]
+    assert sample["same_chat"] == sample["sampled"]
+    assert sample["unresolved"] == 0
+    assert any(ref.startswith("row:") for ref in sample["sample_refs"])
     assert (out / "g2-mem06-summary.md").exists()
     hashes = (out / "g2-mem06-hashes.txt").read_text(encoding="utf-8")
     assert "snapshot_sha256=" in hashes
@@ -178,6 +190,51 @@ def test_old_episode_plain_composition_not_a_false_failure():
     assert oldp["status"] == "fail"
 
 
+def test_g4_resolver_row_tg_msg(fixture_db):
+    """Mixed row:/tg:/msg: refs resolve; other/unparseable stay unresolved."""
+    _ensure_paths()
+    mod = _load(HARNESS, "measure_g2_resolver")
+    db_path, _meta = fixture_db
+
+    async def run():
+        from services.database import DatabaseService
+        db = DatabaseService(db_path)
+        await db.initialize_readonly()
+        try:
+            cur = await db.db.execute(
+                "SELECT id, tg_message_id FROM smart_messages "
+                "WHERE chat_id=? ORDER BY id", (-1002661910336,))
+            rows = await cur.fetchall()
+            row_id = next(int(r["id"]) for r in rows
+                          if r["tg_message_id"] in (None, "", 0))
+            tg_id = next(int(r["tg_message_id"]) for r in rows
+                         if r["tg_message_id"] not in (None, "", 0))
+            refs = [
+                "row:%d" % row_id,
+                "msg:%d" % tg_id,
+                "tg:%d" % tg_id,
+                "fact:1000",
+                "row:",
+                "row:999999",
+            ]
+            sample = await mod.resolve_episode_sample(
+                db, -1002661910336, refs, limit=6)
+            return refs, sample
+        finally:
+            await db.close()
+
+    refs, sample = asyncio.run(run())
+    assert sample["sample_refs"] == refs
+    assert sample["sampled"] == 6
+    assert sample["by_prefix"] == {
+        "row": 2, "tg": 1, "msg": 1, "other": 1, "unparseable": 1}
+    assert sample["resolved_by_prefix"] == {
+        "row": 1, "tg": 1, "msg": 1, "other": 0, "unparseable": 0}
+    assert sample["resolved"] == 3
+    assert sample["same_chat"] == 3
+    assert sample["unresolved"] == 3
+
+
 if __name__ == "__main__":
     # Standalone fallback for environments where pytest collection is not
     # available; the pytest functions above stay the canonical test.
@@ -201,4 +258,5 @@ if __name__ == "__main__":
     test_missing_snapshot_publishes_not_executed(root / "missing")
     test_evaluate_status_plumbing()
     test_old_episode_plain_composition_not_a_false_failure()
+    test_g4_resolver_row_tg_msg((db_path, meta))
     print("SELFTEST_OK", root)

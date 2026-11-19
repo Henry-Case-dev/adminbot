@@ -16,6 +16,13 @@ It is **not** product code and does not change `services/`, `handlers/`, `web/` 
   `MEM06-THEMATIC` (`mode="thematic"`), G1 hints-not-in-payload,
   G4 episode-refs/source-id, chat-scope.
 
+G4 resolves the sampled span source ids by exact prefix:
+`row:<smart_messages.id>` (imported rows without a Telegram id),
+`tg:<tg_message_id>` and `msg:<id|tg_message_id>`. Other prefixes
+(e.g. `bot_output_tg:`) and malformed refs stay unresolved; they are counted,
+never guessed. `g4.episode_sample` records `by_prefix`,
+`resolved_by_prefix`, `unresolved` and the raw `sample_refs` (ids only).
+
 No second retrieval/store/pipeline is created. LLM and embedding clients are
 failing stubs; the snapshot is opened with SQLite `mode=ro`
 (`DatabaseService.initialize_readonly`). The harness never writes to the

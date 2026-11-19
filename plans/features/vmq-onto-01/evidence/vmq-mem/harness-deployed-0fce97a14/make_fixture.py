@@ -125,12 +125,17 @@ async def build_fixture(db_path: str, *, chat_id: int = CHAT,
             await msg(base_id + i, 10 + i, "Участник%d" % (i + 1), body,
                       ts(year, month, day, hour, i * 5), tg0 + i)
     # ── 2023 episode span (Old_Episode_2023 / G4 sample) ───────────────
-    for i in range(6):
+    # Real G2 failure: imported 2023 rows may have no tg_message_id.
+    # `row_to_fragment` then emits `row:<smart_messages.id>` for the span
+    # source ids, while the rendered block uses `msg:<id>` /
+    # `tg:<tg>` via resolve_item_id.
+    for i in range(7):
         body = "ссорились и ругались E1 2023"
         if i == 2:
             body += " " + SECRET_MSG_TEXT
+        tg_id = None if i == 0 else 2001 + i
         await msg(10 + i, 20 + i, "Спорщик%d" % (i + 1), body,
-                  ts(2023, 5, 20, 10, i), 2001 + i)
+                  ts(2023, 5, 20, 10, i), tg_id)
         ids["span"].append(10 + i)
     # ── recent fillers: push old episode rows out of the 40-row tail ───
     for i in range(60):
