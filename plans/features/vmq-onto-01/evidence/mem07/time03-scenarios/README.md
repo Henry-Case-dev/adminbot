@@ -28,6 +28,9 @@ GraphRAG config and failing LLM/embedding stubs.
   `measure_effective_config.py` and `POSTGRES_DSN`).
 * No network needed by the product path: stubs raise and socket egress is
   blocked inside the harness.
+* No `PYTHONPATH` workaround is needed: `measure_effective_config.py`
+  resolves its worktree root from `__file__` (or validates `--code-root`),
+  and `time03_scenarios.py` uses `--code-root` for product imports.
 
 ## Exact run
 
@@ -46,7 +49,10 @@ CAND="${CAND:-/tmp/adminbot-65edc92dc}"          # worktree at candidate
 HARNESS="$(pwd)/plans/features/vmq-onto-01/evidence/mem07/time03-scenarios"
 
 # 1) Measure effective GraphRAG config read-only (PostgreSQL bot_settings).
+#    --code-root is optional: without it the script resolves its worktree root
+#    from its own path; with it the product root is verified deterministically.
 "$PROD_PY" "$HARNESS/measure_effective_config.py" \
+  --code-root "$CAND" \
   --out /tmp/time03-effective.json
 
 # 2) Baseline on the snapshot.

@@ -103,9 +103,11 @@ def ensure_code_root(code_root: Path, variant: str, expected_sha: str) -> str:
     return head
 
 
-def load_effective(path: str, *, fixture: bool) -> dict:
+def load_effective(path: str, *, fixture: bool,
+                   code_root: str | None = None) -> dict:
     if fixture and not path:
-        raw = asyncio.run(_effective.measure(settings_only=True))
+        raw = asyncio.run(_effective.measure(
+            settings_only=True, code_root=code_root))
         raw["file_sha256"] = sha256_text(json.dumps(
             raw, ensure_ascii=False, sort_keys=True))
         return _base.validate_effective_provenance(
@@ -1179,7 +1181,8 @@ def main(argv=None) -> int:
         sys.path.insert(0, str(code_root))
     try:
         effective = load_effective(args.effective_config,
-                                   fixture=args.fixture)
+                                   fixture=args.fixture,
+                                   code_root=str(code_root))
     except Exception as exc:
         payload = _payload(args, {"exists": False, "sha256": None},
                            code_root, head, "fixture" if args.fixture else

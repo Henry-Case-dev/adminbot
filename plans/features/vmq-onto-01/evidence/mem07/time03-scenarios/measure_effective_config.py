@@ -26,6 +26,36 @@ SCHEMA = "vmq-mem07-effective/1"
 KEYS = ("flags.graph_rag_enabled", "limits.graph_rag_facts_limit")
 
 
+def _code_root_candidates(explicit: str | None = None):
+    if explicit:
+        yield Path(explicit).resolve()
+    here = Path(__file__).resolve()
+    yield here.parent
+    yield from here.parent.parents
+
+
+def ensure_code_root(explicit: str | None = None) -> Path:
+    """Put the product worktree root on sys.path before importing config.
+
+    Python adds the *script directory* to sys.path, not the caller's cwd, so a
+    documented invocation from the worktree root would otherwise fail with
+    ``ModuleNotFoundError: config``. The root is found deterministically by
+    walking up from this file until ``config/settings.py`` and ``services/``
+    exist, or taken from ``--code-root`` and verified.
+    """
+    for candidate in _code_root_candidates(explicit):
+        if (candidate / "config" / "settings.py").is_file() and \
+                (candidate / "services").is_dir():
+            root = str(candidate)
+            if root not in sys.path:
+                sys.path.insert(0, root)
+            return candidate
+    if explicit:
+        raise RuntimeError("code_root_invalid:%s" % explicit)
+    raise RuntimeError("code_root_not_found")
+
+
+
 def _bool(value, default=False):
     if value is None:
         return default
@@ -57,7 +87,9 @@ def tool_sha256() -> str:
 
 
 async def measure(settings_only: bool = False,
-                  command: str | None = None) -> dict:
+                  command: str | None = None,
+                  code_root: str | None = None) -> dict:
+    ensure_code_root(code_root)
     from config.settings import settings
 
     settings_instance = {
@@ -126,8 +158,18 @@ def main(argv=None) -> int:
     parser.add_argument("--out", required=True)
     parser.add_argument("--settings-only", action="store_true",
                         help="skip PostgreSQL; for local fixture tests only")
+    parser.add_argument("--code-root", default="",
+                        help="product worktree root containing config/ and services/")
     args = parser.parse_args(argv)
-    payload = asyncio.run(measure(settings_only=args.settings_only))
+    try:
+        ensure_code_root(args.code_root or None)
+    except Exception as exc:
+        print(json.dumps({"status": "not_executed",
+                          "reason": str(exc)}, ensure_ascii=False),
+              file=sys.stderr)
+        return 2
+    payload = asyncio.run(measure(settings_only=args.settings_only,
+                                  code_root=args.code_root or None))
     Path(args.out).write_text(
         json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({"out": args.out,

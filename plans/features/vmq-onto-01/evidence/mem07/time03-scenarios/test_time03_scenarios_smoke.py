@@ -23,7 +23,7 @@ CHAT = -1002661910336
 
 def _run(args, tmp_path, env_extra=None):
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    env.pop("PYTHONPATH", None)
     if env_extra:
         env.update(env_extra)
     head = subprocess.run(
@@ -126,3 +126,27 @@ def test_fixture_text_not_stored_in_entries(tmp_path):
         assert "query" not in entry
         assert "query_template" not in entry
         assert "payload_sha256" in (entry.get("writer") or {})
+
+
+def test_documented_measure_command_from_worktree_root_without_pythonpath(
+        tmp_path):
+    """Regression: script dir is on sys.path, not cwd; config must resolve."""
+    out = tmp_path / "effective.json"
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env["ADMINBOT_SKIP_DOTENV"] = "1"
+    env.pop("POSTGRES_DSN", None)
+    proc = subprocess.run(
+        [sys.executable, str(HERE / "measure_effective_config.py"),
+         "--out", str(out)],
+        cwd=str(ROOT), env=env, capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=180)
+    assert proc.returncode == 0, proc.stderr[-4000:]
+    assert "ModuleNotFoundError" not in proc.stderr
+    payload = _load(out)
+    assert payload["schema"] == "vmq-mem07-effective/1"
+    assert payload["read_only"] is True
+    assert payload["pg_status"] == "dsn_absent"
+    assert payload["effective"]["flags.graph_rag_enabled"] in (True, False)
+    assert int(payload["effective"]["limits.graph_rag_facts_limit"]) >= 0
+    assert "settings_instance" in payload
+
