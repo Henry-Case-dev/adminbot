@@ -44,8 +44,8 @@
     "s4_episode": "fail (2024/2025 vs expected 2026) - backlog"
   },
   "environment": {
-    "python": "3.12 (project .venv)",
-    "pytest": "installed project version",
+    "python": "3.12.0 (py launcher)",
+    "pytest": "9.1.1",
     "node": "v24.16.0",
     "os": "Windows (PowerShell 5.1)",
     "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/time03-release-2-58-220-b76800a534ba-0fe5ab01",
