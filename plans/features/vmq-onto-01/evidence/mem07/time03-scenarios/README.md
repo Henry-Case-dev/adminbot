@@ -32,6 +32,9 @@ GraphRAG config and failing LLM/embedding stubs.
 ## Exact run
 
 ```bash
+# Run from the branch worktree that contains this directory.
+cd /path/to/adminbot-time03-scenarios   # branch: vmq/time03-scenarios
+
 # 0) Production environment (adjust to the actual prod venv/.env paths)
 PROD_PY="${PROD_PY:-/var/www/admin_bot/.venv/bin/python}"
 set -a; . /var/www/admin_bot/.env; set +a
