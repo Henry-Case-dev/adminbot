@@ -16,9 +16,11 @@ HARNESS = Path(__file__).with_name("mem07.py")
 OWNER = "напиши юмористический рассказ об основных шизах конфы"
 
 
-def _run(args, tmp_path):
+def _run(args, tmp_path, env_extra=None):
     env = dict(os.environ)
     env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    if env_extra:
+        env.update(env_extra)
     proc = subprocess.run(
         [sys.executable, str(HARNESS), *args, "--code-root", str(ROOT)],
         cwd=str(ROOT), env=env, capture_output=True, text=True,
@@ -103,7 +105,7 @@ def test_fixture_run_structural(tmp_path):
     cfg = payload["configuration"]
     assert cfg["graph_rag_enabled"] is True
     assert cfg["graph_rag_facts_limit"] > 0
-    assert cfg["config_source"] in ("settings_instance", "effective_config_file")
+    assert cfg["config_source"] in ("live_measurement", "effective_config_file")
     text = json.dumps(payload, ensure_ascii=False)
     assert "SECRET_FACT_TEXT_MEM07" not in text
     assert "SECRET_MSG_TEXT_MEM07" not in text
@@ -111,18 +113,47 @@ def test_fixture_run_structural(tmp_path):
     assert "Участник Два" not in text
 
 
-def test_effective_config_gate(tmp_path):
+def test_handwritten_config_rejected(tmp_path):
     out = tmp_path / "gate"
     cfg = tmp_path / "effective.json"
-    cfg.write_text(json.dumps({"graph_rag_enabled": False,
-                               "graph_rag_facts_limit": 0}), encoding="utf-8")
+    cfg.write_text(json.dumps({"graph_rag_enabled": True,
+                               "graph_rag_facts_limit": 10}), encoding="utf-8")
     proc = _run(["--fixture", "--effective-config", str(cfg),
                  "--out", str(out)], tmp_path)
+    assert proc.returncode == 2, proc.stderr[-2000:]
+    payload = _load(out / "fixture.json")
+    assert payload["technical_reason"].startswith("effective_config_provenance_")
+
+
+def test_settings_false_fail_closed(tmp_path):
+    out = tmp_path / "gate_false"
+    proc = _run(["--fixture", "--out", str(out)], tmp_path,
+                env_extra={"GRAPH_RAG_ENABLED": "false",
+                           "GRAPH_RAG_FACTS_LIMIT": "0"})
     assert proc.returncode == 2, proc.stderr[-2000:]
     payload = _load(out / "fixture.json")
     assert payload["technical_reason"] == "graph_rag_disabled"
     assert payload["configuration"]["graph_rag_enabled"] is False
     assert payload["assertions"][0]["status"] == "not_executed"
+
+
+def test_provenance_file_accepted(tmp_path):
+    cfg = tmp_path / "effective.json"
+    probe = HARNESS.with_name("measure_effective_config.py")
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    measured = subprocess.run(
+        [sys.executable, str(probe), "--settings-only", "--out", str(cfg)],
+        cwd=str(ROOT), env=env, capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=120)
+    assert measured.returncode == 0, measured.stderr[-2000:]
+    out = tmp_path / "gate_ok"
+    proc = _run(["--fixture", "--effective-config", str(cfg),
+                 "--out", str(out)], tmp_path)
+    assert proc.returncode == 0, proc.stderr[-3000:]
+    payload = _load(out / "fixture.json")
+    assert payload["configuration"]["config_source"] == "effective_config_file"
+    assert len(payload["configuration"]["effective_config_sha256"]) == 64
 
 
 def test_missing_snapshot_is_not_executed(tmp_path):

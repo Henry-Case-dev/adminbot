@@ -900,6 +900,52 @@ class ConfigGateError(RuntimeError):
         self.values = values
 
 
+class ConfigProvenanceError(RuntimeError):
+    def __init__(self, reason):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def effective_tool_sha256() -> str:
+    return sha256_file(str(Path(__file__).with_name("measure_effective_config.py")))
+
+
+def validate_effective_provenance(raw: dict, source: str,
+                                  file_sha256: str | None = None,
+                                  fixture: bool = False) -> dict:
+    required = ("schema", "tool", "tool_sha256", "command", "measured_at",
+                "read_only", "settings_instance", "db_hot_config",
+                "sources", "effective", "pg_status", "hot_config_measured",
+                "production_ready")
+    missing = [k for k in required if k not in raw]
+    if missing:
+        raise ConfigProvenanceError("missing:" + ",".join(missing))
+    if raw.get("schema") != "vmq-mem07-effective/1":
+        raise ConfigProvenanceError("schema")
+    if raw.get("tool") != "measure_effective_config.py":
+        raise ConfigProvenanceError("tool")
+    if str(raw.get("tool_sha256")) != effective_tool_sha256():
+        raise ConfigProvenanceError("tool_sha256")
+    if raw.get("read_only") is not True:
+        raise ConfigProvenanceError("not_read_only")
+    if not str(raw.get("command") or "").strip():
+        raise ConfigProvenanceError("command_missing")
+    if raw.get("settings_only") and not fixture:
+        raise ConfigProvenanceError("settings_only_not_production")
+    if not raw.get("production_ready") and not fixture:
+        raise ConfigProvenanceError("production_not_ready")
+    eff = raw.get("effective") or {}
+    if "flags.graph_rag_enabled" not in eff or "limits.graph_rag_facts_limit" not in eff:
+        raise ConfigProvenanceError("effective_keys")
+    for key in ("flags.graph_rag_enabled", "limits.graph_rag_facts_limit"):
+        if key not in (raw.get("sources") or {}):
+            raise ConfigProvenanceError("source_missing:" + key)
+    raw = dict(raw)
+    raw["measurement_source"] = source
+    raw["file_sha256"] = file_sha256
+    return raw
+
+
 class CacheStub:
     def __init__(self, values=None):
         self.values = dict(values or {})
@@ -1641,15 +1687,28 @@ def build_assertions(payload: dict, questions: list, parity: list,
                        .get("retrieval_path") != "unified"
                        or not ((q.get("policies") or {}).get("auto") or {})
                        .get("period_present"))]
+    measured_ok = (
+        cfg.get("config_source") in ("live_measurement", "effective_config_file")
+        and len(str(cfg.get("effective_config_sha256") or "")) == 64
+        and isinstance(cfg.get("settings_instance"), dict)
+        and isinstance(cfg.get("db_hot_config"), dict)
+        and isinstance(cfg.get("sources"), dict)
+        and (cfg.get("hot_config_measured") is True
+             or cfg.get("pg_status") == "dsn_absent"
+             or (fixture and cfg.get("pg_status") == "skipped_settings_only"))
+        and (cfg.get("production_ready") is True or fixture))
     add("MEM07-CONFIG",
-        "settings instance true, facts_limit>0, unified retrieval path for every matrix question",
+        "measured effective GraphRAG config + provenance, true/limit>0, unified path",
         {"graph_rag_enabled": cfg.get("graph_rag_enabled"),
          "graph_rag_facts_limit": cfg.get("graph_rag_facts_limit"),
          "config_source": cfg.get("config_source"),
+         "pg_status": cfg.get("pg_status"),
+         "hot_config_measured": cfg.get("hot_config_measured"),
+         "sources": cfg.get("sources"),
          "not_unified": unified_bad},
         "pass" if (cfg.get("graph_rag_enabled") is True
                    and int(cfg.get("graph_rag_facts_limit") or 0) > 0
-                   and not unified_bad) else "fail")
+                   and not unified_bad and measured_ok) else "fail")
     ref_bad = [q["id"] for q in matrix
                if (q.get("reference") or {}).get("not_executed")]
     add("MEM07-REFERENCES", "every matrix question has archive-derived anchors",
@@ -1793,37 +1852,30 @@ async def run(args, meta: dict) -> dict:
     from services.direct_chat_service import DirectChatService
     from services.summary_memory import MemoryManager
 
-    from config.settings import settings as _settings
-    settings_vals = {
-        "graph_rag_enabled": bool(getattr(_settings, "GRAPH_RAG_ENABLED", False)),
-        "graph_rag_facts_limit": int(getattr(_settings, "GRAPH_RAG_FACTS_LIMIT", 0) or 0),
-    }
-    effective = {}
-    if getattr(args, "effective_config", ""):
-        with open(args.effective_config, encoding="utf-8") as fh:
-            raw = json.load(fh)
-        effective = {
-            "graph_rag_enabled": bool(raw.get("graph_rag_enabled")),
-            "graph_rag_facts_limit": int(raw.get("graph_rag_facts_limit") or 0),
-        }
-    cfg = effective or settings_vals
-    config_source = "effective_config_file" if effective else "settings_instance"
-    hot.set_config_cache(CacheStub({
-        "flags.graph_rag_enabled": cfg["graph_rag_enabled"],
-        "limits.graph_rag_facts_limit": cfg["graph_rag_facts_limit"],
-    }))
-    effective_enabled = bool(hot.get("flags.graph_rag_enabled", False))
-    effective_limit = int(hot.get("limits.graph_rag_facts_limit", 0) or 0)
+    measured = getattr(args, "measured_config", None) or {}
+    values = measured.get("effective") or {}
+    effective_enabled = bool(values.get("flags.graph_rag_enabled"))
+    effective_limit = int(values.get("limits.graph_rag_facts_limit") or 0)
     config_values = {
         "graph_rag_enabled": effective_enabled,
         "graph_rag_facts_limit": effective_limit,
-        "config_source": config_source,
-        "settings_instance": settings_vals,
-        "effective_override": effective,
-        "hot_cache": "explicit_two_key_cache",
+        "config_source": measured.get("measurement_source"),
+        "settings_instance": measured.get("settings_instance"),
+        "db_hot_config": measured.get("db_hot_config"),
+        "sources": measured.get("sources"),
+        "hot_config_measured": measured.get("hot_config_measured"),
+        "pg_status": measured.get("pg_status"),
+        "production_ready": measured.get("production_ready"),
+        "measurement_command": measured.get("command"),
+        "measurement_tool_sha256": measured.get("tool_sha256"),
+        "effective_config_sha256": measured.get("file_sha256"),
     }
     if not effective_enabled or effective_limit <= 0:
         raise ConfigGateError(config_values)
+    hot.set_config_cache(CacheStub({
+        "flags.graph_rag_enabled": effective_enabled,
+        "limits.graph_rag_facts_limit": effective_limit,
+    }))
     db = DatabaseService(args.db)
     await db.initialize_readonly()
     private_names = await collect_private_names(db, args.chat_id)
@@ -2181,7 +2233,8 @@ def write_outputs(out_dir: str, payload: dict, prefix: str) -> dict:
     safe_write(md_path, summary_md(payload))
     harness_dir = Path(__file__).parent
     files = {}
-    for name in ("mem07.py", "make_fixture.py", "test_mem07_smoke.py"):
+    for name in ("mem07.py", "make_fixture.py", "test_mem07_smoke.py",
+                 "measure_effective_config.py"):
         p = harness_dir / name
         if p.exists():
             files[name] = sha256_file(str(p))
@@ -2342,6 +2395,49 @@ def main(argv=None) -> int:
     if not clean and mode != "fixture":
         return publish_not_executed(args, meta, "product_diff_vs_candidate",
                                     code_root, head, mode)
+    try:
+        if args.effective_config:
+            with open(args.effective_config, encoding="utf-8") as fh:
+                raw_cfg = json.load(fh)
+            measured = validate_effective_provenance(
+                raw_cfg, "effective_config_file",
+                sha256_file(args.effective_config), fixture=(mode == "fixture"))
+        else:
+            harness_dir = str(Path(__file__).parent)
+            if harness_dir not in sys.path:
+                sys.path.insert(0, harness_dir)
+            from measure_effective_config import measure
+            raw_cfg = asyncio.run(measure(
+                settings_only=(mode == "fixture"),
+                command="in-process measure_effective_config.measure()"))
+            measured = validate_effective_provenance(
+                raw_cfg, "live_measurement",
+                sha256_text(compact(raw_cfg)), fixture=(mode == "fixture"))
+        args.measured_config = measured
+    except ConfigProvenanceError as exc:
+        payload = base_payload(args, meta, code_root, head, clean, mode)
+        payload["technical_reason"] = "effective_config_provenance_%s" % exc.reason
+        payload["assertions"] = [{
+            "id": "MEM07-CONFIG", "expected": "measured effective config provenance",
+            "actual": {"reason": exc.reason}, "status": "not_executed"}]
+        info = write_outputs(args.out, payload,
+                             "fixture" if mode == "fixture" else "mem07-independent")
+        print(json.dumps({"status": "not_executed",
+                          "reason": payload["technical_reason"],
+                          "out": info["paths"]}, ensure_ascii=False))
+        return 2
+    except Exception as exc:
+        payload = base_payload(args, meta, code_root, head, clean, mode)
+        payload["technical_reason"] = "effective_config_measurement_%s" % type(exc).__name__
+        payload["assertions"] = [{
+            "id": "MEM07-CONFIG", "expected": "measured effective config provenance",
+            "actual": {"error": type(exc).__name__}, "status": "not_executed"}]
+        info = write_outputs(args.out, payload,
+                             "fixture" if mode == "fixture" else "mem07-independent")
+        print(json.dumps({"status": "not_executed",
+                          "reason": payload["technical_reason"],
+                          "out": info["paths"]}, ensure_ascii=False))
+        return 2
     block = None
     try:
         if args.no_network_block:

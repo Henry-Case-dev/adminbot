@@ -14,56 +14,73 @@ the Reviewer verdict.
 - `design.md` - Stage A design plus Stage C reissue corrections.
 - `harness/mem07.py` - the harness.
 - `harness/make_fixture.py` - synthetic SQLite fixture.
+- `harness/measure_effective_config.py` - read-only settings/PG hot-config probe.
 - `harness/test_mem07_smoke.py` - pytest smoke tests.
 - `fixture/` - committed synthetic output; never production evidence.
 - `mem07-analysis.md` - run-0 analysis (run-0 is invalid; kept for history).
 - `run-0fce97a14/` - run-0 artifacts (invalid for acceptance; privacy redacted).
 
-## Exact DevOps command (real fresh snapshot)
+## Exact DevOps command (preferred: production env, no --effective-config)
 
-Run from the worktree that contains this harness (branch
-`vmq/mem07-independent`, product tree equal to candidate `0fce97a14`):
+The harness must record the actual production effective values. Do not write a
+hand-made `{"graph_rag_enabled": true, "graph_rag_facts_limit": 10}` file.
 
-```powershell
-& C:\Code\Python\adminbot\.venv\Scripts\python.exe `
-  plans\features\vmq-onto-01\evidence\mem07\harness\mem07.py `
-  --db C:\Temp\mem07-snapshot-fresh.db `
-  --chat-id -1002661910336 `
-  --effective-config C:\Temp\mem07-effective.json `
-  --out plans\features\vmq-onto-01\evidence\mem07\run-0fce97a14-reissue `
-  --code-root .
-```
+Prepare a worktree that contains this branch and the product tree at
+`0fce97a14`, then run it with the production environment and venv:
 
 ```bash
-# POSIX, same .venv (Python 3.12 + sqlite-vec)
-.venv/bin/python \
-  plans/features/vmq-onto-01/evidence/mem07/harness/mem07.py \
-  --db /tmp/mem07-snapshot-fresh.db \
-  --chat-id -1002661910336 \
-  --effective-config /tmp/mem07-effective.json \
-  --out plans/features/vmq-onto-01/evidence/mem07/run-0fce97a14-reissue \
-  --code-root .
+# once, on the production host
+git -C /var/www/admin_bot worktree add /tmp/vmq-mem07-reissue vmq/mem07-independent
+
+cd /tmp/vmq-mem07-reissue
+# Load the production env into the process (do not print it):
+set -a; . /var/www/admin_bot/.env; set +a
+
+/var/www/admin_bot/.venv/bin/python   plans/features/vmq-onto-01/evidence/mem07/harness/mem07.py   --db /tmp/mem07-snapshot-fresh.db   --chat-id -1002661910336   --out plans/features/vmq-onto-01/evidence/mem07/run-0fce97a14-reissue   --code-root .
 ```
 
-`/tmp/mem07-effective.json` (or Windows equivalent) must contain the
-production-effective values:
+The harness then:
 
-```json
-{"graph_rag_enabled": true, "graph_rag_facts_limit": 10}
+- imports the real `config.settings.settings` instance and records
+  `settings_instance`;
+- runs a **SELECT-only** query against `bot_settings` for
+  `flags.graph_rag_enabled` and `limits.graph_rag_facts_limit` when
+  `POSTGRES_DSN` is present, and records `db_hot_config`, per-key `sources`,
+  `pg_status` and `hot_config_measured`;
+- computes `effective` from DB hot values where present, otherwise from the
+  settings instance;
+- records the measurement command, tool sha256, a provenance sha256 and the
+  exact source per key.
+
+If the measured effective value is false/0, the harness stops with
+`not_executed: graph_rag_disabled`. It does not override to true. If the PG query
+fails (as opposed to `POSTGRES_DSN` being absent), the provenance is not
+production-ready and the harness stops with
+`not_executed: effective_config_provenance_production_not_ready`.
+
+Working directory matters: `config.settings` loads `.env` from the process cwd
+(unless `ADMINBOT_SKIP_DOTENV=1`). Run from the prepared worktree with the
+production env loaded, or use the measured-file path below.
+
+### Alternative: measured file from a temp worktree
+
+If the harness must run from a worktree without the production env, generate the
+provenance file from the production environment first:
+
+```bash
+cd /tmp/vmq-mem07-reissue
+set -a; . /var/www/admin_bot/.env; set +a
+/var/www/admin_bot/.venv/bin/python   plans/features/vmq-onto-01/evidence/mem07/harness/measure_effective_config.py   --out /tmp/mem07-effective.json
+sha256sum /tmp/mem07-effective.json
 ```
 
-If the production-effective values are known to equal the settings instance,
-`--effective-config` may be omitted; the harness then records
-`config_source=settings_instance` and still fails closed if the effective gate is
-false or the limit is zero.
-
-Run-0 snapshot `c1d45bda...` was deleted. The reissue uses a **fresh snapshot**
-of the same product generation `0fce97a14`; it records the new sha256 and must
-not be described as the same snapshot. Do not reuse run-0 metrics for acceptance.
-
-The harness does not delete the snapshot. DevOps deletes the snapshot, its
-`-wal`/`-shm` and helpers after the run, but only after the compact diagnostics
-histogram and `log_sha256` are in the artifact.
+Then run the harness with `--effective-config /tmp/mem07-effective.json`.
+The file is accepted only if it was produced by `measure_effective_config.py`
+(schema, tool sha256, read-only flag, command, settings instance, DB hot values,
+sources, effective values). The harness records the file sha256 and provenance.
+A hand-written file is rejected with
+`not_executed: effective_config_provenance_*`. `--settings-only` files are for
+fixture tests only and are rejected for a real run.
 
 ## Snapshot recipe (DevOps, read-only)
 

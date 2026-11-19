@@ -1,17 +1,17 @@
 # VMQ-MEM-07 - independent five-class evidence
 
-- Generated (local): 2026-11-19 21:52:07 +1200
+- Generated (local): 2026-11-19 22:00:52 +1200
 - Mode: fixture
 - Command: plans\features\vmq-onto-01\evidence\mem07\harness\mem07.py --fixture --out plans\features\vmq-onto-01\evidence\mem07\fixture --code-root .
 - Candidate: 0fce97a14338521a24d94f560e896ebcb19f9492
-- Code root HEAD: ceceb4dedf96dc2f75d92abf9077422a0a78610c
+- Code root HEAD: 637de62a91ebdcfd84ce4d8765c1a2226e751741
 - Product diff vs candidate: True
-- Snapshot sha256: 6276d4b03c06fbf05770a86b62c1552352de591675958f03d0a13dcbbcee67fb
+- Snapshot sha256: fbd398c609585fff77fdbfa7367fc72f27899492ec648864aa577de45cd18d70
 - Snapshot quick_check: ok; user_version: 48; messages: 376
 - Chat: -1002661910336; current_year: 2026; years: {'2022': 68, '2023': 71, '2024': 71, '2025': 66, '2026': 100}
 - Python: 3.12.0; sqlite: 3.42.0; sqlite-vec: 0.1.9; vector: {'vec_ok': False, 'vec_dim': None, 'sqlite_vec_off_reason': 'embed', 'sqlite_vec_loaded': True, 'vec_error': None}
-- GraphRAG effective: enabled=True limit=10 source=settings_instance
-- Diagnostics: records=186 lines=186 log_sha256=3f5fd580ec9daaac9c98e0bcbadb8fefb7e947c0d19f2e8d8a8e1549a399fc64 unexpected=0/0
+- GraphRAG effective: enabled=True limit=10 source=live_measurement
+- Diagnostics: records=186 lines=186 log_sha256=04e43a91429d503b28d575f669a61843d15b26511e4a68cd52d014c20d5db20a unexpected=0/0
 - Stubs: embed_calls=1 generate_calls=36; socket_blocked=True
 
 ## Questions (auto policy)
@@ -20,7 +20,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | H1 | H | напиши юмористический рассказ об основных шизах конфы | [2022, 2023, 2024, 2025, 2026] | {2022: 6, 2023: 6, 2024: 2, 2025: 4, 2026: 4} | 0.400 (22/55) | 1.000 (5/5) | 1.000 (4/4) | 0.818 (18/22) | 1.000 (22/22) | 1.000 (22/22) | 0.400 (8/20) |
 | H2 | H | расскажи смешную историю про ремонт ванной | [2022] | {2022: 13, 2026: 11} | 0.929 (13/14) | 1.000 (1/1) | 1.000 (1/1) | 0.542 (13/24) | 1.000 (13/13) | 1.000 (24/24) | 0.364 (8/22) |
-| R1 | R | перескажи, что происходило в чате в 2024 году | [2024] | {2024: 31, 2025: 5, 2026: 3} | 0.281 (9/32) | 1.000 (1/1) | 1.000 (1/1) | 0.795 (31/39) | 1.000 (9/9) | 0.795 (31/39) | 0.231 (9/39) |
+| R1 | R | перескажи, что происходило в чате в 2024 году | [2024] | {2024: 31, 2025: 5, 2026: 3} | 0.250 (8/32) | 1.000 (1/1) | 1.000 (1/1) | 0.795 (31/39) | 1.000 (8/8) | 0.795 (31/39) | 0.231 (9/39) |
 | R2 | R | напомни, о чём говорили про собаку | [2024] | {2024: 5, 2025: 5} | 0.000 (0/14) | 1.000 (1/1) | 0.000 (0/1) | 0.500 (5/10) | n/a | 0.000 (0/10) | 1.000 (8/8) |
 | R3 | R | что известно про основные шизы конфы? | [2022, 2023, 2024, 2025, 2026] | {2022: 6, 2023: 6, 2024: 2, 2025: 4, 2026: 4} | 0.400 (22/55) | 1.000 (5/5) | 1.000 (4/4) | 0.818 (18/22) | 1.000 (22/22) | 1.000 (22/22) | 0.400 (8/20) |
 | R4 | R | что было с ремонтом ванной? | [2022] | {2022: 8, 2024: 4, 2026: 12} | 0.571 (8/14) | 1.000 (1/1) | 1.000 (1/1) | 0.333 (8/24) | 1.000 (8/8) | 0.792 (19/24) | 0.364 (8/22) |
@@ -39,7 +39,7 @@
 | class | questions | coverage anchor | coverage period | semantic old | chrono period | exact chrono | relevance | fabricated |
 |---|---|---|---|---|---|---|---|---|
 | humor_story | H1,H2 | 0.507 (35/69) | 1.000 (6/6) | 1.000 (5/5) | 0.674 (31/46) | 1.000 (35/35) | 1.000 (46/46) | 0.381 (16/42) |
-| plain_retelling | R1,R2,R3,R4 | 0.339 (39/115) | 1.000 (8/8) | 0.857 (6/7) | 0.653 (62/95) | 1.000 (39/39) | 0.758 (72/95) | 0.371 (33/89) |
+| plain_retelling | R1,R2,R3,R4 | 0.330 (38/115) | 1.000 (8/8) | 0.857 (6/7) | 0.653 (62/95) | 1.000 (38/38) | 0.758 (72/95) | 0.371 (33/89) |
 | participant_characterization | P1,P2 | 0.175 (28/160) | 0.500 (4/8) | 0.500 (4/8) | 0.829 (29/35) | 1.000 (28/28) | 0.800 (28/35) | 0.516 (16/31) |
 | conflict_reconstruction | C1,C2 | 0.333 (12/36) | 1.000 (2/2) | 1.000 (2/2) | 0.776 (45/58) | 1.000 (12/12) | 0.207 (12/58) | 0.296 (16/54) |
 | relations_views_change | E1,E2 | 0.000 (0/97) | 0.571 (4/7) | 0.000 (0/5) | 0.429 (18/42) | n/a | 0.000 (0/42) | 0.421 (16/38) |
@@ -61,7 +61,7 @@
 |---|---|---|---|---|---|---|
 | H1 | [2022, 2023, 2024, 2025, 2026] | [2022, 2023, 2025, 2026] | 0.400 (22/55) | 0.400 (22/55) | 1.000 (22/22) | 1.000 (22/22) |
 | H2 | [2022, 2026] | [2022, 2024, 2025, 2026] | 0.929 (13/14) | 0.786 (11/14) | 1.000 (24/24) | 0.917 (22/24) |
-| R1 | [2024, 2025, 2026] | [2024, 2025, 2026] | 0.281 (9/32) | 0.281 (9/32) | 0.795 (31/39) | 0.795 (31/39) |
+| R1 | [2024, 2025, 2026] | [2024, 2025, 2026] | 0.250 (8/32) | 0.250 (8/32) | 0.795 (31/39) | 0.795 (31/39) |
 | R2 | [2024, 2025] | [2024, 2025] | 0.000 (0/14) | 0.000 (0/14) | 0.000 (0/10) | 0.000 (0/10) |
 | R3 | [2022, 2023, 2024, 2025, 2026] | [2022, 2023, 2025, 2026] | 0.400 (22/55) | 0.400 (22/55) | 1.000 (22/22) | 1.000 (22/22) |
 | R4 | [2022, 2024, 2026] | [2022, 2024, 2026] | 0.571 (8/14) | 0.643 (9/14) | 0.792 (19/24) | 0.783 (18/23) |
@@ -102,19 +102,19 @@
 |---|---|---|---|
 | MEM07-SNAPSHOT | **pass** | quick_check=ok, user_version=48, archive>=1, sha stable | `{"quick_check": "ok", "user_version": 48, "messages": 376, "readonly": true}` |
 | MEM07-QUESTIONS | **pass** | 12 matrix questions, >=2 per class, exact owner query, 3 controls | `{"matrix": 12, "per_class": {"H": 2, "R": 4, "P": 2, "C": 2, "E": 2}, "owner_query": true, "controls": ["N1", "N2", "X1"]}` |
-| MEM07-CONFIG | **pass** | settings instance true, facts_limit>0, unified retrieval path for every matrix question | `{"graph_rag_enabled": true, "graph_rag_facts_limit": 10, "config_source": "settings_instance", "not_unified": []}` |
+| MEM07-CONFIG | **pass** | measured effective GraphRAG config + provenance, true/limit>0, unified path | `{"graph_rag_enabled": true, "graph_rag_facts_limit": 10, "config_source": "live_measurement", "pg_status": "skipped_settings_only", "hot_config_measured": false, "sources": {"flags.graph_rag_enabled": "settings_instance", "limits.graph_rag_facts_limit": "settings_instance"}, "not_unified": []}` |
 | MEM07-REFERENCES | **pass** | every matrix question has archive-derived anchors | `{"without_reference": []}` |
 | MEM07-TRACE | **pass** | auto policy unified retrieve + Writer payload for every matrix question | `{"without_trace": []}` |
 | MEM07-METRICS | **pass** | exact + semantic/chrono metrics with explicit denominators for every matrix question | `{"missing_denominators": []}` |
 | MEM07-PARITY | **pass** | parity pairs computed from numbers (result stored separately) | `{"pairs": [{"pair": ["H1", "R3"], "result": "pass", "ordinary_no_worse": true, "reasons": [], "coverage.anchor": {"humor": 0.4, "plain": 0.4}, "coverage.period": {"humor": 1.0, "plain": 1.0}, "semantic.old_coverage": {"humor": 1.0, "plain": 1.0}, "chrono_period": {"humor": 0.8181818181818182, "plain": 0.8181818181818182}, "relevance": {"humor": 1.0, "plain": 1.0}, "fabricated": {"humor": 0.4, "plain": 0.4}}, {"pair": ["H2", "R4"], "result": "fail", "ordinary_no_worse": false, "reasons": ["plain_worse:coverage.anchor", "plain_worse:chrono_period", "plain_worse:relevance"], "coverage.anchor": {"` |
 | MEM07-CONTROLS | **pass** | N1/N2 historical negative has old rows and labels; X1 historical has old+new | `{"missing": [], "X1_pass": true, "detail": {"N1": {"old_rows": 11, "archive_marked": 0, "date_labeled": 3, "unlabeled_old": 0, "current_rows": 12, "pass": true, "reason": ""}, "N2": {"old_rows": 12, "archive_marked": 0, "date_labeled": 2, "unlabeled_old": 0, "current_rows": 6, "pass": true, "reason": ""}, "X1": {"old_present": true, "new_present": true, "old_labeled": true, "pass": true, "reasons": [], "mode": "fallback_event_completed"}}}` |
 | MEM07-NO-TEXT | **pass** | no message/fact text, resolved personal query or fixture secret in output | `{"forbidden_fields": [], "secret_hits": []}` |
-| MEM07-DIAGNOSTICS | **pass** | bounded log histogram + sha256; no unexpected errors/tracebacks | `{"records": 186, "lines": 186, "log_sha256": "3f5fd580ec9daaac9c98e0bcbadb8fefb7e947c0d19f2e8d8a8e1549a399fc64", "categories": {"embed_stub": 2, "other": 1, "readonly_write": 111, "rerank_stub": 72}, "exception_types": {"OperationalError": 111}, "unexpected_errors": 0, "unexpected_tracebacks": 0}` |
+| MEM07-DIAGNOSTICS | **pass** | bounded log histogram + sha256; no unexpected errors/tracebacks | `{"records": 186, "lines": 186, "log_sha256": "04e43a91429d503b28d575f669a61843d15b26511e4a68cd52d014c20d5db20a", "categories": {"embed_stub": 2, "other": 1, "readonly_write": 111, "rerank_stub": 72}, "exception_types": {"OperationalError": 111}, "unexpected_errors": 0, "unexpected_tracebacks": 0}` |
 | MEM07-PRIVACY | **pass** | no personal display-name value in output | `{"hit_count": 0}` |
 | MEM07-BUILDER-DIFF | **pass** | numeric Builder discrepancy table with sources and our values | `{"rows": 12}` |
 | MEM07-OLDEP-2023 | **pass** | explicit 2023 Old_Episode non-empty, spans and resolved source refs, only target year | `{"empty": false, "messages": 30, "spans": 2, "resolved_sources": 30, "years": {"2023": 30}}` |
 | MEM07-OLDEP-2024 | **pass** | explicit 2024 Old_Episode non-empty, spans and resolved source refs, only target year | `{"empty": false, "messages": 30, "spans": 2, "resolved_sources": 30, "years": {"2024": 30}}` |
-| MEM07-READONLY | **pass** | snapshot sha256 unchanged | `{"before": "6276d4b03c06fbf05770a86b62c1552352de591675958f03d0a13dcbbcee67fb", "after": "6276d4b03c06fbf05770a86b62c1552352de591675958f03d0a13dcbbcee67fb"}` |
+| MEM07-READONLY | **pass** | snapshot sha256 unchanged | `{"before": "fbd398c609585fff77fdbfa7367fc72f27899492ec648864aa577de45cd18d70", "after": "fbd398c609585fff77fdbfa7367fc72f27899492ec648864aa577de45cd18d70"}` |
 | MEM07-NO-NETWORK | **pass** | LLM/embed stubs raised; socket egress blocked | `{"network_blocked": true, "stub_embed_calls": 1, "stub_generate_calls": 36}` |
 
 ## Limitations
