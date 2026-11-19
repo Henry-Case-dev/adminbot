@@ -26,11 +26,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from services import direct_context_composer as _composer
+from services import direct_chat_service as dcs
 from services import mca_gates
 from services import mca_retrieval_context as rc
 from services.database import DatabaseService
 from services.direct_chat_service import (
     DirectChatService,
+    _episode_anchor_of_fact_row,
     _episode_anchor_of_ref,
 )
 from services.summary_aliases import AliasResolver
@@ -203,8 +205,9 @@ class TestOldEpisodeBlock:
 
 
 class _EpisodeResult:
-    def __init__(self, candidates):
+    def __init__(self, candidates, fact_rows=()):
         self.candidates = tuple(candidates)
+        self.fact_rows = tuple(fact_rows)
 
 
 class _EpisodeCandidate:
@@ -214,6 +217,151 @@ class _EpisodeCandidate:
         self.channel = channel
         self.preview = preview
         self.sent_at = 0
+
+
+class TestEpisodeFactRowAnchor:
+    """TIME-03 r4: ``fact:<id>`` → source message via the existing fact row."""
+
+    def test_fact_row_anchor_forms(self):
+        assert _episode_anchor_of_fact_row(
+            {"item_id": "msg:42"}) == (None, 42)
+        assert _episode_anchor_of_fact_row(
+            {"item_id": "tg:77"}) == (77, None)
+        assert _episode_anchor_of_fact_row(
+            {"tg_message_id": 9001}) == (9001, None)
+        assert _episode_anchor_of_fact_row(
+            {"item_id": "fact:5"}) == (None, None)
+        assert _episode_anchor_of_fact_row(None) == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_imported_source_row_becomes_msg_anchor(
+            self, db, legacy_episode_store, monkeypatch):
+        row_id = await _seed_message(
+            db, "работа и зарплата без tg-id", _ts(2026, 8, 1, 10))
+        await _seed_message(
+            db, "обсуждали зарплату и работу", _ts(2026, 8, 1, 10) + 120,
+            uid=222, author="U222")
+
+        graph = _EpisodeCandidate("fact:77", "graph_fact", "lexical", "")
+        graph.entity_id = "77"
+        fact_rows = [{"id": 77, "item_id": f"msg:{row_id}",
+                      "tg_message_id": None, "weight": 0.8, "importance": 8,
+                      "fact": "работа и зарплата без tg-id"}]
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult([graph], fact_rows=fact_rows)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, "что сейчас с работой и зарплатой?", [], {})
+        assert block
+        assert f"msg:{row_id}" in block, block
+        assert stats["spans"]
+
+    @pytest.mark.asyncio
+    async def test_fact_row_anchor_recovery_is_load_bearing(
+            self, db, legacy_episode_store, monkeypatch):
+        await _seed_message(db, "работа и зарплата в 2026",
+                            _ts(2026, 8, 1, 10), tg_id=9001)
+        graph = _EpisodeCandidate("fact:77", "graph_fact", "lexical", "")
+        graph.entity_id = "77"
+        fact_rows = [{"id": 77, "item_id": "fact:77", "tg_message_id": 9001,
+                      "weight": 0.9, "importance": 9,
+                      "fact": "работа и зарплата в 2026"}]
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult([graph], fact_rows=fact_rows)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        # Ablation: without the fact-row source-message conversion the
+        # lexical `fact:` candidate is discarded again.
+        monkeypatch.setattr(dcs, "_episode_anchor_of_fact_row",
+                            lambda _row: (None, None))
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, "что сейчас с работой и зарплатой?", [], {})
+        assert block == ""
+        assert stats["anchor_candidates"] == 0
+
+    @pytest.mark.asyncio
+    async def test_graph_fact_below_two_stems_is_not_anchored(
+            self, db, legacy_episode_store, monkeypatch):
+        await _seed_message(db, "работа и зарплата в 2026",
+                            _ts(2026, 8, 1, 10), tg_id=9001)
+        graph = _EpisodeCandidate("fact:77", "graph_fact", "lexical",
+                                  "работа")
+        graph.entity_id = "77"
+        fact_rows = [{"id": 77, "item_id": "tg:9001", "tg_message_id": 9001,
+                      "weight": 0.9, "importance": 9, "fact": "работа"}]
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult([graph], fact_rows=fact_rows)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, "работа и зарплата", [], {})
+        assert block == ""
+        assert stats["anchor_candidates"] == 0
+
+
+class TestR4MultiAnchor:
+    """TIME-03 r4: a second similar 2022 episode and multi-year anchors."""
+
+    @pytest.mark.asyncio
+    async def test_second_similar_2022_anchor_is_delivered(
+            self, db, legacy_episode_store):
+        for index, (text, day) in enumerate((
+                ("та самая история с синей кружкой на кухне", 4),
+                ("синей кружкой разбили чашку", 4),
+                ("потом все смеялись над кружкой", 4),
+                ("ещё одна история про синюю кружку", 18),
+                ("синяя кружка треснула у раковины", 18),
+                ("кружку склеили и оставили", 18))):
+            await _seed_message(
+                db, text, _ts(2022, 3, day, 11) + (index % 3) * 120,
+                tg_id=7300 + int(day) + index)
+        for index, text in enumerate((
+                "похожий случай с посудой на кухне",
+                "красная посуда разбилась")):
+            await _seed_message(
+                db, text, _ts(2025, 8, 9, 12) + index * 120,
+                uid=222, author="Аня", tg_id=7400 + index)
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, 'та самая история с "синей кружкой"', [], {})
+        assert block
+        years_2022 = [span for span in stats["spans"]
+                      if time.gmtime(span["first_ts"]).tm_year == 2022]
+        assert len(years_2022) == 2, stats["spans"]
+        assert "синяя кружка треснула" in block, block
+
+    @pytest.mark.asyncio
+    async def test_multi_year_anchors_are_all_resolvable(
+            self, db, legacy_episode_store, monkeypatch):
+        seed = {}
+        for year, tg in ((2022, 7501), (2023, 7502), (2024, 7503)):
+            await _seed_message(
+                db, f"Артём и переезд в {year}", _ts(year, 6, 1),
+                tg_id=tg)
+            seed[year] = tg
+        candidates = [
+            _EpisodeCandidate(f"tg:{seed[year]}", "message", "lexical",
+                              f"Артём и переезд в {year}")
+            for year in (2022, 2023, 2024)
+        ]
+
+        async def fake(_db, _memory, request):
+            return _EpisodeResult(candidates)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, "что ты знаешь про Артёма за всё время?", [], {})
+        assert block
+        # All three source anchors resolve; the frozen 2-episode cap still
+        # fences rendering, so reachability is proven in the anchor pool.
+        assert stats["anchor_candidates"] == 3, stats
+        assert stats["anchor_ranked"] == 3, stats
+        assert stats["count"] == 2, stats
+        assert len({time.gmtime(span["first_ts"]).tm_year
+                    for span in stats["spans"]}) == 2, stats["spans"]
 
 
 class TestEpisodeVectorMessageLeg:
@@ -239,14 +387,19 @@ class TestEpisodeVectorMessageLeg:
         pytest.param("что сейчас с работой и зарплатой?",
                      id="S4_current_state"),
     ))
-    async def test_vector_message_anchor_restores_current_span(
+    async def test_lexical_graph_fact_anchor_restores_current_span(
             self, db, legacy_episode_store, monkeypatch, query):
         await self._seed(db)
         calls = []
         lexical = _EpisodeCandidate("tg:8001", "message", "lexical",
                                     "работа и зарплата в 2025")
-        vector = _EpisodeCandidate("tg:9001", "graph_fact", "vector",
-                                   "работа и зарплата в 2026")
+        # A real graph-fact candidate: its own ref is `fact:<id>`, not a
+        # message ref. The source anchor comes from the existing fact row.
+        graph = _EpisodeCandidate("fact:77", "graph_fact", "lexical", "")
+        graph.entity_id = "77"
+        fact_rows = [{"id": 77, "item_id": "fact:77", "tg_message_id": 9001,
+                      "weight": 0.9, "importance": 9,
+                      "fact": "работа и зарплата в 2026"}]
         vector_calls = []
         original = rc.retrieve
 
@@ -254,18 +407,18 @@ class TestEpisodeVectorMessageLeg:
             calls.append(request)
             if tuple(request.channels) == ("vector",):
                 vector_calls.append(request)
-                return _EpisodeResult([vector])
-            return _EpisodeResult([lexical])
+                return _EpisodeResult([], fact_rows=fact_rows)
+            return _EpisodeResult([lexical, graph], fact_rows=fact_rows)
 
         monkeypatch.setattr(rc, "retrieve", fake)
         svc = _service(db)
         block, stats = await svc._build_old_episodes(
             CHAT_ID, query, [], {})
         assert block
-        assert stats["vector_message_candidates"] == 1
-        assert stats["vector_message_used"] == 1
+        assert stats["anchor_candidates"] >= 2
         assert time.gmtime(stats["spans"][0]["first_ts"]).tm_year == 2026, \
             stats["spans"]
+        assert "tg:9001" in block, block
         assert 2026 in stats["years"], stats["years"]
         main = [r for r in calls if tuple(r.channels) != ("vector",)]
         assert main and tuple(main[0].channels) == ("exact", "lexical")
@@ -274,6 +427,55 @@ class TestEpisodeVectorMessageLeg:
         assert vector_calls and vector_calls[0].no_age_bias is True
         assert vector_calls[0].time_from is None
         assert vector_calls[0].time_to is None
+
+    @pytest.mark.asyncio
+    async def test_main_anchor_wins_over_same_vector_anchor(
+            self, db, legacy_episode_store, monkeypatch):
+        await self._seed(db)
+        graph = _EpisodeCandidate("fact:77", "graph_fact", "lexical", "")
+        graph.entity_id = "77"
+        vector = _EpisodeCandidate("fact:77", "graph_fact", "vector", "")
+        vector.entity_id = "77"
+        fact_rows = [{"id": 77, "item_id": "fact:77", "tg_message_id": 9001,
+                      "weight": 0.9, "importance": 9,
+                      "fact": "работа и зарплата в 2026"}]
+
+        async def fake(_db, _memory, request):
+            if tuple(request.channels) == ("vector",):
+                return _EpisodeResult([vector], fact_rows=fact_rows)
+            return _EpisodeResult([graph], fact_rows=fact_rows)
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, "что сейчас с работой и зарплатой?", [], {})
+        assert block
+        assert stats["vector_message_candidates"] == 1
+        assert not stats.get("vector_message_used"), (
+            "the same anchor already recovered by the main lexical result "
+            "must not be credited to the secondary vector leg")
+
+    @pytest.mark.asyncio
+    async def test_vector_leg_secondary_not_primary(
+            self, db, legacy_episode_store, monkeypatch):
+        await self._seed(db)
+        lexical = _EpisodeCandidate("tg:8001", "message", "lexical",
+                                    "работа и зарплата в 2025")
+        vector = _EpisodeCandidate("tg:9001", "graph_fact", "vector",
+                                   "работа и зарплата в 2026")
+        vector.entity_id = "77"
+
+        async def fake(_db, _memory, request):
+            if tuple(request.channels) == ("vector",):
+                return _EpisodeResult([vector])
+            return _EpisodeResult([lexical])
+
+        monkeypatch.setattr(rc, "retrieve", fake)
+        block, stats = await _service(db)._build_old_episodes(
+            CHAT_ID, "что сейчас с работой и зарплатой?", [], {})
+        assert block
+        assert time.gmtime(stats["spans"][0]["first_ts"]).tm_year == 2025
+        assert stats["vector_message_used"] == 1
+        assert 2026 in stats["years"]
 
     @pytest.mark.asyncio
     async def test_vector_anchor_requires_relevance_threshold(

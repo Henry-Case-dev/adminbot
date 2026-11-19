@@ -91,6 +91,7 @@ import random
 import re
 import threading
 import time
+import types
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -954,6 +955,29 @@ def _episode_anchor_of_ref(ref: str) -> tuple[int | None, int | None]:
         try:
             return None, int(text[4:])
         except ValueError:
+            return None, None
+    return None, None
+
+
+def _episode_anchor_of_fact_row(row) -> tuple[int | None, int | None]:
+    """Source message anchor of an existing `graph_facts` row.
+
+    TIME-03 r4: a ``fact:<id>`` candidate is not itself an episode anchor,
+    but the fact row already carries its source message provenance
+    (`tg_message_id`, and `item_id` in ``tg:``/``msg:`` form). Convert it with
+    the same canonical ID policy as message candidates; never invent a link.
+    """
+    if not isinstance(row, dict):
+        return None, None
+    item = str(row.get("item_id") or "").strip()
+    hit_tg, hit_row = _episode_anchor_of_ref(item)
+    if hit_tg is not None or hit_row is not None:
+        return hit_tg, hit_row
+    tg_id = _rag_row_get(row, "tg_message_id")
+    if tg_id not in (None, "", 0):
+        try:
+            return int(tg_id), None
+        except (TypeError, ValueError):
             return None, None
     return None, None
 
@@ -11139,14 +11163,40 @@ class DirectChatService:
             logger.warning("direct: episode retrieval failed — skip | chat=%s",
                            chat_id, exc_info=True)
             return "", stats
-        # TIME-03 episode-r2: baseline default channels included `vector`, but
-        # the episode loop consumes only message candidates. Recover that
-        # bounded semantic leg as a separate vector call and convert graph-fact
-        # hits to their source message anchor. No calendar filter/quota and no
-        # age bonus: candidates are kept only if the existing lexical relevance
-        # threshold passes. This is the ablation seam: disabling this constant
-        # reproduces the channel-restriction regression.
+        # TIME-03 r4: recover message anchors from ALL existing fact channels,
+        # not only the vector leg. Baseline default `vector` graph facts were
+        # dropped; the same is true for lexical/period/base graph facts that
+        # already carry `tg_message_id`. Convert every resolvable fact hit to
+        # its source message anchor, keep the existing >=2-stem threshold, and
+        # rank anchors by evidence (shared stems, weight×importance), never by
+        # year or age. The vector leg is secondary, not the only recovery.
+        query_stems = _mca_rc.period_subject_stems(text)
+
+        def _fact_row_map(result_obj):
+            out = {}
+            for row in getattr(result_obj, "fact_rows", ()) or ():
+                if not isinstance(row, dict):
+                    continue
+                fid = row.get("id")
+                if fid is not None:
+                    out[str(fid)] = row
+                item = str(row.get("item_id") or "")
+                if item.startswith("fact:"):
+                    out[item.split(":", 1)[1]] = row
+            return out
+
+        def _cand_fact_key(cand) -> str:
+            key = str(getattr(cand, "entity_id", "") or "")
+            if key:
+                return key
+            cand_ref = str(getattr(cand, "id", "") or "")
+            if cand_ref.startswith("fact:"):
+                return cand_ref.split(":", 1)[1]
+            return ""
+
+        main_fact_rows = _fact_row_map(result)
         vector_candidates: list = []
+        vector_fact_rows = {}
         vector_reader = getattr(self.memory, "retrieve_fact_candidates", None)
         if (self._RAG_EPISODE_VECTOR_CHANNELS
                 and callable(vector_reader)
@@ -11158,16 +11208,23 @@ class DirectChatService:
                     top_k=max(1, int(self._RAG_EPISODE_VECTOR_TOP_K)))
                 vector_result = await _mca_rc.retrieve(
                     self.db, self.memory, vector_request)
-                query_stems = _mca_rc.period_subject_stems(text)
+                vector_fact_rows = _fact_row_map(vector_result)
                 for cand in vector_result.candidates:
                     if cand.entity_type not in ("graph_fact", "message"):
                         continue
-                    hit_tg, hit_row = _episode_anchor_of_ref(cand.id)
+                    fact_key = _cand_fact_key(cand)
+                    fact_row = vector_fact_rows.get(fact_key)
+                    hit_tg, hit_row = _episode_anchor_of_ref(
+                        getattr(cand, "id", ""))
+                    if hit_tg is None and hit_row is None:
+                        hit_tg, hit_row = _episode_anchor_of_fact_row(fact_row)
                     if hit_tg is None and hit_row is None:
                         continue
-                    preview = str(getattr(cand, "preview", "") or "")
-                    if query_stems and _mca_rc.period_subject_shared(
-                            query_stems, preview) \
+                    preview = str(getattr(cand, "preview", "") or "") or \
+                        str((fact_row or {}).get("fact") or "")
+                    if cand.entity_type == "graph_fact" and query_stems and \
+                            _mca_rc.period_subject_shared(
+                                query_stems, preview) \
                             < self._RAG_EPISODE_VECTOR_MIN_STEMS:
                         continue
                     vector_candidates.append(cand)
@@ -11176,9 +11233,109 @@ class DirectChatService:
                     "direct: episode vector leg failed — skip | chat=%s",
                     chat_id, exc_info=True)
         stats["vector_message_candidates"] = len(vector_candidates)
-        vector_ids = {id(cand) for cand in vector_candidates}
-        candidate_order = list(vector_candidates) + [
-            cand for cand in result.candidates if id(cand) not in vector_ids]
+
+        anchors: dict = {}
+
+        def _add_anchor(cand, *, priority: int, fact_row=None,
+                        graph_fact: bool = False,
+                        vector_origin: bool = False):
+            hit_tg, hit_row = _episode_anchor_of_ref(
+                getattr(cand, "id", ""))
+            preview = str(getattr(cand, "preview", "") or "")
+            row_text = ""
+            if fact_row:
+                row_text = str(fact_row.get("fact") or "")
+                if not preview:
+                    preview = row_text
+                if hit_tg is None and hit_row is None:
+                    hit_tg, hit_row = _episode_anchor_of_fact_row(fact_row)
+            if hit_tg is None and hit_row is None:
+                return
+            shared = _mca_rc.period_subject_shared(query_stems, preview)
+            if row_text and row_text != preview:
+                shared = max(shared, _mca_rc.period_subject_shared(
+                    query_stems, row_text))
+            if graph_fact and query_stems and \
+                    shared < self._RAG_EPISODE_VECTOR_MIN_STEMS:
+                return
+            evidence = 0.0
+            if fact_row:
+                try:
+                    evidence = (float(fact_row.get("weight") or 0.0)
+                                * float(fact_row.get("importance") or 0.0))
+                except (TypeError, ValueError):
+                    evidence = 0.0
+            # A graph-fact candidate (`fact:<id>`) is replaced by its source
+            # message anchor; the downstream span loop understands only
+            # `tg:`/`msg:` and must receive the resolved canonical ref.
+            resolved = (f"tg:{hit_tg}" if hit_tg is not None
+                        else f"msg:{hit_row}")
+            if str(getattr(cand, "id", "")) != resolved or vector_origin:
+                cand = types.SimpleNamespace(
+                    id=resolved,
+                    entity_type=getattr(cand, "entity_type", "graph_fact"),
+                    channel=getattr(cand, "channel", ""),
+                    preview=preview,
+                    score=getattr(cand, "score", 0.0) or 0.0,
+                    vector_origin=bool(vector_origin))
+            key = (hit_tg, hit_row)
+            current = anchors.get(key)
+            entry = (int(shared or 0), evidence, int(priority), cand)
+            if current is None:
+                anchors[key] = entry
+            elif entry[0] > current[0]:
+                anchors[key] = entry
+            elif entry[0] == current[0] and entry[1] > current[1]:
+                anchors[key] = entry
+            elif (entry[0] == current[0] and entry[1] == current[1]
+                  and entry[2] < current[2]):
+                # Lower priority number = primary channel (message before
+                # lexical/base graph, vector last); the vector leg must not
+                # take credit for an anchor already recovered by the main
+                # lexical/base result.
+                anchors[key] = entry
+
+        for cand in result.candidates:
+            if cand.entity_type == "message":
+                _add_anchor(cand, priority=0)
+            elif cand.entity_type == "graph_fact":
+                _add_anchor(
+                    cand, priority=1,
+                    fact_row=main_fact_rows.get(_cand_fact_key(cand)),
+                    graph_fact=True)
+        base_rows = []
+        if (getattr(self, "_rag_last_rows_key", None)
+                == (int(chat_id), text)):
+            base_rows = list(getattr(self, "_rag_last_rows", None) or ())
+        for row in base_rows:
+            if not isinstance(row, dict):
+                continue
+            ref = str(row.get("item_id") or "")
+            if not (ref.startswith("tg:") or ref.startswith("msg:")):
+                tg = _rag_row_get(row, "tg_message_id")
+                ref = f"tg:{int(tg)}" if tg not in (None, "") else ""
+            if not ref:
+                continue
+            fact_text = str(row.get("fact") or "")
+            shared = _mca_rc.period_subject_shared(query_stems, fact_text)
+            if query_stems and shared < self._RAG_EPISODE_VECTOR_MIN_STEMS:
+                continue
+            cand = types.SimpleNamespace(
+                id=ref, entity_type="graph_fact", channel="base",
+                preview=fact_text, score=0.0)
+            _add_anchor(cand, priority=1, fact_row=row, graph_fact=True)
+        for cand in vector_candidates:
+            _add_anchor(
+                cand, priority=2,
+                fact_row=vector_fact_rows.get(_cand_fact_key(cand)),
+                graph_fact=(cand.entity_type == "graph_fact"),
+                vector_origin=True)
+        ranked = sorted(anchors.values(),
+                        key=lambda item: (-item[0], -item[1], item[2]))
+        cap = max(1, int(self._RAG_EPISODE_ANCHOR_CAP))
+        candidate_order = [item[3] for item in ranked[:cap]]
+        stats["anchor_candidates"] = len(anchors)
+        stats["anchor_ranked"] = len(candidate_order)
         tail_tg = {_tg_id_of_row(row) for row in tail_rows}
         tail_tg.discard(None)
         tail_rows_ids = {_row_id_of_row(row) for row in tail_rows}
@@ -11202,9 +11359,6 @@ class DirectChatService:
         for cand in candidate_order:
             if stats["count"] >= max_count:
                 break
-            if cand.entity_type != "message" and id(cand) not in vector_ids:
-                skipped["not_message"] += 1
-                continue
             # VMQ-MEM (дефект 2): `msg:<row>` — полноценная ссылка на строку
             # корпуса; выбрасывать её за отсутствие tg-формы нельзя.
             hit_tg, hit_row = _episode_anchor_of_ref(cand.id)
@@ -11281,7 +11435,7 @@ class DirectChatService:
                     used_rows.add(row_id)
             episode_lines.extend(lines)
             stats["count"] += 1
-            if id(cand) in vector_ids:
+            if getattr(cand, "vector_origin", False):
                 stats["vector_message_used"] = int(
                     stats.get("vector_message_used") or 0) + 1
             stats["messages"] += len(lines)
@@ -14757,6 +14911,8 @@ class DirectChatService:
     _RAG_EPISODE_VECTOR_CHANNELS = ("vector",)
     _RAG_EPISODE_VECTOR_TOP_K = 8
     _RAG_EPISODE_VECTOR_MIN_STEMS = 2
+    #: Evidence-ranked anchor cap for `<Old_Episode>` (existing 8-slot cap).
+    _RAG_EPISODE_ANCHOR_CAP = 8
     #: Порог «тот же предмет, не то же слово» (§2): лексическая строка входит,
     #: только если вопрос и текст делят ≥2 разных основы (длина основы ≥4).
     #: При пороге 1 остаётся шум одного слова (на архиве: айтишники, покупк,
@@ -14807,6 +14963,10 @@ class DirectChatService:
           `limit // _RAG_PERIOD_SLOT_DIV` строк, не выбор года. Обход пула:
           сначала строки векторной ноги, затем лексические."""
         self._rag_period_stats = {}
+        # Base/current rows belong to THIS turn; an early None/operative exit
+        # must not leave a previous turn's rows for the episode leg.
+        self._rag_last_rows = []
+        self._rag_last_rows_key = None
         try:
             memory = getattr(self, "memory", None)
             db = getattr(self, "db", None)
@@ -14845,6 +15005,12 @@ class DirectChatService:
             if policy == "operative":
                 return self._rag_rows_from_result(base, limit)
             rows = self._rag_rows_from_result(base, limit)
+            # TIME-03 r4: the base rows of THIS turn are the bounded current
+            # fact leg for `<Old_Episode>`; remember them before any early
+            # return so current 2026 source anchors stay reachable.
+            self._rag_last_rows = list(rows or ())
+            self._rag_last_rows_key = (int(chat_id),
+                                       str(query or "").strip())
             if policy == "historical":
                 # `historical` — L1 явно разрешил исторический охват.
                 pass
@@ -14919,7 +15085,11 @@ class DirectChatService:
                     trial = await self._rag_append_profile_rows(
                         db, rows, chat_id, str(query or ""), subject_name,
                         subject_uid, limit, allow_replace=False)
-                    return trial if len(trial) >= len(rows) else rows
+                    result_rows = trial if len(trial) >= len(rows) else rows
+                    self._rag_last_rows = list(result_rows or ())
+                    self._rag_last_rows_key = (int(chat_id),
+                                               str(query or "").strip())
+                    return result_rows
                 return rows
             # Слоты под добор — только ресурсный предел числа строк; состав
             # основного среза не меняется, пока добор фактически не добавил
@@ -14970,6 +15140,8 @@ class DirectChatService:
             accepted, selection = _mca_rc.select_period_rows(
                 extra_rows, query=str(query or ""), intent=period_intent,
                 policy=policy, slots=period_slots, review=review)
+            accepted = self._rag_evidence_rank(
+                list(accepted or ()), str(query or ""))
             selection = dict(selection or {})
             rejected = int(selection.get("dropped_subject") or 0)
             # Базовый срез режется только настолько, насколько добавленные
@@ -15040,6 +15212,9 @@ class DirectChatService:
                     db, trial, chat_id, str(query or ""), subject_name,
                     subject_uid, limit,
                     allow_replace=bool(replace_allowed))
+            self._rag_last_rows = list(trial or ())
+            self._rag_last_rows_key = (int(chat_id),
+                                       str(query or "").strip())
             return trial
         except Exception:
             logger.warning(
@@ -15102,6 +15277,36 @@ class DirectChatService:
             rows.append(cls._rag_meta_from_record(row, fact_id, position,
                                                   limit))
         return rows
+
+    @classmethod
+    def _rag_evidence_rank(cls, rows: list, query: str) -> list:
+        """Rank existing fact rows by evidence, never by calendar year.
+
+        TIME-03 r4: shared stems first, then weight×importance (the existing
+        `graph_facts` evidence fields), then the original retrieval order.
+        No year, age, quota or old-fact share participates. Used for the
+        period append so reachable 2022/2024/2026 facts are not displaced by
+        arbitrary row order.
+        """
+        stems = _mca_rc.period_subject_stems(query)
+        indexed = list(enumerate(rows or ()))
+        def _key(item):
+            index, row = item
+            shared = row.get("stems_shared")
+            if shared is None:
+                shared = _mca_rc.period_subject_shared(
+                    stems, row.get("fact") or "")
+            try:
+                weight = float(row.get("weight") or 0.0)
+            except (TypeError, ValueError):
+                weight = 0.0
+            try:
+                importance = float(row.get("importance") or 0.0)
+            except (TypeError, ValueError):
+                importance = 0.0
+            return (-int(shared or 0), -(weight * importance), index)
+        indexed.sort(key=_key)
+        return [row for _index, row in indexed]
 
     @classmethod
     def _rag_period_subject_filter(cls, query: str, extra_rows: list,
@@ -15305,6 +15510,9 @@ class DirectChatService:
             "forward_from": _rag_row_get(row, "forward_from") or "",
             "item_id": resolve_item_id(tg_message_id=tg_id, fact_id=fact_id),
             "score": float(max(1, int(limit)) - position),
+            "weight": _rag_row_get(row, "weight"),
+            "importance": _rag_row_get(row, "importance"),
+            "stems_shared": row.get("stems_shared"),
             "expired": expired,
             "expires_at": expires_at,
             "chat_id": _rag_row_get(row, "chat_id"),
@@ -15397,6 +15605,8 @@ class DirectChatService:
         # этому ходу — сбрасываем до чтения, чтобы повторный сбор блока на
         # том же экземпляре не унаследовал счётчики прошлого вопроса.
         self._rag_period_stats = {}
+        self._rag_last_rows = []
+        self._rag_last_rows_key = None
         # VMQ-M2: результат того же вызова (с overview) — для ЕДИНОГО bundle.
         self._rag_overview_result = None
         # Пул периодной ноги этого вызова: без периода он пуст (окно
@@ -15436,6 +15646,9 @@ class DirectChatService:
         # VMQ-MEM next stage (§4): счётчики периодного добора того же хода —
         # только числа/коды (`_rag_unified_rows` их владелец; двойники их не
         # ставят → пустая телеметрия, рендер не меняется).
+        self._rag_last_rows = list(rows or ())
+        self._rag_last_rows_key = (int(chat_id),
+                                       str(query or "").strip())
         period_stats = getattr(self, "_rag_period_stats", None) or {}
         facts, ranks = _rag_rows_with_ranks(rows)
         # VMQ-MEM-TIME (§6): актуальность/V по тем же строкам — источник

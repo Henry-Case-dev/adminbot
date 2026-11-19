@@ -59,11 +59,12 @@ def _ts(year: int, month: int = 6, day: int = 1) -> int:
 
 
 def _row(fid, text, *, year=None, source="lexical", ts=None,
-         status="confirmed", expires_at=None):
+         status="confirmed", expires_at=None, weight=0.6, importance=5):
     row = {"id": fid, "fact": text, "origin": "history_import",
            "status": status, "expires_at": expires_at,
            "created_at": _ts(year) if year else ts,
            "message_timestamp": _ts(year) if year else ts,
+           "weight": weight, "importance": importance,
            "tg_message_id": 800 + fid, "chat_id": CHAT,
            "item_id": f"fact:{fid}"}
     if source:
@@ -629,6 +630,119 @@ class TestNaturalBreadth:
         assert len(calls) == 1 and calls[0]["period_fill"] is False
 
 
+
+
+class TestR4EvidenceRank:
+    """TIME-03 r4: evidence-ranked base/period and lexical graph_fact anchors."""
+
+    def test_evidence_rank_never_uses_year(self, monkeypatch):
+        service = _service(monkeypatch, [], [])
+        rows = [
+            _row(1, "шизы и конф слабый", year=2026, weight=0.1,
+                 importance=1),
+            _row(2, "шизы и конф сильный", year=2022, weight=0.9,
+                 importance=9),
+            _row(3, "шизы и конф сильный", year=2024, weight=0.9,
+                 importance=9),
+        ]
+        ranked = service._rag_evidence_rank(rows, A1P_PLAIN)
+        assert [row["id"] for row in ranked] == [2, 3, 1], ranked
+        # Equal evidence keeps the retrieval order whatever the years are;
+        # the function has no calendar input at all.
+        reversed_ranked = service._rag_evidence_rank(
+            list(reversed(rows)), A1P_PLAIN)
+        assert [row["id"] for row in reversed_ranked] == [3, 2, 1]
+
+    @pytest.mark.asyncio
+    async def test_period_append_prefers_evidence_not_order(self, monkeypatch):
+        pool = [
+            _row(1, "шизы и конф слабый", year=2023, weight=0.1,
+                 importance=1),
+            _row(2, "шизы и конф сильный", year=2022, weight=0.9,
+                 importance=9),
+            _row(3, "шизы и конф средний", year=2024, weight=0.5,
+                 importance=5),
+        ]
+        service = _service(monkeypatch, _current_rows(10), pool)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act="research")
+        added = {row["id"] for row in rows if row.get("period_fill")}
+        assert added == {2, 3}, added
+
+    @pytest.mark.asyncio
+    async def test_base_row_fact_becomes_current_episode_anchor(
+            self, db, monkeypatch):
+        for tg, ts, uid, text in (
+                (9001, _ts(2026), 111, "работа и зарплата в 2026"),
+                (9002, _ts(2026) + 120, 222, "обсуждали работу и зарплату"),
+                (8001, _ts(2025), 111, "старая работа и зарплата")):
+            await db.save_smart_message(uid, CHAT, text, None, ts, "text",
+                                        f"U{uid}", message_id=tg)
+        base_row = _row(77, "работа и зарплата в 2026", year=2026,
+                        weight=0.9, importance=9)
+        base_row["tg_message_id"] = 9001
+        base_row["item_id"] = "tg:9001"
+        service = _service(monkeypatch, [base_row], [], db=db)
+        from services.summary_aliases import AliasResolver
+        service.aliases = AliasResolver("{}")
+        rows = await service._rag_unified_rows(
+            CHAT, "что сейчас с работой и зарплатой?", _stub(
+                text="что сейчас с работой и зарплатой?"),
+            memory_scope="auto", plan_act="answer")
+        assert any(row["id"] == 77 for row in rows)
+        block, stats = await service._build_old_episodes(
+            CHAT, "что сейчас с работой и зарплатой?", [], {})
+        assert block
+        assert stats["anchor_candidates"] >= 1
+        assert mrc.year_time_bounds(2026)[0] <= stats["spans"][0]["first_ts"] \
+            <= mrc.year_time_bounds(2026)[1]
+
+    @pytest.mark.asyncio
+    async def test_second_similar_2022_anchor_is_ranked(self, db, monkeypatch):
+        for tg, ts, text in (
+                (9001, _ts(2022), "ссорились и ругались первый раз"),
+                (9002, _ts(2022) + 120, "потом помирились"),
+                (9101, _ts(2022, 7), "ссорились и ругались второй раз"),
+                (9102, _ts(2022, 7) + 120, "снова помирились"),
+                (8001, _ts(2024), "ссорились и ругались позже")):
+            await db.save_smart_message(111, CHAT, text, None, ts, "text",
+                                        "U111", message_id=tg)
+        candidates = [
+            types.SimpleNamespace(id="tg:9001", entity_type="message",
+                                  channel="lexical",
+                                  preview="ссорились и ругались первый раз",
+                                  score=0.0),
+            types.SimpleNamespace(id="tg:9101", entity_type="message",
+                                  channel="lexical",
+                                  preview="ссорились и ругались второй раз",
+                                  score=0.0),
+            types.SimpleNamespace(id="tg:8001", entity_type="message",
+                                  channel="lexical",
+                                  preview="ссорились и ругались позже",
+                                  score=0.0),
+        ]
+
+        class _Result:
+            fact_rows = ()
+            def __init__(self):
+                self.candidates = tuple(candidates)
+
+        async def fake(_db, _memory, request):
+            return _Result()
+
+        monkeypatch.setattr(mrc, "retrieve", fake)
+        service = _service(monkeypatch, [], [], db=db)
+        from services.summary_aliases import AliasResolver
+        service.aliases = AliasResolver("{}")
+        service._rag_last_rows = []
+        block, stats = await service._build_old_episodes(
+            CHAT, "та самая история где ссорились и ругались", [], {})
+        assert block
+        assert stats["anchor_candidates"] >= 2
+        years = [mrc.period_row_year({"message_timestamp": s["first_ts"]})
+                 for s in stats["spans"][:2]]
+        assert years == [2022, 2022], years
 
 
 class TestOperativeParity:
