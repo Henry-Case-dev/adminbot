@@ -173,6 +173,18 @@ async def build_fixture(db_path: str, *, chat_id: int = CHAT,
         "INSERT INTO edges (id, chat_id, source_id, target_id, relation_type, "
         "weight, fact_id) VALUES (1, ?, 1, 2, 'related_to', 3, 5000)",
         (chat_id,))
+    # explicit-year episode rows for the Old_Episode 2023/2024 probes
+    for topic_key, topic, story, stamp in (
+            ("episode_2023", "конфликт на конфе 2023",
+             "конфликт на конфе 2023 ссорились ругались", ts(2023, 5, 20, 10, 5)),
+            ("episode_2024", "собака 2024",
+             "собака история 2024", ts(2024, 6, 10, 10, 5))):
+        await conn.execute(
+            "INSERT INTO lore_stories (chat_id, topic_key, topic, story, "
+            "last_ts, created_at, updated_at, origin, status, "
+            "excluded_from_retrieval) VALUES (?, ?, ?, ?, ?, ?, ?, "
+            "'lore_compiler', NULL, 0)",
+            (chat_id, topic_key, topic, story, stamp, stamp, stamp))
     await conn.commit()
     await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     await conn.commit()

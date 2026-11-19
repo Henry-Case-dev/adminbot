@@ -23,6 +23,7 @@ import asyncio
 import datetime as _dt
 import hashlib
 import json
+import logging
 import os
 import re
 import socket
@@ -59,6 +60,78 @@ E1_TOPICS = (
     ("витаминам", ("витамин",)),
     ("вайпу сервера", ("вайп", "сервер")),
     ("концертам", ("концерт", "билет")),
+)
+
+BUILDER_ROWS = (
+    {"question": "H1", "builder_class": "A1_creative_owner",
+     "builder_source": "formulation-class-matrix 2.58.203; A2/G2 2.58.217",
+     "builder_years": {"base": {"2024": 1, "2026": 8},
+                       "historical": {"2023": 1, "2024": 1, "2026": 8}},
+     "builder_coverage": {"base": "2/5", "historical": "3/5"},
+     "builder_relevance": {"base": "1/9", "historical": "not_recorded"},
+     "delta_note": "our auto/plan values are recorded; compare only after the fresh reissue"},
+    {"question": "H2", "builder_class": "no_direct_humor_topic",
+     "builder_source": "design mapping; no direct Builder row",
+     "builder_years": None, "builder_coverage": None,
+     "builder_relevance": None, "delta_note": "no direct Builder equivalent"},
+    {"question": "R1", "builder_class": "B_retell_different_question",
+     "builder_source": "formulation-class-matrix 2.58.203",
+     "builder_years": {"base": {"2026": 10}},
+     "builder_coverage": {"base": "1/5"},
+     "builder_relevance": {"base": "not_recorded"},
+     "delta_note": "Builder B was all-years; ours is explicit 2024"},
+    {"question": "R2", "builder_class": "no_direct_yearless_topic",
+     "builder_source": "design mapping; no direct Builder row",
+     "builder_years": None, "builder_coverage": None,
+     "builder_relevance": None, "delta_note": "no direct Builder equivalent"},
+    {"question": "R3", "builder_class": "A1P_plain_twin",
+     "builder_source": "formulation-class-matrix 2.58.203; A2/G2 2.58.217",
+     "builder_years": {"base": {"2026": 10},
+                       "historical": {"2023": 1, "2024": 1, "2026": 8}},
+     "builder_coverage": {"base": "1/5", "historical": "3/5"},
+     "builder_relevance": {"base": "2/10", "historical": "not_recorded"},
+     "delta_note": "same topic family as Builder A1P; wording/reference differ"},
+    {"question": "R4", "builder_class": "no_direct_ordinary_twin",
+     "builder_source": "design mapping; no direct Builder row",
+     "builder_years": None, "builder_coverage": None,
+     "builder_relevance": None, "delta_note": "ordinary twin of H2"},
+    {"question": "P1", "builder_class": "C_person_profile",
+     "builder_source": "formulation-class-matrix 2.58.203; A2/G2 2.58.217",
+     "builder_years": {"base": {"2026": 10},
+                       "historical": {"2023": 1, "2024": 1, "2026": 8}},
+     "builder_coverage": {"base": "1/5", "historical": "3/5"},
+     "builder_relevance": {"base": "0/10", "historical": "not_recorded"},
+     "delta_note": "different runtime participant; same profile class"},
+    {"question": "P2", "builder_class": "C_person_profile",
+     "builder_source": "A2/G2 2.58.217 (P1/P3 historical; P2 2024/2025)",
+     "builder_years": {"historical_p1_p3": {"2023": 1, "2024": 1, "2026": 8},
+                       "historical_p2": {"2024": 1, "2025": 1, "2026": 8}},
+     "builder_coverage": {"historical_p1_p3": "3/5", "historical_p2": "3/5"},
+     "builder_relevance": {"historical": "not_recorded"},
+     "delta_note": "different runtime participant"},
+    {"question": "C1", "builder_class": "D_conflict_2023",
+     "builder_source": "formulation-class-matrix 2.58.203; A2/G2 2.58.217",
+     "builder_years": {"base": {"2025": 1, "2026": 8},
+                       "historical": {"2023": 1, "2026": 8}},
+     "builder_coverage": {"base": "0/1", "historical": "1/1"},
+     "builder_relevance": {"base": "0/9", "historical": "not_recorded"},
+     "delta_note": "ours is yearless conference conflict; Builder D was explicit 2023"},
+    {"question": "C2", "builder_class": "no_direct_conflict_2024",
+     "builder_source": "design mapping; no direct Builder row",
+     "builder_years": None, "builder_coverage": None,
+     "builder_relevance": None, "delta_note": "explicit 2024 conflict; no direct Builder row"},
+    {"question": "E1", "builder_class": "E_relations_years",
+     "builder_source": "formulation-class-matrix 2.58.203",
+     "builder_years": {"base": {"2026": 10}},
+     "builder_coverage": {"base": "1/5"},
+     "builder_relevance": {"base": "5/10"},
+     "delta_note": "topic-specific attitude question; Builder E was generic"},
+    {"question": "E2", "builder_class": "E_relations_years",
+     "builder_source": "formulation-class-matrix 2.58.203",
+     "builder_years": {"base": {"2026": 10}},
+     "builder_coverage": {"base": "1/5"},
+     "builder_relevance": {"base": "5/10"},
+     "delta_note": "friendship/quarrel wording; Builder E was generic"},
 )
 
 SPECS = (
@@ -113,7 +186,7 @@ SPECS = (
 )
 
 POLICIES = ("auto", "auto_plan")
-POLICY_HISTORICAL_FOR = ("H1", "R3", "P1")
+POLICY_HISTORICAL_FOR = ("H1", "R3", "P1", "N1", "N2", "X1")
 
 
 def sha256_text(value) -> str:
@@ -706,6 +779,32 @@ class ReferenceBuilder:
                 "derived_no_tg": not bool(tg)}
 
 
+async def collect_private_names(db, chat_id: int) -> list:
+    names = set()
+    try:
+        cur = await db.db.execute(
+            "SELECT author_name FROM smart_messages WHERE chat_id=? "
+            "AND COALESCE(author_name,'')<>'' GROUP BY author_name "
+            "ORDER BY COUNT(*) DESC LIMIT 500", (chat_id,))
+        for row in await cur.fetchall():
+            name = str(row["author_name"] or "").strip()
+            if len(name) >= 3:
+                names.add(name)
+    except Exception:
+        pass
+    try:
+        cur = await db.db.execute(
+            "SELECT entity_name FROM nodes WHERE chat_id=? "
+            "AND entity_type='user' LIMIT 500", (chat_id,))
+        for row in await cur.fetchall():
+            name = str(row["entity_name"] or "").strip()
+            if len(name) >= 3:
+                names.add(name)
+    except Exception:
+        pass
+    return sorted(names)
+
+
 async def select_participants(db, chat_id: int, seed: str) -> dict:
     cur = await db.db.execute(
         "SELECT user_id, author_name, COUNT(*) AS n, "
@@ -759,49 +858,19 @@ async def select_e1(builder: ReferenceBuilder, seed: str) -> dict:
 
 
 async def select_counterexample(builder: ReferenceBuilder) -> dict:
-    try:
-        rows = await builder._rows(
-            "SELECT id, fact, COALESCE(message_timestamp, created_at) AS ts "
-            "FROM graph_facts WHERE chat_id=? AND status='confirmed' "
-            "AND kind='fact' AND (fact LIKE '%уже не%' OR fact LIKE '%больше не%' "
-            "OR fact LIKE '%перестал%' OR fact LIKE '%сейчас%' "
-            "OR fact LIKE '%передумал%' OR fact LIKE '%изменил%') "
-            "ORDER BY id DESC LIMIT 80", (builder.chat_id,))
-    except Exception:
-        rows = []
-    stop = {"который", "которая", "которые", "чтобы", "потому", "теперь",
-            "сейчас", "просто", "вообще", "очень", "можно", "нужно", "будет",
-            "было", "были", "есть", "этого", "этому", "такой", "такая"}
-    for row in rows:
-        text = str(row.get("fact") or "")
-        tokens = [t for t in re.findall(r"[А-Яа-яЁёA-Za-z]{5,}", text)
-                  if t.lower() not in stop]
-        if not tokens:
-            continue
-        topic = tokens[0]
-        old = await builder._rows(
-            "SELECT id, COALESCE(message_timestamp, created_at) AS ts "
-            "FROM graph_facts WHERE chat_id=? AND status='confirmed' "
-            "AND kind='fact' AND id<>? AND fact LIKE ? AND "
-            "COALESCE(message_timestamp, created_at) < ? "
-            "ORDER BY id LIMIT 20",
-            (builder.chat_id, int(row["id"]), "%" + topic[:5] + "%",
-             int(row["ts"]) - 180 * 86400))
-        if not old:
-            continue
-        return {"mode": "runtime_changed_position", "topic": topic,
-                "old_id": int(old[0]["id"]), "new_id": int(row["id"]),
-                "years": [year_of(old[0]["ts"]), year_of(row["ts"])]}
-    fallback_years = []
+    """Use only the fixed neutral topic; never extract names from fact text."""
     support = await builder.support_years(("вайп", "сервер"), "or")
+    years = []
     for y in sorted(int(k) for k in support):
-        if y < builder.current_year and (support[str(y)].get("facts", 0) >= 1
-                                         or support[str(y)].get("messages", 0) >= 3):
-            fallback_years.append(y)
-    if fallback_years:
+        if y < builder.current_year and (
+                support[str(y)].get("facts", 0) >= 1
+                or support[str(y)].get("messages", 0) >= 3):
+            years.append(y)
+    if years:
         return {"mode": "fallback_event_completed", "topic": "вайп сервера",
-                "years": [fallback_years[0], builder.current_year]}
+                "years": [years[0], builder.current_year]}
     return {}
+
 
 class StubLLM:
     def __init__(self):
@@ -825,12 +894,95 @@ class StubAliases:
         return str(name or "").strip()
 
 
+class ConfigGateError(RuntimeError):
+    def __init__(self, values):
+        super().__init__("graph_rag_disabled")
+        self.values = values
+
+
 class CacheStub:
+    def __init__(self, values=None):
+        self.values = dict(values or {})
+
     def get(self, key, default=None):
-        return default
+        return self.values.get(key, default)
 
     def get_all(self):
-        return {}
+        return dict(self.values)
+
+
+class DiagnosticsHandler(logging.Handler):
+    """Bounded, text-free log histogram and hash.
+
+    It never writes raw log text; it counts records, levels, exception classes
+    and expected product categories (read-only writes, embedding/LLM stubs).
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.records = 0
+        self.lines = 0
+        self.levels = {}
+        self.categories = {}
+        self.exception_types = {}
+        self.unexpected_errors = 0
+        self.unexpected_tracebacks = 0
+        self._sha = hashlib.sha256()
+        self.expected = ("readonly_write", "embed_stub", "llm_stub",
+                         "rerank_stub")
+
+    def emit(self, record):
+        try:
+            msg = record.getMessage()
+        except Exception:
+            msg = ""
+        self.records += 1
+        self.lines += 1 + str(msg).count("\n")
+        self.levels[record.levelname] = self.levels.get(record.levelname, 0) + 1
+        self._sha.update((record.levelname + "|" + str(msg) + "\n").encode(
+            "utf-8", "replace"))
+        low = str(msg).lower()
+        exc_text = ""
+        if record.exc_info:
+            try:
+                exc_text = str(record.exc_info[1]).lower()
+            except Exception:
+                exc_text = ""
+        if ("readonly" in low or "read-only" in low
+                or "readonly" in exc_text or "read-only" in exc_text):
+            cat = "readonly_write"
+        elif "embed" in low and ("fail" in low or "error" in low):
+            cat = "embed_stub"
+        elif "llm" in low and ("fail" in low or "unavailable" in low
+                               or "error" in low):
+            cat = "llm_stub"
+        elif "rerank" in low and ("fail" in low or "error" in low):
+            cat = "rerank_stub"
+        elif record.levelname in ("ERROR", "CRITICAL"):
+            cat = "error_other"
+        else:
+            cat = "other"
+        self.categories[cat] = self.categories.get(cat, 0) + 1
+        if record.exc_info:
+            etype = type(record.exc_info[1]).__name__
+            self.exception_types[etype] = self.exception_types.get(etype, 0) + 1
+            if cat not in self.expected:
+                self.unexpected_tracebacks += 1
+        if record.levelname in ("ERROR", "CRITICAL") and cat == "error_other":
+            self.unexpected_errors += 1
+
+    def snapshot(self):
+        return {
+            "log_sha256": self._sha.hexdigest(),
+            "records": self.records,
+            "lines": self.lines,
+            "levels": dict(sorted(self.levels.items())),
+            "categories": dict(sorted(self.categories.items())),
+            "exception_types": dict(sorted(self.exception_types.items())),
+            "expected_categories": list(self.expected),
+            "unexpected_errors": self.unexpected_errors,
+            "unexpected_tracebacks": self.unexpected_tracebacks,
+        }
 
 
 def parse_ref(ref: str):
@@ -927,13 +1079,13 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
     scope = "historical" if policy == "historical" else "auto"
     plan_act = "historical_recall" if policy == "auto_plan" else ""
     stub = SimpleNamespace(text=query, chat_id=chat_id, message_id=0)
-    rows = []
+    rows_result = None
     try:
-        rows = await asyncio.wait_for(svc._rag_unified_rows(
+        rows_result = await asyncio.wait_for(svc._rag_unified_rows(
             chat_id, query, stub, memory_scope=scope, plan_act=plan_act), 300)
     except Exception as exc:
         entry["errors"].append("rows:%s" % type(exc).__name__)
-    rows = list(rows or ())
+    rows = list(rows_result or ())
     period = dict(getattr(svc, "_rag_period_stats", None) or {})
     trace = {}
     rag_block = ""
@@ -982,7 +1134,9 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
         ref = str(row.get("item_id") or "")
         if not REF_RE.fullmatch(ref) and fact_id is not None:
             ref = "fact:%d" % fact_id
-        refs = [ref] if REF_RE.fullmatch(ref) else []
+        refs = ["fact:%d" % fact_id] if fact_id is not None else []
+        if REF_RE.fullmatch(ref) and ref not in refs:
+            refs.append(ref)
         tg = as_int(row.get("tg_message_id"))
         if tg:
             refs.append("tg:%d" % tg)
@@ -1040,6 +1194,9 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
                               "date": bool(re.search(r"20\d\d", line))})
     entry.update({
         "rows": len(rows),
+        "retrieval_path": ("unified" if rows_result is not None
+                           else "legacy_or_error"),
+        "period_present": bool(period.get("policy")),
         "row_years": hist([_item_year(r) for r in rows if isinstance(r, dict)]),
         "items": len(items),
         "years": hist([i["year"] for i in items]),
@@ -1080,6 +1237,49 @@ async def probe_question(svc, db, chat_id: int, spec: dict, query: str,
         "_payload": payload_text,
     })
     return entry
+
+async def probe_old_episode(svc, db, chat_id: int, query: str, tail,
+                            key: str) -> dict:
+    entry = {"key": key, "query_sha256": sha256_text(query)}
+    try:
+        block, stats = await asyncio.wait_for(
+            svc._build_old_episodes(chat_id, query, tail, {}, None, None), 300)
+    except Exception as exc:
+        entry.update({"empty": True, "error": type(exc).__name__,
+                      "messages": 0, "spans": 0, "source_ids": 0,
+                      "resolved_sources": 0, "years": {}})
+        return entry
+    stats = dict(stats or {})
+    sources = []
+    spans = []
+    for span in stats.get("spans") or ():
+        src = [str(x) for x in (span.get("source_ids") or ())]
+        sources.extend(src)
+        spans.append({
+            "sources": len(src),
+            "first_ts": int(span.get("first_ts") or 0),
+            "last_ts": int(span.get("last_ts") or 0),
+        })
+    resolved = 0
+    for ref in sorted(set(sources)):
+        row = await resolve_message_ref(db, chat_id, ref)
+        if row is not None:
+            resolved += 1
+    entry.update({
+        "empty": not bool(block),
+        "block_chars": len(block or ""),
+        "period_intent": stats.get("period_intent"),
+        "year_window": stats.get("year_window"),
+        "messages": int(stats.get("messages") or 0),
+        "hits": int(stats.get("hits") or 0),
+        "spans": len(spans),
+        "span_detail": spans,
+        "source_ids": len(set(sources)),
+        "resolved_sources": resolved,
+        "years": dict(stats.get("years") or {}),
+    })
+    return entry
+
 
 def _predicate_match(spec: dict, item: dict, ref: dict, participants: dict) -> bool:
     pred = spec.get("predicate") or ()
@@ -1142,13 +1342,34 @@ async def compute_metrics(entry: dict, ref: dict, spec: dict,
     judged = len(items)
     no_text = 0
     relevant = 0
+    semantic_items = []
+    resolved_items = []
     for item in items:
         if not str(item.get("text") or "").strip():
             no_text += 1
             continue
         resolved = await _item_is_resolved(db, chat_id, item, resolution)
+        if resolved:
+            resolved_items.append(item)
         if resolved and _predicate_match(spec, item, ref, participants):
             relevant += 1
+            semantic_items.append(item)
+    mode = str(spec.get("mode") or "")
+    if mode in ("year", "conflict"):
+        target_years = list(expected)
+        semantic_old_years = list(expected)
+    elif spec.get("control") == "current":
+        target_years = [current_year]
+        semantic_old_years = []
+    else:
+        semantic_old_years = [y for y in expected if int(y) < current_year]
+        target_years = semantic_old_years or list(expected)
+    semantic_years = {i.get("year") for i in semantic_items
+                      if i.get("year") is not None}
+    semantic_num = len(set(expected) & semantic_years)
+    semantic_old_num = len(set(semantic_old_years) & semantic_years)
+    chrono_period_num = sum(
+        1 for i in resolved_items if i.get("year") in target_years)
     claims = list(entry.get("payload_refs") or ())
     unres = 0
     weak = 0
@@ -1173,6 +1394,20 @@ async def compute_metrics(entry: dict, ref: dict, spec: dict,
         "chrono": {"num": year_ok, "den": len(matched_items),
                    "value": (year_ok / len(matched_items)) if matched_items else None,
                    "applicable": bool(matched_items)},
+        "semantic": {
+            "coverage": {"num": semantic_num, "den": len(expected),
+                         "value": (semantic_num / len(expected)) if expected else None,
+                         "applicable": bool(expected)},
+            "old_coverage": {"num": semantic_old_num, "den": len(semantic_old_years),
+                             "value": (semantic_old_num / len(semantic_old_years))
+                             if semantic_old_years else None,
+                             "applicable": bool(semantic_old_years)},
+        },
+        "chrono_period": {"num": chrono_period_num, "den": len(resolved_items),
+                          "value": (chrono_period_num / len(resolved_items))
+                          if resolved_items else None,
+                          "applicable": bool(resolved_items),
+                          "target_years": target_years},
         "relevance": {"num": relevant, "den": judged,
                       "value": (relevant / judged) if judged else None,
                       "applicable": bool(judged), "no_text": no_text},
@@ -1208,14 +1443,21 @@ async def compute_metrics(entry: dict, ref: dict, spec: dict,
             "old_rows": len(old_items), "archive_marked": archive,
             "date_labeled": dated, "unlabeled_old": unlabeled,
             "current_rows": sum(1 for i in items if i.get("year") == current_year),
-            "pass": unlabeled == 0,
+            "pass": (unlabeled == 0 and bool(old_items)),
             "reason": "no_old_rows" if not old_items else "",
         }
     if spec.get("control") == "counterexample":
+        ce = entry.get("counterexample") or {}
         old_anchor = next((a for a in anchors
-                           if a.get("id") == (entry.get("counterexample") or {}).get("old_id")), None)
+                           if a.get("id") == ce.get("old_id")), None)
+        if old_anchor is None:
+            old_anchor = next((a for a in anchors
+                               if a.get("year") and a["year"] < current_year), None)
         new_anchor = next((a for a in anchors
-                           if a.get("id") == (entry.get("counterexample") or {}).get("new_id")), None)
+                           if a.get("id") == ce.get("new_id")), None)
+        if new_anchor is None:
+            new_anchor = next((a for a in anchors
+                               if a.get("year") == current_year), None)
         old_present = bool(old_anchor and any(
             set(old_anchor.get("refs") or ()) & set(i.get("refs") or ()) for i in items))
         new_present = bool(new_anchor and any(
@@ -1227,10 +1469,18 @@ async def compute_metrics(entry: dict, ref: dict, spec: dict,
                      if refs & set(ln.get("refs") or ())]
             old_labeled = bool(lines) and all(
                 ln.get("archive") or ln.get("date") for ln in lines)
+        reasons = []
+        if not old_present:
+            reasons.append("old_not_delivered")
+        if not new_present:
+            reasons.append("new_not_delivered")
+        if old_present and not old_labeled:
+            reasons.append("old_not_labeled")
         out["counterexample"] = {
             "old_present": old_present, "new_present": new_present,
             "old_labeled": old_labeled,
-            "pass": (not old_present or old_labeled),
+            "pass": old_present and new_present and old_labeled,
+            "reasons": reasons,
             "mode": (entry.get("counterexample") or {}).get("mode"),
         }
     return out
@@ -1252,6 +1502,37 @@ def _pool(rows, key: str) -> dict:
             "applicable": bool(den)}
 
 
+def builder_comparison(questions: list) -> list:
+    by_id = {q["id"]: q for q in questions}
+    out = []
+    for row in BUILDER_ROWS:
+        q = by_id.get(row["question"]) or {}
+        auto = ((q.get("policies") or {}).get("auto") or {})
+        plan = ((q.get("policies") or {}).get("auto_plan") or {})
+        am = auto.get("metrics") or {}
+        pm = plan.get("metrics") or {}
+        out.append({
+            "question": row["question"],
+            "builder_class": row["builder_class"],
+            "builder_source": row["builder_source"],
+            "builder_years": row["builder_years"],
+            "builder_coverage": row["builder_coverage"],
+            "builder_relevance": row["builder_relevance"],
+            "delta_note": row["delta_note"],
+            "ours": {
+                "auto_years": auto.get("years") or {},
+                "plan_years": plan.get("years") or {},
+                "auto_coverage_anchor": _metric_part(am, "coverage.anchor"),
+                "auto_coverage_period": _metric_part(am, "coverage.period"),
+                "auto_semantic_old": _metric_part(am, "semantic.old_coverage"),
+                "auto_chrono_period": _metric_part(am, "chrono_period"),
+                "auto_relevance": _metric_part(am, "relevance"),
+                "auto_fabricated": _metric_part(am, "fabricated"),
+            },
+        })
+    return out
+
+
 def class_metrics(questions: list) -> dict:
     matrix = [q for q in questions if q.get("class") in MATRIX_CLASSES]
     out = {}
@@ -1261,7 +1542,10 @@ def class_metrics(questions: list) -> dict:
             "questions": [q["id"] for q in rows],
             "coverage_anchor": _pool(rows, "coverage.anchor"),
             "coverage_period": _pool(rows, "coverage.period"),
+            "semantic_coverage": _pool(rows, "semantic.coverage"),
+            "semantic_old_coverage": _pool(rows, "semantic.old_coverage"),
             "chrono": _pool(rows, "chrono"),
+            "chrono_period": _pool(rows, "chrono_period"),
             "relevance": _pool(rows, "relevance"),
             "fabricated": _pool(rows, "fabricated"),
         }
@@ -1291,7 +1575,8 @@ def compute_parity(questions: list) -> list:
             continue
         checks = (
             ("coverage.anchor", ">="), ("coverage.period", ">="),
-            ("chrono", ">="), ("relevance", ">="), ("fabricated", "<="),
+            ("semantic.old_coverage", ">="), ("chrono_period", ">="),
+            ("relevance", ">="), ("fabricated", "<="),
         )
         ok = True
         applicable = 0
@@ -1320,7 +1605,8 @@ def compute_parity(questions: list) -> list:
 
 
 def build_assertions(payload: dict, questions: list, parity: list,
-                     controls: dict, fixture: bool = False) -> list:
+                     controls: dict, fixture: bool = False,
+                     private_names=()) -> list:
     out = []
 
     def add(aid, expected, actual, status):
@@ -1349,14 +1635,30 @@ def build_assertions(payload: dict, questions: list, parity: list,
     add("MEM07-QUESTIONS", "12 matrix questions, >=2 per class, exact owner query, 3 controls",
         {"matrix": len(matrix), "per_class": per_class, "owner_query": owner_ok,
          "controls": sorted(controls)}, "pass" if q_ok else "fail")
+    cfg = payload.get("configuration") or {}
+    unified_bad = [q["id"] for q in matrix
+                   if (((q.get("policies") or {}).get("auto") or {})
+                       .get("retrieval_path") != "unified"
+                       or not ((q.get("policies") or {}).get("auto") or {})
+                       .get("period_present"))]
+    add("MEM07-CONFIG",
+        "settings instance true, facts_limit>0, unified retrieval path for every matrix question",
+        {"graph_rag_enabled": cfg.get("graph_rag_enabled"),
+         "graph_rag_facts_limit": cfg.get("graph_rag_facts_limit"),
+         "config_source": cfg.get("config_source"),
+         "not_unified": unified_bad},
+        "pass" if (cfg.get("graph_rag_enabled") is True
+                   and int(cfg.get("graph_rag_facts_limit") or 0) > 0
+                   and not unified_bad) else "fail")
     ref_bad = [q["id"] for q in matrix
                if (q.get("reference") or {}).get("not_executed")]
     add("MEM07-REFERENCES", "every matrix question has archive-derived anchors",
         {"without_reference": ref_bad}, "pass" if not ref_bad else "not_executed")
     trace_bad = [q["id"] for q in matrix
                  if (q.get("policies") or {}).get("auto", {}).get("errors")
-                 or not (q.get("policies") or {}).get("auto", {}).get("writer", {}).get("payload_chars")]
-    add("MEM07-TRACE", "auto policy product retrieve + Writer payload for every matrix question",
+                 or not (q.get("policies") or {}).get("auto", {}).get("writer", {}).get("payload_chars")
+                 or (q.get("policies") or {}).get("auto", {}).get("retrieval_path") != "unified"]
+    add("MEM07-TRACE", "auto policy unified retrieve + Writer payload for every matrix question",
         {"without_trace": trace_bad}, "pass" if not trace_bad else "fail")
     metric_bad = []
     for q in matrix:
@@ -1368,21 +1670,32 @@ def build_assertions(payload: dict, questions: list, parity: list,
                     metric_bad.append("%s:%s" % (q["id"], key))
             elif not part.get("den") and part.get("applicable", True):
                 metric_bad.append("%s:%s" % (q["id"], key))
-    add("MEM07-METRICS", "four metrics with explicit denominators for every matrix question",
+        for key in ("semantic.old_coverage", "chrono_period"):
+            part = _metric_part(metrics, key)
+            if not part.get("den") and part.get("applicable", True):
+                metric_bad.append("%s:%s" % (q["id"], key))
+    add("MEM07-METRICS", "exact + semantic/chrono metrics with explicit denominators for every matrix question",
         {"missing_denominators": metric_bad}, "pass" if not metric_bad else "fail")
     add("MEM07-PARITY", "parity pairs computed from numbers (result stored separately)",
         {"pairs": parity}, "pass")
     control_bad = []
+    control_detail = {}
     for qid in ("N1", "N2"):
-        neg = ((controls.get(qid) or {}).get("metrics") or {}).get("negative") or {}
-        if "pass" not in neg:
+        q = controls.get(qid) or {}
+        neg = (((q.get("policies") or {}).get("historical") or {}).get("metrics")
+               or {}).get("negative") or {}
+        control_detail[qid] = neg
+        if not neg.get("pass"):
             control_bad.append(qid)
     x = controls.get("X1") or {}
-    x_status = (x.get("metrics") or {}).get("counterexample", {}).get("pass")
-    add("MEM07-CONTROLS", "N1/N2 negative computed, X1 executed or explicitly not_executed",
-        {"missing": control_bad, "X1_pass": x_status,
-         "X1_reference": (x.get("reference") or {}).get("not_executed")},
-        "pass" if not control_bad and x_status is not None else "not_executed")
+    xm = (((x.get("policies") or {}).get("historical") or {}).get("metrics")
+          or {}).get("counterexample") or {}
+    control_detail["X1"] = xm
+    x_status = xm.get("pass")
+    add("MEM07-CONTROLS",
+        "N1/N2 historical negative has old rows and labels; X1 historical has old+new",
+        {"missing": control_bad, "X1_pass": x_status, "detail": control_detail},
+        "pass" if not control_bad and x_status else "fail")
     forbidden = []
     def walk(obj, path=""):
         if isinstance(obj, dict):
@@ -1400,6 +1713,42 @@ def build_assertions(payload: dict, questions: list, parity: list,
     add("MEM07-NO-TEXT", "no message/fact text, resolved personal query or fixture secret in output",
         {"forbidden_fields": forbidden[:20], "secret_hits": secrets},
         "pass" if not forbidden and not secrets else "fail")
+    diag = payload.get("diagnostics") or {}
+    diag_ok = (len(str(diag.get("log_sha256") or "")) == 64
+               and not diag.get("unexpected_errors")
+               and not diag.get("unexpected_tracebacks"))
+    add("MEM07-DIAGNOSTICS",
+        "bounded log histogram + sha256; no unexpected errors/tracebacks",
+        {"records": diag.get("records"), "lines": diag.get("lines"),
+         "log_sha256": diag.get("log_sha256"),
+         "categories": diag.get("categories"),
+         "exception_types": diag.get("exception_types"),
+         "unexpected_errors": diag.get("unexpected_errors"),
+         "unexpected_tracebacks": diag.get("unexpected_tracebacks")},
+        "pass" if diag_ok else "fail")
+    serialized_low = serialized.casefold()
+    privacy_hits = [n for n in private_names if str(n).casefold() in serialized_low]
+    add("MEM07-PRIVACY", "no personal display-name value in output",
+        {"hit_count": len(privacy_hits)}, "pass" if not privacy_hits else "fail")
+    builder_rows = payload.get("builder_comparison") or []
+    builder_ok = (len(builder_rows) >= 12
+                  and all(r.get("builder_source") for r in builder_rows)
+                  and all("ours" in r for r in builder_rows))
+    add("MEM07-BUILDER-DIFF", "numeric Builder discrepancy table with sources and our values",
+        {"rows": len(builder_rows)}, "pass" if builder_ok else "fail")
+    old_ep = payload.get("old_episode") or {}
+    for key in ("2023", "2024"):
+        row = old_ep.get(key) or {}
+        years = row.get("years") or {}
+        ok = (not row.get("empty") and int(row.get("messages") or 0) > 0
+              and int(row.get("spans") or 0) > 0
+              and int(row.get("resolved_sources") or 0) > 0
+              and all(str(y) == key for y in years))
+        add("MEM07-OLDEP-%s" % key,
+            "explicit %s Old_Episode non-empty, spans and resolved source refs, only target year" % key,
+            {"empty": row.get("empty"), "messages": row.get("messages"),
+             "spans": row.get("spans"), "resolved_sources": row.get("resolved_sources"),
+             "years": years}, "pass" if ok else "fail")
     add("MEM07-READONLY", "snapshot sha256 unchanged", {"before": snap.get("sha256"),
         "after": payload.get("snapshot_sha256_after")}, "pass" if ro_ok else "fail")
     add("MEM07-NO-NETWORK", "LLM/embed stubs raised; socket egress blocked",
@@ -1444,10 +1793,46 @@ async def run(args, meta: dict) -> dict:
     from services.direct_chat_service import DirectChatService
     from services.summary_memory import MemoryManager
 
-    hot.set_config_cache(CacheStub())
+    from config.settings import settings as _settings
+    settings_vals = {
+        "graph_rag_enabled": bool(getattr(_settings, "GRAPH_RAG_ENABLED", False)),
+        "graph_rag_facts_limit": int(getattr(_settings, "GRAPH_RAG_FACTS_LIMIT", 0) or 0),
+    }
+    effective = {}
+    if getattr(args, "effective_config", ""):
+        with open(args.effective_config, encoding="utf-8") as fh:
+            raw = json.load(fh)
+        effective = {
+            "graph_rag_enabled": bool(raw.get("graph_rag_enabled")),
+            "graph_rag_facts_limit": int(raw.get("graph_rag_facts_limit") or 0),
+        }
+    cfg = effective or settings_vals
+    config_source = "effective_config_file" if effective else "settings_instance"
+    hot.set_config_cache(CacheStub({
+        "flags.graph_rag_enabled": cfg["graph_rag_enabled"],
+        "limits.graph_rag_facts_limit": cfg["graph_rag_facts_limit"],
+    }))
+    effective_enabled = bool(hot.get("flags.graph_rag_enabled", False))
+    effective_limit = int(hot.get("limits.graph_rag_facts_limit", 0) or 0)
+    config_values = {
+        "graph_rag_enabled": effective_enabled,
+        "graph_rag_facts_limit": effective_limit,
+        "config_source": config_source,
+        "settings_instance": settings_vals,
+        "effective_override": effective,
+        "hot_cache": "explicit_two_key_cache",
+    }
+    if not effective_enabled or effective_limit <= 0:
+        raise ConfigGateError(config_values)
     db = DatabaseService(args.db)
     await db.initialize_readonly()
+    private_names = await collect_private_names(db, args.chat_id)
     stub_llm = StubLLM()
+    diagnostics = DiagnosticsHandler()
+    root_logger = logging.getLogger()
+    previous_level = root_logger.level
+    root_logger.addHandler(diagnostics)
+    root_logger.setLevel(min(previous_level, logging.WARNING) if previous_level else logging.WARNING)
     vec = {"vec_ok": False, "vec_dim": None,
            "sqlite_vec_off_reason": None, "sqlite_vec_loaded": False,
            "vec_error": None}
@@ -1533,6 +1918,8 @@ async def run(args, meta: dict) -> dict:
                 entry["reference_key"] = spec["ref"]
                 entry["expected_years"] = ref.get("expected_years") or []
                 entry["reference"] = compact_ref(ref)
+                if spec.get("control") == "counterexample":
+                    entry["counterexample"] = ce
                 entry["metrics"] = await compute_metrics(
                     entry, ref, spec, participants, current_year, db,
                     args.chat_id)
@@ -1540,6 +1927,12 @@ async def run(args, meta: dict) -> dict:
             question["metrics"] = (question["policies"].get("auto") or {}).get(
                 "metrics") or {}
             questions.append(question)
+        old_episode = {}
+        for key, query in (
+                ("2023", "что происходило в чате в 2023 году?"),
+                ("2024", "что происходило в чате в 2024 году?")):
+            old_episode[key] = await probe_old_episode(
+                svc, db, args.chat_id, query, tail, key)
         controls = {q["id"]: q for q in questions
                     if q.get("class") in ("N", "X")}
         matrix = [q for q in questions if q.get("class") in MATRIX_CLASSES]
@@ -1577,11 +1970,17 @@ async def run(args, meta: dict) -> dict:
                 "auto_fabricated": auto.get("fabricated"),
                 "plan_fabricated": plan.get("fabricated"),
             })
+        def _control_metric(qid, key):
+            q = controls.get(qid) or {}
+            hist = ((q.get("policies") or {}).get("historical") or {}).get("metrics") or {}
+            auto = ((q.get("policies") or {}).get("auto") or {}).get("metrics") or {}
+            return hist.get(key) or auto.get(key)
+
         time08 = {
             "yearless": {k: time03.get(k) for k in time03},
-            "N1": ((controls.get("N1") or {}).get("metrics") or {}).get("negative"),
-            "N2": ((controls.get("N2") or {}).get("metrics") or {}).get("negative"),
-            "X1": ((controls.get("X1") or {}).get("metrics") or {}).get("counterexample"),
+            "N1": _control_metric("N1", "negative"),
+            "N2": _control_metric("N2", "negative"),
+            "X1": _control_metric("X1", "counterexample"),
             "X1_reference": (controls.get("X1") or {}).get("reference"),
         }
         gates = {"retrieval_context": None, "evidence_bundle": None,
@@ -1597,17 +1996,14 @@ async def run(args, meta: dict) -> dict:
                 gates[key] = bool(fn())
             except Exception:
                 gates[key] = None
-        from config import settings as _settings
-        configuration = {
-            "gates": gates,
-            "graph_rag_enabled": bool(getattr(_settings, "GRAPH_RAG_ENABLED", False)),
-            "graph_rag_facts_limit": int(getattr(_settings, "GRAPH_RAG_FACTS_LIMIT", 0) or 0),
-            "vector": vec,
-        }
+        configuration = dict(config_values)
+        configuration.update({"gates": gates, "vector": vec})
         return {
             "chat_id": args.chat_id, "seed": seed, "questions": questions,
             "classes": classes, "parity": parity, "time03": time03,
             "time07": time07, "time08": time08, "controls": controls,
+            "old_episode": old_episode,
+            "builder_comparison": builder_comparison(questions),
             "configuration": configuration,
             "participants": {k: {"uid_sha256": sha256_text(v[1]),
                                  "name_sha256": sha256_text(v[0])}
@@ -1618,8 +2014,15 @@ async def run(args, meta: dict) -> dict:
                              if ce else None,
             "stub_embed_calls": stub_llm.embed_calls,
             "stub_generate_calls": stub_llm.generate_calls,
+            "diagnostics": diagnostics.snapshot(),
+            "private_names": private_names,
         }
     finally:
+        try:
+            root_logger.removeHandler(diagnostics)
+            root_logger.setLevel(previous_level)
+        except Exception:
+            pass
         try:
             await db.close()
         except Exception:
@@ -1649,38 +2052,48 @@ def summary_md(payload: dict) -> str:
     lines.append("- Chat: %s; current_year: %s; years: %s" % (
         payload.get("chat_id"), archive.get("current_year"), archive.get("by_year")))
     env = payload.get("environment") or {}
+    cfg = payload.get("configuration") or {}
     lines.append("- Python: %s; sqlite: %s; sqlite-vec: %s; vector: %s" % (
         env.get("python"), env.get("sqlite"), env.get("sqlite_vec"),
-        (payload.get("configuration") or {}).get("vector")))
+        cfg.get("vector")))
+    lines.append("- GraphRAG effective: enabled=%s limit=%s source=%s" % (
+        cfg.get("graph_rag_enabled"), cfg.get("graph_rag_facts_limit"),
+        cfg.get("config_source")))
+    diag = payload.get("diagnostics") or {}
+    lines.append("- Diagnostics: records=%s lines=%s log_sha256=%s unexpected=%s/%s" % (
+        diag.get("records"), diag.get("lines"), diag.get("log_sha256"),
+        diag.get("unexpected_errors"), diag.get("unexpected_tracebacks")))
     lines.append("- Stubs: embed_calls=%s generate_calls=%s; socket_blocked=%s" % (
         env.get("stub_embed_calls"), env.get("stub_generate_calls"),
         env.get("network_blocked")))
     lines.append("")
     lines.append("## Questions (auto policy)")
     lines.append("")
-    lines.append("| ID | class | template | expected years | delivered years | coverage anchor | coverage period | chrono | relevance | fabricated |")
-    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    lines.append("| ID | class | template | expected years | delivered years | coverage anchor | coverage period | semantic old | chrono period | exact chrono | relevance | fabricated |")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for q in payload.get("questions") or ():
         auto = (q.get("policies") or {}).get("auto") or {}
         m = q.get("metrics") or {}
         cov = m.get("coverage") or {}
-        lines.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
+        lines.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
             q.get("id"), q.get("class"), q.get("query_template"),
             q.get("expected_years"), (auto.get("years") or {}),
             _pct(cov.get("anchor")), _pct(cov.get("period")),
-            _pct(m.get("chrono")), _pct(m.get("relevance")),
-            _pct(m.get("fabricated"))))
+            _pct((m.get("semantic") or {}).get("old_coverage")),
+            _pct(m.get("chrono_period")), _pct(m.get("chrono")),
+            _pct(m.get("relevance")), _pct(m.get("fabricated"))))
     lines.append("")
     lines.append("## Classes (pooled)")
     lines.append("")
-    lines.append("| class | questions | coverage anchor | coverage period | chrono | relevance | fabricated |")
-    lines.append("|---|---|---|---|---|---|---|")
+    lines.append("| class | questions | coverage anchor | coverage period | semantic old | chrono period | exact chrono | relevance | fabricated |")
+    lines.append("|---|---|---|---|---|---|---|---|---|")
     for name, cls in (payload.get("classes") or {}).items():
-        lines.append("| %s | %s | %s | %s | %s | %s | %s |" % (
+        lines.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
             name, ",".join(cls.get("questions") or ()),
             _pct(cls.get("coverage_anchor")), _pct(cls.get("coverage_period")),
-            _pct(cls.get("chrono")), _pct(cls.get("relevance")),
-            _pct(cls.get("fabricated"))))
+            _pct(cls.get("semantic_old_coverage")),
+            _pct(cls.get("chrono_period")), _pct(cls.get("chrono")),
+            _pct(cls.get("relevance")), _pct(cls.get("fabricated"))))
     lines.append("")
     lines.append("## Parity (MEM-04)")
     lines.append("")
@@ -1692,14 +2105,16 @@ def summary_md(payload: dict) -> str:
     lines.append("")
     controls = payload.get("controls") or {}
     for qid in ("N1", "N2"):
-        neg = ((controls.get(qid) or {}).get("metrics") or {}).get("negative") or {}
-        lines.append("- %s: pass=%s; old_rows=%s; unlabeled_old=%s; current_rows=%s" % (
+        neg = ((((controls.get(qid) or {}).get("policies") or {})
+                .get("historical") or {}).get("metrics") or {}).get("negative") or {}
+        lines.append("- %s historical: pass=%s; old_rows=%s; unlabeled_old=%s; current_rows=%s; reason=%s" % (
             qid, neg.get("pass"), neg.get("old_rows"), neg.get("unlabeled_old"),
-            neg.get("current_rows")))
-    x = ((controls.get("X1") or {}).get("metrics") or {}).get("counterexample") or {}
-    lines.append("- X1: pass=%s; mode=%s; old_present=%s; new_present=%s; old_labeled=%s" % (
+            neg.get("current_rows"), neg.get("reason")))
+    x = ((((controls.get("X1") or {}).get("policies") or {}).get("historical") or {})
+         .get("metrics") or {}).get("counterexample") or {}
+    lines.append("- X1 historical: pass=%s; mode=%s; old_present=%s; new_present=%s; old_labeled=%s; reasons=%s" % (
         x.get("pass"), x.get("mode"), x.get("old_present"), x.get("new_present"),
-        x.get("old_labeled")))
+        x.get("old_labeled"), x.get("reasons")))
     lines.append("")
     lines.append("## TIME-07 within-candidate A/B")
     lines.append("")
@@ -1710,6 +2125,28 @@ def summary_md(payload: dict) -> str:
             row.get("id"), row.get("auto_years"), row.get("plan_years"),
             _pct(row.get("auto_coverage_anchor")), _pct(row.get("plan_coverage_anchor")),
             _pct(row.get("auto_relevance")), _pct(row.get("plan_relevance"))))
+    lines.append("")
+    lines.append("## Old_Episode explicit probes")
+    lines.append("")
+    lines.append("| probe | empty | messages | spans | sources | resolved | years |")
+    lines.append("|---|---|---|---|---|---|---|")
+    for key, row in (payload.get("old_episode") or {}).items():
+        lines.append("| %s | %s | %s | %s | %s | %s | %s |" % (
+            key, row.get("empty"), row.get("messages"), row.get("spans"),
+            row.get("source_ids"), row.get("resolved_sources"), row.get("years")))
+    lines.append("")
+    lines.append("## Builder discrepancy table (context only, not proof)")
+    lines.append("")
+    lines.append("| Q | Builder class | Builder years | Builder coverage | Builder relevance | Our auto years | Our plan years | Our semantic old | Our relevance | Note |")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    for row in payload.get("builder_comparison") or ():
+        ours = row.get("ours") or {}
+        lines.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
+            row.get("question"), row.get("builder_class"), row.get("builder_years"),
+            row.get("builder_coverage"), row.get("builder_relevance"),
+            ours.get("auto_years"), ours.get("plan_years"),
+            _pct(ours.get("auto_semantic_old")), _pct(ours.get("auto_relevance")),
+            row.get("delta_note")))
     lines.append("")
     lines.append("## Assertions")
     lines.append("")
@@ -1855,6 +2292,9 @@ def main(argv=None) -> int:
                         help="do not install the socket egress guard")
     parser.add_argument("--builder-matrix", default="",
                         help="path to Builder matrix (context only; never proof)")
+    parser.add_argument("--effective-config", default="",
+                        help="optional JSON with production-effective "
+                             "graph_rag_enabled/graph_rag_facts_limit")
     args = parser.parse_args(argv)
     mode = "fixture" if args.fixture else "snapshot"
     code_root = args.code_root or os.getcwd()
@@ -1868,6 +2308,7 @@ def main(argv=None) -> int:
             "candidate": CANDIDATE, "chat_id": args.chat_id, "mode": mode,
             "db": args.db, "out": args.out, "code_root": code_root,
             "expected_schema": 48, "builder_matrix_context": args.builder_matrix,
+            "effective_config": args.effective_config,
         }, ensure_ascii=False, indent=1))
         return 0
     if args.fixture:
@@ -1910,6 +2351,20 @@ def main(argv=None) -> int:
             with NetworkBlock() as block:
                 result = asyncio.run(run(args, meta))
             network = {"enabled": True, "blocked_attempts": block.blocked}
+    except ConfigGateError as exc:
+        payload = base_payload(args, meta, code_root, head, clean, mode)
+        payload["configuration"] = exc.values
+        payload["technical_reason"] = "graph_rag_disabled"
+        payload["assertions"] = [{
+            "id": "MEM07-CONFIG", "expected": "graph_rag enabled and limit>0",
+            "actual": {k: exc.values.get(k) for k in (
+                "graph_rag_enabled", "graph_rag_facts_limit", "config_source")},
+            "status": "not_executed"}]
+        info = write_outputs(args.out, payload,
+                             "fixture" if mode == "fixture" else "mem07-independent")
+        print(json.dumps({"status": "not_executed", "reason": "graph_rag_disabled",
+                          "out": info["paths"]}, ensure_ascii=False))
+        return 2
     except Exception as exc:
         import traceback
         traceback.print_exc()
@@ -1926,6 +2381,7 @@ def main(argv=None) -> int:
         return 4
     after = sha256_file(args.db)
     payload = base_payload(args, meta, code_root, head, clean, mode)
+    private_names = result.pop("private_names", [])
     payload.update(result)
     payload["snapshot_sha256_after"] = after
     payload["environment"].update({
@@ -1937,7 +2393,8 @@ def main(argv=None) -> int:
     payload["configuration"] = result.get("configuration") or {}
     payload["assertions"] = build_assertions(
         payload, payload.get("questions") or [], payload.get("parity") or [],
-        payload.get("controls") or {}, fixture=(mode == "fixture"))
+        payload.get("controls") or {}, fixture=(mode == "fixture"),
+        private_names=private_names)
     statuses = [a.get("status") for a in payload.get("assertions") or ()]
     if after != meta.get("sha256"):
         rc = 3

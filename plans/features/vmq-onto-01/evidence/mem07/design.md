@@ -385,3 +385,80 @@ Exit codes: 0 - структурные assertions pass; 1 - fail; 2 - not_execut
 - Кросс-релизный baseline 2.58.179 не переснимается; TIME-07 - within-candidate A/B.
 - Все ids/годы/refs - из снимка; при несовпадении schema/quick_check прогон
   not_executed, а не "частично доказан".
+## 12. Stage C: reissue corrections (2026-11-19)
+
+Run-0 is invalid for acceptance: it leaked one personal display-name in the X1
+subject, its config section reported fallback values, its 100 traceback lines
+were deleted, and its exact-anchor metric was non-discriminatory. The following
+corrections are mandatory for the reissue.
+
+### 12.1 Effective configuration
+
+- Import the actual settings instance: `from config.settings import settings`.
+- Record and assert `graph_rag_enabled=true` and `graph_rag_facts_limit>0`.
+- Optional `--effective-config <json>` supplies the production-effective
+  `{"graph_rag_enabled": true, "graph_rag_facts_limit": 10}` if it differs from
+  the settings instance; record the source (`settings_instance` or
+  `effective_config_file`).
+- Fail closed with `not_executed: graph_rag_disabled` if the effective values are
+  false/zero. Never report fallback defaults as config.
+
+### 12.2 Unified path
+
+- Record `retrieval_path=unified` only when `_rag_unified_rows` returned non-None
+  and the period policy is present.
+- `MEM07-CONFIG` and `MEM07-TRACE` fail if the legacy fallback is used.
+
+### 12.3 Privacy
+
+- X1 uses only the fixed neutral fallback `вайп сервера`; no fact-text token is
+  extracted. This supersedes the runtime-pair wording in section 6.2.
+- `MEM07-PRIVACY` scans the output for known display names (top author names and
+  user entity names) and fails on any hit; names are never written to output.
+- E1 topics and participant query templates remain non-personal; participants are
+  `@P1`/`@P2` with hashes only.
+
+### 12.4 Diagnostics
+
+- A logging handler records a text-free histogram: records/lines, levels,
+  categories (readonly_write, embed_stub, llm_stub, rerank_stub, error_other,
+  other), exception types, unexpected errors/tracebacks, and a `log_sha256`.
+- `MEM07-DIAGNOSTICS` fails on any unexpected error/traceback or missing hash.
+- The raw log may be deleted by DevOps only after the histogram/hash is in the
+  artifact.
+
+### 12.5 Metrics
+
+- Keep exact-anchor coverage and exact chrono.
+- Add `semantic.coverage` (expected years with a resolved, predicate-matching
+  row / expected years), `semantic.old_coverage` (old expected years covered /
+  old expected years), and `chrono_period` (resolved rows in target years /
+  resolved rows). Target years are the explicit year, the current year for
+  controls, or the old expected years for yearless/change questions.
+- These metrics have explicit denominators and are pooled per class and used in
+  parity. Exact-anchor coverage remains; it is no longer the only coverage proof.
+
+### 12.6 Old_Episode and controls
+
+- Add explicit `Old_Episode_2023` and `Old_Episode_2024` probes (query with the
+  explicit year); record empty/messages/spans/source ids/resolved sources/years.
+- `MEM07-OLDEP-*` fails if empty, has no spans/resolved sources, or years leak
+  outside the target year.
+- N1/N2 historical policies must have `old_rows>0` and no unlabeled old row;
+  `no_old_rows` is a failure, not a trivial pass.
+- X1 historical must deliver both old and new facts and label the old one; absent
+  either is a failure, not a pass.
+
+### 12.7 Builder discrepancy table
+
+- The run JSON/summary contains a numeric `builder_comparison` table: Builder
+  class/source/years/coverage/relevance versus our auto/plan years, semantic old
+  coverage, relevance and fabricated values, with denominators.
+- Builder values are context only; `builder_artifacts_used_as_proof=false`.
+
+### 12.8 Reissue inputs
+
+- Run-0 snapshot `c1d45bda...` was deleted; the reissue uses a fresh snapshot of
+  the same product generation `0fce97a14`, records the new sha256 and states the
+  difference. It is not the same snapshot and must not be described as such.
+- Run-0 artifacts remain invalid for acceptance and are not used by the reissue.
