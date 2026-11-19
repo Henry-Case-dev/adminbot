@@ -12708,6 +12708,14 @@ class DatabaseService:
         набор, не граница истории). Старый SQLite без оконных функций →
         тот же контракт детерминированно в Python (bounded-чтение, без
         второго поиска).
+
+        TIME-03 natural memory (контракт 2026-11-20 §4.4): `scope='whole'` —
+        ОДИН bounded-запрос по человеку без годового partition и без
+        «половины непривязанной истории»: порядок `valid_now, weight, id`,
+        статусы `confirmed` + `archived_fact`. Год/период строки не решает,
+        попадёт ли она в профиль. Прямой путь ответа использует именно
+        `whole`; `operative`/`historical` сохраняются для прежних
+        потребителей (tool-router и др.).
         """
         target = str(target_user or "").strip()
         if not target:
@@ -12715,6 +12723,9 @@ class DatabaseService:
         scope_kind = str(scope or "").strip().lower()
         scope, exclude, sparams = await self._person_scope_clause(
             chat_id, target, user_id=user_id)
+        if scope_kind == "whole":
+            return await self._user_context_facts_whole(
+                int(chat_id), scope, exclude, sparams, int(limit), int(now_ts))
         if scope_kind == "historical":
             return await self._user_context_facts_multiperiod(
                 int(chat_id), scope, exclude, sparams, int(limit), int(now_ts))
@@ -12732,7 +12743,8 @@ class DatabaseService:
 
     async def get_subject_profile_facts(self, chat_id: int, target_user: str,
                                         limit: int, now_ts: int, *,
-                                        user_id: int | None = None) -> list:
+                                        user_id: int | None = None,
+                                        scope: str = "historical") -> list:
         """VMQ-MEM/TIME Slice B: субъектный материал НЕСКОЛЬКИХ периодов.
 
         Отличие от `get_user_context_facts(scope='historical')`: кроме фактов
@@ -12743,16 +12755,25 @@ class DatabaseService:
         (`subject_ref_id`/`speaker_author_id`) сохраняются, а строки другого
         автора не подмешиваются.
 
-        Одно bounded-чтение с годовой квотой `limit//5` (та же политика §5,
-        что у профиля): покрытие 2023/2024 не достигается повышением квоты
-        или снятием возрастного штрафа. `archived_fact` участвует (квота —
-        оперативный набор, не граница истории); expired/unconfirmed — нет.
-        Реальные источники (`message_timestamp`/`created_at`, `tg_message_id`)
-        остаются в строке. Read-only, без DDL и без второго поиска."""
+        `historical` (default) — одно bounded-чтение с годовой квотой
+        `limit//5` (та же политика §5, что у профиля): покрытие 2023/2024 не
+        достигается повышением квоты или снятием возрастного штрафа.
+        `archived_fact` участвует (квота — оперативный набор, не граница
+        истории); expired/unconfirmed — нет. Реальные источники
+        (`message_timestamp`/`created_at`, `tg_message_id`) остаются в строке.
+        Read-only, без DDL и без второго поиска.
+
+        TIME-03 natural memory (контракт 2026-11-20 §4.4): `scope='whole'` —
+        ОДИН bounded-запрос (subject + speaker) без `PARTITION BY год` и без
+        годовой квоты: порядок `valid_now, weight, время, id`, год строки не
+        выбирает. Прямой путь ответа использует `whole`; default `historical`
+        сохраняет прежних потребителей.
+        """
         target = str(target_user or "").strip()
         if not target:
             return []
         limit = max(1, int(limit))
+        scope_kind = str(scope or "").strip().lower()
         scope, exclude, sparams = await self._person_scope_clause(
             chat_id, target, user_id=user_id)
         ref_id = await self._subject_ref_id(chat_id, target, user_id=user_id)
@@ -12767,12 +12788,29 @@ class DatabaseService:
                      "AND (expires_at IS NULL OR expires_at > ?) "
                      "THEN 1 ELSE 0 END")
         columns = self._USER_CONTEXT_COLUMNS
-        per_year = max(1, limit // 5)
         base_where = (
             f"FROM graph_facts WHERE chat_id = ? AND (({scope}){speaker_sql}) "
             f"AND {exclude} "
             "AND ((status='confirmed' AND (expires_at IS NULL "
             "OR expires_at > ?)) OR status='archived_fact')")
+        if scope_kind == "whole":
+            cursor = await self.db.execute(
+                f"SELECT {columns}, {year_expr} AS yr, {valid_now} AS valid_now "
+                f"{base_where} "
+                "ORDER BY valid_now DESC, weight DESC, "
+                "COALESCE(NULLIF(message_timestamp,0), created_at) DESC, "
+                "id DESC LIMIT ?",
+                [int(now_ts), int(chat_id), *sparams, *params,
+                 int(now_ts), int(limit)])
+            rows = [dict(row) for row in await cursor.fetchall()]
+            for row in rows:
+                is_subject = (
+                    (ref_id is not None and row.get("subject_ref_id") == ref_id)
+                    or (row.get("subject_ref_id") is None
+                        and str(row.get("target_user") or "") == target))
+                row["subject_role"] = "subject" if is_subject else "speaker"
+            return rows
+        per_year = max(1, limit // 5)
         import sqlite3 as _sqlite3
         if _sqlite3.sqlite_version_info >= (3, 25):
             sql = (
@@ -12887,6 +12925,32 @@ class DatabaseService:
             if len(out) >= limit:
                 break
         return out
+
+    async def _user_context_facts_whole(self, chat_id: int, scope: str,
+                                        exclude: str, sparams: list,
+                                        limit: int, now_ts: int) -> list:
+        """TIME-03 natural memory (§4.4): весь доступный профиль человека.
+
+        Один bounded-запрос без годового partition/квоты и без добора
+        «непривязанной» истории чата: только строки самого человека
+        (`subject_ref_id`/legacy `target_user`), статусы `confirmed` +
+        `archived_fact`, expiry соблюдается. Порядок — действующие впереди,
+        затем вес и id; год не выбирает строки. `limit` остаётся прежним
+        бюджетом envelope (не повышается). Read-only, без DDL.
+        """
+        limit = max(1, int(limit))
+        valid_now = ("CASE WHEN status='confirmed' "
+                     "AND (expires_at IS NULL OR expires_at > ?) "
+                     "THEN 1 ELSE 0 END")
+        columns = self._USER_CONTEXT_COLUMNS
+        cursor = await self.db.execute(
+            f"SELECT {columns}, {valid_now} AS valid_now "
+            f"FROM graph_facts WHERE chat_id = ? AND {scope} AND {exclude} "
+            "AND ((status='confirmed' AND (expires_at IS NULL "
+            "OR expires_at > ?)) OR status='archived_fact') "
+            "ORDER BY valid_now DESC, weight DESC, id DESC LIMIT ?",
+            [int(now_ts), int(chat_id), *sparams, int(now_ts), int(limit)])
+        return [dict(row) for row in await cursor.fetchall()]
 
     async def _user_context_facts_multiperiod(self, chat_id: int, scope: str,
                                               exclude: str, sparams: list,

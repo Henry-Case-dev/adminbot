@@ -179,6 +179,17 @@ async def test_reply_and_context_paths_never_request_archives(monkeypatch):
             f"{label}: архив попал в обычный путь → "
             f"{[r.include_archived for r in requests]}")
 
+    def _assert_direct_reply(label: str):
+        """TIME-03: базовый reply-срез по-прежнему без архива; архив видит
+        ТОЛЬКО bounded периодный добор (тонкий срез) того же пути."""
+        assert requests, f"{label}: retrieval не вызван"
+        base = [r for r in requests if not r.period_fill]
+        assert base and all(r.include_archived is False for r in base), (
+            f"{label}: архив протёк в базовый срез")
+        bounded = [r for r in requests if r.period_fill]
+        assert all(r.channels == ("lexical", "vector") for r in bounded)
+        assert all(r.exclude_years == () for r in bounded)
+
     # (1) reply (direct-RAG)
     monkeypatch.setattr(dcs, "hot", _Hot())
     monkeypatch.setattr(dcs, "_cp_g", _no_chat_param)
@@ -186,7 +197,7 @@ async def test_reply_and_context_paths_never_request_archives(monkeypatch):
                          _ReplyMemory(_reply_rows()))
     block, _hint = await svc._build_rag_block(-100, _Msg("про дроны"), "")
     assert "любит дроны" in block
-    _assert_ordinary("reply")
+    _assert_direct_reply("reply")
 
     # (2) шесть context-purpose
     router = _router(db=_LookupDB())
@@ -293,7 +304,43 @@ def test_typed_rank_trust_and_freshness_beat_stale_cosine():
     assert rc.typed_rank_score(exact, request, "auto", now=now) > new_score
 
 
-def test_identity_prior_prefers_requested_subject():
+def test_t14_no_age_bias_removes_recency_bonus_only():
+    """TIME-03 §4.2: `no_age_bias=True` убирает возрастной бонус; default
+    сохраняет прежнее поведение, доверие/канал и бонус окна остаются."""
+    now = int(time.time())
+    old = rc.RetrievalCandidate(
+        id="tg:old", entity_type="message", entity_id="old", score=60.0,
+        channel="lexical", sent_at=now - 300 * 86400)
+    fresh = rc.RetrievalCandidate(
+        id="tg:new", entity_type="message", entity_id="new", score=60.0,
+        channel="lexical", sent_at=now)
+    biased = rc.RetrievalRequest(chat_id=-100, query="дроны")
+    assert rc.typed_rank_score(fresh, biased, "auto", now=now) > \
+        rc.typed_rank_score(old, biased, "auto", now=now)
+    neutral = rc.RetrievalRequest(chat_id=-100, query="дроны",
+                                  no_age_bias=True)
+    assert rc.typed_rank_score(fresh, neutral, "auto", now=now) == \
+        rc.typed_rank_score(old, neutral, "auto", now=now)
+    # Доверие источника не отключено возрастным флагом.
+    trusted = rc.RetrievalCandidate(
+        id="fact:t", entity_type="graph_fact", entity_id="t", score=60.0,
+        channel="lexical", sent_at=now - 300 * 86400,
+        provenance_backed=True)
+    legacy = rc.RetrievalCandidate(
+        id="fact:l", entity_type="graph_fact", entity_id="l", score=60.0,
+        channel="lexical", sent_at=now - 300 * 86400,
+        provenance_backed=False)
+    assert rc.typed_rank_score(trusted, neutral, "auto", now=now) > \
+        rc.typed_rank_score(legacy, neutral, "auto", now=now)
+    # Бонус «внутри запрошенного окна» — это период вопроса, не свежесть.
+    windowed = rc.RetrievalRequest(chat_id=-100, query="дроны",
+                                   no_age_bias=True, time_from=now - 400 * 86400,
+                                   time_to=now - 200 * 86400)
+    assert rc.typed_rank_score(old, windowed, "auto", now=now) == \
+        pytest.approx(60.0 + rc._TYPED_RECENCY_BONUS)
+
+
+
     """Sub-контракт MEM-06.4: тождество говорящего/субъекта сильнее proximity."""
     wrong = rc.RetrievalCandidate(
         id="fact:wrong", entity_type="graph_fact", entity_id="w", score=100.0,
@@ -930,8 +977,10 @@ def _rag_inner(block: str) -> str:
 
 @pytest.mark.asyncio
 async def test_reply_rag_uses_one_unified_retrieve(monkeypatch):
-    """BLOCKER 2 (фикс ревью): direct-путь RAG читает факты ОДНИМ `retrieve`
-    (purpose=reply), а не собственным поиском; прежнее чтение не вызывается."""
+    """BLOCKER 2 (фикс ревью): direct-путь RAG читает факты ЕДИНЫМ
+    `retrieve` (purpose=reply), а не собственным поиском; прежнее чтение не
+    вызывается. TIME-03: тонкий срез (2 строки) получает ровно ОДИН bounded
+    добор того же контракта; состав и порядок базового среза — прежние."""
     import services.direct_chat_service as dcs
 
     monkeypatch.setattr(dcs, "hot", _Hot())
@@ -950,9 +999,10 @@ async def test_reply_rag_uses_one_unified_retrieve(monkeypatch):
     assert block.startswith("<RAG_Memory>\n")
     assert "любит дроны" in block and "собирает квадрокоптеры" in block
     assert hint == ""
-    assert len(calls) == 1, "ровно один вход единого retrieval"
+    assert len(calls) == 2, "базовый срез + один bounded добор"
     request = calls[0]
     assert request.purpose == "reply"
+    assert request.period_fill is False
     # Только канал `vector`: прежняя выдача direct-RAG — KNN/MMR того же
     # чтения; exact/lexical (вес выше) меняли бы состав top-k.
     assert request.channels == ("vector",)
@@ -960,6 +1010,10 @@ async def test_reply_rag_uses_one_unified_retrieve(monkeypatch):
     assert request.include_self is True
     assert request.include_direct_reply is True
     assert request.include_archived is False
+    breadth = calls[1]
+    assert breadth.period_fill is True
+    assert breadth.channels == ("lexical", "vector")
+    assert breadth.exclude_years == ()
     assert memory.legacy_calls == 0        # второго чтения RAG-фактов нет
     assert memory.unified_calls == 1
 

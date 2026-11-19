@@ -185,7 +185,116 @@ class TestHistoricalScope:
         # Текущая версия SQLite поддерживает оконные функции (ветка CTE).
         assert sqlite3.sqlite_version_info >= (3, 25)
 
-class TestUnattributedHistory:
+class TestWholeScope:
+    """TIME-03 natural memory (контракт 2026-11-20 §4.4): `scope="whole"` —
+    один bounded-запрос без годового partition/3-летнего окна."""
+
+    def test_t10_whole_profile_has_no_year_quota(self, db):
+        loop = asyncio.get_event_loop()
+        for index in range(10):
+            loop.run_until_complete(_fact(
+                db, f"старый 2024 #{index}", year=2024,
+                status="archived_fact", weight=0.6))
+        for index in range(2):
+            loop.run_until_complete(_fact(
+                db, f"текущий 2026 #{index}", year=2026, weight=0.6))
+        now = int(time.time())
+        rows = loop.run_until_complete(
+            db.get_user_context_facts(CHAT, "aleksey", 10, now,
+                                      user_id=138811255, scope="whole"))
+        years = [row.get("yr") or _year_of(row["message_timestamp"])
+                 for row in rows]
+        # Годовой квоты limit//5 нет: старый год занимает больше 2 строк.
+        assert years.count(2024) == 8, years
+        assert years.count(2026) == 2, years
+        assert len(rows) == 10
+        # Действующие — впереди, но старый год не выброшен и не урезан.
+        assert [row.get("valid_now") for row in rows] == [1] * 2 + [0] * 8
+
+    def test_t10_whole_profile_has_no_three_year_window(self, db):
+        loop = asyncio.get_event_loop()
+        old = loop.run_until_complete(_fact(
+            db, "давний 2019", year=2019, status="archived_fact",
+            weight=0.9))
+        loop.run_until_complete(_fact(db, "текущий 2026", year=2026,
+                                      weight=0.1))
+        now = int(time.time())
+        rows = loop.run_until_complete(
+            db.get_user_context_facts(CHAT, "aleksey", 10, now,
+                                      user_id=138811255, scope="whole"))
+        assert old in {row["id"] for row in rows}
+        # `historical` для tool-потребителя не изменён (годовая квота).
+        hist = loop.run_until_complete(
+            db.get_user_context_facts(CHAT, "aleksey", 10, now,
+                                      user_id=138811255,
+                                      scope="historical"))
+        assert hist, "прежнее чтение осталось рабочим"
+
+    def test_t10_subject_whole_has_no_year_partition(self, db):
+        loop = asyncio.get_event_loop()
+        for year in (2023, 2024):
+            for index in range(6):
+                loop.run_until_complete(_fact(
+                    db, f"сам сказал {year} #{index}", year=year,
+                    status="archived_fact", weight=0.6))
+        now = int(time.time())
+        rows = loop.run_until_complete(
+            db.get_subject_profile_facts(CHAT, "aleksey", 10, now,
+                                         user_id=138811255,
+                                         scope="whole"))
+        by_year = {int(row["yr"]): 0 for row in rows}
+        for row in rows:
+            by_year[int(row["yr"])] = by_year.get(int(row["yr"]), 0) + 1
+        assert by_year.get(2023, 0) > 2, by_year
+        assert by_year.get(2024, 0) > 2, by_year
+        assert len(rows) == 10
+
+    @pytest.mark.asyncio
+    async def test_t11_subject_guard_blocks_foreign_profile(self):
+        """Адресат сообщения без имени в вопросе не читается как человек
+        вопроса; ошибок и выдуманных строк нет."""
+        from services import direct_chat_service as dcs
+
+        reads = {"profile": 0, "subject": 0}
+
+        async def _profile(*_a, **_k):
+            reads["profile"] += 1
+            return [{"id": 1, "fact": "чужое", "status": "confirmed"}]
+
+        async def _subject(*_a, **_k):
+            reads["subject"] += 1
+            return [{"id": 2, "fact": "чужое", "status": "confirmed"}]
+
+        db = type("_DB", (), {
+            "get_user_context_facts": staticmethod(_profile),
+            "get_subject_profile_facts": staticmethod(_subject)})
+        service = dcs.DirectChatService(memory=object(), db=db, llm=None,
+                                        aliases=None)
+        base = [{"id": 10, "fact": "текущее", "rag_ts": 0}]
+        out = await service._rag_append_profile_rows(
+            db, base, CHAT, "что нового у меня?", "Alina", 777, 10)
+        assert out == base
+        assert reads == {"profile": 0, "subject": 0}
+        # Имя есть в вопросе — профиль читается, но только `whole`.
+        seen: list = []
+
+        async def _profile2(*_a, **kwargs):
+            seen.append(("profile", kwargs.get("scope")))
+            return []
+
+        async def _subject2(*_a, **kwargs):
+            seen.append(("subject", kwargs.get("scope")))
+            return []
+
+        db2 = type("_DB", (), {
+            "get_user_context_facts": staticmethod(_profile2),
+            "get_subject_profile_facts": staticmethod(_subject2)})
+        await service._rag_append_profile_rows(
+            db2, base, CHAT, "что нового у Alina?", "Alina", 777, 10)
+        assert seen == [("profile", "whole"), ("subject", "whole")], seen
+
+
+
     """Блокер 3 ре-ревью 10.11.2026: на реальном архиве у старых
     `confirmed`-фактов НЕТ привязки к субъекту (`subject_ref_id`,
     `target_user`, автор, `tg_message_id` — всё пусто), поэтому профиль по

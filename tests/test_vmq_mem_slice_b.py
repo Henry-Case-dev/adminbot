@@ -103,13 +103,14 @@ def _router(db, aliases=None):
                                db=db))
 
 
-# ── A1: исторический вклад при уже принятой строгой строке ─────────────────
+# ── A1: строгая строка не разбавляется «обязательным» старым годом ────────
 
 
-class TestHistoricalQuota:
-    def test_quota_adds_old_year_even_when_strict_row_exists(self):
-        """Owner-формулировка (замер: строгая строка 2024 уже есть) обязана
-        получить ограниченный старый вклад 2023, а не остаться на 2024."""
+class TestHistoricalMeaningSelection:
+    def test_strict_row_is_not_diluted_by_weak_old_year(self):
+        """TIME-03 (контракт 2026-11-20 §3.3/§4.2): при уже принятой строгой
+        строке мягкий fallback не подмешивает слабую строку другого года —
+        календарной квоты `historical_quota` больше нет."""
         pool = [
             _row(1, "шизах на конфе обсуждали", year=2024),   # strict: 2 основы
             _row(2, "шизах был знатный", year=2023),          # 1 основа
@@ -121,12 +122,10 @@ class TestHistoricalQuota:
             reference_year=2026)
         assert stats["intent"]["kind"] == mrc.PERIOD_INTENT_HISTORICAL
         assert stats["soft_fallback"] == 0
-        assert stats["historical_quota"] == 1
-        assert [row["id"] for row in accepted] == [1, 2]
-        assert accepted[1]["stems_shared_reason"] == \
-            mrc.PERIOD_KEEP_HISTORICAL_QUOTA
-        assert {mrc.period_row_year(row) for row in accepted} == {2024, 2023}
-        # Строка без общей основы не добирается даже квотой.
+        assert stats["historical_quota"] == 0
+        assert [row["id"] for row in accepted] == [1]
+        assert {mrc.period_row_year(row) for row in accepted} == {2024}
+        # Строка без общей основы не добирается и без квоты.
         assert 4 not in [row["id"] for row in accepted]
 
     def test_quota_is_bounded_by_slots_and_never_adds_current_year(self):
@@ -187,11 +186,14 @@ class TestEventWithoutYearIntent:
             reference_year=2026)
         years = [mrc.period_row_year(row) for row in accepted]
         assert len(accepted) == 2
-        assert len(set(years)) == 2, "multi-year вклад обязан быть разными годами"
+        assert len(set(years)) == 2, "две строки пула — разные годы"
         assert 2026 not in years
+        # TIME-03 §4.2: вместо календарной квоты — предметный fallback;
+        # разные годы здесь свойство пула, а не требование квоты.
         assert all(row["stems_shared_reason"] ==
-                   mrc.PERIOD_KEEP_MULTI_YEAR for row in accepted)
-        assert stats["multi_year_quota"] == 2
+                   mrc.PERIOD_KEEP_SOFT_FALLBACK for row in accepted)
+        assert stats["soft_fallback"] == 2
+        assert stats["multi_year_quota"] == 0
 
     def test_current_state_with_multi_year_intent_is_not_triggered(self):
         """«Что сейчас» не получает multi-year intent: сигнал не лексический,
@@ -453,46 +455,59 @@ class TestSubjectProfileMaterial:
         assert {2023, 2024} <= set(payload["subject_material"]["years"])
 
     @pytest.mark.asyncio
-    async def test_reply_profile_rows_use_own_messages_when_no_facts(self, db):
+    async def test_reply_profile_rows_do_not_read_author_calendar_windows(
+            self, db):
+        """TIME-03: прямой путь профиля больше НЕ читает календарные окна
+        сообщений автора (`get_author_message_periods`); профиль человека —
+        только его факты/атрибуция `scope="whole"`."""
         await db.save_smart_message(
             UID, CHAT, "в 2023 я переехал", None, _ts(2023, 4, 1), "text",
             "Лёха", message_id=43_001)
         await db.save_smart_message(
             UID, CHAT, "в 2024 я сменил работу", None, _ts(2024, 5, 1),
             "text", "Лёха", message_id=43_002)
+        reads = {"messages": 0}
+        original = db.get_author_message_periods
+
+        async def _spy(*args, **kwargs):
+            reads["messages"] += 1
+            return await original(*args, **kwargs)
+
+        db.get_author_message_periods = _spy
         service = dcs.DirectChatService(memory=object(), db=db, llm=None,
                                         aliases=None)
         base = [{"id": 901, "fact": "текущий факт", "rag_ts": _ts(2026),
                  "message_timestamp": _ts(2026), "origin": "chat_history"}]
         out = await service._rag_append_profile_rows(
-            db, base, CHAT, "Лёха", UID, 10)
-        added = out[len(base):]
-        years = {mrc.period_row_year(row) for row in added}
-        assert {2023, 2024} <= years, years
-        assert all(row.get("authored_by_subject") for row in added)
-        assert all(row.get("subject_role") == "speaker" for row in added)
+            db, base, CHAT, "что говорил Лёха?", "Лёха", UID, 10)
+        assert reads["messages"] == 0, (
+            "календарные окна сообщений автора удалены из прямого пути")
+        assert len(out) == len(base)
 
     @pytest.mark.asyncio
     async def test_reply_profile_rows_carry_subject_years(self, db):
-        """Reply-путь (`_rag_append_profile_rows`) получает тот же субъектный
-        материал 2023/2024 с ролью `subject|speaker`, а не author=subject."""
-        await _fact(db, "Лёха любит чай", year=2026, target="Лёха",
-                    speaker=UID)
+        """Reply-путь (`_rag_append_profile_rows`) получает субъектный
+        материал 2023/2024 с ролью `subject|speaker` из одного `whole`-чтения,
+        а не через календарное окно автора."""
         await _fact(db, "в 2024 сменил работу", year=2024, target="другой",
                     speaker=UID, status="archived_fact")
         await _fact(db, "в 2023 переехал", year=2023, target="другой",
+                    speaker=UID, status="archived_fact")
+        await _fact(db, "в 2022 женился", year=2022, target="другой",
                     speaker=UID, status="archived_fact")
         service = dcs.DirectChatService(memory=object(), db=db, llm=None,
                                         aliases=None)
         base = [{"id": 900, "fact": "текущий факт", "rag_ts": _ts(2026),
                  "message_timestamp": _ts(2026), "origin": "chat_history"}]
         out = await service._rag_append_profile_rows(
-            db, base, CHAT, "Лёха", UID, 10)
+            db, base, CHAT, "что говорил Лёха?", "Лёха", UID, 10)
         added = out[len(base):]
         years = {mrc.period_row_year(row) for row in added}
-        assert {2023, 2024} <= years, years
+        # Один `whole`-профиль, бюджет добора limit//5=2: два старых года
+        # достижимы без 3-летнего окна и без годовой квоты.
+        assert years == {2023, 2024}, years
         assert all(row.get("period_fill") for row in added)
-        assert any(row.get("subject_role") == "speaker" for row in added)
+        assert all(row.get("subject_role") == "speaker" for row in added)
         assert all(row.get("origin") != "bot_direct_reply" for row in added)
 
     @pytest.mark.asyncio

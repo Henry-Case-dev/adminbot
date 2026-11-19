@@ -1,0 +1,63 @@
+{
+  "baseline_commit": "0fce97a14338521a24d94f560e896ebcb19f9492",
+  "baseline_version": "2.58.219",
+  "generated_at_utc": "2026-11-20",
+  "method": "Deterministic S1-S7 fixtures executed against the release worktree at 0fce97a14 (baseline product code), same synthetic data/settings as tests/test_mem_time_natural_scenarios.py. No archive/4.4GB reissue; no production access.",
+  "generator": "one-off script importing baseline services from the release worktree; metrics only, no texts of real chats",
+  "scenarios": {
+    "S1": {
+      "delivered": 10,
+      "period_rows": 0,
+      "relevance": 1.0,
+      "required_recall": 0.0,
+      "temporal_correctness": 0
+    },
+    "S2_direct": {
+      "delivered": 10,
+      "period_rows": 0,
+      "relevance": 1.0,
+      "required_recall": 0.0,
+      "temporal_correctness": 0
+    },
+    "S2_episode": {
+      "correct_anchor_present": 1,
+      "correct_first": 1,
+      "episodes": 1,
+      "first_anchor_2022": 1,
+      "first_anchor_2023": 1,
+      "first_span_first_ts": 1688205600,
+      "participants_both": 1
+    },
+    "S3": {
+      "delivered": 10,
+      "period_rows": 0,
+      "relevance": 0.8,
+      "required_recall": 0.0,
+      "temporal_correctness": 0
+    },
+    "S4": {
+      "basis_allowed": 0,
+      "current_present": 1,
+      "old_present": 0
+    },
+    "S5": {
+      "period_rows": 1,
+      "required_recall": 0,
+      "year_2026_period": 0
+    },
+    "S6": {
+      "correct_anchor_present": 1,
+      "correct_first": 1,
+      "episodes": 2,
+      "first_anchor_2022": 1,
+      "first_anchor_2023": 0,
+      "first_span_first_ts": 1646391600,
+      "participants_both": 1
+    },
+    "S7": {
+      "base_intact": 1,
+      "fabricated": 0,
+      "period_rows": 0
+    }
+  }
+}

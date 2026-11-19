@@ -147,7 +147,8 @@ def _service(monkeypatch, base_rows, period_rows=(), calls=None,
                 "period_fill": bool(period_fill),
                 "policy": policy,
                 "intent": period_intent.as_dict() if period_intent else None,
-            })
+                # TIME-03 §4.1: прямой путь не передаёт календарный фильтр.
+                "exclude_years": tuple(_kwargs.get("exclude_years") or ()),            })
         if period_fill:
             return _Result(period_rows,
                            period_fill={"vector_leg": "compat_not_proven",
@@ -310,7 +311,12 @@ class TestCurrentStatePaths:
 
     @pytest.mark.asyncio
     async def test_a1p_historical_vs_auto(self, monkeypatch):
-        """A1P: historical — 2023/2024; auto — 2026:10 без потери id."""
+        """A1P: historical — 2023/2024 через предметный fallback; auto — 2026:10.
+
+        TIME-03 (контракт 2026-11-20 §4.2): календарной квоты «обязательно
+        другой старый год» больше нет; строки 2023/2024 входят потому, что
+        делят с вопросом основу и проходят предметный soft-fallback, а не
+        потому, что год старый."""
         base = _current_rows(10)
         pool = [
             _row(1, "конфа тогда шумела", year=2023),
@@ -328,6 +334,8 @@ class TestCurrentStatePaths:
             if year:
                 years[year] = years.get(year, 0) + 1
         assert years == {2023: 1, 2024: 1, 2026: 8}, years
+        assert service._rag_period_stats["soft_fallback"] == 2
+        assert service._rag_period_stats["historical_quota"] == 0
 
         calls: list = []
         service = _service(monkeypatch, base, pool, calls=calls)
@@ -345,6 +353,11 @@ class TestCurrentStatePaths:
 class TestPlanSignal:
     @pytest.mark.asyncio
     async def test_plan_act_multi_year_quota(self, monkeypatch):
+        """TIME-03: `historical_recall` больше не получает календарную квоту.
+
+        Прежний `multi_year_quota=2` заменён предметным soft-fallback:
+        строки «того же предмета» входят по смыслу, без выбора года и без
+        обязательной доли старого; бюджет — только `limit//5` строк."""
         base = _current_rows(10)
         pool = [_row(11, "вообще про E1", year=2023),
                 _row(12, "было про E1", year=2024),
@@ -358,7 +371,12 @@ class TestPlanSignal:
         stats = service._rag_period_stats
         assert stats["replace_allowed"] == 1
         assert stats["intent_source"] == "plan_act"
-        assert stats["multi_year_quota"] == 2
+        assert stats["breadth_allowed"] == 1
+        assert stats["breadth_reason"] == "plan_historical"
+        assert stats["breadth_used"] == 2
+        assert stats["soft_fallback"] == 2
+        assert stats["multi_year_quota"] == 0
+        assert stats["historical_quota"] == 0
         assert len([c for c in calls if c["period_fill"]]) == 1
         years = {mrc.period_row_year(row) for row in rows
                  if row.get("period_fill")}
@@ -401,7 +419,181 @@ class TestPlanSignal:
         assert calls == [False], "пул переиспользован — периодного retrieve нет"
 
 
-# ── operative — байт-паритет ─────────────────────────────────────────────
+# ── TIME-03 natural memory: bounded post-plan breadth ────────────────────
+
+
+class TestNaturalBreadth:
+    """TIME-03 (контракт 2026-11-20 §3.1/§3.2/§4.1): `research` и тонкий
+    срез получают bounded добор; полный `auto`+`answer` остаётся базовым;
+    календарных фильтров в прямом пути нет."""
+
+    POOL = [_row(1, "шизы и конф на конфе", year=2023),
+            _row(2, "конф и шизы снова", year=2024)]
+
+    @pytest.mark.asyncio
+    async def test_t1_auto_answer_full_slice_stays_base(self, monkeypatch):
+        calls: list = []
+        service = _service(monkeypatch, _current_rows(10), self.POOL,
+                           calls=calls)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act="answer")
+        stats = service._rag_period_stats
+        assert {row["id"] for row in rows} == set(range(8000, 8010))
+        assert stats["breadth_allowed"] == 0
+        assert stats["breadth_reason"] == "none"
+        assert stats["period_skipped"] == "auto_full_slice"
+        assert len(calls) == 1 and calls[0]["period_fill"] is False
+
+    @pytest.mark.asyncio
+    async def test_t1b_thin_slice_triggers_strict_breadth(self, monkeypatch):
+        calls: list = []
+        base = _current_rows(3)
+        service = _service(monkeypatch, base, self.POOL, calls=calls)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act="answer")
+        stats = service._rag_period_stats
+        assert stats["breadth_allowed"] == 1
+        assert stats["breadth_reason"] == "thin_base"
+        # Тонкий срез добран, а не оставлен пустым; лишних вызовов нет.
+        assert len(calls) == 2
+        period_calls = [call for call in calls if call["period_fill"]]
+        assert len(period_calls) == 1
+        assert period_calls[0]["exclude_years"] == ()
+        added = [row for row in rows if row.get("period_fill")]
+        assert {row["id"] for row in added} == {1, 2}
+        # База урезана ровно на число фактически добавленных строк.
+        assert {8000, 8001, 8002} & {row["id"] for row in rows} == {8000}
+        assert len(rows) == 3
+
+    @pytest.mark.asyncio
+    async def test_t1b_empty_base_stays_empty_when_nothing_accepted(
+            self, monkeypatch):
+        calls: list = []
+        service = _service(monkeypatch, [], [], calls=calls)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act="answer")
+        assert rows == []
+        assert service._rag_period_stats["breadth_reason"] == "thin_base"
+        assert service._rag_period_stats["breadth_used"] == 0
+        assert len(calls) == 2, "тонкий/пустой срез — один bounded добор"
+
+    @pytest.mark.asyncio
+    async def test_t2_research_gets_bounded_breadth(self, monkeypatch):
+        calls: list = []
+        service = _service(monkeypatch, _current_rows(10), self.POOL,
+                           calls=calls)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act="research")
+        stats = service._rag_period_stats
+        assert stats["replace_allowed"] == 0, "research не исторический режим"
+        assert stats["breadth_allowed"] == 1
+        assert stats["breadth_reason"] == "plan_research"
+        assert stats["breadth_used"] == 2
+        assert len(calls) == 2
+        assert [call["period_fill"] for call in calls] == [False, True]
+        added = {row["id"] for row in rows if row.get("period_fill")}
+        assert added == {1, 2}
+        # Полный базовый срез сохраняет 8 строк: добавлено ровно 2.
+        assert {row["id"] for row in rows} == (
+            set(range(8000, 8008)) | {1, 2})
+
+    @pytest.mark.asyncio
+    async def test_t2b_one_accepted_cuts_exactly_one_base_row(self,
+                                                             monkeypatch):
+        pool = [_row(3, "шизы и конф", year=2023),
+                _row(4, "совсем другое", year=2024)]
+        service = _service(monkeypatch, _current_rows(10), pool)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act="research")
+        ids = {row["id"] for row in rows}
+        assert ids == set(range(8000, 8009)) | {3}
+        assert 8009 not in ids, "потеряна ровно одна хвостовая строка"
+        assert service._rag_period_stats["breadth_used"] == 1
+
+    @pytest.mark.asyncio
+    async def test_t2b_zero_accepted_keeps_base_intact(self, monkeypatch):
+        pool = [_row(5, "совсем другое", year=2023),
+                _row(6, "и это тоже другое", year=2024)]
+        service = _service(monkeypatch, _current_rows(10), pool)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+            plan_act="research")
+        assert {row["id"] for row in rows} == set(range(8000, 8010))
+        assert service._rag_period_stats["breadth_used"] == 0
+
+    @pytest.mark.asyncio
+    async def test_t3_query_marker_keeps_slice_d_boundary(self, monkeypatch):
+        calls: list = []
+        service = _service(monkeypatch, _current_rows(10), self.POOL,
+                           calls=calls)
+        rows = await service._rag_unified_rows(
+            CHAT, CURRENT_MARKER, _stub(text=CURRENT_MARKER),
+            memory_scope="auto", plan_act="answer")
+        stats = service._rag_period_stats
+        assert stats["intent_source"] == "query_marker"
+        assert stats["replace_allowed"] == 0
+        assert stats["breadth_allowed"] == 0
+        assert stats["period_skipped"] == "auto_full_slice"
+        assert {row["id"] for row in rows} == set(range(8000, 8010))
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_t17_added_rows_never_leave_chat_scope(self, db,
+                                                         monkeypatch):
+        """Все добранные строки — того же `chat_id`; чужой чат не протекает."""
+        await _fact(db, "шизы и конф в нашем чате", year=2023,
+                    target="Лёха")
+        foreign = await _fact(db, "шизы и конф в чужом чате", year=2023,
+                              target="Лёха", chat_id=CHAT - 1)
+        current = await _fact(db, "текущий факт про дронов", year=2026,
+                              target="Лёха")
+
+        class _ScopedMemory:
+            async def retrieve_fact_candidates(self, chat_id, query, **kw):
+                row = await db.get_graph_fact_records([current])
+                return [dict(row[0])] if chat_id == CHAT and row else []
+
+            async def rerank_rag_facts(self, _query, facts):
+                return list(facts)
+
+        service = _dcs.DirectChatService(memory=_ScopedMemory(), db=db,
+                                         llm=None, aliases=None)
+        rows = await service._rag_unified_rows(
+            CHAT, "что было про шизы и конф?",
+            _stub(text="что было про шизы и конф?"), memory_scope="auto",
+            plan_act="research")
+        assert rows, "добор должен найти старую строку"
+        ids = {row["id"] for row in rows}
+        assert foreign not in ids
+        assert all(int(row.get("chat_id") or CHAT) == CHAT for row in rows)
+
+    @pytest.mark.asyncio
+    async def test_t18_bounded_retrieve_cost(self, monkeypatch):
+        for plan_act, expected_period_calls in (
+                ("answer", 0), ("research", 1)):
+            calls: list = []
+            service = _service(monkeypatch, _current_rows(10), self.POOL,
+                               calls=calls)
+            await service._rag_unified_rows(
+                CHAT, A1P_PLAIN, _stub(text=A1P_PLAIN), memory_scope="auto",
+                plan_act=plan_act)
+            assert sum(1 for call in calls if call["period_fill"]) == \
+                expected_period_calls
+            assert len(calls) <= 1 + expected_period_calls
+        calls = []
+        service = _service(monkeypatch, _current_rows(10), self.POOL,
+                           calls=calls)
+        await service._rag_unified_rows(CHAT, CURRENT_ALINA,
+                                        _stub(text=CURRENT_ALINA),
+                                        memory_scope="operative")
+        assert len(calls) == 1 and calls[0]["period_fill"] is False
+
+
 
 
 class TestOperativeParity:
@@ -418,7 +610,7 @@ class TestOperativeParity:
         assert {row["id"] for row in rows} == set(range(8000, 8010))
         assert service._rag_period_stats == {}
         assert calls == [{"period_fill": False, "policy": "operative",
-                          "intent": None}]
+                          "intent": None, "exclude_years": ()}]
 
 
 # ── субъектная половина / N2 ─────────────────────────────────────────────
@@ -502,10 +694,12 @@ class TestSubjectHalf:
 
     @pytest.mark.asyncio
     async def test_subject_material_replaces_generic_period_row(self, db):
+        """TIME-03: профиль человека (`scope="whole"`) вытесняет generic
+        period-строку только при структурном сигнале и только если имя
+        человека прозвучало в вопросе; календарные окна автора не читаются."""
         import services.direct_chat_service as _dcs2
-        await db.save_smart_message(
-            UID, CHAT, "в 2023 я переехал", None, _ts(2023, 4, 1), "text",
-            "Лёха", message_id=53_001)
+        await _fact(db, "в 2023 Лёха переехал", year=2023,
+                    target="другой", speaker=UID)
         service = _dcs2.DirectChatService(memory=object(), db=db, llm=None,
                                           aliases=None)
         base = [{"id": 900 + i, "fact": f"текущий факт {i}",
@@ -514,14 +708,23 @@ class TestSubjectHalf:
         generic = {"id": 999, "fact": "старый период", "rag_ts": _ts(2025),
                    "message_timestamp": _ts(2025),
                    "origin": "history_import", "period_fill": True}
+        query = "что говорил Лёха про переезд?"
         out = await service._rag_append_profile_rows(
-            db, base + [generic], CHAT, "Лёха", UID, 10, allow_replace=True)
+            db, base + [generic], CHAT, query, "Лёха", UID, 10,
+            allow_replace=True)
         assert generic not in out
         assert any(row.get("subject_role") == "speaker" for row in out)
         # auto (allow_replace=False) не вытесняет period-строку.
         out2 = await service._rag_append_profile_rows(
-            db, base + [generic], CHAT, "Лёха", UID, 10, allow_replace=False)
+            db, base + [generic], CHAT, query, "Лёха", UID, 10,
+            allow_replace=False)
         assert generic in out2
+        # Guard: адресат «Лёха» не прозвучал в вопросе → чужой профиль не
+        # читается и generic-строка не вытесняется.
+        out3 = await service._rag_append_profile_rows(
+            db, base + [generic], CHAT, "что случилось с отпуском?",
+            "Лёха", UID, 10, allow_replace=True)
+        assert generic in out3
 
 
 # ── TIME-04: окно и трасса ───────────────────────────────────────────────

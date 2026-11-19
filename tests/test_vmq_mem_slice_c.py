@@ -211,7 +211,9 @@ class TestStructuredOverviewTrigger:
             with _trace_sql(db) as trace:
                 await svc._build_rag_block(
                     CHAT, _msg(NO_SIGNAL_QUERY, 14), "", memory_scope="auto")
-            assert [c.include_overview for c in calls] == [False]
+            # TIME-03: тонкий срез получает bounded добор, но overview
+            # по-прежнему НЕ запрашивается ни одним вызовом.
+            assert calls and all(c.include_overview is False for c in calls)
             assert svc._rag_overview_result is None
             assert not [s for s in trace.statements if "mca_episodes" in s]
         finally:

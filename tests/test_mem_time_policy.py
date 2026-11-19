@@ -153,17 +153,44 @@ class TestThreeProperties:
         assert sm._effective_weight(0.5, now - 4000 * _DAY, now) == \
             pytest.approx(0.1)
 
-    def test_historical_decay_is_bounded_freshness_tiebreak(self, monkeypatch):
-        """Возраст в исторической политике — ≤5 %, не множитель."""
-        _hot(monkeypatch, {})
+    def test_historical_and_auto_have_no_freshness_multiplier(self,
+                                                              monkeypatch):
+        """TIME-03 §4.3: `historical`/`auto` не ранжируют по возрасту вовсе.
+
+        Прежний ≤5 % freshness tie-break удалён: даже намеренно выставленный
+        hot-override свежести на историческую политику не действует.
+        `operative`-decay проверяется отдельно (байт-паритет)."""
+        _hot(monkeypatch, {"limits.graph_hist_fresh_tiebreak": 0.9,
+                           "limits.graph_hist_horizon_days": 1})
         now = int(time.time())
         fresh = sm._effective_weight(0.5, now, now, policy="historical")
         ancient = sm._effective_weight(0.5, now - 3650 * _DAY, now,
                                        policy="auto")
-        assert fresh == pytest.approx(0.5, rel=1e-9)
-        assert ancient == pytest.approx(0.5 * 0.95, rel=1e-9)
-        # Разница за давность (5 %) меньше разрыва смысловой значимости (10 %).
-        assert (fresh - ancient) / fresh <= 0.05 + 1e-12
+        assert fresh == pytest.approx(0.5, rel=1e-12)
+        assert ancient == pytest.approx(0.5, rel=1e-12)
+        assert fresh == ancient
+
+    def test_t9_old_confirmed_fact_is_not_penalized_for_age(self,
+                                                            monkeypatch):
+        """T9: старый confirmed (V=1) факт не проигрывает только из-за даты.
+
+        При равной смысловой значимости и весе score старого и нового равны,
+        порядок не переворачивается возрастом; year-share не участвует."""
+        _hot(monkeypatch, {})
+        now = int(time.time())
+        old = _row(id=1, status="confirmed", weight=0.6,
+                   created_at=_ts(2023), message_timestamp=_ts(2023),
+                   last_confirmed_at=now - 1000 * _DAY)
+        new = _row(id=2, status="confirmed", weight=0.6,
+                   created_at=_ts(2026), message_timestamp=_ts(2026),
+                   last_confirmed_at=now)
+        entries = [
+            {"fid": row["id"], "valid": True, "significance": 0.8,
+             "score": sm._policy_score(0.8, row, now, "auto")}
+            for row in (old, new)]
+        assert entries[0]["score"] == pytest.approx(entries[1]["score"])
+        assert [entry["fid"] for entry in sm._policy_order(entries)] == [1, 2]
+        assert sm._significance(0.8, old) == sm._significance(0.8, new)
 
 
 # ── 2. Порядок: H×R основной, V — tie-window ───────────────────────────────
@@ -192,7 +219,12 @@ class TestPolicyOrder:
 
 class TestAdaptiveSelection:
 
-    def test_historical_guarantees_min_slots(self, monkeypatch):
+    def test_t8_historical_has_no_mandatory_old_share(self, monkeypatch):
+        """T8: `historical` больше не гарантирует долю V=0.
+
+        Сильный текущий/смысловой порядок не переписывается обязательной
+        «исторической» квотой; `auto`-потолок V=0 сохранён отдельным тестом.
+        """
         _hot(monkeypatch, {"limits.graph_hist_rel_floor": 0.75})
         ordered = sm._policy_order([
             {"fid": 1, "score": 0.40, "valid": True, "significance": 0.80},
@@ -201,7 +233,8 @@ class TestAdaptiveSelection:
             {"fid": 4, "score": 0.29, "valid": False, "significance": 0.66},
         ])
         chosen = sm._select_by_policy(ordered, 4, "historical")
-        assert 3 in chosen and 4 in chosen       # limit//5 = 2 слота
+        assert chosen == [1, 2, 3, 4], (
+            "календарная/историческая доля не переставляет смысловой порядок")
 
     def test_historical_respects_relevance_floor(self, monkeypatch):
         """Слабый исторический кандидат не подменяет текущее состояние."""
@@ -577,7 +610,9 @@ class TestPeriodSlots:
         return dcs.DirectChatService(memory=object(), db=None, llm=None,
                                      aliases=None)
 
-    def test_only_other_periods_and_never_self_origin(self):
+    def test_no_year_exclusion_and_never_self_origin(self):
+        """TIME-03 §4.1: год не исключается (`year in seen_years` удалён);
+        прошлые ответы бота по-прежнему не считаются фактами мира."""
         service = self._service()
         rows = [self._row(1, 2026), self._row(2, 2026)]
         extra = [self._row(3, 2023), self._row(4, 2026),
@@ -585,8 +620,8 @@ class TestPeriodSlots:
         out = service._rag_append_period_rows(rows, extra, 10, slots=2)
         ids = [row["id"] for row in out]
         assert ids[:2] == [1, 2], "основной срез не переупорядочивается"
-        assert 3 in ids, "старый период добирается"
-        assert 4 not in ids, "тот же год не дублируется"
+        assert ids[2:] == [3, 4], (
+            "добор идёт в порядке смысла; тот же год не исключается")
         assert 5 not in ids, "прошлые ответы бота — не факты мира"
 
     def test_bounded_by_slots(self):
@@ -645,16 +680,22 @@ class TestPeriodSlots:
 
         monkeypatch.setattr(service, "_rag_retrieve", fake)
         rows = await service._rag_unified_rows(
-            CHAT, "q", None, memory_scope="historical",
+            CHAT, "что говорил Aleksey?", None, memory_scope="historical",
             subject_name="Aleksey", subject_uid=7)
         assert calls == [("vector",), ("lexical", "vector")], calls
-        assert profile_calls == [("Aleksey", 7, "historical")]
+        # TIME-03 §4.1/§4.4: профиль читается одним `whole`-запросом без
+        # календарного окна; имя субъекта есть в вопросе (subject guard).
+        assert profile_calls == [("Aleksey", 7, "whole")]
         ids = [row["id"] for row in rows]
         assert ids[0] == 1, "основной срез остаётся первым"
-        assert 7 in ids, "история профиля добирается как другой период"
+        assert 7 in ids, "история профиля добирается в свободный слот"
     @pytest.mark.asyncio
-    async def test_auto_with_thin_slice_is_not_diversified(self, monkeypatch):
-        """Срез из одних прошлых ответов бота не «разбавляется» историей."""
+    async def test_auto_thin_slice_pays_one_bounded_breadth(self, monkeypatch):
+        """TIME-03 §3.2: тонкий срез — повод ДОБРАТЬ, а не ранний выход.
+
+        Здесь единственная базисная строка — прошлый ответ бота; добор не
+        делает её фактом мира и не подменяет срез: один bounded-вызов,
+        состав прежний."""
         _hot(monkeypatch)
         service = self._service()
         service.db = types.SimpleNamespace(
@@ -671,8 +712,11 @@ class TestPeriodSlots:
             return _Result()
 
         monkeypatch.setattr(service, "_rag_retrieve", fake)
-        await service._rag_unified_rows(CHAT, "q", None, memory_scope="auto")
-        assert calls == [("vector",)], calls
+        rows = await service._rag_unified_rows(CHAT, "q", None,
+                                               memory_scope="auto")
+        assert calls == [("vector",), ("lexical", "vector")], calls
+        assert [row["id"] for row in rows] == [1]
+        assert service._rag_period_stats["breadth_reason"] == "thin_base"
 
 
 class TestPeriodFillSurvivesRerank:
@@ -953,7 +997,8 @@ class TestLexicalStemPeriodFill:
                     "lexical_stem": True,
                     "include_archived": True,
                     "period_fill": True,
-                    "exclude_years": tuple(sorted({2026}))}, period
+                    # TIME-03 §4.1: календарный фильтр прямого пути пуст.
+                    "exclude_years": ()}, period
                 assert period[0][3] == 32, (period, "пул фиксирован: 32")
 
     @pytest.mark.asyncio

@@ -970,3 +970,101 @@ class TestM04LiveDelivery:
             assert payload["independent_periods"] == []
         finally:
             await db.close()
+
+
+# ── TIME-03 natural memory: <Old_Episode> ─────────────────────────────────
+
+
+class TestOldEpisodeNaturalRequest:
+    """TIME-03 (контракт 2026-11-20 §4.1): эпизодный путь direct-ответа ищет
+    message-якоря каналами `exact`/`lexical` по всему чату, без возрастного
+    бонуса; окно — только явный год вопроса."""
+
+    @staticmethod
+    def _rows():
+        return [
+            {"id": 1, "tg_message_id": 101, "chat_id": CHAT,
+             "timestamp": T2023, "user_id": 7, "author_name": "A",
+             "reply_to_id": None, "is_forward": 0,
+             "forward_source": None, "media_type": "text",
+             "text": "старый эпизод про ванную"},
+            {"id": 2, "tg_message_id": 102, "chat_id": CHAT,
+             "timestamp": T2023 + 60, "user_id": 8, "author_name": "B",
+             "reply_to_id": None, "is_forward": 0,
+             "forward_source": None, "media_type": "text",
+             "text": "продолжение про ремонт ванной"},
+        ]
+
+    @classmethod
+    def _db(cls):
+        rows = cls._rows()
+
+        class _DB:
+            async def search_messages_fts(self, chat_id, match, limit, **kw):
+                return [dict(row) for row in rows]
+
+            async def search_graph_facts_fts(self, *_a, **_k):
+                return []
+
+            async def get_messages_around(self, chat_id, tg, before, after,
+                                          **_kw):
+                return [dict(row) for row in rows]
+
+            async def get_active_embedding_generation(self, _name):
+                return None
+
+        return _DB()
+
+    @pytest.mark.asyncio
+    async def test_t13_message_channels_no_age_bias_no_implicit_window(
+            self, monkeypatch):
+        from services import direct_chat_service as dcs
+        from services.summary_aliases import AliasResolver
+
+        captured: list = []
+        real = rc.retrieve
+
+        async def _spy(db, memory, request):
+            captured.append(request)
+            return await real(db, memory, request)
+
+        monkeypatch.setattr(rc, "retrieve", _spy)
+        service = dcs.DirectChatService(
+            memory=None, db=self._db(), llm=None,
+            aliases=AliasResolver("{}"))
+        block, stats = await service._build_old_episodes(
+            CHAT, "что было про ванную?", [], {})
+        request = captured[0]
+        assert request.channels == ("exact", "lexical")
+        assert request.no_age_bias is True
+        # Вопрос без года не получает окно и не подменяет год.
+        assert request.time_from is None and request.time_to is None
+        assert "tg:101" in block and "старый эпизод" in block
+        assert stats["count"] == 1
+        assert "year_window" not in stats
+
+    @pytest.mark.asyncio
+    async def test_t13_explicit_year_sets_target_window(self, monkeypatch):
+        from services import direct_chat_service as dcs
+        from services.summary_aliases import AliasResolver
+
+        captured: list = []
+        real = rc.retrieve
+
+        async def _spy(db, memory, request):
+            captured.append(request)
+            return await real(db, memory, request)
+
+        monkeypatch.setattr(rc, "retrieve", _spy)
+        service = dcs.DirectChatService(
+            memory=None, db=self._db(), llm=None,
+            aliases=AliasResolver("{}"))
+        _block, stats = await service._build_old_episodes(
+            CHAT, "что было про ванную в 2023 году?", [], {})
+        request = captured[0]
+        bounds = rc.year_time_bounds(2023)
+        assert request.time_from == bounds[0]
+        assert request.time_to == bounds[1]
+        assert request.lexical_time_window is True
+        assert request.no_age_bias is True
+        assert stats["year_window"] == [2023]
