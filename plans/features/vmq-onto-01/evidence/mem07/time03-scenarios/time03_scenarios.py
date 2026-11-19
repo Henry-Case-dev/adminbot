@@ -279,12 +279,16 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
         years = years[:3]
         ref = await _make_ref(builder, "s1_person", years, person=person,
                               mode="participant")
-        scenarios.append({
-            "id": "S1", "scope": "auto", "plan_act": "research",
-            "ref": ref, "query": "что ты знаешь про %s за всё время?"
-                                 % person[0],
-            "predicate": ("__subject__", "P1"),
-            "person": person})
+        if len(years) < 2:
+            scenarios.append({"id": "S1", "not_executed":
+                              "participant_support_insufficient"})
+        else:
+            scenarios.append({
+                "id": "S1", "scope": "auto", "plan_act": "research",
+                "ref": ref, "query": "что ты знаешь про %s за всё время?"
+                                     % person[0],
+                "predicate": ("__subject__", "P1"),
+                "person": person})
     else:
         scenarios.append({"id": "S1", "not_executed":
                           "participant_support_insufficient"})
@@ -302,11 +306,15 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
                  max(int(y) for y in e1["years"])]
         ref3 = await _make_ref(builder, "s3_change", sorted(set(years)),
                                e1["topic"][1], mode="year")
-        scenarios.append({
-            "id": "S3", "scope": "auto", "plan_act": "research",
-            "ref": ref3,
-            "query": "как менялось отношение к %s?" % e1["topic"][0],
-            "predicate": tuple(e1["topic"][1])})
+        if len(set(years)) < 2 or ref3.get("not_executed"):
+            scenarios.append({"id": "S3", "not_executed":
+                              "multi_year_support_insufficient"})
+        else:
+            scenarios.append({
+                "id": "S3", "scope": "auto", "plan_act": "research",
+                "ref": ref3,
+                "query": "как менялось отношение к %s?" % e1["topic"][0],
+                "predicate": tuple(e1["topic"][1])})
     else:
         scenarios.append({"id": "S2", "not_executed":
                           "topic_support_insufficient"})
@@ -323,11 +331,16 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
                                   ("вайп", "сервер"), mode="year")
         ref4["old_anchors"] = old_ref.get("anchors") or []
         ref4["old_refs"] = [a["ref"] for a in ref4["old_anchors"]]
-        scenarios.append({
-            "id": "S4", "scope": "auto", "plan_act": "",
-            "ref": ref4,
-            "query": "что сейчас с %s?" % (ce.get("topic") or "сервером"),
-            "predicate": ("вайп", "сервер")})
+        if (ref4.get("not_executed") or old_ref.get("not_executed")
+                or not ref4.get("anchors") or not old_years):
+            scenarios.append({"id": "S4", "not_executed":
+                              "stale_history_support_insufficient"})
+        else:
+            scenarios.append({
+                "id": "S4", "scope": "auto", "plan_act": "",
+                "ref": ref4,
+                "query": "что сейчас с %s?" % (ce.get("topic") or "сервером"),
+                "predicate": ("вайп", "сервер")})
     else:
         scenarios.append({"id": "S4", "not_executed":
                           "current_state_support_insufficient"})
@@ -339,11 +352,15 @@ async def _scenario_refs(builder, participants, e1, ce, current_year):
         year = max(candidates) if candidates else year
     ref5 = await _make_ref(builder, "s5_year", [year], per_year=2,
                            mode="year")
-    scenarios.append({
-        "id": "S5", "scope": "auto", "plan_act": "",
-        "ref": ref5,
-        "query": "что происходило в чате в %d году?" % year,
-        "predicate": ("__year__", year)})
+    if ref5.get("not_executed") or len(ref5.get("anchors") or ()) < 2:
+        scenarios.append({"id": "S5", "not_executed":
+                          "year_sequence_unavailable"})
+    else:
+        scenarios.append({
+            "id": "S5", "scope": "auto", "plan_act": "",
+            "ref": ref5,
+            "query": "что происходило в чате в %d году?" % year,
+            "predicate": ("__year__", year)})
 
     s6 = await _select_s6(builder)
     if s6.get("not_executed"):
