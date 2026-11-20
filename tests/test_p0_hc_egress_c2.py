@@ -5,7 +5,9 @@ arch-contract-2026-11-21.md`` §4.2/§5, row ``HC-EGRESS-STRUCTURED``.
 
 Проверяется фактический Bot API payload (fake bot записывает ``parse_mode``,
 ``entities``, тексты чанков и reply-таргет), а не внутренние DTO:
-  * casual/literal → прежний plain-путь байт-в-байт;
+  * casual без escape → прежний plain-путь байт-в-байт;
+  * буквальные escape-маркеры (`\\*`) → plain без служебного backslash
+    (P0-ACCEPT F2: тот же закрытый C1 `render_plain`, один вызов);
   * структурный Markdown → ``send_structured`` (HTML), без сырых маркеров;
   * long answer → тег-безопасные чанки по UTF-16, reply только у первого;
   * частичный сбой → plain ТОЛЬКО сбойного чанка, без повторов и LLM;
@@ -169,8 +171,33 @@ class TestOrdinaryDirectChannelChoice:
 
         assert len(bot.calls) == 1
         assert "parse_mode" not in bot.calls[0]
-        # Plain-путь остаётся существующим байт-путём (backslash не теряется).
-        assert bot.calls[0]["text"] == answer
+        # P0-ACCEPT F2: канал остаётся plain, но служебный backslash-escape
+        # снимается закрытым C1-рендером: получатель видит `*`, а не `\*`;
+        # `**буквально**` остаётся текстом (не HTML <b>).
+        assert len(answer) == 30
+        assert bot.calls[0]["text"] == "2 * 3 = 6 и **буквально**"
+        assert len(bot.calls[0]["text"]) == 25
+        assert answer.count("\\") == 5      # пять служебных escape-слэшей
+        assert len(answer) - len(bot.calls[0]["text"]) == answer.count("\\")
+        assert "\\" not in bot.calls[0]["text"]
+        assert bot.calls[0]["reply_to_message_id"] == 42
+
+    @pytest.mark.asyncio
+    async def test_escaped_literal_markers_plain_without_backslashes(self):
+        """F2: расчётный пример `2 * 2` и literal-markers — plain, один вызов."""
+        bot = FakeBot()
+        answer = r"2 * 2 = 4; \*не текст\*; snake_case"
+
+        await _send(bot, answer)
+
+        assert len(bot.calls) == 1
+        assert "parse_mode" not in bot.calls[0]
+        assert len(answer) == 35
+        assert bot.calls[0]["text"] == "2 * 2 = 4; *не текст*; snake_case"
+        assert len(bot.calls[0]["text"]) == 33
+        assert len(answer) - len(bot.calls[0]["text"]) == answer.count("\\")
+        assert "\\" not in bot.calls[0]["text"]
+        assert bot.calls[0]["reply_to_message_id"] == 42
 
     @pytest.mark.asyncio
     async def test_html_specials_and_link_are_escaped_not_raw(self):

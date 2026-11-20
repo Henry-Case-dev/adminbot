@@ -3,6 +3,10 @@
 Проверяет наблюдаемый контракт слайса A:
 - чистая грамматика `extract_history_window` (duration/local_day/
   local_day_range/unresolved; голое «N часов» — не период);
+- P0-ACCEPT F1: «час/минуту/день/неделю назад» — ровно 1 единица; plural
+  («пару часов назад») остаётся unresolved; Direct-путь
+  `_capture_turn_history_sample` и инструмент `get_recent_history` получают
+  точный интервал, а не `window_unresolved`/FTS;
 - резолв в IANA-зоне чата (локальная полночь, DST spring/fall, диапазон дат);
 - `capture_history_range` (реальные anchor/oldest/available, пустой range);
 - `get_recent_history`: ctx range → хронология, FTS запрещён; range > страницы
@@ -186,6 +190,30 @@ class TestExtractWindow:
         assert spec is not None and spec.kind == "duration"
         assert (spec.amount, spec.unit) == (amount, unit)
 
+    @pytest.mark.parametrize("text, amount, unit", [
+        ("что было час назад", 1, "hours"),
+        ("минуту назад", 1, "minutes"),
+        ("день назад", 1, "days"),
+        ("неделю назад", 1, "weeks"),
+        ("сутки назад", 1, "days"),
+    ])
+    def test_bare_single_unit_ago_is_one_unit(self, text, amount, unit):
+        """P0-ACCEPT F1: относительная фраза без цифры = ровно 1 единица."""
+        spec = extract_history_window(text)
+        assert spec is not None and spec.kind == "duration"
+        assert (spec.amount, spec.unit) == (amount, unit)
+
+    @pytest.mark.parametrize("text", [
+        "пару часов назад",
+        "несколько часов назад",
+        "пара дней назад",
+        "два часа назад",
+    ])
+    def test_bare_plural_ago_stays_unresolved(self, text):
+        """P0-ACCEPT F1: plural без числа не превращается в 1 единицу."""
+        spec = extract_history_window(text)
+        assert spec is not None and spec.kind == "unresolved"
+
     def test_za_days_before_event_is_not_now_anchored_duration(self):
         """F5: «за 3 дня до этого» — не последние 3 дня; граница не разобрана."""
         assert extract_history_window("за 3 дня до этого") is None
@@ -237,6 +265,27 @@ class TestResolveWindow:
         resolved = resolve_history_window_at(spec, as_of=AS_OF, timezone=TZ)
         assert resolved == {"from": AS_OF - 10 * 3600, "to": AS_OF,
                             "as_of": AS_OF, "clamped": 0, "reason": ""}
+
+    @pytest.mark.parametrize("text, seconds", [
+        ("что было час назад", 3600),
+        ("что было минуту назад", 60),
+        ("день назад", 86400),
+        ("неделю назад", 7 * 86400),
+    ])
+    def test_bare_ago_resolves_exact_seconds(self, text, seconds):
+        """P0-ACCEPT F1 (приёмка): from = as_of - seconds, to = as_of."""
+        as_of = int(datetime.datetime(
+            2026, 11, 20, 15, 14, 26,
+            tzinfo=datetime.timezone.utc).timestamp())
+        spec = extract_history_window(text)
+        assert spec is not None and spec.kind == "duration"
+        assert spec.amount == 1
+        resolved = resolve_history_window_at(
+            spec, as_of=as_of, timezone="Asia/Yekaterinburg")
+        assert resolved["from"] == as_of - seconds
+        assert resolved["to"] == as_of
+        assert resolved["as_of"] == as_of
+        assert resolved["clamped"] == 0 and resolved["reason"] == ""
 
     def test_local_day_uses_chat_midnight_not_server_zone(self):
         resolved = resolve_history_window_at(
@@ -483,6 +532,80 @@ class TestCaptureAndRoute:
                     CHAT_ID, query, now)
                 assert bound is not None and \
                     bound["window_kind"] == "time_range", query
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_bare_ago_turn_capture_is_exact_not_unresolved(self):
+        """P0-ACCEPT F1: production-путь Direct (`_capture_turn_history_sample`)
+        получает точный интервал из «час/минуту назад», а не unresolved."""
+        now = _local_epoch(2026, 11, 21, 12, 0)
+        db = await _make_db([
+            {"ts": now - 1800, "text": "внутри часа"},
+            {"ts": now - 30, "text": "внутри минуты"},
+            {"ts": now - 7200 - 10, "text": "вне окна"}])
+        service = _service(db)
+
+        async def _tz(_chat_id):
+            return "Asia/Yekaterinburg"
+
+        service.tool_router._chat_timezone = _tz
+        try:
+            for query, seconds, available in (
+                    ("что было час назад", 3600, 2),
+                    ("что было минуту назад", 60, 1)):
+                bound = await service._capture_turn_history_sample(
+                    CHAT_ID, query, now)
+                assert bound is not None, query
+                assert bound["window_kind"] == "time_range", query
+                assert bound["range_status"] == "ok", query
+                assert bound["window_from"] == now - seconds, query
+                assert bound["window_to"] == now, query
+                assert bound["available"] == available, query
+            # Plural без числа и голое «N часов» без маркера — прежнее
+            # поведение: период не угадывается.
+            plural = await service._capture_turn_history_sample(
+                CHAT_ID, "что было пару часов назад", now)
+            assert plural["range_status"] == "unresolved"
+            assert plural["reason"] == "window_unresolved"
+            assert plural["window_from"] == 0
+            assert await service._capture_turn_history_sample(
+                CHAT_ID, "просто болтаем 10 часов", now) is None
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_bare_ago_tool_reads_interval_not_fts(self):
+        """P0-ACCEPT F1: `get_recent_history` читает ровно окно «час/минуту
+        назад» (window_from/window_to в голове) и не уходит в FTS."""
+        now = _local_epoch(2026, 11, 21, 12, 0)
+        db = await _make_db([
+            {"ts": now - 1800, "text": "маркер-в-часе"},
+            {"ts": now - 30, "text": "маркер-в-минуте"},
+            {"ts": now - 7200 - 10, "text": "маркер-вне-окна"}])
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        router = _router(db, memory)
+
+        async def _tz(_chat_id):
+            return "Asia/Yekaterinburg"
+
+        router._chat_timezone = _tz
+        try:
+            for query, seconds, expected in (
+                    ("что было час назад", 3600,
+                     ["маркер-в-часе", "маркер-в-минуте"]),
+                    ("что было минуту назад", 60, ["маркер-в-минуте"])):
+                out = await router.dispatch(
+                    "get_recent_history", {},
+                    _ctx(query, as_of=now))
+                header = _header(out)
+                assert header["window_kind"] == "time_range", query
+                assert header["window_from"] == now - seconds, query
+                assert header["window_to"] == now, query
+                assert [line.partition("]: ")[2] for line in _body(out)] == \
+                    expected, query
+            memory.search_long_term.assert_not_awaited()
         finally:
             await db.db.close()
 

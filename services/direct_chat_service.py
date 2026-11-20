@@ -10854,14 +10854,21 @@ class DirectChatService:
                                   stage="direct_plain",
                                   correlation_id=correlation_id)
             # P0-HC C2 (arch §4.2): обычный Direct выбирает канал по
-            # содержанию. Plain — существующий `send_chunked_reply`
-            # байт-в-байт; структурная разметка — safe HTML через C1-модуль.
-            # Rich/lore/deep_research и их fallback выше не меняются.
+            # содержанию. Plain — существующий `send_chunked_reply` байт-в-
+            # байт для текста без escape; структурная разметка — safe HTML
+            # через C1-модуль. Rich/lore/deep_research и их fallback выше не
+            # меняются.
+            # P0-ACCEPT F2: plain-ветка отдаёт тот же закрытый C1-рендер
+            # (`render_plain`), поэтому буквальный `\*` доезжает как `*`, а
+            # не как backslash-escape: разметка остаётся текстом, лишний
+            # служебный backslash получателю не виден. Вызывается доставка
+            # ровно один раз; трасса/egress-digest считаются по фактически
+            # отправленному тексту.
             # C1-модуль документированно применяет `sanitize_outgoing` ДО
             # разбора/рендера (§4.1), поэтому решение и трасса считаются по
             # тому же источнику: иначе egress-digest показывал бы escaped
-            # `<thought>`-теги, которых получатель не видит. Сам `text`
-            # передаётся в модуль без изменений.
+            # `<thought>`-теги, которых получатель не видит. HTML-ветка
+            # передаёт в модуль исходный `text` (модуль санитизирует сам).
             _markup_source = _tm.sanitize_outgoing(text)
             _markup_mode, _markup_reason = _tm.decide_markup(_markup_source)
             if _markup_mode == "telegram_html":
@@ -10884,8 +10891,9 @@ class DirectChatService:
                             else "send_failed"))
                 return _structured_id
             return await _send_traced(
-                bot, chat_id, text, reply_to, correlation_id=correlation_id,
-                op_name=_ttrace.OP_PLAIN, channel="plain")
+                bot, chat_id, _tm.render_plain(_markup_source), reply_to,
+                correlation_id=correlation_id, op_name=_ttrace.OP_PLAIN,
+                channel="plain")
         escaped = escape_lore_html(text)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
             try:

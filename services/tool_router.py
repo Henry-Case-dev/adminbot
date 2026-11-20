@@ -966,6 +966,12 @@ _HISTORY_DURATION_RE = re.compile(
     r"(минут\w*|час\w*|дн\w*|день|сут\w*|недел\w*)")
 _HISTORY_AGO_RE = re.compile(
     r"(\d+)\s*(минут\w*|час\w*|дн\w*|день|сут\w*|недел\w*)\s+назад")
+# P0-ACCEPT F1: одиночное число без цифры — «час назад», «минуту назад».
+# Только единственное число: plural-формы («часов назад», «пару часов
+# назад») сюда не попадают и остаются unresolved (количество не угадываем).
+# Паттерн применяется к уже нормализованному тексту (lower, ё→е).
+_HISTORY_BARE_AGO_RE = re.compile(
+    r"\b(час|минуту|день|неделю|сутки)\s+назад\b")
 _HISTORY_ZA_RE = re.compile(
     r"(?<!последн)\bза\s+(\d+)\s*(минут\w*|час\w*|дн\w*|день|сут\w*|"
     r"недел\w*)\b(?!\s+до\b)")
@@ -1066,6 +1072,15 @@ def extract_history_window(text: str) -> HistoryWindowSpec | None:
     if match:
         return HistoryWindowSpec("duration", amount=1, unit="days",
                                  raw=match.group(0))
+    # P0-ACCEPT F1: «час/минуту/день/неделю/сутки назад» — ровно 1 единица
+    # (единственное число). Numeric-формы ниже не затрагиваются: «30 минут
+    # назад» = 30, «за 3 дня» = 3; plural без цифры остаётся unresolved.
+    match = _HISTORY_BARE_AGO_RE.search(value)
+    if match:
+        unit = _history_unit(match.group(1))
+        if unit:
+            return HistoryWindowSpec("duration", amount=1, unit=unit,
+                                     raw=match.group(0))
     for pattern in (_HISTORY_DURATION_RE, _HISTORY_AGO_RE, _HISTORY_ZA_RE):
         match = pattern.search(value)
         if not match:
