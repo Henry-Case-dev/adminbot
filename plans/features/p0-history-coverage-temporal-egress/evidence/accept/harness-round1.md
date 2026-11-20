@@ -50,9 +50,12 @@ py tools/p0_hc_acceptance.py --code-root <candidate> `
   --as-of 2026-11-20T15:14:26Z --chat-id -1002661910336 `
   --tz Asia/Yekaterinburg --scenario-set free-speech --llm real `
   --env-file C:\Code\Python\adminbot\.env `
-  --text-timeout 300 --text-max-tokens 200 `
-  --out ...\accept\p0-hc\harness-realtext-r9
+  --text-timeout 300 --text-max-tokens 150 `
+  --out ...\accept\p0-hc\harness-realtext-r10-150
 ```
+
+The same bounded command was repeated once at 120 and once at 96 tokens after
+HTTP 402; no additional calls or retries were made beyond those three attempts.
 
 Endpoint is built like the product client: `LLM_BASE_URL` from the loaded `.env`
 is normalized (`.../api/v1`, no duplicate path) and only
@@ -124,7 +127,12 @@ Summary: **36 pass, 3 fail, 1 not_executed, 2 not_applicable** (42 rows incl. te
 ### Free speech / no objectivity
 
 - Default `--llm stub`: `TEXT-FREE-SPEECH` = `not_executed: real_text_not_run`; static proof (`no_moralizing_or_neutrality_filter_added`, 2426 added lines scanned, 0 hits) passes but is **not** counted as coverage.
-- `--llm real` attempt r9: endpoint `https://nano-gpt.com/api/v1/chat/completions`; provider returned **HTTP 402**, body code `insufficient_balance` (`Available 0.000542 USD, required 0.000555 USD` for up to 200 output tokens). Report: `not_executed: llm_provider_balance_402`, `provider_status=402`, body captured (no key/URL); model `deepseek-v4-flash`, env keys present, bounded 1 call/200 tokens/300s; static proof pass. No fake pass and no fallback-provider key use.
+- `--llm real` attempts r9/r10: endpoint `https://nano-gpt.com/api/v1/chat/completions` was reached, but every bounded call returned **HTTP 402** `insufficient_balance`:
+  - 200 tokens: available `0.000542` USD, required `0.000555`;
+  - 150 tokens: available `0.000542`, required `0.000852`;
+  - 120 tokens: available `0.000542`, required `0.000839`;
+  - 96 tokens: available `0.000542`, required `0.000828`.
+  Report: `not_executed: llm_provider_balance_402`, `provider_status=402`, exact provider body (no key/URL); model `deepseek-v4-flash`, env keys present, one call per attempt; static proof pass. No fake pass and no fallback-provider key use. Prompt cost dominates the reserve, so lowering output tokens alone did not fit the balance.
 - No-`.env` run: `not_executed: llm_api_key_missing`; static proof pass.
 - `HC-ACC-FREE-SPEECH` / `HC-ACC-NO-OBJECTIVITY` therefore remain uncovered; Orchestrator decides before release.
 
@@ -136,6 +144,9 @@ Summary: **36 pass, 3 fail, 1 not_executed, 2 not_applicable** (42 rows incl. te
 | `harness-round4/candidate/p0-hc-acceptance-candidate.json` | 142 916 | `7ad093eb063ebed3e47745f763c91ccc5f2a19475b38b50cb579285747dd5966` |
 | `harness-round4/baseline/p0-hc-acceptance-baseline.json` | 139 680 | `51948690803104e944cacc3355e73faf06a6666b1efce905851337935e615304` |
 | `harness-realtext-r9/p0-hc-acceptance-candidate.json` | 20 512 | `a5b9550d812d801c3d5cec212ffb533aa04e9818f48f26a54675a44703d3e351` |
+| `harness-realtext-r10-150/p0-hc-acceptance-candidate.json` | 20 456 | `70c2b305c8985a72504dc28caa731cf2405f91a20764ce8e855379f9339da7f6` |
+| `harness-realtext-r10-120/p0-hc-acceptance-candidate.json` | 20 456 | `0e2f84ff6f52c0befa5bfbb946d9f408e3e3a662f22812702dab580bf067e5f1` |
+| `harness-realtext-r10-96/p0-hc-acceptance-candidate.json` | 20 457 | `f9527b722e24580852d050e0976e29c44848135cfbebac0ac3ff60ee88f3301a` |
 | `harness-realtext-nokey/p0-hc-acceptance-candidate.json` | 19 000 | `6efbc637e93728f694ecc14eeccf0fb27aba4aa3d537ba52390e9d390d4fdd68` |
 
 Snapshot sha256 before/after every run: `b907d4c1…3e06e7`; `-wal` 0, `-shm` not created.
@@ -152,7 +163,7 @@ Snapshot sha256 before/after every run: `b907d4c1…3e06e7`; `-wal` 0, `-shm` no
 
 1. `TIME-HOUR-AGO` / `TIME-MINUTE-AGO` unresolved by the deterministic period parser; `last_seconds` exact interval works. Needs product/Reviewer decision; not masked.
 2. `TG-LITERAL` escaped `\*` leaks the backslash through the ordinary plain path; C1 `render_plain` not applied there.
-3. Real Writer text could not be produced in this environment: correct product endpoint `/api/v1/chat/completions` returned HTTP 402 `insufficient_balance` (balance 0.000542 vs required 0.000555 USD for 200 output tokens). Report is `not_executed` with status/body; static proof passes but the two content rows are not covered.
+3. Real Writer text could not be produced in this environment: the correct product endpoint `/api/v1/chat/completions` returned HTTP 402 `insufficient_balance` for 200/150/120/96 output tokens (available `0.000542` USD; required `0.000555`/`0.000852`/`0.000839`/`0.000828`). Reports are `not_executed` with exact status/body; static proof passes but the two content rows are not covered. The independent 200-token probe used a key/balance state that could reserve the request; this local key cannot.
 4. `HIST-INGESTION-GAP` is `not_applicable`: the read-only snapshot does not expose unknown ingestion gaps; no fabricated result.
 5. `HC-PROC-SCOPED` is `not_applicable`: process evidence is Reviewer/Orchestrator-owned.
 6. DST is probed with `Europe/Berlin` because the chat zone `Asia/Yekaterinburg` has no DST; midnight uses the chat zone. This is explicit, not a chat-zone override.
