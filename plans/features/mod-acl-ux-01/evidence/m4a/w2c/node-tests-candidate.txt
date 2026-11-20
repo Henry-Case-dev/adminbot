@@ -1,4 +1,4 @@
-﻿MOD-ACL W2c Node tests (candidate; base d03027b1)
+MOD-ACL W2c Node tests (candidate; base d03027b1)
 === mod_acl_ux_m3_module_routes_test.js
 MOD-ACL-UX-01 M3 MODULE ROUTES OK тАФ 235 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║, ╨╝╨╛╨┤╤Г╨╗╨╡╨╣ ╨▓ ╤А╨╡╨╡╤Б╤В╤А╨╡: 21
 exit=0

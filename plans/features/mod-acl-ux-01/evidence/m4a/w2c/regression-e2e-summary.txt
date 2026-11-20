@@ -1,3 +1,3 @@
-﻿   "vw": 1280,
+   "vw": 1280,
    "body": "юРЙ\nяЖР\n╨б╤В╨░╤В╤Г╤Б\nювЗ\n╨б╨┐╤А╨░╨▓╨║╨░\nюб╗\n╨Ь╨╛╨┤╤Г╨╗╨╕\nяБм\n╨Ш╨Ш\nюМв\n╨Я╨░╨╝╤П╤В╤М\nяБО\n╨Р╨╜╨░╨╗╨╕╤В╨╕╨║╨░\nюЗЯ\n╨Ф╨╛╤Б╤В╤Г╨┐╤Л\nю╝╜\nPERMsoc\n╨б╤В╨░╤В╤Г╤Б\n/\n╨Ь╨╛╨┤╤Г╨╗╨╕\n╨б╨╛╨╜\nA\nAudit Chat\n╨з╨Р╨в\nтЦ╛\nID\nA\nAudit\nglo
 M4A-CATALOG-E2E OK | failures=0 | shots=C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\plans\features\mod-acl-ux-01\evidence\m4a\shots

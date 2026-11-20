@@ -1,8 +1,8 @@
-﻿    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
 
 ..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
   C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
-  
+
     self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
 
 ..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1
