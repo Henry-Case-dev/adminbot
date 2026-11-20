@@ -256,14 +256,21 @@ class TestBoundaryContinuity:
         has_next=0): сообщение 111 отвечает на 110, разрез падает между
         ними — continues_from ставится и здесь, а не только на стыке
         страниц (REQ-HA-SEG-COVERAGE / H16; complete=1 без связи
-        невозможен)."""
+        невозможен).
+
+        HC-TIME (B) test-only addendum: канонические строки теперь несут
+        аддитивный reply-сегмент, поэтому character-slot режется на 120|121
+        вместо прежних 121|122. Второй cross-cut reply перенесён на 121→120
+        (первая строка сегмента 3 отвечает на последнюю строку сегмента 2),
+        чтобы тест продолжал проверять именно связь ЧЕРЕЗ разрез, а не
+        конкретную длину строки."""
         db = DatabaseService(":memory:")
         await db.initialize()
         pad = "х" * 180
         # tg-ids 100..139 — одна страница 40 строк, все строки одной длины;
-        # ответы ровно на первых сообщениях сегментов 2 и 3 (111, 122)
+        # ответы ровно на первых сообщениях сегментов 2 и 3 (111, 121).
         for i in range(100, 140):
-            reply = 110 if i == 111 else (121 if i == 122 else None)
+            reply = 110 if i == 111 else (120 if i == 121 else None)
             await db.db.execute(
                 "INSERT INTO smart_messages "
                 "(user_id, chat_id, text, timestamp, media_type, "
@@ -289,12 +296,12 @@ class TestBoundaryContinuity:
         match2 = re.match(r"seg 2 tg:(\d+)\.\.tg:(\d+) ", seg_lines[1])
         match3 = re.match(r"seg 3 tg:(\d+)\.\.tg:(\d+) ", seg_lines[2])
         assert match1 and match2 and match3, seg_lines[:3]
-        # guard: разрезы действительно на 110|111 и 121|122 (внутри страницы)
+        # guard: разрезы действительно на 110|111 и 120|121 (внутри страницы)
         assert (int(match1.group(2)), int(match2.group(1))) == (110, 111)
-        assert int(match3.group(1)) == 122
+        assert int(match3.group(1)) == 121
         # 111 отвечает на 110 → связь через границу поставлена кодом
         assert "continues_from=1" in seg_lines[1]
-        # 122 отвечает на 121 → вторая внутристраничная связь
+        # 121 отвечает на 120 → вторая внутристраничная связь через разрез
         assert "continues_from=2" in seg_lines[2]
 
     @pytest.mark.asyncio

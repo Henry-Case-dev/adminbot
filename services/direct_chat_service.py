@@ -17123,6 +17123,21 @@ class DirectChatService:
                 # Медиа-строка: маркер перерисовывается меткой (§4.2 п.2).
                 text = row_media_marker(row, item_id=item_id,
                                         projection=projection)
+            # HC-B-F1: в речевой проекции raw `tg:`/uid не печатаются —
+            # reply уже выражен отношением `↳ Reply M…` (если родитель в
+            # окне), а редакция добавляется к тексту отдельной клаузой.
+            reply_label = None
+            if reply_ref:
+                try:
+                    reply_label = projection.label_of_item(
+                        resolve_item_id(tg_message_id=parent_tg)) or None
+                except Exception:
+                    reply_label = None
+            if edited_at:
+                _edited_stamp = format_utc_timestamp(edited_at)
+                if _edited_stamp:
+                    text = (f"{text} (ред. {_edited_stamp})" if text
+                            else f"(ред. {_edited_stamp})")
             relations = ()
             if window_items:
                 parent_tg_id = reply_parent_tg_message_id(row)
@@ -17137,8 +17152,7 @@ class DirectChatService:
                 author_uid=uid, item_id=item_id,
                 forward_source=forward_source, text=text, kind="msg",
                 is_target=is_target, projection=projection,
-                relations=relations, reply_to=reply_ref or None,
-                edited_at=edited_at)
+                relations=relations, reply_to=reply_label)
         author = _speaker_tag(name, uid, suffix=suffix)
         return format_context_item(
             ts=row_get(row, "timestamp"), author=author,

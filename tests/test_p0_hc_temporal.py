@@ -433,3 +433,89 @@ class TestTimeLineLegend:
             time_line=CLOCK_BLOCK + "\n" + UTC_LEGEND)
         user = payload[1]["content"]
         assert user.count(UTC_LEGEND) == 1
+
+
+# ── 7. Thread/Branch temporal delivery (HC-B-F1) ────────────────────────────
+
+async def _make_thread_db():
+    """Parent 11 + reply/edit row 12, selected by `get_smart_message_by_tg_id`."""
+    db = DatabaseService(":memory:")
+    await db.initialize()
+    await db.save_smart_message(
+        7, CHAT_ID, "message-1", None, TS, "text", "A", message_id=11)
+    row_id = await db.save_smart_message(
+        8, CHAT_ID, "message-2", 11, TS + 10, "text", "B", message_id=12)
+    await db.db.execute(
+        "UPDATE smart_messages SET edited_at = ?, reply_to_author_id = ? "
+        "WHERE id = ?", (EDITED, 7, row_id))
+    await db.db.commit()
+    return db
+
+
+class TestThreadBranchTemporalDelivery:
+    @pytest.mark.asyncio
+    async def test_chain_item_carries_edited_at_and_reply_author(self):
+        db = await _make_thread_db()
+        svc = _service(db)
+        chain = await svc._collect_thread_chain(CHAT_ID, 12)
+        assert chain and chain[0].item_id == "tg:12"
+        # HC-B-F1: both fields come from the already-selected
+        # `get_smart_message_by_tg_id` row, without new SQL.
+        assert getattr(chain[0], "edited_at", None) == EDITED
+        assert getattr(chain[0], "reply_to_author_id", None) == 7
+
+    @pytest.mark.asyncio
+    async def test_thread_and_branch_lines_carry_reply_edit(self):
+        db = await _make_thread_db()
+        svc = _service(db)
+        chain = await svc._collect_thread_chain(CHAT_ID, 12)
+        thread = svc._render_thread(chain, {}, trigger_message_id=12)
+        branch = svc._render_branch(chain, {}, trigger_message_id=12)
+        for block in (thread, branch):
+            assert "ответ на tg:11 (uid 7)" in block
+            assert "ред. 01.01.2024 00:05 UTC" in block
+        assert thread.startswith("<Conversation_Thread>")
+        assert branch.startswith("<Conversation_Branch>")
+
+    @pytest.mark.asyncio
+    async def test_thread_branch_reach_final_writer_payload(self):
+        db = await _make_thread_db()
+        svc = _service(db)
+        chain = await svc._collect_thread_chain(CHAT_ID, 12)
+        thread = svc._render_thread(chain, {}, trigger_message_id=12)
+        branch = svc._render_branch(chain, {}, trigger_message_id=12)
+        payload = await _capture_writer_payload(user_blocks=[thread, branch])
+        user = payload[1]["content"]
+        assert "<Conversation_Thread>" in user
+        assert "<Conversation_Branch>" in user
+        # Actual Writer messages, not a ChainItem/DTO assertion.
+        assert "ответ на tg:11 (uid 7)" in user
+        assert "ред. 01.01.2024 00:05 UTC" in user
+        assert user.count("ответ на tg:11 (uid 7)") == 2
+
+    @pytest.mark.asyncio
+    async def test_thread_speech_projection_carries_edit_and_reply_relation(self):
+        db = await _make_thread_db()
+        svc = _service(db)
+        chain = await svc._collect_thread_chain(CHAT_ID, 12)
+        projection = cc.SpeechProjection(run_id="run-thread")
+        thread = svc._render_thread(
+            chain, {}, trigger_message_id=12, projection=projection)
+        assert "ред. 01.01.2024 00:05 UTC" in thread
+        assert "Reply" in thread
+        # Speech contract: no raw tg:/uid identifiers in the projected block.
+        assert "tg:" not in thread
+        assert "uid " not in thread
+
+    @pytest.mark.asyncio
+    async def test_thread_without_reply_edit_stays_byte_identical(self):
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        await db.save_smart_message(
+            7, CHAT_ID, "plain-1", None, TS, "text", "A", message_id=11)
+        await db.db.commit()
+        svc = _service(db)
+        chain = await svc._collect_thread_chain(CHAT_ID, 11)
+        thread = svc._render_thread(chain, {}, trigger_message_id=11)
+        assert "ответ на" not in thread
+        assert "ред." not in thread

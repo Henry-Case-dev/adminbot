@@ -39,6 +39,7 @@ from services.canonical_context import (
     emit_speech_projection_event,
     format_context_item,
     format_speech_item,
+    format_utc_timestamp,
     resolve_item_id,
     speech_projection_enabled,
 )
@@ -171,6 +172,11 @@ class ChainItem(NamedTuple):
     source_kind: str = ""
     correlation_id: str = ""
     revision_no: int = 1
+    # HC-TIME (B, HC-B-F1): редакция сообщения и автор родителя — из уже
+    # выбранной `get_smart_message_by_tg_id` строки. Аддитивно в конце:
+    # старые позиционные ChainItem/кортежи остаются валидными.
+    edited_at: int | None = None
+    reply_to_author_id: int | None = None
 
 
 def speaker_tag(name: str, uid, *, is_bot: bool = False,
@@ -413,7 +419,11 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                     quote_is_manual=row_get(row, "quote_is_manual"),
                     reply_to_item_id=_parent_item_id(row["reply_to_id"]),
                     quote_author_name=_quote_author_name(quote_author_id),
-                    media_type=media_type))
+                    media_type=media_type,
+                    # HC-TIME (B, HC-B-F1): редакция и автор родителя уже
+                    # лежат в этой же строке (get_smart_message_by_tg_id).
+                    edited_at=row_get(row, "edited_at"),
+                    reply_to_author_id=row_get(row, "reply_to_author_id")))
                 _resolve_pending_quote(True)   # предыдущий quote → найден
                 if chain[-1].quote_text:
                     pending_quote_idx = len(chain) - 1
@@ -525,6 +535,21 @@ def _quote_annotation(item: ChainItem, *, is_target: bool) -> str:
     return f"{base} (выделенный фрагмент оригинала выше по цепочке)"
 
 
+def _display_reply_ref(item) -> str | None:
+    """HC-TIME (B, HC-B-F1): подтверждённый reply-край для канон-заголовка.
+
+    ``tg:<id>`` берётся из уже существующего ``reply_to_item_id`` (машинная
+    сторона/речевые отношения не меняются); uid автора родителя добавляется
+    только когда строка его знает. Нет ребра → None (прежний байт-канон)."""
+    ref = str(getattr(item, "reply_to_item_id", "") or "").strip()
+    if not ref:
+        return None
+    uid = getattr(item, "reply_to_author_id", None)
+    if uid not in (None, "", 0):
+        return f"{ref} (uid {uid})"
+    return ref
+
+
 def format_chain_line(item, suffix_map: dict | None = None,
                       trigger_message_id=None, *,
                       emit_quote: bool = True) -> str:
@@ -555,7 +580,8 @@ def format_chain_line(item, suffix_map: dict | None = None,
     return format_context_item(
         ts=item.ts, author=author, item_id=item.item_id,
         forward_source=item.forward_source, text=text, kind="msg",
-        is_target=is_target)
+        is_target=is_target, reply_to=_display_reply_ref(item),
+        edited_at=getattr(item, "edited_at", None))
 
 
 _REPLY_CHAINS_NOTE = (
@@ -677,6 +703,15 @@ def render_speech_line(item, projection, suffix_map: dict | None = None,
                             projection=projection)
     else:
         text = item.text
+    # HC-B-F1: редакция в речевой проекции — ПОСЛЕ текста, не в заголовке.
+    # Причина: существующий визуальный контракт требует непрерывного
+    # `| M2]` в слотовой части; reply уже явно печатается отношением
+    # `↳ Reply M…`, поэтому raw `tg:`/uid в речевую сторону не добавляются.
+    edited = getattr(item, "edited_at", None)
+    if edited:
+        _stamp = format_utc_timestamp(edited)
+        if _stamp:
+            text = f"{text} (ред. {_stamp})" if text else f"(ред. {_stamp})"
     edge = _speech_reply_relation(item)
     all_relations = ([edge] if edge is not None else []) + list(relations or ())
     return format_speech_item(
