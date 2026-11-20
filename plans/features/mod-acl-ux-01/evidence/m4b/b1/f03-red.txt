@@ -1,0 +1,22 @@
+F03 RED on old product 95e4c101095a17e7fa58866f091ee1001bd83d56
+(tests/tools copied from the fix; product bytes are the reviewed candidate).
+
+1) node tests/js/mod_acl_ux_m4b_feeds_test.js
+rc=1
+AssertionError [ERR_ASSERTION]: на «Модулях» старые строки досье не
+переезжают в новый чат
+(7f: setActiveChat with activeTab='modules' must clear the shared
+dossier snapshot; old code resets only in the status branch).
+
+2) tools/ui_mod_acl_m4b_status_e2e.py (F03 scenario)
+{"ok": false, "checks": 138, "failures":
+ ["cross_scope_no_old_rows", "cross_scope_no_old_names",
+  "cross_scope_honest_empty"]}
+Scenario: Audit Chat (4 rows) -> #/modules -> Empty Chat -> #/ while the
+new-scope dossier_feed response is delayed 2.5 s. Old code shows
+["Аня","Борис","Гость","Участники не определены"] from Audit Chat until
+the delayed response arrives; fixed code shows the honest empty state.
+
+3) Base 40fe603f with the same new tests
+node tests/js/mod_acl_ux_m4b_feeds_test.js -> rc=1, "ровно пять лент в
+одной карточке": actual 4, expected 5 (new contract is absent on base).

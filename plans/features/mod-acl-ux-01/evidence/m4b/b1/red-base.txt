@@ -86,3 +86,10 @@ rc=1
 playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 12000ms exceeded.
 Call log:
   - waiting for locator("[data-intel-section=\"dossier\"]")
+
+F01/F03 review-fix RED (updated tests, base 40fe603f):
+- 6-file contract set: 26 failed / 154 passed (9 pre-existing base
+  failures + 17 new-contract assertions). Candidate 5f8026b2f:
+  9 failed / 171 passed — exactly the same 9 pre-existing, 0 new.
+- F03 regression on old product 95e4c101: see f03-red.txt / f03-red.json
+  (cross-scope stale dossier rows) and review-fixes.md §B1-R1-F03.

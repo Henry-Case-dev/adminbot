@@ -25,3 +25,16 @@ M4. Drop chat_id from /api/oversight/dossier_feed request.
 Restore verification: sha256 of app.js/index.html/app.css equals the backup;
 node --check web/app.js rc=0; git diff --check rc=0; targeted green suite
 re-run rc=0.
+
+M5 (review r1 / F03). Reset the dossier snapshot only in the
+`activeTab === 'status'` branch (the old 95e4c101 behaviour).
+    node tests/js/mod_acl_ux_m4b_feeds_test.js -> rc=1,
+    "на «Модулях» старые строки досье не переезжают в новый чат".
+    tools/ui_mod_acl_m4b_status_e2e.py -> rc=2,
+    failures cross_scope_no_old_rows / cross_scope_no_old_names /
+    cross_scope_honest_empty (see f03-red.txt / f03-red.json).
+
+M6 (review r1 / N08). Remove the `dossierFeedSeq` generation check from the
+loadDossierFeed finally (stale request clears the new busy).
+    node tests/js/mod_acl_ux_m4b_feeds_test.js -> rc=1,
+    "старый finally не снимает busy нового запроса".

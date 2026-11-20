@@ -1,0 +1,19 @@
+F02 — ui_evol_w15_composition_e2e.py (candidate 5f8026b2f, --out temp)
+
+Result: EVOL-W15-COMPOSITION FAIL with 72 pre-existing non-B1 failures
+(cog-map/adaptive prompt-editor ranges). No failure contains
+"досье"/"dossier"/"тикер"/"record".
+
+Before the selector update the same run also failed:
+  Статус@390: нет блока «пятая лента «Досье»»
+because the probe filtered by visibility (on 390 only the active tab is
+visible). The dossier probe now counts the fifth intel section
+regardless of the active mobile tab; that B1 failure is gone.
+
+B1-specific checks confirmed by the run:
+  - fifth section "dossier" exists in Status at 390 and 1280;
+  - record-click step uses [data-intel-section="dossier"] [data-sfeed-row];
+  - dossier is absent from Analytics routes (no duplicate).
+
+Remaining 72 failures are the unchanged pre-existing W15/cog-map/adaptive
+prompt-editor issues; they are outside B1 and were already red on base.

@@ -5,15 +5,17 @@
   MAC-S15-15).
 - **База:** `40fe603f0aac853af99656bac1934ec5f3d160f9` / 2.58.223
   (выкаченный W3/F-1 503 fix уже в `web/app.js`/`index.html`).
-- **Кандидат:** `333b18da3a4e45e99b7e50b2f947d0c40ffe1953`,
-  ветка `release/mod-acl-m4b1-2.58.224`; target 2.58.224 (bump/deploy не делались).
+- **Исходный candidate r0:** `333b18da3a4e45e99b7e50b2f947d0c40ffe1953`.
+- **Кандидат r1 (после review):** `5f8026b2fb9a1509c09df834b2154d8c3c71d393`,
+  ветка `release/mod-acl-m4b1-2.58.224`; target 2.58.224
+  (bump/deploy не делались). Исправления F01–F03 — `review-fixes.md`.
 - **Worktree:** `WorkspaceData/worktrees/.../mod-acl-ux-01-1e46be007668-512d7d77`.
 
 ## Что изменено
 
 | Файл | Δ | Суть |
 |---|---|---|
-| `web/app.js` | +246/−76 | общий маппер записи досье; person-centric `dossierPeopleFeed`; пятая вкладка; tablist-клавиатура; пустые состояния/aria; scope-guard `loadDossierFeed`; удалены `dossierFeedLoop`/`dossierFeedSpeed` |
+| `web/app.js` | +271/−80 | общий маппер записи досье; person-centric `dossierPeopleFeed`; пятая вкладка; tablist-клавиатура; пустые состояния/aria; scope-guard + generation `dossierFeedSeq` (сброс снимка при ЛЮБОЙ смене чата, N08); удалены `dossierFeedLoop`/`dossierFeedSpeed` |
 | `web/index.html` | +63/−76 | пятая секция `data-intel-section="dossier"`; tablist/aria-current/roving tabindex; удалена нижняя карточка «Живая лента досье» (тикер + клоны) |
 | `web/static/app.css` | +35/−138 | сетка 3+2 ≥1280, 2+2+1 768–1279, 1 колонка ≤767 + вкладки; touch 44; бейдж досье; удалён CSS мёртвого тикера |
 
@@ -55,11 +57,16 @@
 | `soul1_w5_initiative_panel_test.js` | `SOUL1-W5-PANEL-OK` |
 | `round1020_ui_test.js` | `JS-UNIT-OK` |
 | `evol001_005_widgets_test.js` | `EVOL-001-005-OK` |
-| broad node suite | 126 файлов: 122 passed, **те же 4** pre-existing падения, что на базе |
+| `asap6_wave2_ux_tabs_test.js` | `WAVE2-UX-TABS-OK` (baseline-падение снято) |
+| broad node suite | **125** `*_test.js`: 122 passed, **3** pre-existing падения (`evol_cog_scene`, `round1025_ia_routing`, `ur_ui_settings`) |
+| 6-file Python contract | base+updated tests 26/154; candidate **9/171**; **0 новых** падений |
 | W2a tab-memory/keyboard | 141 проверка, rc=0 |
 | W2c layout/nav | 84 проверки, rc=0 |
+| W2b history | 397 проверок, rc=0 |
 | mandatory pytest (24 файла) | **386 passed**, 0 failed |
-| `tools/ui_mod_acl_m4b_status_e2e.py` | **131 check, 0 failures**, 6 viewport |
+| `tools/ui_mod_acl_m4b_status_e2e.py` | **138 check, 0 failures**, 6 viewport + F03 cross-scope |
+| w10 e2e | B1-проверки зелёные; остались 3 прежних module/catalog падения |
+| w15 e2e | B1-«Досье»/record зелёные; остались прежние adaptive/prompt-editor падения |
 | Browser Use (real Chrome, 1440) | 5 секций, 3+2, 4 строки досье, detail+provenance, no h-scroll |
 | Browser Use (real Chrome, 390) | 1 колонка, 5 вкладок, touch 63×44, aria-current, dossiers 4 |
 
@@ -68,20 +75,26 @@
 `red-base.txt`: 7 node-файлов падают на базовых продуктовых байтах
 (5≠4 лент, отсутствие `dossierPeopleFeed`, `data-intel-section="dossier"`,
 удалённая нижняя карточка); e2e timeout на отсутствующей пятой секции.
+После review r1 добавлены `f03-red.txt`/`f03-red.json` (RED на `95e4c101`:
+cross-scope stale rows) и `f01-6files-{base,candidate}.txt`
+(base 26/154, candidate 9/171; 0 новых падений).
 
 ### Мутации
 
 `mutations.txt`: убрать 5-ю ленту → fail; вернуть 4 колонки/1100 → fail;
-1:1 проекция без группировки → fail (4≠3); убрать `chat_id` из запроса → fail.
-Каждая мутация откатывалась побайтово; `node --check`/`git diff --check` rc=0.
+1:1 проекция без группировки → fail (4≠3); убрать `chat_id` из запроса → fail;
+M5 reset только в status-ветке → fail (cross-scope); M6 убрать generation
+из `finally` → fail (stale busy). Каждая мутация откатывалась побайтово;
+`node --check`/`git diff --check` rc=0.
 
 ## Evidence
 
 - `plans/features/mod-acl-ux-01/evidence/m4b/b1/tests.json` — машинные результаты;
-- `.../red-base.txt`, `.../mutations.txt`;
-- `.../e2e-report.json` — 131 check по 6 viewport;
-- `.../shots/` — 6 viewport-скриншотов Playwright, 503/empty-chat/pause-resume,
-  3 снимка реального Chrome (Browser Use).
+- `.../red-base.txt`, `.../f03-red.txt`, `.../f03-red.json`, `.../mutations.txt`,
+  `.../f01-6files-{base,candidate}.txt`, `.../review-fixes.md`;
+- `.../e2e-report.json` — 138 check по 6 viewport + F03;
+- `.../shots/` — 6 viewport-скриншотов Playwright, 503/empty-chat/
+  pause-resume/cross-scope, 3 снимка реального Chrome (Browser Use).
 
 ## Ограничения
 

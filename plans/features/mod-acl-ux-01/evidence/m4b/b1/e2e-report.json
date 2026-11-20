@@ -125,6 +125,13 @@
   "scope_empty_no_foreign_name": true,
   "scope_back_returns_rows": true,
   "scope_console_clean": true,
+  "cross_scope_seed_rows": true,
+  "cross_scope_no_old_rows": true,
+  "cross_scope_no_old_names": true,
+  "cross_scope_honest_empty": true,
+  "cross_scope_stays_empty": true,
+  "cross_scope_back_returns_rows": true,
+  "cross_scope_console_clean": true,
   "reduced_motion_no_scroll": true,
   "reduced_motion_content_present": true,
   "reduced_motion_console_clean": true,
@@ -222,7 +229,7 @@
      "14.10",
      "14.10"
     ],
-    "heading": "Досье данные от 20:26",
+    "heading": "Досье данные от 21:45",
     "empty": false,
     "error": false
    }
@@ -316,7 +323,7 @@
      "14.10",
      "14.10"
     ],
-    "heading": "Досье данные от 20:26",
+    "heading": "Досье данные от 21:45",
     "empty": false,
     "error": false
    }
@@ -410,7 +417,7 @@
      "14.10",
      "14.10"
     ],
-    "heading": "Досье данные от 20:26",
+    "heading": "Досье данные от 21:45",
     "empty": false,
     "error": false
    }
@@ -505,7 +512,7 @@
      "14.10",
      "14.10"
     ],
-    "heading": "Досье данные от 20:26",
+    "heading": "Досье данные от 21:45",
     "empty": false,
     "error": false
    }
@@ -594,7 +601,7 @@
      "14.10",
      "14.10"
     ],
-    "heading": "Досье данные от 20:26",
+    "heading": "Досье данные от 21:46",
     "empty": false,
     "error": false
    }
@@ -683,7 +690,7 @@
      "14.10",
      "14.10"
     ],
-    "heading": "Досье данные от 20:27",
+    "heading": "Досье данные от 21:46",
     "empty": false,
     "error": false
    }
@@ -699,9 +706,18 @@
   "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\plans\\features\\mod-acl-ux-01\\evidence\\m4b\\b1\\shots\\status-five-ribbons-mobile_320.png"
  ],
  "scope_empty": {
-  "text": "Досье данные от 20:27\nВ выбранном чате досье пусто\nВ выбранном чате подтверждённых записей досье нет. Данные других чатов не подставляются.",
+  "text": "Досье данные от 21:46\nВ выбранном чате досье пусто\nВ выбранном чате подтверждённых записей досье нет. Данные других чатов не подставляются.",
   "rows": 0,
   "empty": true
+ },
+ "cross_scope_during": {
+  "rows": 0,
+  "text": "Досье ещё не загружено\nВ выбранном чате досье пусто\nВ выбранном чате подтверждённых записей досье нет. Данные других чатов не подставляются.\nПричина: лента ещё не запрашивалась",
+  "empty": true
+ },
+ "cross_scope_after": {
+  "rows": 0,
+  "text": "Досье данные от 21:46\nВ выбранном чате досье пусто\nВ выбранном чате подтверждённых записей досье нет. Данные других чатов не подставляются."
  },
  "dossier_503": {
   "rows": 0,

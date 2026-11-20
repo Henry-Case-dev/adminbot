@@ -1,6 +1,6 @@
 {
   "feature": "MOD-ACL-UX-01",
-  "increment": "M4B B1",
+  "increment": "M4B B1 (review r1 fixes)",
   "release_target": "2.58.224",
   "branch": "release/mod-acl-m4b1-2.58.224",
   "base": {
@@ -8,138 +8,156 @@
     "version": "2.58.223",
     "role": "deployed base (W3/F-1 503 fix included)"
   },
+  "previous_candidate": {
+    "product": "333b18da3a4e45e99b7e50b2f947d0c40ffe1953",
+    "branch_tip": "95e4c101095a17e7fa58866f091ee1001bd83d56",
+    "review": "NEEDS_FIXES (review-r1.md)"
+  },
   "candidate": {
-    "sha": "333b18da3a4e45e99b7e50b2f947d0c40ffe1953",
+    "sha": "5f8026b2fb9a1509c09df834b2154d8c3c71d393",
     "product_files": ["web/app.js", "web/index.html", "web/static/app.css"],
     "product_numstat": {
-      "web/app.js": {"insertions": 246, "deletions": 76},
+      "web/app.js": {"insertions": 271, "deletions": 80},
       "web/index.html": {"insertions": 63, "deletions": 76},
       "web/static/app.css": {"insertions": 35, "deletions": 138}
     },
     "product_blob_sha": {
-      "web/app.js": "6bf9ee95f773b7f8448bddf85d7767fef56f6734",
+      "web/app.js": "0437f7ec130f1a944882afa5335bab52b0a94194",
       "web/index.html": "efb60bdcbef6d075ca38f8caa32efbe57138f104",
       "web/static/app.css": "300f165959df0d7d3a7dea64d56f5d4efcfcccf2"
     },
-    "note": "Diff is larger than the freehand estimate (+110/-95): the bottom dossier ticker and its dead CSS/model are removed (-~140 CSS, -~45 JS), while the person projection, keyboard tablist and scope guard are added. No files outside the B1 write scope."
+    "changes_since_r0": "F03 scope-keyed dossier state + generation token; F01 6 static contract files; F02 w10/w15 e2e selectors; N02 comment; N03 evidence count. Only web/app.js among product files."
   },
   "environment": {
     "node": "v24.16.0",
     "python": "3.12.0",
     "playwright": "1.62.0",
-    "chromium": "bundled Playwright Chromium",
-    "browser_use": "real local Chrome via browser-use harness"
+    "chromium": "bundled Playwright Chromium"
   },
   "results": {
     "node_targeted": [
-      {"file": "tests/js/mod_acl_ux_m4b_feeds_test.js", "rc": 0, "marker": "MOD-ACL-UX-M4B-B1-FEEDS-OK"},
+      {"file": "tests/js/mod_acl_ux_m4b_feeds_test.js", "rc": 0, "marker": "MOD-ACL-UX-M4B-B1-FEEDS-OK", "includes": ["F03 7f any-scope reset", "N08 7g stale-busy guard"]},
       {"file": "tests/js/asap_ui02_status_ribbons_test.js", "rc": 0, "marker": "ASAP-UI02-RIBBONS-OK"},
       {"file": "tests/js/round1024_dossier_feed_test.js", "rc": 0, "marker": "DOSSIER-FEED-OK"},
       {"file": "tests/js/round1025_f11_status_grid_test.js", "rc": 0, "marker": "F11-STATUS-GRID-OK / F11-HEARTBEAT-OK"},
       {"file": "tests/js/soul1_w5_initiative_panel_test.js", "rc": 0, "marker": "SOUL1-W5-PANEL-OK"},
       {"file": "tests/js/round1020_ui_test.js", "rc": 0, "marker": "JS-UNIT-OK"},
-      {"file": "tests/js/evol001_005_widgets_test.js", "rc": 0, "marker": "EVOL-001-005-OK"}
+      {"file": "tests/js/evol001_005_widgets_test.js", "rc": 0, "marker": "EVOL-001-005-OK"},
+      {"file": "tests/js/asap6_wave2_ux_tabs_test.js", "rc": 0, "marker": "WAVE2-UX-TABS-OK", "note": "stale dossier-ticker/data-experience markers updated; baseline failure removed"}
     ],
     "node_broad": {
-      "files": 126,
+      "files": 125,
       "passed": 122,
-      "failed": 4,
+      "failed": 3,
       "failed_files": [
-        "tests/js/asap6_wave2_ux_tabs_test.js",
         "tests/js/evol_cog_scene_test.js",
         "tests/js/round1025_ia_routing_test.js",
         "tests/js/ur_ui_settings_test.js"
       ],
-      "same_as_base": true,
-      "note": "Exact same 4 pre-existing failures reproduced on base 40fe603f before implementation; not new."
+      "note": "125 = tests/js/*_test.js (module_fixture.js is a helper, not a test). 3 pre-existing failures; asap6 is now green (was 4 baseline)."
+    },
+    "pytest_contract_6files": {
+      "files": [
+        "tests/test_dossier_feed_round1024.py",
+        "tests/test_webapp_evol_w10_sections.py",
+        "tests/test_webapp_evol_w15_composition.py",
+        "tests/test_webapp_round1020_ui.py",
+        "tests/test_webapp_js_unit.py",
+        "tests/test_webapp_f11_round1025.py"
+      ],
+      "base_40fe603f_with_updated_tests": {"failed": 26, "passed": 154},
+      "candidate_5f8026b2f": {"failed": 9, "passed": 171},
+      "new_failures_vs_base": 0,
+      "remaining_base_failures": [
+        "test_webapp_evol_w10_sections.py::TestEvol027Catalog (4)",
+        "test_webapp_evol_w10_sections.py::test_live_render_sections_e2e",
+        "test_webapp_evol_w15_composition.py::test_role_classes_have_no_literal_geometry",
+        "test_webapp_round1020_ui.py::TestNavigationSnapshot (2)",
+        "test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz"
+      ],
+      "artifacts": ["f01-6files-base.txt", "f01-6files-candidate.txt"],
+      "note": "All 14 review-listed candidate-only failures are green after the conscious contract update; 9 remaining failures are exactly the same pre-existing base failures."
     },
     "invariants": [
       {"file": "tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js", "checks": 141, "rc": 0},
-      {"file": "tests/js/mod_acl_ux_m4a_w2c_navigation_layout_test.js", "checks": 84, "rc": 0}
+      {"file": "tests/js/mod_acl_ux_m4a_w2c_navigation_layout_test.js", "checks": 84, "rc": 0},
+      {"file": "tests/js/mod_acl_ux_m4a_w2b_history_test.js", "checks": 397, "rc": 0}
     ],
     "pytest_mandatory": {
       "files": 24,
       "passed": 386,
       "failed": 0,
       "command": "python -m pytest -q -p no:cacheprovider <24-file M4A/M2/M2.1 + f8 + mca23 + webapp JS set>",
-      "note": "Identical 24-file set used by release 2.58.223 (386 passed, 1 warning)."
+      "note": "Identical 24-file set used by release 2.58.223."
     },
     "playwright_e2e": {
       "tool": "tools/ui_mod_acl_m4b_status_e2e.py",
-      "checks": 131,
+      "checks": 138,
       "failures": 0,
       "report": "plans/features/mod-acl-ux-01/evidence/m4b/b1/e2e-report.json",
       "viewports": ["1920x1080", "1440x900", "1280x800", "768x1024", "390x844", "320x700"],
+      "new_f03_checks": [
+        "cross_scope_seed_rows",
+        "cross_scope_no_old_rows",
+        "cross_scope_no_old_names",
+        "cross_scope_honest_empty",
+        "cross_scope_stays_empty",
+        "cross_scope_back_returns_rows",
+        "cross_scope_console_clean"
+      ],
       "covered": [
         "5 sections, dossier fifth",
         "grid 3+2 / 2+2+1 / 1 + tabs",
         "no horizontal overflow",
         "5 live ribbons with rows",
-        "person projection (Аня 2 records = 1 row), unknown honest row",
+        "person projection, unknown honest row",
         "count badge, aria/provenance, dates",
         "detail window + Досье субъекта",
         "mobile tablist/aria-current/touch 44/keyboard",
         "pause/resume after wheel",
         "scope change: empty Chat shows no foreign data",
+        "F03 cross-scope: change chat on #/modules, return #/ before delayed response",
         "reduced motion: no movement",
         "dossier_feed 503: reason, not 0 rows"
       ],
       "limitation": "Synthetic API stubs; candidate bytes served locally, not live TMA."
     },
-    "browser_use": {
-      "stand": "local HTTP stand on candidate bytes with the same synthetic fixtures",
-      "browser": "real local Chrome (browser-use harness, CDP)",
-      "checks_1440": {
-        "sections": 5,
-        "grid_columns": 3,
-        "row_distribution": [3, 2],
-        "page_no_h_scroll": true,
-        "cards_no_h_scroll": true,
-        "dossier_rows": 4,
-        "dossier_names": ["Аня", "Борис", "Гость", "Участники не определены"],
-        "count_badges": ["досье · 2", "досье · 1", "досье · 1", "досье · 1"],
-        "bottom_card_absent": true,
-        "ticker_absent": true,
-        "detail_modal": true,
-        "detail_provenance": "created_at/message_timestamp/last_confirmed_at + origin",
-        "dossier_action": true
-      },
-      "checks_390": {
-        "sections": 5,
-        "visible_cards": 1,
-        "grid_columns": 1,
-        "tab_count": 5,
-        "touch_target_px": [63, 44],
-        "dossier_after_tab_click": true,
-        "facts_hidden_after_tab_click": true,
-        "aria_current": "page",
-        "aria_selected": "true",
-        "roving_tabindex": "0",
-        "dossier_rows": 4,
-        "no_h_scroll": true
-      },
-      "screenshots": [
-        "plans/features/mod-acl-ux-01/evidence/m4b/b1/shots/browseruse-real-chrome-1440-grid.png",
-        "plans/features/mod-acl-ux-01/evidence/m4b/b1/shots/browseruse-real-chrome-1440.png",
-        "plans/features/mod-acl-ux-01/evidence/m4b/b1/shots/browseruse-real-chrome-390.png"
-      ],
-      "limitation": "Local stand with synthetic API; not a live TMA session. Tabs opened by the check were closed; the temporary stand process was stopped."
+    "f03_red_old_candidate": {
+      "sha": "95e4c101095a17e7fa58866f091ee1001bd83d56",
+      "node": "rc=1, 'на «Модулях» старые строки досье не переезжают в новый чат'",
+      "e2e": {"ok": false, "checks": 138, "failures": ["cross_scope_no_old_rows", "cross_scope_no_old_names", "cross_scope_honest_empty"]},
+      "artifacts": ["f03-red.txt", "f03-red.json"]
     },
-    "red_on_base": {
+    "red_base": {
       "base_sha": "40fe603f0aac853af99656bac1934ec5f3d160f9",
-      "artifact": "plans/features/mod-acl-ux-01/evidence/m4b/b1/red-base.txt",
+      "artifact": "red-base.txt",
       "node_failures": 7,
       "e2e": "timeout waiting for [data-intel-section=dossier] (absent on base)"
     },
     "mutations": {
-      "artifact": "plans/features/mod-acl-ux-01/evidence/m4b/b1/mutations.txt",
+      "artifact": "mutations.txt",
       "applied": [
         "M1 remove 5th ribbon -> node 5!=4",
         "M2 break >=1280 3-col breakpoint -> node false",
         "M3 remove person grouping (1:1) -> node 4!=3",
-        "M4 drop chat_id from request -> node false"
+        "M4 drop chat_id from request -> node false",
+        "M5 reset dossier only in status branch -> node cross-scope fail + e2e 3 cross-scope fails",
+        "M6 drop generation check in finally -> node stale-busy fail"
       ],
-      "restore": "sha256 restored; node --check rc=0; git diff --check rc=0; targeted green re-run rc=0"
+      "restore": "git checkout / sha256 restored; node --check rc=0; targeted green re-run rc=0"
+    },
+    "e2e_tools_w10_w15": {
+      "w10": {
+        "changed": ["dossier probe = fifth intel section", "order without bottom card", "5 sections", "aria-selected", "mobile <=767 and 5 buttons"],
+        "result": "B1 checks green; 3 pre-existing module/catalog failures remain",
+        "limitation": "Pre-existing failures are outside B1 and were present on base."
+      },
+      "w15": {
+        "changed": ["ROW_SEL without dossier ticker", "dossier/dossierHere = fifth section", "record/video steps use [data-sfeed-row]"],
+        "result": "B1 dossier/record checks green; 72 pre-existing non-B1 failures remain (cog-map/adaptive prompt-editor), no failure contains dossier/record",
+        "artifact": "f02-w15.txt",
+        "limitation": "Pre-existing failures are outside B1 and were already red on base."
+      }
     }
   },
   "configuration": {
@@ -147,18 +165,19 @@
     "new_endpoints": 0,
     "second_store": 0,
     "dossier_feed": "/api/oversight/dossier_feed?limit=16 (+chat_id when a chat is selected)",
-    "flag_note": "DOSSIER_LIVE_FEED_ENABLED only selected ticker style in the removed bottom card; it never hid data. The UI no longer reads it; backend flag value is untouched."
+    "flag_note": "DOSSIER_LIVE_FEED_ENABLED remains backend env-only (N01); the UI no longer reads it."
   },
   "limitations": [
-    "No deploy, no 2.58.224 assembly/bump, no VERIFIED claim; candidate is for independent review only.",
-    "Playwright/Browser Use run on a local stand with synthetic API fixtures, not live TMA/Telegram.",
+    "No deploy, no 2.58.224 assembly/bump, no VERIFIED claim; candidate is for independent re-review only.",
+    "Playwright runs on a local stand with synthetic API fixtures, not live TMA/Telegram.",
     "MAC-S6-307/S15-03 live behaviour still requires the deployed-byte check by the release lane.",
-    "M4B B2/B3 (observer/experience/memory/QRNG) are out of scope and untouched."
+    "w10/w15 full tools retain pre-existing non-B1 failures (module catalog/adaptive prompt editor); B1-specific checks pass."
   ],
   "not_changed": [
     "plans/features/mod-acl-ux-01/requirements-map.json",
     "plans/workflow_state.md",
     "plans/progress_scope.json",
+    "plans/features/evol/audit/evidence/w10-sec-* (restored from HEAD, not committed)",
     "web/api/**",
     "services/**",
     "database.py / migrations",

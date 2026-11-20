@@ -1,0 +1,20 @@
+F02 — affected e2e tools after the B1 contract update.
+
+w10: tools/ui_evol_w10_sections_e2e.py --out <temp> (candidate 5f8026b2f)
+EVOL-W10-SECTIONS FAIL (3):
+ - #/modules@1280x900: каталог не отрисован (0 карточек)
+ - #/modules@390x844: каталог не отрисован (0 карточек)
+ - модули: единственный scoped-переключатель не выполнил серверную операцию
+
+B1-specific checks are green:
+ - fifth intel section "dossier" present on #/ and absent on #/oversight;
+ - status order health -> map -> intel -> sleep -> budgets -> activity;
+ - sections = facts, beliefs, paradigms, traits, dossier;
+ - mobile <=767: 5 switcher buttons, aria-selected facts;
+ - desktop/tablet: 5 visible sections, switcher hidden.
+
+The 3 remaining failures are the same pre-existing module/catalog failures
+present on base 40fe603f and are outside B1. No dossier/ticker/switcher-B1
+failure remains.
+
+w15: see review-fixes.md and tests.json for the full run result.

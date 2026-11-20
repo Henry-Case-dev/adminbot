@@ -1,0 +1,743 @@
+{
+ "checks": {
+  "desktop_1920_five_sections": true,
+  "desktop_1920_visible_cards": true,
+  "desktop_1920_section_order": true,
+  "desktop_1920_grid_cols": true,
+  "desktop_1920_grid_rows": true,
+  "desktop_1920_no_h_overflow": true,
+  "desktop_1920_five_live_ribbons": true,
+  "desktop_1920_dossier_not_1to1": true,
+  "desktop_1920_dossier_count_badge": true,
+  "desktop_1920_dossier_unknown_honest": true,
+  "desktop_1920_dossier_provenance": true,
+  "desktop_1920_dossier_date_not_event": true,
+  "desktop_1920_detail_full_text": true,
+  "desktop_1920_detail_provenance": true,
+  "desktop_1920_detail_dossier_action": true,
+  "desktop_1920_dossier_modal_open": true,
+  "desktop_1920_dossier_modal_closed": true,
+  "desktop_1440_five_sections": true,
+  "desktop_1440_visible_cards": true,
+  "desktop_1440_section_order": true,
+  "desktop_1440_grid_cols": true,
+  "desktop_1440_grid_rows": true,
+  "desktop_1440_no_h_overflow": true,
+  "desktop_1440_five_live_ribbons": true,
+  "desktop_1440_dossier_not_1to1": true,
+  "desktop_1440_dossier_count_badge": true,
+  "desktop_1440_dossier_unknown_honest": true,
+  "desktop_1440_dossier_provenance": true,
+  "desktop_1440_dossier_date_not_event": true,
+  "desktop_1440_detail_full_text": true,
+  "desktop_1440_detail_provenance": true,
+  "desktop_1440_detail_dossier_action": true,
+  "desktop_1440_dossier_modal_open": true,
+  "desktop_1440_dossier_modal_closed": true,
+  "desktop_1280_five_sections": true,
+  "desktop_1280_visible_cards": true,
+  "desktop_1280_section_order": true,
+  "desktop_1280_grid_cols": true,
+  "desktop_1280_grid_rows": true,
+  "desktop_1280_no_h_overflow": true,
+  "desktop_1280_five_live_ribbons": true,
+  "desktop_1280_dossier_not_1to1": true,
+  "desktop_1280_dossier_count_badge": true,
+  "desktop_1280_dossier_unknown_honest": true,
+  "desktop_1280_dossier_provenance": true,
+  "desktop_1280_dossier_date_not_event": true,
+  "desktop_1280_detail_full_text": true,
+  "desktop_1280_detail_provenance": true,
+  "desktop_1280_detail_dossier_action": true,
+  "desktop_1280_dossier_modal_open": true,
+  "desktop_1280_dossier_modal_closed": true,
+  "tablet_768_five_sections": true,
+  "tablet_768_visible_cards": true,
+  "tablet_768_section_order": true,
+  "tablet_768_grid_cols": true,
+  "tablet_768_grid_rows": true,
+  "tablet_768_no_h_overflow": true,
+  "tablet_768_five_live_ribbons": true,
+  "tablet_768_dossier_not_1to1": true,
+  "tablet_768_dossier_count_badge": true,
+  "tablet_768_dossier_unknown_honest": true,
+  "tablet_768_dossier_provenance": true,
+  "tablet_768_dossier_date_not_event": true,
+  "tablet_768_detail_full_text": true,
+  "tablet_768_detail_provenance": true,
+  "tablet_768_detail_dossier_action": true,
+  "tablet_768_dossier_modal_open": true,
+  "tablet_768_dossier_modal_closed": true,
+  "mobile_390_five_sections": true,
+  "mobile_390_visible_cards": true,
+  "mobile_390_section_order": true,
+  "mobile_390_grid_cols": true,
+  "mobile_390_grid_rows": true,
+  "mobile_390_no_h_overflow": true,
+  "mobile_390_five_live_ribbons": true,
+  "mobile_390_dossier_not_1to1": true,
+  "mobile_390_dossier_count_badge": true,
+  "mobile_390_dossier_unknown_honest": true,
+  "mobile_390_dossier_provenance": true,
+  "mobile_390_dossier_date_not_event": true,
+  "mobile_390_mobile_tabs_visible": true,
+  "mobile_390_mobile_one_visible": true,
+  "mobile_390_mobile_five_tabs": true,
+  "mobile_390_mobile_touch_44": true,
+  "mobile_390_mobile_dossier_visible": true,
+  "mobile_390_mobile_aria_current": true,
+  "mobile_390_mobile_keyboard": true,
+  "mobile_390_detail_full_text": true,
+  "mobile_390_detail_provenance": true,
+  "mobile_390_detail_dossier_action": true,
+  "mobile_390_dossier_modal_open": true,
+  "mobile_390_dossier_modal_closed": true,
+  "mobile_320_five_sections": true,
+  "mobile_320_visible_cards": true,
+  "mobile_320_section_order": true,
+  "mobile_320_grid_cols": true,
+  "mobile_320_grid_rows": true,
+  "mobile_320_no_h_overflow": true,
+  "mobile_320_five_live_ribbons": true,
+  "mobile_320_dossier_not_1to1": true,
+  "mobile_320_dossier_count_badge": true,
+  "mobile_320_dossier_unknown_honest": true,
+  "mobile_320_dossier_provenance": true,
+  "mobile_320_dossier_date_not_event": true,
+  "mobile_320_mobile_tabs_visible": true,
+  "mobile_320_mobile_one_visible": true,
+  "mobile_320_mobile_five_tabs": true,
+  "mobile_320_mobile_touch_44": true,
+  "mobile_320_mobile_dossier_visible": true,
+  "mobile_320_mobile_aria_current": true,
+  "mobile_320_mobile_keyboard": true,
+  "mobile_320_detail_full_text": true,
+  "mobile_320_detail_provenance": true,
+  "mobile_320_detail_dossier_action": true,
+  "mobile_320_dossier_modal_open": true,
+  "mobile_320_dossier_modal_closed": true,
+  "pause_autoplay_runs": true,
+  "pause_holds_after_wheel": true,
+  "pause_resumes_autoplay": true,
+  "pause_console_clean": true,
+  "scope_empty_no_foreign_rows": true,
+  "scope_empty_honest_text": true,
+  "scope_empty_no_foreign_name": true,
+  "scope_back_returns_rows": true,
+  "scope_console_clean": true,
+  "cross_scope_seed_rows": true,
+  "cross_scope_no_old_rows": false,
+  "cross_scope_no_old_names": false,
+  "cross_scope_honest_empty": false,
+  "cross_scope_stays_empty": true,
+  "cross_scope_back_returns_rows": true,
+  "cross_scope_console_clean": true,
+  "reduced_motion_no_scroll": true,
+  "reduced_motion_content_present": true,
+  "reduced_motion_console_clean": true,
+  "dossier_503_error_visible": true,
+  "dossier_503_not_zero": true,
+  "dossier_503_console_clean": true
+ },
+ "viewports": {
+  "desktop_1920": {
+   "geometry": {
+    "cols": 3,
+    "rows": [
+     3,
+     2
+    ],
+    "count": 5,
+    "visible": 5,
+    "tops": [
+     876,
+     876,
+     876,
+     1097,
+     1097
+    ],
+    "sections": [
+     "facts",
+     "beliefs",
+     "paradigms",
+     "traits",
+     "dossier"
+    ]
+   },
+   "overflow": {
+    "page": true,
+    "cards": true,
+    "widths": [
+     [
+      536,
+      536
+     ],
+     [
+      536,
+      536
+     ],
+     [
+      536,
+      536
+     ],
+     [
+      536,
+      536
+     ],
+     [
+      536,
+      536
+     ]
+    ]
+   },
+   "rows": {
+    "facts": 5,
+    "beliefs": 3,
+    "paradigms": 3,
+    "traits": 3,
+    "dossier": 4
+   },
+   "dossier": {
+    "rows": 4,
+    "names": [
+     "Аня",
+     "Борис",
+     "Гость",
+     "Участники не определены"
+    ],
+    "badges": [
+     "досье · 2",
+     "досье · 1",
+     "досье · 1",
+     "досье · 1"
+    ],
+    "arias": [
+     "Досье, Аня, записей: 2, чат: Audit Chat, последняя запись: 14.10.2026, 01:59:00, источник: chat_history, summary",
+     "Досье, Борис, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:40, источник: chat_history",
+     "Досье, Гость, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:00, источник: voice_transcript",
+     "Досье, Участники не определены, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:55:00"
+    ],
+    "texts": [
+     "Audit Chat · переехала в другой район",
+     "Audit Chat · работает над проектом",
+     "Audit Chat · запись без user_id",
+     "безымянная запись"
+    ],
+    "dates": [
+     "14.10",
+     "14.10",
+     "14.10",
+     "14.10"
+    ],
+    "heading": "Досье данные от 21:30",
+    "empty": false,
+    "error": false
+   }
+  },
+  "desktop_1440": {
+   "geometry": {
+    "cols": 3,
+    "rows": [
+     3,
+     2
+    ],
+    "count": 5,
+    "visible": 5,
+    "tops": [
+     876,
+     876,
+     876,
+     1097,
+     1097
+    ],
+    "sections": [
+     "facts",
+     "beliefs",
+     "paradigms",
+     "traits",
+     "dossier"
+    ]
+   },
+   "overflow": {
+    "page": true,
+    "cards": true,
+    "widths": [
+     [
+      376,
+      376
+     ],
+     [
+      376,
+      376
+     ],
+     [
+      376,
+      376
+     ],
+     [
+      376,
+      376
+     ],
+     [
+      376,
+      376
+     ]
+    ]
+   },
+   "rows": {
+    "facts": 5,
+    "beliefs": 3,
+    "paradigms": 3,
+    "traits": 3,
+    "dossier": 4
+   },
+   "dossier": {
+    "rows": 4,
+    "names": [
+     "Аня",
+     "Борис",
+     "Гость",
+     "Участники не определены"
+    ],
+    "badges": [
+     "досье · 2",
+     "досье · 1",
+     "досье · 1",
+     "досье · 1"
+    ],
+    "arias": [
+     "Досье, Аня, записей: 2, чат: Audit Chat, последняя запись: 14.10.2026, 01:59:00, источник: chat_history, summary",
+     "Досье, Борис, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:40, источник: chat_history",
+     "Досье, Гость, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:00, источник: voice_transcript",
+     "Досье, Участники не определены, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:55:00"
+    ],
+    "texts": [
+     "Audit Chat · переехала в другой район",
+     "Audit Chat · работает над проектом",
+     "Audit Chat · запись без user_id",
+     "безымянная запись"
+    ],
+    "dates": [
+     "14.10",
+     "14.10",
+     "14.10",
+     "14.10"
+    ],
+    "heading": "Досье данные от 21:30",
+    "empty": false,
+    "error": false
+   }
+  },
+  "desktop_1280": {
+   "geometry": {
+    "cols": 3,
+    "rows": [
+     3,
+     2
+    ],
+    "count": 5,
+    "visible": 5,
+    "tops": [
+     876,
+     876,
+     876,
+     1097,
+     1097
+    ],
+    "sections": [
+     "facts",
+     "beliefs",
+     "paradigms",
+     "traits",
+     "dossier"
+    ]
+   },
+   "overflow": {
+    "page": true,
+    "cards": true,
+    "widths": [
+     [
+      323,
+      323
+     ],
+     [
+      323,
+      323
+     ],
+     [
+      323,
+      323
+     ],
+     [
+      323,
+      323
+     ],
+     [
+      323,
+      323
+     ]
+    ]
+   },
+   "rows": {
+    "facts": 5,
+    "beliefs": 3,
+    "paradigms": 3,
+    "traits": 3,
+    "dossier": 4
+   },
+   "dossier": {
+    "rows": 4,
+    "names": [
+     "Аня",
+     "Борис",
+     "Гость",
+     "Участники не определены"
+    ],
+    "badges": [
+     "досье · 2",
+     "досье · 1",
+     "досье · 1",
+     "досье · 1"
+    ],
+    "arias": [
+     "Досье, Аня, записей: 2, чат: Audit Chat, последняя запись: 14.10.2026, 01:59:00, источник: chat_history, summary",
+     "Досье, Борис, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:40, источник: chat_history",
+     "Досье, Гость, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:00, источник: voice_transcript",
+     "Досье, Участники не определены, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:55:00"
+    ],
+    "texts": [
+     "Audit Chat · переехала в другой район",
+     "Audit Chat · работает над проектом",
+     "Audit Chat · запись без user_id",
+     "безымянная запись"
+    ],
+    "dates": [
+     "14.10",
+     "14.10",
+     "14.10",
+     "14.10"
+    ],
+    "heading": "Досье данные от 21:30",
+    "empty": false,
+    "error": false
+   }
+  },
+  "tablet_768": {
+   "geometry": {
+    "cols": 2,
+    "rows": [
+     2,
+     2,
+     1
+    ],
+    "count": 5,
+    "visible": 5,
+    "tops": [
+     976,
+     976,
+     1198,
+     1198,
+     1419
+    ],
+    "sections": [
+     "facts",
+     "beliefs",
+     "paradigms",
+     "traits",
+     "dossier"
+    ]
+   },
+   "overflow": {
+    "page": true,
+    "cards": true,
+    "widths": [
+     [
+      343,
+      343
+     ],
+     [
+      343,
+      343
+     ],
+     [
+      343,
+      343
+     ],
+     [
+      343,
+      343
+     ],
+     [
+      343,
+      343
+     ]
+    ]
+   },
+   "rows": {
+    "facts": 5,
+    "beliefs": 3,
+    "paradigms": 3,
+    "traits": 3,
+    "dossier": 4
+   },
+   "dossier": {
+    "rows": 4,
+    "names": [
+     "Аня",
+     "Борис",
+     "Гость",
+     "Участники не определены"
+    ],
+    "badges": [
+     "досье · 2",
+     "досье · 1",
+     "досье · 1",
+     "досье · 1"
+    ],
+    "arias": [
+     "Досье, Аня, записей: 2, чат: Audit Chat, последняя запись: 14.10.2026, 01:59:00, источник: chat_history, summary",
+     "Досье, Борис, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:40, источник: chat_history",
+     "Досье, Гость, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:00, источник: voice_transcript",
+     "Досье, Участники не определены, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:55:00"
+    ],
+    "texts": [
+     "Audit Chat · переехала в другой район",
+     "Audit Chat · работает над проектом",
+     "Audit Chat · запись без user_id",
+     "безымянная запись"
+    ],
+    "dates": [
+     "14.10",
+     "14.10",
+     "14.10",
+     "14.10"
+    ],
+    "heading": "Досье данные от 21:30",
+    "empty": false,
+    "error": false
+   }
+  },
+  "mobile_390": {
+   "geometry": {
+    "cols": 1,
+    "rows": [
+     1
+    ],
+    "count": 5,
+    "visible": 1,
+    "tops": [
+     1534
+    ],
+    "sections": [
+     "facts",
+     "beliefs",
+     "paradigms",
+     "traits",
+     "dossier"
+    ]
+   },
+   "overflow": {
+    "page": true,
+    "cards": true,
+    "widths": [
+     [
+      338,
+      338
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ]
+    ]
+   },
+   "rows": {
+    "facts": 5,
+    "beliefs": 3,
+    "paradigms": 3,
+    "traits": 3,
+    "dossier": 4
+   },
+   "dossier": {
+    "rows": 4,
+    "names": [
+     "Аня",
+     "Борис",
+     "Гость",
+     "Участники не определены"
+    ],
+    "badges": [
+     "досье · 2",
+     "досье · 1",
+     "досье · 1",
+     "досье · 1"
+    ],
+    "arias": [
+     "Досье, Аня, записей: 2, чат: Audit Chat, последняя запись: 14.10.2026, 01:59:00, источник: chat_history, summary",
+     "Досье, Борис, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:40, источник: chat_history",
+     "Досье, Гость, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:00, источник: voice_transcript",
+     "Досье, Участники не определены, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:55:00"
+    ],
+    "texts": [
+     "Audit Chat · переехала в другой район",
+     "Audit Chat · работает над проектом",
+     "Audit Chat · запись без user_id",
+     "безымянная запись"
+    ],
+    "dates": [
+     "14.10",
+     "14.10",
+     "14.10",
+     "14.10"
+    ],
+    "heading": "Досье данные от 21:30",
+    "empty": false,
+    "error": false
+   }
+  },
+  "mobile_320": {
+   "geometry": {
+    "cols": 1,
+    "rows": [
+     1
+    ],
+    "count": 5,
+    "visible": 1,
+    "tops": [
+     1663
+    ],
+    "sections": [
+     "facts",
+     "beliefs",
+     "paradigms",
+     "traits",
+     "dossier"
+    ]
+   },
+   "overflow": {
+    "page": true,
+    "cards": true,
+    "widths": [
+     [
+      268,
+      268
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      0
+     ]
+    ]
+   },
+   "rows": {
+    "facts": 5,
+    "beliefs": 3,
+    "paradigms": 3,
+    "traits": 3,
+    "dossier": 4
+   },
+   "dossier": {
+    "rows": 4,
+    "names": [
+     "Аня",
+     "Борис",
+     "Гость",
+     "Участники не определены"
+    ],
+    "badges": [
+     "досье · 2",
+     "досье · 1",
+     "досье · 1",
+     "досье · 1"
+    ],
+    "arias": [
+     "Досье, Аня, записей: 2, чат: Audit Chat, последняя запись: 14.10.2026, 01:59:00, источник: chat_history, summary",
+     "Досье, Борис, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:40, источник: chat_history",
+     "Досье, Гость, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:56:00, источник: voice_transcript",
+     "Досье, Участники не определены, записей: 1, чат: Audit Chat, последняя запись: 14.10.2026, 01:55:00"
+    ],
+    "texts": [
+     "Audit Chat · переехала в другой район",
+     "Audit Chat · работает над проектом",
+     "Audit Chat · запись без user_id",
+     "безымянная запись"
+    ],
+    "dates": [
+     "14.10",
+     "14.10",
+     "14.10",
+     "14.10"
+    ],
+    "heading": "Досье данные от 21:30",
+    "empty": false,
+    "error": false
+   }
+  }
+ },
+ "console": [],
+ "screenshots": [
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-3525dfa6\\plans\\features\\mod-acl-ux-01\\evidence\\m4b\\b1\\shots-f03-red\\status-five-ribbons-desktop_1920.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-3525dfa6\\plans\\features\\mod-acl-ux-01\\evidence\\m4b\\b1\\shots-f03-red\\status-five-ribbons-desktop_1440.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-3525dfa6\\plans\\features\\mod-acl-ux-01\\evidence\\m4b\\b1\\shots-f03-red\\status-five-ribbons-desktop_1280.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-3525dfa6\\plans\\features\\mod-acl-ux-01\\evidence\\m4b\\b1\\shots-f03-red\\status-five-ribbons-tablet_768.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-3525dfa6\\plans\\features\\mod-acl-ux-01\\evidence\\m4b\\b1\\shots-f03-red\\status-five-ribbons-mobile_390.png",
+  "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-3525dfa6\\plans\\features\\mod-acl-ux-01\\evidence\\m4b\\b1\\shots-f03-red\\status-five-ribbons-mobile_320.png"
+ ],
+ "scope_empty": {
+  "text": "Досье данные от 21:31\nВ выбранном чате досье пусто\nВ выбранном чате подтверждённых записей досье нет. Данные других чатов не подставляются.",
+  "rows": 0,
+  "empty": true
+ },
+ "cross_scope_during": {
+  "rows": 4,
+  "text": "Досье данные от 21:31\nдосье · 2\nАня\n14.10\nAudit Chat · переехала в другой район\nдосье · 1\nБорис\n14.10\nAudit Chat · работает над проектом\nдосье · 1\nГость\n14.10\nAudit Chat · запись без user_id\nдосье · 1\nУчастники не определены\n14.10\nбезымянная запись",
+  "empty": false
+ },
+ "cross_scope_after": {
+  "rows": 0,
+  "text": "Досье данные от 21:31\nВ выбранном чате досье пусто\nВ выбранном чате подтверждённых записей досье нет. Данные других чатов не подставляются."
+ },
+ "dossier_503": {
+  "rows": 0,
+  "names": [],
+  "badges": [],
+  "arias": [],
+  "texts": [],
+  "dates": [],
+  "heading": "Досье не удалось загрузить",
+  "empty": false,
+  "error": true
+ },
+ "failures": [
+  "cross_scope_no_old_rows",
+  "cross_scope_no_old_names",
+  "cross_scope_honest_empty"
+ ],
+ "ok": false,
+ "limitations": [
+  "Synthetic Playwright API stub; production bytes of the release candidate are served locally, not a live TMA session.",
+  "No backend/DDL/flags/prompts changed; the same dossier_feed endpoint is reused."
+ ]
+}
