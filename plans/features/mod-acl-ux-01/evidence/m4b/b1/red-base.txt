@@ -1,4 +1,4 @@
-﻿RED on base 40fe603f0aac853af99656bac1934ec5f3d160f9 (2.58.223)
+RED on base 40fe603f0aac853af99656bac1934ec5f3d160f9 (2.58.223)
 Product files are base bytes; tests/e2e copied from candidate worktree.
 
 === node tests/js/mod_acl_ux_m4b_feeds_test.js
@@ -86,4 +86,3 @@ rc=1
 playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 12000ms exceeded.
 Call log:
   - waiting for locator("[data-intel-section=\"dossier\"]")
-
