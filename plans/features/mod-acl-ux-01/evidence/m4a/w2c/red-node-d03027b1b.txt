@@ -5,7 +5,7 @@ tests\js\mod_acl_ux_m4a_w2c_navigation_layout_test.js:123
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (C:\Users\main\....out_test.js:123:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
     const info = methods.moduleParentInfo.call(ctx, m);
                                           ^
 
