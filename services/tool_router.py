@@ -275,6 +275,11 @@ _HISTORY_SAMPLE_END = "@@HISTORY_SAMPLE_END"
 _HISTORY_CURSOR_KEY = secrets.token_bytes(32)
 # Коды отказа cursor (fail closed: путь B и дефолт 50 запрещены).
 _HISTORY_CURSOR_ERRORS = ("unknown_cursor", "stale_cursor", "anchor_missing")
+# HC-A-R2-F1: статусы bound, которые НЕ являются «пустым периодом». Пока
+# такой bound активен, get_recent_history обязан отдавать error/reason, а
+# coverage — range_read=0/range_complete=0.
+_HISTORY_RANGE_ERROR_STATUSES = ("capture_failed", "unresolved", "unread",
+                                 "error")
 
 
 class _HistoryCursorError(Exception):
@@ -6683,6 +6688,15 @@ class ToolRouter:
         query_text = query_arg or str(getattr(ctx, "query", "") or "").strip()
         extracted_depth = extract_history_depth(query_text)
         bound = self._history_bound_from_ctx(ctx)
+        if bound is not None and window is not None \
+                and str(bound.get("window_kind") or "") == "time_range" \
+                and str(bound.get("range_status") or "") \
+                in _HISTORY_RANGE_ERROR_STATUSES:
+            # F1: новый валидный explicit window — это retry. Старый
+            # error-bound не имеет права маскировать новую попытку; успешный
+            # range-bound (ok/empty) по-прежнему первичен (H8).
+            ctx.history_sample = None
+            bound = None
         if bound is not None \
                 and str(bound.get("window_kind") or "") == "time_range":
             # 2a. Диапазон хода — всегда хронология; query/FTS не подменяют
@@ -6890,12 +6904,14 @@ class ToolRouter:
         empty_page = {"rows": [], "lines": [], "fetched": 0,
                       "page_from": "", "page_to": ""}
         range_status = str(bound.get("range_status") or "ok")
-        if range_status in ("capture_failed", "unresolved"):
-            reason = ("capture_failed" if range_status == "capture_failed"
-                      else "window_unresolved")
+        if range_status in _HISTORY_RANGE_ERROR_STATUSES:
+            default_reason = ("capture_failed" if range_status
+                              == "capture_failed" else "window_unresolved"
+                              if range_status == "unresolved" else "db_error")
+            reason = str(bound.get("reason") or default_reason)
             logger.info(
                 "[tools] get_recent_history range unread | chat=%s | "
-                "reason=%s", ctx.chat_id, reason)
+                "status=%s | reason=%s", ctx.chat_id, range_status, reason)
             return self._format_history_page(
                 bound, empty_page, processed_before=0, status="error",
                 reason=reason, next_cursor_enabled=False)
@@ -7004,6 +7020,9 @@ class ToolRouter:
             window_total=None,
             as_of=int(getattr(ctx, "turn_as_of", 0) or 0),
             range_status="unread")
+        # F1: причина живёт в bound, а не только в отрендеренном заголовке —
+        # иначе следующий get_recent_history({}) теряет db_error.
+        bound["reason"] = str(reason or "db_error")
         ctx.history_sample = bound
         return self._format_history_page(
             bound, {"rows": [], "lines": [], "fetched": 0,

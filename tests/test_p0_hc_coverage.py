@@ -744,6 +744,113 @@ class TestCoverageLedger:
         assert DirectChatService._ensure_history_range_coverage(marker, existing) == existing
 
 
+# ── 4b. Error-bound explicit window: error не маскируется empty/retry ──────
+
+class TestExplicitWindowErrorBound:
+    @pytest.mark.asyncio
+    async def test_error_not_masked_and_retry_valid_window(self):
+        """HC-A-R2-F1: db_error остаётся error; новый валидный window
+        заменяет error-bound и получает собственный coverage."""
+        db = await _make_db([(1000, "a"), (1010, "b")])
+        router = _router(db)
+        real_read = router._history_read_page
+        calls = {"n": 0}
+
+        async def _flaky(db_, bound, *, after, projection=None):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("db down")
+            return await real_read(db_, bound, after=after,
+                                   projection=projection)
+
+        router._history_read_page = _flaky
+        ctx = _ctx(as_of=1021)
+        try:
+            window = {"since": _iso(1000), "until": _iso(1010)}
+            first = await router.dispatch(
+                "get_recent_history", {"time_window": window}, ctx)
+            header = _header(first)
+            assert header["status"] == "error"
+            assert header["reason"] == "db_error"
+            assert ctx.history_sample["range_status"] == "unread"
+            assert ctx.history_sample["reason"] == "db_error"
+            raw1 = ChainResult(first, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=first, total_chars=len(first))],
+                chain_meta={})
+            block1 = await _service(db, router=router).collect_history_segments(
+                ctx, raw1, slot_chars=100000, chat_id=CHAT_ID)
+            fields1, _, _ = _coverage(block1)
+            assert fields1["range_read"] == "0"
+            assert fields1["range_complete"] == "0"
+            assert fields1["reason"] == "db_error"
+            assert "range_empty" not in block1
+
+            # Повтор без нового окна не превращает ошибку в пустой период.
+            second = await router.dispatch("get_recent_history", {}, ctx)
+            header2 = _header(second)
+            assert header2["status"] == "error"
+            assert header2["reason"] == "db_error"
+            raw2 = ChainResult(second, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=second, total_chars=len(second))],
+                chain_meta={})
+            block2 = await _service(db, router=router).collect_history_segments(
+                ctx, raw2, slot_chars=100000, chat_id=CHAT_ID)
+            fields2, _, _ = _coverage(block2)
+            assert fields2["range_complete"] == "0"
+            assert fields2["reason"] == "db_error"
+
+            # Новый валидный window — retry: error-bound не мешает.
+            third = await router.dispatch(
+                "get_recent_history", {"time_window": window}, ctx)
+            header3 = _header(third)
+            assert header3["status"] == "ok"
+            assert header3["requested"] == header3["available"] == 2
+            assert ctx.history_sample["range_status"] == "ok"
+            raw3 = ChainResult(third, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=third, total_chars=len(third))],
+                chain_meta={})
+            block3 = await _service(db, router=router).collect_history_segments(
+                ctx, raw3, slot_chars=100000, chat_id=CHAT_ID)
+            fields3, _, _ = _coverage(block3)
+            assert fields3["range_read"] == "1"
+            assert fields3["range_complete"] == "1"
+            assert fields3["available"] == "2"
+            assert fields3["processed"] == "2"
+            assert fields3["reason"] == ""
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_empty_valid_window_stays_range_empty(self):
+        db = await _make_db([(1000, "a")])
+        router = _router(db)
+        ctx = _ctx(as_of=3001)
+        try:
+            out = await router.dispatch(
+                "get_recent_history",
+                {"time_window": {"since": _iso(2000),
+                                 "until": _iso(3000)}}, ctx)
+            header = _header(out)
+            assert header["status"] == "empty_window"
+            assert header["reason"] == "range_empty"
+            assert ctx.history_sample["range_status"] == "empty"
+            raw = ChainResult(out, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=out, total_chars=len(out))],
+                chain_meta={})
+            block = await _service(db, router=router).collect_history_segments(
+                ctx, raw, slot_chars=100000, chat_id=CHAT_ID)
+            fields, _, _ = _coverage(block)
+            assert fields["range_read"] == "1"
+            assert fields["range_complete"] == "1"
+            assert fields["reason"] == "range_empty"
+        finally:
+            await db.db.close()
+
+
 # ── 5. Разделение причин: _history_partial vs range; L1-заметка ────────────
 
 class TestCauseSeparation:

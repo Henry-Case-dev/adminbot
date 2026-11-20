@@ -9431,12 +9431,12 @@ class DirectChatService:
             return body
         status = str(history_sample.get("range_status") or "ok")
         reason = str(history_sample.get("reason") or "")
-        if status == "capture_failed":
+        if status in ("capture_failed", "unresolved", "unread", "error"):
+            default_reason = ("capture_failed" if status == "capture_failed"
+                              else "window_unresolved"
+                              if status == "unresolved" else "db_error")
             block = DirectChatService._history_range_unread_block(
-                history_sample, reason or "capture_failed", range_read=0)
-        elif status == "unresolved":
-            block = DirectChatService._history_range_unread_block(
-                history_sample, reason or "window_unresolved", range_read=0)
+                history_sample, reason or default_reason, range_read=0)
         elif "@@HISTORY_SAMPLE" in body:
             # Страница диапазона доставлена, но coverage-голова не собрана:
             # диапазон прочитан, полнота не подтверждена.
@@ -9558,6 +9558,27 @@ class DirectChatService:
                 return None          # путь B / ошибка / старый формат — паритет
             hist.append((src, header))
         range_active = str(bound.get("window_kind") or "") == "time_range"
+        if range_active:
+            # F1: успешный retry-источник сильнее более раннего error-source
+            # того же хода; но если сам bound — error/unread, никакая пустая
+            # страница не имеет права объявить период полным.
+            non_error = [(src, header) for src, header in hist
+                         if str(header.get("status") or "ok") != "error"]
+            if non_error:
+                hist = non_error
+            bound_status = str(bound.get("range_status") or "")
+            if bound_status in ("capture_failed", "unresolved", "unread",
+                                "error"):
+                default_reason = ("capture_failed" if bound_status
+                                  == "capture_failed" else
+                                  "window_unresolved"
+                                  if bound_status == "unresolved"
+                                  else "db_error")
+                block = self._history_range_unread_block(
+                    bound, str(bound.get("reason") or default_reason),
+                    range_read=0)
+                self._apply_history_coverage(raw, hist, block)
+                return block
         if not hist:
             if not range_active:
                 return None
