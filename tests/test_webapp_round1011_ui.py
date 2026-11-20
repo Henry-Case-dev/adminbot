@@ -63,7 +63,7 @@ class TestZonesAndLayout:
         assert "v-for=\"g in providerGrouped\"" in HTML
         assert "v-for=\"b in g.blocks\"" in HTML
         assert "v-for=\"b in providerAdvancedBlocks\"" in HTML
-        assert "Расширенные настройки" in HTML
+        assert "Расширенные системные" in HTML
         assert ":is=\"activeTab === 'llm_providers' ? 'details' : 'div'\"" in HTML
 
     def test_zone_helpers_are_computed_not_methods(self):

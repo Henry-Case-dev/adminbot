@@ -1,0 +1,5438 @@
+{
+ "viewports": {
+  "1680x1000": {
+   "catalog": {
+    "vw": 1680,
+    "hash": "#/modules",
+    "scrollWidth": 1680,
+    "cards": 21,
+    "firstRowColumns": 4,
+    "cardHeights": [
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162
+    ],
+    "parents": [
+     {
+      "id": "mod_stories",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_character",
+      "route": "#/permsoc",
+      "href": "#/permsoc",
+      "h": 16,
+      "text": "Часть «PERMsoc»"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     }
+    ],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "experience": {
+    "vw": 1680,
+    "hash": "#/modules/experience",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 1464,
+    "headW": 1000,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 10,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "a",
+       "text": "Основные настройки →",
+       "w": 161.828125,
+       "h": 34
+      },
+      {
+       "tag": "a",
+       "text": "События →",
+       "w": 92.28125,
+       "h": 34
+      },
+      {
+       "tag": "summary",
+       "text": "Технические детали",
+       "w": 966,
+       "h": 16
+      },
+      {
+       "tag": "button",
+       "text": "⟳",
+       "w": 41.78125,
+       "h": 34
+      }
+     ],
+     "smallCount": 9
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "memory_parent": {
+    "vw": 1680,
+    "hash": "#/memory/rag",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_stories",
+      "route": "#/modules/stories",
+      "text": "Настраивается в «Истории и эпизоды» →"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/modules/experience",
+      "text": "Настраивается в «Опыт и уроки» →"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/modules/random",
+      "text": "Настраивается в «Случайность» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "limits.dig_graph_hop_depth",
+     "limits.dig_max_facts",
+     "limits.dig_max_snippets",
+     "limits.dig_max_symbols",
+     "limits.dig_year_back_window_days",
+     "flags.dig_enabled",
+     "flags.dig_pre_gate_enabled",
+     "limits.graph_compression_log_retention_days",
+     "limits.graph_dedup_similarity_high",
+     "limits.graph_dedup_similarity_low",
+     "limits.graph_dedup_weight_bonus",
+     "limits.graph_edge_weight_increment",
+     "limits.graph_episode_merge_batch",
+     "limits.graph_episode_merge_interval_days",
+     "limits.graph_episode_merge_max_facts_per_cluster",
+     "limits.graph_extract_max_triplets",
+     "limits.graph_facts_per_user_quota",
+     "limits.graph_fact_touch_extend_days",
+     "limits.graph_fact_ttl_days",
+     "limits.graph_fact_weight_archive",
+     "limits.graph_fact_weight_bot",
+     "limits.graph_fact_weight_direct",
+     "limits.graph_hist_fresh_tiebreak",
+     "limits.graph_hist_horizon_days",
+     "limits.graph_hist_max_share",
+     "limits.graph_hist_rel_floor",
+     "limits.graph_memorize_batch_retry_backoff",
+     "limits.graph_memorize_max_batch_retries",
+     "limits.graph_mmr_fetch_k",
+     "limits.graph_mmr_fetch_k_historical",
+     "limits.graph_mmr_lambda",
+     "limits.graph_purge_protect_days",
+     "limits.graph_purge_protect_weight",
+     "limits.graph_rag_context_max_chars",
+     "limits.graph_rag_facts_limit",
+     "limits.graph_review_interval_days",
+     "limits.graph_time_decay_floor",
+     "limits.graph_time_decay_half_life_days",
+     "limits.graph_top_edges_limit",
+     "limits.graph_unconfirmed_retention_days",
+     "flags.graph_dedup_enabled",
+     "flags.graph_episode_merge_enabled",
+     "flags.graph_fact_touch_enabled",
+     "flags.graph_mmr_enabled",
+     "flags.graph_rag_enabled",
+     "flags.graph_review_enabled",
+     "flags.graph_time_decay_enabled",
+     "limits.archive_memory_retention_days",
+     "limits.embed_cache_max_rows",
+     "limits.embed_cache_ttl_days",
+     "limits.full_memory_retention_days",
+     "limits.memory_backup_hour",
+     "limits.memory_backup_keep",
+     "flags.embed_cache_enabled",
+     "flags.graph_user_quota_enabled",
+     "flags.memory_backup_enabled",
+     "flags.vec_int8_enabled",
+     "reactions.memory_backup_dir",
+     "limits.belief_archive_threshold",
+     "limits.belief_decay_per_month",
+     "limits.belief_inactivity_days",
+     "limits.belief_resonance_penalty",
+     "limits.belief_resonance_threshold",
+     "limits.deep_sleep_max_paradigms_per_run",
+     "limits.deep_sleep_tokens_per_day",
+     "limits.deep_sleep_top_k",
+     "flags.belief_decay_enabled",
+     "flags.deep_sleep_enabled",
+     "limits.import_history_retention_days",
+     "limits.memory_commands_remember_ttl_days",
+     "limits.rag_stale_after_days",
+     "limits.summary_max_window_messages",
+     "limits.summary_window_hours",
+     "limits.summary_rag_l2_limit",
+     "limits.summary_rag_l3_limit",
+     "limits.chat_budget_rag_ratio",
+     "limits.chat_rag_dedup_overlap_ratio",
+     "flags.bot_self_awareness_enabled",
+     "flags.chat_rag_rerank_enabled",
+     "flags.memory_commands_user_enabled",
+     "flags.persona_enabled",
+     "flags.memory_communities_enabled",
+     "flags.memory_search_enabled",
+     "memory.infinite_retention"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "permsoc_parent": {
+    "vw": 1680,
+    "hash": "#/permsoc",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_character",
+      "route": "#/modules/character",
+      "text": "Настраивается в «Характер» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "reactions.slavik_user_id",
+     "reactions.dead_page_relay_channel_id",
+     "reactions.dead_page_source_channel_id",
+     "reactions.dead_page_source_channel_username",
+     "reactions.dead_page_dir",
+     "reactions.slavic_random_dir",
+     "reactions.gif_path",
+     "limits.slavik_mimic_cooldown",
+     "limits.slavik_mimic_min_words",
+     "limits.gif_interval",
+     "limits.slavic_photo_interval",
+     "limits.dead_page_cooldown",
+     "limits.dead_page_caption_max_chars",
+     "limits.dead_page_max_forward_retries",
+     "reactions.slavic_photo_path",
+     "reactions.kostik_user_id",
+     "reactions.kostik_replies",
+     "limits.kostik_reply_probability",
+     "reactions.olya_user_id",
+     "reactions.olya_media_base",
+     "reactions.olya_caption_text",
+     "reactions.olya_media_type",
+     "flags.olya_caption_enabled",
+     "flags.olya_repost_enabled",
+     "flags.olya_always_send",
+     "flags.olya_caption_mention_enabled",
+     "limits.olya_cooldown",
+     "reactions.mimic_victim_user_ids",
+     "reactions.alan_mimic_enabled",
+     "reactions.kucha_enabled",
+     "flags.mimic_forwards_enabled",
+     "limits.mimic_cooldown",
+     "limits.mimic_min_words",
+     "reactions.alan_user_id",
+     "reactions.alan_username",
+     "reactions.alan_greeting_dir",
+     "reactions.war_channel_ids",
+     "reactions.war_channel_usernames",
+     "reactions.war_replies",
+     "reactions.danger_words",
+     "reactions.vasya_enabled",
+     "flags.alan_replies_enabled",
+     "flags.dead_page_post_on_join",
+     "reactions.common_media_base",
+     "flags.common_media_enabled",
+     "flags.common_work_media_enabled",
+     "reactions.goodmorning_time",
+     "reactions.goodmorning_target_chat_ids",
+     "reactions.goodmorning_media_dir",
+     "limits.alan_reply_interval",
+     "limits.alan_greeting_cooldown",
+     "limits.alan_silence_greeting_hours",
+     "limits.danger_cooldown",
+     "limits.selfdev_cooldown",
+     "limits.work_cooldown",
+     "limits.common_cooldown"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "summary": {
+    "vw": 1680,
+    "hash": "#/modules/summary/overview",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1464,
+    "headW": 1432,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 5,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 33,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Кластеризатор",
+       "w": 111.40625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Писатель",
+       "w": 81.53125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "HYBRID SUMMARY",
+       "w": 132.390625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "LEGACY SUMMARY FALLBACK",
+       "w": 189.34375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 74.734375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      }
+     ],
+     "smallCount": 32
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "nostalgia": {
+    "vw": 1680,
+    "hash": "#/modules/nostalgia/settings",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 1464,
+    "headW": 1000,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "memory.nostalgia_aggressiveness",
+     "memory.nostalgia_cooldown_hours",
+     "memory.nostalgia_golden_min_days",
+     "memory.nostalgia_golden_min_importance",
+     "memory.nostalgia_hint_max_chars",
+     "memory.nostalgia_history_depth_years",
+     "memory.nostalgia_layer_a_enabled",
+     "memory.nostalgia_layer_a_max_hints",
+     "memory.nostalgia_max_per_day",
+     "memory.nostalgia_max_send_chars",
+     "memory.nostalgia_min_silence_minutes",
+     "memory.nostalgia_pause_hours",
+     "memory.nostalgia_quiet_end_hour",
+     "memory.nostalgia_quiet_start_hour",
+     "memory.nostalgia_tick_minutes",
+     "memory.nostalgia_unanswered_max",
+     "memory.nostalgia_year_back_days_window"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 80,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.21875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 151.609375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "История",
+       "w": 77.328125,
+       "h": 40
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 974,
+       "h": 39.609375
+      },
+      {
+       "tag": "button",
+       "text": "memory.nostalgia_aggress",
+       "w": 362.984375,
+       "h": 24
+      },
+      {
+       "tag": "button",
+       "text": "копировать",
+       "w": 74.421875,
+       "h": 32
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 443,
+       "h": 39.609375
+      },
+      {
+       "tag": "button",
+       "text": "memory.nostalgia_cooldow",
+       "w": 362.984375,
+       "h": 24
+      }
+     ],
+     "smallCount": 60
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "direct_models": {
+    "vw": 1680,
+    "hash": "#/modules/direct/models",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1464,
+    "headW": 1432,
+    "sidebarW": 216,
+    "split": {
+     "children": 2,
+     "mainW": 949,
+     "sideW": 467,
+     "mainTop": 363,
+     "sideTop": 363,
+     "w": 1432
+    },
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "inspector",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "models.direct_l1_base_url",
+     "models.direct_l1_model_name",
+     "keys.direct_l1_api_key"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 31,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Как бот отвечает",
+       "w": 123.96875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Что бот видел",
+       "w": 108.640625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Дополнительные настройки",
+       "w": 186.375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 76.203125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Проверить",
+       "w": 94.203125,
+       "h": 33.59375
+      },
+      {
+       "tag": "button",
+       "text": "Проверить",
+       "w": 94.203125,
+       "h": 33.59375
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 1406,
+       "h": 39.609375
+      }
+     ],
+     "smallCount": 24
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "embeddings": {
+    "vw": 1680,
+    "hash": "#/modules/embeddings/overview",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "infrastructure",
+    "surfaceW": 1464,
+    "headW": 1432,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 8,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "a",
+       "text": "Основные настройки →",
+       "w": 161.828125,
+       "h": 34
+      },
+      {
+       "tag": "a",
+       "text": "События →",
+       "w": 92.28125,
+       "h": 34
+      },
+      {
+       "tag": "summary",
+       "text": "Технические детали",
+       "w": 1398,
+       "h": 16
+      }
+     ],
+     "smallCount": 8
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   },
+   "summary_settings": {
+    "vw": 1680,
+    "hash": "#/modules/summary/settings",
+    "scrollWidth": 1680,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1464,
+    "headW": 1432,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "flags.summary_admin_only",
+     "flags.summary_streaming_enabled",
+     "reactions.allowed_summary_ids",
+     "reactions.summary_target_chat_ids"
+    ],
+    "advanced": [
+     "Расширенные системные  (2) "
+    ],
+    "touch": {
+     "count": 32,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.21875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 151.609375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Кластеризатор",
+       "w": 111.40625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Писатель",
+       "w": 81.53125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "HYBRID SUMMARY",
+       "w": 132.390625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "LEGACY SUMMARY FALLBACK",
+       "w": 189.34375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 74.734375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      }
+     ],
+     "smallCount": 25
+    },
+    "mainScrollWidth": 1464,
+    "mainClientWidth": 1464
+   }
+  },
+  "1440x900": {
+   "catalog": {
+    "vw": 1440,
+    "hash": "#/modules",
+    "scrollWidth": 1440,
+    "cards": 21,
+    "firstRowColumns": 4,
+    "cardHeights": [
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162
+    ],
+    "parents": [
+     {
+      "id": "mod_stories",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_character",
+      "route": "#/permsoc",
+      "href": "#/permsoc",
+      "h": 16,
+      "text": "Часть «PERMsoc»"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     }
+    ],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "experience": {
+    "vw": 1440,
+    "hash": "#/modules/experience",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 1224,
+    "headW": 1000,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 10,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "a",
+       "text": "Основные настройки →",
+       "w": 161.828125,
+       "h": 34
+      },
+      {
+       "tag": "a",
+       "text": "События →",
+       "w": 92.28125,
+       "h": 34
+      },
+      {
+       "tag": "summary",
+       "text": "Технические детали",
+       "w": 966,
+       "h": 16
+      },
+      {
+       "tag": "button",
+       "text": "⟳",
+       "w": 41.78125,
+       "h": 34
+      }
+     ],
+     "smallCount": 9
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "memory_parent": {
+    "vw": 1440,
+    "hash": "#/memory/rag",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_stories",
+      "route": "#/modules/stories",
+      "text": "Настраивается в «Истории и эпизоды» →"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/modules/experience",
+      "text": "Настраивается в «Опыт и уроки» →"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/modules/random",
+      "text": "Настраивается в «Случайность» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "limits.dig_graph_hop_depth",
+     "limits.dig_max_facts",
+     "limits.dig_max_snippets",
+     "limits.dig_max_symbols",
+     "limits.dig_year_back_window_days",
+     "flags.dig_enabled",
+     "flags.dig_pre_gate_enabled",
+     "limits.graph_compression_log_retention_days",
+     "limits.graph_dedup_similarity_high",
+     "limits.graph_dedup_similarity_low",
+     "limits.graph_dedup_weight_bonus",
+     "limits.graph_edge_weight_increment",
+     "limits.graph_episode_merge_batch",
+     "limits.graph_episode_merge_interval_days",
+     "limits.graph_episode_merge_max_facts_per_cluster",
+     "limits.graph_extract_max_triplets",
+     "limits.graph_facts_per_user_quota",
+     "limits.graph_fact_touch_extend_days",
+     "limits.graph_fact_ttl_days",
+     "limits.graph_fact_weight_archive",
+     "limits.graph_fact_weight_bot",
+     "limits.graph_fact_weight_direct",
+     "limits.graph_hist_fresh_tiebreak",
+     "limits.graph_hist_horizon_days",
+     "limits.graph_hist_max_share",
+     "limits.graph_hist_rel_floor",
+     "limits.graph_memorize_batch_retry_backoff",
+     "limits.graph_memorize_max_batch_retries",
+     "limits.graph_mmr_fetch_k",
+     "limits.graph_mmr_fetch_k_historical",
+     "limits.graph_mmr_lambda",
+     "limits.graph_purge_protect_days",
+     "limits.graph_purge_protect_weight",
+     "limits.graph_rag_context_max_chars",
+     "limits.graph_rag_facts_limit",
+     "limits.graph_review_interval_days",
+     "limits.graph_time_decay_floor",
+     "limits.graph_time_decay_half_life_days",
+     "limits.graph_top_edges_limit",
+     "limits.graph_unconfirmed_retention_days",
+     "flags.graph_dedup_enabled",
+     "flags.graph_episode_merge_enabled",
+     "flags.graph_fact_touch_enabled",
+     "flags.graph_mmr_enabled",
+     "flags.graph_rag_enabled",
+     "flags.graph_review_enabled",
+     "flags.graph_time_decay_enabled",
+     "limits.archive_memory_retention_days",
+     "limits.embed_cache_max_rows",
+     "limits.embed_cache_ttl_days",
+     "limits.full_memory_retention_days",
+     "limits.memory_backup_hour",
+     "limits.memory_backup_keep",
+     "flags.embed_cache_enabled",
+     "flags.graph_user_quota_enabled",
+     "flags.memory_backup_enabled",
+     "flags.vec_int8_enabled",
+     "reactions.memory_backup_dir",
+     "limits.belief_archive_threshold",
+     "limits.belief_decay_per_month",
+     "limits.belief_inactivity_days",
+     "limits.belief_resonance_penalty",
+     "limits.belief_resonance_threshold",
+     "limits.deep_sleep_max_paradigms_per_run",
+     "limits.deep_sleep_tokens_per_day",
+     "limits.deep_sleep_top_k",
+     "flags.belief_decay_enabled",
+     "flags.deep_sleep_enabled",
+     "limits.import_history_retention_days",
+     "limits.memory_commands_remember_ttl_days",
+     "limits.rag_stale_after_days",
+     "limits.summary_max_window_messages",
+     "limits.summary_window_hours",
+     "limits.summary_rag_l2_limit",
+     "limits.summary_rag_l3_limit",
+     "limits.chat_budget_rag_ratio",
+     "limits.chat_rag_dedup_overlap_ratio",
+     "flags.bot_self_awareness_enabled",
+     "flags.chat_rag_rerank_enabled",
+     "flags.memory_commands_user_enabled",
+     "flags.persona_enabled",
+     "flags.memory_communities_enabled",
+     "flags.memory_search_enabled",
+     "memory.infinite_retention"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "permsoc_parent": {
+    "vw": 1440,
+    "hash": "#/permsoc",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_character",
+      "route": "#/modules/character",
+      "text": "Настраивается в «Характер» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "reactions.slavik_user_id",
+     "reactions.dead_page_relay_channel_id",
+     "reactions.dead_page_source_channel_id",
+     "reactions.dead_page_source_channel_username",
+     "reactions.dead_page_dir",
+     "reactions.slavic_random_dir",
+     "reactions.gif_path",
+     "limits.slavik_mimic_cooldown",
+     "limits.slavik_mimic_min_words",
+     "limits.gif_interval",
+     "limits.slavic_photo_interval",
+     "limits.dead_page_cooldown",
+     "limits.dead_page_caption_max_chars",
+     "limits.dead_page_max_forward_retries",
+     "reactions.slavic_photo_path",
+     "reactions.kostik_user_id",
+     "reactions.kostik_replies",
+     "limits.kostik_reply_probability",
+     "reactions.olya_user_id",
+     "reactions.olya_media_base",
+     "reactions.olya_caption_text",
+     "reactions.olya_media_type",
+     "flags.olya_caption_enabled",
+     "flags.olya_repost_enabled",
+     "flags.olya_always_send",
+     "flags.olya_caption_mention_enabled",
+     "limits.olya_cooldown",
+     "reactions.mimic_victim_user_ids",
+     "reactions.alan_mimic_enabled",
+     "reactions.kucha_enabled",
+     "flags.mimic_forwards_enabled",
+     "limits.mimic_cooldown",
+     "limits.mimic_min_words",
+     "reactions.alan_user_id",
+     "reactions.alan_username",
+     "reactions.alan_greeting_dir",
+     "reactions.war_channel_ids",
+     "reactions.war_channel_usernames",
+     "reactions.war_replies",
+     "reactions.danger_words",
+     "reactions.vasya_enabled",
+     "flags.alan_replies_enabled",
+     "flags.dead_page_post_on_join",
+     "reactions.common_media_base",
+     "flags.common_media_enabled",
+     "flags.common_work_media_enabled",
+     "reactions.goodmorning_time",
+     "reactions.goodmorning_target_chat_ids",
+     "reactions.goodmorning_media_dir",
+     "limits.alan_reply_interval",
+     "limits.alan_greeting_cooldown",
+     "limits.alan_silence_greeting_hours",
+     "limits.danger_cooldown",
+     "limits.selfdev_cooldown",
+     "limits.work_cooldown",
+     "limits.common_cooldown"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "summary": {
+    "vw": 1440,
+    "hash": "#/modules/summary/overview",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1224,
+    "headW": 1192,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 5,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 33,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Кластеризатор",
+       "w": 111.40625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Писатель",
+       "w": 81.53125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "HYBRID SUMMARY",
+       "w": 132.390625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "LEGACY SUMMARY FALLBACK",
+       "w": 189.34375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 74.734375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      }
+     ],
+     "smallCount": 32
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "nostalgia": {
+    "vw": 1440,
+    "hash": "#/modules/nostalgia/settings",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 1224,
+    "headW": 1000,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "memory.nostalgia_aggressiveness",
+     "memory.nostalgia_cooldown_hours",
+     "memory.nostalgia_golden_min_days",
+     "memory.nostalgia_golden_min_importance",
+     "memory.nostalgia_hint_max_chars",
+     "memory.nostalgia_history_depth_years",
+     "memory.nostalgia_layer_a_enabled",
+     "memory.nostalgia_layer_a_max_hints",
+     "memory.nostalgia_max_per_day",
+     "memory.nostalgia_max_send_chars",
+     "memory.nostalgia_min_silence_minutes",
+     "memory.nostalgia_pause_hours",
+     "memory.nostalgia_quiet_end_hour",
+     "memory.nostalgia_quiet_start_hour",
+     "memory.nostalgia_tick_minutes",
+     "memory.nostalgia_unanswered_max",
+     "memory.nostalgia_year_back_days_window"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 80,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.21875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 151.609375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "История",
+       "w": 77.328125,
+       "h": 40
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 974,
+       "h": 39.609375
+      },
+      {
+       "tag": "button",
+       "text": "memory.nostalgia_aggress",
+       "w": 362.984375,
+       "h": 24
+      },
+      {
+       "tag": "button",
+       "text": "копировать",
+       "w": 74.421875,
+       "h": 32
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 443,
+       "h": 39.609375
+      },
+      {
+       "tag": "button",
+       "text": "memory.nostalgia_cooldow",
+       "w": 362.984375,
+       "h": 24
+      }
+     ],
+     "smallCount": 60
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "direct_models": {
+    "vw": 1440,
+    "hash": "#/modules/direct/models",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1224,
+    "headW": 1192,
+    "sidebarW": 216,
+    "split": {
+     "children": 2,
+     "mainW": 789,
+     "sideW": 387,
+     "mainTop": 363,
+     "sideTop": 363,
+     "w": 1192
+    },
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "inspector",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "models.direct_l1_base_url",
+     "models.direct_l1_model_name",
+     "keys.direct_l1_api_key"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 31,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Как бот отвечает",
+       "w": 123.96875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Что бот видел",
+       "w": 108.640625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Дополнительные настройки",
+       "w": 186.375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 76.203125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Проверить",
+       "w": 94.203125,
+       "h": 33.59375
+      },
+      {
+       "tag": "button",
+       "text": "Проверить",
+       "w": 94.203125,
+       "h": 33.59375
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 1166,
+       "h": 39.609375
+      }
+     ],
+     "smallCount": 24
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "embeddings": {
+    "vw": 1440,
+    "hash": "#/modules/embeddings/overview",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "infrastructure",
+    "surfaceW": 1224,
+    "headW": 1192,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 8,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "a",
+       "text": "Основные настройки →",
+       "w": 161.828125,
+       "h": 34
+      },
+      {
+       "tag": "a",
+       "text": "События →",
+       "w": 92.28125,
+       "h": 34
+      },
+      {
+       "tag": "summary",
+       "text": "Технические детали",
+       "w": 1158,
+       "h": 16
+      }
+     ],
+     "smallCount": 8
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   },
+   "summary_settings": {
+    "vw": 1440,
+    "hash": "#/modules/summary/settings",
+    "scrollWidth": 1440,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1224,
+    "headW": 1192,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "flags.summary_admin_only",
+     "flags.summary_streaming_enabled",
+     "reactions.allowed_summary_ids",
+     "reactions.summary_target_chat_ids"
+    ],
+    "advanced": [
+     "Расширенные системные  (2) "
+    ],
+    "touch": {
+     "count": 32,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.21875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 151.609375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Кластеризатор",
+       "w": 111.40625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Писатель",
+       "w": 81.53125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "HYBRID SUMMARY",
+       "w": 132.390625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "LEGACY SUMMARY FALLBACK",
+       "w": 189.34375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 74.734375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      }
+     ],
+     "smallCount": 25
+    },
+    "mainScrollWidth": 1224,
+    "mainClientWidth": 1224
+   }
+  },
+  "1280x800": {
+   "catalog": {
+    "vw": 1280,
+    "hash": "#/modules",
+    "scrollWidth": 1280,
+    "cards": 21,
+    "firstRowColumns": 3,
+    "cardHeights": [
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162
+    ],
+    "parents": [
+     {
+      "id": "mod_stories",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_character",
+      "route": "#/permsoc",
+      "href": "#/permsoc",
+      "h": 16,
+      "text": "Часть «PERMsoc»"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 16,
+      "text": "Часть «Памяти»"
+     }
+    ],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "experience": {
+    "vw": 1280,
+    "hash": "#/modules/experience",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 1064,
+    "headW": 1000,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 10,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "a",
+       "text": "Основные настройки →",
+       "w": 161.828125,
+       "h": 34
+      },
+      {
+       "tag": "a",
+       "text": "События →",
+       "w": 92.28125,
+       "h": 34
+      },
+      {
+       "tag": "summary",
+       "text": "Технические детали",
+       "w": 966,
+       "h": 16
+      },
+      {
+       "tag": "button",
+       "text": "⟳",
+       "w": 41.78125,
+       "h": 34
+      }
+     ],
+     "smallCount": 9
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "memory_parent": {
+    "vw": 1280,
+    "hash": "#/memory/rag",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_stories",
+      "route": "#/modules/stories",
+      "text": "Настраивается в «Истории и эпизоды» →"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/modules/experience",
+      "text": "Настраивается в «Опыт и уроки» →"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/modules/random",
+      "text": "Настраивается в «Случайность» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "limits.dig_graph_hop_depth",
+     "limits.dig_max_facts",
+     "limits.dig_max_snippets",
+     "limits.dig_max_symbols",
+     "limits.dig_year_back_window_days",
+     "flags.dig_enabled",
+     "flags.dig_pre_gate_enabled",
+     "limits.graph_compression_log_retention_days",
+     "limits.graph_dedup_similarity_high",
+     "limits.graph_dedup_similarity_low",
+     "limits.graph_dedup_weight_bonus",
+     "limits.graph_edge_weight_increment",
+     "limits.graph_episode_merge_batch",
+     "limits.graph_episode_merge_interval_days",
+     "limits.graph_episode_merge_max_facts_per_cluster",
+     "limits.graph_extract_max_triplets",
+     "limits.graph_facts_per_user_quota",
+     "limits.graph_fact_touch_extend_days",
+     "limits.graph_fact_ttl_days",
+     "limits.graph_fact_weight_archive",
+     "limits.graph_fact_weight_bot",
+     "limits.graph_fact_weight_direct",
+     "limits.graph_hist_fresh_tiebreak",
+     "limits.graph_hist_horizon_days",
+     "limits.graph_hist_max_share",
+     "limits.graph_hist_rel_floor",
+     "limits.graph_memorize_batch_retry_backoff",
+     "limits.graph_memorize_max_batch_retries",
+     "limits.graph_mmr_fetch_k",
+     "limits.graph_mmr_fetch_k_historical",
+     "limits.graph_mmr_lambda",
+     "limits.graph_purge_protect_days",
+     "limits.graph_purge_protect_weight",
+     "limits.graph_rag_context_max_chars",
+     "limits.graph_rag_facts_limit",
+     "limits.graph_review_interval_days",
+     "limits.graph_time_decay_floor",
+     "limits.graph_time_decay_half_life_days",
+     "limits.graph_top_edges_limit",
+     "limits.graph_unconfirmed_retention_days",
+     "flags.graph_dedup_enabled",
+     "flags.graph_episode_merge_enabled",
+     "flags.graph_fact_touch_enabled",
+     "flags.graph_mmr_enabled",
+     "flags.graph_rag_enabled",
+     "flags.graph_review_enabled",
+     "flags.graph_time_decay_enabled",
+     "limits.archive_memory_retention_days",
+     "limits.embed_cache_max_rows",
+     "limits.embed_cache_ttl_days",
+     "limits.full_memory_retention_days",
+     "limits.memory_backup_hour",
+     "limits.memory_backup_keep",
+     "flags.embed_cache_enabled",
+     "flags.graph_user_quota_enabled",
+     "flags.memory_backup_enabled",
+     "flags.vec_int8_enabled",
+     "reactions.memory_backup_dir",
+     "limits.belief_archive_threshold",
+     "limits.belief_decay_per_month",
+     "limits.belief_inactivity_days",
+     "limits.belief_resonance_penalty",
+     "limits.belief_resonance_threshold",
+     "limits.deep_sleep_max_paradigms_per_run",
+     "limits.deep_sleep_tokens_per_day",
+     "limits.deep_sleep_top_k",
+     "flags.belief_decay_enabled",
+     "flags.deep_sleep_enabled",
+     "limits.import_history_retention_days",
+     "limits.memory_commands_remember_ttl_days",
+     "limits.rag_stale_after_days",
+     "limits.summary_max_window_messages",
+     "limits.summary_window_hours",
+     "limits.summary_rag_l2_limit",
+     "limits.summary_rag_l3_limit",
+     "limits.chat_budget_rag_ratio",
+     "limits.chat_rag_dedup_overlap_ratio",
+     "flags.bot_self_awareness_enabled",
+     "flags.chat_rag_rerank_enabled",
+     "flags.memory_commands_user_enabled",
+     "flags.persona_enabled",
+     "flags.memory_communities_enabled",
+     "flags.memory_search_enabled",
+     "memory.infinite_retention"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "permsoc_parent": {
+    "vw": 1280,
+    "hash": "#/permsoc",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_character",
+      "route": "#/modules/character",
+      "text": "Настраивается в «Характер» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "reactions.slavik_user_id",
+     "reactions.dead_page_relay_channel_id",
+     "reactions.dead_page_source_channel_id",
+     "reactions.dead_page_source_channel_username",
+     "reactions.dead_page_dir",
+     "reactions.slavic_random_dir",
+     "reactions.gif_path",
+     "limits.slavik_mimic_cooldown",
+     "limits.slavik_mimic_min_words",
+     "limits.gif_interval",
+     "limits.slavic_photo_interval",
+     "limits.dead_page_cooldown",
+     "limits.dead_page_caption_max_chars",
+     "limits.dead_page_max_forward_retries",
+     "reactions.slavic_photo_path",
+     "reactions.kostik_user_id",
+     "reactions.kostik_replies",
+     "limits.kostik_reply_probability",
+     "reactions.olya_user_id",
+     "reactions.olya_media_base",
+     "reactions.olya_caption_text",
+     "reactions.olya_media_type",
+     "flags.olya_caption_enabled",
+     "flags.olya_repost_enabled",
+     "flags.olya_always_send",
+     "flags.olya_caption_mention_enabled",
+     "limits.olya_cooldown",
+     "reactions.mimic_victim_user_ids",
+     "reactions.alan_mimic_enabled",
+     "reactions.kucha_enabled",
+     "flags.mimic_forwards_enabled",
+     "limits.mimic_cooldown",
+     "limits.mimic_min_words",
+     "reactions.alan_user_id",
+     "reactions.alan_username",
+     "reactions.alan_greeting_dir",
+     "reactions.war_channel_ids",
+     "reactions.war_channel_usernames",
+     "reactions.war_replies",
+     "reactions.danger_words",
+     "reactions.vasya_enabled",
+     "flags.alan_replies_enabled",
+     "flags.dead_page_post_on_join",
+     "reactions.common_media_base",
+     "flags.common_media_enabled",
+     "flags.common_work_media_enabled",
+     "reactions.goodmorning_time",
+     "reactions.goodmorning_target_chat_ids",
+     "reactions.goodmorning_media_dir",
+     "limits.alan_reply_interval",
+     "limits.alan_greeting_cooldown",
+     "limits.alan_silence_greeting_hours",
+     "limits.danger_cooldown",
+     "limits.selfdev_cooldown",
+     "limits.work_cooldown",
+     "limits.common_cooldown"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "summary": {
+    "vw": 1280,
+    "hash": "#/modules/summary/overview",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1064,
+    "headW": 1032,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 5,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 33,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Кластеризатор",
+       "w": 111.40625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Писатель",
+       "w": 81.53125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "HYBRID SUMMARY",
+       "w": 132.390625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "LEGACY SUMMARY FALLBACK",
+       "w": 189.34375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 74.734375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      }
+     ],
+     "smallCount": 32
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "nostalgia": {
+    "vw": 1280,
+    "hash": "#/modules/nostalgia/settings",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 1064,
+    "headW": 1000,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "memory.nostalgia_aggressiveness",
+     "memory.nostalgia_cooldown_hours",
+     "memory.nostalgia_golden_min_days",
+     "memory.nostalgia_golden_min_importance",
+     "memory.nostalgia_hint_max_chars",
+     "memory.nostalgia_history_depth_years",
+     "memory.nostalgia_layer_a_enabled",
+     "memory.nostalgia_layer_a_max_hints",
+     "memory.nostalgia_max_per_day",
+     "memory.nostalgia_max_send_chars",
+     "memory.nostalgia_min_silence_minutes",
+     "memory.nostalgia_pause_hours",
+     "memory.nostalgia_quiet_end_hour",
+     "memory.nostalgia_quiet_start_hour",
+     "memory.nostalgia_tick_minutes",
+     "memory.nostalgia_unanswered_max",
+     "memory.nostalgia_year_back_days_window"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 80,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.21875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 151.609375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "История",
+       "w": 77.328125,
+       "h": 40
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 974,
+       "h": 39.609375
+      },
+      {
+       "tag": "button",
+       "text": "memory.nostalgia_aggress",
+       "w": 362.984375,
+       "h": 24
+      },
+      {
+       "tag": "button",
+       "text": "копировать",
+       "w": 74.421875,
+       "h": 32
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 443,
+       "h": 39.609375
+      },
+      {
+       "tag": "button",
+       "text": "memory.nostalgia_cooldow",
+       "w": 362.984375,
+       "h": 24
+      }
+     ],
+     "smallCount": 60
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "direct_models": {
+    "vw": 1280,
+    "hash": "#/modules/direct/models",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1064,
+    "headW": 1032,
+    "sidebarW": 216,
+    "split": {
+     "children": 2,
+     "mainW": 683,
+     "sideW": 333,
+     "mainTop": 363,
+     "sideTop": 363,
+     "w": 1032
+    },
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "inspector",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "models.direct_l1_base_url",
+     "models.direct_l1_model_name",
+     "keys.direct_l1_api_key"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 31,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Как бот отвечает",
+       "w": 123.96875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Что бот видел",
+       "w": 108.640625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Дополнительные настройки",
+       "w": 186.375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 76.203125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Проверить",
+       "w": 94.203125,
+       "h": 33.59375
+      },
+      {
+       "tag": "button",
+       "text": "Проверить",
+       "w": 94.203125,
+       "h": 33.59375
+      },
+      {
+       "tag": "input",
+       "text": "",
+       "w": 1006,
+       "h": 39.609375
+      }
+     ],
+     "smallCount": 24
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "embeddings": {
+    "vw": 1280,
+    "hash": "#/modules/embeddings/overview",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "infrastructure",
+    "surfaceW": 1064,
+    "headW": 1032,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 8,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 86.328125,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 70.1875,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.90625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 148.1875,
+       "h": 40
+      },
+      {
+       "tag": "a",
+       "text": "Основные настройки →",
+       "w": 161.828125,
+       "h": 34
+      },
+      {
+       "tag": "a",
+       "text": "События →",
+       "w": 92.28125,
+       "h": 34
+      },
+      {
+       "tag": "summary",
+       "text": "Технические детали",
+       "w": 998,
+       "h": 16
+      }
+     ],
+     "smallCount": 8
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   },
+   "summary_settings": {
+    "vw": 1280,
+    "hash": "#/modules/summary/settings",
+    "scrollWidth": 1280,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 1064,
+    "headW": 1032,
+    "sidebarW": 216,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 40
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 40
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 40
+     }
+    ],
+    "cfgKeys": [
+     "flags.summary_admin_only",
+     "flags.summary_streaming_enabled",
+     "reactions.allowed_summary_ids",
+     "reactions.summary_target_chat_ids"
+    ],
+    "advanced": [
+     "Расширенные системные  (2) "
+    ],
+    "touch": {
+     "count": 32,
+     "small": [
+      {
+       "tag": "button",
+       "text": "Наследовать",
+       "w": 83.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Включить",
+       "w": 72.65625,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Выключить",
+       "w": 77.984375,
+       "h": 32
+      },
+      {
+       "tag": "button",
+       "text": "Обзор",
+       "w": 66.21875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Основные настройки",
+       "w": 151.609375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Кластеризатор",
+       "w": 111.40625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Писатель",
+       "w": 81.53125,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "HYBRID SUMMARY",
+       "w": 132.390625,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "LEGACY SUMMARY FALLBACK",
+       "w": 189.34375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Модели",
+       "w": 74.734375,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Лимиты",
+       "w": 74.671875,
+       "h": 40
+      },
+      {
+       "tag": "button",
+       "text": "Тестирование",
+       "w": 107.515625,
+       "h": 40
+      }
+     ],
+     "smallCount": 25
+    },
+    "mainScrollWidth": 1064,
+    "mainClientWidth": 1064
+   }
+  },
+  "768x1024": {
+   "catalog": {
+    "vw": 768,
+    "hash": "#/modules",
+    "scrollWidth": 768,
+    "cards": 21,
+    "firstRowColumns": 2,
+    "cardHeights": [
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     146,
+     146,
+     162,
+     162,
+     162,
+     132
+    ],
+    "parents": [
+     {
+      "id": "mod_stories",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_character",
+      "route": "#/permsoc",
+      "href": "#/permsoc",
+      "h": 44,
+      "text": "Часть «PERMsoc»"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     }
+    ],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "experience": {
+    "vw": 768,
+    "hash": "#/modules/experience",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 768,
+    "headW": 736,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 10,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "memory_parent": {
+    "vw": 768,
+    "hash": "#/memory/rag",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_stories",
+      "route": "#/modules/stories",
+      "text": "Настраивается в «Истории и эпизоды» →"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/modules/experience",
+      "text": "Настраивается в «Опыт и уроки» →"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/modules/random",
+      "text": "Настраивается в «Случайность» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "limits.dig_graph_hop_depth",
+     "limits.dig_max_facts",
+     "limits.dig_max_snippets",
+     "limits.dig_max_symbols",
+     "limits.dig_year_back_window_days",
+     "flags.dig_enabled",
+     "flags.dig_pre_gate_enabled",
+     "limits.graph_compression_log_retention_days",
+     "limits.graph_dedup_similarity_high",
+     "limits.graph_dedup_similarity_low",
+     "limits.graph_dedup_weight_bonus",
+     "limits.graph_edge_weight_increment",
+     "limits.graph_episode_merge_batch",
+     "limits.graph_episode_merge_interval_days",
+     "limits.graph_episode_merge_max_facts_per_cluster",
+     "limits.graph_extract_max_triplets",
+     "limits.graph_facts_per_user_quota",
+     "limits.graph_fact_touch_extend_days",
+     "limits.graph_fact_ttl_days",
+     "limits.graph_fact_weight_archive",
+     "limits.graph_fact_weight_bot",
+     "limits.graph_fact_weight_direct",
+     "limits.graph_hist_fresh_tiebreak",
+     "limits.graph_hist_horizon_days",
+     "limits.graph_hist_max_share",
+     "limits.graph_hist_rel_floor",
+     "limits.graph_memorize_batch_retry_backoff",
+     "limits.graph_memorize_max_batch_retries",
+     "limits.graph_mmr_fetch_k",
+     "limits.graph_mmr_fetch_k_historical",
+     "limits.graph_mmr_lambda",
+     "limits.graph_purge_protect_days",
+     "limits.graph_purge_protect_weight",
+     "limits.graph_rag_context_max_chars",
+     "limits.graph_rag_facts_limit",
+     "limits.graph_review_interval_days",
+     "limits.graph_time_decay_floor",
+     "limits.graph_time_decay_half_life_days",
+     "limits.graph_top_edges_limit",
+     "limits.graph_unconfirmed_retention_days",
+     "flags.graph_dedup_enabled",
+     "flags.graph_episode_merge_enabled",
+     "flags.graph_fact_touch_enabled",
+     "flags.graph_mmr_enabled",
+     "flags.graph_rag_enabled",
+     "flags.graph_review_enabled",
+     "flags.graph_time_decay_enabled",
+     "limits.archive_memory_retention_days",
+     "limits.embed_cache_max_rows",
+     "limits.embed_cache_ttl_days",
+     "limits.full_memory_retention_days",
+     "limits.memory_backup_hour",
+     "limits.memory_backup_keep",
+     "flags.embed_cache_enabled",
+     "flags.graph_user_quota_enabled",
+     "flags.memory_backup_enabled",
+     "flags.vec_int8_enabled",
+     "reactions.memory_backup_dir",
+     "limits.belief_archive_threshold",
+     "limits.belief_decay_per_month",
+     "limits.belief_inactivity_days",
+     "limits.belief_resonance_penalty",
+     "limits.belief_resonance_threshold",
+     "limits.deep_sleep_max_paradigms_per_run",
+     "limits.deep_sleep_tokens_per_day",
+     "limits.deep_sleep_top_k",
+     "flags.belief_decay_enabled",
+     "flags.deep_sleep_enabled",
+     "limits.import_history_retention_days",
+     "limits.memory_commands_remember_ttl_days",
+     "limits.rag_stale_after_days",
+     "limits.summary_max_window_messages",
+     "limits.summary_window_hours",
+     "limits.summary_rag_l2_limit",
+     "limits.summary_rag_l3_limit",
+     "limits.chat_budget_rag_ratio",
+     "limits.chat_rag_dedup_overlap_ratio",
+     "flags.bot_self_awareness_enabled",
+     "flags.chat_rag_rerank_enabled",
+     "flags.memory_commands_user_enabled",
+     "flags.persona_enabled",
+     "flags.memory_communities_enabled",
+     "flags.memory_search_enabled",
+     "memory.infinite_retention"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "permsoc_parent": {
+    "vw": 768,
+    "hash": "#/permsoc",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_character",
+      "route": "#/modules/character",
+      "text": "Настраивается в «Характер» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "reactions.slavik_user_id",
+     "reactions.dead_page_relay_channel_id",
+     "reactions.dead_page_source_channel_id",
+     "reactions.dead_page_source_channel_username",
+     "reactions.dead_page_dir",
+     "reactions.slavic_random_dir",
+     "reactions.gif_path",
+     "limits.slavik_mimic_cooldown",
+     "limits.slavik_mimic_min_words",
+     "limits.gif_interval",
+     "limits.slavic_photo_interval",
+     "limits.dead_page_cooldown",
+     "limits.dead_page_caption_max_chars",
+     "limits.dead_page_max_forward_retries",
+     "reactions.slavic_photo_path",
+     "reactions.kostik_user_id",
+     "reactions.kostik_replies",
+     "limits.kostik_reply_probability",
+     "reactions.olya_user_id",
+     "reactions.olya_media_base",
+     "reactions.olya_caption_text",
+     "reactions.olya_media_type",
+     "flags.olya_caption_enabled",
+     "flags.olya_repost_enabled",
+     "flags.olya_always_send",
+     "flags.olya_caption_mention_enabled",
+     "limits.olya_cooldown",
+     "reactions.mimic_victim_user_ids",
+     "reactions.alan_mimic_enabled",
+     "reactions.kucha_enabled",
+     "flags.mimic_forwards_enabled",
+     "limits.mimic_cooldown",
+     "limits.mimic_min_words",
+     "reactions.alan_user_id",
+     "reactions.alan_username",
+     "reactions.alan_greeting_dir",
+     "reactions.war_channel_ids",
+     "reactions.war_channel_usernames",
+     "reactions.war_replies",
+     "reactions.danger_words",
+     "reactions.vasya_enabled",
+     "flags.alan_replies_enabled",
+     "flags.dead_page_post_on_join",
+     "reactions.common_media_base",
+     "flags.common_media_enabled",
+     "flags.common_work_media_enabled",
+     "reactions.goodmorning_time",
+     "reactions.goodmorning_target_chat_ids",
+     "reactions.goodmorning_media_dir",
+     "limits.alan_reply_interval",
+     "limits.alan_greeting_cooldown",
+     "limits.alan_silence_greeting_hours",
+     "limits.danger_cooldown",
+     "limits.selfdev_cooldown",
+     "limits.work_cooldown",
+     "limits.common_cooldown"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "summary": {
+    "vw": 768,
+    "hash": "#/modules/summary/overview",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 768,
+    "headW": 736,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 5,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 33,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "nostalgia": {
+    "vw": 768,
+    "hash": "#/modules/nostalgia/settings",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 768,
+    "headW": 736,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "memory.nostalgia_aggressiveness",
+     "memory.nostalgia_cooldown_hours",
+     "memory.nostalgia_golden_min_days",
+     "memory.nostalgia_golden_min_importance",
+     "memory.nostalgia_hint_max_chars",
+     "memory.nostalgia_history_depth_years",
+     "memory.nostalgia_layer_a_enabled",
+     "memory.nostalgia_layer_a_max_hints",
+     "memory.nostalgia_max_per_day",
+     "memory.nostalgia_max_send_chars",
+     "memory.nostalgia_min_silence_minutes",
+     "memory.nostalgia_pause_hours",
+     "memory.nostalgia_quiet_end_hour",
+     "memory.nostalgia_quiet_start_hour",
+     "memory.nostalgia_tick_minutes",
+     "memory.nostalgia_unanswered_max",
+     "memory.nostalgia_year_back_days_window"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 80,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "direct_models": {
+    "vw": 768,
+    "hash": "#/modules/direct/models",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 768,
+    "headW": 736,
+    "sidebarW": null,
+    "split": {
+     "children": 2,
+     "mainW": 736,
+     "sideW": 736,
+     "mainTop": 467,
+     "sideTop": 649,
+     "w": 736
+    },
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "inspector",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "models.direct_l1_base_url",
+     "models.direct_l1_model_name",
+     "keys.direct_l1_api_key"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 31,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "embeddings": {
+    "vw": 768,
+    "hash": "#/modules/embeddings/overview",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "infrastructure",
+    "surfaceW": 768,
+    "headW": 736,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 8,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   },
+   "summary_settings": {
+    "vw": 768,
+    "hash": "#/modules/summary/settings",
+    "scrollWidth": 768,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 768,
+    "headW": 736,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "flags.summary_admin_only",
+     "flags.summary_streaming_enabled",
+     "reactions.allowed_summary_ids",
+     "reactions.summary_target_chat_ids"
+    ],
+    "advanced": [
+     "Расширенные системные  (2) "
+    ],
+    "touch": {
+     "count": 32,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 768,
+    "mainClientWidth": 768
+   }
+  },
+  "390x844": {
+   "catalog": {
+    "vw": 390,
+    "hash": "#/modules",
+    "scrollWidth": 390,
+    "cards": 21,
+    "firstRowColumns": 1,
+    "cardHeights": [
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     146,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     146,
+     146,
+     146,
+     162,
+     162,
+     132,
+     132
+    ],
+    "parents": [
+     {
+      "id": "mod_stories",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_character",
+      "route": "#/permsoc",
+      "href": "#/permsoc",
+      "h": 44,
+      "text": "Часть «PERMsoc»"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     }
+    ],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "experience": {
+    "vw": 390,
+    "hash": "#/modules/experience",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 390,
+    "headW": 374,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 10,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "memory_parent": {
+    "vw": 390,
+    "hash": "#/memory/rag",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_stories",
+      "route": "#/modules/stories",
+      "text": "Настраивается в «Истории и эпизоды» →"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/modules/experience",
+      "text": "Настраивается в «Опыт и уроки» →"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/modules/random",
+      "text": "Настраивается в «Случайность» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "limits.dig_graph_hop_depth",
+     "limits.dig_max_facts",
+     "limits.dig_max_snippets",
+     "limits.dig_max_symbols",
+     "limits.dig_year_back_window_days",
+     "flags.dig_enabled",
+     "flags.dig_pre_gate_enabled",
+     "limits.graph_compression_log_retention_days",
+     "limits.graph_dedup_similarity_high",
+     "limits.graph_dedup_similarity_low",
+     "limits.graph_dedup_weight_bonus",
+     "limits.graph_edge_weight_increment",
+     "limits.graph_episode_merge_batch",
+     "limits.graph_episode_merge_interval_days",
+     "limits.graph_episode_merge_max_facts_per_cluster",
+     "limits.graph_extract_max_triplets",
+     "limits.graph_facts_per_user_quota",
+     "limits.graph_fact_touch_extend_days",
+     "limits.graph_fact_ttl_days",
+     "limits.graph_fact_weight_archive",
+     "limits.graph_fact_weight_bot",
+     "limits.graph_fact_weight_direct",
+     "limits.graph_hist_fresh_tiebreak",
+     "limits.graph_hist_horizon_days",
+     "limits.graph_hist_max_share",
+     "limits.graph_hist_rel_floor",
+     "limits.graph_memorize_batch_retry_backoff",
+     "limits.graph_memorize_max_batch_retries",
+     "limits.graph_mmr_fetch_k",
+     "limits.graph_mmr_fetch_k_historical",
+     "limits.graph_mmr_lambda",
+     "limits.graph_purge_protect_days",
+     "limits.graph_purge_protect_weight",
+     "limits.graph_rag_context_max_chars",
+     "limits.graph_rag_facts_limit",
+     "limits.graph_review_interval_days",
+     "limits.graph_time_decay_floor",
+     "limits.graph_time_decay_half_life_days",
+     "limits.graph_top_edges_limit",
+     "limits.graph_unconfirmed_retention_days",
+     "flags.graph_dedup_enabled",
+     "flags.graph_episode_merge_enabled",
+     "flags.graph_fact_touch_enabled",
+     "flags.graph_mmr_enabled",
+     "flags.graph_rag_enabled",
+     "flags.graph_review_enabled",
+     "flags.graph_time_decay_enabled",
+     "limits.archive_memory_retention_days",
+     "limits.embed_cache_max_rows",
+     "limits.embed_cache_ttl_days",
+     "limits.full_memory_retention_days",
+     "limits.memory_backup_hour",
+     "limits.memory_backup_keep",
+     "flags.embed_cache_enabled",
+     "flags.graph_user_quota_enabled",
+     "flags.memory_backup_enabled",
+     "flags.vec_int8_enabled",
+     "reactions.memory_backup_dir",
+     "limits.belief_archive_threshold",
+     "limits.belief_decay_per_month",
+     "limits.belief_inactivity_days",
+     "limits.belief_resonance_penalty",
+     "limits.belief_resonance_threshold",
+     "limits.deep_sleep_max_paradigms_per_run",
+     "limits.deep_sleep_tokens_per_day",
+     "limits.deep_sleep_top_k",
+     "flags.belief_decay_enabled",
+     "flags.deep_sleep_enabled",
+     "limits.import_history_retention_days",
+     "limits.memory_commands_remember_ttl_days",
+     "limits.rag_stale_after_days",
+     "limits.summary_max_window_messages",
+     "limits.summary_window_hours",
+     "limits.summary_rag_l2_limit",
+     "limits.summary_rag_l3_limit",
+     "limits.chat_budget_rag_ratio",
+     "limits.chat_rag_dedup_overlap_ratio",
+     "flags.bot_self_awareness_enabled",
+     "flags.chat_rag_rerank_enabled",
+     "flags.memory_commands_user_enabled",
+     "flags.persona_enabled",
+     "flags.memory_communities_enabled",
+     "flags.memory_search_enabled",
+     "memory.infinite_retention"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "permsoc_parent": {
+    "vw": 390,
+    "hash": "#/permsoc",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_character",
+      "route": "#/modules/character",
+      "text": "Настраивается в «Характер» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "reactions.slavik_user_id",
+     "reactions.dead_page_relay_channel_id",
+     "reactions.dead_page_source_channel_id",
+     "reactions.dead_page_source_channel_username",
+     "reactions.dead_page_dir",
+     "reactions.slavic_random_dir",
+     "reactions.gif_path",
+     "limits.slavik_mimic_cooldown",
+     "limits.slavik_mimic_min_words",
+     "limits.gif_interval",
+     "limits.slavic_photo_interval",
+     "limits.dead_page_cooldown",
+     "limits.dead_page_caption_max_chars",
+     "limits.dead_page_max_forward_retries",
+     "reactions.slavic_photo_path",
+     "reactions.kostik_user_id",
+     "reactions.kostik_replies",
+     "limits.kostik_reply_probability",
+     "reactions.olya_user_id",
+     "reactions.olya_media_base",
+     "reactions.olya_caption_text",
+     "reactions.olya_media_type",
+     "flags.olya_caption_enabled",
+     "flags.olya_repost_enabled",
+     "flags.olya_always_send",
+     "flags.olya_caption_mention_enabled",
+     "limits.olya_cooldown",
+     "reactions.mimic_victim_user_ids",
+     "reactions.alan_mimic_enabled",
+     "reactions.kucha_enabled",
+     "flags.mimic_forwards_enabled",
+     "limits.mimic_cooldown",
+     "limits.mimic_min_words",
+     "reactions.alan_user_id",
+     "reactions.alan_username",
+     "reactions.alan_greeting_dir",
+     "reactions.war_channel_ids",
+     "reactions.war_channel_usernames",
+     "reactions.war_replies",
+     "reactions.danger_words",
+     "reactions.vasya_enabled",
+     "flags.alan_replies_enabled",
+     "flags.dead_page_post_on_join",
+     "reactions.common_media_base",
+     "flags.common_media_enabled",
+     "flags.common_work_media_enabled",
+     "reactions.goodmorning_time",
+     "reactions.goodmorning_target_chat_ids",
+     "reactions.goodmorning_media_dir",
+     "limits.alan_reply_interval",
+     "limits.alan_greeting_cooldown",
+     "limits.alan_silence_greeting_hours",
+     "limits.danger_cooldown",
+     "limits.selfdev_cooldown",
+     "limits.work_cooldown",
+     "limits.common_cooldown"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "summary": {
+    "vw": 390,
+    "hash": "#/modules/summary/overview",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 390,
+    "headW": 374,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 5,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 33,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "nostalgia": {
+    "vw": 390,
+    "hash": "#/modules/nostalgia/settings",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 390,
+    "headW": 374,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "memory.nostalgia_aggressiveness",
+     "memory.nostalgia_cooldown_hours",
+     "memory.nostalgia_golden_min_days",
+     "memory.nostalgia_golden_min_importance",
+     "memory.nostalgia_hint_max_chars",
+     "memory.nostalgia_history_depth_years",
+     "memory.nostalgia_layer_a_enabled",
+     "memory.nostalgia_layer_a_max_hints",
+     "memory.nostalgia_max_per_day",
+     "memory.nostalgia_max_send_chars",
+     "memory.nostalgia_min_silence_minutes",
+     "memory.nostalgia_pause_hours",
+     "memory.nostalgia_quiet_end_hour",
+     "memory.nostalgia_quiet_start_hour",
+     "memory.nostalgia_tick_minutes",
+     "memory.nostalgia_unanswered_max",
+     "memory.nostalgia_year_back_days_window"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 80,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "direct_models": {
+    "vw": 390,
+    "hash": "#/modules/direct/models",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 390,
+    "headW": 374,
+    "sidebarW": null,
+    "split": {
+     "children": 2,
+     "mainW": 374,
+     "sideW": 374,
+     "mainTop": 592,
+     "sideTop": 952,
+     "w": 374
+    },
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "inspector",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "models.direct_l1_base_url",
+     "models.direct_l1_model_name",
+     "keys.direct_l1_api_key"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 31,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "embeddings": {
+    "vw": 390,
+    "hash": "#/modules/embeddings/overview",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "infrastructure",
+    "surfaceW": 390,
+    "headW": 374,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 8,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   },
+   "summary_settings": {
+    "vw": 390,
+    "hash": "#/modules/summary/settings",
+    "scrollWidth": 390,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 390,
+    "headW": 374,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "flags.summary_admin_only",
+     "flags.summary_streaming_enabled",
+     "reactions.allowed_summary_ids",
+     "reactions.summary_target_chat_ids"
+    ],
+    "advanced": [
+     "Расширенные системные  (2) "
+    ],
+    "touch": {
+     "count": 32,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 390,
+    "mainClientWidth": 390
+   }
+  },
+  "320x568": {
+   "catalog": {
+    "vw": 320,
+    "hash": "#/modules",
+    "scrollWidth": 320,
+    "cards": 21,
+    "firstRowColumns": 1,
+    "cardHeights": [
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     162,
+     146,
+     146,
+     162,
+     162,
+     132,
+     132
+    ],
+    "parents": [
+     {
+      "id": "mod_stories",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     },
+     {
+      "id": "mod_character",
+      "route": "#/permsoc",
+      "href": "#/permsoc",
+      "h": 44,
+      "text": "Часть «PERMsoc»"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/memory/rag",
+      "href": "#/memory/rag",
+      "h": 44,
+      "text": "Часть «Памяти»"
+     }
+    ],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "experience": {
+    "vw": 320,
+    "hash": "#/modules/experience",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 320,
+    "headW": 304,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 10,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "memory_parent": {
+    "vw": 320,
+    "hash": "#/memory/rag",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_stories",
+      "route": "#/modules/stories",
+      "text": "Настраивается в «Истории и эпизоды» →"
+     },
+     {
+      "id": "mod_experience",
+      "route": "#/modules/experience",
+      "text": "Настраивается в «Опыт и уроки» →"
+     },
+     {
+      "id": "mod_random",
+      "route": "#/modules/random",
+      "text": "Настраивается в «Случайность» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "limits.dig_graph_hop_depth",
+     "limits.dig_max_facts",
+     "limits.dig_max_snippets",
+     "limits.dig_max_symbols",
+     "limits.dig_year_back_window_days",
+     "flags.dig_enabled",
+     "flags.dig_pre_gate_enabled",
+     "limits.graph_compression_log_retention_days",
+     "limits.graph_dedup_similarity_high",
+     "limits.graph_dedup_similarity_low",
+     "limits.graph_dedup_weight_bonus",
+     "limits.graph_edge_weight_increment",
+     "limits.graph_episode_merge_batch",
+     "limits.graph_episode_merge_interval_days",
+     "limits.graph_episode_merge_max_facts_per_cluster",
+     "limits.graph_extract_max_triplets",
+     "limits.graph_facts_per_user_quota",
+     "limits.graph_fact_touch_extend_days",
+     "limits.graph_fact_ttl_days",
+     "limits.graph_fact_weight_archive",
+     "limits.graph_fact_weight_bot",
+     "limits.graph_fact_weight_direct",
+     "limits.graph_hist_fresh_tiebreak",
+     "limits.graph_hist_horizon_days",
+     "limits.graph_hist_max_share",
+     "limits.graph_hist_rel_floor",
+     "limits.graph_memorize_batch_retry_backoff",
+     "limits.graph_memorize_max_batch_retries",
+     "limits.graph_mmr_fetch_k",
+     "limits.graph_mmr_fetch_k_historical",
+     "limits.graph_mmr_lambda",
+     "limits.graph_purge_protect_days",
+     "limits.graph_purge_protect_weight",
+     "limits.graph_rag_context_max_chars",
+     "limits.graph_rag_facts_limit",
+     "limits.graph_review_interval_days",
+     "limits.graph_time_decay_floor",
+     "limits.graph_time_decay_half_life_days",
+     "limits.graph_top_edges_limit",
+     "limits.graph_unconfirmed_retention_days",
+     "flags.graph_dedup_enabled",
+     "flags.graph_episode_merge_enabled",
+     "flags.graph_fact_touch_enabled",
+     "flags.graph_mmr_enabled",
+     "flags.graph_rag_enabled",
+     "flags.graph_review_enabled",
+     "flags.graph_time_decay_enabled",
+     "limits.archive_memory_retention_days",
+     "limits.embed_cache_max_rows",
+     "limits.embed_cache_ttl_days",
+     "limits.full_memory_retention_days",
+     "limits.memory_backup_hour",
+     "limits.memory_backup_keep",
+     "flags.embed_cache_enabled",
+     "flags.graph_user_quota_enabled",
+     "flags.memory_backup_enabled",
+     "flags.vec_int8_enabled",
+     "reactions.memory_backup_dir",
+     "limits.belief_archive_threshold",
+     "limits.belief_decay_per_month",
+     "limits.belief_inactivity_days",
+     "limits.belief_resonance_penalty",
+     "limits.belief_resonance_threshold",
+     "limits.deep_sleep_max_paradigms_per_run",
+     "limits.deep_sleep_tokens_per_day",
+     "limits.deep_sleep_top_k",
+     "flags.belief_decay_enabled",
+     "flags.deep_sleep_enabled",
+     "limits.import_history_retention_days",
+     "limits.memory_commands_remember_ttl_days",
+     "limits.rag_stale_after_days",
+     "limits.summary_max_window_messages",
+     "limits.summary_window_hours",
+     "limits.summary_rag_l2_limit",
+     "limits.summary_rag_l3_limit",
+     "limits.chat_budget_rag_ratio",
+     "limits.chat_rag_dedup_overlap_ratio",
+     "flags.bot_self_awareness_enabled",
+     "flags.chat_rag_rerank_enabled",
+     "flags.memory_commands_user_enabled",
+     "flags.persona_enabled",
+     "flags.memory_communities_enabled",
+     "flags.memory_search_enabled",
+     "memory.infinite_retention"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "permsoc_parent": {
+    "vw": 320,
+    "hash": "#/permsoc",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": null,
+    "surfaceW": null,
+    "headW": null,
+    "sidebarW": null,
+    "split": null,
+    "heads": 0,
+    "titles": 0,
+    "overviewRows": 0,
+    "ownerLinks": [
+     {
+      "id": "mod_character",
+      "route": "#/modules/character",
+      "text": "Настраивается в «Характер» →"
+     }
+    ],
+    "tabs": [],
+    "cfgKeys": [
+     "reactions.slavik_user_id",
+     "reactions.dead_page_relay_channel_id",
+     "reactions.dead_page_source_channel_id",
+     "reactions.dead_page_source_channel_username",
+     "reactions.dead_page_dir",
+     "reactions.slavic_random_dir",
+     "reactions.gif_path",
+     "limits.slavik_mimic_cooldown",
+     "limits.slavik_mimic_min_words",
+     "limits.gif_interval",
+     "limits.slavic_photo_interval",
+     "limits.dead_page_cooldown",
+     "limits.dead_page_caption_max_chars",
+     "limits.dead_page_max_forward_retries",
+     "reactions.slavic_photo_path",
+     "reactions.kostik_user_id",
+     "reactions.kostik_replies",
+     "limits.kostik_reply_probability",
+     "reactions.olya_user_id",
+     "reactions.olya_media_base",
+     "reactions.olya_caption_text",
+     "reactions.olya_media_type",
+     "flags.olya_caption_enabled",
+     "flags.olya_repost_enabled",
+     "flags.olya_always_send",
+     "flags.olya_caption_mention_enabled",
+     "limits.olya_cooldown",
+     "reactions.mimic_victim_user_ids",
+     "reactions.alan_mimic_enabled",
+     "reactions.kucha_enabled",
+     "flags.mimic_forwards_enabled",
+     "limits.mimic_cooldown",
+     "limits.mimic_min_words",
+     "reactions.alan_user_id",
+     "reactions.alan_username",
+     "reactions.alan_greeting_dir",
+     "reactions.war_channel_ids",
+     "reactions.war_channel_usernames",
+     "reactions.war_replies",
+     "reactions.danger_words",
+     "reactions.vasya_enabled",
+     "flags.alan_replies_enabled",
+     "flags.dead_page_post_on_join",
+     "reactions.common_media_base",
+     "flags.common_media_enabled",
+     "flags.common_work_media_enabled",
+     "reactions.goodmorning_time",
+     "reactions.goodmorning_target_chat_ids",
+     "reactions.goodmorning_media_dir",
+     "limits.alan_reply_interval",
+     "limits.alan_greeting_cooldown",
+     "limits.alan_silence_greeting_hours",
+     "limits.danger_cooldown",
+     "limits.selfdev_cooldown",
+     "limits.work_cooldown",
+     "limits.common_cooldown"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 0,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "summary": {
+    "vw": 320,
+    "hash": "#/modules/summary/overview",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 320,
+    "headW": 304,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 5,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 33,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "nostalgia": {
+    "vw": 320,
+    "hash": "#/modules/nostalgia/settings",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "small",
+    "surfaceW": 320,
+    "headW": 304,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "memory.nostalgia_aggressiveness",
+     "memory.nostalgia_cooldown_hours",
+     "memory.nostalgia_golden_min_days",
+     "memory.nostalgia_golden_min_importance",
+     "memory.nostalgia_hint_max_chars",
+     "memory.nostalgia_history_depth_years",
+     "memory.nostalgia_layer_a_enabled",
+     "memory.nostalgia_layer_a_max_hints",
+     "memory.nostalgia_max_per_day",
+     "memory.nostalgia_max_send_chars",
+     "memory.nostalgia_min_silence_minutes",
+     "memory.nostalgia_pause_hours",
+     "memory.nostalgia_quiet_end_hour",
+     "memory.nostalgia_quiet_start_hour",
+     "memory.nostalgia_tick_minutes",
+     "memory.nostalgia_unanswered_max",
+     "memory.nostalgia_year_back_days_window"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 80,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "direct_models": {
+    "vw": 320,
+    "hash": "#/modules/direct/models",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 320,
+    "headW": 304,
+    "sidebarW": null,
+    "split": {
+     "children": 2,
+     "mainW": 304,
+     "sideW": 304,
+     "mainTop": 620,
+     "sideTop": 996,
+     "w": 304
+    },
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "inspector",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "models.direct_l1_base_url",
+     "models.direct_l1_model_name",
+     "keys.direct_l1_api_key"
+    ],
+    "advanced": [],
+    "touch": {
+     "count": 31,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "embeddings": {
+    "vw": 320,
+    "hash": "#/modules/embeddings/overview",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "infrastructure",
+    "surfaceW": 320,
+    "headW": 304,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [],
+    "advanced": [],
+    "touch": {
+     "count": 8,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   },
+   "summary_settings": {
+    "vw": 320,
+    "hash": "#/modules/summary/settings",
+    "scrollWidth": 320,
+    "cards": 0,
+    "firstRowColumns": 0,
+    "cardHeights": [],
+    "parents": [],
+    "surfaceClass": "complex",
+    "surfaceW": 320,
+    "headW": 304,
+    "sidebarW": null,
+    "split": null,
+    "heads": 1,
+    "titles": 1,
+    "overviewRows": 0,
+    "ownerLinks": [],
+    "tabs": [
+     {
+      "id": "overview",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "settings",
+      "current": "page",
+      "h": 44
+     },
+     {
+      "id": "clusterizer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "writer",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "hybrid",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "legacy",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "models",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "limits",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "testing",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "styles",
+      "current": null,
+      "h": 44
+     },
+     {
+      "id": "history",
+      "current": null,
+      "h": 44
+     }
+    ],
+    "cfgKeys": [
+     "flags.summary_admin_only",
+     "flags.summary_streaming_enabled",
+     "reactions.allowed_summary_ids",
+     "reactions.summary_target_chat_ids"
+    ],
+    "advanced": [
+     "Расширенные системные  (2) "
+    ],
+    "touch": {
+     "count": 32,
+     "small": [],
+     "smallCount": 0
+    },
+    "mainScrollWidth": 320,
+    "mainClientWidth": 320
+   }
+  }
+ },
+ "flows": {
+  "1680x1000": [],
+  "1440x900": [],
+  "1280x800": [],
+  "768x1024": [],
+  "390x844": [],
+  "320x568": [],
+  "split_1024": {
+   "children": 2,
+   "mainW": 992,
+   "sideW": 992,
+   "mainTop": 467,
+   "sideTop": 649,
+   "w": 992
+  },
+  "split_1152": {
+   "children": 2,
+   "mainW": 1120,
+   "sideW": 1120,
+   "mainTop": 440,
+   "sideTop": 622,
+   "w": 1120
+  },
+  "split_1199": {
+   "children": 2,
+   "mainW": 1167,
+   "sideW": 1167,
+   "mainTop": 440,
+   "sideTop": 622,
+   "w": 1167
+  },
+  "split_1200": {
+   "children": 2,
+   "mainW": 629,
+   "sideW": 307,
+   "mainTop": 390,
+   "sideTop": 390,
+   "w": 952
+  },
+  "split_1680": {
+   "children": 2,
+   "mainW": 949,
+   "sideW": 467,
+   "mainTop": 363,
+   "sideTop": 363,
+   "w": 1432
+  },
+  "deep_link": {
+   "links": [
+    {
+     "id": "settings",
+     "href": "#/modules/summary/settings"
+    },
+    {
+     "id": "clusterizer",
+     "href": "#/modules/summary/clusterizer"
+    },
+    {
+     "id": "writer",
+     "href": "#/modules/summary/writer"
+    },
+    {
+     "id": "hybrid",
+     "href": "#/modules/summary/hybrid"
+    },
+    {
+     "id": "legacy",
+     "href": "#/modules/summary/legacy"
+    },
+    {
+     "id": "models",
+     "href": "#/modules/summary/models"
+    },
+    {
+     "id": "limits",
+     "href": "#/modules/summary/limits"
+    },
+    {
+     "id": "testing",
+     "href": "#/modules/summary/testing"
+    },
+    {
+     "id": "styles",
+     "href": "#/modules/summary/styles"
+    },
+    {
+     "id": "history",
+     "href": "#/modules/summary/history"
+    }
+   ],
+   "history": [
+    {
+     "id": "history",
+     "href": "#/modules/summary/history"
+    }
+   ]
+  }
+ },
+ "shots": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\e31efba8c3a07ef5\\mod-acl-ux-01-w2c-card-height-caddbb386ab0\\w2c-final-shots",
+ "failures": []
+}

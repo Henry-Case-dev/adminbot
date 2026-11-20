@@ -108,7 +108,7 @@ class TestProgressiveDisclosure:
     def test_details_advanced_marker(self):
         html = _html()
         assert '<details class="advanced' in html
-        assert "Расширенные настройки" in html
+        assert "Расширенные системные" in html
 
     def test_expand_localstorage(self):
         js = _js()

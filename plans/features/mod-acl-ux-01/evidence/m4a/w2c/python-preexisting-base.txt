@@ -1,0 +1,12 @@
+
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_11_modules_and_labels
+FAILED tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_modules_ui_and_modal
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2
+FAILED tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz
+FAILED tests/test_webapp_f5_round1025.py::test_workspace_metadata_present - a...
+6 failed, 2 warnings in 3.05s

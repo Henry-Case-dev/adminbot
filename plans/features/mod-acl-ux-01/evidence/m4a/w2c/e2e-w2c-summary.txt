@@ -1,0 +1,12 @@
+W2c Playwright R2: viewports=6 failures=0
+1680x1000 cards=21 cols=4 cardH=[162] sidebar=216 chips=[16, 16, 16, 16] summaryHeadW=1432 smallHeadW=1000 split={'children': 2, 'mainW': 949, 'sideW': 467, 'mainTop': 363, 'sideTop': 363, 'w': 1432} touchSmall=60
+1440x900 cards=21 cols=4 cardH=[162] sidebar=216 chips=[16, 16, 16, 16] summaryHeadW=1192 smallHeadW=1000 split={'children': 2, 'mainW': 789, 'sideW': 387, 'mainTop': 363, 'sideTop': 363, 'w': 1192} touchSmall=60
+1280x800 cards=21 cols=3 cardH=[162] sidebar=216 chips=[16, 16, 16, 16] summaryHeadW=1032 smallHeadW=1000 split={'children': 2, 'mainW': 683, 'sideW': 333, 'mainTop': 363, 'sideTop': 363, 'w': 1032} touchSmall=60
+768x1024 cards=21 cols=2 cardH=[132, 146, 162] sidebar=None chips=[44, 44, 44, 44] summaryHeadW=736 smallHeadW=736 split={'children': 2, 'mainW': 736, 'sideW': 736, 'mainTop': 467, 'sideTop': 649, 'w': 736} touchSmall=0
+390x844 cards=21 cols=1 cardH=[132, 146, 162] sidebar=None chips=[44, 44, 44, 44] summaryHeadW=374 smallHeadW=374 split={'children': 2, 'mainW': 374, 'sideW': 374, 'mainTop': 592, 'sideTop': 952, 'w': 374} touchSmall=0
+320x568 cards=21 cols=1 cardH=[132, 146, 162] sidebar=None chips=[44, 44, 44, 44] summaryHeadW=304 smallHeadW=304 split={'children': 2, 'mainW': 304, 'sideW': 304, 'mainTop': 620, 'sideTop': 996, 'w': 304} touchSmall=0
+split_1024 {'children': 2, 'mainW': 992, 'sideW': 992, 'mainTop': 467, 'sideTop': 649, 'w': 992}
+split_1152 {'children': 2, 'mainW': 1120, 'sideW': 1120, 'mainTop': 440, 'sideTop': 622, 'w': 1120}
+split_1199 {'children': 2, 'mainW': 1167, 'sideW': 1167, 'mainTop': 440, 'sideTop': 622, 'w': 1167}
+split_1200 {'children': 2, 'mainW': 629, 'sideW': 307, 'mainTop': 390, 'sideTop': 390, 'w': 952}
+split_1680 {'children': 2, 'mainW': 949, 'sideW': 467, 'mainTop': 363, 'sideTop': 363, 'w': 1432}
