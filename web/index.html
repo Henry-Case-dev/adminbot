@@ -15392,23 +15392,26 @@
             </div>
 
             <!-- ═══ ASAP-UI-02 (§5.3/§7, wave 2): ЕДИНЫЙ виджет «Мониторинг
-                 интеллекта» — четыре секции в ОДНОЙ карточке, сразу под картой
+                 интеллекта» — пять секций в ОДНОЙ карточке, сразу под картой
                  (местом EVOL-COG) и выше всех остальных больших виджетов
                  «Статуса»: «Новые факты» (данные dossier_feed), «Убеждения
                  (Сон)», «Парадигмы (Глубокий сон)», «Эволюция характера
-                 (Личность)». Раньше «Новые факты» были отдельной карточкой
-                 ниже страницы — теперь это первая секция того же виджета.
+                 (Личность)», «Досье» (person-проекция того же dossier_feed).
+                 Раньше «Новые факты» были отдельной карточкой ниже страницы, а
+                 досье — отдельной нижней лентой; теперь это секции одного
+                 виджета, без дублей.
                  Поведение лент (EVOL-001..005) не переписано: те же классы
                  `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная
                  прокрутка в обе стороны, пауза на модалке, reduced-motion,
-                 даты, источники). Композиция: desktop — 4 колонки, планшет —
-                 2×2, телефон — одна секция + компактный переключатель
-                 (`.intel-tabs`); данные и позиции прокрутки сохраняются. -->
+                 даты, источники). Композиция (M4B §4.7/§6.2): ≥1280 — 3+2,
+                 768–1279 — 2+2+1, телефон — одна секция + компактный
+                 переключатель (`.intel-tabs`); данные и позиции прокрутки
+                 сохраняются. -->
             <div v-if="isGlobalAdmin" class="card p-4 sg-12 intel-card"
                  data-intel-widget>
               <div class="intel-header mb-2">
                 <div class="intel-title text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
-                <span class="text-xs text-gray-500">четыре секции: факты · убеждения · парадигмы · эволюция</span>
+                <span class="text-xs text-gray-500">пять лент: факты · убеждения · парадигмы · эволюция · досье</span>
                 <!-- U03.1 (v6.3): второй ряд одинаковых sleep-бейджей из
                      заголовка УДАЛЁН — каноническая панель «Сон / Глубокий
                      сон» ниже на этой же странице; дублей фаз нет. -->
@@ -15417,16 +15420,20 @@
                         @click="refreshIntelWidget()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
               <!-- Переключатель секций — только на телефоне (CSS): на десктопе
-                   и планшете видны все четыре секции, переключатель не нужен
-                   и не занимает места. -->
-              <div class="intel-tabs" role="group"
+                   и планшете видны все пять секций, переключатель не нужен
+                   и не занимает места. M4B B1: tablist/aria-current + та же
+                   клавиатурная модель, что у W2a-табов модулей. -->
+              <div class="intel-tabs" role="tablist" ref="intelTabs"
                    aria-label="Секции мониторинга интеллекта"
-                   data-intel-switcher>
+                   data-intel-switcher
+                   @keydown="onStatusRibbonKeydown($event)">
                 <button v-for="t in statusRibbonTabs" :key="'it-' + t.id"
-                        type="button" class="btn-ghost text-xs intel-tabs__btn"
+                        type="button" role="tab" class="btn-ghost text-xs intel-tabs__btn"
                         :class="{ 'is-active': statusRibbonTab === t.id }"
-                        :aria-pressed="statusRibbonTab === t.id ? 'true' : 'false'"
                         :data-intel-tab-btn="t.id"
+                        :tabindex="statusRibbonTab === t.id ? 0 : -1"
+                        :aria-selected="statusRibbonTab === t.id ? 'true' : 'false'"
+                        :aria-current="statusRibbonTab === t.id ? 'page' : null"
                         @click="switchStatusRibbon(t.id)">{{ t.label }}</button>
               </div>
               <div class="cognition-ribbons" ref="intelSections"
@@ -15548,6 +15555,44 @@
                           <span class="sfeed-item__date" :title="statusRowTitle(it.created_at, 'Дата записи')">{{ statusRowDateLabel(it.created_at) }}</span>
                         </span>
                         <span class="sfeed-item__text">{{ it.fact }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <!-- M4B B1 (MAC-S6-FEED-01/02, D4): пятая лента «Досье» —
+                     person-centric проекция ТОГО ЖЕ dossier_feed: один
+                     участник = одна строка (последняя запись, число записей,
+                     чат), а не 1:1 копия «Новых фактов» и не второй API.
+                     Клик — существующее окно записи; «Досье субъекта» в нём —
+                     существующий openFeedDossier. -->
+                <div class="ribbon ribbon--dossier" data-intel-section="dossier">
+                  <div class="ribbon-title">Досье <span class="text-gray-500 ribbon-hint">{{ dossierFeedStamp() }}</span></div>
+                  <div v-if="dossierFeedError" class="text-xs text-red-300" data-sfeed-error>
+                    <span class="font-semibold">Не удалось загрузить ленту.</span>
+                    Причина: {{ dossierFeedError }}
+                  </div>
+                  <div v-else-if="!dossierPeopleFeed.length" class="ribbon-empty sfeed-empty" data-sfeed-empty>
+                    <div class="ribbon-empty__title">{{ dossierFeedEmptyTitle() }}</div>
+                    <div class="ribbon-empty__text">{{ dossierFeedEmptyText() }}</div>
+                    <div class="ribbon-empty__reason" v-if="dossierFeedEmptyReason()">Причина: {{ dossierFeedEmptyReason() }}</div>
+                  </div>
+                  <div v-else class="ribbon-viewport sfeed-viewport" data-ribbon="dossier"
+                       data-sfeed-viewport v-sfeed="statusRecordOpen"
+                       tabindex="0" role="group"
+                       aria-label="Досье: участники и записи, лента прокручивается">
+                    <div class="ribbon-track sfeed-track">
+                      <button v-for="it in dossierPeopleFeed" :key="it.key"
+                              type="button" class="sfeed-item" data-sfeed-row
+                              data-sfeed-type="dossier"
+                              :aria-label="dossierPeopleAriaLabel(it)"
+                              @click="openStatusRecord('fact', it.latest, $event)">
+                        <span class="sfeed-item__head">
+                          <span class="sfeed-item__badge sfeed-item__badge--dossier">досье · {{ it.count }}</span>
+                          <b class="sfeed-item__subject">{{ it.name }}</b>
+                          <span class="sfeed-item__date"
+                                :title="statusRowTitle(it.last_at, 'Последняя запись')">{{ statusRowDateLabel(it.last_at) }}</span>
+                        </span>
+                        <span class="sfeed-item__text">{{ it.scopePrefix }}{{ it.excerpt }}</span>
                       </button>
                     </div>
                   </div>
@@ -16397,69 +16442,11 @@
               </template>
             </div>
 
-            <!-- ═══ EVOL-026 (W10): «Живая лента досье» — ПЕРЕЕХАЛА из «Аналитики» в
-                 «Статус». Компактные события: сущность, чат-контекст, источник/дата, тип
-                 записи, разворот записи (клик/Enter/Space → существующий openFeedDossier).
-                 Подпись свежести — реальное время последней загрузки (dossierFeedStamp),
-                 без фиктивного «обновляется» при пустой/ошибочной ленте. ═══ -->
-            <div class="card p-4 sg-12 status-dossier" data-status-dossier>
-              <div class="mb-2 dossier-ticker-wrap">
-                <div class="flex items-center gap-2 flex-wrap mb-1">
-                  <div class="text-sm font-bold">Живая лента досье</div>
-                  <span class="text-xs text-gray-500">
-                    {{ activeChatId == null ? 'по всем чатам' : 'только этот чат' }}
-                    · {{ dossierFeedStamp() }}</span>
-                  <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
-                          @click="loadDossierFeed()" aria-label="Обновить" title="Обновить">⟳</button>
-                </div>
-                <div v-if="dossierFeedError" class="text-xs text-red-300">
-                  Ошибка ленты: {{ dossierFeedError }}
-                  <template v-if="dossierFeedAt">· показаны последние загруженные данные</template>
-                </div>
-                <div v-else-if="!dossierFeedLoop.length" class="text-xs text-gray-500">
-                  Пока нечего показать — в графе памяти нет подтверждённых фактов.
-                </div>
-                <template v-else-if="uiFlag('DOSSIER_LIVE_FEED_ENABLED')">
-                  <div class="dossier-ticker dossier-ticker--y status-dossier__track"
-                       aria-label="Живая лента досье"
-                       :style="{ '--dossier-speed': dossierFeedSpeed }">
-                    <div class="dossier-ticker__track dossier-ticker__track--y">
-                      <div v-for="it in dossierFeedLoop" :key="it.key"
-                           class="dossier-ticker__item"
-                           :class="{ 'dossier-ticker__item--click': !it.dup && it.user_id != null,
-                                     'dossier-ticker__item--dup': it.dup }"
-                           :aria-hidden="it.dup ? 'true' : null"
-                           :role="(!it.dup && it.user_id != null) ? 'button' : null"
-                           :tabindex="(!it.dup && it.user_id != null) ? 0 : null"
-                           @click="!it.dup && it.user_id != null && openFeedDossier(it)"
-                           @keydown.enter.prevent="!it.dup && it.user_id != null && openFeedDossier(it)"
-                           @keydown.space.prevent="!it.dup && it.user_id != null && openFeedDossier(it)">
-                        <b>{{ it.name }}</b>
-                        <span class="text-gray-500">({{ it.chatLabel }})</span>
-                        <span class="dossier-ticker__excerpt">{{ it.excerpt }}</span>
-                        <span class="dossier-ticker__dot" aria-hidden="true">◆</span>
-                        <span class="dossier-ticker__meta text-[10px] text-gray-500">
-                          запись досье ·
-                          {{ it.created_at ? fmtTs(it.created_at) : 'дата записи неизвестна' }}
-                          <template v-if="it.tg_message_id"> · источник: сообщение {{ it.tg_message_id }}</template>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-                <div v-else class="dossier-ticker" role="marquee"
-                     aria-label="Живая лента досье">
-                  <div class="dossier-ticker__track">
-                    <span v-for="it in dossierFeedLoop" :key="it.key" class="dossier-ticker__item">
-                      <b>{{ it.name }}</b>
-                      <span class="text-gray-500">({{ it.chatLabel }})</span>
-                      <span>{{ it.excerpt }}</span>
-                      <span class="dossier-ticker__dot" aria-hidden="true">◆</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <!-- M4B B1: отдельной нижней карточки «Живая лента досье» больше
+                 нет — досье перенесено пятой секцией в единый виджет
+                 «Мониторинг интеллекта» (person-проекция того же
+                 /api/oversight/dossier_feed). Один источник, одно место
+                 показа, без дублирующего тикера и клонов. -->
 
             <!-- ═══ EVOL-026 (W10): «Истории памяти» — в «Статусе» остаётся СТРОГО
                  ОГРАНИЧЕННОЕ превью («что изменилось и когда»): счётчики, последняя сборка

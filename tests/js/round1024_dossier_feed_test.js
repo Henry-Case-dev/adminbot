@@ -1,10 +1,12 @@
 'use strict';
-/* F4 round1024 (dossier-live-feed-round1024, ADR-1024-8, UPD2 п.2 + UPD3 №9) —
- * РЕАЛЬНЫЙ JS-тест «Живой ленты досье»:
- *   - `dossierFeedLoop` дублирует элементы (seamless), ключи уникальны,
- *     переносит user_id/user_name/chat_id (кликабельность), клон помечен
- *     `dup` (исключается из a11y/таб-порядка);
- *   - `dossierFeedSpeed` = max(72s, items × 6s) — заметно медленнее 42s;
+/* F4 round1024 (dossier-live-feed-round1024, ADR-1024-8) →
+ * M4B B1 (MOD-ACL-UX-01, MAC-S6-FEED-01/02/03, MAC-S15-03, AC-16) —
+ * РЕАЛЬНЫЙ JS-тест пятой ленты «Досье» на «Статусе»:
+ *   - `dossierPeopleFeed` — person-centric проекция того же dossier_feed:
+ *     один участник = одна строка (последняя запись, число записей, чат),
+ *     а не 1:1 копия «Новых фактов» и не второй API/store;
+ *   - identity: user_id → имя → честная строка «Участники не определены»;
+ *     дата записи (`created_at`) не подменяется датой события/подтверждения;
  *   - `openFeedDossier`:
  *       · user_id=null → НЕ вызывается openDossier (нет ложного affordance);
  *       · GLOBAL (activeChatId пуст) → сначала setActiveChat(chat_id),
@@ -12,10 +14,12 @@
  *       · активный чат совпадает → setActiveChat НЕ вызывается;
  *       · chat_id null/0 → toast, модалка не открывается (контракт §3.2(2));
  *       · ошибка setActiveChat → toast, модалка не открывается;
- *   - wiring: шаблон гейтит uiFlag('DOSSIER_LIVE_FEED_ENABLED'), вертикальная
- *     дорожка/`role=button`/keydown; клоны `aria-hidden` без таб-стопа;
- *     OFF-ветка сохраняет горизонталь; бесшовность через --dossier-gap/2;
- *   - статика: флаг доставляется через ui_flags; CSP/no-CDN.
+ *   - `loadDossierFeed`: chat_id-фильтр реально работает, global — без него;
+ *     ответ прошлой области отбрасывается (S15-03);
+ *   - wiring: досье — пятая секция единого виджета; нижней карточки,
+ *     тикера/клонов и старого kill-switch больше нет; клик открывает
+ *     существующее окно записи, provenance/даты — реальные;
+ *   - статика: CSP/no-CDN, один endpoint.
  *
  * Запуск: node tests/js/round1024_dossier_feed_test.js  → DOSSIER-FEED-OK
  */
@@ -80,53 +84,92 @@ require(path.join(ROOT, 'web', 'app.js'));
 assert(captured, 'Vue.createApp должен быть вызван');
 const methods = captured.methods;
 const computed = captured.computed;
-assert(computed && computed.dossierFeedLoop, 'dossierFeedLoop — computed');
-assert(computed && computed.dossierFeedSpeed, 'dossierFeedSpeed — computed');
+assert(computed && computed.dossierPeopleFeed, 'dossierPeopleFeed — computed');
+assert.strictEqual(computed.dossierFeedLoop, undefined,
+  'мёртвая 1:1-модель тикера удалена');
+assert.strictEqual(computed.dossierFeedSpeed, undefined,
+  'мёртвая скорость тикера удалена');
 assert(methods && methods.openFeedDossier, 'root.methods.openFeedDossier');
 assert(methods && methods.uiFlag, 'root.methods.uiFlag');
-// F5 (review EVOL-029): подпись чата резолвится общим `chatTitleFor` — тот же
-// резолвер, что в каталоге «Память». Стенд обязан дать его как метод компонента
-// (в живом Vue он всегда есть), иначе вычисляемое свойство падает.
 assert.strictEqual(typeof methods.chatTitleFor, 'function',
   'root.methods.chatTitleFor (подпись чата)');
 
-// ── 1. dossierFeedLoop: дублирование + ключи + user_id/user_name + dup ──────
+function row(over) {
+  return Object.assign({
+    chat_id: -100, name: 'A', user_name: 'Аня', user_id: 5,
+    excerpt: 'факт A', text: 'Аня любит кофе', created_at: 100,
+    message_timestamp: 900, last_confirmed_at: 120,
+    origin: 'chat_history', id: 1, tg_message_id: 11,
+  }, over || {});
+}
+
+// ── 1. dossierPeopleFeed: person-проекция + дубли ───────────────────────────
 (function () {
-  const loop = computed.dossierFeedLoop.call({
+  const rows = computed.dossierPeopleFeed.call({
     dossierFeed: [
-      { chat_id: -100, name: 'A', excerpt: 'факт A', user_id: 5, user_name: 'Аня' },
-      { chat_id: -200, name: 'B', excerpt: 'факт B', user_id: null },
+      row({ id: 1, created_at: 100, excerpt: 'факт A' }),
+      row({ id: 2, chat_id: -200, excerpt: 'факт A2', created_at: 200,
+        origin: 'summary' }),
+      row({ id: 3, name: 'B', user_name: 'B', user_id: null,
+        excerpt: 'факт B', created_at: 150 }),
+      row({ id: 4, name: null, user_name: null, user_id: null,
+        excerpt: 'сырое', created_at: 120 }),
     ],
-    oversightData: { chats: [{ chat_id: -100, title: 'Чат А' }] },
-    chatTitleFor: methods.chatTitleFor,
+    chatTitleFor(id) { return String(id) === '-100' ? 'Чат А' : ''; },
   });
-  assert.strictEqual(loop.length, 4, 'лента дублируется (2×2)');
-  assert.strictEqual(loop[0].key !== loop[2].key, true, 'ключи дублей уникальны');
-  assert.strictEqual(loop[0].chatLabel, 'Чат А');
-  assert.strictEqual(loop[1].chatLabel, 'Чат -200', 'неизвестный чат → id');
-  assert.strictEqual(loop[0].user_id, 5, 'user_id перенесён');
-  assert.strictEqual(loop[0].user_name, 'Аня', 'user_name перенесён');
-  assert.strictEqual(loop[1].user_id, null, 'null user_id сохраняется');
-  assert.strictEqual(loop[1].user_name, 'B', 'fallback user_name = name');
-  assert.strictEqual(loop[0].chat_id, -100, 'chat_id перенесён');
-  assert.strictEqual(loop[0].dup, false, 'оригинал не помечен dup');
-  assert.strictEqual(loop[2].dup, true, 'клоны помечены dup (a11y)');
-  assert.strictEqual(loop[3].dup, true, 'все клоны помечены dup');
-  assert.strictEqual(
-    computed.dossierFeedLoop.call({ dossierFeed: [] }).length, 0,
-    'пустая лента → пусто');
+  assert.strictEqual(rows.length, 3,
+    '4 записи → 3 участника (не 1:1 копия «Новых фактов»)');
+  assert.deepStrictEqual(rows.map((r) => r.name),
+    ['Аня', 'B', 'Участники не определены']);
+  const anya = rows[0];
+  assert.strictEqual(anya.count, 2, 'число записей участника');
+  assert.strictEqual(anya.key, 'u:5', 'ключ identity по user_id');
+  assert.strictEqual(anya.latest.id, 2, 'последняя запись по created_at');
+  assert.strictEqual(anya.last_at, 200, 'дата записи, не события');
+  assert.strictEqual(anya.latest.event_at, 900,
+    'дата события хранится отдельно и не подменяет дату записи');
+  assert.strictEqual(anya.chatLabel, 'разные чаты',
+    'один человек в двух чатах — честная подпись');
+  assert.strictEqual(anya.scopePrefix, 'разные чаты · ');
+  assert.ok(anya.originLabel.indexOf('chat_history') >= 0
+    && anya.originLabel.indexOf('summary') >= 0, 'provenance из реальных origin');
+  const b = rows[1];
+  assert.strictEqual(b.key, 'n:B', 'fallback identity по имени');
+  assert.strictEqual(b.user_id, null, 'user_id не выдумывается');
+  assert.strictEqual(b.chatLabel, 'Чат А');
+  assert.strictEqual(rows[2].known, false, 'неизвестный участник — честно');
+  assert.strictEqual(rows[2].key, 'unknown');
+  rows.forEach((r) => {
+    assert.ok(r.latest && r.latest.key.indexOf('ff|') === 0,
+      'строке доступна существующая запись для окна деталей');
+    assert.ok(r.count >= 1);
+  });
+  assert.strictEqual(rows.reduce((n, r) => n + r.count, 0), 4,
+    'ни одна запись не потеряна и не задвоена');
 })();
 
-// ── 2. dossierFeedSpeed = max(72s, items × 6s) ──────────────────────────────
+// ── 2. Пустая лента / детерминизм / подпись чата ───────────────────────────
 (function () {
-  const speed = function (n) {
-    return computed.dossierFeedSpeed.call({ dossierFeed: new Array(n) });
-  };
-  assert.strictEqual(speed(0), '72s');
-  assert.strictEqual(speed(2), '72s', 'короткий список — база 72s');
-  assert.strictEqual(speed(12), '72s');
-  assert.strictEqual(speed(20), '120s', '20×6=120 > 72');
-  assert.ok(parseInt(speed(12), 10) >= 72, 'скорость ≥ 72s (медленнее 42s)');
+  assert.strictEqual(computed.dossierPeopleFeed.call({
+    dossierFeed: [], chatTitleFor() { return ''; },
+  }).length, 0, 'пустая лента → пусто');
+  const one = computed.dossierPeopleFeed.call({
+    dossierFeed: [row({ id: 9 })],
+    chatTitleFor() { return 'Чат А'; },
+  });
+  assert.deepStrictEqual(one.map((r) => r.key), ['u:5'], 'уникальные ключи');
+  const twice = computed.dossierPeopleFeed.call({
+    dossierFeed: [row({ id: 9 })],
+    chatTitleFor() { return 'Чат А'; },
+  });
+  assert.deepStrictEqual(twice.map((r) => r.key), one.map((r) => r.key),
+    'проекция детерминирована (без дублей при обновлении)');
+  const noTitle = computed.dossierPeopleFeed.call({
+    dossierFeed: [row({ chat_id: -777 })],
+    chatTitleFor() { return ''; },
+  });
+  assert.strictEqual(noTitle[0].chatLabel, 'Чат -777',
+    'нет названия — честный id, не выдуманное имя');
 })();
 
 // ── 3. openFeedDossier: клик-путь GLOBAL → чат → досье ──────────────────────
@@ -172,7 +215,7 @@ assert.strictEqual(typeof methods.chatTitleFor, 'function',
       activeChatId: null,
       toast() {},
       setActiveChat(id) { order.push('chat:' + id); this.activeChatId = parseInt(id, 10); },
-      async openDossier(row) { opened = row; order.push('dossier'); },
+      async openDossier(rowArg) { opened = rowArg; order.push('dossier'); },
     };
     await methods.openFeedDossier.call(ctx, {
       chat_id: -100, user_id: 5, name: 'A', user_name: 'Аня',
@@ -189,7 +232,7 @@ assert.strictEqual(typeof methods.chatTitleFor, 'function',
       activeChatId: -100,
       toast() {},
       setActiveChat() { switched += 1; },
-      async openDossier(row) { opened = row; },
+      async openDossier(rowArg) { opened = rowArg; },
     };
     await methods.openFeedDossier.call(ctx, {
       chat_id: -100, user_id: 7, name: 'B', user_name: 'Борис',
@@ -215,43 +258,99 @@ assert.strictEqual(typeof methods.chatTitleFor, 'function',
   }
 })();
 
-// ── 4. Kill-switch uiFlag('DOSSIER_LIVE_FEED_ENABLED') ──────────────────────
-(function () {
-  assert.strictEqual(methods.uiFlag.call({ me: null },
-    'DOSSIER_LIVE_FEED_ENABLED'), true);
-  assert.strictEqual(methods.uiFlag.call(
-    { me: { ui_flags: { DOSSIER_LIVE_FEED_ENABLED: false } } },
-    'DOSSIER_LIVE_FEED_ENABLED'), false);
+// ── 4. loadDossierFeed: chat_id/global + epoch-guard смены области ─────────
+(async function () {
+  // 4a. Конкретный чат → chat_id в запросе; global → без chat_id.
+  {
+    const calls = [];
+    const ctx = {
+      activeChatId: -100, dossierFeedBusy: false, dossierFeed: [],
+      dossierFeedError: '', dossierFeedLoaded: false, dossierFeedAt: 0,
+      scopeEpoch: 1,
+      _scopeGuard(ep) { return ep === this.scopeEpoch; },
+      loreErrText(e) { return String(e); },
+      async api(url) {
+        calls.push(url);
+        return { items: [{ chat_id: -100, name: 'A', excerpt: 'x' }] };
+      },
+    };
+    await methods.loadDossierFeed.call(ctx);
+    assert.strictEqual(calls.length, 1, 'один запрос ленты');
+    assert.ok(calls[0].indexOf('chat_id=-100') >= 0,
+      'конкретный чат → фильтр chat_id в запросе');
+    assert.strictEqual(ctx.dossierFeed.length, 1, 'лента заполнена');
+    ctx.activeChatId = null;
+    await methods.loadDossierFeed.call(ctx);
+    assert.ok(calls[1].indexOf('chat_id') < 0, 'global → без chat_id');
+  }
+
+  // 4b. Смена области до ответа → чужие данные не попадают в новый чат.
+  {
+    let resolveApi;
+    const ctx = {
+      activeChatId: -100, dossierFeedBusy: false, dossierFeed: [],
+      dossierFeedError: '', dossierFeedLoaded: false, dossierFeedAt: 0,
+      scopeEpoch: 1,
+      _scopeGuard(ep) { return ep === this.scopeEpoch; },
+      loreErrText(e) { return String(e); },
+      api() { return new Promise((r) => { resolveApi = r; }); },
+    };
+    const load = methods.loadDossierFeed.call(ctx);
+    ctx.scopeEpoch = 2;
+    resolveApi({ items: [{ chat_id: -100, name: 'A', excerpt: 'stale' }] });
+    await load;
+    assert.strictEqual(ctx.dossierFeed.length, 0,
+      'ответ прошлой области отброшен (S15-03)');
+    assert.strictEqual(ctx.dossierFeedLoaded, false);
+  }
+
+  // 4c. 503 — причина, а не «0 записей».
+  {
+    const ctx = {
+      activeChatId: null, dossierFeedBusy: false, dossierFeed: [],
+      dossierFeedError: '', dossierFeedLoaded: false, dossierFeedAt: 0,
+      scopeEpoch: 4,
+      _scopeGuard(ep) { return ep === this.scopeEpoch; },
+      loreErrText(e) { return 'HTTP ' + e.status; },
+      async api() { throw Object.assign(new Error('x'), { status: 503 }); },
+    };
+    await methods.loadDossierFeed.call(ctx);
+    assert.strictEqual(ctx.dossierFeedError, 'HTTP 503');
+    assert.deepStrictEqual(ctx.dossierFeed, [], '503 не выдаёт себя за пустую ленту');
+  }
 })();
 
-// ── 5. Wiring: шаблон вертикален/кликабелен, OFF = горизонталь, a11y ─────────
+// ── 5. Wiring: пятая секция, старой карточки/тикера/флага нет ─────────────
 (function () {
   const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
   const APP_JS = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
   const CSS = fs.readFileSync(
     path.join(ROOT, 'web', 'static', 'app.css'), 'utf8');
-  assert(INDEX.indexOf("uiFlag('DOSSIER_LIVE_FEED_ENABLED')") !== -1,
-    'шаблон гейтит флаг');
-  assert(INDEX.indexOf('dossier-ticker--y') !== -1, 'вертикальная лента');
-  assert(INDEX.indexOf('dossier-ticker__item--click') !== -1, 'строка-кнопка');
-  assert(INDEX.indexOf('@keydown.enter.prevent') !== -1, 'клавиатура a11y');
-  assert(INDEX.indexOf('openFeedDossier(it)') !== -1, 'клик → досье');
-  assert(INDEX.indexOf(':role="(!it.dup && it.user_id != null)') !== -1,
-    'клоны не получают role=button (a11y)');
-  assert(INDEX.indexOf('!it.dup && it.user_id != null && openFeedDossier(it)') !== -1,
-    'клоны не кликабельны');
-  assert(INDEX.indexOf(':aria-hidden="it.dup') !== -1, 'клоны скрыты от AT');
-  assert(INDEX.indexOf('role="marquee"') !== -1, 'OFF: горизонтальный тикер');
-  assert(APP_JS.indexOf('dossierFeedSpeed') !== -1, 'скорость во фронте');
-  assert(APP_JS.indexOf('dup: true') !== -1, 'клоны помечены dup');
+  assert(INDEX.indexOf('data-intel-section="dossier"') !== -1,
+    'досье — пятая секция единого виджета');
+  assert(INDEX.indexOf('data-ribbon="dossier"') !== -1,
+    'ключ секции для сохранения позиции');
+  assert(INDEX.indexOf('v-sfeed="statusRecordOpen"') !== -1,
+    'досье — на общем контроллере лент');
+  assert(INDEX.indexOf('openStatusRecord(\'fact\', it.latest, $event)') !== -1,
+    'клик открывает существующее окно записи');
+  assert(INDEX.indexOf('dossierPeopleAriaLabel(it)') !== -1, 'a11y-подпись строки');
+  assert(INDEX.indexOf('data-status-dossier') === -1,
+    'нижняя карточка «Живая лента досье» удалена');
+  assert(INDEX.indexOf('dossier-ticker') === -1,
+    'дублирующий тикер и клоны удалены');
+  assert(INDEX.indexOf('DOSSIER_LIVE_FEED_ENABLED') === -1,
+    'старый kill-switch тикера больше не управляет лентой');
+  assert(INDEX.indexOf('data-rec-dossier') !== -1,
+    'вторичное действие «Досье субъекта» сохранено');
+  assert(APP_JS.indexOf('dossierPeopleFeed') !== -1, 'проекция во фронте');
+  assert(APP_JS.indexOf('dossierFeedLoop') === -1, 'мёртвая модель удалена');
+  assert(APP_JS.indexOf('dossierFeedSpeed') === -1, 'мёртвая скорость удалена');
   assert(APP_JS.indexOf('ui_flags') !== -1, 'uiFlag читает this.me.ui_flags');
-  assert(CSS.indexOf('@keyframes dossier-ticker-scroll-y') !== -1,
-    'вертикальный keyframe');
-  assert(CSS.indexOf('@keyframes dossier-ticker-scroll') !== -1,
-    'горизонтальный keyframe (OFF) сохранён');
-  assert(CSS.indexOf('translateY') !== -1, 'движение по Y');
-  assert(CSS.indexOf('calc(-50% - (var(--dossier-gap) / 2))') !== -1,
-    'бесшовность через --dossier-gap/2 (без магической константы)');
+  assert(CSS.indexOf('.dossier-ticker') === -1, 'CSS тикера удалён');
+  assert(CSS.indexOf('.status-dossier__track') === -1, 'CSS нижней карточки удалён');
+  assert(CSS.indexOf('.sfeed-item__badge--dossier') !== -1,
+    'общий слой строк используется и для досье');
   assert(CSS.indexOf('prefers-reduced-motion') !== -1, 'reduced-motion сохранён');
   for (const lib of ['cdn.jsdelivr.net', 'unpkg.com', 'http://', 'https://']) {
     assert(INDEX.indexOf(lib) === -1, 'без внешних ресурсов (CSP): ' + lib);

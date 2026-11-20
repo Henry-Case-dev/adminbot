@@ -432,8 +432,8 @@ assert(SFeed && typeof SFeed.step === 'function',
 // ═══ Маркеры разметки/CSS (структурный контракт) ══════════════════════════
 (function () {
   const viewports = (INDEX.match(/v-sfeed="statusRecordOpen"/g) || []).length;
-  assert.strictEqual(viewports, 4,
-    'EVOL-002: одна схема движения на все четыре источника');
+  assert.strictEqual(viewports, 5,
+    'EVOL-002 + M4B B1: одна схема движения на все пять источников');
   assert.ok(INDEX.indexOf('data-sfeed-row') >= 0, 'EVOL-001: строки лент');
   assert.ok(INDEX.indexOf('data-sfeed-modal') >= 0, 'EVOL-003: окно записи');
   assert.ok(INDEX.indexOf('data-rec-field') >= 0, 'EVOL-003: поля окна');

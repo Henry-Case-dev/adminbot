@@ -1,9 +1,10 @@
 'use strict';
-/* ASAP-UI-02 (§5.3, wave 2): ОДНА карточка «Мониторинг интеллекта» — четыре
- * секции и переключатель на телефоне. Проверяется РЕАЛЬНЫЙ код `web/app.js`:
+/* ASAP-UI-02 (§5.3, wave 2) + M4B B1: ОДНА карточка «Мониторинг интеллекта»
+ * — пять секций и переключатель на телефоне. Проверяется РЕАЛЬНЫЙ код
+ * `web/app.js`:
  *   * на десктопе/планшете переключение ничего не скрывает и не теряет;
  *   * на телефоне активна одна секция, данные не перезапрашиваются (все
- *     четыре ленты отрисованы постоянно), позиции прокрутки сохраняются:
+ *     пять лент отрисованы постоянно), позиции прокрутки сохраняются:
  *     скрытая секция не перезаписывает свою позицию нулём, а возвращённая —
  *     восстанавливает её и пересчитывается без скачка в начало;
  *   * неизвестный/повторный id — no-op (нет лишних перерисовок).
@@ -17,14 +18,14 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
 const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8');
 
-/* ── Разметка: ровно четыре секции в одной карточке ──────────────────────── */
+/* ── Разметка: ровно пять секций в одной карточке ───────────────────────── */
 const cardStart = INDEX.indexOf('class="card p-4 sg-12 intel-card"');
 const cardEnd = INDEX.indexOf('<!-- ═══ ASAP-UI-02 (§5.4', cardStart);
 assert.ok(cardStart > 0 && cardEnd > cardStart, 'единая карточка найдена');
 const CARD = INDEX.slice(cardStart, cardEnd);
-assert.strictEqual(CARD.split('class="ribbon ').length - 1, 4,
-  'четыре секции в одной карточке');
-['facts', 'beliefs', 'paradigms', 'traits'].forEach(function (id) {
+assert.strictEqual(CARD.split('class="ribbon ').length - 1, 5,
+  'пять секций в одной карточке');
+['facts', 'beliefs', 'paradigms', 'traits', 'dossier'].forEach(function (id) {
   assert.ok(CARD.indexOf('data-intel-section="' + id + '"') >= 0, id);
   assert.ok(CARD.indexOf('data-ribbon="' + id + '"') >= 0,
     id + ': ключ секции для сохранения позиции');
@@ -33,24 +34,31 @@ assert.ok(CARD.indexOf('data-intel-switcher') >= 0, 'переключатель 
 assert.ok(CARD.indexOf(':data-intel-tab="statusRibbonTab"') >= 0,
   'активная секция — в data-атрибуте контейнера');
 assert.ok(CARD.indexOf('switchStatusRibbon(t.id)') >= 0, 'клик переключает секцию');
-assert.ok(CARD.indexOf(':aria-pressed="statusRibbonTab === t.id') >= 0,
+assert.ok(CARD.indexOf(':aria-selected="statusRibbonTab === t.id') >= 0,
   'состояние переключателя доступно AT');
+assert.ok(CARD.indexOf(':aria-current="statusRibbonTab === t.id') >= 0,
+  'aria-current на активной секции');
+assert.ok(CARD.indexOf('role="tablist"') >= 0, 'полоса секций — tablist');
 assert.ok(CARD.indexOf('ref="intelSections"') >= 0, 'корень для позиций прокрутки');
 assert.ok(INDEX.indexOf('class="card p-4 status-facts') < 0,
   'отдельной нижней карточки «Новые факты» больше нет');
+assert.ok(INDEX.indexOf('data-status-dossier') < 0,
+  'отдельной нижней карточки досье больше нет (M4B B1)');
 assert.ok(INDEX.indexOf('Что бот недавно запомнил') >= 0,
   'подзаголовок «Новых фактов» сохранён');
 
-/* ── CSS: 4 / 2×2 / одна секция ──────────────────────────────────────────── */
-assert.ok(/\.cognition-ribbons \{[\s\S]{0,200}repeat\(2, minmax\(0, 1fr\)\)/.test(CSS),
-  'планшет: 2×2');
-assert.ok(/@media \(min-width: 1100px\) \{\s*\.cognition-ribbons \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \}/.test(CSS),
-  'desktop: четыре колонки');
+/* ── CSS: 3+2 / 2+2+1 / одна секция (M4B B1) ─────────────────────────────── */
+assert.ok(/\.cognition-ribbons \{[\s\S]{0,120}grid-template-columns:\s*minmax\(0, 1fr\)/.test(CSS),
+  'mobile/база: одна колонка');
+assert.ok(/@media \(min-width: 768px\) \{\s*\.cognition-ribbons \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/.test(CSS),
+  'планшет: 2+2+1');
+assert.ok(/@media \(min-width: 1280px\) \{\s*\.cognition-ribbons \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/.test(CSS),
+  'desktop: 3+2');
 assert.ok(CSS.indexOf('.cognition-ribbons[data-intel-tab] .ribbon { display: none; }') >= 0,
   'телефон: одна секция на экране');
-assert.ok(/@media \(max-width: 640px\) \{[^@]*\.cognition-ribbons\[data-intel-tab\]/.test(CSS),
+assert.ok(/@media \(max-width: 767px\) \{[^@]*\.cognition-ribbons\[data-intel-tab\]/.test(CSS),
   'правило одной секции действует только на телефоне');
-['facts', 'beliefs', 'paradigms', 'traits'].forEach(function (id) {
+['facts', 'beliefs', 'paradigms', 'traits', 'dossier'].forEach(function (id) {
   assert.ok(CSS.indexOf('.cognition-ribbons[data-intel-tab="' + id + '"] .ribbon--' + id) >= 0,
     'телефон: активная секция ' + id + ' видна');
 });
@@ -124,9 +132,9 @@ const methods = (global.__opts && global.__opts.methods) || {};
 const dataFn = global.__opts.data;
 assert.strictEqual(typeof dataFn, 'function', 'data() есть');
 const data = dataFn.call({});
-assert.strictEqual(data.statusRibbonTabs.length, 4, 'четыре секции в переключателе');
+assert.strictEqual(data.statusRibbonTabs.length, 5, 'пять секций в переключателе');
 assert.deepStrictEqual(data.statusRibbonTabs.map((t) => t.id),
-  ['facts', 'beliefs', 'paradigms', 'traits']);
+  ['facts', 'beliefs', 'paradigms', 'traits', 'dossier']);
 assert.strictEqual(data.statusRibbonTab, 'facts', 'по умолчанию — «Факты»');
 
 /* ── Поведение переключателя (fake DOM, реальные методы) ─────────────────── */
@@ -142,8 +150,11 @@ const els = {
   beliefs: mkEl('beliefs', false),
   paradigms: mkEl('paradigms', false),
   traits: mkEl('traits', false),
+  dossier: mkEl('dossier', false),
 };
-const root = { querySelectorAll() { return [els.facts, els.beliefs, els.paradigms, els.traits]; } };
+const root = { querySelectorAll() {
+  return [els.facts, els.beliefs, els.paradigms, els.traits, els.dossier];
+} };
 
 function makeVm() {
   const vm = {
@@ -186,6 +197,13 @@ vm.switchStatusRibbon('unknown');
 vm.switchStatusRibbon('facts');
 assert.strictEqual(vm.statusRibbonTab, 'facts', 'неизвестный id игнорируется');
 assert.strictEqual(JSON.stringify(vm._intelRibbonPos), before, 'состояние не дрогнуло');
+
+/* 3b) Пятая секция «Досье» участвует в той же механике памяти позиции. */
+els.dossier.clientHeight = 168;
+els.dossier.scrollTop = 9;
+vm.switchStatusRibbon('dossier');
+assert.strictEqual(vm.statusRibbonTab, 'dossier', 'досье — обычная пятая секция');
+assert.strictEqual(vm._intelRibbonPos.dossier, 9, 'позиция досье сохраняется');
 
 /* 4) «Обновить» единого виджета дёргает ОБА существующих запроса. */
 let cognition = 0;

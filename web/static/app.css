@@ -1478,28 +1478,33 @@
     /* F5 (T-1450..T-1456, ТЗ §5/§7): дашборд «Осмысление» — бегущие строки
        (opacity-50 по краям → 100 в центре) + граф + виджет «Интеллект и
        Память». Только фронт-классы (каталог-Δ=0). */
-    /* ASAP-UI-02 (§5.3, wave 2): ОДНА карточка «Мониторинг интеллекта» —
-       четыре секции: «Новые факты», «Убеждения (Сон)», «Парадигмы (Глубокий
-       сон)», «Эволюция характера». Композиция: desktop — четыре колонки,
-       планшет/узкое окно — 2×2, телефон — одна секция + компактный
-       переключатель (`.intel-tabs`, только телефон). Данные не дублируются:
-       все четыре ленты отрисованы постоянно, переключение меняет только
-       видимость (см. `switchStatusRibbon` в app.js). */
+    /* ASAP-UI-02 (§5.3, wave 2) + M4B B1 (§4.7/§6.2): ОДНА карточка
+       «Мониторинг интеллекта» — пять секций: «Новые факты», «Убеждения
+       (Сон)», «Парадигмы (Глубокий сон)», «Эволюция характера», «Досье».
+       Композиция: ≥1280 — 3+2 (не пять узких колонок по 200 px), 768–1279 —
+       2+2+1, телефон — одна секция + компактный переключатель
+       (`.intel-tabs`). Данные не дублируются: все пять лент отрисованы
+       постоянно, переключение меняет только видимость (см.
+       `switchStatusRibbon` в app.js). */
     .cognition-ribbons {
       display: grid; gap: 12px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
     }
-    @media (min-width: 1100px) {
-      .cognition-ribbons { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (min-width: 768px) {
+      .cognition-ribbons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 640px) {
+    @media (min-width: 1280px) {
+      .cognition-ribbons { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 767px) {
       .cognition-ribbons { grid-template-columns: minmax(0, 1fr); }
       /* Телефон: видна ровно одна секция (активная в `data-intel-tab`). */
       .cognition-ribbons[data-intel-tab] .ribbon { display: none; }
       .cognition-ribbons[data-intel-tab="facts"] .ribbon--facts,
       .cognition-ribbons[data-intel-tab="beliefs"] .ribbon--beliefs,
       .cognition-ribbons[data-intel-tab="paradigms"] .ribbon--paradigms,
-      .cognition-ribbons[data-intel-tab="traits"] .ribbon--traits {
+      .cognition-ribbons[data-intel-tab="traits"] .ribbon--traits,
+      .cognition-ribbons[data-intel-tab="dossier"] .ribbon--dossier {
         display: block;
       }
     }
@@ -1507,7 +1512,7 @@
        планшете он не рендерится вовсе (не занимает места и не дублирует
        заголовки секций). */
     .intel-tabs { display: none; }
-    @media (max-width: 640px) {
+    @media (max-width: 767px) {
       .intel-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
       /* EVOL-033 §A / ASAP-UI-02 (§7, wave 2, review-fix2): тач-цель
          переключателя секций — 44×44 в СОБСТВЕННОМ правиле, а не только за
@@ -3177,100 +3182,9 @@
       margin-top: .35rem;
     }
 
-    /* T-1897: «Живая лента досье» — бегущая строка (CSS, без библиотек).
-       F4 (раунд 10.24, ADR-1024-8 D1): ON-режим — вертикальная лента
-       (снизу вверх) с масштабируемой скоростью; OFF-флаг оставляет
-       прежнюю горизонталь 42s байт-в-байт. */
-    .dossier-ticker-wrap { overflow: hidden; }
-    .dossier-ticker {
-      position: relative;
-      overflow: hidden;
-      -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-      mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-    }
-    .dossier-ticker__track {
-      display: inline-flex;
-      align-items: center;
-      gap: 1.5rem;
-      white-space: nowrap;
-      will-change: transform;
-      animation: dossier-ticker-scroll 42s linear infinite;
-    }
-    .dossier-ticker__item {
-      display: inline-flex;
-      align-items: center;
-      gap: .4rem;
-      font-size: var(--tx-small);
-      color: var(--text-2);
-    }
-    .dossier-ticker__dot { color: var(--teal-500); font-size: 10px; }
-    .dossier-ticker:hover .dossier-ticker__track { animation-play-state: paused; }
-    @keyframes dossier-ticker-scroll {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
-    }
-
-    /* F4 (10.24, ADR-1024-8 D1): вертикальная лента «снизу вверх».
-       * фиксированная высота контейнера обязательна (иначе клиппинг/цикл
-       не работают), ≤ 40vh на низких экранах;
-       * 180deg-маска вместо 90deg;
-       * дорожка дублируется (см. dossierFeedLoop), поэтому бесшовный цикл =
-       translateY(-50% - gap/2): полкопии мимо окна (gap между flex-копиями);
-       * скорость --dossier-speed = max(72s, items×6s), hover/focus — пауза. */
-    .dossier-ticker--y {
-      --dossier-h: 180px;
-      --dossier-gap: .5rem;
-      height: min(var(--dossier-h), 40vh);
-      -webkit-mask-image: linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
-      mask-image: linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
-    }
-    .dossier-ticker__track--y {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: var(--dossier-gap);
-      white-space: normal;
-      will-change: transform;
-      animation: dossier-ticker-scroll-y var(--dossier-speed, 72s) linear infinite;
-    }
-    .dossier-ticker__track--y .dossier-ticker__item {
-      display: flex;
-      align-items: baseline;
-      /* W16: на узком эффективном вьюпорте (page zoom 200 %) строка досье
-         переносится внутри себя, а не выезжает за правый край (замер 180 px:
-         .dossier-ticker__meta right=193 при vw 180). */
-      flex-wrap: wrap;
-      min-width: 0;
-      gap: .4rem;
-      /* W15 (§B: «стиль движущейся ленты досье согласован с ними»): тот же
-         радиус/шрифт, что у строк лент «Статуса». Рамки нет намеренно —
-         строка едет в маскированной полосе, рамка превратила бы тикер в
-         список карточек. */
-      font-size: var(--row-font);
-      color: var(--text-2);
-      padding: 6px var(--space-3);
-      border-radius: var(--row-radius);
-      transition: background var(--dur-fast) var(--ease-out);
-    }
-    .dossier-ticker__item--click { cursor: pointer; }
-    .dossier-ticker__item--click:hover {
-      background: rgba(255, 255, 255, .06);
-    }
-    .dossier-ticker__item--click:focus-visible {
-      background: rgba(255, 255, 255, .06);
-      outline: none;
-      box-shadow: 0 0 0 2px var(--teal-500) inset;
-    }
-    .dossier-ticker--y:hover .dossier-ticker__track--y,
-    .dossier-ticker--y:focus-within .dossier-ticker__track--y {
-      animation-play-state: paused;
-    }
-    @keyframes dossier-ticker-scroll-y {
-      from { transform: translateY(0); }
-      /* Сдвиг = ровно одна копия + половина межкопийного gap (бесшовный
-         цикл). gap берём из переменной — смена --dossier-gap не сломает стык. */
-      to   { transform: translateY(calc(-50% - (var(--dossier-gap) / 2))); }
-    }
+    /* M4B B1: отдельный тикер досье удалён вместе с нижней карточкой.
+       Досье живёт пятой секцией `.ribbon--dossier` в едином `.sfeed-*`
+       компоненте «Статуса»; второго механизма движения нет. */
 
     /* T-1896: карточка авто-досье — плотная подложка для читаемости. */
     .dossier-auto {
@@ -3318,20 +3232,6 @@
     details.advanced[open] > summary .advanced-gear { color: var(--teal-500); }
 
     @media (prefers-reduced-motion: reduce) {
-      .dossier-ticker__track { animation: none !important; }
-      .dossier-ticker {
-        -webkit-mask-image: none !important; mask-image: none !important;
-      }
-      /* F4 (10.24): вертикальная лента без анимации — обычный прокручиваемый
-         список (mask снят выше, высота по контенту с разумным потолком).
-         Клон-дубль (нужный только для анимации) скрываем — иначе факты
-         дублируются в списке (review iter1). */
-      .dossier-ticker--y {
-        height: auto;
-        max-height: var(--dossier-h);
-        overflow-y: auto;
-      }
-      .dossier-ticker__item--dup { display: none !important; }
       details.advanced > summary::before { transition: none !important; }
     }
   
@@ -6612,18 +6512,18 @@ html.cover-editor-open { overflow: hidden; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   EVOL-001/002/003/004/005 — ЕДИНАЯ система строк статусных виджетов.
-   Один набор классов на четыре источника («Новые факты», «Убеждения
-   (Сон)», «Парадигмы (Глубокий сон)», «Эволюция характера (Личность)»):
-   одинаковая высота окна и строки, типографика, отступы, границы,
-   затухание краёв, подсветка активности и анимация. Семантика источника —
-   только бейдж и подпись раздела.
+   EVOL-001/002/003/004/005 + M4B B1 — ЕДИНАЯ система строк статусных
+   виджетов. Один набор классов на пять источников («Новые факты»,
+   «Убеждения (Сон)», «Парадигмы (Глубокий сон)», «Эволюция характера
+   (Личность)», «Досье»): одинаковая высота окна и строки, типографика,
+   отступы, границы, затухание краёв, подсветка активности и анимация.
+   Семантика источника — только бейдж и подпись раздела.
    Жидкое стекло (glass.js / polygon-background.js / aurora-flow.js) не
    затрагивается: меняется внутренняя геометрия строк и контейнер прокрутки.
    Токены ритма — из слоя EVOL-022 (--space-*, --radius-*, --border-hairline).
    ═══════════════════════════════════════════════════════════════════════ */
 .sfeed-viewport {
-  --sfeed-h: 168px;                 /* одинаковая высота окна у всех четырёх */
+  --sfeed-h: 168px;                 /* одинаковая высота окна у всех пяти */
   --sfeed-row-h: 64px;              /* ОДНА высота строки (шапка + 2 строки) */
   --sfeed-gap: 6px;
   --sfeed-hairline: rgba(255, 255, 255, .08);
@@ -6648,8 +6548,7 @@ html.cover-editor-open { overflow: hidden; }
 }
 /* EVOL-002: legacy CSS-marquee (`ribbon-scroll`, translateY -50%) на новых
    лентах отключён — там движение делает контроллер по реальному scrollTop,
-   иначе анимация и ручная прокрутка конкурируют. Старый .ribbon-track без
-   .sfeed-track (тикер досье) не затронут. */
+   иначе анимация и ручная прокрутка конкурируют. */
 .ribbon-track.sfeed-track { animation: none !important; }
 .sfeed-track {
   display: flex; flex-direction: column; gap: var(--sfeed-gap);
@@ -6708,6 +6607,9 @@ html.cover-editor-open { overflow: hidden; }
 .sfeed-item__badge--belief { color: #c4b5fd; border-color: rgba(139, 92, 246, .30); }
 .sfeed-item__badge--paradigm { color: #93c5fd; border-color: rgba(96, 165, 250, .30); }
 .sfeed-item__badge--trait { color: #fcd34d; border-color: rgba(251, 191, 36, .28); }
+.sfeed-item__badge--dossier {
+  color: #fda4af; border-color: rgba(251, 113, 133, .30);
+}
 .sfeed-item__subject {
   min-width: 0; font-size: .78rem; font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -7609,14 +7511,9 @@ html.w9-sheet-bottom .modal-close {
 }
 .access-audit__k { color: var(--text-3, #8A97AB); }
 
-/* ── W10-2. «Статус»: живая лента досье (перенос из «Аналитики») ───────── */
-/* Компактная высота: на «Статусе» лента — превью (2–6 записей), а не
-   бесконечный тикер; полная история досье — в «Аналитике». */
-.status-dossier__track { max-height: 132px; --dossier-h: 132px; }
-.dossier-ticker__excerpt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* W16: подпись источника/даты в строке досье переносится, а не выезжает. */
-.dossier-ticker__meta { min-width: 0; overflow-wrap: anywhere; }
-.dossier-ticker__meta { display: block; width: 100%; }
+/* ── W10-2. «Статус»: досье — пятая секция единого виджета (M4B B1) ────── */
+/* Отдельная нижняя карточка/тикер удалены; строки используют общий
+   `.sfeed-*` слой, поэтому собственных правил высоты у досье больше нет. */
 
 /* ── W10-3. «Статус»: строго ограниченное превью историй памяти ────────── */
 .status-stories-preview__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }

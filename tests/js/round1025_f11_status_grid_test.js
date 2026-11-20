@@ -77,12 +77,14 @@ const methods = captured.methods || {};
   for (const span of ['sg-4', 'sg-12']) {
     assert.ok(INDEX.indexOf(span) >= 0, '§12: span ' + span);
   }
-  // DOM-порядок «Статуса» — ASAP-UI-02 §5 (wave 2) + §6.4 v2.1: ОДИН блок
-  // здоровья (status-block status-health) → КАРТА (место EVOL-COG) → ЕДИНЫЙ
-  // виджет четырёх лент → сон → превью → бюджеты → карточка-переход к логам.
+  // DOM-порядок «Статуса» — ASAP-UI-02 §5 (wave 2) + §6.4 v2.1 + M4B B1:
+  // ОДИН блок здоровья (status-block status-health) → КАРТА (место EVOL-COG)
+  // → ЕДИНЫЙ виджет пяти лент → сон → превью → бюджеты → карточка-переход
+  // к логам.
   const order = ['class="card p-4 status-block status-health sg-12"',
     'status-block__bot status-health__seg status-hero', 'status-graph',
-    'class="card p-4 sg-12 intel-card"', 'data-status-facts', 'status-sleep',
+    'class="card p-4 sg-12 intel-card"', 'data-status-facts',
+    'data-intel-section="dossier"', 'status-sleep',
     'exec-preview', 'status-budgets', 'card p-4 status-logs'];
   let prev = -1;
   order.forEach(function (m) {
@@ -90,6 +92,11 @@ const methods = captured.methods || {};
     assert.ok(i > prev, '§12: порядок DOM ' + m);
     prev = i;
   });
+  // M4B B1: отдельной нижней карточки досье больше нет (одно место показа).
+  assert.ok(INDEX.indexOf('data-status-dossier') < 0,
+    'M4B B1: нижняя карточка досье удалена');
+  assert.strictEqual(INDEX.split('data-intel-section="dossier"').length - 1, 1,
+    'M4B B1: пятая лента ровно одна');
   // U04 (v6.3): полный viewer логов — ПОСЛЕДНЯЯ карточка .status-grid
   // «Статуса»; в шаблоне Аналитики блока логов больше нет.
   const statusStart = INDEX.indexOf("activeTab === 'status'");

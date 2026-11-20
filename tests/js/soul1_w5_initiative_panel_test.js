@@ -124,6 +124,11 @@ function vm(init) {
     assert.strictEqual(seg.indexOf(forbidden), -1,
       'W5: новый markup не трогает фон/линзу (' + forbidden + ')');
   });
+  // M4B B1: перенос досье не задвоил маркеры и не добавил вторую ленту.
+  assert.strictEqual(INDEX.split('data-intel-section="dossier"').length - 1, 1,
+    'W5: пятая лента «Досье» ровно одна');
+  assert.strictEqual(INDEX.split('data-status-dossier').length - 1, 0,
+    'W5: нижняя копия досье удалена');
 }
 
 // ── 2. Health ≠ outcome: предупреждение только когда оно есть ──────────────

@@ -308,23 +308,25 @@ const INDEX = fs.readFileSync(
   assert.strictEqual(closed, 1, 'T-1896: Esc закрывает досье');
 })();
 
-// ── T-1897: «Живая лента досье» — модель/реактивность/polling ─────────────
+// ── T-1897 + M4B B1: «Досье» — person-проекция/реактивность/polling ───────
 (async function () {
-  const loop = computed.dossierFeedLoop.call({
+  const people = computed.dossierPeopleFeed.call({
     dossierFeed: [
-      { chat_id: -100, name: 'A', excerpt: 'факт A' },
-      { chat_id: -200, name: 'B', excerpt: 'факт B' },
+      { chat_id: -100, name: 'A', user_id: 1, excerpt: 'факт A' },
+      { chat_id: -200, name: 'B', user_id: 2, excerpt: 'факт B' },
     ],
-    oversightData: { chats: [{ chat_id: -100, title: 'Чат А' }] },
     // F5 (review): подпись чата берёт общий резолвер имени (как в каталоге
     // памяти); пустая строка = названия нет → fallback «Чат <id>».
-    chatTitleFor(id) { return id === -100 ? 'Чат А' : ''; },
+    chatTitleFor(id) { return String(id) === '-100' ? 'Чат А' : ''; },
   });
-  assert.strictEqual(loop.length, 4, 'T-1897: лента дублируется (2×2)');
-  assert.strictEqual(loop[0].chatLabel, 'Чат А', 'T-1897: подпись чата из кэша');
-  assert.strictEqual(loop[1].chatLabel, 'Чат -200',
+  assert.strictEqual(people.length, 2,
+    'M4B B1: один участник = одна строка (не 1:1 дубль)');
+  assert.strictEqual(people[0].name, 'A');
+  assert.strictEqual(people[0].chatLabel, 'Чат А', 'T-1897: подпись чата из кэша');
+  assert.strictEqual(people[1].chatLabel, 'Чат -200',
     'T-1897: неизвестный чат → id');
-  assert.ok(loop[0].key !== loop[2].key, 'T-1897: ключи дублей уникальны');
+  assert.ok(people[0].key !== people[1].key, 'T-1897: ключи строк уникальны');
+  assert.strictEqual(people[0].count, 1);
 
   const calls = [];
   const c = {

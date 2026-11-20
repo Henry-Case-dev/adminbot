@@ -3251,6 +3251,106 @@
   function dossierDraftKey(chatId, userId) {
     return String(chatId) + ':' + String(userId);
   }
+  // ═══ M4B B1 (MAC-S6-FEED-01/02, D4): пять лент «Статуса» ════════════════
+  // Одна форма записи досье для «Новых фактов» и для person-проекции
+  // «Досье»: даты/тип/источник не подменяются и не выдумываются.
+  function _dossierFactRow(it) {
+    var src = it || {};
+    var t = (src.created_at != null) ? src.created_at
+      : (src.ts != null ? src.ts : null);
+    return {
+      key: 'ff|' + src.chat_id + '|' + src.name + '|' + (src.excerpt || ''),
+      name: src.user_name || src.name || '',
+      text: src.excerpt || '',
+      time: (t != null) ? t : null,
+      kind: src.kind || src.type || null,
+      // Полный текст записи (excerpt — только превью строки).
+      full: src.text || src.fact || src.excerpt || '',
+      id: (src.id != null) ? src.id : null,
+      origin: src.origin || null,
+      tg_message_id: (src.tg_message_id != null) ? src.tg_message_id : null,
+      attribution_method: src.attribution_method || null,
+      chat_id: (src.chat_id != null) ? src.chat_id : null,
+      user_id: (src.user_id != null) ? src.user_id : null,
+      user_name: src.user_name || src.name || '',
+      created_at: (src.created_at != null) ? src.created_at : null,
+      event_at: (src.message_timestamp != null)
+        ? src.message_timestamp : null,
+      confirmed_at: (src.last_confirmed_at != null)
+        ? src.last_confirmed_at : null,
+    };
+  }
+  // Person-centric проекция того же dossier_feed: один участник — одна
+  // строка (последняя запись, число записей, чат). Не 1:1 копия «Новых
+  // фактов» (MAC-AC-16: без дублей) и не второй API/store.
+  // identity: user_id; fallback — имя; без обоих — честная общая строка
+  // «Участники не определены» (имена не выдумываются).
+  function _dossierPeopleRows(items, chatLabelOf) {
+    var src = Array.isArray(items) ? items : [];
+    var groups = {};
+    var order = [];
+    src.forEach(function (raw) {
+      var fact = _dossierFactRow(raw);
+      var nm = String(fact.user_name || fact.name || '').trim();
+      var key = (fact.user_id != null) ? ('u:' + fact.user_id)
+        : (nm ? ('n:' + nm) : 'unknown');
+      var g = groups[key];
+      if (!g) {
+        g = {
+          key: key, name: nm || 'Участники не определены',
+          user_id: (fact.user_id != null) ? fact.user_id : null,
+          user_name: nm || null,
+          known: (fact.user_id != null) || !!nm,
+          count: 0, latest: fact, last_at: null,
+          chatIds: {}, origins: {},
+        };
+        groups[key] = g;
+        order.push(key);
+      }
+      g.count += 1;
+      if (fact.chat_id != null) g.chatIds[String(fact.chat_id)] = true;
+      if (fact.origin) g.origins[String(fact.origin)] = true;
+      // «Последняя» — по дате ЗАПИСИ (created_at), а не по дате события:
+      // смешивать две даты нельзя. Без даты запись не переспорит датированную.
+      if (fact.created_at != null
+          && (g.last_at == null || fact.created_at > g.last_at)) {
+        g.latest = fact;
+        g.last_at = fact.created_at;
+      }
+    });
+    var rows = order.map(function (key) {
+      var g = groups[key];
+      var chatIds = Object.keys(g.chatIds);
+      var chatLabel;
+      if (!chatIds.length) chatLabel = 'чат неизвестен';
+      else if (chatIds.length > 1) chatLabel = 'разные чаты';
+      else {
+        var cid = chatIds[0];
+        chatLabel = (typeof chatLabelOf === 'function' && chatLabelOf(cid))
+          || ('Чат ' + cid);
+      }
+      var origins = Object.keys(g.origins);
+      return {
+        key: key, name: g.name, user_id: g.user_id,
+        user_name: g.user_name, known: g.known, count: g.count,
+        latest: g.latest, last_at: g.last_at,
+        chat_id: g.latest.chat_id, chatLabel: chatLabel,
+        origin: g.latest.origin, originLabel: origins.join(', '),
+        excerpt: g.latest.text || 'текст записи не передан',
+        scopePrefix: g.known ? (chatLabel + ' · ') : '',
+      };
+    });
+    rows.sort(function (a, b) {
+      if (a.last_at != null && b.last_at != null && a.last_at !== b.last_at) {
+        return b.last_at - a.last_at;
+      }
+      if (a.last_at != null && b.last_at == null) return -1;
+      if (a.last_at == null && b.last_at != null) return 1;
+      if (a.count !== b.count) return b.count - a.count;
+      return String(a.name).localeCompare(String(b.name), 'ru');
+    });
+    return rows;
+  }
   // Незавершённый черновик пары (chat,user): переживает закрытие модалки,
   // возвращается при переоткрытии, снимается после серверного ack сохранения.
   function pendingDossierDraft(ctx, chatId, userId) {
@@ -6577,10 +6677,10 @@
         dossierFeedError: '',
         dossierFeedLoaded: false,     // EVOL-005: лента запрашивалась хотя бы раз
         // ── ASAP-UI-02 (§5.3, wave 2): ОДНА карточка «Мониторинг интеллекта» ──
-        // Четыре секции (факты/убеждения/парадигмы/эволюция) живут в одном
-        // виджете. На телефоне видна одна секция и компактный переключатель;
-        // все четыре ленты отрисованы постоянно, поэтому данные при
-        // переключении не теряются. Позиции прокрутки — в нереактивном
+        // Пять секций (факты/убеждения/парадигмы/эволюция/досье) живут в
+        // одном виджете. На телефоне видна одна секция и компактный
+        // переключатель; все пять лент отрисованы постоянно, поэтому данные
+        // при переключении не теряются. Позиции прокрутки — в нереактивном
         // `_intelRibbonPos` (см. `switchStatusRibbon`).
         statusRibbonTab: 'facts',
         statusRibbonTabs: [
@@ -6588,6 +6688,7 @@
           { id: 'beliefs', label: 'Убеждения' },
           { id: 'paradigms', label: 'Парадигмы' },
           { id: 'traits', label: 'Эволюция' },
+          { id: 'dossier', label: 'Досье' },
         ],
         // ── EVOL-003/004/005: запись статусного виджета в модальном окне ──
         // statusRecord — нормализованная запись ТОЙ ЖЕ сущности (тип, полный
@@ -12702,32 +12803,7 @@
       // created_at — время записи экстракции, message_timestamp — дата
       // события, last_confirmed_at — подтверждение. Чего нет — остаётся null.
       factsFeed: function () {
-        var items = this.dossierFeed || [];
-        return items.map(function (it) {
-          var t = (it.created_at != null) ? it.created_at
-            : (it.ts != null ? it.ts : null);
-          return {
-            key: 'ff|' + it.chat_id + '|' + it.name + '|' + (it.excerpt || ''),
-            name: it.user_name || it.name || '',
-            text: it.excerpt || '',
-            time: (t != null) ? t : null,
-            kind: it.kind || it.type || null,
-            // Полный текст записи (excerpt — только превью строки).
-            full: it.text || it.fact || it.excerpt || '',
-            id: (it.id != null) ? it.id : null,
-            origin: it.origin || null,
-            tg_message_id: (it.tg_message_id != null) ? it.tg_message_id : null,
-            attribution_method: it.attribution_method || null,
-            chat_id: (it.chat_id != null) ? it.chat_id : null,
-            user_id: (it.user_id != null) ? it.user_id : null,
-            user_name: it.user_name || it.name || '',
-            created_at: (it.created_at != null) ? it.created_at : null,
-            event_at: (it.message_timestamp != null)
-              ? it.message_timestamp : null,
-            confirmed_at: (it.last_confirmed_at != null)
-              ? it.last_confirmed_at : null,
-          };
-        });
+        return (this.dossierFeed || []).map(_dossierFactRow);
       },
       // ═══ EVOL-029 (W10): «Память» — читаемый каталог знаний ═══════════════
       // Источники — ТОЛЬКО существующие API/данные: записи досье
@@ -12981,52 +13057,18 @@
         if (this.stickyDirtyCount > 0) return 'dirty';
         return 'clean';
       },
-      // ── Раунд 10.20 (БЛОК 3.3/T-1897): модель «Живой ленты досье» ──
-      // Дублирование для seamless-скролла (тот же приём, что у лент
-      // «Осмысления»/_ribbonLoop) + подпись чата из oversight-кэша.
-      // F4 (10.24, ADR-1024-8 D3/D4): переносим user_id/user_name/chat_id —
-      // строка с user_id становится кликабельной (openFeedDossier).
-      dossierFeedLoop: function () {
-        var items = this.dossierFeed || [];
-        if (!items.length) return [];
+      // ── M4B B1 (D4): пятая лента «Досье» — person-centric проекция ────────
+      // Источник — тот же `dossierFeed` (GET /api/oversight/dossier_feed,
+      // с действующим chat_id-фильтром). Один участник = одна строка:
+      // последняя запись, число записей, чат. Клик открывает существующее
+      // окно записи (`openStatusRecord('fact', …)`), вторичное действие
+      // «Досье субъекта» — существующий `openFeedDossier`.
+      dossierPeopleFeed: function () {
         var self = this;
-        var titles = {};
-        var chats = (this.oversightData && this.oversightData.chats) || [];
-        chats.forEach(function (c) { titles[c.chat_id] = c.title; });
-        var marked = items.map(function (it, i) {
-          return {
-            key: 'df' + i + '-' + it.chat_id + '-' + it.name,
-            name: it.name,
-            user_name: it.user_name || it.name,
-            user_id: (it.user_id == null ? null : it.user_id),
-            chat_id: it.chat_id,
-            excerpt: it.excerpt,
-            // F5 (review): человеческое имя чата — тот же резолвер, что в
-            // каталоге памяти; «Чат <id>» остаётся честным fallback'ом, если
-            // названия действительно нет в списке чатов.
-            chatLabel: self.chatTitleFor(it.chat_id)
-              || titles[it.chat_id] || ('Чат ' + it.chat_id),
-            // EVOL-026 (W10): на карточке Статуса нужны источник/дата/тип и
-            // контекст записи — без выдуманных значений (нет даты → null).
-            text: (it.text == null ? '' : String(it.text)),
-            created_at: (it.created_at == null ? null : it.created_at),
-            tg_message_id: (it.tg_message_id == null ? null : it.tg_message_id),
-            dup: false,
-          };
+        return _dossierPeopleRows(this.dossierFeed || [], function (id) {
+          return (typeof self.chatTitleFor === 'function')
+            ? self.chatTitleFor(id) : '';
         });
-        // F4 review iter1: клон помечаем `dup` — он нужен только для
-        // бесшовного цикла, но НЕ должен попадать в таб-порядок/дерево
-        // доступности (aria-hidden) и не должен быть интерактивным.
-        return marked.concat(marked.map(function (it) {
-          return Object.assign({}, it, { key: it.key + '-dup', dup: true });
-        }));
-      },
-      // F4 (10.24, ADR-1024-8 D1): скорость вертикальной ленты —
-      // max(72s, items × 6s): длиннее список → скорость строки НЕ растёт
-      // (лента заметно медленнее прежней горизонтали 42s).
-      dossierFeedSpeed: function () {
-        var n = (this.dossierFeed || []).length;
-        return Math.max(72, n * 6) + 's';
       },
       cognitionBeliefsLoop: function () {
         return this._ribbonLoop(this.cognitionBeliefs);
@@ -13890,9 +13932,63 @@
         if (!this.dossierFeedAt) return 'время загрузки неизвестно';
         return 'данные от ' + this.fmtClock(Math.floor(this.dossierFeedAt / 1000));
       },
-      // ═══ ASAP-UI-02 (§5.3/§7, wave 2): одна карточка, четыре секции ═══════
+      // M4B B1 (MAC-S15-03): scope-change на «Статусе» — очистить досье
+      // прошлой области (включая in-flight ответ, который отбросит epoch) и
+      // остановить прежний поллер. Новый запуск делает вызывающий код.
+      _resetDossierFeedScope: function () {
+        this.dossierFeed = [];
+        this.dossierFeedLoaded = false;
+        this.dossierFeedAt = 0;
+        this.dossierFeedError = '';
+        this.dossierFeedBusy = false;
+        if (typeof this.stopDossierFeedPolling === 'function') {
+          this.stopDossierFeedPolling();
+        }
+      },
+      // M4B B1: пустое состояние пятой ленты — по фактической причине и
+      // scope. Чужие данные при выбранном чате не подставляются (S15-03).
+      dossierFeedEmptyTitle: function () {
+        return (this.activeChatId == null) ? 'Досье пусто'
+          : 'В выбранном чате досье пусто';
+      },
+      dossierFeedEmptyText: function () {
+        if (this.activeChatId == null) {
+          return 'В графе памяти нет подтверждённых записей досье: лента '
+            + 'показывает тех же участников, что и «Новые факты», но '
+            + 'сгруппированных по человеку.';
+        }
+        return 'В выбранном чате подтверждённых записей досье нет. Данные '
+          + 'других чатов не подставляются.';
+      },
+      dossierFeedEmptyReason: function () {
+        if (!this.dossierFeedLoaded) return 'лента ещё не запрашивалась';
+        // Для выбранного чата причина уже названа в тексте; общая причина
+        // экстракции относится к global-области.
+        if (this.activeChatId != null) return '';
+        return (typeof this.statusFeedEmptyReason === 'function')
+          ? this.statusFeedEmptyReason('fact') : '';
+      },
+      // a11y-подпись строки person-проекции: имя, число записей, чат,
+      // последняя дата записи и фактическое происхождение (если передано).
+      dossierPeopleAriaLabel: function (row) {
+        var it = row || {};
+        var parts = [
+          'Досье', String(it.name || 'Участники не определены'),
+          'записей: ' + (Number(it.count) || 0),
+          'чат: ' + String(it.chatLabel || 'неизвестен'),
+        ];
+        if (it.last_at != null && typeof this.fmtTs === 'function') {
+          parts.push('последняя запись: ' + this.fmtTs(it.last_at));
+        } else {
+          parts.push('дата последней записи неизвестна');
+        }
+        if (it.originLabel) parts.push('источник: ' + it.originLabel);
+        return parts.join(', ');
+      },
+      // ═══ ASAP-UI-02 (§5.3/§7, wave 2) + M4B B1: одна карточка, пять лент ═
       // «Обновить» единого виджета: cognition (убеждения/парадигмы/черты) и
-      // dossier_feed (факты) — два СУЩЕСТВУЮЩИХ запроса, без новых маршрутов.
+      // dossier_feed (факты + досье) — два СУЩЕСТВУЮЩИХ запроса, без новых
+      // маршрутов.
       refreshIntelWidget: function () {
         this.loadCognition();
         if (typeof this.loadDossierFeed === 'function') this.loadDossierFeed();
@@ -13917,6 +14013,63 @@
         } else {
           this.restoreStatusRibbonPositions(pos);
         }
+      },
+      // M4B B1 (MAC-S15-04, design §8): клавиатура полосы секций — тот же
+      // контракт, что у W2a-табов модулей: стрелки/Home/End, roving tabindex,
+      // автоактивация, без wrap на краях; модификаторы/composition не
+      // перехватываются. Неизвестный текущий id → первый таб.
+      statusRibbonKeyTarget: function (currentId, key, tabs) {
+        var ev = (key && typeof key === 'object') ? key : null;
+        if (ev && _wsKeyIgnored(ev)) return '';
+        var name = ev ? String(ev.key || '') : String(key == null ? '' : key);
+        var ids = (tabs || []).map(function (t) {
+          return (t && t.id != null) ? String(t.id) : '';
+        }).filter(function (id) { return !!id; });
+        if (!ids.length) return '';
+        var idx = ids.indexOf(String(currentId == null ? '' : currentId));
+        if (idx < 0) idx = 0;
+        if (name === 'ArrowRight' || name === 'ArrowDown') {
+          idx = Math.min(idx + 1, ids.length - 1);
+        } else if (name === 'ArrowLeft' || name === 'ArrowUp') {
+          idx = Math.max(idx - 1, 0);
+        } else if (name === 'Home') {
+          idx = 0;
+        } else if (name === 'End') {
+          idx = ids.length - 1;
+        } else {
+          return '';
+        }
+        return ids[idx] || '';
+      },
+      onStatusRibbonKeydown: function (event) {
+        if (!event || _wsKeyIgnored(event)) return;
+        var target = event.target;
+        var btn = (target && typeof target.closest === 'function')
+          ? target.closest('[data-intel-tab-btn]') : null;
+        if (!btn) return;
+        var currentId = btn.getAttribute('data-intel-tab-btn')
+          || this.statusRibbonTab;
+        var next = this.statusRibbonKeyTarget(currentId, event,
+                                              this.statusRibbonTabs || []);
+        if (!next) return;
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        if (next === currentId) return;      // край полосы: без wrap
+        this.switchStatusRibbon(next);
+        var self = this;
+        if (typeof this.$nextTick !== 'function') {
+          this._focusStatusRibbonTab(next);
+          return;
+        }
+        this.$nextTick(function () { self._focusStatusRibbonTab(next); });
+      },
+      _focusStatusRibbonTab: function (id) {
+        try {
+          var root = this.$refs && this.$refs.intelTabs;
+          var el = (root && typeof root.querySelector === 'function')
+            ? root.querySelector('[data-intel-tab-btn="' + String(id) + '"]')
+            : null;
+          if (el && typeof el.focus === 'function') el.focus();
+        } catch (e) { /* фокус — не критичный путь */ }
       },
       // Скрытая секция (`display:none`) не отдаёт clientHeight: её известная
       // позиция сохраняется, а не перезаписывается нулём.
@@ -14733,6 +14886,14 @@
             if (typeof this.startStoriesPolling === 'function') {
               this.startStoriesPolling();
             }
+          }
+          // M4B B1 (MAC-S15-03): лента досье принадлежит выбранной области.
+          // Смена чата на «Статусе» очищает записи другого чата и перечитывает
+          // свою область — старый снимок не остаётся на экране.
+          this._resetDossierFeedScope();
+          if (this.isGlobalAdmin
+              && typeof this.startDossierFeedPolling === 'function') {
+            this.startDossierFeedPolling();
           }
         }
         // ASAP-3.1 (T-4064): карточка автобюджетов на странице «Бюджеты».
@@ -21950,18 +22111,27 @@
       loadDossierFeed: async function () {
         if (this.dossierFeedBusy) return;
         this.dossierFeedBusy = true;
+        // M4B B1 (MAC-S15-03): ответ принадлежит ТОЙ ЖЕ области. Смена
+        // scope/чата отбрасывает in-flight ответ (старые записи не
+        // переносятся в новый чат).
+        var epoch = this.scopeEpoch;
+        var inScope = (typeof this._scopeGuard === 'function')
+          ? function (self) { return self._scopeGuard(epoch); }
+          : function () { return true; };
         try {
           var url = '/api/oversight/dossier_feed?limit=16';
           if (this.activeChatId != null) {
             url += '&chat_id=' + encodeURIComponent(this.activeChatId);
           }
           var data = await this.api(url);
+          if (!inScope(this)) return;
           this.dossierFeed = (data && data.items) || [];
           this.dossierFeedError = '';
           this.dossierFeedAt = Date.now();
           // EVOL-005: пустое состояние отличается от «ещё не запрашивали».
           this.dossierFeedLoaded = true;
         } catch (e) {
+          if (!inScope(this)) return;
           this.dossierFeed = [];
           this.dossierFeedError = this.loreErrText(e);
           this.dossierFeedLoaded = true;
