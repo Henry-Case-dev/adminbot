@@ -295,6 +295,8 @@ function eq(a, b, msg) {
     '6: touch-цели ≥44 на tablet/mobile/coarse');
   ok(/\.module-catalog \.module-parent-chip\s*\{[^}]*min-height:\s*44px/.test(APP_CSS),
     '6: parent-чип каталога — touch-цель 44 px');
+  ok(/\.module-card \.module-title\s*\{[^}]*white-space:\s*nowrap[^}]*text-overflow:\s*ellipsis/.test(APP_CSS),
+    '6: заголовок карточки — однострочный clamp (132–164 при длинном тексте)');
   ok(INDEX_HTML.indexOf('data-workspace-surface') >= 0,
     '6: поверхность модуля размечена для измерения пропорций');
   ok(INDEX_HTML.indexOf('data-workspace-class') >= 0,

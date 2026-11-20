@@ -1,0 +1,7 @@
+W2c Playwright fix: viewports=6 failures=0
+1680x1000 cardH=[162] cards=21 cols=4 chips=[16, 16, 16, 16]
+1440x900 cardH=[162] cards=21 cols=4 chips=[16, 16, 16, 16]
+1280x800 cardH=[162] cards=21 cols=3 chips=[16, 16, 16, 16]
+768x1024 cardH=[132, 146, 162] cards=21 cols=2 chips=[44, 44, 44, 44]
+390x844 cardH=[132, 146, 162] cards=21 cols=1 chips=[44, 44, 44, 44]
+320x568 cardH=[132, 146, 162] cards=21 cols=1 chips=[44, 44, 44, 44]

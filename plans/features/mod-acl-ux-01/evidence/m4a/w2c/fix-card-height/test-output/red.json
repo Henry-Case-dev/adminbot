@@ -1,0 +1,121 @@
+{
+ "viewports": {
+  "1680": {
+   "mod_transcribe": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Транскрипт голосовых и видеосообщений"
+   },
+   "mod_video_summary": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Выжимка видео по ссылкам и файлам"
+   },
+   "mod_media_download": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Скачивание медиа и видео по ссылке"
+   },
+   "mod_images": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Генерация изображений по описанию"
+   }
+  },
+  "1440": {
+   "mod_transcribe": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Транскрипт голосовых и видеосообщений"
+   },
+   "mod_video_summary": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Выжимка видео по ссылкам и файлам"
+   },
+   "mod_media_download": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Скачивание медиа и видео по ссылке"
+   },
+   "mod_images": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Генерация изображений по описанию"
+   }
+  },
+  "320": {
+   "mod_transcribe": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Транскрипт голосовых и видеосообщений"
+   },
+   "mod_video_summary": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Выжимка видео по ссылкам и файлам"
+   },
+   "mod_media_download": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Скачивание медиа и видео по ссылке"
+   },
+   "mod_images": {
+    "h": 179.56,
+    "titleH": 35,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Генерация изображений по описанию"
+   }
+  }
+ },
+ "failures": [
+  "1680: mod_transcribe height 179.56 outside 132–164",
+  "1680: mod_transcribe title wraps (titleH=35)",
+  "1680: mod_video_summary height 179.56 outside 132–164",
+  "1680: mod_video_summary title wraps (titleH=35)",
+  "1680: mod_media_download height 179.56 outside 132–164",
+  "1680: mod_media_download title wraps (titleH=35)",
+  "1680: mod_images height 179.56 outside 132–164",
+  "1680: mod_images title wraps (titleH=35)",
+  "1440: mod_transcribe height 179.56 outside 132–164",
+  "1440: mod_transcribe title wraps (titleH=35)",
+  "1440: mod_video_summary height 179.56 outside 132–164",
+  "1440: mod_video_summary title wraps (titleH=35)",
+  "1440: mod_media_download height 179.56 outside 132–164",
+  "1440: mod_media_download title wraps (titleH=35)",
+  "1440: mod_images height 179.56 outside 132–164",
+  "1440: mod_images title wraps (titleH=35)",
+  "320: mod_transcribe height 179.56 outside 132–164",
+  "320: mod_transcribe title wraps (titleH=35)",
+  "320: mod_video_summary height 179.56 outside 132–164",
+  "320: mod_video_summary title wraps (titleH=35)",
+  "320: mod_media_download height 179.56 outside 132–164",
+  "320: mod_media_download title wraps (titleH=35)",
+  "320: mod_images height 179.56 outside 132–164",
+  "320: mod_images title wraps (titleH=35)"
+ ],
+ "shots": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\e31efba8c3a07ef5\\mod-acl-ux-01-w2c-card-height-caddbb386ab0\\red-shots"
+}

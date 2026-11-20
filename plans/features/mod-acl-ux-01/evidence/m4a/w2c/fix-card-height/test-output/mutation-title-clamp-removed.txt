@@ -1,0 +1,26 @@
+-> C:\Users\main\.config\opencode\WorkspaceData\runs\e31efba8c3a07ef5\mod-acl-ux-01-w2c-card-height-caddbb386ab0\mutation-final.json
+card-height viewports=3 failures=24
+FAIL: 1680: mod_transcribe height 179.56 outside 132тАУ164
+FAIL: 1680: mod_transcribe title wraps (titleH=35)
+FAIL: 1680: mod_video_summary height 179.56 outside 132тАУ164
+FAIL: 1680: mod_video_summary title wraps (titleH=35)
+FAIL: 1680: mod_media_download height 179.56 outside 132тАУ164
+FAIL: 1680: mod_media_download title wraps (titleH=35)
+FAIL: 1680: mod_images height 179.56 outside 132тАУ164
+FAIL: 1680: mod_images title wraps (titleH=35)
+FAIL: 1440: mod_transcribe height 179.56 outside 132тАУ164
+FAIL: 1440: mod_transcribe title wraps (titleH=35)
+FAIL: 1440: mod_video_summary height 179.56 outside 132тАУ164
+FAIL: 1440: mod_video_summary title wraps (titleH=35)
+FAIL: 1440: mod_media_download height 179.56 outside 132тАУ164
+FAIL: 1440: mod_media_download title wraps (titleH=35)
+FAIL: 1440: mod_images height 179.56 outside 132тАУ164
+FAIL: 1440: mod_images title wraps (titleH=35)
+FAIL: 320: mod_transcribe height 179.56 outside 132тАУ164
+FAIL: 320: mod_transcribe title wraps (titleH=35)
+FAIL: 320: mod_video_summary height 179.56 outside 132тАУ164
+FAIL: 320: mod_video_summary title wraps (titleH=35)
+FAIL: 320: mod_media_download height 179.56 outside 132тАУ164
+FAIL: 320: mod_media_download title wraps (titleH=35)
+FAIL: 320: mod_images height 179.56 outside 132тАУ164
+FAIL: 320: mod_images title wraps (titleH=35)
