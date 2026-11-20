@@ -384,6 +384,16 @@ def test_production_config_schema_is_supported(tmp_path):
     assert loaded["secret_names_count"] == 2
 
 
+def test_chat_endpoint_base_normalizes():
+    assert h._chat_endpoint_base("https://nano-gpt.com/api/v1") == \
+        "https://nano-gpt.com/api/v1"
+    assert h._chat_endpoint_base(
+        "https://nano-gpt.com/api/v1/chat/completions") == \
+        "https://nano-gpt.com/api/v1"
+    assert h._chat_endpoint_base("https://example.com/v1/") == \
+        "https://example.com/v1"
+
+
 def test_parse_as_of_accepts_iso_and_epoch():
     assert h.parse_as_of("2026-11-20T12:00:00Z") == AS_OF
     assert h.parse_as_of(str(AS_OF)) == AS_OF

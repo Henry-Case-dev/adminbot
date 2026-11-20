@@ -1,11 +1,11 @@
 # HC-ACCEPT harness round 1 — paired baseline/candidate, read-only archive
 
 - Task: `p0-history-coverage-temporal-egress-01`, slice `HC-ACCEPT`.
-- Branch: `p0/hc-accept` from C2 tip `9b68c01e2c9d4db68861e9ecb4d64f2bdd2f5e08`; harness commit `e122b950076e38cf6a5c8e123fa60e320d326cf0`.
+- Branch: `p0/hc-accept` from C2 tip `9b68c01e2c9d4db68861e9ecb4d64f2bdd2f5e08`; harness commits `e122b9500`, `76efbf4b4`, `82624fb4f` (test/tool only).
 - Baseline: `1b7d43333b5be8fcbceff2fc82ff8436e5947e9d` (2.58.225).
-- Candidate product: `9b68c01e2c9d4db68861e9ecb4d64f2bdd2f5e08` (A+B+C1+C2); harness commits are test/tool only.
+- Candidate product: `9b68c01e2c9d4db68861e9ecb4d64f2bdd2f5e08` (A+B+C1+C2). The branch tip `82624fb4f…` is a descendant with zero product diff; harness reports the actual code-root HEAD and `variant=candidate`.
 - Status: **REVIEW**, not VERIFIED. No product, map, `progress_scope.json`, `workflow_state.md`, release version or deployment change. No live chat message and no production write.
-- Harness: `tools/p0_hc_acceptance.py`; smoke: `tests/test_p0_hc_acceptance.py` (14 passed).
+- Harness: `tools/p0_hc_acceptance.py`; smoke: `tests/test_p0_hc_acceptance.py` (15 passed).
 
 ## 1. Inputs actually used
 
@@ -39,7 +39,7 @@ py tools/p0_hc_acceptance.py `
   --effective-config C:\Users\main\.config\opencode\WorkspaceData\accept\p0-hc\effective-config.json `
   --as-of 2026-11-20T15:14:26Z --chat-id -1002661910336 `
   --tz Asia/Yekaterinburg --scenario-set all `
-  --out C:\Users\main\.config\opencode\WorkspaceData\accept\p0-hc\harness-round3
+  --out C:\Users\main\.config\opencode\WorkspaceData\accept\p0-hc\harness-round4
 ```
 
 Bounded real-text attempt (one Writer call, synthetic context, no archive text; keys only as presence):
@@ -51,8 +51,13 @@ py tools/p0_hc_acceptance.py --code-root <candidate> `
   --tz Asia/Yekaterinburg --scenario-set free-speech --llm real `
   --env-file C:\Code\Python\adminbot\.env `
   --text-timeout 300 --text-max-tokens 200 `
-  --out ...\accept\p0-hc\harness-realtext-r6
+  --out ...\accept\p0-hc\harness-realtext-r9
 ```
+
+Endpoint is built like the product client: `LLM_BASE_URL` from the loaded `.env`
+is normalized (`.../api/v1`, no duplicate path) and only
+`/chat/completions` is appended; fallback provider is disabled for this bounded
+call. The production model identity stays `deepseek-v4-flash`.
 
 Local smoke (no production):
 
@@ -69,7 +74,7 @@ The variant JSON has two machine-checkable sections:
 
 `scenarios` remains a compatibility alias of the payload set. Paired JSON has `payload`/`text` sections plus per-scenario `baseline_status`/`candidate_status`.
 
-## 4. Paired result (harness-round3)
+## 4. Paired result (harness-round4)
 
 Summary: **36 pass, 3 fail, 1 not_executed, 2 not_applicable** (42 rows incl. text row).
 
@@ -119,7 +124,7 @@ Summary: **36 pass, 3 fail, 1 not_executed, 2 not_applicable** (42 rows incl. te
 ### Free speech / no objectivity
 
 - Default `--llm stub`: `TEXT-FREE-SPEECH` = `not_executed: real_text_not_run`; static proof (`no_moralizing_or_neutrality_filter_added`, 2426 added lines scanned, 0 hits) passes but is **not** counted as coverage.
-- `--llm real` attempt r6: `not_executed: llm_bad_response` (`LLMBadResponseError`, `invalid JSON response`); model `deepseek-v4-flash`, env keys present, bounded 1 call/200 tokens/300s; static proof pass. No fake pass.
+- `--llm real` attempt r9: endpoint `https://nano-gpt.com/api/v1/chat/completions`; provider returned **HTTP 402**, body code `insufficient_balance` (`Available 0.000542 USD, required 0.000555 USD` for up to 200 output tokens). Report: `not_executed: llm_provider_balance_402`, `provider_status=402`, body captured (no key/URL); model `deepseek-v4-flash`, env keys present, bounded 1 call/200 tokens/300s; static proof pass. No fake pass and no fallback-provider key use.
 - No-`.env` run: `not_executed: llm_api_key_missing`; static proof pass.
 - `HC-ACC-FREE-SPEECH` / `HC-ACC-NO-OBJECTIVITY` therefore remain uncovered; Orchestrator decides before release.
 
@@ -127,10 +132,10 @@ Summary: **36 pass, 3 fail, 1 not_executed, 2 not_applicable** (42 rows incl. te
 
 | artifact | size | sha256 |
 |---|---:|---|
-| `harness-round3/p0-hc-acceptance-paired.json` | 44 119 | `3374c8365c4be0854f54466626342b96714c0103c03b14502b06f82f423bc494` |
-| `harness-round3/candidate/p0-hc-acceptance-candidate.json` | 142 536 | `a4ae9099732ef38837d3b1f9f06ae40e74cb78cfdf3c98bdbb6ecc642f0634d0` |
-| `harness-round3/baseline/p0-hc-acceptance-baseline.json` | 139 516 | `cf56da958f7f40e6a5f30b0c311bbb111e5c8cc10093f83201e741cfe392dd65` |
-| `harness-realtext-r6/p0-hc-acceptance-candidate.json` | 19 132 | `916694f2168a109ce71fd32c9f62a006245e8806cdc79a2486573757ffce736a` |
+| `harness-round4/p0-hc-acceptance-paired.json` | 44 263 | `b9e04b95ee09e4875fea0c8cf8f3bb68d13f86df2a5952d179ddb1a01de3364b` |
+| `harness-round4/candidate/p0-hc-acceptance-candidate.json` | 142 916 | `7ad093eb063ebed3e47745f763c91ccc5f2a19475b38b50cb579285747dd5966` |
+| `harness-round4/baseline/p0-hc-acceptance-baseline.json` | 139 680 | `51948690803104e944cacc3355e73faf06a6666b1efce905851337935e615304` |
+| `harness-realtext-r9/p0-hc-acceptance-candidate.json` | 20 512 | `a5b9550d812d801c3d5cec212ffb533aa04e9818f48f26a54675a44703d3e351` |
 | `harness-realtext-nokey/p0-hc-acceptance-candidate.json` | 19 000 | `6efbc637e93728f694ecc14eeccf0fb27aba4aa3d537ba52390e9d390d4fdd68` |
 
 Snapshot sha256 before/after every run: `b907d4c1…3e06e7`; `-wal` 0, `-shm` not created.
@@ -147,7 +152,7 @@ Snapshot sha256 before/after every run: `b907d4c1…3e06e7`; `-wal` 0, `-shm` no
 
 1. `TIME-HOUR-AGO` / `TIME-MINUTE-AGO` unresolved by the deterministic period parser; `last_seconds` exact interval works. Needs product/Reviewer decision; not masked.
 2. `TG-LITERAL` escaped `\*` leaks the backslash through the ordinary plain path; C1 `render_plain` not applied there.
-3. Real Writer text unavailable in this environment (`LLMBadResponseError: invalid JSON response`); static proof passes but the two content rows are `not_executed`, not pass.
+3. Real Writer text could not be produced in this environment: correct product endpoint `/api/v1/chat/completions` returned HTTP 402 `insufficient_balance` (balance 0.000542 vs required 0.000555 USD for 200 output tokens). Report is `not_executed` with status/body; static proof passes but the two content rows are not covered.
 4. `HIST-INGESTION-GAP` is `not_applicable`: the read-only snapshot does not expose unknown ingestion gaps; no fabricated result.
 5. `HC-PROC-SCOPED` is `not_applicable`: process evidence is Reviewer/Orchestrator-owned.
 6. DST is probed with `Europe/Berlin` because the chat zone `Asia/Yekaterinburg` has no DST; midnight uses the chat zone. This is explicit, not a chat-zone override.
@@ -156,7 +161,7 @@ Snapshot sha256 before/after every run: `b907d4c1…3e06e7`; `-wal` 0, `-shm` no
 
 ## 8. Smoke and immutability evidence
 
-- `pytest tests/test_p0_hc_acceptance.py -q`: **14 passed**, including missing/mismatched config/snapshot, schema 47, read-only hash stability, no-text guard, paired composition, production-config schema, stub free-speech `not_executed`, fake Telegram payloads.
+- `pytest tests/test_p0_hc_acceptance.py -q`: **15 passed**, including missing/mismatched config/snapshot, schema 47, read-only hash stability, no-text guard, paired composition, production-config schema, stub free-speech `not_executed`, endpoint normalization, fake Telegram payloads.
 - Snapshot opened `immutable=1` + `query_only`; no write attempted; sha256 equal before/after; no `-shm` created.
 - No product tests modified; no map/state/release change; no deployment.
 
