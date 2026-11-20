@@ -1,0 +1,34 @@
+{
+  "release": "2.58.221",
+  "target": {
+    "version": "2.58.221",
+    "branch": "release/mod-acl-w2c-2.58.221",
+    "content_commit": "1c75a1d8a2b1f573c44deabab4d38bfcbc20ddbe",
+    "content_tree": "2c80f26fc2a8fb7a9242b5355810eda09bd05f40",
+    "schema": 48,
+    "ddl": 0
+  },
+  "rollback": {
+    "sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+    "version": "2.58.220",
+    "content_tip": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5",
+    "schema": 48,
+    "ddl": 0,
+    "migrations": "none (schema 48 -> 48; no DDL)",
+    "data_action": "none; no destructive migration or store change; database/settings remain compatible",
+    "settings_action": "none; no new flags/settings/store/embedding/LLM, existing values preserved"
+  },
+  "commands": {
+    "rollback_checkout": "git -C /var/www/admin_bot fetch --prune && git -C /var/www/admin_bot reset --hard d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+    "manifest": "python tools/release_manifest.py --effect rollback",
+    "restart": "sudo systemctl restart admin_bot",
+    "verify": "HTTP /healthz 200; identity/version 2.58.220; schema 48; no new journal errors; existing settings unchanged"
+  },
+  "safety": [
+    "Keep the pre-deploy backup and the deploy_backup keep=2 pool; do not prune rollback copies.",
+    "Do not run schema downgrades; 2.58.221 has DDL 0 and schema 48.",
+    "Rollback only the checkout/restart and record a rollback manifest; no production data deletion.",
+    "Old VPS 198.46.175.136 is not a rollback target (decommissioned)."
+  ],
+  "decision_reference": "W2c assembly evidence: plans/features/mod-acl-ux-01/evidence/m4a/w2c/release-2.58.221/assembly.md; status REVIEW, not VERIFIED, no deploy"
+}

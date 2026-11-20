@@ -1,0 +1,11 @@
+{
+  "deployed_at": "2026-11-20T01:28:28.718860Z",
+  "deployed_sha": "1c75a1d8a2b1f573c44deabab4d38bfcbc20ddbe",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+  "previous_version": "2.58.220",
+  "release_branch": "release/mod-acl-w2c-2.58.221",
+  "schema": 1,
+  "version": "2.58.221"
+}

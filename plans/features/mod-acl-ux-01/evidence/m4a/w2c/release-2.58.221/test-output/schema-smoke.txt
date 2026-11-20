@@ -1,0 +1,1 @@
+{'user_version': 48, 'schema_constant': 48, 'schema_migrations': 48}

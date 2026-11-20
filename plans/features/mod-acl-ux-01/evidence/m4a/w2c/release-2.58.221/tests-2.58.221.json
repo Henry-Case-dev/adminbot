@@ -1,0 +1,222 @@
+{
+  "release": "2.58.221",
+  "feature": "MOD-ACL-UX-01 M4A W2c navigation/layout/wireframe",
+  "branch": "release/mod-acl-w2c-2.58.221",
+  "status": "REVIEW",
+  "verified": false,
+  "deployed": false,
+  "base": {
+    "sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+    "version": "2.58.220",
+    "content_tip": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "sha": "67ef30cd120163132a2f2e894a0fe474bba9623d",
+    "branch": "release/mod-acl-w2c-2.58.221",
+    "merge_commit": "c16c3566d4cb6d0cbd68c1f58eb4527380e49daf",
+    "merge_parents": [
+      "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+      "67ef30cd120163132a2f2e894a0fe474bba9623d"
+    ],
+    "content_commit": "1c75a1d8a2b1f573c44deabab4d38bfcbc20ddbe",
+    "content_tree": "2c80f26fc2a8fb7a9242b5355810eda09bd05f40",
+    "bump_commit": "1c75a1d8a2b1f573c44deabab4d38bfcbc20ddbe"
+  },
+  "review": {
+    "path": "plans/features/mod-acl-ux-01/evidence/m4a/w2c/release-2.58.221/review-r2.md",
+    "verdict": "RE_REVIEW_INPUT_ONLY; no independent APPROVED verdict recorded",
+    "blockers": [
+      "F1 test regression",
+      "F2 catalog chip touch",
+      "F3 split breakpoint"
+    ]
+  },
+  "environment": {
+    "python": "3.12.0 (py launcher)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/mod-acl-ux-01-w2c-1c42e502b218-04ba5818",
+    "network": "none; local Playwright/http fixtures only; no production access",
+    "configuration": "test fixtures only; no effective gate, factory default or persisted override changed"
+  },
+  "delta": {
+    "product_files_from_base_to_candidate": [
+      "web/app.js",
+      "web/index.html",
+      "web/static/app.css"
+    ],
+    "candidate_has_no_version_bump": "APP_VERSION remains 2.58.220 on 67ef30cd; git diff d03027b1..67ef30cd -- config = empty",
+    "merge_tree_equality": "git diff 67ef30cd..c16c3566d = empty",
+    "candidate_product_check": "git diff d03027b1..67ef30cd -- services handlers web/api config = empty",
+    "web_product_check": "git diff d03027b1..67ef30cd -- web = exactly the 3 files above",
+    "release_content_adds": [
+      "config/settings.py (APP_VERSION 2.58.221 + W2c changelog)",
+      "plans/docs/param-registry-round1025.meta.md",
+      "24 Python version-pin tests",
+      "4 JS escaped version-pin tests"
+    ],
+    "bump_commit_stat": "30 files changed, 31 insertions(+), 31 deletions(-)",
+    "base_to_content_shortstat": "58 files changed, 7593 insertions(+), 42 deletions(-)",
+    "schema_ddl": "48 / 0; no backend/API/DDL/flags/prompts/storage delta"
+  },
+  "batches": [
+    {
+      "id": "node-w2c-7",
+      "result": {
+        "files": 7,
+        "failed": 0,
+        "counts": {
+          "mod_acl_ux_m3_module_routes_test.js": 235,
+          "mod_acl_ux_m4_catalog_test.js": 207,
+          "mod_acl_ux_m4_module_params_test.js": 64,
+          "mod_acl_ux_m4_review_fixes_test.js": 75,
+          "mod_acl_ux_m4a_w2a_tabs_freshness_test.js": 141,
+          "mod_acl_ux_m4a_w2b_history_test.js": 356,
+          "mod_acl_ux_m4a_w2c_navigation_layout_test.js": 83
+        }
+      }
+    },
+    {
+      "id": "js-version-pins-4",
+      "result": {
+        "files": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "w2c-playwright",
+      "command": "python tools/ui_mod_acl_m4a_w2c_e2e.py",
+      "result": {
+        "viewports": 6,
+        "failures": 0,
+        "viewports_list": [
+          1680,
+          1440,
+          1280,
+          768,
+          390,
+          320
+        ],
+        "checks": "21 cards, 4/3/2/1, parent chips/deep links, owner links, 8/4 split, widths 1432/1000, chip 44 at 768/390/320, touch 0 violations, overflow 0",
+        "split_breakpoints": {
+          "1024": "one column (stacked)",
+          "1152": "one column (stacked)",
+          "1199": "one column (stacked)",
+          "1200": "8/4 (629/307)",
+          "1680": "8/4 (949/467)"
+        }
+      }
+    },
+    {
+      "id": "m4a-catalog-e2e",
+      "command": "python tools/ui_mod_acl_m4_catalog_e2e.py",
+      "result": {
+        "failures": 0,
+        "status": "M4A-CATALOG-E2E OK"
+      }
+    },
+    {
+      "id": "affected-python",
+      "result": {
+        "passed": 218,
+        "failed": 6
+      },
+      "pre_existing_note": "Same 6 nodeids fail on base d03027b1; baseline-identical, not W2c regressions.",
+      "failed_nodeids": [
+        "tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_11_modules_and_labels",
+        "tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_modules_ui_and_modal",
+        "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+        "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2",
+        "tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz",
+        "tests/test_webapp_f5_round1025.py::test_workspace_metadata_present"
+      ]
+    },
+    {
+      "id": "standard-version-pins-24",
+      "result": {
+        "passed": 856,
+        "failed": 4
+      },
+      "pre_existing_note": "Same 4 nodeids fail on base d03027b1; baseline-identical (stale tool canon/forbidden-path tests).",
+      "failed_nodeids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ]
+    },
+    {
+      "id": "broad-js",
+      "candidate": {
+        "files": 124,
+        "failed": 4
+      },
+      "base": {
+        "sha": "d03027b1",
+        "files": 123,
+        "failed": 4
+      },
+      "failed_files_both": [
+        "asap6_wave2_ux_tabs_test.js",
+        "evol_cog_scene_test.js",
+        "round1025_ia_routing_test.js",
+        "ur_ui_settings_test.js"
+      ],
+      "regressions": 0
+    },
+    {
+      "id": "mutations",
+      "f1_guard_removed": {
+        "patch": "direct self.submoduleOwnedGroups('persona')",
+        "tests": [
+          "round1025_f7_permsoc_local_test.js",
+          "routing_test.js"
+        ],
+        "result": "KILLED: both fail with TypeError: self.submoduleOwnedGroups is not a function"
+      },
+      "f2_touch_override_removed": {
+        "patch": "catalog parent chip padding/min-height override removed",
+        "result": "KILLED: 3 failures at 768/390/320; chip heights [16,16,16,16]"
+      },
+      "f3_breakpoint_reverted_1023": {
+        "patch": "workspace-split collapse 1199 -> 1023",
+        "result": "KILLED: 12 failure lines at 1024/1152/1199; split stayed two-column (656/320, 741/363, 773/378)"
+      }
+    }
+  ],
+  "static_checks": {
+    "app_version": "2.58.221",
+    "schema_smoke": {
+      "user_version": 48,
+      "schema_constant": 48,
+      "schema_migrations": 48
+    },
+    "ddl_delta": 0,
+    "gen_param_registry_check": {
+      "exit": 0,
+      "message": "CHECK OK: registry 648 == REGISTRY, map complete, R17-clean, TSV/map idempotent"
+    },
+    "git_diff_check": {
+      "worktree": 0,
+      "base_to_head": 0
+    },
+    "manifest_dry_run": {
+      "artifact": "manifest-dry-run.json",
+      "exit": 0,
+      "version": "2.58.221",
+      "previous_sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+      "previous_version": "2.58.220",
+      "dirty_tracked": false
+    }
+  },
+  "limitations": [
+    "No production access, SSH, deploy or live TMA check; postdeploy checks are in the runbook.",
+    "Independent re-review verdict is not recorded; review-r2.md is assembly-side input only.",
+    "Broad JS sweep has 4 baseline-identical stale failures (same on base d03027b1).",
+    "Affected Python has 6 baseline-identical stale failures; standard 24-pin batch has 4 baseline-identical stale failures.",
+    "Cognition-map visual parity tool is nondeterministic; targeted surface parity and W2c Playwright were used for W2c."
+  ]
+}

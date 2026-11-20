@@ -1,0 +1,18 @@
+F1 mutation: direct self.submoduleOwnedGroups (guard removed)
+    at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\tests\js\round1025_f7_permsoc_local_test.js:123:11)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+System.Management.Automation.RemoteException
+Node.js v24.16.0
+exit=1
+[adminbot] DOMPurify ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ тАФ ╤В╨╡╨║╤Б╤В ╨▒╨╡╨╖ HTML
+TypeError: self.submoduleOwnedGroups is not a function
+    at Object._permsocOwnerGroups (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\web\app.js:30352:26)
+    at C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\tests\js\routing_test.js:1420:48
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+exit=1
