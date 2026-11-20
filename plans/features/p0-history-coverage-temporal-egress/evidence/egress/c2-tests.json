@@ -8,7 +8,7 @@
   "base_product": "1fe684d369d753449cf1bdc974de6fdefdd1c8ca",
   "base_b_tip": "d8c8db4b50555fe2ffe8a19ce8e87e77b8ef4a64",
   "c1_commit": "743286354ef8fd151c3ff872dd33796b79c84606",
-  "candidate_commit": "PENDING",
+  "candidate_commit": "927896521ae47125e29e8fba5edab760edfc0d01",
   "environment": {
     "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
     "pytest": "9.1.1",
