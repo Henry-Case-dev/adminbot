@@ -1,0 +1,26 @@
+node : C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\
+tests\js\mod_acl_ux_m4a_w2c_navigation_layout_test.js:123
+строка:1 знак:220
++ ... | Out-Null; node "$wt\tests\js\mod_acl_ux_m4a_w2c_navigation_layout_t ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\main\....out_test.js:123:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+    const info = methods.moduleParentInfo.call(ctx, m);
+                                          ^
+
+TypeError: Cannot read properties of undefined (reading 'call')
+    at C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\
+tests\js\mod_acl_ux_m4a_w2c_navigation_layout_test.js:123:43
+    at Array.forEach (<anonymous>)
+    at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c
+42e502b218-04ba5818\tests\js\mod_acl_ux_m4a_w2c_navigation_layout_test.js:120:25)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v24.16.0

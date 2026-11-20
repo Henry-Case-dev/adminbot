@@ -1,0 +1,158 @@
+﻿BROAD JS SWEEP candidate 1d1c23424
+ok app_methods_dup_keys_guard_test.js
+ok asap_ui02_delta_test.js
+ok asap_ui02_status_ribbons_test.js
+ok asap31_oversight_render_test.js
+ok asap41_zone_g_inspector_test.js
+ok asap42_step2c2_layout_test.js
+ok asap43_cover_style_surgical_test.js
+ok asap44_cover_final_closure_test.js
+ok asap5_cover_manifest_test.js
+ok asap5_decision_trace_test.js
+ok asap6_embedding_profiles_ui_test.js
+FAIL asap6_wave2_ux_tabs_test.js (exit 1)
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+System.Management.Automation.RemoteException
+Node.js v24.16.0
+ok asap7_f2_direct_ui_test.js
+ok asap7_f7_cover_compile_test.js
+ok asap7_f8_cover_prompts_test.js
+ok asap8_d1213_save_contract_test.js
+ok asap8_f9_youtube_proxy_health_test.js
+ok asap8_u084d_mini_lens_binding_test.js
+ok asap8_v6_d05_experience_ui_test.js
+ok asap8_v6_d07_override_stack_test.js
+ok asap8_v6_p1_d09_panels_test.js
+ok asap8_v6_wa2_dossier_guard_test.js
+ok asap8_v63_w3_analytics_test.js
+ok asap8_v63_w3_modules_ui_test.js
+ok asap8_v63_w3_status_logs_test.js
+ok asap8_w2_fullscreen_policy_test.js
+ok asap8_w2_shell_mobile_nav_test.js
+ok cfg04_forms_contract_test.js
+ok evol_cmv_d_fullscreen_test.js
+ok evol_cog_map_card_focus_test.js
+FAIL evol_cog_scene_test.js (exit 1)
+    at Object.drawLabels (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\web\app.js:39535:43)
+    at Object.paint (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\web\static\cog-visual.js:1697:59)
+    at Object._cogPaintFx (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\web\app.js:39337:30)
+    at Object._cogPaintStatic (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\web\app.js:39307:14)
+    at Object.graphApplySelectionLabels (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\web\app.js:41219:14)
+    at cycles (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-w2c-1c42e502b218-04ba5818\tests\js\evol_cog_scene_test.js:692:37)
+System.Management.Automation.RemoteException
+Node.js v24.16.0
+ok evol_cog_visual_test.js
+ok evol_cognitive_map_test.js
+ok evol_glass_seam_test.js
+ok evol_w11_controls_test.js
+ok evol_w12_internals_test.js
+ok evol_w4_diagnostics_ui_test.js
+ok evol_w7_nav_test.js
+ok evol_w9_responsive_test.js
+ok evol001_005_widgets_test.js
+ok evol032_health_glass_test.js
+ok glass_probe_test.js
+ok glass_refraction_test.js
+ok initiative_ui_rework_test.js
+ok mca23_response_pipeline_test.js
+ok mem08_omnibox_test.js
+ok meme_ui_fields_test.js
+ok mod_acl_ux_m3_module_routes_test.js
+ok mod_acl_ux_m4_catalog_test.js
+ok mod_acl_ux_m4_module_params_test.js
+ok mod_acl_ux_m4_review_fixes_test.js
+ok mod_acl_ux_m4a_w2a_tabs_freshness_test.js
+ok mod_acl_ux_m4a_w2b_history_test.js
+ok mod_acl_ux_m4a_w2c_navigation_layout_test.js
+ok p0_disk_status_thresholds_test.js
+ok p0_stories_no_chat_render_test.js
+ok p0_vision_ui_test.js
+ok p0im_ov_honesty_test.js
+ok prompt_version_card_test.js
+ok pvr_ui_state_test.js
+ok qrng_p4_random_ui_test.js
+ok round1020_ui_rework_test.js
+ok round1020_ui_test.js
+ok round1021_ui_audit_test.js
+ok round1022_aliases_test.js
+ok round1022_dossier_rebuild_test.js
+ok round1022_help_test.js
+ok round1023_verbilizer_tabs_test.js
+ok round1024_aliases_render_test.js
+ok round1024_budget_toggle_test.js
+ok round1024_dossier_feed_test.js
+ok round1024_image_key_test.js
+ok round1024_image_module_test.js
+ok round1024_nodeflow_test.js
+ok round1024_prompts_ui_test.js
+ok round1024_providers_fullscreen_test.js
+ok round1025_cliche_ui_test.js
+ok round1025_design_tokens_test.js
+ok round1025_f11_log_counts_test.js
+ok round1025_f11_status_grid_test.js
+ok round1025_f4_catalog_ui_test.js
+ok round1025_f4_module_store_test.js
+ok round1025_f5_models_test.js
+ok round1025_f5_prompts_single_source_test.js
+ok round1025_f5_workspace_route_test.js
+ok round1025_f6_analytics_memory_test.js
+ok round1025_f6_execution_graph_test.js
+ok round1025_f7_permsoc_local_test.js
+ok round1025_f9_savebar_visual_test.js
+ok round1025_f9_secret_field_test.js
+ok round1025_hotfix10_glass_geometry_bg_test.js
+ok round1025_hotfix3_cliche_report_test.js
+ok round1025_hotfix4_shell_test.js
+ok round1025_hotfix6_lens_heartbeat_shell_test.js
+ok round1025_hotfix7_shell_glass_heartbeat_test.js
+ok round1025_hotfix8_shell_aurora_test.js
+ok round1025_hotfix9_shell_flex_glass_aurora_test.js
+FAIL round1025_ia_routing_test.js (exit 1)
+  code: 'ERR_ASSERTION',
+  actual: '╨а╨╡╤З╤М ╨╕ ╤Е╨░╤А╨░╨║╤В╨╡╤А',
+  expected: '#/ai/persona',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+System.Management.Automation.RemoteException
+Node.js v24.16.0
+ok round1025_save_state_test.js
+ok round1025_scope_selector_test.js
+ok round1025_shell_breakpoints_test.js
+ok round1026_polygon_background_test.js
+ok round1026_s6_publish_test.js
+ok round1026_s7_log_summary_filter_test.js
+ok round1026_s8_execution_graph_test.js
+ok round1026_s9_testing_test.js
+ok round1027_asap2_summary_sections_test.js
+ok round1027_mca17a_observability_ui_test.js
+ok round1028_anu_taxonomy_p0_test.js
+ok round1028_asap3_direct_context_test.js
+ok round1029_extra_cover_styles_test.js
+ok round1030_pipeline_inspector_test.js
+ok round1037_random_source_test.js
+ok round1039_experience_lessons_test.js
+ok round1044_temporal_factcheck_ui_test.js
+ok round1046_mca12_stories_ui_test.js
+ok round1047_mca17c_ui_test.js
+ok routing_test.js
+ok self_diag_hard_rules_text_test.js
+ok soul1_w5_initiative_panel_test.js
+ok ur_f_inspector_step3_test.js
+FAIL ur_ui_settings_test.js (exit 1)
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+System.Management.Automation.RemoteException
+Node.js v24.16.0
+ok vmq_time09_year_coverage_ui_test.js
+ok vue_mount_test.js
+TOTAL=124 FAILS=4 asap6_wave2_ux_tabs_test.js,evol_cog_scene_test.js,round1025_ia_routing_test.js,ur_ui_settings_test.js
