@@ -8828,7 +8828,9 @@
       memorySubgroupChips: function () {
         var self = this;
         var base = this.groupedForTab(this.currentTab);
-        var owned = this.submoduleOwnedGroups('memory');
+        // W2c: тип-гейт для урезанных юнит-контекстов (не UI-контракт).
+        var owned = (typeof this.submoduleOwnedGroups === 'function')
+          ? this.submoduleOwnedGroups('memory') : {};
         var present = {};
         (base || []).forEach(function (g) {
           (g.items || []).forEach(function (it) {
@@ -30209,8 +30211,10 @@
         var base = this.groupedForTab(this.currentTab);
         // W2c (NAV-01/design §6.3): группы подмодулей «Истории», «Опыта»,
         // «Случайности» на родительской «Памяти» — одной ссылкой владельца,
-        // без второго набора полей и второго write-point.
-        var owned = this.submoduleOwnedGroups('memory');
+        // без второго набора полей и второго write-point. Тип-гейт сохраняет
+        // урезанные юнит-контексты без метода (UI-контракт не меняется).
+        var owned = (typeof this.submoduleOwnedGroups === 'function')
+          ? this.submoduleOwnedGroups('memory') : {};
         var buckets = {};
         MEMORY_SUBGROUPS.forEach(function (s) {
           buckets[s.id] = {
@@ -30344,7 +30348,9 @@
         result.forEach(function (r) { byId[r.id] = r; });
         // W2c (NAV-01/design §6.3): группы подмодуля «Характер» принадлежат
         // его собственной странице; на PERMsoc — только ссылка владельца.
-        var owned = self.submoduleOwnedGroups('persona');
+        // Тип-гейт: урезанные юнит-контексты без метода работают как раньше.
+        var owned = (typeof self.submoduleOwnedGroups === 'function')
+          ? self.submoduleOwnedGroups('persona') : {};
         grouped.forEach(function (g) {
           g.items.forEach(function (it) {
             if (owned[it.group]) return;               // страница «Характера»

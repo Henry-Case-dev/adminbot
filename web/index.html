@@ -8395,7 +8395,7 @@
                          :data-module-parent="moduleParentInfo(m).parentId"
                          :data-module-parent-route="moduleParentInfo(m).route"
                          :title="moduleParentInfo(m).ownerHint"
-                         @click.stop>{{ moduleParentInfo(m).label }}</a>
+                         @click.stop><span class="module-parent-chip__label">{{ moduleParentInfo(m).label }}</span></a>
                       <!-- W2a (К-7): свежесть из `state.checked_at` (helper —
                            один источник с шапкой страницы). Компактно, 10 px,
                            ellipsis + title; высоту карточки не меняет. -->

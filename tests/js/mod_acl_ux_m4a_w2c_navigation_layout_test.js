@@ -289,10 +289,12 @@ function eq(a, b, msg) {
     '6: main = 8/12');
   ok(/\.workspace-split__side\s*\{[^}]*grid-column:\s*span 4/.test(APP_CSS),
     '6: side = 4/12');
-  ok(/@media \(max-width: 1023px\)[\s\S]{0,500}workspace-split__main/.test(APP_CSS),
-    '6: на tablet/mobile 8/4 схлопывается в одну колонку');
+  ok(/@media \(max-width: 1199px\)[\s\S]{0,500}workspace-split__main/.test(APP_CSS),
+    '6: на tablet/compact (768–1199) 8/4 схлопывается в одну колонку');
   ok(/@media \(max-width: 1199px\), \(pointer: coarse\)[\s\S]{0,1200}min-height:\s*44px/.test(APP_CSS),
     '6: touch-цели ≥44 на tablet/mobile/coarse');
+  ok(/\.module-catalog \.module-parent-chip\s*\{[^}]*min-height:\s*44px/.test(APP_CSS),
+    '6: parent-чип каталога — touch-цель 44 px');
   ok(INDEX_HTML.indexOf('data-workspace-surface') >= 0,
     '6: поверхность модуля размечена для измерения пропорций');
   ok(INDEX_HTML.indexOf('data-workspace-class') >= 0,

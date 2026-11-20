@@ -123,6 +123,7 @@ PROBE = r"""
         id: card.getAttribute('data-mod'),
         route: a.getAttribute('data-module-parent-route'),
         href: a.getAttribute('href'),
+        h: Math.round(r(a).h),
         text: (a.textContent || '').trim()
       };
     }).filter(Boolean);
@@ -266,6 +267,10 @@ def main() -> int:
                         else "#/permsoc"
                     check(pchip["route"] == exp and pchip["href"] == exp,
                           "%d: %s chip → %s" % (w, pchip["id"], exp), vp_fail)
+                if w <= 1199:
+                    check(all(p["h"] >= 43.5 for p in cat["parents"]),
+                          "%d: parent-чипы каталога — touch ≥44 (%s)"
+                          % (w, [p["h"] for p in cat["parents"]]), vp_fail)
                 check(cat["scrollWidth"] <= w + 1,
                       "%d: нет горизонтального overflow каталога"
                       % w, vp_fail)
@@ -453,6 +458,39 @@ def main() -> int:
                       "%d: JS-ошибки страницы (%s)" % (w, errs[:2]), vp_fail)
                 report["flows"]["%dx%d" % (w, h)] = vp_fail
                 ctx.close()
+
+            # ── F3: 8/4 коллапс на 768–1199, две колонки с 1200 ────────
+            for bw in (1024, 1152, 1199, 1200, 1680):
+                bctx = browser.new_context(viewport={"width": bw,
+                                                     "height": 900})
+                bctx.add_init_script(e2e.TMA_STUB)
+                bctx.route("**/api/**", _route)
+                bp = bctx.new_page()
+                _goto(bp, base, "#/modules/direct/models")
+                bp.wait_for_selector("[data-workspace-split]", timeout=9000)
+                bdata = bp.evaluate(PROBE)
+                bsplit = bdata["split"] or {}
+                report["flows"]["split_%d" % bw] = bsplit
+                if bw >= 1200:
+                    mw = bsplit.get("mainW") or 0
+                    sw = bsplit.get("sideW") or 0
+                    check(sw > 0 and 1.7 <= (mw / sw) <= 2.3,
+                          "%d: split 8/4 две колонки (%.0f/%.0f)"
+                          % (bw, mw, sw), failures)
+                    check(bsplit.get("mainTop") == bsplit.get("sideTop"),
+                          "%d: split 8/4 в одной строке" % bw, failures)
+                else:
+                    check((bsplit.get("mainW") or -1)
+                          == (bsplit.get("sideW") or -2),
+                          "%d: split одна колонка (%s)"
+                          % (bw, bsplit), failures)
+                    check((bsplit.get("sideTop") or 0)
+                          > (bsplit.get("mainTop") or 0),
+                          "%d: split блоки друг под другом" % bw, failures)
+                check((bdata["scrollWidth"] or 0) <= bw + 1,
+                      "%d: нет overflow на split-странице" % bw, failures)
+                bp.screenshot(path=os.path.join(SHOTS, "split-%d.png" % bw))
+                bctx.close()
 
             # ── deep link summary/overview → history + reload ──────────
             dctx = browser.new_context(viewport={"width": 1440, "height": 900})

@@ -7864,15 +7864,20 @@ html.w9-sheet-bottom .modal-close {
 .workspace-parent-chip:hover { color: var(--text-1); }
 .workspace-parent-chip .msr { font-size: 14px; }
 .module-parent-chip {
-  display: block; min-width: 0; max-width: 52%; flex: 0 0 auto;
-  padding: 1px 6px; border-radius: var(--radius-full);
+  display: inline-flex; align-items: center; min-width: 0; max-width: 52%;
+  flex: 0 0 auto; padding: 0; border: 0; background: none;
+  color: var(--text-3); text-decoration: none;
+}
+.module-parent-chip__label {
+  display: block; min-width: 0; padding: 1px 6px;
+  border-radius: var(--radius-full);
   background: rgba(255, 255, 255, .05);
   border: 1px solid var(--surface-border);
   font-size: 10px; line-height: 1.2; color: var(--text-3);
-  text-decoration: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .module-parent-chip:hover { color: var(--text-2); }
+.module-parent-chip:hover .module-parent-chip__label { color: var(--text-2); }
 /* NAV-01/design §6.3: группы подмодулей на родителе — одной строкой-ссылкой,
    без второго набора полей и второго write-point. */
 .workspace-owner-links .btn-ghost { text-decoration: none; }
@@ -7903,7 +7908,7 @@ html.w9-sheet-bottom .modal-close {
     padding-right: max(1rem, calc(100% - 1000px - 1rem));
   }
 }
-@media (max-width: 1023px) {
+@media (max-width: 1199px) {
   .workspace-split { grid-template-columns: minmax(0, 1fr); }
   .workspace-split__main,
   .workspace-split__side { grid-column: auto; }
@@ -7930,6 +7935,12 @@ html.w9-sheet-bottom .modal-close {
   main.workspace-surface .ctl-toggle,
   main.workspace-surface .module-toggle { min-height: 44px; }
   main.workspace-surface .workspace-parent-chip { padding-block: 8px; }
+  /* F2: чип подмодуля в каталоге — полноценная touch-цель. Высота 44 px
+     достигается анкером с прозрачными padding/margin; визуальная пилюля
+     остаётся 16 px и карточка держит 132–164. */
+  .module-catalog .module-parent-chip {
+    min-height: 44px; padding-block: 14px; margin-block: -14px;
+  }
 }
 
 /* ── W10-5. «ИИ»: рабочая панель (EVOL-028) ────────────────────────────── */
