@@ -1,0 +1,204 @@
+{
+  "release": "2.58.225",
+  "feature": "MOD-ACL-UX-01 M4B B2",
+  "branch": "release/mod-acl-m4b2-2.58.225",
+  "base": {
+    "sha": "275a1b7cd320f67e0ac089d8d5c4b14ca31dbcfa",
+    "version": "2.58.224",
+    "role": "base and rollback",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "product": "db92c73ce122ee09a461696ba4d0a8c69b07cbb6",
+    "branch_tip": "09ef444d83eb6b3e6b1fcb89928c99c629c0a415",
+    "review": "APPROVED_FOR_RELEASE_PREPARATION",
+    "review_artifact": "plans/features/mod-acl-ux-01/evidence/m4b/b2/review-r1.md",
+    "review_sha256": "e8b957b8c625ab179cdd356e7fdd6b3911a292e90b2707d13a22508b5f6ca8ff",
+    "nb_evidence_fix_commit": "bebe11e327cbbb58539e169fef72faee8928c378"
+  },
+  "content_bump_commit": "75b92f31d17c11ff111708b19564cb9fef978f8f",
+  "version": "2.58.225",
+  "schema": {
+    "target": 48,
+    "user_version": 48,
+    "schema_migrations_max": 48,
+    "schema_migrations_count": 48,
+    "ddl": 0,
+    "method": "temp SQLite DatabaseService.initialize(); DatabaseService._SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "playwright": "1.62.0",
+    "chromium": "bundled Playwright Chromium"
+  },
+  "product_delta": {
+    "base_to_bump_net": {
+      "web/app.js": {"insertions": 262, "deletions": 78},
+      "web/index.html": {"insertions": 249, "deletions": 107},
+      "web/static/app.css": {"insertions": 32, "deletions": 15},
+      "web/api/analytics.py": {"insertions": 39, "deletions": 1},
+      "web/api/memory_overview.py": {"insertions": 38, "deletions": 0},
+      "config/settings.py": {"insertions": 1, "deletions": 1}
+    },
+    "product_files": [
+      "web/app.js",
+      "web/index.html",
+      "web/static/app.css",
+      "web/api/analytics.py",
+      "web/api/memory_overview.py"
+    ],
+    "bump_touches_web": "empty: git diff 09ef444d8..75b92f31d -- web",
+    "product_scope_since_candidate": "empty: git diff 09ef444d8..75b92f31d -- web services handlers web/api database.py migrations prompts tools",
+    "tests_since_candidate": "only version pins: 29 removed / 29 added lines, every pair differs solely by 2.58.224 -> 2.58.225 (4 escaped JS pins included)",
+    "backend_api_ddl_flags_prompts_storage": "0 files: git diff 275a1b7c..75b92f31d -- services handlers database.py migrations prompts = empty",
+    "note": "Product bytes are exactly the approved candidate db92c73ce; the release commits after it are the NB evidence fix and the standard version bump only."
+  },
+  "bump": {
+    "files": 30,
+    "insertions": 31,
+    "deletions": 31,
+    "app_version": "2.58.225",
+    "bom_crlf": "preserved; 0 BOM/line-ending mismatches (settings.py UTF-8 BOM + 3645 CRLF)",
+    "check": "git diff --check -- web tests tools rc=0; node --check web/app.js rc=0; full-range diff still has evidence trailing whitespace (NB-1, docs-only)"
+  },
+  "batches": [
+    {
+      "id": "mandatory-24-files",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q -p no:cacheprovider",
+      "passed": 386,
+      "failed": 0,
+      "output": "test-output/pytest-mandatory-24.txt"
+    },
+    {
+      "id": "targeted-node",
+      "passed": 6,
+      "failed": 0,
+      "markers": [
+        "MOD-ACL-UX-M4B-B2-OBSERVER-OK",
+        "MOD-ACL-UX-M4B-B2-LASTCALL-OK",
+        "W3-STATUS-UNIT-OK",
+        "SOUL1-W5-PANEL-OK",
+        "F6-ANALYTICS-MEMORY-OK",
+        "MOD-ACL-UX-M4B-B1-FEEDS-OK"
+      ],
+      "output": "test-output/node-*.txt"
+    },
+    {
+      "id": "python-d1-d3-regression",
+      "command": "python -m pytest tests/test_webapp_m4b_b2_api.py tests/test_token_analytics_round1023.py tests/test_webapp_memory_overview_api.py tests/test_webapp_analytics_api.py tests/test_webapp_f6_round1025.py -q -p no:cacheprovider",
+      "passed": 94,
+      "failed": 0,
+      "note": "NB-1 corrected counter; the same 94 as the candidate artifact/Reviewer recount.",
+      "output": "test-output/pytest-d1-d3-regression.txt"
+    },
+    {
+      "id": "broad-js",
+      "files": 127,
+      "passed": 124,
+      "failed": 3,
+      "failed_files": [
+        "tests/js/evol_cog_scene_test.js",
+        "tests/js/round1025_ia_routing_test.js",
+        "tests/js/ur_ui_settings_test.js"
+      ],
+      "note": "same pre-existing baseline as B1/candidate",
+      "output": "test-output/broad-js.json",
+      "failures_log": "test-output/broad-js-failures.txt"
+    },
+    {
+      "id": "version-pins-24-py",
+      "passed": 856,
+      "failed": 4,
+      "baseline_node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "note": "same 4 pre-existing pin-guard failures as 2.58.224; not counted as pass",
+      "output": "test-output/pytest-version-pins-24.txt"
+    },
+    {
+      "id": "version-pins-4-js",
+      "passed": 4,
+      "failed": 0,
+      "markers": [
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+      ]
+    },
+    {
+      "id": "b1-status-e2e",
+      "command": "MOD_ACL_M4B_STATUS_SHOTS=<temp> MOD_ACL_M4B_STATUS_REPORT=<release evidence> python tools/ui_mod_acl_m4b_status_e2e.py",
+      "checks": 138,
+      "failures": 0,
+      "output": "test-output/b1-e2e-138.json",
+      "log": "test-output/b1-e2e.txt"
+    },
+    {
+      "id": "b2-status-e2e",
+      "command": "MOD_ACL_M4B2_STATUS_SHOTS=<temp> MOD_ACL_M4B2_STATUS_REPORT=<release evidence> python tools/ui_mod_acl_m4b2_status_e2e.py",
+      "checks": 92,
+      "failures": 0,
+      "viewports": [1920, 1440, 1280, 768, 390, 320],
+      "output": "test-output/b2-e2e-92.json",
+      "log": "test-output/b2-e2e.txt"
+    },
+    {
+      "id": "w3-status-e2e",
+      "command": "python tools/ui_asap8_v63_w3_status_e2e.py",
+      "result": "W3-STATUS-E2E-OK",
+      "checked": "observer_kpis, observer_no_funnel, observed 420, liveness, domains explain, entities, sleep/logs/analytics contracts; console_errors=[]",
+      "output": "test-output/w3-status-e2e.txt",
+      "side_effect": "the tool rewrote 4 tracked w3-evidence-status PNGs during the run; they were restored to HEAD immediately (not part of this assembly)"
+    },
+    {
+      "id": "w10-sections-e2e",
+      "command": "python tools/ui_evol_w10_sections_e2e.py --out <temp>",
+      "failures": 3,
+      "failure_list": [
+        "#/modules@1280x900: каталог не отрисован (0 карточек)",
+        "#/modules@390x844: каталог не отрисован (0 карточек)",
+        "модули: единственный scoped-переключатель не выполнил серверную операцию"
+      ],
+      "note": "same pre-existing module catalog/scoped toggle failures as B1/base",
+      "output": "test-output/w10-sections-e2e.txt"
+    },
+    {
+      "id": "w15-composition-e2e",
+      "command": "python tools/ui_evol_w15_composition_e2e.py --out <temp>",
+      "runs": [
+        {"failures": 73, "status_observer_related": 0},
+        {"failures": 72, "status_observer_related": 0}
+      ],
+      "reviewer_independent_count": 71,
+      "environment_dependent": true,
+      "note": "Pre-existing cog-map/adaptive/prompt-editor failures; the exact count varies by stand (71/72/73). 0 failures mention status/observer/dossier/exec/funnel/KPI; observer-kpi__cell token check passes. NB-2's candidate-record 71 matches the Reviewer recount.",
+      "output": "test-output/w15-composition-e2e.txt",
+      "output_run2": "test-output/w15-composition-e2e-run2.txt",
+      "summary": "test-output/w15-fails.json"
+    }
+  ],
+  "baseline_failures": {
+    "same_on_base": true,
+    "base_sha": "275a1b7cd320f67e0ac089d8d5c4b14ca31dbcfa",
+    "note": "The 3 broad-JS, 4 pin, 3 w10 and w15 full-tool failures are the same pre-existing baseline as 2.58.224; they are not counted as pass."
+  },
+  "nb_corrections": {
+    "NB-1": "D1/D3 counter 110 -> 94 in the candidate evidence (commit bebe11e32); git diff --check rc=0 only for `-- web tests tools`, full-range evidence trailing whitespace documented.",
+    "NB-2": "W15 candidate count 72 -> 71 with an environment-dependent note; 0 status/observer-related failures.",
+    "not_fixed": "NB-3, NB-4, NB-5, NB-6, BL-1 are nonblocking follow-ups/B3, not fixed in this candidate or release assembly."
+  },
+  "limitations": [
+    "No production deploy, SSH, live TMA or VERIFIED claim in this assembly.",
+    "Playwright/Browser Use checks use a local synthetic API stand with candidate bytes, not deployed production bytes.",
+    "Live MAC-S6-345/MAC-AC-15 remain partial (no full trace page); MAC-S6-346 image-only is a deterministic stub until a natural event (RFL).",
+    "w10/w15 full tools carry pre-existing non-B2 failures; w15 count is environment-dependent (71-73).",
+    "Visual parity tool tools/ui_cmv_perf_parity.py was not run in this assembly."
+  ]
+}

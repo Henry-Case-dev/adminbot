@@ -1,0 +1,45 @@
+﻿[matrix] config stub: items=631 groups=121
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=123
+COG-MAP checks=339
+W15 {"composition_states": 27, "coverage_routes": 28, "viewports": 2, "measured_cells": 110, "selectors": 29, "selectors_rendered": 26, "instances": 1628, "chart_selectors": 4, "table_selectors": 3, "adaptive_cells": 60, "adaptive_modes": 4, "adaptive_widths": 3}
+ - cog-map: cog-map@390: ╨┐╨╛╤Б╨╗╨╡ ╤Д╨╕╨╗╤М╤В╤А╨░ ╨┐╨╛╨┤╨┐╨╕╤Б╨╕ ╨┐╤А╨╛╨┐╨░╨╗╨╕
+ - cog-map: cog-map@390: ╤Б╨▒╤А╨╛╤Б ╨▓╨╕╨┤╨░ ╨╜╨╡ ╨▓╨╡╤А╨╜╤Г╨╗ ╨▓╤Б╨╡ ╤Г╨╖╨╗╤Л (3)
+ - cog-map: cog-map@390: ╨┐╨╛╨╕╤Б╨║ ╨╜╨╡ ╨▓╤Л╨▒╤А╨░╨╗ ╤Г╨╖╨╡╨╗ ('')
+ - cog-map: cog-map@1280: ╤Б╨▒╤А╨╛╤Б ╨▓╨╕╨┤╨░ ╨╜╨╡ ╨▓╨╡╤А╨╜╤Г╨╗ ╨▓╤Б╨╡ ╤Г╨╖╨╗╤Л (3)
+ - cog-map: cog-map@1280: ╨┐╨╛╨╕╤Б╨║ ╨╜╨╡ ╨▓╤Л╨▒╤А╨░╨╗ ╤Г╨╖╨╡╨╗ ('')
+ - cog-map: ╤Д╨╕╨╗╤М╤В╤А-╨┐╤Г╤Б╤В╨╛: ╤Б╨▒╤А╨╛╤Б ╨╜╨╡ ╨▓╨╡╤А╨╜╤Г╨╗ ╨▓╨╕╤В╤А╨╕╨╜╤Г (0)
+ - adapt:normal/prompt-editor@390: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лscope┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:normal/prompt-editor@390: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лfullscreen┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:normal/prompt-editor@390: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:normal/prompt-editor@360: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лscope┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:normal/prompt-editor@360: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лfullscreen┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:normal/prompt-editor@360: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:normal/prompt-editor@320: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лscope┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:normal/prompt-editor@320: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лfullscreen┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:normal/prompt-editor@320: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:pagezoom200/prompt-editor@195: ╨▓╤Е╨╛╨┤ ╨▓ ╨┐╨╛╨╕╤Б╨║/╨┐╨░╨╗╨╕╤В╤А╤Г ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤З╨╡╤А╨╡╨╖ drawer (drawer=True entry=False)
+ - adapt:pagezoom200/prompt-editor@195: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:pagezoom200/prompt-editor@180: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лnav┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:pagezoom200/prompt-editor@180: ╨▓╤Е╨╛╨┤ ╨▓ ╨┐╨╛╨╕╤Б╨║/╨┐╨░╨╗╨╕╤В╤А╤Г ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤З╨╡╤А╨╡╨╖ drawer (drawer=True entry=False)
+ - adapt:pagezoom200/prompt-editor@180: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:pagezoom200/prompt-editor@160: ╨╖╨░ ╨▓╤М╤О╨┐╨╛╤А╤В ╨▓╤Л╤Е╨╛╨┤╨╕╤В 24 ╤Н╨╗╨╡╨╝╨╡╨╜╤В╨╛╨▓ (['btn-ghost text-xs', 'badge badge-muted pv-scope', 'badge badge-muted pv-scope'])
+ - adapt:pagezoom200/prompt-editor@160: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лnav┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:pagezoom200/prompt-editor@160: ╨▓╤Е╨╛╨┤ ╨▓ ╨┐╨╛╨╕╤Б╨║/╨┐╨░╨╗╨╕╤В╤А╤Г ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤З╨╡╤А╨╡╨╖ drawer (drawer=True entry=False)
+ - adapt:pagezoom200/prompt-editor@160: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:font200/prompt-editor@390: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лscope┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:font200/prompt-editor@390: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лfullscreen┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:font200/prompt-editor@390: ╨▓╤Е╨╛╨┤ ╨▓ ╨┐╨╛╨╕╤Б╨║/╨┐╨░╨╗╨╕╤В╤А╤Г ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤З╨╡╤А╨╡╨╖ drawer (drawer=True entry=False)
+ - adapt:font200/prompt-editor@390: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:font200/prompt-editor@360: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лnav┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:font200/prompt-editor@360: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лscope┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:font200/prompt-editor@360: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лfullscreen┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:font200/prompt-editor@360: ╨▓╤Е╨╛╨┤ ╨▓ ╨┐╨╛╨╕╤Б╨║/╨┐╨░╨╗╨╕╤В╤А╤Г ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤З╨╡╤А╨╡╨╖ drawer (drawer=True entry=False)
+ - adapt:font200/prompt-editor@360: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:font200/prompt-editor@320: ╨╖╨░ ╨▓╤М╤О╨┐╨╛╤А╤В ╨▓╤Л╤Е╨╛╨┤╨╕╤В 24 ╤Н╨╗╨╡╨╝╨╡╨╜╤В╨╛╨▓ (['btn-ghost text-xs', 'badge badge-muted pv-scope', 'badge badge-muted pv-scope'])
+ - adapt:font200/prompt-editor@320: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лnav┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:font200/prompt-editor@320: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лscope┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:font200/prompt-editor@320: ╨▓╤Е╨╛╨┤ ╨▓ ╨┐╨╛╨╕╤Б╨║/╨┐╨░╨╗╨╕╤В╤А╤Г ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤З╨╡╤А╨╡╨╖ drawer (drawer=True entry=False)
+ - adapt:font200/prompt-editor@320: ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лback┬╗ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В
+ - adapt:telegram_kb/prompt-editor@390: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лscope┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+ - adapt:telegram_kb/prompt-editor@390: ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ┬лfullscreen┬╗ ╨╜╨╡ ╨╜╨░╨╢╨╕╨╝╨░╨╡╤В╤Б╤П
+EVOL-W15-COMPOSITION FAIL

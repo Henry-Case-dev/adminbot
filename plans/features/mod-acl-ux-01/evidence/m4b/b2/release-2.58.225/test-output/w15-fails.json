@@ -1,0 +1,47 @@
+{
+  "tool": "tools/ui_evol_w15_composition_e2e.py",
+  "out": "temp dirs (not committed)",
+  "bumped_tip": "75b92f31d17c11ff111708b19564cb9fef978f8f",
+  "runs": {
+    "run1": {
+      "failures": 73,
+      "status_observer_related": 0,
+      "summary": {
+        "composition_states": 27,
+        "coverage_routes": 28,
+        "viewports": 2,
+        "measured_cells": 110,
+        "selectors": 29,
+        "selectors_rendered": 26,
+        "instances": 1628,
+        "chart_selectors": 4,
+        "table_selectors": 3,
+        "adaptive_cells": 60,
+        "adaptive_modes": 4,
+        "adaptive_widths": 3
+      }
+    },
+    "run2": {
+      "failures": 72,
+      "status_observer_related": 0,
+      "summary": {
+        "composition_states": 27,
+        "coverage_routes": 28,
+        "viewports": 2,
+        "measured_cells": 110,
+        "selectors": 29,
+        "selectors_rendered": 26,
+        "instances": 1628,
+        "chart_selectors": 4,
+        "table_selectors": 3,
+        "adaptive_cells": 60,
+        "adaptive_modes": 4,
+        "adaptive_widths": 3
+      }
+    }
+  },
+  "reviewer_independent_count": 71,
+  "b1_stand_count": 72,
+  "environment_dependent": true,
+  "note": "Pre-existing cog-map/adaptive/prompt-editor failures; the exact count varies with the stand between 71 and 73. No failure mentions status/observer/dossier/exec/funnel/KPI in either run."
+}

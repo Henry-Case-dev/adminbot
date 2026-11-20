@@ -1,0 +1,76 @@
+=== evol_cog_scene_test.js rc=1
+
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\web\app.js:40242
+          if (!this._cogBlitLabel(ctx, scene, label.text, labelFont, fontPx,
+                    ^
+
+TypeError: this._cogBlitLabel is not a function
+    at Object._cogPaintLabels (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\web\app.js:40242:21)
+    at Object.drawLabels (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\web\app.js:39919:43)
+    at Object.paint (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\web\static\cog-visual.js:1697:59)
+    at Object._cogPaintFx (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\web\app.js:39721:30)
+    at Object._cogPaintStatic (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\web\app.js:39691:14)
+    at Object.graphApplySelectionLabels (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\web\app.js:41603:14)
+    at cycles (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\tests\js\evol_cog_scene_test.js:692:37)
+
+Node.js v24.16.0
+
+=== round1025_ia_routing_test.js rc=1
+
+node:assert:152
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: M-1: алиас #/ai/persona не имеет отдельной подписи
++ actual - expected
+
++ 'Речь и характер'
+- '#/ai/persona'
+
+    at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\tests\js\round1025_ia_routing_test.js:210:10)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'Речь и характер',
+  expected: '#/ai/persona',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.16.0
+
+=== ur_ui_settings_test.js rc=1
+
+node:assert:152
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: UR-29.1: карточка «Время» в витрине модулей
+
+false !== true
+
+    at C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\tests\js\ur_ui_settings_test.js:80:10
+    at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857\tests\js\ur_ui_settings_test.js:133:3)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.16.0
+
