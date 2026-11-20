@@ -1,0 +1,12 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '01.01.2024 12:00 UTC' == '01.01.2024 00:00 UTC'
+      
+      - 01.01.2024 00:00 UTC
+      ?            ^^
+      + 01.01.2024 12:00 UTC
+      ?            ^^
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:103: AssertionError: assert '01.01.2024 12:00 UTC' == '01.01.2024 00:00 UTC'
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestUtcRendering::test_message_timestamp_renderers_are_utc
+1 failed in 4.56s

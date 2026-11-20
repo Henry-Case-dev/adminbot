@@ -1,0 +1,15 @@
+﻿C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:9 знак:134
++ ... ate_m4.py"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 1 leaked aiosqlite connection(s)
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 9)' in '[01.01.2024 00:00 UTC | ╨Р╨▓╤В╨╛╤А [7] | tg:12]: ╨╝╨░╤А╨║╨╡╤А-╤В╨╡╨║╤Г╤Й╨╡╨╡ <<< [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:358: AssertionError: assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 9)' in '[01.01.2024 00:00 UTC | ╨Р╨▓╤В╨╛╤А [7] | tg:12]: ╨╝╨░╤А╨║╨╡╤А-╤В╨╡╨║╤Г╤Й╨╡╨╡ <<< [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]'
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_final_writer_messages_contain_reply_and_edit
+1 failed in 4.94s

@@ -1,0 +1,15 @@
+﻿C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:8 знак:134
++ ... ate_m1.py"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 1 leaked aiosqlite connection(s)
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   IndexError: No item with that key
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:347: IndexError: No item with that key
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_smart_window_selects_reply_edit_sent_at
+1 failed in 4.88s

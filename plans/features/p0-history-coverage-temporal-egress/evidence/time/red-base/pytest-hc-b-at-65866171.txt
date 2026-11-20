@@ -1,0 +1,85 @@
+﻿C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:1 знак:132
++ ... -912d3c5b"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 12 leaked aiosqlite connection(s)
+.....FFFFFFFFFFFFFF.FFFFFF.F.....................F.                      [100%]
+================================== FAILURES ===================================
+E   TypeError: format_context_item() got an unexpected keyword argument 'reply_to'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:150: TypeError: format_context_item() got an unexpected keyword argument 'reply_to'
+E   AttributeError: module 'services.canonical_context' has no attribute 'TIME_ORIGIN_RECORDED'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:160: AttributeError: module 'services.canonical_context' has no attribute 'TIME_ORIGIN_RECORDED'
+E   AttributeError: module 'services.canonical_context' has no attribute 'TIME_ORIGIN_SOURCE'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:173: AttributeError: module 'services.canonical_context' has no attribute 'TIME_ORIGIN_SOURCE'
+E   TypeError: format_speech_item() got an unexpected keyword argument 'reply_to'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:178: TypeError: format_speech_item() got an unexpected keyword argument 'reply_to'
+E   AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:191: AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+E   AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:203: AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+E   AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:213: AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+E   AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:224: AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+E   AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:246: AttributeError: 'RetrievalCandidate' object has no attribute 'time_kind'
+E   AttributeError: module 'services.mca_retrieval_context' has no attribute '_episode_candidate'. Did you mean: '_episode_candidates'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:251: AttributeError: module 'services.mca_retrieval_context' has no attribute '_episode_candidate'. Did you mean: '_episode_candidates'?
+E   AttributeError: module 'services.mca_retrieval_context' has no attribute '_episode_candidate'. Did you mean: '_episode_candidates'?
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:266: AttributeError: module 'services.mca_retrieval_context' has no attribute '_episode_candidate'. Did you mean: '_episode_candidates'?
+E   TypeError: RetrievalCandidate.__init__() got an unexpected keyword argument 'time_kind'
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\dataclasses.py:1579: TypeError: RetrievalCandidate.__init__() got an unexpected keyword argument 'time_kind'
+E   assert None is not None
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:287: assert None is not None
+E   AssertionError: assert False
+     +  where False = <built-in method startswith of str object at 0x00000207D5E56BB0>('[╤З╨░╤В] [01.2024 | ╨┤╨░╤В╨░ ╨╖╨░╨┐╨╕╤Б╨╕ | ')
+     +    where <built-in method startswith of str object at 0x00000207D5E56BB0> = '[╤З╨░╤В] [01.2024 | ╨Р╨▓╤В╨╛╤А | tg:5]: ╤Д╨░╨║╤В (╨Т╨╜╨╕╨╝╨░╨╜╨╕╨╡: ╨▓╨╛╨╖╨╝╨╛╨╢╨╜╨╛ ╤Г╤Б╤В╨░╤А╨╡╨╗╨╛)'.startswith
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:299: AssertionError: assert False
+E   AssertionError: assert False
+     +  where False = <built-in method startswith of str object at 0x00000207D5E56970>('[╤З╨░╤В] [01.2024 | ╨┤╨░╤В╨░ ╨╖╨░╨┐╨╕╤Б╨╕ | ')
+     +    where <built-in method startswith of str object at 0x00000207D5E56970> = '[╤З╨░╤В] [01.2024 | ╨Р╨▓╤В╨╛╤А | tg:5]: ╤Д╨░╨║╤В (╨Т╨╜╨╕╨╝╨░╨╜╨╕╨╡: ╨▓╨╛╨╖╨╝╨╛╨╢╨╜╨╛ ╤Г╤Б╤В╨░╤А╨╡╨╗╨╛)'.startswith
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:321: AssertionError: assert False
+E   AssertionError: assert 7 == 8
+     +  where 7 = len(('chat_history', '╤Д╨░╨║╤В', 1704067200, '╨Р╨▓╤В╨╛╤А', 'fact:5', '', ...))
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:332: AssertionError: assert 7 == 8
+E   IndexError: No item with that key
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:347: IndexError: No item with that key
+E   AssertionError: assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 9)' in '[01.01.2024 00:00 UTC | ╨Р╨▓╤В╨╛╤А [7] | tg:12]: ╨╝╨░╤А╨║╨╡╤А-╤В╨╡╨║╤Г╤Й╨╡╨╡ <<< [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:358: AssertionError: assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 9)' in '[01.01.2024 00:00 UTC | ╨Р╨▓╤В╨╛╤А [7] | tg:12]: ╨╝╨░╤А╨║╨╡╤А-╤В╨╡╨║╤Г╤Й╨╡╨╡ <<< [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]'
+E   AssertionError: assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 9)' in '[01.01.2024 00:00 UTC | ╨Р╨▓╤В╨╛╤А [7] | tg:12]: ╨╝╨░╤А╨║╨╡╤А-╤В╨╡╨║╤Г╤Й╨╡╨╡'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:378: AssertionError: assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 9)' in '[01.01.2024 00:00 UTC | ╨Р╨▓╤В╨╛╤А [7] | tg:12]: ╨╝╨░╤А╨║╨╡╤А-╤В╨╡╨║╤Г╤Й╨╡╨╡'
+E   IndexError: No item with that key
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:389: IndexError: No item with that key
+E   assert 0 == 1
+     +  where 0 = <built-in method count of str object at 0x00000207D8285E40>('╨Ь╨╡╤В╨║╨╕ ╨▓╤А╨╡╨╝╨╡╨╜╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╣ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╡ тАФ UTC.')
+     +    where <built-in method count of str object at 0x00000207D8285E40> = '<Chat_Time_Context source="server" phase="answer">\nlocal: 01.01.2024 03:00, ╨Я╨╛╨╜╨╡╨┤╨╡╨╗╤М╨╜╨╕╨║ (Europe/Moscow, UTC+03:00)\n...╨С╨╡╨╖ ╨░╨╜╨╛╨╜╤Б╨░ ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╤Е ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╣: ╨╜╨╡ ╤Б╨╛╨╛╨▒╤Й╨░╨╣, ╤З╤В╨╛ ╤Б╨╡╨╣╤З╨░╤Б ╤Б╨┤╨╡╨╗╨░╨╡╤И╤М ╨╕╨╗╨╕ ╤Г╨╢╨╡ ╤Б╨┤╨╡╨╗╨░╨╗, ╨╕ ╨╜╨╡ ╨╛╨▒╨╡╤Й╨░╨╣ ╤А╨░╨╖╨╛╨▒╤А╨░╤В╤М ╨▓╨╝╨╡╤Б╤В╨╛ ╤А╨░╨╖╨▒╨╛╤А╨░.'.count
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:420: assert 0 == 1
+E   IndexError: No item with that key
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_history_isolation.py:571: IndexError: No item with that key
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestCanonicalTemporalSegments::test_reply_and_edited_segments
+FAILED tests/test_p0_hc_temporal.py::TestCanonicalTemporalSegments::test_recorded_fact_keeps_month_first
+FAILED tests/test_p0_hc_temporal.py::TestCanonicalTemporalSegments::test_source_origin_does_not_invent_hours_or_recorded
+FAILED tests/test_p0_hc_temporal.py::TestCanonicalTemporalSegments::test_speech_fallback_keeps_segments
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_defaults_keep_all_constructors_compatible
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_message_candidate_source_and_recorded
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_message_without_time_is_honest_unknown
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_graph_fact_source_vs_recorded_not_mixed
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_vector_meta_fact_uses_row_time_origin
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_episode_separates_event_window_and_discovered
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_episode_without_event_columns_is_recorded_not_event
+FAILED tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_time_kind_does_not_participate_in_score
+FAILED tests/test_p0_hc_temporal.py::TestRagFactOrigin::test_fact_time_origin_helper
+FAILED tests/test_p0_hc_temporal.py::TestRagFactOrigin::test_recorded_prefix_and_origin_label
+FAILED tests/test_p0_hc_temporal.py::TestRagFactOrigin::test_build_rag_context_structure_unchanged
+FAILED tests/test_p0_hc_temporal.py::TestRagFactOrigin::test_direct_rag_tuple_carries_eighth_time_origin
+FAILED tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_smart_window_selects_reply_edit_sent_at
+FAILED tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_final_writer_messages_contain_reply_and_edit
+FAILED tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_history_pages_show_reply_and_edit
+FAILED tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_messages_around_selects_temporal_fields
+FAILED tests/test_p0_hc_temporal.py::TestTimeLineLegend::test_legend_once_and_after_clock_block
+FAILED tests/test_history_isolation.py::TestTemporalMetadataStorageToWriter::test_window_row_renders_reply_and_edit
+22 failed, 29 passed in 7.74s

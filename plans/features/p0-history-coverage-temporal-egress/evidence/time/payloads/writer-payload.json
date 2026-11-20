@@ -1,0 +1,29 @@
+{
+  "schema": "p0-hc-time-payload-v1",
+  "source": "isolated synthetic SQLite fixture; no production access",
+  "anonymized": true,
+  "writer": "l2_writer",
+  "tasks": [
+    "HC-TIME-PAYLOAD-PROOF",
+    "HC-ACC-CHANNELS",
+    "HC-TIME-SMART-CONTEXT"
+  ],
+  "time_line": "<Chat_Time_Context source=\"server\" phase=\"answer\">\nlocal: 01.01.2024 03:00, Понедельник (Europe/Moscow, UTC+03:00)\nas_of_utc: 2024-01-01T00:00:00+00:00\n</Chat_Time_Context>",
+  "messages": [
+    {
+      "role": "system",
+      "system_sha256": "0376bea8fedbc6595ddf65c2dd42f07b495512833e9ffe0a0f321fa9d6b89360"
+    },
+    {
+      "role": "user",
+      "content": "<Chat_Time_Context source=\"server\" phase=\"answer\">\nlocal: 01.01.2024 03:00, Понедельник (Europe/Moscow, UTC+03:00)\nas_of_utc: 2024-01-01T00:00:00+00:00\n</Chat_Time_Context>\nМетки времени сообщений в контексте — UTC.\n\n<Global_Context>\n[01.01.2024 00:00 UTC | A [7] | tg:12 | ответ на tg:11 (uid 8) | ред. 01.01.2024 00:05 UTC]: message-1 <<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]\n</Global_Context>\n\n<RAG_Memory>\n[чат] [01.2024 | дата записи | B | fact:5]: fact-1 (Внимание: возможно устарело)\n</RAG_Memory>\n\n<Tool_Evidence>\n[01.01.2024 00:00 UTC | A [7] | tg:12 | ответ на tg:11 (uid 8) | ред. 01.01.2024 00:05 UTC]: message-1\n</Tool_Evidence>\n\nБез анонса собственных действий: не сообщай, что сейчас сделаешь или уже сделал, и не обещай разобрать вместо разбора."
+    }
+  ],
+  "observed": {
+    "reply_edge_in_user": true,
+    "edit_stamp_in_user": true,
+    "recorded_fact_label_in_user": true,
+    "utc_legend_count": 1,
+    "clock_blocks": 1
+  }
+}

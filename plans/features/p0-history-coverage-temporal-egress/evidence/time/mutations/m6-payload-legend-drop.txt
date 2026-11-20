@@ -1,0 +1,9 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert 0 == 1
+     +  where 0 = <built-in method count of str object at 0x000001C06823A260>('╨Ь╨╡╤В╨║╨╕ ╨▓╤А╨╡╨╝╨╡╨╜╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╣ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╡ тАФ UTC.')
+     +    where <built-in method count of str object at 0x000001C06823A260> = '<Chat_Time_Context source="server" phase="answer">\nlocal: 01.01.2024 03:00, ╨Я╨╛╨╜╨╡╨┤╨╡╨╗╤М╨╜╨╕╨║ (Europe/Moscow, UTC+03:00)\n...╨С╨╡╨╖ ╨░╨╜╨╛╨╜╤Б╨░ ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╤Е ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╣: ╨╜╨╡ ╤Б╨╛╨╛╨▒╤Й╨░╨╣, ╤З╤В╨╛ ╤Б╨╡╨╣╤З╨░╤Б ╤Б╨┤╨╡╨╗╨░╨╡╤И╤М ╨╕╨╗╨╕ ╤Г╨╢╨╡ ╤Б╨┤╨╡╨╗╨░╨╗, ╨╕ ╨╜╨╡ ╨╛╨▒╨╡╤Й╨░╨╣ ╤А╨░╨╖╨╛╨▒╤А╨░╤В╤М ╨▓╨╝╨╡╤Б╤В╨╛ ╤А╨░╨╖╨▒╨╛╤А╨░.'.count
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:420: assert 0 == 1
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestTimeLineLegend::test_legend_once_and_after_clock_block
+1 failed in 4.66s

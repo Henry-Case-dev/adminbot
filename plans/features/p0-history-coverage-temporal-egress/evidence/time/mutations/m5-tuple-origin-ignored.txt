@@ -1,0 +1,9 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert False
+     +  where False = <built-in method startswith of str object at 0x0000025793A43B70>('[╤З╨░╤В] [01.2024 | ╨┤╨░╤В╨░ ╨╖╨░╨┐╨╕╤Б╨╕ | ')
+     +    where <built-in method startswith of str object at 0x0000025793A43B70> = '[╤З╨░╤В] [01.2024 | ╨Р╨▓╤В╨╛╤А | tg:5]: ╤Д╨░╨║╤В (╨Т╨╜╨╕╨╝╨░╨╜╨╕╨╡: ╨▓╨╛╨╖╨╝╨╛╨╢╨╜╨╛ ╤Г╤Б╤В╨░╤А╨╡╨╗╨╛)'.startswith
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:299: AssertionError: assert False
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestRagFactOrigin::test_recorded_prefix_and_origin_label
+1 failed in 4.72s

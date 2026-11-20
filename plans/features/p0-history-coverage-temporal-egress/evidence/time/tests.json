@@ -1,0 +1,157 @@
+{
+  "schema": "p0-hc-time-tests-v1",
+  "task": "p0-history-coverage-temporal-egress-01",
+  "slice": "HC-TIME",
+  "base_commit": "658661710add58b88dfcb7a18a43bd7ad15d5f89",
+  "slice_base_commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
+  "candidate_commit": "24f0f76672c4f5187700c19cdbf9492481e016f3",
+  "branch": "p0/hc-b",
+  "worktree": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b",
+  "environment": {
+    "python": "3.12.0 (.venv from C:/Code/Python/adminbot)",
+    "pytest": "9.1.1",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none; SQLite in-memory",
+    "production": "not contacted; no live chat; no sends"
+  },
+  "commands": {
+    "new": "python -m pytest tests/test_p0_hc_temporal.py -q",
+    "history_isolation": "python -m pytest tests/test_history_isolation.py -q",
+    "focused": "python -m pytest tests/test_p0_hc_temporal.py tests/test_history_isolation.py tests/test_history_pages.py tests/test_history_segments.py tests/test_p0_hc_coverage.py tests/test_p0_history_depth_round1029.py tests/test_vmq_recent_window.py tests/test_asap2_boundary_marker.py tests/test_database.py tests/test_mca07_retrieval_context_round1027.py tests/test_memory_unified_retrieval_06.py tests/test_summary_memory.py tests/test_graphrag_memory.py tests/test_recent_history_tool_round1015.py tests/test_history_quality_wiring.py tests/test_ur_c_clock.py -q -k \"not test_intra_page_cut_reply_keeps_connection and not test_generous_budget_keeps_block_intact_same_asof\"",
+    "mandatory_386": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q"
+  },
+  "results": {
+    "new": {
+      "passed": 30,
+      "failed": 0
+    },
+    "history_isolation": {
+      "passed": 21,
+      "failed": 0
+    },
+    "focused": {
+      "passed": 739,
+      "failed": 0,
+      "deselected": 2,
+      "note": "deselected: pre-existing ur_c_clock failure (same on A tip) and the out-of-scope exact-cut assertion in test_history_segments"
+    },
+    "mandatory_386": {
+      "passed": 386,
+      "failed": 0,
+      "note": "same mandatory 24-file set as A / 2.58.225 evidence"
+    }
+  },
+  "red_base": {
+    "commit": "658661710add58b88dfcb7a18a43bd7ad15d5f89",
+    "method": "source files stashed at A tip; B tests kept in the worktree",
+    "command": "python -m pytest tests/test_p0_hc_temporal.py tests/test_history_isolation.py -q",
+    "result": "22 failed, 29 passed (missing SELECT fields/segments/DTO fields/tuple origin/legend)",
+    "artifact": "red-base/pytest-hc-b-at-65866171.txt"
+  },
+  "known_conflicts": {
+    "test_history_segments_exact_cut": {
+      "test": "tests/test_history_segments.py::TestBoundaryContinuity::test_intra_page_cut_reply_keeps_connection",
+      "result": "1 failed (expected cut 121|122 vs 120|121 after reply segment on row 111)",
+      "reason": "test computes a character slot from rendered lines; oracle-backed reply metadata legitimately lengthens lines; coverage remains complete, test file outside B write scope",
+      "artifact": "known-test-shape-shift.txt"
+    },
+    "preexisting_ur_c_clock": {
+      "test": "tests/test_ur_c_clock.py::TestFallbackAdapterClock::test_generous_budget_keeps_block_intact_same_asof",
+      "result": "fails identically on A tip 65866171 and on the B candidate",
+      "reason": "pre-existing fallback-capacity assertion, not caused by B",
+      "artifacts": [
+        "red-base/preexisting-ur-c-clock-at-65866171.txt",
+        "red-base/preexisting-ur-c-clock-at-hc-b.txt"
+      ]
+    }
+  },
+  "mutations": [
+    {
+      "id": "m1-drop-sent-at",
+      "mutation": "get_smart_window SELECT drops sent_at",
+      "test": "tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_smart_window_selects_reply_edit_sent_at",
+      "result": "1 failed (expected: IndexError/None, field absent)",
+      "artifact": "mutations/m1-drop-sent-at.txt"
+    },
+    {
+      "id": "m2-created-at-as-event",
+      "mutation": "_fact_candidate treats created_at as source time",
+      "test": "tests/test_p0_hc_temporal.py::TestRetrievalCandidateTemporalFields::test_graph_fact_source_vs_recorded_not_mixed",
+      "result": "1 failed (expected: source vs recorded)",
+      "artifact": "mutations/m2-created-at-as-event.txt"
+    },
+    {
+      "id": "m3-local-timezone",
+      "mutation": "_ha_fmt_ts uses local fromtimestamp instead of UTC",
+      "test": "tests/test_p0_hc_temporal.py::TestUtcRendering::test_message_timestamp_renderers_are_utc",
+      "result": "1 failed (expected: 12:00 vs 00:00 on UTC+12 host)",
+      "artifact": "mutations/m3-local-timezone.txt"
+    },
+    {
+      "id": "m4-reply-edit-loss",
+      "mutation": "_context_row_line drops reply/edit segments",
+      "test": "tests/test_p0_hc_temporal.py::TestStorageToWriterPayload::test_final_writer_messages_contain_reply_and_edit",
+      "result": "1 failed (expected: payload lacks reply edge)",
+      "artifact": "mutations/m4-reply-edit-loss.txt"
+    },
+    {
+      "id": "m5-tuple-origin-ignored",
+      "mutation": "_format_origin_labeled_line ignores 8th time_origin element",
+      "test": "tests/test_p0_hc_temporal.py::TestRagFactOrigin::test_recorded_prefix_and_origin_label",
+      "result": "1 failed (expected: no 'дата записи')",
+      "artifact": "mutations/m5-tuple-origin-ignored.txt"
+    },
+    {
+      "id": "m6-payload-legend-drop",
+      "mutation": "_with_time_zone_legend returns time_line unchanged",
+      "test": "tests/test_p0_hc_temporal.py::TestTimeLineLegend::test_legend_once_and_after_clock_block",
+      "result": "1 failed (expected: legend count 0)",
+      "artifact": "mutations/m6-payload-legend-drop.txt"
+    }
+  ],
+  "payload_proof": {
+    "script": "payloads/capture_payloads.py",
+    "output": "payloads/writer-payload.json",
+    "sha256_file": "payloads/writer-payload.sha256",
+    "sha256": "e88ed1d14a54b1e2feb4b26c47bca070c933120279dff43f26ba7d1c17d806ce",
+    "observed": {
+      "reply_edge_in_user": true,
+      "edit_stamp_in_user": true,
+      "recorded_fact_label_in_user": true,
+      "utc_legend_count": 1,
+      "clock_blocks": 1
+    }
+  },
+  "products": [
+    "services/canonical_context.py",
+    "services/database.py",
+    "services/direct_chat_service.py",
+    "services/mca_retrieval_context.py",
+    "services/summary_memory.py",
+    "services/tool_router.py",
+    "tests/test_history_isolation.py",
+    "tests/test_p0_hc_temporal.py"
+  ],
+  "configuration": {
+    "new_flags": 0,
+    "new_ddl": 0,
+    "new_indexes": 0,
+    "order_by_changed": false,
+    "ranking_changed": false,
+    "rag_ts_changed": false,
+    "apply_filters_changed": false,
+    "prompt_canon_changed": false,
+    "build_rag_context_structure_changed": false,
+    "bump_or_deploy": false,
+    "a_coverage_contract_touched": false
+  },
+  "limitations": [
+    "Production trace/effective release/config/prompt, real chat_id/message_id/trace_id and the real archive are unavailable; the payload proof is an isolated synthetic fixture through the real Writer boundary, not production evidence.",
+    "valid_from/valid_to are defaults 0 in this line: B database scope is limited to the three smart_messages SELECTs; graph_facts SELECT extension is outside the frozen slice.",
+    "Episode event_start/event_end are consumed only when a row carries them; the mca_episodes facade is outside B write scope and currently exposes created_at(discovered)/last_ts only.",
+    "The 8th RAG tuple element is added at the Direct-RAG dict→tuple boundary to keep the legacy get_rag_facts 7-tuple contract and its existing tests; build_rag_context is unchanged.",
+    "tests/test_history_segments.py exact-cut fixture assertion shifts by one message after legitimate reply metadata lengthens rendered lines; the file is outside B write scope and was not edited.",
+    "tests/test_ur_c_clock.py::TestFallbackAdapterClock::test_generous_budget_keeps_block_intact_same_asof fails identically at A tip (pre-existing; not caused by B).",
+    "No live user-visible Telegram/temporal scenarios were run; egress is slice C, acceptance is HC-ACCEPT."
+  ]
+}
