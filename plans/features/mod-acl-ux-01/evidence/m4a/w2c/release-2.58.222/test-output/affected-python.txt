@@ -1,0 +1,5 @@
+Approved card-height review: 304 passed / 6 failed (same six baseline nodeids).
+Local expanded 15-file webapp set: 305 passed / 6 failed (same six; +1 collection difference).
+Local 13-file subset: 218 passed / 6 failed (same six).
+Failing nodeids: nav_disclosure_ui 2, round1020_ui 3, f5_round1025 1.
+Same six reproduce on base d03027b1; no new failures.

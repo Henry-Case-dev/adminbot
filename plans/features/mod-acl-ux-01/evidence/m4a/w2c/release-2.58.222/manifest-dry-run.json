@@ -1,0 +1,35 @@
+{
+  "captured_at_commit": "03abd668d76befe8bc36c47c41a8e8666d47e107",
+  "command": "python tools/release_manifest.py --repo-root <release-worktree> --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean (git status --porcelain empty) before and after; .deploy previous-manifest input removed",
+  "manifest": {
+    "deployed_at": "2026-11-20T03:45:57.761722Z",
+    "deployed_sha": "03abd668d76befe8bc36c47c41a8e8666d47e107",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+    "previous_version": "2.58.220",
+    "release_branch": "release/mod-acl-w2c-2.58.222",
+    "schema": 1,
+    "version": "2.58.222"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "reconstruction of documented deployed state: d03027b1 / 2.58.220 / content 8e05e9a4",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+      "version": "2.58.220",
+      "effect": "deploy",
+      "release_branch": "release/time03-natural-2.58.220"
+    },
+    "removed_after_run": true
+  },
+  "note": "Dry-run captured the content tip 03abd668d, not the later evidence-only tip. The deploy-time manifest must record the actual checkout SHA; product bytes are identical between content and evidence-only commits.",
+  "post_capture_note": "If production deploys a later docs/evidence-only commit on this branch, the honest deploy-time manifest records that checkout SHA (only evidence differs)."
+}

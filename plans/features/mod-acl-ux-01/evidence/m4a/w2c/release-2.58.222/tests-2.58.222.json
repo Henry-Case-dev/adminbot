@@ -1,0 +1,206 @@
+{
+  "release": "2.58.222",
+  "feature": "MOD-ACL-UX-01 M4A W2c + postdeploy card-height corrective",
+  "branch": "release/mod-acl-w2c-2.58.222",
+  "status": "REVIEW",
+  "verified": false,
+  "deployed": false,
+  "base": {
+    "sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+    "version": "2.58.220",
+    "content_tip": "8e05e9a4d7ae7dafba6ab4efca405149264d5ba5",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "sha": "51bad063ff47750798b6419456862f83f7db3ca5",
+    "branch": "fix/mod-acl-w2c-card-height",
+    "base": "67ef30cd120163132a2f2e894a0fe474bba9623d",
+    "product_fix": "80955000806a0f5fc5a855e72a19b1ce1d039dc5",
+    "merge_commit": "a959bb61f582a3005dccf7ac61f7385b1f57c701",
+    "merge_parents": [
+      "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+      "51bad063ff47750798b6419456862f83f7db3ca5"
+    ],
+    "content_commit": "03abd668d76befe8bc36c47c41a8e8666d47e107",
+    "content_tree": "e7681a80b3fe83f75a25577c0d755ad82c51a8cd",
+    "bump_commit": "03abd668d76befe8bc36c47c41a8e8666d47e107"
+  },
+  "review": {
+    "path": "plans/features/mod-acl-ux-01/evidence/m4a/w2c/release-2.58.222/review-card-height-r1.md",
+    "commit": "dc552b009",
+    "sha256": "96438228d80369bd2bd132d1e1abf73eca7c9d9e2fb858be16c5ca7c48a3b1fc",
+    "verdict": "APPROVED_FOR_RELEASE_PREPARATION"
+  },
+  "environment": {
+    "python": "3.12.0 (py launcher)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "os": "Windows (PowerShell 5.1)",
+    "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/mod-acl-ux-01-w2c-2-58-222-8d95fb48cdf8-85e9b5f9",
+    "network": "none; local Playwright/http fixtures only; no production access",
+    "configuration": "test fixtures only; no effective gate, factory default or persisted override changed"
+  },
+  "delta": {
+    "product_files_from_base_to_candidate": [
+      "web/app.js",
+      "web/index.html",
+      "web/static/app.css"
+    ],
+    "card_height_fix": "web/static/app.css +6/-1 (title one-line clamp); web/index.html +1/-1 (:title); web/app.js untouched by fix",
+    "candidate_has_no_version_bump": "APP_VERSION remains 2.58.220 on 51bad063; git diff d03027b1..51bad063 -- config = empty",
+    "merge_tree_equality": "git diff 51bad063..a959bb61f = empty",
+    "backend_api_config_check": "git diff d03027b1..51bad063 -- services handlers web/api config = empty",
+    "web_product_check": "git diff d03027b1..51bad063 -- web = exactly the 3 files above",
+    "evol_evidence": "none in the release diff",
+    "release_content_adds": [
+      "config/settings.py (APP_VERSION 2.58.222 + W2c/card-height changelog)",
+      "plans/docs/param-registry-round1025.meta.md",
+      "24 Python version-pin tests",
+      "4 JS escaped version-pin tests"
+    ],
+    "bump_commit_stat": "30 files changed, 31 insertions(+), 31 deletions(-)",
+    "base_to_content_shortstat": "71 files changed, 13520 insertions(+), 44 deletions(-)",
+    "schema_ddl": "48 / 0; no backend/API/DDL/flags/prompts/storage delta"
+  },
+  "batches": [
+    {
+      "id": "card-height-long-content",
+      "command": "python tools/ui_mod_acl_w2c_card_height_e2e.py",
+      "result": {
+        "viewports": 3,
+        "failures": 0,
+        "viewports_list": [
+          1680,
+          1440,
+          320
+        ],
+        "cards": {
+          "mod_transcribe": "162.06 / titleH 18",
+          "mod_video_summary": "162.06 / titleH 18",
+          "mod_media_download": "162.06 / titleH 18",
+          "mod_images": "162.06 / titleH 18"
+        },
+        "red_before_fix": "179.56 / titleH 35"
+      }
+    },
+    {
+      "id": "w2c-playwright",
+      "command": "python tools/ui_mod_acl_m4a_w2c_e2e.py",
+      "result": {
+        "viewports": 6,
+        "failures": 0,
+        "viewports_list": [
+          1680,
+          1440,
+          1280,
+          768,
+          390,
+          320
+        ],
+        "heights": "162 at 1680/1440/1280; 132/146/162 at 768/390/320",
+        "split": "1024/1152/1199 one column; 1200/1680 8/4",
+        "chips": "16 desktop; 44 at 768/390/320",
+        "overflow": 0
+      }
+    },
+    {
+      "id": "m4a-catalog-e2e",
+      "command": "python tools/ui_mod_acl_m4_catalog_e2e.py",
+      "result": {
+        "failures": 0,
+        "status": "M4A-CATALOG-E2E OK"
+      }
+    },
+    {
+      "id": "node-w2c-7",
+      "result": {
+        "files": 7,
+        "failed": 0,
+        "counts": {
+          "mod_acl_ux_m3_module_routes_test.js": 235,
+          "mod_acl_ux_m4_catalog_test.js": 207,
+          "mod_acl_ux_m4_module_params_test.js": 64,
+          "mod_acl_ux_m4_review_fixes_test.js": 75,
+          "mod_acl_ux_m4a_w2a_tabs_freshness_test.js": 141,
+          "mod_acl_ux_m4a_w2b_history_test.js": 356,
+          "mod_acl_ux_m4a_w2c_navigation_layout_test.js": 84
+        }
+      }
+    },
+    {
+      "id": "js-version-pins-4",
+      "result": {
+        "files": 4,
+        "failed": 0
+      }
+    },
+    {
+      "id": "direct-version-pins-5",
+      "result": {
+        "passed": 132,
+        "failed": 0
+      }
+    },
+    {
+      "id": "affected-python",
+      "approved_review": {
+        "passed": 304,
+        "failed": 6,
+        "source": "review-card-height-r1.md"
+      },
+      "local_expanded": {
+        "passed": 305,
+        "failed": 6,
+        "note": "same six failures; +1 test collection difference vs approved review"
+      },
+      "local_13_file": {
+        "passed": 218,
+        "failed": 6,
+        "note": "the same six baseline nodeids"
+      },
+      "failed_nodeids": [
+        "tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_11_modules_and_labels",
+        "tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_modules_ui_and_modal",
+        "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+        "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2",
+        "tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz",
+        "tests/test_webapp_f5_round1025.py::test_workspace_metadata_present"
+      ],
+      "baseline_note": "Same six nodeids fail on base d03027b1; no new failures."
+    },
+    {
+      "id": "mutation-title-clamp-removed",
+      "patch": "white-space:nowrap; overflow:hidden; text-overflow:ellipsis removed from .module-card .module-title",
+      "result": "KILLED: 24 failures (4 cards x height+title x 3 viewports), 179.56 / titleH 35"
+    }
+  ],
+  "static_checks": {
+    "app_version": "2.58.222",
+    "schema_smoke": {
+      "user_version": 48,
+      "schema_constant": 48,
+      "schema_migrations": 48
+    },
+    "ddl_delta": 0,
+    "git_diff_check": {
+      "worktree": 0,
+      "base_to_head": 0
+    },
+    "manifest_dry_run": {
+      "artifact": "manifest-dry-run.json",
+      "exit": 0,
+      "version": "2.58.222",
+      "previous_sha": "d03027b1bc3811a0614c5a2e38342eb9e77c4ea5",
+      "previous_version": "2.58.220",
+      "dirty_tracked": false
+    }
+  },
+  "limitations": [
+    "No production access, SSH, deploy or live TMA check; postdeploy checks are in the runbook.",
+    "Affected Python approved baseline is 304/6; local expanded set is 305/6 with the same six failures (one-test collection difference).",
+    "A full 24-file version-pin Python batch was not completed in this assembly; direct version-pin files 132/0 and all 4 JS pins passed.",
+    "Card-height long-content titles are realistic but synthetic; production Linux fonts are only covered by the postdeploy runbook.",
+    "W2c rows remain REVIEW; no VERIFIED claim."
+  ]
+}

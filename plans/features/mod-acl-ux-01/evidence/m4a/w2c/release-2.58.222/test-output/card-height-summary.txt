@@ -1,0 +1,4 @@
+Card-height long-content: failures=0
+1680 {'mod_transcribe': (162.06, 18), 'mod_video_summary': (162.06, 18), 'mod_media_download': (162.06, 18), 'mod_images': (162.06, 18)}
+1440 {'mod_transcribe': (162.06, 18), 'mod_video_summary': (162.06, 18), 'mod_media_download': (162.06, 18), 'mod_images': (162.06, 18)}
+320 {'mod_transcribe': (162.06, 18), 'mod_video_summary': (162.06, 18), 'mod_media_download': (162.06, 18), 'mod_images': (162.06, 18)}

@@ -1,0 +1,96 @@
+{
+ "viewports": {
+  "1680": {
+   "mod_transcribe": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Транскрипт голосовых и видеосообщений"
+   },
+   "mod_video_summary": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Выжимка видео по ссылкам и файлам"
+   },
+   "mod_media_download": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Скачивание медиа и видео по ссылке"
+   },
+   "mod_images": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Генерация изображений по описанию"
+   }
+  },
+  "1440": {
+   "mod_transcribe": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Транскрипт голосовых и видеосообщений"
+   },
+   "mod_video_summary": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Выжимка видео по ссылкам и файлам"
+   },
+   "mod_media_download": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Скачивание медиа и видео по ссылке"
+   },
+   "mod_images": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Генерация изображений по описанию"
+   }
+  },
+  "320": {
+   "mod_transcribe": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Транскрипт голосовых и видеосообщений"
+   },
+   "mod_video_summary": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Выжимка видео по ссылкам и файлам"
+   },
+   "mod_media_download": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Скачивание медиа и видео по ссылке"
+   },
+   "mod_images": {
+    "h": 162.06,
+    "titleH": 18,
+    "descH": 32,
+    "labelH": 13,
+    "title": "Генерация изображений по описанию"
+   }
+  }
+ },
+ "failures": [],
+ "shots": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\mod-acl-ux-01-w2c-2-58-222-8d95fb48cdf8\\card-shots"
+}

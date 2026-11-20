@@ -1,0 +1,22 @@
+Node W2c 7 files (2.58.222 content)
+=== mod_acl_ux_m3_module_routes_test.js
+MOD-ACL-UX-01 M3 MODULE ROUTES OK тАФ 235 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║, ╨╝╨╛╨┤╤Г╨╗╨╡╨╣ ╨▓ ╤А╨╡╨╡╤Б╤В╤А╨╡: 21
+exit=0
+=== mod_acl_ux_m4_catalog_test.js
+MOD-ACL-UX-01 M4A CATALOG OK тАФ 207 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║
+exit=0
+=== mod_acl_ux_m4_module_params_test.js
+MOD-ACL-UX-01 M4 MODULE PARAMS OK тАФ 64 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║; ╨│╤А╤Г╨┐╨┐ ╨╛╨▒╤К╤П╨▓╨╗╨╡╨╜╨╛: 2; ╨┐╨░╤А╨░╨╝╨╡╤В╤А╨╛╨▓ ╤Г ╨░╨┤╨╝╨╕╨╜╨░: 25
+exit=0
+=== mod_acl_ux_m4_review_fixes_test.js
+M4-REVIEW-FIXES-OK тАФ 75 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║
+exit=0
+=== mod_acl_ux_m4a_w2a_tabs_freshness_test.js
+MOD-ACL-UX-M4A-W2A-TABS-FRESHNESS-OK тАФ 141 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║
+exit=0
+=== mod_acl_ux_m4a_w2b_history_test.js
+MOD-ACL-UX-M4A-W2B-HISTORY-OK тАФ 356 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║
+exit=0
+=== mod_acl_ux_m4a_w2c_navigation_layout_test.js
+OK mod-acl W2c navigation/layout: 84 checks
+exit=0
