@@ -8,7 +8,7 @@
     "ddl": 0
   },
   "candidate_branch": "release/mod-acl-m4b2-2.58.225",
-  "candidate_sha": "set after commit (git log -1)",
+  "candidate_sha": "db92c73ce122ee09a461696ba4d0a8c69b07cbb6",
   "environment": {
     "node": "v24.16.0",
     "python": "3.12.0",

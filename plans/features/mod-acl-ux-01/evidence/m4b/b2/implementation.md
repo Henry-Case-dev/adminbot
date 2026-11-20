@@ -6,8 +6,8 @@
 - Worktree: `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-m4b2-fb6b9cda16d7-65c53857`
 - Ветка: `release/mod-acl-m4b2-2.58.225` (без bump/deploy).
 - Schema: **48**, DDL **0** (D1/D3 read-only; новых таблиц/полей нет).
-- Кандидат: см. `git rev-parse HEAD` в handoff; evidence привязан к рабочему дереву
-  до коммита, после коммита SHA фиксируется в `git log -1`.
+- Кандидат: **`db92c73ce122ee09a461696ba4d0a8c69b07cbb6`** (ветка
+  `release/mod-acl-m4b2-2.58.225`; без bump/deploy).
 
 ## 1. Что изменено
 
