@@ -42,9 +42,10 @@ link `#/modules/<slug>/history` на bare — панель остаётся с �
 (`refreshHistory`). `403`/`empty`/`error` не изменены; `available:false` и
 `enabled:false` остаются `off`; «0 событий» нигде не подменяет отказ.
 
-Diff: `4 files changed, 275 insertions(+), 52 deletions(-)` (2 продукта,
-2 теста). Кандидатные блобы: `web/app.js` = `108f440f…`,
-`web/index.html` = `c3ceb1b5…`.
+Diff: `4 files changed, 276 insertions(+), 53 deletions(-)` (2 продукта,
+2 теста). Кандидатные блобы (`git cat-file -p HEAD:<path> | sha256sum`):
+`web/app.js` = `6d30c659…`, `web/index.html` = `77467507…` (CRLF рабочего
+дерева Windows не сравнивать с deployed-блобом).
 
 ## 3. Тесты
 
