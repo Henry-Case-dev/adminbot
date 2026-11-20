@@ -1,0 +1,89 @@
+﻿RED on base 40fe603f0aac853af99656bac1934ec5f3d160f9 (2.58.223)
+Product files are base bytes; tests/e2e copied from candidate worktree.
+
+=== node tests/js/mod_acl_ux_m4b_feeds_test.js
+rc=1
+
+  throw new AssertionError(obj);
+AssertionError [ERR_ASSERTION]: ╤А╨╛╨▓╨╜╨╛ ╨┐╤П╤В╤М ╨╗╨╡╨╜╤В ╨▓ ╨╛╨┤╨╜╨╛╨╣ ╨║╨░╤А╤В╨╛╤З╨║╨╡
+  code: 'ERR_ASSERTION',
+  actual: 4,
+  expected: 5,
+
+
+
+=== node tests/js/asap_ui02_status_ribbons_test.js
+rc=1
+
+  throw new AssertionError(obj);
+AssertionError [ERR_ASSERTION]: ╨┐╤П╤В╤М ╤Б╨╡╨║╤Ж╨╕╨╣ ╨▓ ╨╛╨┤╨╜╨╛╨╣ ╨║╨░╤А╤В╨╛╤З╨║╨╡
+  code: 'ERR_ASSERTION',
+  actual: 4,
+  expected: 5,
+
+
+
+=== node tests/js/round1024_dossier_feed_test.js
+rc=1
+
+AssertionError [ERR_ASSERTION]: dossierPeopleFeed тАФ computed
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: true,
+
+
+
+=== node tests/js/round1025_f11_status_grid_test.js
+rc=1
+
+AssertionError [ERR_ASSERTION]: ┬з12: ╨┐╨╛╤А╤П╨┤╨╛╨║ DOM data-intel-section="dossier"
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+
+
+
+=== node tests/js/soul1_w5_initiative_panel_test.js
+rc=1
+
+  throw new AssertionError(obj);
+AssertionError [ERR_ASSERTION]: W5: ╨┐╤П╤В╨░╤П ╨╗╨╡╨╜╤В╨░ ┬л╨Ф╨╛╤Б╤М╨╡┬╗ ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╜╨░
+  code: 'ERR_ASSERTION',
+  actual: 0,
+  expected: 1,
+
+
+
+=== node tests/js/round1020_ui_test.js
+rc=1
+
+TypeError: Cannot read properties of undefined (reading 'call')
+
+
+
+=== node tests/js/evol001_005_widgets_test.js
+rc=1
+
+  throw new AssertionError(obj);
+AssertionError [ERR_ASSERTION]: EVOL-002 + M4B B1: ╨╛╨┤╨╜╨░ ╤Б╤Е╨╡╨╝╨░ ╨┤╨▓╨╕╨╢╨╡╨╜╨╕╤П ╨╜╨░ ╨▓╤Б╨╡ ╨┐╤П╤В╤М ╨╕╤Б╤В╨╛╤З
+╨╜╨╕╨║╨╛╨▓
+  code: 'ERR_ASSERTION',
+  actual: 4,
+  expected: 5,
+
+
+
+=== e2e tools/ui_mod_acl_m4b_status_e2e.py
+rc=1
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\playwright\_impl\_frame.py", line 394, in wait_for_selector
+    await self._channel.send(
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 12000ms exceeded.
+Call log:
+  - waiting for locator("[data-intel-section=\"dossier\"]")
+

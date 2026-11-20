@@ -1,0 +1,27 @@
+Mutations on candidate 40fe603f + B1 working tree (each applied alone, then
+restored byte-for-byte from backup; node --check rc=0 after every apply/restore).
+
+M1. Remove 5th ribbon (dossier div loses `ribbon` class + v-if="false").
+    node tests/js/mod_acl_ux_m4b_feeds_test.js -> rc=1,
+    "ровно пять лент в одной карточке": actual 4, expected 5.
+    node tests/js/asap_ui02_status_ribbons_test.js -> rc=1,
+    "пять секций в одной карточке": actual 4, expected 5.
+
+M2. Break desktop breakpoint (>=1280 3 cols -> >=1100 4 cols).
+    node tests/js/mod_acl_ux_m4b_feeds_test.js -> rc=1,
+    "≥1280: три колонки (3+2, не пять узких)": false.
+    node tests/js/asap_ui02_status_ribbons_test.js -> rc=1,
+    "desktop: 3+2": false.
+
+M3. Remove person grouping (one row per record, 1:1 dossier feed).
+    node tests/js/mod_acl_ux_m4b_feeds_test.js -> rc=1,
+    "четыре записи → три человека (досье — не 1:1 копия «Фактов»)":
+    actual 4, expected 3.
+
+M4. Drop chat_id from /api/oversight/dossier_feed request.
+    node tests/js/round1024_dossier_feed_test.js -> rc=1,
+    "конкретный чат → фильтр chat_id в запросе": actual false.
+
+Restore verification: sha256 of app.js/index.html/app.css equals the backup;
+node --check web/app.js rc=0; git diff --check rc=0; targeted green suite
+re-run rc=0.
