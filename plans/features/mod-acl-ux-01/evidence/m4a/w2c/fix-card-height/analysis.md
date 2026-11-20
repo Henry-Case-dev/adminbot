@@ -42,7 +42,7 @@ Green evidence: `test-output/green.json` / `green.log`; screenshots `card-height
 - M4A catalog e2e: **`M4A-CATALOG-E2E OK | failures=0`** (13 conflict/badge/mobile/height checks).
 - Node W2c 7 files: **0 fail** — M3 235, M4 catalog 207, params 64, review 75, W2a 141, W2b 356, W2c 84. The D2 label test remains green because chat labels keep their full wrapped text; only the title is clamped.
 - Affected Python: **218 passed / 6 failed**, the same 6 baseline failures as before; no new failures. Log: `test-output/affected-python.txt`.
-- Mutation: removing the title clamp re-introduces **179.56 / titleH=35** and the targeted test fails (12 assertions: 4 cards × height+title at 3 viewports). Log: `test-output/mutation-title-clamp-removed.txt`.
+- Mutation: removing the title clamp re-introduces **179.56 / titleH=35** and the targeted test fails (24 assertions: 4 cards × height+title × 3 viewports). Log: `test-output/mutation-title-clamp-removed.txt`.
 
 ## 4. Residual / next
 
