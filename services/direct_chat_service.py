@@ -9285,12 +9285,17 @@ class DirectChatService:
         сообщений». Тела не выбирает. Нет границы → None (паритет); сбой
         диапазона → маркер с конкретной причиной (не FTS/дефолт).
         CancelledError — проброс. Логи — только chat_id (R17)."""
-        if self.tool_router is None:
-            return None
         text = str(query or "")
         as_of = int(turn_as_of or time.time())
         spec = extract_history_window(text)
         count_requested = extract_history_depth(text)
+        if self.tool_router is None:
+            # Инструмент недоступен: период не проверен. Возвращаем маркер
+            # причины (не молчаливый None), чтобы Writer не заявил охват.
+            if spec is not None:
+                return self._history_range_marker(
+                    chat_id, 0, 0, as_of, "capture_failed", "tool_unavailable")
+            return None
         if spec is not None and spec.kind == "unresolved" and count_requested:
             # «последние 120 сообщений» — количественная выборка, а не
             # неразобранный период: единица счёта сообщений сильнее общего

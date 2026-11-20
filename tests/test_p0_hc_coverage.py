@@ -435,6 +435,18 @@ class TestCaptureAndRoute:
             await db.db.close()
 
     @pytest.mark.asyncio
+    async def test_turn_capture_without_router_fails_closed(self):
+        service = DirectChatService(
+            MagicMock(), MagicMock(), MagicMock(), AliasResolver("{}"),
+            tool_router=None)
+        marker = await service._capture_turn_history_sample(
+            CHAT_ID, "что было за последние 2 часа", AS_OF)
+        assert marker["window_kind"] == "time_range"
+        assert marker["range_status"] == "capture_failed"
+        assert marker["reason"] == "tool_unavailable"
+        assert marker["available"] == 0
+
+    @pytest.mark.asyncio
     async def test_turn_capture_range_and_count_are_distinguished(self):
         now = int(time.time())
         db = await _make_db([
