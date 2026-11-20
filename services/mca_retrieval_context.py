@@ -1130,6 +1130,21 @@ class RetrievalCandidate:
     channel: str = ""
     revision: str | None = None
     preview: str = ""
+    # ── HC-TIME (B, arch contract §3.1): машинное различение времени ───────
+    # Аддитивные поля с дефолтами: все существующие конструкторы/тесты
+    # совместимы, `sent_at` не переопределяется, ranking/_apply_filters не
+    # меняются. ``time_kind``: source|event|recorded|unknown ("" = не задан).
+    # ``recorded_at`` — время записи (smart_messages.ingested_at /
+    # graph_facts.created_at). ``valid_from/valid_to`` — срок действия факта.
+    # ``event_start/event_end`` — окно события (эпизод/событие).
+    # ``discovered_at`` — время обнаружения записи: НЕ событие.
+    time_kind: str = ""
+    recorded_at: int = 0
+    valid_from: int = 0
+    valid_to: int = 0
+    event_start: int = 0
+    event_end: int = 0
+    discovered_at: int = 0
     # ── MCA-22 (C5): attribution-метаданные ────────────────────────────────
     subject_entity_id: int | None = None   # о ком факт (target_user/subject)
     speaker_entity_id: int | None = None   # кто сказал (speaker_author_id/user_id)
@@ -1910,6 +1925,30 @@ def _row_get(row, key, default=None):
         return row[key]
     except Exception:
         return default
+
+
+def _as_int(value) -> int:
+    """HC-TIME (B): кривой/пустой ts → 0 (honest unknown, не исключение)."""
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _time_kind_of_message(row) -> str:
+    """Источник времени сообщения: timestamp/sent_at → source, иначе unknown."""
+    if _as_int(_row_get(row, "timestamp")) or _as_int(_row_get(row, "sent_at")):
+        return "source"
+    return "unknown"
+
+
+def _time_kind_of_fact(row) -> str:
+    """Graph fact: message_timestamp → source; created_at → recorded."""
+    if _as_int(_row_get(row, "message_timestamp")):
+        return "source"
+    if _as_int(_row_get(row, "created_at")):
+        return "recorded"
+    return "unknown"
 
 
 def _canonical_enabled() -> bool:
@@ -3195,6 +3234,10 @@ def _message_candidate(row, channel: str, position: int, resolve_item_id):
         score=_channel_rank(channel, position), channel=channel,
         revision=(f"tg:{tg_id}" if tg_id is not None else None),
         preview=str(_row_get(row, "text") or ""),
+        # HC-TIME (B): timestamp/sent_at — время источника; ingested_at
+        # (если канал его отдаёт) — дата записи; отсутствие → 0/unknown.
+        time_kind=_time_kind_of_message(row),
+        recorded_at=_as_int(_row_get(row, "ingested_at")),
         # C5 (D7): speaker сообщения = author; subject-поле честно пусто
         # (subject сообщения — уровень ClaimEnvelope, не re-ranking).
         speaker_entity_id=_row_get(row, "user_id"),
@@ -3228,6 +3271,13 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         # представлению источника — иначе 4 факта одного сообщения → 1.
         dedup_id=(f"fact:{fact_id}" if fact_id not in (None, "") else None),
         preview=str(_row_get(row, "fact") or ""),
+        # HC-TIME (B): message_timestamp ≠ created_at. `sent_at` выше
+        # сохранён как COALESCE(rag_ts…) — поле не переопределяется; здесь
+        # добавлено машинное различие курсора времени и окна действия.
+        time_kind=_time_kind_of_fact(row),
+        recorded_at=_as_int(_row_get(row, "created_at")),
+        valid_from=_as_int(_row_get(row, "valid_from")),
+        valid_to=_as_int(_row_get(row, "valid_to")),
         # C5 (D7): subject/speaker/provenance — из v17-колонок (§10):
         # факт без subject_ref_id = legacy/unverified → weak hint.
         subject_entity_id=subject_id,
@@ -3422,6 +3472,14 @@ def _fact_meta_candidate(row, position: int, resolve_item_id):
         # склеивается, разные факты одного сообщения — нет.
         dedup_id=(f"fact:{fact_id}" if fact_id not in (None, "") else None),
         preview=str(row.get("fact") or ""),
+        # HC-TIME (B): строка vector-ноги несёт message_timestamp/created_at
+        # (и, где доступно, готовый time_origin) — дата события не выдаётся
+        # за дату записи. rag_ts/ранг не меняются.
+        time_kind=(str(row.get("time_origin") or "")
+                   or _time_kind_of_fact(row)),
+        recorded_at=_as_int(row.get("created_at")),
+        valid_from=_as_int(row.get("valid_from")),
+        valid_to=_as_int(row.get("valid_to")),
         subject_entity_id=subject_id,
         speaker_entity_id=row.get("speaker_author_id"),
         assertion_kind=row.get("assertion_kind"),
@@ -3433,14 +3491,17 @@ def _fact_meta_candidate(row, position: int, resolve_item_id):
 def _chain_candidate(item, position: int):
     item_id = getattr(item, "item_id", "") or ""
     is_bot = bool(getattr(item, "is_bot", False))
+    ts = int(getattr(item, "ts", 0) or 0)
     return RetrievalCandidate(
         id=item_id or f"reply:{position}",
         entity_type="message",
         entity_id=item_id.split(":", 1)[1] if ":" in item_id else item_id,
-        sent_at=int(getattr(item, "ts", 0) or 0),
+        sent_at=ts,
         author_id=getattr(item, "uid", None),
         score=_channel_rank("reply_graph", position), channel="reply_graph",
-        preview=str(getattr(item, "text", "") or ""))
+        preview=str(getattr(item, "text", "") or ""),
+        # HC-TIME (B): ChainItem.ts — время хода (ledger/сообщение); нет → unknown.
+        time_kind=("source" if ts else "unknown"))
 
 
 # ── MEMORY-06 (§4.4): entity/community каналы — bounded чтение по ID/членству,
@@ -3648,6 +3709,45 @@ def _community_candidate(row, chat_id: int, position: int,
         community=meta)
 
 
+def _episode_candidate(row, chat_id: int, position: int,
+                       overlap: float = 0.0) -> RetrievalCandidate:
+    """HC-TIME (B): эпизод/story-кандидат с разделением event/discovered.
+
+    ``event_start_ts``/``event_end_ts`` рендерятся как окно события ТОЛЬКО
+    когда реально присутствуют в строке; ``discovered_at``/``created_at`` —
+    отдельная дата записи, не событие. ``sent_at`` сохраняется прежним
+    (``last_ts``): поле не переопределяется. Каналы, чья строка не несёт
+    event-колонок, честно получают ``time_kind=recorded``/``unknown`` —
+    догадка о событии не подставляется.
+    """
+    episode_id = _row_get(row, "id")
+    event_start = _as_int(_row_get(row, "event_start_ts"))
+    event_end = _as_int(_row_get(row, "event_end_ts"))
+    created = _as_int(_row_get(row, "created_at"))
+    discovered = _as_int(_row_get(row, "discovered_at"))
+    last_ts = _as_int(_row_get(row, "last_ts"))
+    if event_start or event_end:
+        time_kind = "event"
+    elif created or discovered:
+        time_kind = "recorded"
+    elif last_ts:
+        time_kind = "source"
+    else:
+        time_kind = "unknown"
+    return RetrievalCandidate(
+        id=f"episode:{episode_id}", entity_type="episode",
+        entity_id=str(episode_id), chat_id=chat_id,
+        sent_at=last_ts,
+        score=_channel_rank("episode", position) + overlap,
+        channel="episode",
+        preview=str(_row_get(row, "topic") or ""),
+        time_kind=time_kind,
+        recorded_at=discovered or created,
+        event_start=event_start,
+        event_end=event_end,
+        discovered_at=discovered or created)
+
+
 async def _episode_candidates(db, request: RetrievalRequest,
                               keywords: list[str]) -> list:
     """Эпизоды-фасад (mca-05 AMEND, ADR-1027-12 D11): при включённом
@@ -3696,14 +3796,8 @@ async def _episode_candidates(db, request: RetrievalRequest,
     scored.sort(key=lambda pair: pair[0], reverse=True)
     out: list[RetrievalCandidate] = []
     for position, (overlap, row) in enumerate(scored[:max(1, request.top_k)]):
-        episode_id = _row_get(row, "id")
-        out.append(RetrievalCandidate(
-            id=f"episode:{episode_id}", entity_type="episode",
-            entity_id=str(episode_id), chat_id=request.chat_id,
-            sent_at=int(_row_get(row, "last_ts") or 0),
-            score=_channel_rank("episode", position) + overlap,
-            channel="episode",
-            preview=str(_row_get(row, "topic") or "")))
+        out.append(_episode_candidate(
+            row, request.chat_id, position, overlap=overlap))
     return out
 
 

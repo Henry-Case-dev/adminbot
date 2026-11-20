@@ -40,6 +40,24 @@ KIND_ARCHIVE = "archive"
 
 VALID_KINDS = (KIND_MSG, KIND_FACT, KIND_ARCHIVE)
 
+# ── B (HC-TIME, arch contract §3.1/§3.3): машинная таксономия времени ───────
+# Закрытый набор для `time_origin`: источник/событие/запись/неизвестно.
+# Пустая строка — прежнее поведение (легаси-вызовы и DTO по умолчанию).
+TIME_ORIGIN_SOURCE = "source"      # sent_at / message_timestamp / event ts
+TIME_ORIGIN_EVENT = "event"        # event_start..event_end (эпизод/событие)
+TIME_ORIGIN_RECORDED = "recorded"  # ingested_at/created_at — дата записи
+TIME_ORIGIN_UNKNOWN = "unknown"    # проверяемого времени нет — не выдумываем
+VALID_TIME_ORIGINS = (
+    "", TIME_ORIGIN_SOURCE, TIME_ORIGIN_EVENT, TIME_ORIGIN_RECORDED,
+    TIME_ORIGIN_UNKNOWN,
+)
+
+#: Аддитивный сегмент канонического заголовка факта с временем записи.
+RECORDED_DATE_LABEL = "дата записи"
+#: Аддитивные сегменты связи/редакции сообщения (B, §3.2/§3.3).
+REPLY_EDGE_PREFIX = "ответ на "
+EDITED_SEGMENT_PREFIX = "ред. "
+
 # ── Двухъярусный контракт представления (ADR-1020-1 ред. 3, Р1/Р2) ──────────
 # Реестр точек подачи контекста несёт `representation` + per-point `pattern`
 # («нет голого текста»): инвентарный тест ГЕНЕРИРУЕТСЯ из реестра, а не из
@@ -269,7 +287,9 @@ def resolve_item_id(*, tg_message_id=None, message_id=None,
 
 def format_context_item(*, ts=None, author=None, item_id=None,
                         forward_source=None, text="", kind: str = KIND_MSG,
-                        stale: bool = False, is_target: bool = False) -> str:
+                        stale: bool = False, is_target: bool = False,
+                        time_origin: str = "", reply_to=None,
+                        edited_at=None) -> str:
     """Каноническая строка контекста (spec §2.2).
 
     Поля-метаданные, которых нет, опускаются вместе с разделителем. Если
@@ -280,17 +300,31 @@ def format_context_item(*, ts=None, author=None, item_id=None,
     маркер `<<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` (plain, без экранирования) —
     только для ``kind="msg"``; дефолт ``False`` → все прочие вызывающие
     байт-в-байт неизменны.
+
+    HC-TIME (B, arch contract §3.1/§3.3) — АДДИТИВНЫЕ сегменты, дефолты
+    сохраняют прежний байт-канон:
+    * ``time_origin="recorded"`` у факта → после месяца ``| дата записи |``
+      (месяц остаётся ПЕРВЫМ: ``canonical_line_pattern(KIND_FACT)`` и
+      ``CONTEXT_POINTS`` direct_rag/legacy_rag не ломаются);
+    * ``reply_to`` → ``| ответ на <ref> |`` (подтверждённый Telegram Reply);
+    * ``edited_at`` → ``| ред. ДД.ММ.ГГГГ ЧЧ:ММ UTC |`` (редакция ≠ событие).
+    ``time_origin="source"``/"" не добавляет ничего: точность не выдумывается.
     """
     kind = (str(kind or KIND_MSG)).strip().lower()
     if kind not in VALID_KINDS:
         logger.warning("[canonical_context] unknown kind — fallback msg | "
                        "kind=%r", kind)
         kind = KIND_MSG
+    origin = str(time_origin or "").strip().lower()
+    if origin not in VALID_TIME_ORIGINS:
+        origin = ""
     with_time = kind == KIND_MSG
     stamp = _fmt_ts(ts, with_time=with_time)
     name = _squash(author)
     ident = _squash(item_id)
     source = _squash(forward_source)
+    reply_ref = _squash(reply_to)
+    edited = _fmt_ts(edited_at, with_time=True) if edited_at else ""
     body = _squash(text)
 
     head: list[str] = []
@@ -298,10 +332,16 @@ def format_context_item(*, ts=None, author=None, item_id=None,
         head.append(f"{ARCHIVE_MARKER}: {stamp}" if stamp else ARCHIVE_MARKER)
     elif stamp:
         head.append(stamp)
+    if kind == KIND_FACT and origin == TIME_ORIGIN_RECORDED:
+        head.append(RECORDED_DATE_LABEL)
     if name:
         head.append(name)
     if ident:
         head.append(ident)
+    if reply_ref:
+        head.append(f"{REPLY_EDGE_PREFIX}{reply_ref}")
+    if edited:
+        head.append(f"{EDITED_SEGMENT_PREFIX}{edited}")
     if source:
         head.append(f"Переслано: {source}")
     if stale:
@@ -696,7 +736,9 @@ def format_speech_item(*, ts=None, author=None, item_id=None,
                        forward_source=None, text="", kind: str = KIND_MSG,
                        stale: bool = False, is_target: bool = False,
                        role: str = "", projection=None, author_uid=None,
-                       relations=(), quote=None, is_bot: bool = False) -> str:
+                       relations=(), quote=None, is_bot: bool = False,
+                       time_origin: str = "", reply_to=None,
+                       edited_at=None) -> str:
     """РЕЧЕВАЯ проекция канонической строки (§4.2 п.2).
 
     Тот же заголовок и то же тело, что у `format_context_item` (абсолютное
@@ -705,14 +747,19 @@ def format_speech_item(*, ts=None, author=None, item_id=None,
     ``is_bot`` сохраняет роль автора в речевой форме (`Adminbot (бот)`) —
     §5.4 «и самого бота», §13 сц.116.
 
+    HC-TIME (B): ``time_origin``/``reply_to``/``edited_at`` аддитивно
+    прокидываются в заголовок в ОБОИХ режимах (речевом и сыром) — редакция
+    и reply-связь не исчезают при включённой проекции.
+
     Откат: флаг OFF (§6.2) или отсутствие `projection` → сырой канон
-    байт-в-байт (без меток и без явных отношений — ровно поведение до шва).
+    байт-в-байт (без меток и явных отношений — ровно поведение до шва).
     """
     if projection is None or not speech_projection_enabled():
         return format_context_item(
             ts=ts, author=author, item_id=item_id,
             forward_source=forward_source, text=text, kind=kind,
-            stale=stale, is_target=is_target)
+            stale=stale, is_target=is_target, time_origin=time_origin,
+            reply_to=reply_to, edited_at=edited_at)
 
     display_author = ""
     if author not in (None, "") or is_bot:
@@ -744,7 +791,8 @@ def format_speech_item(*, ts=None, author=None, item_id=None,
 
     return format_context_item(
         ts=ts, author=display_author, item_id=label,
-        forward_source=forward_source, text=body, kind=kind)
+        forward_source=forward_source, text=body, kind=kind,
+        time_origin=time_origin, reply_to=reply_to, edited_at=edited_at)
 
 
 def emit_speech_projection_event(projection, *, chat_id=None,

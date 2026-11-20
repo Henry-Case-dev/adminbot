@@ -8603,6 +8603,7 @@ class DatabaseService:
         cursor = await self.db.execute(
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
             "is_forward, forward_source, tg_message_id, "
+            "sent_at, edited_at, reply_to_author_id, "
             "quote_text, quote_author_id, quote_position, quote_is_manual, quote_entities "
             "FROM smart_messages WHERE chat_id = ? AND timestamp >= ? "
             "ORDER BY timestamp DESC LIMIT ?",
@@ -8666,6 +8667,7 @@ class DatabaseService:
         sql = (
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
             "is_forward, forward_source, tg_message_id, "
+            "sent_at, edited_at, reply_to_author_id, "
             "quote_text, quote_author_id, quote_position, quote_is_manual, quote_entities "
             "FROM smart_messages WHERE chat_id = ? "
         )
@@ -8756,7 +8758,8 @@ class DatabaseService:
             before = after = 0
         _fields = ("id, user_id, chat_id, text, caption, reply_to_id, "
                    "timestamp, media_type, author_name, is_forward, "
-                   "forward_source, tg_message_id")
+                   "forward_source, tg_message_id, "
+                   "sent_at, edited_at, reply_to_author_id")
         try:
             anchor_id = None
             # VMQ-MEM (дефект 2): якорь по строке корпуса (`msg:<row>`) —

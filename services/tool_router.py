@@ -7443,6 +7443,18 @@ class ToolRouter:
                 uid = item.get("user_id")
                 if uid not in (None, "", 0):
                     author = f"{author} [{uid}]"
+            # HC-TIME (B, arch contract §3.2): reply/edit-связи уже лежат в
+            # smart_messages (`get_recent_messages`/`get_smart_window` теперь
+            # их выбирают) — аддитивные сегменты канона. Нет полей → прежний
+            # байт-канон; связь/редакцию не выдумываем (R16).
+            reply_ref = ""
+            parent_tg = item.get("reply_to_id")
+            if parent_tg:
+                reply_ref = resolve_item_id(tg_message_id=parent_tg)
+                reply_uid = item.get("reply_to_author_id")
+                if reply_ref and reply_uid not in (None, "", 0):
+                    reply_ref = f"{reply_ref} (uid {reply_uid})"
+            edited_at = item.get("edited_at")
             if projection is not None:
                 if speech_projection_enabled():
                     item_id = resolve_item_id(
@@ -7457,14 +7469,16 @@ class ToolRouter:
                         author=self._resolve_name(item),
                         author_uid=item.get("user_id"),
                         item_id=item_id, forward_source=forward_source,
-                        text=text, kind="msg", projection=projection))
+                        text=text, kind="msg", projection=projection,
+                        reply_to=reply_ref or None, edited_at=edited_at))
                     continue
             lines.append(format_context_item(
                 ts=item.get("timestamp"), author=author,
                 item_id=resolve_item_id(
                     tg_message_id=item.get("tg_message_id"),
                     message_id=item.get("id")),
-                forward_source=forward_source, text=text, kind="msg"))
+                forward_source=forward_source, text=text, kind="msg",
+                reply_to=reply_ref or None, edited_at=edited_at))
         return lines
 
     # ── compile_lore_story (раунд 10.20, БЛОК 1, ADR-1020-4 п.1-4, T-1887) ──

@@ -198,6 +198,7 @@ from services.smartmodule_urls import resolve_context_url
 from services.self_reflection import extract_self_essence, record_extractor_status
 from services.summary_memory import (
     _SELF_ECHO_INSTRUCTION,
+    _fact_time_origin,
     build_rag_context,
     dedup_rag_vs_global,
     fire_and_forget,
@@ -473,11 +474,31 @@ def _ha_fmt_ts(ts) -> str:
     `canonical_context.format_utc_timestamp` (тот же, что у строк контекста).
     Прежний `fromtimestamp` без tz печатал контейнерное локальное время без
     метки: в чате +05:00 «08:30» сообщения стояло рядом с «13:30» Chat_Time.
+    HC-TIME (B): тест-охранник фиксирует UTC и на этом (дополнение), и на
+    `tool_router._format_timestamp`; локальная зона сервера не подставляется.
     """
     try:
         return format_utc_timestamp(int(ts or 0))
     except (TypeError, ValueError):
         return ""
+
+
+#: HC-TIME (B, arch contract §3.4): одна фраза-легенда в `time_line` Writer'а.
+#: Метки сообщений в контексте рендерятся в UTC (`_fmt_ts`/`format_utc_timestamp`);
+#: Chat_Time_Context при этом показывает локальную зону чата — без легенды две
+#: шкалы читаются как одна. Байты `_fmt_ts` не меняются.
+_TIME_ZONE_LEGEND = "Метки времени сообщений в контексте — UTC."
+
+
+def _with_time_zone_legend(time_line) -> str:
+    """Дополнить `time_line` легендой UTC ровно один раз (аддитивно).
+
+    Пустой `time_line` → "" (прежний payload без блока). Уже содержащая
+    легенду строка не дублируется (повторная сборка/retry не копит текст)."""
+    text = str(time_line or "")
+    if not text or _TIME_ZONE_LEGEND in text:
+        return text
+    return f"{text}\n{_TIME_ZONE_LEGEND}"
 
 
 def _ha_row_in_window(row, win: tuple) -> bool:
@@ -2703,7 +2724,10 @@ def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
             item = (row.get("origin"), row.get("fact"), row.get("rag_ts"),
                     row.get("target_user"), row.get("item_id"),
                     row.get("forward_from") or "",
-                    bool(row.get("expired")))
+                    bool(row.get("expired")),
+                    # HC-TIME (B): 8-й аддитивный элемент — происхождение
+                    # даты (source/recorded/unknown); пусто → прежний вид.
+                    row.get("time_origin") or "")
             try:
                 rank = _gprov.read_policy_rank(row)
             except Exception:
@@ -6425,7 +6449,7 @@ class DirectChatService:
             user_blocks = await self._refresh_turn_voice_evidence(
                 _voice_bundle, user_blocks)
             payload = build_messages(system_prompt, user_blocks,
-                                     time_line=time_line)
+                                     time_line=_with_time_zone_legend(time_line))
             # UR-20.8 (UR-F шаг 1): Writer реально подал строку часов —
             # отмечаем стадию `l2` в трассе хода (пустая строка — не подана).
             if str(time_line or "").strip():
@@ -10269,6 +10293,9 @@ class DirectChatService:
         вместе с фактическим ``context_representation``; None (инициативный
         путь без проекции) → ``internal`` без пар «метка → ID».
         """
+        # HC-TIME (B, §3.4): единственное место Writer-payload — легенда UTC
+        # добавляется здесь, до сборки user-части (идемпотентно, аддитивно).
+        time_line = _with_time_zone_legend(time_line)
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         response_mode = _l1.plan_response_mode(response_plan)
         verbalizer_template = (
@@ -16094,6 +16121,9 @@ class DirectChatService:
             "rag_ts": message_ts or created_at,
             "message_timestamp": message_ts,
             "created_at": created_at,
+            # HC-TIME (B): 8-й элемент будущего tuple и машинная метка
+            # происхождения даты (source/recorded/unknown).
+            "time_origin": _fact_time_origin(row),
             "target_user": _rag_row_get(row, "target_user"),
             "tg_message_id": tg_id,
             "forward_from": _rag_row_get(row, "forward_from") or "",
@@ -17076,6 +17106,18 @@ class DirectChatService:
             message_id=row_get(row, "id"))
         is_target = is_target_row(row, trigger_message_id)
         text = row_get(row, "text") or ""
+        # ── HC-TIME (B, arch contract §3.2): reply/edit уже есть в
+        # smart_messages, но не доезжали до Writer. Сегменты аддитивны:
+        # `ответ на tg:<id> [(uid N)]` и `ред. <UTC>`; отсутствие полей —
+        # прежний байт-канон (R16: связь/редакцию не выдумываем).
+        reply_ref = ""
+        parent_tg = row_get(row, "reply_to_id")
+        if parent_tg:
+            reply_ref = resolve_item_id(tg_message_id=parent_tg)
+            reply_uid = row_get(row, "reply_to_author_id")
+            if reply_ref and reply_uid not in (None, "", 0):
+                reply_ref = f"{reply_ref} (uid {reply_uid})"
+        edited_at = row_get(row, "edited_at")
         if projection is not None and speech_projection_enabled():
             if not text:
                 # Медиа-строка: маркер перерисовывается меткой (§4.2 п.2).
@@ -17095,14 +17137,16 @@ class DirectChatService:
                 author_uid=uid, item_id=item_id,
                 forward_source=forward_source, text=text, kind="msg",
                 is_target=is_target, projection=projection,
-                relations=relations)
+                relations=relations, reply_to=reply_ref or None,
+                edited_at=edited_at)
         author = _speaker_tag(name, uid, suffix=suffix)
         return format_context_item(
             ts=row_get(row, "timestamp"), author=author,
             item_id=item_id,
             forward_source=forward_source, text=text,
             kind="msg",
-            is_target=is_target)
+            is_target=is_target, reply_to=reply_ref or None,
+            edited_at=edited_at)
 
     # ── <Conversation_Thread> / <Conversation_Branch> (Раунд 8: D3/T-800,
     #    D4/T-801 — цепочка сквозь бот-ответы, итог ветки без LLM) ──

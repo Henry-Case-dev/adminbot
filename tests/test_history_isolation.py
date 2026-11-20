@@ -29,6 +29,7 @@ from services.direct_chat_service import (
     DirectChatService,
 )
 from services.summary_aliases import AliasResolver
+from services.payload_builder import build_messages
 from services.tool_router import (
     ToolDeps,
     ToolRouter,
@@ -530,3 +531,71 @@ class TestRagBlockBanner:
             CHAT_ID, self._msg("как дела?"), "", history_sample=None)
         assert block.startswith("<RAG_Memory>\n[")
         assert "ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ" not in block
+
+
+# ── 8. HC-TIME (B): metadata exists in storage → reaches Writer payload ─────
+#
+# Mandatory regression case of HC-TIME-PAYLOAD-PROOF / HC-ACC-CHANNELS:
+# `smart_messages` rows already hold `reply_to_id`/`edited_at`/`sent_at`/
+# `reply_to_author_id`, but the operational readers did not select them, so
+# the Writer never saw the reply edge or the edit. The test starts from a real
+# SQLite row, goes through the real `get_smart_window` → global-context
+# renderer → `build_messages` payload boundary, and asserts the actual model
+# payload (not a DTO).
+
+_PAYLOAD_TS = 1704067200          # 2024-01-01 00:00 UTC
+_PAYLOAD_EDIT = 1704067500        # 2024-01-01 00:05 UTC
+
+
+async def _make_temporal_db():
+    from services.database import DatabaseService
+    db = DatabaseService(":memory:")
+    await db.initialize()
+    row_id = await db.save_smart_message(
+        7, CHAT_ID, "маркер-сообщение", 11, _PAYLOAD_TS, "text", "автор",
+        message_id=12)
+    await db.db.execute(
+        "UPDATE smart_messages SET sent_at = ?, edited_at = ?, "
+        "reply_to_author_id = ? WHERE id = ?",
+        (_PAYLOAD_TS, _PAYLOAD_EDIT, 9, row_id))
+    await db.db.commit()
+    return db
+
+
+class TestTemporalMetadataStorageToWriter:
+    @pytest.mark.asyncio
+    async def test_window_row_renders_reply_and_edit(self):
+        db = await _make_temporal_db()
+        svc = _service(db)
+        window = await db.get_smart_window(CHAT_ID, 0, 10)
+        assert window and window[0]["edited_at"] == _PAYLOAD_EDIT
+        assert window[0]["reply_to_author_id"] == 9
+        assert window[0]["sent_at"] == _PAYLOAD_TS
+        parts = await svc._build_global_context_parts(
+            CHAT_ID, window, [], {}, trigger_message_id=None)
+        tail = "\n".join(parts["tail_lines"])
+        assert "маркер-сообщение" in tail
+        assert "ответ на tg:11 (uid 9)" in tail
+        assert "ред. 01.01.2024 00:05 UTC" in tail
+        payload = build_messages(
+            "system", ["<Global_Context>\n" + tail + "\n</Global_Context>"])
+        user = payload[1]["content"]
+        # The final model payload carries the same confirmed fields.
+        assert "ответ на tg:11 (uid 9)" in user
+        assert "ред. 01.01.2024 00:05 UTC" in user
+
+    @pytest.mark.asyncio
+    async def test_legacy_row_no_invented_reply_or_edit(self):
+        db = await _make_db(3)
+        svc = _service(db)
+        window = await db.get_smart_window(CHAT_ID, 0, 10)
+        parts = await svc._build_global_context_parts(
+            CHAT_ID, window, [], {}, trigger_message_id=None)
+        tail = "\n".join(parts["tail_lines"])
+        assert "строка 3" in tail
+        assert "ответ на" not in tail
+        assert "ред." not in tail
+        payload = build_messages(
+            "system", ["<Global_Context>\n" + tail + "\n</Global_Context>"])
+        assert "ответ на" not in payload[1]["content"]
+        assert "ред." not in payload[1]["content"]

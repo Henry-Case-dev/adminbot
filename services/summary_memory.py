@@ -2227,9 +2227,37 @@ async def _memorize_youtube(memory, chat_id: int, transcript: str) -> None:
         logger.warning("[graphrag hook] youtube compress failed", exc_info=True)
 
 
-def _fact_prefix(rag_ts, author=None) -> str:
+def _fact_time_origin(row) -> str:
+    """HC-TIME (B): происхождение времени graph_facts-строки — одной формулой.
+
+    ``message_timestamp`` = время исходного сообщения (source/event);
+    ``created_at`` = время записи факта (recorded). Оба отсутствуют → honest
+    ``unknown``. Это НЕ меняет ``rag_ts`` (COALESCE остаётся как был): поле
+    лишь сообщает потребителю, что именно означает дата в строке."""
+    if not isinstance(row, dict):
+        try:
+            row = dict(row)
+        except (TypeError, ValueError):
+            return "unknown"
+    try:
+        message_ts = row.get("message_timestamp")
+    except AttributeError:
+        return "unknown"
+    if message_ts:
+        return "source"
+    if row.get("created_at"):
+        return "recorded"
+    return "unknown"
+
+
+def _fact_prefix(rag_ts, author=None, time_origin: str = "") -> str:
     """F1/T-1418 (spec §3.1): временной префикс факта RAG —
     '[ММ.ГГГГ | Автор: X] ' / '[ММ.ГГГГ] ' / ''.
+
+    HC-TIME (B, arch contract §3.3): ``time_origin="recorded"`` добавляет
+    аддитивный сегмент ``| дата записи |`` ПОСЛЕ месяца — месяц остаётся
+    первым, канонические regex не ломаются. ``"source"``/"" — прежний
+    байт-канон: дата уже является временем источника.
 
     None/0/битый ts → '' (никогда не бросает; RAG не роняет мусорным ts).
     author strip; пусто/None → сегмент автора опущен (R16: имя не выдумываем).
@@ -2241,6 +2269,8 @@ def _fact_prefix(rag_ts, author=None) -> str:
             int(rag_ts), datetime.timezone.utc).strftime("%m.%Y")
     except (TypeError, ValueError, OSError, OverflowError):
         return ""
+    origin = str(time_origin or "").strip().lower()
+    recorded = " | дата записи" if origin == "recorded" else ""
     # S10.13-1: автор — производное от display-name/target_user, поэтому
     # подлежит тому же экранированию, что и fact (escape_xml_text ОБЯЗАТЕЛЕН);
     # переводы строк/табы внутри имени схлопываем в пробел, иначе разломается
@@ -2250,8 +2280,8 @@ def _fact_prefix(rag_ts, author=None) -> str:
     else:
         name = ""
     if name:
-        return f"[{stamp} | Автор: {escape_xml_text(name)}] "
-    return f"[{stamp}] "
+        return f"[{stamp}{recorded} | Автор: {escape_xml_text(name)}] "
+    return f"[{stamp}{recorded}] "
 
 
 def _stale_suffix(rag_ts, *, now: int | None = None) -> str:
@@ -2335,6 +2365,9 @@ def _format_origin_labeled_line(item, projection=None) -> str:
     author = item[3] if len(item) >= 4 else None
     item_id = item[4] if len(item) >= 5 else None
     forward = item[5] if len(item) >= 6 else None
+    # HC-TIME (B): 8-й аддитивный элемент — происхождение времени
+    # (source|event|recorded|unknown). Старые 3/4/6/7-кортежи → "" (паритет).
+    time_origin = item[7] if len(item) >= 8 else ""
     label = _ORIGIN_LABELS.get(origin, origin)
     stale = bool(_stale_suffix(rag_ts)) or bool(_expired_suffix(item))
     if item_id or forward:
@@ -2342,14 +2375,14 @@ def _format_origin_labeled_line(item, projection=None) -> str:
             line = format_speech_item(
                 ts=rag_ts, author=author, item_id=item_id or None,
                 forward_source=forward or None, text=fact, kind="fact",
-                stale=stale, projection=projection)
+                stale=stale, projection=projection, time_origin=time_origin)
         else:
             line = format_context_item(
                 ts=rag_ts, author=author, item_id=item_id or None,
                 forward_source=forward or None, text=fact, kind="fact",
-                stale=stale)
+                stale=stale, time_origin=time_origin)
         return f"[{label}] {escape_xml_text(line)}"
-    return (f"[{label}] {_fact_prefix(rag_ts, author)}"
+    return (f"[{label}] {_fact_prefix(rag_ts, author, time_origin)}"
             f"{escape_xml_text(fact)}"
             f"{_stale_suffix(rag_ts)}{_expired_suffix(item)}")
 
@@ -6270,6 +6303,9 @@ class MemoryManager:
                  # считается ТОЛЬКО по `message_timestamp` (§4.3, D4).
                  "message_timestamp": row["message_timestamp"],
                  "created_at": row["created_at"],
+                 # HC-TIME (B): машинное происхождение даты (source/recorded/
+                 # unknown) — не меняет rag_ts/ранг, только честную метку.
+                 "time_origin": _fact_time_origin(row),
                  "target_user": row["target_user"],
                  "tg_message_id": row["tg_message_id"],
                  "forward_from": row["forward_from"] or "",
@@ -6597,6 +6633,8 @@ class MemoryManager:
                  # профиля (§4.3, D4).
                  "message_timestamp": by_id[f]["message_timestamp"],
                  "created_at": by_id[f]["created_at"],
+                 # HC-TIME (B): происхождение даты — source/recorded/unknown.
+                 "time_origin": _fact_time_origin(by_id[f]),
                  "target_user": by_id[f]["target_user"],
                  "tg_message_id": by_id[f]["tg_message_id"],
                  "forward_from": by_id[f]["forward_from"] or "",
