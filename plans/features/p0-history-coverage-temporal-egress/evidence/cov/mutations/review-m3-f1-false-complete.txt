@@ -1,0 +1,46 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+__ TestCoverageLedger.test_retention_after_capture_is_not_complete_coverage ___
+
+self = <tests.test_p0_hc_coverage.TestCoverageLedger object at 0x0000022F1190A5A0>
+
+    @pytest.mark.asyncio
+    async def test_retention_after_capture_is_not_complete_coverage(self):
+        """F1: available>0, ╨╜╨╛ ╤Б╤В╤А╨░╨╜╨╕╤Ж╨░ ╨┐╤Г╤Б╤В╨░ (anchor_missing) тАФ ╨╜╨╡ complete."""
+        rows = [(1000 + i * 10, f"m{i}") for i in range(20)]
+        db = await _make_db(rows)
+        router = _router(db)
+        try:
+            ctx = _ctx("╤З╤В╨╛ ╨▒╤Л╨╗╨╛ ╨╖╨░ ╨┐╨╡╤А╨╕╨╛╨┤", as_of=1195)
+            bound = await capture_history_range(
+                db, CHAT_ID, 1000, 1190, as_of=1195)
+            ctx.history_sample = bound
+            await db.db.execute(
+                "DELETE FROM smart_messages WHERE chat_id = ? "
+                "AND timestamp >= ? AND timestamp <= ?",
+                (CHAT_ID, 1000, 1190))
+            await db.db.commit()
+            page = await router.dispatch("get_recent_history", {}, ctx)
+            header = _header(page)
+            assert header["available"] == 20
+            assert header["incomplete"] == 1
+            assert header["reason"] == "anchor_missing"
+            assert header["has_next"] == 0
+            raw = ChainResult(page, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=page, total_chars=len(page))],
+                chain_meta={})
+            block = await _service(db, router=router).collect_history_segments(
+                ctx, raw, slot_chars=100000, chat_id=CHAT_ID)
+            fields, _, _ = _coverage(block)
+            assert fields["range_read"] == "1"
+>           assert fields["range_complete"] == "0"
+E           AssertionError: assert '1' == '0'
+E             
+E             - 0
+E             + 1
+
+tests\test_p0_hc_coverage.py:609: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_coverage.py::TestCoverageLedger::test_retention_after_capture_is_not_complete_coverage
+1 failed in 5.68s

@@ -1,0 +1,133 @@
+﻿.......F............................F.....FFF...............             [100%]
+================================== FAILURES ===================================
+__ TestExtractWindow.test_za_days_before_event_is_not_now_anchored_duration ___
+
+self = <tests.test_p0_hc_coverage.TestExtractWindow object at 0x000001D460C46030>
+
+    def test_za_days_before_event_is_not_now_anchored_duration(self):
+        """F5: ┬л╨╖╨░ 3 ╨┤╨╜╤П ╨┤╨╛ ╤Н╤В╨╛╨│╨╛┬╗ тАФ ╨╜╨╡ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ 3 ╨┤╨╜╤П; ╨│╤А╨░╨╜╨╕╤Ж╨░ ╨╜╨╡ ╤А╨░╨╖╨╛╨▒╤А╨░╨╜╨░."""
+>       assert extract_history_window("╨╖╨░ 3 ╨┤╨╜╤П ╨┤╨╛ ╤Н╤В╨╛╨│╨╛") is None
+E       AssertionError: assert HistoryWindowSpec(kind='duration', amount=3, unit='days', day_offset=0, from_hm=None, to_hm=None, date_from=None, date_to=None, raw='╨╖╨░ 3 ╨┤╨╜') is None
+E        +  where HistoryWindowSpec(kind='duration', amount=3, unit='days', day_offset=0, from_hm=None, to_hm=None, date_from=None, date_to=None, raw='╨╖╨░ 3 ╨┤╨╜') = extract_history_window('╨╖╨░ 3 ╨┤╨╜╤П ╨┤╨╛ ╤Н╤В╨╛╨│╨╛')
+
+tests\test_p0_hc_coverage.py:191: AssertionError
+____ TestCaptureAndRoute.test_current_state_today_is_not_a_history_request ____
+
+self = <tests.test_p0_hc_coverage.TestCaptureAndRoute object at 0x000001D460C67BF0>
+
+    @pytest.mark.asyncio
+    async def test_current_state_today_is_not_a_history_request(self):
+        """F3: ┬л╨║╨░╨║ ╨┤╨╡╨╗╨░ ╤Б╨╡╨│╨╛╨┤╨╜╤П?┬╗ тАФ current-state, ╨╜╨╡ range/force."""
+        now = _local_epoch(2026, 11, 21, 12, 0)
+        db = await _make_db([
+            {"ts": _local_epoch(2026, 11, 21, 10, 0), "text": "x"}])
+        service = _service(db)
+    
+        async def _tz(_chat_id):
+            return "UTC"
+    
+        service.tool_router._chat_timezone = _tz
+        try:
+>           assert await service._capture_turn_history_sample(
+                CHAT_ID, "╨║╨░╨║ ╨┤╨╡╨╗╨░ ╤Б╨╡╨│╨╛╨┤╨╜╤П?", now) is None
+E               AssertionError: assert {'sample_id': 'hs_794fb54770cc', 'chat_id': -1001234567890, 'anchor_ts': 1795251600, 'anchor_id': 1, ...} is None
+
+tests\test_p0_hc_coverage.py:459: AssertionError
+__ TestCoverageLedger.test_retention_after_capture_is_not_complete_coverage ___
+
+self = <tests.test_p0_hc_coverage.TestCoverageLedger object at 0x000001D460C67140>
+
+    @pytest.mark.asyncio
+    async def test_retention_after_capture_is_not_complete_coverage(self):
+        """F1: available>0, ╨╜╨╛ ╤Б╤В╤А╨░╨╜╨╕╤Ж╨░ ╨┐╤Г╤Б╤В╨░ (anchor_missing) тАФ ╨╜╨╡ complete."""
+        rows = [(1000 + i * 10, f"m{i}") for i in range(20)]
+        db = await _make_db(rows)
+        router = _router(db)
+        try:
+            ctx = _ctx("╤З╤В╨╛ ╨▒╤Л╨╗╨╛ ╨╖╨░ ╨┐╨╡╤А╨╕╨╛╨┤", as_of=1195)
+            bound = await capture_history_range(
+                db, CHAT_ID, 1000, 1190, as_of=1195)
+            ctx.history_sample = bound
+            await db.db.execute(
+                "DELETE FROM smart_messages WHERE chat_id = ? "
+                "AND timestamp >= ? AND timestamp <= ?",
+                (CHAT_ID, 1000, 1190))
+            await db.db.commit()
+            page = await router.dispatch("get_recent_history", {}, ctx)
+            header = _header(page)
+            assert header["available"] == 20
+            assert header["incomplete"] == 1
+            assert header["reason"] == "anchor_missing"
+            assert header["has_next"] == 0
+            raw = ChainResult(page, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=page, total_chars=len(page))],
+                chain_meta={})
+            block = await _service(db, router=router).collect_history_segments(
+                ctx, raw, slot_chars=100000, chat_id=CHAT_ID)
+            fields, _, _ = _coverage(block)
+            assert fields["range_read"] == "1"
+>           assert fields["range_complete"] == "0"
+E           AssertionError: assert '1' == '0'
+E             
+E             - 0
+E             + 1
+
+tests\test_p0_hc_coverage.py:609: AssertionError
+_________ TestCoverageLedger.test_skipped_tail_page_rows_are_counted __________
+
+self = <tests.test_p0_hc_coverage.TestCoverageLedger object at 0x000001D460C658E0>
+
+    @pytest.mark.asyncio
+    async def test_skipped_tail_page_rows_are_counted(self):
+        """F2: ╨┐╤Г╤Б╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨▓ tail-╤Б╤В╤А╨░╨╜╨╕╤Ж╨╡ ╨┤╨░╤С╤В skipped=1/processed=120."""
+        rows = [(1000 + i * 10, f"m{i}") for i in range(120)]
+        rows[60] = {"ts": 1000 + 60 * 10, "text": "", "media": "text"}
+        db = await _make_db(rows)
+    
+        class _LLM:
+            async def generate(self, messages, **kwargs):
+                return '{"events":[],"status":"ok"}'
+    
+        try:
+            ctx, raw, bound = await _range_turn(
+                db, 1000, 2190, None, as_of=2195)
+            block = await _service(db, _LLM()).collect_history_segments(
+                ctx, raw, slot_chars=4000, chat_id=CHAT_ID)
+            fields, _, _ = _coverage(block)
+            assert fields["available"] == "120"
+>           assert fields["processed"] == "120"
+E           AssertionError: assert '119' == '120'
+E             
+E             - 120
+E             + 119
+
+tests\test_p0_hc_coverage.py:636: AssertionError
+_________ TestCoverageLedger.test_explicit_time_window_gets_coverage __________
+
+self = <tests.test_p0_hc_coverage.TestCoverageLedger object at 0x000001D460C7D670>
+
+    @pytest.mark.asyncio
+    async def test_explicit_time_window_gets_coverage(self):
+        """F4: explicit since/until тАФ range coverage, requested=available."""
+        db = await _make_db([(1000, "a"), (1010, "b")])
+        router = _router(db)
+        try:
+            ctx = _ctx(as_of=1020)
+            out = await router.dispatch(
+                "get_recent_history",
+                {"time_window": {"since": _iso(1000),
+                                 "until": _iso(1010)}}, ctx)
+            header = _header(out)
+            assert header["window_kind"] == "time_range"
+>           assert header["requested"] == header["available"] == 2
+E           assert 0 == 2
+
+tests\test_p0_hc_coverage.py:657: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_coverage.py::TestExtractWindow::test_za_days_before_event_is_not_now_anchored_duration
+FAILED tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_current_state_today_is_not_a_history_request
+FAILED tests/test_p0_hc_coverage.py::TestCoverageLedger::test_retention_after_capture_is_not_complete_coverage
+FAILED tests/test_p0_hc_coverage.py::TestCoverageLedger::test_skipped_tail_page_rows_are_counted
+FAILED tests/test_p0_hc_coverage.py::TestCoverageLedger::test_explicit_time_window_gets_coverage
+5 failed, 55 passed in 7.41s

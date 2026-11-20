@@ -5,7 +5,7 @@
 - Branch: `p0/hc-a`.
 - Worktree: `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-6a3294ea`
   (created with installed `workflow_housekeeping.py worktree-path` + `git worktree add`; no sibling checkout).
-- Product/tests candidate: `596f5e38d2de345df96f56509980527886e69ec0`.
+- Product/tests candidate: `5eed27762456e34e5748d1fd3e3ba6b01c386f75`.
 - Evidence commit adds only `plans/features/p0-history-coverage-temporal-egress/evidence/cov/**`.
 - Deploy/bump: none. DDL/flags/prompts canon/`chat_prompts.py`: none.
 
@@ -105,7 +105,15 @@ egress is slice C and is not claimed here.
    `derive_simple_steps`/`chat_history` seam was sufficient; the packer is
    unchanged.
 4. **`services/chat_prompts.py` was not touched** (per plan/contract).
-5. **FTS boundary:** the turn range-bound (`ctx.history_sample`,
+5. **Review r1 (F1–F5) fixes:** short-path completeness no longer treats
+   `empty_window` as complete when `available>0`/`incomplete=1`; tail-page
+   skipped rows are counted; turn capture has a history-intent gate (current
+   state «как дела сегодня?» stays current-state); explicit `time_window`
+   chronology gets the range bound + coverage ledger (`requested=available`
+   on a live turn; legacy tool-only TIME-03 calls keep `requested=0/depth`);
+   `за N дней до …` is no longer a now-anchored duration. Details:
+   `review-fixes.md`.
+6. **FTS boundary:** the turn range-bound (`ctx.history_sample`,
    `window_kind=time_range`) always wins, ignores `query` and never calls
    `search_long_term`; the deterministic extraction path also forbids FTS.
    An explicit model-supplied `time_window` **with** `query` keeps the
@@ -121,14 +129,15 @@ Machine-readable: `tests.json`. Raw outputs: `tests/`, `red-base/`,
 
 | Batch | Result |
 |---|---|
-| New `tests/test_p0_hc_coverage.py` | **53 passed** |
-| New + existing history pages/segments/depth/VMQ/isolation marker | **180 passed** |
+| New `tests/test_p0_hc_coverage.py` | **60 passed** |
+| New + existing history pages/segments/depth/VMQ/isolation marker | **186 passed** |
 | Mandatory 24-file pytest set | **386 passed, 0 failed** |
 | RED on base `1b7d43333` (new contract symbols absent) | collection `ImportError` (saved) |
-| Mutations (5) | each expected RED; restored tree **117 passed** on focused rerun |
+| Mutations (7) | each expected RED; restored tree **186 passed** on focused rerun |
 
 Mutation coverage: range→FTS, wrong local midnight, page drop, partial inline,
-missing `range_empty`.
+missing `range_empty`; review-r1 F1 false-complete and F2 tail-skipped.
+Review-fix matrix and RED/GREEN: `review-fixes.md`.
 
 ## 5. Limitations / not in scope
 

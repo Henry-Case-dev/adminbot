@@ -4,7 +4,7 @@
   "slice": "HC-COV",
   "base_commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
   "branch": "p0/hc-a",
-  "candidate_commit": "596f5e38d2de345df96f56509980527886e69ec0",
+  "candidate_commit": "5eed27762456e34e5748d1fd3e3ba6b01c386f75",
   "worktree": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/p0-history-coverage-temporal-e-cbf9b3fab6a8-6a3294ea",
   "environment": {
     "python": "3.12.0 (.venv from C:/Code/Python/adminbot)",
@@ -20,11 +20,11 @@
   },
   "results": {
     "new": {
-      "passed": 54,
+      "passed": 60,
       "failed": 0
     },
     "focused": {
-      "passed": 180,
+      "passed": 186,
       "failed": 0
     },
     "mandatory_386": {
@@ -37,7 +37,13 @@
     "commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
     "command": "python -m pytest tests/test_p0_hc_coverage.py -q",
     "result": "collection ImportError: cannot import name '_force_history_range_plan' from services.direct_chat_service (new contract symbols absent at base)",
-    "artifact": "red-base/pytest-base-1b7d43333.txt"
+    "artifact": "red-base/pytest-base-1b7d43333.txt",
+    "review_fixes": {
+      "product": "596f5e38d2de345df96f56509980527886e69ec0",
+      "command": "python -m pytest tests/test_p0_hc_coverage.py -q",
+      "result": "5 failed, 55 passed (F1-F5 new regressions fail on candidate 596f5e38)",
+      "artifact": "red-base/pytest-review-fixes-596f5e38.txt"
+    }
   },
   "mutations": [
     {
@@ -74,6 +80,20 @@
       "test": "tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_empty_range_is_range_empty_not_error",
       "result": "1 failed (expected: status error vs empty_window)",
       "artifact": "mutations/m5-missing-range-empty.txt"
+    },
+    {
+      "id": "review-m3-f1-false-complete",
+      "mutation": "empty_window with available>0 treated as complete",
+      "test": "tests/test_p0_hc_coverage.py::TestCoverageLedger::test_retention_after_capture_is_not_complete_coverage",
+      "result": "1 failed (expected)",
+      "artifact": "mutations/review-m3-f1-false-complete.txt"
+    },
+    {
+      "id": "review-m4-f2-tail-skipped",
+      "mutation": "tail-page skipped rows not added to stats",
+      "test": "tests/test_p0_hc_coverage.py::TestCoverageLedger::test_skipped_tail_page_rows_are_counted",
+      "result": "1 failed (expected)",
+      "artifact": "mutations/review-m4-f2-tail-skipped.txt"
     }
   ],
   "products": [
@@ -96,6 +116,29 @@
   "limitations": [
     "Production trace/effective release/config/prompt, original chat_id/message_id/trace_id and real archive are unavailable in this environment; fixture-based reproduction is explicitly not production evidence.",
     "Telegram egress, full temporal metadata matrix and paired acceptance batteries are slices C1/C2/B/ACCEPT.",
-    "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken fails outside the mandatory set due to the UR-14 removal of style_anchors; A does not touch that path and does not use it as evidence."
-  ]
+    "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken fails outside the mandatory set due to the UR-14 removal of style_anchors; A does not touch that path and does not use it as evidence.",
+    "F4 live-turn requested=available; legacy tool-only calls without turn_as_of keep the accepted TIME-03 requested=0/depth unit contract (focused vmq suite re-run green).",
+    "F3 turn-level gate requires a history marker or explicit requested period; explicit model tool calls still use the tool grammar directly."
+  ],
+  "review_fixes": {
+    "file": "review-fixes.md",
+    "findings": [
+      "HC-A-F1",
+      "HC-A-F2",
+      "HC-A-F3",
+      "HC-A-F4",
+      "HC-A-F5",
+      "HC-A-F9"
+    ],
+    "blocking_fixed": [
+      "HC-A-F1",
+      "HC-A-F2",
+      "HC-A-F3",
+      "HC-A-F4",
+      "HC-A-F5"
+    ],
+    "non_blocking_fixed": [
+      "HC-A-F9"
+    ]
+  }
 }
