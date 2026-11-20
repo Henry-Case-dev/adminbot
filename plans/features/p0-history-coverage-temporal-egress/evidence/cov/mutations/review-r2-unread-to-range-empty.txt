@@ -2,7 +2,7 @@
 ================================== FAILURES ===================================
 __ TestExplicitWindowErrorBound.test_error_not_masked_and_retry_valid_window __
 
-self = <tests.test_p0_hc_coverage.TestExplicitWindowErrorBound object at 0x000002E4C8DF5040>
+self = <tests.test_p0_hc_coverage.TestExplicitWindowErrorBound object at 0x0000017959F44650>
 
     @pytest.mark.asyncio
     async def test_error_not_masked_and_retry_valid_window(self):
@@ -57,4 +57,4 @@ tests\test_p0_hc_coverage.py:792: AssertionError
 WARNING  services.tool_router:tool_router.py:6890 [tools] get_recent_history failed | chat=-1001234567890 | error=RuntimeError
 =========================== short test summary info ===========================
 FAILED tests/test_p0_hc_coverage.py::TestExplicitWindowErrorBound::test_error_not_masked_and_retry_valid_window
-1 failed in 5.52s
+1 failed in 5.05s
