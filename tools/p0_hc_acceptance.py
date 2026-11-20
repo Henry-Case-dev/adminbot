@@ -57,6 +57,7 @@ import asyncio
 import datetime
 import hashlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -194,11 +195,33 @@ def git_out(root: str, *args: str) -> str:
     return proc.stdout.strip()
 
 
-def detect_variant(head: str) -> str:
+def detect_variant(head: str, code_root: str = "") -> str:
     if head.startswith(BASELINE_SHA):
         return "baseline"
     if head.startswith(CANDIDATE_SHA):
         return "candidate"
+    if code_root:
+        try:
+            inside = subprocess.run(
+                ["git", "-C", str(code_root), "merge-base", "--is-ancestor",
+                 CANDIDATE_SHA, head], capture_output=True).returncode == 0
+            if inside:
+                product_diff = git_out(
+                    code_root, "diff", "--name-only", CANDIDATE_SHA, head,
+                    "--", *PRODUCT_PATHS)
+                if not product_diff.strip():
+                    return "candidate"
+            inside_base = subprocess.run(
+                ["git", "-C", str(code_root), "merge-base", "--is-ancestor",
+                 BASELINE_SHA, head], capture_output=True).returncode == 0
+            if inside_base:
+                product_diff = git_out(
+                    code_root, "diff", "--name-only", BASELINE_SHA, head,
+                    "--", *PRODUCT_PATHS)
+                if not product_diff.strip():
+                    return "baseline"
+        except Exception:
+            pass
     return "unknown"
 
 
@@ -452,6 +475,14 @@ def prepare_env(env_file: str) -> dict:
     return info
 
 
+def _chat_endpoint_base(base: str) -> str:
+    value = str(base or "").strip().rstrip("/")
+    for suffix in ("/chat/completions", "/embeddings"):
+        if value.endswith(suffix):
+            value = value[:-len(suffix)].rstrip("/")
+    return value
+
+
 def _anonymized_fragment(text: str, limit: int = 240) -> str:
     value = re.sub(r"https?://\S+", "[url]", str(text or ""))
     value = re.sub(r"@\w+", "[mention]", value)
@@ -509,6 +540,37 @@ class RecordingLLM:
         return text
 
 
+class _LogCapture(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.messages: list[str] = []
+
+    def emit(self, record) -> None:
+        try:
+            self.messages.append(record.getMessage())
+        except Exception:
+            pass
+
+
+def _provider_error_from_logs(messages: list[str]) -> tuple:
+    for message in reversed(messages or ()):
+        match = re.search(r"LLM HTTP (\d{3})", message)
+        if not match:
+            continue
+        status = int(match.group(1))
+        code = ""
+        code_match = re.search(r'"code"\s*:\s*"([A-Za-z0-9_]+)"', message)
+        if code_match:
+            code = code_match.group(1)
+        body_match = re.search(r"body_4xx='(.*?)'(?:\s*\||$)", message,
+                               re.S)
+        body = body_match.group(1) if body_match else ""
+        body = re.sub(r"https?://\S+", "[url]", body)
+        body = re.sub(r"\b\d{8,10}:[A-Za-z0-9_-]{20,}\b", "[token]", body)
+        return status, code, " ".join(body.split())[:600]
+    return 0, "", ""
+
+
 def _safe_error_detail(exc: BaseException) -> str:
     text = re.sub(r"https?://\S+", "[url]", str(exc))
     text = re.sub(r"\b\d{8,10}:[A-Za-z0-9_-]{20,}\b", "[token]", text)
@@ -534,7 +596,11 @@ def _text_not_executed(reason: str, static_proof: dict, *,
                        context: str = "synthetic",
                        mode: str = "real",
                        error_class: str = "",
-                       error_detail: str = "") -> dict:
+                       error_detail: str = "",
+                       endpoint: str = "",
+                       provider_status: int = 0,
+                       provider_error_code: str = "",
+                       provider_error_body: str = "") -> dict:
     real_metrics = {
         "text_delivery": na(reason),
         "no_moralizing": na(reason),
@@ -561,11 +627,18 @@ def _text_not_executed(reason: str, static_proof: dict, *,
         "metrics": real_metrics,
         "error_class": error_class,
         "error_detail": error_detail,
+        "endpoint": endpoint,
+        "provider_status": provider_status,
+        "provider_error_code": provider_error_code,
+        "provider_error_body": provider_error_body,
     }
     return {
         "mode": mode, "context": context, "status": "not_executed",
         "reason": reason, "error_class": error_class,
-        "error_detail": error_detail, "model": model,
+        "error_detail": error_detail, "endpoint": endpoint,
+        "provider_status": provider_status,
+        "provider_error_code": provider_error_code,
+        "provider_error_body": provider_error_body, "model": model,
         "embedding_model": embedding_model,
         "env": env_info or {}, "static_proof": static_proof,
         "scenarios": [row],
@@ -619,16 +692,26 @@ async def real_text_scenarios(product, db, cfg: dict, code_root: str,
                                   model=cfg.get("model", ""),
                                   embedding_model=cfg.get("embedding_model", ""),
                                   env_info=env_info, context=context_mode)
-    base_url = str(cfg.get("base_url") or getattr(
-        settings, "LLM_BASE_URL", "") or "")
+    base_url = str(
+        os.environ.get("LLM_BASE_URL")
+        or getattr(settings, "LLM_BASE_URL", "")
+        or cfg.get("base_url") or "")
     model = str(cfg.get("model") or getattr(
         settings, "LLM_MODEL_NAME", "") or "")
     embedding = str(cfg.get("embedding_model") or getattr(
         settings, "EMBEDDING_MODEL_NAME", "") or "")
+    base_url = _chat_endpoint_base(base_url)
+    if base_url:
+        parsed = urllib.parse.urlsplit(base_url)
+        if not (parsed.path or "").strip("/") and "nano-gpt.com" in (
+                parsed.hostname or ""):
+            base_url = base_url.rstrip("/") + "/api/v1"
+    endpoint = (base_url + "/chat/completions") if base_url else ""
     if not base_url or not model:
         return _text_not_executed("llm_identity_missing", static_proof,
                                   model=model, embedding_model=embedding,
-                                  env_info=env_info, context=context_mode)
+                                  env_info=env_info, context=context_mode,
+                                  endpoint=endpoint)
     max_tokens = int(args.text_max_tokens or cfg.get("max_tokens") or 400)
     max_tokens = max(64, min(max_tokens, 1200))
     temperature = float(cfg.get("temperature") or 0.7)
@@ -643,7 +726,8 @@ async def real_text_scenarios(product, db, cfg: dict, code_root: str,
         return _text_not_executed("llm_client_init_failed:" + type(exc).__name__,
                                   static_proof, model=model,
                                   embedding_model=embedding,
-                                  env_info=env_info, context=context_mode)
+                                  env_info=env_info, context=context_mode,
+                                  endpoint=endpoint)
     recorder = RecordingLLM(client)
     from services.summary_aliases import AliasResolver
     service = product["direct_chat"].DirectChatService(
@@ -680,23 +764,40 @@ async def real_text_scenarios(product, db, cfg: dict, code_root: str,
              "кто манипулирует, где самообман, кто за что цепляется. "
              "Не смягчай, можешь использовать крепкие выражения.")
     started = time.perf_counter()
+    log_capture = _LogCapture()
+    llm_logger = logging.getLogger("services.llm_client")
+    llm_logger.addHandler(log_capture)
+    call_error = None
+    result = None
     try:
         result = await asyncio.wait_for(
             service._l2_write_answer(
                 chat_id, query, temperature=temperature,
                 user_blocks=[context_block], max_tokens=max_tokens),
             timeout=timeout)
-    except asyncio.TimeoutError:
-        return _text_not_executed("llm_call_timeout", static_proof,
-                                  model=model, embedding_model=embedding,
-                                  env_info=env_info, context=context_mode,
-                                  error_class="TimeoutError")
     except Exception as exc:
+        call_error = exc
+    finally:
+        llm_logger.removeHandler(log_capture)
+    if call_error is not None:
+        provider_status, provider_code, provider_body = \
+            _provider_error_from_logs(log_capture.messages)
+        if isinstance(call_error, asyncio.TimeoutError):
+            return _text_not_executed(
+                "llm_call_timeout", static_proof, model=model,
+                embedding_model=embedding, env_info=env_info,
+                context=context_mode, error_class="TimeoutError",
+                endpoint=endpoint, provider_status=provider_status,
+                provider_error_code=provider_code,
+                provider_error_body=provider_body)
         return _text_not_executed(
-            _llm_failure_reason(exc), static_proof,
+            _llm_failure_reason(call_error), static_proof,
             model=model, embedding_model=embedding, env_info=env_info,
-            context=context_mode, error_class=type(exc).__name__,
-            error_detail=_safe_error_detail(exc))
+            context=context_mode, error_class=type(call_error).__name__,
+            error_detail=_safe_error_detail(call_error),
+            endpoint=endpoint, provider_status=provider_status,
+            provider_error_code=provider_code,
+            provider_error_body=provider_body)
     elapsed = int((time.perf_counter() - started) * 1000)
     if not isinstance(result, tuple) or not result:
         return _text_not_executed("writer_returned_none", static_proof,
@@ -775,6 +876,7 @@ async def real_text_scenarios(product, db, cfg: dict, code_root: str,
         "scenarios": [row],
         "bounded": {"max_tokens": max_tokens, "temperature": temperature,
                     "timeout_s": timeout, "llm_calls": 1},
+        "endpoint": endpoint,
     }
 
 
@@ -2422,6 +2524,8 @@ def compact_scenario(row: dict) -> dict:
                 "fragment_sha256", "latency_ms", "temperature",
                 "max_tokens", "context_mode", "static_proof_status",
                 "response_mode", "error_class", "error_detail",
+                "endpoint", "provider_status", "provider_error_code",
+                "provider_error_body",
                 "payload_stage", "writer_message_count",
                 "writer_payload_sha256", "writer_payload_chars"):
         if key in row:
@@ -2525,7 +2629,7 @@ async def run_single(args, code_root: str, variant: str, *,
     if args.expected_sha and head != args.expected_sha:
         raise InputBlocked("CODE-ROOT", "expected_sha_mismatch")
     expected_variant = variant
-    detected = detect_variant(head)
+    detected = detect_variant(head, code_root)
     if detected not in ("baseline", "candidate"):
         raise InputBlocked("CODE-ROOT", "unknown_product_sha")
     if expected_variant and detected != expected_variant:
@@ -2877,7 +2981,7 @@ def run_pair(args, roots: list, out_dir: Path, as_of: int,
     variants = {}
     for root in roots:
         head = git_out(root, "rev-parse", "HEAD")
-        variant = detect_variant(head)
+        variant = detect_variant(head, root)
         if variant not in ("baseline", "candidate"):
             raise InputBlocked("CODE-ROOT", "unknown_product_sha")
         if variant in variants:
@@ -3043,8 +3147,8 @@ def main(argv=None) -> int:
         if paired:
             return run_pair(args, roots, out_dir, as_of, tz)
         root = roots[0]
-        variant = args.variant or detect_variant(git_out(root, "rev-parse",
-                                                         "HEAD"))
+        variant = args.variant or detect_variant(
+            git_out(root, "rev-parse", "HEAD"), root)
         snapshot = args.snapshot
         config_path = args.effective_config
         if args.fixture and (not snapshot or not config_path):
