@@ -35,24 +35,28 @@
       "id": "mod_stories",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_experience",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_character",
       "route": "#/permsoc",
       "href": "#/permsoc",
+      "h": 16,
       "text": "Часть «PERMsoc»"
      },
      {
       "id": "mod_random",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      }
     ],
@@ -1118,24 +1122,28 @@
       "id": "mod_stories",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_experience",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_character",
       "route": "#/permsoc",
       "href": "#/permsoc",
+      "h": 16,
       "text": "Часть «PERMsoc»"
      },
      {
       "id": "mod_random",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      }
     ],
@@ -2201,24 +2209,28 @@
       "id": "mod_stories",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_experience",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_character",
       "route": "#/permsoc",
       "href": "#/permsoc",
+      "h": 16,
       "text": "Часть «PERMsoc»"
      },
      {
       "id": "mod_random",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 16,
       "text": "Часть «Памяти»"
      }
     ],
@@ -3284,24 +3296,28 @@
       "id": "mod_stories",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_experience",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_character",
       "route": "#/permsoc",
       "href": "#/permsoc",
+      "h": 44,
       "text": "Часть «PERMsoc»"
      },
      {
       "id": "mod_random",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      }
     ],
@@ -3971,24 +3987,28 @@
       "id": "mod_stories",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_experience",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_character",
       "route": "#/permsoc",
       "href": "#/permsoc",
+      "h": 44,
       "text": "Часть «PERMsoc»"
      },
      {
       "id": "mod_random",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      }
     ],
@@ -4658,24 +4678,28 @@
       "id": "mod_stories",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_experience",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      },
      {
       "id": "mod_character",
       "route": "#/permsoc",
       "href": "#/permsoc",
+      "h": 44,
       "text": "Часть «PERMsoc»"
      },
      {
       "id": "mod_random",
       "route": "#/memory/rag",
       "href": "#/memory/rag",
+      "h": 44,
       "text": "Часть «Памяти»"
      }
     ],
@@ -5318,6 +5342,46 @@
   "768x1024": [],
   "390x844": [],
   "320x568": [],
+  "split_1024": {
+   "children": 2,
+   "mainW": 992,
+   "sideW": 992,
+   "mainTop": 467,
+   "sideTop": 649,
+   "w": 992
+  },
+  "split_1152": {
+   "children": 2,
+   "mainW": 1120,
+   "sideW": 1120,
+   "mainTop": 440,
+   "sideTop": 622,
+   "w": 1120
+  },
+  "split_1199": {
+   "children": 2,
+   "mainW": 1167,
+   "sideW": 1167,
+   "mainTop": 440,
+   "sideTop": 622,
+   "w": 1167
+  },
+  "split_1200": {
+   "children": 2,
+   "mainW": 629,
+   "sideW": 307,
+   "mainTop": 390,
+   "sideTop": 390,
+   "w": 952
+  },
+  "split_1680": {
+   "children": 2,
+   "mainW": 949,
+   "sideW": 467,
+   "mainTop": 363,
+   "sideTop": 363,
+   "w": 1432
+  },
   "deep_link": {
    "links": [
     {
@@ -5369,6 +5433,6 @@
    ]
   }
  },
- "shots": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\e31efba8c3a07ef5\\mod-acl-ux-01-w2c-1c42e502b218\\artifact-017df521dc\\shots-final",
+ "shots": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\e31efba8c3a07ef5\\mod-acl-ux-01-w2c-1c42e502b218\\artifact-017df521dc\\shots-r2",
  "failures": []
 }

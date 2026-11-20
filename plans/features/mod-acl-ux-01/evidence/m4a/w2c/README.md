@@ -9,6 +9,21 @@
 | Write scope | `web/app.js`, `web/index.html`, `web/static/app.css`; тесты/e2e/evidence |
 | Backend/API/DDL/flags/prompts/storage | не изменялись |
 
+## R2 — исправление трёх review blockers (2026-11-20)
+
+1. **F1 test regression.** `_memoryGroups`, `memorySubgroupChips` и
+   `_permsocOwnerGroups` вызывают `submoduleOwnedGroups` только через
+   `typeof … === 'function'`; урезанные юнит-контексты
+   `round1025_f7_permsoc_local_test.js` и `routing_test.js` снова зелёные,
+   production-контракт фильтрации не изменён.
+2. **F2 touch.** Анкер `.module-catalog .module-parent-chip` на
+   `max-width:1199px`/coarse получает `min-height:44px` и прозрачные
+   `padding-block:14px; margin-block:-14px`; визуальная пилюля остаётся 16 px,
+   карточки держат 132–164. Playwright: чипы 44 px на 768/390/320, overflow 0.
+3. **F3 layout.** Коллапс `.workspace-split` перенесён на `max-width:1199px`;
+   на 1024/1152/1199 блоки стоят друг под другом, на 1200/1680 — 8/4
+   (main/side 629/307 и 949/467).
+
 ## Что реализовано
 
 - **NAV-01.** `parent_id` DTO → чип-ссылка владельца у 4 подмодулей:
@@ -35,13 +50,19 @@
 ## Доказательства
 
 - RED на base: `red-node-d03027b1b.txt` (падение нового node-теста до правки).
-- Node: `node-tests-candidate.txt` — **7 файлов, 0 fail**:
+- Node: `node-tests-candidate.txt` — **9 файлов, 0 fail**:
   M3 routes 235, M4 catalog 207, module params 64, review fixes 75,
-  W2a 141, W2b 356, W2c **82** проверки.
+  W2a 141, W2b 356, W2c **83** проверки, F7 PERMsoc-local и routing_test.
 - Playwright W2c: `e2e-w2c.json` / `e2e-w2c-summary.txt` — **6 viewport
   (1680/1440/1280/768/390/320), 0 failures**: 21 карточка, 4/3/2/1,
   parent-чипы и deep links, owner-ссылки, 8/4 пропорции (~2:1), ширины
-  1432/1000, touch 0 нарушений, overflow 0, JS-ошибок 0.
+  1432/1000, touch 0 нарушений, overflow 0, JS-ошибок 0. Дополнительно
+  split-проверки на 1024/1152/1199 (одна колонка) и 1200/1680 (8/4);
+  catalog parent-чипы 44 px на 768/390/320.
+- Broad JS sweep: `broad-js-candidate.txt` — **124 теста, 4 fail**;
+  `broad-js-base.txt` — **123 теста, те же 4 fail** (`asap6_wave2_ux_tabs`,
+  `evol_cog_scene`, `round1025_ia_routing`, `ur_ui_settings`) — новых
+  падений 0; два F1-теста зелёные.
 - Регресс существующего M4A e2e: `regression-e2e-summary.txt` —
   `M4A-CATALOG-E2E OK | failures=0` (W2a/W2b сценарии).
 - Python affected suite: `python-tests-candidate.txt` — **218 passed, 6 failed**;
@@ -66,9 +87,10 @@
   — ширина 1000. Скриншоты: `browseruse/catalog-1440.png`,
   `experience-1440.png`, `direct-models-1440.png`, `permsoc-1440.png`,
   `nostalgia-1440.png` (путь в общем run-артефакте; ниже).
-- Playwright-скриншоты (5 ключевых, коммитятся): `shots/`.
+- Playwright-скриншоты (8 ключевых, коммитятся): `shots/` (включая
+  `catalog-memory-390.png`, `split-1024.png`, `split-1200.png`).
   Полный набор 6 viewport — в
-  `C:\Users\main\.config\opencode\WorkspaceData\runs\e31efba8c3a07ef5\mod-acl-ux-01-w2c-1c42e502b218\artifact-017df521dc\shots`.
+  `C:\Users\main\.config\opencode\WorkspaceData\runs\e31efba8c3a07ef5\mod-acl-ux-01-w2c-1c42e502b218\artifact-017df521dc\shots-r2`.
 
 ## Ограничения
 
