@@ -9,8 +9,10 @@
 
 ## RED before fixes
 
-Added six focused regressions; on reviewed product `596f5e38` the five
-blocking findings reproduce as **5 failed, 55 passed**:
+Added six focused tests (five blocking regressions + one explicit-history
+guard); on reviewed product `596f5e38` the five blocking findings reproduce as
+**5 failed, 55 passed** (the guard stays green because the old code captured
+too much, not too little):
 
 - `pytest-review-fixes-596f5e38.txt` under `red-base/`.
 
