@@ -1,10 +1,10 @@
 ﻿C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
-строка:1 знак:251
-+ ... | Out-Null; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
+строка:1 знак:132
++ ... -912d3c5b"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-WARNING: closed 5 leaked aiosqlite connection(s)
-..............................                                           [100%]
-30 passed in 5.23s
+WARNING: closed 10 leaked aiosqlite connection(s)
+...................................                                      [100%]
+35 passed in 3.95s

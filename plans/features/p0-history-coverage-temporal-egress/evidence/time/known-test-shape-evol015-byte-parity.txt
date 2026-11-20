@@ -1,0 +1,11 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '[20.11.2026 ...╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]' == '[20.11.2026 ...╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]'
+      
+      - [20.11.2026 18:57 UTC | id1 [1] | tg:501]: ╨▓╨╛╨┐╤А╨╛╤Б <<< [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]
+      + [20.11.2026 18:57 UTC | id1 [1] | tg:501 | ╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:500 (uid 2)]: ╨▓╨╛╨┐╤А╨╛╤Б <<< [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]
+      ?                                         ++++++++++++++++++++++++++
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_evol015_quote_pipeline.py:297: AssertionError: assert '[20.11.2026 ...╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]' == '[20.11.2026 ...╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]'
+=========================== short test summary info ===========================
+FAILED tests/test_evol015_quote_pipeline.py::test_d_plain_reply_byte_parity
+1 failed in 3.42s

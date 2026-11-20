@@ -3,8 +3,9 @@
 - Task: `p0-history-coverage-temporal-egress-01`, slice `HC-TIME` (B).
 - Base: A tip `658661710add58b88dfcb7a18a43bd7ad15d5f89` (product A `a58104f691ff3a7d2c2a543d6bb5646dfc5b3fd4`, base `1b7d43333b5be8fcbceff2fc82ff8436e5947e9d` / 2.58.225).
 - Branch: `p0/hc-b`; worktree `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b` (installed `workflow_housekeeping.py worktree-path` + `git worktree add`, `register-worktree`).
-- Product/tests candidate: `24f0f76672c4f5187700c19cdbf9492481e016f3`; evidence commit adds only `evidence/time/**`.
+- Product/tests candidate: `1fe684d369d753449cf1bdc974de6fdefdd1c8ca`; evidence commit adds only `evidence/time/**`.
 - Scope: only B product files + `tests/test_history_isolation.py` + new `tests/test_p0_hc_temporal.py` + `evidence/time/**`.
+- HC-B-F1 addendum (Reviewer-directed): `services/thread_chain.py` and the test-only `tests/test_history_segments.py` addendum are included; PM amends the graph.
 - No DDL, indexes, ORDER BY, ranking/`rag_ts`/`_apply_filters`, flags, prompts, version bump or deploy.
 
 ## 1. What was lost before B
@@ -69,6 +70,13 @@ No other SQL, DDL, index, ORDER BY or filters changed.
 - Reply-chain: `time_kind=source` when a chain ts exists, otherwise `unknown`.
 - `score`, channel ranks, `_apply_filters` and dedup were not changed.
 
+### `services/thread_chain.py` (HC-B-F1)
+
+- `ChainItem` additively gains `edited_at` and `reply_to_author_id` at the END (old positional constructions remain valid).
+- `collect_thread_chain` fills them from the row it already reads via `get_smart_message_by_tg_id` (that SELECT already includes both; no new SQL/DDL).
+- `format_chain_line` (raw Thread/Branch/factcheck) passes `reply_to="tg:<parent> [(uid N)]"` and `edited_at` to `format_context_item`; absent fields keep old bytes.
+- `render_speech_line` does NOT print raw `tg:`/uid (existing speech contract): reply remains the existing `↳ Reply M…` relation, edit is an additive `(ред. … UTC)` clause after the text. Thus edit/reply metadata still reaches the speech payload without breaking the `| M…]` slot contract.
+
 ## 3. Deliberate deviations / scope boundaries
 
 1. **8th tuple element is emitted at the Direct-RAG dict→tuple boundary** (`_rag_rows_with_ranks`), not by changing the legacy `get_rag_facts`/`_search_graph_facts` 7-tuple contract. Reason: `tests/test_graphrag_memory.py` (outside B write scope) pins the public 7-tuple shape; the Writer-facing Direct-RAG tuple now carries `time_origin` and `_format_origin_labeled_line` consumes it. `build_rag_context` remains structurally untouched.
@@ -76,7 +84,7 @@ No other SQL, DDL, index, ORDER BY or filters changed.
 3. **Episode event columns are row-aware only.** `services/mca_episodes.py`/the facade are outside B write scope and do not expose `event_start_ts/event_end_ts`; B never invents an event window and falls back to honest `recorded`/`unknown`.
 4. **UTC legend lives in the Writer assembly** (`direct_chat_service`), not in `chat_clock.py` (out of scope). It is one phrase, idempotent, and does not rewrite `_fmt_ts`.
 5. **`_ha_fmt_ts`/`_format_timestamp` already used UTC at A/2.58.225.** B adds discriminating guard tests and a mutation, not a duplicate “fix”.
-6. **Known test-shape conflict (outside write scope):** `tests/test_history_segments.py::…test_intra_page_cut_reply_keeps_connection` computes a character slot from rendered lines and expects the second cut exactly at 121|122. With the now-legitimate reply segment on row 111, the character budget cuts at 120|121; coverage is still `complete=1` and reply links are not lost, but the exact-cut assertion fails. The file is outside B scope and was not edited; artifact: `known-test-shape-shift.txt`.
+6. **Thread-scope 8th/bytes caveat:** the Reviewer-directed addendum to `tests/test_history_segments.py` recomputes the second cross-cut reply at the now-legitimate 120|121 cut; the test keeps checking a reply connection *through* the cut and is green. `test_evol015_quote_pipeline::test_d_plain_reply_byte_parity` still compares raw Thread output against the pre-B oracle (no reply argument) and is therefore expected to fail after HC-B-F1; it is outside the authorized addendum scope and is recorded as `known-test-shape-evol015-byte-parity.txt`.
 7. **Known pre-existing failure:** `tests/test_ur_c_clock.py::TestFallbackAdapterClock::test_generous_budget_keeps_block_intact_same_asof` fails identically on A tip `65866171` and on this candidate (fallback capacity marker under its tight synthetic budget). Artifacts: `red-base/preexisting-ur-c-clock-at-65866171.txt`, `red-base/preexisting-ur-c-clock-at-hc-b.txt`; not caused by B.
 
 ## 4. Requirement rows covered
@@ -89,17 +97,20 @@ A contracts preserved: no changes to the A window grammar/parser/route/header/co
 
 `evidence/time/payloads/capture_payloads.py` runs the real `DirectChatService._l2_write_answer` on an isolated in-memory SQLite fixture and stores the actual `messages` payload:
 
-- `payloads/writer-payload.json` (anonymized: `A`/`B`, `message-1`, `fact-1`), `payloads/writer-payload.sha256`;
-- observed: `reply_edge_in_user=true`, `edit_stamp_in_user=true`, `recorded_fact_label_in_user=true`, `utc_legend_count=1`, `clock_blocks=1`;
-- the user content contains all three channels at once: Global_Context line, `<RAG_Memory>` recorded fact, Tool_Evidence history line, plus one UTC legend after `</Chat_Time_Context>`.
+- `payloads/writer-payload.json` (anonymized: `A`/`B`, `message-0/1`, `fact-1`), `payloads/writer-payload.sha256` (`025a063c…`);
+- observed: `reply_edge_in_user=true`, `edit_stamp_in_user=true`, `recorded_fact_label_in_user=true`, `utc_legend_count=1`, `clock_blocks=1`, `thread_block_in_user=true`, `branch_block_in_user=true`, `thread_has_reply/edit=true`, `branch_has_reply/edit=true`;
+- the user content contains all channels at once: Global_Context line, `<Conversation_Thread>`, `<Conversation_Branch>`, `<RAG_Memory>` recorded fact, Tool_Evidence history line, plus one UTC legend after `</Chat_Time_Context>`. The Thread/Branch block carries both `ответ на tg:11 (uid 7)` and `ред. 01.01.2024 00:05 UTC`.
 
 Production trace/real archive/effective release config are unavailable in this environment; this is an isolated fixture through the same payload builder, not production evidence.
 
 ## 6. Commands / results
 
 - RED at A tip with B tests (source stashed): `22 failed, 29 passed` — `red-base/pytest-hc-b-at-65866171.txt`.
-- New tests: `python -m pytest tests/test_p0_hc_temporal.py -q` → `30 passed`.
-- Focused: 16 files, `739 passed, 2 deselected` (deselected: pre-existing ur_c_clock failure + the out-of-scope exact-cut assertion), see `tests/focused.txt`.
-- Mandatory 24-file set (same as A): `386 passed`, `tests/mandatory-386.txt`.
-- TIME-03/NEXT-02/turn-clock support: `108 passed`, `tests/next02-time03.txt`.
-- Mutations (6): `mutations/*.txt` (drop `sent_at`, `created_at` as event, local timezone, reply/edit loss, tuple origin ignored, payload legend dropped) — each targeted test fails and passes again after restore.
+- HC-B-F1 RED on candidate `24f0f766`: `3 failed, 1 passed` — `red-base/hc-b-f1-red-at-24f0f766.txt`.
+- New tests: `python -m pytest tests/test_p0_hc_temporal.py -q` → `35 passed`.
+- History isolation: `21 passed`.
+- Focused: `745 passed, 1 deselected` (666 core + 79 summary-memory; deselected only the pre-existing ur_c_clock failure) — `tests/focused.txt`, `tests/summary-memory.txt`.
+- Thread/reply consumers (HC-B-F1): `367 passed, 1 deselected` (the deselected `test_evol015…byte_parity` is the pre-B oracle; expected fail artifact) — `tests/thread-chain.txt`.
+- Mandatory 24-file set (same as A): `386 passed` — `tests/mandatory-386.txt`.
+- TIME-03/NEXT-02/turn-clock 6-file set: `157 passed` — `tests/next02-time03.txt` (earlier 5-file run: 108; Reviewer's 110 used a different file set).
+- Mutations (9): `mutations/*.txt` — original 6 plus f1-m1 (drop Thread reply), f1-m2 (drop Thread edited_at), f1-m3 (payload Thread content missing); each targeted test fails and passes again after restore.

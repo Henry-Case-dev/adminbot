@@ -1,0 +1,10 @@
+﻿........................................................................ [ 91%]
+.......                                                                  [100%]
+============================== warnings summary ===============================
+tests/test_summary_memory.py::TestSelfHeal::test_broken_extension_zero_probe_calls
+  <string>:2: RuntimeWarning: coroutine 'start_resume_ticker.<locals>._loop' was never awaited
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+79 passed, 1 warning in 8.84s

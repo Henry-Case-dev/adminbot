@@ -1,0 +1,15 @@
+﻿C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:8 знак:140
++ ... _f1_m2.py"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 1 leaked aiosqlite connection(s)
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '╤А╨╡╨┤. 01.01.2024 00:05 UTC' in '<Conversation_Thread>\n[01.01.2024 00:00 UTC | A [7] | tg:11]: message-1\n[01.01.2024 00:00 UTC | B [8] | tg:12 | ╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 7)]: message-2 &lt;&lt;&lt; [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]\n</Conversation_Thread>'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-912d3c5b\tests\test_p0_hc_temporal.py:476: AssertionError: assert '╤А╨╡╨┤. 01.01.2024 00:05 UTC' in '<Conversation_Thread>\n[01.01.2024 00:00 UTC | A [7] | tg:11]: message-1\n[01.01.2024 00:00 UTC | B [8] | tg:12 | ╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 7)]: message-2 &lt;&lt;&lt; [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]\n</Conversation_Thread>'
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestThreadBranchTemporalDelivery::test_thread_and_branch_lines_carry_reply_edit
+1 failed in 3.03s

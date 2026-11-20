@@ -6,7 +6,8 @@
   "tasks": [
     "HC-TIME-PAYLOAD-PROOF",
     "HC-ACC-CHANNELS",
-    "HC-TIME-SMART-CONTEXT"
+    "HC-TIME-SMART-CONTEXT",
+    "HC-B-F1"
   ],
   "time_line": "<Chat_Time_Context source=\"server\" phase=\"answer\">\nlocal: 01.01.2024 03:00, Понедельник (Europe/Moscow, UTC+03:00)\nas_of_utc: 2024-01-01T00:00:00+00:00\n</Chat_Time_Context>",
   "messages": [
@@ -16,7 +17,7 @@
     },
     {
       "role": "user",
-      "content": "<Chat_Time_Context source=\"server\" phase=\"answer\">\nlocal: 01.01.2024 03:00, Понедельник (Europe/Moscow, UTC+03:00)\nas_of_utc: 2024-01-01T00:00:00+00:00\n</Chat_Time_Context>\nМетки времени сообщений в контексте — UTC.\n\n<Global_Context>\n[01.01.2024 00:00 UTC | A [7] | tg:12 | ответ на tg:11 (uid 8) | ред. 01.01.2024 00:05 UTC]: message-1 <<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]\n</Global_Context>\n\n<RAG_Memory>\n[чат] [01.2024 | дата записи | B | fact:5]: fact-1 (Внимание: возможно устарело)\n</RAG_Memory>\n\n<Tool_Evidence>\n[01.01.2024 00:00 UTC | A [7] | tg:12 | ответ на tg:11 (uid 8) | ред. 01.01.2024 00:05 UTC]: message-1\n</Tool_Evidence>\n\nБез анонса собственных действий: не сообщай, что сейчас сделаешь или уже сделал, и не обещай разобрать вместо разбора."
+      "content": "<Chat_Time_Context source=\"server\" phase=\"answer\">\nlocal: 01.01.2024 03:00, Понедельник (Europe/Moscow, UTC+03:00)\nas_of_utc: 2024-01-01T00:00:00+00:00\n</Chat_Time_Context>\nМетки времени сообщений в контексте — UTC.\n\n<Global_Context>\n[01.01.2024 00:00 UTC | B [8] | tg:12 | ответ на tg:11 (uid 7) | ред. 01.01.2024 00:05 UTC]: message-1 <<< [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]\n</Global_Context>\n\n<Conversation_Thread>\n[31.12.2023 23:59 UTC | A [7] | tg:11]: message-0\n[01.01.2024 00:00 UTC | B [8] | tg:12 | ответ на tg:11 (uid 7) | ред. 01.01.2024 00:05 UTC]: message-1 &lt;&lt;&lt; [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]\n</Conversation_Thread>\n\n<Conversation_Branch>\n[31.12.2023 23:59 UTC | A [7] | tg:11]: message-0\n[01.01.2024 00:00 UTC | B [8] | tg:12 | ответ на tg:11 (uid 7) | ред. 01.01.2024 00:05 UTC]: message-1 &lt;&lt;&lt; [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]\n</Conversation_Branch>\n\n<RAG_Memory>\n[чат] [01.2024 | дата записи | B | fact:5]: fact-1 (Внимание: возможно устарело)\n</RAG_Memory>\n\n<Tool_Evidence>\n[01.01.2024 00:00 UTC | B [8] | tg:12 | ответ на tg:11 (uid 7) | ред. 01.01.2024 00:05 UTC]: message-1\n</Tool_Evidence>\n\nБез анонса собственных действий: не сообщай, что сейчас сделаешь или уже сделал, и не обещай разобрать вместо разбора."
     }
   ],
   "observed": {
@@ -24,6 +25,12 @@
     "edit_stamp_in_user": true,
     "recorded_fact_label_in_user": true,
     "utc_legend_count": 1,
-    "clock_blocks": 1
+    "clock_blocks": 1,
+    "thread_block_in_user": true,
+    "branch_block_in_user": true,
+    "thread_has_reply": true,
+    "thread_has_edit": true,
+    "branch_has_reply": true,
+    "branch_has_edit": true
   }
 }

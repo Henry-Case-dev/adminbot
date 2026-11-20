@@ -1,0 +1,28 @@
+﻿C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:1 знак:132
++ ... -912d3c5b"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 4 leaked aiosqlite connection(s)
+FFF.                                                                     [100%]
+================================== FAILURES ===================================
+_ TestThreadBranchTemporalDelivery.test_chain_item_carries_edited_at_and_reply_author _
+tests\test_p0_hc_temporal.py:464: in test_chain_item_carries_edited_at_and_reply_author
+    assert getattr(chain[0], "edited_at", None) == EDITED
+E   AssertionError: assert None == 1704067500
+E    +  where None = getattr(ChainItem(uid=8, name='B', text='message-2', is_bot=False, ts=1704067210, item_id='tg:12', forward_source=None, quote_...=None, reply_to_item_id='tg:11', quote_author_name='', media_type='', source_kind='', correlation_id='', revision_no=1), 'edited_at', None)
+_ TestThreadBranchTemporalDelivery.test_thread_and_branch_lines_carry_reply_edit _
+tests\test_p0_hc_temporal.py:475: in test_thread_and_branch_lines_carry_reply_edit
+    assert "╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 7)" in block
+E   AssertionError: assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 7)' in '<Conversation_Thread>\n[01.01.2024 00:00 UTC | A [7] | tg:11]: message-1\n[01.01.2024 00:00 UTC | B [8] | tg:12]: message-2 &lt;&lt;&lt; [╨н╨в╨Ю ╨в╨Т╨Ю╨п ╨в╨Х╨Ъ╨г╨й╨Р╨п ╨Ъ╨Ю╨Ь╨Р╨Э╨Ф╨Р]\n</Conversation_Thread>'
+_ TestThreadBranchTemporalDelivery.test_thread_branch_reach_final_writer_payload _
+tests\test_p0_hc_temporal.py:492: in test_thread_branch_reach_final_writer_payload
+    assert "╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 7)" in user
+E   assert '╨╛╤В╨▓╨╡╤В ╨╜╨░ tg:11 (uid 7)' in '<Chat_Time_Context source="server" phase="answer">\nlocal: 01.01.2024 03:00, ╨Я╨╛╨╜╨╡╨┤╨╡╨╗╤М╨╜╨╕╨║ (Europe/Moscow, UTC+03:00)\n...╨С╨╡╨╖ ╨░╨╜╨╛╨╜╤Б╨░ ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╤Е ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╣: ╨╜╨╡ ╤Б╨╛╨╛╨▒╤Й╨░╨╣, ╤З╤В╨╛ ╤Б╨╡╨╣╤З╨░╤Б ╤Б╨┤╨╡╨╗╨░╨╡╤И╤М ╨╕╨╗╨╕ ╤Г╨╢╨╡ ╤Б╨┤╨╡╨╗╨░╨╗, ╨╕ ╨╜╨╡ ╨╛╨▒╨╡╤Й╨░╨╣ ╤А╨░╨╖╨╛╨▒╤А╨░╤В╤М ╨▓╨╝╨╡╤Б╤В╨╛ ╤А╨░╨╖╨▒╨╛╤А╨░.'
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_temporal.py::TestThreadBranchTemporalDelivery::test_chain_item_carries_edited_at_and_reply_author
+FAILED tests/test_p0_hc_temporal.py::TestThreadBranchTemporalDelivery::test_thread_and_branch_lines_carry_reply_edit
+FAILED tests/test_p0_hc_temporal.py::TestThreadBranchTemporalDelivery::test_thread_branch_reach_final_writer_payload
+3 failed, 1 passed in 3.97s

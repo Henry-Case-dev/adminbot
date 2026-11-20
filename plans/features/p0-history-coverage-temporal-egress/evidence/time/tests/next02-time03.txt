@@ -1,4 +1,5 @@
-﻿........................................................................ [ 66%]
+﻿........................................................................ [ 45%]
+........................................................................ [ 91%]
 C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
 строка:1 знак:132
 + ... -912d3c5b"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
@@ -7,5 +8,5 @@ C:\Code\Python\adminbot\.venv\Scripts\python.exe :
     + FullyQualifiedErrorId : NativeCommandError
  
 WARNING: closed 8 leaked aiosqlite connection(s)
-....................................                                     [100%]
-108 passed in 13.45s
+.............                                                            [100%]
+157 passed in 10.83s
