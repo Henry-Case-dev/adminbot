@@ -42,6 +42,7 @@ No other SQL, DDL, index, ORDER BY or filters changed.
 
 - `_context_row_line` renders `ответ на tg:<reply_to_id> [(uid <reply_to_author_id>)]` and `ред. <UTC>` in both raw and speech projection; absent fields keep byte parity.
 - `_ha_fmt_ts` remains the UTC renderer (`format_utc_timestamp`); a B guard test pins it (the base 2.58.225 already had the UTC fix from VMQ/MEM-TIME).
+- `_chat_time_line` and a `time_snapshot` object do not exist in this line (removed by UR-C-CLOCK); the single clock is `chat_clock`/`render_chat_time_context`. B does not introduce a second clock or a second `time.time()`: relative windows resolve from the passed `turn_as_of` (A), and the focused `tests/test_ur_c_clock.py` covers IANA/DST/local-midnight on the same snapshot.
 - `_TIME_ZONE_LEGEND` + `_with_time_zone_legend`: one phrase appended to the Writer `time_line`; applied in `_l2_write_answer` (all Writer invocations, including initiative) and the legacy `build_messages` path. Empty `time_line` stays empty; repeated assembly does not duplicate the phrase. `chat_clock.py` is outside B scope and was not touched.
 - `_rag_meta_from_record` carries `time_origin`; `_rag_rows_with_ranks` emits the 8th tuple element at the Direct-RAG boundary.
 
@@ -100,4 +101,5 @@ Production trace/real archive/effective release config are unavailable in this e
 - New tests: `python -m pytest tests/test_p0_hc_temporal.py -q` → `30 passed`.
 - Focused: 16 files, `739 passed, 2 deselected` (deselected: pre-existing ur_c_clock failure + the out-of-scope exact-cut assertion), see `tests/focused.txt`.
 - Mandatory 24-file set (same as A): `386 passed`, `tests/mandatory-386.txt`.
+- TIME-03/NEXT-02/turn-clock support: `108 passed`, `tests/next02-time03.txt`.
 - Mutations (6): `mutations/*.txt` (drop `sent_at`, `created_at` as event, local timezone, reply/edit loss, tuple origin ignored, payload legend dropped) — each targeted test fails and passes again after restore.

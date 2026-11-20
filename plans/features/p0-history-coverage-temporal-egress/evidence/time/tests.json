@@ -39,6 +39,11 @@
       "passed": 386,
       "failed": 0,
       "note": "same mandatory 24-file set as A / 2.58.225 evidence"
+    },
+    "next02_time03": {
+      "passed": 108,
+      "failed": 0,
+      "note": "TIME-03/NEXT-02 and turn-clock support suites; no ranking/recency change"
     }
   },
   "red_base": {
