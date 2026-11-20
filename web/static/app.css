@@ -7678,7 +7678,11 @@ html.w9-sheet-bottom .modal-close {
   display: flex; flex-direction: column; gap: 4px; min-width: 0; cursor: pointer;
 }
 .module-card-body:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
-.module-card .module-title { font-size: 14px; line-height: 1.25; }
+.module-card .module-title {
+  font-size: 14px; line-height: 1.25;
+  display: block; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 /* Одна фраза ≤2 строк: clamp именно описания, не всей карточки. */
 .module-card-phrase {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
