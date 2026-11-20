@@ -1,0 +1,53 @@
+P0-HC C2 mutation re-verification (explicit patches)
+worktree: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-683cfa06
+python:   C:\Code\Python\adminbot\.venv\Scripts\python.exe
+command:  python -m pytest tests/test_p0_hc_egress_c2.py -q
+run_at:   2026-11-21T07:56:35+12:00
+
+The historical helper behind c2-mutations.txt was not preserved; this
+file re-creates one equivalent mutation per named property and records
+the actual patch, exit code and test summary.
+
+M1-no-html-channel: rc=1 KILLED | 17 failed, 13 passed in 3.43s
+  file: services/direct_chat_service.py | restored_sha256=d75a9f0755e386f4..
+  why: ordinary Direct never takes the structured HTML channel
+  old: if _markup_mode == "telegram_html":
+  new: if False:  # M1 mutation
+
+M2-duplicate-resend-previous: rc=1 KILLED | 2 failed, 28 passed in 3.63s
+  file: services/telegram_markup.py | restored_sha256=71632f474fb50d8d..
+  why: a failed HTML chunk re-sends already delivered chunks as plain
+  old: try:
+  new: for _prev in range(index):
+
+M3-plain-default-parse-mode: rc=1 KILLED | 8 failed, 22 passed in 3.46s
+  file: services/direct_chat_service.py | restored_sha256=d75a9f0755e386f4..
+  why: plain delivery silently gains parse_mode=HTML
+  old: first = await send_chunked_reply(bot, chat_id, text, reply_to, **extra)
+  new: first = await send_chunked_reply(bot, chat_id, text, reply_to, parse_mode="HTML", **extra)
+
+M4-summary-send-path-touched: rc=1 KILLED | 1 failed, 29 passed in 3.46s
+  file: services/summary_generator.py | restored_sha256=5b9a938999b62ea0..
+  why: /summary module depends on the new egress module
+  old: from services import anticliche_cache
+  new: from services import anticliche_cache
+
+M5-reply-on-every-chunk: rc=1 KILLED | 1 failed, 29 passed in 3.24s
+  file: services/telegram_markup.py | restored_sha256=71632f474fb50d8d..
+  why: every chunk replies to the user message instead of only the first
+  old: reply_id = reply_to if index == 0 else None
+  new: reply_id = reply_to  # M5 mutation
+
+M6-drop-delivered-id: rc=1 KILLED | 10 failed, 20 passed in 3.54s
+  file: services/telegram_markup.py | restored_sha256=71632f474fb50d8d..
+  why: successful delivery returns no message_id for the ledger
+  old: if index < len(chunks) - 1:
+  new: if index < len(chunks) - 1:
+
+M7-trace-renders-raw-source: rc=1 KILLED | 2 failed, 28 passed in 3.33s
+  file: services/direct_chat_service.py | restored_sha256=d75a9f0755e386f4..
+  why: turn trace records raw Markdown instead of the delivered HTML
+  old: _html_payload = _tm.render_telegram_html(_markup_source)
+  new: _html_payload = _markup_source  # M7 mutation
+
+RESULT: 7/7 killed, 0 unexpected

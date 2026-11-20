@@ -648,7 +648,9 @@ class TestDeepResearchDelivery:
             return 1
 
         monkeypatch.setattr(dcs, "send_chunked_reply", fake_send)
+        # C2: `**...**` — структурная разметка (HTML-канал); здесь проверяется
+        # именно обычная болтовня без разметки.
         await dcs.DirectChatService._send_direct_answer(
-            None, -100, "как ИИ **нельзя**", 7)
+            None, -100, "как ИИ ответил", 7)
         assert calls[0][1] == {}
-        assert calls[0][0] == "как ИИ **нельзя**"
+        assert calls[0][0] == "как ИИ ответил"

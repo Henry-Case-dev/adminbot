@@ -1,0 +1,8 @@
+Compacted summary of: python -m pytest tests/test_rlr_dcs_postprocess.py tests/test_verbilizer_response_modes_round1023.py -q
+Result: 88 passed, 1 failed, 2 errors; all three are pre-existing at C1 head (see c2-preexisting-verbilizer-at-c1-head-summary.txt).
+E   ValueError: the environment variable is longer than 32767 characters
+E   ValueError: the environment variable is longer than 32767 characters
+FAILED tests/test_verbilizer_response_modes_round1023.py::TestTwoCallModes::test_summary_kill_switch_off_prev_narrator
+ERROR tests/test_verbilizer_response_modes_round1023.py::TestDeepResearchPromptConsistency::test_no_bullet_ban_in_deep_research[\u0420\u041e\u041b\u042c \u0418 \u0417\u0410\u0414\u0410\u0427\u0410\n\u ...[truncated]
+ERROR tests/test_verbilizer_response_modes_round1023.py::TestDeepResearchPromptConsistency::test_no_bullet_ban_in_deep_research[\u0420\u041e\u041b\u042c \u0418 \u0417\u0410\u0414\u0410\u0427\u0410\n\u ...[truncated]
+1 failed, 88 passed, 2 errors in 6.83s

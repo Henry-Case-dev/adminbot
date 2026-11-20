@@ -453,10 +453,12 @@ class TestLoreStoryDelivery:
             return 1
 
         monkeypatch.setattr(dcs, "send_chunked_reply", fake_send)
+        # C2: структурная разметка (`**...**`) уходит HTML-каналом; этот
+        # тест проверяет именно обычную болтовню без разметки.
         await dcs.DirectChatService._send_direct_answer(
-            None, CHAT_ID, "обычный **ответ**", 7, lore=False)
+            None, CHAT_ID, "обычный ответ", 7, lore=False)
         assert calls[0][1] == {}
-        assert calls[0][0] == "обычный **ответ**"
+        assert calls[0][0] == "обычный ответ"
 
     @pytest.mark.asyncio
     async def test_broken_html_falls_back_to_plain_raw(self, monkeypatch):

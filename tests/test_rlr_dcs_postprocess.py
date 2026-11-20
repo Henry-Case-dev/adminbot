@@ -212,12 +212,14 @@ async def test_same_event_redelivery_is_blocked(tmp_path, monkeypatch, events):
 # ════════════════════════════════════════════════════════════════════════════
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("text", [
-    "Вот расклад:\n| месяц | сообщений |\n|---|---|\n| май | 5 |",
-    "Итоги:\n- пункт один\n- пункт два\n- пункт три",
+@pytest.mark.parametrize(("text", "expect_html"), [
+    # Таблица не входит в закрытый C1-набор: остаётся plain байт-в-байт.
+    ("Вот расклад:\n| месяц | сообщений |\n|---|---|\n| май | 5 |", False),
+    # Список — Tier 2: тот же смысл, поддерживаемая HTML-разметка.
+    ("Итоги:\n- пункт один\n- пункт два\n- пункт три", True),
 ])
 async def test_table_and_list_delivered_without_new_generation(
-        monkeypatch, text):
+        monkeypatch, text, expect_html):
     """Список/таблица: один вызов Writer'а, доставлен тот же текст."""
     _set_l1(monkeypatch, False)
     llm = StepLLM(text=text)
@@ -229,7 +231,14 @@ async def test_table_and_list_delivered_without_new_generation(
 
     assert llm.call_count == 1
     assert FORBIDDEN_REROLL_STEPS.isdisjoint(set(llm.steps))
-    assert bot.send_message.await_args.args[1] == text   # байт-в-байт
+    call = bot.send_message.await_args
+    delivered = call.args[1]
+    # C2: канал определён содержимым, без повторной генерации.
+    assert (call.kwargs.get("parse_mode") == "HTML") is expect_html
+    if expect_html:
+        assert delivered == "Итоги:\n• пункт один\n• пункт два\n• пункт три"
+    else:
+        assert delivered == text                    # байт-в-байт для plain
 
 
 @pytest.mark.asyncio
@@ -297,8 +306,11 @@ async def test_owner_rules_single_pass_and_protected_spans(monkeypatch):
     await service.handle(bot, msg, msg.from_user)
 
     assert calls.count("direct_pre_send") == 1     # ровно один проход
-    delivered = bot.send_message.await_args.args[1]
-    assert "`print(1)`" in delivered
+    call = bot.send_message.await_args
+    delivered = call.args[1]
+    # C2: код уходит поддерживаемой HTML-сущностью; содержимое и URL целы.
+    assert call.kwargs.get("parse_mode") == "HTML"
+    assert "<code>print(1)</code>" in delivered
     assert "https://example.org/a?b=1" in delivered
 
     policy = _owner_policy()

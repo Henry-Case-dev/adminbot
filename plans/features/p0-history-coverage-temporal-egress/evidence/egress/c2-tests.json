@@ -1,0 +1,168 @@
+{
+  "schema": "p0-hc-egress-c2-tests-v1",
+  "task": "p0-history-coverage-temporal-egress-01",
+  "slice": "HC-EGRESS-C2",
+  "contract": "plans/features/p0-history-coverage-temporal-egress/arch-contract-2026-11-21.md §4.2/§4.3/§5.2",
+  "branch": "p0/hc-c2",
+  "worktree": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/p0-history-coverage-temporal-e-cbf9b3fab6a8-683cfa06",
+  "base_product": "1fe684d369d753449cf1bdc974de6fdefdd1c8ca",
+  "base_b_tip": "d8c8db4b50555fe2ffe8a19ce8e87e77b8ef4a64",
+  "c1_commit": "743286354ef8fd151c3ff872dd33796b79c84606",
+  "candidate_commit": "PENDING",
+  "environment": {
+    "python": "3.12.0 (C:/Code/Python/adminbot/.venv)",
+    "pytest": "9.1.1",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none",
+    "telegram": "fake Bot API only; no live Telegram, no production host"
+  },
+  "product": {
+    "files": [
+      "services/direct_chat_service.py (+31: import + ordinary-Direct branch)",
+      "tests/test_p0_hc_egress_c2.py (new, 30 tests)"
+    ],
+    "scope": "only _send_direct_answer ordinary branch; rich/lore/deep_research, send_chunked_reply defaults, /summary, prompts and generation untouched",
+    "configuration": {
+      "new_flags": 0,
+      "prompt_changes": 0,
+      "parse_mode_default_changed": false,
+      "chunk_limit": 4096,
+      "version_bump": false,
+      "deploy": false
+    }
+  },
+  "commands": {
+    "c2_suite": "python -m pytest tests/test_p0_hc_egress_c2.py -q",
+    "c1_suite": "python -m pytest tests/test_p0_hc_telegram_egress.py -q",
+    "mandatory_386": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q",
+    "focused_a_coverage": "python -m pytest tests/test_p0_hc_coverage.py -q",
+    "focused_a_pages_segments": "python -m pytest tests/test_history_pages.py tests/test_history_segments.py -q",
+    "focused_b_temporal": "python -m pytest tests/test_p0_hc_temporal.py -q",
+    "focused_b_isolation": "python -m pytest tests/test_history_isolation.py -q",
+    "focused_delivery_router": "python -m pytest tests/test_mca23_planned_vs_actual.py -q",
+    "edited_oracles_a": "python -m pytest tests/test_evol015_quote_pipeline.py tests/test_lore_compiler_round1020.py tests/test_soul1_style_payload.py -q",
+    "edited_oracle_rlr": "python -m pytest tests/test_rlr_dcs_postprocess.py -q",
+    "edited_oracle_verbilizer_class": "python -m pytest tests/test_verbilizer_response_modes_round1023.py::TestDeepResearchDelivery -q",
+    "edited_oracle_verbilizer_file": "python -m pytest tests/test_verbilizer_response_modes_round1023.py -q",
+    "direct_chat_file": "python -m pytest tests/test_direct_chat.py -q",
+    "baseline_5_thread_tests": "python -m pytest tests/test_direct_chat.py -q -k \"test_thread_renders_top_down_with_bot_reply or test_branch_block_rendered_for_reply_chain or test_branch_capped_by_hops or test_thread_full_chain_through_bot_replies or test_thread_break_after_ttl_expiry\""
+  },
+  "results": {
+    "red_at_b_tip": {
+      "commit": "d8c8db4b5",
+      "result": "collection ImportError: cannot import name 'telegram_markup' from 'services'",
+      "artifact": "c2-red-at-b-tip.txt"
+    },
+    "red_at_c1_head": {
+      "commit": "743286354",
+      "result": "17 failed, 13 passed (all HTML-channel expectations fail; plain parity passes)",
+      "artifact": "c2-red-at-c1-head.txt"
+    },
+    "c2_suite": {
+      "passed": 30,
+      "failed": 0,
+      "artifact": "c2-tests-c2-final.txt"
+    },
+    "c1_suite": {
+      "passed": 78,
+      "failed": 0,
+      "artifact": "c2-tests-c1-suite.txt; c2-tests-c1-final.txt (final tree)"
+    },
+    "mandatory_386": {
+      "passed": 386,
+      "failed": 0,
+      "artifact": "c2-mandatory-386.txt"
+    },
+    "focused": {
+      "test_p0_hc_coverage": {"passed": 62, "failed": 0, "artifact": "c2-focus-coverage.txt"},
+      "test_history_pages_plus_segments": {"passed": 64, "failed": 0, "artifact": "c2-focus-history-pages-segments.txt"},
+      "test_p0_hc_temporal": {"passed": 35, "failed": 0, "artifact": "c2-focus-temporal.txt"},
+      "test_history_isolation": {"passed": 21, "failed": 0, "artifact": "c2-focus-history-isolation.txt"},
+      "test_mca23_planned_vs_actual": {"passed": 24, "failed": 0, "artifact": "c2-focus-mca23.txt"},
+      "edited_oracles_a": {"passed": 61, "failed": 0, "artifact": "c2-focus-edited-oracles-a.txt"},
+      "test_rlr_dcs_postprocess": {"passed": 17, "failed": 0, "artifact": "c2-focus-edited-rlr.txt"},
+      "verbilizer_class": {"passed": 3, "failed": 0, "artifact": "c2-focus-verbilizer-edited-class.txt"}
+    },
+    "pre_existing_not_c2": {
+      "test_direct_chat": {
+        "passed": 156,
+        "failed": 5,
+        "cause": "B (HC-B-F1) additive 'ответ на ...' segment absent from old thread/branch oracle lines",
+        "baseline": "identical failures at C1 head 743286354 without C2",
+        "artifact": "c2-focus-direct-chat-summary.txt; c2-preexisting-thread-oracle-at-c1-head-summary.txt",
+        "disposition": "backlog for B line; outside C2 write scope"
+      },
+      "test_verbilizer_response_modes_round1023": {
+        "passed": 88,
+        "failed": 1,
+        "errors": 2,
+        "cause": "test_summary_kill_switch_off_prev_narrator prompt/expected mismatch; two test_no_bullet_ban_in_deep_research params exceed Windows 32767-char environment variable limit",
+        "baseline": "identical at C1 head 743286354",
+        "artifact": "c2-focus-edited-oracles-b-summary.txt; c2-preexisting-verbilizer-at-c1-head-summary.txt; c2-preexisting-verbilizer-single-at-c1-head.txt",
+        "disposition": "pre-existing/environmental, not C2"
+      }
+    }
+  },
+  "payload_proof": {
+    "artifact": "c2-payload-proof.txt",
+    "captured": [
+      "casual: parse_mode absent, text byte-identical, reply target 42",
+      "structured: parse_mode=HTML, <b> and bullet list, no raw markers",
+      "long: 2 HTML chunks, reply only first, returned first id",
+      "partial fallback: failed HTML chunk only becomes plain, prior chunk not resent",
+      "document: document.plain_text() is the source, positional text ignored, id returned"
+    ],
+    "limitations": "fake Bot API; real Telegram HTML entity acceptance/rendering not observed"
+  },
+  "oracle_edits": [
+    {
+      "file": "tests/test_evol015_quote_pipeline.py",
+      "reason": "stale pre-B oracle: B added the additive reply segment; test now includes the real reply edge and byte-parity again",
+      "weakened": false
+    },
+    {
+      "file": "tests/test_lore_compiler_round1020.py",
+      "reason": "test targets plain channel; markup input replaced with markup-free text (channel choice is contractual)",
+      "weakened": false
+    },
+    {
+      "file": "tests/test_rlr_dcs_postprocess.py",
+      "reason": "channel-parametric oracle: table plain byte-parity, list exact HTML payload; owner-rules test asserts <code>print(1)</code> + HTML channel",
+      "weakened": false
+    },
+    {
+      "file": "tests/test_soul1_style_payload.py",
+      "reason": "protected fragment 'report.txt' without backticks: code span delivered as <code>report.txt</code>",
+      "weakened": false
+    },
+    {
+      "file": "tests/test_verbilizer_response_modes_round1023.py",
+      "reason": "casual plain test uses markup-free text (channel choice is contractual)",
+      "weakened": false
+    }
+  ],
+  "mutations": {
+    "artifact": "c2-mutations-verify.txt",
+    "historical_artifact": "c2-mutations.txt",
+    "helper_preserved": false,
+    "mutations": [
+      {"id": "M1-no-html-channel", "result": "KILLED", "failed": 17},
+      {"id": "M2-duplicate-resend-previous", "result": "KILLED", "failed": 2},
+      {"id": "M3-plain-default-parse-mode", "result": "KILLED", "failed": 8},
+      {"id": "M4-summary-send-path-touched", "result": "KILLED", "failed": 1},
+      {"id": "M5-reply-on-every-chunk", "result": "KILLED", "failed": 1},
+      {"id": "M6-drop-delivered-id", "result": "KILLED", "failed": 10},
+      {"id": "M7-trace-renders-raw-source", "result": "KILLED", "failed": 2}
+    ],
+    "restored": "byte-for-byte sha256 checked after each patch",
+    "note": "historical M7 reported 1 failure with a slightly different trace mutation; property re-verified with 2"
+  },
+  "limitations": [
+    "Fake Bot API only: real Telegram parse/entity rendering and live chat not exercised.",
+    "HTML rejection/fallback simulated with injected TelegramBadRequest.",
+    "Trace decision uses sanitize_outgoing(text) before decide_markup (C1 guard order; trace digest matches visible payload).",
+    "humor-feedback channel metadata keeps the pre-existing rich|plain vocabulary for the new HTML path (cosmetic, backlog).",
+    "5 thread/branch failures in test_direct_chat.py and 1 failure + 2 environment errors in the verbilizer file are pre-existing at C1 head, outside C2 scope."
+  ],
+  "status": "REVIEW (not VERIFIED, not deployed)"
+}

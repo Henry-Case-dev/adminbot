@@ -1,0 +1,10 @@
+python.exe : 
+строка:1 знак:250
++ ... ation.txt"; & 'C:\Code\Python\adminbot\.venv\Scripts\python.exe' -m p ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 7 leaked aiosqlite connection(s)
+.....................                                                    [100%]
+21 passed in 4.18s

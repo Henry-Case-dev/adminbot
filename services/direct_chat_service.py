@@ -122,6 +122,7 @@ from services import response_extent as _extent  # MCA-23 (W3): ResponsePlan
 from services import prompt_composer as _pcomp  # SOUL-1 (W2): Composer
 from services import style_policy as _style_policy  # SOUL-1 (W3): форма текста
 from services import response_document as _rd  # MCA-23 фаза 2 (§22): артефакт
+from services import telegram_markup as _tm  # P0-HC C2: безопасный HTML-egress
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _cp_g,  # G-3 per-chat
@@ -10852,6 +10853,36 @@ class DirectChatService:
             _verify_style_payload(text, style_outcome, chat_id,
                                   stage="direct_plain",
                                   correlation_id=correlation_id)
+            # P0-HC C2 (arch §4.2): обычный Direct выбирает канал по
+            # содержанию. Plain — существующий `send_chunked_reply`
+            # байт-в-байт; структурная разметка — safe HTML через C1-модуль.
+            # Rich/lore/deep_research и их fallback выше не меняются.
+            # C1-модуль документированно применяет `sanitize_outgoing` ДО
+            # разбора/рендера (§4.1), поэтому решение и трасса считаются по
+            # тому же источнику: иначе egress-digest показывал бы escaped
+            # `<thought>`-теги, которых получатель не видит. Сам `text`
+            # передаётся в модуль без изменений.
+            _markup_source = _tm.sanitize_outgoing(text)
+            _markup_mode, _markup_reason = _tm.decide_markup(_markup_source)
+            if _markup_mode == "telegram_html":
+                _html_payload = _tm.render_telegram_html(_markup_source)
+                _ttrace.note_op(correlation_id, _ttrace.OP_HTML,
+                                _html_payload)
+                _ttrace.note_op(correlation_id, _ttrace.OP_EGRESS_SANITIZE,
+                                _delivered_payload(_html_payload))
+                _structured_id = await _tm.send_structured(
+                    bot, chat_id, text, reply_to, document=doc)
+                _ttrace.note_delivery(
+                    correlation_id,
+                    outcome=("success" if _structured_id is not None
+                             else "failed"),
+                    tg_message_ids=([_structured_id]
+                                    if isinstance(_structured_id, int)
+                                    else []),
+                    channel="html",
+                    reason=(_markup_reason if _structured_id is not None
+                            else "send_failed"))
+                return _structured_id
             return await _send_traced(
                 bot, chat_id, text, reply_to, correlation_id=correlation_id,
                 op_name=_ttrace.OP_PLAIN, channel="plain")

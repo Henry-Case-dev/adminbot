@@ -1,0 +1,31 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ TestTwoCallModes.test_summary_kill_switch_off_prev_narrator _________
+
+self = <tests.test_verbilizer_response_modes_round1023.TestTwoCallModes object at 0x0000026CDBFDD7F0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026CDBFDDD00>
+
+    @pytest.mark.asyncio
+    async def test_summary_kill_switch_off_prev_narrator(self, monkeypatch):
+        monkeypatch.setattr(Settings, "SMART_VERBALIZER_MODES_ENABLED", False)
+        editor = json.dumps({"response_mode": "deep_research", "digest": _DIGEST})
+        gen, llm = _summary_generator([editor, "прежний текст"])
+        await gen._generate_two_call("сырая история", 3800, -100)
+        stage2_system = llm.generate.await_args_list[1].args[0][0]["content"]
+>       assert stage2_system == PREV_SUMMARY_NARRATOR_R1023.replace(
+            "{max_symbols}", "3800")
+E       AssertionError: assert 'СИСТЕМНАЯ РО.../Speech_Base>' == 'СИСТЕМНАЯ РО...нравоучением.'
+E         
+E         Skipping 1451 identical leading characters in diff, use -v to show
+E         - авоучением.
+E         + авоучением.
+E         ?            +
+E         + 
+E         + <Speech_Base>...
+E         
+E         ...Full output truncated (8 lines hidden), use '-vv' to show
+
+tests\test_verbilizer_response_modes_round1023.py:415: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_verbilizer_response_modes_round1023.py::TestTwoCallModes::test_summary_kill_switch_off_prev_narrator
+1 failed in 4.97s

@@ -1,0 +1,9 @@
+Compacted summary of: python -m pytest tests/test_direct_chat.py -q
+Full run: 156 passed, 5 failed. Same 5 tests fail at C1 head 743286354 without C2.
+Cause: B (HC-B-F1) added the additive reply segment ("| otvet na tg:60"); these old thread/branch oracles expect the pre-B line.
+FAILED tests/test_direct_chat.py::TestContextPartitioning::test_thread_renders_top_down_with_bot_reply
+FAILED tests/test_direct_chat.py::TestRound8CurrentQuestionAndBranch::test_branch_block_rendered_for_reply_chain
+FAILED tests/test_direct_chat.py::TestRound8CurrentQuestionAndBranch::test_branch_capped_by_hops
+FAILED tests/test_direct_chat.py::TestRound8ThreadThroughBot::test_thread_full_chain_through_bot_replies
+FAILED tests/test_direct_chat.py::TestRound8ThreadThroughBot::test_thread_break_after_ttl_expiry
+5 failed, 156 passed in 14.85s

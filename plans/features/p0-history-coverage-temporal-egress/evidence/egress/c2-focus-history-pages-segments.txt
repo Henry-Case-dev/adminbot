@@ -1,0 +1,10 @@
+python.exe : 
+строка:1 знак:255
++ ... ments.txt"; & 'C:\Code\Python\adminbot\.venv\Scripts\python.exe' -m p ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 29 leaked aiosqlite connection(s)
+................................................................         [100%]
+64 passed in 9.24s

@@ -1,0 +1,10 @@
+python.exe : 
+строка:1 знак:241
++ ... poral.txt"; & 'C:\Code\Python\adminbot\.venv\Scripts\python.exe' -m p ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 10 leaked aiosqlite connection(s)
+...................................                                      [100%]
+35 passed in 4.10s

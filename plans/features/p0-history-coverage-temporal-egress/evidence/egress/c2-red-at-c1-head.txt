@@ -1,0 +1,69 @@
+.F..FF.FFFFFF..F.......FFFFFFF                                           [100%]
+================================== FAILURES ===================================
+E   KeyError: 'parse_mode'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:143: KeyError: 'parse_mode'
+E   KeyError: 'parse_mode'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:183: KeyError: 'parse_mode'
+E   AssertionError: assert '**╨╕╨╖ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░**' == '<b>╨╕╨╖ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░</b>'
+      
+      - <b>╨╕╨╖ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░</b>
+      + **╨╕╨╖ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░**
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:200: AssertionError: assert '**╨╕╨╖ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░**' == '<b>╨╕╨╖ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░</b>'
+E   KeyError: 'parse_mode'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:232: KeyError: 'parse_mode'
+E   AssertionError: assert 'plain' == 'html'
+      
+      - html
+      + plain
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:257: AssertionError: assert 'plain' == 'html'
+E   KeyError: 'parse_mode'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:287: KeyError: 'parse_mode'
+E   AssertionError: assert 2 >= 3
+     +  where 2 = len([{'chat_id': -100777, 'text': '**╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б...╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛**', 'message_id': 1002}])
+     +    where [{'chat_id': -100777, 'text': '**╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б...╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛**', 'message_id': 1002}] = <tests.test_p0_hc_egress_c2.FakeBot object at 0x0000025893FD1370>.calls
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:305: AssertionError: assert 2 >= 3
+E   AssertionError: assert 1 == 2
+     +  where 1 = len([{'chat_id': -100777, 'text': '**╤А╨░╨╖╨▒╨╛╤А**', 'reply_to_message_id': 42, 'message_id': 1001}])
+     +    where [{'chat_id': -100777, 'text': '**╤А╨░╨╖╨▒╨╛╤А**', 'reply_to_message_id': 42, 'message_id': 1001}] = <tests.test_p0_hc_egress_c2.FakeBot object at 0x0000025893FD2C90>.calls
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:325: AssertionError: assert 1 == 2
+E   AssertionError: assert 2 == 3
+     +  where 2 = len([{'chat_id': -100777, 'text': '**╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б...╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛**', 'message_id': 1002}])
+     +    where [{'chat_id': -100777, 'text': '**╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б...╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛ ╨б╨╗╨╛╨▓╨╛**', 'message_id': 1002}] = <tests.test_p0_hc_egress_c2.FakeBot object at 0x0000025893FD3BC0>.calls
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:337: AssertionError: assert 2 == 3
+E   KeyError: 'parse_mode'
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:10848 [direct] rich send failed тАФ legacy path | chat=-100777 | error=RuntimeError: sendRichMessage not supported
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:389: KeyError: 'parse_mode'
+E   AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '**╨Ш╤В╨╛╨│**', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:461: AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '**╨Ш╤В╨╛╨│**', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+E   AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '`╨║╨╛╨┤`', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:461: AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '`╨║╨╛╨┤`', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+E   AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '[╨╝╨╡╤В╨║╨░](https://example.com)', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:461: AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '[╨╝╨╡╤В╨║╨░](https://example.com)', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+E   AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '# ╨Ч╨░╨│╨╛╨╗╨╛╨▓╨╛╨║', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:461: AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '# ╨Ч╨░╨│╨╛╨╗╨╛╨▓╨╛╨║', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+E   AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '1. ╨┐╤Г╨╜╨║╤В', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:461: AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '1. ╨┐╤Г╨╜╨║╤В', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+E   AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '> ╤Ж╨╕╤В╨░╤В╨░', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:461: AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '> ╤Ж╨╕╤В╨░╤В╨░', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+E   AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '```python\nprint(1)\n```', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0hc-c2-red-843dd301e7ab-5fef515d\tests\test_p0_hc_egress_c2.py:461: AssertionError: assert ('parse_mode' in {'chat_id': -100777, 'text': '```python\nprint(1)\n```', 'reply_to_message_id': 42, 'message_id': 1001}) is True
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_egress_c2.py::TestOrdinaryDirectChannelChoice::test_markdown_answer_uses_structured_html
+FAILED tests/test_p0_hc_egress_c2.py::TestOrdinaryDirectChannelChoice::test_html_specials_and_link_are_escaped_not_raw
+FAILED tests/test_p0_hc_egress_c2.py::TestOrdinaryDirectChannelChoice::test_document_plain_text_is_the_delivery_source_and_id_returned
+FAILED tests/test_p0_hc_egress_c2.py::TestOrdinaryDirectChannelChoice::test_egress_guard_markers_are_never_delivered_visible
+FAILED tests/test_p0_hc_egress_c2.py::TestOrdinaryDirectChannelChoice::test_trace_has_exactly_one_html_delivery_for_the_turn
+FAILED tests/test_p0_hc_egress_c2.py::TestStructuredDeliveryFailureSemantics::test_long_answer_chunks_html_reply_only_first
+FAILED tests/test_p0_hc_egress_c2.py::TestStructuredDeliveryFailureSemantics::test_partial_failure_falls_back_only_failed_chunk_no_resend
+FAILED tests/test_p0_hc_egress_c2.py::TestStructuredDeliveryFailureSemantics::test_retry_after_retries_same_chunk_once
+FAILED tests/test_p0_hc_egress_c2.py::TestStructuredDeliveryFailureSemantics::test_plain_fallback_failure_stops_with_first_delivered_id
+FAILED tests/test_p0_hc_egress_c2.py::TestUnchangedBranches::test_rich_failure_then_structured_same_answer
+FAILED tests/test_p0_hc_egress_c2.py::test_decision_and_actual_payload_agree[**\u0418\u0442\u043e\u0433**-True]
+FAILED tests/test_p0_hc_egress_c2.py::test_decision_and_actual_payload_agree[`\u043a\u043e\u0434`-True]
+FAILED tests/test_p0_hc_egress_c2.py::test_decision_and_actual_payload_agree[[\u043c\u0435\u0442\u043a\u0430](https://example.com)-True]
+FAILED tests/test_p0_hc_egress_c2.py::test_decision_and_actual_payload_agree[# \u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a-True]
+FAILED tests/test_p0_hc_egress_c2.py::test_decision_and_actual_payload_agree[1. \u043f\u0443\u043d\u043a\u0442-True]
+FAILED tests/test_p0_hc_egress_c2.py::test_decision_and_actual_payload_agree[> \u0446\u0438\u0442\u0430\u0442\u0430-True]
+FAILED tests/test_p0_hc_egress_c2.py::test_decision_and_actual_payload_agree[```python\nprint(1)\n```-True]
+17 failed, 13 passed in 3.50s

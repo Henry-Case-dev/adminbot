@@ -288,12 +288,19 @@ async def test_d_plain_reply_byte_parity(tmp_path):
         assert all(it.quote_text is None for it in chain)
         assert all(it.quote_position is None for it in chain)
         line = thread_chain.format_chain_line(chain[0], None, 501)
-        # байт-в-байт равен прежнему рендеру (format_context_item напрямую)
+        # B (HC-B-F1) добавил АДДИТИВНЫЙ reply-сегмент в каноническую строку.
+        # Этот тест по-прежнему доказывает байт-паритет plain-рендера, но
+        # оракул обязан включать реальное reply-ребро фикстуры (500/uid 2);
+        # правки (edited_at) у строки нет — сегмент «ред.» не появляется.
+        assert chain[0].reply_to_item_id == "tg:500"
+        assert chain[0].reply_to_author_id == 2
+        assert chain[0].edited_at is None
         expected = format_context_item(
             ts=chain[0].ts, author=thread_chain.speaker_tag(
                 chain[0].name, chain[0].uid),
             item_id=chain[0].item_id, forward_source=None,
-            text=chain[0].text, kind="msg", is_target=True)
+            text=chain[0].text, kind="msg", is_target=True,
+            reply_to="tg:500 (uid 2)", edited_at=None)
         assert line == expected
     finally:
         await d.close()

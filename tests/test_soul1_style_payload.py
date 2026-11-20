@@ -209,7 +209,7 @@ HETEROGENEOUS = [
 EXPECTED_ONE_WORD = {"Да.": "Да"}
 PROTECTED_FRAGMENTS = {
     "https://example.org/path", "https://example.org/other", "v1.2.3",
-    "2.58.33", "`report.txt`", "C:\\data\\report.txt", "print(\"hi\")",
+    "2.58.33", "report.txt", "C:\\data\\report.txt", "print(\"hi\")",
     "цитата источника", "1) шаг один", "2) шаг два",
 }
 

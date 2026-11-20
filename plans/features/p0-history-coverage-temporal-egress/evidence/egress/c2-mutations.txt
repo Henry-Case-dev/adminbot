@@ -1,0 +1,7 @@
+M1-no-html-channel: rc=1 KILLED | 17 failed, 13 passed in 3.27s
+M2-duplicate-resend-previous: rc=1 KILLED | 2 failed, 28 passed in 3.18s
+M3-plain-default-parse-mode: rc=1 KILLED | 8 failed, 22 passed in 3.25s
+M4-summary-send-path-touched: rc=1 KILLED | 1 failed, 29 passed in 3.20s
+M5-reply-on-every-chunk: rc=1 KILLED | 1 failed, 29 passed in 3.20s
+M6-drop-delivered-id: rc=1 KILLED | 10 failed, 20 passed in 3.19s
+M7-trace-renders-raw-source: rc=1 KILLED | 1 failed, 29 passed in 3.23s
