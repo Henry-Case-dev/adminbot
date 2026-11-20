@@ -10,8 +10,10 @@ H-1…H-7):
      (fail-closed); `summary.window` — НЕ источник (компонентные события окна
      без `pipeline_run_id`, F1);
   2) одно состояние на `scopeKey + moduleId` (`idle|loading|ready|empty|
-     denied|off|error`): 403 → denied, 503/available:false/enabled:false →
-     off, сеть → error; никогда «0 событий» вместо 403;
+     denied|off|unavailable|error`): 403 → denied, 503 → unavailable
+     (сервис временно недоступен, журнал остаётся с повтором),
+     available:false/enabled:false → off (функция выключена), сеть → error;
+     никогда «0 событий» вместо 403; 503 и disabled различаются текстом;
   3) вкладка `history` видна ТОЛЬКО при `status==='ready' && rows>0`;
      объявлена у sleep/nostalgia/factcheck/experience/summary/random;
   4) `history` никогда не дефолт; pending не удаляет запомненный history,
@@ -399,7 +401,8 @@ function eq(a, b, msg) {
   }
 
   {
-    // 503 → off; 200 available:false → off; сеть → error.
+    // 503 → unavailable (сервис временно недоступен, НЕ «функция выключена»);
+    // 200 available:false → off; сеть → error.
     const ctx = mkCtx();
     ctx.api = async function () {
       const e = new Error('unavailable');
@@ -407,7 +410,11 @@ function eq(a, b, msg) {
       throw e;
     };
     await methods.loadDreamLog.call(ctx);
-    eq(methods.historyStateFor.call(ctx, SLEEP), 'off', '503 → off');
+    eq(methods.historyStateFor.call(ctx, SLEEP), 'unavailable',
+      '503 → unavailable');
+    ok(methods.historyStateText.call(ctx, SLEEP).indexOf('503') >= 0,
+      '503: причина называет код (503): '
+      + methods.historyStateText.call(ctx, SLEEP));
     eq(ctx.toasts.length, 0, '503 не показывает тост');
 
     const ctx2 = mkCtx();
@@ -818,8 +825,8 @@ function eq(a, b, msg) {
       const e = new Error('unavailable'); e.status = 503; throw e;
     };
     await methods.loadTemporalRuns.call(ctx, true);
-    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'off',
-      'factcheck 503 → off');
+    eq(methods.historyStateFor.call(ctx, FACTCHECK), 'unavailable',
+      'factcheck 503 → unavailable');
 
     ctx.api = async function () { return { available: false }; };
     await methods.loadTemporalRuns.call(ctx, true);
@@ -965,8 +972,8 @@ function eq(a, b, msg) {
       const e = new Error('unavailable'); e.status = 503; throw e;
     };
     await methods.loadLessons.call(ctx, true);
-    eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'off',
-      'experience 503 → off');
+    eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'unavailable',
+      'experience 503 → unavailable');
   }
 
   {
@@ -1397,7 +1404,7 @@ function eq(a, b, msg) {
   }
 
   {
-    // H-3: переходы состояний — 403 → denied, 503 → off,
+    // H-3: переходы состояний — 403 → denied, 503 → unavailable,
     // available:false/enabled:false → off, битый конверт → error.
     clearStorage();
     const mk = function () {
@@ -1431,8 +1438,8 @@ function eq(a, b, msg) {
       const e = new Error('выключено'); e.status = 503; throw e;
     };
     await methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE);
-    eq(methods.historyStateFor.call(ctx, SUMMARY), 'off',
-      'B3: 503 → off');
+    eq(methods.historyStateFor.call(ctx, SUMMARY), 'unavailable',
+      'B3: 503 → unavailable');
 
     ctx = mk();
     ctx.api = async function () { return { available: false }; };
@@ -1787,6 +1794,125 @@ function eq(a, b, msg) {
     ok(line.indexOf('Сводки') >= 0 &&
        line.indexOf('чат -100') >= 0 && line.indexOf('успешно') >= 0,
       'B3: строка события собрана из реальных полей (' + line + ')');
+  }
+
+  // ══ (18) MAC-S10-16 (W3/F-1): матрица причин пустоты — пять РАЗНЫХ UI ══
+  {
+    // 503 → unavailable ДЛЯ ВСЕХ ШЕСТИ источников H-1 (не off/disabled).
+    clearStorage();
+    const sources = [
+      ['memory.dream.log', SLEEP, function (ctx) {
+        return methods.loadDreamLog.call(ctx, true);
+      }],
+      ['memory.nostalgia.log', NOSTALGIA, function (ctx) {
+        return methods.loadNostalgiaLog.call(ctx, true);
+      }],
+      ['factcheck.temporal.runs', FACTCHECK, function (ctx) {
+        return methods.loadTemporalRuns.call(ctx, true);
+      }],
+      ['memory.lessons', EXPERIENCE, function (ctx) {
+        return methods.loadLessons.call(ctx, true);
+      }],
+      [SUMMARY_SOURCE, SUMMARY, function (ctx) {
+        return methods.loadModuleRuns.call(ctx, SUMMARY_SOURCE, true);
+      }],
+      [RANDOM_SOURCE, RANDOM, function (ctx) {
+        return methods.loadModuleRuns.call(ctx, RANDOM_SOURCE, true);
+      }],
+    ];
+    for (const [source, mod, load] of sources) {
+      const ctx = mkCtx();
+      ctx.api = async function () {
+        const e = new Error('service unavailable'); e.status = 503; throw e;
+      };
+      await load(ctx);
+      eq(methods.historyStateFor.call(ctx, mod), 'unavailable',
+        source + ': HTTP 503 → unavailable (не off)');
+      ok(methods.historyStateText.call(ctx, mod).indexOf('503') >= 0,
+        source + ': текст 503 называет код');
+      eq(ctx.toasts.length, 0, source + ': 503 без ложного тоста');
+    }
+
+    // Пять причин — пять разных состояний и текстов; «0 событий» нигде,
+    // кроме настоящего empty. stale НЕ является состоянием журнала (в UI
+    // его представляет существующий баннер 409 `[data-workspace-conflict]`).
+    const ctx = mkCtx();
+    const texts = {};
+    [['empty', 'empty'], ['denied', 'denied'], ['unavailable', 'unavailable'],
+     ['off', 'off'], ['error', 'error']].forEach(function (pair) {
+      setMeta(ctx, SLEEP, pair[1]);
+      texts[pair[0]] = methods.historyStateText.call(ctx, SLEEP);
+    });
+    eq(texts.empty, 'записей пока нет', 'empty: честный текст');
+    eq(texts.denied, 'нет доступа к журналу (403)', 'denied: 403');
+    eq(texts.unavailable, 'журнал временно недоступен (503) — повторите попытку',
+      'unavailable: 503 + retry');
+    eq(texts.off, 'журнал недоступен: функция выключена',
+      'off: выключенная функция без 503');
+    eq(texts.error, 'история недоступна: ошибка загрузки', 'error: ошибка');
+    const uniqueTexts = Object.keys(texts).map(function (k) {
+      return texts[k];
+    });
+    eq(new Set(uniqueTexts).size, 5,
+      'пять причин должны давать пять разных текстов');
+    ok(texts.off.indexOf('503') < 0,
+      'off не притворяется 503: ' + texts.off);
+    ok(texts.unavailable.indexOf('выключена') < 0,
+      'unavailable не притворяется disabled: ' + texts.unavailable);
+    ok(['denied', 'unavailable', 'off'].every(function (k) {
+      return texts[k].indexOf('0 событий') < 0;
+    }), '403/503/disabled не превращаются в «0 событий»');
+    // stale — не состояние журнала: неизвестный код честно уходит в error,
+    // а не в ready/empty (устаревшие данные не выдают себя за свежие).
+    setMeta(ctx, SLEEP, 'stale');
+    eq(methods.historyStateFor.call(ctx, SLEEP), 'error',
+      'stale не маскируется под ready/empty в журнале');
+
+    // Статический контракт index.html: обе поверхности (Обзор и История)
+    // имеют отдельные ветки unavailable/off с разными честными текстами.
+    eq((INDEX_HTML.match(/data-overview-history-state="unavailable"/g) || [])
+      .length, 1, 'Обзор: ветка unavailable должна быть ровно одна');
+    eq((INDEX_HTML.match(/data-module-history-state="unavailable"/g) || [])
+      .length, 1, 'История: ветка unavailable должна быть ровно одна');
+    ok(INDEX_HTML.indexOf('Журнал временно недоступен (503). Повторите попытку.')
+       >= 0, 'Обзор: текст 503 с повтором отсутствует');
+    ok(INDEX_HTML.indexOf('История временно недоступна (503). Повторите попытку.')
+       >= 0, 'История: текст 503 с повтором отсутствует');
+    ok(INDEX_HTML.indexOf('Журнал недоступен: функция выключена.') >= 0,
+      'Обзор: текст disabled без 503 отсутствует');
+    ok(INDEX_HTML.indexOf('История недоступна: функция выключена.') >= 0,
+      'История: текст disabled без 503 отсутствует');
+    ok(INDEX_HTML.indexOf('выключена (503)') < 0,
+      'index.html: disabled всё ещё назван 503');
+    // Существующий stale-маркер (design §4.6, 409) сохранён и отличен от
+    // состояний журнала: отдельный DOM-маркер и отдельный текст.
+    ok(INDEX_HTML.indexOf('data-workspace-conflict') >= 0 &&
+       INDEX_HTML.indexOf('Настройка изменилась в другом окне') >= 0,
+      'stale 409: существующий маркер/текст пропал');
+
+    // 503 НЕ выкидывает из deep link журнала: панель остаётся с повтором.
+    const ictx = mkCtx({ route: '#/modules/sleep/history' });
+    setMeta(ictx, SLEEP, 'unavailable');
+    methods._maybeExitHistory.call(ictx);
+    eq((ictx.applied || []).length, 0,
+      '503: deep link журнала не уводится на bare');
+    setMeta(ictx, SLEEP, 'off');
+    methods._maybeExitHistory.call(ictx);
+    eq((ictx.applied || [])[0], '#/modules/sleep',
+      'off: закрытый журнал по-прежнему уводит на bare');
+
+    // Pending-память вкладки на 503 не стирается (как idle/loading/error):
+    // временный отказ сервиса не отменяет выбор пользователя.
+    clearStorage();
+    const pctx = mkCtx({ route: '#/modules/sleep/history' });
+    pctx._wsTabMemoryLoad();
+    methods._wsTabMemorySet.call(pctx, 'chat:-100', SLEEP.id, 'history');
+    setMeta(pctx, SLEEP, 'unavailable');
+    eq(methods._wsTabMemoryGet.call(pctx, 'chat:-100', SLEEP), '',
+      'unavailable: history не применяется');
+    ok(!!memoryRaw()['chat:-100|mod_sleep'],
+      'unavailable: запись истории НЕ удалена');
+    clearStorage();
   }
 
   console.log('MOD-ACL-UX-M4A-W2B-HISTORY-OK — ' + checks + ' проверок');
