@@ -271,7 +271,8 @@ NOSTALGIA_ROWS = [
     {"id": 4, "chat_id": CHAT_ID, "ts": 1794909300, "kind": "nostalgia",
      "status": "skipped", "fact_id": None, "meta": {"reason": "лимит"}},
 ]
-# data | empty | denied | off | unavailable
+# data | empty | denied | server_503 | off (available:false) | hold |
+# hold_once | single
 HISTORY_MODE = {"dream": "data", "nostalgia": "data"}
 HISTORY_GETS = {"dream": 0, "nostalgia": 0}
 HISTORY_HOLD = {"dream": None, "nostalgia": None}
@@ -335,7 +336,7 @@ PERCHAT_LESSONS = {
                      "scope_chat_id": CHAT_ID2, "status": "candidate",
                      "created_at": 1794909950, "updated_at": 1794909950}],
 }
-# data | empty | denied | off | unavailable | disabled | disabled_503
+# data | empty | denied | server_503 | off (available/enabled:false) | perchat
 B2_MODE = {"temporal": "data", "lessons": "data"}
 B2_GETS = {"temporal": 0, "lessons": 0}
 B2_DETAIL_GETS = {"temporal": 0}
@@ -387,7 +388,7 @@ RANDOM_RUNS = [
      "updated_ts": 1794909401, "events_total": 2, "stages_total": 1,
      "stages_failed": 0, "stages_ok": 1, "chat_id": CHAT_ID},
 ]
-# data | empty | denied | off | unavailable
+# data | empty | denied | server_503 | off (available:false)
 B3_MODE = {"summary": "data", "random": "data"}
 B3_GETS = {"summary": 0, "random": 0, "detail": 0}
 # F1: значения `pipeline_type`, которые клиент реально запросил (должны быть
@@ -593,11 +594,11 @@ def main() -> int:
                 route.fulfill(status=403, content_type="application/json",
                               body=json.dumps({"detail": "нет доступа"}))
                 return
-            if mode == "off":
+            if mode == "server_503":
                 route.fulfill(status=503, content_type="application/json",
-                              body=json.dumps({"detail": "выключено"}))
+                              body=json.dumps({"detail": "сервис недоступен"}))
                 return
-            if mode == "unavailable":
+            if mode == "off":
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps({"available": False,
                                                "enabled": False, "runs": []}))
@@ -615,11 +616,11 @@ def main() -> int:
                 route.fulfill(status=403, content_type="application/json",
                               body=json.dumps({"detail": "нет доступа"}))
                 return
-            if mode == "off":
+            if mode == "server_503":
                 route.fulfill(status=503, content_type="application/json",
-                              body=json.dumps({"detail": "выключено"}))
+                              body=json.dumps({"detail": "сервис недоступен"}))
                 return
-            if mode == "unavailable":
+            if mode == "off":
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps({"available": False}))
                 return
@@ -656,11 +657,11 @@ def main() -> int:
                 route.fulfill(status=403, content_type="application/json",
                               body=json.dumps({"detail": "нет доступа"}))
                 return
-            if mode == "off":
+            if mode == "server_503":
                 route.fulfill(status=503, content_type="application/json",
-                              body=json.dumps({"detail": "выключено"}))
+                              body=json.dumps({"detail": "сервис недоступен"}))
                 return
-            if mode == "disabled":
+            if mode == "off":
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps({"enabled": False,
                                                "state": "disabled",
@@ -701,11 +702,11 @@ def main() -> int:
                 route.fulfill(status=403, content_type="application/json",
                               body=json.dumps({"detail": "нет доступа"}))
                 return
-            if mode == "off":
+            if mode == "server_503":
                 route.fulfill(status=503, content_type="application/json",
-                              body=json.dumps({"detail": "журнал выключен"}))
+                              body=json.dumps({"detail": "журнал недоступен"}))
                 return
-            if mode == "unavailable":
+            if mode == "off":
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps({"available": False}))
                 return
@@ -1829,6 +1830,16 @@ def main() -> int:
                 "   '[data-overview-chips]').length,"
                 "  state: st ? st.getAttribute("
                 "   'data-overview-history-state') : null,"
+                "  stateText: st ? (st.textContent || '').trim() : null,"
+                "  panelState: (() => {"
+                "    const s = document.querySelector("
+                "     '[data-module-history-state]');"
+                "    return s ? s.getAttribute("
+                "     'data-module-history-state') : null; })(),"
+                "  panelStateText: (() => {"
+                "    const s = document.querySelector("
+                "     '[data-module-history-state]');"
+                "    return s ? (s.textContent || '').trim() : null; })(),"
                 "  filter: !!document.querySelector("
                 "   '[data-module-history-filter]'),"
                 "  filterValue: (document.querySelector("
@@ -2087,19 +2098,85 @@ def main() -> int:
         check("0 событий" not in body_403,
               "W2b 403: выдуманные «0 событий»", hfails)
 
-        # ── 503 и available:false: вкладки нет, состояние off.
-        HISTORY_MODE["dream"] = "off"
+        # ── 503 и available:false — РАЗНЫЕ причины (W3/F-1, MAC-S10-16):
+        #    503 → unavailable с текстом (503), available:false → off без 503.
+        HISTORY_MODE["dream"] = "server_503"
         _hopen(hpage, "#/modules/sleep")
         offp = _hprobe(hpage)
-        report["flows"]["w2b_off_503"] = offp
-        check(not offp["tab"] and offp["state"] == "off",
+        report["flows"]["w2b_unavailable_503"] = offp
+        check(not offp["tab"] and offp["state"] == "unavailable",
               f"W2b 503: {offp}", hfails)
-        HISTORY_MODE["nostalgia"] = "unavailable"
+        check("503" in (offp["stateText"] or "")
+              and "выключена" not in (offp["stateText"] or ""),
+              f"W2b 503: текст не называет 503/выключенную функцию "
+              f"({offp['stateText']})", hfails)
+        HISTORY_MODE["nostalgia"] = "off"
         _hopen(hpage, "#/modules/nostalgia/overview")
         offp2 = _hprobe(hpage)
-        report["flows"]["w2b_unavailable"] = offp2
+        report["flows"]["w2b_off_disabled"] = offp2
         check(not offp2["tab"] and offp2["state"] == "off",
               f"W2b available:false: {offp2}", hfails)
+        check("выключена" in (offp2["stateText"] or "")
+              and "503" not in (offp2["stateText"] or ""),
+              f"W2b available:false: disabled назван 503 "
+              f"({offp2['stateText']})", hfails)
+
+        # ── 503 не выкидывает из deep link журнала: панель остаётся с повтором.
+        HISTORY_MODE["dream"] = "server_503"
+        hpage.goto("about:blank")
+        hpage.goto(WBASE + "#/modules/sleep/history", wait_until="load")
+        hpage.wait_for_selector("[data-workspace-head]", timeout=9000)
+        hpage.wait_for_timeout(900)
+        dl503 = _hprobe(hpage)
+        report["flows"]["w2b_503_deeplink_stays"] = dl503
+        check(dl503["hash"].endswith("/sleep/history") and dl503["panel"],
+              f"W2b 503: deep link увёл с журнала ({dl503})", hfails)
+        check(dl503["panelState"] == "unavailable"
+              and "503" in (dl503["panelStateText"] or ""),
+              f"W2b 503: панель не показала unavailable/503 ({dl503})", hfails)
+        HISTORY_MODE["dream"] = "data"
+        HISTORY_MODE["nostalgia"] = "data"
+
+        # ── MAC-S10-16: матрица пяти причин пустоты — разные состояния/тексты.
+        matrix = {}
+        for cause, mode in (("empty", "empty"), ("denied", "denied"),
+                            ("unavailable", "server_503"), ("off", "off")):
+            HISTORY_MODE["dream"] = mode
+            _hopen(hpage, "#/modules/sleep")
+            mp = _hprobe(hpage)
+            matrix[cause] = {"state": mp["state"], "text": mp["stateText"]}
+        # stale — существующий маркер настройки 409 (design §4.6): отдельный
+        # DOM-маркер `[data-workspace-conflict]`, отдельный текст; журнал
+        # такого состояния не имеет (не выдаём stale за ready/empty).
+        matrix["stale"] = {
+            "state": "stale(409-banner)" if conflict else None,
+            "marker": "data-workspace-conflict" if conflict else None,
+            "text": (conflict or {}).get("text"),
+        }
+        report["flows"]["w2b_s10_16_matrix"] = matrix
+        history_states = [matrix[c]["state"] for c in
+                          ("empty", "denied", "unavailable", "off")]
+        check(history_states == ["empty", "denied", "unavailable", "off"],
+              f"MAC-S10-16: состояния причин {history_states}", hfails)
+        check(matrix["stale"]["marker"] == "data-workspace-conflict"
+              and "Настройка изменилась" in (matrix["stale"]["text"] or ""),
+              f"MAC-S10-16: stale 409 не показан ({matrix['stale']})", hfails)
+        texts = {c: (matrix[c]["text"] or "") for c in matrix}
+        check(len(set(texts.values())) == 5,
+              f"MAC-S10-16: тексты причин не различаются ({texts})", hfails)
+        check("Записей пока нет" in texts["empty"],
+              f"MAC-S10-16: empty без честного текста ({texts['empty']})",
+              hfails)
+        check("403" in texts["denied"], "MAC-S10-16: denied без 403", hfails)
+        check("503" in texts["unavailable"]
+              and "временно недоступен" in texts["unavailable"],
+              f"MAC-S10-16: 503 без честной причины "
+              f"({texts['unavailable']})", hfails)
+        check("выключена" in texts["off"] and "503" not in texts["off"],
+              f"MAC-S10-16: disabled назван 503 ({texts['off']})", hfails)
+        check(all("0 событий" not in texts[c]
+                  for c in ("denied", "unavailable", "off")),
+              "MAC-S10-16: «0 событий» подменяет 403/503/disabled", hfails)
         HISTORY_MODE.update({"dream": "data", "nostalgia": "data"})
 
         # ── 390: вкладка/история без горизонтального скролла.
@@ -2415,21 +2492,21 @@ def main() -> int:
         check("0 событий" not in body_403,
               "W2b B2 factcheck 403: выдуманные «0 событий»", hfails)
 
-        B2_MODE["temporal"] = "off"
+        B2_MODE["temporal"] = "server_503"
         _hopen(hpage, "#/modules/factcheck/overview")
         fo = _b2probe(hpage)
-        report["flows"]["w2b_b2_factcheck_off"] = fo
-        check(not fo["tab"] and fo["state"] == "off",
+        report["flows"]["w2b_b2_factcheck_unavailable_503"] = fo
+        check(not fo["tab"] and fo["state"] == "unavailable",
               f"W2b B2 factcheck 503: {fo}", hfails)
 
-        B2_MODE["temporal"] = "unavailable"
+        B2_MODE["temporal"] = "off"
         _hopen(hpage, "#/modules/factcheck/overview")
         fu = _b2probe(hpage)
-        report["flows"]["w2b_b2_factcheck_unavailable"] = fu
+        report["flows"]["w2b_b2_factcheck_off_disabled"] = fu
         check(not fu["tab"] and fu["state"] == "off",
               f"W2b B2 factcheck available:false: {fu}", hfails)
 
-        B2_MODE["lessons"] = "disabled"
+        B2_MODE["lessons"] = "off"
         _hopen(hpage, "#/modules/experience")
         ed = _b2probe(hpage)
         report["flows"]["w2b_b2_experience_disabled"] = ed
@@ -2903,17 +2980,17 @@ def main() -> int:
         check("0 событий" not in body_403,
               "W2b B3 summary 403: выдуманные «0 событий»", hfails)
 
-        B3_MODE["summary"] = "off"
+        B3_MODE["summary"] = "server_503"
         _hopen(hpage, "#/modules/summary/overview")
         soff = _b3probe(hpage)
-        report["flows"]["w2b_b3_summary_off"] = soff
-        check(not soff["tab"] and soff["state"] == "off",
+        report["flows"]["w2b_b3_summary_unavailable_503"] = soff
+        check(not soff["tab"] and soff["state"] == "unavailable",
               f"W2b B3 summary 503: {soff}", hfails)
 
-        B3_MODE["summary"] = "unavailable"
+        B3_MODE["summary"] = "off"
         _hopen(hpage, "#/modules/summary/overview")
         su = _b3probe(hpage)
-        report["flows"]["w2b_b3_summary_unavailable"] = su
+        report["flows"]["w2b_b3_summary_off_disabled"] = su
         check(not su["tab"] and su["state"] == "off",
               f"W2b B3 summary available:false: {su}", hfails)
 

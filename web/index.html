@@ -1452,9 +1452,13 @@
                        class="text-gray-500" data-overview-history-state="denied">
                     Журнал недоступен: нет доступа (403).
                   </div>
+                  <div v-else-if="historyStateFor(workspaceModule) === 'unavailable'"
+                       class="text-gray-500" data-overview-history-state="unavailable">
+                    Журнал временно недоступен (503). Повторите попытку.
+                  </div>
                   <div v-else-if="historyStateFor(workspaceModule) === 'off'"
                        class="text-gray-500" data-overview-history-state="off">
-                    Журнал недоступен: функция выключена (503).
+                    Журнал недоступен: функция выключена.
                   </div>
                   <div v-else-if="historyStateFor(workspaceModule) === 'error'"
                        class="text-gray-500" data-overview-history-state="error">
@@ -1506,7 +1510,9 @@
               <!-- MOD-ACL-UX-01 M4A W2b-B1 (H-2/H-3/H-5): «История» —
                    собственный экран одного источника. Панель доступна и во
                    время загрузки deep link; при empty/denied/off loaders
-                   однократно уводят на bare `#/modules/<slug>`. -->
+                   однократно уводят на bare `#/modules/<slug>`, а при
+                   503 (`unavailable`) пользователь остаётся на журнале
+                   с повтором. -->
               <div v-if="workspaceModule && workspaceTab === 'history'
                             && historySupported(workspaceModule)"
                    class="col-span-full card p-4 module-history"
@@ -1534,10 +1540,15 @@
                      data-module-history-state="denied">
                   История недоступна: нет доступа к журналу (403).
                 </div>
+                <div v-else-if="historyStateFor(workspaceModule) === 'unavailable'"
+                     class="text-xs text-gray-500"
+                     data-module-history-state="unavailable">
+                  История временно недоступна (503). Повторите попытку.
+                </div>
                 <div v-else-if="historyStateFor(workspaceModule) === 'off'"
                      class="text-xs text-gray-500"
                      data-module-history-state="off">
-                  История недоступна: журнал выключен (503).
+                  История недоступна: функция выключена.
                 </div>
                 <div v-else-if="historyStateFor(workspaceModule) === 'error'"
                      class="text-xs text-gray-500"

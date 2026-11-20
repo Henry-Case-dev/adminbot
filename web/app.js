@@ -969,9 +969,11 @@
       parse: _historyRunsParse,
     },
   };
-  // H-3: закрытый набор состояний одного источника.
+  // H-3: закрытый набор состояний одного источника. `unavailable` — отказ
+  // бэкенда 503 (сервис временно недоступен): НЕ то же самое, что `off`
+  // (функция выключена); журнал остаётся с повтором, а не «0 событий».
   var HISTORY_STATES = ['idle', 'loading', 'ready', 'empty', 'denied',
-                        'off', 'error'];
+                        'off', 'unavailable', 'error'];
   // Строка DTO относится к этому модулю и поддержана в B1 — иначе null.
   function _historySourceEntry(m) {
     if (!m || !m.historySource) return null;
@@ -17758,7 +17760,7 @@
           if (track) {
             var st = 'error';
             if (e && e.status === 403) st = 'denied';
-            else if (e && e.status === 503) st = 'off';
+            else if (e && e.status === 503) st = 'unavailable';
             this._wsHistoryMetaSet(mref, st);
             if (typeof this._maybeExitHistory === 'function') {
               this._maybeExitHistory();
@@ -25472,6 +25474,11 @@
         var st = this.historyStateFor(m);
         if (st === 'loading') return 'загружаем журнал…';
         if (st === 'denied') return 'нет доступа к журналу (403)';
+        // W3/F-1: 503 — отказ сервиса, а не выключенная функция. Причина
+        // названа честно, журнал остаётся с повтором (⟳).
+        if (st === 'unavailable') {
+          return 'журнал временно недоступен (503) — повторите попытку';
+        }
         if (st === 'off') return 'журнал недоступен: функция выключена';
         if (st === 'error') return 'история недоступна: ошибка загрузки';
         if (st === 'empty') return 'записей пока нет';
@@ -25744,6 +25751,8 @@
       },
       // H-5: deep link на пустой/закрытый журнал уводит РОВНО ОДИН раз на
       // bare `#/modules/<slug>` (существующий путь applyRoute), без цикла.
+      // 503 (`unavailable`) сюда НЕ входит: сервис временно недоступен —
+      // пользователь остаётся на журнале и повторяет запрос (⟳).
       _maybeExitHistory: function () {
         var ws = this.workspace;
         if (!ws || ws.tab !== 'history') return;
@@ -26062,7 +26071,7 @@
             if (track) {
               var st = 'error';
               if (e && e.status === 403) st = 'denied';
-              else if (e && e.status === 503) st = 'off';
+              else if (e && e.status === 503) st = 'unavailable';
               self._wsHistoryMetaSet(mref, st);
             }
           })
@@ -26171,7 +26180,7 @@
             if (!track) return;
             var st = 'error';
             if (e && e.status === 403) st = 'denied';
-            else if (e && e.status === 503) st = 'off';
+            else if (e && e.status === 503) st = 'unavailable';
             self._wsHistoryMetaSet(mref, st);
           })
           .finally(function () {
@@ -37017,7 +37026,7 @@
           this.dreamLog = [];
           var st = 'error';
           if (e && e.status === 403) st = 'denied';
-          else if (e && e.status === 503) st = 'off';
+          else if (e && e.status === 503) st = 'unavailable';
           this._wsHistoryMetaSet(mref, st);
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
             this.toast('Не удалось загрузить лог снов: ' + e.message, 'err');
@@ -37077,7 +37086,7 @@
           this.nostalgiaLog = [];
           var st = 'error';
           if (e && e.status === 403) st = 'denied';
-          else if (e && e.status === 503) st = 'off';
+          else if (e && e.status === 503) st = 'unavailable';
           this._wsHistoryMetaSet(mref, st);
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
             this.toast('Не удалось загрузить ностальгию: ' + e.message, 'err');
