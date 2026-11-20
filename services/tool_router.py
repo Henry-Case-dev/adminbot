@@ -963,7 +963,7 @@ _HISTORY_AGO_RE = re.compile(
     r"(\d+)\s*(минут\w*|час\w*|дн\w*|день|сут\w*|недел\w*)\s+назад")
 _HISTORY_ZA_RE = re.compile(
     r"(?<!последн)\bза\s+(\d+)\s*(минут\w*|час\w*|дн\w*|день|сут\w*|"
-    r"недел\w*)(?!\s+до\b)")
+    r"недел\w*)\b(?!\s+до\b)")
 _HISTORY_HALF_HOUR_RE = re.compile(
     r"(?:последн\w*|за)\s+полчас\w*|полчас\w*\s+назад")
 _HISTORY_DAY_AGO_RE = re.compile(
@@ -1126,6 +1126,47 @@ def extract_history_window(text: str) -> HistoryWindowSpec | None:
             continue
         return HistoryWindowSpec("unresolved", raw=match.group(0))
     return None
+
+
+_HISTORY_INTENT_RES = (
+    re.compile(r"\bчто\s+(?:было|происход\w*|случил\w*|произош\w*|"
+               r"обсуд\w*|писал\w*|говорил\w*|делал\w*)"),
+    re.compile(r"\bкто\s+(?:был|были|писал\w*|говорил\w*|срал\w*|"
+               r"спор\w*|обсуд\w*)"),
+    re.compile(r"\bсколько\s+(?:сообщени|сообщений|реплик|раз)\w*"),
+    re.compile(r"\b(?:обсуждал\w*|срал\w*|спор\w*|перепис\w*|писал\w*|"
+               r"говорил\w*)"),
+    re.compile(r"\b(?:саммари|summary|проанализ\w*|анализ\w*|разбор\w*|"
+               r"хронолог\w*|истори\w*|статистик\w*)"),
+)
+_HISTORY_ZA_DAY_RE = re.compile(r"\bза\s+(?:сегодня|вчера|позавчера)\b")
+_HISTORY_EXPLICIT_ZA_RE = re.compile(r"\bза\s+\d+")
+
+
+def is_history_period_request(text, spec: HistoryWindowSpec | None) -> bool:
+    """Turn-level gate: temporal word alone is NOT a history request.
+
+    F3: «как дела сегодня?» — current-state, не период. Сильная граница
+    принимается только при history-маркере («что было/происходило/…»,
+    «сколько сообщений», «саммари», «обсуждали»…), явном «за сегодня/
+    вчера/позавчера», явном «за N <unit>» или «последние …». Явный
+    интервал дат (`local_day_range`) — сам по себе запрошенный период.
+    None/чужой spec → False. Никогда не бросает."""
+    if not isinstance(spec, HistoryWindowSpec):
+        return False
+    value = _history_normalize_text(text)
+    if not value:
+        return False
+    if any(pattern.search(value) for pattern in _HISTORY_INTENT_RES):
+        return True
+    if spec.kind == "local_day_range":
+        return True
+    if spec.kind == "local_day":
+        return bool(_HISTORY_ZA_DAY_RE.search(value))
+    if spec.kind in ("duration", "unresolved"):
+        return bool(re.search(r"\bпоследн", value)
+                    or _HISTORY_EXPLICIT_ZA_RE.search(value))
+    return False
 
 
 def _history_zone(timezone_name):
@@ -6791,16 +6832,26 @@ class ToolRouter:
                 timeout=_HISTORY_TOOL_TIMEOUT)
             if bound is not None:
                 # Явный time_window — тоже диапазон: голова/coverage называют
-                # окно и as_of хода (count-захват сюда не попадает).
+                # окно и as_of хода (count-захват сюда не попадает). Для
+                # range requested = available (не пользовательское N).
                 bound.update({
                     "window_kind": "time_range", "as_of": as_of,
                     "clamped": 0, "range_status": "ok", "reason": "",
                 })
+                if _bound_int(getattr(ctx, "turn_as_of", 0), 0) > 0:
+                    # Live turn: range requested = available (HC-COV §2.3).
+                    # Legacy tool-only calls without turn_as_of keep the
+                    # accepted TIME-03 requested=0/depth unit contract.
+                    bound["requested"] = int(bound.get("available") or 0)
+                # F4: chronology явного окна — такая же выборка хода, как
+                # текстовый range: coverage/продолжение видят тот же bound.
+                ctx.history_sample = bound
             if bound is None:
                 empty = _history_window_bound(
                     ctx.chat_id, window, requested=requested or 0,
                     available=0, window_total=0, as_of=as_of,
                     range_status="empty")
+                ctx.history_sample = empty
                 logger.info(
                     "[tools] get_recent_history | chat=%s | mode=window | "
                     "status=empty_window | window_from=%d | window_to=%d",
@@ -6953,6 +7004,7 @@ class ToolRouter:
             window_total=None,
             as_of=int(getattr(ctx, "turn_as_of", 0) or 0),
             range_status="unread")
+        ctx.history_sample = bound
         return self._format_history_page(
             bound, {"rows": [], "lines": [], "fetched": 0,
                     "page_from": "", "page_to": ""},

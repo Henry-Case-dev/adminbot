@@ -101,6 +101,11 @@ def _ctx(query="", *, as_of=AS_OF) -> ToolContext:
     return ToolContext(CHAT_ID, query, turn_as_of=as_of)
 
 
+def _iso(ts: int) -> str:
+    return datetime.datetime.fromtimestamp(
+        int(ts), datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _header(out: str) -> dict:
     fields = parse_history_sample(out)
     assert fields is not None, out[:300]
@@ -174,12 +179,16 @@ class TestExtractWindow:
         ("полчаса назад был спор", 30, "minutes"),
         ("сутки назад всё сломалось", 1, "days"),
         ("последние 2 недели тишина", 2, "weeks"),
-        ("за 3 дня до этого", 3, "days"),
+        ("за 3 дня", 3, "days"),
     ])
     def test_duration_with_marker(self, text, amount, unit):
         spec = extract_history_window(text)
         assert spec is not None and spec.kind == "duration"
         assert (spec.amount, spec.unit) == (amount, unit)
+
+    def test_za_days_before_event_is_not_now_anchored_duration(self):
+        """F5: «за 3 дня до этого» — не последние 3 дня; граница не разобрана."""
+        assert extract_history_window("за 3 дня до этого") is None
 
     @pytest.mark.parametrize("text", [
         "просто болтаем 10 часов",
@@ -435,6 +444,49 @@ class TestCaptureAndRoute:
             await db.db.close()
 
     @pytest.mark.asyncio
+    async def test_current_state_today_is_not_a_history_request(self):
+        """F3: «как дела сегодня?» — current-state, не range/force."""
+        now = _local_epoch(2026, 11, 21, 12, 0)
+        db = await _make_db([
+            {"ts": _local_epoch(2026, 11, 21, 10, 0), "text": "x"}])
+        service = _service(db)
+
+        async def _tz(_chat_id):
+            return "UTC"
+
+        service.tool_router._chat_timezone = _tz
+        try:
+            assert await service._capture_turn_history_sample(
+                CHAT_ID, "как дела сегодня?", now) is None
+            assert await service._capture_turn_history_sample(
+                CHAT_ID, "он пришёл 10 минут назад", now) is None
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_explicit_today_history_questions_still_capture(self):
+        """F3: «что было сегодня?» / «за сегодня» / «что было N назад» —
+        по-прежнему range."""
+        now = _local_epoch(2026, 11, 21, 12, 0)
+        db = await _make_db([
+            {"ts": _local_epoch(2026, 11, 21, 10, 0), "text": "x"}])
+        service = _service(db)
+
+        async def _tz(_chat_id):
+            return "UTC"
+
+        service.tool_router._chat_timezone = _tz
+        try:
+            for query in ("что было сегодня?", "за сегодня",
+                          "что было 10 минут назад"):
+                bound = await service._capture_turn_history_sample(
+                    CHAT_ID, query, now)
+                assert bound is not None and \
+                    bound["window_kind"] == "time_range", query
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
     async def test_turn_capture_without_router_fails_closed(self):
         service = DirectChatService(
             MagicMock(), MagicMock(), MagicMock(), AliasResolver("{}"),
@@ -521,6 +573,103 @@ class TestCoverageLedger:
             assert fields["lines"] == "20"
             assert fields["skipped"] == "1"
             assert fields["range_complete"] == "1"
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_retention_after_capture_is_not_complete_coverage(self):
+        """F1: available>0, но страница пуста (anchor_missing) — не complete."""
+        rows = [(1000 + i * 10, f"m{i}") for i in range(20)]
+        db = await _make_db(rows)
+        router = _router(db)
+        try:
+            ctx = _ctx("что было за период", as_of=1195)
+            bound = await capture_history_range(
+                db, CHAT_ID, 1000, 1190, as_of=1195)
+            ctx.history_sample = bound
+            await db.db.execute(
+                "DELETE FROM smart_messages WHERE chat_id = ? "
+                "AND timestamp >= ? AND timestamp <= ?",
+                (CHAT_ID, 1000, 1190))
+            await db.db.commit()
+            page = await router.dispatch("get_recent_history", {}, ctx)
+            header = _header(page)
+            assert header["available"] == 20
+            assert header["incomplete"] == 1
+            assert header["reason"] == "anchor_missing"
+            assert header["has_next"] == 0
+            raw = ChainResult(page, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=page, total_chars=len(page))],
+                chain_meta={})
+            block = await _service(db, router=router).collect_history_segments(
+                ctx, raw, slot_chars=100000, chat_id=CHAT_ID)
+            fields, _, _ = _coverage(block)
+            assert fields["range_read"] == "1"
+            assert fields["range_complete"] == "0"
+            assert fields["processed"] == "0"
+            assert fields["lines"] == "0"
+            assert fields["skipped"] == "0"
+            assert fields["reason"] == "anchor_missing"
+            assert fields["available"] == "20"
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_skipped_tail_page_rows_are_counted(self):
+        """F2: пустая строка в tail-странице даёт skipped=1/processed=120."""
+        rows = [(1000 + i * 10, f"m{i}") for i in range(120)]
+        rows[60] = {"ts": 1000 + 60 * 10, "text": "", "media": "text"}
+        db = await _make_db(rows)
+
+        class _LLM:
+            async def generate(self, messages, **kwargs):
+                return '{"events":[],"status":"ok"}'
+
+        try:
+            ctx, raw, bound = await _range_turn(
+                db, 1000, 2190, None, as_of=2195)
+            block = await _service(db, _LLM()).collect_history_segments(
+                ctx, raw, slot_chars=4000, chat_id=CHAT_ID)
+            fields, _, _ = _coverage(block)
+            assert fields["available"] == "120"
+            assert fields["processed"] == "120"
+            assert fields["lines"] == "119"
+            assert fields["skipped"] == "1"
+            assert fields["range_complete"] == "1"
+            assert fields["reason"] == ""
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_explicit_time_window_gets_coverage(self):
+        """F4: explicit since/until — range coverage, requested=available."""
+        db = await _make_db([(1000, "a"), (1010, "b")])
+        router = _router(db)
+        try:
+            ctx = _ctx(as_of=1020)
+            out = await router.dispatch(
+                "get_recent_history",
+                {"time_window": {"since": _iso(1000),
+                                 "until": _iso(1010)}}, ctx)
+            header = _header(out)
+            assert header["window_kind"] == "time_range"
+            assert header["requested"] == header["available"] == 2
+            assert isinstance(ctx.history_sample, dict)
+            assert ctx.history_sample["window_kind"] == "time_range"
+            raw = ChainResult(out, evidence_sources=[
+                EvidenceSource(tool="get_recent_history", status="ok",
+                               content=out, total_chars=len(out))],
+                chain_meta={})
+            block = await _service(db, router=router).collect_history_segments(
+                ctx, raw, slot_chars=100000, chat_id=CHAT_ID)
+            fields, _, _ = _coverage(block)
+            assert fields["range_read"] == "1"
+            assert fields["range_complete"] == "1"
+            assert fields["available"] == "2"
+            assert fields["processed"] == "2"
+            assert fields["lines"] == "2"
+            assert fields["skipped"] == "0"
         finally:
             await db.db.close()
 

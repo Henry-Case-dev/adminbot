@@ -258,6 +258,7 @@ from services.tool_router import (
     capture_history_sample,
     extract_history_depth,
     extract_history_window,
+    is_history_period_request,
     parse_history_sample,
 )
 from services.tool_schemas import active_tools, active_tools_for_chat
@@ -9289,6 +9290,16 @@ class DirectChatService:
         as_of = int(turn_as_of or time.time())
         spec = extract_history_window(text)
         count_requested = extract_history_depth(text)
+        if spec is not None and spec.kind == "unresolved" and count_requested:
+            # «последние 120 сообщений» — количественная выборка, а не
+            # неразобранный период: единица счёта сообщений сильнее общего
+            # маркера «последн+N».
+            spec = None
+        if spec is not None and not is_history_period_request(text, spec):
+            # F3: временное слово само по себе («сегодня» в «как дела
+            # сегодня?») — current-state, не запрос истории. Явные
+            # «что было сегодня?»/«за сегодня» остаются периодом.
+            spec = None
         if self.tool_router is None:
             # Инструмент недоступен: период не проверен. Возвращаем маркер
             # причины (не молчаливый None), чтобы Writer не заявил охват.
@@ -9296,11 +9307,6 @@ class DirectChatService:
                 return self._history_range_marker(
                     chat_id, 0, 0, as_of, "capture_failed", "tool_unavailable")
             return None
-        if spec is not None and spec.kind == "unresolved" and count_requested:
-            # «последние 120 сообщений» — количественная выборка, а не
-            # неразобранный период: единица счёта сообщений сильнее общего
-            # маркера «последн+N».
-            spec = None
         if spec is not None:
             if spec.kind == "unresolved":
                 return self._history_range_marker(
@@ -9395,6 +9401,8 @@ class DirectChatService:
                 # строки (не исчезают из счётчика); fetched — прочитанные.
                 stats["fetched"] = int(stats.get("fetched", 0)) + len(rows)
                 stats["lines"] = int(stats.get("lines", 0)) + len(lines)
+                stats["skipped"] = (int(stats.get("skipped", 0))
+                                    + max(0, len(rows) - len(lines)))
             for row, line in zip(rows, lines):
                 d = dict(row)
                 yield {"line": line,
@@ -9589,7 +9597,6 @@ class DirectChatService:
                 return None
             status = str(last_header.get("status") or "ok")
             header_reason = str(last_header.get("reason") or "")
-            read = 0 if status == "error" else 1
             if status == "error":
                 block = self._history_range_unread_block(
                     bound, header_reason or reason or "tool_unavailable",
@@ -9597,19 +9604,30 @@ class DirectChatService:
             else:
                 stats = page_stats or {"fetched": 0, "lines": 0,
                                        "skipped": 0}
-                is_empty = (status == "empty_window" or available <= 0)
-                rc = bool(complete) and (is_empty or not has_next)
-                processed_n = (available if (is_empty or not has_next)
-                               else int(stats.get("fetched", 0)))
+                line_n = max(0, int(stats.get("lines", 0)))
+                skipped_n = max(0, int(stats.get("skipped", 0)))
+                delivered = line_n + skipped_n
+                incomplete_n = _ha_int(last_header.get("incomplete"), 0)
+                full = (not has_next) and delivered >= available
+                # F1: пустая/недочитанная страница при available>0 не
+                # объявляется complete. Полнота — только по delivered rows,
+                # без incomplete/anchor_missing/tail_missing.
+                rc = (bool(complete) and incomplete_n == 0
+                      and (available <= 0 or full))
+                processed_n = (available if (available <= 0 and rc)
+                               else delivered)
+                reason_n = reason or header_reason
+                if not rc and not reason_n:
+                    reason_n = ("tail_missing" if has_next
+                                else "anchor_missing"
+                                if available > delivered
+                                else "coverage_incomplete")
                 block = self._render_history_coverage(
                     bound, [], available=available, processed=processed_n,
                     failed=0, mentions=0, complete=bool(rc),
-                    reason=(reason or header_reason
-                            or ("range_empty" if is_empty else "")),
-                    slot=slot, range_read=1,
+                    reason=reason_n, slot=slot, range_read=1,
                     range_complete=1 if rc else 0,
-                    lines=int(stats.get("lines", 0)),
-                    skipped=int(stats.get("skipped", 0)))
+                    lines=line_n, skipped=skipped_n)
             self._apply_history_coverage(raw, hist, block)
             return block
 
