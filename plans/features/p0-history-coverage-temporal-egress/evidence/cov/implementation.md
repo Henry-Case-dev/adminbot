@@ -5,7 +5,7 @@
 - Branch: `p0/hc-a`.
 - Worktree: `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-6a3294ea`
   (created with installed `workflow_housekeeping.py worktree-path` + `git worktree add`; no sibling checkout).
-- Product/tests candidate: `5d3f95fd3b4dbf920db2b9925fc30dfe10de739c`.
+- Product/tests candidate: `596f5e38d2de345df96f56509980527886e69ec0`.
 - Evidence commit adds only `plans/features/p0-history-coverage-temporal-egress/evidence/cov/**`.
 - Deploy/bump: none. DDL/flags/prompts canon/`chat_prompts.py`: none.
 
@@ -105,6 +105,14 @@ egress is slice C and is not claimed here.
    `derive_simple_steps`/`chat_history` seam was sufficient; the packer is
    unchanged.
 4. **`services/chat_prompts.py` was not touched** (per plan/contract).
+5. **FTS boundary:** the turn range-bound (`ctx.history_sample`,
+   `window_kind=time_range`) always wins, ignores `query` and never calls
+   `search_long_term`; the deterministic extraction path also forbids FTS.
+   An explicit model-supplied `time_window` **with** `query` keeps the
+   existing TIME-03 query-in-window behaviour (accepted tests
+   `test_no_match_when_window_has_messages` / `test_ctx_query_ignored_when_window_present`),
+   which the slice is required to preserve. This is not a silent chronology
+   substitution: the turn range-bound is what the period question produces.
 
 ## 4. Tests and proofs
 
@@ -114,7 +122,7 @@ Machine-readable: `tests.json`. Raw outputs: `tests/`, `red-base/`,
 | Batch | Result |
 |---|---|
 | New `tests/test_p0_hc_coverage.py` | **53 passed** |
-| New + existing history pages/segments/depth/VMQ/isolation marker | **179 passed** |
+| New + existing history pages/segments/depth/VMQ/isolation marker | **180 passed** |
 | Mandatory 24-file pytest set | **386 passed, 0 failed** |
 | RED on base `1b7d43333` (new contract symbols absent) | collection `ImportError` (saved) |
 | Mutations (5) | each expected RED; restored tree **117 passed** on focused rerun |

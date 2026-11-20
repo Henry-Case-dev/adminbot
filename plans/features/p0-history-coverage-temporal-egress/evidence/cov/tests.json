@@ -4,7 +4,7 @@
   "slice": "HC-COV",
   "base_commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
   "branch": "p0/hc-a",
-  "candidate_commit": "5d3f95fd3b4dbf920db2b9925fc30dfe10de739c",
+  "candidate_commit": "596f5e38d2de345df96f56509980527886e69ec0",
   "worktree": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/p0-history-coverage-temporal-e-cbf9b3fab6a8-6a3294ea",
   "environment": {
     "python": "3.12.0 (.venv from C:/Code/Python/adminbot)",
@@ -19,9 +19,19 @@
     "mandatory_386": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q"
   },
   "results": {
-    "new": {"passed": 53, "failed": 0},
-    "focused": {"passed": 179, "failed": 0},
-    "mandatory_386": {"passed": 386, "failed": 0, "note": "same mandatory 24-file set as 2.58.210/2.58.225 evidence"}
+    "new": {
+      "passed": 54,
+      "failed": 0
+    },
+    "focused": {
+      "passed": 180,
+      "failed": 0
+    },
+    "mandatory_386": {
+      "passed": 386,
+      "failed": 0,
+      "note": "same mandatory 24-file set as 2.58.210/2.58.225 evidence"
+    }
   },
   "red_base": {
     "commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
