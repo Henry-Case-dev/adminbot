@@ -1,0 +1,11 @@
+﻿mod_acl_ux_m4b_feeds_test.js rc=0 :: MOD-ACL-UX-M4B-B1-FEEDS-OK
+asap_ui02_status_ribbons_test.js rc=0 :: ASAP-UI02-RIBBONS-OK
+round1024_dossier_feed_test.js rc=0 :: DOSSIER-FEED-OK
+round1025_f11_status_grid_test.js rc=0 :: F11-HEARTBEAT-OK
+soul1_w5_initiative_panel_test.js rc=0 :: SOUL1-W5-PANEL-OK
+round1020_ui_test.js rc=0 :: JS-UNIT-OK
+evol001_005_widgets_test.js rc=0 :: EVOL-001-005-OK
+asap6_wave2_ux_tabs_test.js rc=0 :: WAVE2-UX-TABS-OK
+mod_acl_ux_m4a_w2a_tabs_freshness_test.js rc=0 :: MOD-ACL-UX-M4A-W2A-TABS-FRESHNESS-OK тАФ 141 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║
+mod_acl_ux_m4a_w2c_navigation_layout_test.js rc=0 :: OK mod-acl W2c navigation/layout: 84 checks
+mod_acl_ux_m4a_w2b_history_test.js rc=0 :: MOD-ACL-UX-M4A-W2B-HISTORY-OK тАФ 397 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║

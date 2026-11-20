@@ -1,0 +1,171 @@
+.........................FF.FF..............................F..F........ [ 40%]
+....FF.................F................................................ [ 80%]
+....................................                                     [100%]
+================================== FAILURES ===================================
+___________ TestEvol027Catalog.test_no_kpi_row_and_caption_present ____________
+
+self = <tests.test_webapp_evol_w10_sections.TestEvol027Catalog object at 0x00000118FFC2AC60>
+
+    def test_no_kpi_row_and_caption_present(self):
+        cat = self._catalog()
+        assert "module-counters" not in cat
+        assert "module-counter" not in cat
+        assert "data-module-caption" in cat
+>       assert "filteredModules.length" in cat
+E       assert 'filteredModules.length' in 'activeTab === \'modules\'">\n            <!-- тХРтХРтХР MOD-ACL-UX-01 M4A: ╨║╨░╤В╨░╨╗╨╛╨│ ╨╕╨╖ DTO (design ┬з4.1/┬з3.3) тХРтХР\n          ...             </span>\n              </div>\n            </div>\n          </template>\n          <template v-else-if="'
+
+tests\test_webapp_evol_w10_sections.py:445: AssertionError
+____________ TestEvol027Catalog.test_single_scoped_toggle_on_card _____________
+
+self = <tests.test_webapp_evol_w10_sections.TestEvol027Catalog object at 0x00000118FFC00A70>
+
+    def test_single_scoped_toggle_on_card(self):
+        # ┬з5 v2.1 (ASAP-SUMMARY-COVER-INTEGRITY-01) ╨Ч╨Р╨Ь╨Х╨Э╨п╨Х╨в ╨┐╤А╨╡╨╢╨╜╨╕╨╣
+        # ╨║╨╛╨╜╤В╤А╨░╨║╤В EVOL-027 ┬л╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ master-toggle + ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╨╣ ╤З╨░╤В╨╛╨▓╤Л╨╣┬╗:
+        # ╨╜╨░ ╨║╨░╤А╤В╨╛╤З╨║╨╡ ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨░╤В╨╡╨╗╤М, ╨╡╨│╨╛ ╨╛╨▒╨╗╨░╤Б╤В╤М тАФ ╨▓╨╡╤А╤Е╨╜╨╕╨╣ ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А.
+        cat = self._catalog()
+>       assert cat.count("data-module-scope-toggle") == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x000001188A394010>('data-module-scope-toggle')
+E        +    where <built-in method count of str object at 0x000001188A394010> = 'activeTab === \'modules\'">\n            <!-- тХРтХРтХР MOD-ACL-UX-01 M4A: ╨║╨░╤В╨░╨╗╨╛╨│ ╨╕╨╖ DTO (design ┬з4.1/┬з3.3) тХРтХР\n          ...             </span>\n              </div>\n            </div>\n          </template>\n          <template v-else-if="'.count
+
+tests\test_webapp_evol_w10_sections.py:452: AssertionError
+________ TestEvol027Catalog.test_no_duplicate_master_toggle_in_details ________
+
+self = <tests.test_webapp_evol_w10_sections.TestEvol027Catalog object at 0x00000118FFC297F0>
+
+    def test_no_duplicate_master_toggle_in_details(self):
+        modal = _block(INDEX, "╨Ю╨║╨╜╨╛ ╨┐╨░╤А╨░╨╝╨╡╤В╤А╨╛╨▓ ╨╝╨╛╨┤╤Г╨╗╤П", "activeModuleGroups")
+        assert "data-module-readonly-status" in modal
+        assert "data-module-managed-hint" in modal
+        assert "toggleModule(activeModule" not in modal
+        assert "type=\"checkbox\"" not in modal
+        ws = _block(INDEX, "data-workspace-head", "data-workspace-tabs")
+        assert "toggleModule(workspaceModule" not in ws
+>       assert "data-module-managed-link" in ws
+E       assert 'data-module-managed-link' in 'data-workspace-head\n                   :data-workspace-class="moduleClass(workspaceModule)"\n                   :dat...    <div class="flex gap-2 flex-wrap mt-3 workspace-tabs workspace-tabs--scroll"\n                     role="tablist" '
+
+tests\test_webapp_evol_w10_sections.py:490: AssertionError
+___________ TestEvol027Catalog.test_health_is_separate_from_enabled ___________
+
+self = <tests.test_webapp_evol_w10_sections.TestEvol027Catalog object at 0x00000118FFC28800>
+
+    def test_health_is_separate_from_enabled(self):
+        assert "moduleHealthView: function" in APP_JS
+        for marker in ("moduleHealthLine: function",
+                       "moduleLastEventLine: function",
+                       "moduleEffectiveLine: function"):
+            assert marker in APP_JS, marker
+        cat = self._catalog()
+>       assert "moduleHealthView(m)" in cat
+E       assert 'moduleHealthView(m)' in 'activeTab === \'modules\'">\n            <!-- тХРтХРтХР MOD-ACL-UX-01 M4A: ╨║╨░╤В╨░╨╗╨╛╨│ ╨╕╨╖ DTO (design ┬з4.1/┬з3.3) тХРтХР\n          ...             </span>\n              </div>\n            </div>\n          </template>\n          <template v-else-if="'
+
+tests\test_webapp_evol_w10_sections.py:499: AssertionError
+________________________ test_live_render_sections_e2e ________________________
+
+    def test_live_render_sections_e2e():
+        import subprocess
+        import sys
+
+        tool = ROOT / "tools" / "ui_evol_w10_sections_e2e.py"
+        assert tool.exists(), "╨╜╨╡╤В ╤Б╨║╨▓╨╛╨╖╨╜╨╛╨│╨╛ Playwright-╨┐╤А╨╛╨│╨╛╨╜╨░ W10"
+        try:
+            import playwright  # noqa: F401
+        except Exception:  # noqa: BLE001
+            import pytest
+
+            pytest.skip("playwright ╨╜╨╡ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ ╨▓ ╤Н╤В╨╛╨╝ ╨╛╨║╤А╤Г╨╢╨╡╨╜╨╕╨╕")
+        res = subprocess.run([sys.executable, str(tool)], cwd=str(ROOT),
+                             capture_output=True, text=True, encoding="utf-8",
+                             timeout=1800)
+>       assert res.returncode == 0, (res.stdout or "") + (res.stderr or "")
+E       AssertionError: [matrix] config stub: items=631 groups=121
+E         [matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=123
+E         EVOL-W10-SECTIONS FAIL (3):
+E          - #/modules@1280x900: ╨║╨░╤В╨░╨╗╨╛╨│ ╨╜╨╡ ╨╛╤В╤А╨╕╤Б╨╛╨▓╨░╨╜ (0 ╨║╨░╤А╤В╨╛╤З╨╡╨║)
+E          - #/modules@390x844: ╨║╨░╤В╨░╨╗╨╛╨│ ╨╜╨╡ ╨╛╤В╤А╨╕╤Б╨╛╨▓╨░╨╜ (0 ╨║╨░╤А╤В╨╛╤З╨╡╨║)
+E          - ╨╝╨╛╨┤╤Г╨╗╨╕: ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ scoped-╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨░╤В╨╡╨╗╤М ╨╜╨╡ ╨▓╤Л╨┐╨╛╨╗╨╜╨╕╨╗ ╤Б╨╡╤А╨▓╨╡╤А╨╜╤Г╤О ╨╛╨┐╨╡╤А╨░╤Ж╨╕╤О
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'C:\\Users\\main\\.config\\opencode\\...╨│ ╨╜╨╡ ╨╛╤В╤А╨╕╤Б╨╛╨▓╨░╨╜ (0 ╨║╨░╤А╤В╨╛╤З╨╡╨║)\n - ╨╝╨╛╨┤╤Г╨╗╨╕: ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ scoped-╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨░╤В╨╡╨╗╤М ╨╜╨╡ ╨▓╤Л╨┐╨╛╨╗╨╜╨╕╨╗ ╤Б╨╡╤А╨▓╨╡╤А╨╜╤Г╤О ╨╛╨┐╨╡╤А╨░╤Ж╨╕╤О\n', stderr='').returncode
+
+tests\test_webapp_evol_w10_sections.py:964: AssertionError
+_________________ test_role_classes_have_no_literal_geometry __________________
+
+    def test_role_classes_have_no_literal_geometry():
+        bad = _literal_geometry(CSS)
+>       assert not bad, ("╨╗╨╕╤В╨╡╤А╨░╨╗╤М╨╜╨░╤П ╨│╨╡╨╛╨╝╨╡╤В╤А╨╕╤П ╤Г ╨║╨╗╨░╤Б╤Б╨╛╨▓-╤А╨╛╨╗╨╡╨╣ (╨╜╤Г╨╢╨╡╨╜ var(--тАж)):\n"
+                         + "\n".join("  ╤Б╤В╤А╨╛╨║╨░ %d: %s { %s: %s }" % b for b in bad))
+E       AssertionError: ╨╗╨╕╤В╨╡╤А╨░╨╗╤М╨╜╨░╤П ╨│╨╡╨╛╨╝╨╡╤В╤А╨╕╤П ╤Г ╨║╨╗╨░╤Б╤Б╨╛╨▓-╤А╨╛╨╗╨╡╨╣ (╨╜╤Г╨╢╨╡╨╜ var(--тАж)):
+E           ╤Б╤В╤А╨╛╨║╨░ 7567: .module-card { padding: 10px 12px }
+E           ╤Б╤В╤А╨╛╨║╨░ 7612: .module-card .module-tristate-btn { padding: 0 7px }
+E           ╤Б╤В╤А╨╛╨║╨░ 7639: .app-shell .module-card .module-card-footer .btn-ghost { padding: 2px 8px }
+E           ╤Б╤В╤А╨╛╨║╨░ 7749: .workspace-head.card { padding-bottom: 6px }
+E       assert not [(7567, '.module-card', 'padding', '10px 12px'), (7612, '.module-card .module-tristate-btn', 'padding', '0 7px'), (763...e-card .module-card-footer .btn-ghost', 'padding', '2px 8px'), (7749, '.workspace-head.card', 'padding-bottom', '6px')]
+
+tests\test_webapp_evol_w15_composition.py:216: AssertionError
+__________ TestNavigationSnapshot.test_tabs_ids_and_order_unchanged ___________
+
+self = <tests.test_webapp_round1020_ui.TestNavigationSnapshot object at 0x00000118FFC49F40>
+
+    def test_tabs_ids_and_order_unchanged(self):
+        ids = re.findall(r"\{ id: '([a-z_0-9]+)'", _tabs_block())
+>       assert ids == self.EXPECTED_TABS
+E       AssertionError: assert ['llm_provide..._search', ...] == ['llm_provide..._search', ...]
+E
+E         At index 17 diff: 'mod_random' != 'modules'
+E         Left contains 2 more items, first extra item: 'info'
+E         Use -v to get more diff
+
+tests\test_webapp_round1020_ui.py:54: AssertionError
+______________ TestNavigationSnapshot.test_navbar_legacy_and_v2 _______________
+
+self = <tests.test_webapp_round1020_ui.TestNavigationSnapshot object at 0x00000118FFC59760>
+
+    def test_navbar_legacy_and_v2(self):
+        # F1 (T-2393, SUPERSEDE): legacy NAV_ITEMS (6, OFF-╤А╨╡╨╢╨╕╨╝) ╨╛╤Б╤В╨░╤С╤В╤Б╤П
+        # ╨╜╨╡╨╕╨╖╨╝╨╡╨╜╨╜╤Л╨╝; ╨╜╨╛╨▓╤Л╨╣ NAV_ITEMS_V2 = 7 ╨┐╤Г╨╜╨║╤В╨╛╨▓ (+ ┬л╨Я╨░╨╝╤П╤В╤М┬╗).
+        legacy = re.findall(
+            r"id:\s*'(\w+)',\s*label:\s*'[^']+',\s*route:\s*'#/",
+            APP_JS[APP_JS.index("var NAV_ITEMS = ["):
+                   APP_JS.index("var NAV_ITEMS_V2")])
+        assert legacy == ["status", "how", "modules", "ai", "permsoc", "access"]
+        v2 = re.findall(
+            r"id:\s*'(\w+)',\s*label:\s*'[^']+',\s*route:\s*'#/",
+            APP_JS[APP_JS.index("var NAV_ITEMS_V2 = ["):])
+        assert v2[:8] == ["status", "how", "modules", "ai", "memory",
+                          "oversight", "access", "permsoc"]
+        # ╨б╨╛╤Б╤В╨░╨▓ MODULES (┬л╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╣┬╗ тАФ F5 10.24; ┬л╨Ш╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨░┬╗ тАФ
+        # ASAP 7 F3 ┬з3.2, ╨╛╤Б╨╛╨╖╨╜╨░╨╜╨╜╤Л╨╣ ╤А╨╡╨┐╨╕╨╜ frozen-contract).
+        mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
+>                         APP_JS[APP_JS.index("var MODULES = ["):])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: substring not found
+
+tests\test_webapp_round1020_ui.py:72: ValueError
+________________ TestHumanReadableLabels.test_examples_from_tz ________________
+
+self = <tests.test_webapp_round1020_ui.TestHumanReadableLabels object at 0x00000118FFC777A0>
+
+    def test_examples_from_tz(self):
+        assert pc.REGISTRY["LLM_RETRY_BACKOFF_CAP"].title_ru == \
+            "╨Ь╨░╨║╤Б. ╨┐╨░╤Г╨╖╨░ ╨╝╨╡╨╢╨┤╤Г ╨┐╨╛╨┐╤Л╤В╨║╨░╨╝╨╕ (╤Б╨╡╨║)"
+>       assert pc.REGISTRY["CHAT_TEMPERATURE_CHATTY"].title_ru == \
+            "╨Ъ╤А╨╡╨░╤В╨╕╨▓╨╜╨╛╤Б╤В╤М (╨С╨╛╨╗╤В╨╗╨╕╨▓╤Л╨╣ ╤А╨╡╨╢╨╕╨╝)"
+E       AssertionError: assert '╨б╨▓╨╛╨▒╨╛╨┤╨░ ╤Д╨╛╤А╨╝...╨╛╨║: ╨▒╨╛╨╗╤В╨╗╨╕╨▓╤Л╨╣' == '╨Ъ╤А╨╡╨░╤В╨╕╨▓╨╜╨╛╤Б╤В╤М...╤В╨╗╨╕╨▓╤Л╨╣ ╤А╨╡╨╢╨╕╨╝)'
+E
+E         - ╨Ъ╤А╨╡╨░╤В╨╕╨▓╨╜╨╛╤Б╤В╤М (╨С╨╛╨╗╤В╨╗╨╕╨▓╤Л╨╣ ╤А╨╡╨╢╨╕╨╝)
+E         + ╨б╨▓╨╛╨▒╨╛╨┤╨░ ╤Д╨╛╤А╨╝╤Г╨╗╨╕╤А╨╛╨▓╨╛╨║: ╨▒╨╛╨╗╤В╨╗╨╕╨▓╤Л╨╣
+
+tests\test_webapp_round1020_ui.py:262: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_kpi_row_and_caption_present
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_single_scoped_toggle_on_card
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_duplicate_master_toggle_in_details
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_health_is_separate_from_enabled
+FAILED tests/test_webapp_evol_w10_sections.py::test_live_render_sections_e2e
+FAILED tests/test_webapp_evol_w15_composition.py::test_role_classes_have_no_literal_geometry
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2
+FAILED tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz
+9 failed, 171 passed in 57.05s

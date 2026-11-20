@@ -1,0 +1,22 @@
+{
+ "port": 8876,
+ "viewports": {
+  "1280": {
+   "dossier_status": 1,
+   "dossier_section": 1,
+   "dossier_analytics": 0,
+   "record_clicked": true,
+   "record_modal": true,
+   "console_errors": []
+  },
+  "390": {
+   "dossier_status": 1,
+   "dossier_section": 1,
+   "dossier_analytics": 0,
+   "record_clicked": true,
+   "record_modal": true,
+   "console_errors": []
+  }
+ },
+ "failures": []
+}

@@ -1,0 +1,174 @@
+{
+  "release": "2.58.224",
+  "feature": "MOD-ACL-UX-01 M4B B1",
+  "branch": "release/mod-acl-m4b1-2.58.224",
+  "base": {
+    "sha": "40fe603f0aac853af99656bac1934ec5f3d160f9",
+    "version": "2.58.223",
+    "role": "base and rollback",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "product": "5f8026b2fb9a1509c09df834b2154d8c3c71d393",
+    "branch_tip": "b360cd8aa866a7892ede1754eaae23c6ebceb997",
+    "review": "APPROVED_FOR_RELEASE_PREPARATION",
+    "review_r2_sha256": "9c5005663e58b4e140c5323144ed4ca681ed358c8beb092e367c567e79dd7e34"
+  },
+  "content_bump_commit": "57e123db7c6c2a34d1fb873fe2cb595878bd2566",
+  "version": "2.58.224",
+  "schema": {
+    "target": 48,
+    "user_version": 48,
+    "schema_migrations_max": 48,
+    "schema_migrations_count": 48,
+    "ddl": 0,
+    "method": "temp SQLite DatabaseService.initialize(); services.database._SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "playwright": "1.62.0",
+    "chromium": "bundled Playwright Chromium"
+  },
+  "product_delta": {
+    "base_to_bump_net": {
+      "web/app.js": {"insertions": 271, "deletions": 80},
+      "web/index.html": {"insertions": 63, "deletions": 76},
+      "web/static/app.css": {"insertions": 35, "deletions": 138},
+      "config/settings.py": {"insertions": 1, "deletions": 1}
+    },
+    "commit_sum_r0_plus_r1": {
+      "web/app.js": {"insertions": 283, "deletions": 92,
+                     "r0": {"insertions": 246, "deletions": 76},
+                     "r1": {"insertions": 37, "deletions": 16}}
+    },
+    "product_files": ["web/app.js", "web/index.html", "web/static/app.css"],
+    "bump_touches_web": "empty: git diff b360cd8aa..57e123db7 -- web",
+    "backend_api_ddl_flags_prompts_storage": "0 files: git diff 40fe603f..57e123db7 -- services handlers web/api database.py migrations = empty",
+    "config_files": ["config/settings.py (APP_VERSION/changelog)"],
+    "note": "The net app.js diff (271/80) differs from the r0+r1 commit-sum (283/92) because r1 replaces some lines added by r0 in the same hunks; both are reported honestly."
+  },
+  "bump": {
+    "files": 30,
+    "insertions": 31,
+    "deletions": 31,
+    "app_version": "2.58.224",
+    "bom_crlf": "preserved; 0 BOM/line-ending mismatches (settings.py BOM + 3645 CRLF)",
+    "check": "git diff --check 40fe603f..57e123db7 rc=0; node --check web/app.js rc=0"
+  },
+  "batches": [
+    {
+      "id": "mandatory-24-files",
+      "command": "python -m pytest <24-file M4A/M2/M2.1 + f8 + mca23 + webapp JS set> -q -p no:cacheprovider",
+      "passed": 386,
+      "failed": 0
+    },
+    {
+      "id": "node-b1-w2",
+      "command": "node <B1 + asap6 + W2a + W2c + W2b>",
+      "files": 11,
+      "passed": 11,
+      "failed": 0,
+      "markers": [
+        "MOD-ACL-UX-M4B-B1-FEEDS-OK",
+        "ASAP-UI02-RIBBONS-OK",
+        "DOSSIER-FEED-OK",
+        "F11-STATUS-GRID-OK / F11-HEARTBEAT-OK",
+        "SOUL1-W5-PANEL-OK",
+        "JS-UNIT-OK",
+        "EVOL-001-005-OK",
+        "WAVE2-UX-TABS-OK",
+        "W2A 141",
+        "W2C 84",
+        "W2B 397"
+      ]
+    },
+    {
+      "id": "pytest-contract-6-files",
+      "command": "python -m pytest tests/test_dossier_feed_round1024.py tests/test_webapp_evol_w10_sections.py tests/test_webapp_evol_w15_composition.py tests/test_webapp_round1020_ui.py tests/test_webapp_js_unit.py tests/test_webapp_f11_round1025.py -q -p no:cacheprovider",
+      "candidate": {"failed": 9, "passed": 171},
+      "base_40fe603f_with_updated_tests": {"failed": 26, "passed": 154},
+      "candidate_only_failures": 0,
+      "remaining_base_failures": [
+        "test_webapp_evol_w10_sections.py::TestEvol027Catalog (4)",
+        "test_webapp_evol_w10_sections.py::test_live_render_sections_e2e",
+        "test_webapp_evol_w15_composition.py::test_role_classes_have_no_literal_geometry",
+        "test_webapp_round1020_ui.py::TestNavigationSnapshot (2)",
+        "test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz"
+      ]
+    },
+    {
+      "id": "broad-js",
+      "command": "node <each tests/js/*_test.js>",
+      "files": 125,
+      "passed": 122,
+      "failed": 3,
+      "failed_files": [
+        "tests/js/evol_cog_scene_test.js",
+        "tests/js/round1025_ia_routing_test.js",
+        "tests/js/ur_ui_settings_test.js"
+      ],
+      "note": "pre-existing base failures; asap6 is green after the B1 contract update"
+    },
+    {
+      "id": "version-pins-24-py",
+      "command": "python -m pytest <24 Python pin files from the 2.58.224 bump set> -q -p no:cacheprovider",
+      "passed": 856,
+      "failed": 4,
+      "baseline_node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ]
+    },
+    {
+      "id": "version-pins-4-js",
+      "command": "node <round1025_hotfix7/8/9/10 pin files>",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "id": "b1-status-e2e",
+      "command": "MOD_ACL_M4B_STATUS_SHOTS=<temp> MOD_ACL_M4B_STATUS_REPORT=<temp> python tools/ui_mod_acl_m4b_status_e2e.py",
+      "checks": 138,
+      "failures": 0,
+      "includes": [
+        "5 sections / grid 3+2 / 2+2+1 / 1",
+        "person dossier + detail/provenance",
+        "pause/resume, reduced-motion",
+        "empty chat / 503",
+        "F03 cross-scope: switch chat on #/modules, return #/ before delayed response"
+      ]
+    },
+    {
+      "id": "w10-affected",
+      "command": "python tools/ui_evol_w10_sections_e2e.py --out <temp>",
+      "result": "B1 checks green; 3 pre-existing module/catalog failures only",
+      "failures": 3
+    },
+    {
+      "id": "w15-b1-subset",
+      "command": "targeted w15 probe: Status dossier + record + Analytics absence at 1280/390",
+      "failures": 0,
+      "rows": {
+        "1280": {"dossier_status": 1, "dossier_analytics": 0, "record_modal": true},
+        "390": {"dossier_status": 1, "dossier_analytics": 0, "record_modal": true}
+      }
+    }
+  ],
+  "baseline_failures": {
+    "same_on_base": true,
+    "base_sha": "40fe603f0aac853af99656bac1934ec5f3d160f9",
+    "note": "The 9 contract-file and 3 broad-JS and 4 pin failures are reproduced on the base; they are not counted as pass."
+  },
+  "limitations": [
+    "No production deploy, SSH, live TMA or VERIFIED claim in this assembly.",
+    "The B1/w10/w15 Playwright checks use a local synthetic API stand, not production bytes.",
+    "Live MAC-S6-307/MAC-S15-03 remain postdeploy; natural 503/empty chat is RFL.",
+    "w10/w15 full tools still carry pre-existing non-B1 failures (module catalog, cog-map, adaptive prompt editor).",
+    "Visual diff tools/ui_cmv_perf_parity.py was not run (N09)."
+  ]
+}

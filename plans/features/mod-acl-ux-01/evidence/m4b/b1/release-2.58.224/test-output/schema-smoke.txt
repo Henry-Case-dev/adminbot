@@ -1,0 +1,1 @@
+TARGET 48 user_version 48 schema_migrations True max 48 count 48 journal wal ddl 0

@@ -1,0 +1,35 @@
+{
+  "captured_at_commit": "57e123db7c6c2a34d1fb873fe2cb595878bd2566",
+  "command": "python tools/release_manifest.py --repo-root <release-worktree> --deployer release-258224-builder --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean before and after; .deploy previous-manifest input removed",
+  "manifest": {
+    "deployed_at": "2026-11-20T10:52:18.822972Z",
+    "deployed_sha": "57e123db7c6c2a34d1fb873fe2cb595878bd2566",
+    "deployer": "release-258224-builder",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "40fe603f0aac853af99656bac1934ec5f3d160f9",
+    "previous_version": "2.58.223",
+    "release_branch": "release/mod-acl-m4b1-2.58.224",
+    "schema": 1,
+    "version": "2.58.224"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "documented deployed state: 40fe603f / 2.58.223 (schema 48, DDL 0)",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "40fe603f0aac853af99656bac1934ec5f3d160f9",
+      "version": "2.58.223",
+      "effect": "deploy",
+      "release_branch": "release/mod-acl-w3-503-2.58.223"
+    },
+    "removed_after_run": true
+  },
+  "note": "Dry-run captured the content/bump tip 57e123db7, not the later evidence-only tip. The deploy-time manifest must record the actual checkout SHA; product bytes are identical between content and evidence-only commits."
+}

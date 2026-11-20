@@ -1,0 +1,23 @@
+{
+ "files": 125,
+ "passed": 122,
+ "failed": 3,
+ "timeouts": 0,
+ "failing_files": [
+  {
+   "file": "evol_cog_scene_test.js",
+   "rc": 1,
+   "tail": "                    ^\n\nTypeError: this._cogBlitLabel is not a function\n    at Object._cogPaintLabels (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\web\\app.js:40058:21)\n    at Object.drawLabels (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\web\\app.js:39735:43)\n    at Object.paint (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\web\\static\\cog-visual.js:1697:59)\n    at Object._cogPaintFx (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\web\\app.js:39537:30)\n    at Object._cogPaintStatic (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\web\\app.js:39507:14)\n    at Object.graphApplySelectionLabels (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\web\\app.js:41419:14)\n    at cycles (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-512d7d77\\tests\\js\\evol_cog_scene_test.js:692:37)\n\nNode.js v24.16.0"
+  },
+  {
+   "file": "round1025_ia_routing_test.js",
+   "rc": 1,
+   "tail": "    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: 'Речь и характер',\n  expected: '#/ai/persona',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.16.0"
+  },
+  {
+   "file": "ur_ui_settings_test.js",
+   "rc": 1,
+   "tail": "    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.16.0"
+  }
+ ]
+}
