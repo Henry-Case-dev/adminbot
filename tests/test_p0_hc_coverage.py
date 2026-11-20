@@ -802,8 +802,9 @@ class TestExplicitWindowErrorBound:
             assert fields2["reason"] == "db_error"
 
             # Новый валидный window — retry: error-bound не мешает.
+            retry_window = {"since": _iso(900), "until": _iso(1010)}
             third = await router.dispatch(
-                "get_recent_history", {"time_window": window}, ctx)
+                "get_recent_history", {"time_window": retry_window}, ctx)
             header3 = _header(third)
             assert header3["status"] == "ok"
             assert header3["requested"] == header3["available"] == 2
