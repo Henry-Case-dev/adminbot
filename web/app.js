@@ -6652,7 +6652,7 @@
         // F6 (D6/§52–§56): presentation-подгруппа витрины «Память → Настройки»
         // (Δ каталога = 0: только перегруппировка в JS-витрине).
         memorySubgroup: '',
-        // ── Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» (тикер) ──
+        // ── T-1897 → M4B B1: общий снимок досье (пятая лента «Статуса») ──
         // EVOL-026 (W10): лента живёт в «Статусе»; `dossierFeedAt` — реальное
         // время последней ЗАГРУЗКИ (честная подпись «данные от …», без
         // фиктивного «обновляется» при пустой/ошибочной ленте).
@@ -6674,6 +6674,9 @@
         temporalDetail: null,
         temporalDetailBusy: false,
         dossierFeedBusy: false,
+        // M4B B1 (F03/N08): generation снимка досье. Смена scope инвалидирует
+        // in-flight ответ и НЕ даёт старому finally снять busy нового запроса.
+        dossierFeedSeq: 0,
         dossierFeedError: '',
         dossierFeedLoaded: false,     // EVOL-005: лента запрашивалась хотя бы раз
         // ── ASAP-UI-02 (§5.3, wave 2): ОДНА карточка «Мониторинг интеллекта» ──
@@ -13932,10 +13935,12 @@
         if (!this.dossierFeedAt) return 'время загрузки неизвестно';
         return 'данные от ' + this.fmtClock(Math.floor(this.dossierFeedAt / 1000));
       },
-      // M4B B1 (MAC-S15-03): scope-change на «Статусе» — очистить досье
-      // прошлой области (включая in-flight ответ, который отбросит epoch) и
-      // остановить прежний поллер. Новый запуск делает вызывающий код.
+      // M4B B1 (MAC-S15-03, F03/N08): смена scope — ЛЮБАЯ вкладка — очищает
+      // общий снимок досье/«Новых фактов» прошлой области, инвалидирует
+      // in-flight ответ (generation) и останавливает прежний поллер.
+      // Новый запуск делает вызывающий код (status/oversight).
       _resetDossierFeedScope: function () {
+        this.dossierFeedSeq = (Number(this.dossierFeedSeq) || 0) + 1;
         this.dossierFeed = [];
         this.dossierFeedLoaded = false;
         this.dossierFeedAt = 0;
@@ -13993,8 +13998,8 @@
         this.loadCognition();
         if (typeof this.loadDossierFeed === 'function') this.loadDossierFeed();
       },
-      // Телефон: видна одна секция. Данные не перезапрашиваются (все четыре
-      // ленты отрисованы постоянно) — сохраняется и позиция прокрутки, и
+      // Телефон: видна одна секция. Данные не перезапрашиваются (все пять
+      // лент отрисованы постоянно) — сохраняется и позиция прокрутки, и
       // выбор записи; восстанавливаем позицию после перерисовки.
       switchStatusRibbon: function (tab) {
         var id = String(tab == null ? '' : tab);
@@ -14798,6 +14803,14 @@
         // (обобщение R10.4-2): epoch отбрасывает устаревшие in-flight
         // ответы, чистим relations/лор/гейты/локальных админов/модалки.
         this.scopeEpoch++;
+        // M4B B1 (MAC-S15-03, F03): досье/«Новые факты» — один shared-снимок
+        // выбранной области. Сброс выполняется при смене чата на ЛЮБОЙ
+        // вкладке: иначе возврат в «Статус» показывал бы личную историю
+        // прошлого чата до ответа нового запроса. Запуск нового поллера
+        // делает ветка активной вкладки ниже.
+        if (typeof this._resetDossierFeedScope === 'function') {
+          this._resetDossierFeedScope();
+        }
         // W2b-B1 (F2): покинутая область не оставляет `loading`-мету
         // (ответ отброшен epoch-guard'ом), а история текущего экрана сразу
         // грузится для НОВОЙ области — вкладка/refresh восстанавливаются.
@@ -14887,10 +14900,9 @@
               this.startStoriesPolling();
             }
           }
-          // M4B B1 (MAC-S15-03): лента досье принадлежит выбранной области.
-          // Смена чата на «Статусе» очищает записи другого чата и перечитывает
-          // свою область — старый снимок не остаётся на экране.
-          this._resetDossierFeedScope();
+          // M4B B1 (MAC-S15-03, F03): снимок уже очищен общим scope-reset
+          // выше (не только здесь); на «Статусе» сразу перечитываем новую
+          // область, не показывая чужие строки.
           if (this.isGlobalAdmin
               && typeof this.startDossierFeedPolling === 'function') {
             this.startDossierFeedPolling();
@@ -22111,13 +22123,20 @@
       loadDossierFeed: async function () {
         if (this.dossierFeedBusy) return;
         this.dossierFeedBusy = true;
-        // M4B B1 (MAC-S15-03): ответ принадлежит ТОЙ ЖЕ области. Смена
-        // scope/чата отбрасывает in-flight ответ (старые записи не
-        // переносятся в новый чат).
+        // M4B B1 (MAC-S15-03, F03/N08): ответ принадлежит ТОЙ ЖЕ области и
+        // ТОМУ ЖЕ поколению снимка. Scope-change увеличивает epoch и
+        // generation; старый finally не снимает busy у нового запроса.
         var epoch = this.scopeEpoch;
+        var seq = (Number(this.dossierFeedSeq) || 0) + 1;
+        this.dossierFeedSeq = seq;
         var inScope = (typeof this._scopeGuard === 'function')
-          ? function (self) { return self._scopeGuard(epoch); }
-          : function () { return true; };
+          ? function (self) {
+            return self._scopeGuard(epoch)
+              && (Number(self.dossierFeedSeq) || 0) === seq;
+          }
+          : function (self) {
+            return (Number(self.dossierFeedSeq) || 0) === seq;
+          };
         try {
           var url = '/api/oversight/dossier_feed?limit=16';
           if (this.activeChatId != null) {
@@ -22136,7 +22155,9 @@
           this.dossierFeedError = this.loreErrText(e);
           this.dossierFeedLoaded = true;
         } finally {
-          this.dossierFeedBusy = false;
+          if ((Number(this.dossierFeedSeq) || 0) === seq) {
+            this.dossierFeedBusy = false;
+          }
         }
       },
       // Реактивность без лишних запросов: один запрос на смену scope/чата;

@@ -140,7 +140,7 @@ CARD_SEL = (".card", ".module-card", ".hub-card", ".prov-block", ".intel-card",
             ".conn-card")
 # Компактная строка-сущность (кликабельная запись/раздел/слой).
 ROW_SEL = (".sfeed-item", ".mem-item", ".access-section-row",
-           ".dossier-ticker__item", ".speech-layer-card")
+           ".speech-layer-card")
 # Строка-разделитель внутри таблицы/списка «ключ → значение».
 DIVIDER_ROW_SEL = (".budget-row", ".conn-fact", ".pipe-run-row")
 # Плотная строка таблицы/инспектора. `.speech-entity-row` удалён: класса нет в
@@ -367,7 +367,7 @@ PROBE_COMPOSITION = r"""
     segs: qa('[data-status-seg]').filter(vis).length,
     health: qa('[data-status-health]').filter(vis).length,
     activity: qa('[data-status-activity]').filter(vis).length,
-    dossier: qa('[data-status-dossier]').filter(vis).length,
+    dossier: qa('[data-intel-section="dossier"]').length,
     sleep: qa('[data-status-sleep]').filter(vis).length,
     experience: qa('[data-experience]').filter(vis).length,
     botControls: qa('.status-health__bot-actions button').filter(vis).length,
@@ -384,7 +384,7 @@ PROBE_COMPOSITION = r"""
     storiesAnalytics: qa('[data-stories-analytics]').filter(vis).length,
     stories: qa('[data-stories]').filter(vis).length,
     heatmapHere: qa('[data-viz-heatmap]').filter(vis).length,
-    dossierHere: qa('[data-status-dossier]').filter(vis).length,
+    dossierHere: qa('[data-intel-section="dossier"]').length,
     advancedOpen: openAdvanced,
     // Модули
     modCards: qa('[data-mod]').filter(vis).length,
@@ -482,7 +482,7 @@ DRIVE = r"""
     return true;
   }
   if (kind === 'record') {
-    const it = document.querySelector('[data-status-dossier] .dossier-ticker__item');
+    const it = document.querySelector('[data-intel-section="dossier"] [data-sfeed-row]');
     if (!it) return false;
     it.click();
     return true;
@@ -3002,7 +3002,7 @@ def run(out_dir, baseline=False, port=PORT):
             fails.append("Статус@%d: сегментов здоровья %d < 3 (бот/сердце/сервер)"
                          % (w, s.get("segs", 0)))
         for key, human in (("activity", "«Активность по часам»"),
-                           ("dossier", "«Живая лента досье»"),
+                           ("dossier", "пятая лента «Досье»"),
                            ("experience", "показатели опыта"),
                            ("sleep", "панель сна")):
             if not s.get(key):
@@ -3191,7 +3191,7 @@ VIDEO_SCENARIOS = (
             ("wait", 500),
             ("press", "Escape"), ("wait", 500),
             # модалка записи досье на «Статусе» — открыть и закрыть
-            ("click", "[data-status-dossier] .dossier-ticker__item"),
+            ("click", "[data-intel-section=\"dossier\"] [data-sfeed-row]"),
             ("wait", 1300),
             ("press", "Escape"), ("wait", 600),
             # ленты: ручная прокрутка вверх/вниз

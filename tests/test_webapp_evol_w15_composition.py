@@ -298,10 +298,13 @@ def test_compact_row_keeps_touch_target():
     assert "var(--control-h-touch)" in body
 
 
-def test_dossier_ticker_row_aligned_with_feeds():
-    body = _body(".dossier-ticker__track--y .dossier-ticker__item", "--row-radius")
+def test_dossier_row_aligned_with_feeds():
+    # M4B B1: пятая лента использует общий `.sfeed-item` (тикер удалён).
+    body = _body(".sfeed-item", "--row-radius")
     assert "var(--row-radius)" in body
     assert "var(--row-font)" in body
+    assert ".dossier-ticker" not in CSS
+    assert ".sfeed-item__badge--dossier" in CSS
 
 
 # ── 4. Строка таблицы / инспектора ──────────────────────────────────────────

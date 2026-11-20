@@ -463,6 +463,68 @@ assert.ok(methods.dossierPeopleAriaLabel.call({}, unknown)
     assert.strictEqual(stopped, 1, 'старый поллер остановлен');
   }
 
+  // 7f. F03: смена scope на ДРУГОЙ вкладке тоже очищает shared-снимок.
+  // На старом коде reset жил только в status-ветке → старые строки оставались
+  // и появлялись при возврате в «Статус».
+  {
+    const ctx = {
+      activeTab: 'modules', activeChatId: -100, scopeEpoch: 1,
+      scopeOpen: true, route: '#/modules', workspace: null,
+      historyFilter: '', gateInfo: null, chatAdmins: [], chatRelations: [],
+      configError: '', configItems: [{}], configChatUpdatedAt: 1,
+      keyDrafts: {}, ownKeyDraft: '', blockDrafts: {}, blockResults: {},
+      personaDraft: null, personaMeta: null, personaLoading: false,
+      dossierFeed: [{ chat_id: -100, name: 'A' }],
+      dossierFeedLoaded: true, dossierFeedAt: 123, dossierFeedError: '',
+      dossierFeedBusy: true, dossierFeedSeq: 0,
+      _resetDossierFeedScope: methods._resetDossierFeedScope,
+      syncActiveChatTitle() {}, loadConfig() {}, loadKeyStatus() {},
+      canViewTab() { return false; }, stopDossierFeedPolling() {},
+      toast() {},
+    };
+    methods.setActiveChat.call(ctx, -200);
+    assert.strictEqual(ctx.activeChatId, -200);
+    assert.deepStrictEqual(ctx.dossierFeed, [],
+      'на «Модулях» старые строки досье не переезжают в новый чат');
+    assert.strictEqual(ctx.dossierFeedLoaded, false);
+    assert.strictEqual(ctx.dossierFeedBusy, false);
+    assert.ok(ctx.dossierFeedSeq >= 1, 'generation увеличена при любой смене scope');
+  }
+
+  // 7g. N08: старый in-flight finally не снимает busy у нового запроса.
+  {
+    const calls = [];
+    const ctx = {
+      activeChatId: -100, dossierFeedBusy: false, dossierFeed: [],
+      dossierFeedError: '', dossierFeedLoaded: false, dossierFeedAt: 0,
+      scopeEpoch: 1, dossierFeedSeq: 0,
+      _scopeGuard(ep) { return ep === this.scopeEpoch; },
+      loreErrText(e) { return String(e); },
+      stopDossierFeedPolling() {},
+      api(url) {
+        return new Promise(function (resolve) {
+          calls.push({ url: url, resolve: resolve });
+        });
+      },
+    };
+    const p1 = methods.loadDossierFeed.call(ctx);
+    assert.strictEqual(ctx.dossierFeedBusy, true);
+    methods._resetDossierFeedScope.call(ctx);   // смена scope
+    ctx.scopeEpoch = 2;
+    const p2 = methods.loadDossierFeed.call(ctx);
+    assert.strictEqual(calls.length, 2, 'новый scope стартует свой запрос');
+    calls[0].resolve({ items: [{ chat_id: -100, name: 'old' }] });
+    await p1;
+    assert.strictEqual(ctx.dossierFeed.length, 0,
+      'старый ответ отброшен generation/epoch');
+    assert.strictEqual(ctx.dossierFeedBusy, true,
+      'старый finally не снимает busy нового запроса');
+    calls[1].resolve({ items: [{ chat_id: -200, name: 'new' }] });
+    await p2;
+    assert.strictEqual(ctx.dossierFeedBusy, false);
+    assert.strictEqual(ctx.dossierFeed[0].name, 'new');
+  }
+
   // 7e. Тот же endpoint; второго API/store нет.
   assert.strictEqual(JS.split("'/api/oversight/dossier_feed?limit=16'").length - 1, 1,
     'единственный запрос ленты досье');

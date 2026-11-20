@@ -194,8 +194,12 @@ class TestLiquidGlassAndGrid:
         assert "justify-content: center" in CSS
 
     def test_reduced_motion(self):
+        # M4B B1: reduced-motion принадлежит общему `.sfeed-*`-слою; старого
+        # тикера/его keyframes больше нет.
         assert "@media (prefers-reduced-motion: reduce)" in CSS
-        assert ".dossier-ticker__track { animation: none" in CSS
+        assert ".sfeed-item { transition: none !important; }" in CSS
+        assert ".sfeed-modal-enter-active .sfeed-modal { animation: none" in CSS
+        assert ".dossier-ticker__track { animation: none" not in CSS
 
     def test_glass_applied_to_oversight(self):
         assert 'card glass-panel p-4 col-span-full' in INDEX
@@ -282,18 +286,26 @@ class TestAdvancedAccordion:
 
 
 class TestDossierTicker:
-    """T-1897: виджет «Живая лента досье» в «Сводке»."""
+    """T-1897 → M4B B1: историческое имя класса сохранено; контракт теперь —
+    пятая лента «Досье» в общем `.sfeed-*`-слое, а не нижний тикер."""
 
     def test_markup_and_css(self):
-        assert "Живая лента досье" in INDEX
-        assert "dossier-ticker" in INDEX
-        assert ".dossier-ticker__track" in CSS
-        assert "@keyframes dossier-ticker-scroll" in CSS
-        # Без сторонних библиотек (CSP): только CSS-анимация.
+        assert "Досье" in INDEX
+        assert 'data-intel-section="dossier"' in INDEX
+        assert 'data-sfeed-type="dossier"' in INDEX
+        assert "dossierPeopleFeed" in INDEX
+        assert ".sfeed-item__badge--dossier" in CSS
+        # Старый тикер/его CSS/keyframes удалены из продукта.
+        assert "dossier-ticker" not in INDEX
+        assert ".dossier-ticker__track" not in CSS
+        assert "@keyframes dossier-ticker-scroll" not in CSS
+        # Без сторонних библиотек (CSP).
         assert "cdn" not in CSS
 
     def test_reactivity_markers(self):
         assert "startDossierFeedPolling" in APP_JS
         assert "stopDossierFeedPolling" in APP_JS
         assert "loadDossierFeed" in APP_JS
-        assert "dossierFeedLoop" in APP_JS
+        assert "dossierPeopleFeed" in APP_JS
+        assert "dossierFeedLoop" not in APP_JS
+        assert "dossierFeedSpeed" not in APP_JS

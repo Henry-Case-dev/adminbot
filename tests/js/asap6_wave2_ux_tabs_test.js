@@ -432,10 +432,18 @@ assert.strictEqual(anchorCalls, 0,
   assert.ok(oversightGuardBefore(INDEX, pipe, "'summary'"),
     'Run Inspector — вкладка «Саммари»');
 
-  // Обзор: здоровье + шапка + mca-метрики + ticker + таблица чатов
+  // Обзор: здоровье + шапка + mca-метрики + таблица чатов
   inOversight('data-oversight-health');
   inOversight('id="mca-metrics-block"');
-  inOversight('dossier-ticker-wrap');
+  // M4B B1: досье — пятая секция единого виджета «Статуса», не нижний
+  // тикер; в «Аналитике» его нет.
+  const dossierSection = inStatus('data-intel-section="dossier"');
+  assert.ok(dossierSection > statusStart,
+    'досье — в шаблоне «Статуса» (пятая лента)');
+  assert.strictEqual(INDEX.split('data-intel-section="dossier"').length - 1, 1,
+    'пятая лента досье ровно одна');
+  assert.strictEqual(INDEX.split('data-status-dossier').length - 1, 0,
+    'нижняя карточка досье удалена');
 
   // U04 (v6.3): логи — ФИЗИЧЕСКИЙ блок в конце «Статуса» (id="status-logs");
   // в Аналитике блока и вкладки-якоря больше нет.
@@ -487,7 +495,8 @@ assert.strictEqual(anchorCalls, 0,
   // Protected KEEP-блоки Статуса на месте (сон, ribbons, граф, факты,
   // истории, опыт, инициатива)
   for (const marker of ['status-sleep', 'Мониторинг Интеллекта',
-    'status-graph', 'status-facts', 'data-experience', 'status-budgets']) {
+    'status-graph', 'status-facts', 'data-experience-windows',
+    'status-budgets']) {
     inStatus(marker);
   }
 }

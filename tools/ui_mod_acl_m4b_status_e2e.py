@@ -146,6 +146,26 @@ STATUS["experience"] = {"enabled": True, "state": "not_run", "items": [],
 STATUS["random"] = {"ready": True, "enabled": False}
 LOGS = {"logs": [], "levels": [], "count": 0, "counts": {}}
 
+# F03 repro: задержать только новый (пустой) chat-scope ответ, чтобы окно
+# «старые строки ещё видны» было наблюдаемым. Путь очистки — безусловный.
+DELAY_EMPTY_DOSSIER_FETCH = """
+(() => {
+  const orig = window.fetch;
+  window.fetch = function (input, init) {
+    const url = String(input && input.url ? input.url : input);
+    if (url.indexOf('/api/oversight/dossier_feed') >= 0
+        && url.indexOf('chat_id=%s') >= 0) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          orig.call(window, input, init).then(resolve, reject);
+        }, 2500);
+      });
+    }
+    return orig.call(window, input, init);
+  };
+})();
+""" % EMPTY_CHAT
+
 
 def _chat_id_of(request_url):
     q = parse_qs(urlparse(request_url).query)
@@ -319,11 +339,14 @@ def main() -> int:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
 
-            def new_page(width, height, reduced=False, dossier_fail=False):
+            def new_page(width, height, reduced=False, dossier_fail=False,
+                         delay_empty_dossier=False):
                 ctx = browser.new_context(
                     viewport={"width": width, "height": height},
                     reduced_motion="reduce" if reduced else "no-preference")
                 ctx.add_init_script(M.TMA_STUB)
+                if delay_empty_dossier:
+                    ctx.add_init_script(DELAY_EMPTY_DOSSIER_FETCH)
                 ctx.route(
                     "**/api/**",
                     lambda route: _api_handler(route, dossier_fail=dossier_fail))
@@ -537,6 +560,65 @@ def main() -> int:
                 "'[data-intel-section=\"dossier\"] [data-sfeed-row]').length")
             check("scope_back_returns_rows", back >= 3)
             check("scope_console_clean", not errors)
+            ctx.close()
+
+            # ── 3b. F03: смена чата ВНЕ «Статуса» не оставляет старые строки.
+            # Сценарий: Audit Chat (4 строки) → #/modules → «Тихий чат» →
+            # сразу #/ при задержанном ответе нового scope. Ни в один момент
+            # не должны отображаться строки Audit Chat.
+            ctx, page, errors = new_page(1440, 900, delay_empty_dossier=True)
+            page.click(".scope-trigger")
+            page.click(".scope-option:has-text('%s')" % CHAT_TITLE)
+            page.wait_for_timeout(1300)
+            seed_rows = page.evaluate(
+                "document.querySelectorAll("
+                "'[data-intel-section=\"dossier\"] [data-sfeed-row]').length")
+            check("cross_scope_seed_rows", seed_rows >= 3)
+            page.evaluate("window.location.hash = '#/modules'")
+            page.wait_for_timeout(450)
+            page.click(".scope-trigger")
+            page.click(".scope-option:has-text('%s')" % EMPTY_TITLE)
+            page.wait_for_timeout(250)
+            page.evaluate("window.location.hash = '#/'")
+            page.wait_for_timeout(350)          # до ответа нового scope
+            during = page.evaluate(
+                """() => {
+                  const card = document.querySelector(
+                    '[data-intel-section="dossier"]');
+                  return {
+                    rows: card.querySelectorAll('[data-sfeed-row]').length,
+                    text: card.innerText,
+                    empty: !!card.querySelector('[data-sfeed-empty]'),
+                  };
+                }""")
+            result["cross_scope_during"] = during
+            check("cross_scope_no_old_rows", during["rows"] == 0)
+            check("cross_scope_no_old_names",
+                  "Аня" not in during["text"]
+                  and "Борис" not in during["text"])
+            check("cross_scope_honest_empty",
+                  during["empty"] and "выбранном чате" in during["text"])
+            page.wait_for_timeout(3200)         # новый scope ответил (пусто)
+            after_delay = page.evaluate(
+                """() => {
+                  const card = document.querySelector(
+                    '[data-intel-section="dossier"]');
+                  return {rows: card.querySelectorAll('[data-sfeed-row]').length,
+                          text: card.innerText};
+                }""")
+            result["cross_scope_after"] = after_delay
+            check("cross_scope_stays_empty", after_delay["rows"] == 0
+                  and "Аня" not in after_delay["text"])
+            page.screenshot(path=os.path.join(
+                SHOTS, "status-dossier-cross-scope.png"), full_page=True)
+            page.click(".scope-trigger")
+            page.click(".scope-option:has-text('%s')" % CHAT_TITLE)
+            page.wait_for_timeout(1500)
+            restored = page.evaluate(
+                "document.querySelectorAll("
+                "'[data-intel-section=\"dossier\"] [data-sfeed-row]').length")
+            check("cross_scope_back_returns_rows", restored >= 3)
+            check("cross_scope_console_clean", not errors)
             ctx.close()
 
             # ── 4. Reduced motion: лента не двигается, контент на месте ───

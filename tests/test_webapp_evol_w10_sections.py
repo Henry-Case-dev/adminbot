@@ -347,11 +347,15 @@ class TestEvol026Widgets:
 
     def test_dossier_feed_lives_in_status(self):
         status = _block(INDEX, "activeTab === 'status'", "activeTab === 'info'")
-        assert "data-status-dossier" in status
-        assert "dossier-ticker--y" in status
-        assert "openFeedDossier(it)" in status
+        # M4B B1: досье — пятая секция единого виджета, не нижняя карточка.
+        assert 'data-intel-section="dossier"' in status
+        assert 'v-for="it in dossierPeopleFeed"' in status
+        assert 'data-sfeed-type="dossier"' in status
+        assert "openStatusRecord('fact', it.latest, $event)" in status
         assert "dossierFeedStamp()" in status
-        assert INDEX.count("data-status-dossier") == 1
+        assert 'data-status-dossier' not in INDEX
+        assert "dossier-ticker" not in INDEX
+        assert INDEX.count('data-intel-section="dossier"') == 1
 
     def test_full_stories_widget_in_analytics(self):
         oversight = _block(INDEX, "activeTab === 'oversight'",
@@ -608,11 +612,12 @@ class TestEvol029MemoryCatalog:
         # технический id остаётся в «Диагностике» (поле raw)
         assert "'chat_id: ' + f.chat_id" in src
         assert "'episode_id: ' + it.id" in src
-        # тот же резолвер имени используется в живой ленте досье («Статус»):
-        # «Чат <id>» остаётся только как честный fallback без названия
-        feed = _block(APP_JS, "dossierFeedLoop: function",
-                      "dossierFeedSpeed:")
-        assert "chatTitleFor(it.chat_id)" in feed
+        # тот же резолвер имени используется в person-проекции досье
+        # («Статус»): «Чат <id>» остаётся только честным fallback без названия.
+        feed = _block(APP_JS, "dossierPeopleFeed: function",
+                      "cognitionBeliefsLoop: function")
+        assert "chatTitleFor(id)" in feed
+        assert "_dossierPeopleRows" in feed
 
 
 # ═══ EVOL-029 (review-fix2): карточка «Памяти» реально открывает окно ═══════
@@ -754,7 +759,7 @@ class TestEvol030AccessAndAnalytics:
 # ═══ ASAP-UI-02 §5/§6/§7 (wave 2): порядок «Статуса», единый виджет, tint ══
 
 class TestEvolStatusOrderWave2:
-    """§5.3: здоровье → карта (место EVOL-COG) → ОДИН виджет с четырьмя
+    """§5.3: здоровье → карта (место EVOL-COG) → ОДИН виджет с пятью
     секциями → остальные виджеты (сон и прочее — ПОСЛЕ лент)."""
 
     @staticmethod
@@ -769,17 +774,19 @@ class TestEvolStatusOrderWave2:
             'class="card p-4 status-graph',
             'class="card p-4 sg-12 intel-card"',
             'data-status-facts',
+            'data-intel-section="dossier"',
             'class="card p-4 status-sleep',
             'exec-preview card p-3',
             'class="card p-4 status-budgets',
             'data-viz-heatmap',
-            'data-status-dossier',
         ]
         prev = -1
         for marker in order:
             i = status.index(marker)
             assert i > prev, "ASAP-UI-02 §5: порядок «Статуса» нарушен на %s" % marker
             prev = i
+        # нижней карточки досье больше нет
+        assert 'data-status-dossier' not in status
 
     def test_no_other_big_widget_between_health_and_ribbons(self):
         status = self._status()
@@ -796,20 +803,21 @@ class TestEvolStatusOrderWave2:
         assert 'status-budgets' not in middle
         assert 'status-graph' in middle
 
-    def test_one_widget_with_four_sections(self):
+    def test_one_widget_with_five_sections(self):
         status = self._status()
         assert status.count('intel-card') == 1, "одна карточка «Мониторинга»"
         card = _block(status, 'class="card p-4 sg-12 intel-card"',
                       'class="card p-4 status-sleep')
-        assert card.count('class="ribbon ') == 4
-        for section in ("facts", "beliefs", "paradigms", "traits"):
+        assert card.count('class="ribbon ') == 5
+        for section in ("facts", "beliefs", "paradigms", "traits", "dossier"):
             assert 'data-intel-section="%s"' % section in card
-        # четыре окна лент и один контроллер движения на каждое
-        assert card.count("data-sfeed-viewport") == 4
-        assert card.count('v-sfeed="statusRecordOpen"') == 4
-        assert card.count('class="ribbon-track sfeed-track"') == 4
-        # данные фактов — те же (dossier_feed), не новый запрос
+        # пять окон лент и один контроллер движения на каждое
+        assert card.count("data-sfeed-viewport") == 5
+        assert card.count('v-sfeed="statusRecordOpen"') == 5
+        assert card.count('class="ribbon-track sfeed-track"') == 5
+        # данные фактов/досье — те же (dossier_feed), не новый запрос
         assert "factsFeed" in card and "dossierFeedError" in card
+        assert "dossierPeopleFeed" in card
         assert "loadDossierFeed()" in APP_JS
 
     def test_no_separate_lower_facts_card(self):
@@ -826,18 +834,23 @@ class TestEvolStatusOrderWave2:
         assert 'data-intel-switcher' in status
         assert 'v-for="t in statusRibbonTabs"' in status
         assert 'switchStatusRibbon(t.id)' in status
-        assert ':aria-pressed="statusRibbonTab === t.id' in status
+        assert ':aria-selected="statusRibbonTab === t.id' in status
+        assert ':aria-current="statusRibbonTab === t.id' in status
+        assert ':tabindex="statusRibbonTab === t.id ? 0 : -1"' in status
         assert ':data-intel-tab="statusRibbonTab"' in status
-        # переключатель скрыт там, где видны все четыре секции
+        # переключатель скрыт там, где видны все пять секций
         assert ".intel-tabs { display: none; }" in CSS
         assert (".cognition-ribbons[data-intel-tab] .ribbon { display: none; }"
                 in CSS)
-        for section in ("facts", "beliefs", "paradigms", "traits"):
+        for section in ("facts", "beliefs", "paradigms", "traits", "dossier"):
             assert ('.cognition-ribbons[data-intel-tab="%s"] .ribbon--%s'
                     % (section, section)) in CSS
-        # четыре колонки на широком экране, 2×2 на планшете
-        assert ("grid-template-columns: repeat(4, minmax(0, 1fr));" in CSS)
+        # 3+2 на широком экране, 2+2+1 на планшете, 1 колонка на телефоне
+        assert ("grid-template-columns: repeat(3, minmax(0, 1fr));" in CSS)
         assert ("grid-template-columns: repeat(2, minmax(0, 1fr));" in CSS)
+        assert "@media (min-width: 1280px)" in CSS
+        assert "@media (min-width: 768px)" in CSS
+        assert "@media (max-width: 767px)" in CSS
 
     def test_switcher_keeps_data_and_scroll(self):
         """Реальное поведение: данные не перезапрашиваются, позиции целы."""

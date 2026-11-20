@@ -71,7 +71,7 @@ PROBE_PAGE = r"""
     heatmap: qa('[data-viz-heatmap]').length,
     heatCells: qa('[data-viz-heatmap] .viz-heat__cell').length,
     heatPicked: qa('[data-viz-heat-picked]').length,
-    dossier: qa('[data-status-dossier] .dossier-ticker').length,
+    dossier: qa('[data-intel-section="dossier"]').length,
     storiesAny: qa('[data-stories]').length,
     storiesPreview: qa('[data-stories-preview]').length,
     storiesFeed: qa('[data-stories-feed]').length,
@@ -168,7 +168,6 @@ PROBE_PAGE = r"""
         if (cl.contains('exec-preview')) return 'preview';
         if (cl.contains('status-budgets')) return 'budgets';
         if (cl.contains('status-activity')) return 'activity';
-        if (cl.contains('status-dossier')) return 'dossier';
         return 'other';
       };
       return qa('.status-grid > *').map(label).filter((x) => x !== 'other');
@@ -185,7 +184,7 @@ PROBE_PAGE = r"""
       return {
         visible: cs.display !== 'none' && r.height > 0,
         buttons: btns.length,
-        pressed: btns.filter((b) => b.getAttribute('aria-pressed') === 'true')
+        pressed: btns.filter((b) => b.getAttribute('aria-selected') === 'true')
           .map((b) => b.getAttribute('data-intel-tab-btn')),
         labels: btns.map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
         h: +r.height.toFixed(1),
@@ -380,12 +379,11 @@ def run(out_dir: str) -> int:
                         fails.append("%s: горизонтальный скролл страницы" % label)
                     # EVOL-026: heatmap/досье — в «Статусе», не в «Аналитике».
                     if route == "#/":
-                        # ═══ ASAP-UI-02 §5.3 (wave 2): порядок «Статуса» ═══
+                        # ═══ ASAP-UI-02 §5.3 (wave 2) + M4B B1: порядок ═══
                         # здоровье → карта (место EVOL-COG) → единый виджет
-                        # четырёх лент → остальные виджеты.
+                        # пяти лент → остальные виджеты.
                         expected_order = ["health", "map", "intel",
-                                          "sleep", "budgets", "activity",
-                                          "dossier"]
+                                          "sleep", "budgets", "activity"]
                         got_order = [x for x in probe.get("statusOrder") or []
                                      if x in expected_order]
                         # `preview` идёт между сном и бюджетами — порядок
@@ -403,7 +401,8 @@ def run(out_dir: str) -> int:
                             fails.append("%s: единый виджет «Мониторинга» не один "
                                          "(%s)" % (label, probe.get("intelWidgets")))
                         sections = probe.get("intelSections") or []
-                        if sections != ["facts", "beliefs", "paradigms", "traits"]:
+                        if sections != ["facts", "beliefs", "paradigms",
+                                        "traits", "dossier"]:
                             fails.append("%s: секции виджета не те (%s)"
                                          % (label, sections))
                         if probe.get("factCardLower"):
@@ -411,11 +410,11 @@ def run(out_dir: str) -> int:
                                          "«Новые факты»" % label)
                         sw = probe.get("intelSwitcher") or {}
                         vis_sections = probe.get("intelVisibleSections") or []
-                        if w <= 640:
+                        if w <= 767:
                             if not sw.get("visible"):
                                 fails.append("%s: на телефоне нет "
                                              "переключателя секций" % label)
-                            if sw.get("buttons") != 4:
+                            if sw.get("buttons") != 5:
                                 fails.append("%s: в переключателе %s кнопок"
                                              % (label, sw.get("buttons")))
                             if len(vis_sections) != 1:
@@ -434,11 +433,11 @@ def run(out_dir: str) -> int:
                         else:
                             if sw.get("visible"):
                                 fails.append("%s: переключатель секций виден "
-                                             "там, где видны все четыре ленты"
+                                             "там, где видны все пять лент"
                                              % label)
-                            if len(vis_sections) != 4:
+                            if len(vis_sections) != 5:
                                 fails.append("%s: на широком экране видно %s "
-                                             "секций из 4: %s"
+                                             "секций из 5: %s"
                                              % (label, len(vis_sections),
                                                 vis_sections))
                         # heatmap
@@ -486,7 +485,7 @@ def run(out_dir: str) -> int:
                                          % (label, probe["heatHintVisible"],
                                             probe["heatScrolls"]))
                         if probe["dossier"] < 1:
-                            fails.append("%s: нет живой ленты досье" % label)
+                            fails.append("%s: нет пятой ленты «Досье»" % label)
                         if probe["storiesPreview"] != 1:
                             fails.append("%s: нет превью историй памяти" % label)
                         if probe["storiesFeed"]:
@@ -1036,7 +1035,7 @@ def run(out_dir: str) -> int:
                   .map((el) => el.getAttribute('data-intel-section'));
                 const pressed = Array.from(
                   document.querySelectorAll('[data-intel-tab-btn]'))
-                  .filter((b) => b.getAttribute('aria-pressed') === 'true')
+                  .filter((b) => b.getAttribute('aria-selected') === 'true')
                   .map((b) => b.getAttribute('data-intel-tab-btn'));
                 const factsBtn = document.querySelector('[data-intel-tab-btn="facts"]');
                 if (factsBtn) factsBtn.click();
@@ -1051,7 +1050,7 @@ def run(out_dir: str) -> int:
                 const vp = document.querySelector('[data-ribbon="facts"]');
                 const pressed = Array.from(
                   document.querySelectorAll('[data-intel-tab-btn]'))
-                  .filter((b) => b.getAttribute('aria-pressed') === 'true')
+                  .filter((b) => b.getAttribute('aria-selected') === 'true')
                   .map((b) => b.getAttribute('data-intel-tab-btn'));
                 return {vis: vis, pressed: pressed,
                         scroll: vp ? vp.scrollTop : null,
@@ -1392,7 +1391,7 @@ def run(out_dir: str) -> int:
                 if data.get("tabsDisplay") == "none":
                     fails.append("телефон %s: переключатель секций скрыт" % name)
                 boxes = data.get("tabs") or []
-                if len(boxes) != 4:
+                if len(boxes) != 5:
                     fails.append("телефон %s: кнопок переключателя %s"
                                  % (name, len(boxes)))
                 for bx in boxes:

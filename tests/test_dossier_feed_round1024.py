@@ -8,7 +8,8 @@
   * ошибка резолва/БД → fail-open (HTTP 200, `user_id=null`);
   * контракт-совместимость: прежние ключи `chat_id/name/excerpt` на месте,
     лишние поля не утекают (R17); резолв не пишет в БД (read-only);
-  * статика фронта: вертикальная лента/скорость/кликабельность/флаг.
+  * статика фронта: пятая лента (person-проекция), общий `.sfeed-*`-слой,
+    отсутствие старого тикера/`dossierFeedLoop`/`dossierFeedSpeed`, tablist.
 
 Работаем на **настоящих** `sqlite3.Row` (как aiosqlite.Row) в боевом порядке
 `get_active_participants` (`ORDER BY cnt DESC, user_id ASC`), чтобы регресс
@@ -276,43 +277,84 @@ async def test_api_logs_do_not_leak_raw_values(monkeypatch, caplog):
     assert "Толян" not in caplog.text, "R17: имя участника утекло в лог"
 
 
-# ── Статика фронта: вертикаль/скорость/клик/флаг ────────────────────────────
+# ── Статика фронта: пятая лента/person-проекция (M4B B1) ────────────────────
 class TestDossierFeedStatic:
-    def test_css_vertical_marker_and_reduced_motion(self):
-        assert "dossier-ticker-scroll-y" in CSS
-        assert "prefers-reduced-motion" in CSS
-        assert "translateY" in CSS
-        # mask 180deg (вертикаль), фикс. высота контейнера.
-        assert "180deg, transparent, #000 12%" in CSS
-        assert "--dossier-h: 180px" in CSS
-        # Прежняя горизонталь 42s сохраняется (OFF-ветка) — не удаляем.
-        assert "dossier-ticker-scroll 42s linear infinite" in CSS
+    """Контракт B1: досье — пятая лента общего `.sfeed-*`-слоя, не тикер.
 
-    def test_css_seamless_uses_gap_var(self):
-        # review iter1: бесшовность через --dossier-gap/2, без магической .25rem.
-        assert "calc(-50% - (var(--dossier-gap) / 2))" in CSS
+    Историческое имя класса сохранено для трассируемости; старые проверки
+    вертикального тикера/`dossierFeedLoop` заменены на новые assertions.
+    """
 
-    def test_css_speed_var_used_by_track(self):
-        assert "var(--dossier-speed" in CSS
+    def test_css_shared_sfeed_and_reduced_motion(self):
+        # Пятая лента использует тот же слой строк/окно прокрутки, что и
+        # остальные четыре: реальный вертикальный scroll, а не CSS-marquee.
+        assert ".sfeed-viewport {" in CSS
+        assert "overflow-y: auto;" in CSS
+        assert ".ribbon-track.sfeed-track { animation: none !important; }" in CSS
+        assert "prefers-reduced-motion: reduce" in CSS
+        # Старого тикера/его keyframes/масок больше нет.
+        assert ".dossier-ticker" not in CSS
+        assert "dossier-ticker-scroll" not in CSS
+        assert "--dossier-speed" not in CSS
+        # Сетка пяти лент: 3+2 / 2+2+1 / 1.
+        assert "grid-template-columns: repeat(3, minmax(0, 1fr));" in CSS
+        assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in CSS
+        assert ".cognition-ribbons[data-intel-tab=\"dossier\"] .ribbon--dossier" in CSS
 
-    def test_index_gates_flag_and_keeps_off_branch(self):
-        assert "uiFlag('DOSSIER_LIVE_FEED_ENABLED')" in INDEX
-        assert "dossier-ticker--y" in INDEX
-        assert "dossier-ticker__item--click" in INDEX
-        assert "openFeedDossier(it)" in INDEX
-        assert "@keydown.enter.prevent" in INDEX
-        # review iter1: клише-клон исключён из a11y/таб-порядка.
-        assert ":aria-hidden=\"it.dup ? 'true' : null\"" in INDEX
-        assert "!it.dup && it.user_id != null" in INDEX
-        # OFF-ветка — прежний горизонтальный тикер (role="marquee").
-        assert 'role="marquee"' in INDEX
+    def test_css_five_ribbon_grid(self):
+        # Нижней карточки/её высоты нет; пять лент живут в общей сетке.
+        assert ".status-dossier__track" not in CSS
+        assert ".cognition-ribbons {" in CSS
+        assert CSS.index("grid-template-columns: repeat(2, minmax(0, 1fr));") < \
+            CSS.index("grid-template-columns: repeat(3, minmax(0, 1fr));")
+        assert "@media (max-width: 767px)" in CSS
+        assert ".intel-tabs { display: none; }" in CSS
 
-    def test_appjs_speed_and_click_path(self):
-        assert "dossierFeedSpeed" in APP_JS
+    def test_css_no_dead_ticker(self):
+        # Мёртвые классы тикера удалены вместе с нижней карточкой; общий
+        # `.sfeed-item` остаётся единственной строкой пятой ленты.
+        for dead in (".dossier-ticker__track", ".dossier-ticker__item",
+                     ".dossier-ticker__meta", ".dossier-ticker__excerpt",
+                     ".dossier-ticker--y"):
+            assert dead not in CSS, dead
+        assert ".sfeed-item__badge--dossier" in CSS
+        assert ".sfeed-item {" in CSS
+
+    def test_index_five_sections_and_tablist(self):
+        # Ровно пять секций; досье — пятая и последняя.
+        assert INDEX.count('data-intel-section="dossier"') == 1
+        assert INDEX.count('class="ribbon ') == 5
+        assert INDEX.index('data-intel-section="traits"') < \
+            INDEX.index('data-intel-section="dossier"')
+        # Нижней карточки/тикара/старой OFF-ветки нет.
+        assert "data-status-dossier" not in INDEX
+        assert "dossier-ticker" not in INDEX
+        assert "role=\"marquee\"" not in INDEX
+        assert "uiFlag('DOSSIER_LIVE_FEED_ENABLED')" not in INDEX
+        assert INDEX.count('v-sfeed="statusRecordOpen"') == 5
+        # A11y: tablist/tab, aria-selected/current, roving tabindex.
+        assert 'role="tablist"' in INDEX
+        assert 'role="tab"' in INDEX
+        assert ':aria-selected="statusRibbonTab === t.id' in INDEX
+        assert ':aria-current="statusRibbonTab === t.id' in INDEX
+        assert ':tabindex="statusRibbonTab === t.id ? 0 : -1"' in INDEX
+        assert "onStatusRibbonKeydown($event)" in INDEX
+
+    def test_appjs_person_projection_and_click_path(self):
+        # Person-проекция — не 1:1 дубль: группировка/последняя запись/счёт.
+        assert "dossierPeopleFeed: function" in APP_JS
+        assert "function _dossierPeopleRows" in APP_JS
+        assert "dossierFeedLoop" not in APP_JS
+        assert "dossierFeedSpeed" not in APP_JS
+        assert "dossierPeopleFeed" in INDEX
+        assert "openStatusRecord('fact', it.latest, $event)" in INDEX
         assert "openFeedDossier" in APP_JS
-        assert "dup: true" in APP_JS
+        assert "dossierPeopleAriaLabel" in APP_JS
         assert "user_name" in APP_JS and "user_id" in APP_JS
+        # Тот же endpoint; второго store/запроса нет.
+        assert APP_JS.count("'/api/oversight/dossier_feed?limit=16'") == 1
 
     def test_flag_delivered_additionally(self):
+        # Backend-флаг остаётся (N01), UI его больше не читает.
         assert "DOSSIER_LIVE_FEED_ENABLED" in SETTINGS
         assert "DOSSIER_LIVE_FEED_ENABLED" in ROUTES
