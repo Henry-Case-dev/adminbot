@@ -408,7 +408,9 @@ TOOL_GET_RECENT_HISTORY = {
                         "this tool again passing the cursor value from that "
                         "header to get the next page; repeat until "
                         "has_next=0. Do not pass cursor for a fresh request. "
-                        "This is exact chronology, NOT semantic RAG."),
+                        "This is exact chronology, NOT semantic RAG. For a "
+                        "period question the full stored chronology of that "
+                        "period is read; FTS matches never replace it."),
         "parameters": {
             "type": "object",
             "properties": {

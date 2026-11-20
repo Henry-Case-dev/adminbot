@@ -2275,6 +2275,13 @@ HISTORY_PARTIAL_LINE = (
     "пакет не переданы")
 #: Та же пометка для строки-анонса L2 (Global_Context): "... (…)".
 HISTORY_PARTIAL_INLINE = "более ранняя история не передана"
+# P0-CORRECTIVE HC-COV (§2.6): отдельная ось «запрошенный период». Это
+# ДАННЫЕ планировщика, а не переписывание канона: вопрос о периоде обязан
+# проверяться инструментом истории до утверждений об охвате.
+HISTORY_RANGE_SECTION = "ОХВАТ ПЕРИОДА"
+HISTORY_RANGE_NOTE = (
+    "вопрос о периоде: хронология периода проверяется инструментом истории; "
+    "не отвечай по памяти и не утверждай охват до результата")
 
 
 def build_l1_context(*, query, current_question: str = "",
@@ -2290,6 +2297,7 @@ def build_l1_context(*, query, current_question: str = "",
                      with_ids: bool = False,
                      alias_resolver=None,
                      history_partial: bool = False,
+                     history_range_note: str = "",
                      time_context: str = "") -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
@@ -2350,6 +2358,9 @@ def build_l1_context(*, query, current_question: str = "",
         # (`history_partial`) ИЛИ окно не влезло в L1_WINDOW_MESSAGES.
         if bool(history_partial) or len(tuple(window or ())) > L1_WINDOW_MESSAGES:
             sections.append((HISTORY_SCOPE_SECTION, HISTORY_PARTIAL_LINE))
+        if str(history_range_note or "").strip():
+            sections.append((HISTORY_RANGE_SECTION,
+                             str(history_range_note).strip()))
         speaker = str(speaker or "неизвестно").strip()
         addressee = str(addressee or "чат").strip()
         participants = f"Говорящий: {speaker}\nАдресат: {addressee}"
@@ -2427,7 +2438,8 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
         # последней и незащищённой).
         protected = {"СООБЩЕНИЕ", L1_REPLY_SECTION, "УЧАСТНИКИ",
                      "ДОСТУПНЫЕ ВОЗМОЖНОСТИ", "УСЛОВИЯ", HISTORY_SCOPE_SECTION,
-                     L1_PROFILE_SECTION, L1_TIME_SECTION}
+                     HISTORY_RANGE_SECTION, L1_PROFILE_SECTION,
+                     L1_TIME_SECTION}
 
         def _render(pairs) -> str:
             return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)

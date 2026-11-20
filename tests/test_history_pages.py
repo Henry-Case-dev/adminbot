@@ -771,11 +771,13 @@ class TestRouting:
 
     @pytest.mark.asyncio
     async def test_query_without_number_stays_fts(self):
-        """Без числа+единицы+недавности → путь B, как сейчас (паритет)."""
+        """Без числа+единицы+недавности (и без границы периода) → путь B,
+        как раньше. P0-CORRECTIVE HC-COV: «10 минут назад» больше НЕ этот
+        случай — это сильная граница периода (см. test_p0_hc_coverage)."""
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[])
         out = await ToolRouter(_deps(memory=memory)).dispatch(
-            "get_recent_history", {}, _ctx("что обсуждали 10 минут назад"))
+            "get_recent_history", {}, _ctx("что обсуждали про драконов"))
         memory.search_long_term.assert_awaited_once()
         assert parse_history_sample(out) is None
 

@@ -254,8 +254,10 @@ from services.tool_router import (
     _HISTORY_SAMPLE_END,
     _HISTORY_TOOL_TIMEOUT,
     ToolContext,
+    capture_history_range,
     capture_history_sample,
     extract_history_depth,
+    extract_history_window,
     parse_history_sample,
 )
 from services.tool_schemas import active_tools, active_tools_for_chat
@@ -403,6 +405,48 @@ def _ha_sample_id(history_sample) -> str:
     if not isinstance(history_sample, dict):
         return ""
     return str(history_sample.get("sample_id") or "")
+
+
+def _force_history_range_plan(plan, tool_schemas):
+    """Детерминированно добавить ``chat_history`` плану reply-хода с активным
+    диапазоном (HC-COV §2.1 шаг 5). Это не второй планировщик: capability уже
+    существует; react/silent/clarify не форсируются. Возвращает (plan, forced)."""
+    if plan is None:
+        return plan, False
+    if bool(getattr(plan, "needs_clarification", False)):
+        return plan, False
+    action = str(getattr(plan, "action", "reply") or "reply").lower()
+    if action not in ("", "reply"):
+        return plan, False
+    announced = {
+        str(((schema or {}).get("function") or {}).get("name") or "")
+        for schema in (tool_schemas or ())
+    }
+    if "get_recent_history" not in announced:
+        return plan, False
+    caps = tuple(str(c) for c in
+                 (getattr(plan, "capabilities_needed", ()) or ()) if str(c))
+    if "chat_history" in caps:
+        return plan, False
+    try:
+        next_caps = caps + ("chat_history",)
+        forced = dataclasses.replace(
+            plan, capabilities_needed=next_caps,
+            execution_mode=_l1.derive_execution_mode(next_caps))
+    except Exception:      # pragma: no cover - защитная ветка
+        return plan, False
+    return forced, True
+
+
+def _history_range_note(history_sample) -> str:
+    """L1-заметка хода с границей периода (HC-COV §2.6): планировщик обязан
+    проверить хронологию инструментом и не утверждать охват заранее. Без
+    range-выборки — пусто (payload байт-паритет)."""
+    if not isinstance(history_sample, dict):
+        return ""
+    if str(history_sample.get("window_kind") or "") != "time_range":
+        return ""
+    return _l1.HISTORY_RANGE_NOTE
 
 
 def _ha_supplement_banner(sample_id: str) -> str:
@@ -5396,8 +5440,12 @@ class DirectChatService:
             # tool_ctx она станет его атрибутом (setattr ниже). Без числа+
             # недавности в запросе или при сбое — None (паритет: дальше
             # работает существующий on-demand захват инструмента).
+            # P0-CORRECTIVE HC-COV: ровно один as_of хода — граница периода,
+            # relative last_* инструмента и coverage относятся к нему, а не к
+            # повторным вызовам time.time().
+            turn_as_of = int(time.time())
             history_sample = await self._capture_turn_history_sample(
-                chat_id, query)
+                chat_id, query, turn_as_of)
             # VMQ-MEM-TIME (§2, блокер 1 ре-ревью 10.11.2026): блок памяти
             # собирается здесь, ДО плана L1 (он нужен самому L1). Контекст
             # пересборки запоминается, чтобы после плана отдать блоку
@@ -5962,7 +6010,9 @@ class DirectChatService:
                             reactions_enabled=bool(getattr(
                                 _toggles if decision_on else None,
                                 "reactions", False)),
-                            time_snapshot=snap_plan)
+                            time_snapshot=snap_plan,
+                            history_range_note=_history_range_note(
+                                history_sample))
                     except NoApiKeyForChat as exc:
                         # D03 (§18C.1): permission-политика (forbidden/
                         # budget) блокирует и dedicated L1 — тот же
@@ -6426,6 +6476,10 @@ class DirectChatService:
                                    # даже если модель его вызовет.
                                    image_request_handled=
                                    image_pre_gate_fired,
+                                   # P0-CORRECTIVE HC-COV: один as_of хода —
+                                   # relative last_* инструмента не уезжает
+                                   # на новое time.time().
+                                   turn_as_of=turn_as_of,
                                    # EVOL v5: общая проекция прогона для
                                    # речевых результатов инструментов.
                                    speech=_speech_projection,
@@ -7111,6 +7165,11 @@ class DirectChatService:
                 else:
                     _evidence = ""
                     _evidence_delivered = ""
+                # HC-COV: диапазон без coverage в evidence — явная
+                # диагностика range_read=0 (Writer не заявляет охват).
+                _evidence = self._ensure_history_range_coverage(
+                    history_sample, _evidence)
+                _evidence_delivered = _evidence
                 # ── RLR-06-OBSERVABILITY (§7): вызовы инструментов
                 # (имя/статус/ошибка/размер/источники) + coverage
                 # доставленного Writer'у evidence. Текстов и URL нет.
@@ -8348,7 +8407,8 @@ class DirectChatService:
                               bot_replies: tuple[str, ...] = (),
                               bot_replied_recently: bool = False,
                               reactions_enabled: bool = False,
-                              time_snapshot=None) -> tuple:
+                              time_snapshot=None,
+                              history_range_note: str = "") -> tuple:
         """§1.1/§1.5/§1.6 + v6 D03: pre-tool L1 Planner — 1 LLM call →
         L1Plan.
 
@@ -8537,6 +8597,7 @@ class DirectChatService:
             bot_replies=tuple(bot_replies or ()),
             diagnostic_report=_diagnostic_report,
             history_partial=history_partial,
+            history_range_note=history_range_note,
             alias_resolver=self.aliases,
             budget_tokens=_l1_budget,
             time_context=_l1_time_context)
@@ -9162,6 +9223,19 @@ class DirectChatService:
             except Exception:      # pragma: no cover - защитная ветка
                 pass
             _required_caps = _required_caps + tuple(_diag_caps)
+        # P0-CORRECTIVE HC-COV (§2.1 шаг 5): на reply-ходе с активным
+        # диапазоном chat_history — уже существующая capability; если план её
+        # не запросил, она добавляется детерминированно и execution_mode
+        # пересчитывается. react/silent/clarify не форсируются.
+        _history_bind = getattr(tool_ctx, "history_sample", None)
+        if isinstance(_history_bind, dict) \
+                and str(_history_bind.get("window_kind") or "") \
+                == "time_range":
+            plan, _history_forced = _force_history_range_plan(
+                plan, tool_schemas)
+            if _history_forced:
+                logger.info(
+                    "[direct] history_range_forced=1 | chat=%s", chat_id)
         # UR-20.8 (UR-F шаг 1): tool-фаза реально получает TimeContext —
         # стадия `tool` отмечается на фактической доставке, не «на всякий».
         if str(time_line or "").strip():
@@ -9181,18 +9255,88 @@ class DirectChatService:
 
     # ── P0-HA SEGMENTS (архконтракт §2): сегментное накопление выборки ──────
 
-    async def _capture_turn_history_sample(self, chat_id: int,
-                                           query: str) -> dict | None:
-        """Захват границы количественной выборки хода (архконтракт §0):
-        ровно последние N доступных сообщений, границы/порядок/полнота —
-        до содержательной обработки (этап A). Тела сообщений не выбирает
-        (вторая копия истории в памяти запрещена). Нет числа+недавности в
-        запросе, нет роутера или БД, сбой/таймаут → None (паритет: дальше
-        работает существующий on-demand захват инструмента). CancelledError
-        — проброс. Логи — только chat_id (R17)."""
+    @staticmethod
+    def _history_range_marker(chat_id: int, time_from: int, time_to: int,
+                              as_of: int, status: str, reason: str) -> dict:
+        """Маркер активного, но непрочитанного диапазона (capture_failed/
+        unresolved). Та же форма bound, available=0 — tool/coverage обязаны
+        назвать причину, а не уходить в FTS/дефолт."""
+        return {
+            "sample_id": "", "chat_id": int(chat_id),
+            "anchor_ts": 0, "anchor_id": 0,
+            "oldest_ts": int(time_from), "oldest_id": 0,
+            "requested": 0, "available": 0,
+            "window_kind": "time_range",
+            "window_from": int(time_from), "window_to": int(time_to),
+            "as_of": int(as_of), "clamped": 0,
+            "range_status": str(status or "capture_failed"),
+            "reason": str(reason or "capture_failed"),
+        }
+
+    async def _capture_turn_history_sample(self, chat_id: int, query: str,
+                                           turn_as_of: int | None = None
+                                           ) -> dict | None:
+        """Захват границы выборки хода (архконтракт §0/P0-CORRECTIVE):
+
+        Сначала сильная временная граница периода (10 часов/сутки/сегодня/
+        с DD.MM по DD.MM) — диапазон фиксируется до сборки контекста, чтобы
+        обычный Direct-вопрос о периоде читал хронологию, а не FTS по словам
+        вопроса. Иначе — прежняя количественная выборка «последние N
+        сообщений». Тела не выбирает. Нет границы → None (паритет); сбой
+        диапазона → маркер с конкретной причиной (не FTS/дефолт).
+        CancelledError — проброс. Логи — только chat_id (R17)."""
         if self.tool_router is None:
             return None
-        requested = extract_history_depth(str(query or ""))
+        text = str(query or "")
+        as_of = int(turn_as_of or time.time())
+        spec = extract_history_window(text)
+        count_requested = extract_history_depth(text)
+        if spec is not None and spec.kind == "unresolved" and count_requested:
+            # «последние 120 сообщений» — количественная выборка, а не
+            # неразобранный период: единица счёта сообщений сильнее общего
+            # маркера «последн+N».
+            spec = None
+        if spec is not None:
+            if spec.kind == "unresolved":
+                return self._history_range_marker(
+                    chat_id, 0, 0, as_of, "unresolved", "window_unresolved")
+            try:
+                resolved = await asyncio.wait_for(
+                    self.tool_router.resolve_history_window(
+                        spec, as_of=as_of, chat_id=chat_id),
+                    timeout=_HISTORY_TOOL_TIMEOUT)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    "[direct] history window resolve failed | chat=%s",
+                    chat_id, exc_info=True)
+                return self._history_range_marker(
+                    chat_id, 0, 0, as_of, "unresolved", "window_unresolved")
+            if not resolved:
+                return self._history_range_marker(
+                    chat_id, 0, 0, as_of, "unresolved", "window_unresolved")
+            reason = str(resolved.get("reason") or "")
+            if reason:
+                return self._history_range_marker(
+                    chat_id, resolved.get("from", 0),
+                    resolved.get("to", 0), as_of, "unresolved", reason)
+            try:
+                return await asyncio.wait_for(
+                    capture_history_range(
+                        self.db, chat_id, resolved["from"], resolved["to"],
+                        as_of=as_of, clamped=resolved.get("clamped", 0)),
+                    timeout=_HISTORY_TOOL_TIMEOUT)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    "[direct] history range capture failed | chat=%s",
+                    chat_id, exc_info=True)
+                return self._history_range_marker(
+                    chat_id, resolved.get("from", 0), resolved.get("to", 0),
+                    as_of, "capture_failed", "db_error")
+        requested = count_requested
         if not requested:
             return None
         try:
@@ -9206,7 +9350,8 @@ class DirectChatService:
                          chat_id, exc_info=True)
             return None
 
-    async def _iter_history_sample_entries(self, hist, bound):
+    async def _iter_history_sample_entries(self, hist, bound, *,
+                                           stats: dict | None = None):
         """Поток канонических строк выборки РОВНО ОДИН раз (H20):
         доставленные страницы (уже в EvidenceSource) → без чтения БД;
         недочитанный хвост → существующий keyset-читатель волны 2
@@ -9240,6 +9385,11 @@ class DirectChatService:
             if not rows:
                 return
             lines = router._history_lines(rows, with_user_id=True)
+            if stats is not None:
+                # HC-COV: skipped = сохранённые строки без презентабельной
+                # строки (не исчезают из счётчика); fetched — прочитанные.
+                stats["fetched"] = int(stats.get("fetched", 0)) + len(rows)
+                stats["lines"] = int(stats.get("lines", 0)) + len(lines)
             for row, line in zip(rows, lines):
                 d = dict(row)
                 yield {"line": line,
@@ -9251,6 +9401,101 @@ class DirectChatService:
             if len(rows) < _HISTORY_PAGE_ROWS or delivered >= available:
                 return                      # окно исчерпано (без лишнего чтения)
             after = _history_point(str(page.get("page_to") or ""))
+
+    @staticmethod
+    def _ensure_history_range_coverage(history_sample,
+                                       evidence: str) -> str:
+        """Страховка HC-COV: если на ходу активен диапазон, а покрытия в
+        доставленном evidence нет (tool-фазы не было/источник не дошёл),
+        Writer получает @@HISTORY_COVERAGE с range_read=0 и реальной
+        причиной — он не может заявить полный охват. Покрытие не дублируется."""
+        if not isinstance(history_sample, dict) \
+                or str(history_sample.get("window_kind") or "") \
+                != "time_range":
+            return evidence
+        body = str(evidence or "")
+        if _HISTORY_COVERAGE_HEADER in body:
+            return body
+        status = str(history_sample.get("range_status") or "ok")
+        reason = str(history_sample.get("reason") or "")
+        if status == "capture_failed":
+            block = DirectChatService._history_range_unread_block(
+                history_sample, reason or "capture_failed", range_read=0)
+        elif status == "unresolved":
+            block = DirectChatService._history_range_unread_block(
+                history_sample, reason or "window_unresolved", range_read=0)
+        elif "@@HISTORY_SAMPLE" in body:
+            # Страница диапазона доставлена, но coverage-голова не собрана:
+            # диапазон прочитан, полнота не подтверждена.
+            block = DirectChatService._render_history_coverage(
+                history_sample, [], available=_ha_int(
+                    history_sample.get("available"), 0),
+                processed=0, failed=0, mentions=0, complete=False,
+                reason="coverage_unavailable", slot=0, range_read=1,
+                range_complete=0, lines=0, skipped=0)
+        else:
+            block = DirectChatService._history_range_unread_block(
+                history_sample, "not_checked", range_read=0)
+        return (block + "\n" + body) if body else block
+
+    @staticmethod
+    def _history_range_page_stats(hist) -> dict:
+        """Счётчики доставленных страниц диапазона: fetched/lines/skipped.
+        Страницы без новых полей (старые/query) считаются по телу."""
+        stats = {"pages": len(hist), "fetched": 0, "lines": 0, "skipped": 0}
+        for src, header in hist:
+            if "lines" in header or "skipped" in header:
+                lines = _ha_int(header.get("lines"), 0)
+                skipped = _ha_int(header.get("skipped"), 0)
+            else:
+                lines = len(_history_body_lines(
+                    getattr(src, "content", "") or ""))
+                skipped = 0
+            stats["lines"] += max(0, lines)
+            stats["skipped"] += max(0, skipped)
+            stats["fetched"] += max(0, lines) + max(0, skipped)
+        return stats
+
+    @staticmethod
+    def _history_range_unread_block(bound, reason: str, *,
+                                    range_read: int = 0) -> str:
+        """Coverage непрочитанного диапазона: только известные границы и
+        конкретная причина; никаких выдуманных available/processed."""
+        bound = bound if isinstance(bound, dict) else {}
+        out = [
+            _HISTORY_COVERAGE_HEADER,
+            f"sample_id={bound.get('sample_id') or ''}",
+            "window_kind=time_range",
+        ]
+        for key in ("window_from", "window_to", "as_of"):
+            value = _ha_int(bound.get(key), 0)
+            if value > 0:
+                out.append(f"{key}={value}")
+        if _ha_int(bound.get("clamped"), 0):
+            out.append("clamped=1")
+        out.extend((
+            f"range_read={1 if range_read else 0}",
+            "range_complete=0",
+            f"reason={reason}",
+            _HISTORY_COVERAGE_END,
+        ))
+        return "\n".join(out)
+
+    @staticmethod
+    def _apply_history_coverage(raw, hist, block: str) -> None:
+        """Coverage головой в существующий EvidenceSource истории; если
+        history-источника нет — отдельный EvidenceSource, чтобы пакер
+        доставил диагностику (это не второй инструмент и не вызов LLM)."""
+        if hist:
+            src = hist[0][0]
+            src.content = block + "\n" + str(getattr(src, "content", "") or "")
+            src.total_chars = len(src.content)
+            return
+        sources = getattr(raw, "evidence_sources", None)
+        if isinstance(sources, list):
+            sources.append(_dx.EvidenceSource(
+                tool="history_coverage", status="ok", content=block,
+                total_chars=len(block)))
 
     async def collect_history_segments(self, tool_ctx, raw, *, slot_chars,
                                        chat_id: int,
@@ -9299,8 +9544,27 @@ class DirectChatService:
             if header is None:
                 return None          # путь B / ошибка / старый формат — паритет
             hist.append((src, header))
+        range_active = str(bound.get("window_kind") or "") == "time_range"
         if not hist:
-            return None
+            if not range_active:
+                return None
+            # Диапазон был вызван, но history-источника нет (ошибка/пусто):
+            # диагностика не теряется и не превращается в «не проверяли».
+            status = str(bound.get("range_status") or "ok")
+            if status == "empty":
+                block = self._render_history_coverage(
+                    bound, [], available=0, processed=0, failed=0,
+                    mentions=0, complete=True, reason="range_empty",
+                    slot=max(500, int(slot_chars or 0)), range_read=1,
+                    range_complete=1, lines=0, skipped=0)
+            else:
+                reason = ("capture_failed" if status == "capture_failed"
+                          else "window_unresolved" if status == "unresolved"
+                          else "tool_unavailable")
+                block = self._history_range_unread_block(
+                    bound, reason, range_read=0)
+            self._apply_history_coverage(raw, hist, block)
+            return block
         try:
             slot = max(500, int(slot_chars or 0))
         except (TypeError, ValueError):
@@ -9310,14 +9574,54 @@ class DirectChatService:
         delivered_chars = sum(len(getattr(s, "content", "") or "")
                               for s, _ in hist)
         available = _ha_int(bound.get("available"), 0)
+        page_stats = (self._history_range_page_stats(hist)
+                      if range_active else None)
+
+        def _short_range(reason: str = "", complete: bool = True) -> str | None:
+            """Coverage короткого пути диапазона: страница остаётся, coverage
+            головой первой. Для count — прежний None (байт-паритет)."""
+            if not range_active:
+                return None
+            status = str(last_header.get("status") or "ok")
+            header_reason = str(last_header.get("reason") or "")
+            read = 0 if status == "error" else 1
+            if status == "error":
+                block = self._history_range_unread_block(
+                    bound, header_reason or reason or "tool_unavailable",
+                    range_read=0)
+            else:
+                stats = page_stats or {"fetched": 0, "lines": 0,
+                                       "skipped": 0}
+                is_empty = (status == "empty_window" or available <= 0)
+                rc = bool(complete) and (is_empty or not has_next)
+                processed_n = (available if (is_empty or not has_next)
+                               else int(stats.get("fetched", 0)))
+                block = self._render_history_coverage(
+                    bound, [], available=available, processed=processed_n,
+                    failed=0, mentions=0, complete=bool(rc),
+                    reason=(reason or header_reason
+                            or ("range_empty" if is_empty else "")),
+                    slot=slot, range_read=1,
+                    range_complete=1 if rc else 0,
+                    lines=int(stats.get("lines", 0)),
+                    skipped=int(stats.get("skipped", 0)))
+            self._apply_history_coverage(raw, hist, block)
+            return block
+
         if not has_next and (slot <= 0 or delivered_chars <= slot):
-            return None              # короткий путь: ровно текущее поведение
+            # короткий путь: count — ровно прежнее поведение (None);
+            # range — coverage обязателен даже если диапазон влез в слот.
+            return _short_range()
         if slot <= 0:
             # SXR-C3-02: реальный слот неизвестен (0 = без искусственного
             # среза). Нарезка «по нулевому бюджету» резала бы каждый сегмент
             # вслепую — остаётся существующий cursor/страничный путь волны 2.
+            if range_active:
+                return _short_range(reason="slot_unknown", complete=False)
             return None
         if has_next and not self._history_tail_reader_ready():
+            if range_active:
+                return _short_range(reason="tail_unavailable", complete=False)
             return None              # хвост недочитываем → паритет волны 2
 
         _fuse_seconds = float(_chain_timeout_seconds())
@@ -9453,7 +9757,8 @@ class DirectChatService:
             prev_tail = await _flush(ents, chars, next_head)
 
         try:
-            async for ent in self._iter_history_sample_entries(hist, bound):
+            async for ent in self._iter_history_sample_entries(
+                    hist, bound, stats=page_stats):
                 line_len = len(ent["line"]) + 1
                 if cur and (cur_chars + line_len > slot
                             or len(cur) >= _HISTORY_PAGE_ROWS):
@@ -9484,10 +9789,12 @@ class DirectChatService:
                 # §6.2: дедлайн до первого сегмента — паритет: страница
                 # волны 2 (raw @@HISTORY_SAMPLE + курсор) остаётся
                 # страховкой, sources не тронуты; пустое покрытие вместо
-                # уже полученного контента не подставляется.
+                # уже полученного контента не подставляется. Для range
+                # страница остаётся, но coverage честно называет таймаут.
                 logger.warning("[direct] history segments deadline before "
                                "first segment | chat=%s", chat_id)
-                return None
+                short = _short_range(reason="timeout", complete=False)
+                return short if range_active else None
             complete = False
             reason = reason or "timeout"
         except asyncio.CancelledError:
@@ -9498,27 +9805,47 @@ class DirectChatService:
                 logger.warning("[direct] history segments unavailable | "
                                "chat=%s | error=%s", chat_id,
                                _exc_brief(exc))
-                return None
+                short = _short_range(
+                    reason=("timeout"
+                            if isinstance(exc, asyncio.TimeoutError)
+                            else "segments_unavailable"),
+                    complete=False)
+                return short if range_active else None
             complete = False
             reason = reason or ("timeout"
                                 if isinstance(exc, asyncio.TimeoutError)
                                 else "error")
 
         total_rows = sum(s["rows"] for s in segments)
-        if complete and available > 0 and total_rows < available:
+        skipped_rows = (max(0, int((page_stats or {}).get("skipped", 0)))
+                        if range_active else 0)
+        delivered_rows = total_rows + skipped_rows
+        if complete and available > 0 and delivered_rows < available:
             complete = False         # хвост выборки недоступен (retention)
             reason = reason or "tail_missing"
+        # Для диапазона skipped-строки прочитаны и учтены, но не стали
+        # событиями: processed включает их, lines — только презентабельные;
+        # строки failed-сегмента не считаются обработанными.
         processed = sum(s["rows"] for s in segments if s["status"] == "ok")
+        if range_active:
+            processed += skipped_rows
         failed = sum(1 for s in segments if s["status"] == "failed")
         mentions = sum(e["mentions"] for s in segments for e in s["events"])
         if failed:
             # H19: пропущенный сегмент — неполнота, не маскируется.
             complete = False
+        range_complete = (
+            1 if (range_active and complete and failed == 0
+                  and processed >= available) else 0)
 
         block = self._render_history_coverage(
             bound, segments, available=available, processed=processed,
             failed=failed, mentions=mentions, complete=complete,
-            reason=reason, slot=slot)
+            reason=reason, slot=slot,
+            range_read=1 if range_active else 0,
+            range_complete=(range_complete if range_active else None),
+            lines=(total_rows if range_active else 0),
+            skipped=(skipped_rows if range_active else 0))
         hist[0][0].content = block
         hist[0][0].total_chars = len(block)
         for src, _ in hist[1:]:
@@ -9529,10 +9856,12 @@ class DirectChatService:
         logger.info(
             "[direct] history segments | chat=%s | sample=%s | segments=%d "
             "| failed=%d | llm_calls=%d | rows=%d | processed=%d | "
-            "available=%d | complete=%d | reason=%s | out_chars=%d",
+            "available=%d | complete=%d | range_read=%d | range_complete=%d "
+            "| skipped=%d | reason=%s | out_chars=%d",
             chat_id, bound.get("sample_id"), len(segments), failed,
             llm_calls, total_rows, processed, available,
-            1 if complete else 0, reason, len(block))
+            1 if complete else 0, 1 if range_active else 0,
+            int(range_complete), skipped_rows, reason, len(block))
         return block
 
     async def _history_reply_target(self, item_id, *,
@@ -9666,26 +9995,69 @@ class DirectChatService:
     @staticmethod
     def _render_history_coverage(bound, segments, *, available, processed,
                                  failed, mentions, complete, reason,
-                                 slot) -> str:
+                                 slot, range_read: int = 0,
+                                 range_complete: int | None = None,
+                                 lines: int = 0, skipped: int = 0) -> str:
         """Блок @@HISTORY_COVERAGE (архконтракт §2): голова + строки статусов
         сегментов + строки событий. Префикс покрытия всегда первый (пакер
         сохраняет голову даже при piece[:floor]). Не влезает в слот —
         лишнее не выкидывается молча: events_dropped / omitted-индексы в
-        голове, complete=0, reason=findings_budget. Никогда не бросает."""
+        голове, complete=0, reason=findings_budget. Никогда не бросает.
+
+        P0-CORRECTIVE HC-COV: для range независимо печатаются ``range_read``,
+        ``range_complete``, ``lines``, ``skipped``; ``complete`` — совместимый
+        alias range_complete. Для count-выборки голова байт-паритет прежней."""
+        is_range = str(bound.get("window_kind") or "") == "time_range"
+        if range_complete is None:
+            range_complete = 1 if complete else 0
+        if is_range:
+            complete = bool(range_complete)
+        lines_count = max(0, int(lines or 0))
+        skipped_count = max(0, int(skipped or 0))
+
         def _render_head(events_dropped, omitted):
             lines = [
                 _HISTORY_COVERAGE_HEADER,
                 f"sample_id={bound.get('sample_id') or ''}",
-                f"requested={_ha_int(bound.get('requested'), 0)}",
-                f"available={max(0, available)}",
-                f"processed={max(0, processed)}",
-                f"remaining={max(0, available - processed)}",
-                f"complete={1 if complete else 0}",
+            ]
+            if is_range:
+                window_from = _ha_int(bound.get("window_from"), 0)
+                window_to = _ha_int(bound.get("window_to"), 0)
+                as_of = _ha_int(bound.get("as_of"), 0)
+                lines.append("window_kind=time_range")
+                if window_from > 0:
+                    lines.append(f"window_from={window_from}")
+                if window_to > 0:
+                    lines.append(f"window_to={window_to}")
+                if as_of > 0:
+                    lines.append(f"as_of={as_of}")
+                if _ha_int(bound.get("clamped"), 0):
+                    lines.append("clamped=1")
+                lines.extend((
+                    f"requested={_ha_int(bound.get('requested'), 0)}",
+                    f"available={max(0, available)}",
+                    f"processed={max(0, processed)}",
+                    f"remaining={max(0, available - processed)}",
+                    f"complete={1 if range_complete else 0}",
+                    f"range_read={1 if range_read else 0}",
+                    f"range_complete={1 if range_complete else 0}",
+                    f"lines={lines_count}",
+                    f"skipped={skipped_count}",
+                ))
+            else:
+                lines.extend((
+                    f"requested={_ha_int(bound.get('requested'), 0)}",
+                    f"available={max(0, available)}",
+                    f"processed={max(0, processed)}",
+                    f"remaining={max(0, available - processed)}",
+                    f"complete={1 if complete else 0}",
+                ))
+            lines.extend((
                 f"segments={len(segments)}",
                 f"failed={failed}",
                 f"mentions={mentions}",
                 f"reason={reason}",
-            ]
+            ))
             if events_dropped:
                 lines.append(f"events_dropped={events_dropped}")
             if omitted:
@@ -10679,7 +11051,7 @@ class DirectChatService:
             global_parts = await self._build_global_context_parts(
                 chat_id, window, roster, suffix_map,
                 trigger_message_id=trigger_message_id,
-                projection=projection)
+                history_sample=history_sample, projection=projection)
             global_ctx = "\n".join(
                 global_parts["head_lines"] + global_parts["tail_lines"])
         else:
@@ -10992,7 +11364,8 @@ class DirectChatService:
     async def _build_global_context_parts(
             self, chat_id: int, window: list, roster: list | None = None,
             suffix_map: dict[int, str] | None = None,
-            trigger_message_id=None, projection=None) -> dict:
+            trigger_message_id=None, projection=None,
+            history_sample: dict | None = None) -> dict:
         """ASAP-3 (D3/D5/D6): части <Global_Context> БЕЗ self-усечения
         (композер вызывает вместо `_build_global_context`).
 
@@ -11108,8 +11481,15 @@ class DirectChatService:
                     projection=projection, window_items=tail_refs)
                 for row in tail_rows]
             if tail_rows:
+                # P0-CORRECTIVE HC-COV (§2.6): оперативная пометка «более
+                # ранняя история не передана» — факт границы L1/L2-окна, а
+                # НЕ оценка выполненности исследования периода. На ходу с
+                # активной выборкой (count/range) источник истины — coverage/
+                # sample, поэтому inline-пометка не вставляется; без выборки
+                # — байт-паритет прежнего поведения.
                 _scope = ""
-                if await self._history_partial(chat_id, window):
+                if history_sample is None \
+                        and await self._history_partial(chat_id, window):
                     _scope = f" ({_l1.HISTORY_PARTIAL_INLINE})"
                 parts["head_lines"].append(
                     f"фон: дословно последние {len(tail_rows)} сообщений"

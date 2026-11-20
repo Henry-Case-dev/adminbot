@@ -66,6 +66,7 @@ import logging
 import re
 import secrets
 import time
+import zoneinfo
 
 from config.settings import settings
 from services import hot_config as hot
@@ -659,7 +660,8 @@ def _history_utc_stamp(ts) -> str:
     return moment.strftime("%d.%m.%Y %H:%M UTC")
 
 
-def _history_parse_time_window(raw) -> tuple[tuple[int, int] | None, str]:
+def _history_parse_time_window(raw, *, now: float | None = None
+                               ) -> tuple[tuple[int, int] | None, str]:
     """Валидация ``time_window`` инструмента через общий `parse_time_window`.
 
     Здесь нет второй реализации: предел/хвост передаются как технические
@@ -673,7 +675,7 @@ def _history_parse_time_window(raw) -> tuple[tuple[int, int] | None, str]:
         return None, "invalid_time_window"
     from services.runtime_probes import parse_time_window
     return parse_time_window(
-        raw, now=time.time(),
+        raw, now=time.time() if now is None else float(now),
         default_seconds=_HISTORY_WINDOW_DEFAULT_SECONDS,
         max_seconds=_HISTORY_WINDOW_MAX_SECONDS)
 
@@ -702,7 +704,9 @@ def _history_window_bound(chat_id: int, window: tuple[int, int], *,
                           matched: int | None = None,
                           anchor: tuple[int, int] | None = None,
                           oldest: tuple[int, int] | None = None,
-                          query_page: bool = False) -> dict:
+                          query_page: bool = False, as_of: int = 0,
+                          clamped: int = 0, range_status: str = "ok"
+                          ) -> dict:
     """Граница выборки окна: верх ≤ time_to, низ — окно или N-я строка.
 
     ``anchor``/``oldest`` — фактические границы строк (для запроса это
@@ -722,6 +726,11 @@ def _history_window_bound(chat_id: int, window: tuple[int, int], *,
         "available": int(available),
         "window_from": time_from,
         "window_to": time_to,
+        # HC-COV: range-метаданные (аддитивно; count-захват их не ставит).
+        "window_kind": "time_range",
+        "as_of": int(as_of or 0),
+        "clamped": 1 if clamped else 0,
+        "range_status": str(range_status or "ok"),
     }
     if window_total is not None:
         bound["window_total"] = int(window_total)
@@ -908,6 +917,443 @@ async def capture_history_sample(db, chat_id: int, requested: int | None = None,
     }
 
 
+# ── P0-CORRECTIVE HC-COV (2026-11-21): запрошенный ПЕРИОД ─────────────────
+# Один разобранный период (duration/local_day/local_day_range) → один bound
+# той же формы, что P0-HA. Грамматика — закрытый список маркеров, без тем и
+# имён; она не «понимает» вопрос, а только выделяет сильную временную границу.
+# Слабые/неоднозначные фразы → None (паритет); похожее на период, но не
+# разобранное → kind="unresolved" (fail closed, без FTS).
+
+
+@dataclasses.dataclass(frozen=True)
+class HistoryWindowSpec:
+    """Разобранная временная граница запроса (без I/O и без времени)."""
+
+    kind: str                       # duration|local_day|local_day_range|unresolved
+    amount: int = 0
+    unit: str = ""                  # minutes|hours|days|weeks
+    day_offset: int = 0             # 0 сегодня, -1 вчера, -2 позавчера
+    from_hm: tuple[int, int] | None = None
+    to_hm: tuple[int, int] | None = None
+    date_from: tuple[int, int, int | None] | None = None
+    date_to: tuple[int, int, int | None] | None = None
+    raw: str = ""
+
+
+_HISTORY_DAY_OFFSETS = {"сегодня": 0, "вчера": -1, "позавчера": -2}
+_HISTORY_UNIT_SECONDS = {
+    "minutes": 60,
+    "hours": 3600,
+    "days": 86400,
+    "weeks": 7 * 86400,
+}
+_HISTORY_MONTHS = {
+    "январ": 1, "феврал": 2, "март": 3, "апрел": 4, "ма": 5, "июн": 6,
+    "июл": 7, "август": 8, "сентябр": 9, "октябр": 10, "ноябр": 11,
+    "декабр": 12,
+}
+_HISTORY_MONTH_RE = (
+    r"(январ\w*|феврал\w*|март\w*|апрел\w*|ма[яй]|июн\w*|июл\w*|"
+    r"август\w*|сентябр\w*|октябр\w*|ноябр\w*|декабр\w*)"
+)
+_HISTORY_DURATION_RE = re.compile(
+    r"(?:последн\w*|в\s+последн\w*)\s+(?:(\d+)\s+)?"
+    r"(минут\w*|час\w*|дн\w*|день|сут\w*|недел\w*)")
+_HISTORY_AGO_RE = re.compile(
+    r"(\d+)\s*(минут\w*|час\w*|дн\w*|день|сут\w*|недел\w*)\s+назад")
+_HISTORY_ZA_RE = re.compile(
+    r"(?<!последн)\bза\s+(\d+)\s*(минут\w*|час\w*|дн\w*|день|сут\w*|"
+    r"недел\w*)(?!\s+до\b)")
+_HISTORY_HALF_HOUR_RE = re.compile(
+    r"(?:последн\w*|за)\s+полчас\w*|полчас\w*\s+назад")
+_HISTORY_DAY_AGO_RE = re.compile(
+    r"(?:последние\s+)?сутки\s+назад|(?:последние|за)\s+сутки")
+_HISTORY_DAY_RE = re.compile(
+    r"(сегодня|вчера|позавчера)(?:\s+с\s+(\d{1,2})(?::(\d{2}))?\s*"
+    r"(?:до|по)\s+(\d{1,2})(?::(\d{2}))?)?")
+_HISTORY_DATE_RANGE_RE = re.compile(
+    r"с\s+(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s+(?:по|до)\s+"
+    r"(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?")
+_HISTORY_MONTH_RANGE_RE = re.compile(
+    r"с\s+(\d{1,2})\s+" + _HISTORY_MONTH_RE +
+    r"(?:\s+(\d{4}))?\s+(?:по|до)\s+(\d{1,2})\s+" + _HISTORY_MONTH_RE +
+    r"(?:\s+(\d{4}))?")
+_HISTORY_SAME_MONTH_RE = re.compile(
+    r"с\s+(\d{1,2})\s+(?:по|до)\s+(\d{1,2})\s+" + _HISTORY_MONTH_RE +
+    r"(?:\s+(\d{4}))?")
+_HISTORY_UNRESOLVED_RES = (
+    re.compile(r"последн\w*\s+\d+"),
+    re.compile(r"(?:минут|час|дн|недел|месяц|год|лет)\w*\s+назад"),
+    re.compile(r"(?:сегодня|вчера|позавчера)\s+с\s+\d"),
+    re.compile(r"с\s+\d{1,2}[./]\d{1,2}"),
+    re.compile(r"с\s+\d{1,2}\s+" + _HISTORY_MONTH_RE),
+    re.compile(r"за\s+\d+\s+(?:месяц|год|лет)\w*"),
+)
+
+
+def _history_normalize_text(text) -> str:
+    """Нижний регистр, ё→е, единые пробелы; без изменения смысла."""
+    value = str(text or "").lower().replace("ё", "е")
+    value = re.sub(r"[\u00a0\u202f]", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _history_unit(word: str) -> str:
+    word = str(word or "").lower()
+    if word.startswith("минут"):
+        return "minutes"
+    if word.startswith("час"):
+        return "hours"
+    if word.startswith(("дн", "день", "сут")):
+        return "days"
+    if word.startswith("недел"):
+        return "weeks"
+    return ""
+
+
+def _history_clock_hm(hour, minute) -> tuple[int, int] | None:
+    try:
+        hh, mm = int(hour), int(minute or 0)
+    except (TypeError, ValueError):
+        return None
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        return None
+    return hh, mm
+
+
+def _history_month_number(word: str) -> int:
+    value = str(word or "").lower().replace("ё", "е")
+    for stem, number in _HISTORY_MONTHS.items():
+        if value.startswith(stem):
+            return number
+    return 0
+
+
+def _history_year(value) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        year = int(value)
+    except (TypeError, ValueError):
+        return None
+    if 0 <= year < 100:
+        year += 2000
+    return year
+
+
+def extract_history_window(text: str) -> HistoryWindowSpec | None:
+    """Чистая функция: сильная временная граница запроса или None.
+
+    Closed-грамматика (§2.2 архконтракта): duration с маркером
+    «последн/назад/за», local_day «сегодня/вчера/позавчера [с HH до HH]»,
+    local_day_range «с DD.MM[.YYYY] по DD.MM[.YYYY]» / «с DD <месяц>».
+    Голое «10 часов» без маркера — None. Похожее на период, но не
+    разобранное — unresolved (не повод молча уходить в FTS)."""
+    value = _history_normalize_text(text)
+    if not value:
+        return None
+    raw = ""
+    match = _HISTORY_HALF_HOUR_RE.search(value)
+    if match:
+        return HistoryWindowSpec("duration", amount=30, unit="minutes",
+                                 raw=match.group(0))
+    match = _HISTORY_DAY_AGO_RE.search(value)
+    if match:
+        return HistoryWindowSpec("duration", amount=1, unit="days",
+                                 raw=match.group(0))
+    for pattern in (_HISTORY_DURATION_RE, _HISTORY_AGO_RE, _HISTORY_ZA_RE):
+        match = pattern.search(value)
+        if not match:
+            continue
+        groups = match.groups()
+        if pattern is _HISTORY_DURATION_RE:
+            amount_raw, unit_raw = groups[0], groups[1]
+            amount = int(amount_raw) if amount_raw else 1
+        else:
+            amount_raw, unit_raw = groups[0], groups[1]
+            amount = int(amount_raw)
+        unit = _history_unit(unit_raw)
+        if amount >= 1 and unit:
+            return HistoryWindowSpec("duration", amount=amount, unit=unit,
+                                     raw=match.group(0))
+    match = _HISTORY_DAY_RE.search(value)
+    if match:
+        day_word = match.group(1)
+        from_hm = _history_clock_hm(match.group(2), match.group(3)) \
+            if match.group(2) else None
+        to_hm = _history_clock_hm(match.group(4), match.group(5)) \
+            if match.group(4) else None
+        if (match.group(2) and from_hm is None) \
+                or (match.group(4) and to_hm is None):
+            return HistoryWindowSpec("unresolved", raw=match.group(0))
+        return HistoryWindowSpec(
+            "local_day", day_offset=_HISTORY_DAY_OFFSETS[day_word],
+            from_hm=from_hm, to_hm=to_hm, raw=match.group(0))
+    date_match = _HISTORY_DATE_RANGE_RE.search(value)
+    month_match = _HISTORY_MONTH_RANGE_RE.search(value)
+    match = date_match or month_match
+    if match:
+        groups = match.groups()
+        if date_match is match:
+            d1, m1, y1, d2, m2, y2 = groups
+            date_from = (int(d1), int(m1), _history_year(y1))
+            date_to = (int(d2), int(m2), _history_year(y2))
+        else:
+            d1, mon1, y1, d2, mon2, y2 = groups
+            date_from = (int(d1), _history_month_number(mon1),
+                         _history_year(y1))
+            date_to = (int(d2), _history_month_number(mon2), _history_year(y2))
+        if 1 <= date_from[1] <= 12 and 1 <= date_to[1] <= 12:
+            return HistoryWindowSpec("local_day_range", date_from=date_from,
+                                     date_to=date_to, raw=match.group(0))
+    match = _HISTORY_SAME_MONTH_RE.search(value)
+    if match:
+        d1, d2, mon, year = match.groups()
+        month = _history_month_number(mon)
+        if month:
+            return HistoryWindowSpec(
+                "local_day_range",
+                date_from=(int(d1), month, _history_year(year)),
+                date_to=(int(d2), month, _history_year(year)),
+                raw=match.group(0))
+    for pattern in _HISTORY_UNRESOLVED_RES:
+        match = pattern.search(value)
+        if not match:
+            continue
+        tail = value[match.start():match.end() + 32]
+        if re.search(r"\d+\s*(сообщени|messages|реплик)", tail):
+            # «последние 400 сообщений» — количественная выборка, не период.
+            continue
+        return HistoryWindowSpec("unresolved", raw=match.group(0))
+    return None
+
+
+def _history_zone(timezone_name):
+    """IANA-зона резолва; неизвестная/пустая → явный UTC (не серверная)."""
+    try:
+        return zoneinfo.ZoneInfo(str(timezone_name or "UTC"))
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, FileNotFoundError,
+            KeyError, OSError):
+        return datetime.timezone.utc
+
+
+def _local_epoch(day, hour: int, minute: int, tz) -> int:
+    """Локальные (date, HH:MM) → epoch. Несуществующее время (spring
+    forward) сдвигается вперёд до первого валидного instant; неоднозначное
+    (fall back) — fold=0 (первое вхождение)."""
+    naive = datetime.datetime(int(day.year), int(day.month), int(day.day),
+                              int(hour), int(minute))
+    aware = naive.replace(tzinfo=tz)
+    stamp = int(aware.timestamp())
+    back = datetime.datetime.fromtimestamp(stamp, tz).replace(tzinfo=None)
+    if back == naive:
+        return stamp
+    for offset in range(1, 24 * 60 + 1):
+        candidate = naive + datetime.timedelta(minutes=offset)
+        probe = candidate.replace(tzinfo=tz)
+        probe_stamp = int(probe.timestamp())
+        probe_back = datetime.datetime.fromtimestamp(
+            probe_stamp, tz).replace(tzinfo=None)
+        if probe_back == candidate:
+            return probe_stamp
+    return stamp
+
+
+def _history_date(value, *, year: int) -> datetime.date | None:
+    try:
+        return datetime.date(int(year), int(value[1]), int(value[0]))
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def resolve_history_window_at(spec: HistoryWindowSpec, *, as_of: int,
+                              timezone: str = "UTC") -> dict:
+    """Резолв spec в epoch-границы. Чистая функция календаря: одна IANA-зона,
+    локальная полночь/DST, без `time.time()` и серверной зоны."""
+    as_of = int(as_of)
+    if not isinstance(spec, HistoryWindowSpec):
+        return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                "reason": "window_invalid"}
+    if spec.kind == "duration":
+        seconds = _HISTORY_UNIT_SECONDS.get(spec.unit, 0) * int(spec.amount)
+        if seconds < 1:
+            return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                    "reason": "window_invalid"}
+        return {"from": max(0, as_of - seconds), "to": as_of,
+                "as_of": as_of, "clamped": 0, "reason": ""}
+    tz = _history_zone(timezone)
+    try:
+        local_now = datetime.datetime.fromtimestamp(as_of, tz)
+    except (OverflowError, OSError, ValueError):
+        return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                "reason": "window_invalid"}
+    if spec.kind == "local_day":
+        target = local_now.date() + datetime.timedelta(days=spec.day_offset)
+        if spec.from_hm or spec.to_hm:
+            fh, fm = spec.from_hm or (0, 0)
+            th, tm = spec.to_hm or (23, 59)
+            start = _local_epoch(target, fh, fm, tz)
+            end = _local_epoch(target, th, tm, tz)
+            if end <= start:
+                end = _local_epoch(target + datetime.timedelta(days=1),
+                                   th, tm, tz)
+        else:
+            start = _local_epoch(target, 0, 0, tz)
+            end = _local_epoch(target + datetime.timedelta(days=1),
+                               0, 0, tz) - 1
+    elif spec.kind == "local_day_range":
+        if not spec.date_from or not spec.date_to:
+            return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                    "reason": "window_unresolved"}
+        year_from = spec.date_from[2] or local_now.year
+        year_to = spec.date_to[2] or year_from
+        start_day = _history_date(spec.date_from, year=year_from)
+        end_day = _history_date(spec.date_to, year=year_to)
+        if start_day is None or end_day is None:
+            return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                    "reason": "window_invalid"}
+        if end_day < start_day:
+            end_day = _history_date(spec.date_to, year=end_day.year + 1)
+            if end_day is None:
+                return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                        "reason": "window_invalid"}
+        if spec.date_from[2] is None and spec.date_to[2] is None \
+                and start_day > local_now.date():
+            start_day = _history_date(spec.date_from, year=year_from - 1)
+            end_day = _history_date(spec.date_to, year=year_to - 1)
+            if start_day is None or end_day is None:
+                return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                        "reason": "window_invalid"}
+            if end_day < start_day:
+                end_day = _history_date(spec.date_to, year=end_day.year + 1)
+                if end_day is None:
+                    return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                            "reason": "window_invalid"}
+        start = _local_epoch(start_day, 0, 0, tz)
+        # Включительно до последней секунды локальных суток (23:59:59).
+        end = _local_epoch(end_day, 23, 59, tz) + 59
+    else:
+        return {"from": 0, "to": 0, "as_of": as_of, "clamped": 0,
+                "reason": "window_unresolved"}
+    clamped = 1 if end > as_of else 0
+    end = min(end, as_of)
+    return {"from": int(start), "to": int(end), "as_of": as_of,
+            "clamped": clamped, "reason": ""}
+
+
+def _history_range_sample_id(chat_id: int, time_from: int, time_to: int,
+                             as_of: int) -> str:
+    """Стабильный id диапазона: ``hs_`` + 12 hex от
+    sha256(chat_id|time_range|from|to|as_of). Формат/длина прежние."""
+    material = (f"{int(chat_id)}|time_range|{int(time_from)}|"
+                f"{int(time_to)}|{int(as_of)}")
+    digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
+    return f"hs_{digest[:12]}"
+
+
+def _empty_history_range_bound(chat_id: int, time_from: int, time_to: int,
+                               as_of: int, *, clamped: int = 0,
+                               reason: str = "range_empty",
+                               status: str = "empty") -> dict:
+    """Пустой/непрочитанный диапазон — та же форма bound, но без выдачи
+    cursor: available=0, requested=0, anchor=0, oldest=from."""
+    return {
+        "sample_id": _history_range_sample_id(
+            chat_id, time_from, time_to, as_of),
+        "chat_id": int(chat_id),
+        "anchor_ts": 0, "anchor_id": 0,
+        "oldest_ts": int(time_from), "oldest_id": 0,
+        "requested": 0, "available": 0,
+        "window_kind": "time_range",
+        "window_from": int(time_from), "window_to": int(time_to),
+        "as_of": int(as_of), "clamped": 1 if clamped else 0,
+        "range_status": str(status or "empty"),
+        "reason": str(reason or "range_empty"),
+        "captured_wall": time.time(),
+    }
+
+
+async def capture_history_range(db, chat_id: int, time_from: int, time_to: int,
+                                *, as_of: int, clamped: int = 0) -> dict:
+    """Захват диапазона [time_from, time_to] существующими метаданными.
+
+    Якорь — реальная самая новая строка ``<= time_to``; нижний край — реальная
+    самая старая строка ``>= time_from``; ``available`` — COUNT строк между
+    ними. Пустой диапазон — честный bound (available=0, reason=range_empty),
+    не None и не ошибка. Тела не читаются; страницы — существующий reader."""
+    if db is None or not hasattr(db, "get_recent_messages"):
+        raise RuntimeError("db недоступен")
+    lower, upper = int(time_from), int(time_to)
+    as_of = int(as_of)
+    if lower > upper:
+        return _empty_history_range_bound(
+            chat_id, lower, upper, as_of, clamped=clamped)
+    try:
+        row = await _history_probe_row(
+            db,
+            "SELECT id, timestamp FROM smart_messages WHERE chat_id = ? "
+            "AND timestamp <= ? ORDER BY timestamp DESC, id DESC LIMIT 1",
+            (int(chat_id), upper))
+        if row is None:
+            return _empty_history_range_bound(
+                chat_id, lower, upper, as_of, clamped=clamped)
+        a_ts, a_id = _bound_int(row["timestamp"]), _bound_int(row["id"])
+        if a_ts < lower:
+            return _empty_history_range_bound(
+                chat_id, lower, upper, as_of, clamped=clamped)
+        count_row = await _history_probe_row(
+            db, _HISTORY_COUNT_IN_WINDOW_SQL,
+            (int(chat_id), a_ts, a_ts, a_id, lower))
+        available = _bound_int(
+            count_row["n"] if count_row is not None else count_row, 0)
+        if available <= 0:
+            return _empty_history_range_bound(
+                chat_id, lower, upper, as_of, clamped=clamped)
+        oldest_row = await _history_probe_row(
+            db,
+            "SELECT id, timestamp FROM smart_messages WHERE "
+            "chat_id = ? AND (timestamp < ? OR (timestamp = ? AND id <= ?)) "
+            "AND timestamp >= ? ORDER BY timestamp ASC, id ASC LIMIT 1",
+            (int(chat_id), a_ts, a_ts, a_id, lower))
+        if oldest_row is None:
+            return _empty_history_range_bound(
+                chat_id, lower, upper, as_of, clamped=clamped)
+        o_ts, o_id = _bound_int(oldest_row["timestamp"]), \
+            _bound_int(oldest_row["id"])
+    except (TypeError, AttributeError):
+        # Duck-typed фейк без aiosqlite-коннекта: единственное bounded-чтение
+        # существующим reader'ом + фильтр окна (прод-путь — SQL выше).
+        rows = await db.get_recent_messages(chat_id, 10000)
+        in_window = [
+            r for r in (rows or [])
+            if lower <= _row_field(r, "timestamp") <= upper
+        ]
+        if not in_window:
+            return _empty_history_range_bound(
+                chat_id, lower, upper, as_of, clamped=clamped)
+        ordered = sorted(
+            in_window,
+            key=lambda r: (_row_field(r, "timestamp"), _row_field(r, "id")))
+        a_ts, a_id = _row_field(ordered[-1], "timestamp"), \
+            _row_field(ordered[-1], "id")
+        o_ts, o_id = _row_field(ordered[0], "timestamp"), \
+            _row_field(ordered[0], "id")
+        available = len(ordered)
+    return {
+        "sample_id": _history_range_sample_id(
+            chat_id, lower, upper, as_of),
+        "chat_id": int(chat_id),
+        "anchor_ts": int(a_ts), "anchor_id": int(a_id),
+        "oldest_ts": int(o_ts), "oldest_id": int(o_id),
+        "requested": int(available), "available": int(available),
+        "window_kind": "time_range",
+        "window_from": lower, "window_to": upper,
+        "as_of": as_of, "clamped": 1 if clamped else 0,
+        "range_status": "ok", "reason": "",
+        "captured_wall": time.time(),
+    }
+
+
 async def _history_count_in_window(db, bound: dict, up_to: tuple | None,
                                    after: tuple | None = None):
     """COUNT строк окна выборки (метаданные). ``up_to=(ts, id)`` — только
@@ -997,7 +1443,8 @@ def parse_history_sample(text: str) -> dict | None:
         key, val = key.strip(), val.strip()
         if key in ("requested", "available", "processed", "remaining",
                    "has_next", "incomplete", "window_from", "window_to",
-                   "window_total", "matched", "truncated"):
+                   "window_total", "matched", "truncated", "as_of",
+                   "clamped", "lines", "skipped"):
             try:
                 fields[key] = int(val)
             except (TypeError, ValueError):
@@ -1575,9 +2022,13 @@ class ToolContext:
                  resolved_url: str | None = None,
                  image_request_handled: bool = False,
                  speech=None,
-                 diagnostic_research: dict | None = None) -> None:
+                 diagnostic_research: dict | None = None,
+                 turn_as_of: int = 0) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
+        # P0-CORRECTIVE HC-COV: одна точка фиксации времени хода (int epoch).
+        # 0 → инструмент берёт time.time() (паритет старых вызовов).
+        self.turn_as_of = int(turn_as_of or 0)
         self.bot = bot
         self.reply_to_message_id = reply_to_message_id
         # TR-FIX2 (live 2.58.91, findings 3/5): ``reply_to_message_id`` —
@@ -6169,13 +6620,16 @@ class ToolRouter:
                 return f"ОШИБКА get_recent_history: {type(exc).__name__}"
 
         # 2-7. Маршрутизация без cursor.
+        # P0-CORRECTIVE HC-COV: один as_of хода для last_*/extract/resolve.
+        as_of = int(getattr(ctx, "turn_as_of", 0) or 0) or int(time.time())
         # VMQ/MEM-TIME (16.11.2026): time_window валидируется общим
         # parse_time_window; кривое окно — структурный unsupported-отказ,
-        # НЕ «пусто» и не тихая замена на дефолт.
+        # НЕ «пусто» и не тихая замена на дефолт. Relative last_* считается
+        # от as_of ХОДА, не от повторного time.time().
         window = None
         if "time_window" in args:
             window, window_error = _history_parse_time_window(
-                args.get("time_window"))
+                args.get("time_window"), now=as_of)
             if window is None:
                 logger.info(
                     "[tools] get_recent_history window rejected | chat=%s | "
@@ -6188,7 +6642,12 @@ class ToolRouter:
         query_text = query_arg or str(getattr(ctx, "query", "") or "").strip()
         extracted_depth = extract_history_depth(query_text)
         bound = self._history_bound_from_ctx(ctx)
-        if bound is not None:                       # 2. выборка хода
+        if bound is not None \
+                and str(bound.get("window_kind") or "") == "time_range":
+            # 2a. Диапазон хода — всегда хронология; query/FTS не подменяют
+            # период (в т.ч. пустой/непрочитанный диапазон: fail closed).
+            return await self._history_range_bound_page(ctx, db, bound)
+        if bound is not None:                       # 2b. N-выборка хода
             requested = _bound_int(bound.get("requested"), 0)
             if requested < 1:
                 bound, requested = None, 0
@@ -6206,6 +6665,55 @@ class ToolRouter:
             requested = extracted_depth
         else:
             requested = 0
+        if requested < 1 and query_text:
+            # 5a. P0-CORRECTIVE HC-COV: граница периода в самом тексте (L1
+            # simple-путь часто шлёт только query). Диапазон фиксируется и
+            # читается хронологией; FTS при активном диапазоне запрещён.
+            spec = extract_history_window(query_text)
+            if spec is not None:
+                try:
+                    resolved = await self.resolve_history_window(
+                        spec, as_of=as_of, chat_id=ctx.chat_id)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    logger.warning(
+                        "[tools] get_recent_history window resolve failed | "
+                        "chat=%s | error=%s", ctx.chat_id,
+                        type(exc).__name__)
+                    return "ОШИБКА get_recent_history: window_invalid"
+                reason = str((resolved or {}).get("reason") or "")
+                if resolved is None or reason == "window_unresolved":
+                    logger.info(
+                        "[tools] get_recent_history window unresolved | "
+                        "chat=%s", ctx.chat_id)
+                    return "ОШИБКА get_recent_history: window_unresolved"
+                if reason:
+                    return f"ОШИБКА get_recent_history: {reason}"
+                try:
+                    bound = await asyncio.wait_for(
+                        capture_history_range(
+                            db, ctx.chat_id, resolved["from"],
+                            resolved["to"], as_of=as_of,
+                            clamped=resolved.get("clamped", 0)),
+                        timeout=_HISTORY_TOOL_TIMEOUT)
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "[tools] get_recent_history timeout | chat=%s",
+                        ctx.chat_id)
+                    return "ОШИБКА get_recent_history: timeout"
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    logger.warning(
+                        "[tools] get_recent_history range capture failed | "
+                        "chat=%s | error=%s", ctx.chat_id,
+                        type(exc).__name__)
+                    return "ОШИБКА get_recent_history: db_error"
+                # Диапазон фиксируется на ход: следующие вызовы без cursor
+                # читают ту же выборку (H8), а не новую.
+                ctx.history_sample = bound
+                return await self._history_range_bound_page(ctx, db, bound)
         if requested < 1 and query_text:            # 6. путь B (FTS)
             try:
                 result = await asyncio.wait_for(
@@ -6274,16 +6782,25 @@ class ToolRouter:
         выборку последними N строками окна; без depth — всё окно (каждая
         страница несёт честные счётчики и подписанный cursor)."""
         requested = depth if depth is not None else None
+        as_of = int(getattr(ctx, "turn_as_of", 0) or 0) or int(time.time())
         try:
             bound = await asyncio.wait_for(
                 capture_history_sample(db, ctx.chat_id, requested,
                                        time_from=window[0],
                                        time_to=window[1]),
                 timeout=_HISTORY_TOOL_TIMEOUT)
+            if bound is not None:
+                # Явный time_window — тоже диапазон: голова/coverage называют
+                # окно и as_of хода (count-захват сюда не попадает).
+                bound.update({
+                    "window_kind": "time_range", "as_of": as_of,
+                    "clamped": 0, "range_status": "ok", "reason": "",
+                })
             if bound is None:
                 empty = _history_window_bound(
                     ctx.chat_id, window, requested=requested or 0,
-                    available=0, window_total=0)
+                    available=0, window_total=0, as_of=as_of,
+                    range_status="empty")
                 logger.info(
                     "[tools] get_recent_history | chat=%s | mode=window | "
                     "status=empty_window | window_from=%d | window_to=%d",
@@ -6291,7 +6808,8 @@ class ToolRouter:
                 return self._format_history_page(
                     empty, {"rows": [], "lines": [], "fetched": 0,
                             "page_from": "", "page_to": ""},
-                    processed_before=0, status="empty_window")
+                    processed_before=0, status="empty_window",
+                    reason="range_empty")
             page = await asyncio.wait_for(
                 self._history_read_page(db, bound, after=None,
                                         projection=getattr(ctx, "speech", None)),
@@ -6312,6 +6830,59 @@ class ToolRouter:
         status = "ok" if page.get("fetched") else "empty_window"
         return self._format_history_page(
             bound, page, processed_before=0, status=status)
+
+    async def _history_range_bound_page(self, ctx: ToolContext, db,
+                                        bound: dict) -> str:
+        """Страница активного диапазона (HC-COV): пустой диапазон — честный
+        ``empty_window/range_empty``; непрочитанный — explicit error/reason;
+        активный — существующая страница с range-головой. FTS не вызывается."""
+        empty_page = {"rows": [], "lines": [], "fetched": 0,
+                      "page_from": "", "page_to": ""}
+        range_status = str(bound.get("range_status") or "ok")
+        if range_status in ("capture_failed", "unresolved"):
+            reason = ("capture_failed" if range_status == "capture_failed"
+                      else "window_unresolved")
+            logger.info(
+                "[tools] get_recent_history range unread | chat=%s | "
+                "reason=%s", ctx.chat_id, reason)
+            return self._format_history_page(
+                bound, empty_page, processed_before=0, status="error",
+                reason=reason, next_cursor_enabled=False)
+        if _bound_int(bound.get("available"), 0) < 1:
+            return self._format_history_page(
+                bound, empty_page, processed_before=0,
+                status="empty_window",
+                reason=str(bound.get("reason") or "range_empty"),
+                next_cursor_enabled=False)
+        try:
+            page = await asyncio.wait_for(
+                self._history_read_page(
+                    db, bound, after=None,
+                    projection=getattr(ctx, "speech", None)),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning("[tools] get_recent_history timeout | chat=%s",
+                           ctx.chat_id)
+            return self._format_history_page(
+                bound, empty_page, processed_before=0, status="error",
+                reason="timeout", next_cursor_enabled=False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "[tools] get_recent_history failed | chat=%s | error=%s",
+                ctx.chat_id, type(exc).__name__)
+            return self._format_history_page(
+                bound, empty_page, processed_before=0, status="error",
+                reason="db_error", next_cursor_enabled=False)
+        status = "ok" if page.get("fetched") else "empty_window"
+        reason = ""
+        if status == "empty_window":
+            # available>0, но страница пуста: строки могли исчезнуть между
+            # COUNT и чтением (retention) — не выдаём это за «период пуст».
+            reason = "anchor_missing"
+        return self._format_history_page(
+            bound, page, processed_before=0, status=status, reason=reason)
 
     async def _history_query_in_window(self, ctx: ToolContext, db,
                                        query: str,
@@ -6345,19 +6916,20 @@ class ToolRouter:
         window_total = result.get("window_total")
         matched = int(result.get("matched") or 0)
         truncated = 1 if result.get("truncated") else 0
+        as_of = int(getattr(ctx, "turn_as_of", 0) or 0) or int(time.time())
         if lines:
             status = "ok"
             bound = _history_window_bound(
                 ctx.chat_id, window, requested=_HISTORY_SEARCH_LIMIT,
                 available=matched, window_total=window_total,
                 matched=matched, anchor=result.get("last"),
-                oldest=result.get("first"), query_page=True)
+                oldest=result.get("first"), query_page=True, as_of=as_of)
         else:
             status = ("empty_window" if window_total == 0 else "no_match")
             bound = _history_window_bound(
                 ctx.chat_id, window, requested=_HISTORY_SEARCH_LIMIT,
                 available=0, window_total=window_total, matched=matched,
-                query_page=True)
+                query_page=True, as_of=as_of)
         logger.info(
             "[tools] get_recent_history | chat=%s | mode=window_query | "
             "status=%s | window_total=%s | matched=%d | shown=%d | "
@@ -6378,7 +6950,9 @@ class ToolRouter:
         (status=error/reason), а не выдаётся за пустой период."""
         bound = _history_window_bound(
             ctx.chat_id, window, requested=requested, available=0,
-            window_total=None)
+            window_total=None,
+            as_of=int(getattr(ctx, "turn_as_of", 0) or 0),
+            range_status="unread")
         return self._format_history_page(
             bound, {"rows": [], "lines": [], "fetched": 0,
                     "page_from": "", "page_to": ""},
@@ -6392,6 +6966,14 @@ class ToolRouter:
         bound = getattr(ctx, "history_sample", None)
         if not isinstance(bound, dict):
             return None
+        # HC-COV: диапазон хода принимается и пустым/непрочитанным — его
+        # нельзя подменять FTS/дефолтом. Для range обязательны границы окна.
+        if str(bound.get("window_kind") or "") == "time_range":
+            if "window_from" not in bound or "window_to" not in bound:
+                return None
+            normalized = dict(bound)
+            normalized.setdefault("chat_id", int(ctx.chat_id))
+            return normalized
         required = ("sample_id", "anchor_ts", "anchor_id", "oldest_ts",
                     "oldest_id", "requested", "available")
         if any(key not in bound for key in required):
@@ -6465,6 +7047,17 @@ class ToolRouter:
             "window_from": fields.get("window_from") or 0,
             "window_to": fields.get("window_to") or 0,
         }
+        # HC-COV: cursor v3 не меняется; range-метаданные продолжения берутся
+        # из ctx.history_sample по совпавшему sample_id (без v4/новых полей).
+        ctx_sample = getattr(ctx, "history_sample", None)
+        if isinstance(ctx_sample, dict) \
+                and str(ctx_sample.get("sample_id") or "") \
+                == str(fields["sample_id"]) \
+                and str(ctx_sample.get("window_kind") or "") == "time_range":
+            for key in ("window_kind", "as_of", "clamped", "range_status",
+                        "reason"):
+                if key in ctx_sample:
+                    bound[key] = ctx_sample[key]
         page = await self._history_read_page(
             db, bound, after=after, projection=getattr(ctx, "speech", None))
         return self._format_history_page(bound, page,
@@ -6551,20 +7144,46 @@ class ToolRouter:
             window_from = _bound_int(bound.get("oldest_ts"), 0)
         if window_to <= 0:
             window_to = _bound_int(bound.get("anchor_ts"), 0)
-        header_lines = [
-            _HISTORY_SAMPLE_HEADER,
-            f"sample_id={bound.get('sample_id') or ''}",
-            f"requested={_bound_int(bound.get('requested'), 0)}",
-            f"available={available}",
-            f"processed={processed}",
-            f"remaining={remaining}",
-            f"has_next={1 if has_next else 0}",
-            f"window_from={window_from}",
-            f"window_to={window_to}",
-            f"window_label={_history_window_label(window_from, window_to)}",
-            f"status={page_status}",
-            f"truncated={1 if truncated else 0}",
-        ]
+        page_lines = list(page.get("lines") or [])
+        range_page = str(bound.get("window_kind") or "") == "time_range"
+        if range_page:
+            # HC-COV: range-поля печатаются ТОЛЬКО для диапазона; count-голова
+            # остаётся байт-в-байт прежней. Порядок: sample_id → range-поля →
+            # существующие счётчики/статусы.
+            header_lines = [
+                _HISTORY_SAMPLE_HEADER,
+                f"sample_id={bound.get('sample_id') or ''}",
+                "window_kind=time_range",
+                f"window_from={window_from}",
+                f"window_to={window_to}",
+                f"as_of={_bound_int(bound.get('as_of'), 0)}",
+                f"clamped={1 if _bound_int(bound.get('clamped'), 0) else 0}",
+                f"requested={_bound_int(bound.get('requested'), 0)}",
+                f"available={available}",
+                f"processed={processed}",
+                f"remaining={remaining}",
+                f"has_next={1 if has_next else 0}",
+                f"window_label="
+                f"{_history_window_label(window_from, window_to)}",
+                f"status={page_status}",
+                f"truncated={1 if truncated else 0}",
+            ]
+        else:
+            header_lines = [
+                _HISTORY_SAMPLE_HEADER,
+                f"sample_id={bound.get('sample_id') or ''}",
+                f"requested={_bound_int(bound.get('requested'), 0)}",
+                f"available={available}",
+                f"processed={processed}",
+                f"remaining={remaining}",
+                f"has_next={1 if has_next else 0}",
+                f"window_from={window_from}",
+                f"window_to={window_to}",
+                f"window_label="
+                f"{_history_window_label(window_from, window_to)}",
+                f"status={page_status}",
+                f"truncated={1 if truncated else 0}",
+            ]
         if bound.get("window_total") is not None:
             header_lines.append(
                 f"window_total={_bound_int(bound.get('window_total'), 0)}")
@@ -6580,13 +7199,22 @@ class ToolRouter:
         header_lines.extend((
             f"page_from={page.get('page_from') or ''}",
             f"page_to={page.get('page_to') or ''}",
+        ))
+        if range_page:
+            # lines — реально отданные строки страницы; skipped — сохранённые
+            # строки без презентабельного содержимого (fetched - lines).
+            header_lines.extend((
+                f"lines={len(page_lines)}",
+                f"skipped={max(0, fetched - len(page_lines))}",
+            ))
+        header_lines.extend((
             f"incomplete={incomplete}",
             f"reason={reason}",
             f"cursor={cursor_field}",
             _HISTORY_HEADER_END,
         ))
         header = "\n".join(header_lines)
-        lines = list(page.get("lines") or [])
+        lines = page_lines
         text = header
         if lines:
             text += "\n" + "\n".join(lines)
@@ -6769,6 +7397,24 @@ class ToolRouter:
         return lines
 
     # ── compile_lore_story (раунд 10.20, БЛОК 1, ADR-1020-4 п.1-4, T-1887) ──
+
+    async def resolve_history_window(self, spec, *, as_of: int,
+                                     chat_id: int | None) -> dict | None:
+        """P0-CORRECTIVE HC-COV: spec периода → epoch-границы в IANA-зоне
+        ЧАТА (ChatClock — единственный резолвер зоны; серверная локальная
+        зона запрещена). Локальный календарь нужен только local_day/
+        local_day_range; duration — абсолютные секунды. Unresolved/None →
+        структурный reason, без FTS и без дефолта."""
+        if not isinstance(spec, HistoryWindowSpec):
+            return None
+        if spec.kind == "unresolved":
+            return {"from": 0, "to": 0, "as_of": int(as_of), "clamped": 0,
+                    "reason": "window_unresolved"}
+        tz_name = "UTC"
+        if spec.kind in ("local_day", "local_day_range"):
+            tz_name = await self._chat_timezone(chat_id)
+        return resolve_history_window_at(
+            spec, as_of=int(as_of), timezone=tz_name)
 
     async def _chat_timezone(self, chat_id: int | None) -> str:
         """S10.20-14 → UR-C-CLOCK: tz чата через ЕДИНСТВЕННЫЙ резолвер
