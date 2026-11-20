@@ -1,0 +1,25 @@
+M1-no-html-escape: rc=1 (KILLED)
+  =========================== short test summary info ===========================
+  FAILED tests/test_p0_hc_telegram_egress.py::TestTelegramHtml::test_raw_html_is_always_escaped
+  FAILED tests/test_p0_hc_telegram_egress.py::TestTelegramHtml::test_special_characters_are_escaped
+  2 failed in 4.43s
+M2-no-tag-close-reopen: rc=1 (KILLED)
+  =========================== short test summary info ===========================
+  FAILED tests/test_p0_hc_telegram_egress.py::TestChunking::test_bold_is_closed_and_reopened
+  FAILED tests/test_p0_hc_telegram_egress.py::TestChunking::test_link_reopened_with_same_href
+  2 failed in 4.35s
+M3-wrong-utf16-count: rc=1 (KILLED)
+  tests\test_p0_hc_telegram_egress.py:284: AssertionError
+  =========================== short test summary info ===========================
+  FAILED tests/test_p0_hc_telegram_egress.py::TestChunking::test_utf16_units - ...
+  1 failed, 1 passed in 4.47s
+M4-plain-renders-html: rc=1 (KILLED)
+  =========================== short test summary info ===========================
+  FAILED tests/test_p0_hc_telegram_egress.py::TestPlain::test_plain_text_is_byte_identical
+  FAILED tests/test_p0_hc_telegram_egress.py::TestPlain::test_plain_removes_markers_but_keeps_content
+  2 failed in 4.46s
+M5-unsafe-link-scheme-allowed: rc=1 (KILLED)
+  =========================== short test summary info ===========================
+  FAILED tests/test_p0_hc_telegram_egress.py::TestTelegramHtml::test_unsafe_links_remain_text[ftp://example.com/x]
+  FAILED tests/test_p0_hc_telegram_egress.py::TestTelegramHtml::test_unsafe_links_remain_text[data:text/html,x]
+  2 failed, 2 passed in 4.36s

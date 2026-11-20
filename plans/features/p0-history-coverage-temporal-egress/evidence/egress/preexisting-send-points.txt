@@ -1,0 +1,18 @@
+﻿=== candidate p0/hc-c1 ===
+                f"╨╜╨╡╨╖╨░╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╨╛╨▓╨░╨╜╨╜╨░╤П send-╤В╨╛╤З╨║╨░: {rel}")
+E           AssertionError: ╨╜╨╡╨╖╨░╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╨╛╨▓╨░╨╜╨╜╨░╤П send-╤В╨╛╤З╨║╨░: handlers/meme_command.py
+E           assert ('handlers/meme_command.py' in {'services/smartmodule_utils.py': ('_send_once',), 'services/summary_generator.py': ('_send_streaming', '_send_chunked', '_send_one_chunk', '_send_ux', 'send_rich_message')} or 'handlers/meme_command.py' in {'handlers/slava_presence.py': '╤Б╤В╨░╤В╨╕╤З╨╜╨╛╨╡ ╨┐╤А╨╕╨▓╨╡╤В╤Б╤В╨▓╨╕╨╡ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░', 'handlers/video_download.py': 'UX-╤Д╤А╨░╨╖╤Л ╨┐╤А╨╛╨│╤А╨╡╤Б╤Б╨░ ╨╕ ...summary.py': 'UX-╤Д╤А╨░╨╖╨░ busy/╨╛╤И╨╕╨▒╨║╨╕', 'services/dead_page_relay.py': '╤А╨╡╨╗╨╡-╤В╨╡╨║╤Б╤В ╨│╨╛╤В╨╛╨▓╨╛╨│╨╛ ╨┐╨╛╤Б╤В╨░ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║: ╨║╨░╨╜╨░╨╗)', ...})
+
+tests\test_outgoing_guard_round1022.py:167: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_outgoing_guard_round1022.py::TestSendPointsCoverage::test_every_send_point_is_registered_or_allowlisted
+1 failed in 4.69s
+=== base 1b7d43333 ===
+                f"╨╜╨╡╨╖╨░╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╨╛╨▓╨░╨╜╨╜╨░╤П send-╤В╨╛╤З╨║╨░: {rel}")
+E           AssertionError: ╨╜╨╡╨╖╨░╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╨╛╨▓╨░╨╜╨╜╨░╤П send-╤В╨╛╤З╨║╨░: handlers/meme_command.py
+E           assert ('handlers/meme_command.py' in {'services/smartmodule_utils.py': ('_send_once',), 'services/summary_generator.py': ('_send_streaming', '_send_chunked', '_send_one_chunk', '_send_ux', 'send_rich_message')} or 'handlers/meme_command.py' in {'handlers/slava_presence.py': '╤Б╤В╨░╤В╨╕╤З╨╜╨╛╨╡ ╨┐╤А╨╕╨▓╨╡╤В╤Б╤В╨▓╨╕╨╡ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░', 'handlers/video_download.py': 'UX-╤Д╤А╨░╨╖╤Л ╨┐╤А╨╛╨│╤А╨╡╤Б╤Б╨░ ╨╕ ...summary.py': 'UX-╤Д╤А╨░╨╖╨░ busy/╨╛╤И╨╕╨▒╨║╨╕', 'services/dead_page_relay.py': '╤А╨╡╨╗╨╡-╤В╨╡╨║╤Б╤В ╨│╨╛╤В╨╛╨▓╨╛╨│╨╛ ╨┐╨╛╤Б╤В╨░ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║: ╨║╨░╨╜╨░╨╗)', ...})
+
+tests\test_outgoing_guard_round1022.py:167: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_outgoing_guard_round1022.py::TestSendPointsCoverage::test_every_send_point_is_registered_or_allowlisted
+1 failed in 4.89s
