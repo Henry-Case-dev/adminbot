@@ -1,0 +1,18 @@
+HEAD 9138f2ee821aceb897cd69d3a768d5969852751c
+merge 6057bd5bbc791c78ae8102c3d143ea4de1c7a186
+base 26b8880c64283457434fdbec58f65e0dd3eafd25
+--- product numstat base..HEAD web/app.js web/index.html ---
+16	7	web/app.js
+14	3	web/index.html
+--- product diff 0a8571acc..afe9beb24 -- web tests tools (expect empty) ---
+--- base..HEAD -- web (expect only the two product files) ---
+web/app.js
+web/index.html
+--- backend/services/handlers/web/api/database.py/migrations (expect empty) ---
+--- config diff ---
+config/settings.py
+--- node --check ---
+node-check-rc=0
+--- git diff --check base..HEAD ---
+diff-check-rc=0
+--- bump-only web diff (merge..bump; expect empty) ---

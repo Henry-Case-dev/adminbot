@@ -1,0 +1,142 @@
+{
+  "release": "2.58.223",
+  "branch": "release/mod-acl-w3-503-2.58.223",
+  "base": {
+    "sha": "26b8880c64283457434fdbec58f65e0dd3eafd25",
+    "version": "2.58.222",
+    "role": "base and rollback",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "sha": "afe9beb2478fb19f435319cb07e0aa3264b2bb87",
+    "product_commit": "0a8571acc9f3bfff3fcf5f6f8ce8b53a0c2ff8c8",
+    "branch": "fix/mod-acl-w3-503",
+    "review": "APPROVED_FOR_RELEASE_PREPARATION",
+    "review_addendum_sha256": "7e7751f1134cd93fbc1a2f88b563ca56efc2a326b84ba069cdb9a92262ef278d"
+  },
+  "merge_commit": "6057bd5bbc791c78ae8102c3d143ea4de1c7a186",
+  "content_bump_commit": "9138f2ee821aceb897cd69d3a768d5969852751c",
+  "version": "2.58.223",
+  "schema": {
+    "target": 48,
+    "user_version": 48,
+    "schema_migrations_max": 48,
+    "schema_migrations_count": 48,
+    "ddl": 0,
+    "method": "temp SQLite DatabaseService.initialize(); services.database._SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "playwright": "1.62.0",
+    "chromium": "156.0.8078.4"
+  },
+  "product_delta": {
+    "base_to_content": {
+      "web/app.js": {"insertions": 16, "deletions": 7},
+      "web/index.html": {"insertions": 14, "deletions": 3}
+    },
+    "product_files": ["web/app.js", "web/index.html"],
+    "candidate_to_product_diff": "git diff 0a8571acc..afe9beb24 -- web tests tools = empty",
+    "bump_touches_web": "git diff 6057bd5bb..9138f2ee8 -- web = empty",
+    "backend_api_ddl_flags_prompts_storage": "0 files: git diff 26b8880c..9138f2ee8 -- services handlers web/api database.py migrations = empty; config only settings.py (APP_VERSION/changelog)"
+  },
+  "bump": {
+    "files": 30,
+    "insertions": 31,
+    "deletions": 31,
+    "app_version": "2.58.223",
+    "bom_crlf": "preserved; 0 BOM/line-ending mismatches",
+    "check": "git diff --check 26b8880c..9138f2ee8 rc=0; node --check web/app.js rc=0"
+  },
+  "batches": [
+    {
+      "id": "node-history",
+      "command": "node tests/js/mod_acl_ux_m4a_w2b_history_test.js",
+      "passed_checks": 397,
+      "failed": 0
+    },
+    {
+      "id": "node-mod-acl-7",
+      "command": "node <each tests/js/mod_acl_ux_*.js>",
+      "files": 7,
+      "checks": [235, 141, 397, 84, 207, 64, 75],
+      "failed": 0
+    },
+    {
+      "id": "pytest-5-files",
+      "command": "python -m pytest tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q -p no:cacheprovider",
+      "passed": 83,
+      "failed": 0
+    },
+    {
+      "id": "mandatory-24-files",
+      "command": "python -m pytest <24-file M4A/M2/M2.1 + f8 + mca23 + webapp JS set> -q -p no:cacheprovider",
+      "passed": 386,
+      "failed": 0
+    },
+    {
+      "id": "version-pins-24-py",
+      "command": "python -m pytest <24 Python pin files from the 2.58.222 bump set> -q -p no:cacheprovider",
+      "passed": 856,
+      "failed": 4
+    },
+    {
+      "id": "version-pins-4-js",
+      "command": "node <round1025_hotfix7/8/9/10 test files>",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "id": "broad-js",
+      "command": "node <each tests/js/**/*_test.js>",
+      "files": 124,
+      "passed": 120,
+      "failed": 4
+    },
+    {
+      "id": "m4a-catalog-e2e",
+      "command": "MOD_ACL_M4A_SHOTS=<tmp> python tools/ui_mod_acl_m4_catalog_e2e.py",
+      "failures": 0,
+      "report_sha256": "8da4b5164dc547eb047f3b8cedc36d1e456ed33d27a8227bf0a82a68528c211b"
+    }
+  ],
+  "baseline_failures": {
+    "same_on_base": true,
+    "base_sha": "26b8880c64283457434fdbec58f65e0dd3eafd25",
+    "node_ids": [
+      "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+      "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+      "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+      "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+    ],
+    "broad_js_failing_files": [
+      "tests/js/asap6_wave2_ux_tabs_test.js",
+      "tests/js/evol_cog_scene_test.js",
+      "tests/js/round1025_ia_routing_test.js",
+      "tests/js/ur_ui_settings_test.js"
+    ],
+    "note": "pre-existing epic-scope guards; reproduced on the 2.58.222 base and not counted as pass"
+  },
+  "e2e_matrix": {
+    "empty": {"state": "empty", "text": "Записей пока нет."},
+    "denied": {"state": "denied", "text": "Журнал недоступен: нет доступа (403)."},
+    "unavailable": {"state": "unavailable", "text": "Журнал временно недоступен (503). Повторите попытку."},
+    "off": {"state": "off", "text": "Журнал недоступен: функция выключена."},
+    "stale": {"state": "stale(409-banner)", "marker": "data-workspace-conflict", "text": "Настройка изменилась в другом окне"}
+  },
+  "e2e_503_deeplink": {
+    "hash": "#/modules/sleep/history",
+    "panel": true,
+    "panel_state": "unavailable",
+    "panel_text": "История временно недоступна (503). Повторите попытку."
+  },
+  "limitations": [
+    "No production deploy, SSH, live TMA or VERIFIED claim in this assembly.",
+    "The e2e uses a synthetic Playwright API stub, not production bytes.",
+    "MAC-S10-16 remains not VERIFIED until the deployed-byte live matrix and Browser Use.",
+    "F-2/F-3 are out of the W3/F-1 corrective scope."
+  ]
+}

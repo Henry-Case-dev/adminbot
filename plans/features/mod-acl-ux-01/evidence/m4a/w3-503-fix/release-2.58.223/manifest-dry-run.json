@@ -1,0 +1,36 @@
+{
+  "captured_at_commit": "9138f2ee821aceb897cd69d3a768d5969852751c",
+  "command": "python tools/release_manifest.py --repo-root <release-worktree> --deployer release-258223-builder --dry-run",
+  "exit_code": 0,
+  "deploy_dir_created_for_reconstruction": true,
+  "script_created_deploy_dir": false,
+  "deploy_dir_removed_after_run": true,
+  "tree_state": "tracked tree clean before and after; .deploy previous-manifest input removed",
+  "manifest": {
+    "deployed_at": "2026-11-20T06:29:42.752946Z",
+    "deployed_sha": "9138f2ee821aceb897cd69d3a768d5969852751c",
+    "deployer": "release-258223-builder",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "26b8880c64283457434fdbec58f65e0dd3eafd25",
+    "previous_version": "2.58.222",
+    "release_branch": "release/mod-acl-w3-503-2.58.223",
+    "schema": 1,
+    "version": "2.58.223"
+  },
+  "prior_manifest_input": {
+    "path": ".deploy/release.json (git-ignored, local only)",
+    "origin": "documented deployed state: 26b8880c / 2.58.222 (schema 48, DDL 0)",
+    "production_file_read": false,
+    "content": {
+      "schema": 1,
+      "deployed_sha": "26b8880c64283457434fdbec58f65e0dd3eafd25",
+      "version": "2.58.222",
+      "effect": "deploy",
+      "release_branch": "release/mod-acl-w2c-2.58.222"
+    },
+    "removed_after_run": true
+  },
+  "procedure_note": "The first prior-manifest write used a UTF-8 BOM; the script honestly returned previous_sha/previous_version = null. It was redone with a BOM-less JSON (newline='\\n'), producing the recorded previous fields.",
+  "note": "Dry-run captured the content/bump tip 9138f2ee8, not the later evidence-only tip. The deploy-time manifest must record the actual checkout SHA; product bytes are identical between content and evidence-only commits."
+}

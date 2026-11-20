@@ -1,0 +1,29 @@
+{
+ "files": 124,
+ "passed": 120,
+ "failed": 4,
+ "timeouts": 0,
+ "failing_files": [
+  {
+   "file": "tests/js/asap6_wave2_ux_tabs_test.js",
+   "rc": 1,
+   "tail": "Module._load (node:internal/modules/cjs/loader:1379:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n"
+  },
+  {
+   "file": "tests/js/evol_cog_scene_test.js",
+   "rc": 1,
+   "tail": "ux-01-1e46be007668-c7bf5867\\web\\app.js:39316:14)\n    at Object.graphApplySelectionLabels (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-c7bf5867\\web\\app.js:41228:14)\n    at cycles (C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-c7bf5867\\tests\\js\\evol_cog_scene_test.js:692:37)\n\nNode.js v24.16.0\n"
+  },
+  {
+   "file": "tests/js/round1025_ia_routing_test.js",
+   "rc": 1,
+   "tail": "ules/cjs/loader:1379:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: 'Речь и характер',\n  expected: '#/ai/persona',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n"
+  },
+  {
+   "file": "tests/js/ur_ui_settings_test.js",
+   "rc": 1,
+   "tail": "oad (node:internal/modules/cjs/loader:1379:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n"
+  }
+ ],
+ "timeout_files": []
+}
