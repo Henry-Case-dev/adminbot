@@ -47,8 +47,10 @@
     {
       "id": "python-d1-d3-regression",
       "command": "py -3 -m pytest tests/test_webapp_m4b_b2_api.py tests/test_token_analytics_round1023.py tests/test_webapp_memory_overview_api.py tests/test_webapp_analytics_api.py tests/test_webapp_f6_round1025.py -q -p no:cacheprovider",
-      "passed": 110,
+      "passed": 94,
       "failed": 0,
+      "artifact_summary": "94 passed, 3 warnings in 12.57s",
+      "note": "NB-1 corrective: the earlier evidence line said 110; the actual run/artifact is 94 passed. No test was changed, only the counter.",
       "output": "test-output/pytest-d1-d3-regression.txt"
     },
     {
@@ -92,8 +94,8 @@
     },
     {
       "id": "w15-composition-e2e",
-      "failures": 72,
-      "note": "same count as B1 candidate; 0 failures mention status/observer; observer-kpi__cell token test passes"
+      "failures": 71,
+      "note": "environment-dependent count: this candidate run reports 71 pre-existing adaptive/prompt-editor failures (the B1 run on another stand reported 72); 0 failures mention status/observer; observer-kpi__cell token test passes. No B2/B1-specific failure."
     }
   ],
   "mutations": {
@@ -117,11 +119,26 @@
     "ddl_changed": 0,
     "effective_state": "no new flags; D1/D3 read-only fields only"
   },
+  "review_followups": {
+    "verdict": "APPROVED_FOR_RELEASE_PREPARATION (Reviewer B2 r1, candidate tip 09ef444d8, product db92c73ce)",
+    "fixed_in_evidence": {
+      "NB-1": "D1/D3 counter corrected 110 -> 94 (artifact 94 passed); git diff --check rc=0 only for scoped `-- web tests tools`; the full-range diff still contains evidence trailing whitespace, which is docs-only.",
+      "NB-2": "W15 failure count corrected 72 -> 71 with an environment-dependent note; 0 status/observer-related failures."
+    },
+    "not_fixed_nonblocking": [
+      "NB-3",
+      "NB-4",
+      "NB-5",
+      "NB-6",
+      "BL-1"
+    ],
+    "not_fixed_note": "NB-3/NB-4/NB-5/NB-6/BL-1 are nonblocking follow-ups/B3, not fixed in this candidate or release assembly."
+  },
   "limitations": [
     "Playwright/Browser Use use a local synthetic API stand, not production/live TMA.",
     "D1 latency/error are nullable and appear only when plan_meta exists; no natural event fabricated.",
     "503 and image-only last-call states are deterministic stubs.",
     "No per-call full trace page (D2): correlation_id + Analytics link only; S6-345 remains partial.",
-    "W10/W15 full tools carry pre-existing failures unrelated to B2; B1/W2a/W2c contracts remain green."
+    "W10/W15 full tools carry pre-existing failures unrelated to B2 (W15 count is environment-dependent: 71 on this run, 72 on the B1 stand); B1/W2a/W2c contracts remain green."
   ]
 }

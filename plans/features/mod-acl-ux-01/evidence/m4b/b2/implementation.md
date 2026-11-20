@@ -84,14 +84,14 @@
 |---|---|
 | Mandatory 24-file pytest (`tests/test_round1025_f8_registry.py` … `tests/test_webapp_js_unit.py`) | **386 passed, 0 failed** |
 | Targeted node B2 + W3/W5/F6/B1 | **6/6 rc=0**: `MOD-ACL-UX-M4B-B2-OBSERVER-OK`, `...-LASTCALL-OK`, `W3-STATUS-UNIT-OK`, `SOUL1-W5-PANEL-OK`, `F6-ANALYTICS-MEMORY-OK`, `MOD-ACL-UX-M4B-B1-FEEDS-OK` |
-| Python D1/D3 + regression (`test_webapp_m4b_b2_api`, analytics, memory overview, f6) | **110 passed, 0 failed** |
+| Python D1/D3 + regression (`test_webapp_m4b_b2_api`, analytics, memory overview, f6) | **94 passed, 0 failed** (artifact `94 passed`; NB-1: the earlier 110 was a counter error, tests unchanged) |
 | Broad JS `tests/js/*_test.js` | **127 files, 124 passed, 3 failed** — те же pre-existing: `evol_cog_scene`, `round1025_ia_routing`, `ur_ui_settings` |
 | B1 Playwright e2e (`ui_mod_acl_m4b_status_e2e.py`) | **138 checks, 0 failures** |
 | B2 Playwright e2e (`ui_mod_acl_m4b2_status_e2e.py`) | **92 checks, 0 failures**; 1920/1440/1280/768/390/320; no-data/503/image-only/chat-scope |
 | W3 status e2e (updated consciously) | **OK**; `observer_kpis`, `observer_no_funnel`, observed 420, liveness, domains explain; `initiative_decisions` не входит в W3 |
 | W10 sections e2e | те же **3 pre-existing** module/catalog failures |
-| W15 composition e2e | **72 fails**, same as B1 candidate; **0** status/observer-related; `observer-kpi__cell` token check passes |
-| `git diff --check`, `node --check web/app.js`, `py_compile` | rc=0 |
+| W15 composition e2e | **71 fails**, 0 status/observer-related; `observer-kpi__cell` token check passes; count is environment-dependent (B1 stand: 72) |
+| `git diff --check -- web tests tools`, `node --check web/app.js`, `py_compile` | rc=0 only for the scoped paths; full-range diff still shows evidence trailing whitespace (NB-1, docs-only) |
 
 ### 3.1. Мутации (temp backup → mutate → test → restore)
 
@@ -152,7 +152,24 @@ API (`ui_round1025_matrix` + B2 stubs), не live TMA.
   байты проверяются после deploy.
 - D1 latency отсутствует у старых строк/без `plan_meta` — это честный unknown.
 - 503 и image-only — stub-состояния; натуральные события не создавались.
-- W10 (3) и W15 (72) полные инструменты имеют pre-existing failures, не
+- W10 (3) и W15 (71 в этом прогоне; 72 на стенде B1 — счётчик
+  зависит от окружения) полные инструменты имеют pre-existing failures, не
   связанные с B2; B1/W2a/W2c/W3 контракты не регрессированы.
 - Backend/API/DDL/flags/prompts/storage: только D1/D3 read-only; bump/deploy
   не выполнялись.
+
+## 7. Находки Reviewer B2 r1 (evidence-only правки)
+
+Вердикт: **APPROVED_FOR_RELEASE_PREPARATION** (кандидат tip `09ef444d8`,
+product `db92c73ce`). В этом кандидате исправлены только evidence-счётчики;
+product/test/e2e-код не менялся.
+
+- **NB-1 (исправлено в evidence):** D1/D3-счётчик исправлен **110 → 94**
+  (артефакт `test-output/pytest-d1-d3-regression.txt`: `94 passed`);
+  `git diff --check` rc=0 только для `-- web tests tools`, полный diff
+  по-прежнему содержит trailing whitespace в evidence-документах (NB-1),
+  это docs-only.
+- **NB-2 (исправлено в evidence):** W15 исправлено **72 → 71** с пометкой
+  о зависимости от окружения; 0 падений, связанных со status/observer.
+- **NB-3, NB-4, NB-5, NB-6, BL-1:** nonblocking follow-ups/B3, в этом
+  кандидате и релизной сборке **не исправлялись**.
