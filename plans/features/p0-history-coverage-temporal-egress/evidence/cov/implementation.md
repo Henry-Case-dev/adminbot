@@ -5,7 +5,7 @@
 - Branch: `p0/hc-a`.
 - Worktree: `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-history-coverage-temporal-e-cbf9b3fab6a8-6a3294ea`
   (created with installed `workflow_housekeeping.py worktree-path` + `git worktree add`; no sibling checkout).
-- Product/tests candidate: `5eed27762456e34e5748d1fd3e3ba6b01c386f75`.
+- Product/tests candidate: `a58104f691ff3a7d2c2a543d6bb5646dfc5b3fd4`.
 - Evidence commit adds only `plans/features/p0-history-coverage-temporal-egress/evidence/cov/**`.
 - Deploy/bump: none. DDL/flags/prompts canon/`chat_prompts.py`: none.
 
@@ -113,7 +113,12 @@ egress is slice C and is not claimed here.
    on a live turn; legacy tool-only TIME-03 calls keep `requested=0/depth`);
    `за N дней до …` is no longer a now-anchored duration. Details:
    `review-fixes.md`.
-6. **FTS boundary:** the turn range-bound (`ctx.history_sample`,
+6. **Review r2 (HC-A-R2-F1):** a persisted explicit-window error bound keeps
+   `range_status=unread`, its `reason` (`db_error`/`timeout`/`search_failed`)
+   and `range_complete=0`; an empty page cannot mask it. A new valid explicit
+   window replaces an old error bound as a retry; an empty valid window remains
+   `range_empty`. Details: `review-fixes-r2.md`.
+7. **FTS boundary:** the turn range-bound (`ctx.history_sample`,
    `window_kind=time_range`) always wins, ignores `query` and never calls
    `search_long_term`; the deterministic extraction path also forbids FTS.
    An explicit model-supplied `time_window` **with** `query` keeps the
@@ -129,11 +134,11 @@ Machine-readable: `tests.json`. Raw outputs: `tests/`, `red-base/`,
 
 | Batch | Result |
 |---|---|
-| New `tests/test_p0_hc_coverage.py` | **60 passed** |
-| New + existing history pages/segments/depth/VMQ/isolation marker | **186 passed** |
+| New `tests/test_p0_hc_coverage.py` | **62 passed** |
+| New + existing history pages/segments/depth/VMQ/isolation marker | **188 passed** |
 | Mandatory 24-file pytest set | **386 passed, 0 failed** |
 | RED on base `1b7d43333` (new contract symbols absent) | collection `ImportError` (saved) |
-| Mutations (7) | each expected RED; restored tree **186 passed** on focused rerun |
+| Mutations (8) | each expected RED; restored tree **188 passed** on focused rerun |
 
 Mutation coverage: range→FTS, wrong local midnight, page drop, partial inline,
 missing `range_empty`; review-r1 F1 false-complete and F2 tail-skipped.

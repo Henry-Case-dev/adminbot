@@ -10,4 +10,4 @@
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-386 passed, 1 warning in 28.45s
+386 passed, 1 warning in 28.33s

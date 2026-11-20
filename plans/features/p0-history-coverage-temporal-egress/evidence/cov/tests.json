@@ -4,7 +4,7 @@
   "slice": "HC-COV",
   "base_commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
   "branch": "p0/hc-a",
-  "candidate_commit": "5eed27762456e34e5748d1fd3e3ba6b01c386f75",
+  "candidate_commit": "a58104f691ff3a7d2c2a543d6bb5646dfc5b3fd4",
   "worktree": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/p0-history-coverage-temporal-e-cbf9b3fab6a8-6a3294ea",
   "environment": {
     "python": "3.12.0 (.venv from C:/Code/Python/adminbot)",
@@ -20,11 +20,11 @@
   },
   "results": {
     "new": {
-      "passed": 60,
+      "passed": 62,
       "failed": 0
     },
     "focused": {
-      "passed": 186,
+      "passed": 188,
       "failed": 0
     },
     "mandatory_386": {
@@ -43,6 +43,12 @@
       "command": "python -m pytest tests/test_p0_hc_coverage.py -q",
       "result": "5 failed, 55 passed (F1-F5 new regressions fail on candidate 596f5e38)",
       "artifact": "red-base/pytest-review-fixes-596f5e38.txt"
+    },
+    "review_fixes_r2": {
+      "product": "5eed27762456e34e5748d1fd3e3ba6b01c386f75",
+      "command": "python -m pytest tests/test_p0_hc_coverage.py -q",
+      "result": "1 failed, 61 passed (HC-A-R2-F1 new regression)",
+      "artifact": "red-base/pytest-review-r2-5eed2776.txt"
     }
   },
   "mutations": [
@@ -94,6 +100,13 @@
       "test": "tests/test_p0_hc_coverage.py::TestCoverageLedger::test_skipped_tail_page_rows_are_counted",
       "result": "1 failed (expected)",
       "artifact": "mutations/review-m4-f2-tail-skipped.txt"
+    },
+    {
+      "id": "review-r2-unread-to-range-empty",
+      "mutation": "unread/error not recognized as error bound",
+      "test": "tests/test_p0_hc_coverage.py::TestExplicitWindowErrorBound::test_error_not_masked_and_retry_valid_window",
+      "result": "1 failed (expected)",
+      "artifact": "mutations/review-r2-unread-to-range-empty.txt"
     }
   ],
   "products": [
@@ -118,7 +131,8 @@
     "Telegram egress, full temporal metadata matrix and paired acceptance batteries are slices C1/C2/B/ACCEPT.",
     "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken fails outside the mandatory set due to the UR-14 removal of style_anchors; A does not touch that path and does not use it as evidence.",
     "F4 live-turn requested=available; legacy tool-only calls without turn_as_of keep the accepted TIME-03 requested=0/depth unit contract (focused vmq suite re-run green).",
-    "F3 turn-level gate requires a history marker or explicit requested period; explicit model tool calls still use the tool grammar directly."
+    "F3 turn-level gate requires a history marker or explicit requested period; explicit model tool calls still use the tool grammar directly.",
+    "R2 error-bound: persisted unread/error bound stays error; a new valid explicit window clears it as a retry; empty valid window remains range_empty."
   ],
   "review_fixes": {
     "file": "review-fixes.md",
@@ -139,6 +153,15 @@
     ],
     "non_blocking_fixed": [
       "HC-A-F9"
+    ]
+  },
+  "review_fixes_r2": {
+    "file": "review-fixes-r2.md",
+    "findings": [
+      "HC-A-R2-F1"
+    ],
+    "fixed": [
+      "HC-A-R2-F1"
     ]
   }
 }

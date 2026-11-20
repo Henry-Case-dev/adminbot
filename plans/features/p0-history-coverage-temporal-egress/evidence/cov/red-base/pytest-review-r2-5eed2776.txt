@@ -1,0 +1,42 @@
+﻿..................................................F...........           [100%]
+================================== FAILURES ===================================
+__ TestExplicitWindowErrorBound.test_error_not_masked_and_retry_valid_window __
+
+self = <tests.test_p0_hc_coverage.TestExplicitWindowErrorBound object at 0x000001B27D60C7D0>
+
+    @pytest.mark.asyncio
+    async def test_error_not_masked_and_retry_valid_window(self):
+        """HC-A-R2-F1: db_error ╨╛╤Б╤В╨░╤С╤В╤Б╤П error; ╨╜╨╛╨▓╤Л╨╣ ╨▓╨░╨╗╨╕╨┤╨╜╤Л╨╣ window
+        ╨╖╨░╨╝╨╡╨╜╤П╨╡╤В error-bound ╨╕ ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ coverage."""
+        db = await _make_db([(1000, "a"), (1010, "b")])
+        router = _router(db)
+        real_read = router._history_read_page
+        calls = {"n": 0}
+    
+        async def _flaky(db_, bound, *, after, projection=None):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("db down")
+            return await real_read(db_, bound, after=after,
+                                   projection=projection)
+    
+        router._history_read_page = _flaky
+        ctx = _ctx(as_of=1021)
+        try:
+            window = {"since": _iso(1000), "until": _iso(1010)}
+            first = await router.dispatch(
+                "get_recent_history", {"time_window": window}, ctx)
+            header = _header(first)
+            assert header["status"] == "error"
+            assert header["reason"] == "db_error"
+            assert ctx.history_sample["range_status"] == "unread"
+>           assert ctx.history_sample["reason"] == "db_error"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'reason'
+
+tests\test_p0_hc_coverage.py:776: KeyError
+------------------------------ Captured log call ------------------------------
+WARNING  services.tool_router:tool_router.py:6876 [tools] get_recent_history failed | chat=-1001234567890 | error=RuntimeError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_coverage.py::TestExplicitWindowErrorBound::test_error_not_masked_and_retry_valid_window
+1 failed, 61 passed in 8.43s
