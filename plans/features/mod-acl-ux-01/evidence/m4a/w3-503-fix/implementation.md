@@ -43,9 +43,10 @@ link `#/modules/<slug>/history` на bare — панель остаётся с �
 `enabled:false` остаются `off`; «0 событий» нигде не подменяет отказ.
 
 Diff: `4 files changed, 276 insertions(+), 53 deletions(-)` (2 продукта,
-2 теста). Кандидатные блобы (`git cat-file -p HEAD:<path> | sha256sum`):
-`web/app.js` = `6d30c659…`, `web/index.html` = `77467507…` (CRLF рабочего
-дерева Windows не сравнивать с deployed-блобом).
+2 теста). Кандидатные блобы (`git show <candidate>:<path> | sha256sum`,
+проверено байт-безопасно на candidate tip; product-коммит `0a8571acc`,
+последующие коммиты docs-only и `web/` не меняют):
+`web/app.js` = `108f440f…`, `web/index.html` = `c3ceb1b5…`.
 
 ## 3. Тесты
 
