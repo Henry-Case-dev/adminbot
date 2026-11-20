@@ -1,0 +1,32 @@
+﻿node : node:assert:152
+строка:1 знак:419
++ ... _w5_initiative_panel_test.js')){ node "$red\tests\js\$t" 2>&1 | Out-F ...
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (node:assert:152:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: W5: KPI-╤Б╤В╤А╨╛╨║╨░ ╨╜╨░╨▒╨╗╤О╨┤╨░╤В╨╡╨╗╤П ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╜╨░
+
+0 !== 1
+
+    at Object.<anonymous> (C:\Users\main\AppData\Local\Temp\opencode\m4b2-redbase\tests\js\soul1_w5_initiative_panel_te
+st.js:134:10)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 0,
+  expected: 1,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.16.0

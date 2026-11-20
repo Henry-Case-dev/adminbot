@@ -1,0 +1,10 @@
+﻿{
+    "failed_files":  [
+                         "evol_cog_scene_test.js",
+                         "round1025_ia_routing_test.js",
+                         "ur_ui_settings_test.js"
+                     ],
+    "files":  127,
+    "failed":  3,
+    "passed":  124
+}

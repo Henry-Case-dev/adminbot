@@ -263,8 +263,12 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
     'U03.4: independent-воронка в разметке');
   assert.ok(statusSeg.indexOf('data-experience-windows') > 0,
     'U03.4: окна 24ч/7д опыта в разметке');
-  assert.ok(/funnel-grid/.test(CSS) && /exp-windows/.test(CSS),
-    'U03.4: CSS воронок');
+  assert.ok(/observer-kpi/.test(CSS) && /exp-windows/.test(CSS),
+    'U03.4: CSS независимых KPI наблюдателя');
+  assert.strictEqual(/funnel-grid|funnel-cell/.test(CSS), false,
+    'M4B B2: псевдо-воронка удалена из CSS');
+  assert.strictEqual(/funnel-grid|funnel-cell/.test(INDEX), false,
+    'M4B B2: псевдо-воронка удалена из разметки');
 
   const intelFunnels = {
     available: true, now_ts: 1791900000, chat_scoped_events: false,
@@ -323,19 +327,32 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
     });
   };
   const f = computed.initiativeFunnel.call(mk('not_run'));
-  assert.ok(f, 'not_run → воронка есть');
-  const labels = f.stages.map(function (s) { return s.label; });
+  assert.ok(f, 'not_run → панель наблюдателя есть');
+  assert.strictEqual(f.stages, undefined,
+    'M4B B2: 8-стадийная «воронка» не возвращается');
+  assert.strictEqual(f.kpis.length, 6, 'M4B B2: не больше 6 KPI');
+  const labels = f.kpis.map(function (s) { return s.label; });
   assert.deepStrictEqual(labels,
-    ['Наблюдено', 'Квалифицировано', 'Возможности', 'Намерения', 'Решения',
-     'Текст', 'Перепроверка', 'Отправлено'],
-    'U03.4: полная цепочка observed→…→sent');
-  const values = f.stages.map(function (s) { return s.value; });
-  assert.deepStrictEqual(values, [420, 25, 4, 2, 3, 3, 2, 1],
-    'U03.4: значения — durable counters + события 7д (writer/recheck)');
-  assert.strictEqual(f.stages[4].sub, 'реакций: 1',
-    'U03.4: реакции видны отдельной подписью');
+    ['Входящие события', 'Реальные поводы', 'Решения', 'Написано',
+     'Опубликовано', 'Создано намерений'],
+    'M4B B2: независимые KPI без линейной конверсии');
+  const values = f.kpis.map(function (s) { return s.value; });
+  assert.deepStrictEqual(values, [420, 4, 3, 2, 1, 2],
+    'M4B B2: durable/24ч/снимок значения не складываются в конверсию');
+  assert.deepStrictEqual(f.kpis.map(function (s) { return s.window; }),
+    ['всего (durable)', 'всего (durable)', 'всего (durable)', '24ч',
+     'всего (durable)', 'всего (durable)'],
+    'M4B B2: у каждого числа явное окно');
+  assert.strictEqual(f.kpis[2].sub, '24ч: 2 · реакции: 1',
+    'M4B B2: реакции видны отдельной подписью');
+  assert.ok(f.kpis.every(function (s) { return s.meta.indexOf('снимок') >= 0; }),
+    'M4B B2: у каждого KPI есть scope/снимок');
+  assert.strictEqual(f.entities.sameCohort, false,
+    'M4B B2: доказанной единой когорты нет — конверсия не рисуется');
+  assert.strictEqual(f.entities.intents.value, 2);
+  assert.strictEqual(f.entities.publications.value, 1);
   assert.ok(f.emptyReason.indexOf('отправлено 1') >= 0,
-    'U03.4: непустая воронка — честный итог');
+    'U03.4: непустая панель — честный итог');
   assert.ok(f.liveLabel.indexOf('последний тик') === 0,
     'U03.4: liveness-штамп показан');
   // Пустая панель ≠ «работает»: нули → причина пустоты, не «работает».

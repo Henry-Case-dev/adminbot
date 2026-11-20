@@ -3399,7 +3399,13 @@
       padding: .2rem 0;
       border-bottom: 1px solid rgba(255, 255, 255, .06);
     }
-    .exec-preview { min-width: 0; }
+    .exec-preview { min-width: 0; align-self: start; }
+
+    /* M4B B2 (MAC-S6-347): «Сон» и «Последний вызов» — независимые высоты.
+       Grid по умолчанию растягивает короткий блок до высоты соседа; пустой
+       «Последний вызов» не должен получать пустой низ. */
+    .status-grid > .status-sleep,
+    .status-grid > .exec-preview { align-self: start; }
 
     /* §29 mobile: граф/детали — вертикально, без сжатия до 320 px.
        Детали превращаются в bottom-sheet. */
@@ -5220,30 +5226,41 @@ html.cover-editor-open { overflow: hidden; }
   padding: var(--space-1);
 }
 
-/* U03.4: independent-воронка «Инициативы» — сетка ячеек стадий;
-   desktop 4 колонки, tablet 4→2, mobile — 2 колонки (читаемо на 320). */
-.funnel-grid {
+/* M4B B2 (MAC-S6-331/332/AC-14): независимые KPI наблюдателя — не
+   «воронка». 6 чисел: 3 колонки desktop, 2 планшет/mobile (3 ряда на 390),
+   без горизонтального скролла. Ячейка — та же роль плотной таблицы
+   (--table-*), что и прежняя стадия. */
+.observer-kpi {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .4rem;
 }
-@media (max-width: 991px) { .funnel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.funnel-cell {
-  /* W15-rework: ячейка воронки — та же роль плотной ячейки/блока (--table-*);
-     раньше это была третья копия 8/0.08/5.6+8. */
+@media (max-width: 991px) {
+  .observer-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.observer-kpi__cell {
   border: var(--table-hairline);
   border-radius: var(--table-row-radius);
   padding: var(--table-row-pad);
   min-width: 0;
   background: rgba(10, 14, 22, .55);
 }
-.funnel-cell__label { font-size: .66rem; color: #AAB6C8; }
-.funnel-cell__value { font-size: .95rem; font-weight: 700;
+.observer-kpi__label { font-size: .66rem; color: #AAB6C8; }
+.observer-kpi__value { font-size: .95rem; font-weight: 700;
   color: var(--text-1, #F4F7FB); line-height: 1.2; }
-.funnel-cell__sub { font-size: .62rem; color: #8b98ab; }
-.funnel-cell--ok { border-color: rgba(255, 255, 255, .08); }
-.funnel-cell--warn { border-color: rgba(251, 191, 36, .45); }
-.funnel-cell--warn .funnel-cell__value { color: #fbbf24; }
+.observer-kpi__meta { font-size: .62rem; color: #8b98ab; }
+.observer-kpi__sub { font-size: .62rem; color: #8b98ab; }
+.observer-kpi__cell--ok { border-color: rgba(255, 255, 255, .08); }
+.observer-kpi__cell--warn { border-color: rgba(251, 191, 36, .45); }
+.observer-kpi__cell--warn .observer-kpi__value { color: #fbbf24; }
+/* Топ причин: кликабельные строки; полный список — в details. */
+.observer-reason { font-size: .72rem; }
+.observer-reason summary {
+  cursor: pointer;
+  min-height: var(--control-h-touch, 44px);
+  display: flex; align-items: center; gap: .35rem;
+}
+.observer-reason summary b { color: var(--text-1, #F4F7FB); }
 
 /* U03.4: окна 24ч/7д «Опыта» — две карточки рядом, mobile — столбик. */
 .exp-windows {

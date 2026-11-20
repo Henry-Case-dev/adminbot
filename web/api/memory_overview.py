@@ -221,6 +221,43 @@ def _section_disabled() -> dict:
     return {"available": False}
 
 
+# M4B B2 / D3 (approved, read-only, DDL 0): серверное объяснение
+# «0 активных намерений при N публикациях». Числа уже посчитаны выше
+# (durable counters + окна mca_events); второй запрос/стор не нужен.
+def _initiative_domains(init_job, init_events: dict) -> dict:
+    counters = (init_job or {}).get("counters") or {}
+    events_24h = init_events.get("24h") or {}
+    events_7d = init_events.get("7d") or {}
+    return {
+        "intents": {
+            "source": "mca_intents",
+            "kind": "durable_active_snapshot",
+            "created_total": int(counters.get("intents_created") or 0),
+            "active_source": "status.intents.active",
+            "window": "created — durable (всего); active — снимок «сейчас»",
+        },
+        "publications": {
+            "source": "mca_events.initiative_sent",
+            "kind": "delivery_events",
+            "events_24h": int(events_24h.get("initiative_sent") or 0),
+            "events_7d": int(events_7d.get("initiative_sent") or 0),
+            "window": "события 24ч/7д",
+        },
+        # Доказанной единой когорты (общий corr ID и окно) нет — конверсию
+        # не заявляем; UI рисует независимые счётчики.
+        "same_cohort": False,
+        "explain": (
+            "Намерения — долговременные обещания вернуться к теме: снимок "
+            "активных строк mca_intents и durable-счётчик созданных. "
+            "Публикации — доставленные инициативные сообщения (события "
+            "initiative_sent в окне). Повод «уместно сказать сейчас» "
+            "эфемерный и намерения не создаёт, поэтому 0 активных намерений "
+            "при N публикациях — нормальное состояние домена, а не ошибка "
+            "арифметики и не конверсия."
+        ),
+    }
+
+
 @memory_overview_router.get("/memory/expired-overview")
 async def memory_expired_overview(
     request: Request,
@@ -337,6 +374,7 @@ async def memory_intel_funnels(
                 "opportunities": liveness.get("opportunities"),
             },
             "events": init_events,
+            "domains": _initiative_domains(init_job, init_events),
         },
         "experience": {
             "available": review_job is not None or bool(exp_events["24h"]),

@@ -50,7 +50,13 @@ _SELECT_LATEST_SQL = (
 )
 _SELECT_STEPS_SQL = (
     "SELECT ts, module, step, tool_name, source, model, input_tokens, "
-    "output_tokens, tokens_estimated, cost_usd, price_known "
+    "output_tokens, tokens_estimated, cost_usd, price_known, "
+    # M4B B2 / D1 (approved, read-only, DDL 0): nullable plan_meta-оси
+    # последнего LLM-вызова. Без второго endpoint/store; R17-whitelist уже
+    # применён при записи (services/usage_events.sanitize_plan_meta).
+    "plan_meta->>'latency_ms' AS latency_ms, "
+    "plan_meta->>'l1_failure_mode' AS l1_failure_mode, "
+    "plan_meta->>'l1_finish_reason' AS l1_finish_reason "
     "FROM llm_usage_events WHERE correlation_id = $1 ORDER BY ts ASC, id ASC"
 )
 # S8/`L-F6S-1` (ADR-1026-10 D4): аддитивный `price_known` = BOOL_AND(price_known)
@@ -156,6 +162,34 @@ def _bool(row, key, default=True) -> bool:
         return default
 
 
+def _row_get(row, key, default=None):
+    """Безопасное чтение поля строки (asyncpg.Record/fake dict)."""
+    try:
+        return row[key]
+    except (KeyError, TypeError, IndexError):
+        return default
+
+
+def _opt_float(row, key) -> float | None:
+    """Nullable float из plan_meta; битое/пустое → None (не 0)."""
+    value = _row_get(row, key)
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _opt_str(row, key, limit: int = 64) -> str | None:
+    """Nullable безопасный code/enum из plan_meta (R17: только код)."""
+    value = _row_get(row, key)
+    if value is None:
+        return None
+    text = str(value)
+    return text[:limit] if text else None
+
+
 def _step_row(row) -> dict:
     return {
         "ts": row["ts"].isoformat() if hasattr(row["ts"], "isoformat")
@@ -170,6 +204,10 @@ def _step_row(row) -> dict:
         "tokens_estimated": bool(row["tokens_estimated"]),
         "cost_usd": _num(row["cost_usd"]),
         "price_known": bool(row["price_known"]),
+        # M4B B2 / D1: nullable; старые строки без plan_meta → None.
+        "latency_ms": _opt_float(row, "latency_ms"),
+        "l1_failure_mode": _opt_str(row, "l1_failure_mode"),
+        "l1_finish_reason": _opt_str(row, "l1_finish_reason"),
     }
 
 

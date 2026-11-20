@@ -164,7 +164,7 @@ STATE_SKIP = ('[data-sfeed-active="1"]', '.is-active', '.is-picked', '.is-open',
 # них НЕ сравнивается с hairline роли.
 SEMANTIC_BORDER = ('.mem-kv--semantic', '.story-card--insufficient',
                    '.speech-diff-line.before', '.speech-diff-line.after',
-                   '.speech-preview-line.after', '.funnel-cell--warn')
+                   '.speech-preview-line.after', '.observer-kpi__cell--warn')
 
 CARD_TOKENS = ("--card-radius", "--card-hairline", "--card-pad")
 ROW_TOKENS = ("--row-radius", "--row-hairline", "--row-pad", "--row-gap")

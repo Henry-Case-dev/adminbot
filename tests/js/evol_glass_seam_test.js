@@ -203,6 +203,12 @@ const ALLOWED = [
   // памяти (годы/причины/подписи) без DOM-оптики. Стекло/фон/линза и
   // защищённые файлы по-прежнему проверяются побайтово.
   'web/static/status-analytics.js',
+  // MOD-ACL-UX-01 M4B B2 (D1/D3, approved read-only, DDL 0): аддитивные
+  // nullable-поля `latency_ms`/`l1_failure_mode`/`l1_finish_reason` в
+  // `/api/analytics/usage/latest` и серверное объяснение доменов в
+  // `/api/memory/intel-funnels`. Это API-контракт, НЕ оптика: защищённые
+  // файлы стекла/фона/линзы по-прежнему проверяются побайтово.
+  'web/api/analytics.py', 'web/api/memory_overview.py',
 ];
 changed.forEach(function (rel) {
   assert.ok(ALLOWED.indexOf(rel) >= 0,

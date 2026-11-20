@@ -14912,6 +14912,15 @@
                   Новых ошибок и предупреждений нет
                 </span>
               </div>
+              <!-- M4B B2 (MAC-S6-306): deployed revision и момент наблюдения
+                   в первом health-блоке. Оба значения уже есть в /api/status
+                   (bot.version, uptime.generated_at) — второй запрос не нужен. -->
+              <div class="text-xs text-gray-500 status-health__observed"
+                   data-status-observed>
+                Версия: <b data-status-version>{{ statusData && statusData.bot
+                  ? (statusData.bot.version || '—') : '—' }}</b>
+                · проверено: <b data-status-checked-at>{{ statusCheckedAt }}</b>
+              </div>
 
               <div class="status-block__grid status-health__segs"
                    data-status-block-grid>
@@ -15900,54 +15909,81 @@
                 <div v-if="initiativeFunnel" class="mt-2 pt-2 border-t border-white/10 text-xs"
                      data-initiative-independent>
                   <div class="flex items-center gap-2 flex-wrap mb-1">
-                    <div class="font-bold">Воронка наблюдателя</div>
-                    <span class="text-gray-500">durable счётчики · события 24ч/7д</span>
-                    <span v-if="initiativeFunnel.liveLabel" class="badge badge-muted">{{ initiativeFunnel.liveLabel }}</span>
+                    <div class="font-bold">Наблюдатель</div>
+                    <span class="text-gray-500">независимые KPI · причины · решения</span>
+                    <span v-if="initiativeFunnel.liveLabel" class="badge badge-muted"
+                          data-observer-liveness>{{ initiativeFunnel.liveLabel }}</span>
                     <button class="btn-ghost text-xs ml-auto" :disabled="intelFunnelsBusy"
                             @click="loadIntelFunnels()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
-                  <div class="funnel-grid">
-                    <div v-for="st in initiativeFunnel.stages" :key="'if-' + st.label"
-                         class="funnel-cell" :class="'funnel-cell--' + st.state"
-                         :title="st.hint">
-                      <div class="funnel-cell__label">{{ st.label }}</div>
-                      <div class="funnel-cell__value">{{ st.value }}</div>
-                      <div class="funnel-cell__sub" v-if="st.sub">{{ st.sub }}</div>
+                  <div class="text-gray-500" data-observer-snapshot>
+                    Scope: {{ initiativeFunnel.scopeLabel }} · снимок:
+                    {{ initiativeFunnel.snapshotLabel }}
+                  </div>
+                  <!-- MAC-S6-331: не больше 6 независимых KPI. Разные окна,
+                       единицы и источники не складываются в «конверсию». -->
+                  <div class="observer-kpi" data-observer-kpis>
+                    <div v-for="k in initiativeFunnel.kpis" :key="'ok-' + k.id"
+                         class="observer-kpi__cell"
+                         :class="'observer-kpi__cell--' + (k.state || 'ok')"
+                         :data-observer-kpi="k.id" :title="k.hint">
+                      <div class="observer-kpi__label">{{ k.label }}</div>
+                      <div class="observer-kpi__value">{{ k.value }}</div>
+                      <div class="observer-kpi__meta">{{ k.meta }}</div>
+                      <div v-if="k.sub" class="observer-kpi__sub">{{ k.sub }}</div>
                     </div>
                   </div>
-                  <div class="text-gray-500 mt-1">{{ initiativeFunnel.emptyReason }}</div>
-                  <!-- W5 (SOUL-18.4/18.5/18.6): честная жизнеспособность —
-                       предупреждение «возможности есть, сообщений нет»,
-                       реальные причины ворот, последние решения и доставки с
-                       message_id + ревизиями Core/Style, мягкие цели владельца
-                       и безопасная проверка до публикации. Всё — в ЭТОМ же
-                       единственном блоке (второй аналитической стены нет). -->
+                  <div class="text-gray-500 mt-1" data-observer-no-conversion>
+                    Это независимые числа из разных окон и единиц, а не конверсия:
+                    durable-счётчики — «всего», события — 24ч/7д, активные
+                    намерения — снимок «сейчас».
+                  </div>
+                  <div v-if="initiativeFunnel.emptyReason" class="text-gray-500 mt-1"
+                       data-observer-empty-reason>{{ initiativeFunnel.emptyReason }}</div>
+                  <!-- MAC-S6-333/MAC-S15-02: две независимые сущности. 0
+                       активных намерений при N публикациях объясняется сервером
+                       (D3 domains.explain), а не выводится арифметикой. -->
+                  <div class="grid gap-2 mt-2 sm:grid-cols-2" data-observer-entities>
+                    <div class="rounded-lg bg-white/5 px-2 py-1"
+                         data-observer-entity="intents">
+                      <div class="font-bold">{{ initiativeFunnel.entities.intents.label }}</div>
+                      <div>
+                        <b>{{ initiativeFunnel.entities.intents.value }}</b>
+                        <span class="text-gray-500">· {{ initiativeFunnel.entities.intents.window }}</span>
+                      </div>
+                      <div class="text-gray-500">{{ initiativeFunnel.entities.intents.note }}</div>
+                    </div>
+                    <div class="rounded-lg bg-white/5 px-2 py-1"
+                         data-observer-entity="publications">
+                      <div class="font-bold">{{ initiativeFunnel.entities.publications.label }}</div>
+                      <div>
+                        <b>{{ initiativeFunnel.entities.publications.value }}</b>
+                        <span class="text-gray-500">· {{ initiativeFunnel.entities.publications.window }}</span>
+                      </div>
+                      <div class="text-gray-500">{{ initiativeFunnel.entities.publications.sub }}</div>
+                    </div>
+                  </div>
+                  <div class="text-gray-500 mt-1" data-observer-domains-explain>
+                    {{ initiativeFunnel.entities.explain }}
+                  </div>
                   <template v-if="w5Vitality">
-                    <div v-if="w5Warning" class="mt-1"
-                         :class="w5Warning.level === 'warn'
-                           ? 'text-amber-300' : 'text-gray-400'"
-                         data-initiative-warning>
-                      <span class="badge badge-warn">Внимание</span>
-                      <b>{{ w5Warning.title }}</b>
-                      <div>{{ w5Warning.warning }}</div>
-                      <div v-if="w5Warning.recommendation" class="text-gray-500">
-                        Что делать: {{ w5Warning.recommendation }}
+                    <!-- MAC-S6-334: человеческий ответ, а не «health зелёный». -->
+                    <div v-if="w5Why" class="mt-2 rounded-lg bg-white/5 px-2 py-1"
+                         :class="w5Warning ? 'text-amber-300' : 'text-gray-300'"
+                         data-observer-why>
+                      <div class="font-bold" data-observer-why-heading>{{ w5Why.heading }}</div>
+                      <div>{{ w5Why.title }}</div>
+                      <div v-if="w5Why.warning">{{ w5Why.warning }}</div>
+                      <div v-if="w5Why.recommendation" class="text-gray-500">
+                        Что делать: {{ w5Why.recommendation }}
                       </div>
                     </div>
-                    <div class="text-gray-500 mt-1">{{ w5HealthLabel }}</div>
+                    <div class="text-gray-500 mt-1" data-observer-health>{{ w5HealthLabel }}</div>
                     <div v-if="w5SoftLabel" class="text-gray-500"
-                         :title="w5SoftBounds">
+                         :title="w5SoftBounds" data-observer-soft>
                       {{ w5SoftLabel }} · {{ w5SoftBounds }}
                     </div>
-                    <div v-if="w5Reasons.length" class="mt-1">
-                      <span class="text-gray-500">Причины:</span>
-                      <span v-for="r in w5Reasons" :key="'w5r-' + r.reason_code"
-                            class="badge badge-muted ml-1"
-                            :title="r.reason_code">
-                        {{ r.label }} — {{ r.count }}
-                      </span>
-                    </div>
-                    <div v-if="w5GateBlockers.length" class="mt-1">
+                    <div v-if="w5GateBlockers.length" class="mt-1" data-observer-blockers>
                       <span class="text-gray-500">Мешает сейчас:</span>
                       <div v-for="g in w5GateBlockers" :key="'w5g-' + g.label"
                            class="text-gray-400">
@@ -15956,60 +15992,106 @@
                           ({{ g.value }} / {{ g.limit }})</span>
                       </div>
                     </div>
-                    <div v-if="w5Decisions.length" class="mt-1">
-                      <span class="text-gray-500">Последние решения:</span>
+                    <!-- MAC-S6-334: топ-5 причин кликабельны; полный список —
+                         в раскрытии, без простыни на основном экране. -->
+                    <div v-if="w5Reasons.length" class="mt-2" data-observer-reasons>
+                      <div class="text-gray-500 mb-1">Топ причин молчания (клик — код и объяснение)</div>
+                      <details v-for="r in w5Reasons" :key="'w5r-' + r.reason_code"
+                               class="observer-reason" data-observer-reason>
+                        <summary>
+                          <span>{{ r.label }}</span>
+                          <b class="ml-1">{{ r.count }}</b>
+                        </summary>
+                        <div class="text-gray-500">код: <code>{{ r.reason_code }}</code></div>
+                      </details>
+                      <details v-if="w5AllReasons.length > w5Reasons.length"
+                               data-observer-all-reasons>
+                        <summary>Все причины ({{ w5AllReasons.length }})</summary>
+                        <div v-for="r in w5AllReasons" :key="'w5ra-' + r.reason_code"
+                             class="text-gray-400">
+                          · {{ r.label }} — {{ r.count }}
+                          <span class="text-gray-600">({{ r.reason_code }})</span>
+                        </div>
+                      </details>
+                    </div>
+                    <!-- MAC-S6-335: 3–5 последних строк с датой/action/причиной/
+                         доставкой; полный ledger — в раскрытии. -->
+                    <div v-if="w5Decisions.length" class="mt-2" data-observer-decisions>
+                      <div class="text-gray-500 mb-1">Последние решения ({{ w5Decisions.length }})</div>
                       <div v-for="(d, i) in w5Decisions" :key="'w5d-' + i"
-                           class="text-gray-400">
-                        · {{ d.action || '—' }} · {{ d.reason_label }}
-                        <span v-if="d.stage" class="text-gray-600">({{ d.stage }})</span>
+                           class="text-gray-400" data-observer-decision>
+                        · {{ d.tsLabel }} · {{ d.action }} · {{ d.reason_label }}
+                        <span v-if="d.deliveryLabel" class="text-gray-600">· доставка: {{ d.deliveryLabel }}</span>
+                        <span v-else class="text-gray-600">· доставка: не зафиксирована</span>
                       </div>
                     </div>
-                    <div v-if="w5Refusals.length" class="mt-1">
-                      <span class="text-gray-500">Отказы до отправки:</span>
-                      <div v-for="(r, i) in w5Refusals" :key="'w5x-' + i"
-                           class="text-gray-400">
-                        · {{ r.reason_label }} <span class="text-gray-600">({{ r.reason_code }})</span>
+                    <details class="mt-2" data-observer-ledger>
+                      <summary>Полный журнал решений, отказов и доставок</summary>
+                      <div v-if="w5Vitality.decisions && w5Vitality.decisions.length" class="mt-1">
+                        <span class="text-gray-500">Решения:</span>
+                        <div v-for="(d, i) in w5Vitality.decisions" :key="'w5ld-' + i"
+                             class="text-gray-400">
+                          · {{ statusTsLabel(d.ts, '—') }} · {{ d.action || d.outcome || '—' }}
+                          · {{ d.reason_label || d.reason_code || '—' }}
+                        </div>
                       </div>
-                    </div>
-                    <div v-if="w5Sends.length" class="mt-1">
-                      <span class="text-gray-500">Доставлено:</span>
-                      <div v-for="(s, i) in w5Sends" :key="'w5s-' + i"
-                           class="text-gray-400">
-                        · <span v-if="s.hasMessageId">message_id {{ s.messageId }}</span>
-                        <span v-else>без message_id</span>
-                        · {{ s.chars }} симв.
-                        <span v-if="s.hasManifest">
-                          · Core {{ s.core }} · Style {{ s.style }}</span>
-                        <span v-else class="text-gray-600"> · манифест: нет данных</span>
-                        <span v-if="s.composer"> · сборка: {{ s.composer }}</span>
+                      <div v-if="w5AllRefusals.length" class="mt-1">
+                        <span class="text-gray-500">Отказы до отправки:</span>
+                        <div v-for="(r, i) in w5AllRefusals" :key="'w5lx-' + i"
+                             class="text-gray-400">
+                          · {{ statusTsLabel(r.ts, '—') }} · {{ r.reason_label }}
+                          <span class="text-gray-600">({{ r.reason_code }})</span>
+                        </div>
                       </div>
-                    </div>
-                    <div class="mt-2 flex items-center gap-2 flex-wrap">
-                      <button class="btn-ghost text-xs"
-                              :disabled="initiativeCheckBusy"
-                              @click="runInitiativeCheck()"
-                              data-initiative-check>Проверить инициативу</button>
-                      <span class="text-gray-500">
-                        проверка идёт до mock send и по умолчанию ничего не
-                        публикует в чат
-                      </span>
-                    </div>
-                    <div v-if="initiativeCheck" class="mt-1" data-initiative-trace>
-                      <div class="text-gray-500">{{ w5CheckNote }}</div>
-                      <div v-for="(t, i) in w5CheckTrace" :key="'w5t-' + i"
-                           class="text-gray-400">
-                        · {{ t.stage }}: {{ t.status }}
-                        <span v-if="t.reason" class="text-gray-600">({{ t.reason }})</span>
-                        — {{ t.label }}
+                      <div v-if="w5AllSends.length" class="mt-1">
+                        <span class="text-gray-500">Доставки:</span>
+                        <div v-for="(s, i) in w5AllSends" :key="'w5ls-' + i"
+                             class="text-gray-400">
+                          · {{ s.tsLabel }} ·
+                          <span v-if="s.hasMessageId">message_id {{ s.messageId }}</span>
+                          <span v-else>без message_id</span>
+                          · {{ s.chars }} симв.
+                          <span v-if="s.hasManifest"> · Core {{ s.core }} · Style {{ s.style }}</span>
+                          <span v-else class="text-gray-600"> · манифест: нет данных</span>
+                          <span v-if="s.composer"> · сборка: {{ s.composer }}</span>
+                        </div>
                       </div>
-                      <div v-if="w5CheckPreview"
-                           class="mt-1 whitespace-pre-wrap break-words text-gray-300">
-                        {{ w5CheckPreview }}
+                      <a href="#/oversight" class="underline text-violet-300">Открыть Аналитику →</a>
+                    </details>
+                    <!-- MAC-S6-336: что проверяется, mock vs real, dry-run ≠ send. -->
+                    <div class="mt-2 rounded-lg bg-white/5 px-2 py-1" data-initiative-help>
+                      <div class="font-bold">Проверить инициативу</div>
+                      <div class="text-gray-500">
+                        Проверка проходит путь наблюдателя до mock send: что увидел,
+                        какой повод, решение, текст и recheck. По умолчанию ничего
+                        не публикуется; реальная отправка — только при включённой
+                        оси и явном confirm. Dry-run не выдаётся за отправку.
                       </div>
-                      <div class="text-gray-600">
-                        прогон без публикации · LLM-вызовов:
-                        {{ initiativeCheck.llm_calls }}
+                      <div class="mt-1 flex items-center gap-2 flex-wrap">
+                        <button class="btn-ghost text-xs"
+                                :disabled="initiativeCheckBusy"
+                                @click="runInitiativeCheck()"
+                                data-initiative-check>Проверить инициативу</button>
+                        <span class="text-gray-500">результат ниже: mock или real send</span>
                       </div>
+                      <details v-if="initiativeCheck" class="mt-1" data-initiative-trace>
+                        <summary>Технические детали проверки</summary>
+                        <div class="text-gray-500">{{ w5CheckNote }}</div>
+                        <div v-for="(t, i) in w5CheckTrace" :key="'w5t-' + i"
+                             class="text-gray-400">
+                          · {{ t.stage }}: {{ t.status }}
+                          <span v-if="t.reason" class="text-gray-600">({{ t.reason }})</span>
+                          — {{ t.label }}
+                        </div>
+                        <div v-if="w5CheckPreview"
+                             class="mt-1 whitespace-pre-wrap break-words text-gray-300">
+                          {{ w5CheckPreview }}
+                        </div>
+                        <div class="text-gray-600">
+                          прогон без публикации · LLM-вызовов:
+                          {{ initiativeCheck.llm_calls }}
+                        </div>
+                      </details>
                     </div>
                   </template>
                   <!-- QND-NONDET §5 (owner corrective 2026-11-10): «Аналитика» —
@@ -16244,31 +16326,91 @@
               </template>
             </section>
 
-            <!-- F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова.
-                 Источник — /usage/latest через adapter (НЕ одна строка с
-                 числом токенов). Финальная композиция витрины Статуса — F11;
-                 F6 владеет данными и компонентом. Фильтры §27 сюда НЕ попадают.
-                 Размещено ПОСЛЕ .status-block: не сдвигает системные цели
-                 (glass-проба H10). -->
-            <div v-if="isGlobalAdmin" class="exec-preview card p-3 sg-8">
+            <!-- F6/M4B B2 (MAC-S6-344/345/346/347, AC-15): компактный
+                 «Последний вызов». Источник — существующий /usage/latest
+                 (D1 аддитивно отдаёт latency/error); no-data/503 — компактный
+                 unknown с checked-at, а не пустой квадрат. Вызов изображения
+                 назван отдельно; per-chat/global не смешиваются. -->
+            <div v-if="isGlobalAdmin" class="exec-preview card p-3 sg-8"
+                 data-exec-preview :data-exec-state="execPreview.state">
               <div class="flex items-center gap-2 flex-wrap mb-1">
                 <span class="text-xs font-bold">Последний вызов</span>
-                <span class="text-xs text-gray-500" v-if="execPreview.startedAt">{{ execPreview.startedAt }}</span>
-                <button class="btn-ghost text-xs ml-auto" @click="loadExecPreview()" aria-label="Обновить" title="Обновить">⟳</button>
+                <span class="badge badge-muted" data-exec-scope>global · аналитика</span>
+                <span class="text-xs text-gray-500" data-exec-checked>
+                  проверено: {{ execPreview.checkedAt || '—' }}
+                </span>
+                <button class="btn-ghost text-xs ml-auto"
+                        :disabled="execPreviewBusy"
+                        @click="loadExecPreview(true)"
+                        aria-label="Обновить" title="Обновить">⟳</button>
               </div>
-              <template v-if="!execPreview.empty">
-                <div class="flex flex-wrap items-center gap-1 text-xs mb-1">
-                  <template v-for="(n, i) in execPreview.nodes" :key="'ep' + n.id">
-                    <span class="badge badge-muted" :title="n.stageLabel">{{ n.stageLabel }}: {{ fmtTokensCell(n.inputTokens) }}/{{ fmtTokensCell(n.outputTokens) }}</span>
-                    <span v-if="i < execPreview.nodes.length - 1" class="text-gray-500">→</span>
-                  </template>
+              <div v-if="execPreview.state === 'unavailable'"
+                   class="text-xs text-amber-300" data-exec-unavailable>
+                Нет зарегистрированных данных: сервис аналитики недоступен
+                ({{ execPreview.reason }}). Проверено:
+                {{ execPreview.checkedAt || '—' }}. Это unknown, а не ноль.
+              </div>
+              <div v-else-if="execPreview.state === 'empty'"
+                   class="text-xs text-gray-500" data-exec-empty>
+                Последний вызов: нет зарегистрированных LLM-данных.
+                Проверено: {{ execPreview.checkedAt || '—' }}. Причина:
+                {{ execPreview.reason }}
+              </div>
+              <template v-else>
+                <div v-if="execPreview.kind === 'image'"
+                     class="text-xs text-amber-300 mb-1" data-exec-image>
+                  Это вызов изображения, а не текстовый LLM-вызов.
+                  <span v-if="execPreview.imageNote">{{ execPreview.imageNote }}</span>
                 </div>
-                <div class="flex flex-wrap gap-2 text-xs">
-                  <span class="badge badge-muted">Стоимость LLM: {{ fmtCost(execPreview.totals.cost, execPreview.totals.priceKnown) }}</span>
-                  <span class="badge badge-muted" v-if="execPreview.totals.tokensEstimated">токены — оценка</span>
+                <div v-else-if="execPreview.imageNote"
+                     class="text-xs text-gray-500 mb-1" data-exec-image-note>
+                  {{ execPreview.imageNote }}
                 </div>
+                <div class="text-xs text-gray-400" data-exec-rows>
+                  <div v-for="(r, i) in execPreview.rows" :key="'epr-' + i"
+                       class="exec-preview__row" data-exec-row>
+                    <span>{{ r.ts }}</span> ·
+                    <span>{{ r.module }}</span> ·
+                    <span>{{ r.model }}</span> ·
+                    <span :class="r.failed ? 'text-red-300' : ''">{{ r.result }}</span> ·
+                    <span>{{ r.latency }}</span> ·
+                    <span v-if="execPreview.kind !== 'image'">вход {{ r.inputTokens }} / выход {{ r.outputTokens }}</span>
+                    <span v-if="execPreview.kind !== 'image' && r.tokensEstimated" class="text-gray-600"> · токены — оценка</span>
+                    <span> · стоимость: {{ r.cost }}</span>
+                  </div>
+                </div>
+                <div v-if="execPreview.imageRows.length && execPreview.kind !== 'image'"
+                     class="text-xs text-gray-500 mt-1" data-exec-image-rows>
+                  Отдельно изображение:
+                  <span v-for="(r, i) in execPreview.imageRows" :key="'epi-' + i">
+                    {{ r.ts }} · {{ r.model }} · {{ r.result }} ·
+                    {{ r.latency }} · стоимость: {{ r.cost }}
+                  </span>
+                </div>
+                <div class="text-xs text-gray-600 mt-1" data-exec-not-mixed>
+                  Глобальная аналитика вызовов; чатовые бюджеты сюда не
+                  смешиваются.
+                </div>
+                <details class="mt-1" data-exec-technical>
+                  <summary>Технические детали</summary>
+                  <div class="text-gray-500">
+                    correlation_id: <code>{{ execPreview.correlationId || '—' }}</code>
+                    · вызовов в последнем correlation: {{ execPreview.calls }}
+                  </div>
+                  <div v-for="(s, i) in execPreview.allSteps" :key="'eps-' + i"
+                       class="text-gray-400">
+                    · {{ s.ts }} · {{ s.module }}/{{ s.step }} · {{ s.model }} ·
+                    {{ s.result }} · {{ s.latency }} · стоимость: {{ s.cost }}
+                  </div>
+                  <div class="text-gray-600">
+                    Отдельной страницы полной трассы LLM-вызова нет;
+                    correlation_id и карта вызова доступны в Аналитике →
+                    Модели и расходы.
+                  </div>
+                  <a href="#/oversight?tab=models"
+                     class="underline text-violet-300">Открыть Аналитику →</a>
+                </details>
               </template>
-              <div v-else class="text-xs text-gray-500">Нет данных: вызовов ещё не было.</div>
             </div>
 
             <!-- ASAP-UI-02 (§5.3, wave 2): отдельной нижней карточки «Новые

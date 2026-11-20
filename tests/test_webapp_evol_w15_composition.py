@@ -48,7 +48,8 @@ ROLE_CLASSES = {
               ".speech-layer-row", ".speech-cap-row", ".speech-trace-row",
               ".speech-block-row", ".speech-skip-row", ".speech-conflict-row",
               ".speech-hier-row", ".speech-limits", ".speech-diff-line",
-              ".speech-preview-line", ".mem-kv", ".exp-window", ".funnel-cell"),
+              ".speech-preview-line", ".mem-kv", ".exp-window",
+              ".observer-kpi__cell"),
     # уведомление/заметка
     "notice": (".access-audit", ".speech-warn"),
 }
@@ -318,7 +319,8 @@ def test_dense_rows_use_table_tokens():
 
 
 def test_table_like_blocks_use_table_tokens():
-    for sel in (".speech-limits", ".mem-kv", ".exp-window", ".funnel-cell"):
+    for sel in (".speech-limits", ".mem-kv", ".exp-window",
+                ".observer-kpi__cell"):
         body = _body(sel, "--table-row-radius")
         assert "var(--table-row-radius)" in body, sel
         assert "var(--table-row-pad)" in body, sel

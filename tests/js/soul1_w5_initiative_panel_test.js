@@ -129,6 +129,18 @@ function vm(init) {
     'W5: пятая лента «Досье» ровно одна');
   assert.strictEqual(INDEX.split('data-status-dossier').length - 1, 0,
     'W5: нижняя копия досье удалена');
+  // M4B B2: наблюдатель остался в том же единственном месте, но без
+  // псевдо-воронки; KPI/сущности/причины/ledger — внутри этого блока.
+  assert.strictEqual(INDEX.split('data-observer-kpis').length - 1, 1,
+    'W5: KPI-строка наблюдателя ровно одна');
+  assert.strictEqual(INDEX.split('data-initiative-help').length - 1, 1,
+    'W5: пояснение проверки ровно одно');
+  assert.strictEqual(INDEX.indexOf('funnel-grid'), -1,
+    'W5: псевдо-воронка не вернулась');
+  assert.strictEqual(INDEX.split('data-observer-entities').length - 1, 1,
+    'W5: две сущности разведены в одном блоке');
+  assert.strictEqual(INDEX.split('data-observer-ledger').length - 1, 1,
+    'W5: полный ledger — в раскрытии');
 }
 
 // ── 2. Health ≠ outcome: предупреждение только когда оно есть ──────────────

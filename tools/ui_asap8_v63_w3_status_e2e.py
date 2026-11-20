@@ -81,6 +81,15 @@ INTEL_FUNNELS = {
                    "initiative_recheck_passed": 2, "initiative_sent": 2,
                    "initiative_observer_diagnostic": 1},
         },
+        "domains": {
+            "intents": {"source": "mca_intents", "created_total": 2},
+            "publications": {"source": "mca_events.initiative_sent",
+                             "events_24h": 1, "events_7d": 2},
+            "same_cohort": False,
+            "explain": ("Намерения — долговременные обещания; публикации — "
+                        "события доставки. Эфемерный повод не создаёт "
+                        "намерение, поэтому это не конверсия."),
+        },
     },
     "experience": {
         "available": True,
@@ -285,13 +294,22 @@ def main() -> int:
         checks["mem_tech_present"] = page.evaluate(
             "!!document.querySelector('[data-memory-tech]')")
 
-        # ── U03.4: воронки ──
-        checks["initiative_funnel_stages"] = page.evaluate(
+        # ── U03.4 / M4B B2: независимые KPI вместо псевдо-воронки ──
+        checks["observer_kpis"] = page.evaluate(
             "document.querySelectorAll('[data-initiative-independent] "
-            ".funnel-cell').length") == 8
+            "[data-observer-kpi]').length") == 6
+        checks["observer_no_funnel"] = page.evaluate(
+            "document.querySelectorAll('[data-initiative-independent] "
+            ".funnel-cell, [data-initiative-independent] .funnel-grid')"
+            ".length") == 0
         funnel_text = page.inner_text("[data-initiative-independent]")
         checks["initiative_observed_420"] = "420" in funnel_text
+        checks["initiative_no_conversion"] = "не конверсия" in funnel_text
+        checks["initiative_domains_explain"] = (
+            "эфемерн" in funnel_text or "не создаёт" in funnel_text)
         checks["initiative_liveness"] = "последний тик" in funnel_text
+        checks["initiative_entities"] = page.evaluate(
+            "document.querySelectorAll('[data-observer-entity]').length") == 2
         checks["experience_windows"] = page.evaluate(
             "document.querySelectorAll('[data-experience-windows] "
             ".exp-window').length") == 2

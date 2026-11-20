@@ -6603,6 +6603,10 @@
         tokenAnalyticsExecution: null,  // S8: GET /api/analytics/execution/latest
         tokenAnalyticsPeriod: 'day',    // day|week|month
         tokenAnalyticsBusy: false,
+        // M4B B2: «Последний вызов» — момент фактической проверки и причина
+        // unknown. Не выдаём пустую карточку за «нет вызова».
+        execPreviewCheckedAt: null,
+        execPreviewError: '',
         // F6 round1025 (ADR-1025-19 D2/D3): два несмешиваемых режима карты
         // вызовов. 'latest' — трассировка (/usage/latest); 'day|week|month' —
         // агрегат (/usage/summary). Ветки отрисовки взаимоисключающие (§26).
@@ -9223,15 +9227,91 @@
         var EG = this.execGraphApi();
         return EG ? EG.detail(this.execSelected) : null;
       },
-      // Компактное превью последнего вызова для Статуса (§21, граница с F11:
-      // F6 отдаёт источник + компактный компонент, композиция — F11).
+      // M4B B2 (MAC-S6-344/345/346/AC-15): компактное превью последнего
+      // вызова. State: ok | empty | unavailable. Пустой/неизвестный ответ
+      // не выдаётся за «нет вызова», стоимость — только при price_known,
+      // изображение отделяется от текстового LLM-вызова.
       execPreview: function () {
-        var EG = this.execGraphApi();
-        var g = EG ? EG.fromTrace(this.tokenAnalyticsLatest) : null;
-        if (!g || g.empty) return { empty: true, nodes: [], totals: null,
-                                    runId: null, startedAt: null };
-        return { empty: false, nodes: g.nodes.slice(0, 8),
-                 totals: g.totals, runId: g.runId, startedAt: g.startedAt };
+        var self = this;
+        var checked = this.execPreviewCheckedAt
+          ? this.statusTsLabel(this.execPreviewCheckedAt, '—') : '';
+        var base = {
+          state: 'empty', checkedAt: checked, reason: '',
+          rows: [], imageRows: [], allSteps: [], kind: 'llm',
+          imageNote: '', scopeLabel: 'global', correlationId: '',
+          calls: 0, tokensEstimated: false,
+        };
+        if (this.execPreviewError) {
+          base.state = 'unavailable';
+          base.reason = this.execPreviewError;
+          return base;
+        }
+        var latest = this.tokenAnalyticsLatest;
+        var steps = (latest && latest.steps) || [];
+        if (!steps.length) {
+          base.reason = 'сервер вернул пустой ответ: PG-телеметрия или '
+            + 'история вызовов пуста либо источник недоступен — точная '
+            + 'причина клиенту неизвестна';
+          return base;
+        }
+        var isImage = function (s) { return s && s.source === 'image'; };
+        var isOtherMedia = function (s) {
+          return s && (s.source === 'media' || s.source === 'embedding');
+        };
+        var llm = [];
+        var image = [];
+        var other = [];
+        steps.forEach(function (s) {
+          if (isImage(s)) image.push(s);
+          else if (isOtherMedia(s)) other.push(s);
+          else if (s && s.step !== 'tool') llm.push(s);
+        });
+        var primary = llm.length ? llm : (image.length ? image : other);
+        base.kind = llm.length ? 'llm' : (image.length ? 'image' : 'other');
+        base.correlationId = latest && latest.correlation_id
+          ? String(latest.correlation_id) : '';
+        base.calls = (latest && latest.total && latest.total.calls != null)
+          ? Number(latest.total.calls) : steps.length;
+        var mk = function (s, i) {
+          var failure = s.l1_failure_mode || '';
+          var finish = s.l1_finish_reason || '';
+          var latency = self.fmtLatencyMs(s.latency_ms);
+          var priceKnown = s.price_known === true;
+          return {
+            id: i,
+            ts: self.statusTsLabel(s.ts, '—'),
+            module: s.module || '—',
+            step: s.step || '—',
+            model: s.model || '—',
+            latency: latency,
+            hasLatency: s.latency_ms != null && s.latency_ms !== '',
+            result: failure ? ('ошибка: ' + failure)
+              : (finish ? ('финиш: ' + finish) : 'результат неизвестен'),
+            failed: !!failure,
+            failureMode: failure,
+            finishReason: finish,
+            inputTokens: self.fmtTokensCell(s.input_tokens),
+            outputTokens: self.fmtTokensCell(s.output_tokens),
+            tokensEstimated: !!s.tokens_estimated,
+            cost: priceKnown ? self.fmtCost(s.cost_usd, true) : 'нет данных',
+            priceKnown: priceKnown,
+          };
+        };
+        base.rows = primary.slice(0, 2).map(mk);
+        base.imageRows = image.map(mk);
+        base.allSteps = steps.map(mk);
+        base.tokensEstimated = base.rows.some(function (r) {
+          return r.tokensEstimated;
+        });
+        if (base.kind === 'image') {
+          base.imageNote = 'Это вызов изображения, а не текстовый LLM-вызов; '
+            + 'нулевые text-токены не доказывают LLM-вызов.';
+        } else if (base.imageRows.length) {
+          base.imageNote = 'Отдельно: вызов изображения не смешивается '
+            + 'с текстовым LLM-вызовом и его стоимостью.';
+        }
+        base.state = 'ok';
+        return base;
       },
       // Столбики графика расходов: высота пропорциональна cost_usd бакета.
       // Tooltip — существующий title (bucket·цена·вызовы) в шаблоне.
@@ -10438,16 +10518,15 @@
           modeLabel: o.infinite_retention ? 'бессрочный' : 'обычный',
         };
       },
-      // U03.4 «Инициатива»: независимая воронка наблюдателя. Значения —
-      // durable-счётчики task_jobs kind='initiative.observe'; в скобках —
-      // оконные события mca_events. Пустая панель ≠ «работает»: если
-      // состояние disabled/restricted — воронки нет (честная строка выше).
+      // M4B B2: независимые KPI наблюдателя вместо псевдо-воронки.
+      // Окна не смешиваются: durable-счётчики — «всего», события — 24ч/7д,
+      // активные намерения — снимок «сейчас». Доказанной единой когорты с
+      // corr ID нет, поэтому конверсия не рисуется (MAC-S6-FUN-01/AC-14).
       initiativeFunnel: function () {
         var f = this.intelFunnels;
         var intents = this.statusData && this.statusData.intents;
         if (!f || f.available === false || !intents) return null;
-        if (intents.state === 'disabled' || intents.state === 'restricted'
-            || intents.state === 'no_chat') {
+        if (intents.state === 'disabled' || intents.state === 'restricted') {
           return null;
         }
         var ini = f.initiative || {};
@@ -10460,7 +10539,6 @@
           return isNaN(n) ? 0 : Math.max(0, n);
         };
         var observed = num(c.observed);
-        var eligible = num(c.eligible);
         var opp = num(c.opportunities);
         var created = num(c.intents_created);
         var silent = num(c.silent_decisions);
@@ -10468,60 +10546,88 @@
         var sent = num(c.sent);
         var writerUn = num(c.writer_unavailable);
         var errs = num(c.errors);
-        // Оконные события (24ч/7д) — подпись под durable-значением.
-        var sub2 = function (a, b) {
-          if (!a && !b) return '';
-          return 'события 24ч: ' + num(a) + ' · 7д: ' + num(b);
+        var written24 = num(e24.initiative_writer_generated);
+        var written7 = num(e7.initiative_writer_generated);
+        var sent24 = num(e24.initiative_sent);
+        var sent7 = num(e7.initiative_sent);
+        var chatScope = this.activeChatId != null;
+        var scopeLabel = chatScope ? ('чат ' + this.activeChatId) : 'global';
+        var snapshotLabel = _tsStatusLabel(f.now_ts, '—');
+        var metaOf = function (window) {
+          return window + ' · ' + scopeLabel + ' · снимок ' + snapshotLabel;
         };
-        var writer7 = num(e7.initiative_writer_generated);
-        var recheck7 = num(e7.initiative_recheck_passed);
-        var diag7 = num(e7.initiative_observer_diagnostic);
-        var evalSkips = c.eval_skips;
-        var skipTotal = 0;
-        if (evalSkips && typeof evalSkips === 'object') {
-          Object.keys(evalSkips).forEach(function (k) {
-            skipTotal += num(evalSkips[k]);
-          });
-        }
-        var defs = [
-          { label: 'Наблюдено', value: observed,
-            sub: sub2(e24.initiative_observer_scan,
-                      e7.initiative_observer_scan),
-            hint: 'Сообщений просканировано наблюдателем (durable)' },
-          { label: 'Квалифицировано', value: eligible,
-            sub: skipTotal ? ('пропусков оценки: ' + skipTotal) : '',
-            hint: 'Прошли дешёвую квалификацию и дошли до LLM-оценки' },
-          { label: 'Возможности', value: opp,
-            sub: sub2(e24.initiative_opportunity,
-                      e7.initiative_opportunity),
-            hint: 'Возможностей для инициативы найдено' },
-          { label: 'Намерения', value: created,
-            hint: 'Создано намерений (durable)' },
-          { label: 'Решения', value: silent + react,
-            sub: react ? ('реакций: ' + react) : '',
-            hint: 'Решений принято: молчание ' + silent + ' · реакций '
-              + react },
-          { label: 'Текст', value: writer7,
-            sub: writerUn ? ('writer недоступен: ' + writerUn) : '',
+        // MAC-S6-331: не более 6 независимых чисел. Ни одно не является
+        // «следующей стадией» другого — разные окна/единицы/источники.
+        var kpis = [
+          { id: 'observed', label: 'Входящие события', value: observed,
+            window: 'всего (durable)', sub: '24ч: ' + num(e24.initiative_observer_scan),
+            state: 'ok',
+            hint: 'Просканировано наблюдателем (durable-счётчик job)',
+            meta: metaOf('всего (durable)') },
+          { id: 'opportunities', label: 'Реальные поводы', value: opp,
+            window: 'всего (durable)', sub: '24ч: ' + num(e24.initiative_opportunity),
+            state: 'ok',
+            hint: 'Возможностей для инициативы найдено (durable)',
+            meta: metaOf('всего (durable)') },
+          { id: 'decisions', label: 'Решения', value: silent + react,
+            window: 'всего (durable)',
+            sub: '24ч: ' + num(e24.initiative_decided)
+              + (react ? (' · реакции: ' + react) : ''),
+            state: 'ok',
+            hint: 'Решения наблюдателя: молчание ' + silent
+              + ' · реакции ' + react,
+            meta: metaOf('всего (durable)') },
+          { id: 'written', label: 'Написано', value: written24,
+            window: '24ч', sub: '7д: ' + written7,
             state: writerUn ? 'warn' : 'ok',
-            hint: 'Генераций текста (события 7д); durable-счётчик ведёт '
-              + 'только недоступности writer' },
-          { label: 'Перепроверка', value: recheck7,
-            hint: 'initiative_recheck_passed (события 7д; пишется при '
-              + 'intent_id — ephemeral-кандидаты без события)' },
-          { label: 'Отправлено', value: sent,
-            sub: sub2(e24.initiative_sent, e7.initiative_sent),
-            hint: 'Фактически отправлено инициативных сообщений (durable)' },
+            hint: 'Генераций текста за 24ч; writer недоступен: ' + writerUn,
+            meta: metaOf('24ч') },
+          { id: 'published', label: 'Опубликовано', value: sent,
+            window: 'всего (durable)', sub: '24ч: ' + sent24 + ' · 7д: ' + sent7,
+            state: (opp > 0 && sent === 0) ? 'warn' : 'ok',
+            hint: 'Фактически отправленные инициативные сообщения (durable)',
+            meta: metaOf('всего (durable)') },
+          { id: 'intents',
+            label: chatScope ? 'Активные намерения' : 'Создано намерений',
+            value: chatScope ? num(intents.active) : created,
+            window: chatScope ? 'сейчас (снимок)' : 'всего (durable)',
+            sub: chatScope
+              ? ('создано (durable): ' + created)
+              : 'chat-scope: активные — в снимке чата',
+            state: 'ok',
+            hint: chatScope
+              ? 'Открытые pending/deferred намерения — снимок «сейчас»'
+              : 'Durable-счётчик созданных намерений за всё время',
+            meta: metaOf(chatScope ? 'сейчас (снимок)' : 'всего (durable)') },
         ];
-        // Стадия останова: первое нулевое звено после ненулевого — warn.
-        var stopped = false;
-        defs.forEach(function (d) {
-          var v = (typeof d.value === 'number') ? d.value : 0;
-          if (stopped && v === 0 && d.state !== 'warn') d.state = 'warn';
-          if (v > 0) stopped = true;
-        });
+        // D3: серверное объяснение разницы доменов; fallback — та же
+        // семантика, если старый backend ещё не отдал domains.
+        var domains = ini.domains || null;
+        var explain = (domains && domains.explain) ? domains.explain
+          : ('Намерения — долговременные обещания вернуться к теме (снимок '
+             + 'mca_intents). Публикации — доставленные инициативные сообщения '
+             + '(события initiative_sent). Повод «уместно сказать сейчас» '
+             + 'эфемерный и намерения не создаёт, поэтому 0 активных намерений '
+             + 'при публикациях — нормальное состояние, а не конверсия.');
+        var intentsEntity = chatScope
+          ? { label: 'Активные намерения (долговременные)',
+              value: num(intents.active), window: 'сейчас (снимок mca_intents)',
+              note: 'Открытые pending/deferred строки; не накопительный счётчик.' }
+          : { label: 'Намерения (durable)',
+              value: created, window: 'создано · всего',
+              note: 'Выберите чат для снимка активных намерений «сейчас».' };
+        var entities = {
+          intents: intentsEntity,
+          publications: {
+            label: 'Публикации (инициативные сообщения)',
+            value: sent, window: 'всего (durable)',
+            sub: '24ч: ' + sent24 + ' · 7д: ' + sent7,
+          },
+          sameCohort: !!(domains && domains.same_cohort),
+          explain: explain,
+        };
         // Liveness-штамп наблюдателя (memory_maintenance) — честно: тиков
-        // не было → «работает» не заявляем.
+        // не было → «работает» не заявляем. Строки сохранены для U03.4.
         var live = ini.liveness || {};
         var liveLabel = '';
         var liveTs = _tsNormalizeMs(live.ts);
@@ -10543,21 +10649,32 @@
             + '(статус job: ' + ((ini.job && ini.job.status) || '—') + ')';
         } else if (!opp) {
           emptyReason = 'возможностей не найдено (пропусков скана: '
-            + num(c.scan_skipped) + ', пропусков оценки: ' + skipTotal
+            + num(c.scan_skipped) + ', пропусков оценки: '
+            + (function () {
+              var total = 0;
+              var skips = c.eval_skips;
+              if (skips && typeof skips === 'object') {
+                Object.keys(skips).forEach(function (k) {
+                  total += num(skips[k]);
+                });
+              }
+              return total;
+            })()
             + (writerUn || errs ? ', ошибок: ' + errs : '') + ')';
         } else if (!created) {
           emptyReason = 'возможности есть, намерений не создано (решений '
             + 'молчанием: ' + silent + ')';
         } else if (!sent) {
           emptyReason = 'намерения создаются, отправок нет (writer '
-            + 'недоступен: ' + writerUn + ', ошибок: ' + errs
-            + (diag7 ? ', диагностик: ' + diag7 : '') + ')';
+            + 'недоступен: ' + writerUn + ', ошибок: ' + errs + ')';
         } else {
           emptyReason = 'наблюдение работает: отправлено ' + sent
             + ' (durable)';
         }
-        return { stages: defs, liveLabel: liveLabel,
-                 emptyReason: emptyReason };
+        return { kpis: kpis, entities: entities,
+                 scopeLabel: scopeLabel, snapshotLabel: snapshotLabel,
+                 chatScope: chatScope,
+                 liveLabel: liveLabel, emptyReason: emptyReason };
       },
       // W5 (SOUL-18.4/18.5/18.6): ЕДИНОЕ место диагностики инициативы —
       // вердикт health≠outcome, реальные причины ворот, последние решения и
@@ -10580,9 +10697,31 @@
                  warning: a.warning, recommendation: a.recommendation || '' };
       },
       w5Reasons: function () {
+        return this.w5AllReasons.slice(0, 5);
+      },
+      // Полный список причин — только в раскрытии, не на главном экране.
+      w5AllReasons: function () {
         var v = this.w5Vitality;
         var a = (v && v.activity) || null;
         return (a && a.reasons) ? a.reasons : [];
+      },
+      // MAC-S6-334: человеческий ответ «почему сейчас ничего не опубликовано»
+      // (не «health зелёный»): title/warning/recommendation из activity.
+      w5Why: function () {
+        var v = this.w5Vitality;
+        var a = (v && v.activity) || null;
+        if (!a) return null;
+        var pub = this.initiativeFunnel
+          && this.initiativeFunnel.entities
+          && this.initiativeFunnel.entities.publications
+          ? this.initiativeFunnel.entities.publications.value : 0;
+        return {
+          heading: pub > 0 ? 'Что происходит с публикациями?'
+            : 'Почему сейчас ничего не опубликовано?',
+          title: a.title || '',
+          warning: a.warning || '',
+          recommendation: a.recommendation || '',
+        };
       },
       // Что мешает инициативе СЕЙЧАС: только реальные блоки и предупреждения.
       w5GateBlockers: function () {
@@ -10627,17 +10766,36 @@
         return (st && st.bounds) ? st.bounds : '';
       },
       // Последние решения/отказы/доставки — компактно, без аналитической стены.
+      // MAC-S6-335: 3–5 строк с датой, action, причиной и статусом доставки;
+      // полный ledger — отдельным раскрытием (w5All*).
       w5Decisions: function () {
         var v = this.w5Vitality;
-        return (v && v.decisions) ? v.decisions.slice(0, 3) : [];
+        var rows = (v && v.decisions) ? v.decisions.slice(0, 5) : [];
+        return rows.map(function (d) {
+          return {
+            tsLabel: _tsStatusLabel(d.ts, '—'),
+            action: d.action || d.outcome || '—',
+            reason_label: d.reason_label || d.reason_code || '—',
+            deliveryLabel: d.delivery || d.delivery_kind || '',
+            outcome: d.outcome || '',
+            correlationId: d.correlation_id || '',
+          };
+        });
       },
       w5Refusals: function () {
         var v = this.w5Vitality;
         return (v && v.refusals) ? v.refusals.slice(0, 3) : [];
       },
       w5Sends: function () {
+        return this.w5AllSends.slice(0, 3);
+      },
+      w5AllRefusals: function () {
         var v = this.w5Vitality;
-        var rows = (v && v.sends) ? v.sends.slice(0, 3) : [];
+        return (v && v.refusals) ? v.refusals : [];
+      },
+      w5AllSends: function () {
+        var v = this.w5Vitality;
+        var rows = (v && v.sends) ? v.sends : [];
         return rows.map(function (s) {
           return {
             tsLabel: _tsStatusLabel(s.ts, '—'),
@@ -12462,6 +12620,12 @@
         var u = (this.statusData && this.statusData.uptime) || null;
         if (!u || !u.last_heartbeat) return '—';
         return _tsStatusLabel(u.last_heartbeat, 'нет данных');
+      },
+      // M4B B2 (MAC-S6-306): момент наблюдения health-ленты — серверный
+      // generated_at того же /api/status; не локальное «сейчас».
+      statusCheckedAt: function () {
+        var u = (this.statusData && this.statusData.uptime) || null;
+        return _tsStatusLabel(u && u.generated_at, '—');
       },
       // F11 (§17/D3): виджет сна — ЕДИНЫЙ источник времени (cognition,
       // серверный `generated_at`); активность ТОЛЬКО с сервера; countdown
@@ -15277,10 +15441,15 @@
           this.tokenAnalyticsLatest = res[0];
           this.tokenAnalyticsSummary = res[1];
           this.tokenAnalyticsExecution = res[2];
+          this.execPreviewCheckedAt = Date.now();
+          this.execPreviewError = '';
         } catch (e) {
           this.tokenAnalyticsLatest = null;
           this.tokenAnalyticsSummary = null;
           this.tokenAnalyticsExecution = null;
+          this.execPreviewCheckedAt = Date.now();
+          this.execPreviewError = (e && e.status)
+            ? ('HTTP ' + e.status) : 'сеть или таймаут';
         } finally {
           this.tokenAnalyticsBusy = false;
         }
@@ -15867,6 +16036,15 @@
       fmtTokensCell: function (v) {
         return (v === null || v === undefined) ? '—' : this.fmtExactTokens(v);
       },
+      // M4B B2 (D1): латентность только из реального plan_meta.latency_ms;
+      // отсутствие — «—», не 0 мс.
+      fmtLatencyMs: function (v) {
+        if (v === null || v === undefined || v === '') return '—';
+        var n = Number(v);
+        if (isNaN(n) || n < 0) return '—';
+        return n >= 1000 ? (n / 1000).toFixed(2) + ' с'
+          : (Math.round(n * 10) / 10) + ' мс';
+      },
       // Статус в данных не передаётся (ADR-1025-19 D1) — показываем честно.
       execStatusLabel: function (status) {
         return (status === 'unknown' || !status) ? 'нет данных' : String(status);
@@ -15993,17 +16171,23 @@
         this.execDetailOpen = false;
         this.execSelected = null;
       },
-      // F6 (D5/§21): компактное превью последнего вызова для Статуса. Отдельный
-      // лёгкий путь (только `/usage/latest`), без фильтров §27 и без второго
-      // рендера — тот же adapter.
-      loadExecPreview: async function () {
-        if (this.tokenAnalyticsLatest) return;   // уже загружено на «Аналитике»
+      // F6/M4B B2 (D5/§21): компактное превью последнего вызова для Статуса.
+      // Отдельный лёгкий путь (только `/usage/latest`), без фильтров §27.
+      // M4B B2: force-refresh по кнопке; ошибка сохраняется как unknown,
+      // а не маскируется под «вызовов не было».
+      loadExecPreview: async function (force) {
+        if (!force && this.tokenAnalyticsLatest) return;
         this.execPreviewBusy = true;
+        this.execPreviewError = '';
         try {
-          this.tokenAnalyticsLatest = await this.api('/api/analytics/usage/latest');
+          this.tokenAnalyticsLatest = await this.api(
+            '/api/analytics/usage/latest');
         } catch (e) {
           this.tokenAnalyticsLatest = null;
+          this.execPreviewError = (e && e.status)
+            ? ('HTTP ' + e.status) : 'сеть или таймаут';
         } finally {
+          this.execPreviewCheckedAt = Date.now();
           this.execPreviewBusy = false;
         }
       },

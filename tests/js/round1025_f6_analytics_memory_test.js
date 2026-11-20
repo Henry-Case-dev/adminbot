@@ -69,6 +69,12 @@ function traceCtx(latest) {
     _execFilters: methods._execFilters,
     execFilterActive: methods.execFilterActive,
     execStatusLabel: methods.execStatusLabel,
+    // M4B B2: execPreview использует общие форматтеры (latency/tokens/cost).
+    fmtLatencyMs: methods.fmtLatencyMs,
+    fmtTokensCell: methods.fmtTokensCell,
+    fmtExactTokens: methods.fmtExactTokens,
+    fmtCost: methods.fmtCost,
+    statusTsLabel: methods.statusTsLabel,
   };
   c.execTrace = computed.execTrace.call(c);
   c.execTraceNodes = computed.execTraceNodes.call(c);
@@ -186,12 +192,16 @@ function traceCtx(latest) {
   const c = traceCtx({ correlation_id: 'p', ts: 'T',
     steps: [{ step: 'stage1', input_tokens: 1, output_tokens: 2 }], total: {} });
   const pv = computed.execPreview.call(c);
-  assert.strictEqual(pv.empty, false);
-  assert.strictEqual(pv.nodes.length, 1);
-  assert(pv.totals, 'итоги присутствуют');
+  // M4B B2: превью Статуса — компактные строки (state/rows/allSteps), а не
+  // старый «empty/nodes/totals»; данные по-прежнему из одного adapter-а.
+  assert.strictEqual(pv.state, 'ok');
+  assert.strictEqual(pv.rows.length, 1);
+  assert.strictEqual(pv.allSteps.length, 1);
+  assert.strictEqual(pv.correlationId, 'p');
   const empty = computed.execPreview.call(
-    { execGraphApi: methods.execGraphApi, tokenAnalyticsLatest: null });
-  assert.strictEqual(empty.empty, true);
+    { execPreviewError: '', execPreviewCheckedAt: null,
+      tokenAnalyticsLatest: null });
+  assert.strictEqual(empty.state, 'empty');
   // Превью НЕ содержит фильтров §27.
   assert(INDEX.indexOf('exec-preview') >= 0);
 })();

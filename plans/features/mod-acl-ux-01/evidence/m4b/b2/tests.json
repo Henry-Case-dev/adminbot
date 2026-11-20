@@ -1,0 +1,127 @@
+{
+  "feature": "MOD-ACL-UX-01 M4B B2",
+  "slice": "observer KPI/funnel/decisions/check + last call; D1/D3 read-only",
+  "base": {
+    "sha": "275a1b7cd320f67e0ac089d8d5c4b14ca31dbcfa",
+    "version": "2.58.224",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate_branch": "release/mod-acl-m4b2-2.58.225",
+  "candidate_sha": "set after commit (git log -1)",
+  "environment": {
+    "node": "v24.16.0",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "playwright": "1.62.0 (bundled Chromium)",
+    "browser_use": "browse relay 0.1.5, Brave on this computer"
+  },
+  "red_on_base": {
+    "node_m4b_observer": {"rc": 1, "reason": "funnel-grid present; data-observer-kpis absent"},
+    "node_m4b_lastcall": {"rc": 1, "reason": "data-exec-preview/state absent"},
+    "node_asap8_w3_status": {"rc": 1, "reason": "observer-kpi CSS/markup absent"},
+    "node_soul1_w5": {"rc": 1, "reason": "KPI marker absent"},
+    "pytest_d1_d3": {"failed": 4, "passed": 1, "reason": "D1 KeyError latency_ms (3); D3 KeyError domains (1); empty shape unchanged (1 passed)"}
+  },
+  "batches": [
+    {
+      "id": "mandatory-24-files",
+      "command": "py -3 -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q -p no:cacheprovider",
+      "passed": 386,
+      "failed": 0,
+      "output": "test-output/pytest-mandatory-24.txt"
+    },
+    {
+      "id": "targeted-node",
+      "passed": 6,
+      "failed": 0,
+      "markers": [
+        "MOD-ACL-UX-M4B-B2-OBSERVER-OK",
+        "MOD-ACL-UX-M4B-B2-LASTCALL-OK",
+        "W3-STATUS-UNIT-OK",
+        "SOUL1-W5-PANEL-OK",
+        "F6-ANALYTICS-MEMORY-OK",
+        "MOD-ACL-UX-M4B-B1-FEEDS-OK"
+      ]
+    },
+    {
+      "id": "python-d1-d3-regression",
+      "command": "py -3 -m pytest tests/test_webapp_m4b_b2_api.py tests/test_token_analytics_round1023.py tests/test_webapp_memory_overview_api.py tests/test_webapp_analytics_api.py tests/test_webapp_f6_round1025.py -q -p no:cacheprovider",
+      "passed": 110,
+      "failed": 0,
+      "output": "test-output/pytest-d1-d3-regression.txt"
+    },
+    {
+      "id": "broad-js",
+      "files": 127,
+      "passed": 124,
+      "failed": 3,
+      "failed_files": [
+        "tests/js/evol_cog_scene_test.js",
+        "tests/js/round1025_ia_routing_test.js",
+        "tests/js/ur_ui_settings_test.js"
+      ],
+      "note": "same pre-existing baseline as B1; two new B2 test files are green",
+      "output": "test-output/broad-js.json"
+    },
+    {
+      "id": "b1-playwright-e2e",
+      "checks": 138,
+      "failures": 0,
+      "output": "test-output/b1-e2e-138.json"
+    },
+    {
+      "id": "b2-playwright-e2e",
+      "checks": 92,
+      "failures": 0,
+      "viewports": [1920, 1440, 1280, 768, 390, 320],
+      "scenarios": ["no-data", "data", "503", "image-only", "chat-scope", "reason-click", "mock-check"],
+      "output": "e2e-report.json",
+      "screenshots": "shots/"
+    },
+    {
+      "id": "w3-status-e2e",
+      "result": "OK",
+      "updated_checks": ["observer_kpis=6", "observer_no_funnel=0", "observed 420 preserved", "liveness preserved", "domains explain", "entities=2"],
+      "output": "test-output/w3-status-e2e.txt"
+    },
+    {
+      "id": "w10-sections-e2e",
+      "failures": 3,
+      "note": "pre-existing module catalog/scoped toggle; same as B1/base"
+    },
+    {
+      "id": "w15-composition-e2e",
+      "failures": 72,
+      "note": "same count as B1 candidate; 0 failures mention status/observer; observer-kpi__cell token test passes"
+    }
+  ],
+  "mutations": {
+    "total": 4,
+    "failed_as_expected": 4,
+    "restored_green": 4,
+    "details": "mutations.json"
+  },
+  "browser_use": {
+    "available": true,
+    "browser": "Brave on this computer (browse relay 0.1.5)",
+    "desktop_1440": {"kpis": 6, "funnel": 0, "exec_state": "ok", "overflow": false, "health": "Версия: 2.58.225 · проверено: 21.11.2026, 00:00:00"},
+    "mobile_390": {"kpis": 6, "overflow": false, "exec_h": 251, "sleep_h": 364, "independent_heights": true},
+    "interaction": {"reason_code": "min_gap", "check_note": "Проверка без отправки (mock); РЕАЛЬНАЯ отсутствует; LLM-вызовов: 2"},
+    "limitation": "local candidate bytes + synthetic API, not live TMA"
+  },
+  "configuration": {
+    "flags_changed": 0,
+    "prompts_changed": 0,
+    "storage_changed": 0,
+    "ddl_changed": 0,
+    "effective_state": "no new flags; D1/D3 read-only fields only"
+  },
+  "limitations": [
+    "Playwright/Browser Use use a local synthetic API stand, not production/live TMA.",
+    "D1 latency/error are nullable and appear only when plan_meta exists; no natural event fabricated.",
+    "503 and image-only last-call states are deterministic stubs.",
+    "No per-call full trace page (D2): correlation_id + Analytics link only; S6-345 remains partial.",
+    "W10/W15 full tools carry pre-existing failures unrelated to B2; B1/W2a/W2c contracts remain green."
+  ]
+}

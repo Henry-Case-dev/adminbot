@@ -1,0 +1,42 @@
+{
+  "method": "temp backup -> mutate candidate -> run targeted test -> restore -> rerun green",
+  "mutations": [
+    {
+      "id": "M1-kpi-count",
+      "file": "web/app.js",
+      "change": "kpis = kpis.slice(0, 5) before return",
+      "test": "node tests/js/m4b_observer_test.js",
+      "rc": 1,
+      "reason": "KPI count/labels/windows mismatch (only 5)",
+      "restored_rc": 0
+    },
+    {
+      "id": "M2-pseudo-funnel",
+      "file": "web/index.html",
+      "change": "add funnel-grid class to observer KPI container",
+      "test": "node tests/js/m4b_observer_test.js",
+      "rc": 1,
+      "reason": "funnel-grid present in markup",
+      "restored_rc": 0
+    },
+    {
+      "id": "M3-lastcall-min-height",
+      "file": "web/static/app.css",
+      "change": ".exec-preview { ... min-height: 320px; }",
+      "test": "node tests/js/m4b_lastcall_test.js",
+      "rc": 1,
+      "reason": "empty last-call must not use min-height 300-500",
+      "restored_rc": 0
+    },
+    {
+      "id": "M4-scope-mix",
+      "file": "web/app.js",
+      "change": "execPreview base scopeLabel 'чат' instead of 'global'",
+      "test": "node tests/js/m4b_lastcall_test.js",
+      "rc": 1,
+      "reason": "per-chat/global scope must stay separate",
+      "restored_rc": 0
+    }
+  ],
+  "result": "4/4 failed as expected; all restored green"
+}

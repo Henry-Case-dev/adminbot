@@ -1,0 +1,5 @@
+﻿[matrix] config stub: items=631 groups=121
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=123
+{"sleep_panels_single": true, "sleep_canonical_title": true, "sleep_unknown_label": true, "no_1970": true, "no_dup_sleep_badges": true, "expired_total": true, "expired_layout": true, "mem_tech_present": true, "observer_kpis": true, "observer_no_funnel": true, "initiative_observed_420": true, "initiative_no_conversion": true, "initiative_domains_explain": true, "initiative_liveness": true, "initiative_entities": true, "experience_windows": true, "exp_last_applied": true, "logs_in_status_grid": true, "log_rows_rendered": true, "log_counters": true, "log_top_counts": true, "log_filters_present": true, "copy_row_no_crash": true, "analytics_no_logs_tab": true, "analytics_no_logs_block": true, "legacy_redirect_canon": true, "legacy_active_tab_status": true, "anchor_scroll_visible": true, "no_h_overflow_mobile_390": true, "no_h_overflow_narrow_320": true}
+console_errors: []
+W3-STATUS-E2E-OK
