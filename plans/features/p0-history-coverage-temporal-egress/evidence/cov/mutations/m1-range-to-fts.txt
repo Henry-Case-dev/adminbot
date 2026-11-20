@@ -1,0 +1,75 @@
+﻿FF                                                                       [100%]
+================================== FAILURES ===================================
+_____ TestCaptureAndRoute.test_range_bound_wins_over_query_fts_forbidden ______
+
+self = <tests.test_p0_hc_coverage.TestCaptureAndRoute object at 0x0000011EE7596960>
+
+    @pytest.mark.asyncio
+    async def test_range_bound_wins_over_query_fts_forbidden(self):
+        rows = [(1000 + i * 10, f"m{i}") for i in range(30)]
+        db = await _make_db(rows)
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        try:
+            ctx, _raw, _bound = await _range_turn(
+                db, 1000, 1290, None, as_of=1295)
+            out = await _router(db, memory).dispatch(
+                "get_recent_history", {"query": "╤Б╨╗╨╛╨▓╨╛-╨║╨╛╤В╨╛╤А╨╛╨│╨╛-╨╜╨╡╤В"}, ctx)
+>           header = _header(out)
+                     ^^^^^^^^^^^^
+
+tests\test_p0_hc_coverage.py:358: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = '╨Ч╨░ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П ╨╜╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╨╜╨░╤И╨╗╨╛╤Б╤М'
+
+    def _header(out: str) -> dict:
+        fields = parse_history_sample(out)
+>       assert fields is not None, out[:300]
+E       AssertionError: ╨Ч╨░ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П ╨╜╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╨╜╨░╤И╨╗╨╛╤Б╤М
+E       assert None is not None
+
+tests\test_p0_hc_coverage.py:106: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.tool_router:tool_router.py:6728 [tools] get_recent_history failed | chat=-1001234567890 | error=TypeError
+WARNING  services.tool_router:tool_router.py:7306 [tools] get_recent_history count failed | chat=-1001234567890 | error=TypeError
+________ TestCaptureAndRoute.test_empty_range_is_range_empty_not_error ________
+
+self = <tests.test_p0_hc_coverage.TestCaptureAndRoute object at 0x0000011EE75963F0>
+
+    @pytest.mark.asyncio
+    async def test_empty_range_is_range_empty_not_error(self):
+        db = await _make_db([(1000, "╨▓╨╜╨╡")])
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[])
+        try:
+            bound = await capture_history_range(
+                db, CHAT_ID, 2000, 3000, as_of=3000)
+            assert bound["available"] == 0 and bound["requested"] == 0
+            assert bound["anchor_ts"] == 0
+            assert bound["range_status"] == "empty"
+            ctx = _ctx("╤З╤В╨╛ ╨▒╤Л╨╗╨╛ ╨╖╨░ ╨┐╨╡╤А╨╕╨╛╨┤", as_of=3000)
+            ctx.history_sample = bound
+            out = await _router(db, memory).dispatch(
+                "get_recent_history", {"query": "╨╕╨│╨╜╨╛╤А╨╕╤А╤Г╨╣-╨╝╨╡╨╜╤П"}, ctx)
+>           header = _header(out)
+                     ^^^^^^^^^^^^
+
+tests\test_p0_hc_coverage.py:338: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = '╨Ч╨░ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П ╨╜╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╨╜╨░╤И╨╗╨╛╤Б╤М'
+
+    def _header(out: str) -> dict:
+        fields = parse_history_sample(out)
+>       assert fields is not None, out[:300]
+E       AssertionError: ╨Ч╨░ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П ╨╜╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╨╜╨░╤И╨╗╨╛╤Б╤М
+E       assert None is not None
+
+tests\test_p0_hc_coverage.py:106: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.tool_router:tool_router.py:7306 [tools] get_recent_history count failed | chat=-1001234567890 | error=TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_range_bound_wins_over_query_fts_forbidden
+FAILED tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_empty_range_is_range_empty_not_error
+2 failed in 5.34s

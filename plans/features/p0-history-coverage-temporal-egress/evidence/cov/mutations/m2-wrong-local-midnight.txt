@@ -1,0 +1,17 @@
+﻿F.                                                                       [100%]
+================================== FAILURES ===================================
+_____ TestResolveWindow.test_local_day_uses_chat_midnight_not_server_zone _____
+
+self = <tests.test_p0_hc_coverage.TestResolveWindow object at 0x00000140769B9CA0>
+
+    def test_local_day_uses_chat_midnight_not_server_zone(self):
+        resolved = resolve_history_window_at(
+            extract_history_window("╤Б╨╡╨│╨╛╨┤╨╜╤П"), as_of=AS_OF, timezone=TZ)
+>       assert resolved["from"] == _local_epoch(2026, 11, 21)
+E       assert 1795219200 == 1795215600
+E        +  where 1795215600 = _local_epoch(2026, 11, 21)
+
+tests\test_p0_hc_coverage.py:235: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_coverage.py::TestResolveWindow::test_local_day_uses_chat_midnight_not_server_zone
+1 failed, 1 passed in 5.31s

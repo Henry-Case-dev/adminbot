@@ -1,0 +1,29 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+__________ TestCaptureAndRoute.test_range_pages_cover_every_row_once __________
+
+self = <tests.test_p0_hc_coverage.TestCaptureAndRoute object at 0x000001F141F669C0>
+
+    @pytest.mark.asyncio
+    async def test_range_pages_cover_every_row_once(self):
+        rows = [(1000 + i * 10, f"m{i}") for i in range(95)]
+        db = await _make_db(rows)
+        try:
+            ctx, _raw, bound = await _range_turn(
+                db, 1000, 1940, None, as_of=1945)
+            router = _router(db)
+            out = await router.dispatch("get_recent_history", {}, ctx)
+            header = _header(out)
+            assert header["has_next"] == 1
+            assert header["requested"] == bound["available"] == 95
+            seen: list[str] = []
+            for _ in range(10):
+                body = _body(out)
+>               assert body, "╨┐╤Г╤Б╤В╨░╤П ╤Б╤В╤А╨░╨╜╨╕╤Ж╨░ ╨▓ ╤Б╨╡╤А╨╡╨┤╨╕╨╜╨╡ range-╤Ж╨╡╨┐╨╛╤З╨║╨╕"
+E               AssertionError: ╨┐╤Г╤Б╤В╨░╤П ╤Б╤В╤А╨░╨╜╨╕╤Ж╨░ ╨▓ ╤Б╨╡╤А╨╡╨┤╨╕╨╜╨╡ range-╤Ж╨╡╨┐╨╛╤З╨║╨╕
+E               assert []
+
+tests\test_p0_hc_coverage.py:381: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_range_pages_cover_every_row_once
+1 failed in 5.67s

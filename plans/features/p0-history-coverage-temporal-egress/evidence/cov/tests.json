@@ -1,0 +1,91 @@
+{
+  "schema": "p0-hc-cov-tests-v1",
+  "task": "p0-history-coverage-temporal-egress-01",
+  "slice": "HC-COV",
+  "base_commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
+  "branch": "p0/hc-a",
+  "candidate_commit": "5d3f95fd3b4dbf920db2b9925fc30dfe10de739c",
+  "worktree": "C:/Users/main/.config/opencode/WorkspaceData/worktrees/c742e4de9e92c489/p0-history-coverage-temporal-e-cbf9b3fab6a8-6a3294ea",
+  "environment": {
+    "python": "3.12.0 (.venv from C:/Code/Python/adminbot)",
+    "pytest": "9.1.1",
+    "os": "Windows (PowerShell 5.1)",
+    "network": "none; SQLite in-memory",
+    "production": "not contacted; no live chat; no sends"
+  },
+  "commands": {
+    "new": "python -m pytest tests/test_p0_hc_coverage.py -q",
+    "focused": "python -m pytest tests/test_p0_hc_coverage.py tests/test_history_pages.py tests/test_history_segments.py tests/test_p0_history_depth_round1029.py tests/test_vmq_recent_window.py tests/test_asap2_boundary_marker.py -q",
+    "mandatory_386": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py tests/test_mod_acl_ux_01_m4_catalog.py tests/test_mod_acl_ux_01_m3_module_routes.py tests/test_mod_acl_ux_01_m4_module_params.py tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py tests/test_asap8_f5_module_truth.py tests/test_asap8_v63_b06_summary_scope.py tests/test_asap8_v63_b07_temporal_factcheck.py tests/test_asap8_v6_p1_d11_registry.py tests/test_asap8_v6_wa1_config_cache.py tests/test_factcheck_post_release_w2.py tests/test_mca18_self_model_block_a_round1042.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_runtime_edges.py tests/test_mod_acl_ux_01_m21_adapters.py tests/test_mod_acl_ux_01_m21_gates.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_mod_acl_ux_m2_inflight.py tests/test_mod_acl_ux_01_m1_acl_false_403.py tests/test_webapp_js_unit.py -q"
+  },
+  "results": {
+    "new": {"passed": 53, "failed": 0},
+    "focused": {"passed": 179, "failed": 0},
+    "mandatory_386": {"passed": 386, "failed": 0, "note": "same mandatory 24-file set as 2.58.210/2.58.225 evidence"}
+  },
+  "red_base": {
+    "commit": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
+    "command": "python -m pytest tests/test_p0_hc_coverage.py -q",
+    "result": "collection ImportError: cannot import name '_force_history_range_plan' from services.direct_chat_service (new contract symbols absent at base)",
+    "artifact": "red-base/pytest-base-1b7d43333.txt"
+  },
+  "mutations": [
+    {
+      "id": "m1-range-to-fts",
+      "mutation": "range bound branch falls through to FTS/default",
+      "test": "tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_range_bound_wins_over_query_fts_forbidden + test_empty_range_is_range_empty_not_error",
+      "result": "2 failed (expected)",
+      "artifact": "mutations/m1-range-to-fts.txt"
+    },
+    {
+      "id": "m2-wrong-local-midnight",
+      "mutation": "local day start at 01:00 instead of local midnight",
+      "test": "tests/test_p0_hc_coverage.py::TestResolveWindow::test_local_day_uses_chat_midnight_not_server_zone",
+      "result": "1 failed (expected)",
+      "artifact": "mutations/m2-wrong-local-midnight.txt"
+    },
+    {
+      "id": "m3-page-drop",
+      "mutation": "drop first row of every range page",
+      "test": "tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_range_pages_cover_every_row_once",
+      "result": "1 failed (expected: empty page in range chain)",
+      "artifact": "mutations/m3-page-drop.txt"
+    },
+    {
+      "id": "m4-partial-inline",
+      "mutation": "re-insert HISTORY_PARTIAL_INLINE on sampled turn",
+      "test": "tests/test_p0_hc_coverage.py::TestCauseSeparation::test_inline_partial_suppressed_on_sampled_turn",
+      "result": "1 failed (expected)",
+      "artifact": "mutations/m4-partial-inline.txt"
+    },
+    {
+      "id": "m5-missing-range-empty",
+      "mutation": "empty range reported as error/anchor_missing",
+      "test": "tests/test_p0_hc_coverage.py::TestCaptureAndRoute::test_empty_range_is_range_empty_not_error",
+      "result": "1 failed (expected: status error vs empty_window)",
+      "artifact": "mutations/m5-missing-range-empty.txt"
+    }
+  ],
+  "products": [
+    "services/tool_router.py",
+    "services/direct_chat_service.py",
+    "services/direct_l1.py",
+    "services/prompt_style_blocks.py",
+    "services/tool_schemas.py",
+    "tests/test_history_pages.py",
+    "tests/test_p0_hc_coverage.py"
+  ],
+  "configuration": {
+    "new_flags": 0,
+    "new_ddl": 0,
+    "prompt_canon_changed": false,
+    "cursor_format_changed": false,
+    "time_window_schema_fields_changed": false,
+    "packer_changed": false
+  },
+  "limitations": [
+    "Production trace/effective release/config/prompt, original chat_id/message_id/trace_id and real archive are unavailable in this environment; fixture-based reproduction is explicitly not production evidence.",
+    "Telegram egress, full temporal metadata matrix and paired acceptance batteries are slices C1/C2/B/ACCEPT.",
+    "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken fails outside the mandatory set due to the UR-14 removal of style_anchors; A does not touch that path and does not use it as evidence."
+  ]
+}

@@ -1,0 +1,56 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+_____ TestCauseSeparation.test_inline_partial_suppressed_on_sampled_turn ______
+
+self = <tests.test_p0_hc_coverage.TestCauseSeparation object at 0x000002249E725070>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002249E726210>
+
+    @pytest.mark.asyncio
+    async def test_inline_partial_suppressed_on_sampled_turn(
+            self, monkeypatch):
+        import services.direct_chat_service as dcs
+    
+        async def _summary_off(_chat_id):
+            return False
+    
+        async def _cp_g(_chat_id, _key, default=None):
+            return default
+    
+        monkeypatch.setattr(dcs, "chat_summary_enabled", _summary_off)
+        monkeypatch.setattr(dcs, "_cp_g", _cp_g)
+        window = [{"author_name": "╨▓╨░╤Б╤П", "text": "╤А╨╡╨┐╨╗╨╕╨║╨░",
+                   "timestamp": 1000, "user_id": 1, "media_type": "text"}]
+    
+        class _Svc:
+            db = MagicMock()
+            aliases = AliasResolver("{}")
+    
+            @staticmethod
+            def _history_window(rows, _trigger):
+                return list(rows)
+    
+            @staticmethod
+            def _context_row_line(row, _suffix, **_kw):
+                return f"{row['author_name']}: {row['text']}"
+    
+            @staticmethod
+            async def _history_partial(_chat_id, _window):
+                return True
+    
+        svc = _Svc()
+        parts = await DirectChatService._build_global_context_parts(
+            svc, CHAT_ID, window,
+            history_sample={"window_kind": "time_range",
+                            "sample_id": "hs_x"})
+        head = "\n".join(parts["head_lines"])
+        assert "╨┤╨╛╤Б╨╗╨╛╨▓╨╜╨╛ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ 1 ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╣" in head
+>       assert HISTORY_PARTIAL_INLINE not in head
+E       AssertionError: assert '╨▒╨╛╨╗╨╡╨╡ ╤А╨░╨╜╨╜╤П... ╨╜╨╡ ╨┐╨╡╤А╨╡╨┤╨░╨╜╨░' not in '╤Д╨╛╨╜: ╨┤╨╛╤Б╨╗╨╛╨▓...╨╜╨╡ ╨┐╨╡╤А╨╡╨┤╨░╨╜╨░)'
+E         
+E         '╨▒╨╛╨╗╨╡╨╡ ╤А╨░╨╜╨╜╤П╤П ╨╕╤Б╤В╨╛╤А╨╕╤П ╨╜╨╡ ╨┐╨╡╤А╨╡╨┤╨░╨╜╨░' is contained here:
+E           ╤Д╨╛╨╜: ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╨╛ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ 1 ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╣ (╨▒╨╛╨╗╨╡╨╡ ╤А╨░╨╜╨╜╤П╤П ╨╕╤Б╤В╨╛╤А╨╕╤П ╨╜╨╡ ╨┐╨╡╤А╨╡╨┤╨░╨╜╨░)
+
+tests\test_p0_hc_coverage.py:628: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_hc_coverage.py::TestCauseSeparation::test_inline_partial_suppressed_on_sampled_turn
+1 failed in 5.37s

@@ -1,0 +1,16 @@
+﻿
+=================================== ERRORS ====================================
+________________ ERROR collecting tests/test_p0_hc_coverage.py ________________
+ImportError while importing test module 'C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-hc-red-base-2b3e2eae4c82-17aee7f0\tests\test_p0_hc_coverage.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_p0_hc_coverage.py:29: in <module>
+    from services.direct_chat_service import (
+E   ImportError: cannot import name '_force_history_range_plan' from 'services.direct_chat_service' (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-hc-red-base-2b3e2eae4c82-17aee7f0\services\direct_chat_service.py)
+=========================== short test summary info ===========================
+ERROR tests/test_p0_hc_coverage.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 6.48s
