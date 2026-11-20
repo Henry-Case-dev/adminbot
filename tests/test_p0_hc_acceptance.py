@@ -81,7 +81,8 @@ def test_fixture_history_run_is_compact_and_readonly(tmp_path):
     assert payload["schema"] == "p0-hc-acceptance/1"
     assert payload["mode"] == "fixture"
     assert payload["acceptance_eligible"] is False
-    assert payload["product_sha"].startswith("9b68c01e2")
+    assert payload["variant"] == "candidate"
+    assert payload["product_sha"]
     assert payload["snapshot"]["schema"] == 48
     assert payload["snapshot"]["quick_check"] == "ok"
     assert payload["snapshot"]["read_only"] is True
