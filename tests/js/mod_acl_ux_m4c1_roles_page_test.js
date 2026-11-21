@@ -139,7 +139,9 @@ function vm(extra) {
  'roleSectionParams', 'roleSectionKeys', 'roleActionVisible',
  'roleSearchEmpty', 'accessErrorTitle', 'accessErrorHint',
  'accessErrorPayload', 'gatesList', '_autoSelectRole', '_ensureRolesPage',
- 'rolesPageTabs', 'selectedRole', 'roleUsageCount'].forEach(
+ 'rolesPageTabs', 'selectedRole', 'roleUsageCount', 'rolesCounterText',
+ 'matrixCounterText', 'canDeleteRole', 'roleDeleteHint',
+ 'roleDeleteBlockedReason', 'retryRolesList'].forEach(
   function (name) {
     assert.strictEqual(typeof methods[name], 'function', 'method ' + name);
   });
@@ -257,6 +259,43 @@ assert.strictEqual(methods.accessErrorPayload.call({}, new Error('net')).status,
 assert.ok(INDEX.indexOf('data-roles-empty') >= 0, 'честное 200 []');
 assert.ok(INDEX.indexOf('data-roles-matrix-empty') >= 0, 'честная пустая матрица');
 
+/* ── 5b. F01: счётчики только из успешных данных ────────────────────────── */
+const counterCtx = vm({
+  isGlobalAdmin: true,
+  rolesLoading: false, rolesError: null, rolesList: [{}, {}, {}, {}],
+  matrixItems: items, matrixSearch: '', matrixLoading: false,
+  matrixErrorStatus: 0,
+  _f4Registry: ctx._f4Registry,
+});
+assert.strictEqual(methods.rolesCounterText.call(counterCtx), '4');
+assert.strictEqual(methods.matrixCounterText.call(counterCtx), '4 из 4');
+counterCtx.rolesLoading = true;
+assert.strictEqual(methods.rolesCounterText.call(counterCtx), '…');
+counterCtx.rolesLoading = false;
+counterCtx.rolesError = { status: 403, message: 'denied' };
+assert.strictEqual(methods.rolesCounterText.call(counterCtx), '',
+  'F01: 403 не показывает РОЛИ 0');
+counterCtx.rolesError = { status: 503, message: 'down' };
+assert.strictEqual(methods.rolesCounterText.call(counterCtx), '',
+  'F01: 503 не показывает РОЛИ 0');
+counterCtx.matrixLoading = true;
+assert.strictEqual(methods.matrixCounterText.call(counterCtx), '…');
+counterCtx.matrixLoading = false;
+counterCtx.matrixErrorStatus = 503;
+assert.strictEqual(methods.matrixCounterText.call(counterCtx), '',
+  'F01: 503 не показывает 0 из 0');
+counterCtx.matrixErrorStatus = 403;
+assert.strictEqual(methods.matrixCounterText.call(counterCtx), '',
+  'F01: 403 не показывает 0 из 0');
+counterCtx.matrixErrorStatus = 0;
+counterCtx.isGlobalAdmin = false;
+assert.strictEqual(methods.matrixCounterText.call(counterCtx), '',
+  'F01: non-global не получает числовой counter');
+assert.ok(INDEX.indexOf('data-roles-count') >= 0);
+assert.ok(INDEX.indexOf('data-roles-matrix-count') >= 0);
+assert.ok(INDEX.indexOf('matrixCounterText()') >= 0);
+assert.ok(INDEX.indexOf('rolesCounterText()') >= 0);
+
 /* ── 6. Поиск в правах роли ─────────────────────────────────────────────── */
 const roleCtx = vm({
   roleSearch: '',
@@ -310,6 +349,69 @@ assert.ok(methods.roleEditDisabledReason.call(policy, { role_name: 'moderator' }
   .indexOf('Только просмотр') >= 0);
 assert.ok(methods.isSuperuserRole({ role_name: 'global_admin' }));
 assert.ok(methods.isSuperuserRole({ role_name: 'x', role_type: 'global_admin' }));
+
+/* ── 7b. F02: занятая custom-роль — delete disabled, rename разрешён ────── */
+const usedCtx = vm({
+  isGlobalAdmin: true,
+  adminsLoading: false,
+  adminsError: null,
+  admins: [{ role_name: 'custom_used' }, { role_name: 'admin' }],
+});
+const usedRole = { role_name: 'custom_used', is_custom: true };
+const unusedRole = { role_name: 'custom_free', is_custom: true };
+assert.strictEqual(methods.canEditRole.call(usedCtx, usedRole), true,
+  'rename занятой роли разрешён');
+assert.strictEqual(methods.canDeleteRole.call(usedCtx, usedRole), false,
+  'F02: delete занятой роли disabled');
+assert.ok(methods.roleRestrictionHint.call(usedCtx, usedRole)
+  .indexOf('Переименовать можно') >= 0,
+  'rename hint не запрещает rename');
+assert.ok(methods.roleDeleteHint.call(usedCtx, usedRole)
+  .indexOf('назначена 1') >= 0,
+  'delete hint называет usage');
+assert.ok(methods.roleDeleteBlockedReason.call(usedCtx, usedRole)
+  .indexOf('назначена 1') >= 0,
+  'F02: причина видима, не только title');
+assert.strictEqual(methods.canDeleteRole.call(usedCtx, unusedRole), true);
+assert.strictEqual(methods.roleDeleteBlockedReason.call(usedCtx, unusedRole), '');
+assert.strictEqual(methods.canDeleteRole.call(usedCtx,
+  { role_name: 'admin', permissions: { wildcard: true } }), false);
+usedCtx.adminsError = { status: 503, message: 'down' };
+assert.strictEqual(methods.canDeleteRole.call(usedCtx, unusedRole), false,
+  'неизвестные назначения → delete disabled');
+assert.ok(methods.roleDeleteBlockedReason.call(usedCtx, unusedRole)
+  .indexOf('не загружены') >= 0);
+usedCtx.adminsError = null;
+usedCtx.adminsLoading = true;
+assert.strictEqual(methods.canDeleteRole.call(usedCtx, unusedRole), false,
+  'пока назначения грузятся — delete disabled');
+usedCtx.adminsLoading = false;
+assert.ok(INDEX.indexOf('data-roles-delete') >= 0);
+assert.ok(INDEX.indexOf('data-roles-usage-note') >= 0);
+assert.ok(INDEX.indexOf('canDeleteRole(selectedRole())') >= 0);
+
+/* ── 7c. F03: 404 retry перезагружает СПИСОК, не повторяет tree ─────────── */
+const retryCtx = vm({
+  _roleEditorBaseline: [],
+  roleEditor: {
+    open: true, roleName: 'gone', error: { status: 404 },
+    rawPermissions: {}, tree: {}, sections: [{ id: 'x' }],
+    actions: [{ id: 'a' }], saveError: 'x',
+  },
+  rolesCalls: 0,
+  treeCalls: 0,
+  loadRoles: async function () { this.rolesCalls += 1; },
+  openRoleEditor: async function () { this.treeCalls += 1; },
+});
+methods.retryRolesList.call(retryCtx);
+assert.strictEqual(retryCtx.rolesCalls, 1,
+  'F03: retry вызывает loadRoles (список)');
+assert.strictEqual(retryCtx.treeCalls, 0, 'F03: tree повторно не вызывается');
+assert.strictEqual(retryCtx.roleEditor.error, null);
+assert.strictEqual(retryCtx.roleEditor.roleName, '');
+assert.strictEqual(retryCtx.roleEditor.tree, null);
+assert.ok(INDEX.indexOf('data-roles-retry-list') >= 0);
+assert.ok(INDEX.indexOf('retryRolesList()') >= 0);
 
 /* ── 8. Фактические гейты: только реальные id, без выдуманных чекбоксов ─── */
 const gates = methods.gatesList.call({});

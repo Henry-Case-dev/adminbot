@@ -65,6 +65,9 @@ ROLES = {
                     "permissions": {"sections": ["limits", "flags", "reactions",
                                                  "content", "chat_lore"],
                                     "actions": []}},
+    # F02 fixture: custom-роль, назначенная одному админу (DELETE → 409).
+    "custom_used": {"role_name": "custom_used", "is_custom": True,
+                    "permissions": {"sections": [], "actions": []}},
 }
 ADMINS = [
     {"telegram_id": 5885953495, "role_name": "admin", "display_name": "Audit",
@@ -74,17 +77,27 @@ ADMINS = [
      "created_at": "2026-11-17T10:00:01+00:00"},
     {"telegram_id": 777000111, "role_name": "moderator", "display_name": None,
      "added_by": 5885953495, "created_at": "2026-11-17T10:00:02+00:00"},
+    {"telegram_id": 777000222, "role_name": "custom_used", "display_name": None,
+     "added_by": 5885953495, "created_at": "2026-11-17T10:00:03+00:00"},
 ]
 ACCESS_ME = {
     "role_global": "global_admin", "role_chat": None, "is_global_admin": True,
     "is_local_admin": False, "rank": 4,
     "chats": [{"chat_id": CHAT_ID, "role": "global_admin"}],
 }
+ACCESS_ME_NON_GLOBAL = {
+    "role_global": "local_admin", "role_chat": None, "is_global_admin": False,
+    "is_local_admin": False, "rank": 3,
+    "chats": [{"chat_id": CHAT_ID, "role": "local_admin"}],
+}
+ME_NON_GLOBAL = dict(base.ME_JSON, role_name="local_admin",
+                     is_global_admin=False,
+                     permissions={"sections": ["access"]})
 ACCESS_CHATS = [{"chat_id": CHAT_ID, "title": base.CHAT_TITLE,
                  "photo_file_id": None, "is_active": True,
                  "access": "global_admin"}]
 
-MODE = {"roles": 0, "tree": 0, "matrix": 0}
+MODE = {"roles": 0, "tree": 0, "matrix": 0, "non_global": False}
 COUNTS = {"roles": 0, "tree": 0, "matrix": 0}
 
 
@@ -186,9 +199,10 @@ def _api_response(url, headers=None):
     if path.endswith("/api/config"):
         return 200, CONFIG
     if path.endswith("/api/me"):
-        return 200, base.ME_JSON
+        return 200, (ME_NON_GLOBAL if MODE.get("non_global") else base.ME_JSON)
     if path.endswith("/api/access/me"):
-        return 200, ACCESS_ME
+        return 200, (ACCESS_ME_NON_GLOBAL if MODE.get("non_global")
+                     else ACCESS_ME)
     if path.endswith("/api/access/chats"):
         return 200, ACCESS_CHATS
     if path.endswith("/api/admins"):
@@ -295,6 +309,19 @@ PROBE_JS = r"""
     matrixGroupOpen: qa('[data-roles-matrix] .matrix-group[open]').length,
     matrixEffective: qa('[data-roles-matrix] [data-matrix-effective]').length,
     matrixCountText: (q('[data-roles-pane="matrix"] p') || {}).textContent || '',
+    rolesCount: q('[data-roles-count]')
+      ? q('[data-roles-count]').textContent.trim() : null,
+    matrixCount: q('[data-roles-matrix-count]')
+      ? q('[data-roles-matrix-count]').textContent.trim() : null,
+    deleteDisabled: (() => {
+      const el = q('.roles-pane__actions [data-roles-delete]');
+      return el ? el.disabled : null;
+    })(),
+    renameDisabled: (() => {
+      const el = q('.roles-pane__actions [data-roles-rename]');
+      return el ? el.disabled : null;
+    })(),
+    usageNote: (q('[data-roles-usage-note]') || {}).textContent || '',
     ownersFallback: qa('.roles-tree__owner').filter(
       (el) => el.textContent.indexOf('Общее / инфраструктура') >= 0).length,
     ownerLabels: qa('.roles-tree__owner').length,
@@ -412,7 +439,7 @@ def run_playwright() -> int:
             # ── Happy path: страница/дерево/поиск/матрица/роли ────────────
             for (vw, vh) in CHECK_VIEWPORTS:
                 _reset_counts()
-                MODE.update(roles=0, tree=0, matrix=0)
+                MODE.update(roles=0, tree=0, matrix=0, non_global=False)
                 ctx, page, errors = _open(browser, vw, vh)
                 key = "%dx%d" % (vw, vh)
                 try:
@@ -426,11 +453,41 @@ def run_playwright() -> int:
                     if vw >= 768:
                         page.click('.roles-item:nth-child(2)')
                     else:
-                        page.select_option('#roles-mobile-select', 'moderator')
+                        page.select_option('#roles-mobile-select', 'custom_used')
                     page.wait_for_timeout(700)
                     _assert(COUNTS["tree"] == 2, key,
                             "role switch tree %s != 2" % COUNTS["tree"],
                             failures)
+                    # F02: custom_used назначена 1 админу — delete disabled,
+                    # причина видима, rename остаётся доступным.
+                    d2 = page.evaluate(PROBE_JS)
+                    _assert(d2["deleteDisabled"] is True, key,
+                            "F02: delete занятой роли включен", failures)
+                    _assert(d2["renameDisabled"] is False, key,
+                            "F02: rename занятой роли должен быть доступен",
+                            failures)
+                    _assert("назначена 1" in (d2["usageNote"] or ""), key,
+                            "F02: нет видимой причины usage", failures)
+                    if vw < 768:
+                        page.click('[data-roles-actions]')
+                        page.wait_for_timeout(250)
+                        menu = page.evaluate(
+                            "() => { const e = document.querySelector("
+                            "'[data-roles-actions-menu] [data-roles-delete]');"
+                            " return e ? {disabled: e.disabled,"
+                            " h: e.getBoundingClientRect().height} : null; }")
+                        _assert(menu is not None and menu["disabled"] is True
+                                and menu["h"] >= 44, key,
+                                "F02: mobile delete в ⋯ не disabled/44: %s"
+                                % menu, failures)
+                        page.click('[data-roles-actions]')
+                        page.wait_for_timeout(150)
+                    report["F02@" + key] = {
+                        "role": "custom_used",
+                        "deleteDisabled": d2["deleteDisabled"],
+                        "renameDisabled": d2["renameDisabled"],
+                        "usageNote": d2["usageNote"],
+                    }
                     # поиск в правах — 0 запросов на символ
                     before = dict(COUNTS)
                     page.fill('[data-roles-search]', 'limits.search_max_symbols')
@@ -523,7 +580,7 @@ def run_playwright() -> int:
             ]
             for scope, code, selector, attr, expect in scenarios:
                 _reset_counts()
-                MODE.update(roles=0, tree=0, matrix=0)
+                MODE.update(roles=0, tree=0, matrix=0, non_global=False)
                 MODE[scope] = code
                 ctx, page, errors = _open(browser, 1440, 900)
                 key = "error-%s-%s" % (scope, code)
@@ -549,12 +606,85 @@ def run_playwright() -> int:
                         _assert(not d["matrixBodyVisible"], key,
                                 "при %s показана дефолтная матрица" % code,
                                 failures)
+                    # F01: error-состояние не сопровождается нулевым счётчиком.
+                    df = page.evaluate(PROBE_JS)
+                    if scope == "roles" and code in (401, 403, 503):
+                        _assert(df["rolesCount"] is None, key,
+                                "F01: в error-состоянии показан РОЛИ %r"
+                                % df["rolesCount"], failures)
+                    if scope == "matrix" and code in (403, 503):
+                        _assert(df["matrixCount"] is None, key,
+                                "F01: в error-состоянии показан '%s из %s'"
+                                % (df["matrixCount"], "0"), failures)
+                        _assert("0 из 0" not in body, key,
+                                "F01: '0 из 0' виден рядом с error-карточкой",
+                                failures)
+                    report[key] = {
+                        "error": got,
+                        "rolesCount": df["rolesCount"],
+                        "matrixCount": df["matrixCount"],
+                        "has_0_iz_0": "0 из 0" in body,
+                    }
+                    # F03: 404 tree — primary action перезагружает СПИСОК ролей.
+                    if scope == "tree" and code == 404:
+                        _assert(page.query_selector('[data-roles-retry-list]')
+                                is not None, key,
+                                "F03: нет действия обновления списка ролей",
+                                failures)
+                        before_roles = COUNTS["roles"]
+                        MODE["tree"] = 0
+                        page.click('[data-roles-retry-list]')
+                        page.wait_for_timeout(900)
+                        _assert(COUNTS["roles"] == before_roles + 1, key,
+                                "F03: список ролей не перезагружен (%s → %s)"
+                                % (before_roles, COUNTS["roles"]), failures)
+                        d_retry = page.evaluate(PROBE_JS)
+                        _assert(d_retry["treeError"] is None, key,
+                                "F03: после retry списка tree-error не снят",
+                                failures)
+                        report[key]["retryList"] = True
+                        report[key]["retryRolesDelta"] = (
+                            COUNTS["roles"] - before_roles)
                     _assert(not errors, key,
                             "JS-ошибки: %s" % errors[:2], failures)
                     if code in (401, 403, 404, 503):
                         _shot(page, "roles-error-%s-%s.png" % (scope, code))
                 finally:
                     ctx.close()
+
+            # ── F01: non-global 403 — матрица без числового счётчика ──────
+            _reset_counts()
+            MODE.update(roles=0, tree=0, matrix=0, non_global=True)
+            ctx, page, errors = _open(browser, 1440, 900)
+            key = "error-matrix-non-global"
+            try:
+                page.click('[data-roles-tabs] button:nth-child(2)')
+                page.wait_for_timeout(450)
+                d = page.evaluate(PROBE_JS)
+                _assert(d["matrixCount"] is None, key,
+                        "F01: non-global видит '%s из %s'"
+                        % (d["matrixCount"], "0"), failures)
+                body = page.evaluate(
+                    "() => (document.querySelector('[data-roles-page]')"
+                    " || document.body).innerText")
+                _assert("0 из 0" not in body, key,
+                        "F01: non-global '0 из 0' виден", failures)
+                _assert(page.query_selector('[data-roles-matrix-forbidden]')
+                        is not None, key,
+                        "F01: non-global без карточки «только владельцу»",
+                        failures)
+                _assert(not errors, key,
+                        "JS-ошибки: %s" % errors[:2], failures)
+                report[key] = {
+                    "matrixCount": d["matrixCount"],
+                    "matrix_forbidden": page.query_selector(
+                        '[data-roles-matrix-forbidden]') is not None,
+                    "has_0_iz_0": "0 из 0" in body,
+                }
+                _shot(page, "roles-error-matrix-non-global.png")
+            finally:
+                ctx.close()
+                MODE["non_global"] = False
             browser.close()
     finally:
         httpd.shutdown()

@@ -32564,6 +32564,21 @@
         }
         return 'Проверьте соединение и повторите запрос.';
       },
+      // F01 (M4C1-R1-F01): счётчик — только из успешно прочитанных данных.
+      // В 401/403/404/503 «0» не рендерится: число рядом с error-карточкой
+      // читалось бы как «база пуста».
+      rolesCounterText: function () {
+        if (this.rolesLoading) return '…';
+        if (this.rolesError) return '';
+        return String((this.rolesList || []).length);
+      },
+      matrixCounterText: function () {
+        if (!this.isGlobalAdmin) return '';
+        if (this.matrixLoading) return '…';
+        if (this.matrixErrorStatus) return '';
+        return this.matrixVisibleCount(this.matrixTree())
+          + ' из ' + this.matrixTotalCount();
+      },
       loadAdmins: async function () {
         this.adminsLoading = true;
         this.adminsError = null;
@@ -32711,6 +32726,20 @@
         if (this.roleEditor.open) return;   // пользователь отменил потерю правок
         this.navigateTo('#/access');
       },
+      // F03 (M4C1-R1-F03): 404 «роль исчезла» — сначала перечитать СПИСОК
+      // ролей (удалённая роль исчезнет), а не повторять tree для той же роли.
+      retryRolesList: async function () {
+        this._roleEditorBaseline = null;
+        this.roleEditor.error = null;
+        this.roleEditor.open = false;
+        this.roleEditor.roleName = '';
+        this.roleEditor.rawPermissions = {};
+        this.roleEditor.tree = null;
+        this.roleEditor.sections = [];
+        this.roleEditor.actions = [];
+        this.roleEditor.saveError = '';
+        await this.loadRoles();   // внутри — _autoSelectRole для страницы
+      },
       onRoleSelectChange: function (ev) {
         var name = ev && ev.target ? ev.target.value : '';
         var role = (this.rolesList || []).find(function (r) {
@@ -32846,15 +32875,23 @@
         return !!(role && role.role_type === 'global_admin');
       },
       canEditRole: function (role) {
-        // C1: rename/delete — только global admin (UI-политика, не серверная
-        // граница: серверные S1/S3 остаются C3). И только пользовательскую
-        // (не superuser, не builtin).
+        // rename/edit — только global admin (UI-политика, не серверная
+        // граница: серверные S1/S3 остаются C3); не superuser/не builtin.
         if (!this.isGlobalAdmin) return false;
         return !this.isSuperuserRole(role)
           && !(role && role.role_type)
           && !!(role && role.is_custom);
       },
+      // F02 (M4C1-R1-F02): usage>0 блокирует ИМЕННО удаление (серверный
+      // DELETE → 409); rename остаётся доступным (сервер каскадирует).
+      canDeleteRole: function (role) {
+        if (!this.canEditRole(role)) return false;
+        if (this.adminsError || this.adminsLoading) return false;
+        var used = this.roleUsageCount(role.role_name);
+        return used === 0;
+      },
       roleRestrictionHint: function (role) {
+        if (!role) return 'Роль не выбрана';
         if (!this.isGlobalAdmin) {
           return 'Только просмотр: управление ролями — у глобального администратора';
         }
@@ -32864,11 +32901,50 @@
         if (role && role.role_type) {
           return 'Встроенную роль нельзя переименовать/удалить';
         }
-        var used = this.roleUsageCount(role && role.role_name);
+        var used = this.roleUsageCount(role.role_name);
         if (used) {
-          return 'Роль назначена ' + used + ' админ(ам) — сначала переназначьте';
+          return 'Переименовать можно; удаление недоступно — роль назначена '
+            + used + ' админ(ам)';
         }
-        return 'Переименовать/удалить роль';
+        return 'Переименовать роль';
+      },
+      roleDeleteHint: function (role) {
+        if (!role) return 'Роль не выбрана';
+        if (!this.isGlobalAdmin) {
+          return 'Только просмотр: управление ролями — у глобального администратора';
+        }
+        if (this.isSuperuserRole(role)) {
+          return 'Роль суперпользователя защищена — удаление недоступно';
+        }
+        if (role && role.role_type) {
+          return 'Встроенную роль нельзя удалить';
+        }
+        if (this.adminsError) {
+          return 'Удаление недоступно: назначения ролей не загружены';
+        }
+        if (this.adminsLoading) return 'Проверяем назначения роли…';
+        var used = this.roleUsageCount(role.role_name);
+        if (used) {
+          return 'Удаление недоступно: роль назначена ' + used
+            + ' админ(ам) — сначала переназначьте';
+        }
+        return 'Удалить роль';
+      },
+      // Visible reason (не только title) для занятой custom-роли.
+      roleDeleteBlockedReason: function (role) {
+        if (!role) return '';
+        if (this.isSuperuserRole(role) || (role && role.role_type)) return '';
+        if (!this.isGlobalAdmin) return '';
+        if (this.adminsError) {
+          return 'Удаление недоступно: назначения ролей не загружены.';
+        }
+        if (this.adminsLoading) return 'Проверяем назначения роли…';
+        var used = this.roleUsageCount(role.role_name);
+        if (used > 0) {
+          return 'Удаление недоступно: роль назначена ' + used
+            + ' админ(ам) — сначала переназначьте.';
+        }
+        return '';
       },
       renameRole: async function (role) {
         if (!this.canEditRole(role)) return;
@@ -32902,7 +32978,7 @@
         }
       },
       deleteRole: async function (role) {
-        if (!this.canEditRole(role)) return;
+        if (!this.canDeleteRole(role)) return;
         if (!window.confirm('Удалить роль «' + role.role_name
                             + '»? Права роли будут удалены.')) return;
         var wasSelected = this.roleEditor.roleName === role.role_name;
