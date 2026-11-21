@@ -219,6 +219,73 @@ async def test_status_feed_off_and_foreign_chat_isolation(tmp_path,
         await db.close()
 
 
+@pytest.mark.asyncio
+async def test_s15_07_foreign_lesson_never_active_in_status_or_api(
+        tmp_path, monkeypatch):
+    """MAC-S15-07 (M4B B3): урок ДРУГОГО чата не показывается активным.
+
+    TEST-LIFECYCLE: CONTRACT owner=MAC-S15-07
+
+    Проверяются ОБА источника, которые читает компактная лента: (1) срез
+    `status.experience` (items/counters) и (2) `GET /api/memory/lessons`
+    с chat_id. Активный чужой урок не попадает в срез этого чата; глобальный
+    урок виден всегда (это не «чужой чат»); свой — виден только своему чату.
+    """
+    db = await _db(tmp_path, name="mca16_s1507.db")
+    try:
+        monkeypatch.setattr("services.lore_runtime.get_lore_db", lambda: db)
+        monkeypatch.setattr(ma, "_require_global_admin", lambda *a: None)
+        monkeypatch.setattr(ma, "_db_or_503", lambda: db)
+        svc = me.get_service(db)
+        own_lid, _ = await _active(svc, chat_id=-100,
+                                   rule_key="retry_after_typed_failure")
+        foreign_lid, _ = await _active(svc, chat_id=-200,
+                                       rule_key="retry_after_typed_failure")
+        # Глобальное правило (scope='global') — видно в любом чате.
+        global_lid, global_ver = await svc.lesson.propose(
+            type="tool_usage", scope="global",
+            rule_key="retry_after_typed_failure")
+        assert global_lid
+        assert await svc.lesson.validate(
+            global_lid, evidence=me.ValidationEvidence(
+                kind="technical_fix", error_reproduced=True,
+                control_example_succeeded=True))
+        assert await svc.lesson.activate(global_lid)
+        status = StatusService()
+        own = await status.experience_snapshot(chat_id=-100,
+                                               chat_scope_allowed=True)
+        own_ids = {i.get("lesson_id") for i in own["items"]}
+        assert own_lid in own_ids
+        assert foreign_lid not in own_ids, (
+            "S15-07: активный урок чужого чата не в срезе «Опыта»")
+        assert own["counters"]["active"] == 2, (
+            "S15-07: счётчик active — только свой + глобальный")
+        # Смена разрешённого чата не «перетаскивает» прежний урок.
+        other = await status.experience_snapshot(chat_id=-200,
+                                                 chat_scope_allowed=True)
+        other_ids = {i.get("lesson_id") for i in other["items"]}
+        assert foreign_lid in other_ids and own_lid not in other_ids
+        api_own = await ma.memory_lessons(None, None, chat_id=-100,
+                                          status=None, limit=100)
+        api_ids = {l["lesson_id"] for l in api_own["lessons"]}
+        assert own_lid in api_ids and global_lid in api_ids
+        assert foreign_lid not in api_ids, (
+            "S15-07: API уроков не раскрывает чужой чат")
+        api_foreign = await ma.memory_lessons(None, None, chat_id=-200,
+                                              status=None, limit=100)
+        assert foreign_lid in {l["lesson_id"] for l in api_foreign["lessons"]}
+        assert own_lid not in {l["lesson_id"] for l in api_foreign["lessons"]}
+        # Каждая строка несёт серверный scope — клиент фильтрует по нему.
+        for lesson in api_own["lessons"]:
+            if lesson["lesson_id"] == foreign_lid:
+                raise AssertionError("чужой урок в ответе своего чата")
+            assert lesson["scope"] in ("global", "chat")
+            if lesson["scope"] == "chat":
+                assert lesson["scope_chat_id"] == -100
+    finally:
+        await db.close()
+
+
 # ═══ T-5007: «Память» — таблица/карточка/права ══════════════════════════════
 
 @pytest.fixture

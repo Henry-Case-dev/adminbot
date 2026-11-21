@@ -6681,6 +6681,31 @@ html.cover-editor-open { overflow: hidden; }
 }
 .sfeed-empty { padding: 2px 2px 4px; }
 
+/* M4B B3 (MAC-S7-FEED-01): компактная лента «Опыт / Уроки» — тот же
+   контроллер/строки SFeed, но окно 144 px (в требуемом диапазоне 112–160),
+   без горизонтального скролла; на мобиле — те же 144 px. */
+.sfeed-viewport--experience { --sfeed-h: 144px; }
+@media (max-width: 767px) {
+  .sfeed-viewport--experience { --sfeed-h: 144px; }
+}
+.sfeed-item__badge--experience { color: #a7f3d0;
+  border-color: rgba(45, 212, 191, .30); }
+.sfeed-item__badge--lesson { color: #c4b5fd;
+  border-color: rgba(139, 92, 246, .30); }
+.exp-feed { margin-top: .5rem; }
+.exp-feed__tabs { display: inline-flex; gap: .25rem; flex-wrap: wrap; }
+.exp-feed__tab {
+  border: 1px solid rgba(255, 255, 255, .12); border-radius: 999px;
+  padding: 2px 8px; font-size: .68rem; color: #cbd5e1;
+  min-height: 28px;
+}
+.exp-feed__tab.active {
+  border-color: rgba(139, 92, 246, .45);
+  background: rgba(139, 92, 246, .14); color: var(--text-1, #F4F7FB);
+}
+.exp-feed__tab:focus-visible { outline: 2px solid var(--teal-500, #2dd4bf);
+  outline-offset: 1px; }
+
 /* M4B B3 (MAC-S7-FEED-04): ПОЛНАЯ 8-стадийная цепочка в аналитике
    «Опыта» — компактные строки, раскрытие причин по одной стадии. */
 .exp-chain { display: flex; flex-direction: column; gap: .35rem; }

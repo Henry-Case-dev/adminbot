@@ -432,8 +432,25 @@ assert(SFeed && typeof SFeed.step === 'function',
 // ═══ Маркеры разметки/CSS (структурный контракт) ══════════════════════════
 (function () {
   const viewports = (INDEX.match(/v-sfeed="statusRecordOpen"/g) || []).length;
-  assert.strictEqual(viewports, 5,
-    'EVOL-002 + M4B B1: одна схема движения на все пять источников');
+  // M4B B1: одна схема движения на все пять источников «Мониторинга».
+  // M4B B3 (MAC-S7-FEED-03): шестой потребитель — компактная лента
+  // «Опыт/Уроки» в карточке «Опыт»; это ТОТ ЖЕ контроллер и то же окно
+  // записи (второго механизма движения нет), поэтому считаем по местам.
+  const intelStart = INDEX.indexOf('class="card p-4 sg-12 intel-card"');
+  const intelEnd = INDEX.indexOf('<!-- ═══ ASAP-UI-02 (§5.4', intelStart);
+  const intelCard = INDEX.slice(intelStart, intelEnd);
+  assert.strictEqual((intelCard.match(/v-sfeed="statusRecordOpen"/g) || [])
+    .length, 5,
+  'EVOL-002 + M4B B1: пять лент «Мониторинга» на одном контроллере');
+  const expFeedStart = INDEX.indexOf('class="exp-feed"');
+  const expCard = INDEX.slice(expFeedStart,
+    INDEX.indexOf('</health-glass-surface>', expFeedStart));
+  assert.ok(expFeedStart > 0);
+  assert.strictEqual((expCard.match(/v-sfeed="statusRecordOpen"/g) || [])
+    .length, 1,
+  'M4B B3: лента «Опыт/Уроки» использует тот же контроллер SFeed');
+  assert.strictEqual(viewports, 6,
+    'EVOL-002: ровно шесть лент на одной схеме движения (5 + опыт)');
   assert.ok(INDEX.indexOf('data-sfeed-row') >= 0, 'EVOL-001: строки лент');
   assert.ok(INDEX.indexOf('data-sfeed-modal') >= 0, 'EVOL-003: окно записи');
   assert.ok(INDEX.indexOf('data-rec-field') >= 0, 'EVOL-003: поля окна');
