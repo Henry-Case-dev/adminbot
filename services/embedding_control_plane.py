@@ -1116,6 +1116,15 @@ class EmbeddingNoUsableCredential(EmbeddingBudgetExhausted):
     `EmbeddingBudgetExhausted` — совместимость потребителей сохранена."""
 
 
+class EmbeddingRouteNotAdmitted(EmbeddingBudgetExhausted):
+    """P0 EMBED-503-FAILOVER: 5xx-failover обслужила fallback-нога, чья
+    совместимость с ACTIVE не доказана существующим admission-гейтом
+    (`COMPATIBILITY_UNKNOWN`/иное). Вектор НЕ допускается в активное
+    пространство: caller сохраняет text-only + FTS, mixed-space запрещён.
+    Подкласс `EmbeddingBudgetExhausted` — serviceability-контракт потребителей
+    (batch breaker, rebuild pause) сохранён."""
+
+
 # ── EVOL-010: классификация программных ошибок Python ──────────────────────
 # Детерминированные ошибки кода (не зависят от сети/провайдера) — retry того
 # же логического запроса бессмысленен и жжёт бюджет, маскируя дефект под
@@ -1303,6 +1312,12 @@ _ATTEMPT_BUDGET = 4
 # quota-cooldown не участвует. Developer/test hook: 0 → сон 0.
 _TRANSPORT_BACKOFF_BASE = 1.0
 _TRANSPORT_BACKOFF_CAP = 8.0
+# P0 EMBED-503-FAILOVER (22.11.2026): короткая парковка ноги, отказавшей
+# 5xx/timeout. Это НЕ второй circuit breaker — используется существующий
+# credential health (`HEALTH_COOLDOWN`); по истечении следующий logical request
+# снова пробует ногу (probe-recovery). Пока park активен, запросы не бьют
+# сломанный шлюз каждую операцию.
+_PROVIDER_UNAVAILABLE_COOLDOWN_S = 60.0
 
 
 @dataclass
@@ -1311,6 +1326,38 @@ class ExecutionStats:
     attempts: int = 0          # попытки в бюджете (429-defer не считает)
     deferred: int = 0          # 429-переносов по next_allowed_at
     credentials_used: list = field(default_factory=list)
+
+
+# P0 EMBED-503-FAILOVER: фактическая нога, обслужившая последний успешный
+# logical embed в текущем context. Нужна write-path'у, чтобы отличить
+# configured/primary identity от 5xx-fallback connection и не допустить
+# недоказанный вектор в ACTIVE. R17: только alias/provider/model/base_url/
+# quota_group — ключ сюда НЕ попадает.
+_LAST_SERVED_CREDENTIAL: contextvars.ContextVar[dict | None] = \
+    contextvars.ContextVar("embed_last_served", default=None)
+
+
+def last_served_credential() -> dict | None:
+    """R17-safe копия метаданных последней обслужившей ноги (None — успеха
+    не было/legacy-путь)."""
+    value = _LAST_SERVED_CREDENTIAL.get()
+    return dict(value) if value else None
+
+
+def _note_served_credential(credential: EmbeddingCredential) -> None:
+    _LAST_SERVED_CREDENTIAL.set({
+        "alias": credential.alias,
+        "provider": credential.provider,
+        "model": credential.model,
+        "base_url": credential.base_url,
+        "quota_group": credential.quota_group_id,
+    })
+
+
+def clear_last_served_credential() -> None:
+    """Сброс provenance перед logical embed: cache-hit/legacy не должны
+    наследовать metadata прошлого API-вызова."""
+    _LAST_SERVED_CREDENTIAL.set(None)
 
 
 class EmbeddingExecutor:
@@ -1360,12 +1407,15 @@ class EmbeddingExecutor:
           терминал БЕЗ ретраев и БЕЗ сжигания бюджета, с исходным traceback;
         * `EmbeddingNoUsableCredential` — нет usable credential (не квота);
         * `EmbeddingRetriesExhausted` — исчерпаны ≤4 попытки на transport
-          (5xx/timeout; provider budget-сигнала не было).
+          (5xx/timeout; provider budget-сигнала не было) ИЛИ все независимые
+          ноги отказали транспортом в этой операции (каждая — не более одного
+          раза; повтор неизменённого endpoint не жжёт бюджет).
         429 при burst-pressure: ожидание cooldown (bounded max_wait) и одна
         пере-подача; при quota-unavailable: group exhausted + тот же контракт
         ожидания (P3 ждёт — pause-цикл, P0 отступает к FTS)."""
         if not texts:
             return []
+        clear_last_served_credential()
         stats = stats or ExecutionStats()
         pool = self.pool()
         if not pool:
@@ -1388,14 +1438,25 @@ class EmbeddingExecutor:
         # пула (каждый ключ группы максимум одна пере-подача) + 1.
         max_defers = max(2, len(pool))
         last_error: Exception | None = None
+        # P0 EMBED-503-FAILOVER: ноги, отказавшие 5xx/timeout в ТЕКУЩЕЙ
+        # logical operation. Следующая попытка — следующая пригодная
+        # НЕЗАВИСИМАЯ нога, а не повтор неизменённого endpoint.
+        excluded: set[str] = set()
 
         while budget_left > 0:
-            credential = self._pick_credential(pool)
+            credential = self._pick_credential(pool, excluded)
             if credential is None:
+                if excluded:
+                    # Каждая независимая нога уже отказала транспортом в этой
+                    # операции — повтор неизменённого endpoint бессмысленен
+                    # (caller сохраняет текст/FTS).
+                    raise EmbeddingRetriesExhausted(
+                        "all independent embedding legs failed "
+                        "(transport)") from last_error
                 # Все ключи непригодны. Группа cooling → контракт ожидания
                 # (acquire бросит CoolingDown по max_wait); группы здоровы,
-                # но usable-ключей нет (auth_failed/disabled) → честный
-                # терминал без спина.
+                # но usable-ключей нет (auth_failed/disabled/provider park) →
+                # честный терминал без спина.
                 if not self._registry.group_blocked(pool[0].quota_group_id) \
                         and not any(
                             self._registry.group_blocked(c.quota_group_id)
@@ -1405,7 +1466,7 @@ class EmbeddingExecutor:
                     # группах); совместимость потребителей — через подкласс.
                     raise EmbeddingNoUsableCredential(
                         "no usable embedding credential "
-                        "(auth_failed/disabled)")
+                        "(auth_failed/disabled/provider_cooldown)")
                 permit = await self._scheduler.acquire(
                     priority, pool[0].quota_group_id, max_wait_s=max_wait_s)
                 self._scheduler.release(permit)
@@ -1416,7 +1477,7 @@ class EmbeddingExecutor:
             except EmbeddingGroupCoolingDown:
                 # Группа выбранного credential'а cooling → взять другой
                 # (независимая группа §65); больше некого — наверх.
-                if self._pick_credential(pool) is None:
+                if self._pick_credential(pool, excluded) is None:
                     raise
                 continue
             try:
@@ -1441,7 +1502,8 @@ class EmbeddingExecutor:
             except Exception as exc:
                 last_error = exc
                 handled = await self._on_error(
-                    exc, pool, credential.quota_group_id, priority, stats)
+                    exc, pool, credential.quota_group_id, priority, stats,
+                    credential=credential)
                 if handled == "auth":
                     raise
                 if handled == "code_defect":
@@ -1467,7 +1529,10 @@ class EmbeddingExecutor:
                     continue
                 # transport retryable (5xx/timeout): счётная попытка.
                 budget_left -= 1
+                self._mark_transport_failure(credential, pool, excluded)
                 if budget_left <= 0:
+                    break
+                if self._pick_credential(pool, excluded) is None:
                     break
                 await asyncio.sleep(min(
                     _TRANSPORT_BACKOFF_BASE * (2 ** (stats.attempts - 1)),
@@ -1486,18 +1551,54 @@ class EmbeddingExecutor:
 
     # ── внутреннее ──
 
-    def _pick_credential(self,
-                         pool: list[EmbeddingCredential]) -> EmbeddingCredential | None:
-        """Первый usable credential: ключ healthy И его группа не cooling
+    def _pick_credential(
+            self, pool: list[EmbeddingCredential],
+            excluded: set[str] | None = None) -> EmbeddingCredential | None:
+        """Первый usable credential: ключ healthy, его группа не cooling
         (§10: тот же group не дёргается другим ключом; независимая группа —
-        можно перейти к ней, §10/§65)."""
+        можно перейти к ней, §10/§65) и нога не исключена ТЕКУЩЕЙ операцией
+        (P0 EMBED-503-FAILOVER: 5xx/timeout одной ноги не повторяется)."""
+        excluded = excluded or set()
         for credential in pool:
+            if credential.alias in excluded:
+                continue
             if self._registry.credential_health(credential.alias) != HEALTH_HEALTHY:
                 continue
             if self._registry.group_blocked(credential.quota_group_id):
                 continue
             return credential
         return None
+
+    def _mark_transport_failure(
+            self, credential: EmbeddingCredential,
+            pool: list[EmbeddingCredential], excluded: set[str]) -> bool:
+        """5xx/timeout: пометить отказавшую ногу недоступной.
+
+        * если после её исключения остаётся другая пригодная нога — нога
+          исключается из ТЕКУЩЕЙ операции (failover немедленно);
+        * если в этой операции уже отказала другая нога — последняя тоже
+          исключается (не повторять шлюз, который только что отдал 5xx);
+        * единственная живая нога (напр. single-credential пул) сохраняет
+          прежний bounded retry/backoff (не ранний отказ после 503).
+
+        Парковка — в СУЩЕСТВУЮЩЕМ `credential_health` (HEALTH_COOLDOWN), не
+        второй circuit breaker: по истечении короткого окна следующий
+        logical request снова пробует ногу (probe-recovery). Возвращает True,
+        если нога исключена из текущей операции."""
+        next_available = self._pick_credential(
+            pool, set(excluded) | {credential.alias}) is not None
+        if not next_available and not excluded:
+            return False
+        excluded.add(credential.alias)
+        self._registry.mark_credential(
+            credential.alias, HEALTH_COOLDOWN,
+            cooldown_s=_PROVIDER_UNAVAILABLE_COOLDOWN_S)
+        logger.warning(
+            "embed leg unavailable | alias=%s | provider=%s | "
+            "cooldown_s=%.1f",
+            credential.alias, credential.provider,
+            _PROVIDER_UNAVAILABLE_COOLDOWN_S)
+        return True
 
     async def _call_with_segmentation(
             self, adapter: EmbeddingProviderAdapter,
@@ -1536,7 +1637,8 @@ class EmbeddingExecutor:
 
     async def _on_error(self, exc: Exception, pool: list[EmbeddingCredential],
                         group_id: str, priority: Priority,
-                        stats: ExecutionStats) -> str:
+                        stats: ExecutionStats,
+                        credential: EmbeddingCredential | None = None) -> str:
         """Классификация ошибки (§8/§11). Возвращает 'auth' | 'defer' |
         'transport' | 'code_defect'. Логирует ТОЛЬКО тип/код/класс — без
         содержимого запроса и без значений ключей (R17); для code_defect —
@@ -1623,17 +1725,31 @@ class EmbeddingExecutor:
                     info.retry_after_s, delay,
                     self._registry.rate_limits_last_10m())
             return "defer"
-        # Transport 5xx/timeout → счётная retry-попытка. Per-key health НЕ
-        # трогаем: транспортный сбой — сторона провайдера/сети, а не ключа;
-        # retry того же logical request обязан идти по тому же пулу (иначе
-        # single-credential пул спиновал бы вечно).
-        logger.warning("embed transport error | error=%s", name)
+        # Transport 5xx/timeout → счётная retry-попытка. P0 EMBED-503-FAILOVER:
+        # отказавшая нога исключается из ТЕКУЩЕЙ операции и коротко паркуется
+        # (`_mark_transport_failure`); единственная живая нога сохраняет
+        # bounded retry/backoff. Диагностика: alias/provider — без секретов.
+        logger.warning(
+            "embed transport error | alias=%s | provider=%s | error=%s",
+            credential.alias if credential else "-",
+            credential.provider if credential else "-", name)
         return "transport"
 
     def _on_success(self, credential: EmbeddingCredential, items: int) -> None:
         self._registry.mark_credential(credential.alias, HEALTH_HEALTHY)
+        _note_served_credential(credential)
         CONTROLLER.on_success()
         CONTROLLER.on_batch_success(items)
+        if credential.alias != "primary":
+            # P0 EMBED-503-FAILOVER: прозрачная диагностика фактически
+            # обслужившей fallback-ноги (R17: alias/provider/model, без ключа).
+            # Coalesced (≤1/5 мин на алиас): длительный primary-аутэйдж не
+            # превращает каждый факт в отдельную INFO-строку.
+            coalesced_state_log(
+                f"embed_fallback_served:{credential.alias}",
+                "embed fallback served", level=logging.INFO,
+                alias=credential.alias, provider=credential.provider,
+                model=credential.model, items=items)
 
 
 EXECUTOR: EmbeddingExecutor | None = None
@@ -3385,19 +3501,28 @@ def _base_compat(index_name: str, *, space: str, conn: str, dims) -> dict:
 async def resolve_index_compat(db, index_name: str, *,
                                namespace: str | None = None,
                                current_fp: str | None = None,
-                               current_dims: int | None = None) -> dict:
+                               current_dims: int | None = None,
+                               space_now: str | None = None,
+                               conn_now: str | None = None,
+                               model_now: str | None = None) -> dict:
     """Единое решение о совместимости индекса (read-only, БЕЗ сети).
 
     Возвращает frozen-поля `{state, reason_code, serviceable, space, conn,
     admission, canary, source_empty, needs_probe}` (+ диагностика).
     `state`: compatible | insufficient | incompatible | source_empty |
     no_generation. Совместимость НЕ объявляется без MSI-доказательства или
-    валидного durable-допуска. Никогда не бросает."""
+    валидного durable-допуска. Никогда не бросает.
+
+    P0 EMBED-503-FAILOVER: `space_now`/`conn_now`/`model_now` — опциональный
+    route-override для проверки ФАКТИЧЕСКИ обслужившей fallback-ноги
+    (по умолчанию — configured primary identity; поведение не меняется)."""
     dims_now = (int(current_dims) if current_dims
                 else await _current_dim(db, index_name))
-    space_now = await _current_space(db, index_name, dims=dims_now)
-    model_now = _current_model()
-    conn_now = _current_conn()
+    space_now = (str(space_now) if space_now is not None
+                 else await _current_space(db, index_name, dims=dims_now))
+    model_now = (str(model_now) if model_now is not None
+                 else _current_model())
+    conn_now = str(conn_now) if conn_now is not None else _current_conn()
     namespace = str(namespace or DEFAULT_NAMESPACE)
     fp_hint = str(current_fp or "") or await _current_fingerprint(db,
                                                                  index_name)

@@ -404,6 +404,10 @@ _BACKFILL_MAX_FACTS = 500            # потолок фактов за один
 # F8 (E4/§28.19): каденция периодического backfill-probe БЕЗ read-трафика
 # (maintenance tick зовёт `embed_recovery_tick`; re-probe vec + backlog).
 _EMBED_BACKFILL_TICK_INTERVAL = 600.0
+# P0 EMBED-503-FAILOVER: кэш допуска фактически обслужившей fallback-ноги
+# (DB-резолвер существующего admission-гейта, не network). 60 c ограничивает
+# overhead на серию фактов и быстро подхватывает новый durable-допуск.
+_SERVING_ROUTE_TTL_S = 60.0
 
 
 class _EmbedBatchState:
@@ -2646,6 +2650,10 @@ class MemoryManager:
         self._reactivate_lock = asyncio.Lock()
         # F8 (E4): каденция периодического backfill-probe (без read-трафика).
         self._embed_backfill_probe_last = 0.0
+        # P0 EMBED-503-FAILOVER: кэш route-aware admission (index, alias,
+        # space, conn) → (allowed, monotonic). Только для фактической
+        # fallback-ноги; configured primary идёт прежним гейтом.
+        self._serving_route_cache: dict[tuple, tuple[bool, float]] = {}
         # Epic 60 (66.6, T-484): int8-coarse + float-реранк (VEC_INT8_ENABLED).
         self._vec_int8 = False
         # F1 (ADR-1024-6 D3, R1024F1-04): счётчик ПОСЛЕДОВАТЕЛЬНЫХ полных
@@ -3147,6 +3155,102 @@ class MemoryManager:
             pass
         return True
 
+    def _serving_route_is_configured_primary(self) -> bool:
+        """P0 EMBED-503-FAILOVER: обслужила ли последняя embed-нога configured
+        primary connection. Нет metadata (legacy/cache-hit) → True (прежнее
+        поведение). Иная fallback-нога → False: её вектор нельзя класть в
+        `embedding_cache` под configured identity, иначе последующий cache-hit
+        обойдёт route-aware admission. Никогда не бросает."""
+        try:
+            from services import embedding_control_plane as ecp
+            meta = ecp.last_served_credential()
+            if not meta:
+                return True
+            profiles = ecp.resolve_embedding_profiles()
+            profile = profiles.get(str(meta.get("alias") or ""))
+            if profile is None:
+                return False
+            primary = profiles.get("primary")
+            return (primary is not None
+                    and ecp.connection_identity(profile)
+                    == ecp.connection_identity(primary))
+        except Exception:
+            return False
+
+    async def _serving_route_write_allowed(self, index_name: str) -> bool:
+        """P0 EMBED-503-FAILOVER: допуск в ACTIVE ФАКТИЧЕСКИ обслужившей ноги.
+
+        `_vec_write_allowed` проверяет configured identity ДО embed. После
+        5xx-failover ответ может прийти с другой connection (напр. Google
+        fallback при apinet primary): существующий `resolve_index_compat`
+        перепроверяется с route-override (space/conn/model фактической ноги).
+        Только `serviceable + compatible` допускает запись; при
+        COMPATIBILITY_UNKNOWN/INSUFFICIENT/INCOMPATIBLE вектор остаётся
+        text-only + FTS — mixed-space запрещён, admission по имени модели НЕ
+        объявляется. Нет metadata (cache-hit/legacy) или configured primary —
+        прежний гейт уже применён. Никогда не бросает."""
+        try:
+            from services import embedding_control_plane as ecp
+        except Exception:      # pragma: no cover — защитная ветка
+            return True
+        try:
+            meta = ecp.last_served_credential()
+            if not meta:
+                return True                       # legacy/cache-hit/primary
+            profiles = ecp.resolve_embedding_profiles()
+            profile = profiles.get(str(meta.get("alias") or ""))
+            if profile is None:
+                profile = ecp.EmbeddingProfile(
+                    alias=str(meta.get("alias") or ""),
+                    base_url=str(meta.get("base_url") or ""),
+                    model=str(meta.get("model") or ""),
+                    quota_group=str(meta.get("quota_group") or ""))
+            primary = profiles.get("primary")
+            conn = ecp.connection_identity(profile)
+            if primary is not None and conn == ecp.connection_identity(primary):
+                return True                       # configured connection
+            dims = int(self._vec_dim or hot.get(
+                "models.embedding_dim",
+                getattr(settings, "EMBEDDING_DIM", 0)) or 0)
+            space = ecp.model_space_identity(model=profile.model,
+                                             dimension=dims)
+            key = (str(index_name), str(profile.alias), space, conn)
+            now = time.monotonic()
+            cached = self._serving_route_cache.get(key)
+            if cached is not None and now - cached[1] < _SERVING_ROUTE_TTL_S:
+                return cached[0]
+            fp = embedding_identity_fingerprint(
+                provider=_embedding_provider(profile.base_url),
+                model=profile.model, dims=dims,
+                preprocessing_version=EMBEDDING_PREPROCESSING_VERSION,
+                endpoint_fingerprint=_endpoint_fingerprint(profile.base_url))
+            compat = await ecp.resolve_index_compat(
+                self.db, index_name, current_fp=fp, current_dims=dims,
+                space_now=space, conn_now=conn, model_now=profile.model)
+            allowed = (bool(compat.get("serviceable"))
+                       and str(compat.get("state") or "")
+                       == ecp.STATE_COMPATIBLE)
+            self._serving_route_cache[key] = (allowed, now)
+            if not allowed:
+                from services.embedding_control_plane import (
+                    coalesced_state_log)
+                coalesced_state_log(
+                    f"embed_route_not_admitted:{index_name}:{profile.alias}",
+                    "SmartModule: fallback embed route not admitted — "
+                    "fact stays text-only",
+                    level=logging.WARNING, index=index_name,
+                    alias=profile.alias,
+                    provider=_embedding_provider(profile.base_url),
+                    state=compat.get("state"),
+                    reason=compat.get("reason_code"),
+                    compat_class=compat.get("class"))
+            return allowed
+        except Exception:
+            logger.debug(
+                "SmartModule: serving-route admission check failed — "
+                "text-only", exc_info=True)
+            return False
+
     async def _ensure_index_compat_inline(self) -> None:
         """EMBED-IDENTITY-COMPAT (§3.7): один inline-probe на старте.
 
@@ -3223,6 +3327,13 @@ class MemoryManager:
         (P1)."""
         if not texts:
             return []
+        try:
+            from services import embedding_control_plane as _ecp
+            # P0 EMBED-503-FAILOVER: не наследовать provenance прошлого
+            # API-вызова — cache-hit/legacy не обслуживались fallback-ногой.
+            _ecp.clear_last_served_credential()
+        except Exception:      # pragma: no cover — защитная ветка
+            pass
         if not hot.get("flags.embed_cache_enabled", settings.EMBED_CACHE_ENABLED):
             return await self._embed_api(texts, priority=priority)
         cached, misses = await self._embed_cache_lookup(texts)
@@ -3231,7 +3342,12 @@ class MemoryManager:
         results: dict[str, list[float]] = dict(cached)
         if misses:
             fetched = await self._embed_api(misses, priority=priority)
-            await self._embed_cache_store(misses, fetched)
+            # P0 EMBED-503-FAILOVER: fallback-вектор не кладём в кэш под
+            # configured identity — иначе cache-hit позже обойдёт route-admission
+            # и недоказанный вектор попадёт в ACTIVE. Immediate-use ответ
+            # возвращается как есть (write-gate проверит его отдельно).
+            if self._serving_route_is_configured_primary():
+                await self._embed_cache_store(misses, fetched)
             results.update(zip(misses, fetched))
         return [results[text] for text in texts]
 
@@ -3653,6 +3769,11 @@ class MemoryManager:
                             "(%s) | processed=%d", type(exc).__name__,
                             processed)
                     break
+                if not await self._serving_route_write_allowed("smart_archive"):
+                    logger.warning(
+                        "SmartModule backfill: fallback route not admitted — "
+                        "deferred | processed=%d", processed)
+                    break
                 async with self.db.serialized():
                     for row, vector in zip(batch, vectors):
                         # Epic 60 (64.4): existence-check ПЕРЕД INSERT — гонка с
@@ -3733,6 +3854,12 @@ class MemoryManager:
                             "SmartModule graph backfill: embed failed — "
                             "deferred (%s) | processed=%d",
                             type(exc).__name__, processed)
+                    break
+                if not await self._serving_route_write_allowed(
+                        "graph_facts_vec"):
+                    logger.warning(
+                        "SmartModule graph backfill: fallback route not "
+                        "admitted — deferred | processed=%d", processed)
                     break
                 async with self.db.serialized():
                     for row, vector in zip(batch, vectors):
@@ -5539,6 +5666,17 @@ class MemoryManager:
             if vector is None:
                 vectors = await self._embed([fact])          # ретраи 55.8 + кэш 64.4
                 vector = vectors[0]
+            # P0 EMBED-503-FAILOVER: после 5xx-failover вектор мог прийти с
+            # другой connection — route-aware допуск существующим гейтом.
+            if not await self._serving_route_write_allowed("graph_facts_vec"):
+                if batch is not None:
+                    from services.embedding_control_plane import (
+                        EmbeddingRouteNotAdmitted)
+                    batch.text_only += 1
+                    batch.mark(EmbeddingRouteNotAdmitted(
+                        "fallback embedding route not admitted "
+                        "(compatibility unproven)"))
+                return False
             async with self.db.serialized():
                 await self._insert_graph_vec_row(fact_id, chat_id, fact, origin,
                                                  expires_at, vector)
@@ -7743,6 +7881,10 @@ class MemoryManager:
                 return
             vectors = await self._embed([fact])          # кэш 64.4 + ретраи 55.8
             vector = vectors[0]
+            # P0 EMBED-503-FAILOVER: route-aware допуск фактической ноги
+            # (fallback-вектор при недоказанной compatibility → text-only).
+            if not await self._serving_route_write_allowed("smart_archive"):
+                return
             async with self.db.serialized():
                 if self._vec_int8:
                     await self.db.db.execute(
