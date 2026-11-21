@@ -6678,6 +6678,27 @@
         roleSearch: '',
         roleActionsOpen: false,        // mobile «⋯» выбранной роли
         matrixGroupState: {},          // uid → open (details, collapsed by default)
+        // MOD-ACL-UX-01 M4C C2: «Проверить доступ» — read-only preview внутри
+        // вкладки «Фактические гейты». Свои actor/scope (НЕ X-Chat-Id шапки),
+        // 0 сетевых запросов на ввод символа. Результат — только сохранённые
+        // серверные права; запись/назначения здесь не выполняются.
+        preview: {
+          actorValue: 'self',          // 'self' | 'manual' | String(telegram_id)
+          actorManual: '',             // числовой Telegram ID (global admin)
+          scopeValue: 'global',        // 'global' | 'dm' | String(chat_id)
+          resource: '',
+          operation: 'view',
+          loading: false,
+          error: null,                 // {status, message, code}
+          result: null,
+          stale: false,
+          noActor: false,
+          chatAdmins: [],
+          chatAdminsError: null,
+          chatOverrides: null,
+          chatOverridesError: null,
+          _seq: 0,
+        },
         // EXTRA §35: deep-link из Style Editor — целевая config-группа для
         // фокуса/подсветки на экране подключений (`models_images`).
         configFocusGroup: '',
@@ -32667,6 +32688,15 @@
         if (!this.admins.length && !this.adminsLoading && !this.adminsError) {
           this.loadAdmins();
         }
+        // M4C C2: при входе на страницу акторы preview сеются из уже
+        // загруженных данных (0 дополнительных запросов).
+        if (typeof this.previewSeedActor === 'function') {
+          this.previewSeedActor();
+          if (this.preview.scopeValue !== 'global'
+              && this.preview.scopeValue !== 'dm') {
+            this.previewLoadChatAdmins();
+          }
+        }
       },
       rolesPageTabs: function () {
         return [
@@ -32826,6 +32856,9 @@
         // есть chat_lore и любые гранты вне /roles/tree — сохраняем их.
         this.roleEditor.rawPermissions =
           Object.assign({}, role.permissions || {});
+        // M4C C2: смена выбранной роли обновляет набор акторов preview и,
+        // если результат уже был, пересчитывает его (MAC-S8-523).
+        this.previewOnRoleChange();
         try {
           var tree = await this.api(
             '/api/roles/tree?role_name=' + encodeURIComponent(role.role_name),
@@ -33336,14 +33369,14 @@
         // id. Полный diff endpoint'ов — C3/S8-LEG-01.
         return [
           { group: 'Права роли (серверные guards)', items: [
-            'access — разделы «Доступы» (/api/roles, /api/admins, /api/access/*)',
+            'access — чтение ролей/админов/дерева прав (/api/roles, /api/roles/tree, /api/admins); матрица и чатовые гранты — только global admin',
             'edit_info — «Как это работает»',
             'edit_persona — «Личность»',
             'edit_humor_library — примеры юмора',
             'control.restart / control.stop / control.start — управление ботом',
             'debug.config — in-memory state dump',
-            'chat_lore — «Лор чата» и участники',
-            'param.<key> — чтение/запись конкретного параметра (матрица)',
+            'chat_lore — видимость раздела «Лор чата»; серверные endpoint\'ы лора проверяют членство в chat_admins (грант чата), а не эту секцию',
+            'param.<key> — глобальная запись значения (/api/config); чатовые чтение/запись — по матрице «Доступ к параметрам», а не этим правом',
           ] },
           { group: 'Только владелец (owner-only поверхности)', items: [
             'Аналитика и Oversight-прогоны',
@@ -33352,6 +33385,404 @@
             'Diagnostic policy и служебная самодиагностика',
           ] },
         ];
+      },
+      // ═══ M4C C2: «Проверить доступ» (read-only effective/preview) ═══
+      // Ничего не изменяет: только GET /api/access/effective и два чатовых
+      // read-GET для объяснения. Результат — сохранённые серверные права.
+      previewDecisionLabel: function (decision) {
+        if (decision === 'allowed') return 'Разрешено';
+        if (decision === 'denied') return 'Запрещено';
+        if (decision === 'mixed') return 'Частично';
+        return 'Не применимо';
+      },
+      previewDecisionHint: function (data) {
+        var d = data && data.decision;
+        if (d === 'allowed') return 'Все применимые серверные проверки пропускают.';
+        if (d === 'denied') return 'Есть отказ серверной проверки — это фактическое поведение.';
+        if (d === 'mixed') {
+          return 'Разные серверные поверхности расходятся: одна часть ресурса доступна, другая — нет.';
+        }
+        return 'Отдельного серверного ресурса для этой пары нет — решение не применимо.';
+      },
+      previewLayerLabel: function (layer) {
+        var labels = {
+          role: 'Права роли',
+          global_admin_ceiling: 'Потолок: global admin',
+          chat_access: 'Доступ к чату',
+          chat_grant: 'Грант чата',
+          chat_matrix: 'Матрица «Доступ к параметрам»',
+          secret_policy: 'Политика секретов',
+          scope_capability: 'Возможность области',
+          config_surface: 'Поверхность конфига',
+        };
+        if (layer && labels[layer.id]) return labels[layer.id];
+        return (layer && layer.label) || 'Слой';
+      },
+      previewLayerDecisionLabel: function (layer) {
+        var d = layer && layer.decision;
+        if (d === 'allowed') return 'пропускает';
+        if (d === 'denied') return 'отказывает';
+        return 'не применим';
+      },
+      previewResourceKind: function (resource) {
+        var value = String(resource || '').trim();
+        var kinds = ['section', 'action', 'param', 'key'];
+        for (var i = 0; i < kinds.length; i++) {
+          var prefix = kinds[i] + '.';
+          if (value.indexOf(prefix) === 0 && value.length > prefix.length) {
+            return kinds[i];
+          }
+        }
+        return '';
+      },
+      previewOperationOptions: function () {
+        var kind = this.previewResourceKind(this.preview.resource);
+        if (kind === 'section') return [{ value: 'view', label: 'Просмотр (один грант)' }];
+        if (kind === 'action') return [{ value: 'execute', label: 'Выполнение' }];
+        return [{ value: 'view', label: 'Просмотр' },
+                { value: 'edit', label: 'Запись' }];
+      },
+      previewSelfId: function () {
+        var me = this.me || null;
+        if (me && me.telegram_id != null) return Number(me.telegram_id);
+        return null;
+      },
+      previewActorId: function () {
+        var value = this.preview.actorValue;
+        if (value === 'self') return this.previewSelfId();
+        if (value === 'manual') {
+          var raw = String(this.preview.actorManual || '').trim();
+          var num = parseInt(raw, 10);
+          return (isFinite(num) && num > 0) ? num : null;
+        }
+        var id = parseInt(value, 10);
+        return isFinite(id) ? id : null;
+      },
+      previewScopeChatId: function () {
+        var value = this.preview.scopeValue;
+        if (value === 'global') return null;
+        if (value === 'dm') return this.previewSelfId();
+        var id = parseInt(value, 10);
+        return isFinite(id) ? id : null;
+      },
+      previewRoleActors: function () {
+        var role = this.roleEditor && this.roleEditor.roleName;
+        if (!role) return [];
+        var out = [];
+        var seen = {};
+        function push(telegramId, name) {
+          var id = Number(telegramId);
+          if (!isFinite(id) || seen[id]) return;
+          seen[id] = true;
+          out.push({
+            value: String(id),
+            label: (name ? name + ' · ' : '') + 'id ' + id,
+          });
+        }
+        (this.admins || []).forEach(function (a) {
+          if (a && a.role_name === role) {
+            push(a.telegram_id, a.display_name);
+          }
+        });
+        (this.preview.chatAdmins || []).forEach(function (a) {
+          if (a && a.role_name === role) {
+            push(a.telegram_id, a.display_name);
+          }
+        });
+        return out;
+      },
+      previewActorOptions: function () {
+        var opts = [{ value: 'self', label: 'Я' }];
+        var seen = { self: true };
+        this.previewRoleActors().forEach(function (a) {
+          if (!seen[a.value]) { seen[a.value] = true; opts.push(a); }
+        });
+        if (this.isGlobalAdmin) {
+          opts.push({ value: 'manual', label: 'Telegram ID…' });
+        }
+        return opts;
+      },
+      previewScopeOptions: function () {
+        var opts = [{ value: 'global', label: 'Весь бот' }];
+        (this.accessChats || []).forEach(function (c) {
+          if (!c || c.is_dm) return;
+          opts.push({ value: String(c.chat_id),
+                      label: c.title || ('Чат ' + c.chat_id) });
+        });
+        var selfId = this.previewSelfId();
+        if (selfId != null && this.previewActorId() === selfId) {
+          opts.push({ value: 'dm', label: 'Личные сообщения' });
+        }
+        return opts;
+      },
+      previewSeedActor: function () {
+        var p = this.preview;
+        var role = this.roleEditor && this.roleEditor.roleName;
+        var actors = this.previewRoleActors();
+        var selfId = this.previewSelfId();
+        var assignmentsKnown = !!this.admins && !this.adminsError;
+        var selfHoldsRole = assignmentsKnown && (this.admins || []).some(
+          function (a) {
+            return Number(a.telegram_id) === selfId && a.role_name === role;
+          });
+        if (role && assignmentsKnown && !actors.length && !selfHoldsRole) {
+          // Роль никому не назначена: честно «не на ком проверить», без
+          // симуляции «роль-как-актор».
+          p.noActor = true;
+          p.actorValue = '';
+          return;
+        }
+        p.noActor = false;
+        if (p.actorValue !== 'self' && p.actorValue !== 'manual') {
+          var exists = actors.some(function (a) {
+            return a.value === p.actorValue;
+          });
+          if (!exists) {
+            p.actorValue = actors.length ? actors[0].value : 'self';
+          }
+        }
+        if (p.actorValue === 'manual' && !this.isGlobalAdmin) {
+          p.actorValue = 'self';
+        }
+        if (!p.actorValue) {
+          p.actorValue = actors.length ? actors[0].value : 'self';
+        }
+      },
+      previewMarkStale: function () {
+        var p = this.preview;
+        if (p.result) {
+          p.result = null;
+          p.stale = true;
+        }
+        p.error = null;
+        p.chatOverrides = null;
+        p.chatOverridesError = null;
+      },
+      previewReset: function () {
+        var p = this.preview;
+        p.result = null;
+        p.error = null;
+        p.stale = false;
+        p.chatOverrides = null;
+        p.chatOverridesError = null;
+        p._seq = (p._seq || 0) + 1;
+        p.loading = false;
+      },
+      previewOnRoleChange: function () {
+        var had = !!this.preview.result;
+        this.preview.result = null;
+        this.preview.stale = false;
+        this.preview.error = null;
+        this.previewSeedActor();
+        if (had && !this.preview.noActor) this.previewRun();
+      },
+      previewOnActorChange: function () {
+        var p = this.preview;
+        var had = !!p.result;
+        p.result = null;
+        p.stale = false;
+        p.error = null;
+        if (p.actorValue !== 'manual') p.actorManual = '';
+        p.chatOverrides = null;
+        p.chatOverridesError = null;
+        if (had && !p.noActor && p.actorValue) this.previewRun();
+      },
+      previewOnScopeChange: function () {
+        var p = this.preview;
+        var had = !!p.result;
+        p.result = null;
+        p.stale = false;
+        p.error = null;
+        p.chatAdmins = [];
+        p.chatAdminsError = null;
+        p.chatOverrides = null;
+        p.chatOverridesError = null;
+        this.previewLoadChatAdmins();
+        if (had && !p.noActor) this.previewRun();
+      },
+      previewLoadChatAdmins: async function () {
+        var p = this.preview;
+        p.chatAdmins = [];
+        p.chatAdminsError = null;
+        var chatId = this.previewScopeChatId();
+        if (chatId == null || chatId >= 0 || !this.isGlobalAdmin) return;
+        try {
+          var data = await this.api(
+            '/api/access/chats/' + encodeURIComponent(chatId) + '/admins',
+            { global: true });
+          p.chatAdmins = (data && data.admins) || [];
+          // Новые гранты могли сделать роль назначенной — пересобрать акторов.
+          this.previewSeedActor();
+        } catch (e) {
+          p.chatAdminsError = this.accessErrorPayload(e);
+        }
+      },
+      previewLoadChatOverrides: async function () {
+        var p = this.preview;
+        p.chatOverrides = null;
+        p.chatOverridesError = null;
+        var chatId = this.previewScopeChatId();
+        if (chatId == null || chatId >= 0 || !this.isGlobalAdmin) return;
+        try {
+          var data = await this.api(
+            '/api/access/chats/' + encodeURIComponent(chatId)
+            + '/param_permissions', { global: true });
+          p.chatOverrides = data;
+        } catch (e) {
+          var err = this.accessErrorPayload(e);
+          // 403 — не ошибка preview: блок перекрытий просто недоступен.
+          err.suppressed = (err.status === 403);
+          p.chatOverridesError = err;
+        }
+      },
+      previewChatOverridesList: function () {
+        var data = this.preview.chatOverrides;
+        var items = (data && data.items) || {};
+        return Object.keys(items).sort().map(function (key) {
+          var row = items[key] || {};
+          return {
+            key: key,
+            view: (row.view_roles || []).join(', ') || '—',
+            edit: (row.edit_roles || []).join(', ') || '—',
+            legacy: !!row.legacy,
+          };
+        });
+      },
+      previewOverridesCount: function () {
+        var data = this.preview.chatOverrides;
+        var items = (data && data.items) || {};
+        return Object.keys(items).length;
+      },
+      previewOverrideAuthorText: function (present) {
+        return present ? 'автор не записан (audit — C3)' : 'перекрытия нет';
+      },
+      previewErrorHint: function (status) {
+        if (status === 401) {
+          return 'Откройте Mini App заново из Telegram — проверка не выполняется '
+            + 'без сессии.';
+        }
+        if (status === 403) {
+          return 'Нет права смотреть этого актора или этот чат. Это не означает, '
+            + 'что доступ «пустой».';
+        }
+        if (status === 404) {
+          return 'Групповой профиль чата не найден — проверка невозможна, '
+            + 'это не отсутствие прав.';
+        }
+        if (status === 422) {
+          return 'Ресурс или операция вне канонического namespace '
+            + '(section.|param.|key.|action.).';
+        }
+        if (status === 503) {
+          return 'Серверные данные прав временно не читаются (PostgreSQL/кэш). '
+            + 'Решение не подставляется — повторите позже.';
+        }
+        return 'Сеть недоступна — проверка не выполнена.';
+      },
+      previewScopeLabel: function (data) {
+        var scope = (data && data.scope) || {};
+        if (scope.kind === 'global') return 'Весь бот';
+        if (scope.title) return scope.title + ' · ' + scope.chat_id;
+        return (scope.kind === 'dm' ? 'Личные сообщения' : 'Чат')
+          + ' · ' + scope.chat_id;
+      },
+      previewActorLabel: function (data) {
+        var actor = (data && data.actor) || {};
+        var name = actor.display_name || ('id ' + actor.telegram_id);
+        var role = actor.role_name ? ' · ' + actor.role_name : '';
+        return name + role;
+      },
+      previewResourceSuggestions: function () {
+        var t = this.roleEditor && this.roleEditor.tree;
+        var m = this.matrixItems || {};
+        var cacheKey = ((this.roleEditor && this.roleEditor.roleName) || '')
+          + '|' + String(t ? t.sections.length : 0)
+          + '|' + String(Object.keys(m).length)
+          + '|' + String((this.roleEditor && this.roleEditor.sections
+                          ? this.roleEditor.sections.length : 0));
+        if (this._previewSuggestKey === cacheKey && this._previewSuggest) {
+          return this._previewSuggest;
+        }
+        var seen = {};
+        var out = [];
+        function push(value) {
+          if (!value || seen[value]) return;
+          seen[value] = true;
+          out.push(value);
+        }
+        ((t && t.sections) || []).forEach(function (s) {
+          push('section.' + s.id);
+        });
+        ((t && t.actions) || []).forEach(function (a) {
+          push('action.' + a.id);
+        });
+        Object.keys(m).forEach(function (key) {
+          var item = m[key] || {};
+          if (item.category === 'keys') push('key.' + key);
+          else push('param.' + key);
+        });
+        if (this.roleEditor && this.isGlobalAdmin) {
+          (this.roleEditor.sections || []).forEach(function (s) {
+            (s.params || []).forEach(function (p) { push('param.' + p.key); });
+            (s.keys || []).forEach(function (k) { push('key.' + k.key); });
+          });
+        }
+        this._previewSuggestKey = cacheKey;
+        this._previewSuggest = out;
+        return out;
+      },
+      previewRun: async function () {
+        var p = this.preview;
+        if (p.loading) return;
+        var resource = String(p.resource || '').trim();
+        var kind = this.previewResourceKind(resource);
+        if (!kind) {
+          p.result = null;
+          p.stale = false;
+          p.error = { status: 422, code: 'empty_resource',
+                      message: 'укажите ресурс: section.|param.|key.|action.' };
+          return;
+        }
+        var actorId = this.previewActorId();
+        if (actorId == null) {
+          p.result = null;
+          p.error = { status: 422, code: 'actor_required',
+                      message: 'выберите актора или укажите Telegram ID' };
+          return;
+        }
+        var chatId = this.previewScopeChatId();
+        var operation = kind === 'section' ? 'view'
+          : (kind === 'action' ? 'execute'
+             : (p.operation === 'edit' ? 'edit' : 'view'));
+        var url = '/api/access/effective?telegram_id='
+          + encodeURIComponent(actorId)
+          + '&resource=' + encodeURIComponent(resource)
+          + '&operation=' + encodeURIComponent(operation);
+        if (chatId != null) {
+          url += '&chat_id=' + encodeURIComponent(chatId);
+        }
+        var seq = (p._seq || 0) + 1;
+        p._seq = seq;
+        p.loading = true;
+        p.error = null;
+        p.stale = false;
+        p.chatOverrides = null;
+        p.chatOverridesError = null;
+        try {
+          var data = await this.api(url, { global: true });
+          if (seq !== p._seq) return;
+          p.result = data;
+          p.noActor = false;
+          if (chatId != null && chatId < 0) {
+            await this.previewLoadChatOverrides();
+          }
+        } catch (e) {
+          if (seq !== p._seq) return;
+          p.result = null;
+          p.error = this.accessErrorPayload(e);
+        } finally {
+          if (seq === p._seq) p.loading = false;
+        }
       },
       // Подпись области для сводки «Доступов» (тот же активный scope).
       // ═══ EVOL-030 (W10): понятная подпись активных фильтров «Запусков» ═══

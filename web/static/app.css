@@ -7762,6 +7762,57 @@ html.w9-sheet-bottom .modal-close {
   margin: 4px 0 0; padding-left: 18px; font-size: 12px;
   color: var(--text-3, #8A97AB); display: grid; gap: 2px;
 }
+/* ── M4C C2. «Проверить доступ»: read-only preview (effective) ──────────── */
+/* Ничего не сохраняет: только форма проверки + карточки слоёв. Без таблиц
+   с горизонтальным скроллом, без графиков/процентов, без чекбоксов. */
+.roles-preview {
+  margin: 4px 0 16px; padding: 10px; border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, .18);
+  background: rgba(96, 165, 250, .05); min-width: 0;
+}
+.roles-preview__form {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; margin-top: 10px; min-width: 0;
+}
+.roles-preview__field { display: grid; gap: 4px; min-width: 0; }
+.roles-preview__field--wide { grid-column: 1 / -1; }
+.roles-preview__label {
+  font-size: 11px; font-weight: 600; color: var(--text-3, #8A97AB);
+  text-transform: uppercase; letter-spacing: .02em;
+}
+.roles-preview__run { min-height: 40px; align-self: end; }
+.roles-preview__result { margin-top: 12px; display: grid; gap: 10px; min-width: 0; }
+.roles-preview__verdict { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.roles-preview__meta {
+  display: flex; gap: 6px; flex-wrap: wrap; min-width: 0;
+  overflow-wrap: anywhere;
+}
+.roles-preview__layers { display: grid; gap: 8px; min-width: 0; }
+.roles-preview__layer {
+  border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px;
+  padding: 8px 10px; display: grid; gap: 4px; min-width: 0;
+  background: rgba(255, 255, 255, .02);
+}
+.roles-preview__layer[data-decision="denied"] { border-color: rgba(248, 113, 113, .30); }
+.roles-preview__layer[data-decision="allowed"] { border-color: rgba(74, 222, 128, .22); }
+.roles-preview__layer-head {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.roles-preview__guard {
+  color: #BFD3F2; background: rgba(15, 23, 42, .35); border-radius: 6px;
+  padding: 4px 6px; overflow-wrap: anywhere;
+}
+.roles-preview__wrap {
+  overflow-wrap: anywhere; word-break: break-word; min-width: 0;
+}
+.roles-preview__source {
+  display: grid; gap: 2px; color: var(--text-3, #8A97AB);
+  overflow-wrap: anywhere;
+}
+.roles-preview__chat-overrides { display: grid; gap: 4px; min-width: 0; }
+.roles-preview__override-row {
+  display: flex; gap: 8px; flex-wrap: wrap; min-width: 0;
+}
 .roles-state {
   border-radius: 10px; padding: 10px 12px;
   background: rgba(148, 163, 184, .08);
@@ -7787,6 +7838,14 @@ html.w9-sheet-bottom .modal-close {
   .roles-tree__section-head { min-height: 44px; }
   .roles-tree__node { min-height: 44px; align-items: center; }
   .roles-tree__group-head { min-height: 44px; }
+  /* M4C C2: форма preview — одна колонка, тач-цели ≥44, без h-scroll. */
+  .roles-preview { padding: 8px; }
+  .roles-preview__form { grid-template-columns: minmax(0, 1fr); }
+  .roles-preview__field--wide { grid-column: auto; }
+  .roles-preview__form .field,
+  .roles-preview__form select,
+  .roles-preview__form input { min-height: 44px; }
+  .roles-preview__run { width: 100%; min-height: 44px; }
 }
 @media (max-width: 360px) {
   .roles-page__head-actions .badge { display: none; }
