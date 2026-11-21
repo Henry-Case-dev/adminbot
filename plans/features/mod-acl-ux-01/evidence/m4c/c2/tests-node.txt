@@ -1,0 +1,75 @@
+# M4C C2 — Node/JS tests (candidate UI C2b)
+
+Node v24.16.0; читаются реальные `web/app.js` / `web/index.html` /
+`web/static/app.css`; сеть не используется (`fetch`-заглушка).
+
+## 1. Новый C2 node-тест
+
+```
+node tests/js/mod_acl_ux_m4c2_preview_test.js
+MOD-ACL-UX-M4C2-PREVIEW-OK   (rc=0)
+```
+
+Проверено:
+
+- блок `[data-preview]` внутри `[data-roles-pane="gates"]`, «Проверить доступ»,
+  «Права не изменены», «Справочник гейтов»; новой вкладки нет; внутри preview
+  **0** `input[type=checkbox]`; 9 обязательных методов существуют.
+- `previewResourceKind` (section/action/param/key, пустой/битый → ''); лейблы
+  решений (`mixed` → «Частично»), лейблы слоёв.
+- Акторы: self + админы выбранной роли + manual (только admin); DM-область только
+  для self; роль без назначений → `noActor=true`, `actorValue=''`, кнопка disabled;
+  роль с назначениями → актор = реально назначенный admin.
+- 1 запрос на «Проверить»: `/api/access/effective?...` + `telegram_id`,
+  explicit `chat_id` в query, `encodeURIComponent` ресурса, `{global:true}`
+  (X-Chat-Id шапки не используется). Section → `operation=view`,
+  action → `execute`.
+- 0 запросов на ввод символа: `previewMarkStale` очищает результат и ставит
+  stale; смена актора/scope/роли при наличии результата → 1 пересчёт.
+- 503: `result=null`, `error.status=503`, решения «Запрещено» нет;
+  `previewErrorHint` различает 401/403/404/422/503; 403 — «не означает, что
+  доступ пустой».
+- `previewReset` полностью очищает состояние.
+- Слои рендерятся `v-for` по `preview.result.layers` с `data-preview-layer`,
+  guard/consumers/matched/required; не сворачиваются в один текст.
+- Перекрытия чата: не-admin → 0 запросов; admin+group chat → 1 запрос
+  `/param_permissions` с `{global:true}`; `legacy`-бейдж; 403 → `suppressed`
+  (скрыто с подписью), 503 → error-карточка; автор не выдумывается
+  («автор не записан (audit — C3)»).
+- Исправленные строки гейтов: `access` (матрица/гранты — только global admin),
+  `param.<key>` (глобальная запись, не матрица), `chat_lore` (chat_admins);
+  маркеры C1 сохранены, 8+4 пункта.
+- CSS: desktop 2 колонки, mobile 1 колонка, кнопка/поля ≥44, `overflow-wrap`,
+  нет `overflow-x:auto` в preview.
+- Только чтение: в preview-срезе `app.js` нет POST/PUT/DELETE.
+
+## 2. C1 node (без изменений)
+
+```
+node tests/js/mod_acl_ux_m4c1_roles_page_test.js
+MOD-ACL-UX-M4C1-ROLES-PAGE-OK  (rc=0)
+node tests/js/app_methods_dup_keys_guard_test.js
+METHODS-DUP-KEYS-OK blocks=10 keys=1760 duplicate-problems=0 behavioral=ok (rc=0)
+```
+
+## 3. Полный sweep `tests/js/*.js`
+
+```
+NODE_RUN=131 NODE_FAILS=3
+FAIL evol_cog_scene_test.js
+FAIL round1025_ia_routing_test.js
+FAIL ur_ui_settings_test.js
+NODE_CHECK=0 (node --check web/app.js)
+```
+
+**Pre-existing proof:** все три rc=1 на чистой базе `d86bf66d4`
+(release-worktree 2.58.230, product files clean):
+
+```
+evol_cog_scene_test.js rc=1
+round1025_ia_routing_test.js rc=1
+ur_ui_settings_test.js rc=1
+```
+
+Это те же 3 файла, что C1 evidence фиксировал как pre-existing; новых падений C2
+нет. Новый C2-тест зелёный и входит в 131 (131 = 130 C1 + 1 C2).

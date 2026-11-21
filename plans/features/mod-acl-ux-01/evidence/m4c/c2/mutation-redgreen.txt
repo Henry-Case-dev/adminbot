@@ -1,0 +1,79 @@
+# M4C C2 — мутации (RED на кандидате, GREEN после отката)
+
+Каждая мутация — временная правка файла кандидата, точечный pytest-запуск,
+затем `git checkout -- <file>` (возврат к коммиту C2a). После всех мутаций
+полный `tests/test_webapp_access_effective.py` = 101 passed (см. tests-python).
+
+## M1. Матрица → rank>=2 (второй матчер)
+
+Правка: в `services/access_preview.py` global-param-edit решение
+`_match_detail(perms_global, f"param.{key}")` заменено на `ctx.rank >= 2`.
+
+```
+pytest ... -q -k "preview_matches_actual_guards"
+FAILED tests/test_webapp_access_effective.py::TestAntiDrift::test_preview_matches_actual_guards[1313107079-None-param.content.info_how_it_works-edit]
+1 failed, 40 passed
+```
+
+RED: анти-дрейф ловит расхождение с `deps.can_edit_param` (moderator rank 2,
+но права `param.content...` нет).
+
+## M2. strict → fail-open
+
+Правка: в `services/roles.access_for` в начале тела добавлено `strict = False`.
+
+```
+pytest ... -q -k "cold_cache_pg_down or f_c2_1_matrix_auth_strict or seeded_admin_503"
+FAILED ...::test_cold_cache_pg_down_all_three_503
+FAILED ...::test_f_c2_1_matrix_auth_strict_cold_503
+2 failed, 1 passed
+```
+
+RED: холодный кэш/PG down дают ложный 403/200 вместо 503; F-C2-1 не закрыт.
+
+## M3. Убран слой chat_grant
+
+Правка: id слоя `"chat_grant"` → `"role"` в ветке chat-edit.
+
+```
+pytest ... -q -k "moderator_chat_view_allowed_edit_denied"
+FAILED ...::test_moderator_chat_view_allowed_edit_denied
+1 failed, 100 deselected
+```
+
+RED: потерян видимый грант чата (причина deny не объяснена).
+
+## M4. diag.*/мусор отдаются в items
+
+Правка: в `chat_param_permissions` фильтр `if key not in known: filtered += 1;
+continue` заменён на `pass`.
+
+```
+pytest ... -q -k "sparse_items_legacy_and_filtered or no_values_prompts"
+FAILED ...::test_sparse_items_legacy_and_filtered
+1 failed, 1 passed
+```
+
+RED: `diag.*`/неизвестные ключи попадают в ответ, `filtered_out` неверен.
+
+## M5. title без admin-гейта
+
+Правка: `resource.title` отдаётся при `spec is not None` (без
+`admin_caller`).
+
+```
+pytest ... -q -k "global_param_view_is_readable"
+FAILED ...::test_global_param_view_is_readable_by_any_auth
+1 failed, 100 deselected
+```
+
+RED: non-global вызывающий видит метаданные каталога (leak).
+
+## GREEN
+
+После каждого откода — целевой тест зелёный; финальный полный прогон:
+
+```
+pytest tests/test_webapp_access_effective.py -q
+101 passed
+```
