@@ -6,7 +6,8 @@
 - Ветка: `feat/mod-acl-m4c2` (создана только от базы; C1/2.58.230-байты сохранены).
 - Контракт: `evidence/m4c/c2-contract-2026-11-22.md` (§0, §4, §6, §8).
 - Кандидат: **C2a `8e50b0fa3`** (backend read-model) + **C2b `bc742adc0`**
-  (UI/evidence). Один кандидат, два внутренних коммита; отдельный deploy не выполнялся.
+  (UI/evidence) + **c3 `corrective R1`** (C2-R1-1/2/3/7; SHA — в handoff).
+  Один кандидат, внутренние коммиты; отдельный deploy не выполнялся.
 
 ## 1. Что реализовано
 
@@ -45,8 +46,9 @@ Endpoint'ы (все GET, монтируются существующим `access
 - `section.chat_lore` global — `not_applicable` (серверного ресурса нет, только
   видимость вкладки); chat — guard `chat_admins` membership/DM; DM — 404-изоляция
   (`not_applicable`).
-- прочие `section.*` chat — `not_applicable` (чатового ресурса нет), роль-грант
-  показан как coverage; global — coverage-решение (как `deps.user_has_permission`).
+- прочие `section.*` (global/chat/dm) — **только видимость раздела**:
+  `applies_to=ui_visibility`, без выдуманного route guard/consumers, decision
+  `not_applicable` (C2-R1-3).
 - `param.*` global view — F-C2-3: non-secret читается любым валидным TMA
   (`global_config_all`), secret — только admin; hidden — hard-deny для всех
   (`hidden_parameter`, GET его не отдаёт).
@@ -55,8 +57,11 @@ Endpoint'ы (все GET, монтируются существующим `access
 - `param.*` chat view — `chat_access` + secret + `can_view_param(effective_matrix)`
   + hidden; edit — `chat_access` + `chat_grant` + `can_edit_param` + `per_chat` +
   hidden. `can_view_param/can_edit_param` вызываются как есть (второго матчера нет).
-- `key.*` global view — `secret_policy` (admin); edit — provider-ключи admin,
-  прочие `key.<key>`; chat — `not_applicable/keys_via_byok`.
+- `key.*` global — точное зеркало `/api/config` (C2-R1-2): hidden — hard-deny
+  view/edit (`hidden_parameter`; POST → 422); non-secret view — `allowed/
+  global_config_all` для любого TMA; secret view — только admin; edit —
+  provider-ключи только admin, прочие `can_view_key_value(key.<key>)`; chat —
+  `not_applicable/keys_via_byok`.
 - `action.*` — точное зеркало `deps.requires_permission`/`bypass`,
   `routes._persona_can_edit/_persona_has_edit_action`, `speech._library_can_edit`
   (в chat humor право `edit_humor_library` НЕ участвует — только persona/content).
@@ -137,25 +142,52 @@ plans/features/mod-acl-ux-01/evidence/m4c/c2/** (evidence)
 `services/pg_db.py`, `services/param_catalog.py`, `services/config_cache.py` —
 **0 строк** (не изменены).
 
+Corrective c3 (поверх C2b): `services/access_preview.py` +94/−53,
+`web/app.js` +54/−4, C2-тесты/инструмент/evidence; product-файлы вне C2 seam —
+0 строк.
+
 ## 4. Проверки (фактические результаты)
+
+Результаты после corrective R1 (C2-R1-1/2/3/7; RED/GREEN — `r1-blockers.md`).
 
 | Проверка | Результат |
 |---|---|
-| `pytest tests/test_webapp_access_effective.py` | **101 passed** |
-| Focused pytest (7 C1-adjacent файлов) | **287 passed, 1 failed** — `test_prompt_field_audit::test_every_editable_prompt_has_reachable_surface`, воспроизведён на чистой базе `d86bf66d4` (тот же node id; pre-existing) |
-| `pytest test_mod_acl_ux_m2_tristate_write + test_webapp_evol_w13_touch_portal + test_webapp_hubs_matrix_ui` | **47 passed, 1 failed** — `test_r4_custom_modules_removed` (pre-existing C1) |
+| `pytest tests/test_webapp_access_effective.py` | **115 passed** |
+| Focused pytest (10 C1-adjacent файлов) | **334 passed, 2 failed** — `test_prompt_field_audit::test_every_editable_prompt_has_reachable_surface` и `test_webapp_hubs_matrix_ui::test_r4_custom_modules_removed`, оба воспроизведены на чистой базе `d86bf66d4` (pre-existing) |
 | C1 `test_webapp_access_matrix_read.py` | **17 passed** (не изменялся) |
 | `node tests/js/mod_acl_ux_m4c1_roles_page_test.js` | PASS |
 | `node tests/js/mod_acl_ux_m4c2_preview_test.js` | PASS |
 | `node tests/js/app_methods_dup_keys_guard_test.js` | PASS |
-| Node sweep `tests/js/*.js` | **131 run, 3 fail** (`evol_cog_scene_test`, `round1025_ia_routing_test`, `ur_ui_settings_test`); все 3 rc=1 на чистой базе `d86bf66d4` |
+| Node sweep `tests/js/*.js` | **132 run, 3 fail** (`evol_cog_scene_test`, `round1025_ia_routing_test`, `ur_ui_settings_test`); все 3 rc=1 на чистой базе `d86bf66d4` |
 | Playwright C1 roles e2e (7 viewport) | **PASS, 0 failures** (инструмент/тесты не менялись; C1-скриншоты восстановлены) |
-| Playwright C2 preview e2e (6 viewport + ошибки) | **PASS, 0 failures**; `shots/report.json`, 11 скриншотов |
-| Browser Use (реальный Chrome) | 502×706: allowed, 2 слоя, h-scroll 0, тач 44; 390×844: chat scope allowed, 1 override, 0 вложенных скроллов; 2 скриншота |
+| Playwright C2 preview e2e (6 viewport + ошибки + in-flight admins) | **PASS, 0 failures**; `shots/report.json`, 12 скриншотов |
+| Browser Use (реальный Chrome) | 1440×900 / 1280×800 / 390×844 / 320×568: `section.access` allowed, h-scroll 0, mobile 1 колонка/тач 44; 4 скриншота |
 | B1 / B2 / B3 e2e | **138/0**, **92/0**, **131/131** (маркеры OK) |
 | pin-guard (24 version-pin файла) | **856 passed, 4 failed** — те же 4 pre-existing node id, что в C1 evidence (не C2) |
 | `node --check web/app.js`, `py_compile` | rc=0 |
 | Мутации RED/GREEN | 5/5 (см. `mutation-redgreen.txt`) |
+
+## 4b. Corrective R1 (c3) — блокеры ревью
+
+Полные RED/GREEN — `r1-blockers.md`. Кратко:
+
+- **C2-R1-1 (stale in-flight):** generation-токены `_seq/_adminsSeq/
+  _overridesSeq`; любое изменение входа инвалидирует запросы и снимает
+  `loading`; поздние ответы effective/chat admins/chat overrides игнорируются.
+  RED: `смена actor снимает loading... true !== false` на `ba8b93121`.
+- **C2-R1-2 (key.*):** 8 non-secret ключей — `allowed` (как GET /api/config);
+  hidden `keys.random_quantum_provider` — hard-deny view/edit (реально GET
+  скрывает, POST 422); edit — provider/admin vs `can_view_key_value`; 422 не
+  выдаётся за allowed. RED: 7 failed до фикса.
+- **C2-R1-3 (section guards):** у `section.access` — реальный
+  `requires_permission("access")`+ceiling; у прочих секций — честный
+  `ui_visibility`-слой без fake guard/consumers; `chat_lore` в группе —
+  реальный membership. `TestLayerHonesty` проверяет каждую строку.
+- **C2-R1-7 (noActor):** `adminsLoaded` + reseed до/после `/api/admins`;
+  кнопка disabled только `loading||noActor`; ошибка 403/503 ≠ «не назначена».
+  RED: `noActor до /api/admins запрещён` на `ba8b93121`.
+- **C2-R1-4 (nonblocking):** non-admin actor-select = только «Я».
+- C2-R1-5/6 — backlog, не расширялись.
 
 ## 5. Мутации (RED на кандидате, GREEN после отката)
 

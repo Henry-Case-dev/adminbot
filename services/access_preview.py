@@ -181,55 +181,63 @@ def _eligible_matrix_hit(ctx, matrix: dict, field: str) -> tuple[bool, str | Non
 
 def _section_role_layers(ctx, cache, actor_id: int, sid: str,
                          scope_kind: str) -> tuple[list[dict], str]:
-    """Слои для `section.<id>` (global/chat/dm) + итоговое решение."""
+    """Слои для `section.<id>` (global/chat/dm) + итоговое решение.
+
+    Честность guard'ов (C2-R1-3): реальный route-guard есть ТОЛЬКО у
+    `section.access` (`deps.requires_permission("access")`) и `global_admin`
+    потолок; `section.chat_lore` в чате — `chat_lore.can_access_chat`
+    (membership). У прочих секций отдельного endpoint-guard'а нет: слой
+    помечается `applies_to=ui_visibility` («видимость раздела/вкладки»), без
+    выдуманного `requires_permission("<section>")` и без чужих consumers.
+    """
     perms = ctx.perms_global
     allowed, matched, reason = _match_detail(perms, f"section.{sid}")
     canon = _is_global_admin_canon(ctx, cache, actor_id)
     if not allowed and canon:
         allowed, matched, reason = True, "role_type:global_admin", "role_type"
-    role_layer = _layer(
-        "role", "Права роли", _ALLOWED if allowed else _DENIED,
-        applies_to="ui_visibility" if sid == "chat_lore" else "coverage",
-        reason=reason, required=f"section.{sid}", matched=matched,
-        guard='web.api.deps.requires_permission("%s")' % sid,
-        consumers=("GET /api/roles", "POST /api/roles", "GET /api/roles/tree",
-                   "GET /api/admins", "POST /api/admins"),
-        source="role_permissions")
-    layers = [role_layer]
 
-    if scope_kind == "global":
-        if sid == "chat_lore":
-            # Серверного глобального ресурса нет: секция — видимость вкладки.
-            return layers, _NA
-        if sid == "access":
-            ceil = ctx.is_global_admin
-            layers.append(_layer(
-                "global_admin_ceiling", "Потолок: global admin",
-                _ALLOWED if ceil else _DENIED, applies_to="guard",
-                reason="role_type" if ceil else "no_match",
-                required="global_admin", matched="role_type:global_admin"
-                if ceil else None,
-                guard="is_global_admin (inline)",
-                consumers=("GET/PUT/DELETE /api/access/param_permissions",
-                           "POST /api/access/chats/{id}/param_permissions/{key}",
-                           "POST/DELETE /api/access/chats/{id}/admins"),
-                source="role_type"))
-            if allowed and ceil:
-                return layers, _ALLOWED
-            if not allowed and not ceil:
-                return layers, _DENIED
-            # role allowed, ceiling denied (custom section.access) — фактическое
-            # «частично»: роли читает, матрицу/гранты — нет (S1 латентен, C3).
-            return layers, "mixed"
-        return layers, _ALLOWED if allowed else _DENIED
+    if sid == "access":
+        layers = [_layer(
+            "role", "Права роли", _ALLOWED if allowed else _DENIED,
+            applies_to="guard", reason=reason, required="section.access",
+            matched=matched,
+            guard='web.api.deps.requires_permission("access")',
+            consumers=("GET/POST /api/roles", "DELETE /api/roles/{name}",
+                       "POST /api/roles/{name}/rename", "GET /api/roles/tree",
+                       "GET/POST /api/admins", "POST /api/admins/remove",
+                       "GET/POST /api/cover/*"),
+            source="role_permissions")]
+        ceil = ctx.is_global_admin
+        layers.append(_layer(
+            "global_admin_ceiling", "Потолок: global admin",
+            _ALLOWED if ceil else _DENIED, applies_to="guard",
+            reason="role_type" if ceil else "no_match",
+            required="global_admin", matched="role_type:global_admin"
+            if ceil else None,
+            guard="is_global_admin (inline)",
+            consumers=("GET/PUT/DELETE /api/access/param_permissions",
+                       "POST /api/access/chats/{id}/param_permissions/{key}",
+                       "POST/DELETE /api/access/chats/{id}/admins"),
+            source="role_type"))
+        if allowed and ceil:
+            return layers, _ALLOWED
+        if not allowed and not ceil:
+            return layers, _DENIED
+        # role allowed, ceiling denied (custom section.access) — фактическое
+        # «частично»: роли читает, матрицу/гранты — нет (S1 латентен, C3).
+        return layers, "mixed"
 
     if sid == "chat_lore":
-        if scope_kind == "dm":
-            layers.append(_layer(
-                "chat_access", "Доступ к чату", _NA, applies_to="guard",
-                reason="no_backend_guard", required="chat_admins",
-                guard="web.api.chat_lore._require_chat (DM → 404)",
-                consumers=("GET /api/chat_lore/*",), source="chat_admins"))
+        visibility = _layer(
+            "role", "Видимость раздела «Лор чата»",
+            _ALLOWED if allowed else _DENIED, applies_to="ui_visibility",
+            reason=reason, required="section.chat_lore", matched=matched,
+            guard="ui visibility (web app, вкладка «Лор чата»; "
+                  "отдельного route guard нет)",
+            consumers=(), source="role_permissions")
+        layers = [visibility]
+        if scope_kind in ("global", "dm"):
+            # global: серверного ресурса нет; DM: лор изолирован (404).
             return layers, _NA
         membership = ctx.role_chat in (roles_srv.ROLE_LOCAL_ADMIN,
                                        roles_srv.ROLE_MODERATOR)
@@ -249,8 +257,15 @@ def _section_role_layers(ctx, cache, actor_id: int, sid: str,
             hard=not allowed_guard, source="chat_admins"))
         return layers, _ALLOWED if allowed_guard else _DENIED
 
-    # Прочие section.* в chat-скоупе: отдельного чатового ресурса нет.
-    return layers, _NA
+    # Прочие section.*: отдельного route guard/endpoint-ресурса нет — только
+    # видимость раздела/вкладки в Mini App. Никаких выдуманных guard'ов.
+    visibility = _layer(
+        "role", "Видимость раздела «%s»" % sid,
+        _ALLOWED if allowed else _DENIED, applies_to="ui_visibility",
+        reason=reason, required=f"section.{sid}", matched=matched,
+        guard="ui visibility (web app section; отдельного route guard нет)",
+        consumers=(), source="role_permissions")
+    return [visibility], _NA
 
 
 def _action_role_layers(ctx, cache, actor_id: int, action_id: str,
@@ -404,18 +419,44 @@ def _param_key_layers(ctx, cache, actor_id: int, parsed: dict,
                 guard="нет чатового ресурса ключа (BYOK /api/config/keys/own)",
                 consumers=("POST /api/config/keys/own",)))
             return layers, _NA, overrides
-        if op == "view":
-            allowed = ctx.is_global_admin
+        # C2-R1-2: зеркало фактического GET/POST /api/config для категории keys.
+        # hidden: GET исключает ключ (даже admin), POST → 422 → решение denied.
+        if spec.hidden:
             layers.append(_layer(
-                "secret_policy", "Секреты", _ALLOWED if allowed else _DENIED,
-                applies_to="guard", reason="secret_admin_only" if not allowed
-                else "role_type", required=f"key.{key}",
-                matched="role_type:global_admin" if allowed else None,
-                guard="web.api.routes.get_config (secret mask)",
-                consumers=("GET /api/config",), hard=not allowed,
-                source="secret_policy"))
-            return layers, _ALLOWED if allowed else _DENIED, overrides
-        # edit: provider-ключи — только global admin; прочие — право key.<key>
+                "config_surface", "Скрытый ключ", _DENIED, applies_to="guard",
+                reason="hidden_parameter", required=f"key.{key}",
+                guard="web.api.routes.get_config/post_config_global "
+                      "(hidden excluded; POST 422)",
+                consumers=("GET /api/config", "POST /api/config"),
+                hard=True, source="default"))
+            return layers, _DENIED, overrides
+        if op == "view":
+            if spec.secret:
+                allowed = ctx.is_global_admin
+                layers.append(_layer(
+                    "secret_policy", "Секреты", _ALLOWED if allowed else _DENIED,
+                    applies_to="guard", reason="secret_admin_only" if not allowed
+                    else "role_type", required=f"key.{key}",
+                    matched="role_type:global_admin" if allowed else None,
+                    guard="web.api.routes.get_config (secret mask)",
+                    consumers=("GET /api/config",), hard=not allowed,
+                    source="secret_policy"))
+                return layers, _ALLOWED if allowed else _DENIED, overrides
+            # non-secret ключ категории keys: GET /api/config отдаёт значение
+            # любому валидному TMA-пользователю (как non-secret param, F-C2-3).
+            layers.append(_layer(
+                "role", "Права роли", _NA, applies_to="guard",
+                reason="no_backend_guard", required=f"key.{key}",
+                guard="web.api.deps.user_has_permission (не вызывается)",
+                consumers=("GET /api/config",)))
+            layers.append(_layer(
+                "config_surface", "Глобальное чтение", _ALLOWED,
+                applies_to="guard", reason="global_config_all",
+                required=f"key.{key}", matched="global_config_all",
+                guard="web.api.routes.get_config (global, non-secret)",
+                consumers=("GET /api/config",), source="default"))
+            return layers, _ALLOWED, overrides
+        # edit: provider-ключи — только global admin; прочие — право key.<key>.
         from services import mca_random_source
         if key in mca_random_source.PROVIDER_KEY_SETTINGS:
             allowed, matched, reason = canon, (

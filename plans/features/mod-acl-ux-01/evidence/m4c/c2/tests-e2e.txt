@@ -32,27 +32,33 @@ Viewports 1920×1080, 1440×900, 1280×800, 768×1024, 390×844, 320×568:
   нет; «Запрещено» не показывается; 503 содержит «временно», 403 — «не означает».
 - Перекрытия чата: 403 → скрыто с подписью, НЕ error-карточка, решение не
   страдает; 503 → error-карточка внутри блока перекрытий.
+- C2-R1-7 in-flight `/api/admins` (1440/1280, задержка 2.5 c на клиенте):
+  до ответа `noActor` нет и run не disabled; после ответа actor-list содержит
+  назначенного admin, `section.access` → allowed; скриншот
+  `preview-admins-inflight-1440x900.png`.
 - console/page errors: только сетевые `Failed to load resource` для
   сценарных статусов; JS-исключений нет.
 
 Скриншоты (`shots/`): `preview-allowed-1440x900`, `preview-allowed-390x844`,
 `preview-denied-1440x900`, `preview-denied-390x844`,
 `preview-no-actor-1440x900`, `preview-no-actor-390x844`,
-`preview-error-403`, `preview-error-503`, `preview-overrides-503`.
+`preview-error-403`, `preview-error-503`, `preview-overrides-503`,
+`preview-admins-inflight-1440x900` (+ Browser Use c3 1440/1280/390/320).
 
 ## 2. Browser Use (реальный Chrome, Code Mode)
 
-Стенд `python tools/ui_mod_acl_m4c2_preview_e2e.py --serve` (8812), TMA initData
+Стенд `python tools/ui_mod_acl_m4c2_preview_e2e.py --serve` (8813), TMA initData
 через `Page.addScriptToEvaluateOnNewDocument` + reload; CDP эмуляция viewport.
 
-| Проверка | 502×706 | 390×844 |
-|---|---|---|
-| gates → preview | видим, 3 вкладки | видим |
-| форма | 1 колонка (`432px`), тач 44 | 1 колонка (`335px`), run 44 |
-| сценарий | admin `section.access` → **allowed**, слои `[role, global_admin_ceiling]` | moderator + chat scope `param.limits.search_max_symbols` → **allowed**, слои `[chat_access, chat_matrix]`, перекрытия 1 строка |
-| h-scroll / nested | `502/502`, 0 | `390/390`, 0 |
-| чекбоксы в gates | 0 | 0 |
-| скриншоты | `browseruse-preview-allowed-502x706.png` | `browseruse-preview-chat-390x844.png` |
+| Проверка | 1440×900 | 1280×800 | 390×844 | 320×568 |
+|---|---|---|---|---|
+| gates → preview | видим, 3 вкладки | видим | видим | видим |
+| actor-list после admins | self + `5885953495` + manual; noActor=false | same | same | same |
+| форма | 2 колонки (`413px×2`), run 40 | 2 колонки (`333px×2`), run 40 | 1 колонка `335px`, поля/кнопка **44** | 1 колонка `265px`, кнопка **44** |
+| `section.access` (admin) | **allowed**, слои `[role, global_admin_ceiling]` | **allowed** | **allowed** | **allowed** |
+| h-scroll / nested | `1425/1440`, 0 | `1265/1280`, 0 | `390/390`, 0 | `320/320`, 0 |
+| чекбоксы в gates | 0 | 0 | 0 | 0 |
+| скриншоты | `browseruse-preview-c3-1440x900.png` | `...-1280x800.png` | `...-390x844.png` | `...-320x568.png` |
 
 Эмуляция viewport снята, вкладка 8812 закрыта, сервер остановлен.
 

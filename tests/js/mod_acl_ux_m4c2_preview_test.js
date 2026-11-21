@@ -164,6 +164,8 @@ function baseState(extra) {
       { telegram_id: 5885953495, role_name: 'admin', display_name: 'Audit' },
     ],
     adminsError: null,
+    adminsLoaded: true,
+    adminsLoading: false,
     accessChats: [
       { chat_id: -100123, title: 'Чат', is_dm: false },
       { chat_id: 5885953495, title: 'Личные сообщения', is_dm: true },
@@ -175,7 +177,7 @@ function baseState(extra) {
       resource: '', operation: 'view', loading: false, error: null,
       result: null, stale: false, noActor: false, chatAdmins: [],
       chatAdminsError: null, chatOverrides: null, chatOverridesError: null,
-      _seq: 0,
+      _seq: 0, _adminsSeq: 0, _overridesSeq: 0,
     },
   };
   return Object.assign(state, extra || {});
@@ -188,6 +190,14 @@ assert.strictEqual(methods.previewActorId.call(ctx), 5885953495);
 let actorOpts = methods.previewActorOptions.call(ctx);
 assert.deepStrictEqual(actorOpts.map(function (o) { return o.value; }),
   ['self', '1313107079', '777000111', 'manual']);
+/* C2-R1-4: non-admin не видит чужих админов в actor-select. */
+ctx.isGlobalAdmin = false;
+assert.deepStrictEqual(methods.previewRoleActors.call(ctx), [],
+  'non-admin не получает role actors');
+assert.deepStrictEqual(methods.previewActorOptions.call(ctx)
+  .map(function (o) { return o.value; }), ['self'],
+  'non-admin видит только «Я»');
+ctx.isGlobalAdmin = true;
 ctx.preview.actorValue = 'manual';
 ctx.preview.actorManual = '12345';
 assert.strictEqual(methods.previewActorId.call(ctx), 12345);
@@ -368,6 +378,137 @@ async function main() {
   assert.strictEqual(bundle.local.preview.result, null);
   assert.strictEqual(bundle.local.preview.error, null);
   assert.strictEqual(bundle.local.preview.stale, false);
+
+  /* ── 5g. C2-R1-1: late-ответы не перезаписывают новый выбор ───────────── */
+  function deferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise(function (res, rej) { resolve = res; reject = rej; });
+    return { promise: promise, resolve: resolve, reject: reject };
+  }
+  const tick = function () { return new Promise(function (r) { setImmediate(r); }); };
+
+  state = baseState();
+  state.preview.resource = 'section.access';
+  bundle = await withApi(state, []);
+  let gate = deferred();
+  bundle.local.api = function () { return gate.promise; };
+  let inFlight = methods.previewRun.call(bundle.local);
+  assert.strictEqual(bundle.local.preview.loading, true, 'in-flight loading');
+  bundle.local.preview.actorValue = '1313107079';
+  methods.previewOnActorChange.call(bundle.local);
+  assert.strictEqual(bundle.local.preview.loading, false,
+    'смена actor снимает loading старого запроса');
+  gate.resolve({
+    decision: 'allowed',
+    actor: { telegram_id: 5885953495 }, layers: [],
+    resource: { namespace: 'section.access' }, operation: 'view',
+    scope: { kind: 'global' },
+  });
+  await inFlight;
+  await tick();
+  assert.strictEqual(bundle.local.preview.result, null,
+    'late-ответ старого actor не применён');
+  assert.strictEqual(bundle.local.preview.actorValue, '1313107079');
+  bundle.local.api = async function () {
+    return { decision: 'denied', actor: { telegram_id: 1313107079 },
+             layers: [], resource: { namespace: 'section.access' },
+             operation: 'view', scope: { kind: 'global' } };
+  };
+  await methods.previewRun.call(bundle.local);
+  assert.strictEqual(bundle.local.preview.result.actor.telegram_id,
+    1313107079, 'новый запрос применяет свой ответ');
+
+  /* resource-ввод (markStale) инвалидирует in-flight. */
+  state = baseState();
+  state.preview.resource = 'section.access';
+  bundle = await withApi(state, []);
+  gate = deferred();
+  bundle.local.api = function () { return gate.promise; };
+  inFlight = methods.previewRun.call(bundle.local);
+  bundle.local.preview.resource = 'section.access.changed';
+  methods.previewMarkStale.call(bundle.local);
+  assert.strictEqual(bundle.local.preview.loading, false);
+  gate.resolve({ decision: 'allowed', actor: { telegram_id: 1 }, layers: [] });
+  await inFlight;
+  await tick();
+  assert.strictEqual(bundle.local.preview.result, null,
+    'late-ответ после ввода ресурса не применён');
+
+  /* late chat overrides старого scope игнорируются. */
+  state = baseState();
+  state.preview.scopeValue = '-100123';
+  state.preview.actorValue = '1313107079';
+  bundle = await withApi(state, []);
+  gate = deferred();
+  bundle.local.api = function () { return gate.promise; };
+  const overridesFlight = methods.previewLoadChatOverrides.call(bundle.local);
+  bundle.local.previewRun = function () {};      // изолируем scope-change
+  bundle.local.preview.scopeValue = 'global';
+  methods.previewOnScopeChange.call(bundle.local);
+  gate.resolve({ items: { 'limits.x': { view_roles: ['user'] } },
+                 updated_at: 't' });
+  await overridesFlight;
+  await tick();
+  assert.strictEqual(bundle.local.preview.chatOverrides, null,
+    'late chat overrides старого scope не применены');
+  assert.strictEqual(bundle.local.preview.chatOverridesError, null);
+
+  /* late chat admins старого scope игнорируются. */
+  state = baseState();
+  state.preview.scopeValue = '-100123';
+  state.preview.actorValue = '1313107079';
+  bundle = await withApi(state, []);
+  gate = deferred();
+  bundle.local.api = function () { return gate.promise; };
+  const adminsFlight = methods.previewLoadChatAdmins.call(bundle.local);
+  bundle.local.preview.scopeValue = 'global';
+  methods.previewOnScopeChange.call(bundle.local);
+  gate.resolve({ admins: [{ telegram_id: 777, role_name: 'moderator' }] });
+  await adminsFlight;
+  await tick();
+  assert.deepStrictEqual(bundle.local.preview.chatAdmins, [],
+    'late chat admins старого scope не применены');
+
+  /* ── 5h. C2-R1-7: noActor только после завершения /api/admins ─────────── */
+  state = baseState({
+    admins: [], adminsLoaded: false, adminsLoading: true,
+    accessOpen: 'roles',
+    roleEditor: { roleName: 'admin', tree: null, sections: [], actions: [] },
+    me: { telegram_id: 5885953495, first_name: 'Audit' },
+  });
+  bundle = await withApi(state, []);
+  methods.previewSeedActor.call(bundle.local);
+  assert.strictEqual(bundle.local.preview.noActor, false,
+    'до загрузки admins noActor запрещён');
+  bundle.local.api = async function () {
+    return { admins: [{ telegram_id: 5885953495, role_name: 'admin',
+                        display_name: 'Audit' }] };
+  };
+  bundle.local.loadAvatar = async function () { return null; };
+  await methods.loadAdmins.call(bundle.local);
+  assert.strictEqual(bundle.local.adminsLoaded, true);
+  assert.strictEqual(bundle.local.preview.noActor, false,
+    'роль admin назначена — noActor нет');
+  assert.ok(methods.previewActorOptions.call(bundle.local)
+    .some(function (o) { return o.value === '5885953495'; }),
+    'после загрузки admins actor list обновлён');
+  assert.ok(INDEX.indexOf(':disabled="preview.loading || preview.noActor"') >= 0,
+    'кнопка disabled только loading/noActor');
+
+  /* Неизвестные назначения не дают ложного noActor; пустые известные — дают. */
+  state = vm(baseState({
+    admins: [], adminsLoaded: false, adminsLoading: false,
+    roleEditor: { roleName: 'local_admin', tree: null, sections: [],
+                  actions: [] },
+  }));
+  methods.previewSeedActor.call(state);
+  assert.strictEqual(state.preview.noActor, false,
+    'неизвестные назначения ≠ «роль не назначена»');
+  state.adminsLoaded = true;
+  methods.previewSeedActor.call(state);
+  assert.strictEqual(state.preview.noActor, true,
+    'известно пустые назначения → noActor');
 
   /* ── 6. Слои и перекрытия ─────────────────────────────────────────────── */
   assert.ok(INDEX.indexOf('v-for="layer in preview.result.layers"') >= 0,

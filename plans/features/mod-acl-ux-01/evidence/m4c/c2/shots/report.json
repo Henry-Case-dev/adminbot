@@ -51,6 +51,11 @@
      "left": 552,
      "right": 1212
     },
+    "actorValues": [
+     "self",
+     "5885953495",
+     "manual"
+    ],
     "scope": {
      "x": 1220,
      "y": 331.7,
@@ -152,6 +157,11 @@
      "left": 552,
      "right": 972
     },
+    "actorValues": [
+     "self",
+     "5885953495",
+     "manual"
+    ],
     "scope": {
      "x": 980,
      "y": 331.7,
@@ -253,6 +263,11 @@
      "left": 552,
      "right": 892
     },
+    "actorValues": [
+     "self",
+     "5885953495",
+     "manual"
+    ],
     "scope": {
      "x": 900,
      "y": 331.7,
@@ -354,6 +369,11 @@
      "left": 272,
      "right": 496
     },
+    "actorValues": [
+     "self",
+     "5885953495",
+     "manual"
+    ],
     "scope": {
      "x": 504,
      "y": 426.9,
@@ -455,6 +475,11 @@
      "left": 28,
      "right": 362
     },
+    "actorValues": [
+     "self",
+     "5885953495",
+     "manual"
+    ],
     "scope": {
      "x": 28,
      "y": 569.4,
@@ -556,6 +581,11 @@
      "left": 28,
      "right": 292
     },
+    "actorValues": [
+     "self",
+     "5885953495",
+     "manual"
+    ],
     "scope": {
      "x": 28,
      "y": 555.4,
@@ -607,6 +637,26 @@
     "hScroll": false,
     "nestedScrollers": 0
    }
+  },
+  "admins-inflight-1440x900": {
+   "noActor": false,
+   "actorValues": [
+    "self",
+    "5885953495",
+    "manual"
+   ],
+   "runDisabled": false,
+   "decision": "allowed"
+  },
+  "admins-inflight-1280x800": {
+   "noActor": false,
+   "actorValues": [
+    "self",
+    "5885953495",
+    "manual"
+   ],
+   "runDisabled": false,
+   "decision": "allowed"
   }
  },
  "limitations": [

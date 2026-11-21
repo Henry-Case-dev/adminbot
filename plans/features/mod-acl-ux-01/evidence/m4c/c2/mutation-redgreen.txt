@@ -1,8 +1,9 @@
-# M4C C2 — мутации (RED на кандидате, GREEN после отката)
+﻿# M4C C2 — мутации (RED на кандидате, GREEN после отката)
 
-Каждая мутация — временная правка файла кандидата, точечный pytest-запуск,
-затем `git checkout -- <file>` (возврат к коммиту C2a). После всех мутаций
-полный `tests/test_webapp_access_effective.py` = 101 passed (см. tests-python).
+Повторено на corrective c3 (после R1-фиксов); каждая мутация — временная правка
+файла кандидата, точечный pytest-запуск, затем восстановление из сохранённой
+копии. После всех мутаций полный `tests/test_webapp_access_effective.py` =
+**115 passed**.
 
 ## M1. Матрица → rank>=2 (второй матчер)
 
@@ -12,7 +13,7 @@
 ```
 pytest ... -q -k "preview_matches_actual_guards"
 FAILED tests/test_webapp_access_effective.py::TestAntiDrift::test_preview_matches_actual_guards[1313107079-None-param.content.info_how_it_works-edit]
-1 failed, 40 passed
+1 failed, 49 passed
 ```
 
 RED: анти-дрейф ловит расхождение с `deps.can_edit_param` (moderator rank 2,
@@ -30,6 +31,7 @@ FAILED ...::test_f_c2_1_matrix_auth_strict_cold_503
 ```
 
 RED: холодный кэш/PG down дают ложный 403/200 вместо 503; F-C2-1 не закрыт.
+`roles.py` восстановлен байт-в-байт (git diff пуст).
 
 ## M3. Убран слой chat_grant
 
@@ -38,7 +40,7 @@ RED: холодный кэш/PG down дают ложный 403/200 вместо 
 ```
 pytest ... -q -k "moderator_chat_view_allowed_edit_denied"
 FAILED ...::test_moderator_chat_view_allowed_edit_denied
-1 failed, 100 deselected
+1 failed, 114 deselected
 ```
 
 RED: потерян видимый грант чата (причина deny не объяснена).
@@ -64,7 +66,7 @@ RED: `diag.*`/неизвестные ключи попадают в ответ, 
 ```
 pytest ... -q -k "global_param_view_is_readable"
 FAILED ...::test_global_param_view_is_readable_by_any_auth
-1 failed, 100 deselected
+1 failed, 114 deselected
 ```
 
 RED: non-global вызывающий видит метаданные каталога (leak).
@@ -75,5 +77,5 @@ RED: non-global вызывающий видит метаданные катал�
 
 ```
 pytest tests/test_webapp_access_effective.py -q
-101 passed
+115 passed
 ```
