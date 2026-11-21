@@ -1,12 +1,12 @@
-{
-  "deployed_at": "2026-11-21T14:51:22.040443Z",
-  "deployed_sha": "95485a609aeb559ffe88531635f345a3528f026b",
-  "deployer": "builder-release-prep",
-  "dirty_tracked": false,
-  "effect": "deploy",
-  "previous_sha": "374dc60609986a9250170a34a48c93bf2ba85e29",
-  "previous_version": "2.58.228",
-  "release_branch": "release/mod-acl-m4c1-2.58.229",
-  "schema": 1,
-  "version": "2.58.229"
-}
+{
+  "deployed_at": "2026-11-21T15:42:25.624449Z",
+  "deployed_sha": "f8834c44609ef0d6463f219d7c5fd1b879d3aec6",
+  "deployer": "builder-release-prep",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "374dc60609986a9250170a34a48c93bf2ba85e29",
+  "previous_version": "2.58.228",
+  "release_branch": "release/mod-acl-m4c1-2.58.229",
+  "schema": 1,
+  "version": "2.58.229"
+}

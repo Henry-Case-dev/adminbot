@@ -1,12 +1,17 @@
 {
-  "artifact": "release tests record 2.58.229",
+  "artifact": "release tests record 2.58.229 (c4 re-pin applied)",
   "feature": "MOD-ACL-UX-01",
   "increment": "M4C C1",
   "release_version": "2.58.229",
-  "content_tip": "95485a609aeb559ffe88531635f345a3528f026b",
+  "content_tip": "f8834c44609ef0d6463f219d7c5fd1b879d3aec6",
+  "bump_tip": "95485a609aeb559ffe88531635f345a3528f026b",
   "product_tip": "3fdd560e996002673a9957cba0608218e8ae0289",
   "candidate_product": "eb305b6fe7b5f21a9707b7d6a2aff37f7bfb4435",
   "candidate_evidence": "83a38a5be4a8ab50c3a5f9436d67ef90ee3f9534",
+  "c4_commit": "4618a3be23da88bb8d87a85770de0479743c08eb",
+  "c4_cherry_pick": "f8834c44609ef0d6463f219d7c5fd1b879d3aec6",
+  "c4_patch_id": "edf32c582ac3c7d323f57556ed3f3d5c1e140881 (identical for 4618a3be2 and f8834c446)",
+  "review_addendum": "3aa10d42196850ddc402a068e968f347f00dbc83 (REL-229-PIN-01 closed, APPROVED_FOR_RELEASE_PREPARATION)",
   "base": "374dc60609986a9250170a34a48c93bf2ba85e29",
   "base_version": "2.58.228",
   "branch": "release/mod-acl-m4c1-2.58.229",
@@ -16,9 +21,14 @@
     "pytest": "9.1.1",
     "node": "v24.16.0",
     "playwright_module": true,
-    "env_overrides": "none used for these batches; tools use their own stubs and TMA_STUB"
+    "env_overrides": "none used for these batches; tools use their own stubs and TMA_STUB",
+    "host_load_note": "B3 runs happened at 91-100% CPU with 30 Chrome processes; the detail_closed timing check flaked and cleared on the identical re-run"
   },
   "batches": {
+    "target_pin_tests": {
+      "command": "python -m pytest tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged -q",
+      "result": "2 passed"
+    },
     "node_c1_suites": {
       "command": "node tests/js/mod_acl_ux_m4c1_roles_page_test.js; node tests/js/mod_acl_ux_m4c1_editor_preserve_test.js",
       "result": "2/2 exit 0",
@@ -27,8 +37,7 @@
     "js_version_pins": {
       "command": "node tests/js/round1025_hotfix7|8|9|10_*_test.js",
       "result": "4/4 exit 0",
-      "markers": ["HOTFIX7-SHELL-GLASS-HEARTBEAT-OK", "HOTFIX8-SHELL-AURORA-OK", "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK", "HOTFIX10-GLASS-GEOMETRY-BG-OK"],
-      "plus_c1_suites": "6/6 with the two C1 suites"
+      "plus_c1_suites": "6/6"
     },
     "node_sweep": {
       "command": "node --check + node for every tests/js/*.js except module_fixture.js (helper rc=0)",
@@ -44,29 +53,25 @@
       "passed": 320,
       "failed": 1,
       "failed_ids": ["tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed"],
-      "classification": "pre-existing on base 374dc6060 (assertion `var MODULES = [`), not C1"
+      "classification": "pre-existing on base 374dc6060, not C1"
     },
     "python_new_c1_file": {
       "command": "python -m pytest tests/test_webapp_access_matrix_read.py -q",
-      "result": "17/17 passed"
+      "result": "17/17 passed",
+      "note": "file untouched by c4; run on the pre-c4 tip, still part of the focused batch on the c4 tip"
     },
     "pin_guard": {
       "command": "python -m pytest <24 version-pin Python files> -q",
-      "passed": 854,
-      "failed": 6,
-      "pre_existing_failed_ids": [
+      "passed": 856,
+      "failed": 4,
+      "failed_ids": [
         "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
         "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
         "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
         "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
       ],
-      "new_failed_ids": [
-        "tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact",
-        "tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged"
-      ],
-      "new_failure_base_control": "both node IDs pass on base 374dc6060 (2 passed, test-output/pin-guard-base.txt)",
-      "root_cause": "C1 changed web/api/routes.py (+12, three 503 guards) without the conscious re-pin of ROUTES_SHA256_F11 required by L-F11S-1",
-      "finding_id": "REL-229-PIN-01"
+      "classification": "only the 4 known pre-existing node IDs (same on base); the 2 stale-pin failures from REL-229-PIN-01 are resolved by c4",
+      "resolution": "REL-229-PIN-01 closed (c4 f8834c446; Review 3aa10d421)"
     },
     "b1_status_e2e": {
       "command": "python tools/ui_mod_acl_m4b_status_e2e.py",
@@ -84,8 +89,12 @@
     },
     "b3_status_e2e": {
       "command": "python tools/ui_mod_acl_m4b3_status_e2e.py",
-      "first_run": {"checks": 131, "failures": ["detail_closed"], "classification": "known timing flake, identical re-run"},
-      "rerun": {"checks": 131, "failures": 0, "marker": "M4B-B3-STATUS-E2E-OK", "screenshots": 8},
+      "runs": [
+        {"checks": 131, "failures": ["detail_closed"], "note": "host load 91%"},
+        {"checks": 131, "failures": ["detail_closed"], "note": "host load 100%"},
+        {"checks": 131, "failures": [], "marker": "M4B-B3-STATUS-E2E-OK", "screenshots": 8, "note": "identical re-run green, detail_closed=true"}
+      ],
+      "classification": "known detail_closed timing flake, not product; bytes unchanged vs the candidate where B3 was 131/131",
       "report": "test-output/b3/e2e-report-131.json"
     },
     "c1_roles_e2e": {
@@ -96,7 +105,7 @@
       "assertions": {
         "h_scroll": "0 at every viewport (scrollWidth == innerWidth)",
         "success_1440": {"roles": 5, "sections": 12, "matrix_groups": 121, "matrix_count": "622 из 622"},
-        "f02_used_role": {"all_viewports": true, "deleteDisabled": true, "renameDisabled": false, "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."},
+        "f02_used_role": {"all_7_viewports": true, "deleteDisabled": true, "renameDisabled": false, "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."},
         "error_roles_401": {"rolesCount": null, "has_0_iz_0": false},
         "error_roles_403": {"rolesCount": null, "has_0_iz_0": false},
         "error_roles_503": {"rolesCount": null, "has_0_iz_0": false},
@@ -109,20 +118,22 @@
     "syntax": {
       "node_check_app_js": 0,
       "py_compile": 0,
-      "files": ["config/settings.py", "services/access.py", "web/api/access.py", "web/api/routes.py", "tests/test_webapp_access_matrix_read.py", "tools/ui_mod_acl_m4c1_roles_e2e.py", "tools/ui_mod_acl_m4b2_status_e2e.py", "tools/ui_mod_acl_m4b3_status_e2e.py"]
+      "files": ["config/settings.py", "tests/test_round1025_f8_registry.py", "tests/test_mca23_planned_vs_actual.py", "services/access.py", "web/api/access.py", "web/api/routes.py", "tools/ui_mod_acl_m4c1_roles_e2e.py"]
     }
   },
   "counts": {
-    "aggregate": {"passed": 1679, "failed": 10},
-    "breakdown": "127 node + 320 focused pytest + 17 new C1 pytest + 854 pin-guard + 138 B1 + 92 B2 + 131 B3 = 1679 passed; 3 node + 1 focused pytest + 0 new C1 + 6 pin-guard = 10 failed (6 of the 10 are the known/REL-229-PIN-01 pin-guard set, 4 are pre-existing JS/Python)",
+    "aggregate": {"passed": 1681, "failed": 8},
+    "breakdown": "127 node + 320 focused pytest + 17 new C1 pytest + 856 pin-guard + 138 B1 + 92 B2 + 131 B3 = 1681 passed; 3 node + 1 focused pytest + 4 pin-guard = 8 failed (all pre-existing)",
     "note": "E2E numbers are tool-defined check counters, not pytest cases"
   },
-  "verdict": "PASS_WITH_OPEN_FINDING_REL_229_PIN_01",
-  "deployable": false,
+  "verdict": "PASS_READY_FOR_DELTA_REVIEW",
+  "deployable": "pending separate deploy authorization",
+  "open_findings": [],
+  "resolved_findings": ["REL-229-PIN-01"],
   "limitations": [
     "no production deploy, no SSH, no live Telegram/TMA/LLM call",
     "C1 e2e uses served bytes with API stubs and TMA_STUB, not a live TMA session",
-    "B3 detail_closed timing flake reproduced once and cleared on identical re-run",
+    "B3 detail_closed timing flake reproduced under host load and cleared on identical re-run",
     "requirements_gate plan stage is a planning-master artifact, not present on the release branch"
   ]
 }

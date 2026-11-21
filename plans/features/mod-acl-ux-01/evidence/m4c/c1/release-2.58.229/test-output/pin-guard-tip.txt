@@ -1,6 +1,11 @@
+# 2.58.229 tip f8834c446 (c4 applied) - targeted + 24-file pin guard
+
+..                                                                       [100%]
+2 passed in 5.26s
+
 ........................................................................ [  8%]
 ........................................................................ [ 16%]
-.........................................F...F.......................... [ 25%]
+........................................................................ [ 25%]
 ........................................................................ [ 33%]
 ........................................................................ [ 41%]
 ........................................................................ [ 50%]
@@ -11,44 +16,9 @@
 ........................................................................ [ 92%]
 ....................................................................     [100%]
 ================================== FAILURES ===================================
-____________________ test_routes_py_byte_freeze_pin_intact ____________________
-
-    def test_routes_py_byte_freeze_pin_intact():
-        # ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В mca-12: routes.py ╨Э╨Х ╨╝╨╡╨╜╤П╨╗╤Б╤П тЖТ ╨┐╨╕╨╜ F11 ╤Ж╨╡╨╗ (re-pin =
-        # ╨╛╤Б╨╛╨╖╨╜╨░╨╜╨╜╨░╤П ╨▓╨╡╤А╨╕╤Д╨╕╨║╨░╤Ж╨╕╤П, L-F11S-1).
-        from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
-        digest = hashlib.sha256(
-            (ROOT / "web" / "api" / "routes.py").read_bytes()).hexdigest()
->       assert digest == ROUTES_SHA256_F11
-E       AssertionError: assert '70875819c728...f405b94cf56c2' == '4faa0a5379a9...3300cb7392ee7'
-E         
-E         - 4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7
-E         + 70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2
-
-tests\test_mca17c_invariants_round1047.py:227: AssertionError
-_______________ TestFrozenInvariants.test_routes_file_unchanged _______________
-
-self = <tests.test_round1025_f8_registry.TestFrozenInvariants object at 0x000002058213B2F0>
-
-    def test_routes_file_unchanged(self):
-        # F11 (ADR-1025-23 D6 + L-F11S-1): ╤Б╤В╤А╨╛╨│╨╕╨╣ byte-freeze ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜.
-        # ╨Ш╤Б╤В╨╛╤А╨╕╤З╨╡╤Б╨║╨╕╨╣ fixture `f8_baseline.json` ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П (L-F9S-4), ╨┐╨╛╤Н╤В╨╛╨╝╤Г
-        # ╨╜╨╛╨▓╤Л╨╣ baseline-╤Е╤Н╤И F11 ╨╖╨░╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╨╜ ╨║╨╛╨╜╤Б╤В╨░╨╜╤В╨╛╨╣ `ROUTES_SHA256_F11`
-        # (╨╡╨┤╨▓╨░ ╨▓╤Л╤И╨╡). ╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П F11 тАФ ╤Б╤В╤А╨╛╨│╨╛ ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╡ (kill-switch bool +
-        # ╨┐╨╛╨╗╨╡ `counts` ╨▓ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨╝ ╤Н╨╜╨┤╨┐╨╛╨╕╨╜╤В╨╡), ╨╜╨╛╨▓╤Л╤Е endpoint'╨╛╨▓ ╨╜╨╡╤В.
->       assert _sha256(ROOT / "web/api/routes.py") == ROUTES_SHA256_F11, (
-            "web/api/routes.py ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╤Б╤П ╨▓╨╜╨╡ ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╤Е ╨┐╤А╨░╨▓╨╛╨║ F11 тАФ "
-            "╨╛╨▒╨╜╨╛╨▓╨╕╤В╨╡ baseline ╨╛╤Б╨╛╨╖╨╜╨░╨╜╨╜╨╛ (L-F11S-1)")
-E       AssertionError: web/api/routes.py ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╤Б╤П ╨▓╨╜╨╡ ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╤Е ╨┐╤А╨░╨▓╨╛╨║ F11 тАФ ╨╛╨▒╨╜╨╛╨▓╨╕╤В╨╡ baseline ╨╛╤Б╨╛╨╖╨╜╨░╨╜╨╜╨╛ (L-F11S-1)
-E       assert '70875819c728...f405b94cf56c2' == '4faa0a5379a9...3300cb7392ee7'
-E         
-E         - 4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7
-E         + 70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2
-
-tests\test_round1025_f8_registry.py:520: AssertionError
 _________________ TestBounds.test_forbidden_paths_out_of_diff _________________
 
-self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x000002058601F7A0>
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x0000017BACF8E990>
 
     def test_forbidden_paths_out_of_diff(self):
         names = self._diff_names()
@@ -303,12 +273,12 @@ self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x00000205860
                                              "web/api/mechanism_diagnostics.py"))
                        for n in names)
 E       assert not True
-E        +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x0000020596426190>)
+E        +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x0000017BBB82C450>)
 
 tests\test_tool_coordinator_round1026.py:583: AssertionError
 _____________________ TestBounds.test_canon_twelve_tools ______________________
 
-self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x00000205860302C0>
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x0000017BACF8F470>
 
     def test_canon_twelve_tools(self):
         # A2 (ADR-1026-15 D5): ╨║╨░╨╜╨╛╨╜ 10 тЖТ 11 (+fetch_article);
@@ -324,7 +294,7 @@ E        +  where 18 = len([{'type': 'function', 'function': {'name': 'query_cha
 tests\test_tool_coordinator_round1026.py:913: AssertionError
 _________________ TestToolDescriptionU21.test_canon_unchanged _________________
 
-self = <tests.test_unified_image_request_round1026.TestToolDescriptionU21 object at 0x000002058240A330>
+self = <tests.test_unified_image_request_round1026.TestToolDescriptionU21 object at 0x0000017BA934D550>
 
     def test_canon_unchanged(self):
         # A6 (ADR-1026-18 D1): ╨║╨░╨╜╨╛╨╜ 11 тЖТ 12 (+get_user_context, ╨▓ ╤Е╨▓╨╛╤Б╤В).
@@ -344,7 +314,7 @@ E         Use -v to get more diff
 tests\test_unified_image_request_round1026.py:410: AssertionError
 __________ TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline __________
 
-self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x0000020582414230>
+self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x0000017BA934F3E0>
 
     def test_forbidden_paths_out_of_diff_vs_baseline(self):
         forbidden = [
@@ -574,14 +544,12 @@ self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x0000
                                               ))
                        for ln in self._diff_names())
 E       assert not True
-E        +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x0000020597A113C0>)
+E        +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x0000017BBD8E5CB0>)
 
 tests\test_unified_image_request_round1026.py:703: AssertionError
 =========================== short test summary info ===========================
-FAILED tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact
-FAILED tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged
 FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
 FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
 FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
 FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
-6 failed, 854 passed in 84.41s (0:01:24)
+4 failed, 856 passed in 80.75s (0:01:20)

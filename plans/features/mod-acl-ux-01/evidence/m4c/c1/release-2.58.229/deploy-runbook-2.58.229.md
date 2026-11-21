@@ -1,21 +1,26 @@
 # Deploy runbook — 2.58.229 (MOD-ACL-UX-01 M4C C1)
 
-Status: **REVIEW — do not deploy yet**. Production host `192.255.209.205`, checkout `/var/www/admin_bot`,
-unit `admin_bot`. Old VPS `198.46.175.136` is decommissioned and is not a rollback target.
+Status: **REVIEW — assembly complete, ready for delta-review and a separately authorized deploy**.
+Production host `192.255.209.205`, checkout `/var/www/admin_bot`, unit `admin_bot`.
+Old VPS `198.46.175.136` is decommissioned and is not a rollback target.
 
-Open blocker before step 2: **`REL-229-PIN-01`** (see `assembly.md` §6). The C1 `web/api/routes.py` change needs the
-conscious `ROUTES_SHA256_F11` re-pin and a Reviewer addendum. If that produces an additional commit, the SHA and
-digests below no longer describe the deployed tree: re-run the assembly checks and update this runbook first.
+`REL-229-PIN-01` is **closed** by c4 `f8834c446` (tests-only `ROUTES_SHA256_F11` re-pin; Reviewer addendum
+`3aa10d421` = `APPROVED_FOR_RELEASE_PREPARATION`). Release tip checks: target pin tests 2 passed, 24-file pin-guard
+**856/4** (only the four pre-existing node IDs). No open blockers; the pin is valid only for `web/api/routes.py`
+blob `2f0ff2ab1` — a later routes change (C2/C3) requires a new conscious re-pin and a new assembly.
 
 ## 1. Preconditions
 
-- Release branch `release/mod-acl-m4c1-2.58.229`; content tip in this assembly `95485a609aeb559ffe88531635f345a3528f026b`
-  (standard bump on the cherry-picked C1 product `3fdd560e9`; version 2.58.229, schema 48, DDL 0).
-  The evidence commit after the content tip is docs-only.
-- Reviewed candidate `eb305b6fe` (evidence tip `83a38a5be`, `feat/mod-acl-m4c1`); review addendum on master
-  `b2f3d1889`, `APPROVED_FOR_RELEASE_PREPARATION` (F01/F02/F03 resolved, 18 C1 rows VERIFIED-eligible, SCN-01 RFL).
+- Release branch `release/mod-acl-m4c1-2.58.229`; content tip in this assembly `f8834c44609ef0d6463f219d7c5fd1b879d3aec6`
+  (standard bump `95485a609` on the cherry-picked C1 product `3fdd560e9`, plus the c4 tests-only re-pin `f8834c446`;
+  version 2.58.229, schema 48, DDL 0). The evidence commit after the content tip is docs-only.
+- Reviewed candidate `eb305b6fe` (evidence tip `83a38a5be`, `feat/mod-acl-m4c1`); c4 re-pin `4618a3be2`
+  (evidence tip `a7bf0da1f`); review addenda on master `b2f3d1889` and `3aa10d421`,
+  `APPROVED_FOR_RELEASE_PREPARATION` (F01/F02/F03 resolved, `REL-229-PIN-01` closed, 18 C1 rows VERIFIED-eligible,
+  SCN-01 RFL).
 - Rollback/base `374dc60609986a9250170a34a48c93bf2ba85e29` (2.58.228, schema 48, DDL 0).
-- Product bytes are byte-identical to the reviewed candidate (`git diff 83a38a5be 95485a609 -- web services` empty):
+- Product bytes are byte-identical to the reviewed candidate (`git diff 83a38a5be f8834c446 -- web services
+  handlers database.py migrations prompts` empty; c4 touched only two test files):
   `app.js 59a583fc…`, `index.html db30ba90…`, `app.css 8a55ed9d…`.
 - No new flags, store, embedding, LLM prompt, hot-config, migration or DDL. Do not alter `.env`, persisted settings
   or chat overrides.
@@ -53,7 +58,7 @@ deleting rows during the deploy.
 
 Repeat (b) after the restart; the count must be unchanged by the deploy (the deploy writes no `bot_admins` rows).
 
-## 3. Deploy steps (only after separate deploy authorization and REL-229-PIN-01 closed)
+## 3. Deploy steps (only after separate deploy authorization)
 
 1. Check free disk space before any backup/copy; do not start a full DB copy if space is insufficient.
 2. `git -C /var/www/admin_bot fetch --prune`
@@ -94,7 +99,8 @@ chat”, no probe message, no synthetic question in a real chat, no toggle, role
 
 The C1 behavior was confirmed before the deploy by the reviewed tests, the Playwright e2e (7 viewports + 401/403/404/503
 + non-global) and the Reviewer's Browser Use run on candidate `eb305b6fe`; this branch reproduces the same served bytes
-plus the version wave. The deploy is accepted through **deployed-byte identity**, not through new production writes:
+plus the version wave and the c4 tests-only re-pin. The deploy is accepted through **deployed-byte identity**, not
+through new production writes:
 
 ```
 git -C /var/www/admin_bot rev-parse HEAD            # == manifest deployed_sha
@@ -136,8 +142,9 @@ never claimed as VERIFIED from this runbook.
 ## 6. Known residual / limitations
 
 - This assembly is REVIEW only: no deploy, no live Telegram/TMA/LLM check, no VERIFIED claim.
-- `REL-229-PIN-01` (stale `ROUTES_SHA256_F11` byte-freeze) is open; deploy is blocked until the re-pin is reviewed
-  and this runbook's SHA/digests are refreshed.
+- `REL-229-PIN-01` is resolved: c4 `f8834c446` re-pins `ROUTES_SHA256_F11` (both canon and mirror) to
+  `70875819…56c2` = `sha256(web/api/routes.py)` blob `2f0ff2ab1`; target pin tests 2 passed, 24-file pin-guard 856/4
+  (four pre-existing node IDs only). A later `routes.py` change requires a new conscious re-pin before deploying.
 - C1 e2e used served bytes with API stubs and `TMA_STUB`, not a live TMA session; Browser Use coverage is the
   Reviewer's run on the same bytes.
 - Pre-existing failures: 3 JS suites, 1 Python test, 4 pin-guard node IDs — listed in `assembly.md`/`tests-2.58.229.json`,
