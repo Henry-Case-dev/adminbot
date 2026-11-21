@@ -101,7 +101,11 @@ ROUTES_SHA256_F11 = (
     # GET /api/direct/turn-diagnostics (годы Writer-блоков, memory_period,
     # bounded retrieval[], stages.retrieval); Δ routes=0, RBAC/DDL не менялись.
     # Re-pin синхронно с каноном tests/test_round1025_f8_registry.py (L-F11S-1).
-    "4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7")
+    # MOD-ACL-UX-01 M4C C1 (22.11.2026): routes.py +12 — три honest
+    # 503-guard'а (GET /api/roles, /api/admins, /api/roles/tree) при пустом
+    # кэше и pg_available=false; Δ routes=0, без полей/флагов/DDL. Канон
+    # пина — tests/test_round1025_f8_registry.py (L-F11S-1).
+    "70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2")
 
 
 @pytest.fixture(autouse=True)
