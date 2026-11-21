@@ -424,29 +424,36 @@ class TestEffectiveLayers:
         assert _layer(data, "global_admin_ceiling")["decision"] == "denied"
         assert data["actor"]["role_type"] == "custom"
 
-    def test_moderator_section_limits_is_visibility_only(self, monkey_settings):
-        """C2-R1-3: у section.limits нет route guard — только видимость раздела."""
+    def test_moderator_section_limits_coverage(self, monkey_settings):
+        """C2-R1-3: реальное покрытие секции (deps.can_edit_param), не UI-only."""
         client = _client(_live_cache(), monkey_settings)
         data = _effective_actor(client, MODERATOR_ID,
                                 resource="section.limits").json()
-        assert data["decision"] == "not_applicable"
+        assert data["decision"] == "allowed"
         layer = _layer(data, "role")
-        assert layer["applies_to"] == "ui_visibility"
-        assert layer["decision"] == "allowed"      # грант секции виден
+        assert layer["applies_to"] == "coverage"
+        assert layer["decision"] == "allowed"
         assert layer["matched"] == "section.limits"
-        assert layer["guard"].startswith("ui visibility")
-        assert layer["consumers"] == []
+        assert layer["guard"].startswith(
+            "web.api.deps.can_edit_param/can_view_key_value")
+        assert layer["consumers"] == ["POST /api/config"]
         assert 'requires_permission("limits")' not in layer["guard"]
+        # Тот же факт, что показывает deps на этом ctx.
+        cache = _live_cache()
+        assert deps_mod.can_edit_param(cache, MODERATOR_ID, LIMITS_KEY) is True
+        data2 = _effective_actor(client, MODERATOR_ID,
+                                 resource="section.content").json()
+        assert data2["decision"] == "denied"       # у moderator нет content
 
-    def test_user_section_limits_visibility_denied(self, monkey_settings):
+    def test_user_section_limits_denied(self, monkey_settings):
         client = _client(_live_cache(), monkey_settings)
         data = _effective_actor(client, USER_ID,
                                 resource="section.limits").json()
-        assert data["decision"] == "not_applicable"
+        assert data["decision"] == "denied"
         layer = _layer(data, "role")
         assert layer["decision"] == "denied"
         assert layer["reason"] == "no_match"
-        assert layer["applies_to"] == "ui_visibility"
+        assert layer["applies_to"] == "coverage"
 
     def test_global_param_view_is_readable_by_any_auth(self, monkey_settings):
         """F-C2-3: глобальный non-secret GET /api/config доступен всем."""
@@ -587,10 +594,31 @@ class TestEffectiveLayers:
         data = _effective_actor(client, MODERATOR_ID, chat_id=CHAT_ID,
                                 resource="section.limits").json()
         assert data["decision"] == "not_applicable"
-        layer = _layer(data, "role")
-        assert layer["applies_to"] == "ui_visibility"
+        layer = _layer(data, "scope_capability")
+        assert layer["decision"] == "not_applicable"
+        assert layer["applies_to"] == "guard"
+        assert layer["guard"].startswith("scope:")
         assert layer["consumers"] == []
-        assert layer["guard"].startswith("ui visibility")
+        assert "chat-scoped section endpoint" in layer["guard"]
+
+    def test_section_access_chat_and_dm_not_applicable(self, monkey_settings):
+        """C2-R1-9: chat/DM не имеют roles-endpoint → section.access NA."""
+        client = _client(_live_cache(), monkey_settings)
+        for actor in (ADMIN_ID, MODERATOR_ID, LOCAL_ID, USER_ID):
+            chat = _effective_actor(client, actor, chat_id=CHAT_ID,
+                                    resource="section.access").json()
+            assert chat["decision"] == "not_applicable", actor
+            layer = _layer(chat, "scope_capability")
+            assert layer["decision"] == "not_applicable", actor
+            assert layer["guard"].startswith("scope:"), actor
+        dm = _effective(client, actor=None, caller=USER_ID,
+                        chat_id=USER_ID, resource="section.access").json()
+        assert dm["decision"] == "not_applicable"
+        assert _layer(dm, "scope_capability")["decision"] == "not_applicable"
+        # Глобальный scope того же ресурса — реальное решение.
+        glob = _effective(client, resource="section.access").json()
+        assert glob["decision"] == "allowed"
+        assert _layer(glob, "global_admin_ceiling")["decision"] == "allowed"
 
     def test_key_chat_not_applicable(self, monkey_settings):
         client = _client(_live_cache(), monkey_settings)
@@ -702,6 +730,7 @@ _REAL_GUARD_MARKERS = (
     "web.api.routes.get_config",
     "web.api.routes.post_config",
     "web.api.deps.user_has_permission (не вызывается)",
+    "web.api.deps.can_edit_param/can_view_key_value (section coverage)",
 )
 
 
@@ -719,8 +748,13 @@ class TestLayerHonesty:
             (CUSTOM_ID, None, "section.access", "view"),
             (MODERATOR_ID, None, "section.limits", "view"),
             (USER_ID, None, "section.limits", "view"),
+            (MODERATOR_ID, None, "section.content", "view"),
+            (CUSTOM_CONTENT_ID, None, "section.content", "view"),
+            (MODERATOR_ID, None, "section.keys", "view"),
             (ADMIN_ID, None, "section.chat_lore", "view"),
             (ADMIN_ID, CHAT_ID, "section.chat_lore", "view"),
+            (ADMIN_ID, CHAT_ID, "section.access", "view"),
+            (MODERATOR_ID, CHAT_ID, "section.limits", "view"),
             (MODERATOR_ID, CHAT_ID, "param." + LIMITS_KEY, "view"),
             (LOCAL_ID, CHAT_ID, "param." + LIMITS_KEY, "edit"),
             (ADMIN_ID, None, "param." + HIDDEN_KEY, "view"),
@@ -746,10 +780,27 @@ class TestLayerHonesty:
                     assert layer["guard"].startswith("ui visibility"), layer
                     assert layer["consumers"] == [], layer
                     assert "requires_permission" not in layer["guard"], layer
+                elif layer["guard"].startswith("scope:"):
+                    # Честная область: endpoint'а для секции в этом scope нет.
+                    assert layer["decision"] == "not_applicable", layer
+                    assert layer["consumers"] == [], layer
+                    assert "chat-scoped section endpoint" in layer["guard"], layer
                 else:
                     assert _guard_is_real(layer["guard"]), layer
                     assert layer["consumers"], layer
         assert checked >= 20
+
+    def test_section_access_consumers_are_real(self, monkey_settings):
+        """R1-10: consumers — только реально access-guarded, без cover-служебных."""
+        client = _client(_live_cache(), monkey_settings)
+        data = _effective(client, resource="section.access").json()
+        consumers = _layer(data, "role")["consumers"]
+        assert consumers
+        assert not any("/api/cover" in c for c in consumers), consumers
+        for endpoint in consumers:
+            path = endpoint.split(" ", 1)[1]
+            base = path.split("/{", 1)[0].replace("GET/POST ", "")
+            assert ("/api/roles" in base or "/api/admins" in base), endpoint
 
     def test_no_fabricated_section_guard_strings(self):
         source = inspect.getsource(preview_srv)
@@ -1030,23 +1081,30 @@ def _expected_decision(cache, actor, chat_id, resource, operation):
     ctx = asyncio.run(roles_srv.access_for(actor, chat_id, cache=cache))
     if kind == "section":
         if chat_id is None:
-            if rest != "access":
-                # У прочих section.* нет route guard'а — только видимость.
+            if rest == "chat_lore":
+                # Серверного глобального ресурса нет (только видимость).
                 return "not_applicable"
+            if rest == "access":
+                allowed = deps_mod.user_has_permission(cache, actor,
+                                                       "section.access")
+                ceiling = deps_mod.user_is_global_admin(cache, actor)
+                if allowed and ceiling:
+                    return "allowed"
+                if not allowed and not ceiling:
+                    return "denied"
+                return "mixed"
+            # Покрытие секции: реальное право (deps.user_has_permission),
+            # которое применяют can_edit_param/can_view_key_value.
             allowed = deps_mod.user_has_permission(cache, actor,
-                                                   "section.access")
-            ceiling = deps_mod.user_is_global_admin(cache, actor)
-            if allowed and ceiling:
-                return "allowed"
-            if not allowed and not ceiling:
-                return "denied"
-            return "mixed"
+                                                   f"section.{rest}")
+            return "allowed" if allowed else "denied"
         if rest == "chat_lore":
             if chat_id > 0:
                 return "not_applicable"
             allowed = (deps_mod.user_is_global_admin(cache, actor)
                        or ctx.role_chat in ("local_admin", "moderator"))
             return "allowed" if allowed else "denied"
+        # C2-R1-9: chat/DM не имеют section-endpoint'ов (включая access).
         return "not_applicable"
     if kind == "action":
         if rest == "edit_persona":
@@ -1114,6 +1172,13 @@ ANTI_DRIFT_CASES = [
     (GLOBAL_ROLE_ID, None, "section.access", "view"),
     (MODERATOR_ID, None, "section.limits", "view"),
     (USER_ID, None, "section.limits", "view"),
+    (CUSTOM_CONTENT_ID, None, "section.content", "view"),
+    (MODERATOR_ID, None, "section.keys", "view"),
+    (ADMIN_ID, None, "section.keys", "view"),
+    (ADMIN_ID, CHAT_ID, "section.access", "view"),
+    (MODERATOR_ID, CHAT_ID, "section.access", "view"),
+    (USER_ID, CHAT_ID, "section.access", "view"),
+    (USER_ID, USER_ID, "section.access", "view"),
     (USER_ID, None, "param." + CONTENT_KEY, "view"),
     (MODERATOR_ID, None, "param." + CONTENT_KEY, "view"),
     (MODERATOR_ID, None, "param." + CONTENT_KEY, "edit"),

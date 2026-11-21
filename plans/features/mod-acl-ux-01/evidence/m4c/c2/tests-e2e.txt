@@ -1,4 +1,4 @@
-# M4C C2 — Playwright / Browser Use / B-regressions
+﻿# M4C C2 — Playwright / Browser Use / B-regressions
 
 ## 1. Новый C2 Playwright
 
@@ -43,7 +43,7 @@ Viewports 1920×1080, 1440×900, 1280×800, 768×1024, 390×844, 320×568:
 `preview-denied-1440x900`, `preview-denied-390x844`,
 `preview-no-actor-1440x900`, `preview-no-actor-390x844`,
 `preview-error-403`, `preview-error-503`, `preview-overrides-503`,
-`preview-admins-inflight-1440x900` (+ Browser Use c3 1440/1280/390/320).
+`preview-admins-inflight-1440x900` (+ Browser Use c4 1440/1280/390/320).
 
 ## 2. Browser Use (реальный Chrome, Code Mode)
 
@@ -58,7 +58,7 @@ Viewports 1920×1080, 1440×900, 1280×800, 768×1024, 390×844, 320×568:
 | `section.access` (admin) | **allowed**, слои `[role, global_admin_ceiling]` | **allowed** | **allowed** | **allowed** |
 | h-scroll / nested | `1425/1440`, 0 | `1265/1280`, 0 | `390/390`, 0 | `320/320`, 0 |
 | чекбоксы в gates | 0 | 0 | 0 | 0 |
-| скриншоты | `browseruse-preview-c3-1440x900.png` | `...-1280x800.png` | `...-390x844.png` | `...-320x568.png` |
+| скриншоты | `browseruse-preview-c4-1440x900.png` | `...-1280x800.png` | `...-390x844.png` | `...-320x568.png` |
 
 Эмуляция viewport снята, вкладка 8812 закрыта, сервер остановлен.
 

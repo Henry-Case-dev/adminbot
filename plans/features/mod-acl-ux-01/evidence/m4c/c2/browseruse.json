@@ -1,8 +1,8 @@
-{
+﻿{
  "tool": "Browser Use (real Chrome via CDP, Code Mode)",
  "stand": "http://127.0.0.1:8813 (tools/ui_mod_acl_m4c2_preview_e2e.py --serve)",
  "tma": "TMA_STUB via Page.addScriptToEvaluateOnNewDocument + Page.reload (sessionStorage adminbot.initData, user id 5885953495)",
- "candidate": "feat/mod-acl-m4c2 c3 (C2a 8e50b0fa3 + C2b bc742adc0 + corrective R1)",
+ "candidate": "feat/mod-acl-m4c2 c4 (C2a 8e50b0fa3 + C2b bc742adc0 + corrective R1/R4)",
  "checks": [
   {
    "viewport": "1440x900",
@@ -18,7 +18,7 @@
    "inner_width": 1440,
    "h_scroll": false,
    "nested_scrollers": 0,
-   "screenshot": "shots/browseruse-preview-c3-1440x900.png"
+   "screenshot": "shots/browseruse-preview-c4-1440x900.png"
   },
   {
    "viewport": "1280x800",
@@ -33,7 +33,7 @@
    "inner_width": 1280,
    "h_scroll": false,
    "nested_scrollers": 0,
-   "screenshot": "shots/browseruse-preview-c3-1280x800.png"
+   "screenshot": "shots/browseruse-preview-c4-1280x800.png"
   },
   {
    "viewport": "390x844 (CDP mobile emulation)",
@@ -46,7 +46,7 @@
    "inner_width": 390,
    "h_scroll": false,
    "nested_scrollers": 0,
-   "screenshot": "shots/browseruse-preview-c3-390x844.png"
+   "screenshot": "shots/browseruse-preview-c4-390x844.png"
   },
   {
    "viewport": "320x568 (CDP mobile emulation)",
@@ -61,7 +61,7 @@
    "inner_width": 320,
    "h_scroll": false,
    "nested_scrollers": 0,
-   "screenshot": "shots/browseruse-preview-c3-320x568.png"
+   "screenshot": "shots/browseruse-preview-c4-320x568.png"
   }
  ],
  "previous_run_kept": [
