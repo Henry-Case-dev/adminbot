@@ -1,0 +1,58 @@
+# M4C C1 — Playwright / Browser Use (candidate de80a6cb9)
+
+## Playwright (реальные `web/*`, API-стабы, TMA_STUB)
+
+```
+python tools/ui_mod_acl_m4c1_roles_e2e.py
+→ [m4c1] PASS: 0 failure(s)
+→ shots/report.json (ok=true, failures=[])
+```
+
+Покрытие прогона:
+
+- viewports 1920×1080, 1440×900, 1280×800, 768×1024, 390×844, 360×640,
+  320×568: `scrollWidth <= innerWidth + 1`, один основной scroll, нет
+  вложенных вертикальных скроллеров; 4 роли; 12 секций прав; 121 группа
+  матрицы; 622/622 в счётчике; 60/121 групп честный fallback
+  «Общее / инфраструктура» (остальные — owner из boot-DTO).
+- desktop 1920/1440/1280: левая колонка 280/280/280 px (clamp 220–280);
+  tablet 768: 220 px; mobile 390/360/320: колонка скрыта, switcher + «⋯».
+- смена роли: ровно +1 `GET /api/roles/tree`; поиск в правах и матрице:
+  0 сетевых запросов на ввод.
+- mobile: табы 44/44/44 px, «⋯» 45.5×44, right=371.3 < 390; ровно одна
+  открытая группа при открытии второй; эффективные роли видны.
+- 401/403/404/503: отдельные карточки (`data-roles-error`,
+  `data-roles-tree-error`, `data-roles-matrix-error`); при 403/503 матрица
+  не рендерится (нет дефолтной матрицы).
+- console/page errors: только сетевые `Failed to load resource` (ожидаемые
+  статусы сценариев), JS-исключений нет.
+- screenshot'ы: `roles-rights-*`, `roles-matrix-*`, `roles-error-*`
+  (1440/1920/390/360 + все error-карточки).
+
+## Browser Use (реальный Chrome, тот же стенд)
+
+Стенд: `python tools/ui_mod_acl_m4c1_roles_e2e.py --serve` (порт 8811),
+TMA initData через sessionStorage, CDP.
+
+| Проверка | Результат |
+|---|---|
+| 1440×900 | `[data-roles-page]`=true, `.modal-backdrop`=false, aside=280 px, roles=4, sections=12, matrix groups=121, count=622/622 |
+| 390×844 | scrollWidth=390, aside=none, switcher=flex, «⋯» 45.5×44 right=371.3, tabs=[44,44,44], options=4 |
+| actions menu | открывается ниже switcher, 2 пункта по 44 px, disabled для superuser `admin` |
+| screenshots | `browseruse-roles-1440.png`, `browseruse-matrix-1440.png`, `browseruse-roles-390.png`, `browseruse-actions-390.png` |
+
+После проверки эмуляция viewport снята, вкладка 8811 закрыта, сервер остановлен.
+
+## Ограничения (честно)
+
+- Это локальный стенд с API-стабами и TMA_STUB, **не** live TMA. Живой
+  non-global/local_admin/user/custom-сеанс и production initData — **RFL**,
+  не owner QA; C1 не заявляет VERIFIED.
+- `ui_soul1_glass_tiera_e2e.py` обновлён: modal-surface теперь
+  `#/access/admins` (роли — страница). Полный optics-verify в этом окружении
+  показывает падения edge-метрик и на несвязанных поверхностях
+  (header/settings/analytics) — среда/канал, не C1-сигнал; modal-surface
+  находится и `lens_center_static` проходит.
+- `tests/test_webapp_evol_w10_sections.py::test_live_render_sections_e2e`
+  имеет 3 pre-existing падения на base (catalog/scoped toggle), C1 их не
+  добавляет; тест перезаписывает свой evidence-каталог, файлы восстановлены.

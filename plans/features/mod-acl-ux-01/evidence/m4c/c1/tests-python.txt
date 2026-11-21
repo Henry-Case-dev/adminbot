@@ -1,0 +1,35 @@
+# M4C C1 — Python tests (candidate de80a6cb9)
+
+## Focused set (на candidate)
+
+```
+python -m pytest tests/test_webapp_api.py tests/test_roles_admin.py \
+  tests/test_permissions.py tests/test_acl_global_admin_role_permission_gate.py \
+  tests/test_config_cache.py tests/test_webapp_access_matrix_read.py \
+  tests/test_mod_acl_ux_01_m3_module_routes.py -q
+→ 276 passed
+```
+
+`tests/test_webapp_access_matrix_read.py` (новый, 17 тестов) проверяет:
+
+- `GET /api/access/param_permissions`: pool None → **503**; fetch raise → **503**;
+  global admin + рабочий пул → 200 и 622 items; non-global → 403;
+  без initData → 401; runtime `db_override_map(strict=False)` — fail-open `{}`;
+  успешное strict-чтение обновляет runtime-кэш.
+- cold `GET /api/roles|/api/admins|/api/roles/tree` → 503; seeded RAM-снимок
+  при pg=None → 200; существующая роль в tree → 200, неизвестная → 404;
+  403-guard не маскируется 503.
+- superuser rename/delete → 403; built-in → 409; unknown → 404;
+  последний админ/последний wildcard → 409 (существующие guards, не C1-путь);
+  custom-роль с `section.access`: `/api/roles` 200, матрица 403
+  (S1 остаётся C3).
+- DDL/схема не менялись; новых endpoint'ов нет (`@access_router`/`@api_router`
+  diff пуст).
+
+## Прочее
+
+- `python -m py_compile services/access.py web/api/access.py web/api/routes.py`
+  → `PY_COMPILE_OK`.
+- `requirements_gate.py check --stage plan` **не запускался**: на release-дереве
+  `374dc6060` нет `requirements-map.json` (проверено `Test-Path` → False);
+  карта живёт в planning-линии, которую C1-ветка не мержит.
