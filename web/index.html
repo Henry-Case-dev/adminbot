@@ -11549,7 +11549,8 @@
                 <aside class="roles-page__aside card" id="sec-roles" data-roles-aside>
                   <div class="roles-page__aside-head">
                     <span class="roles-page__label">Роли</span>
-                    <span class="badge badge-muted">{{ rolesLoading ? '…' : rolesList.length }}</span>
+                    <span v-if="rolesCounterText() !== ''" class="badge badge-muted"
+                          data-roles-count>{{ rolesCounterText() }}</span>
                   </div>
                   <div v-if="rolesLoading" class="spinner my-3"></div>
                   <template v-else>
@@ -11610,12 +11611,14 @@
                   <div v-if="roleActionsOpen && isGlobalAdmin && selectedRole()"
                        class="roles-actions-menu card" data-roles-actions-menu>
                     <button type="button" class="roles-actions-menu__item"
+                            data-roles-rename
                             :disabled="!canEditRole(selectedRole())"
                             :title="roleRestrictionHint(selectedRole())"
                             @click="beginRenameRole()">Переименовать</button>
                     <button type="button" class="roles-actions-menu__item text-red-300"
-                            :disabled="!canEditRole(selectedRole())"
-                            :title="roleRestrictionHint(selectedRole())"
+                            data-roles-delete
+                            :disabled="!canDeleteRole(selectedRole())"
+                            :title="roleDeleteHint(selectedRole())"
                             @click="beginDeleteRole()">Удалить</button>
                   </div>
 
@@ -11647,18 +11650,24 @@
                         </div>
                         <div class="roles-pane__actions" v-if="isGlobalAdmin">
                           <button type="button" class="btn-ghost text-xs"
+                                  data-roles-rename
                                   :disabled="!canEditRole(selectedRole())"
                                   :title="roleRestrictionHint(selectedRole())"
                                   @click="renameRole(selectedRole())">Переименовать</button>
                           <button type="button" class="btn-ghost text-xs text-red-300"
-                                  :disabled="!canEditRole(selectedRole())"
-                                  :title="roleRestrictionHint(selectedRole())"
+                                  data-roles-delete
+                                  :disabled="!canDeleteRole(selectedRole())"
+                                  :title="roleDeleteHint(selectedRole())"
                                   @click="deleteRole(selectedRole())">Удалить</button>
                         </div>
                       </div>
                       <div v-if="roleEditDisabledReason(selectedRole())"
                            class="roles-note text-xs" data-roles-readonly>
                         {{ roleEditDisabledReason(selectedRole()) }}
+                      </div>
+                      <div v-if="roleDeleteBlockedReason(selectedRole())"
+                           class="roles-note text-xs" data-roles-usage-note>
+                        {{ roleDeleteBlockedReason(selectedRole()) }}
                       </div>
                       <input class="field w-full text-xs mt-3" type="search"
                              placeholder="Поиск: раздел / действие / ключ / название…"
@@ -11668,8 +11677,12 @@
                            :data-roles-tree-error="roleEditor.error.status">
                         <div class="text-sm font-bold">{{ accessErrorTitle(roleEditor.error.status) }}</div>
                         <p class="text-xs text-gray-400 mt-1">{{ accessErrorHint(roleEditor.error.status, 'tree') }}</p>
-                        <button type="button" class="btn-ghost text-xs mt-2"
-                                @click="openRoleEditor(selectedRole(), true)">Обновить права роли</button>
+                        <button v-if="roleEditor.error.status === 404" type="button"
+                                class="btn-ghost text-xs mt-2" data-roles-retry-list
+                                @click="retryRolesList()">Обновить список ролей</button>
+                        <button v-if="selectedRole()" type="button"
+                                class="btn-ghost text-xs mt-2" data-roles-retry-tree
+                                @click="openRoleEditor(selectedRole(), true)">Повторить права роли</button>
                       </div>
                       <div v-else class="roles-tree mt-3" data-roles-tree>
                         <div v-if="roleSearchEmpty()" class="text-gray-500 text-sm py-2">
@@ -11748,8 +11761,8 @@
                       <div class="min-w-0">
                         <div class="roles-pane__title" id="sec-matrix">Матрица ролей</div>
                         <p class="text-xs text-gray-500 mt-1">
-                          Доступ к параметрам:
-                          {{ matrixLoading ? '…' : (matrixVisibleCount(matrixTree()) + ' из ' + matrixTotalCount()) }}.
+                          <template v-if="matrixCounterText()">Доступ к параметрам:
+                            <span data-roles-matrix-count>{{ matrixCounterText() }}</span>.</template>
                           Матрица задаёт дефолт для чатов без своего перекрытия; глобальная
                           запись настраивается правами роли, а не этой матрицей.
                         </p>
