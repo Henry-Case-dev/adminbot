@@ -533,6 +533,139 @@ assert.ok(methods.dossierPeopleAriaLabel.call({}, unknown)
   assert.ok(JS.indexOf('this.dossierFeed = (data && data.items) || []') >= 0,
     'данные берутся из существующего ответа dossier_feed');
 
+  /* ── 8. MAC-S15-04: устойчивость пяти лент ──────────────────────────────
+   * Длинные имена, неизвестные даты, ручной скролл во время авто-движения,
+   * hover, touch drag, потеря фокуса, новые элементы — позиция не
+   * сбрасывается в начало; ядро SFeed.step не переписано. */
+  const SFeed = global.window && global.window.__StatusFeed;
+  assert.ok(SFeed && typeof SFeed.step === 'function', 'SFeed доступен');
+  assert.strictEqual(typeof SFeed.Viewport, 'function', 'Viewport доступен');
+  assert.strictEqual(SFeed.DEFAULTS.resumeMs, 2600,
+    'UX-пауза после ручного действия не изменена');
+
+  // 8a. Авто-движение монотонно: позиция не «прыгает» в начало сама.
+  let st = { y: 0, max: 400, phase: 'run' };
+  let prevY = 0;
+  for (let i = 0; i < 120; i += 1) {
+    st = SFeed.step(st, 100);            // 1.6 px за кадр
+    assert.ok(st.y >= prevY, 'S15-04: авто-движение без отката в начало');
+    prevY = st.y;
+  }
+  assert.ok(st.y > 100, 'S15-04: позиция реально растёт (не замирает)');
+  assert.strictEqual(st.moving, true);
+
+  // Фабрика тестового окна с реальными обработчиками (без rAF-цикла).
+  function fakeViewport(scrollHeight, scrollTop) {
+    const handlers = {};
+    const el = {
+      scrollTop: scrollTop || 0,
+      scrollHeight: scrollHeight || 600,
+      clientHeight: 144,
+      offsetTop: 0,
+      offsetHeight: 64,
+      addEventListener(type, fn) { (handlers[type] = handlers[type] || []).push(fn); },
+      removeEventListener() {},
+      querySelectorAll() { return []; },
+      contains() { return false; },
+    };
+    const vp = new SFeed.Viewport(el);
+    vp.stop();                            // без живого rAF-цикла в unit
+    const fire = function (type, ev) {
+      (handlers[type] || []).forEach(function (fn) { fn(ev || {}); });
+    };
+    return { el, vp, fire };
+  }
+
+  // 8b. Новые элементы (рост scrollHeight) не сбрасывают позицию в 0.
+  {
+    const { el, vp } = fakeViewport(900, 120);
+    vp.state.y = 120;
+    vp.written = 120;
+    el.scrollHeight = 1400;               // пришли новые записи
+    vp.refresh();
+    assert.strictEqual(vp.state.y, 120,
+      'S15-04: новые элементы не откатывают ленту в начало');
+    vp.destroy();
+  }
+
+  // 8c. Позиция за пределами нового максимума — к максимуму, не к нулю.
+  {
+    const { el, vp } = fakeViewport(900, 700);
+    vp.state.y = 700;
+    vp.written = 700;
+    el.scrollHeight = 500;                // список стал короче
+    vp.refresh();
+    assert.ok(vp.state.y > 0 && vp.state.y === vp.state.max,
+      'S15-04: обрезка списка клампится к максимуму, не в 0');
+    vp.destroy();
+  }
+
+  // 8d. Ручной скролл во время авто-движения → пауза с сохранением позиции.
+  {
+    const { el, vp, fire } = fakeViewport(900, 0);
+    fire('wheel', { deltaY: 30 });
+    assert.strictEqual(vp.manual, true, 'S15-04: ручной скролл ставит паузу');
+    el.scrollTop = 210;
+    fire('scroll', {});                    // пользователь досмотрел дальше
+    assert.strictEqual(vp.state.y, 210,
+      'S15-04: ручная позиция не откатывается авто-движением');
+    assert.strictEqual(vp.state.phase !== 'rewind' || vp.state.y > 0, true);
+    vp.destroy();
+  }
+
+  // 8e. Touch drag — та же пауза (touchstart/touchmove), позиция сохраняется.
+  {
+    const { el, vp, fire } = fakeViewport(900, 0);
+    fire('touchstart', {});
+    assert.strictEqual(vp.manual, true, 'S15-04: touchstart ставит паузу');
+    el.scrollTop = 96;
+    fire('touchmove', {});
+    assert.strictEqual(vp.state.y, 96,
+      'S15-04: touch drag не сбрасывает позицию');
+    vp.destroy();
+  }
+
+  // 8f. Hover и потеря фокуса — паузы без сброса позиции.
+  {
+    const { el, vp, fire } = fakeViewport(900, 150);
+    vp.state.y = 150;
+    fire('mouseenter', {});
+    assert.strictEqual(vp.hover, true, 'S15-04: hover останавливает движение');
+    fire('mouseleave', {});
+    assert.strictEqual(vp.hover, false);
+    fire('focusin', {});
+    assert.strictEqual(vp.focusIn, true, 'S15-04: фокус внутри — пауза');
+    fire('focusout', {});
+    assert.strictEqual(vp.focusIn, false);
+    assert.strictEqual(vp.state.y, 150,
+      'S15-04: hover/фокус не сбрасывают позицию');
+    vp.destroy();
+  }
+
+  // 8g. Модальное окно записи приостанавливает все ленты (не сбрасывает).
+  {
+    const { vp } = fakeViewport(900, 80);
+    vp.state.y = 80;
+    vp.setModal(true);
+    assert.strictEqual(vp.modal, true);
+    vp.setModal(false);
+    assert.strictEqual(vp.state.y, 80,
+      'S15-04: закрытие окна не возвращает ленту в начало');
+    vp.destroy();
+  }
+
+  // 8h. Длинные имена/неизвестные даты не ломают геометрию строки.
+  assert.ok(/\.sfeed-item \{[\s\S]{0,400}flex: 0 0 var\(--sfeed-row-h\)/.test(CSS),
+    'S15-04: высота строки фиксирована (длинный текст не растягивает)');
+  assert.ok(/\.sfeed-item__subject \{[\s\S]{0,220}text-overflow: ellipsis/.test(CSS),
+    'S15-04: длинное имя обрезается, а не переносится');
+  assert.strictEqual(methods.statusRowDateLabel.call({}, null), '',
+    'S15-04: неизвестная дата — пусто, не выдуманная');
+  // Reduced-motion: движение отключено на всех лентах (CSS-контракт).
+  assert.ok(/@media \(prefers-reduced-motion: reduce\)[\s\S]{0,400}?\.sfeed/.test(CSS),
+    'S15-04: reduced-motion покрывает ленты');
+  assert.strictEqual(typeof SFeed.isReduced === 'function', true);
+
   console.log('MOD-ACL-UX-M4B-B1-FEEDS-OK');
 })().catch(function (e) {
   console.error(e && e.stack ? e.stack : e);
