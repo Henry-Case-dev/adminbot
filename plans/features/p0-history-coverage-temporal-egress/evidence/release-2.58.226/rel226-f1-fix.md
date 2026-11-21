@@ -61,7 +61,7 @@ format_speech_item(..., reply_to=reply_label, edited_at=edited_at)
 - No SQL/DDL/field/flag/second renderer; `edited_at`, media marker, forward and
   absolute time are untouched.
 
-Diff: `services/tool_router.py` +18/−2 (docstring + speech branch only),
+Diff: `services/tool_router.py` +16/−2 (docstring + speech branch only),
 `tests/test_evol_reply_context_consumers.py` +45 (two tests).
 `git diff --name-only e7c9a2e66..5dd588201 -- services` = `services/tool_router.py`.
 
