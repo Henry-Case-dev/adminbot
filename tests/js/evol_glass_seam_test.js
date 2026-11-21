@@ -209,6 +209,11 @@ const ALLOWED = [
   // `/api/memory/intel-funnels`. Это API-контракт, НЕ оптика: защищённые
   // файлы стекла/фона/линзы по-прежнему проверяются побайтово.
   'web/api/analytics.py', 'web/api/memory_overview.py',
+  // MOD-ACL-UX-01 M4C C1: strict-чтение GET /api/access/param_permissions
+  // (503 вместо выдуманной дефолтной матрицы при PG down), без новых полей
+  // и без DDL. Это API-чтение, НЕ оптика: стекло/фон/линза защищены
+  // побайтово выше.
+  'web/api/access.py',
 ];
 changed.forEach(function (rel) {
   assert.ok(ALLOWED.indexOf(rel) >= 0,

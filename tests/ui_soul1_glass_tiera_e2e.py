@@ -829,23 +829,17 @@ SURFACES = [
     ("settings-card", "#/ai/llm", '.prov-block.card', False, None),
     ("sidebar", "#/", '.app-sidebar', True, None),
     ("header", "#/", 'header.header-sticky', False, None),
-    # Модалка реального UI: «Редактировать» в списке ролей (#/access/roles) →
-    # `.modal-backdrop > .modal-card` (скрим только затемняет; рефракцию несёт
-    # карточка модалки, скрим больше не блюрит — см. HOTFIX-TIERA в app.css).
-    ("modal-card", "#/access/roles", '.modal-card', False, None),
+    # Модалка реального UI: окно назначений ролей (#/access/admins) → карточка
+    # `.modal-card` (скрим только затемняет; роли в M4C C1 — уже страница).
+    ("modal-card", "#/access/admins", '.modal-card', False, None),
 ]
 
 # Пред-шаг открытия модалки: сначала БОЕВОЙ путь (клик по «Стоп» на Status →
 # подтверждение), фолбэк — состояние приложения (confirmAction='stop', тот же
 # v-if и та же разметка). Возвращаем, каким путём модалка открылась.
 OPEN_PRE_JS = {
-    "modal-card": """() => {
-      const btn = Array.from(document.querySelectorAll('button'))
-        .find((b) => b.textContent.indexOf('Редактировать') >= 0);
-      if (btn) btn.click();
-      return { how: btn ? 'click-edit-role' : 'none',
-               modal: !!document.querySelector('.modal-card') };
-    }""",
+    "modal-card": """() => ({ how: 'route-modal',
+      modal: !!document.querySelector('.modal-card') })""",
 }
 
 

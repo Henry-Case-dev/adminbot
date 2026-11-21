@@ -6672,6 +6672,12 @@
         },
         // A9/T-1206/10.8: «Доступы» — id открытого окна подраздела (route-driven).
         accessOpen: null,             // null | 'roles' | 'local' | 'admins'
+        // MOD-ACL-UX-01 M4C C1: #/access/roles — самостоятельная страница.
+        // Вкладки/поиск/состояние аккордеонов клиентские (0 запросов на символ).
+        rolesPageTab: 'rights',        // rights | matrix | gates
+        roleSearch: '',
+        roleActionsOpen: false,        // mobile «⋯» выбранной роли
+        matrixGroupState: {},          // uid → open (details, collapsed by default)
         // EXTRA §35: deep-link из Style Editor — целевая config-группа для
         // фокуса/подсветки на экране подключений (`models_images`).
         configFocusGroup: '',
@@ -6702,6 +6708,9 @@
         matrixItems: {},
         matrixLoading: false,
         matrixError: '',
+        // MOD-ACL-UX-01 M4C C1: статус ошибки матрицы (401/403/404/503) —
+        // 403/503 не выдаются за пустую БД. matrixError остаётся текстом.
+        matrixErrorStatus: 0,
         matrixSearch: '',
         matrixSaving: {},
         // F4 (review EVOL-030): «кто/когда/что» последнего сохранения прав —
@@ -7173,8 +7182,10 @@
         // access
         admins: [],
         adminsLoading: false,
+        adminsError: null,            // {status, message} — 403/503 ≠ «пусто»
         rolesList: [],
         rolesLoading: false,
+        rolesError: null,             // {status, message}
         newAdminId: '',
         newAdminRole: 'user',
         newRoleName: '',
@@ -7185,6 +7196,13 @@
           roleName: '',
           isCustom: false,
           wildcard: false,
+          // C1: whole-object preservation. rawPermissions — ПОЛНЫЙ объект
+          // permissions роли из GET /api/roles (включая chat_lore/unknown),
+          // sections/actions — только проекция для UI-дерева.
+          rawPermissions: {},
+          tree: null,
+          error: null,                // {status, message} — 404/403/503
+          saveError: '',
           sections: [],
           actions: [],
         },
@@ -8297,8 +8315,13 @@
         var parent = routeParent(r);
         if (!parent || parent === '#/') return null;
         var home = { label: 'Статус', route: '#/' };
+        // C1: страница ролей — собственное имя «Роли и права», а не название
+        // карточки-входа «Матрица ролей» (иначе в шапке два разных имени
+        // одной страницы).
+        var current = (r === '#/access/roles')
+          ? 'Роли и права' : this._routeLabel(r);
         return { root: home, mid: { label: this._routeLabel(parent),
-          route: parent }, current: this._routeLabel(r) };
+          route: parent }, current: current };
       },
       currentTab: function () {
         var id = this.activeTab;
@@ -21158,6 +21181,13 @@
           ? route.substring('#/access/'.length) : null;
         var found = this.tabs.find(function (t) { return t.id === tabId; });
         if (tabId && tabId !== this.activeTab) this.setTab(tabId);
+        // C1: прямой deep-link #/access/roles при уже активной вкладке access
+        // (переход с хаба) не вызывает setTab повторно — догружаем/выбираем
+        // роль здесь, без дублей (loaders защищены rolesLoading/matrixLoading).
+        if (this.accessOpen === 'roles'
+            && typeof this._ensureRolesPage === 'function') {
+          this._ensureRolesPage();
+        }
         // F5 (§46): страница модуля гарантирует конфиг и данные модуля.
         var wsm2 = this.workspace ? this.workspace.module : null;
         if (wsm2) {
@@ -32482,12 +32512,68 @@
       },
 
       // ═══ Управление доступом ═══
+      // MOD-ACL-UX-01 M4C C1: единый формат ошибки блока. 403/503 сохраняются
+      // как статус, а не превращаются в «пустой список» (MAC-S4-174/175).
+      accessErrorPayload: function (e) {
+        return {
+          status: (e && typeof e.status === 'number') ? e.status : 0,
+          message: (e && e.message) ? String(e.message) : 'сеть недоступна',
+        };
+      },
+      accessErrorTitle: function (status) {
+        if (status === 401) return 'Сессия устарела';
+        if (status === 403) return 'Нет доступа';
+        if (status === 404) return 'Не найдено';
+        if (status === 409) return 'Конфликт';
+        if (status === 503) return 'Сервис временно недоступен';
+        return 'Не удалось загрузить';
+      },
+      accessErrorHint: function (status, scope) {
+        if (status === 401) {
+          return 'Откройте Mini App заново из Telegram — данные не показываются '
+            + 'до восстановления сессии.';
+        }
+        if (status === 403) {
+          if (scope === 'matrix') {
+            return 'Матрица параметров доступна только глобальному администратору.';
+          }
+          if (scope === 'tree') {
+            return 'Права роли доступны ролям с правом «access».';
+          }
+          return 'Роли и назначения доступны ролям с правом «access»; '
+            + 'это не означает, что база пуста.';
+        }
+        if (status === 404) {
+          if (scope === 'tree') {
+            return 'Роль не найдена — возможно, её изменили в другом окне. '
+              + 'Обновите список ролей.';
+          }
+          return 'Запрошенная запись больше не существует.';
+        }
+        if (status === 409) {
+          return 'Операция запрещена сервером: назначенная роль, последний '
+            + 'администратор или последний полный доступ.';
+        }
+        if (status === 503) {
+          if (scope === 'matrix') {
+            return 'Строгое чтение матрицы недоступно (PostgreSQL). Дефолтная '
+              + 'матрица не подставляется, чтобы не показывать выдуманные права.';
+          }
+          return 'PostgreSQL или кэш прав недоступен. Пустой список не '
+            + 'показывается — это временная недоступность, а не отсутствие данных.';
+        }
+        return 'Проверьте соединение и повторите запрос.';
+      },
       loadAdmins: async function () {
         this.adminsLoading = true;
+        this.adminsError = null;
         try {
-          var data = await this.api('/api/admins');
+          var data = await this.api('/api/admins', { global: true });
           this.admins = data.admins || [];
-        } catch (e) { this.admins = []; }
+        } catch (e) {
+          this.adminsError = this.accessErrorPayload(e);
+          this.admins = [];
+        }
         finally { this.adminsLoading = false; }
         // 10.10 (п.5, ADR-1010-3): аватар+ник — blob через прокси
         // (photo_file_id != null; без прямых <img src>). Себе подставляем
@@ -32518,17 +32604,137 @@
         var idStr = admin.telegram_id != null ? String(admin.telegram_id) : '';
         return idStr ? idStr.charAt(0) : '?';
       },
-      loadRoles: async function () {
+      loadRoles: async function (skipAutoSelect) {
         this.rolesLoading = true;
+        this.rolesError = null;
         try {
-          var data = await this.api('/api/roles');
+          var data = await this.api('/api/roles', { global: true });
           this.rolesList = data.roles || [];
           if (!this.newAdminRole || !this.rolesList.some(function (r) { return r.role_name === this.newAdminRole; }, this)) {
             var userRole = this.rolesList.find(function (r) { return r.role_name === 'user'; });
             this.newAdminRole = userRole ? 'user' : (this.rolesList[0] || {}).role_name;
           }
-        } catch (e) { this.rolesList = []; }
+        } catch (e) {
+          this.rolesError = this.accessErrorPayload(e);
+          this.rolesList = [];
+        }
         finally { this.rolesLoading = false; }
+        if (!skipAutoSelect) this._autoSelectRole();
+        return this.rolesList;
+      },
+      // C1: при входе на страницу ролей выбрана первая роль; дерево
+      // запрашивается РОВНО один раз (не на каждый рендер/символ поиска).
+      _autoSelectRole: function () {
+        if (this.accessOpen !== 'roles') return;
+        if (this.roleEditor.open && this.roleEditor.roleName) {
+          var current = this.selectedRole();
+          if (current) {
+            this.roleEditor.rawPermissions =
+              Object.assign({}, current.permissions || {});
+            return;
+          }
+        }
+        if (!this.rolesError && this.rolesList.length) {
+          this.openRoleEditor(this.rolesList[0]);
+        }
+      },
+      _ensureRolesPage: function () {
+        if (!this.rolesList.length && !this.rolesLoading && !this.rolesError) {
+          this.loadRoles();          // внутри — _autoSelectRole
+        } else {
+          this._autoSelectRole();
+        }
+        if (this.isGlobalAdmin && !this.matrixLoading && !this.matrixError
+            && this.matrixErrorStatus === 0
+            && !Object.keys(this.matrixItems || {}).length) {
+          this.loadMatrix();
+        }
+        if (!this.admins.length && !this.adminsLoading && !this.adminsError) {
+          this.loadAdmins();
+        }
+      },
+      rolesPageTabs: function () {
+        return [
+          { id: 'rights', title: 'Права роли' },
+          { id: 'matrix', title: 'Доступ к параметрам' },
+          { id: 'gates', title: 'Фактические гейты' },
+        ];
+      },
+      selectedRole: function () {
+        var name = this.roleEditor && this.roleEditor.roleName;
+        if (!name) return null;
+        var list = this.rolesList || [];
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].role_name === name) return list[i];
+        }
+        return null;
+      },
+      roleUsageCount: function (roleName) {
+        if (!roleName || this.adminsError) return null;
+        var admins = this.admins || [];
+        return admins.filter(function (a) { return a.role_name === roleName; }).length;
+      },
+      roleUsageLabel: function (role) {
+        if (!role) return '';
+        if (this.adminsError) return 'назначения недоступны';
+        var n = this.roleUsageCount(role.role_name);
+        return n == null ? '' : ('назначено: ' + n);
+      },
+      isRoleReadOnly: function (role) {
+        return !this.isGlobalAdmin || this.isSuperuserRole(role);
+      },
+      roleEditDisabledReason: function (role) {
+        if (!role) return 'Роль не выбрана';
+        if (this.isSuperuserRole(role)) {
+          return 'Права суперпользователя не редактируются — только просмотр.';
+        }
+        if (!this.isGlobalAdmin) {
+          return 'Только просмотр: изменять роли может лишь глобальный администратор.';
+        }
+        return '';
+      },
+      _roleDirtyConfirm: function () {
+        var dirty = this._roleEditorDirtyCount();
+        if (dirty <= 0) return true;
+        var proceed = true;
+        try {
+          proceed = (typeof window === 'undefined'
+            || typeof window.confirm !== 'function')
+            || window.confirm('Есть несохранённые изменения прав роли «'
+              + (this.roleEditor.roleName || '') + '» (' + dirty
+              + '). Закрыть и потерять их?');
+        } catch (e) { proceed = true; }
+        return !!proceed;
+      },
+      rolesPageBack: function () {
+        this.closeRoleEditor();
+        if (this.roleEditor.open) return;   // пользователь отменил потерю правок
+        this.navigateTo('#/access');
+      },
+      onRoleSelectChange: function (ev) {
+        var name = ev && ev.target ? ev.target.value : '';
+        var role = (this.rolesList || []).find(function (r) {
+          return r.role_name === name;
+        });
+        if (role) this.openRoleEditor(role);
+      },
+      selectRole: function (role) {
+        if (!role) return;
+        this.openRoleEditor(role);
+      },
+      toggleRoleActions: function () {
+        if (!this.isGlobalAdmin) return;
+        this.roleActionsOpen = !this.roleActionsOpen;
+      },
+      beginRenameRole: function () {
+        this.roleActionsOpen = false;
+        var role = this.selectedRole();
+        if (role) this.renameRole(role);
+      },
+      beginDeleteRole: function () {
+        this.roleActionsOpen = false;
+        var role = this.selectedRole();
+        if (role) this.deleteRole(role);
       },
       addAdmin: async function () {
         var tgId = parseInt(this.newAdminId, 10);
@@ -32537,6 +32743,7 @@
         try {
           await this.api('/api/admins', {
             method: 'POST',
+            global: true,
             body: JSON.stringify({ telegram_id: tgId, role_name: this.newAdminRole }),
           });
           this.toast('Назначено: ' + tgId + ' → ' + this.newAdminRole, 'ok');
@@ -32551,6 +32758,7 @@
         try {
           await this.api('/api/admins/remove', {
             method: 'POST',
+            global: true,
             body: JSON.stringify({ telegram_id: tgId }),
           });
           this.toast('Удалён: ' + tgId, 'ok');
@@ -32561,37 +32769,67 @@
       },
 
       // ═══ Конструктор ролей (84.14.4) ═══
-      openRoleEditor: async function (role) {
+      // C1: редактор — не модалка, а pane вкладки «Права роли». Выбор роли =
+      // ровно один GET /api/roles/tree (повторный клик по той же роли запрос
+      // не делает). Дерево нужно и read-only ролям (просмотр).
+      openRoleEditor: async function (role, force) {
+        if (!role) return;
+        if (this.roleEditor.open && this.roleEditor.roleName === role.role_name
+            && this.roleEditor.tree && !force && !this.roleEditor.error) {
+          this.roleEditor.rawPermissions =
+            Object.assign({}, role.permissions || {});
+          this.roleEditor.wildcard =
+            !!(role.permissions && role.permissions.wildcard);
+          this.roleEditor.isCustom = !!role.is_custom;
+          return;
+        }
+        if (this.roleEditor.open && this.roleEditor.roleName !== role.role_name
+            && !this._roleDirtyConfirm()) return;
+        this.roleActionsOpen = false;
         this.roleEditor.open = true;
         this.roleEditor.loading = true;
+        this.roleEditor.error = null;
+        this.roleEditor.saveError = '';
         this.roleEditor.roleName = role.role_name;
-        this.roleEditor.isCustom = role.is_custom;
+        this.roleEditor.isCustom = !!role.is_custom;
         this.roleEditor.wildcard = !!(role.permissions && role.permissions.wildcard);
+        // Whole-object baseline: полный permissions из GET /api/roles. В нём
+        // есть chat_lore и любые гранты вне /roles/tree — сохраняем их.
+        this.roleEditor.rawPermissions =
+          Object.assign({}, role.permissions || {});
         try {
-          var tree = await this.api('/api/roles/tree?role_name=' + encodeURIComponent(role.role_name));
+          var tree = await this.api(
+            '/api/roles/tree?role_name=' + encodeURIComponent(role.role_name),
+            { global: true });
+          this.roleEditor.tree = tree;
           this.applyTree(tree);
           // F2 (REV-UI-D1213): baseline проверенных узлов — строго ПОСЛЕ
-          // применения дерева; dirty считается от него в closeRoleEditor.
+          // применения дерева; dirty считается от него при смене роли/Back.
           this._roleEditorBaseline = this._roleEditorSnapshot();
         } catch (e) {
-          this.toast('Ошибка загрузки дерева прав: ' + e.message, 'err');
+          // 404 — роль исчезла; 403/503 — честная карточка, страница жива.
+          this.roleEditor.error = this.accessErrorPayload(e);
+          this.roleEditor.tree = null;
+          this.roleEditor.sections = [];
+          this.roleEditor.actions = [];
           this._roleEditorBaseline = null;
-          this.roleEditor.open = false;
         } finally {
           this.roleEditor.loading = false;
         }
       },
       createRole: async function () {
+        if (!this.isGlobalAdmin) return;
         var name = (this.newRoleName || '').trim();
         if (!name) { this.toast('Введите имя роли', 'warn'); return; }
         try {
           await this.api('/api/roles', {
             method: 'POST',
+            global: true,
             body: JSON.stringify({ role_name: name, permissions: {}, is_custom: true }),
           });
           this.toast('Роль создана: ' + name, 'ok');
           this.newRoleName = '';
-          await this.loadRoles();
+          await this.loadRoles(true);
           var created = this.rolesList.find(function (r) { return r.role_name === name; });
           if (created) await this.openRoleEditor(created);
         } catch (e) {
@@ -32608,17 +32846,27 @@
         return !!(role && role.role_type === 'global_admin');
       },
       canEditRole: function (role) {
-        // можно rename/delete только пользовательскую (не superuser, не builtin).
+        // C1: rename/delete — только global admin (UI-политика, не серверная
+        // граница: серверные S1/S3 остаются C3). И только пользовательскую
+        // (не superuser, не builtin).
+        if (!this.isGlobalAdmin) return false;
         return !this.isSuperuserRole(role)
           && !(role && role.role_type)
           && !!(role && role.is_custom);
       },
       roleRestrictionHint: function (role) {
+        if (!this.isGlobalAdmin) {
+          return 'Только просмотр: управление ролями — у глобального администратора';
+        }
         if (this.isSuperuserRole(role)) {
           return 'Роль суперпользователя защищена — нельзя переименовать/удалить';
         }
         if (role && role.role_type) {
           return 'Встроенную роль нельзя переименовать/удалить';
+        }
+        var used = this.roleUsageCount(role && role.role_name);
+        if (used) {
+          return 'Роль назначена ' + used + ' админ(ам) — сначала переназначьте';
         }
         return 'Переименовать/удалить роль';
       },
@@ -32629,13 +32877,26 @@
         if (next == null) return;
         next = String(next).trim();
         if (!next || next === role.role_name) return;
+        var wasSelected = this.roleEditor.roleName === role.role_name;
         try {
           await this.api('/api/roles/' + encodeURIComponent(role.role_name)
                          + '/rename',
                          { method: 'POST',
+                           global: true,
                            body: JSON.stringify({ new_name: next }) });
           this.toast('Роль переименована: ' + role.role_name + ' → ' + next, 'ok');
-          await this.loadRoles();
+          await this.loadRoles(true);
+          if (wasSelected) {
+            var updated = this.rolesList.find(function (r) {
+              return r.role_name === next;
+            });
+            if (updated) {
+              this.roleEditor.roleName = updated.role_name;
+              await this.openRoleEditor(updated, true);
+            }
+          } else {
+            this._autoSelectRole();
+          }
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');
         }
@@ -32644,10 +32905,20 @@
         if (!this.canEditRole(role)) return;
         if (!window.confirm('Удалить роль «' + role.role_name
                             + '»? Права роли будут удалены.')) return;
+        var wasSelected = this.roleEditor.roleName === role.role_name;
         try {
           await this.api('/api/roles/' + encodeURIComponent(role.role_name),
-                         { method: 'DELETE' });
+                         { method: 'DELETE', global: true });
           this.toast('Роль удалена: ' + role.role_name, 'ok');
+          if (wasSelected) {
+            this.roleEditor.open = false;
+            this.roleEditor.roleName = '';
+            this.roleEditor.rawPermissions = {};
+            this.roleEditor.tree = null;
+            this.roleEditor.sections = [];
+            this.roleEditor.actions = [];
+            this._roleEditorBaseline = null;
+          }
           await this.loadRoles();
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');
@@ -32661,11 +32932,15 @@
         if (!this.isGlobalAdmin) return;
         this.matrixLoading = true;
         this.matrixError = '';
+        this.matrixErrorStatus = 0;
         try {
-          var data = await this.api('/api/access/param_permissions');
+          var data = await this.api('/api/access/param_permissions',
+                                    { global: true });
           this.matrixItems = (data && data.items) || {};
         } catch (e) {
-          this.matrixError = 'Не удалось загрузить матрицу: ' + e.message;
+          this.matrixErrorStatus = (e && typeof e.status === 'number')
+            ? e.status : 0;
+          this.matrixError = this.accessErrorTitle(this.matrixErrorStatus);
           this.matrixItems = {};
         } finally {
           this.matrixLoading = false;
@@ -32768,6 +33043,240 @@
         if (!out.length) return 'только глобальный админ';
         return out.join(', ');
       },
+      // ═══ C1: дерево Раздел → Модуль → Группа → Параметр ═══════════════
+      // Владелец группы — из УЖЕ загруженного /api/config.modules
+      // (`this._f4Registry`, boot loadConfig). Второго запроса нет; параметры
+      // без владельца честно попадают в «Общее / инфраструктура».
+      matrixOwnerIndex: function () {
+        var map = {};
+        var reg = this._f4Registry || {};
+        Object.keys(reg).forEach(function (slug) {
+          var spec = reg[slug] || {};
+          var groups = arr(spec.settings_groups).concat(arr(spec.model_slots));
+          var seen = {};
+          groups.forEach(function (gid) {
+            if (!gid || seen[gid]) return;
+            seen[gid] = true;
+            map[gid] = {
+              slug: slug,
+              title: spec.title || slug,
+              order: (typeof spec.catalog_order === 'number')
+                ? spec.catalog_order : 999,
+            };
+          });
+        });
+        return map;
+      },
+      matrixOwnerFor: function (groupId) {
+        return this.matrixOwnerIndex()[groupId] || null;
+      },
+      matrixOwnerLabel: function (groupId) {
+        var owner = this.matrixOwnerFor(groupId);
+        return owner ? owner.title : 'Общее / инфраструктура';
+      },
+      matrixTotalCount: function () {
+        return Object.keys(this.matrixItems || {}).length;
+      },
+      matrixSearchActive: function () {
+        return !!(this.matrixSearch || '').trim();
+      },
+      // Клиентская фильтрация/группировка на каждый ввод — БЕЗ сетевых
+      // запросов (0 запросов на символ; MAC-S15-1-08).
+      matrixTree: function () {
+        var self = this;
+        var items = this.matrixItems || {};
+        var q = (this.matrixSearch || '').trim().toLowerCase();
+        var owners = this.matrixOwnerIndex();
+        var navs = {};
+        Object.keys(items).forEach(function (key) {
+          var it = items[key] || {};
+          var owner = owners[it.group] || null;
+          var moduleId = owner ? owner.slug : 'shared';
+          var moduleTitle = owner ? owner.title : 'Общее / инфраструктура';
+          if (q) {
+            var hay = [
+              key,
+              it.title || '',
+              it.group_title || '',
+              it.group || '',
+              moduleTitle,
+              it.nav_title || '',
+              it.tab_title || '',
+            ].join('\n').toLowerCase();
+            if (hay.indexOf(q) < 0) return;
+          }
+          var navId = it.nav || 'other';
+          if (!navs[navId]) {
+            var navOrder = (typeof it.nav_order === 'number') ? it.nav_order
+              : NAV_GROUP_ORDER.indexOf(navId);
+            navs[navId] = {
+              id: navId,
+              title: it.nav_title || NAV_GROUP_TITLES[navId] || 'Прочее',
+              order: navOrder < 0 ? 999 : navOrder,
+              modules: {},
+              count: 0,
+            };
+          }
+          var nav = navs[navId];
+          if (!nav.modules[moduleId]) {
+            nav.modules[moduleId] = {
+              id: moduleId,
+              title: moduleTitle,
+              order: owner ? owner.order : 9999,
+              groups: {},
+              count: 0,
+            };
+          }
+          var mod = nav.modules[moduleId];
+          var gid = it.group || 'other';
+          if (!mod.groups[gid]) {
+            mod.groups[gid] = {
+              id: gid,
+              uid: navId + '|' + moduleId + '|' + gid,
+              title: it.group_title || it.group || 'Прочее',
+              order: (typeof it.group_order === 'number') ? it.group_order : 999,
+              ownerLabel: moduleTitle,
+              items: [],
+            };
+          }
+          var grp = mod.groups[gid];
+          grp.items.push({ key: key, item: it });
+          mod.count += 1;
+          nav.count += 1;
+        });
+        return Object.keys(navs).map(function (nid) {
+          var nav = navs[nid];
+          nav.modules = Object.keys(nav.modules).map(function (mid) {
+            var mod = nav.modules[mid];
+            mod.groups = Object.keys(mod.groups).map(function (gid) {
+              var grp = mod.groups[gid];
+              grp.items.sort(function (a, b) {
+                var at = (a.item.title || a.key).toLowerCase();
+                var bt = (b.item.title || b.key).toLowerCase();
+                return (at < bt ? -1 : (at > bt ? 1 : (a.key < b.key ? -1 : 1)));
+              });
+              return grp;
+            }).sort(function (a, b) {
+              return (a.order - b.order) || (a.title < b.title ? -1 : 1);
+            });
+            return mod;
+          }).sort(function (a, b) {
+            return (a.order - b.order) || (a.title < b.title ? -1 : 1);
+          });
+          return nav;
+        }).sort(function (a, b) {
+          return (a.order - b.order) || (a.id < b.id ? -1 : 1);
+        });
+      },
+      matrixVisibleCount: function (tree) {
+        var n = 0;
+        (tree || []).forEach(function (nav) {
+          (nav.modules || []).forEach(function (mod) {
+            (mod.groups || []).forEach(function (grp) {
+              n += (grp.items || []).length;
+            });
+          });
+        });
+        return n;
+      },
+      // Collapsed by default; при активном поиске совпавшие группы раскрыты,
+      // чтобы найденные строки были видны без ручного раскрытия 121 группы.
+      matrixGroupOpen: function (uid) {
+        if (this.matrixSearchActive()) return true;
+        return !!(this.matrixGroupState || {})[uid];
+      },
+      onMatrixGroupToggle: function (uid, ev) {
+        var open = !!(ev && ev.target && ev.target.open);
+        this.matrixGroupState[uid] = open;
+        if (!open) return;
+        var mobile = false;
+        try {
+          mobile = (typeof window !== 'undefined') && window.innerWidth < 768;
+        } catch (e) { mobile = false; }
+        if (!mobile) return;
+        // Mobile: ровно одна раскрытая группа (остальные — сверх одного
+        // длинного списка не плодим).
+        var state = this.matrixGroupState;
+        Object.keys(state).forEach(function (key) {
+          if (key !== uid) state[key] = false;
+        });
+      },
+      // ═══ C1: поиск в «Права роли» — локальный, без запросов ═══════════
+      roleSectionVisible: function (section) {
+        var q = (this.roleSearch || '').trim().toLowerCase();
+        if (!q) return true;
+        if ((section.title || '').toLowerCase().indexOf(q) >= 0
+            || (section.id || '').toLowerCase().indexOf(q) >= 0) return true;
+        return this.roleSectionChildren(section).some(function (node) {
+          return (node.title || '').toLowerCase().indexOf(q) >= 0
+            || (node.key || '').toLowerCase().indexOf(q) >= 0;
+        });
+      },
+      roleSectionChildren: function (section) {
+        return this.sectionChildren(section);
+      },
+      roleSectionParams: function (section) {
+        var q = (this.roleSearch || '').trim().toLowerCase();
+        var params = section.params || [];
+        if (!q || (section.title || '').toLowerCase().indexOf(q) >= 0
+            || (section.id || '').toLowerCase().indexOf(q) >= 0) return params;
+        return params.filter(function (p) {
+          return (p.title || '').toLowerCase().indexOf(q) >= 0
+            || (p.key || '').toLowerCase().indexOf(q) >= 0;
+        });
+      },
+      roleSectionKeys: function (section) {
+        var q = (this.roleSearch || '').trim().toLowerCase();
+        var keys = section.keys || [];
+        if (!q || (section.title || '').toLowerCase().indexOf(q) >= 0
+            || (section.id || '').toLowerCase().indexOf(q) >= 0) return keys;
+        return keys.filter(function (k) {
+          return (k.title || '').toLowerCase().indexOf(q) >= 0
+            || (k.key || '').toLowerCase().indexOf(q) >= 0;
+        });
+      },
+      roleActionVisible: function (action) {
+        var q = (this.roleSearch || '').trim().toLowerCase();
+        if (!q) return true;
+        return (action.title || '').toLowerCase().indexOf(q) >= 0
+          || (action.id || '').toLowerCase().indexOf(q) >= 0;
+      },
+      roleSearchEmpty: function () {
+        var self = this;
+        var q = (this.roleSearch || '').trim();
+        if (!q) return false;
+        var visible = (this.roleEditor.sections || []).some(function (section) {
+          return self.roleSectionVisible(section);
+        });
+        if (visible) return false;
+        return !(this.roleEditor.actions || []).some(function (action) {
+          return self.roleActionVisible(action);
+        });
+      },
+      gatesList: function () {
+        // Read-only раскрытие ФАКТИЧЕСКИХ гейтов (C1): только реальные
+        // sections/actions из services/permissions.ACTIONS_TREE и
+        // known_sections; owner-only — существующие поверхности, не выдуманные
+        // id. Полный diff endpoint'ов — C3/S8-LEG-01.
+        return [
+          { group: 'Права роли (серверные guards)', items: [
+            'access — разделы «Доступы» (/api/roles, /api/admins, /api/access/*)',
+            'edit_info — «Как это работает»',
+            'edit_persona — «Личность»',
+            'edit_humor_library — примеры юмора',
+            'control.restart / control.stop / control.start — управление ботом',
+            'debug.config — in-memory state dump',
+            'chat_lore — «Лор чата» и участники',
+            'param.<key> — чтение/запись конкретного параметра (матрица)',
+          ] },
+          { group: 'Только владелец (owner-only поверхности)', items: [
+            'Аналитика и Oversight-прогоны',
+            'LLM / Image / YouTube / Random tests',
+            'Cover-служебные операции (compile/preview/manifest)',
+            'Diagnostic policy и служебная самодиагностика',
+          ] },
+        ];
+      },
       // Подпись области для сводки «Доступов» (тот же активный scope).
       // ═══ EVOL-030 (W10): понятная подпись активных фильтров «Запусков» ═══
       // Ничего не выдумываем: только реально выставленные поля.
@@ -32796,11 +33305,11 @@
         return when + ' · ' + (st.title || st.key)
           + (st.reset ? ' (сброс к дефолту)' : '');
       },
-      // Подпись области действия: матрица — глобальная (общая для всех чатов),
-      // чатовые переопределения правятся отдельным окном.
+      // Подпись области действия: матрица — дефолт/override для ЧАТОВ;
+      // глобальная запись настраивается правами роли, а не этой матрицей.
       matrixAuditScope: function () {
-        return 'глобальная матрица параметров — действует для всех чатов '
-          + 'сразу после сохранения; чатовые переопределения — отдельно';
+        return 'дефолтная матрица для чатов без своего перекрытия; '
+          + 'глобальная запись настраивается правами роли, а не этой матрицей';
       },
       matrixRoleToggle: async function (key, field, role) {
         var item = this.matrixItems[key];
@@ -32820,7 +33329,7 @@
         try {
           var resp = await this.api(
             '/api/access/param_permissions/' + encodeURIComponent(key),
-            { method: 'PUT', body: JSON.stringify(body) });
+            { method: 'PUT', global: true, body: JSON.stringify(body) });
           this.matrixItems[key] = Object.assign({}, item, {
             view_roles: resp.view_roles || body.view_roles,
             edit_roles: resp.edit_roles || body.edit_roles,
@@ -32839,7 +33348,7 @@
       matrixReset: async function (key) {
         try {
           await this.api('/api/access/param_permissions/' + encodeURIComponent(key),
-                         { method: 'DELETE' });
+                         { method: 'DELETE', global: true });
           this.toast('Сброшено на дефолт: ' + key, 'ok');
           var prev = this.matrixItems[key] || {};
           this.matrixLastChange = {
@@ -32910,25 +33419,36 @@
         return diff;
       },
       closeRoleEditor: function () {
-        var dirty = this._roleEditorDirtyCount();
-        if (dirty > 0) {
-          var proceed = true;
-          try {
-            proceed = (typeof window === 'undefined'
-              || typeof window.confirm !== 'function')
-              || window.confirm('Есть несохранённые изменения прав роли «'
-                + (this.roleEditor.roleName || '') + '» (' + dirty
-                + '). Закрыть и потерять их?');
-          } catch (e) { proceed = true; }
-          if (!proceed) return;
+        var proceed = true;
+        if (typeof this._roleDirtyConfirm === 'function') {
+          proceed = this._roleDirtyConfirm();
+        } else {
+          // Юнит-контекст без метода: сохраняем прежний guard F2.
+          var dirty = this._roleEditorDirtyCount();
+          if (dirty > 0) {
+            try {
+              proceed = (typeof window === 'undefined'
+                || typeof window.confirm !== 'function')
+                || window.confirm('Есть несохранённые изменения прав роли «'
+                  + (this.roleEditor.roleName || '') + '» (' + dirty
+                  + '). Закрыть и потерять их?');
+            } catch (e) { proceed = true; }
+          }
         }
+        if (!proceed) return;
         this._roleEditorBaseline = null;
         this.roleEditor.open = false;
+        this.roleEditor.roleName = '';
+        this.roleEditor.rawPermissions = {};
+        this.roleEditor.tree = null;
+        this.roleEditor.error = null;
+        this.roleEditor.saveError = '';
         this.roleEditor.sections = [];
         this.roleEditor.actions = [];
+        this.roleActionsOpen = false;
       },
       sectionChildren: function (section) {
-        return section.params.concat(section.keys);
+        return (section.params || []).concat(section.keys || []);
       },
       refreshSectionState: function (section) {
         var children = this.sectionChildren(section);

@@ -65,9 +65,11 @@ class TestNavbarAndHubs:
 class TestRoleMatrixUi:
     def test_matrix_block_present(self):
         assert 'id="sec-matrix"' in _HTML
+        # M4C C1: матрица — вкладка страницы #/access/roles, дерево
+        # Раздел→Модуль→Группа→Параметр; заголовок «Матрица ролей» один.
         assert "Матрица ролей" in _HTML
         assert "iconGlyph('admin_panel_settings')" in _HTML
-        assert "matrixSections()" in _HTML
+        assert "matrixTree()" in _HTML and "matrixTree: function ()" in _JS
         assert "matrixRoleToggle(row.key, fld, r)" in _HTML
         assert "matrixReset(row.key)" in _HTML
 
@@ -79,6 +81,11 @@ class TestRoleMatrixUi:
         assert "it.tab ||" in js
         assert "TAB_SECTION_ORDER" in js
         assert "tab_title" in js
+        # M4C C1: уровень «Модуль» — владелец группы из boot-DTO
+        # (/api/config.modules), без второго запроса; честный fallback.
+        assert "matrixOwnerIndex: function ()" in js
+        assert "settings_groups" in js and "model_slots" in js
+        assert "Общее / инфраструктура" in js
         # read/write по каждому параметру
         assert "['view_roles', 'edit_roles']" in _HTML
         assert "['user','moderator','local_admin']" in _HTML
@@ -93,8 +100,11 @@ class TestRoleMatrixUi:
     def test_role_management_present(self):
         assert "createRole()" in _HTML
         assert ">Переименовать</button>" in _HTML
-        # delete-кнопка с disabled по правам
-        assert ":disabled=\"!canEditRole(role)\"" in _HTML
+        # M4C C1: rename/delete — только у global admin (UI-политика), с
+        # человеческой причиной для superuser/built-in/занятой роли.
+        assert ':disabled="!canEditRole(selectedRole())"' in _HTML
+        assert ":title=\"roleRestrictionHint(selectedRole())\"" in _HTML
+        assert "isGlobalAdmin" in _HTML
 
 
 class TestScopeDropdownA11y:

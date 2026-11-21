@@ -3351,6 +3351,10 @@ async def get_admins(
     Модель admins_full()/bot_admins не меняется, секретов не добавляем."""
     cache: ConfigCache = get_cache(request)
     rows = [dict(a) for a in cache.admins_full()]
+    # MOD-ACL-UX-01 M4C C1: холодный старт без PG — честный 503, а не
+    # «админов нет». Непустой кэш (runtime-снимок) по-прежнему 200.
+    if not rows and not cache.admins() and not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     if rows:
         sem = asyncio.Semaphore(5)
         from web.api.avatars import global_user_display_info
@@ -3429,6 +3433,10 @@ async def get_roles(
     user: Annotated[WebAppUser, Depends(requires_permission("access"))],
 ):
     cache: ConfigCache = get_cache(request)
+    # MOD-ACL-UX-01 M4C C1: пустой кэш при недоступном PG — 503, не пустой
+    # список ролей. Seed/runtime-снимок (непустой кэш) остаётся 200.
+    if not cache.roles() and not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     return {
         "roles": [
             {"role_name": name, "permissions": role["permissions"],
@@ -3592,6 +3600,10 @@ async def get_roles_tree(
     """84.14.4 (бэкенд-часть T-640): дерево доступных прав из param_catalog +
     ACTIONS_TREE; checked — отметки прав роли (для чекбокс-конструктора)."""
     cache: ConfigCache = get_cache(request)
+    # MOD-ACL-UX-01 M4C C1: холодный 503 раньше 404 — иначе «роли нет» при
+    # недоступном PG неотличимо от реального отсутствия роли.
+    if not cache.roles() and not cache.pg_available:
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     target_perms: Permissions | None = None
     if role_name:
         target_perms = cache.get_permissions(role_name)
