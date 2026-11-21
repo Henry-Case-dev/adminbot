@@ -50,7 +50,8 @@ Pre-existing failures (same node-ids on base `374dc6060`):
 - `tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged`
 - `tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline`
 
-No new pin-guard failure; 856/4 matches base.
+Base full 24-file run: **856 passed, 4 failed in 82.40s**, exactly these
+four node-ids. No new pin-guard failure; 856/4 matches base.
 
 ## C1 confirmation after re-pin
 
