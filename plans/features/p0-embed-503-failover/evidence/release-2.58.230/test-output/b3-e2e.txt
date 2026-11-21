@@ -1,0 +1,5 @@
+[matrix] config stub: items=631 groups=121
+[matrix] chat-вариант config: override items=123
+{"ok": true, "checks": 131, "failures": [], "screenshots": 8}
+report: plans\features\p0-embed-503-failover\evidence\release-2.58.230\test-output\b3\e2e-report-131.json
+M4B-B3-STATUS-E2E-OK
