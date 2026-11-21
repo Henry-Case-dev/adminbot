@@ -85,8 +85,13 @@ endpoint'ов/полей/флагов нет; `/summary`, telegram, `memory_agi.
   read-only; non-global — read-only; create/edit/rename/delete — только
   `is_global_admin`; last-admin/used-role 409 — существующие, не обойдены.
 - **Owners:** `_f4Registry` из boot `/api/config.modules`; второго запроса
-  нет. На стенде 121 группа: 61 owner / 60 fallback; по параметрам —
-  ожидаемое 324/298 на полном каталоге.
+  нет. Фактический DTO на 2.58.228 — 21 видимый модуль (hidden
+  `factcheck_temporal` отфильтрован `registry_for_frontend`): **61 группа
+  owner / 60 fallback**, по параметрам **322/622 owner, 300 fallback**.
+  Registry-wide (22 модуля, включая hidden) даёт 62/324/298 из контракта;
+  два `temporal.*`-параметра скрытого подмодуля честно попадают в
+  «Общее / инфраструктура». Чтобы получить 324/298, нужно добавить hidden
+  модуль/поле в DTO — это новый API-контракт, вне C1 (не делалось).
 
 ## 4. Preflight (read-only, без production доступа)
 
