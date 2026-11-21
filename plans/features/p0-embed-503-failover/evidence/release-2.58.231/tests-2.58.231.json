@@ -1,0 +1,129 @@
+{
+ "artifact": "release tests record 2.58.231 (P0 embed postdeploy park/probe)",
+ "feature": "P0-EMBED-503-FAILOVER",
+ "release_version": "2.58.231",
+ "branch": "release/p0-embed-postdeploy-2.58.231",
+ "base": "d86bf66d408266c928e24714c2f5779a4ddf8ebe",
+ "base_version": "2.58.230",
+ "candidate_code": "7171a227d93fdb990c591a65fc0a33bd110ce092",
+ "candidate_tip": "fe5ab2c5ebda9fc1a174f97c90647fa7a502dc9e",
+ "review": "plans/features/p0-embed-503-failover/evidence/postdeploy-fix-review-r1.md (master 73a6ca8f0)",
+ "review_verdict": "APPROVED_FOR_RELEASE_PREPARATION",
+ "review_nonblocking": ["EMBED-POSTDEPLOY-R1-N01", "EMBED-POSTDEPLOY-R1-N02"],
+ "release_commits": {
+  "code_cherry_pick": "8ca1371d341d9b322abe4cb8a0b4107cdb8f3524",
+  "evidence_cherry_pick": "05b80b9a48a10577f7b334392f1256de49fff282",
+  "bump": "08d213b5f4456d609ffb01d2528d34d43de74c6d"
+ },
+ "patch_id_equal": {
+  "code": "c5cd409470a3eb3c3c3141b862de6ca94a5eb8d0",
+  "evidence": "88fe3ef441703664f28f3b72c5253df544b98061"
+ },
+ "environment": {
+  "os": "win32 (Windows, PowerShell)",
+  "python": "3.12.0 (C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe)",
+  "aiogram": "3.31.0",
+  "pytest": "9.1.1",
+  "node": "v24.16.0",
+  "env_overrides": "none for pytest; e2e tools use their own stubs and MOD_ACL_M4B*_REPORT/SHOTS only to place artifacts in this evidence dir"
+ },
+ "batches": {
+  "new_failover_suite": {
+   "command": "python -m pytest tests/test_p0_embed_503_failover.py -q -p no:cacheprovider --timeout=180",
+   "result": "19 passed",
+   "duration_s": 11.97,
+   "raw": "test-output/failover-core.txt"
+  },
+  "admission_msi": {
+   "command": "python -m pytest tests/test_p0_embed_admission_msi.py -q -p no:cacheprovider --timeout=180",
+   "result": "10 passed",
+   "duration_s": 5.1,
+   "raw": "test-output/admission-msi.txt"
+  },
+  "profile_667": {
+   "command": "python -m pytest <19 embedding/admission/recovery/backfill files> -q -p no:cacheprovider --timeout=180 --deselect tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+   "files": 19,
+   "result": "667 passed, 0 failed/errors/skipped, 1 deselected, 1 warning",
+   "duration_s": 66.14,
+   "deselected": {
+    "test": "tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+    "reason": "pre-existing on base, unrelated warning coalescing; same deselection as release 2.58.230"
+   },
+   "warning": "RuntimeWarning: coroutine start_resume_ticker.<locals>._loop was never awaited (test_summary_memory.py::TestSelfHeal::test_broken_extension_zero_probe_calls); non-failing, same 19-file profile previously recorded 1 warning",
+   "raw": "test-output/profile-667.txt"
+  },
+  "pin_guard": {
+   "command": "python -m pytest <24 version-pin Python files> -q -p no:cacheprovider --timeout=180",
+   "result": "856 passed / 4 failed",
+   "duration_s": 74.94,
+   "failed_ids": [
+    "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+    "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+    "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+    "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+   ],
+   "base_control": {
+    "sha": "d86bf66d408266c928e24714c2f5779a4ddf8ebe",
+    "command": "same 24-file set in a clean detached worktree at base; worktree removed after the run",
+    "result": "856 passed / 4 failed, exactly the same 4 IDs",
+    "duration_s": 84.21,
+    "raw": "test-output/pin-guard-base-4ids.txt"
+   },
+   "classification": "same 4 pre-existing IDs on base; no candidate-caused pin breach; the two candidate-touched files differ only by the version literal",
+   "raw": "test-output/pin-guard-tip.txt"
+  },
+  "b1_status_e2e": {
+   "command": "python tools/ui_mod_acl_m4b_status_e2e.py",
+   "checks": 138,
+   "failures": 0,
+   "marker": "M4B-STATUS-E2E-OK",
+   "report": "test-output/b1/e2e-report-138.json",
+   "raw": "test-output/b1-e2e.txt"
+  },
+  "b2_status_e2e": {
+   "command": "python tools/ui_mod_acl_m4b2_status_e2e.py",
+   "checks": 92,
+   "failures": 0,
+   "marker": "M4B-B2-STATUS-E2E-OK",
+   "report": "test-output/b2/e2e-report-92.json",
+   "raw": "test-output/b2-e2e.txt"
+  },
+  "b3_status_e2e": {
+   "command": "python tools/ui_mod_acl_m4b3_status_e2e.py",
+   "checks": 131,
+   "failures": 0,
+   "screenshots": 8,
+   "marker": "M4B-B3-STATUS-E2E-OK",
+   "report": "test-output/b3/e2e-report-131.json",
+   "raw": "test-output/b3-e2e.txt",
+   "screenshots_note": "8 screenshots were generated locally for verification but are not committed (evidence blob hygiene); the JSON report records their names/checks."
+  },
+  "js_version_pins": {
+   "command": "node tests/js/round1025_hotfix7|8|9|10_*_test.js",
+   "result": "4/4 rc=0",
+   "markers": [
+    "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+    "HOTFIX8-SHELL-AURORA-OK",
+    "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+    "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+   ],
+   "raw": "test-output/js-version-pins.txt"
+  },
+  "syntax": {
+   "node_check_app_js": 0,
+   "py_compile_files": 29,
+   "py_compile_failures": 0,
+   "note": "all .py files changed by base..HEAD compiled to a temp cfile dir; no repo bytecode artifacts",
+   "raw": "test-output/syntax.txt"
+  }
+ },
+ "not_rerun_here": {
+  "red": "Candidate RED 11 failed / 8 passed on base is recorded in postdeploy-fix.md and was independently reproduced by Reviewer (postdeploy-fix-review-r1.md §5.5); this release assembly did not duplicate it.",
+  "mutations": "M1/M2/M3 were run by Builder with file restoration (postdeploy-fix.md §4); Reviewer did not mutate the product. Not rerun in assembly."
+ },
+ "evidence_generation": {
+  "manifest_dry_run": "tools/release_manifest.py --dry-run --deployer builder-release-prep; .deploy/release.json seeded locally from the documented 2.58.230 state and removed immediately; production file not read",
+  "git_diff_check": 0,
+  "tracked_tree_clean": true
+ }
+}

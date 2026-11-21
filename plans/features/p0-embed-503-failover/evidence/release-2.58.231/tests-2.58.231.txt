@@ -1,0 +1,46 @@
+# Release 2.58.231 — test record (bumped tip 08d213b5f)
+
+Environment: .venv Python 3.12.0, aiogram 3.31.0, pytest 9.1.1, node v24.16.0.
+All commands ran in `release/p0-embed-postdeploy-2.58.231` on top of the 2.58.231 bump.
+Machine-readable duplicate: `tests-2.58.231.json`.
+
+| Batch | Result |
+|---|---|
+| New `tests/test_p0_embed_503_failover.py` | **19 passed** (11.97 s) |
+| `tests/test_p0_embed_admission_msi.py` | **10 passed** (5.10 s) |
+| 19-file release profile | **667 passed, 0 failed/errors/skipped, 1 deselected, 1 warning** (66.14 s) |
+| Deselected pre-existing | `tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced` |
+| Pin-guard, 24 Python version-pin files | **856 passed / 4 failed** (74.94 s) |
+| Pin-guard base control, `d86bf66d4` | **856 passed / 4 failed**, exactly the same 4 IDs (84.21 s) |
+| B1 status e2e | **138 checks / 0 failures**, `M4B-STATUS-E2E-OK` |
+| B2 status e2e | **92 checks / 0 failures**, `M4B-B2-STATUS-E2E-OK` |
+| B3 status e2e | **131 checks / 0 failures**, 8 screenshots, `M4B-B3-STATUS-E2E-OK` |
+| JS version pins hotfix7/8/9/10 | **4/4 rc=0** |
+| Syntax | `node --check web/app.js` rc=0; `py_compile` 29 changed .py files rc=0 |
+
+Same 4 pre-existing pin-guard IDs (identical on base):
+```
+tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+```
+The two candidate-touched files among them differ from base only by `2.58.230 -> 2.58.231`
+in the version pin; no behavioral assertion changed.
+
+Profile warning: `RuntimeWarning: coroutine 'start_resume_ticker.<locals>._loop' was never awaited`
+in `test_summary_memory.py::TestSelfHeal::test_broken_extension_zero_probe_calls`; non-failing and
+also recorded (1 warning) in the reviewed candidate run.
+
+Base control method: a clean detached worktree at `d86bf66d4` was created for the 24-file
+pin-guard run only and removed afterwards (no force, no branch). The 2.58.230 release worktree and
+`feat/mod-acl-m4c2` were not used or modified.
+
+Not rerun here (honest): candidate RED 11F/8P on base and mutations M1–M3 are recorded in
+`postdeploy-fix.md`; RED was independently reproduced by Reviewer (`postdeploy-fix-review-r1.md` §5.5).
+
+B1/B2/B3 generated 29 screenshots locally for verification; the PNG files are **not committed**
+(evidence blob hygiene). The JSON reports under `test-output/b1|b2|b3/` retain the checks and
+screenshot names; `b3-e2e.txt` records `131 checks / 0 failures / 8 shots`. Raw stdout may contain
+a console-encoding artifact in the `[matrix] chat-… config` line; the JSON reports and check counts
+are the authoritative evidence.

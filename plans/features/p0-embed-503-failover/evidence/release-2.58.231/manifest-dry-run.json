@@ -1,0 +1,12 @@
+{
+  "deployed_at": "2026-11-21T22:17:48.597700Z",
+  "deployed_sha": "08d213b5f4456d609ffb01d2528d34d43de74c6d",
+  "deployer": "builder-release-prep",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "d86bf66d408266c928e24714c2f5779a4ddf8ebe",
+  "previous_version": "2.58.230",
+  "release_branch": "release/p0-embed-postdeploy-2.58.231",
+  "schema": 1,
+  "version": "2.58.231"
+}

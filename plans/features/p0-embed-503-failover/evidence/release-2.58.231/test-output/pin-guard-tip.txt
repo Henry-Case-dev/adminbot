@@ -1,0 +1,550 @@
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 25%]
+........................................................................ [ 33%]
+........................................................................ [ 41%]
+........................................................................ [ 50%]
+........................................................................ [ 58%]
+....................................................F.F................. [ 66%]
+.F.........F............................................................ [ 75%]
+........................................................................ [ 83%]
+........................................................................ [ 92%]
+....................................................................     [100%]
+================================== FAILURES ===================================
+_________________ TestBounds.test_forbidden_paths_out_of_diff _________________
+
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x00000212C760CFE0>
+
+    def test_forbidden_paths_out_of_diff(self):
+        names = self._diff_names()
+        forbidden = [
+            # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
+            # ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ ╤Б╨░╨╜ction A3 (ImageRequest-╨║╨╛╨╜╤В╤А╨░╨║╤В); ┬з104 ╨│╨╡╨╣╤В╨╕╤В╤Б╤П
+            # AST-╨│╨╡╨╣╤В╨╛╨╝ A3 (test_unified_image_request_round1026.py).
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, ╨║╨╛╨╜╤В╤А╨░╨║╤В (l)/
+            # ADR-1027-10): `services/summary_prompts.py` ╨╕
+            # `services/prompt_migrations.py` ╨Ш╨б╨Ъ╨Ы╨о╨з╨Х╨Э╨л ╨╕╨╖ ╨╖╨░╨┐╤А╨╡╤Й╤С╨╜╨╜╤Л╤Е тАФ
+            # ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╤Л ╨║╨░╨╜╨╛╨╜╤Л R1027 L1/L2 (many-to-many ┬з95-v2, ╨Ф╨Ы╨Ш╨Э╨Р/
+            # ╨Ф╨Х╨Ф╨г╨Я/╨░╨▓╤В╨╛╤А╤Л; PREV_SUMMARY_*_R1027 + ROLLBACK, ADR-1013-3).
+            # NOTE (MCA-23, Wave 3, ┬зDelivery Router): `services/telegram_send.py`
+            # ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╨░╤П ╨┤╨╡╨╗╤М╤В╨░: ╨╖╨░╨┐╨╕╤Б╤М `services/direct_chat_service.py`
+            # ╨▓ SEND_ALLOWLIST (rich-╨▓╨╡╤В╨║╨░ direct ╨╖╨╛╨▓╤С╤В ╨╛╨▒╤С╤А╤В╨║╤Г
+            # `send_rich_message`, sanitize ╨▓╨╜╤Г╤В╤А╨╕; bare-send'╨╛╨▓ ╨╜╨╡╤В).
+            # ╨Я╨╛╨▓╨╡╨┤╨╡╨╜╨╕╨╡ guard'╨░/╨╛╨▒╤С╤А╤В╨╛╨║ ╨╜╨╡ ╨╝╨╡╨╜╤П╨╗╨╛╤Б╤М (╬Ф registry=1 ╨╖╨░╨┐╨╕╤Б╤М).
+            # NOTE (MCA-23, Wave 3, `mca-23-unified-response-orchestrator`,
+            # ┬з10/┬з11 current_task): `services/chat_prompts.py` ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ
+            # ╤Н╨┐╨╕╨║ ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╤Г╨╡╤В ╤Б╨╜╤П╤В╨╕╨╡ ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╨╛╨│╨╛ cap ┬л1-2 ╨┐╤А╨╡╨┤╨╗╨╛╨╢╨╡╨╜╨╕╤П┬╗
+            # (╨║╨░╨╜╨╛╨╜ MCA23 + ╤Б╨╗╨╡╨┐╨║╨╕ PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23,
+            # ╤Б╤В╤Г╨┐╨╡╨╜╨╕ ╨╝╨╕╨│╤А╨░╤Ж╨╕╨╕ ╨▓ prompt_migrations, ADR-1013-3). ╨Я╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В
+            # NOTE-╨╝╨╛╨┤╨╡╨╗╨╕: summary_prompts/prompt_migrations (round1027).
+            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
+            # ╨╕ `web/static/execution_graph.js` ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╤Л тАФ A9 ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╤Г╨╡╤В
+            # ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨╛╨╡ ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╕╨╡ ╨б╨г╨й╨Х╨б╨в╨Т╨г╨о╨й╨Х╨У╨Ю ExecutionGraph (9 ╤Н╤В╨░╨┐╨╛╨▓ ┬з51,
+            # display-only; ╨▓╤В╨╛╤А╨╛╨╣ ╨░╨╜╨░╨╗╨╕╤В╨╕╨║╨╕/endpoint/╨┐╨░╨╜╨╡╨╗╨╕ ╨╜╨╡╤В; ╬Ф DDL=0;
+            # ╬Ф ╨║╨░╤В╨░╨╗╨╛╨│╨░=0). ╨У╨╡╨╣╤В╨╕╤В╤Б╤П A9-╤В╨╡╤Б╤В╨░╨╝╨╕ (test_agentic_events_round1026.py
+            # + round1026_s8_execution_graph_test.js).
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/┬з4.10): `web/api/routes.py`
+            # ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╤Л ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╡ query-╤Д╨╕╨╗╤М╤В╤А╤Л ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨│╨╛
+            # `GET /api/status/logs` (REUSE viewer).
+            "plans/current_task.md",
+        ]
+        for path in forbidden:
+            assert path not in names, path
+        assert not any(n.startswith("db/") for n in names)
+        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╤Л
+        # ╨┤╨╗╤П UI-╨▓╤А╨╡╨╖╨║╨╕ ┬з27/┬з50; A9 (ADR-1026-22 D10): + web/static/
+        # execution_graph.js (display-only 9 ╤Н╤В╨░╨┐╨╛╨▓ ┬з51); mca-17a (ADR-1027-8
+        # D13/┬з4.10): + web/api/routes.py (╤Д╨╕╨╗╤М╤В╤А╤Л log viewer) ╨╕
+        # web/api/oversight.py (╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╣ mca_metrics ╨╜╨░ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨╣ ╨▓╨╕╤В╤А╨╕╨╜╨╡).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (╤В╨░╤З-╤Ж╨╡╨╗╤М ╨║╨╜╨╛╨┐╨║╨╕
+        # ┬лтЖР ╨Ъ ╤Б╨┐╨╕╤Б╨║╤Г┬╗ тЙе44px; ╤В╨╛╨║╨╡╨╜╤Л/╨┐╨░╨╗╨╕╤В╤А╨░ ╨╜╨╡ ╨╝╨╡╨╜╤П╨╗╨╕╤Б╤М).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П ╨╜╨╛╨▓╨╛╨│╨╛ ╤А╨╛╤Г╤В╨╡╤А╨░ Style Registry/Editor тАФ
+        # `web/api/cover_styles.py`, ╤В╨╛╨╗╤М╨║╨╛ ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ ╨░╨┤╨╝╨╕╨╜; kill-switch
+        # `COVER_STYLES_ENABLED`). ╨Я╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В: ╨┤╤А╤Г╨│╨╕╨╡ ╤А╨╛╤Г╤В╨╡╤А╤Л ╨▓╨║╨╗╤О╤З╨░╤О╤В╤Б╤П ╤В╨░╨╝ ╨╢╨╡.
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: ╨╡╨┤╨╕╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤А╨░╨║╤В full rebuild тАФ ╨┐╤А╨╛╨│╤А╨╡╤Б╤Б ╨╛╤В ╨┐╨╛╨╗╨╜╨╛╨│╨╛ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # resume-on-paused, read-time reconstruction; admin/╤З╨░╤В-╨│╨╡╨╣╤В╨╕╨╜╨│
+        # ╤Б╨╛╤Е╤А╨░╨╜╤С╨╜; ╬Ф ╨║╨░╤В╨░╨╗╨╛╨│╨░ = 0).
+        # NOTE (round1027, mca-22 / ADR-1028-6): + `web/api/memory_agi.py`
+        # (╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╕╨╡ ╨б╨г╨й╨Х╨б╨в╨Т╨г╨о╨й╨Ш╨е Memory-╨▓╨╕╨┤╨╢╨╡╤В╨╛╨▓ ╤Н╨╜╨┤╨┐╨╛╨╕╨╜╤В╨░╨╝╨╕ attribution
+        # trace/metrics ┬з24; ╨╜╨╛╨▓╤Л╨╣ ╨║╨╛╤А╨╜╨╡╨▓╨╛╨╣ dashboard ╨╖╨░╨┐╤А╨╡╤Й╤С╨╜ ╨╕ ╨╜╨╡ ╤Б╨╛╨╖╨┤╨░╨╜;
+        # admin-only; ╬Ф ╨║╨░╤В╨░╨╗╨╛╨│╨░ = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`, ADR-1028-10
+        # D1/D5.5/D5.7; ╤Б╨░╨╜╨║╤Ж╨╕╤П Reviewer, NOTE-╨╝╨╛╨┤╨╡╨╗╤М ADR-1026-17 D9 /
+        # ADR-1026-22 D10 / ADR-1027-8 D13 / ADR-1027-9 / ADR-1028-6):
+        # + `web/api/cover_styles.py` (round1029 EXTRA ADR-1028-4 D12 ╤Б╨╛╨╖╨┤╨░╨╗
+        # ╤А╨╛╤Г╤В╨╡╤А тАФ ╤Д╨░╨╣╨╗ ╨╜╨╡ ╨▒╤Л╨╗ ╨┤╨╛╨▒╨░╨▓╨╗╨╡╨╜ ╨▓ allowlist; ASAP 4.2 тАФ Test Style
+        # no-picker/real base, RBAC seeded backend, `_public_profile.can_edit`,
+        # backend-guard `cover_test_style` M-ASAP42-1) ╨╕ + `web/api/deps.py`
+        # (round1030 asap-4 control plane; ASAP 4.2 тАФ `user_is_global_admin`,
+        # `_assert_can_edit_seeded`). Test-only allowlist-╨┤╨╡╨╗╤М╤В╨░, ╨╜╨╡ ╨╛╤Б╨╗╨░╨▒╨╗╤П╨╡╤В
+        # ┬з104/╨╖╨░╨┐╤А╨╡╤В╤Л; ╨╜╨╡╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╡ web/ ╨┐╤Г╤В╨╕ ╨┐╨╛-╨┐╤А╨╡╨╢╨╜╨╡╨╝╤Г ╨▓╨╜╨╡ diff.
+        # NOTE (╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ Builder, ╤В╨╛╤В ╨╢╨╡ NOTE-╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╜╤Л╨╣ ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В тАФ
+        # ╤А╨╡╨▓╤М╤О-╨┐╨╡╤А╨╡╤З╨╡╨╜╤М ╨▒╤Л╨╗ ╨╜╨╡╨┐╨╛╨╗╨╛╨╜: `_diff_names` ╨▒╨╡╤А╤С╤В diff ╨╛╤В ╤Б╤В╨░╤А╨╛╨│╨╛
+        # baseline `pre-round1026-a1` ╨╕ ╨▓╨╕╨┤╨╕╤В ╨Ч╨Р╨Ъ╨Ю╨Ь╨Ь╨Ш╨з╨Х╨Э╨Э╨л╨Щ ╨┤╤А╨╡╨╣╤Д ╨┐╤А╨╛╤И╨╗╤Л╤Е
+        # ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╤Е ╨▓╨╛╨╗╨╜, ╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛ ╤А╨░╨▒╨╛╤З╤Г╤О ╨┤╨╡╨╗╤М╤В╤Г ASAP 4.2):
+        # + `web/api/analytics.py` (round1028 ASAP-3.1 autobudgets + round1030
+        # pipeline analytics; ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╕╨╡ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨│╨╛ Analytics-╨┤╨░╤И╨▒╨╛╤А╨┤╨░),
+        # + `web/static/polygon-background.js` (round1026/1028 ╨▓╨╕╨╖╤Г╨░╨╗╤М╨╜╤Л╨╣
+        # ╤Н╨┐╨╕╨║, UI_POLYGON_BG_ENABLED), + `web/static/telegram-init.js`
+        # (round1028 TMA-init). ╨Т╤Б╨╡ ╤В╤А╨╕ тАФ ╤Г╨╢╨╡ ╨▓╤Л╨┐╤Г╤Й╨╡╨╜╨╜╤Л╨╡/╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╡
+        # ╨▓╨╛╨╗╨╜╤Л; ╨╕╨╜╤Л╤Е ╨╜╨╡╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╤Е web/-╨┐╤Г╤В╨╡╨╣ ╨╜╨╡╤В.
+>       assert not any(n.startswith("web/")
+                       and not n.startswith(("web/app.js", "web/index.html",
+                                             "web/app.py",
+                                             "web/static/execution_graph.js",
+                                             "web/static/app.css",
+                                             "web/api/routes.py",
+                                             "web/api/oversight.py",
+                                             "web/api/chat_lore.py",
+                                             "web/api/memory_agi.py",
+                                             "web/api/cover_styles.py",
+                                             "web/api/deps.py",
+                                             "web/api/analytics.py",
+                                             "web/static/polygon-background.js",
+                                             "web/static/telegram-init.js",
+                                             # mca-12 (round 10.46,
+                                             # ADR-1028-21 ┬з7.5/D2): NEW
+                                             # `web/api/stories.py` (╤А╨╛╤Г╤В╨╡╤А
+                                             # ┬л╨Ш╤Б╤В╨╛╤А╨╕╨╕ ╤З╨░╤В╨░┬╗, 5 ╨╝╨░╤А╤И╤А╤Г╤В╨╛╨▓) +
+                                             # re-export ╨▓ `web/api/__init__.py`
+                                             # (╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П тАФ web/app.py;
+                                             # routes.py ╨Э╨Х ╨╝╨╡╨╜╤П╨╗╤Б╤П).
+                                             "web/api/stories.py",
+                                             # mca-17c (round 10.47,
+                                             # ADR-1028-23 D11/┬з1.2.12): NEW
+                                             # `web/api/oversight_router.py`
+                                             # (╤А╨╛╨▓╨╜╨╛ 3 ╨╝╨░╤А╤И╤А╤Г╤В╨░; ╨┐╤А╨╛╨┤-
+                                             # ╨▓╨╡╤А╨╕╤Д╨╕╤Ж╨╕╤А╨╛╨▓╨░╨╜ 2.58.66;
+                                             # routes.py byte-freeze тАФ
+                                             # ╨┐╨╕╨╜ 8153b8bdтАж ╤Ж╨╡╨╗).
+                                             "web/api/oversight_router.py",
+                                             # asap7 wave3 (2.58.74, REV-3
+                                             # Approved): ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨╛╨╡
+                                             # ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╕╨╡ ╨б╨г╨й╨Х╨б╨в╨Т╨г╨о╨й╨Х╨У╨Ю
+                                             # `web/api/summary_test.py`
+                                             # (dry-run test-╨║╨╛╨╜╤В╤Г╤А Testing,
+                                             # ┬з113; ╨┤╨╛ ╨▓╨╛╨╗╨╜╤Л ╤Д╨░╨╣╨╗ ╨▒╤Л╨╗
+                                             # ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В ╤Б baseline
+                                             # pre-round1026-a1 ╨╕ ╨▓ diff
+                                             # ╨╜╨╡ ╨▓╤Е╨╛╨┤╨╕╨╗).
+                                             "web/api/summary_test.py",
+                                             # ASAP 8 v6.3 (Wave 3a/3b,
+                                             # REQ-B03-block/REQ-U05; ╤В╨╛╤В ╨╢╨╡
+                                             # NOTE-╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╜╤Л╨╣ ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В):
+                                             # + `web/api/memory_overview.py`
+                                             # (read-only expired-overview +
+                                             # intel-funnels ╨┤╨╗╤П ╨б╤В╨░╤В╤Г╤Б╨░;
+                                             # global-admin RBAC, R17-safe,
+                                             # fail-open) ╨╕ + `web/api/
+                                             # analytics_viz.py` (read-only
+                                             # ╨┤╨░╨╜╨╜╤Л╨╡ 7 ╨▓╨╕╨╖╤Г╨░╨╗╨╕╨╖╨░╤Ж╨╕╨╣ D12 U05:
+                                             # activity heatmap ╨╕ ╨┤╤А.; ╨▒╨╡╨╖
+                                             # ╨╜╨╛╨▓╤Л╤Е ╨┐╨╛╨╗╨╗╨╡╤А╨╛╨▓, ╨║╤Н╤И 60╤Б).
+                                             "web/api/memory_overview.py",
+                                             "web/api/analytics_viz.py",
+                                             # ASAP 8 v6.3 Wave 2 (U07/U08;
+                                             # CORR-1 тАФ ╤Д╨╛╨╜ ╨╜╨╡ ╤В╤А╨╛╨╜╤Г╤В):
+                                             # + fullscreen-policy.js ╨╕
+                                             # + glass-probe.js (╨╜╨╛╨▓╤Л╨╡
+                                             # first-party ╨╝╨╛╨┤╤Г╨╗╨╕ ╨┐╨╛╨╗╨╕╤В╨╕╨║/
+                                             # probe) ╨╕ + vendor/lg-lens-map.png
+                                             # (feImage-╨║╨░╤А╤В╨░ ╨╗╨╕╨╜╨╖╤Л; ╨╜╨░ ╨╜╨╡╤С
+                                             # ╤Б╤Б╤Л╨╗╨░╨╡╤В╤Б╤П app.js).
+                                             "web/static/fullscreen-policy.js",
+                                             "web/static/glass-probe.js",
+                                             "web/static/vendor/lg-lens-map.png",
+                                             # SOUL-13.2 / v6.3 ┬з14
+                                             # (REV-W2-N3): glass-teststand
+                                             # (╨║╨╛╨╜╤В╤А╨╛╨╗╨╕╤А╤Г╨╡╨╝╤Л╨╣ ╤Б╤В╨╡╨╜╨┤
+                                             # edge-refraction) ╨▓╤Л╨╜╨╡╤Б╨╡╨╜ ╨╕╨╖
+                                             # ╨┐╤Г╨▒╨╗╨╕╤З╨╜╨╛╨│╨╛ static ╨▓
+                                             # tests/glass-teststand/;
+                                             # ╨╖╨░╨┐╨╕╤Б╨╕ web/static/
+                                             # glass-teststand.* ╨╕╨╖
+                                             # allowlist ╨г╨Ф╨Р╨Ы╨Х╨Э╨л тАФ ╨▓╨╛╨╖╨▓╤А╨░╤В
+                                             # ╤Б╤В╤А╨░╨╜╨╕╤Ж╤Л ╨▓ web/ ╤Б╨╜╨╛╨▓╨░ ╨▓╨░╨╗╨╕╤В
+                                             # ╤Н╤В╨╛╤В ╤В╨╡╤Б╤В.
+                                             "web/api/__init__.py",
+                                             # NOTE (SOUL-1 W6, review-w6.md
+                                             # RECHECK-W6-2 Approved, ╨║╨░╨╜╨┤╨╕╨┤╨░╤В
+                                             # a5902b15): + web/api/speech.py
+                                             # (NEW ╤А╨╛╤Г╤В╨╡╤А ┬л╨а╨╡╤З╤М ╨╕ ╤Е╨░╤А╨░╨║╤В╨╡╤А┬╗,
+                                             # 21 ╨╝╨░╤А╤И╤А╤Г╤В; ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П тАФ
+                                             # web/app.py; web/api/routes.py
+                                             # ╨Э╨Х ╨╝╨╡╨╜╤П╨╗╤Б╤П тАФ byte-freeze
+                                             # ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П; RBAC тАФ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╡
+                                             # ╨┐╤А╨░╨▓╨░ ╨┐╨╡╤А╤Б╨╛╨╜╤Л/╨║╨╗╤О╤З╨░). Test-only
+                                             # allowlist-╨┤╨╡╨╗╤М╤В╨░; ┬з104/A3-╨│╨╡╨╣╤В
+                                             # ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В.
+                                             "web/api/speech.py",
+                                             # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
+                                             # Approved, ╨║╨░╨╜╨┤╨╕╨┤╨░╤В 0ca661fe): + web/static/
+                                             # glass-refraction.js (NEW ╤Б╨╗╨╛╨╣ ╨┐╤А╨╡╨╗╨╛╨╝╨╗╨╡╨╜╨╕╤П
+                                             # ╨║╨╛╨╜╤В╤А╨╛╨╗╨╕╤А╤Г╨╡╨╝╨╛╨│╨╛ ╤Д╨╛╨╜╨░ ╨┤╨╗╤П ╨║╨╗╨╕╨╡╨╜╤В╨╛╨▓ ╨▒╨╡╨╖
+                                             # backdrop-filter url(); Tier A-only,
+                                             # pointer-events:none, z-index:-1; e2e 37/37
+                                             # ╨╜╨░ ╨╖╨░╨┤╨╡╨┐╨╗╨╛╨╡╨╜╨╜╤Л╤Е ╨▒╨░╨╣╤В╨░╤Е). Test-only
+                                             # allowlist-╨┤╨╡╨╗╤М╤В╨░.
+                                             "web/static/glass-refraction.js",
+                                             # NOTE (SOUL-1 W5, review-w5.md RECHECK
+                                             # Approved, ╨║╨░╨╜╨┤╨╕╨┤╨░╤В bc277a3d): +
+                                             # web/api/initiative_vitality.py (NEW
+                                             # ╤А╨╛╤Г╤В╨╡╤А ┬л╨Ш╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨░/╨╢╨╕╨▓╨╛╤Б╤В╤М┬╗ MiniApp:
+                                             # GET /api/memory/initiative-vitality +
+                                             # POST /api/memory/initiative-check,
+                                             # ╤В╨╛╨╗╤М╨║╨╛ global-admin; ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П тАФ
+                                             # web/app.py; web/api/routes.py ╨Э╨Х
+                                             # ╨╝╨╡╨╜╤П╨╗╤Б╤П тАФ byte-freeze ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П;
+                                             # ╤А╨╡╨░╨╗╤М╨╜╨░╤П ╨╛╤В╨┐╤А╨░╨▓╨║╨░ тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨╛╤Б╤М ON +
+                                             # confirm, ╨┐╨╛ ╤Г╨╝╨╛╨╗╤З╨░╨╜╨╕╤О mock).
+                                             # Test-only allowlist-╨┤╨╡╨╗╤М╤В╨░; ┬з104/A3-╨│╨╡╨╣╤В
+                                             # ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В.
+                                             "web/api/initiative_vitality.py",
+                                             # NOTE (CFG-02B, 19.10.2026,
+                                             # requirements-map ╤Б╨╗╨░╨╣╤Б CFG-02B,
+                                             # ADR-1031-1): + web/api/gates.py тАФ
+                                             # ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨░╤П ╨┐╨╡╤А╨╡╨┤╨░╤З╨░ ╨╖╨░╨┐╤А╨╛╤Б╨╕╨▓╤И╨╡╨│╨╛
+                                             # ╨░╨┤╨╝╨╕╨╜╨░ (viewer_user_id) ╨▓
+                                             # ╨б╨г╨й╨Х╨б╨в╨Т╨г╨о╨й╨Ш╨Щ GET /api/workers/
+                                             # budget ╤А╨░╨┤╨╕ ╤З╨╡╤Б╤В╨╜╨╛╨│╨╛ ╨╛╤Б╤В╨░╤В╨║╨░
+                                             # ╤З╨░╤Б╤В╨╛╤В╨╜╨╛╨│╨╛ ╨╗╨╕╨╝╨╕╤В╨░ ┬л╨┤╨╗╤П
+                                             # ╨▓╤Л╨▒╤А╨░╨╜╨╜╨╛╨│╨╛ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П┬╗ (┬з02B.8).
+                                             # ╨Э╨╛╨▓╤Л╤Е endpoint'╨╛╨▓/RBAC-╨┐╤А╨░╨▓╨╛╨║ ╨╜╨╡╤В;
+                                             # routes.py ╨Э╨Х ╨╝╨╡╨╜╤П╨╗╤Б╤П. Test-only
+                                             # allowlist-╨┤╨╡╨╗╤М╤В╨░.
+                                             "web/api/gates.py",
+                                             # NOTE (PINS-258151, 03.11.2026 тАФ
+                                             # ╤В╨╛╤В ╨╢╨╡ NOTE-╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╜╤Л╨╣ ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В:
+                                             # allowlist ╨╛╤В╤Б╤В╨░╨▓╨░╨╗ ╨╛╤В ╤Г╨╢╨╡
+                                             # ╨Т╨л╨Я╨г╨й╨Х╨Э╨Э╨Ю╨У╨Ю ╨║╨╛╨┤╨░, ╨╜╨╡ ╨╛╤В ╨╜╨╛╨▓╨╛╨╣
+                                             # ╨╜╨╡╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╨╛╨╣ ╨┐╤А╨░╨▓╨║╨╕):
+                                             # EVOL-COG-MAP (`770f53c1` W7-S1,
+                                             # ancestor release/2.58.151) тАФ
+                                             # NEW ╤Д╨░╨╣╨╗-╨╖╨╛╨╜╨░
+                                             # `web/api/cognitive_map.py`
+                                             # (╤Б╨▓╨╛╨╣ router, ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П ╨▓
+                                             # `web/app.py`; `web/api/routes.py`
+                                             # ╨Э╨Х ╨╝╨╡╨╜╤П╨╗╤Б╤П тАФ F11 byte-freeze
+                                             # ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П) + ╨║╨╗╨╕╨╡╨╜╤В╤Б╨║╨╕╨╣ ╨░╨┤╨░╨┐╤В╨╡╤А
+                                             # `web/static/cognitive-map.js`;
+                                             # MEME-PIPELINE-REFACTOR-01 P4
+                                             # (`e25bd479`, ancestor
+                                             # release/2.58.151) тАФ NEW ╤Д╨░╨╣╨╗-╨╖╨╛╨╜╨░
+                                             # `web/api/mechanism_diagnostics.py`
+                                             # (╨╝╨░╤А╤И╤А╤Г╤В ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨╕ ╨╝╨╡╨╝╨╛╨▓ ╨▓╤Л╨╜╨╡╤Б╨╡╨╜
+                                             # ╨Ш╨Ч routes.py, ╬Ф routes=0;
+                                             # ╨┐╨╡╤А╨╡╨╕╨╖╨┤╨░╨╜╨╕╨╡ F11 тАФ ╨▓
+                                             # tools/_meme_p4_reissue_f8.py).
+                                             # ╨Ш╨╜╤Л╤Е web/-╨┐╤Г╤В╨╡╨╣ ╨▓ diff ╨╜╨╡╤В.
+                                             "web/api/cognitive_map.py",
+                                             "web/static/cognitive-map.js",
+                                             # NOTE (PINS-258164, 08.11.2026 тАФ ╤В╨╛╤В ╨╢╨╡
+                                             # NOTE-╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╜╤Л╨╣ ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В: allowlist
+                                             # ╨╛╤В╤Б╤В╨░╨▓╨░╨╗ ╨╛╤В ╤Г╨╢╨╡ ╨Т╨л╨Я╨г╨й╨Х╨Э╨Э╨Ю╨У╨Ю ╨║╨╛╨┤╨░, ╨╜╨╡ ╨╛╤В
+                                             # ╨╜╨╛╨▓╨╛╨╣ ╨╜╨╡╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╨╛╨╣ ╨┐╤А╨░╨▓╨║╨╕):
+                                             # + `web/api/anticliche.py` тАФ round1023 F4
+                                             # `dynamic-anticliche-cache` (ADR-1023-4:
+                                             # ╤Б╨▓╨╛╨╣ ╤А╨╛╤Г╤В╨╡╤А `/api/anticliche`, global
+                                             # admin; baseline `pre-round1026-a1`
+                                             # ╤Б╤В╨░╤А╤И╨╡ ╤Б╨░╨╝╨╛╨│╨╛ ╤Д╨░╨╣╨╗╨░);
+                                             # + `web/api/initiative_publications.py` тАФ
+                                             # p0-meme-publication-hotfix (read-only
+                                             # ╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╨╛╨╜╨╜╤Л╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╤Л, RBAC
+                                             # ╨┐╨╛ ╤З╨░╤В╤Г; ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В
+                                             # mechanism_diagnostics.py тАФ routes.py ╨╜╨╡
+                                             # ╤В╤А╨╛╨╜╤Г╤В);
+                                             # + `web/static/cog-visual.js` тАФ
+                                             # epic-cm-visual-01 (CMV, ╨▓╨╛╤И╤С╨╗ ╨▓
+                                             # release/2.58.160).
+                                             # ╨Т╤Б╨╡ ╤В╤А╨╕ ╤Д╨░╨╣╨╗╨░ ╤Г╨╢╨╡ ╨▓╤Л╨┐╤Г╤Й╨╡╨╜╤Л ╨╕ ╨╛╤В╤А╨╡╨▓╤М╤О╨╡╨╜╤Л;
+                                             # ╨╕╨╜╤Л╤Е ╨╜╨╡╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╤Е web/-╨┐╤Г╤В╨╡╨╣ ╨╜╨╡╤В
+                                             # (╨╜╨░ 2.58.169: ╤А╨╛╨▓╨╜╨╛ 33 web/-╨┐╤Г╤В╨╕ ╨▓ diff
+                                             # = 30 ╨┐╤А╨╡╨╢╨╜╨╕╤Е + ╤Н╤В╨╕ 3).
+                                             "web/api/anticliche.py",
+                                             "web/api/initiative_publications.py",
+                                             "web/static/cog-visual.js",
+                                             "web/api/mechanism_diagnostics.py"))
+                       for n in names)
+E       assert not True
+E        +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x00000212D1098E10>)
+
+tests\test_tool_coordinator_round1026.py:583: AssertionError
+_____________________ TestBounds.test_canon_twelve_tools ______________________
+
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x00000212C760DB50>
+
+    def test_canon_twelve_tools(self):
+        # A2 (ADR-1026-15 D5): ╨║╨░╨╜╨╛╨╜ 10 тЖТ 11 (+fetch_article);
+        # A6 (ADR-1026-18 D1): 11 тЖТ 12 (+get_user_context, ╨▓ ╤Е╨▓╨╛╤Б╤В).
+        # MCA-19 (10.43): 12 тЖТ 13 (+recognize_image).
+        # MCA-20 (10.44, ADR-1028-20 ┬з7.5): 13 тЖТ 14 (+fact_check).
+        # ASAP5 ┬з20 (edit-route): 14 тЖТ 15 (+edit_image);
+        # EVOL-SRC-READER (W6): 15 тЖТ 16 (+read_source_code).
+>       assert len(TOOL_CALLING_TOOLS) == 17
+E       assert 18 == 17
+E        +  where 18 = len([{'type': 'function', 'function': {'name': 'query_chat_memory', 'description': "Search the bot's memory: this chat's h...mmand arrives in free form.", 'parameters': {'type': 'object', 'properties': {}, 'additionalProperties': False}}}, ...])
+
+tests\test_tool_coordinator_round1026.py:913: AssertionError
+_________________ TestToolDescriptionU21.test_canon_unchanged _________________
+
+self = <tests.test_unified_image_request_round1026.TestToolDescriptionU21 object at 0x00000212C760F020>
+
+    def test_canon_unchanged(self):
+        # A6 (ADR-1026-18 D1): ╨║╨░╨╜╨╛╨╜ 11 тЖТ 12 (+get_user_context, ╨▓ ╤Е╨▓╨╛╤Б╤В).
+        # MCA-19 (ADR-1028-19 ┬з8.6): ╨║╨░╨╜╨╛╨╜ тЖТ 13 (+recognize_image, ╨▓ ╤Е╨▓╨╛╤Б╤В).
+        # ASAP5 ┬з20 (edit-route): ╨║╨░╨╜╨╛╨╜ тЖТ 15 (+edit_image, ╨▓ ╤Е╨▓╨╛╤Б╤В;
+        # ╨┐╨╡╤А╨▓╤Л╨╡ 14 ╨╕╨╝╤С╨╜ тАФ ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В, generate_image ╨╛╤Б╤В╨░╤С╤В╤Б╤П 9-╨╝).
+        names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
+>       assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video",
+                                        "fetch_article", "get_user_context",
+                                        "recognize_image", "fact_check",
+                                        "edit_image", "read_source_code"]
+E       AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+E         
+E         Left contains 2 more items, first extra item: 'inspect_runtime'
+E         Use -v to get more diff
+
+tests\test_unified_image_request_round1026.py:410: AssertionError
+__________ TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline __________
+
+self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x00000212C761A720>
+
+    def test_forbidden_paths_out_of_diff_vs_baseline(self):
+        forbidden = [
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, ╨║╨╛╨╜╤В╤А╨░╨║╤В (l)/
+            # ADR-1027-10): `services/summary_prompts.py` ╨╕
+            # `services/prompt_migrations.py` ╨Ш╨б╨Ъ╨Ы╨о╨з╨Х╨Э╨л тАФ ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╤Л ╨║╨░╨╜╨╛╨╜╤Л
+            # R1027 L1/L2 (PREV_*/ROLLBACK, ADR-1013-3); ┬з104/A3-╨║╨╛╨╜╤В╤А╨░╨║╤В ╨╜╨╡
+            # ╨╖╨░╤В╤А╨╛╨╜╤Г╤В╤Л (AST-╨│╨╡╨╣╤В A3 ╨╜╨╕╨╢╨╡ ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В ╨┐╨╕╨╜).
+            # NOTE (MCA-23, Wave 3, ┬з10/┬з11 current_task):
+            # `services/chat_prompts.py` ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ ╤Н╨┐╨╕╨║ ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╤Г╨╡╤В ╤Б╨╜╤П╤В╨╕╨╡
+            # ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╨╛╨│╨╛ cap ┬л1-2 ╨┐╤А╨╡╨┤╨╗╨╛╨╢╨╡╨╜╨╕╤П┬╗ (╨║╨░╨╜╨╛╨╜ MCA23 + ╤Б╨╗╨╡╨┐╨║╨╕
+            # PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23, ╤Б╤В╤Г╨┐╨╡╨╜╨╕ ╨╝╨╕╨│╤А╨░╤Ж╨╕╨╕ ╨▓
+            # prompt_migrations, ADR-1013-3). ┬з104/A3-╨║╨╛╨╜╤В╤А╨░╨║╤В ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В
+            # (AST-╨│╨╡╨╣╤В ╨▓╤Л╤И╨╡ ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В ╨┐╨╕╨╜). ╨Я╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В NOTE-╨╝╨╛╨┤╨╡╨╗╨╕:
+            # test_tool_coordinator_round1026.TestBounds.
+            # NOTE (MCA-23, Wave 3, ┬зDelivery Router): `services/telegram_send.py`
+            # ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╨░╤П ╨┤╨╡╨╗╤М╤В╨░: ╨╖╨░╨┐╨╕╤Б╤М
+            # `services/direct_chat_service.py` ╨▓ SEND_ALLOWLIST (rich-╨▓╨╡╤В╨║╨░
+            # direct ╨╖╨╛╨▓╤С╤В ╨╛╨▒╤С╤А╤В╨║╤Г `send_rich_message`, sanitize ╨▓╨╜╤Г╤В╤А╨╕;
+            # bare-send'╨╛╨▓ ╨╜╨╡╤В). ╨Я╨╛╨▓╨╡╨┤╨╡╨╜╨╕╨╡ guard'╨░/╨╛╨▒╤С╤А╤В╨╛╨║ ╨╜╨╡ ╨╝╨╡╨╜╤П╨╗╨╛╤Б╤М
+            # (╬Ф registry = 1 ╨╖╨░╨┐╨╕╤Б╤М); ╨│╨╡╨╣╤В╨╕╤В╤Б╤П test_outgoing_guard_round1022 +
+            # rich-fallback ╤В╨╡╤Б╤В╨░╨╝╨╕ test_mca23_response_plan.
+            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ
+            # A5 ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╤Г╨╡╤В ╬Ф ╨║╨░╤В╨░╨╗╨╛╨│╨░ +1 ParamSpec +1 GroupSpec.
+            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
+            # ╨╕ `web/static/execution_graph.js` ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╤Л тАФ A9 ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╤Г╨╡╤В
+            # ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨╛╨╡ ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╕╨╡ ╨б╨г╨й╨Х╨б╨в╨Т╨г╨о╨й╨Х╨У╨Ю ExecutionGraph (9 ╤Н╤В╨░╨┐╨╛╨▓ ┬з51,
+            # display-only; ╬Ф DDL=0; ╬Ф ╨║╨░╤В╨░╨╗╨╛╨│╨░=0). ┬з104 ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В (A3 AST).
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/┬з4.10): `web/api/routes.py`
+            # ╨╕╤Б╨║╨╗╤О╤З╤С╨╜ тАФ ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╤Л ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╡ query-╤Д╨╕╨╗╤М╤В╤А╤Л ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨│╨╛
+            # `GET /api/status/logs` (REUSE viewer, ╨╜╨╛╨▓╤Л╤Е endpoint'╨╛╨▓ ╨╜╨╡╤В).
+            "plans/current_task.md",
+        ]
+        proc = subprocess.run(
+            ["git", "-C", str(self._root()), "diff", "--name-only",
+             self._BASELINE, "--", *forbidden],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30)
+        changed = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+        assert changed == [], f"╨╖╨░╨┐╤А╨╡╤Й╤С╨╜╨╜╤Л╨╡ ╨┐╤Г╤В╨╕ ╨╕╨╖╨╝╨╡╨╜╨╡╨╜╤Л: {changed}"
+        assert not any(ln.startswith("db/") for ln in self._diff_names())
+        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html ╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╤Л
+        # ╨┤╨╗╤П UI-╨▓╤А╨╡╨╖╨║╨╕ ┬з27/┬з50; A9 (ADR-1026-22 D10): + web/static/
+        # execution_graph.js (display-only 9 ╤Н╤В╨░╨┐╨╛╨▓ ┬з51); mca-17a (ADR-1027-8
+        # D13/┬з4.10): + web/api/routes.py (╤Д╨╕╨╗╤М╤В╤А╤Л log viewer) ╨╕
+        # web/api/oversight.py (╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╣ mca_metrics ╨╜╨░ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨╣ ╨▓╨╕╤В╤А╨╕╨╜╨╡).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (╤В╨░╤З-╤Ж╨╡╨╗╤М ╨║╨╜╨╛╨┐╨║╨╕
+        # ┬лтЖР ╨Ъ ╤Б╨┐╨╕╤Б╨║╤Г┬╗ тЙе44px ╨▓ mobile media-query; ╨▒╨╡╨╖ ╨┐╤А╨░╨▓╨╛╨║ ╤В╨╛╨║╨╡╨╜╨╛╨▓/╨┐╨░╨╗╨╕╤В╤А╤Л).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П ╤А╨╛╤Г╤В╨╡╤А╨░ Style Registry/Editor).
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: full rebuild ╨║╨╛╨╜╤В╤А╨░╨║╤В тАФ ╨┐╤А╨╛╨│╤А╨╡╤Б╤Б ╨╛╤В ╨┐╨╛╨╗╨╜╨╛╨│╨╛ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # resume-on-paused, read-time reconstruction; ╬Ф ╨║╨░╤В╨░╨╗╨╛╨│╨░ = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`,
+        # ADR-1028-10 D1/D5.5/D5.7; ╤Б╨░╨╜╨║╤Ж╨╕╤П Reviewer, NOTE-╨╝╨╛╨┤╨╡╨╗╤М):
+        # + `web/api/cover_styles.py` (Test Style no-picker/real base, RBAC
+        # seeded backend, `_public_profile.can_edit`, backend-guard
+        # `cover_test_style` M-ASAP42-1) ╨╕ + `web/api/deps.py`
+        # (`user_is_global_admin`, `_assert_can_edit_seeded`). Test-only
+        # allowlist-╨┤╨╡╨╗╤М╤В╨░; ┬з104/A3-╨║╨╛╨╜╤В╤А╨░╨║╤В ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В (AST-╨│╨╡╨╣╤В ╨▓╤Л╤И╨╡).
+        # NOTE (╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ Builder, ╤В╨╛╤В ╨╢╨╡ NOTE-╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╜╤Л╨╣ ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В тАФ
+        # ╤А╨╡╨▓╤М╤О-╨┐╨╡╤А╨╡╤З╨╡╨╜╤М ╨▒╤Л╨╗ ╨╜╨╡╨┐╨╛╨╗╨╛╨╜: `_diff_names` (diff ╨╛╤В `e8646af`) ╨▓╨╕╨┤╨╕╤В
+        # ╨╖╨░╨║╨╛╨╝╨╝╨╕╤З╨╡╨╜╨╜╤Л╨╣ ╨┤╤А╨╡╨╣╤Д ╨┐╤А╨╛╤И╨╗╤Л╤Е ╨▓╨╛╨╗╨╜): + `web/api/analytics.py`
+        # (round1028 ASAP-3.1 + round1030 ASAP-4), +
+        # `web/static/polygon-background.js` (round1026/1028 ╨▓╨╕╨╖╤Г╨░╨╗╤М╨╜╤Л╨╣ ╤Н╨┐╨╕╨║),
+        # + `web/static/telegram-init.js` (round1028 TMA-init). ╨г╨╢╨╡ ╨▓╤Л╨┐╤Г╤Й╨╡╨╜╤Л.
+        # NOTE (mca-12, round 10.46, ADR-1028-21 ┬з7.5/D2, ╤Б╨░╨╜╨║╤Ж╨╕╤П T-5154):
+        # + `web/api/stories.py` (NEW ╤А╨╛╤Г╤В╨╡╤А ┬л╨Ш╤Б╤В╨╛╤А╨╕╨╕ ╤З╨░╤В╨░┬╗, 5 ╨╝╨░╤А╤И╤А╤Г╤В╨╛╨▓) ╨╕ +
+        # `web/api/__init__.py` (re-export ╤А╨╛╤Г╤В╨╡╤А╨░; ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П тАФ web/app.py,
+        # ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В ╨╖╨╛╨╜). `web/api/routes.py` ╨Э╨Х ╨╝╨╡╨╜╤П╨╗╤Б╤П (byte-freeze
+        # ROUTES_SHA256_F11 ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П).
+>       assert not any(ln.startswith("web/")
+                       and not ln.startswith(("web/app.js", "web/index.html",
+                                              "web/app.py",
+                                              "web/static/execution_graph.js",
+                                              "web/static/app.css",
+                                              "web/api/routes.py",
+                                              "web/api/oversight.py",
+                                              "web/api/chat_lore.py",
+                                              # mca-22 (ADR-1028-6): ┬з24 тАФ
+                                              # ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╕╨╡ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╤Е
+                                              # Memory-╨▓╨╕╨┤╨╢╨╡╤В╨╛╨▓ (trace/
+                                              # metrics), ╨╜╨╡ ╨╜╨╛╨▓╤Л╨╣ dashboard.
+                                              "web/api/memory_agi.py",
+                                              "web/api/cover_styles.py",
+                                              "web/api/deps.py",
+                                              "web/api/analytics.py",
+                                              "web/static/polygon-background.js",
+                                              "web/static/telegram-init.js",
+                                              # mca-12 (ADR-1028-21 ┬з7.5/D2)
+                                              "web/api/stories.py",
+                                              # mca-17c (round 10.47,
+                                              # ADR-1028-23 D11/┬з1.2.12): NEW
+                                              # `web/api/oversight_router.py`
+                                              # (╤А╨╛╨▓╨╜╨╛ 3 ╨╝╨░╤А╤И╤А╤Г╤В╨░; ╨┐╤А╨╛╨┤-
+                                              # ╨▓╨╡╤А╨╕╤Д╨╕╤Ж╨╕╤А╨╛╨▓╨░╨╜ 2.58.66;
+                                              # routes.py byte-freeze тАФ
+                                              # ╨┐╨╕╨╜ 8153b8bdтАж ╤Ж╨╡╨╗).
+                                              "web/api/oversight_router.py",
+                                              # asap7 wave3 (2.58.74, REV-3
+                                              # Approved): ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨╛╨╡
+                                              # ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╕╨╡ ╨б╨г╨й╨Х╨б╨в╨Т╨г╨о╨й╨Х╨У╨Ю
+                                              # `web/api/summary_test.py`
+                                              # (dry-run test-╨║╨╛╨╜╤В╤Г╤А Testing,
+                                              # ┬з113; ╨┤╨╛ ╨▓╨╛╨╗╨╜╤Л ╤Д╨░╨╣╨╗ ╨▒╤Л╨╗
+                                              # ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В ╤Б baseline
+                                              # pre-round1026-a1 ╨╕ ╨▓ diff
+                                              # ╨╜╨╡ ╨▓╤Е╨╛╨┤╨╕╨╗).
+                                              "web/api/summary_test.py",
+                                              # ASAP 8 v6.3 (Wave 3a/3b;
+                                              # ╤В╨╛╤В ╨╢╨╡ NOTE-╤Б╨░╨╜╨║╤Ж╨╕╨╛╨╜╨╜╤Л╨╣
+                                              # ╨┐╤А╨╡╤Ж╨╡╨┤╨╡╨╜╤В): +
+                                              # `web/api/memory_overview.py`
+                                              # (read-only expired-overview,
+                                              # ╨б╤В╨░╤В╤Г╤Б) ╨╕ +
+                                              # `web/api/analytics_viz.py`
+                                              # (read-only ╨┤╨░╨╜╨╜╤Л╨╡ 7
+                                              # ╨▓╨╕╨╖╤Г╨░╨╗╨╕╨╖╨░╤Ж╨╕╨╣ U05).
+                                              "web/api/memory_overview.py",
+                                              "web/api/analytics_viz.py",
+                                              # Wave 2 (U07/U08): ╨┐╨╛╨╗╨╕╤В╨╕╨║╨░
+                                              # fullscreen, render-probe,
+                                              # feImage-╨║╨░╤А╤В╨░ ╨╗╨╕╨╜╨╖╤Л.
+                                              "web/static/fullscreen-policy.js",
+                                              "web/static/glass-probe.js",
+                                              "web/static/vendor/lg-lens-map.png",
+                                              # SOUL-13.2 / v6.3 ┬з14
+                                              # (REV-W2-N3): ╤Б╤В╤А╨░╨╜╨╕╤Ж╨░ ╤Б╤В╨╡╨╜╨┤╨░
+                                              # ╨▓╤Л╨╜╨╡╤Б╨╡╨╜╨░ ╨╕╨╖ ╨┐╤Г╨▒╨╗╨╕╤З╨╜╨╛╨│╨╛
+                                              # static ╨▓
+                                              # tests/glass-teststand/ тАФ
+                                              # ╨╖╨░╨┐╨╕╤Б╨╕ web/static/
+                                              # glass-teststand.* ╨╕╨╖
+                                              # allowlist ╨г╨Ф╨Р╨Ы╨Х╨Э╨л: ╨╗╤О╨▒╨╛╨╡
+                                              # ╨▓╨╛╨╖╨▓╤А╨░╤Й╨╡╨╜╨╕╨╡ ╤Б╤В╤А╨░╨╜╨╕╤Ж╤Л ╨▓
+                                              # web/ ╤Б╨╜╨╛╨▓╨░ ╨▓╨░╨╗╨╕╤В ╤Н╤В╨╛╤В ╤В╨╡╤Б╤В.
+                                              "web/api/__init__.py",
+                                              # NOTE (SOUL-1 W6, review-w6.md
+                                              # RECHECK-W6-2 Approved, ╨║╨░╨╜╨┤╨╕╨┤╨░╤В
+                                              # a5902b15): + web/api/speech.py
+                                              # (NEW ╤А╨╛╤Г╤В╨╡╤А ┬л╨а╨╡╤З╤М ╨╕ ╤Е╨░╤А╨░╨║╤В╨╡╤А┬╗,
+                                              # 21 ╨╝╨░╤А╤И╤А╤Г╤В; ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П тАФ
+                                              # web/app.py; web/api/routes.py
+                                              # ╨Э╨Х ╨╝╨╡╨╜╤П╨╗╤Б╤П тАФ byte-freeze
+                                              # ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П; RBAC тАФ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╡
+                                              # ╨┐╤А╨░╨▓╨░ ╨┐╨╡╤А╤Б╨╛╨╜╤Л/╨║╨╗╤О╤З╨░). Test-only
+                                              # allowlist-╨┤╨╡╨╗╤М╤В╨░; ┬з104/A3-╨│╨╡╨╣╤В
+                                              # ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В.
+                                              "web/api/speech.py",
+                                              # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
+                                              # Approved, ╨║╨░╨╜╨┤╨╕╨┤╨░╤В 0ca661fe): + web/static/
+                                              # glass-refraction.js (NEW ╤Б╨╗╨╛╨╣ ╨┐╤А╨╡╨╗╨╛╨╝╨╗╨╡╨╜╨╕╤П
+                                              # ╨║╨╛╨╜╤В╤А╨╛╨╗╨╕╤А╤Г╨╡╨╝╨╛╨│╨╛ ╤Д╨╛╨╜╨░ ╨┤╨╗╤П ╨║╨╗╨╕╨╡╨╜╤В╨╛╨▓ ╨▒╨╡╨╖
+                                              # backdrop-filter url(); Tier A-only,
+                                              # pointer-events:none, z-index:-1; e2e 37/37
+                                              # ╨╜╨░ ╨╖╨░╨┤╨╡╨┐╨╗╨╛╨╡╨╜╨╜╤Л╤Е ╨▒╨░╨╣╤В╨░╤Е). Test-only
+                                              # allowlist-╨┤╨╡╨╗╤М╤В╨░.
+                                              "web/static/glass-refraction.js",
+                                              # NOTE (SOUL-1 W5, review-w5.md RECHECK
+                                              # Approved, ╨║╨░╨╜╨┤╨╕╨┤╨░╤В bc277a3d): +
+                                              # web/api/initiative_vitality.py (NEW
+                                              # ╤А╨╛╤Г╤В╨╡╤А ┬л╨Ш╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨░/╨╢╨╕╨▓╨╛╤Б╤В╤М┬╗ MiniApp:
+                                              # GET /api/memory/initiative-vitality +
+                                              # POST /api/memory/initiative-check,
+                                              # ╤В╨╛╨╗╤М╨║╨╛ global-admin; ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П тАФ
+                                              # web/app.py; web/api/routes.py ╨Э╨Х
+                                              # ╨╝╨╡╨╜╤П╨╗╤Б╤П тАФ byte-freeze ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П;
+                                              # ╤А╨╡╨░╨╗╤М╨╜╨░╤П ╨╛╤В╨┐╤А╨░╨▓╨║╨░ тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨╛╤Б╤М ON +
+                                              # confirm, ╨┐╨╛ ╤Г╨╝╨╛╨╗╤З╨░╨╜╨╕╤О mock).
+                                              # Test-only allowlist-╨┤╨╡╨╗╤М╤В╨░; ┬з104/A3-╨│╨╡╨╣╤В
+                                              # ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В.
+                                              "web/api/initiative_vitality.py",
+                                              # CFG-02B (┬з02B.8, ADR-1031-1,
+                                              # requirements-map ╤Б╨╗╨░╨╣╤Б CFG-02B):
+                                              # + web/api/gates.py тАФ ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨░╤П
+                                              # ╨┐╨╡╤А╨╡╨┤╨░╤З╨░ ╨╖╨░╨┐╤А╨╛╤Б╨╕╨▓╤И╨╡╨│╨╛ ╨░╨┤╨╝╨╕╨╜╨░ ╨▓
+                                              # ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ GET /api/workers/
+                                              # budget (viewer_user_id) ╤А╨░╨┤╨╕
+                                              # ╤З╨╡╤Б╤В╨╜╨╛╨│╨╛ ┬л╨╛╤Б╤В╨░╤В╨║╨░ ╨┤╨╗╤П ╨▓╤Л╨▒╤А╨░╨╜╨╜╨╛╨│╨╛
+                                              # ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П┬╗ ╨▓ ╤Б╨╡╨║╤Ж╨╕╨╕ ┬л╨Ы╨╕╨╝╨╕╤В╤Л
+                                              # ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╨╕┬╗; ╨╜╨╛╨▓╤Л╤Е endpoint'╨╛╨▓
+                                              # ╨╕ ╨┐╤А╨░╨▓╨╛╨║ RBAC ╨╜╨╡╤В. Test-only
+                                              # allowlist-╨┤╨╡╨╗╤М╤В╨░; ┬з104/A3-╨│╨╡╨╣╤В
+                                              # ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В.
+                                              "web/api/gates.py",
+                                              # NOTE (PINS-258151, 03.11.2026 тАФ
+                                              # allowlist ╨╛╤В╤Б╤В╨░╨▓╨░╨╗ ╨╛╤В ╤Г╨╢╨╡
+                                              # ╨Т╨л╨Я╨г╨й╨Х╨Э╨Э╨Ю╨У╨Ю ╨║╨╛╨┤╨░): EVOL-COG-MAP
+                                              # (`770f53c1` W7-S1, ancestor
+                                              # release/2.58.151) тАФ NEW
+                                              # ╤Д╨░╨╣╨╗-╨╖╨╛╨╜╨░ web/api/cognitive_map.py
+                                              # (╤Б╨▓╨╛╨╣ router, ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П ╨▓
+                                              # web/app.py; web/api/routes.py ╨Э╨Х
+                                              # ╨╝╨╡╨╜╤П╨╗╤Б╤П тАФ F11 byte-freeze ╤Ж╨╡╨╗) +
+                                              # ╨░╨┤╨░╨┐╤В╨╡╤А web/static/cognitive-map.js;
+                                              # MEME-PIPELINE-REFACTOR-01 P4
+                                              # (`e25bd479`) тАФ NEW ╤Д╨░╨╣╨╗-╨╖╨╛╨╜╨░
+                                              # web/api/mechanism_diagnostics.py
+                                              # (╬Ф routes = 0). ┬з104/A3 ╨╜╨╡
+                                              # ╨╖╨░╤В╤А╨╛╨╜╤Г╤В: ╨┐╤А╨░╨▓╨║╨╕ тАФ ╨▓ ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╤Е
+                                              # ╤Д╨░╨╣╨╗╨░╤Е-╨╖╨╛╨╜╨░╤Е, ╨╜╨╡ ╨▓ ╨┐╤Г╤В╤П╤Е ╨▓╤Л╤И╨╡.
+                                              "web/api/cognitive_map.py",
+                                              "web/static/cognitive-map.js",
+                                              "web/api/mechanism_diagnostics.py",
+                                              # PINS-258161 (07.11.2026 тАФ allowlist
+                                              # ╨╛╤В╤Б╤В╨░╨▓╨░╨╗ ╨╛╤В ╤Г╨╢╨╡ ╨Т╨л╨Я╨г╨й╨Х╨Э╨Э╨Ю╨У╨Ю ╨║╨╛╨┤╨░;
+                                              # ╨▓╤Б╨╡ ╤В╤А╨╕ ╨┐╤Г╤В╨╕ тАФ ╨┐╤А╨╡╨┤╨║╨╕
+                                              # release/2.58.161):
+                                              # * web/api/anticliche.py тАФ NEW
+                                              #   ╤Д╨░╨╣╨╗-╨╖╨╛╨╜╨░ ╤А╨░╤Г╨╜╨┤╨░ 10.23 F4
+                                              #   (766f8a53, ╨┤╨╕╨╜╨░╨╝╨╕╤З╨╡╤Б╨║╨╕╨╣
+                                              #   ╨░╨╜╤В╨╕-╨║╨╗╨╕╤И╨╡ ╨║╤Н╤И; ╤Б╨▓╨╛╨╣ ╤А╨╛╤Г╤В╨╡╤А,
+                                              #   routes.py ╨╜╨╡ ╤В╤А╨╛╨╜╤Г╤В);
+                                              # * web/api/initiative_publications.py тАФ
+                                              #   NEW ╤А╨╛╤Г╤В╨╡╤А ┬л╨Ь╨╛╨┤╤Г╨╗╨╕ тЖТ ╨Ш╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨░┬╗
+                                              #   ╨▓ ╨┐╤П╤В╨╕ ╨▓╨║╨╗╨░╨┤╨║╨░╤Е (1c7f030f,
+                                              #   owner P1; ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П тАФ web/app.py);
+                                              # * web/static/cog-visual.js тАФ
+                                              #   NEW ╨▓╨╕╨╖╤Г╨░╨╗╤М╨╜╤Л╨╣ ╤Б╨╗╨╛╨╣ ╨│╤А╨░╤Д╨░
+                                              #   (8867a2ad, CMV-A; ╤Б╨▓╨╡╨┤╤С╨╜ ╨▓
+                                              #   ╤А╨╡╨╗╨╕╨╖ ╨╝╨╡╤А╨╢╨╡╨╝ aa8afdde).
+                                              # ┬з104/A3-╨║╨╛╨╜╤В╤А╨░╨║╤В ╨╜╨╡ ╨╖╨░╤В╤А╨╛╨╜╤Г╤В:
+                                              # ╨┐╤А╨░╨▓╨║╨╕ тАФ ╨▓ ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╤Е ╤Д╨░╨╣╨╗╨░╤Е-╨╖╨╛╨╜╨░╤Е.
+                                              "web/api/anticliche.py",
+                                              "web/api/initiative_publications.py",
+                                              "web/static/cog-visual.js",
+                                              ))
+                       for ln in self._diff_names())
+E       assert not True
+E        +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x00000212CE897370>)
+
+tests\test_unified_image_request_round1026.py:703: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+4 failed, 856 passed in 74.94s (0:01:14)
