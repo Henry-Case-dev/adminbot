@@ -117,7 +117,8 @@ byte-freeze baseline `ROUTES_SHA256_F11` (`tests/test_round1025_f8_registry.py`,
 `374dc6060` and fail on the C1 tip; the C1 lane never ran them (its focused pytest set did not include these files).
 
 **Evidence:** `test-output/pin-guard-tip.txt`, `tests-2.58.229.json` (`pin_guard.*`), base re-run of the two node IDs
-(2 passed) in `test-output/pin-guard-base.txt`.
+(2 passed) in `test-output/pin-guard-base.txt`. Exact digests: pinned `ROUTES_SHA256_F11 = 4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7`;
+`sha256(web/api/routes.py)` on this tip = `70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2`.
 
 **Why not fixed here:** the project’s own rule for this pin is a *conscious* re-pin (`L-F11S-1`), i.e. a product/test
 change that needs its own reviewed commit; it is outside the version-only bump scope of this lane and must not be
