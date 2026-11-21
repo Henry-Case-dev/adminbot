@@ -25,6 +25,7 @@ import logging
 import math
 import time
 
+from services.access_errors import AccessStorageUnavailable
 from services.param_catalog import get_by_pg_key, normalize_value
 
 logger = logging.getLogger(__name__)
@@ -445,6 +446,35 @@ async def get_all_chat_params(chat_id: int, pg=None) -> dict:
         return {}
     root = await cache.get_chat_params(chat_id)
     return _root_with_meta(root)
+
+
+async def read_chat_params_strict(chat_id: int, pg=None
+                                  ) -> tuple[dict, str | None, bool]:
+    """Строгое read-only чтение профиля чата для preview (без TTL-кэша).
+
+    Возвращает ``(root, updated_at, profile_present)``:
+      * ``root`` — сырой root-лейаут `chat_params` (без синтетического meta);
+      * ``updated_at`` — ISO оптимистичная метка профиля или None;
+      * ``profile_present`` — строка `chat_profiles` существует.
+    Пул отсутствует / чтение упало → ``AccessStorageUnavailable`` (503):
+    «override нет» и «слой не читается» нельзя смешивать.
+    Runtime-кэш (`ChatParamsCache`) намеренно НЕ обновляется: preview не
+    создаёт побочного эффекта на горячий путь бота.
+    """
+    pool = getattr(pg, "pool", None) if pg is not None else None
+    if pool is None:
+        raise AccessStorageUnavailable(
+            "PostgreSQL недоступен (пул отсутствует): chat_profiles не читается")
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
+    except Exception as exc:
+        raise AccessStorageUnavailable(
+            "PostgreSQL недоступен: chat_profiles не читается") from exc
+    if row is None:
+        return {}, None, False
+    return (_load_chat_params(row.get("chat_params")),
+            _iso(row.get("updated_at")), True)
 
 
 async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,

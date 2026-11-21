@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 import logging
 
+from services.access_errors import AccessStorageUnavailable
 from services.chat_params import is_dm_scope
 from services.permissions import Permissions
 
@@ -138,7 +139,7 @@ def _role_type_of(cache, role_name: str | None) -> str:
 
 
 async def access_for(telegram_id: int, chat_id: int | None = None,
-                     cache=None) -> AccessCtx:
+                     cache=None, *, strict: bool = False) -> AccessCtx:
     """Q3-ядро (spec §2.3): глобальный срез + грант chat_admins.
 
     Роли:
@@ -155,10 +156,24 @@ async def access_for(telegram_id: int, chat_id: int | None = None,
     access_for без chat_id → только глобальный срез. Fail-open: PG/кэш
     недоступен → глобальный срез + role_chat=None (chat-грант не виден),
     бот жив (spec §1.2-4).
+
+    MOD-ACL-UX-01 M4C C2 (D1, аддитивно): ``strict=True`` превращает
+    ровно те же две fail-open ветки в явный отказ:
+      * кэш так и не получен, либо RAM-снимок ролей пуст и
+        ``cache.pg_available`` False (холодный старт) → raise;
+      * групповой chat-грант: пула нет или чтение упало → raise вместо
+        warn+None (DM-ветка по-прежнему не требует PG).
+    Default ``strict=False`` не меняет runtime-поведение бота.
     """
     if cache is None:
         from services import hot_config as hot
         cache = hot.get_config_cache()
+    if strict and cache is None:
+        raise AccessStorageUnavailable(
+            "кэш прав недоступен: роль актора не читается")
+    if strict and not cache.roles() and not cache.pg_available:
+        raise AccessStorageUnavailable(
+            "кэш прав пуст и PostgreSQL недоступен: роль актора не читается")
     role_name = cache.get_role(telegram_id) if cache is not None else None
     perms_global = _user_permissions(cache, telegram_id)
     role_global_type = _role_type_of(cache, role_name)
@@ -181,7 +196,11 @@ async def access_for(telegram_id: int, chat_id: int | None = None,
         try:
             pg = getattr(cache, "pg", None)
             pool = getattr(pg, "pool", None) if pg is not None else None
-            if pool is not None:
+            if pool is None:
+                if strict:
+                    raise AccessStorageUnavailable(
+                        "PostgreSQL недоступен: chat-грант не читается")
+            else:
                 async with pool.acquire() as conn:
                     row = await conn.fetchrow(
                         CHAT_ADMIN_ROLE_SQL, chat_id, telegram_id)
@@ -191,7 +210,12 @@ async def access_for(telegram_id: int, chat_id: int | None = None,
                     perms_chat = Permissions.from_dict(
                         LOCAL_ADMIN_PRESET if role_chat == ROLE_LOCAL_ADMIN
                         else MODERATOR_PRESET)
-        except Exception:
+        except AccessStorageUnavailable:
+            raise
+        except Exception as exc:
+            if strict:
+                raise AccessStorageUnavailable(
+                    "PostgreSQL недоступен: chat-грант не читается") from exc
             logger.warning(
                 "[roles] chat-грант недоступен — fail-open | user=%s chat=%s",
                 telegram_id, chat_id, exc_info=True)

@@ -30,6 +30,7 @@ import json
 import logging
 import time
 
+from services.access_errors import AccessStorageUnavailable  # noqa: F401 — реэкспорт (C1-совместимость)
 from services.param_catalog import CATEGORY_KEYS, CATEGORY_PROMPTS, get_by_pg_key
 from services.chat_params import is_dm_scope
 from services.roles import (
@@ -47,6 +48,11 @@ _DB_OVERRIDE_TTL = 60.0
 
 SELECT_PERM_SQL = (
     "SELECT key, value FROM param_permissions ORDER BY key"
+)
+# MOD-ACL-UX-01 M4C C2: отдельный read-only SELECT для preview — момент записи
+# глобального override + значение в ОДНОМ запросе (без TTL-кэша, без записи).
+SELECT_PERM_SNAPSHOT_SQL = (
+    "SELECT key, value, updated_at FROM param_permissions ORDER BY key"
 )
 UPSERT_PERM_SQL = (
     "INSERT INTO param_permissions (key, value) VALUES ($1, $2) "
@@ -81,8 +87,9 @@ def can_access_chat(ctx: AccessCtx, chat_id=None) -> bool:
     return ctx.rank >= ROLE_TYPE_RANK[ROLE_MODERATOR]
 
 
-class AccessStorageUnavailable(RuntimeError):
-    """Строгое чтение матрицы: PG/пул недоступен (GET /api/access/* → 503)."""
+# MOD-ACL-UX-01 M4C C2: тип вынесен в services/access_errors.py (его импортируют
+# roles.py и chat_params.py без циклов); здесь имя остаётся реэкспортом для
+# существующих C1-импортов `from services.access import AccessStorageUnavailable`.
 
 
 async def db_override_map(pg, strict: bool = False) -> dict[str, dict]:
@@ -129,6 +136,64 @@ async def db_override_map(pg, strict: bool = False) -> dict[str, dict]:
     _db_override_cache = out
     _db_override_cache_ts = now
     return out
+
+
+def _snapshot_ts(value) -> str | None:
+    """timestamptz → ISO-строка (None остаётся None; без TZ-домыслов)."""
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+async def param_permissions_snapshot(pg) -> dict[str, dict]:
+    """Строгий read-only снимок override'ов матрицы для preview.
+
+    Возвращает ``{key: {"value": {view_roles, edit_roles}, "updated_at": iso}}``
+    отдельным SELECT'ом (``key, value, updated_at``):
+      * НЕ использует и НЕ обновляет TTL-кэш runtime (`_db_override_cache`) —
+        preview не создаёт побочного эффекта на effective_matrix/бот;
+      * pool None / ошибка PG → ``AccessStorageUnavailable`` (HTTP 503),
+        потому что «источник и момент» нельзя показать выдуманными;
+      * значение нормализуется ``normalize_permission_override`` (легаси →
+        флаги-роли) на чтении, без записи в БД.
+    """
+    pool = getattr(pg, "pool", None) if pg is not None else None
+    if pool is None:
+        raise AccessStorageUnavailable(
+            "PostgreSQL недоступен (пул отсутствует): матрица не читается")
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(SELECT_PERM_SNAPSHOT_SQL)
+    except Exception as exc:
+        raise AccessStorageUnavailable(
+            "PostgreSQL недоступен: матрица не читается") from exc
+    out: dict[str, dict] = {}
+    for r in rows:
+        value = r["value"]
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                value = {}
+        out[r["key"]] = {
+            "value": normalize_permission_override(value),
+            "updated_at": _snapshot_ts(r.get("updated_at")),
+        }
+    return out
+
+
+def normalize_permission_override(value) -> dict:
+    """Публичная нормализация override матрицы (обёртка `_normalize_perms`).
+
+    Единая точка для read-модели preview: легаси {view_min_role,
+    edit_min_role, hidden_from_local} и новая форма {view_roles, edit_roles}
+    приводятся к детерминированному {view_roles, edit_roles}. БД не пишется.
+    """
+    if not isinstance(value, dict):
+        return {"view_roles": [], "edit_roles": []}
+    return _normalize_perms(value)
 
 
 async def upsert_param_permission(pg, key: str, value: dict) -> None:
