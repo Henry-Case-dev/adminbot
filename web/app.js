@@ -2289,6 +2289,107 @@
     return new Date(ms).toLocaleString('ru-RU', { hour12: false });
   }
 
+  // ═══ MOD-ACL-UX-01 M4B B3 (MAC-S7-FEED-02): человеческая подпись области
+  // правила/применения. Только существующие серверные поля scope/
+  // scope_chat_id; ничего не выводится из догадок.
+  function _experienceScopeLabelOf(scope, scopeChatId) {
+    var s = String(scope || '');
+    if (s === 'global') return 'глобально';
+    var cid = (scopeChatId == null) ? null : scopeChatId;
+    if (s === 'chat') return 'чат ' + (cid == null ? '—' : cid);
+    return s || 'область неизвестна';
+  }
+
+  // ═══ MOD-ACL-UX-01 M4B B3 (MAC-S15-05): состояние пустоты «Опыта».
+  // Чистая функция (без DOM/this-зависимостей, кроме двух полей vm):
+  // различает «недостаточно доказательств» (скан есть, кандидатов нет —
+  // отклонения/дубли), «техническое молчание worker» (semantic backlog при
+  // отсутствующей/упавшей durable-задаче) и «ещё не выполнялось». `null`
+  // (нет ответа) не превращается в измеренный ноль; причина называется
+  // только по серверным полям (counters/semantic_lag/job).
+  function _expEmptyStateOf(vm) {
+    var f = vm && vm.intelFunnels;
+    var win24 = vm && vm.expWindow24h;
+    var job = f && f.experience && f.experience.job;
+    var c = (job && job.counters) || {};
+    var lag = (f && f.experience && f.experience.semantic_lag) || {};
+    var num = function (v) {
+      var n = parseInt(v, 10);
+      return isNaN(n) ? 0 : Math.max(0, n);
+    };
+    var scanned = num(c.semantic_scanned);
+    var extracted = num(c.semantic_extracted);
+    var candidates = num(c.semantic_candidates);
+    var rejected = num(c.semantic_rejected);
+    var dup = num(c.semantic_duplicates);
+    var llmUn = num(c.semantic_llm_unavailable);
+    var pending = num(lag.pending);
+    var jobState = job ? String(job.status || '') : '';
+    var jobReason = job ? String(job.reason_code || '') : '';
+    var applied = (win24 && win24.applications)
+      ? (win24.applications.total || 0) : null;
+    var base = {
+      scanned: scanned, extracted: extracted, candidates: candidates,
+      rejected: rejected, duplicates: dup, llmUnavailable: llmUn,
+      pending: pending, jobState: jobState, jobReason: jobReason,
+      hasJob: !!job, applied: applied,
+    };
+    var set = function (obj, extra) {
+      Object.keys(extra).forEach(function (k) { obj[k] = extra[k]; });
+      return obj;
+    };
+    var evidenceText = 'недостаточно доказательств — кандидатов не '
+      + 'отобрано (отклонено: ' + rejected + ', дубликатов: ' + dup
+      + (llmUn ? ', LLM недоступен: ' + llmUn + ' раз' : '') + ')';
+    if (win24 && (win24.available === false || win24.enabled === false)) {
+      return set(base, {
+        kind: 'disabled',
+        text: 'самообучение выключено — записей, разбора и применений нет',
+      });
+    }
+    // Техническое молчание worker: backlog есть, задачи нет/она упала.
+    if (pending > 0 && !job) {
+      return set(base, {
+        kind: 'worker',
+        text: 'semantic backlog ' + pending + ', worker: задача не создана '
+          + '— ожидание разбора, а не «нулевой опыт»',
+      });
+    }
+    if (pending > 0 && (jobState === 'failed' || jobState === 'error'
+                        || jobReason)) {
+      return set(base, {
+        kind: 'worker',
+        text: 'semantic backlog ' + pending + ', worker: '
+          + (jobState || 'нет статуса')
+          + (jobReason ? (' (' + jobReason + ')') : '')
+          + ' — техническая причина, а не «нет доказательств»',
+      });
+    }
+    if (job == null && !scanned) {
+      return set(base, {
+        kind: 'unknown',
+        text: 'семантический обзор ещё не выполнялся — durable-задачи нет',
+      });
+    }
+    if (!scanned) {
+      return set(base, {
+        kind: 'unknown',
+        text: 'семантика ещё не сканировала сообщения (водяной знак: '
+          + num(lag.watermark) + ')',
+      });
+    }
+    if (!extracted && !candidates) {
+      return set(base, { kind: 'evidence', text: evidenceText });
+    }
+    if (applied != null && !applied) {
+      return set(base, {
+        kind: 'no_applications',
+        text: 'уроки есть, применений за окно не было',
+      });
+    }
+    return set(base, { kind: 'none', text: '' });
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // EVOL-037/040/035/041 (W12, 01.11.2026): СТРУКТУРНЫЕ РЕЕСТРЫ
   // внутренних экранов. Один источник правды для поиска, для семантических
@@ -7146,6 +7247,22 @@
         expPipelineBusy: false,
         expPipelineError: '',
         expStageOpen: {},             // раскрытая причина по стадии
+        // M4B B3 (MAC-S7-FEED-01..03, MAC-AC-18, MAC-S6-311): компактная
+        // живая лента «Опыт / Уроки» в существующей карточке «Опыт».
+        // Источники — уже существующие read-only ответы: `status.experience`
+        // (дорожка «Опыт», только kind='applied') и `GET /api/memory/lessons`
+        // (дорожка «Уроки», правило+статус+scope+основания). Второй ленты/
+        // API/счётчика нет; «опыт ≠ урок» — разные дорожки одной ленты.
+        experienceLessons: [],
+        experienceLessonsBusy: false,
+        experienceLessonsLoaded: false,
+        experienceLessonsError: '',
+        experienceLessonsAt: 0,
+        experienceFeedTrack: 'all',   // 'all' | 'experience' | 'lesson'
+        // M4B B3 (MAC-S15-11): 503/неизвестность не превращается в «нулевой
+        // опыт» — время последнего УСПЕШНОГО ответа /api/status (локальные
+        // часы клиента, подпись честная: «последний успешный ответ экрана»).
+        statusLastOkAt: 0,
         // EVOL-021 (Wave 4 UI): смысловые эпизоды — лента готовых,
         // свёрнутая группа «Требуют восстановления» и карточка РОВНО
         // выбранного эпизода (GET /api/episodes/*).
@@ -10617,6 +10734,23 @@
           { route: '#/oversight?tab=runs', label: 'История прогонов' },
         ];
       },
+      // M4B B3 (MAC-S15-11): 503 на /api/status не превращается в «нулевой
+      // опыт»/«нет последнего вызова». Неизвестность показывается как
+      // неизвестность + время последнего УСПЕШНОГО ответа экрана (локальные
+      // часы клиента — подпись так и говорит, это не серверный generated_at).
+      statusUnknownView: function () {
+        var err = this.statusError || '';
+        var unknown = !!err || !this.statusData;
+        var at = this.statusLastOkAt || null;
+        return {
+          unknown: unknown,
+          error: err,
+          lastOk: at,
+          lastOkText: at
+            ? ('последний успешный ответ экрана: ' + _tsStatusLabel(at, ''))
+            : 'успешных ответов экрана ещё не было',
+        };
+      },
       // M4B B2: независимые KPI наблюдателя вместо псевдо-воронки.
       // Окна не смешиваются: durable-счётчики — «всего», события — 24ч/7д,
       // активные намерения — снимок «сейчас». Доказанной единой когорты с
@@ -10978,6 +11112,9 @@
       // REASON_LABELS): UI не придумывает «работает» там, где сервер сказал
       // idle/stale/never_run. Ссылки на реальные уроки/применения даются
       // ТОЛЬКО когда счётчики подтверждают их наличие.
+      // M4B B3 (MAC-S7-FEED-04): на «Статусе» — 5 КЛЮЧЕВЫХ стадий и ссылка
+      // «Развернуть цепочку»; полная 8-стадийная воронка остаётся в
+      // аналитике «Опыта» (та же проекция, второй API не заводится).
       expPipelineView: function () {
         var p = this.expPipeline;
         if (!p) return null;
@@ -12341,43 +12478,15 @@
           + (last.outcome ? (' · исход: ' + last.outcome) : '');
       },
       // Честная причина пустоты «Опыта» — по B02-счётчикам семантики.
+      // M4B B3 (MAC-S15-05): недостаток ДОКАЗАТЕЛЬСТВ (кандидатов нет из-за
+      // отклонений/дублей) и техническое МОЛЧАНИЕ воркера (semantic backlog
+      // при отсутствии/падении задачи) — разные состояния; `null` ≠ `[]`
+      // (`job`/счётчики не пришли ≠ измеренные нули).
+      expEmptyState: function () {
+        return _expEmptyStateOf(this);
+      },
       expEmptyReason: function () {
-        var f = this.intelFunnels;
-        var win24 = this.expWindow24h;
-        if (win24 && (win24.available === false || win24.enabled === false)) {
-          return 'самообучение выключено — записей, разбора и применений нет';
-        }
-        var job = f && f.experience && f.experience.job;
-        var c = (job && job.counters) || {};
-        var num = function (v) {
-          var n = parseInt(v, 10);
-          return isNaN(n) ? 0 : Math.max(0, n);
-        };
-        var scanned = num(c.semantic_scanned);
-        var extracted = num(c.semantic_extracted);
-        var candidates = num(c.semantic_candidates);
-        var rejected = num(c.semantic_rejected);
-        var dup = num(c.semantic_duplicates);
-        var llmUn = num(c.semantic_llm_unavailable);
-        var applied = win24 && win24.applications ? (win24.applications.total || 0) : null;
-        if (job == null && !scanned) {
-          return 'семантический обзор ещё не выполнялся — durable-задачи '
-            + 'нет';
-        }
-        if (!scanned) {
-          return 'семантика ещё не сканировала сообщения (водяной знак: '
-            + num(f && f.experience && f.experience.semantic_lag
-                  && f.experience.semantic_lag.watermark) + ')';
-        }
-        if (!extracted && !candidates) {
-          return 'сообщения сканируются, кандидатов не отобрано '
-            + '(отклонено: ' + rejected + ', дубликатов: ' + dup
-            + (llmUn ? ', LLM недоступен: ' + llmUn + ' раз' : '') + ')';
-        }
-        if (applied != null && !applied) {
-          return 'уроки есть, применений за окно не было';
-        }
-        return '';
+        return _expEmptyStateOf(this).text;
       },
       // F5 (T-1455): бюджет контекста из аддитивного /api/status.context
       // (in-memory accounting); красный — урезание или загрузка > 90%.
@@ -12642,6 +12751,182 @@
           counters: e.counters || {},
           improvement: e.improvement || null,
         };
+      },
+      // ═══ M4B B3: живая лента «Опыт / Уроки» ═════════════════════════════
+      // Одна лента в существующей карточке «Опыт», две дорожки/фильтр.
+      // «Опыт» — только реальные применения (`status.experience.items`
+      // kind='applied'); «Уроки» — существующий read-only GET
+      // /api/memory/lessons (правило/статус/время/scope/основания).
+      // Второй ленты/API/счётчика нет; события activated/suspended в
+      // дорожку «Опыт» не попадают (их правило уже показано в «Уроках»).
+      experienceTrackOptions: function () {
+        var opts = [
+          { id: 'all', label: 'Всё' },
+          { id: 'experience', label: 'Опыт' },
+        ];
+        if (this.isGlobalAdmin) opts.push({ id: 'lesson', label: 'Уроки' });
+        return opts;
+      },
+      _experienceScopeLabel: function (scope, scopeChatId) {
+        return _experienceScopeLabelOf(scope, scopeChatId);
+      },
+      experienceRows: function () {
+        var e = (this.statusData && this.statusData.experience) || null;
+        if (!e || e.enabled === false) return [];
+        var chatId = (this.activeChatId == null) ? null : this.activeChatId;
+        var rows = [];
+        (e.items || []).forEach(function (it) {
+          if (!it || it.kind !== 'applied') return;   // опыт = применение
+          var scope = String(it.scope || '');
+          // S15-07 (страховка): не-глобальный опыт не показывается, когда
+          // разрешённого чата нет вовсе (сервер уже фильтрует).
+          if (scope !== 'global' && chatId == null) return;
+          var ts = (it.ts == null) ? null : Number(it.ts);
+          rows.push({
+            key: 'exp:' + String(it.lesson_id) + ':' + String(ts),
+            track: 'experience',
+            kind: 'experience',
+            id: it.lesson_id,
+            rule: it.summary || '',
+            label: it.label || 'урок применён',
+            type: it.type || '',
+            status: 'применено',
+            scope: _experienceScopeLabelOf(
+              scope, (it.scope_chat_id == null ? null : it.scope_chat_id)),
+            outcome: it.outcome || 'unknown',
+            measurement: it.measurement || null,
+            ts: ts,
+            raw: it,
+          });
+        });
+        return rows.sort(function (a, b) {
+          return (Number(b.ts) || 0) - (Number(a.ts) || 0);
+        });
+      },
+      experienceLessonRows: function () {
+        var chatId = (this.activeChatId == null)
+          ? null : String(this.activeChatId);
+        var rows = [];
+        (this.experienceLessons || []).forEach(function (l) {
+          if (!l || l.lesson_id == null) return;
+          var scope = String(l.scope || '');
+          var scopeChat = (l.scope_chat_id == null)
+            ? null : String(l.scope_chat_id);
+          // MAC-S15-07: урок чужого чата не показывается активным в этом
+          // чате — даже если «плохой» ответ сервера его прислал.
+          var visible = scope === 'global'
+            || (scope === 'chat' && chatId != null && scopeChat != null
+                && scopeChat === chatId);
+          if (!visible) return;
+          var hypothesis = l.llm_hypothesis === true
+            || l.reliability === 'llm_hypothesis'
+            || l.source === 'llm_hypothesis';
+          // MAC-S7-FEED-02: «действует» — ТОЛЬКО серверное applied===true
+          // (active без recheck); unverified/historical/гипотеза — честный
+          // неактивный статус, а не зелёный бейдж.
+          var applied = l.applied === true && !l.unverified
+            && !l.historical && !hypothesis;
+          var serverStatus = String(l.status || '');
+          var status = applied ? 'действует'
+            : (l.unverified ? 'не проверен'
+              : (l.historical ? 'исторический'
+                : (hypothesis ? 'гипотеза (не правило)'
+                  : (serverStatus === 'suspended' ? 'приостановлен'
+                    : (serverStatus === 'candidate' ? 'кандидат'
+                      : (serverStatus || 'нет статуса'))))));
+          var tsRaw = (l.updated_at != null && Number(l.updated_at) > 0)
+            ? l.updated_at : l.created_at;
+          var ts = (tsRaw == null) ? null : Number(tsRaw);
+          rows.push({
+            key: 'lesson:' + String(l.lesson_id) + ':'
+              + String(l.version == null ? '' : l.version),
+            track: 'lesson',
+            kind: 'lesson',
+            id: l.lesson_id,
+            rule: l.recommendation || '',
+            label: 'урок',
+            type: l.type || '',
+            status: status,
+            applied: applied,
+            unverified: !!l.unverified,
+            historical: !!l.historical,
+            scope: _experienceScopeLabelOf(scope, l.scope_chat_id),
+            grounds: (l.grounds_count == null
+              ? null : Number(l.grounds_count)),
+            applications: (l.applications_count == null
+              ? null : Number(l.applications_count)),
+            ts: ts,
+            raw: l,
+          });
+        });
+        return rows.sort(function (a, b) {
+          return (Number(b.ts) || 0) - (Number(a.ts) || 0);
+        });
+      },
+      experienceFeedRows: function () {
+        var track = this.experienceFeedTrack || 'all';
+        var rows = [];
+        if (track === 'all' || track === 'experience') {
+          rows = rows.concat(this.experienceRows || []);
+        }
+        if (track === 'all' || track === 'lesson') {
+          rows = rows.concat(this.experienceLessonRows || []);
+        }
+        var seen = {};
+        var out = [];
+        rows.forEach(function (r) {
+          if (!r || seen[r.key]) return;    // без дублей при обновлении
+          seen[r.key] = true;
+          out.push(r);
+        });
+        return out.slice(0, 24);
+      },
+      experienceFeedCounts: function () {
+        var exp = (this.experienceRows || []).length;
+        var les = (this.experienceLessonRows || []).length;
+        return { all: exp + les, experience: exp, lesson: les };
+      },
+      experienceFeedEmptyTitle: function () {
+        var u = this.statusUnknownView || { unknown: false, error: '' };
+        if (u.unknown) return 'Состояние опыта неизвестно';
+        if (this.experienceFeedTrack === 'lesson') return 'Уроков пока нет';
+        if (this.experienceFeedTrack === 'experience') return 'Применений нет';
+        return 'Записей опыта пока нет';
+      },
+      experienceFeedEmptyReason: function () {
+        var u = this.statusUnknownView || { unknown: false, error: '' };
+        if (u.unknown) {
+          return 'неизвестно: ' + (u.error || 'нет ответа /api/status')
+            + ' · ' + (u.lastOkText || '');
+        }
+        var e = (this.statusData && this.statusData.experience) || null;
+        if (e && e.enabled === false) {
+          return 'опыт и уроки выключены настройкой — записей нет';
+        }
+        var track = this.experienceFeedTrack || 'all';
+        if (this.experienceLessonsError) {
+          return 'уроки недоступны (' + this.experienceLessonsError + ') — '
+            + 'это не «уроков нет»';
+        }
+        if (track === 'lesson' && !this.experienceLessonsLoaded) {
+          return 'лента уроков ещё не запрашивалась';
+        }
+        var base = '';
+        var er = this.expEmptyReason;
+        if (typeof er === 'function') {
+          try { base = er.call(this) || ''; } catch (e) { base = ''; }
+        } else {
+          base = er || '';
+        }
+        if (track === 'experience') {
+          return base || 'применений урока пока нет — опыт появляется после '
+            + 'реального применения';
+        }
+        if (track === 'lesson') {
+          return 'активных или проверенных уроков нет — это не ошибка';
+        }
+        return base || 'записей опыта и уроков пока нет — уроки появятся '
+          + 'после проверенного опыта';
       },
       // F11 (§14/D2): честные системные метрики — `null` (нет данных) ≠ 0.
       // `ready` — пришла ли секция `server`; поля нормализованы в number|null.
@@ -13694,6 +13979,15 @@
           this.memoryYearCoverageTurn = 1;
           this.memoryYearCoverageTrace = '';
           this.loadMemoryYearCoverage(false);
+        }
+        // M4B B3 (MAC-S15-07): снимок уроков принадлежит КОНКРЕТНОМУ чату —
+        // при смене scope старые строки не переезжают в новый чат.
+        if (typeof this._resetExperienceLessons === 'function') {
+          this._resetExperienceLessons();
+        }
+        if (this.activeTab === 'status'
+            && typeof this.loadExperienceLessons === 'function') {
+          this.loadExperienceLessons(false);
         }
       },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
@@ -17145,6 +17439,105 @@
         var next = {};
         next[key] = !(this.expStageOpen && this.expStageOpen[key]);
         this.expStageOpen = next;
+      },
+      // ── M4B B3 (MAC-S7-FEED-01/02/03): живая лента «Опыт / Уроки» ───────
+      // Источник дорожки «Уроки» — СУЩЕСТВУЮЩИЙ read-only GET
+      // /api/memory/lessons (chat-scope того же активного чата; global admin
+      // по прецеденту «Памяти»). Никаких новых endpoint/счётчиков; лента не
+      // пишет ничего при отрисовке (только GET).
+      loadExperienceLessons: async function (force) {
+        if (!this.isGlobalAdmin) return;
+        if (this.experienceLessonsBusy) return;
+        if (this.experienceLessonsLoaded && !force) return;
+        this.experienceLessonsBusy = true;
+        var epoch = this.scopeEpoch;
+        var chatId = (this.activeChatId == null) ? null : this.activeChatId;
+        var q = (chatId == null)
+          ? '?limit=20'
+          : ('?chat_id=' + encodeURIComponent(chatId) + '&limit=20');
+        try {
+          var data = await this.api('/api/memory/lessons' + q);
+          if (!this._scopeGuard(epoch)) return;
+          this.experienceLessons = (data && data.lessons) || [];
+          this.experienceLessonsError = '';
+          this.experienceLessonsLoaded = true;
+          this.experienceLessonsAt = Date.now();
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.experienceLessons = [];
+          this.experienceLessonsLoaded = false;
+          this.experienceLessonsError = (typeof this.loreErrText === 'function')
+            ? this.loreErrText(e) : ((e && e.message) || 'ошибка запроса');
+        } finally {
+          if (this._scopeGuard(epoch)) this.experienceLessonsBusy = false;
+        }
+      },
+      // Смена scope: снимок уроков другого чата не переезжает в новый.
+      _resetExperienceLessons: function () {
+        this.experienceLessons = [];
+        this.experienceLessonsLoaded = false;
+        this.experienceLessonsError = '';
+        this.experienceLessonsAt = 0;
+      },
+      setExperienceFeedTrack: function (track) {
+        var id = String(track || 'all');
+        if (id !== 'all' && id !== 'experience' && id !== 'lesson') return;
+        if (id === 'lesson' && !this.isGlobalAdmin) return;
+        this.experienceFeedTrack = id;
+        if (id === 'lesson') this.loadExperienceLessons(false);
+      },
+      // Клик по строке ленты — существующее окно записи (второго окна нет).
+      openExperienceFeedRow: function (row, ev) {
+        if (!row) return;
+        var source = (row.track === 'lesson') ? 'lesson' : 'experience';
+        var raw = row.raw || {};
+        var item = Object.assign({}, raw, {
+          _ui_status: row.status || '',
+          _ui_scope: row.scope || '',
+        });
+        this.openStatusRecord(source, item, ev);
+      },
+      // «Обновить ленту»: перечитывает ОБА существующих источника ленты
+      // (status.experience — тем же ритмом, что Статус; уроки — один GET).
+      refreshExperienceFeed: function () {
+        if (typeof this.loadStatus === 'function') this.loadStatus();
+        this.loadExperienceLessons(true);
+      },
+      // a11y-подпись строки: тип/правило/статус/scope/время/основания.
+      experienceRowAria: function (row) {
+        if (!row) return '';
+        var parts = [];
+        parts.push(row.kind === 'lesson' ? 'Урок' : 'Опыт');
+        if (row.rule) parts.push(this._shortText(row.rule, 80));
+        parts.push('статус: ' + (row.status || '—'));
+        parts.push('область: ' + (row.scope || '—'));
+        var when = this.statusRowTitle(row.ts,
+          row.kind === 'lesson' ? 'Обновлён' : 'Применено');
+        parts.push(when ? ('время: ' + when) : 'время неизвестно');
+        if (row.kind === 'lesson') {
+          parts.push('подтверждённых оснований: '
+            + (row.grounds == null ? 'неизвестно' : row.grounds));
+        }
+        return parts.join(' · ');
+      },
+      // Бейдж статуса: зелёный ТОЛЬКО для серверного applied===true.
+      experienceRowBadgeClass: function (row) {
+        if (!row) return 'badge-muted';
+        if (row.kind === 'lesson') {
+          if (row.applied) return 'badge-ok';
+          if (row.unverified || row.historical) return 'badge-muted';
+          return 'badge-warn';
+        }
+        if (row.outcome === 'success') return 'badge-ok';
+        if (row.outcome === 'failure') return 'badge-err';
+        return 'badge-muted';
+      },
+      experienceOutcomeLabel: function (row) {
+        var o = row && row.outcome;
+        if (o === 'success') return 'успех';
+        if (o === 'failure') return 'провал';
+        if (!o || o === 'unknown') return 'неизвестен (не выдумывается)';
+        return String(o);
       },
       // ── EVOL-019 (Wave 4 UI): «Проверить распознавание» ──────────────────
       // Отдельное действие от «Проверить подключение»: проверяет весь путь
@@ -22099,6 +22492,12 @@
           trait: { label: 'Черта характера',
                    section: 'Эволюция характера (Личность)',
                    badge: 'черта', glyph: 'persona' },
+          // M4B B3: строки компактной ленты «Опыт / Уроки» — те же строки
+          // ленты, отличаются бейджем и разделом (вёрстка/окно общие).
+          experience: { label: 'Опыт', section: 'Опыт (применения уроков)',
+                        badge: 'опыт', glyph: 'history' },
+          lesson: { label: 'Урок', section: 'Опыт (правила уроков)',
+                    badge: 'урок', glyph: 'school' },
         };
         return map[source] || { label: 'Запись', section: 'Статус',
                                 badge: 'запись', glyph: 'article' };
@@ -22250,6 +22649,10 @@
         var origin = it.origin || it.source || null;
         var tgId = (it.tg_message_id != null) ? it.tg_message_id : null;
         var text = it.full || it.fact || it.text || '';
+        // M4B B3: строки ленты «Опыт / Уроки» — текст из реальных полей
+        // источника (summary применения / recommendation правила).
+        if (source === 'experience' && !text) text = it.summary || '';
+        if (source === 'lesson' && !text) text = it.recommendation || '';
         var fields = [];
         var push = function (key, label, value, hint) {
           fields.push({
@@ -22294,6 +22697,36 @@
           + (sprint(it.archived_at) || it.archived_at));
         push('changes', 'Изменения',
              changes.length ? changes.join('; ') : null);
+        // M4B B3: аддитивные поля строк ленты «Опыт / Уроки». Значения —
+        // серверные (применение/правило), UI-подпись статуса передаётся
+        // отдельно (`_ui_status`) и не подменяет серверный код.
+        if (source === 'experience') {
+          push('type', 'Тип урока', it.type ? String(it.type) : null);
+          push('status', 'Статус применения',
+               (it._ui_status || 'применено'), 'mca_lesson_applications');
+          push('outcome', 'Исход применения', it.outcome || null,
+               'success | failure | unknown');
+          push('measurement', 'Измерение',
+               (it.measurement == null) ? null
+                 : (typeof it.measurement === 'string'
+                   ? it.measurement : JSON.stringify(it.measurement)));
+          push('applied_at', 'Применено', sprint(it.ts),
+               'mca_lesson_applications.applied_at');
+        } else if (source === 'lesson') {
+          push('type', 'Тип урока', it.type ? String(it.type) : null);
+          push('status', 'Статус правила',
+               (it._ui_status || it.status || null), 'mca_lessons.status');
+          push('grounds', 'Подтверждённых оснований',
+               (it.grounds_count == null
+                 ? null : String(it.grounds_count)));
+          push('applications', 'Применений',
+               (it.applications_count == null
+                 ? null : String(it.applications_count)));
+          push('updated_at', 'Обновлён', sprint(it.updated_at));
+          push('verified', 'Проверено',
+               it.unverified ? 'нет (не проверен)'
+                 : (it.historical ? 'историческое правило' : 'да'));
+        }
         if (source === 'belief' || source === 'paradigm') {
           push('weight', 'Вес', (it.weight != null) ? String(it.weight) : null);
           push('importance', 'Важность',
@@ -29553,6 +29986,14 @@
             && this.isGlobalAdmin && !this.statusData) {
           this.loadStatus();
         }
+        // M4B B3 (MAC-S7-FEED-04): аналитика «Опыта» несёт ПОЛНУЮ
+        // 8-стадийную цепочку — та же проекция /api/experience/pipeline
+        // (второго API нет). Загрузка ленивая при входе в модуль.
+        if (id === 'mod_experience' && this.isGlobalAdmin
+            && typeof this.loadExperiencePipeline === 'function'
+            && !this.expPipeline && !this.expPipelineBusy) {
+          this.loadExperiencePipeline();
+        }
         // P0 Vision (D12/P0V-UI-DISPLAY): «LLM Провайдеры» — факты
         // фактического подключения Vision (GET /api/vision/state, fail-open,
         // кэш 30 с; RBAC-403 → секция без фактов, поведение прежнее).
@@ -29575,6 +30016,12 @@
           // отметками (GET /api/experience/pipeline; global admin, лениво).
           if (typeof this.loadExperiencePipeline === 'function') {
             this.loadExperiencePipeline();
+          }
+          // M4B B3 (MAC-S7-FEED-01): дорожка «Уроки» компактной ленты
+          // «Опыта» — существующий read-only GET /api/memory/lessons
+          // (один запрос на вход; обновление — кнопкой ленты).
+          if (typeof this.loadExperienceLessons === 'function') {
+            this.loadExperienceLessons(false);
           }
           // U04 (v6.3): viewer логов теперь ЖИВЁТ в конце «Статуса» —
           // лениво догружаем при входе (как раньше на входе в Аналитику;
@@ -33191,6 +33638,10 @@
           if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
           this.statusData = st;
           this.statusError = null;
+          // M4B B3 (MAC-S15-11): время последнего УСПЕШНОГО ответа экрана —
+          // для честного «unknown» вместо «0 опыта» при 503. Локальные часы
+          // клиента, подпись так и говорит.
+          this.statusLastOkAt = Math.floor(Date.now() / 1000);
           // hotfix6/C2 (ADR-1025-12 D4): телеметрия §15 ОТДЕЛЕНА от рендера.
           // Обновляем снимок состояния из УЖЕ полученного /api/status (30 с,
           // app.js::startStatusPolling) — новый поллер не вводим, сеть в кадре

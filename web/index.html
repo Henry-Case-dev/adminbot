@@ -14938,9 +14938,17 @@
                 <span class="hub-card-sub block">Сводка ключей/гейтов/бюджетов по всем чатам (только global admin)</span>
               </span>
             </div>
-            <!-- F15: 401 — заглушка «сессия устарела» вместо вечного спиннера -->
-            <div v-if="statusError" class="card p-6 text-yellow-200 col-span-full">
-              {{ statusError }}
+            <!-- F15: 401 — заглушка «сессия устарела» вместо вечного спиннера.
+                 M4B B3 (MAC-S15-11): 503 — это «неизвестно», а не «нулевой
+                 опыт»/«нет последнего вызова»; время последнего УСПЕШНОГО
+                 ответа экрана показывается честной подписью. -->
+            <div v-if="statusError" class="card p-6 text-yellow-200 col-span-full"
+                 data-status-error>
+              <div>{{ statusError }}</div>
+              <div class="text-xs text-gray-400 mt-1" data-status-last-ok>
+                {{ statusUnknownView.lastOkText }}. Показанные ранее данные не
+                обнуляются — текущее состояние неизвестно.
+              </div>
             </div>
             <template v-if="!statusError">
             <!-- F11 (§12/D1, ADR-1025-23): ЕДИНЫЙ 12-колоночный контейнер
@@ -17041,7 +17049,12 @@
                 <span v-if="experienceFeed.ready && experienceFeed.enabled"
                       class="badge badge-muted">{{ experienceFeed.stateLabel }}</span>
               </div>
-              <div v-if="!experienceFeed.ready" class="spinner my-2"></div>
+              <div v-if="!experienceFeed.ready && statusUnknownView.unknown"
+                   class="text-xs text-amber-300" data-experience-unknown>
+                Состояние опыта неизвестно — {{ statusUnknownView.error || 'нет ответа /api/status' }}.
+                {{ statusUnknownView.lastOkText }}; это не «нулевой опыт».
+              </div>
+              <div v-else-if="!experienceFeed.ready" class="spinner my-2"></div>
               <div v-else-if="!experienceFeed.enabled" class="text-xs text-gray-500">
                 Опыт и уроки выключены — записей, разбора и применения нет.
               </div>
@@ -17191,19 +17204,73 @@
                   <div class="text-gray-500 mt-1">{{ expLastAppliedLabel }}</div>
                   <div class="text-gray-500">{{ expEmptyReason }}</div>
                 </div>
-                <div v-if="!experienceFeed.items.length" class="text-xs text-gray-500">
-                  Записей опыта пока нет — уроки появятся после проверенного опыта.
-                </div>
-                <div v-else class="space-y-1 text-xs" data-experience-feed>
-                  <div v-for="it in experienceFeed.items"
-                       :key="'ex' + it.lesson_id + ':' + it.ts"
-                       class="rounded-lg bg-white/5 px-2 py-1">
-                    <span class="badge badge-muted">{{ it.label }}</span>
-                    <span class="ml-1">{{ it.summary }}</span>
-                    <span class="text-gray-500 ml-1">· {{ it.scope }} · {{ fmtTs(it.ts) }}</span>
-                    <span v-if="it.outcome" class="ml-1"
-                          :class="it.outcome === 'success' ? 'text-green-400' : (it.outcome === 'failure' ? 'text-red-300' : 'text-gray-500')">
-                      · исход: {{ it.outcome }}</span>
+                <!-- M4B B3 (MAC-S7-FEED-01/02/03, MAC-AC-18): компактная
+                     живая лента «Опыт / Уроки» ПОД показателями — в этой же
+                     карточке. Тот же контроллер SFeed (`v-sfeed`), высота
+                     112–160 px (144 px), без горизонтального скролла на
+                     mobile. «Опыт» = реальные применения, «Уроки» = правила;
+                     строки различаются бейджем, вёрстка/окно общие. Клик
+                     открывает существующее окно записи, второго окна нет.
+                     Пусто/503/неизвестно — честный текст, не нули. -->
+                <div class="exp-feed" data-experience-feed>
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <div class="text-xs font-bold">Живая лента опыта и уроков</div>
+                    <div class="exp-feed__tabs" role="tablist"
+                         aria-label="Дорожки ленты опыта">
+                      <button v-for="t in experienceTrackOptions" :key="'eft-' + t.id"
+                              type="button" class="btn-ghost text-xs exp-feed__tab"
+                              :class="{ active: experienceFeedTrack === t.id }"
+                              role="tab"
+                              :aria-selected="experienceFeedTrack === t.id ? 'true' : 'false'"
+                              :data-experience-track="t.id"
+                              :disabled="experienceFeedTrack === t.id"
+                              @click="setExperienceFeedTrack(t.id)">
+                        {{ t.label }}
+                        <span class="text-gray-500">· {{ experienceFeedCounts[t.id] }}</span>
+                      </button>
+                    </div>
+                    <button class="btn-ghost text-xs ml-auto" type="button"
+                            :disabled="experienceLessonsBusy"
+                            aria-label="Обновить ленту опыта"
+                            data-experience-feed-refresh
+                            @click="refreshExperienceFeed()">⟳</button>
+                  </div>
+                  <div v-if="!experienceFeedRows.length" class="text-xs text-gray-500"
+                       data-experience-feed-empty>
+                    <b>{{ experienceFeedEmptyTitle }}</b> — {{ experienceFeedEmptyReason }}
+                  </div>
+                  <div v-else class="sfeed-viewport sfeed-viewport--experience"
+                       v-sfeed="statusRecordOpen"
+                       data-sfeed-viewport
+                       data-experience-sfeed
+                       tabindex="0" role="group"
+                       aria-label="Живая лента опыта и уроков, лента прокручивается">
+                    <div class="sfeed-track">
+                      <button v-for="row in experienceFeedRows" :key="row.key"
+                              type="button" class="sfeed-item" data-sfeed-row
+                              :data-sfeed-type="row.kind"
+                              :data-experience-feed-row="row.track"
+                              :aria-label="experienceRowAria(row)"
+                              @click="openExperienceFeedRow(row, $event)">
+                        <span class="sfeed-item__head">
+                          <span class="sfeed-item__badge"
+                                :class="row.kind === 'lesson'
+                                  ? 'sfeed-item__badge--lesson'
+                                  : 'sfeed-item__badge--experience'">
+                            {{ row.kind === 'lesson' ? 'урок' : 'опыт' }}
+                          </span>
+                          <b class="sfeed-item__subject">{{ row.rule || 'Без описания' }}</b>
+                          <span class="sfeed-item__date"
+                                :title="statusRowTitle(row.ts, row.kind === 'lesson' ? 'Обновлён' : 'Применено')">{{ statusRowDateLabel(row.ts) }}</span>
+                        </span>
+                        <span class="sfeed-item__text">
+                          <span class="badge" :class="experienceRowBadgeClass(row)">{{ row.status }}</span>
+                          · {{ row.scope }}
+                          <template v-if="row.kind === 'lesson'"> · оснований: {{ row.grounds == null ? '—' : row.grounds }} · применений: {{ row.applications == null ? '—' : row.applications }}</template>
+                          <template v-else> · тип: {{ row.type || '—' }} · исход: {{ experienceOutcomeLabel(row) }}</template>
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div class="text-xs text-gray-500 mt-2">
