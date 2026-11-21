@@ -15739,9 +15739,11 @@
                   <div v-for="ind in memoryIndicators" :key="'mi-' + ind.key"
                        class="mem-ind__card"
                        :class="'mem-ind__card--' + ind.tone"
-                       :data-memory-indicator="ind.key">
+                       :data-memory-indicator="ind.key"
+                       :aria-label="ind.label + ': ' + ind.value + (ind.sub ? (' · ' + ind.sub) : '')">
                     <span class="mem-ind__label">{{ ind.label }}</span>
-                    <b class="mem-ind__value">{{ ind.value }}</b>
+                    <b class="mem-ind__value"
+                       :title="ind.value + (ind.sub ? (' · ' + ind.sub) : '')">{{ ind.value }}</b>
                     <span v-if="ind.sub" class="mem-ind__sub">{{ ind.sub }}</span>
                     <span v-if="ind.reason" class="mem-ind__reason">{{ ind.reason }}</span>
                   </div>
@@ -17236,7 +17238,8 @@
                             @click="refreshExperienceFeed()">⟳</button>
                   </div>
                   <div v-if="!experienceFeedRows.length" class="text-xs text-gray-500"
-                       data-experience-feed-empty>
+                       data-experience-feed-empty
+                       :data-experience-feed-empty-kind="experienceFeedEmptyKind">
                     <b>{{ experienceFeedEmptyTitle }}</b> — {{ experienceFeedEmptyReason }}
                   </div>
                   <div v-else class="sfeed-viewport sfeed-viewport--experience"

@@ -247,9 +247,29 @@ FUNNELS_WORKER["experience"]["semantic_lag"] = {
 }
 LOGS = {"logs": [], "levels": [], "count": 0, "counts": {}}
 
+# B3-R1-01: задержка ТОЛЬКО ленты уроков — наблюдаемое состояние «загружаются».
+DELAY_LESSONS_FETCH = """
+(() => {
+  const orig = window.fetch;
+  window.fetch = function (input, init) {
+    const url = String(input && input.url ? input.url : input);
+    if (url.indexOf('/api/memory/lessons') >= 0) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          orig.call(window, input, init).then(resolve, reject);
+        }, 2500);
+      });
+    }
+    return orig.call(window, input, init);
+  };
+})();
+"""
+
 ALLOWED_CHAT = str(CHAT)
 # Счётчик для сценария «сначала успешный /api/status, затем 503» (S15-11).
 _FAIL_STATE = {"status_calls": 0}
+# B3-R1-01: управляемый отказ ленты уроков после успешного ответа.
+_LESSON_STATE = {"fail": False}
 
 # Реестр модулей для `/api/config.modules` (реальный прод отдаёт DTO
 # `registry_for_frontend`): без него `#/modules/<slug>` остаётся отложенным
@@ -335,17 +355,24 @@ def _api_handler(route, mode="data"):
         body = copy.deepcopy(
             FUNNELS_WORKER if mode == "worker" else FUNNELS_EVIDENCE)
     elif path.endswith("/api/memory/lessons"):
-        if mode in ("empty", "worker"):
+        raw = copy.deepcopy(LESSONS)
+        cid = (parse_qs(parsed.query).get("chat_id") or [None])[0]
+        rows = []
+        for lesson in raw:
+            if lesson["scope"] == "global":
+                rows.append(lesson)
+            elif cid is not None and str(lesson["scope_chat_id"]) == str(cid):
+                rows.append(lesson)
+        if mode == "lesson503":
+            fail()
+            return
+        if mode == "lessonline" and _LESSON_STATE["fail"]:
+            fail()
+            return
+        if mode == "lessonempty" or mode in ("empty", "worker"):
             body = {"enabled": True, "state": "not_run", "count": 0,
                     "lessons": []}
         else:
-            cid = (parse_qs(parsed.query).get("chat_id") or [None])[0]
-            rows = []
-            for lesson in LESSONS:
-                if lesson["scope"] == "global":
-                    rows.append(lesson)
-                elif cid is not None and str(lesson["scope_chat_id"]) == str(cid):
-                    rows.append(lesson)
             body = {"enabled": True, "state": "implemented" if rows
                     else "not_run", "count": len(rows), "lessons": rows}
     elif path.endswith("/api/experience/pipeline"):
@@ -451,6 +478,9 @@ def _probe(page):
               .map((el) => el.innerText.replace(/\\n/g, ' · ')),
             empty: q('[data-experience-feed-empty]')
               ? q('[data-experience-feed-empty]').innerText : '',
+            emptyKind: q('[data-experience-feed-empty]')
+              ? q('[data-experience-feed-empty]')
+                .getAttribute('data-experience-feed-empty-kind') : null,
             unknown: q('[data-experience-unknown]')
               ? q('[data-experience-unknown]').innerText : '',
             indCount: inds.length,
@@ -563,11 +593,14 @@ def main() -> int:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
 
-            def new_page(width, height, mode="data", reduced=False):
+            def new_page(width, height, mode="data", reduced=False,
+                         delay_lessons=False):
                 ctx = browser.new_context(
                     viewport={"width": width, "height": height},
                     reduced_motion="reduce" if reduced else "no-preference")
                 ctx.add_init_script(M.TMA_STUB)
+                if delay_lessons:
+                    ctx.add_init_script(DELAY_LESSONS_FETCH)
                 ctx.route("**/api/**",
                           lambda route: _api_handler(route, mode))
                 page = ctx.new_page()
@@ -577,8 +610,9 @@ def main() -> int:
                     if m.type != "error":
                         return
                     text = m.text[:200]
-                    if mode == "fail" and ("Failed to load resource" in text
-                                           or "503" in text):
+                    if mode in ("fail", "lesson503", "lessonline") and (
+                            "Failed to load resource" in text
+                            or "503" in text):
                         return
                     errors.append(text)
 
@@ -766,6 +800,102 @@ def main() -> int:
                       "document.querySelectorAll("
                       "'[data-experience-feed-row]').length") >= 3)
             check("reduced_motion_console_clean", not errors)
+            ctx.close()
+
+            # ── 4b. B3-R1-01: дорожка «Уроки» — честные состояния ───────
+            # (a) 503 с первого запроса: «неизвестно», не «нет уроков».
+            ctx, page, errors = new_page(1440, 900, mode="lesson503")
+            page.click('[data-experience-track="lesson"]')
+            page.wait_for_timeout(700)
+            pr = _probe(page)
+            result["lesson_503"] = {"kind": pr["emptyKind"],
+                                    "text": pr["empty"][:300]}
+            check("lesson_503_kind", pr["emptyKind"] == "unavailable")
+            check("lesson_503_unknown_title",
+                  "Состояние уроков неизвестно" in pr["empty"])
+            check("lesson_503_no_false_empty",
+                  "Уроков пока нет" not in pr["empty"])
+            check("lesson_503_never_ok",
+                  "успешных ответов ленты уроков ещё не было" in pr["empty"])
+            check("lesson_503_console_clean", not errors)
+            shot = os.path.join(SHOTS, "b3-lessons-503.png")
+            page.screenshot(path=shot, full_page=True)
+            result["screenshots"].append(
+                os.path.relpath(shot, REPO).replace(os.sep, "/"))
+            ctx.close()
+
+            # (b) загрузка (busy): «Уроки загружаются…», не «нет уроков».
+            ctx, page, errors = new_page(1440, 900, delay_lessons=True)
+            page.click('[data-experience-track="lesson"]')
+            page.wait_for_timeout(350)
+            pr = _probe(page)
+            result["lesson_loading"] = {"kind": pr["emptyKind"],
+                                        "text": pr["empty"][:300]}
+            check("lesson_loading_kind", pr["emptyKind"] == "loading")
+            check("lesson_loading_title",
+                  "Уроки загружаются" in pr["empty"])
+            check("lesson_loading_no_false_empty",
+                  "Уроков пока нет" not in pr["empty"])
+            check("lesson_loading_last_ok_absent",
+                  "успешных ответов ленты уроков ещё не было" in pr["empty"])
+            page.wait_for_timeout(3200)          # запрос уроков завершился
+            check("lesson_loading_resolves",
+                  page.evaluate(
+                      "document.querySelectorAll("
+                      "'[data-experience-feed-row=\"lesson\"]').length") >= 1)
+            shot = os.path.join(SHOTS, "b3-lessons-loading.png")
+            page.screenshot(path=shot, full_page=True)
+            result["screenshots"].append(
+                os.path.relpath(shot, REPO).replace(os.sep, "/"))
+            ctx.close()
+
+            # (c) успешный ПУСТОЙ ответ: только здесь «Уроков пока нет».
+            ctx, page, errors = new_page(1440, 900, mode="lessonempty")
+            page.click('[data-experience-track="lesson"]')
+            page.wait_for_timeout(600)
+            pr = _probe(page)
+            result["lesson_empty"] = {"kind": pr["emptyKind"],
+                                      "text": pr["empty"][:300]}
+            check("lesson_empty_kind", pr["emptyKind"] == "empty")
+            check("lesson_empty_title", "Уроков пока нет" in pr["empty"])
+            check("lesson_empty_reason",
+                  "активных или проверенных уроков нет" in pr["empty"])
+            check("lesson_empty_no_error_word",
+                  "недоступны" not in pr["empty"])
+            page.screenshot(path=os.path.join(SHOTS,
+                                             "b3-lessons-empty-ok.png"),
+                            full_page=True)
+            result["screenshots"].append(
+                "plans/features/mod-acl-ux-01/evidence/m4b/b3/shots/"
+                "b3-lessons-empty-ok.png")
+            ctx.close()
+
+            # (d) 503 ПОСЛЕ успеха в ТЕКУЩЕМ scope: unknown + время успеха.
+            _LESSON_STATE["fail"] = False
+            ctx, page, errors = new_page(1440, 900, mode="lessonline")
+            page.wait_for_timeout(1500)          # initial loads + chat scope
+            seed_rows = page.evaluate(
+                "document.querySelectorAll("
+                "'[data-experience-feed-row=\"lesson\"]').length")
+            check("lesson_after_ok_seed_rows", seed_rows >= 1)
+            _LESSON_STATE["fail"] = True
+            page.click('[data-experience-track="lesson"]')
+            page.click('[data-experience-feed-refresh]')
+            page.wait_for_timeout(1200)
+            pr = _probe(page)
+            _LESSON_STATE["fail"] = False
+            result["lesson_after_ok"] = {"kind": pr["emptyKind"],
+                                         "text": pr["empty"][:300]}
+            check("lesson_after_ok_kind", pr["emptyKind"] == "unavailable")
+            check("lesson_after_ok_last_ok",
+                  "последний успешный ответ ленты уроков:" in pr["empty"])
+            check("lesson_after_ok_no_false_empty",
+                  "Уроков пока нет" not in pr["empty"])
+            check("lesson_after_ok_console_clean", not errors)
+            shot = os.path.join(SHOTS, "b3-lessons-503-after-ok.png")
+            page.screenshot(path=shot, full_page=True)
+            result["screenshots"].append(
+                os.path.relpath(shot, REPO).replace(os.sep, "/"))
             ctx.close()
 
             # ── 5. 503 /api/status: unknown + последний успешный ответ ──
