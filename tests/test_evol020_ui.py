@@ -221,6 +221,39 @@ def test_ui_wiring_is_honest():
     assert "(st.total || 0) > 0" in view
     assert "loadExperiencePipeline" in js
     assert "'/api/experience/pipeline'" in js
+    # M4B B3 (MAC-S7-FEED-04): на «Статусе» — 5 КЛЮЧЕВЫХ стадий и ссылка
+    # «Развернуть цепочку»; API при этом по-прежнему отдаёт все 8 стадий
+    # (порядок/подписи — серверные).
+    assert "expPipelineView.keyStages" in block
+    assert "expPipelineView.fullRoute" in block
+    assert "Развернуть цепочку" in block
+    assert "EXP_KEY_STAGES" in js
+    assert "'#/modules/experience'" in js
+    # Порядок стадий API остаётся 8-стадийным (контракт сервера).
+    assert list(exp_diag.PIPELINE_STAGES) == [
+        "observation", "candidate", "validation", "activation",
+        "retrieval", "application", "outcome", "utility",
+    ]
+
+
+def test_ui_full_chain_stays_in_experience_analytics():
+    """8-стадийная воронка остаётся в аналитике «Опыта» (не потеряна)."""
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    assert 'data-experience-chain="full"' in html
+    chain = html.split('data-experience-chain="full"', 1)[1]
+    chain = chain.split("data-module-history", 1)[0]
+    assert "expPipelineView.stages" in chain
+    assert "data-experience-chain-stage" in chain
+    assert "st.stateLabel" in chain
+    # Та же проекция (второго API/стадийного порядка нет).
+    js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+    assert js.count("'/api/experience/pipeline'") == 1
+    # Компактные 5 ключевых стадий — ровно этот набор, без «своего» порядка.
+    key = js.split("var EXP_KEY_STAGES = [", 1)[1].split("];", 1)[0]
+    assert key.count("'") == 2 * 5
+    for stage in ("observation", "candidate", "validation",
+                  "application", "outcome"):
+        assert "'" + stage + "'" in key
 
 
 def test_ui_replaces_bare_bars_with_stage_rows():

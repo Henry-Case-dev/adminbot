@@ -221,6 +221,55 @@ def _section_disabled() -> dict:
     return {"available": False}
 
 
+async def _facts_metrics(db, chat_id: int | None) -> dict:
+    """M4B B3 / D6 (additive, read-only, DDL 0): «активные факты» памяти.
+
+    Серверное определение активного факта — ``kind='fact'`` AND
+    ``status='confirmed'`` AND TTL не истёк (``expires_at IS NULL OR
+    expires_at > now``). Клиент не выводит «активный» сам, поэтому число
+    берётся ТОЛЬКО отсюда. Fail-open: каждая метрика независимо ``None``
+    (неизвестно ≠ 0), запросы только COUNT/MAX по существующим индексам.
+    """
+    now = int(time.time())
+    base = ("kind = 'fact' AND status = 'confirmed' "
+            "AND (expires_at IS NULL OR expires_at > ?)")
+    base_params: list = [now]
+    if chat_id is not None:
+        base += " AND chat_id = ?"
+        base_params.append(int(chat_id))
+
+    async def _scalar(sql: str, params: tuple):
+        try:
+            cursor = await db.db.execute(sql, params)
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            try:
+                value = row["n"]           # sqlite3.Row / dict
+            except (KeyError, IndexError, TypeError):
+                value = row[0]
+            return None if value is None else int(value)
+        except Exception:
+            logger.warning("[memory_overview] facts metric failed — null",
+                           exc_info=True)
+            return None
+
+    out: dict = {}
+    out["facts_confirmed"] = await _scalar(
+        f"SELECT COUNT(*) AS n FROM graph_facts WHERE {base}",
+        tuple(base_params))
+    out["facts_last_created_at"] = await _scalar(
+        f"SELECT MAX(created_at) AS n FROM graph_facts WHERE {base}",
+        tuple(base_params))
+    out["facts_last_24h"] = await _scalar(
+        "SELECT COUNT(*) AS n FROM graph_facts WHERE " + base
+        + " AND created_at > ?", tuple(base_params) + (now - 86400,))
+    out["facts_last_7d"] = await _scalar(
+        "SELECT COUNT(*) AS n FROM graph_facts WHERE " + base
+        + " AND created_at > ?", tuple(base_params) + (now - 7 * 86400,))
+    return out
+
+
 # M4B B2 / D3 (approved, read-only, DDL 0): серверное объяснение
 # «0 активных намерений при N публикациях». Числа уже посчитаны выше
 # (durable counters + окна mca_events); второй запрос/стор не нужен.
@@ -273,6 +322,7 @@ async def memory_expired_overview(
     overview = await _memory_manager(db).expired_memory_overview(
         None if chat_id is None else int(chat_id))
     failed = bool(overview.get("error"))
+    facts = await _facts_metrics(db, chat_id)
     return {
         "available": not failed,
         "now_ts": int(overview.get("now_ts") or time.time()),
@@ -281,6 +331,12 @@ async def memory_expired_overview(
         "needs_recheck": int(overview.get("needs_recheck") or 0),
         "superseded_total": int(overview.get("superseded_total") or 0),
         "infinite_retention": bool(overview.get("infinite_retention")),
+        # M4B B3 / D6: аддитивные метрики активных фактов (DDL 0,
+        # fail-open null — «неизвестно» не превращается в 0).
+        "facts_confirmed": facts["facts_confirmed"],
+        "facts_last_created_at": facts["facts_last_created_at"],
+        "facts_last_24h": facts["facts_last_24h"],
+        "facts_last_7d": facts["facts_last_7d"],
     }
 
 

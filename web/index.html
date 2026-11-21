@@ -1507,6 +1507,95 @@
                 </div>
               </div>
 
+              <!-- M4B B3 (MAC-S7-FEED-04): аналитика «Опыта» — ПОЛНАЯ
+                   8-стадийная цепочка из той же проекции
+                   /api/experience/pipeline (второго API/ленты/счётчика нет).
+                   На «Статусе» остаются 5 ключевых стадий + ссылка сюда;
+                   раскрытие причин/ссылки по каждой стадии — тот же
+                   механизм expStageOpen, без второй модели состояния. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_experience'
+                        && isGlobalAdmin"
+                   class="mt-3 pt-2 border-t border-white/10 text-xs"
+                   data-experience-chain="full">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="font-bold">Цепочка опыта (8 стадий)</div>
+                  <span v-if="expPipelineView" class="badge"
+                        :class="expPipelineView.state === 'working' ? 'badge-ok'
+                          : (expPipelineView.state === 'broken' ? 'badge-err'
+                             : 'badge-warn')">{{ expPipelineView.stateLabel }}</span>
+                  <button type="button" class="btn-ghost text-xs ml-auto"
+                          :disabled="expPipelineBusy"
+                          aria-label="Обновить цепочку опыта"
+                          data-experience-chain-refresh
+                          @click="loadExperiencePipeline()">⟳</button>
+                </div>
+                <div v-if="expPipelineBusy && !expPipelineView" class="spinner my-2"></div>
+                <div v-else-if="expPipelineError" class="text-red-300"
+                     data-experience-chain-error>{{ expPipelineError }}</div>
+                <div v-else-if="!expPipelineView" class="text-gray-500">
+                  Данные цепочки недоступны.
+                </div>
+                <template v-else>
+                  <div class="text-gray-500 mb-1" data-experience-chain-reason>
+                    {{ expPipelineView.reasonLabel || 'Причина не определена' }}
+                  </div>
+                  <div class="exp-chain" data-experience-chain-stages>
+                    <div v-for="st in expPipelineView.stages" :key="'xc-' + st.key"
+                         class="exp-chain__row"
+                         :data-experience-chain-stage="st.key"
+                         :data-experience-chain-state="st.state">
+                      <button type="button" class="exp-chain__head"
+                              :aria-expanded="expStageOpen && expStageOpen[st.key] ? 'true' : 'false'"
+                              @click="toggleExpStage(st.key)">
+                        <span class="exp-stage__label">{{ st.label }}</span>
+                        <span class="badge"
+                              :class="st.state === 'working' ? 'badge-ok'
+                                : (st.state === 'broken' ? 'badge-err' : 'badge-muted')">{{ st.stateLabel }}</span>
+                        <span class="exp-stage__count">{{ st.w24 }} / {{ st.w7 }} / {{ st.w30 }}</span>
+                      </button>
+                      <div class="exp-stage__meta">
+                        <span>прогон: {{ st.lastRun ? fmtTs(st.lastRun) : 'не было' }}</span>
+                        <span>успех: {{ st.lastSuccess ? fmtTs(st.lastSuccess) : 'не было' }}</span>
+                        <span>всего: {{ st.total }}</span>
+                      </div>
+                      <div v-if="st.reasonLabel" class="exp-stage__reason">{{ st.reasonLabel }}</div>
+                      <div v-if="expStageOpen && expStageOpen[st.key]"
+                           class="exp-stage__detail"
+                           :data-experience-chain-stage-detail="st.key">
+                        <div v-if="st.skips.length">
+                          <div class="text-gray-500">Пропуски (последние):</div>
+                          <div v-for="sk in st.skips" :key="'xsk-' + st.key + sk.event"
+                               class="text-gray-400">
+                            {{ sk.event }} → {{ sk.reason }}
+                            <span v-if="sk.count != null" class="text-gray-600">· {{ sk.count }} за 7д </span>
+                            <span v-if="sk.lastTs" class="text-gray-600">· {{ fmtTs(sk.lastTs) }}</span>
+                          </div>
+                        </div>
+                        <div v-if="st.excluded.length" class="mt-1">
+                          <div class="text-gray-500">Причины исключения уроков:</div>
+                          <div v-for="ex in st.excluded" :key="'xex-' + st.key + ex.reason_code"
+                               class="text-gray-400">
+                            {{ ex.reason_code }}<span v-if="ex.count != null"> · {{ ex.count }}</span>
+                          </div>
+                        </div>
+                        <div v-if="!st.skips.length && !st.excluded.length"
+                             class="text-gray-500">
+                          Причин пропусков нет — либо стадия не запускалась, либо
+                          прошла без пропусков (см. отметки выше).
+                        </div>
+                        <div v-if="st.links.length" class="mt-1 flex flex-wrap gap-1">
+                          <a v-for="l in st.links" :key="'xel-' + st.key + l.route"
+                             :href="l.route" class="underline text-violet-300">{{ l.label }}</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-gray-600 mt-1">
+                    Числа: за 24ч / 7д / 30д; «всего» — все строки за всё время.
+                    Это ПОЛНАЯ цепочка; компактные 5 ключевых стадий — на «Статусе».
+                  </div>
+                </template>
+              </div>
               <!-- MOD-ACL-UX-01 M4A W2b-B1 (H-2/H-3/H-5): «История» —
                    собственный экран одного источника. Панель доступна и во
                    время загрузки deep link; при empty/denied/off loaders
@@ -15632,23 +15721,45 @@
                 </div>
                 <!-- B03 (v6.3): блок «Просрочено N» — честная раскладка
                      expired-памяти (W1: expired_memory_overview). Недоступно
-                     → честная метка, не нули. -->
+                     → честная метка, не нули.
+                     M4B B3 (MAC-S6-308 + MAC-S6-MEM-01): сводка компактна —
+                     5 смысловых индикаторов (компактные плитки), раскладка и
+                     техсчётчики спрятаны в <details>; вертикальной ведомости
+                     чисел у правого края больше нет. Ссылки ведут к причинам
+                     (#/memory/rag) и истории (#/oversight?tab=runs). -->
+                <div class="mem-ind" data-memory-indicators>
+                  <div v-for="ind in memoryIndicators" :key="'mi-' + ind.key"
+                       class="mem-ind__card"
+                       :class="'mem-ind__card--' + ind.tone"
+                       :data-memory-indicator="ind.key">
+                    <span class="mem-ind__label">{{ ind.label }}</span>
+                    <b class="mem-ind__value">{{ ind.value }}</b>
+                    <span v-if="ind.sub" class="mem-ind__sub">{{ ind.sub }}</span>
+                    <span v-if="ind.reason" class="mem-ind__reason">{{ ind.reason }}</span>
+                  </div>
+                </div>
+                <div class="mem-links" data-memory-links>
+                  <a v-for="l in memoryLinks" :key="'ml-' + l.route"
+                     :href="l.route" class="mem-link" data-memory-link>{{ l.label }}</a>
+                </div>
                 <div class="mem-kv mem-kv--semantic" data-expired-block>
                   <div class="mem-kv__title">Просрочено: {{ expiredBlock.totalLabel }}</div>
                   <template v-if="expiredBlock.ready">
-                    <div class="mem-kv__row"><span>доступно поиску</span><b>{{ expiredBlock.searchable }}</b></div>
-                    <div class="mem-kv__row"><span>требует перепроверки</span><b>{{ expiredBlock.needsRecheck }}</b></div>
-                    <div class="mem-kv__row"><span>вытеснено новыми версиями</span><b>{{ expiredBlock.superseded }}</b></div>
-                    <div class="mem-kv__row"><span>режим хранения</span><b>{{ expiredBlock.modeLabel }}</b></div>
-                    <div class="mem-kv__row"><span>активных убеждений</span><b>{{ memoryHealth ? memoryHealth.beliefs_active : '—' }}</b></div>
-                    <div class="mem-kv__row"><span>архив убеждений</span><b>{{ memoryHealth ? memoryHealth.beliefs_archived : '—' }}</b></div>
+                    <details class="mem-kv__details" data-expired-details>
+                      <summary class="cursor-pointer select-none text-gray-400">Раскладка просроченной памяти</summary>
+                      <div class="mem-kv__row"><span>доступно поиску</span><b>{{ expiredBlock.searchable }}</b></div>
+                      <div class="mem-kv__row"><span>требует перепроверки</span><b>{{ expiredBlock.needsRecheck }}</b></div>
+                      <div class="mem-kv__row"><span>вытеснено новыми версиями</span><b>{{ expiredBlock.superseded }}</b></div>
+                      <div class="mem-kv__row"><span>режим хранения</span><b>{{ expiredBlock.modeLabel }}</b></div>
+                      <div class="mem-kv__row"><span>архив убеждений</span><b>{{ memoryHealth ? memoryHealth.beliefs_archived : '—' }}</b></div>
+                    </details>
                   </template>
                   <div v-else class="mem-kv__empty">{{ expiredBlock.emptyLabel }}</div>
                 </div>
                 <!-- Технические счётчики (U03.3): сырьё/хранилище — отдельно
-                     от смысловых результатов. -->
-                <div class="mem-kv mem-kv--tech" data-memory-tech>
-                  <div class="mem-kv__title">Технические счётчики</div>
+                     от смысловых результатов, в <details> (MAC-S6-308). -->
+                <details class="mem-kv mem-kv--tech" data-memory-tech>
+                  <summary class="mem-kv__title cursor-pointer select-none">Технические счётчики</summary>
                   <template v-if="memoryHealth">
                     <div class="mem-kv__row"><span>не подтверждено</span><b>{{ memoryHealth.facts_unconfirmed }}</b></div>
                     <div class="mem-kv__row"><span>фактов к переизвлечению</span><b :class="memoryHealth.facts_overdue ? 'text-amber-300' : ''">{{ memoryHealth.facts_overdue }}</b></div>
@@ -15657,7 +15768,7 @@
                     <div class="mem-kv__row" v-if="memoryHealth.storage"><span>диск свободно</span><b :class="memoryStorageWarn() ? 'text-red-300' : ''">{{ fmtBytes(memoryHealth.storage.disk_free_bytes) }}</b></div>
                   </template>
                   <div v-else class="mem-kv__empty">Метрики недоступны (не глобальный админ или БД недоступна).</div>
-                </div>
+                </details>
                 <div v-if="memoryStorageWarn()" class="text-xs text-red-300 mt-1">
                   Мало свободного места на диске — база может перестать расти.
                   Проверьте retention импорта (удаление сырья по сроку).
@@ -16699,6 +16810,21 @@
                   выбран: {{ randomSource.selected || '—' }} · фактически: {{ randomSource.effective || '—' }}
                   · запас: {{ randomSource.reserve == null ? '—' : randomSource.reserve }}/{{ randomSource.bufferMax || '—' }}
                 </span>
+                <!-- M4B B3 (MAC-S6-REST-01): «последний успех» — реальный
+                     квантовый батч; при одном лишь откате подпись честная
+                     («последний откат», без слова «успех»); нет батча → «—». -->
+                <span v-if="randomSource.ready"
+                      class="text-xs text-gray-500"
+                      data-random-last-success
+                      :data-random-last-success-kind="randomLastSuccess.kind">
+                  · {{ randomLastSuccess.label }}:
+                  <b :class="randomLastSuccess.tone === 'ok' ? 'text-green-300'
+                            : (randomLastSuccess.tone === 'warn' ? 'text-amber-300'
+                               : 'text-gray-400')">{{ randomLastSuccess.text }}</b>
+                </span>
+                <a v-if="randomSource.ready" href="#/modules/random"
+                   class="text-xs underline text-violet-300 ml-auto"
+                   data-random-details-link>Детали в «Случайности» →</a>
               </div>
               <div v-if="!randomSource.ready" class="spinner my-2"></div>
               <div v-else-if="!randomSource.enabled" class="text-xs text-gray-500">
@@ -16938,7 +17064,7 @@
                 <div v-if="isGlobalAdmin" class="mb-2 text-xs"
                      data-experience-pipeline>
                   <div class="flex items-center gap-2 flex-wrap mb-1">
-                    <div class="font-bold">Цепочка опыта (8 стадий)</div>
+                    <div class="font-bold">Цепочка опыта (5 ключевых стадий)</div>
                     <span v-if="expPipelineView"
                           class="badge"
                           :class="expPipelineView.state === 'working' ? 'badge-ok'
@@ -16947,7 +17073,10 @@
                           :data-experience-pipeline-state="expPipelineView.state">
                       {{ expPipelineView.stateLabel }}
                     </span>
-                    <button type="button" class="btn-ghost text-xs ml-auto"
+                    <a v-if="expPipelineView" :href="expPipelineView.fullRoute"
+                       class="text-xs underline text-violet-300 ml-auto"
+                       data-experience-pipeline-expand>Развернуть цепочку →</a>
+                    <button type="button" class="btn-ghost text-xs"
                             :disabled="expPipelineBusy"
                             aria-label="Обновить цепочку опыта"
                             data-experience-pipeline-refresh
@@ -16973,7 +17102,7 @@
                       а не как «работает».
                     </div>
                     <div class="exp-funnel" data-experience-pipeline-stages>
-                      <div v-for="st in expPipelineView.stages" :key="'ef-' + st.key"
+                      <div v-for="st in expPipelineView.keyStages" :key="'ef-' + st.key"
                            class="exp-stage"
                            :class="'exp-stage--' + st.state"
                            :data-experience-stage="st.key"
@@ -17029,6 +17158,10 @@
                       </div>
                     </div>
                     <div class="text-gray-600 mt-1">
+                      Показаны 5 ключевых стадий из {{ expPipelineView.totalStages }}:
+                      полная цепочка и причины — в
+                      <a :href="expPipelineView.fullRoute"
+                         class="underline text-violet-300">«Опыте»</a>.
                       Числа в строке стадии: за 24ч / 7д / 30д. «Всего» — все строки
                       за всё время; ноль применений сам по себе не означает поломку.
                     </div>

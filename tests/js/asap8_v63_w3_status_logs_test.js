@@ -218,18 +218,46 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
   const techStart = statusSeg.indexOf('data-memory-tech');
   assert.ok(expStart > 0 && techStart > expStart,
     'U03.3/B03: блок «Просрочено» и тех-счётчики есть, в этом порядке');
-  assert.ok(statusSeg.indexOf('доступно поиску') > expStart
-    && statusSeg.indexOf('требует перепроверки') > expStart
-    && statusSeg.indexOf('вытеснено новыми версиями') > expStart
-    && statusSeg.indexOf('режим хранения') > expStart,
-    'B03: честная раскладка «Просрочено N»');
-  assert.ok(statusSeg.slice(techStart, techStart + 2200)
-    .indexOf('не подтверждено') > 0,
+  // M4B B3 (MAC-S6-308 + MAC-S6-MEM-01): 5 смысловых индикаторов, раскладка
+  // просроченного — в <details>, вертикальной ведомости у правого края нет.
+  const indStart = statusSeg.indexOf('data-memory-indicators');
+  assert.ok(indStart > 0 && indStart < expStart,
+    'M4B B3: индикаторы памяти идут перед раскладкой «Просрочено»');
+  const indBlock = statusSeg.slice(indStart, expStart);
+  assert.ok(indBlock.indexOf('data-memory-indicator="ind.key"') > 0
+    && indBlock.indexOf('memoryIndicators') > 0,
+    'M4B B3: индикаторы — из серверных данных (memoryIndicators)');
+  assert.ok(indBlock.indexOf('mem-ind__value') > 0
+    && indBlock.indexOf('mem-ind__reason') > 0,
+    'M4B B3: плитка показывает значение и причину неизвестности');
+  const expBlock = statusSeg.slice(expStart, techStart);
+  assert.ok(expBlock.indexOf('<details') > 0,
+    'M4B B3: раскладка «Просрочено» спрятана в <details> (компактно)');
+  ['доступно поиску', 'требует перепроверки',
+   'вытеснено новыми версиями', 'режим хранения'].forEach(function (needle) {
+    assert.ok(expBlock.indexOf(needle) > 0,
+      'B03: честная раскладка «Просрочено N» — ' + needle);
+  });
+  // Техсчётчики — отдельный <details>, а не второй столбец чисел.
+  const techBlock = statusSeg.slice(techStart, techStart + 2200);
+  const techOpen = statusSeg.lastIndexOf('<details', techStart);
+  assert.ok(techOpen > 0 && (techStart - techOpen) < 160,
+    'M4B B3: технические счётчики — в <details>');
+  assert.ok(techBlock.indexOf('не подтверждено') > 0,
     'U03.3: технические счётчики отдельным блоком');
+  // Ссылки к причинам/истории — существующие маршруты (в JS-проекции).
+  assert.ok(statusSeg.indexOf('v-for="l in memoryLinks"') > 0,
+    'M4B B3: ссылки памяти рендерятся из memoryLinks');
+  const jsSrcLinks = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
+  assert.ok(jsSrcLinks.indexOf("route: '#/memory/rag'") > 0
+    && jsSrcLinks.indexOf("route: '#/oversight?tab=runs'") > 0,
+    'M4B B3: ссылки «Причины» и «История прогонов» — существующие маршруты');
   // CSS: подложки — слои карточек; фон не тронут (CORR-1).
   assert.ok(CSS.indexOf('W3-STATUS') > 0, 'CSS: блок W3-STATUS добавлен');
   assert.ok(CSS.indexOf('.mem-kv {') > 0 && CSS.indexOf('.mem-kv__row') > 0,
     'U03.3: раскладка строками «имя → значение»');
+  assert.ok(/\.mem-ind \{[\s\S]{0,200}grid-template-columns/.test(CSS),
+    'M4B B3: индикаторы — сетка плиток (не вертикальная ведомость)');
   assert.ok(CSS.indexOf('.intel-card .ribbon { background:') > 0,
     'U03.3: подложка лент — слой карточки (фон не менялся)');
   const w3Block = CSS.slice(CSS.indexOf('W3-STATUS'),
@@ -253,6 +281,38 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
   const b3 = computed.expiredBlock.call({
     expiredOverview: { available: false } });
   assert.strictEqual(b3.ready, false);
+  // M4B B3: «0» ≠ неудачный запрос; неизвестность — «—» с причиной.
+  const tiles = computed.memoryIndicators.call({
+    expiredOverview: { available: true, facts_confirmed: 12,
+      facts_last_24h: 2, facts_last_7d: 7, needs_recheck: 3,
+      expired_total: 0, facts_last_created_at: 1791900000 },
+    memoryHealth: { beliefs_active: 4, last_decay_at: 1791800000 },
+    fmtTs(ts) { return 'T' + ts; },
+  });
+  assert.strictEqual(tiles.length, 5, 'M4B B3: ровно 5 смысловых индикаторов');
+  assert.deepStrictEqual(tiles.map(function (t) { return t.key; }),
+    ['facts', 'needs_recheck', 'expired', 'beliefs', 'updated'],
+    'M4B B3: активные факты / перепроверка / просрочено / убеждения / обновление');
+  assert.strictEqual(tiles[0].value, '12');
+  assert.ok(tiles[0].sub.indexOf('24ч: 2') >= 0
+    && tiles[0].sub.indexOf('7д: 7') >= 0,
+    'M4B B3: 24ч/7д — подпись того же серверного числа');
+  assert.strictEqual(tiles[2].value, '0',
+    'M4B B3: измеренный ноль остаётся нулём');
+  assert.strictEqual(tiles[4].value, 'T1791900000');
+  const unknownTiles = computed.memoryIndicators.call({
+    expiredOverview: { available: true, facts_confirmed: null,
+      facts_last_24h: null, facts_last_7d: null,
+      needs_recheck: null, expired_total: null,
+      facts_last_created_at: null },
+    memoryHealth: null, fmtTs(ts) { return 'T' + ts; },
+  });
+  assert.strictEqual(unknownTiles[0].value, '—',
+    'M4B B3: null → «—», не 0');
+  assert.ok(unknownTiles[0].reason.indexOf('не 0') > 0,
+    'M4B B3: причина неизвестности названа');
+  assert.strictEqual(unknownTiles[3].value, '—',
+    'M4B B3: убеждения без метрик — «—»');
 }
 
 // ── 4. U03.4: независимая воронка Инициативы + окна Опыта ──────────────────
@@ -469,9 +529,32 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
   assert.strictEqual(tEnter.indexOf('this.loadLogs()'), -1,
     'U04.1: loadLogs() на входе в Аналитику убран');
   // Вход в Статус грузит логи лениво (источник данных единственный).
-  assert.ok(/id === 'status'[\s\S]{0,600}this\.loadLogs\(\)/.test(
-    fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8')),
-    'U04.1: viewer в Статусе лениво догружается при входе');
+  // M4B B3: проверяем ВЕТКУ `id === 'status'` целиком (а не 600 символов
+  // после неё) — вставка ленты «Опыт / Уроки» в ту же ветку не должна
+  // ломать инвариант; вызов по-прежнему ровно один и в этой ветке.
+  {
+    const jsSrc = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
+    const branchNeedle = "if (id === 'status') {";
+    let branchStart = -1;
+    let from = 0;
+    while (true) {
+      const at = jsSrc.indexOf(branchNeedle, from);
+      if (at < 0) break;
+      if (jsSrc.slice(at, at + 400).indexOf('this.loadStatus()') >= 0) {
+        branchStart = at;
+        break;
+      }
+      from = at + branchNeedle.length;
+    }
+    assert.ok(branchStart > 0, 'U04.1: ветка входа в Статус найдена');
+    const branchEnd = jsSrc.indexOf('this.startStatusPolling();', branchStart);
+    assert.ok(branchEnd > branchStart, 'U04.1: ветка Статуса дочитывается');
+    const statusBranch = jsSrc.slice(branchStart, branchEnd);
+    assert.ok(statusBranch.indexOf('this.loadLogs()') > 0,
+      'U04.1: viewer в Статусе лениво догружается при входе (ветка Статуса)');
+    assert.strictEqual(statusBranch.split('this.loadLogs()').length - 1, 1,
+      'U04.1: ровно один ленивый вызов viewer-а в ветке Статуса');
+  }
 }
 
 console.log('W3-STATUS-UNIT-OK');
