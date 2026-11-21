@@ -1,0 +1,48 @@
+{
+ "tool": "Browser Use (real Chrome, CDP)",
+ "stand": "python tools/ui_mod_acl_m4c1_roles_e2e.py --serve (127.0.0.1:8811)",
+ "tma": "sessionStorage adminbot.initData (TMA_STUB equivalent; local stand, not live TMA)",
+ "candidate": "de80a6cb9",
+ "desktop_1440": {
+  "vw": 1440,
+  "scrollWidth": 1425,
+  "modal_backdrop": false,
+  "roles_page": true,
+  "aside_width": 280,
+  "roles": 4,
+  "rights_sections": 12,
+  "matrix_groups": 121,
+  "matrix_count_text": "Доступ к параметрам: 622 из 622",
+  "superuser_readonly": true,
+  "screenshot": "shots/browseruse-roles-1440.png",
+  "matrix_screenshot": "shots/browseruse-matrix-1440.png"
+ },
+ "mobile_390": {
+  "vw": 390,
+  "scrollWidth": 390,
+  "aside_display": "none",
+  "switcher_display": "flex",
+  "roles_options": 4,
+  "rights_sections": 12,
+  "actions_button": {"w": 45.54, "h": 44, "right": 371.33},
+  "tab_heights": [44, 44, 44],
+  "actions_menu": {
+   "opened": true,
+   "items": [
+    {"title": "Переименовать", "height": 44, "disabled": true},
+    {"title": "Удалить", "height": 44, "disabled": true}
+   ]
+  },
+  "screenshot": "shots/browseruse-roles-390.png",
+  "actions_screenshot": "shots/browseruse-actions-390.png"
+ },
+ "cleanup": {
+  "device_metrics_cleared": true,
+  "tab_8811_closed": true,
+  "server_stopped": true
+ },
+ "limitations": [
+  "локальный стенд, не live TMA/не production initData",
+  "живой non-global/TMA-сеанс — RFL (не owner QA)"
+ ]
+}
