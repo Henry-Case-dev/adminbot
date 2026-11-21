@@ -303,8 +303,11 @@ async def test_b3_active_legacy_without_msi_never_rebuilds(ctx):
 
     compat = await contract._resolve(ctx, new_fp)
     assert compat["state"] == ecp.STATE_INSUFFICIENT
-    assert compat["reason_code"] == "legacy_metadata_missing"
-    assert compat["action"] == "need_old_vectors"
+    # P0 admission-MSI: без MSI, но при сохранённых векторах — одна
+    # ограниченная проба на них (не rebuild/migration).
+    assert compat["reason_code"] == "msi_unavailable"
+    assert compat["needs_probe"] is True
+    assert compat["action"] == "retry_canary"
 
     assert await gr.ensure_current_generation(ctx.mm, INDEX,
                                               current_fp=new_fp) is None

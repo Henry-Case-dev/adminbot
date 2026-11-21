@@ -2486,25 +2486,32 @@ def classify_identity_compatibility(*, current_identity: str,
     server-side классификация. Семантика:
     - dimension расходится → INCOMPATIBLE_DIMENSION (индексы не смешиваются);
     - canary DRIFT → REINDEX_REQUIRED (§8.6);
-    - валидный durable-допуск (MSI==MSI + доказанная проба) →
-      ADMITTED_COMPATIBLE (смена только шлюза/ключа);
-    - MSI-пространства переданы и совпадают: canary STABLE → INSTANT,
-      иначе COMPATIBILITY_UNKNOWN (без доказательства — fail-safe);
+    - валидный durable-допуск (MSI/space) → ADMITTED_COMPATIBLE;
+    - MSI-пространства переданы и совпадают → INSTANT: это модельное
+      пространство, а не PCI; отсутствие PCI-admission несовместимостью не
+      является (owner clarification 22.11.2026);
     - MSI-пространства РАЗНЫЕ (другая модель/revision/dims/preprocessing) →
       REINDEX_REQUIRED;
-    - без MSI (legacy-вызовы) — прежнее сравнение отпечатков.
+    - без MSI (legacy-вызовы) — прежнее сравнение отпечатков (fail-safe).
     Совпадение размерности само по себе НИКОГДА не даёт INSTANT, а PCI
-    (`current_identity` здесь = provenанс) сам по себе НЕ закрывает индекс."""
+    (`current_identity` здесь = провенанс) сам по себе НЕ закрывает индекс."""
     if current_dim and stored_dim and int(current_dim) != int(stored_dim):
         return COMPAT_DIMENSION
     if canary_verdict == CANARY_DRIFT:
         return COMPAT_REINDEX
     if admission:
-        return COMPAT_ADMITTED
+        adm_space = str(admission.get("space") or "")
+        if not current_space or not adm_space or \
+                adm_space == str(current_space):
+            return COMPAT_ADMITTED
     if current_space and stored_space:
+        # Owner clarification 22.11.2026: MSI — критерий модельного
+        # пространства. Совпадение MSI (model/revision/dims/task_mode/
+        # normalization/preprocessing/params) достаточно для INSTANT;
+        # отсутствие PCI-admission не является несовместимостью. Реальный
+        # DRIFT по-прежнему обрабатывается выше (CANARY_DRIFT → REINDEX).
         if str(current_space) == str(stored_space):
-            return (COMPAT_INSTANT if canary_verdict == CANARY_STABLE
-                    else COMPAT_UNKNOWN)
+            return COMPAT_INSTANT
         return COMPAT_REINDEX
     if not stored_identity:
         return COMPAT_UNKNOWN
@@ -2871,7 +2878,11 @@ def profile_space_identity(profile: EmbeddingProfile | None,
 
 def format_admission(space: str, conn: str, checked: int, mean: float,
                      low: float, hit5: float, at: int) -> str:
-    """Строгий формат допуска (frozen §6). Невалидные числа → ``""``."""
+    """Строгий формат допуска (frozen §6). Невалидные числа → ``""``.
+
+    `conn` сохраняется как ПРОВЕНАНС (какое подключение дало доказательство),
+    но admission валиден по `space` (MSI): смена API-шлюза не является сменой
+    модельного пространства (owner clarification 22.11.2026)."""
     try:
         space = str(space or "")
         conn = str(conn or "")
@@ -2904,17 +2915,23 @@ def parse_admission(value) -> dict | None:
 
 def admission_valid(admission: dict | None, *, space_now: str,
                     conn_now: str) -> bool:
-    """Допуск валиден только для ТЕКУЩИХ MSI/PCI и только с доказательством.
+    """Допуск валиден по MSI (модельному пространству), не по PCI.
 
-    Смена модели/размерности/preprocessing → новый MSI → инвалидация
-    (fail-safe). Смена шлюза/квоты → новый PCI → нужна одна повторная проба."""
+    Owner clarification 22.11.2026: admission — свойство модельного
+    пространства. `space` должен совпасть с текущим MSI (model/revision/
+    dims/task_mode/normalization/preprocessing/material params); `conn`
+    остаётся провенансом/диагностикой и НЕ является отдельным гейтом.
+    Исторический PCI-keyed admission переиспользуется при совпадении MSI.
+    Смена модели/размерности/preprocessing меняет `space` → инвалидация
+    (fail-safe).
+
+    `conn_now` сохранён в сигнатуре для совместимости вызывающих и будущей
+    диагностики; сравнение с admission.conn сознательно не выполняется."""
     if not admission:
         return False
-    if not space_now or not conn_now:
+    if not space_now:
         return False
     if str(admission.get("space")) != str(space_now):
-        return False
-    if str(admission.get("conn")) != str(conn_now):
         return False
     return int(admission.get("checked") or 0) >= COMPAT_PROBE_MIN_SAMPLE
 
@@ -3510,8 +3527,12 @@ async def resolve_index_compat(db, index_name: str, *,
     Возвращает frozen-поля `{state, reason_code, serviceable, space, conn,
     admission, canary, source_empty, needs_probe}` (+ диагностика).
     `state`: compatible | insufficient | incompatible | source_empty |
-    no_generation. Совместимость НЕ объявляется без MSI-доказательства или
-    валидного durable-допуска. Никогда не бросает.
+    no_generation. Совместимость определяется MSI (модельным пространством):
+    совпадение MSI активной generation и текущего конфига достаточно для
+    записи/сёрвинга; PCI (`conn`) — только провенанс. При отсутствии MSI и
+    наличии сохранённых векторов выставляется `needs_probe` для ОДНОЙ
+    ограниченной пробы существующим `compat_probe` на старых строках индекса.
+    Никогда не бросает.
 
     P0 EMBED-503-FAILOVER: `space_now`/`conn_now`/`model_now` — опциональный
     route-override для проверки ФАКТИЧЕСКИ обслужившей fallback-ноги
@@ -3583,14 +3604,6 @@ async def resolve_index_compat(db, index_name: str, *,
             out["class"] = COMPAT_INSTANT
             out["action"] = "none"
             return out
-        if admission_valid(admission, space_now=space_now,
-                           conn_now=conn_now):
-            out["state"] = STATE_COMPATIBLE
-            out["reason_code"] = ""
-            out["serviceable"] = True
-            out["class"] = COMPAT_ADMITTED
-            out["action"] = "none"
-            return out
         cached = compat_verdict(index_name, space=space_now, conn=conn_now)
         if cached is not None and cached["verdict"] == STATE_INCOMPATIBLE:
             # Проба уже ДОКАЗАЛА расхождение для этих MSI/PCI (process-level;
@@ -3601,46 +3614,67 @@ async def resolve_index_compat(db, index_name: str, *,
             out["action"] = "controlled_migration"
             return out
         active_space = generation_space_identity(active)
-        if not active_space:
-            # B3: ACTIVE-строка без выводимого MSI. Если модель/размерность
-            # ДОКАЗУЕМО другие — это настоящая несовместимость (миграция);
-            # иначе провенанс неизвестен: ни rebuild, ни adopt.
-            differs = _row_space_differs_provably(
-                active, model_now=model_now, dims_now=dims_now)
-            if differs:
+        if active_space:
+            if active_space != space_now:
+                # Реальное расхождение модели/размерности/preprocessing:
+                # admission по MSI не переопределяет его.
                 out["state"] = STATE_INCOMPATIBLE
-                out["reason_code"] = differs
-                out["class"] = (COMPAT_DIMENSION
-                                if differs == "dimension_changed"
-                                else COMPAT_REINDEX)
+                out["reason_code"] = (
+                    "dimension_changed"
+                    if _dims_differ(active.get("dims"), dims_now)
+                    else "identity_changed")
+                out["class"] = (COMPAT_DIMENSION if _dims_differ(
+                    active.get("dims"), dims_now) else COMPAT_REINDEX)
                 out["action"] = "controlled_migration"
                 return out
-            out["state"] = STATE_INSUFFICIENT
-            out["reason_code"] = "legacy_metadata_missing"
-            out["action"] = "need_old_vectors"
+            # Owner clarification 22.11.2026: MSI — модельное пространство,
+            # PCI — только провенанс подключения. Совпадение MSI достаточно:
+            # смена API-шлюза не требует migration/probe. Durable admission
+            # (в т.ч. исторический PCI-keyed) переиспользуется по MSI как
+            # доказательство; без него — INSTANT по метаданным generation.
+            if admission_valid(admission, space_now=space_now,
+                               conn_now=conn_now):
+                out["class"] = COMPAT_ADMITTED
+            else:
+                out["class"] = COMPAT_INSTANT
+            out["state"] = STATE_COMPATIBLE
+            out["reason_code"] = ""
+            out["serviceable"] = True
+            out["action"] = "none"
             return out
-        if active_space != space_now:
+        # ACTIVE-строка без выводимого MSI. Провенанс live-векторов неизвестен:
+        # если модель/размерность ДОКАЗУЕМО другие — миграция; иначе нужна
+        # ОДНА ограниченная проба на СОХРАНЁННЫХ векторах старого индекса.
+        differs = _row_space_differs_provably(
+            active, model_now=model_now, dims_now=dims_now)
+        if differs:
             out["state"] = STATE_INCOMPATIBLE
-            out["reason_code"] = ("dimension_changed"
-                                  if _dims_differ(active.get("dims"), dims_now)
-                                  else "identity_changed")
-            out["class"] = COMPAT_DIMENSION if _dims_differ(
-                active.get("dims"), dims_now) else COMPAT_REINDEX
+            out["reason_code"] = differs
+            out["class"] = (COMPAT_DIMENSION
+                            if differs == "dimension_changed"
+                            else COMPAT_REINDEX)
             out["action"] = "controlled_migration"
             return out
-        # MSI совпал, допуска нет → нужна проба на старых векторах.
-        out["candidate"] = _generation_brief_row(active)
-        out["needs_probe"] = True
-        out["state"] = STATE_INSUFFICIENT
-        out["reason_code"] = "compat_not_proven"
-        out["class"] = COMPAT_UNKNOWN
-        out["action"] = "retry_canary"
-        if await _source_is_empty(db, index_name):
-            out["state"] = STATE_SOURCE_EMPTY
-            out["reason_code"] = "source_empty"
-            out["source_empty"] = True
-            out["needs_probe"] = False
+        if admission_valid(admission, space_now=space_now, conn_now=conn_now):
+            out["state"] = STATE_COMPATIBLE
+            out["reason_code"] = ""
+            out["serviceable"] = True
+            out["class"] = COMPAT_ADMITTED
             out["action"] = "none"
+            return out
+        live_rows = await _live_row_count(db, index_name)
+        out["live_rows"] = live_rows
+        if live_rows:
+            out["candidate"] = _generation_brief_row(active)
+            out["needs_probe"] = True
+            out["state"] = STATE_INSUFFICIENT
+            out["reason_code"] = "msi_unavailable"
+            out["class"] = COMPAT_UNKNOWN
+            out["action"] = "retry_canary"
+            return out
+        out["state"] = STATE_INSUFFICIENT
+        out["reason_code"] = "legacy_metadata_missing"
+        out["action"] = "need_old_vectors"
         return out
     # ACTIVE нет: провенанс live-векторов — по строкам реестра.
     candidate = _pick_space_candidate(rows, space_now)
@@ -3999,6 +4033,8 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
         # ── compatible: adopt в одной транзакции + отмена ненужной сборки ──
         candidate = compat.get("candidate") or {}
         fp = str(candidate.get("fingerprint") or "")
+        # space — ключ admission (MSI); conn — провенанс, кто дал probed
+        # доказательство (admission_valid его сознательно не сравнивает).
         admission = format_admission(
             str(compat.get("space") or ""), str(compat.get("conn") or ""),
             int(probe.get("checked") or 0), float(probe.get("mean") or 0.0),

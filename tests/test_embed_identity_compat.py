@@ -630,24 +630,26 @@ async def test_kill_switch_off_restores_legacy_rebuild(ctx, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_garbage_admission_fails_closed(ctx):
+    """Garbage/чужой config_revision не даёт допуска. MSI в generation
+    отсутствует → blind-trust нет: нужна одна проба на старых векторах.
+    (При совпадающем MSI admission теперь space-level; см.
+    test_p0_embed_admission_msi.py.)"""
     await _seed(ctx, _docs())
     old_fp, new_fp = _gateway_swap(ctx)
     await ctx.db.ensure_embedding_generation(
-        INDEX, old_fp, provider=OLD_PROVIDER, model=MODEL, dims=DIMS,
-        preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
+        INDEX, old_fp, provider=OLD_PROVIDER, model=None, dims=None,
+        preprocessing_version=None,
         endpoint_fingerprint="legacy-endpoint", activate=True,
         config_revision="rev-from-migration")
     assert ecp.parse_admission("rev-from-migration") is None
     compat = await _resolve(ctx, new_fp)
     assert compat["state"] == ecp.STATE_INSUFFICIENT
     assert compat["serviceable"] is False
-
-    result = await _ensure(ctx, new_fp, _Embedder(space="space-a"))
-    assert result["state"] != ecp.STATE_COMPATIBLE
-    assert result["reason_code"] == "adopt_refused"
+    assert compat["needs_probe"] is True, \
+        "без MSI — только ограниченная проба на старых векторах"
     active = await ctx.db.get_active_embedding_generation(INDEX)
     assert active["config_revision"] == "rev-from-migration", \
-        "чужой revision не перезаписывается"
+        "чужой revision не перезаписывается без доказательства"
 
 
 # ── Guard: adopt идемпотентен, чужой ACTIVE не подменяется ─────────────────
