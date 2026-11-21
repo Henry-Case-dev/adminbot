@@ -1,10 +1,15 @@
 # P0-EMBED-503-FAILOVER — реализация failover (2026-11-22)
 
 Ветка: `fix/embed-503-failover` от deployed `374dc60609986a9250170a34a48c93bf2ba85e29`
-(2.58.228). Кандидат: `4ace0a3ae52c321edfd2ef425d933198b6d08377`.
+(2.58.228). Текущий candidate (c5): `1b7d4bf0471a10aaff5d4f0c40eacd77f707727d`.
 Owner input: `plans/owner_inputs/2026-11-22-p0-embed-503-failover.md`,
 sha256 `d23bf6f96c69e8ddd1537a07f8f203fbf434b0022f693e5368a64c8731828f09`
 (по `plan.md`; intake-карта `requirements-map.json`).
+
+**Correction 22.11.2026:** `plans/owner_inputs/2026-11-22-p0-embed-admission-clarification.md`
+(sha256 `adcc50d96c15aba8ffcdee13552ceebd6651df4aadf41ed592204a5391b4d468`):
+admission — модельное пространство (MSI), не PCI. Предыдущий PCI-bound
+route-gate исправлен; подробно: `admission-correction.md`.
 
 Покрываемые требования: `E503-FAILOVER-01`, `E503-IDENTITY-01`,
 `E503-RECOVERY-01`, `E503-DIAG-01`. `E503-ROUTE-01` выполнен DevOps на
@@ -63,17 +68,21 @@ cosine fallback_1~fallback_2 = 1.0.
    (contextvar, только alias/provider/model/base_url/quota_group) +
    `last_served_credential()`; `summary_memory._embed` сбрасывает provenance
    перед logical embed, чтобы cache-hit/legacy не наследовали чужой маршрут.
-5. **Route-aware допуск существующим гейтом.** В
+5. **Route-aware допуск по MSI.** В
    `resolve_index_compat()` добавлены опциональные
    `space_now/conn_now/model_now` overrides (default — прежний configured
-   primary identity). `MemoryManager._serving_route_write_allowed()`
-   перепроверяет фактическую connection через тот же
-   `resolve_index_compat`: писать в ACTIVE можно только при
-   `serviceable && state=compatible`; иначе `COMPATIBILITY_UNKNOWN/
-   INSUFFICIENT/INCOMPATIBLE` → `text-only + FTS`. Это применяется к
+   primary identity). `admission_valid()` валидирует **space (MSI)**, `conn`
+   остаётся провенансом; historical PCI-keyed admission переиспользуется при
+   совпадении MSI. `MemoryManager._serving_route_write_allowed()` проверяет
+   фактическую ногу: same MSI (+dims/generation) → `serviceable`; реальное
+   расхождение MSI/dims → `text-only + FTS`. Это применяется к
    `_save_graph_fact_embedding`, `_save_archive_embedding` и обоим
    backfill'ам. Вектор fallback-ноги **не кладётся в `embedding_cache`** под
    configured identity, иначе последующий cache-hit обошёл бы гейт.
+   При отсутствии MSI и наличии старых векторов resolver выставляет ровно
+   `needs_probe`, который исполняет существующий `compat_probe` (одна
+   ограниченная серия на старых строках), после успеха — durable
+   space-admission.
 6. **421/429/401 не изменены.** 429 по-прежнему уважает group cooldown
    (`test_429_respects_group_cooldown_and_next_group`); 401/403 помечает
    только свой credential и не выводит независимые слоты
@@ -87,30 +96,38 @@ cosine fallback_1~fallback_2 = 1.0.
 существующий `resolve_index_compat` и текущие generation/admission/MSI/
 canary-поля.
 
-## 3. Identity и реальный Google-кейс
+## 3. Identity: admission по MSI, а не PCI
 
-Live evidence: Google-слоты функционально отдают vector 3072, MSI
-`e540d4ad890e121d`, но formal admission для Google PCI (`6b7e…`/`6348…`)
-= false; admission привязан к apinet PCI (`a934…`), gate даёт
-`COMPATIBILITY_UNKNOWN`. Кандидат **не объявляет** Google admitted по имени
-модели.
+Модель никогда не менялась (`gemini-embedding-001`); менялся API-шлюз
+(apinet → Google). Live evidence: Google-слоты отдают vector 3072, MSI
+`e540d4ad890e121d`, cosine fallback_1~fallback_2 = 1.0. Формальный
+PCI-admission Google (`6b7e…`/`6348…`) отсутствовал, но это **не** смена
+модельного пространства. Кандидат исправляет ложную блокировку:
 
-Тест `test_5xx_fallback_write_blocked_until_existing_admission`:
-primary (group `apinet_paid`) 503 → fallback_1 (group `google_free_1`) 200;
-`_vec_write_allowed` для configured primary проходит, но route-aware гейт
-даёт `insufficient / COMPATIBILITY_UNKNOWN / serviceable=false` →
-факт сохранён в `graph_facts` + FTS, `graph_facts_vec=0`, fallback-вектор не
-закэширован. После записи durable-допуска **для фактической Google
-connection** тот же гейт возвращает `compatible` и запись проходит (тест
-доводит до `graph_facts_vec=1`). Это существующий admission-контракт, не
-новый.
+- `admission_valid()` больше не сравнивает `conn`; admission валиден по
+  `space` (MSI), `conn` — провенанс. Historical PCI-keyed admission
+  переиспользуется.
+- `resolve_index_compat()` при совпадении MSI активной generation и текущего
+  конфига (model/revision/dims/task_mode/normalization/preprocessing/params)
+  возвращает `compatible` (INSTANT/ADMITTED), без migration/probe по факту
+  смены шлюза. Реальное расхождение MSI/dims остаётся `incompatible` с
+  конкретным `identity_changed`/`dimension_changed`.
+- `classify_identity_compatibility()` при равных MSI возвращает
+  `COMPAT_INSTANT`; `CANARY_DRIFT` и разные MSI по-прежнему блокируют.
+- При отсутствии MSI и сохранённых старых векторах resolver выставляет
+  `needs_probe` (`msi_unavailable`), `ensure_index_compat()` выполняет
+  **одну** ограниченную пробу существующим `compat_probe` на старых строках
+  индекса (не Google-vs-Google); успех сохраняет durable admission для MSI,
+  провал оставляет text-only/FTS.
 
-Совместимость/incompatibility доказывается существующими
-`test_scenario_03_same_name_different_space_is_incompatible`,
-`test_scenario_04_dimension_mismatch_never_mixes`,
-`test_new_write_after_adopt_is_searchable` (все passed); при
-несовместимости `_vec_write_allowed` остаётся false → text-only. Мутация
-«отключить identity-гейт» ломает scenario_03 (см. `mutations-2026-11-22.txt`).
+Тест `test_same_msi_different_pci_writes_and_semantic_search`: primary
+(group `apinet_paid`) 503 → fallback_1 (group `google_free_1`) 200, тот же
+MSI `e540…` → `graph_facts_vec=1`, реальный KNN/semantic hit находит факт;
+после восстановления primary старый вектор не теряется. Тесты
+different MSI/model, dimension mismatch и canary DRIFT остаются
+text-only; `test_historical_pci_keyed_admission_is_reused_by_msi` доказывает
+переиспользование admission по MSI. Подробности и мутации:
+`admission-correction.md`, `mutations-admission-msi-2026-11-22.txt`.
 
 ## 4. Recovery
 
@@ -133,18 +150,22 @@ connection** тот же гейт возвращает `compatible` и запи�
 
 ## 5. Тесты и мутации
 
-Команда (585 passed, 0 failed/errors/skipped):
-`tests/test_p0_embed_503_failover.py`, `test_embedding_control_plane_asap4`,
-`test_embed_fallback_slots_routing`, `test_asap8_f8_embeddings`,
-`test_embed_identity_compat`, `test_embed_identity_compat_restart_legacy`,
-`test_asap5_embedding_identity`, `test_asap6_embedding_generations`,
-`test_soul1_w7_embedding_primary_slot`, `test_summary_memory`,
-`test_llm_client`, `test_asap44_graphrag_batch_breaker`,
+Команда (657 passed, 0 failed/errors/skipped; 1 pre-existing deselected):
+`tests/test_p0_embed_503_failover.py`, `test_p0_embed_admission_msi.py`,
+`test_embedding_control_plane_asap4`, `test_embed_fallback_slots_routing`,
+`test_asap8_f8_embeddings`, `test_embed_identity_compat`,
+`test_embed_identity_compat_restart_legacy`, `test_asap5_embedding_identity`,
+`test_asap6_embedding_generations`, `test_soul1_w7_embedding_primary_slot`,
+`test_summary_memory`, `test_llm_client`, `test_asap44_graphrag_batch_breaker`,
 `test_graphrag_memory`, `test_mca17_summary_instrumentation`,
-`test_asap8_v6_p1_d09_memory` с `--timeout=180`.
+`test_asap8_v6_p1_d09_memory`, `test_graphrag_rebuild_asap32`,
+`test_memory_period_vector_leg`, `test_vmq_mem_period_intent` с
+`--timeout=180`.
 
-Машинный отчёт: `tests-final-2026-11-22.json` (585 testcases, полный список
-outcomes). Сырой вывод: `tests-final-2026-11-22.txt`.
+Машинный отчёт: `tests-admission-msi-2026-11-22.json` (657 testcases,
+полный список outcomes). Сырой вывод:
+`tests-admission-msi-2026-11-22.txt`. RED на tip `d00a01b07`:
+`tests-red-base-msi-2026-11-22.txt` (6 failed, 4 passed).
 
 Ключевые GREEN-ассерты:
 
@@ -158,29 +179,36 @@ outcomes). Сырой вывод: `tests-final-2026-11-22.txt`.
 - 401 → `auth_failed` только primary, fallback_1 остаётся healthy и
   обслуживает следующий запрос; 429 → group `cooling_down`, следующий
   независимый слот;
-- реальный кейс: failover на Google + `COMPATIBILITY_UNKNOWN` → text-only,
-  FTS-hit есть, fallback-вектор не в кэше; durable admission фактической
-  Google connection → запись допускается;
+- same MSI `e540…` / different PCI: primary 503 → Google 200 →
+  `graph_facts_vec=1` + реальный KNN/semantic hit; historical PCI-keyed
+  admission валиден по MSI; different MSI/model и dim mismatch → text-only;
+  canary DRIFT блокирует; no-MSI + old vectors → ровно одна проба → durable
+  admission; fallback backfill пишет text-only факты без дублей;
 - all three down → backfill после recovery + идемпотентность.
 
-Мутации (файл `mutations-2026-11-22.txt`):
+Мутации (файл `mutations-admission-msi-2026-11-22.txt`):
 
-- отключить per-operation exclusion → `test_primary_5xx...` падает:
-  `['k-primary','k-primary'] != ['k-primary','k-fb1']`;
-- отключить `_vec_write_allowed` (identity-гейт) →
-  `test_scenario_03...` падает `assert True is False`;
-- отключить route-admission → реальный кейс падает
-  `assert 1 == 0` для `graph_facts_vec` (недоказанный Google-вектор
-  записан).
+- PCI-bound admission → `test_historical_pci_keyed_admission_is_reused_by_msi`
+  падает `assert False is True`;
+- no-write route gate → same-MSI тест падает `graph_facts_vec 0 != 1`;
+- any-space admitted → different-MSI тест падает `compatible != incompatible`.
 
 ## 6. Diff / ограничения
 
-Кодовый diff (`git diff --name-only 374dc6060..4ace0a3ae`) = ровно 3 файла:
+Кодовый diff c5 (`git diff --name-only d00a01b07..1b7d4bf`) = 6 файлов:
 
-- `services/embedding_control_plane.py` (failover, provenance, resolver
-  override);
-- `services/summary_memory.py` (route-aware write admission; обосновано выше);
-- `tests/test_p0_embed_503_failover.py` (10 тестов, включая e2e).
+- `services/embedding_control_plane.py` (admission_valid по MSI,
+  classify/resolve, no-MSI probe path; failover/provenance из предыдущего
+  кандидата сохранены);
+- `services/summary_memory.py` (только docstring route-gate; логика уже
+  была введена предыдущим кандидатом);
+- `tests/test_p0_embed_admission_msi.py` (10 новых MSI/admission тестов,
+  включая real KNN semantic-hit);
+- `tests/test_p0_embed_503_failover.py` (удалён PCI-bound тест, ожидавший
+  text-only при same MSI; e2e backfill сохранён);
+- `tests/test_embed_identity_compat.py` (garbage admission guard переведён
+  на no-MSI legacy path);
+- `tests/test_embed_identity_compat_restart_legacy.py` (no-MSI → needs_probe).
 
 Evidence-файлы лежат отдельно в этом каталоге (`plans/features/
 p0-embed-503-failover/evidence/`).
@@ -195,16 +223,21 @@ p0-embed-503-failover/evidence/`).
   production). `E503-ROUTE-01` покрыт внешним DevOps evidence на master
   `f2540ac60`.
 - apinet 503 остаётся внешним отказом; «apinet починен» не заявляется.
-- Formal admission Google PCI остаётся недоказанным; кандидат не фабрикует
-  его и не объявляет по имени модели. Пока `resolve_index_compat` для
-  фактической Google connection не вернёт compatible, fallback-векторы
-  остаются text-only + FTS. Доказательство (canary/probe/admission) — задача
-  существующего identity-контура, не этого P0.
+- PCI-admission больше не является гейтом; same MSI admitted по метаданным
+  generation. Реальные MSI/model/dims/preprocessing расхождения и canary
+  DRIFT по-прежнему блокируют запись.
+- No-MSI legacy probe использует существующий `compat_probe` с его текущими
+  порогами (строже owner-floor mean≥0.98/min≥0.95: mean≥0.995/min≥0.990 +
+  hit5≥0.80) и одной серией на старых строках индекса; live-кейс same-MSI в
+  такой пробе не нуждается.
 - `_serving_route_cache` TTL 60 c: новый durable admission подхватывается с
   задержкой до 60 c (bounded, не блокирует восстановление).
 - `smart_archive source_empty/superseded` — отдельная проблема, не
   HTTP 503, в этом кандидате не лечится.
+- `test_graphrag_rebuild_asap32::test_not_serviceable_warning_coalesced`
+  падает identically на base `d00a01b07` (source-empty reconciliation emits
+  two warnings); pre-existing, deselected; к admission/MSI не относится.
 - При одном промежуточном комбинированном прогоне без pytest-timeout
   наблюдался hang в teardown `test_graphrag_memory`; изолированный файл
-  (181 passed) и повторный полный прогон с `--timeout=180` (585 passed)
-  проблемы не воспроизвели; к продуктовому коду не отнесено.
+  (181 passed) и повторные полные прогоны с `--timeout=180` проблемы не
+  воспроизвели; к продуктовому коду не отнесено.

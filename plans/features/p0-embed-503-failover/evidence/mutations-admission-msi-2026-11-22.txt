@@ -1,0 +1,41 @@
+P0 admission-MSI correction — mutation checks
+Candidate: 1b7d4bf0471a10aaff5d4f0c40eacd77f707727d
+Base tip: d00a01b07eec2143f355dcba6067f92074e3d064
+
+M1. PCI-bound admission (owner-reported defect reintroduced)
+    Mutation: services/embedding_control_plane.py::admission_valid
+              adds  admission["conn"] == conn_now  check.
+    Target: tests/test_p0_embed_admission_msi.py::
+            test_historical_pci_keyed_admission_is_reused_by_msi
+    Result: FAILED — assert False is True (line 249).
+    Meaning: historical PCI-keyed admission stops being reusable by MSI;
+             the exact production false-block is reproduced.
+
+M2. No write for same-MSI fallback
+    Mutation: services/summary_memory.py::_serving_route_write_allowed
+              returns False at entry.
+    Target: tests/test_p0_embed_admission_msi.py::
+            test_same_msi_different_pci_writes_and_semantic_search
+    Result: FAILED — asserted graph_facts_vec count 1, observed 0 (line 277).
+    Meaning: HTTP 200 + correct MSI is not enough; the test demands the real
+             vector row (and then semantic KNN hit).
+
+M3. Any space admitted (safety disabled)
+    Mutation: services/embedding_control_plane.py::resolve_index_compat
+              ignores active_space != space_now.
+    Target: tests/test_p0_embed_admission_msi.py::
+            test_different_msi_is_text_only
+    Result: FAILED — expected STATE_INCOMPATIBLE, observed compatible (line 343).
+    Meaning: real model/MSI change is still blocked; the safety test kills
+             the mutation.
+
+All mutations were temporary and reverted from byte-identical backups.
+Restored SHA-256:
+  embedding_control_plane.py 367A91DC5061224AE0E7E0C89C71AEB9C4ECEDDE43EDF52FA60F366DAF1EBB09
+  summary_memory.py          6CFF8E2DA842C8D0AD1A4EA39FDB5904B22E4FC690DF16FEE929C7ED50E21262
+Working tree after revert: clean.
+
+Pre-existing, not caused by this candidate:
+  tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced
+  fails identically with base d00a01b07 service files (two source-empty
+  reconciliation warnings). Deselected from the final run with this reason.
