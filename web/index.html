@@ -11880,11 +11880,200 @@
                   <!-- ── Зона 2c: фактические гейты (read-only) ─────────── -->
                   <div v-show="rolesPageTab === 'gates'" class="roles-pane"
                        data-roles-pane="gates" role="tabpanel">
+                    <!-- M4C C2: read-only preview первым блоком вкладки гейтов.
+                         Ничего не меняет: только select/input/button (без
+                         чекбоксов и без write/save-панели). -->
+                    <div class="roles-preview" data-preview>
+                      <div class="roles-pane__head">
+                        <div class="min-w-0">
+                          <div class="roles-pane__title" data-preview-title>Проверить доступ</div>
+                          <p class="text-xs text-gray-500 mt-1" data-preview-note>
+                            Предварительная проверка. Права не изменены.
+                          </p>
+                        </div>
+                        <span v-if="preview.result" class="badge"
+                              :class="preview.result.decision === 'allowed' ? 'badge-ok' : (preview.result.decision === 'denied' ? 'badge-warn' : (preview.result.decision === 'mixed' ? 'badge-info' : 'badge-muted'))"
+                              data-preview-decision
+                              :data-decision="preview.result.decision">
+                          {{ previewDecisionLabel(preview.result.decision) }}
+                        </span>
+                      </div>
+                      <div class="roles-preview__form" data-preview-form>
+                        <label class="roles-preview__field">
+                          <span class="roles-preview__label">Актор</span>
+                          <select class="field w-full" data-preview-actor
+                                  v-model="preview.actorValue"
+                                  :disabled="preview.noActor"
+                                  @change="previewOnActorChange()">
+                            <option v-for="opt in previewActorOptions()" :key="opt.value"
+                                    :value="opt.value">{{ opt.label }}</option>
+                          </select>
+                        </label>
+                        <label v-if="preview.actorValue === 'manual' && isGlobalAdmin"
+                               class="roles-preview__field">
+                          <span class="roles-preview__label">Telegram ID</span>
+                          <input class="field w-full mono" type="number" min="1"
+                                 inputmode="numeric" data-preview-actor-manual
+                                 v-model="preview.actorManual" placeholder="например 123456789"
+                                 @change="previewOnActorChange()">
+                        </label>
+                        <label class="roles-preview__field">
+                          <span class="roles-preview__label">Область</span>
+                          <select class="field w-full" data-preview-scope
+                                  v-model="preview.scopeValue"
+                                  @change="previewOnScopeChange()">
+                            <option v-for="opt in previewScopeOptions()" :key="opt.value"
+                                    :value="opt.value">{{ opt.label }}</option>
+                          </select>
+                        </label>
+                        <label class="roles-preview__field roles-preview__field--wide">
+                          <span class="roles-preview__label">Ресурс</span>
+                          <input class="field w-full mono" type="search"
+                                 list="preview-resource-list" data-preview-resource
+                                 v-model="preview.resource"
+                                 placeholder="section.access / param.limits… / key.… / action.…"
+                                 @input="previewMarkStale()"
+                                 @keyup.enter="previewRun()">
+                          <datalist id="preview-resource-list">
+                            <option v-for="value in previewResourceSuggestions()"
+                                    :key="value" :value="value"></option>
+                          </datalist>
+                        </label>
+                        <label class="roles-preview__field">
+                          <span class="roles-preview__label">Операция</span>
+                          <select class="field w-full" data-preview-op
+                                  v-model="preview.operation"
+                                  @change="previewOnActorChange()">
+                            <option v-for="opt in previewOperationOptions()" :key="opt.value"
+                                    :value="opt.value">{{ opt.label }}</option>
+                          </select>
+                        </label>
+                        <button type="button" class="btn-accent text-sm roles-preview__run"
+                                data-preview-run
+                                :disabled="preview.loading || preview.noActor"
+                                @click="previewRun()">
+                          {{ preview.loading ? 'Проверка…' : 'Проверить' }}
+                        </button>
+                      </div>
+                      <div v-if="preview.noActor" class="roles-state text-sm mt-3"
+                           data-preview-no-actor>
+                        Роль не назначена — фактическую проверку выполнить не на ком.
+                        Назначьте роль на странице «Администраторы».
+                      </div>
+                      <div v-if="preview.stale" class="roles-note text-xs mt-3"
+                           data-preview-stale>
+                        Входные данные изменены — нажмите «Проверить».
+                      </div>
+                      <div v-if="preview.loading" class="spinner my-3"
+                           data-preview-loading></div>
+                      <div v-if="preview.error" class="roles-state roles-state--err mt-3"
+                           :data-preview-error="preview.error.status">
+                        <div class="text-sm font-bold">{{ accessErrorTitle(preview.error.status) }}</div>
+                        <p class="text-xs text-gray-400 mt-1">{{ previewErrorHint(preview.error.status) }}</p>
+                        <p v-if="preview.error.message"
+                           class="text-[11px] text-gray-500 mt-1 mono roles-preview__wrap">{{ preview.error.message }}</p>
+                        <button type="button" class="btn-ghost text-xs mt-2"
+                                @click="previewRun()">Повторить</button>
+                      </div>
+                      <div v-if="preview.result" class="roles-preview__result"
+                           data-preview-result>
+                        <div class="roles-preview__verdict">
+                          <span class="badge"
+                                :class="preview.result.decision === 'allowed' ? 'badge-ok' : (preview.result.decision === 'denied' ? 'badge-warn' : (preview.result.decision === 'mixed' ? 'badge-info' : 'badge-muted'))">
+                            {{ previewDecisionLabel(preview.result.decision) }}
+                          </span>
+                          <span class="text-xs text-gray-400">{{ previewDecisionHint(preview.result) }}</span>
+                        </div>
+                        <div class="roles-preview__meta text-xs text-gray-500">
+                          <span>{{ previewActorLabel(preview.result) }}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{{ previewScopeLabel(preview.result) }}</span>
+                          <span aria-hidden="true">·</span>
+                          <span class="mono">{{ preview.result.resource.namespace }}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{{ preview.result.operation }}</span>
+                        </div>
+                        <div class="roles-preview__layers">
+                          <div v-for="layer in preview.result.layers" :key="layer.id"
+                               class="roles-preview__layer"
+                               :data-preview-layer="layer.id"
+                               :data-decision="layer.decision">
+                            <div class="roles-preview__layer-head">
+                              <b>{{ previewLayerLabel(layer) }}</b>
+                              <span class="badge"
+                                    :class="layer.decision === 'allowed' ? 'badge-ok' : (layer.decision === 'denied' ? 'badge-warn' : 'badge-muted')">
+                                {{ previewLayerDecisionLabel(layer) }}
+                              </span>
+                              <span v-if="layer.hard" class="badge badge-warn">жёсткий отказ</span>
+                            </div>
+                            <div class="text-[11px] text-gray-400 roles-preview__wrap">
+                              причина: <span class="mono">{{ layer.reason }}</span>
+                              <span v-if="layer.required"> · требуется:
+                                <span class="mono">{{ layer.required }}</span></span>
+                              <span v-if="layer.matched"> · совпало:
+                                <span class="mono">{{ layer.matched }}</span></span>
+                            </div>
+                            <div v-if="layer.guard"
+                                 class="roles-preview__guard text-[11px] mono">{{ layer.guard }}</div>
+                            <div v-if="layer.consumers && layer.consumers.length"
+                                 class="text-[11px] text-gray-500 roles-preview__wrap">
+                              endpoint'ы: <span class="mono">{{ layer.consumers.join(', ') }}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="roles-preview__source text-xs" data-preview-source>
+                          <div>Проверено: <span class="mono">{{ preview.result.evaluated_at }}</span></div>
+                          <template v-if="preview.result.overrides">
+                            <div>
+                              Глобальное перекрытие:
+                              {{ preview.result.overrides.global.present ? 'есть' : 'нет' }}
+                              · {{ previewOverrideAuthorText(preview.result.overrides.global.present) }}
+                              <span v-if="preview.result.overrides.global.updated_at"> · изменено
+                                <span class="mono">{{ preview.result.overrides.global.updated_at }}</span></span>
+                            </div>
+                            <div>
+                              Чатовое перекрытие:
+                              {{ preview.result.overrides.chat.present ? 'есть' : 'нет' }}
+                              <span v-if="preview.result.overrides.chat.updated_at"> · профиль изменён
+                                <span class="mono">{{ preview.result.overrides.chat.updated_at }}</span></span>
+                            </div>
+                          </template>
+                          <div>Источник: <span class="mono">{{ preview.result.resolver }}</span></div>
+                        </div>
+                        <div v-if="isGlobalAdmin" class="roles-preview__chat-overrides"
+                             data-preview-chat-overrides>
+                          <div v-if="preview.chatOverridesError && preview.chatOverridesError.suppressed"
+                               class="text-xs text-gray-500">
+                            Перекрытия чата недоступны (403) — блок скрыт.
+                          </div>
+                          <div v-else-if="preview.chatOverridesError"
+                               class="roles-state roles-state--err">
+                            <div class="text-sm font-bold">{{ accessErrorTitle(preview.chatOverridesError.status) }}</div>
+                            <p class="text-xs text-gray-400 mt-1">{{ previewErrorHint(preview.chatOverridesError.status) }}</p>
+                          </div>
+                          <template v-else-if="preview.chatOverrides">
+                            <div class="text-xs text-gray-400">
+                              {{ previewOverridesCount() }} перекрытий<span
+                                v-if="preview.chatOverrides.updated_at">, профиль изменён
+                                <span class="mono">{{ preview.chatOverrides.updated_at }}</span></span>
+                            </div>
+                            <div v-for="row in previewChatOverridesList()" :key="row.key"
+                                 class="roles-preview__override-row text-xs">
+                              <span class="mono roles-preview__wrap">{{ row.key }}</span>
+                              <span>читать: {{ row.view }}</span>
+                              <span>писать: {{ row.edit }}</span>
+                              <span v-if="row.legacy" class="badge badge-muted">legacy</span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
                     <div class="roles-pane__title">Фактические гейты</div>
                     <p class="text-xs text-gray-500 mt-1">
                       Только просмотр: это существующие серверные проверки, а не новые
                       права. Полный diff endpoint-инвентаря — отдельный этап C3.
                     </p>
+                    <div class="roles-gates__title">Справочник гейтов</div>
                     <div v-for="group in gatesList()" :key="group.group" class="roles-gates">
                       <div class="roles-gates__title">{{ group.group }}</div>
                       <ul class="roles-gates__list">
