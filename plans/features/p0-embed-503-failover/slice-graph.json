@@ -1,0 +1,47 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "base_note": "Реализация начинается от фактического production/release SHA, зафиксированного после того, как активная работа C1 дойдёт до безопасной границы; база определяется read-only и не угадывается.",
+  "start_gate": {
+    "rule": "P0 стартует на ближайшей безопасной границе: не прерывать и не пересекать worktree/session активной работы; перед первой записью — read-only сверка фактического HEAD/деплоя и write-scope.",
+    "writer_rule": "Один writer на файл: E503-FAILOVER-CORE и E503-ROUTE-PROBE не пишут одновременно в services/embedding_control_plane.py; probe-срез пишет только в evidence/route/**.",
+    "no_new_subsystems": "Второй retry-менеджер, circuit-breaker, очередь, экстрактор уроков, UI-гейт и DDL не создаются."
+  },
+  "slices": [
+    {
+      "id": "E503-ROUTE-PROBE",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/p0-embed-503-failover/evidence/route/**"
+      ],
+      "acceptance": "Однократный минимальный POST /embeddings нейтральным коротким текстом выполнен тем же production-клиентом/адаптером для каждого фактического профиля (primary, fallback_1, fallback_2); в evidence таблица: UTC-время, alias, URL host+path без секретов, модель, HTTP-статус, тип ошибки, безопасный request-id, источник конфигурации (hot/env). Сверены UTC против пояса/фильтров кабинета, ключ и аккаунт; причина пустого журнала apinet объявлена подтверждённой только при наличии данных; массовых проверок и раскрытия ключей/приватных текстов нет.",
+      "notes": "Read-only проверка: минимальный POST /embeddings через production-адаптер по каждому фактическому профилю, без массовых прогонов и без раскрытия ключей. Результат используется как база для исправления, а не как доказательство работоспособности apinet."
+    },
+    {
+      "id": "E503-FAILOVER-CORE",
+      "depends_on": [
+        "E503-ROUTE-PROBE"
+      ],
+      "write_scope": [
+        "services/embedding_control_plane.py",
+        "services/llm_client.py",
+        "tests/test_embedding_control_plane*.py",
+        "tests/test_embedding*.py",
+        "plans/features/p0-embed-503-failover/evidence/core/**"
+      ],
+      "acceptance": "Существующий Embedding Control Plane при 5xx/timeout исключает отказавшую независимую ногу для текущей операции и переходит к следующей пригодной quota group; 401/403 не отключают независимые слоты, 429 уважает cooldown; identity допускается только через существующие MSI/canary/dimension/generation gates; восстановление идёт действующими embed_recovery_tick/backfill. Второй retry-менеджер, DDL, UI и embedding-space изменения отсутствуют.",
+      "notes": "services/llm_client.py — только при доказанной необходимости адаптерного seam; иначе файл не трогается. Минимальный diff в существующих модулях."
+    },
+    {
+      "id": "E503-ACCEPT",
+      "depends_on": [
+        "E503-FAILOVER-CORE"
+      ],
+      "write_scope": [
+        "tests/test_p0_embed_503_accept.py",
+        "plans/features/p0-embed-503-failover/evidence/accept/**"
+      ],
+      "acceptance": "Негативные тесты воспроизводят: primary 503 → совместимый fallback_1 → fallback_2; все три недоступны → сохранение текста и FTS-ответ; восстановление primary; независимые 401/403/429; несовместимый вектор; сохранение и постепенный backfill. Выполнен минимальный реальный embed smoke для корректно настроенных профилей; evidence содержит aliases/status/identity. «Продуктовый failover восстановлен» и «apinet снова работает» разделены: внешние 503 не блокируют выпуск исправления, но работоспособность apinet не заявляется без реального ответа. Итоговый отчёт отвечает по пунктам: (1) какой alias/endpoint реально вызывался при 503; (2) работает ли Google fallback и доказана ли совместимость; (3) количество отложенных text_only и recovery до/после; (4) существующие task IDs, к которым добавлены E-TRUNC/E-LAG; (5) verdict/deploy и честно открытые внешние ограничения.",
+      "notes": "Независимый Reviewer проверяет точный кандидат; live-проверка выполняется агентами после штатного деплоя и не перекладывается на владельца. Внешние 503 не блокируют выпуск, но apinet не объявляется починенным без реального ответа."
+    }
+  ]
+}
