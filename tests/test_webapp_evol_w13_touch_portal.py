@@ -225,11 +225,17 @@ class TestDuplicateTextClosed:
         # legacy-путь OFF-флага сохраняет свой отдельный текст.
         assert "detail: 'нагрузка в норме'" in APP_JS
 
-    def test_roles_modal_has_single_title(self):
+    def test_roles_page_has_single_title(self):
+        # M4C C1: #/access/roles — страница (data-roles-page), не модалка.
+        assert 'data-roles-page' in INDEX
+        assert "isAccessOpen('roles')" not in INDEX, \
+            "роли больше не рендерятся как modal-backdrop"
         i = INDEX.index('id="acc-roles-title"')
-        assert "Роли и права" in INDEX[i - 200:i + 200], \
-            "заголовок модалки описывает окно целиком"
+        near = INDEX[i - 400:i + 400]
+        assert "Роли и права" in near, \
+            "у страницы один заголовок, описывающий её целиком"
         # Внутри секции матрицы имя осталось ровно одно (не дубль заголовка).
         start = INDEX.index('id="sec-matrix"')
-        section = INDEX[start:INDEX.index("</div>", start + 4000)]
+        end = INDEX.index('</div>', start + 4000)
+        section = INDEX[start:end]
         assert section.count("Матрица ролей") == 1

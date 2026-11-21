@@ -11448,7 +11448,8 @@
             <template v-else>
             <!-- 10.8/§4 (ADR-001): «Доступы» — route-driven окна подразделов
                  (#/access/<section>); стартовый экран хаба — сводка в hubCards. -->
-            <div class="col-span-full flex items-center gap-2 flex-wrap">
+            <div v-if="accessOpen !== 'roles'"
+                 class="col-span-full flex items-center gap-2 flex-wrap">
               <button type="button" class="btn-ghost text-sm"
                       data-access-back @click="navigateTo('#/access')">← Все разделы доступов</button>
               <span class="badge badge-muted">{{ accessScopeLabel() }}</span>
@@ -11509,172 +11510,381 @@
               </div>
             </div>
 
-            <!-- Окно «Матрица ролей» (#/access/roles): sec-roles + sec-matrix -->
-            <div v-if="isAccessOpen('roles')" class="modal-backdrop"
-                 @click.self="closeAccessWindow()">
-              <div class="modal-card card p-5 w-full max-w-2xl"
-                   role="dialog" aria-modal="true"
-                   aria-labelledby="acc-roles-title"
-                   tabindex="-1" @keydown.esc="closeAccessWindow()">
-                <header class="modal-head flex items-center gap-2 mb-3">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span>
-                  <h2 class="modal-title text-base font-bold" id="acc-roles-title">Роли и права</h2>
-                  <button class="modal-close btn-ghost ml-auto text-sm px-2"
-                          @click="closeAccessWindow()" aria-label="Закрыть">✕</button>
-                </header>
-                <div class="modal-body">
-              <!-- Роли -->
-              <div class="card p-4" id="sec-roles">
-                <div class="text-sm font-bold mb-2">Роли</div>
-                <div v-if="rolesLoading" class="spinner"></div>
-                <div v-else>
-                  <div v-for="role in rolesList" :key="role.role_name"
-                       class="flex items-center justify-between py-1.5 border-b border-white/5 text-sm">
-                    <div class="flex items-center gap-2">
-                      <b>{{ role.role_name }}</b>
-                      <span v-if="role.permissions && role.permissions.wildcard" class="badge badge-warn">wildcard</span>
-                      <span v-else-if="role.permissions && Object.keys(role.permissions).length === 0" class="badge badge-muted">пусто</span>
-                      <span class="badge badge-muted" v-if="role.is_custom">custom</span>
-                    </div>
-                    <!-- OD15/T-1142: rename/delete — только пользовательские
-                         роли; superuser/встроенные — disabled + пояснение. -->
-                    <div class="flex items-center gap-1 shrink-0">
-                      <button class="btn-ghost text-xs" @click="openRoleEditor(role)">Редактировать</button>
-                      <button class="btn-ghost text-xs"
-                              :title="roleRestrictionHint(role)"
-                              :disabled="!canEditRole(role)"
-                              @click="renameRole(role)">Переименовать</button>
-                      <button class="btn-ghost text-xs text-red-300"
-                              :title="roleRestrictionHint(role)"
-                              :disabled="!canEditRole(role)"
-                              @click="deleteRole(role)">Удалить</button>
-                    </div>
+            <!-- MOD-ACL-UX-01 M4C C1: «Роли и права» — САМОСТОЯТЕЛЬНАЯ СТРАНИЦА
+                 (#/access/roles), не модалка. Якоря #acc-roles-title/#sec-roles/
+                 #sec-matrix сохранены; modal остаются confirm/admins/local. -->
+            <div v-if="accessOpen === 'roles'" class="roles-page col-span-full"
+                 data-roles-page>
+              <header class="roles-page__head">
+                <div class="min-w-0">
+                  <div class="roles-page__crumbs">
+                    <button type="button" class="breadcrumb-link"
+                            @click="rolesPageBack()">Доступы</button>
+                    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+                    <span class="breadcrumb-current">Роли и права</span>
                   </div>
-                  <div v-if="rolesList.some(isSuperuserRole)"
-                       class="text-xs text-gray-500 py-1">
-                    Роль суперпользователя защищена: переименование/удаление недоступны.
-                  </div>
+                  <h2 id="acc-roles-title" class="roles-page__title">Роли и права</h2>
+                  <p class="roles-page__sub">
+                    Права роли, доступ к параметрам и фактические серверные гейты.
+                    Данные — глобальные («Весь бот»); чатовые гранты — в «Локальных админах».
+                  </p>
                 </div>
-                <div class="mt-3 flex gap-2">
-                  <input class="field flex-1" placeholder="Имя новой роли" v-model="newRoleName">
-                  <button class="btn-accent text-sm" @click="createRole()">Создать</button>
+                <div class="roles-page__head-actions">
+                  <span class="badge badge-muted">Весь бот</span>
+                  <span class="badge" :class="isGlobalAdmin ? 'badge-warn' : 'badge-muted'">
+                    {{ isGlobalAdmin ? 'глобальный администратор' : 'только просмотр' }}
+                  </span>
+                  <button type="button" class="btn-ghost text-sm" data-roles-back
+                          @click="rolesPageBack()">← Назад в Доступы</button>
                 </div>
-              </div>
+              </header>
 
-              <!-- OD10/T-1130/T-1131: Матрица ролей — ВСЕ параметры по
-                   секциям мини-аппа + per-param read/write (global admin). -->
-              <div class="card p-4" id="sec-matrix" v-if="isGlobalAdmin">
-                <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span> Матрица ролей</div>
-                  <input class="field w-44 text-xs" type="search"
-                         placeholder="Фильтр: ключ или название"
-                         v-model="matrixSearch">
-                  <button class="btn-ghost text-xs ml-auto"
-                          @click="loadMatrix()"><span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span> Обновить</button>
-                </div>
-                <div class="text-xs text-gray-500 mb-2">
-                  Чтение/Запись — для ролей <b>user</b>, <b>moderator</b>,
-                  <b>local_admin</b> (global admin — всегда всё). Дефолт ⊕
-                  перекрытия; «Сбросить» возвращает к дефолту.
-                </div>
-                <!-- ═══ F4 (review EVOL-030): аудит ДО изменения — кто меняет,
-                     когда было последнее сохранение и что именно/где действует.
-                     Компактная строка, не отдельная панель. ═══ -->
-                <div class="access-audit text-xs mb-2" data-access-audit>
-                  <div><span class="access-audit__k">Кто меняет:</span>
-                    {{ matrixAuditWho() }}</div>
-                  <div><span class="access-audit__k">Когда:</span>
-                    {{ matrixAuditWhen() }}</div>
-                  <div><span class="access-audit__k">Что и где:</span>
-                    {{ matrixAuditScope() }}</div>
-                </div>
-                <div v-if="matrixLoading" class="spinner my-3"></div>
-                <div v-else-if="matrixError" class="text-red-300 text-sm py-2">
-                  {{ matrixError }}
-                </div>
-                <div v-else-if="Object.keys(matrixItems).length === 0"
-                     class="text-gray-500 text-sm py-2">
-                  Нет данных матрицы.
-                </div>
-                <template v-else>
-                  <div v-for="nav in matrixSections()" :key="nav.id"
-                       class="mb-4">
-                    <div class="text-sm font-bold mb-2">
-                      {{ nav.title }}
-                      <span v-if="nav.count" class="badge badge-muted ml-1">{{ nav.count }}</span>
+              <div v-if="rolesError && rolesError.status === 401"
+                   class="card p-4 roles-state roles-state--err" data-roles-error="401">
+                <div class="text-sm font-bold">{{ accessErrorTitle(401) }}</div>
+                <p class="text-xs text-gray-400 mt-1">{{ accessErrorHint(401, 'roles') }}</p>
+              </div>
+              <div v-else class="roles-page__grid">
+                <!-- Зона 1: роли (220–280 px на desktop; select на mobile) -->
+                <aside class="roles-page__aside card" id="sec-roles" data-roles-aside>
+                  <div class="roles-page__aside-head">
+                    <span class="roles-page__label">Роли</span>
+                    <span class="badge badge-muted">{{ rolesLoading ? '…' : rolesList.length }}</span>
+                  </div>
+                  <div v-if="rolesLoading" class="spinner my-3"></div>
+                  <template v-else>
+                    <div v-if="rolesError" class="roles-state roles-state--err"
+                         :data-roles-error="rolesError.status">
+                      <div class="text-sm font-bold">{{ accessErrorTitle(rolesError.status) }}</div>
+                      <p class="text-xs text-gray-400 mt-1">{{ accessErrorHint(rolesError.status, 'roles') }}</p>
+                      <button type="button" class="btn-ghost text-xs mt-2"
+                              @click="loadRoles()">Повторить</button>
                     </div>
-                    <div v-for="sec in nav.sections" :key="nav.id + sec.id"
-                         class="mb-3">
-                    <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">
-                      {{ sec.title }}
-                      <span v-if="sec.count" class="badge badge-muted ml-1">{{ sec.count }}</span>
+                    <template v-else>
+                      <div class="roles-page__list" role="listbox" aria-label="Роли" data-roles-list>
+                        <button v-for="role in rolesList" :key="role.role_name"
+                                type="button" class="roles-item"
+                                :class="{ 'is-active': role.role_name === roleEditor.roleName }"
+                                role="option"
+                                :aria-selected="role.role_name === roleEditor.roleName ? 'true' : 'false'"
+                                @click="selectRole(role)">
+                          <span class="roles-item__name">{{ role.role_name }}</span>
+                          <span class="roles-item__badges">
+                            <span v-if="role.permissions && role.permissions.wildcard" class="badge badge-warn">wildcard</span>
+                            <span v-if="role.is_custom" class="badge badge-muted">custom</span>
+                            <span v-else class="badge badge-muted">built-in</span>
+                          </span>
+                          <span class="roles-item__meta">
+                            {{ roleUsageCount(role.role_name) == null ? 'назначения недоступны' : ('назначено: ' + roleUsageCount(role.role_name)) }}
+                          </span>
+                        </button>
+                      </div>
+                      <div v-if="rolesList.length === 0" class="text-gray-500 text-sm py-2"
+                           data-roles-empty>Ролей нет — создайте первую.</div>
+                      <div class="roles-page__create" v-if="isGlobalAdmin">
+                        <input class="field flex-1 min-w-0" placeholder="Имя новой роли" v-model="newRoleName">
+                        <button class="btn-accent text-sm" @click="createRole()">Создать</button>
+                      </div>
+                      <div v-else class="text-xs text-gray-500 mt-3">
+                        Только просмотр: изменять роли и назначения может лишь глобальный администратор.
+                      </div>
+                    </template>
+                  </template>
+                </aside>
+
+                <section class="roles-page__main card" data-roles-main>
+                  <!-- Mobile switcher: одна роль сверху; действия — в «⋯». -->
+                  <div class="roles-page__mobile-switch" data-roles-mobile-switch>
+                    <label for="roles-mobile-select" class="text-xs text-gray-400">Роль</label>
+                    <select id="roles-mobile-select" class="field flex-1 min-w-0"
+                            :value="roleEditor.roleName" @change="onRoleSelectChange($event)">
+                      <option v-for="role in rolesList" :key="role.role_name"
+                              :value="role.role_name">{{ role.role_name }}</option>
+                    </select>
+                    <button v-if="isGlobalAdmin && selectedRole()" type="button"
+                            class="btn-ghost roles-actions-btn" data-roles-actions
+                            aria-label="Действия выбранной роли"
+                            :aria-expanded="roleActionsOpen ? 'true' : 'false'"
+                            @click="toggleRoleActions()">⋯</button>
+                  </div>
+                  <div v-if="roleActionsOpen && isGlobalAdmin && selectedRole()"
+                       class="roles-actions-menu card" data-roles-actions-menu>
+                    <button type="button" class="roles-actions-menu__item"
+                            :disabled="!canEditRole(selectedRole())"
+                            :title="roleRestrictionHint(selectedRole())"
+                            @click="beginRenameRole()">Переименовать</button>
+                    <button type="button" class="roles-actions-menu__item text-red-300"
+                            :disabled="!canEditRole(selectedRole())"
+                            :title="roleRestrictionHint(selectedRole())"
+                            @click="beginDeleteRole()">Удалить</button>
+                  </div>
+
+                  <div class="roles-page__tabs" role="tablist"
+                       aria-label="Разделы страницы прав" data-roles-tabs>
+                    <button v-for="tab in rolesPageTabs()" :key="tab.id" type="button"
+                            class="roles-tab" :class="{ 'is-active': rolesPageTab === tab.id }"
+                            role="tab"
+                            :aria-selected="rolesPageTab === tab.id ? 'true' : 'false'"
+                            @click="rolesPageTab = tab.id">{{ tab.title }}</button>
+                  </div>
+
+                  <!-- ── Зона 2a: права роли ────────────────────────────── -->
+                  <div v-show="rolesPageTab === 'rights'" class="roles-pane"
+                       data-roles-pane="rights" role="tabpanel">
+                    <div v-if="!selectedRole()" class="roles-state text-sm text-gray-500 py-4">
+                      Выберите роль слева.
                     </div>
-                    <details v-for="grp in sec.groups" :key="sec.id + grp.id"
-                             class="matrix-group">
-                      <summary class="cursor-pointer text-sm py-1">
-                        {{ grp.title }}
-                        <span class="badge badge-muted ml-1">{{ grp.items.length }}</span>
-                      </summary>
-                      <!-- F1 (T-2401): на mobile таблица разворачивается в
-                           последовательный редактор (CSS .matrix-table) —
-                           без горизонтального скролла. -->
-                      <table class="avail-list matrix-table">
-                        <thead><tr>
-                          <th>Параметр</th><th>Чтение</th><th>Запись</th><th></th>
-                        </tr></thead>
-                        <tbody>
-                          <tr v-for="row in grp.items" :key="row.key">
-                            <td class="mono" :title="row.item.title"
-                                data-label="Параметр">
-                              {{ row.item.title || row.key }}
-                              <span v-if="row.item.secret"
-                                    class="badge badge-warn ml-1">secret</span>
-                              <span v-if="row.item.default"
-                                    class="badge badge-muted ml-1">дефолт</span>
-                            </td>
-                            <td v-for="fld in ['view_roles', 'edit_roles']"
-                                :key="fld"
-                                :data-label="fld === 'view_roles' ? 'Чтение' : 'Запись'">
-                              <label v-for="r in ['user','moderator','local_admin']"
-                                     :key="fld + r"
-                                     class="inline-flex items-center gap-1 mr-2 text-[10px]">
-                                <input type="checkbox" class="ctl-check__box"
-                                       :disabled="!!matrixSaving[row.key]"
-                                       :checked="matrixChecked(row.item, fld, r)"
-                                       @change="matrixRoleToggle(row.key, fld, r)">
-                                {{ r === 'local_admin' ? 'лок' : r }}
-                              </label>
-                            </td>
-                             <td>
-                               <button class="btn-ghost text-[10px] px-1"
-                                       :disabled="row.item.default || !!matrixSaving[row.key]"
-                                       title="Сбросить к дефолту"
-                                       @click="matrixReset(row.key)">Сбросить</button>
-                             </td>
-                             <!-- EVOL-030 (W10): mobile-модель «сущность →
-                                  права → эффективные роли» (видна только на
-                                  узком экране; desktop остаётся таблицей). -->
-                             <td class="matrix-perm-summary" colspan="4"
-                                 data-label="Эффективные роли"
-                                 data-matrix-effective>
-                               <div>Читают: {{ matrixEffectiveRoles(row.item, 'view_roles') }}</div>
-                               <div>Меняют: {{ matrixEffectiveRoles(row.item, 'edit_roles') }}</div>
-                             </td>
-                           </tr>
-                        </tbody>
-                      </table>
-                    </details>
+                    <template v-else>
+                      <div class="roles-pane__head">
+                        <div class="min-w-0">
+                          <div class="roles-pane__title">Права роли «{{ roleEditor.roleName }}»</div>
+                          <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-1 items-center">
+                            <span v-if="roleEditor.wildcard" class="badge badge-warn">wildcard</span>
+                            <span class="badge badge-muted">{{ roleEditor.isCustom ? 'custom' : 'built-in' }}</span>
+                            <span v-if="isSuperuserRole(selectedRole())" class="badge badge-warn">superuser</span>
+                            <span>{{ roleUsageLabel(selectedRole()) }}</span>
+                          </div>
+                        </div>
+                        <div class="roles-pane__actions" v-if="isGlobalAdmin">
+                          <button type="button" class="btn-ghost text-xs"
+                                  :disabled="!canEditRole(selectedRole())"
+                                  :title="roleRestrictionHint(selectedRole())"
+                                  @click="renameRole(selectedRole())">Переименовать</button>
+                          <button type="button" class="btn-ghost text-xs text-red-300"
+                                  :disabled="!canEditRole(selectedRole())"
+                                  :title="roleRestrictionHint(selectedRole())"
+                                  @click="deleteRole(selectedRole())">Удалить</button>
+                        </div>
+                      </div>
+                      <div v-if="roleEditDisabledReason(selectedRole())"
+                           class="roles-note text-xs" data-roles-readonly>
+                        {{ roleEditDisabledReason(selectedRole()) }}
+                      </div>
+                      <input class="field w-full text-xs mt-3" type="search"
+                             placeholder="Поиск: раздел / действие / ключ / название…"
+                             v-model="roleSearch" data-roles-search>
+                      <div v-if="roleEditor.loading" class="spinner my-4"></div>
+                      <div v-else-if="roleEditor.error" class="roles-state roles-state--err mt-3"
+                           :data-roles-tree-error="roleEditor.error.status">
+                        <div class="text-sm font-bold">{{ accessErrorTitle(roleEditor.error.status) }}</div>
+                        <p class="text-xs text-gray-400 mt-1">{{ accessErrorHint(roleEditor.error.status, 'tree') }}</p>
+                        <button type="button" class="btn-ghost text-xs mt-2"
+                                @click="openRoleEditor(selectedRole(), true)">Обновить права роли</button>
+                      </div>
+                      <div v-else class="roles-tree mt-3" data-roles-tree>
+                        <div v-if="roleSearchEmpty()" class="text-gray-500 text-sm py-2">
+                          Ничего не найдено по «{{ roleSearch }}».
+                        </div>
+                        <div v-for="section in roleEditor.sections" :key="section.id"
+                             v-show="roleSectionVisible(section)" class="roles-tree__section">
+                          <label class="roles-tree__section-head">
+                            <input type="checkbox" class="ctl-check__box"
+                                   :disabled="isRoleReadOnly(selectedRole())"
+                                   :checked="section.checked"
+                                   :class="{ 'is-indeterminate': section.indeterminate }"
+                                   :ref="el => setIndeterminate(el, section.indeterminate)"
+                                   @change="toggleSection(section)">
+                            <b>{{ section.title }}</b>
+                            <span class="text-gray-500 text-xs font-mono">{{ section.id }}</span>
+                            <span v-if="section.service" class="badge badge-muted">секция</span>
+                          </label>
+                          <div class="roles-tree__children">
+                            <label v-for="param in roleSectionParams(section)"
+                                   :key="'p:' + section.id + ':' + param.key"
+                                   class="roles-tree__node">
+                              <input type="checkbox" class="ctl-check__box"
+                                     :disabled="isRoleReadOnly(selectedRole())"
+                                     :checked="param.checked" @change="toggleNode(param)">
+                              <span>{{ param.title }}</span>
+                              <span class="text-gray-500 text-xs font-mono">{{ param.key }}</span>
+                              <span v-if="param.secret" class="badge badge-muted">секрет</span>
+                            </label>
+                            <label v-for="keyNode in roleSectionKeys(section)"
+                                   :key="'k:' + section.id + ':' + keyNode.key"
+                                   class="roles-tree__node">
+                              <input type="checkbox" class="ctl-check__box"
+                                     :disabled="isRoleReadOnly(selectedRole())"
+                                     :checked="keyNode.checked" @change="toggleNode(keyNode)">
+                              <span>{{ keyNode.title }}</span>
+                              <span class="text-gray-500 text-xs font-mono">{{ keyNode.key }}</span>
+                            </label>
+                          </div>
+                        </div>
+                        <div class="roles-tree__section">
+                          <div class="roles-tree__section-head">
+                            <span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span>
+                            <b>Действия</b>
+                          </div>
+                          <div class="roles-tree__children">
+                            <label v-for="action in roleEditor.actions" :key="'a:' + action.id"
+                                   v-show="roleActionVisible(action)" class="roles-tree__node">
+                              <input type="checkbox" class="ctl-check__box"
+                                     :disabled="isRoleReadOnly(selectedRole())"
+                                     :checked="action.checked" @change="toggleNode(action)">
+                              <span>{{ action.title }}</span>
+                              <span class="text-gray-500 text-xs font-mono">{{ action.id }}</span>
+                            </label>
+                          </div>
+                        </div>
+                        <div v-if="roleEditor.saveError" class="roles-state roles-state--err mt-3"
+                             data-roles-save-error>{{ roleEditor.saveError }}</div>
+                        <div class="roles-pane__save" v-if="!isRoleReadOnly(selectedRole())">
+                          <span class="text-xs text-gray-500">
+                            Сохраняется полный объект прав: wildcard, пустые секции
+                            (access/chat_lore) и неизвестные гранты не теряются.
+                          </span>
+                          <button type="button" class="btn-accent text-sm"
+                                  :disabled="roleEditor.saving" data-roles-save
+                                  @click="saveRole()">{{ roleEditor.saving ? 'Сохранение…' : 'Сохранить роль' }}</button>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- ── Зона 2b: доступ к параметрам (матрица) ─────────── -->
+                  <div v-show="rolesPageTab === 'matrix'" class="roles-pane"
+                       data-roles-pane="matrix" role="tabpanel">
+                    <div class="roles-pane__head">
+                      <div class="min-w-0">
+                        <div class="roles-pane__title" id="sec-matrix">Матрица ролей</div>
+                        <p class="text-xs text-gray-500 mt-1">
+                          Доступ к параметрам:
+                          {{ matrixLoading ? '…' : (matrixVisibleCount(matrixTree()) + ' из ' + matrixTotalCount()) }}.
+                          Матрица задаёт дефолт для чатов без своего перекрытия; глобальная
+                          запись настраивается правами роли, а не этой матрицей.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="access-audit text-xs mt-2" data-access-audit>
+                      <div><span class="access-audit__k">Кто меняет:</span>
+                        {{ matrixAuditWho() }}</div>
+                      <div><span class="access-audit__k">Когда:</span>
+                        {{ matrixAuditWhen() }}</div>
+                      <div><span class="access-audit__k">Что и где:</span>
+                        {{ matrixAuditScope() }}</div>
+                    </div>
+                    <div v-if="!isGlobalAdmin" class="roles-state roles-state--err mt-3"
+                         data-roles-matrix-forbidden>
+                      <div class="text-sm font-bold">{{ accessErrorTitle(403) }}</div>
+                      <p class="text-xs text-gray-400 mt-1">{{ accessErrorHint(403, 'matrix') }}</p>
+                    </div>
+                    <template v-else>
+                      <div class="roles-pane__tools mt-3">
+                        <input class="field flex-1 min-w-0 text-xs" type="search"
+                               placeholder="Поиск: раздел / модуль / группа / ключ / название…"
+                               v-model="matrixSearch" data-roles-matrix-search>
+                        <button type="button" class="btn-ghost text-xs"
+                                @click="loadMatrix()">
+                          <span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span>
+                          Обновить
+                        </button>
+                      </div>
+                      <div v-if="matrixLoading" class="spinner my-3"></div>
+                      <div v-else-if="matrixErrorStatus" class="roles-state roles-state--err mt-3"
+                           :data-roles-matrix-error="matrixErrorStatus">
+                        <div class="text-sm font-bold">{{ accessErrorTitle(matrixErrorStatus) }}</div>
+                        <p class="text-xs text-gray-400 mt-1">{{ accessErrorHint(matrixErrorStatus, 'matrix') }}</p>
+                        <button type="button" class="btn-ghost text-xs mt-2"
+                                @click="loadMatrix()">Повторить</button>
+                      </div>
+                      <div v-else-if="matrixTotalCount() === 0"
+                           class="text-gray-500 text-sm py-2" data-roles-matrix-empty>
+                        Матрица пуста (200: 0 параметров).
+                      </div>
+                      <div v-else class="roles-tree roles-tree--matrix mt-3" data-roles-matrix>
+                        <div v-if="matrixVisibleCount(matrixTree()) === 0"
+                             class="text-gray-500 text-sm py-2">
+                          Ничего не найдено по «{{ matrixSearch }}».
+                        </div>
+                        <div v-for="nav in matrixTree()" :key="nav.id" class="roles-tree__nav">
+                          <div class="roles-tree__nav-title">
+                            {{ nav.title }}
+                            <span class="badge badge-muted">{{ nav.count }}</span>
+                          </div>
+                          <div v-for="mod in nav.modules" :key="nav.id + ':' + mod.id"
+                               class="roles-tree__module">
+                            <div class="roles-tree__module-title">
+                              <span class="msr" aria-hidden="true">{{ iconGlyph('extension') }}</span>
+                              {{ mod.title }}
+                              <span class="badge badge-muted">{{ mod.count }}</span>
+                            </div>
+                            <details v-for="grp in mod.groups" :key="grp.uid"
+                                     class="roles-tree__group matrix-group"
+                                     :open="matrixGroupOpen(grp.uid)"
+                                     @toggle="onMatrixGroupToggle(grp.uid, $event)">
+                              <summary class="roles-tree__group-head">
+                                {{ grp.title }}
+                                <span class="badge badge-muted">{{ grp.items.length }}</span>
+                                <span class="roles-tree__owner">{{ grp.ownerLabel }}</span>
+                              </summary>
+                              <table class="avail-list matrix-table">
+                                <thead><tr>
+                                  <th>Параметр</th><th>Чтение</th><th>Запись</th><th></th>
+                                </tr></thead>
+                                <tbody>
+                                  <tr v-for="row in grp.items" :key="row.key">
+                                    <td class="mono" :title="row.item.title" data-label="Параметр">
+                                      {{ row.item.title || row.key }}
+                                      <span v-if="row.item.secret"
+                                            class="badge badge-warn ml-1">secret</span>
+                                      <span v-if="row.item.default"
+                                            class="badge badge-muted ml-1">дефолт</span>
+                                    </td>
+                                    <td v-for="fld in ['view_roles', 'edit_roles']"
+                                        :key="fld"
+                                        :data-label="fld === 'view_roles' ? 'Чтение' : 'Запись'">
+                                      <label v-for="r in ['user','moderator','local_admin']"
+                                             :key="fld + r"
+                                             class="inline-flex items-center gap-1 mr-2 text-[10px]">
+                                        <input type="checkbox" class="ctl-check__box"
+                                               :disabled="!!matrixSaving[row.key]"
+                                               :checked="matrixChecked(row.item, fld, r)"
+                                               @change="matrixRoleToggle(row.key, fld, r)">
+                                        {{ r === 'local_admin' ? 'лок' : r }}
+                                      </label>
+                                    </td>
+                                    <td>
+                                      <button class="btn-ghost text-[10px] px-1"
+                                              :disabled="row.item.default || !!matrixSaving[row.key]"
+                                              title="Сбросить к дефолту"
+                                              @click="matrixReset(row.key)">Сбросить</button>
+                                    </td>
+                                    <td class="matrix-perm-summary" colspan="4"
+                                        data-label="Эффективные роли" data-matrix-effective>
+                                      <div>Читают: {{ matrixEffectiveRoles(row.item, 'view_roles') }}</div>
+                                      <div>Меняют: {{ matrixEffectiveRoles(row.item, 'edit_roles') }}</div>
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </details>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- ── Зона 2c: фактические гейты (read-only) ─────────── -->
+                  <div v-show="rolesPageTab === 'gates'" class="roles-pane"
+                       data-roles-pane="gates" role="tabpanel">
+                    <div class="roles-pane__title">Фактические гейты</div>
+                    <p class="text-xs text-gray-500 mt-1">
+                      Только просмотр: это существующие серверные проверки, а не новые
+                      права. Полный diff endpoint-инвентаря — отдельный этап C3.
+                    </p>
+                    <div v-for="group in gatesList()" :key="group.group" class="roles-gates">
+                      <div class="roles-gates__title">{{ group.group }}</div>
+                      <ul class="roles-gates__list">
+                        <li v-for="item in group.items" :key="item">{{ item }}</li>
+                      </ul>
                     </div>
                   </div>
-                </template>
-              </div>
-                </div>
-                <footer class="modal-actions flex justify-end">
-                  <button class="btn-ghost text-sm" @click="closeAccessWindow()">Закрыть</button>
-                </footer>
+                </section>
               </div>
             </div>
 
+            <!-- Модалка редактора ролей УДАЛЕНА в M4C C1: редактор живёт в
+                 вкладке «Права роли» страницы #/access/roles. -->
             <!-- Окно «Локальные админы» (#/access/local): id="sec-local" -->
             <div v-if="isAccessOpen('local')" class="modal-backdrop"
                  @click.self="closeAccessWindow()">
@@ -18444,59 +18654,6 @@
                     @click="saveDossier()">{{ dossierSaving ? 'Сохранение…' : 'Сохранить досье' }}</button>
           </div>
         </footer>
-      </div>
-    </div>
-
-    <!-- Модалка редактора ролей -->
-    <div v-if="roleEditor.open" class="modal-backdrop" @click.self="closeRoleEditor()">
-      <div class="card p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto scroll-thin">
-        <div class="text-base font-bold mb-1">Роль «{{ roleEditor.roleName }}»</div>
-        <div class="text-xs text-gray-500 mb-3">Отметьте права; чек секции отмечает всё внутри, частичный чек = indeterminate.</div>
-        <div v-if="roleEditor.loading" class="spinner my-4"></div>
-        <div v-else class="tree-node space-y-2">
-          <div v-if="roleEditor.wildcard" class="badge badge-warn mb-2">Роль имеет полный доступ (wildcard)</div>
-          <div v-for="section in roleEditor.sections" :key="section.id" class="tree-root">
-            <label>
-              <input type="checkbox" class="ctl-check__box" :checked="section.checked"
-                     :class="{ 'is-indeterminate': section.indeterminate }"
-                     :ref="el => setIndeterminate(el, section.indeterminate)"
-                     @change="toggleSection(section)">
-              <b>{{ section.title }}</b> <span class="text-gray-500 text-xs">{{ section.id }}</span>
-            </label>
-            <div class="tree-child">
-              <div v-for="param in section.params" :key="param.key">
-                <label>
-                  <input type="checkbox" class="ctl-check__box" :checked="param.checked" @change="toggleNode(param)">
-                  <span>{{ param.title }}</span>
-                  <span class="text-gray-500 text-xs font-mono">{{ param.key }}</span>
-                  <span v-if="param.secret" class="badge badge-muted">секрет</span>
-                </label>
-              </div>
-              <div v-for="keyNode in section.keys" :key="keyNode.key">
-                <label>
-                  <input type="checkbox" class="ctl-check__box" :checked="keyNode.checked" @change="toggleNode(keyNode)">
-                  <span>{{ keyNode.title }}</span>
-                  <span class="text-gray-500 text-xs font-mono">{{ keyNode.key }}</span>
-                </label>
-              </div>
-            </div>
-          </div>
-          <div class="pt-2 border-t border-white/10">
-            <div class="text-sm font-bold mb-1">Действия</div>
-            <div v-for="action in roleEditor.actions" :key="action.id">
-              <label>
-                <input type="checkbox" class="ctl-check__box" :checked="action.checked" @change="toggleNode(action)">
-                <span>{{ action.title }}</span>
-                <span class="text-gray-500 text-xs font-mono">{{ action.id }}</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="mt-4 flex justify-end gap-2">
-          <button class="btn-ghost text-sm" @click="closeRoleEditor()">Закрыть</button>
-          <button class="btn-accent text-sm" :disabled="roleEditor.saving"
-                  @click="saveRole()">{{ roleEditor.saving ? 'Сохранение…' : 'Сохранить роль' }}</button>
-        </div>
       </div>
     </div>
 

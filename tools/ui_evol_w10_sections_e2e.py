@@ -915,8 +915,10 @@ def run(out_dir: str) -> int:
             mpg.route("**/api/**", _routes2())
             mpg.goto(BASE + "/#/access/roles", wait_until="load")
             mpg.wait_for_timeout(1200)
-            # Группы матрицы — progressive disclosure: раскрываем первую, как
-            # это сделал бы пользователь, и проверяем мобильную модель строки.
+            # M4C C1: матрица — вкладка «Доступ к параметрам» страницы ролей;
+            # открываем её и первую группу, как это сделал бы пользователь.
+            mpg.click('[data-roles-tabs] button:nth-child(2)')
+            mpg.wait_for_timeout(300)
             mpg.evaluate(
                 "() => { const d = document.querySelector('.matrix-group');"
                 " if (d) d.open = true; }")

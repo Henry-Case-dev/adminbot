@@ -81,14 +81,30 @@ def can_access_chat(ctx: AccessCtx, chat_id=None) -> bool:
     return ctx.rank >= ROLE_TYPE_RANK[ROLE_MODERATOR]
 
 
-async def db_override_map(pg) -> dict[str, dict]:
-    """Строки param_permissions → {key: matrix}; TTL 60 c; fail-open {}."""
+class AccessStorageUnavailable(RuntimeError):
+    """Строгое чтение матрицы: PG/пул недоступен (GET /api/access/* → 503)."""
+
+
+async def db_override_map(pg, strict: bool = False) -> dict[str, dict]:
+    """Строки param_permissions → {key: matrix}; TTL 60 c.
+
+    strict=False (runtime бота: effective_matrix/can_view/can_edit) —
+    прежний fail-open {} при недоступном PG, бот продолжает жить.
+    strict=True (только GET /api/access/param_permissions) — читает PG
+    напрямую (кэш не маскирует недоступность), при pool is None/исключении
+    поднимает AccessStorageUnavailable; на успехе обновляет TTL-кэш.
+    Так страница прав не получает выдуманную дефолтную матрицу.
+    """
     global _db_override_cache, _db_override_cache_ts
     now = time.monotonic()
-    if _db_override_cache and (now - _db_override_cache_ts) < _DB_OVERRIDE_TTL:
+    if not strict and _db_override_cache \
+            and (now - _db_override_cache_ts) < _DB_OVERRIDE_TTL:
         return _db_override_cache
     pool = getattr(pg, "pool", None) if pg is not None else None
     if pool is None:
+        if strict:
+            raise AccessStorageUnavailable(
+                "PostgreSQL недоступен (пул отсутствует): матрица не читается")
         return {}
     out = {}
     try:
@@ -103,7 +119,10 @@ async def db_override_map(pg) -> dict[str, dict]:
                     value = {}
             if isinstance(value, dict):
                 out[r["key"]] = value
-    except Exception:
+    except Exception as exc:
+        if strict:
+            raise AccessStorageUnavailable(
+                "PostgreSQL недоступен: матрица не читается") from exc
         logger.warning("[access] param_permissions недоступны — fail-open",
                        exc_info=True)
         return {}

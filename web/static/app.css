@@ -7610,6 +7610,188 @@ html.w9-sheet-bottom .modal-close {
 }
 .access-audit__k { color: var(--text-3, #8A97AB); }
 
+/* ── MOD-ACL-UX-01 M4C C1: «Роли и права» — самостоятельная страница ──────
+   Desktop: роли 220–280 px + pane; tablet: 220; mobile: switcher + одна
+   колонка. Один основной scroll страницы, без вложенных скроллеров. */
+.roles-page { display: grid; gap: 12px; min-width: 0; }
+.roles-page__head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; min-width: 0;
+}
+.roles-page__crumbs {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  color: var(--text-3, #8A97AB); min-width: 0;
+}
+.roles-page__title {
+  font-size: 20px; line-height: 1.2; font-weight: 700; margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.roles-page__sub {
+  font-size: 12px; color: var(--text-3, #8A97AB); max-width: 76ch;
+  margin-top: 3px; overflow-wrap: anywhere;
+}
+.roles-page__head-actions {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.roles-page__grid {
+  display: grid;
+  grid-template-columns: clamp(220px, 22vw, 280px) minmax(0, 1fr);
+  gap: 16px; align-items: start; min-width: 0;
+}
+.roles-page__aside { min-width: 0; padding: 12px; align-self: start; }
+.roles-page__aside-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 8px;
+}
+.roles-page__label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-3, #8A97AB);
+}
+.roles-page__list { display: grid; gap: 2px; min-width: 0; }
+.roles-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 6px; align-items: center; width: 100%; text-align: left;
+  padding: 8px; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; color: inherit; min-height: 44px;
+}
+.roles-item:hover { background: rgba(148, 163, 184, .10); }
+.roles-item.is-active {
+  background: rgba(96, 165, 250, .14);
+  border-color: rgba(96, 165, 250, .35);
+}
+.roles-item__name {
+  font-weight: 600; font-size: 13px; overflow-wrap: anywhere;
+}
+.roles-item__badges {
+  display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;
+}
+.roles-item__meta {
+  grid-column: 1 / -1; font-size: 10px; color: var(--text-3, #8A97AB);
+}
+.roles-page__create { display: flex; gap: 6px; margin-top: 10px; min-width: 0; }
+.roles-page__main { min-width: 0; padding: 12px; }
+.roles-page__mobile-switch {
+  display: none; align-items: center; gap: 8px; margin-bottom: 8px;
+  position: relative; min-width: 0;
+}
+.roles-actions-btn { min-height: 44px; min-width: 44px; font-size: 18px; line-height: 1; }
+.roles-actions-menu {
+  display: grid; gap: 2px; padding: 6px; margin: 0 0 8px;
+  min-width: 0;
+}
+.roles-actions-menu__item {
+  text-align: left; padding: 10px 12px; border-radius: 8px;
+  min-height: 44px; background: transparent; color: inherit;
+}
+.roles-actions-menu__item:hover { background: rgba(148, 163, 184, .12); }
+.roles-actions-menu__item:disabled { opacity: .45; }
+.roles-page__tabs {
+  display: flex; gap: 4px; overflow-x: auto; overscroll-behavior: contain;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  padding-bottom: 4px; min-width: 0;
+}
+.roles-tab {
+  flex: 0 0 auto; border: 0; background: transparent;
+  color: var(--text-3, #8A97AB); padding: 8px 12px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; white-space: nowrap; min-height: 40px;
+}
+.roles-tab.is-active {
+  color: var(--text-1, #E6EDF7); background: rgba(96, 165, 250, .14);
+}
+.roles-tab:focus-visible { outline: 2px solid rgba(96, 165, 250, .7); outline-offset: 2px; }
+.roles-pane { padding-top: 12px; min-width: 0; }
+.roles-pane__head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap; min-width: 0;
+}
+.roles-pane__title { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.roles-pane__actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.roles-pane__tools {
+  display: flex; gap: 6px; align-items: center; min-width: 0; flex-wrap: wrap;
+}
+.roles-note {
+  margin-top: 8px; padding: 6px 8px; border-radius: 8px;
+  background: rgba(250, 204, 21, .10); color: #FDE68A;
+}
+.roles-pane__save {
+  display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+  flex-wrap: wrap; margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+.roles-tree { display: grid; gap: 8px; min-width: 0; }
+.roles-tree__section {
+  border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px;
+  padding: 8px; min-width: 0;
+}
+.roles-tree__section-head {
+  display: flex; align-items: center; gap: 6px; min-height: 32px;
+  flex-wrap: wrap;
+}
+.roles-tree__children { display: grid; gap: 2px; margin-top: 4px; min-width: 0; }
+.roles-tree__node {
+  display: flex; align-items: flex-start; gap: 6px; min-height: 32px;
+  padding: 2px 0; flex-wrap: wrap; min-width: 0;
+}
+.roles-tree__node > span:first-of-type { min-width: 0; overflow-wrap: anywhere; }
+.roles-tree--matrix { gap: 10px; }
+.roles-tree__nav { min-width: 0; }
+.roles-tree__nav-title {
+  font-size: 13px; font-weight: 700; color: var(--text-1, #E6EDF7);
+  margin-bottom: 4px;
+}
+.roles-tree__module { margin: 0 0 6px 8px; min-width: 0; }
+.roles-tree__module-title {
+  font-size: 12px; font-weight: 600; color: var(--text-2, #AAB6C8);
+  margin: 6px 0 2px;
+}
+.roles-tree__group {
+  border: 1px solid rgba(255, 255, 255, .07); border-radius: 8px;
+  margin: 2px 0; min-width: 0;
+}
+.roles-tree__group-head {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  cursor: pointer; padding: 6px 8px; min-height: 36px; font-size: 12px;
+}
+.roles-tree__owner {
+  margin-left: auto; font-size: 10px; color: var(--text-3, #8A97AB);
+  text-align: right; overflow-wrap: anywhere;
+}
+.roles-gates { margin-top: 12px; }
+.roles-gates__title { font-size: 12px; font-weight: 700; color: var(--text-2, #AAB6C8); }
+.roles-gates__list {
+  margin: 4px 0 0; padding-left: 18px; font-size: 12px;
+  color: var(--text-3, #8A97AB); display: grid; gap: 2px;
+}
+.roles-state {
+  border-radius: 10px; padding: 10px 12px;
+  background: rgba(148, 163, 184, .08);
+}
+.roles-state--err {
+  border: 1px solid rgba(248, 113, 113, .35);
+  background: rgba(248, 113, 113, .08);
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .roles-page__grid { grid-template-columns: 220px minmax(0, 1fr); gap: 12px; }
+  .roles-page__aside { position: static; }
+}
+@media (max-width: 767px) {
+  .roles-page__grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .roles-page__aside { display: none; }
+  .roles-page__mobile-switch { display: flex; }
+  .roles-page__main { padding: 10px; }
+  .roles-page__title { font-size: 18px; }
+  .roles-tab { min-height: 44px; }
+  .roles-item { min-height: 44px; }
+  .roles-pane__actions { display: none; }
+  .roles-pane__tools .field { flex: 1 1 100%; }
+  .roles-tree__section-head { min-height: 44px; }
+  .roles-tree__node { min-height: 44px; align-items: center; }
+  .roles-tree__group-head { min-height: 44px; }
+}
+@media (max-width: 360px) {
+  .roles-page__head-actions .badge { display: none; }
+}
+
 /* ── W10-2. «Статус»: досье — пятая секция единого виджета (M4B B1) ────── */
 /* Отдельная нижняя карточка/тикер удалены; строки используют общий
    `.sfeed-*` слой, поэтому собственных правил высоты у досье больше нет. */

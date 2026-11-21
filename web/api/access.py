@@ -328,7 +328,14 @@ async def param_permissions_list(
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
-    db = await access_srv.db_override_map(cache.pg)
+    # MOD-ACL-UX-01 M4C C1: строгое чтение. При недоступном PG/пуле GET
+    # отдаёт 503, а НЕ 200 с выдуманной дефолтной матрицей. Runtime-путь
+    # services.access.db_override_map(strict=False) остаётся fail-open.
+    try:
+        db = await access_srv.db_override_map(cache.pg, strict=True)
+    except Exception:
+        logger.exception("[access] matrix strict read failed (PG down)")
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     from services.param_catalog import (
         CONFIG_TAB_TITLES,
         GROUPS,
