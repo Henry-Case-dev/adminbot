@@ -6,7 +6,7 @@
 - Ветка: `feat/mod-acl-m4c2` (создана только от базы; C1/2.58.230-байты сохранены).
 - Контракт: `evidence/m4c/c2-contract-2026-11-22.md` (§0, §4, §6, §8).
 - Кандидат: **C2a `8e50b0fa3`** (backend read-model) + **C2b `bc742adc0`**
-  (UI/evidence) + **c3 `corrective R1`** (C2-R1-1/2/3/7; SHA — в handoff).
+  (UI/evidence) + **c3** (corrective R1) + **c4** (R1-3 open/R1-9/R1-10).
   Один кандидат, внутренние коммиты; отдельный deploy не выполнялся.
 
 ## 1. Что реализовано
@@ -46,9 +46,15 @@ Endpoint'ы (все GET, монтируются существующим `access
 - `section.chat_lore` global — `not_applicable` (серверного ресурса нет, только
   видимость вкладки); chat — guard `chat_admins` membership/DM; DM — 404-изоляция
   (`not_applicable`).
-- прочие `section.*` (global/chat/dm) — **только видимость раздела**:
-  `applies_to=ui_visibility`, без выдуманного route guard/consumers, decision
-  `not_applicable` (C2-R1-3).
+- прочие `section.*` global — **реальное покрытие** секции:
+  `applies_to=coverage`, decision allowed/denied по
+  `deps.user_has_permission(section.<id>)`, guard —
+  `deps.can_edit_param/can_view_key_value (section coverage)`, consumer —
+  глобальный `POST /api/config` (C2-R1-3). Никакого фиктивного
+  `requires_permission("<section>")`.
+- `section.*` в chat/DM (включая `section.access`) — `not_applicable`:
+  chat-scoped endpoint'а для секции нет (`scope_capability`, честная причина);
+  глобальный scope того же ресурса считается по факту (C2-R1-9).
 - `param.*` global view — F-C2-3: non-secret читается любым валидным TMA
   (`global_config_all`), secret — только admin; hidden — hard-deny для всех
   (`hidden_parameter`, GET его не отдаёт).
@@ -146,13 +152,17 @@ Corrective c3 (поверх C2b): `services/access_preview.py` +94/−53,
 `web/app.js` +54/−4, C2-тесты/инструмент/evidence; product-файлы вне C2 seam —
 0 строк.
 
+Corrective c4: `services/access_preview.py` (section coverage/scope) +
+C2-тесты/evidence; остальные product-файлы — 0 строк.
+
 ## 4. Проверки (фактические результаты)
 
-Результаты после corrective R1 (C2-R1-1/2/3/7; RED/GREEN — `r1-blockers.md`).
+Результаты после corrective R4 (R1-3 open/R1-9/R1-10; RED/GREEN — `r1-c4.md`;
+предыдущие — `r1-blockers.md`).
 
 | Проверка | Результат |
 |---|---|
-| `pytest tests/test_webapp_access_effective.py` | **115 passed** |
+| `pytest tests/test_webapp_access_effective.py` | **124 passed** |
 | Focused pytest (10 C1-adjacent файлов) | **334 passed, 2 failed** — `test_prompt_field_audit::test_every_editable_prompt_has_reachable_surface` и `test_webapp_hubs_matrix_ui::test_r4_custom_modules_removed`, оба воспроизведены на чистой базе `d86bf66d4` (pre-existing) |
 | C1 `test_webapp_access_matrix_read.py` | **17 passed** (не изменялся) |
 | `node tests/js/mod_acl_ux_m4c1_roles_page_test.js` | PASS |
@@ -188,6 +198,23 @@ Corrective c3 (поверх C2b): `services/access_preview.py` +94/−53,
   RED: `noActor до /api/admins запрещён` на `ba8b93121`.
 - **C2-R1-4 (nonblocking):** non-admin actor-select = только «Я».
 - C2-R1-5/6 — backlog, не расширялись.
+
+## 4c. Corrective c4 — R1-3 open / R1-9 / R1-10
+
+Полные RED/GREEN — `r1-c4.md`.
+
+- **R1-3 (open):** покрытие секций восстановлено как факт: global
+  `section.limits/content/keys/…` → `coverage`-слой с реальными
+  `deps.can_edit_param/can_view_key_value` и consumer `POST /api/config`;
+  `moderator limits` снова `allowed`; `_expected_decision` сверяется с
+  `deps.user_has_permission(section.<id>)` (без ослабления). Фиктивных
+  `requires_permission("<section>")` нет.
+- **R1-9 (new blocking):** chat/DM `section.*` (включая `access`) —
+  `not_applicable` (`scope_capability`, «chat-scoped section endpoint
+  отсутствует»); глобальный scope — по факту. Anti-drift +4 chat/DM кейса.
+- **R1-10 (nonblocking):** из consumers `section.access` убран
+  `GET/POST /api/cover/*` (часть cover-служебных — `requires_global_admin()`);
+  остались только roles/admins, тест проверяет.
 
 ## 5. Мутации (RED на кандидате, GREEN после отката)
 

@@ -7,10 +7,10 @@
 
 ```
 python -m pytest tests/test_webapp_access_effective.py -q
-115 passed, 1 warning in 15.20s
+124 passed, 1 warning in 15.45s
 ```
 
-Покрытие (115 кейсов; после corrective R1 — `r1-blockers.md`):
+Покрытие (124 кейса; corrective R1/R4 — `r1-blockers.md`, `r1-c4.md`):
 
 - Effective/слои: admin wildcard (allowed оба слоя), custom section.access —
   **mixed**, moderator section.limits coverage, user denied, глобальный
@@ -31,10 +31,15 @@ python -m pytest tests/test_webapp_access_effective.py -q
   `hidden_parameter`, non-admin → 422; non-secret edit: moderator denied,
   custom key-grant allowed, provider-ключ только admin, role_type admin без
   keys grant — denied.
-- Section honesty (C2-R1-3): `section.access` — реальный guard+ceiling;
-  `section.limits`/`chat_lore`(global)/прочие — `ui_visibility`-слой без fake
-  guard/consumers, decision `not_applicable`; `TestLayerHonesty` проверяет
-  каждую строку слоя (реальный guard из allowlist или явная visibility).
+- Section coverage (C2-R1-3): global `section.limits/content/keys/…` →
+  `coverage`-слой с `deps.can_edit_param/can_view_key_value`, allowed/denied по
+  `deps.user_has_permission(section.<id>)`; moderator limits allowed;
+  `section.access` — реальный guard+ceiling; chat_lore global — видимость.
+- Section scope (C2-R1-9): chat/DM `section.*` включая access → `not_applicable`
+  (`scope_capability`), глобальный scope — по факту; anti-drift +4 chat/DM.
+- Section honesty (C2-R1-3/R1-10): `TestLayerHonesty` — каждый слой либо
+  реальный guard из allowlist (с consumers), либо ui_visibility, либо явный
+  `scope:`; consumers access не содержат `/api/cover*`.
 - Strict/503: cold+PG down все три GET + матрица → 503; seeded+PG down:
   section/action 200, param/key 503, chat/DM 503; F-C2-1 (cold 503,
   seeded non-global 403 без strict-read, seeded admin 503).

@@ -183,18 +183,35 @@ def _section_role_layers(ctx, cache, actor_id: int, sid: str,
                          scope_kind: str) -> tuple[list[dict], str]:
     """Слои для `section.<id>` (global/chat/dm) + итоговое решение.
 
-    Честность guard'ов (C2-R1-3): реальный route-guard есть ТОЛЬКО у
-    `section.access` (`deps.requires_permission("access")`) и `global_admin`
-    потолок; `section.chat_lore` в чате — `chat_lore.can_access_chat`
-    (membership). У прочих секций отдельного endpoint-guard'а нет: слой
-    помечается `applies_to=ui_visibility` («видимость раздела/вкладки»), без
-    выдуманного `requires_permission("<section>")` и без чужих consumers.
+    Честность guard'ов (C2-R1-3/R1-9):
+      * global `section.access` — реальный `requires_permission("access")` +
+        inline `global_admin` ceiling;
+      * global прочие категории — реальное **покрытие** секции
+        (`deps.can_edit_param/can_view_key_value` матчат `param.<cat>.*`/
+        `key.<cat>.*`), без выдуманного route guard'а и без чужих consumers;
+      * global `chat_lore` — только видимость вкладки;
+      * chat/DM `section.*` (включая access) — `not_applicable`: endpoint'ов
+        для секции в чате нет;
+      * chat `chat_lore` — реальный membership-guard `chat_lore.can_access_chat`.
     """
     perms = ctx.perms_global
     allowed, matched, reason = _match_detail(perms, f"section.{sid}")
     canon = _is_global_admin_canon(ctx, cache, actor_id)
     if not allowed and canon:
         allowed, matched, reason = True, "role_type:global_admin", "role_type"
+
+    # C2-R1-9: chat/DM не имеют section-endpoint'ов, включая section.access
+    # (roles/матрица/гранты — глобальные endpoint'ы). Честная причина, без
+    # фиктивного guard'а и без ложного allowed/mixed.
+    if scope_kind != "global" and sid != "chat_lore":
+        return [_layer(
+            "scope_capability", "Область: секция глобальна", _NA,
+            applies_to="guard", reason="no_backend_guard",
+            required=f"section.{sid}", matched=matched,
+            guard="scope: section grants applied to global writes only "
+                  "(web.api.deps.can_edit_param/can_view_key_value); "
+                  "chat-scoped section endpoint отсутствует",
+            consumers=())], _NA
 
     if sid == "access":
         layers = [_layer(
@@ -204,8 +221,7 @@ def _section_role_layers(ctx, cache, actor_id: int, sid: str,
             guard='web.api.deps.requires_permission("access")',
             consumers=("GET/POST /api/roles", "DELETE /api/roles/{name}",
                        "POST /api/roles/{name}/rename", "GET /api/roles/tree",
-                       "GET/POST /api/admins", "POST /api/admins/remove",
-                       "GET/POST /api/cover/*"),
+                       "GET/POST /api/admins", "POST /api/admins/remove"),
             source="role_permissions")]
         ceil = ctx.is_global_admin
         layers.append(_layer(
@@ -257,15 +273,18 @@ def _section_role_layers(ctx, cache, actor_id: int, sid: str,
             hard=not allowed_guard, source="chat_admins"))
         return layers, _ALLOWED if allowed_guard else _DENIED
 
-    # Прочие section.*: отдельного route guard/endpoint-ресурса нет — только
-    # видимость раздела/вкладки в Mini App. Никаких выдуманных guard'ов.
-    visibility = _layer(
-        "role", "Видимость раздела «%s»" % sid,
-        _ALLOWED if allowed else _DENIED, applies_to="ui_visibility",
+    # C2-R1-3: покрытие секции реально (deps.can_edit_param/
+    # can_view_key_value используют section.<cat> как родителя для
+    # param.<cat>.*/key.<cat>.*); отдельного route-guard'а у секции нет, поэтому
+    # guard — существующие функции-матчеры, consumer — глобальный POST /api/config.
+    coverage = _layer(
+        "role", "Покрытие секции «%s»" % sid,
+        _ALLOWED if allowed else _DENIED, applies_to="coverage",
         reason=reason, required=f"section.{sid}", matched=matched,
-        guard="ui visibility (web app section; отдельного route guard нет)",
-        consumers=(), source="role_permissions")
-    return [visibility], _NA
+        guard="web.api.deps.can_edit_param/can_view_key_value "
+              "(section coverage)",
+        consumers=("POST /api/config",), source="role_permissions")
+    return [coverage], _ALLOWED if allowed else _DENIED
 
 
 def _action_role_layers(ctx, cache, actor_id: int, action_id: str,
