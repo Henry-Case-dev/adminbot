@@ -1,0 +1,348 @@
+{
+  "release": "2.58.226",
+  "feature": "P0-HC history coverage / temporal evidence / Telegram egress",
+  "branch": "release/p0-hc-2.58.226",
+  "base": {
+    "sha": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
+    "version": "2.58.225",
+    "role": "base and rollback",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "product": "4bb7e593c5d4b085290ff7f034f0f1b28b0233bb",
+    "branch_tip": "e26ebc16311f83d4df5ec265ce2933ee19e11440",
+    "test_delta": "tests/test_direct_chat.py only, +12/-12 (five stale pre-B oracles)",
+    "review": "APPROVED_FOR_RELEASE_PREPARATION",
+    "review_artifact": "plans/features/p0-history-coverage-temporal-egress/evidence/accept/review-harness-r2.md",
+    "review_master_commit": "ccf41c1edad223d4bf6162db94d99e1c5fe2f68a",
+    "review_sha256": "f7aba14d0c8145f18dc2babb06aa540bf455edbd00e2984bc79f5d376e7cc8c9",
+    "review_bytes": 26454,
+    "closed": ["HC-ACC-R2-F1", "HC-ACC-R2-F2", "HC-ACC-R2-F5", "HC-ACC-R2-F6"],
+    "non_blocking": ["HC-ACC-R2-N1", "HC-ACC-R2-N2", "HC-ACC-R2-N3", "HC-ACC-R2-N4", "HC-ACC-R1-N1", "HC-ACC-R1-N2"],
+    "external_open_rows": ["HC-ACC-FREE-SPEECH", "HC-ACC-NO-OBJECTIVITY"],
+    "verified_claim": false
+  },
+  "content_bump_commit": "bafbd0863d7c8bb157abe3428463eedd9fa0079f",
+  "version": "2.58.226",
+  "bump": {
+    "files": 31,
+    "insertions": 34,
+    "deletions": 34,
+    "app_version": "2.58.226",
+    "app_version_ast": "2.58.226",
+    "wave": [
+      "config/settings.py (APP_VERSION + release note)",
+      "plans/docs/param-registry-round1025.meta.md",
+      "24 Python version-pin test files (polygon has two lines)",
+      "4 escaped JS version pins",
+      "tools/ui_mod_acl_m4b2_status_e2e.py (three pins absent from the 2.58.225 wave)"
+    ],
+    "non_settings_diff": "every changed file is byte-identical after reversing 2.58.226 -> 2.58.225 (including the escaped JS form)",
+    "settings_diff": "only the version prefix and the prepended 2.58.226 release note; Prior 2.58.225 and all history preserved",
+    "bom_crlf": "settings.py UTF-8 BOM preserved; 3645 CRLF and one bare LF",
+    "diff_check": "git diff --check -- services config tests tools rc=0",
+    "py_compile": "11 product modules + config/settings.py rc=0",
+    "node_check": "node --check web/app.js rc=0"
+  },
+  "schema": {
+    "target": 48,
+    "user_version_constant": 48,
+    "base_constant": 48,
+    "smoke": {
+      "target": 48,
+      "user_version": 48,
+      "schema_migrations_max": 48,
+      "schema_migrations_count": 48,
+      "journal": "wal",
+      "method": "temp SQLite DatabaseService.initialize()"
+    },
+    "ddl": 0,
+    "migrations_diff": "empty",
+    "database_py_diff": "read-only SELECT list additions only (sent_at, edited_at, reply_to_author_id in three methods)"
+  },
+  "environment": {
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "os": "Windows",
+    "pytest_timeout_config": "60 s, thread method (repository pytest.ini)"
+  },
+  "product_delta": {
+    "base_to_bump_net": {
+      "services/canonical_context.py": {"insertions": 53, "deletions": 5},
+      "services/database.py": {"insertions": 4, "deletions": 1},
+      "services/direct_chat_service.py": {"insertions": 562, "deletions": 41},
+      "services/direct_l1.py": {"insertions": 13, "deletions": 1},
+      "services/mca_retrieval_context.py": {"insertions": 104, "deletions": 10},
+      "services/prompt_style_blocks.py": {"insertions": 6, "deletions": 1},
+      "services/summary_memory.py": {"insertions": 44, "deletions": 6},
+      "services/telegram_markup.py": {"insertions": 849, "deletions": 0},
+      "services/thread_chain.py": {"insertions": 37, "deletions": 2},
+      "services/tool_router.py": {"insertions": 776, "deletions": 30},
+      "services/tool_schemas.py": {"insertions": 3, "deletions": 1},
+      "config/settings.py": {"insertions": 1, "deletions": 1}
+    },
+    "product_files": [
+      "services/canonical_context.py",
+      "services/database.py",
+      "services/direct_chat_service.py",
+      "services/direct_l1.py",
+      "services/mca_retrieval_context.py",
+      "services/prompt_style_blocks.py",
+      "services/summary_memory.py",
+      "services/telegram_markup.py",
+      "services/thread_chain.py",
+      "services/tool_router.py",
+      "services/tool_schemas.py"
+    ],
+    "product_total_excluding_settings": {"insertions": 2451, "deletions": 98},
+    "web_scope": "empty",
+    "forbidden_scope": "empty: database.py migrations prompts chat_prompts.py services/telegram_send.py tools/p0_hc_acceptance.py tests/test_p0_hc_acceptance.py",
+    "product_scope_since_reviewed_candidate": "config/settings.py only (bump)",
+    "merge_commits": 0
+  },
+  "batches": [
+    {
+      "id": "p0-focused-7",
+      "files": [
+        "tests/test_p0_hc_coverage.py",
+        "tests/test_p0_hc_temporal.py",
+        "tests/test_p0_hc_telegram_egress.py",
+        "tests/test_p0_hc_egress_c2.py",
+        "tests/test_history_pages.py",
+        "tests/test_history_segments.py",
+        "tests/test_history_isolation.py"
+      ],
+      "runner": "python -m pytest <files> -q -p no:cacheprovider",
+      "passed": 306,
+      "failed": 0,
+      "errors": 0,
+      "duration_s": 52.23,
+      "notes": "requirement was >=306 passed; warning: closed 46 leaked aiosqlite connection(s) (pre-existing async-plugin note)"
+    },
+    {
+      "id": "direct-chat-file",
+      "files": ["tests/test_direct_chat.py"],
+      "runner": "python -m pytest tests/test_direct_chat.py -q -p no:cacheprovider",
+      "passed": 161,
+      "failed": 0,
+      "errors": 0,
+      "duration_s": 14.43
+    },
+    {
+      "id": "pin-guard-24-py",
+      "files": [
+        "tests/test_decision_making_round1026.py",
+        "tests/test_image_context_memory_round1026.py",
+        "tests/test_mca17c_invariants_round1047.py",
+        "tests/test_round1025_f8_registry.py",
+        "tests/test_scope_selector_round1025.py",
+        "tests/test_summary_deploy_round1026.py",
+        "tests/test_summary_fact_package.py",
+        "tests/test_summary_logging_runid.py",
+        "tests/test_summary_publish_integration_round1026.py",
+        "tests/test_summary_test_run.py",
+        "tests/test_telegram_reactions_round1026.py",
+        "tests/test_tool_coordinator_round1026.py",
+        "tests/test_unified_image_request_round1026.py",
+        "tests/test_webapp_design_tokens_round1025.py",
+        "tests/test_webapp_f11_round1025.py",
+        "tests/test_webapp_f6_round1025.py",
+        "tests/test_webapp_f7_round1025.py",
+        "tests/test_webapp_f9_round1025.py",
+        "tests/test_webapp_hotfix10_round1025.py",
+        "tests/test_webapp_hotfix6_round1025.py",
+        "tests/test_webapp_hotfix7_round1025.py",
+        "tests/test_webapp_hotfix8_round1025.py",
+        "tests/test_webapp_hotfix9_round1025.py",
+        "tests/test_webapp_round1026_polygon.py"
+      ],
+      "runner": "python -m pytest <files> -q -p no:cacheprovider",
+      "passed": 856,
+      "failed": 4,
+      "errors": 0,
+      "duration_s": 72.68,
+      "failed_node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "pre_existing": true
+    },
+    {
+      "id": "js-6",
+      "files": [
+        "tests/js/round1025_hotfix10_glass_geometry_bg_test.js",
+        "tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js",
+        "tests/js/round1025_hotfix8_shell_aurora_test.js",
+        "tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js",
+        "tests/js/mod_acl_ux_m4a_w2b_history_test.js",
+        "tests/js/round1028_asap3_direct_context_test.js"
+      ],
+      "runner": "node <file>",
+      "failed": 0,
+      "rc": [0, 0, 0, 0, 0, 0],
+      "markers": [
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK",
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "MOD-ACL-UX-M4A-W2B-HISTORY-OK 397 checks",
+        "ASAP3-DIRECT-CONTEXT-OK"
+      ]
+    },
+    {
+      "id": "broad-direct-16",
+      "files": [
+        "tests/test_direct_chat.py",
+        "tests/test_direct_chat_concurrency.py",
+        "tests/test_direct_chat_handlers.py",
+        "tests/test_direct_chat_lore_inject.py",
+        "tests/test_direct_chat_prompts.py",
+        "tests/test_direct_chat_relations_inject.py",
+        "tests/test_direct_context_capacity_asap3.py",
+        "tests/test_direct_context_composer_asap3.py",
+        "tests/test_direct_context_scenarios_asap3.py",
+        "tests/test_direct_decision_matrix_asap3.py",
+        "tests/test_direct_fallback_recompose_asap32.py",
+        "tests/test_direct_l1_corrective_r1.py",
+        "tests/test_direct_l1_l1d_contract.py",
+        "tests/test_direct_llm_decision_asap32.py",
+        "tests/test_asap7_direct_l1.py",
+        "tests/test_speech_p0_l1_canonical.py"
+      ],
+      "runner": "python -m pytest <files> -q -p no:cacheprovider --timeout=0",
+      "passed": 519,
+      "failed": 6,
+      "errors": 0,
+      "duration_s": 165.41,
+      "failed_node_ids": [
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud",
+        "tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit"
+      ],
+      "pre_existing": true
+    },
+    {
+      "id": "broad-history-17",
+      "files": [
+        "tests/test_history_isolation.py",
+        "tests/test_history_pages.py",
+        "tests/test_history_segments.py",
+        "tests/test_history_w4_fixes.py",
+        "tests/test_history_quality_wiring.py",
+        "tests/test_history_quality.py",
+        "tests/test_history_loader.py",
+        "tests/test_history_parser.py",
+        "tests/test_history_relevance.py",
+        "tests/test_history_retention_toggle.py",
+        "tests/test_history_migration_v7.py",
+        "tests/test_history_cli.py",
+        "tests/test_evol015_quote_pipeline.py",
+        "tests/test_lore_compiler_round1020.py",
+        "tests/test_rlr_dcs_postprocess.py",
+        "tests/test_soul1_style_payload.py",
+        "tests/test_verbilizer_response_modes_round1023.py"
+      ],
+      "runner": "python -m pytest <files> -q -p no:cacheprovider --timeout=0",
+      "passed": 409,
+      "failed": 10,
+      "errors": 2,
+      "duration_s": 31.02,
+      "failed_node_ids": [
+        "tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_banner_on_conspect_only_in_range_lines_unlabeled",
+        "tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_inrange_region_covers_all_window_lines",
+        "tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_verbatim_only_global_gets_no_banner",
+        "tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_sample_parity_no_banner",
+        "tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_overflow_conspect_remainder_stays_under_banner",
+        "tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_inrange_lines_no_boundary",
+        "tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_partial_trim_boundary_before_first_survivor",
+        "tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_fully_trimmed_tail_emits_no_boundary",
+        "tests/test_history_cli.py::TestCliFts::test_scope_is_required",
+        "tests/test_verbilizer_response_modes_round1023.py::TestTwoCallModes::test_summary_kill_switch_off_prev_narrator"
+      ],
+      "error_node_prefixes": [
+        "tests/test_verbilizer_response_modes_round1023.py::TestDeepResearchPromptConsistency::test_no_bullet_ban_in_deep_research"
+      ],
+      "pre_existing": true
+    },
+    {
+      "id": "broad-memory-tool-db-clock-14",
+      "files": [
+        "tests/test_tool_router.py",
+        "tests/test_ur_c_clock.py",
+        "tests/test_database.py",
+        "tests/test_graphrag_database.py",
+        "tests/test_memory_period_vector_leg.py",
+        "tests/test_memory_lookup_round1026.py",
+        "tests/test_memory_unified_retrieval.py",
+        "tests/test_memory_unified_retrieval_06.py",
+        "tests/test_context_limits_round1019.py",
+        "tests/test_context_policy_asap31.py",
+        "tests/test_memory_communities_retrieval.py",
+        "tests/test_memory_core_round1020.py",
+        "tests/test_memory_contracts.py",
+        "tests/test_memory_quality_contract_07.py"
+      ],
+      "runner": "python -m pytest <files> -q -p no:cacheprovider --timeout=0",
+      "passed": 540,
+      "failed": 1,
+      "errors": 0,
+      "duration_s": 138.48,
+      "failed_node_ids": [
+        "tests/test_ur_c_clock.py::TestFallbackAdapterClock::test_generous_budget_keeps_block_intact_same_asof"
+      ],
+      "pre_existing": true
+    },
+    {
+      "id": "summary-memory-alone",
+      "files": ["tests/test_summary_memory.py"],
+      "runner": "python -m pytest tests/test_summary_memory.py -q -p no:cacheprovider",
+      "passed": 79,
+      "failed": 0,
+      "errors": 0,
+      "duration_s": 9.02
+    }
+  ],
+  "broad_totals": {
+    "passed": 1547,
+    "failed": 17,
+    "errors": 2,
+    "note": "sum of the three broad groups plus test_summary_memory.py alone; all 17 failures and 2 errors reproduce identically on base 1b7d43333"
+  },
+  "pre_existing": {
+    "same_on_base": true,
+    "base_sha": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
+    "pin_guard": {"passed": 0, "failed": 4, "duration_s": 10.39, "note": "only the four node IDs were run on base"},
+    "direct_6": {"failed": 6, "duration_s": 3.53, "note": "same six node IDs"},
+    "history_10_plus_2": {"passed": 109, "failed": 10, "errors": 2, "duration_s": 10.84, "note": "same files and node IDs"},
+    "ur_c_clock": {"failed": 1, "note": "same node ID; already recorded as pre-existing at A/B tips"}
+  },
+  "checks": {
+    "branch_commits_from_base": 22,
+    "merge_commits": 0,
+    "git_status_clean_after_commits": true,
+    "product_scope_only_11_plus_settings": true,
+    "forbidden_scope_empty": true,
+    "web_empty": true,
+    "schema_constant_unchanged": true,
+    "ddl": 0,
+    "python_compile_rc": 0,
+    "node_check_rc": 0,
+    "diff_check_rc": 0
+  },
+  "limitations": [
+    "No production access, SSH, deploy, live Telegram or VERIFIED claim in this assembly.",
+    "The acceptance harness tools/p0_hc_acceptance.py and tests/test_p0_hc_acceptance.py remain on p0/hc-accept because they pin CANDIDATE_SHA/EXPECTED_RELEASE and would be blocked by the bump.",
+    "A single combined broad pytest invocation hit the repository's 60 s timeout in async teardown on Windows; the same files were run in three groups plus test_summary_memory.py alone with no changed result.",
+    "The independent review artifact is tracked on master, not in the candidate ancestry; it is referenced by commit and sha256.",
+    "HC-ACC-FREE-SPEECH and HC-ACC-NO-OBJECTIVITY remain not_executed due to external provider HTTP 402 and are not promoted.",
+    "Pre-existing failures are not counted as passes and are not fixed by this release assembly.",
+    "No UI/visual change: no Playwright/Browser Use run was required for release preparation."
+  ]
+}

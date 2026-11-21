@@ -1,0 +1,113 @@
+Release 2.58.226 — сырые итоговые строки прогонов
+Date: 2026-11-21 (+12:00)
+Branch: release/p0-hc-2.58.226
+Bump/content tip: bafbd0863d7c8bb157abe3428463eedd9fa0079f
+Base/rollback: 1b7d43333b5be8fcbceff2fc82ff8436e5947e9d (2.58.225, schema 48, DDL 0)
+Environment: Python 3.12.0, pytest 9.1.1, Node v24.16.0, Windows
+
+[P0 focused/affected, 7 files]
+python -m pytest tests/test_p0_hc_coverage.py tests/test_p0_hc_temporal.py tests/test_p0_hc_telegram_egress.py tests/test_p0_hc_egress_c2.py tests/test_history_pages.py tests/test_history_segments.py tests/test_history_isolation.py -q -p no:cacheprovider
+WARNING: closed 46 leaked aiosqlite connection(s)
+306 passed in 52.23s
+rc=0
+
+[Direct chat]
+python -m pytest tests/test_direct_chat.py -q -p no:cacheprovider
+161 passed in 14.43s
+rc=0
+
+[Pin guard, 24 Python version-pin files]
+python -m pytest tests/test_decision_making_round1026.py tests/test_image_context_memory_round1026.py tests/test_mca17c_invariants_round1047.py tests/test_round1025_f8_registry.py tests/test_scope_selector_round1025.py tests/test_summary_deploy_round1026.py tests/test_summary_fact_package.py tests/test_summary_logging_runid.py tests/test_summary_publish_integration_round1026.py tests/test_summary_test_run.py tests/test_telegram_reactions_round1026.py tests/test_tool_coordinator_round1026.py tests/test_unified_image_request_round1026.py tests/test_webapp_design_tokens_round1025.py tests/test_webapp_f11_round1025.py tests/test_webapp_f6_round1025.py tests/test_webapp_f7_round1025.py tests/test_webapp_f9_round1025.py tests/test_webapp_hotfix10_round1025.py tests/test_webapp_hotfix6_round1025.py tests/test_webapp_hotfix7_round1025.py tests/test_webapp_hotfix8_round1025.py tests/test_webapp_hotfix9_round1025.py tests/test_webapp_round1026_polygon.py -q -p no:cacheprovider
+4 failed, 856 passed in 72.68s
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+rc=1
+
+[Pin guard, same 4 node IDs on base 1b7d43333]
+4 failed in 10.39s
+rc=1
+(same four node IDs; pre-existing, not a regression)
+
+[JS set, 6 files]
+node tests/js/round1025_hotfix10_glass_geometry_bg_test.js -> HOTFIX10-GLASS-GEOMETRY-BG-OK, rc=0
+node tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js -> HOTFIX7-SHELL-GLASS-HEARTBEAT-OK, rc=0
+node tests/js/round1025_hotfix8_shell_aurora_test.js -> HOTFIX8-SHELL-AURORA-OK, rc=0
+node tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js -> HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK, rc=0
+node tests/js/mod_acl_ux_m4a_w2b_history_test.js -> MOD-ACL-UX-M4A-W2B-HISTORY-OK 397 checks, rc=0
+node tests/js/round1028_asap3_direct_context_test.js -> ASAP3-DIRECT-CONTEXT-OK, rc=0
+failed_files=0
+
+[Broad Direct/context, 16 files]
+python -m pytest tests/test_direct_chat.py tests/test_direct_chat_concurrency.py tests/test_direct_chat_handlers.py tests/test_direct_chat_lore_inject.py tests/test_direct_chat_prompts.py tests/test_direct_chat_relations_inject.py tests/test_direct_context_capacity_asap3.py tests/test_direct_context_composer_asap3.py tests/test_direct_context_scenarios_asap3.py tests/test_direct_decision_matrix_asap3.py tests/test_direct_fallback_recompose_asap32.py tests/test_direct_l1_corrective_r1.py tests/test_direct_l1_l1d_contract.py tests/test_direct_llm_decision_asap32.py tests/test_asap7_direct_l1.py tests/test_speech_p0_l1_canonical.py -q -p no:cacheprovider --timeout=0
+6 failed, 519 passed in 165.41s
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud
+FAILED tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit
+rc=1
+
+[Broad Direct, same 6 node IDs on base 1b7d43333]
+6 failed in 3.53s
+rc=1
+(same six node IDs; pre-existing, not a regression)
+
+[Broad History/related, 17 files]
+python -m pytest tests/test_history_isolation.py tests/test_history_pages.py tests/test_history_segments.py tests/test_history_w4_fixes.py tests/test_history_quality_wiring.py tests/test_history_quality.py tests/test_history_loader.py tests/test_history_parser.py tests/test_history_relevance.py tests/test_history_retention_toggle.py tests/test_history_migration_v7.py tests/test_history_cli.py tests/test_evol015_quote_pipeline.py tests/test_lore_compiler_round1020.py tests/test_rlr_dcs_postprocess.py tests/test_soul1_style_payload.py tests/test_verbilizer_response_modes_round1023.py -q -p no:cacheprovider --timeout=0
+10 failed, 409 passed, 2 errors in 31.02s
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_banner_on_conspect_only_in_range_lines_unlabeled
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_inrange_region_covers_all_window_lines
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_verbatim_only_global_gets_no_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_sample_parity_no_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_overflow_conspect_remainder_stays_under_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_inrange_lines_no_boundary
+FAILED tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_partial_trim_boundary_before_first_survivor
+FAILED tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_fully_trimmed_tail_emits_no_boundary
+FAILED tests/test_history_cli.py::TestCliFts::test_scope_is_required
+FAILED tests/test_verbilizer_response_modes_round1023.py::TestTwoCallModes::test_summary_kill_switch_off_prev_narrator
+ERROR tests/test_verbilizer_response_modes_round1023.py::TestDeepResearchPromptConsistency::test_no_bullet_ban_in_deep_research (2 unicode-parametrized fixture errors; prompt text omitted from evidence)
+rc=1
+
+[Broad History/related failing files on base 1b7d43333]
+python -m pytest tests/test_history_w4_fixes.py tests/test_history_cli.py tests/test_verbilizer_response_modes_round1023.py -q -p no:cacheprovider --timeout=0
+10 failed, 109 passed, 2 errors in 10.84s
+rc=1
+(same 10 failures and 2 errors; pre-existing, not a regression)
+
+[Broad memory/tool/db/clock, 14 files]
+python -m pytest tests/test_tool_router.py tests/test_ur_c_clock.py tests/test_database.py tests/test_graphrag_database.py tests/test_memory_period_vector_leg.py tests/test_memory_lookup_round1026.py tests/test_memory_unified_retrieval.py tests/test_memory_unified_retrieval_06.py tests/test_context_limits_round1019.py tests/test_context_policy_asap31.py tests/test_memory_communities_retrieval.py tests/test_memory_core_round1020.py tests/test_memory_contracts.py tests/test_memory_quality_contract_07.py -q -p no:cacheprovider --timeout=0
+1 failed, 540 passed in 138.48s
+FAILED tests/test_ur_c_clock.py::TestFallbackAdapterClock::test_generous_budget_keeps_block_intact_same_asof
+rc=1
+
+[Same ur_c_clock node ID on base 1b7d43333]
+FAILED tests/test_ur_c_clock.py::TestFallbackAdapterClock::test_generous_budget_keeps_block_intact_same_asof
+1 failed in 3.30s
+rc=1
+(pre-existing; already recorded at A/B tips)
+
+[Summary memory alone]
+python -m pytest tests/test_summary_memory.py -q -p no:cacheprovider
+79 passed, 1 warning in 9.02s
+rc=0
+
+[Static checks]
+git diff --check -- services config tests tools -> rc=0
+py_compile on 11 product modules + config/settings.py -> rc=0
+node --check web/app.js -> rc=0
+APP_VERSION AST -> 2.58.226
+schema constant _SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE -> 48 (same at base)
+temp SQLite smoke (DatabaseService.initialize): target 48, user_version 48,
+schema_migrations max/count 48, journal wal, DDL 0
+git diff 1b7d43333..HEAD -- database.py migrations prompts -> empty
+git diff 1b7d43333..HEAD -- web -> empty
+git rev-list --merges 1b7d43333..HEAD -> empty
+git status --porcelain -> empty after commits
+
+Note: a single combined broad invocation hit the repository's 60 s pytest-timeout in
+async teardown on Windows. The same files were re-run in three deterministic groups
+plus test_summary_memory.py alone; no file changed its result. The full traceback
+containing prompt fixture text is intentionally not copied into this evidence file.

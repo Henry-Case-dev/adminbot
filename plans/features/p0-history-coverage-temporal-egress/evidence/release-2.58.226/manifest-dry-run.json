@@ -1,0 +1,12 @@
+{
+  "deployed_at": "2026-11-21T05:50:55.826440Z",
+  "deployed_sha": "bafbd0863d7c8bb157abe3428463eedd9fa0079f",
+  "deployer": "builder-release-prep",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "1b7d43333b5be8fcbceff2fc82ff8436e5947e9d",
+  "previous_version": "2.58.225",
+  "release_branch": "release/p0-hc-2.58.226",
+  "schema": 1,
+  "version": "2.58.226"
+}
