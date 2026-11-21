@@ -9,6 +9,9 @@
   read-only, editor tests.
 - Кандидат c3 (R1): **`eb305b6fe`** — F01/F02/F03 fixes (honest counters,
   used-role delete, 404 retry).
+- Кандидат c4 (REL-229-PIN-01): **`4618a3be2`** — re-pin
+  `ROUTES_SHA256_F11` (`4faa0a53…` → `70875819…`) для осознанных трёх
+  503-guard'ов C1; `pin-rationale.md` / `tests-pin-guard.txt`.
 - Evidence-коммит: следующий commit этого каталога (`plans/.../m4c/c1/**`).
 - APP_VERSION **2.58.228 не менялся**; версия/релиз — отдельно (2.58.229).
 
@@ -144,6 +147,23 @@ Builder не имеет права ходить на прод (SSH/LLM/прод 
   `shots/report.json` (`F02@*`, `error-*`, `retryRolesDelta=1`).
 - Границы: только `web/app.js`/`web/index.html` + тесты/evidence; без
   API/DDL/флагов/`APP_VERSION`, C2/C3 не тронуты.
+
+## 5c. Release pin (c4 `4618a3be2`, REL-229-PIN-01)
+
+`web/api/routes.py` под byte-freeze L-F11S-1. C1 осознанно добавил три
+honest 503-guard'а (+12), поэтому оба пина переутверждены:
+
+- старый `ROUTES_SHA256_F11`: `4faa0a53…7392ee7`;
+- фактический/новый: `70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2`.
+
+Обновлены канон `tests/test_round1025_f8_registry.py` и зеркало
+`tests/test_mca23_planned_vs_actual.py`, с rationale (три 503-guard'а, не
+рефакторинг; новых endpoint/полей/флагов/DDL нет; `f8_baseline` routes-
+инвентарь не менялся). Два целевых pin-теста — **2 passed**; полный
+pin-guard 24 Python-файла — **856 passed / 4 failed**, те же 4 pre-existing
+node-id, что и на base (проверены отдельно). После re-pin: C1 Playwright
+PASS, Python 320/1, B1 138/0, B2 92/0, B3 131/131, node 128/131.
+Подробности: `pin-rationale.md`, `tests-pin-guard.txt`.
 
 ## 6. Ограничения / RFL
 

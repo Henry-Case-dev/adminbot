@@ -1,0 +1,74 @@
+# M4C C1 c4 — pin-guard / re-pin runs (candidate 4618a3be2)
+
+## Targeted pin tests
+
+```
+python -m pytest \
+  tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact \
+  tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged -q
+→ 2 passed
+```
+
+## Tool check
+
+```
+py tools/_pins_258152_reissue_routes.py --check
+web/api/routes.py sha256 = 70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2
+  test_round1025_f8_registry.py                  70875819...56c2 OK
+  test_mca23_planned_vs_actual.py                70875819...56c2 OK
+CHECK OK
+```
+
+## Full pin-guard: 24 Python files (release set)
+
+```
+pytest tests/test_decision_making_round1026.py \
+  tests/test_image_context_memory_round1026.py \
+  tests/test_mca17c_invariants_round1047.py \
+  tests/test_round1025_f8_registry.py \
+  tests/test_scope_selector_round1025.py \
+  tests/test_summary_deploy_round1026.py tests/test_summary_fact_package.py \
+  tests/test_summary_logging_runid.py \
+  tests/test_summary_publish_integration_round1026.py \
+  tests/test_summary_test_run.py \
+  tests/test_telegram_reactions_round1026.py \
+  tests/test_tool_coordinator_round1026.py \
+  tests/test_unified_image_request_round1026.py \
+  tests/test_webapp_design_tokens_round1025.py \
+  tests/test_webapp_f11_round1025.py tests/test_webapp_f6_round1025.py \
+  tests/test_webapp_f7_round1025.py tests/test_webapp_f9_round1025.py \
+  tests/test_webapp_hotfix10_round1025.py tests/test_webapp_hotfix6_round1025.py \
+  tests/test_webapp_hotfix7_round1025.py tests/test_webapp_hotfix8_round1025.py \
+  tests/test_webapp_hotfix9_round1025.py tests/test_webapp_round1026_polygon.py -q
+→ 856 passed, 4 failed in 88.13s
+```
+
+Pre-existing failures (same node-ids on base `374dc6060`):
+
+- `tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff`
+- `tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools`
+- `tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged`
+- `tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline`
+
+No new pin-guard failure; 856/4 matches base.
+
+## C1 confirmation after re-pin
+
+- `tools/ui_mod_acl_m4c1_roles_e2e.py`: **PASS 0 failures**
+  (7 viewport + error/non-global/used-role scenarios).
+- Python focused: **320 passed, 1 failed** — same pre-existing
+  `test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed`
+  (reproduced on base).
+- B1 **138/0**, B2 **92/0**, B3 **131/131** (8 screenshots).
+  B3 first run in this session again hit the known timing flake
+  `detail_closed`; immediate rerun on the same HEAD — 131/131, failures=[].
+- `tests/js/*.js`: **128 pass / 3 fail** — same pre-existing
+  `evol_cog_scene`, `round1025_ia_routing`, `ur_ui_settings`.
+- `node --check web/app.js` → `NODE_CHECK_OK`;
+  `py_compile` pin-tests → `PY_COMPILE_OK`.
+
+## Scope
+
+Product files unchanged in c4: only the two pin files + this evidence.
+`web/api/routes.py` itself remains the C1 `70875819...` bytes; no
+endpoint/field/flag/DDL/version change.
