@@ -119,6 +119,14 @@
     return QRNG_PROVIDER_LABELS[id] || (id || '—');
   }
 
+  // ═══ MOD-ACL-UX-01 M4B B3 (MAC-S7-FEED-04): 5 КЛЮЧЕВЫХ стадий цепочки
+  // опыта на «Статусе» (наблюдение → кандидат → проверка → применение →
+  // измеренный исход). Полная 8-стадийная воронка остаётся в аналитике
+  // «Опыта»: порядок и подписи стадий по-прежнему приходят с сервера,
+  // здесь только ВЫБОР пяти ключей из того же ответа.
+  var EXP_KEY_STAGES = ['observation', 'candidate', 'validation',
+                        'application', 'outcome'];
+
   // ═══ QRNG P4: единый (и единственный) компонент одного технического поля
   // каталога на странице «Случайность» (endpoint/timeout/watermark/buffer/
   // plan/batch/type). Пишет ТЕМ ЖЕ saveConfigItem (POST /api/config); новых
@@ -10518,6 +10526,97 @@
           modeLabel: o.infinite_retention ? 'бессрочный' : 'обычный',
         };
       },
+      // M4B B3 (MAC-S6-308 + MAC-S6-MEM-01): компактная сводка здоровья
+      // памяти — 5 смысловых индикаторов вместо вертикальной ведомости.
+      // «Активные факты» — ТОЛЬКО серверное определение (kind='fact',
+      // status='confirmed', TTL не истёк) из аддитивных полей D6; клиент
+      // его не выводит. Неизвестность (`null`) честно показывается как «—»
+      // с причиной и НЕ подменяется нулём. 24ч/7д — подпись того же
+      // серверного числа, не второй счётчик.
+      memoryIndicators: function () {
+        var o = this.expiredOverview || null;
+        var h = this.memoryHealth || null;
+        var oReady = !!(o && o.available !== false);
+        var oFailed = !!(o && o.available === false);
+        var oReason = oReady ? '' : (oFailed
+          ? 'источник памяти не ответил' : 'ответ ещё не получен');
+        var num = function (v) {
+          if (v == null || v === '' || isNaN(Number(v))) return null;
+          return Number(v);
+        };
+        var intText = function (v) { return v == null ? '—' : String(v); };
+        var self = this;
+        var tsText = function (v) {
+          if (v == null) return '—';
+          return (typeof self.fmtTs === 'function') ? self.fmtTs(v) : String(v);
+        };
+        var tile = function (key, label, value, opts) {
+          var o2 = opts || {};
+          return {
+            key: key, label: label, value: value,
+            sub: o2.sub || '',
+            reason: o2.reason || '',
+            tone: o2.tone || 'muted',
+          };
+        };
+        var confirmed = num(o && o.facts_confirmed);
+        var last24 = num(o && o.facts_last_24h);
+        var last7 = num(o && o.facts_last_7d);
+        var lastAt = num(o && o.facts_last_created_at);
+        var factsReason = '';
+        if (confirmed == null) {
+          factsReason = (o && Object.prototype.hasOwnProperty.call(
+            o, 'facts_confirmed'))
+            ? 'сервер не отдал число (не 0)' : oReason;
+        }
+        var windowSub = '';
+        if (last24 != null || last7 != null) {
+          windowSub = '24ч: ' + intText(last24) + ' · 7д: ' + intText(last7);
+        } else if (confirmed != null) {
+          windowSub = '24ч/7д: нет данных';
+        }
+        var beliefs = num(h && h.beliefs_active);
+        var decayAt = num(h && h.last_decay_at);
+        var tiles = [
+          tile('facts', 'Активные факты', intText(confirmed), {
+            sub: windowSub,
+            reason: factsReason,
+            tone: confirmed == null ? 'unknown' : (confirmed > 0 ? 'ok' : 'zero'),
+          }),
+          tile('needs_recheck', 'Требуют перепроверки',
+               intText(oReady ? num(o && o.needs_recheck) : null), {
+                 reason: oReady ? '' : oReason,
+                 tone: !oReady ? 'unknown'
+                   : (num(o && o.needs_recheck) > 0 ? 'warn' : 'zero'),
+               }),
+          tile('expired', 'Просрочены',
+               intText(oReady ? num(o && o.expired_total) : null), {
+                 reason: oReady ? '' : oReason,
+                 tone: !oReady ? 'unknown'
+                   : (num(o && o.expired_total) > 0 ? 'warn' : 'zero'),
+               }),
+          tile('beliefs', 'Убеждения', intText(beliefs), {
+            reason: h ? '' : 'метрики убеждений ещё не получены',
+            tone: beliefs == null ? 'unknown' : 'ok',
+          }),
+          tile('updated', 'Последнее обновление', tsText(lastAt), {
+            sub: (lastAt == null && decayAt != null)
+              ? ('последний прогон памяти: ' + tsText(decayAt)) : '',
+            reason: lastAt == null
+              ? (oReason || 'время создания активного факта не пришло') : '',
+            tone: lastAt == null ? 'unknown' : 'ok',
+          }),
+        ];
+        return tiles;
+      },
+      // MAC-S6-308: причины/история — существующие маршруты (новых экранов
+      // и копий тех же чисел не создаётся).
+      memoryLinks: function () {
+        return [
+          { route: '#/memory/rag', label: 'Причины: настройки памяти' },
+          { route: '#/oversight?tab=runs', label: 'История прогонов' },
+        ];
+      },
       // M4B B2: независимые KPI наблюдателя вместо псевдо-воронки.
       // Окна не смешиваются: durable-счётчики — «всего», события — 24ч/7д,
       // активные намерения — снимок «сейчас». Доказанной единой когорты с
@@ -10939,6 +11038,13 @@
           cadence: p.cadence || {},
           job: p.job || {},
           stages: rows,
+          // 5 ключевых стадий «Статуса» — в порядке СЕРВЕРА (из общего
+          // списка, без второго запроса и без собственного порядка).
+          keyStages: rows.filter(function (r) {
+            return EXP_KEY_STAGES.indexOf(r.key) >= 0;
+          }),
+          totalStages: rows.length,
+          fullRoute: '#/modules/experience',
           counters: p.counters || {},
           definitions: p.definitions || {},
           reasonDetails: p.reason_details || [],
@@ -12305,6 +12411,41 @@
       // «Случайность» на вкладке «Сон» (ленивый снимок /api/status).
       randomSleepView: function () {
         return this._randomSourceView(this.randomSleepState);
+      },
+      // M4B B3 (MAC-S6-REST-01): «последний успех» QRNG — ТОЛЬКО реальный
+      // квантовый батч (`last_batch.created_at`); при одном лишь откате
+      // подпись честная («последний откат»), слова «успех» нет; батча не
+      // было → «—». Значения — из того же `randomActivityView` (второго
+      // источника/счётчика нет); техно-детали остаются в «Случайности».
+      randomLastSuccess: function () {
+        var act = this.randomActivityView;
+        if (!act || !act.ready) {
+          return { ready: false, kind: 'unknown', tone: 'muted',
+                   label: 'последний успех', text: '—' };
+        }
+        var lb = act.lastBatch;
+        if (lb && lb.created_at) {
+          return {
+            ready: true, kind: 'batch', tone: 'ok',
+            label: 'последний квантовый батч',
+            text: this.fmtTs(lb.created_at),
+            at: lb.created_at,
+            provider: lb.provider_id || lb.provider || '',
+          };
+        }
+        if (act.fallbackAt) {
+          return {
+            ready: true, kind: 'fallback', tone: 'warn',
+            label: 'последний откат',
+            text: this.fmtTs(act.fallbackAt)
+              + (act.fallbackReasonLabel
+                ? (' · ' + act.fallbackReasonLabel) : ''),
+            at: act.fallbackAt,
+            provider: '',
+          };
+        }
+        return { ready: true, kind: 'none', tone: 'muted',
+                 label: 'последний успех', text: '—' };
       },
       // QRNG P4 (17.11.2026, arch D4): «Применения» — существующие
       // memory.random_uses_* (без второго механизма использования).

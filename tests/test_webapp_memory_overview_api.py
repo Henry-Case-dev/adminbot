@@ -16,6 +16,7 @@ mca_lesson_applications) — реальная SQLite не поднимается
 test_webapp_oversight_api).
 """
 import json
+import time
 import types
 
 import pytest
@@ -61,6 +62,12 @@ class _FakeSqlConn:
         self.event_counts = []
         self.max_message_id = 0
         self.last_application = None
+        # M4B B3 / D6: аддитивные метрики активных фактов (fake-строки).
+        self.graph_facts_confirmed = 0
+        self.graph_facts_last_created_at = None
+        self.graph_facts_last_24h = 0
+        self.graph_facts_last_7d = 0
+        self.graph_facts_error = False
 
     async def execute(self, sql, *args):
         sql_l = " ".join(str(sql).split())
@@ -70,6 +77,19 @@ class _FakeSqlConn:
             rows = [dict(r) for r in self.task_jobs
                     if kind is None or r.get("kind") == kind]
             return _Cursor(rows)
+        if "FROM graph_facts" in sql_l:
+            if self.graph_facts_error:
+                raise RuntimeError("graph_facts unavailable")
+            params = args[0] if args and isinstance(args[0], tuple) else args
+            if "MAX(created_at)" in sql_l:
+                return _Row({"n": self.graph_facts_last_created_at})
+            if "created_at > ?" in sql_l and params:
+                # appended window param: 1 day vs 7 days
+                window = int(params[-1])
+                if int(time.time()) - window < 2 * 86400:
+                    return _Row({"n": self.graph_facts_last_24h})
+                return _Row({"n": self.graph_facts_last_7d})
+            return _Row({"n": self.graph_facts_confirmed})
         if "FROM mca_events" in sql_l:
             return _Cursor([dict(r) for r in self.event_counts])
         if "FROM smart_messages" in sql_l:
@@ -177,6 +197,87 @@ class TestExpiredOverview:
         resp = client.get("/api/memory/expired-overview", headers=_hdr())
         assert resp.status_code == 200
         assert resp.json()["available"] is False
+
+
+class TestFactsMetricsD6:
+    """M4B B3 / D6 (MAC-S6-MEM-01): аддитивные метрики «активных фактов».
+
+    TEST-LIFECYCLE: CONTRACT owner=MAC-S6-MEM-01
+
+    Семантика — серверная: kind='fact' + status='confirmed' + не истёк TTL.
+    Fail-open: недоступная метрика → null («неизвестно»), не 0; измеренный
+    ноль остаётся нулём. DDL 0 — только COUNT/MAX по graph_facts.
+    """
+
+    @staticmethod
+    def _patch_overview(monkeypatch):
+        class _MM:
+            async def expired_memory_overview(self, chat_id=None):
+                return {"now_ts": 1791900000, "expired_total": 2,
+                        "expired_searchable": 2, "needs_recheck": 1,
+                        "superseded_total": 0, "infinite_retention": True}
+
+        monkeypatch.setattr(mo, "_memory_manager", lambda db: _MM())
+
+    def test_metrics_shape(self, client, monkeypatch):
+        self._patch_overview(monkeypatch)
+        conn = client.fake_db.db
+        conn.graph_facts_confirmed = 17
+        conn.graph_facts_last_created_at = 1791900000
+        conn.graph_facts_last_24h = 3
+        conn.graph_facts_last_7d = 11
+        resp = client.get("/api/memory/expired-overview", headers=_hdr())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["facts_confirmed"] == 17
+        assert body["facts_last_created_at"] == 1791900000
+        assert body["facts_last_24h"] == 3
+        assert body["facts_last_7d"] == 11
+        # Существующий контракт B03 не меняется (аддитивно).
+        assert body["expired_total"] == 2 and body["needs_recheck"] == 1
+        assert body["infinite_retention"] is True
+
+    def test_measured_zero_stays_zero(self, client, monkeypatch):
+        self._patch_overview(monkeypatch)
+        conn = client.fake_db.db
+        conn.graph_facts_confirmed = 0
+        conn.graph_facts_last_24h = 0
+        conn.graph_facts_last_7d = 0
+        body = client.get("/api/memory/expired-overview",
+                          headers=_hdr()).json()
+        assert body["facts_confirmed"] == 0
+        assert body["facts_last_created_at"] is None
+        assert body["facts_last_24h"] == 0 and body["facts_last_7d"] == 0
+
+    def test_fail_open_null_not_zero(self, client, monkeypatch):
+        self._patch_overview(monkeypatch)
+        client.fake_db.db.graph_facts_error = True
+        body = client.get("/api/memory/expired-overview",
+                          headers=_hdr()).json()
+        assert body["available"] is True          # expired-часть не сломана
+        for key in ("facts_confirmed", "facts_last_created_at",
+                    "facts_last_24h", "facts_last_7d"):
+            assert body[key] is None, key
+
+    def test_query_is_parameterized_and_read_only(self, client, monkeypatch):
+        """DDL 0: только SELECT по graph_facts; chat-scope — параметром."""
+        seen = []
+        conn = client.fake_db.db
+        original = conn.execute
+
+        async def spy(sql, *args):
+            seen.append(" ".join(str(sql).split()))
+            return await original(sql, *args)
+
+        conn.execute = spy
+        self._patch_overview(monkeypatch)
+        client.get("/api/memory/expired-overview?chat_id=-200", headers=_hdr())
+        facts_sql = [s for s in seen if "graph_facts" in s]
+        assert len(facts_sql) == 4
+        for sql in facts_sql:
+            assert sql.upper().startswith("SELECT")
+            assert "chat_id = ?" in sql          # scope — bind-параметр
+            assert "-200" not in sql             # значение не подставляется
 
 
 class TestIntelFunnels:

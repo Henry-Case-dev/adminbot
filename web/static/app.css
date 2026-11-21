@@ -5215,6 +5215,45 @@ html.cover-editor-open { overflow: hidden; }
   white-space: nowrap; }
 .mem-kv__empty { font-size: .72rem; color: #94a3b8; padding: .15rem 0; }
 
+/* M4B B3 (MAC-S6-308 + MAC-S6-MEM-01): компактная сводка здоровья памяти —
+   5 смысловых плиток в строку (3/2 колонки), без вертикальной ведомости
+   чисел у правого края. Плитка — та же роль плотного блока (--table-*),
+   меняется только цвет кромки по состоянию (не «зелёный по умолчанию»). */
+.mem-ind {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .4rem;
+}
+@media (max-width: 1199px) {
+  .mem-ind { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .mem-ind { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.mem-ind__card {
+  border: var(--table-hairline);
+  border-radius: var(--table-row-radius);
+  padding: var(--table-row-pad);
+  min-width: 0;
+  background: rgba(10, 14, 22, .55);
+  display: flex; flex-direction: column; gap: 1px;
+}
+.mem-ind__card--ok { border-color: rgba(52, 211, 153, .30); }
+.mem-ind__card--warn { border-color: rgba(251, 191, 36, .35); }
+.mem-ind__card--unknown { border-color: rgba(255, 255, 255, .08); }
+.mem-ind__label { font-size: .64rem; color: #AAB6C8; }
+.mem-ind__value { font-size: .95rem; font-weight: 700;
+  color: var(--text-1, #F4F7FB); line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mem-ind__sub { font-size: .62rem; color: #8b98ab; }
+.mem-ind__reason { font-size: .6rem; color: #fbbf24; }
+.mem-links { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .35rem; }
+.mem-link { font-size: .68rem; color: #c4b5fd; text-decoration: underline;
+  min-height: 24px; display: inline-flex; align-items: center; }
+.mem-kv__details { margin: .1rem 0; }
+.mem-kv__details summary { font-size: .7rem; min-height: 24px;
+  display: flex; align-items: center; }
+
 /* U03.3: ленты «Мониторинга Интеллекта» — контент не просвечивает через
    анимацию: плотная подложка ленты и элементов (слои карточек). */
 .intel-card .ribbon { background: rgba(10, 14, 22, .55); }
@@ -6641,6 +6680,24 @@ html.cover-editor-open { overflow: hidden; }
   overflow: hidden; word-break: break-word;
 }
 .sfeed-empty { padding: 2px 2px 4px; }
+
+/* M4B B3 (MAC-S7-FEED-04): ПОЛНАЯ 8-стадийная цепочка в аналитике
+   «Опыта» — компактные строки, раскрытие причин по одной стадии. */
+.exp-chain { display: flex; flex-direction: column; gap: .35rem; }
+.exp-chain__row {
+  border: var(--table-hairline);
+  border-radius: var(--table-row-radius);
+  padding: var(--table-row-pad);
+  background: rgba(10, 14, 22, .55);
+}
+.exp-chain__head {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  width: 100%; text-align: left; background: none; border: 0;
+  color: inherit; font: inherit; cursor: pointer;
+  min-height: 32px;
+}
+.exp-chain__head:focus-visible { outline: 2px solid var(--teal-500, #2dd4bf);
+  outline-offset: 1px; }
 
 /* ── EVOL-003/004: окно записи ─────────────────────────────────────────── */
 .sfeed-modal-backdrop { z-index: var(--z-modal-scrim); }
