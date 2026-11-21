@@ -1,0 +1,365 @@
+{
+  "artifact": "live-route-2026-11-22",
+  "task": "p0-embed-503-failover",
+  "scope": "read-only production route, identity, backlog and journal check",
+  "utc_note": "Server UTC date is 2026-11-21; the owner-facing artifact date is 2026-11-22. Every timestamp below is UTC.",
+  "candidate": {
+    "host": "vps159032-gqg",
+    "deployed_sha": "374dc60609986a9250170a34a48c93bf2ba85e29",
+    "deployed_version": "2.58.228",
+    "unit": "admin_bot",
+    "main_pid": 2944369,
+    "process_start_utc": "2026-11-21T10:56:31Z",
+    "check_started_utc": "2026-11-21T14:29:58Z",
+    "check_finished_utc": "2026-11-21T14:34:03Z"
+  },
+  "effective_config": {
+    "source": "process environ + config.settings + bot_settings (PostgreSQL, read-only)",
+    "control_plane_enabled": true,
+    "quota_group_cooldown_enabled": true,
+    "quota_kind_parking_enabled": true,
+    "priority_scheduler_enabled": true,
+    "adaptive_concurrency_enabled": true,
+    "async_batch_enabled": false,
+    "compat_adoption_enabled": true,
+    "embedding_model": "gemini-embedding-001",
+    "embedding_dim": 3072,
+    "db": "local_database.db (absolute path withheld from artifact)",
+    "hot_keys_changed_after_process_start": false,
+    "hot_keys_note": "All models.embedding*/keys.embedding* rows have updated_at earlier than process start; the PostgreSQL snapshot matches the values loaded at process start.",
+    "keys_present": {
+      "primary": true,
+      "fallback_1": true,
+      "fallback_2": true
+    },
+    "keys_equal": {
+      "primary_eq_fallback_1": false,
+      "primary_eq_fallback_2": false,
+      "fallback_1_eq_fallback_2": false
+    },
+    "key_source": {
+      "primary": "hot",
+      "fallback_1": "hot",
+      "fallback_2": "hot"
+    }
+  },
+  "profiles": [
+    {
+      "alias": "primary",
+      "provider_host": "apinet.cloud",
+      "path": "/v1",
+      "model": "gemini-embedding-001",
+      "quota_group": "apinet_paid",
+      "quota_group_source": "explicit",
+      "configured": true,
+      "pci": "a93485483697c3c3"
+    },
+    {
+      "alias": "fallback_1",
+      "provider_host": "generativelanguage.googleapis.com",
+      "path": "/v1beta/openai",
+      "model": "gemini-embedding-001",
+      "quota_group": "google_free_1",
+      "quota_group_source": "explicit",
+      "configured": true,
+      "pci": "6b7e0a69d0bf080d"
+    },
+    {
+      "alias": "fallback_2",
+      "provider_host": "generativelanguage.googleapis.com",
+      "path": "/v1beta/openai",
+      "model": "gemini-embedding-001",
+      "quota_group": "google_free_2",
+      "quota_group_source": "explicit",
+      "configured": true,
+      "pci": "63488c34c6e08127"
+    }
+  ],
+  "probes": {
+    "method": "deployed services.llm_client.LLMClient.embed_once; one POST per profile; neutral ASCII text; asyncio.wait_for 30s; max_retries=0; retry_statuses=(); no retries",
+    "request_id": "not available: embed_once does not expose response headers/request-id",
+    "text": "neutral embedding route probe 2026-11-21",
+    "results": [
+      {
+        "alias": "primary",
+        "started_utc": "2026-11-21T14:29:58.153Z",
+        "provider_host": "apinet.cloud",
+        "path": "/v1",
+        "model": "gemini-embedding-001",
+        "http_status": 503,
+        "error_class": "LLMServerError",
+        "ok": false,
+        "elapsed_ms": 1649,
+        "vector_len": null
+      },
+      {
+        "alias": "fallback_1",
+        "started_utc": "2026-11-21T14:29:59.802Z",
+        "provider_host": "generativelanguage.googleapis.com",
+        "path": "/v1beta/openai",
+        "model": "gemini-embedding-001",
+        "http_status": 200,
+        "error_class": null,
+        "ok": true,
+        "elapsed_ms": 311,
+        "vector_len": 3072,
+        "l2_norm": 1.0,
+        "msi": "e540d4ad890e121d",
+        "pci": "6b7e0a69d0bf080d"
+      },
+      {
+        "alias": "fallback_2",
+        "started_utc": "2026-11-21T14:30:00.154Z",
+        "provider_host": "generativelanguage.googleapis.com",
+        "path": "/v1beta/openai",
+        "model": "gemini-embedding-001",
+        "http_status": 200,
+        "error_class": null,
+        "ok": true,
+        "elapsed_ms": 289,
+        "vector_len": 3072,
+        "l2_norm": 1.0,
+        "msi": "e540d4ad890e121d",
+        "pci": "63488c34c6e08127"
+      }
+    ],
+    "cosine_same_text": {
+      "fallback_1~fallback_2": 1.0,
+      "primary~fallback_1": null,
+      "primary~fallback_2": null,
+      "primary_note": "primary returned 503; no vector to compare"
+    }
+  },
+  "historical_failure_path": {
+    "deployed_code": {
+      "file": "services/embedding_control_plane.py",
+      "sha": "374dc60609986a9250170a34a48c93bf2ba85e29",
+      "class_EmbeddingRetriesExhausted": "subclass of EmbeddingBudgetExhausted",
+      "attempt_budget": 4,
+      "transport_backoff_base_s": 1.0,
+      "transport_backoff_cap_s": 8.0,
+      "pick_credential": "returns the first healthy credential whose quota group is not blocked; transport failure is not a health state",
+      "on_error_transport": "returns 'transport' and deliberately does not mark credential/group health; comment says retry of the same logical request must go through the same pool",
+      "retry_loop": "on transport: budget_left -= 1, bounded sleep, then _pick_credential again; with primary first and no health/group exclusion it selects primary again"
+    },
+    "pool_order": ["primary", "fallback_1", "fallback_2"],
+    "preconditions_for_primary_each_attempt": {
+      "primary_key_present": true,
+      "primary_auth_failed": false,
+      "primary_group_blocked": false,
+      "rate_limit_events_24h": 0,
+      "quota_state_note": "all quota rows are stale exhausted from 2026-10-22 with next_allowed_at 2026-10-23T00:05Z (past); group_blocked auto-resets after expiry, so they did not block primary during the observed window"
+    },
+    "journal_evidence": {
+      "exact_apinet_503_lines": 43,
+      "example": "services.llm_client.LLMServerError: LLM server error 503: https://apinet.cloud/v1/embeddings",
+      "embed_transport_error": 844,
+      "llm_server_error": 973,
+      "embed_retries_exhausted": 219,
+      "batch_warn_last": "2026-11-21T14:08:30Z state=EmbeddingRetriesExhausted quota_group=unknown facts_text_only=1",
+      "batch_warn_note": "EmbeddingRetriesExhausted has no group_id, so the batch WARN reports quota_group=unknown; this is consistent with transport budget exhaustion, not with a 429 group cooldown",
+      "last_503_any": "2026-11-21T14:16:48Z",
+      "last_apinet_503": "2026-11-21T13:53:40Z"
+    },
+    "conclusion": "The historical 503 route was the primary alias on https://apinet.cloud/v1/embeddings with gemini-embedding-001. All four logical attempts could select primary again because transport errors neither mark primary unhealthy nor block its quota group. Google fallback slots were not tried by the executor."
+  },
+  "identity": {
+    "active_generation": {
+      "index_name": "graph_facts_vec",
+      "generation": 1,
+      "provider": "generativelanguage.googleapis.com",
+      "model": "gemini-embedding-001",
+      "dims": 3072,
+      "preprocessing_version": "casefold-strip-v1",
+      "status": "active",
+      "activated_at_utc": "2026-10-23T05:53:35Z",
+      "msi": "e540d4ad890e121d",
+      "admission": {
+        "space": "e540d4ad890e121d",
+        "conn": "a93485483697c3c3",
+        "checked": 12,
+        "mean": 1.0,
+        "min": 1.0,
+        "hit5": 1.0,
+        "at_utc": "2026-10-23T05:53:35Z"
+      }
+    },
+    "resolver": {
+      "graph_facts_vec": {
+        "state": "compatible",
+        "class": "ADMITTED_COMPATIBLE",
+        "serviceable": true,
+        "needs_probe": false,
+        "space": "e540d4ad890e121d",
+        "conn": "a93485483697c3c3",
+        "dims": 3072,
+        "source_empty": false
+      },
+      "smart_archive": {
+        "state": "source_empty",
+        "reason_code": "source_empty",
+        "class": "COMPATIBILITY_UNKNOWN",
+        "serviceable": false,
+        "needs_probe": false,
+        "space": "e540d4ad890e121d",
+        "conn": "a93485483697c3c3",
+        "dims": 3072,
+        "source_empty": true
+      }
+    },
+    "per_probe": {
+      "fallback_1": {
+        "probe_msi": "e540d4ad890e121d",
+        "space_match": true,
+        "stored_space_match": true,
+        "admission_valid_for_probe": false,
+        "classification": "COMPATIBILITY_UNKNOWN",
+        "reason": "the durable admission is bound to primary PCI a93485483697c3c3; fallback_1 PCI is 6b7e0a69d0bf080d"
+      },
+      "fallback_2": {
+        "probe_msi": "e540d4ad890e121d",
+        "space_match": true,
+        "stored_space_match": true,
+        "admission_valid_for_probe": false,
+        "classification": "COMPATIBILITY_UNKNOWN",
+        "reason": "the durable admission is bound to primary PCI a93485483697c3c3; fallback_2 PCI is 63488c34c6e08127"
+      }
+    },
+    "assessment": "Both Google slots are functionally working and produce 3072-dimensional unit vectors with MSI e540d4ad890e121d, identical to the active graph_facts_vec generation. The active generation itself was registered under provider generativelanguage.googleapis.com, and its admission record has mean=min=1.0 on 12 checked samples. However, formal admission_valid for the Google PCI is false because the durable admission is bound to the primary apinet PCI; the existing gate classifies the Google probes as COMPATIBILITY_UNKNOWN, not INSTANT/ADMITTED. A Google-PCI canary/probe is still required before declaring full space admission."
+  },
+  "backlog": {
+    "method": "SQLite opened read-only (mode=ro, PRAGMA query_only=ON) with the deployed sqlite_vec extension loaded; no backfill/recovery call",
+    "snapshots": [
+      {
+        "utc": "2026-11-21T14:32:09Z",
+        "archive_total": 0,
+        "archive_vec_rows": 0,
+        "archive_missing_vec": 0,
+        "archive_recent_missing_vec": 0,
+        "graph_total_eligible": 29212,
+        "graph_vec_rows": 31704,
+        "graph_missing_vec": 4463,
+        "graph_recent_missing_vec": 1187
+      },
+      {
+        "utc": "2026-11-21T14:32:19Z",
+        "archive_total": 0,
+        "archive_vec_rows": 0,
+        "archive_missing_vec": 0,
+        "archive_recent_missing_vec": 0,
+        "graph_total_eligible": 29212,
+        "graph_vec_rows": 31704,
+        "graph_missing_vec": 4463,
+        "graph_recent_missing_vec": 1187
+      }
+    ],
+    "graph_vec_rows_note": "graph_vec_rows is larger than graph_total_eligible because expired rows remain in the vec table; graph_missing_vec counts eligible facts only.",
+    "mca_events_24h": {
+      "EMBED_API_DEFERRED_batches": 31,
+      "EMBED_API_DEFERRED_facts_text_only_sum": 143,
+      "EMBED_API_DEFERRED_first_utc": "2026-11-20T16:16:53Z",
+      "EMBED_API_DEFERRED_last_utc": "2026-11-21T14:08:30Z",
+      "EMBED_API_FAILED": 0,
+      "note": "EmbeddingRetriesExhausted is a serviceability state; the control-plane path does not emit EMBED_API_FAILED for it, so the 219 journal retries-exhausted lines do not appear as EMBED_API_FAILED events."
+    },
+    "smart_archive": {
+      "source_rows": 0,
+      "vec_rows": 0,
+      "generations": [
+        {
+          "generation": 1,
+          "provider": "generativelanguage.googleapis.com",
+          "status": "superseded",
+          "msi": "e540d4ad890e121d"
+        },
+        {
+          "generation": 2,
+          "provider": "apinet.cloud",
+          "status": "superseded",
+          "msi": "e540d4ad890e121d"
+        }
+      ],
+      "active_generation": null,
+      "resolver_state": "source_empty",
+      "job_status": "validation_failed",
+      "job_reason_code": "knn_source_empty",
+      "separation": "This is an empty-source/superseded condition, not an HTTP 503 occurrence."
+    },
+    "recovery_observation": "Counts are identical across the 10-second observation. No embed recovery tick was invoked by this check; journal has 0 'embed recovery tick' lines in the 24h window, so this check does not claim recovery/backfill progress."
+  },
+  "journal": {
+    "window_utc": {
+      "from": "2026-11-20T14:30:02Z",
+      "to": "2026-11-21T14:29:55Z"
+    },
+    "lines_scanned": 83113,
+    "journalctl_returncode": 0,
+    "counts": {
+      "http_503": 918,
+      "llm_server_error": 973,
+      "embed_transport_error": 844,
+      "embed_retries_exhausted": 219,
+      "embed_rate_limit": 0,
+      "embed_auth_failed": 0,
+      "text_only": 169,
+      "lexical_fallback": 108,
+      "embed_deferred": 62,
+      "batch_text_only_warn": 31,
+      "vec_reactivated": 0,
+      "embed_recovery_tick": 0,
+      "smart_archive_superseded": 90,
+      "knn_source_empty": 90,
+      "llm_embed_fallback": 0,
+      "apinet": 43,
+      "apinet_503": 43,
+      "google_host": 0
+    },
+    "first_last": {
+      "http_503": ["2026-11-20T14:32:00Z", "2026-11-21T14:16:48Z"],
+      "llm_server_error": ["2026-11-20T14:46:44Z", "2026-11-21T14:16:48Z"],
+      "embed_transport_error": ["2026-11-20T14:46:44Z", "2026-11-21T14:16:48Z"],
+      "embed_retries_exhausted": ["2026-11-20T14:46:55Z", "2026-11-21T14:16:48Z"],
+      "apinet_503": ["2026-11-20T16:54:30Z", "2026-11-21T13:53:40Z"],
+      "text_only": ["2026-11-20T16:16:53Z", "2026-11-21T14:08:30Z"]
+    },
+    "interpretation": "The 24h window contains real apinet 503 responses, repeated transport retries, and exhausted attempts; it contains no 429, no auth failure, and no legacy LLM embed fallback messages. The control plane does not log the credential alias on transport failure, so the alias is established from the deployed selection code plus the live per-profile probes, not from a per-request journal field."
+  },
+  "quota_state": {
+    "rows": [
+      {"group": "unknown", "state": "exhausted", "next_allowed_at_utc": "2026-10-13T00:05:00Z", "updated_at_utc": "2026-10-12T00:05:08Z", "note": "parked kind=spend est=utc_day_end"},
+      {"group": "primary", "state": "exhausted", "next_allowed_at_utc": "2026-10-23T00:05:00Z", "updated_at_utc": "2026-10-22T00:14:55Z", "note": "parked kind=spend est=utc_day_end"},
+      {"group": "fallback_1", "state": "exhausted", "next_allowed_at_utc": "2026-10-23T00:05:00Z", "updated_at_utc": "2026-10-22T00:14:59Z", "note": "parked kind=spend est=utc_day_end"},
+      {"group": "fallback_2", "state": "exhausted", "next_allowed_at_utc": "2026-10-23T00:05:00Z", "updated_at_utc": "2026-10-22T00:15:06Z", "note": "parked kind=spend est=utc_day_end"}
+    ],
+    "assessment": "Stale persisted state from 2026-10-22. next_allowed_at is in the past; group_blocked resets such a group to healthy on access. No 429 occurred in the 24h journal window. This stale state is not the observed 503 cause and did not block the live probes."
+  },
+  "apinet_cabinet_reconciliation": {
+    "accessible_from_production_host": false,
+    "reason": "No apinet dashboard session, export, account id, or key id was available on the production host. The check could not read the cabinet journal or its timezone/filter settings.",
+    "utc_window_used_here": "2026-11-20T14:30:02Z..2026-11-21T14:29:55Z",
+    "cabinet_timezone_known": false,
+    "cabinet_filters_known": false,
+    "key_account_id_known": false,
+    "owner_report_zero_records_verified": false,
+    "proven": "The apinet endpoint was reachable and returned real HTTP 503 responses for the primary credential at 14:29:58Z, and 43 journal lines in the window contain both apinet.cloud and 503, including the exact URL https://apinet.cloud/v1/embeddings.",
+    "not_proven": "The cause of the empty cabinet selection (timezone, filters, key/account selection, balance, upstream) cannot be established from this host. No balance/network conclusion is asserted.",
+    "request_id": "Not captured: the deployed embed_once path does not expose response headers."
+  },
+  "limitations": [
+    "One POST per profile only; no retry/mass probing.",
+    "Primary vector is unavailable because apinet returned 503, so primary~Google cosine could not be measured in this run.",
+    "Google fallback functional success and identical fallback_1~fallback_2 vectors are proven; formal admission for the Google PCI is not covered by the existing durable admission (bound to apinet primary PCI).",
+    "The apinet cabinet journal/timezone/filters/account are external and were not accessible.",
+    "The artifact date follows the owner input (2026-11-22); all measured timestamps are server UTC on 2026-11-21."
+  ],
+  "safety": {
+    "writes": "none",
+    "restarts": "none",
+    "config_changes": "none",
+    "db_changes": "none; PostgreSQL session READ ONLY, SQLite mode=ro/query_only",
+    "index_changes": "none",
+    "recovery_triggered": false,
+    "temp_scripts_removed": true,
+    "background_processes_left": false
+  }
+}
