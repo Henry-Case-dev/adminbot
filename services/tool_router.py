@@ -7436,7 +7436,10 @@ class ToolRouter:
         EVOL v5 (§4.1 P5 / §4.2 п.2): ``projection`` — общая проекция хода.
         Тогда uid различается `U`-меткой (а не числом в скобках), а id
         сообщения — меткой прогона; автор, абсолютная дата, `Переслано:` и
-        медиа-тип остаются. ``None``/рубильник OFF → сырой канон байт-в-байт."""
+        медиа-тип остаются. Reply-родитель тоже адресуется меткой прогона
+        (REL226-F1): raw `tg:`/uid в речь не попадают, а если метки родителя
+        ещё нет (родитель вне показанных строк) — ребро не выдумывается.
+        ``None``/рубильник OFF → сырой канон байт-в-байт."""
         lines: list[str] = []
         for row in rows or []:
             try:
@@ -7479,13 +7482,24 @@ class ToolRouter:
                         from services.media_marker import media_marker
                         text = media_marker(media_type, item_id,
                                             projection=projection)
+                    # REL226-F1: в речи reply адресуется меткой прогона, а не
+                    # сырым `tg:`/uid (как в `_context_row_line`). Метки нет
+                    # (родитель вне показанных строк) → ребра не выдумываем.
+                    reply_label = None
+                    if reply_ref:
+                        try:
+                            reply_label = projection.label_of_item(
+                                resolve_item_id(
+                                    tg_message_id=parent_tg)) or None
+                        except Exception:
+                            reply_label = None
                     lines.append(format_speech_item(
                         ts=item.get("timestamp"),
                         author=self._resolve_name(item),
                         author_uid=item.get("user_id"),
                         item_id=item_id, forward_source=forward_source,
                         text=text, kind="msg", projection=projection,
-                        reply_to=reply_ref or None, edited_at=edited_at))
+                        reply_to=reply_label, edited_at=edited_at))
                     continue
             lines.append(format_context_item(
                 ts=item.get("timestamp"), author=author,

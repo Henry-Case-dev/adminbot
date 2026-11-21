@@ -518,6 +518,51 @@ class TestToolResults:
         assert f"tg:{TG_ROOT}" in lines[0]
         assert "Вася [10]" in lines[0]
 
+    def test_recent_history_reply_uses_projected_label(self, speech_on):
+        """REL226-F1: reply-родитель в речи — метка прогона, не `tg:`/uid.
+
+        Строка-родитель идёт первой (ASC-стенограмма), поэтому её метка уже
+        выдана, и ребро адресуется ею. Сырой канон (без проекции) сохраняет
+        машинный адрес `ответ на tg:<id> (uid N)`."""
+        router = self._router()
+        parent = _row(TG_ROOT, text="родитель")
+        child = _row(TG_CHILD, uid=20, name="Марина", text="ответ",
+                     ts=TS2, reply_to_db=TG_ROOT)
+        child["reply_to_author_id"] = 9
+        projection = SpeechProjection(run_id="rel226")
+        speech = "\n".join(router._history_lines(
+            [parent, child], with_user_id=True, projection=projection))
+
+        _assert_no_service_ids(speech)
+        assert f"tg:{TG_ROOT}" not in speech
+        assert "(uid 9)" not in speech
+        parent_label = projection.label_of_item(f"tg:{TG_ROOT}")
+        assert parent_label, speech
+        assert f"ответ на {parent_label}" in speech
+        _assert_all_labels_resolve(speech, projection)
+
+        raw = "\n".join(router._history_lines(
+            [parent, child], with_user_id=True))
+        assert f"ответ на tg:{TG_ROOT} (uid 9)" in raw
+
+    def test_recent_history_reply_outside_projection_not_invented(
+            self, speech_on):
+        """REL226-F1: родитель вне проекции → ребра нет (не выдумываем).
+
+        Сырой ref в речь не попадает ни при каком наличии `reply_to_id`."""
+        router = self._router()
+        child = _row(TG_CHILD, uid=20, name="Марина", text="ответ",
+                     ts=TS2, reply_to_db=TG_ROOT)
+        child["reply_to_author_id"] = 9
+        speech = "\n".join(router._history_lines(
+            [child], with_user_id=True,
+            projection=SpeechProjection(run_id="rel226-out")))
+
+        _assert_no_service_ids(speech)
+        assert "ответ на" not in speech
+        assert "tg:" not in speech
+        assert "uid" not in speech
+
     @pytest.mark.asyncio
     async def test_dig_facts_use_labels(self, speech_on):
         """`fact:`-происхождение в речь не идёт: факт адресуется меткой `F`."""
