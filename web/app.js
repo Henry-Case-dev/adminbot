@@ -33362,6 +33362,8 @@
       },
 
       applyTree: function (tree) {
+        var raw = this.roleEditor.rawPermissions || {};
+        var rawSections = arr(raw.sections);
         var sections = (tree.sections || []).map(function (s) {
           return {
             id: s.id, title: s.title, checked: !!s.checked, indeterminate: false,
@@ -33373,14 +33375,33 @@
             }),
           };
         });
+        // C1: /api/roles/tree не отдаёт chat_lore, но permissions роли — да.
+        // Секция добавляется из УЖЕ загруженного GET /api/roles, без второго
+        // запроса и без изменения серверного tree-контракта.
+        if (!sections.some(function (s) { return s.id === 'chat_lore'; })) {
+          sections.push({
+            id: 'chat_lore', title: 'Лор чата',
+            checked: rawSections.indexOf('chat_lore') >= 0,
+            indeterminate: false, params: [], keys: [], service: true,
+          });
+        }
         var actions = (tree.actions || []).map(function (a) {
           return { kind: 'action', id: a.id, title: a.title, checked: !!a.checked };
         });
         sections.forEach(function (s) {
           var children = s.params.concat(s.keys);
+          if (!children.length) {
+            // ВАЖНО (дефект данных 2.58.228): пустую секцию (access/chat_lore)
+            // НЕЛЬЗЯ пересчитывать из детей — иначе section.access всегда
+            // сбрасывается в false. Сохраняем серверную/raw-отметку.
+            s.service = true;
+            s.indeterminate = false;
+            s.checked = !!s.checked;
+            return;
+          }
           var checkedCount = children.filter(function (c) { return c.checked; }).length;
           s.indeterminate = checkedCount > 0 && checkedCount < children.length;
-          s.checked = children.length > 0 && checkedCount === children.length;
+          s.checked = checkedCount === children.length;
         });
         this.roleEditor.sections = sections;
         this.roleEditor.actions = actions;
@@ -33452,13 +33473,24 @@
       },
       refreshSectionState: function (section) {
         var children = this.sectionChildren(section);
+        if (!children.length) {
+          // Пустая секция — самостоятельный грант; не сбрасывать из детей.
+          section.indeterminate = false;
+          return;
+        }
         var checkedCount = children.filter(function (c) { return c.checked; }).length;
         section.indeterminate = checkedCount > 0 && checkedCount < children.length;
-        section.checked = children.length > 0 && checkedCount === children.length;
+        section.checked = checkedCount === children.length;
       },
       toggleSection: function (section) {
+        var children = this.sectionChildren(section);
+        if (!children.length) {
+          section.checked = !section.checked;
+          section.indeterminate = false;
+          return;
+        }
         var target = !section.checked;
-        this.sectionChildren(section).forEach(function (c) { c.checked = target; });
+        children.forEach(function (c) { c.checked = target; });
         section.checked = target;
         section.indeterminate = false;
       },
@@ -33473,37 +33505,97 @@
         if (el) el.indeterminate = !!value;
       },
       saveRole: async function () {
+        if (!this.isGlobalAdmin) return;
+        var role = this.selectedRole();
+        if (!role || this.isSuperuserRole(role)) return;
         var self = this;
-        var permissions = { sections: [], params: [], keys: [], actions: [] };
+        var raw = this.roleEditor.rawPermissions || {};
+        // WHOLE-OBJECT: стартуем с ПОЛНОГО permissions роли из GET /api/roles
+        // (включая chat_lore и неизвестные ключи). Ничего не теряем; меняем
+        // только известные UI-узлы. Иначе saveRole слал частичный body и
+        // молча стирал wildcard/section.access/chat_lore (дефект 2.58.228).
+        var permissions = Object.assign({}, raw);
+        var sections = arr(raw.sections).slice();
+        var params = arr(raw.params).slice();
+        var keys = arr(raw.keys).slice();
+        var actions = arr(raw.actions).slice();
+        var addUnique = function (list, value) {
+          if (list.indexOf(value) < 0) list.push(value);
+        };
+        var dropValue = function (list, value) {
+          var i = list.indexOf(value);
+          if (i >= 0) list.splice(i, 1);
+        };
         this.roleEditor.sections.forEach(function (section) {
           var children = self.sectionChildren(section);
-          var allChecked = children.length > 0 && children.every(function (c) { return c.checked; });
+          if (!children.length) {
+            // Пустая секция — самостоятельный section-грант.
+            if (section.checked) addUnique(sections, section.id);
+            else dropValue(sections, section.id);
+            return;
+          }
+          var allChecked = children.every(function (c) { return c.checked; });
+          var noneChecked = children.every(function (c) { return !c.checked; });
           if (allChecked) {
-            permissions.sections.push(section.id);
+            addUnique(sections, section.id);
+            // Секция покрывает детей — дубли в params/keys не нужны; убираем
+            // только явные записи этих детей (чужие гранты не трогаем).
+            section.params.forEach(function (p) { dropValue(params, p.key); });
+            section.keys.forEach(function (k) { dropValue(keys, k.key); });
           } else {
-            section.params.forEach(function (p) { if (p.checked) permissions.params.push(p.key); });
-            section.keys.forEach(function (k) { if (k.checked) permissions.keys.push(k.key); });
+            dropValue(sections, section.id);
+            section.params.forEach(function (p) {
+              if (p.checked) addUnique(params, p.key);
+              else dropValue(params, p.key);
+            });
+            section.keys.forEach(function (k) {
+              if (k.checked) addUnique(keys, k.key);
+              else dropValue(keys, k.key);
+            });
           }
         });
         this.roleEditor.actions.forEach(function (a) {
-          if (a.checked) permissions.actions.push(a.id);
+          if (a.checked) addUnique(actions, a.id);
+          else dropValue(actions, a.id);
         });
+        permissions.sections = sections.sort();
+        permissions.params = params.sort();
+        permissions.keys = keys.sort();
+        permissions.actions = actions.sort();
+        // Wildcard — часть объекта роли, не UI-чекбокс: сохраняем как было.
+        if (raw.wildcard || this.roleEditor.wildcard) {
+          permissions.wildcard = true;
+        } else if (Object.prototype.hasOwnProperty.call(permissions, 'wildcard')) {
+          permissions.wildcard = !!permissions.wildcard;
+        }
         this.roleEditor.saving = true;
+        this.roleEditor.saveError = '';
         try {
           var saved = await this.api('/api/roles', {
             method: 'POST',
+            global: true,
             body: JSON.stringify({
               role_name: this.roleEditor.roleName,
               permissions: permissions,
             }),
           });
           this.toast('Роль сохранена: ' + saved.role_name, 'ok');
-          this.roleEditor.wildcard = !!(saved.permissions && saved.permissions.wildcard);
+          var savedPerms = (saved && saved.permissions)
+            ? saved.permissions : permissions;
+          this.roleEditor.rawPermissions = Object.assign({}, savedPerms);
+          this.roleEditor.wildcard = !!savedPerms.wildcard;
+          if (saved && typeof saved.is_custom !== 'undefined') {
+            this.roleEditor.isCustom = !!saved.is_custom;
+          }
           // F2 (REV-UI-D1213): сервер подтвердил → новый baseline (dirty=0).
           this._roleEditorBaseline = this._roleEditorSnapshot();
-          await this.loadRoles();
+          await this.loadRoles(true);
         } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');   // 409 (последняя wildcard) / 422
+          // 409 (последняя wildcard/занятая роль) / 422 / 503 — правки НЕ
+          // теряем; причина показывается и в карточке, и тостом.
+          this.roleEditor.saveError = 'Не сохранено: '
+            + ((e && e.message) || 'неизвестная ошибка');
+          this.toast('Ошибка: ' + e.message, 'err');
         } finally {
           this.roleEditor.saving = false;
         }
