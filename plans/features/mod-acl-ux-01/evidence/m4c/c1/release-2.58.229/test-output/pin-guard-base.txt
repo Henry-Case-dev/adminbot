@@ -1,0 +1,11 @@
+# BASE CONTROL on 374dc6060 (2.58.228) - worktree mod-acl-ux-01-...-6aa1fd8d, product files clean
+# purpose: prove the failures on the 2.58.229 tip are pre-existing / inherited, not bump-caused
+
+## JS suites that fail on the tip
+evol_cog_scene_test.js -> rc=1 (fails identically on base)
+round1025_ia_routing_test.js -> rc=1 (fails identically on base)
+ur_ui_settings_test.js -> rc=1 (fails identically on base)
+
+## routes.py byte-freeze pins (fail on the tip because C1 changed web/api/routes.py)
+..                                                                       [100%]
+2 passed in 5.02s

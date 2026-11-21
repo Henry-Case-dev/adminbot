@@ -1,0 +1,128 @@
+{
+  "artifact": "release tests record 2.58.229",
+  "feature": "MOD-ACL-UX-01",
+  "increment": "M4C C1",
+  "release_version": "2.58.229",
+  "content_tip": "95485a609aeb559ffe88531635f345a3528f026b",
+  "product_tip": "3fdd560e996002673a9957cba0608218e8ae0289",
+  "candidate_product": "eb305b6fe7b5f21a9707b7d6a2aff37f7bfb4435",
+  "candidate_evidence": "83a38a5be4a8ab50c3a5f9436d67ef90ee3f9534",
+  "base": "374dc60609986a9250170a34a48c93bf2ba85e29",
+  "base_version": "2.58.228",
+  "branch": "release/mod-acl-m4c1-2.58.229",
+  "environment": {
+    "os": "win32 (Windows, PowerShell 5.1)",
+    "python": "3.12.0 (C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe)",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "playwright_module": true,
+    "env_overrides": "none used for these batches; tools use their own stubs and TMA_STUB"
+  },
+  "batches": {
+    "node_c1_suites": {
+      "command": "node tests/js/mod_acl_ux_m4c1_roles_page_test.js; node tests/js/mod_acl_ux_m4c1_editor_preserve_test.js",
+      "result": "2/2 exit 0",
+      "markers": ["MOD-ACL-UX-M4C1-ROLES-PAGE-OK", "MOD-ACL-UX-M4C1-EDITOR-PRESERVE-OK"]
+    },
+    "js_version_pins": {
+      "command": "node tests/js/round1025_hotfix7|8|9|10_*_test.js",
+      "result": "4/4 exit 0",
+      "markers": ["HOTFIX7-SHELL-GLASS-HEARTBEAT-OK", "HOTFIX8-SHELL-AURORA-OK", "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK", "HOTFIX10-GLASS-GEOMETRY-BG-OK"],
+      "plus_c1_suites": "6/6 with the two C1 suites"
+    },
+    "node_sweep": {
+      "command": "node --check + node for every tests/js/*.js except module_fixture.js (helper rc=0)",
+      "run": 130,
+      "passed": 127,
+      "failed": 3,
+      "node_check_failures": 0,
+      "failed_files": ["evol_cog_scene_test.js", "round1025_ia_routing_test.js", "ur_ui_settings_test.js"],
+      "classification": "pre-existing, reproduced rc=1 on base 374dc6060 (test-output/pin-guard-base.txt)"
+    },
+    "python_focused": {
+      "command": "python -m pytest tests/test_webapp_api.py tests/test_roles_admin.py tests/test_permissions.py tests/test_acl_global_admin_role_permission_gate.py tests/test_config_cache.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_webapp_evol_w13_touch_portal.py tests/test_webapp_hubs_matrix_ui.py tests/test_webapp_access_matrix_read.py -q",
+      "passed": 320,
+      "failed": 1,
+      "failed_ids": ["tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed"],
+      "classification": "pre-existing on base 374dc6060 (assertion `var MODULES = [`), not C1"
+    },
+    "python_new_c1_file": {
+      "command": "python -m pytest tests/test_webapp_access_matrix_read.py -q",
+      "result": "17/17 passed"
+    },
+    "pin_guard": {
+      "command": "python -m pytest <24 version-pin Python files> -q",
+      "passed": 854,
+      "failed": 6,
+      "pre_existing_failed_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "new_failed_ids": [
+        "tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact",
+        "tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged"
+      ],
+      "new_failure_base_control": "both node IDs pass on base 374dc6060 (2 passed, test-output/pin-guard-base.txt)",
+      "root_cause": "C1 changed web/api/routes.py (+12, three 503 guards) without the conscious re-pin of ROUTES_SHA256_F11 required by L-F11S-1",
+      "finding_id": "REL-229-PIN-01"
+    },
+    "b1_status_e2e": {
+      "command": "python tools/ui_mod_acl_m4b_status_e2e.py",
+      "checks": 138,
+      "failures": 0,
+      "marker": "M4B-STATUS-E2E-OK",
+      "report": "test-output/b1/e2e-report-138.json"
+    },
+    "b2_status_e2e": {
+      "command": "python tools/ui_mod_acl_m4b2_status_e2e.py",
+      "checks": 92,
+      "failures": 0,
+      "marker": "M4B-B2-STATUS-E2E-OK",
+      "report": "test-output/b2/e2e-report-92.json"
+    },
+    "b3_status_e2e": {
+      "command": "python tools/ui_mod_acl_m4b3_status_e2e.py",
+      "first_run": {"checks": 131, "failures": ["detail_closed"], "classification": "known timing flake, identical re-run"},
+      "rerun": {"checks": 131, "failures": 0, "marker": "M4B-B3-STATUS-E2E-OK", "screenshots": 8},
+      "report": "test-output/b3/e2e-report-131.json"
+    },
+    "c1_roles_e2e": {
+      "command": "MOD_ACL_M4C1_SHOTS=<release>/test-output/c1/shots python tools/ui_mod_acl_m4c1_roles_e2e.py",
+      "result": "PASS, 0 failures",
+      "report": "test-output/c1/shots/report.json",
+      "viewports": ["1920x1080", "1440x900", "1280x800", "768x1024", "390x844", "360x640", "320x568"],
+      "assertions": {
+        "h_scroll": "0 at every viewport (scrollWidth == innerWidth)",
+        "success_1440": {"roles": 5, "sections": 12, "matrix_groups": 121, "matrix_count": "622 из 622"},
+        "f02_used_role": {"all_viewports": true, "deleteDisabled": true, "renameDisabled": false, "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."},
+        "error_roles_401": {"rolesCount": null, "has_0_iz_0": false},
+        "error_roles_403": {"rolesCount": null, "has_0_iz_0": false},
+        "error_roles_503": {"rolesCount": null, "has_0_iz_0": false},
+        "error_matrix_403": {"matrixCount": null, "has_0_iz_0": false},
+        "error_matrix_503": {"matrixCount": null, "has_0_iz_0": false},
+        "error_matrix_non_global": {"matrixCount": null, "matrix_forbidden": true, "has_0_iz_0": false},
+        "error_tree_404": {"retryList": true, "retryRolesDelta": 1}
+      }
+    },
+    "syntax": {
+      "node_check_app_js": 0,
+      "py_compile": 0,
+      "files": ["config/settings.py", "services/access.py", "web/api/access.py", "web/api/routes.py", "tests/test_webapp_access_matrix_read.py", "tools/ui_mod_acl_m4c1_roles_e2e.py", "tools/ui_mod_acl_m4b2_status_e2e.py", "tools/ui_mod_acl_m4b3_status_e2e.py"]
+    }
+  },
+  "counts": {
+    "aggregate": {"passed": 1679, "failed": 10},
+    "breakdown": "127 node + 320 focused pytest + 17 new C1 pytest + 854 pin-guard + 138 B1 + 92 B2 + 131 B3 = 1679 passed; 3 node + 1 focused pytest + 0 new C1 + 6 pin-guard = 10 failed (6 of the 10 are the known/REL-229-PIN-01 pin-guard set, 4 are pre-existing JS/Python)",
+    "note": "E2E numbers are tool-defined check counters, not pytest cases"
+  },
+  "verdict": "PASS_WITH_OPEN_FINDING_REL_229_PIN_01",
+  "deployable": false,
+  "limitations": [
+    "no production deploy, no SSH, no live Telegram/TMA/LLM call",
+    "C1 e2e uses served bytes with API stubs and TMA_STUB, not a live TMA session",
+    "B3 detail_closed timing flake reproduced once and cleared on identical re-run",
+    "requirements_gate plan stage is a planning-master artifact, not present on the release branch"
+  ]
+}

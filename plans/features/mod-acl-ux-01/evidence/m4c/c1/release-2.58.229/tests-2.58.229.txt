@@ -1,0 +1,47 @@
+# Raw test outputs - 2.58.229 (tip 95485a609, base 374dc6060)
+# captured: 2026-11-22 02:53:12 +12:00
+
+## C1 node suites
+MOD-ACL-UX-M4C1-ROLES-PAGE-OK
+rc=0
+MOD-ACL-UX-M4C1-EDITOR-PRESERVE-OK
+rc=0
+
+## JS version pins
+round1025_hotfix7_shell_glass_heartbeat_test.js -> HOTFIX7-SHELL-GLASS-HEARTBEAT-OK (rc=0)
+round1025_hotfix8_shell_aurora_test.js -> HOTFIX8-SHELL-AURORA-OK (rc=0)
+round1025_hotfix9_shell_flex_glass_aurora_test.js -> HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK (rc=0)
+round1025_hotfix10_glass_geometry_bg_test.js -> HOTFIX10-GLASS-GEOMETRY-BG-OK (rc=0)
+
+## Node sweep tests/js/*.js
+NODE_RUN=130 NODE_FAILS=3 NODE_CHECK_FAILS=0
+FAIL evol_cog_scene_test.js
+FAIL round1025_ia_routing_test.js
+FAIL ur_ui_settings_test.js
+helper: node tests/js/module_fixture.js -> rc=0
+BASE CONTROL: same 3 failing suites on 374dc6060 (worktree mod-acl-...-6aa1fd8d): rc=1 each (see pin-guard-base.txt header)
+## Focused pytest (9 C1-adjacent files)
+FAILED tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
+1 failed, 320 passed, 1 warning in 39.49s
+
+## New tests/test_webapp_access_matrix_read.py
+17 passed, 1 warning in 6.98s
+
+## Pin-guard (24 version-pin files) - full output in test-output/pin-guard-tip.txt
+FAILED tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact
+FAILED tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+6 failed, 854 passed in 84.41s (0:01:24)
+
+## Syntax
+node --check web/app.js -> rc=0
+py_compile (settings, services/access.py, web/api/access.py, web/api/routes.py, C1 pytest, 3 e2e tools) -> rc=0
+
+## e2e reports (captured by the tools)
+B1: {"ok": true, "checks": 138, "failures": []} M4B-STATUS-E2E-OK
+B2: {"ok": true, "checks": 92, "failures": []} M4B-B2-STATUS-E2E-OK
+B3: first run {"ok": false, "checks": 131, "failures": ["detail_closed"]}; identical re-run {"ok": true, "checks": 131, "failures": []} M4B-B3-STATUS-E2E-OK
+C1: [m4c1] PASS: 0 failure(s) - test-output/c1/shots/report.json
