@@ -1,0 +1,89 @@
+# M4C C2 — Playwright / Browser Use / B-regressions
+
+## 1. Новый C2 Playwright
+
+```
+python tools/ui_mod_acl_m4c2_preview_e2e.py
+[m4c2] PASS: 0 failure(s)
+report: plans/features/mod-acl-ux-01/evidence/m4c/c2/shots/report.json
+```
+
+Стенд: реальные `web/index.html`/`web/app.js`/`web/static/app.css`; импорт C1
+стабов (`ui_mod_acl_m4c1_roles_e2e`) + 3 новых read-GET; `TMA_STUB`; порт 8812.
+C1-инструмент не изменялся.
+
+Viewports 1920×1080, 1440×900, 1280×800, 768×1024, 390×844, 320×568:
+
+- preview виден **только** внутри `[data-roles-pane="gates"]`; заголовок/note;
+  0 чекбоксов; `scrollWidth <= innerWidth + 1`; 0 вложенных вертикальных
+  скроллеров; поля не обрезаны; <768 — одна колонка формы, тач ≥44, кнопка
+  на всю ширину; ≥768 — 2 колонки.
+- admin `section.access` → `allowed`, слои `[role, global_admin_ceiling]`,
+  у каждого guard.
+- custom_access `section.access` → `mixed`, бейдж «Частично» (фактическое
+  расхождение ролей и потолка).
+- роль без назначений (`local_admin`, scope global) → `no-actor`, кнопка disabled.
+- moderator, chat scope: param view → `allowed` + блок перекрытий (1 строка,
+  legacy); тот же ресурс edit → `denied`/«Запрещено».
+- local_admin с грантом чата edit → `allowed`, слои
+  `[chat_access, chat_grant, chat_matrix]`.
+- DM-владелец (self + «Личные сообщения») → `allowed`.
+- Ошибки 401/403/404/422/503: отдельные карточки `data-preview-error`; решения
+  нет; «Запрещено» не показывается; 503 содержит «временно», 403 — «не означает».
+- Перекрытия чата: 403 → скрыто с подписью, НЕ error-карточка, решение не
+  страдает; 503 → error-карточка внутри блока перекрытий.
+- console/page errors: только сетевые `Failed to load resource` для
+  сценарных статусов; JS-исключений нет.
+
+Скриншоты (`shots/`): `preview-allowed-1440x900`, `preview-allowed-390x844`,
+`preview-denied-1440x900`, `preview-denied-390x844`,
+`preview-no-actor-1440x900`, `preview-no-actor-390x844`,
+`preview-error-403`, `preview-error-503`, `preview-overrides-503`.
+
+## 2. Browser Use (реальный Chrome, Code Mode)
+
+Стенд `python tools/ui_mod_acl_m4c2_preview_e2e.py --serve` (8812), TMA initData
+через `Page.addScriptToEvaluateOnNewDocument` + reload; CDP эмуляция viewport.
+
+| Проверка | 502×706 | 390×844 |
+|---|---|---|
+| gates → preview | видим, 3 вкладки | видим |
+| форма | 1 колонка (`432px`), тач 44 | 1 колонка (`335px`), run 44 |
+| сценарий | admin `section.access` → **allowed**, слои `[role, global_admin_ceiling]` | moderator + chat scope `param.limits.search_max_symbols` → **allowed**, слои `[chat_access, chat_matrix]`, перекрытия 1 строка |
+| h-scroll / nested | `502/502`, 0 | `390/390`, 0 |
+| чекбоксы в gates | 0 | 0 |
+| скриншоты | `browseruse-preview-allowed-502x706.png` | `browseruse-preview-chat-390x844.png` |
+
+Эмуляция viewport снята, вкладка 8812 закрыта, сервер остановлен.
+
+## 3. C1 roles e2e (регрессия, без правок)
+
+```
+python tools/ui_mod_acl_m4c1_roles_e2e.py
+[m4c1] PASS: 0 failure(s)
+```
+
+7 viewport, 3 вкладки, gatesPane, 0 чекбоксов; инструмент и тесты не менялись.
+Сгенерированные C1-скриншоты/report восстановлены `git checkout` (не входят в
+C2-кандидат).
+
+## 4. B1/B2/B3 (точные counts)
+
+```
+python tools/ui_mod_acl_m4b_status_e2e.py   → {"ok": true, "checks": 138, "failures": []}  M4B-STATUS-E2E-OK
+python tools/ui_mod_acl_m4b2_status_e2e.py  → {"ok": true, "checks": 92,  "failures": []}  M4B-B2-STATUS-E2E-OK
+python tools/ui_mod_acl_m4b3_status_e2e.py  → {"ok": true, "checks": 131, "failures": [], "screenshots": 8}  M4B-B3-STATUS-E2E-OK
+```
+
+JSON — рядом: `regression-b1.json`, `regression-b2.json`, `regression-b3.json`
+(сгенерированы env-override в этот каталог; штатные b1/b2/b3 evidence не
+изменялись и восстановлены после прогона).
+
+## 5. Ограничения
+
+- Playwright/Browser Use — локальный стенд с API-стабами и `TMA_STUB`, **не**
+  live TMA и не production-БД. Семантика решения проверена Python-тестами и
+  анти-дрейфом; здесь — UI/сеть/раскладка.
+- Browser Use 502×706 соответствует контракту (реальный Chrome, desktop
+  window); 390×844 — CDP-эмуляция mobile.
+- Живой non-global/local_admin/user/custom-сеанс — **RFL**, не owner QA.

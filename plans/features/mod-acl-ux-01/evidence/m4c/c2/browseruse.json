@@ -1,0 +1,53 @@
+{
+ "tool": "Browser Use (real Chrome via CDP, Code Mode)",
+ "stand": "http://127.0.0.1:8812 (tools/ui_mod_acl_m4c2_preview_e2e.py --serve)",
+ "tma": "TMA_STUB via Page.addScriptToEvaluateOnNewDocument + Page.reload (sessionStorage adminbot.initData, user id 5885953495)",
+ "candidate": "feat/mod-acl-m4c2 (C2a 8e50b0fa3 + C2b)",
+ "checks": [
+  {
+   "viewport": "502x706",
+   "role": "admin",
+   "scope": "global",
+   "resource": "section.access",
+   "operation": "view",
+   "decision": "allowed",
+   "decision_label": "Разрешено",
+   "layers": [["role", "allowed"], ["global_admin_ceiling", "allowed"]],
+   "form_columns": "432px (одна колонка, <768)",
+   "run_height": 44,
+   "actor_height": 44,
+   "scroll_width": 502,
+   "inner_width": 502,
+   "h_scroll": false,
+   "nested_scrollers": 0,
+   "checkboxes_in_gates": 0,
+   "note": "Предварительная проверка. Права не изменены.",
+   "screenshot": "shots/browseruse-preview-allowed-502x706.png"
+  },
+  {
+   "viewport": "390x844 (CDP mobile emulation)",
+   "role": "moderator",
+   "scope": "chat -1001234567890",
+   "resource": "param.limits.search_max_symbols",
+   "operation": "view",
+   "decision": "allowed",
+   "decision_label": "Разрешено",
+   "layers": [["chat_access", "allowed"], ["chat_matrix", "allowed"]],
+   "chat_overrides_visible": true,
+   "chat_override_rows": 1,
+   "form_columns": "335.333px (одна колонка)",
+   "run_height": 44,
+   "scroll_width": 390,
+   "inner_width": 390,
+   "h_scroll": false,
+   "nested_scrollers": 0,
+   "screenshot": "shots/browseruse-preview-chat-390x844.png"
+  }
+ ],
+ "cleanup": "viewport emulation снята, вкладка 8812 закрыта, сервер --serve остановлен",
+ "limitations": [
+  "локальный стенд с детерминированными API-стабами и TMA_STUB; НЕ live TMA и не production-БД",
+  "семантика решения проверена Python-тестами и анти-дрейфом; Browser Use подтверждает UI/раскладку/сеть",
+  "живой non-global/local_admin/user/custom-сеанс — RFL, не owner QA"
+ ]
+}

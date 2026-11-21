@@ -1,0 +1,94 @@
+# M4C C2 — Python tests (candidate 8e50b0fa3 + UI C2b)
+
+Все команды — из worktree кандидата, Python 3.12 (`C:\Code\Python\adminbot\.venv`),
+`pytest 9.1.1`; env overrides не использовались.
+
+## 1. Новый файл C2
+
+```
+python -m pytest tests/test_webapp_access_effective.py -q
+101 passed, 1 warning in 13.82s
+```
+
+Покрытие (101 кейс):
+
+- Effective/слои: admin wildcard (allowed оба слоя), custom section.access —
+  **mixed**, moderator section.limits coverage, user denied, глобальный
+  non-secret view (F-C2-3, title/secret/hidden = null для non-global),
+  moderator global param edit denied (D3/F-C2-2), role_type=global_admin без
+  wildcard (section allowed / param.content edit denied / param.limits allowed),
+  moderator chat view allowed + edit denied (слой chat_grant=no_grant),
+  local_admin view/edit, DM-владелец, custom content persona/humor, humor chat
+  игнорирует edit_humor_library (as `_library_can_edit`), chat_lore global NA /
+  chat guard / member allowed, прочие section chat NA, key chat NA/keys_via_byok,
+  key global view/edit.
+- Ресурсы/операции: 422 (`unknown_resource`, `invalid_operation`,
+  `use_key_namespace`), hidden non-admin 422, hidden admin hard-deny,
+  chat_id=0 → 422.
+- Strict/503: cold+PG down все три GET + матрица → 503; seeded+PG down:
+  section/action 200, param/key 503, chat/DM 503; F-C2-1 (cold 503,
+  seeded non-global 403 без strict-read, seeded admin 503).
+- Auth: 401, self, delegated non-admin 403, delegated admin 200 mode=delegated,
+  чужой DM 403, group без профиля 404, caller без доступа к чату 403.
+- Chat override GET: sparse/legacy-нормализация/filtered_out=2, пустой профиль
+  200 items={}, свежее чтение (без TTL), 403 non-admin/DM, 404, 503,
+  no-leak sentinel (value/prompt/secret/meta/last4).
+- Chat admins GET: ровно 5 полей, role_name/added_by/created_at, 403, 404, 503.
+- Анти-дрейф: 41 кейс (actor × scope × resource × op) — decision сверяется с
+  фактическими `deps.user_has_permission/user_is_global_admin/can_edit_param/
+  can_view_key_value`, `access.can_view_param/can_edit_param/can_access_chat`,
+  `routes._persona_can_edit/_persona_has_edit_action`, `speech._library_can_edit`.
+- Доказательство делегирования: monkeypatch `preview.match_permission=False`,
+  `access.can_view_param=False`, `access.can_edit_param=False` меняет решения.
+- No-leak/overrides: sentinel-строки отсутствуют; `author_recorded=false`;
+  global/chat present+updated_at.
+- Read-only: 9 write-декораторов (baseline), нет `.execute(`/DDL в read-model,
+  нет своего ACL/`def can_*`.
+
+## 2. Focused regression (contract §7.4)
+
+```
+python -m pytest tests/test_webapp_api.py tests/test_roles_admin.py \
+  tests/test_permissions.py tests/test_acl_global_admin_role_permission_gate.py \
+  tests/test_config_cache.py tests/test_webapp_access_matrix_read.py \
+  tests/test_prompt_field_audit.py -q
+287 passed, 1 failed in 26.01s
+FAILED tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface
+```
+
+**Pre-existing proof:** тот же node id падает на чистой базе `d86bf66d4`
+(release-worktree 2.58.230, product files clean):
+
+```
+python -m pytest tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface -q
+1 failed, 1 warning in 4.33s
+```
+
+Причина (не C2): `direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt)`
+не в UI-surface allowlist — существовавший разрыв каталога промптов.
+
+## 3. Дополнительные C1-adjacent файлы
+
+```
+python -m pytest tests/test_mod_acl_ux_m2_tristate_write.py \
+  tests/test_webapp_evol_w13_touch_portal.py tests/test_webapp_hubs_matrix_ui.py -q
+47 passed, 1 failed in 4.15s
+FAILED tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
+```
+
+Тот же pre-existing node id, что C1 evidence (`320 passed, 1 failed` на 2.58.229).
+
+## 4. C1-файл (не изменялся)
+
+```
+python -m pytest tests/test_webapp_access_matrix_read.py -q
+17 passed, 1 warning in 21.01s
+```
+
+## 5. Синтаксис
+
+```
+python -m py_compile services/access_errors.py services/access_preview.py \
+  services/access.py services/roles.py services/chat_params.py web/api/access.py
+rc=0
+```
