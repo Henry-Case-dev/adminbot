@@ -2,17 +2,22 @@
  "tool": "Browser Use (real Chrome, CDP)",
  "stand": "python tools/ui_mod_acl_m4c1_roles_e2e.py --serve (127.0.0.1:8811)",
  "tma": "sessionStorage adminbot.initData (TMA_STUB equivalent; local stand, not live TMA)",
- "candidate": "de80a6cb9",
+ "candidate": "eb305b6fe",
  "desktop_1440": {
   "vw": 1440,
   "scrollWidth": 1425,
   "modal_backdrop": false,
   "roles_page": true,
   "aside_width": 280,
-  "roles": 4,
+  "roles": 5,
+  "roles_count_badge": "5",
   "rights_sections": 12,
   "matrix_groups": 121,
   "matrix_count_text": "Доступ к параметрам: 622 из 622",
+  "selected_role": "custom_used",
+  "f02_delete_disabled": true,
+  "f02_rename_disabled": false,
+  "f02_usage_note": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте.",
   "superuser_readonly": true,
   "screenshot": "shots/browseruse-roles-1440.png",
   "matrix_screenshot": "shots/browseruse-matrix-1440.png"
@@ -22,16 +27,16 @@
   "scrollWidth": 390,
   "aside_display": "none",
   "switcher_display": "flex",
-  "roles_options": 4,
+  "roles_options": 5,
   "rights_sections": 12,
+  "selected_role": "custom_used",
   "actions_button": {"w": 45.54, "h": 44, "right": 371.33},
   "tab_heights": [44, 44, 44],
+  "f02_usage_note": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте.",
   "actions_menu": {
    "opened": true,
-   "items": [
-    {"title": "Переименовать", "height": 44, "disabled": true},
-    {"title": "Удалить", "height": 44, "disabled": true}
-   ]
+   "rename": {"disabled": false, "height": 44},
+   "delete": {"disabled": true, "height": 44}
   },
   "screenshot": "shots/browseruse-roles-390.png",
   "actions_screenshot": "shots/browseruse-actions-390.png"

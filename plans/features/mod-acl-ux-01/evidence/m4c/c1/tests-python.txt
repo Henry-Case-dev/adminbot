@@ -1,14 +1,20 @@
-# M4C C1 — Python tests (candidate de80a6cb9)
+# M4C C1 — Python tests (candidate eb305b6fe)
 
-## Focused set (на candidate)
+## Focused set (точный набор ревью r1)
 
 ```
 python -m pytest tests/test_webapp_api.py tests/test_roles_admin.py \
   tests/test_permissions.py tests/test_acl_global_admin_role_permission_gate.py \
-  tests/test_config_cache.py tests/test_webapp_access_matrix_read.py \
-  tests/test_mod_acl_ux_01_m3_module_routes.py -q
-→ 276 passed
+  tests/test_config_cache.py tests/test_mod_acl_ux_m2_tristate_write.py \
+  tests/test_webapp_evol_w13_touch_portal.py tests/test_webapp_hubs_matrix_ui.py \
+  tests/test_webapp_access_matrix_read.py -q
+→ 320 passed, 1 failed
 ```
+
+Единственное падение —
+`test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed`
+(`var MODULES = [`); оно воспроизведено на базе `374dc6060` (1 failed),
+pre-existing, не регрессия C1.
 
 `tests/test_webapp_access_matrix_read.py` (новый, 17 тестов) проверяет:
 
@@ -28,7 +34,8 @@ python -m pytest tests/test_webapp_api.py tests/test_roles_admin.py \
 
 ## Прочее
 
-- `python -m py_compile services/access.py web/api/access.py web/api/routes.py`
+- `python -m py_compile services/access.py web/api/access.py web/api/routes.py
+  tests/test_webapp_access_matrix_read.py tools/ui_mod_acl_m4c1_roles_e2e.py`
   → `PY_COMPILE_OK`.
 - `requirements_gate.py check --stage plan` **не запускался**: на release-дереве
   `374dc6060` нет `requirements-map.json` (проверено `Test-Path` → False);

@@ -1,4 +1,4 @@
-# M4C C1 — Playwright / Browser Use (candidate de80a6cb9)
+# M4C C1 — Playwright / Browser Use (candidate eb305b6fe)
 
 ## Playwright (реальные `web/*`, API-стабы, TMA_STUB)
 
@@ -12,10 +12,11 @@ python tools/ui_mod_acl_m4c1_roles_e2e.py
 
 - viewports 1920×1080, 1440×900, 1280×800, 768×1024, 390×844, 360×640,
   320×568: `scrollWidth <= innerWidth + 1`, один основной scroll, нет
-  вложенных вертикальных скроллеров; 4 роли; 12 секций прав; 121 группа
-  матрицы; 622/622 в счётчике; по группам 61 owner / 60 fallback
-  «Общее / инфраструктура» (hidden `factcheck_temporal` не входит в DTO;
-  по параметрам 322/300; registry-wide 324/298).
+  вложенных вертикальных скроллеров; 5 ролей (включая `custom_used`);
+  12 секций прав; 121 группа матрицы; 622/622 в счётчике; по группам
+  61 owner / 60 fallback «Общее / инфраструктура» (hidden
+  `factcheck_temporal` не входит в DTO; по параметрам 322/300;
+  registry-wide 324/298).
 - desktop 1920/1440/1280: левая колонка 280/280/280 px (clamp 220–280);
   tablet 768: 220 px; mobile 390/360/320: колонка скрыта, switcher + «⋯».
 - смена роли: ровно +1 `GET /api/roles/tree`; поиск в правах и матрице:
@@ -28,7 +29,28 @@ python tools/ui_mod_acl_m4c1_roles_e2e.py
 - console/page errors: только сетевые `Failed to load resource` (ожидаемые
   статусы сценариев), JS-исключений нет.
 - screenshot'ы: `roles-rights-*`, `roles-matrix-*`, `roles-error-*`
-  (1440/1920/390/360 + все error-карточки).
+  (1440/1920/390/360 + все error-карточки + non-global 403).
+
+## R1 F01/F02/F03 (GREEN на eb305b6fe)
+
+`shots/report.json` содержит:
+
+- `F02@<viewport>` для всех 7 viewport: `role=custom_used`,
+  `deleteDisabled=true`, `renameDisabled=false`, `usageNote` =
+  «Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте.».
+- `error-roles-401/403/503`: `rolesCount=null` — бейджа «РОЛИ 0» нет.
+- `error-matrix-403/503`: `matrixCount=null`, `has_0_iz_0=false` — нет
+  «0 из 0» рядом с error-карточкой.
+- `error-matrix-non-global`: `matrixCount=null`, `matrix_forbidden=true`,
+  `has_0_iz_0=false`.
+- `error-tree-404`: `retryList=true`, `retryRolesDelta=1` — кнопка
+  «Обновить список ролей» перезагружает список (`/api/roles`), а не только
+  повторяет tree-запрос.
+
+**RED на c334b7578:** `red-c334b7578.json` (served 503 → «0 из 0»,
+403 ролей → «РОЛИ 0», old `canEditRole` без usage, 404 без retry-list);
+`red-c334b7578-node.txt` (новый node-тест на старом app.js падает:
+`method rolesCounterText` отсутствует).
 
 ## Browser Use (реальный Chrome, тот же стенд)
 
@@ -37,9 +59,8 @@ TMA initData через sessionStorage, CDP.
 
 | Проверка | Результат |
 |---|---|
-| 1440×900 | `[data-roles-page]`=true, `.modal-backdrop`=false, aside=280 px, roles=4, sections=12, matrix groups=121, count=622/622 |
-| 390×844 | scrollWidth=390, aside=none, switcher=flex, «⋯» 45.5×44 right=371.3, tabs=[44,44,44], options=4 |
-| actions menu | открывается ниже switcher, 2 пункта по 44 px, disabled для superuser `admin` |
+| 1440×900 | `[data-roles-page]`=true, `.modal-backdrop`=false, aside=280 px, roles=5, sections=12, matrix groups=121, count=622/622; `custom_used`: delete disabled, rename enabled, usage note visible |
+| 390×844 | scrollWidth=390, aside=none, switcher=flex, «⋯» 45.5×44 right=371.3, tabs=[44,44,44], options=5; menu delete disabled 44, rename enabled 44 |
 | screenshots | `browseruse-roles-1440.png`, `browseruse-matrix-1440.png`, `browseruse-roles-390.png`, `browseruse-actions-390.png` |
 
 После проверки эмуляция viewport снята, вкладка 8811 закрыта, сервер остановлен.

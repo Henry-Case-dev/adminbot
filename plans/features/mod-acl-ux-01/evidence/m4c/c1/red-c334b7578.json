@@ -1,0 +1,21 @@
+{
+ "old_sha": "c334b7578",
+ "reproduced_on": "served bytes c334b7578 с API-стабами ui_mod_acl_m4c1_roles_e2e + TMA_STUB (локальный стенд, не live TMA)",
+ "F01": {
+  "matrix_counter_source": "{{ matrixLoading ? '…' : (matrixVisibleCount(matrixTree()) + ' из ' + matrixTotalCount()) }}.",
+  "roles_badge_source": "<span class=\"badge badge-muted\">{{ rolesLoading ? '…' : rolesList.length }}</span>",
+  "served_matrix_503_text_excerpt": "Доступ к параметрам: 0 из 0. Матрица задаёт дефолт…",
+  "served_roles_403_text_excerpt": "РОЛИ\n0\nНет доступа\n\nРоли и назначения доступны ролям с правом «access»; это не означает, что база пуста.",
+  "observed": "0 из 0 рядом с 503; РОЛИ 0 рядом с текстом «не означает, что база пуста»"
+ },
+ "F02": {
+  "canEditRole_source": "if (!this.isGlobalAdmin) return false; return !this.isSuperuserRole(role) && !(role && role.role_type) && !!(role && role.is_custom);",
+  "canDeleteRole_present": false,
+  "observed": "canEditRole({is_custom:true}) не учитывает usage=1; кнопка «Удалить» активна, серверный DELETE 409"
+ },
+ "F03": {
+  "retry_list_present": false,
+  "tree_error_button_source": "@click=\"openRoleEditor(selectedRole(), true)\">Обновить права роли</button>",
+  "observed": "единственное действие 404 повторяет tree-запрос; список ролей не перезагружается"
+ }
+}
