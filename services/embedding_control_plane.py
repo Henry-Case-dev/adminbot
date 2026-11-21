@@ -687,6 +687,10 @@ class QuotaGroupRegistry:
         # F8 (панель §15.3 «last 429» per-group): последняя 429-метка
         # (epoch) по group_id — R17-safe (id группы + время, без секретов).
         self._group_last_429: dict[str, float] = {}
+        # POSTDEPLOY (22.11.2026): bounded probe-recovery spend/daily-групп.
+        # R17-safe: только group_id → epoch последней probe-попытки (in-memory,
+        # как и credential health); не новый breaker/менеджер.
+        self._group_probe_last: dict[str, float] = {}
         self._db: object | None = None
 
     def reset_runtime(self) -> None:
@@ -696,6 +700,7 @@ class QuotaGroupRegistry:
         self._cred_health.clear()
         self._rate_events.clear()
         self._group_last_429.clear()
+        self._group_probe_last.clear()
 
     def bind_db(self, db) -> None:
         self._db = db
@@ -751,6 +756,36 @@ class QuotaGroupRegistry:
             self._set_group_local(group_id, GROUP_HEALTHY, 0,
                                   "cooldown_expired")
         return False
+
+    # ── bounded probe-recovery spend/daily-парковки (postdeploy 22.11.2026) ──
+
+    def group_parked_kind(self, group_id: str) -> str:
+        """Kind последней kind-парковки группы из note `parked kind=<kind>
+        est=...` (R17-safe); '' — note не от spend/daily-эвристики."""
+        note = str(self.group_state(group_id).note or "")
+        prefix = "parked kind="
+        if not note.startswith(prefix):
+            return ""
+        return note[len(prefix):].split(" ", 1)[0]
+
+    def spend_parked(self, group_id: str) -> bool:
+        """True: группа припаркована spend/daily-429 без Retry-After
+        (единственный класс, который получает bounded probe-recovery)."""
+        if not self.group_blocked(group_id):
+            return False
+        return self.group_parked_kind(group_id) in (RATE_SPEND, RATE_DAILY)
+
+    def group_probe_due(self, group_id: str,
+                        interval_s: float | None = None) -> bool:
+        """Не чаще одного bounded probe на группу за интервал."""
+        interval = (_GROUP_PROBE_INTERVAL_S if interval_s is None
+                    else float(interval_s))
+        last = self._group_probe_last.get(str(group_id), 0.0)
+        return (time.time() - last) >= interval
+
+    def note_group_probe(self, group_id: str) -> None:
+        """Зафиксировать probe-попытку ДО HTTP: 429/5xx тоже троттлятся."""
+        self._group_probe_last[str(group_id)] = time.time()
 
     def _set_group_local(self, group_id: str, state: str,
                          next_allowed_at: int, note: str) -> None:
@@ -981,11 +1016,16 @@ class PriorityScheduler:
                 "limit": self._limit()}
 
     async def acquire(self, priority: Priority, group_id: str,
-                      *, max_wait_s: float | None = None) -> _Permit:
+                      *, max_wait_s: float | None = None,
+                      ignore_group_cooldown: bool = False) -> _Permit:
         """Взять слот. Группа cooling/exhausted → ожидание до `max_wait_s`
         (None — без ожидания), затем `EmbeddingGroupCoolingDown` (caller
         решает: P0 → FTS-fallback, P3 → pause job). Конкурентность — AIMD-
-        лимит; P3 — только idle-capacity (см. docstring класса)."""
+        лимит; P3 — только idle-capacity (см. docstring класса).
+
+        `ignore_group_cooldown` — ТОЛЬКО для одной P2-repair probe-попытки к
+        spend/daily-припаркованной группе (bounded probe-recovery): group
+        cooldown не блокирует саму пробу, но concurrency/AIMD соблюдаются."""
         deadline = None if max_wait_s is None else time.monotonic() + max(0.0, max_wait_s)
         cond = self._ensure_cond()
         is_p3 = (priority >= Priority.P3_REBUILD
@@ -994,7 +1034,8 @@ class PriorityScheduler:
             self._waiting_high += 1
         try:
             while True:
-                if REGISTRY.group_blocked(group_id):
+                if not ignore_group_cooldown \
+                        and REGISTRY.group_blocked(group_id):
                     now = int(time.time())
                     next_allowed = REGISTRY.group_state(group_id).next_allowed_at
                     wait_need = max(0.0, float(next_allowed - now))
@@ -1318,6 +1359,12 @@ _TRANSPORT_BACKOFF_CAP = 8.0
 # снова пробует ногу (probe-recovery). Пока park активен, запросы не бьют
 # сломанный шлюз каждую операцию.
 _PROVIDER_UNAVAILABLE_COOLDOWN_S = 60.0
+# POSTDEPLOY (22.11.2026): bounded probe-recovery для группы, припаркованной
+# spend/daily-429 без Retry-After (прод-факт Gemini: parked до UTC-day-end, хотя
+# квота уже восстановилась). Не второй circuit breaker и не новый менеджер:
+# существующие group state/credential health + priority scheduler; ровно одна
+# P2-repair попытка на группу за окно, обычные P0/P1 cooldown уважают.
+_GROUP_PROBE_INTERVAL_S = 900.0
 
 
 @dataclass
@@ -1409,7 +1456,12 @@ class EmbeddingExecutor:
         * `EmbeddingRetriesExhausted` — исчерпаны ≤4 попытки на transport
           (5xx/timeout; provider budget-сигнала не было) ИЛИ все независимые
           ноги отказали транспортом в этой операции (каждая — не более одного
-          раза; повтор неизменённого endpoint не жжёт бюджет).
+          раза; повтор неизменённого endpoint не жжёт бюджет). Отказавшая
+          5xx/timeout нога паркуется в credential health — при другой
+          сконфигурированной ноге сразу (даже если та временно непригодна),
+          у реально единственной — по завершении её bounded retry: следующий
+          logical request в окне cooldown не делает HTTP, после окна — одна
+          probe-попытка.
         429 при burst-pressure: ожидание cooldown (bounded max_wait) и одна
         пере-подача; при quota-unavailable: group exhausted + тот же контракт
         ожидания (P3 ждёт — pause-цикл, P0 отступает к FTS)."""
@@ -1442,10 +1494,32 @@ class EmbeddingExecutor:
         # logical operation. Следующая попытка — следующая пригодная
         # НЕЗАВИСИМАЯ нога, а не повтор неизменённого endpoint.
         excluded: set[str] = set()
+        # POSTDEPLOY CORRECTIVE (22.11.2026): реально единственная
+        # СКОНФИГУРИРОВАННАЯ нога сохраняет bounded retry текущей операции;
+        # её парковка откладывается до терминала операции, чтобы следующий
+        # logical request уже не повторял тот же 5xx.
+        deferred_park: EmbeddingCredential | None = None
+        # POSTDEPLOY CORRECTIVE (22.11.2026): bounded probe-recovery —
+        # ровно одна P2-repair попытка к группе, припаркованной spend/daily-429
+        # без RA (прод-факт: Google 429 spend держал fallback до UTC-day-end,
+        # хотя квота уже восстановилась). P0/P1/P3 cooldown уважают.
+        probe_left = (priority == Priority.P2_REPAIR)
 
         while budget_left > 0:
             credential = self._pick_credential(pool, excluded)
             if credential is None:
+                # POSTDEPLOY: probe-путь ДО транспортного терминала — в проде
+                # primary 503 исключается первым, а fallback-группы parked;
+                # без этого tick не дошёл бы до восстановления fallback.
+                if probe_left:
+                    probe_left = False
+                    probe = self._pick_group_probe(pool, excluded)
+                    if probe is not None:
+                        vectors = await self._attempt_group_probe(
+                            probe, pool, texts, stats)
+                        if vectors is not None:
+                            return vectors
+                        raise self._group_probe_terminal(probe)
                 if excluded:
                     # Каждая независимая нога уже отказала транспортом в этой
                     # операции — повтор неизменённого endpoint бессмысленен
@@ -1467,8 +1541,18 @@ class EmbeddingExecutor:
                     raise EmbeddingNoUsableCredential(
                         "no usable embedding credential "
                         "(auth_failed/disabled/provider_cooldown)")
+                # Группа pool[0] может быть healthy, а заблокирована другая
+                # (напр. credential в cooldown + fallback-группа parked) —
+                # ждём именно заблокированную группу: acquire по healthy
+                # group вернулся бы сразу и дал бы спин без прогресса.
+                blocked = [c.quota_group_id for c in pool
+                           if self._registry.group_blocked(c.quota_group_id)]
+                wait_group = min(
+                    blocked,
+                    key=lambda gid: self._registry.group_state(
+                        gid).next_allowed_at or 0)
                 permit = await self._scheduler.acquire(
-                    priority, pool[0].quota_group_id, max_wait_s=max_wait_s)
+                    priority, wait_group, max_wait_s=max_wait_s)
                 self._scheduler.release(permit)
                 continue
             try:
@@ -1528,8 +1612,13 @@ class EmbeddingExecutor:
                         ) from exc
                     continue
                 # transport retryable (5xx/timeout): счётная попытка.
+                # При наличии другой сконфигурированной ноги отказавшая
+                # паркуется и исключается СРАЗУ (даже если альтернатива сейчас
+                # непригодна); реально единственная нога сохраняет bounded
+                # retry, её парковка выполняется при терминале операции.
                 budget_left -= 1
-                self._mark_transport_failure(credential, pool, excluded)
+                deferred_park = self._mark_transport_failure(
+                    credential, pool, excluded)
                 if budget_left <= 0:
                     break
                 if self._pick_credential(pool, excluded) is None:
@@ -1543,6 +1632,22 @@ class EmbeddingExecutor:
         # EVOL-010: attempt budget исчерпан на RETRYABLE (transport) ошибках —
         # provider budget-сигнала не было; честное имя состояния вместо
         # ложного «budget exceeded» (compat — через подкласс).
+        if deferred_park is not None:
+            # Единственная сконфигурированная нога: паркуем её на терминале —
+            # следующий logical request в окне cooldown не делает HTTP.
+            self._park_transport_credential(
+                deferred_park, no_alternative=True)
+        if probe_left:
+            # P2-repair: primary 503 мог закончить бюджет/исключение раньше,
+            # чем цикл дошёл до проверки «нет usable credential».
+            probe_left = False
+            probe = self._pick_group_probe(pool, excluded)
+            if probe is not None:
+                vectors = await self._attempt_group_probe(
+                    probe, pool, texts, stats)
+                if vectors is not None:
+                    return vectors
+                raise self._group_probe_terminal(probe)
         raise EmbeddingRetriesExhausted(
             f"embedding retries exhausted "
             f"(budget={_ATTEMPT_BUDGET}, "
@@ -1569,36 +1674,156 @@ class EmbeddingExecutor:
             return credential
         return None
 
+    def _pick_group_probe(
+            self, pool: list[EmbeddingCredential],
+            excluded: set[str] | None = None) -> EmbeddingCredential | None:
+        """Bounded probe-recovery: первый healthy credential группы, которая
+        припаркована spend/daily-429 без RA и не пробовалась за
+        `_GROUP_PROBE_INTERVAL_S`. Пробная попытка фиксируется ДО HTTP, поэтому
+        429/5xx тоже троттлятся (не спам)."""
+        excluded = excluded or set()
+        seen: set[str] = set()
+        for credential in pool:
+            if credential.alias in excluded:
+                continue
+            group_id = credential.quota_group_id
+            if group_id in seen:
+                continue
+            seen.add(group_id)
+            if not self._registry.spend_parked(group_id):
+                continue
+            if not self._registry.group_probe_due(group_id):
+                continue
+            if self._registry.credential_health(credential.alias) \
+                    != HEALTH_HEALTHY:
+                continue
+            self._registry.note_group_probe(group_id)
+            return credential
+        return None
+
+    async def _attempt_group_probe(
+            self, credential: EmbeddingCredential,
+            pool: list[EmbeddingCredential], texts: list[str],
+            stats: ExecutionStats) -> list[list[float]] | None:
+        """РОВНО одна P2-repair попытка к spend/daily-припаркованной группе
+        (существующие registry/scheduler; group cooldown игнорируется только
+        для этой пробы). Успех → группа healthy. 429/5xx → группа остаётся
+        parked, без повторов в этой операции. Auth/code-defect — прежние
+        терминалы (без ослабления семантики)."""
+        group_id = credential.quota_group_id
+        try:
+            permit = await self._scheduler.acquire(
+                Priority.P2_REPAIR, group_id, max_wait_s=0.0,
+                ignore_group_cooldown=True)
+        except EmbeddingConcurrencyBusy:
+            logger.info(
+                "embed group probe skipped | group=%s | reason=scheduler_busy",
+                group_id)
+            return None
+        try:
+            adapter = self.adapter_for(credential.base_url)
+            vectors = await self._call_with_segmentation(
+                adapter, credential, texts, stats)
+        except EmbeddingControlPlaneError:
+            raise
+        except Exception as exc:
+            handled = await self._on_error(
+                exc, pool, group_id, Priority.P2_REPAIR, stats,
+                credential=credential)
+            if handled == "auth":
+                raise
+            if handled == "code_defect":
+                raise EmbeddingCodeDefect(
+                    f"embedding code defect "
+                    f"({type(exc).__name__}): {exc}") from exc
+            logger.warning(
+                "embed group probe failed | group=%s | alias=%s | "
+                "provider=%s | result=%s",
+                group_id, credential.alias, credential.provider, handled)
+            return None
+        finally:
+            self._scheduler.release(permit)
+        self._on_success(credential, len(texts))
+        await self._registry.set_group_state(
+            group_id, GROUP_HEALTHY, 0, "probe_ok")
+        logger.warning(
+            "embed group probe recovered | group=%s | alias=%s | "
+            "provider=%s | items=%d",
+            group_id, credential.alias, credential.provider, len(texts))
+        return vectors
+
+    def _group_probe_terminal(
+            self, credential: EmbeddingCredential) -> Exception:
+        """Терминал после неудачной одиночной пробы: группа всё ещё parked →
+        существующий CoolingDown-контракт; иначе (429 переклассифицировал
+        состояние) — честный no-usable."""
+        group_id = credential.quota_group_id
+        if self._registry.group_blocked(group_id):
+            return EmbeddingGroupCoolingDown(
+                group_id=group_id,
+                next_allowed_at=self._registry.group_state(
+                    group_id).next_allowed_at)
+        return EmbeddingNoUsableCredential(
+            "embedding group probe did not recover")
+
     def _mark_transport_failure(
             self, credential: EmbeddingCredential,
-            pool: list[EmbeddingCredential], excluded: set[str]) -> bool:
+            pool: list[EmbeddingCredential],
+            excluded: set[str]) -> EmbeddingCredential | None:
         """5xx/timeout: пометить отказавшую ногу недоступной.
 
-        * если после её исключения остаётся другая пригодная нога — нога
-          исключается из ТЕКУЩЕЙ операции (failover немедленно);
-        * если в этой операции уже отказала другая нога — последняя тоже
-          исключается (не повторять шлюз, который только что отдал 5xx);
-        * единственная живая нога (напр. single-credential пул) сохраняет
-          прежний bounded retry/backoff (не ранний отказ после 503).
+        Если сконфигурирована ДРУГАЯ embedding-нога, отказавший credential
+        немедленно исключается из ТЕКУЩЕЙ операции и паркуется в СУЩЕСТВУЮЩЕМ
+        `credential_health` (`HEALTH_COOLDOWN`,
+        `_PROVIDER_UNAVAILABLE_COOLDOWN_S`) — даже когда эта альтернатива
+        СЕЙЧАС непригодна (auth_failed/disabled/cooldown). Раньше условие
+        `not next_available and not excluded -> return False` оставляло primary
+        healthy в этом случае: каждая следующая logical operation повторяла тот
+        же 5xx (postdeploy-дефект 2.58.230).
 
-        Парковка — в СУЩЕСТВУЮЩЕМ `credential_health` (HEALTH_COOLDOWN), не
-        второй circuit breaker: по истечении короткого окна следующий
-        logical request снова пробует ногу (probe-recovery). Возвращает True,
-        если нога исключена из текущей операции."""
-        next_available = self._pick_credential(
-            pool, set(excluded) | {credential.alias}) is not None
-        if not next_available and not excluded:
-            return False
+        Для реально единственной СКОНФИГУРИРОВАННОЙ ноги сохраняется прежний
+        bounded retry/backoff текущей операции (ADR-1028-7 D2): парковка не
+        выполняется здесь, caller паркует ногу при терминале операции
+        (`_park_transport_credential`), поэтому следующий logical request в
+        окне cooldown уже не делает HTTP.
+
+        Парковка — в существующем `credential_health`, не второй circuit
+        breaker; после окна — probe-recovery. Возвращает credential, парковку
+        которого нужно выполнить при завершении операции, иначе None."""
+        if not any(c.alias != credential.alias for c in pool):
+            # Единственная сконфигурированная нога: текущая операция ещё может
+            # повторить её в пределах budget/backoff; не исключаем и не паркуем
+            # сейчас.
+            return credential
         excluded.add(credential.alias)
+        self._park_transport_credential(
+            credential,
+            no_alternative=self._pick_credential(
+                pool, set(excluded)) is None)
+        return None
+
+    def _park_transport_credential(
+            self, credential: EmbeddingCredential, *,
+            no_alternative: bool) -> None:
+        """Короткая парковка 5xx/timeout-ноги в существующем credential health
+        (не второй breaker); после окна следующий logical request снова
+        пробует ногу (probe-recovery). `no_alternative` — пригодной ноги в
+        пуле не осталось (диагностика, R17: alias/provider без ключей)."""
         self._registry.mark_credential(
             credential.alias, HEALTH_COOLDOWN,
             cooldown_s=_PROVIDER_UNAVAILABLE_COOLDOWN_S)
-        logger.warning(
-            "embed leg unavailable | alias=%s | provider=%s | "
-            "cooldown_s=%.1f",
-            credential.alias, credential.provider,
-            _PROVIDER_UNAVAILABLE_COOLDOWN_S)
-        return True
+        if no_alternative:
+            logger.warning(
+                "embed leg parked (no alternative) | alias=%s | "
+                "provider=%s | cooldown_s=%.1f",
+                credential.alias, credential.provider,
+                _PROVIDER_UNAVAILABLE_COOLDOWN_S)
+        else:
+            logger.warning(
+                "embed leg unavailable | alias=%s | provider=%s | "
+                "cooldown_s=%.1f",
+                credential.alias, credential.provider,
+                _PROVIDER_UNAVAILABLE_COOLDOWN_S)
 
     async def _call_with_segmentation(
             self, adapter: EmbeddingProviderAdapter,

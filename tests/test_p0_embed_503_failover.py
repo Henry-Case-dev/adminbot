@@ -22,6 +22,19 @@ Identity (MSI/canary/dim/generation/adoption) не меняется этим sea
 summary_memory (см. test_embed_identity_compat.py); несовместимый вектор
 остаётся text-only + FTS.
 
+POSTDEPLOY CORRECTIVE (owner 22.11.2026, `P0-EMBED-503-FAILOVER-POSTDEPLOY`):
+`_mark_transport_failure()` возвращал `False` без park не только для реально
+единственной ноги, но и когда остальные credentials ВРЕМЕННО непригодны
+(auth_failed/disabled/cooldown): затем `_pick_credential()` снова выбирал тот
+же primary — 4 попытки в каждой logical operation, без cooldown между ними.
+Теперь при нескольких сконфигурированных ногах 5xx/timeout паркует отказавшую
+немедленно (даже если альтернатива сейчас непригодна): текущая операция
+завершается честным transport-терминалом (caller → text-only), следующий
+логический запрос в пределах cooldown не делает HTTP, после окна — ровно одна
+probe-попытка. Реально единственная сконфигурированная нога сохраняет
+bounded retry текущей операции (ADR-1028-7 D2) и паркуется на терминале.
+Bounded retry между РАЗНЫМИ ногами и 401/403/429 семантика не изменены.
+
 TEST-LIFECYCLE: REGRESSION owner=P0-EMBED-503-FAILOVER/A (дефект failover).
 """
 import json
@@ -34,12 +47,15 @@ from services import embedding_control_plane as ecp
 from services.database import DatabaseService
 from services.embedding_control_plane import (
     AdaptiveController, EmbeddingBudgetExhausted, EmbeddingExecutor,
-    Priority, QuotaGroupRegistry,
+    EmbeddingGroupCoolingDown, EmbeddingNoUsableCredential, Priority,
+    QuotaGroupRegistry,
 )
 from services.llm_client import (
     LLMAuthError, LLMError, LLMRateLimitError, LLMServerError, LLMTimeoutError,
 )
-from services.summary_memory import FACT_EXTRACT_PROMPT, MemoryManager
+from services.summary_memory import (
+    EMBEDDING_PREPROCESSING_VERSION, FACT_EXTRACT_PROMPT, MemoryManager,
+)
 
 pytestmark = pytest.mark.asap4
 
@@ -135,6 +151,14 @@ class RecordingLLM:
             exc.headers = {"Retry-After": "5"}
             exc.body = ""
             raise exc
+        if behavior == "rate_limit_spend":
+            # Прод-факт Gemini: 429 spend БЕЗ Retry-After → kind-парковка
+            # группы до оценки reset (UTC-day-end), а не 20s burst.
+            exc = LLMRateLimitError("LLM rate limited (429)")
+            exc.headers = {}
+            exc.body = ('{"error": {"status": "RESOURCE_EXHAUSTED", '
+                        '"message": "spend budget exceeded"}}')
+            raise exc
         return [[0.1 + i * 0.01 for i in range(self.dim)] for _ in texts]
 
     async def embed(self, texts):
@@ -204,8 +228,10 @@ async def test_primary_recovery_probe_after_cooldown(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_single_credential_keeps_bounded_retry(monkeypatch):
-    """Единственная нога: budget≤4 сохранён (не ранний отказ после 503)."""
+async def test_single_credential_parks_without_cross_operation_spin(monkeypatch):
+    """Единственная СКОНФИГУРИРОВАННАЯ нога: bounded retry текущей операции
+    сохранён (ADR-1028-7 D2), но на терминале нога паркуется — следующий
+    logical request в пределах cooldown не делает HTTP (postdeploy 22.11.2026)."""
     _isolate(monkeypatch, {
         "keys.embedding_api_key": "k-only",
         "models.embedding_base_url": PRIMARY_BASE,
@@ -216,6 +242,219 @@ async def test_single_credential_keeps_bounded_retry(monkeypatch):
     with pytest.raises(EmbeddingBudgetExhausted):
         await executor.embed(["x"], priority=Priority.P1_WRITE)
     assert [c["key"] for c in llm.calls] == ["k-only"] * 4
+    assert ecp.REGISTRY.credential_health("primary") == "cooldown"
+    assert ecp.REGISTRY.credential_cooldown_until("primary") > 0
+    calls_after_first = len(llm.calls)
+    with pytest.raises(EmbeddingNoUsableCredential):
+        await executor.embed(["y"], priority=Priority.P1_WRITE)
+    assert len(llm.calls) == calls_after_first
+
+
+# ── 1b. POSTDEPLOY: 5xx primary при временно непригодных альтернативах ──────
+
+def _unusable_alternatives():
+    """fallback_1 auth_failed, fallback_2 disabled — configured, но не usable."""
+    ecp.REGISTRY.mark_credential("fallback_1", "auth_failed")
+    ecp.REGISTRY.mark_credential("fallback_2", "disabled")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["server_error", "timeout"])
+async def test_failed_primary_parks_when_alternatives_unusable(
+        monkeypatch, failure):
+    """RED на 2.58.230: primary 503 + альтернативы непригодны → park нет,
+    primary вызывался 4 раза в КАЖДОЙ logical operation (cooldown не ставился).
+    """
+    _three_slots(monkeypatch)
+    _unusable_alternatives()
+    llm = RecordingLLM(script=[failure] * 10)
+    executor = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingBudgetExhausted):
+        await executor.embed(["a"], priority=Priority.P1_WRITE)
+    # Ровно одна попытка в отказавшую ногу: альтернатив нет, spin бессмыслен.
+    assert [c["key"] for c in llm.calls] == ["k-primary"]
+    assert [c["base_url"] for c in llm.calls] == [PRIMARY_BASE]
+    # Отказавшая нога припаркована в СУЩЕСТВУЮЩЕМ credential health.
+    assert ecp.REGISTRY.credential_health("primary") == "cooldown"
+    assert ecp.REGISTRY.credential_cooldown_until("primary") > 0
+    # Следующая logical operation в пределах cooldown: ни одного HTTP-вызова.
+    calls_after_first = len(llm.calls)
+    with pytest.raises(EmbeddingNoUsableCredential):
+        await executor.embed(["b"], priority=Priority.P1_WRITE)
+    assert len(llm.calls) == calls_after_first
+    assert [c["key"] for c in llm.calls] == ["k-primary"]
+
+
+@pytest.mark.asyncio
+async def test_parked_primary_gets_exactly_one_probe_after_cooldown(monkeypatch):
+    """После окна парковки primary снова пробуется — ровно одна попытка."""
+    _three_slots(monkeypatch)
+    _unusable_alternatives()
+    llm = RecordingLLM(script=["server_error", "ok"])
+    executor = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingBudgetExhausted):
+        await executor.embed(["a"], priority=Priority.P1_WRITE)
+    assert [c["key"] for c in llm.calls] == ["k-primary"]
+    # Cooldown истёк (без реального ожидания 60 s): health снова healthy.
+    ecp.REGISTRY.mark_credential("primary", "cooldown", cooldown_s=0.0)
+    vectors = await executor.embed(["b"], priority=Priority.P1_WRITE)
+    assert len(vectors) == 1 and len(vectors[0]) == llm.dim
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-primary"]
+    assert ecp.REGISTRY.credential_health("primary") == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_recovered_fallback_serves_while_primary_parked(monkeypatch):
+    """Пока primary в cooldown, восстановленная fallback-нога обслуживает."""
+    _three_slots(monkeypatch)
+    _unusable_alternatives()
+    llm = RecordingLLM(script=["server_error", "ok"])
+    executor = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingBudgetExhausted):
+        await executor.embed(["a"], priority=Priority.P1_WRITE)
+    assert ecp.REGISTRY.credential_health("primary") == "cooldown"
+    ecp.REGISTRY.mark_credential("fallback_1", "healthy")
+    vectors = await executor.embed(["b"], priority=Priority.P1_WRITE)
+    assert len(vectors) == 1
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1"]
+    assert ecp.REGISTRY.credential_health("fallback_1") == "healthy"
+
+
+# ── 1c. POSTDEPLOY: bounded probe-recovery spend/daily-парковки ─────────────
+
+_PROD_LABELS = ("primary:apinet_paid,fallback_1:google_free_1,"
+                "fallback_2:google_free_2")
+
+
+def _two_slots(monkeypatch):
+    """primary + одна fallback-нога: изолированный per-group probe-тест."""
+    _isolate(monkeypatch, {
+        "keys.embedding_api_key": "k-primary",
+        "keys.embedding_fallback_api_key": "k-fb1",
+        "models.embedding_base_url": PRIMARY_BASE,
+        "models.embedding_model_name": PRIMARY_MODEL,
+        "models.embedding_dim": 4,
+        "models.embedding_fallback1_base_url": FB1_BASE,
+        "models.embedding_fallback1_model": FB1_MODEL,
+        "keys.embedding_quota_group_labels":
+            "primary:apinet_paid,fallback_1:google_free_1",
+    })
+
+
+async def _park_group_spend(group_id: str, seconds: int = 3600) -> None:
+    """Существующий group state: spend-парковка без RA (note как в проде)."""
+    await ecp.REGISTRY.set_group_state(
+        group_id, ecp.GROUP_EXHAUSTED,
+        int(time.time()) + seconds,
+        "parked kind=spend est=utc_day_end")
+
+
+@pytest.mark.asyncio
+async def test_group_probe_recovers_spend_parked_fallback(monkeypatch):
+    """P2-repair: primary 503, обе Google-группы spend-parked до «00:05Z»,
+    реальный провайдер отвечает 200 → одна проба снимает парковку и
+    обслуживает запрос; следующая операция идёт в восстановленную ногу."""
+    _three_slots(monkeypatch, _PROD_LABELS)
+    await _park_group_spend("google_free_1")
+    await _park_group_spend("google_free_2")
+    llm = RecordingLLM(script=["server_error", "ok"])
+    executor = EmbeddingExecutor(llm)
+    vectors = await executor.embed(["a"], priority=Priority.P2_REPAIR)
+    assert len(vectors) == 1 and len(vectors[0]) == llm.dim
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1"]
+    assert ecp.REGISTRY.credential_health("primary") == "cooldown"
+    group1 = ecp.REGISTRY.group_state("google_free_1")
+    assert group1.state == "healthy" and group1.note == "probe_ok"
+    # Вторая группа не тратила пробу: она осталась parked до своего окна.
+    assert ecp.REGISTRY.group_state("google_free_2").state == "exhausted"
+    vectors2 = await executor.embed(["b"], priority=Priority.P2_REPAIR)
+    assert len(vectors2) == 1
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1", "k-fb1"]
+
+
+@pytest.mark.asyncio
+async def test_group_probe_5xx_stays_parked_and_throttled(monkeypatch):
+    """Одна проба: 5xx → группа остаётся parked; повтор не раньше интервала;
+    после интервала — ровно одна новая проба (200 → served)."""
+    _two_slots(monkeypatch)
+    await _park_group_spend("google_free_1")
+    llm = RecordingLLM(script=["server_error", "server_error", "ok"])
+    executor = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await executor.embed(["a"], priority=Priority.P2_REPAIR)
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1"]
+    group1 = ecp.REGISTRY.group_state("google_free_1")
+    assert group1.state == "exhausted"
+    assert group1.note.startswith("parked kind=spend")
+    assert group1.next_allowed_at > int(time.time())
+
+    # Интервал не истёк: проба не повторяется, HTTP-вызовов нет.
+    calls_after_first = len(llm.calls)
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await executor.embed(["b"], priority=Priority.P2_REPAIR)
+    assert len(llm.calls) == calls_after_first
+
+    # Интервал истёк (hook) → одна новая проба; live 200 восстанавливает ногу.
+    monkeypatch.setattr(ecp, "_GROUP_PROBE_INTERVAL_S", 0.0)
+    vectors = await executor.embed(["c"], priority=Priority.P2_REPAIR)
+    assert len(vectors) == 1 and len(vectors[0]) == llm.dim
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1", "k-fb1"]
+    assert ecp.REGISTRY.group_state("google_free_1").state == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_group_probe_spend_429_stays_parked_without_spam(monkeypatch):
+    """Проба 429 spend → группа и credential остаются parked; ни повтор в
+    пределах интервала, ни проба при cooling credential не спамят endpoint."""
+    _two_slots(monkeypatch)
+    await _park_group_spend("google_free_1")
+    llm = RecordingLLM(script=["server_error", "rate_limit_spend", "ok"])
+    executor = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await executor.embed(["a"], priority=Priority.P2_REPAIR)
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1"]
+    group1 = ecp.REGISTRY.group_state("google_free_1")
+    assert group1.state == "exhausted"
+    assert group1.note == "parked kind=spend est=utc_day_end"
+    assert group1.next_allowed_at > int(time.time())
+    assert ecp.REGISTRY.credential_health("fallback_1") == "cooldown"
+    assert ecp.REGISTRY.credential_cooldown_until("fallback_1") > 0
+
+    # В пределах интервала — 0 HTTP.
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await executor.embed(["b"], priority=Priority.P2_REPAIR)
+    assert len(llm.calls) == 2
+
+    # Интервал истёк, но credential ещё в cooldown → пробы нет (0 HTTP).
+    monkeypatch.setattr(ecp, "_GROUP_PROBE_INTERVAL_S", 0.0)
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await executor.embed(["c"], priority=Priority.P2_REPAIR)
+    assert len(llm.calls) == 2
+
+    # Credential снова healthy → ровно одна проба, live 200 восстанавливает.
+    ecp.REGISTRY.mark_credential("fallback_1", "healthy")
+    vectors = await executor.embed(["d"], priority=Priority.P2_REPAIR)
+    assert len(vectors) == 1
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1", "k-fb1"]
+    assert ecp.REGISTRY.group_state("google_free_1").state == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_group_probe_is_p2_only_and_single_attempt(monkeypatch):
+    """P1 (обычный запрос) cooldown уважает и fallback не пробует; P2-repair
+    получает ровно одну пробу даже когда заблокированы все группы."""
+    _three_slots(monkeypatch, _PROD_LABELS)
+    for group in ("apinet_paid", "google_free_1", "google_free_2"):
+        await _park_group_spend(group)
+    llm = RecordingLLM(script=["ok"])
+    executor = EmbeddingExecutor(llm)
+    with pytest.raises(EmbeddingGroupCoolingDown):
+        await executor.embed(["a"], priority=Priority.P1_WRITE)
+    assert llm.calls == []
+    vectors = await executor.embed(["b"], priority=Priority.P2_REPAIR)
+    assert len(vectors) == 1
+    assert [c["key"] for c in llm.calls] == ["k-primary"]
+    assert ecp.REGISTRY.group_state("apinet_paid").state == "healthy"
 
 
 # ── 2. 401/403, 429, отсутствие ключей — прежние независимые контракты ──────
@@ -340,3 +579,84 @@ async def test_all_legs_down_saves_text_only_then_recovers_backfill(
     assert await memory.backfill_graph_fact_vectors() == 0
     assert await _count(vec_db, "graph_facts_vec") == 2
     assert llm.calls[-1]["key"] == "k-primary"
+
+
+@pytest.mark.asyncio
+async def test_alternatives_unusable_text_only_without_repeated_primary_503(
+        vec_db, monkeypatch):
+    """POSTDEPLOY DoD: primary 503 + альтернативы непригодны → один HTTP-вызов,
+    факты text-only/FTS, повторная операция в пределах cooldown не бьёт
+    отказавший endpoint (честная деградация без спина)."""
+    _three_slots(monkeypatch)
+    _unusable_alternatives()
+    facts = json.dumps([
+        {"subject": "u0", "predicate": "p", "object": "o0"},
+        {"subject": "u1", "predicate": "p", "object": "o1"},
+    ], ensure_ascii=False)
+    llm = FactsRecordingLLM(facts, script=["server_error"] * 10)
+    memory = MemoryManager(vec_db, llm)
+    memory._vec_available = True
+    memory._vec_int8 = False
+    memory._vec_dim = 4
+
+    await memory.memorize_facts(-100, "текст", "web_content")
+
+    assert [c["key"] for c in llm.calls] == ["k-primary"]
+    assert await _count(vec_db, "graph_facts") == 2
+    assert await _count(vec_db, "graph_facts_vec") == 0
+    assert await vec_db.search_graph_facts_fts(
+        -100, '"u0"*', 5, int(time.time()) + 10)
+    assert ecp.REGISTRY.credential_health("primary") == "cooldown"
+
+    # Повторная logical operation (новые факты) в пределах cooldown: 0 HTTP.
+    calls_after_first = len(llm.calls)
+    await memory.memorize_facts(-100, "другой текст", "web_content")
+    assert len(llm.calls) == calls_after_first
+    assert await _count(vec_db, "graph_facts_vec") == 0
+
+
+@pytest.mark.asyncio
+async def test_group_probe_backfill_writes_vector_and_clears_group(
+        vec_db, monkeypatch):
+    """Прод-сценарий: primary 503, Google-группы spend-parked до «00:05Z»,
+    но live Google 200. P2-backfill делает ровно одну пробу → fallback
+    обслуживает, вектор записан, группа снята с парковки; повтор идемпотентен."""
+    _three_slots(monkeypatch, _PROD_LABELS)
+    for group in ("google_free_1", "google_free_2"):
+        await _park_group_spend(group)
+    # Существующий route-gate должен допустить fallback по MSI (same model +
+    # dims): active generation уже существует (иначе запись справедливо
+    # text-only — это НЕ дефект probe, а identity-гейт).
+    ecp.reset_compat_state()
+    await vec_db.ensure_embedding_generation(
+        "graph_facts_vec", "probe-gateway-fp",
+        provider="generativelanguage.test", model=PRIMARY_MODEL, dims=4,
+        preprocessing_version=EMBEDDING_PREPROCESSING_VERSION,
+        endpoint_fingerprint="test-endpoint", activate=True,
+        config_revision=None)
+    facts = json.dumps([
+        {"subject": "g0", "predicate": "p", "object": "o0"},
+        {"subject": "g1", "predicate": "p", "object": "o1"},
+    ], ensure_ascii=False)
+    llm = FactsRecordingLLM(facts, script=["server_error", "ok"])
+    memory = MemoryManager(vec_db, llm)
+    memory._vec_available = True
+    memory._vec_int8 = False
+    memory._vec_dim = 4
+
+    # P1-запись: primary 503, fallback cooldown уважается → text-only.
+    await memory.memorize_facts(-100, "текст", "web_content")
+    assert [c["key"] for c in llm.calls] == ["k-primary"]
+    assert await _count(vec_db, "graph_facts") == 2
+    assert await _count(vec_db, "graph_facts_vec") == 0
+    assert ecp.REGISTRY.credential_health("primary") == "cooldown"
+
+    # P2-backfill: одна проба Google (live 200) → вектор записан.
+    processed = await memory.backfill_graph_fact_vectors()
+    assert processed == 2
+    assert await _count(vec_db, "graph_facts_vec") == 2
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1"]
+    assert ecp.REGISTRY.group_state("google_free_1").state == "healthy"
+    # Повторный backfill идемпотентен и больше не ходит в сеть.
+    assert await memory.backfill_graph_fact_vectors() == 0
+    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1"]
