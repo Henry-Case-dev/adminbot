@@ -57,6 +57,7 @@ CUSTOM_ID = 424242424
 CUSTOM_CONTENT_ID = 700000003
 HUMOR_ID = 700000004
 MODERATOR2_ID = 700000005
+CUSTOM_KEYS_ID = 700000006
 USER_ID = 999999999
 CHAT_ID = -1001234567890
 CHAT_NO_PROFILE = -1009999999999
@@ -74,6 +75,19 @@ CONTENT_KEY = "content.info_how_it_works"
 NO_PERCHAT_KEY = "models.llm_model_name"
 KEY_KEY = "keys.groq_api_key"
 HIDDEN_KEY = "limits.chat_timezone"
+NONSECRET_KEY = "keys.embedding_quota_group_labels"
+NONSECRET_PROVIDER_KEY = "keys.random_quantum_endpoint"
+HIDDEN_KEY_KEY = "keys.random_quantum_provider"
+NONSECRET_KEYS = (
+    "keys.embedding_quota_group_labels",
+    "keys.random_quantum_endpoint",
+    "keys.random_quantum_plan",
+    "keys.random_quantum_batch_length",
+    "keys.random_quantum_data_type",
+    "keys.random_quantum_request_timeout_seconds",
+    "keys.random_quantum_refill_low_watermark",
+    "keys.random_quantum_buffer_max_values",
+)
 
 
 ROLE_ROWS = [
@@ -100,6 +114,9 @@ ROLE_ROWS = [
     {"role_name": "custom_humor",
      "permissions": {"actions": ["edit_humor_library"]},
      "is_custom": True, "role_type": None},
+    {"role_name": "custom_keys",
+     "permissions": {"keys": ["keys.embedding_quota_group_labels"]},
+     "is_custom": True, "role_type": None},
 ]
 ADMIN_ROWS = [
     {"telegram_id": ADMIN_ID, "role_name": "admin",
@@ -120,6 +137,8 @@ ADMIN_ROWS = [
      "added_by": ADMIN_ID, "created_at": "2026-11-22T00:00:07+00:00"},
     {"telegram_id": MODERATOR2_ID, "role_name": "moderator",
      "added_by": ADMIN_ID, "created_at": "2026-11-22T00:00:08+00:00"},
+    {"telegram_id": CUSTOM_KEYS_ID, "role_name": "custom_keys",
+     "added_by": ADMIN_ID, "created_at": "2026-11-22T00:00:09+00:00"},
 ]
 
 CHAT_ADMIN_ROWS = [
@@ -405,20 +424,29 @@ class TestEffectiveLayers:
         assert _layer(data, "global_admin_ceiling")["decision"] == "denied"
         assert data["actor"]["role_type"] == "custom"
 
-    def test_moderator_section_limits_coverage(self, monkey_settings):
+    def test_moderator_section_limits_is_visibility_only(self, monkey_settings):
+        """C2-R1-3: у section.limits нет route guard — только видимость раздела."""
         client = _client(_live_cache(), monkey_settings)
         data = _effective_actor(client, MODERATOR_ID,
                                 resource="section.limits").json()
-        assert data["decision"] == "allowed"
-        assert _layer(data, "role")["applies_to"] == "coverage"
-        assert _layer(data, "role")["matched"] == "section.limits"
+        assert data["decision"] == "not_applicable"
+        layer = _layer(data, "role")
+        assert layer["applies_to"] == "ui_visibility"
+        assert layer["decision"] == "allowed"      # грант секции виден
+        assert layer["matched"] == "section.limits"
+        assert layer["guard"].startswith("ui visibility")
+        assert layer["consumers"] == []
+        assert 'requires_permission("limits")' not in layer["guard"]
 
-    def test_user_section_denied(self, monkey_settings):
+    def test_user_section_limits_visibility_denied(self, monkey_settings):
         client = _client(_live_cache(), monkey_settings)
         data = _effective_actor(client, USER_ID,
                                 resource="section.limits").json()
-        assert data["decision"] == "denied"
-        assert _layer(data, "role")["reason"] == "no_match"
+        assert data["decision"] == "not_applicable"
+        layer = _layer(data, "role")
+        assert layer["decision"] == "denied"
+        assert layer["reason"] == "no_match"
+        assert layer["applies_to"] == "ui_visibility"
 
     def test_global_param_view_is_readable_by_any_auth(self, monkey_settings):
         """F-C2-3: глобальный non-secret GET /api/config доступен всем."""
@@ -537,7 +565,11 @@ class TestEffectiveLayers:
         client = _client(_live_cache(), monkey_settings)
         glob = _effective(client, resource="section.chat_lore").json()
         assert glob["decision"] == "not_applicable"
-        assert _layer(glob, "role")["applies_to"] == "ui_visibility"
+        vis = _layer(glob, "role")
+        assert vis["applies_to"] == "ui_visibility"
+        assert vis["consumers"] == []
+        assert vis["guard"].startswith("ui visibility")
+        assert 'requires_permission("chat_lore")' not in vis["guard"]
         chat = _effective_actor(client, LOCAL_ID, chat_id=CHAT_ID,
                                 resource="section.chat_lore").json()
         assert chat["decision"] == "allowed"
@@ -555,7 +587,10 @@ class TestEffectiveLayers:
         data = _effective_actor(client, MODERATOR_ID, chat_id=CHAT_ID,
                                 resource="section.limits").json()
         assert data["decision"] == "not_applicable"
-        assert _layer(data, "role")["applies_to"] == "coverage"
+        layer = _layer(data, "role")
+        assert layer["applies_to"] == "ui_visibility"
+        assert layer["consumers"] == []
+        assert layer["guard"].startswith("ui visibility")
 
     def test_key_chat_not_applicable(self, monkey_settings):
         client = _client(_live_cache(), monkey_settings)
@@ -580,6 +615,147 @@ class TestEffectiveLayers:
         assert edit["decision"] == "denied"
         assert _layer(edit, "role")["guard"].startswith(
             "web.api.deps.can_view_key_value")
+
+
+class TestKeyConfigSemantics:
+    """C2-R1-2: preview зеркалит фактический GET/POST /api/config для keys."""
+
+    def test_all_non_secret_keys_visible_to_any_authenticated(
+            self, monkey_settings):
+        client = _client(_live_cache(), monkey_settings)
+        assert len(NONSECRET_KEYS) == 8
+        for key in NONSECRET_KEYS:
+            for caller in (USER_ID, MODERATOR_ID, ADMIN_ID):
+                data = _effective(client, actor=None, caller=caller,
+                                  resource="key." + key).json()
+                assert data["decision"] == "allowed", (key, caller)
+                surface = _layer(data, "config_surface")
+                assert surface["reason"] == "global_config_all", (key, caller)
+                assert surface["guard"].startswith("web.api.routes.get_config")
+                assert _layer(data, "role")["decision"] == "not_applicable"
+
+    def test_hidden_key_is_denied_even_for_admin(self, monkey_settings):
+        """hidden: GET исключает; POST → 422; preview не выдаёт allowed."""
+        client = _client(_live_cache(), monkey_settings)
+        for op in ("view", "edit"):
+            data = _effective(client, resource="key." + HIDDEN_KEY_KEY,
+                              operation=op).json()
+            assert data["decision"] == "denied", op
+            layer = _layer(data, "config_surface")
+            assert layer["reason"] == "hidden_parameter", op
+            assert layer["hard"] is True, op
+            assert "GET /api/config" in layer["consumers"]
+            assert data["resource"]["hidden"] is True
+        # non-admin: hidden-ресурс не принимается (422, как и для param.*)
+        resp = _effective(client, actor=None, caller=MODERATOR_ID,
+                          resource="key." + HIDDEN_KEY_KEY)
+        assert resp.status_code == 422
+        assert resp.json()["detail"]["code"] == "unknown_resource"
+
+    def test_non_secret_key_edit_uses_actual_right(self, monkey_settings):
+        client = _client(_live_cache(), monkey_settings)
+        mod = _effective_actor(client, MODERATOR_ID,
+                               resource="key." + NONSECRET_KEY,
+                               operation="edit").json()
+        assert mod["decision"] == "denied"
+        assert _layer(mod, "role")["reason"] == "no_match"
+        keys_role = _effective_actor(client, CUSTOM_KEYS_ID,
+                                     resource="key." + NONSECRET_KEY,
+                                     operation="edit").json()
+        assert keys_role["decision"] == "allowed"
+        assert _layer(keys_role, "role")["reason"] == "key"
+        provider_grant = _effective_actor(
+            client, CUSTOM_KEYS_ID,
+            resource="key." + NONSECRET_PROVIDER_KEY, operation="edit").json()
+        assert provider_grant["decision"] == "denied"
+        assert _layer(provider_grant, "role")["guard"].startswith(
+            "web.api.routes.post_config_global (provider key)")
+        provider_admin = _effective(
+            client, resource="key." + NONSECRET_PROVIDER_KEY,
+            operation="edit").json()
+        assert provider_admin["decision"] == "allowed"
+        # role_type=global_admin без wildcard: у can_view_key_value нет bypass.
+        role_type_admin = _effective_actor(
+            client, GLOBAL_ROLE_ID, resource="key." + NONSECRET_KEY,
+            operation="edit").json()
+        assert role_type_admin["decision"] == "denied"
+
+
+# Допустимые строки guard'ов: только реальные функции/гварды продукта.
+_REAL_GUARD_MARKERS = (
+    'web.api.deps.requires_permission("access")',
+    'web.api.deps.requires_permission("edit_info")',
+    'web.api.deps.requires_permission("action.control.restart")',
+    'web.api.deps.requires_permission("action.control.stop")',
+    'web.api.deps.requires_permission("action.control.start")',
+    'web.api.deps.requires_permission("action.debug.config")',
+    "is_global_admin (inline)",
+    "access.can_access_chat",
+    "access.can_view_param",
+    "access.can_edit_param",
+    "web.api.deps.can_edit_param",
+    "web.api.deps.can_view_key_value",
+    "web.api.routes._persona_has_edit_action",
+    "web.api.routes._persona_can_edit",
+    "web.api.speech._library_can_edit",
+    "web.api.chat_lore.can_access_chat",
+    "web.api.routes.get_config",
+    "web.api.routes.post_config",
+    "web.api.deps.user_has_permission (не вызывается)",
+)
+
+
+def _guard_is_real(guard: str) -> bool:
+    return any(marker in guard for marker in _REAL_GUARD_MARKERS)
+
+
+class TestLayerHonesty:
+    """C2-R1-3: каждый слой — реальный guard ИЛИ явная section visibility."""
+
+    def test_every_layer_is_real_guard_or_visibility(self, monkey_settings):
+        client = _client(_live_cache(), monkey_settings)
+        requests = [
+            (ADMIN_ID, None, "section.access", "view"),
+            (CUSTOM_ID, None, "section.access", "view"),
+            (MODERATOR_ID, None, "section.limits", "view"),
+            (USER_ID, None, "section.limits", "view"),
+            (ADMIN_ID, None, "section.chat_lore", "view"),
+            (ADMIN_ID, CHAT_ID, "section.chat_lore", "view"),
+            (MODERATOR_ID, CHAT_ID, "param." + LIMITS_KEY, "view"),
+            (LOCAL_ID, CHAT_ID, "param." + LIMITS_KEY, "edit"),
+            (ADMIN_ID, None, "param." + HIDDEN_KEY, "view"),
+            (ADMIN_ID, None, "key." + KEY_KEY, "view"),
+            (ADMIN_ID, None, "key." + NONSECRET_KEY, "view"),
+            (ADMIN_ID, None, "key." + HIDDEN_KEY_KEY, "view"),
+            (ADMIN_ID, None, "action.edit_info", "execute"),
+            (MODERATOR_ID, None, "action.control.restart", "execute"),
+            (CUSTOM_CONTENT_ID, CHAT_ID, "action.edit_persona", "execute"),
+        ]
+        checked = 0
+        for actor, chat_id, resource, operation in requests:
+            if actor == ADMIN_ID and chat_id is None:
+                data = _effective(client, resource=resource,
+                                  operation=operation).json()
+            else:
+                data = _effective_actor(client, actor, chat_id=chat_id,
+                                        resource=resource,
+                                        operation=operation).json()
+            for layer in data["layers"]:
+                checked += 1
+                if layer["applies_to"] == "ui_visibility":
+                    assert layer["guard"].startswith("ui visibility"), layer
+                    assert layer["consumers"] == [], layer
+                    assert "requires_permission" not in layer["guard"], layer
+                else:
+                    assert _guard_is_real(layer["guard"]), layer
+                    assert layer["consumers"], layer
+        assert checked >= 20
+
+    def test_no_fabricated_section_guard_strings(self):
+        source = inspect.getsource(preview_srv)
+        for sid in ("limits", "content", "prompts", "models", "keys",
+                    "flags", "reactions", "memory", "temporal", "chat_lore"):
+            assert 'requires_permission("%s")' % sid not in source, sid
 
 
 # ── 2. Ресурсы/операции: 422 без «тихого allow» ────────────────────────────
@@ -854,16 +1030,17 @@ def _expected_decision(cache, actor, chat_id, resource, operation):
     ctx = asyncio.run(roles_srv.access_for(actor, chat_id, cache=cache))
     if kind == "section":
         if chat_id is None:
+            if rest != "access":
+                # У прочих section.* нет route guard'а — только видимость.
+                return "not_applicable"
             allowed = deps_mod.user_has_permission(cache, actor,
-                                                   f"section.{rest}")
-            if rest == "access":
-                ceiling = deps_mod.user_is_global_admin(cache, actor)
-                if allowed and ceiling:
-                    return "allowed"
-                if not allowed and not ceiling:
-                    return "denied"
-                return "mixed"
-            return "allowed" if allowed else "denied"
+                                                   "section.access")
+            ceiling = deps_mod.user_is_global_admin(cache, actor)
+            if allowed and ceiling:
+                return "allowed"
+            if not allowed and not ceiling:
+                return "denied"
+            return "mixed"
         if rest == "chat_lore":
             if chat_id > 0:
                 return "not_applicable"
@@ -891,7 +1068,15 @@ def _expected_decision(cache, actor, chat_id, resource, operation):
     if kind == "key":
         if chat_id is not None:
             return "not_applicable"
+        if spec.hidden:
+            return "denied"
         if operation == "view":
+            if spec.secret:
+                return "allowed" if deps_mod.user_is_global_admin(
+                    cache, actor) else "denied"
+            return "allowed"      # non-secret GET /api/config — всем
+        from services import mca_random_source
+        if rest in mca_random_source.PROVIDER_KEY_SETTINGS:
             return "allowed" if deps_mod.user_is_global_admin(
                 cache, actor) else "denied"
         return "allowed" if deps_mod.can_view_key_value(
@@ -940,6 +1125,15 @@ ANTI_DRIFT_CASES = [
     (MODERATOR_ID, None, "key." + KEY_KEY, "view"),
     (ADMIN_ID, None, "key." + KEY_KEY, "view"),
     (MODERATOR_ID, None, "key." + KEY_KEY, "edit"),
+    (USER_ID, None, "key." + NONSECRET_KEY, "view"),
+    (MODERATOR_ID, None, "key." + NONSECRET_KEY, "view"),
+    (ADMIN_ID, None, "key." + NONSECRET_KEY, "view"),
+    (MODERATOR_ID, None, "key." + NONSECRET_KEY, "edit"),
+    (CUSTOM_KEYS_ID, None, "key." + NONSECRET_KEY, "edit"),
+    (ADMIN_ID, None, "key." + NONSECRET_PROVIDER_KEY, "edit"),
+    (CUSTOM_KEYS_ID, None, "key." + NONSECRET_PROVIDER_KEY, "edit"),
+    (ADMIN_ID, None, "key." + HIDDEN_KEY_KEY, "view"),
+    (ADMIN_ID, None, "key." + HIDDEN_KEY_KEY, "edit"),
     (MODERATOR_ID, None, "action.control.restart", "execute"),
     (USER_ID, None, "action.control.restart", "execute"),
     (ADMIN_ID, None, "action.edit_info", "execute"),
@@ -1007,12 +1201,14 @@ class TestDelegationProof:
         cache = _live_cache()
         client = _client(cache, monkey_settings)
         before = _effective_actor(client, MODERATOR_ID,
-                                  resource="section.limits").json()
+                                  resource="action.control.restart",
+                                  operation="execute").json()
         assert before["decision"] == "allowed"
         monkeypatch.setattr(preview_srv, "match_permission",
                             lambda perms, required: False)
         after = _effective_actor(client, MODERATOR_ID,
-                                 resource="section.limits").json()
+                                 resource="action.control.restart",
+                                 operation="execute").json()
         assert after["decision"] == "denied"
 
     def test_chat_view_uses_shared_can_view_param(self, monkey_settings,

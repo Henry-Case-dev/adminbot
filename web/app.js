@@ -6697,7 +6697,11 @@
           chatAdminsError: null,
           chatOverrides: null,
           chatOverridesError: null,
+          // C2-R1-1: generation-токены: late-ответ любого запроса не должен
+          // перезаписывать результат под уже другим выбором.
           _seq: 0,
+          _adminsSeq: 0,
+          _overridesSeq: 0,
         },
         // EXTRA §35: deep-link из Style Editor — целевая config-группа для
         // фокуса/подсветки на экране подключений (`models_images`).
@@ -7203,6 +7207,9 @@
         // access
         admins: [],
         adminsLoading: false,
+        // C2-R1-7: отличает «ещё не загружали» от «загружено и пусто» —
+        // noActor нельзя показывать до завершения /api/admins.
+        adminsLoaded: false,
         adminsError: null,            // {status, message} — 403/503 ≠ «пусто»
         rolesList: [],
         rolesLoading: false,
@@ -32602,7 +32609,14 @@
       },
       loadAdmins: async function () {
         this.adminsLoading = true;
+        this.adminsLoaded = false;
         this.adminsError = null;
+        // C2-R1-7: пока назначения неизвестны, noActor не выставляется;
+        // сбрасываем возможный преждевременный noActor.
+        if (this.accessOpen === 'roles'
+            && typeof this.previewSeedActor === 'function') {
+          this.previewSeedActor();
+        }
         try {
           var data = await this.api('/api/admins', { global: true });
           this.admins = data.admins || [];
@@ -32611,6 +32625,13 @@
           this.admins = [];
         }
         finally { this.adminsLoading = false; }
+        // Загрузка завершена (успех/403/503) — теперь назначения известны:
+        // пересобираем акторов и снимаем/ставим noActor по факту.
+        this.adminsLoaded = true;
+        if (this.accessOpen === 'roles'
+            && typeof this.previewSeedActor === 'function') {
+          this.previewSeedActor();
+        }
         // 10.10 (п.5, ADR-1010-3): аватар+ник — blob через прокси
         // (photo_file_id != null; без прямых <img src>). Себе подставляем
         // имя из initData, если сервер не отдал. Негатив (нет blob/401/404)
@@ -33467,7 +33488,9 @@
       },
       previewRoleActors: function () {
         var role = this.roleEditor && this.roleEditor.roleName;
-        if (!role) return [];
+        // C2-R1-4: non-admin не получает список чужих админов в actor-select
+        // (backend всё равно 403; здесь — честный UI без утечки).
+        if (!role || !this.isGlobalAdmin) return [];
         var out = [];
         var seen = {};
         function push(telegramId, name) {
@@ -33520,7 +33543,10 @@
         var role = this.roleEditor && this.roleEditor.roleName;
         var actors = this.previewRoleActors();
         var selfId = this.previewSelfId();
-        var assignmentsKnown = !!this.admins && !this.adminsError;
+        // C2-R1-7: «назначения неизвестны» (ещё не загружали/идёт загрузка)
+        // НЕ равно «назначений нет» — noActor до завершения /api/admins нельзя.
+        var assignmentsKnown = !!this.adminsLoaded && !this.adminsLoading
+          && !this.adminsError;
         var selfHoldsRole = assignmentsKnown && (this.admins || []).some(
           function (a) {
             return Number(a.telegram_id) === selfId && a.role_name === role;
@@ -33548,8 +33574,20 @@
           p.actorValue = actors.length ? actors[0].value : 'self';
         }
       },
+      // C2-R1-1: смена любого входа инвалидирует ВСЕ in-flight ответы
+      // (effective/chat admins/chat overrides) и снимает loading; поздний
+      // ответ со старым generation не применяется.
+      _previewInvalidate: function () {
+        var p = this.preview;
+        p._seq = (p._seq || 0) + 1;
+        p._adminsSeq = (p._adminsSeq || 0) + 1;
+        p._overridesSeq = (p._overridesSeq || 0) + 1;
+        p.loading = false;
+      },
       previewMarkStale: function () {
         var p = this.preview;
+        // C2-R1-1: ввод ресурса отменяет in-flight ответы.
+        this._previewInvalidate();
         if (p.result) {
           p.result = null;
           p.stale = true;
@@ -33560,16 +33598,18 @@
       },
       previewReset: function () {
         var p = this.preview;
+        this._previewInvalidate();
         p.result = null;
         p.error = null;
         p.stale = false;
         p.chatOverrides = null;
         p.chatOverridesError = null;
-        p._seq = (p._seq || 0) + 1;
-        p.loading = false;
+        p.chatAdmins = [];
+        p.chatAdminsError = null;
       },
       previewOnRoleChange: function () {
         var had = !!this.preview.result;
+        this._previewInvalidate();
         this.preview.result = null;
         this.preview.stale = false;
         this.preview.error = null;
@@ -33579,6 +33619,7 @@
       previewOnActorChange: function () {
         var p = this.preview;
         var had = !!p.result;
+        this._previewInvalidate();
         p.result = null;
         p.stale = false;
         p.error = null;
@@ -33590,6 +33631,7 @@
       previewOnScopeChange: function () {
         var p = this.preview;
         var had = !!p.result;
+        this._previewInvalidate();
         p.result = null;
         p.stale = false;
         p.error = null;
@@ -33606,14 +33648,18 @@
         p.chatAdminsError = null;
         var chatId = this.previewScopeChatId();
         if (chatId == null || chatId >= 0 || !this.isGlobalAdmin) return;
+        var gen = (p._adminsSeq || 0) + 1;
+        p._adminsSeq = gen;
         try {
           var data = await this.api(
             '/api/access/chats/' + encodeURIComponent(chatId) + '/admins',
             { global: true });
+          if (gen !== p._adminsSeq) return;      // late-ответ старого scope
           p.chatAdmins = (data && data.admins) || [];
           // Новые гранты могли сделать роль назначенной — пересобрать акторов.
           this.previewSeedActor();
         } catch (e) {
+          if (gen !== p._adminsSeq) return;
           p.chatAdminsError = this.accessErrorPayload(e);
         }
       },
@@ -33623,12 +33669,16 @@
         p.chatOverridesError = null;
         var chatId = this.previewScopeChatId();
         if (chatId == null || chatId >= 0 || !this.isGlobalAdmin) return;
+        var gen = (p._overridesSeq || 0) + 1;
+        p._overridesSeq = gen;
         try {
           var data = await this.api(
             '/api/access/chats/' + encodeURIComponent(chatId)
             + '/param_permissions', { global: true });
+          if (gen !== p._overridesSeq) return;   // late-ответ старого scope
           p.chatOverrides = data;
         } catch (e) {
+          if (gen !== p._overridesSeq) return;
           var err = this.accessErrorPayload(e);
           // 403 — не ошибка preview: блок перекрытий просто недоступен.
           err.suppressed = (err.status === 403);

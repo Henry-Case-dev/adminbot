@@ -405,6 +405,7 @@ PREVIEW_JS = r"""
     title: (q('[data-preview-title]') || {}).textContent || '',
     note: (q('[data-preview-note]') || {}).textContent || '',
     actor: rect(q('[data-preview-actor]')),
+    actorValues: qa('[data-preview-actor] option').map((e) => e.value),
     scope: rect(q('[data-preview-scope]')),
     resource: rect(q('[data-preview-resource]')),
     op: rect(q('[data-preview-op]')),
@@ -457,8 +458,25 @@ def _shot(page, name):
     return path
 
 
-def _open(browser, width, height):
+def _open(browser, width, height, *, admins_delay_ms=0):
     ctx = browser.new_context(viewport={"width": width, "height": height})
+    if admins_delay_ms:
+        # C2-R1-7 e2e: задержать ТОЛЬКО /api/admins на клиенте (не блокируя
+        # драйвер Playwright), чтобы проверить состояние до завершения загрузки.
+        ctx.add_init_script(
+            "(() => {\n"
+            "  const orig = window.fetch;\n"
+            "  window.fetch = function (u, i) {\n"
+            "    const url = String((u && u.url) || u);\n"
+            "    if (url.indexOf('/api/admins') >= 0) {\n"
+            "      return new Promise(function (res, rej) {\n"
+            "        setTimeout(function () { orig(u, i).then(res, rej); },\n"
+            "          %d);\n"
+            "      });\n"
+            "    }\n"
+            "    return orig(u, i);\n"
+            "  };\n"
+            "})();" % int(admins_delay_ms))
     ctx.add_init_script(base.TMA_STUB)
     page = ctx.new_page()
     errors = []
@@ -716,6 +734,44 @@ def run_playwright() -> int:
                 finally:
                     ctx.close()
                     MODE["chat_overrides"] = 0
+            # ── 4. C2-R1-7: admins in-flight на 1440/1280 ────────────────
+            for (vw, vh) in ((1440, 900), (1280, 800)):
+                MODE.update(effective=0, chat_overrides=0, chat_admins=0)
+                ctx, page, errors = _open(browser, vw, vh,
+                                          admins_delay_ms=2500)
+                key = "admins-inflight-%dx%d" % (vw, vh)
+                try:
+                    d = page.evaluate(PREVIEW_JS)
+                    _assert(d["noActor"] is False, key,
+                            "noActor показан до завершения /api/admins",
+                            failures)
+                    _assert(d["runDisabled"] is False, key,
+                            "кнопка disabled до завершения /api/admins",
+                            failures)
+                    page.wait_for_timeout(2400)
+                    d = page.evaluate(PREVIEW_JS)
+                    _assert(d["noActor"] is False, key,
+                            "noActor после загрузки назначенной роли", failures)
+                    _assert("5885953495" in d["actorValues"], key,
+                            "actor-list не обновлён после /api/admins: %s"
+                            % d["actorValues"], failures)
+                    _assert(d["runDisabled"] is False, key,
+                            "кнопка disabled при назначенной роли", failures)
+                    _run(page, resource="section.access")
+                    d = page.evaluate(PREVIEW_JS)
+                    _assert(d["decisionAttr"] == "allowed", key,
+                            "admin section.access после reseed: %r"
+                            % d["decisionAttr"], failures)
+                    _assert(not errors, key, "JS-ошибки: %s" % errors[:2],
+                            failures)
+                    report[key] = {"noActor": d["noActor"],
+                                   "actorValues": d["actorValues"],
+                                   "runDisabled": d["runDisabled"],
+                                   "decision": d["decisionAttr"]}
+                    if vw == 1440:
+                        _shot(page, "preview-admins-inflight-1440x900.png")
+                finally:
+                    ctx.close()
             browser.close()
     finally:
         httpd.shutdown()

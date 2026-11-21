@@ -7,10 +7,10 @@
 
 ```
 python -m pytest tests/test_webapp_access_effective.py -q
-101 passed, 1 warning in 13.82s
+115 passed, 1 warning in 15.20s
 ```
 
-Покрытие (101 кейс):
+Покрытие (115 кейсов; после corrective R1 — `r1-blockers.md`):
 
 - Effective/слои: admin wildcard (allowed оба слоя), custom section.access —
   **mixed**, moderator section.limits coverage, user denied, глобальный
@@ -25,6 +25,16 @@ python -m pytest tests/test_webapp_access_effective.py -q
 - Ресурсы/операции: 422 (`unknown_resource`, `invalid_operation`,
   `use_key_namespace`), hidden non-admin 422, hidden admin hard-deny,
   chat_id=0 → 422.
+- Keys (C2-R1-2): все 8 non-secret ключей view → allowed
+  (`global_config_all`) для user/moderator/admin; secret — только admin;
+  hidden `keys.random_quantum_provider` view+edit → hard-deny
+  `hidden_parameter`, non-admin → 422; non-secret edit: moderator denied,
+  custom key-grant allowed, provider-ключ только admin, role_type admin без
+  keys grant — denied.
+- Section honesty (C2-R1-3): `section.access` — реальный guard+ceiling;
+  `section.limits`/`chat_lore`(global)/прочие — `ui_visibility`-слой без fake
+  guard/consumers, decision `not_applicable`; `TestLayerHonesty` проверяет
+  каждую строку слоя (реальный guard из allowlist или явная visibility).
 - Strict/503: cold+PG down все три GET + матрица → 503; seeded+PG down:
   section/action 200, param/key 503, chat/DM 503; F-C2-1 (cold 503,
   seeded non-global 403 без strict-read, seeded admin 503).
@@ -51,20 +61,24 @@ python -m pytest tests/test_webapp_access_effective.py -q
 python -m pytest tests/test_webapp_api.py tests/test_roles_admin.py \
   tests/test_permissions.py tests/test_acl_global_admin_role_permission_gate.py \
   tests/test_config_cache.py tests/test_webapp_access_matrix_read.py \
-  tests/test_prompt_field_audit.py -q
-287 passed, 1 failed in 26.01s
+  tests/test_prompt_field_audit.py tests/test_mod_acl_ux_m2_tristate_write.py \
+  tests/test_webapp_evol_w13_touch_portal.py tests/test_webapp_hubs_matrix_ui.py -q
+334 passed, 2 failed in 24.16s
 FAILED tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface
+FAILED tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
 ```
 
-**Pre-existing proof:** тот же node id падает на чистой базе `d86bf66d4`
+**Pre-existing proof:** оба node id падают на чистой базе `d86bf66d4`
 (release-worktree 2.58.230, product files clean):
 
 ```
 python -m pytest tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface -q
 1 failed, 1 warning in 4.33s
 ```
+`test_r4_custom_modules_removed` — тот же pre-existing node id, что C1 evidence
+(`320 passed, 1 failed` на 2.58.229).
 
-Причина (не C2): `direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt)`
+Причина первого (не C2): `direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt)`
 не в UI-surface allowlist — существовавший разрыв каталога промптов.
 
 ## 3. Дополнительные C1-adjacent файлы

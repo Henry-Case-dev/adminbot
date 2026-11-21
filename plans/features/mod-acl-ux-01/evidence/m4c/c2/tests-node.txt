@@ -3,14 +3,16 @@
 Node v24.16.0; читаются реальные `web/app.js` / `web/index.html` /
 `web/static/app.css`; сеть не используется (`fetch`-заглушка).
 
-## 1. Новый C2 node-тест
+## 1. Новые C2 node-тесты
 
 ```
 node tests/js/mod_acl_ux_m4c2_preview_test.js
 MOD-ACL-UX-M4C2-PREVIEW-OK   (rc=0)
+node tests/js/mod_acl_ux_m4c2_admins_seed_test.js
+MOD-ACL-UX-M4C2-ADMINS-SEED-OK   (rc=0)
 ```
 
-Проверено:
+`preview_test` проверяет (включая corrective R1):
 
 - блок `[data-preview]` внутри `[data-roles-pane="gates"]`, «Проверить доступ»,
   «Права не изменены», «Справочник гейтов»; новой вкладки нет; внутри preview
@@ -42,6 +44,15 @@ MOD-ACL-UX-M4C2-PREVIEW-OK   (rc=0)
 - CSS: desktop 2 колонки, mobile 1 колонка, кнопка/поля ≥44, `overflow-wrap`,
   нет `overflow-x:auto` в preview.
 - Только чтение: в preview-срезе `app.js` нет POST/PUT/DELETE.
+- C2-R1-1: поздний effective/chat-admins/chat-overrides не перезаписывает
+  новый выбор; смена входа снимает loading; новый запрос применяет свой ответ.
+- C2-R1-4: non-admin actor options = только «Я» (без чужих админов).
+- C2-R1-7 (`admins_seed_test`): до `/api/admins` noActor=false, actor `self`;
+  после загрузки actor-list содержит назначенного admin, кнопка активна;
+  известное пустое назначение → noActor; `adminsError` ≠ noActor.
+- RED на `ba8b93121`: `preview_test` падает «смена actor снимает loading
+  старого запроса»; `admins_seed_test` — «noActor до /api/admins запрещён»
+  (полные строки — `r1-blockers.md`).
 
 ## 2. C1 node (без изменений)
 
@@ -49,13 +60,13 @@ MOD-ACL-UX-M4C2-PREVIEW-OK   (rc=0)
 node tests/js/mod_acl_ux_m4c1_roles_page_test.js
 MOD-ACL-UX-M4C1-ROLES-PAGE-OK  (rc=0)
 node tests/js/app_methods_dup_keys_guard_test.js
-METHODS-DUP-KEYS-OK blocks=10 keys=1760 duplicate-problems=0 behavioral=ok (rc=0)
+METHODS-DUP-KEYS-OK blocks=10 keys=1761 duplicate-problems=0 behavioral=ok (rc=0)
 ```
 
 ## 3. Полный sweep `tests/js/*.js`
 
 ```
-NODE_RUN=131 NODE_FAILS=3
+NODE_RUN=132 NODE_FAILS=3
 FAIL evol_cog_scene_test.js
 FAIL round1025_ia_routing_test.js
 FAIL ur_ui_settings_test.js
@@ -72,4 +83,4 @@ ur_ui_settings_test.js rc=1
 ```
 
 Это те же 3 файла, что C1 evidence фиксировал как pre-existing; новых падений C2
-нет. Новый C2-тест зелёный и входит в 131 (131 = 130 C1 + 1 C2).
+нет. Новые C2-тесты зелёные и входят в 132 (132 = 130 C1 + 2 C2).
