@@ -25,14 +25,12 @@ summary_memory (см. test_embed_identity_compat.py); несовместимый
 TEST-LIFECYCLE: REGRESSION owner=P0-EMBED-503-FAILOVER/A (дефект failover).
 """
 import json
-import logging
 import time
 
 import pytest
 import pytest_asyncio
 
 from services import embedding_control_plane as ecp
-from services import summary_memory as sm
 from services.database import DatabaseService
 from services.embedding_control_plane import (
     AdaptiveController, EmbeddingBudgetExhausted, EmbeddingExecutor,
@@ -302,115 +300,6 @@ async def vec_db(tmp_path):
 async def _count(db, table):
     cursor = await db.db.execute(f"SELECT COUNT(*) AS c FROM {table}")
     return int((await cursor.fetchone())["c"])
-
-
-async def _seed_active_generation(db, *, fingerprint, admission, provider,
-                                  endpoint_fingerprint, index="graph_facts_vec",
-                                  dims=4):
-    await db.ensure_embedding_generation(
-        index, fingerprint, provider=provider, model=PRIMARY_MODEL, dims=dims,
-        preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
-        endpoint_fingerprint=endpoint_fingerprint, activate=True,
-        config_revision=admission)
-    cursor = await db.db.execute(
-        "SELECT status, config_revision FROM "
-        "mca_embedding_index_generations WHERE index_name = ? "
-        "AND status = 'active'", (index,))
-    row = await cursor.fetchone()
-    assert row is not None and row["status"] == "active"
-    assert row["config_revision"] == admission
-
-
-@pytest.mark.asyncio
-async def test_5xx_fallback_write_blocked_until_existing_admission(
-        vec_db, monkeypatch, caplog):
-    """Реальный прод-кейс: primary apinet 503 → fallback_1 Google 200, но
-    COMPATIBILITY_UNKNOWN для Google PCI → вектор НЕ пишется в ACTIVE
-    (text-only + FTS). После durable admission для фактической connection
-    существующий гейт допускает запись. Имя модели само по себе — не proof."""
-    _three_slots(monkeypatch, labels=(
-        "primary:apinet_paid,fallback_1:google_free_1,"
-        "fallback_2:google_free_2"))
-    profiles = ecp.resolve_embedding_profiles()
-    dims = 4
-    space = ecp.model_space_identity(model=PRIMARY_MODEL, dimension=dims)
-    conn_primary = ecp.connection_identity(profiles["primary"])
-    conn_google = ecp.connection_identity(profiles["fallback_1"])
-    current_fp = sm.embedding_identity_fingerprint()
-    # ACTIVE-поколение admitted для configured primary (apinet PCI): прежний
-    # pre-embed гейт `_vec_write_allowed` поэтому проходит.
-    await _seed_active_generation(
-        vec_db, fingerprint=current_fp,
-        admission=ecp.format_admission(
-            space, conn_primary, 12, 1.0, 1.0, 1.0, int(time.time())),
-        provider=ecp._provider_of(PRIMARY_BASE),
-        endpoint_fingerprint="live-apinet")
-
-    facts = json.dumps([{"subject": "s0", "predicate": "p",
-                         "object": "o0"}], ensure_ascii=False)
-    llm = FactsRecordingLLM(facts, script=["server_error", "ok", "ok"])
-    memory = MemoryManager(vec_db, llm)
-    memory._vec_available = True
-    memory._vec_int8 = False
-    memory._vec_dim = dims
-
-    assert await memory._vec_write_allowed("graph_facts_vec") is True
-    with caplog.at_level(logging.WARNING):
-        await memory.memorize_facts(-100, "текст", "web_content")
-
-    # Failover реально дошёл до Google, но запись отклонена существующим
-    # admission-гейтом: text-only + FTS, mixed-space нет.
-    assert [c["key"] for c in llm.calls] == ["k-primary", "k-fb1"]
-    assert await _count(vec_db, "graph_facts") == 1
-    assert await _count(vec_db, "graph_facts_vec") == 0
-    found = await vec_db.search_graph_facts_fts(
-        -100, '"s0"*', 5, int(time.time()) + 10)
-    assert found, "текст обязан остаться в FTS"
-    served = ecp.last_served_credential()
-    assert served is not None and served["alias"] == "fallback_1"
-    # Недоказанный fallback-вектор не закэширован под configured identity:
-    # иначе последующий cache-hit обошёл бы route-admission.
-    cursor = await vec_db.db.execute(
-        "SELECT COUNT(*) AS c FROM embedding_cache WHERE text = ?",
-        ("s0 p o0",))
-    assert (await cursor.fetchone())["c"] == 0
-
-    serving_fp = sm.embedding_identity_fingerprint(
-        provider=sm._embedding_provider(FB1_BASE), model=FB1_MODEL, dims=dims,
-        preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
-        endpoint_fingerprint=sm._endpoint_fingerprint(FB1_BASE))
-    compat = await ecp.resolve_index_compat(
-        vec_db, "graph_facts_vec", current_fp=serving_fp, current_dims=dims,
-        space_now=space, conn_now=conn_google, model_now=PRIMARY_MODEL)
-    assert compat["state"] == ecp.STATE_INSUFFICIENT
-    assert compat["class"] == ecp.COMPAT_UNKNOWN
-    assert compat["serviceable"] is False
-    assert any("fallback embed route not admitted" in r.getMessage()
-               for r in caplog.records)
-    assert await memory._serving_route_write_allowed(
-        "graph_facts_vec") is False
-
-    # Тот же route допускается ТОЛЬКО когда существующий durable-допуск
-    # привязан к фактической Google connection (не по имени модели).
-    await vec_db.db.execute(
-        "UPDATE mca_embedding_index_generations SET config_revision = ? "
-        "WHERE index_name = ? AND status = 'active'",
-        (ecp.format_admission(
-            space, conn_google, 12, 1.0, 1.0, 1.0, int(time.time())),
-         "graph_facts_vec"))
-    await vec_db.db.commit()
-    memory._serving_route_cache.clear()
-    assert await memory._serving_route_write_allowed(
-        "graph_facts_vec") is True
-
-    # И запись проходит: primary ещё припаркован, отвечает admitted Google.
-    llm.facts_json = json.dumps(
-        [{"subject": "s1", "predicate": "p", "object": "o1"}],
-        ensure_ascii=False)
-    llm.script = ["ok"]
-    await memory.memorize_facts(-100, "текст 2", "web_content")
-    assert await _count(vec_db, "graph_facts") == 2
-    assert await _count(vec_db, "graph_facts_vec") == 1
 
 
 @pytest.mark.asyncio

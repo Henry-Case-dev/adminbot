@@ -3184,11 +3184,10 @@ class MemoryManager:
         5xx-failover ответ может прийти с другой connection (напр. Google
         fallback при apinet primary): существующий `resolve_index_compat`
         перепроверяется с route-override (space/conn/model фактической ноги).
-        Только `serviceable + compatible` допускает запись; при
-        COMPATIBILITY_UNKNOWN/INSUFFICIENT/INCOMPATIBLE вектор остаётся
-        text-only + FTS — mixed-space запрещён, admission по имени модели НЕ
-        объявляется. Нет metadata (cache-hit/legacy) или configured primary —
-        прежний гейт уже применён. Никогда не бросает."""
+        Допуск — по MSI: same model/revision/dims/task/preprocessing/params →
+        compatible (PCI = провенанс, не гейт); реальное расхождение MSI →
+        text-only + FTS. Нет metadata (cache-hit/legacy) или configured
+        primary — прежний гейт уже применён. Никогда не бросает."""
         try:
             from services import embedding_control_plane as ecp
         except Exception:      # pragma: no cover — защитная ветка
