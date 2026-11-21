@@ -269,7 +269,12 @@ ROUTES_SHA256_F11 = (
     # НЕТ (Δ routes=0: 76 -> 76 декораторов, 63 -> 63 уникальных пути),
     # RBAC/маскировка не менялись, DDL=0 (схема v48), f8_baseline не
     # переиздавался. Осознанная Δ хэша (L-F11S-1).
-    "4faa0a5379a9943d7b0f11403a051777eb779a033c3bc069a1b3300cb7392ee7")
+    # MOD-ACL-UX-01 M4C C1 (22.11.2026): routes.py +12 — три honest
+    # 503-guard'а для GET /api/roles, /api/admins, /api/roles/tree при пустом
+    # RAM-кэше и pg_available=false. Это не рефакторинг и не новые endpoint'ы;
+    # новых полей/флагов/DDL нет. Хэш переутверждён осознанно (L-F11S-1),
+    # routes-инвентарь f8_baseline не менялся.
+    "70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
