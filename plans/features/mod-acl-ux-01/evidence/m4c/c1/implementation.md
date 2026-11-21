@@ -7,6 +7,8 @@
 - Кандидат C1.1: **`422dbbd38`** — страница/чтение, strict matrix, cold 503.
 - Кандидат C1.2: **`de80a6cb9`** — whole-object preservation, superuser
   read-only, editor tests.
+- Кандидат c3 (R1): **`eb305b6fe`** — F01/F02/F03 fixes (honest counters,
+  used-role delete, 404 retry).
 - Evidence-коммит: следующий commit этого каталога (`plans/.../m4c/c1/**`).
 - APP_VERSION **2.58.228 не менялся**; версия/релиз — отдельно (2.58.229).
 
@@ -15,10 +17,10 @@
 | req_id | Статус C1 | Факт |
 |---|---|---|
 | MAC-S0-10 | C1 | Страница вместо модалки; гранулярные права сохранены; `saveRole` не теряет гранты |
-| MAC-S4-175 | C1 | 401/403 — карточка причины + безопасная часть `/api/access/me`; 403 ≠ пустая БД |
+| MAC-S4-175 | C1 + R1 fix | 401/403 — карточка причины + безопасная часть `/api/access/me`; 403 ≠ пустая БД; F01: в error-состояниях нет счётчика `0` |
 | MAC-S5-293 | C1 | Все параметры/группы из API: 622/121; count из данных, без хардкода |
-| MAC-S5-294 | C1 | 403 отдельной карточкой, не пустой таблицей |
-| MAC-S8-501 | C1 (reassign → C3) | Роли/тип/wildcard/custom + «кому назначена» по `/api/admins`; superuser read-only; last-admin/used-role 409 показываются; чатовые гранты — ссылка на `#/access/local`; **новых assign/reassign путей нет** |
+| MAC-S5-294 | C1 + R1 fix | 403/503 отдельной карточкой; F01: нет «0 из 0» рядом с ошибкой |
+| MAC-S8-501 | C1 + R1 fix | Роли/тип/wildcard/custom + «кому назначена»; superuser read-only; last-admin/used-role 409; F02: delete занятой custom-роли disabled с видимой причиной, rename доступен; **новых assign/reassign путей нет** |
 | MAC-S8-502 | C1 | 9 CATEGORIES + `access` + `chat_lore`; `chat_lore` из `role.permissions`, не из tree |
 | MAC-S8-503 | C1 | 7 фактических `ACTIONS_TREE` + read-only «только владелец» без фиктивных id |
 | MAC-S8-504 | C1 | Дерево **Раздел → Модуль → Группа → Параметр**; owner из boot `/api/config.modules` (`_f4Registry`), fallback честный; поиск RU+key |
@@ -30,7 +32,7 @@
 | MAC-S15-09 | C1 evidence | Legacy `param_permissions` не удалялся; авто-миграций/чистки нет |
 | MAC-S15-13 | C1-чтение | Видны view/edit и secret-бейдж; negative view≠edit — C3 |
 | MAC-S15-1-08 | C1 | Поиск по загруженным данным, 0 запросов на символ |
-| MAC-S8-SEC-01 | C1 mobile/errors | 401/403/404/503 разными карточками; секреты не раскрываются; h-overflow 0; negative initData/RBAC — C3 |
+| MAC-S8-SEC-01 | C1 + R1 fix | 401/403/404/503 разными карточками; F01: счётчики только из успешных данных; секреты не раскрываются; h-overflow 0; negative initData/RBAC — C3 |
 | MAC-AC-13 | C1 page | Страница/группы/поиск; «путь разрешения» — C2 |
 
 **Частичные:** MAC-S8-501 (reassign C3), MAC-S8-522 (chat override C2),
@@ -108,19 +110,40 @@ Builder не имеет права ходить на прод (SSH/LLM/прод 
 
 ## 5. Проверки
 
-- `tests-node.txt`: 2/2 новых node PASS; полный `tests/js` 127/130,
-  3 падения воспроизведены на base (не регрессия); B1 **138/0**,
+- `tests-node.txt`: 2/2 новых node PASS; полный `tests/js/*.js` 128/131
+  (3 падения воспроизведены на base — не регрессия); B1 **138/0**,
   B2 **92/0**, B3 **131/131** (`regression-b1/b2/b3.json`).
   `admin` — superuser и в C1 read-only (save недоступен); сохранение
   `wildcard` проверено на custom wildcard-роли — той же функции `saveRole`
   (и отдельно на superuser: запрос не отправляется).
-- `tests-python.txt`: focused **276 passed**, новый файл 17 тестов;
-  `py_compile` OK.
+- `tests-python.txt`: focused **320 passed, 1 pre-existing fail**
+  (`test_r4_custom_modules_removed`, воспроизведён на base); новый файл
+  17 тестов; `py_compile` OK.
 - `tests-e2e.txt`: `tools/ui_mod_acl_m4c1_roles_e2e.py` **PASS 0 failures**
-  на 1920/1440/1280/768/390/360/320 + error-сценарии; `shots/report.json`.
+  на 1920/1440/1280/768/390/360/320 + error/non-global/used-role сценарии;
+  `shots/report.json`.
 - `browseruse.json`: реальный Chrome, desktop/mobile, switcher/⋯/touch,
   screenshots `browseruse-*.png`.
 - `node --check web/app.js` — OK.
+
+## 5b. R1 corrections (c3 `eb305b6fe`)
+
+- **F01** — `rolesCounterText()` скрывает бейдж ролей при 401/403/404/503;
+  `matrixCounterText()` скрывает «N из M» при ошибке и для non-global.
+  В error-состояниях нет `РОЛИ 0` / `0 из 0`.
+- **F02** — отдельный `canDeleteRole`: usage>0 (или неизвестные
+  назначения) → delete disabled; `canEditRole` (rename) остаётся;
+  `roleDeleteBlockedReason` показывает причину в `data-roles-usage-note`;
+  серверный DELETE 409 не менялся.
+- **F03** — 404 tree: primary `data-roles-retry-list` вызывает
+  `retryRolesList()` → `loadRoles()`; tree-retry остаётся вторичным.
+- **RED** на `c334b7578`: `red-c334b7578.json` (served 503 → «0 из 0»,
+  403 ролей → «РОЛИ 0», old canEditRole без usage, 404 без retry-list) и
+  `red-c334b7578-node.txt` (новый node-тест падает: нет
+  `rolesCounterText`). **GREEN** на `eb305b6fe`: новые node/e2e и
+  `shots/report.json` (`F02@*`, `error-*`, `retryRolesDelta=1`).
+- Границы: только `web/app.js`/`web/index.html` + тесты/evidence; без
+  API/DDL/флагов/`APP_VERSION`, C2/C3 не тронуты.
 
 ## 6. Ограничения / RFL
 

@@ -3,8 +3,8 @@
  "failures": [],
  "counts": {
   "roles": 2,
-  "tree": 0,
-  "matrix": 1
+  "tree": 1,
+  "matrix": 0
  },
  "report": {
   "1920x1080": {
@@ -36,7 +36,7 @@
     "x": 232,
     "y": 175.2,
     "w": 280,
-    "h": 339.8,
+    "h": 398.9,
     "left": 232,
     "right": 512,
     "display": "block",
@@ -45,8 +45,8 @@
    "pageInModal": false,
    "pageInModalCard": false,
    "scrollers": [],
-   "roles": 4,
-   "roleOptions": 4,
+   "roles": 5,
+   "roleOptions": 5,
    "sections": 12,
    "visibleNodes": 629,
    "roleSearch": true,
@@ -54,7 +54,12 @@
    "matrixRowsVisible": 0,
    "matrixGroupOpen": 0,
    "matrixEffective": 622,
-   "matrixCountText": " Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "matrixCountText": "Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "deleteDisabled": true,
+   "renameDisabled": true,
+   "usageNote": "",
    "ownersFallback": 60,
    "ownerLabels": 121,
    "tabHeights": [
@@ -113,6 +118,12 @@
    "title": "Роли и права",
    "titleCount": 1
   },
+  "F02@1920x1080": {
+   "role": "custom_used",
+   "deleteDisabled": true,
+   "renameDisabled": false,
+   "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."
+  },
   "1440x900": {
    "vw": 1440,
    "vh": 900,
@@ -142,7 +153,7 @@
     "x": 232,
     "y": 175.2,
     "w": 280,
-    "h": 339.8,
+    "h": 398.9,
     "left": 232,
     "right": 512,
     "display": "block",
@@ -151,8 +162,8 @@
    "pageInModal": false,
    "pageInModalCard": false,
    "scrollers": [],
-   "roles": 4,
-   "roleOptions": 4,
+   "roles": 5,
+   "roleOptions": 5,
    "sections": 12,
    "visibleNodes": 629,
    "roleSearch": true,
@@ -160,7 +171,12 @@
    "matrixRowsVisible": 0,
    "matrixGroupOpen": 0,
    "matrixEffective": 622,
-   "matrixCountText": " Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "matrixCountText": "Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "deleteDisabled": true,
+   "renameDisabled": true,
+   "usageNote": "",
    "ownersFallback": 60,
    "ownerLabels": 121,
    "tabHeights": [
@@ -219,6 +235,12 @@
    "title": "Роли и права",
    "titleCount": 1
   },
+  "F02@1440x900": {
+   "role": "custom_used",
+   "deleteDisabled": true,
+   "renameDisabled": false,
+   "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."
+  },
   "1280x800": {
    "vw": 1280,
    "vh": 800,
@@ -248,7 +270,7 @@
     "x": 232,
     "y": 175.2,
     "w": 280,
-    "h": 339.8,
+    "h": 398.9,
     "left": 232,
     "right": 512,
     "display": "block",
@@ -257,8 +279,8 @@
    "pageInModal": false,
    "pageInModalCard": false,
    "scrollers": [],
-   "roles": 4,
-   "roleOptions": 4,
+   "roles": 5,
+   "roleOptions": 5,
    "sections": 12,
    "visibleNodes": 629,
    "roleSearch": true,
@@ -266,7 +288,12 @@
    "matrixRowsVisible": 0,
    "matrixGroupOpen": 0,
    "matrixEffective": 622,
-   "matrixCountText": " Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "matrixCountText": "Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "deleteDisabled": true,
+   "renameDisabled": true,
+   "usageNote": "",
    "ownersFallback": 60,
    "ownerLabels": 121,
    "tabHeights": [
@@ -325,6 +352,12 @@
    "title": "Роли и права",
    "titleCount": 1
   },
+  "F02@1280x800": {
+   "role": "custom_used",
+   "deleteDisabled": true,
+   "renameDisabled": false,
+   "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."
+  },
   "768x1024": {
    "vw": 768,
    "vh": 1024,
@@ -354,7 +387,7 @@
     "x": 16,
     "y": 270.4,
     "w": 220,
-    "h": 339.8,
+    "h": 398.9,
     "left": 16,
     "right": 236,
     "display": "block",
@@ -363,8 +396,8 @@
    "pageInModal": false,
    "pageInModalCard": false,
    "scrollers": [],
-   "roles": 4,
-   "roleOptions": 4,
+   "roles": 5,
+   "roleOptions": 5,
    "sections": 12,
    "visibleNodes": 629,
    "roleSearch": true,
@@ -372,7 +405,12 @@
    "matrixRowsVisible": 0,
    "matrixGroupOpen": 0,
    "matrixEffective": 622,
-   "matrixCountText": " Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "matrixCountText": "Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "deleteDisabled": true,
+   "renameDisabled": true,
+   "usageNote": "",
    "ownersFallback": 60,
    "ownerLabels": 121,
    "tabHeights": [
@@ -431,6 +469,12 @@
    "title": "Роли и права",
    "titleCount": 1
   },
+  "F02@768x1024": {
+   "role": "custom_used",
+   "deleteDisabled": true,
+   "renameDisabled": false,
+   "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."
+  },
   "390x844": {
    "vw": 390,
    "vh": 844,
@@ -469,8 +513,8 @@
    "pageInModal": false,
    "pageInModalCard": false,
    "scrollers": [],
-   "roles": 4,
-   "roleOptions": 4,
+   "roles": 5,
+   "roleOptions": 5,
    "sections": 12,
    "visibleNodes": 629,
    "roleSearch": true,
@@ -478,7 +522,12 @@
    "matrixRowsVisible": 0,
    "matrixGroupOpen": 0,
    "matrixEffective": 622,
-   "matrixCountText": " Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "matrixCountText": "Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "deleteDisabled": true,
+   "renameDisabled": true,
+   "usageNote": "",
    "ownersFallback": 60,
    "ownerLabels": 121,
    "tabHeights": [
@@ -537,6 +586,12 @@
    "title": "Роли и права",
    "titleCount": 1
   },
+  "F02@390x844": {
+   "role": "custom_used",
+   "deleteDisabled": true,
+   "renameDisabled": false,
+   "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."
+  },
   "360x640": {
    "vw": 360,
    "vh": 640,
@@ -575,8 +630,8 @@
    "pageInModal": false,
    "pageInModalCard": false,
    "scrollers": [],
-   "roles": 4,
-   "roleOptions": 4,
+   "roles": 5,
+   "roleOptions": 5,
    "sections": 12,
    "visibleNodes": 629,
    "roleSearch": true,
@@ -584,7 +639,12 @@
    "matrixRowsVisible": 0,
    "matrixGroupOpen": 0,
    "matrixEffective": 622,
-   "matrixCountText": " Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "matrixCountText": "Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "deleteDisabled": true,
+   "renameDisabled": true,
+   "usageNote": "",
    "ownersFallback": 60,
    "ownerLabels": 121,
    "tabHeights": [
@@ -643,6 +703,12 @@
    "title": "Роли и права",
    "titleCount": 1
   },
+  "F02@360x640": {
+   "role": "custom_used",
+   "deleteDisabled": true,
+   "renameDisabled": false,
+   "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."
+  },
   "320x568": {
    "vw": 320,
    "vh": 568,
@@ -681,8 +747,8 @@
    "pageInModal": false,
    "pageInModalCard": false,
    "scrollers": [],
-   "roles": 4,
-   "roleOptions": 4,
+   "roles": 5,
+   "roleOptions": 5,
    "sections": 12,
    "visibleNodes": 629,
    "roleSearch": true,
@@ -690,7 +756,12 @@
    "matrixRowsVisible": 0,
    "matrixGroupOpen": 0,
    "matrixEffective": 622,
-   "matrixCountText": " Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "matrixCountText": "Доступ к параметрам: 622 из 622. Матрица задаёт дефолт для чатов без своего перекрытия; глобальная запись настраивается правами роли, а не этой матрицей. ",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "deleteDisabled": true,
+   "renameDisabled": true,
+   "usageNote": "",
    "ownersFallback": 60,
    "ownerLabels": 121,
    "tabHeights": [
@@ -748,6 +819,55 @@
    "rightsPane": true,
    "title": "Роли и права",
    "titleCount": 1
+  },
+  "F02@320x568": {
+   "role": "custom_used",
+   "deleteDisabled": true,
+   "renameDisabled": false,
+   "usageNote": "Удаление недоступно: роль назначена 1 админ(ам) — сначала переназначьте."
+  },
+  "error-roles-401": {
+   "error": "401",
+   "rolesCount": null,
+   "matrixCount": null,
+   "has_0_iz_0": false
+  },
+  "error-roles-403": {
+   "error": "403",
+   "rolesCount": null,
+   "matrixCount": "622 из 622",
+   "has_0_iz_0": false
+  },
+  "error-tree-404": {
+   "error": "404",
+   "rolesCount": "5",
+   "matrixCount": "622 из 622",
+   "has_0_iz_0": false,
+   "retryList": true,
+   "retryRolesDelta": 1
+  },
+  "error-matrix-503": {
+   "error": "503",
+   "rolesCount": "5",
+   "matrixCount": null,
+   "has_0_iz_0": false
+  },
+  "error-matrix-403": {
+   "error": "403",
+   "rolesCount": "5",
+   "matrixCount": null,
+   "has_0_iz_0": false
+  },
+  "error-roles-503": {
+   "error": "503",
+   "rolesCount": null,
+   "matrixCount": "622 из 622",
+   "has_0_iz_0": false
+  },
+  "error-matrix-non-global": {
+   "matrixCount": null,
+   "matrix_forbidden": true,
+   "has_0_iz_0": false
   }
  },
  "limitations": [

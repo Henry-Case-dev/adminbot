@@ -1,4 +1,4 @@
-# M4C C1 — Node/JS tests (candidate de80a6cb9)
+# M4C C1 — Node/JS tests (candidate eb305b6fe)
 
 ## Новые тесты C1 (обязательные)
 
@@ -12,21 +12,41 @@
 superuser read-only; whole-object `wildcard`/`access`/`chat_lore`/unknown;
 снятие узла удаляет только его; пустая секция не сбрасывается.
 
-## Полный прогон `tests/js/*_test.js`
+## R1 F01/F02/F03 (c3, дискриминация)
+
+Добавлены проверки, которых нет на `c334b7578`:
+
+- `rolesCounterText`/`matrixCounterText`: `''` при 403/503 (и для
+  non-global matrix), `…` только при loading, число — только при успехе.
+- `canDeleteRole`: used custom role → `false`; `canEditRole` (rename) →
+  `true`; причина `roleDeleteBlockedReason` содержит «назначена 1».
+- `canDeleteRole` → `false` при `adminsError`/`adminsLoading` (неизвестные
+  назначения не разрешают удаление).
+- `retryRolesList`: вызывает `loadRoles()` один раз, не `openRoleEditor`;
+  сбрасывает `roleEditor.error/roleName/tree/sections`; static-маркеры
+  `data-roles-retry-list`/`data-roles-delete`/`data-roles-count`/
+  `data-roles-matrix-count`/`data-roles-usage-note` присутствуют.
+
+**RED на старых байтах:** `red-c334b7578.json` (served-текст 503 →
+«0 из 0», 403 ролей → «РОЛИ 0», old `canEditRole` без usage, 404 без
+retry-list) + `red-c334b7578-node.txt` (новый тест на `c334b7578` падает:
+`method rolesCounterText` отсутствует; old app.js).
+
+## Полный прогон `tests/js/*.js`
 
 ```
-NODE_RUN=130 NODE_FAILS=3
+NODE_RUN=131 NODE_FAILS=3
 FAIL evol_cog_scene_test.js
 FAIL round1025_ia_routing_test.js
 FAIL ur_ui_settings_test.js
 NODE_CHECK_OK
 ```
 
-Все 3 падения воспроизведены на базе `374dc6060` тем же прогоном
-(база: те же 3 теста), т.е. не являются регрессией C1. Остальные 127/130
-проходят. Новые C1-тесты входят в 130 и зелёные.
+Считая и `tests/js/module_fixture.js` (helper, rc=0), полный каталог
+`tests/js/*.js` — **128 pass / 3 fail**. Все 3 падения воспроизведены на
+базе `374dc6060`; это не регрессия C1. Новые C1-тесты зелёные.
 
-## B1/B2/B3 e2e (точные counts на candidate)
+## B1/B2/B3 e2e (точные counts на candidate c3)
 
 | Slice | Команда | Результат |
 |---|---|---|
@@ -34,14 +54,14 @@ NODE_CHECK_OK
 | B2 | `tools/ui_mod_acl_m4b2_status_e2e.py` | **92/0**, `M4B-B2-STATUS-E2E-OK` |
 | B3 | `tools/ui_mod_acl_m4b3_status_e2e.py` | **131/131**, `M4B-B3-STATUS-E2E-OK`, 8 screenshots |
 
-B3 первый прогон дал единичный `detail_closed` (тайминг закрытия
-существующей модалки ленты «Опыта», не C1-поверхность); повторный прогон
-на том же HEAD — 131/131, failures=[], 8 screenshots. JSON:
-`regression-b3.json` (второй прогон). B1/B2 JSON — рядом.
+B3 первый прогон (ранее) дал единичный `detail_closed` (тайминг закрытия
+существующей модалки ленты «Опыта», не C1-поверхность); финальный прогон
+на c3 — 131/131, failures=[], 8 screenshots. JSON:
+`regression-b3.json` (финальный прогон). B1/B2 JSON — рядом.
 
 ## Обновлённые статические проверки
 
 - `tests/js/evol_glass_seam_test.js` — PASS (`EVOL-GLASS-SEAM-OK`):
-  `web/api/access.py` добавлен в allowlist изменяемых API-файлов; защищённые
-  файлы оптики по-прежнему сравниваются побайтово.
+  `web/api/access.py` в allowlist изменяемых API-файлов; защищённые файлы
+  оптики по-прежнему сравниваются побайтово.
 - `routing_test.js` — PASS (`JS-UNIT-OK`), route `#/access/roles` сохранён.
