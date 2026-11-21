@@ -1,0 +1,19 @@
+........................................................................ [ 10%]
+........................................................................ [ 21%]
+........................................................................ [ 32%]
+........................................................................ [ 43%]
+........................................................................ [ 54%]
+........................................................................ [ 65%]
+........................................................................ [ 76%]
+........................................................................ [ 87%]
+........................................................................ [ 98%]
+.........                                                                [100%]
+============================== warnings summary ===============================
+tests/test_summary_memory.py::TestSelfHeal::test_broken_extension_zero_probe_calls
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py:1969: RuntimeWarning: coroutine 'start_resume_ticker.<locals>._loop' was never awaited
+    def get_debug(self):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+657 passed, 1 deselected, 1 warning in 82.63s (0:01:22)

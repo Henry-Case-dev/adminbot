@@ -1,12 +1,11 @@
 {
-  "deployed_at": "2026-11-21T16:46:05.930687Z",
-  "deployed_sha": "9d5cf5173fcf835974205aeeef373766b14a18bd",
+  "deployed_at": "2026-11-21T18:04:41.237902Z",
+  "deployed_sha": "f90c0e59357be6c7728251bbd19b323bef5630f0",
   "deployer": "builder-release-prep",
   "dirty_tracked": false,
   "effect": "deploy",
   "previous_sha": "94e227a2c096f4cc7b987c3253563bf0df442d17",
   "previous_version": "2.58.229",
-  "release_branch": "release/p0-embed-503-failover-2.58.230",
   "schema": 1,
   "version": "2.58.230"
 }

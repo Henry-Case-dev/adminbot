@@ -1,45 +1,57 @@
 {
-  "artifact": "release tests record 2.58.230",
+  "artifact": "release tests record 2.58.230 (c5 MSI admission)",
   "feature": "P0-EMBED-503-FAILOVER",
   "release_version": "2.58.230",
   "base": "94e227a2c096f4cc7b987c3253563bf0df442d17",
   "base_version": "2.58.229",
   "branch": "release/p0-embed-503-failover-2.58.230",
-  "content_tip": "9d5cf5173fcf835974205aeeef373766b14a18bd",
-  "bump_tip": "9d5cf5173fcf835974205aeeef373766b14a18bd",
-  "candidate_code": "4ace0a3ae52c321edfd2ef425d933198b6d08377",
-  "candidate_evidence": "d00a01b07eec2143f355dcba6067f92074e3d064",
-  "review": "373a39615",
-  "live_route": "f2540ac60",
-  "owner_input_sha256": "d23bf6f96c69e8ddd1537a07f8f203fbf434b0022f693e5368a64c8731828f09",
+  "content_tip": "f90c0e59357be6c7728251bbd19b323bef5630f0",
+  "c5_code_source": "1b7d4bf0471a10aaff5d4f0c40eacd77f707727d",
+  "c5_branch_head": "5fa47ec00eeb8f892abee13310f2ae48ea046bef",
+  "c5_parent": "d00a01b07eec2143f355dcba6067f92074e3d064",
+  "review_addendum": "428843093f26addcb2eb76d0b7e0871fe65ede79",
+  "review_verdict": "APPROVED_FOR_DEPLOY (c5 seam)",
+  "bump_commit": "9d5cf5173fcf835974205aeeef373766b14a18bd",
+  "bump_unchanged": true,
   "environment": {
     "os": "win32 (Windows, PowerShell 5.1)",
     "python": "3.12.0 (C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe)",
     "pytest": "9.1.1",
     "node": "v24.16.0",
-    "env_overrides": "none used for these batches; e2e tools use their own stubs",
-    "note": "long batches were run through a local one-shot scheduled task because the interactive shell server restarted; the same worktree, interpreter and commands were used"
+    "env_overrides": "none; e2e tools use their own stubs",
+    "execution_note": "long batches were run through one-shot local scheduled tasks because the interactive shell server restarted; same worktree/interpreter/commands"
   },
   "batches": {
-    "new_file": {
-      "command": "python -m pytest tests/test_p0_embed_503_failover.py -q --timeout=180",
+    "new_admission_msi": {
+      "command": "python -m pytest tests/test_p0_embed_admission_msi.py -q -p no:cacheprovider --timeout=180",
       "result": "10 passed",
-      "raw": "test-output/p0-embed-503-failover.txt"
+      "duration_s": 10.51,
+      "raw": "test-output/admission-msi.txt"
     },
-    "profile_585": {
-      "command": "python -m pytest tests/test_p0_embed_503_failover.py tests/test_embedding_control_plane_asap4.py tests/test_embed_fallback_slots_routing.py tests/test_asap8_f8_embeddings.py tests/test_embed_identity_compat.py tests/test_embed_identity_compat_restart_legacy.py tests/test_asap5_embedding_identity.py tests/test_asap6_embedding_generations.py tests/test_soul1_w7_embedding_primary_slot.py tests/test_summary_memory.py tests/test_llm_client.py tests/test_asap44_graphrag_batch_breaker.py tests/test_graphrag_memory.py tests/test_mca17_summary_instrumentation.py tests/test_asap8_v6_p1_d09_memory.py -q --timeout=180",
-      "files": 15,
-      "result": "585 passed, 0 failed/errors/skipped, 1 warning",
-      "duration_s": 82.97,
-      "raw": "test-output/profile-585.txt"
+    "updated_failover_core": {
+      "command": "python -m pytest tests/test_p0_embed_503_failover.py -q -p no:cacheprovider --timeout=180",
+      "result": "9 passed",
+      "duration_s": 4.63,
+      "raw": "test-output/failover-core.txt"
+    },
+    "profile_657": {
+      "command": "python -m pytest tests/test_p0_embed_503_failover.py tests/test_p0_embed_admission_msi.py tests/test_embedding_control_plane_asap4.py tests/test_embed_fallback_slots_routing.py tests/test_asap8_f8_embeddings.py tests/test_embed_identity_compat.py tests/test_embed_identity_compat_restart_legacy.py tests/test_asap5_embedding_identity.py tests/test_asap6_embedding_generations.py tests/test_soul1_w7_embedding_primary_slot.py tests/test_summary_memory.py tests/test_llm_client.py tests/test_asap44_graphrag_batch_breaker.py tests/test_graphrag_memory.py tests/test_mca17_summary_instrumentation.py tests/test_asap8_v6_p1_d09_memory.py tests/test_graphrag_rebuild_asap32.py tests/test_memory_period_vector_leg.py tests/test_vmq_mem_period_intent.py -q -p no:cacheprovider --timeout=180 --deselect tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+      "files": 19,
+      "result": "657 passed, 0 failed/errors/skipped, 1 deselected",
+      "duration_s": 82.63,
+      "deselected": {
+        "test": "tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+        "reason": "pre-existing on base d00a01b07; unrelated source-empty reconciliation warning coalescing"
+      },
+      "raw": "test-output/profile-657.txt"
     },
     "target_pin_tests": {
-      "command": "python -m pytest tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged -q --timeout=180",
+      "command": "python -m pytest tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged -q -p no:cacheprovider --timeout=180",
       "result": "2 passed",
       "raw": "test-output/target-pin-tests.txt"
     },
     "pin_guard": {
-      "command": "python -m pytest <24 version-pin Python files> -q --timeout=180",
+      "command": "python -m pytest <24 version-pin Python files> -q -p no:cacheprovider --timeout=180",
       "result": "856 passed / 4 failed",
       "failed_ids": [
         "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
@@ -47,20 +59,9 @@
         "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
         "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
       ],
-      "classification": "pre-existing; the same 4 IDs fail on base 94e227a2c (4 failed in 21.17s)",
+      "classification": "same 4 pre-existing IDs; no candidate-caused pin breach",
       "raw": "test-output/pin-guard-tip.txt",
       "base_control": "test-output/pin-guard-base-4ids.txt"
-    },
-    "js_version_pins": {
-      "command": "node tests/js/round1025_hotfix7|8|9|10_*_test.js",
-      "result": "4/4 rc=0",
-      "markers": [
-        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
-        "HOTFIX8-SHELL-AURORA-OK",
-        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
-        "HOTFIX10-GLASS-GEOMETRY-BG-OK"
-      ],
-      "raw": "test-output/js-version-pins.txt"
     },
     "b1_status_e2e": {
       "command": "python tools/ui_mod_acl_m4b_status_e2e.py",
@@ -81,11 +82,31 @@
     "b3_status_e2e": {
       "command": "python tools/ui_mod_acl_m4b3_status_e2e.py",
       "checks": 131,
-      "failures": 0,
-      "marker": "M4B-B3-STATUS-E2E-OK",
-      "screenshots": 8,
-      "report": "test-output/b3/e2e-report-131.json",
+      "runs": [
+        {
+          "result": "131 checks / 1 failure (detail_closed)",
+          "report": "test-output/b3/e2e-report-131-run1.json"
+        },
+        {
+          "result": "131 checks / 0 failures",
+          "marker": "M4B-B3-STATUS-E2E-OK",
+          "screenshots": 8,
+          "report": "test-output/b3/e2e-report-131.json"
+        }
+      ],
+      "classification": "known detail_closed timing flake; identical re-run green, web bytes unchanged",
       "raw": "test-output/b3-e2e.txt"
+    },
+    "js_version_pins": {
+      "command": "node tests/js/round1025_hotfix7|8|9|10_*_test.js",
+      "result": "4/4 rc=0",
+      "markers": [
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+      ],
+      "raw": "test-output/js-version-pins.txt"
     },
     "syntax": {
       "node_check_app_js": 0,
@@ -95,32 +116,61 @@
         "services/embedding_control_plane.py",
         "services/summary_memory.py",
         "tests/test_p0_embed_503_failover.py",
+        "tests/test_p0_embed_admission_msi.py",
         "tools/ui_mod_acl_m4b2_status_e2e.py",
         "tools/ui_mod_acl_m4b3_status_e2e.py"
-      ]
+      ],
+      "raw": "test-output/syntax.txt"
+    },
+    "red_reference": {
+      "base": "d00a01b07eec2143f355dcba6067f92074e3d064",
+      "command": "python -m pytest tests/test_p0_embed_admission_msi.py -q",
+      "result": "6 failed / 4 passed",
+      "note": "c5 evidence; independently reproduced by Reviewer; not re-run from the release branch",
+      "raw": "plans/features/p0-embed-503-failover/evidence/tests-red-base-msi-2026-11-22.txt"
     }
   },
+  "knn_semantic": {
+    "test": "tests/test_p0_embed_admission_msi.py::test_same_msi_different_pci_writes_and_semantic_search",
+    "result": "passed",
+    "calls": [
+      "k-primary",
+      "k-fb1"
+    ],
+    "graph_facts_vec": 1,
+    "semantic_hit": "real sqlite-vec MATCH returns the new fact id",
+    "primary_recovery": "second fact written, graph_facts_vec=2, first semantic hit retained",
+    "different_msi_dims": "graph_facts_vec=0, text-only",
+    "no_msi_probe": "one bounded probe; success persists space admission and gives 13 vectors + hit; failure stays text-only with 12 vectors"
+  },
   "counts": {
-    "pytest_unique_passed": 1441,
+    "pytest_unique_passed": 1513,
     "pytest_unique_failed": 4,
-    "pytest_note": "new-file 10 is a subset of profile 585; target-pin 2 is a subset of pin-guard 856; 585+856=1441 unique passed",
+    "pytest_deselected": 1,
+    "pytest_note": "admission 10 and failover 9 are subsets of profile 657; target-pin 2 is a subset of pin-guard 856; 657+856=1513 unique passed",
     "e2e_checks_passed": 361,
     "e2e_checks_failed": 0,
     "js_suites_passed": 4
   },
-  "verdict": "PASS_READY_FOR_DELTA_REVIEW",
-  "deployable": "pending separate deploy authorization",
+  "verdict": "PASS_READY_FOR_DEPLOY_PREPARATION",
+  "deployable": "approved c5 seam; deploy only by separate authorization after this evidence rerun",
   "open_findings": [],
+  "closed_findings": [
+    "REL230-F1"
+  ],
   "nonblocking_findings": [
-    "E503-R1-N01",
-    "E503-R1-N02"
+    "REL230-N01",
+    "REL230-N02",
+    "REL230-N03",
+    "REL230-N04",
+    "REL230-N05"
   ],
   "limitations": [
-    "no production deploy, SSH, live Telegram/provider call, DB/settings/key/model write",
-    "UI/web/config/handlers are unchanged; B1/B2/B3 are served-byte regression checks, no Playwright/Browser Use claim",
-    "15-file profile is targeted, not the whole ~10k-test repository",
-    "live-route evidence f2540ac60 is external and was not rerun; apinet 503 remains external",
-    "Google PCI admission remains unproven; a live 200/3072 vector is not admission",
-    "4 pin-guard failures are pre-existing and reproduced on base"
+    "no production deploy, SSH, live provider call, DB/settings/key/model write",
+    "semantic KNN is local sqlite-vec with deterministic vectors, not production data",
+    "live-route f2540ac60 was not rerun; apinet 503 remains external",
+    "B3 detail_closed flaked once and cleared on identical re-run; both reports retained",
+    "19-file profile is targeted, not the whole repository; one pre-existing deselected test",
+    "no new UI; B1/B2/B3 are served-byte regressions with existing stubs"
   ]
 }
