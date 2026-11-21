@@ -1,0 +1,32 @@
+P0-EMBED-503-FAILOVER — mutation checks (candidate 4ace0a3ae52c321edfd2ef425d933198b6d08377)
+Base: 374dc60609986a9250170a34a48c93bf2ba85e29
+
+M1. Disable per-operation exclusion of a failed 5xx/timeout leg
+    Mutation: services/embedding_control_plane.py::_mark_transport_failure -> "return False" at entry
+    Target: tests/test_p0_embed_503_failover.py::test_primary_5xx_does_not_burn_all_attempts
+    Result: FAILED (2 params) — expected ['k-primary','k-fb1'],
+            observed ['k-primary','k-primary'] (test line 162).
+    Meaning: without exclusion the original defect is reproduced; test is
+            discriminating, not tautological.
+
+M2. Disable existing identity/compat write gate
+    Mutation: services/summary_memory.py::_vec_write_allowed -> "return True" after docstring
+    Target: tests/test_embed_identity_compat.py::test_scenario_03_same_name_different_space_is_incompatible
+    Result: FAILED — assert True is False (tests/test_embed_identity_compat.py:353).
+    Meaning: an incompatible/same-name vector would be written to ACTIVE;
+            the existing MSI/admission gate is what blocks mixing.
+
+M3. Disable route-aware admission for the actual serving fallback leg
+    Mutation: services/summary_memory.py::_serving_route_write_allowed -> "return True" after docstring
+    Target: tests/test_p0_embed_503_failover.py::test_5xx_fallback_write_blocked_until_existing_admission
+    Result: FAILED — assert 1 == 0 for COUNT(graph_facts_vec) (test line 363).
+    Meaning: without the route gate, a Google fallback vector served while
+            primary apinet returned 503 is written to ACTIVE even though
+            COMPATIBILITY_UNKNOWN for the Google connection. The test detects
+            exactly the live-evidence risk.
+
+All mutations were applied temporarily and reverted from byte-identical
+backups; restored SHA-256:
+  embedding_control_plane.py E3F2EEB6B544496BC18A688C34DB9AE9F7B3AC7F9DB84EBB45186DEA130E0FD4
+  summary_memory.py          6CFF8E2DA842C8D0AD1A4EA39FDB5904B22E4FC690DF16FEE929C7ED50E21262
+Working tree after revert: clean (git status empty).
