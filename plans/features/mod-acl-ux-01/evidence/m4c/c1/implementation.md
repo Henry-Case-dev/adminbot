@@ -77,6 +77,10 @@ endpoint'ов/полей/флагов нет; `/summary`, telegram, `memory_agi.
   `GET /api/roles`; правит только известные узлы; сохраняет `wildcard`,
   пустые `section.access`/`chat_lore`, неизвестные grants и top-level поля.
   `applyTree` не пересчитывает пустую секцию из детей.
+  Неизвестные top-level ключи уходят в POST как есть; серверный
+  `Permissions.from_dict` по-прежнему нормализует схему
+  (`sections/params/keys/actions/wildcard`) — в 2.58.228 таких ключей в
+  production нет, расширение серверной write-схемы — вне C1 (C3/S1).
 - **Политика UI:** superuser (`admin`/`global_admin`/`role_type=global_admin`)
   read-only; non-global — read-only; create/edit/rename/delete — только
   `is_global_admin`; last-admin/used-role 409 — существующие, не обойдены.
@@ -102,6 +106,9 @@ Builder не имеет права ходить на прод (SSH/LLM/прод 
 - `tests-node.txt`: 2/2 новых node PASS; полный `tests/js` 127/130,
   3 падения воспроизведены на base (не регрессия); B1 **138/0**,
   B2 **92/0**, B3 **131/131** (`regression-b1/b2/b3.json`).
+  `admin` — superuser и в C1 read-only (save недоступен); сохранение
+  `wildcard` проверено на custom wildcard-роли — той же функции `saveRole`
+  (и отдельно на superuser: запрос не отправляется).
 - `tests-python.txt`: focused **276 passed**, новый файл 17 тестов;
   `py_compile` OK.
 - `tests-e2e.txt`: `tools/ui_mod_acl_m4c1_roles_e2e.py` **PASS 0 failures**
