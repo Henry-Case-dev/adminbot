@@ -1,0 +1,105 @@
+Release 2.58.228 — MOD-ACL-UX-01 M4B B3: фактические прогоны
+================================================================================
+Branch: release/mod-acl-m4b3-2.58.228
+Base/rollback: c8cf54c1a (2.58.227) | Candidate: 237bf6103 (feat/mod-acl-m4b3)
+Content/bump tip: ff8a59636 | Version: 2.58.228 | schema 48 / DDL 0
+cwd всех прогонов: корень release-worktree
+Python: C:\Code\Python\adminbot\.venv\Scripts\python.exe (3.12.0, pytest 9.1.1)
+Node: v24.16.0 | Playwright Chromium 151.0.7922.34
+================================================================================
+
+CHERRY-PICK 35f4fd882^..237bf6103 (5 коммитов, 0 конфликтов)
+-----------------------------------------------------------
+1728b832b  feat(mod-acl): M4B B3 c1 - compact memory, QRNG last success, 5 key stages
+29636846e  feat(mod-acl): M4B B3 c2 - live experience/lessons feed with honest states
+62b8a6a05  test(mod-acl): M4B B3 c3 - S15-04 resilience matrix and final served-bytes e2e
+1b92b5823  test(mod-acl): M4B B3 c3 - S15-04 no nested scroll containers (SCN-01)
+579b2c5cd  fix(mod-acl-b3): honest lessons empty state on unavailable/loading (B3-R1-01)
+ff8a59636  chore(release): 2.58.228 - bump APP_VERSION и пинов версии (M4B B3)
+
+Bump: 32 файла / +35 / -35 (31 файл волны + m4b3 e2e live-pin 2.58.226->2.58.228).
+APP_VERSION AST = 2.58.228; settings.py BOM + 3645 CRLF + 1 bare LF (без изменений).
+git diff 237bf6103..ff8a59636 -- web = пусто (продукт = проверенный кандидат).
+
+NODE (12/12, exit code / маркер)
+--------------------------------
+[0] mod_acl_ux_m4b_feeds_test.js        :: MOD-ACL-UX-M4B-B1-FEEDS-OK
+[0] m4b3_experience_feed_test.js        :: MOD-ACL-UX-M4B3-EXPERIENCE-OK
+[0] m4b_lastcall_test.js                :: MOD-ACL-UX-M4B-B2-LASTCALL-OK
+[0] m4b_observer_test.js                :: MOD-ACL-UX-M4B-B2-OBSERVER-OK
+[0] asap8_v63_w3_status_logs_test.js    :: W3-STATUS-UNIT-OK
+[0] round1025_f11_status_grid_test.js   :: F11-HEARTBEAT-OK
+[0] round1025_f6_analytics_memory_test.js :: F6-ANALYTICS-MEMORY-OK
+[0] round1024_dossier_feed_test.js      :: DOSSIER-FEED-OK
+[0] asap_ui02_status_ribbons_test.js    :: ASAP-UI02-RIBBONS-OK
+[0] soul1_w5_initiative_panel_test.js   :: SOUL1-W5-PANEL-OK
+[0] round1020_ui_test.js                :: JS-UNIT-OK
+[0] evol001_005_widgets_test.js         :: EVOL-001-005-OK
+Вывод: test-output/node-12.txt
+
+PYTEST — затронутые наборы
+--------------------------
+pytest tests/test_webapp_memory_overview_api.py tests/test_evol020_ui.py \
+       tests/test_asap8_v63_b03_memory.py \
+       tests/test_mca16_experience_block_e_round1039.py \
+       tests/test_webapp_oversight_api.py tests/test_oversight.py -q -p no:cacheprovider
+=> 65 passed, 1 warning (11.69s)
+Вывод: test-output/pytest-focused-65.txt
+
+JS-ПИНЫ 6/6
+-----------
+4 version-pin файла (hotfix7/8/9/10) + 2 B3 JS-набора (m4b3_experience_feed,
+mod_acl_ux_m4b_feeds) => 6/6 exit 0.
+
+PIN-GUARD 24 PYTHON ФАЙЛА
+--------------------------
+tip ff8a59636: 856 passed / 4 failed (77.50s) — test-output/pytest-pins-tip.txt
+base c8cf54c1a: 856 passed / 4 failed (78.43s) — test-output/pytest-pins-base.txt
+Те же node-id на базе:
+  test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+  test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+  test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+  test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+Pre-existing, не считаются pass.
+
+ШИРОКИЙ WEB/ПАМЯТЬ SWEEP (135 файлов)
+-------------------------------------
+Маска: tests/test_*{oversight,memory,asap8_v63,evol020,mca16,mca17c,mod_acl,webapp}*.py
+tip:  3033 passed, 40 failed, 1 warning (315.90s) — test-output/sweep-tip.txt
+base: 5 выбранных падений воспроизведены на c8cf54c1a (5 failed, те же id) —
+      test-output/base-sweep-sample.txt
+Полный список 40 — test-output/sweep-tip-failures.txt. Pre-existing
+(nav-snapshot/названия модулей/version-readme/jargon/W10-W15), не связаны с B3.
+
+E2E (Playwright, served bytes кандидата, temp shots)
+-----------------------------------------------------
+B1: 138/0  M4B-STATUS-E2E-OK   — test-output/b1-e2e-138.json
+B2: 92/0   M4B-B2-STATUS-E2E-OK — test-output/b2-e2e-92.json
+B3: 131/131 M4B-B3-STATUS-E2E-OK, 8 screenshots, console clean —
+    test-output/b3-e2e-131.json
+    served sha256: app.js 37fd2f0c..., index.html d3e3d2b0..., app.css b6675a10...
+    (= проверенный c4-кандидат); snapshot synthetic_stub aa3c10f3...
+    (отличие от candidate-era 9573eeb7... только версия 2.58.228 в фикстуре).
+
+СИНТАКСИС
+---------
+node --check web/app.js -> rc=0
+py_compile config/settings.py, web/api/memory_overview.py,
+tools/ui_mod_acl_m4b3_status_e2e.py, B3 pytest -> rc=0
+
+MANIFEST DRY-RUN (content tip ff8a59636)
+----------------------------------------
+exit 0; version 2.58.228; previous c8cf54c1a / 2.58.227; dirty_tracked=false;
+release_branch=release/mod-acl-m4b3-2.58.228; effect=deploy.
+.deploy создан локально (git-ignored) и удалён; prod не читался.
+Файл: manifest-dry-run.json
+
+ГРАНИЦЫ
+-------
+- deploy/SSH/prod/DB/LLM/settings не вызывались; VERIFIED не заявляется.
+- 14 строк B3 — candidate-bound REVIEW; MAC-S6-SCN-01 — READY_FOR_LIVE/RFL.
+- D2 (MAC-S6-345, MAC-AC-15) и 4 RFL (MAC-S6-307, MAC-S15-03,
+  MAC-S6-FEED-03, MAC-S6-346) в релиз не входят.
+- Побочный эффект sweep: W10-тесты перезаписали 28 tracked PNG/JSON в
+  plans/features/evol/audit/evidence — восстановлены из HEAD сразу,
+  в релиз не входят.

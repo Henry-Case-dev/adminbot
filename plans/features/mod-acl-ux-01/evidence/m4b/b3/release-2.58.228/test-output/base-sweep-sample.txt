@@ -1,0 +1,8 @@
+﻿FFFFF                                                                    [100%]
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme
+FAILED tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+FAILED tests/test_webapp_f4_round1025.py::test_module_titles_renamed_only_in_watch_case
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_single_scoped_toggle_on_card
+5 failed in 4.99s

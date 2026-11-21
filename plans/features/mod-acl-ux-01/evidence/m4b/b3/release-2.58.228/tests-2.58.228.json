@@ -1,0 +1,401 @@
+{
+  "release": "2.58.228",
+  "feature": "MOD-ACL-UX-01 M4B B3",
+  "branch": "release/mod-acl-m4b3-2.58.228",
+  "status": "REVIEW",
+  "base": {
+    "sha": "c8cf54c1ad92e8039928c531efe70efe141704bd",
+    "version": "2.58.227",
+    "role": "base and rollback",
+    "schema": 48,
+    "ddl": 0
+  },
+  "candidate": {
+    "branch": "feat/mod-acl-m4b3",
+    "sha": "237bf6103d03cb603ca6e02b634c374431ef8654",
+    "base_sha": "1cc019ad55bd26f465353ba97588cfc28ead859b",
+    "original_commits": [
+      "35f4fd882",
+      "153825aa4",
+      "39cb1f5e3",
+      "933ffc4e2",
+      "237bf6103"
+    ],
+    "cherry_picked_commits": [
+      "1728b832b",
+      "29636846e",
+      "62b8a6a05",
+      "1b92b5823",
+      "579b2c5cd"
+    ],
+    "conflicts": 0,
+    "review": {
+      "r1": {
+        "commit": "d5b5cfa7863674d42b9abebb290768374b57e522",
+        "path": "plans/features/mod-acl-ux-01/evidence/m4b/b3/review-r1.md",
+        "sha256": "1210de293c8e4e3b5b03a6f24de1a600a5c7167a615c5efc6e316d5924b60f2e",
+        "bytes": 27449,
+        "verdict": "NEEDS_FIXES",
+        "blocker": "B3-R1-01"
+      },
+      "addendum": {
+        "commit": "8e719c2ca4a024dcfae1944fd5464c0189557dcb",
+        "path": "plans/features/mod-acl-ux-01/evidence/m4b/b3/review-r1-addendum.md",
+        "sha256": "436dcd65703b6c6a7dbaf7ab66b69d72a6260f9a837f5e53778c0b6fc6e127da",
+        "bytes": 10494,
+        "verdict": "APPROVED_FOR_RELEASE_PREPARATION",
+        "reviewed_tip": "237bf6103d03cb603ca6e02b634c374431ef8654"
+      }
+    }
+  },
+  "content_bump_commit": "ff8a596367dc2e576e7034b980f27cddfcbb4014",
+  "version": "2.58.228",
+  "schema": {
+    "target": 48,
+    "ddl": 0,
+    "method": "range diff: no migration/DDL; schema unchanged from 2.58.227 assembly"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "playwright": "bundled Chromium 151.0.7922.34",
+    "pytest_args": "-q -p no:cacheprovider",
+    "env": "PYTHONDONTWRITEBYTECODE=1"
+  },
+  "product_delta": {
+    "base_to_bump_net": {
+      "web/app.js": {
+        "insertions": 683,
+        "deletions": 36
+      },
+      "web/index.html": {
+        "insertions": 234,
+        "deletions": 31
+      },
+      "web/static/app.css": {
+        "insertions": 82,
+        "deletions": 0
+      },
+      "web/api/memory_overview.py": {
+        "insertions": 56,
+        "deletions": 0
+      },
+      "tests": {
+        "files": 35,
+        "insertions": 1161,
+        "deletions": 41
+      },
+      "tools/ui_mod_acl_m4b3_status_e2e.py": {
+        "insertions": 1057,
+        "deletions": 0
+      },
+      "tools/ui_mod_acl_m4b2_status_e2e.py": {
+        "insertions": 3,
+        "deletions": 3
+      },
+      "config/settings.py": {
+        "insertions": 1,
+        "deletions": 1
+      },
+      "plans/docs/param-registry-round1025.meta.md": {
+        "insertions": 1,
+        "deletions": 1
+      }
+    },
+    "totals": {
+      "files": 43,
+      "insertions": 3278,
+      "deletions": 113
+    },
+    "b3_content": {
+      "files": 12,
+      "insertions": 3244,
+      "deletions": 79
+    },
+    "bump": {
+      "files": 32,
+      "insertions": 35,
+      "deletions": 35
+    },
+    "product_bytes_identical_to_candidate": "git diff 237bf6103..ff8a59636 -- web = empty",
+    "services_config_handlers_memory_agi": [
+      "config/settings.py"
+    ],
+    "ddl_migrations_prompts_new_flags_routes": "empty",
+    "tests_diff_vs_candidate": "28 version-pin files (29 lines) + tests/test_lvs_l1_discovery_partial.py (+243, 2.58.227 base content not on the candidate branch)",
+    "app_version_ast": "2.58.228",
+    "merge_commits": 0,
+    "live_pin_files": 32,
+    "settings_bom": true,
+    "settings_crlf": 3645,
+    "settings_bare_lf": 1
+  },
+  "batches": [
+    {
+      "id": "node-12",
+      "files": [
+        "tests/js/mod_acl_ux_m4b_feeds_test.js",
+        "tests/js/m4b3_experience_feed_test.js",
+        "tests/js/m4b_lastcall_test.js",
+        "tests/js/m4b_observer_test.js",
+        "tests/js/asap8_v63_w3_status_logs_test.js",
+        "tests/js/round1025_f11_status_grid_test.js",
+        "tests/js/round1025_f6_analytics_memory_test.js",
+        "tests/js/round1024_dossier_feed_test.js",
+        "tests/js/asap_ui02_status_ribbons_test.js",
+        "tests/js/soul1_w5_initiative_panel_test.js",
+        "tests/js/round1020_ui_test.js",
+        "tests/js/evol001_005_widgets_test.js"
+      ],
+      "passed": 12,
+      "failed": 0,
+      "markers": [
+        "MOD-ACL-UX-M4B-B1-FEEDS-OK",
+        "MOD-ACL-UX-M4B3-EXPERIENCE-OK",
+        "MOD-ACL-UX-M4B-B2-LASTCALL-OK",
+        "MOD-ACL-UX-M4B-B2-OBSERVER-OK",
+        "W3-STATUS-UNIT-OK",
+        "F11-HEARTBEAT-OK",
+        "F6-ANALYTICS-MEMORY-OK",
+        "DOSSIER-FEED-OK",
+        "ASAP-UI02-RIBBONS-OK",
+        "SOUL1-W5-PANEL-OK",
+        "JS-UNIT-OK",
+        "EVOL-001-005-OK"
+      ],
+      "output": "test-output/node-12.txt"
+    },
+    {
+      "id": "pytest-focused-6",
+      "files": [
+        "tests/test_webapp_memory_overview_api.py",
+        "tests/test_evol020_ui.py",
+        "tests/test_asap8_v63_b03_memory.py",
+        "tests/test_mca16_experience_block_e_round1039.py",
+        "tests/test_webapp_oversight_api.py",
+        "tests/test_oversight.py"
+      ],
+      "passed": 65,
+      "failed": 0,
+      "warnings": 1,
+      "output": "test-output/pytest-focused-65.txt"
+    },
+    {
+      "id": "js-pins-6",
+      "files": [
+        "tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js",
+        "tests/js/round1025_hotfix8_shell_aurora_test.js",
+        "tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js",
+        "tests/js/round1025_hotfix10_glass_geometry_bg_test.js",
+        "tests/js/m4b3_experience_feed_test.js",
+        "tests/js/mod_acl_ux_m4b_feeds_test.js"
+      ],
+      "passed": 6,
+      "failed": 0,
+      "markers": [
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK",
+        "MOD-ACL-UX-M4B3-EXPERIENCE-OK",
+        "MOD-ACL-UX-M4B-B1-FEEDS-OK"
+      ]
+    },
+    {
+      "id": "pin-guard-24-tip",
+      "files_count": 24,
+      "passed": 856,
+      "failed": 4,
+      "exit": 1,
+      "duration_s": 77.5,
+      "failed_nodeids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "output": "test-output/pytest-pins-tip.txt"
+    },
+    {
+      "id": "pin-guard-24-base",
+      "files_count": 24,
+      "cwd": "detached worktree @ c8cf54c1a",
+      "passed": 856,
+      "failed": 4,
+      "exit": 1,
+      "duration_s": 78.43,
+      "same_nodeids": true,
+      "output": "test-output/pytest-pins-base.txt"
+    },
+    {
+      "id": "sweep-web-memory-135",
+      "mask": "tests/test_*{oversight,memory,asap8_v63,evol020,mca16,mca17c,mod_acl,webapp}*.py",
+      "files": 135,
+      "passed": 3033,
+      "failed": 40,
+      "exit": 1,
+      "duration_s": 315.9,
+      "failed_nodeids": [
+        "tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons",
+        "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken",
+        "tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_exactly_one_toggle_per_card",
+        "tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_inheritance_and_reset_action",
+        "tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_pending_is_scoped_by_snapshot",
+        "tests/test_webapp_asap_cover_ui_v21.py::TestFavoritesRemoved::test_categories_search_filters_kept",
+        "tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date",
+        "tests/test_webapp_asap_cover_ui_v21_e2e.py::test_live_ui_v21_e2e - Ass...",
+        "tests/test_webapp_asap_ui02_delta.py::test_no_magic_z_index_outside_decorative_in_card",
+        "tests/test_webapp_avatars_ui.py::TestAvatarFrontAudit::test_close_and_fullscreen_buttons",
+        "tests/test_webapp_dm_ui.py::TestDmSummaryGateMarkers::test_s3_scheduler_skips_dm_positive_ids_behavioral",
+        "tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_kpi_row_and_caption_present",
+        "tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_single_scoped_toggle_on_card",
+        "tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_duplicate_master_toggle_in_details",
+        "tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_health_is_separate_from_enabled",
+        "tests/test_webapp_evol_w10_sections.py::test_live_render_sections_e2e",
+        "tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_live_render_w11_e2e",
+        "tests/test_webapp_evol_w12_internals.py::TestExecution::test_live_render_w12_e2e",
+        "tests/test_webapp_evol_w15_composition.py::test_role_classes_have_no_literal_geometry",
+        "tests/test_webapp_evol_w7_nav.py::TestTopbar::test_no_duplicate_hub_title",
+        "tests/test_webapp_evol_w7_nav.py::TestOverlayLayer::test_honest_empty_states_kept",
+        "tests/test_webapp_f4_round1025.py::test_runtime_gate_metadata_complete",
+        "tests/test_webapp_f4_round1025.py::test_module_titles_renamed_only_in_watch_case",
+        "tests/test_webapp_f4_round1025.py::test_favorites_removed_from_modules",
+        "tests/test_webapp_f4_round1025.py::test_counters_present - ValueError:...",
+        "tests/test_webapp_f5_round1025.py::test_workspace_metadata_present - a...",
+        "tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed",
+        "tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_11_modules_and_labels",
+        "tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_modules_ui_and_modal",
+        "tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_third_ribbon_markup",
+        "tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_grid_columns_responsive",
+        "tests/test_webapp_round1014_ui.py::TestStatusLayoutOrderF7::test_f4_third_ribbon_kept_inside_cognition",
+        "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+        "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2",
+        "tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz",
+        "tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon",
+        "tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme",
+        "tests/test_webapp_round109_ui.py::TestDescriptions::test_no_forbidden_jargon",
+        "tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+        "tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_navbar_and_modules_unchanged"
+      ],
+      "output": "test-output/sweep-tip.txt",
+      "failures": "test-output/sweep-tip-failures.txt"
+    },
+    {
+      "id": "sweep-base-sample",
+      "cwd": "detached worktree @ c8cf54c1a",
+      "nodeids": [
+        "tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme",
+        "tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon",
+        "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+        "tests/test_webapp_f4_round1025.py::test_module_titles_renamed_only_in_watch_case",
+        "tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_single_scoped_toggle_on_card"
+      ],
+      "failed": 5,
+      "result": "5 failed in 4.99s — identical on base",
+      "output": "test-output/base-sweep-sample.txt"
+    },
+    {
+      "id": "b1-status-e2e",
+      "command": "MOD_ACL_M4B_STATUS_SHOTS=<temp> MOD_ACL_M4B_STATUS_REPORT=<evidence> python tools/ui_mod_acl_m4b_status_e2e.py",
+      "checks": 138,
+      "failures": 0,
+      "report": "test-output/b1-e2e-138.json"
+    },
+    {
+      "id": "b2-status-e2e",
+      "command": "MOD_ACL_M4B2_STATUS_SHOTS=<temp> MOD_ACL_M4B2_STATUS_REPORT=<evidence> python tools/ui_mod_acl_m4b2_status_e2e.py",
+      "checks": 92,
+      "failures": 0,
+      "viewports": [
+        1920,
+        1440,
+        1280,
+        768,
+        390,
+        320
+      ],
+      "report": "test-output/b2-e2e-92.json"
+    },
+    {
+      "id": "b3-status-e2e",
+      "command": "MOD_ACL_M4B3_SHOTS=<temp> MOD_ACL_M4B3_REPORT=<evidence> python tools/ui_mod_acl_m4b3_status_e2e.py",
+      "checks": 131,
+      "failures": 0,
+      "screenshots": 8,
+      "console": "clean",
+      "served_sha256": {
+        "app.js": "37fd2f0ccdcd120447bb59b4c8e95872bd1c82c20022f2187ea8f3c470db58c5",
+        "index.html": "d3e3d2b04e37ff4a192d360d90c1c5eb5263f93cc15601a5f04f41a25aba65db",
+        "app.css": "b6675a106df226c0468c7cda3bd3a70ce31dcbabca4b02d53738382731eb1a10"
+      },
+      "snapshot_source": "synthetic_stub",
+      "snapshot_sha256": "aa3c10f39386aa78ae3a590e30b2e279a82bb4080149354a5dc81b6a010494a8",
+      "snapshot_note": "deterministic stub; differs from candidate-era 9573eeb7… only because the fixture status now reports 2.58.228",
+      "report": "test-output/b3-e2e-131.json"
+    },
+    {
+      "id": "syntax",
+      "node_check_app_js": "rc=0",
+      "py_compile": "rc=0 (config/settings.py, web/api/memory_overview.py, tools/ui_mod_acl_m4b3_status_e2e.py, B3 pytest files)"
+    }
+  ],
+  "baseline_failures": {
+    "pin_guard_4": "same 4 pre-existing node IDs on c8cf54c1a (full run) — not counted as pass",
+    "sweep_40": "pre-existing nav-snapshot/module-name/version-readme/jargon/W10-W15 set; 5/40 reproduced on c8cf54c1a (5 failed, identical IDs); not counted as pass"
+  },
+  "manifest_dry_run": {
+    "exit": 0,
+    "deployed_sha": "ff8a596367dc2e576e7034b980f27cddfcbb4014",
+    "version": "2.58.228",
+    "previous_sha": "c8cf54c1ad92e8039928c531efe70efe141704bd",
+    "previous_version": "2.58.227",
+    "dirty_tracked": false,
+    "release_branch": "release/mod-acl-m4b3-2.58.228",
+    "effect": "deploy",
+    "deployer": "builder-release-prep",
+    "note": "previous-manifest input seeded in git-ignored .deploy/ and removed after the dry run; no production read"
+  },
+  "rows": {
+    "candidate_bound_review": [
+      "MAC-S6-308",
+      "MAC-S6-MEM-01",
+      "MAC-S6-REST-01",
+      "MAC-S7-FEED-04",
+      "MAC-S7-FEED-01",
+      "MAC-S7-FEED-02",
+      "MAC-S7-FEED-03",
+      "MAC-AC-18",
+      "MAC-S6-311",
+      "MAC-S6-310",
+      "MAC-S15-04",
+      "MAC-S15-05",
+      "MAC-S15-07",
+      "MAC-S15-11"
+    ],
+    "ready_for_live_rfl": [
+      "MAC-S6-SCN-01"
+    ],
+    "pending_d2_not_in_release": [
+      "MAC-S6-345",
+      "MAC-AC-15"
+    ],
+    "rfl_untouched": [
+      "MAC-S6-307",
+      "MAC-S15-03",
+      "MAC-S6-FEED-03",
+      "MAC-S6-346"
+    ],
+    "verified_now": [],
+    "note": "no VERIFIED before actual deploy and production-bound evidence"
+  },
+  "limitations": [
+    "No deploy/SSH/production/DB/LLM/settings writes; not release VERIFIED",
+    "B3 e2e is served candidate bytes + deterministic synthetic stub, not a live TMA session",
+    "Reviewer Browser Use run was on the same candidate bytes (identical served sha256); not re-run here",
+    "Production-derived snapshot not captured; MAC-S6-SCN-01 remains RFL",
+    "40 sweep failures pre-existing; only 5/40 re-run on the base (remaining files untouched by B3)",
+    "tools/ui_cmv_perf_parity.py not run",
+    "W10 test side effect rewrote 28 tracked evidence PNG/JSON under plans/features/evol/audit/evidence — restored to HEAD immediately"
+  ]
+}

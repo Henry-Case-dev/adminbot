@@ -1,0 +1,99 @@
+........................................................................ [  2%]
+........................................................................ [  4%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+.........................................F.............................. [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+.....................................................F.................. [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+.........................................F..FF................FF....F.F. [ 58%]
+.................................................F...................... [ 60%]
+........................................................................ [ 63%]
+.................................F..................................FF.F [ 65%]
+F..............................F........................................ [ 67%]
+F..................F........................................F........... [ 70%]
+.................F.........F............................................ [ 72%]
+.............................................FFF.F.....F................ [ 74%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................F............... [ 82%]
+........................................................................ [ 84%]
+..........................F..F.......................................... [ 86%]
+........................................................................ [ 89%]
+...............................................................FF....... [ 91%]
+........F............................................................FF. [ 93%]
+................F.....F................................................. [ 96%]
+...............................F..........F............................. [ 98%]
+C:\Code\Python\adminbot\.venv\Scripts\python.exe :
+строка:1 знак:195
++ ... -2.58.228"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+WARNING: closed 1 leaked aiosqlite connection(s)
+.....................FF..........................                        [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons
+FAILED tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken
+FAILED tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_exactly_one_toggle_per_card
+FAILED tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_inheritance_and_reset_action
+FAILED tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_pending_is_scoped_by_snapshot
+FAILED tests/test_webapp_asap_cover_ui_v21.py::TestFavoritesRemoved::test_categories_search_filters_kept
+FAILED tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date
+FAILED tests/test_webapp_asap_cover_ui_v21_e2e.py::test_live_ui_v21_e2e - Ass...
+FAILED tests/test_webapp_asap_ui02_delta.py::test_no_magic_z_index_outside_decorative_in_card
+FAILED tests/test_webapp_avatars_ui.py::TestAvatarFrontAudit::test_close_and_fullscreen_buttons
+FAILED tests/test_webapp_dm_ui.py::TestDmSummaryGateMarkers::test_s3_scheduler_skips_dm_positive_ids_behavioral
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_kpi_row_and_caption_present
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_single_scoped_toggle_on_card
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_duplicate_master_toggle_in_details
+FAILED tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_health_is_separate_from_enabled
+FAILED tests/test_webapp_evol_w10_sections.py::test_live_render_sections_e2e
+FAILED tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_live_render_w11_e2e
+FAILED tests/test_webapp_evol_w12_internals.py::TestExecution::test_live_render_w12_e2e
+FAILED tests/test_webapp_evol_w15_composition.py::test_role_classes_have_no_literal_geometry
+FAILED tests/test_webapp_evol_w7_nav.py::TestTopbar::test_no_duplicate_hub_title
+FAILED tests/test_webapp_evol_w7_nav.py::TestOverlayLayer::test_honest_empty_states_kept
+FAILED tests/test_webapp_f4_round1025.py::test_runtime_gate_metadata_complete
+FAILED tests/test_webapp_f4_round1025.py::test_module_titles_renamed_only_in_watch_case
+FAILED tests/test_webapp_f4_round1025.py::test_favorites_removed_from_modules
+FAILED tests/test_webapp_f4_round1025.py::test_counters_present - ValueError:...
+FAILED tests/test_webapp_f5_round1025.py::test_workspace_metadata_present - a...
+FAILED tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
+FAILED tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_11_modules_and_labels
+FAILED tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_modules_ui_and_modal
+FAILED tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_third_ribbon_markup
+FAILED tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_grid_columns_responsive
+FAILED tests/test_webapp_round1014_ui.py::TestStatusLayoutOrderF7::test_f4_third_ribbon_kept_inside_cognition
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2
+FAILED tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz
+FAILED tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon
+FAILED tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme
+FAILED tests/test_webapp_round109_ui.py::TestDescriptions::test_no_forbidden_jargon
+FAILED tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+FAILED tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_navbar_and_modules_unchanged
+40 failed, 3033 passed, 1 warning in 315.90s (0:05:15)
