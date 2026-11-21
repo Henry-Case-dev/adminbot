@@ -1,0 +1,12 @@
+{
+  "deployed_at": "2026-11-21T08:06:15.398914Z",
+  "deployed_sha": "ef204bb8369f4e1d85db8670fb1ce8407a0dfc31",
+  "deployer": "builder-release-prep",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "1cc019ad55bd26f465353ba97588cfc28ead859b",
+  "previous_version": "2.58.226",
+  "release_branch": "release/lvs-l1-discovery-2.58.227",
+  "schema": 1,
+  "version": "2.58.227"
+}

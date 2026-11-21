@@ -1,0 +1,78 @@
+Release 2.58.227 — сырые итоговые строки прогонов (bumped tip)
+
+Branch: release/lvs-l1-discovery-2.58.227
+Base: 1cc019ad55bd26f465353ba97588cfc28ead859b (2.58.226)
+Product: 77d863eb89c15f8dda27edd1568bf7e7a273896d
+Bump tip: ef204bb8369f4e1d85db8670fb1ce8407a0dfc31
+Environment: Python 3.12.0, pytest 9.1.1, Node v24.16.0, Windows
+All pytest runs: PYTHONDONTWRITEBYTECODE=1, -q -p no:cacheprovider, cwd release worktree unless noted.
+
+[1] tests/test_lvs_l1_discovery_partial.py
+7 passed in 9.16s
+exit=0
+
+[2] Mandatory 10 files
+tests/test_p0_l1_model_switch.py tests/test_capacity_resolver_asap31.py tests/test_capacity_nanogpt_asap32.py tests/test_capacity_stage_d_smart.py tests/test_asap42_step2c_image_capacity.py tests/test_summary_capacity_asap41.py tests/test_llm_client.py tests/test_asap7_direct_l1.py tests/test_direct_l1_l1d_contract.py tests/test_lvs_l1_discovery_partial.py
+339 passed in 71.42s (0:01:11)
+exit=0
+
+[3] Adjacent capacity, 6 files
+tests/test_capacity_nanogpt_asap32.py tests/test_capacity_resolver_asap31.py tests/test_capacity_stage_d_smart.py tests/test_asap42_step2c_image_capacity.py tests/test_direct_context_capacity_asap3.py tests/test_summary_capacity_asap41.py
+135 passed in 55.61s
+exit=0
+
+[4] Consumers, 3 files
+tests/test_llm_client.py tests/test_asap7_direct_l1.py tests/test_direct_l1_l1d_contract.py
+168 passed in 9.14s
+exit=0
+
+[5] Pin guard, 24 Python version-pin files, bumped tip
+4 failed, 856 passed in 76.27s (0:01:16)
+failed:
+tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+exit=1
+
+[6] Pin guard, same 24 files, base worktree @ 1cc019ad5
+4 failed, 856 passed in 78.01s (0:01:18)
+same 4 node IDs
+exit=1
+
+[7] tests/test_direct_fallback_recompose_asap32.py, bumped tip
+5 failed, 3 passed in 20.17s
+failed:
+tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept
+tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback
+tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic
+tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact
+tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud
+exit=1
+
+[8] tests/test_direct_fallback_recompose_asap32.py, base worktree @ 1cc019ad5
+5 failed, 3 passed in 20.42s
+same 5 node IDs
+exit=1
+
+[9] JS pins (node), bumped tip
+tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js -> HOTFIX7-SHELL-GLASS-HEARTBEAT-OK
+tests/js/round1025_hotfix8_shell_aurora_test.js -> HOTFIX8-SHELL-AURORA-OK
+tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js -> HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK
+tests/js/round1025_hotfix10_glass_geometry_bg_test.js -> HOTFIX10-GLASS-GEOMETRY-BG-OK
+4/4 rc=0
+
+[10] Compile
+py_compile services/model_capacity.py config/settings.py -> rc=0
+node --check not run: web/ untouched
+
+[11] Review RED (from reviewed artifact, master 40638708c)
+tests/test_lvs_l1_discovery_partial.py on base 1cc019ad5: 2 failed, 5 passed
+tests/test_lvs_l1_discovery_partial.py on candidate 77d863eb8: 7 passed
+RED assertions: None == 4096, None == 2048
+
+[12] Manifest dry-run (bumped tip, clean tree; seeded previous=input released base, then .deploy removed)
+exit=0, version=2.58.227, deployed_sha=ef204bb8369f4e1d85db8670fb1ce8407a0dfc31,
+previous_sha=1cc019ad55bd26f465353ba97588cfc28ead859b, previous_version=2.58.226,
+release_branch=release/lvs-l1-discovery-2.58.227, dirty_tracked=false,
+effect=deploy, deployer=builder-release-prep

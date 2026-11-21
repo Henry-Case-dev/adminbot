@@ -1,0 +1,214 @@
+{
+  "release": "2.58.227",
+  "date": "2026-11-21",
+  "branch": "release/lvs-l1-discovery-2.58.227",
+  "status": "REVIEW",
+  "base": "1cc019ad55bd26f465353ba97588cfc28ead859b",
+  "base_version": "2.58.226",
+  "product": "77d863eb89c15f8dda27edd1568bf7e7a273896d",
+  "bump_tip": "ef204bb8369f4e1d85db8670fb1ce8407a0dfc31",
+  "version": "2.58.227",
+  "schema": 48,
+  "ddl": 0,
+  "review": {
+    "commit": "40638708cb21609a42f8c314fbad16efd01c7d0c",
+    "path": "plans/features/llm-vision-scheduler-p0/evidence/l1-discovery-2026-11-21/review-r1.md",
+    "sha256": "2ff44c571c3aff4f3855bb6e8ee04e82d840ffb54455ce901356bb18f1f4714b",
+    "bytes": 24124,
+    "verdict": "APPROVED_FOR_RELEASE_PREPARATION",
+    "covered_ids": ["LVS-L1-07", "LVS-L1-08", "LVS-L1-10"],
+    "non_blocking": ["LVS-L1-R1-N01", "LVS-L1-R1-N02", "LVS-L1-R1-N03", "LVS-L1-R1-N04"]
+  },
+  "environment": {
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "platform": "Windows",
+    "pytest_args": "-q -p no:cacheprovider",
+    "env": "PYTHONDONTWRITEBYTECODE=1"
+  },
+  "runs": [
+    {
+      "id": "new-file",
+      "files": ["tests/test_lvs_l1_discovery_partial.py"],
+      "passed": 7,
+      "failed": 0,
+      "exit": 0,
+      "duration_s": 9.16,
+      "result": "7 passed"
+    },
+    {
+      "id": "mandatory-10",
+      "files": [
+        "tests/test_p0_l1_model_switch.py",
+        "tests/test_capacity_resolver_asap31.py",
+        "tests/test_capacity_nanogpt_asap32.py",
+        "tests/test_capacity_stage_d_smart.py",
+        "tests/test_asap42_step2c_image_capacity.py",
+        "tests/test_summary_capacity_asap41.py",
+        "tests/test_llm_client.py",
+        "tests/test_asap7_direct_l1.py",
+        "tests/test_direct_l1_l1d_contract.py",
+        "tests/test_lvs_l1_discovery_partial.py"
+      ],
+      "passed": 339,
+      "failed": 0,
+      "exit": 0,
+      "duration_s": 71.42,
+      "result": "339 passed"
+    },
+    {
+      "id": "adjacent-capacity-6",
+      "files": [
+        "tests/test_capacity_nanogpt_asap32.py",
+        "tests/test_capacity_resolver_asap31.py",
+        "tests/test_capacity_stage_d_smart.py",
+        "tests/test_asap42_step2c_image_capacity.py",
+        "tests/test_direct_context_capacity_asap3.py",
+        "tests/test_summary_capacity_asap41.py"
+      ],
+      "passed": 135,
+      "failed": 0,
+      "exit": 0,
+      "duration_s": 55.61,
+      "result": "135 passed"
+    },
+    {
+      "id": "consumers-3",
+      "files": [
+        "tests/test_llm_client.py",
+        "tests/test_asap7_direct_l1.py",
+        "tests/test_direct_l1_l1d_contract.py"
+      ],
+      "passed": 168,
+      "failed": 0,
+      "exit": 0,
+      "duration_s": 9.14,
+      "result": "168 passed"
+    },
+    {
+      "id": "pin-guard-bumped",
+      "files_count": 24,
+      "passed": 856,
+      "failed": 4,
+      "exit": 1,
+      "duration_s": 76.27,
+      "result": "4 failed, 856 passed",
+      "failed_nodeids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ]
+    },
+    {
+      "id": "pin-guard-base",
+      "files_count": 24,
+      "cwd": "release-p0-hc-2.58.226 worktree @ 1cc019ad5",
+      "passed": 856,
+      "failed": 4,
+      "exit": 1,
+      "duration_s": 78.01,
+      "result": "4 failed, 856 passed",
+      "same_nodeids": true
+    },
+    {
+      "id": "fallback-bumped",
+      "files": ["tests/test_direct_fallback_recompose_asap32.py"],
+      "passed": 3,
+      "failed": 5,
+      "exit": 1,
+      "duration_s": 20.17,
+      "result": "5 failed, 3 passed",
+      "failed_nodeids": [
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact",
+        "tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud"
+      ]
+    },
+    {
+      "id": "fallback-base",
+      "files": ["tests/test_direct_fallback_recompose_asap32.py"],
+      "cwd": "release-p0-hc-2.58.226 worktree @ 1cc019ad5",
+      "passed": 3,
+      "failed": 5,
+      "exit": 1,
+      "duration_s": 20.42,
+      "result": "5 failed, 3 passed",
+      "same_nodeids": true
+    },
+    {
+      "id": "js-pins",
+      "files": [
+        "tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js",
+        "tests/js/round1025_hotfix8_shell_aurora_test.js",
+        "tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js",
+        "tests/js/round1025_hotfix10_glass_geometry_bg_test.js"
+      ],
+      "passed": 4,
+      "failed": 0,
+      "exit": 0,
+      "result": "HOTFIX7/8/9/10 OK (4/4)"
+    },
+    {
+      "id": "py-compile",
+      "files": ["services/model_capacity.py", "config/settings.py"],
+      "exit": 0,
+      "result": "py_compile rc=0"
+    }
+  ],
+  "review_independent_red": {
+    "base": "1cc019ad55bd26f465353ba97588cfc28ead859b",
+    "candidate": "77d863eb89c15f8dda27edd1568bf7e7a273896d",
+    "file": "tests/test_lvs_l1_discovery_partial.py",
+    "base_result": "2 failed, 5 passed",
+    "candidate_result": "7 passed",
+    "red_assertions": ["None == 4096", "None == 2048"]
+  },
+  "invariants": {
+    "bump_files": 31,
+    "bump_insertions": 34,
+    "bump_deletions": 34,
+    "product_insertions": 91,
+    "product_deletions": 19,
+    "new_test_lines": 243,
+    "base_to_tip_files": 33,
+    "base_to_tip_insertions": 349,
+    "base_to_tip_deletions": 53,
+    "merge_commits": 0,
+    "services_config_handlers_web_diff": ["config/settings.py", "services/model_capacity.py"],
+    "ddl_migrations_prompts_web_handlers_diff": "empty",
+    "settings_changed_lines": 1,
+    "settings_bom": true,
+    "settings_crlf": 3645,
+    "settings_bare_lf": 1,
+    "live_pin_version": "2.58.227",
+    "app_version_ast": "2.58.227",
+    "schema_unchanged": true,
+    "ddl": 0
+  },
+  "manifest_dry_run": {
+    "exit": 0,
+    "deployed_sha": "ef204bb8369f4e1d85db8670fb1ce8407a0dfc31",
+    "version": "2.58.227",
+    "previous_sha": "1cc019ad55bd26f465353ba97588cfc28ead859b",
+    "previous_version": "2.58.226",
+    "dirty_tracked": false,
+    "release_branch": "release/lvs-l1-discovery-2.58.227",
+    "effect": "deploy",
+    "deployer": "builder-release-prep",
+    "note": "fresh worktree has no .deploy; previous-manifest input was seeded for the dry run and removed immediately"
+  },
+  "limitations": [
+    "no deploy/SSH/production/live/provider/effective-state run; not release VERIFIED",
+    "LVS-L1-32, LVS-OUT-01..05 and LVS-EXEC-09 live rows are outside this candidate",
+    "external provider HTTP 402 limitation unchanged and not claimed as pass",
+    "real catalog shapes outside documented fixtures not verified",
+    "non-blocking LVS-L1-R1-N01..N04 remain backlog-only",
+    "pre-existing pin-guard 4 and fallback 5 failures are not counted as passes",
+    "no UI/visual change; no Playwright/Browser Use applicable",
+    "B3 web changes, P0 harness and unrelated tasks excluded"
+  ]
+}
