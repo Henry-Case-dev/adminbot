@@ -2300,6 +2300,41 @@
     return s || 'область неизвестна';
   }
 
+  // ═══ M4B B3 r1 (B3-R1-01): состояние дорожки «Уроки» отделено от данных
+  // «Опыта». «Уроков нет» — ТОЛЬКО успешный пустой ответ; 503/недоступность
+  // и незавершённый запрос — «неизвестно»/«загружаются». Время последнего
+  // УСПЕШНОГО ответа ленты уроков (`experienceLessonsAt`, ms) выводится в
+  // причине — локальные часы клиента, подпись так и говорит.
+  function _lessonsFeedStateOf(vm) {
+    var at = (vm && vm.experienceLessonsAt) || 0;
+    var lastOkText = at
+      ? ('последний успешный ответ ленты уроков: ' + _tsStatusLabel(at, ''))
+      : 'успешных ответов ленты уроков ещё не было';
+    var state = 'idle';
+    if (vm && vm.experienceLessonsError) state = 'unavailable';
+    else if (vm && vm.experienceLessonsBusy) state = 'loading';
+    else if (vm && vm.experienceLessonsLoaded) state = 'loaded';
+    return { state: state, lastOk: at, lastOkText: lastOkText };
+  }
+
+  // Вид пустого состояния ленты (одна чистая функция: и computed, и
+  // юнит-проверки заголовка используют один и тот же разбор).
+  function _experienceFeedEmptyKindOf(vm) {
+    var u = (vm && vm.statusUnknownView) || { unknown: false, error: '' };
+    if (u.unknown) return 'unknown';
+    var track = (vm && vm.experienceFeedTrack) || 'all';
+    var l = _lessonsFeedStateOf(vm);
+    if (track === 'lesson') {
+      if (l.state === 'loading') return 'loading';
+      if (l.state === 'unavailable') return 'unavailable';
+      if (l.state === 'idle') return 'idle';
+      return 'empty';
+    }
+    if (l.state === 'unavailable') return 'partial_unavailable';
+    if (l.state === 'loading') return 'partial_loading';
+    return 'empty';
+  }
+
   // ═══ MOD-ACL-UX-01 M4B B3 (MAC-S15-05): состояние пустоты «Опыта».
   // Чистая функция (без DOM/this-зависимостей, кроме двух полей vm):
   // различает «недостаточно доказательств» (скан есть, кандидатов нет —
@@ -12886,9 +12921,24 @@
         var les = (this.experienceLessonRows || []).length;
         return { all: exp + les, experience: exp, lesson: les };
       },
+      // B3-R1-01: маркер пустого состояния различает «нет данных» и
+      // «данных нет»: unknown (глобальный сбой) / loading / idle /
+      // unavailable / partial_unavailable / empty. Заголовок и причина
+      // строятся из него, а не из одного «пустой список = нет уроков».
+      experienceFeedEmptyKind: function () {
+        return _experienceFeedEmptyKindOf(this);
+      },
       experienceFeedEmptyTitle: function () {
-        var u = this.statusUnknownView || { unknown: false, error: '' };
-        if (u.unknown) return 'Состояние опыта неизвестно';
+        var kind = this.experienceFeedEmptyKind;
+        if (typeof kind !== 'string') {
+          kind = _experienceFeedEmptyKindOf(this);
+        }
+        if (kind === 'unknown') return 'Состояние опыта неизвестно';
+        if (kind === 'loading') return 'Уроки загружаются…';
+        if (kind === 'unavailable') return 'Состояние уроков неизвестно';
+        if (kind === 'idle') return 'Уроки ещё не загружались';
+        if (kind === 'partial_unavailable'
+            || kind === 'partial_loading') return 'Состояние ленты неизвестно';
         if (this.experienceFeedTrack === 'lesson') return 'Уроков пока нет';
         if (this.experienceFeedTrack === 'experience') return 'Применений нет';
         return 'Записей опыта пока нет';
@@ -12904,12 +12954,20 @@
           return 'опыт и уроки выключены настройкой — записей нет';
         }
         var track = this.experienceFeedTrack || 'all';
-        if (this.experienceLessonsError) {
-          return 'уроки недоступны (' + this.experienceLessonsError + ') — '
-            + 'это не «уроков нет»';
+        var lessons = _lessonsFeedStateOf(this);
+        if (lessons.state === 'unavailable') {
+          return 'уроки недоступны (' + this.experienceLessonsError + ') · '
+            + lessons.lastOkText + ' — это не «уроков нет»';
         }
-        if (track === 'lesson' && !this.experienceLessonsLoaded) {
-          return 'лента уроков ещё не запрашивалась';
+        if (track === 'lesson') {
+          if (lessons.state === 'loading') {
+            return 'идёт запрос ленты уроков · ' + lessons.lastOkText;
+          }
+          if (lessons.state === 'idle') {
+            return 'лента уроков ещё не запрашивалась · '
+              + lessons.lastOkText;
+          }
+          return 'активных или проверенных уроков нет — это не ошибка';
         }
         var base = '';
         var er = this.expEmptyReason;
@@ -12921,9 +12979,6 @@
         if (track === 'experience') {
           return base || 'применений урока пока нет — опыт появляется после '
             + 'реального применения';
-        }
-        if (track === 'lesson') {
-          return 'активных или проверенных уроков нет — это не ошибка';
         }
         return base || 'записей опыта и уроков пока нет — уроки появятся '
           + 'после проверенного опыта';

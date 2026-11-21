@@ -483,6 +483,94 @@ assert.strictEqual(methods.experienceOutcomeLabel.call({},
     true, 'MAC-S15-11: успешный ответ фиксирует время');
 }
 
+/* ── 8b. B3-R1-01: «Уроков пока нет» — только после успешного пустого ──── */
+{
+  const title = function (ctx) {
+    return computed.experienceFeedEmptyTitle.call(ctx);
+  };
+  const kindOf = function (ctx) {
+    return computed.experienceFeedEmptyKind.call(ctx);
+  };
+  const reason = function (ctx) {
+    return computed.experienceFeedEmptyReason.call(ctx);
+  };
+  const base = {
+    statusData: { experience: { enabled: true, items: [] } },
+    statusError: null, experienceFeedTrack: 'lesson',
+    experienceLessons: [], experienceLessonsLoaded: false,
+    experienceLessonsError: '', experienceLessonsBusy: false,
+    experienceLessonsAt: 0,
+    statusUnknownView: { unknown: false, error: '', lastOkText: '' },
+    expEmptyReason: '',
+  };
+  const withAt = Object.assign({}, base, { experienceLessonsAt: 1791890000000 });
+
+  // (a) 503/недоступность: заголовок НЕ утверждает «нет уроков»; причина
+  // несёт ошибку и время последнего успешного ответа (или его отсутствие).
+  const unavailable = Object.assign({}, withAt, {
+    experienceLessonsError: 'HTTP 503',
+  });
+  assert.strictEqual(kindOf(unavailable), 'unavailable');
+  assert.strictEqual(title(unavailable), 'Состояние уроков неизвестно');
+  assert.notStrictEqual(title(unavailable), 'Уроков пока нет');
+  const reason503 = reason(unavailable);
+  assert.ok(reason503.indexOf('уроки недоступны (HTTP 503)') >= 0,
+    'B3-R1-01: причина называет ошибку');
+  assert.ok(reason503.indexOf('последний успешный ответ ленты уроков:') >= 0,
+    'B3-R1-01: время последнего успешного ответа выводится');
+  assert.ok(reason503.indexOf('это не «уроков нет»') >= 0,
+    'B3-R1-01: причина прямо отрицает «уроков нет»');
+  const neverOk = Object.assign({}, base, {
+    experienceLessonsError: 'HTTP 503',
+  });
+  assert.ok(reason(neverOk).indexOf(
+    'успешных ответов ленты уроков ещё не было') >= 0,
+  'B3-R1-01: без успехов — честная подпись, не выдуманное время');
+
+  // (b) загрузка (busy, данных ещё нет): «загружаются», не «нет уроков».
+  const loading = Object.assign({}, base, { experienceLessonsBusy: true });
+  assert.strictEqual(kindOf(loading), 'loading');
+  assert.strictEqual(title(loading), 'Уроки загружаются…');
+  assert.ok(reason(loading).indexOf('идёт запрос ленты уроков') >= 0);
+  assert.ok(reason(loading).indexOf('успешных ответов ленты уроков ещё не было')
+    >= 0);
+
+  // (c) успешный ПУСТОЙ ответ: только здесь «Уроков пока нет».
+  const emptyOk = Object.assign({}, base, { experienceLessonsLoaded: true });
+  assert.strictEqual(kindOf(emptyOk), 'empty');
+  assert.strictEqual(title(emptyOk), 'Уроков пока нет');
+  assert.strictEqual(reason(emptyOk),
+    'активных или проверенных уроков нет — это не ошибка');
+
+  // (d) дорожка ещё не запрашивалась: честное «не загружались».
+  assert.strictEqual(kindOf(base), 'idle');
+  assert.strictEqual(title(base), 'Уроки ещё не загружались');
+  assert.ok(reason(base).indexOf('лента уроков ещё не запрашивалась') >= 0);
+
+  // (e) «Всё»: недоступность уроков — «состояние ленты неизвестно», не
+  // «записей нет»; и последний успех всё равно называется.
+  const allUnavailable = Object.assign({}, withAt, {
+    experienceFeedTrack: 'all', experienceLessonsError: 'HTTP 503',
+  });
+  assert.strictEqual(kindOf(allUnavailable), 'partial_unavailable');
+  assert.strictEqual(title(allUnavailable), 'Состояние ленты неизвестно');
+  assert.ok(reason(allUnavailable).indexOf(
+    'последний успешный ответ ленты уроков:') >= 0);
+
+  // (f) глобальный 503 (status) остаётся «Состояние опыта неизвестно».
+  const statusFail = Object.assign({}, base, {
+    statusData: null, statusError: 'HTTP 503',
+    statusUnknownView: { unknown: true, error: 'HTTP 503',
+      lastOkText: 'последний успешный ответ экрана: T' },
+  });
+  assert.strictEqual(kindOf(statusFail), 'unknown');
+  assert.strictEqual(title(statusFail), 'Состояние опыта неизвестно');
+
+  // Мутация: подставить «Уроков пока нет» при ошибке нельзя.
+  assert.notStrictEqual(title(unavailable), title(emptyOk));
+  assert.strictEqual(title(unavailable) === 'Уроков пока нет', false);
+}
+
 /* ── 9. MAC-S6-REST-01: «последний успех» QRNG без выдумок ──────────────── */
 {
   const mk = function (act) {
