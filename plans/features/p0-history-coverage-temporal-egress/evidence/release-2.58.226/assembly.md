@@ -3,9 +3,12 @@
 **Status:** REVIEW (assembly only; not deployed, not VERIFIED)
 **Date:** 2026-11-21 (+12:00)
 **Branch:** `release/p0-hc-2.58.226`
-**Product tip:** `e26ebc16311f83d4df5ec265ce2933ee19e11440` (test-only delta on `4bb7e593c5d4b085290ff7f034f0f1b28b0233bb`)
+**Product tip:** `5dd588201c27419d93f9414c66b9aac5557e34b9` — `REL226-F1` fix
+(`a7200eba70d32f05c5fd019312dd2165d3ced681` on `fix/p0-hc-accept`) on top of the
+test-only `e26ebc16311f83d4df5ec265ce2933ee19e11440`
+(`4bb7e593c5d4b085290ff7f034f0f1b28b0233bb` + test delta)
 **Base / rollback:** `1b7d43333b5be8fcbceff2fc82ff8436e5947e9d` (2.58.225, schema 48, DDL 0)
-**Bump / content tip:** `bafbd0863d7c8bb157abe3428463eedd9fa0079f`
+**Bump tip:** `bafbd0863d7c8bb157abe3428463eedd9fa0079f`; **content tip:** `5dd588201`
 **Version:** 2.58.226
 **Schema/DDL:** 48 / 0
 
@@ -21,17 +24,25 @@ since `4bb7e593c`. `HC-ACC-R2-F2/F5/F6` were already closed; the non-blocking
 (`HC-ACC-FREE-SPEECH`, `HC-ACC-NO-OBJECTIVITY`) remain non-blocking and **not**
 VERIFIED.
 
+Delta review blocker **`REL226-F1`** (raw `tg:`/uid in the speech reply edge of
+`get_recent_history`) is fixed in the content tip `5dd588201`: the speech branch
+of `ToolRouter._history_lines` now addresses the reply parent by the run label
+from the same projection and never prints a raw ref; the raw canon stays
+byte-identical. Two regression tests were added; see `rel226-f1-fix.md` and
+`tests-rel226-f1.txt`. The fix is **pending independent re-review** — this
+assembly does not claim approval for it.
+
 ## 1. Assembly steps
 
 | # | Step | Result |
 |---|---|---|
 | 1 | Worktree via installed `workflow_housekeeping.py worktree-path` + `git worktree add` + `register-worktree` | `WorkspaceData/worktrees/c742e4de9e92c489/release-p0-hc-2-58-226-c7ff08520e12-3b02cfca`; branch from `e26ebc163`; no sibling checkout |
-| 2 | Branch ancestry | 22 commits from `1b7d43333` to the content tip; **0 merge commits**; acceptance harness not in the branch |
+| 2 | Branch ancestry | 24 commits from `1b7d43333` to the content tip; **0 merge commits**; acceptance harness not in the branch |
 | 3 | Standard bump `2.58.225 -> 2.58.226` | `bafbd0863`; **31 files / 34 insertions / 34 deletions** |
-| 4 | Product scope | 11 P0 product files (`+2451/−98`) + `config/settings.py` bump only; no DDL/migrations/prompts/flags/second retrieval |
+| 4 | Product scope | 11 P0 product files (`+2466/−99`) + `config/settings.py` bump only; no DDL/migrations/prompts/flags/second retrieval |
 | 5 | Tests on bumped tip | focused 306/0; direct_chat 161/0; pin guard 856/4 (4 pre-existing); JS 6/6; broad 1547/17 + 2 errors (all pre-existing) |
-| 6 | Manifest dry-run at content tip | exit 0; version 2.58.226; previous `1b7d43333` / 2.58.225; dirty false |
-| 7 | Release evidence (this directory) | docs-only commit after `bafbd0863` |
+| 6 | Manifest dry-run at content tip | exit 0; version 2.58.226; `deployed_sha` `5dd588201`; `previous` null locally (fresh worktree has no `.deploy/`); dirty false |
+| 7 | Release evidence (this directory) | docs-only commit after `5dd588201` (fix + evidence rerun) |
 
 The branch contains no acceptance harness. `tools/p0_hc_acceptance.py` and
 `tests/test_p0_hc_acceptance.py` stay on `p0/hc-accept`: they pin
@@ -51,9 +62,9 @@ intentional and is not a missing product test.
 | `services/summary_memory.py` | 44 | 6 |
 | `services/telegram_markup.py` | 849 | 0 |
 | `services/thread_chain.py` | 37 | 2 |
-| `services/tool_router.py` | 776 | 30 |
+| `services/tool_router.py` | 791 | 31 |
 | `services/tool_schemas.py` | 3 | 1 |
-| **P0 product total** | **2451** | **98** |
+| **P0 product total** | **2466** | **99** |
 
 - `git diff --name-only 1b7d43333..HEAD -- services config handlers web`
   = the 11 files above + `config/settings.py` (bump only). No other product path.
@@ -103,6 +114,8 @@ Environment: Python 3.12.0, pytest 9.1.1, Node v24.16.0, Windows.
 | Broad history/related, 17 files | **409 passed, 10 failed, 2 errors** (31.02 s); same 10+2 reproduce on base (109 passed, 10 failed, 2 errors, 10.84 s) |
 | Broad memory/tool/db/clock, 14 files | **540 passed, 1 failed** (138.48 s); same failure reproduces on base (1 failed) |
 | `tests/test_summary_memory.py` alone | **79 passed, 0 failed** (9.02 s) |
+| REL226-F1 targeted (`test_evol_reply_context_consumers.py`, incl. 2 new reply tests) | **53 passed, 0 failed** (6.33 s); RED at `e26ebc163`: 2 failed (raw `tg:500 (uid 9)` in the speech line) |
+| REL226-F1 mandatory set (p0_hc coverage/temporal, history pages/segments/isolation, direct_chat) | **358 passed, 0 failed** (24.66 s), rc=0 — no new failures |
 | Schema/compile checks | temp SQLite smoke: target/user_version 48, `schema_migrations` max/count 48, journal `wal`, DDL 0; py_compile and node check green |
 
 Pre-existing failures reproduced on base `1b7d43333` (not counted as pass):
@@ -122,23 +135,32 @@ result between the combined and split runs.
 
 ## 5. Manifest, rollback, runbook
 
-- `manifest-dry-run.json`: exit 0; `deployed_sha` `bafbd0863d7c8bb157abe3428463eedd9fa0079f`
-  (content/bump tip), `version` 2.58.226, `previous_sha`
-  `1b7d43333b5be8fcbceff2fc82ff8436e5947e9d`, `previous_version` 2.58.225,
-  `release_branch` `release/p0-hc-2.58.226`, `dirty_tracked` false,
-  `effect` deploy, `deployer` builder-release-prep. `.deploy/` was reconstructed
-  locally (git-ignored) and removed; production files were not read.
-- The evidence commit after `bafbd0863` is docs-only. DevOps must run
+- `manifest-dry-run.json`: exit 0; `deployed_sha` `5dd588201c27419d93f9414c66b9aac5557e34b9`
+  (content tip: bump + REL226-F1 fix), `version` 2.58.226, `previous_sha`/
+  `previous_version` `null` locally (a fresh worktree has no `.deploy/`
+  manifest; the production checkout keeps its own and reports the real
+  previous 2.58.225 SHA), `release_branch` `release/p0-hc-2.58.226`,
+  `dirty_tracked` false, `effect` deploy, `deployer` builder-release-prep.
+  `.deploy/` was not created in this rerun; production files were not read.
+- The evidence commit after `5dd588201` is docs-only. DevOps must run
   `release_manifest.py` on the actual checked-out SHA after pull; the honest
   `deployed_sha` is whatever `git rev-parse HEAD` returns there.
 - `deploy-runbook-2.58.226.md`: backup, manifest, restart, health/version/schema/
-  identity/NRestarts/journal/disk/settings checks, P0 post-deploy read-only checks,
-  and rollback to `1b7d43333` / 2.58.225 (no schema downgrade; same schema 48).
+  identity/NRestarts/journal/disk/settings/prompt-digest checks, read-only
+  postdeploy contract (no live-chat probing — §3.1), and rollback to
+  `1b7d43333` / 2.58.225 (no schema downgrade; same schema 48).
 
 ## 6. Limitations and residual
 
 - No production access, SSH, deploy, live Telegram or VERIFIED claim in this
   assembly; the review verdict is only `APPROVED_FOR_RELEASE_PREPARATION`.
+- `REL226-F1` (delta-review blocker) is fixed in `5dd588201` with two new
+  regression tests and is **pending independent re-review**; the earlier
+  review cover does not extend to those product bytes by itself.
+- Backlog, non-blocking, no code change in this release: `REL226-N1` (speech
+  `_context_row_line` can state the same reply edge twice), `REL226-N2` (one
+  bare LF among CRLF in `config/settings.py`). `REL226-N3` (runbook §3.1 live
+  probing wording) is closed in this evidence commit.
 - The acceptance harness is excluded from this branch by design (see §1); its
   pinned candidate/release values must not be “fixed” by weakening assertions.
 - The independent review artifact lives on master and is not in the candidate

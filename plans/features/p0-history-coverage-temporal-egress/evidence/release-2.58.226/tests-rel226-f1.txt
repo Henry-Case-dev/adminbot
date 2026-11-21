@@ -1,0 +1,34 @@
+Release 2.58.226 — REL226-F1 targeted results
+Date: 2026-11-21 (+12:00)
+Content tip: 5dd588201c27419d93f9414c66b9aac5557e34b9
+  (fix on top of e7c9a2e66; bump bafbd0863; product e26ebc163)
+Environment: Python 3.12.0, pytest 9.1.1, Windows
+Commands run from the release worktree; rc is pytest's own exit code.
+
+[RED — release tip e26ebc163, tests added, product not fixed]
+py -3 -m pytest tests/test_evol_reply_context_consumers.py -k recent_history_reply -q
+2 failed, 51 deselected in 3.69s
+payload='[30.04.2024 16:00 UTC | Вася (U1) | M1]: родитель\n[30.04.2024 16:01 UTC | Марина (U2) | M2 | ответ на tg:500 (uid 9)]: ответ'
+assert not _REF_RE.search(payload) -> match='tg:500'
+FAILED tests/test_evol_reply_context_consumers.py::TestToolResults::test_recent_history_reply_uses_projected_label
+FAILED tests/test_evol_reply_context_consumers.py::TestToolResults::test_recent_history_reply_outside_projection_not_invented
+
+[GREEN — release tip 5dd588201]
+py -3 -m pytest tests/test_evol_reply_context_consumers.py -q
+53 passed in 6.33s
+rc=0
+
+py -3 -m pytest tests/test_p0_hc_coverage.py tests/test_p0_hc_temporal.py tests/test_history_pages.py tests/test_history_segments.py tests/test_history_isolation.py tests/test_direct_chat.py -q
+358 passed in 24.66s
+rc=0
+
+[Payloads after the fix, same rows as the RED case]
+SPEECH: [30.04.2024 16:00 UTC | Вася (U1) | M1]: родитель
+SPEECH: [30.04.2024 16:01 UTC | Марина (U2) | M2 | ответ на M1]: ответ
+RAW:    [30.04.2024 16:01 UTC | Марина [20] | tg:501 | ответ на tg:500 (uid 9)]: ответ
+SPEECH (parent outside the shown rows): [30.04.2024 16:01 UTC | Марина (U1) | M1]: ответ
+
+[diff scope]
+git diff --name-only e7c9a2e66..5dd588201 -- services -> services/tool_router.py
+git diff --stat e7c9a2e66..5dd588201 -> 2 files changed, 61 insertions(+), 2 deletions(-)
+APP_VERSION AST -> 2.58.226
