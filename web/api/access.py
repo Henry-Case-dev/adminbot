@@ -16,13 +16,15 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from services import access as access_srv
+from services import access_preview as preview_srv
 from services import chat_params, chat_keys, chat_usage
 from services import roles as roles_srv
+from services.access_errors import AccessStorageUnavailable
 from services.roles import (
     ROLE_LOCAL_ADMIN,
     ROLE_MODERATOR,
 )
-from web.api.avatars import chat_display_info
+from web.api.avatars import chat_display_info, global_user_display_info
 from web.api.deps import get_cache, get_tma_user
 
 logger = logging.getLogger(__name__)
@@ -149,6 +151,31 @@ def _chat_id_or_none(x_chat_id: str | None) -> int | None:
                             detail="X-Chat-Id — целое число")
 
 
+def _storage_unavailable(detail: str = "") -> HTTPException:
+    """Единый 503 строгого чтения прав (C2): «не прочитано» ≠ «нет прав»."""
+    message = ("PostgreSQL или кэш прав недоступен: данные прав не читаются. "
+               "Это временная недоступность, а не отсутствие доступа.")
+    if detail:
+        message = f"{message} ({detail})"
+    return HTTPException(status_code=503,
+                         detail={"code": "access_storage_unavailable",
+                                 "message": message})
+
+
+async def _preview_actor_info(actor: dict, *, caller_id: int,
+                              delegated: bool) -> None:
+    """Best-effort display_name актора (ошибка/нет бота → None, не решение)."""
+    if delegated:
+        # Чужой telegram_id показывается только global admin — проверено
+        # в preview.evaluate до вызова этого помощника.
+        pass
+    try:
+        info = await global_user_display_info(int(actor["telegram_id"]))
+        actor["display_name"] = info.get("display_name")
+    except Exception:
+        actor["display_name"] = None
+
+
 @access_router.get("/me")
 async def access_me(
     request: Request,
@@ -238,6 +265,138 @@ async def access_chats(
     return out
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# MOD-ACL-UX-01 M4C C2 — read-only «Проверить доступ» (person+scope).
+#
+# Три аддитивных GET: effective-решение по каноническому namespace, чатовые
+# перекрытия матрицы и чатовые гранты. Только чтение: write-маршрутов не
+# добавляется, guards матрицы/грантов (global admin) не ослабляются.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@access_router.get("/effective")
+async def access_effective(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    resource: str,
+    operation: str,
+    telegram_id: int | None = None,
+    chat_id: int | None = None,
+):
+    """Effective-решение реального актора (self/делегировано global admin).
+
+    200 — для валидного ресурса; решение в теле (`decision`), не HTTP 403.
+    403 — только право вызывающего (чужой актор/DM/недоступный чат);
+    404 — нет группового профиля; 422 — ресурс/операция/chat_id; 503 —
+    строгое чтение прав недоступно (НЕ «deny»).
+    """
+    cache = get_cache(request)
+    actor_id = user.id if telegram_id is None else int(telegram_id)
+    try:
+        data = await preview_srv.evaluate(
+            caller_id=user.id, actor_id=actor_id, chat_id=chat_id,
+            resource=resource, operation=operation, cache=cache)
+    except preview_srv.PreviewInvalidResource as exc:
+        raise HTTPException(status_code=422,
+                            detail={"code": exc.code, "message": exc.message})
+    except preview_srv.PreviewForbidden as exc:
+        raise HTTPException(status_code=403,
+                            detail={"code": exc.code, "message": exc.message})
+    except preview_srv.PreviewChatNotFound:
+        raise HTTPException(status_code=404,
+                            detail={"code": "chat_not_found",
+                                    "message": "профиль чата не найден"})
+    except AccessStorageUnavailable:
+        logger.warning("[access] preview strict read failed (PG down)")
+        raise _storage_unavailable()
+    await _preview_actor_info(data["actor"], caller_id=user.id,
+                              delegated=data["mode"] == "delegated")
+    scope = data.get("scope") or {}
+    if scope.get("kind") == "chat":
+        # Доступ вызывающего к чату уже проверен preview.evaluate → title
+        # не является утечкой чужого чата.
+        try:
+            info = await chat_display_info(int(scope["chat_id"]))
+            scope["title"] = info.get("title") or scope.get("title")
+        except Exception:
+            pass
+    logger.info("[access] preview | caller=%s actor=%s chat=%s res=%s op=%s "
+                "decision=%s", user.id, actor_id, chat_id, resource,
+                operation, data.get("decision"))
+    return data
+
+
+@access_router.get("/chats/{chat_id}/param_permissions")
+async def chat_param_permissions_read(
+    chat_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Чатовые перекрытия матрицы (чтение, без значений/промптов).
+
+    group — только global admin (strict auth); DM — только владелец.
+    404 — групповой профиль отсутствует; 503 — строгое чтение недоступно.
+    """
+    cache = get_cache(request)
+    try:
+        ctx = await roles_srv.access_for(user.id, cache=cache, strict=True)
+    except AccessStorageUnavailable:
+        raise _storage_unavailable()
+    if chat_id < 0:
+        if not ctx.is_global_admin:
+            raise HTTPException(status_code=403,
+                                detail="доступ только для global admin")
+    elif chat_id != user.id:
+        raise HTTPException(status_code=403, detail="только владелец ЛС")
+    try:
+        return await preview_srv.chat_param_permissions(chat_id, cache=cache)
+    except preview_srv.PreviewChatNotFound:
+        raise HTTPException(status_code=404,
+                            detail={"code": "chat_not_found",
+                                    "message": "профиль чата не найден"})
+    except AccessStorageUnavailable:
+        logger.warning("[access] chat param_permissions strict read failed | "
+                       "chat=%s", chat_id)
+        raise _storage_unavailable()
+
+
+@access_router.get("/chats/{chat_id}/admins")
+async def chat_admins_read(
+    chat_id: int,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Гранты чата `chat_admins` (только global admin): роль/кто выдал/когда.
+
+    Существующий `GET /api/chat_lore/admins` отдаёт только telegram_id и
+    требует доступ к чату — этот GET его не заменяет.
+    """
+    cache = get_cache(request)
+    try:
+        ctx = await roles_srv.access_for(user.id, cache=cache, strict=True)
+    except AccessStorageUnavailable:
+        raise _storage_unavailable()
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403,
+                            detail="доступ только для global admin")
+    try:
+        admins = await preview_srv.chat_admins(chat_id, cache=cache)
+    except preview_srv.PreviewChatNotFound:
+        raise HTTPException(status_code=404,
+                            detail={"code": "chat_not_found",
+                                    "message": "профиль чата не найден"})
+    except AccessStorageUnavailable:
+        logger.warning("[access] chat_admins strict read failed | chat=%s",
+                       chat_id)
+        raise _storage_unavailable()
+    for row in admins:
+        try:
+            info = await global_user_display_info(int(row["telegram_id"]))
+            row["display_name"] = info.get("display_name")
+        except Exception:
+            row["display_name"] = None
+    return {"chat_id": chat_id, "admins": admins}
+
+
 @access_router.post("/chats/{chat_id}/admins")
 async def chat_admins_add(
     chat_id: int,
@@ -325,7 +484,15 @@ async def param_permissions_list(
     форма; hidden_from_local БОЛЬШЕ не отдаётся) — ТОЛЬКО global admin;
     дефолт ⊕ перекрытия (строки таблицы НЕ сидятся, см. services/access.py)."""
     cache = get_cache(request)
-    ctx = await roles_srv.access_for(user.id, cache=cache)
+    # MOD-ACL-UX-01 M4C C2 (F-C2-1): auth-check матрицы идёт через strict
+    # access_for — холодный кэш + PG down даёт 503 «сервис недоступен», а не
+    # ложный 403 настоящему global admin. Нормальные seeded/403-пути не
+    # меняются (default strict=False у остальных runtime-вызовов).
+    try:
+        ctx = await roles_srv.access_for(user.id, cache=cache, strict=True)
+    except AccessStorageUnavailable:
+        logger.warning("[access] matrix auth strict read failed (cold/PG down)")
+        raise _storage_unavailable()
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
     # MOD-ACL-UX-01 M4C C1: строгое чтение. При недоступном PG/пуле GET
