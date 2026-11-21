@@ -678,6 +678,9 @@ class CapacityResult:
     supports_json_mode: bool | None = None
     output_token_field: str | None = None
     output_field_source: str = OUTPUT_FIELD_SOURCE_DEFAULT
+    #: Источник `max_output_tokens`, когда окно контекста осталось оценкой
+    #: (частичная карточка каталога). `None` = значение не подтверждено.
+    max_output_source: str | None = None
 
     @property
     def window_verified(self) -> bool:
@@ -712,6 +715,7 @@ class CapacityResult:
             "supports_json_mode": self.supports_json_mode,
             "output_token_field": self.output_token_field,
             "output_field_source": self.output_field_source,
+            "max_output_source": self.max_output_source,
         }
 
 
@@ -1011,6 +1015,7 @@ class ModelCapability:
     supports_json_mode: bool | None = None
     output_token_field: str = OUTPUT_FIELD_MAX_TOKENS
     output_field_source: str = OUTPUT_FIELD_SOURCE_DEFAULT
+    max_output_source: str | None = None
 
     def as_event_fields(self) -> dict:
         """R17-safe поля (числа/enum; без ключей, промптов, URL-путей)."""
@@ -1029,6 +1034,7 @@ class ModelCapability:
             "supports_json_mode": self.supports_json_mode,
             "output_token_field": self.output_token_field,
             "output_field_source": self.output_field_source,
+            "max_output_source": self.max_output_source,
         }
 
 
@@ -1055,6 +1061,7 @@ def model_capability(result: "CapacityResult",
         output_token_field=output_field,
         output_field_source=str(getattr(
             result, "output_field_source", OUTPUT_FIELD_SOURCE_DEFAULT)),
+        max_output_source=getattr(result, "max_output_source", None),
     )
 
 
@@ -1142,19 +1149,28 @@ async def _adapter_nanogpt_catalog(base_url: str, model: str
     неоднозначен → None (→ exact registry или 1M estimated с честным
     source; выдуманных записей и семейных догадок нет). НЕ бросает."""
     entry = await _adapter_nanogpt_entry(base_url, model)
-    return (entry[0], entry[1]) if entry is not None else None
+    if entry is None or entry[0] is None:
+        return None
+    return (entry[0], entry[1])
 
 
 async def _adapter_nanogpt_entry(base_url: str, model: str
-                                 ) -> tuple[int, int | None, dict] | None:
-    """NanoGPT: `(context_length, max_output_tokens, catalog_item)`.
+                                 ) -> tuple[int | None, int | None, dict] | None:
+    """NanoGPT: `(context_length | None, max_output_tokens | None, item)`.
 
     Item отдаётся capability-слою (reasoning/tools/json/output-поле): без него
     поддержка возможностей модели осталась бы неизвестной, хотя каталог её
-    объявляет. Не бросает."""
+    объявляет. Частичная карточка (нет `context_length`, но есть output/
+    capabilities) тоже возвращается: реально доступные поля не теряются, окно
+    остаётся честной planning-оценкой/точным реестром. Карточка без единого
+    machine-readable поля → None (честный discovery-miss). Не бросает.
+
+    Если несколько документированных URL отдают разные item'ы, полная карточка
+    с окном приоритетнее частичной."""
     wanted = str(model or "").strip()
     if not wanted:
         return None
+    partial: tuple[int | None, int | None, dict] | None = None
     for url in _nanogpt_catalog_urls(base_url):
         data = await _http_get_json(url)
         if not isinstance(data, dict):
@@ -1168,12 +1184,22 @@ async def _adapter_nanogpt_entry(base_url: str, model: str
         if item is None:
             continue
         window = _first_positive_int(item, _CATALOG_CONTEXT_FIELDS)
-        if window is None:
-            # Модель есть, документированного окна нет — честный miss
-            # (следующий URL/слой), НЕ 0 и НЕ 16384.
+        output = _first_positive_int(item, _CATALOG_OUTPUT_FIELDS)
+        if window is not None:
+            return window, output, item
+        fields = catalog_capability_fields(item)
+        has_capability = any(
+            fields[key] is not None for key in
+            ("supports_reasoning", "supports_tool_calling",
+             "supports_json_mode"))
+        if not (has_capability or output is not None
+                or fields.get("output_token_field")):
+            # Модель есть, но ни окна, ни машиночитаемых возможностей —
+            # честный miss (следующий URL/слой), НЕ 0 и НЕ 16384.
             continue
-        return window, _first_positive_int(item, _CATALOG_OUTPUT_FIELDS), item
-    return None
+        if partial is None:
+            partial = (None, output, item)
+    return partial
 
 
 
@@ -1888,31 +1914,58 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
                 max_output_tokens=catalog_max_output, source=SOURCE_PROVIDER_CATALOG,
                 confidence=CONFIDENCE_VERIFIED, resolved_at=now,
                 fallback_used=False,
+                max_output_source=(OUTPUT_FIELD_SOURCE_PROVIDER
+                                   if catalog_max_output is not None else None),
                 **catalog_capability_fields(catalog_item))
     elif provider_class == PROVIDER_NANOGPT:
         # 3) provider catalog (§53, D3): live/public каталог NanoGPT —
         # context window + max output; точное сопоставление ID
-        # (namespace/suffix/alias), без семейных догадок. Miss → exact
-        # registry → 1M estimated (ниже).
+        # (namespace/suffix/alias), без семейных догадок. Частичная карточка
+        # (есть output/capabilities, нет окна) сохраняет реальные поля, а окно
+        # остаётся exact registry/planning-оценкой. Miss → exact registry →
+        # 1M estimated (ниже).
         entry = await _adapter_nanogpt_entry(base_url, name)
         if entry is not None:
             catalog_window, max_output, catalog_item = entry
             declared = _registry_exact_window(name) or catalog_window
-            # T-4808: live precedence ON → live catalog суверенен, exact
-            # registry НЕ занижает live capability (declared — для
-            # прозрачности); OFF → прежний min(live, registry).
-            effective = catalog_window if (live or declared is None) \
-                else min(catalog_window, declared)
+            capability_fields = catalog_capability_fields(catalog_item)
+            max_output_source = (OUTPUT_FIELD_SOURCE_PROVIDER
+                                 if max_output is not None else None)
+            if catalog_window is not None:
+                # T-4808: live precedence ON → live catalog суверенен, exact
+                # registry НЕ занижает live capability (declared — для
+                # прозрачности); OFF → прежний min(live, registry).
+                effective = catalog_window if (live or declared is None) \
+                    else min(catalog_window, declared)
+                return CapacityResult(
+                    provider=provider_class, model=name,
+                    declared_context_window=declared,
+                    runtime_context_window=None,
+                    effective_context_window=effective,
+                    max_output_tokens=max_output,
+                    source=SOURCE_PROVIDER_CATALOG,
+                    confidence=CONFIDENCE_VERIFIED, resolved_at=now,
+                    fallback_used=False,
+                    max_output_source=max_output_source,
+                    **capability_fields)
+            # Частичная карточка без окна: 1M НЕ становится verified.
+            if declared is not None:
+                source, confidence = SOURCE_REGISTRY, CONFIDENCE_VERIFIED
+                effective = declared
+            else:
+                source, confidence = (SOURCE_ESTIMATED_UNKNOWN,
+                                      CONFIDENCE_ESTIMATED)
+                effective = _unknown_window()
             return CapacityResult(
                 provider=provider_class, model=name,
                 declared_context_window=declared,
                 runtime_context_window=None,
                 effective_context_window=effective,
                 max_output_tokens=max_output,
-                source=SOURCE_PROVIDER_CATALOG,
-                confidence=CONFIDENCE_VERIFIED, resolved_at=now,
+                source=source, confidence=confidence, resolved_at=now,
                 fallback_used=False,
-                **catalog_capability_fields(catalog_item))
+                max_output_source=max_output_source,
+                **capability_fields)
     # ── 3b) verified route metadata (live precedence ON) ───────────────────
     # Маршрут-специфичная metadata (например, endpoint-лимиты) — только из
     # верифицированного адаптера; без подтверждения слой честно пропускается.
