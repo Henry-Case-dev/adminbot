@@ -37,8 +37,8 @@ commit, the owner-counts commit and the c3 fixes. The whole range `422dbbd38^..8
 | `web/api/routes.py` | **12 / 0** (three honest 503 guards on `GET /api/admins`, `/api/roles`, `/api/roles/tree` when the cache is empty **and** PG is unavailable; no new endpoints) |
 | `config/settings.py` | 1 / 1 (APP_VERSION + changelog line) |
 
-Totals at the content tip: **77 files, 4069 insertions / 778 deletions**
-(7 product, 35 tests, 4 tools, 31 planning/evidence files incl. the APP_VERSION stamp).
+Totals at the content tip: **88 files, 9765 insertions / 322 deletions** including the release evidence
+(20 of the 88 are binary PNG evidence files: 7 product, 35 tests, 4 tools, 42 planning/evidence).
 
 - New endpoints/fields/flags: **0** (`git diff … -- web services | grep '^+.*@api_router|@access_router'` empty).
 - DDL/migrations/prompts: `git diff 374dc6060 HEAD -- migrations database.py prompts` = **empty**;
