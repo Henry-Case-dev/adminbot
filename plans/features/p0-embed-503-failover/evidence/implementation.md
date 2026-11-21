@@ -175,12 +175,15 @@ outcomes). Сырой вывод: `tests-final-2026-11-22.txt`.
 
 ## 6. Diff / ограничения
 
-`git diff --name-only 374dc6060..HEAD` = ровно 3 файла:
+Кодовый diff (`git diff --name-only 374dc6060..4ace0a3ae`) = ровно 3 файла:
 
 - `services/embedding_control_plane.py` (failover, provenance, resolver
   override);
 - `services/summary_memory.py` (route-aware write admission; обосновано выше);
 - `tests/test_p0_embed_503_failover.py` (10 тестов, включая e2e).
+
+Evidence-файлы лежат отдельно в этом каталоге (`plans/features/
+p0-embed-503-failover/evidence/`).
 
 Не изменены: `config/**`, `handlers/**`, `web/**`, DDL/схема, `APP_VERSION`,
 модель `gemini-embedding-001`, существующие эмбеддинги/индексы, настройки и
