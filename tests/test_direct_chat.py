@@ -659,7 +659,7 @@ class TestContextPartitioning:
         # 10.20 (БЛОК 0, точка 3): канонический ход цепочки (бот-ход без ts,
         # ID `tg:50`; user-ход — ts+ID `tg:100`)
         assert thread.index("test_bot [bot] | tg:50]: я твой кошмар") < \
-            thread.index("вася [10] | tg:100]: ты кто?")
+            thread.index("вася [10] | tg:100 | ответ на tg:50]: ты кто?")
         await d.close()
 
     @pytest.mark.asyncio
@@ -920,8 +920,8 @@ class TestRound8CurrentQuestionAndBranch:
         branch = next(b for b in blocks
                       if b.startswith("<Conversation_Branch>"))
         assert "вася [10] | tg:40]: а что там с дронами?" in branch
-        assert "test_bot [bot] | tg:50]: дроны летят нормально" in branch
-        assert "петя [20] | tg:100]: вот теперь про дроны" in branch
+        assert "test_bot [bot] | tg:50 | ответ на tg:40]: дроны летят нормально" in branch
+        assert "петя [20] | tg:100 | ответ на tg:50]: вот теперь про дроны" in branch
         await d.close()
 
     @pytest.mark.asyncio
@@ -950,7 +950,7 @@ class TestRound8CurrentQuestionAndBranch:
         blocks = await service._build_user_content(CHAT_ID, msg, "петя")
         branch = next(b for b in blocks
                       if b.startswith("<Conversation_Branch>"))
-        assert "петя [20] | tg:100]: вот теперь про дроны" in branch
+        assert "петя [20] | tg:100 | ответ на tg:50]: вот теперь про дроны" in branch
         assert "вася [10]" not in branch and "test_bot" not in branch
         await d.close()
 
@@ -990,13 +990,13 @@ class TestRound8ThreadThroughBot:
             CHAT_ID, _message(message_id=70, text="вот это новости"), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
         assert thread.index("вася [10] | tg:30]: ты кто?") < \
-            thread.index("test_bot [bot] | tg:40]: я твой кошмар")
-        assert thread.index("test_bot [bot] | tg:40]: я твой кошмар") < \
-            thread.index("петя [20] | tg:50]: а почему так?")
-        assert thread.index("петя [20] | tg:50]: а почему так?") < \
-            thread.index("test_bot [bot] | tg:60]: потому что так надо")
-        assert thread.index("test_bot [bot] | tg:60]: потому что так надо") < \
-            thread.index("вася [10] | tg:70]: вот это новости")
+            thread.index("test_bot [bot] | tg:40 | ответ на tg:30]: я твой кошмар")
+        assert thread.index("test_bot [bot] | tg:40 | ответ на tg:30]: я твой кошмар") < \
+            thread.index("петя [20] | tg:50 | ответ на tg:40]: а почему так?")
+        assert thread.index("петя [20] | tg:50 | ответ на tg:40]: а почему так?") < \
+            thread.index("test_bot [bot] | tg:60 | ответ на tg:50]: потому что так надо")
+        assert thread.index("test_bot [bot] | tg:60 | ответ на tg:50]: потому что так надо") < \
+            thread.index("вася [10] | tg:70 | ответ на tg:60]: вот это новости")
         assert thread.count("[bot] |") == 2
         await d.close()
 
@@ -1032,7 +1032,7 @@ class TestRound8ThreadThroughBot:
         blocks = await service._build_user_content(
             CHAT_ID, _message(message_id=70, text="вот это новости"), "вася")
         thread = next(b for b in blocks if b.startswith("<Conversation_Thread>"))
-        assert "вася [10] | tg:70]: вот это новости" in thread   # текущее сообщение
+        assert "вася [10] | tg:70 | ответ на tg:60]: вот это новости" in thread   # текущее сообщение
         assert "ты кто?" not in thread
         assert "я твой кошмар" not in thread            # протухло по TTL
         await d.close()
