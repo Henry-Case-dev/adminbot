@@ -419,6 +419,17 @@ def _probe(page):
           const stageKeys = qa('[data-experience-pipeline-stages] '
             + '[data-experience-stage]')
             .map((el) => el.getAttribute('data-experience-stage'));
+          const nestedScrollers = (el) => {
+            let n = 0;
+            let p = el ? el.parentElement : null;
+            while (p && p !== document.body) {
+              const s = getComputedStyle(p);
+              if (/(auto|scroll)/.test(s.overflowY)
+                  && p.scrollHeight > p.clientHeight + 1) n += 1;
+              p = p.parentElement;
+            }
+            return n;
+          };
           const chainKeys = qa('[data-experience-chain-stages] '
             + '[data-experience-chain-stage]')
             .map((el) => el.getAttribute('data-experience-chain-stage'));
@@ -455,6 +466,9 @@ def _probe(page):
             memLinks: qa('[data-memory-link]').map((a) => a.getAttribute('href')),
             lastSuccess: last ? {text: last.innerText, kind:
               last.getAttribute('data-random-last-success-kind')} : null,
+            feedNestedScrollers: feed ? nestedScrollers(feed) : null,
+            memNestedScrollers: q('[data-memory-indicators]')
+              ? nestedScrollers(q('[data-memory-indicators]')) : null,
             randomDetailsLink: q('[data-random-details-link]')
               ? q('[data-random-details-link]').getAttribute('href') : null,
             hasRandomDetails: !!q('[data-random-details]'),
@@ -584,6 +598,11 @@ def main() -> int:
                 pr = _probe(page)
                 result["viewports"][name] = pr
                 check(name + "_no_h_overflow", pr["pageNoH"])
+                check(name + "_no_nested_scrolls",
+                      pr["feedNestedScrollers"] is not None
+                      and pr["feedNestedScrollers"] <= 1
+                      and pr["memNestedScrollers"] is not None
+                      and pr["memNestedScrollers"] <= 1)
                 check(name + "_feed_window", pr["feedBox"] is not None
                       and 112 <= pr["feedBox"]["h"] <= 160
                       and pr["feedBox"]["noH"])
