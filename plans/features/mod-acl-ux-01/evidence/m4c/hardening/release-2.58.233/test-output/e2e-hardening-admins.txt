@@ -1,0 +1,2 @@
+﻿[hardening-admins] PASS: 0 failure(s)
+[hardening-admins] report -> C:\Users\main\AppData\Local\Temp\opencode\acl233\out\shots\hardening-admins\report.json

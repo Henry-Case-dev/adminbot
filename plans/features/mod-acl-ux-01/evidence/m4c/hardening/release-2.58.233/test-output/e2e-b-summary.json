@@ -1,0 +1,20 @@
+{
+  "b1": {
+    "ok": true,
+    "checks": 138,
+    "failures": 0,
+    "screenshots": 6
+  },
+  "b2": {
+    "ok": true,
+    "checks": 92,
+    "failures": 0,
+    "screenshots": 6
+  },
+  "b3": {
+    "ok": true,
+    "checks": 131,
+    "failures": 0,
+    "screenshots": 8
+  }
+}

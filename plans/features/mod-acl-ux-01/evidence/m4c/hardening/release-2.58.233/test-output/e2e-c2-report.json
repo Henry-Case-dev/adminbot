@@ -1,0 +1,667 @@
+{
+  "ok": true,
+  "failures": [],
+  "report": {
+    "1920x1080": {
+      "base": {
+        "roles": 6,
+        "sections": 12,
+        "rightsPane": true,
+        "matrixPane": true,
+        "gatesPane": true,
+        "scrollWidth": 1920,
+        "hScroll": false,
+        "scrollers": [],
+        "tabHeights": [
+          40,
+          40,
+          40
+        ],
+        "aside": {
+          "x": 232,
+          "y": 175.2,
+          "w": 280,
+          "h": 457.9,
+          "left": 232,
+          "right": 512,
+          "display": "block",
+          "visibility": "visible"
+        },
+        "mobileSwitch": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "left": 0,
+          "right": 0,
+          "display": "none",
+          "visibility": "visible"
+        }
+      },
+      "preview": {
+        "previewVisible": true,
+        "insideGates": true,
+        "title": "Проверить доступ",
+        "note": " Предварительная проверка. Права не изменены. ",
+        "actor": {
+          "x": 552,
+          "y": 331.7,
+          "w": 660,
+          "h": 40,
+          "left": 552,
+          "right": 1212
+        },
+        "actorValues": [
+          "self",
+          "5885953495",
+          "manual"
+        ],
+        "scope": {
+          "x": 1220,
+          "y": 331.7,
+          "w": 660,
+          "h": 40,
+          "left": 1220,
+          "right": 1880
+        },
+        "resource": {
+          "x": 552,
+          "y": 400.2,
+          "w": 1328,
+          "h": 39.6,
+          "left": 552,
+          "right": 1880
+        },
+        "op": {
+          "x": 552,
+          "y": 468.3,
+          "w": 660,
+          "h": 40,
+          "left": 552,
+          "right": 1212
+        },
+        "run": {
+          "x": 1220,
+          "y": 468.3,
+          "w": 660,
+          "h": 40,
+          "left": 1220,
+          "right": 1880
+        },
+        "runDisabled": false,
+        "formCols": "660px 660px",
+        "decision": "",
+        "decisionAttr": null,
+        "layers": [],
+        "error": null,
+        "noActor": false,
+        "stale": false,
+        "overrides": false,
+        "overrideRows": 0,
+        "overridesError": false,
+        "overridesSuppressed": false,
+        "checkboxesInGates": 0,
+        "previewText": "Проверить доступ\n\nПредварительная проверка. Права не изменены.\n\nАКТОР\nЯ\nAudit · id 5885953495\nTelegram ID…\nОБЛАСТЬ\nВесь бот\nAudit Chat\nЛичные сообщения\nРЕСУРС\nОПЕРАЦИЯ\nПросмотр\nЗапись\nПроверить",
+        "scrollWidth": 1920,
+        "innerWidth": 1920,
+        "hScroll": false,
+        "nestedScrollers": 0
+      }
+    },
+    "1440x900": {
+      "base": {
+        "roles": 6,
+        "sections": 12,
+        "rightsPane": true,
+        "matrixPane": true,
+        "gatesPane": true,
+        "scrollWidth": 1440,
+        "hScroll": false,
+        "scrollers": [],
+        "tabHeights": [
+          40,
+          40,
+          40
+        ],
+        "aside": {
+          "x": 232,
+          "y": 175.2,
+          "w": 280,
+          "h": 457.9,
+          "left": 232,
+          "right": 512,
+          "display": "block",
+          "visibility": "visible"
+        },
+        "mobileSwitch": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "left": 0,
+          "right": 0,
+          "display": "none",
+          "visibility": "visible"
+        }
+      },
+      "preview": {
+        "previewVisible": true,
+        "insideGates": true,
+        "title": "Проверить доступ",
+        "note": " Предварительная проверка. Права не изменены. ",
+        "actor": {
+          "x": 552,
+          "y": 331.7,
+          "w": 420,
+          "h": 40,
+          "left": 552,
+          "right": 972
+        },
+        "actorValues": [
+          "self",
+          "5885953495",
+          "manual"
+        ],
+        "scope": {
+          "x": 980,
+          "y": 331.7,
+          "w": 420,
+          "h": 40,
+          "left": 980,
+          "right": 1400
+        },
+        "resource": {
+          "x": 552,
+          "y": 400.2,
+          "w": 848,
+          "h": 39.6,
+          "left": 552,
+          "right": 1400
+        },
+        "op": {
+          "x": 552,
+          "y": 468.3,
+          "w": 420,
+          "h": 40,
+          "left": 552,
+          "right": 972
+        },
+        "run": {
+          "x": 980,
+          "y": 468.3,
+          "w": 420,
+          "h": 40,
+          "left": 980,
+          "right": 1400
+        },
+        "runDisabled": false,
+        "formCols": "419.984px 420px",
+        "decision": "",
+        "decisionAttr": null,
+        "layers": [],
+        "error": null,
+        "noActor": false,
+        "stale": false,
+        "overrides": false,
+        "overrideRows": 0,
+        "overridesError": false,
+        "overridesSuppressed": false,
+        "checkboxesInGates": 0,
+        "previewText": "Проверить доступ\n\nПредварительная проверка. Права не изменены.\n\nАКТОР\nЯ\nAudit · id 5885953495\nTelegram ID…\nОБЛАСТЬ\nВесь бот\nAudit Chat\nЛичные сообщения\nРЕСУРС\nОПЕРАЦИЯ\nПросмотр\nЗапись\nПроверить",
+        "scrollWidth": 1440,
+        "innerWidth": 1440,
+        "hScroll": false,
+        "nestedScrollers": 0
+      }
+    },
+    "1280x800": {
+      "base": {
+        "roles": 6,
+        "sections": 12,
+        "rightsPane": true,
+        "matrixPane": true,
+        "gatesPane": true,
+        "scrollWidth": 1280,
+        "hScroll": false,
+        "scrollers": [],
+        "tabHeights": [
+          40,
+          40,
+          40
+        ],
+        "aside": {
+          "x": 232,
+          "y": 175.2,
+          "w": 280,
+          "h": 457.9,
+          "left": 232,
+          "right": 512,
+          "display": "block",
+          "visibility": "visible"
+        },
+        "mobileSwitch": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "left": 0,
+          "right": 0,
+          "display": "none",
+          "visibility": "visible"
+        }
+      },
+      "preview": {
+        "previewVisible": true,
+        "insideGates": true,
+        "title": "Проверить доступ",
+        "note": " Предварительная проверка. Права не изменены. ",
+        "actor": {
+          "x": 552,
+          "y": 331.7,
+          "w": 340,
+          "h": 40,
+          "left": 552,
+          "right": 892
+        },
+        "actorValues": [
+          "self",
+          "5885953495",
+          "manual"
+        ],
+        "scope": {
+          "x": 900,
+          "y": 331.7,
+          "w": 340,
+          "h": 40,
+          "left": 900,
+          "right": 1240
+        },
+        "resource": {
+          "x": 552,
+          "y": 400.2,
+          "w": 688,
+          "h": 39.6,
+          "left": 552,
+          "right": 1240
+        },
+        "op": {
+          "x": 552,
+          "y": 468.3,
+          "w": 340,
+          "h": 40,
+          "left": 552,
+          "right": 892
+        },
+        "run": {
+          "x": 900,
+          "y": 468.3,
+          "w": 340,
+          "h": 40,
+          "left": 900,
+          "right": 1240
+        },
+        "runDisabled": false,
+        "formCols": "340px 340px",
+        "decision": "",
+        "decisionAttr": null,
+        "layers": [],
+        "error": null,
+        "noActor": false,
+        "stale": false,
+        "overrides": false,
+        "overrideRows": 0,
+        "overridesError": false,
+        "overridesSuppressed": false,
+        "checkboxesInGates": 0,
+        "previewText": "Проверить доступ\n\nПредварительная проверка. Права не изменены.\n\nАКТОР\nЯ\nAudit · id 5885953495\nTelegram ID…\nОБЛАСТЬ\nВесь бот\nAudit Chat\nЛичные сообщения\nРЕСУРС\nОПЕРАЦИЯ\nПросмотр\nЗапись\nПроверить",
+        "scrollWidth": 1280,
+        "innerWidth": 1280,
+        "hScroll": false,
+        "nestedScrollers": 0
+      }
+    },
+    "768x1024": {
+      "base": {
+        "roles": 6,
+        "sections": 12,
+        "rightsPane": true,
+        "matrixPane": true,
+        "gatesPane": true,
+        "scrollWidth": 768,
+        "hScroll": false,
+        "scrollers": [],
+        "tabHeights": [
+          40,
+          40,
+          40
+        ],
+        "aside": {
+          "x": 16,
+          "y": 270.4,
+          "w": 220,
+          "h": 457.9,
+          "left": 16,
+          "right": 236,
+          "display": "block",
+          "visibility": "visible"
+        },
+        "mobileSwitch": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "left": 0,
+          "right": 0,
+          "display": "none",
+          "visibility": "visible"
+        }
+      },
+      "preview": {
+        "previewVisible": true,
+        "insideGates": true,
+        "title": "Проверить доступ",
+        "note": " Предварительная проверка. Права не изменены. ",
+        "actor": {
+          "x": 272,
+          "y": 426.9,
+          "w": 224,
+          "h": 40,
+          "left": 272,
+          "right": 496
+        },
+        "actorValues": [
+          "self",
+          "5885953495",
+          "manual"
+        ],
+        "scope": {
+          "x": 504,
+          "y": 426.9,
+          "w": 224,
+          "h": 40,
+          "left": 504,
+          "right": 728
+        },
+        "resource": {
+          "x": 272,
+          "y": 495.4,
+          "w": 456,
+          "h": 39.6,
+          "left": 272,
+          "right": 728
+        },
+        "op": {
+          "x": 272,
+          "y": 563.5,
+          "w": 224,
+          "h": 40,
+          "left": 272,
+          "right": 496
+        },
+        "run": {
+          "x": 504,
+          "y": 563.5,
+          "w": 224,
+          "h": 40,
+          "left": 504,
+          "right": 728
+        },
+        "runDisabled": false,
+        "formCols": "224px 224px",
+        "decision": "",
+        "decisionAttr": null,
+        "layers": [],
+        "error": null,
+        "noActor": false,
+        "stale": false,
+        "overrides": false,
+        "overrideRows": 0,
+        "overridesError": false,
+        "overridesSuppressed": false,
+        "checkboxesInGates": 0,
+        "previewText": "Проверить доступ\n\nПредварительная проверка. Права не изменены.\n\nАКТОР\nЯ\nAudit · id 5885953495\nTelegram ID…\nОБЛАСТЬ\nВесь бот\nAudit Chat\nЛичные сообщения\nРЕСУРС\nОПЕРАЦИЯ\nПросмотр\nЗапись\nПроверить",
+        "scrollWidth": 768,
+        "innerWidth": 768,
+        "hScroll": false,
+        "nestedScrollers": 0
+      }
+    },
+    "390x844": {
+      "base": {
+        "roles": 6,
+        "sections": 12,
+        "rightsPane": true,
+        "matrixPane": true,
+        "gatesPane": true,
+        "scrollWidth": 390,
+        "hScroll": false,
+        "scrollers": [],
+        "tabHeights": [
+          44,
+          44,
+          44
+        ],
+        "aside": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "left": 0,
+          "right": 0,
+          "display": "none",
+          "visibility": "visible"
+        },
+        "mobileSwitch": {
+          "x": 19,
+          "y": 299.4,
+          "w": 352,
+          "h": 44,
+          "left": 19,
+          "right": 371,
+          "display": "flex",
+          "visibility": "visible"
+        }
+      },
+      "preview": {
+        "previewVisible": true,
+        "insideGates": true,
+        "title": "Проверить доступ",
+        "note": " Предварительная проверка. Права не изменены. ",
+        "actor": {
+          "x": 28,
+          "y": 496.9,
+          "w": 334,
+          "h": 44,
+          "left": 28,
+          "right": 362
+        },
+        "actorValues": [
+          "self",
+          "5885953495",
+          "manual"
+        ],
+        "scope": {
+          "x": 28,
+          "y": 569.4,
+          "w": 334,
+          "h": 44,
+          "left": 28,
+          "right": 362
+        },
+        "resource": {
+          "x": 28,
+          "y": 641.9,
+          "w": 334,
+          "h": 44,
+          "left": 28,
+          "right": 362
+        },
+        "op": {
+          "x": 28,
+          "y": 714.4,
+          "w": 334,
+          "h": 44,
+          "left": 28,
+          "right": 362
+        },
+        "run": {
+          "x": 28,
+          "y": 766.4,
+          "w": 334,
+          "h": 44,
+          "left": 28,
+          "right": 362
+        },
+        "runDisabled": false,
+        "formCols": "334px",
+        "decision": "",
+        "decisionAttr": null,
+        "layers": [],
+        "error": null,
+        "noActor": false,
+        "stale": false,
+        "overrides": false,
+        "overrideRows": 0,
+        "overridesError": false,
+        "overridesSuppressed": false,
+        "checkboxesInGates": 0,
+        "previewText": "Проверить доступ\n\nПредварительная проверка. Права не изменены.\n\nАКТОР\nЯ\nAudit · id 5885953495\nTelegram ID…\nОБЛАСТЬ\nВесь бот\nAudit Chat\nЛичные сообщения\nРЕСУРС\nОПЕРАЦИЯ\nПросмотр\nЗапись\nПроверить",
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "hScroll": false,
+        "nestedScrollers": 0
+      }
+    },
+    "320x568": {
+      "base": {
+        "roles": 6,
+        "sections": 12,
+        "rightsPane": true,
+        "matrixPane": true,
+        "gatesPane": true,
+        "scrollWidth": 320,
+        "hScroll": false,
+        "scrollers": [],
+        "tabHeights": [
+          44,
+          44,
+          44
+        ],
+        "aside": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "left": 0,
+          "right": 0,
+          "display": "none",
+          "visibility": "visible"
+        },
+        "mobileSwitch": {
+          "x": 19,
+          "y": 269.4,
+          "w": 282,
+          "h": 44,
+          "left": 19,
+          "right": 301,
+          "display": "flex",
+          "visibility": "visible"
+        }
+      },
+      "preview": {
+        "previewVisible": true,
+        "insideGates": true,
+        "title": "Проверить доступ",
+        "note": " Предварительная проверка. Права не изменены. ",
+        "actor": {
+          "x": 28,
+          "y": 482.9,
+          "w": 264,
+          "h": 44,
+          "left": 28,
+          "right": 292
+        },
+        "actorValues": [
+          "self",
+          "5885953495",
+          "manual"
+        ],
+        "scope": {
+          "x": 28,
+          "y": 555.4,
+          "w": 264,
+          "h": 44,
+          "left": 28,
+          "right": 292
+        },
+        "resource": {
+          "x": 28,
+          "y": 627.9,
+          "w": 264,
+          "h": 44,
+          "left": 28,
+          "right": 292
+        },
+        "op": {
+          "x": 28,
+          "y": 700.4,
+          "w": 264,
+          "h": 44,
+          "left": 28,
+          "right": 292
+        },
+        "run": {
+          "x": 28,
+          "y": 752.4,
+          "w": 264,
+          "h": 44,
+          "left": 28,
+          "right": 292
+        },
+        "runDisabled": false,
+        "formCols": "264px",
+        "decision": "",
+        "decisionAttr": null,
+        "layers": [],
+        "error": null,
+        "noActor": false,
+        "stale": false,
+        "overrides": false,
+        "overrideRows": 0,
+        "overridesError": false,
+        "overridesSuppressed": false,
+        "checkboxesInGates": 0,
+        "previewText": "Проверить доступ\n\nПредварительная проверка. Права не изменены.\n\nАКТОР\nЯ\nAudit · id 5885953495\nTelegram ID…\nОБЛАСТЬ\nВесь бот\nAudit Chat\nЛичные сообщения\nРЕСУРС\nОПЕРАЦИЯ\nПросмотр\nЗапись\nПроверить",
+        "scrollWidth": 320,
+        "innerWidth": 320,
+        "hScroll": false,
+        "nestedScrollers": 0
+      }
+    },
+    "admins-inflight-1440x900": {
+      "noActor": false,
+      "actorValues": [
+        "self",
+        "5885953495",
+        "manual"
+      ],
+      "runDisabled": false,
+      "decision": "allowed"
+    },
+    "admins-inflight-1280x800": {
+      "noActor": false,
+      "actorValues": [
+        "self",
+        "5885953495",
+        "manual"
+      ],
+      "runDisabled": false,
+      "decision": "allowed"
+    }
+  },
+  "limitations": [
+    "локальный стенд: /api/access/* — детерминированные стабы, TMA_STUB; НЕ live TMA и не production-БД",
+    "реальная семантика решения покрыта Python-тестами и анти-дрейфом; здесь UI/сеть/раскладка",
+    "живой non-global/TMA-сеанс — RFL (не owner QA)"
+  ]
+}

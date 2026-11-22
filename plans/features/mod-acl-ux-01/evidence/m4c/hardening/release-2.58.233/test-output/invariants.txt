@@ -1,0 +1,20 @@
+﻿== byte identity vs base ==
+web/api/access.py: IDENTICAL sha1=9c17439b84cfd1a99823deb7410273fe19cc3b1f
+web/api/deps.py: IDENTICAL sha1=86a144ba7ac728990d5e3e67d9ea7e10dd324936
+services/permissions.py: IDENTICAL sha1=d45f5b78fe0d95ea958ffd9e59613467b5de51b5
+services/access.py: IDENTICAL sha1=089e3761aee1c2b1ad0780f1b9d40218808b308d
+services/config_cache.py: IDENTICAL sha1=2abcc6f17609957df403e3d33e589298358ab13b
+services/pg_db.py: IDENTICAL sha1=e485aa06931e9e556c83b6afdd3cb8a00aee52fb
+services/database.py: IDENTICAL sha1=f85e150bc2cc358605347b49ec7343f607821ab4
+services/param_catalog.py: IDENTICAL sha1=772c787948c2fcdf27078e709a90501859d7e8e7
+web/app.js: IDENTICAL sha1=5deb7caf4dd5fd24c1776f0a7f37b298c5a4c011
+migrations/__init__.py: MISSING
+== route decorators ==
+base: api_router decorators=76
+worktree: api_router decorators=76
+== access_router write decorators ==
+write=9 total=19
+== bump profile (32 files) ==
+files=32 mismatches=0
+== live old-version pins outside evidence ==
+config/settings.py

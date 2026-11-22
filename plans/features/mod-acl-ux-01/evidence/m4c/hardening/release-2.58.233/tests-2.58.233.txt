@@ -1,0 +1,44 @@
+MOD-ACL-UX-01 M4C ACL-hardening S1/S2/S3 - release 2.58.233 assembly (2026-11-22 14:53 +12:00 / 02:53 UTC)
+Branch release/mod-acl-hardening-2.58.233; base/rollback 462568ed7 (2.58.232); content tip aada3af83
+Candidate c67fd490f (product 3b9909447); product bytes identical to candidate.
+
+  PYTHON
+  hardening (new file)                63 passed
+  C1 access matrix read               17 passed
+  C2 effective/preview               124 passed
+  route pins (F8 canon + mirror)      53 passed
+  focused 10-file                    334 passed / 2 failed (pre-existing)
+  pin-guard 24 version-pin files     856 passed / 4 failed (same 4 pre-existing)
+  post-comment version pins           58 passed (after final changelog edit)
+
+  NODE
+  9 scripts (M4C2 preview/admins, M4C1 roles/editor, methods-dup, hotfix7-10)  all rc=0
+
+  PLAYWRIGHT (local stand, TMA_STUB / API stubs)
+  hardening admins (1440/390)        PASS 0 failures
+  C1 roles page                      PASS 0 failures
+  C2 preview                         PASS 0 failures
+  B1 status                          ok, checks 138, failures 0
+  B2 status                          ok, checks 92, failures 0
+  B3 status                          ok, checks 131, failures 0, screenshots 8
+
+  SCHEMA / SYNTAX / INVARIANTS
+  schema smoke (temp SQLite)         TARGET 48 user_version 48 max 48 count 48 tables 101
+  py_compile / node --check          rc=0 / rc=0
+  api_router decorators              base 76 = release 76
+  access_router write decorators     9 (web/api/access.py byte-identical to base)
+  byte-identical to base             access.py, deps.py, permissions.py, access.py, config_cache.py,
+                                     pg_db.py, database.py, param_catalog.py, web/app.js
+  bump wave                          32 files, 35/35, BOM/CRLF/LF profile 0 mismatches
+
+Pre-existing failures (same node IDs as 2.58.232 assembly and candidate evidence):
+  test_prompt_field_audit::test_every_editable_prompt_has_reachable_surface
+  test_webapp_hubs_matrix_ui::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
+  test_tool_coordinator_round1026::TestBounds::{test_forbidden_paths_out_of_diff,test_canon_twelve_tools}
+  test_unified_image_request_round1026::TestToolDescriptionU21::test_canon_unchanged
+  test_unified_image_request_round1026::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+
+Manifest dry-run: version 2.58.233, previous 462568ed7 / 2.58.232, dirty_tracked=false,
+deployed_sha aada3af83, exit 0; .deploy reconstructed locally and removed.
+Not done here: deploy/SSH/production DB/live TMA/LLM; single-process preflight is a
+mandatory pre-deploy step (runbook §0/§2). M4C-HARD-R1-N01 backlog-only; SCN-01 RFL.

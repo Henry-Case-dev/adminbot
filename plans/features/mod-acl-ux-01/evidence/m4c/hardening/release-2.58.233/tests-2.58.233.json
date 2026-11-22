@@ -1,0 +1,191 @@
+{
+  "artifact": "MOD-ACL-UX-01 M4C ACL-hardening S1/S2/S3 - release 2.58.233 assembly tests",
+  "date": "2026-11-22",
+  "local_time": "2026-11-22 14:53 +12:00",
+  "utc_time": "2026-11-22 02:53 UTC",
+  "release": "2.58.233",
+  "branch": "release/mod-acl-hardening-2.58.233",
+  "base": "462568ed7662cf5786a543bce8ecb6618e073c87",
+  "base_version": "2.58.232",
+  "candidate_tip": "c67fd490ff11f7c72bdd6cf82bef5513a8b29b3f",
+  "candidate_product": "3b9909447982eadffb0c20beb266870b21eb2a3a",
+  "content_tip": "aada3af8308149b989c543fa575b22c5736c17df",
+  "environment": {
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "node": "v24.16.0",
+    "browser": "Playwright Chromium via local deterministic stand with API stubs/TMA_STUB",
+    "cwd": "release worktree (registered under WorkspaceData/worktrees)",
+    "env_overrides": "none for pytest; e2e shots/reports redirected to a temp directory so tracked evidence is not modified"
+  },
+  "capture_encoding": "pytest/node stdout+stderr captured directly via subprocess as UTF-8 (no shell transcoding); Playwright console output captured as written",
+  "batches": [
+    {
+      "id": "python-hardening",
+      "command": "python -m pytest tests/test_mod_acl_ux_m4c_acl_hardening.py -q --color=no",
+      "result": "63 passed, 1 warning in 6.34s",
+      "exit_code": 0,
+      "artifact": "test-output/new-tests.txt"
+    },
+    {
+      "id": "python-c1-matrix",
+      "command": "python -m pytest tests/test_webapp_access_matrix_read.py -q --color=no",
+      "result": "17 passed, 1 warning in 4.57s",
+      "exit_code": 0,
+      "artifact": "test-output/c1.txt"
+    },
+    {
+      "id": "python-c2-effective",
+      "command": "python -m pytest tests/test_webapp_access_effective.py -q --color=no",
+      "result": "124 passed, 1 warning in 14.52s",
+      "exit_code": 0,
+      "artifact": "test-output/c2.txt"
+    },
+    {
+      "id": "python-route-pins",
+      "command": "python -m pytest tests/test_round1025_f8_registry.py tests/test_mca23_planned_vs_actual.py -q --color=no",
+      "result": "53 passed, 1 warning in 4.73s",
+      "exit_code": 0,
+      "artifact": "test-output/route-pins.txt"
+    },
+    {
+      "id": "python-focused-10file",
+      "command": "python -m pytest tests/test_webapp_api.py tests/test_roles_admin.py tests/test_permissions.py tests/test_acl_global_admin_role_permission_gate.py tests/test_config_cache.py tests/test_webapp_access_matrix_read.py tests/test_prompt_field_audit.py tests/test_mod_acl_ux_m2_tristate_write.py tests/test_webapp_evol_w13_touch_portal.py tests/test_webapp_hubs_matrix_ui.py -q --color=no",
+      "result": "334 passed, 2 failed in 22.16s",
+      "exit_code": 1,
+      "failed": [
+        "tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface",
+        "tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed"
+      ],
+      "pre_existing": true,
+      "pre_existing_evidence": "Same two node IDs as 2.58.232 assembly and the hardening candidate evidence (focused 334/2); affected files/tests are not touched by this release.",
+      "artifact": "test-output/focused.txt"
+    },
+    {
+      "id": "python-pin-guard-24file",
+      "command": "python -m pytest <24 tests/*.py files containing the new version literal> -q --color=no",
+      "result": "856 passed, 4 failed in 71.08s",
+      "exit_code": 1,
+      "failed": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "pre_existing": true,
+      "pre_existing_evidence": "Same four node IDs as the 2.58.232 assembly (856/4) and the candidate evidence; unchanged non-version files (routes.py, deps.py, permissions.py, pg_db.py, param_catalog.py, config_cache.py, database.py) are byte-identical to base; only the version literal changed in these 24 files.",
+      "artifact": "test-output/pin-guard.txt"
+    },
+    {
+      "id": "node-suites",
+      "command": "node tests/js/mod_acl_ux_m4c2_preview_test.js; node tests/js/mod_acl_ux_m4c2_admins_seed_test.js; node tests/js/mod_acl_ux_m4c1_roles_page_test.js; node tests/js/mod_acl_ux_m4c1_editor_preserve_test.js; node tests/js/app_methods_dup_keys_guard_test.js; node tests/js/round1025_hotfix{7,8,9,10}_*.js",
+      "result": "9/9 rc=0: PREVIEW-OK, ADMINS-SEED-OK, ROLES-PAGE-OK, EDITOR-PRESERVE-OK, methods-dup guard OK, HOTFIX7/8/9/10 OK",
+      "exit_code": 0,
+      "artifact": "test-output/node.txt"
+    },
+    {
+      "id": "playwright-hardening-admins",
+      "command": "MOD_ACL_HARDENING_PORT=8824 MOD_ACL_HARDENING_SHOTS=<temp> python tools/ui_mod_acl_m4c_hardening_admins_e2e.py",
+      "result": "PASS: 0 failure(s); 1440x900 and 390x844; non-global read-only (0 remove, 0 add, 'Только просмотр') and global controls present",
+      "exit_code": 0,
+      "artifact": "test-output/e2e-hardening-admins.txt",
+      "machine_report": "test-output/e2e-hardening-admins-report.json"
+    },
+    {
+      "id": "playwright-c1",
+      "command": "MOD_ACL_M4C1_PORT=8831 MOD_ACL_M4C1_SHOTS=<temp> python tools/ui_mod_acl_m4c1_roles_e2e.py",
+      "result": "PASS: 0 failure(s); C1 roles page unchanged",
+      "exit_code": 0,
+      "artifact": "test-output/e2e-c1.txt",
+      "machine_report": "test-output/e2e-c1-report.json"
+    },
+    {
+      "id": "playwright-c2",
+      "command": "MOD_ACL_M4C2_PORT=8832 MOD_ACL_M4C2_SHOTS=<temp> python tools/ui_mod_acl_m4c2_preview_e2e.py",
+      "result": "PASS: 0 failure(s); C2 preview page unchanged",
+      "exit_code": 0,
+      "artifact": "test-output/e2e-c2.txt",
+      "machine_report": "test-output/e2e-c2-report.json"
+    },
+    {
+      "id": "regression-b1",
+      "command": "MOD_ACL_M4B_STATUS_PORT=8856 MOD_ACL_M4B_STATUS_SHOTS=<temp> MOD_ACL_M4B_STATUS_REPORT=<temp> python tools/ui_mod_acl_m4b_status_e2e.py",
+      "result": "{\"ok\": true, \"checks\": 138, \"failures\": []}; M4B-STATUS-E2E-OK",
+      "exit_code": 0,
+      "artifact": "test-output/e2e-b1.txt",
+      "machine_report": "test-output/e2e-b-summary.json"
+    },
+    {
+      "id": "regression-b2",
+      "command": "MOD_ACL_M4B2_STATUS_PORT=8857 MOD_ACL_M4B2_STATUS_SHOTS=<temp> MOD_ACL_M4B2_STATUS_REPORT=<temp> python tools/ui_mod_acl_m4b2_status_e2e.py",
+      "result": "{\"ok\": true, \"checks\": 92, \"failures\": []}; M4B-B2-STATUS-E2E-OK",
+      "exit_code": 0,
+      "artifact": "test-output/e2e-b2.txt",
+      "machine_report": "test-output/e2e-b-summary.json"
+    },
+    {
+      "id": "regression-b3",
+      "command": "MOD_ACL_M4B3_PORT=8858 MOD_ACL_M4B3_SHOTS=<temp> MOD_ACL_M4B3_REPORT=<temp> python tools/ui_mod_acl_m4b3_status_e2e.py",
+      "result": "{\"ok\": true, \"checks\": 131, \"failures\": [], \"screenshots\": 8}; M4B-B3-STATUS-E2E-OK",
+      "exit_code": 0,
+      "artifact": "test-output/e2e-b3.txt",
+      "machine_report": "test-output/e2e-b-summary.json"
+    },
+    {
+      "id": "schema-smoke",
+      "command": "temp SQLite: DatabaseService.initialize() then PRAGMA user_version / schema_migrations (no production DB)",
+      "result": "TARGET 48 user_version 48 schema_migrations max 48 count 48 tables 101",
+      "exit_code": 0,
+      "artifact": "test-output/schema-smoke.txt"
+    },
+    {
+      "id": "syntax",
+      "command": "python -m py_compile changed Python; node --check web/app.js",
+      "result": "py_compile rc=0; node --check rc=0; api_router decorators 76",
+      "exit_code": 0,
+      "artifact": "test-output/syntax.txt"
+    },
+    {
+      "id": "bump-profile",
+      "command": "compare BOM/CRLF/LF profile of the 32 bumped files against the base blob",
+      "result": "32 files checked, 0 profile mismatches (settings.py keeps UTF-8 BOM + CRLF)",
+      "exit_code": 0,
+      "artifact": "test-output/invariants.txt"
+    },
+    {
+      "id": "post-comment-pins",
+      "command": "python -m pytest tests/test_scope_selector_round1025.py tests/test_round1025_f8_registry.py tests/test_mca17c_invariants_round1047.py -q --color=no (after final changelog edit)",
+      "result": "58 passed in 4.11s; imported APP_VERSION == 2.58.233",
+      "exit_code": 0,
+      "artifact": "test-output/post-comment-pins.txt"
+    }
+  ],
+  "pre_existing_failures": {
+    "focused": [
+      "test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface",
+      "test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed"
+    ],
+    "pin_guard": [
+      "test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+      "test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+      "test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+      "test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+    ],
+    "proof": "Same node IDs in the 2.58.232 assembly evidence (focused 334/2, pin-guard 856/4), in the ordering evidence and in the independent hardening candidate evidence; the affected paths/tests are byte-identical to base apart from the version literal."
+  },
+  "invariants": {
+    "product_equals_candidate": "git diff c67fd490f..HEAD -- services web is empty (product bytes identical to the reviewed candidate)",
+    "unchanged_files": "web/api/access.py, web/api/deps.py, services/permissions.py, services/access.py, services/config_cache.py, services/pg_db.py, services/database.py, services/param_catalog.py, web/app.js byte-identical to base 462568ed7 (sha1 in test-output/invariants.txt)",
+    "routes": "api_router decorators base=76 candidate=76; ROUTES_SHA256_F11 re-pinned to 453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5 in both F8 tests (Δ routes=0)",
+    "write_routes": "access_router write decorators = 9 unchanged",
+    "schema": "48 / DDL 0; no migration, no DDL, no flags/prompts/model/key changes",
+    "bump": "32 files, 35 insertions / 35 deletions, BOM/CRLF/LF profile identical"
+  },
+  "limitations": [
+    "Playwright/Browser Use run against the local deterministic stand with API stubs and TMA_STUB, not live TMA or production PostgreSQL; visual/layout proof applies to candidate bytes, production semantics are not claimed.",
+    "No SSH, production DB, LLM chat or deploy was used in this assembly.",
+    "Single-process deployment was not verified here (no production access); it is a mandatory pre-deploy precondition for the per-app asyncio.Lock (runbook §2.1).",
+    "Live non-global TMA (SCN-01) remains RFL, not owner QA; positive owner write is not executed in production (covered by deterministic tests).",
+    "M4C-HARD-R1-N01 (post_admins role pre-check outside ACL lock -> FK error/500 on concurrent delete_role) is BACKLOG_ONLY and does not block this candidate."
+  ]
+}

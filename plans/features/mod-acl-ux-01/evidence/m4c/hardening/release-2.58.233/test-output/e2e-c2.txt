@@ -1,0 +1,2 @@
+﻿[m4c2] PASS: 0 failure(s)
+[m4c2] report -> C:\Users\main\AppData\Local\Temp\opencode\acl233\out\shots\c2\report.json
