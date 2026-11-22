@@ -518,6 +518,12 @@ async def test_h_llm_unavailable_stalls_position_honestly(tmp_path):
         counters = payload["counters"]
         assert counters["semantic_llm_unavailable"] == 1
         assert counters["semantic_selected"] == 0
+        # M5A/S15-1-03: completed job, но семантика честно unavailable/partial.
+        assert payload["semantic_stage_status"] == "unavailable"
+        assert payload["semantic_partial"] is True
+        assert "llm_unavailable" in payload["semantic_partial_reasons"]
+        assert payload["semantic_progress"]["partial"] is True
+        assert payload["semantic_progress"]["stage_status"] == "unavailable"
         # позиция/индекс семантики не двинуты, детерминированный контур жив
         assert payload.get(f"{mj.SEMANTIC_CURSOR_PREFIX}-100", 0) == 0
         assert counters["detector_detected"] == 1
@@ -529,6 +535,96 @@ async def test_h_llm_unavailable_stalls_position_honestly(tmp_path):
         payload = await _payload_of(db)
         assert payload[f"{mj.SEMANTIC_CURSOR_PREFIX}-100"] >= 1
         assert payload["counters"]["semantic_selected"] == 2
+        assert payload["semantic_stage_status"] == "completed"
+        assert payload["semantic_partial"] is False
+    finally:
+        await db.close()
+
+
+# ═══ (h2) stage report: completed job ≠ полное обучение ════════════════════
+
+def test_semantic_stage_report_unavailable_and_partial():
+    done = mj.semantic_stage_report({}, {
+        "semantic_batches_run": 3, "semantic_selected": 5})
+    assert done["semantic_stage_status"] == "completed"
+    assert done["semantic_partial"] is False
+    assert done["semantic_partial_reasons"] == []
+    unavailable = mj.semantic_stage_report({}, {
+        "semantic_llm_unavailable": 1, "semantic_selected": 0,
+        "semantic_batches_run": 0})
+    assert unavailable["semantic_stage_status"] == "unavailable"
+    assert unavailable["semantic_partial"] is True
+    assert unavailable["semantic_partial_reasons"] == ["llm_unavailable"]
+    partial = mj.semantic_stage_report({}, {
+        "semantic_parse_invalid": 1, "semantic_selected": 4,
+        "semantic_batches_run": 2})
+    assert partial["semantic_stage_status"] == "partial"
+    assert partial["semantic_partial_reasons"] == ["parse_invalid"]
+
+
+# ═══ (h3) watermark не зацикливается на chat_id=NULL ═══════════════════════
+
+@pytest.mark.asyncio
+async def test_null_chat_row_advances_watermark_without_loop():
+    class _Cur:
+        def __init__(self, rows):
+            self._rows = rows
+
+        async def fetchall(self):
+            return list(self._rows)
+
+    class _Db:
+        def __init__(self):
+            self.rows = [{"id": 5, "chat_id": None, "timestamp": 1}]
+
+        async def execute(self, sql, params):
+            if "FROM smart_messages WHERE id > ?" in sql:
+                watermark = int(params[0])
+                return _Cur([r for r in self.rows
+                             if int(r["id"]) > watermark])
+            return _Cur([])
+
+    class _Holder:
+        db = _Db()
+
+    runner = object.__new__(mj.ExperienceReviewRunner)
+    runner._db = _Holder()
+    payload = {
+        "counters": mj.default_counters(),
+        "semantic_watermark": 0,
+        "semantic_pending": {},
+        "semantic_pending_since": {},
+    }
+    await runner._semantic_discover(payload, now=1)
+    assert payload["semantic_watermark"] == 5
+    assert payload["semantic_pending"] == {}
+    # Повторный discovery не видит ту же строку и не крутит её вечно.
+    await runner._semantic_discover(payload, now=2)
+    assert payload["semantic_watermark"] == 5
+    assert payload["counters"]["semantic_scanned"] == 0
+
+
+# ═══ (h4) strategy_success/topic_pattern остаются гипотезами ═══════════════
+
+@pytest.mark.asyncio
+async def test_strategy_success_topic_pattern_not_promoted_to_lessons(tmp_path):
+    db = await _db(tmp_path, "limit.db")
+    try:
+        mid = await _msg(db, user_id=42, ts=1000,
+                         text="обсуждали погоду и планы на выходные")
+        raw = json.dumps([
+            _cand(kind="strategy_success", msg_ids=[mid], topic="weather"),
+            _cand(kind="topic_pattern", msg_ids=[mid], topic="weekend"),
+        ])
+        llm = _FakeLLM(responses=[raw, "[]"])
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        payload = await _payload_of(db)
+        # Оба сигнала durable (hypotheses), но ни один не стал уроком.
+        assert payload["counters"]["semantic_candidates"] >= 2
+        assert payload["counters"]["proposed"] == 0
+        cur = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM mca_lessons")
+        assert (await cur.fetchone())["c"] == 0
     finally:
         await db.close()
 

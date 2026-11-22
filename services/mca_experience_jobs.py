@@ -149,6 +149,12 @@ SEMANTIC_LAST_TS_KEY = "semantic_last_ts"
 SEMANTIC_PENDING_SINCE_KEY = "semantic_pending_since"   # {chat: ts}
 SEMANTIC_RETRY_KEY = "semantic_retry"                   # {chat: {...}}
 SEMANTIC_PROGRESS_KEY = "semantic_progress"             # снимок throughput/lag
+#: M5A: completed — статус выполненного job, а не «полное обучение».
+#: Semantic stage явно отчитывается completed/partial/unavailable; cursor
+#: при unavailable не двигается, partial-причина durable в payload.
+SEMANTIC_STAGE_STATUS_KEY = "semantic_stage_status"
+SEMANTIC_PARTIAL_KEY = "semantic_partial"
+SEMANTIC_PARTIAL_REASONS_KEY = "semantic_partial_reasons"
 SEMANTIC_STATE_VERSION_KEY = "semantic_state_version"
 SEMANTIC_STATE_VERSION = 2
 RESUME_CURSOR_KEY = "resume_cursor"                     # EXP-FIX-07
@@ -1196,6 +1202,53 @@ def semantic_pending_chat_cap() -> int:
                     SEMANTIC_PENDING_CHAT_CAP, 4, 2048)
 
 
+def semantic_stage_report(payload: dict, counters: dict | None = None) -> dict:
+    """M5A: честный статус семантической стадии выполненного job.
+
+    ``completed`` у job означает лишь, что детерминированный проход выполнен.
+    Семантика может быть unavailable/partial: при недоступном LLM cursor не
+    двигается, а причина durable в payload. Возврат — только коды/числа (R17),
+    без содержимого сообщений."""
+    counters = counters if isinstance(counters, dict) else (
+        payload.get("counters") or {})
+
+    def _n(key: str) -> int:
+        try:
+            return max(0, int(counters.get(key) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    reasons: list[str] = []
+    if _n("semantic_llm_unavailable") > 0:
+        reasons.append("llm_unavailable")
+    if _n("semantic_discover_errors") > 0:
+        reasons.append("discover_error")
+    if _n("semantic_read_errors") > 0:
+        reasons.append("read_error")
+    if _n("semantic_parse_invalid") > 0:
+        reasons.append("parse_invalid")
+    if _n("semantic_write_failures") > 0:
+        reasons.append("write_failed")
+    if _n("semantic_budget_exhausted") > 0:
+        reasons.append("budget_exhausted")
+    # Непокрытая обрезка (recovered не считается частичной деградацией).
+    if _n("semantic_truncated") > _n("semantic_truncated_recovered"):
+        reasons.append("truncated")
+    if payload.get(SEMANTIC_RETRY_KEY):
+        reasons.append("deferred")
+    if reasons:
+        status = ("unavailable"
+                  if reasons == ["llm_unavailable"]
+                  and _n("semantic_selected") == 0 else "partial")
+    else:
+        status = "completed"
+    return {
+        SEMANTIC_STAGE_STATUS_KEY: status,
+        SEMANTIC_PARTIAL_KEY: bool(reasons),
+        SEMANTIC_PARTIAL_REASONS_KEY: reasons,
+    }
+
+
 def semantic_progress_snapshot(payload: dict, *,
                                now: int | None = None) -> dict:
     """Честный снимок throughput/lag семантического контура (EXP-FIX-02).
@@ -1278,6 +1331,12 @@ def semantic_progress_snapshot(payload: dict, *,
         # подмены lag нулём и без содержимого сообщений.
         "fresh_lanes": len(payload.get(SEMANTIC_FRESH_KEY) or {}),
         "truncated_chats": len(payload.get(SEMANTIC_TRUNCATED_KEY) or {}),
+        # M5A: completed job ≠ полное обучение; статус семантики виден явно.
+        "stage_status": str(
+            payload.get(SEMANTIC_STAGE_STATUS_KEY) or "unknown"),
+        "partial": bool(payload.get(SEMANTIC_PARTIAL_KEY)),
+        "partial_reasons": list(
+            payload.get(SEMANTIC_PARTIAL_REASONS_KEY) or ()),
     }
     lag = payload.get(SEMANTIC_LAG_KEY)
     if isinstance(lag, dict) and lag.get("available"):
@@ -2445,6 +2504,8 @@ class ExperienceReviewRunner:
             # (не только счётчик pending) — до записи снимка/события лага.
             payload[SEMANTIC_LAG_KEY] = await self._measure_semantic_lag(
                 payload, now=now)
+            payload.update(semantic_stage_report(
+                payload, payload.get("counters")))
             payload[SEMANTIC_PROGRESS_KEY] = semantic_progress_snapshot(
                 payload, now=now)
 
