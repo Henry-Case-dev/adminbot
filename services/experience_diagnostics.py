@@ -1282,6 +1282,8 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
         logger.debug("[exp_diag] review payload unavailable", exc_info=True)
     durable = payload.get("analytics") if isinstance(
         payload.get("analytics"), dict) else {}
+    run_counters = payload.get("counters") if isinstance(
+        payload.get("counters"), dict) else {}
     progress = payload.get("semantic_progress") if isinstance(
         payload.get("semantic_progress"), dict) else {}
     stats = payload.get("archive_stats") if isinstance(
@@ -1344,6 +1346,18 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
             "lag_seconds_source": str(
                 progress.get("lag_seconds_source") or "unknown"),
             "max_observed_rows": _int(durable.get("fresh_stream_lag_rows")),
+            # M5A-R1-02 (MAC-S7-392): статус семантической стадии того же
+            # durable-снимка job'а. `completed` у job'а не означает полного
+            # обучения; отсутствующий снимок честно отдаёт "unknown", а не
+            # «completed» и не пустой ноль.
+            "stage_status": str(progress.get("stage_status") or "unknown"),
+            "partial": bool(progress.get("partial")),
+            "partial_reasons": [str(reason) for reason in (
+                progress.get("partial_reasons") or ())],
+            # Сколько РЕАЛЬНЫХ батчей исполнено за последний прогон: счётчик
+            # job'а (не оценка), виден и в API, не только в payload.
+            "semantic_batches_run": _int(
+                run_counters.get("semantic_batches_run")),
         },
         "archive": {
             "watermark": _int(payload.get("archive_watermark")),
