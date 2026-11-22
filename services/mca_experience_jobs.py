@@ -2747,6 +2747,9 @@ class ExperienceReviewRunner:
                 counters["semantic_fresh_rows"] = int(
                     counters.get("semantic_fresh_rows") or 0) + int(
                     window.get("read") or 0)
+                # B01: retry/row_limit/backoff хвоста — отдельное состояние.
+                # Успех fresh-полосы НЕ стирает уменьшенное окно хвоста; свой
+                # fresh-backoff снимает `_book_semantic_fresh_window`.
             else:
                 self._book_semantic_window(
                     payload, cid,
@@ -2759,7 +2762,8 @@ class ExperienceReviewRunner:
                     counters["semantic_fresh_lanes_merged"] = int(
                         counters.get("semantic_fresh_lanes_merged") or 0
                     ) + 1
-            self._clear_semantic_retry(payload, cid)
+                # Успех хвоста снимает ТОЛЬКО tail retry (fresh — в lane).
+                self._clear_semantic_retry(payload, cid)
             booked.add(cid)
         return {"emitted": True, "booked": booked, "blocked": blocked}
 
@@ -3004,7 +3008,7 @@ class ExperienceReviewRunner:
         if not lanes:
             return {"batch": False}
         order = self._semantic_chat_order(
-            payload, now=now,
+            payload, now=now, respect_retry=False,
             behind={cid: int((self._semantic_fresh_lane(payload, cid)
                               or {}).get("cursor") or 0) for cid in lanes})
         fresh_order = [cid for cid in order if cid in set(lanes)]
@@ -3068,7 +3072,8 @@ class ExperienceReviewRunner:
         return {"batch": True, "emitted": bool(consumed.get("emitted"))}
 
     def _semantic_chat_order(self, payload: dict, *, now: int,
-                            behind: dict | None = None) -> list[int]:
+                             behind: dict | None = None,
+                             respect_retry: bool = True) -> list[int]:
         """Порядок чатов батча: LRU + отложенные повторы пропускаются.
 
         Чат на отложенном повторе не блокирует остальные (EXP-FIX-03/04/05);
@@ -3077,7 +3082,11 @@ class ExperienceReviewRunner:
         SXR-I2: в порядке участвуют и чаты, чей durable курсор отстаёт от
         фактических данных (`behind`), даже если `semantic_pending` уже 0 —
         иначе планировщик/выборка окон останавливались на счётчике, а не на
-        реальном backlog."""
+        реальном backlog.
+
+        B01/N01: `respect_retry=False` — для fresh-полосы. Её готовность
+        определяется собственным `semantic_fresh[chat].retry_at`; tail
+        backoff не должен задерживать новые события."""
         pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
         last_ts = payload.setdefault(SEMANTIC_LAST_TS_KEY, {})
         retry = payload.setdefault(SEMANTIC_RETRY_KEY, {})
@@ -3104,7 +3113,7 @@ class ExperienceReviewRunner:
                 chat_id = int(key)
             except (TypeError, ValueError):
                 continue
-            if _retry_at(chat_id) > now:
+            if respect_retry and _retry_at(chat_id) > now:
                 deferred += 1
                 continue
             chats.append(chat_id)
@@ -3116,7 +3125,7 @@ class ExperienceReviewRunner:
                 continue
             if chat_id in seen:
                 continue
-            if _retry_at(chat_id) > now:
+            if respect_retry and _retry_at(chat_id) > now:
                 deferred += 1
                 continue
             chats.append(chat_id)
