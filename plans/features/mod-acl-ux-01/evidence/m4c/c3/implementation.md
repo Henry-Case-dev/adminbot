@@ -49,5 +49,6 @@
 - `APP_VERSION=2.58.234`; schema SQLite **48**; PG DDL — только расширение CHECK.
 - Rollback `f232a3a` + restart: расширенный CHECK старому коду не мешает, audit-строки
   остаются; downgrade CHECK не выполняется; данные не теряются.
-- F8: `PG_DB_SHA256_B07=469775c2…`, `ROUTES_SHA256_F11=71d837c2…` (route-set не менялся;
-  новые GET/DELETE — в `access_router`, F8 сканирует `@api_router`); `PARAM_CATALOG` не тронут.
+- F8: `PG_DB_SHA256_B07=469775c2…`, `ROUTES_SHA256_F11=9ac3a8a6…` (C3.1 re-pin:
+  только тело recheck closure; route-set не менялся; новые GET/DELETE — в
+  `access_router`, F8 сканирует `@api_router`); `PARAM_CATALOG` не тронут.

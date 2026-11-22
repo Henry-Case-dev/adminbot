@@ -1074,7 +1074,8 @@ async def post_config(
             raise HTTPException(
                 status_code=403,
                 detail={"code": "denied",
-                        "keys": sorted(settings_overrides),
+                        "keys": sorted(set(settings_overrides)
+                                       | set(inherit_keys)),
                         "message": "доступ к чату отозван"})
         try:
             fresh_db = await access_srv.param_permissions_snapshot(cache.pg)
@@ -1089,10 +1090,15 @@ async def post_config(
                                    "записью: PostgreSQL/кэш недоступен"})
         fresh_perm_overrides = dict(fresh_root.get("perm_overrides") or {})
         denied: list[str] = []
-        for check_key in settings_overrides:
+        # C3-R1-B01: effective_matrix должен считаться по RAW-значению (как
+        # request-time db_override_map), а не по нормализованному
+        # snapshot.value: partial legacy/new-form override наследует
+        # отсутствующие поля (edit_roles) из дефолта.
+        # C3-R1-N01: inherit-ключи тоже требуют права редактирования.
+        for check_key in sorted(set(settings_overrides) | set(inherit_keys)):
             entry = fresh_db.get(check_key)
             matrix = access_srv.effective_matrix(
-                check_key, (entry or {}).get("value"),
+                check_key, (entry or {}).get("raw_value"),
                 fresh_perm_overrides.get(check_key))
             if not access_srv.can_edit_param(fresh_ctx, matrix):
                 denied.append(check_key)
@@ -1140,7 +1146,7 @@ async def post_config(
                     removed=inherit_keys,
                     recheck=(
                         _recheck_config_chat_rights
-                        if settings_overrides else None))
+                        if (settings_overrides or inherit_keys) else None))
                 updated_at_out = None
         except chat_params.ChatParamsConflict as exc:
             if prompt_items:
