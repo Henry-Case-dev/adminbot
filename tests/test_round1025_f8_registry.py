@@ -100,14 +100,12 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
 # не менялся).
 ROUTES_SHA256_F11 = (
-    # MOD-ACL-UX-01 M4C C3 (22.11.2026): осознанный re-pin (L-F11S-1) —
-    # добавлены revision/409 в /api/roles (+DELETE/rename токены), audit
-    # payload для admins/roles, recheck в _write_chat_overrides_with_retry.
-    # Route-set НЕ менялся (все изменения — в существующих @api_router
-    # маршрутах; новые GET/DELETE — в access_router и F8 route-set не
-    # сканирует). PARAM_CATALOG_SHA256_FOLLOWUP не тронут.
-    # Предыдущий пин: 453e17f8a1cd29d5.
-    "71d837c247f2e7be999f583dc91516bd19222276572c0be07c62dbe1c4479e76")
+    # MOD-ACL-UX-01 M4C C3.1 (22.11.2026): re-pin после C3-R1-B01/N01 —
+    # recheck POST /api/config chat читает raw_value (partial override) и
+    # проверяет inherit-ключи + передаёт recheck в inherit-only retry.
+    # Route-set/декораторы/пути не менялись; только тело recheck closure.
+    # Предыдущий пин: 71d837c247f2e7be999f583dc91516bd19222276572c0be07c62dbe1c4479e76.
+    "9ac3a8a60fe85eb4ca9af20f2e2be0c3b84b12a23b6c03fa6690ae41a3d4f4bf")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

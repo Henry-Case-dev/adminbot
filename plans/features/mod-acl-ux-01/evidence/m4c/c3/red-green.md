@@ -14,8 +14,8 @@
 
 ## GREEN (фактические прогоны)
 
-- 63 Python C3-теста (audit + write safety + inventory) — PASS.
-- 17 C1 / 124 C2 / 63 hardening — PASS; 568 focused — PASS.
+- 71 Python C3-теста (audit + write safety + inventory, вкл. C3.1 B01/N01) — PASS.
+- 17 C1 / 124 C2 / 63 hardening — PASS; 576 focused — PASS.
 - Node C1/C2/C3/M3 — PASS; e2e C3 + C1 + C2 + B1/B2/B3 — PASS.
 - Pin guard 856/4 — 4 падения идентичны базе (pre-existing, не C3).
 - Browser Use: реальный Chrome, desktop 1440 и 390; h-scroll 0, тач 44.

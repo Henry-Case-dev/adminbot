@@ -8,11 +8,11 @@ Python `C:\Code\Python\adminbot\.venv\Scripts\python.exe`, Node `v24.16.0`.
 
 | Прогон | Результат |
 |---|---|
-| `pytest tests/test_acl_audit.py tests/test_webapp_access_write_safety.py tests/test_acl_legacy_inventory.py -q` | **63 passed, 0 failed** |
+| `pytest tests/test_acl_audit.py tests/test_webapp_access_write_safety.py tests/test_acl_legacy_inventory.py -q` | **71 passed, 0 failed** (C3.1: +8 регрессий B01/N01) |
 | C1 `tests/test_webapp_access_matrix_read.py` | **17 passed, 0 failed** |
 | C2 `tests/test_webapp_access_effective.py` | **124 passed, 0 failed** |
 | Hardening `tests/test_mod_acl_ux_m4c_acl_hardening.py` | **63 passed, 0 failed** |
-| Focused C3a: `test_acl_audit` + `test_webapp_access_write_safety` + `test_webapp_access_effective` + `test_webapp_api` + `test_config_cache` + `test_roles_admin` + `test_permissions` + `test_diagnostic_policy` + `test_webapp_deps` + `test_webapp_access_matrix_read` + F8 | **568 passed, 0 failed** (36.6 s) |
+| Focused C3a: `test_acl_audit` + `test_webapp_access_write_safety` + `test_webapp_access_effective` + `test_webapp_api` + `test_config_cache` + `test_roles_admin` + `test_permissions` + `test_diagnostic_policy` + `test_webapp_deps` + `test_webapp_access_matrix_read` + F8 | **576 passed, 0 failed** (36.9 s) |
 | Pin guard, 24 version-pin файла | **856 passed, 4 failed** (73.9 s); те же 4 node-id падают на базе `f232a3a` (pre-existing, не C3): `test_tool_coordinator_round1026.py::TestBounds::{test_forbidden_paths_out_of_diff,test_canon_twelve_tools}`, `test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged`, `::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline` |
 | S8-524 backend | `TestEmbeddingsGuard`: 401 без initData; 403 local_admin-grant/moderator/user; 200 admin (5 тестов) |
 

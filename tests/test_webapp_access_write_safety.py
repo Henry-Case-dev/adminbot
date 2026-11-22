@@ -57,6 +57,7 @@ DM_ID = LOCAL_ID
 OTHER_DM = 7000000999
 
 KEY = "limits.search_max_symbols"
+PARTIAL_KEY = "limits.summary_hybrid_context_chars"
 PROMPT_KEY = "prompts.summary_system_prompt"
 SECOND_KEY = "limits.summary_hybrid_context_tokens"
 SENTINEL_PROMPT = "SENTINEL_PROMPT_TEXT_DO_NOT_LEAK"
@@ -1138,6 +1139,166 @@ class TestRecheck:
             json={"items": [{"key": KEY, "value": 777}],
                   "updated_at": _ts(1)})
         assert resp.status_code == 503, resp.text
+
+    @pytest.mark.parametrize("partial", [
+        {"view_min_role": "moderator"},
+        {"view_roles": ["moderator"]},
+        {"hidden_from_local": True},
+    ])
+    def test_c31_partial_override_no_false_403(
+            self, monkey_settings, monkeypatch, partial):
+        """C3-R1-B01: recheck обязан считать матрицу по raw-значению.
+
+        Partial override (legacy view-only / hidden-only / new-form только
+        view_roles) наследует edit_roles из дефолта при request-time guard;
+        нормализованный snapshot.value edit_roles теряет → ложный 403.
+        Права НЕ менялись: обе проверки local_admin, запись должна пройти.
+        """
+        db = FakeDB()
+        db.param_perms[PARTIAL_KEY] = {
+            "value": copy.deepcopy(partial),
+            "updated_at": _ts(20),
+        }
+        cache = _cache(db)
+        client = _client(cache, monkey_settings)
+        calls = []
+
+        async def fake_set(*args, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise chat_params.ChatParamsConflict(CHAT_ID, _ts(5))
+            return chat_params.ChatParamsResult({}, updated_at=_ts(6))
+
+        monkeypatch.setattr(chat_params, "set_chat_params", fake_set)
+        resp = client.post("/api/config", headers={
+            **_hdr(LOCAL_ID), "X-Chat-Id": str(CHAT_ID)},
+            json={"items": [{"key": PARTIAL_KEY, "value": 777}],
+                  "updated_at": _ts(1)})
+        assert resp.status_code == 200, resp.text
+        assert len(calls) == 2, "retry должен выполнить вторую запись"
+        assert calls[1]["expected_updated_at"] is None
+
+    @pytest.mark.parametrize("partial", [
+        {"view_min_role": "moderator"},
+        {"view_roles": ["moderator"]},
+        {"hidden_from_local": True},
+    ])
+    def test_c31_partial_override_real_revoke_still_403(
+            self, monkey_settings, monkeypatch, partial):
+        """Тот же partial override, но права реально отозваны: 403, 1 запись."""
+        db = FakeDB()
+        db.param_perms[PARTIAL_KEY] = {
+            "value": copy.deepcopy(partial),
+            "updated_at": _ts(20),
+        }
+        cache = _cache(db)
+        client = _client(cache, monkey_settings)
+        calls = []
+        original_access_for = roles_srv.access_for
+        state = {"n": 0}
+
+        async def access_for(telegram_id, chat_id=None, cache=None,
+                            strict=False):
+            if chat_id == CHAT_ID and telegram_id == LOCAL_ID:
+                state["n"] += 1
+                if state["n"] == 1:
+                    return await original_access_for(
+                        telegram_id, chat_id, cache=cache, strict=strict)
+                return roles_srv.AccessCtx(
+                    role_global="user", role_chat=None,
+                    perms_global=Permissions.from_dict({}),
+                    perms_chat=Permissions.from_dict({}),
+                    is_global_admin=False, is_local_admin=False, rank=1)
+            return await original_access_for(
+                telegram_id, chat_id, cache=cache, strict=strict)
+
+        async def fake_set(*args, **kwargs):
+            calls.append(kwargs)
+            raise chat_params.ChatParamsConflict(CHAT_ID, _ts(5))
+
+        monkeypatch.setattr(roles_srv, "access_for", access_for)
+        monkeypatch.setattr(chat_params, "set_chat_params", fake_set)
+        resp = client.post("/api/config", headers={
+            **_hdr(LOCAL_ID), "X-Chat-Id": str(CHAT_ID)},
+            json={"items": [{"key": PARTIAL_KEY, "value": 777}],
+                  "updated_at": _ts(1)})
+        assert resp.status_code == 403, resp.text
+        assert resp.json()["detail"]["code"] == "denied"
+        assert resp.json()["detail"]["keys"] == [PARTIAL_KEY]
+        assert len(calls) == 1
+
+    def test_c31_inherit_retry_rechecks_rights(
+            self, monkey_settings, monkeypatch):
+        """C3-R1-N01: inherit-only retry не должен писать после отзыва прав."""
+        db = FakeDB()
+        cache = _cache(db)
+        client = _client(cache, monkey_settings)
+        calls = []
+        original_access_for = roles_srv.access_for
+        state = {"n": 0}
+
+        async def access_for(telegram_id, chat_id=None, cache=None,
+                            strict=False):
+            if chat_id == CHAT_ID and telegram_id == LOCAL_ID:
+                state["n"] += 1
+                if state["n"] == 1:
+                    return await original_access_for(
+                        telegram_id, chat_id, cache=cache, strict=strict)
+                return roles_srv.AccessCtx(
+                    role_global="user", role_chat=None,
+                    perms_global=Permissions.from_dict({}),
+                    perms_chat=Permissions.from_dict({}),
+                    is_global_admin=False, is_local_admin=False, rank=1)
+            return await original_access_for(
+                telegram_id, chat_id, cache=cache, strict=strict)
+
+        async def fake_get_all(*args, **kwargs):
+            return {"overrides": {KEY: 111}, "meta": {}}
+
+        async def fake_set(*args, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise chat_params.ChatParamsConflict(CHAT_ID, _ts(5))
+            return chat_params.ChatParamsResult({}, updated_at=_ts(6))
+
+        monkeypatch.setattr(roles_srv, "access_for", access_for)
+        monkeypatch.setattr(chat_params, "get_all_chat_params", fake_get_all)
+        monkeypatch.setattr(chat_params, "set_chat_params", fake_set)
+        resp = client.post("/api/config", headers={
+            **_hdr(LOCAL_ID), "X-Chat-Id": str(CHAT_ID)},
+            json={"items": [{"key": KEY, "mode": "inherit"}],
+                  "updated_at": _ts(1)})
+        assert resp.status_code == 403, resp.text
+        assert resp.json()["detail"]["code"] == "denied"
+        assert resp.json()["detail"]["keys"] == [KEY]
+        assert len(calls) == 1
+
+    def test_c31_inherit_retry_unchanged_rights_succeeds(
+            self, monkey_settings, monkeypatch):
+        """N01-парная: неизменные права → retry проходит ровно один раз."""
+        db = FakeDB()
+        cache = _cache(db)
+        client = _client(cache, monkey_settings)
+        calls = []
+
+        async def fake_get_all(*args, **kwargs):
+            return {"overrides": {KEY: 111}, "meta": {}}
+
+        async def fake_set(*args, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise chat_params.ChatParamsConflict(CHAT_ID, _ts(5))
+            return chat_params.ChatParamsResult({}, updated_at=_ts(6))
+
+        monkeypatch.setattr(chat_params, "get_all_chat_params", fake_get_all)
+        monkeypatch.setattr(chat_params, "set_chat_params", fake_set)
+        resp = client.post("/api/config", headers={
+            **_hdr(LOCAL_ID), "X-Chat-Id": str(CHAT_ID)},
+            json={"items": [{"key": KEY, "mode": "inherit"}],
+                  "updated_at": _ts(1)})
+        assert resp.status_code == 200, resp.text
+        assert len(calls) == 2
+        assert calls[1]["expected_updated_at"] is None
 
     def test_meme_settings_recheck_own_gate(
             self, monkey_settings, monkeypatch):
