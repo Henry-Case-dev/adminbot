@@ -1,0 +1,124 @@
+{
+  "schema": "exp-e-evidence-v1",
+  "epic": "SMART-EXECUTION-RELIABILITY-01",
+  "epic_part": "EXPERIENCE E-TRUNC/E-LAG (amendment 2026-11-22)",
+  "base_commit": "56e2450d2c02e3d8ac595b9a412a121127f57b57",
+  "base_version": "2.58.234",
+  "branch": "fix/exp-e-trunc-lag",
+  "implementation_commit": "819361a71d8c5ce122dc4919107d464e085e2f92",
+  "owner_input": "plans/owner_inputs/2026-11-22-p0-embed-503-failover.md",
+  "owner_input_sha256": "d23bf6f96c69e8ddd1537a07f8f203fbf434b0022f693e5368a64c8731828f09",
+  "requirements_map": "plans/features/smart-execution-reliability-01/requirements-map-exp-amendment.json",
+  "requirements": {
+    "EXP-E-TRUNC-01": "IMPLEMENTED_REVIEW",
+    "EXP-E-LAG-01": "IMPLEMENTED_REVIEW_RFL",
+    "EXP-E-DOD-B-01": "REVIEW_RFL_PRODUCTION_LAG_NOT_MEASURED",
+    "EXP-E-AMEND-STAMP-01": "REGISTERED_IN_MAP_AND_PLAN"
+  },
+  "files_changed": [
+    "services/mca_experience_jobs.py",
+    "tests/test_exp_e_trunc_lag_amendment.py",
+    "tests/test_mca16_experience_block_d_round1039.py"
+  ],
+  "checks": [
+    {
+      "command": "python -m pytest tests/test_exp_e_trunc_lag_amendment.py -q",
+      "result": "9 passed",
+      "duration_s": 5.66
+    },
+    {
+      "command": "python -m pytest <18 related experience files> -q -k 'not deep_sleep_not_mixed_with_lessons'",
+      "result": "288 passed, 1 deselected, 1 warning",
+      "duration_s": 31.59
+    },
+    {
+      "command": "python -m py_compile services/mca_experience_jobs.py tests/test_exp_e_trunc_lag_amendment.py tests/test_mca16_experience_block_d_round1039.py",
+      "result": "exit 0"
+    },
+    {
+      "command": "git diff --check",
+      "result": "exit 0"
+    },
+    {
+      "command": "requirements_gate.py check --map <amendment map> --stage plan",
+      "result": "stage=plan inventory=15 manual=2 scoped=0 errors=0"
+    }
+  ],
+  "red_green": {
+    "base_56e2450d2": {
+      "truncated_reasoning": {
+        "llm_calls": 1,
+        "max_output_tokens": [1500],
+        "cursor": 0,
+        "throughput_rows": 0,
+        "semantic_llm_unavailable": 1,
+        "semantic_truncated": null,
+        "durable_truncation": null,
+        "lag_rows": 120
+      },
+      "rows_per_call_6x50": [300],
+      "new_events_while_6k_tail": {
+        "cursor_first_pass": 1050,
+        "new_processed_second_pass": false,
+        "second_batch_min_id": 1051,
+        "fresh_lane": null,
+        "lag_rows": 4903
+      }
+    },
+    "head_819361a71": {
+      "truncated_reasoning": {
+        "llm_calls": 3,
+        "max_output_tokens": [4608, 8192, 8192],
+        "cursor": 0,
+        "throughput_rows": 0,
+        "semantic_llm_unavailable": 0,
+        "semantic_truncated": 3,
+        "durable_truncation": {
+          "-100": {
+            "count": 1,
+            "reason": "truncated_reasoning",
+            "rows": 50
+          }
+        },
+        "lag_rows": 120
+      },
+      "rows_per_call_6x50": [120],
+      "new_events_while_6k_tail": {
+        "cursor_first_pass": 1000,
+        "new_processed_second_pass": true,
+        "second_batch_min_id": 6001,
+        "fresh_lane": {
+          "-100": {
+            "boundary": 6000,
+            "cursor": 6003
+          }
+        },
+        "cursor_after_second": 1000,
+        "lag_rows": 4999
+      }
+    }
+  },
+  "production_recon": {
+    "evidence": "plans/features/smart-execution-reliability-01/evidence/exp-e/lag-recon-2026-11-22.md",
+    "commit": "a6433095b",
+    "lag_rows": 2048762,
+    "pending_rows": 10815,
+    "cursor_rowid": 43064,
+    "max_id": 2089997,
+    "truncated_reasoning_out_of_failures": "260/261",
+    "finish_reason_length_log_lines": 488,
+    "throughput_rows_last_24_passes": 0,
+    "implied_convergence_days_at_36x120": 4.94
+  },
+  "pre_existing_failure": {
+    "test": "tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons",
+    "base_result": "1 failed in 23.89s (identical at 56e2450d2)",
+    "reason": "graph_facts present in base docstring; unrelated to E-TRUNC/E-LAG",
+    "candidate_action": "not fixed; reported as pre-existing"
+  },
+  "rfl": [
+    "Production lag drop/throughput not measured (no deploy in this task)",
+    "Real model success at budget 8192 / reduced window not exercised against provider",
+    "Archive re-anchor for a chat without archive_start intentionally not performed"
+  ]
+}
