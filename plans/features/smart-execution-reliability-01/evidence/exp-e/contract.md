@@ -7,7 +7,8 @@
 - Plan: `plans/features/smart-execution-reliability-01/plan.md` §12.
 - Deployed/base: `56e2450d2c02e3d8ac595b9a412a121127f57b57` (2.58.234).
 - Branch: `fix/exp-e-trunc-lag`; implementation commits:
-  `819361a71` (E-TRUNC/E-LAG) + `a5049c842` (review fixes B01/N01).
+  `819361a71` (E-TRUNC/E-LAG), `a5049c842` (B01/N01),
+  `161a17059` (B02).
 - Не новый эпик/экстрактор/очередь. `progress_scope.json` и
   `workflow_state.md` не изменялись; deploy/SSH/LLM/prod не выполнялись.
 
