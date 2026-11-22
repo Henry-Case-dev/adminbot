@@ -1,0 +1,83 @@
+{
+  "schema": "release-evidence-v1",
+  "release": "2.58.237",
+  "version": "2.58.237",
+  "base_version": "2.58.236",
+  "base_sha": "e0cc932469e92fb0c79aa3ef4f7045e85257e695",
+  "candidate_branch": "feat/m5a-exp-fix",
+  "candidate_tip": "d1315bf8698afc526eab7699998894021fd2211b",
+  "candidate_code": "de6472e1fb442cc407674e18016d6a6a958433a2",
+  "review": {
+    "commit": "8238a33eb",
+    "verdict": "APPROVED",
+    "status": "11 VERIFIED / 3 REVIEW / MAC-M5-01 PENDING"
+  },
+  "branch": "release/mod-acl-m5a-2.58.237",
+  "content_tip": "2c39abed2",
+  "bump_commit": "c7db72be07f4ecae27410460e9e162227da8df01",
+  "cherry_picks": [
+    ["de6472e1f", "5c17da5f1"],
+    ["d1315bf86", "2c39abed2"]
+  ],
+  "equality": {
+    "product_command": "git diff --quiet d1315bf86 HEAD -- services/mca_experience_jobs.py tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py",
+    "product_exit": 0,
+    "merges": 0
+  },
+  "bump": {
+    "files": 32,
+    "insertions": 35,
+    "deletions": 35,
+    "app_version": "2.58.237",
+    "bom": true,
+    "crlf": true
+  },
+  "ddl": {
+    "sqlite_user_version": 48,
+    "pg_ddl": 0,
+    "schema_files_changed": [],
+    "deploy": "code-only"
+  },
+  "checks": [
+    {"id": "m5a", "command": "python -m pytest tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py -q",
+     "passed": 22, "failed": 0, "seconds": 12.58},
+    {"id": "block-abc", "command": "python -m pytest tests/test_mca16_experience_block_a/b/c_round1039.py -q",
+     "passed": 49, "failed": 0, "seconds": 14.83},
+    {"id": "experience-related-18", "command": "python -m pytest <18 related files> -q -k 'not deep_sleep_not_mixed_with_lessons'",
+     "passed": 299, "failed": 0, "deselected": 1, "seconds": 53.94},
+    {"id": "version-pins-24-py", "command": "python -m pytest <24 version-pin tests/*.py> -q",
+     "passed": 856, "failed": 4, "seconds": 105.59,
+     "pre_existing": true,
+     "pre_existing_node_ids": [
+       "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+       "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+       "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+       "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+     ],
+     "pre_existing_proof": "same 4 node IDs documented for base 2.58.235/236 and reproduced at 56e2450d2"
+    },
+    {"id": "js-pins", "result": "HOTFIX7/8/9/10 OK"},
+    {"id": "schema-smoke", "result": "sqlite_user_version=48"},
+    {"id": "static", "py_compile": 0, "git_diff_check": 0,
+     "plan_gate": "stage=plan inventory=279 manual=102 scoped=0 errors=0"}
+  ],
+  "manifest": {
+    "artifact": "manifest-dry-run.json",
+    "deployed_sha": "c7db72be07f4ecae27410460e9e162227da8df01",
+    "version": "2.58.237",
+    "previous_sha": "e0cc932469e92fb0c79aa3ef4f7045e85257e695",
+    "previous_version": "2.58.236",
+    "dirty_tracked": false
+  },
+  "rollback": {
+    "sha": "e0cc932469e92fb0c79aa3ef4f7045e85257e695",
+    "version": "2.58.236",
+    "mode": "code-only",
+    "manual_ddl": false
+  },
+  "rfl": [
+    "production lag/model 8192 and exact worker_lost trigger",
+    "3 REVIEW rows and MAC-M5-01 pending (M5B/M5C)",
+    "archive re-anchor not performed"
+  ]
+}

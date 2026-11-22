@@ -1,0 +1,4 @@
+﻿python -m pytest <24 version-pin tests/*.py> -q
+856 passed, 4 failed in 105.59s
+
+Pre-existing, same 4 node IDs documented for base 2.58.235/236; reproduced at 56e2450d2
