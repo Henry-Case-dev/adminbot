@@ -38,7 +38,9 @@ Production host `192.255.209.205`, checkout `/var/www/admin_bot`, unit `admin_bo
    ```sql
    SELECT pg_get_constraintdef(oid) FROM pg_constraint
     WHERE conname = 'chat_lore_history_field_check';
-   -- ожидаемо: ровно 10 старых значений, БЕЗ 'access'
+   -- ожидаемо: ровно 10 старых значений, БЕЗ 'access':
+   -- 'manual','auto','auto_enabled','auto_period_hours','auto_window_hours',
+   -- 'remap','chat_admin','chat_params','chat_keys','gates'
    SELECT DISTINCT field FROM chat_lore_history ORDER BY field;
    -- ожидаемо: подмножество 10 старых значений
    SELECT count(*) FROM chat_lore_history WHERE field = 'access';
@@ -55,10 +57,10 @@ Production host `192.255.209.205`, checkout `/var/www/admin_bot`, unit `admin_bo
    - SQLite: штатный pre-deploy backup (SQLite backup API, `quick_check=ok`, `user_version=48`),
      rollback-копию не удалять; deploy-пул `keep=2`;
    - PostgreSQL: targeted logical backup **до DDL** —
-     `pg_dump --data-only --no-owner --no-privileges -t chat_lore_history -t bot_roles
-     -t bot_admins -t chat_admins -f <backup>.dump "$DATABASE_URL"`; проверить размер, sha256 и
-     восстановимость (`pg_restore -l`/row counts), хранить до завершения release/rollback-окна,
-     затем удалить. SQLite backup PG-DDL не покрывает.
+     `pg_dump --format=custom --data-only --no-owner --no-privileges -t chat_lore_history
+     -t bot_roles -t bot_admins -t chat_admins -f <backup>.dump "$DATABASE_URL"`; проверить
+     размер, sha256 и восстановимость (`pg_restore -l`/row counts), хранить до завершения
+     release/rollback-окна, затем удалить. SQLite backup PG-DDL не покрывает.
 7. Проверить effective configuration: persisted settings/chat overrides не изменены C3;
    новых флагов C3 не вводит (audit/409/recheck действуют безусловно).
 
