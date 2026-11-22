@@ -7229,11 +7229,35 @@
           // sections/actions — только проекция для UI-дерева.
           rawPermissions: {},
           tree: null,
-          error: null,                // {status, message} — 404/403/503
+          error: null,                // {status, message} - 404/403/503
           saveError: '',
+          // C3: revision объекта на момент открытия + 409-состояние.
+          revision: '',
+          conflict: null,             // {reason, current, current_revision}
+          saveBlocked: false,         // после 403/404/409 до перечитывания
           sections: [],
           actions: [],
         },
+        // MOD-ACL-UX-01 M4C C3: матрица — draft/save (никаких записей на
+        // клик), per-item статусы, 409-карточка и generation-guard.
+        matrixDraft: {},
+        matrixDraftStatus: {},
+        matrixSaveBusy: false,
+        matrixSaveResult: '',
+        matrixConflict: null,
+        matrixSeq: 0,
+        // C3: серверная история ACL (metadata only), 50 → 200 строк.
+        accessAudit: {
+          open: false, loading: false, items: [], error: null,
+          hasMore: false, entity: '', latest: null, _seq: 0,
+        },
+        // C3: чатовые перекрытия в #/access/local (reset «в наследование»).
+        localPermOverrides: [],
+        localPermOverridesBusy: false,
+        localPermOverridesError: null,
+        localPermOverrideLast: null,
+        localPermResetBusy: {},
+        _localPermSeq: 0,
         // chat_lore (round 7, spec §3.10/E2)
         chatLoreChats: [],             // доступные чаты (селектор слева)
         chatLoreLoading: false,        // загрузка списка чатов
@@ -15890,9 +15914,11 @@
       loadLocalAdmins: async function () {
         if (this.activeChatId == null) {
           this.chatLocalAdmins = [];
+          this.loadLocalPermOverrides();
           return;
         }
         this.chatLocalAdminsBusy = true;
+        this.loadLocalPermOverrides();
         var epoch = this.scopeEpoch;   // D2: снимок scope
         try {
           var data = await this.api('/api/chat_lore/admins?chat_id=' + this.activeChatId);
@@ -15930,7 +15956,112 @@
           this.toast('Удалён: ' + tid, 'ok');
           await this.loadLocalAdmins();
         } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');
+          this.toast('Ошибка: ' + this.errText(e), 'err');
+        }
+      },
+      // C3: чатовые перекрытия матрицы (global admin, группа) — reset
+      // «в наследование» через новый DELETE; сводка последнего изменения
+      // прав чата — GET /api/access/audit?scope=chat&limit=1.
+      loadLocalPermOverrides: async function () {
+        var chatId = this.activeChatId;
+        this.localPermOverrides = [];
+        this.localPermOverridesError = null;
+        this.localPermOverrideLast = null;
+        if (chatId == null || chatId >= 0 || !this.isGlobalAdmin) return;
+        var seq = (this._localPermSeq || 0) + 1;
+        this._localPermSeq = seq;
+        this.localPermOverridesBusy = true;
+        try {
+          var data = await this.api(
+            '/api/access/chats/' + encodeURIComponent(chatId)
+            + '/param_permissions', { global: true });
+          if (seq !== this._localPermSeq) return;
+          var items = (data && data.items) || {};
+          this.localPermOverrides = Object.keys(items).sort().map(
+            function (key) {
+              var row = items[key] || {};
+              return {
+                key: key,
+                view_roles: arr(row.view_roles),
+                edit_roles: arr(row.edit_roles),
+                updated_at: row.updated_at || null,
+                legacy: !!row.legacy,
+              };
+            });
+          await this._loadLocalPermAudit(chatId, seq);
+        } catch (e) {
+          if (seq !== this._localPermSeq) return;
+          this.localPermOverridesError = this.accessErrorPayload(e);
+        } finally {
+          if (seq === this._localPermSeq) {
+            this.localPermOverridesBusy = false;
+          }
+        }
+      },
+      _loadLocalPermAudit: async function (chatId, seq) {
+        try {
+          var data = await this.api(
+            '/api/access/audit?scope=chat&limit=1&chat_id='
+            + encodeURIComponent(chatId), { global: true });
+          if (seq !== this._localPermSeq) return;
+          this.localPermOverrideLast =
+            (data && data.items && data.items[0]) || null;
+        } catch (e) {
+          if (seq !== this._localPermSeq) return;
+          this.localPermOverrideLast = null;
+        }
+      },
+      localPermOverridesCount: function () {
+        return (this.localPermOverrides || []).length;
+      },
+      localPermOverrideLastText: function () {
+        var it = this.localPermOverrideLast;
+        if (!it) return 'Изменений прав чата ещё не было.';
+        return this.accessAuditWho(it) + ' · ' + this.accessAuditWhen(it)
+          + ' · ' + this.accessAuditWhat(it);
+      },
+      resetLocalPermOverride: async function (key) {
+        if (!this.isGlobalAdmin) return;
+        var row = null;
+        var rows = this.localPermOverrides || [];
+        for (var i = 0; i < rows.length; i += 1) {
+          if (rows[i].key === key) { row = rows[i]; break; }
+        }
+        if (!row) return;
+        if (!window.confirm('Сбросить перекрытие «' + key
+                            + '» в наследование глобальной матрицы?')) return;
+        this.localPermResetBusy[key] = true;
+        try {
+          var url = '/api/access/chats/' + encodeURIComponent(this.activeChatId)
+            + '/param_permissions/' + encodeURIComponent(key);
+          if (row.updated_at) {
+            url += '?expected_updated_at='
+              + encodeURIComponent(row.updated_at);
+          }
+          await this.api(url, { method: 'DELETE', global: true });
+          this.localPermOverrides = (this.localPermOverrides || []).filter(
+            function (r) { return r.key !== key; });
+          this.toast('Сброшено в наследование: ' + key, 'ok');
+          if (this._localPermSeq) {
+            await this._loadLocalPermAudit(this.activeChatId,
+                                            this._localPermSeq);
+          }
+        } catch (e) {
+          var detail = (e && e.message && typeof e.message === 'object')
+            ? e.message : null;
+          if (e && e.status === 404 && detail
+              && detail.code === 'override_absent') {
+            this.localPermOverrides = (this.localPermOverrides || []).filter(
+              function (r) { return r.key !== key; });
+            this.toast('Уже наследует — перекрытия не было', 'warn');
+          } else if (e && e.status === 409) {
+            this.toast('Изменено в другом окне — перечитываю', 'warn');
+            await this.loadLocalPermOverrides();
+          } else {
+            this.toast('Ошибка: ' + this.errText(e), 'err');
+          }
+        } finally {
+          this.localPermResetBusy[key] = false;
         }
       },
 
@@ -21215,6 +21346,13 @@
         if (this.accessOpen === 'roles'
             && typeof this._ensureRolesPage === 'function') {
           this._ensureRolesPage();
+        }
+        // C3: #/access/local — перекрытия матрицы активного чата должны
+        // загружаться при прямом переходе/возврате, а не только после
+        // ручного обновления списка локальных админов.
+        if (this.accessOpen === 'local'
+            && typeof this.loadLocalAdmins === 'function') {
+          this.loadLocalAdmins();
         }
         // F5 (§46): страница модуля гарантирует конфиг и данные модуля.
         var wsm2 = this.workspace ? this.workspace.module : null;
@@ -32540,12 +32678,33 @@
       },
 
       // ═══ Управление доступом ═══
+      // C3: ApiError.message может быть объектом detail (409/403/422) —
+      // без helper в карточках/toast получался бы `[object Object]`.
+      errText: function (e) {
+        if (!e) return 'неизвестная ошибка';
+        var m = e.message;
+        if (m == null) return 'неизвестная ошибка';
+        if (typeof m === 'string') return m;
+        if (typeof m === 'object') {
+          var d = (m.detail && typeof m.detail === 'object') ? m.detail : m;
+          var reason = d.reason || d.code;
+          var text = d.message;
+          if (reason && text) return String(reason) + ': ' + String(text);
+          if (reason) return String(reason);
+          if (text) return String(text);
+          try { return JSON.stringify(m); } catch (err) { return 'ошибка'; }
+        }
+        return String(m);
+      },
       // MOD-ACL-UX-01 M4C C1: единый формат ошибки блока. 403/503 сохраняются
       // как статус, а не превращаются в «пустой список» (MAC-S4-174/175).
       accessErrorPayload: function (e) {
         return {
           status: (e && typeof e.status === 'number') ? e.status : 0,
-          message: (e && e.message) ? String(e.message) : 'сеть недоступна',
+          message: (e && e.message)
+            ? (typeof this.errText === 'function' ? this.errText(e)
+                                                  : String(e.message))
+            : 'сеть недоступна',
         };
       },
       accessErrorTitle: function (status) {
@@ -32854,6 +33013,11 @@
       // не делает). Дерево нужно и read-only ролям (просмотр).
       openRoleEditor: async function (role, force) {
         if (!role) return;
+        // C3: generation-guard инвалидирует in-flight SAVE при смене роли
+        // (не начальную загрузку матрицы: пустой draft ничего не сохраняет).
+        if (this.matrixDraftCount() > 0 || this.matrixSaveBusy) {
+          this.matrixSeq = (this.matrixSeq || 0) + 1;
+        }
         if (this.roleEditor.open && this.roleEditor.roleName === role.role_name
             && this.roleEditor.tree && !force && !this.roleEditor.error) {
           this.roleEditor.rawPermissions =
@@ -32861,16 +33025,34 @@
           this.roleEditor.wildcard =
             !!(role.permissions && role.permissions.wildcard);
           this.roleEditor.isCustom = !!role.is_custom;
+          this.roleEditor.revision = role.revision || '';
           return;
         }
         if (this.roleEditor.open && this.roleEditor.roleName !== role.role_name
             && !this._roleDirtyConfirm()) return;
+        // C3 (S8-523/S15-08): смена роли при несохранённой матрице — явное
+        // подтверждение; иначе generation-guard молча потерял бы draft.
+        if (this.roleEditor.open && this.roleEditor.roleName !== role.role_name
+            && this.matrixDraftCount() > 0) {
+          var proceed = true;
+          try {
+            proceed = (typeof window === 'undefined'
+              || typeof window.confirm !== 'function')
+              || window.confirm('В матрице есть несохранённые изменения ('
+                + this.matrixDraftCount() + '). Сменить роль и потерять их?');
+          } catch (e) { proceed = true; }
+          if (!proceed) return;
+          this.matrixDiscardAll();
+        }
         this.roleActionsOpen = false;
         this.roleEditor.open = true;
         this.roleEditor.loading = true;
         this.roleEditor.error = null;
         this.roleEditor.saveError = '';
+        this.roleEditor.conflict = null;
+        this.roleEditor.saveBlocked = false;
         this.roleEditor.roleName = role.role_name;
+        this.roleEditor.revision = role.revision || '';
         this.roleEditor.isCustom = !!role.is_custom;
         this.roleEditor.wildcard = !!(role.permissions && role.permissions.wildcard);
         // Whole-object baseline: полный permissions из GET /api/roles. В нём
@@ -32908,7 +33090,8 @@
           await this.api('/api/roles', {
             method: 'POST',
             global: true,
-            body: JSON.stringify({ role_name: name, permissions: {}, is_custom: true }),
+            body: JSON.stringify({ role_name: name, permissions: {},
+                                   is_custom: true, create_only: true }),
           });
           this.toast('Роль создана: ' + name, 'ok');
           this.newRoleName = '';
@@ -32916,7 +33099,7 @@
           var created = this.rolesList.find(function (r) { return r.role_name === name; });
           if (created) await this.openRoleEditor(created);
         } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');
+          this.toast('Ошибка: ' + this.errText(e), 'err');
         }
       },
       // ═══ OD15/T-1142 (раунд 10.5): rename/delete ролей ═══
@@ -33013,7 +33196,10 @@
                          + '/rename',
                          { method: 'POST',
                            global: true,
-                           body: JSON.stringify({ new_name: next }) });
+                           body: JSON.stringify({
+                             new_name: next,
+                             expected_revision: role.revision || undefined,
+                           }) });
           this.toast('Роль переименована: ' + role.role_name + ' → ' + next, 'ok');
           await this.loadRoles(true);
           if (wasSelected) {
@@ -33028,7 +33214,8 @@
             this._autoSelectRole();
           }
         } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');
+          this.toast('Ошибка: ' + this.errText(e), 'err');
+          if (e && e.status === 409) await this.loadRoles(true);
         }
       },
       deleteRole: async function (role) {
@@ -33037,8 +33224,11 @@
                             + '»? Права роли будут удалены.')) return;
         var wasSelected = this.roleEditor.roleName === role.role_name;
         try {
-          await this.api('/api/roles/' + encodeURIComponent(role.role_name),
-                         { method: 'DELETE', global: true });
+          var url = '/api/roles/' + encodeURIComponent(role.role_name);
+          if (role.revision) {
+            url += '?expected_revision=' + encodeURIComponent(role.revision);
+          }
+          await this.api(url, { method: 'DELETE', global: true });
           this.toast('Роль удалена: ' + role.role_name, 'ok');
           if (wasSelected) {
             this.roleEditor.open = false;
@@ -33047,11 +33237,14 @@
             this.roleEditor.tree = null;
             this.roleEditor.sections = [];
             this.roleEditor.actions = [];
+            this.roleEditor.conflict = null;
+            this.roleEditor.saveBlocked = false;
             this._roleEditorBaseline = null;
           }
           await this.loadRoles();
         } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');
+          this.toast('Ошибка: ' + this.errText(e), 'err');
+          if (e && e.status === 409) await this.loadRoles(true);
         }
       },
 
@@ -33060,14 +33253,24 @@
       // (category → group), per-param назначение read/write-ролей.
       loadMatrix: async function () {
         if (!this.isGlobalAdmin) return;
+        var seq = (this.matrixSeq || 0) + 1;
+        this.matrixSeq = seq;
         this.matrixLoading = true;
         this.matrixError = '';
         this.matrixErrorStatus = 0;
+        this.matrixDraft = {};
+        this.matrixDraftStatus = {};
+        this.matrixSaving = {};
+        this.matrixConflict = null;
+        this.matrixSaveResult = '';
         try {
           var data = await this.api('/api/access/param_permissions',
                                     { global: true });
+          if (seq !== this.matrixSeq) return;
           this.matrixItems = (data && data.items) || {};
+          this.loadAccessAuditLatest();
         } catch (e) {
+          if (seq !== this.matrixSeq) return;
           this.matrixErrorStatus = (e && typeof e.status === 'number')
             ? e.status : 0;
           this.matrixError = this.accessErrorTitle(this.matrixErrorStatus);
@@ -33868,54 +34071,352 @@
         return 'дефолтная матрица для чатов без своего перекрытия; '
           + 'глобальная запись настраивается правами роли, а не этой матрицей';
       },
-      matrixRoleToggle: async function (key, field, role) {
+      // C3: матрица пишет НЕ на клик. Toggle/reset меняют только draft;
+      // запись — последовательные PUT/DELETE по кнопке «Сохранить».
+      _matrixDraftSet: function (key) {
+        var item = this.matrixItems[key];
+        if (!item) return null;
+        if (!this.matrixDraft[key]) {
+          this.matrixDraft[key] = {
+            before: { view_roles: arr(item.view_roles).slice(),
+                      edit_roles: arr(item.edit_roles).slice() },
+            after: { view_roles: arr(item.view_roles).slice(),
+                     edit_roles: arr(item.edit_roles).slice() },
+            token: item.updated_at || null,
+            reset: false,
+          };
+        }
+        return this.matrixDraft[key];
+      },
+      _matrixSame: function (a, b) {
+        return String(arr(a && a.view_roles).join(','))
+          === String(arr(b && b.view_roles).join(','))
+          && String(arr(a && a.edit_roles).join(','))
+          === String(arr(b && b.edit_roles).join(','));
+      },
+      matrixDraftCount: function () {
+        return Object.keys(this.matrixDraft || {}).length;
+      },
+      matrixDraftDirty: function (key) {
+        return !!(this.matrixDraft || {})[key];
+      },
+      matrixItemStatus: function (key) {
+        return (this.matrixDraftStatus || {})[key] || '';
+      },
+      matrixRolesText: function (roles) {
+        var list = arr(roles);
+        return list.length ? list.join(', ') : '—';
+      },
+      matrixRoleToggle: function (key, field, role) {
+        if (this.matrixSaveBusy) return;
         var item = this.matrixItems[key];
         if (!item) return;
-        var domain = ['user', 'moderator', 'local_admin'];
-        var view = arr(item.view_roles).slice();
-        var edit = arr(item.edit_roles).slice();
+        var draft = this._matrixDraftSet(key);
+        if (!draft) return;
+        var view = arr(draft.after.view_roles).slice();
+        var edit = arr(draft.after.edit_roles).slice();
         var target = (field === 'view_roles') ? view : edit;
         var i = target.indexOf(role);
         if (i >= 0) target.splice(i, 1); else target.push(role);
         var allowed = view.concat(edit);   // запись подразумевает чтение
-        var body = {
-          view_roles: domain.filter(function (r) { return allowed.indexOf(r) >= 0; }),
-          edit_roles: domain.filter(function (r) { return edit.indexOf(r) >= 0; }),
+        var domain = ['user', 'moderator', 'local_admin'];
+        draft.after = {
+          view_roles: domain.filter(function (r) {
+            return allowed.indexOf(r) >= 0;
+          }),
+          edit_roles: domain.filter(function (r) {
+            return edit.indexOf(r) >= 0;
+          }),
         };
-        this.matrixSaving[key] = true;
-        try {
-          var resp = await this.api(
-            '/api/access/param_permissions/' + encodeURIComponent(key),
-            { method: 'PUT', global: true, body: JSON.stringify(body) });
-          this.matrixItems[key] = Object.assign({}, item, {
-            view_roles: resp.view_roles || body.view_roles,
-            edit_roles: resp.edit_roles || body.edit_roles,
-            default: false,
-          });
-          this.matrixLastChange = {
-            ts: Date.now(), key: key,
-            title: item.title || (item.item && item.item.title) || key,
-          };
-        } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');
-        } finally {
-          this.matrixSaving[key] = false;
+        draft.reset = false;
+        item.view_roles = draft.after.view_roles.slice();
+        item.edit_roles = draft.after.edit_roles.slice();
+        this.matrixDraftStatus[key] = 'Изменено — не сохранено';
+        if (this._matrixSame(draft.after, draft.before)) {
+          delete this.matrixDraft[key];
+          delete this.matrixDraftStatus[key];
         }
       },
-      matrixReset: async function (key) {
-        try {
-          await this.api('/api/access/param_permissions/' + encodeURIComponent(key),
-                         { method: 'DELETE', global: true });
-          this.toast('Сброшено на дефолт: ' + key, 'ok');
-          var prev = this.matrixItems[key] || {};
-          this.matrixLastChange = {
-            ts: Date.now(), key: key, reset: true,
-            title: prev.title || (prev.item && prev.item.title) || key,
-          };
-          await this.loadMatrix();
-        } catch (e) {
-          this.toast('Ошибка: ' + e.message, 'err');
+      matrixReset: function (key) {
+        if (this.matrixSaveBusy) return;
+        var item = this.matrixItems[key];
+        if (!item) return;
+        var draft = this._matrixDraftSet(key);
+        if (!draft) return;
+        draft.reset = true;
+        this.matrixDraftStatus[key] =
+          'Будет сброшено к дефолту (в наследование)';
+      },
+      matrixDiscardAll: function () {
+        if (this.matrixSaveBusy) return;
+        var draft = this.matrixDraft || {};
+        var items = this.matrixItems || {};
+        Object.keys(draft).forEach(function (key) {
+          var item = items[key];
+          if (!item) return;
+          item.view_roles = arr(draft[key].before.view_roles).slice();
+          item.edit_roles = arr(draft[key].before.edit_roles).slice();
+        });
+        this.matrixDraft = {};
+        this.matrixDraftStatus = {};
+        this.matrixConflict = null;
+        this.matrixSaveResult = '';
+      },
+      matrixSave: async function () {
+        if (!this.isGlobalAdmin || this.matrixSaveBusy) return;
+        var keys = Object.keys(this.matrixDraft || {});
+        if (!keys.length) return;
+        this.matrixSaveBusy = true;
+        this.matrixSaveResult = '';
+        this.matrixConflict = null;
+        var seq = (this.matrixSeq || 0) + 1;
+        this.matrixSeq = seq;
+        var saved = 0;
+        var stop = false;
+        for (var idx = 0; idx < keys.length; idx += 1) {
+          var key = keys[idx];
+          if (seq !== this.matrixSeq) break;
+          var draft = this.matrixDraft[key];
+          if (!draft) continue;
+          var item = this.matrixItems[key];
+          if (!item) continue;
+          this.matrixSaving[key] = true;
+          this.matrixDraftStatus[key] = 'Сохранение…';
+          try {
+            var resp;
+            if (draft.reset) {
+              var delUrl = '/api/access/param_permissions/'
+                + encodeURIComponent(key);
+              if (draft.token) {
+                delUrl += '?expected_updated_at='
+                  + encodeURIComponent(draft.token);
+              }
+              await this.api(delUrl, { method: 'DELETE', global: true });
+              if (seq !== this.matrixSeq) { stop = true; break; }
+              item.default = true;
+              item.updated_at = null;
+              this.matrixDraftStatus[key] = 'Сброшено к дефолту';
+            } else {
+              var body = {
+                view_roles: draft.after.view_roles,
+                edit_roles: draft.after.edit_roles,
+              };
+              if (draft.token) body.expected_updated_at = draft.token;
+              resp = await this.api(
+                '/api/access/param_permissions/' + encodeURIComponent(key),
+                { method: 'PUT', global: true, body: JSON.stringify(body) });
+              if (seq !== this.matrixSeq) { stop = true; break; }
+              item.view_roles = resp.view_roles || body.view_roles;
+              item.edit_roles = resp.edit_roles || body.edit_roles;
+              item.default = false;
+              item.updated_at = resp.updated_at || draft.token;
+              this.matrixDraftStatus[key] = resp.unchanged
+                ? 'Без изменений' : 'Сохранено';
+            }
+            delete this.matrixDraft[key];
+            saved += 1;
+          } catch (e) {
+            var detail = (e && e.message && typeof e.message === 'object')
+              ? e.message : null;
+            var status = (e && typeof e.status === 'number') ? e.status : 0;
+            this.matrixDraftStatus[key] = 'Не сохранено: ' + this.errText(e);
+            if (status === 409 && detail) {
+              this.matrixConflict = {
+                key: key,
+                reason: detail.reason || detail.code || 'conflict',
+                current_updated_at: detail.current_updated_at || null,
+                current: detail.current || null,
+                local: draft.after,
+                reset: !!draft.reset,
+              };
+              this.matrixDraftStatus[key] = 'Конфликт — не сохранено';
+            }
+            if (status === 401 || status === 403 || status === 404
+                || status === 409 || status === 503) {
+              stop = true;
+            }
+          } finally {
+            this.matrixSaving[key] = false;
+          }
+          if (stop) break;
         }
+        if (seq !== this.matrixSeq) {
+          this.matrixSaveBusy = false;
+          return;
+        }
+        this.matrixSaveBusy = false;
+        var left = Object.keys(this.matrixDraft || {}).length;
+        this.matrixSaveResult = 'Сохранено ' + saved
+          + (left ? (', не сохранено ' + left) : '');
+        if (saved && !left) {
+          await this.loadAccessAuditLatest();
+        }
+      },
+      matrixConflictReload: async function () {
+        var conflict = this.matrixConflict;
+        this.matrixConflict = null;
+        await this.loadMatrix();
+        if (conflict) {
+          this.matrixDraftStatus[conflict.key] =
+            'Серверная версия перечитана';
+        }
+      },
+      matrixConflictAcceptServer: async function () {
+        var conflict = this.matrixConflict;
+        this.matrixConflict = null;
+        if (conflict) {
+          delete this.matrixDraft[conflict.key];
+          delete this.matrixDraftStatus[conflict.key];
+        }
+        await this.loadMatrix();
+      },
+      matrixConflictReapply: async function () {
+        var conflict = this.matrixConflict;
+        if (!conflict) return;
+        var snapshot = {};
+        var self = this;
+        Object.keys(this.matrixDraft || {}).forEach(function (key) {
+          snapshot[key] = JSON.parse(JSON.stringify(self.matrixDraft[key]));
+        });
+        this.matrixConflict = null;
+        await this.loadMatrix();
+        Object.keys(snapshot).forEach(function (key) {
+          var item = self.matrixItems[key];
+          var old = snapshot[key];
+          if (!item || !old) return;
+          // Повторяем только неконфликтные: серверный токен совпал с
+          // токеном, от которого считался локальный draft.
+          if ((item.updated_at || null) !== (old.token || null)) return;
+          if (!self.matrixDraft[key]) {
+            self.matrixDraft[key] = {
+              before: { view_roles: arr(item.view_roles).slice(),
+                        edit_roles: arr(item.edit_roles).slice() },
+              after: old.after,
+              token: item.updated_at || null,
+              reset: !!old.reset,
+            };
+            item.view_roles = arr(old.after.view_roles).slice();
+            item.edit_roles = arr(old.after.edit_roles).slice();
+            self.matrixDraftStatus[key] = 'Повтор после перечитывания';
+          }
+        });
+        if (this.matrixDraftCount()) {
+          await this.matrixSave();
+        } else {
+          this.matrixSaveResult = 'Серверная версия оставлена';
+        }
+      },
+      // C3: серверный ACL-audit (metadata only). «Кто менял» — id +
+      // клиентский join с уже загруженным this.admins (без запросов на
+      // строку). 50 → 200 («Показать ещё»).
+      accessAuditOpen: function () {
+        this.accessAudit.open = !this.accessAudit.open;
+        if (this.accessAudit.open && !this.accessAudit.items.length) {
+          this.loadAccessAudit(true);
+        }
+      },
+      loadAccessAuditLatest: async function () {
+        if (!this.isGlobalAdmin) return;
+        var a = this.accessAudit;
+        try {
+          var data = await this.api('/api/access/audit?scope=global&limit=1',
+                                    { global: true });
+          a.latest = (data && data.items && data.items[0]) || null;
+        } catch (e) {
+          a.latest = null;
+        }
+      },
+      loadAccessAudit: async function (reset) {
+        var a = this.accessAudit;
+        var seq = (a._seq || 0) + 1;
+        a._seq = seq;
+        a.loading = true;
+        a.error = null;
+        if (reset) { a.items = []; a.hasMore = false; }
+        var url = '/api/access/audit?scope=global&limit=50';
+        if (a.entity) url += '&entity=' + encodeURIComponent(a.entity);
+        if (!reset && a.items.length) {
+          var last = a.items[a.items.length - 1];
+          if (last && last.id != null) {
+            url += '&before_id=' + encodeURIComponent(last.id);
+          }
+        }
+        try {
+          var data = await this.api(url, { global: true });
+          if (seq !== a._seq) return;
+          var rows = (data && data.items) || [];
+          a.items = reset ? rows : a.items.concat(rows);
+          a.hasMore = !!(data && data.has_more) && a.items.length < 200;
+        } catch (e) {
+          if (seq !== a._seq) return;
+          a.error = this.accessErrorPayload(e);
+        } finally {
+          if (seq === a._seq) a.loading = false;
+        }
+      },
+      accessAuditEntityLabel: function (item) {
+        var map = {
+          role: 'Роль', admin: 'Админ', chat_admin: 'Админ чата',
+          param_global: 'Параметр (глобально)',
+          param_chat: 'Параметр (чат)',
+        };
+        return map[item && item.entity] || (item && item.entity) || '—';
+      },
+      accessAuditOpLabel: function (op) {
+        var map = {
+          create: 'создано', update: 'изменено', delete: 'удалено',
+          rename: 'переименовано', set: 'установлено', reset: 'сброшено',
+        };
+        return map[op] || op || '—';
+      },
+      accessAuditWho: function (item) {
+        if (!item || item.changed_by == null) return 'система';
+        var id = item.changed_by;
+        var admins = this.admins || [];
+        for (var i = 0; i < admins.length; i += 1) {
+          if (admins[i].telegram_id === id && admins[i].display_name) {
+            return admins[i].display_name + ' · id ' + id;
+          }
+        }
+        return 'id ' + id;
+      },
+      accessAuditWhen: function (item) {
+        if (!item || !item.created_at) return '—';
+        if (typeof this.fmtLogTs === 'function') {
+          return this.fmtLogTs(item.created_at);
+        }
+        return String(item.created_at);
+      },
+      accessAuditWhat: function (item) {
+        if (!item) return '—';
+        if (item.malformed) return 'запись повреждена (факт изменения сохранён)';
+        var parts = [];
+        if (item.role_name) parts.push('роль ' + item.role_name);
+        if (item.telegram_id != null) parts.push('id ' + item.telegram_id);
+        if (item.key) parts.push(item.key);
+        var after = item.after || null;
+        var before = item.before || null;
+        if (item.entity === 'param_global' || item.entity === 'param_chat') {
+          var m = after || before || {};
+          parts.push('чтение: ' + (arr(m.view_roles).join(', ') || '—'));
+          parts.push('запись: ' + (arr(m.edit_roles).join(', ') || '—'));
+        } else if (item.entity === 'role' && item.op === 'update' && after) {
+          if (after.wildcard) {
+            parts.push('wildcard: ' + (after.wildcard.before ? 'да' : 'нет')
+              + ' → ' + (after.wildcard.after ? 'да' : 'нет'));
+          }
+          ['sections', 'params', 'keys', 'actions'].forEach(function (f) {
+            if (arr(after.added && after.added[f]).length) {
+              parts.push('+' + f + ': ' + after.added[f].join(', '));
+            }
+            if (arr(after.removed && after.removed[f]).length) {
+              parts.push('−' + f + ': ' + after.removed[f].join(', '));
+            }
+          });
+        } else if (after && after.role_name) {
+          parts.push('роль ' + after.role_name);
+        }
+        return parts.join(' · ') || '—';
       },
 
       applyTree: function (tree) {
@@ -33996,6 +34497,10 @@
         base.forEach(function (k) { if (!nowSet[k]) diff += 1; });
         return diff;
       },
+      // Публичный wrapper для template (Vue не вызывает методы с «_»).
+      roleDirtyCount: function () {
+        return this._roleEditorDirtyCount();
+      },
       closeRoleEditor: function () {
         var proceed = true;
         if (typeof this._roleDirtyConfirm === 'function') {
@@ -34063,6 +34568,7 @@
       },
       saveRole: async function () {
         if (!this.isGlobalAdmin) return;
+        if (this.roleEditor.saveBlocked) return;
         var role = this.selectedRole();
         if (!role || this.isSuperuserRole(role)) return;
         var self = this;
@@ -34127,14 +34633,21 @@
         }
         this.roleEditor.saving = true;
         this.roleEditor.saveError = '';
+        this.roleEditor.conflict = null;
         try {
+          var body = {
+            role_name: this.roleEditor.roleName,
+            permissions: permissions,
+          };
+          // C3: optimistic-ревизия; сервер не даст сохранить в удалённую/
+          // изменённую роль (409 role_absent/revision_mismatch).
+          if (this.roleEditor.revision) {
+            body.expected_revision = this.roleEditor.revision;
+          }
           var saved = await this.api('/api/roles', {
             method: 'POST',
             global: true,
-            body: JSON.stringify({
-              role_name: this.roleEditor.roleName,
-              permissions: permissions,
-            }),
+            body: JSON.stringify(body),
           });
           this.toast('Роль сохранена: ' + saved.role_name, 'ok');
           var savedPerms = (saved && saved.permissions)
@@ -34144,18 +34657,77 @@
           if (saved && typeof saved.is_custom !== 'undefined') {
             this.roleEditor.isCustom = !!saved.is_custom;
           }
+          if (saved && saved.revision) this.roleEditor.revision = saved.revision;
+          this.roleEditor.conflict = null;
+          this.roleEditor.saveBlocked = false;
           // F2 (REV-UI-D1213): сервер подтвердил → новый baseline (dirty=0).
           this._roleEditorBaseline = this._roleEditorSnapshot();
           await this.loadRoles(true);
         } catch (e) {
-          // 409 (последняя wildcard/занятая роль) / 422 / 503 — правки НЕ
-          // теряем; причина показывается и в карточке, и тостом.
-          this.roleEditor.saveError = 'Не сохранено: '
-            + ((e && e.message) || 'неизвестная ошибка');
-          this.toast('Ошибка: ' + e.message, 'err');
+          // 409 (ревизия/удаление) / 403/404 — save запрещён до перечитывания
+          // (S15-08); правки не теряем и показываем серверное состояние.
+          var detail = (e && e.message && typeof e.message === 'object')
+            ? e.message : null;
+          var status = (e && typeof e.status === 'number') ? e.status : 0;
+          if (status === 409 && detail) {
+            this.roleEditor.conflict = {
+              reason: detail.reason || detail.code || 'conflict',
+              current: detail.current || null,
+              current_revision: detail.current_revision || null,
+            };
+            this.roleEditor.saveBlocked = true;
+            this.roleEditor.saveError =
+              this.roleConflictText(this.roleEditor.conflict);
+          } else {
+            this.roleEditor.saveError = 'Не сохранено: ' + this.errText(e);
+            if (status === 401 || status === 403 || status === 404
+                || status === 409) {
+              this.roleEditor.saveBlocked = true;
+            }
+          }
+          this.toast('Ошибка: ' + this.errText(e), 'err');
         } finally {
           this.roleEditor.saving = false;
         }
+      },
+      roleConflictText: function (conflict) {
+        if (!conflict) return '';
+        if (conflict.reason === 'role_absent') {
+          return 'Роль удалена — сохранение невозможно. Перечитайте список.';
+        }
+        if (conflict.reason === 'role_exists') {
+          return 'Роль уже существует — создание отклонено.';
+        }
+        return 'Роль изменена в другом окне (ревизия не совпала). '
+          + 'Можно перечитать или применить мои изменения поверх.';
+      },
+      roleConflictCurrentText: function (conflict) {
+        var cur = (conflict && conflict.current) || null;
+        if (!cur) return '';
+        var perms = cur.permissions || {};
+        var counts = ['sections', 'params', 'keys', 'actions'].map(
+          function (f) { return f + ': ' + arr(perms[f]).length; });
+        return (perms.wildcard ? 'wildcard; ' : '') + counts.join(', ');
+      },
+      roleConflictReload: async function () {
+        this.roleEditor.conflict = null;
+        this.roleEditor.saveBlocked = false;
+        this.roleEditor.saveError = '';
+        await this.loadRoles(true);
+        var role = this.selectedRole();
+        if (role) await this.openRoleEditor(role, true);
+      },
+      roleConflictReapply: async function () {
+        var conflict = this.roleEditor.conflict;
+        if (!conflict || conflict.reason === 'role_absent') return;
+        if (!conflict.current_revision) { await this.roleConflictReload(); return; }
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function'
+            && !window.confirm('Применить локальные изменения поверх серверной '
+              + 'версии роли «' + this.roleEditor.roleName + '»?')) return;
+        this.roleEditor.revision = conflict.current_revision;
+        this.roleEditor.conflict = null;
+        this.roleEditor.saveBlocked = false;
+        await this.saveRole();
       },
 
       // ═══ Статус ═══

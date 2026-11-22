@@ -7607,8 +7607,47 @@ html.w9-sheet-bottom .modal-close {
   padding: var(--row-pad); border-radius: var(--table-row-radius);
   background: rgba(148, 163, 184, .10);
   color: var(--text-2, #AAB6C8);
+  /* C3: длинная строка «кто/когда/что» не раздувает min-content колонку. */
+  min-width: 0; overflow-wrap: anywhere;
 }
+.access-audit > div { min-width: 0; overflow-wrap: anywhere; }
 .access-audit__k { color: var(--text-3, #8A97AB); }
+/* C3: серверная история ACL — карточки, без таблицы/горизонтального скролла. */
+.access-audit__panel {
+  border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px;
+  padding: 8px; background: rgba(15, 23, 42, .35); min-width: 0;
+}
+.access-audit__list {
+  display: grid; gap: 6px; margin: 0; padding: 0; list-style: none;
+  min-width: 0;
+}
+.access-audit__item {
+  border: 1px solid rgba(255, 255, 255, .06); border-radius: 8px;
+  padding: 6px 8px; min-width: 0; overflow-wrap: anywhere;
+}
+.matrix-savebar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 8px; padding: 8px; border-radius: 10px;
+  border: 1px solid rgba(96, 165, 250, .35);
+  background: rgba(96, 165, 250, .10); min-width: 0;
+}
+.matrix-savebar__count { font-size: 12px; font-weight: 600; }
+.matrix-row--dirty { background: rgba(96, 165, 250, .08); }
+/* C3: таблица матрицы не должна раздувать документ на 768–1280; колонки
+   фиксированы, текст переносится (визуальный контракт матрицы сохранён). */
+.matrix-table { table-layout: fixed; }
+.matrix-table th, .matrix-table td { white-space: normal; overflow-wrap: anywhere; }
+.matrix-table th:nth-child(1), .matrix-table td:nth-child(1) { width: 42%; }
+.matrix-table th:nth-child(2), .matrix-table td:nth-child(2) { width: 22%; }
+.matrix-table th:nth-child(3), .matrix-table td:nth-child(3) { width: 22%; }
+.matrix-table th:nth-child(4), .matrix-table td:nth-child(4) { width: 14%; }
+.matrix-table td label { flex-wrap: wrap; }
+@media (max-width: 767px) {
+  .matrix-savebar { flex-direction: column; align-items: stretch; }
+  .matrix-savebar button { min-height: 44px; width: 100%; }
+  .access-audit__panel select,
+  .access-audit__panel button { min-height: 44px; }
+}
 
 /* ── MOD-ACL-UX-01 M4C C1: «Роли и права» — самостоятельная страница ──────
    Desktop: роли 220–280 px + pane; tablet: 220; mobile: switcher + одна
