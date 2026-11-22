@@ -10,7 +10,8 @@
   * superuser rename/delete 403, неизвестная роль 404, занятая/встроенная 409,
     последний админ/wildcard 409 — существующие guards не изменены.
   * custom-роль с section.access: /api/roles доступны, матрица — 403
-    (S1-эскалация остаётся C3; C1 не заявляет серверную границу).
+    (S1 закрыт: чтение остаётся section.access; write-мутации ACL —
+    global-admin-only, см. tests/test_mod_acl_ux_m4c_acl_hardening.py).
 """
 import asyncio
 import hashlib
@@ -386,7 +387,8 @@ class TestRoleGuardsUnchanged:
 
     def test_section_access_role_matrix_403(self, monkey_settings):
         """custom_access имеет section.access → /api/roles 200, матрица 403.
-        S1 (эскалация через custom access) остаётся C3; C1 не расширяет и
+        S1 закрыт (M4C ACL-hardening): чтение ролей/админов остаётся
+        section.access, мутации — global-admin-only; C1 не расширяет и
         не ослабляет сервер."""
         cache = _live_cache()
         client = _client(cache, monkey_settings)

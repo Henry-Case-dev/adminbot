@@ -214,14 +214,16 @@ def _section_role_layers(ctx, cache, actor_id: int, sid: str,
             consumers=())], _NA
 
     if sid == "access":
+        # S1 закрыт: чтение ролей/админов/дерева — `section.access`,
+        # мутации (5 write-маршрутов) — `requires_global_admin()`.
         layers = [_layer(
             "role", "Права роли", _ALLOWED if allowed else _DENIED,
             applies_to="guard", reason=reason, required="section.access",
             matched=matched,
-            guard='web.api.deps.requires_permission("access")',
-            consumers=("GET/POST /api/roles", "DELETE /api/roles/{name}",
-                       "POST /api/roles/{name}/rename", "GET /api/roles/tree",
-                       "GET/POST /api/admins", "POST /api/admins/remove"),
+            guard='web.api.deps.requires_permission("access") '
+                  "(чтение ролей/админов/дерева)",
+            consumers=("GET /api/roles", "GET /api/roles/tree",
+                       "GET /api/admins"),
             source="role_permissions")]
         ceil = ctx.is_global_admin
         layers.append(_layer(
@@ -230,17 +232,22 @@ def _section_role_layers(ctx, cache, actor_id: int, sid: str,
             reason="role_type" if ceil else "no_match",
             required="global_admin", matched="role_type:global_admin"
             if ceil else None,
-            guard="is_global_admin (inline)",
+            guard="is_global_admin (inline); "
+                  "web.api.deps.requires_global_admin() (S1: мутации ACL)",
             consumers=("GET/PUT/DELETE /api/access/param_permissions",
                        "POST /api/access/chats/{id}/param_permissions/{key}",
-                       "POST/DELETE /api/access/chats/{id}/admins"),
+                       "POST/DELETE /api/access/chats/{id}/admins",
+                       "POST /api/admins", "POST /api/admins/remove",
+                       "POST /api/roles", "DELETE /api/roles/{name}",
+                       "POST /api/roles/{name}/rename"),
             source="role_type"))
         if allowed and ceil:
             return layers, _ALLOWED
         if not allowed and not ceil:
             return layers, _DENIED
         # role allowed, ceiling denied (custom section.access) — фактическое
-        # «частично»: роли читает, матрицу/гранты — нет (S1 латентен, C3).
+        # «частично»: роли читает, матрицу/гранты/мутации ACL — нет
+        # (S1 закрыт: write — global-admin-only).
         return layers, "mixed"
 
     if sid == "chat_lore":

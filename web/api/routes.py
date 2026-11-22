@@ -3338,6 +3338,30 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
 
 # ── Admins ──────────────────────────────────────────────────────────────────
 
+_ACL_LOCK_STATE_ATTR = "acl_mutation_lock"
+
+
+def _acl_mutation_lock(request: Request) -> asyncio.Lock:
+    """MOD-ACL-UX-01 M4C S2: сериализация ACL-мутаций (per-app + loop).
+
+    Guard «снимок → проверка → запись → reload» неатомарен: две
+    одновременные self-демоции проходят проверку по одному снимку и обе
+    дают 0 администраторов. Lock создаётся лениво на `app.state` (не
+    module-global: asyncio.Lock привязан к event loop, общий глобал ломал
+    бы тесты и второй app) и пересоздаётся при смене loop.
+    Один процесс — достаточная атомарность (deploy-preflight по контракту
+    §4.6/S3); multi-process требует PostgreSQL advisory lock — отдельное
+    решение, здесь не вводится.
+    """
+    loop = asyncio.get_running_loop()
+    cached = getattr(request.app.state, _ACL_LOCK_STATE_ATTR, None)
+    if isinstance(cached, tuple) and cached[0] is loop:
+        return cached[1]
+    lock = asyncio.Lock()
+    setattr(request.app.state, _ACL_LOCK_STATE_ATTR, (loop, lock))
+    return lock
+
+
 @api_router.get("/admins")
 async def get_admins(
     request: Request,
@@ -3374,18 +3398,33 @@ async def get_admins(
 async def post_admins(
     request: Request,
     payload: AdminUpsert,
-    user: Annotated[WebAppUser, Depends(requires_permission("access"))],
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
-    """84.5: upsert; несуществующая роль → 422; added_by = текущий юзер."""
+    """84.5: upsert; несуществующая роль → 422; added_by = текущий юзер.
+
+    MOD-ACL-UX-01 M4C S1: мутация админов — только effective global admin."""
     cache: ConfigCache = get_cache(request)
     if payload.role_name not in cache.roles():
         raise HTTPException(status_code=422,
                             detail=f"несуществующая роль: {payload.role_name}")
-    try:
-        await cache.upsert_admin(payload.telegram_id, payload.role_name,
-                                 added_by=user.id)
-    except ConfigCacheUnavailableError:
-        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    async with _acl_mutation_lock(request):
+        # S2: I2/I1 по назначенным админам до записи (check-then-write в
+        # одной критической секции). before — текущий cache-снимок.
+        before_roles = cache.roles()
+        before_admins = cache.admins()
+        after_admins = dict(before_admins)
+        after_admins[payload.telegram_id] = payload.role_name
+        try:
+            roles_srv.guard_admin_lockout(
+                before_roles, before_admins, before_roles, after_admins)
+        except RoleGuardError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        try:
+            await cache.upsert_admin(payload.telegram_id, payload.role_name,
+                                     added_by=user.id)
+        except ConfigCacheUnavailableError:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
     return {"telegram_id": payload.telegram_id, "role_name": payload.role_name}
 
 
@@ -3393,35 +3432,40 @@ async def post_admins(
 async def remove_admin(
     request: Request,
     payload: AdminRemove,
-    user: Annotated[WebAppUser, Depends(requires_permission("access"))],
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
     """84.5: {removed:true}; guard'ы: последний админ в списке → 409 (F8),
-    последний wildcard-админ → 409 (84.14.4)."""
+    последний wildcard/global админ → 409 (84.14.4 + M4C S2)."""
     cache: ConfigCache = get_cache(request)
-    target_role = cache.get_role(payload.telegram_id)
-    if target_role is None:
-        raise HTTPException(status_code=404, detail="админ не найден")
-    if len(cache.admins()) <= 1:
-        # F8: нельзя оставить систему без единого админа вообще
-        raise HTTPException(
-            status_code=409,
-            detail="нельзя удалить последнего админа")
-    target_perms = cache.get_permissions(target_role) or Permissions.from_dict({})
-    if target_perms.wildcard:
-        other_wildcard = any(
-            tg != payload.telegram_id
-            and (cache.get_permissions(cache.get_role(tg) or "") or
-                 Permissions.from_dict({})).wildcard
-            for tg in cache.admins()
-        )
-        if not other_wildcard:
+    async with _acl_mutation_lock(request):
+        target_role = cache.get_role(payload.telegram_id)
+        if target_role is None:
+            raise HTTPException(status_code=404, detail="админ не найден")
+        before_admins = cache.admins()
+        if len(before_admins) <= 1:
+            # F8: нельзя оставить систему без единого админа вообще
             raise HTTPException(
                 status_code=409,
-                detail="нельзя удалить последнего админа с полным доступом")
-    try:
-        removed = await cache.remove_admin(payload.telegram_id)
-    except ConfigCacheUnavailableError:
-        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+                detail="нельзя удалить последнего админа")
+        # S2: I2/I1 по назначенным админам — общий guard, а не только
+        # inline-подсчёт wildcard (снятие wildcard с роли в post_roles
+        # использует тот же mechanism).
+        before_roles = cache.roles()
+        after_admins = {
+            telegram_id: role_name
+            for telegram_id, role_name in before_admins.items()
+            if telegram_id != payload.telegram_id
+        }
+        try:
+            roles_srv.guard_admin_lockout(
+                before_roles, before_admins, before_roles, after_admins)
+        except RoleGuardError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        try:
+            removed = await cache.remove_admin(payload.telegram_id)
+        except ConfigCacheUnavailableError:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
     return {"removed": removed}
 
 
@@ -3453,12 +3497,16 @@ async def get_roles(
 async def post_roles(
     request: Request,
     payload: RoleUpsert,
-    user: Annotated[WebAppUser, Depends(requires_permission("access"))],
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
     """84.14.4: upsert ЛЮБОЙ роли (включая системные); guard последней
     wildcard → 409; неизвестный id права → 422; is_custom — флаг
     происхождения (для новой роли из запроса/дефолт true, для существующей
-    сохраняется)."""
+    сохраняется).
+
+    MOD-ACL-UX-01 M4C S1: мутация ролей — только effective global admin;
+    S2: снятие wildcard не должно обнулять назначенных wildcard/global
+    админов (I2/I1) — иначе role-edit lockout обходил бы role-level guard."""
     cache: ConfigCache = get_cache(request)
     try:
         validate_permissions(
@@ -3471,26 +3519,42 @@ async def post_roles(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    existing = cache.roles().get(payload.role_name)
     new_perms = Permissions.from_dict(payload.permissions)
-    if existing is not None:
-        old_perms = Permissions.from_dict(existing["permissions"])
-        if old_perms.wildcard and not new_perms.wildcard:
-            try:
-                guard_last_wildcard(
-                    {name: Permissions.from_dict(r["permissions"])
-                     for name, r in cache.roles().items()},
-                    payload.role_name, new_perms)
-            except RoleGuardError as exc:
-                raise HTTPException(status_code=exc.status_code, detail=str(exc))
-        is_custom = bool(existing["is_custom"])   # сервер сохраняет флаг (84.14.4)
-    else:
-        is_custom = payload.is_custom if payload.is_custom is not None else True
-
-    try:
-        await cache.upsert_role(payload.role_name, new_perms.to_dict(), is_custom)
-    except ConfigCacheUnavailableError:
-        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    async with _acl_mutation_lock(request):
+        before_roles = cache.roles()
+        existing = before_roles.get(payload.role_name)
+        if existing is not None:
+            old_perms = Permissions.from_dict(existing["permissions"])
+            if old_perms.wildcard and not new_perms.wildcard:
+                try:
+                    guard_last_wildcard(
+                        {name: Permissions.from_dict(r["permissions"])
+                         for name, r in before_roles.items()},
+                        payload.role_name, new_perms)
+                except RoleGuardError as exc:
+                    raise HTTPException(status_code=exc.status_code,
+                                        detail=str(exc))
+            is_custom = bool(existing["is_custom"])   # сервер сохраняет флаг
+        else:
+            is_custom = (payload.is_custom
+                         if payload.is_custom is not None else True)
+        after_roles = dict(before_roles)
+        after_roles[payload.role_name] = {
+            "permissions": new_perms.to_dict(),
+            "is_custom": is_custom,
+            "role_type": (existing or {}).get("role_type"),
+        }
+        try:
+            roles_srv.guard_admin_lockout(
+                before_roles, cache.admins(), after_roles, cache.admins())
+        except RoleGuardError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        try:
+            await cache.upsert_role(payload.role_name, new_perms.to_dict(),
+                                    is_custom)
+        except ConfigCacheUnavailableError:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
     logger.info("[api] role upserted | role=%s | by=%s", payload.role_name, user.id)
     return {"role_name": payload.role_name, "permissions": new_perms.to_dict(),
             "is_custom": is_custom}
@@ -3516,36 +3580,42 @@ def _is_builtin_role(role: dict | None) -> bool:
 async def delete_role_endpoint(
     request: Request,
     role_name: str,
-    user: Annotated[WebAppUser, Depends(requires_permission("access"))],
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
     """OD15/T-1141: удалить пользовательскую роль. Superuser → 403;
-    встроенные → 409; занятые (bot_admins) → 409; последняя wildcard → 409."""
+    встроенные → 409; занятые (bot_admins) → 409; последняя wildcard → 409.
+
+    MOD-ACL-UX-01 M4C S1: мутация роли — только effective global admin;
+    S2: проверки и удаление — в критической секции ACL-мутаций."""
     cache: ConfigCache = get_cache(request)
-    role = cache.roles().get(role_name)
-    if role is None:
-        raise HTTPException(status_code=404, detail=f"роль не найдена: {role_name}")
-    if _is_superuser_role(role_name, role):
-        raise HTTPException(status_code=403,
-                            detail="роль суперпользователя защищена")
-    if _is_builtin_role(role):
-        raise HTTPException(status_code=409,
-                            detail="встроенную роль нельзя удалить")
-    used = await cache.role_usage(role_name)
-    if used:
-        raise HTTPException(
-            status_code=409,
-            detail=f"роль назначена {used} админ(ам) — сначала переназначьте")
-    try:
-        guard_last_wildcard(
-            {n: Permissions.from_dict(r["permissions"])
-             for n, r in cache.roles().items()},
-            role_name, None)
-    except RoleGuardError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc))
-    try:
-        removed = await cache.delete_role(role_name)
-    except ConfigCacheUnavailableError:
-        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    async with _acl_mutation_lock(request):
+        role = cache.roles().get(role_name)
+        if role is None:
+            raise HTTPException(status_code=404,
+                                detail=f"роль не найдена: {role_name}")
+        if _is_superuser_role(role_name, role):
+            raise HTTPException(status_code=403,
+                                detail="роль суперпользователя защищена")
+        if _is_builtin_role(role):
+            raise HTTPException(status_code=409,
+                                detail="встроенную роль нельзя удалить")
+        used = await cache.role_usage(role_name)
+        if used:
+            raise HTTPException(
+                status_code=409,
+                detail=f"роль назначена {used} админ(ам) — сначала переназначьте")
+        try:
+            guard_last_wildcard(
+                {n: Permissions.from_dict(r["permissions"])
+                 for n, r in cache.roles().items()},
+                role_name, None)
+        except RoleGuardError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        try:
+            removed = await cache.delete_role(role_name)
+        except ConfigCacheUnavailableError:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
     if not removed:
         raise HTTPException(status_code=404, detail=f"роль не найдена: {role_name}")
     logger.info("[api] role deleted | role=%s | by=%s | audit=role",
@@ -3558,34 +3628,40 @@ async def rename_role_endpoint(
     request: Request,
     role_name: str,
     payload: RoleRename,
-    user: Annotated[WebAppUser, Depends(requires_permission("access"))],
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
     """OD15/T-1141: переименовать пользовательскую роль (каскад — в
     ConfigCache.rename_role). Superuser → 403; встроенные → 409;
-    имя занято → 409."""
+    имя занято → 409.
+
+    MOD-ACL-UX-01 M4C S1: мутация роли — только effective global admin;
+    S2: проверки и rename — в критической секции ACL-мутаций."""
     cache: ConfigCache = get_cache(request)
-    role = cache.roles().get(role_name)
-    if role is None:
-        raise HTTPException(status_code=404, detail=f"роль не найдена: {role_name}")
-    if _is_superuser_role(role_name, role):
-        raise HTTPException(status_code=403,
-                            detail="роль суперпользователя защищена")
-    if _is_builtin_role(role):
-        raise HTTPException(status_code=409,
-                            detail="встроенную роль нельзя переименовать")
-    new_name = payload.new_name.strip()
-    if not new_name:
-        raise HTTPException(status_code=422, detail="пустое новое имя")
-    if new_name != role_name and new_name in cache.roles():
-        raise HTTPException(status_code=409,
-                            detail=f"роль уже существует: {new_name}")
-    if new_name == role_name:
-        return {"role_name": role_name, "old_name": role_name,
-                "renamed": False}
-    try:
-        await cache.rename_role(role_name, new_name)
-    except ConfigCacheUnavailableError:
-        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    async with _acl_mutation_lock(request):
+        role = cache.roles().get(role_name)
+        if role is None:
+            raise HTTPException(status_code=404,
+                                detail=f"роль не найдена: {role_name}")
+        if _is_superuser_role(role_name, role):
+            raise HTTPException(status_code=403,
+                                detail="роль суперпользователя защищена")
+        if _is_builtin_role(role):
+            raise HTTPException(status_code=409,
+                                detail="встроенную роль нельзя переименовать")
+        new_name = payload.new_name.strip()
+        if not new_name:
+            raise HTTPException(status_code=422, detail="пустое новое имя")
+        if new_name != role_name and new_name in cache.roles():
+            raise HTTPException(status_code=409,
+                                detail=f"роль уже существует: {new_name}")
+        if new_name == role_name:
+            return {"role_name": role_name, "old_name": role_name,
+                    "renamed": False}
+        try:
+            await cache.rename_role(role_name, new_name)
+        except ConfigCacheUnavailableError:
+            raise HTTPException(status_code=503,
+                                detail="PostgreSQL недоступен (R6)")
     logger.info("[api] role renamed | old=%s | new=%s | by=%s | audit=role",
                 role_name, new_name, user.id)
     return {"role_name": new_name, "old_name": role_name, "renamed": True}

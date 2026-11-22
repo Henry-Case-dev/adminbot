@@ -21,7 +21,7 @@ import logging
 
 from services.access_errors import AccessStorageUnavailable
 from services.chat_params import is_dm_scope
-from services.permissions import Permissions
+from services.permissions import Permissions, RoleGuardError
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +86,69 @@ def rank_of_type(role_type: str, perms: Permissions | None = None) -> int:
         if perms.sections or perms.actions or perms.params or perms.keys:
             return 2
     return 1
+
+
+def is_effective_global_admin_role(role_name: str | None,
+                                   role_data: dict | None) -> bool:
+    """MOD-ACL-UX-01 M4C S2: роль — effective global admin.
+
+    Ровно канон `web.api.deps.user_is_global_admin`: `role_type ==
+    "global_admin"`, legacy-имя роли `admin` или `permissions.wildcard`.
+    Второй ACL/матчер не вводится — функция читает тот же cache-снимок.
+    """
+    if role_name is None:
+        return False
+    if role_name == "admin":
+        return True
+    role_type = role_data.get("role_type") if isinstance(role_data, dict) else None
+    if role_type_of(role_name, role_data, role_type) == ROLE_GLOBAL_ADMIN:
+        return True
+    perms_data = role_data.get("permissions") if isinstance(role_data, dict) else None
+    return Permissions.from_dict(perms_data).wildcard
+
+
+def assigned_global_admin_ids(roles: dict, admins: dict) -> set[int]:
+    """I1: telegram_id **назначенных** админов с effective-global ролью."""
+    roles = roles or {}
+    return {
+        telegram_id for telegram_id, role_name in (admins or {}).items()
+        if is_effective_global_admin_role(role_name, roles.get(role_name))
+    }
+
+
+def assigned_wildcard_admin_ids(roles: dict, admins: dict) -> set[int]:
+    """I2: telegram_id назначенных админов, чья роль несёт wildcard."""
+    roles = roles or {}
+    out: set[int] = set()
+    for telegram_id, role_name in (admins or {}).items():
+        role_data = roles.get(role_name)
+        perms_data = (role_data.get("permissions")
+                      if isinstance(role_data, dict) else None)
+        if Permissions.from_dict(perms_data).wildcard:
+            out.add(telegram_id)
+    return out
+
+
+def guard_admin_lockout(before_roles: dict, before_admins: dict,
+                        after_roles: dict, after_admins: dict) -> None:
+    """MOD-ACL-UX-01 M4C S2: не допустить потери последнего назначенного
+    администратора с полным доступом (I2) или последнего effective-global
+    администратора (I1).
+
+    Блокируется только переход `>0 → 0`: уже деградированное состояние (0 в
+    before) не мешает восстановлению, а случайное/злонамеренное обнуление —
+    блокируется. I2 проверяется первой — сообщение «полным доступом»
+    сохраняется для существующего 409-контракта. Нарушение → RoleGuardError
+    (409 на уровне API, как у guard_last_wildcard).
+    """
+    if assigned_wildcard_admin_ids(before_roles, before_admins) \
+            and not assigned_wildcard_admin_ids(after_roles, after_admins):
+        raise RoleGuardError(
+            "нельзя оставить систему без администратора с полным доступом")
+    if assigned_global_admin_ids(before_roles, before_admins) \
+            and not assigned_global_admin_ids(after_roles, after_admins):
+        raise RoleGuardError(
+            "нельзя оставить систему без глобального администратора")
 
 
 @dataclass(frozen=True)
