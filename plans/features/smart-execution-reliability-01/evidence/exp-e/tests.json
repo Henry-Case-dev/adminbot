@@ -5,8 +5,8 @@
   "base_commit": "56e2450d2c02e3d8ac595b9a412a121127f57b57",
   "base_version": "2.58.234",
   "branch": "fix/exp-e-trunc-lag",
-  "implementation_commit": "a5049c8428dc0ac4aca519b10789027c8a4d5bb6",
-  "previous_candidate": "ece1e1ca9f6de046b2c0c4f5211e17663be88947",
+  "implementation_commit": "161a1705973bf6b5f31001b57a9a2728300f5945",
+  "previous_candidate": "1df6fff1668882af187e0564c64d159498b56235",
   "owner_input": "plans/owner_inputs/2026-11-22-p0-embed-503-failover.md",
   "owner_input_sha256": "d23bf6f96c69e8ddd1537a07f8f203fbf434b0022f693e5368a64c8731828f09",
   "requirements_map": "plans/features/smart-execution-reliability-01/requirements-map-exp-amendment.json",
@@ -24,13 +24,13 @@
   "checks": [
     {
       "command": "python -m pytest tests/test_exp_e_trunc_lag_amendment.py -q",
-      "result": "11 passed",
-      "duration_s": 6.84
+      "result": "13 passed",
+      "duration_s": 9.68
     },
     {
       "command": "python -m pytest <18 related experience files> -q -k 'not deep_sleep_not_mixed_with_lessons'",
-      "result": "290 passed, 1 deselected, 1 warning",
-      "duration_s": 38.9
+      "result": "292 passed, 1 deselected, 1 warning",
+      "duration_s": 44.53
     },
     {
       "command": "python -m py_compile services/mca_experience_jobs.py tests/test_exp_e_trunc_lag_amendment.py tests/test_mca16_experience_block_d_round1039.py",
@@ -124,7 +124,17 @@
       "green": "fresh processed new events across restart; no tail batch; tail retry unchanged; later tail retried 25 then 13",
       "test": "tests/test_exp_e_trunc_lag_amendment.py::test_fresh_lane_ignores_tail_backoff_across_restart"
     },
+    "B02": {
+      "red_candidate": "1df6fff16",
+      "red": "inherited fresh lane lost row_limit/attempts/reason; consecutive jobs read [50,50,50]",
+      "green": "inherited min(row_limit), max(attempts), max(retry_at), reason; windows 50->25->13->7; attempts 1->2->3; cursor moves only on valid content; restart/continuation no re-send",
+      "tests": [
+        "tests/test_exp_e_trunc_lag_amendment.py::test_inherit_cursor_preserves_fresh_lane_backoff",
+        "tests/test_exp_e_trunc_lag_amendment.py::test_fresh_truncation_window_persists_across_jobs"
+      ]
+    },
     "fix_commit": "a5049c842",
+    "fix_commit_b02": "161a17059",
     "diff": {
       "services/mca_experience_jobs.py": "+21/-6",
       "tests/test_exp_e_trunc_lag_amendment.py": "+173"

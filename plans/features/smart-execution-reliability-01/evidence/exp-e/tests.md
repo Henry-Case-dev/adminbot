@@ -1,8 +1,8 @@
 # Проверки EXP-E-TRUNC / EXP-E-LAG
 
 Worktree: `.../exp-e-trunc-lag-476956d0821c-5b46eb21`, branch
-`fix/exp-e-trunc-lag`, code SHA `a5049c842` (review fixes B01/N01; база
-предыдущего кандидата `ece1e1ca9`).
+`fix/exp-e-trunc-lag`, code SHA `161a17059` (B02; предыдущие `a5049c842`
+B01/N01 и `819361a71` E-TRUNC/E-LAG).
 Python: `C:\Code\Python\adminbot\.venv\Scripts\python.exe` (3.12.0).
 Production/SSH/LLM/live не выполнялись.
 
@@ -12,7 +12,7 @@ Production/SSH/LLM/live не выполнялись.
 
 ```
 python -m pytest tests/test_exp_e_trunc_lag_amendment.py -q
-11 passed in 6.84s
+13 passed in 9.68s
 ```
 
 2. Релевантный Experience/смежный набор (18 файлов, включая SXR-I2,
@@ -21,12 +21,12 @@ python -m pytest tests/test_exp_e_trunc_lag_amendment.py -q
 
 ```
 python -m pytest <18 files> -q -k "not deep_sleep_not_mixed_with_lessons"
-290 passed, 1 deselected, 1 warning in 38.90s
+292 passed, 1 deselected, 1 warning in 44.53s
 ```
 
-3. Review RED→GREEN B01/N01: см. `review-fixes-b01-n01.md`.
-   RED `ece1e1ca9` — 2 failed (tail `[50,50,50]`; fresh не обработан при
-   tail backoff); GREEN `a5049c842` — 11 passed.
+3. Review RED→GREEN:
+   - B01/N01: `review-fixes-b01-n01.md` (RED `ece1e1ca9`, GREEN `a5049c842`).
+   - B02: `review-fixes-b02.md` (RED `1df6fff16`, GREEN `161a17059`).
 
 Warning — `StarletteDeprecationWarning` (httpx), не связан с изменением.
 

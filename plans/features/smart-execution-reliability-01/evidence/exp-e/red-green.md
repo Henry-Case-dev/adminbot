@@ -83,7 +83,17 @@ GREEN: fresh-полоса обрабатывает новые события п�
 Тесты: `test_fresh_success_does_not_reset_tail_truncation_state`,
 `test_fresh_lane_ignores_tail_backoff_across_restart`.
 
-## F. Pre-existing failure (не candidate)
+## F. Review B02 (candidate `1df6fff16` → `161a17059`)
+
+| Наблюдение | RED `1df6fff16` | GREEN `161a17059` |
+|---|---|---|
+| Наследование fresh lane | `KeyError: 'row_limit'`; attempts/retry/reason теряются | `row_limit=5, attempts=4, retry_at=12345, reason` сохранены; tail не смешан |
+| 3 job'а с устойчивой обрезкой fresh | `[50,50,50]` | `50 → 25 → 13 → 7`; attempts `1→2→3`; cursor стоит на отказах, двигается валидным контентом |
+| После успеха | — | продолжение с cursor=6007 без повторной отправки 6001–6007; restart durable |
+
+Подробно — `review-fixes-b02.md`.
+
+## G. Pre-existing failure (не candidate)
 
 `tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons`
 падает **идентично на base** `56e2450d2`: assertion `"graph_facts" not in
