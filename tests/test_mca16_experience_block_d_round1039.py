@@ -259,16 +259,23 @@ def test_no_per_message_llm_reflection_module_is_llm_free():
     # вызов один на батч (≤SEMANTIC_CHATS_PER_PASS чатов × ≤SEMANTIC_PER_CHAT_MAX
     # строк), НЕ на сообщение. Пин не ослаблен: число вызовов ровно 1, точка
     # вызова — батч-хелпер с каноническими границами/шагом.
+    # E-TRUNC (22.11.2026): универсальный `SEMANTIC_BATCH_MAX_TOKENS=1500`
+    # удалён; пин теперь требует модельный/построчный бюджет и НЕ допускает
+    # возврата фиксированного потолка.
     assert src.count("generate(") == 1
     assert src.count("llm.generate") == 1
-    batch = src.split("async def _semantic_llm_batch", 1)[1]
+    batch = src.split("async def _semantic_llm_call", 1)[1]
     batch = batch.split("\n    async def ", 1)[0].split("\n    def ", 1)[0]
     assert "generate(" in batch
     assert "llm.generate" in batch
     assert 'step="semantic_extract"' in batch
-    assert "max_output_tokens=SEMANTIC_BATCH_MAX_TOKENS" in batch
-    assert "SEMANTIC_CHATS_PER_PASS" in src      # граница чатов на проход (4)
-    assert "SEMANTIC_PER_CHAT_MAX" in src        # строк на чат (10)
+    assert "max_output_tokens=budget" in batch
+    assert "semantic_output_budget(" in src
+    assert "SEMANTIC_BATCH_MAX_TOKENS" not in src
+    assert "SEMANTIC_OUTPUT_CEILING_TOKENS" in src
+    assert "SEMANTIC_OUTPUT_RETRY_ATTEMPTS" in src
+    assert "SEMANTIC_CHATS_PER_PASS" in src      # граница чатов на проход
+    assert "SEMANTIC_PER_CHAT_MAX" in src        # строк на чат
     import inspect
     params = inspect.signature(mj.ExperienceReviewRunner.__init__).parameters
     # LLM опционален (default None): без него — честная недоступность
