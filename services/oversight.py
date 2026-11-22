@@ -417,7 +417,8 @@ async def get_chat_details(pg, chat_id: int, store=None) -> dict:
         if store is not None:
             out["admins"] = await store.list_chat_admins(int(chat_id))
             out["history"] = await store.history(int(chat_id),
-                                                 _HISTORY_LIMIT)
+                                                 _HISTORY_LIMIT,
+                                                 exclude_fields=("access",))
     except Exception:
         logger.warning("[oversight] details enrich failed | chat=%s",
                        chat_id, exc_info=True)

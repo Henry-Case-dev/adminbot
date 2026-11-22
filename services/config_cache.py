@@ -32,6 +32,8 @@ from services.info_service import (
     guide_version_for as _guide_version_for,
     normalize_canon as _normalize_canon,
 )
+from services import acl_audit
+from services.chat_keys import GLOBAL_AUDIT_CHAT_ID
 from services.param_catalog import normalize_value
 from services.permissions import Permissions
 from services.pg_db import PgDatabase
@@ -814,31 +816,77 @@ class ConfigCache:
         if not self._pg_available or self._pg.pool is None:
             raise ConfigCacheUnavailableError("PostgreSQL недоступен (R6)")
 
+    @staticmethod
+    async def _write_audit(conn, audit: dict | None,
+                           changed_by: int | None) -> None:
+        """MOD-ACL-UX-01 M4C C3: audit-строка на том же коннекте мутации."""
+        if audit is None:
+            return
+        await acl_audit.insert_access_audit(
+            conn, chat_id=GLOBAL_AUDIT_CHAT_ID, changed_by=changed_by,
+            event=audit)
+
     async def upsert_admin(self, telegram_id: int, role_name: str,
-                           added_by: int | None) -> None:
-        """Назначить/сменить роль Telegram ID + reload кэша (84.5)."""
+                           added_by: int | None, *, audit: dict | None = None,
+                           changed_by: int | None = None) -> None:
+        """Назначить/сменить роль Telegram ID + reload кэша (84.5).
+
+        C3: при переданном audit — мутация и строка `access` в ОДНОЙ
+        транзакции (ошибка audit откатывает мутацию → 503)."""
         self._require_pg()
         async with self._pg.pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO bot_admins (telegram_id, role_name, added_by)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (telegram_id) DO UPDATE
-                SET role_name = EXCLUDED.role_name,
-                    added_by = EXCLUDED.added_by
-                """,
-                telegram_id, role_name, added_by,
-            )
+            if audit is None:
+                await conn.execute(
+                    """
+                    INSERT INTO bot_admins (telegram_id, role_name, added_by)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (telegram_id) DO UPDATE
+                    SET role_name = EXCLUDED.role_name,
+                        added_by = EXCLUDED.added_by
+                    """,
+                    telegram_id, role_name, added_by,
+                )
+            else:
+                try:
+                    async with conn.transaction():
+                        await conn.execute(
+                            """
+                            INSERT INTO bot_admins (telegram_id, role_name,
+                                                    added_by)
+                            VALUES ($1, $2, $3)
+                            ON CONFLICT (telegram_id) DO UPDATE
+                            SET role_name = EXCLUDED.role_name,
+                                added_by = EXCLUDED.added_by
+                            """,
+                            telegram_id, role_name, added_by,
+                        )
+                        await self._write_audit(conn, audit, changed_by)
+                except Exception as exc:
+                    raise ConfigCacheUnavailableError(
+                        "ACL-мутация не применена (audit/БД)") from exc
         await self.reload()
         logger.info("[config_cache] admin upserted: %s → %s (by=%s)",
                     telegram_id, role_name, added_by)
 
-    async def remove_admin(self, telegram_id: int) -> bool:
+    async def remove_admin(self, telegram_id: int, *, audit: dict | None = None,
+                           changed_by: int | None = None) -> bool:
         """Удалить Telegram ID из bot_admins + reload. False — его не было."""
         self._require_pg()
         async with self._pg.pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM bot_admins WHERE telegram_id = $1", telegram_id)
+            if audit is None:
+                result = await conn.execute(
+                    "DELETE FROM bot_admins WHERE telegram_id = $1",
+                    telegram_id)
+            else:
+                try:
+                    async with conn.transaction():
+                        result = await conn.execute(
+                            "DELETE FROM bot_admins WHERE telegram_id = $1",
+                            telegram_id)
+                        await self._write_audit(conn, audit, changed_by)
+                except Exception as exc:
+                    raise ConfigCacheUnavailableError(
+                        "ACL-мутация не применена (audit/БД)") from exc
         removed = _deleted_count(result)
         await self.reload()
         logger.info("[config_cache] admin removed: %s (removed=%s)",
@@ -846,34 +894,69 @@ class ConfigCache:
         return removed
 
     async def upsert_role(self, role_name: str, permissions: dict,
-                          is_custom: bool) -> None:
-        """Создать/обновить роль + reload (84.14.4: правка любых ролей)."""
+                          is_custom: bool, *, audit: dict | None = None,
+                          changed_by: int | None = None) -> None:
+        """Создать/обновить роль + reload (84.14.4: правка любых ролей).
+
+        C3: при переданном audit — мутация и строка `access` в ОДНОЙ
+        транзакции."""
         self._require_pg()
         async with self._pg.pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO bot_roles (role_name, permissions, is_custom)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (role_name) DO UPDATE
-                SET permissions = EXCLUDED.permissions
-                """,
-                role_name, json.dumps(permissions), is_custom,
-            )
+            if audit is None:
+                await conn.execute(
+                    """
+                    INSERT INTO bot_roles (role_name, permissions, is_custom)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (role_name) DO UPDATE
+                    SET permissions = EXCLUDED.permissions
+                    """,
+                    role_name, json.dumps(permissions), is_custom,
+                )
+            else:
+                try:
+                    async with conn.transaction():
+                        await conn.execute(
+                            """
+                            INSERT INTO bot_roles (role_name, permissions,
+                                                   is_custom)
+                            VALUES ($1, $2, $3)
+                            ON CONFLICT (role_name) DO UPDATE
+                            SET permissions = EXCLUDED.permissions
+                            """,
+                            role_name, json.dumps(permissions), is_custom,
+                        )
+                        await self._write_audit(conn, audit, changed_by)
+                except Exception as exc:
+                    raise ConfigCacheUnavailableError(
+                        "ACL-мутация не применена (audit/БД)") from exc
         await self.reload()
         logger.info("[config_cache] role upserted: %s (is_custom=%s)",
                     role_name, is_custom)
 
-    async def delete_role(self, role_name: str) -> bool:
+    async def delete_role(self, role_name: str, *, audit: dict | None = None,
+                          changed_by: int | None = None) -> bool:
         """Удалить роль + reload. False — роли не было.
 
         OD15/T-1141: перед удалением чистим имя роли из param_permissions
         (view_roles/edit_roles) — не оставляем «висячих» прав.
-        """
+        C3: при audit `_scrub`+DELETE+audit в одной транзакции."""
         self._require_pg()
         async with self._pg.pool.acquire() as conn:
-            await self._scrub_param_permissions(conn, role_name)
-            result = await conn.execute(
-                "DELETE FROM bot_roles WHERE role_name = $1", role_name)
+            if audit is None:
+                await self._scrub_param_permissions(conn, role_name)
+                result = await conn.execute(
+                    "DELETE FROM bot_roles WHERE role_name = $1", role_name)
+            else:
+                try:
+                    async with conn.transaction():
+                        await self._scrub_param_permissions(conn, role_name)
+                        result = await conn.execute(
+                            "DELETE FROM bot_roles WHERE role_name = $1",
+                            role_name)
+                        await self._write_audit(conn, audit, changed_by)
+                except Exception as exc:
+                    raise ConfigCacheUnavailableError(
+                        "ACL-мутация не применена (audit/БД)") from exc
         removed = _deleted_count(result)
         await self.reload()
         logger.info("[config_cache] role deleted: %s (removed=%s)",
@@ -913,13 +996,15 @@ class ConfigCache:
                 touched += 1
         return touched
 
-    async def rename_role(self, old_name: str, new_name: str) -> None:
+    async def rename_role(self, old_name: str, new_name: str, *,
+                          audit: dict | None = None,
+                          changed_by: int | None = None) -> None:
         """OD15/T-1141: переименование роли + каскад в одной транзакции.
 
         Копирует роль (вкл. role_type), переводит bot_admins, чистит старое
         имя из param_permissions, удаляет старую строку. Guard'ы
         (superuser/встроенные/занятость) — на уровне API.
-        """
+        C3: audit — в той же транзакции (fail-closed)."""
         self._require_pg()
         async with self._pg.pool.acquire() as conn:
             async with conn.transaction():
@@ -936,6 +1021,7 @@ class ConfigCache:
                 await self._scrub_param_permissions(conn, old_name)
                 await conn.execute(
                     "DELETE FROM bot_roles WHERE role_name = $1", old_name)
+                await self._write_audit(conn, audit, changed_by)
         await self.reload()
         logger.info("[config_cache] role renamed: %s -> %s",
                     old_name, new_name)

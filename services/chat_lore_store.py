@@ -195,6 +195,15 @@ HISTORY_SQL = (
     "FROM chat_lore_history WHERE chat_id = $1 "
     "ORDER BY created_at DESC, id DESC LIMIT $2"
 )
+# MOD-ACL-UX-01 M4C C3: ACL-аудит живёт в этой же таблице (field='access'),
+# но в lore/oversight-таймлайн не отдаётся. Список исключаемых полей —
+# фиксированный allowlist, а не произвольный SQL от вызывающего.
+HISTORY_EXCLUDE_SQL = (
+    "SELECT id, chat_id, field, changed_by, old_value, new_value, created_at "
+    "FROM chat_lore_history WHERE chat_id = $1 AND field <> ALL($2::text[]) "
+    "ORDER BY created_at DESC, id DESC LIMIT $3"
+)
+HISTORY_EXCLUDABLE_FIELDS: frozenset[str] = frozenset({"access"})
 
 _MAX_RESOLVE_DEPTH = 5   # spec §4: глубина > 5 → исходный id (безопасный возврат)
 
@@ -939,12 +948,26 @@ class ChatLoreStore:
 
     # ── история (аудит, §3.3/Q7) ───────────────────────────────────────────
 
-    async def history(self, chat_id: int, limit: int = 100) -> list[dict]:
+    async def history(self, chat_id: int, limit: int = 100, *,
+                      exclude_fields=()) -> list[dict]:
         """Строки истории чата, timeline DESC: created_at (ISO), field,
-        changed_by, old_value, new_value."""
+        changed_by, old_value, new_value.
+
+        C3: `exclude_fields` — только фиксированный allowlist
+        (`access`); фильтр в SQL, чтобы скрытые ACL-строки не вытесняли
+        полезные записи из limit.
+        """
         pool = self._pool()
+        excluded = sorted({f for f in exclude_fields
+                           if f in HISTORY_EXCLUDABLE_FIELDS})
         async with pool.acquire() as conn:
-            rows = await conn.fetch(HISTORY_SQL, chat_id, max(1, int(limit)))
+            if excluded:
+                rows = await conn.fetch(
+                    HISTORY_EXCLUDE_SQL, chat_id, excluded,
+                    max(1, int(limit)))
+            else:
+                rows = await conn.fetch(HISTORY_SQL, chat_id,
+                                        max(1, int(limit)))
         return [
             {
                 "id": r["id"],

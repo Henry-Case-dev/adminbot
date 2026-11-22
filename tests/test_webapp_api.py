@@ -55,13 +55,57 @@ class _FakeConn:
         self._settings_rows = list(settings_rows)
         self._role_rows = list(role_rows)
         self._admin_rows = list(admin_rows)
+        # C3: глобальная матрица — реальное хранилище фейка (PUT/DELETE с
+        # CAS/audit не должны «успешно» работать на пустом ответе).
+        self._param_rows = {}
+        self._ts_seq = 0
+
+    def _next_ts(self) -> str:
+        self._ts_seq += 1
+        return f"2026-11-22T13:00:{self._ts_seq:02d}+00:00"
 
     async def execute(self, sql, *args):
         self.queries.append((sql, tuple(args)))
+        low = " ".join(sql.lower().split())
+        if "update param_permissions set value" in low:
+            row = self._param_rows.get(args[0])
+            if row is not None:
+                import json as _json
+                row["value"] = _json.loads(args[1])
+                row["updated_at"] = self._next_ts()
         return "INSERT 0 1"
 
     async def fetchrow(self, sql, *args):
         self.queries.append((sql, tuple(args)))
+        low = " ".join(sql.lower().split())
+        import json as _json
+        if "from param_permissions" in low and low.startswith("select"):
+            row = self._param_rows.get(args[0])
+            return dict(row) if row else None
+        if "insert into param_permissions" in low:
+            row = {"key": args[0], "value": _json.loads(args[1]),
+                   "updated_at": self._next_ts()}
+            self._param_rows[args[0]] = row
+            return dict(row)
+        if "update param_permissions" in low:
+            row = self._param_rows.get(args[0])
+            if row is None:
+                return None
+            if " and updated_at = " in low \
+                    and str(row["updated_at"]) != str(args[2]):
+                return None
+            row["value"] = _json.loads(args[1])
+            row["updated_at"] = self._next_ts()
+            return dict(row)
+        if "delete from param_permissions" in low:
+            row = self._param_rows.get(args[0])
+            if row is None:
+                return None
+            if " and updated_at = " in low \
+                    and str(row["updated_at"]) != str(args[1]):
+                return None
+            self._param_rows.pop(args[0], None)
+            return dict(row)
         # F-14 (DM): chat_params/set_chat_params — профилей в фейке нет →
         # ensure_scope_profile логируется, set_chat_params даёт 409 (0 строк)
         return None
@@ -81,12 +125,15 @@ class _FakeConn:
         return tx
 
     async def fetch(self, sql, *args):
-        if "bot_settings" in sql:
+        low = " ".join(sql.lower().split())
+        if "bot_settings" in low:
             return self._settings_rows
-        if "bot_roles" in sql:
+        if "bot_roles" in low:
             return self._role_rows
-        if "bot_admins" in sql:
+        if "bot_admins" in low:
             return self._admin_rows
+        if "from param_permissions" in low:
+            return [dict(r) for r in self._param_rows.values()]
         return []
 
 
@@ -1559,7 +1606,16 @@ class TestParamPermissionFlagsApi:
         assert resp2.status_code == 403
 
     def test_delete_resets_to_default(self, client):
-        """DELETE оверрайда → 200 {reset: true}; нет строки → 404."""
+        """DELETE оверрайда → 200 {reset: true}; нет строки → 404.
+
+        C3: строка сначала реально создаётся (раньше фейк отвечал «DELETE 1»
+        на любую команду, и 404-семантика не проверялась).
+        """
+        put = client.put(
+            "/api/access/param_permissions/limits.search_max_symbols",
+            headers=_hdr(ADMIN_ID),
+            json={"view_roles": ["moderator"], "edit_roles": ["local_admin"]})
+        assert put.status_code == 200
         resp = client.delete(
             "/api/access/param_permissions/limits.search_max_symbols",
             headers=_hdr(ADMIN_ID))

@@ -30,6 +30,7 @@ import json
 import logging
 import time
 
+from services import acl_audit
 from services.access_errors import AccessStorageUnavailable  # noqa: F401 — реэкспорт (C1-совместимость)
 from services.param_catalog import CATEGORY_KEYS, CATEGORY_PROMPTS, get_by_pg_key
 from services.chat_params import is_dm_scope
@@ -60,6 +61,49 @@ UPSERT_PERM_SQL = (
     "updated_at = now()"
 )
 DELETE_PERM_SQL = "DELETE FROM param_permissions WHERE key = $1"
+
+# MOD-ACL-UX-01 M4C C3 — CAS/audit глобальной матрицы. Строка читается
+# FOR UPDATE, запись — UPDATE ... WHERE updated_at=$token (или INSERT при
+# отсутствии), audit — в той же транзакции (fail-closed).
+SELECT_PERM_ROW_SQL = (
+    "SELECT key, value, updated_at FROM param_permissions "
+    "WHERE key = $1 FOR UPDATE"
+)
+INSERT_PERM_RETURNING_SQL = (
+    "INSERT INTO param_permissions (key, value) VALUES ($1, $2::jsonb) "
+    "RETURNING updated_at"
+)
+UPDATE_PERM_RETURNING_SQL = (
+    "UPDATE param_permissions SET value = $2::jsonb, updated_at = now() "
+    "WHERE key = $1 RETURNING updated_at"
+)
+UPDATE_PERM_CAS_SQL = (
+    "UPDATE param_permissions SET value = $2::jsonb, updated_at = now() "
+    "WHERE key = $1 AND updated_at = $3::timestamptz RETURNING updated_at"
+)
+DELETE_PERM_RETURNING_SQL = (
+    "DELETE FROM param_permissions WHERE key = $1 RETURNING value, updated_at"
+)
+DELETE_PERM_CAS_SQL = (
+    "DELETE FROM param_permissions "
+    "WHERE key = $1 AND updated_at = $2::timestamptz "
+    "RETURNING value, updated_at"
+)
+
+
+class ParamPermissionConflict(Exception):
+    """C3: 409 глобальной матрицы (override_exists/override_absent/mismatch).
+
+    `current` — нормализованные текущие роли (или None, если строки нет);
+    значения не отдаются наружу за пределами матрицы view/edit.
+    """
+
+    def __init__(self, reason: str, current_updated_at: str | None = None,
+                 current: dict | None = None):
+        self.reason = reason
+        self.current_updated_at = current_updated_at
+        self.current = current
+        super().__init__(f"param_permission conflict: {reason}")
 
 _db_override_cache: dict = {}
 _db_override_cache_ts: float = 0.0
@@ -196,25 +240,151 @@ def normalize_permission_override(value) -> dict:
     return _normalize_perms(value)
 
 
-async def upsert_param_permission(pg, key: str, value: dict) -> None:
-    """Запись override (INSERT ON CONFLICT) + сброс кэша."""
+def _row_perm_value(row) -> dict | None:
+    """value из rows-подобного объекта → нормализованная матрица (или None)."""
+    if row is None:
+        return None
+    value = row["value"] if "value" in row else None
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            value = {}
+    return normalize_permission_override(value)
+
+
+async def upsert_param_permission(pg, key: str, value: dict, *,
+                                  expected_updated_at: str | None = None,
+                                  expect_absent: bool = False,
+                                  audit: bool = False,
+                                  changed_by: int | None = None) -> dict:
+    """Запись override (INSERT ON CONFLICT) + сброс кэша.
+
+    MOD-ACL-UX-01 M4C C3: опциональные optimistic-токены и durable audit.
+    При `audit=True` строка `access` пишется в ТОЙ ЖЕ транзакции; ошибка
+    audit откатывает запись (исключение наружу). No-op (та же матрица) не
+    двигает `updated_at`, не пишет audit и возвращает прежнюю метку.
+
+    Возвращает ``{"value": normalized, "updated_at": iso|None,
+    "unchanged": bool}``. Старые вызовы (diag.*) передают только pg/key/value
+    — их поведение (без audit/токенов) сохранено.
+    """
     pool = getattr(pg, "pool", None) if pg is not None else None
     if pool is None:
         raise RuntimeError("PostgreSQL недоступен (пул отсутствует)")
+    if expect_absent and expected_updated_at is not None:
+        raise ValueError("expect_absent и expected_updated_at несовместимы")
+    if not audit and expected_updated_at is None and not expect_absent:
+        # Legacy-путь diag.*/совместимых вызовов: та же одна команда
+        # UPSERT, без audit/токенов (поведение 2.58.233 не меняется;
+        # значение diag-матрицы — {view,run,edit} — не пропускаем через
+        # normalize_permission_override, иначе потерялся бы run_roles).
+        async with pool.acquire() as conn:
+            await conn.execute(UPSERT_PERM_SQL, key, json.dumps(value))
+        reset_param_permissions_cache()
+        return {"value": value, "updated_at": None, "unchanged": False}
+    normalized = normalize_permission_override(value)
+    updated_at_out: str | None = None
+    unchanged = False
     async with pool.acquire() as conn:
-        await conn.execute(UPSERT_PERM_SQL, key, json.dumps(value))
+        async with conn.transaction():
+            row = await conn.fetchrow(SELECT_PERM_ROW_SQL, key)
+            current = _row_perm_value(row)
+            if expect_absent and row is not None:
+                raise ParamPermissionConflict(
+                    "override_exists", _snapshot_ts(row.get("updated_at")),
+                    current)
+            if current is not None and current == normalized:
+                # Идемпотентный short-circuit: «сохранено» без изменения не
+                # создаёт ложного следа и не двигает optimistic-метку.
+                return {
+                    "value": current,
+                    "updated_at": _snapshot_ts(row.get("updated_at")),
+                    "unchanged": True,
+                }
+            if expected_updated_at is not None:
+                if row is None:
+                    raise ParamPermissionConflict(
+                        "revision_mismatch", None, None)
+                updated = await conn.fetchrow(
+                    UPDATE_PERM_CAS_SQL, key, json.dumps(normalized),
+                    expected_updated_at)
+                if updated is None:
+                    fresh = await conn.fetchrow(SELECT_PERM_ROW_SQL, key)
+                    raise ParamPermissionConflict(
+                        "revision_mismatch",
+                        _snapshot_ts(fresh.get("updated_at")) if fresh else None,
+                        _row_perm_value(fresh))
+            elif row is None:
+                updated = await conn.fetchrow(
+                    INSERT_PERM_RETURNING_SQL, key, json.dumps(normalized))
+            else:
+                updated = await conn.fetchrow(
+                    UPDATE_PERM_RETURNING_SQL, key, json.dumps(normalized))
+            updated_at_out = _snapshot_ts(updated.get("updated_at"))
+            if audit:
+                event = acl_audit.build_event(
+                    entity=acl_audit.ENTITY_PARAM_GLOBAL,
+                    op=acl_audit.OP_UPDATE if row is not None
+                    else acl_audit.OP_CREATE,
+                    key=key, before=current, after=normalized)
+                await acl_audit.insert_access_audit(
+                    conn, chat_id=0, changed_by=changed_by, event=event)
     reset_param_permissions_cache()
+    return {"value": normalized, "updated_at": updated_at_out,
+            "unchanged": unchanged}
 
 
-async def delete_param_permission(pg, key: str) -> bool:
-    """Удаление override (возврат к дефолту) + сброс кэша."""
+async def delete_param_permission(pg, key: str, *,
+                                  expected_updated_at: str | None = None,
+                                  audit: bool = False,
+                                  changed_by: int | None = None) -> bool:
+    """Удаление override (возврат к дефолту) + сброс кэша.
+
+    C3: `expected_updated_at` — CAS-токен; mismatch → ParamPermissionConflict
+    revision_mismatch; отсутствие строки при токене → override_absent.
+    Без токена отсутствие — False (прежний 404). Audit — в той же
+    транзакции.
+    """
     pool = getattr(pg, "pool", None) if pg is not None else None
     if pool is None:
         raise RuntimeError("PostgreSQL недоступен (пул отсутствует)")
+    if not audit and expected_updated_at is None:
+        # Legacy-путь (diag.*): ровно прежняя команда DELETE + прежний 404.
+        async with pool.acquire() as conn:
+            result = await conn.execute(DELETE_PERM_SQL, key)
+        reset_param_permissions_cache()
+        return bool(result and result.split()[-1] != "0")
+    removed = False
     async with pool.acquire() as conn:
-        result = await conn.execute(DELETE_PERM_SQL, key)
+        async with conn.transaction():
+            row = await conn.fetchrow(SELECT_PERM_ROW_SQL, key)
+            if row is None:
+                if expected_updated_at is not None:
+                    raise ParamPermissionConflict("override_absent", None, None)
+                return False
+            current = _row_perm_value(row)
+            if expected_updated_at is not None:
+                deleted = await conn.fetchrow(
+                    DELETE_PERM_CAS_SQL, key, expected_updated_at)
+                if deleted is None:
+                    fresh = await conn.fetchrow(SELECT_PERM_ROW_SQL, key)
+                    raise ParamPermissionConflict(
+                        "revision_mismatch",
+                        _snapshot_ts(fresh.get("updated_at")) if fresh else None,
+                        _row_perm_value(fresh))
+            else:
+                deleted = await conn.fetchrow(DELETE_PERM_RETURNING_SQL, key)
+            removed = deleted is not None
+            if removed and audit:
+                event = acl_audit.build_event(
+                    entity=acl_audit.ENTITY_PARAM_GLOBAL,
+                    op=acl_audit.OP_RESET, key=key, before=current,
+                    after=None)
+                await acl_audit.insert_access_audit(
+                    conn, chat_id=0, changed_by=changed_by, event=event)
     reset_param_permissions_cache()
-    return bool(result and result.split()[-1] != "0")
+    return removed
 
 # Домены ролей для валидации param_permissions (spec §3.1 — legacy-путь).
 ROLE_TYPES: tuple[str, ...] = (ROLE_GLOBAL_ADMIN, ROLE_LOCAL_ADMIN,

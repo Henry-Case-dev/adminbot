@@ -25,6 +25,7 @@ import logging
 import math
 import time
 
+from services import acl_audit
 from services.access_errors import AccessStorageUnavailable
 from services.param_catalog import get_by_pg_key, normalize_value
 
@@ -79,9 +80,43 @@ class ChatParamsResult(dict):
         self.updated_at = updated_at
 
 
+class ChatProfileAbsent(Exception):
+    """C3: у чата нет строки chat_profiles → API 404 chat_profile_absent."""
+
+    def __init__(self, chat_id: int):
+        self.chat_id = chat_id
+        super().__init__(f"chat profile absent: chat_id={chat_id}")
+
+
+class PermOverrideAbsent(Exception):
+    """C3: удалять нечего — перекрытия ключа нет (404 override_absent)."""
+
+    def __init__(self, chat_id: int, key: str):
+        self.chat_id = chat_id
+        self.key = key
+        super().__init__(f"perm override absent: chat={chat_id} key={key}")
+
+
+class OverrideExists(Exception):
+    """C3: expect_absent, но перекрытие ключа уже есть (409 override_exists)."""
+
+    def __init__(self, chat_id: int, key: str, current: dict | None,
+                 current_updated_at: str | None = None):
+        self.chat_id = chat_id
+        self.key = key
+        self.current = current
+        self.current_updated_at = current_updated_at
+        super().__init__(f"perm override exists: chat={chat_id} key={key}")
+
+
 SELECT_PROFILE_SQL = (
     "SELECT chat_id, updated_at, chat_params, gates_opt_in "
     "FROM chat_profiles WHERE chat_id = $1"
+)
+# C3: та же строка под блокировкой — одна транзакция override+CAS+audit.
+SELECT_PROFILE_FOR_UPDATE_SQL = (
+    "SELECT chat_id, updated_at, chat_params FROM chat_profiles "
+    "WHERE chat_id = $1 FOR UPDATE"
 )
 UPDATE_PARAMS_LOCKED_SQL = (
     "UPDATE chat_profiles SET chat_params = $2::jsonb, updated_at = now() "
@@ -547,6 +582,116 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
     return ChatParamsResult(_root_with_meta(new_root),
                             revalidated=revalidated,
                             updated_at=updated_at_out)
+
+
+async def set_perm_override(chat_id: int, key: str, value: dict | None, *,
+                            expected_updated_at: str | None = None,
+                            expect_absent: bool = False,
+                            changed_by: int | None = None,
+                            pg=None) -> ChatParamsResult:
+    """MOD-ACL-UX-01 M4C C3: атомарный чатовый override матрицы прав.
+
+    ОДНА транзакция: `SELECT … FOR UPDATE` профиля → проверка токена/
+    expect_absent → merge только `perm_overrides[key]` → UPDATE (CAS по
+    `expected_updated_at`) → NOTIFY → audit `field='access'` (metadata
+    только: view/edit роли, без значений/промптов). Ошибка audit откатывает
+    всю запись; кэш чата инвалидируется ПОСЛЕ commit.
+
+    ``value=None`` — сброс ключа «в наследование» (PermOverrideAbsent, если
+    ключа нет). No-op (та же нормализованная матрица) не двигает updated_at
+    и не пишет audit (`revalidated=True`). Другие ключи `perm_overrides`,
+    `overrides` (значения), gates и keys не затрагиваются.
+    """
+    pool = getattr(pg, "pool", None) if pg is not None else None
+    if pool is None:
+        raise AccessStorageUnavailable(
+            "PostgreSQL недоступен (пул отсутствует): override не записан")
+    if expect_absent and expected_updated_at is not None:
+        raise ValueError("expect_absent и expected_updated_at несовместимы")
+    # Ленивый импорт: services.access сам импортирует chat_params на module
+    # load; нормализация — одна существующая функция, второго ACL нет.
+    from services.access import normalize_permission_override
+    lock = await _chat_write_lock(chat_id)
+    async with lock:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    await conn.execute(ADVISORY_LOCK_SQL, str(chat_id))
+                except Exception:
+                    logger.debug(
+                        "[chat_params] advisory lock skipped | chat=%s",
+                        chat_id)
+                row = await conn.fetchrow(
+                    SELECT_PROFILE_FOR_UPDATE_SQL, chat_id)
+                if row is None:
+                    raise ChatProfileAbsent(chat_id)
+                old_root = _root_with_meta(
+                    _load_chat_params(row.get("chat_params")))
+                overrides = dict(old_root.get("perm_overrides") or {})
+                has_key = key in overrides
+                current = (normalize_permission_override(overrides[key])
+                           if has_key else None)
+                if value is None:
+                    if not has_key:
+                        raise PermOverrideAbsent(chat_id, key)
+                    new_overrides = {
+                        k: v for k, v in overrides.items() if k != key}
+                    normalized = None
+                    op = acl_audit.OP_RESET
+                else:
+                    normalized = normalize_permission_override(value)
+                    op = (acl_audit.OP_UPDATE if has_key
+                          else acl_audit.OP_CREATE)
+                    if expect_absent and has_key:
+                        raise OverrideExists(
+                            chat_id, key, current,
+                            _iso(row.get("updated_at")))
+                    if has_key and current == normalized:
+                        return ChatParamsResult(
+                            {"chat_id": chat_id, "key": key,
+                             "view_roles": list(normalized["view_roles"]),
+                             "edit_roles": list(normalized["edit_roles"])},
+                            revalidated=True,
+                            updated_at=_iso(row.get("updated_at")))
+                    new_overrides = dict(overrides)
+                    new_overrides[key] = normalized
+                new_root = _root_with_meta(old_root)
+                new_root["perm_overrides"] = new_overrides
+                if expected_updated_at is not None:
+                    updated = await conn.fetchrow(
+                        UPDATE_PARAMS_LOCKED_SQL, chat_id,
+                        json.dumps(new_root), expected_updated_at)
+                    if updated is None:
+                        fresh = await conn.fetchrow(
+                            SELECT_PROFILE_FOR_UPDATE_SQL, chat_id)
+                        raise ChatParamsConflict(
+                            chat_id,
+                            _iso(fresh.get("updated_at")) if fresh else None,
+                            conflicting=[key])
+                else:
+                    updated = await conn.fetchrow(
+                        UPDATE_PARAMS_SQL, chat_id, json.dumps(new_root))
+                    if updated is None:      # pragma: no cover — строка была
+                        raise ChatParamsConflict(chat_id, None,
+                                                 conflicting=[key])
+                event = acl_audit.build_event(
+                    entity=acl_audit.ENTITY_PARAM_CHAT, op=op, key=key,
+                    before=current, after=normalized)
+                await acl_audit.insert_access_audit(
+                    conn, chat_id=chat_id, changed_by=changed_by, event=event)
+                await conn.execute(NOTIFY_SQL, str(chat_id))
+                updated_at_out = _iso(updated.get("updated_at"))
+    cache = _chat_params_cache
+    if cache is not None:
+        try:
+            await cache.invalidate_chat(chat_id)
+        except Exception:
+            pass
+    return ChatParamsResult(
+        {"chat_id": chat_id, "key": key,
+         "view_roles": list((normalized or {}).get("view_roles") or []),
+         "edit_roles": list((normalized or {}).get("edit_roles") or [])},
+        revalidated=False, updated_at=updated_at_out)
 
 
 def _assert_prompt_overrides_journaled(chat_id: int, old_root: dict,

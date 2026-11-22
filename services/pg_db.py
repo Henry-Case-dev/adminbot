@@ -205,7 +205,7 @@ DDL_STATEMENTS: tuple[str, ...] = (
     ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check
         CHECK (field IN ('manual','auto','auto_enabled','auto_period_hours',
                          'auto_window_hours','remap','chat_admin','chat_params',
-                         'chat_keys','gates'))
+                         'chat_keys','gates','access'))
     """,
     # ── Раунд 10.14 (F1 anti-echo-self-reply, ADR-1014-2 D9) ──────────────
     # persona_state — singleton-строка (id BOOLEAN PK DEFAULT true CHECK(id))

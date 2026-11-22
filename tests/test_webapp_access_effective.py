@@ -1364,7 +1364,12 @@ class TestReadOnlyInvariant:
         assert source.count('@access_router.get("/chats/{chat_id}/admins")') == 1
         writes = re.findall(r"@access_router\.(post|put|delete|patch)\(",
                             source)
-        assert len(writes) == 9, writes   # baseline C1/C2: write-маршруты не добавлены
+        # NOTE (MOD-ACL-UX-01 M4C C3): 9 → 10 — добавлен РОВНО один
+        # легитимный write: DELETE /chats/{id}/param_permissions/{key}
+        # (сброс чатового override «в наследование», global admin).
+        # C1/C2-инвариант «preview не добавляет write» остаётся: C2 GET
+        # не менялись, access_preview.py байт-идентичен.
+        assert len(writes) == 10, writes
 
     def test_no_second_storage_in_preview(self):
         source = inspect.getsource(preview_srv)

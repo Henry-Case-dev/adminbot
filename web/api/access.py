@@ -12,11 +12,12 @@ import logging
 from typing import Annotated
 
 from aiogram.utils.web_app import WebAppUser
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from services import access as access_srv
 from services import access_preview as preview_srv
+from services import acl_audit
 from services import chat_params, chat_keys, chat_usage
 from services import roles as roles_srv
 from services.access_errors import AccessStorageUnavailable
@@ -89,12 +90,17 @@ class ParamPermissionBody(BaseModel):
     {view_roles: [..], edit_roles: [..]} (массивы доменных ролей; global_admin
     в массивах → 422) ЛИБО legacy {view_min_role, edit_min_role,
     hidden_from_local} (нормализуется сервером; БД-строки не трогаем —
-    миграция на чтении)."""
+    миграция на чтении).
+
+    C3: optimistic-токены — `expected_updated_at` (CAS) либо `expect_absent`
+    (создание только при отсутствии строки); вместе → 422."""
     view_roles: list[str] | None = None
     edit_roles: list[str] | None = None
     view_min_role: str | None = None
     edit_min_role: str | None = None
     hidden_from_local: bool | None = None
+    expected_updated_at: str | None = None
+    expect_absent: bool = False
 
 
 class ChatParamPermissionBody(BaseModel):
@@ -103,6 +109,8 @@ class ChatParamPermissionBody(BaseModel):
     view_min_role: str | None = None
     edit_min_role: str | None = None
     hidden_from_local: bool | None = None
+    expected_updated_at: str | None = None
+    expect_absent: bool = False
 
 
 def _value_from_payload(payload) -> dict:
@@ -160,6 +168,31 @@ def _storage_unavailable(detail: str = "") -> HTTPException:
     return HTTPException(status_code=503,
                          detail={"code": "access_storage_unavailable",
                                  "message": message})
+
+
+def _ambiguous_tokens() -> HTTPException:
+    return HTTPException(status_code=422,
+                         detail={"code": "ambiguous_tokens",
+                                 "message": "expected_updated_at и "
+                                            "expect_absent несовместимы"})
+
+
+def _matrix_conflict(exc: "access_srv.ParamPermissionConflict"
+                     ) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={"code": "conflict", "reason": exc.reason,
+                "current_updated_at": exc.current_updated_at,
+                "current": exc.current})
+
+
+def _chat_perm_conflict(current_updated_at: str | None, key: str,
+                        reason: str | None = None) -> HTTPException:
+    detail = {"code": "conflict", "current_updated_at": current_updated_at,
+              "conflicting": [key]}
+    if reason:
+        detail["reason"] = reason
+    return HTTPException(status_code=409, detail=detail)
 
 
 async def _preview_actor_info(actor: dict, *, caller_id: int,
@@ -431,6 +464,18 @@ async def chat_admins_add(
                 await conn.execute(
                     INSERT_HISTORY_SQL, chat_id, "chat_admin", user.id,
                     old_role or "", payload.role_name)
+                # C3: durable ACL-audit — вторая строка в ТОЙ ЖЕ транзакции;
+                # legacy chat_admin-строка сохранена для lore-таймлайна
+                # (форматы не унифицируются). Audit fail → rollback → 503.
+                await acl_audit.insert_access_audit(
+                    conn, chat_id=chat_id, changed_by=user.id,
+                    event=acl_audit.build_event(
+                        entity=acl_audit.ENTITY_CHAT_ADMIN,
+                        op=(acl_audit.OP_UPDATE if old_role
+                            else acl_audit.OP_CREATE),
+                        telegram_id=payload.telegram_id,
+                        before=({"role_name": old_role} if old_role else None),
+                        after={"role_name": payload.role_name}))
     except HTTPException:
         raise
     except Exception:
@@ -467,6 +512,14 @@ async def chat_admins_remove(
                     await conn.execute(
                         INSERT_HISTORY_SQL, chat_id, "chat_admin", user.id,
                         exists["role_name"] or "", "")
+                    await acl_audit.insert_access_audit(
+                        conn, chat_id=chat_id, changed_by=user.id,
+                        event=acl_audit.build_event(
+                            entity=acl_audit.ENTITY_CHAT_ADMIN,
+                            op=acl_audit.OP_DELETE,
+                            telegram_id=telegram_id,
+                            before={"role_name": exists["role_name"]},
+                            after=None))
     except Exception:
         logger.exception("[access] admin remove failed | chat=%s", chat_id)
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
@@ -498,10 +551,12 @@ async def param_permissions_list(
     # MOD-ACL-UX-01 M4C C1: строгое чтение. При недоступном PG/пуле GET
     # отдаёт 503, а НЕ 200 с выдуманной дефолтной матрицей. Runtime-путь
     # services.access.db_override_map(strict=False) остаётся fail-open.
+    # C3: тот же строгий снимок отдаёт per-item updated_at (без TTL-кэша;
+    # runtime-кэш не мутируется).
     try:
-        db = await access_srv.db_override_map(cache.pg, strict=True)
-    except Exception:
-        logger.exception("[access] matrix strict read failed (PG down)")
+        snapshot = await access_srv.param_permissions_snapshot(cache.pg)
+    except AccessStorageUnavailable:
+        logger.warning("[access] matrix strict read failed (PG down)")
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     from services.param_catalog import (
         CONFIG_TAB_TITLES,
@@ -518,8 +573,13 @@ async def param_permissions_list(
         spec = REGISTRY[spec_key]
         if spec.category is None:
             continue
-        matrix = access_srv.effective_matrix(spec.pg_key, db.get(spec.pg_key))
-        matrix["default"] = spec.pg_key not in db
+        entry = snapshot.get(spec.pg_key)
+        matrix = access_srv.effective_matrix(
+            spec.pg_key, (entry or {}).get("value"))
+        matrix["default"] = entry is None
+        # C3: момент записи глобального override (None — строки нет или
+        # легаси-значение без метки); момент из того же строгого SELECT.
+        matrix["updated_at"] = (entry or {}).get("updated_at")
         # OD10/T-1130: метаданные группировки матрицы по СЕКЦИЯМ мини-аппа
         # (config-вкладки TAB_RULES), а не по внутренним категориям каталога.
         gtitle, gcat, gorder = groups_by_id.get(
@@ -552,22 +612,37 @@ async def param_permissions_put(
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
     """Только global admin: перекрытие дефолта (INSERT ON CONFLICT).
-    Принимает ОБЕ формы (новая/legacy), ответ — нормализованная новая."""
+    Принимает ОБЕ формы (новая/legacy), ответ — нормализованная новая.
+
+    C3: `expected_updated_at`/`expect_absent` → атомарный CAS; audit —
+    `param_global` в той же транзакции. 409 не маскируется под 200."""
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
+    if payload.expect_absent and payload.expected_updated_at is not None:
+        raise _ambiguous_tokens()
     value = _value_from_payload(payload)
     if not value:
         raise HTTPException(status_code=422, detail="пустое тело — нечего сохранить")
     _require_pg(cache)
     try:
-        await access_srv.upsert_param_permission(cache.pg, key, value)
+        result = await access_srv.upsert_param_permission(
+            cache.pg, key, value,
+            expected_updated_at=payload.expected_updated_at,
+            expect_absent=bool(payload.expect_absent),
+            audit=True, changed_by=user.id)
+    except access_srv.ParamPermissionConflict as exc:
+        raise _matrix_conflict(exc)
     except Exception:
         logger.exception("[access] param_permission upsert failed | key=%s", key)
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     logger.info("[access] param_permission upsert | key=%s by=%s", key, user.id)
-    return {"key": key, **access_srv._normalize_perms(value)}
+    return {"key": key,
+            "view_roles": list(result["value"]["view_roles"]),
+            "edit_roles": list(result["value"]["edit_roles"]),
+            "updated_at": result["updated_at"],
+            "unchanged": bool(result["unchanged"])}
 
 
 @access_router.delete("/param_permissions/{key}")
@@ -575,16 +650,24 @@ async def param_permissions_delete(
     key: str,
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
+    expected_updated_at: str | None = Query(default=None),
 ):
     """Только global admin (spec §3.2.4): удаляет строку-оверрайд (404 — нет
-    строки) → ключ возвращается к DEFAULT_MATRIX."""
+    строки) → ключ возвращается к DEFAULT_MATRIX.
+
+    C3: `expected_updated_at` → CAS (409 revision_mismatch); audit
+    `param_global` в той же транзакции."""
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
     _require_pg(cache)
     try:
-        removed = await access_srv.delete_param_permission(cache.pg, key)
+        removed = await access_srv.delete_param_permission(
+            cache.pg, key, expected_updated_at=expected_updated_at,
+            audit=True, changed_by=user.id)
+    except access_srv.ParamPermissionConflict as exc:
+        raise _matrix_conflict(exc)
     except Exception:
         logger.exception("[access] param_permission delete failed | key=%s", key)
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
@@ -603,38 +686,209 @@ async def chat_param_permission_put(
     payload: ChatParamPermissionBody,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
 ):
-    """Только global admin: чат-скоуп прав в chat_params.perm_overrides
-    (не дублируется в таблицу — spec §4.2; запись через set_chat_params)."""
+    """Только global admin: чат-скоуп прав в chat_params.perm_overrides.
+
+    C3: атомарный `set_perm_override` (FOR UPDATE + CAS + NOTIFY + audit в
+    одной транзакции). Нет профиля → 404 `chat_profile_absent` (раньше 409
+    с null); 409 — `{current_updated_at, conflicting:[key]}` без значений.
+    """
     cache = get_cache(request)
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
         raise HTTPException(status_code=403, detail="доступ только для global admin")
+    if payload.expect_absent and payload.expected_updated_at is not None:
+        raise _ambiguous_tokens()
     value = _value_from_payload(payload)
     if not value:
         raise HTTPException(status_code=422, detail="пустое тело — нечего сохранить")
     _require_pg(cache)
     try:
-        # SELF-DIAG-01 D2 (связанный дефект): не терять прочие чат-перекрытия —
-        # namespace `perm_overrides` пишется целиком, поэтому читаем-мержим.
-        root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
-        overrides = dict((root or {}).get("perm_overrides") or {})
-        overrides[key] = value
-        await chat_params.set_chat_params(
-            chat_id,
-            {"perm_overrides": overrides},
-            changed_by=user.id,
-            pg=cache.pg)
+        result = await chat_params.set_perm_override(
+            chat_id, key, value,
+            expected_updated_at=payload.expected_updated_at,
+            expect_absent=bool(payload.expect_absent),
+            changed_by=user.id, pg=cache.pg)
+    except chat_params.ChatProfileAbsent:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "chat_profile_absent",
+                    "message": "профиль чата не найден"})
+    except chat_params.OverrideExists as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict", "reason": "override_exists",
+                    "current_updated_at": exc.current_updated_at,
+                    "conflicting": [key]})
     except chat_params.ChatParamsConflict as exc:
-        raise HTTPException(status_code=409,
-                            detail={"code": "conflict",
-                                    "current_updated_at": exc.current_updated_at})
+        # Наружу — только ключ, без значений (полный conflicting не отдаём).
+        raise _chat_perm_conflict(exc.current_updated_at, key,
+                                  "revision_mismatch")
     except Exception:
         logger.exception("[access] chat param_permission failed | chat=%s | key=%s",
                          chat_id, key)
         raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
     logger.info("[access] chat param_permission upsert | chat=%s key=%s by=%s",
                 chat_id, key, user.id)
-    return {"chat_id": chat_id, "key": key, **access_srv._normalize_perms(value)}
+    out = {"chat_id": chat_id, "key": key,
+           "view_roles": list(result["view_roles"]),
+           "edit_roles": list(result["edit_roles"]),
+           "updated_at": result.updated_at}
+    if getattr(result, "revalidated", False):
+        out["unchanged"] = True
+    return out
+
+
+@access_router.delete("/chats/{chat_id}/param_permissions/{key}")
+async def chat_param_permission_delete(
+    chat_id: int,
+    key: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    expected_updated_at: str | None = Query(default=None),
+):
+    """C3 (new): сброс чатового override «в наследование» — только global
+    admin, атомарно (FOR UPDATE + CAS + NOTIFY + audit `access`).
+
+    Удаляет ТОЛЬКО `perm_overrides[key]`; значения (`overrides`), gates,
+    keys и глобальная матрица не затрагиваются. 404 — нет профиля
+    (`chat_profile_absent`) или ключа (`override_absent`); 409 — токен.
+    """
+    cache = get_cache(request)
+    ctx = await roles_srv.access_for(user.id, cache=cache)
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403, detail="доступ только для global admin")
+    _require_pg(cache)
+    try:
+        result = await chat_params.set_perm_override(
+            chat_id, key, None, expected_updated_at=expected_updated_at,
+            changed_by=user.id, pg=cache.pg)
+    except chat_params.ChatProfileAbsent:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "chat_profile_absent",
+                    "message": "профиль чата не найден"})
+    except chat_params.PermOverrideAbsent:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "override_absent",
+                    "message": f"перекрытия нет: {key}"})
+    except chat_params.ChatParamsConflict as exc:
+        raise _chat_perm_conflict(exc.current_updated_at, key,
+                                  "revision_mismatch")
+    except Exception:
+        logger.exception("[access] chat param_permission delete failed | "
+                         "chat=%s | key=%s", chat_id, key)
+        raise HTTPException(status_code=503, detail="PostgreSQL недоступен (R6)")
+    logger.info("[access] chat param_permission reset | chat=%s key=%s by=%s",
+                chat_id, key, user.id)
+    return {"chat_id": chat_id, "key": key, "reset": True,
+            "updated_at": result.updated_at}
+
+
+AUDIT_ENTITY_DOMAIN = frozenset(acl_audit.ENTITY_DOMAIN)
+
+
+@access_router.get("/audit")
+async def access_audit_read(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    scope: str = "global",
+    chat_id: int | None = None,
+    entity: str | None = None,
+    limit: int = 50,
+    before_id: int | None = None,
+):
+    """C3: durable ACL-audit (metadata only) — только global admin.
+
+    `scope=global` — `chat_id=0`; `scope=chat` требует chat_id (<0 — группа,
+    только global admin; >0 — только свой ЛМ). `entity` — домен
+    role/admin/chat_admin/param_global/param_chat (422 иначе); `limit`
+    зажимается 1..200; `before_id` — курсор. Пустая история — 200/[].
+    Значений/prompt/last4/секретов нет.
+    """
+    cache = get_cache(request)
+    try:
+        ctx = await roles_srv.access_for(user.id, cache=cache, strict=True)
+    except AccessStorageUnavailable:
+        raise _storage_unavailable()
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403,
+                            detail="доступ только для global admin")
+    if scope not in ("global", "chat"):
+        raise HTTPException(status_code=422,
+                            detail={"code": "bad_scope",
+                                    "message": "scope: global|chat"})
+    if entity is not None and entity not in AUDIT_ENTITY_DOMAIN:
+        raise HTTPException(status_code=422,
+                            detail={"code": "bad_entity",
+                                    "message": f"entity вне домена: {entity}"})
+    if scope == "global":
+        audit_chat_id = chat_keys.GLOBAL_AUDIT_CHAT_ID
+    else:
+        if chat_id is None:
+            raise HTTPException(status_code=422,
+                                detail={"code": "chat_id_required",
+                                        "message": "scope=chat требует chat_id"})
+        if chat_id == 0:
+            raise HTTPException(status_code=422,
+                                detail={"code": "bad_chat_id",
+                                        "message": "chat_id=0 — только global"})
+        if chat_id > 0 and chat_id != user.id:
+            raise HTTPException(status_code=403, detail="только владелец ЛС")
+        audit_chat_id = int(chat_id)
+    limit = max(1, min(200, int(limit)))
+    params: list = [audit_chat_id]
+    where = "chat_id = $1 AND field = $2"
+    params.append(acl_audit.AUDIT_FIELD)
+    idx = 3
+    if entity is not None:
+        where += f" AND new_value LIKE ${idx}"
+        params.append(f'%"entity":"{entity}"%')
+        idx += 1
+    if before_id is not None:
+        where += f" AND id < ${idx}"
+        params.append(int(before_id))
+        idx += 1
+    params.append(limit + 1)
+    sql = ("SELECT id, chat_id, changed_by, new_value, created_at "
+           "FROM chat_lore_history WHERE " + where
+           + f" ORDER BY created_at DESC, id DESC LIMIT ${idx}")
+    pool = _pool(cache)
+    if pool is None:
+        raise _storage_unavailable()
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(sql, *params)
+    except Exception:
+        logger.exception("[access] audit read failed")
+        raise _storage_unavailable()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    items = []
+    for r in rows:
+        event = acl_audit.parse_event(r["new_value"])
+        item = {
+            "id": r["id"],
+            "created_at": (r["created_at"].isoformat()
+                           if hasattr(r["created_at"], "isoformat")
+                           else r["created_at"]),
+            "changed_by": r["changed_by"],
+        }
+        if event is None:
+            item.update({"entity": None, "op": None, "role_name": None,
+                         "telegram_id": None, "key": None,
+                         "before": None, "after": None, "malformed": True})
+        else:
+            item.update({
+                "entity": event["entity"], "op": event["op"],
+                "role_name": event["role_name"],
+                "telegram_id": event["telegram_id"],
+                "key": event["key"], "before": event["before"],
+                "after": event["after"],
+            })
+        items.append(item)
+    return {"scope": scope, "chat_id": chat_id, "items": items,
+            "has_more": has_more}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

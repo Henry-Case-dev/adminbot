@@ -100,188 +100,14 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
 # не менялся).
 ROUTES_SHA256_F11 = (
-    # P0 corrective 25.10.2026 (F7): аддитивное R17-safe поле `aliases`
-    # (слой имени по uid) в СУЩЕСТВУЮЩЕМ GET /api/direct/context-diagnostics;
-    # новых endpoint'ов нет (Δ routes=0), RBAC/маскировка не менялись.
-    # Хэш переутверждён осознанно (L-F11S-1), routes-инвентарь f8_baseline
-    # не менялся.
-    # P0 admin-toggle-save (28.10.2026): починка chat-пути POST /api/config —
-    # один ограниченный ретрай на ChatParamsConflict (merge на свежий root)
-    # + ensure профиля группового чата. Root cause бага «Сохранено 0 из 1»
-    # (тумблер «Exact Match Cache»): строгий 409 на устаревший optimistic-
-    # токен ронял ВСЕ per-chat сохранения при конкурентных chat_params-
-    # записях. Новых endpoint'ов нет (Δ routes=0), RBAC/маскировка/DDL не
-    # менялись. Хэш переутверждён осознанно (L-F11S-1).
-    # EVOL-031 (30.10.2026, commit 28d55bd1, W1 audit
-    # plans/features/evol/audit/w1-evol031.md §2/§9): вывод Exact Match Cache
-    # из эксплуатации — контентная Δ в docstring СУЩЕСТВУЮЩЕГО helper'а
-    # _write_chat_overrides_with_retry (тот самый «тумблер Exact Match Cache»
-    # из P0-записи выше): историческая ссылка на несуществующую вкладку
-    # «Модули → Умный кэш» заменена нейтральной (вкладка/флаг удалены
-    # EVOL-031). Новых endpoint'ов нет (Δ routes=0), RBAC/маскировка/DDL/
-    # семантика retry не менялись. Хэш переутверждён осознанно (L-F11S-1).
-    # EVOL-017 (30.10.2026, L-F11S-1 conscious requalification): routes +5
-    # в СУЩЕСТВУЮЩЕМ редакторе промптов (не новая вкладка меню):
-    # GET /prompts/catalog, GET /prompts/{key}/versions,
-    # GET /prompts/revisions/{id}/source, GET /prompts/revisions/diff,
-    # POST /prompts/{key}/activate. Меню/вкладки не менялись. Хэш и набор
-    # путей f8_baseline переутверждены осознанно.
-    # EVOL-014/019/020/021 (30.10.2026, 18baa36b UI-полосы; L-F11S-1 conscious
-    # requalification): routes +7 — HTTP-слой над УЖЕ принятыми сервисами, в
-    # существующих разделах (новых вкладок меню нет): POST
-    # /vision/recognition-check (EVOL-019: отдельное действие «проверить
-    # распознавание», свой rate-limit, платный вызов помечен явно),
-    # GET /experience/pipeline (EVOL-020), GET /episodes/feed,
-    # GET /episodes/recovery, GET /episodes/{episode_id} (EVOL-021),
-    # GET+POST /initiative/meme-settings (EVOL-014: per-chat ось мемов).
-    # RBAC и маскировка (R17: ни ключ, ни base_url, ни сырое тело провайдера)
-    # не ослаблены. Набор путей f8_baseline переиздан 49→55 той же волной.
-    # EVOL-021 review-fix (30.10.2026, d31b8831): тихие часы мем-настроек
-    # получили строгую проверку `HH:MM-HH:MM` (часы 00–23, минуты 00–59;
-    # «25:00-26:00» → 422 вместо сохранения не-времени). Новых endpoint'ов
-    # нет (Δ routes=0), RBAC/маскировка/DDL не менялись. Хэш переутверждён
-    # осознанно (L-F11S-1).
-    # ASAP-SUMMARY-COVER-INTEGRITY-01 v2.1 §2 (P0-2, 01.11.2026, L-F11S-1
-    # conscious requalification): починка продового HTTP 500 «История версий»
-    # в СУЩЕСТВУЮЩЕМ GET /prompts/{key}/versions — новый код 503 при
-    # недоступном журнале (раньше отдавался `200: []`, маскируя отказ) и
-    # `activation_time_available` по реальному `prompt_activations.created_at`.
-    # Новых endpoint'ов нет (Δ routes=0), RBAC не ослаблен; набор путей
-    # f8_baseline не менялся. Хэш переутверждён осознанно.
-    # MEME-PIPELINE-REFactor-01 P2 (03.11.2026, L-F11S-1 conscious
-    # requalification): контентная Δ в СУЩЕСТВУЮЩИХ POST /api/config (оба
-    # уровня) и GET/POST /api/initiative/meme-settings — поля `prompt_joke`/
-    # `prompt_image` в MemeSettingsUpdate, единый гейт шаблона
-    # `_meme_template_guard` (два `{joke}` → 422 на всех путях записи),
-    # витрина бюджета от ЭФФЕКТИВНОГО шаблона, снятие чатового override пустой
-    # строкой; затем ревью-правка `extra="forbid"` в MemeSettingsUpdate
-    # (неизвестное имя поля → 422 вместо тихого no-op). Новых endpoint'ов нет
-    # (Δ routes=0), RBAC/маскировка/DDL не менялись, набор путей f8_baseline
-    # не менялся. Хэш переутверждён осознанно (L-F11S-1).
-    # MEME-PIPELINE-REFactor-01 P4 (`MEME-IIC-DIAG-UI`, 03.11.2026,
-    # L-F11S-1 conscious requalification): контентная Δ в СУЩЕСТВУЮЩИХ
-    # GET/POST /api/initiative/meme-settings — сняты совместимые алиасы
-    # `length_limit.value`/`prefix_chars`/`summary_target` (карточка
-    # переведена на канонические имена MemeBudget: ceiling/template_chars/
-    # joke_budget; одно число — одно имя). Новый маршрут
-    # GET /api/initiative/mechanism-diagnostics добавлен НЕ здесь, а в
-    # отдельном файле-зоне web/api/mechanism_diagnostics.py, поэтому
-    # Δ routes=0 и routes-инвентарь f8_baseline не меняется. RBAC/
-    # маскировка/DDL не менялись. Хэш переутверждён осознанно (L-F11S-1).
-    # P0.5-CEILING-AUTO + P0-PUBLICATION (03.11.2026, hotfix 2.58.152,
-    # кандидат 97390ee4, L-F11S-1 conscious requalification): контентная Δ в
-    # СУЩЕСТВУЮЩИХ GET/POST /api/initiative/meme-settings. Потолок длины читается
-    # в ТРЁХ состояниях: поля нет в теле = не менять; пусто/`null` = авто (снять
-    # чатовое переопределение, «наследование»); положительное целое =
-    # фиксированный потолок; исторический `0` = авто; мусор/дробь/отрицательное =
-    # точная 422 у конкретного поля (а не «тихо стало нулём»). Витрина мемов
-    # отдаёт `events`/`event_names` цепочки публикации (`image_ready` → реально
-    # доставлено `publication_sent`; пусто = «нет данных», не нули).
-    # Новых `@router`-маршрутов НЕТ (routes-инвентарь f8_baseline не меняется),
-    # RBAC/маскировка/DDL не менялись — менялось тело существующих обработчиков.
-    # Хэш переутверждён осознанно (L-F11S-1).
-    # EPIC-PROMPT-VERSIONING-UX-01 (04.11.2026, L-F11S-1 conscious
-    # requalification): значение промпта во ВСЕХ путях сохранения пишется
-    # единым журнальным слоем prompt_release_policy.write_prompt_values
-    # (ревизия + событие активации + значение одной транзакцией). Затронуты
-    # тела СУЩЕСТВУЮЩИХ обработчиков: POST /api/config (global/chat),
-    # POST /api/initiative/meme-settings, DELETE /api/config/chat/{key},
-    # speech/speech core. Плюс аддитивная поверхность PVR-S2/S3: +4
-    # маршрута (/prompts/{prompt_key}/baseline, .../baseline/restore,
-    # .../factory/restore, /prompts/revisions/{revision_id}/copy-to-global),
-    # Δ routes = +4 — список f8_baseline переиздан в этом же коммите.
-    # RBAC/маскировка/DDL не менялись. Хэш ниже — фактический sha256
-    # web/api/routes.py сборки 2.58.155 (осознанное переутверждение).
-    # URF backend honesty wave (06.11.2026, commit a5ee0864, L-F11S-1
-    # conscious requalification): Δ routes = +5 декораторов / +3 пути в
-    # СУЩЕСТВУЮЩИХ разделах — GET /config/timezones, GET+POST+DELETE
-    # /config/time (ось «время» настроек чата, UR-24.2/29.1/29.2) и
-    # GET /direct/turn-diagnostics (диагностика одного ответа, R-ADM.5).
-    # RBAC/маскировка/DDL не менялись. Список путей f8_baseline переиздан
-    # тем же коммитом (+3 пути, 59→62).
-    # Два соседних контентных переутверждения без Δ routes: 7632fdb6
-    # (ur-c-clock review corrections — 422 на не-IANA limits.chat_timezone
-    # в СУЩЕСТВУЮЩЕМ POST /api/config) и bd7575f5 (pvr-backend idempotent
-    # save — operation_id/кеш повторов в СУЩЕСТВУЮЩЕМ POST /api/config;
-    # новых @router-маршрутов нет).
-    # Хэш ниже — фактический sha256 web/api/routes.py линии evol/impl на
-    # 2c1af33e (осознанное переутверждение, L-F11S-1).
-    # MOD-ACL-UX-01 M2 (09.11.2026, L-F11S-1 conscious requalification):
-    # контентная Δ в СУЩЕСТВУЮЩЕМ POST /api/config — режим записи
-    # `mode="inherit"` (снять ТОЛЬКО chat-override своего ключа; null не
-    # пишется, промптам отказано 422) и `removed`-набор в retry-merge; в
-    # GET /api/config — аддитивные `chat_state` у элемента и `modules[]` из
-    # канонического резолвера (`resolve_module_capability`). Новых
-    # @router-маршрутов НЕТ (Δ routes=0), RBAC/маскировка/DDL не менялись,
-    # f8_baseline не переиздавался. Хэш переутверждён осознанно.
-    # UR-F INSPECTOR шаг 2 (11.11.2026, L-F11S-1 conscious requalification):
-    # аддитивная проекция СУЩЕСТВУЮЩЕГО GET /api/direct/turn-diagnostics —
-    # разделы stages/source/clock.stages/selection/search/style со строгим
-    # allowlist (null вместо 0, id только реальных namespace, URL без
-    # управляющих символов, include_text=1 под can_access_chat на тот же
-    # чат). Новых @router-маршрутов НЕТ (Δ routes=0: 62 -> 62), RBAC/маскировка
-    # не менялись, DDL=0 (схема v47), f8_baseline не переиздавался. Хэш
-    # переутверждён осознанно.
-    # UR-F INSPECTOR шаг 1 (12.11.2026, релиз 2.58.189, L-F11S-1 conscious
-    # requalification): аддитивная проекция СУЩЕСТВУЮЩЕГО
-    # GET /api/direct/turn-diagnostics — UR-20.6 (слот L1: `slot` в
-    # `_TURN_CONTEXT_SCHEMA` и в `_TURN_SOURCE_FIELDS`-соседнем блоке) и
-    # UR-20.7 (время сообщения-родителя `reply_to_ts` -> `reply_to_message_ts`
-    # в `_TURN_SOURCE_SCHEMA` + `reason` в `_TURN_DELIVERY_SCHEMA`).
-    # Новых @api_router-маршрутов НЕТ (Δ routes=0: 75 -> 75 декораторов,
-    # 62 -> 62 уникальных пути), RBAC/маскировка не менялись, DDL=0
-    # (схема v47), f8_baseline не переиздавался. Осознанная Δ хэша:
-    # 0d15c69025d6fdea55a5a25a441cac7f998847824998bc5c7ff01c8e22984860
-    #   -> 4c7af646daa19023e8c3e1b6b8a2d414bf7af2b6d7ed90934ea267a543e877bb
-        # SELF-DIAG-01 D6 (13.11.2026, requirements-map SD1-D6-12/16/17-20):
-    # сознательное переутверждение (L-F11S-1) — ОДИН аддитивный
-    # read-only endpoint GET /api/status/self-diagnosis на существующей
-    # странице «Статус»: снимок процесса/хоста + аналитика существующего
-    # события `inspect_runtime_called`. RBAC — существующие категории
-    # diagnostic_policy; credential values не выдаются; Δ каталога/DDL = 0.
-    # Набор путей f8_baseline переиздан +1 (осознанно).
-        # SELF-DIAG-01 D6 B2/B3/B4 (13.11.2026, focused rework): сознательное
-    # переутверждение (L-F11S-1) внутри ТОГО ЖЕ endpoint
-    # GET /api/status/self-diagnosis: success-маппинг report_sent/called,
-    # корреляция validated-событий с доставками, ProbeDeps для configured.
-    # Набор путей/фикстура f8_baseline не менялись (Δ routes=0).
-        # SELF-DIAG-01 D6 B2/B3 residuals (13.11.2026): conscious re-pin
-    # (L-F11S-1) внутри того же GET /api/status/self-diagnosis: skipped-
-    # статусы исключены из calls/p50/p95/by_stage; checkup_output_validated
-    # учитывается только для реально разрешённой публикации. Δ routes=0.
-    # MOD-ACL-UX-01 M4A wave 1 (17.11.2026, L-F11S-1 conscious re-pin):
-    # аддитивные `state`/`permissions` в СУЩЕСТВУЮЩЕМ GET /api/config
-    # (module_states: gate_state/resolve_module_capability/chat-use) и
-    # `checked_at` снимка. Новых @api_router-маршрутов НЕТ (Δ routes=0),
-    # RBAC/маскировка/DDL не менялись, f8_baseline не переиздавался.
-    # QRNG P1 (17.11.2026, QAN-REC RBAC-01/02/SEC-01, L-F11S-1 conscious
-    # re-pin): RBAC СУЩЕСТВУЮЩЕГО POST /api/random/test — только global
-    # admin (право просмотра `key.keys.random_quantum_api_key` операцию
-    # больше не открывает) + guard записи 9 ключей `keys.random_quantum_*`
-    # в СУЩЕСТВУЮЩЕМ POST /api/config. Новых @api_router-маршрутов НЕТ
-    # (Δ routes=0), маскировка секретов не менялась, f8_baseline не
-    # переиздавался.
-    # VMQ-TIME-09 (19.11.2026, L-F11S-1 conscious requalification): аддитивная
-    # проекция СУЩЕСТВУЮЩЕГО GET /api/direct/turn-diagnostics — `selection.
-    # blocks[].years`/`years_present`, `selection.memory_period`, bounded
-    # `retrieval[]` (≤6 вызовов, `period_selection` исключён) и
-    # `stages.retrieval`; R17-allowlist не ослаблен. Новых @api_router-маршрутов
-    # НЕТ (Δ routes=0: 76 -> 76 декораторов, 63 -> 63 уникальных пути),
-    # RBAC/маскировка не менялись, DDL=0 (схема v48), f8_baseline не
-    # переиздавался. Осознанная Δ хэша (L-F11S-1).
-    # MOD-ACL-UX-01 M4C C1 (22.11.2026): routes.py +12 — три honest
-    # 503-guard'а для GET /api/roles, /api/admins, /api/roles/tree при пустом
-    # RAM-кэше и pg_available=false. Это не рефакторинг и не новые endpoint'ы;
-    # новых полей/флагов/DDL нет. Хэш переутверждён осознанно (L-F11S-1),
-    # routes-инвентарь f8_baseline не менялся.
-    # MOD-ACL-UX-01 M4C ACL-hardening S1/S2 (22.11.2026): routes.py re-pin —
-    # 5 write-маршрутов ACL (`POST /api/admins`, `POST /api/admins/remove`,
-    # `POST /api/roles`, `DELETE /api/roles/{name}`,
-    # `POST /api/roles/{name}/rename`) переведены с section.access на
-    # effective-global-admin guard + инварианты назначенных админов (I1/I2) и
-    # per-app lock. Δ routes=0 (декораторы/пути не менялись), новых полей/
-    # флагов/DDL нет, schema v48. Осознанная Δ хэша (L-F11S-1).
-    "453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5")
+    # MOD-ACL-UX-01 M4C C3 (22.11.2026): осознанный re-pin (L-F11S-1) —
+    # добавлены revision/409 в /api/roles (+DELETE/rename токены), audit
+    # payload для admins/roles, recheck в _write_chat_overrides_with_retry.
+    # Route-set НЕ менялся (все изменения — в существующих @api_router
+    # маршрутах; новые GET/DELETE — в access_router и F8 route-set не
+    # сканирует). PARAM_CATALOG_SHA256_FOLLOWUP не тронут.
+    # Предыдущий пин: 453e17f8a1cd29d5.
+    "71d837c247f2e7be999f583dc91516bd19222276572c0be07c62dbe1c4479e76")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
@@ -319,7 +145,13 @@ ROUTES_SHA256_F11 = (
 # integration-decisions.md §1 («вердикт: 2 новые PG-таблицы + JSONB»,
 # SERIALIZED-зона `pg_db.py`, владелец дельты — AC-DATA). SQLite DDL = 0.
 PG_DB_SHA256_B07 = (
-    "c41a19e4f05f686cb7b18497b04ab0122cb73634ef99f32b716dcf8543c915d3")
+    # MOD-ACL-UX-01 M4C C3 (22.11.2026): осознанный re-pin (L-F11S-1) —
+    # единственное изменение: CHECK chat_lore_history.field += 'access'
+    # (superset, идемпотентный DROP/ADD; таблиц/колонок/индексов нет,
+    # len(DDL_STATEMENTS) не менялся). SQLite schema 48 не меняется —
+    # chat_lore_history существует только в PostgreSQL.
+    # Предыдущий пин: c41a19e4f05f686c.
+    "469775c2a363f5550e80a10b6717cec62c7cc7fce541bbc0a9e34f0437dc9dcd")
 
 # P0-followup / NOSTALGIA-FIX (18.10.2026, L-F11S-1): re-pin каталога —
 # изменён ТОЛЬКО description ключа `memory.nostalgia_enabled` (hot-включение
@@ -584,7 +416,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.233"
+        assert APP_VERSION == "2.58.234"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
