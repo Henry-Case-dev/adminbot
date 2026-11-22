@@ -1,0 +1,11 @@
+﻿rc=0  tests/js/mod_acl_ux_m4c2_preview_test.js
+MOD-ACL-UX-M4C2-PREVIEW-OK
+rc=0  tests/js/mod_acl_ux_m4c2_admins_seed_test.js
+MOD-ACL-UX-M4C2-ADMINS-SEED-OK
+rc=0  tests/js/mod_acl_ux_m4c1_roles_page_test.js
+MOD-ACL-UX-M4C1-ROLES-PAGE-OK
+rc=0  tests/js/app_methods_dup_keys_guard_test.js
+METHODS-DUP-KEYS-OK blocks=10 keys=1761 duplicate-problems=0 behavioral=ok
+  WARN: ╨╝╤С╤А╤В╨▓╤Л╨╣ ╨┤╤Г╨▒╨╗╤М (╤В╨╡╨╗╨░ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╤Л, ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ ╨▓ HEAD): `_prefersReducedMotion` ├Ч2 @ 43924, 43943
+rc=0  tests/js/round1025_hotfix10_glass_geometry_bg_test.js
+HOTFIX10-GLASS-GEOMETRY-BG-OK
