@@ -1,0 +1,166 @@
+{
+  "tool": "PGlite (PostgreSQL WASM), local scratch; no production/SSH",
+  "pglite_package": "0.5.17",
+  "source_artifacts": {
+    "base": "f232a3a3 services/pg_db.py (10 values)",
+    "target": "be23f5eff services/pg_db.py (11 values)",
+    "forward": "3b18ca1dd services/pg_db.py (11 values)"
+  },
+  "sql": {
+    "base_drop": "ALTER TABLE chat_lore_history DROP CONSTRAINT IF EXISTS chat_lore_history_field_check",
+    "base_add": "ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check\n        CHECK (field IN ('manual','auto','auto_enabled','auto_period_hours',\n                         'auto_window_hours','remap','chat_admin','chat_params',\n                         'chat_keys','gates'))",
+    "target_drop": "ALTER TABLE chat_lore_history DROP CONSTRAINT IF EXISTS chat_lore_history_field_check",
+    "target_add": "ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check\n        CHECK (field IN ('manual','auto','auto_enabled','auto_period_hours',\n                         'auto_window_hours','remap','chat_admin','chat_params',\n                         'chat_keys','gates','access'))",
+    "forward_drop": "ALTER TABLE chat_lore_history DROP CONSTRAINT IF EXISTS chat_lore_history_field_check",
+    "forward_add": "ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check\n        CHECK (field IN ('manual','auto','auto_enabled','auto_period_hours',\n                         'auto_window_hours','remap','chat_admin','chat_params',\n                         'chat_keys','gates','access'))"
+  },
+  "scenarios": {
+    "version": "PostgreSQL 18.7 (PGlite 0.5.17) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.13 (e13ee988ce3d87a738dd8f3661d02223308c412a), 32-bit",
+    "setup": {
+      "constraint": {
+        "count": 1,
+        "definition": "CHECK ((field = ANY (ARRAY['manual'::text, 'auto'::text, 'auto_enabled'::text, 'auto_period_hours'::text, 'auto_window_hours'::text, 'remap'::text, 'chat_admin'::text, 'chat_params'::text, 'chat_keys'::text, 'gates'::text, 'access'::text])))"
+      },
+      "access_rows": 1,
+      "distinct_fields": [
+        "access",
+        "manual"
+      ]
+    },
+    "raw_old_with_access": {
+      "ddl": {
+        "label": "raw-old-with-access",
+        "drop_ok": true,
+        "add_ok": false,
+        "add_error": {
+          "code": "23514",
+          "message": "check constraint \"chat_lore_history_field_check\" of relation \"chat_lore_history\" is violated by some row",
+          "detail": null,
+          "constraint": "chat_lore_history_field_check"
+        }
+      },
+      "constraint_after": {
+        "count": 0,
+        "definition": null
+      },
+      "rows_after": 2
+    },
+    "after_restore": {
+      "constraint": {
+        "count": 1,
+        "definition": "CHECK ((field = ANY (ARRAY['manual'::text, 'auto'::text, 'auto_enabled'::text, 'auto_period_hours'::text, 'auto_window_hours'::text, 'remap'::text, 'chat_admin'::text, 'chat_params'::text, 'chat_keys'::text, 'gates'::text, 'access'::text])))"
+      }
+    },
+    "target_first_start": {
+      "ddl": {
+        "label": "target-first",
+        "drop_ok": true,
+        "add_ok": true
+      },
+      "constraint_after": {
+        "count": 1,
+        "definition": "CHECK ((field = ANY (ARRAY['manual'::text, 'auto'::text, 'auto_enabled'::text, 'auto_period_hours'::text, 'auto_window_hours'::text, 'remap'::text, 'chat_admin'::text, 'chat_params'::text, 'chat_keys'::text, 'gates'::text, 'access'::text])))"
+      }
+    },
+    "target_second_start": {
+      "ddl": {
+        "label": "target-second",
+        "drop_ok": true,
+        "add_ok": true
+      },
+      "constraint_after": {
+        "count": 1,
+        "definition": "CHECK ((field = ANY (ARRAY['manual'::text, 'auto'::text, 'auto_enabled'::text, 'auto_period_hours'::text, 'auto_window_hours'::text, 'remap'::text, 'chat_admin'::text, 'chat_params'::text, 'chat_keys'::text, 'gates'::text, 'access'::text])))"
+      }
+    },
+    "accepted_values": {
+      "inserted": [
+        "manual",
+        "auto",
+        "auto_enabled",
+        "auto_period_hours",
+        "auto_window_hours",
+        "remap",
+        "chat_admin",
+        "chat_params",
+        "chat_keys",
+        "gates",
+        "access"
+      ],
+      "access_rows": 2,
+      "distinct_fields": [
+        "access",
+        "auto",
+        "auto_enabled",
+        "auto_period_hours",
+        "auto_window_hours",
+        "chat_admin",
+        "chat_keys",
+        "chat_params",
+        "gates",
+        "manual",
+        "remap"
+      ]
+    },
+    "raw_old_zero_access": {
+      "access_rows_before": 0,
+      "ddl": {
+        "label": "raw-old-zero-access",
+        "drop_ok": true,
+        "add_ok": true
+      },
+      "constraint_after": {
+        "count": 1,
+        "definition": "CHECK ((field = ANY (ARRAY['manual'::text, 'auto'::text, 'auto_enabled'::text, 'auto_period_hours'::text, 'auto_window_hours'::text, 'remap'::text, 'chat_admin'::text, 'chat_params'::text, 'chat_keys'::text, 'gates'::text])))"
+      }
+    },
+    "forward_matches_target": true,
+    "target_diff_from_raw": true,
+    "full_ddl": {
+      "initial_target_start": {
+        "total": 62,
+        "applied": 62,
+        "failures": []
+      },
+      "target_restart_with_access_row": {
+        "total": 62,
+        "applied": 62,
+        "failures": []
+      },
+      "target_constraint_after": {
+        "count": 1,
+        "definition": "CHECK ((field = ANY (ARRAY['manual'::text, 'auto'::text, 'auto_enabled'::text, 'auto_period_hours'::text, 'auto_window_hours'::text, 'remap'::text, 'chat_admin'::text, 'chat_params'::text, 'chat_keys'::text, 'gates'::text, 'access'::text])))"
+      },
+      "access_rows_after_target": 1,
+      "raw_old_start_with_access_row": {
+        "total": 62,
+        "applied": 24,
+        "failures": [
+          {
+            "index": 24,
+            "first_line": "ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check",
+            "code": "23514",
+            "message": "check constraint \"chat_lore_history_field_check\" of relation \"chat_lore_history\" is violated by some row"
+          }
+        ]
+      },
+      "raw_old_constraint_after": {
+        "count": 0,
+        "definition": null
+      }
+    }
+  },
+  "ok": true,
+  "rollback_target": {
+    "branch": "rollback/mod-acl-m4c3-ddl-compatible",
+    "sha": "be23f5eff7287b02e2e91d9b5a5af2b474198beb",
+    "base": "f232a3a30a79c074fc3d7fa75d8aa947720d76a4",
+    "diff": "services/pg_db.py 1 insertion / 1 deletion",
+    "app_version": "2.58.233",
+    "pg_db_blob": "0174c28b6abe8fd04385e97592f870c0629dd909",
+    "forward_pg_db_blob": "0174c28b6abe8fd04385e97592f870c0629dd909",
+    "identical_to_forward_pg_db": true
+  },
+  "no_production_ssh_llm": true,
+  "generated_at_utc": "2026-11-22T07:55:00Z"
+}

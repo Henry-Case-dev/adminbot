@@ -1,9 +1,14 @@
 # Release 2.58.234 — MOD-ACL-UX-01 M4C C3 «Запись, 409, audit, recheck»
 
-**Status:** REVIEW / **READY_FOR_DELTA_REVIEW** (сборка завершена; деплой и VERIFIED не выполнялись).
-**Date:** 2026-11-22 18:47 +12:00 / 2026-11-22 06:47 UTC
+**Status:** REVIEW / **FIXED (delta-review B01) — READY_FOR_RE_REVIEW** (деплой и VERIFIED не выполнялись).
+**Date:** 2026-11-22 19:57 +12:00 / 07:57 UTC (первичная сборка 18:47 +12:00; correction — 19:57 +12:00)
 **Branch:** `release/mod-acl-m4c3-2.58.234`
-**Base / rollback:** `f232a3a30a79c074fc3d7fa75d8aa947720d76a4` (2.58.233, schema 48, PG DDL 0)
+**Base:** `f232a3a30a79c074fc3d7fa75d8aa947720d76a4` (2.58.233, schema 48, PG DDL 0)
+**Rollback:** prepared target **`be23f5eff7287b02e2e91d9b5a5af2b474198beb`**
+(`rollback/mod-acl-m4c3-ddl-compatible`) при наличии `access`-строк; raw `f232a3a3` — только при
+`access_rows=0` (см. §0/§5, proof `rollback-ddl-proof.md`).
+**Delta review:** `plans/features/mod-acl-ux-01/evidence/m4c/c3/release-2.58.234/delta-review-r1.md`
+@ master `f4a919988` — **NEEDS_FIXES** (B01 rollback DDL); исправление — §0.
 **Candidate tip:** `0f808810d92fcb9116e2549c8106b5f360b9229c` (`feat/mod-acl-m4c3`);
 коммиты `d4b9b190e` C3a, `a56713509` C3b, `7b242bde1` partial raw_value, `0f808810d` C3.1 B01/N01.
 **Review:** `plans/features/mod-acl-ux-01/evidence/m4c/c3/review-r1.md` @ planning master `e96314dc7`
@@ -15,6 +20,42 @@
 **Version:** 2.58.234
 **Schema/DDL:** 48 / **1 PG DDL** (только CHECK `chat_lore_history.field` += `'access'`; SQLite 0)
 **Manifest dry-run:** `manifest-dry-run.json` (`deployed_sha = 3b18ca1dd…`; docs-коммит выше него, см. §6).
+
+## 0. Correction delta-review B01 — rollback-контракт DDL 1
+
+**Проблема (подтверждена):** старый код `f232a3a3` на **каждом** старте делает
+`DROP CONSTRAINT IF EXISTS` + `ADD CONSTRAINT` с **10** значениями. После любой audit-строки
+`field='access'` PostgreSQL отклоняет ADD (SQLSTATE 23514), DROP уже закоммичен → CHECK
+отсутствует; `ConfigCache.init()` перехватывает ошибку → `pg_available=False`, roles/admins
+пусты, ACL-эндпоинты 503, владелец не global_admin. Поэтому raw `f232a3a3` **не является**
+универсальной rollback-целью после первой ACL-записи.
+
+**Исправление:** подготовлена rollback-совместимая цель от `f232a3a3` —
+**`be23f5eff7287b02e2e91d9b5a5af2b474198beb`**, ветка `rollback/mod-acl-m4c3-ddl-compatible`.
+Она содержит **только** изменение CHECK до 11 значений (`services/pg_db.py`, 1 insertion /
+1 deletion); C3 feature-кода, UI и тестов поведения нет; `APP_VERSION` остаётся **2.58.233**.
+`services/pg_db.py` цели **байт-идентичен** forward (`3b18ca1dd`) — blob
+`0174c28b6abe8fd04385e97592f870c0629dd909`; 62 statement, новых объектов нет. Ветка запушена
+без force.
+
+**Rollback-правило:**
+1. Pre-rollback gate: `SELECT count(*) FROM chat_lore_history WHERE field='access'`.
+2. `0` → raw `f232a3a3` разрешён (old DDL 10 значений проходит; проверено на scratch PG).
+3. `>0` → raw **запрещён**: деплой prepared target `be23f5eff` **или** отдельно авторизованный
+   metadata-only cleanup (`DELETE` только `field='access'`, с экспортом count/ids/хешей и
+   повторной проверкой), после чего допустим raw. По умолчанию — prepared target.
+4. Перед rollback — свежий PG backup `chat_lore_history` + ACL-таблиц; startup-верификация
+   constraint/roles/admins; повторный startup идемпотентен.
+
+**Доказательство:** `rollback-ddl-proof.md` / `rollback-ddl-proof.json` — реальный
+PostgreSQL 18.7 (PGlite 0.5.17, локальный scratch, без production): raw old с `access`-строкой →
+DROP ok, ADD **23514**, CHECK отсутствует; prepared target (62/62 statement дважды) → CHECK с
+11 значениями, `access`-строка валидна; raw old при `access_rows=0` → успех. Формулировка
+`C3-R1-N07` исправлена: raw rollback больше не заявлен совместимым.
+
+Цель — **не релизный кандидат**: F8 byte-pin `PG_DB_SHA256_B07` на ней не обновлялся (иначе
+пришлось бы менять тесты поведения), поэтому полный release-набор тестов на этой ветке не
+запускается; её acceptance — DDL-proof и startup-совместимость, а не 2.58.234 test suite.
 
 ## 1. Assembly steps
 
@@ -29,6 +70,8 @@
 | 7 | Checks on content tip `3b18ca1dd` | §4; все назначенные батчи ниже, включая 4/4 JS-пинов после завершения |
 | 8 | Manifest dry-run on `3b18ca1dd` | exit 0; version 2.58.234, previous `f232a3a3…`/2.58.233, `dirty_tracked=false`, `.deploy` восстановлен локально и удалён |
 | 9 | This evidence commit | docs-only; product/test/tool bytes не меняет |
+| 10 | Delta-review B01 fix: rollback target | `be23f5eff` от `f232a3a3`, only `services/pg_db.py` 1/1, branch `rollback/mod-acl-m4c3-ddl-compatible`, pushed no force; proof `rollback-ddl-proof.md/json` |
+| 11 | Correction docs commit | assembly/runbook/proof; product/test/tool bytes не меняет (deploy-time manifest — по фактическому HEAD, §6) |
 
 - `git rev-list --merges f232a3a30..HEAD` = **0**; история базы не перезаписывалась (no force).
 - Product bytes идентичны reviewed candidate: `git diff 5bf340dd0 3b18ca1dd -- services web config`
@@ -78,7 +121,9 @@
   `test-output/bump-bytes.txt`). `test_round1025_f8_registry.py` в общем diff 14/184: сверх
   version-строки — осознанные C3 re-pins и route-set, не bump.
 - BOM/CRLF: **0** profile-несовпадений по 32 файлам; `config/settings.py` сохраняет UTF-8 BOM +
-  3645 CRLF; остальные 31 — LF без BOM.
+  3645 CRLF. Уточнение (delta-review N03): 22 из остальных 31 файлов **уже имели** UTF-8 BOM в
+  базе, остальные — LF без BOM; волна не меняла профили ни в одном файле (machine-артефакт
+  `test-output/bump-bytes.txt`: `profile_mismatches=0`).
 - `git grep 2.58.233` по tracked вне planning/evidence: только исторические ссылки —
   changelog `settings.py` («База: f232a3a3 (2.58.233)…») и комментарий `services/access.py`
   о неизменном legacy-поведении 2.58.233. Живых пинов нет.
@@ -138,12 +183,17 @@ ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check
 - `'access'` — **расширение** множества: все существующие строки удовлетворяют новому CHECK,
   ADD не может упасть на данных; DROP/ADD идемпотентны; `DDL_STATEMENTS` = 62, новых
   таблиц/колонок/индексов нет; SQLite остаётся 48 (таблицы нет, миграция не нужна).
-- `PgDatabase.init()` применяет DDL до обслуживания запросов. Backup — **до** старта;
-  startup-верификация и rollback — в `postdeploy-runbook-2.58.234.md` §2/§6.
-- Rollback `f232a3a30` + restart: расширенный CHECK остаётся (старому коду не мешает, он пишет
-  только старые значения); audit-строки `field='access'` остаются; downgrade CHECK не делается,
-  ручной DDL не нужен. Известный non-blocking остаток `C3-R1-N07`: старый lore/oversight может
-  показать `access`-строки сырым JSON (данные совместимы, секретов нет).
+- `PgDatabase.init()` применяет DDL до обслуживания запросов. Перед DDL — **PG backup**
+  `chat_lore_history` + ACL-таблиц (SQLite backup DDL не покрывает); startup-верификация,
+  constraint/DISTINCT-проверки и rollback — в `postdeploy-runbook-2.58.234.md` §2/§5.
+- **Rollback:** raw `f232a3a30` **не совместим** с `access`-строками: old startup снова ставит
+  CHECK с 10 значениями, ADD падает 23514 после DROP → CHECK отсутствует, PG-кэш ролей/админов
+  пуст (ACL 503). Правило: `access_rows=0` → raw разрешён; `>0` → prepared target
+  `be23f5eff…` (`rollback/mod-acl-m4c3-ddl-compatible`, только CHECK 11 значений) или отдельно
+  авторизованный metadata-only cleanup, не raw. Audit-строки при prepared target остаются
+  валидными; downgrade CHECK и ручной DDL не выполняются. `C3-R1-N07` переформулирован: на
+  prepared target старый lore/oversight может показать `access`-строки сырым JSON (косметика,
+  без секретов/потери данных) — это не причина откладывать откат.
 
 ## 6. Manifest, rollback, runbook
 
@@ -153,9 +203,12 @@ ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check
   Предыдущий `.deploy/release.json` восстановлен локально из документированного deployed-состояния
   (production-файл не читался), после прогона `.deploy` удалён; tracked tree clean.
 - Деплой обязан записать manifest по **фактическому** checkout SHA (evidence-коммит или его tip):
-  product bytes идентичны content tip.
-- Rollback: `f232a3a30` (2.58.233) — секция §6 runbook; DDL/данные/настройки не откатываются,
-  wipe не выполняется.
+  product bytes идентичны content tip. Correction docs-коммит меняет только `plans/`; dry-run
+  `manifest-dry-run.json` остаётся на content tip `3b18ca1dd`, фактический HEAD фиксируется
+  deploy-временем (version/previous/dirty не меняются).
+- Rollback: raw `f232a3a30` (2.58.233) — только при `access_rows=0`; иначе prepared target
+  `be23f5eff…` (`rollback/mod-acl-m4c3-ddl-compatible`, branch tip, не raw), см. §0 и §5
+  runbook. Перед rollback — PG backup; DDL/данные/настройки не откатываются, wipe не выполняется.
 - Runbook `postdeploy-runbook-2.58.234.md`: single-process preflight, ACL 4/3/1/0, backup,
   manifest actual HEAD, restart, health/version/identity/schema/DDL/`NRestarts`/journal/digests,
   served bytes, `POST /api/admins` 401, audit GET 401/403 без initData, reset/409 read-only
@@ -163,20 +216,26 @@ ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check
 
 ## 7. Residual и ограничения
 
-- **Review R1.1** принял C3; `C3-R1-N02…N08` — backlog (в т.ч. N03 пробел в audit-сводке, N04
-  тач-цели 390, N05 no-op chat_admin, N07 rollback-вид lore, N08 конкурентный INSERT).
+- **Review R1.1** принял C3; `C3-R1-N02…N08` — backlog; **N07 переформулирован** (§0/§5):
+  raw rollback после `access`-строк не заявлен совместимым.
+- **Delta-review R1:** B01 исправлен (prepared target + proof). Nonblocking остаются **N01**
+  (reset 37×118@320 / 44×68@390 / 74×31@1440 — pre-existing, dedup с `C3-R1-N04`), **N02**
+  (forward preflight усилен ожидаемым constraint + `DISTINCT field`), **N03** (BOM-фраза
+  исправлена: 22 из 31 уже с BOM), **N04** (косметика «1 перекрытий»/пробел — backlog).
+  Ни один не расширяется до правок продукта.
 - **RFL** (не owner QA, не блокер): натуральный двухоконный 409/натуральный отзыв в середине
   долгого запроса; реальная local_admin TMA-сессия для embeddings-403; live TMA не проверялась.
-- PostgreSQL в локальном окружении недоступен: DDL/транзакции на живом PG не исполнялись;
-  доказательство — superset-свойство + 62-statement source + unit-тесты + SQLite-симуляция
-  кандидата; фактическое применение и constraint проверяются postdeploy (§runbook).
+- DDL/rollback доказаны на **PostgreSQL 18.7** (PGlite 0.5.17, локальный scratch): raw old +
+  `access` → 23514/CHECK absent; prepared target 62/62 дважды → CHECK 11, строка валидна;
+  `access_rows=0` → raw old успешен. Production-применение и constraint проверяются postdeploy.
 - VERIFIED по строкам карты не заявлялся; deployed SHA/effective-state не проверялись.
-- В этом assembly: без SSH, deploy, LLM, production-данных и positive ACL-writes; временные
-  артефакты — в `%TEMP%\opencode\m4c3-258234` (не коммитятся), worktree clean.
+- В этой сборке: без SSH, deploy, LLM, production-данных и positive ACL-writes; временные
+  артефакты — в `%TEMP%\opencode` (proof JSON/md — в evidence), worktree clean.
 
 ## 8. Cleanup
 
-- Созданные временные каталоги (`temp\opencode\m4c3-258234`, `temp\opencode\m4c3_release_*.py`,
-  `schema-smoke.db` удалён скриптом) — вне репозитория; после сдачи удаляются.
-- В worktree нет новых tracked/untracked файлов кроме этой evidence-папки; production не
+- Временные каталоги (`temp\opencode\m4c3-258234`, `temp\opencode\pgproof`,
+  `temp\opencode\m4c3_release_*.py`, `schema-smoke.db`) — вне репозитория; proof перенесён в
+  evidence, после сдачи временные каталоги удаляются.
+- В worktree нет новых tracked/untracked файлов кроме evidence-папки; production не
   затрагивался; фоновых процессов не осталось.

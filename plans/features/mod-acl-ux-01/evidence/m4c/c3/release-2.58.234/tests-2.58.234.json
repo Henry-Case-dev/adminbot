@@ -268,6 +268,25 @@
     "dirty_tracked": false,
     "note": "Dry-run captured the content tip; the evidence-only commit follows. Deploy-time manifest must record the actual checkout SHA."
   },
+  "rollback": {
+    "rule": "raw f232a3a3 only when access_rows=0; otherwise prepared target",
+    "prepared_target": {
+      "branch": "rollback/mod-acl-m4c3-ddl-compatible",
+      "sha": "be23f5eff7287b02e2e91d9b5a5af2b474198beb",
+      "base": "f232a3a30a79c074fc3d7fa75d8aa947720d76a4",
+      "diff": "services/pg_db.py 1 insertion / 1 deletion",
+      "pg_db_blob": "0174c28b6abe8fd04385e97592f870c0629dd909",
+      "identical_to_forward_pg_db": true,
+      "app_version": "2.58.233"
+    },
+    "proof": "rollback-ddl-proof.md/json",
+    "proof_engine": "PostgreSQL 18.7 (PGlite 0.5.17), local scratch",
+    "facts": {
+      "raw_old_with_access": "DROP ok, ADD 23514, CHECK absent",
+      "target_startup_with_access": "62/62 twice, CHECK 11, access row valid",
+      "raw_old_zero_access": "10-value ADD succeeds"
+    }
+  },
   "limitations": [
     "No production deploy, SSH, live TMA, LLM calls or production data reads in this assembly.",
     "PostgreSQL is not available locally: DDL/transaction behavior was proven by source (superset ADD), 62 statements, unit tests and SQLite simulation; live constraint verification belongs to postdeploy.",
