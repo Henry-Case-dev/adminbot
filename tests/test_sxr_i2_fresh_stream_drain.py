@@ -515,7 +515,10 @@ async def test_run_bounded_by_wall_clock_budget(tmp_path, monkeypatch):
 
     def _fake_monotonic():
         ticks["n"] += 1
-        return 0.0 if ticks["n"] == 1 else 1000.0
+        # B03: бюджет проверяется и ДО батча, поэтому первые два замера
+        # (deadline + pre-batch gate) ещё в бюджете; после первого батча —
+        # исчерпан. Отдельный B03-тест покрывает pre-batch stop без вызова.
+        return 0.0 if ticks["n"] <= 2 else 1000.0
 
     monkeypatch.setattr(mj, "_monotonic", _fake_monotonic)
     db = await _db(tmp_path, "clock.db")

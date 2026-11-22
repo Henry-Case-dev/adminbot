@@ -54,9 +54,32 @@ from services.task_supervisor import (
     JOB_QUEUED,
     JOB_RUNNING,
     TaskJobStore,
+    heartbeat_period_seconds,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _FencedJob(Exception):
+    """Ownership is lost (fencing token mismatch) — stop without writes."""
+
+
+SEMANTIC_HEARTBEAT_MIN_SECONDS = 0.2
+SEMANTIC_HEARTBEAT_MAX_SECONDS = 60.0
+
+
+def semantic_heartbeat_interval() -> float:
+    """Периодический heartbeat длинного catch-up, ограниченный MAX.
+
+    Existing `heartbeat_period_seconds()` (default 15s, env) — источник;
+    нижняя граница 0.2s нужна детерминированным тестам, верхняя 60s — lease
+    watchdog. Ошибка конфигурации → 15s."""
+    try:
+        value = float(heartbeat_period_seconds())
+    except Exception:
+        value = 15.0
+    return max(SEMANTIC_HEARTBEAT_MIN_SECONDS,
+               min(SEMANTIC_HEARTBEAT_MAX_SECONDS, value))
 
 REVIEW_JOB_KIND = "experience.review"
 REVIEW_OWNER = "mca16"
@@ -157,7 +180,7 @@ SEMANTIC_OUTPUT_REASONING_RESERVE = 2048  # reasoning входит в completion
 SEMANTIC_OUTPUT_MARGIN_RATIO = 0.25       # запас протокола/полей
 SEMANTIC_OUTPUT_FLOOR_TOKENS = 1024       # нижняя граница бюджета (не 1500)
 SEMANTIC_OUTPUT_CEILING_TOKENS = 8192     # верхняя граница при неизвестном max
-SEMANTIC_OUTPUT_RETRY_ATTEMPTS = 2        # ≤2 повтора с увеличенным бюджетом
+SEMANTIC_OUTPUT_RETRY_ATTEMPTS = 1        # ≤1 повтор (2 вызова), затем split
 #: E-LAG: один LLM-вызов получает ≤N строк. Прежние 6×50=300 строк в одном
 #: вызове — не «деление окна», а главный источник обрезки reasoning.
 SEMANTIC_BATCH_ROWS_MAX = 120
@@ -1528,6 +1551,7 @@ class ExperienceReviewRunner:
         self._cancel_cb = cancel_cb
         self._random_source = random_source
         self._analytics_inherited: set[str] = set()
+        self._fence_lost = False
 
     # ── payload/checkpoint (durable курсор) ───────────────────────────────
 
@@ -1757,8 +1781,50 @@ class ExperienceReviewRunner:
             retry = data.setdefault(SEMANTIC_RETRY_KEY, {})
             for chat_key, value in (
                     prev.get(SEMANTIC_RETRY_KEY) or {}).items():
-                if isinstance(value, dict) and str(chat_key) not in retry:
-                    retry[str(chat_key)] = dict(value)
+                if not isinstance(value, dict):
+                    continue
+                key = str(chat_key)
+                current = retry.get(key)
+                if not isinstance(current, dict):
+                    current = retry[key] = dict(value)
+                # B03: tail retry durable между job'ами. Иначе 119-row
+                # truncation после worker_lost/attempts_exhausted снова
+                # начинается с полного окна. Merge: max attempts/retry_at,
+                # min positive row_limit, reason сохраняется.
+                try:
+                    prev_attempts = int(value.get("attempts") or 0)
+                except (TypeError, ValueError):
+                    prev_attempts = 0
+                try:
+                    cur_attempts = int(current.get("attempts") or 0)
+                except (TypeError, ValueError):
+                    cur_attempts = 0
+                if prev_attempts or cur_attempts:
+                    current["attempts"] = max(cur_attempts, prev_attempts)
+                try:
+                    prev_retry_at = int(value.get("retry_at") or 0)
+                except (TypeError, ValueError):
+                    prev_retry_at = 0
+                try:
+                    cur_retry_at = int(current.get("retry_at") or 0)
+                except (TypeError, ValueError):
+                    cur_retry_at = 0
+                if prev_retry_at or cur_retry_at:
+                    current["retry_at"] = max(cur_retry_at, prev_retry_at)
+                try:
+                    prev_limit = int(value.get("row_limit") or 0)
+                except (TypeError, ValueError):
+                    prev_limit = 0
+                try:
+                    cur_limit = int(current.get("row_limit") or 0)
+                except (TypeError, ValueError):
+                    cur_limit = 0
+                limits = [x for x in (cur_limit, prev_limit) if x > 0]
+                if limits:
+                    current["row_limit"] = min(limits)
+                reason = str(value.get("reason") or "")[:40]
+                if reason and not current.get("reason"):
+                    current["reason"] = reason
             # E-LAG: fresh-полоса наследуется max-merge (boundary/cursor не
             # откатываются), иначе рестарт снова начал бы хвост с нуля.
             fresh = data.setdefault(SEMANTIC_FRESH_KEY, {})
@@ -1903,7 +1969,13 @@ class ExperienceReviewRunner:
             logger.warning("[mca16] review cursor inherit failed — from zero",
                            exc_info=True)
 
+    def _ensure_active(self) -> None:
+        """Stop immediately if ownership was lost (fencing heartbeat False)."""
+        if getattr(self, "_fence_lost", False):
+            raise _FencedJob("experience review fenced")
+
     async def _checkpoint(self, job_id: str, payload: dict) -> None:
+        self._ensure_active()
         payload_json = json.dumps(payload, ensure_ascii=True)
         now = int(time.time())
 
@@ -1919,6 +1991,8 @@ class ExperienceReviewRunner:
     async def _finish(self, job_id: str, *, status: str, reason_code=None,
                       payload: dict | None = None) -> None:
         if payload is not None:
+            if getattr(self, "_fence_lost", False):
+                return                 # не перезаписываем job нового владельца
             await self._checkpoint(job_id, payload)
         # S5A/W-07: терминальная запись обусловлена fencing-токеном владения
         # (0 — задача ещё не отбиралась takeover'ом).
@@ -1945,9 +2019,16 @@ class ExperienceReviewRunner:
         # S5A/W-07: фиксируем fencing-токен владения для терминальных записей.
         row = await self._store.get(job_id)
         self._fence = int((row or {}).get("fencing_token") or 0)
+        self._fence_lost = False
         counters = payload["counters"]
         try:
-            await self._store.heartbeat(job_id)
+            if not await self._store.heartbeat(
+                    job_id, fencing_token=self._fence or None):
+                self._fence_lost = True
+                raise _FencedJob("lease lost before start")
+            # B03: базовый payload (defaults/counters) durable СРАЗУ, чтобы
+            # terminal worker_lost не оставлял пустые COUNTERS.
+            await self._checkpoint(job_id, payload)
             # D05 (§18E.1): hybrid production feedback entry — детектор
             # обычного чата пишет feedback candidates ДО capture (тот же
             # проход доводит очевидную коррекцию до эпизода/кандидата).
@@ -2052,9 +2133,17 @@ class ExperienceReviewRunner:
             payload["counters"] = counters
             await self._finish(job_id, status=JOB_COMPLETED, payload=payload)
             return JOB_COMPLETED
+        except _FencedJob:
+            # Ownership lost: никаких checkpoint/finish — job уже принадлежит
+            # новому attempt. Возврат честный, без ложного completed/failed.
+            logger.warning(
+                "[mca16] review fenced — stop without writes | job_id=%s",
+                job_id)
+            return "interrupted"
         except asyncio.CancelledError:
-            await self._finish(job_id, status="interrupted",
-                               reason_code="cancelled", payload=payload)
+            if not self._fence_lost:
+                await self._finish(job_id, status="interrupted",
+                                   reason_code="cancelled", payload=payload)
             raise
         except Exception:
             counters["errors"] = int(counters.get("errors") or 0) + 1
@@ -2339,15 +2428,51 @@ class ExperienceReviewRunner:
         checkpoint: падение процесса не теряет и не дублирует строки
         (повтор идемпотентен по dedup_key)."""
         now = int(time.time())
+        beat_task = None
+        if job_id:
+            beat_task = asyncio.create_task(
+                self._semantic_heartbeat_loop(job_id))
         try:
             await self._semantic_pass(payload, now=now, job_id=job_id)
         finally:
+            if beat_task is not None:
+                beat_task.cancel()
+                try:
+                    await beat_task
+                except (asyncio.CancelledError, Exception):
+                    pass
             # SXR-I2: честный замер расстояния курсора до фактических данных
             # (не только счётчик pending) — до записи снимка/события лага.
             payload[SEMANTIC_LAG_KEY] = await self._measure_semantic_lag(
                 payload, now=now)
             payload[SEMANTIC_PROGRESS_KEY] = semantic_progress_snapshot(
                 payload, now=now)
+
+    async def _semantic_heartbeat_loop(self, job_id: str) -> None:
+        """B03: периодический heartbeat с fencing во время длинного catch-up.
+
+        Один LLM-вызов/retry может длиться до 90с > watchdog lease (60с);
+        heartbeat только на старте/после батча не защищает. Задача живёт
+        ровно на время `_semantic_extract`, при `False` (fenced) выставляет
+        `_fence_lost` и прекращает работу; все записи после этого запрещены."""
+        interval = semantic_heartbeat_interval()
+        while not self._fence_lost:
+            try:
+                await asyncio.sleep(interval)
+                ok = await self._store.heartbeat(
+                    job_id, fencing_token=self._fence or None)
+            except asyncio.CancelledError:
+                return
+            except Exception:
+                logger.debug("[mca16] semantic heartbeat failed",
+                             exc_info=True)
+                continue
+            if not ok:
+                self._fence_lost = True
+                logger.warning(
+                    "[mca16] semantic heartbeat fenced — stop | job_id=%s",
+                    job_id)
+                return
 
     async def _semantic_pass(self, payload: dict, *, now: int,
                              job_id: str = "") -> None:
@@ -2371,6 +2496,10 @@ class ExperienceReviewRunner:
             counters["semantic_llm_unavailable"] = int(
                 counters.get("semantic_llm_unavailable") or 0) + 1
             return
+        self._ensure_active()
+
+        async def _attempt_checkpoint() -> None:
+            await self._semantic_checkpoint(job_id, payload)
         try:
             await self._semantic_discover(payload, now=now)
         except Exception:
@@ -2398,13 +2527,16 @@ class ExperienceReviewRunner:
         blocked: set[int] = set()      # неуспешные в ЭТОМ прогоне чаты
         batches = 0
         emitted = False
+        self._ensure_active()
         # E-LAG: свежая полоса первой и не более одного раза за проход.
         if self._semantic_fresh_lanes(payload) and not self._budget_over(
                 deadline):
             fresh = await self._semantic_fresh_batch(
                 payload, now=now, counters=counters, capability=capability,
                 chats_per_batch=chats_per_batch, per_chat_max=per_chat_max,
-                row_cap=row_cap)
+                row_cap=row_cap, deadline=deadline,
+                on_attempt=_attempt_checkpoint)
+            self._ensure_active()
             if fresh.get("batch"):
                 batches += 1
                 emitted = bool(emitted or fresh.get("emitted"))
@@ -2412,6 +2544,14 @@ class ExperienceReviewRunner:
                     counters.get("semantic_batches_run") or 0) + 1
                 await self._semantic_checkpoint(job_id, payload)
         while batches < max_batches:
+            self._ensure_active()
+            # B03: 600с проверяется ДО батча, а не только после. Иначе
+            # проход начинал ещё один дорогой вызов уже за бюджетом и
+            # выходил за lease/watchdog.
+            if self._budget_over(deadline):
+                counters["semantic_budget_exhausted"] = int(
+                    counters.get("semantic_budget_exhausted") or 0) + 1
+                break
             chats = [cid for cid in self._semantic_chat_order(
                 payload, now=now, behind=behind) if cid not in blocked]
             if not chats:
@@ -2513,17 +2653,24 @@ class ExperienceReviewRunner:
             if batch_rows:
                 counters["semantic_selected"] = int(
                     counters.get("semantic_selected") or 0) + len(batch_rows)
-                call = await self._semantic_invoke(
-                    batch_rows, capability=capability, counters=counters)
-                state = str(call.get("state") or "")
-                if state == "truncated":
-                    # E-TRUNC: даже после повторов с большим бюджетом окно
-                    # обрезано reasoning'ом. Курсор НЕ двигается; чаты
-                    # получают durable причину + уменьшенное окно + backoff.
+
+                async def _persist_truncation(_rows_count, _attempt):
                     for cid, window in windows.items():
                         self._defer_truncated_semantic_chat(
                             payload, cid, window=window, counters=counters,
-                            now=now)
+                            now=now, adjust=(int(_attempt) == 1))
+
+                call = await self._semantic_invoke(
+                    batch_rows, capability=capability, counters=counters,
+                    deadline=deadline, on_attempt=_attempt_checkpoint,
+                    on_truncated=_persist_truncation)
+                self._ensure_active()
+                state = str(call.get("state") or "")
+                if state == "truncated":
+                    # Durable причина/row_limit уже записаны on_truncated
+                    # (до возможного worker_lost); здесь только блокируем
+                    # повтор того же окна в текущем проходе.
+                    for cid in windows:
                         behind.pop(int(cid), None)
                         blocked.add(int(cid))
                 elif state != "ok":
@@ -2568,18 +2715,25 @@ class ExperienceReviewRunner:
         return _monotonic() >= deadline
 
     async def _semantic_checkpoint(self, job_id: str, payload: dict) -> None:
-        """Durable checkpoint + heartbeat после батча (SXR-I2)."""
+        """Durable checkpoint + fencing heartbeat после батча/попытки."""
+        self._ensure_active()
         if not job_id:
             return
         await self._checkpoint(job_id, payload)
         # Длинный дренаж обязан обновлять heartbeat, иначе существующий
         # watchdog (`recover_stale`, default 60с) принял бы живую задачу за
-        # потерянную и запустил второй worker.
+        # потерянную и запустил второй worker. Fencing: при потере владения
+        # не пишем и немедленно останавливаемся.
         try:
-            await self._store.heartbeat(job_id)
+            ok = await self._store.heartbeat(
+                job_id, fencing_token=self._fence or None)
         except Exception:
             logger.debug("[mca16] semantic drain heartbeat failed",
                          exc_info=True)
+            return
+        if not ok:
+            self._fence_lost = True
+            raise _FencedJob("semantic checkpoint fenced")
 
     async def _semantic_capability(self):
         """Capability фактического маршрута (model/base_url) без новых вызовов.
@@ -2629,28 +2783,53 @@ class ExperienceReviewRunner:
         return False
 
     async def _semantic_invoke(self, rows: list[dict], *, capability=None,
-                               counters: dict | None = None) -> dict:
+                               counters: dict | None = None,
+                               deadline: float | None = None,
+                               on_attempt=None,
+                               on_truncated=None) -> dict:
         """Один логический вызов с контролируемым retry при обрезке.
 
         Возврат ``{"state": ok|truncated|unavailable, "raw": str|None,
         "budget": int, "attempt": int, "budget_source": str}``. При
         `truncated_reasoning` бюджет следующей попытки растёт (не идентичный
-        повтор), число попыток ограничено `SEMANTIC_OUTPUT_RETRY_ATTEMPTS`.
-        Reasoning никогда не становится `raw`/контентом."""
+        повтор), число попыток ограничено `SEMANTIC_OUTPUT_RETRY_ATTEMPTS`
+        (один повтор; при исчерпании 8192 окно дробится durable, а не
+        тратятся все попытки на те же строки). `deadline` проверяется перед
+        повтором, `on_attempt` вызывается после КАЖДОЙ попытки (durable
+        counters/checkpoint даже при последующем worker_lost),
+        `on_truncated` — durable truncation/row_limit state до следующей
+        попытки/worker_lost. Reasoning никогда не становится `raw`/контентом."""
         counters = counters if isinstance(counters, dict) else {}
+
+        async def _after_attempt() -> None:
+            if on_attempt is not None:
+                await on_attempt()
+
         attempt = 1
         truncated = False
         call = await self._semantic_llm_call(
             rows, capability=capability, attempt=attempt)
-        while str(call.get("state")) == "truncated":
-            truncated = True
-            counters["semantic_truncated"] = int(
-                counters.get("semantic_truncated") or 0) + 1
-            reasons = counters.setdefault("semantic_truncation_reasons", {})
-            reason = str(call.get("reason") or SEMANTIC_TRUNCATED_REASON)
-            reasons[reason] = int(reasons.get(reason) or 0) + 1
+        while True:
+            state = str(call.get("state") or "")
+            if state == "truncated":
+                truncated = True
+                counters["semantic_truncated"] = int(
+                    counters.get("semantic_truncated") or 0) + 1
+                reasons = counters.setdefault(
+                    "semantic_truncation_reasons", {})
+                reason = str(call.get("reason") or SEMANTIC_TRUNCATED_REASON)
+                reasons[reason] = int(reasons.get(reason) or 0) + 1
+                if on_truncated is not None:
+                    await on_truncated(len(rows), attempt)
+            # Персист счётчиков/truncation state после КАЖДОЙ попытки:
+            # terminal worker_lost не оставляет пустые COUNTERS.
+            await _after_attempt()
+            if state != "truncated":
+                break
             if attempt > int(SEMANTIC_OUTPUT_RETRY_ATTEMPTS):
                 return call
+            if deadline is not None and _monotonic() >= deadline:
+                return call             # не начинаем повтор за бюджетом
             attempt += 1
             counters["semantic_truncated_retries"] = int(
                 counters.get("semantic_truncated_retries") or 0) + 1
@@ -2726,6 +2905,7 @@ class ExperienceReviewRunner:
         Разделяет tail/fresh-полосу, не дублируя parse/write/идемпотентность.
         Возврат: ``emitted`` (валидный ответ), ``booked`` (позиции сдвинуты),
         ``blocked`` (чаты нельзя повторять в этом прогоне)."""
+        self._ensure_active()
         outcome = str(parsed.get("outcome") or "")
         if outcome == SEMANTIC_PARSE_INVALID:
             counters["semantic_parse_invalid"] = int(
@@ -2778,6 +2958,7 @@ class ExperienceReviewRunner:
         booked: set[int] = set()
         blocked: set[int] = set()
         for chat_id, window in windows.items():
+            self._ensure_active()
             cid = int(chat_id)
             if cid in failed_chats:
                 blocked.add(cid)             # retry без потери кандидата
@@ -2826,25 +3007,28 @@ class ExperienceReviewRunner:
 
     def _defer_truncated_semantic_chat(self, payload: dict, chat_id, *,
                                        window: dict, counters: dict,
-                                       now: int) -> None:
+                                       now: int, adjust: bool = True) -> None:
         """Durable причина обрезки + меньшее окно + bounded backoff.
 
-        Курсор не двигается. На следующем проходе чат читается меньшим окном
-        (`row_limit`), поэтому одно и то же отказавшееся окно не повторяется
-        вечно; после `SEMANTIC_RETRY_MAX_ATTEMPTS` — потолок backoff, данные
-        остаются durable."""
+        Курсор не двигается. `adjust=True` — первый отказ логического окна:
+        attempts+1, row_limit вдвое, retry_at. Повтор того же окна с большим
+        бюджетом (`adjust=False`) не удваивает backoff и не дробит окно
+        второй раз; durable причина/retry сохраняются."""
         cid = int(chat_id)
         key = str(cid)
         info = dict((payload.setdefault(SEMANTIC_TRUNCATED_KEY, {})
                      ).get(key) or {})
+        if adjust:
+            info["count"] = int(info.get("count") or 0) + 1
         info.update({
-            "count": int(info.get("count") or 0) + 1,
             "last_at": int(now),
             "reason": SEMANTIC_TRUNCATED_REASON,
             "rows": int(len(window.get("rows") or ())),
             "budget_rows": int(window.get("read") or 0),
         })
         (payload.setdefault(SEMANTIC_TRUNCATED_KEY, {}))[key] = info
+        if not adjust:
+            return
         rows_seen = max(1, int(len(window.get("rows") or ())
                                or window.get("read") or 1))
         current = self._semantic_window_limit(
@@ -3018,11 +3202,15 @@ class ExperienceReviewRunner:
 
     def _defer_semantic_fresh_lane(self, payload: dict, chat_id, *,
                                    reason: str, now: int,
-                                   rows_seen: int = 0) -> None:
+                                   rows_seen: int = 0,
+                                   adjust: bool = True) -> None:
         """Fresh-полоса не блокирует старый хвост: durable backoff только её."""
         cid = int(chat_id)
         lane = self._semantic_fresh_lane(payload, cid)
         if lane is None:
+            return
+        if not adjust:
+            lane["reason"] = str(reason)[:40]
             return
         attempts = int(lane.get("attempts") or 0) + 1
         delay = min(int(SEMANTIC_RETRY_MAX_SECONDS),
@@ -3048,7 +3236,9 @@ class ExperienceReviewRunner:
     async def _semantic_fresh_batch(self, payload: dict, *, now: int,
                                     counters: dict, capability,
                                     chats_per_batch: int, per_chat_max: int,
-                                    row_cap: int) -> dict:
+                                    row_cap: int,
+                                    deadline: float | None = None,
+                                    on_attempt=None) -> dict:
         """Один bounded fresh-батч за проход: новые события при отстающем хвосте."""
         lanes = [cid for cid in self._semantic_fresh_lanes(payload)
                  if self._fresh_lane_ready(payload, cid, now)]
@@ -3099,14 +3289,21 @@ class ExperienceReviewRunner:
             counters.get("semantic_fresh_batches") or 0) + 1
         counters["semantic_selected"] = int(
             counters.get("semantic_selected") or 0) + len(batch_rows)
-        call = await self._semantic_invoke(
-            batch_rows, capability=capability, counters=counters)
-        state = str(call.get("state") or "")
-        if state == "truncated":
+
+        async def _persist_fresh_truncation(_rows_count, _attempt):
             for cid, window in windows.items():
                 self._defer_semantic_fresh_lane(
                     payload, cid, reason=SEMANTIC_TRUNCATED_REASON, now=now,
-                    rows_seen=len(window.get("rows") or ()))
+                    rows_seen=len(window.get("rows") or ()),
+                    adjust=(int(_attempt) == 1))
+
+        call = await self._semantic_invoke(
+            batch_rows, capability=capability, counters=counters,
+            deadline=deadline, on_attempt=on_attempt,
+            on_truncated=_persist_fresh_truncation)
+        self._ensure_active()
+        state = str(call.get("state") or "")
+        if state == "truncated":
             return {"batch": True, "emitted": False}
         if state != "ok":
             counters["semantic_llm_unavailable"] = int(

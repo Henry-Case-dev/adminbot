@@ -14,6 +14,7 @@
 
 TEST-LIFECYCLE: CONTRACT owner=EXP-E-TRUNC-01/EXP-E-LAG-01
 """
+import asyncio
 import json
 import time
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ from services import mca_experience_jobs as mj
 from services import model_capacity
 from services.database import DatabaseService
 from services.llm_client import LLMBadResponseError
+from services.task_supervisor import TaskJobStore
 
 
 @pytest.fixture(autouse=True)
@@ -235,7 +237,8 @@ async def test_reasoning_truncation_recovers_with_contract_budget(
             "truncated_reasoning"] == 1
         assert counters["semantic_llm_unavailable"] == 0
         assert payload["semantic_retry"] == {}
-        assert payload[mj.SEMANTIC_TRUNCATED_KEY] == {}
+        # Durable-история обрезки сохраняется (B03); active retry снят.
+        assert payload[mj.SEMANTIC_TRUNCATED_KEY]["-100"]["count"] >= 1
     finally:
         hot_config.set_config_cache(None)
         await db.close()
@@ -810,6 +813,172 @@ async def test_fresh_truncation_window_persists_across_jobs(tmp_path):
         assert any(set(range(6008, 6051)) & batch for batch in next_batches), (
             "следующее окно должно продолжить с cursor=6007")
         assert lane["cursor"] == new[6], "обрезанное продолжение не двигает cursor"
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+# ═══ 6e. B03: heartbeat/lease, budget, per-attempt counters, tail retry ════
+
+@pytest.mark.asyncio
+async def test_periodic_heartbeat_during_slow_semantic_call(
+        tmp_path, monkeypatch):
+    hot_config.set_config_cache(_hot({
+        "memory.experience_semantic_batches_per_run": 1,
+        "memory.experience_semantic_run_budget_seconds": 3600,
+    }))
+    db = await _db(tmp_path, "b03_hb.db")
+    try:
+        await _msgs(db, 10)
+        counter = {"n": 0}
+        original = TaskJobStore.heartbeat
+
+        async def _counting(self, job_id, **kwargs):
+            counter["n"] += 1
+            return await original(self, job_id, **kwargs)
+
+        monkeypatch.setattr(TaskJobStore, "heartbeat", _counting)
+        monkeypatch.setattr(mj, "heartbeat_period_seconds", lambda: 0.2,
+                            raising=False)
+
+        class _SlowLLM(_RecordingLLM):
+            mid_call_beat = False
+
+            async def generate(self, messages, **kwargs):
+                before = counter["n"]
+                await asyncio.sleep(0.7)
+                self.mid_call_beat = counter["n"] > before
+                self.calls += 1
+                return "[]"
+
+        llm = _SlowLLM()
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        assert llm.mid_call_beat is True, (
+            "heartbeat должен идти во время длинного LLM-вызова, "
+            "а не только на старте/после батча")
+        assert counter["n"] >= 2
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_fenced_heartbeat_stops_without_writes_and_keeps_counters(
+        tmp_path, monkeypatch):
+    hot_config.set_config_cache(_hot({
+        "memory.experience_semantic_batches_per_run": 1,
+        "memory.experience_semantic_run_budget_seconds": 3600,
+    }))
+    db = await _db(tmp_path, "b03_fence.db")
+    try:
+        await _msgs(db, 20)
+        counter = {"n": 0}
+        original = TaskJobStore.heartbeat
+
+        class _RetryThenSlow(_RecordingLLM):
+            call2_started = False
+            call2_done = False
+            counter_at_call2 = None
+
+            async def generate(self, messages, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    raise _truncation_error()
+                self.call2_started = True
+                payload = await _payload_of(db)
+                self.counter_at_call2 = int(
+                    (payload.get("counters") or {}).get(
+                        "semantic_truncated") or 0)
+                await asyncio.sleep(0.6)
+                self.call2_done = True
+                return "[]"
+
+        llm = _RetryThenSlow()
+
+        async def _fenced(self, job_id, **kwargs):
+            counter["n"] += 1
+            if llm.call2_started and not llm.call2_done:
+                return False
+            return await original(self, job_id, **kwargs)
+
+        monkeypatch.setattr(TaskJobStore, "heartbeat", _fenced)
+        monkeypatch.setattr(mj, "heartbeat_period_seconds", lambda: 0.2,
+                            raising=False)
+        assert await mj.tick_experience_review(
+            db, llm=llm) == "interrupted"
+        payload = await _payload_of(db)
+        # Per-attempt checkpoint: первый truncation уже durable к началу 2-го
+        # вызова; terminal worker_lost не оставит COUNTERS={}.
+        assert llm.counter_at_call2 is not None
+        assert llm.counter_at_call2 >= 1
+        assert int(payload["counters"].get(
+            "semantic_truncated") or 0) >= 1
+        # Fenced: никакой записи cursor/кандидатов после потери владения.
+        assert _cursor(payload) == 0
+        assert int(payload["counters"].get("semantic_candidates") or 0) == 0
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_budget_checked_before_first_batch(tmp_path, monkeypatch):
+    hot_config.set_config_cache(_hot({
+        "memory.experience_semantic_batches_per_run": 5,
+        "memory.experience_semantic_run_budget_seconds": 1,
+    }))
+    db = await _db(tmp_path, "b03_budget.db")
+    try:
+        await _msgs(db, 10)
+        calls = iter([0.0, 1000.0])
+
+        def _fake_monotonic():
+            return next(calls, 1000.0)
+
+        monkeypatch.setattr(mj, "_monotonic", _fake_monotonic)
+        llm = _RecordingLLM()
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        assert llm.calls == 0, "бюджет 600с проверяется ДО первого батча"
+        payload = await _payload_of(db)
+        assert int(payload["counters"].get(
+            "semantic_budget_exhausted") or 0) >= 1
+        assert _cursor(payload) == 0
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_inherit_cursor_merges_tail_retry_state(tmp_path):
+    hot_config.set_config_cache(_hot())
+    db = await _db(tmp_path, "b03_tail_inherit.db")
+    try:
+        old_id = await mj.enqueue_experience_review(db)
+        assert old_id
+        old = await _payload_of(db)
+        old[mj.SEMANTIC_RETRY_KEY] = {
+            "-100": {"row_limit": 30, "attempts": 3, "retry_at": 5000,
+                     "reason": "truncated_reasoning"}}
+        await db.db.execute(
+            "UPDATE task_jobs SET payload = ?, status = 'completed', "
+            "finished_at = ? WHERE job_id = ?",
+            (json.dumps(old), int(time.time()), old_id))
+        await db.db.commit()
+        new_id = await mj.enqueue_experience_review(db)
+        assert new_id
+        new = await _payload_of(db)
+        new[mj.SEMANTIC_RETRY_KEY] = {
+            "-100": {"row_limit": 120, "attempts": 1, "retry_at": 1000}}
+        await db.db.execute(
+            "UPDATE task_jobs SET payload = ? WHERE job_id = ?",
+            (json.dumps(new), new_id))
+        await db.db.commit()
+        loaded = await mj.ExperienceReviewRunner(db)._load_payload(new_id)
+        retry = loaded[mj.SEMANTIC_RETRY_KEY]["-100"]
+        assert retry["row_limit"] == 30, "min positive row_limit"
+        assert retry["attempts"] == 3, "max attempts"
+        assert retry["retry_at"] == 5000, "max retry_at"
+        assert retry["reason"] == "truncated_reasoning"
     finally:
         hot_config.set_config_cache(None)
         await db.close()
