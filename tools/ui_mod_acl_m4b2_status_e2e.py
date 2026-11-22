@@ -59,7 +59,7 @@ ADMIN_ID = 5885953495
 
 STATUS = copy.deepcopy(M.STATUS_STUB)
 STATUS["bot"] = {"uptime_seconds": 3600, "state": "running",
-                 "errors_total": 0, "version": "2.58.235"}
+                 "errors_total": 0, "version": "2.58.236"}
 STATUS["uptime"] = {"buckets": [], "last_heartbeat": NOW - 30,
                     "until": "2026-11-20T12:00:00+00:00",
                     "generated_at": "2026-11-20T12:00:00+00:00"}
@@ -363,7 +363,7 @@ def main() -> int:
     os.makedirs(os.path.dirname(REPORT), exist_ok=True)
     result = {"checks": {}, "viewports": {}, "console": [],
               "screenshots": [], "api_snapshot": {
-                  "status_version": "2.58.235",
+                  "status_version": "2.58.236",
                   "status_checked_at": STATUS["uptime"]["generated_at"],
                   "intents_active": 3,
                   "funnels_domains": FUNNELS["initiative"]["domains"],
@@ -420,7 +420,7 @@ def main() -> int:
                 check(name + "_no_h_overflow", pr["pageNoH"])
                 check(name + "_health_observed",
                       page.is_visible('[data-status-observed]')
-                      and "2.58.235"
+                      and "2.58.236"
                       in page.inner_text('[data-status-observed]'))
                 shot = os.path.join(SHOTS, "status-b2-%s.png" % name)
                 page.screenshot(path=shot, full_page=True)
