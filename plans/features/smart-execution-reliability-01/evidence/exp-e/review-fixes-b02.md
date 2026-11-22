@@ -7,7 +7,7 @@
 - RED candidate: `1df6fff1668882af187e0564c64d159498b56235`
 - Fix commit: `161a1705973bf6b5f31001b57a9a2728300f5945`
 - Branch: `fix/exp-e-trunc-lag`
-- Diff fix: `services/mca_experience_jobs.py` **+39/−1**;
+- Diff fix: `services/mca_experience_jobs.py` **+48/−1**;
   `tests/test_exp_e_trunc_lag_amendment.py` **+137** (2 теста).
 
 ## Причина

@@ -135,9 +135,17 @@
     },
     "fix_commit": "a5049c842",
     "fix_commit_b02": "161a17059",
-    "diff": {
-      "services/mca_experience_jobs.py": "+21/-6",
+    "diff_b01_n01": {
+      "services/mca_experience_jobs.py": "+15/-6",
       "tests/test_exp_e_trunc_lag_amendment.py": "+173"
+    },
+    "diff_b02": {
+      "services/mca_experience_jobs.py": "+48/-1",
+      "tests/test_exp_e_trunc_lag_amendment.py": "+137"
+    },
+    "diff_total": {
+      "services/mca_experience_jobs.py": "+63/-7",
+      "tests/test_exp_e_trunc_lag_amendment.py": "+310"
     }
   },
   "pre_existing_failure": {

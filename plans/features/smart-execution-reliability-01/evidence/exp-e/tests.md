@@ -30,12 +30,12 @@ python -m pytest <18 files> -q -k "not deep_sleep_not_mixed_with_lessons"
 
 Warning — `StarletteDeprecationWarning` (httpx), не связан с изменением.
 
-3. Source-pin `test_mca16_experience_block_d_round1039.py` обновлён:
+4. Source-pin `test_mca16_experience_block_d_round1039.py` обновлён:
    `_semantic_llm_call` содержит единственный `generate(`;
    `max_output_tokens=budget`; `semantic_output_budget(`;
    `SEMANTIC_BATCH_MAX_TOKENS` отсутствует в модуле. Тест проходит в п.2.
 
-4. Pre-existing baseline failure (не candidate):
+5. Pre-existing baseline failure (не candidate):
 
 ```
 base 56e2450d2:
@@ -47,7 +47,7 @@ python -m pytest tests/test_mca16_experience_block_d_round1039.py::test_deep_sle
 `"graph_facts" not in _jobs_src()`. К изменению не относится, не
 исправлялось.
 
-5. Синтаксис/дифф:
+6. Синтаксис/дифф:
 
 ```
 python -m py_compile services/mca_experience_jobs.py tests/test_exp_e_trunc_lag_amendment.py tests/test_mca16_experience_block_d_round1039.py
@@ -56,7 +56,7 @@ git diff --check
 exit 0
 ```
 
-6. Plan gate (канонический planning checkout, где есть amendment map):
+7. Plan gate (канонический planning checkout, где есть amendment map):
 
 ```
 requirements_gate.py check --repo C:\Code\Python\adminbot \
@@ -64,7 +64,7 @@ requirements_gate.py check --repo C:\Code\Python\adminbot \
 stage=plan inventory=15 manual=2 scoped=0 errors=0
 ```
 
-7. RED/GREEN harness (`exp_e_repro_final.py`, fake LLM, SQLite):
+8. RED/GREEN harness (`exp_e_repro_final.py`, fake LLM, SQLite):
    base и HEAD — см. `red-green.md` (A/B/C); production не затрагивался.
 
 ## Честные ограничения

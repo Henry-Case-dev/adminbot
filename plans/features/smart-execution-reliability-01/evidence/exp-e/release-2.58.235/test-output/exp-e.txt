@@ -1,0 +1,2 @@
+﻿python -m pytest tests/test_exp_e_trunc_lag_amendment.py -q
+13 passed in 11.26s

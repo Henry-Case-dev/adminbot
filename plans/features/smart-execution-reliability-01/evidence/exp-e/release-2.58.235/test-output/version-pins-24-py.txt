@@ -1,0 +1,8 @@
+﻿python -m pytest <24 version-pin tests/*.py> -q
+856 passed, 4 failed in 87.79s
+
+Pre-existing (same on base 56e2450d2, 4 failed in 26.59s):
+- tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+- tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+- tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+- tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline

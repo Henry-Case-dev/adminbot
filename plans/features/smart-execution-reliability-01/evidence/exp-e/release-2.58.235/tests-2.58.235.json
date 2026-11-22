@@ -1,0 +1,121 @@
+{
+  "schema": "release-evidence-v1",
+  "release": "2.58.235",
+  "version": "2.58.235",
+  "base_version": "2.58.234",
+  "base_sha": "56e2450d2c02e3d8ac595b9a412a121127f57b57",
+  "reviewed_candidate": "066909923b1366e84e544b3aa5dfb3c7eb8fa18a",
+  "review": {
+    "commit": "55aafa79f62f70e6f9837410bb4cc8c184e628ec",
+    "verdict": "APPROVED_FOR_RELEASE_PREPARATION",
+    "scope": "EXP-E-TRUNC-01 / EXP-E-LAG-01; B01/N01/B02 closed"
+  },
+  "branch": "release/exp-e-trunc-lag-2.58.235",
+  "content_tip": "b1036c53d26350c36b15e75d172f7008eb49a59f",
+  "bump_commit": "f2c39e36921a0487c5e645f01184c60895bc68a6",
+  "cherry_picks": [
+    ["819361a71", "f82ca8b72"],
+    ["ece1e1ca9", "1faafeafc"],
+    ["a5049c842", "df1371b01"],
+    ["1df6fff16", "49609456d"],
+    ["161a17059", "689318580"],
+    ["066909923", "b1036c53d"]
+  ],
+  "content_equality": {
+    "command": "git diff --quiet 066909923 b1036c53d",
+    "exit": 0,
+    "product_equality": "git diff --quiet 066909923 f2c39e369 -- services/mca_experience_jobs.py tests/test_exp_e_trunc_lag_amendment.py tests/test_mca16_experience_block_d_round1039.py",
+    "product_exit": 0,
+    "merges": 0
+  },
+  "bump": {
+    "files": 32,
+    "insertions": 35,
+    "deletions": 35,
+    "app_version": "2.58.235",
+    "bom": true,
+    "crlf": true,
+    "remaining_2_58_234": "historical only (Prior 2.58.234, release-2.58.234 evidence, m4c c3 history, test_acl_audit evidence path)"
+  },
+  "ddl": {
+    "sqlite_user_version": 48,
+    "tables": 101,
+    "pg_ddl": 0,
+    "schema_files_changed": [],
+    "deploy": "code-only"
+  },
+  "checks": [
+    {
+      "id": "version-pins-24-py",
+      "command": "python -m pytest <24 version-pin tests/*.py> -q",
+      "passed": 856,
+      "failed": 4,
+      "seconds": 87.79,
+      "pre_existing": true,
+      "pre_existing_node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "pre_existing_proof": "same 4 node IDs fail on deployed base 56e2450d2 (4 failed, 26.59s, detached worktree); not touched by candidate"
+    },
+    {
+      "id": "exp-e-amendment",
+      "command": "python -m pytest tests/test_exp_e_trunc_lag_amendment.py -q",
+      "passed": 13,
+      "failed": 0,
+      "seconds": 11.26
+    },
+    {
+      "id": "experience-related-18",
+      "command": "python -m pytest <18 related experience files> -q -k 'not deep_sleep_not_mixed_with_lessons'",
+      "passed": 292,
+      "failed": 0,
+      "deselected": 1,
+      "seconds": 56.2,
+      "note": "deselected test is pre-existing and fails identically on base 56e2450d2"
+    },
+    {
+      "id": "js-pins",
+      "commands": [
+        "node tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js",
+        "node tests/js/round1025_hotfix8_shell_aurora_test.js",
+        "node tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js",
+        "node tests/js/round1025_hotfix10_glass_geometry_bg_test.js"
+      ],
+      "result": "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK; HOTFIX8-SHELL-AURORA-OK; HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK; HOTFIX10-GLASS-GEOMETRY-BG-OK",
+      "node": "v24.16.0"
+    },
+    {
+      "id": "schema-smoke",
+      "result": "sqlite_user_version=48; tables=101"
+    },
+    {
+      "id": "static",
+      "py_compile": 0,
+      "git_diff_check": 0,
+      "plan_gate": "stage=plan inventory=15 manual=2 scoped=0 errors=0"
+    }
+  ],
+  "manifest": {
+    "artifact": "manifest-dry-run.json",
+    "exit": 0,
+    "deployed_sha": "f2c39e36921a0487c5e645f01184c60895bc68a6",
+    "version": "2.58.235",
+    "previous_sha": "56e2450d2c02e3d8ac595b9a412a121127f57b57",
+    "previous_version": "2.58.234",
+    "dirty_tracked": false
+  },
+  "rollback": {
+    "target_sha": "56e2450d2c02e3d8ac595b9a412a121127f57b57",
+    "mode": "code-only",
+    "ddl": 0,
+    "semantic_fresh_payload": "ignored by old code; source rows retained; possible replay protected by dedup_key idempotency"
+  },
+  "rfl": [
+    "production lag/throughput drop not measured before deploy; bounded 2-3 pass live check after deploy",
+    "real provider behavior at budget 8192/reduced windows not exercised",
+    "archive re-anchor intentionally not performed"
+  ]
+}
