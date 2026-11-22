@@ -1629,6 +1629,15 @@ class ExperienceReviewRunner:
                     retry_at = 0
                 if retry_at:
                     entry["retry_at"] = retry_at
+                try:
+                    attempts = int(lane.get("attempts") or 0)
+                except (TypeError, ValueError):
+                    attempts = 0
+                if attempts > 0:
+                    entry["attempts"] = attempts
+                reason = str(lane.get("reason") or "")[:40]
+                if reason:
+                    entry["reason"] = reason
                 fresh_clean[str(chat_key)] = entry
         data[SEMANTIC_FRESH_KEY] = fresh_clean
         # E-TRUNC: durable причина обрезки — только числа/коды.
@@ -1766,15 +1775,53 @@ class ExperienceReviewRunner:
                     continue
                 current = fresh.get(str(chat_key))
                 if not isinstance(current, dict):
-                    fresh[str(chat_key)] = {
+                    entry = {
                         "boundary": boundary,
                         "cursor": max(boundary - 1, pos)}
+                    current = fresh[str(chat_key)] = entry
                 else:
                     current["boundary"] = max(
                         int(current.get("boundary") or 0), boundary)
                     current["cursor"] = max(
                         int(current.get("cursor") or 0),
                         max(boundary - 1, pos))
+                # B02: backoff/уменьшенное окно fresh-полосы — durable и
+                # НЕ смешивается с tail `semantic_retry`. Иначе новый job
+                # терял `row_limit`/`attempts` и снова читал полное окно.
+                try:
+                    prev_attempts = int(value.get("attempts") or 0)
+                except (TypeError, ValueError):
+                    prev_attempts = 0
+                if prev_attempts > 0:
+                    try:
+                        cur_attempts = int(current.get("attempts") or 0)
+                    except (TypeError, ValueError):
+                        cur_attempts = 0
+                    current["attempts"] = max(cur_attempts, prev_attempts)
+                try:
+                    prev_retry = int(value.get("retry_at") or 0)
+                except (TypeError, ValueError):
+                    prev_retry = 0
+                if prev_retry > 0:
+                    try:
+                        cur_retry = int(current.get("retry_at") or 0)
+                    except (TypeError, ValueError):
+                        cur_retry = 0
+                    current["retry_at"] = max(cur_retry, prev_retry)
+                try:
+                    prev_limit = int(value.get("row_limit") or 0)
+                except (TypeError, ValueError):
+                    prev_limit = 0
+                try:
+                    current_limit = int(current.get("row_limit") or 0)
+                except (TypeError, ValueError):
+                    current_limit = 0
+                limits = [x for x in (current_limit, prev_limit) if x > 0]
+                if limits:
+                    current["row_limit"] = min(limits)
+                reason = str(value.get("reason") or "")[:40]
+                if reason and not current.get("reason"):
+                    current["reason"] = reason
             # E-TRUNC: durable счётчик/причина обрезки наследуются (не
             # «обнуляем историю» при новом job).
             trunc = data.setdefault(SEMANTIC_TRUNCATED_KEY, {})

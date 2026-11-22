@@ -153,6 +153,18 @@ async def _force_tail_retry_due(db, chat_id=-100) -> None:
     await db.db.commit()
 
 
+async def _force_fresh_retry_due(db, chat_id=-100) -> None:
+    """Сделать fresh-backoff истёкшим, сохранив row_limit/attempts."""
+    job_id, payload = await _latest_terminal_job(db)
+    lane = (payload.get(mj.SEMANTIC_FRESH_KEY) or {}).get(str(chat_id))
+    assert lane, "fresh lane должен существовать"
+    lane["retry_at"] = 0
+    await db.db.execute(
+        "UPDATE task_jobs SET payload = ? WHERE job_id = ?",
+        (json.dumps(payload), job_id))
+    await db.db.commit()
+
+
 async def _db(tmp_path, name="exp_e.db") -> DatabaseService:
     d = DatabaseService(str(tmp_path / name))
     await d.initialize()
@@ -673,6 +685,131 @@ async def test_fresh_lane_ignores_tail_backoff_across_restart(tmp_path):
         assert set(tail_sizes) == {25}, tail_sizes
         assert payload["semantic_retry"]["-100"]["attempts"] == 2
         assert payload["semantic_retry"]["-100"]["row_limit"] == 13
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+# ═══ 6d. B02: fresh backoff/row_limit/attempts durable между job'ами ══════
+
+@pytest.mark.asyncio
+async def test_inherit_cursor_preserves_fresh_lane_backoff(tmp_path):
+    hot_config.set_config_cache(_hot())
+    db = await _db(tmp_path, "b02_inherit.db")
+    try:
+        old_id = await mj.enqueue_experience_review(db)
+        assert old_id
+        payload = await _payload_of(db)
+        payload[mj.SEMANTIC_FRESH_KEY] = {
+            "-100": {"boundary": 6000, "cursor": 6010, "row_limit": 5,
+                     "attempts": 4, "retry_at": 12345,
+                     "reason": "truncated_reasoning"}}
+        payload[mj.SEMANTIC_RETRY_KEY] = {
+            "-100": {"row_limit": 25, "attempts": 2, "retry_at": 999,
+                     "reason": "truncated_reasoning"}}
+        await db.db.execute(
+            "UPDATE task_jobs SET payload = ?, status = 'completed', "
+            "finished_at = ? WHERE job_id = ?",
+            (json.dumps(payload), int(time.time()), old_id))
+        await db.db.commit()
+        new_id = await mj.enqueue_experience_review(db)
+        assert new_id
+        runner = mj.ExperienceReviewRunner(db)
+        loaded = await runner._load_payload(new_id)
+        lane = loaded[mj.SEMANTIC_FRESH_KEY]["-100"]
+        assert lane["boundary"] == 6000
+        assert lane["cursor"] == 6010
+        assert lane["row_limit"] == 5, "min(row_limit) должен наследоваться"
+        assert lane["attempts"] == 4, "max(attempts) должен наследоваться"
+        assert lane["retry_at"] == 12345, "max(retry_at) должен наследоваться"
+        assert lane["reason"] == "truncated_reasoning"
+        # Tail-состояние не смешано с fresh и наследуется как раньше.
+        tail = loaded[mj.SEMANTIC_RETRY_KEY]["-100"]
+        assert tail["row_limit"] == 25
+        assert tail["attempts"] == 2
+        assert tail["retry_at"] == 999
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_fresh_truncation_window_persists_across_jobs(tmp_path):
+    hot_config.set_config_cache(_hot({
+        "memory.experience_semantic_batches_per_run": 1,
+        "memory.experience_semantic_run_budget_seconds": 3600,
+        "memory.experience_semantic_batch_rows_max": 50,
+        "memory.experience_semantic_fresh_lane_lag_rows": 4000,
+    }))
+    path = tmp_path / "b02_jobs.db"
+    db = await _db(tmp_path, "b02_jobs.db")
+    try:
+        llm = _SizeAwareLLM(truncate_at=10)
+        ids = await _msgs(db, 6000)
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        payload = await _payload_of(db)
+        assert payload[mj.SEMANTIC_FRESH_KEY]["-100"]["cursor"] == ids[-1]
+        # 50 новых событий: fresh читает полное окно 50 и обрезается.
+        new = await _msgs(db, 50, start=6000, prefix="b02")
+        await _next_pass(db)
+        before = len(llm.batches)
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        payload = await _payload_of(db)
+        lane = payload[mj.SEMANTIC_FRESH_KEY]["-100"]
+        assert lane["attempts"] == 1
+        assert lane["row_limit"] == 25
+        assert lane["retry_at"] > int(time.time())
+        assert lane["cursor"] == ids[-1], "обрезка не двигает fresh cursor"
+        first_sizes = [len(set(b) & set(new))
+                       for b in llm.batches[before:] if set(b) & set(new)]
+        assert set(first_sizes) == {50}
+        expected = [(25, 2, 13), (13, 3, 7)]
+        # B02 RED: новый job терял row_limit/attempts и снова читал 50.
+        await db.close()
+        db = DatabaseService(str(path))
+        await db.initialize()
+        for step, (window, attempts, next_limit) in enumerate(expected):
+            await _force_fresh_retry_due(db)
+            await _next_pass(db)
+            before = len(llm.batches)
+            assert await mj.tick_experience_review(
+                db, llm=llm) == "completed"
+            payload = await _payload_of(db)
+            lane = payload[mj.SEMANTIC_FRESH_KEY]["-100"]
+            sizes = [len(set(b) & set(new))
+                     for b in llm.batches[before:] if set(b) & set(new)]
+            assert set(sizes) == {window}, (
+                f"job {step + 2}: ожидалось окно {window}, получено {sizes}")
+            assert lane["attempts"] == attempts
+            assert lane["row_limit"] == next_limit
+            assert lane["cursor"] == ids[-1], "отказ не двигает fresh cursor"
+        # Следующий job после backoff читает 7 (<10) — валидный контент
+        # двигает cursor и снимает только fresh backoff.
+        await _force_fresh_retry_due(db)
+        await _next_pass(db)
+        before = len(llm.batches)
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        payload = await _payload_of(db)
+        lane = payload[mj.SEMANTIC_FRESH_KEY]["-100"]
+        sizes = [len(set(b) & set(new))
+                 for b in llm.batches[before:] if set(b) & set(new)]
+        assert sizes == [7]
+        assert lane["cursor"] == new[6]
+        for key in ("attempts", "retry_at", "row_limit", "reason"):
+            assert key not in lane
+        # Следующий job продолжает с cursor=6007: успешные 7 не переотправлены.
+        await _force_fresh_retry_due(db)
+        await _next_pass(db)
+        before = len(llm.batches)
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        payload = await _payload_of(db)
+        lane = payload[mj.SEMANTIC_FRESH_KEY]["-100"]
+        next_batches = [set(b) for b in llm.batches[before:]]
+        assert not any(set(new[:7]) & batch for batch in next_batches), (
+            "успешно обработанные fresh-события отправлены повторно")
+        assert any(set(range(6008, 6051)) & batch for batch in next_batches), (
+            "следующее окно должно продолжить с cursor=6007")
+        assert lane["cursor"] == new[6], "обрезанное продолжение не двигает cursor"
     finally:
         hot_config.set_config_cache(None)
         await db.close()
