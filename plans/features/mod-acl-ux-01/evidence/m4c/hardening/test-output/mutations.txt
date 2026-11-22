@@ -1,0 +1,28 @@
+M4C ACL-hardening mutations (candidate 3b9909447)
+Each mutation applied to the committed candidate, discriminating test run, file restored via git checkout.
+
+M1 KILLED | test: non_global_403_on_all_write_routes and post-/api/admins and 880000333
+  mutation: routes.py: post_admins → requires_permission(access)
+  FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_non_global_403_on_all_write_routes[post-/api/admins-payload0-880000333]
+  1 failed, 1 passed, 60 deselected, 1 warning in 3.76s
+
+M2 KILLED | test: role_edit_lockout
+  mutation: roles.py: I2 (assigned wildcard) disabled
+  FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_role_edit_lockout_two_wildcard_roles_409
+  1 failed, 61 deselected, 1 warning in 3.73s
+
+M3 KILLED | test: global_type_admin
+  mutation: roles.py: I1 (assigned global) disabled
+  FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_last_global_type_admin_remove_409
+  FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_last_global_type_admin_reassign_to_user_409
+  2 failed, 60 deselected, 1 warning in 3.75s
+
+M4 KILLED | test: role_edit_lockout
+  mutation: roles.py: role-count-only instead of assigned admins
+  FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_role_edit_lockout_two_wildcard_roles_409
+  1 failed, 61 deselected, 1 warning in 3.64s
+
+M5 KILLED | test: concurrent_self_demotions
+  mutation: routes.py: no-op lock (no serialization)
+  FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2Concurrency::test_concurrent_self_demotions_leave_one_wildcard_admin
+  1 failed, 61 deselected, 1 warning in 3.68s

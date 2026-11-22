@@ -1,0 +1,5 @@
+﻿[matrix] config stub: items=631 groups=121
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=123
+{"ok": true, "checks": 138, "failures": []}
+report: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-hardening-94381b48d1f8-7037ebdf\plans\features\mod-acl-ux-01\evidence\m4b\b1\e2e-report.json
+M4B-STATUS-E2E-OK

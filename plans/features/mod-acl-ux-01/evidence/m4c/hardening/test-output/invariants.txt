@@ -1,0 +1,37 @@
+MOD-ACL-UX-01 M4C ACL-hardening invariants (candidate 3b9909447, base 462568ed7 / 2.58.232)
+
+-- frozen files byte-identical to base (blob sha1) --
+web/api/access.py a98cb5588f2fc17d612a20e85646b509e09061b5 a98cb5588f2fc17d612a20e85646b509e09061b5 IDENTICAL
+web/api/deps.py 509b387d4894dda8575b6d36ab307e6fbb2a848c 509b387d4894dda8575b6d36ab307e6fbb2a848c IDENTICAL
+services/permissions.py e20d46ebf1591bfa4f1c9df622d6babcb33d7ccb e20d46ebf1591bfa4f1c9df622d6babcb33d7ccb IDENTICAL
+services/access.py 7431ba68a7d4fb6da5ac9d029a9f0ddcc3e71880 7431ba68a7d4fb6da5ac9d029a9f0ddcc3e71880 IDENTICAL
+services/config_cache.py b0dc9bf4b277db5151a90eb45af3819a217ffb99 b0dc9bf4b277db5151a90eb45af3819a217ffb99 IDENTICAL
+services/pg_db.py 00c641333703fe28c6bb75819d17cb3fefeb4f4a 00c641333703fe28c6bb75819d17cb3fefeb4f4a IDENTICAL
+web/app.js 851d85cf6393dd8bb6dcffe662f8e87d5976ff55 851d85cf6393dd8bb6dcffe662f8e87d5976ff55 IDENTICAL
+
+-- changed files vs base --
+services/access_preview.py
+services/roles.py
+tests/test_mca23_planned_vs_actual.py
+tests/test_mod_acl_ux_m4c_acl_hardening.py
+tests/test_round1025_f8_registry.py
+tests/test_webapp_access_matrix_read.py
+tools/ui_mod_acl_m4c_hardening_admins_e2e.py
+web/api/routes.py
+web/index.html
+
+-- DDL / schema --
+pg_db.py unchanged -> PG DDL delta 0
+services/database.py unchanged (target user_version 48)
+
+-- routes.py pin --
+sha256 453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5
+
+-- route inventory --
+@api_router decorators: candidate=76 base=76 (delta 0 expected)
+
+-- index.html encoding --
+BOM=False CRLF=0 LF-only=19973 bytes=1483700
+
+-- wire/contract invariants (tests/test_round1025_f8_registry.py) --
+routes-set f8_baseline: green (pin-guard run above)

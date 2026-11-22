@@ -1,0 +1,52 @@
+﻿........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 64%]
+.........................................................F.............. [ 85%]
+..........................................F.....                         [100%]
+================================== FAILURES ===================================
+______________ test_every_editable_prompt_has_reachable_surface _______________
+
+app_paths = {'/api/access/chats', '/api/access/chats/{chat_id}/admins', '/api/access/chats/{chat_id}/admins/{telegram_id}', '/api/...ability}', '/api/access/chats/{chat_id}/param_permissions', '/api/access/chats/{chat_id}/param_permissions/{key}', ...}
+
+    def test_every_editable_prompt_has_reachable_surface(app_paths):
+        """PG-╨▒╨╗╨╛╨║ ╨▒╨╡╨╖ ╨▓╨╕╨┤╨╕╨╝╨╛╨╣ ╨┐╨╛╨▓╨╡╤А╤Е╨╜╨╛╤Б╤В╨╕ ╤А╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╨╜╨╕╤П тАФ ╤А╨╡╨│╤А╨╡╤Б╤Б╨╕╤П (┬з1)."""
+        uncovered: list[str] = []
+        for spec in _editable_blocks():
+            key = spec.pg_key
+            if _catalog_visible(key):
+                continue
+            if key in SPECIALIZED_ROUTES or key in NON_CATALOG_SURFACES \
+                    or key in VALUE_SLOT_ROUTES:
+                continue
+            uncovered.append(f"{spec.block_id} ({key}, ui={spec.ui})")
+>       assert uncovered == [], (
+            "╨┐╤А╨╛╨╝╨┐╤В╤Л, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╨╜╨╡╨╗╤М╨╖╤П ╨╛╤В╤А╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╤В╤М ╨▓ ╨░╨┤╨╝╨╕╨╜╨║╨╡: %s" % uncovered)
+E       AssertionError: ╨┐╤А╨╛╨╝╨┐╤В╤Л, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╨╜╨╡╨╗╤М╨╖╤П ╨╛╤В╤А╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╤В╤М ╨▓ ╨░╨┤╨╝╨╕╨╜╨║╨╡: ['direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt, ui=catalog)']
+E       assert ['direct.base... ui=catalog)'] == []
+E         
+E         Left contains one more item: 'direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt, ui=catalog)'
+E         Use -v to get more diff
+
+tests\test_prompt_field_audit.py:160: AssertionError
+____________ TestReviewerMinorsR1R4.test_r4_custom_modules_removed ____________
+
+self = <tests.test_webapp_hubs_matrix_ui.TestReviewerMinorsR1R4 object at 0x000001B371F52A80>
+
+    def test_r4_custom_modules_removed(self):
+        # A2/T-1187: ┬л╨Ъ╨░╤Б╤В╨╛╨╝╨╜╤Л╨╡ ╨╝╨╛╨┤╤Г╨╗╨╕┬╗ ╤Г╨┤╨░╨╗╨╡╨╜╤Л (B2 ╨╛╤Б╤В╨░╤С╤В╤Б╤П OUT).
+        assert "╨Ъ╨░╤Б╤В╨╛╨╝╨╜╤Л╨╡ ╨╝╨╛╨┤╤Г╨╗╨╕" not in _JS
+        assert "╨Ъ╨░╤Б╤В╨╛╨╝╨╜╤Л╨╡ ╨╝╨╛╨┤╤Г╨╗╨╕" not in _HTML
+>       assert "var MODULES = [" in _JS
+E       assert 'var MODULES = [' in "/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) тАФ ╤Д╤А╨╛╨╜╤В╨╡╨╜╨┤ TMA-╨░╨┤╨╝╨╕╨╜╨║╨╕.\n * Vue 3 Options API (global build), ...(status, message) {\n    this.status = status;\n    this.message = message;\n    this.name = 'ApiError';\n  }\n})();\n"
+
+tests\test_webapp_hubs_matrix_ui.py:163: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface
+FAILED tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
+2 failed, 334 passed, 1 warning in 22.35s

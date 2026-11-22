@@ -1,0 +1,41 @@
+﻿RED control on base 462568ed (2.58.232) with the candidate test file
+base HEAD: 462568ed7662cf5786a543bce8ecb6618e073c87
+test file sha256: e81c6fc626cdaeb00dbf58f67f7b91529b3ed49adda38c7a9b1c834993aeeb3b
+
+== new security tests on base (expected RED) ==
+F...F...F...F...F........................FF..FFF..F...FFFFFFFF           [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_non_global_403_on_all_write_routes[post-/api/admins-payload0-880000333]
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_non_global_403_on_all_write_routes[post-/api/admins/remove-payload1-880000333]
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_non_global_403_on_all_write_routes[post-/api/roles-payload2-880000333]
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_non_global_403_on_all_write_routes[delete-/api/roles/custom_role-None-880000333]
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_non_global_403_on_all_write_routes[post-/api/roles/custom_role/rename-payload4-880000333]
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_two_step_takeover_blocked
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS1NonGlobalWritesForbidden::test_self_role_edit_escalation_blocked
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_last_wildcard_admin_reassign_to_user_409
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_last_global_type_admin_remove_409
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_last_global_type_admin_reassign_to_user_409
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_role_edit_lockout_two_wildcard_roles_409
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_superuser_admin_wildcard_strip_409
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2AdminLockoutInvariants::test_compound_lockout_rejected
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_is_effective_global_admin_role_matches_deps
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_i1_and_i2_are_distinct
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_no_decrease_allows_repair_from_zero
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_guard_raises_i2_before_i1
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_lock_is_per_app_and_loop_keyed
+FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2Concurrency::test_concurrent_self_demotions_leave_one_wildcard_admin
+19 failed, 43 passed, 1 warning in 6.40s
+
+== pin-guard base control (expected 856 passed / 4 pre-existing) ==
+=========================== short test summary info ===========================
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+4 failed, 856 passed in 73.68s (0:01:13)
