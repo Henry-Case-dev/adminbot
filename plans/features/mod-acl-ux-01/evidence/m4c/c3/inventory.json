@@ -1,0 +1,1731 @@
+{
+  "catalog_counts": {
+    "actions": 7,
+    "params": 622,
+    "sections": 11
+  },
+  "catalog_without_guard": [
+    {
+      "id": "edit_humor_library",
+      "kind": "action"
+    },
+    {
+      "id": "edit_persona",
+      "kind": "action"
+    }
+  ],
+  "generated_from_sha": "d4b9b190e4d70659bc35aa97dc236f7d29a354f7",
+  "guarded_without_catalog": [],
+  "root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-4f483419",
+  "routes": [
+    {
+      "file": "web/api/access.py",
+      "function": "access_audit_read",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/access/audit",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "access_chats",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/access/chats",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "chat_admins_read",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/access/chats/{chat_id}/admins",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "chat_admins_add",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "POST",
+      "path": "/api/access/chats/{chat_id}/admins",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "chat_admins_remove",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "DELETE",
+      "path": "/api/access/chats/{chat_id}/admins/{telegram_id}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_chat_delete",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "DELETE",
+      "path": "/api/access/chats/{chat_id}/diagnostic_policy/{capability}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_chat_put",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/access/chats/{chat_id}/diagnostic_policy/{capability}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "chat_param_permissions_read",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/access/chats/{chat_id}/param_permissions",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "chat_param_permission_delete",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "DELETE",
+      "path": "/api/access/chats/{chat_id}/param_permissions/{key}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "chat_param_permission_put",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "POST",
+      "path": "/api/access/chats/{chat_id}/param_permissions/{key}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_get",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_audit",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy/audit",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_effective",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy/effective",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_explain",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy/explain",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_delete",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "DELETE",
+      "path": "/api/access/diagnostic_policy/{capability}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "diagnostic_policy_put",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/access/diagnostic_policy/{capability}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "access_effective",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/access/effective",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "access_me",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/access/me",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "param_permissions_list",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/access/param_permissions",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "param_permissions_delete",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "DELETE",
+      "path": "/api/access/param_permissions/{key}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/access.py",
+      "function": "param_permissions_put",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "PUT",
+      "path": "/api/access/param_permissions/{key}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_admins",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/admins",
+      "resource": "section.access",
+      "section": "access"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_admins",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/admins",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "remove_admin",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/admins/remove",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "remove_admin",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "DELETE",
+      "path": "/api/chat_lore/admins",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "list_admins",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/chat_lore/admins",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "add_admin",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "POST",
+      "path": "/api/chat_lore/admins",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "list_chats",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/chat_lore/chats",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "get_profile",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "update_manual",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "clear_auto",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/clear_auto",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "get_dossier",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "put_dossier",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "start_dossier_rebuild",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "latest_dossier_rebuild",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild/latest",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "get_dossier_rebuild",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild/{job_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "cancel_dossier_rebuild",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild/{job_id}/cancel",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "generate_now",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/generate",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "get_history",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/history",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "delete_relation_body",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "DELETE",
+      "path": "/api/chat_lore/{chat_id}/relations",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "list_relations",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/relations",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "put_relation_body",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/relations",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "delete_relation_path",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "DELETE",
+      "path": "/api/chat_lore/{chat_id}/relations/{user_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "put_relation_path",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/relations/{user_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "set_relations_enabled",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/relations_enabled",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "remap_chat",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/remap",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "function": "update_settings",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/settings",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_config",
+      "guard": "inline_is_global_admin, is_dm_owner",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/config",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_config",
+      "guard": "can_edit_param, is_dm_owner",
+      "guard_kind": "can_edit_param",
+      "method": "POST",
+      "path": "/api/config",
+      "resource": "param"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "delete_chat_param",
+      "guard": "inline_is_global_admin, is_dm_owner",
+      "guard_kind": "inline_is_global_admin",
+      "method": "DELETE",
+      "path": "/api/config/chat/{key}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "config_keys_own",
+      "guard": "inline_is_global_admin, is_dm_owner",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/config/keys/own",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "config_keys_own_put",
+      "guard": "inline_is_global_admin, is_dm_owner",
+      "guard_kind": "inline_is_global_admin",
+      "method": "PUT",
+      "path": "/api/config/keys/own",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "config_keys_own_delete",
+      "guard": "inline_is_global_admin, is_dm_owner",
+      "guard_kind": "inline_is_global_admin",
+      "method": "DELETE",
+      "path": "/api/config/keys/own/{key_name}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "config_keys_status",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/config/keys/status",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "config_overrides_map",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/config/overrides-map",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_params_meta",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/config/params-meta",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "delete_config_time",
+      "guard": "inline_is_global_admin, is_dm_owner",
+      "guard_kind": "inline_is_global_admin",
+      "method": "DELETE",
+      "path": "/api/config/time",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_config_time",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/config/time",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_config_time",
+      "guard": "can_edit_param, is_dm_owner",
+      "guard_kind": "can_edit_param",
+      "method": "POST",
+      "path": "/api/config/time",
+      "resource": "param"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_config_timezones",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/config/timezones",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "control_restart",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/control/restart",
+      "resource": "action.control.restart"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "control_start",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/control/start",
+      "resource": "action.control.start"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "control_stop",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/control/stop",
+      "resource": "action.control.stop"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_debug_config",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/debug/config",
+      "resource": "action.debug.config"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "direct_context_diagnostics",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/direct/context-diagnostics",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "direct_turn_diagnostics",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/direct/turn-diagnostics",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_episodes_feed",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/episodes/feed",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_episodes_recovery",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/episodes/recovery",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_episode_card",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/episodes/{episode_id}",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_experience_pipeline",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/experience/pipeline",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_factcheck_temporal_runs",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/factcheck/temporal/runs",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_factcheck_temporal_run",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/factcheck/temporal/runs/{run_id}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "health",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/health",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_images_test",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/images/test",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_info",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/info",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_info",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/info",
+      "resource": "action.edit_info"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_info_guide",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/info/guide",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_info_guide",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/info/guide",
+      "resource": "action.edit_info"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_info_guide_backup",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/info/guide/backup",
+      "resource": "action.edit_info"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_info_guide_reset",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/info/guide/reset",
+      "resource": "action.edit_info"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_info_reset_canon",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/info/reset-canon",
+      "resource": "action.edit_info"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_meme_settings",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/initiative/meme-settings",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_meme_settings",
+      "guard": "inline_is_global_admin, is_dm_owner",
+      "guard_kind": "inline_is_global_admin",
+      "method": "POST",
+      "path": "/api/initiative/meme-settings",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_llm_test",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/llm/test",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "me",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/me",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_attribution_metrics",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/attribution/metrics",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_attribution_trace",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/attribution/trace",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "cognition_status",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/cognition/status",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "deep_sleep_status",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/deep-sleep",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_overview",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/dream",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_run_flat",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "POST",
+      "path": "/api/memory/dream",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_beliefs",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/dream/beliefs",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_belief_delete",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "DELETE",
+      "path": "/api/memory/dream/beliefs/{fact_id}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_belief_protect",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "POST",
+      "path": "/api/memory/dream/beliefs/{fact_id}/protect",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_chain",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/dream/chain",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_log",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/dream/log",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "dream_run",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "POST",
+      "path": "/api/memory/dream/run",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_embeddings_panel",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/embeddings",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_graph",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/graph",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_health_summary",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/health",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_lessons",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/lessons",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_lesson_action",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "POST",
+      "path": "/api/memory/lessons/action",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "nostalgia_log",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/nostalgia/log",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_stats",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/stats",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/memory_agi.py",
+      "function": "memory_timeline",
+      "guard": "require_global_admin",
+      "guard_kind": "require_global_admin",
+      "method": "GET",
+      "path": "/api/memory/timeline",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "delete_persona",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "DELETE",
+      "path": "/api/persona",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_persona",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/persona",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "put_persona",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "PUT",
+      "path": "/api/persona",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_persona_health",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "GET",
+      "path": "/api/persona/health",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_persona_rule_pause",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/persona/rules/{rule_id}/pause",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_persona_rule_resume",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/persona/rules/{rule_id}/resume",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_persona_rule_sources",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/persona/rules/{rule_id}/sources",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_persona_self_model",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/persona/self-model",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_prompt_catalog",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/prompts/catalog",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_prompt_revision_diff",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/prompts/revisions/diff",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_prompt_copy_to_global",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/prompts/revisions/{revision_id}/copy-to-global",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_prompt_revision_source",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/prompts/revisions/{revision_id}/source",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_prompt_activate",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/activate",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "delete_prompt_baseline",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "DELETE",
+      "path": "/api/prompts/{prompt_key}/baseline",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_prompt_baseline",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/prompts/{prompt_key}/baseline",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_prompt_baseline_assign",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/baseline",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_prompt_baseline_restore",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/baseline/restore",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_prompt_factory_restore",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/factory/restore",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_prompt_versions",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/prompts/{prompt_key}/versions",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_random_test",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/random/test",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_roles",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/roles",
+      "resource": "section.access",
+      "section": "access"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_roles",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/roles",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_roles_tree",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/roles/tree",
+      "resource": "section.access",
+      "section": "access"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "delete_role_endpoint",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "DELETE",
+      "path": "/api/roles/{role_name}",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "rename_role_endpoint",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/roles/{role_name}/rename",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_status",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/status",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_status_key_history",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/status/key-history",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_status_logs",
+      "guard": "inline_is_global_admin",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/status/logs",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_status_media_health",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/status/media-health",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_status_self_diagnosis",
+      "guard": "get_tma_user",
+      "guard_kind": "authenticated_only",
+      "method": "GET",
+      "path": "/api/status/self-diagnosis",
+      "resource": "authenticated"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_vision_recognition_check",
+      "guard": "inline_is_global_admin, can_view_key_value",
+      "guard_kind": "inline_is_global_admin",
+      "method": "POST",
+      "path": "/api/vision/recognition-check",
+      "resource": "key"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_vision_state",
+      "guard": "inline_is_global_admin, can_view_key_value",
+      "guard_kind": "inline_is_global_admin",
+      "method": "GET",
+      "path": "/api/vision/state",
+      "resource": "key"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_vision_test",
+      "guard": "inline_is_global_admin, can_view_key_value",
+      "guard_kind": "inline_is_global_admin",
+      "method": "POST",
+      "path": "/api/vision/test",
+      "resource": "key"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "get_youtube_proxy_health",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "GET",
+      "path": "/api/youtube/proxy/health",
+      "resource": "global"
+    },
+    {
+      "file": "web/api/routes.py",
+      "function": "post_youtube_proxy_test",
+      "guard": "requires_global_admin",
+      "guard_kind": "requires_global_admin",
+      "method": "POST",
+      "path": "/api/youtube/proxy/test",
+      "resource": "global"
+    }
+  ],
+  "unmatched": [
+    {
+      "file": "web/api/access.py",
+      "method": "GET",
+      "path": "/api/access/effective",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy/explain",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy/audit",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "GET",
+      "path": "/api/access/diagnostic_policy/effective",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "PUT",
+      "path": "/api/access/diagnostic_policy/{capability}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "DELETE",
+      "path": "/api/access/diagnostic_policy/{capability}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "POST",
+      "path": "/api/access/chats/{chat_id}/diagnostic_policy/{capability}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/access.py",
+      "method": "DELETE",
+      "path": "/api/access/chats/{chat_id}/diagnostic_policy/{capability}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "GET",
+      "path": "/api/chat_lore/admins",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/settings",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/generate",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/clear_auto",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/history",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/relations",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/relations",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/relations/{user_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "DELETE",
+      "path": "/api/chat_lore/{chat_id}/relations",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "DELETE",
+      "path": "/api/chat_lore/{chat_id}/relations/{user_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/relations_enabled",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "PUT",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild/latest",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "GET",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild/{job_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/chat_lore.py",
+      "method": "POST",
+      "path": "/api/chat_lore/{chat_id}/dossier/{user_id}/rebuild/{job_id}/cancel",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/health",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/config/params-meta",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/config/timezones",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/config/time",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/direct/context-diagnostics",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/direct/turn-diagnostics",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/admins",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/roles",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/roles/tree",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/info",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/info",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/info/reset-canon",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/info/guide",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/info/guide/backup",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/info/guide",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/info/guide/reset",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/status",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/status/key-history",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/status/media-health",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/status/self-diagnosis",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/control/restart",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/control/stop",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/control/start",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/debug/config",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/persona",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/persona/self-model",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/persona/rules/{rule_id}/pause",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/persona/rules/{rule_id}/resume",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/persona/rules/{rule_id}/sources",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "PUT",
+      "path": "/api/persona",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "DELETE",
+      "path": "/api/persona",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/prompts/revisions/diff",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/prompts/revisions/{revision_id}/source",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/prompts/catalog",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/prompts/{prompt_key}/versions",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/activate",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/prompts/{prompt_key}/baseline",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/baseline",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "DELETE",
+      "path": "/api/prompts/{prompt_key}/baseline",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/baseline/restore",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/prompts/{prompt_key}/factory/restore",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "POST",
+      "path": "/api/prompts/revisions/{revision_id}/copy-to-global",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/episodes/feed",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/episodes/recovery",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/episodes/{episode_id}",
+      "reason": "no_acl_guard"
+    },
+    {
+      "file": "web/api/routes.py",
+      "method": "GET",
+      "path": "/api/initiative/meme-settings",
+      "reason": "no_acl_guard"
+    }
+  ]
+}
