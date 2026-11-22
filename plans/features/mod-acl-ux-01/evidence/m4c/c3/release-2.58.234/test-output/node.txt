@@ -1,0 +1,12 @@
+[0] tests/js/mod_acl_ux_m4c3_write_test.js :: MOD-ACL-UX-M4C3-WRITE-OK
+[0] tests/js/mod_acl_ux_m4c1_roles_page_test.js :: MOD-ACL-UX-M4C1-ROLES-PAGE-OK
+[0] tests/js/mod_acl_ux_m4c1_editor_preserve_test.js :: MOD-ACL-UX-M4C1-EDITOR-PRESERVE-OK
+[0] tests/js/mod_acl_ux_m4c2_preview_test.js :: MOD-ACL-UX-M4C2-PREVIEW-OK
+[0] tests/js/mod_acl_ux_m4c2_admins_seed_test.js :: MOD-ACL-UX-M4C2-ADMINS-SEED-OK
+[0] tests/js/mod_acl_ux_m3_module_routes_test.js :: MOD-ACL-UX-01 M3 MODULE ROUTES OK тАФ 235 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║, ╨╝╨╛╨┤╤Г╨╗╨╡╨╣ ╨▓ ╤А╨╡╨╡╤Б╤В╤А╨╡: 21
+[0] tests/js/app_methods_dup_keys_guard_test.js ::   WARN: ╨╝╤С╤А╤В╨▓╤Л╨╣ ╨┤╤Г╨▒╨╗╤М (╤В╨╡╨╗╨░ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╤Л, ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ ╨▓ HEAD): `_prefersReducedMotion` ├Ч2 @ 44496, 44515
+[0] tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js :: HOTFIX7-SHELL-GLASS-HEARTBEAT-OK
+[0] tests/js/round1025_hotfix8_shell_aurora_test.js :: HOTFIX8-SHELL-AURORA-OK
+[0] tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js :: HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK
+[0] tests/js/round1025_hotfix10_glass_geometry_bg_test.js :: HOTFIX10-GLASS-GEOMETRY-BG-OK
+node-check-rc=0

@@ -1,0 +1,279 @@
+{
+  "release": "2.58.234",
+  "feature": "MOD-ACL-UX-01 M4C C3 — write, 409, audit, recheck",
+  "branch": "release/mod-acl-m4c3-2.58.234",
+  "base": {
+    "sha": "f232a3a30a79c074fc3d7fa75d8aa947720d76a4",
+    "version": "2.58.233",
+    "role": "base and rollback",
+    "schema": 48,
+    "pg_ddl": 0
+  },
+  "candidate": {
+    "tip": "0f808810d92fcb9116e2549c8106b5f360b9229c",
+    "commits": ["d4b9b190e", "a56713509", "7b242bde1", "0f808810d"],
+    "review": "APPROVED_FOR_RELEASE_PREPARATION",
+    "review_artifact": "plans/features/mod-acl-ux-01/evidence/m4c/c3/review-r1.md",
+    "review_master": "e96314dc7",
+    "review_sha256": "deac5a9f1e0d6a9d753c71139e043d736298786de93afe272a1d8d7d92f90756",
+    "review_bytes": 23557,
+    "contract": "plans/features/mod-acl-ux-01/evidence/m4c/c3-contract-2026-11-22.md",
+    "contract_master": "09e62ff7a",
+    "contract_sha256": "3c8dcb7da6b689aee34ffddba9e36d3949482493b91b2389a045d57be202858c"
+  },
+  "content_tip": "3b18ca1dd0a3e6c9c528bcbb1a2a975276dcf49f",
+  "version": "2.58.234",
+  "schema": {
+    "target": 48,
+    "user_version": 48,
+    "schema_migrations_max": 48,
+    "schema_migrations_count": 48,
+    "sqlite_tables": 101,
+    "chat_lore_history_in_sqlite": false,
+    "quick_check": "ok",
+    "sqlite_ddl": 0,
+    "method": "temp SQLite DatabaseService.initialize(); PRAGMA user_version/quick_check; schema_migrations",
+    "artifact": "test-output/schema-smoke.txt"
+  },
+  "pg_ddl": {
+    "statements_total": 62,
+    "statements_with_access": 1,
+    "create_table": 29,
+    "create_index": 19,
+    "change": "chat_lore_history.field CHECK += 'access' (DROP CONSTRAINT IF EXISTS + ADD, superset)",
+    "new_tables_columns_indexes": 0,
+    "source_diff": "services/pg_db.py 1 insertion / 1 deletion"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "playwright": "installed (bundled Chromium)",
+    "stand": "local synthetic HTTP stand on 127.0.0.1 (ports 8861-8863, 8856-8858); not live TMA"
+  },
+  "assembly": {
+    "worktree": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-69c6e7a5",
+    "cherry_picks": [
+      {"source": "d4b9b190e", "release": "b371d583a1d17509616e9d2ae4c55d765ce6e86d", "patch_id": "b15588e8bd4337960c089a5906be5a01e236aec6", "match": true},
+      {"source": "a56713509", "release": "91bc28d4b512efd690c6a87fab96737ac27e8147", "patch_id": "507ea33d0d9c509c1bd9ccea7ee60f1dc46999a7", "match": true},
+      {"source": "7b242bde1", "release": "ddc66d9956569af1a5bc768833f7e983e20d9d66", "patch_id": "abbaba31bd4bcb4df1f25998d298c6595331bc32", "match": true},
+      {"source": "0f808810d", "release": "5bf340dd04f0ac9b5cb7ed76184e40cf7289a8a7", "patch_id": "7c81aeeb724275c74400693f1fdf1a9b48b8671a", "match": true}
+    ],
+    "merges": 0,
+    "tree_equal_to_candidate_before_pin_completion": true,
+    "pin_completion_commit": "3b18ca1dd0a3e6c9c528bcbb1a2a975276dcf49f",
+    "pin_completion_files": 6,
+    "pin_completion_insertions": 8,
+    "pin_completion_deletions": 8,
+    "pin_completion_reason": "reviewed candidate already had APP_VERSION=2.58.234 but left 4 JS version-pin tests and 2 e2e tools at 2.58.233; JS pins would fail against settings.py",
+    "product_bytes_after_candidate": "empty diff services/web/config between 5bf340dd0 and 3b18ca1dd"
+  },
+  "product_delta": {
+    "base_to_content_tip_net": {
+      "services/pg_db.py": {"insertions": 1, "deletions": 1},
+      "services/acl_audit.py": {"insertions": 203, "deletions": 0},
+      "services/access.py": {"insertions": 181, "deletions": 7},
+      "services/chat_params.py": {"insertions": 145, "deletions": 0},
+      "services/config_cache.py": {"insertions": 119, "deletions": 33},
+      "services/roles.py": {"insertions": 22, "deletions": 0},
+      "services/chat_lore_store.py": {"insertions": 26, "deletions": 3},
+      "services/oversight.py": {"insertions": 2, "deletions": 1},
+      "web/api/access.py": {"insertions": 282, "deletions": 28},
+      "web/api/routes.py": {"insertions": 229, "deletions": 15},
+      "web/api/chat_lore.py": {"insertions": 2, "deletions": 1},
+      "web/app.js": {"insertions": 626, "deletions": 54},
+      "web/index.html": {"insertions": 176, "deletions": 9},
+      "web/static/app.css": {"insertions": 39, "deletions": 0},
+      "config/settings.py": {"insertions": 1, "deletions": 1}
+    },
+    "product_total": {"files": 15, "insertions": 2054, "deletions": 153},
+    "tests_tools_total": {"files": 38, "insertions": 2930, "deletions": 221},
+    "candidate_evidence_total": {"files": 26, "insertions": 2173, "deletions": 0},
+    "base_to_content_tip_total": {"files": 80, "insertions": 7158, "deletions": 375},
+    "note": "Product bytes are exactly the reviewed candidate; only version pin literals were completed in tests/tools."
+  },
+  "bump": {
+    "app_version": "2.58.234",
+    "version_files": 32,
+    "version_literal_insertions": 35,
+    "version_literal_deletions": 35,
+    "candidate_pin_files": 26,
+    "completed_pin_files": 6,
+    "bom_crlf": "0 profile mismatches in 32 files; settings.py keeps UTF-8 BOM + 3645 CRLF",
+    "grep_2_58_233": "only historical references outside planning/evidence: settings changelog and services/access.py comment",
+    "artifact": "test-output/bump-bytes.txt"
+  },
+  "invariants": {
+    "frozen_blobs_identical_to_base": [
+      "services/access_preview.py",
+      "web/api/deps.py",
+      "services/permissions.py",
+      "web/api/memory_agi.py",
+      "services/database.py",
+      "tools/ui_mod_acl_m4c1_roles_e2e.py",
+      "tools/ui_mod_acl_m4c2_preview_e2e.py"
+    ],
+    "api_router": {"base": 76, "release": 76},
+    "access_router": {"base": 19, "release": 21},
+    "c2_write_routes": {"base": 9, "release": 10, "note": "new chat override DELETE, NOTE in test"},
+    "pins": {
+      "PG_DB_SHA256_B07": "469775c2a363f5550e80a10b6717cec62c7cc7fce541bbc0a9e34f0437dc9dcd",
+      "ROUTES_SHA256_F11": "9ac3a8a60fe85eb4ca9af20f2e2be0c3b84b12a23b6c03fa6690ae41a3d4f4bf"
+    },
+    "checks": "git diff --check rc=0; node --check web/app.js rc=0; py_compile changed Python/tools rc=0"
+  },
+  "batches": [
+    {
+      "id": "c3",
+      "command": "python -m pytest tests/test_acl_audit.py tests/test_webapp_access_write_safety.py tests/test_acl_legacy_inventory.py -q -p no:cacheprovider",
+      "passed": 71,
+      "failed": 0,
+      "seconds": 26.26,
+      "output": "test-output/c3.txt"
+    },
+    {
+      "id": "focused-c3a",
+      "command": "python -m pytest tests/test_acl_audit.py tests/test_webapp_access_write_safety.py tests/test_webapp_access_effective.py tests/test_webapp_api.py tests/test_config_cache.py tests/test_roles_admin.py tests/test_permissions.py tests/test_diagnostic_policy.py tests/test_webapp_deps.py tests/test_webapp_access_matrix_read.py tests/test_round1025_f8_registry.py -q -p no:cacheprovider",
+      "passed": 576,
+      "failed": 0,
+      "seconds": 40.36,
+      "output": "test-output/focused.txt"
+    },
+    {
+      "id": "c1",
+      "command": "python -m pytest tests/test_webapp_access_matrix_read.py -q -p no:cacheprovider",
+      "passed": 17,
+      "failed": 0,
+      "seconds": 20.23,
+      "output": "test-output/c1.txt"
+    },
+    {
+      "id": "c2",
+      "command": "python -m pytest tests/test_webapp_access_effective.py -q -p no:cacheprovider",
+      "passed": 124,
+      "failed": 0,
+      "seconds": 15.46,
+      "output": "test-output/c2.txt"
+    },
+    {
+      "id": "hardening",
+      "command": "python -m pytest tests/test_mod_acl_ux_m4c_acl_hardening.py -q -p no:cacheprovider",
+      "passed": 63,
+      "failed": 0,
+      "seconds": 6.75,
+      "output": "test-output/hardening.txt"
+    },
+    {
+      "id": "f11",
+      "command": "python -m pytest tests/test_webapp_f11_round1025.py -q -p no:cacheprovider",
+      "passed": 33,
+      "failed": 0,
+      "seconds": 3.61,
+      "output": "test-output/f11.txt"
+    },
+    {
+      "id": "version-pins-24-py",
+      "command": "python -m pytest <24 tests/*.py files containing 2.58.234> -q -p no:cacheprovider",
+      "passed": 856,
+      "failed": 4,
+      "seconds": 73.81,
+      "baseline_node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "baseline_proof": "same 4 node IDs fail on f232a3a30 (4 failed, 8.38 s); not a candidate regression, not counted as pass",
+      "output": "test-output/pin-guard.txt"
+    },
+    {
+      "id": "node",
+      "files": 11,
+      "passed": 11,
+      "failed": 0,
+      "markers": [
+        "MOD-ACL-UX-M4C3-WRITE-OK",
+        "MOD-ACL-UX-M4C1-ROLES-PAGE-OK",
+        "MOD-ACL-UX-M4C1-EDITOR-PRESERVE-OK",
+        "MOD-ACL-UX-M4C2-PREVIEW-OK",
+        "MOD-ACL-UX-M4C2-ADMINS-SEED-OK",
+        "MOD-ACL-UX-01 M3 MODULE ROUTES OK (235 checks)",
+        "methods-dup rc=0",
+        "HOTFIX7/8/9/10 OK"
+      ],
+      "node_check_app_js": "rc=0",
+      "output": "test-output/node.txt"
+    },
+    {
+      "id": "c3-playwright",
+      "command": "MOD_ACL_M4C3_PORT=8863 MOD_ACL_M4C3_SHOTS=<temp> python tools/ui_mod_acl_m4c3_write_e2e.py",
+      "result": "MOD-ACL-UX-M4C3-E2E-OK",
+      "failures": 0,
+      "viewports": [1440, 1280, 768, 390, 320],
+      "note": "save PUT=3, role POST=1, audit GET=9, local DELETE=1; h-scroll 0",
+      "output": "test-output/e2e-c3.txt"
+    },
+    {
+      "id": "c1-playwright",
+      "command": "MOD_ACL_M4C1_PORT=8861 MOD_ACL_M4C1_SHOTS=<temp> python tools/ui_mod_acl_m4c1_roles_e2e.py",
+      "result": "PASS: 0 failure(s)",
+      "output": "test-output/e2e-c1.txt"
+    },
+    {
+      "id": "c2-playwright",
+      "command": "MOD_ACL_M4C2_PORT=8862 MOD_ACL_M4C2_SHOTS=<temp> python tools/ui_mod_acl_m4c2_preview_e2e.py",
+      "result": "PASS: 0 failure(s)",
+      "output": "test-output/e2e-c2.txt"
+    },
+    {
+      "id": "b1-status-e2e",
+      "command": "MOD_ACL_M4B_STATUS_PORT=8856 MOD_ACL_M4B_STATUS_SHOTS=<temp> MOD_ACL_M4B_STATUS_REPORT=<temp> python tools/ui_mod_acl_m4b_status_e2e.py",
+      "checks": 138,
+      "failures": 0,
+      "output": "test-output/e2e-b1.txt",
+      "report": "test-output/b1-e2e-138.json"
+    },
+    {
+      "id": "b2-status-e2e",
+      "command": "MOD_ACL_M4B2_STATUS_PORT=8857 MOD_ACL_M4B2_STATUS_SHOTS=<temp> MOD_ACL_M4B2_STATUS_REPORT=<temp> python tools/ui_mod_acl_m4b2_status_e2e.py",
+      "checks": 92,
+      "failures": 0,
+      "output": "test-output/e2e-b2.txt",
+      "report": "test-output/b2-e2e-92.json",
+      "note": "after pin completion stub and status assertion both 2.58.234"
+    },
+    {
+      "id": "b3-status-e2e",
+      "command": "MOD_ACL_M4B3_PORT=8858 MOD_ACL_M4B3_SHOTS=<temp> MOD_ACL_M4B3_REPORT=<temp> python tools/ui_mod_acl_m4b3_status_e2e.py",
+      "checks": 131,
+      "failures": 0,
+      "screenshots": 8,
+      "output": "test-output/e2e-b3.txt",
+      "report": "test-output/b3-e2e-131.json"
+    }
+  ],
+  "baseline_failures": {
+    "same_on_base": true,
+    "base_sha": "f232a3a30a79c074fc3d7fa75d8aa947720d76a4",
+    "note": "The 4 pin-guard failures are identical on base and candidate; not counted as pass. Other batches are fully green."
+  },
+  "manifest": {
+    "artifact": "manifest-dry-run.json",
+    "exit_code": 0,
+    "deployed_sha": "3b18ca1dd0a3e6c9c528bcbb1a2a975276dcf49f",
+    "version": "2.58.234",
+    "previous_sha": "f232a3a30a79c074fc3d7fa75d8aa947720d76a4",
+    "previous_version": "2.58.233",
+    "release_branch": "release/mod-acl-m4c3-2.58.234",
+    "dirty_tracked": false,
+    "note": "Dry-run captured the content tip; the evidence-only commit follows. Deploy-time manifest must record the actual checkout SHA."
+  },
+  "limitations": [
+    "No production deploy, SSH, live TMA, LLM calls or production data reads in this assembly.",
+    "PostgreSQL is not available locally: DDL/transaction behavior was proven by source (superset ADD), 62 statements, unit tests and SQLite simulation; live constraint verification belongs to postdeploy.",
+    "Playwright/Browser Use tools use a local synthetic API stand with candidate bytes, not deployed production bytes.",
+    "RFL remain RFL and are not owner QA: natural two-window 409/revoke mid-request, real local_admin TMA embeddings-403 session.",
+    "C3-R1-N02..N08 are backlog-only; C3-R1-N07 (old lore shows access rows as raw JSON after rollback) is documented in the runbook.",
+    "VERIFIED is not claimed; row binding requires the actual deployed SHA and postdeploy evidence."
+  ]
+}

@@ -1,0 +1,7 @@
+TARGET 48
+user_version 48
+quick_check ok
+tables 101
+schema_migrations_max 48
+schema_migrations_count 48
+chat_lore_history_in_sqlite 0

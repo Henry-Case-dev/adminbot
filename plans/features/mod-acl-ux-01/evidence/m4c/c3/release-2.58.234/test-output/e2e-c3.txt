@@ -1,0 +1,80 @@
+{
+  "1440x900": {
+    "scrollWidth": 1440,
+    "savebar": true,
+    "draftCount": " ╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П: 1",
+    "saveResult": "",
+    "conflict": false,
+    "dirty": 1,
+    "status": "╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╛ тАФ ╨╜╨╡ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛",
+    "rows": 1,
+    "putBtn": {
+      "w": 91.703125,
+      "h": 33.59375
+    }
+  },
+  "1280x800": {
+    "scrollWidth": 1280,
+    "savebar": true,
+    "draftCount": " ╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П: 1",
+    "saveResult": "",
+    "conflict": false,
+    "dirty": 1,
+    "status": "╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╛ тАФ ╨╜╨╡ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛",
+    "rows": 1,
+    "putBtn": {
+      "w": 91.703125,
+      "h": 33.59375
+    }
+  },
+  "768x1024": {
+    "scrollWidth": 768,
+    "savebar": true,
+    "draftCount": " ╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П: 1",
+    "saveResult": "",
+    "conflict": false,
+    "dirty": 1,
+    "status": "╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╛ тАФ ╨╜╨╡ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛",
+    "rows": 1,
+    "putBtn": {
+      "w": 91.703125,
+      "h": 33.59375
+    }
+  },
+  "390x844": {
+    "scrollWidth": 390,
+    "savebar": true,
+    "draftCount": " ╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П: 1",
+    "saveResult": "",
+    "conflict": false,
+    "dirty": 1,
+    "status": "╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╛ тАФ ╨╜╨╡ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛",
+    "rows": 1,
+    "putBtn": {
+      "w": 334,
+      "h": 44
+    }
+  },
+  "320x568": {
+    "scrollWidth": 320,
+    "savebar": true,
+    "draftCount": " ╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П: 1",
+    "saveResult": "",
+    "conflict": false,
+    "dirty": 1,
+    "status": "╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╛ тАФ ╨╜╨╡ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛",
+    "rows": 1,
+    "putBtn": {
+      "w": 264,
+      "h": 44
+    }
+  },
+  "scenario1440": {
+    "puts": 3,
+    "role_posts": 1,
+    "audit_gets": 9,
+    "local_deletes": 1
+  },
+  "failures": []
+}
+MOD-ACL-UX-M4C3-E2E-OK

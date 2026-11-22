@@ -1,0 +1,5 @@
+[matrix] config stub: items=631 groups=121
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=123
+{"ok": true, "checks": 131, "failures": [], "screenshots": 8}
+report: C:\Users\main\AppData\Local\Temp\opencode\m4c3-258234\test-output\b3-report.json
+M4B-B3-STATUS-E2E-OK
