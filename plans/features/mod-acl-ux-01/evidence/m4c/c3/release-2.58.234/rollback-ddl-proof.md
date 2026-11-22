@@ -104,6 +104,9 @@ audit-записи — невалидная rollback-цель.
 - Rollback target — не релизный кандидат: F8 byte-pin `PG_DB_SHA256_B07` намеренно не обновлён
   (нельзя менять тесты поведения в rollback-target), поэтому полный release-набор тестов на нём
   не запускается; acceptance — этот DDL-proof и startup-совместимость.
+- В release-ветке docstring `test_migration_idempotent_and_rollback_compatible` исправлен
+  (comment-only, assertions не менялись; C3 rerun 71 passed): тест проверяет forward-исходник,
+  data-level old-DDL проверка — этот proof, а не тот тест.
 
 ## 5. Ссылки
 

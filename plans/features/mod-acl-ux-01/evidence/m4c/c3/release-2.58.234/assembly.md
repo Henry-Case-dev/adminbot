@@ -71,7 +71,7 @@ DROP ok, ADD **23514**, CHECK отсутствует; prepared target (62/62 sta
 | 8 | Manifest dry-run on `3b18ca1dd` | exit 0; version 2.58.234, previous `f232a3a3…`/2.58.233, `dirty_tracked=false`, `.deploy` восстановлен локально и удалён |
 | 9 | This evidence commit | docs-only; product/test/tool bytes не меняет |
 | 10 | Delta-review B01 fix: rollback target | `be23f5eff` от `f232a3a3`, only `services/pg_db.py` 1/1, branch `rollback/mod-acl-m4c3-ddl-compatible`, pushed no force; proof `rollback-ddl-proof.md/json` |
-| 11 | Correction docs commit | assembly/runbook/proof; product/test/tool bytes не меняет (deploy-time manifest — по фактическому HEAD, §6) |
+| 11 | Correction docs commits | assembly/runbook/proof + stale test docstring (comment-only, assertions unchanged, C3 rerun 71); product bytes не меняет (deploy-time manifest — по фактическому HEAD, §6) |
 
 - `git rev-list --merges f232a3a30..HEAD` = **0**; история базы не перезаписывалась (no force).
 - Product bytes идентичны reviewed candidate: `git diff 5bf340dd0 3b18ca1dd -- services web config`
@@ -203,9 +203,10 @@ ALTER TABLE chat_lore_history ADD CONSTRAINT chat_lore_history_field_check
   Предыдущий `.deploy/release.json` восстановлен локально из документированного deployed-состояния
   (production-файл не читался), после прогона `.deploy` удалён; tracked tree clean.
 - Деплой обязан записать manifest по **фактическому** checkout SHA (evidence-коммит или его tip):
-  product bytes идентичны content tip. Correction docs-коммит меняет только `plans/`; dry-run
-  `manifest-dry-run.json` остаётся на content tip `3b18ca1dd`, фактический HEAD фиксируется
-  deploy-временем (version/previous/dirty не меняются).
+  product bytes идентичны content tip. Correction-коммиты меняют только `plans/` (+ comment-only
+  docstring в `tests/test_acl_audit.py`, assertions не менялись); dry-run `manifest-dry-run.json`
+  остаётся на content tip `3b18ca1dd`, фактический HEAD фиксируется deploy-временем
+  (version/previous/dirty не меняются).
 - Rollback: raw `f232a3a30` (2.58.233) — только при `access_rows=0`; иначе prepared target
   `be23f5eff…` (`rollback/mod-acl-m4c3-ddl-compatible`, branch tip, не raw), см. §0 и §5
   runbook. Перед rollback — PG backup; DDL/данные/настройки не откатываются, wipe не выполняется.

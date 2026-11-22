@@ -281,6 +281,7 @@
     },
     "proof": "rollback-ddl-proof.md/json",
     "proof_engine": "PostgreSQL 18.7 (PGlite 0.5.17), local scratch",
+    "test_docstring": "tests/test_acl_audit.py::test_migration_idempotent_and_rollback_compatible docstring corrected (comment-only); assertions unchanged; C3 rerun 71 passed",
     "facts": {
       "raw_old_with_access": "DROP ok, ADD 23514, CHECK absent",
       "target_startup_with_access": "62/62 twice, CHECK 11, access row valid",

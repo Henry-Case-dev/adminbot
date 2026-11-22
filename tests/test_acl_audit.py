@@ -196,9 +196,11 @@ def test_ddl_single_change_and_sqlite_schema_unchanged():
 
 
 def test_migration_idempotent_and_rollback_compatible():
-    """DDL 1: только superset-CHECK; повторный старт no-op; DROP IF EXISTS
-    означает идемпотентность, а старый код (без 'access') совместим с
-    расширенным constraint и не требует downgrade."""
+    """DDL 1: forward CHECK является superset и идемпотентен (DROP IF EXISTS +
+    ADD). Raw rollback к 2.58.233 НЕ совместим с `access`-строками: old code
+    снова ставит CHECK с 10 значениями и падает на ADD (23514). Data-level
+    доказательство — `evidence/m4c/c3/release-2.58.234/rollback-ddl-proof.md`;
+    этот тест проверяет только forward-исходник и не исполняет old-DDL на данных."""
     import re
 
     import services.pg_db as pg_db
