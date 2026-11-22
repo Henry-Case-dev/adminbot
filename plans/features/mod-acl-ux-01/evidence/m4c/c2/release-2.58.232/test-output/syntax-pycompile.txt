@@ -1,0 +1,2 @@
+﻿py_compile rc=0
+node --check rc=0

@@ -1,0 +1,35 @@
+{
+    "captured_at_commit":  "0fcba327fab8111c666501ff75d00f4c3dcefae0",
+    "command":  "python tools/release_manifest.py --repo-root \u003crelease-worktree\u003e --deployer release-258232-builder --dry-run",
+    "exit_code":  0,
+    "deploy_dir_created_for_reconstruction":  true,
+    "script_created_deploy_dir":  false,
+    "deploy_dir_removed_after_run":  true,
+    "tree_state":  "tracked tree clean before and after; .deploy previous-manifest input removed",
+    "manifest":  {
+                     "deployed_at":  "2026-11-21T23:56:20.237759Z",
+                     "deployed_sha":  "0fcba327fab8111c666501ff75d00f4c3dcefae0",
+                     "deployer":  "release-258232-builder",
+                     "dirty_tracked":  false,
+                     "effect":  "deploy",
+                     "previous_sha":  "7a4d5724da04fd34821584717d63657f6fc53a50",
+                     "previous_version":  "2.58.231",
+                     "release_branch":  "release/mod-acl-m4c2-2.58.232",
+                     "schema":  1,
+                     "version":  "2.58.232"
+                 },
+    "prior_manifest_input":  {
+                                 "path":  ".deploy/release.json (git-ignored, local only)",
+                                 "origin":  "documented deployed state: 7a4d5724d / 2.58.231 (schema 48, DDL 0)",
+                                 "production_file_read":  false,
+                                 "content":  {
+                                                 "schema":  1,
+                                                 "deployed_sha":  "7a4d5724da04fd34821584717d63657f6fc53a50",
+                                                 "version":  "2.58.231",
+                                                 "effect":  "deploy",
+                                                 "release_branch":  "release/p0-embed-postdeploy-2.58.231"
+                                             },
+                                 "removed_after_run":  true
+                             },
+    "note":  "Dry-run captured the content/bump tip 0fcba327f, not the later evidence-only tip. The deploy-time manifest must record the actual checkout SHA; product bytes are identical between content and evidence-only commits."
+}
