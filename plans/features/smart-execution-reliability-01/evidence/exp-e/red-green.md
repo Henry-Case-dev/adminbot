@@ -71,7 +71,19 @@ GREEN: fresh-полоса обрабатывает новые события п�
 | 8 | `test_measured_lag_converges_with_bounded_catch_up` | 8 000 строк + inflow 20: lag строго падает до 0, все строки обработаны один раз |
 | 9 | `test_fresh_lane_merges_without_loss_or_duplicates` | после дренажа полосы сливаются; нет дублей/потерь; lag 0 |
 
-## E. Pre-existing failure (не candidate)
+## E. Review B01/N01 (candidate `ece1e1ca9` → `a5049c842`)
+
+| Наблюдение | RED `ece1e1ca9` | GREEN `a5049c842` |
+|---|---|---|
+| Непрерывный fresh-приток + обрезанный tail | tail `[50,50,50]`, `attempts=1`, `row_limit=25` стирался | tail `[25] → [13] → [7]`, `attempts` 2→3, cursor 1000→1007 |
+| Fresh при tail `retry_at` в будущем (restart) | fresh не обработан (`fresh-полоса ошибочно ждёт tail backoff`) | fresh обработан; tail-батчей нет; tail retry не изменён |
+| После истечения tail backoff | снова 50 | 25 → 13 (уменьшенное окно) |
+
+Подробно и с точными assertion — `review-fixes-b01-n01.md`.
+Тесты: `test_fresh_success_does_not_reset_tail_truncation_state`,
+`test_fresh_lane_ignores_tail_backoff_across_restart`.
+
+## F. Pre-existing failure (не candidate)
 
 `tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons`
 падает **идентично на base** `56e2450d2`: assertion `"graph_facts" not in
