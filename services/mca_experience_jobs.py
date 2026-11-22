@@ -136,10 +136,48 @@ RESUME_CURSOR_KEY = "resume_cursor"                     # EXP-FIX-07
 #: прохода меняются hot-параметрами (`experience.semantic_*`) без рестарта;
 #: продуктовый интервал ревью задаётся отдельно каденцией.
 SEMANTIC_DISCOVERY_LIMIT = 500     # строк discovery за проход (дёшево)
+#: E-LAG (22.11.2026): watermark discovery не должен отставать от поступления
+#: на годы. При большом разрыве watermark↔MAX(id) тот же bounded-скан читает
+#: больше строк (дёшево: только id/chat_id/timestamp). Предел — не «лаг», а
+#: параметр одного прохода; backpressure pending-cap сохраняется.
+SEMANTIC_DISCOVERY_CATCHUP_LIMIT = 5000
 SEMANTIC_CHATS_PER_PASS = 6        # справедливость: ≤6 чатов за проход
 SEMANTIC_PER_CHAT_MAX = 50         # ≤50 строк одного чата в батче
 SEMANTIC_MSG_TEXT_CAP = 300        # кап текста реплики в user-контенте
-SEMANTIC_BATCH_MAX_TOKENS = 1500
+# ── E-TRUNC (22.11.2026): output-бюджет вместо универсальных 1500 ───────────
+#: Универсальный потолок 1500 удалён: у reasoning-модели он уходил в
+#: reasoning, content приходил пустым (`truncated_reasoning`,
+#: `finish_reason=length`). Бюджет выводится из КОНТРАКТА ответа, фактического
+#: размера окна и capability модели (`services/model_capacity`), с потолком
+#: модели и потолком резервирования шлюза. Значения — измеряемые границы
+#: эмиссии JSON, а не «микролимит» инструкций.
+SEMANTIC_OUTPUT_CONTRACT_TOKENS = 512     # каркас JSON-массива/ответа
+SEMANTIC_OUTPUT_PER_ROW_TOKENS = 48       # один кандидат (наблюдаемая оценка)
+SEMANTIC_OUTPUT_REASONING_RESERVE = 2048  # reasoning входит в completion
+SEMANTIC_OUTPUT_MARGIN_RATIO = 0.25       # запас протокола/полей
+SEMANTIC_OUTPUT_FLOOR_TOKENS = 1024       # нижняя граница бюджета (не 1500)
+SEMANTIC_OUTPUT_CEILING_TOKENS = 8192     # верхняя граница при неизвестном max
+SEMANTIC_OUTPUT_RETRY_ATTEMPTS = 2        # ≤2 повтора с увеличенным бюджетом
+#: E-LAG: один LLM-вызов получает ≤N строк. Прежние 6×50=300 строк в одном
+#: вызове — не «деление окна», а главный источник обрезки reasoning.
+SEMANTIC_BATCH_ROWS_MAX = 120
+# ── E-LAG: bounded catch-up + свежая полоса при отстающем хвосте ────────────
+#: Порог measured lag, при котором проходу разрешён расширенный (но всё равно
+#: ограниченный) бюджет. 600с < 900с тика: второй воркер/job не создаётся.
+SEMANTIC_CATCHUP_LAG_ROWS = 5000
+SEMANTIC_CATCHUP_BATCHES_PER_RUN = 36
+SEMANTIC_CATCHUP_BUDGET_SECONDS = 600
+SEMANTIC_CATCHUP_PER_CHAT_MAX = 120
+#: Свежая полоса: при хвосте больше порога чат получает второй durable-курсор
+#: (граница `max_id` на момент включения). Старый хвост дренируется до границы,
+#: новые события обрабатываются после неё — в ТОМ ЖЕ job/экстракторе.
+SEMANTIC_FRESH_KEY = "semantic_fresh"     # {chat: {"boundary": id, "cursor": id}}
+SEMANTIC_FRESH_LANE_LAG_ROWS = 5000
+SEMANTIC_FRESH_LANE_EVERY_BATCHES = 1     # fresh-батч раз в N батчей
+#: E-TRUNC: durable-счётчик/причина обрезанных окон + уменьшенный размер окна
+#: на следующий проход (не «вечно то же окно»).
+SEMANTIC_TRUNCATED_KEY = "semantic_truncation"
+SEMANTIC_TRUNCATED_REASON = "truncated_reasoning"
 #: SXR-I2 (14.11.2026): один проход = несколько батчей, пока есть реальный
 #: бэклог и не исчерпан РЕАЛЬНЫЙ бюджет (время/операции). Прежний потолок
 #: «один батч за проход» при одном отстающем чате давал ровно 50 строк / тик
@@ -680,6 +718,16 @@ def default_counters() -> dict:
         # SXR-I2: сколько РЕАЛЬНЫХ батчей исполнено за прогон и упёрся ли он
         # в wall-clock бюджет (ограничение видно счётчиком, а не догадкой).
         "semantic_batches_run": 0, "semantic_budget_exhausted": 0,
+        # E-TRUNC (22.11.2026): обрезанные reasoning-only окна, успешное
+        # восстановление (больший бюджет/меньшее окно), причины и режим
+        # bounded catch-up. Числа/коды — R17.
+        "semantic_truncated": 0, "semantic_truncated_recovered": 0,
+        "semantic_truncated_retries": 0, "semantic_truncated_chats": 0,
+        "semantic_truncation_reasons": {},
+        # E-LAG: расширенный дренаж и свежая полоса при отстающем хвосте.
+        "semantic_catch_up_runs": 0, "semantic_discovery_catchup": 0,
+        "semantic_fresh_rows": 0, "semantic_fresh_batches": 0,
+        "semantic_fresh_lanes": 0, "semantic_fresh_lanes_merged": 0,
         # MOD-ACL-UX-01 amendment §4/§5: свежий лаг, архив, analog-воронка.
         "fresh_stream_lag_rows": 0, "fresh_stream_pending_rows": 0,
         "archive_rows_scanned": 0,
@@ -895,7 +943,7 @@ def _hot_int_first(keys, default: int, lo: int, hi: int) -> int:
     return max(int(lo), min(int(hi), int(default)))
 
 
-def semantic_drain_limits() -> tuple[int, int]:
+def semantic_drain_limits(catch_up: bool = False) -> tuple[int, int]:
     """Пределы ОДНОГО прохода дренажа бэклога (EXP-FIX-02 / §4.1).
 
     Продуктовый интервал ревью задаётся каденцией (`review_cadence`), а
@@ -903,11 +951,20 @@ def semantic_drain_limits() -> tuple[int, int]:
     за проход и сколько строк одного чата. Заводские значения подняты до
     6/50 (≈28.8k строк/сутки) и остаются hot-настраиваемыми; legacy-ключи
     дренажа читаются как fallback, чтобы прежние настройки не игнорировались.
-    """
+
+    E-LAG (22.11.2026): в bounded catch-up окно ОДНОГО чата расширяется до
+    `SEMANTIC_CATCHUP_PER_CHAT_MAX` (120), иначе один большой чат давал лишь
+    50 строк/батч и 2M-хвост сходился бы неделями. Общий потолок строк на
+    LLM-вызов по-прежнему `semantic_batch_rows_max` (120)."""
     chats = _hot_int_first(
         ("memory.experience_semantic_chats_per_pass",
          "memory.experience_drain_chats_per_pass"),
         SEMANTIC_CHATS_PER_PASS, 1, 16)
+    if catch_up:
+        per_chat = _hot_int_first(
+            ("memory.experience_semantic_catchup_per_chat_max",),
+            SEMANTIC_CATCHUP_PER_CHAT_MAX, 1, 600)
+        return chats, per_chat
     per_chat = _hot_int_first(
         ("memory.experience_semantic_per_chat_max",
          "memory.experience_drain_per_chat_max"),
@@ -915,25 +972,163 @@ def semantic_drain_limits() -> tuple[int, int]:
     return chats, per_chat
 
 
-def semantic_batches_per_run() -> int:
+def semantic_batches_per_run(catch_up: bool = False) -> int:
     """Сколько батчей дренажа разрешено исполнить за ОДИН прогон (SXR-I2).
 
     Прежний потолок «один батч за проход» не успевал за поступлением даже
     при пустом бэклоге (один отстающий чат = 50 строк/15 мин). Hot-параметр
     поднимает потолок без рестарта; wall-clock бюджет
-    (`semantic_run_budget_seconds`) остаётся реальным ограничением."""
+    (`semantic_run_budget_seconds`) остаётся реальным ограничением.
+
+    E-LAG (22.11.2026): при измеренном отставании выше порога разрешён
+    bounded catch-up — больше батчей, но по-прежнему в пределах тика
+    (600с < 900с) и hot-настройки. Это тот же job/экстрактор, не второй
+    воркер; отдельного планировщика нет."""
+    if catch_up:
+        return _hot_int("memory.experience_semantic_catchup_batches_per_run",
+                        SEMANTIC_CATCHUP_BATCHES_PER_RUN, 1, 240)
     return _hot_int("memory.experience_semantic_batches_per_run",
                     SEMANTIC_BATCHES_PER_RUN, 1, 240)
 
 
-def semantic_run_budget_seconds() -> int:
+def semantic_run_budget_seconds(catch_up: bool = False) -> int:
     """Wall-clock бюджет батчей семантики за прогон (SXR-I2).
 
     Ограничивает СУММАРНУЮ длительность цикла дренажа; один LLM-вызов
     по-прежнему ограничен своим таймаутом, поэтому фактическая длительность
-    ≤ бюджет + таймаут вызова."""
+    ≤ бюджет + таймаут вызова. Catch-up бюджет (E-LAG) — 600с, меньше
+    интервала тика 900с: наложения прогонов нет (`max_instances=1`)."""
+    if catch_up:
+        return _hot_int("memory.experience_semantic_catchup_run_budget_seconds",
+                        SEMANTIC_CATCHUP_BUDGET_SECONDS, 5, 3600)
     return _hot_int("memory.experience_semantic_run_budget_seconds",
                     SEMANTIC_RUN_BUDGET_SECONDS, 5, 3600)
+
+
+def semantic_batch_rows_max(chats_per_batch: int | None = None,
+                            per_chat_max: int | None = None) -> int:
+    """Максимум строк в ОДНОМ LLM-вызове (E-TRUNC/E-LAG, bounded).
+
+    Hot-настройка ограничена фактическим потолком выборки
+    (`chats × per_chat`): верхняя граница не выдумывает строк, которых
+    окно не прочитает, нижняя — не даёт «дробить» окно до бесполезного
+    одного сообщения на вызов."""
+    chats = int(chats_per_batch or SEMANTIC_CHATS_PER_PASS)
+    per_chat = int(per_chat_max or SEMANTIC_PER_CHAT_MAX)
+    ceiling = max(1, chats * per_chat)
+    return _hot_int("memory.experience_semantic_batch_rows_max",
+                    min(SEMANTIC_BATCH_ROWS_MAX, ceiling), 1, 600)
+
+
+def semantic_catch_up_lag_rows() -> int:
+    """Порог measured lag для bounded catch-up режима (E-LAG)."""
+    return _hot_int("memory.experience_semantic_catchup_lag_rows",
+                    SEMANTIC_CATCHUP_LAG_ROWS, 100, 10_000_000)
+
+
+def semantic_discovery_limit() -> int:
+    """Сколько строк discovery читать за проход (E-LAG).
+
+    Обычный предел дешёвый; при разрыве watermark↔MAX(id) выше обычного
+    предела разрешён bounded catch-up скан (5k), чтобы индекс не отставал
+    на месяцы. Это не второй discovery и не очередь: тот же SELECT с
+    прежним durable watermark и backpressure `pending_chat_cap`."""
+    return _hot_int("memory.experience_semantic_discovery_limit",
+                    SEMANTIC_DISCOVERY_LIMIT, 1, 50_000)
+
+
+def semantic_discovery_catchup_limit() -> int:
+    """Верхний предел discovery-скана в catch-up (E-LAG)."""
+    base = semantic_discovery_limit()
+    return _hot_int("memory.experience_semantic_discovery_catchup_limit",
+                    max(base, SEMANTIC_DISCOVERY_CATCHUP_LIMIT),
+                    base, 100_000)
+
+
+def semantic_output_budget(row_count: int, capability=None, *,
+                           attempt: int = 1,
+                           input_chars: int = 0) -> tuple[int, str]:
+    """Output-бюджет одного семантического вызова (E-TRUNC).
+
+    Возврат ``(max_output_tokens, source)``. Универсальных 1500 больше нет:
+
+    * контракт ответа (JSON-массив) + наблюдаемая цена кандидатов на
+      фактическое число строк (`SEMANTIC_OUTPUT_PER_ROW_TOKENS`, не более
+      потолка парсера 32 кандидатов);
+    * резерв на reasoning — reasoning-токены входят в completion-бюджет;
+      ``supports_reasoning is False`` (каталог явно сказал «нет») снимает
+      резерв, ``None`` (неизвестно) — оставляет: нельзя утверждать, что
+      reasoning не тратится;
+    * ``attempt > 1`` (повтор после обрезки) удваивает бюджет до потолка;
+    * жёсткий потолок ``max_output`` модели из существующего
+      `services/model_capacity`, если он известен;
+    * проверка влезания в контекст по фактическому размеру промпта
+      (``CHARS_PER_TOKEN_ESTIMATE``), чтобы не просить больше, чем осталось.
+
+    Неизвестная модель получает консервативный расчёт по контракту, а не
+    фиксированные 1500. Функция чистая (без I/O), поэтому проверяется
+    тестом-инвариантом."""
+    try:
+        rows = max(1, int(row_count or 1))
+    except (TypeError, ValueError):
+        rows = 1
+    candidate_cap = 32                       # `parse_semantic_candidates_typed`
+    expected = int(SEMANTIC_OUTPUT_CONTRACT_TOKENS) + int(
+        SEMANTIC_OUTPUT_PER_ROW_TOKENS) * min(rows, candidate_cap)
+    margin = max(256, int(expected * SEMANTIC_OUTPUT_MARGIN_RATIO))
+    reasoning = getattr(capability, "supports_reasoning", None)
+    reserve = 0 if reasoning is False else int(
+        SEMANTIC_OUTPUT_REASONING_RESERVE)
+    budget = expected + margin + reserve
+    source = "contract"
+    if reserve:
+        source = "contract+reasoning"
+    try:
+        attempt_no = max(1, int(attempt or 1))
+    except (TypeError, ValueError):
+        attempt_no = 1
+    if attempt_no > 1:
+        budget = min(int(SEMANTIC_OUTPUT_CEILING_TOKENS),
+                     budget * attempt_no)
+        source = f"{source}+retry{attempt_no}"
+    ceiling = int(SEMANTIC_OUTPUT_CEILING_TOKENS)
+    max_output = getattr(capability, "max_output", None)
+    if isinstance(max_output, int) and int(max_output) > 0:
+        ceiling = min(ceiling, int(max_output))
+        source = f"{source}+max_output"
+    budget = max(int(SEMANTIC_OUTPUT_FLOOR_TOKENS), min(int(budget), ceiling))
+    context_window = getattr(capability, "context_window", None)
+    if isinstance(context_window, int) and int(context_window) > 0:
+        try:
+            from services.model_capacity import CHARS_PER_TOKEN_ESTIMATE
+            per_token = max(1, int(CHARS_PER_TOKEN_ESTIMATE))
+        except Exception:
+            per_token = 4
+        input_tokens = max(0, int(input_chars or 0)) // per_token
+        remaining = int(context_window) - input_tokens - 256
+        if remaining > 0:
+            budget = max(1, min(int(budget), int(remaining)))
+            source = f"{source}+context"
+    return int(budget), source
+
+
+def semantic_is_truncation_error(exc: BaseException) -> bool:
+    """True для ``truncated_reasoning``/``finish_reason=length|max_tokens``.
+
+    Классификация — по типизированным атрибутам существующего
+    `LLMBadResponseError` (P0 L1), с текстовым fallback для совместимости.
+    Reasoning НЕ становится content: этот признак только выбирает
+    контролируемый retry/деление окна."""
+    kind = str(getattr(exc, "response_kind", "") or "")
+    finish = str(getattr(exc, "llm_finish_reason", "") or "").lower()
+    if kind in ("truncated_reasoning", "reasoning_only"):
+        return True
+    if finish in ("length", "max_tokens"):
+        return True
+    text = str(exc or "").lower()
+    return ("truncated_reasoning" in text
+            or "finish_reason=length" in text
+            or "finish_reason=max_tokens" in text)
 
 
 def _monotonic() -> float:
@@ -1026,12 +1221,16 @@ def semantic_progress_snapshot(payload: dict, *,
                 actionable_rows += count
                 actionable_chats += 1
     deferred = 0
+    next_retry_at = 0
     for info in retry_map.values():
         try:
-            if int((info or {}).get("retry_at") or 0) > now:
-                deferred += 1
+            retry_at = int((info or {}).get("retry_at") or 0)
         except (TypeError, ValueError):
             continue
+        if retry_at > now:
+            deferred += 1
+            if not next_retry_at or retry_at < next_retry_at:
+                next_retry_at = retry_at
     snapshot = {
         "backlog_rows": rows,
         "backlog_chats": chats,
@@ -1047,7 +1246,15 @@ def semantic_progress_snapshot(payload: dict, *,
         "lag_seconds": (now - oldest) if oldest else None,
         "lag_seconds_source": "pending" if oldest else "unknown",
         "deferred_chats": deferred,
+        # E-TRUNC: ближайший момент, когда отложенное окно снова готово.
+        # Планировщик видит его, даже если actionable/pending уже 0 — иначе
+        # один retry ждал бы суточной каденции.
+        "next_retry_at": int(next_retry_at),
         "watermark": int(payload.get(SEMANTIC_WATERMARK_KEY) or 0),
+        # E-LAG/E-TRUNC: состояние полос/отказов видно числами (R17), без
+        # подмены lag нулём и без содержимого сообщений.
+        "fresh_lanes": len(payload.get(SEMANTIC_FRESH_KEY) or {}),
+        "truncated_chats": len(payload.get(SEMANTIC_TRUNCATED_KEY) or {}),
     }
     lag = payload.get(SEMANTIC_LAG_KEY)
     if isinstance(lag, dict) and lag.get("available"):
@@ -1111,10 +1318,17 @@ async def semantic_backlog(db) -> dict:
     if row is None:
         return {"rows": 0, "chats": 0}
     snapshot = semantic_progress_snapshot(_parse_json_dict(row["payload"]))
-    return {"rows": max(int(snapshot.get("actionable_rows") or 0),
-                        int(snapshot.get("lag_actionable_rows") or 0)),
-            "chats": max(int(snapshot.get("actionable_chats") or 0),
-                         int(snapshot.get("lag_actionable_chats") or 0))}
+    rows = max(int(snapshot.get("actionable_rows") or 0),
+               int(snapshot.get("lag_actionable_rows") or 0))
+    chats = max(int(snapshot.get("actionable_chats") or 0),
+                int(snapshot.get("lag_actionable_chats") or 0))
+    if not rows and not chats:
+        # Отложенный повтор (truncated/parse/read) не должен ждать суточной
+        # каденции: когда retry_at наступил, планировщик обязан дать проход.
+        due_at = int(snapshot.get("next_retry_at") or 0)
+        if due_at and due_at <= int(time.time()):
+            return {"rows": 1, "chats": 1}
+    return {"rows": rows, "chats": chats}
 
 
 async def enqueue_experience_review(db, *, max_attempts: int = 3
@@ -1333,6 +1547,8 @@ class ExperienceReviewRunner:
         data.setdefault(SEMANTIC_WATERMARK_KEY, 0)
         data.setdefault(SEMANTIC_PENDING_KEY, {})
         data.setdefault(SEMANTIC_LAST_TS_KEY, {})
+        data.setdefault(SEMANTIC_FRESH_KEY, {})
+        data.setdefault(SEMANTIC_TRUNCATED_KEY, {})
         data.setdefault(ARCHIVE_STATS_KEY, {})
         data.setdefault(ARCHIVE_VISITS_KEY, {})
         data.setdefault(ANALYTICS_KEY, default_analytics())
@@ -1385,6 +1601,60 @@ class ExperienceReviewRunner:
                 except (TypeError, ValueError):
                     continue
             data[key] = clean
+        # E-LAG: свежая полоса — только валидные пары boundary/cursor > 0.
+        fresh_clean: dict = {}
+        raw_fresh = data.get(SEMANTIC_FRESH_KEY)
+        if isinstance(raw_fresh, dict):
+            for chat_key, lane in raw_fresh.items():
+                if not isinstance(lane, dict):
+                    continue
+                try:
+                    boundary = int(lane.get("boundary") or 0)
+                    cursor_pos = max(0, int(lane.get("cursor") or 0))
+                except (TypeError, ValueError):
+                    continue
+                if boundary <= 0:
+                    continue
+                entry = {"boundary": boundary,
+                         "cursor": max(boundary - 1, cursor_pos)}
+                try:
+                    row_limit = int(lane.get("row_limit") or 0)
+                except (TypeError, ValueError):
+                    row_limit = 0
+                if row_limit > 0:
+                    entry["row_limit"] = row_limit
+                try:
+                    retry_at = int(lane.get("retry_at") or 0)
+                except (TypeError, ValueError):
+                    retry_at = 0
+                if retry_at:
+                    entry["retry_at"] = retry_at
+                fresh_clean[str(chat_key)] = entry
+        data[SEMANTIC_FRESH_KEY] = fresh_clean
+        # E-TRUNC: durable причина обрезки — только числа/коды.
+        trunc_clean: dict = {}
+        raw_trunc = data.get(SEMANTIC_TRUNCATED_KEY)
+        if isinstance(raw_trunc, dict):
+            for chat_key, info in raw_trunc.items():
+                if not isinstance(info, dict):
+                    continue
+                try:
+                    count = int(info.get("count") or 0)
+                    last_at = int(info.get("last_at") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if count <= 0:
+                    continue
+                try:
+                    rows_seen = int(info.get("rows") or 0)
+                except (TypeError, ValueError):
+                    rows_seen = 0
+                trunc_clean[str(chat_key)] = {
+                    "count": count, "last_at": last_at,
+                    "reason": str(info.get("reason") or "")[:40],
+                    "rows": rows_seen,
+                }
+        data[SEMANTIC_TRUNCATED_KEY] = trunc_clean
         positions = []
         for chat_key, value in list(data.items()):
             if not str(chat_key).startswith(SEMANTIC_CURSOR_PREFIX):
@@ -1480,6 +1750,56 @@ class ExperienceReviewRunner:
                     prev.get(SEMANTIC_RETRY_KEY) or {}).items():
                 if isinstance(value, dict) and str(chat_key) not in retry:
                     retry[str(chat_key)] = dict(value)
+            # E-LAG: fresh-полоса наследуется max-merge (boundary/cursor не
+            # откатываются), иначе рестарт снова начал бы хвост с нуля.
+            fresh = data.setdefault(SEMANTIC_FRESH_KEY, {})
+            for chat_key, value in (
+                    prev.get(SEMANTIC_FRESH_KEY) or {}).items():
+                if not isinstance(value, dict):
+                    continue
+                try:
+                    boundary = int(value.get("boundary") or 0)
+                    pos = max(0, int(value.get("cursor") or 0))
+                except (TypeError, ValueError):
+                    continue
+                if boundary <= 0:
+                    continue
+                current = fresh.get(str(chat_key))
+                if not isinstance(current, dict):
+                    fresh[str(chat_key)] = {
+                        "boundary": boundary,
+                        "cursor": max(boundary - 1, pos)}
+                else:
+                    current["boundary"] = max(
+                        int(current.get("boundary") or 0), boundary)
+                    current["cursor"] = max(
+                        int(current.get("cursor") or 0),
+                        max(boundary - 1, pos))
+            # E-TRUNC: durable счётчик/причина обрезки наследуются (не
+            # «обнуляем историю» при новом job).
+            trunc = data.setdefault(SEMANTIC_TRUNCATED_KEY, {})
+            for chat_key, value in (
+                    prev.get(SEMANTIC_TRUNCATED_KEY) or {}).items():
+                if not isinstance(value, dict):
+                    continue
+                current = trunc.get(str(chat_key))
+                if not isinstance(current, dict):
+                    trunc[str(chat_key)] = dict(value)
+                    continue
+                current["count"] = max(
+                    int(current.get("count") or 0),
+                    int(value.get("count") or 0))
+                current["last_at"] = max(
+                    int(current.get("last_at") or 0),
+                    int(value.get("last_at") or 0))
+                if not current.get("reason"):
+                    current["reason"] = str(value.get("reason") or "")
+            # E-LAG: измеренный лаг прошлого терминального прохода — planning
+            # input нового job (иначе catch-up решался бы по pending, который
+            # опережает обработку). Само измерение каждый проход обновляется.
+            if not isinstance(data.get(SEMANTIC_LAG_KEY), dict) \
+                    and isinstance(prev.get(SEMANTIC_LAG_KEY), dict):
+                data[SEMANTIC_LAG_KEY] = dict(prev[SEMANTIC_LAG_KEY])
             if not data.get(RESUME_CURSOR_KEY) \
                     and isinstance(prev.get(RESUME_CURSOR_KEY), dict):
                 data[RESUME_CURSOR_KEY] = dict(prev[RESUME_CURSOR_KEY])
@@ -1986,10 +2306,18 @@ class ExperienceReviewRunner:
                              job_id: str = "") -> None:
         """Ограниченный дренаж семантики: несколько батчей за прогон (SXR-I2).
 
-        Каждый батч: ≤`chats_per_batch` чатов × ≤`per_chat_max` строк, один
-        LLM-вызов. Цикл останавливается при пустом/отложенном бэклоге,
-        недоступном LLM, исчерпании `semantic_batches_per_run` или
-        wall-clock бюджета. Порядок окон и per-chat изоляция сохранены."""
+        E-TRUNC/E-LAG (22.11.2026):
+        * один вызов получает ≤`semantic_batch_rows_max()` строк (не 6×50);
+        * output-бюджет — из контракта/размера окна/capability модели
+          (`semantic_output_budget`); `truncated_reasoning` → контролируемый
+          retry с большим бюджетом, затем durable уменьшение окна чата;
+        * при измеренном хвосте выше порога разрешён bounded catch-up
+          (больше батчей/времени, но меньше интервала тика);
+        * один раз за проход — fresh-полоса: новые события не ждут, пока
+          дренируется старый архив (тот же job/экстрактор/LLM-вызов);
+        * курсор двигается только после durable обработки; отказавшееся
+          окно получает durable причину/backoff и не крутится вечно.
+        """
         counters = payload["counters"]
         if self._llm is None:
             # Честная недоступность: скан/курсоры не двигаются (retry позже).
@@ -2004,17 +2332,38 @@ class ExperienceReviewRunner:
             logger.warning("[mca16] semantic discovery failed",
                            exc_info=True)
             return                     # watermark/pending уже durable
-        chats_per_batch, per_chat_max = semantic_drain_limits()
-        max_batches = max(1, int(semantic_batches_per_run()))
-        budget = max(1, int(semantic_run_budget_seconds()))
+        catch_up = self._semantic_catch_up_active(payload)
+        chats_per_batch, per_chat_max = semantic_drain_limits(catch_up)
+        row_cap = semantic_batch_rows_max(chats_per_batch, per_chat_max)
+        capability = await self._semantic_capability()
+        if catch_up:
+            counters["semantic_catch_up_runs"] = int(
+                counters.get("semantic_catch_up_runs") or 0) + 1
+        max_batches = max(1, int(semantic_batches_per_run(catch_up)))
+        budget = max(1, int(semantic_run_budget_seconds(catch_up)))
         deadline = _monotonic() + budget
         # Чаты, чей durable курсор реально отстаёт от данных, даже если
         # счётчик pending успел обнулиться (иначе дренаж останавливался бы
         # на несогласованном счётчике, а не на фактах).
         behind = await self._semantic_chats_behind(payload)
+        self._activate_semantic_fresh_lanes(
+            payload, behind, counters=counters, now=now)
         blocked: set[int] = set()      # неуспешные в ЭТОМ прогоне чаты
         batches = 0
         emitted = False
+        # E-LAG: свежая полоса первой и не более одного раза за проход.
+        if self._semantic_fresh_lanes(payload) and not self._budget_over(
+                deadline):
+            fresh = await self._semantic_fresh_batch(
+                payload, now=now, counters=counters, capability=capability,
+                chats_per_batch=chats_per_batch, per_chat_max=per_chat_max,
+                row_cap=row_cap)
+            if fresh.get("batch"):
+                batches += 1
+                emitted = bool(emitted or fresh.get("emitted"))
+                counters["semantic_batches_run"] = int(
+                    counters.get("semantic_batches_run") or 0) + 1
+                await self._semantic_checkpoint(job_id, payload)
         while batches < max_batches:
             chats = [cid for cid in self._semantic_chat_order(
                 payload, now=now, behind=behind) if cid not in blocked]
@@ -2025,8 +2374,17 @@ class ExperienceReviewRunner:
             advanced_any = False
             for chat_id in chats[:chats_per_batch]:
                 cid = int(chat_id)
+                remaining = int(row_cap) - len(batch_rows)
+                if remaining <= 0:
+                    break
+                lane = self._semantic_fresh_lane(payload, cid)
+                boundary = int((lane or {}).get("boundary") or 0) or None
+                limit = min(int(per_chat_max),
+                            self._semantic_window_limit(payload, cid,
+                                                        per_chat_max),
+                            remaining)
                 window = await self._semantic_window(
-                    payload, cid, limit=per_chat_max)
+                    payload, cid, limit=limit, before_id=boundary)
                 state = str(window.get("state") or "")
                 if state == "disabled":
                     # U4: чат выключен — deliberate skip, pending снят, другие
@@ -2037,6 +2395,19 @@ class ExperienceReviewRunner:
                     advanced_any = True
                     continue
                 if state == "empty":
+                    if lane is not None:
+                        # Строк до границы больше нет: старый хвост фактически
+                        # дренирован, дальше живёт одна позиция (fresh-курсор).
+                        # Слияние безопасно: строки ≥ boundary не потеряны.
+                        self._merge_semantic_fresh_lane(payload, cid)
+                        self._clear_semantic_retry(payload, cid)
+                        counters["semantic_fresh_lanes_merged"] = int(
+                            counters.get("semantic_fresh_lanes_merged") or 0
+                        ) + 1
+                        advanced_any = True
+                        if self._behind_satisfied(payload, cid, behind):
+                            behind.pop(cid, None)
+                        continue
                     # Позиция уже за последней строкой чата: счётчик pending
                     # был бы фантомным — честно обнуляем его (EXP-FIX-03).
                     if int(window.get("pending") or 0) > 0:
@@ -2046,6 +2417,7 @@ class ExperienceReviewRunner:
                         self._reset_semantic_pending(payload, cid)
                     counters["semantic_chats_empty"] = int(
                         counters.get("semantic_chats_empty") or 0) + 1
+                    self._clear_semantic_retry(payload, cid)
                     behind.pop(cid, None)
                     continue
                 if state == "error":
@@ -2072,12 +2444,15 @@ class ExperienceReviewRunner:
                         payload, cid,
                         advanced_to=int(window.get("last_id") or 0),
                         consumed=int(window.get("read") or 0), now=now)
+                    if self._maybe_merge_semantic_fresh_lane(payload, cid):
+                        counters["semantic_fresh_lanes_merged"] = int(
+                            counters.get("semantic_fresh_lanes_merged") or 0
+                        ) + 1
                     counters["semantic_throughput_rows"] = int(
                         counters.get("semantic_throughput_rows") or 0) + int(
                         window.get("read") or 0)
                     advanced_any = True
-                    if int(window.get("last_id") or 0) >= int(
-                            behind.get(cid) or 0):
+                    if self._behind_satisfied(payload, cid, behind):
                         behind.pop(cid, None)
                     continue
                 counters["semantic_rows_eligible"] = int(
@@ -2091,85 +2466,38 @@ class ExperienceReviewRunner:
             if batch_rows:
                 counters["semantic_selected"] = int(
                     counters.get("semantic_selected") or 0) + len(batch_rows)
-                raw = await self._semantic_llm_batch(batch_rows)
-                if raw is None:
+                call = await self._semantic_invoke(
+                    batch_rows, capability=capability, counters=counters)
+                state = str(call.get("state") or "")
+                if state == "truncated":
+                    # E-TRUNC: даже после повторов с большим бюджетом окно
+                    # обрезано reasoning'ом. Курсор НЕ двигается; чаты
+                    # получают durable причину + уменьшенное окно + backoff.
+                    for cid, window in windows.items():
+                        self._defer_truncated_semantic_chat(
+                            payload, cid, window=window, counters=counters,
+                            now=now)
+                        behind.pop(int(cid), None)
+                        blocked.add(int(cid))
+                elif state != "ok":
                     # Провайдер недоступен: остальные батчи не помогут,
                     # курсоры на месте (X1) — retry следующим проходом.
                     counters["semantic_llm_unavailable"] = int(
                         counters.get("semantic_llm_unavailable") or 0) + 1
                     break
-                parsed = parse_semantic_candidates_typed(raw)
-                outcome = str(parsed.get("outcome") or "")
-                if outcome == SEMANTIC_PARSE_INVALID:
-                    # EXP-FIX-05: битый вывод не равен «пусто». Позиция НЕ
-                    # двигается, ЧАТЫ ЭТОГО БАТЧА уходят в отложенный повтор
-                    # (данные не теряются), остальные чаты не блокируются.
-                    counters["semantic_parse_invalid"] = int(
-                        counters.get("semantic_parse_invalid") or 0) + 1
-                    reasons = counters.setdefault("semantic_parse_reasons", {})
-                    reason = str(parsed.get("reason") or "unknown")
-                    reasons[reason] = int(reasons.get(reason) or 0) + 1
-                    for chat_id in windows:
-                        self._defer_semantic_chat(
-                            payload, chat_id, reason=f"parse:{reason}",
-                            now=now)
-                        behind.pop(int(chat_id), None)
-                        blocked.add(int(chat_id))
-                    logger.warning(
-                        "[mca16] semantic parse invalid | reason=%s", reason)
                 else:
-                    if outcome == SEMANTIC_PARSE_VALID_EMPTY:
-                        counters["semantic_parse_valid_empty"] = int(
-                            counters.get("semantic_parse_valid_empty") or 0) + 1
-                    candidates = list(parsed.get("candidates") or ())
-                    counters["semantic_extracted"] = int(
-                        counters.get("semantic_extracted") or 0) + len(
-                        candidates)
-                    rows_index = {int(r["id"]): r for r in batch_rows}
-                    accepted = 0
-                    failed_chats: set[int] = set()
-                    for candidate in candidates:
-                        rejection = semantic_rejection(candidate)
-                        if rejection is not None:
-                            self._reject_semantic(counters, rejection)
-                            continue
-                        result = await self._write_semantic_candidate(
-                            candidate, rows_index, counters)
-                        if result == SEMANTIC_WRITE_ACCEPTED:
-                            accepted += 1
-                        elif result == SEMANTIC_WRITE_FAILED:
-                            # EXP-FIX-04: durable запись не состоялась — батч
-                            # не считается обработанным; позиция чата стоит,
-                            # повтор следующим проходом идемпотентен.
-                            counters["semantic_write_failures"] = int(
-                                counters.get("semantic_write_failures") or 0
-                            ) + 1
-                            for msg_id in candidate.get("msg_ids") or ():
-                                row = rows_index.get(int(msg_id))
-                                if row is not None:
-                                    failed_chats.add(int(row["chat_id"]))
-                    counters["semantic_candidates"] = int(
-                        counters.get("semantic_candidates") or 0) + accepted
-                    # Курсоры/pending двигаются ТОЛЬКО после durable
-                    # обработки батча.
-                    for chat_id, window in windows.items():
-                        cid = int(chat_id)
-                        if cid in failed_chats:
-                            blocked.add(cid)     # retry без потери кандидата
-                            behind.pop(cid, None)
-                            continue
-                        self._book_semantic_window(
-                            payload, cid,
-                            advanced_to=int(window.get("last_id") or 0),
-                            consumed=int(window.get("read") or 0), now=now)
-                        counters["semantic_throughput_rows"] = int(
-                            counters.get("semantic_throughput_rows") or 0
-                        ) + int(window.get("read") or 0)
-                        self._clear_semantic_retry(payload, cid)
-                        if int(window.get("last_id") or 0) >= int(
-                                behind.get(cid) or 0):
-                            behind.pop(cid, None)
-                    emitted = True
+                    consumed = await self._consume_semantic_batch(
+                        payload, parsed=parse_semantic_candidates_typed(
+                            call.get("raw")),
+                        batch_rows=batch_rows, windows=windows, lane="tail",
+                        counters=counters, now=now)
+                    emitted = bool(emitted or consumed.get("emitted"))
+                    for cid in consumed.get("blocked") or ():
+                        blocked.add(int(cid))
+                        behind.pop(int(cid), None)
+                    for cid in consumed.get("booked") or ():
+                        if self._behind_satisfied(payload, cid, behind):
+                            behind.pop(int(cid), None)
             elif not advanced_any:
                 break
             batches += 1
@@ -2177,18 +2505,8 @@ class ExperienceReviewRunner:
                 counters.get("semantic_batches_run") or 0) + 1
             # Durable checkpoint ПОСЛЕ КАЖДОГО батча (SXR-I2): падение между
             # батчами не откатывает уже пройденные позиции.
-            if job_id:
-                await self._checkpoint(job_id, payload)
-                # SXR-I2: длинный дренаж обязан обновлять heartbeat, иначе
-                # существующий watchdog (`recover_stale`, default 60с) принял
-                # бы живую задачу за потерянную и запустил второй worker.
-                try:
-                    await self._store.heartbeat(job_id)
-                except Exception:
-                    logger.debug(
-                        "[mca16] semantic drain heartbeat failed",
-                        exc_info=True)
-            if _monotonic() >= deadline:
+            await self._semantic_checkpoint(job_id, payload)
+            if self._budget_over(deadline):
                 counters["semantic_budget_exhausted"] = int(
                     counters.get("semantic_budget_exhausted") or 0) + 1
                 break
@@ -2196,6 +2514,558 @@ class ExperienceReviewRunner:
             # Числа воронки — в durable-счётчиках payload; событие — маркер.
             _emit("semantic_extract", outcome="success",
                   stage="semantic_extract")
+
+    @staticmethod
+    def _budget_over(deadline: float) -> bool:
+        """Wall-clock бюджет прогона исчерпан (монотонные часы)."""
+        return _monotonic() >= deadline
+
+    async def _semantic_checkpoint(self, job_id: str, payload: dict) -> None:
+        """Durable checkpoint + heartbeat после батча (SXR-I2)."""
+        if not job_id:
+            return
+        await self._checkpoint(job_id, payload)
+        # Длинный дренаж обязан обновлять heartbeat, иначе существующий
+        # watchdog (`recover_stale`, default 60с) принял бы живую задачу за
+        # потерянную и запустил второй worker.
+        try:
+            await self._store.heartbeat(job_id)
+        except Exception:
+            logger.debug("[mca16] semantic drain heartbeat failed",
+                         exc_info=True)
+
+    async def _semantic_capability(self):
+        """Capability фактического маршрута (model/base_url) без новых вызовов.
+
+        Используется существующий `services/model_capacity`: каталог/реестр/
+        доказанный предел. Любая недоступность → None (консервативный расчёт
+        по контракту); семантика не падает из-за метаданных."""
+        model = str(getattr(self._llm, "_chat_model", "") or "")
+        if not model:
+            return None
+        base_url = str(getattr(self._llm, "_base_url", "") or "")
+        try:
+            from services import model_capacity as capacity
+            return await capacity.resolve_model_capability(
+                base_url, model, slot="experience.semantic")
+        except Exception:
+            logger.debug("[mca16] semantic capability unavailable",
+                         exc_info=True)
+            return None
+
+    def _semantic_catch_up_active(self, payload: dict) -> bool:
+        """E-LAG: разрешён ли bounded catch-up (measured lag > порога).
+
+        Источник — ИЗМЕРЕННЫЙ lag (`semantic_lag.rows`), а не подставленный
+        ноль. Если замер недоступен — сумма durable pending. Catch-up меняет
+        только пределы одного прохода; курсор/lag не подменяются."""
+        threshold = semantic_catch_up_lag_rows()
+        lag = payload.get(SEMANTIC_LAG_KEY)
+        if isinstance(lag, dict) and lag.get("available"):
+            # Измеренный COUNT — единственный источник режима. pending может
+            # опережать обработку (discovery) и раздувать счётчик; подменять
+            # им измеренный lag нельзя (owner §B).
+            try:
+                return int(lag.get("rows") or 0) > threshold
+            except (TypeError, ValueError):
+                return False
+        pending = payload.get(SEMANTIC_PENDING_KEY)
+        if isinstance(pending, dict):
+            rows = 0
+            for value in pending.values():
+                try:
+                    rows += max(0, int(value or 0))
+                except (TypeError, ValueError):
+                    continue
+            if rows > threshold:
+                return True
+        return False
+
+    async def _semantic_invoke(self, rows: list[dict], *, capability=None,
+                               counters: dict | None = None) -> dict:
+        """Один логический вызов с контролируемым retry при обрезке.
+
+        Возврат ``{"state": ok|truncated|unavailable, "raw": str|None,
+        "budget": int, "attempt": int, "budget_source": str}``. При
+        `truncated_reasoning` бюджет следующей попытки растёт (не идентичный
+        повтор), число попыток ограничено `SEMANTIC_OUTPUT_RETRY_ATTEMPTS`.
+        Reasoning никогда не становится `raw`/контентом."""
+        counters = counters if isinstance(counters, dict) else {}
+        attempt = 1
+        truncated = False
+        call = await self._semantic_llm_call(
+            rows, capability=capability, attempt=attempt)
+        while str(call.get("state")) == "truncated":
+            truncated = True
+            counters["semantic_truncated"] = int(
+                counters.get("semantic_truncated") or 0) + 1
+            reasons = counters.setdefault("semantic_truncation_reasons", {})
+            reason = str(call.get("reason") or SEMANTIC_TRUNCATED_REASON)
+            reasons[reason] = int(reasons.get(reason) or 0) + 1
+            if attempt > int(SEMANTIC_OUTPUT_RETRY_ATTEMPTS):
+                return call
+            attempt += 1
+            counters["semantic_truncated_retries"] = int(
+                counters.get("semantic_truncated_retries") or 0) + 1
+            call = await self._semantic_llm_call(
+                rows, capability=capability, attempt=attempt)
+        if truncated and str(call.get("state")) == "ok":
+            counters["semantic_truncated_recovered"] = int(
+                counters.get("semantic_truncated_recovered") or 0) + 1
+        return call
+
+    async def _semantic_llm_call(self, rows: list[dict], *, capability=None,
+                                 attempt: int = 1) -> dict:
+        """ОДИН LLM-вызов на батч; бюджет из capability/контракта (E-TRUNC)."""
+        messages = [
+            {"role": "system", "content": SEMANTIC_SYSTEM_PROMPT},
+            {"role": "user", "content": build_semantic_user_prompt(rows)},
+        ]
+        input_chars = sum(len(str(m.get("content") or "")) for m in messages)
+        budget, source = semantic_output_budget(
+            len(rows), capability, attempt=attempt, input_chars=input_chars)
+        output_field = str(getattr(
+            capability, "output_token_field", "") or "max_tokens")
+        try:
+            import asyncio as _asyncio
+            raw = await _asyncio.wait_for(
+                self._llm.generate(
+                    messages, temperature=0.1, module="experience",
+                    step="semantic_extract",
+                    correlation_id=uuid.uuid4().hex[:16],
+                    max_output_tokens=budget,
+                    output_field=output_field),
+                timeout=90)
+            return {"state": "ok", "raw": raw, "budget": int(budget),
+                    "budget_source": source, "attempt": int(attempt)}
+        except Exception as exc:
+            if semantic_is_truncation_error(exc):
+                logger.warning(
+                    "[mca16] semantic batch truncated | rows=%d | budget=%d "
+                    "| attempt=%d | kind=%s | finish_reason=%s", len(rows),
+                    budget, attempt,
+                    getattr(exc, "response_kind", "-"),
+                    getattr(exc, "llm_finish_reason", "-"))
+                return {"state": "truncated", "raw": None,
+                        "budget": int(budget), "budget_source": source,
+                        "attempt": int(attempt),
+                        "reason": str(getattr(
+                            exc, "response_kind", "")
+                            or SEMANTIC_TRUNCATED_REASON)}
+            logger.warning("[mca16] semantic batch failed — retry next "
+                           "pass", exc_info=True)
+            return {"state": "unavailable", "raw": None,
+                    "budget": int(budget), "budget_source": source,
+                    "attempt": int(attempt)}
+
+    async def _semantic_llm_batch(self, rows: list[dict]):
+        """Совместимость: сырой текст успешного вызова либо None.
+
+        Explicit backfill (`run_semantic_backfill`) использует этот фасад;
+        семантический проход — `_semantic_invoke` (там классификация обрезки
+        и контролируемый retry)."""
+        capability = await self._semantic_capability()
+        call = await self._semantic_invoke(rows, capability=capability)
+        if str(call.get("state")) == "ok":
+            return call.get("raw")
+        return None
+
+    async def _consume_semantic_batch(self, payload: dict, *, parsed: dict,
+                                      batch_rows: list[dict],
+                                      windows: dict[int, dict], lane: str,
+                                      counters: dict, now: int) -> dict:
+        """Parse→durable write→cursor booking одного успешного ответа.
+
+        Разделяет tail/fresh-полосу, не дублируя parse/write/идемпотентность.
+        Возврат: ``emitted`` (валидный ответ), ``booked`` (позиции сдвинуты),
+        ``blocked`` (чаты нельзя повторять в этом прогоне)."""
+        outcome = str(parsed.get("outcome") or "")
+        if outcome == SEMANTIC_PARSE_INVALID:
+            counters["semantic_parse_invalid"] = int(
+                counters.get("semantic_parse_invalid") or 0) + 1
+            reasons = counters.setdefault("semantic_parse_reasons", {})
+            reason = str(parsed.get("reason") or "unknown")
+            reasons[reason] = int(reasons.get(reason) or 0) + 1
+            blocked: set[int] = set()
+            for chat_id, window in windows.items():
+                cid = int(chat_id)
+                if lane == "fresh":
+                    self._defer_semantic_fresh_lane(
+                        payload, cid, reason=f"parse:{reason}", now=now,
+                        rows_seen=len(window.get("rows") or ()))
+                else:
+                    self._defer_semantic_chat(
+                        payload, cid, reason=f"parse:{reason}", now=now)
+                    blocked.add(cid)
+            logger.warning("[mca16] semantic parse invalid | reason=%s", reason)
+            return {"emitted": False, "booked": set(), "blocked": blocked}
+        if outcome == SEMANTIC_PARSE_VALID_EMPTY:
+            counters["semantic_parse_valid_empty"] = int(
+                counters.get("semantic_parse_valid_empty") or 0) + 1
+        candidates = list(parsed.get("candidates") or ())
+        counters["semantic_extracted"] = int(
+            counters.get("semantic_extracted") or 0) + len(candidates)
+        rows_index = {int(r["id"]): r for r in batch_rows}
+        accepted = 0
+        failed_chats: set[int] = set()
+        for candidate in candidates:
+            rejection = semantic_rejection(candidate)
+            if rejection is not None:
+                self._reject_semantic(counters, rejection)
+                continue
+            result = await self._write_semantic_candidate(
+                candidate, rows_index, counters)
+            if result == SEMANTIC_WRITE_ACCEPTED:
+                accepted += 1
+            elif result == SEMANTIC_WRITE_FAILED:
+                # EXP-FIX-04: durable запись не состоялась — батч не считается
+                # обработанным; позиция чата стоит, повтор идемпотентен.
+                counters["semantic_write_failures"] = int(
+                    counters.get("semantic_write_failures") or 0) + 1
+                for msg_id in candidate.get("msg_ids") or ():
+                    row = rows_index.get(int(msg_id))
+                    if row is not None:
+                        failed_chats.add(int(row["chat_id"]))
+        counters["semantic_candidates"] = int(
+            counters.get("semantic_candidates") or 0) + accepted
+        booked: set[int] = set()
+        blocked: set[int] = set()
+        for chat_id, window in windows.items():
+            cid = int(chat_id)
+            if cid in failed_chats:
+                blocked.add(cid)             # retry без потери кандидата
+                if lane == "fresh":
+                    self._defer_semantic_fresh_lane(
+                        payload, cid, reason="write_failed", now=now,
+                        rows_seen=len(window.get("rows") or ()))
+                continue
+            if lane == "fresh":
+                self._book_semantic_fresh_window(
+                    payload, cid,
+                    advanced_to=int(window.get("last_id") or 0),
+                    consumed=int(window.get("read") or 0), now=now)
+                counters["semantic_fresh_rows"] = int(
+                    counters.get("semantic_fresh_rows") or 0) + int(
+                    window.get("read") or 0)
+            else:
+                self._book_semantic_window(
+                    payload, cid,
+                    advanced_to=int(window.get("last_id") or 0),
+                    consumed=int(window.get("read") or 0), now=now)
+                counters["semantic_throughput_rows"] = int(
+                    counters.get("semantic_throughput_rows") or 0) + int(
+                    window.get("read") or 0)
+                if self._maybe_merge_semantic_fresh_lane(payload, cid):
+                    counters["semantic_fresh_lanes_merged"] = int(
+                        counters.get("semantic_fresh_lanes_merged") or 0
+                    ) + 1
+            self._clear_semantic_retry(payload, cid)
+            booked.add(cid)
+        return {"emitted": True, "booked": booked, "blocked": blocked}
+
+    def _semantic_window_limit(self, payload: dict, chat_id, default: int) -> int:
+        """Действующий предел окна чата (durable уменьшение после обрезки)."""
+        try:
+            info = (payload.get(SEMANTIC_RETRY_KEY) or {}).get(
+                str(int(chat_id))) or {}
+            limit = int(info.get("row_limit") or default)
+        except (TypeError, ValueError):
+            limit = int(default)
+        return max(1, min(int(default), limit))
+
+    def _defer_truncated_semantic_chat(self, payload: dict, chat_id, *,
+                                       window: dict, counters: dict,
+                                       now: int) -> None:
+        """Durable причина обрезки + меньшее окно + bounded backoff.
+
+        Курсор не двигается. На следующем проходе чат читается меньшим окном
+        (`row_limit`), поэтому одно и то же отказавшееся окно не повторяется
+        вечно; после `SEMANTIC_RETRY_MAX_ATTEMPTS` — потолок backoff, данные
+        остаются durable."""
+        cid = int(chat_id)
+        key = str(cid)
+        info = dict((payload.setdefault(SEMANTIC_TRUNCATED_KEY, {})
+                     ).get(key) or {})
+        info.update({
+            "count": int(info.get("count") or 0) + 1,
+            "last_at": int(now),
+            "reason": SEMANTIC_TRUNCATED_REASON,
+            "rows": int(len(window.get("rows") or ())),
+            "budget_rows": int(window.get("read") or 0),
+        })
+        (payload.setdefault(SEMANTIC_TRUNCATED_KEY, {}))[key] = info
+        rows_seen = max(1, int(len(window.get("rows") or ())
+                               or window.get("read") or 1))
+        current = self._semantic_window_limit(
+            payload, cid, max(1, int(window.get("read") or rows_seen)))
+        next_limit = max(1, min(current, (rows_seen + 1) // 2))
+        self._defer_semantic_chat(
+            payload, cid, reason=SEMANTIC_TRUNCATED_REASON, now=now)
+        retry = payload.setdefault(SEMANTIC_RETRY_KEY, {})
+        entry = dict(retry.get(key) or {})
+        entry["row_limit"] = int(next_limit)
+        entry["reason"] = SEMANTIC_TRUNCATED_REASON
+        retry[key] = entry
+        counters["semantic_truncated_chats"] = int(
+            counters.get("semantic_truncated_chats") or 0) + 1
+
+    # ── E-LAG: fresh-полоса внутри того же job/экстрактора ─────────────────
+
+    @staticmethod
+    def _fresh_lanes(payload: dict) -> dict:
+        value = payload.get(SEMANTIC_FRESH_KEY)
+        return value if isinstance(value, dict) else {}
+
+    def _semantic_fresh_lanes(self, payload: dict) -> list[int]:
+        out: list[int] = []
+        for key, lane in self._fresh_lanes(payload).items():
+            if not isinstance(lane, dict):
+                continue
+            try:
+                cid = int(key)
+                if int(lane.get("boundary") or 0) > 0:
+                    out.append(cid)
+            except (TypeError, ValueError):
+                continue
+        return sorted(out)
+
+    def _semantic_fresh_lane(self, payload: dict, chat_id) -> dict | None:
+        lane = self._fresh_lanes(payload).get(str(int(chat_id)))
+        return lane if isinstance(lane, dict) else None
+
+    def _activate_semantic_fresh_lanes(self, payload: dict, behind: dict,
+                                       *, counters: dict, now: int) -> None:
+        """Включить/слить свежую полосу при отстающем хвосте (E-LAG).
+
+        Граница = `MAX(id)` на момент включения: старый хвост дренируется
+        строго до неё, новые события — после. Оба курсора durable; второго
+        job/экстрактора/очереди нет. Если старый курсор дошёл до границы,
+        остаётся одна позиция (слияние), чтобы не плодить состояние."""
+        threshold = _hot_int("memory.experience_semantic_fresh_lane_lag_rows",
+                             SEMANTIC_FRESH_LANE_LAG_ROWS, 1, 1_000_000)
+        lanes = self._fresh_lanes(payload)
+        for key, lane in list(lanes.items()):
+            if not isinstance(lane, dict):
+                lanes.pop(key, None)
+                continue
+            try:
+                cid = int(key)
+                main = int(payload.get(f"{SEMANTIC_CURSOR_PREFIX}{cid}") or 0)
+                boundary = int(lane.get("boundary") or 0)
+            except (TypeError, ValueError):
+                lanes.pop(key, None)
+                continue
+            if boundary and main >= boundary - 1:
+                self._merge_semantic_fresh_lane(payload, cid)
+        for raw_chat_id, max_id in (behind or {}).items():
+            try:
+                cid = int(raw_chat_id)
+                main = int(payload.get(f"{SEMANTIC_CURSOR_PREFIX}{cid}") or 0)
+                top = int(max_id or 0)
+            except (TypeError, ValueError):
+                continue
+            if self._semantic_fresh_lane(payload, cid) is not None:
+                continue
+            if top - main <= int(threshold):
+                continue
+            # boundary — ПЕРВЫЙ id свежей полосы; курсор хранит последний
+            # обработанный id (top-1), поэтому строка top не теряется.
+            lanes[str(cid)] = {"boundary": int(top),
+                               "cursor": max(0, int(top) - 1)}
+            counters["semantic_fresh_lanes"] = int(
+                counters.get("semantic_fresh_lanes") or 0) + 1
+
+    def _merge_semantic_fresh_lane(self, payload: dict, chat_id) -> int:
+        """Слить fresh-курсор с основным, когда старый хвост дошёл до границы.
+
+        Курсоры хранят ПОСЛЕДНИЙ обработанный id: старый хвост завершён при
+        ``main >= boundary - 1``. Слияние берёт max(main, fresh), поэтому уже
+        обработанная свежая часть не отправляется повторно, а непройденная —
+        остаётся в основной позиции (без потери строки boundary)."""
+        cid = int(chat_id)
+        lanes = self._fresh_lanes(payload)
+        lane = lanes.pop(str(cid), None)
+        if not isinstance(lane, dict):
+            return 0
+        try:
+            main = int(payload.get(f"{SEMANTIC_CURSOR_PREFIX}{cid}") or 0)
+            fresh = int(lane.get("cursor") or 0)
+            boundary = int(lane.get("boundary") or 0)
+        except (TypeError, ValueError):
+            return 0
+        if boundary and main >= boundary - 1:
+            merged = max(int(main), int(fresh))
+            payload[f"{SEMANTIC_CURSOR_PREFIX}{cid}"] = int(merged)
+            return int(merged)
+        lanes[str(cid)] = lane          # не дошли до границы — полоса живёт
+        return int(main)
+
+    def _maybe_merge_semantic_fresh_lane(self, payload: dict, chat_id) -> bool:
+        lane = self._semantic_fresh_lane(payload, chat_id)
+        if lane is None:
+            return False
+        try:
+            main = int(payload.get(
+                f"{SEMANTIC_CURSOR_PREFIX}{int(chat_id)}") or 0)
+            boundary = int(lane.get("boundary") or 0)
+        except (TypeError, ValueError):
+            return False
+        if boundary and main >= boundary - 1:
+            self._merge_semantic_fresh_lane(payload, chat_id)
+            return True
+        return False
+
+    def _behind_satisfied(self, payload: dict, chat_id, behind: dict) -> bool:
+        """Оба курсора догнали измеренный max_id (tail и fresh).
+
+        Для split-чата недостаточно `fresh >= top`: старый хвост
+        `[main, boundary)` ещё не дренирован, поэтому behind сохраняется до
+        `main >= boundary - 1`."""
+        cid = int(chat_id)
+        top = int(behind.get(cid) or 0)
+        if not top:
+            return True
+        try:
+            main = int(payload.get(f"{SEMANTIC_CURSOR_PREFIX}{cid}") or 0)
+        except (TypeError, ValueError):
+            main = 0
+        lane = self._semantic_fresh_lane(payload, cid)
+        if lane is not None:
+            try:
+                boundary = int(lane.get("boundary") or 0)
+                fresh = int(lane.get("cursor") or 0)
+            except (TypeError, ValueError):
+                return main >= top
+            return main >= max(0, boundary - 1) and fresh >= top
+        return main >= top
+
+    def _book_semantic_fresh_window(self, payload: dict, chat_id, *,
+                                    advanced_to: int, consumed: int,
+                                    now: int) -> None:
+        """Сдвинуть только fresh-курсор + честно уменьшить pending."""
+        cid = int(chat_id)
+        lane = self._semantic_fresh_lane(payload, cid)
+        if lane is None:
+            return
+        current = int(lane.get("cursor") or 0)
+        new_pos = max(current, int(advanced_to or 0))
+        lane["cursor"] = int(new_pos)
+        if new_pos > current:
+            # Успешная обработка снимает backoff/уменьшение окна: причина
+            # обрезки остаётся только в durable-истории (`semantic_truncation`).
+            for key in ("attempts", "retry_at", "row_limit", "reason"):
+                lane.pop(key, None)
+        pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
+        left = max(0, int(pending.get(str(cid)) or 0)
+                   - max(0, int(consumed or 0)))
+        if left:
+            pending[str(cid)] = left
+        else:
+            self._reset_semantic_pending(payload, cid)
+        if new_pos > current:
+            payload.setdefault(SEMANTIC_LAST_TS_KEY, {})[str(cid)] = int(now)
+
+    def _defer_semantic_fresh_lane(self, payload: dict, chat_id, *,
+                                   reason: str, now: int,
+                                   rows_seen: int = 0) -> None:
+        """Fresh-полоса не блокирует старый хвост: durable backoff только её."""
+        cid = int(chat_id)
+        lane = self._semantic_fresh_lane(payload, cid)
+        if lane is None:
+            return
+        attempts = int(lane.get("attempts") or 0) + 1
+        delay = min(int(SEMANTIC_RETRY_MAX_SECONDS),
+                    int(SEMANTIC_RETRY_BASE_SECONDS)
+                    * (2 ** min(max(0, attempts - 1), 8)))
+        update = {"attempts": attempts, "retry_at": int(now) + delay,
+                  "reason": str(reason)[:40]}
+        if int(rows_seen or 0) > 0:
+            current = int(lane.get("row_limit") or rows_seen)
+            update["row_limit"] = max(
+                1, min(current, (int(rows_seen) + 1) // 2))
+        lane.update(update)
+
+    def _fresh_lane_ready(self, payload: dict, chat_id, now: int) -> bool:
+        lane = self._semantic_fresh_lane(payload, chat_id)
+        if lane is None:
+            return False
+        try:
+            return int(lane.get("retry_at") or 0) <= int(now)
+        except (TypeError, ValueError):
+            return True
+
+    async def _semantic_fresh_batch(self, payload: dict, *, now: int,
+                                    counters: dict, capability,
+                                    chats_per_batch: int, per_chat_max: int,
+                                    row_cap: int) -> dict:
+        """Один bounded fresh-батч за проход: новые события при отстающем хвосте."""
+        lanes = [cid for cid in self._semantic_fresh_lanes(payload)
+                 if self._fresh_lane_ready(payload, cid, now)]
+        if not lanes:
+            return {"batch": False}
+        order = self._semantic_chat_order(
+            payload, now=now,
+            behind={cid: int((self._semantic_fresh_lane(payload, cid)
+                              or {}).get("cursor") or 0) for cid in lanes})
+        fresh_order = [cid for cid in order if cid in set(lanes)]
+        batch_rows: list[dict] = []
+        windows: dict[int, dict] = {}
+        for cid in fresh_order[:chats_per_batch]:
+            remaining = int(row_cap) - len(batch_rows)
+            if remaining <= 0:
+                break
+            lane = self._semantic_fresh_lane(payload, cid) or {}
+            limit = min(int(per_chat_max), remaining,
+                        int(lane.get("row_limit") or per_chat_max))
+            window = await self._semantic_window(
+                payload, cid, limit=limit,
+                after_id=int(lane.get("cursor") or 0))
+            state = str(window.get("state") or "")
+            if state in ("disabled", "error", "empty"):
+                if state == "disabled":
+                    self._merge_semantic_fresh_lane(payload, cid)
+                continue
+            counters["semantic_rows_read"] = int(
+                counters.get("semantic_rows_read") or 0) + int(
+                window.get("read") or 0)
+            if not window.get("rows"):
+                counters["semantic_rows_ineligible"] = int(
+                    counters.get("semantic_rows_ineligible") or 0) + int(
+                    window.get("skipped") or 0)
+                self._book_semantic_fresh_window(
+                    payload, cid,
+                    advanced_to=int(window.get("last_id") or 0),
+                    consumed=int(window.get("read") or 0), now=now)
+                counters["semantic_fresh_rows"] = int(
+                    counters.get("semantic_fresh_rows") or 0) + int(
+                    window.get("read") or 0)
+                continue
+            windows[cid] = window
+            batch_rows.extend(window["rows"])
+        if not batch_rows:
+            return {"batch": False}
+        counters["semantic_fresh_batches"] = int(
+            counters.get("semantic_fresh_batches") or 0) + 1
+        counters["semantic_selected"] = int(
+            counters.get("semantic_selected") or 0) + len(batch_rows)
+        call = await self._semantic_invoke(
+            batch_rows, capability=capability, counters=counters)
+        state = str(call.get("state") or "")
+        if state == "truncated":
+            for cid, window in windows.items():
+                self._defer_semantic_fresh_lane(
+                    payload, cid, reason=SEMANTIC_TRUNCATED_REASON, now=now,
+                    rows_seen=len(window.get("rows") or ()))
+            return {"batch": True, "emitted": False}
+        if state != "ok":
+            counters["semantic_llm_unavailable"] = int(
+                counters.get("semantic_llm_unavailable") or 0) + 1
+            return {"batch": True, "emitted": False}
+        consumed = await self._consume_semantic_batch(
+            payload, parsed=parse_semantic_candidates_typed(call.get("raw")),
+            batch_rows=batch_rows, windows=windows, lane="fresh",
+            counters=counters, now=now)
+        return {"batch": True, "emitted": bool(consumed.get("emitted"))}
 
     def _semantic_chat_order(self, payload: dict, *, now: int,
                             behind: dict | None = None) -> list[int]:
@@ -2289,6 +3159,11 @@ class ExperienceReviewRunner:
                 ids.add(int(key))
             except (TypeError, ValueError):
                 continue
+        for key in (payload.get(SEMANTIC_FRESH_KEY) or {}):
+            try:
+                ids.add(int(key))
+            except (TypeError, ValueError):
+                continue
         return sorted(ids)
 
     async def _chat_max_message_id(self, chat_id: int) -> int:
@@ -2301,8 +3176,26 @@ class ExperienceReviewRunner:
             return 0
         return int(row["id"])
 
-    async def _chat_rows_after(self, chat_id: int,
-                               cursor_pos: int) -> tuple[int, int]:
+    async def _global_max_message_id(self) -> int:
+        """MAX(id) всей таблицы (cheap PK reverse) для catch-up discovery.
+
+        Это НЕ lag: разрыв watermark↔MAX(id) выбирает лишь размер bounded
+        скана; честный lag считается COUNT после курсоров. Ошибка чтения →
+        0 (обычный предел discovery, без падения прохода)."""
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT id FROM smart_messages ORDER BY id DESC LIMIT 1")
+            row = await cursor.fetchone()
+        except Exception:
+            logger.debug("[mca16] global max id probe failed", exc_info=True)
+            return 0
+        if row is None or row["id"] is None:
+            return 0
+        return int(row["id"])
+
+    async def _chat_rows_after(self, chat_id: int, cursor_pos: int,
+                               *, before_id: int | None = None
+                               ) -> tuple[int, int]:
         """Строки чата после durable-курсора и метка самой старой из них.
 
         Один проход по PK-диапазону `id > cursor` с фильтром `chat_id`:
@@ -2310,12 +3203,16 @@ class ExperienceReviewRunner:
         возраст самой старой необработанной реплики. Обе величины из одного
         измеренного источника (SXR-I2 F2: `lag_seconds` не должен оставаться
         pending-based и не должен превращаться в 0 при неизвестности).
+        E-LAG: `before_id` ограничивает старый хвост границей fresh-полосы,
+        поэтому уже обработанные свежие строки не выдаются за lag.
         Отсутствие строк → ``(0, 0)``; NULL/0 timestamp → возраст неизвестен.
         """
+        before = int(before_id) if before_id else None
         cursor = await self._db.db.execute(
             "SELECT COUNT(*) AS c, MIN(timestamp) AS oldest "
-            "FROM smart_messages WHERE chat_id = ? AND id > ?",
-            (int(chat_id), int(cursor_pos)))
+            "FROM smart_messages WHERE chat_id = ? AND id > ? "
+            "AND (? IS NULL OR id < ?)",
+            (int(chat_id), int(cursor_pos), before, before))
         row = await cursor.fetchone()
         if row is None:
             return 0, 0
@@ -2395,9 +3292,24 @@ class ExperienceReviewRunner:
         worst: tuple[int, int, int, int] | None = None
         for chat_id, max_id in ordered[:int(SEMANTIC_LAG_MEASURE_MAX_CHATS)]:
             cursor_pos = _cursor_of(chat_id)
+            lane = self._semantic_fresh_lane(payload, chat_id)
             try:
-                count, chat_oldest = await self._chat_rows_after(
-                    chat_id, cursor_pos)
+                if lane is not None:
+                    # E-LAG: непройденное = старый хвост до границы +
+                    # свежая полоса после её курсора. Уже обработанные свежие
+                    # строки не считаются отставанием (честный COUNT).
+                    count, chat_oldest = await self._chat_rows_after(
+                        chat_id, cursor_pos,
+                        before_id=int(lane.get("boundary") or 0) or None)
+                    fresh_count, fresh_oldest = await self._chat_rows_after(
+                        chat_id, int(lane.get("cursor") or 0))
+                    count += fresh_count
+                    if fresh_oldest > 0 and (
+                            not chat_oldest or fresh_oldest < chat_oldest):
+                        chat_oldest = fresh_oldest
+                else:
+                    count, chat_oldest = await self._chat_rows_after(
+                        chat_id, cursor_pos)
             except Exception:
                 failed += 1
                 logger.warning(
@@ -2529,6 +3441,11 @@ class ExperienceReviewRunner:
         поэтому ни одно сообщение не теряется (backpressure на существующем
         хранилище, без второй очереди). Следующие строки будут обнаружены,
         когда индекс освободится.
+
+        E-LAG (22.11.2026): при разрыве watermark↔MAX(id) выше обычного
+        предела тот же SELECT читает bounded catch-up порцию (5k). Иначе
+        discovery отставал на годы и «невидимый» хвост не попадал в
+        планировщик; это не второй discovery и не лаг-подмена.
         """
         now = int(time.time()) if now is None else int(now)
         counters = payload["counters"]
@@ -2536,9 +3453,15 @@ class ExperienceReviewRunner:
         cap = semantic_pending_chat_cap()
         pending = payload.setdefault(SEMANTIC_PENDING_KEY, {})
         since = payload.setdefault(SEMANTIC_PENDING_SINCE_KEY, {})
+        limit = semantic_discovery_limit()
+        top = await self._global_max_message_id()
+        if int(top or 0) - watermark > int(limit):
+            limit = max(int(limit), int(semantic_discovery_catchup_limit()))
+            counters["semantic_discovery_catchup"] = int(
+                counters.get("semantic_discovery_catchup") or 0) + 1
         cursor = await self._db.db.execute(
             "SELECT id, chat_id, timestamp FROM smart_messages WHERE id > ? "
-            "ORDER BY id LIMIT ?", (watermark, SEMANTIC_DISCOVERY_LIMIT))
+            "ORDER BY id LIMIT ?", (watermark, int(limit)))
         rows = [dict(r) for r in await cursor.fetchall()]
         discovered = 0
         for row in rows:
@@ -2597,8 +3520,14 @@ class ExperienceReviewRunner:
             "rowid": 0, "last_ts": 0, "coverage_year": None})
 
     async def _semantic_window(self, payload: dict, chat_id: int, *,
-                               limit: int | None = None) -> dict:
+                               limit: int | None = None,
+                               before_id: int | None = None,
+                               after_id: int | None = None) -> dict:
         """Bounded окно чата с честным учётом прочитанного (EXP-FIX-03).
+
+        E-LAG: `before_id` ограничивает старый хвост границей fresh-полосы,
+        `after_id` читает свежую полосу от её durable-курсора. Оба варианта —
+        тот же SELECT/учёт; второго экстрактора нет.
 
         Возврат: {"state": ok|empty|disabled|error, "rows": пригодные,
         "read": прочитано строк, "skipped": отфильтровано структурно,
@@ -2609,6 +3538,9 @@ class ExperienceReviewRunner:
         cid = int(chat_id)
         key = f"{SEMANTIC_CURSOR_PREFIX}{cid}"
         cursor_pos = int(payload.get(key) or 0)
+        if after_id is not None:
+            cursor_pos = max(cursor_pos, int(after_id))
+        before = int(before_id) if before_id else None
         pending_now = int((payload.get(SEMANTIC_PENDING_KEY) or {})
                           .get(str(cid)) or 0)
         if not await learning_enabled_for_chat(cid):
@@ -2619,8 +3551,9 @@ class ExperienceReviewRunner:
             cursor = await self._db.db.execute(
                 "SELECT id, chat_id, user_id, text, author_name, timestamp, "
                 "reply_to_id, media_type, is_forward FROM smart_messages "
-                "WHERE chat_id = ? AND id > ? ORDER BY id LIMIT ?",
-                (cid, cursor_pos, limit))
+                "WHERE chat_id = ? AND id > ? "
+                "AND (? IS NULL OR id < ?) ORDER BY id LIMIT ?",
+                (cid, cursor_pos, before, before, limit))
             rows = [dict(r) for r in await cursor.fetchall()]
         except Exception:
             logger.warning("[mca16] semantic window read failed | chat=%s",
@@ -2657,28 +3590,21 @@ class ExperienceReviewRunner:
         except Exception:
             last_id = cursor_pos
         payload[key] = max(cursor_pos, last_id)
+        self._fresh_lanes(payload).pop(str(int(chat_id)), None)
         self._reset_semantic_pending(payload, chat_id)
         self._clear_semantic_retry(payload, chat_id)
 
     async def _semantic_llm_batch(self, rows: list[dict]):
-        """ОДИН LLM-вызов на батч (bounded); None → недоступность."""
-        messages = [
-            {"role": "system", "content": SEMANTIC_SYSTEM_PROMPT},
-            {"role": "user", "content": build_semantic_user_prompt(rows)},
-        ]
-        try:
-            import asyncio as _asyncio
-            return await _asyncio.wait_for(
-                self._llm.generate(
-                    messages, temperature=0.1, module="experience",
-                    step="semantic_extract",
-                    correlation_id=uuid.uuid4().hex[:16],
-                    max_output_tokens=SEMANTIC_BATCH_MAX_TOKENS),
-                timeout=90)
-        except Exception:
-            logger.warning("[mca16] semantic batch failed — retry next "
-                           "pass", exc_info=True)
-            return None
+        """Совместимость: сырой текст успешного вызова либо None.
+
+        Explicit backfill (`run_semantic_backfill`) использует этот фасад;
+        семантический проход — `_semantic_invoke` (там классификация обрезки
+        и контролируемый retry)."""
+        capability = await self._semantic_capability()
+        call = await self._semantic_invoke(rows, capability=capability)
+        if str(call.get("state")) == "ok":
+            return call.get("raw")
+        return None
 
     def _semantic_source_kind(self, author_user_id) -> str:
         try:
