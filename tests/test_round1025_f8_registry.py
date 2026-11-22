@@ -274,7 +274,14 @@ ROUTES_SHA256_F11 = (
     # RAM-кэше и pg_available=false. Это не рефакторинг и не новые endpoint'ы;
     # новых полей/флагов/DDL нет. Хэш переутверждён осознанно (L-F11S-1),
     # routes-инвентарь f8_baseline не менялся.
-    "70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2")
+    # MOD-ACL-UX-01 M4C ACL-hardening S1/S2 (22.11.2026): routes.py re-pin —
+    # 5 write-маршрутов ACL (`POST /api/admins`, `POST /api/admins/remove`,
+    # `POST /api/roles`, `DELETE /api/roles/{name}`,
+    # `POST /api/roles/{name}/rename`) переведены с section.access на
+    # effective-global-admin guard + инварианты назначенных админов (I1/I2) и
+    # per-app lock. Δ routes=0 (декораторы/пути не менялись), новых полей/
+    # флагов/DDL нет, schema v48. Осознанная Δ хэша (L-F11S-1).
+    "453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

@@ -105,7 +105,11 @@ ROUTES_SHA256_F11 = (
     # 503-guard'а (GET /api/roles, /api/admins, /api/roles/tree) при пустом
     # кэше и pg_available=false; Δ routes=0, без полей/флагов/DDL. Канон
     # пина — tests/test_round1025_f8_registry.py (L-F11S-1).
-    "70875819c728e9da618194476a6d063cc291de375935ae1cc64f405b94cf56c2")
+    # MOD-ACL-UX-01 M4C ACL-hardening S1/S2 (22.11.2026): routes.py re-pin —
+    # 5 write-маршрутов ACL только для effective global admin + S2-инварианты
+    # назначенных админов и per-app lock; Δ routes=0, DDL=0. Канон пина —
+    # tests/test_round1025_f8_registry.py (L-F11S-1).
+    "453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5")
 
 
 @pytest.fixture(autouse=True)

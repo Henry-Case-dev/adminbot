@@ -11474,6 +11474,10 @@
                 <div class="modal-body">
             <div class="card p-4" id="sec-admins">
                 <div class="text-sm font-bold mb-2">Роли</div>
+                <!-- MOD-ACL-UX-01 M4C S1: мутации ACL — только global admin;
+                     non-global видит список read-only (честная подпись). -->
+                <div v-if="!isGlobalAdmin" class="text-xs text-gray-400 mb-2"
+                     data-admins-readonly>Только просмотр</div>
                 <div v-if="adminsLoading" class="spinner"></div>
                 <div v-else>
                   <div v-for="admin in admins" :key="admin.telegram_id"
@@ -11491,11 +11495,11 @@
                       </div>
                       <span class="badge badge-info ml-2 shrink-0">{{ admin.role_name }}</span>
                     </div>
-                    <button class="btn-ghost text-xs text-red-300 shrink-0" @click="removeAdmin(admin.telegram_id)">Удалить</button>
+                    <button v-if="isGlobalAdmin" class="btn-ghost text-xs text-red-300 shrink-0" @click="removeAdmin(admin.telegram_id)">Удалить</button>
                   </div>
                   <div v-if="admins.length === 0" class="text-gray-500 text-sm py-2">Список пуст.</div>
                 </div>
-                <div class="mt-3 flex gap-2 flex-wrap">
+                <div v-if="isGlobalAdmin" class="mt-3 flex gap-2 flex-wrap">
                   <input class="field flex-1 min-w-0" type="number" placeholder="Telegram ID" v-model="newAdminId">
                   <select class="field w-24" v-model="newAdminRole">
                     <option v-for="role in rolesList" :key="role.role_name" :value="role.role_name">{{ role.role_name }}</option>
