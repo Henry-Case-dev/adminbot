@@ -643,6 +643,24 @@ class TestGlobalMatrix:
         assert item["updated_at"].startswith("2026-11-22T12:00:20")
         assert item["default"] is False
 
+    def test_get_legacy_partial_override_keeps_effective_semantics(
+            self, monkey_settings):
+        """C3: updated_at читается из snapshot, но effective_matrix по-прежнему
+        получает СЫРОЕ легаси-значение (missing-поля наследуют дефолт)."""
+        db = FakeDB()
+        db.param_perms[SECOND_KEY] = {
+            "value": {"view_min_role": "moderator"},
+            "updated_at": "2026-11-22T12:10:00+00:00",
+        }
+        client = _client(_cache(db), monkey_settings)
+        item = client.get("/api/access/param_permissions",
+                          headers=_hdr()).json()["items"][SECOND_KEY]
+        # view_min_role=moderator → [moderator, local_admin]; edit не задан →
+        # наследуется из дефолта (local_admin), view |= edit.
+        assert item["view_roles"] == ["moderator", "local_admin"]
+        assert item["edit_roles"] == ["local_admin"]
+        assert item["updated_at"].startswith("2026-11-22T12:10:00")
+
     def test_expect_absent_conflict_override_exists(self, monkey_settings):
         db = FakeDB()
         client = _client(_cache(db), monkey_settings)
