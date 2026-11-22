@@ -1,0 +1,11 @@
+{
+  "deployed_at": "2026-11-22T12:24:35.528044Z",
+  "deployed_sha": "ab66b66e7d5995978efd882c75a06434cd1c4dec",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "f4ad6902f92a025f62f0054efb0e85c8c64b3844",
+  "previous_version": "2.58.235",
+  "release_branch": "release/exp-e-trunc-lag-2.58.236",
+  "schema": 1,
+  "version": "2.58.236"
+}

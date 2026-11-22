@@ -1,0 +1,2 @@
+﻿python -m pytest <18 related experience files> -q -k "not deep_sleep_not_mixed_with_lessons"
+296 passed, 1 deselected, 1 warning in 56.68s

@@ -1,0 +1,110 @@
+{
+  "schema": "release-evidence-v1",
+  "release": "2.58.236",
+  "version": "2.58.236",
+  "base_version": "2.58.235",
+  "base_sha": "f4ad6902f92a025f62f0054efb0e85c8c64b3844",
+  "base_content": "b1036c53d26350c36b15e75d172f7008eb49a59f",
+  "catastrophic_fallback": "56e2450d2c02e3d8ac595b9a412a121127f57b57",
+  "b03_candidate": "66ed5cd28363a1ab7b4074f838126b1d0135fcfe",
+  "b03_fix": "2b5347af46fd0a1520a2c7e5c51dbb05f6cad967",
+  "review": {
+    "commit": "e91c9ccfc",
+    "verdict": "APPROVED_FOR_RELEASE_PREPARATION",
+    "closed": ["B03"],
+    "non_blocking": ["EXP-E-B03-N01", "EXP-E-B03-N02", "EXP-E-B03-N03"],
+    "rfl": "exact worker_lost trigger; production lag/model 8192"
+  },
+  "branch": "release/exp-e-trunc-lag-2.58.236",
+  "content_tip": "145f9a67a6ca09465177d3fb8b88aa4bfef9b369",
+  "bump_commit": "ab66b66e7d5995978efd882c75a06434cd1c4dec",
+  "cherry_picks": [
+    ["2b5347af4", "8db82e5db"],
+    ["66ed5cd28", "145f9a67a"]
+  ],
+  "equality": {
+    "product_command": "git diff --quiet 66ed5cd28 HEAD -- services/mca_experience_jobs.py tests/test_exp_e_trunc_lag_amendment.py tests/test_sxr_i2_fresh_stream_drain.py",
+    "product_exit": 0,
+    "merges": 0
+  },
+  "bump": {
+    "files": 32,
+    "insertions": 35,
+    "deletions": 35,
+    "app_version": "2.58.236",
+    "bom": true,
+    "crlf": true,
+    "remaining_2_58_235": "historical only (Prior 2.58.235, release-2.58.235 evidence, B03 evidence context)"
+  },
+  "ddl": {
+    "sqlite_user_version": 48,
+    "pg_ddl": 0,
+    "schema_files_changed": [],
+    "deploy": "code-only"
+  },
+  "checks": [
+    {
+      "id": "exp-e-b03",
+      "command": "python -m pytest tests/test_exp_e_trunc_lag_amendment.py -q",
+      "passed": 17,
+      "failed": 0,
+      "seconds": 13.4
+    },
+    {
+      "id": "experience-related-18",
+      "command": "python -m pytest <18 related experience files> -q -k 'not deep_sleep_not_mixed_with_lessons'",
+      "passed": 296,
+      "failed": 0,
+      "deselected": 1,
+      "seconds": 56.68
+    },
+    {
+      "id": "version-pins-24-py",
+      "command": "python -m pytest <24 version-pin tests/*.py> -q",
+      "passed": 856,
+      "failed": 4,
+      "seconds": 85.99,
+      "pre_existing": true,
+      "pre_existing_node_ids": [
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+        "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+        "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+        "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+      ],
+      "pre_existing_proof": "same 4 node IDs documented for base 2.58.235 (release-2.58.235/tests-2.58.235.json) and reproduced on 56e2450d2; untouched by B03"
+    },
+    {
+      "id": "js-pins",
+      "result": "HOTFIX7/8/9/10 OK"
+    },
+    {
+      "id": "schema-smoke",
+      "result": "sqlite_user_version=48"
+    },
+    {
+      "id": "static",
+      "py_compile": 0,
+      "git_diff_check": 0,
+      "plan_gate": "stage=plan inventory=15 manual=2 scoped=0 errors=0"
+    }
+  ],
+  "manifest": {
+    "artifact": "manifest-dry-run.json",
+    "deployed_sha": "ab66b66e7d5995978efd882c75a06434cd1c4dec",
+    "version": "2.58.236",
+    "previous_sha": "f4ad6902f92a025f62f0054efb0e85c8c64b3844",
+    "previous_version": "2.58.235",
+    "dirty_tracked": false
+  },
+  "rollback": {
+    "primary_sha": "f4ad6902f92a025f62f0054efb0e85c8c64b3844",
+    "primary_version": "2.58.235",
+    "mode": "code-only",
+    "catastrophic_fallback": "56e2450d2",
+    "manual_ddl": false
+  },
+  "rfl": [
+    "exact worker_lost trigger (registry/watchdog vs heartbeat) not reproduced",
+    "production lag/throughput and model behavior at 8192 only after deploy, bounded 2-3 passes"
+  ]
+}
