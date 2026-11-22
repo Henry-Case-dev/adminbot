@@ -223,6 +223,10 @@ async def param_permissions_snapshot(pg) -> dict[str, dict]:
                 value = {}
         out[r["key"]] = {
             "value": normalize_permission_override(value),
+            # C3: сырое значение для GET матрицы — сохранение легаси-семантики
+            # effective_matrix (missing-поля наследуются из дефолта). C2
+            # preview продолжает читать нормализованный `value`.
+            "raw_value": value if isinstance(value, dict) else {},
             "updated_at": _snapshot_ts(r.get("updated_at")),
         }
     return out

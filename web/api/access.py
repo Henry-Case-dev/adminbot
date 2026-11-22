@@ -575,7 +575,7 @@ async def param_permissions_list(
             continue
         entry = snapshot.get(spec.pg_key)
         matrix = access_srv.effective_matrix(
-            spec.pg_key, (entry or {}).get("value"))
+            spec.pg_key, (entry or {}).get("raw_value"))
         matrix["default"] = entry is None
         # C3: момент записи глобального override (None — строки нет или
         # легаси-значение без метки); момент из того же строгого SELECT.
