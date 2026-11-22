@@ -114,6 +114,45 @@ class _RecordingLLM:
         return "[]"
 
 
+class _SizeAwareLLM(_RecordingLLM):
+    """Обрезает большие окна (reasoning-only), малые — валидный []."""
+
+    def __init__(self, truncate_at: int = 10):
+        super().__init__()
+        self.truncate_at = int(truncate_at)
+
+    async def generate(self, messages, **kwargs):
+        self.calls += 1
+        ids = _msg_ids(messages)
+        self.batches.append(ids)
+        if len(ids) >= self.truncate_at:
+            raise _truncation_error()
+        return "[]"
+
+
+async def _latest_terminal_job(db) -> tuple[str, dict]:
+    """Тот же выбор, что `_inherit_cursor`: последний терминальный job."""
+    cursor = await db.db.execute(
+        "SELECT job_id, payload FROM task_jobs WHERE kind = ? AND status IN "
+        "('completed','failed','interrupted') "
+        "ORDER BY COALESCE(finished_at, updated_at, created_at) DESC, "
+        "rowid DESC LIMIT 1", (mj.REVIEW_JOB_KIND,))
+    row = await cursor.fetchone()
+    return str(row["job_id"]), json.loads(row["payload"] or "{}")
+
+
+async def _force_tail_retry_due(db, chat_id=-100) -> None:
+    """Сделать tail-backoff истёкшим, не трогая fresh-полосу."""
+    job_id, payload = await _latest_terminal_job(db)
+    entry = (payload.get(mj.SEMANTIC_RETRY_KEY) or {}).get(str(chat_id))
+    assert entry, "tail retry должен существовать"
+    entry["retry_at"] = 0
+    await db.db.execute(
+        "UPDATE task_jobs SET payload = ? WHERE job_id = ?",
+        (json.dumps(payload), job_id))
+    await db.db.commit()
+
+
 async def _db(tmp_path, name="exp_e.db") -> DatabaseService:
     d = DatabaseService(str(tmp_path / name))
     await d.initialize()
@@ -500,6 +539,140 @@ async def test_fresh_lane_merges_without_loss_or_duplicates(tmp_path):
         # архив 1..1000 не потерян и обслуживается archive-механизмом.
         assert set(ids[1000:]).issubset(seen)
         assert payload["counters"]["semantic_fresh_lanes_merged"] >= 1
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+def _tail_batch_sizes(llm, since: int, lo: int = 1001,
+                      hi: int = 5999) -> list[int]:
+    """Размеры ТОЛЬКО tail-батчей (archive ids ≤1000, fresh ids ≥6001)."""
+    return [len(batch) for batch in llm.batches[since:]
+            if any(lo <= mid <= hi for mid in batch)]
+
+
+async def _prepare_tail_truncation_state(db, llm):
+    """6000 строк → fresh-полоса + обрезанный tail (row_limit=25, attempts=1).
+
+    Pass1: fresh читает 1 новый id (успех), tail читает 50 (обрезка, 3 вызова),
+    после чего durable `semantic_retry[row_limit=25, attempts=1]`."""
+    ids = await _msgs(db, 6000)
+    assert await mj.tick_experience_review(db, llm=llm) == "completed"
+    payload = await _payload_of(db)
+    lane = payload[mj.SEMANTIC_FRESH_KEY]["-100"]
+    assert lane["boundary"] == ids[-1]
+    assert lane["cursor"] == ids[-1]
+    retry = payload["semantic_retry"]["-100"]
+    assert retry["reason"] == "truncated_reasoning"
+    assert retry["row_limit"] == 25
+    assert retry["attempts"] == 1
+    assert retry["retry_at"] > int(time.time())
+    assert _cursor(payload) == 1000
+    return ids
+
+
+# ═══ 6b. B01: fresh-успех не стирает tail row_limit/attempts/backoff ══════
+
+@pytest.mark.asyncio
+async def test_fresh_success_does_not_reset_tail_truncation_state(tmp_path):
+    hot_config.set_config_cache(_hot({
+        "memory.experience_semantic_batches_per_run": 2,
+        "memory.experience_semantic_run_budget_seconds": 3600,
+        "memory.experience_semantic_batch_rows_max": 50,
+        "memory.experience_semantic_fresh_lane_lag_rows": 4000,
+    }))
+    db = await _db(tmp_path, "b01.db")
+    try:
+        llm = _SizeAwareLLM(truncate_at=10)
+        ids = await _prepare_tail_truncation_state(db, llm)
+        tail_sizes = _tail_batch_sizes(llm, 0)
+        assert set(tail_sizes) == {50}, tail_sizes
+        expected_limits = [13, 7]
+        for step in range(3):
+            new = await _msgs(db, 2, start=6000 + 2 * step,
+                              prefix=f"in{step}")
+            await _force_tail_retry_due(db)
+            await _next_pass(db)
+            before = len(llm.batches)
+            assert await mj.tick_experience_review(
+                db, llm=llm) == "completed"
+            payload = await _payload_of(db)
+            # Fresh-полоса успешна каждый проход (свежие события не ждут).
+            assert any(set(new).issubset(set(batch))
+                       for batch in llm.batches[before:]), (
+                f"fresh inflow не обработан на шаге {step}")
+            tail_sizes = _tail_batch_sizes(llm, before)
+            if step < 2:
+                # B01: уменьшенное окно хвоста сохранено и применено.
+                assert set(tail_sizes) == {25 if step == 0 else 13}, tail_sizes
+                retry = payload["semantic_retry"]["-100"]
+                assert retry["attempts"] == step + 2
+                assert retry["row_limit"] == expected_limits[step]
+                assert _cursor(payload) == 1000, "обрезанный tail не двигается"
+            else:
+                # 7 строк < порога: durable успех снимает только tail retry.
+                assert tail_sizes == [7]
+                assert payload["semantic_retry"] == {}
+                assert _cursor(payload) == 1007
+        # Ни одно fresh-событие не потеряно/не обработано дважды.
+        seen_new: set[int] = set()
+        for batch in llm.batches:
+            fresh = set(batch) & set(range(6001, 6007))
+            assert not (seen_new & fresh), "fresh-событие обработано дважды"
+            seen_new |= fresh
+        assert seen_new == set(range(6001, 6007))
+    finally:
+        hot_config.set_config_cache(None)
+        await db.close()
+
+
+# ═══ 6c. N01: fresh не ждёт tail backoff (включая restart) ═════════════════
+
+@pytest.mark.asyncio
+async def test_fresh_lane_ignores_tail_backoff_across_restart(tmp_path):
+    hot_config.set_config_cache(_hot({
+        "memory.experience_semantic_batches_per_run": 2,
+        "memory.experience_semantic_run_budget_seconds": 3600,
+        "memory.experience_semantic_batch_rows_max": 50,
+        "memory.experience_semantic_fresh_lane_lag_rows": 4000,
+    }))
+    path = tmp_path / "n01.db"
+    db = await _db(tmp_path, "n01.db")
+    try:
+        llm = _SizeAwareLLM(truncate_at=10)
+        ids = await _prepare_tail_truncation_state(db, llm)
+        new = await _msgs(db, 2, start=6000, prefix="n01")
+        retry_before = (await _payload_of(db))["semantic_retry"]["-100"]
+        await db.close()
+        db = DatabaseService(str(path))
+        await db.initialize()
+        await _next_pass(db)
+        before = len(llm.batches)
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        payload = await _payload_of(db)
+        calls = llm.batches[before:]
+        # N01: tail retry_at ещё в будущем, но fresh обрабатывает новые события.
+        assert retry_before["retry_at"] > int(time.time())
+        assert any(set(new).issubset(set(batch)) for batch in calls), (
+            "fresh-полоса ошибочно ждёт tail backoff")
+        assert _tail_batch_sizes(llm, before) == [], (
+            "tail не должен обходить свой backoff")
+        assert payload[mj.SEMANTIC_FRESH_KEY]["-100"]["cursor"] == new[-1]
+        assert _cursor(payload) == 1000
+        retry = payload["semantic_retry"]["-100"]
+        assert retry["attempts"] == 1
+        assert retry["row_limit"] == 25
+        assert retry["retry_at"] == retry_before["retry_at"]
+        # После истечения backoff tail повторяет уменьшенное окно (не 50).
+        await _force_tail_retry_due(db)
+        await _next_pass(db)
+        before = len(llm.batches)
+        assert await mj.tick_experience_review(db, llm=llm) == "completed"
+        payload = await _payload_of(db)
+        tail_sizes = _tail_batch_sizes(llm, before)
+        assert set(tail_sizes) == {25}, tail_sizes
+        assert payload["semantic_retry"]["-100"]["attempts"] == 2
+        assert payload["semantic_retry"]["-100"]["row_limit"] == 13
     finally:
         hot_config.set_config_cache(None)
         await db.close()
