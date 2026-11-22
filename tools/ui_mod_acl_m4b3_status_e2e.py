@@ -67,7 +67,7 @@ SNAPSHOT_FILE = os.environ.get("MOD_ACL_M4B3_SNAPSHOT", "")
 NOW = 1791900000
 CHAT = -1001234567890
 CHAT_TITLE = "Audit Chat"
-PROD_VERSION = "2.58.234"
+PROD_VERSION = "2.58.235"
 
 # ── Фикстуры (детерминированные; только числа/коды/короткие подписи) ──────
 EXPERIENCE_ITEMS = [
