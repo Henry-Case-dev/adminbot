@@ -1,9 +1,9 @@
-﻿RED control on base 462568ed (2.58.232) with the candidate test file
+﻿RED control on base 462568ed (2.58.232) with the final candidate test file
 base HEAD: 462568ed7662cf5786a543bce8ecb6618e073c87
-test file sha256: e81c6fc626cdaeb00dbf58f67f7b91529b3ed49adda38c7a9b1c834993aeeb3b
+test file sha256: b3c6dcad60bcfdbc6da7bfc9ba7205f6b8eb87ee58d7d80d51f8733f5d6de9b3
 
-== new security tests on base (expected RED) ==
-F...F...F...F...F........................FF..FFF..F...FFFFFFFF           [100%]
+== new security tests on base (expected RED; 1 positive legacy-admin case passes by design) ==
+F...F...F...F...F.........................FF..FFF..F...FFFFFFFF          [100%]
 ============================== warnings summary ===============================
 ..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
   C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
@@ -30,7 +30,7 @@ FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_n
 FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_guard_raises_i2_before_i1
 FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2HelperAntiDrift::test_lock_is_per_app_and_loop_keyed
 FAILED tests/test_mod_acl_ux_m4c_acl_hardening.py::TestS2Concurrency::test_concurrent_self_demotions_leave_one_wildcard_admin
-19 failed, 43 passed, 1 warning in 6.40s
+19 failed, 44 passed, 1 warning in 6.67s
 
 == pin-guard base control (expected 856 passed / 4 pre-existing) ==
 =========================== short test summary info ===========================
@@ -38,4 +38,4 @@ FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_path
 FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
 FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
 FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
-4 failed, 856 passed in 73.68s (0:01:13)
+4 failed, 856 passed in 75.50s (0:01:15)

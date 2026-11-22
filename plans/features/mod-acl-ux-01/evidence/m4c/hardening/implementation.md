@@ -6,7 +6,8 @@
 - Продуктовая база: **`462568ed7662cf5786a543bce8ecb6618e073c87` / 2.58.232**
   (`release/mod-acl-m4c2-2.58.232`).
 - Ветка: **`feat/mod-acl-hardening`** от базы.
-- **Кандидат: `3b9909447982eadffb0c20beb266870b21eb2a3a`** (один commit: S1+S2+S3).
+- **Product-кандидат: `3b9909447982eadffb0c20beb266870b21eb2a3a`** (S1+S2+S3);
+  evidence/test tip — следующий коммит на ветке (product-блобы не меняет).
 - Worktree: `WorkspaceData/worktrees/c742e4de9e92c489/mod-acl-hardening-94381b48d1f8-7037ebdf`
   (housekeeping `worktree-path` + `register-worktree`).
 - Деплой/SSH/prod-DB/LLM не вызывались. `progress_scope.json` / `workflow_state.md` /
@@ -23,6 +24,11 @@ write-consumers; UI `#/access/admins` — read-only для non-global. DDL 0, sc
 route-set Δ=0, новые ACL/store/флаг не вводились. C3 не затронут и не дублируется.
 
 ## 1. Срез изменений (diff только разрешённые файлы)
+
+Product-кандидат: **`3b9909447982eadffb0c20beb266870b21eb2a3a`** (коммит S1+S2+S3).
+Ветка дополнительно содержит docs/test-коммит с evidence; product-блобы
+`web/api/routes.py` и `services/roles.py` в нём не меняются (evidence/test tip
+отличается только тестом legacy-admin положительного кейса и этим артефактом).
 
 ```text
  services/access_preview.py                   |  21 +-
@@ -97,15 +103,18 @@ usage 409 / collision 409), обе операции в той же критич�
 ## 2. RED / GREEN
 
 RED на базе `462568ed` (тот же candidate test-файл, отдельный worktree на базе):
-`19 failed, 43 passed` — падают non-global write (custom `section.access`),
+`19 failed, 44 passed` — падают non-global write (custom `section.access`),
 two-step takeover, self-role-edit, last-wildcard/global (upsert/remove),
 role-edit lockout, superuser wildcard strip, concurrency; на базе две
 одновременные демоции дают `[200, 200]` и 0 wildcard-админов.
 Полный лог: `test-output/red-base.txt`.
 
-GREEN на кандидате: `tests/test_mod_acl_ux_m4c_acl_hardening.py` — **62 passed**
+GREEN на кандидате: `tests/test_mod_acl_ux_m4c_acl_hardening.py` — **63 passed**
 (матрица 401/403 по 4 non-global акторам × 5 маршрутов, DM, takeover, 5 S2-сценариев,
 anti-drift, I1/I2-раздельность, no-decrease-repair, concurrency [200, 409]).
+Положительный кейс S1-матрицы «legacy-имя `admin`, `role_type=NULL`, пустые права →
+не 403» проходит и на базе (там `user_has_permission` уже пропускал global admin) —
+это non-regression проверка отсутствия ложного 403, а не RED-кейс.
 Лог: `test-output/new-tests.txt`.
 
 ### Mutations (каждая убита; `test-output/mutations.txt`)

@@ -328,6 +328,25 @@ class TestS1NonGlobalWritesForbidden:
         assert resp.status_code != 403, (actor, path, resp.text)
         assert resp.status_code in (200, 404, 409, 422, 503), resp.text
 
+    def test_legacy_admin_name_with_empty_perms_not_403(self, make_client):
+        """legacy-имя `admin`, role_type=NULL, права ПУСТЫЕ → не 403.
+
+        Путь проходит только по имени роли (`deps.user_is_global_admin`),
+        не по wildcard/role_type — отдельная строка S1-матрицы."""
+        legacy_id = 880001444
+        roles = {**ROLES,
+                 "admin": {"permissions": {}, "is_custom": False,
+                           "role_type": None}}
+        client = make_client(roles=roles,
+                             admins={legacy_id: "admin",
+                                     MODERATOR_ID: "moderator"})
+        resp = client.post("/api/admins",
+                           json={"telegram_id": NEW_ADMIN_ID,
+                                 "role_name": "user"},
+                           headers=_hdr(legacy_id))
+        assert resp.status_code == 200, resp.text
+        assert client.db.admins[NEW_ADMIN_ID] == "user"
+
     def test_read_paths_remain_section_access(self, make_client):
         """S1 закрывает только мутации: custom `section.access` читает."""
         client = make_client()
