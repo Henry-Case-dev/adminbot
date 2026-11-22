@@ -523,7 +523,8 @@ async def get_history(
     store, _cache_c, _worker = _components()
     await _require_chat(cache, store, user, chat_id)
     try:
-        rows = await store.history(chat_id, limit=limit)
+        rows = await store.history(chat_id, limit=limit,
+                                   exclude_fields=("access",))
     except ChatLorePgUnavailable as exc:
         raise _pg_guard(exc) from exc
     return [

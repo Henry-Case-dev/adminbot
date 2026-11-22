@@ -22,9 +22,11 @@ from aiogram.utils.web_app import WebAppUser
 
 from config.settings import settings
 from services import access as access_srv
+from services import acl_audit
 from services import bot_persona, chat_clock, chat_keys, chat_params, chat_usage, param_catalog
 from services import hot_config as hot
 from services import roles as roles_srv
+from services.access_errors import AccessStorageUnavailable as _AccessStorageUnavailable
 from services.config_cache import (
     ConfigCache,
     ConfigCacheUnavailableError,
@@ -138,11 +140,18 @@ class RoleUpsert(BaseModel):
     role_name: str = Field(min_length=1, max_length=64)
     permissions: dict[str, Any] = Field(default_factory=dict)
     is_custom: bool | None = None
+    # C3: optimistic-токены. create_only — «только создать» (409
+    # role_exists, если роль уже есть); expected_revision — ревизия
+    # текущего объекта (409 role_absent/revision_mismatch). Вместе → 422.
+    expected_revision: str | None = None
+    create_only: bool = False
 
 
 class RoleRename(BaseModel):
     """OD15/T-1141: переименование пользовательской роли."""
     new_name: str = Field(min_length=1, max_length=64)
+    # C3: ревизия СТАРОГО имени; mismatch → 409 (без слепого retry).
+    expected_revision: str | None = None
 
 
 class InfoUpdate(BaseModel):
@@ -849,6 +858,7 @@ async def _write_chat_overrides_with_retry(
     *,
     expected_updated_at: str | None,
     removed: frozenset[str] | set[str] = frozenset(),
+    recheck=None,
 ) -> dict:
     """P0 admin-toggle-save (28.10.2026): запись per-chat overrides с ОДНИМ
     ограниченным ретраем на ``ChatParamsConflict``.
@@ -870,8 +880,9 @@ async def _write_chat_overrides_with_retry(
     last-writer-wins только на пересекающихся ключах (приемлемо для
     админ-UI владельца в 1-2 чатах). Первая попытка сохраняет честный
     optimistic-протокол (включая идемпотентный short-circuit D-409-1).
-    Права/типизация проверены до записи и не зависят от value_overrides
-    (матрица прав — perm_overrides), пере-проверка не нужна.
+    Права/типизация проверены до записи; C3 добавляет обязательный
+    ``recheck`` перед recovery/повторной записью (S4-176/S10-17): отзыв
+    прав между первым конфликтом и retry не должен приводить к записи.
     Профиль чата отсутствует (current_updated_at=None; join-событие
     потеряно) → ensure дефолтного профиля, как DM-ветка F-14 выше.
 
@@ -885,9 +896,15 @@ async def _write_chat_overrides_with_retry(
             changed_by=meta.get("updated_by"), pg=cache.pg,
             expected_updated_at=expected_updated_at, removed=removed)
     except chat_params.ChatParamsConflict as exc:
+        # C3 (S4-176/S10-17): recheck ПЕРЕД ветками recovery/повторной
+        # записи — права могли отозвать между конфликтом и retry.
+        if recheck is not None:
+            await recheck()
         if getattr(exc, "current_updated_at", None) is None:
             await chat_params.ensure_scope_profile(chat_id, dm=False,
                                                    pg=cache.pg)
+            if recheck is not None:
+                await recheck()
             return await chat_params.set_chat_params(
                 chat_id, {"overrides": new_overrides, "meta": meta},
                 changed_by=meta.get("updated_by"), pg=cache.pg,
@@ -900,6 +917,10 @@ async def _write_chat_overrides_with_retry(
             fresh_overrides.pop(key, None)
         fresh_meta = dict(fresh_root.get("meta") or {})
         fresh_meta["updated_by"] = meta.get("updated_by")
+        # C3: свежий root прочитан — повторная проверка прав ДО второй
+        # записи (используются те же strict-функции; не второй резолвер).
+        if recheck is not None:
+            await recheck()
         return await chat_params.set_chat_params(
             chat_id, {"overrides": fresh_overrides, "meta": fresh_meta},
             changed_by=meta.get("updated_by"), pg=cache.pg,
@@ -1034,6 +1055,52 @@ async def post_config(
             prompt_items.append(prompt_policy.PromptWriteItem(
                 block_id=spec_block.block_id, text=str(value),
                 expected_updated_at=payload.updated_at))
+
+    async def _recheck_config_chat_rights() -> None:
+        """C3 (S4-176/S10-17): свежая проверка права на КАЖДЫЙ ключ перед
+        recovery/повторной записью. Те же функции, что в начале запроса
+        (strict access_for + strict snapshot + effective_matrix +
+        can_edit_param); отказ → 403 без записи, PG/кэш down → 503."""
+        try:
+            fresh_ctx = await roles_srv.access_for(
+                user.id, chat_id, cache=cache, strict=True)
+        except _AccessStorageUnavailable:
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "access_storage_unavailable",
+                        "message": "права не перечитаны перед повторной "
+                                   "записью: PostgreSQL/кэш недоступен"})
+        if not access_srv.can_access_chat(fresh_ctx, chat_id):
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "denied",
+                        "keys": sorted(settings_overrides),
+                        "message": "доступ к чату отозван"})
+        try:
+            fresh_db = await access_srv.param_permissions_snapshot(cache.pg)
+            fresh_root, _updated, _present = \
+                await chat_params.read_chat_params_strict(chat_id,
+                                                          pg=cache.pg)
+        except _AccessStorageUnavailable:
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "access_storage_unavailable",
+                        "message": "права не перечитаны перед повторной "
+                                   "записью: PostgreSQL/кэш недоступен"})
+        fresh_perm_overrides = dict(fresh_root.get("perm_overrides") or {})
+        denied: list[str] = []
+        for check_key in settings_overrides:
+            entry = fresh_db.get(check_key)
+            matrix = access_srv.effective_matrix(
+                check_key, (entry or {}).get("value"),
+                fresh_perm_overrides.get(check_key))
+            if not access_srv.can_edit_param(fresh_ctx, matrix):
+                denied.append(check_key)
+        if denied:
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "denied", "keys": sorted(denied),
+                        "message": "права изменены во время сохранения"})
     new_root = None
     prompt_result: dict = {}
     noop_inherit = False
@@ -1070,7 +1137,10 @@ async def post_config(
                     chat_id, new_overrides, meta, cache,
                     expected_updated_at=(None if prompt_items
                                          else payload.updated_at),
-                    removed=inherit_keys)
+                    removed=inherit_keys,
+                    recheck=(
+                        _recheck_config_chat_rights
+                        if settings_overrides else None))
                 updated_at_out = None
         except chat_params.ChatParamsConflict as exc:
             if prompt_items:
@@ -3362,6 +3432,30 @@ def _acl_mutation_lock(request: Request) -> asyncio.Lock:
     return lock
 
 
+def _role_revision_of(role_name: str, role: dict | None) -> str:
+    """C3: ревизия из cache-снимка — одна функция для GET/POST/DELETE."""
+    role = role or {}
+    return roles_srv.role_revision(
+        role_name, role.get("permissions"), role.get("role_type"),
+        bool(role.get("is_custom")))
+
+
+def _role_conflict(reason: str, current_revision: str | None,
+                   role: dict | None) -> HTTPException:
+    current = None
+    if role is not None:
+        current = {
+            "permissions": Permissions.from_dict(
+                role.get("permissions")).to_dict(),
+            "role_type": role.get("role_type"),
+            "is_custom": bool(role.get("is_custom")),
+        }
+    return HTTPException(
+        status_code=409,
+        detail={"code": "conflict", "reason": reason,
+                "current_revision": current_revision, "current": current})
+
+
 @api_router.get("/admins")
 async def get_admins(
     request: Request,
@@ -3412,6 +3506,12 @@ async def post_admins(
         # одной критической секции). before — текущий cache-снимок.
         before_roles = cache.roles()
         before_admins = cache.admins()
+        previous_role = before_admins.get(payload.telegram_id)
+        if previous_role == payload.role_name:
+            # C3: no-op — не пишем audit и не обновляем added_by (иначе
+            # фантомная история «кто назначил» без реального изменения).
+            return {"telegram_id": payload.telegram_id,
+                    "role_name": payload.role_name, "unchanged": True}
         after_admins = dict(before_admins)
         after_admins[payload.telegram_id] = payload.role_name
         try:
@@ -3419,9 +3519,17 @@ async def post_admins(
                 before_roles, before_admins, before_roles, after_admins)
         except RoleGuardError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        audit = acl_audit.build_event(
+            entity=acl_audit.ENTITY_ADMIN,
+            op=(acl_audit.OP_UPDATE if previous_role
+                else acl_audit.OP_CREATE),
+            telegram_id=payload.telegram_id,
+            before=({"role_name": previous_role} if previous_role else None),
+            after={"role_name": payload.role_name})
         try:
             await cache.upsert_admin(payload.telegram_id, payload.role_name,
-                                     added_by=user.id)
+                                     added_by=user.id, audit=audit,
+                                     changed_by=user.id)
         except ConfigCacheUnavailableError:
             raise HTTPException(status_code=503,
                                 detail="PostgreSQL недоступен (R6)")
@@ -3461,8 +3569,14 @@ async def remove_admin(
                 before_roles, before_admins, before_roles, after_admins)
         except RoleGuardError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        audit = acl_audit.build_event(
+            entity=acl_audit.ENTITY_ADMIN, op=acl_audit.OP_DELETE,
+            telegram_id=payload.telegram_id,
+            before={"role_name": target_role}, after=None)
         try:
-            removed = await cache.remove_admin(payload.telegram_id)
+            removed = await cache.remove_admin(payload.telegram_id,
+                                               audit=audit,
+                                               changed_by=user.id)
         except ConfigCacheUnavailableError:
             raise HTTPException(status_code=503,
                                 detail="PostgreSQL недоступен (R6)")
@@ -3487,7 +3601,9 @@ async def get_roles(
              "is_custom": role["is_custom"],
              # OD15/T-1141: role_type нужен UI, чтобы disabled-ить
              # rename/delete встроенных ролей (superuser — тоже).
-             "role_type": role.get("role_type")}
+             "role_type": role.get("role_type"),
+             # C3: optimistic-ревизия для save/rename/delete (409).
+             "revision": _role_revision_of(name, role)}
             for name, role in sorted(cache.roles().items())
         ]
     }
@@ -3518,11 +3634,27 @@ async def post_roles(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    if payload.create_only and payload.expected_revision is not None:
+        raise HTTPException(status_code=422,
+                            detail={"code": "ambiguous_tokens",
+                                    "message": "create_only и "
+                                               "expected_revision несовместимы"})
 
     new_perms = Permissions.from_dict(payload.permissions)
     async with _acl_mutation_lock(request):
         before_roles = cache.roles()
         existing = before_roles.get(payload.role_name)
+        current_revision = (_role_revision_of(payload.role_name, existing)
+                            if existing is not None else None)
+        if payload.create_only and existing is not None:
+            raise _role_conflict("role_exists", current_revision, existing)
+        if payload.expected_revision is not None:
+            if existing is None:
+                # C3: токен не может ПЕРЕСОЗДАТЬ удалённую роль.
+                raise _role_conflict("role_absent", None, None)
+            if current_revision != payload.expected_revision:
+                raise _role_conflict("revision_mismatch", current_revision,
+                                     existing)
         if existing is not None:
             old_perms = Permissions.from_dict(existing["permissions"])
             if old_perms.wildcard and not new_perms.wildcard:
@@ -3538,26 +3670,57 @@ async def post_roles(
         else:
             is_custom = (payload.is_custom
                          if payload.is_custom is not None else True)
+        role_type = (existing or {}).get("role_type")
+        new_revision = roles_srv.role_revision(
+            payload.role_name, new_perms.to_dict(), role_type, is_custom)
+        if existing is not None \
+                and Permissions.from_dict(existing["permissions"]).to_dict() \
+                == new_perms.to_dict():
+            # C3: no-op по нормализованным правам — ни записи, ни audit,
+            # ни сдвига ревизии (честный «сохранено» без следа).
+            return {"role_name": payload.role_name,
+                    "permissions": new_perms.to_dict(),
+                    "is_custom": is_custom, "role_type": role_type,
+                    "revision": current_revision, "unchanged": True}
         after_roles = dict(before_roles)
         after_roles[payload.role_name] = {
             "permissions": new_perms.to_dict(),
             "is_custom": is_custom,
-            "role_type": (existing or {}).get("role_type"),
+            "role_type": role_type,
         }
         try:
             roles_srv.guard_admin_lockout(
                 before_roles, cache.admins(), after_roles, cache.admins())
         except RoleGuardError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        if existing is None:
+            audit = acl_audit.build_event(
+                entity=acl_audit.ENTITY_ROLE, op=acl_audit.OP_CREATE,
+                role_name=payload.role_name, before=None,
+                after=acl_audit.permissions_snapshot(new_perms.to_dict()))
+        else:
+            audit = acl_audit.build_event(
+                entity=acl_audit.ENTITY_ROLE, op=acl_audit.OP_UPDATE,
+                role_name=payload.role_name,
+                before=acl_audit.permissions_snapshot(
+                    existing.get("permissions")),
+                after=acl_audit.permissions_snapshot(new_perms.to_dict()))
+            # Для update тело события — минимальный diff (§6.1): полные
+            # снимки before/after нужны только create/delete.
+            audit["before"] = None
+            audit["after"] = acl_audit.permissions_diff(
+                existing.get("permissions"), new_perms.to_dict())
         try:
             await cache.upsert_role(payload.role_name, new_perms.to_dict(),
-                                    is_custom)
+                                    is_custom, audit=audit,
+                                    changed_by=user.id)
         except ConfigCacheUnavailableError:
             raise HTTPException(status_code=503,
                                 detail="PostgreSQL недоступен (R6)")
     logger.info("[api] role upserted | role=%s | by=%s", payload.role_name, user.id)
     return {"role_name": payload.role_name, "permissions": new_perms.to_dict(),
-            "is_custom": is_custom}
+            "is_custom": is_custom, "role_type": role_type,
+            "revision": new_revision}
 
 
 # ── OD15/T-1141 (раунд 10.5): защита ролей при rename/delete ──────────────
@@ -3581,18 +3744,25 @@ async def delete_role_endpoint(
     request: Request,
     role_name: str,
     user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    expected_revision: str | None = Query(default=None),
 ):
     """OD15/T-1141: удалить пользовательскую роль. Superuser → 403;
     встроенные → 409; занятые (bot_admins) → 409; последняя wildcard → 409.
 
     MOD-ACL-UX-01 M4C S1: мутация роли — только effective global admin;
-    S2: проверки и удаление — в критической секции ACL-мутаций."""
+    S2: проверки и удаление — в критической секции ACL-мутаций.
+    C3: expected_revision (ревизия цели) → 409 без удаления; audit — в той
+    же транзакции."""
     cache: ConfigCache = get_cache(request)
     async with _acl_mutation_lock(request):
         role = cache.roles().get(role_name)
         if role is None:
             raise HTTPException(status_code=404,
                                 detail=f"роль не найдена: {role_name}")
+        current_revision = _role_revision_of(role_name, role)
+        if expected_revision is not None \
+                and expected_revision != current_revision:
+            raise _role_conflict("revision_mismatch", current_revision, role)
         if _is_superuser_role(role_name, role):
             raise HTTPException(status_code=403,
                                 detail="роль суперпользователя защищена")
@@ -3611,8 +3781,14 @@ async def delete_role_endpoint(
                 role_name, None)
         except RoleGuardError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        audit = acl_audit.build_event(
+            entity=acl_audit.ENTITY_ROLE, op=acl_audit.OP_DELETE,
+            role_name=role_name,
+            before=acl_audit.permissions_snapshot(role.get("permissions")),
+            after=None)
         try:
-            removed = await cache.delete_role(role_name)
+            removed = await cache.delete_role(role_name, audit=audit,
+                                              changed_by=user.id)
         except ConfigCacheUnavailableError:
             raise HTTPException(status_code=503,
                                 detail="PostgreSQL недоступен (R6)")
@@ -3642,6 +3818,10 @@ async def rename_role_endpoint(
         if role is None:
             raise HTTPException(status_code=404,
                                 detail=f"роль не найдена: {role_name}")
+        current_revision = _role_revision_of(role_name, role)
+        if payload.expected_revision is not None \
+                and payload.expected_revision != current_revision:
+            raise _role_conflict("revision_mismatch", current_revision, role)
         if _is_superuser_role(role_name, role):
             raise HTTPException(status_code=403,
                                 detail="роль суперпользователя защищена")
@@ -3656,15 +3836,24 @@ async def rename_role_endpoint(
                                 detail=f"роль уже существует: {new_name}")
         if new_name == role_name:
             return {"role_name": role_name, "old_name": role_name,
-                    "renamed": False}
+                    "renamed": False, "revision": current_revision}
+        audit = acl_audit.build_event(
+            entity=acl_audit.ENTITY_ROLE, op=acl_audit.OP_RENAME,
+            role_name=role_name, before={"role_name": role_name},
+            after={"role_name": new_name})
         try:
-            await cache.rename_role(role_name, new_name)
+            await cache.rename_role(role_name, new_name, audit=audit,
+                                    changed_by=user.id)
         except ConfigCacheUnavailableError:
             raise HTTPException(status_code=503,
                                 detail="PostgreSQL недоступен (R6)")
+        new_revision = roles_srv.role_revision(
+            new_name, role.get("permissions"), role.get("role_type"),
+            bool(role.get("is_custom")))
     logger.info("[api] role renamed | old=%s | new=%s | by=%s | audit=role",
                 role_name, new_name, user.id)
-    return {"role_name": new_name, "old_name": role_name, "renamed": True}
+    return {"role_name": new_name, "old_name": role_name, "renamed": True,
+            "revision": new_revision}
 
 
 @api_router.get("/roles/tree")
@@ -7404,11 +7593,30 @@ async def post_meme_settings(
             fresh_overrides.update(settings_patch)
             meta = dict((fresh or {}).get("meta") or {})
             meta["updated_by"] = user.id
+
+            async def _recheck_meme_rights() -> None:
+                """C3: тот же гейт, что в начале запроса, перед retry."""
+                fresh_ctx = await roles_srv.access_for(
+                    user.id, chat_id, cache=cache)
+                if chat_params.is_dm_scope(chat_id):
+                    still_allowed = bool(fresh_ctx.is_dm_owner)
+                else:
+                    still_allowed = bool(fresh_ctx.is_global_admin
+                                         or fresh_ctx.is_local_admin)
+                if not still_allowed:
+                    raise HTTPException(
+                        status_code=403,
+                        detail={"code": "denied",
+                                "keys": sorted(settings_patch),
+                                "message": "права на настройки мемов "
+                                           "отозваны во время сохранения"})
+
             await _write_chat_overrides_with_retry(
                 chat_id, fresh_overrides, meta, cache,
                 expected_updated_at=(
                     None if (prompt_items or prompt_removals)
-                    else payload.updated_at))
+                    else payload.updated_at),
+                recheck=_recheck_meme_rights)
         except chat_params.ChatParamsConflict as exc:
             if prompt_items or prompt_removals:
                 # §3.5: промпты уже закоммичены — честный частичный отчёт.

@@ -17,6 +17,8 @@ wildcard → 4 (полный доступ), ненулевые группы пр
 """
 from dataclasses import dataclass
 
+import hashlib
+import json
 import logging
 
 from services.access_errors import AccessStorageUnavailable
@@ -73,6 +75,26 @@ def role_type_of(role_name: str | None, perms_data: dict | None,
     if role_name == "admin":          # legacy-сид без role_type
         return ROLE_GLOBAL_ADMIN
     return "custom"
+
+
+def role_revision(role_name: str, permissions: dict | None,
+                  role_type: str | None, is_custom: bool) -> str:
+    """MOD-ACL-UX-01 M4C C3: детерминированная ревизия прав роли (DDL 0).
+
+    Одна чистая функция для GET и POST: канонический permissions
+    (`Permissions.from_dict(...).to_dict()` — отсортированные массивы),
+    role_type и is_custom в json с sort_keys/компактными разделителями →
+    sha256 hex. Никакого второго ACL/стора и никаких чтений БД.
+    """
+    payload = {
+        "role_name": role_name,
+        "permissions": Permissions.from_dict(permissions).to_dict(),
+        "role_type": role_type,
+        "is_custom": bool(is_custom),
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                           ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def rank_of_type(role_type: str, perms: Permissions | None = None) -> int:
