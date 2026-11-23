@@ -8883,6 +8883,9 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
         # UR-11a: сырое окно уходит в `build_l1_context`; окно выбирает
         # единственный allocator (`allocate_selection` через composer-helper)
         # уже ПОСЛЕ fixed-секций и net stage budget. `select_l1_window`
@@ -18755,10 +18758,9 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
-        try:
-            window = [dict(r) for r in (window or ())]
-        except Exception:
-            pass
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
         # Проза личности нужна Writer'у (`_initiative_persona_block`), планеру
         # идёт только профиль решений; ctx берётся из того же резолва. Резолв
         # fail-open: сбой (PG/флаги) не должен ломать ход и не должен
@@ -18999,10 +19001,9 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
-        try:
-            window = [dict(r) for r in (window or ())]
-        except Exception:
-            pass
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
         persona_block = await self._initiative_persona_block(chat_id)
         row = intent_row or {}
         goal = str(row.get("goal") or "").strip()

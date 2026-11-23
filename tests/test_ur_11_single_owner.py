@@ -6,6 +6,9 @@ Live L1 больше не вызывает `select_l1_window`/`allocate_budget`:
 Строки UR-11.1/11.7/11.8 остаются PENDING до независимого ревью.
 """
 import inspect
+import sqlite3
+
+import pytest
 
 import services.direct_chat_service as dcs
 from services import direct_context_composer as comp
@@ -19,6 +22,24 @@ def _row(index: int, text: str, *, reply_to=None) -> dict:
         "author_name": "Вася", "text": text, "timestamp": 100 + index,
         "media_type": "text", "reply_to_id": reply_to,
     }
+
+
+def _sqlite_window(count: int = 4):
+    """Настоящие sqlite3.Row (не dict-фейк) — форма live MemoryManager."""
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE w (id INTEGER, tg_message_id INTEGER, user_id INTEGER,"
+        " author_name TEXT, text TEXT, timestamp INTEGER, media_type TEXT,"
+        " reply_to_id INTEGER)")
+    for i in range(1, count + 1):
+        conn.execute(
+            "INSERT INTO w VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (i, 100 + i, 10, "Вася", f"row-{i}", 100 + i, "text", None))
+    conn.commit()
+    rows = conn.execute("SELECT * FROM w ORDER BY id").fetchall()
+    return conn, rows
+
 
 
 def _build(**kwargs):
@@ -85,6 +106,74 @@ def test_tight_budget_keeps_full_p0_and_reports_overflow(monkeypatch):
     assert any(item["section"] == "СООБЩЕНИЕ"
                for item in status["overflow_sections"])
     assert "[ПОСЛЕДНИЕ СООБЩЕНИЯ]" not in text
+
+
+def test_p0_exclusion_uses_tg_message_id_not_db_pk():
+    """UR11A-R1-B1: DB PK не является Telegram-id для trigger/reply."""
+    foreign = _row(7, "чужая строка")
+    foreign["tg_message_id"] = 999
+    trigger = _row(1, "trigger строка")
+    trigger["tg_message_id"] = 7
+    assert l1._row_matches_message_id(foreign, 7) is False
+    assert l1._row_matches_message_id(trigger, 7) is True
+    text, status = _build(
+        query="q", current_question="cur", window=[foreign, trigger],
+        trigger_message_id=7, budget_tokens=10_000)
+    assert status["window_rows_excluded_p0"] == 1
+    assert status["window_rows_selected"] >= 1
+    assert "чужая строка" in text
+
+
+@pytest.mark.asyncio
+async def test_live_window_rows_are_normalized_from_sqlite_row_direct(
+        monkeypatch):
+    """UR11A-R1-B2: Direct-L1 принимает реальные sqlite3.Row."""
+    from tests.test_ur_turn_engine import (
+        _patch_fixed_tool_flags, _plan as _ur_plan, _run_direct, _svc)
+
+    _patch_fixed_tool_flags(monkeypatch)
+    conn, rows = _sqlite_window(4)
+    try:
+        assert rows and not isinstance(rows[0], dict)
+        service = _svc(_ur_plan(), window=rows)
+        _plan_out, meta = await _run_direct(service)
+        assert meta["l1_window_rows_raw"] == 4
+        assert meta["l1_window_rows_selected"] >= 1
+        lines = l1.render_window_lines(rows, 4, line_chars=0)
+        assert len(lines) == 4
+    finally:
+        conn.close()
+
+
+@pytest.mark.asyncio
+async def test_live_window_rows_are_normalized_from_sqlite_row_initiative(
+        monkeypatch):
+    """UR11A-R1-B2: Initiative-L1 принимает реальные sqlite3.Row."""
+    from tests.test_ur_turn_engine import (
+        _patch_fixed_tool_flags, _plan as _ur_plan, _run_initiative, _svc)
+
+    _patch_fixed_tool_flags(monkeypatch)
+    conn, rows = _sqlite_window(4)
+    try:
+        service = _svc(_ur_plan(), window=rows)
+        captured: list = []
+        real_build = l1.build_l1_context
+
+        def _build_spy(**kwargs):
+            status = kwargs.get("out_status")
+            result = real_build(**kwargs)
+            captured.append(status)
+            return result
+
+        monkeypatch.setattr(l1, "build_l1_context", _build_spy)
+        await _run_initiative(service)
+        assert captured
+        status = captured[-1]
+        assert status is not None
+        assert status["window_rows_raw"] == 4
+        assert status["window_rows_selected"] >= 1
+    finally:
+        conn.close()
 
 
 # ── UR-11.1 / T2: window budget is net of fixed; P3 leaves before P1 ───────

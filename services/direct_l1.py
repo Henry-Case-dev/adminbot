@@ -2314,7 +2314,7 @@ def select_l1_window(window, *, budget_tokens: int,
     cut-owner не годится; здесь сохранён для совместимости/тестов/fail-open.
     Никогда не бросает."""
     try:
-        rows = [dict(r) for r in (window or ()) if isinstance(r, dict)]
+        rows = normalize_window_rows(window)
         if not rows:
             return []
         from services import direct_context_composer as _comp
@@ -2361,7 +2361,7 @@ def select_l1_window(window, *, budget_tokens: int,
             selected.append(row)
         return selected
     except Exception:          # pragma: no cover - fail-open выбора
-        return [dict(r) for r in (window or ()) if isinstance(r, dict)]
+        return normalize_window_rows(window)
 
 
 def _render_l1_sections(pairs) -> str:
@@ -2379,24 +2379,56 @@ def _l1_section_tokens(pairs) -> list[dict]:
         return []
 
 
+def normalize_window_rows(window) -> list[dict]:
+    """Нормализовать окно к dict-строкам (dict, Mapping-like, sqlite3.Row).
+
+    `MemoryManager.get_window_messages` отдаёт `sqlite3.Row`; L1/render не
+    должны отбрасывать такие строки из-за `isinstance(r, dict)` (иначе живое
+    окно выглядит пустым). Ошибка/неизвестная форма строки → строка
+    пропускается, не весь пакет.
+    """
+    out: list[dict] = []
+    for row in (window or ()):
+        if isinstance(row, dict):
+            out.append(dict(row))
+            continue
+        keys = getattr(row, "keys", None)
+        if callable(keys):
+            try:
+                out.append({str(key): row[key] for key in list(keys())})
+                continue
+            except Exception:
+                continue
+        getter = getattr(row, "get", None)
+        if callable(getter):
+            try:
+                # Последний compat-вариант: mapping-подобный объект с get()
+                # без keys(); перечислим известные L1-поля.
+                out.append({
+                    key: getter(key) for key in (
+                        "id", "tg_message_id", "user_id", "author_name",
+                        "text", "caption", "timestamp", "media_type",
+                        "reply_to_id", "is_forward", "forward_source")
+                    if getter(key) is not None
+                })
+            except Exception:
+                continue
+    return out
+
+
 def _row_matches_message_id(row, message_id) -> bool:
-    """Строка окна относится к Telegram id (tg/id), без падения на мусоре."""
-    if message_id is None:
-        return False
+    """Строка окна — это trigger/reply по КАНОНИЧЕСКОМУ правилу.
+
+    `smart_messages.id` (DB PK) не является Telegram-id: сравнение только
+    `tg_message_id` (`is_target_row`). Иначе строка с id=7/tg=999 при
+    trigger=7 тихо выпадала бы из окна как P0.
+    """
     try:
-        target = int(message_id)
-    except (TypeError, ValueError):
+        from services.target_marking import is_target_row
+        return bool(is_target_row(row, message_id))
+    except Exception:          # pragma: no cover - защитная ветка
         return False
-    for key in ("tg_message_id", "id"):
-        value = row.get(key) if isinstance(row, dict) else None
-        if value in (None, "", 0):
-            continue
-        try:
-            if int(value) == target:
-                return True
-        except (TypeError, ValueError):
-            continue
-    return False
+
 
 
 def build_l1_context(*, query, current_question: str = "",
@@ -2496,7 +2528,7 @@ def build_l1_context(*, query, current_question: str = "",
                          else L1_WINDOW_MESSAGES)
         _line_cap = (window_line_chars(window, budget_tokens=budget)
                      if line_chars is None else int(line_chars))
-        raw_window = [dict(r) for r in (window or ()) if isinstance(r, dict)]
+        raw_window = normalize_window_rows(window)
         # Секции ПОСЛЕ окна: их порядок не меняется; окно вставляется на
         # своё место после выбора (preallocated) либо рендерится сразу
         # (legacy). Так fixed-tokens считаются один раз без окна.
@@ -2909,7 +2941,7 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
     try:
         cap = (L1_WINDOW_LINE_CHARS if line_chars is None
                else int(line_chars))
-        rows = [r for r in (window or []) if isinstance(r, dict)]
+        rows = normalize_window_rows(window)
         visible = rows[-max(0, int(limit)):]
 
         def _clip(text: str) -> str:
@@ -3831,7 +3863,7 @@ __all__ = [
     "l1_max_output_tokens", "l1_temperature", "resolve_l1_model",
     "dedicated_generate", "authorize_l1_call", "record_l1_usage",
     "infer_fallback_capabilities", "build_l1_context", "select_l1_window",
-    "render_window_lines",
+    "render_window_lines", "normalize_window_rows",
     "TRUST_BOUNDARY_SECTION", "TRUST_BOUNDARY_LINE",
     "window_line_chars", "reply_block_chars", "message_cap_chars",
     "resolve_l1_context_budget", "clip_body", "L1_REPLY_SECTION",
