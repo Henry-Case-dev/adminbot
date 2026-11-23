@@ -903,6 +903,56 @@ class TestURC2aProducers:
         # Не выдаётся за дословную реплику.
         assert "<Old_Episode>" not in blocks.get("episode", "")
 
+    def test_memory_tiers_drop_episode_then_graph_then_exact(self):
+        def _tier(tier: int, sid: str):
+            return comp.ContextFragment(
+                kind=comp.KIND_SUMMARY_INFERENCE, source_id=sid,
+                timestamp_utc=100 + tier, text="факт о кредите " * 10,
+                role=comp.ROLE_MEMORY, authority=comp.AUTHORITY_BACKGROUND,
+                time_known=True, memory_tier=tier)
+
+        full = comp.build_context_selection(
+            chat_id=CHAT, current_text="вопрос", timestamp_utc=2000,
+            memory=[_tier(4, "episode:4"), _tier(3, "fact:3"),
+                    _tier(2, "msg:2")], budget_tokens=0)
+        current = full.current_question
+        tier2 = [f for f in full.memory if f.memory_tier == 2][0]
+        budget = current.tokens() + tier2.tokens() + 1
+        tight = comp.build_context_selection(
+            chat_id=CHAT, current_text="вопрос", timestamp_utc=2000,
+            memory=full.memory, budget_tokens=budget)
+        reasons = [item["reason_code"] for item in tight.provenance.dropped
+                   if item["source_id"].startswith(("episode:", "fact:"))]
+        assert reasons == ["memory_tier_4", "memory_tier_3"]
+        survivors = {f.source_id for f in tight.memory}
+        assert survivors == {"msg:2"}
+
+    def test_self_outputs_merge_with_window_tail_by_time(self):
+        rows = [_urc_row(1, "раньше"), _urc_row(3, "позже")]
+        rows[0]["timestamp"] = 100
+        rows[1]["timestamp"] = 300
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=5,
+            self_output_records=[{
+                "output_id": 2, "tg_message_id": 2, "sent_at": 200,
+                "content_text": "ответ бота", "bot_user_id": BOT_UID,
+                "parent_message_ref": "tg:1"}])
+        index = {f"msg:{row['tg_message_id']}": row for row in rows}
+        index["bot_output:2"] = {
+            "tg_message_id": 2, "timestamp": 200, "user_id": BOT_UID,
+            "author_name": "бот", "text": "ответ бота", "reply_to_id": 1}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, source: source["text"],
+            source_index=index))
+        body = blocks["global"].split("\n")[1:-1]
+        assert body == ["раньше", "ответ бота", "позже"]
+        # Собственный ответ — факт диалога, не style-anchor/подражание.
+        assert "style_anchors" not in blocks["global"]
+        assert "подражай" not in blocks["global"]
+
 
 class TestURC2aMaterializerParity:
     def test_branch_and_thread_match_existing_renderers(self):
