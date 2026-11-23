@@ -1763,6 +1763,8 @@ async def list_stories_for_retrieval(db, chat_id: int,
             "g ON g.lore_story_id = l.id WHERE l.chat_id = ? AND "
             "COALESCE(g.mapping_status, 'unmapped') != 'mapped' AND "
             + LORE_STORIES_RETRIEVAL_PREDICATE + " "
+            "AND NOT EXISTS (SELECT 1 FROM mca_story_redirects r "
+            "WHERE r.old_kind = 'story' AND r.old_id = CAST(l.id AS TEXT)) "
             "ORDER BY l.updated_at DESC, l.id DESC LIMIT ?",
             (int(chat_id), limit))
         for row in await cursor.fetchall():

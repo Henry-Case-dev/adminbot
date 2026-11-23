@@ -236,6 +236,63 @@ async def test_rc1_legacy_over_limit_returns_newest_legacy_only(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_rc1_redirect_over_limit_does_not_consume_capacity(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        # 205 active legacy; ID 1000 is newest (updated_at=5000) and is a
+        # redirect source. Legacy LIMIT must exclude it BEFORE the 200-cut,
+        # otherwise 1005 is lost and one new story enters.
+        for sid in range(1000, 1205):
+            updated = 5000 if sid == 1000 else 1000 + sid
+            await db.db.execute(
+                "INSERT INTO lore_stories "
+                "(id, chat_id, topic_key, topic, story, last_ts, created_at, "
+                "updated_at, origin, status, excluded_from_retrieval) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)",
+                (sid, CHAT, f"legacy-{sid}", f"topic {sid}", f"story {sid}",
+                 1670000000 + sid, updated, updated, "lore_compiler"))
+        for i in range(50):
+            await db.db.execute(
+                "INSERT INTO mca_stories "
+                "(story_id, chat_id, discovered_at, updated_at) "
+                "VALUES (?, ?, ?, ?)",
+                (f"new-{i:03d}", CHAT, 3000 + i, 3000 + i))
+        await db.db.execute(
+            "INSERT INTO mca_story_redirects "
+            "(old_kind, old_id, new_kind, new_id, created_at) "
+            "VALUES ('story', '1000', 'story', 'new-049', 6000)")
+        await db.db.commit()
+
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert len(rows) == _LIMIT
+        assert all(r["kind"] == "legacy_story" for r in rows)
+        assert _legacy_ids(rows) == set(range(1005, 1205))
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_id_dupe_legacy_wins(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db)
+        # New story id collides with legacy id 5: output must contain one
+        # row, the legacy one, and no duplicate.
+        await db.db.execute(
+            "INSERT INTO mca_stories "
+            "(story_id, chat_id, discovered_at, updated_at) "
+            "VALUES ('5', ?, 3000, 3000)", (CHAT,))
+        await db.db.commit()
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        matching = [r for r in rows if str(r["id"]) == "5"]
+        assert len(matching) == 1
+        assert matching[0]["kind"] == "legacy_story"
+        assert len(rows) == _LIMIT
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
 async def test_rc1_no_new_stories_returns_legacy(tmp_path):
     db = await _db(tmp_path)
     try:

@@ -18,6 +18,7 @@ embeddings, deploy, SSH, Telegram, LLM и `progress_scope.json`/`workflow_state.
 | Probe | `evidence/vmq-mem/rc1/snapshot_probe.py` + `snapshot-before-after.json` |
 | Diff | `evidence/vmq-mem/rc1/candidate.diff` |
 | Test log | `evidence/vmq-mem/rc1/tests.txt` |
+| RED log | `evidence/vmq-mem/rc1/red.txt` (RC1-R1-01 before fix) |
 
 Изменение — только facade-пул: active legacy резервируется **до**
 `updated_at`-среза; новые истории занимают оставшуюся ёмкость; `limit`
@@ -30,7 +31,9 @@ embeddings, deploy, SSH, Telegram, LLM и `progress_scope.json`/`workflow_state.
 
 1. Прочитать до `limit` active legacy (`LORE_STORIES_RETRIEVAL_PREDICATE`,
    `chat_id`, `COALESCE(mapping_status,'unmapped') != 'mapped'`,
-   `ORDER BY updated_at DESC, id DESC`).
+   `NOT EXISTS` redirect по `old_id`, `ORDER BY updated_at DESC, id DESC`).
+   Redirect исключается **в SQL до LIMIT**, иначе redirect-источник
+   занимает слот и следующая active legacy теряется.
 2. Если active legacy ≥ `limit` — вернуть самые новые legacy, новые не читать.
 3. Иначе прочитать новые `repo.list_stories(limit=limit)`, применить прежние
    фильтры/redirect, удалить id-дубли с legacy.
@@ -60,13 +63,31 @@ Snapshot: `snapshot-2.58.225.db`, SHA-256 проверен заново:
 сохраняться. RC1 чинит пул, не top_k и не production `<Old_Episode>` (для
 этого нужен RC7).
 
+### 2.1. RC1-R1-01 corrective (redirect capacity edge)
+
+Reviewer blocker: legacy-запрос делал `LIMIT limit` **до** redirect-фильтра.
+Если active legacy > `limit` и redirect-источник новее active legacy, redirect
+занимал слот; после post-filter оставалось `limit-1` legacy, код добирал
+новую историю и терял следующую active legacy.
+
+- **Repro:** 205 active legacy `1000..1204`; ID 1000 — redirect-источник с
+  `updated_at=5000` (новее остальных); 50 new; `limit=200`.
+- **Before:** 199 legacy `1006..1204` + 1 new; missing `1005`.
+- **After:** 200 legacy `1005..1204`; new = 0.
+- **Fix:** `NOT EXISTS (SELECT 1 FROM mca_story_redirects r WHERE
+  r.old_kind='story' AND r.old_id=CAST(l.id AS TEXT))` в legacy SQL **до**
+  `ORDER BY/LIMIT`; post-filter оставлен как defensive no-op.
+- RED/GREEN: `red.txt` — падение на старом SQL; после fix focused 10/10.
+- Дополнительно: id-dupe тест — новый story id, совпадающий с legacy id,
+  не дублируется; legacy имеет приоритет.
+
 ## 3. Tests
 
 Focused:
 
 ```
 python -m pytest -q tests/test_vmq_mem_rc1_episode_facade.py
-8 passed
+10 passed
 ```
 
 Affected:
@@ -78,13 +99,14 @@ python -m pytest -q \
   tests/test_mca07_retrieval_context_round1027.py \
   tests/test_p0_old_lore_quarantine.py \
   tests/test_vmq_m1_episode_contract.py
-160 passed
+162 passed
 ```
 
 Focused coverage: before-cut reproduction `{9..16}` / dropped `{5..8}`;
 after all active `{5..16}`; rejected 3/4 absent; total 200; new 188;
 repo-honors-limit 200; mapped legacy excluded; excluded legacy excluded;
-redirected legacy and new stories excluded; legacy > limit returns newest
+redirected legacy and new stories excluded; `>limit + redirect` keeps
+`1005..1204` with new 0; id-dupe legacy wins; legacy > limit returns newest
 legacy only; no-new-stories returns legacy; deterministic ordering.
 
 `py_compile` — exit 0. `git diff --check` — exit 0. Snapshot probe — exit 0.
