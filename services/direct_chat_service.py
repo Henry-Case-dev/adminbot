@@ -5184,6 +5184,61 @@ def _materialize_selection(
     return [(kind, text) for _pos, kind, text in ordered]
 
 
+def _trace_selection_dropped(selection) -> tuple:
+    """UR-C-2b: block-kind aggregate dropped для существующей trace-схемы.
+
+    Классификация зеркалит materializer/producer:
+      * `episode:*` (даже summary_inference) → `episode`;
+      * `fact:*`/summary_inference без episode/middle/summary → `rag`;
+      * `supplement:*` → `history_supplement`;
+      * verbatim memory → `episode`.
+    """
+    agg: dict = {}
+    for item in selection.provenance.dropped or ():
+        role = str(item.get("role") or "")
+        frag_kind = str(item.get("kind") or "")
+        source = str(item.get("source_id") or "")
+        if role == _composer.ROLE_REPLY_BRANCH:
+            block = "branch"
+        elif role in (_composer.ROLE_REPLY_PARENT, _composer.ROLE_THREAD):
+            block = "thread"
+        elif role in (_composer.ROLE_FRESH_NEIGHBOUR,
+                      _composer.ROLE_SELF_OUTPUT):
+            block = "global_tail"
+        elif role == _composer.ROLE_BACKGROUND:
+            block = "global_middle"
+        elif role == _composer.ROLE_SUMMARY:
+            block = "global_head"
+        elif role == _composer.ROLE_MEMORY:
+            if source.startswith("supplement:"):
+                block = "history_supplement"
+            elif source.startswith("episode:"):
+                block = "episode"
+            elif (frag_kind == _composer.KIND_SUMMARY_INFERENCE
+                  and not source.startswith(("middle:", "summary:"))):
+                block = "rag"
+            else:
+                block = "episode"
+        elif role == _composer.ROLE_CURRENT_QUESTION:
+            block = "current"
+        else:
+            block = frag_kind or "context"
+        reason = str(item.get("reason_code") or "")
+        key = (block, reason)
+        entry = agg.get(key)
+        if entry is None:
+            entry = agg[key] = {
+                "kind": block, "role": role, "reason_code": reason,
+                "count": 0, "tokens": 0, "source_ids": []}
+        entry["count"] += int(item.get("count") or 1)
+        entry["tokens"] += int(item.get("tokens") or 0)
+        if source and source not in entry["source_ids"]:
+            entry["source_ids"].append(source)
+    for entry in agg.values():
+        entry["source_ids"] = entry["source_ids"][:_MAX_SELECTION_IDS]
+    return tuple(agg.values())
+
+
 class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
@@ -13054,53 +13109,6 @@ class DirectChatService:
                         out.append(frag)
                     return out
 
-                def _trace_dropped(sel) -> tuple:
-                    """Block-kind aggregate для существующей trace-схемы."""
-                    agg: dict = {}
-                    for item in sel.provenance.dropped or ():
-                        role = str(item.get("role") or "")
-                        frag_kind = str(item.get("kind") or "")
-                        source = str(item.get("source_id") or "")
-                        if role == _composer.ROLE_REPLY_BRANCH:
-                            block = "branch"
-                        elif role in (_composer.ROLE_REPLY_PARENT,
-                                      _composer.ROLE_THREAD):
-                            block = "thread"
-                        elif role in (_composer.ROLE_FRESH_NEIGHBOUR,
-                                      _composer.ROLE_SELF_OUTPUT):
-                            block = "global_tail"
-                        elif role == _composer.ROLE_BACKGROUND:
-                            block = "global_middle"
-                        elif role == _composer.ROLE_SUMMARY:
-                            block = "global_head"
-                        elif role == _composer.ROLE_MEMORY:
-                            if source.startswith("supplement:"):
-                                block = "history_supplement"
-                            elif frag_kind == _composer.KIND_SUMMARY_INFERENCE:
-                                block = "rag"
-                            else:
-                                block = "episode"
-                        elif role == _composer.ROLE_CURRENT_QUESTION:
-                            block = "current"
-                        else:
-                            block = frag_kind or "context"
-                        reason = str(item.get("reason_code") or "")
-                        key = (block, reason)
-                        entry = agg.get(key)
-                        if entry is None:
-                            entry = agg[key] = {
-                                "kind": block, "role": role,
-                                "reason_code": reason, "count": 0,
-                                "tokens": 0, "source_ids": []}
-                        entry["count"] += int(item.get("count") or 1)
-                        entry["tokens"] += int(item.get("tokens") or 0)
-                        if source and source not in entry["source_ids"]:
-                            entry["source_ids"].append(source)
-                    for entry in agg.values():
-                        entry["source_ids"] = entry["source_ids"][
-                            :_MAX_SELECTION_IDS]
-                    return tuple(agg.values())
-
                 def _prepared(sel, texts, *, payload_pairs=None,
                               fallback: bool = False,
                               fb_budget: int | None = None):
@@ -13177,7 +13185,7 @@ class DirectChatService:
                         available_item_ids=available_ids,
                         window_messages=len(list(window or ())),
                         budget=budget_meta,
-                        dropped=_trace_dropped(sel),
+                        dropped=_trace_selection_dropped(sel),
                         self_outputs=tuple(self_out_payload),
                         chain_rendered=(
                             {"branch": list(rendered_chain_lines),
@@ -13270,6 +13278,7 @@ class DirectChatService:
                                 # отправляем. Собираем bounded P0/current
                                 # payload и явный degraded/capacity prepared.
                                 capacity_texts: list = []
+                                capacity_pairs: list = []
                                 capacity_prepared = None
                                 try:
                                     minimal = _composer.ContextSelection(
@@ -13285,6 +13294,7 @@ class DirectChatService:
                                             or ()))
                                     cap_payload, cap_prepared_pairs = \
                                         _materialize(minimal)
+                                    capacity_pairs = list(cap_payload)
                                     capacity_texts = [
                                         t for _k, t in cap_payload]
                                     capacity_prepared = _prepared(
@@ -13294,29 +13304,51 @@ class DirectChatService:
                                 except Exception:
                                     logger.warning(
                                         "direct: capacity materialize failed "
-                                        "— raw current only | chat=%s",
+                                        "— raw fixed/current only | chat=%s",
                                         chat_id, exc_info=True)
+                                    capacity_pairs = list(fixed_blocks)
                                     current = full_selection.current_question
                                     if current.text:
-                                        capacity_texts = [
+                                        capacity_pairs.append((
+                                            "current",
                                             "<Current_Question>\n"
                                             f"{escape_xml_text(current.text)}\n"
-                                            "</Current_Question>"]
+                                            "</Current_Question>"))
+                                    parent = full_selection.reply_parent
+                                    ptext = str(getattr(
+                                        parent, "text", "") or "")
+                                    if full_selection.reply_parent_parts:
+                                        ptext += "".join(
+                                            str(p.text or "") for p in
+                                            full_selection.reply_parent_parts)
+                                    if ptext.strip():
+                                        capacity_pairs.append((
+                                            "thread",
+                                            "<Conversation_Thread>\n"
+                                            f"{escape_xml_text(ptext)}\n"
+                                            "</Conversation_Thread>"))
+                                    capacity_pairs.sort(key=lambda kv: (
+                                        _composer.CANONICAL_ORDER.get(
+                                            kv[0], 99), kv[0]))
+                                    capacity_texts = [
+                                        t for _k, t in capacity_pairs]
                                 if capacity_prepared is None:
+                                    sent_fixed_tokens = sum(
+                                        count_tokens(text)
+                                        for kind, text in capacity_pairs
+                                        if kind in fixed_kinds)
                                     capacity_prepared = _prepared_turn_payload(
                                         chat_id=chat_id,
                                         correlation_id=correlation_id,
-                                        blocks=[("current", t) for t in
-                                                capacity_texts],
+                                        blocks=capacity_pairs,
                                         event_blocks=[{
-                                            "kind": "current", "role": "p0",
+                                            "kind": kind, "role": "p0",
                                             "rendered": True,
                                             "skip_reason": "",
                                             "source_ids": [],
                                             "first_ts": 0, "last_ts": 0,
-                                            "tokens": sum(count_tokens(t)
-                                                          for t in
-                                                          capacity_texts)}],
+                                            "tokens": count_tokens(text)}
+                                            for kind, text in capacity_pairs],
                                         available_item_ids=frozenset(),
                                         window_messages=len(list(window or ())),
                                         budget={
@@ -13324,7 +13356,7 @@ class DirectChatService:
                                             "budget": int(fb_budget),
                                             "selection_budget": int(fb_budget),
                                             "fixed_p0_tokens": int(
-                                                fixed_tokens),
+                                                sent_fixed_tokens),
                                             "policy_mode": "fallback_capacity",
                                             "degraded": True,
                                             "physical_overflow": True,

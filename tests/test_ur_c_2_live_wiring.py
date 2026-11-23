@@ -17,6 +17,7 @@ import pytest
 
 import services.direct_chat_service as dcs
 from services import direct_context_composer as comp
+from services.token_counter import count_tokens
 from tests.test_direct_chat import (
     FakeDB,
     FakeMemory,
@@ -338,6 +339,108 @@ async def test_fallback_failure_returns_capacity_not_primary(monkeypatch):
     assert prepared.budget["physical_overflow"] is True
     assert out.get("fallback_prepared") is prepared
     assert calls["select"] == 2
+
+
+@pytest.mark.asyncio
+async def test_fallback_double_failure_keeps_fixed_p0(monkeypatch):
+    """R2-01: raw double-failure сохраняет fixed P0 и честный fixed-tokens."""
+    svc = _service(window=[_row(1), _row(2)])
+    svc.llm._chat_model = "primary"
+    svc.llm._fallback_model = "fb"
+    svc.llm._base_url = ""
+    svc.llm._fallback_base_url = ""
+    monkeypatch.setattr(dcs._model_capacity,
+                        "capacity_resolver_enabled", lambda: True)
+    monkeypatch.setattr(dcs._auto_budget,
+                        "auto_budget_enabled", lambda: True)
+
+    async def _window(base_url, model, slot=None):
+        return 20000, "runtime"
+
+    async def _budget(slot, **kwargs):
+        return SimpleNamespace(
+            context_window=20000, source="runtime",
+            auto_input_budget=15000, output_reserve=1000,
+            effective_input_budget=(12000 if slot == "direct.primary"
+                                    else 6000),
+            policy_mode="dynamic")
+
+    calls = {"select": 0, "materialize": 0}
+    real_select = comp.allocate_selection
+    real_mat = dcs._materialize_selection
+
+    def _select(*args, **kwargs):
+        calls["select"] += 1
+        if calls["select"] > 1:
+            raise RuntimeError("fallback allocation failed")
+        return real_select(*args, **kwargs)
+
+    def _mat(*args, **kwargs):
+        calls["materialize"] += 1
+        if calls["materialize"] > 1:
+            raise RuntimeError("fallback materialize failed")
+        return real_mat(*args, **kwargs)
+
+    monkeypatch.setattr(dcs._model_capacity, "resolve_stage_window", _window)
+    monkeypatch.setattr(dcs._auto_budget, "resolve_stage_budget", _budget)
+    monkeypatch.setattr(comp, "allocate_selection", _select)
+    monkeypatch.setattr(dcs, "_materialize_selection", _mat)
+    out: dict = {}
+    fallback: dict = {}
+    await svc._build_user_content(
+        CHAT, _message(text="вопрос"), "Вася",
+        out_prepared=out, out_fallback=fallback)
+    adapter = fallback["adapter_factory"](None)
+    adapted, prepared = adapter({
+        "messages": [{"role": "system", "content": "SYS"},
+                     {"role": "user", "content": "СТАРЫЙ КОНТЕКСТ"}]})
+    user_text = adapted["messages"][-1]["content"]
+    assert "СТАРЫЙ КОНТЕКСТ" not in user_text
+    assert "<Current_Question>" in user_text
+    # fixed P0 не потерян в raw-пути
+    assert "<UserResolutionMap>" in user_text
+    assert "<Target_User>" in user_text
+    assert "отвечай на последний вопрос" in user_text
+    assert prepared.budget["policy_mode"] == "fallback_capacity"
+    assert prepared.budget["degraded"] is True
+    fixed_kinds = {"map", "target", "relations", "protected", "lore",
+                   "correction", "nostalgia", "sandwich"}
+    sent_fixed = sum(
+        count_tokens(block.text) for block in prepared.blocks
+        if block.kind in fixed_kinds)
+    assert sent_fixed > 0
+    assert prepared.budget["fixed_p0_tokens"] == sent_fixed
+    assert calls["select"] == 2 and calls["materialize"] == 2
+
+
+def test_trace_dropped_classifies_episode_and_rag():
+    """R2-02: dropped trace не путает episode:* и fact/rag."""
+    current = comp.ContextFragment(
+        kind=comp.KIND_USER_STATEMENT, source_id="msg:current",
+        text="вопрос", role=comp.ROLE_CURRENT_QUESTION)
+    episode = comp.ContextFragment(
+        kind=comp.KIND_SUMMARY_INFERENCE, source_id="episode:7",
+        text="эпизод " * 20, role=comp.ROLE_MEMORY,
+        authority=comp.AUTHORITY_BACKGROUND, memory_tier=4,
+        timestamp_utc=100, time_known=True)
+    rag = comp.ContextFragment(
+        kind=comp.KIND_SUMMARY_INFERENCE, source_id="fact:9",
+        text="факт " * 20, role=comp.ROLE_MEMORY,
+        authority=comp.AUTHORITY_BACKGROUND, memory_tier=3,
+        timestamp_utc=200, time_known=True)
+    selection = comp.build_context_selection(
+        current_text=current.text, timestamp_utc=1000,
+        memory=[episode, rag],
+        budget_tokens=current.tokens() + 1)
+    dropped = {row["kind"]: row
+               for row in dcs._trace_selection_dropped(selection)}
+    assert {"episode", "rag"} <= set(dropped)
+    assert dropped["episode"]["source_ids"] == ["episode:7"]
+    assert dropped["episode"]["count"] == 1
+    assert dropped["episode"]["tokens"] == episode.tokens()
+    assert dropped["rag"]["source_ids"] == ["fact:9"]
+    assert dropped["rag"]["count"] == 1
+    assert dropped["rag"]["tokens"] == rag.tokens()
 
 
 def test_materializer_keeps_current_and_reply_parent_overflow_parts():
