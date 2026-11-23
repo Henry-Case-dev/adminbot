@@ -12641,7 +12641,8 @@ class DatabaseService:
         return cursor.rowcount
 
     async def get_persona_card(self, chat_id: int, name: str, limit: int,
-                               now_ts: int, *, user_id: int | None = None
+                               now_ts: int, *, user_id: int | None = None,
+                               alias_names: tuple[str, ...] = ()
                                ) -> dict:
         """66.9 (T-487): карточка человека БЕЗ отдельной таблицы — агрегация:
         прямые факты (target_user = имя, weight DESC) + связи графа (edges по
@@ -12651,17 +12652,40 @@ class DatabaseService:
         MCA-04a FIX п.2 (spec §4.6): при `MCA_FACT_ATTRIBUTION_ENABLED` факты
         читаются субъект-ориентированно (`subject_ref_id` устойчивого ID);
         legacy-строки без `subject_ref_id` — по имени (честный unknown);
-        общие знания и self-referential ответы бота исключены всегда (A85)."""
+        общие знания и self-referential ответы бота исключены всегда (A85).
+
+        RC6a (C2, 23.11.2026): facts остаются строками в прежнем порядке;
+        параллельный `facts_meta` добавляет `message_timestamp`/`created_at`/
+        `source_ref_id`/`tg_message_id`. `alias_names` расширяет links-поиск
+        канон/алиасами, не заменяя exact `name`; только read-path."""
         scope, excl, sparams = await self._person_scope_clause(
             chat_id, name, user_id=user_id)
         cursor = await self.db.execute(
-            "SELECT fact FROM graph_facts "
+            "SELECT fact, message_timestamp, created_at, subject_ref_id, "
+            "tg_message_id FROM graph_facts "
             f"WHERE chat_id = ? AND {scope} AND {excl} "
             "AND status = 'confirmed' "
             "AND (expires_at IS NULL OR expires_at > ?) "
             "ORDER BY weight DESC, created_at DESC",
             [chat_id, *sparams, now_ts])
-        facts = [row["fact"] for row in await cursor.fetchall()]
+        rows = await cursor.fetchall()
+        facts = [row["fact"] for row in rows]
+        facts_meta = [{
+            "fact": row["fact"],
+            "message_timestamp": row["message_timestamp"],
+            "created_at": row["created_at"],
+            # graph_facts не имеет отдельной source_ref колонки; устойчивый
+            # subject_ref_id — существующая типизированная ссылка карточки.
+            "source_ref_id": row["subject_ref_id"],
+            "tg_message_id": row["tg_message_id"],
+        } for row in rows]
+        names: list[str] = []
+        for value in (name, *(alias_names or ())):
+            text = " ".join(str(value or "").split())
+            if text and text not in names:
+                names.append(text)
+        names = names[:8] or [str(name or "")]
+        placeholders = ",".join("?" for _ in names)
         cursor = await self.db.execute(
             "SELECT e.relation_type, "
             "e.id AS edge_id, e.fact_id, e.origin, e.weight, "
@@ -12671,14 +12695,16 @@ class DatabaseService:
             "JOIN nodes s ON s.id = e.source_id "
             "JOIN nodes t ON t.id = e.target_id "
             "WHERE e.chat_id = ? "
-            "AND ((s.entity_name = ? AND s.entity_type = 'user') "
-            "OR (t.entity_name = ? AND t.entity_type = 'user')) "
+            f"AND ((s.entity_name IN ({placeholders}) "
+            "AND s.entity_type = 'user') "
+            f"OR (t.entity_name IN ({placeholders}) "
+            "AND t.entity_type = 'user')) "
             "AND e.origin != 'bot_direct_reply' "
             "AND s.origin != 'bot_direct_reply' AND t.origin != 'bot_direct_reply' "
             "ORDER BY e.weight DESC, e.id DESC LIMIT ?",
-            (chat_id, name, name, limit))
+            (chat_id, *names, *names, limit))
         links = [dict(row) for row in await cursor.fetchall()]
-        return {"facts": facts, "links": links}
+        return {"facts": facts, "facts_meta": facts_meta, "links": links}
 
     async def _subject_ref_id(self, chat_id, name, *, user_id=None):
         """Устойчивый `mca_source_refs.source_ref_id` субъекта (или None).

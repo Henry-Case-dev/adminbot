@@ -1569,18 +1569,36 @@ async def _relations_projection(db, request: RetrievalRequest, limit: int
     except (TypeError, ValueError):
         uids = ()
     uid = uids[0] if len(uids) == 1 else None
+    alias_names: list[str] = []
+    for value in (name, *(request.subject_names or ())):
+        text = " ".join(str(value or "").split())
+        if text and text not in alias_names:
+            alias_names.append(text)
+    alias_names = alias_names[:8]
     try:
         if uid is not None:
             try:
                 card = await getter(int(request.chat_id), name,
                                     max(1, int(limit)), int(time.time()),
-                                    user_id=int(uid))
+                                    user_id=int(uid),
+                                    alias_names=tuple(alias_names))
+            except TypeError:
+                try:
+                    card = await getter(int(request.chat_id), name,
+                                        max(1, int(limit)), int(time.time()),
+                                        user_id=int(uid))
+                except TypeError:
+                    card = await getter(int(request.chat_id), name,
+                                        max(1, int(limit)),
+                                        int(time.time()))
+        else:
+            try:
+                card = await getter(int(request.chat_id), name,
+                                    max(1, int(limit)), int(time.time()),
+                                    alias_names=tuple(alias_names))
             except TypeError:
                 card = await getter(int(request.chat_id), name,
                                     max(1, int(limit)), int(time.time()))
-        else:
-            card = await getter(int(request.chat_id), name,
-                                max(1, int(limit)), int(time.time()))
     except Exception:
         logger.warning("[mca07] relations projection failed", exc_info=True)
         return ()
