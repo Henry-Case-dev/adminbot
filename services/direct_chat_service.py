@@ -7659,6 +7659,13 @@ class DirectChatService:
                         speech=_speech_projection,
                         fallback_budget_tokens=(
                             _fallback_meta.get("l2_fallback_budget")),
+                        fallback_selection_factory=(
+                            _fallback_meta.get("adapter_factory")
+                            if _fallback_meta.get("selection_recompose")
+                            else None),
+                        selection_budget_tokens=(
+                            _fallback_meta.get("selection_budget")),
+                        out_prepared=_delivery,
                         # UR-19.2: longform-4096/16384 больше не подставляются
                         # как семантическая граница — Writer вычисляет
                         # физически допустимый output сам (общий код обоих
@@ -10699,6 +10706,9 @@ class DirectChatService:
                                speech_block: str = "",
                                writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
+                               fallback_selection_factory=None,
+                               selection_budget_tokens: int | None = None,
+                               out_prepared: dict | None = None,
             primary_prepared=None,
                                max_tokens=None, diag_out: dict | None = None,
                                history_assembly_block: str = "",
@@ -10864,6 +10874,93 @@ class DirectChatService:
             {"role": "system", "content": verbalizer_system},
             {"role": "user", "content": user_content},
         ]
+        _l2_binding: dict = {}
+        # UR-11b §3.2: точный учёт writer-extras. Time/plan/tool evidence/
+        # closing входят в обязательный payload, но не в selection budget;
+        # при фактическом превышении — ОДИН final fit тем же allocator'ом на
+        # той же full_selection (не второй retrieval/build).
+        _evidence_block = ("<Tool_Evidence>\n" + evidence + "\n"
+                           "</Tool_Evidence>") if evidence else ""
+        _extra_prefix_list: list[str] = []
+        if str(plan_block or "").strip():
+            _extra_prefix_list.append(str(plan_block))
+        if not _c_on:
+            # SOUL-1 OFF: speech/lessons живут в user-части между plan и
+            # selection — сохраняем этот же порядок при recompose/final fit.
+            if str(speech_block or "").strip():
+                _extra_prefix_list.append(str(speech_block))
+            if str(lessons_block or "").strip():
+                _extra_prefix_list.append(str(lessons_block))
+        _extra_prefix = tuple(_extra_prefix_list)
+        _extra_suffix = tuple(
+            [x for x in (str(_evidence_block or ""),
+                         str(_closing or "")) if x.strip()])
+        # UR-11b: inserted media/voice/dig/evidence-note блоки не входят в
+        # full_selection и не описываются фабрикой; при их наличии live
+        # recompose/final fit молча потерял бы обязательные блоки. Тогда
+        # остаётся legacy-репак по полному `parts` (ниже), а не primary as-is.
+        _sel_block_texts = [str(getattr(block, "text", block))
+                            for block in
+                            (getattr(primary_prepared, "blocks", ()) or ())]
+        _user_block_texts = [str(b) for b in (user_blocks or ())
+                             if str(b or "")]
+        _selection_payload_exact = (_user_block_texts == _sel_block_texts)
+        _extra_texts = [str(time_line or ""), str(plan_block or "")]
+        if not _c_on:
+            _extra_texts.extend([str(speech_block or ""),
+                                 str(lessons_block or "")])
+        _extra_texts.extend([_evidence_block, str(_closing or "")])
+        try:
+            _extra_tokens = sum(count_tokens(t) for t in _extra_texts if t)
+        except Exception:          # pragma: no cover - наблюдаемость
+            _extra_tokens = 0
+        if (fallback_selection_factory is not None
+                and _selection_payload_exact
+                and fallback_budget_tokens
+                and selection_budget_tokens is not None
+                and primary_prepared is not None):
+            try:
+                _pb = dict(getattr(primary_prepared, "budget", {}) or {})
+                _payload_tokens = int(_pb.get("payload_tokens") or 0)
+                _primary_budget = int(_pb.get("budget") or 0)
+                if (_primary_budget and _payload_tokens
+                        and _payload_tokens + _extra_tokens > _primary_budget):
+                    _fit = fallback_selection_factory(
+                        time_line,
+                        extra_reserve=int(_extra_tokens),
+                        binding=_l2_binding,
+                        selection_budget=int(selection_budget_tokens),
+                        extra_prefix=_extra_prefix,
+                        extra_suffix=_extra_suffix,
+                        mark_fallback=False)
+                    _fit_adapted, _fit_prepared = _fit(
+                        {"messages": list(base_messages)})
+                    _fit_messages = _fit_adapted.get("messages") or []
+                    if _fit_messages:
+                        base_messages = list(_fit_messages)
+                    if _fit_prepared is not None:
+                        _fit_prepared = dataclasses.replace(
+                            _fit_prepared,
+                            budget=dict(
+                                _fit_prepared.budget,
+                                policy_mode="final_fit",
+                                final_fit=True))
+                        _l2_binding["prepared"] = _fit_prepared
+                        _l2_binding["prepared_text"] = _sent_user_text(
+                            _fit_adapted)
+                        if out_prepared is not None:
+                            try:
+                                out_prepared["primary"] = _fit_prepared
+                            except Exception:
+                                pass
+                        logger.info(
+                            "direct: L2 final fit | chat=%s | extras=%d | "
+                            "selection_budget=%d", chat_id, _extra_tokens,
+                            int(selection_budget_tokens) - int(_extra_tokens))
+            except Exception:
+                logger.warning(
+                    "direct: L2 final fit failed — primary payload kept | "
+                    "chat=%s", chat_id, exc_info=True)
         # ── UR-19/UR-19.1/UR-19.2: Writer вычисляет физически допустимый
         # output из РЕАЛЬНОГО max_output модели, окна и размера СВОЕГО входа.
         # Семантические константы (инициативный 700, longform-4096/16384)
@@ -10930,13 +11027,21 @@ class DirectChatService:
             prompt_keys=(
                 "prompts.direct_chat_verbalizer_system_prompt",
                 "prompts.direct_l1_planner_system_prompt"))
-        # ── v6 D04 (§18C.4): L2 fallback-репак под РЕАЛЬНОЕ окно
-        # fallback-модели (plan/memory/lessons/character/evidence;
-        # защищённые блоки: current request, mandatory tool evidence,
-        # safety/role system). None → прежнее поведение (без адаптера).
-        _l2_fb_adapter = None
-        if fallback_budget_tokens:
-            _l2_fb_adapter = _dx.build_l2_fallback_adapter(
+        # ── v6 D04 (§18C.4) / UR-11b: L2 fallback-репак под РЕАЛЬНОЕ окно
+        # fallback-модели. Живой selection-путь использует compose-recompose
+        # на ТОЙ ЖЕ full_selection (fallback_selection_factory); legacy
+        # `build_l2_fallback_adapter` остаётся только для fail-open/recovery.
+        _raw_l2_adapter = None
+        if fallback_selection_factory is not None and _selection_payload_exact:
+            def _selection_adapter(payload):
+                return fallback_selection_factory(
+                    time_line, extra_reserve=int(_extra_tokens),
+                    binding=_l2_binding,
+                    extra_prefix=_extra_prefix,
+                    extra_suffix=_extra_suffix)(payload)
+            _raw_l2_adapter = _selection_adapter
+        elif fallback_budget_tokens:
+            _raw_l2_adapter = _dx.build_l2_fallback_adapter(
                 system=verbalizer_system,
                 parts=[p for p in (list(parts) + ([_closing] if _closing else ()))
                        if not p.startswith("<Tool_Evidence>")],
@@ -10944,10 +11049,8 @@ class DirectChatService:
                 fallback_budget_tokens=int(fallback_budget_tokens),
                 on_capacity_reason=lambda reason: _l1.record_l1_diagnostics(
                     chat_id, l2_capacity_reason=str(reason)))
-        _l2_binding: dict = {}
-        if _l2_fb_adapter is not None:
-            _raw_l2_adapter = _l2_fb_adapter
-
+        _l2_fb_adapter = None
+        if _raw_l2_adapter is not None:
             def _l2_fb_adapter(payload, _raw=_raw_l2_adapter):
                 """Рекомпоз L2: тело + prepared-вариант ОДНИМ объектом (Q6)."""
                 out = _raw(payload)
@@ -10962,6 +11065,16 @@ class DirectChatService:
                                 "budget": int(fallback_budget_tokens or 0),
                                 "policy_mode": "fallback_recompose",
                                 "fallback": True})
+                elif fallback_budget_tokens:
+                    # Fallback prepared описывает окно fallback-МОДЕЛИ, а не
+                    # selection sub-budget (они различаются на fixed P0).
+                    try:
+                        prepared = dataclasses.replace(
+                            prepared,
+                            budget=dict(prepared.budget,
+                                        budget=int(fallback_budget_tokens)))
+                    except Exception:
+                        pass
                 _l2_binding["prepared"] = prepared
                 _l2_binding["prepared_text"] = _sent_user_text(adapted)
                 return adapted, prepared
@@ -13188,6 +13301,12 @@ class DirectChatService:
                     }
                     if fallback:
                         budget_meta["fallback"] = True
+                        # Fallback prepared описывает fallback-тело: primary
+                        # window/source/payload_tokens к нему не относятся.
+                        for _meta_key in ("window", "window_source",
+                                          "output_reserve", "available",
+                                          "payload_tokens"):
+                            budget_meta.pop(_meta_key, None)
                     self_out_payload: list = []
                     seen_self: set = set()
                     for frag in (list(sel.self_outputs)
@@ -13244,19 +13363,34 @@ class DirectChatService:
                                 fallback_recompose_budget)
                         except Exception:
                             pass
+                    try:
+                        out_fallback["selection_budget"] = int(
+                            selection_budget)
+                        out_fallback["fixed_p0_tokens"] = int(fixed_tokens)
+                    except Exception:
+                        pass
 
                 # Fallback recompose: тот же allocator на ТОЙ ЖЕ полной
-                # selection, без повторного retrieval/сборки.
-                if (out_fallback is not None
-                        and fallback_selection_budget is not None):
+                # selection, без повторного retrieval/сборки. Фабрика живёт
+                # и без fallback-модели: final fit primary использует её же.
+                if out_fallback is not None:
                     def _fallback_factory(time_line: str | None,
                                           extra_reserve: int = 0,
-                                          binding: dict | None = None):
+                                          binding: dict | None = None,
+                                          selection_budget: int | None = None,
+                                          extra_prefix=(),
+                                          extra_suffix=(),
+                                          mark_fallback: bool = True):
                         def _adapt(incoming: dict):
                             try:
+                                base_budget = (
+                                    int(selection_budget)
+                                    if selection_budget is not None else
+                                    (int(fallback_selection_budget)
+                                     if fallback_selection_budget is not None
+                                     else int(budget)))
                                 fb_budget = max(
-                                    1, int(fallback_selection_budget)
-                                    - int(extra_reserve or 0))
+                                    1, base_budget - int(extra_reserve or 0))
                                 fb_sel = _composer.allocate_selection(
                                     full_selection, fb_budget)
                                 fb_payload, fb_prepared_pairs = \
@@ -13268,12 +13402,15 @@ class DirectChatService:
                                     fallback=True, fb_budget=fb_budget)
                                 if binding is not None:
                                     binding["prepared"] = fb_prepared
-                                if out_prepared is not None:
+                                if out_prepared is not None and mark_fallback:
                                     out_prepared["fallback_prepared"] = \
                                         fb_prepared
                                     out_prepared["fallback_used"] = True
-                                blocks_fb = ([time_line]
-                                             if time_line else []) + fb_texts
+                                blocks_fb = (
+                                    ([time_line] if time_line else [])
+                                    + list(extra_prefix)
+                                    + fb_texts
+                                    + list(extra_suffix))
                                 messages = incoming.get("messages") or []
                                 adapted = dict(incoming)
                                 adapted["messages"] = [
@@ -13297,9 +13434,14 @@ class DirectChatService:
                                     "direct: selection fallback recompose "
                                     "FAILED — capacity-only payload | "
                                     "chat=%s", chat_id, exc_info=True)
+                                base_budget = (
+                                    int(selection_budget)
+                                    if selection_budget is not None else
+                                    (int(fallback_selection_budget)
+                                     if fallback_selection_budget is not None
+                                     else int(budget)))
                                 fb_budget = max(
-                                    1, int(fallback_selection_budget)
-                                    - int(extra_reserve or 0))
+                                    1, base_budget - int(extra_reserve or 0))
                                 # A2 §3.6: primary на меньшую модель не
                                 # отправляем. Собираем bounded P0/current
                                 # payload и явный degraded/capacity prepared.
@@ -13397,19 +13539,25 @@ class DirectChatService:
                                     capacity_prepared,
                                     budget=dict(
                                         capacity_prepared.budget,
+                                        budget=int(
+                                            fallback_recompose_budget
+                                            or base_budget),
+                                        selection_budget=int(fb_budget),
                                         policy_mode="fallback_capacity",
                                         degraded=True,
                                         physical_overflow=True,
                                         capacity_limited=True))
                                 if binding is not None:
                                     binding["prepared"] = capacity_prepared
-                                if out_prepared is not None:
+                                if out_prepared is not None and mark_fallback:
                                     out_prepared["fallback_prepared"] = \
                                         capacity_prepared
                                     out_prepared["fallback_used"] = True
-                                blocks_fb = ([time_line]
-                                             if time_line else []) + \
-                                    capacity_texts
+                                blocks_fb = (
+                                    ([time_line] if time_line else [])
+                                    + list(extra_prefix)
+                                    + capacity_texts
+                                    + list(extra_suffix))
                                 messages = incoming.get("messages") or []
                                 adapted = dict(incoming)
                                 adapted["messages"] = [
@@ -13427,6 +13575,7 @@ class DirectChatService:
                         return _adapt
                     try:
                         out_fallback["adapter_factory"] = _fallback_factory
+                        out_fallback["selection_recompose"] = True
                     except Exception:
                         pass
 
@@ -19040,6 +19189,8 @@ class DirectChatService:
         # владелец формата, EVOL v5); selection решает, ЧТО видно, окно —
         # в каком порядке. Сбой общей сборки — fail-open на кандидатный
         # хвост без ручного потолка (инициативу не роняем).
+        _init_prepared_out: dict = {}
+        _init_fb_budget: int | None = None
         try:
             # Модель/endpoint — только от инжектированного клиента (без
             # settings-fallback): двойник без атрибутов → пустые строки →
@@ -19048,6 +19199,20 @@ class DirectChatService:
                 "initiative.l2",
                 base_url=str(getattr(self.llm, "_base_url", "") or ""),
                 model=str(getattr(self.llm, "_chat_model", "") or ""))
+            _init_fb_budget = None
+            _init_fb_model = str(
+                getattr(self.llm, "_fallback_model", "") or "")
+            if _init_fb_model:
+                try:
+                    _init_fb_result = await _auto_budget.resolve_stage_budget(
+                        "initiative.l2",
+                        base_url=str(getattr(
+                            self.llm, "_fallback_base_url", "") or ""),
+                        model=_init_fb_model)
+                    _init_fb_budget = int(
+                        _init_fb_result.effective_input_budget)
+                except Exception:      # pragma: no cover - fail-open
+                    _init_fb_budget = None
             _init_fresh, _init_background = \
                 _composer.collect_window_fragments(
                     window,
@@ -19088,6 +19253,136 @@ class DirectChatService:
             line_chars=0,
             projection=_init_speech)
             if _init_window_rows else [])
+        _init_fb_factory = None
+        if _init_fb_budget:
+            def _init_fb_factory(time_line=None, extra_reserve: int = 0,
+                                 binding: dict | None = None,
+                                 selection_budget: int | None = None,
+                                 extra_prefix=(), extra_suffix=(),
+                                 mark_fallback: bool = True):
+                """UR-11b: initiative L2 recompose на том же window selection."""
+                def _adapt(incoming):
+                    try:
+                        base_budget = (
+                            int(selection_budget)
+                            if selection_budget is not None
+                            else int(_init_fb_budget))
+                        fixed_context = int(count_tokens(str(context_block or "")))
+                        fixed_total = fixed_context + int(extra_reserve or 0)
+                        window_budget = max(1, base_budget - fixed_total)
+                        capacity = bool(fixed_total >= base_budget)
+                        rows: list = []
+                        if not capacity:
+                            try:
+                                fresh, background = \
+                                    _composer.collect_window_fragments(
+                                        window, aliases=None,
+                                        bot_user_id=getattr(self, "bot_id", None),
+                                        now_ts=int(time.time()))
+                                sel = _composer.build_context_selection(
+                                    current_text="", chat_id=chat_id,
+                                    fresh_neighbours=fresh,
+                                    background=background,
+                                    budget_tokens=window_budget)
+                                sources = (
+                                    {f.source_id for f in sel.fresh_neighbours}
+                                    | {f.source_id for f in sel.background})
+                                for _row in (window or ()):
+                                    if not isinstance(_row, dict):
+                                        continue
+                                    _probe = _composer.row_to_fragment(
+                                        _row, role=_composer.ROLE_FRESH_NEIGHBOUR)
+                                    if _probe.source_id in sources:
+                                        rows.append(_row)
+                            except Exception:  # capacity-only fallback
+                                rows = []
+                        lines = _l1.render_window_lines(
+                            rows, max(1, len(rows)) if rows else 0,
+                            with_ids=True,
+                            alias_resolver=getattr(self, "aliases", None),
+                            line_chars=0, projection=_init_speech) if rows else []
+                        win = ("<Fresh_Chat_Window>\n" + "\n".join(lines)
+                               + "\n</Fresh_Chat_Window>") if lines else ""
+                        blocks = (([time_line] if time_line else [])
+                                  + list(extra_prefix)
+                                  + [str(context_block or "")]
+                                  + ([win] if win else [])
+                                  + list(extra_suffix))
+                        messages = incoming.get("messages") or []
+                        adapted = dict(incoming)
+                        adapted["messages"] = [
+                            {"role": "system",
+                             "content": str(messages[0].get("content", "")
+                                            if messages else "")},
+                            {"role": "user",
+                             "content": "\n\n".join(b for b in blocks if b)}]
+                        prepared = _prepared_turn_payload(
+                            chat_id=chat_id, correlation_id=correlation_id,
+                            blocks=[("initiative_context", str(context_block or ""))]
+                            + ([("global_tail", win)] if win else []),
+                            event_blocks=[], available_item_ids=frozenset(),
+                            window_messages=len(tuple(window or ())),
+                            budget={
+                                "slot": "initiative.l2",
+                                "budget": int(base_budget),
+                                "selection_budget": int(window_budget),
+                                "policy_mode": ("fallback_capacity" if capacity
+                                                else "fallback_recompose"),
+                                "degraded": bool(capacity),
+                                "physical_overflow": bool(capacity),
+                                "fallback": True},
+                            dropped=(), self_outputs=(),
+                            projection=_init_speech,
+                            policy_version=_composer.COMPOSER_POLICY_VERSION)
+                        if binding is not None:
+                            binding["prepared"] = prepared
+                            binding["prepared_text"] = _sent_user_text(adapted)
+                        if mark_fallback:
+                            _init_prepared_out["fallback_prepared"] = prepared
+                            _init_prepared_out["fallback_used"] = True
+                        return adapted, prepared
+                    except Exception:
+                        logger.warning(
+                            "[f6] initiative fallback recompose failed — "
+                            "capacity-only | chat=%s", chat_id, exc_info=True)
+                        blocks = (([time_line] if time_line else [])
+                                  + list(extra_prefix)
+                                  + [str(context_block or "")]
+                                  + list(extra_suffix))
+                        messages = incoming.get("messages") or []
+                        adapted = dict(incoming)
+                        adapted["messages"] = [
+                            {"role": "system",
+                             "content": str(messages[0].get("content", "")
+                                            if messages else "")},
+                            {"role": "user",
+                             "content": "\n\n".join(b for b in blocks if b)}]
+                        prepared = _prepared_turn_payload(
+                            chat_id=chat_id, correlation_id=correlation_id,
+                            blocks=[("initiative_context", str(context_block or ""))],
+                            event_blocks=[], available_item_ids=frozenset(),
+                            window_messages=len(tuple(window or ())),
+                            budget={
+                                "slot": "initiative.l2",
+                                "budget": int(selection_budget
+                                              or _init_fb_budget),
+                                "selection_budget": 1,
+                                "policy_mode": "fallback_capacity",
+                                "degraded": True,
+                                "physical_overflow": True,
+                                "fallback": True},
+                            dropped=(), self_outputs=(),
+                            projection=_init_speech,
+                            policy_version=_composer.COMPOSER_POLICY_VERSION)
+                        if binding is not None:
+                            binding["prepared"] = prepared
+                            binding["prepared_text"] = _sent_user_text(adapted)
+                        if mark_fallback:
+                            _init_prepared_out["fallback_prepared"] = prepared
+                            _init_prepared_out["fallback_used"] = True
+                        return adapted, prepared
+
+                return _adapt
         _init_labels: dict = {}
         _init_names: dict = {}
         for _row in _init_window_rows:
@@ -19310,7 +19605,10 @@ class DirectChatService:
                 # реального ресурса модели и размера входа (общий путь с
                 # Direct, один код).
                 writer="initiative_writer",
-                speech=_init_speech)
+                speech=_init_speech,
+                fallback_selection_factory=_init_fb_factory,
+                fallback_budget_tokens=_init_fb_budget,
+                out_prepared=_init_prepared_out)
             # BGS-02: то же наблюдение, что в Direct (единый postprocess):
             # без адресного lookup, без повторной генерации и без удаления
             # предложения. Инициатива не получает «отдельного» режима.

@@ -2380,11 +2380,13 @@ class LLMClient:
         Эпик 04.09.2026 (3.3): контракт {model, messages[, temperature]}
         НЕ меняется — tools уходят ТОЛЬКО новым generate_chat (FR-10).
 
-        ASAP-3.1 (ADR-1028-3 §14/§42): ``fallback_payload_adapter`` —
+        ASAP-3.1 (ADR-1028-3 §14/§42) / UR-11b: ``fallback_payload_adapter`` —
         необязательный callable ``(payload) -> payload``; вызывается РОВНО
         ОДИН раз при переключении на fallback ДО отправки (recompose под
-        меньшее окно fallback-модели). None/ошибка адаптера → payload
-        байт-в-байт прежний (fail-open; паритет со всеми прежними вызовами).
+        меньшее окно fallback-модели). Адаптер бросил/вернул непригодную
+        форму → fallback-транспорт НЕ вызывается с primary payload; исходная
+        primary-ошибка пробрасывается (honest refusal). None → прежнее
+        поведение (fallback as-is допустим только как legacy).
 
         ASAP 4.1 волна 4 (spec §4 D.1, ADR-1028-8 D5; scope = Summary
         только): ``supervised_transport`` — transport-контракт, который
@@ -2481,6 +2483,7 @@ class LLMClient:
                 "LLM fallback attempt | primary_error=%s | provider=%s",
                 exc, _provider_host(self._fallback_base_url))
             if fallback_payload_adapter is not None:
+                adapter_failed = False
                 try:
                     adapted = fallback_payload_adapter(payload)
                     if isinstance(adapted, tuple) and len(adapted) == 2:
@@ -2493,22 +2496,23 @@ class LLMClient:
                         logger.info(
                             "LLM fallback recompose | blocks_ok=1")
                     else:
-                        # ADR-1028-5 D10 (усиление): адаптер вернул непригодную
-                        # форму — честная диагностика, отправка primary-payload
-                        # в меньшее окно ВИДИМА (не тихий fail-open).
+                        # UR-11b: непригодная форма — fallback-транспорт
+                        # получать primary payload НЕ должен (honest refusal).
                         logger.warning(
-                            "LLM fallback recompose invalid (shape) — primary "
-                            "payload SENT AS-IS | oversized_risk=1 | "
+                            "LLM fallback recompose invalid (shape) — "
+                            "fallback skipped | capacity_error=1 | "
                             "adapted_type=%s", type(adapted).__name__)
+                        adapter_failed = True
                 except Exception:
-                    # ADR-1028-5 D10 (усиление против ASAP-3.1 :1010–1012):
-                    # recompose failure — громкая честная диагностика
-                    # (oversized-risk), НЕ тихая отправка. Fail-open
-                    # сохранён (паритет ASAP-3.1; сервис не рвём).
+                    # UR-11b: recompose failure — fallback skipped, исходная
+                    # primary-ошибка пробрасывается; primary as-is запрещён.
                     logger.warning(
-                        "LLM fallback recompose FAILED — primary payload "
-                        "SENT AS-IS | oversized_risk=1 | fallback_window=%s",
+                        "LLM fallback recompose FAILED — fallback skipped | "
+                        "capacity_error=1 | fallback_window=%s",
                         self._fallback_model, exc_info=True)
+                    adapter_failed = True
+                if adapter_failed:
+                    raise exc
             fb_response = await self._fallback_with_retries(payload, sent=sent)
             if fb_response is None:
                 # review r2 F2: общий провал — в журнал пишутся ВСЕ фактические
@@ -2818,6 +2822,7 @@ class LLMClient:
                 "LLM fallback attempt | primary_error=%s | provider=%s",
                 exc, _provider_host(self._fallback_base_url))
             if fallback_payload_adapter is not None:
+                adapter_failed = False
                 try:
                     adapted = fallback_payload_adapter(payload)
                     if isinstance(adapted, tuple) and len(adapted) == 2:
@@ -2832,17 +2837,23 @@ class LLMClient:
                             "tools=%s",
                             "kept" if adapted.get("tools") else "none")
                     else:
-                        # ADR-1028-5 D10 (усиление): непригодная форма
-                        # адаптера — видимая oversized-risk диагностика.
+                        # UR-11b: непригодная форма — fallback-транспорт
+                        # получать primary payload НЕ должен (honest refusal).
                         logger.warning(
                             "LLM fallback recompose invalid (shape) — "
-                            "primary payload SENT AS-IS | oversized_risk=1 "
-                            "| adapted_type=%s", type(adapted).__name__)
+                            "fallback skipped | capacity_error=1 | "
+                            "adapted_type=%s", type(adapted).__name__)
+                        adapter_failed = True
                 except Exception:
+                    # UR-11b: recompose failure — fallback skipped, исходная
+                    # primary-ошибка пробрасывается; primary as-is запрещён.
                     logger.warning(
-                        "LLM fallback recompose FAILED — primary payload "
-                        "SENT AS-IS | oversized_risk=1 | tools_in_payload=%s",
+                        "LLM fallback recompose FAILED — fallback skipped | "
+                        "capacity_error=1 | tools_in_payload=%s",
                         bool(payload.get("tools")), exc_info=True)
+                    adapter_failed = True
+                if adapter_failed:
+                    raise exc
             fb_response = await self._fallback_with_retries(payload, sent=sent)
             if fb_response is None:
                 # review r2 F2: общий провал — в журнал пишутся ВСЕ фактические

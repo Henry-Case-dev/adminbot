@@ -3125,7 +3125,9 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
         строкой (в rest она просто не попадает — как раньше);
       * защищённый минимум не помещается → честная capacity reason
         (callback + явная пометка в пакете), НЕ слепая отправка.
-    Никогда не бросает (ошибка → вход без изменений, fail-open паритет)."""
+    Ошибка репака НЕ возвращает вход as-is: исключение пробрасывается,
+    чтобы LLMClient не отправил primary payload в fallback-транспорт
+    (UR-11b; legacy/recovery-путь)."""
 
     def _adapt(incoming: dict):
         try:
@@ -3301,9 +3303,9 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
             return adapted
         except Exception:
             logger.warning(
-                "direct: L2 fallback repack FAILED — payload AS-IS | "
+                "direct: L2 fallback repack FAILED — fallback refused | "
                 "oversized_risk=1", exc_info=True)
-            return incoming
+            raise
 
     return _adapt
 

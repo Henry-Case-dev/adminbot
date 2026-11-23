@@ -1978,22 +1978,23 @@ async def test_fallback_end_to_end_describes_adapted_body(monkeypatch, events):
         .counts["included_messages"]
     assert snapshot.trace_id == "cid-e2e"
 
-    # ── отказ адаптера: invalid shape → отправлено PRIMARY-тело (Q6)
+    # ── UR-11b: отказ адаптера → fallback-транспорт НЕ вызывается,
+    # исходная primary-ошибка пробрасывается (primary as-is запрещён).
     def _bad_shape(payload):
         return {}, None
 
-    completion2 = await client.generate_with_metadata(
-        primary_payload["messages"], step="l2_writer",
-        correlation_id="cid-e2e", fallback_payload_adapter=_bad_shape)
-    assert "СТАРЫЙ КОНТЕКСТ" in dcs._sent_user_text(completion2.sent_body)
+    with pytest.raises(_llm_client.LLMError):
+        await client.generate_with_metadata(
+            primary_payload["messages"], step="l2_writer",
+            correlation_id="cid-e2e", fallback_payload_adapter=_bad_shape)
 
     def _raises(payload):
         raise RuntimeError("adapter boom")
 
-    completion3 = await client.generate_with_metadata(
-        primary_payload["messages"], step="l2_writer",
-        correlation_id="cid-e2e", fallback_payload_adapter=_raises)
-    assert "СТАРЫЙ КОНТЕКСТ" in dcs._sent_user_text(completion3.sent_body)
+    with pytest.raises(_llm_client.LLMError):
+        await client.generate_with_metadata(
+            primary_payload["messages"], step="l2_writer",
+            correlation_id="cid-e2e", fallback_payload_adapter=_raises)
 
 
 @pytest.mark.asyncio
@@ -2644,7 +2645,10 @@ async def test_l2_fallback_full_turn_describes_adapted_body(monkeypatch, events)
 
     # бюджет — FALLBACK-варианта (адаптированное тело), не первичный:
     # у первичного были `window`/`payload_tokens`/`window_source`.
-    assert budget.get("policy_mode") == "fallback_recompose", budget
+    # UR-11b: fixed plan/evidence могут физически не влезть в fallback-окно —
+    # тогда честный `fallback_capacity`, не primary as-is.
+    assert budget.get("policy_mode") in ("fallback_recompose",
+                                         "fallback_capacity"), budget
     assert budget.get("budget") == FALLBACK_WINDOW, budget
     assert "window" not in budget, budget
     assert "payload_tokens" not in budget, budget
