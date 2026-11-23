@@ -2012,7 +2012,8 @@ class IbmQuantumRuntimeClient:
                              shots: int = IBM_SMOKE_SHOTS,
                              job_store=None, supervisor=None,
                              account_key: str = "",
-                             config_fp: str = "") -> dict:
+                             config_fp: str = "",
+                             fence: Callable | None = None) -> dict:
         """Отдельное ограниченное измерение на реальном QPU (не зачисляется)."""
         checked_at = int(time.time())
         crn_present = bool(str(crn or "").strip())
@@ -2057,7 +2058,7 @@ class IbmQuantumRuntimeClient:
                     length=1, job_store=job_store, supervisor=supervisor,
                     deposit=None, account_key=account_key,
                     config_fp=config_fp, smoke=True,
-                    shots_override=shots)
+                    shots_override=shots, fence=fence)
             else:
                 instances = await self._instances(service)
                 batch = await self._run_on_backend(
@@ -2110,8 +2111,8 @@ class IbmQuantumRuntimeClient:
                     channel: str = IBM_CHANNEL,
                     length: int = DEFAULT_BATCH_LENGTH,
                     job_store=None, supervisor=None, deposit=None,
-                    account_key: str = "",
-                    config_fp: str = "") -> AnuBatch:
+                    account_key: str = "", config_fp: str = "",
+                    fence: Callable | None = None) -> AnuBatch:
         key, crn_text, instance_text, region_text, channel_text = \
             self._validated(api_key, crn, instance, region, channel)
         try:
@@ -2159,7 +2160,7 @@ class IbmQuantumRuntimeClient:
                 api_key=key, crn=crn_text, instance=instance_text,
                 region=region_text, channel=channel_text, length=length,
                 job_store=job_store, supervisor=supervisor, deposit=deposit,
-                account_key=account_key, config_fp=config_fp)
+                account_key=account_key, config_fp=config_fp, fence=fence)
         except IbmError as exc:
             self._note_failure(self._clock(), exc.code)
             raise
@@ -2171,7 +2172,8 @@ class IbmQuantumRuntimeClient:
                            job_store, supervisor, deposit,
                            account_key: str, config_fp: str,
                            smoke: bool = False,
-                           shots_override: int | None = None) -> AnuBatch:
+                           shots_override: int | None = None,
+                           fence: Callable | None = None) -> AnuBatch:
         from services.task_supervisor import get_task_supervisor
         sup = supervisor or get_task_supervisor()
         prefix = "random.ibm.smoke" if smoke else "random.ibm.job"
@@ -2186,6 +2188,10 @@ class IbmQuantumRuntimeClient:
         if any(str(r.get("kind") or "") == IBM_JOB_KIND
                for r in active):
             raise IbmError("job_in_progress", "active ibm job exists",
+                           retryable=True, sent=False, stage="job")
+        if fence is not None and await fence():
+            raise IbmError("job_in_progress",
+                           "unresolved/recovering ibm job exists",
                            retryable=True, sent=False, stage="job")
         box: dict = {}
 
@@ -3879,6 +3885,11 @@ class RandomSourceService:
                           job: dict | None = None,
                           plan: str | None = None,
                           usage: dict | None = None) -> None:
+        # Частичный usage (refill/smoke: только usage_seconds) не должен
+        # стирать полный ответ usage() с remaining RU/seconds из проверки.
+        merged_usage = dict(self._ibm_health.get("usage") or {})
+        if usage:
+            merged_usage.update(usage)
         self._ibm_health = {
             "state": ANU_STATE_ACTIVE,
             "last_error": None,
@@ -3889,8 +3900,7 @@ class RandomSourceService:
             "last_job": job or self._ibm_health.get("last_job"),
             "plan": plan if plan is not None
             else self._ibm_health.get("plan"),
-            "usage": usage if usage is not None
-            else self._ibm_health.get("usage"),
+            "usage": merged_usage or None,
             "config_fp": self._ibm_config_fingerprint(),
         }
 
@@ -4494,7 +4504,8 @@ class RandomSourceService:
                            if self.db is not None else None),
                 deposit=deposit,
                 account_key=self._ibm_account_key(),
-                config_fp=self._ibm_config_fingerprint())
+                config_fp=self._ibm_config_fingerprint(),
+                fence=self._ibm_submit_fence)
             batch.latency_ms = int((time.monotonic() - started) * 1000)
             self._last_latency_ms = batch.latency_ms
             return batch
@@ -4935,7 +4946,8 @@ class RandomSourceService:
             supervisor=(get_task_supervisor()
                         if job_store is not None else None),
             account_key=self._ibm_account_key(),
-            config_fp=self._ibm_config_fingerprint())
+            config_fp=self._ibm_config_fingerprint(),
+            fence=self._ibm_submit_fence)
         persisted = bool(
             key and key == self._ibm_api_key()
             and (not crn or crn == self._ibm_crn()))
@@ -5012,16 +5024,17 @@ class RandomSourceService:
         if client is not None and not client.available():
             return "circuit_open"
         active = await self._ibm_active_jobs()
-        if any(str(r.get("status") or "") == "interrupted"
+        if any(str(r.get("status") or "") != "running"
+               and str(r.get("status") or "") != "queued"
                for r in active):
-            # Строка снята watchdog'ом — пробуем attach по сохранённому job ID
-            # (без resubmit) и в этом проходе новых заданий не создаём.
+            # Есть unresolved/снятая строка — пробуем attach/poll по cursor
+            # (без resubmit); новые задания в этом проходе не создаются.
             try:
                 await self._recover_ibm_jobs()
             except Exception:
                 logger.warning("[random_source] ibm recovery kick failed",
                                exc_info=True)
-        if len(active) >= self._ibm_max_inflight():
+        if await self._ibm_inflight_count() >= self._ibm_max_inflight():
             return "job_in_progress"
         if await self._ibm_jobs_today() >= self._ibm_max_jobs_per_day():
             return "daily_job_limit"
@@ -5076,6 +5089,15 @@ class RandomSourceService:
             return {"status": "disabled"}
         if not mca_gates.random_refill_enabled() and not force:
             return {"status": "disabled", "reason": "refill_disabled"}
+        # Перед новым submit сначала разрешаем хвосты IBM (attach/poll):
+        # иначе долго живущий процесс мог бы оплатить второй job при живом
+        # незавершённом первом.
+        recovery_started = 0
+        try:
+            recovery_started = await self._recover_ibm_jobs()
+        except Exception:
+            logger.warning("[random_source] ibm recovery before refill "
+                           "failed", exc_info=True)
         queue, attempts = await self._refill_plan()
         if not queue:
             if self._ibm_configured() and \
@@ -5257,6 +5279,12 @@ class RandomSourceService:
             return {"ok": False, "reason": "provider_unconfigured"}
         if not self._ibm_dependency_available():
             return {"ok": False, "reason": "dependency_missing"}
+        # Fence: unresolved IBM job/recovery запрещает новый платный submit.
+        blocker = await self._ibm_skip_reason()
+        if blocker in {"job_in_progress", "dependency_missing",
+                       "circuit_open", "daily_job_limit",
+                       "daily_usage_limit"}:
+            return {"ok": False, "reason": blocker}
         fingerprint = self._ibm_config_fingerprint()
 
         async def _deposit(batch: AnuBatch) -> str:
@@ -5341,11 +5369,50 @@ class RandomSourceService:
                            exc_info=True)
             return []
 
+    def _ibm_row_unresolved(self, row: dict) -> bool:
+        """Есть ли у строки незавершённый IBM job (по cursor), требующий poll.
+
+        `completed/failed/cancelled` в cursor — уже разрешённый исход. Любой
+        другой state (`expired`, `submitted`, `pending`, ...) с job ID/tag
+        считается незавершённым: до attach/query новый платный submit запрещён.
+        """
+        cursor = self._ibm_cursor(row)
+        state = str(cursor.get("state") or "").strip().lower()
+        if state in (IBM_JOB_COMPLETED, IBM_JOB_FAILED, IBM_JOB_CANCELLED):
+            return False
+        return bool(str(cursor.get("job") or "").strip()
+                    or str(cursor.get("job_tag") or "").strip())
+
     async def _ibm_active_jobs(self) -> list[dict]:
-        # `interrupted` — строка, снятая watchdog'ом, но IBM job мог остаться
-        # живым: до recovery это тоже «в работе», иначе возможен дубль оплаты.
-        return await self._ibm_task_rows(
-            statuses=("queued", "running", "interrupted"))
+        """IBM job'ы, считающиеся «в работе» для fence/max_inflight.
+
+        Включает queued/running/interrupted и unresolved expired/failed/
+        submit_uncertain строки с сохранённым job ID/tag: их нельзя обходить
+        новым submit, пока recovery не разрешит статус у IBM.
+        """
+        rows = await self._ibm_task_rows(
+            statuses=("queued", "running", "interrupted", "failed",
+                      "expired"))
+        out: list[dict] = []
+        for row in rows:
+            status = str(row.get("status") or "")
+            if status in ("queued", "running", "interrupted"):
+                out.append(row)
+            elif self._ibm_row_unresolved(row):
+                out.append(row)
+        return out
+
+    async def _ibm_inflight_count(self) -> int:
+        """Число занятых IBM-слотов: unresolved rows + активные recovery."""
+        active = await self._ibm_active_jobs()
+        active_ids = {
+            str(self._ibm_cursor(r).get("job") or "").strip()
+            for r in active} - {""}
+        return len(active) + len(self._ibm_recovering - active_ids)
+
+    async def _ibm_submit_fence(self) -> bool:
+        """Fence для клиента непосредственно перед paid submit."""
+        return await self._ibm_inflight_count() >= self._ibm_max_inflight()
 
     async def _ibm_jobs_today(self) -> int:
         rows = await self._ibm_task_rows(since=self._utc_day_start())
