@@ -4385,6 +4385,12 @@ class ExperienceReviewRunner:
         for row in rows:
             lesson_id = str(row["lesson_id"])
             version = int(row["version"])
+            scope_chat_id = row.get("scope_chat_id")
+            if scope_chat_id is not None and not await learning_enabled_for_chat(
+                    scope_chat_id):
+                # M5B: candidate/validated выключенного чата не активируется
+                # общим worker'ом; durable строка не удаляется.
+                continue
             if str(row["status"]) == "validated":
                 # crash после verify — осталось только activation.
                 if await self._service.lesson.activate(lesson_id, version):
@@ -4544,6 +4550,8 @@ class ExperienceReviewRunner:
                     by_tool.setdefault((int(chat_id), tool), []).append(
                         str(row["episode_id"]))
         for (chat_id, tool), episode_ids in sorted(by_tool.items()):
+            if not await learning_enabled_for_chat(chat_id):
+                continue                   # M5B: disabled scope не учится
             unique = list(dict.fromkeys(episode_ids))
             need = (await _thresholds(chat_id))["technical"]
             if len(unique) < need:
@@ -4590,6 +4598,8 @@ class ExperienceReviewRunner:
                 continue
             by_chat.setdefault(int(chat_id), []).append(str(row["episode_id"]))
         for chat_id, episode_ids in sorted(by_chat.items()):
+            if not await learning_enabled_for_chat(chat_id):
+                continue                   # M5B: disabled scope не учится
             unique = list(dict.fromkeys(episode_ids))
             need = (await _thresholds(chat_id))["explicit"]
             if len(unique) < need:
@@ -4735,6 +4745,8 @@ class ExperienceReviewRunner:
             if msg_id is not None:
                 entry["sources"].append(f"message:{int(msg_id)}")
         for (chat_id, kind, carrier), entry in sorted(patterns.items()):
+            if not await learning_enabled_for_chat(chat_id):
+                continue                   # M5B: disabled scope не учится
             sources = tuple(dict.fromkeys(entry["sources"]))
             need = (await _thresholds(chat_id))["local"]
             if len(sources) < max(1, int(need)):
