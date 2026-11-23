@@ -4886,7 +4886,9 @@ def _build_l2_selection_candidates(
     """UR-C-2a: существующие источники → ЕДИНЫЙ `ContextSelection`.
 
     Чистая сборка без чтений: цепочка/окно/факты/эпизоды/ledger/конспект уже
-    получены вызывающим. Роли:
+    получены вызывающим. ``chain_items`` — реальный порядок
+    `_collect_thread_chain` (**current → root**); внутри он нормализуется в
+    хронологический root → current. Роли:
       * последние ``branch_hops`` ходов цепочки → P0 `reply_branch`,
         остальные → P1 `thread`;
       * свежий хвост окна → P1 `fresh_neighbour`, раннее окно → P3
@@ -4898,11 +4900,13 @@ def _build_l2_selection_candidates(
     ``budget_tokens=0`` (заводское) — полная selection без усечения; живое
     подключение (2b) вызовет `allocate_selection` отдельно.
     """
+    # `_collect_thread_chain` отдаёт current→root; split_reply_branch работает
+    # на хронологическом root→current (branch — последние hops, не первые).
     chain_fragments = [
         _composer.chain_item_to_fragment(
             item, role=_composer.ROLE_THREAD, aliases=aliases,
             bot_user_id=bot_user_id)
-        for item in chain_items or ()]
+        for item in reversed(list(chain_items or ()))]
     reply_branch, thread = _composer.split_reply_branch(
         chain_fragments, branch_hops)
     fresh, window_background = _composer.collect_window_fragments(
@@ -4966,8 +4970,8 @@ def _materialize_selection(
 
     ``source_index`` — карта ``source_id → исходный объект`` (ChainItem/row/
     fact tuple/ledger record); рендереры получают её значение вторым
-    аргументом. ``chain_order`` — ``source_id → позиция в исходной цепочке``:
-    branch/thread обязаны выводиться в хронологии, как старый
+    аргументом. ``chain_order`` — ``source_id → хронологическая позиция``
+    (root=0, current=last): branch/thread выводятся в хронологии, как старый
     `_render_thread` (роли этого порядка не задают). Порядок блоков —
     `CANONICAL_ORDER`, не `ROLE_ORDER`; новых тегов/промпт-текста нет.
     ``<Global_Context>`` собирается на своём слоте (head/middle/tail),
@@ -5011,6 +5015,10 @@ def _materialize_selection(
     branch_items = [reply_parent] if reply_parent is not None else []
     branch_items.extend(getattr(selection, "reply_branch", ()) or ())
     branch_items = _projection(branch_items)
+    if chain_order:
+        branch_items = sorted(
+            branch_items,
+            key=lambda f: chain_order.get(f.source_id, len(chain_order)))
     thread_items = _projection(
         branch_items + list(getattr(selection, "thread", ()) or ()))
     if chain_order:

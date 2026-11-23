@@ -1644,6 +1644,10 @@ def allocate_selection(selection: ContextSelection,
                            key=lambda f: (-int(getattr(f, "memory_tier", 0) or 0),
                                           int(f.timestamp_utc or 0),
                                           f.source_id)):
+            # P0 (current/reply-parent/branch/correction) не вытесняется
+            # НИКАКОЙ веткой drop, включая tier-4/3 и low_value_memory.
+            if frag.priority <= P0:
+                continue
             if total <= budget:
                 return
             cost = frag.tokens(measure)
@@ -1665,6 +1669,10 @@ def allocate_selection(selection: ContextSelection,
     _drop(lambda f: f.priority == P2
           and f.authority == AUTHORITY_BACKGROUND, "secondary_summary")
     # 3) менее важные реплики памяти (P2, после summary).
+    #     UR-C-2a/UR-09.6: supporting self-output снимается раньше exact
+    #     memory tier 2 — «бот это говорил» не вытесняет точный факт.
+    _drop(lambda f: f.priority == P2 and f.role == ROLE_SELF_OUTPUT,
+          "low_value_memory")
     _drop(lambda f: f.priority == P2, "low_value_memory")
 
     # 4) сжатие длинных релевантных материалов со ссылкой (P1/P2), от самых
@@ -2005,33 +2013,80 @@ def fragment_from_fact_row(row, *, role: str = ROLE_MEMORY,
                            authority: str = AUTHORITY_BACKGROUND):
     """UR-C-2a: type an already-retrieved fact row as a memory fragment.
 
+    Accepts BOTH real shapes produced by `_build_rag_block`:
+      * canonical kept tuple
+        ``(origin, fact, rag_ts, author, item_id, forward..., expired, time_origin)``;
+      * dict/sqlite row (``text``/``preview``/``fact``,
+        ``id``/``item_id``/``source_id``, ``timestamp_utc``/``rag_ts``).
+
     No retrieval/dedup/rerank happens here; the caller passes the kept rows
     from the existing RAG producer. Missing text -> None.
     """
-    text = str(_row_value(row, "text")
-               or _row_value(row, "preview")
-               or _row_value(row, "fact") or "").strip()
+    origin = ""
+    ref = None
+    ts_value = 0
+    author = None
+    speaker_uid = None
+    if isinstance(row, (tuple, list)):
+        seq = list(row)
+        if len(seq) < 2:
+            return None
+        origin = str(seq[0] or "")
+        text = seq[1]
+        ts_value = seq[2] if len(seq) > 2 else 0
+        author = seq[3] if len(seq) > 3 else None
+        ref = seq[4] if len(seq) > 4 else None
+    else:
+        origin = str(_row_value(row, "origin") or "")
+        text = (_row_value(row, "text")
+                or _row_value(row, "preview")
+                or _row_value(row, "fact") or "")
+        ts_value = (_row_value(row, "timestamp_utc")
+                    or _row_value(row, "sent_at")
+                    or _row_value(row, "rag_ts") or 0)
+        author = (_row_value(row, "author")
+                  or _row_value(row, "target_user"))
+        speaker_uid = _row_value(row, "author_id")
+        ref = (_row_value(row, "source_id") or _row_value(row, "id")
+               or _row_value(row, "entity_id")
+               or _row_value(row, "item_id"))
+    text = str(text or "").strip()
     if not text:
         return None
-    raw_id = (_row_value(row, "source_id") or _row_value(row, "id")
-              or _row_value(row, "entity_id") or "")
-    source_id = (str(raw_id) if str(raw_id).startswith("fact:")
-                 else f"{source_prefix}:{raw_id or 'row'}")
     try:
-        ts = int(_row_value(row, "timestamp_utc")
-                 or _row_value(row, "sent_at") or 0)
+        ts = int(ts_value or 0)
     except (TypeError, ValueError):
         ts = 0
+    ref_text = str(ref or "").strip()
+    if ref_text.startswith(("msg:", "fact:", "bot_output:", "tg:", "row:")):
+        source_id = ref_text
+    elif ref_text:
+        source_id = f"{source_prefix}:{ref_text}"
+    else:
+        # Нет ссылки — не склеиваем разные факты в один source_id.
+        import hashlib
+        digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
+        source_id = f"{source_prefix}:{origin or 'row'}:{digest}"
+    tg_int = None
+    if ref_text.startswith("msg:") or ref_text.startswith("tg:"):
+        digits = ref_text[4:] if ref_text.startswith("msg:") else ref_text[3:]
+        try:
+            tg_int = int(digits) if digits else None
+        except ValueError:
+            tg_int = None
+    label = (str(author).strip() if author not in (None, "")
+             else "память (вывод модели)")
     return ContextFragment(
         kind=KIND_SUMMARY_INFERENCE,
         source_id=source_id,
         timestamp_utc=ts,
-        speaker_uid=_row_value(row, "author_id"),
-        author_label="память (вывод модели)",
+        speaker_uid=speaker_uid,
+        author_label=label,
         text=text,
         authority=authority,
         fresh=False,
         role=role,
+        tg_message_id=tg_int,
         time_known=bool(ts),
         memory_tier=int(memory_tier or 0),
         note=("факт/вывод retrieval, не дословная реплика"
@@ -2091,10 +2146,12 @@ def fragment_from_self_output(record, *, aliases=None, bot_user_id=None):
 
 
 def split_reply_branch(fragments, hops: int):
-    """UR-C-2a: last ``hops`` chain fragments get P0 ``reply_branch``.
+    """UR-C-2a: last ``hops`` CHRONOLOGICAL fragments get P0 ``reply_branch``.
 
-    The remaining chain fragments stay P1 ``thread``; the same fragment
-    objects are not duplicated (branch is a projection of the thread tail).
+    ``fragments`` — root→current order (caller нормализует реальный
+    current→root из `_collect_thread_chain`). The remaining fragments stay P1
+    ``thread``; the same fragment objects are not duplicated (branch is a
+    projection of the thread tail).
     """
     ordered = list(fragments or ())
     try:

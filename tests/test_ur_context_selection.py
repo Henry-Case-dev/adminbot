@@ -791,9 +791,10 @@ def _chain(count=4, uid=10, name="Вася"):
 
 class TestURC2aProducers:
     def test_branch_is_p0_projection_without_duplicating_thread(self):
-        chain = _chain(5)
+        chronological = _chain(5)                    # root → current
+        service_chain = list(reversed(chronological))  # current → root (реальный)
         selection = dcs._build_l2_selection_candidates(
-            current_text="вопрос", chain_items=chain, branch_hops=2,
+            current_text="вопрос", chain_items=service_chain, branch_hops=2,
             working_window_messages=0)
         branch_ids = [f.source_id for f in selection.reply_branch]
         thread_ids = [f.source_id for f in selection.thread]
@@ -808,10 +809,10 @@ class TestURC2aProducers:
         assert not any(f.correction for f in selection.fragments())
         # Граница hops=0: вся цепочка — thread, P0-ветки нет.
         no_branch = dcs._build_l2_selection_candidates(
-            current_text="вопрос", chain_items=chain, branch_hops=0,
+            current_text="вопрос", chain_items=service_chain, branch_hops=0,
             working_window_messages=0)
         assert no_branch.reply_branch == ()
-        assert len(no_branch.thread) == len(chain)
+        assert len(no_branch.thread) == len(chronological)
 
     def test_fact_episode_self_output_and_summary_tiers(self):
         fact = {"id": 7, "text": "кредит на 348 тысяч",
@@ -954,26 +955,114 @@ class TestURC2aProducers:
         assert "подражай" not in blocks["global"]
 
 
+class TestURC2aConvergence:
+    """RED/GREEN для URC2A-R1-01…R1-04 (реальные chain/tuple/pressure)."""
+
+    def test_p0_correction_in_memory_tier4_survives_pressure(self):
+        old = comp.ContextFragment(
+            kind=comp.KIND_USER_STATEMENT, source_id="msg:1",
+            text="зарплата у меня 60 тысяч", timestamp_utc=1000,
+            speaker_uid=11, author_label="u11", role=comp.ROLE_MEMORY,
+            tg_message_id=1, authority=comp.AUTHORITY_PRIMARY,
+            time_known=True, memory_tier=4)
+        new = comp.ContextFragment(
+            kind=comp.KIND_USER_STATEMENT, source_id="msg:2",
+            text="поправка: зарплата 90 тысяч, не 60", timestamp_utc=2000,
+            speaker_uid=11, author_label="u11", role=comp.ROLE_MEMORY,
+            tg_message_id=2, authority=comp.AUTHORITY_PRIMARY,
+            time_known=True, memory_tier=4)
+        full = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я получаю?",
+            timestamp_utc=3000, memory=[old, new], budget_tokens=0)
+        correction = [f for f in full.memory if f.source_id == "msg:2"][0]
+        assert correction.correction is True
+        assert correction.priority == comp.P0
+        budget = full.current_question.tokens() + 1
+        tight = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я получаю?",
+            timestamp_utc=3000, memory=full.memory, budget_tokens=budget)
+        survivors = {f.source_id for f in tight.fragments()}
+        assert "msg:2" in survivors
+        assert all(item.get("source_id") != "msg:2"
+                   for item in tight.provenance.dropped)
+        # P0 физически не влезает — честный overflow, но не потеря.
+        assert tight.provenance.overflow is True
+        assert tight.provenance.included_tokens > budget
+
+    def test_fact_row_accepts_real_kept_tuple(self):
+        row = ("chat_history", "кредит на 348 тысяч", 1000, "Петя",
+               "msg:900", "", False, "")
+        frag = comp.fragment_from_fact_row(row)
+        assert frag is not None
+        assert frag.text == "кредит на 348 тысяч"
+        assert frag.source_id == "msg:900"
+        assert frag.tg_message_id == 900
+        assert frag.timestamp_utc == 1000
+        assert frag.author_label == "Петя"
+        assert frag.role == comp.ROLE_MEMORY
+        assert frag.memory_tier == 3
+        assert frag.authority == comp.AUTHORITY_BACKGROUND
+        # Прежний dict-контракт не сломан.
+        dict_frag = comp.fragment_from_fact_row(
+            {"id": 7, "text": "кредит", "timestamp_utc": 1000})
+        assert dict_frag is not None
+        assert dict_frag.source_id == "fact:7"
+
+    def test_exact_memory_outranks_supporting_self_output(self):
+        exact = comp.ContextFragment(
+            kind=comp.KIND_USER_STATEMENT, source_id="msg:701",
+            text="точный факт о кредите " * 10, timestamp_utc=500,
+            speaker_uid=11, author_label="u11", role=comp.ROLE_MEMORY,
+            tg_message_id=701, authority=comp.AUTHORITY_PRIMARY,
+            time_known=True, memory_tier=2)
+        self_out = comp.ContextFragment(
+            kind=comp.KIND_BOT_STATEMENT, source_id="bot_output:3",
+            text="бот когда-то сказал " * 20, timestamp_utc=600,
+            speaker_uid=BOT_UID, author_label="бот",
+            role=comp.ROLE_SELF_OUTPUT,
+            authority=comp.AUTHORITY_SUPPORTING, time_known=True)
+        full = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я платил?",
+            timestamp_utc=1000, memory=[exact], self_outputs=[self_out],
+            budget_tokens=0)
+        budget = full.current_question.tokens() + exact.tokens() + 1
+        tight = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я платил?",
+            timestamp_utc=1000, memory=[exact], self_outputs=[self_out],
+            budget_tokens=budget)
+        survivors = {f.source_id for f in tight.fragments()}
+        assert "msg:701" in survivors
+        assert "bot_output:3" not in survivors
+        reasons = {item["source_id"]: item["reason_code"]
+                   for item in tight.provenance.dropped}
+        assert reasons["bot_output:3"] == "low_value_memory"
+
+
 class TestURC2aMaterializerParity:
     def test_branch_and_thread_match_existing_renderers(self):
         service = _dcs()
-        chain = _chain(4)
+        chronological = _chain(4)                       # root → current
+        service_chain = list(reversed(chronological))    # реальный порядок
         selection = dcs._build_l2_selection_candidates(
-            current_text="вопрос", chain_items=chain, branch_hops=3,
+            current_text="вопрос", chain_items=service_chain, branch_hops=3,
             working_window_messages=0)
-        index = {f"msg:{i + 1}": item for i, item in enumerate(chain)}
-        chain_order = {f"msg:{i + 1}": i for i, _item in enumerate(chain)}
+        assert [f.source_id for f in selection.reply_branch] == [
+            "msg:2", "msg:3", "msg:4"]
+        assert [f.source_id for f in selection.thread] == ["msg:1"]
+        index = {f"msg:{i + 1}": item
+                 for i, item in enumerate(chronological)}
+        chain_order = {f"msg:{i + 1}": i
+                       for i, _item in enumerate(chronological)}
         blocks = dict(dcs._materialize_selection(
             selection,
             render_chain_line=lambda frag, item: service._chain_line(
                 item, {}, None),
             render_row_line=lambda frag, row: "",
             source_index=index, chain_order=chain_order))
-        current_first = list(reversed(chain))
-        assert blocks["branch"] == service._render_branch(current_first, {},
-                                                         None)
+        assert blocks["branch"] == service._render_branch(service_chain, {},
+                                                          None)
         assert blocks["thread"] == service._render_thread(
-            current_first, {}, truncate=False)
+            service_chain, {}, truncate=False)
         assert "<Conversation_Branch>" in blocks["branch"]
         assert "<Conversation_Thread>" in blocks["thread"]
         # Branch — проекция хвоста цепочки, не второй набор строк.
@@ -1033,10 +1122,9 @@ class TestURC2aMaterializerParity:
         episode_rows = [_urc_row(41, "дословная старая реплика"),
                         _urc_row(42, "и ещё одна")]
         selection = dcs._build_l2_selection_candidates(
-            current_text="вопрос",
-            fact_rows=[{"id": 7, "text": "кредит на 348 тысяч"}],
+            current_text="вопрос", fact_rows=[fact],
             episode_rows=episode_rows, working_window_messages=0)
-        index = {"fact:7": fact}
+        index = {"msg:900": fact}
         index.update({f"msg:{row['tg_message_id']}": row
                       for row in episode_rows})
         blocks = dict(dcs._materialize_selection(
