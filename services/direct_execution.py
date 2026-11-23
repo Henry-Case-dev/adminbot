@@ -3124,10 +3124,12 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
         пустая строка наследования времени остаётся обычной сжимаемой
         строкой (в rest она просто не попадает — как раньше);
       * защищённый минимум не помещается → честная capacity reason
-        (callback + явная пометка в пакете), НЕ слепая отправка.
+        (callback + явная пометка в пакете), НЕ слепая отправка;
+      * любой plain-блок, не вошедший целиком, даёт
+        ``fallback_window_exceeded`` + ``[CAPACITY]`` (UR-11b §3.5).
     Ошибка репака НЕ возвращает вход as-is: исключение пробрасывается,
     чтобы LLMClient не отправил primary payload в fallback-транспорт
-    (UR-11b; legacy/recovery-путь)."""
+    (UR-11b; только legacy/recovery-путь, не active writer recompose)."""
 
     def _adapt(incoming: dict):
         try:
@@ -3207,12 +3209,14 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                             min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)))
                 rest_alloc = max(0, remaining_after_clock - evidence_alloc)
                 plain_used = 0
+                plain_clipped = False
                 for part in plain_parts:
                     tokens = _safe_count_tokens(part)
                     if plain_used + tokens <= rest_alloc:
                         kept.append(part)
                         plain_used += tokens
                         continue
+                    plain_clipped = True
                     room = rest_alloc - plain_used
                     if room <= 0:
                         break
@@ -3228,6 +3232,8 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                                         if tail else "") + tail)
                     plain_used = rest_alloc
                     break
+                # UR-11b §3.5: любой не вошедший целиком plain-блок — не
+                # тихий drop: честная capacity-помика существующим маркером.
                 # Остаток доли прочих блоков — evidence (доставить больше).
                 evidence_alloc = min(
                     ev_tokens,
@@ -3246,6 +3252,10 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                         capacity_reason = "fallback_window_exceeded"
                 else:
                     capacity_reason = "fallback_repacked"
+                if plain_clipped:
+                    # Любое частичное/пропущенное plain-вхождение не может
+                    # остаться `fallback_repacked`: это видимая потеря.
+                    capacity_reason = "fallback_window_exceeded"
                 if sys_tokens + min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS) \
                         > budget or question_overflow:
                     # Защищённый минимум evidence/текущий запрос физически не

@@ -240,9 +240,12 @@ async def test_fallback_recompose_reuses_full_selection(monkeypatch):
     monkeypatch.setattr(dcs._mca_rc, "build_memory_request", _memory)
     out: dict = {}
     fallback: dict = {}
-    await svc._build_user_content(
+    blocks = await svc._build_user_content(
         CHAT, _message(text="вопрос"), "Вася",
         out_prepared=out, out_fallback=fallback)
+    assert fallback.get("selection_texts") == tuple(blocks)
+    assert fallback.get("selection_payload_tokens") == sum(
+        count_tokens(t) for t in blocks)
     assert counts["build"] == 1
     # primary allocation + fallback allocation на ТОЙ ЖЕ selection.
     assert counts["select"] == 1
@@ -258,8 +261,63 @@ async def test_fallback_recompose_reuses_full_selection(monkeypatch):
     assert counts["budget"] == 0
     assert adapted["messages"][-1]["content"]
     assert prepared.budget["policy_mode"] == "fallback_recompose"
+    assert prepared.budget["budget"] == 6000
+    assert prepared.budget["payload_tokens"] > 0
     assert prepared.budget["selection_budget"] < \
         out["primary"].budget["selection_budget"]
+
+
+@pytest.mark.asyncio
+async def test_l2_write_answer_uses_live_factory_not_legacy(monkeypatch):
+    """UR-11b F1: live provenance выбирает selection factory, не legacy."""
+    svc = _service(window=[_row(1), _row(2)])
+    svc.llm._chat_model = "primary"
+    svc.llm._fallback_model = "fb"
+    svc.llm._base_url = ""
+    svc.llm._fallback_base_url = ""
+    monkeypatch.setattr(dcs._model_capacity,
+                        "capacity_resolver_enabled", lambda: True)
+    monkeypatch.setattr(dcs._auto_budget,
+                        "auto_budget_enabled", lambda: True)
+
+    async def _window(base_url, model, slot=None):
+        return 20000, "runtime"
+
+    async def _budget(slot, **kwargs):
+        return SimpleNamespace(
+            context_window=20000, source="runtime",
+            auto_input_budget=15000, output_reserve=1000,
+            effective_input_budget=(12000 if slot == "direct.primary"
+                                    else 6000),
+            policy_mode="dynamic")
+
+    def _legacy(*args, **kwargs):
+        raise AssertionError("legacy adapter must not be built on live path")
+
+    monkeypatch.setattr(dcs._model_capacity, "resolve_stage_window", _window)
+    monkeypatch.setattr(dcs._auto_budget, "resolve_stage_budget", _budget)
+    monkeypatch.setattr(dcs._dx, "build_l2_fallback_adapter", _legacy)
+    out: dict = {}
+    fallback: dict = {}
+    blocks = await svc._build_user_content(
+        CHAT, _message(text="вопрос"), "Вася",
+        out_prepared=out, out_fallback=fallback)
+    fit_out: dict = {}
+    result = await svc._l2_write_answer(
+        CHAT, "q", temperature=0.1,
+        primary_prepared=out["primary"],
+        selection_texts=fallback["selection_texts"],
+        user_blocks=blocks,
+        primary_budget_tokens=1,
+        primary_payload_tokens=1,
+        selection_budget_tokens=fallback["selection_budget"],
+        fallback_budget_tokens=fallback.get("l2_fallback_budget"),
+        fallback_selection_factory=fallback["adapter_factory"],
+        out_prepared=fit_out)
+    assert result is not None
+    assert fit_out["primary"].budget["policy_mode"] == "final_fit"
+    assert fit_out["primary"].budget["budget"] == 1
+    assert fallback["selection_texts"] == tuple(blocks)
 
 
 @pytest.mark.asyncio

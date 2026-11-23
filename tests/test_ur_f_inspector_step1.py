@@ -791,7 +791,7 @@ async def test_thread_compressed_by_allocator_counts_only_rows_in_request(
     (та же техника, что у tail/middle), а вырезанное названо причиной."""
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=11000)
+                                 model_window=11400)
     long_chain = _chain_items(40, chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
@@ -1147,7 +1147,7 @@ async def test_quote_on_cut_header_line_still_reports_delivery(
     ход молчал бы о реально доставленной цитате."""
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=11000)
+                                 model_window=11400)
     chain = _quoted_chain(40, quoted_item_id="tg:735", chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
@@ -1182,7 +1182,7 @@ async def test_raw_view_keeps_identity_attribution(monkeypatch, events):
                         lambda: False)
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=11000)
+                                 model_window=11400)
     chain = _same_quote(_quoted_chain(40, quoted_item_id="tg:740", chars=800),
                         source_id="tg:740", target_id="tg:701")
 
@@ -2644,14 +2644,16 @@ async def test_l2_fallback_full_turn_describes_adapted_body(monkeypatch, events)
     counts = payload.get("counts") or {}
 
     # бюджет — FALLBACK-варианта (адаптированное тело), не первичный:
-    # у первичного были `window`/`payload_tokens`/`window_source`.
+    # у первичного были `window`/`window_source`; payload_tokens — факт тела.
     # UR-11b: fixed plan/evidence могут физически не влезть в fallback-окно —
     # тогда честный `fallback_capacity`, не primary as-is.
     assert budget.get("policy_mode") in ("fallback_recompose",
                                          "fallback_capacity"), budget
     assert budget.get("budget") == FALLBACK_WINDOW, budget
     assert "window" not in budget, budget
-    assert "payload_tokens" not in budget, budget
+    # UR-11b F3: prepared описывает реально отправленное тело, поэтому
+    # payload_tokens обязан присутствовать (не удаляется в fallback).
+    assert int(budget.get("payload_tokens") or 0) > 0, budget
     assert "window_source" not in budget, budget
 
     # счётчики — про строки, реально доехавшие в отправленном теле
