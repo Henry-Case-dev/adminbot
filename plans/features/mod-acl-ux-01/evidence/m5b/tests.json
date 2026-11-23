@@ -5,6 +5,7 @@
   "base_sha": "f40402660",
   "base_version": "2.58.237",
   "candidate_branch": "feat/m5b-exp-08",
+  "candidate_commit": "697a28f9ec17181377a2e219a10af34e083d1fb3",
   "status": "REVIEW",
   "code_files": ["services/mca_experience_jobs.py"],
   "test_files": ["tests/test_mod_acl_ux_m5b_shared_review.py"],
