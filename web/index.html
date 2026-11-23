@@ -7435,8 +7435,11 @@
                       <div class="text-xs text-gray-500" data-random-fallback-factory>
                         Заводской: {{ randomFallbackOrderView().factoryLabel }}
                       </div>
-                      <div class="text-xs text-gray-500 mb-2" data-random-fallback-effective>
+                      <div class="text-xs text-gray-500" data-random-fallback-effective>
                         Действующий: {{ randomFallbackOrderView().effectiveLabel }}
+                      </div>
+                      <div class="text-xs text-gray-500 mb-2" data-random-effective-chain>
+                        Действующая цепочка: {{ randomFallbackOrderView().effectiveChainLabel }}
                       </div>
                       <div v-if="randomFallbackEditing()"
                            class="flex items-center gap-2 flex-wrap rounded-lg bg-white/5 px-2 py-1 mb-2"

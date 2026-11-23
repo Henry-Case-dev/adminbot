@@ -169,6 +169,9 @@ function count(text, needle) {
   assert.strictEqual(ov.savedLabel, label('anu') + ' → ' + label('lfdr'),
     'сохранённый = заводской хвост, не пустой');
   assert.strictEqual(ov.effectiveLabel, label('anu') + ' → ' + label('lfdr'));
+  assert.strictEqual(ov.effectiveChainLabel,
+    label('ibm_quantum') + ' → ' + label('anu') + ' → ' + label('lfdr'),
+    'действующая цепочка включает primary и весь effective order');
 
   const rows = methods.randomFallbackRows.call(ctx);
   assert.deepStrictEqual(rows.map(function (r) { return r.id; }),
@@ -435,6 +438,8 @@ function count(text, needle) {
     'статус каждого провайдера виден');
   assert(INDEX.indexOf('data-random-fallback-effective-state') >= 0,
     'effective-флаг строки виден в DOM');
+  assert(INDEX.indexOf('data-random-effective-chain') >= 0,
+    'полная действующая цепочка показана отдельно');
   assert(INDEX.indexOf('setRandomFallbackIncluded(') < 0,
     'шаблон не вызывает старый persist-on-toggle');
   assert(INDEX.indexOf('не в резерве') < 0,
