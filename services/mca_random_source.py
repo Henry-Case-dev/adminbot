@@ -5691,6 +5691,11 @@ class RandomSourceService:
             cursor = self._ibm_cursor(row)
             if cursor.get("quarantined"):
                 continue
+            cursor_state = str(cursor.get("state") or "").strip().lower()
+            if cursor_state in (IBM_JOB_COMPLETED, IBM_JOB_FAILED,
+                                IBM_JOB_CANCELLED):
+                # Уже терминальный исход IBM job — не опрашиваем повторно.
+                continue
             cursor_fp = str(cursor.get("config_fp") or "").strip()
             if cursor_fp and current_fp and cursor_fp != current_fp:
                 await self._quarantine_ibm_row(row, cursor, current_fp)
