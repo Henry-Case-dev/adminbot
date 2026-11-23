@@ -1515,7 +1515,7 @@ class TestParamPermissionFlagsApi:
         # распознавания (3 models + 9 limits) → categorized 570.
         # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 categorized —
         # prompts.factcheck_subject_system_prompt → 619.
-        assert len(items) == len(categorized) == 622
+        assert len(items) == len(categorized) == 633
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

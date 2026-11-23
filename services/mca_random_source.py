@@ -46,6 +46,7 @@ from __future__ import annotations
 import asyncio
 import collections
 import hashlib
+import importlib.util
 import json
 import logging
 import platform
@@ -174,6 +175,52 @@ SETTING_TIMEOUT = "keys.random_quantum_request_timeout_seconds"
 SETTING_LOW_WATERMARK = "keys.random_quantum_refill_low_watermark"
 SETTING_BUFFER_MAX = "keys.random_quantum_buffer_max_values"
 
+# ── QRNG P5: IBM Quantum Platform (QAN-REC-IBM-01…03) ──────────────────────
+# Аккаунт канала `ibm_quantum_platform`: API key и CRN — РАЗДЕЛЬНЫЕ
+# защищённые серверные поля (global admin); instance/region/channel —
+# несекретные настройки подключения. Plan не хранится как заявленное
+# значение: он читается из фактического ответа IBM (status/usage), а при
+# отсутствии данных честно `None`.
+SETTING_IBM_KEY = "keys.random_ibm_api_key"
+SETTING_IBM_CRN = "keys.random_ibm_crn"
+SETTING_IBM_INSTANCE = "keys.random_ibm_instance"
+SETTING_IBM_REGION = "keys.random_ibm_region"
+SETTING_IBM_CHANNEL = "keys.random_ibm_channel"
+# Пороги/лимиты Open Plan — те же существующие durable-строки task_jobs,
+# без нового планировщика/таблицы. Все значения — PG-only (global admin).
+SETTING_IBM_HTTP_TIMEOUT = "random.ibm.http_timeout_seconds"
+SETTING_IBM_POLL_INTERVAL = "random.ibm.poll_interval_seconds"
+SETTING_IBM_JOB_MAX_AGE = "random.ibm.job_max_age_seconds"
+SETTING_IBM_MAX_INFLIGHT = "random.ibm.max_inflight"
+SETTING_IBM_MAX_JOBS_PER_DAY = "random.ibm.max_jobs_per_day"
+SETTING_IBM_MAX_QPU_SECONDS_PER_DAY = "random.ibm.max_qpu_seconds_per_day"
+
+IBM_CHANNEL = "ibm_quantum_platform"
+IBM_INSTANCE_DEFAULT = "open-instance"
+IBM_REGION_DEFAULT = "us-east"
+IBM_MIN_QUBITS = 16
+IBM_SMOKE_SHOTS = 256
+IBM_MIN_SHOTS = 256
+IBM_MAX_SHOTS = 20000
+IBM_JOB_KIND = "random.ibm_job"
+IBM_JOB_OWNER = "random.source"
+IBM_JOB_PENDING = "pending"
+IBM_JOB_SUBMITTED = "submitted"
+IBM_JOB_QUEUED = "queued"
+IBM_JOB_RUNNING = "running"
+IBM_JOB_COMPLETED = "completed"
+IBM_JOB_FAILED = "failed"
+IBM_JOB_CANCELLED = "cancelled"
+IBM_JOB_EXPIRED = "expired"
+DEFAULT_IBM_HTTP_TIMEOUT_SECONDS = 10
+DEFAULT_IBM_POLL_INTERVAL_SECONDS = 30
+DEFAULT_IBM_JOB_MAX_AGE_SECONDS = 3600
+DEFAULT_IBM_MAX_INFLIGHT = 1
+# Open Plan — реальный расход ограничен владельцем (bounded jobs/RU), но не
+# превращён в постоянный OFF: готовый адаптер работает при наличии полей.
+DEFAULT_IBM_MAX_JOBS_PER_DAY = 4
+DEFAULT_IBM_MAX_QPU_SECONDS_PER_DAY = 120
+
 DEFAULT_SOURCE = MODE_QUANTUM
 # QRNG P3/F3 (arch D6): заводской дефолт «честного» PRNG-отката для НОВЫХ
 # установок — выключен. Сохранённое `true` владельца (прод) не перезаписывается:
@@ -197,7 +244,8 @@ PLANS = ("Trial", "Paid", "Custom")
 # совместимости. `entropy_class` — производное от провайдера значение (в БД
 # колонкой не дублируется, отдаётся в DTO). P2 подключает адаптер LfDR
 # (`LfdrClient` + точки входа `lfdr_fetch`/`lfdr_check` — ниже, после класса);
-# у IBM адаптера нет до P5 — `fetch`/`check` остаются `None`.
+# P5 подключает IBM (`IbmQuantumRuntimeClient` + `ibm_fetch`/`ibm_check`):
+# реальный QPU Sampler, чтение/измерения разделены, симулятор отвергается.
 ENTROPY_CLASS_HARDWARE = "hardware_quantum"
 PROVIDER_ID_IBM = "ibm_quantum"
 PROVIDER_ID_ANU = "anu"
@@ -225,6 +273,7 @@ class ProviderSpec:
 PROVIDERS: dict[str, ProviderSpec] = {
     PROVIDER_ID_IBM: ProviderSpec(
         id=PROVIDER_ID_IBM, title="IBM Quantum",
+        key_setting=SETTING_IBM_KEY,
         docs_url="https://quantum.cloud.ibm.com"),
     PROVIDER_ID_ANU: ProviderSpec(
         id=PROVIDER_ID_ANU, title="ANU Quantum Numbers",
@@ -323,8 +372,11 @@ def entropy_class_for(provider_id) -> str | None:
 def source_impl_for(provider_id) -> str:
     """`source_impl` квантового пути — производное от провайдера, не хардкод.
 
-    ANU → `"anu-quantum"` (совместимо с историей), неизвестный → `"quantum"`."""
+    ANU → `"anu-quantum"` (совместимо с историей), IBM → `"ibm-quantum"`,
+    неизвестный → `"quantum"`."""
     pid = str(provider_id or "")
+    if pid == PROVIDER_ID_IBM:
+        return "ibm-quantum"
     return f"{pid}-quantum" if pid else "quantum"
 
 
@@ -563,6 +615,10 @@ class AnuBatch:
     length: int
     provider: str = PROVIDER_ID_ANU
     latency_ms: int | None = None
+    # Реальное происхождение партии (IBM P5): job/backend/shots/bits/usage.
+    # Поле аддитивное: ANU/LfDR оставляют None, существующие потребители не
+    # меняются. Секретов (API key/полный CRN) здесь нет по построению.
+    provenance: dict | None = None
 
 
 @dataclass
@@ -1155,10 +1211,1290 @@ async def lfdr_check(*, client: LfdrClient | None = None,
     return await adapter.check()
 
 
-# P2: адаптер подключён к реестру (D9). IBM остаётся без адаптера до P5;
-# реестр читается call-time, поэтому поздняя привязка точки входа безопасна.
+# P2: адаптер подключён к реестру (D9).
 PROVIDERS[PROVIDER_ID_LFDR] = replace(
     PROVIDERS[PROVIDER_ID_LFDR], fetch=lfdr_fetch, check=lfdr_check)
+
+
+# ── IBM Quantum Platform адаптер (P5; QAN-REC-IBM-01…03) ───────────────────
+# Один адаптер внутри существующего контура: реальный QPU Sampler поверх
+# `qiskit-ibm-runtime`, раздельные read-only проверка доступа и ограниченный
+# hardware smoke, durable job lifecycle в существующих `task_jobs`. Симулятор,
+# `quasi_dists`, фиксированные counts и локальный PRNG в тракте отвергаются.
+class IbmError(AnuError):
+    """Ошибка IBM с явной стадией (key/crn/instance/region/...).
+
+    Наследование сохраняет существующую обработку `except AnuError`; второй
+    контракт ошибок не создаётся. `stage` называет фактическую стадию отказа,
+    `job_state` — распознанное состояние IBM job (durable cursor)."""
+
+    def __init__(self, code: str, reason: str = "", *, stage: str = "",
+                 job_state: str | None = None, retryable: bool = False,
+                 sent: bool = False, retry_after: int | None = None) -> None:
+        self.stage = str(stage or "")[:48]
+        self.job_state = job_state
+        super().__init__(code, reason, retryable=retryable, sent=sent,
+                         retry_after=retry_after)
+
+
+def _qiskit_runtime_available() -> bool:
+    """Есть ли установленный `qiskit-ibm-runtime` (импорт lazy).
+
+    Проверка `find_spec` не импортирует тяжёлый пакет на горячем пути; сам
+    импорт выполняется только при реальном запросе/проверке IBM."""
+    try:
+        return importlib.util.find_spec("qiskit_ibm_runtime") is not None
+    except Exception:       # pragma: no cover - защитная ветка
+        return False
+
+
+def _default_qiskit_service(*, api_key: str, crn: str, instance: str,
+                            region: str, channel: str):
+    """Создать официальный `QiskitRuntimeService` (IBM Cloud)."""
+    from qiskit_ibm_runtime import QiskitRuntimeService
+    return QiskitRuntimeService(
+        channel=channel, token=api_key, instance=(crn or instance),
+        region=region)
+
+
+def _default_qiskit_sampler(*, backend):
+    """Официальный QPU Sampler (не Aer/симулятор)."""
+    from qiskit_ibm_runtime import SamplerV2
+    try:
+        sampler = SamplerV2(mode=backend)
+    except TypeError:       # совместимость сигнатуры ранних 0.4x
+        sampler = SamplerV2(backend=backend)
+    try:
+        # Явный старт из |0>: H на каждом кубите даёт равномерные биты.
+        sampler.options.execution.init_qubits = True
+    except Exception:
+        pass
+    return sampler
+
+
+def _default_ibm_circuit(num_qubits: int):
+    """Схема измерения: равномерная суперпозиция + measure всех кубитов."""
+    from qiskit import QuantumCircuit
+    circuit = QuantumCircuit(num_qubits, num_qubits)
+    circuit.h(range(num_qubits))
+    circuit.measure(range(num_qubits), range(num_qubits))
+    return circuit
+
+
+def _default_ibm_transpiler(circuit, backend):
+    """Привести схему к ISA целевого IBM backend (обязательно для Sampler)."""
+    from qiskit.transpiler.preset_passmanagers import (
+        generate_preset_pass_manager)
+    pm = generate_preset_pass_manager(
+        target=backend.target, optimization_level=1)
+    return pm.run(circuit)
+
+
+def _ibm_attr(obj, name: str, default=None):
+    try:
+        return getattr(obj, name, default)
+    except Exception:       # pragma: no cover - защитная ветка
+        return default
+
+
+def _ibm_backend_simulator(backend) -> bool | None:
+    """True/False/None — симулятор ли backend (None = не подтверждено)."""
+    if backend is None:
+        return None
+    value = _ibm_attr(backend, "simulator", None)
+    if value is None:
+        cfg = _ibm_attr(backend, "configuration", None)
+        if callable(cfg):
+            try:
+                cfg = cfg()
+            except Exception:
+                cfg = None
+        value = _ibm_attr(cfg, "simulator", None)
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _ibm_backend_name(backend) -> str:
+    if isinstance(backend, str):
+        return backend.strip()[:120]
+    value = _ibm_attr(backend, "name", None)
+    if callable(value):
+        try:
+            value = value()
+        except Exception:
+            value = None
+    return str(value or "").strip()[:120]
+
+
+def _ibm_backend_qubits(backend) -> int:
+    value = _ibm_attr(backend, "num_qubits", None)
+    if value is None:
+        cfg = _ibm_attr(backend, "configuration", None)
+        if callable(cfg):
+            try:
+                cfg = cfg()
+            except Exception:
+                cfg = None
+        value = _ibm_attr(cfg, "num_qubits", 0)
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _ibm_backend_status(backend):
+    status = _ibm_attr(backend, "status", None)
+    if callable(status):
+        try:
+            return status()
+        except Exception:
+            return None
+    return status
+
+
+def _ibm_backend_pending(backend) -> int:
+    status = _ibm_backend_status(backend)
+    try:
+        return max(0, int(_ibm_attr(status, "pending_jobs", 0) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _ibm_backend_operational(backend) -> bool:
+    status = _ibm_backend_status(backend)
+    if status is None:
+        return True
+    return bool(_ibm_attr(status, "operational", True)) is not False
+
+
+def _ibm_backend_eligible(backend) -> bool:
+    """Реальный аппаратный backend, пригодный для 16-битных значений."""
+    return (_ibm_backend_simulator(backend) is False
+            and _ibm_backend_operational(backend)
+            and _ibm_backend_qubits(backend) >= IBM_MIN_QUBITS)
+
+
+def _ibm_backend_public(backend) -> dict:
+    return {
+        "name": _ibm_backend_name(backend),
+        "num_qubits": _ibm_backend_qubits(backend),
+        "pending_jobs": _ibm_backend_pending(backend),
+        "operational": _ibm_backend_operational(backend),
+        "simulator": _ibm_backend_simulator(backend) is True,
+    }
+
+
+def _ibm_error_code(exc: BaseException,
+                    default: str = "provider_unavailable") -> str:
+    """Свести официальную ошибку IBM/qiskit к действующим reason-кодам."""
+    if isinstance(exc, AnuError):
+        return str(exc.code)
+    status = None
+    for attr in ("status_code", "status", "http_status", "code"):
+        raw = _ibm_attr(exc, attr, None)
+        if isinstance(raw, int):
+            status = raw
+            break
+        if isinstance(raw, str) and raw.strip().isdigit():
+            status = int(raw.strip())
+            break
+    if status in (401,):
+        return "auth_failed"
+    if status in (403,):
+        return "permission_denied"
+    if status == 404:
+        return "invalid_instance"
+    if status == 429:
+        return "rate_limit"
+    text = f"{type(exc).__name__} {exc}".lower()
+    if "quota" in text or "usage limit" in text or "limit reached" in text:
+        return "quota_exhausted"
+    if "permission" in text or "forbidden" in text or "not authorized" in text:
+        return "permission_denied"
+    if "unauthor" in text or "auth" in text:
+        return "auth_failed"
+    if "instance" in text or "crn" in text:
+        return "invalid_instance"
+    if "region" in text:
+        return "region_not_available"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return default
+
+
+def _ibm_stage_for_code(code: str) -> str:
+    return {
+        "provider_unconfigured": "key",
+        "dependency_missing": "dependency",
+        "invalid_channel": "channel",
+        "invalid_instance": "instance",
+        "invalid_region": "region",
+        "region_not_available": "region",
+        "permission_denied": "permission",
+        "auth_failed": "permission",
+        "no_backend": "no_backend",
+        "quota_exhausted": "permission",
+    }.get(str(code), "request")
+
+
+def _ibm_plan_from_instances(instances, instance_ref: str) -> str | None:
+    """Фактический plan из ответа IBM, если он там есть; иначе None."""
+    for item in instances or ():
+        crn = _ibm_attr(item, "crn", None)
+        name = _ibm_attr(item, "name", None)
+        if isinstance(item, dict):
+            crn = item.get("crn", crn)
+            name = item.get("name", name)
+        if instance_ref and instance_ref not in (str(crn or ""), str(name or "")):
+            continue
+        plan = _ibm_attr(item, "plan", None)
+        if isinstance(item, dict):
+            plan = item.get("plan", plan)
+        if plan:
+            return str(plan).strip()[:40]
+    return None
+
+
+def _ibm_usage_public(service) -> dict | None:
+    """Публичная часть usage без провайдерских секретов (read-only)."""
+    usage = _ibm_attr(service, "usage", None)
+    if callable(usage):
+        try:
+            usage = usage()
+        except Exception:
+            return None
+    if usage is None:
+        return None
+    data: dict = {}
+    if isinstance(usage, dict):
+        data = usage
+    else:
+        to_dict = _ibm_attr(usage, "to_dict", None)
+        if callable(to_dict):
+            try:
+                data = to_dict() or {}
+            except Exception:
+                data = {}
+        if not data:
+            for name in ("usage", "used", "used_seconds", "limit",
+                         "limit_seconds", "remaining", "remaining_seconds",
+                         "period", "plan"):
+                value = _ibm_attr(usage, name, None)
+                if value is not None:
+                    data[name] = value
+    out = {}
+    for key in ("usage", "used", "used_seconds", "limit", "limit_seconds",
+                "remaining", "remaining_seconds", "period", "plan"):
+        value = data.get(key) if isinstance(data, dict) else None
+        if isinstance(value, (int, float, str)) and not isinstance(value, bool):
+            out[key] = value
+    return out or None
+
+
+def _ibm_job_state(job) -> str | None:
+    """Нормализовать состояние IBM job; None — состояние недоступно."""
+    status = _ibm_attr(job, "status", None)
+    if callable(status):
+        try:
+            status = status()
+        except Exception:
+            return None
+    text = str(getattr(status, "name", status) or "").strip().lower()
+    if not text:
+        return None
+    if "done" in text or "complete" in text:
+        return IBM_JOB_COMPLETED
+    if "error" in text or "fail" in text:
+        return IBM_JOB_FAILED
+    if "cancel" in text:
+        return IBM_JOB_CANCELLED
+    if "queue" in text or "pending" in text or "initial" in text \
+            or "validat" in text:
+        return IBM_JOB_QUEUED
+    if "run" in text or "execut" in text:
+        return IBM_JOB_RUNNING
+    return IBM_JOB_RUNNING
+
+
+def _ibm_job_usage(job) -> tuple[float | None, str]:
+    """(фактический QPU usage, источник) по данным IBM; без выдумывания."""
+    usage = _ibm_attr(job, "usage", None)
+    if callable(usage):
+        try:
+            usage = usage()
+        except Exception:
+            usage = None
+    try:
+        if usage is not None and not isinstance(usage, bool):
+            value = float(usage)
+            if value >= 0:
+                return value, "job.usage"
+    except (TypeError, ValueError):
+        pass
+    metrics = _ibm_attr(job, "metrics", None)
+    if callable(metrics):
+        try:
+            metrics = metrics()
+        except Exception:
+            metrics = None
+    if isinstance(metrics, dict):
+        for key in ("usage", "usage_seconds", "qpu_time", "qpu_seconds"):
+            raw = metrics.get(key)
+            try:
+                if raw is not None and not isinstance(raw, bool) \
+                        and not isinstance(raw, dict):
+                    value = float(raw)
+                    if value >= 0:
+                        return value, f"job.metrics.{key}"
+            except (TypeError, ValueError):
+                continue
+        usage_data = metrics.get("usage")
+        if isinstance(usage_data, dict):
+            for key in ("qpu_charge_time_seconds", "value",
+                        "usage_seconds", "qpu_time"):
+                raw = usage_data.get(key)
+                try:
+                    if raw is not None and not isinstance(raw, bool):
+                        value = float(raw)
+                        if value >= 0:
+                            return value, f"job.metrics.usage.{key}"
+                except (TypeError, ValueError):
+                    continue
+    return None, "unavailable"
+
+
+def _ibm_debias_bitstrings(bitstrings) -> tuple[list[int], dict]:
+    """Детерминированный von Neumann debias сырых measurement bits.
+
+    Каждая пара битов `01` → 0, `10` → 1, `00`/`11` отбрасывается. Для
+    независимых битов с ЛЮБОЙ постоянной вероятностью единицы результат
+    несмещён; физическое смещение явно измеряется и попадает в provenance.
+    """
+    bits: list[int] = []
+    raw_ones = 0
+    raw_total = 0
+    pairs = 0
+    accepted = 0
+    for bitstring in bitstrings:
+        raw_total += len(bitstring)
+        raw_ones += bitstring.count("1")
+        # Пары внутри одного shot: не смешиваем ранги разных кубитов.
+        for index in range(0, len(bitstring) - 1, 2):
+            pairs += 1
+            left, right = bitstring[index], bitstring[index + 1]
+            if left != right:
+                bits.append(1 if left == "1" else 0)
+                accepted += 1
+    stats = {
+        "raw_bits": raw_total,
+        "raw_ones": raw_ones,
+        "bias": (round(raw_ones / raw_total, 6) if raw_total else None),
+        "pairs": pairs,
+        "accepted_pairs": accepted,
+        "discarded_pairs": pairs - accepted,
+        "unbiased_bits": len(bits),
+    }
+    return bits, stats
+
+
+def _ibm_pack_values(bits: list[int], limit: int) -> list[int]:
+    """Упаковать unbiased-биты в uint16 (big-endian, детерминированно)."""
+    values: list[int] = []
+    upper = len(bits) - 15
+    for index in range(0, max(0, upper), 16):
+        value = 0
+        for bit in bits[index:index + 16]:
+            value = (value << 1) | int(bit)
+        values.append(value)
+    if limit > 0:
+        return values[:limit]
+    return values
+
+
+def _ibm_shots_for(length: int, num_qubits: int) -> int:
+    """Bounded batch shots: ожидаемый debias-yield ≈ 1/4 сырых битов."""
+    needed_bits = max(16, int(length) * 16)
+    qubits = max(1, int(num_qubits))
+    shots = (needed_bits * 5 + qubits - 1) // qubits
+    shots = max(IBM_MIN_SHOTS, min(IBM_MAX_SHOTS, shots))
+    return ((shots + 63) // 64) * 64
+
+
+def _ibm_error_result(*, code: str, stage: str, reason: str = "",
+                      job_state: str | None = None,
+                      key_present: bool = False,
+                      crn_present: bool = False,
+                      instance: str = "", region: str = "",
+                      channel: str = "", plan: str | None = None,
+                      usage: dict | None = None,
+                      backends: list | None = None,
+                      selected_backend: str | None = None,
+                      checked_at: int | None = None) -> dict:
+    return {
+        "provider": PROVIDER_ID_IBM, "healthy": False, "blocker": str(code),
+        "stage": str(stage), "reason": str(reason or "")[:160],
+        "job_state": job_state,
+        "key_present": bool(key_present), "crn_present": bool(crn_present),
+        "instance": str(instance or "")[:120],
+        "region": str(region or "")[:40],
+        "channel": str(channel or "")[:48],
+        "plan": plan, "usage": usage,
+        "backends": list(backends or []),
+        "selected_backend": selected_backend,
+        "is_simulator": False,
+        "checked_at": int(checked_at if checked_at is not None
+                          else time.time()),
+    }
+
+
+class IbmQuantumRuntimeClient:
+    """IBM Quantum Platform adapter: реальный QPU Sampler + durable job.
+
+    Разделение действий:
+      * `check_access` — строго read-only: key/CRN/instance/region/backends/
+        queue/usage; Sampler не создаётся, job не отправляется;
+      * `hardware_smoke` — отдельное ограниченное измерение на реальном QPU;
+      * `fetch` — партия настоящих measurement bits для рабочего запаса.
+
+    `service_factory`/`sampler_factory`/`circuit_factory` инъектируются в
+    тестах; по умолчанию используются официальные qiskit-объекты. Никаких
+    имитаций измерения в рабочем тракте: simulator/quasi_dists отвергаются.
+    """
+
+    def __init__(self, *, service_factory: Callable | None = None,
+                 sampler_factory: Callable | None = None,
+                 circuit_factory: Callable | None = None,
+                 transpiler: Callable | None = None,
+                 timeout: float = DEFAULT_IBM_HTTP_TIMEOUT_SECONDS,
+                 poll_interval: float = DEFAULT_IBM_POLL_INTERVAL_SECONDS,
+                 job_max_age: float = DEFAULT_IBM_JOB_MAX_AGE_SECONDS,
+                 circuit_fails: int = 3, circuit_cooldown: float = 60.0,
+                 clock: Callable | None = None,
+                 sleeper: Callable | None = None) -> None:
+        self._service_factory = service_factory or _default_qiskit_service
+        self._sampler_factory = sampler_factory or _default_qiskit_sampler
+        self._circuit_factory = circuit_factory or _default_ibm_circuit
+        self._transpiler = transpiler or _default_ibm_transpiler
+        self._timeout = float(timeout)
+        self._poll_interval = max(0.0, float(poll_interval))
+        self._job_max_age = max(1.0, float(job_max_age))
+        self._circuit_fails = max(1, int(circuit_fails))
+        self._cooldown = max(1.0, float(circuit_cooldown))
+        self._clock = clock or time.monotonic
+        self._sleeper = sleeper or asyncio.sleep
+        self._fails = 0
+        self._open_until = 0.0
+        self._probe_used = False
+        self._last_error: str | None = None
+        self._last_success_at: int | None = None
+        self._last_failure_at: int | None = None
+
+    # ── состояние/breaker (паритет с существующими клиентами) ─────────────
+    def configure(self, *, timeout: float, poll_interval: float,
+                  job_max_age: float, circuit_fails: int,
+                  circuit_cooldown: float) -> None:
+        self._timeout = float(timeout)
+        self._poll_interval = max(0.0, float(poll_interval))
+        self._job_max_age = max(1.0, float(job_max_age))
+        self._circuit_fails = max(1, int(circuit_fails))
+        self._cooldown = max(1.0, float(circuit_cooldown))
+
+    def status(self) -> dict:
+        return {
+            "fails": int(self._fails),
+            "circuit_open_until": float(self._open_until),
+            "last_error": self._last_error,
+            "last_success_at": self._last_success_at,
+            "last_failure_at": self._last_failure_at,
+        }
+
+    def available(self) -> bool:
+        return self._clock() >= self._open_until
+
+    def _note_failure(self, now: float, code: str) -> None:
+        self._fails += 1
+        self._last_error = str(code)[:80]
+        self._last_failure_at = int(time.time())
+        backoff = min(self._cooldown, float(2 ** min(self._fails, 6)))
+        if self._fails >= self._circuit_fails:
+            self._open_until = now + self._cooldown
+            self._probe_used = False
+
+    def _note_success(self) -> None:
+        self._fails = 0
+        self._open_until = 0.0
+        self._probe_used = False
+        self._last_error = None
+        self._last_success_at = int(time.time())
+
+    def _assert_available(self, now: float) -> None:
+        if now < self._open_until:
+            raise IbmError("provider_unavailable", "circuit_open",
+                           retryable=True, sent=False, stage="circuit")
+
+    # ── валидация подключения (без сети) ───────────────────────────────────
+    def _validated(self, api_key, crn, instance, region,
+                   channel) -> tuple[str, str, str, str, str]:
+        key = str(api_key or "").strip()
+        if not key:
+            raise IbmError("provider_unconfigured", "no api key",
+                           stage="key", sent=False)
+        # Инъекция фабрики в тестах — доказательство, что зависимость не
+        # требуется для контрактных проверок; в продакшене обязателен
+        # установленный официальный пакет.
+        if (self._service_factory is _default_qiskit_service
+                and not _qiskit_runtime_available()):
+            raise IbmError("dependency_missing",
+                           "qiskit-ibm-runtime not installed",
+                           stage="dependency", sent=False)
+        channel_text = str(channel or IBM_CHANNEL).strip()
+        if channel_text != IBM_CHANNEL:
+            raise IbmError("invalid_channel",
+                           f"channel not allowed: {channel_text[:32]}",
+                           stage="channel", sent=False)
+        region_text = str(region or IBM_REGION_DEFAULT).strip()
+        if (not region_text or len(region_text) > 32
+                or any(not (ch.isalnum() or ch in "-_")
+                       for ch in region_text)):
+            raise IbmError("invalid_region",
+                           f"invalid region: {region_text[:32]}",
+                           stage="region", sent=False)
+        instance_text = str(instance or IBM_INSTANCE_DEFAULT).strip()
+        crn_text = str(crn or "").strip()
+        if not instance_text and not crn_text:
+            raise IbmError("provider_unconfigured",
+                           "instance/CRN missing", stage="instance",
+                           sent=False)
+        return key, crn_text, instance_text, region_text, channel_text
+
+    def _service(self, *, api_key: str, crn: str, instance: str,
+                 region: str, channel: str):
+        try:
+            return self._service_factory(
+                api_key=api_key, crn=crn, instance=instance,
+                region=region, channel=channel)
+        except Exception as exc:
+            code = _ibm_error_code(exc, "auth_failed")
+            raise IbmError(code, _clean_error_text(str(exc), api_key),
+                           stage=_ibm_stage_for_code(code), sent=False)
+
+    @staticmethod
+    def _instances(service) -> list:
+        getter = _ibm_attr(service, "instances", None)
+        if not callable(getter):
+            return []
+        try:
+            return list(getter() or [])
+        except Exception:
+            return []
+
+    @staticmethod
+    def _backends(service, instance_ref: str) -> list:
+        getter = _ibm_attr(service, "backends", None)
+        if not callable(getter):
+            return []
+        try:
+            return list(getter(instance=instance_ref) or [])
+        except TypeError:
+            return list(getter() or [])
+
+    @staticmethod
+    def _pick_backend(backends) -> object | None:
+        eligible = [b for b in backends if _ibm_backend_eligible(b)]
+        if not eligible:
+            return None
+        return sorted(eligible, key=lambda b: (
+            _ibm_backend_pending(b), _ibm_backend_name(b)))[0]
+
+    @staticmethod
+    def _check_success(*, instance: str, region: str, channel: str,
+                       plan: str | None, usage: dict | None,
+                       backends: list, backend, checked_at: int) -> dict:
+        return {
+            "provider": PROVIDER_ID_IBM, "healthy": True, "blocker": None,
+            "stage": None, "reason": "",
+            "key_present": True, "crn_present": False,
+            "instance": instance[:120], "region": region[:40],
+            "channel": channel[:48], "plan": plan, "usage": usage,
+            "backends": backends,
+            "selected_backend": _ibm_backend_name(backend),
+            "queue": ({"pending_jobs": _ibm_backend_pending(backend)}
+                      if backend is not None else None),
+            "queues": {b.get("name"): b.get("pending_jobs")
+                       for b in backends
+                       if b.get("name") and b.get("simulator") is False},
+            "is_simulator": False, "checked_at": int(checked_at),
+        }
+
+    async def check_access(self, *, api_key: str, crn: str = "",
+                           instance: str = IBM_INSTANCE_DEFAULT,
+                           region: str = IBM_REGION_DEFAULT,
+                           channel: str = IBM_CHANNEL) -> dict:
+        """Read-only проверка: без Sampler и без единого job."""
+        checked_at = int(time.time())
+        crn_present = bool(str(crn or "").strip())
+        try:
+            key, crn_text, instance_text, region_text, channel_text = \
+                self._validated(api_key, crn, instance, region, channel)
+        except IbmError as exc:
+            return _ibm_error_result(
+                code=exc.code, stage=exc.stage, reason=exc.reason,
+                key_present=bool(str(api_key or "").strip()),
+                crn_present=crn_present, instance=str(instance or ""),
+                region=str(region or ""), channel=str(channel or ""),
+                checked_at=checked_at)
+        now = self._clock()
+        try:
+            self._assert_available(now)
+        except IbmError as exc:
+            return _ibm_error_result(
+                code=exc.code, stage=exc.stage, reason=exc.reason,
+                key_present=True, crn_present=crn_present,
+                instance=instance_text, region=region_text,
+                channel=channel_text, checked_at=checked_at)
+        try:
+            service = self._service(
+                api_key=key, crn=crn_text, instance=instance_text,
+                region=region_text, channel=channel_text)
+            instance_ref = crn_text or instance_text
+            instances = self._instances(service)
+            backends_raw = self._backends(service, instance_ref)
+            public = [_ibm_backend_public(b) for b in backends_raw]
+            hardware = [b for b in backends_raw if _ibm_backend_eligible(b)]
+            backend = self._pick_backend(hardware)
+            plan = _ibm_plan_from_instances(instances, instance_ref)
+            usage = _ibm_usage_public(service)
+            if backend is None:
+                self._note_failure(now, "no_backend")
+                return _ibm_error_result(
+                    code="no_backend", stage="no_backend",
+                    reason="no operational hardware QPU",
+                    key_present=True, crn_present=crn_present,
+                    instance=instance_text, region=region_text,
+                    channel=channel_text, plan=plan, usage=usage,
+                    backends=public, checked_at=checked_at)
+            self._note_success()
+            success = self._check_success(
+                instance=instance_text, region=region_text,
+                channel=channel_text, plan=plan, usage=usage,
+                backends=public, backend=backend, checked_at=checked_at)
+            success["crn_present"] = crn_present
+            return success
+        except IbmError as exc:
+            self._note_failure(now, exc.code)
+            return _ibm_error_result(
+                code=exc.code, stage=exc.stage, reason=exc.reason,
+                key_present=True, crn_present=crn_present,
+                instance=instance_text, region=region_text,
+                channel=channel_text, checked_at=checked_at)
+        except Exception as exc:
+            code = _ibm_error_code(exc)
+            self._note_failure(now, code)
+            return _ibm_error_result(
+                code=code, stage=_ibm_stage_for_code(code),
+                reason=_clean_error_text(str(exc), key),
+                key_present=True, crn_present=crn_present,
+                instance=instance_text, region=region_text,
+                channel=channel_text, checked_at=checked_at)
+
+    async def hardware_smoke(self, *, api_key: str, crn: str = "",
+                             instance: str = IBM_INSTANCE_DEFAULT,
+                             region: str = IBM_REGION_DEFAULT,
+                             channel: str = IBM_CHANNEL,
+                             shots: int = IBM_SMOKE_SHOTS) -> dict:
+        """Отдельное ограниченное измерение на реальном QPU (не зачисляется)."""
+        checked_at = int(time.time())
+        crn_present = bool(str(crn or "").strip())
+        try:
+            key, crn_text, instance_text, region_text, channel_text = \
+                self._validated(api_key, crn, instance, region, channel)
+            shots = max(64, min(4096, int(shots)))
+        except IbmError as exc:
+            return _ibm_error_result(
+                code=exc.code, stage=exc.stage, reason=exc.reason,
+                key_present=bool(str(api_key or "").strip()),
+                crn_present=crn_present, instance=str(instance or ""),
+                region=str(region or ""), channel=str(channel or ""),
+                checked_at=checked_at)
+        except (TypeError, ValueError):
+            return _ibm_error_result(
+                code="validation_failed", stage="shots",
+                reason="invalid shots", key_present=bool(api_key),
+                crn_present=crn_present, checked_at=checked_at)
+        now = self._clock()
+        try:
+            self._assert_available(now)
+            service = self._service(
+                api_key=key, crn=crn_text, instance=instance_text,
+                region=region_text, channel=channel_text)
+            backends = self._backends(service, crn_text or instance_text)
+            backend = self._pick_backend(backends)
+            if backend is None:
+                self._note_failure(now, "no_backend")
+                return _ibm_error_result(
+                    code="no_backend", stage="no_backend",
+                    reason="no operational hardware QPU",
+                    key_present=True, crn_present=crn_present,
+                    instance=instance_text, region=region_text,
+                    channel=channel_text, checked_at=checked_at)
+            batch = await self._run_on_backend(
+                service=service, backend=backend, shots=shots,
+                requested=1, plan=_ibm_plan_from_instances(
+                    self._instances(service), crn_text or instance_text),
+                crn=crn_text, region=region_text, channel=channel_text,
+                instance=instance_text)
+            self._note_success()
+            provenance = dict(batch.provenance or {})
+            return {
+                "provider": PROVIDER_ID_IBM, "healthy": True, "blocker": None,
+                "stage": None, "reason": "",
+                "key_present": True, "crn_present": crn_present,
+                "instance": instance_text[:120], "region": region_text[:40],
+                "channel": channel_text[:48],
+                "backend": provenance.get("backend"),
+                "job_id": provenance.get("job_id"),
+                "shots": provenance.get("shots"),
+                "bits": provenance.get("accepted_bits"),
+                "values": provenance.get("values"),
+                "usage_seconds": provenance.get("usage_seconds"),
+                "plan": provenance.get("plan"),
+                "is_simulator": False,
+                "checked_at": int(time.time()),
+            }
+        except IbmError as exc:
+            self._note_failure(now, exc.code)
+            return _ibm_error_result(
+                code=exc.code, stage=exc.stage, reason=exc.reason,
+                key_present=True, crn_present=crn_present,
+                instance=instance_text, region=region_text,
+                channel=channel_text, checked_at=checked_at)
+        except Exception as exc:
+            code = _ibm_error_code(exc)
+            self._note_failure(now, code)
+            return _ibm_error_result(
+                code=code, stage=_ibm_stage_for_code(code),
+                reason=_clean_error_text(str(exc), key),
+                key_present=True, crn_present=crn_present,
+                instance=instance_text, region=region_text,
+                channel=channel_text, checked_at=checked_at)
+
+    # ── партия настоящих measurement bits ──────────────────────────────────
+    async def fetch(self, *, api_key: str, crn: str = "",
+                    instance: str = IBM_INSTANCE_DEFAULT,
+                    region: str = IBM_REGION_DEFAULT,
+                    channel: str = IBM_CHANNEL,
+                    length: int = DEFAULT_BATCH_LENGTH,
+                    job_store=None, supervisor=None, deposit=None,
+                    account_key: str = "",
+                    config_fp: str = "") -> AnuBatch:
+        key, crn_text, instance_text, region_text, channel_text = \
+            self._validated(api_key, crn, instance, region, channel)
+        try:
+            length = int(length)
+        except (TypeError, ValueError):
+            raise IbmError("validation_failed", "bad length", stage="length",
+                           sent=False)
+        if length < 1:
+            raise IbmError("validation_failed", "bad length", stage="length",
+                           sent=False)
+        now = self._clock()
+        self._assert_available(now)
+        if job_store is None:
+            service = self._service(
+                api_key=key, crn=crn_text, instance=instance_text,
+                region=region_text, channel=channel_text)
+            backends = self._backends(service, crn_text or instance_text)
+            backend = self._pick_backend(backends)
+            if backend is None:
+                self._note_failure(now, "no_backend")
+                raise IbmError("no_backend", "no operational hardware QPU",
+                               stage="no_backend", sent=False)
+            try:
+                batch = await self._run_on_backend(
+                    service=service, backend=backend,
+                    shots=_ibm_shots_for(length,
+                                         _ibm_backend_qubits(backend)),
+                    requested=length,
+                    plan=_ibm_plan_from_instances(
+                        self._instances(service), crn_text or instance_text),
+                    crn=crn_text, region=region_text, channel=channel_text,
+                    instance=instance_text)
+            except IbmError as exc:
+                self._note_failure(self._clock(), exc.code)
+                raise
+            if deposit is not None:
+                batch.provenance["batch_id"] = await deposit(batch)
+            self._note_success()
+            return batch
+        try:
+            batch = await self._run_durable(
+                api_key=key, crn=crn_text, instance=instance_text,
+                region=region_text, channel=channel_text, length=length,
+                job_store=job_store, supervisor=supervisor, deposit=deposit,
+                account_key=account_key, config_fp=config_fp)
+        except IbmError as exc:
+            self._note_failure(self._clock(), exc.code)
+            raise
+        self._note_success()
+        return batch
+
+    async def _run_durable(self, *, api_key: str, crn: str, instance: str,
+                           region: str, channel: str, length: int,
+                           job_store, supervisor, deposit,
+                           account_key: str, config_fp: str) -> AnuBatch:
+        from services.task_supervisor import get_task_supervisor
+        sup = supervisor or get_task_supervisor()
+        coalesce = (f"random.ibm.job:{account_key or 'ibm'}:"
+                    f"{config_fp or key_fingerprint(api_key)}")
+        # Durability guard ДО submit: активная строка IBM (в т.ч. оставшаяся
+        # после рестарта) означает attach/recovery, а не вторую оплату.
+        try:
+            active = await job_store.active()
+        except Exception:
+            active = []
+        if any(str(r.get("kind") or "") == IBM_JOB_KIND
+               for r in active):
+            raise IbmError("job_in_progress", "active ibm job exists",
+                           retryable=True, sent=False, stage="job")
+        box: dict = {}
+
+        async def _job():
+            own = await self._find_own_job(job_store, coalesce)
+            box["task_job_id"] = own
+            batch = await self._submit_and_wait(
+                api_key=api_key, crn=crn, instance=instance, region=region,
+                channel=channel, length=length, checkpoint_job_id=own,
+                job_store=job_store)
+            if deposit is not None:
+                batch.provenance["batch_id"] = await deposit(batch)
+            box["batch"] = batch
+            return _ibm_external_ref(batch.provenance or {})
+
+        record = await sup.run(
+            _job, owner=IBM_JOB_OWNER, kind=IBM_JOB_KIND,
+            coalesce_key=coalesce,
+            deadline_at=time.time() + self._job_max_age,
+            job_store=job_store)
+        batch = box.get("batch")
+        if batch is None:
+            raise IbmError("job_in_progress", "coalesced", retryable=True,
+                           sent=False, stage="job",
+                           job_state=getattr(record, "status", None))
+        return batch
+
+    @staticmethod
+    async def _find_own_job(job_store, coalesce: str):
+        try:
+            rows = await job_store.active()
+        except Exception:
+            return None
+        for row in rows:
+            if (str(row.get("kind") or "") == IBM_JOB_KIND
+                    and str(row.get("coalesce_key") or "") == coalesce):
+                return str(row.get("job_id") or "") or None
+        return None
+
+    async def _submit_and_wait(self, *, api_key: str, crn: str,
+                               instance: str, region: str, channel: str,
+                               length: int, checkpoint_job_id: str | None,
+                               job_store=None) -> AnuBatch:
+        service = self._service(
+            api_key=api_key, crn=crn, instance=instance, region=region,
+            channel=channel)
+        backends = self._backends(service, crn or instance)
+        backend = self._pick_backend(backends)
+        if backend is None:
+            raise IbmError("no_backend", "no operational hardware QPU",
+                           stage="no_backend", sent=False)
+        num_qubits = _ibm_backend_qubits(backend)
+        shots = _ibm_shots_for(length, num_qubits)
+        circuit = self._circuit_factory(num_qubits)
+        try:
+            circuit = self._transpiler(circuit, backend)
+        except Exception as exc:
+            raise IbmError(
+                _ibm_error_code(exc, "validation_failed"),
+                _clean_error_text(str(exc), api_key),
+                stage="transpile", sent=False)
+        try:
+            sampler = self._sampler_factory(backend=backend)
+            job = sampler.run([circuit], shots=shots)
+        except Exception as exc:
+            code = _ibm_error_code(exc)
+            raise IbmError(code, _clean_error_text(str(exc), api_key),
+                           stage="submit", retryable=True, sent=True)
+        job_id = str(getattr(job, "job_id", lambda: "")() or "").strip()
+        if not job_id:
+            raise IbmError("delivery_unknown", "job id missing",
+                           stage="submit", sent=True)
+        submitted_at = int(time.time())
+        plan = _ibm_plan_from_instances(
+            self._instances(service), crn or instance)
+        cfg_fp = key_fingerprint("|".join(
+            (api_key, crn, instance, region, channel)))
+        cursor_base = {
+            "job": job_id, "state": IBM_JOB_SUBMITTED,
+            "backend": _ibm_backend_name(backend), "instance": instance,
+            "shots": shots, "qubits": num_qubits,
+            "submitted_at": submitted_at, "values": length,
+            "plan": plan, "config_fp": cfg_fp,
+        }
+        await self._checkpoint(
+            job_store, checkpoint_job_id, **cursor_base)
+        return await self._wait_job(
+            job=job, job_id=job_id, backend=backend, shots=shots,
+            num_qubits=num_qubits, requested=length,
+            checkpoint_job_id=checkpoint_job_id,
+            submitted_at=submitted_at, plan=plan,
+            crn=crn, region=region, channel=channel, instance=instance,
+            job_store=job_store, cursor_base=cursor_base)
+
+    async def _wait_job(self, *, job, job_id: str, backend, shots: int,
+                        num_qubits: int, requested: int,
+                        checkpoint_job_id: str | None,
+                        submitted_at: int, plan: str | None, crn: str,
+                        region: str, channel: str, instance: str,
+                        job_store=None, cursor_base: dict | None = None
+                        ) -> AnuBatch:
+        delay = self._poll_interval
+        last_state = None
+        while True:
+            state = _ibm_job_state(job) or IBM_JOB_RUNNING
+            if state != last_state:
+                last_state = state
+                fields = dict(cursor_base or {})
+                fields.update({"job": job_id, "state": state,
+                               "backend": _ibm_backend_name(backend),
+                               "instance": instance})
+                await self._checkpoint(
+                    job_store, checkpoint_job_id, **fields)
+            if state == IBM_JOB_COMPLETED:
+                try:
+                    result = job.result()
+                except Exception as exc:
+                    code = _ibm_error_code(exc)
+                    raise IbmError(code, _clean_error_text(str(exc)),
+                                   stage="result", sent=True,
+                                   job_state=state)
+                actual_backend = _ibm_attr(job, "backend", None)
+                if callable(actual_backend):
+                    try:
+                        actual_backend = actual_backend()
+                    except Exception:
+                        actual_backend = None
+                if actual_backend is not None:
+                    if _ibm_backend_simulator(actual_backend) is not False:
+                        raise IbmError(
+                            "validation_failed",
+                            "simulator backend rejected", stage="backend",
+                            sent=True, job_state=state)
+                    backend = actual_backend
+                usage, usage_source = _ibm_job_usage(job)
+                return self._batch_from_result(
+                    result=result, backend=backend, job_id=job_id,
+                    shots=shots, num_qubits=num_qubits,
+                    requested=requested, submitted_at=submitted_at,
+                    plan=plan, usage=usage, usage_source=usage_source,
+                    crn=crn, region=region, channel=channel,
+                    instance=instance)
+            if state in (IBM_JOB_FAILED, IBM_JOB_CANCELLED):
+                raise IbmError(
+                    "provider_unavailable", f"ibm job {state}",
+                    stage="job", sent=True, job_state=state)
+            age = max(0.0, time.time() - float(submitted_at or 0))
+            if age >= self._job_max_age:
+                fields = dict(cursor_base or {})
+                fields.update({"job": job_id, "state": IBM_JOB_EXPIRED,
+                               "backend": _ibm_backend_name(backend),
+                               "instance": instance})
+                await self._checkpoint(
+                    job_store, checkpoint_job_id, **fields)
+                raise IbmError("timeout", "ibm job age exceeded",
+                               stage="job", retryable=True, sent=True,
+                               job_state=IBM_JOB_EXPIRED)
+            await self._sleeper(delay)
+            if delay > 0:
+                delay = min(max(delay * 2, self._poll_interval), 120.0)
+
+    @staticmethod
+    async def _checkpoint(job_store, job_id: str | None, **fields) -> None:
+        """Durable cursor IBM job через существующий `task_jobs.payload`."""
+        if job_store is None or not job_id:
+            return
+        try:
+            cursor = json.dumps(fields, separators=(",", ":"),
+                                ensure_ascii=False)
+            await job_store.save_checkpoint(
+                job_id, cursor_token=cursor, processed=0)
+        except Exception:
+            # Checkpoint — диагностика/восстановление, не повод ронять job.
+            logger.warning("[random_source] ibm checkpoint failed",
+                           exc_info=True)
+
+    def _batch_from_result(self, *, result, backend, job_id: str,
+                           shots: int, num_qubits: int, requested: int,
+                           submitted_at: int, plan: str | None,
+                           usage: float | None, usage_source: str,
+                           crn: str, region: str,
+                           channel: str, instance: str) -> AnuBatch:
+        if _ibm_backend_simulator(backend) is not False:
+            raise IbmError("validation_failed",
+                           "simulator backend rejected", stage="backend",
+                           sent=True)
+        if not _ibm_backend_name(backend):
+            raise IbmError("validation_failed", "backend name missing",
+                           stage="backend", sent=True)
+        bitstrings = self._extract_bitstrings(result, shots=shots,
+                                              num_qubits=num_qubits)
+        bits, stats = _ibm_debias_bitstrings(bitstrings)
+        values = _ibm_pack_values(bits, requested)
+        if not values:
+            raise IbmError("validation_failed",
+                           "no unbiased bits extracted", stage="result",
+                           sent=True)
+        completed_at = int(time.time())
+        provenance = {
+            "provider": PROVIDER_ID_IBM,
+            "channel": channel, "instance": instance,
+            "crn_fingerprint": key_fingerprint(crn) if crn else None,
+            "region": region, "backend": _ibm_backend_name(backend),
+            "job_id": job_id, "batch_id": None,
+            "submitted_at": int(submitted_at),
+            "completed_at": completed_at,
+            "shots": int(shots), "num_qubits": int(num_qubits),
+            "raw_bits": stats["raw_bits"], "bias": stats["bias"],
+            "pairs": stats["pairs"],
+            "accepted_pairs": stats["accepted_pairs"],
+            "accepted_bits": stats["unbiased_bits"],
+            "values": len(values), "requested_values": int(requested),
+            "usage_seconds": usage, "usage_source": usage_source,
+            "plan": plan, "is_simulator": False,
+            "extraction": "von_neumann_v1",
+            "circuit": "h_all+measure_all",
+        }
+        return AnuBatch(
+            values=values, data_type="uint16", length=len(values),
+            provider=PROVIDER_ID_IBM,
+            latency_ms=max(0, int((time.time() - submitted_at) * 1000)),
+            provenance=provenance)
+
+    @staticmethod
+    def _extract_bitstrings(result, *, shots: int,
+                            num_qubits: int) -> list[str]:
+        """Структурная проверка: только настоящие measurement bitstrings."""
+        try:
+            pub = result[0]
+        except Exception:
+            raise IbmError("validation_failed", "empty result", stage="result",
+                           sent=True)
+        data = _ibm_attr(pub, "data", None)
+        if data is None:
+            raise IbmError("validation_failed", "result data missing",
+                           stage="result", sent=True)
+        measure = _ibm_attr(data, "meas", None)
+        if measure is None:
+            for forbidden in ("quasi_dists", "counts", "statevector"):
+                if _ibm_attr(data, forbidden, None) is not None:
+                    raise IbmError(
+                        "validation_failed",
+                        f"{forbidden} is not measurement bits",
+                        stage="result", sent=True)
+            raise IbmError("validation_failed", "meas register missing",
+                           stage="result", sent=True)
+        getter = _ibm_attr(measure, "get_bitstrings", None)
+        bitstrings = None
+        if callable(getter):
+            try:
+                bitstrings = list(getter())
+            except Exception:
+                bitstrings = None
+        if bitstrings is None:
+            array = _ibm_attr(measure, "array", None)
+            if array is not None:
+                try:
+                    bitstrings = [
+                        "".join("1" if int(bit) else "0" for bit in row)
+                        for row in array.tolist()]
+                except Exception:
+                    bitstrings = None
+        if not isinstance(bitstrings, list) or len(bitstrings) != int(shots):
+            raise IbmError("validation_failed",
+                           "shot count mismatch", stage="result", sent=True)
+        out: list[str] = []
+        for item in bitstrings:
+            text = str(item or "").strip()
+            if len(text) != int(num_qubits):
+                raise IbmError("validation_failed",
+                               f"bitstring length: {len(text)}",
+                               stage="result", sent=True)
+            if any(ch not in "01" for ch in text):
+                raise IbmError("validation_failed", "bitstring not binary",
+                               stage="result", sent=True)
+            out.append(text)
+        return out
+
+    async def _run_on_backend(self, *, service, backend, shots: int,
+                              requested: int, plan: str | None,
+                              crn: str = "", region: str = "",
+                              channel: str = "",
+                              instance: str = "",
+                              job_store=None) -> AnuBatch:
+        num_qubits = _ibm_backend_qubits(backend)
+        circuit = self._circuit_factory(num_qubits)
+        try:
+            circuit = self._transpiler(circuit, backend)
+        except Exception as exc:
+            raise IbmError(
+                _ibm_error_code(exc, "validation_failed"),
+                _clean_error_text(str(exc)), stage="transpile", sent=False)
+        try:
+            sampler = self._sampler_factory(backend=backend)
+            job = sampler.run([circuit], shots=shots)
+        except Exception as exc:
+            code = _ibm_error_code(exc)
+            raise IbmError(code, _clean_error_text(str(exc)),
+                           stage="submit", retryable=True, sent=True)
+        job_id = str(getattr(job, "job_id", lambda: "")() or "").strip()
+        if not job_id:
+            raise IbmError("delivery_unknown", "job id missing",
+                           stage="submit", sent=True)
+        submitted_at = int(time.time())
+        return await self._wait_job(
+            job=job, job_id=job_id, backend=backend, shots=shots,
+            num_qubits=num_qubits, requested=requested,
+            checkpoint_job_id=None, submitted_at=submitted_at, plan=plan,
+            crn=crn, region=region, channel=channel, instance=instance,
+            job_store=job_store)
+
+    async def resume(self, *, api_key: str, crn: str = "",
+                     instance: str = IBM_INSTANCE_DEFAULT,
+                     region: str = IBM_REGION_DEFAULT,
+                     channel: str = IBM_CHANNEL, job_id: str,
+                     shots: int, num_qubits: int, requested: int,
+                     submitted_at: int, plan: str | None = None,
+                     deposit=None, checkpoint_job_id: str | None = None,
+                     job_store=None) -> AnuBatch:
+        """Присоединиться к существующему IBM job (без повторной отправки)."""
+        key, crn_text, instance_text, region_text, channel_text = \
+            self._validated(api_key, crn, instance, region, channel)
+        service = self._service(
+            api_key=key, crn=crn_text, instance=instance_text,
+            region=region_text, channel=channel_text)
+        getter = _ibm_attr(service, "job", None)
+        if not callable(getter):
+            raise IbmError("provider_unavailable", "job lookup unavailable",
+                           stage="attach", sent=False)
+        try:
+            job = getter(job_id)
+        except Exception as exc:
+            code = _ibm_error_code(exc)
+            raise IbmError(code, _clean_error_text(str(exc)),
+                           stage="attach", sent=True, job_state="unknown")
+        backend = _ibm_attr(job, "backend", None)
+        if callable(backend):
+            try:
+                backend = backend()
+            except Exception:
+                backend = None
+        if backend is None:
+            raise IbmError("validation_failed", "job backend missing",
+                           stage="attach", sent=True)
+        if not num_qubits:
+            num_qubits = _ibm_backend_qubits(backend)
+        cursor_base = {
+            "job": job_id, "state": IBM_JOB_SUBMITTED,
+            "backend": _ibm_backend_name(backend), "instance": instance_text,
+            "shots": shots, "qubits": num_qubits,
+            "submitted_at": submitted_at, "values": requested,
+            "plan": plan,
+            "config_fp": key_fingerprint("|".join(
+                (key, crn_text, instance_text, region_text, channel_text))),
+        }
+        batch = await self._wait_job(
+            job=job, job_id=job_id, backend=backend, shots=shots,
+            num_qubits=num_qubits, requested=requested,
+            checkpoint_job_id=checkpoint_job_id,
+            submitted_at=submitted_at, plan=plan, crn=crn_text,
+            region=region_text, channel=channel_text,
+            instance=instance_text, job_store=job_store,
+            cursor_base=cursor_base)
+        if deposit is not None:
+            batch.provenance["batch_id"] = await deposit(batch)
+        return batch
+
+
+def _ibm_external_ref(provenance: dict) -> str:
+    """Компактный R17-safe provenance для `mca_random_batches.external_ref`."""
+    ref = {
+        "job": provenance.get("job_id"),
+        "backend": provenance.get("backend"),
+        "shots": provenance.get("shots"),
+        "qubits": provenance.get("num_qubits"),
+        "bits": provenance.get("accepted_bits"),
+        "values": provenance.get("values"),
+        "bias": provenance.get("bias"),
+        "pairs": provenance.get("pairs"),
+        "acc": provenance.get("accepted_pairs"),
+        "usage": provenance.get("usage_seconds"),
+        "sub": provenance.get("submitted_at"),
+        "done": provenance.get("completed_at"),
+        "inst": provenance.get("instance"),
+        "crn": provenance.get("crn_fingerprint"),
+        "reg": provenance.get("region"),
+        "ch": provenance.get("channel"),
+        "plan": provenance.get("plan"),
+        "sim": False,
+    }
+    text = json.dumps(ref, separators=(",", ":"), ensure_ascii=False)
+    if len(text) > 512:
+        # Не обрезаем JSON посередине (иначе late-usage не распарсится):
+        # убираем необязательные диагностические поля до валидной длины.
+        for key in ("plan", "ch", "reg", "crn", "inst", "done", "sub",
+                    "acc", "pairs", "bias", "qubits", "shots"):
+            ref.pop(key, None)
+            text = json.dumps(ref, separators=(",", ":"),
+                              ensure_ascii=False)
+            if len(text) <= 512:
+                break
+    return text[:512] if len(text) <= 512 else json.dumps(
+        {"job": ref.get("job"), "backend": ref.get("backend"),
+         "values": ref.get("values"), "sim": False},
+        separators=(",", ":"), ensure_ascii=False)[:512]
+
+
+async def ibm_fetch(*, api_key: str, crn: str = "",
+                    instance: str = IBM_INSTANCE_DEFAULT,
+                    region: str = IBM_REGION_DEFAULT,
+                    channel: str = IBM_CHANNEL,
+                    length: int = DEFAULT_BATCH_LENGTH,
+                    client: IbmQuantumRuntimeClient | None = None,
+                    job_store=None, supervisor=None, deposit=None,
+                    account_key: str = "", config_fp: str = "") -> AnuBatch:
+    """Реестровая точка входа IBM: одна реальная QPU-партия."""
+    adapter = client if client is not None else IbmQuantumRuntimeClient()
+    return await adapter.fetch(
+        api_key=api_key, crn=crn, instance=instance, region=region,
+        channel=channel, length=length, job_store=job_store,
+        supervisor=supervisor, deposit=deposit, account_key=account_key,
+        config_fp=config_fp)
+
+
+async def ibm_check(*, api_key: str, crn: str = "",
+                    instance: str = IBM_INSTANCE_DEFAULT,
+                    region: str = IBM_REGION_DEFAULT,
+                    channel: str = IBM_CHANNEL,
+                    client: IbmQuantumRuntimeClient | None = None) -> dict:
+    """Реестровая точка входа read-only проверки IBM (без job/Sampler)."""
+    adapter = client if client is not None else IbmQuantumRuntimeClient()
+    return await adapter.check_access(
+        api_key=api_key, crn=crn, instance=instance, region=region,
+        channel=channel)
+
+
+# P5: IBM подключён к реестру; реестр читается call-time.
+PROVIDERS[PROVIDER_ID_IBM] = replace(
+    PROVIDERS[PROVIDER_ID_IBM], fetch=ibm_fetch, check=ibm_check)
 
 
 # ── durable-стор v27 (только через write_transaction mca-01) ───────────────
@@ -2040,6 +3376,19 @@ class RandomSourceService:
             "state": ANU_STATE_UNVERIFIED, "last_error": None,
             "last_success_at": None, "last_failure_at": None,
         }
+        # QRNG P5: ОДИН общий IBM-клиент сервиса (breaker/health — in-memory,
+        # ANU durable state не перезаписывается). Durable job'ы — существующие
+        # task_jobs; второго store/планировщика нет.
+        self._ibm_client: IbmQuantumRuntimeClient | None = None
+        self._ibm_client_pinned = False
+        self._ibm_health: dict[str, Any] = {
+            "state": ANU_STATE_UNVERIFIED, "last_error": None,
+            "last_stage": None, "last_success_at": None,
+            "last_failure_at": None, "last_job": None, "plan": None,
+            "usage": None,
+        }
+        self._ibm_recovery_tasks: set[asyncio.Task] = set()
+        self._ibm_recovering: set[str] = set()
 
     # ── DI/жизненный цикл ──────────────────────────────────────────────────
     def bind_db(self, db) -> None:
@@ -2094,6 +3443,116 @@ class RandomSourceService:
                     mca_gates.random_circuit_cooldown_seconds()))
         return self._lfdr_client
 
+    def set_ibm_client(self, client: IbmQuantumRuntimeClient | None) -> None:
+        """Инъекция общего IBM-клиента (тесты/DI); None — сброс."""
+        self._ibm_client = client
+        self._ibm_client_pinned = client is not None
+
+    def _get_ibm_client(self) -> IbmQuantumRuntimeClient:
+        """Единственный IBM-клиент сервиса (breaker/health общие)."""
+        if self._ibm_client is None:
+            self._ibm_client = IbmQuantumRuntimeClient(
+                timeout=float(self._ibm_http_timeout()),
+                poll_interval=float(self._ibm_poll_interval()),
+                job_max_age=float(self._ibm_job_max_age()),
+                circuit_fails=mca_gates.random_circuit_fails(),
+                circuit_cooldown=float(
+                    mca_gates.random_circuit_cooldown_seconds()),
+                clock=self._clock)
+        elif not self._ibm_client_pinned:
+            self._ibm_client.configure(
+                timeout=float(self._ibm_http_timeout()),
+                poll_interval=float(self._ibm_poll_interval()),
+                job_max_age=float(self._ibm_job_max_age()),
+                circuit_fails=mca_gates.random_circuit_fails(),
+                circuit_cooldown=float(
+                    mca_gates.random_circuit_cooldown_seconds()))
+        return self._ibm_client
+
+    # ── IBM: настройки/секреты (global; значения не логируются) ────────────
+    def _ibm_api_key(self) -> str:
+        raw = _hot_setting(SETTING_IBM_KEY, None)
+        if raw is None:
+            raw = getattr(settings, "RANDOM_IBM_API_KEY", "") or ""
+        return str(raw or "").strip()
+
+    def _ibm_crn(self) -> str:
+        raw = _hot_setting(SETTING_IBM_CRN, None)
+        if raw is None:
+            raw = getattr(settings, "RANDOM_IBM_CRN", "") or ""
+        return str(raw or "").strip()
+
+    def _ibm_instance(self) -> str:
+        raw = _hot_setting(SETTING_IBM_INSTANCE, None)
+        if raw is None:
+            raw = getattr(settings, "RANDOM_IBM_INSTANCE",
+                          IBM_INSTANCE_DEFAULT)
+        return str(raw or IBM_INSTANCE_DEFAULT).strip()
+
+    def _ibm_region(self) -> str:
+        raw = _hot_setting(SETTING_IBM_REGION, None)
+        if raw is None:
+            raw = getattr(settings, "RANDOM_IBM_REGION", IBM_REGION_DEFAULT)
+        return str(raw or IBM_REGION_DEFAULT).strip()
+
+    def _ibm_channel(self) -> str:
+        raw = _hot_setting(SETTING_IBM_CHANNEL, None)
+        if raw is None:
+            raw = getattr(settings, "RANDOM_IBM_CHANNEL", IBM_CHANNEL)
+        return str(raw or IBM_CHANNEL).strip()
+
+    def _ibm_http_timeout(self) -> int:
+        return _as_int(_hot_setting(SETTING_IBM_HTTP_TIMEOUT,
+                                    DEFAULT_IBM_HTTP_TIMEOUT_SECONDS),
+                       DEFAULT_IBM_HTTP_TIMEOUT_SECONDS, 1, 120)
+
+    def _ibm_poll_interval(self) -> int:
+        return _as_int(_hot_setting(SETTING_IBM_POLL_INTERVAL,
+                                    DEFAULT_IBM_POLL_INTERVAL_SECONDS),
+                       DEFAULT_IBM_POLL_INTERVAL_SECONDS, 1, 300)
+
+    def _ibm_job_max_age(self) -> int:
+        return _as_int(_hot_setting(SETTING_IBM_JOB_MAX_AGE,
+                                    DEFAULT_IBM_JOB_MAX_AGE_SECONDS),
+                       DEFAULT_IBM_JOB_MAX_AGE_SECONDS, 60, 21600)
+
+    def _ibm_max_inflight(self) -> int:
+        return _as_int(_hot_setting(SETTING_IBM_MAX_INFLIGHT,
+                                    DEFAULT_IBM_MAX_INFLIGHT),
+                       DEFAULT_IBM_MAX_INFLIGHT, 1, 2)
+
+    def _ibm_max_jobs_per_day(self) -> int:
+        return _as_int(_hot_setting(SETTING_IBM_MAX_JOBS_PER_DAY,
+                                    DEFAULT_IBM_MAX_JOBS_PER_DAY),
+                       DEFAULT_IBM_MAX_JOBS_PER_DAY, 0, 100)
+
+    def _ibm_max_qpu_seconds_per_day(self) -> int:
+        return _as_int(_hot_setting(SETTING_IBM_MAX_QPU_SECONDS_PER_DAY,
+                                    DEFAULT_IBM_MAX_QPU_SECONDS_PER_DAY),
+                       DEFAULT_IBM_MAX_QPU_SECONDS_PER_DAY, 0, 3600)
+
+    def _ibm_config_fingerprint(self) -> str:
+        """Fingerprint действующей IBM-конфигурации (без секретов наружу)."""
+        raw = "|".join((self._ibm_api_key(), self._ibm_crn(),
+                        self._ibm_instance(), self._ibm_region(),
+                        self._ibm_channel()))
+        return key_fingerprint(raw) if raw.strip("|") else ""
+
+    def _ibm_account_key(self) -> str:
+        return f"ibm:{self._ibm_instance().lower()}"
+
+    def _ibm_configured(self) -> bool:
+        return bool(self._ibm_api_key() and (
+            self._ibm_crn() or self._ibm_instance())
+            and self._ibm_channel() == IBM_CHANNEL)
+
+    def _ibm_dependency_available(self) -> bool:
+        # Pinned client (DI/тесты) доказывает доступность адаптера независимо
+        # от установленного пакета; в продакшене проверяется реальный import.
+        if self._ibm_client is not None and self._ibm_client_pinned:
+            return True
+        return _qiskit_runtime_available()
+
     # ── настройки (per-call; hot; валидация на чтении) ─────────────────────
     async def selected_mode(self, chat_id=None) -> str:
         raw = await _read_memory_setting(SETTING_SOURCE, chat_id,
@@ -2136,13 +3595,15 @@ class RandomSourceService:
         """Есть ли у провайдера всё необходимое для запросов (НЕ health).
 
         ANU — действующий ключ; LfDR — ключ не требуется (документированный
-        публичный endpoint, адаптер P2); IBM — в P3 нет IAM/instance/CRN
-        (P5), поэтому `False` (без фейкового зелёного)."""
+        публичный endpoint, адаптер P2); IBM — key + instance/CRN + разрешённый
+        channel (P5). Наличие полей НЕ считается успешной проверкой."""
         pid = str(provider_id or "")
         if pid == PROVIDER_ID_ANU:
             return bool(self._resolve_key())
         if pid == PROVIDER_ID_LFDR:
             return True
+        if pid == PROVIDER_ID_IBM:
+            return self._ibm_configured()
         return False
 
     def _lfdr_state(self) -> str:
@@ -2173,6 +3634,68 @@ class RandomSourceService:
             "last_success_at": self._lfdr_health.get("last_success_at"),
             "last_failure_at": int(time.time()),
             "latency_ms": self._lfdr_health.get("latency_ms"),
+        }
+
+    def _ibm_state(self) -> str:
+        if not mca_gates.random_source_enabled() or \
+                not mca_gates.random_quantum_enabled():
+            return ANU_STATE_DISABLED
+        if not self._ibm_api_key():
+            return ANU_STATE_UNCONFIGURED
+        if not (self._ibm_crn() or self._ibm_instance()):
+            return ANU_STATE_UNCONFIGURED
+        if self._ibm_channel() != IBM_CHANNEL:
+            return ANU_STATE_DEGRADED
+        if not self._ibm_dependency_available():
+            return ANU_STATE_DEGRADED
+        state = str(self._ibm_health.get("state") or ANU_STATE_UNVERIFIED)
+        if self._ibm_client is not None:
+            status = self._ibm_client.status()
+            if float(status.get("circuit_open_until") or 0.0) > self._clock():
+                return ANU_STATE_DEGRADED
+        return state
+
+    def _ibm_blocker(self) -> str:
+        if not self._ibm_api_key() or not (
+                self._ibm_crn() or self._ibm_instance()):
+            return "provider_unconfigured"
+        if self._ibm_channel() != IBM_CHANNEL:
+            return "invalid_channel"
+        if not self._ibm_dependency_available():
+            return "dependency_missing"
+        return str(self._ibm_health.get("last_error")
+                   or "provider_unavailable")
+
+    def _note_ibm_success(self, *, latency_ms: int | None = None,
+                          job: dict | None = None,
+                          plan: str | None = None,
+                          usage: dict | None = None) -> None:
+        self._ibm_health = {
+            "state": ANU_STATE_ACTIVE,
+            "last_error": None,
+            "last_stage": None,
+            "last_success_at": int(time.time()),
+            "last_failure_at": self._ibm_health.get("last_failure_at"),
+            "latency_ms": latency_ms,
+            "last_job": job or self._ibm_health.get("last_job"),
+            "plan": plan if plan is not None
+            else self._ibm_health.get("plan"),
+            "usage": usage if usage is not None
+            else self._ibm_health.get("usage"),
+        }
+
+    def _note_ibm_failure(self, code: str, *,
+                          stage: str | None = None) -> None:
+        self._ibm_health = {
+            "state": ANU_STATE_DEGRADED,
+            "last_error": str(code)[:80],
+            "last_stage": str(stage or "")[:40] or None,
+            "last_success_at": self._ibm_health.get("last_success_at"),
+            "last_failure_at": int(time.time()),
+            "latency_ms": self._ibm_health.get("latency_ms"),
+            "last_job": self._ibm_health.get("last_job"),
+            "plan": self._ibm_health.get("plan"),
+            "usage": self._ibm_health.get("usage"),
         }
 
     async def exploration_probability(self, purpose: str,
@@ -2287,6 +3810,18 @@ class RandomSourceService:
         key = self._resolve_key()
         return key_fingerprint(key) if key else ""
 
+    def _provider_fingerprint(self, provider_id: str) -> str:
+        """Fingerprint конфигурации конкретного провайдера (изоляция партий).
+
+        ANU — ключ ANU; LfDR — пусто (партии NULL); IBM — key+CRN+instance+
+        region+channel. Значения секретов наружу не попадают."""
+        pid = str(provider_id or "")
+        if pid == PROVIDER_ID_ANU:
+            return self._current_fingerprint()
+        if pid == PROVIDER_ID_IBM:
+            return self._ibm_config_fingerprint()
+        return ""
+
     async def resolve_selection(self, chat_id=None) -> ProviderResolution:
         """Действующий выбор источника (arch D5/D6) — без расхода значений.
 
@@ -2371,19 +3906,31 @@ class RandomSourceService:
             return await self._provider_blocker()
         if resolved == PROVIDER_ID_LFDR:
             return self._lfdr_blocker()
+        if resolved == PROVIDER_ID_IBM:
+            return self._ibm_blocker()
         return "provider_unconfigured"
 
     async def _provider_reserve_map(self) -> dict:
-        """Расходуемый остаток по провайдерам действующей конфигурации."""
+        """Расходуемый остаток по провайдерам ИХ действующих конфигураций.
+
+        Один общий fingerprint здесь неверен: ANU/IBM имеют разные секреты.
+        Партия каждого провайдера расходуется только при совпадении его
+        собственного fingerprint (или NULL для LfDR/легаси)."""
         if self._store is None:
             return {}
-        try:
-            return await self._store.provider_reserve(
-                config_fingerprint=self._current_fingerprint())
-        except Exception:
-            logger.warning("[random_source] provider reserve read failed",
-                           exc_info=True)
-            return {}
+        out: dict[str, int] = {}
+        for pid in PROVIDER_IDS:
+            try:
+                reserve = await self._store.provider_reserve(
+                    config_fingerprint=self._provider_fingerprint(pid))
+            except Exception:
+                logger.warning("[random_source] provider reserve read failed "
+                               "| provider=%s", pid, exc_info=True)
+                reserve = {}
+            count = int(reserve.get(pid, 0) or 0)
+            if count > 0:
+                out[pid] = count
+        return out
 
     async def _reserve_remaining(self) -> int:
         if self._store is None:
@@ -2564,12 +4111,12 @@ class RandomSourceService:
         meta = self._meta(chat_id=chat_id, purpose=purpose,
                           policy_version=policy_version, pool_size=n,
                           candidates=pool_candidates, probability=probability)
-        fingerprint = self._current_fingerprint()
         attempts = 0
         for pid in selection.effective_order:
             provider_ids = PROVIDER_STORAGE_IDS.get(pid)
             if provider_ids is None:
                 continue
+            fingerprint = self._provider_fingerprint(pid)
             for _ in range(MAX_DRAW_ATTEMPTS):
                 reserved = await self._store.reserve_draw(
                     n=n, meta=meta, config_fingerprint=fingerprint,
@@ -2598,13 +4145,13 @@ class RandomSourceService:
         meta = self._meta(chat_id=chat_id, purpose=purpose,
                           policy_version=policy_version,
                           probability=probability)
-        fingerprint = self._current_fingerprint()
         for pid in selection.effective_order:
             provider_ids = PROVIDER_STORAGE_IDS.get(pid)
             if provider_ids is None:
                 continue
             reserved = await self._store.reserve_draw(
-                n=None, meta=meta, config_fingerprint=fingerprint,
+                n=None, meta=meta,
+                config_fingerprint=self._provider_fingerprint(pid),
                 provider_ids=provider_ids)
             if reserved is None:
                 continue
@@ -2709,17 +4256,34 @@ class RandomSourceService:
 
     # ── ANU/LfDR: fetch/активация/refill/квота ─────────────────────────────
     async def _fetch_batch(self, key: str, *, manual: bool,
-                           provider: str = PROVIDER_ID_ANU) -> AnuBatch:
-        """Один запрос к выбранному провайдеру (P3: ANU + LfDR).
+                           provider: str = PROVIDER_ID_ANU,
+                           deposit=None) -> AnuBatch:
+        """Один запрос к выбранному провайдеру (P3: ANU + LfDR; P5: IBM).
 
         ANU — существующий клиент/контракт (ключ, endpoint, data_type).
         LfDR — общий сервисный `LfdrClient` (N1: breaker/min-interval одни и
         те же между refill/проверками), публичный вход без ключа, uint8.
-        IBM-адаптера нет до P5 → честная ошибка, без сети."""
+        IBM — общий `IbmQuantumRuntimeClient`: реальный QPU Sampler,
+        read-only проверки отдельно, durable job в существующих `task_jobs`."""
         if provider == PROVIDER_ID_LFDR:
             started = time.monotonic()
             batch = await lfdr_fetch(client=self._get_lfdr_client(),
                                      length=self._batch_length())
+            batch.latency_ms = int((time.monotonic() - started) * 1000)
+            self._last_latency_ms = batch.latency_ms
+            return batch
+        if provider == PROVIDER_ID_IBM:
+            from services.task_supervisor import TaskJobStore
+            started = time.monotonic()
+            batch = await self._get_ibm_client().fetch(
+                api_key=self._ibm_api_key(), crn=self._ibm_crn(),
+                instance=self._ibm_instance(), region=self._ibm_region(),
+                channel=self._ibm_channel(), length=self._batch_length(),
+                job_store=(TaskJobStore(self.db)
+                           if self.db is not None else None),
+                deposit=deposit,
+                account_key=self._ibm_account_key(),
+                config_fp=self._ibm_config_fingerprint())
             batch.latency_ms = int((time.monotonic() - started) * 1000)
             self._last_latency_ms = batch.latency_ms
             return batch
@@ -2928,7 +4492,9 @@ class RandomSourceService:
             self._recent_checks.pop(oldest[0], None)
 
     async def test_connection(self, draft_key: str | None = None, *,
-                              manual: bool = True) -> dict:
+                              manual: bool = True,
+                              provider: str = PROVIDER_ID_ANU,
+                              draft_crn: str | None = None) -> dict:
         """Backend-проверка подключения (кнопка — блок C): status/latency/
         дата/размер партии/очищенная ошибка. Draft-ключ (POST body) не
         сохраняется и не логируется; значения ЧЕРНОВОЙ проверки в рабочий
@@ -2942,6 +4508,9 @@ class RandomSourceService:
         свою (min interval провайдера не даёт лавины). После завершения —
         cooldown (G14/D14): повторный клик в окне возвращает тот же результат
         с `cooldown=true`/`retry_after_seconds` и НЕ делает нового запроса."""
+        if str(provider or "") == PROVIDER_ID_IBM:
+            return await self.ibm_check_access(
+                draft_key=draft_key, draft_crn=draft_crn)
         key = str(draft_key or "").strip() or self._resolve_key()
         fingerprint = key_fingerprint(key) if key else ""
         now = self._clock()
@@ -3029,13 +4598,76 @@ class RandomSourceService:
                 "latency_ms": batch.latency_ms,
                 "checked_at": int(time.time())}
 
+    async def ibm_check_access(self, *, draft_key: str | None = None,
+                               draft_crn: str | None = None) -> dict:
+        """Read-only «Проверить доступ» IBM: без Sampler и без job."""
+        key = str(draft_key or "").strip() or self._ibm_api_key()
+        crn = str(draft_crn or "").strip() or self._ibm_crn()
+        client = self._ibm_client if self._ibm_client_pinned else \
+            IbmQuantumRuntimeClient()
+        result = await client.check_access(
+            api_key=key, crn=crn, instance=self._ibm_instance(),
+            region=self._ibm_region(), channel=self._ibm_channel())
+        persisted = bool(
+            key and key == self._ibm_api_key()
+            and (not draft_crn or crn == self._ibm_crn()))
+        result.setdefault("persisted", persisted)
+        result.setdefault("deposited", False)
+        if persisted:
+            if result.get("healthy"):
+                self._note_ibm_success(
+                    job={"backend": result.get("selected_backend"),
+                         "state": "access_checked"},
+                    plan=result.get("plan"), usage=result.get("usage"))
+            else:
+                self._note_ibm_failure(str(result.get("blocker")
+                                            or "provider_unavailable"),
+                                       stage=result.get("stage"))
+        return result
+
+    async def ibm_hardware_smoke(self, *, draft_key: str | None = None,
+                                 draft_crn: str | None = None,
+                                 shots: int = IBM_SMOKE_SHOTS) -> dict:
+        """Отдельное «Проверить получение измерений» IBM (ограниченный QPU job).
+
+        Результат НЕ зачисляется в рабочий запас побочным эффектом: зачисление
+        идёт только штатным atomic refill-путём. Симулятор отвергается."""
+        key = str(draft_key or "").strip() or self._ibm_api_key()
+        crn = str(draft_crn or "").strip() or self._ibm_crn()
+        client = self._ibm_client if self._ibm_client_pinned else \
+            IbmQuantumRuntimeClient()
+        result = await client.hardware_smoke(
+            api_key=key, crn=crn, instance=self._ibm_instance(),
+            region=self._ibm_region(), channel=self._ibm_channel(),
+            shots=shots)
+        persisted = bool(
+            key and key == self._ibm_api_key()
+            and (not draft_crn or crn == self._ibm_crn()))
+        result.setdefault("persisted", persisted)
+        result.setdefault("deposited", False)
+        if persisted:
+            if result.get("healthy"):
+                self._note_ibm_success(
+                    job={"job_id": result.get("job_id"),
+                         "backend": result.get("backend"),
+                         "state": IBM_JOB_COMPLETED},
+                    plan=result.get("plan"))
+            else:
+                self._note_ibm_failure(str(result.get("blocker")
+                                            or "provider_unavailable"),
+                                       stage=result.get("stage"))
+        return result
+
     def _provider_can_fetch(self, provider_id: str) -> bool:
-        """Может ли P3 сделать запрос этому провайдеру (адаптер + конфиг)."""
+        """Может ли контур сделать запрос этому провайдеру (адаптер + конфиг)."""
         if provider_id == PROVIDER_ID_ANU:
             return bool(self._resolve_key())
         if provider_id == PROVIDER_ID_LFDR:
             return True         # публичный, ключа нет; адаптер P2
-        return False            # IBM-адаптер — P5
+        if provider_id == PROVIDER_ID_IBM:
+            return (self._ibm_configured()
+                    and self._ibm_dependency_available())
+        return False
 
     async def _provider_skip_reason(self, provider_id: str) -> str | None:
         """Почему провайдера не стоит пытать в ЭТОМ проходе refill.
@@ -3060,7 +4692,35 @@ class RandomSourceService:
             if client is not None and not client.available():
                 return "circuit_open"
             return None
+        if provider_id == PROVIDER_ID_IBM:
+            return await self._ibm_skip_reason()
         return "no_adapter"
+
+    async def _ibm_skip_reason(self) -> str | None:
+        """Почему IBM не стоит пытать в этом проходе (без сети/без job)."""
+        if not self._ibm_dependency_available():
+            return "dependency_missing"
+        client = self._ibm_client
+        if client is not None and not client.available():
+            return "circuit_open"
+        active = await self._ibm_active_jobs()
+        if any(str(r.get("status") or "") == "interrupted"
+               for r in active):
+            # Строка снята watchdog'ом — пробуем attach по сохранённому job ID
+            # (без resubmit) и в этом проходе новых заданий не создаём.
+            try:
+                await self._recover_ibm_jobs()
+            except Exception:
+                logger.warning("[random_source] ibm recovery kick failed",
+                               exc_info=True)
+        if len(active) >= self._ibm_max_inflight():
+            return "job_in_progress"
+        if await self._ibm_jobs_today() >= self._ibm_max_jobs_per_day():
+            return "daily_job_limit"
+        if await self._ibm_usage_today() >= \
+                self._ibm_max_qpu_seconds_per_day():
+            return "daily_usage_limit"
+        return None
 
     async def _refill_plan(self) -> tuple[list[str], list[dict]]:
         """Bounded-план refill: очередь попыток + пропущенные по health.
@@ -3110,6 +4770,11 @@ class RandomSourceService:
             return {"status": "disabled", "reason": "refill_disabled"}
         queue, attempts = await self._refill_plan()
         if not queue:
+            if self._ibm_configured() and \
+                    not self._ibm_dependency_available():
+                return {"status": "blocked",
+                        "reason": "dependency_missing",
+                        "attempts": attempts}
             if not self._resolve_key() and not attempts:
                 await self._mark_state_failure("provider_unconfigured")
                 return {"status": "blocked", "reason": "provider_unconfigured",
@@ -3201,6 +4866,8 @@ class RandomSourceService:
         (секретной конфигурации у LfDR нет) и сразу расходуема."""
         if provider == PROVIDER_ID_LFDR:
             return await self._do_lfdr_refill()
+        if provider == PROVIDER_ID_IBM:
+            return await self._do_ibm_refill()
         if provider != PROVIDER_ID_ANU:
             return {"ok": False, "reason": "provider_unconfigured"}
         key = self._resolve_key()
@@ -3272,6 +4939,57 @@ class RandomSourceService:
         await self._prune_bounded()
         return {"ok": True, "batch_id": batch_id, "length": len(batch.values)}
 
+    async def _do_ibm_refill(self) -> dict:
+        """IBM-партия через реальный QPU + durable job lifecycle.
+
+        Зачисление выполняется внутри job-корутины (deposit), поэтому
+        `completed` в `task_jobs` означает реально записанную партию; поздний
+        результат после рестарта зачисляется recovery-путём без дубля."""
+        if not self._ibm_configured():
+            return {"ok": False, "reason": "provider_unconfigured"}
+        if not self._ibm_dependency_available():
+            return {"ok": False, "reason": "dependency_missing"}
+        fingerprint = self._ibm_config_fingerprint()
+
+        async def _deposit(batch: AnuBatch) -> str:
+            return await self._ibm_deposit_batch(batch, fingerprint)
+
+        try:
+            batch = await self._fetch_batch(
+                "", manual=False, provider=PROVIDER_ID_IBM,
+                deposit=_deposit)
+        except AnuError as exc:
+            self._note_ibm_failure(exc.code, stage=getattr(exc, "stage", None))
+            self._last_refill_reason = exc.code
+            self._emit("random_batch", outcome=mca_events.OUTCOME_FAILED,
+                       level=mca_events.LEVEL_WARN, reason_code=exc.code,
+                       stage="receive", provider=PROVIDER_ID_IBM,
+                       error_json={"type": "IbmError", "code": exc.code,
+                                   "retryable": exc.retryable,
+                                   "sent": exc.sent,
+                                   "stage": getattr(exc, "stage", None)})
+            return {"ok": False, "reason": exc.code}
+        provenance = dict(batch.provenance or {})
+        self._last_refill_reason = None
+        self._note_ibm_success(
+            latency_ms=batch.latency_ms,
+            job={"job_id": provenance.get("job_id"),
+                 "backend": provenance.get("backend"),
+                 "state": IBM_JOB_COMPLETED},
+            plan=provenance.get("plan"),
+            usage={"usage_seconds": provenance.get("usage_seconds")}
+            if provenance.get("usage_seconds") is not None else None)
+        self._note_quantum_success()
+        batch_id = provenance.get("batch_id")
+        self._emit("random_batch", outcome=mca_events.OUTCOME_SUCCESS,
+                   reason_code=None, stage="receive",
+                   provider=PROVIDER_ID_IBM,
+                   entity_ids={"batch_id": batch_id},
+                   duration_ms=batch.latency_ms)
+        await self._prune_bounded()
+        return {"ok": True, "batch_id": batch_id,
+                "length": len(batch.values)}
+
     async def _prune_bounded(self) -> None:
         if self._store is None:
             return
@@ -3281,6 +4999,260 @@ class RandomSourceService:
                 max_rows=mca_gates.random_draw_max_rows())
         except Exception:
             logger.warning("[random_source] prune failed", exc_info=True)
+
+    # ── IBM durable job (существующий task_jobs; без нового store) ─────────
+    @staticmethod
+    def _utc_day_start(now: float | None = None) -> int:
+        ts = float(now if now is not None else time.time())
+        day = datetime.fromtimestamp(ts, tz=timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0)
+        return int(day.timestamp())
+
+    async def _ibm_task_rows(self, *, statuses=None, since: int | None = None,
+                             limit: int | None = None) -> list[dict]:
+        if self.db is None:
+            return []
+        sql = "SELECT * FROM task_jobs WHERE kind = ?"
+        params: list = [IBM_JOB_KIND]
+        statuses = tuple(str(s) for s in (statuses or ()) if str(s))
+        if statuses:
+            sql += " AND status IN (" + ",".join("?" * len(statuses)) + ")"
+            params.extend(statuses)
+        if since is not None:
+            sql += " AND created_at >= ?"
+            params.append(int(since))
+        sql += " ORDER BY created_at DESC, job_id DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(max(1, int(limit)))
+        try:
+            cursor = await self.db.db.execute(sql, tuple(params))
+            return [dict(row) for row in await cursor.fetchall()]
+        except Exception:
+            logger.warning("[random_source] ibm task read failed",
+                           exc_info=True)
+            return []
+
+    async def _ibm_active_jobs(self) -> list[dict]:
+        # `interrupted` — строка, снятая watchdog'ом, но IBM job мог остаться
+        # живым: до recovery это тоже «в работе», иначе возможен дубль оплаты.
+        return await self._ibm_task_rows(
+            statuses=("queued", "running", "interrupted"))
+
+    async def _ibm_jobs_today(self) -> int:
+        rows = await self._ibm_task_rows(since=self._utc_day_start())
+        return len(rows)
+
+    async def _ibm_usage_today(self) -> float:
+        rows = await self._ibm_task_rows(
+            statuses=("completed",), since=self._utc_day_start())
+        total = 0.0
+        for row in rows:
+            ref = row.get("result_ref")
+            if not ref:
+                continue
+            try:
+                data = json.loads(str(ref))
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            raw = data.get("usage")
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if value > 0:
+                total += value
+        return total
+
+    @staticmethod
+    def _ibm_cursor(row: dict) -> dict:
+        payload = row.get("payload")
+        if not payload:
+            return {}
+        try:
+            data = json.loads(str(payload))
+        except (TypeError, ValueError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        cursor = data.get("cursor")
+        if isinstance(cursor, dict):
+            return dict(cursor)
+        if isinstance(cursor, str) and cursor.strip():
+            try:
+                parsed = json.loads(cursor)
+            except (TypeError, ValueError):
+                return {"job": cursor.strip()}
+            return dict(parsed) if isinstance(parsed, dict) else {}
+        return {}
+
+    async def _ibm_jobs_snapshot(self, *, limit: int = 8) -> list[dict]:
+        rows = await self._ibm_task_rows(limit=limit)
+        out: list[dict] = []
+        for row in rows:
+            cursor = self._ibm_cursor(row)
+            out.append({
+                "job_id": row.get("job_id"),
+                "ibm_job_id": cursor.get("job"),
+                "status": row.get("status"),
+                "state": cursor.get("state"),
+                "backend": cursor.get("backend"),
+                "attempt": row.get("attempt"),
+                "error_code": row.get("error_code"),
+                "created_at": row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+                "finished_at": row.get("finished_at"),
+            })
+        return out
+
+    async def _ibm_batch_exists(self, ibm_job_id: str) -> bool:
+        if self.db is None or not str(ibm_job_id or "").strip():
+            return False
+        needle = f'"job":"{str(ibm_job_id).strip()}"'
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT 1 FROM mca_random_batches WHERE provider = ? "
+                "AND instr(COALESCE(external_ref, ''), ?) > 0 LIMIT 1",
+                (PROVIDER_ID_IBM, needle))
+            return await cursor.fetchone() is not None
+        except Exception:
+            logger.warning("[random_source] ibm batch lookup failed",
+                           exc_info=True)
+            return False
+
+    async def _ibm_deposit_batch(self, batch: AnuBatch,
+                                 fingerprint: str | None = None) -> str:
+        if self._store is None:
+            raise IbmError("provider_unavailable", "store unavailable",
+                           stage="deposit", sent=False)
+        provenance = dict(batch.provenance or {})
+        ref = _ibm_external_ref(provenance)
+        batch_id = await self._store.insert_batch(
+            batch,
+            config_fingerprint=(fingerprint if fingerprint is not None
+                                else self._ibm_config_fingerprint()),
+            external_ref=ref)
+        batch.provenance["batch_id"] = batch_id
+        return batch_id
+
+    async def _finish_ibm_row(self, row: dict, *, status: str,
+                              reason_code: str | None = None,
+                              result_ref: str | None = None,
+                              error_code: str | None = None) -> None:
+        if self.db is None:
+            return
+        from services.task_supervisor import TaskJobStore
+        try:
+            await TaskJobStore(self.db).finish(
+                str(row.get("job_id") or ""), status=status,
+                reason_code=reason_code, result_ref=result_ref,
+                error_code=error_code, recovery=True)
+        except Exception:
+            logger.warning("[random_source] ibm row finish failed | "
+                           "job_id=%s", row.get("job_id"), exc_info=True)
+
+    async def _recover_ibm_jobs(self) -> int:
+        """Присоединиться к незавершённым IBM job'ам после рестарта.
+
+        Только poll/attach по сохранённому job ID. Если ID нет (сбой между
+        submit и checkpoint), job НЕ отправляется повторно: строка честно
+        закрывается `submit_uncertain`. Поздний результат зачисляется в
+        durable-пул; уже зачисленная партия не дублируется."""
+        if not (mca_gates.random_source_enabled()
+                and mca_gates.random_quantum_enabled()):
+            return 0
+        if not self._ibm_configured() or not self._ibm_dependency_available():
+            return 0
+        current_fp = self._ibm_config_fingerprint()
+        rows = await self._ibm_task_rows(
+            statuses=("queued", "running", "interrupted"))
+        started = 0
+        for row in rows:
+            cursor = self._ibm_cursor(row)
+            ibm_job_id = str(cursor.get("job") or "").strip()
+            if not ibm_job_id:
+                await self._finish_ibm_row(
+                    row, status="failed", reason_code="submit_uncertain",
+                    error_code="delivery_unknown")
+                continue
+            cursor_fp = str(cursor.get("config_fp") or "").strip()
+            if cursor_fp and current_fp and cursor_fp != current_fp:
+                await self._finish_ibm_row(
+                    row, status="failed", reason_code="config_changed",
+                    error_code="config_changed")
+                continue
+            if await self._ibm_batch_exists(ibm_job_id):
+                await self._finish_ibm_row(
+                    row, status="completed", reason_code="recovered_pool",
+                    result_ref="recovered_existing_batch")
+                continue
+            if ibm_job_id in self._ibm_recovering:
+                continue
+            task = asyncio.create_task(
+                self._recover_ibm_job(row=row, cursor=cursor,
+                                      ibm_job_id=ibm_job_id))
+            self._ibm_recovering.add(ibm_job_id)
+            self._ibm_recovery_tasks.add(task)
+
+            def _done(_t, jid=ibm_job_id):
+                self._ibm_recovering.discard(jid)
+                self._ibm_recovery_tasks.discard(_t)
+
+            task.add_done_callback(_done)
+            started += 1
+        return started
+
+    async def _recover_ibm_job(self, *, row: dict, cursor: dict,
+                               ibm_job_id: str) -> None:
+        from services.task_supervisor import TaskJobStore
+        try:
+            if self.db is None:
+                return
+            batches = await self._get_ibm_client().resume(
+                api_key=self._ibm_api_key(), crn=self._ibm_crn(),
+                instance=self._ibm_instance(), region=self._ibm_region(),
+                channel=self._ibm_channel(), job_id=ibm_job_id,
+                shots=int(cursor.get("shots") or 0),
+                num_qubits=int(cursor.get("qubits") or 0),
+                requested=int(cursor.get("values")
+                              or self._batch_length()),
+                submitted_at=int(cursor.get("submitted_at")
+                                 or row.get("created_at") or time.time()),
+                plan=cursor.get("plan"),
+                deposit=self._ibm_deposit_batch,
+                job_store=TaskJobStore(self.db))
+            provenance = dict((batches.provenance if batches else {}) or {})
+            await self._finish_ibm_row(
+                row, status="completed", reason_code="recovered",
+                result_ref=_ibm_external_ref(provenance))
+            self._note_ibm_success(
+                latency_ms=batches.latency_ms,
+                job={"job_id": ibm_job_id,
+                     "backend": provenance.get("backend"),
+                     "state": IBM_JOB_COMPLETED},
+                plan=provenance.get("plan"),
+                usage={"usage_seconds": provenance.get("usage_seconds")}
+                if provenance.get("usage_seconds") is not None else None)
+        except IbmError as exc:
+            state = str(exc.job_state or "")
+            status = ("cancelled" if state == IBM_JOB_CANCELLED
+                      else "failed")
+            await self._finish_ibm_row(
+                row, status=status,
+                reason_code=("expired" if state == IBM_JOB_EXPIRED
+                             else exc.code),
+                error_code=exc.code)
+            self._note_ibm_failure(exc.code, stage=exc.stage)
+        except Exception as exc:      # pragma: no cover - fail-open
+            await self._finish_ibm_row(
+                row, status="failed", reason_code="recovery_failed",
+                error_code=type(exc).__name__)
+            logger.warning("[random_source] ibm recovery failed",
+                           exc_info=True)
+        finally:
+            self._ibm_recovering.discard(ibm_job_id)
 
     async def startup(self) -> dict:
         """Один refill/активация при старте (K1/K2 ON).
@@ -3298,8 +5270,20 @@ class RandomSourceService:
             if not mca_gates.random_source_enabled() or \
                     not mca_gates.random_quantum_enabled():
                 return {"status": "disabled"}
+            # P5: сначала присоединиться к незавершённым IBM job'ам по
+            # сохранённому job ID (poll/attach, без повторной отправки).
+            recovered = 0
+            try:
+                recovered = await self._recover_ibm_jobs()
+            except Exception:
+                logger.warning("[random_source] ibm recovery failed — "
+                               "fail-open", exc_info=True)
             target = await self._refill_target()
             if target is None:
+                if self._ibm_configured() and \
+                        not self._ibm_dependency_available():
+                    return {"status": "blocked",
+                            "reason": "dependency_missing"}
                 if not self._resolve_key():
                     await self._mark_state_failure("provider_unconfigured")
                     return {"status": "blocked",
@@ -3321,6 +5305,12 @@ class RandomSourceService:
             reserve = await self._provider_reserve_map()
             remaining = int(reserve.get(target, 0) or 0)
             if remaining < self._low_watermark():
+                if target == PROVIDER_ID_IBM:
+                    # QPU-очередь не входит в критический путь старта:
+                    # задание уходит в фон (существующий TaskSupervisor).
+                    self._schedule_refill()
+                    return {"status": "scheduled", "provider": target,
+                            "remaining": remaining}
                 result = await self.refill_if_needed()
                 return {"status": result.get("status"),
                         "reason": result.get("reason"),
@@ -3375,7 +5365,6 @@ class RandomSourceService:
         effective = selection.mode
         blocker = selection.blocker
         state = await self._read_state() or {}
-        current_fingerprint = self._current_fingerprint()
         last_batch_raw = None
         stats = {"quantum": 0, "pseudorandom": 0}
         quota = None
@@ -3387,8 +5376,7 @@ class RandomSourceService:
                 stats = await self._store.journal_stats()
                 quota = await self._store.quota_get(
                     account_key=self._account_key())
-                consumable = await self._store.provider_reserve(
-                    config_fingerprint=current_fingerprint)
+                consumable = await self._provider_reserve_map()
                 stock = await self._store.provider_reserve()
             except Exception:
                 pass
@@ -3402,7 +5390,7 @@ class RandomSourceService:
                 last_batch_raw.get("provider"))
             last_batch["config_matches"] = config_matches(
                 last_batch_raw.get("config_fingerprint"),
-                current_fingerprint)
+                self._provider_fingerprint(last_batch["provider_id"]))
         reserve_by_provider = {pid: int(consumable.get(pid, 0) or 0)
                                for pid in PROVIDER_IDS}
         quarantined_by_provider = {
@@ -3414,6 +5402,10 @@ class RandomSourceService:
         lfdr_state = self._lfdr_state()
         lfdr_status = (self._lfdr_client.status()
                        if self._lfdr_client is not None else None)
+        ibm_state = self._ibm_state()
+        ibm_status = (self._ibm_client.status()
+                      if self._ibm_client is not None else None)
+        ibm_jobs = await self._ibm_jobs_snapshot()
         providers = []
         for pid in PROVIDER_IDS:
             spec = PROVIDERS[pid]
@@ -3432,6 +5424,28 @@ class RandomSourceService:
                     "last_failure_at": self._lfdr_health.get(
                         "last_failure_at"),
                     "breaker": lfdr_status,
+                }
+            elif pid == PROVIDER_ID_IBM:
+                provider_state = ibm_state
+                extra = {
+                    "last_error": self._ibm_health.get("last_error"),
+                    "last_stage": self._ibm_health.get("last_stage"),
+                    "last_success_at": self._ibm_health.get(
+                        "last_success_at"),
+                    "last_failure_at": self._ibm_health.get(
+                        "last_failure_at"),
+                    "breaker": ibm_status,
+                    "last_job": self._ibm_health.get("last_job"),
+                    "jobs": ibm_jobs,
+                    "plan": self._ibm_health.get("plan"),
+                    "usage": self._ibm_health.get("usage"),
+                    "key_present": bool(self._ibm_api_key()),
+                    "crn_present": bool(self._ibm_crn()),
+                    "dependency": self._ibm_dependency_available(),
+                    "max_inflight": self._ibm_max_inflight(),
+                    "max_jobs_per_day": self._ibm_max_jobs_per_day(),
+                    "max_qpu_seconds_per_day":
+                        self._ibm_max_qpu_seconds_per_day(),
                 }
             providers.append({
                 "id": spec.id,
@@ -3489,6 +5503,14 @@ class RandomSourceService:
             "reserve_quarantined": sum(quarantined_by_provider.values()),
             "anu_state": anu_state,
             "lfdr_state": lfdr_state,
+            "ibm_state": ibm_state,
+            "ibm_jobs": ibm_jobs,
+            "ibm_last_job": self._ibm_health.get("last_job"),
+            "ibm_plan": self._ibm_health.get("plan"),
+            "ibm_usage": self._ibm_health.get("usage"),
+            "ibm_key_present": bool(self._ibm_api_key()),
+            "ibm_crn_present": bool(self._ibm_crn()),
+            "ibm_dependency": self._ibm_dependency_available(),
             "key_present": key_present,
             "key_fingerprint": state.get("key_fingerprint"),
             # Суммарный расходуемый запас (все провайдеры действующей
@@ -3580,14 +5602,14 @@ class RandomSourceService:
         chunk_size = min(max(2 * int(k_hint) + 4, DREAM_CHUNK_MIN),
                          DREAM_CHUNK_MAX)
         if self._store is not None and selection.mode == MODE_QUANTUM:
-            fingerprint = self._current_fingerprint()
             for pid in selection.effective_order:
                 provider_ids = PROVIDER_STORAGE_IDS.get(pid)
                 if provider_ids is None:
                     continue
                 try:
                     chunk = await self._store.reserve_chunk(
-                        chunk_size, config_fingerprint=fingerprint,
+                        chunk_size,
+                        config_fingerprint=self._provider_fingerprint(pid),
                         provider_ids=provider_ids)
                 except Exception:
                     logger.warning("[random_source] dream reserve failed",

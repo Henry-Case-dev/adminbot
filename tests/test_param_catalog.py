@@ -257,7 +257,7 @@ class TestCompleteness:
         #   VIDEO_INTENT_* (TTL pending-намерения, размер окна соседства, макс.
         #   возраст соседнего медиа) → 468. Каталога не касаются — см.
         #   _ENV_ONLY_SHARED_CONFIG выше (env-уровень, не per-chat ось).
-        assert len(fields) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_* ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len(fields) == 477  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_* ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         # EVOL-031: 5 no-op полей снятого кеша — сознательно вне каталога.
         # EVOL-032 §4.3: 3 env-only поля общей конфигурации VideoIntent — тоже
@@ -288,6 +288,14 @@ class TestCompleteness:
             "random.primary_provider",
             "random.fallback_order",
             "random.fallback_enabled",
+            # QRNG P5: лимиты IBM job'ов — осознанный namespace random.ibm.*
+            # при категории memory (как селектор P3).
+            "random.ibm.http_timeout_seconds",
+            "random.ibm.poll_interval_seconds",
+            "random.ibm.job_max_age_seconds",
+            "random.ibm.max_inflight",
+            "random.ibm.max_jobs_per_day",
+            "random.ibm.max_qpu_seconds_per_day",
         }
         for spec in REGISTRY.values():
             if spec.category is None:
@@ -708,9 +716,11 @@ class TestGroups8424:
         # через resolve_prompt, записи каталога не имел) → prompts 29.
         # QRNG P3 (17.11.2026, arch D4): +3 memory (глобальные random.*
         # селектора) → memory 62.
-        assert counts == {"prompts": 29, "models": 74, "keys": 33,
+        # QRNG P5 (24.11.2026): +5 keys (IBM key/CRN/instance/region/channel)
+        # +6 memory (random.ibm.* лимиты) → keys 38, memory 68.
+        assert counts == {"prompts": 29, "models": 74, "keys": 38,
                           "limits": 269, "flags": 109, "reactions": 39,
-                          "content": 5, "memory": 62, "temporal": 2}
+                          "content": 5, "memory": 68, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

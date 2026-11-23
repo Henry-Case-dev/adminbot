@@ -1920,6 +1920,17 @@ class Settings:
         "RANDOM_QUANTUM_REFILL_LOW_WATERMARK", 256, 1)
     RANDOM_QUANTUM_BUFFER_MAX_VALUES: int = _env_int_min(
         "RANDOM_QUANTUM_BUFFER_MAX_VALUES", 2048, 256)
+    # QRNG P5 (QAN-REC-IBM-01): IBM Quantum Platform — отдельные защищённые
+    # поля key/CRN (маска, global admin) и несекретные instance/region/
+    # channel. Env-слой — только fallback: действующие значения читаются из
+    # bot_settings (global), чатовый override не поддерживается.
+    RANDOM_IBM_API_KEY: str = os.getenv("RANDOM_IBM_API_KEY", "")
+    RANDOM_IBM_CRN: str = os.getenv("RANDOM_IBM_CRN", "")
+    RANDOM_IBM_INSTANCE: str = _env_str(
+        "RANDOM_IBM_INSTANCE", "open-instance")
+    RANDOM_IBM_REGION: str = _env_str("RANDOM_IBM_REGION", "us-east")
+    RANDOM_IBM_CHANNEL: str = _env_str(
+        "RANDOM_IBM_CHANNEL", "ibm_quantum_platform")
     # ── Раунд 10.39 (MCA-16, ADR-1028-15 D9): «Опыт и уроки» — 2 migratable-
     # настройки (Settings + bot_settings; env-имена = именам полей).
     # `memory.experience_learning_enabled` — UI-гейт НОВОГО обучения

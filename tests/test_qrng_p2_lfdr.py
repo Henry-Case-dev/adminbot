@@ -82,8 +82,8 @@ class TestRegistry:
         assert spec.fetch is mrs.lfdr_fetch
         assert spec.check is mrs.lfdr_check
         # P5 не реализован: IBM по-прежнему без адаптера (без фейкового green).
-        assert mrs.PROVIDERS[mrs.PROVIDER_ID_IBM].fetch is None
-        assert mrs.PROVIDERS[mrs.PROVIDER_ID_IBM].check is None
+        assert mrs.PROVIDERS[mrs.PROVIDER_ID_IBM].fetch is mrs.ibm_fetch
+        assert mrs.PROVIDERS[mrs.PROVIDER_ID_IBM].check is mrs.ibm_check
         # entropy_class производный, а не дюжина отдельных констант
         assert all(p.entropy_class == "hardware_quantum"
                    for p in mrs.PROVIDERS.values())

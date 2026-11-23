@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(648)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(659)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -158,6 +158,11 @@
 | LLM Провайдеры | keys.llm_fallback_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.media_share_secret | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.openrouter_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
+| Случайность | keys.random_ibm_api_key | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
+| Случайность | keys.random_ibm_channel | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
+| Случайность | keys.random_ibm_crn | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
+| Случайность | keys.random_ibm_instance | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
+| Случайность | keys.random_ibm_region | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
 | Случайность | keys.random_quantum_api_key | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
 | Случайность | keys.random_quantum_batch_length | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
 | Случайность | keys.random_quantum_buffer_max_values | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
@@ -605,6 +610,12 @@
 | Промпты | prompts.youtube_video_system_prompt | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Случайность | random.fallback_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | Случайность | random.fallback_order | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Случайность | random.ibm.http_timeout_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Случайность | random.ibm.job_max_age_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Случайность | random.ibm.max_inflight | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Случайность | random.ibm.max_jobs_per_day | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Случайность | random.ibm.max_qpu_seconds_per_day | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Случайность | random.ibm.poll_interval_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | Случайность | random.primary_provider | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | PERMsoc | reactions.admin_user_id | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | PERMsoc | reactions.alan_greeting_dir | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -657,4 +668,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 648; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 659; все ключи получили новое место. Расхождений нет.

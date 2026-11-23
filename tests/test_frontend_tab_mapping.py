@@ -208,7 +208,7 @@ class TestTabMappingAudit:
         # дрейфовал от фактического значения — см. комментарий выше).
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(GROUPS) == 121
-        assert len(pc.REGISTRY) == 648
+        assert len(pc.REGISTRY) == 659
 
 
 class TestModuleTabs:
