@@ -15,7 +15,6 @@ import services.direct_chat_service as dcs
 from services import direct_context_composer as comp
 from services import mca_retrieval_context as rc
 from services.database import DatabaseService
-from services.token_counter import count_tokens
 from tests.test_direct_chat import FakeMemory, _make_service, _message
 
 pytestmark = [pytest.mark.asap3, pytest.mark.asap31, pytest.mark.asap32]

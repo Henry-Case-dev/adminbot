@@ -9,7 +9,6 @@ import pytest
 
 import services.direct_chat_service as dcs
 from services import direct_context_composer as comp
-from services.token_counter import count_tokens
 from tests.test_direct_chat import FakeMemory, _make_service, _message
 from tests.test_ur_c_3_real_fts import (
     ADDRESSEE,
