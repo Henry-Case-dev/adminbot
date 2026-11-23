@@ -7720,7 +7720,8 @@ class DirectChatService:
         return _reply_total_chars(message, getattr(self, "aliases", None),
                                   getattr(self, "_build_nickname", None))
 
-    def _l1_reply_block(self, message, budget_tokens: int | None = None) -> str:
+    def _l1_reply_block(self, message, budget_tokens: int | None = None,
+                        *, preserve: bool = False) -> str:
         """§1.5: компактный срез reply-цели для L1-контекста (кап из бюджета
         пакета — пол 400 символов; имя автора + текст). Никогда не бросает.
 
@@ -7733,8 +7734,9 @@ class DirectChatService:
             head, text = self._l1_reply_source(message)
             if not head and not text:
                 return ""
-            return (head + _l1.clip_body(
-                text, _l1.reply_block_chars(budget_tokens))).strip()
+            limit = (_l1.L1_CLIP_CHARS_MAX if preserve
+                     else _l1.reply_block_chars(budget_tokens))
+            return (head + _l1.clip_body(text, limit)).strip()
         except Exception:      # pragma: no cover - защитная ветка
             return ""
 
@@ -8495,7 +8497,8 @@ class DirectChatService:
         # отдельного 200-символьного капа на активном L1-пути нет.
         meta["l1_line_chars_cap"] = 0
         _l1_reply_text = self._l1_reply_block(message,
-                                              budget_tokens=_l1_budget)
+                                              budget_tokens=_l1_budget,
+                                              preserve=True)
         # ER-08-RC (ревью B1): база для `truncated` — ИСХОДНАЯ цитата, а не
         # уже срезанный блок (`_l1_reply_text`); иначе total == delivered и
         # флаг врал бы «не срезано». Модульная функция (не метод) — частичные
@@ -8613,6 +8616,7 @@ class DirectChatService:
         # UR-20.8 (UR-F шаг 1): планировщик реально получил TimeContext.
         if str(_l1_time_context or "").strip():
             _ttrace.note_clock_stage(correlation_id, "l1")
+        _l1_status: dict = {}
         context_text = _l1.build_l1_context(
             query=query,
             # SXR-C2-01: L1 получает ПОЛНЫЙ текст вопроса — тот же, что
@@ -8622,6 +8626,7 @@ class DirectChatService:
                 message, extra_markers=extra_media_markers),
             reply_block=_l1_reply_text,
             window=_l1_window, window_limit=len(_l1_window), line_chars=0,
+            preallocated=True, out_status=_l1_status,
             speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
             social_frame=_social_line,
@@ -8639,6 +8644,11 @@ class DirectChatService:
             time_context=_l1_time_context)
         input_chars = len(context_text)
         meta["l1_context_chars"] = int(input_chars)
+        meta["l1_context_overflow"] = bool(_l1_status.get("overflow"))
+        meta["l1_context_used_tokens"] = int(
+            _l1_status.get("used_tokens") or 0)
+        meta["l1_window_preserved"] = bool(
+            _l1_status.get("window_preserved"))
         # ER-08-RC (§3): фактическая доставка цитаты в СОБРАННОМ пакете —
         # считается по реальному тексту секции «ОТВЕТ НА», не по намерению.
         _l1_reply_stats = _l1.reply_delivery_stats(
@@ -17608,9 +17618,11 @@ class DirectChatService:
                 kind="text", force_reply=False, direct_request=False,
                 recheck=True, trigger="initiative"),
             time_snapshot=snap_plan)
+        _init_status: dict = {}
         context_text = _l1.build_l1_context(
             query=task, window=_init_window,
             window_limit=len(_init_window), line_chars=0,
+            preallocated=True, out_status=_init_status,
             speaker="наблюдатель",
             addressee=addressee_label,
             capabilities=list(_turn_req.tool_state.capabilities),
@@ -17644,6 +17656,11 @@ class DirectChatService:
             "l1_profile_source": bot_persona.decision_profile_source(
                 _init_profile),
             "l1_profile_chars": int(len(_init_profile)),
+            "l1_context_overflow": bool(_init_status.get("overflow")),
+            "l1_context_used_tokens": int(
+                _init_status.get("used_tokens") or 0),
+            "l1_window_preserved": bool(
+                _init_status.get("window_preserved")),
             "input_chars": int(len(context_text)),
         }
         messages = [

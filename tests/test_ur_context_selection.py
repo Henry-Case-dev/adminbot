@@ -652,6 +652,68 @@ class TestL1SelectedWindow:
         assert "(ответ на msg:2)" in ctx
         assert "[ГРАНИЦА ИСТОРИИ]" not in ctx
 
+    def test_tight_budget_preserves_p0_and_reports_overflow(self):
+        reply = "R" * 2000
+        trigger = "T" * 2000
+        rows = [
+            _urc_row(2, reply),
+            _urc_row(3, trigger, reply_to=2),
+        ]
+        selected = l1.select_l1_window(
+            rows, budget_tokens=1600, trigger_message_id=3, reply_to_id=2)
+        status: dict = {}
+        ctx = l1.build_l1_context(
+            query="q", window=selected, window_limit=len(selected),
+            line_chars=0, with_ids=True, budget_tokens=1600,
+            reply_block=reply, preallocated=True, out_status=status)
+        assert "[ПОСЛЕДНИЕ СООБЩЕНИЯ]" in ctx
+        assert reply in ctx
+        assert trigger in ctx
+        assert status["window_preserved"] is True
+        assert status["overflow"] is True
+        assert status["used_tokens"] > status["budget_tokens"]
+
+    @pytest.mark.asyncio
+    async def test_tight_budget_both_live_sites_preserve_selected_window(
+            self, monkeypatch):
+        from tests.test_ur_turn_engine import (
+            _patch_fixed_tool_flags, _plan as _ur_plan, _run_direct,
+            _run_initiative, _svc)
+
+        _patch_fixed_tool_flags(monkeypatch)
+        long_rows = [
+            _urc_row(2, "R" * 2000),
+            _urc_row(3, "T" * 2000, reply_to=2),
+        ]
+        monkeypatch.setattr(
+            l1, "select_l1_window",
+            lambda window, **kwargs: [dict(r) for r in long_rows])
+        captures = []
+        real_build = l1.build_l1_context
+
+        def _build_spy(**kwargs):
+            result = real_build(**kwargs)
+            captures.append((kwargs, result, kwargs.get("out_status")))
+            return result
+
+        monkeypatch.setattr(l1, "build_l1_context", _build_spy)
+        service = _svc(_ur_plan(), window=long_rows)
+
+        await _run_direct(service)
+        await _run_initiative(service)
+
+        assert len(captures) == 2
+        for kwargs, result, status in captures:
+            assert kwargs["preallocated"] is True
+            assert kwargs["line_chars"] == 0
+            assert "R" * 2000 in result
+            assert "T" * 2000 in result
+            assert "[ПОСЛЕДНИЕ СООБЩЕНИЯ]" in result
+            assert status is not None
+            assert status["window_preserved"] is True
+            assert "overflow" in status
+            assert status["used_tokens"] > 0
+
     @pytest.mark.asyncio
     async def test_both_live_call_sites_pass_selected_window_and_zero_line_cap(
             self, monkeypatch):

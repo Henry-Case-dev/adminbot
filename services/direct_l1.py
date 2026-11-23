@@ -2379,7 +2379,9 @@ def build_l1_context(*, query, current_question: str = "",
                      history_range_note: str = "",
                      time_context: str = "",
                      window_limit: int | None = None,
-                     line_chars: int | None = None) -> str:
+                     line_chars: int | None = None,
+                     preallocated: bool = False,
+                     out_status: dict | None = None) -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
     дет. деградация — сначала сокращается окно (заголовки/сообщение/
@@ -2405,7 +2407,10 @@ def build_l1_context(*, query, current_question: str = "",
     UR-C-1 (UR-10/10.2/10.5): ``window_limit``/``line_chars`` позволяют
     живому пути получить уже отобранное окно и не применять независимые
     ``L1_WINDOW_MESSAGES``/``L1_WINDOW_LINE_CHARS`` повторно; ``line_chars=0``
-    означает «allocator уже решил», без строкового капа."""
+    означает «allocator уже решил», без строкового капа. ``preallocated``
+    защищает allocator-produced окно/P0 от второго semantic cut в
+    ``_cap_context``; ``out_status`` честно сообщает physical overflow,
+    если полный P0 физически не влезает в бюджет."""
     try:
         sections: list[tuple[str, str]] = []
         budget = int(budget_tokens) if budget_tokens is not None \
@@ -2414,9 +2419,11 @@ def build_l1_context(*, query, current_question: str = "",
         if current:
             sections.append(("СООБЩЕНИЕ", current))
         if str(reply_block or "").strip():
-            sections.append((L1_REPLY_SECTION,
-                             clip_body(str(reply_block).strip(),
-                                        reply_block_chars(budget))))
+            _reply_body = str(reply_block).strip()
+            if not preallocated:
+                _reply_body = clip_body(_reply_body,
+                                        reply_block_chars(budget))
+            sections.append((L1_REPLY_SECTION, _reply_body))
         # UR-01.7 / F4: граница доверия идёт сразу после вопроса/цитаты и
         # защищена от бюджетного сжатия. Системный промпт не меняется.
         sections.append((TRUST_BOUNDARY_SECTION, TRUST_BOUNDARY_LINE))
@@ -2504,12 +2511,29 @@ def build_l1_context(*, query, current_question: str = "",
         if str(time_context or "").strip():
             sections.append((L1_TIME_SECTION, str(time_context).strip()))
         text = "\n\n".join(f"[{name}]\n{body}" for name, body in sections)
-        return _cap_context(text, sections_budget=sections, budget=budget)
+        result = _cap_context(
+            text, sections_budget=sections, budget=budget,
+            preserve_sections=(("ПОСЛЕДНИЕ СООБЩЕНИЯ",) if preallocated
+                               else ()))
+        if out_status is not None:
+            try:
+                from services.token_counter import count_tokens
+                used = int(count_tokens(result))
+                out_status.update({
+                    "budget_tokens": int(budget),
+                    "used_tokens": used,
+                    "overflow": bool(used > int(budget)),
+                    "window_preserved": bool(preallocated),
+                })
+            except Exception:      # pragma: no cover - наблюдаемость
+                pass
+        return result
     except Exception:          # pragma: no cover - защитная ветка
         return str(query or "")
 
 
-def _cap_context(text: str, *, sections_budget, budget: int) -> str:
+def _cap_context(text: str, *, sections_budget, budget: int,
+                 preserve_sections=()) -> str:
     """Структурный кап §1.5 + §18C.5: защита СТРУКТУРНЫХ блоков
     (СООБЩЕНИЕ/ОТВЕТ НА/УЧАСТНИКИ/ДОСТУПНЫЕ ВОЗМОЖНОСТИ/УСЛОВИЯ — вопрос,
     фрагмент, на который отвечают, machine contract, direct-address metadata),
@@ -2533,6 +2557,7 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
                      "ДОСТУПНЫЕ ВОЗМОЖНОСТИ", "УСЛОВИЯ", HISTORY_SCOPE_SECTION,
                      HISTORY_RANGE_SECTION, L1_PROFILE_SECTION,
                      L1_TIME_SECTION, TRUST_BOUNDARY_SECTION}
+        protected.update(str(name) for name in (preserve_sections or ()))
 
         def _render(pairs) -> str:
             return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)
@@ -2548,7 +2573,8 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
         def _rescale_window(pairs_in, line_cap: int):
             out = []
             for name, body in pairs_in:
-                if name != "ПОСЛЕДНИЕ СООБЩЕНИЯ":
+                if name != "ПОСЛЕДНИЕ СООБЩЕНИЯ" \
+                        or name in set(preserve_sections or ()):
                     out.append((name, body))
                     continue
                 out.append((name, "\n".join(
@@ -2575,6 +2601,9 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
             _has_note = any(n == HISTORY_SCOPE_SECTION for n, _ in pairs)
             for name, body in pairs:
                 if name == "ПОСЛЕДНИЕ СООБЩЕНИЯ":
+                    if name in set(preserve_sections or ()):
+                        rebuilt.append((name, body))
+                        continue
                     lines = body.splitlines()
                     kept = lines[-window_cap:] if window_cap else []
                     # T10-BOUNDARY: строки реально отброшены — факт, а не
