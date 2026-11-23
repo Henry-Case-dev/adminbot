@@ -5449,8 +5449,10 @@ class RandomSourceService:
         """
         cursor = self._ibm_cursor(row)
         state = str(cursor.get("state") or "").strip().lower()
-        if state in (IBM_JOB_COMPLETED, IBM_JOB_FAILED, IBM_JOB_CANCELLED):
+        if state in (IBM_JOB_FAILED, IBM_JOB_CANCELLED):
             return False
+        # `completed` без batch/deposit — НЕ разрешённый исход: crash мог
+        # произойти между checkpoint и зачислением. Держим слот до recovery.
         return bool(str(cursor.get("job") or "").strip()
                     or str(cursor.get("job_tag") or "").strip())
 
@@ -5638,6 +5640,27 @@ class RandomSourceService:
             logger.warning("[random_source] ibm quarantine fence failed | "
                            "job_id=%s", job_id, exc_info=True)
 
+    async def _set_ibm_cursor_state(self, row: dict, cursor: dict,
+                                    state: str, *,
+                                    quarantined: bool = False) -> None:
+        """Терминально закрыть cursor, чтобы слот не остался зафенсенным."""
+        if self.db is None:
+            return
+        from services.task_supervisor import TaskJobStore
+        clean = dict(cursor or {})
+        clean["state"] = str(state)
+        if quarantined:
+            clean["quarantined"] = True
+        try:
+            await TaskJobStore(self.db).save_checkpoint(
+                str(row.get("job_id") or ""),
+                cursor_token=json.dumps(clean, separators=(",", ":"),
+                                        ensure_ascii=False),
+                processed=0)
+        except Exception:
+            logger.warning("[random_source] ibm cursor close failed | "
+                           "job_id=%s", row.get("job_id"), exc_info=True)
+
     async def _quarantine_ibm_row(self, row: dict, cursor: dict,
                                   current_fp: str) -> None:
         """Явно карантинировать unresolved job старой конфигурации.
@@ -5691,15 +5714,11 @@ class RandomSourceService:
             cursor = self._ibm_cursor(row)
             if cursor.get("quarantined"):
                 continue
-            cursor_state = str(cursor.get("state") or "").strip().lower()
-            if cursor_state in (IBM_JOB_COMPLETED, IBM_JOB_FAILED,
-                                IBM_JOB_CANCELLED):
-                # Уже терминальный исход IBM job — не опрашиваем повторно.
-                continue
             cursor_fp = str(cursor.get("config_fp") or "").strip()
             if cursor_fp and current_fp and cursor_fp != current_fp:
                 await self._quarantine_ibm_row(row, cursor, current_fp)
                 continue
+            cursor_state = str(cursor.get("state") or "").strip().lower()
             purpose = str(cursor.get("purpose") or "refill")
             ibm_job_id = str(cursor.get("job") or "").strip()
             if not ibm_job_id:
@@ -5736,12 +5755,30 @@ class RandomSourceService:
                             row, status="failed",
                             reason_code="submit_uncertain",
                             error_code="delivery_unknown")
+                    await self._set_ibm_cursor_state(
+                        row, cursor, IBM_JOB_FAILED)
                     continue
             if purpose != "smoke" and await self._ibm_batch_exists(
                     ibm_job_id):
                 await self._finish_ibm_row(
                     row, status="completed", reason_code="recovered_pool",
                     result_ref="recovered_existing_batch")
+                continue
+            if cursor_state == IBM_JOB_COMPLETED:
+                if purpose == "smoke":
+                    # Smoke не зачисляется; завершённый cursor просто
+                    # освобождает слот.
+                    await self._finish_ibm_row(
+                        row, status="completed", reason_code="recovered")
+                    continue
+                # Crash после checkpoint completed, но до deposit: идём в
+                # attach/deposit, batch ещё нет.
+            elif cursor_state in (IBM_JOB_FAILED, IBM_JOB_CANCELLED):
+                await self._finish_ibm_row(
+                    row,
+                    status=("cancelled" if cursor_state ==
+                            IBM_JOB_CANCELLED else "failed"),
+                    reason_code=cursor_state)
                 continue
             if ibm_job_id in self._ibm_recovering:
                 continue
@@ -5802,11 +5839,21 @@ class RandomSourceService:
                 reason_code=("expired" if state == IBM_JOB_EXPIRED
                              else exc.code),
                 error_code=exc.code)
+            if state == IBM_JOB_EXPIRED:
+                cursor_state = IBM_JOB_EXPIRED
+            elif state == IBM_JOB_CANCELLED:
+                cursor_state = IBM_JOB_CANCELLED
+            else:
+                cursor_state = IBM_JOB_FAILED
+            await self._set_ibm_cursor_state(
+                row, cursor, cursor_state)
             self._note_ibm_failure(exc.code, stage=exc.stage)
         except Exception as exc:      # pragma: no cover - fail-open
             await self._finish_ibm_row(
                 row, status="failed", reason_code="recovery_failed",
                 error_code=type(exc).__name__)
+            await self._set_ibm_cursor_state(
+                row, cursor, IBM_JOB_FAILED)
             logger.warning("[random_source] ibm recovery failed",
                            exc_info=True)
         finally:

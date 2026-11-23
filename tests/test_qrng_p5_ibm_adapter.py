@@ -903,6 +903,112 @@ class TestDurableLifecycle:
             await db.close()
 
     @pytest.mark.asyncio
+    async def test_terminal_completed_cursor_deposits_once(self, tmp_path,
+                                                           monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_BATCH_LENGTH: 8})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="TERM1", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"TERM1": job})
+            client, sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            # Crash после checkpoint completed, до deposit/finish: row running.
+            await _insert_task_row(
+                db, status="running",
+                cursor={"job": "TERM1", "state": "completed",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": ""})
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert len(await _batch_rows(db)) == 1
+            assert (await _task_rows(db))[0]["status"] == "completed"
+            # Повторный recovery не создаёт второй batch и не опрашивает job.
+            await svc._recover_ibm_jobs()
+            assert len(await _batch_rows(db)) == 1
+            assert sampler.calls == []
+            # Слот освобождён: следующий refill может оплатить новый job.
+            new_job = FakeJob(job_id="TERM1NEXT", states=("DONE",),
+                              bitstrings=make_bitstrings(), backend=backend)
+            service._jobs["TERM1NEXT"] = new_job
+            sampler.job = new_job
+            result = await svc.refill_if_needed(force=True)
+            assert result["status"] == "completed"
+            assert len(sampler.calls) == 1
+            assert len(await _batch_rows(db)) == 2
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_failed_row_terminal_completed_cursor_deposits(self,
+                                                                 tmp_path,
+                                                                 monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="TERM2", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"TERM2": job})
+            client, _sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="failed", reason_code="task_failed",
+                cursor={"job": "TERM2", "state": "completed",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": ""})
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert len(await _batch_rows(db)) == 1
+            assert (await _task_rows(db))[0]["status"] == "completed"
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_terminal_completed_with_batch_releases_without_duplicate(
+            self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            store = mrs.RandomStore(db)
+            await store.insert_batch(
+                mrs.AnuBatch(values=[1, 2, 3], data_type="uint16",
+                             length=3, provider=mrs.PROVIDER_ID_IBM),
+                config_fingerprint="", external_ref='{"job":"TERM3"}')
+            client, sampler = make_client(
+                FakeService([FakeBackend("ibm_hw")]), FakeJob())
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="running",
+                cursor={"job": "TERM3", "state": "completed",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": ""})
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert len(await _batch_rows(db)) == 1
+            assert (await _task_rows(db))[0]["status"] == "completed"
+            assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
     async def test_config_rotation_quarantines_old_allows_new(self,
                                                               tmp_path,
                                                               monkeypatch):
@@ -923,7 +1029,7 @@ class TestDurableLifecycle:
             svc.set_ibm_client(client)
             await _insert_task_row(
                 db, status="failed", reason_code="expired",
-                cursor={"job": "OLDJOB", "state": "submitted",
+                cursor={"job": "OLDJOB", "state": "completed",
                         "shots": 256, "qubits": 16,
                         "submitted_at": int(time.time()) - 1,
                         "values": 8, "purpose": "refill",
