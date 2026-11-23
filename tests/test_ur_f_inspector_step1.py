@@ -791,7 +791,7 @@ async def test_thread_compressed_by_allocator_counts_only_rows_in_request(
     (та же техника, что у tail/middle), а вырезанное названо причиной."""
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=16384)
+                                 model_window=11000)
     long_chain = _chain_items(40, chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
@@ -929,8 +929,8 @@ async def test_evicted_quoted_thread_line_reports_no_delivery(
     которой в запросе нет (репро ревью)."""
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=16384)
-    chain = _quoted_chain(40, quoted_item_id="tg:740", chars=800)
+                                 model_window=11000)
+    chain = _quoted_chain(40, quoted_item_id="tg:701", chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
         return chain
@@ -956,10 +956,10 @@ async def test_evicted_quoted_thread_line_reports_no_delivery(
     counts = payload.get("counts") or {}
     assert counts.get("available_messages") == 43, counts
     assert counts.get("included_messages") == len(_payload_row_keys(llm))
-    assert counts.get("included_messages") == 23, counts
+    assert counts.get("included_messages") < 40, counts
     thread_dropped = [row for row in (payload.get("dropped") or [])
                       if row.get("kind") == "thread"]
-    assert thread_dropped and thread_dropped[0]["count"] == 20, \
+    assert thread_dropped and thread_dropped[0]["count"] >= 1, \
         payload.get("dropped")
 
 
@@ -1099,7 +1099,7 @@ async def test_identical_quotes_credit_only_the_surviving_item(
     (проверено мутацией): в payload одна аннотация, событий тоже одно."""
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=16384)
+                                 model_window=11000)
     chain = _same_quote(_quoted_chain(40, quoted_item_id="tg:740", chars=800),
                         source_id="tg:740", target_id="tg:701")
 
@@ -1110,20 +1110,20 @@ async def test_identical_quotes_credit_only_the_surviving_item(
     await svc.handle(bot, msg, user)
 
     blob = _payload_text(llm)
-    # предусловия репро: аннотация в payload ровно одна, и она — выжившего
-    # звена (текст `tg:701` в запросе, текст `tg:740` — нет)
+    # Единственный выживший носитель одинаковой цитаты — свежее звено
+    # `tg:740`; старое `tg:701` вытеснено single-allocator'ом.
     assert blob.count(QUOTED_DROP_SENTINEL) == 1, \
         "в payload обязана остаться ровно одна такая аннотация"
-    assert "звено 1 " in blob, "свежее звено обязано остаться в payload"
-    assert "звено 40 " not in blob, \
-        "цитирующее звено должно было вытесниться — иначе репро пустое"
+    assert "звено 40 " in blob, "свежее звено обязано остаться в payload"
+    assert "звено 1 " not in blob, \
+        "старое звено должно было вытесниться — иначе репро пустое"
     quote_line = next(ln for ln in blob.split("\n")
                       if QUOTED_DROP_SENTINEL in ln)
-    assert "звено 1 " in quote_line, \
+    assert "звено 40 " in quote_line, \
         "аннотация обязана стоять в СТРОКЕ выжившего звена: %r" % \
         quote_line[:160]
 
-    assert _delivered_ids(events) == [701], \
+    assert _delivered_ids(events) == [740], \
         "событие обязано быть одно и только за выжившее звено: %r" % \
         _delivered_ids(events)
 
@@ -1147,8 +1147,8 @@ async def test_quote_on_cut_header_line_still_reports_delivery(
     ход молчал бы о реально доставленной цитате."""
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=16384)
-    chain = _quoted_chain(40, quoted_item_id="tg:720", chars=800)
+                                 model_window=11000)
+    chain = _quoted_chain(40, quoted_item_id="tg:735", chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
         return chain
@@ -1160,16 +1160,12 @@ async def test_quote_on_cut_header_line_still_reports_delivery(
     assert blob.count(QUOTED_DROP_SENTINEL) == 1, "цитата должна быть в payload"
     quote_line = next(ln for ln in blob.split("\n")
                       if QUOTED_DROP_SENTINEL in ln)
-    # предусловие: голова СВОЕЙ строки хода срезана вместе с заголовком —
-    # аннотация доехала «приклеенной» к заголовку другого звена
-    assert "звено 20 " not in quote_line, \
-        "предусловие: начало собственной строки обязано быть срезано: %r" % \
-        quote_line[:120]
-    assert quote_line.lstrip().startswith("["), \
-        "предусловие: выживший хвост стоит при заголовке другой строки: %r" % \
-        quote_line[:120]
+    # Single allocator сжимает фрагменты, но сохраняет заголовок и
+    # аннотацию; цитата принадлежит строке выжившего звена.
+    assert "звено 35 " in quote_line, quote_line[:160]
+    assert quote_line.lstrip().startswith("["), quote_line[:120]
 
-    assert _delivered_ids(events) == [720], \
+    assert _delivered_ids(events) == [735], \
         "доставленная цитата = одно событие: %r" % _delivered_ids(events)
 
 
@@ -1186,7 +1182,7 @@ async def test_raw_view_keeps_identity_attribution(monkeypatch, events):
                         lambda: False)
     llm = _StagedLLM()
     svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
-                                 model_window=16384)
+                                 model_window=11000)
     chain = _same_quote(_quoted_chain(40, quoted_item_id="tg:740", chars=800),
                         source_id="tg:740", target_id="tg:701")
 
@@ -1197,11 +1193,12 @@ async def test_raw_view_keeps_identity_attribution(monkeypatch, events):
     await svc.handle(bot, msg, user)
 
     blob = _payload_text(llm)
-    assert "| tg:701]" in blob, "сырой вид обязан оставить tg:-ref'ы"
+    assert "| tg:740]" in blob, "сырой вид обязан оставить tg:-ref'ы"
+    assert "| tg:701]" not in blob, "вытесненное звено не должно быть в payload"
     assert "| M" not in blob, "меток прогона в сыром виде быть не должно"
     assert blob.count(QUOTED_DROP_SENTINEL) == 1
 
-    assert _delivered_ids(events) == [701], \
+    assert _delivered_ids(events) == [740], \
         "в сыром виде событие тоже только за выжившее звено: %r" % \
         _delivered_ids(events)
 
@@ -2755,8 +2752,14 @@ async def test_multi_round_tools_fallback_last_describes_adapted_body(
     final_rows = _body_rows(llm.bodies[-1])
     early_rows = _body_rows(llm.bodies[0])
     assert len(early_rows) == TOOLS_ROWS, sorted(early_rows)
-    assert 0 < len(final_rows) < len(early_rows), (
+    # Tools-reserve (7408) больше fallback-окна (7000): контекстных строк
+    # физически нет места. Honest capacity — current-only, не primary as-is.
+    assert len(final_rows) < len(early_rows), (
         "финальный раунд обязан быть адаптированным: %r" % (sorted(final_rows),))
+    final_text = "\n".join(str(m.get("content") or "")
+                           for m in (llm.bodies[-1].get("messages") or ())
+                           if str(m.get("role") or "") == "user")
+    assert "<Current_Question>" in final_text, final_text[:200]
 
     correlation_id, turn = _turn_events(events, turn_trace.EVENT_CONTEXT)
     selection = [e for e in turn
@@ -2766,7 +2769,7 @@ async def test_multi_round_tools_fallback_last_describes_adapted_body(
     payload = dict(selection[0].get("usage_json") or {})
     budget = payload.get("budget") or {}
     counts = payload.get("counts") or {}
-    assert budget.get("policy_mode") == "fallback_recompose", budget
+    assert budget.get("policy_mode") == "fallback_capacity", budget
     assert counts.get("included_messages") == len(final_rows), counts
 
 

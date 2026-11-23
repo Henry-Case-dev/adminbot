@@ -12682,6 +12682,11 @@ class DirectChatService:
                 fixed_tokens = sum(count_tokens(text)
                                    for _kind, text in fixed_blocks)
                 selection_budget = max(0, int(budget) - fixed_tokens)
+                # budget_tokens=0 у allocator означает «полная selection без
+                # усечения» (2a-контракт). Live-бюджет 0 — это НЕ «безлимит»:
+                # даём минимальный положительный бюджет, чтобы P0/overflow были
+                # явными, а не весь контекст проходил мимо окна.
+                allocation_budget = max(1, selection_budget)
                 fallback_selection_budget = (
                     max(1, int(fallback_recompose_budget) - fixed_tokens)
                     if fallback_recompose_budget is not None else None)
@@ -12812,6 +12817,7 @@ class DirectChatService:
                 source_index: dict = {}
                 renderers: dict = {}
                 chain_order: dict = {}
+                rendered_chain_lines: list = []
 
                 def _row_sid(row, role, *, fresh, trigger, suffix,
                              refs=None):
@@ -12889,9 +12895,17 @@ class DirectChatService:
                             item = item._replace(text=text)
                         except Exception:
                             return text
-                    return self._chain_line(
+                    line = self._chain_line(
                         item, suffix_map, trigger_message_id, projection,
                         emit_quote=False)
+                    try:
+                        rendered_chain_lines.append((
+                            str(getattr(item, "item_id", "") or ""), line,
+                            thread_chain.quote_delivery_fragment(
+                                item, projection, trigger_message_id)))
+                    except Exception:
+                        pass
+                    return line
 
                 def _row_render(frag, source):
                     renderer = renderers.get(frag.source_id)
@@ -12918,6 +12932,7 @@ class DirectChatService:
                     return "[вывод модели] " + escape_xml_text(frag.text)
 
                 def _materialize(sel):
+                    rendered_chain_lines.clear()
                     raw = _materialize_selection(
                         sel,
                         render_chain_line=_chain_render,
@@ -13039,6 +13054,53 @@ class DirectChatService:
                         out.append(frag)
                     return out
 
+                def _trace_dropped(sel) -> tuple:
+                    """Block-kind aggregate для существующей trace-схемы."""
+                    agg: dict = {}
+                    for item in sel.provenance.dropped or ():
+                        role = str(item.get("role") or "")
+                        frag_kind = str(item.get("kind") or "")
+                        source = str(item.get("source_id") or "")
+                        if role == _composer.ROLE_REPLY_BRANCH:
+                            block = "branch"
+                        elif role in (_composer.ROLE_REPLY_PARENT,
+                                      _composer.ROLE_THREAD):
+                            block = "thread"
+                        elif role in (_composer.ROLE_FRESH_NEIGHBOUR,
+                                      _composer.ROLE_SELF_OUTPUT):
+                            block = "global_tail"
+                        elif role == _composer.ROLE_BACKGROUND:
+                            block = "global_middle"
+                        elif role == _composer.ROLE_SUMMARY:
+                            block = "global_head"
+                        elif role == _composer.ROLE_MEMORY:
+                            if source.startswith("supplement:"):
+                                block = "history_supplement"
+                            elif frag_kind == _composer.KIND_SUMMARY_INFERENCE:
+                                block = "rag"
+                            else:
+                                block = "episode"
+                        elif role == _composer.ROLE_CURRENT_QUESTION:
+                            block = "current"
+                        else:
+                            block = frag_kind or "context"
+                        reason = str(item.get("reason_code") or "")
+                        key = (block, reason)
+                        entry = agg.get(key)
+                        if entry is None:
+                            entry = agg[key] = {
+                                "kind": block, "role": role,
+                                "reason_code": reason, "count": 0,
+                                "tokens": 0, "source_ids": []}
+                        entry["count"] += int(item.get("count") or 1)
+                        entry["tokens"] += int(item.get("tokens") or 0)
+                        if source and source not in entry["source_ids"]:
+                            entry["source_ids"].append(source)
+                    for entry in agg.values():
+                        entry["source_ids"] = entry["source_ids"][
+                            :_MAX_SELECTION_IDS]
+                    return tuple(agg.values())
+
                 def _prepared(sel, texts, *, payload_pairs=None,
                               fallback: bool = False,
                               fb_budget: int | None = None):
@@ -13048,12 +13110,13 @@ class DirectChatService:
                         window, bot_user_id=getattr(self, "bot_id", None)))
                     available_ids.update(
                         str(f.source_id)
-                        for f in (sel.reply_branch or ())
-                        + (sel.thread or ()) if f.source_id)
+                        for f in (full_selection.reply_branch or ())
+                        + (full_selection.thread or ()) if f.source_id)
                     available_ids.update(
                         str(f.source_id)
-                        for f in (sel.fresh_neighbours or ())
-                        + (sel.self_outputs or ()) if f.source_id)
+                        for f in (full_selection.fresh_neighbours or ())
+                        + (full_selection.self_outputs or ())
+                        if f.source_id)
                     available_ids.update(_sel_row_ids(
                         episode_stats.get("rows") or (),
                         bot_user_id=getattr(self, "bot_id", None)))
@@ -13067,8 +13130,13 @@ class DirectChatService:
                         "selection_budget": int(
                             fb_budget if fallback else selection_budget),
                         "fixed_p0_tokens": int(fixed_tokens),
-                        "policy_mode": ("fallback_recompose" if fallback
-                                        else policy_mode),
+                        "policy_mode": (
+                            "fallback_capacity"
+                            if (fallback and sel.provenance.overflow
+                                and not (sel.fresh_neighbours
+                                         or sel.background or sel.memory))
+                            else ("fallback_recompose" if fallback
+                                  else policy_mode)),
                         "payload_tokens": sum(
                             count_tokens(text) for _k, text in
                             (payload_pairs if payload_pairs is not None
@@ -13077,6 +13145,12 @@ class DirectChatService:
                             int(fallback_recompose_budget)
                             if fallback_recompose_budget else None),
                         "degraded": False,
+                        "physical_overflow": bool(
+                            sel.provenance.overflow),
+                        "capacity_limited": bool(
+                            sel.provenance.overflow
+                            and not (sel.fresh_neighbours
+                                     or sel.background or sel.memory)),
                     }
                     if fallback:
                         budget_meta["fallback"] = True
@@ -13103,17 +13177,19 @@ class DirectChatService:
                         available_item_ids=available_ids,
                         window_messages=len(list(window or ())),
                         budget=budget_meta,
-                        dropped=tuple(dict(item) for item in
-                                      sel.provenance.dropped),
+                        dropped=_trace_dropped(sel),
                         self_outputs=tuple(self_out_payload),
-                        chain_rendered=chain_rendered,
+                        chain_rendered=(
+                            {"branch": list(rendered_chain_lines),
+                             "thread": list(rendered_chain_lines)}
+                            if rendered_chain_lines else chain_rendered),
                         projection=projection,
                         policy_version=_composer.COMPOSER_POLICY_VERSION,
                         memory_period=dict(
                             (rag_memory or {}).get("period") or {}))
 
                 allocated = _composer.allocate_selection(
-                    full_selection, selection_budget)
+                    full_selection, allocation_budget)
                 payload_pairs, prepared_pairs = _materialize(allocated)
                 texts = [text for _kind, text in payload_pairs]
                 prepared_primary = _prepared(
@@ -13185,14 +13261,111 @@ class DirectChatService:
                             except Exception:
                                 logger.warning(
                                     "direct: selection fallback recompose "
-                                    "FAILED — primary payload SENT AS-IS | "
+                                    "FAILED — capacity-only payload | "
                                     "chat=%s", chat_id, exc_info=True)
-                                primary = (out_prepared or {}).get("primary")
+                                fb_budget = max(
+                                    1, int(fallback_selection_budget)
+                                    - int(extra_reserve or 0))
+                                # A2 §3.6: primary на меньшую модель не
+                                # отправляем. Собираем bounded P0/current
+                                # payload и явный degraded/capacity prepared.
+                                capacity_texts: list = []
+                                capacity_prepared = None
+                                try:
+                                    minimal = _composer.ContextSelection(
+                                        current_question=(
+                                            full_selection.current_question),
+                                        current_parts=tuple(
+                                            full_selection.current_parts
+                                            or ()),
+                                        reply_parent=(
+                                            full_selection.reply_parent),
+                                        reply_parent_parts=tuple(
+                                            full_selection.reply_parent_parts
+                                            or ()))
+                                    cap_payload, cap_prepared_pairs = \
+                                        _materialize(minimal)
+                                    capacity_texts = [
+                                        t for _k, t in cap_payload]
+                                    capacity_prepared = _prepared(
+                                        minimal, cap_prepared_pairs,
+                                        payload_pairs=cap_payload,
+                                        fallback=True, fb_budget=fb_budget)
+                                except Exception:
+                                    logger.warning(
+                                        "direct: capacity materialize failed "
+                                        "— raw current only | chat=%s",
+                                        chat_id, exc_info=True)
+                                    current = full_selection.current_question
+                                    if current.text:
+                                        capacity_texts = [
+                                            "<Current_Question>\n"
+                                            f"{escape_xml_text(current.text)}\n"
+                                            "</Current_Question>"]
+                                if capacity_prepared is None:
+                                    capacity_prepared = _prepared_turn_payload(
+                                        chat_id=chat_id,
+                                        correlation_id=correlation_id,
+                                        blocks=[("current", t) for t in
+                                                capacity_texts],
+                                        event_blocks=[{
+                                            "kind": "current", "role": "p0",
+                                            "rendered": True,
+                                            "skip_reason": "",
+                                            "source_ids": [],
+                                            "first_ts": 0, "last_ts": 0,
+                                            "tokens": sum(count_tokens(t)
+                                                          for t in
+                                                          capacity_texts)}],
+                                        available_item_ids=frozenset(),
+                                        window_messages=len(list(window or ())),
+                                        budget={
+                                            "slot": "direct.primary",
+                                            "budget": int(fb_budget),
+                                            "selection_budget": int(fb_budget),
+                                            "fixed_p0_tokens": int(
+                                                fixed_tokens),
+                                            "policy_mode": "fallback_capacity",
+                                            "degraded": True,
+                                            "physical_overflow": True,
+                                            "capacity_limited": True,
+                                        },
+                                        dropped=(), self_outputs=(),
+                                        chain_rendered=chain_rendered,
+                                        projection=projection,
+                                        policy_version=(
+                                            _composer.COMPOSER_POLICY_VERSION))
+                                capacity_prepared = dataclasses.replace(
+                                    capacity_prepared,
+                                    budget=dict(
+                                        capacity_prepared.budget,
+                                        policy_mode="fallback_capacity",
+                                        degraded=True,
+                                        physical_overflow=True,
+                                        capacity_limited=True))
                                 if binding is not None:
-                                    binding["prepared"] = primary
+                                    binding["prepared"] = capacity_prepared
+                                if out_prepared is not None:
+                                    out_prepared["fallback_prepared"] = \
+                                        capacity_prepared
+                                    out_prepared["fallback_used"] = True
+                                blocks_fb = ([time_line]
+                                             if time_line else []) + \
+                                    capacity_texts
+                                messages = incoming.get("messages") or []
+                                adapted = dict(incoming)
+                                adapted["messages"] = [
+                                    {"role": "system",
+                                     "content": str(
+                                         messages[0].get("content", "")
+                                         if messages else "")},
+                                    {"role": "user",
+                                     "content": "\n\n".join(blocks_fb)},
+                                ]
+                                if binding is not None:
                                     binding["prepared_text"] = \
-                                        _sent_user_text(incoming)
-                                return incoming, primary
+                                        _sent_user_text(adapted)
+                                return adapted, capacity_prepared
                         return _adapt
                     try:
                         out_fallback["adapter_factory"] = _fallback_factory

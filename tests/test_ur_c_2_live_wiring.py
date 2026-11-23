@@ -285,6 +285,61 @@ async def test_history_supplement_is_allocated_and_traced(monkeypatch):
     assert "history_supplement" in kinds
 
 
+@pytest.mark.asyncio
+async def test_fallback_failure_returns_capacity_not_primary(monkeypatch):
+    """A2 §3.6: сбой fallback-рекомпоза → capacity-only, не primary as-is."""
+    svc = _service(window=[_row(1), _row(2)])
+    svc.llm._chat_model = "primary"
+    svc.llm._fallback_model = "fb"
+    svc.llm._base_url = ""
+    svc.llm._fallback_base_url = ""
+    monkeypatch.setattr(dcs._model_capacity,
+                        "capacity_resolver_enabled", lambda: True)
+    monkeypatch.setattr(dcs._auto_budget,
+                        "auto_budget_enabled", lambda: True)
+
+    async def _window(base_url, model, slot=None):
+        return 20000, "runtime"
+
+    async def _budget(slot, **kwargs):
+        return SimpleNamespace(
+            context_window=20000, source="runtime",
+            auto_input_budget=15000, output_reserve=1000,
+            effective_input_budget=(12000 if slot == "direct.primary"
+                                    else 6000),
+            policy_mode="dynamic")
+
+    calls = {"select": 0}
+    real_select = comp.allocate_selection
+
+    def _select(*args, **kwargs):
+        calls["select"] += 1
+        if calls["select"] > 1:
+            raise RuntimeError("fallback allocation failed")
+        return real_select(*args, **kwargs)
+
+    monkeypatch.setattr(dcs._model_capacity, "resolve_stage_window", _window)
+    monkeypatch.setattr(dcs._auto_budget, "resolve_stage_budget", _budget)
+    monkeypatch.setattr(comp, "allocate_selection", _select)
+    out: dict = {}
+    fallback: dict = {}
+    await svc._build_user_content(
+        CHAT, _message(text="вопрос"), "Вася",
+        out_prepared=out, out_fallback=fallback)
+    adapter = fallback["adapter_factory"](None)
+    adapted, prepared = adapter({
+        "messages": [{"role": "system", "content": "SYS"},
+                     {"role": "user", "content": "СТАРЫЙ КОНТЕКСТ"}]})
+    user_text = adapted["messages"][-1]["content"]
+    assert "СТАРЫЙ КОНТЕКСТ" not in user_text
+    assert "<Current_Question>" in user_text
+    assert prepared.budget["policy_mode"] == "fallback_capacity"
+    assert prepared.budget["degraded"] is True
+    assert prepared.budget["physical_overflow"] is True
+    assert out.get("fallback_prepared") is prepared
+    assert calls["select"] == 2
+
+
 def test_materializer_keeps_current_and_reply_parent_overflow_parts():
     """UR-11.6: P0 overflow не теряет части current/reply-parent."""
     part1 = comp.ContextFragment(
