@@ -4871,10 +4871,13 @@ def _build_l2_selection_candidates(
         chain_items=(),
         branch_hops: int = 0,
         window_rows=(),
+        fresh_rows=(),
+        background_rows=(),
         memory_fragments=(),
         fact_rows=(),
         episode_rows=(),
         self_output_records=(),
+        self_output_fragments=(),
         summary_row=None,
         middle_lines=(),
         aliases=None,
@@ -4882,7 +4885,9 @@ def _build_l2_selection_candidates(
         working_window_messages: int = 20,
         fresh_window_seconds: int = 0,
         now_ts: int = 0,
-        budget_tokens: int = 0):
+        budget_tokens: int = 0,
+        allocate: bool = True,
+        preserve_projections: bool = False):
     """UR-C-2a: существующие источники → ЕДИНЫЙ `ContextSelection`.
 
     Чистая сборка без чтений: цепочка/окно/факты/эпизоды/ledger/конспект уже
@@ -4893,6 +4898,9 @@ def _build_l2_selection_candidates(
         остальные → P1 `thread`;
       * свежий хвост окна → P1 `fresh_neighbour`, раннее окно → P3
         `background`; middle-строки → P3 `background`;
+      * ``fresh_rows``/``background_rows`` — уже выбранные live-части
+        `global_parts` (tail/middle), чтобы не пересчитывать окно вторым
+        способом; ``window_rows`` используется, только если они не заданы;
       * fact rows → P2 tier 3 (`fragment_from_fact_row`);
       * episode rows → P2 tier 4 (`fragments_from_episode_rows`);
       * ledger-записи → P2 `self_output` (`fragment_from_self_output`).
@@ -4913,6 +4921,20 @@ def _build_l2_selection_candidates(
         window_rows, working_window_messages=working_window_messages,
         aliases=aliases, bot_user_id=bot_user_id, now_ts=now_ts,
         fresh_window_seconds=fresh_window_seconds)
+    if fresh_rows:
+        fresh = tuple(
+            _composer.row_to_fragment(
+                row, role=_composer.ROLE_FRESH_NEIGHBOUR, aliases=aliases,
+                bot_user_id=bot_user_id, fresh=True, now_ts=now_ts,
+                fresh_window_seconds=fresh_window_seconds)
+            for row in fresh_rows)
+    if background_rows:
+        window_background = tuple(
+            _composer.row_to_fragment(
+                row, role=_composer.ROLE_BACKGROUND, aliases=aliases,
+                bot_user_id=bot_user_id, fresh=False, now_ts=now_ts,
+                fresh_window_seconds=fresh_window_seconds)
+            for row in background_rows)
     memory: list = list(memory_fragments or ())
     for row in fact_rows or ():
         frag = _composer.fragment_from_fact_row(row)
@@ -4920,14 +4942,16 @@ def _build_l2_selection_candidates(
             memory.append(frag)
     memory.extend(_composer.fragments_from_episode_rows(
         episode_rows, aliases=aliases, bot_user_id=bot_user_id))
-    self_outputs: list = []
+    self_outputs: list = list(self_output_fragments or ())
     for record in self_output_records or ():
         frag = _composer.fragment_from_self_output(
             record, aliases=aliases, bot_user_id=bot_user_id)
         if frag is not None:
             self_outputs.append(frag)
-    newest_ts = max((_row_timestamp(row) for row in window_rows or ()),
-                    default=0)
+    newest_ts = max(
+        (_row_timestamp(row) for row in
+         list(window_rows or ()) + list(fresh_rows or ())
+         + list(background_rows or ())), default=0)
     summary_map = (_composer.summary_map_ref(
         summary_row, now_ts=now_ts, newest_ts=newest_ts)
         if summary_row is not None else None)
@@ -4942,7 +4966,8 @@ def _build_l2_selection_candidates(
         fresh_neighbours=fresh, memory=tuple(memory),
         self_outputs=tuple(self_outputs),
         background=tuple(background), summary_map=summary_map,
-        budget_tokens=budget_tokens)
+        budget_tokens=budget_tokens, allocate=allocate,
+        preserve_projections=preserve_projections)
 
 
 def _materialize_selection(
@@ -4954,6 +4979,7 @@ def _materialize_selection(
         render_fact_line=None,
         source_index: dict | None = None,
         chain_order: dict | None = None,
+        split_global: bool = False,
         projection=None) -> list[tuple[str, str]]:
     """UR-C-2a: выжившие фрагменты selection → блоки payload.
 
@@ -4993,9 +5019,39 @@ def _materialize_selection(
 
     blocks: dict[str, str] = {}
 
+    def _merge_parts(items) -> list:
+        """Один source_id → один фрагмент; overflow-части склеиваются."""
+        grouped: dict = {}
+        order_ids: list = []
+        for frag in items:
+            key = frag.source_id
+            if key not in grouped:
+                grouped[key] = []
+                order_ids.append(key)
+            grouped[key].append(frag)
+        out: list = []
+        for key in order_ids:
+            parts = grouped[key]
+            if len(parts) == 1:
+                out.append(parts[0])
+                continue
+            first = parts[0]
+            text = "".join(str(f.text or "") for f in parts)
+            out.append(dataclasses.replace(
+                first, text=text, part_index=0, part_total=1))
+        return out
+
     current = getattr(selection, "current_question", None)
+    current_parts = list(getattr(selection, "current_parts", ()) or ())
     if current is not None and (current.text or "").strip():
-        if render_current is not None:
+        if current_parts:
+            # P0 физически переполнен: все ВОШЕДШИЕ части остаются в блоке;
+            # не вошедшие названы в provenance.overflow_parts.
+            body = "\n".join(
+                str(f.text or "") for f in [current, *current_parts]
+                if str(f.text or "").strip())
+            blocks["current"] = _wrap("Current_Question", [body])
+        elif render_current is not None:
             blocks["current"] = _line(render_current, current)
         else:
             blocks["current"] = _wrap("Current_Question", [current.text])
@@ -5012,7 +5068,9 @@ def _materialize_selection(
         return out
 
     reply_parent = getattr(selection, "reply_parent", None)
-    branch_items = [reply_parent] if reply_parent is not None else []
+    branch_items = _merge_parts(
+        ([reply_parent] if reply_parent is not None else [])
+        + list(getattr(selection, "reply_parent_parts", ()) or ()))
     branch_items.extend(getattr(selection, "reply_branch", ()) or ())
     branch_items = _projection(branch_items)
     if chain_order:
@@ -5039,13 +5097,20 @@ def _materialize_selection(
 
     rag_fragments: list = []
     episode_fragments: list = []
+    supplement_fragments: list = []
     for frag in getattr(selection, "memory", ()) or ():
         ref = str(frag.source_id or "")
-        if (frag.kind == _composer.KIND_SUMMARY_INFERENCE
+        if ref.startswith("supplement:"):
+            supplement_fragments.append(frag)
+        elif (frag.kind == _composer.KIND_SUMMARY_INFERENCE
                 and not ref.startswith(("episode:", "middle:", "summary:"))):
             rag_fragments.append(frag)
         else:
             episode_fragments.append(frag)
+    if supplement_fragments:
+        blocks["history_supplement"] = "\n".join(
+            str(f.text or "") for f in supplement_fragments
+            if str(f.text or "").strip())
     if rag_fragments:
         fact_lines = []
         for frag in rag_fragments:
@@ -5081,13 +5146,30 @@ def _materialize_selection(
             tail_fragments + self_outputs,
             key=lambda f: (int(f.timestamp_utc or 0), f.source_id))
     tail_lines = [_line(render_row_line, f) for f in tail_fragments]
-    global_body = "\n".join(
-        line for line in head_lines + middle_lines + tail_lines
-        if str(line or "").strip())
-    if global_body:
-        blocks["global"] = (
-            f"<Global_Context>\n{escape_xml_text(global_body)}\n"
-            f"</Global_Context>")
+    head_body = "\n".join(
+        line for line in head_lines if str(line or "").strip())
+    middle_body = "\n".join(
+        line for line in middle_lines if str(line or "").strip())
+    tail_body = "\n".join(
+        line for line in tail_lines if str(line or "").strip())
+    if split_global:
+        # Live prepared/trace contract: прежние виды блоков
+        # global_head/middle/tail. Payload-сборщик склеит их в один
+        # <Global_Context>; тексты остаются подстроками финального тела.
+        if head_body:
+            blocks["global_head"] = escape_xml_text(head_body)
+        if middle_body:
+            blocks["global_middle"] = escape_xml_text(middle_body)
+        if tail_body:
+            blocks["global_tail"] = escape_xml_text(tail_body)
+    else:
+        global_body = "\n".join(
+            part for part in (head_body, middle_body, tail_body)
+            if part.strip())
+        if global_body:
+            blocks["global"] = (
+                f"<Global_Context>\n{escape_xml_text(global_body)}\n"
+                f"</Global_Context>")
 
     order = _composer.CANONICAL_ORDER
     ordered: list[tuple[str, str]] = []
@@ -11456,7 +11538,8 @@ class DirectChatService:
             chat_id, message, global_ctx, history_sample=history_sample,
             projection=projection, memory_scope=memory_scope,
             subject_name=target_name, subject_uid=target_user_id,
-            out_memory=_rag_out, trace_id=correlation_id)
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
         if rag_block:
             blocks.append(("rag", rag_block))
         if out_rag_ctx is not None:
@@ -11619,6 +11702,8 @@ class DirectChatService:
                 history_sample=history_sample, projection=projection,
                 correlation_id=correlation_id, rag_memory=_rag_out,
                 chain_rendered=_chain_rendered,
+                extra_media_markers=extra_media_markers,
+                live_selection=True,
                 out_prepared=out_prepared)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
@@ -11784,8 +11869,12 @@ class DirectChatService:
             "head_lines": [], "middle_rows": [], "tail_rows": [],
             "tail_lines": [], "window_start_ts": None, "window_end_ts": None,
             "raw_count": 0, "has_summary": False,
+            # UR-C-2b: исходная summary-строка для selection (в трассу не
+            # копируется; используется только как источник/watermark).
+            "summary_row": None,
         }
         summary_text = None
+        summary_row = None
         window_start_ts = None
         window_end_ts = None
         raw_count = 0
@@ -11793,6 +11882,7 @@ class DirectChatService:
             try:
                 row = await self.db.get_running_summary(chat_id, time.time())
                 if row is not None:
+                    summary_row = row
                     summary_text = row["summary"]
                     raw_count = int(row["raw_count"] or 0)
                     # UR-20.5 (доработка шага 1): конспект покрывает ДИАПАЗОН
@@ -11881,6 +11971,7 @@ class DirectChatService:
                 parts["head_lines"].append(
                     f"фон: дословно последние {len(tail_rows)} сообщений"
                     f"{_scope}")
+        parts["summary_row"] = summary_row
         return parts
 
     def _composer_truncate(self, piece, limit_tokens: int) -> str:
@@ -11931,7 +12022,10 @@ class DirectChatService:
         stats = {"count": 0, "messages": 0, "tokens": 0, "hits": 0,
                  # UR-F шаг 1 (UR-20.5): спаны фактически вошедших эпизодов
                  # (source_ids + первая/последняя дата) — без текста строк.
-                 "spans": []}
+                 "spans": [],
+                 # UR-C-2b: внутренний source_index для materializer (текст
+                 # в трассу не копируется).
+                 "rows": []}
         if not mca_gates.retrieval_context_enabled():
             return "", stats
         text = str(query or "").strip()
@@ -12305,6 +12399,7 @@ class DirectChatService:
                 if row_id is not None:
                     used_rows.add(row_id)
             episode_lines.extend(lines)
+            stats["rows"].extend(span_rows)
             stats["count"] += 1
             span_years_seen.update(candidate_years)
             if getattr(cand, "vector_origin", False):
@@ -12393,6 +12488,8 @@ class DirectChatService:
             correlation_id: str | None = None,
             rag_memory: dict | None = None,
             chain_rendered: dict | None = None,
+            extra_media_markers: tuple = (),
+            live_selection: bool = False,
             out_prepared: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
@@ -12443,7 +12540,9 @@ class DirectChatService:
         _sample_id = _ha_sample_id(history_sample)
         _supplement_lines = []
         if isinstance(episode_stats, dict):
-            _supplement_lines = episode_stats.pop("supplement_lines", [])
+            # Не pop: те же строки нужны selection-пути и fail-open-пути.
+            _supplement_lines = list(
+                episode_stats.get("supplement_lines") or ())
         _supplement_block = _ha_supplement_piece(_supplement_lines,
                                                  _sample_id)
         if _supplement_block:
@@ -12569,6 +12668,667 @@ class DirectChatService:
             else:
                 budget, policy_mode = apply_budget_policy(available,
                                                           raw_budget)
+
+        # ── UR-C-2b: live ContextSelection — единственный allocator ─────────
+        # Секция активна только на live-вызове из `_build_user_content`.
+        # Любое исключение → WARNING и старый блочный fail-open ниже.
+        selection_degraded = False
+        if live_selection:
+            async def _run_live_selection() -> list[str]:
+                fixed_kinds = {"map", "target", "relations", "protected",
+                               "lore", "correction", "nostalgia", "sandwich"}
+                fixed_blocks = [(kind, text) for kind, text in blocks
+                                if kind in fixed_kinds and text]
+                fixed_tokens = sum(count_tokens(text)
+                                   for _kind, text in fixed_blocks)
+                selection_budget = max(0, int(budget) - fixed_tokens)
+                fallback_selection_budget = (
+                    max(1, int(fallback_recompose_budget) - fixed_tokens)
+                    if fallback_recompose_budget is not None else None)
+
+                current_text, media_markers = self._current_question_source(
+                    message, extra_markers=extra_media_markers,
+                    projection=projection)
+                reply_msg = getattr(message, "reply_to_message", None)
+                reply_to_tg = getattr(reply_msg, "message_id", None)
+                try:
+                    current_ts = int(message.date.timestamp())
+                except Exception:
+                    current_ts = 0
+                reply_parent = None
+                if len(chain or ()) >= 2:
+                    reply_parent = _composer.chain_item_to_fragment(
+                        chain[1], role=_composer.ROLE_REPLY_PARENT,
+                        aliases=getattr(self, "aliases", None),
+                        bot_user_id=getattr(self, "bot_id", None))
+                try:
+                    branch_hops = int(hot.get(
+                        "limits.chat_branch_context_hops",
+                        settings.CHAT_BRANCH_CONTEXT_HOPS) or 3)
+                except Exception:
+                    branch_hops = 3
+                if not self._is_reply_trigger(message):
+                    branch_hops = 0
+
+                memory_fragments: list = []
+                # Canonical memory leg: ОДИН bounded read-only retrieve с
+                # адресатом/reply-parent; ошибка → источник пуст (fail-open).
+                try:
+                    if mca_gates.retrieval_context_enabled():
+                        parent_uid = None
+                        parent_text = ""
+                        if reply_msg is not None:
+                            parent_uid = getattr(
+                                getattr(reply_msg, "from_user", None), "id",
+                                None)
+                            parent_text = str(
+                                getattr(reply_msg, "text", "") or "")
+                        elif len(chain or ()) >= 2:
+                            parent_uid = getattr(chain[1], "uid", None)
+                            parent_text = str(
+                                getattr(chain[1], "text", "") or "")
+                        request = _mca_rc.build_memory_request(
+                            chat_id=chat_id, topic=query,
+                            addressee_uid=target_user_id,
+                            reply_parent_uid=parent_uid,
+                            reply_parent_text=parent_text,
+                            addressee_name=target_name,
+                            trigger_ref=trigger_message_id)
+                        mem_result = await _mca_rc.retrieve(
+                            self.db, self.memory, request)
+                        mem_frags, _raw = \
+                            await _composer.collect_memory_fragments(
+                                self.db, chat_id=chat_id,
+                                candidates=mem_result.candidates,
+                                aliases=getattr(self, "aliases", None),
+                                bot_user_id=getattr(self, "bot_id", None))
+                        memory_fragments.extend(mem_frags)
+                except Exception:
+                    logger.warning(
+                        "direct: selection memory leg failed — empty | chat=%s",
+                        chat_id, exc_info=True)
+
+                self_output_fragments: tuple = ()
+                try:
+                    self_output_fragments = \
+                        await _composer.collect_self_output_fragments(
+                            self.db, chat_id=chat_id,
+                            bot_user_id=getattr(self, "bot_id", None),
+                            aliases=getattr(self, "aliases", None))
+                except Exception:
+                    logger.warning(
+                        "direct: selection self-outputs failed — empty | chat=%s",
+                        chat_id, exc_info=True)
+
+                supplement_text = _ha_supplement_piece(
+                    list(episode_stats.get("supplement_lines") or ()),
+                    _ha_sample_id(history_sample))
+                if supplement_text:
+                    memory_fragments.append(_composer.ContextFragment(
+                        kind=_composer.KIND_CHAT_EVENT,
+                        source_id=("supplement:"
+                                   + (_ha_sample_id(history_sample) or "ha")),
+                        text=supplement_text,
+                        role=_composer.ROLE_MEMORY,
+                        authority=_composer.AUTHORITY_BACKGROUND,
+                        fresh=False, time_known=False, memory_tier=4))
+
+                summary_row = global_parts.get("summary_row")
+                head_lines = list(global_parts.get("head_lines") or ())
+                if summary_row is not None and head_lines:
+                    try:
+                        summary_row = dict(summary_row)
+                    except Exception:
+                        pass
+                    if isinstance(summary_row, dict):
+                        summary_row["summary"] = "\n".join(head_lines)
+
+                full_selection = _build_l2_selection_candidates(
+                    current_text=current_text,
+                    media_markers=media_markers,
+                    speaker_uid=getattr(
+                        getattr(message, "from_user", None), "id",
+                        target_user_id),
+                    author_label=target_name,
+                    reply_to_tg=reply_to_tg,
+                    message_tg_id=None,   # current не дедупится с thread-ходом
+                    timestamp_utc=current_ts,
+                    reply_parent=reply_parent,
+                    chain_items=tuple(chain or ()),
+                    branch_hops=branch_hops,
+                    fresh_rows=tuple(global_parts.get("tail_rows") or ()),
+                    background_rows=tuple(middle_rows or ()),
+                    memory_fragments=tuple(memory_fragments),
+                    fact_rows=tuple((rag_memory or {}).get("rows") or ()),
+                    episode_rows=tuple(episode_stats.get("rows") or ()),
+                    self_output_fragments=tuple(self_output_fragments),
+                    summary_row=summary_row,
+                    aliases=getattr(self, "aliases", None),
+                    bot_user_id=getattr(self, "bot_id", None),
+                    budget_tokens=0, allocate=False,
+                    preserve_projections=True)
+
+                # ── source_index / renderers: существующие владельцы формата ──
+                source_index: dict = {}
+                renderers: dict = {}
+                chain_order: dict = {}
+
+                def _row_sid(row, role, *, fresh, trigger, suffix,
+                             refs=None):
+                    frag = _composer.row_to_fragment(
+                        row, role=role,
+                        aliases=getattr(self, "aliases", None),
+                        bot_user_id=getattr(self, "bot_id", None),
+                        fresh=fresh)
+                    sid = str(frag.source_id)
+                    source_index[sid] = row
+
+                    def _render(f, _row, _frag=frag, _trigger=trigger,
+                                _suffix=suffix, _refs=refs):
+                        base = dict(_row)
+                        if f.text and str(base.get("text") or "") != f.text:
+                            base["text"] = f.text
+                        return self._context_row_line(
+                            base, _suffix,
+                            trigger_message_id=_trigger,
+                            projection=projection, window_items=_refs)
+
+                    renderers[sid] = _render
+                    return sid
+
+                def _synthetic_row(frag) -> dict:
+                    return {
+                        "text": frag.text, "user_id": frag.speaker_uid,
+                        "author_name": frag.author_label,
+                        "timestamp": frag.timestamp_utc,
+                        "tg_message_id": frag.tg_message_id,
+                        "reply_to_id": frag.reply_to_tg_id,
+                        "media_type": "text",
+                    }
+
+                speech = (projection is not None
+                          and speech_projection_enabled())
+                for pos, item in enumerate(reversed(list(chain or ()))):
+                    c_frag = _composer.chain_item_to_fragment(
+                        item, role=_composer.ROLE_THREAD,
+                        aliases=getattr(self, "aliases", None),
+                        bot_user_id=getattr(self, "bot_id", None))
+                    source_index[c_frag.source_id] = item
+                    chain_order[c_frag.source_id] = pos
+
+                tail_rows = list(global_parts.get("tail_rows") or ())
+                tail_refs = window_refs_by_tg(tail_rows) if speech else {}
+                for row in tail_rows:
+                    _row_sid(row, _composer.ROLE_FRESH_NEIGHBOUR,
+                             fresh=True, trigger=trigger_message_id,
+                             suffix=suffix_map, refs=tail_refs)
+                mid_refs = (window_refs_by_tg(middle_rows)
+                            if speech and middle_rows else {})
+                for row in middle_rows or ():
+                    _row_sid(row, _composer.ROLE_BACKGROUND, fresh=False,
+                             trigger=None, suffix={}, refs=mid_refs)
+                for row in episode_stats.get("rows") or ():
+                    _row_sid(row, _composer.ROLE_MEMORY, fresh=False,
+                             trigger=None, suffix=suffix_map)
+                for row in (rag_memory or {}).get("rows") or ():
+                    f_frag = _composer.fragment_from_fact_row(row)
+                    if f_frag is not None:
+                        source_index[str(f_frag.source_id)] = row
+                for frag in self_output_fragments:
+                    source_index[frag.source_id] = _synthetic_row(frag)
+                for frag in memory_fragments:
+                    if frag.source_id not in source_index:
+                        source_index[frag.source_id] = _synthetic_row(frag)
+
+                def _chain_render(frag, item):
+                    if item is None:
+                        return str(frag.text or "")
+                    text = str(frag.text or "")
+                    if text and str(getattr(item, "text", "") or "") != text:
+                        try:
+                            item = item._replace(text=text)
+                        except Exception:
+                            return text
+                    return self._chain_line(
+                        item, suffix_map, trigger_message_id, projection,
+                        emit_quote=False)
+
+                def _row_render(frag, source):
+                    renderer = renderers.get(frag.source_id)
+                    if renderer is not None:
+                        return renderer(frag, source)
+                    return self._context_row_line(
+                        _synthetic_row(frag), suffix_map,
+                        trigger_message_id=None, projection=projection)
+
+                def _current_render(frag, _source):
+                    return self._render_current_question(
+                        message, extra_markers=extra_media_markers,
+                        projection=projection)
+
+                def _fact_render(frag, fact):
+                    if isinstance(fact, (tuple, list)):
+                        seq = list(fact)
+                        if (len(seq) > 1 and frag.text
+                                and str(seq[1] or "") != frag.text):
+                            seq[1] = frag.text
+                        return build_rag_context(
+                            [tuple(seq)], origin_labels=True,
+                            projection=projection)
+                    return "[вывод модели] " + escape_xml_text(frag.text)
+
+                def _materialize(sel):
+                    raw = _materialize_selection(
+                        sel,
+                        render_chain_line=_chain_render,
+                        render_row_line=_row_render,
+                        render_current=_current_render,
+                        render_fact_line=_fact_render,
+                        source_index=source_index,
+                        chain_order=chain_order,
+                        split_global=True,
+                        projection=projection)
+                    global_parts = [
+                        (kind, text) for kind, text in raw
+                        if kind in ("global_head", "global_middle",
+                                    "global_tail")]
+                    payload_pairs = [
+                        (kind, text) for kind, text in raw
+                        if kind not in ("global_head", "global_middle",
+                                        "global_tail")]
+                    body = "\n".join(
+                        text for _kind, text in sorted(
+                            global_parts,
+                            key=lambda kv: _composer.CANONICAL_ORDER.get(
+                                kv[0], 99)) if text.strip())
+                    if body:
+                        payload_pairs.append((
+                            "global",
+                            f"<Global_Context>\n{body}\n</Global_Context>"))
+                    payload_pairs += list(fixed_blocks)
+                    prepared_pairs = list(raw) + list(fixed_blocks)
+
+                    def _sort(pairs):
+                        return sorted(pairs, key=lambda kv: (
+                            _composer.CANONICAL_ORDER.get(
+                                "global_head" if kv[0] == "global" else kv[0],
+                                99), kv[0]))
+
+                    return _sort(payload_pairs), _sort(prepared_pairs)
+
+                def _ev(kind: str, role: str, frags) -> dict | None:
+                    items = list(frags or ())
+                    if not items:
+                        return None
+                    stamps = [int(f.timestamp_utc or 0) for f in items
+                              if int(f.timestamp_utc or 0)]
+                    ids: list = []
+                    for frag in items:
+                        sid = str(frag.source_id or "")
+                        if sid and sid not in ids:
+                            ids.append(sid)
+                    return {
+                        "kind": kind, "role": role, "rendered": True,
+                        "skip_reason": "", "source_ids": ids[:_MAX_SELECTION_IDS],
+                        "first_ts": min(stamps) if stamps else 0,
+                        "last_ts": max(stamps) if stamps else 0,
+                        "tokens": sum(f.tokens() for f in items),
+                    }
+
+                def _event_blocks(sel) -> list[dict]:
+                    branch = _merge_branch(sel)
+                    thread = _merge_thread(sel)
+                    mem = list(sel.memory)
+                    rag = [f for f in mem if (
+                        f.kind == _composer.KIND_SUMMARY_INFERENCE
+                        and not str(f.source_id or "").startswith(
+                            ("episode:", "middle:", "summary:", "supplement:")))]
+                    episode = [f for f in mem if f not in rag and not str(
+                        f.source_id or "").startswith("supplement:")]
+                    supplement = [f for f in mem if str(
+                        f.source_id or "").startswith("supplement:")]
+                    out = [
+                        _ev("branch", "p0", branch),
+                        _ev("history_supplement", "p2", supplement),
+                        _ev("episode", "p2", episode),
+                        _ev("rag", "p2", rag),
+                        _ev("global_head", "p2", sel.summary),
+                        _ev("global_middle", "p3", sel.background),
+                        _ev("global_tail", "p1",
+                            list(sel.fresh_neighbours)
+                            + list(sel.self_outputs)),
+                        _ev("thread", "p1", thread),
+                        _ev("current", "p0",
+                            [sel.current_question,
+                             *(sel.current_parts or ())]),
+                    ]
+                    head = next((item for item in out
+                                 if item and item.get("kind") == "global_head"),
+                                None)
+                    if head is not None:
+                        # Конспект покрывает ДИАПАЗОН, а не отдельное
+                        # сообщение: id не выдумываются, даты — из watermark.
+                        head["source_ids"] = []
+                        head["first_ts"] = int(
+                            global_parts.get("window_start_ts") or 0)
+                        head["last_ts"] = int(
+                            global_parts.get("window_end_ts") or 0)
+                    return [item for item in out if item]
+
+                def _merge_branch(sel) -> list:
+                    parent = getattr(sel, "reply_parent", None)
+                    items = ([parent] if parent is not None else [])
+                    items += list(getattr(sel, "reply_parent_parts", ()) or ())
+                    items += list(getattr(sel, "reply_branch", ()) or ())
+                    seen: set = set()
+                    out: list = []
+                    for frag in items:
+                        if frag.source_id in seen:
+                            continue
+                        seen.add(frag.source_id)
+                        out.append(frag)
+                    return out
+
+                def _merge_thread(sel) -> list:
+                    seen: set = set()
+                    out: list = []
+                    for frag in _merge_branch(sel) + list(sel.thread):
+                        if frag.source_id in seen:
+                            continue
+                        seen.add(frag.source_id)
+                        out.append(frag)
+                    return out
+
+                def _prepared(sel, texts, *, payload_pairs=None,
+                              fallback: bool = False,
+                              fb_budget: int | None = None):
+                    included = set(id(f) for f in sel.fragments())
+                    event_blocks = _event_blocks(sel)
+                    available_ids = set(_sel_row_ids(
+                        window, bot_user_id=getattr(self, "bot_id", None)))
+                    available_ids.update(
+                        str(f.source_id)
+                        for f in (sel.reply_branch or ())
+                        + (sel.thread or ()) if f.source_id)
+                    available_ids.update(
+                        str(f.source_id)
+                        for f in (sel.fresh_neighbours or ())
+                        + (sel.self_outputs or ()) if f.source_id)
+                    available_ids.update(_sel_row_ids(
+                        episode_stats.get("rows") or (),
+                        bot_user_id=getattr(self, "bot_id", None)))
+                    budget_meta = {
+                        "slot": "direct.primary",
+                        "window": int(model_window),
+                        "window_source": str(window_source),
+                        "output_reserve": int(output_reserve),
+                        "available": int(available),
+                        "budget": int(fb_budget if fallback else budget),
+                        "selection_budget": int(
+                            fb_budget if fallback else selection_budget),
+                        "fixed_p0_tokens": int(fixed_tokens),
+                        "policy_mode": ("fallback_recompose" if fallback
+                                        else policy_mode),
+                        "payload_tokens": sum(
+                            count_tokens(text) for _k, text in
+                            (payload_pairs if payload_pairs is not None
+                             else texts)),
+                        "fallback_window": (
+                            int(fallback_recompose_budget)
+                            if fallback_recompose_budget else None),
+                        "degraded": False,
+                    }
+                    if fallback:
+                        budget_meta["fallback"] = True
+                    self_out_payload: list = []
+                    seen_self: set = set()
+                    for frag in (list(sel.self_outputs)
+                                 + list(sel.fresh_neighbours)
+                                 + list(sel.background)):
+                        if frag.kind != _composer.KIND_BOT_STATEMENT:
+                            continue
+                        sid = str(frag.source_id or "")
+                        if not sid or sid in seen_self:
+                            continue
+                        seen_self.add(sid)
+                        self_out_payload.append({
+                            "source_id": sid,
+                            "tg_message_id": frag.tg_message_id,
+                            "ts": int(frag.timestamp_utc or 0),
+                            "kind": frag.kind,
+                        })
+                    return _prepared_turn_payload(
+                        chat_id=chat_id, correlation_id=correlation_id,
+                        blocks=texts, event_blocks=event_blocks,
+                        available_item_ids=available_ids,
+                        window_messages=len(list(window or ())),
+                        budget=budget_meta,
+                        dropped=tuple(dict(item) for item in
+                                      sel.provenance.dropped),
+                        self_outputs=tuple(self_out_payload),
+                        chain_rendered=chain_rendered,
+                        projection=projection,
+                        policy_version=_composer.COMPOSER_POLICY_VERSION,
+                        memory_period=dict(
+                            (rag_memory or {}).get("period") or {}))
+
+                allocated = _composer.allocate_selection(
+                    full_selection, selection_budget)
+                payload_pairs, prepared_pairs = _materialize(allocated)
+                texts = [text for _kind, text in payload_pairs]
+                prepared_primary = _prepared(
+                    allocated, prepared_pairs, payload_pairs=payload_pairs)
+                if out_prepared is not None:
+                    out_prepared["primary"] = prepared_primary
+                if out_excluded is not None:
+                    for item in allocated.provenance.dropped:
+                        out_excluded.append(dict(item))
+                if out_fallback is not None:
+                    try:
+                        out_fallback["l2_input_budget"] = int(budget)
+                    except Exception:
+                        pass
+                    if fallback_recompose_budget is not None:
+                        try:
+                            out_fallback["l2_fallback_budget"] = int(
+                                fallback_recompose_budget)
+                        except Exception:
+                            pass
+
+                # Fallback recompose: тот же allocator на ТОЙ ЖЕ полной
+                # selection, без повторного retrieval/сборки.
+                if (out_fallback is not None
+                        and fallback_selection_budget is not None):
+                    def _fallback_factory(time_line: str | None,
+                                          extra_reserve: int = 0,
+                                          binding: dict | None = None):
+                        def _adapt(incoming: dict):
+                            try:
+                                fb_budget = max(
+                                    1, int(fallback_selection_budget)
+                                    - int(extra_reserve or 0))
+                                fb_sel = _composer.allocate_selection(
+                                    full_selection, fb_budget)
+                                fb_payload, fb_prepared_pairs = \
+                                    _materialize(fb_sel)
+                                fb_texts = [t for _k, t in fb_payload]
+                                fb_prepared = _prepared(
+                                    fb_sel, fb_prepared_pairs,
+                                    payload_pairs=fb_payload,
+                                    fallback=True, fb_budget=fb_budget)
+                                if binding is not None:
+                                    binding["prepared"] = fb_prepared
+                                if out_prepared is not None:
+                                    out_prepared["fallback_prepared"] = \
+                                        fb_prepared
+                                    out_prepared["fallback_used"] = True
+                                blocks_fb = ([time_line]
+                                             if time_line else []) + fb_texts
+                                messages = incoming.get("messages") or []
+                                adapted = dict(incoming)
+                                adapted["messages"] = [
+                                    {"role": "system",
+                                     "content": str(
+                                         messages[0].get("content", "")
+                                         if messages else "")},
+                                    {"role": "user",
+                                     "content": "\n\n".join(blocks_fb)},
+                                ]
+                                if binding is not None:
+                                    binding["prepared_text"] = \
+                                        _sent_user_text(adapted)
+                                logger.info(
+                                    "direct: selection fallback recompose | "
+                                    "chat=%s | budget=%d | blocks=%d",
+                                    chat_id, fb_budget, len(fb_texts))
+                                return adapted, fb_prepared
+                            except Exception:
+                                logger.warning(
+                                    "direct: selection fallback recompose "
+                                    "FAILED — primary payload SENT AS-IS | "
+                                    "chat=%s", chat_id, exc_info=True)
+                                primary = (out_prepared or {}).get("primary")
+                                if binding is not None:
+                                    binding["prepared"] = primary
+                                    binding["prepared_text"] = \
+                                        _sent_user_text(incoming)
+                                return incoming, primary
+                        return _adapt
+                    try:
+                        out_fallback["adapter_factory"] = _fallback_factory
+                    except Exception:
+                        pass
+
+                # ── Observability (existing events; selection-derived) ──
+                used_tokens = sum(count_tokens(t) for t in texts)
+                record_context_usage(
+                    used_tokens,
+                    None if policy_mode == "unlimited" else budget,
+                    bool(allocated.provenance.dropped),
+                    unlimited=(policy_mode == "unlimited"))
+                try:
+                    _auto_budget.record_slot_observation(
+                        "direct.primary", used_tokens)
+                    if (allocated.provenance.dropped
+                            or allocated.provenance.overflow):
+                        _auto_budget.record_slot_pressure(
+                            "direct.primary",
+                            physical_overflow=bool(
+                                allocated.provenance.overflow))
+                except Exception:
+                    pass
+                summary_lag = None
+                summary_age = None
+                if global_parts.get("has_summary"):
+                    summary_lag = (len(global_parts["tail_rows"])
+                                   + len(global_parts["middle_rows"]))
+                    if global_parts.get("window_end_ts"):
+                        summary_age = max(0, int(
+                            time.time()
+                            - int(global_parts["window_end_ts"])))
+                summary_revision = await self._summary_revision(chat_id)
+                _composer.emit_context_capacity(
+                    model=model_name, window=model_window,
+                    window_source=window_source,
+                    external_tokens=external_tokens,
+                    output_reserve=output_reserve,
+                    available_context=available, budget=budget,
+                    policy_mode=policy_mode,
+                    summary_revision=summary_revision,
+                    summary_watermark=global_parts["window_end_ts"],
+                    summary_lag_messages=summary_lag,
+                    summary_age=summary_age,
+                    estimation_method=est_method)
+                rag_frags = [f for f in allocated.memory if (
+                    f.kind == _composer.KIND_SUMMARY_INFERENCE
+                    and not str(f.source_id or "").startswith(
+                        ("episode:", "middle:", "summary:", "supplement:")))]
+                episode_frags = [f for f in allocated.memory if (
+                    f not in rag_frags
+                    and not str(f.source_id or "").startswith("supplement:"))]
+                _composer.emit_context_select(
+                    chat_id=chat_id, message_id=trigger_message_id,
+                    recent_verbatim_messages=(len(allocated.fresh_neighbours)
+                                              + len(allocated.self_outputs)),
+                    recent_verbatim_tokens=sum(
+                        f.tokens() for f in
+                        list(allocated.fresh_neighbours)
+                        + list(allocated.self_outputs)),
+                    reply_thread_messages=len(_merge_thread(allocated)),
+                    old_episode_count=len(episode_frags),
+                    old_episode_messages=len(episode_frags),
+                    old_episode_tokens=sum(f.tokens()
+                                           for f in episode_frags),
+                    middle_selected_messages=len(allocated.background),
+                    compressed_background_tokens=sum(
+                        f.tokens() for f in allocated.summary),
+                    rag_tokens=sum(f.tokens() for f in rag_frags))
+                if (allocated.provenance.dropped
+                        or allocated.provenance.overflow):
+                    _composer.record_direct_metric(
+                        "direct_context_pressure_total")
+                    _composer.emit_context_pressure(
+                        chat_id=chat_id,
+                        excluded_low_priority=len(
+                            allocated.provenance.dropped),
+                        compressed_or_dropped=len(
+                            allocated.provenance.dropped),
+                        physical_overflow=bool(
+                            allocated.provenance.overflow),
+                        unsummarized_tail_messages=summary_lag or 0,
+                        unsummarized_tail_tokens=sum(
+                            f.tokens() for f in
+                            allocated.fresh_neighbours))
+                if allocated.provenance.overflow:
+                    _composer.record_direct_metric(
+                        "direct_context_physical_overflow_total")
+                    preserved = sorted({
+                        str(f.role or f.kind)
+                        for f in allocated.fragments()
+                        if f.priority == _composer.P0})
+                    _composer.emit_context_physical_overflow(
+                        chat_id=chat_id, preserved_kinds=preserved,
+                        available=int(selection_budget),
+                        needed=int(allocated.provenance.included_tokens))
+                    logger.warning(
+                        "direct: selection physical overflow | chat=%s "
+                        "available=%d needed=%d preserved=%s",
+                        chat_id, selection_budget,
+                        allocated.provenance.included_tokens,
+                        ",".join(preserved) or "-")
+                _composer.record_diagnostics(chat_id, {
+                    "model": model_name[:64], "window": int(model_window),
+                    "window_source": str(window_source),
+                    "external_tokens": int(external_tokens),
+                    "output_reserve": int(output_reserve),
+                    "available_context": int(available),
+                    "budget": int(budget),
+                    "selection_budget": int(selection_budget),
+                    "fixed_p0_tokens": int(fixed_tokens),
+                    "policy_mode": str(policy_mode),
+                    "payload": int(used_tokens),
+                    "recent_verbatim_messages": len(
+                        allocated.fresh_neighbours),
+                    "recent_verbatim_tokens": sum(
+                        f.tokens() for f in allocated.fresh_neighbours),
+                    "old_episode_count": len(episode_frags),
+                    "old_episode_messages": len(episode_frags),
+                    "middle_selected_messages": len(allocated.background),
+                    "excluded_low_priority": len(
+                        allocated.provenance.dropped),
+                    "physical_overflow": bool(
+                        allocated.provenance.overflow),
+                    "updated_at": int(time.time()),
+                })
+                return texts
+
+            try:
+                return await _run_live_selection()
+            except Exception:
+                selection_degraded = True
+                logger.warning(
+                    "direct: live selection failed — legacy fail-open | "
+                    "chat=%s", chat_id, exc_info=True)
 
         # ── Allocation (eviction P3→P2→P1; P0 не трогается) ──
         def _new_pieces() -> list:
@@ -13163,7 +13923,10 @@ class DirectChatService:
                         "output_reserve": int(output_reserve),
                         "available": int(available),
                         "budget": int(budget),
-                        "policy_mode": str(policy_mode),
+                        "policy_mode": ("legacy_fail_open"
+                                        if selection_degraded
+                                        else str(policy_mode)),
+                        "degraded": bool(selection_degraded),
                         "payload_tokens": int(used_tokens),
                         "fallback_window": (int(fallback_recompose_budget)
                                             if fallback_recompose_budget
@@ -13717,6 +14480,49 @@ class DirectChatService:
             logger.debug("direct: context config invariant check failed",
                          exc_info=True)
 
+    @staticmethod
+    def _current_question_source(message, extra_markers=(),
+                                 projection=None) -> tuple[str, tuple]:
+        """UR-C-2b: (полный текст, медиа-маркеры) без рендера блока.
+
+        Единственный источник для `_render_current_question` и для
+        `ContextSelection.current_question`; маркеры не дублируются и не
+        теряются между live-путями.
+        """
+        stripped = _strip_direct_prefix(_message_user_text(message))
+        markers: list[str] = []
+        speech = projection is not None and speech_projection_enabled()
+        if media_context_enabled():
+            own = message_media_type(message)
+            if own:
+                markers.append(
+                    media_marker(own, f"tg:{getattr(message, 'message_id', '')}",
+                                 projection=projection if speech else None))
+            reply = getattr(message, "reply_to_message", None)
+            reply_type = message_media_type(reply)
+            if reply_type:
+                markers.append(
+                    media_marker(
+                        reply_type, f"tg:{getattr(reply, 'message_id', '')}",
+                        projection=projection if speech else None))
+            for extra in extra_markers or ():
+                extra_text = str(extra or "")
+                if not extra_text:
+                    continue
+                # EVOL v5 (§4.1 P1/§4.2 п.2): доверенный маркер способа (C)
+                # приходит в сыром диалекте (`[медиа: photo tg:123]`) — он же
+                # служит явным рефом для media-readiness. В речевой проекции
+                # тот же маркер перерисовывается МЕТКОЙ прогона (тип медиа и
+                # привязка к сообщению сохраняются, служебный номер уходит).
+                parsed = MEDIA_MARKER_RE.match(extra_text.strip())
+                if parsed is not None and parsed.group("ref"):
+                    markers.append(media_marker(
+                        parsed.group("media"), parsed.group("ref"),
+                        projection=projection if speech else None))
+                else:
+                    markers.append(extra_text)
+        return stripped, tuple(markers)
+
     def _render_current_question(self, message, extra_markers=(),
                                  projection=None) -> str:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — ПОЛНЫЙ
@@ -13750,38 +14556,8 @@ class DirectChatService:
         быть частью «слов участника». Сам факт медиа, его тип и привязка к
         сообщению сохраняются. ``None``/рубильник OFF → прежний вид
         байт-в-байт (L1 — машинная стадия — всегда сырой)."""
-        stripped = _strip_direct_prefix(_message_user_text(message))
-        markers: list[str] = []
-        speech = projection is not None and speech_projection_enabled()
-        if media_context_enabled():
-            own = message_media_type(message)
-            if own:
-                markers.append(
-                    media_marker(own, f"tg:{getattr(message, 'message_id', '')}",
-                                 projection=projection if speech else None))
-            reply = getattr(message, "reply_to_message", None)
-            reply_type = message_media_type(reply)
-            if reply_type:
-                markers.append(
-                    media_marker(
-                        reply_type, f"tg:{getattr(reply, 'message_id', '')}",
-                        projection=projection if speech else None))
-            for extra in extra_markers or ():
-                extra_text = str(extra or "")
-                if not extra_text:
-                    continue
-                # EVOL v5 (§4.1 P1/§4.2 п.2): доверенный маркер способа (C)
-                # приходит в сыром диалекте (`[медиа: photo tg:123]`) — он же
-                # служит явным рефом для media-readiness. В речевой проекции
-                # тот же маркер перерисовывается МЕТКОЙ прогона (тип медиа и
-                # привязка к сообщению сохраняются, служебный номер уходит).
-                parsed = MEDIA_MARKER_RE.match(extra_text.strip())
-                if parsed is not None and parsed.group("ref"):
-                    markers.append(media_marker(
-                        parsed.group("media"), parsed.group("ref"),
-                        projection=projection if speech else None))
-                else:
-                    markers.append(extra_text)
+        stripped, markers = DirectChatService._current_question_source(
+            message, extra_markers=extra_markers, projection=projection)
         if not stripped and not markers:
             return ""
         # SXR-C2-01: полный текст без символьного потолка; медиа-маркеры —
@@ -16479,6 +17255,7 @@ class DirectChatService:
                                include_overview: bool = False,
                                plan_act: str = "",
                                trace_id: str | None = None,
+                               selection_mode: bool = False,
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -16726,14 +17503,17 @@ class DirectChatService:
         # R10.4-7 (F5 round1014, T-1518): cap — per-chat override (get_chat_param
         # → hot.get → default), иначе сохранённое для чата значение в direct-пути
         # игнорировалось. Зеркалит summary_memory.get_rag_context (_chat_limit).
-        cap = int(await _cp_g(
-            chat_id, "limits.graph_rag_context_max_chars",
-            hot.get("limits.graph_rag_context_max_chars",
-                    settings.GRAPH_RAG_CONTEXT_MAX_CHARS)) or 0)
-        if cap and len(content) > cap:
-            logger.warning("direct: rag context truncated to %d chars | chat=%s",
-                           cap, chat_id)
-            content = content[:cap]
+        # UR-C-2b: на live-selection пути это НЕ владелец отсечки — текст режет
+        # единственный allocate_selection; cap остаётся только fail-open/legacy.
+        if not selection_mode:
+            cap = int(await _cp_g(
+                chat_id, "limits.graph_rag_context_max_chars",
+                hot.get("limits.graph_rag_context_max_chars",
+                        settings.GRAPH_RAG_CONTEXT_MAX_CHARS)) or 0)
+            if cap and len(content) > cap:
+                logger.warning("direct: rag context truncated to %d chars | chat=%s",
+                               cap, chat_id)
+                content = content[:cap]
         period_trace, rag_years = _period_trace(period_stats, kept)
         logger.info(
             "direct: rag block | facts=%d | period_kept=%d | "
@@ -16805,6 +17585,10 @@ class DirectChatService:
                 # факта (R17: без текста). Раньше здесь были только id.
                 out_memory["grounds"] = _rag_ground_records(
                     rows, kept, chat_id)
+                # UR-C-2b: source_index/materializer получают ФАКТИЧЕСКИ
+                # вошедшие kept-ряды (тот же порядок рендера); в трассу это
+                # поле не копируется — только внутренний вход selection.
+                out_memory["rows"] = list(order_rag_facts_asc(kept))
             except Exception:      # pragma: no cover - наблюдение не рвёт блок
                 pass
         return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
@@ -16887,6 +17671,7 @@ class DirectChatService:
                 block, _hint = await self._build_rag_block(
                     rag_ctx["chat_id"], rag_ctx["message"],
                     rag_ctx["global_ctx"], **_rag_kwargs, **_plan_kwargs,
+                    selection_mode=True,
                     **({"include_overview": True}
                        if plan_scope == "historical" else {}))
             except TypeError:

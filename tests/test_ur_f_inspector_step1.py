@@ -1057,8 +1057,9 @@ def _delivered_ids(seen) -> list:
 
 
 def _degrade_allocator(monkeypatch, *, budget):
-    """Деградация аллокатора: `allocate_budget` падает, payload собирает
-    legacy-бюджет с жёстким капом `budget` (ветка репро ревью)."""
+    """Деградация аллокатора: UR-C-2b success-allocator (`allocate_selection`)
+    падает → live-путь уходит в legacy fail-open (`allocate_budget`), который
+    тоже падает → payload собирает `_apply_context_budget` с капом `budget`."""
     from services import budget_gate, chat_params
 
     def _boom(*args, **kwargs):
@@ -1074,6 +1075,8 @@ def _degrade_allocator(monkeypatch, *, budget):
             return True
         return default
 
+    monkeypatch.setattr(direct_chat_service._composer, "allocate_selection",
+                        _boom)
     monkeypatch.setattr(direct_chat_service._composer, "allocate_budget",
                         _boom)
     monkeypatch.setattr(budget_gate, "budgets_enabled", _budgets_enabled)

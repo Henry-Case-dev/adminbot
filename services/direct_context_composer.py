@@ -1143,7 +1143,17 @@ def _row_value(row, key, default=None):
 
 def _alias_label(aliases, uid, fallback: str = "") -> str:
     if aliases and uid is not None:
-        label = aliases.get(uid)
+        label = None
+        try:
+            label = aliases.get(uid)
+        except AttributeError:
+            # AliasResolver (live) предоставляет resolve(), а не get().
+            try:
+                label = aliases.resolve(int(uid), None, None)
+            except Exception:
+                label = None
+        except Exception:
+            label = None
         if label:
             return str(label)
     return str(fallback or "")
@@ -1869,6 +1879,74 @@ def resolve_corrections_across_blocks(thread_items, neighbour_items,
     return out[0], out[1], out[2], out[3], corrections
 
 
+def _dedup_preserving_projections(groups) -> tuple[list, int]:
+    """Дедуп без слияния проекций thread/branch и окна (UR-C-2b).
+
+    Одна и та же реплика законно присутствует в `<Conversation_Thread>` и
+    `<Global_Context>` (разные проекции одного источника). Поэтому:
+      * thread/branch и окно дедупятся только внутри своей проекции;
+      * memory/self-outputs дедупятся против ОБЕИХ проекций (не дублируют
+        источник, уже показанный как реплика).
+    """
+    out: list = []
+    seen_any: dict = {}
+    duplicates = 0
+
+    def _key(frag):
+        return ((frag.tg_message_id, frag.part_index)
+                if frag.tg_message_id is not None
+                else (frag.source_id, frag.part_index))
+
+    def _merge(index: int, frag) -> None:
+        current = out[index]
+        changes: dict = {}
+        if not current.time_known and frag.time_known:
+            changes.update(time_known=True, timestamp_utc=frag.timestamp_utc)
+        if not current.correlation_id and frag.correlation_id:
+            changes["correlation_id"] = frag.correlation_id
+        if current.speaker_uid is None and frag.speaker_uid is not None:
+            changes["speaker_uid"] = frag.speaker_uid
+        if int(current.revision or 1) < int(frag.revision or 1):
+            changes["revision"] = frag.revision
+        if not current.text and frag.text:
+            changes.update(text=frag.text, media_only=False)
+        if changes:
+            out[index] = _replace_fragment(current, **changes)
+
+    for idx, group in enumerate(groups):
+        if idx in (5, 6):
+            # memory / self-outputs: против всех уже показанных источников.
+            for frag in group or ():
+                key = _key(frag)
+                hit = seen_any.get(key)
+                if hit is not None:
+                    duplicates += 1
+                    _merge(hit, frag)
+                    continue
+                seen_any[key] = len(out)
+                out.append(frag)
+            continue
+        if idx in (2, 3):
+            projection = "dialogue"
+        elif idx in (4, 8):
+            projection = "window"
+        else:
+            projection = f"group{idx}"
+        seen_projection: dict = {}
+        for frag in group or ():
+            key = _key(frag)
+            pkey = (projection, key)
+            hit = seen_projection.get(pkey)
+            if hit is not None:
+                duplicates += 1
+                _merge(hit, frag)
+                continue
+            seen_projection[pkey] = len(out)
+            seen_any.setdefault(key, len(out))
+            out.append(frag)
+    return out, duplicates
+
+
 def build_context_selection(
         *, current_text: str, chat_id: int | None = None,
         media_markers=(), speaker_uid: int | None = None,
@@ -1880,7 +1958,9 @@ def build_context_selection(
         thread=(), fresh_neighbours=(), memory=(), self_outputs=(),
         background=(), summary_map: SummaryMapRef | None = None,
         evidence=None, memory_candidates=(), budget_tokens: int = 0,
-        raw_counts: dict | None = None) -> ContextSelection:
+        raw_counts: dict | None = None,
+        allocate: bool = True,
+        preserve_projections: bool = False) -> ContextSelection:
     """Собрать единый `ContextSelection` из готовых фрагментов (UR-09).
 
     Все данные уже типизированы существующими источниками (окно, thread_chain,
@@ -1890,7 +1970,7 @@ def build_context_selection(
     markers = [str(m) for m in (media_markers or ()) if str(m or "").strip()]
     body = str(current_text or "")
     if markers:
-        body = (body + "\n" + " ".join(markers)).strip() if body \
+        body = (body + " " + " ".join(markers)).strip() if body \
             else " ".join(markers)
     current = ContextFragment(
         kind=KIND_USER_STATEMENT,
@@ -1933,7 +2013,10 @@ def build_context_selection(
               self_items,
               [summary_frag] if summary_frag is not None else [],
               background_items)
-    ordered, dups = _dedup_fragments(groups)
+    if preserve_projections:
+        ordered, dups = _dedup_preserving_projections(groups)
+    else:
+        ordered, dups = _dedup_fragments(groups)
     raw = dict(raw_counts or {})
     if not raw:
         raw = _count_by(ordered)
@@ -1967,7 +2050,10 @@ def build_context_selection(
         provenance=provenance,
     )
     selection = _rebuild_selection(base, ordered, provenance)
-    return allocate_selection(selection, budget_tokens)
+    # UR-C-2b: live-путь собирает ПОЛНУЮ selection и вызывает allocator сам —
+    # ровно один владелец отсечки на payload. Старые вызовы сохраняют
+    # встроенную аллокацию (allocate=True).
+    return allocate_selection(selection, budget_tokens) if allocate else selection
 
 
 # ═══════════════════════════════════════════════════════════════════════════

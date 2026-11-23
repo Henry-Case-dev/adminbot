@@ -1165,11 +1165,15 @@ class TestURC2aMaterializerParity:
 
 
 class TestURC2aLivePathUnchanged:
-    def test_live_compose_still_uses_block_allocator_not_2a_helpers(self):
+    def test_live_compose_wires_selection_and_keeps_legacy_fail_open(self):
         source = inspect.getsource(dcs.DirectChatService._compose_user_content)
-        assert "_composer.allocate_budget(" in source
-        assert "_build_l2_selection_candidates(" not in source
-        assert "_materialize_selection(" not in source
-        # Сами helper'ы существуют и доступны только тестам/2b.
+        # UR-C-2b: live-путь использует selection и единственный allocator.
+        assert "_build_l2_selection_candidates(" in source
+        assert "allocate_selection(" in source
+        # Старый блочный allocator остаётся ТОЛЬКО как fail-open ветка.
+        assert "allocate_budget(" in source
+        assert source.index("_run_live_selection") < \
+            source.index("allocate_budget(")
+        # Helper'ы существуют и доступны live-пути.
         assert callable(dcs._build_l2_selection_candidates)
         assert callable(dcs._materialize_selection)
