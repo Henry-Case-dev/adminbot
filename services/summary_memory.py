@@ -61,7 +61,7 @@ from services.external_log import log_dropped, trace_step
 from services.llm_client import LLMError
 from services.summary_prompts import COMPRESS_PROMPT, EXTRACT_PROMPT
 from services.summary_xml import escape_xml_text
-from services.text_morphology import stem_word
+from services.text_morphology import short_stem_word, stem_word
 
 logger = logging.getLogger(__name__)
 
@@ -1804,19 +1804,26 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
         return " AND ".join(f'"{kw}"' for kw in cleaned)
     if mode == "prefix":
         return " OR ".join(f'"{kw}"*' for kw in cleaned)
-    if mode == "prefix_or_stem":
+    if mode in ("prefix_or_stem", "prefix_or_stem_short"):
         # VMQ-MEM-TIME (решение 11.11.2026): прежние префиксы ПЛЮС префикс
         # основы слова по существующим таблицам словоизменения
         # (`text_morphology.stem_word`). Аддитивный режим: FTS5 без
         # стемминга находил «колбас*», но не «колбасой»; здесь форма
         # запроса и форма в тексте сводятся к одной основе. Списков
         # годов/периодов нет — обобщаются обычные словоформы.
+        # RC4 (A2): `prefix_or_stem_short` добавляет retrieval-only
+        # 3-символьный content-stem (`шизах` → `шиз`); default/prefix_or и
+        # prefix_or_stem не меняются.
         terms: list[str] = []
         for kw in cleaned:
             terms.append(f'"{kw}"*')
             stem = stem_word(kw)
             if stem and stem != kw.lower():
                 terms.append(f'"{stem}"*')
+            if mode == "prefix_or_stem_short":
+                short = short_stem_word(kw)
+                if short and short not in (kw.lower(), stem):
+                    terms.append(f'"{short}"*')
         return " OR ".join(terms)
     if mode != "prefix_or":
         logger.warning("build_fts_query: unknown mode — prefix_or | mode=%r",

@@ -710,31 +710,46 @@ def _candidate_year(cand) -> int | None:
         return None
 
 
-def period_subject_stems(text) -> set:
-    """Основы значимых слов (≥4 символов) — существующая морфология §2.
+def period_subject_stems(text, *, explicit_year: bool = False) -> set:
+    """Основы значимых слов + аддитивный 3-символьный content-stem (RC4/A2).
 
-    Никаких списков тем/годов: тот же `_tokenize` и `text_morphology.stem_word`,
-    что использует SQL-окно периодного FTS (`_period_fts_keywords`)."""
+    Никаких списков тем/годов: тот же `_tokenize`, `text_morphology.stem_word`
+    и retrieval-only `short_stem_word`, что использует SQL-окно периодного
+    FTS (`_period_fts_keywords`). `explicit_year=True` исключает годовые слова
+    и служебные предлоги (D4), но не меняет порог §2.
+    """
     try:
-        from services.text_morphology import stem_word
+        from services.text_morphology import short_stem_word, stem_word
     except Exception:                                     # pragma: no cover
         return set()
     out: set = set()
     for word in _tokenize(text):
-        stem = stem_word(str(word))
-        if len(stem) >= 4:
+        token = str(word).casefold()
+        if explicit_year and (
+                _YEAR_IN_QUERY_RE.fullmatch(token)
+                or token in _YEAR_WORD_TOKENS
+                or token in _MESSAGE_WINDOW_STOPWORDS):
+            continue
+        # Одна нормализация на слово: short-stem является АЛЬТЕРНАТИВОЙ
+        # обычной основе, а не вторым независимым stem (иначе одно слово
+        # даёт два «общих» стема и обходит порог §2).
+        short = short_stem_word(token)
+        stem = short or stem_word(token)
+        if len(stem) >= (3 if short else 4):
             out.add(stem)
     return out
 
 
-def period_subject_shared(query_stems: set, text) -> int:
+def period_subject_shared(query_stems: set, text, *,
+                          explicit_year: bool = False) -> int:
     """Сколько РАЗНЫХ основ делят вопрос и текст факта (§2).
 
     Это лексическая релевантность пары «вопрос ↔ строка», а не независимость
     оснований; значение пишется в строку (`stems_shared`) один раз."""
     if not query_stems or not str(text or "").strip():
         return 0
-    return len(set(query_stems) & period_subject_stems(text))
+    return len(set(query_stems) & period_subject_stems(
+        text, explicit_year=explicit_year))
 
 
 def period_row_proxy(row) -> str | None:
@@ -803,7 +818,8 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     """
     intent = intent or resolve_period_intent(query, memory_scope=policy)
     slots = max(1, int(slots or 1))
-    query_stems = period_subject_stems(query)
+    query_stems = period_subject_stems(
+        query, explicit_year=intent.is_explicit_year)
     rows = list(rows or ())
     vector_rows = [row for row in rows if period_row_proxy(row) == "knn"]
     lexical_rows = [row for row in rows if period_row_proxy(row) != "knn"]
@@ -875,7 +891,9 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
                 stats["dropped_out_of_target_year"] += 1
                 _mark_period_row(row, None, PERIOD_DROP_OUT_OF_TARGET_YEAR)
                 continue
-            shared = period_subject_shared(query_stems, (row or {}).get("fact"))
+            shared = period_subject_shared(
+                query_stems, (row or {}).get("fact"),
+                explicit_year=intent.is_explicit_year)
             _mark_period_row(row, shared, PERIOD_KEEP_IN_TARGET)
             in_target.append((shared, index, row))
         in_target.sort(key=lambda item: (-item[0], item[1]))
@@ -902,8 +920,9 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         for row in ordered:
             year = period_row_year(row)
             if year == current_year:
-                shared = period_subject_shared(query_stems,
-                                               (row or {}).get("fact"))
+                shared = period_subject_shared(
+                    query_stems, (row or {}).get("fact"),
+                    explicit_year=intent.is_explicit_year)
                 _mark_period_row(row, shared, PERIOD_KEEP_IN_TARGET)
                 accepted.append(row)
             else:
@@ -923,7 +942,9 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             stats["kept_vector"] += 1
             accepted.append(row)
             continue
-        shared = period_subject_shared(query_stems, (row or {}).get("fact"))
+        shared = period_subject_shared(
+            query_stems, (row or {}).get("fact"),
+            explicit_year=intent.is_explicit_year)
         _mark_period_row(row, shared, "lexical_threshold_applied")
         if shared >= PERIOD_MIN_SHARED_STEMS:
             accepted.append(row)
@@ -2587,14 +2608,6 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     # применяется ТОЛЬКО здесь; глобальный `build_fts_query` и все прочие
     # вызовы `retrieve` сохраняют прежнюю формулу байт-в-байт. Длинные
     # содержательные токены и их prefix/stem варианты остаются прежними.
-    period_match = ""
-    period_keywords: list = []
-    if request.period_fill:
-        period_keywords = _period_fts_keywords(keywords)
-        period_match = build_fts_query(
-            period_keywords,
-            mode=("prefix_or_stem" if request.lexical_stem else "prefix_or")
-        ) if period_keywords else ""
     now = int(time.time())
     # P0-HA ISOLATION (§3): при активной количественной связке mode НЕ
     # повышается до "history" по _HISTORY_MARKERS (список маркеров не меняет)
@@ -2618,6 +2631,20 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         period_intent = request.period_intent or resolve_period_intent(
             request.query, memory_scope=policy,
             request_intent=request.intent, request_mode=request.mode)
+    # RC4 (A2/D4): short-stem variant только для периодного content-FTS;
+    # explicit-year дополнительно исключает годовые/служебные токены.
+    period_match = ""
+    period_keywords: list = []
+    if request.period_fill:
+        period_keywords = _period_fts_keywords(
+            keywords,
+            explicit_year=bool(period_intent
+                               and period_intent.is_explicit_year))
+        period_match = build_fts_query(
+            period_keywords,
+            mode=("prefix_or_stem_short" if request.lexical_stem
+                  else "prefix_or")
+        ) if period_keywords else ""
     #: Счётчики причин исключения (§10): policy→status→expired→relevance→
     #: budget. Только числа, без текстов фактов; уходят в durable-событие.
     excluded: dict = {}
@@ -3314,7 +3341,8 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         provenance_backed=(subject_ref not in (None, "")))
 
 
-def _period_fts_keywords(keywords: list[str]) -> list[str]:
+def _period_fts_keywords(keywords: list[str], *,
+                         explicit_year: bool = False) -> list[str]:
     """§2-совместимые токены ПЕРИОДНОГО FTS-запроса (VMQ-NEXT-02 §A).
 
     §2 (`_rag_subject_stems`) считает только основы длиной `>= 4`. Токен,
@@ -3322,14 +3350,23 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
     должен формировать периодный пул. Зеркалим §2 на той же морфологии
     (`text_morphology.stem_word`), не меняя глобальный `build_fts_query`:
     длинные содержательные токены и их prefix/stem варианты сохраняются.
-    Пустой результат — честная деградация вызывающей ветки, а не пустое
-    или неограниченное FTS-выражение.
+    `short_stem_word`-токены (`шиз`) сохраняются, если обычная основа короче
+    4; explicit-year (RC4/D4) дополнительно исключает годовые слова и
+    служебные предлоги. Пустой результат — честная деградация, а не
+    неограниченное FTS-выражение.
     """
     from services.text_morphology import stem_word
     out: list = []
     for word in keywords or ():
-        token = str(word or "")
-        if token and len(stem_word(token)) >= 4:
+        token = str(word or "").casefold()
+        if not token:
+            continue
+        if explicit_year and (
+                _YEAR_IN_QUERY_RE.fullmatch(token)
+                or token in _YEAR_WORD_TOKENS
+                or token in _MESSAGE_WINDOW_STOPWORDS):
+            continue
+        if len(stem_word(token)) >= 4:
             out.append(token)
     return out
 

@@ -1,0 +1,305 @@
+diff --git a/services/mca_retrieval_context.py b/services/mca_retrieval_context.py
+index 547febfbc..b9306240f 100644
+--- a/services/mca_retrieval_context.py
++++ b/services/mca_retrieval_context.py
+@@ -713,2 +713,2 @@ def _candidate_year(cand) -> int | None:
+-def period_subject_stems(text) -> set:
+-    """Основы значимых слов (≥4 символов) — существующая морфология §2.
++def period_subject_stems(text, *, explicit_year: bool = False) -> set:
++    """Основы значимых слов + аддитивный 3-символьный content-stem (RC4/A2).
+@@ -716,2 +716,5 @@ def period_subject_stems(text) -> set:
+-    Никаких списков тем/годов: тот же `_tokenize` и `text_morphology.stem_word`,
+-    что использует SQL-окно периодного FTS (`_period_fts_keywords`)."""
++    Никаких списков тем/годов: тот же `_tokenize`, `text_morphology.stem_word`
++    и retrieval-only `short_stem_word`, что использует SQL-окно периодного
++    FTS (`_period_fts_keywords`). `explicit_year=True` исключает годовые слова
++    и служебные предлоги (D4), но не меняет порог §2.
++    """
+@@ -719 +722 @@ def period_subject_stems(text) -> set:
+-        from services.text_morphology import stem_word
++        from services.text_morphology import short_stem_word, stem_word
+@@ -724,2 +727,12 @@ def period_subject_stems(text) -> set:
+-        stem = stem_word(str(word))
+-        if len(stem) >= 4:
++        token = str(word).casefold()
++        if explicit_year and (
++                _YEAR_IN_QUERY_RE.fullmatch(token)
++                or token in _YEAR_WORD_TOKENS
++                or token in _MESSAGE_WINDOW_STOPWORDS):
++            continue
++        # Одна нормализация на слово: short-stem является АЛЬТЕРНАТИВОЙ
++        # обычной основе, а не вторым независимым stem (иначе одно слово
++        # даёт два «общих» стема и обходит порог §2).
++        short = short_stem_word(token)
++        stem = short or stem_word(token)
++        if len(stem) >= (3 if short else 4):
+@@ -730 +743,2 @@ def period_subject_stems(text) -> set:
+-def period_subject_shared(query_stems: set, text) -> int:
++def period_subject_shared(query_stems: set, text, *,
++                          explicit_year: bool = False) -> int:
+@@ -737 +751,2 @@ def period_subject_shared(query_stems: set, text) -> int:
+-    return len(set(query_stems) & period_subject_stems(text))
++    return len(set(query_stems) & period_subject_stems(
++        text, explicit_year=explicit_year))
+@@ -806 +821,2 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+-    query_stems = period_subject_stems(query)
++    query_stems = period_subject_stems(
++        query, explicit_year=intent.is_explicit_year)
+@@ -878 +894,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+-            shared = period_subject_shared(query_stems, (row or {}).get("fact"))
++            shared = period_subject_shared(
++                query_stems, (row or {}).get("fact"),
++                explicit_year=intent.is_explicit_year)
+@@ -905,2 +923,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+-                shared = period_subject_shared(query_stems,
+-                                               (row or {}).get("fact"))
++                shared = period_subject_shared(
++                    query_stems, (row or {}).get("fact"),
++                    explicit_year=intent.is_explicit_year)
+@@ -926 +945,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+-        shared = period_subject_shared(query_stems, (row or {}).get("fact"))
++        shared = period_subject_shared(
++            query_stems, (row or {}).get("fact"),
++            explicit_year=intent.is_explicit_year)
+@@ -2590,8 +2610,0 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
+-    period_match = ""
+-    period_keywords: list = []
+-    if request.period_fill:
+-        period_keywords = _period_fts_keywords(keywords)
+-        period_match = build_fts_query(
+-            period_keywords,
+-            mode=("prefix_or_stem" if request.lexical_stem else "prefix_or")
+-        ) if period_keywords else ""
+@@ -2620,0 +2634,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
++    # RC4 (A2/D4): short-stem variant только для периодного content-FTS;
++    # explicit-year дополнительно исключает годовые/служебные токены.
++    period_match = ""
++    period_keywords: list = []
++    if request.period_fill:
++        period_keywords = _period_fts_keywords(
++            keywords,
++            explicit_year=bool(period_intent
++                               and period_intent.is_explicit_year))
++        period_match = build_fts_query(
++            period_keywords,
++            mode=("prefix_or_stem_short" if request.lexical_stem
++                  else "prefix_or")
++        ) if period_keywords else ""
+@@ -3317 +3344,2 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
+-def _period_fts_keywords(keywords: list[str]) -> list[str]:
++def _period_fts_keywords(keywords: list[str], *,
++                         explicit_year: bool = False) -> list[str]:
+@@ -3325,2 +3353,4 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
+-    Пустой результат — честная деградация вызывающей ветки, а не пустое
+-    или неограниченное FTS-выражение.
++    `short_stem_word`-токены (`шиз`) сохраняются, если обычная основа короче
++    4; explicit-year (RC4/D4) дополнительно исключает годовые слова и
++    служебные предлоги. Пустой результат — честная деградация, а не
++    неограниченное FTS-выражение.
+@@ -3331,2 +3361,9 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
+-        token = str(word or "")
+-        if token and len(stem_word(token)) >= 4:
++        token = str(word or "").casefold()
++        if not token:
++            continue
++        if explicit_year and (
++                _YEAR_IN_QUERY_RE.fullmatch(token)
++                or token in _YEAR_WORD_TOKENS
++                or token in _MESSAGE_WINDOW_STOPWORDS):
++            continue
++        if len(stem_word(token)) >= 4:
+diff --git a/services/summary_memory.py b/services/summary_memory.py
+index 9809a78b6..b2dae2cb6 100644
+--- a/services/summary_memory.py
++++ b/services/summary_memory.py
+@@ -64 +64 @@ from services.summary_xml import escape_xml_text
+-from services.text_morphology import stem_word
++from services.text_morphology import short_stem_word, stem_word
+@@ -1807 +1807 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
+-    if mode == "prefix_or_stem":
++    if mode in ("prefix_or_stem", "prefix_or_stem_short"):
+@@ -1813,0 +1814,3 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
++        # RC4 (A2): `prefix_or_stem_short` добавляет retrieval-only
++        # 3-символьный content-stem (`шизах` → `шиз`); default/prefix_or и
++        # prefix_or_stem не меняются.
+@@ -1819,0 +1823,4 @@ def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
++            if mode == "prefix_or_stem_short":
++                short = short_stem_word(kw)
++                if short and short not in (kw.lower(), stem):
++                    terms.append(f'"{short}"*')
+diff --git a/services/text_morphology.py b/services/text_morphology.py
+index 69775156c..2669bc9d7 100644
+--- a/services/text_morphology.py
++++ b/services/text_morphology.py
+@@ -61,0 +62,27 @@ def stem_word(word: str) -> str:
++
++
++#: RC4 (A2, 2026-11-23): short-stem variants are retrieval-only and must not
++#: revive generic year/chat noise. `год` from `годах` and `чат` from `чата`
++#: are the measured E-control noise; block only these stems, not topics.
++_SHORT_STEM_BLOCKED = frozenset({"год", "чат"})
++
++
++def short_stem_word(word: str) -> str:
++    """3-символьная основа для аддитивного retrieval-варианта (RC4/A2).
++
++    Не меняет `stem_word`/глобальный min-stem 4. Возвращает основу только
++    когда обычное снятие суффикса даёт ровно 3 символа (``шизах`` → ``шиз``,
++    ``шизы`` → ``шиз``); `год`/`чат` заблокированы как измеренный E-шум.
++    Вызывающий сам решает, content ли это токен; для служебных слов вариант
++    не используется.
++    """
++    low = str(word or "").lower()
++    if len(low) < 3:
++        return ""
++    if len(low) == 3:
++        return low if low not in _SHORT_STEM_BLOCKED else ""
++    for cand in _RU_SUFFIXES:
++        if low.endswith(cand) and len(low) - len(cand) == 3:
++            stem = low[: len(low) - len(cand)]
++            return stem if stem not in _SHORT_STEM_BLOCKED else ""
++    return ""
+diff --git a/tests/test_vmq_mem_rc4_short_stem.py b/tests/test_vmq_mem_rc4_short_stem.py
+new file mode 100644
+index 000000000..25c0f0d8d
+--- /dev/null
++++ b/tests/test_vmq_mem_rc4_short_stem.py
+@@ -0,0 +1,112 @@
++"""VMQ-MEM RC4 (A2+D4): retrieval-only short stem and year-token filtering."""
++import datetime
++
++import pytest
++
++from services.mca_retrieval_context import (
++    PERIOD_MIN_SHARED_STEMS,
++    PERIOD_SOFT_FALLBACK_MIN_ROWS,
++    _period_fts_keywords,
++    _tokenize,
++    period_subject_shared,
++    period_subject_stems,
++    resolve_period_intent,
++    select_period_rows,
++)
++from services.summary_memory import build_fts_query
++from services.text_morphology import short_stem_word, stem_word
++
++CHAT = -1002661910336
++YEAR_TS = int(datetime.datetime(
++    2024, 6, 1, tzinfo=datetime.timezone.utc).timestamp())
++
++
++def _fact(fid, text, year=2024, status="confirmed"):
++    ts = int(datetime.datetime(
++        year, 6, 1, tzinfo=datetime.timezone.utc).timestamp())
++    return {
++        "id": fid, "fact": text, "status": status,
++        "message_timestamp": ts, "created_at": ts, "rag_ts": ts,
++        "expires_at": None, "origin": "chat_history",
++    }
++
++
++def test_short_stem_is_additive_and_blocks_generic_noise():
++    # Global stem_word is not changed.
++    assert stem_word("шизах") == "шизах"
++    assert short_stem_word("шизах") == "шиз"
++    assert short_stem_word("шизы") == "шиз"
++    assert short_stem_word("шиз") == "шиз"
++    # E-control: year/chat variants are forbidden.
++    assert short_stem_word("годы") == ""
++    assert short_stem_word("годах") == ""
++    assert short_stem_word("чата") == ""
++    assert short_stem_word("2025") == ""
++
++
++def test_period_fts_adds_short_variant_only_in_additive_mode():
++    additive = build_fts_query(["шизах"], mode="prefix_or_stem_short")
++    assert '"шизах"*' in additive
++    assert '"шиз"*' in additive
++    # Default and existing stem mode remain byte-identical for the short case.
++    assert '"шиз"*' not in build_fts_query(["шизах"], mode="prefix_or")
++    assert '"шиз"*' not in build_fts_query(["шизах"], mode="prefix_or_stem")
++
++
++def test_period_stems_share_short_variant_and_threshold_unchanged():
++    assert PERIOD_MIN_SHARED_STEMS == 2
++    assert PERIOD_SOFT_FALLBACK_MIN_ROWS == 2
++    # Short stem is an ALTERNATIVE, not a second stem: one word cannot count
++    # as two shared subjects.
++    assert period_subject_stems("шизах") == {"шиз"}
++    assert period_subject_stems("шизы") == {"шиз"}
++    new_stems = period_subject_stems("шизах конфы")
++    assert "шиз" in new_stems
++    # Old len>=4-only normalization would see only {шизах, конф}; new sees {шиз}.
++    assert period_subject_shared({"шизах", "конф"}, "шиз конфы") == 1
++    assert period_subject_shared(new_stems, "шиз конфы") == 2
++
++    intent = resolve_period_intent("шизах конфы", memory_scope="historical")
++    accepted, stats = select_period_rows(
++        [_fact(1, "шиз конфы")], query="шизах конфы", intent=intent,
++        policy="historical", slots=2)
++    assert [row["id"] for row in accepted] == [1]
++    assert stats["lexical_strict_passed"] == 1
++    assert stats["dropped_subject"] == 0
++
++
++def test_explicit_year_removes_year_and_preposition_tokens():
++    tokens = _tokenize("что известно о конфликте Корсара с Олей в 2025 году?")
++    old = _period_fts_keywords(tokens, explicit_year=False)
++    new = _period_fts_keywords(tokens, explicit_year=True)
++    assert "2025" in old and "году" in old
++    assert "2025" not in new and "году" not in new
++    assert {"известно", "конфликте", "корсара", "олей"} <= set(new)
++    match = build_fts_query(new, mode="prefix_or_stem_short")
++    assert '"2025"*' not in match
++    assert '"году"*' not in match
++
++    # Year words are not query stems when explicit; non-explicit keeps them.
++    explicit_stems = period_subject_stems(
++        "конфликт 2025 году", explicit_year=True)
++    default_stems = period_subject_stems("конфликт 2025 году")
++    assert "2025" not in explicit_stems and "году" not in explicit_stems
++    assert "2025" in default_stems and "году" in default_stems
++    # E-control: `годы`/`чата` do not gain `год`/`чат` noise.
++    e_stems = period_subject_stems("как менялось отношение чата к Диане за годы?")
++    assert "год" not in e_stems and "чат" not in e_stems
++    assert "годы" in e_stems and "чата" in e_stems
++
++
++@pytest.mark.asyncio
++async def test_short_stem_does_not_replace_old_year_in_pool():
++    # A2 is selection/normalization only; explicit-year filter remains the
++    # authority for year. Old 2023/2024 facts must be reachable alongside 2026.
++    old = _fact(10, "шиз конфы", year=2023)
++    new = _fact(11, "шизах 2026", year=2026)
++    intent = resolve_period_intent("шизах конфы", memory_scope="historical")
++    accepted, _ = select_period_rows(
++        [old, new], query="шизах конфы", intent=intent,
++        policy="historical", slots=2)
++    ids = {row["id"] for row in accepted}
++    assert 10 in ids
+diff --git a/tests/test_vmq_mem_slice_d.py b/tests/test_vmq_mem_slice_d.py
+index ebc30cf67..042ddfedf 100644
+--- a/tests/test_vmq_mem_slice_d.py
++++ b/tests/test_vmq_mem_slice_d.py
+@@ -15 +15,2 @@
+-* A1P: `historical` → 2023/2024; `auto` → 2026:10 без потери id;
++* A1P: `historical` → 2024 (short-stem strict subject); `auto` → 2026:10
++  без потери id;
+@@ -321 +322 @@ class TestCurrentStatePaths:
+-        """A1P: historical — 2023/2024 через предметный fallback; auto — 2026:10.
++        """A1P: historical — 2024 через short-stem strict subject; auto — 2026:10.
+@@ -323,4 +324,4 @@ class TestCurrentStatePaths:
+-        TIME-03 (контракт 2026-11-20 §4.2): календарной квоты «обязательно
+-        другой старый год» больше нет; строки 2023/2024 входят потому, что
+-        делят с вопросом основу и проходят предметный soft-fallback, а не
+-        потому, что год старый."""
++        RC4/A2: `шизах` нормализуется в `шиз`, поэтому `на шизах и конф` —
++        строгий subject-match и soft-fallback больше не добавляет unrelated
++        `конфа тогда шумела` 2023. Контракт требует ≥1 старого года; 2024
++        доставлен, auto остаётся 2026:10."""
+@@ -343,2 +344,3 @@ class TestCurrentStatePaths:
+-        assert years == {2023: 1, 2024: 1, 2026: 8}, years
+-        assert service._rag_period_stats["soft_fallback"] == 2
++        assert years == {2024: 1, 2026: 9}, years
++        # RC4: строгий subject-match уже дал 2024; soft-fallback не нужен.
++        assert service._rag_period_stats["soft_fallback"] == 0
