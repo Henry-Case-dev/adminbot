@@ -1,0 +1,46 @@
+{
+  "schema": "m5b-evidence-v1",
+  "row": "MAC-EXP-08",
+  "slice": "M5B",
+  "base_sha": "f40402660",
+  "base_version": "2.58.237",
+  "candidate_branch": "feat/m5b-exp-08",
+  "status": "REVIEW",
+  "code_files": ["services/mca_experience_jobs.py"],
+  "test_files": ["tests/test_mod_acl_ux_m5b_shared_review.py"],
+  "code_diff": "+12",
+  "tests": [
+    {"name": "review_enabled_not_blocked_by_global_off", "result": "pass"},
+    {"name": "global_off_chat_on_processes_only_enabled_chat", "result": "pass"},
+    {"name": "global_on_chat_off_does_not_process_but_worker_alive", "result": "pass"},
+    {"name": "global_off_no_enabled_chat_is_inert_but_not_disabled", "result": "pass"},
+    {"name": "global_on_chat_off_no_lessons_from_existing_episodes", "result": "pass"},
+    {"name": "global_off_chat_on_lesson_retrievable_for_enabled_chat", "result": "pass"},
+    {"name": "global_off_chat_on_semantic_candidate_accepted", "result": "pass"}
+  ],
+  "checks": [
+    {"command": "pytest tests/test_mod_acl_ux_m5b_shared_review.py -q",
+     "result": "7 passed"},
+    {"command": "pytest <M5B+M2 resolver/consumers/capability+M5A> -q",
+     "result": "62 passed"},
+    {"command": "pytest <18 related experience files> -q -k 'not deep_sleep...'",
+     "result": "299 passed, 1 deselected"},
+    {"command": "py_compile", "result": "exit 0"},
+    {"command": "git diff --check", "result": "exit 0"},
+    {"command": "requirements_gate.py check --stage plan",
+     "result": "inventory=279 manual=102 scoped=0 errors=0"}
+  ],
+  "red": {
+    "base": "f40402660",
+    "result": "1 failed, 5 passed",
+    "failed": "test_global_on_chat_off_no_lessons_from_existing_episodes"
+  },
+  "mutations": [
+    "remove _propose_batch P2 learning gate -> disabled-chat lesson created (test fails)"
+  ],
+  "rfl": [
+    "live GLOBAL OFF+CHAT ON and GLOBAL ON+CHAT OFF on production",
+    "retrieval per-chat consumer gate outside this writer scope",
+    "MAC-M5-01 pending M5C/native question"
+  ]
+}
