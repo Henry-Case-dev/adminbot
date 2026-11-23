@@ -1,0 +1,19 @@
+{
+ "artifact_kind": "vmq_mem_rc5a_snapshot_probe",
+ "snapshot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\accept\\p0-hc\\snapshot-2.58.225.db",
+ "snapshot_sha256_expected": "b907d4c1e24321fffa48e3719974fd2293b1b1ff721ad21661446d22033e06e7",
+ "mode": "mode=ro&immutable=1; PRAGMA query_only=ON",
+ "chat_id": -1002661910336,
+ "existing_rows": {
+  "confirmed": 32133,
+  "subject_ref_confirmed": 6909,
+  "subject_ref_world_knowledge": 6810,
+  "leha_ref_confirmed": 611,
+  "leha_ref_world_knowledge": 598
+ },
+ "untouched": {
+  "subject_ref_world_unchanged": true,
+  "leha_world_unchanged": true,
+  "no_rewrite_path": true
+ }
+}

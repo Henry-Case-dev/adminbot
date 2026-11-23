@@ -1992,11 +1992,13 @@ def fact_durability_decision(fact: dict) -> dict:
     if kind == FACT_KIND_QUOTE:
         return {"store": True, "reason": "",
                 "personal": False,
-                "attribution": ("third_party", "opinion")}
+                "attribution": ("third_party", "opinion"),
+                "nonpersonal_kind": kind}
     if kind in FACT_NONPERSONAL_KINDS:
         return {"store": True, "reason": "",
                 "personal": False,
-                "attribution": ("world_knowledge", "world_knowledge")}
+                "attribution": ("world_knowledge", "world_knowledge"),
+                "nonpersonal_kind": kind}
     personal = subject_type in (None, "", "user")
     if kind == FACT_KIND_DURABLE and not personal:
         # Устойчивое сведение о внешнем мире/теме/персонаже — не биография
@@ -4785,6 +4787,8 @@ class MemoryManager:
                 if not verdict["personal"]:
                     nonpersonal += 1
                 declared_attr = verdict["attribution"]
+                declared_nonpersonal_kind = str(
+                    verdict.get("nonpersonal_kind") or "")
                 # Временное событие не становится вечным: у chat_history
                 # expires_at = NULL, поэтому такому классу даём обычный TTL.
                 fact_expiry = expiry
@@ -5004,7 +5008,8 @@ class MemoryManager:
                             chat_id, fact_id, source_type, subject,
                             fact_target_user, tg_message_id, display_canons,
                             declared_method=declared_method,
-                            declared_kind=declared_kind)
+                            declared_kind=declared_kind,
+                            nonpersonal_kind=declared_nonpersonal_kind)
                     except Exception:
                         logger.warning(
                             "graphrag provenance: attach failed — fail-open | "
@@ -5089,7 +5094,8 @@ class MemoryManager:
                                       target_user, tg_message_id,
                                       display_canons, *,
                                       declared_method: str | None = None,
-                                      declared_kind: str | None = None) -> None:
+                                      declared_kind: str | None = None,
+                                      nonpersonal_kind: str = "") -> None:
         """MCA-04a (ADR-1027-6 D9, T-3823): producer-хук — типизированный
         SourceRef/EvidenceLink для нового факта. Субъект-атрибуция:
         participant → self_report/third_party; иначе world_knowledge (общие
@@ -5101,6 +5107,13 @@ class MemoryManager:
         решение извлечения приоритетнее эвристики по тексту: иначе новость,
         принесённая участником, снова стала бы его личным фактом. None →
         ровно прежняя эвристика (поведение старых путей не меняется).
+
+        RC5a (C1, 23.11.2026): если извлечение ошибочно объявило
+        `world_knowledge` durable-факт, но `subject_ref_id` резолвится в
+        реального участника, запись переводится в `third_party`/`self_report`
+        (`biographical`); `nonpersonal_kind` (world_news/quote) сохраняет
+        явное world/quote-решение. Меняются только НОВЫЕ строки; существующие
+        не переписываются.
 
         MEMORY-05 (C-8 §8.2/§8.4, гейт `MCA_MEMORY_ATTRIBUTION_ENABLED`):
         ON → говорящий берётся из **сохранённого сообщения-источника**, а не
@@ -5174,6 +5187,20 @@ class MemoryManager:
                 self.db, chat_id, subject, canon=self._canon_fact_name)
         if ref is not None and getattr(ref, "resolution", "") == "resolved":
             subject_ref_id = await provenance.resolve_source_ref(self.db, ref)
+        # RC5a (C1): world_knowledge от извлечения не должен переживать
+        # устойчивый subject_ref участника. Явный world_news/quote
+        # (`nonpersonal_kind`) сохраняется; существующие строки не трогаются.
+        if method == "world_knowledge" and subject_ref_id is not None \
+                and not nonpersonal_kind:
+            if speaker_author_id is not None and ref is not None:
+                try:
+                    same = int(ref.entity_id) == int(speaker_author_id)
+                except (TypeError, ValueError):
+                    same = False
+                method = "self_report" if same else "third_party"
+            else:
+                method = "third_party"
+            kind = "biographical"
         channel = "import" if origin == "history_import" else "live"
         await provenance.record_fact_provenance(
             self.db, fact_id=fact_id, chat_id=chat_id, origin=origin,
