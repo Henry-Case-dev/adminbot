@@ -857,6 +857,7 @@ AUTHORITY_BACKGROUND = "background"  # конспект/вывод модели,
 # ── Роли внутри хода → приоритет UR-09 (0 = высший) ─────────────────────────
 ROLE_CURRENT_QUESTION = "current_question"
 ROLE_REPLY_PARENT = "reply_parent"
+ROLE_REPLY_BRANCH = "reply_branch"
 ROLE_THREAD = "thread"
 ROLE_FRESH_NEIGHBOUR = "fresh_neighbour"
 ROLE_MEMORY = "memory"
@@ -867,6 +868,7 @@ ROLE_BACKGROUND = "background"
 ROLE_PRIORITY: dict[str, int] = {
     ROLE_CURRENT_QUESTION: P0,
     ROLE_REPLY_PARENT: P0,
+    ROLE_REPLY_BRANCH: P0,
     ROLE_THREAD: P1,
     ROLE_FRESH_NEIGHBOUR: P1,
     ROLE_MEMORY: P2,
@@ -879,12 +881,13 @@ ROLE_PRIORITY: dict[str, int] = {
 ROLE_ORDER: dict[str, int] = {
     ROLE_CURRENT_QUESTION: 0,
     ROLE_REPLY_PARENT: 1,
-    ROLE_THREAD: 2,
-    ROLE_FRESH_NEIGHBOUR: 3,
-    ROLE_MEMORY: 4,
-    ROLE_SELF_OUTPUT: 5,
-    ROLE_SUMMARY: 6,
-    ROLE_BACKGROUND: 7,
+    ROLE_REPLY_BRANCH: 2,
+    ROLE_THREAD: 3,
+    ROLE_FRESH_NEIGHBOUR: 4,
+    ROLE_MEMORY: 5,
+    ROLE_SELF_OUTPUT: 6,
+    ROLE_SUMMARY: 7,
+    ROLE_BACKGROUND: 8,
 }
 
 
@@ -899,6 +902,8 @@ def fragment_priority(fragment: "ContextFragment") -> int:
     опускает его до фона (P3), чтобы оно исчезало первым."""
     if fragment.superseded_by:
         return P3
+    if bool(getattr(fragment, "correction", False)):
+        return P0
     role = str(fragment.role or "")
     return ROLE_PRIORITY.get(role, P2)
 
@@ -945,6 +950,10 @@ class ContextFragment:
     note: str = ""            # короткая машинная пометка (конфликт/правка)
     part_index: int = 0       # >0/part_total>1 — часть overflow-дробления
     part_total: int = 1
+    # UR-C-2a: contract additions (additive; old producers keep defaults).
+    correction: bool = False       # actuation correction -> P0
+    memory_tier: int = 0           # 2 exact/lexical/reply, 3 vector/graph, 4 episode
+    compressible: bool = True      # False for P0 reply_branch/correction
 
     @property
     def priority(self) -> int:
@@ -1027,6 +1036,7 @@ class ContextSelection:
     # связанные куски со ссылкой на источник (без потери середины/конца).
     current_parts: tuple = ()
     reply_parent_parts: tuple = ()
+    reply_branch: tuple = ()
     thread: tuple = ()
     memory: tuple = ()
     self_outputs: tuple = ()
@@ -1044,6 +1054,7 @@ class ContextSelection:
         if self.reply_parent is not None:
             items.append(self.reply_parent)
         items.extend(self.reply_parent_parts)
+        items.extend(self.reply_branch)
         items.extend(self.thread)
         items.extend(self.fresh_neighbours)
         items.extend(self.memory)
@@ -1062,6 +1073,7 @@ class ContextSelection:
                                     for f in self.reply_parent_parts],
             "reply_parent": (_fragment_ref(self.reply_parent)
                              if self.reply_parent is not None else None),
+            "reply_branch": [_fragment_ref(f) for f in self.reply_branch],
             "thread": [_fragment_ref(f) for f in self.thread],
             "fresh_neighbours": [_fragment_ref(f) for f in self.fresh_neighbours],
             "memory": [_fragment_ref(f) for f in self.memory],
@@ -1096,6 +1108,9 @@ def _fragment_ref(fragment: ContextFragment) -> dict:
                  if fragment.part_total > 1 else ""),
         "superseded_by": fragment.superseded_by,
         "note": fragment.note,
+        "correction": bool(getattr(fragment, "correction", False)),
+        "memory_tier": int(getattr(fragment, "memory_tier", 0) or 0),
+        "compressible": bool(getattr(fragment, "compressible", True)),
         "tokens": fragment.tokens(),
     }
 
@@ -1442,6 +1457,10 @@ def detect_corrections(fragments) -> tuple[tuple, tuple]:
             note=(f"устарело: более новая правка {frag.source_id}"
                   if not target.note else
                   f"{target.note}; устарело: правка {frag.source_id}"))
+        # UR-C-2a/UR-11.6: актуальная пользовательская правка — P0, а не
+        # обычная реплика ветки; `superseded_by` старой версии остаётся P3.
+        items[idx] = _replace_fragment(frag, correction=True,
+                                       compressible=False)
         corrections.append({"source_id": frag.source_id,
                             "target": target.source_id,
                             "reason_code": "superseded_by_user_correction"})
@@ -1603,10 +1622,16 @@ def allocate_selection(selection: ContextSelection,
     base = _replace_fragment_prov(
         provenance, budget_tokens=budget, raw_tokens=raw_total,
         selected_tokens=raw_total, selected_counts=_count_by(ordered))
+    # Дедуп-записи построены ДО аллокации; они не являются усечением и
+    # обязаны пережить единственный allocator (UR-09.2: provenance честен).
+    dedup_dropped = tuple(
+        item for item in provenance.dropped
+        if item.get("reason_code") == "duplicate_source")
     if budget <= 0 or raw_total <= budget:
         included = _replace_fragment_prov(
             base, included_counts=_count_by(ordered),
-            included_tokens=raw_total, dropped=(), overflow=False)
+            included_tokens=raw_total, dropped=dedup_dropped,
+            overflow=False)
         return _rebuild_selection(selection, ordered, included)
 
     dropped: list[dict] = []
@@ -1616,7 +1641,8 @@ def allocate_selection(selection: ContextSelection,
     def _drop(predicate, reason: str) -> None:
         nonlocal included, total
         for frag in sorted([f for f in included if predicate(f)],
-                           key=lambda f: (int(f.timestamp_utc or 0),
+                           key=lambda f: (-int(getattr(f, "memory_tier", 0) or 0),
+                                          int(f.timestamp_utc or 0),
                                           f.source_id)):
             if total <= budget:
                 return
@@ -1629,6 +1655,11 @@ def allocate_selection(selection: ContextSelection,
 
     # 1) нерелевантный фон (P3) — первым.
     _drop(lambda f: f.priority >= P3, "irrelevant_background")
+    # UR-C-2a memory tiers: episode/span (4) -> vector/graph (3) -> exact (2).
+    _drop(lambda f: f.role == ROLE_MEMORY
+          and int(getattr(f, "memory_tier", 0) or 0) >= 4, "memory_tier_4")
+    _drop(lambda f: f.role == ROLE_MEMORY
+          and int(getattr(f, "memory_tier", 0) or 0) >= 3, "memory_tier_3")
     # 2) вторичные конспекты/выводы модели (P2, background authority) — от
     #    старых к новым.
     _drop(lambda f: f.priority == P2
@@ -1642,7 +1673,8 @@ def allocate_selection(selection: ContextSelection,
     while total > budget and guard < 24:
         guard += 1
         candidates = [f for f in included
-                      if f.priority > P0 and f.tokens(measure) > 48]
+                      if f.priority > P0 and f.tokens(measure) > 48
+                      and bool(getattr(f, "compressible", True))]
         if not candidates:
             break
         victim = max(candidates, key=lambda f: f.tokens(measure))
@@ -1720,7 +1752,8 @@ def allocate_selection(selection: ContextSelection,
     final_prov = _replace_fragment_prov(
         base, included_counts=_count_by(included),
         included_tokens=sum(f.tokens(measure) for f in included),
-        dropped=tuple(dropped), overflow=bool(overflow or overflow_parts),
+        dropped=dedup_dropped + tuple(dropped),
+        overflow=bool(overflow or overflow_parts),
         overflow_parts=tuple(overflow_parts))
     ordered_final = [f for f in included]
     return _rebuild_selection(selection, ordered_final, final_prov)
@@ -1748,6 +1781,7 @@ def _rebuild_selection(selection: ContextSelection, fragments: list,
         current_parts=tuple(current_items[1:]),
         reply_parent=reply_parent,
         reply_parent_parts=tuple(reply_items[1:]),
+        reply_branch=tuple(by_role.get(ROLE_REPLY_BRANCH, ())),
         thread=tuple(by_role.get(ROLE_THREAD, ())),
         fresh_neighbours=tuple(by_role.get(ROLE_FRESH_NEIGHBOUR, ())),
         memory=tuple(by_role.get(ROLE_MEMORY, ())),
@@ -1803,7 +1837,8 @@ def _dedup_fragments(groups) -> tuple[list, int]:
 
 
 def resolve_corrections_across_blocks(thread_items, neighbour_items,
-                                      memory_items) -> tuple:
+                                      memory_items,
+                                      reply_branch_items=()) -> tuple:
     """UR-13.5: поздняя правка ищет устаревшую версию во ВСЕХ блоках.
 
     Правка приходит из ветки, а прежний факт часто живёт в памяти или в
@@ -1813,8 +1848,8 @@ def resolve_corrections_across_blocks(thread_items, neighbour_items,
     блоки сохраняют свой порядок, устаревший фрагмент остаётся в своём
     блоке (он не стирается, а получает ``superseded_by`` → P3).
     """
-    blocks = [list(thread_items or ()), list(neighbour_items or ()),
-              list(memory_items or ())]
+    blocks = [list(reply_branch_items or ()), list(thread_items or ()),
+              list(neighbour_items or ()), list(memory_items or ())]
     combined = [frag for block in blocks for frag in block]
     resolved, corrections = detect_corrections(combined)
     resolved = list(resolved)
@@ -1823,7 +1858,7 @@ def resolve_corrections_across_blocks(thread_items, neighbour_items,
     for block in blocks:
         out.append(list(resolved[start:start + len(block)]))
         start += len(block)
-    return out[0], out[1], out[2], corrections
+    return out[0], out[1], out[2], out[3], corrections
 
 
 def build_context_selection(
@@ -1833,6 +1868,7 @@ def build_context_selection(
         message_tg_id: int | None = None,
         timestamp_utc: int = 0,
         reply_parent: ContextFragment | None = None,
+        reply_branch=(),
         thread=(), fresh_neighbours=(), memory=(), self_outputs=(),
         background=(), summary_map: SummaryMapRef | None = None,
         evidence=None, memory_candidates=(), budget_tokens: int = 0,
@@ -1868,6 +1904,7 @@ def build_context_selection(
     )
 
     thread_items, thread_dups = _dedup_fragments([thread])
+    reply_branch_items, reply_branch_dups = _dedup_fragments([reply_branch])
     neighbour_items, neighbour_dups = _dedup_fragments([fresh_neighbours])
     memory_items, memory_dups = _dedup_fragments([memory])
     self_items, self_dups = _dedup_fragments([self_outputs])
@@ -1877,14 +1914,15 @@ def build_context_selection(
     # UR-13.5: детекция правок — до аллокации и по всем «разговорным» блокам,
     # а не только по ветке (иначе при большом бюджете старая версия факта из
     # памяти/окна остаётся равнозначной).
-    (thread_items, neighbour_items, memory_items,
+    (reply_branch_items, thread_items, neighbour_items, memory_items,
      corrections) = resolve_corrections_across_blocks(
-        thread_items, neighbour_items, memory_items)
+        thread_items, neighbour_items, memory_items, reply_branch_items)
 
     summary_frag = (summary_map_fragment(summary_map)
                     if isinstance(summary_map, SummaryMapRef) else None)
     groups = ([current], [reply_parent] if reply_parent is not None else [],
-              thread_items, neighbour_items, memory_items, self_items,
+              reply_branch_items, thread_items, neighbour_items, memory_items,
+              self_items,
               [summary_frag] if summary_frag is not None else [],
               background_items)
     ordered, dups = _dedup_fragments(groups)
@@ -1906,8 +1944,8 @@ def build_context_selection(
     )
     # Собираем выборку из УЖЕ дедуплицированного списка (одна и та же реплика
     # может прийти из ветки, ledger и self-outputs — она остаётся один раз).
-    duplicated = int(dups + thread_dups + neighbour_dups + memory_dups
-                     + self_dups + background_dups)
+    duplicated = int(dups + thread_dups + reply_branch_dups + neighbour_dups
+                     + memory_dups + self_dups + background_dups)
     if duplicated:
         provenance = _replace_fragment_prov(
             provenance,
@@ -1959,6 +1997,120 @@ def collect_window_fragments(rows, *, working_window_messages: int = 20,
                         fresh_window_seconds=fresh_window_seconds)
         for row in background_rows)
     return fresh, background
+
+
+def fragment_from_fact_row(row, *, role: str = ROLE_MEMORY,
+                           memory_tier: int = 3,
+                           source_prefix: str = "fact",
+                           authority: str = AUTHORITY_BACKGROUND):
+    """UR-C-2a: type an already-retrieved fact row as a memory fragment.
+
+    No retrieval/dedup/rerank happens here; the caller passes the kept rows
+    from the existing RAG producer. Missing text -> None.
+    """
+    text = str(_row_value(row, "text")
+               or _row_value(row, "preview")
+               or _row_value(row, "fact") or "").strip()
+    if not text:
+        return None
+    raw_id = (_row_value(row, "source_id") or _row_value(row, "id")
+              or _row_value(row, "entity_id") or "")
+    source_id = (str(raw_id) if str(raw_id).startswith("fact:")
+                 else f"{source_prefix}:{raw_id or 'row'}")
+    try:
+        ts = int(_row_value(row, "timestamp_utc")
+                 or _row_value(row, "sent_at") or 0)
+    except (TypeError, ValueError):
+        ts = 0
+    return ContextFragment(
+        kind=KIND_SUMMARY_INFERENCE,
+        source_id=source_id,
+        timestamp_utc=ts,
+        speaker_uid=_row_value(row, "author_id"),
+        author_label="память (вывод модели)",
+        text=text,
+        authority=authority,
+        fresh=False,
+        role=role,
+        time_known=bool(ts),
+        memory_tier=int(memory_tier or 0),
+        note=("факт/вывод retrieval, не дословная реплика"
+              if authority == AUTHORITY_BACKGROUND else ""))
+
+
+def fragments_from_episode_rows(rows, *, role: str = ROLE_MEMORY,
+                                aliases=None, bot_user_id=None,
+                                memory_tier: int = 4):
+    """UR-C-2a: type existing verbatim episode rows (no new span search)."""
+    result: list = []
+    for row in rows or ():
+        try:
+            frag = row_to_fragment(
+                row, role=role, aliases=aliases, bot_user_id=bot_user_id,
+                fresh=False)
+        except Exception:      # pragma: no cover - fail-open producer
+            continue
+        if not frag.text:
+            continue
+        result.append(_dc_replace(
+            frag, memory_tier=int(memory_tier or 0), compressible=True))
+    return tuple(result)
+
+
+def fragments_from_middle_lines(lines, *,
+                               authority: str = AUTHORITY_BACKGROUND):
+    """UR-C-2a: type existing summary/middle lines as low-trust background."""
+    result: list = []
+    for index, line in enumerate(lines or ()):
+        text = str(line or "").strip()
+        if not text:
+            continue
+        result.append(ContextFragment(
+            kind=KIND_SUMMARY_INFERENCE,
+            source_id=f"middle:{index}",
+            timestamp_utc=0,
+            author_label="конспект/фон",
+            text=text,
+            authority=authority,
+            fresh=False,
+            role=ROLE_BACKGROUND,
+            time_known=False,
+            memory_tier=0,
+            note="фон/конспект, не исходная реплика"))
+    return tuple(result)
+
+
+def fragment_from_self_output(record, *, aliases=None, bot_user_id=None):
+    """UR-C-2a: type an existing durable ledger record as self_output."""
+    try:
+        return ledger_record_to_fragment(
+            record, role=ROLE_SELF_OUTPUT, aliases=aliases,
+            bot_user_id=bot_user_id)
+    except Exception:          # pragma: no cover - fail-open producer
+        return None
+
+
+def split_reply_branch(fragments, hops: int):
+    """UR-C-2a: last ``hops`` chain fragments get P0 ``reply_branch``.
+
+    The remaining chain fragments stay P1 ``thread``; the same fragment
+    objects are not duplicated (branch is a projection of the thread tail).
+    """
+    ordered = list(fragments or ())
+    try:
+        keep = max(0, int(hops or 0))
+    except (TypeError, ValueError):
+        keep = 0
+    if keep <= 0 or not ordered:
+        return (), tuple(_dc_replace(f, role=ROLE_THREAD,
+                                     compressible=True) for f in ordered)
+    cut = max(0, len(ordered) - keep)
+    branch = tuple(
+        _dc_replace(f, role=ROLE_REPLY_BRANCH, compressible=False)
+        for f in ordered[cut:])
+    thread = tuple(_dc_replace(f, role=ROLE_THREAD, compressible=True)
+                   for f in ordered[:cut])
+    return branch, thread
 
 
 async def collect_memory_fragments(db, *, chat_id: int, candidates,
@@ -2029,7 +2181,8 @@ async def collect_memory_fragments(db, *, chat_id: int, candidates,
                 if not frag.text:
                     continue            # media-only строка без текста
                 seen_tg.add(row_tg)
-                fragments.append(frag)
+                fragments.append(_dc_replace(frag, memory_tier=2,
+                                             compressible=True))
                 if _cap_reached():
                     break
             continue
@@ -2052,6 +2205,7 @@ async def collect_memory_fragments(db, *, chat_id: int, candidates,
             fresh=False,
             role=role,
             time_known=bool(getattr(cand, "sent_at", 0)),
+            memory_tier=(3 if entity_type == "graph_fact" else 4),
             note="вывод/факт из памяти, не дословная реплика"))
     return tuple(fragments), raw
 
@@ -2121,7 +2275,8 @@ __all__ = [
     "KIND_USER_STATEMENT", "KIND_CHAT_EVENT", "KIND_BOT_STATEMENT",
     "KIND_SUMMARY_INFERENCE", "KIND_EXTERNAL_EVIDENCE",
     "AUTHORITY_PRIMARY", "AUTHORITY_SUPPORTING", "AUTHORITY_BACKGROUND",
-    "ROLE_CURRENT_QUESTION", "ROLE_REPLY_PARENT", "ROLE_THREAD",
+    "ROLE_CURRENT_QUESTION", "ROLE_REPLY_PARENT", "ROLE_REPLY_BRANCH",
+    "ROLE_THREAD",
     "ROLE_FRESH_NEIGHBOUR", "ROLE_MEMORY", "ROLE_SELF_OUTPUT",
     "ROLE_SUMMARY", "ROLE_BACKGROUND", "ROLE_PRIORITY", "ROLE_ORDER",
     "fragment_kind", "fragment_priority", "authority_for_kind",
@@ -2134,4 +2289,9 @@ __all__ = [
     "allocate_selection", "build_context_selection",
     "collect_window_fragments", "collect_memory_fragments",
     "collect_self_output_fragments",
+    # UR-C-2a offline producers (fact rows / episode rows / middle lines /
+    # ledger records / branch split); no new retrieval or store.
+    "fragment_from_fact_row", "fragments_from_episode_rows",
+    "fragments_from_middle_lines", "fragment_from_self_output",
+    "split_reply_branch",
 ]

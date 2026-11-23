@@ -12,16 +12,24 @@
   * UR-13.5 — поздняя правка пользователя приоритетнее, конфликт помечен;
   * UR-13.7 — при отсутствии памяти «не помню», без выдуманного recall;
   * UR-12 — условие конспекта по watermark/вытеснению, а не по числу строк;
-  * UR-11.2/11.3 — Dynamic по умолчанию и model-aware стадии инициативы.
+  * UR-11.2/11.3 — Dynamic по умолчанию и model-aware стадии инициативы;
+  * UR-C-2a (A2 core) — offline producers/materializer: роли branch/thread,
+    memory tiers 2/3/4, correction P0, parity с существующими рендерерами.
 """
+import inspect
+from types import SimpleNamespace
+
 import pytest
 
 from services import auto_budget as ab
+from services import direct_chat_service as dcs
 from services import direct_context_composer as comp
 from services import direct_l1 as l1
 from services import mca_retrieval_context as rc
 from services import summary_memory as sm
+from services import thread_chain as tchain
 from services.database import DatabaseService
+from services.summary_xml import escape_xml_text
 from services.token_counter import count_tokens
 
 CHAT = -100777
@@ -412,7 +420,10 @@ class TestCorrectionsAndConflicts:
         by_id = {f.source_id: f for f in fragments}
         assert by_id["msg:301"].superseded_by == "msg:302"
         assert by_id["msg:301"].priority == comp.P3
-        assert by_id["msg:302"].priority == comp.P1
+        # UR-C-2a/UR-11.6: актуальная правка — P0, а не обычная реплика P1.
+        assert by_id["msg:302"].priority == comp.P0
+        assert by_id["msg:302"].correction is True
+        assert by_id["msg:302"].compressible is False
         assert corrections and corrections[0]["target"] == "msg:301"
 
     @pytest.mark.parametrize("block", ["memory", "fresh_neighbours"])
@@ -442,7 +453,9 @@ class TestCorrectionsAndConflicts:
         assert by_id["msg:311"].priority == comp.P3
         assert by_id["msg:311"].authority == comp.AUTHORITY_BACKGROUND
         assert by_id["msg:311"].role == role          # блок не переписан
-        assert by_id["msg:312"].priority == comp.P1
+        # UR-C-2a/UR-11.6: правка сохраняется как P0.
+        assert by_id["msg:312"].priority == comp.P0
+        assert by_id["msg:312"].correction is True
         assert any(item["target"] == "msg:311"
                    for item in selection.provenance.corrections)
 
@@ -755,3 +768,270 @@ class TestL1SelectedWindow:
             assert kwargs["line_chars"] == 0
             assert kwargs["window_limit"] == len(kwargs["window"])
             assert kwargs["window_limit"] >= 1
+
+
+# ═══ UR-C-2a (A2 core, offline): producers, tiers, correction P0, parity ════
+
+class _Aliases:
+    def resolve(self, uid, name, username):
+        return name or f"u{uid}"
+
+
+def _dcs():
+    """Минимальный сервис: только существующие рендереры формата L2."""
+    return dcs.DirectChatService(None, None, None, _Aliases(), bot_id=BOT_UID)
+
+
+def _chain(count=4, uid=10, name="Вася"):
+    return [tchain.ChainItem(uid=uid, name=name, text=f"ход {i + 1}",
+                             is_bot=False, ts=100 + i,
+                             item_id=f"tg:{i + 1}")
+            for i in range(count)]
+
+
+class TestURC2aProducers:
+    def test_branch_is_p0_projection_without_duplicating_thread(self):
+        chain = _chain(5)
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", chain_items=chain, branch_hops=2,
+            working_window_messages=0)
+        branch_ids = [f.source_id for f in selection.reply_branch]
+        thread_ids = [f.source_id for f in selection.thread]
+        assert branch_ids == ["msg:4", "msg:5"]
+        assert thread_ids == ["msg:1", "msg:2", "msg:3"]
+        assert set(branch_ids).isdisjoint(thread_ids)
+        assert all(f.priority == comp.P0 for f in selection.reply_branch)
+        assert all(f.priority == comp.P1 for f in selection.thread)
+        assert all(not f.compressible for f in selection.reply_branch)
+        assert selection.current_question.priority == comp.P0
+        # Правок нет — correction-флаг не выдуман.
+        assert not any(f.correction for f in selection.fragments())
+        # Граница hops=0: вся цепочка — thread, P0-ветки нет.
+        no_branch = dcs._build_l2_selection_candidates(
+            current_text="вопрос", chain_items=chain, branch_hops=0,
+            working_window_messages=0)
+        assert no_branch.reply_branch == ()
+        assert len(no_branch.thread) == len(chain)
+
+    def test_fact_episode_self_output_and_summary_tiers(self):
+        fact = {"id": 7, "text": "кредит на 348 тысяч",
+                "timestamp_utc": 1000, "author_id": 21}
+        episode = _urc_row(41, "дословная старая реплика")
+        summary = {"summary": "спорили о кредите", "window_end_ts": 900,
+                   "raw_count": 12}
+        selection = dcs._build_l2_selection_candidates(
+            current_text="напомни про кредит", timestamp_utc=2000,
+            fact_rows=[fact], episode_rows=[episode],
+            self_output_records=[{
+                "output_id": 3, "tg_message_id": 55, "sent_at": 1500,
+                "content_text": "я говорил про 348 тысяч",
+                "bot_user_id": BOT_UID, "parent_message_ref": "tg:41",
+                "correlation_id": "turn-9"}],
+            summary_row=summary, working_window_messages=0)
+        by_id = {f.source_id: f for f in selection.fragments()}
+        fact_frag = by_id["fact:7"]
+        assert fact_frag.role == comp.ROLE_MEMORY
+        assert fact_frag.memory_tier == 3
+        assert fact_frag.authority == comp.AUTHORITY_BACKGROUND
+        assert "не дословная реплика" in fact_frag.note
+        episode_frag = by_id["msg:41"]
+        assert episode_frag.role == comp.ROLE_MEMORY
+        assert episode_frag.memory_tier == 4
+        assert episode_frag.authority == comp.AUTHORITY_PRIMARY
+        self_frag = by_id["bot_output:3"]
+        assert self_frag.role == comp.ROLE_SELF_OUTPUT
+        assert self_frag.authority == comp.AUTHORITY_SUPPORTING
+        assert self_frag.speaker_uid == BOT_UID
+        assert selection.summary and \
+            selection.summary[0].authority == comp.AUTHORITY_BACKGROUND
+        assert selection.provenance.memory_found is True
+        # R17-safe срез знает новые аддитивные поля.
+        summary_dict = selection.as_dict()
+        assert summary_dict["reply_branch"] == []
+        assert summary_dict["memory"][0]["memory_tier"] == 3
+        assert "correction" in summary_dict["memory"][0]
+        assert "compressible" in summary_dict["memory"][0]
+
+    def test_window_split_and_middle_lines_are_background(self):
+        rows = [_urc_row(i, f"строка {i}") for i in range(1, 9)]
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=5,
+            middle_lines=["middle-строка о деньгах"])
+        fresh_ids = [f.source_id for f in selection.fresh_neighbours]
+        assert fresh_ids == [f"msg:{i}" for i in range(4, 9)]
+        assert all(f.role == comp.ROLE_FRESH_NEIGHBOUR
+                   and f.priority == comp.P1
+                   for f in selection.fresh_neighbours)
+        background_ids = [f.source_id for f in selection.background]
+        assert background_ids[:3] == ["msg:1", "msg:2", "msg:3"]
+        assert background_ids[-1] == "middle:0"
+        assert all(f.priority == comp.P3 for f in selection.background)
+        assert selection.background[-1].text == "middle-строка о деньгах"
+
+    def test_same_source_from_window_and_episode_deduped_once(self):
+        row = _urc_row(77, "одна и та же реплика")
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=[row],
+            episode_rows=[row], working_window_messages=5)
+        matches = [f for f in selection.fragments()
+                   if f.source_id == "msg:77"]
+        assert len(matches) == 1
+        assert matches[0].role == comp.ROLE_FRESH_NEIGHBOUR
+        assert any(item.get("reason_code") == "duplicate_source"
+                   for item in selection.provenance.dropped)
+        # Даже когда allocator режет бюджет, dedup-запись не стирается.
+        tight = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=[row],
+            episode_rows=[row], working_window_messages=5,
+            budget_tokens=1)
+        assert any(item.get("reason_code") == "duplicate_source"
+                   for item in tight.provenance.dropped)
+
+    def test_missing_fact_source_is_marked_as_model_output(self):
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос",
+            fact_rows=[{"id": 8, "text": "предположение модели"}],
+            working_window_messages=0)
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, source: ""))
+        assert "rag" in blocks
+        assert "[вывод модели]" in blocks["rag"]
+        assert "предположение модели" in blocks["rag"]
+        # Не выдаётся за дословную реплику.
+        assert "<Old_Episode>" not in blocks.get("episode", "")
+
+
+class TestURC2aMaterializerParity:
+    def test_branch_and_thread_match_existing_renderers(self):
+        service = _dcs()
+        chain = _chain(4)
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", chain_items=chain, branch_hops=3,
+            working_window_messages=0)
+        index = {f"msg:{i + 1}": item for i, item in enumerate(chain)}
+        chain_order = {f"msg:{i + 1}": i for i, _item in enumerate(chain)}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, item: service._chain_line(
+                item, {}, None),
+            render_row_line=lambda frag, row: "",
+            source_index=index, chain_order=chain_order))
+        current_first = list(reversed(chain))
+        assert blocks["branch"] == service._render_branch(current_first, {},
+                                                         None)
+        assert blocks["thread"] == service._render_thread(
+            current_first, {}, truncate=False)
+        assert "<Conversation_Branch>" in blocks["branch"]
+        assert "<Conversation_Thread>" in blocks["thread"]
+        # Branch — проекция хвоста цепочки, не второй набор строк.
+        branch_body = blocks["branch"].split("\n")[1:-1]
+        thread_body = blocks["thread"].split("\n")[1:-1]
+        assert set(branch_body) <= set(thread_body)
+
+    def test_global_window_tail_matches_existing_row_renderer(self):
+        service = _dcs()
+        rows = [_urc_row(i, f"строка {i}") for i in range(1, 6)]
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=len(rows))
+        index = {f"msg:{row['tg_message_id']}": row for row in rows}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, row: service._context_row_line(
+                row, {}, None),
+            source_index=index))
+        expected_body = "\n".join(
+            service._context_row_line(row, {}, None) for row in rows)
+        assert blocks["global"] == (
+            f"<Global_Context>\n{escape_xml_text(expected_body)}\n"
+            f"</Global_Context>")
+
+    def test_global_summary_middle_tail_order_and_bytes(self):
+        service = _dcs()
+        rows = [_urc_row(i, f"строка {i}") for i in range(1, 6)]
+        summary = {"summary": "конспект темы", "window_end_ts": 0,
+                   "raw_count": 5}
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=2, summary_row=summary,
+            middle_lines=["middle-строка"])
+        index = {f"msg:{row['tg_message_id']}": row for row in rows}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, row: service._context_row_line(
+                row, {}, None),
+            source_index=index))
+        head = ["конспект темы"]
+        middle = [service._context_row_line(row, {}, None)
+                  for row in rows[:3]] + ["middle-строка"]
+        tail = [service._context_row_line(row, {}, None)
+                for row in rows[3:]]
+        expected = "\n".join(head + middle + tail)
+        assert blocks["global"] == (
+            f"<Global_Context>\n{escape_xml_text(expected)}\n"
+            f"</Global_Context>")
+
+    def test_rag_and_episode_match_existing_renderers(self):
+        service = _dcs()
+        fact = ("chat_history", "кредит на 348 тысяч", 1000, "Петя",
+                "msg:900")
+        episode_rows = [_urc_row(41, "дословная старая реплика"),
+                        _urc_row(42, "и ещё одна")]
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос",
+            fact_rows=[{"id": 7, "text": "кредит на 348 тысяч"}],
+            episode_rows=episode_rows, working_window_messages=0)
+        index = {"fact:7": fact}
+        index.update({f"msg:{row['tg_message_id']}": row
+                      for row in episode_rows})
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, row: service._context_row_line(
+                row, {}, None),
+            source_index=index))
+        from services.summary_memory import build_rag_context
+        assert blocks["rag"] == (
+            "<RAG_Memory>\n"
+            + build_rag_context([fact], origin_labels=True)
+            + "\n</RAG_Memory>")
+        expected_episode = "\n".join(
+            service._context_row_line(row, {}, None) for row in episode_rows)
+        assert blocks["episode"] == (
+            f"<Old_Episode>\n{escape_xml_text(expected_episode)}\n"
+            f"</Old_Episode>")
+        # CANONICAL_ORDER: episode раньше rag, current — в конце.
+        assert list(blocks) == ["episode", "rag", "current"]
+
+    def test_current_question_uses_existing_renderer(self):
+        service = _dcs()
+        message = SimpleNamespace(text="полный текущий вопрос",
+                                  message_id=99, reply_to_message=None)
+        selection = dcs._build_l2_selection_candidates(
+            current_text="полный текущий вопрос", message_tg_id=99,
+            working_window_messages=0)
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, source: "",
+            render_current=lambda frag, source: service._render_current_question(
+                message)))
+        assert blocks["current"] == \
+            service._render_current_question(message)
+        assert "полный текущий вопрос" in blocks["current"]
+
+
+class TestURC2aLivePathUnchanged:
+    def test_live_compose_still_uses_block_allocator_not_2a_helpers(self):
+        source = inspect.getsource(dcs.DirectChatService._compose_user_content)
+        assert "_composer.allocate_budget(" in source
+        assert "_build_l2_selection_candidates(" not in source
+        assert "_materialize_selection(" not in source
+        # Сами helper'ы существуют и доступны только тестам/2b.
+        assert callable(dcs._build_l2_selection_candidates)
+        assert callable(dcs._materialize_selection)

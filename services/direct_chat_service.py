@@ -4845,6 +4845,255 @@ async def _l1_bounded(call, route):
     return await call
 
 
+# ── UR-C-2a (A2 core, offline): direct L2 selection producers/materializer ──
+# Живой `_compose_user_content` эти функции пока не вызывает. Они типизируют
+# УЖЕ собранные источники (окно/цепочка/факты/эпизоды/ledger/конспект) в один
+# `ContextSelection` и материализуют выжившие фрагменты существующими
+# рендерерами. Нового retrieval/хранилища/флага здесь нет.
+
+def _row_timestamp(row) -> int:
+    try:
+        return int(row_get(row, "timestamp") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _build_l2_selection_candidates(
+        *,
+        current_text: str,
+        media_markers=(),
+        speaker_uid: int | None = None,
+        author_label: str = "",
+        reply_to_tg: int | None = None,
+        message_tg_id: int | None = None,
+        timestamp_utc: int = 0,
+        reply_parent=None,
+        chain_items=(),
+        branch_hops: int = 0,
+        window_rows=(),
+        memory_fragments=(),
+        fact_rows=(),
+        episode_rows=(),
+        self_output_records=(),
+        summary_row=None,
+        middle_lines=(),
+        aliases=None,
+        bot_user_id=None,
+        working_window_messages: int = 20,
+        fresh_window_seconds: int = 0,
+        now_ts: int = 0,
+        budget_tokens: int = 0):
+    """UR-C-2a: существующие источники → ЕДИНЫЙ `ContextSelection`.
+
+    Чистая сборка без чтений: цепочка/окно/факты/эпизоды/ledger/конспект уже
+    получены вызывающим. Роли:
+      * последние ``branch_hops`` ходов цепочки → P0 `reply_branch`,
+        остальные → P1 `thread`;
+      * свежий хвост окна → P1 `fresh_neighbour`, раннее окно → P3
+        `background`; middle-строки → P3 `background`;
+      * fact rows → P2 tier 3 (`fragment_from_fact_row`);
+      * episode rows → P2 tier 4 (`fragments_from_episode_rows`);
+      * ledger-записи → P2 `self_output` (`fragment_from_self_output`).
+
+    ``budget_tokens=0`` (заводское) — полная selection без усечения; живое
+    подключение (2b) вызовет `allocate_selection` отдельно.
+    """
+    chain_fragments = [
+        _composer.chain_item_to_fragment(
+            item, role=_composer.ROLE_THREAD, aliases=aliases,
+            bot_user_id=bot_user_id)
+        for item in chain_items or ()]
+    reply_branch, thread = _composer.split_reply_branch(
+        chain_fragments, branch_hops)
+    fresh, window_background = _composer.collect_window_fragments(
+        window_rows, working_window_messages=working_window_messages,
+        aliases=aliases, bot_user_id=bot_user_id, now_ts=now_ts,
+        fresh_window_seconds=fresh_window_seconds)
+    memory: list = list(memory_fragments or ())
+    for row in fact_rows or ():
+        frag = _composer.fragment_from_fact_row(row)
+        if frag is not None:
+            memory.append(frag)
+    memory.extend(_composer.fragments_from_episode_rows(
+        episode_rows, aliases=aliases, bot_user_id=bot_user_id))
+    self_outputs: list = []
+    for record in self_output_records or ():
+        frag = _composer.fragment_from_self_output(
+            record, aliases=aliases, bot_user_id=bot_user_id)
+        if frag is not None:
+            self_outputs.append(frag)
+    newest_ts = max((_row_timestamp(row) for row in window_rows or ()),
+                    default=0)
+    summary_map = (_composer.summary_map_ref(
+        summary_row, now_ts=now_ts, newest_ts=newest_ts)
+        if summary_row is not None else None)
+    background = list(window_background)
+    background.extend(_composer.fragments_from_middle_lines(middle_lines))
+    return _composer.build_context_selection(
+        current_text=current_text, media_markers=media_markers,
+        speaker_uid=speaker_uid, author_label=author_label,
+        reply_to_tg=reply_to_tg, message_tg_id=message_tg_id,
+        timestamp_utc=timestamp_utc, reply_parent=reply_parent,
+        reply_branch=reply_branch, thread=thread,
+        fresh_neighbours=fresh, memory=tuple(memory),
+        self_outputs=tuple(self_outputs),
+        background=tuple(background), summary_map=summary_map,
+        budget_tokens=budget_tokens)
+
+
+def _materialize_selection(
+        selection,
+        *,
+        render_chain_line,
+        render_row_line,
+        render_current=None,
+        render_fact_line=None,
+        source_index: dict | None = None,
+        chain_order: dict | None = None,
+        projection=None) -> list[tuple[str, str]]:
+    """UR-C-2a: выжившие фрагменты selection → блоки payload.
+
+    Материализатор НЕ отбирает и НЕ режет: он группирует уже выбранные
+    фрагменты и рендерит их существующими владельцами формата:
+
+      * ``render_chain_line(fragment, source)`` — `_chain_line` для
+        branch/thread (source — `thread_chain.ChainItem`);
+      * ``render_row_line(fragment, source)`` — `_context_row_line` /
+        `render_window_lines` для окна, self-outputs и episode;
+      * ``render_fact_line(fragment, source)`` — `build_rag_context` по
+        исходному fact-tuple; без исходника — явная пометка «вывод модели»;
+      * ``render_current(fragment, source)`` — `_render_current_question`.
+
+    ``source_index`` — карта ``source_id → исходный объект`` (ChainItem/row/
+    fact tuple/ledger record); рендереры получают её значение вторым
+    аргументом. ``chain_order`` — ``source_id → позиция в исходной цепочке``:
+    branch/thread обязаны выводиться в хронологии, как старый
+    `_render_thread` (роли этого порядка не задают). Порядок блоков —
+    `CANONICAL_ORDER`, не `ROLE_ORDER`; новых тегов/промпт-текста нет.
+    ``<Global_Context>`` собирается на своём слоте (head/middle/tail),
+    self-outputs сливаются с окном по времени.
+    """
+    index = dict(source_index or {})
+
+    def _source(fragment):
+        return index.get(fragment.source_id)
+
+    def _wrap(tag: str, lines) -> str:
+        body = "\n".join(str(line) for line in lines if str(line or "").strip())
+        if not body:
+            return ""
+        return f"<{tag}>\n{escape_xml_text(body)}\n</{tag}>"
+
+    def _line(renderer, fragment) -> str:
+        return str(renderer(fragment, _source(fragment)) or "")
+
+    blocks: dict[str, str] = {}
+
+    current = getattr(selection, "current_question", None)
+    if current is not None and (current.text or "").strip():
+        if render_current is not None:
+            blocks["current"] = _line(render_current, current)
+        else:
+            blocks["current"] = _wrap("Current_Question", [current.text])
+
+    def _projection(items) -> list:
+        seen: set = set()
+        out: list = []
+        for frag in items:
+            key = frag.source_id or id(frag)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(frag)
+        return out
+
+    reply_parent = getattr(selection, "reply_parent", None)
+    branch_items = [reply_parent] if reply_parent is not None else []
+    branch_items.extend(getattr(selection, "reply_branch", ()) or ())
+    branch_items = _projection(branch_items)
+    thread_items = _projection(
+        branch_items + list(getattr(selection, "thread", ()) or ()))
+    if chain_order:
+        # Ветка — хвост цепочки, thread — её начало; блок обязан быть
+        # хронологическим, как старый `_render_thread`. Порядок берётся у
+        # вызывающего (исходная цепочка), а не у ролей.
+        thread_items = sorted(
+            thread_items,
+            key=lambda f: chain_order.get(f.source_id, len(chain_order)))
+    if branch_items:
+        blocks["branch"] = _wrap(
+            "Conversation_Branch", [_line(render_chain_line, f)
+                                    for f in branch_items])
+    if thread_items:
+        blocks["thread"] = _wrap(
+            "Conversation_Thread", [_line(render_chain_line, f)
+                                    for f in thread_items])
+
+    rag_fragments: list = []
+    episode_fragments: list = []
+    for frag in getattr(selection, "memory", ()) or ():
+        ref = str(frag.source_id or "")
+        if (frag.kind == _composer.KIND_SUMMARY_INFERENCE
+                and not ref.startswith(("episode:", "middle:", "summary:"))):
+            rag_fragments.append(frag)
+        else:
+            episode_fragments.append(frag)
+    if rag_fragments:
+        fact_lines = []
+        for frag in rag_fragments:
+            source = _source(frag)
+            if render_fact_line is not None:
+                fact_lines.append(_line(render_fact_line, frag))
+            elif isinstance(source, (tuple, list)):
+                fact_lines.append(build_rag_context(
+                    [source], origin_labels=True, projection=projection))
+            else:
+                fact_lines.append("[вывод модели] " + escape_xml_text(frag.text))
+        body = "\n".join(line for line in fact_lines if line.strip())
+        blocks["rag"] = (f"<RAG_Memory>\n{body}\n</RAG_Memory>"
+                         if body else "")
+    if episode_fragments:
+        blocks["episode"] = _wrap(
+            "Old_Episode", [_line(render_row_line, f)
+                            for f in episode_fragments])
+
+    head_lines = [frag.text for frag in (getattr(selection, "summary", ())
+                                         or ()) if (frag.text or "").strip()]
+    middle_lines: list[str] = []
+    for frag in getattr(selection, "background", ()) or ():
+        if str(frag.source_id or "").startswith("middle:") \
+                and _source(frag) is None:
+            middle_lines.append(frag.text)
+        else:
+            middle_lines.append(_line(render_row_line, frag))
+    tail_fragments = list(getattr(selection, "fresh_neighbours", ()) or ())
+    self_outputs = list(getattr(selection, "self_outputs", ()) or ())
+    if self_outputs:
+        tail_fragments = sorted(
+            tail_fragments + self_outputs,
+            key=lambda f: (int(f.timestamp_utc or 0), f.source_id))
+    tail_lines = [_line(render_row_line, f) for f in tail_fragments]
+    global_body = "\n".join(
+        line for line in head_lines + middle_lines + tail_lines
+        if str(line or "").strip())
+    if global_body:
+        blocks["global"] = (
+            f"<Global_Context>\n{escape_xml_text(global_body)}\n"
+            f"</Global_Context>")
+
+    order = _composer.CANONICAL_ORDER
+    ordered: list[tuple[str, str]] = []
+    for kind, text in blocks.items():
+        if not text:
+            continue
+        position = order.get(kind, 99)
+        if kind == "global":
+            position = order.get("global_head", 5)
+        ordered.append((position, kind, text))
+    ordered.sort(key=lambda row: (row[0], row[1]))
+    return [(kind, text) for _pos, kind, text in ordered]
+
+
 class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
