@@ -19,8 +19,8 @@ Scope: code-only — закрытие 3 REVIEW-строк M5A + M5B shared revie
 - Release branch: `release/mod-acl-m5a3-m5b-2.58.238` от `f40402660`.
 - Content tip (6 cherry-picks): `f5567fccd4d7ebd95438a3f33754ce234929fb9e`.
 - Reviewed/deploy tip: `b81ec52aa4834896c8e901269e69058612ae81bf`
-  — **exact deploy SHA**; относительно content tip это docs/evidence-only,
-  product bytes идентичны.
+  — **exact deploy SHA**; относительно content tip это release-only
+  (bump + docs/evidence), product code/tests bytes идентичны candidates.
 - Bump: `7a36f4fc847f4f51246457c02300d047acd565d6`.
 - Post-review docs-only correction на этой же ветке (этот коммит) не
   деплоится; product bytes от него не меняются.

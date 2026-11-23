@@ -10,9 +10,9 @@ Production host `192.255.209.205`, checkout `/var/www/admin_bot`, unit
   `f5567fccd4d7ebd95438a3f33754ce234929fb9e`; reviewed/deploy tip
   `b81ec52aa4834896c8e901269e69058612ae81bf`; bump
   `7a36f4fc847f4f51246457c02300d047acd565d6`. **Деплоить exact
-  `b81ec52aa`** (docs/evidence-only относительно content tip; product
-  bytes идентичны). Post-review docs-only correction на ветке после
-  `b81ec52aa` не деплоится.
+  `b81ec52aa`** (release-only: bump + docs/evidence; product code/tests
+  bytes идентичны candidates). Post-review docs-only correction на ветке
+  после `b81ec52aa` не деплоится.
 - Base/rollback: `f4040266013bb19374c24c39ed001ba1ccb815f4` (2.58.237).
 - Schema: SQLite **48**, PG DDL **0**.
 - Review: M5A `86dc3f32e` APPROVED, 3 REVIEW → VERIFIED; M5B
