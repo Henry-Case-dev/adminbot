@@ -795,6 +795,16 @@ class TestAdaptiveNoGrowth:
         assert len(router.dispatched) == 1
         assert llm.calls == 1
 
+    def test_empty_or_error_status_is_not_evidence_growth(self):
+        assert _dx._has_evidence_growth([
+            {"status": "empty", "out_chars": 10, "duplicate": False},
+            {"status": "error", "out_chars": 10, "duplicate": False},
+            {"status": "ok", "out_chars": 0, "duplicate": False},
+            {"status": "ok", "out_chars": 10, "duplicate": True},
+        ]) is False
+        assert _dx._has_evidence_growth([
+            {"status": "ok", "out_chars": 10, "duplicate": False}]) is True
+
     def test_orchestrator_prompt_without_material_is_bounded(self):
         huge = "x" * 100000
         messages = _dx._orchestrator_messages(

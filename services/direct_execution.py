@@ -1187,8 +1187,7 @@ def _has_evidence_growth(results) -> bool:
             out_chars = 0
         if out_chars <= 0:
             continue
-        status = str(row.get("status") or "")
-        if status not in (tool_result.STATUS_OK, tool_result.STATUS_EMPTY):
+        if str(row.get("status") or "") != tool_result.STATUS_OK:
             continue
         return True
     return False
