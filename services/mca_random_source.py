@@ -2013,7 +2013,8 @@ class IbmQuantumRuntimeClient:
                              job_store=None, supervisor=None,
                              account_key: str = "",
                              config_fp: str = "",
-                             fence: Callable | None = None) -> dict:
+                             fence: Callable | None = None,
+                             max_inflight: int = 1) -> dict:
         """Отдельное ограниченное измерение на реальном QPU (не зачисляется)."""
         checked_at = int(time.time())
         crn_present = bool(str(crn or "").strip())
@@ -2058,7 +2059,8 @@ class IbmQuantumRuntimeClient:
                     length=1, job_store=job_store, supervisor=supervisor,
                     deposit=None, account_key=account_key,
                     config_fp=config_fp, smoke=True,
-                    shots_override=shots, fence=fence)
+                    shots_override=shots, fence=fence,
+                    max_inflight=max_inflight)
             else:
                 instances = await self._instances(service)
                 batch = await self._run_on_backend(
@@ -2112,7 +2114,8 @@ class IbmQuantumRuntimeClient:
                     length: int = DEFAULT_BATCH_LENGTH,
                     job_store=None, supervisor=None, deposit=None,
                     account_key: str = "", config_fp: str = "",
-                    fence: Callable | None = None) -> AnuBatch:
+                    fence: Callable | None = None,
+                    max_inflight: int = 1) -> AnuBatch:
         key, crn_text, instance_text, region_text, channel_text = \
             self._validated(api_key, crn, instance, region, channel)
         try:
@@ -2160,7 +2163,8 @@ class IbmQuantumRuntimeClient:
                 api_key=key, crn=crn_text, instance=instance_text,
                 region=region_text, channel=channel_text, length=length,
                 job_store=job_store, supervisor=supervisor, deposit=deposit,
-                account_key=account_key, config_fp=config_fp, fence=fence)
+                account_key=account_key, config_fp=config_fp, fence=fence,
+                max_inflight=max_inflight)
         except IbmError as exc:
             self._note_failure(self._clock(), exc.code)
             raise
@@ -2173,65 +2177,130 @@ class IbmQuantumRuntimeClient:
                            account_key: str, config_fp: str,
                            smoke: bool = False,
                            shots_override: int | None = None,
-                           fence: Callable | None = None) -> AnuBatch:
-        from services.task_supervisor import get_task_supervisor
+                           fence: Callable | None = None,
+                           max_inflight: int = 1) -> AnuBatch:
+        from services.task_supervisor import (JOB_CANCELLED, JOB_COMPLETED,
+                                              JOB_FAILED, JobHeartbeat,
+                                              get_task_supervisor)
         sup = supervisor or get_task_supervisor()
-        prefix = "random.ibm.smoke" if smoke else "random.ibm.job"
-        coalesce = (f"{prefix}:{account_key or 'ibm'}:"
-                    f"{config_fp or key_fingerprint(api_key)}")
-        # Durability guard ДО submit: активная строка IBM (в т.ч. оставшаяся
-        # после рестарта) означает attach/recovery, а не вторую оплату.
+        claim_id = ""
+        slots = max(1, min(2, int(max_inflight or 1)))
+        # Атомарный paid-slot: unique active coalesce в существующей
+        # task_jobs. Владелец получает СВОЙ job_id; конкурент на том же слоте
+        # получает чужой active job_id и не доходит до sampler.run.
+        for slot in range(slots):
+            candidate = uuid.uuid4().hex
+            try:
+                returned = await job_store.enqueue(
+                    owner=IBM_JOB_OWNER, kind=IBM_JOB_KIND,
+                    coalesce_key=f"random.ibm.active.{slot}",
+                    job_id=candidate,
+                    payload=json.dumps(
+                        {"purpose": "smoke" if smoke else "refill"},
+                        separators=(",", ":")),
+                    max_attempts=1,
+                    deadline_at=int(time.time() + self._job_max_age))
+            except Exception:
+                logger.warning("[random_source] ibm slot claim failed",
+                               exc_info=True)
+                raise IbmError("provider_unavailable",
+                               "ibm slot claim failed", stage="claim",
+                               retryable=True, sent=False)
+            if str(returned or "") == candidate:
+                claim_id = candidate
+                break
+        if not claim_id:
+            raise IbmError("job_in_progress", "ibm active slots occupied",
+                           retryable=True, sent=False, stage="job")
         try:
-            active = await job_store.active()
+            marked = await job_store.mark_running(claim_id)
         except Exception:
-            active = []
-        if any(str(r.get("kind") or "") == IBM_JOB_KIND
-               for r in active):
-            raise IbmError("job_in_progress", "active ibm job exists",
+            marked = False
+        if not marked:
+            raise IbmError("job_in_progress", "ibm claim not owned",
                            retryable=True, sent=False, stage="job")
-        if fence is not None and await fence():
-            raise IbmError("job_in_progress",
-                           "unresolved/recovering ibm job exists",
-                           retryable=True, sent=False, stage="job")
+        row = await job_store.get(claim_id) or {}
+        fence_token = int(row.get("fencing_token") or 0)
+
+        async def _finish_claim(status: str, *, reason_code=None,
+                                result_ref=None, error_code=None) -> None:
+            try:
+                await job_store.finish(
+                    claim_id, status=status, reason_code=reason_code,
+                    result_ref=result_ref, error_code=error_code,
+                    fencing_token=fence_token)
+            except Exception:
+                logger.warning("[random_source] ibm claim finish failed",
+                               exc_info=True)
+
+        if fence is not None:
+            try:
+                blocked = await fence(exclude_job_id=claim_id)
+            except TypeError:
+                try:
+                    blocked = await fence()
+                except Exception:
+                    blocked = False
+            except Exception:
+                blocked = False
+            if blocked:
+                await _finish_claim(JOB_CANCELLED,
+                                    reason_code="job_in_progress")
+                raise IbmError(
+                    "job_in_progress",
+                    "unresolved/recovering ibm job exists",
+                    retryable=True, sent=False, stage="job")
+        heartbeat = JobHeartbeat.start(
+            job_store, claim_id, fencing_token=fence_token)
         box: dict = {}
 
         async def _job():
-            own = await self._find_own_job(job_store, coalesce)
-            box["task_job_id"] = own
+            box["task_job_id"] = claim_id
             batch = await self._submit_and_wait(
                 api_key=api_key, crn=crn, instance=instance, region=region,
                 channel=channel, length=(1 if smoke else length),
-                checkpoint_job_id=own, job_store=job_store,
+                checkpoint_job_id=claim_id, job_store=job_store,
                 purpose=("smoke" if smoke else "refill"),
                 shots_override=(shots_override if smoke else None))
+            current = await job_store.get(claim_id) or {}
+            if (str(current.get("status") or "") != "running"
+                    or int(current.get("fencing_token") or 0)
+                    != fence_token):
+                # Config rotation/quarantine снял claim: старый результат
+                # не зачисляется и не смешивается с новым key/CRN.
+                raise IbmError("job_in_progress",
+                               "ibm claim revoked before deposit",
+                               retryable=True, sent=False, stage="deposit")
             if not smoke and deposit is not None:
                 batch.provenance["batch_id"] = await deposit(batch)
             box["batch"] = batch
             return _ibm_external_ref(batch.provenance or {})
 
-        record = await sup.run(
-            _job, owner=IBM_JOB_OWNER, kind=IBM_JOB_KIND,
-            coalesce_key=coalesce,
-            deadline_at=time.time() + self._job_max_age,
-            job_store=job_store)
+        try:
+            await sup.run(
+                _job, owner=IBM_JOB_OWNER, kind=IBM_JOB_KIND,
+                job_store=None, emit_event=True, causation_id=claim_id)
+        except asyncio.CancelledError:
+            await _finish_claim(JOB_CANCELLED, reason_code="cancelled")
+            raise
+        except Exception as exc:
+            await _finish_claim(
+                JOB_FAILED, reason_code="task_failed",
+                error_code=type(exc).__name__)
+            raise
+        finally:
+            if heartbeat is not None:
+                await heartbeat.stop()
         batch = box.get("batch")
         if batch is None:
-            raise IbmError("job_in_progress", "coalesced", retryable=True,
-                           sent=False, stage="job",
-                           job_state=getattr(record, "status", None))
+            await _finish_claim(JOB_FAILED, reason_code="no_result",
+                                error_code="no_result")
+            raise IbmError("job_in_progress", "no ibm batch result",
+                           retryable=True, sent=False, stage="job")
+        await _finish_claim(
+            JOB_COMPLETED,
+            result_ref=_ibm_external_ref(batch.provenance or {}))
         return batch
-
-    @staticmethod
-    async def _find_own_job(job_store, coalesce: str):
-        try:
-            rows = await job_store.active()
-        except Exception:
-            return None
-        for row in rows:
-            if (str(row.get("kind") or "") == IBM_JOB_KIND
-                    and str(row.get("coalesce_key") or "") == coalesce):
-                return str(row.get("job_id") or "") or None
-        return None
 
     async def _submit_and_wait(self, *, api_key: str, crn: str,
                                instance: str, region: str, channel: str,
@@ -4505,7 +4574,8 @@ class RandomSourceService:
                 deposit=deposit,
                 account_key=self._ibm_account_key(),
                 config_fp=self._ibm_config_fingerprint(),
-                fence=self._ibm_submit_fence)
+                fence=self._ibm_submit_fence,
+                max_inflight=self._ibm_max_inflight())
             batch.latency_ms = int((time.monotonic() - started) * 1000)
             self._last_latency_ms = batch.latency_ms
             return batch
@@ -4947,7 +5017,8 @@ class RandomSourceService:
                         if job_store is not None else None),
             account_key=self._ibm_account_key(),
             config_fp=self._ibm_config_fingerprint(),
-            fence=self._ibm_submit_fence)
+            fence=self._ibm_submit_fence,
+            max_inflight=self._ibm_max_inflight())
         persisted = bool(
             key and key == self._ibm_api_key()
             and (not crn or crn == self._ibm_crn()))
@@ -5393,8 +5464,15 @@ class RandomSourceService:
         rows = await self._ibm_task_rows(
             statuses=("queued", "running", "interrupted", "failed",
                       "expired"))
+        current_fp = self._ibm_config_fingerprint()
         out: list[dict] = []
         for row in rows:
+            cursor = self._ibm_cursor(row)
+            cursor_fp = str(cursor.get("config_fp") or "").strip()
+            if cursor_fp and current_fp and cursor_fp != current_fp:
+                # Чужая (старая) конфигурация не фенсит новый key/CRN;
+                # строка будет явно карантинирована recovery.
+                continue
             status = str(row.get("status") or "")
             if status in ("queued", "running", "interrupted"):
                 out.append(row)
@@ -5402,17 +5480,29 @@ class RandomSourceService:
                 out.append(row)
         return out
 
-    async def _ibm_inflight_count(self) -> int:
-        """Число занятых IBM-слотов: unresolved rows + активные recovery."""
+    async def _ibm_inflight_count(self, exclude_job_id: str | None = None) -> int:
+        """Число занятых IBM-слотов: unresolved rows + активные recovery.
+
+        `exclude_job_id` — только что атомарно захваченная claim-строка: она
+        не должна фенсить собственный submit."""
         active = await self._ibm_active_jobs()
+        excluded = str(exclude_job_id or "").strip()
+        if excluded:
+            active = [r for r in active
+                      if str(r.get("job_id") or "") != excluded]
         active_ids = {
             str(self._ibm_cursor(r).get("job") or "").strip()
             for r in active} - {""}
-        return len(active) + len(self._ibm_recovering - active_ids)
+        recovering = set(self._ibm_recovering)
+        if excluded:
+            recovering.discard(excluded)
+        return len(active) + len(recovering - active_ids)
 
-    async def _ibm_submit_fence(self) -> bool:
+    async def _ibm_submit_fence(self, *,
+                                exclude_job_id: str | None = None) -> bool:
         """Fence для клиента непосредственно перед paid submit."""
-        return await self._ibm_inflight_count() >= self._ibm_max_inflight()
+        return await self._ibm_inflight_count(exclude_job_id) >= \
+            self._ibm_max_inflight()
 
     async def _ibm_jobs_today(self) -> int:
         rows = await self._ibm_task_rows(since=self._utc_day_start())
@@ -5528,6 +5618,52 @@ class RandomSourceService:
             logger.warning("[random_source] ibm row finish failed | "
                            "job_id=%s", row.get("job_id"), exc_info=True)
 
+    async def _bump_ibm_fencing(self, job_id: str) -> None:
+        """Снять fencing-токен старого watcher'а (только существующая колонка)."""
+        if self.db is None or not job_id:
+            return
+
+        async def _body(conn):
+            await conn.execute(
+                "UPDATE task_jobs SET fencing_token = fencing_token + 1, "
+                "updated_at = ? WHERE job_id = ?",
+                (int(time.time()), str(job_id)))
+            return True
+
+        try:
+            await self.db.write_transaction(
+                _body, op_name="task_jobs_ibm_quarantine_fence")
+        except Exception:
+            logger.warning("[random_source] ibm quarantine fence failed | "
+                           "job_id=%s", job_id, exc_info=True)
+
+    async def _quarantine_ibm_row(self, row: dict, cursor: dict,
+                                  current_fp: str) -> None:
+        """Явно карантинировать unresolved job старой конфигурации.
+
+        Старый late result НЕ смешивается с новым key/CRN и не фенсит его;
+        cursor переводится в терминальный `failed`, строка закрывается
+        `config_changed`, а старый watcher теряет fencing-токен."""
+        await self._bump_ibm_fencing(str(row.get("job_id") or ""))
+        await self._finish_ibm_row(
+            row, status="failed", reason_code="config_changed",
+            error_code="config_changed")
+        if self.db is None:
+            return
+        from services.task_supervisor import TaskJobStore
+        clean = dict(cursor or {})
+        clean.update({"state": IBM_JOB_FAILED, "quarantined": True,
+                      "config_fp": str(cursor.get("config_fp") or "")})
+        try:
+            await TaskJobStore(self.db).save_checkpoint(
+                str(row.get("job_id") or ""),
+                cursor_token=json.dumps(clean, separators=(",", ":"),
+                                        ensure_ascii=False),
+                processed=0)
+        except Exception:
+            logger.warning("[random_source] ibm quarantine cursor failed | "
+                           "job_id=%s", row.get("job_id"), exc_info=True)
+
     async def _recover_ibm_jobs(self) -> int:
         """Присоединиться к незавершённым IBM job'ам после рестарта.
 
@@ -5552,6 +5688,12 @@ class RandomSourceService:
         started = 0
         for row in rows:
             cursor = self._ibm_cursor(row)
+            if cursor.get("quarantined"):
+                continue
+            cursor_fp = str(cursor.get("config_fp") or "").strip()
+            if cursor_fp and current_fp and cursor_fp != current_fp:
+                await self._quarantine_ibm_row(row, cursor, current_fp)
+                continue
             purpose = str(cursor.get("purpose") or "refill")
             ibm_job_id = str(cursor.get("job") or "").strip()
             if not ibm_job_id:
@@ -5589,12 +5731,6 @@ class RandomSourceService:
                             reason_code="submit_uncertain",
                             error_code="delivery_unknown")
                     continue
-            cursor_fp = str(cursor.get("config_fp") or "").strip()
-            if cursor_fp and current_fp and cursor_fp != current_fp:
-                await self._finish_ibm_row(
-                    row, status="failed", reason_code="config_changed",
-                    error_code="config_changed")
-                continue
             if purpose != "smoke" and await self._ibm_batch_exists(
                     ibm_job_id):
                 await self._finish_ibm_row(
