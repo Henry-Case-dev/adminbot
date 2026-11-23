@@ -1273,11 +1273,11 @@ def _default_qiskit_sampler(*, backend):
 
 
 def _default_ibm_circuit(num_qubits: int):
-    """Схема измерения: равномерная суперпозиция + measure всех кубитов."""
+    """Схема измерения: равномерная суперпозиция + measure_all (`meas`)."""
     from qiskit import QuantumCircuit
-    circuit = QuantumCircuit(num_qubits, num_qubits)
+    circuit = QuantumCircuit(num_qubits)
     circuit.h(range(num_qubits))
-    circuit.measure(range(num_qubits), range(num_qubits))
+    circuit.measure_all()
     return circuit
 
 
@@ -1438,6 +1438,36 @@ def _ibm_stage_for_code(code: str) -> str:
     }.get(str(code), "request")
 
 
+def _ibm_crn_region(crn) -> str:
+    """Регион из CRN (`crn:v1:bluemix:public:quantum-compute:<region>:...`)."""
+    parts = str(crn or "").split(":")
+    if len(parts) > 5 and parts[0].lower() == "crn":
+        region = parts[5].strip()
+        if region and len(region) <= 32:
+            return region
+    return ""
+
+
+def _ibm_instance_region(instances, instance_ref: str) -> str:
+    """Фактический регион instance из ответа IBM (CRN/список instances)."""
+    direct = _ibm_crn_region(instance_ref)
+    if direct:
+        return direct
+    for item in instances or ():
+        crn = _ibm_attr(item, "crn", None)
+        name = _ibm_attr(item, "name", None)
+        if isinstance(item, dict):
+            crn = item.get("crn", crn)
+            name = item.get("name", name)
+        if instance_ref and instance_ref not in (str(crn or ""),
+                                                 str(name or "")):
+            continue
+        region = _ibm_crn_region(crn)
+        if region:
+            return region
+    return ""
+
+
 def _ibm_plan_from_instances(instances, instance_ref: str) -> str | None:
     """Фактический plan из ответа IBM, если он там есть; иначе None."""
     for item in instances or ():
@@ -1492,14 +1522,8 @@ def _ibm_usage_public(service) -> dict | None:
     return out or None
 
 
-def _ibm_job_state(job) -> str | None:
+def _ibm_normalize_status(status) -> str | None:
     """Нормализовать состояние IBM job; None — состояние недоступно."""
-    status = _ibm_attr(job, "status", None)
-    if callable(status):
-        try:
-            status = status()
-        except Exception:
-            return None
     text = str(getattr(status, "name", status) or "").strip().lower()
     if not text:
         return None
@@ -1517,53 +1541,6 @@ def _ibm_job_state(job) -> str | None:
     return IBM_JOB_RUNNING
 
 
-def _ibm_job_usage(job) -> tuple[float | None, str]:
-    """(фактический QPU usage, источник) по данным IBM; без выдумывания."""
-    usage = _ibm_attr(job, "usage", None)
-    if callable(usage):
-        try:
-            usage = usage()
-        except Exception:
-            usage = None
-    try:
-        if usage is not None and not isinstance(usage, bool):
-            value = float(usage)
-            if value >= 0:
-                return value, "job.usage"
-    except (TypeError, ValueError):
-        pass
-    metrics = _ibm_attr(job, "metrics", None)
-    if callable(metrics):
-        try:
-            metrics = metrics()
-        except Exception:
-            metrics = None
-    if isinstance(metrics, dict):
-        for key in ("usage", "usage_seconds", "qpu_time", "qpu_seconds"):
-            raw = metrics.get(key)
-            try:
-                if raw is not None and not isinstance(raw, bool) \
-                        and not isinstance(raw, dict):
-                    value = float(raw)
-                    if value >= 0:
-                        return value, f"job.metrics.{key}"
-            except (TypeError, ValueError):
-                continue
-        usage_data = metrics.get("usage")
-        if isinstance(usage_data, dict):
-            for key in ("qpu_charge_time_seconds", "value",
-                        "usage_seconds", "qpu_time"):
-                raw = usage_data.get(key)
-                try:
-                    if raw is not None and not isinstance(raw, bool):
-                        value = float(raw)
-                        if value >= 0:
-                            return value, f"job.metrics.usage.{key}"
-                except (TypeError, ValueError):
-                    continue
-    return None, "unavailable"
-
-
 def _ibm_debias_bitstrings(bitstrings) -> tuple[list[int], dict]:
     """Детерминированный von Neumann debias сырых measurement bits.
 
@@ -1576,13 +1553,15 @@ def _ibm_debias_bitstrings(bitstrings) -> tuple[list[int], dict]:
     raw_total = 0
     pairs = 0
     accepted = 0
-    for bitstring in bitstrings:
-        raw_total += len(bitstring)
-        raw_ones += bitstring.count("1")
-        # Пары внутри одного shot: не смешиваем ранги разных кубитов.
-        for index in range(0, len(bitstring) - 1, 2):
+    # Пары — соседние shots на ОДНОЙ позиции кубита: не смешиваем разные
+    # кубиты с разным readout-смещением и не ловим crosstalk внутри shot.
+    for index in range(0, len(bitstrings) - 1, 2):
+        first, second = bitstrings[index], bitstrings[index + 1]
+        raw_total += len(first) + len(second)
+        raw_ones += first.count("1") + second.count("1")
+        for pos in range(min(len(first), len(second))):
             pairs += 1
-            left, right = bitstring[index], bitstring[index + 1]
+            left, right = first[pos], second[pos]
             if left != right:
                 bits.append(1 if left == "1" else 0)
                 accepted += 1
@@ -1733,6 +1712,74 @@ class IbmQuantumRuntimeClient:
             raise IbmError("provider_unavailable", "circuit_open",
                            retryable=True, sent=False, stage="circuit")
 
+    async def _call(self, fn, *args, **kwargs):
+        """Выполнить блокирующий qiskit-вызов вне event loop с таймаутом.
+
+        Сетевые/вычислительные операции SDK не должны задерживать Telegram:
+        они уходят в поток, а `http_timeout` ограничивает ожидание."""
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(fn, *args, **kwargs),
+                timeout=self._timeout)
+        except asyncio.TimeoutError:
+            raise IbmError("timeout", "ibm request timeout", stage="request",
+                           retryable=True, sent=True)
+
+    async def _job_state(self, job) -> str | None:
+        status = _ibm_attr(job, "status", None)
+        if not callable(status):
+            return _ibm_normalize_status(status)
+        try:
+            return _ibm_normalize_status(await self._call(status))
+        except Exception:
+            return None
+
+    async def _job_usage(self, job) -> tuple[float | None, str]:
+        """Фактический QPU usage по данным IBM (вне event loop)."""
+        usage = _ibm_attr(job, "usage", None)
+        if callable(usage):
+            try:
+                usage = await self._call(usage)
+            except Exception:
+                usage = None
+        try:
+            if usage is not None and not isinstance(usage, bool):
+                value = float(usage)
+                if value >= 0:
+                    return value, "job.usage"
+        except (TypeError, ValueError):
+            pass
+        metrics = _ibm_attr(job, "metrics", None)
+        if callable(metrics):
+            try:
+                metrics = await self._call(metrics)
+            except Exception:
+                metrics = None
+        if isinstance(metrics, dict):
+            for key in ("usage", "usage_seconds", "qpu_time", "qpu_seconds"):
+                raw = metrics.get(key)
+                try:
+                    if raw is not None and not isinstance(raw, bool) \
+                            and not isinstance(raw, dict):
+                        value = float(raw)
+                        if value >= 0:
+                            return value, f"job.metrics.{key}"
+                except (TypeError, ValueError):
+                    continue
+            usage_data = metrics.get("usage")
+            if isinstance(usage_data, dict):
+                for key in ("qpu_charge_time_seconds", "value",
+                            "usage_seconds", "qpu_time"):
+                    raw = usage_data.get(key)
+                    try:
+                        if raw is not None and not isinstance(raw, bool):
+                            value = float(raw)
+                            if value >= 0:
+                                return value, f"job.metrics.usage.{key}"
+                    except (TypeError, ValueError):
+                        continue
+        return None, "unavailable"
+
     # ── валидация подключения (без сети) ───────────────────────────────────
     def _validated(self, api_key, crn, instance, region,
                    channel) -> tuple[str, str, str, str, str]:
@@ -1859,6 +1906,33 @@ class IbmQuantumRuntimeClient:
                 region=region_text, channel=channel_text)
             instance_ref = crn_text or instance_text
             instances = self._instances(service)
+            if instances:
+                known = set()
+                for item in instances:
+                    known.add(str(_ibm_attr(item, "crn", "") or ""))
+                    known.add(str(_ibm_attr(item, "name", "") or ""))
+                    if isinstance(item, dict):
+                        known.add(str(item.get("crn") or ""))
+                        known.add(str(item.get("name") or ""))
+                if instance_ref not in known:
+                    self._note_failure(now, "invalid_instance")
+                    return _ibm_error_result(
+                        code="invalid_instance", stage="instance",
+                        reason="instance/CRN not found in IBM response",
+                        key_present=True, crn_present=crn_present,
+                        instance=instance_text, region=region_text,
+                        channel=channel_text, checked_at=checked_at)
+            actual_region = _ibm_instance_region(instances, instance_ref)
+            if (actual_region
+                    and actual_region.lower() != region_text.lower()):
+                self._note_failure(now, "invalid_region")
+                return _ibm_error_result(
+                    code="invalid_region", stage="region",
+                    reason=(f"instance region={actual_region[:24]} "
+                            f"!= configured={region_text[:24]}"),
+                    key_present=True, crn_present=crn_present,
+                    instance=instance_text, region=region_text,
+                    channel=channel_text, checked_at=checked_at)
             backends_raw = self._backends(service, instance_ref)
             public = [_ibm_backend_public(b) for b in backends_raw]
             hardware = [b for b in backends_raw if _ibm_backend_eligible(b)]
@@ -2111,15 +2185,23 @@ class IbmQuantumRuntimeClient:
         shots = _ibm_shots_for(length, num_qubits)
         circuit = self._circuit_factory(num_qubits)
         try:
-            circuit = self._transpiler(circuit, backend)
+            circuit = await self._call(self._transpiler, circuit, backend)
+        except IbmError:
+            raise
         except Exception as exc:
             raise IbmError(
                 _ibm_error_code(exc, "validation_failed"),
                 _clean_error_text(str(exc), api_key),
                 stage="transpile", sent=False)
+        await self._checkpoint(
+            job_store, checkpoint_job_id, state=IBM_JOB_PENDING,
+            instance=instance, backend=_ibm_backend_name(backend),
+            shots=shots, qubits=num_qubits)
         try:
-            sampler = self._sampler_factory(backend=backend)
-            job = sampler.run([circuit], shots=shots)
+            sampler = await self._call(self._sampler_factory, backend=backend)
+            job = await self._call(sampler.run, [circuit], shots=shots)
+        except IbmError:
+            raise
         except Exception as exc:
             code = _ibm_error_code(exc)
             raise IbmError(code, _clean_error_text(str(exc), api_key),
@@ -2160,7 +2242,7 @@ class IbmQuantumRuntimeClient:
         delay = self._poll_interval
         last_state = None
         while True:
-            state = _ibm_job_state(job) or IBM_JOB_RUNNING
+            state = await self._job_state(job) or IBM_JOB_RUNNING
             if state != last_state:
                 last_state = state
                 fields = dict(cursor_base or {})
@@ -2171,7 +2253,9 @@ class IbmQuantumRuntimeClient:
                     job_store, checkpoint_job_id, **fields)
             if state == IBM_JOB_COMPLETED:
                 try:
-                    result = job.result()
+                    result = await self._call(job.result)
+                except IbmError:
+                    raise
                 except Exception as exc:
                     code = _ibm_error_code(exc)
                     raise IbmError(code, _clean_error_text(str(exc)),
@@ -2180,7 +2264,7 @@ class IbmQuantumRuntimeClient:
                 actual_backend = _ibm_attr(job, "backend", None)
                 if callable(actual_backend):
                     try:
-                        actual_backend = actual_backend()
+                        actual_backend = await self._call(actual_backend)
                     except Exception:
                         actual_backend = None
                 if actual_backend is not None:
@@ -2190,7 +2274,7 @@ class IbmQuantumRuntimeClient:
                             "simulator backend rejected", stage="backend",
                             sent=True, job_state=state)
                     backend = actual_backend
-                usage, usage_source = _ibm_job_usage(job)
+                usage, usage_source = await self._job_usage(job)
                 return self._batch_from_result(
                     result=result, backend=backend, job_id=job_id,
                     shots=shots, num_qubits=num_qubits,
@@ -2292,10 +2376,14 @@ class IbmQuantumRuntimeClient:
         if data is None:
             raise IbmError("validation_failed", "result data missing",
                            stage="result", sent=True)
-        measure = _ibm_attr(data, "meas", None)
+        measure = (_ibm_attr(data, "meas", None) if not isinstance(data, dict)
+                   else data.get("meas"))
         if measure is None:
             for forbidden in ("quasi_dists", "counts", "statevector"):
-                if _ibm_attr(data, forbidden, None) is not None:
+                present = (_ibm_attr(data, forbidden, None)
+                           if not isinstance(data, dict)
+                           else data.get(forbidden))
+                if present is not None:
                     raise IbmError(
                         "validation_failed",
                         f"{forbidden} is not measurement bits",
@@ -2343,14 +2431,18 @@ class IbmQuantumRuntimeClient:
         num_qubits = _ibm_backend_qubits(backend)
         circuit = self._circuit_factory(num_qubits)
         try:
-            circuit = self._transpiler(circuit, backend)
+            circuit = await self._call(self._transpiler, circuit, backend)
+        except IbmError:
+            raise
         except Exception as exc:
             raise IbmError(
                 _ibm_error_code(exc, "validation_failed"),
                 _clean_error_text(str(exc)), stage="transpile", sent=False)
         try:
-            sampler = self._sampler_factory(backend=backend)
-            job = sampler.run([circuit], shots=shots)
+            sampler = await self._call(self._sampler_factory, backend=backend)
+            job = await self._call(sampler.run, [circuit], shots=shots)
+        except IbmError:
+            raise
         except Exception as exc:
             code = _ibm_error_code(exc)
             raise IbmError(code, _clean_error_text(str(exc)),
@@ -2386,7 +2478,9 @@ class IbmQuantumRuntimeClient:
             raise IbmError("provider_unavailable", "job lookup unavailable",
                            stage="attach", sent=False)
         try:
-            job = getter(job_id)
+            job = await self._call(getter, job_id)
+        except IbmError:
+            raise
         except Exception as exc:
             code = _ibm_error_code(exc)
             raise IbmError(code, _clean_error_text(str(exc)),
@@ -2394,7 +2488,7 @@ class IbmQuantumRuntimeClient:
         backend = _ibm_attr(job, "backend", None)
         if callable(backend):
             try:
-                backend = backend()
+                backend = await self._call(backend)
             except Exception:
                 backend = None
         if backend is None:
@@ -2428,6 +2522,7 @@ def _ibm_external_ref(provenance: dict) -> str:
     """Компактный R17-safe provenance для `mca_random_batches.external_ref`."""
     ref = {
         "job": provenance.get("job_id"),
+        "batch": provenance.get("batch_id"),
         "backend": provenance.get("backend"),
         "shots": provenance.get("shots"),
         "qubits": provenance.get("num_qubits"),
@@ -3385,7 +3480,7 @@ class RandomSourceService:
             "state": ANU_STATE_UNVERIFIED, "last_error": None,
             "last_stage": None, "last_success_at": None,
             "last_failure_at": None, "last_job": None, "plan": None,
-            "usage": None,
+            "usage": None, "config_fp": None,
         }
         self._ibm_recovery_tasks: set[asyncio.Task] = set()
         self._ibm_recovering: set[str] = set()
@@ -3648,6 +3743,9 @@ class RandomSourceService:
             return ANU_STATE_DEGRADED
         if not self._ibm_dependency_available():
             return ANU_STATE_DEGRADED
+        health_fp = str(self._ibm_health.get("config_fp") or "")
+        if health_fp and health_fp != self._ibm_config_fingerprint():
+            return ANU_STATE_UNVERIFIED
         state = str(self._ibm_health.get("state") or ANU_STATE_UNVERIFIED)
         if self._ibm_client is not None:
             status = self._ibm_client.status()
@@ -3663,6 +3761,11 @@ class RandomSourceService:
             return "invalid_channel"
         if not self._ibm_dependency_available():
             return "dependency_missing"
+        health_fp = str(self._ibm_health.get("config_fp") or "")
+        if health_fp and health_fp != self._ibm_config_fingerprint():
+            # Ошибка относилась к старой конфигурации — не выдаём её за
+            # текущее состояние.
+            return "provider_unavailable"
         return str(self._ibm_health.get("last_error")
                    or "provider_unavailable")
 
@@ -3682,6 +3785,7 @@ class RandomSourceService:
             else self._ibm_health.get("plan"),
             "usage": usage if usage is not None
             else self._ibm_health.get("usage"),
+            "config_fp": self._ibm_config_fingerprint(),
         }
 
     def _note_ibm_failure(self, code: str, *,
@@ -3696,6 +3800,7 @@ class RandomSourceService:
             "last_job": self._ibm_health.get("last_job"),
             "plan": self._ibm_health.get("plan"),
             "usage": self._ibm_health.get("usage"),
+            "config_fp": self._ibm_config_fingerprint(),
         }
 
     async def exploration_probability(self, purpose: str,
@@ -4700,6 +4805,15 @@ class RandomSourceService:
         """Почему IBM не стоит пытать в этом проходе (без сети/без job)."""
         if not self._ibm_dependency_available():
             return "dependency_missing"
+        current_fp = self._ibm_config_fingerprint()
+        persistent = str(self._ibm_health.get("last_error") or "")
+        if (persistent in {"auth_failed", "permission_denied",
+                           "invalid_instance", "invalid_channel",
+                           "invalid_region"}
+                and str(self._ibm_health.get("config_fp") or "") == current_fp):
+            # Ошибка конфигурации не лечится повтором; после смены key/CRN
+            # fingerprint меняется и блокер снимается сам.
+            return persistent
         client = self._ibm_client
         if client is not None and not client.available():
             return "circuit_open"
