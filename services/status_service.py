@@ -609,6 +609,15 @@ class StatusService:
                 "ibm_last_job": snap.get("ibm_last_job"),
                 "ibm_plan": snap.get("ibm_plan"),
                 "ibm_usage": snap.get("ibm_usage"),
+                # IBM-02: остаток RU/секунд из фактического usage() виден
+                # и плоско, без парсинга вложенного dict.
+                "ibm_usage_remaining_ru": (snap.get("ibm_usage") or {}).get(
+                    "usage_remaining_ru"),
+                "ibm_usage_remaining_seconds": (snap.get("ibm_usage")
+                                                or {}).get(
+                    "usage_remaining_seconds"),
+                "ibm_usage_limit_reached": (snap.get("ibm_usage") or {}).get(
+                    "usage_limit_reached"),
                 "ibm_key_present": bool(snap.get("ibm_key_present")),
                 "ibm_crn_present": bool(snap.get("ibm_crn_present")),
                 "ibm_dependency": snap.get("ibm_dependency"),
