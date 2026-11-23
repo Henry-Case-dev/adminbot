@@ -11040,11 +11040,11 @@ class DirectChatService:
                         _fit_budget.get("policy_mode")
                         == "fallback_capacity"
                         or _fit_budget.get("capacity_limited"))
+                    _sent_tokens = sum(
+                        count_tokens(str(m.get("content") or ""))
+                        for m in _fit_messages
+                        if str(m.get("role") or "") == "user")
                     if not _fit_capacity:
-                        _sent_tokens = sum(
-                            count_tokens(str(m.get("content") or ""))
-                            for m in _fit_messages
-                            if str(m.get("role") or "") == "user")
                         _fit_prepared = dataclasses.replace(
                             _fit_prepared,
                             budget=dict(
@@ -11058,6 +11058,20 @@ class DirectChatService:
                                 final_fit=True,
                                 degraded=bool(
                                     _fit_budget.get("degraded"))))
+                    else:
+                        # F9: capacity-prepared всё равно описывает PRIMARY
+                        # тело/бюджет, а не fallback-окно. selection_budget —
+                        # фактический allocator-бюджет фабрики, как есть.
+                        _fit_prepared = dataclasses.replace(
+                            _fit_prepared,
+                            budget=dict(
+                                _fit_budget,
+                                budget=int(_primary_budget),
+                                payload_tokens=int(_sent_tokens),
+                                policy_mode="fallback_capacity",
+                                degraded=True,
+                                physical_overflow=True,
+                                capacity_limited=True))
                     _l2_binding["prepared"] = _fit_prepared
                     _l2_binding["prepared_text"] = _sent_user_text(
                         _fit_adapted)
@@ -19399,7 +19413,7 @@ class DirectChatService:
             "<Fresh_Chat_Window>\n" + "\n".join(window_block)
             + "\n</Fresh_Chat_Window>") if window_block else ""
         _init_fb_factory = None
-        if _init_fb_budget:
+        if _init_fb_budget or _init_stage_budget is not None:
             def _init_fb_factory(time_line=None, extra_reserve: int = 0,
                                  binding: dict | None = None,
                                  selection_budget: int | None = None,
@@ -19411,7 +19425,11 @@ class DirectChatService:
                         return int(selection_budget)
                     fixed_context = int(count_tokens(
                         str(context_block or "")))
-                    return max(1, int(_init_fb_budget) - fixed_context)
+                    if _init_fb_budget:
+                        return max(1, int(_init_fb_budget) - fixed_context)
+                    primary_budget = int(getattr(
+                        _init_stage_budget, "effective_input_budget", 0) or 0)
+                    return max(1, primary_budget - fixed_context)
 
                 def _body(incoming, base_budget: int, *, capacity: bool):
                     window_budget = max(
@@ -19473,7 +19491,11 @@ class DirectChatService:
                         window_messages=len(tuple(window or ())),
                         budget={
                             "slot": "initiative.l2",
-                            "budget": int(_init_fb_budget or base_budget),
+                            "budget": int(
+                                _init_fb_budget
+                                or getattr(_init_stage_budget,
+                                           "effective_input_budget", 0)
+                                or base_budget),
                             "selection_budget": int(window_budget),
                             "payload_tokens": sum(
                                 count_tokens(b) for b in blocks if b),

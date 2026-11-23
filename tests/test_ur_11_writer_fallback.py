@@ -97,6 +97,7 @@ class _AdapterLLM:
 
     def __init__(self, text="ok"):
         self.text = text
+        self.invoke_fallback = True
         self.fallback_calls = 0
         self.fallback_payload = None
         self.fallback_prepared = None
@@ -106,7 +107,8 @@ class _AdapterLLM:
                                      fallback_payload_adapter=None,
                                      **kwargs):
         self.messages = messages
-        if step == "l2_writer" and fallback_payload_adapter is not None:
+        if (self.invoke_fallback and step == "l2_writer"
+                and fallback_payload_adapter is not None):
             self.fallback_calls += 1
             adapted, prepared = fallback_payload_adapter(
                 {"messages": list(messages)})
@@ -290,9 +292,11 @@ async def test_initiative_l2_receives_provenance_and_recomposes(monkeypatch):
     llm = _AdapterLLM()
     svc.llm = llm
     svc.llm._chat_model = "primary"
-    svc.llm._fallback_model = "fb"
+    # F6: default production config — fallback-модели нет.
+    svc.llm._fallback_model = ""
     svc.llm._base_url = ""
     svc.llm._fallback_base_url = ""
+    llm.invoke_fallback = False
 
     async def _budget(slot, **kwargs):
         return SimpleNamespace(
@@ -331,6 +335,7 @@ async def test_initiative_l2_receives_provenance_and_recomposes(monkeypatch):
 
     factory = captured.get("fallback_selection_factory")
     assert callable(factory)
+    assert captured.get("fallback_budget_tokens") is None, captured
     selection_texts = captured.get("selection_texts") or ()
     assert len(selection_texts) == 2
     assert selection_texts[0].startswith("<Initiative_Context")
@@ -341,16 +346,49 @@ async def test_initiative_l2_receives_provenance_and_recomposes(monkeypatch):
         1, 4000 - context_tokens)
     assert captured.get("primary_payload_tokens") == sum(
         count_tokens(t) for t in selection_texts)
-    assert llm.fallback_calls == 1
-    body = _body(llm)
-    assert "напомнить про релиз" in body
-    assert "A" * 400 in body
-    assert llm.fallback_prepared.budget["policy_mode"] in (
-        "fallback_recompose", "fallback_capacity")
+    # Без fallback-модели реальный клиент fallback-адаптер не вызывает.
+    assert llm.fallback_calls == 0
 
-    # capacity через тот же _l2_write_answer: primary budget исчерпан,
-    # selection_budget=1, extras не помещаются.
+    # F6: final fit primary обязан работать на default-конфиге. Форсируем
+    # фактическое превышение primary бюджета (payload == budget) и проверяем
+    # factory 1×, legacy 0×, primary budget в prepared.
+    calls: list = []
+
+    def _record_factory(*args, **kwargs):
+        calls.append((args, dict(kwargs)))
+        return factory(*args, **kwargs)
+
+    def _legacy(*args, **kwargs):
+        raise AssertionError("legacy adapter must not be built")
+
+    monkeypatch.setattr(dcs._dx, "build_l2_fallback_adapter", _legacy)
     out2: dict = {}
+    result = await svc._l2_write_answer(
+        CHAT, "q", temperature=0.1,
+        selection_texts=selection_texts,
+        user_blocks=list(selection_texts),
+        primary_budget_tokens=4000,
+        primary_payload_tokens=4000,
+        selection_budget_tokens=captured["selection_budget_tokens"],
+        fallback_budget_tokens=None,
+        fallback_selection_factory=_record_factory,
+        time_line="TIME",
+        out_prepared=out2)
+    assert result is not None
+    assert len(calls) == 1
+    assert calls[0][1].get("mark_fallback") is False
+    prepared = out2["primary"]
+    assert prepared.budget["budget"] == 4000
+    assert prepared.budget["payload_tokens"] > 0
+    assert prepared.budget["policy_mode"] == "final_fit"
+    sent = svc.llm.messages[-1]["content"]
+    assert "<Initiative_Context" in sent
+    assert "A" * 400 in sent
+    assert "напомнить про релиз" in sent
+
+    # F9: final-fit capacity prepared описывает PRIMARY бюджет и факт тела,
+    # а не fallback/allocator-бюджет.
+    out3: dict = {}
     result = await svc._l2_write_answer(
         CHAT, "q", temperature=0.1,
         selection_texts=selection_texts,
@@ -358,17 +396,20 @@ async def test_initiative_l2_receives_provenance_and_recomposes(monkeypatch):
         primary_budget_tokens=100,
         primary_payload_tokens=100,
         selection_budget_tokens=1,
-        fallback_budget_tokens=2000,
+        fallback_budget_tokens=None,
         fallback_selection_factory=factory,
         time_line="TIME",
-        out_prepared=out2)
+        out_prepared=out3)
     assert result is not None
-    prepared = out2["primary"]
+    prepared = out3["primary"]
+    assert prepared.budget["budget"] == 100
     assert prepared.budget["policy_mode"] == "fallback_capacity"
     assert prepared.budget["degraded"] is True
     assert prepared.budget["physical_overflow"] is True
-    sent = svc.llm.messages[-1]["content"]
-    assert "<Initiative_Context" in sent
+    assert prepared.budget["capacity_limited"] is True
+    assert prepared.budget["payload_tokens"] == count_tokens(
+        svc.llm.messages[-1]["content"])
+    assert "<Initiative_Context" in svc.llm.messages[-1]["content"]
 
 
 # ── T6: final fit without fallback model, primary budget, extras kept ──────
@@ -436,6 +477,61 @@ async def test_final_fit_without_fallback_model_uses_primary_budget():
     assert prepared.budget["policy_mode"] == "final_fit"
     assert prepared.budget["final_fit"] is True
     assert svc.llm.messages[-1]["content"] == "FIT"
+
+
+@pytest.mark.asyncio
+async def test_final_fit_capacity_prepared_uses_primary_budget():
+    """F9: capacity-prepared final fit не несёт fallback/allocator budget."""
+    svc = _make_service(memory=FakeMemory(), llm=FakeLLM(text="answer"))
+    calls: list = []
+
+    def _factory(time_line=None, **kwargs):
+        calls.append(dict(kwargs, time_line=time_line))
+
+        def _adapt(incoming):
+            prepared = dcs.PreparedTurnPayload(
+                chat_id=CHAT, correlation_id="c", blocks=(),
+                event_blocks=(), available_item_ids=frozenset(),
+                window_messages=0,
+                budget={"slot": "direct.primary", "budget": 400,
+                        "selection_budget": 1,
+                        "policy_mode": "fallback_capacity",
+                        "degraded": True,
+                        "physical_overflow": True,
+                        "capacity_limited": True,
+                        "payload_tokens": 142},
+                dropped=(), self_outputs=(), policy_version="p")
+            return {
+                "messages": [
+                    {"role": "system", "content": "SYS"},
+                    {"role": "user", "content": "CAP"},
+                ]}, prepared
+        return _adapt
+
+    out: dict = {}
+    result = await svc._l2_write_answer(
+        CHAT, "q", temperature=0.1,
+        selection_texts=("SEL",),
+        user_blocks=["SEL"],
+        primary_budget_tokens=100,
+        primary_payload_tokens=100,
+        selection_budget_tokens=1,
+        fallback_budget_tokens=400,
+        fallback_selection_factory=_factory,
+        plan_block="PLAN",
+        out_prepared=out)
+    assert result is not None
+    assert len(calls) == 1
+    prepared = out["primary"]
+    assert prepared.budget["budget"] == 100
+    assert prepared.budget["payload_tokens"] == count_tokens("CAP")
+    assert prepared.budget["selection_budget"] == 1
+    assert prepared.budget["policy_mode"] == "fallback_capacity"
+    assert prepared.budget["degraded"] is True
+    assert prepared.budget["physical_overflow"] is True
+    assert prepared.budget["capacity_limited"] is True
+    assert "final_fit" not in prepared.budget
+    assert svc.llm.messages[-1]["content"] == "CAP"
 
 
 # ── T7: success path — no legacy builder, no fallback allocation ───────────
