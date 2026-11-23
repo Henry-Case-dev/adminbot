@@ -483,6 +483,13 @@ class TestExtraction:
             await client2.fetch(api_key="key", length=1)
         assert exc2.value.code == "validation_failed"
 
+        wrong_shots = FakeJob(bitstrings=make_bitstrings(255))
+        client4, _sampler4 = make_client(service, wrong_shots)
+        with pytest.raises(mrs.IbmError) as exc4:
+            await client4.fetch(api_key="key", length=1)
+        assert exc4.value.code == "validation_failed"
+        assert "shot" in exc4.value.reason.lower()
+
         nonbinary = FakeJob(bitstrings=["01x" + "0" * 13] * 256)
         client3, _sampler3 = make_client(service, nonbinary)
         with pytest.raises(mrs.IbmError):
