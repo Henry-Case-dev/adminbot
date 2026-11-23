@@ -872,6 +872,37 @@ class TestDurableLifecycle:
             await db.close()
 
     @pytest.mark.asyncio
+    async def test_concurrent_refill_and_smoke_one_sampler(self, tmp_path,
+                                                           monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 10,
+                              mrs.SETTING_BATCH_LENGTH: 8,
+                              mrs.SETTING_PROVIDER_FALLBACK_ENABLED: False})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="MIX1", states=("RUNNING",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"MIX1": job})
+            client, sampler = make_client(
+                service, job, poll_interval=0.01, job_max_age=5.0,
+                sleeper=asyncio.sleep)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            refill = asyncio.create_task(svc.refill_if_needed(force=True))
+            smoke = asyncio.create_task(svc.ibm_hardware_smoke())
+            while not sampler.calls:
+                await asyncio.sleep(0)
+            await asyncio.sleep(0.02)
+            job._states = ["DONE"]
+            await asyncio.gather(refill, smoke, return_exceptions=True)
+            assert len(sampler.calls) == 1
+            assert len(await _task_rows(db)) == 1
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
     async def test_config_rotation_quarantines_old_allows_new(self,
                                                               tmp_path,
                                                               monkeypatch):
