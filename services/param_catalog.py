@@ -594,10 +594,11 @@ GROUPS: tuple[GroupSpec, ...] = (
     # keys (9; раунд 10.37, MCA-10a/ADR-1028-14 D8, ТЗ §14.4): подключение
     # квантового источника случайности (ANU Quantum Numbers) — endpoint/
     # ключ/партия/тип/таймаут/watermark/buffer; ключ — секрет (маска).
-    GroupSpec("keys_random", "keys", "Случайность: подключение ANU",
-              "Подключение квантового источника чисел ANU: адрес, ключ, "
-              "размер и тип партии, таймаут и границы запаса. Ключ хранится "
-              "маской; подписка не оформляется автоматически.", 9),
+    GroupSpec("keys_random", "keys", "Случайность: подключение источников",
+              "Подключение квантовых источников: ANU (адрес, ключ, партия) и "
+              "IBM Quantum Platform (отдельные key/CRN, instance/region, "
+              "канал). Секреты хранятся маской; подписка не оформляется "
+              "автоматически, конкретный QPU не задаётся.", 9),
     # ── limits (28; раунд 10.6 T-1180/T-1208) ──────────────────────────────
     # Расщепления: limits_media→4, limits_persons→2, limits_youtube_web→2,
     # limits_cooldowns→растворена, limits_chat_budgets→+limits_rag.
@@ -4037,6 +4038,114 @@ _RANDOM_SELECTOR: list[ParamSpec] = [
 ]
 
 
+# ── QRNG P5 (QAN-REC-IBM-01/02/03): IBM Quantum Platform ────────────────────
+# Отдельные защищённые key/CRN + несекретные instance/region/channel. Поля
+# глобальные (keys.* не переносится на чат); channel/region/instance пока не
+# считаются успешной проверкой — это только предусловия запроса.
+_IBM_KEYS: list[ParamSpec] = [
+    ParamSpec(
+        "RANDOM_IBM_API_KEY", "RANDOM_IBM_API_KEY", CATEGORY_KEYS,
+        "Источник случайности: ключ IBM", "str", secret=True,
+        group="keys_random",
+        description=(
+            "API key IBM Quantum Platform (IBM Cloud). Хранится маской, "
+            "наружу и в диагностику не отдаётся; действует для всех чатов."),
+        sensitivity=SENSITIVITY_SECRET),
+    ParamSpec(
+        "RANDOM_IBM_CRN", "RANDOM_IBM_CRN", CATEGORY_KEYS,
+        "Источник случайности: CRN IBM", "str", secret=True,
+        group="keys_random",
+        description=(
+            "Полный CRN Quantum Compute instance (отдельное защищённое поле, "
+            "не API key). Хранится маской; при наличии используется как "
+            "instance, иначе действует имя instance."),
+        sensitivity=SENSITIVITY_SECRET),
+    ParamSpec(
+        "RANDOM_IBM_INSTANCE", "RANDOM_IBM_INSTANCE", CATEGORY_KEYS,
+        "Источник случайности: IBM instance", "str",
+        group="keys_random",
+        description=(
+            "Имя Quantum Compute instance (по умолчанию open-instance). "
+            "Конкретный QPU не задаётся: он выбирается из доступных backend'ов."),
+        sensitivity=SENSITIVITY_SECRET),
+    ParamSpec(
+        "RANDOM_IBM_REGION", "RANDOM_IBM_REGION", CATEGORY_KEYS,
+        "Источник случайности: регион IBM", "str",
+        group="keys_random",
+        description=(
+            "Регион IBM Quantum Platform (по умолчанию us-east). "
+            "Относится к общим сетевым настройкам провайдера."),
+        progressive_level="advanced",
+        sensitivity=SENSITIVITY_SECRET),
+    ParamSpec(
+        "RANDOM_IBM_CHANNEL", "RANDOM_IBM_CHANNEL", CATEGORY_KEYS,
+        "Источник случайности: канал IBM", "str",
+        group="keys_random",
+        description=(
+            "Канал IBM Quantum Platform (по умолчанию ibm_quantum_platform). "
+            "Другие каналы не принимаются; это техническая настройка."),
+        progressive_level="advanced",
+        sensitivity=SENSITIVITY_SECRET),
+]
+
+_RANDOM_IBM_LIMITS: list[ParamSpec] = [
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность IBM: таймаут запроса, секунд", "int",
+        pg_id="random.ibm.http_timeout_seconds", group="memory_random",
+        description=(
+            "Сколько секунд ждать ответ IBM в служебных запросах. "
+            "Не задерживает ответы чату: задания идут фоном."),
+        progressive_level="advanced", global_only=True,
+        sensitivity=SENSITIVITY_CONFIG),
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность IBM: интервал опроса задания, секунд", "int",
+        pg_id="random.ibm.poll_interval_seconds", group="memory_random",
+        description=(
+            "Как часто проверять состояние задания IBM. Интервал растёт "
+            "осторожно; ожидание не блокирует Telegram."),
+        progressive_level="advanced", global_only=True,
+        sensitivity=SENSITIVITY_CONFIG),
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность IBM: максимальный возраст задания, секунд", "int",
+        pg_id="random.ibm.job_max_age_seconds", group="memory_random",
+        description=(
+            "После этого срока незавершённое задание считается истёкшим; "
+            "повторная оплата не выполняется."),
+        progressive_level="advanced", global_only=True,
+        sensitivity=SENSITIVITY_CONFIG),
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность IBM: максимум одновременных заданий", "int",
+        pg_id="random.ibm.max_inflight", group="memory_random",
+        description=(
+            "Сколько заданий IBM может быть в работе одновременно. "
+            "Защита от лишних оплачиваемых запусков."),
+        progressive_level="advanced", global_only=True,
+        sensitivity=SENSITIVITY_CONFIG),
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность IBM: максимум заданий в сутки", "int",
+        pg_id="random.ibm.max_jobs_per_day", group="memory_random",
+        description=(
+            "Дневной предел числа заданий IBM. При исчерпании новые задания "
+            "не создаются, работает действующая резервная цепочка."),
+        progressive_level="advanced", global_only=True,
+        sensitivity=SENSITIVITY_CONFIG),
+    ParamSpec(
+        None, None, CATEGORY_MEMORY,
+        "Случайность IBM: максимум QPU-секунд в сутки", "int",
+        pg_id="random.ibm.max_qpu_seconds_per_day", group="memory_random",
+        description=(
+            "Дневной предел фактического расхода QPU по данным IBM. "
+            "При исчерпании новые задания не создаются."),
+        progressive_level="advanced", global_only=True,
+        sensitivity=SENSITIVITY_CONFIG),
+]
+
+
 def _build_registry() -> dict[str, ParamSpec]:
     """Единый реестр: ключ — settings_field (или env_name для env-only)."""
     registry: dict[str, ParamSpec] = {}
@@ -4053,6 +4162,11 @@ def _build_registry() -> dict[str, ParamSpec]:
                 spec,
                 sensitivity=derived_sensitivity(spec.category, spec.secret),
                 sensitivity_source=SENSITIVITY_SOURCE_DERIVED)
+        elif not str(spec.sensitivity_source or ""):
+            # Явно объявленный тип без источника (прецедент P3) — фиксируем
+            # declared, чтобы audit_sensitivity видел происхождение.
+            spec = dataclasses.replace(
+                spec, sensitivity_source=SENSITIVITY_SOURCE_DECLARED)
         registry[name] = spec
 
     for row in _INFRA:
@@ -4271,6 +4385,11 @@ def _build_registry() -> dict[str, ParamSpec]:
     # QRNG P3 (arch D4/D5/D6): селектор провайдера/fallback — глобальные
     # настройки (global_only). REGISTRY 645→648; GROUPS/TAB без изменений.
     for spec in _RANDOM_SELECTOR:
+        add(spec)
+    # QRNG P5: IBM key/CRN/instance/region/channel + лимиты задания.
+    for spec in _IBM_KEYS:
+        add(spec)
+    for spec in _RANDOM_IBM_LIMITS:
         add(spec)
     return registry
 

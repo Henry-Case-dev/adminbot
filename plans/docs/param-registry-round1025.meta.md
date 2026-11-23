@@ -3,10 +3,10 @@
 - **APP_VERSION:** `2.58.241`
 - **HEAD (short):** `61d54788f`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **648** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **23**.
-- **Реестр:** 648 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **659** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **23**.
+- **Реестр:** 659 строк == REGISTRY.
 - **inventory.tsv (10.14):** 401 baseline-ключей.
-- **Дельта 411 → 648 = 247** новых ключей (`status=new`).
+- **Дельта 411 → 659 = 258** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 648 = 247 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 659 = 258 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -97,6 +97,11 @@
 - `keys.embedding_quota_group_labels`
 - `keys.image_api_key`
 - `keys.image_style_api_key`
+- `keys.random_ibm_api_key`
+- `keys.random_ibm_channel`
+- `keys.random_ibm_crn`
+- `keys.random_ibm_instance`
+- `keys.random_ibm_region`
 - `keys.random_quantum_api_key`
 - `keys.random_quantum_batch_length`
 - `keys.random_quantum_buffer_max_values`
@@ -261,6 +266,12 @@
 - `prompts.verbilizer_mode_serious`
 - `random.fallback_enabled`
 - `random.fallback_order`
+- `random.ibm.http_timeout_seconds`
+- `random.ibm.job_max_age_seconds`
+- `random.ibm.max_inflight`
+- `random.ibm.max_jobs_per_day`
+- `random.ibm.max_qpu_seconds_per_day`
+- `random.ibm.poll_interval_seconds`
 - `random.primary_provider`
 - `sentry_dsn`
 - `telegram_api_files_dir`

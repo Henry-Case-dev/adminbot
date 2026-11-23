@@ -888,8 +888,8 @@ class TestBounds:
         assert APP_VERSION == "2.58.241"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
-        assert len(pc.REGISTRY) == 648
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        assert len(pc.REGISTRY) == 659
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 477  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
         # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
@@ -898,7 +898,7 @@ class TestBounds:
         # flags.memory_communities_enabled → 572→573 (REGISTRY 598 тем же
         # лейном; санкция — принятая дельта каталога волны 3–4).
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 622   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
+                    if s.category is not None]) == 633   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23

@@ -582,7 +582,7 @@ class TestCanon:
         # SUMMARY_REVISION_PATCH_ENABLED, spec §8.2) — ClassVar (как все
         # env-рубильники ASAP-4) → dataclass-fields не растут (426);
         # Δ каталога = 0 (env-only, F8).
-        assert len(pc.REGISTRY) == 648
+        assert len(pc.REGISTRY) == 659
         # MCA-19 Wave 1 (ADR-1028-19 §8.2): +9 vision-ключей → Settings 450
         # (evidence-pin Wave 1; fixture-бампы см. tools/_mca19_reissue_f8.py).
         # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581/465/556/119/117/22
@@ -592,13 +592,13 @@ class TestCanon:
         # +5 полей истории памяти (GRAPH_HIST_*/GRAPH_MMR_FETCH_K_HISTORICAL)
         # -> 472.
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
-            == 472
+            == 477
         # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
         # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
         # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 622
+                    if s.category is not None]) == 633
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23

@@ -20,6 +20,11 @@ duckduckgo-search>=8.1.0,<9.0.0
 youtube-transcript-api>=1.2.0,<2.0
 yt-dlp[default,curl-cffi]>=2026.8.19,<2027
 trafilatura>=2.2.0,<3.0
+# QRNG P5 (24.11.2026, QAN-REC-IBM-01): официальный IBM Quantum Runtime для
+# реального QPU Sampler. Импорт ленивый: отсутствие пакета даёт честный
+# `dependency_missing`, остальной контур QRNG/ANU/LfDR продолжает работать.
+# Версия зафиксирована на момент реализации (0.52.1, ibm_quantum_platform).
+qiskit-ibm-runtime==0.52.1
 # FIX-TAILS-EV (2026-10-16, F2 ревью хвостов v6.3): jusText 3.0.x требует `lxml[html_clean]>=4.4.2`,
 # но с lxml 6.x модуль `lxml.html.clean` живёт в отдельном пакете, а extra `html_clean`
 # (jusText) совпадает с extra `html-clean` (метаданные lxml) только на pip с PEP 685-нормализацией;

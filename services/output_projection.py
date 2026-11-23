@@ -119,6 +119,11 @@ CREDENTIAL_FIELDS: tuple[CredentialField, ...] = (
     CredentialField("INTEL_REFLECTION_API_KEY",
                     "keys.intel_reflection_api_key"),
     CredentialField("RANDOM_QUANTUM_API_KEY", "keys.random_quantum_api_key"),
+    # QRNG P5: IBM key и CRN — раздельные защищённые поля. CRN не матчится
+    # эвристикой `_CREDENTIAL_NAME_RE`, поэтому регистрируется явно: иначе
+    # значение могло бы попасть в диагностический вывод.
+    CredentialField("RANDOM_IBM_API_KEY", "keys.random_ibm_api_key"),
+    CredentialField("RANDOM_IBM_CRN", "keys.random_ibm_crn"),
     CredentialField("MEDIA_SHARE_SECRET", "keys.media_share_secret"),
     CredentialField("SUMMARY_L1_API_KEY", "keys.summary_l1_api_key"),
     CredentialField("SUMMARY_L2_API_KEY", "keys.summary_l2_api_key"),

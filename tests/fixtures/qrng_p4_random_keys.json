@@ -13,9 +13,20 @@
       "memory.random_uses_ui_visualization",
       "random.fallback_enabled",
       "random.fallback_order",
+      "random.ibm.http_timeout_seconds",
+      "random.ibm.job_max_age_seconds",
+      "random.ibm.max_inflight",
+      "random.ibm.max_jobs_per_day",
+      "random.ibm.max_qpu_seconds_per_day",
+      "random.ibm.poll_interval_seconds",
       "random.primary_provider"
     ],
     "keys_random": [
+      "keys.random_ibm_api_key",
+      "keys.random_ibm_channel",
+      "keys.random_ibm_crn",
+      "keys.random_ibm_instance",
+      "keys.random_ibm_region",
       "keys.random_quantum_api_key",
       "keys.random_quantum_batch_length",
       "keys.random_quantum_buffer_max_values",
@@ -28,6 +39,11 @@
   },
   "master": "memory.random_enabled",
   "page_keys": [
+    "keys.random_ibm_api_key",
+    "keys.random_ibm_channel",
+    "keys.random_ibm_crn",
+    "keys.random_ibm_instance",
+    "keys.random_ibm_region",
     "keys.random_quantum_api_key",
     "keys.random_quantum_batch_length",
     "keys.random_quantum_buffer_max_values",
@@ -48,6 +64,12 @@
     "memory.random_uses_ui_visualization",
     "random.fallback_enabled",
     "random.fallback_order",
+    "random.ibm.http_timeout_seconds",
+    "random.ibm.job_max_age_seconds",
+    "random.ibm.max_inflight",
+    "random.ibm.max_jobs_per_day",
+    "random.ibm.max_qpu_seconds_per_day",
+    "random.ibm.poll_interval_seconds",
     "random.primary_provider"
   ]
 }

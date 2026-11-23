@@ -283,7 +283,7 @@ PG_DB_SHA256_B07 = (
 # (status=legacy, consumer=services.auto_budget (fallback)). Новых
 # ParamSpec/GROUPS/ключей нет; TSV/meta переэмитированы штатным генератором.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "6cd4d48b9c2d047c82435f31dbfa590ad93334eed9ee201887477bbb5afca0ad")
+    "c7cb2bdbd76879018df2e7e2595a8421ae102566a50ba939f312b421df0fb6ae")
 
 
 def _sha256(path: Path) -> str:
@@ -398,7 +398,7 @@ class TestFrozenInvariants:
         # EVOL-031 (30.10.2026): −5 ключей Exact Match Cache / direct_dedup
         # (replay готовых ответов удалён; вкладка smart_cache снята) →
         # 581/119/117/22 (см. PARAM_CATALOG_SHA256_FOLLOWUP выше).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 648
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 659
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             FIXTURE["counts"]["TAB_BY_GROUP"] == 119
@@ -454,7 +454,7 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
         # P0-FACTCHECK §6.3 (FC-06C): −2 (TEMPORAL_FRESHNESS_*) → 586.
         # EVOL-031 (30.10.2026): −5 (Exact Match Cache / direct_dedup) → 581.
-        assert len(rows) == 648
+        assert len(rows) == 659
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -476,7 +476,7 @@ class TestRegistry:
         # EVOL-031 (30.10.2026): снятые 5 ключей — исторические (Epic 51,
         # до инвентаря round1014), в delta-набор не входили → дельта 175
         # без изменений (FIXTURE см. tools/_evol031_reissue_f8.py).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 247
+        assert len(delta) == FIXTURE["counts"]["delta"] == 258
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -493,7 +493,7 @@ class TestRegistry:
         # истинный секрет; семантика артефакта (`secret or category==keys`)
         # даёт 32→41 — см. evidence MCA-10a (блок C, F8-дельта).
         # ASAP 7 F2 (§1.6): +1 keys.direct_l1_api_key (secret) → 43.
-        assert len(secret_rows) == 41
+        assert len(secret_rows) == 46
         for row in secret_rows:
             assert row["current_value"] == gen.SECRET_MASK
             assert row["default_value"] == gen.SECRET_MASK
@@ -565,7 +565,7 @@ class TestRegistry:
         # (+2 ключа подачи фактчека).
         # MOD-ACL-UX-01 amendment (09.11.2026): reissue под 606/205
         # (+11 PG-only порогов/бюджетов уроков).
-        assert "648" in meta and "411" in meta and "247" in meta
+        assert "659" in meta and "411" in meta and "258" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -585,7 +585,7 @@ class TestScreenMap:
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
         # P0-FACTCHECK §6.3 (FC-06C): санкционированная Δ −2 → 586.
         # EVOL-031 (30.10.2026): санкционированная Δ −5 → 581.
-        assert len(keys) == 648
+        assert len(keys) == 659
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

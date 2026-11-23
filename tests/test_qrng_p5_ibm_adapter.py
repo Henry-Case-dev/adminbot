@@ -1,0 +1,712 @@
+"""QRNG P5 — IBM Quantum Platform adapter (QAN-REC-IBM-01…03).
+
+Проверяется фактический контракт, без сети и без реального IBM:
+  * провайдер `ibm_quantum_platform` + auto-QPU из backend'ов instance;
+  * read-only «Проверить доступ» (key/CRN/instance/region/backends/queue/
+    usage) НЕ создаёт Sampler и не отправляет job;
+  * отдельный hardware smoke получает настоящие measurement bitstrings;
+  * из сырых битов — детерминированный von Neumann debias, физическое
+    смещение измеряется и попадает в provenance;
+  * provenance: job/backend/shots/bit count/usage, `is_simulator=false`;
+  * simulator/quasi_dists/фиктивные counts отвергаются;
+  * durable lifecycle в существующих `task_jobs`, повторный submit при
+    активном job запрещён, рестарт = poll/attach по job ID;
+  * дневные лимиты и fallback ANU/LfDR; секреты не утекают.
+"""
+import asyncio
+import json
+import time
+from types import SimpleNamespace
+
+import pytest
+
+from services import mca_random_source as mrs
+from services.database import DatabaseService
+from services.task_supervisor import (TaskJobStore, TaskSupervisor,
+                                      reset_task_supervisor)
+
+
+
+# ── фейковые qiskit-объекты (никакой сети) ─────────────────────────────────
+class FakeBackend:
+    def __init__(self, name="ibm_hw_1", qubits=16, simulator=False,
+                 operational=True, pending=0):
+        self.name = name
+        self.num_qubits = qubits
+        self._simulator = simulator
+        self._operational = operational
+        self._pending = pending
+
+    def status(self):
+        return SimpleNamespace(operational=self._operational,
+                               pending_jobs=self._pending)
+
+    def configuration(self):
+        return SimpleNamespace(simulator=self._simulator,
+                               n_qubits=self.num_qubits)
+
+
+class FakeMeasure:
+    def __init__(self, bitstrings):
+        self._bitstrings = list(bitstrings)
+
+    def get_bitstrings(self):
+        return list(self._bitstrings)
+
+
+class FakeResult:
+    def __init__(self, bitstrings=None, *, data=None):
+        if data is None:
+            data = SimpleNamespace(meas=FakeMeasure(bitstrings or []))
+        self._pub = SimpleNamespace(data=data)
+
+    def __getitem__(self, index):
+        if index != 0:
+            raise IndexError(index)
+        return self._pub
+
+
+class FakeJob:
+    def __init__(self, *, job_id="ibm-job-1", states=("DONE",),
+                 bitstrings=None, backend=None, usage=1.25,
+                 result=None, status_error=None):
+        self._job_id = job_id
+        self._states = list(states)
+        self._bitstrings = bitstrings or []
+        self._backend = backend or FakeBackend()
+        self._usage = usage
+        self._result = result
+        self._status_error = status_error
+
+    def job_id(self):
+        return self._job_id
+
+    def status(self):
+        if self._status_error:
+            raise self._status_error
+        if len(self._states) > 1:
+            return self._states.pop(0)
+        return self._states[0]
+
+    def result(self):
+        if self._result is not None:
+            return self._result
+        return FakeResult(self._bitstrings)
+
+    def backend(self):
+        return self._backend
+
+    def usage(self):
+        return self._usage
+
+
+class FakeSampler:
+    def __init__(self, job):
+        self.job = job
+        self.calls = []
+
+    def run(self, circuits, shots):
+        self.calls.append({"circuits": circuits, "shots": shots})
+        return self.job
+
+
+class FakeService:
+    def __init__(self, backends=None, *, instances=None, usage=None,
+                 jobs=None, error=None):
+        self._backends = list(backends or [])
+        self._instances = list(instances or [])
+        self._usage = usage
+        self._jobs = dict(jobs or {})
+        self.error = error
+        self.backend_calls = 0
+        self.instance_calls = 0
+        self.usage_calls = 0
+        self.job_calls = 0
+
+    def backends(self, instance=None):
+        self.backend_calls += 1
+        if self.error is not None:
+            raise self.error
+        return list(self._backends)
+
+    def instances(self):
+        self.instance_calls += 1
+        return list(self._instances)
+
+    def usage(self):
+        self.usage_calls += 1
+        return self._usage
+
+    def job(self, job_id):
+        self.job_calls += 1
+        if job_id not in self._jobs:
+            raise LookupError(job_id)
+        return self._jobs[job_id]
+
+
+def make_bitstrings(shots=256, pattern="0110" * 4):
+    assert len(pattern) == 16
+    return [pattern for _ in range(shots)]
+
+
+def make_client(service, job, *, poll_interval=0.0, job_max_age=60.0):
+    async def _sleep(_seconds):
+        return None
+
+    sampler = FakeSampler(job)
+    client = mrs.IbmQuantumRuntimeClient(
+        service_factory=lambda **kwargs: service,
+        sampler_factory=lambda **kwargs: sampler,
+        circuit_factory=lambda num_qubits: SimpleNamespace(
+            num_qubits=num_qubits),
+        transpiler=lambda circuit, backend: circuit,
+        poll_interval=poll_interval, job_max_age=job_max_age,
+        sleeper=_sleep)
+    return client, sampler
+
+
+def cfg(monkeypatch, values):
+    def fake(key, default):
+        return values.get(key, default)
+    monkeypatch.setattr(mrs, "_hot_setting", fake)
+    return values
+
+
+@pytest.fixture(autouse=True)
+def _reset_supervisor():
+    reset_task_supervisor()
+    yield
+    reset_task_supervisor()
+
+
+async def _fresh_db(tmp_path, name="qrng_p5.db") -> DatabaseService:
+    db = DatabaseService(str(tmp_path / name))
+    await db.initialize()
+    return db
+
+
+async def _insert_task_row(db, *, kind=mrs.IBM_JOB_KIND, status="running",
+                           cursor=None, coalesce="random.ibm.job:test:fp",
+                           created_at=None, result_ref=None):
+    store = TaskJobStore(db)
+    job_id = await store.enqueue(
+        owner=mrs.IBM_JOB_OWNER, kind=kind, coalesce_key=coalesce,
+        payload=json.dumps({"probe": True}), max_attempts=1)
+    await store.mark_running(job_id)
+    if cursor is not None:
+        await store.save_checkpoint(
+            job_id, cursor_token=json.dumps(cursor), processed=0)
+    if status != "running":
+        await store.finish(job_id, status=status, result_ref=result_ref,
+                           recovery=True)
+    return job_id, store
+
+
+# ── реестр/настройки/секреты ───────────────────────────────────────────────
+class TestRegistryAndConfig:
+    def test_ibm_registered_with_real_hooks(self):
+        spec = mrs.PROVIDERS[mrs.PROVIDER_ID_IBM]
+        assert spec.id == "ibm_quantum"
+        assert spec.entropy_class == mrs.ENTROPY_CLASS_HARDWARE
+        assert spec.requires_key is True
+        assert spec.key_setting == mrs.SETTING_IBM_KEY
+        assert spec.fetch is mrs.ibm_fetch
+        assert spec.check is mrs.ibm_check
+        assert mrs.IBM_CHANNEL == "ibm_quantum_platform"
+        assert mrs.IBM_INSTANCE_DEFAULT == "open-instance"
+        assert mrs.IBM_REGION_DEFAULT == "us-east"
+
+    def test_settings_and_catalog_fields(self):
+        from config.settings import Settings
+        from services import param_catalog as pc
+        s = Settings()
+        assert s.RANDOM_IBM_API_KEY == ""
+        assert s.RANDOM_IBM_CRN == ""
+        assert s.RANDOM_IBM_INSTANCE == "open-instance"
+        assert s.RANDOM_IBM_REGION == "us-east"
+        assert s.RANDOM_IBM_CHANNEL == "ibm_quantum_platform"
+        for key in ("keys.random_ibm_api_key", "keys.random_ibm_crn"):
+            spec = pc.get_by_pg_key(key)
+            assert spec is not None and spec.secret is True
+            assert spec.per_chat is False
+        for key in ("keys.random_ibm_instance", "keys.random_ibm_region",
+                    "keys.random_ibm_channel"):
+            spec = pc.get_by_pg_key(key)
+            assert spec is not None and spec.secret is False
+            assert spec.per_chat is False
+        for key in ("random.ibm.http_timeout_seconds",
+                    "random.ibm.poll_interval_seconds",
+                    "random.ibm.job_max_age_seconds",
+                    "random.ibm.max_inflight",
+                    "random.ibm.max_jobs_per_day",
+                    "random.ibm.max_qpu_seconds_per_day"):
+            spec = pc.get_by_pg_key(key)
+            assert spec is not None and spec.global_only is True
+            assert spec.group == "memory_random"
+
+    def test_credentials_registered_for_redaction(self):
+        from services import output_projection as projection
+        fields = {f.settings_field for f in projection.CREDENTIAL_FIELDS}
+        assert {"RANDOM_IBM_API_KEY", "RANDOM_IBM_CRN"} <= fields
+
+    def test_default_service_uses_official_platform_channel(self,
+                                                           monkeypatch):
+        captured = {}
+
+        class FakeRuntimeService:
+            def __init__(self, **kwargs):
+                captured.update(kwargs)
+
+        import sys
+        monkeypatch.setitem(
+            sys.modules, "qiskit_ibm_runtime",
+            SimpleNamespace(QiskitRuntimeService=FakeRuntimeService))
+        service = mrs._default_qiskit_service(
+            api_key="key", crn="crn:full", instance="open-instance",
+            region="us-east", channel="ibm_quantum_platform")
+        assert isinstance(service, FakeRuntimeService)
+        assert captured == {
+            "channel": "ibm_quantum_platform", "token": "key",
+            "instance": "crn:full", "region": "us-east"}
+
+    @pytest.mark.asyncio
+    async def test_no_key_is_unconfigured_without_network(self, monkeypatch):
+        async def boom(**kwargs):
+            raise AssertionError("network must not be touched")
+
+        service = mrs.RandomSourceService(None, auto_refill=False)
+        result = await service.test_connection(provider=mrs.PROVIDER_ID_IBM)
+        assert result["healthy"] is False
+        assert result["blocker"] == "provider_unconfigured"
+        assert result["stage"] == "key"
+        assert result["deposited"] is False
+        monkeypatch.setattr(mrs, "_default_qiskit_service", boom)
+
+
+# ── read-only vs hardware smoke ────────────────────────────────────────────
+class TestReadOnlyAndSmoke:
+    @pytest.mark.asyncio
+    async def test_check_access_is_read_only_and_selects_hardware(self):
+        busy = FakeBackend("ibm_busy", pending=9)
+        idle = FakeBackend("ibm_idle", pending=1)
+        sim = FakeBackend("ibm_sim", simulator=True)
+        service = FakeService([sim, busy, idle],
+                              instances=[{"name": "open-instance",
+                                          "plan": "Open"}],
+                              usage={"usage": 12.0, "limit": 600})
+        job = FakeJob(bitstrings=make_bitstrings())
+        client, sampler = make_client(service, job)
+        result = await client.check_access(
+            api_key="key", crn="", instance="open-instance",
+            region="us-east", channel="ibm_quantum_platform")
+        assert result["healthy"] is True
+        assert result["stage"] is None
+        assert result["selected_backend"] == "ibm_idle"
+        assert result["plan"] == "Open"
+        assert result["is_simulator"] is False
+        assert any(b["simulator"] is True for b in result["backends"])
+        assert sampler.calls == []           # Sampler не создавался
+        assert service.job_calls == 0
+
+    @pytest.mark.asyncio
+    async def test_check_access_reports_stage(self):
+        client, sampler = make_client(FakeService(), FakeJob())
+        bad_channel = await client.check_access(
+            api_key="k", channel="ibm_cloud")
+        assert bad_channel["blocker"] == "invalid_channel"
+        assert bad_channel["stage"] == "channel"
+        bad_region = await client.check_access(
+            api_key="k", region="bad region!")
+        assert bad_region["blocker"] == "invalid_region"
+        assert bad_region["stage"] == "region"
+        only_sim = await make_client(
+            FakeService([FakeBackend("sim", simulator=True)]),
+            FakeJob())[0].check_access(api_key="k")
+        assert only_sim["blocker"] == "no_backend"
+        assert only_sim["stage"] == "no_backend"
+        assert sampler.calls == []
+
+    @pytest.mark.asyncio
+    async def test_dependency_missing_is_honest(self, monkeypatch):
+        monkeypatch.setattr(mrs, "_qiskit_runtime_available", lambda: False)
+        client = mrs.IbmQuantumRuntimeClient()
+        result = await client.check_access(api_key="key")
+        assert result["healthy"] is False
+        assert result["blocker"] == "dependency_missing"
+        assert result["stage"] == "dependency"
+
+    @pytest.mark.asyncio
+    async def test_auth_failure_names_permission_stage(self):
+        exc = RuntimeError("401 unauthorized")
+        exc.status_code = 401
+        service = FakeService(error=exc)
+        client, sampler = make_client(service, FakeJob())
+        result = await client.check_access(api_key="key")
+        assert result["healthy"] is False
+        assert result["blocker"] == "auth_failed"
+        assert result["stage"] == "permission"
+        assert sampler.calls == []
+
+    @pytest.mark.asyncio
+    async def test_hardware_smoke_gets_real_bits_without_deposit(self):
+        backend = FakeBackend("ibm_hw")
+        service = FakeService([backend],
+                              instances=[{"name": "open-instance",
+                                          "plan": "Open"}])
+        job = FakeJob(job_id="smoke-1", bitstrings=make_bitstrings(),
+                      backend=backend, usage=0.75)
+        client, sampler = make_client(service, job)
+        result = await client.hardware_smoke(
+            api_key="key", instance="open-instance", shots=256)
+        assert result["healthy"] is True
+        assert result["job_id"] == "smoke-1"
+        assert result["backend"] == "ibm_hw"
+        assert result["shots"] == 256
+        assert result["bits"] and result["bits"] > 0
+        assert result["usage_seconds"] == 0.75
+        assert result["is_simulator"] is False
+        assert len(sampler.calls) == 1
+        assert sampler.calls[0]["shots"] == 256
+
+
+# ── извлечение/валидация/PRNG ──────────────────────────────────────────────
+class TestExtraction:
+    @pytest.mark.asyncio
+    async def test_debias_and_provenance(self):
+        backend = FakeBackend("ibm_hw")
+        service = FakeService([backend],
+                              instances=[{"name": "open-instance",
+                                          "plan": "Open"}])
+        # 75% единиц в сырых битах, но пары 01/10 сбалансированы:
+        # физическое смещение не превращается в смещение значений.
+        bitstrings = ["0111" * 4 if i % 2 == 0 else "1011" * 4
+                      for i in range(256)]
+        job = FakeJob(job_id="bits-1", bitstrings=bitstrings,
+                      backend=backend, usage=2.5)
+        client, _sampler = make_client(service, job)
+        batch = await client.fetch(
+            api_key="key", crn="", instance="open-instance", length=8)
+        prov = batch.provenance
+        assert batch.provider == mrs.PROVIDER_ID_IBM
+        assert batch.data_type == "uint16"
+        assert batch.length == len(batch.values) == 8
+        assert prov["job_id"] == "bits-1"
+        assert prov["backend"] == "ibm_hw"
+        assert prov["shots"] == 256
+        assert prov["num_qubits"] == 16
+        assert prov["raw_bits"] == 256 * 16
+        assert prov["bias"] == pytest.approx(0.75)
+        assert prov["accepted_bits"] > 0
+        assert prov["usage_seconds"] == 2.5
+        assert prov["usage_source"] == "job.usage"
+        assert prov["is_simulator"] is False
+        assert prov["instance"] == "open-instance"
+        assert prov["channel"] == "ibm_quantum_platform"
+
+    def test_debias_removes_constant_physical_bias(self):
+        # 75% единиц, но пары 01/10 сбалансированы: von Neumann даёт
+        # одинаковое число нулей и единиц (нулевое смещение).
+        raw = ["0111" * 4, "1011" * 4] * 128
+        bits, stats = mrs._ibm_debias_bitstrings(raw)
+        assert stats["bias"] == pytest.approx(0.75)
+        assert stats["unbiased_bits"] == 1024
+        assert abs(bits.count(0) - bits.count(1)) <= 1
+
+    @pytest.mark.asyncio
+    async def test_no_prng_in_tract(self, monkeypatch):
+        class Boom:
+            def __init__(self, *args, **kwargs):
+                raise AssertionError("PRNG must not be used")
+
+        monkeypatch.setattr(mrs.random, "Random", Boom)
+        service = FakeService([FakeBackend("ibm_hw")])
+        job = FakeJob(bitstrings=make_bitstrings())
+        client, _sampler = make_client(service, job)
+        batch = await client.fetch(api_key="key", length=2)
+        assert batch.length > 0
+
+    @pytest.mark.asyncio
+    async def test_simulator_backend_rejected(self):
+        backend = FakeBackend("sim", simulator=True)
+        # В instance есть и аппаратный backend (для auto-QPU), но результат
+        # пришёл с simulator backend — такой job не засчитывается.
+        service = FakeService([FakeBackend("ibm_hw"), backend])
+        job = FakeJob(bitstrings=make_bitstrings(), backend=backend)
+        client, _sampler = make_client(service, job)
+        with pytest.raises(mrs.IbmError) as exc:
+            await client.fetch(api_key="key", length=2)
+        assert exc.value.code == "validation_failed"
+        assert exc.value.stage == "backend"
+
+    @pytest.mark.asyncio
+    async def test_quasi_dists_and_bad_shape_rejected(self):
+        service = FakeService([FakeBackend("ibm_hw")])
+        bad = FakeResult(data=SimpleNamespace(
+            quasi_dists=[{"0": 1024}]))
+        job = FakeJob(result=bad)
+        client, _sampler = make_client(service, job)
+        with pytest.raises(mrs.IbmError) as exc:
+            await client.fetch(api_key="key", length=1)
+        assert exc.value.code == "validation_failed"
+
+        short = FakeJob(bitstrings=["01"] * 256)
+        client2, _sampler2 = make_client(service, short)
+        with pytest.raises(mrs.IbmError) as exc2:
+            await client2.fetch(api_key="key", length=1)
+        assert exc2.value.code == "validation_failed"
+
+        nonbinary = FakeJob(bitstrings=["01x" + "0" * 13] * 256)
+        client3, _sampler3 = make_client(service, nonbinary)
+        with pytest.raises(mrs.IbmError):
+            await client3.fetch(api_key="key", length=1)
+
+
+# ── durable lifecycle/идемпотентность/рестарт ──────────────────────────────
+class TestDurableLifecycle:
+    @pytest.mark.asyncio
+    async def test_pending_to_completed_and_deposit_once(self, tmp_path,
+                                                         monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            backend = FakeBackend("ibm_hw")
+            service = FakeService(
+                [backend], instances=[{"name": "open-instance",
+                                       "plan": "Open"}])
+            job = FakeJob(job_id="J1", states=("QUEUED", "RUNNING", "DONE"),
+                          bitstrings=make_bitstrings(), backend=backend,
+                          usage=1.5)
+            client, sampler = make_client(service, job)
+            store = TaskJobStore(db)
+            random_store = mrs.RandomStore(db)
+            inserted = []
+
+            async def deposit(batch):
+                inserted.append(batch)
+                return await random_store.insert_batch(
+                    batch, config_fingerprint="fp",
+                    external_ref=mrs._ibm_external_ref(batch.provenance))
+
+            supervisor = TaskSupervisor(max_concurrent=2)
+            batch = await client.fetch(
+                api_key="key", crn="", instance="open-instance",
+                length=8, job_store=store, supervisor=supervisor,
+                deposit=deposit, account_key="ibm:open-instance",
+                config_fp="fp")
+            assert batch.length == 8
+            assert len(inserted) == 1
+            assert len(sampler.calls) == 1
+            rows = await _task_rows(db)
+            assert len(rows) == 1
+            row = rows[0]
+            assert row["status"] == "completed"
+            cursor = mrs.RandomSourceService._ibm_cursor(row)
+            assert cursor["job"] == "J1"
+            assert cursor["state"] == "completed"
+            assert json.loads(row["result_ref"])["job"] == "J1"
+            assert len(await _batch_rows(db)) == 1
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_active_job_blocks_second_submit(self, tmp_path,
+                                                   monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            service = FakeService([FakeBackend("ibm_hw")])
+            job = FakeJob(bitstrings=make_bitstrings())
+            client, sampler = make_client(service, job)
+            store = TaskJobStore(db)
+            await _insert_task_row(
+                db, status="running",
+                cursor={"job": "existing", "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()),
+                        "values": 8, "config_fp": "fp"})
+            with pytest.raises(mrs.IbmError) as exc:
+                await client.fetch(
+                    api_key="key", instance="open-instance", length=8,
+                    job_store=store, supervisor=TaskSupervisor(),
+                    account_key="ibm:open-instance", config_fp="fp")
+            assert exc.value.code == "job_in_progress"
+            assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_restart_recovery_polls_not_resubmits(self, tmp_path,
+                                                        monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_CRN: "crn:full:value",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_IBM_REGION: "us-east",
+                              mrs.SETTING_IBM_CHANNEL: "ibm_quantum_platform"})
+            backend = FakeBackend("ibm_hw")
+            existing = FakeJob(job_id="J9", states=("RUNNING", "DONE"),
+                               bitstrings=make_bitstrings(), backend=backend,
+                               usage=2.0)
+            service = FakeService([backend], jobs={"J9": existing})
+            client, sampler = make_client(service, existing)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="running",
+                cursor={"job": "J9", "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 5,
+                        "values": 8, "plan": "Open", "config_fp": ""})
+            started = await svc._recover_ibm_jobs()
+            assert started == 1
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert sampler.calls == []          # никакого resubmit
+            assert service.job_calls == 1       # attach по job ID
+            rows = await _task_rows(db)
+            assert rows[0]["status"] == "completed"
+            assert len(await _batch_rows(db)) == 1
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_recovery_without_job_id_is_submit_uncertain(self,
+                                                               tmp_path,
+                                                               monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            client, sampler = make_client(
+                FakeService([FakeBackend("ibm_hw")]), FakeJob())
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(db, status="running", cursor=None)
+            started = await svc._recover_ibm_jobs()
+            assert started == 0
+            rows = await _task_rows(db)
+            assert rows[0]["status"] == "failed"
+            assert rows[0]["reason_code"] == "submit_uncertain"
+            assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_daily_limits_stop_new_jobs(self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            values = {mrs.SETTING_IBM_KEY: "key",
+                      mrs.SETTING_IBM_INSTANCE: "open-instance",
+                      mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 1,
+                      mrs.SETTING_IBM_MAX_QPU_SECONDS_PER_DAY: 10}
+            cfg(monkeypatch, values)
+            client, _sampler = make_client(
+                FakeService([FakeBackend("ibm_hw")]), FakeJob())
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="completed", created_at=int(time.time()),
+                result_ref=json.dumps({"job": "old", "usage": 4.0}))
+            assert await svc._ibm_skip_reason() == "daily_job_limit"
+            values[mrs.SETTING_IBM_MAX_JOBS_PER_DAY] = 10
+            values[mrs.SETTING_IBM_MAX_QPU_SECONDS_PER_DAY] = 1
+            assert await svc._ibm_skip_reason() == "daily_usage_limit"
+        finally:
+            await db.close()
+
+
+# ── статус/изоляция/секреты ────────────────────────────────────────────────
+class TestStatusAndIsolation:
+    @pytest.mark.asyncio
+    async def test_ibm_daily_cap_falls_back_to_anu(self, tmp_path,
+                                                   monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_KEY: "anu-key",
+                              mrs.SETTING_IBM_KEY: "ibm-key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 0,
+                              mrs.SETTING_BATCH_LENGTH: 4})
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            ibm_client, _sampler = make_client(
+                FakeService([FakeBackend("ibm_hw")]), FakeJob())
+            svc.set_ibm_client(ibm_client)
+
+            async def http_get(url, headers, params, timeout):
+                return mrs._HttpResponse(
+                    200, {}, json.dumps({
+                        "success": True, "type": "uint16", "length": 4,
+                        "data": [1, 2, 3, 4]}))
+
+            svc.set_client(mrs.AnuClient(http_get=http_get,
+                                         min_interval=0.0))
+            result = await svc.refill_if_needed(force=True)
+            assert result["status"] == "completed"
+            assert result["provider"] == mrs.PROVIDER_ID_ANU
+            rows = await db.db.execute(
+                "SELECT provider FROM mca_random_batches "
+                "ORDER BY created_at DESC LIMIT 1")
+            last = await rows.fetchone()
+            assert last is not None and last["provider"] == mrs.PROVIDER_ID_ANU
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_per_provider_fingerprint_isolation(self, tmp_path,
+                                                      monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            values = {mrs.SETTING_KEY: "anu-key-A",
+                      mrs.SETTING_IBM_KEY: "ibm-key-A",
+                      mrs.SETTING_IBM_CRN: "crn-A",
+                      mrs.SETTING_IBM_INSTANCE: "open-instance"}
+            cfg(monkeypatch, values)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            store = mrs.RandomStore(db)
+            await store.insert_batch(
+                mrs.AnuBatch(values=[1, 2, 3], data_type="uint16", length=3),
+                config_fingerprint=svc._current_fingerprint())
+            await store.insert_batch(
+                mrs.AnuBatch(values=[4, 5], data_type="uint16", length=2,
+                             provider=mrs.PROVIDER_ID_IBM),
+                config_fingerprint=svc._ibm_config_fingerprint())
+            assert await svc.provider_reserve() == {
+                mrs.PROVIDER_ID_ANU: 3, mrs.PROVIDER_ID_IBM: 2}
+            values[mrs.SETTING_IBM_KEY] = "ibm-key-B"
+            assert await svc.provider_reserve() == {mrs.PROVIDER_ID_ANU: 3}
+            snap = await svc.status_snapshot()
+            assert snap["provider_quarantined"][mrs.PROVIDER_ID_IBM] == 2
+            assert snap["provider_reserve"][mrs.PROVIDER_ID_ANU] == 3
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_status_snapshot_has_no_secrets(self, tmp_path,
+                                                  monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "super-secret-key-987",
+                              mrs.SETTING_IBM_CRN: "crn:secret:value",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            snap = await svc.status_snapshot()
+            text = json.dumps(snap, ensure_ascii=False)
+            assert "super-secret-key-987" not in text
+            assert "crn:secret:value" not in text
+            assert snap["ibm_key_present"] is True
+            assert snap["ibm_crn_present"] is True
+            assert "ibm_state" in snap
+            assert "ibm_jobs" in snap
+        finally:
+            await db.close()
+
+
+async def _task_rows(db):
+    cursor = await db.db.execute(
+        "SELECT * FROM task_jobs WHERE kind = ? ORDER BY created_at",
+        (mrs.IBM_JOB_KIND,))
+    return [dict(row) for row in await cursor.fetchall()]
+
+
+async def _batch_rows(db):
+    cursor = await db.db.execute(
+        "SELECT * FROM mca_random_batches WHERE provider = ?",
+        (mrs.PROVIDER_ID_IBM,))
+    return [dict(row) for row in await cursor.fetchall()]

@@ -63,7 +63,7 @@ class TestCatalogFrozen:
         # QRNG P3 (17.11.2026, arch D4): +3 PG-only глобальных параметра
         # селектора в существующей группе memory_random → REGISTRY 648;
         # GROUPS/_TAB_BY_GROUP/TAB_RULES не менялись.
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 648
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 659
         assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             BASELINE["counts"]["_TAB_BY_GROUP"] == 119

@@ -96,7 +96,8 @@ class TestCatalogContract:
         # группы/вкладки in-place.
         # QRNG P4 (17.11.2026, arch D4/§9): +1 config-вкладка mod_random
         # (TAB_RULES 22→23); группы перенесены, не добавлены.
-        assert len(pc.REGISTRY) == 648
+        # QRNG P5 (24.11.2026): +5 ключей IBM +6 лимитов → 659.
+        assert len(pc.REGISTRY) == 659
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23
@@ -145,7 +146,8 @@ class TestCatalogContract:
         assert s.RANDOM_QUANTUM_REQUEST_TIMEOUT_SECONDS == 5
         assert s.RANDOM_QUANTUM_REFILL_LOW_WATERMARK == 256
         assert s.RANDOM_QUANTUM_BUFFER_MAX_VALUES == 2048
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
+        # QRNG P5: +5 IBM-полей (key/CRN/instance/region/channel) → 477.
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 477  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
     def test_per_chat_override_cast(self):
         # per-chat override mode через chat_params (каст по каталогу);
@@ -363,21 +365,22 @@ class TestAnuSecretContour:
 
 # ── P0 round1028: таксономия секретов в группе keys_random ──────────────────
 class TestAnuSecretTaxonomy:
-    """Секрет-поле в keys_random — РОВНО ОДИН (ANU-ключ). Остальные 8
-    параметров — обычные (редактируемые) поля: secret_mask по spec.secret,
-    значения отдаются открыто (дефолты Settings / сохранённое)."""
+    """Секрет-поля keys_random: ANU-ключ и раздельные IBM key/CRN.
+    Остальные параметры — обычные (редактируемые) поля: secret_mask по
+    spec.secret, значения отдаются открыто (дефолты Settings / сохранённое)."""
 
     def test_params_meta_secret_mask_strictly_by_spec(self, client):
         resp = client.get("/api/config/params-meta", headers=_hdr())
         assert resp.status_code == 200
         group = {k: v for k, v in resp.json()["items"].items()
                  if v["group"] == "keys_random"}
-        # QRNG P3 (arch D4): информационный `keys.random_quantum_provider`
-        # скрыт из UI/params-meta (остаётся в реестре/БД) → 9→8.
-        assert len(group) == 8
+        # QRNG P3: `keys.random_quantum_provider` скрыт (9→8); QRNG P5:
+        # +5 видимых IBM-полей (key/CRN/instance/region/channel) → 13.
+        assert len(group) == 13
         assert "keys.random_quantum_provider" not in group
         secrets = sorted(k for k, v in group.items() if v["secret_mask"])
-        assert secrets == [ANU_KEY]
+        assert secrets == sorted([
+            ANU_KEY, "keys.random_ibm_api_key", "keys.random_ibm_crn"])
 
     def test_get_config_non_secret_anu_params_are_plain(self, client):
         resp = client.get("/api/config", headers=_hdr())
