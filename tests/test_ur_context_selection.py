@@ -18,6 +18,7 @@ import pytest
 
 from services import auto_budget as ab
 from services import direct_context_composer as comp
+from services import direct_l1 as l1
 from services import mca_retrieval_context as rc
 from services import summary_memory as sm
 from services.database import DatabaseService
@@ -609,3 +610,86 @@ class TestStageBudgetPolicy:
             max(1, result.auto_input_budget)
         assert result.effective_input_budget <= result.context_window or \
             result.context_window == 0
+
+
+# ── UR-C-1 (UR-10/10.2/10.5): selected L1 window, no 20×200 re-cut ─────────
+
+def _urc_row(index: int, text: str, *, reply_to=None) -> dict:
+    return {
+        "id": index, "tg_message_id": index, "user_id": 10,
+        "author_name": "Вася", "text": text, "timestamp": 100 + index,
+        "media_type": "text", "reply_to_id": reply_to,
+    }
+
+
+class TestL1SelectedWindow:
+    def test_allocator_keeps_full_p0_reply_and_trigger(self):
+        long_reply = "ответ-родитель " + ("R" * 2000)
+        long_trigger = "текущий вопрос " + ("T" * 2000)
+        rows = [
+            _urc_row(1, "фон " + ("B" * 2000)),
+            _urc_row(2, long_reply),
+            _urc_row(3, long_trigger, reply_to=2),
+            _urc_row(4, "свежая реплика " + ("F" * 500)),
+        ]
+        selected = l1.select_l1_window(
+            rows, budget_tokens=120, trigger_message_id=3, reply_to_id=2)
+        by_id = {row["tg_message_id"]: row for row in selected}
+        assert by_id[2]["text"] == long_reply
+        assert by_id[3]["text"] == long_trigger
+        assert "B" * 2000 not in "".join(
+            row["text"] for row in selected if row["tg_message_id"] == 1)
+
+    def test_build_l1_context_uses_selected_rows_without_20x200(self):
+        rows = [_urc_row(i, f"сообщение-{i} " + ("X" * 400))
+                for i in range(1, 26)]
+        rows[5]["reply_to_id"] = 2
+        ctx = l1.build_l1_context(
+            query="q", window=rows, window_limit=len(rows), line_chars=0,
+            with_ids=True, budget_tokens=1_000_000)
+        assert ctx.count("[msg:") == 25
+        assert "X" * 400 in ctx
+        assert "(ответ на msg:2)" in ctx
+        assert "[ГРАНИЦА ИСТОРИИ]" not in ctx
+
+    @pytest.mark.asyncio
+    async def test_both_live_call_sites_pass_selected_window_and_zero_line_cap(
+            self, monkeypatch):
+        from tests.test_ur_turn_engine import (
+            _patch_fixed_tool_flags, _plan as _ur_plan, _run_direct,
+            _run_initiative, _svc)
+
+        _patch_fixed_tool_flags(monkeypatch)
+        calls = []
+        real_select = l1.select_l1_window
+        real_build = l1.build_l1_context
+
+        def _select_spy(window, **kwargs):
+            result = real_select(window, **kwargs)
+            calls.append(("select", kwargs, result))
+            return result
+
+        def _build_spy(**kwargs):
+            calls.append(("build", kwargs, None))
+            return real_build(**kwargs)
+
+        monkeypatch.setattr(l1, "select_l1_window", _select_spy)
+        monkeypatch.setattr(l1, "build_l1_context", _build_spy)
+        window = [_urc_row(i, f"строка-{i} " + ("Y" * 400))
+                  for i in range(1, 6)]
+        service = _svc(_ur_plan(), window=window)
+
+        await _run_direct(service)
+        await _run_initiative(service)
+
+        selects = [c for c in calls if c[0] == "select"]
+        builds = [c for c in calls if c[0] == "build"]
+        assert len(selects) == 2
+        assert len(builds) == 2
+        for _, kwargs, selected in selects:
+            assert kwargs["budget_tokens"] > 0
+            assert selected
+        for _, kwargs, _ in builds:
+            assert kwargs["line_chars"] == 0
+            assert kwargs["window_limit"] == len(kwargs["window"])
+            assert kwargs["window_limit"] >= 1

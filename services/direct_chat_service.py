@@ -8482,9 +8482,18 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
-        # ER-08-RC (§3): эффективный кап строки окна — рядом с бюджетом пакета.
-        meta["l1_line_chars_cap"] = int(_l1.window_line_chars(
-            window, budget_tokens=_l1_budget))
+        # UR-C-1 (UR-10/10.2/10.5): L1 получает уже отобранное окно из
+        # существующего allocator'а (`allocate_budget`), а не сырой хвост,
+        # который затем независимо режут L1_WINDOW_MESSAGES/line-cap.
+        _l1_window = _l1.select_l1_window(
+            window, budget_tokens=_l1_budget,
+            trigger_message_id=getattr(message, "message_id", None),
+            reply_to_id=_replied_message_id(message))
+        meta["l1_window_rows_raw"] = len(tuple(window or ()))
+        meta["l1_window_rows_selected"] = len(_l1_window)
+        # ER-08-RC (§3): фактический кап строки теперь принадлежит allocator;
+        # отдельного 200-символьного капа на активном L1-пути нет.
+        meta["l1_line_chars_cap"] = 0
         _l1_reply_text = self._l1_reply_block(message,
                                               budget_tokens=_l1_budget)
         # ER-08-RC (ревью B1): база для `truncated` — ИСХОДНАЯ цитата, а не
@@ -8612,7 +8621,8 @@ class DirectChatService:
             current_question=self._render_current_question(
                 message, extra_markers=extra_media_markers),
             reply_block=_l1_reply_text,
-            window=window, speaker=target_name,
+            window=_l1_window, window_limit=len(_l1_window), line_chars=0,
+            speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
             social_frame=_social_line,
             memory_hints=_bundle_scoped_slice(bundle),
@@ -17558,6 +17568,10 @@ class DirectChatService:
                 "chat=%s | reason=%s", chat_id, _exc_brief(exc))
             return None
         _init_budget = int(_slot_meta.budget_tokens)
+        # UR-C-1 (UR-10/10.2/10.5): окно инициативы — тот же allocator,
+        # без сырого 20×200 хвоста и независимого line-cap.
+        _init_window = _l1.select_l1_window(
+            window, budget_tokens=_init_budget)
         # ASAP-FC-VOICE-01 / B: тот же профиль решений, что у Direct (одна
         # точка сборки); кадр принимается только для ЭТОГО чата и только с
         # версией из `_initiative_ctx` (иначе — честный legacy/absent). Это
@@ -17595,7 +17609,9 @@ class DirectChatService:
                 recheck=True, trigger="initiative"),
             time_snapshot=snap_plan)
         context_text = _l1.build_l1_context(
-            query=task, window=window, speaker="наблюдатель",
+            query=task, window=_init_window,
+            window_limit=len(_init_window), line_chars=0,
+            speaker="наблюдатель",
             addressee=addressee_label,
             capabilities=list(_turn_req.tool_state.capabilities),
             force_line="; ".join(_init_conditions),
@@ -17604,6 +17620,8 @@ class DirectChatService:
             # (tests/__new__) не должен падать в L1-пути инициативы.
             with_ids=True, alias_resolver=getattr(self, "aliases", None),
             budget_tokens=_init_budget,
+            history_partial=bool(len(tuple(window or ())) >
+                                 len(_init_window)),
             time_context=_cclock.render_chat_time_context(
                 snap_plan, phase=_cclock.PHASE_PLAN))
         # ER-08-RC (§3 «Наблюдаемость»): у инициативного хода цитаты нет
@@ -17613,8 +17631,9 @@ class DirectChatService:
             context_text, _init_budget, total_chars=0)
         meta: dict = {
             "l1_reply_chars_cap": int(_init_reply_stats["chars_cap"]),
-            "l1_line_chars_cap": int(_l1.window_line_chars(
-                window, budget_tokens=_init_budget)),
+            "l1_line_chars_cap": 0,
+            "l1_window_rows_raw": len(tuple(window or ())),
+            "l1_window_rows_selected": len(_init_window),
             "l1_reply_total_chars": int(_init_reply_stats["total_chars"]),
             "l1_reply_delivered_chars": int(
                 _init_reply_stats["delivered_chars"]),
