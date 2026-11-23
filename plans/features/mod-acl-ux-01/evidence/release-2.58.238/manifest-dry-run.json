@@ -1,0 +1,11 @@
+{
+  "deployed_at": "2026-11-23T04:02:25.454949Z",
+  "deployed_sha": "7a36f4fc847f4f51246457c02300d047acd565d6",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "f4040266013bb19374c24c39ed001ba1ccb815f4",
+  "previous_version": "2.58.237",
+  "release_branch": "release/mod-acl-m5a3-m5b-2.58.238",
+  "schema": 1,
+  "version": "2.58.238"
+}

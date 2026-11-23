@@ -1,0 +1,108 @@
+{
+  "schema": "release-evidence-v1",
+  "release": "2.58.238",
+  "version": "2.58.238",
+  "base_version": "2.58.237",
+  "base_sha": "f4040266013bb19374c24c39ed001ba1ccb815f4",
+  "release_branch": "release/mod-acl-m5a3-m5b-2.58.238",
+  "content_tip": "f5567fccd4d7ebd95438a3f33754ce234929fb9e",
+  "bump_commit": "7a36f4fc847f4f51246457c02300d047acd565d6",
+  "sources": {
+    "m5a": {
+      "branch": "fix/m5a-review-rows-2.58.237",
+      "tip": "19a4fabbcd4fa4a8c7b25fa746f220ab51a42811",
+      "code": "0907dbae615ecb4796ed716c1b07f9dbc00eb33f",
+      "review": "86dc3f32e",
+      "verdict": "APPROVED",
+      "rows": "3 REVIEW closed -> VERIFIED"
+    },
+    "m5b": {
+      "branch": "feat/m5b-exp-08",
+      "tip": "a8a3d75a2c4e11c5993ad988436ed25d70a22414",
+      "candidate": "697a28f9ec17181377a2e219a10af34e083d1fb3",
+      "review": "e13249472",
+      "verdict": "APPROVED",
+      "status": "MAC-EXP-08 REVIEW/RFL; MAC-M5-01 PENDING"
+    }
+  },
+  "cherry_picks": [
+    ["0907dbae6", "065930d0c9c0fa580ac9b0bd1e9b8df8c0f4ea58"],
+    ["19a4fabbc", "9d8ed6a1f3df0a1776265d1beb1d2f42babf11a1"],
+    ["4b79360c7", "9a372305654220144ebbb3517758a5d6ae02943f"],
+    ["d455d9025", "e25e12a7f4ea91e827388ee189acc48cf78cccd3"],
+    ["697a28f9e", "64bd8f3e4b11e7b031e4d1fbc3df8296bf04494c"],
+    ["a8a3d75a2", "f5567fccd4d7ebd95438a3f33754ce234929fb9e"]
+  ],
+  "equality": {
+    "m5a_product_command": "git diff --quiet 0907dbae6 HEAD -- services/experience_diagnostics.py tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py",
+    "m5a_product_exit": 0,
+    "m5b_product_command": "git diff --quiet 697a28f9e HEAD -- services/mca_experience_jobs.py tests/test_mod_acl_ux_m5b_shared_review.py",
+    "m5b_product_exit": 0,
+    "merges": 0,
+    "m5b_evidence_note": "mac-exp-08.md normalized CRLF->LF (N05, docs-only); other M5B files match a8a3d75a2"
+  },
+  "bump": {
+    "files": 32,
+    "insertions": 35,
+    "deletions": 35,
+    "app_version": "2.58.238",
+    "bom": true,
+    "crlf": true,
+    "remaining_2_58_237": "historical evidence only (release evidence and previous-version references); no current pins"
+  },
+  "ddl": {
+    "sqlite_user_version": 48,
+    "pg_ddl": 0,
+    "schema_files_changed": [],
+    "deploy": "code-only"
+  },
+  "checks": [
+    {"id": "m5a", "command": "python -m pytest tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py -q",
+     "passed": 24, "failed": 0, "seconds": 17.13},
+    {"id": "m5b", "command": "python -m pytest tests/test_mod_acl_ux_m5b_shared_review.py -q",
+     "passed": 11, "failed": 0, "seconds": 4.75},
+    {"id": "combined", "command": "python -m pytest tests/test_mod_acl_ux_m5b_shared_review.py tests/test_mod_acl_ux_m2_resolver.py tests/test_mod_acl_ux_m2_consumers.py tests/test_mod_acl_ux_m2_capability_state.py tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py -q",
+     "passed": 68, "failed": 0, "seconds": 11.51,
+     "expected_note": "requested 66 assumed M5A 22; M5A is 24 now (+2)"},
+    {"id": "experience-related-18", "command": "python -m pytest <18 related files> -q -k 'not deep_sleep_not_mixed_with_lessons'",
+     "passed": 301, "failed": 0, "deselected": 1,
+     "expected_note": "requested 310 with M5B assumed M5A 22; M5A is 24 now (+2)"},
+    {"id": "experience-related-18-plus-m5b", "command": "python -m pytest <18 related files + M5B> -q -k 'not deep_sleep_not_mixed_with_lessons'",
+     "passed": 312, "failed": 0, "deselected": 1},
+    {"id": "version-pins-24-py", "command": "python -m pytest <24 version-pin tests/*.py> -q",
+     "passed": 856, "failed": 4, "seconds": 105.59,
+     "pre_existing": true,
+     "pre_existing_node_ids": [
+       "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+       "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+       "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+       "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+     ],
+     "pre_existing_proof": "same 4 node IDs documented for base 2.58.235/236 and reproduced at 56e2450d2"
+    },
+    {"id": "js-pins", "result": "HOTFIX7/8/9/10 OK"},
+    {"id": "schema-smoke", "result": "sqlite_user_version=48"},
+    {"id": "static", "py_compile": 0, "git_diff_check": 0,
+     "plan_gate": "stage=plan inventory=279 manual=102 scoped=0 errors=0"}
+  ],
+  "manifest": {
+    "artifact": "manifest-dry-run.json",
+    "deployed_sha": "7a36f4fc847f4f51246457c02300d047acd565d6",
+    "version": "2.58.238",
+    "previous_sha": "f4040266013bb19374c24c39ed001ba1ccb815f4",
+    "previous_version": "2.58.237",
+    "release_branch": "release/mod-acl-m5a3-m5b-2.58.238",
+    "dirty_tracked": false
+  },
+  "rollback": {
+    "sha": "f4040266013bb19374c24c39ed001ba1ccb815f4",
+    "version": "2.58.237",
+    "mode": "code-only",
+    "manual_ddl": false
+  },
+  "rfl": [
+    "M5B MAC-EXP-08 live preprod pair GLOBAL OFF+CHAT ON / GLOBAL ON+CHAT OFF",
+    "M5A/M5B postdeploy observation on production",
+    "MAC-M5-01 PENDING (M5C/native question)"
+  ]
+}
