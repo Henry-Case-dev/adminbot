@@ -3219,6 +3219,26 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         overview=overview)
 
 
+def _subject_entity_id_of_row(row) -> int | None:
+    """Компактный subject uid строки факта: `target_user` → `subject_ref_id`.
+
+    `target_user` исторически мог быть Telegram uid, но live-записи
+    (`user_memory`/`bot_direct_reply`) хранят там ИМЯ, а устойчивый uid лежит в
+    `subject_ref_id` (Telegram user ID, см. `_person_scope_clause`). Без этого
+    fallback'а identity-prior (`apply_identity_prior`) не видел субъекта у
+    реальных строк и чужая близкая реплика могла обойти адресата (UR-13.6).
+    """
+    for key in ("target_user", "subject_ref_id"):
+        value = _row_get(row, key)
+        if value in (None, ""):
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _message_candidate(row, channel: str, position: int, resolve_item_id):
     message_id = _row_get(row, "id")
     tg_id = _row_get(row, "tg_message_id")
@@ -3252,10 +3272,15 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
     speaker = _row_get(row, "speaker_author_id")
     subject_ref = _row_get(row, "subject_ref_id")
     origin = str(_row_get(row, "origin") or "")
-    try:
-        subject_id = int(subject) if subject not in (None, "") else None
-    except (TypeError, ValueError):
-        subject_id = None
+    subject_id = _subject_entity_id_of_row(row)
+    # author-fallback остаётся прежним (числовой target_user), чтобы фикс
+    # identity не менял участниковый фильтр отдельно от subject-prior.
+    target_uid = None
+    if subject not in (None, ""):
+        try:
+            target_uid = int(subject)
+        except (TypeError, ValueError):
+            target_uid = None
     return RetrievalCandidate(
         id=item_id or f"fact:{fact_id}",
         entity_type="graph_fact", entity_id=str(fact_id),
@@ -3265,7 +3290,7 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         sent_at=int(_row_get(row, "rag_ts")
                     or _row_get(row, "message_timestamp")
                     or _row_get(row, "created_at") or 0),
-        author_id=speaker if speaker is not None else subject_id,
+        author_id=speaker if speaker is not None else target_uid,
         score=_channel_rank(channel, position), channel=channel,
         # §7.5 (фикс потери фактов): дедуп по строке факта, а не по `tg:`-
         # представлению источника — иначе 4 факта одного сообщения → 1.
@@ -3454,11 +3479,7 @@ def _fact_meta_candidate(row, position: int, resolve_item_id):
     item_id = row.get("item_id") or resolve_item_id(
         tg_message_id=row.get("tg_message_id"), fact_id=fact_id)
     subject_ref = row.get("subject_ref_id")
-    try:
-        subject_id = (int(row["target_user"])
-                      if row.get("target_user") not in (None, "") else None)
-    except (TypeError, ValueError, KeyError):
-        subject_id = None
+    subject_id = _subject_entity_id_of_row(row)
     return RetrievalCandidate(
         id=item_id or f"fact:{fact_id}",
         entity_type="graph_fact", entity_id=str(fact_id),
