@@ -4663,6 +4663,8 @@ class ExperienceReviewRunner:
             chat_id = row.get("chat_id")
             if chat_id is None:
                 continue
+            if not await learning_enabled_for_chat(int(chat_id)):
+                continue                       # M5B: disabled scope не учится
             applicability = pref_applicability(user_id, pref_token)
             pref_key = str(pref_token).split(".")[0]
             winner = seen_pref.get((int(chat_id), user_id, pref_key))
@@ -4992,6 +4994,21 @@ class ExperienceReviewRunner:
             lesson_id = str(candidate.get("lesson_id") or "")
             version = int(candidate.get("version") or 0)
             if not lesson_id or version <= 0:
+                continue
+            scope_chat_id = candidate.get("pref_chat_id")
+            if scope_chat_id is None:
+                cursor = await self._db.db.execute(
+                    "SELECT scope_chat_id FROM mca_lessons "
+                    "WHERE lesson_id = ? AND version = ?",
+                    (lesson_id, version))
+                row = await cursor.fetchone()
+                scope_chat_id = (row["scope_chat_id"]
+                                 if row is not None else None)
+            if scope_chat_id is not None and not await learning_enabled_for_chat(
+                    scope_chat_id):
+                # M5B: defense-in-depth — candidate/validated выключенного
+                # чата не валидируется и не активируется; durable строка
+                # сохраняется.
                 continue
             kind = str(candidate.get("kind") or "generalization")
             origin = str(candidate.get("origin_kind") or "")
