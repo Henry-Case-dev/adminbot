@@ -15,5 +15,5 @@ python.exe :
     + FullyQualifiedErrorId : NativeCommandError
 
 WARNING: closed 25 leaked aiosqlite connection(s)
-..................................................                       [100%]
-698 passed in 59.43s
+...................................................                      [100%]
+699 passed in 59.83s

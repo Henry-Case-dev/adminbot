@@ -730,6 +730,14 @@ def period_subject_stems(text, *, explicit_year: bool = False) -> set:
                 or token in _YEAR_WORD_TOKENS
                 or token in _MESSAGE_WINDOW_STOPWORDS):
             continue
+        if token in _MESSAGE_WINDOW_STOPWORDS:
+            # RC4-R1-01: служебное слово не получает short-stem; его обычная
+            # основа (если >=4) остаётся для различения субъектов, но не
+            # может обходить порог 2 через «мен»/«что»/«для».
+            stem = stem_word(token)
+            if len(stem) >= 4:
+                out.add(stem)
+            continue
         # Одна нормализация на слово: short-stem является АЛЬТЕРНАТИВОЙ
         # обычной основе, а не вторым независимым stem (иначе одно слово
         # даёт два «общих» стема и обходит порог §2).

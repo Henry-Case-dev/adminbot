@@ -1,0 +1,19 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_stopword_short_stem_does_not_bypass_threshold ______________
+
+    def test_stopword_short_stem_does_not_bypass_threshold():
+        # RC4-R1-01: ╤Б╨╗╤Г╨╢╨╡╨▒╨╜╤Л╨╡ `╤З╤В╨╛/╨┤╨╗╤П/╨╝╨╡╨╜╤П` ╨╜╨╡ ╨┤╨╛╨╗╨╢╨╜╤Л ╨┐╨╛╨╗╤Г╤З╨░╤В╤М short stem ╨╕
+        # ╨┤╨╡╨╗╨░╤В╤М unrelated `╤В╨╡╨▒╤П`-╤Д╨░╨║╤В ┬л╤В╨╡╨╝ ╨╢╨╡ ╨┐╤А╨╡╨┤╨╝╨╡╤В╨╛╨╝┬╗. Normal len>=4 stems
+        # (╨╝╨╡╨╜╤П/╨▒╤Л╨╗╨╛) ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨┤╨╗╤П ╤А╨░╨╖╨╗╨╕╤З╨╡╨╜╨╕╤П, short тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨┤╨╗╤П content.
+        query = "╤З╤В╨╛ ╨▒╤Л╨╗╨╛ ╨┤╨╗╤П ╨╝╨╡╨╜╤П?"
+        fact_match = _fact(1, "╤З╤В╨╛ ╨▒╤Л╨╗╨╛ ╨┤╨╗╤П ╨╝╨╡╨╜╤П ╨╕ ╤А╨░╨▒╨╛╤В╨░", year=2024)
+        unrelated = _fact(2, "╤З╤В╨╛ ╨▒╤Л╨╗╨╛ ╨┤╨╗╤П ╤В╨╡╨▒╤П", year=2024)
+        stems = period_subject_stems(query)
+>       assert "╨╝╨╡╨╜" not in stems
+E       AssertionError: assert '╨╝╨╡╨╜' not in {'╨▒╤Л╨╗', '╨┤╨╗╤П', '╨╝╨╡╨╜', '╤З╤В╨╛'}
+
+tests\test_vmq_mem_rc4_short_stem.py:86: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_rc4_short_stem.py::test_stopword_short_stem_does_not_bypass_threshold
+1 failed in 3.19s

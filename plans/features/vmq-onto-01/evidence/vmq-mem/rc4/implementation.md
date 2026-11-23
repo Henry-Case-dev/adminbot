@@ -15,6 +15,7 @@ base — одобренный `3d33b15f9`.
 | Tests | `tests/test_vmq_mem_rc4_short_stem.py`; affected `test_vmq_mem_slice_d.py` expectation for A1P (RC4 strict subject) |
 | Probe | `evidence/vmq-mem/rc4/rc4_probe.py` + `rc4-snapshot.json` |
 | Test log | `evidence/vmq-mem/rc4/tests.txt` |
+| RED log | `evidence/vmq-mem/rc4/red.txt` (RC4-R1-01 before fix) |
 | Diff | `evidence/vmq-mem/rc4/candidate.diff` |
 
 Не менялись: DDL/ACL/UI/embedding, new store/queue/quotas, `progress_scope.json`,
@@ -56,6 +57,22 @@ E-control: `short_stem_word("годы")==""`, `short_stem_word("чата")==""`;
 `period_subject_stems("...чата...годы...")` keeps `годы`/`чата`, does not add
 `год`/`чат`; `build_fts_query` short mode contains no `"год"*`/`"чат"*`.
 
+### 2.1. RC4-R1-01 corrective (stopword short-stem bypass)
+
+Reviewer blocker: non-explicit `period_subject_stems` applied `short_stem_word`
+to service 3-char tokens (`что/для/меня`), so unrelated facts shared those
+short stems and bypassed the `>=2` threshold.
+
+- **Repro:** query `что было для меня?`; facts
+  `что было для меня и работа` and `что было для тебя`.
+- **Before:** `strict=2`, `dropped=0` (unrelated `тебя` accepted).
+- **After:** `strict=1`, `dropped=1`; only the matching fact accepted.
+- **Fix:** `_MESSAGE_WINDOW_STOPWORDS` are excluded from short-normalization
+  before it runs; their normal len>=4 stem (e.g. `меня`) remains for
+  distinguishing subjects. Short variant is content-only; one-normalization,
+  threshold `2` and soft-fallback condition unchanged.
+- RED/GREEN: `red.txt` — падение на старом behavior; focused 6/6, full 699.
+
 ## 3. D4 — year tokens out of explicit-year content match
 
 - `_period_fts_keywords(..., explicit_year=True)` removes 4-digit year,
@@ -92,7 +109,7 @@ python -m pytest -q \
   tests/test_mca22_truthset_round1027.py \
   tests/test_direct_chat.py \
   tests/test_history_isolation.py
-698 passed
+699 passed
 ```
 
 `py_compile` — exit 0; `git diff --check` — exit 0. Snapshot probe — exit 0.

@@ -1,5 +1,5 @@
 diff --git a/services/mca_retrieval_context.py b/services/mca_retrieval_context.py
-index 547febfbc..b9306240f 100644
+index 547febfbc..2ecaa88dd 100644
 --- a/services/mca_retrieval_context.py
 +++ b/services/mca_retrieval_context.py
 @@ -713,2 +713,2 @@ def _candidate_year(cand) -> int | None:
@@ -18,7 +18,7 @@ index 547febfbc..b9306240f 100644
 @@ -719 +722 @@ def period_subject_stems(text) -> set:
 -        from services.text_morphology import stem_word
 +        from services.text_morphology import short_stem_word, stem_word
-@@ -724,2 +727,12 @@ def period_subject_stems(text) -> set:
+@@ -724,2 +727,20 @@ def period_subject_stems(text) -> set:
 -        stem = stem_word(str(word))
 -        if len(stem) >= 4:
 +        token = str(word).casefold()
@@ -27,41 +27,49 @@ index 547febfbc..b9306240f 100644
 +                or token in _YEAR_WORD_TOKENS
 +                or token in _MESSAGE_WINDOW_STOPWORDS):
 +            continue
++        if token in _MESSAGE_WINDOW_STOPWORDS:
++            # RC4-R1-01: служебное слово не получает short-stem; его обычная
++            # основа (если >=4) остаётся для различения субъектов, но не
++            # может обходить порог 2 через «мен»/«что»/«для».
++            stem = stem_word(token)
++            if len(stem) >= 4:
++                out.add(stem)
++            continue
 +        # Одна нормализация на слово: short-stem является АЛЬТЕРНАТИВОЙ
 +        # обычной основе, а не вторым независимым stem (иначе одно слово
 +        # даёт два «общих» стема и обходит порог §2).
 +        short = short_stem_word(token)
 +        stem = short or stem_word(token)
 +        if len(stem) >= (3 if short else 4):
-@@ -730 +743,2 @@ def period_subject_stems(text) -> set:
+@@ -730 +751,2 @@ def period_subject_stems(text) -> set:
 -def period_subject_shared(query_stems: set, text) -> int:
 +def period_subject_shared(query_stems: set, text, *,
 +                          explicit_year: bool = False) -> int:
-@@ -737 +751,2 @@ def period_subject_shared(query_stems: set, text) -> int:
+@@ -737 +759,2 @@ def period_subject_shared(query_stems: set, text) -> int:
 -    return len(set(query_stems) & period_subject_stems(text))
 +    return len(set(query_stems) & period_subject_stems(
 +        text, explicit_year=explicit_year))
-@@ -806 +821,2 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+@@ -806 +829,2 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
 -    query_stems = period_subject_stems(query)
 +    query_stems = period_subject_stems(
 +        query, explicit_year=intent.is_explicit_year)
-@@ -878 +894,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+@@ -878 +902,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
 -            shared = period_subject_shared(query_stems, (row or {}).get("fact"))
 +            shared = period_subject_shared(
 +                query_stems, (row or {}).get("fact"),
 +                explicit_year=intent.is_explicit_year)
-@@ -905,2 +923,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+@@ -905,2 +931,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
 -                shared = period_subject_shared(query_stems,
 -                                               (row or {}).get("fact"))
 +                shared = period_subject_shared(
 +                    query_stems, (row or {}).get("fact"),
 +                    explicit_year=intent.is_explicit_year)
-@@ -926 +945,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
+@@ -926 +953,3 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
 -        shared = period_subject_shared(query_stems, (row or {}).get("fact"))
 +        shared = period_subject_shared(
 +            query_stems, (row or {}).get("fact"),
 +            explicit_year=intent.is_explicit_year)
-@@ -2590,8 +2610,0 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
+@@ -2590,8 +2618,0 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
 -    period_match = ""
 -    period_keywords: list = []
 -    if request.period_fill:
@@ -70,7 +78,7 @@ index 547febfbc..b9306240f 100644
 -            period_keywords,
 -            mode=("prefix_or_stem" if request.lexical_stem else "prefix_or")
 -        ) if period_keywords else ""
-@@ -2620,0 +2634,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
+@@ -2620,0 +2642,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
 +    # RC4 (A2/D4): short-stem variant только для периодного content-FTS;
 +    # explicit-year дополнительно исключает годовые/служебные токены.
 +    period_match = ""
@@ -85,18 +93,18 @@ index 547febfbc..b9306240f 100644
 +            mode=("prefix_or_stem_short" if request.lexical_stem
 +                  else "prefix_or")
 +        ) if period_keywords else ""
-@@ -3317 +3344,2 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
+@@ -3317 +3352,2 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
 -def _period_fts_keywords(keywords: list[str]) -> list[str]:
 +def _period_fts_keywords(keywords: list[str], *,
 +                         explicit_year: bool = False) -> list[str]:
-@@ -3325,2 +3353,4 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
+@@ -3325,2 +3361,4 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
 -    Пустой результат — честная деградация вызывающей ветки, а не пустое
 -    или неограниченное FTS-выражение.
 +    `short_stem_word`-токены (`шиз`) сохраняются, если обычная основа короче
 +    4; explicit-year (RC4/D4) дополнительно исключает годовые слова и
 +    служебные предлоги. Пустой результат — честная деградация, а не
 +    неограниченное FTS-выражение.
-@@ -3331,2 +3361,9 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
+@@ -3331,2 +3369,9 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
 -        token = str(word or "")
 -        if token and len(stem_word(token)) >= 4:
 +        token = str(word or "").casefold()
@@ -161,10 +169,10 @@ index 69775156c..2669bc9d7 100644
 +    return ""
 diff --git a/tests/test_vmq_mem_rc4_short_stem.py b/tests/test_vmq_mem_rc4_short_stem.py
 new file mode 100644
-index 000000000..25c0f0d8d
+index 000000000..949aa4006
 --- /dev/null
 +++ b/tests/test_vmq_mem_rc4_short_stem.py
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,131 @@
 +"""VMQ-MEM RC4 (A2+D4): retrieval-only short stem and year-token filtering."""
 +import datetime
 +
@@ -240,6 +248,25 @@ index 000000000..25c0f0d8d
 +    assert [row["id"] for row in accepted] == [1]
 +    assert stats["lexical_strict_passed"] == 1
 +    assert stats["dropped_subject"] == 0
++
++
++def test_stopword_short_stem_does_not_bypass_threshold():
++    # RC4-R1-01: служебные `что/для/меня` не должны получать short stem и
++    # делать unrelated `тебя`-факт «тем же предметом». Normal len>=4 stems
++    # (меня/было) остаются для различения, short — только для content.
++    query = "что было для меня?"
++    fact_match = _fact(1, "что было для меня и работа", year=2024)
++    unrelated = _fact(2, "что было для тебя", year=2024)
++    stems = period_subject_stems(query)
++    assert "мен" not in stems
++    assert "меня" in stems and "был" in stems
++    intent = resolve_period_intent(query, memory_scope="historical")
++    accepted, stats = select_period_rows(
++        [fact_match, unrelated], query=query, intent=intent,
++        policy="historical", slots=2)
++    assert [row["id"] for row in accepted] == [1]
++    assert stats["lexical_strict_passed"] == 1
++    assert stats["dropped_subject"] == 1
 +
 +
 +def test_explicit_year_removes_year_and_preposition_tokens():
