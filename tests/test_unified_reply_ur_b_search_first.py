@@ -20,6 +20,8 @@ TEST-LIFECYCLE: CONTRACT owner=UNIFIED-REPLY/UR-B
 """
 import asyncio
 import json
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -699,3 +701,118 @@ class TestEvidenceAndTrace:
         payload = json.dumps(captured.get("fields") or {}, ensure_ascii=False)
         for forbidden in ("79991234567", "вася", "vasya", "проверь курс"):
             assert forbidden not in payload, f"приватный текст в трассе: {forbidden}"
+
+
+# ── UR-03.1: одна ToolEvidence с dedup/ошибками/временем/tool trace ─────────
+
+class TestToolEvidenceOneStructure:
+    @pytest.mark.asyncio
+    async def test_live_search_exposes_timed_events_in_the_same_evidence(self):
+        search = _SearchProvider(
+            "Результаты\nНазвание статьи\nhttps://example.com/a")
+        plan = _plan(knowledge_origin="open_world")
+        result = await _run(plan, "проверь факт", search)
+
+        event = result.evidence.tool_events[0]
+        assert event["tool"] == "execute_web_search"
+        assert event["status"] == "ok"
+        assert event["duplicate"] is False
+        assert event["attempt"] >= 1
+        assert event["duration_ms"] >= 0
+        assert event["out_chars"] > 0
+        assert "data" not in event and "args_fingerprint" not in event
+        assert result.evidence.tool_trace
+        assert result.evidence.sources
+        assert result.evidence.source_ids
+
+    @pytest.mark.asyncio
+    async def test_provider_failure_event_carries_error_and_time(self):
+        search = _SearchProvider(exc=AllSearchEnginesFailedException("down"))
+        plan = _plan(knowledge_origin="open_world")
+        result = await _run(plan, "проверь API провайдера", search)
+
+        event = result.evidence.tool_events[0]
+        assert event["status"] != "ok"
+        assert event["error_code"] or event["error_type"]
+        assert event["duration_ms"] >= 0
+        assert event["duplicate"] is False
+
+    def test_event_projection_keeps_dedup_error_and_time_without_payload(self):
+        raw = SimpleNamespace(tool_results=[
+            {"round": 1, "tool": "execute_web_search", "status": "error",
+             "error_code": "timeout", "error_type": "TimeoutError",
+             "duplicate": False, "attempt": 1, "duration_ms": 42,
+             "out_chars": 0, "truncated": False, "metered": True,
+             "data": {"secret": "do-not-leak"}},
+            {"round": 2, "tool": "execute_web_search", "status": "ok",
+             "error_code": "", "error_type": "", "duplicate": True,
+             "attempt": 2, "duration_ms": 7, "out_chars": 12,
+             "truncated": False, "metered": True},
+        ])
+        events = _dx._tool_events_from(raw)
+        assert len(events) == 2
+        assert events[0]["error_code"] == "timeout"
+        assert events[0]["duration_ms"] == 42
+        assert events[1]["duplicate"] is True
+        assert events[1]["attempt"] == 2
+        assert all("data" not in e and "args_fingerprint" not in e
+                   for e in events)
+
+
+# ── UR-07.3 / UR-BAN-02: adaptive stop on no evidence growth ────────────────
+
+class TestAdaptiveNoGrowth:
+    @pytest.mark.asyncio
+    async def test_empty_tool_result_stops_adaptive_instead_of_looping(self):
+        class _Router:
+            def __init__(self):
+                self.dispatched = []
+
+            async def dispatch(self, name, arguments, ctx):
+                self.dispatched.append(name)
+                return ""
+
+        class _LLM:
+            def __init__(self):
+                self.calls = 0
+
+            async def generate(self, messages, **kwargs):
+                self.calls += 1
+                return json.dumps({
+                    "action": "call_tool", "tool": "execute_web_search",
+                    "arguments": {"query": f"q{self.calls}"},
+                    "reason": "more"})
+
+        router = _Router()
+        llm = _LLM()
+        result = await _dx.run_adaptive_chain(
+            llm=llm, router=router, ctx=None,
+            plan=_plan(execution_mode="adaptive_tool_chain"),
+            query="q",
+            tool_schemas=_schemas("execute_web_search"),
+            chat_id=CHAT_ID, correlation_id="corr-no-growth")
+        assert result.chain_meta["reason"] == "step_skipped"
+        assert len(router.dispatched) == 1
+        assert llm.calls == 1
+
+    def test_orchestrator_prompt_without_material_is_bounded(self):
+        huge = "x" * 100000
+        messages = _dx._orchestrator_messages(
+            query=huge, allowlist=_schemas("execute_web_search"),
+            evidence_sources=[], steps_done=[], query_chars=200,
+            snippet_chars=100)
+        user = messages[-1]["content"]
+        assert len(user) < 2000
+        assert huge not in user
+        assert "EVIDENCE SO FAR:\nнет" in user
+
+
+# ── UR-06.5: Observer has no search path before participation ───────────────
+
+class TestObserverNoSearch:
+    def test_observer_source_has_no_tool_or_search_path(self):
+        source = Path("services/initiative_observer.py").read_text(
+            encoding="utf-8")
+        for token in ("run_tool_phase", "execute_web_search", "ToolRouter",
+                      "search_aggregator", "web_search"):
+            assert token not in source, f"observer содержит {token}"
