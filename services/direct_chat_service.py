@@ -11687,9 +11687,10 @@ class DirectChatService:
             if bounds is not None:
                 request = dataclasses.replace(
                     request, time_from=bounds[0], time_to=bounds[1],
-                    lexical_time_window=True)
+                    lexical_time_window=True, lexical_window_rank=True)
                 year_window = (year,)
                 stats["year_window"] = [year]
+                stats["year_window_order"] = "rank"
         win: tuple | None = None
         sample_id = ""
         if isinstance(history_sample, dict):
@@ -15588,6 +15589,10 @@ class DirectChatService:
                 return None
             policy = _mca_rc._mc.normalize_memory_scope(
                 memory_scope if memory_scope is not None else "auto").value
+            # VMQ-MEM RC3 (D2): одно вычисление периодного намерения — им
+            # пользуются и explicit-year base-фильтр, и периодный добор.
+            period_intent = _mca_rc.resolve_period_intent(
+                query, memory_scope=policy, plan_act=plan_act)
             # VMQ-TIME-09: при `trace_id=None` вызов байт-паритетен — kwarg не
             # добавляется (двойники/тесты с узкой подписью `_rag_retrieve`
             # продолжают работать обычным путём).
@@ -15609,7 +15614,31 @@ class DirectChatService:
             self._rag_overview_result = base if include_overview else None
             if policy == "operative":
                 return self._rag_rows_from_result(base, limit)
-            rows = self._rag_rows_from_result(base, limit)
+            base_rows_all = self._rag_rows_from_result(base, limit)
+            # RC3 (D2): explicit-year base не остаётся 2026-доминированным.
+            # Фильтр по целевому году применяется ДО append; unknown-year для
+            # explicit year не считается доказательством года и выпадает.
+            # Если целевого материала нет ни в base, ни в period-пуле,
+            # сохраняем прежний base как честный missing-information fallback
+            # (S7), но при появлении target-строк period-пул замещает его.
+            base_target_rows: list = []
+            base_out_of_year_dropped = 0
+            base_out_of_year_candidates = 0
+            base_year_fallback = 0
+            if period_intent.is_explicit_year:
+                target_years = {int(year) for year in period_intent.years}
+                base_target_rows = [row for row in base_rows_all
+                                    if _rag_row_year(row) in target_years]
+                base_out_of_year_candidates = (
+                    len(base_rows_all) - len(base_target_rows))
+                if base_target_rows:
+                    base_out_of_year_dropped = base_out_of_year_candidates
+                    rows = base_target_rows
+                else:
+                    rows = base_rows_all
+                    base_year_fallback = 1
+            else:
+                rows = base_rows_all
             # TIME-03 r5: a bounded current-fact leg for an explicit
             # current-state question. The normal top-`limit` slice can omit
             # currently valid facts that are outside it; read the existing
@@ -15621,6 +15650,7 @@ class DirectChatService:
             current_stats = {"current_leg_calls": 0, "current_leg_rows": 0,
                              "current_leg_used": 0}
             if (_is_current_state_query(query)
+                    and not period_intent.is_explicit_year
                     and len(rows) >= int(limit)):
                 current_pool = max(int(limit), int(self._RAG_PERIOD_POOL))
                 try:
@@ -15677,8 +15707,6 @@ class DirectChatService:
             # разрешает bounded post-plan добор; полный `auto`+`answer`
             # остаётся базовым срезом без добора — это ресурсный баланс, а
             # не «только новое»: базовый поиск уже идёт по всему чату.
-            period_intent = _mca_rc.resolve_period_intent(
-                query, memory_scope=policy, plan_act=plan_act)
             replace_allowed = _mca_rc.period_replace_allowed(
                 period_intent, policy)
             usable = sum(1 for row in rows
@@ -15706,8 +15734,18 @@ class DirectChatService:
                 breadth_reason = "thin_base"
             breadth_allowed = (policy != "operative"
                                and breadth_reason != "none")
-            period_slots = (max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
-                            if breadth_allowed else 0)
+            if breadth_allowed:
+                if period_intent.is_explicit_year:
+                    # RC3 (D2): explicit year — ресурсная ёмкость до limit,
+                    # а не фиксированная доля/годовая квота. Если base target
+                    # пуст (fallback), period-пул проверяется на target.
+                    period_slots = (max(0, int(limit) - len(base_target_rows))
+                                    if base_target_rows else int(limit))
+                else:
+                    period_slots = max(
+                        1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
+            else:
+                period_slots = 0
             # Наблюдательные метки прежнего раннего выхода сохраняются, но
             # `auto_thin_slice` больше НЕ ранний выход: тонкий срез — повод
             # добрать доказательный пробел, а не оставить пустоту.
@@ -15728,8 +15766,19 @@ class DirectChatService:
                 "breadth_allowed": int(bool(breadth_allowed)),
                 "breadth_reason": breadth_reason,
                 "breadth_cap": int(period_slots),
+                "base_out_of_year_dropped": int(base_out_of_year_dropped),
+                "base_out_of_year_candidates": int(
+                    base_out_of_year_candidates),
+                "base_year_fallback": int(base_year_fallback),
                 **current_stats,
             }
+            if breadth_allowed and period_slots <= 0:
+                # Explicit-year base уже заполнил limit целевыми строками:
+                # периодный добор не нужен и не должен заменять хвост.
+                self._rag_period_stats = dict(
+                    trace_base, selection_rows=0, selection_kept=0,
+                    breadth_used=0)
+                return rows
             if not breadth_allowed:
                 # Основной срез НЕ режем. Полный `auto`+`answer` добора не
                 # запускает; профиль может занять только свободные слоты.
@@ -15769,6 +15818,8 @@ class DirectChatService:
                 period_reused = 1
             else:
                 period_reused = 0
+            period_message_candidates = int(
+                period_meta.get("message_candidates") or 0)
             # VMQ-MEM/TIME Slice A (15.11.2026): структурированное периодное
             # намерение (явный год / исторический запрос) передаётся И в
             # retrieval-контракт, И в отбор пула — одно вычисление, один
@@ -15787,6 +15838,12 @@ class DirectChatService:
                 extra_rows = self._rag_rows_from_result(
                     extra, self._RAG_PERIOD_POOL)
                 period_meta = dict(getattr(extra, "period_fill", None) or {})
+                # RC3: message-кандидаты period-вызова не выбрасываются
+                # молча — фиксируем число и причину fact-only consumer.
+                period_message_candidates = sum(
+                    1 for cand in getattr(extra, "candidates", ()) or ()
+                    if getattr(cand, "entity_type", "") == "message")
+                period_meta["message_candidates"] = period_message_candidates
                 # Сырой пул (до порога §2: порог зависит от политики) — на
                 # случай пересборки с политикой плана.
                 self._rag_period_pool = {"key": cache_key,
@@ -15799,6 +15856,39 @@ class DirectChatService:
                 list(accepted or ()), str(query or ""))
             selection = dict(selection or {})
             rejected = int(selection.get("dropped_subject") or 0)
+            if period_intent.is_explicit_year and base_year_fallback:
+                if int(selection.get("kept_in_target") or 0) <= 0:
+                    # Нет target-материала ни в base, ни в period: сохраняем
+                    # прежний base (S7 missing-information), не выдумываем год.
+                    self._rag_period_stats = dict(
+                        trace_base,
+                        selection_rows=int(selection.get("rows") or 0),
+                        selection_kept=int(selection.get("kept") or 0),
+                        breadth_used=0,
+                        vector_pool_miss=int(
+                            period_meta.get("vector_pool_miss") or 0),
+                        vector_leg=str(period_meta.get("vector_leg") or ""),
+                        vector_rows=int(period_meta.get("vector_rows") or 0),
+                        vector_unavailable=int(bool(
+                            period_meta.get("vector_unavailable"))),
+                        vector_unavailable_reason=str(
+                            period_meta.get("vector_unavailable_reason")
+                            or ""),
+                        period_message_candidates=int(
+                            period_message_candidates),
+                        period_message_candidates_used=0,
+                        period_message_candidates_reason=(
+                            "fact_only_consumer"
+                            if period_message_candidates else ""),
+                    )
+                    self._rag_last_rows = list(base_rows_all or ())
+                    return base_rows_all
+                # Period дал target-строки: out-of-year base больше не
+                # доставляется, capacity заполняется target-строками.
+                rows = base_target_rows
+                base_out_of_year_dropped = base_out_of_year_candidates
+                trace_base["base_out_of_year_dropped"] = int(
+                    base_out_of_year_dropped)
             # Базовый срез режется только настолько, насколько добавленные
             # строки не помещаются в `limit`. R1 (review r1, IN_SCOPE High):
             # тонкий/текущий base СОХРАНЯЕТСЯ целиком и добор занимает
@@ -15856,13 +15946,22 @@ class DirectChatService:
                 "selection_rows": int(selection.get("rows") or 0),
                 "selection_kept": int(selection.get("kept") or 0),
                 "period_leg_reused": int(period_reused),
+                "period_message_candidates": int(
+                    period_message_candidates),
+                "period_message_candidates_used": 0,
+                "period_message_candidates_reason": (
+                    "fact_only_consumer"
+                    if period_message_candidates else ""),
             }
             # (2) профиль субъекта (subject guard: имя адресата обязано быть
             #     в вопросе, иначе профиль чужого человека не читается).
             #     `historical`/`recall`/явный год — структурный сигнал,
             #     профиль может замещать period-строки; тонкий `auto` и
             #     `research` — только свободные слоты / без профиля.
-            if replace_allowed or thin:
+            #     RC3: explicit-year профиль не добавляется, иначе в блок
+            #     могли попасть факты другого года (0 out-of-year).
+            if (replace_allowed or thin) \
+                    and not period_intent.is_explicit_year:
                 trial = await self._rag_append_profile_rows(
                     db, trial, chat_id, str(query or ""), subject_name,
                     subject_uid, limit,

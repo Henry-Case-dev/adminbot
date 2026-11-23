@@ -1,0 +1,619 @@
+diff --git a/services/database.py b/services/database.py
+index ecc2e0243..b0e397b90 100644
+--- a/services/database.py
++++ b/services/database.py
+@@ -9539,0 +9540,47 @@ class DatabaseService:
++    async def search_messages_fts_ranked_window(
++            self, chat_id: int, match_query: str, limit: int,
++            since_ts: int, until_ts: int, *, candidate_cap: int = 128
++    ) -> list[dict]:
++        """Bounded explicit-year message rank (VMQ-MEM RC2/D3).
++
++        Сначала bounded time-index candidate cap (`m.id IN (SELECT rowid FROM
++        smart_messages_fts MATCH ?)` + `ORDER BY m.timestamp DESC LIMIT cap`),
++        затем FTS `rank` только для этих candidate rowid. Это не time-срез:
++        финальный порядок — `rank`, но candidate pool честно ограничен
++        `candidate_cap` (sampling); полный rank-скан года не выполняется.
++        Возвращает dict-строки с `_fts_rank`; ошибки не бросает ([]).
++        """
++        try:
++            cap = max(1, min(int(candidate_cap), 2000))
++            cursor = await self.db.execute(
++                "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, "
++                "m.timestamp, m.media_type, m.author_name, m.is_forward, "
++                "m.forward_source, m.tg_message_id "
++                "FROM smart_messages m WHERE m.chat_id = ? "
++                "AND m.timestamp >= ? AND m.timestamp <= ? "
++                "AND m.id IN (SELECT rowid FROM smart_messages_fts "
++                "WHERE smart_messages_fts MATCH ?) "
++                "ORDER BY m.timestamp DESC, m.id DESC LIMIT ?",
++                (int(chat_id), int(since_ts), int(until_ts),
++                 match_query, cap))
++            rows = [dict(row) for row in await cursor.fetchall()]
++            if not rows:
++                return []
++            ids = [int(row["id"]) for row in rows]
++            placeholders = ",".join("?" for _ in ids)
++            cursor = await self.db.execute(
++                "SELECT rowid, rank FROM smart_messages_fts "
++                f"WHERE smart_messages_fts MATCH ? AND rowid IN ({placeholders})",
++                (match_query, *ids))
++            ranks = {int(row["rowid"]): float(row["rank"])
++                     for row in await cursor.fetchall()}
++            for row in rows:
++                row["_fts_rank"] = ranks.get(int(row["id"]), 0.0)
++            rows.sort(key=lambda row: (float(row["_fts_rank"]),
++                                       int(row["id"])))
++            return rows[:max(1, int(limit))]
++        except Exception:
++            logger.warning("[database] ranked message window failed — empty",
++                           exc_info=True)
++            return []
++
+diff --git a/services/direct_chat_service.py b/services/direct_chat_service.py
+index 3cc92e2cd..2d105a661 100644
+--- a/services/direct_chat_service.py
++++ b/services/direct_chat_service.py
+@@ -11690 +11690 @@ class DirectChatService:
+-                    lexical_time_window=True)
++                    lexical_time_window=True, lexical_window_rank=True)
+@@ -11692,0 +11693 @@ class DirectChatService:
++                stats["year_window_order"] = "rank"
+@@ -15590,0 +15592,4 @@ class DirectChatService:
++            # VMQ-MEM RC3 (D2): одно вычисление периодного намерения — им
++            # пользуются и explicit-year base-фильтр, и периодный добор.
++            period_intent = _mca_rc.resolve_period_intent(
++                query, memory_scope=policy, plan_act=plan_act)
+@@ -15612 +15617,25 @@ class DirectChatService:
+-            rows = self._rag_rows_from_result(base, limit)
++            base_rows_all = self._rag_rows_from_result(base, limit)
++            # RC3 (D2): explicit-year base не остаётся 2026-доминированным.
++            # Фильтр по целевому году применяется ДО append; unknown-year для
++            # explicit year не считается доказательством года и выпадает.
++            # Если целевого материала нет ни в base, ни в period-пуле,
++            # сохраняем прежний base как честный missing-information fallback
++            # (S7), но при появлении target-строк period-пул замещает его.
++            base_target_rows: list = []
++            base_out_of_year_dropped = 0
++            base_out_of_year_candidates = 0
++            base_year_fallback = 0
++            if period_intent.is_explicit_year:
++                target_years = {int(year) for year in period_intent.years}
++                base_target_rows = [row for row in base_rows_all
++                                    if _rag_row_year(row) in target_years]
++                base_out_of_year_candidates = (
++                    len(base_rows_all) - len(base_target_rows))
++                if base_target_rows:
++                    base_out_of_year_dropped = base_out_of_year_candidates
++                    rows = base_target_rows
++                else:
++                    rows = base_rows_all
++                    base_year_fallback = 1
++            else:
++                rows = base_rows_all
+@@ -15623,0 +15653 @@ class DirectChatService:
++                    and not period_intent.is_explicit_year
+@@ -15680,2 +15709,0 @@ class DirectChatService:
+-            period_intent = _mca_rc.resolve_period_intent(
+-                query, memory_scope=policy, plan_act=plan_act)
+@@ -15709,2 +15737,12 @@ class DirectChatService:
+-            period_slots = (max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
+-                            if breadth_allowed else 0)
++            if breadth_allowed:
++                if period_intent.is_explicit_year:
++                    # RC3 (D2): explicit year — ресурсная ёмкость до limit,
++                    # а не фиксированная доля/годовая квота. Если base target
++                    # пуст (fallback), period-пул проверяется на target.
++                    period_slots = (max(0, int(limit) - len(base_target_rows))
++                                    if base_target_rows else int(limit))
++                else:
++                    period_slots = max(
++                        1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
++            else:
++                period_slots = 0
+@@ -15730,0 +15769,4 @@ class DirectChatService:
++                "base_out_of_year_dropped": int(base_out_of_year_dropped),
++                "base_out_of_year_candidates": int(
++                    base_out_of_year_candidates),
++                "base_year_fallback": int(base_year_fallback),
+@@ -15732,0 +15775,7 @@ class DirectChatService:
++            if breadth_allowed and period_slots <= 0:
++                # Explicit-year base уже заполнил limit целевыми строками:
++                # периодный добор не нужен и не должен заменять хвост.
++                self._rag_period_stats = dict(
++                    trace_base, selection_rows=0, selection_kept=0,
++                    breadth_used=0)
++                return rows
+@@ -15771,0 +15821,2 @@ class DirectChatService:
++            period_message_candidates = int(
++                period_meta.get("message_candidates") or 0)
+@@ -15789,0 +15841,6 @@ class DirectChatService:
++                # RC3: message-кандидаты period-вызова не выбрасываются
++                # молча — фиксируем число и причину fact-only consumer.
++                period_message_candidates = sum(
++                    1 for cand in getattr(extra, "candidates", ()) or ()
++                    if getattr(cand, "entity_type", "") == "message")
++                period_meta["message_candidates"] = period_message_candidates
+@@ -15801,0 +15859,33 @@ class DirectChatService:
++            if period_intent.is_explicit_year and base_year_fallback:
++                if int(selection.get("kept_in_target") or 0) <= 0:
++                    # Нет target-материала ни в base, ни в period: сохраняем
++                    # прежний base (S7 missing-information), не выдумываем год.
++                    self._rag_period_stats = dict(
++                        trace_base,
++                        selection_rows=int(selection.get("rows") or 0),
++                        selection_kept=int(selection.get("kept") or 0),
++                        breadth_used=0,
++                        vector_pool_miss=int(
++                            period_meta.get("vector_pool_miss") or 0),
++                        vector_leg=str(period_meta.get("vector_leg") or ""),
++                        vector_rows=int(period_meta.get("vector_rows") or 0),
++                        vector_unavailable=int(bool(
++                            period_meta.get("vector_unavailable"))),
++                        vector_unavailable_reason=str(
++                            period_meta.get("vector_unavailable_reason")
++                            or ""),
++                        period_message_candidates=int(
++                            period_message_candidates),
++                        period_message_candidates_used=0,
++                        period_message_candidates_reason=(
++                            "fact_only_consumer"
++                            if period_message_candidates else ""),
++                    )
++                    self._rag_last_rows = list(base_rows_all or ())
++                    return base_rows_all
++                # Period дал target-строки: out-of-year base больше не
++                # доставляется, capacity заполняется target-строками.
++                rows = base_target_rows
++                base_out_of_year_dropped = base_out_of_year_candidates
++                trace_base["base_out_of_year_dropped"] = int(
++                    base_out_of_year_dropped)
+@@ -15858,0 +15949,6 @@ class DirectChatService:
++                "period_message_candidates": int(
++                    period_message_candidates),
++                "period_message_candidates_used": 0,
++                "period_message_candidates_reason": (
++                    "fact_only_consumer"
++                    if period_message_candidates else ""),
+@@ -15865 +15961,4 @@ class DirectChatService:
+-            if replace_allowed or thin:
++            #     RC3: explicit-year профиль не добавляется, иначе в блок
++            #     могли попасть факты другого года (0 out-of-year).
++            if (replace_allowed or thin) \
++                    and not period_intent.is_explicit_year:
+diff --git a/services/mca_retrieval_context.py b/services/mca_retrieval_context.py
+index 23a97f734..547febfbc 100644
+--- a/services/mca_retrieval_context.py
++++ b/services/mca_retrieval_context.py
+@@ -1096,0 +1097,6 @@ class RetrievalRequest:
++    #: VMQ-MEM RC2 (D3, 2026-11-23): explicit-year message-anchor использует
++    #: узкий content-match (без 4-значного года, годовых слов и служебных
++    #: предлогов) и `order='rank'` ВНУТРИ существующего `time_from/time_to`,
++    #: а не `order='time'` + LIMIT. Default False → прежний байт-идентичный
++    #: вызов `search_messages_fts(order='time')` для всех прочих путей.
++    lexical_window_rank: bool = False
+@@ -2768,0 +2775,2 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
++        # RC2 (D3): explicit-year message-anchor использует узкий
++        # content-match + `order="rank"` ВНУТРИ окна, а не time-срез.
+@@ -2769,0 +2778,2 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
++        message_match = match
++        rank_window = False
+@@ -2774,0 +2785,4 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
++            if getattr(request, "lexical_window_rank", False):
++                rank_window = True
++                message_match = _explicit_year_message_match(keywords)
++                _fts_window = {}
+@@ -2777,8 +2791,18 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
+-                try:
+-                    rows = await db.search_messages_fts(
+-                        chat_id, match, max(1, fetch_k * 2), **_fts_window)
+-                except TypeError:
+-                    # Двойник без kw-окна: прежний вызов, окно режет
+-                    # существующий пост-фильтр (не второй поиск).
+-                    rows = await db.search_messages_fts(
+-                        chat_id, match, max(1, fetch_k * 2))
++                if message_match:
++                    if rank_window:
++                        rows = await _ranked_message_rows(
++                            db, chat_id, message_match, max(1, fetch_k * 2),
++                            int(request.time_from), int(request.time_to),
++                            fetch_k)
++                    else:
++                        try:
++                            rows = await db.search_messages_fts(
++                                chat_id, message_match, max(1, fetch_k * 2),
++                                **_fts_window)
++                        except TypeError:
++                            # Двойник без kw-окна: прежний вызов, окно режет
++                            # существующий пост-фильтр (не второй поиск).
++                            rows = await db.search_messages_fts(
++                                chat_id, message_match, max(1, fetch_k * 2))
++                else:
++                    rows = []
+@@ -3312,0 +3337,136 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
++def _explicit_year_message_keywords(keywords: list[str]) -> list[str]:
++    """Узкий content-match explicit-year message-поиска (RC2/D3).
++
++    Год уже применён структурным `time_from/time_to`; 4-значный год,
++    годовые слова и служебные предлоги/местоимения не должны формировать
++    FTS-пул иначе `order='time'`/шумный rank выбирает нерелевантные
++    сообщения. Списка тем здесь нет — только служебные токены.
++    """
++    out: list[str] = []
++    for word in keywords or ():
++        token = str(word or "").casefold()
++        if not token:
++            continue
++        if _YEAR_IN_QUERY_RE.fullmatch(token):
++            continue
++        if token in _YEAR_WORD_TOKENS:
++            continue
++        if token in _MESSAGE_WINDOW_STOPWORDS:
++            continue
++        if token not in out:
++            out.append(token)
++    return out
++
++
++_MESSAGE_WINDOW_STOPWORDS = frozenset({
++    "а", "без", "бы", "в", "вам", "вас", "вот", "все", "всё", "вы", "где",
++    "да", "даже", "для", "до", "его", "ее", "её", "ей", "если", "есть",
++    "же", "за", "и", "из", "или", "им", "их", "к", "как", "какая", "какие",
++    "какой", "ко", "когда", "кто", "ли", "между", "меня", "мне", "мы",
++    "на", "над", "нас", "не", "него", "нее", "ней", "ни", "ним", "них",
++    "но", "о", "об", "он", "она", "они", "от", "по", "под", "при", "про",
++    "с", "себе", "со", "так", "там", "тебе", "то", "тогда", "тот", "тут",
++    "у", "чего", "чем", "через", "что", "чтобы", "эта", "эти", "это",
++    "этот", "я",
++})
++_YEAR_WORD_TOKENS = frozenset({
++    "год", "года", "годе", "годов", "годом", "году", "годы", "годах",
++})
++
++
++def _explicit_year_message_match(keywords: list[str]) -> str:
++    """Узкий selective FTS-match explicit-year message-поиска (RC2/D3).
++
++    Требует co-occurrence минимум двух content-основ (OR по парам AND), чтобы
++    короткие сообщения с одним общим словом не забивали rank. При одной
++    основе — обычный prefix. Списка тем нет; только служебные токены
++    отфильтрованы `_explicit_year_message_keywords`.
++    """
++    tokens = _explicit_year_message_keywords(keywords)
++    if not tokens:
++        return ""
++    from services.text_morphology import stem_word
++    terms: list[str] = []
++    for token in tokens:
++        stem = str(stem_word(token) or token)
++        term = stem if len(stem) >= 4 else token
++        term = term.replace('"', "").replace("*", "")
++        if term and term not in terms:
++            terms.append(term)
++    terms = terms[:8]
++    if not terms:
++        return ""
++    if len(terms) == 1:
++        return f'"{terms[0]}"*'
++    pairs: list[str] = []
++    for i, first in enumerate(terms):
++        for second in terms[i + 1:]:
++            pairs.append(f'("{first}"* AND "{second}"*)')
++    return " OR ".join(pairs)
++
++
++def _window_chunks(start: int, end: int, parts: int = 4) -> list[tuple[int, int]]:
++    """Bounded disjoint time chunks для explicit-year rank (RC2)."""
++    start, end = int(start), int(end)
++    if end <= start:
++        return [(start, end)]
++    span = end - start + 1
++    parts = max(1, min(int(parts), 8))
++    step = max(1, span // parts)
++    chunks: list[tuple[int, int]] = []
++    cursor = start
++    for _ in range(parts):
++        chunk_end = min(end, cursor + step - 1)
++        if chunk_end < cursor:
++            break
++        chunks.append((cursor, chunk_end))
++        cursor = chunk_end + 1
++        if cursor > end:
++            break
++    if not chunks or chunks[-1][1] < end:
++        chunks.append((max(start, chunks[-1][1] + 1 if chunks else start), end))
++    return chunks
++
++
++async def _ranked_message_rows(db, chat_id: int, match_query: str, limit: int,
++                               since_ts: int, until_ts: int,
++                               fetch_k: int) -> list:
++    """Bounded candidate chunks + FTS rank only for candidate rowids (RC2).
++
++    Полный `ORDER BY rank` по году дорог; здесь time-index candidate cap по
++    каждому bounded chunk, затем rank только для этих rowid. Это честный
++    sampling: `candidate_cap` ограничивает пул, финальный порядок — rank.
++    """
++    reader = getattr(db, "search_messages_fts_ranked_window", None)
++    if not callable(reader):
++        return await db.search_messages_fts(
++            int(chat_id), match_query, max(1, int(limit)),
++            since_ts=int(since_ts), until_ts=int(until_ts), order="rank")
++    cap = max(64, int(fetch_k) * 8)
++    rows: list = []
++    for chunk_start, chunk_end in _window_chunks(since_ts, until_ts):
++        try:
++            chunk = await reader(
++                int(chat_id), match_query, max(1, int(limit)),
++                chunk_start, chunk_end, candidate_cap=cap)
++        except TypeError:
++            chunk = await reader(
++                int(chat_id), match_query, max(1, int(limit)),
++                chunk_start, chunk_end)
++        rows.extend(chunk or ())
++    seen: set = set()
++    unique: list = []
++    for row in rows:
++        key = _row_get(row, "id")
++        if key in seen:
++            continue
++        seen.add(key)
++        unique.append(row)
++    if any(_row_get(row, "_fts_rank", None) is not None
++           for row in unique):
++        unique.sort(key=lambda row: (
++            float(_row_get(row, "_fts_rank", 0.0) or 0.0),
++            int(_row_get(row, "id", 0) or 0)))
++    return unique[:max(1, int(limit))]
++
++
+diff --git a/tests/test_vmq_mem_rc2_message_rank.py b/tests/test_vmq_mem_rc2_message_rank.py
+new file mode 100644
+index 000000000..9dbaacccd
+--- /dev/null
++++ b/tests/test_vmq_mem_rc2_message_rank.py
+@@ -0,0 +1,109 @@
++"""VMQ-MEM RC2 (D3): explicit-year message rank inside a bounded window."""
++import datetime
++import time
++
++import pytest
++
++from services.database import DatabaseService
++from services.direct_chat_service import DirectChatService
++from services.mca_retrieval_context import (
++    RetrievalRequest,
++    retrieve,
++    year_time_bounds,
++)
++from services.summary_aliases import AliasResolver
++
++CHAT = -1002661910336
++UID = 42
++TARGET_TEXT = "Ну вот был у меня конфликт с Олей, но оба себя нормально повели"
++QUERY = "что известно о конфликте Корсара с Олей в 2025 году?"
++
++
++def _ts(year, month, day, hour=12):
++    return int(datetime.datetime(
++        year, month, day, hour, tzinfo=datetime.timezone.utc).timestamp())
++
++
++async def _db(tmp_path):
++    db = DatabaseService(str(tmp_path / "rc2.db"))
++    await db.initialize()
++    return db
++
++
++async def _seed(db):
++    target = await db.save_smart_message(
++        UID, CHAT, TARGET_TEXT, None, _ts(2025, 4, 5), "text", "Оля")
++    # December 2025 messages match the OLD full query via "2025"/"году" but
++    # carry no conflict/Olya content. They must not fill the new rank window.
++    december = []
++    for day in range(1, 21):
++        december.append(await db.save_smart_message(
++            UID, CHAT, f"в 2025 году всё спокойно, день {day}", None,
++            _ts(2025, 12, day), "text", "Гений"))
++    old_2024 = await db.save_smart_message(
++        UID, CHAT, "в 2024 году был конфликт с Олей", None,
++        _ts(2024, 6, 1), "text", "Гений")
++    old_2026 = await db.save_smart_message(
++        UID, CHAT, "в 2026 году был конфликт с Олей", None,
++        _ts(2026, 1, 1), "text", "Гений")
++    return target, december, old_2024, old_2026
++
++
++async def _retrieve(db, rank: bool):
++    bounds = year_time_bounds(2025)
++    started = time.perf_counter()
++    result = await retrieve(db, None, RetrievalRequest(
++        chat_id=CHAT, query=QUERY, mode="history", top_k=8,
++        channels=("lexical",), no_age_bias=True,
++        time_from=bounds[0], time_to=bounds[1],
++        lexical_time_window=True, lexical_window_rank=rank,
++        include_self=True, include_direct_reply=True,
++        memory_scope="auto"))
++    return result, (time.perf_counter() - started) * 1000
++
++
++def _message_ids(result):
++    return [int(c.entity_id) for c in result.candidates or ()
++            if c.entity_type == "message"]
++
++
++@pytest.mark.asyncio
++async def test_rc2_explicit_year_rank_finds_april_not_december(tmp_path):
++    db = await _db(tmp_path)
++    try:
++        target, december, old_2024, old_2026 = await _seed(db)
++        old_result, _old_ms = await _retrieve(db, False)
++        old_ids = _message_ids(old_result)
++        # RED: order="time" + full query returns December, not April target.
++        assert target not in old_ids
++        assert set(old_ids) & set(december)
++
++        new_result, new_ms = await _retrieve(db, True)
++        new_ids = _message_ids(new_result)
++        # GREEN: narrow content match + rank inside the 2025 window.
++        assert target in new_ids[:8]
++        assert old_2024 not in new_ids
++        assert old_2026 not in new_ids
++        assert not (set(new_ids) & set(december))
++        assert new_ms < 2000, new_ms
++    finally:
++        await db.close()
++
++
++@pytest.mark.asyncio
++async def test_rc2_build_old_episodes_uses_rank_window(tmp_path):
++    db = await _db(tmp_path)
++    try:
++        target, december, _old_2024, _old_2026 = await _seed(db)
++        service = DirectChatService(memory=None, db=db, llm=None,
++                                    aliases=AliasResolver("{}"))
++        block, stats = await service._build_old_episodes(
++            CHAT, QUERY, [], {})
++        assert block.startswith("<Old_Episode>")
++        assert stats["year_window"] == [2025]
++        assert stats["year_window_order"] == "rank"
++        assert TARGET_TEXT[:40] in block
++        assert stats["count"] >= 1
++        assert stats["spans"]
++    finally:
++        await db.close()
+diff --git a/tests/test_vmq_mem_rc3_period_slots.py b/tests/test_vmq_mem_rc3_period_slots.py
+new file mode 100644
+index 000000000..10f842146
+--- /dev/null
++++ b/tests/test_vmq_mem_rc3_period_slots.py
+@@ -0,0 +1,129 @@
++"""VMQ-MEM RC3 (D2): explicit-year base filter and capacity-based slots."""
++import datetime
++import types
++
++import pytest
++
++from services import direct_chat_service as dcs
++
++CHAT = -1002661910336
++
++
++def _ts(year, month=6, day=1):
++    return int(datetime.datetime(
++        year, month, day, tzinfo=datetime.timezone.utc).timestamp())
++
++
++def _row(fid, text, year, **kwargs):
++    ts = _ts(year)
++    row = {
++        "id": fid, "fact": text, "origin": "chat_history",
++        "rag_ts": ts, "message_timestamp": ts, "created_at": ts,
++        "weight": 0.5, "importance": 5, "status": "confirmed",
++        "tg_message_id": None, "forward_from": "", "expires_at": None,
++        "subject_ref_id": None, "speaker_author_id": None,
++        "assertion_kind": None, "attribution_method": None,
++        "provenance_channel": None,
++    }
++    row.update(kwargs)
++    return row
++
++
++class _Result:
++    def __init__(self, fact_rows, period_fill=None, candidates=()):
++        self.fact_rows = tuple(fact_rows)
++        self.period_fill = period_fill
++        self.candidates = tuple(candidates)
++
++
++class _Cand:
++    def __init__(self, entity_id, entity_type="message"):
++        self.id = f"msg:{entity_id}"
++        self.entity_id = str(entity_id)
++        self.entity_type = entity_type
++        self.channel = "lexical"
++        self.sent_at = _ts(2025)
++        self.preview = ""
++
++
++class _DbStub:
++    def __init__(self, **kwargs):
++        self.__dict__.update(kwargs)
++
++    async def search_messages_fts(self, *_a, **_k):
++        return []
++
++
++def _service(monkeypatch, base_rows, pool_rows, *, calls=None,
++             period_candidates=()):
++    async def _identity_rerank(_query, facts):
++        return list(facts)
++
++    memory = types.SimpleNamespace(rerank_rag_facts=_identity_rerank)
++    service = dcs.DirectChatService(memory=memory, db=_DbStub(),
++                                    llm=None, aliases=None)
++
++    async def fake(_db, _memory, chat_id, query, channels, limit, policy,
++                   *, period_fill=False, period_intent=None, **_kwargs):
++        if calls is not None:
++            calls.append({"period_fill": bool(period_fill),
++                          "channels": tuple(channels),
++                          "period_intent": getattr(period_intent, "kind", None)})
++        if period_fill:
++            return _Result(pool_rows,
++                           period_fill={"vector_leg": "ok",
++                                        "vector_rows": 0},
++                           candidates=period_candidates)
++        return _Result(base_rows)
++
++    monkeypatch.setattr(service, "_rag_retrieve", fake)
++    return service
++
++
++@pytest.mark.asyncio
++async def test_rc3_explicit_year_filters_base_and_fills_capacity(monkeypatch):
++    base = [
++        _row(9001, "2026 текущее", 2026),
++        _row(9002, "2026 ещё", 2026),
++        _row(1001, "конфликт с Олей 2025", 2025),
++        _row(1002, "ещё конфликт 2025", 2025),
++    ]
++    pool = [_row(2000 + i, f"конфликт 2025 {i}", 2025) for i in range(12)]
++    calls: list = []
++    service = _service(
++        monkeypatch, base, pool, calls=calls,
++        period_candidates=(_Cand(60823), _Cand(60824)))
++    rows = await service._rag_unified_rows(
++        CHAT, "что известно о конфликте Корсара с Олей в 2025 году?",
++        None, memory_scope="auto", plan_act="answer")
++
++    # Default graph limit is 10: 2 base + 8 period, all in target year.
++    assert len(rows) == 10
++    assert {row["id"] for row in rows} >= {1001, 1002}
++    assert all(dcs._rag_row_year(row) == 2025 for row in rows)
++    period_rows = [row for row in rows if row.get("period_fill")]
++    assert len(period_rows) == 8
++    assert service._rag_period_stats["base_out_of_year_dropped"] == 2
++    assert service._rag_period_stats["breadth_reason"] == "explicit_year"
++    assert service._rag_period_stats["breadth_cap"] == 8
++    assert service._rag_period_stats["period_message_candidates"] == 2
++    assert service._rag_period_stats[
++        "period_message_candidates_reason"] == "fact_only_consumer"
++    assert any(call["period_fill"] for call in calls)
++    assert any(call["period_intent"] == "explicit_year" for call in calls)
++
++
++@pytest.mark.asyncio
++async def test_rc3_current_state_stays_fresh(monkeypatch):
++    base = [_row(9000 + i, f"текущее состояние {i}", 2026)
++            for i in range(10)]
++    pool = [_row(2000 + i, f"старое {i}", 2024) for i in range(3)]
++    calls: list = []
++    service = _service(monkeypatch, base, pool, calls=calls)
++    rows = await service._rag_unified_rows(
++        CHAT, "что сейчас происходит с ботом?", None,
++        memory_scope="auto", plan_act="answer")
++    assert len(rows) == 10
++    assert all(dcs._rag_row_year(row) == 2026 for row in rows)
++    assert service._rag_period_stats["breadth_allowed"] == 0
++    assert not any(call["period_fill"] for call in calls)

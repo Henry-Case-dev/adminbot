@@ -1094,6 +1094,12 @@ class RetrievalRequest:
     #: временному окну (`<Old_Episode>` по году вопроса); default False —
     #: все прочие вызывающие байт-идентичны.
     lexical_time_window: bool = False
+    #: VMQ-MEM RC2 (D3, 2026-11-23): explicit-year message-anchor использует
+    #: узкий content-match (без 4-значного года, годовых слов и служебных
+    #: предлогов) и `order='rank'` ВНУТРИ существующего `time_from/time_to`,
+    #: а не `order='time'` + LIMIT. Default False → прежний байт-идентичный
+    #: вызов `search_messages_fts(order='time')` для всех прочих путей.
+    lexical_window_rank: bool = False
     #: VMQ-M2 (M-04/O-04; ARCH_REUSE_CONFIRMED): запросить bounded
     #: overview-проекцию покрытия/периодов/контрпримеров/ограничений и
     #: semantic-hints в ТОМ ЖЕ `retrieve()`. Default False — прочие
@@ -2766,22 +2772,40 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         # SQL существующего чтения, а не режет уже полученный top-N. `order=
         # "time"` — bounded план по `idx_smart_messages_chat_ts` (дефект 3);
         # default False → прежний байт-идентичный вызов.
+        # RC2 (D3): explicit-year message-anchor использует узкий
+        # content-match + `order="rank"` ВНУТРИ окна, а не time-срез.
         _fts_window: dict = {}
+        message_match = match
+        rank_window = False
         if request.lexical_time_window and request.time_from is not None \
                 and request.time_to is not None:
             _fts_window = {"since_ts": int(request.time_from),
                            "until_ts": int(request.time_to),
                            "order": "time"}
+            if getattr(request, "lexical_window_rank", False):
+                rank_window = True
+                message_match = _explicit_year_message_match(keywords)
+                _fts_window = {}
         for chat_id in chat_ids:
             try:
-                try:
-                    rows = await db.search_messages_fts(
-                        chat_id, match, max(1, fetch_k * 2), **_fts_window)
-                except TypeError:
-                    # Двойник без kw-окна: прежний вызов, окно режет
-                    # существующий пост-фильтр (не второй поиск).
-                    rows = await db.search_messages_fts(
-                        chat_id, match, max(1, fetch_k * 2))
+                if message_match:
+                    if rank_window:
+                        rows = await _ranked_message_rows(
+                            db, chat_id, message_match, max(1, fetch_k * 2),
+                            int(request.time_from), int(request.time_to),
+                            fetch_k)
+                    else:
+                        try:
+                            rows = await db.search_messages_fts(
+                                chat_id, message_match, max(1, fetch_k * 2),
+                                **_fts_window)
+                        except TypeError:
+                            # Двойник без kw-окна: прежний вызов, окно режет
+                            # существующий пост-фильтр (не второй поиск).
+                            rows = await db.search_messages_fts(
+                                chat_id, message_match, max(1, fetch_k * 2))
+                else:
+                    rows = []
                 for pos, row in enumerate(rows or []):
                     raw.append(_message_candidate(row, "lexical", pos,
                                                   resolve_item_id))
@@ -3308,6 +3332,142 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
         if token and len(stem_word(token)) >= 4:
             out.append(token)
     return out
+
+
+def _explicit_year_message_keywords(keywords: list[str]) -> list[str]:
+    """Узкий content-match explicit-year message-поиска (RC2/D3).
+
+    Год уже применён структурным `time_from/time_to`; 4-значный год,
+    годовые слова и служебные предлоги/местоимения не должны формировать
+    FTS-пул иначе `order='time'`/шумный rank выбирает нерелевантные
+    сообщения. Списка тем здесь нет — только служебные токены.
+    """
+    out: list[str] = []
+    for word in keywords or ():
+        token = str(word or "").casefold()
+        if not token:
+            continue
+        if _YEAR_IN_QUERY_RE.fullmatch(token):
+            continue
+        if token in _YEAR_WORD_TOKENS:
+            continue
+        if token in _MESSAGE_WINDOW_STOPWORDS:
+            continue
+        if token not in out:
+            out.append(token)
+    return out
+
+
+_MESSAGE_WINDOW_STOPWORDS = frozenset({
+    "а", "без", "бы", "в", "вам", "вас", "вот", "все", "всё", "вы", "где",
+    "да", "даже", "для", "до", "его", "ее", "её", "ей", "если", "есть",
+    "же", "за", "и", "из", "или", "им", "их", "к", "как", "какая", "какие",
+    "какой", "ко", "когда", "кто", "ли", "между", "меня", "мне", "мы",
+    "на", "над", "нас", "не", "него", "нее", "ней", "ни", "ним", "них",
+    "но", "о", "об", "он", "она", "они", "от", "по", "под", "при", "про",
+    "с", "себе", "со", "так", "там", "тебе", "то", "тогда", "тот", "тут",
+    "у", "чего", "чем", "через", "что", "чтобы", "эта", "эти", "это",
+    "этот", "я",
+})
+_YEAR_WORD_TOKENS = frozenset({
+    "год", "года", "годе", "годов", "годом", "году", "годы", "годах",
+})
+
+
+def _explicit_year_message_match(keywords: list[str]) -> str:
+    """Узкий selective FTS-match explicit-year message-поиска (RC2/D3).
+
+    Требует co-occurrence минимум двух content-основ (OR по парам AND), чтобы
+    короткие сообщения с одним общим словом не забивали rank. При одной
+    основе — обычный prefix. Списка тем нет; только служебные токены
+    отфильтрованы `_explicit_year_message_keywords`.
+    """
+    tokens = _explicit_year_message_keywords(keywords)
+    if not tokens:
+        return ""
+    from services.text_morphology import stem_word
+    terms: list[str] = []
+    for token in tokens:
+        stem = str(stem_word(token) or token)
+        term = stem if len(stem) >= 4 else token
+        term = term.replace('"', "").replace("*", "")
+        if term and term not in terms:
+            terms.append(term)
+    terms = terms[:8]
+    if not terms:
+        return ""
+    if len(terms) == 1:
+        return f'"{terms[0]}"*'
+    pairs: list[str] = []
+    for i, first in enumerate(terms):
+        for second in terms[i + 1:]:
+            pairs.append(f'("{first}"* AND "{second}"*)')
+    return " OR ".join(pairs)
+
+
+def _window_chunks(start: int, end: int, parts: int = 4) -> list[tuple[int, int]]:
+    """Bounded disjoint time chunks для explicit-year rank (RC2)."""
+    start, end = int(start), int(end)
+    if end <= start:
+        return [(start, end)]
+    span = end - start + 1
+    parts = max(1, min(int(parts), 8))
+    step = max(1, span // parts)
+    chunks: list[tuple[int, int]] = []
+    cursor = start
+    for _ in range(parts):
+        chunk_end = min(end, cursor + step - 1)
+        if chunk_end < cursor:
+            break
+        chunks.append((cursor, chunk_end))
+        cursor = chunk_end + 1
+        if cursor > end:
+            break
+    if not chunks or chunks[-1][1] < end:
+        chunks.append((max(start, chunks[-1][1] + 1 if chunks else start), end))
+    return chunks
+
+
+async def _ranked_message_rows(db, chat_id: int, match_query: str, limit: int,
+                               since_ts: int, until_ts: int,
+                               fetch_k: int) -> list:
+    """Bounded candidate chunks + FTS rank only for candidate rowids (RC2).
+
+    Полный `ORDER BY rank` по году дорог; здесь time-index candidate cap по
+    каждому bounded chunk, затем rank только для этих rowid. Это честный
+    sampling: `candidate_cap` ограничивает пул, финальный порядок — rank.
+    """
+    reader = getattr(db, "search_messages_fts_ranked_window", None)
+    if not callable(reader):
+        return await db.search_messages_fts(
+            int(chat_id), match_query, max(1, int(limit)),
+            since_ts=int(since_ts), until_ts=int(until_ts), order="rank")
+    cap = max(64, int(fetch_k) * 8)
+    rows: list = []
+    for chunk_start, chunk_end in _window_chunks(since_ts, until_ts):
+        try:
+            chunk = await reader(
+                int(chat_id), match_query, max(1, int(limit)),
+                chunk_start, chunk_end, candidate_cap=cap)
+        except TypeError:
+            chunk = await reader(
+                int(chat_id), match_query, max(1, int(limit)),
+                chunk_start, chunk_end)
+        rows.extend(chunk or ())
+    seen: set = set()
+    unique: list = []
+    for row in rows:
+        key = _row_get(row, "id")
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(row)
+    if any(_row_get(row, "_fts_rank", None) is not None
+           for row in unique):
+        unique.sort(key=lambda row: (
+            float(_row_get(row, "_fts_rank", 0.0) or 0.0),
+            int(_row_get(row, "id", 0) or 0)))
+    return unique[:max(1, int(limit))]
 
 
 def _exclude_years_of(request: RetrievalRequest):

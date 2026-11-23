@@ -9537,6 +9537,53 @@ class DatabaseService:
         )
         return await cursor.fetchall()
 
+    async def search_messages_fts_ranked_window(
+            self, chat_id: int, match_query: str, limit: int,
+            since_ts: int, until_ts: int, *, candidate_cap: int = 128
+    ) -> list[dict]:
+        """Bounded explicit-year message rank (VMQ-MEM RC2/D3).
+
+        Сначала bounded time-index candidate cap (`m.id IN (SELECT rowid FROM
+        smart_messages_fts MATCH ?)` + `ORDER BY m.timestamp DESC LIMIT cap`),
+        затем FTS `rank` только для этих candidate rowid. Это не time-срез:
+        финальный порядок — `rank`, но candidate pool честно ограничен
+        `candidate_cap` (sampling); полный rank-скан года не выполняется.
+        Возвращает dict-строки с `_fts_rank`; ошибки не бросает ([]).
+        """
+        try:
+            cap = max(1, min(int(candidate_cap), 2000))
+            cursor = await self.db.execute(
+                "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, "
+                "m.timestamp, m.media_type, m.author_name, m.is_forward, "
+                "m.forward_source, m.tg_message_id "
+                "FROM smart_messages m WHERE m.chat_id = ? "
+                "AND m.timestamp >= ? AND m.timestamp <= ? "
+                "AND m.id IN (SELECT rowid FROM smart_messages_fts "
+                "WHERE smart_messages_fts MATCH ?) "
+                "ORDER BY m.timestamp DESC, m.id DESC LIMIT ?",
+                (int(chat_id), int(since_ts), int(until_ts),
+                 match_query, cap))
+            rows = [dict(row) for row in await cursor.fetchall()]
+            if not rows:
+                return []
+            ids = [int(row["id"]) for row in rows]
+            placeholders = ",".join("?" for _ in ids)
+            cursor = await self.db.execute(
+                "SELECT rowid, rank FROM smart_messages_fts "
+                f"WHERE smart_messages_fts MATCH ? AND rowid IN ({placeholders})",
+                (match_query, *ids))
+            ranks = {int(row["rowid"]): float(row["rank"])
+                     for row in await cursor.fetchall()}
+            for row in rows:
+                row["_fts_rank"] = ranks.get(int(row["id"]), 0.0)
+            rows.sort(key=lambda row: (float(row["_fts_rank"]),
+                                       int(row["id"])))
+            return rows[:max(1, int(limit))]
+        except Exception:
+            logger.warning("[database] ranked message window failed — empty",
+                           exc_info=True)
+            return []
+
     async def search_messages_fts_count(self, chat_id: int, match_query: str,
                                         since_ts: int = 0, *,
                                         until_ts: int = 0, author_ids=None,
