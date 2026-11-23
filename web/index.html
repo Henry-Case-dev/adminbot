@@ -7320,7 +7320,7 @@
               <template v-if="activeTab === 'mod_random' && (!workspaceModule || workspaceTab === 'settings')">
                 <!-- Верхняя сводка (§5.2): runtime diagnostics, не положение
                      селектора. Нет данных — «нет данных», без зелёного. -->
-                <div class="card p-4 col-span-full" data-random-summary>
+                <div class="card p-4 col-span-full min-w-0" data-random-summary>
                   <div class="flex items-center gap-2 flex-wrap mb-2">
                     <div class="text-sm font-bold">Источники случайности</div>
                     <span class="badge" :class="randomActivityView.stateCls"
@@ -7330,17 +7330,23 @@
                     </span>
                   </div>
                   <div class="grid gap-1 text-xs md:grid-cols-2">
-                    <div>Основной (настройка):
-                      <b data-random-summary-primary>{{ randomActivityView.primaryLabel }}</b>
-                      <span v-if="randomActivityView.primaryRaw" class="text-gray-500">
-                        · {{ randomActivityView.primaryRaw }}</span>
-                      <span v-else-if="randomActivityView.ready
-                                       && randomActivityView.primaryProvider"
-                            class="text-gray-500">· заводское значение</span>
-                      <span v-else class="text-gray-500">· нет данных</span>
+                    <div>Основной источник (настройка):
+                      <b data-random-summary-primary>{{ randomPrimarySettingView().selected
+                        ? randomProviderLabel(randomPrimarySettingView().selected)
+                        : '—' }}</b>
+                      <span class="text-gray-500" data-random-summary-primary-state>
+                        · {{ randomPrimarySettingView().stateLabel }}</span>
+                      <span v-if="randomPrimarySettingView().raw"
+                            class="text-gray-500" data-random-summary-primary-raw>
+                        · {{ randomPrimarySettingView().raw }}</span>
+                      <span v-if="randomPrimarySettingView().inherited"
+                            class="text-gray-500">· заводское: {{ randomPrimarySettingView().factoryLabel }}</span>
                     </div>
                     <div>Сейчас используется:
-                      <b data-random-summary-effective>{{ randomActivityView.effectiveLabel }}</b>
+                      <b data-random-summary-effective>{{ randomEffectiveUsedLabel() }}</b>
+                    </div>
+                    <div>Действующий резерв:
+                      <b data-random-summary-fallback>{{ randomFallbackOrderView().effectiveLabel }}</b>
                     </div>
                     <div>Квантовый запас:
                       <b data-random-summary-reserve>{{ randomActivityView.reserveText }}</b>
@@ -7349,15 +7355,16 @@
                       <b data-random-summary-last>{{ randomLastBatchLabel() }}</b>
                     </div>
                   </div>
-                  <div v-if="randomActivityView.primaryState === 'requires_resolution'"
+                  <div v-if="randomPrimarySettingView().invalid"
                        class="text-xs text-amber-300 mt-2" data-random-retired-warning>
-                    Сохранённая настройка источника вне действующего контракта.
-                    Сейчас используется: {{ randomResolvedLabel() }}.
+                    Сохранённое значение основного источника вне действующего
+                    контракта и не применяется. Сейчас используется:
+                    {{ randomResolvedLabel() }}.
                   </div>
                 </div>
 
                 <!-- ═══ A. Источники ═══════════════════════════════════════ -->
-                <div class="card p-4 col-span-full" data-random-sources>
+                <div class="card p-4 col-span-full min-w-0" data-random-sources>
                   <div class="flex items-center gap-2 flex-wrap mb-2">
                     <div class="text-sm font-bold">A. Источники</div>
                     <span class="text-xs text-gray-500">выбор основного и автоматического резерва</span>
@@ -7377,6 +7384,19 @@
                       <option v-for="opt in randomPrimaryOptions" :key="opt.id"
                               :value="opt.id">{{ opt.label }} — {{ opt.type }}</option>
                     </select>
+                    <div class="text-xs mt-1"
+                         :class="randomPrimarySettingView().invalid ? 'text-amber-300' : 'text-gray-500'"
+                         data-random-setting-primary>
+                      Настройка: {{ randomPrimarySettingView().stateLabel }}
+                      <span v-if="randomPrimarySettingView().inherited">
+                        · заводское: {{ randomPrimarySettingView().factoryLabel }}</span>
+                      <span v-if="randomPrimarySettingView().invalid">
+                        · сохранено: {{ randomPrimarySettingView().raw || '—' }}</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1" data-random-effective-primary>
+                      Фактически используется:
+                      <b>{{ randomEffectiveUsedLabel() }}</b>
+                    </div>
                     <div class="text-xs text-gray-500 mt-1">
                       Сохраняется реальный provider ID. Если основной источник
                       временно недоступен, используются следующие разрешённые
@@ -7397,34 +7417,70 @@
                       <span class="badge" :class="randomFallbackOn() ? 'badge-info' : 'badge-muted'">
                         {{ randomFallbackOn() ? 'включено' : 'выключено' }}
                       </span>
+                      <span class="text-xs text-gray-500" data-random-fallback-setting>
+                        Настройка: {{ randomFallbackSettingView().label }}
+                      </span>
                     </div>
                     <div class="mt-2" data-random-fallback-order
                          data-cfg-key="random.fallback_order">
-                      <div class="text-xs text-gray-400 mb-1">Порядок запасных источников</div>
+                      <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <div class="text-xs text-gray-400">Порядок запасных источников</div>
+                        <span class="badge badge-muted" data-random-fallback-state>
+                          {{ randomFallbackOrderView().savedHint }}
+                        </span>
+                      </div>
+                      <div class="text-xs text-gray-500" data-random-fallback-saved>
+                        Сохранённый: {{ randomFallbackOrderView().savedLabel }}
+                      </div>
+                      <div class="text-xs text-gray-500" data-random-fallback-factory>
+                        Заводской: {{ randomFallbackOrderView().factoryLabel }}
+                      </div>
+                      <div class="text-xs text-gray-500 mb-2" data-random-fallback-effective>
+                        Действующий: {{ randomFallbackOrderView().effectiveLabel }}
+                      </div>
+                      <div v-if="randomFallbackEditing()"
+                           class="flex items-center gap-2 flex-wrap rounded-lg bg-white/5 px-2 py-1 mb-2"
+                           data-random-fallback-draft-bar>
+                        <span class="text-xs text-amber-300 mr-auto">
+                          Черновик не сохранён в базе. «Сохранить» отправит полный
+                          порядок; «Отмена» вернёт сохранённое/заводское.
+                        </span>
+                        <button type="button" class="btn-ghost text-xs px-2"
+                                :disabled="!isGlobalAdmin || randomFallbackSaveBusy"
+                                data-random-fallback-save
+                                @click="randomFallbackSaveDraft()">Сохранить</button>
+                        <button type="button" class="btn-ghost text-xs px-2"
+                                :disabled="randomFallbackSaveBusy"
+                                data-random-fallback-cancel
+                                @click="randomFallbackCancelDraft()">Отмена</button>
+                      </div>
                       <div v-for="row in randomFallbackRows()" :key="'rnd-fb-' + row.id"
-                           class="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1 mb-1"
-                           :data-random-fallback="row.id">
+                           class="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1 mb-1 min-w-0"
+                           :data-random-fallback="row.id"
+                           :data-random-fallback-effective-state="row.effective ? '1' : '0'">
                         <div class="flex items-center gap-2 min-w-0 flex-1">
                           <input type="checkbox" :checked="row.enabled"
-                                 :disabled="!isGlobalAdmin"
+                                 :disabled="!isGlobalAdmin || randomFallbackSaveBusy"
                                  data-random-fallback-include
                                  :aria-label="'Включить в резерв: ' + row.label"
-                                 @change="setRandomFallbackIncluded(row.id, $event.target.checked)">
-                          <span class="text-sm truncate">{{ row.label }}</span>
-                          <span class="hidden sm:inline text-xs text-gray-500 shrink-0">{{ row.type }}</span>
-                          <span v-if="!row.enabled" class="badge badge-muted shrink-0">не в резерве</span>
+                                 @change="randomFallbackToggleDraft(row.id, $event.target.checked)">
+                          <div class="min-w-0 flex-1 text-sm">
+                            {{ row.label }}
+                            <span class="badge ml-2" :class="row.statusCls"
+                                  data-random-fallback-status>{{ row.statusLabel }}</span>
+                          </div>
                         </div>
                         <div class="flex items-center gap-1 shrink-0">
                           <button type="button" class="btn-ghost text-xs px-2"
-                                  :disabled="!isGlobalAdmin || !row.canUp"
+                                  :disabled="!isGlobalAdmin || randomFallbackSaveBusy || !row.canUp"
                                   data-random-fallback-up
                                   :aria-label="'Выше: ' + row.label"
-                                  @click="moveRandomFallback(row.id, -1)">↑</button>
+                                  @click="randomFallbackMoveDraft(row.id, -1)">↑</button>
                           <button type="button" class="btn-ghost text-xs px-2"
-                                  :disabled="!isGlobalAdmin || !row.canDown"
+                                  :disabled="!isGlobalAdmin || randomFallbackSaveBusy || !row.canDown"
                                   data-random-fallback-down
                                   :aria-label="'Ниже: ' + row.label"
-                                  @click="moveRandomFallback(row.id, 1)">↓</button>
+                                  @click="randomFallbackMoveDraft(row.id, 1)">↓</button>
                         </div>
                       </div>
                     </div>
@@ -7440,11 +7496,15 @@
                     <article class="card p-3" data-random-provider="ibm_quantum">
                       <div class="flex items-center gap-2 flex-wrap">
                         <b class="text-sm">IBM Quantum</b>
-                        <span class="badge badge-muted">не подключён</span>
+                        <span class="badge"
+                              :class="randomProviderCard('ibm_quantum').stateCls"
+                              data-random-provider-badge>
+                          {{ randomProviderCard('ibm_quantum').stateLabel }}
+                        </span>
                         <span class="text-xs text-gray-500">аппаратный QPU</span>
                       </div>
                       <div class="text-xs text-gray-400 mt-1" data-random-provider-state>
-                        не подключён — ожидает доступов IBM Cloud (этап P5)
+                        {{ randomProviderCard('ibm_quantum').stateText }}
                       </div>
                       <div class="text-xs text-gray-500 mt-1">
                         Пока доступов нет, выбор IBM разрешится в ANU или в
@@ -7461,8 +7521,9 @@
                       <div class="flex items-center gap-2 flex-wrap">
                         <b class="text-sm">ANU Quantum Numbers</b>
                         <span class="badge"
-                              :class="randomProviderCard('anu').configured ? 'badge-info' : 'badge-muted'">
-                          {{ randomProviderCard('anu').configured ? 'ключ сохранён' : 'ключ не настроен' }}
+                              :class="randomProviderCard('anu').stateCls"
+                              data-random-provider-badge>
+                          {{ randomProviderCard('anu').stateLabel }}
                         </span>
                         <span class="text-xs text-gray-500">квантовые числа</span>
                       </div>
@@ -7539,14 +7600,18 @@
                     <article class="card p-3" data-random-provider="lfdr">
                       <div class="flex items-center gap-2 flex-wrap">
                         <b class="text-sm">LfDR QRNG</b>
-                        <span class="badge badge-muted">ключ не требуется</span>
+                        <span class="badge"
+                              :class="randomProviderCard('lfdr').stateCls"
+                              data-random-provider-badge>
+                          {{ randomProviderCard('lfdr').stateLabel }}
+                        </span>
                         <span class="text-xs text-gray-500">аппаратный QRNG</span>
                       </div>
                       <div class="text-xs text-gray-400 mt-1" data-random-provider-state>
                         {{ randomProviderCard('lfdr').stateText }}
                       </div>
                       <div class="text-xs text-gray-500">
-                        Доступность: {{ randomProviderCard('lfdr').configured
+                        Ключ не требуется · доступность: {{ randomProviderCard('lfdr').configured
                           ? 'настроен (публичный endpoint)' : 'не настроен' }}
                       </div>
                       <div class="text-xs text-gray-500">
