@@ -98,6 +98,21 @@ async def _feedback_chats(db):
     return {int(r["chat_id"]): int(r["c"]) for r in await cur.fetchall()}
 
 
+async def _social_preferences(db):
+    cur = await db.db.execute(
+        "SELECT scope_chat_id, status FROM mca_lessons "
+        "WHERE type = 'social_preference'")
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def _seed_preference_feedback(db, chat_id):
+    await me.get_service(db).record_feedback(
+        source_kind="participant_correction", chat_id=chat_id,
+        ref_type="chat_message", ref_id=abs(int(chat_id)),
+        signal={"preference": "reply_length.short", "user_id": 42,
+                "author_user_id": 42, "msg": abs(int(chat_id))})
+
+
 class _FakeLLM:
     def __init__(self, response="[]"):
         self.response = response
@@ -223,6 +238,98 @@ async def test_global_on_chat_off_no_lessons_from_existing_episodes(
                    if r["scope_chat_id"] is not None}
         assert lessons.get(-100, 0) == 0
         assert lessons.get(-200, 0) >= 1
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_global_on_chat_off_preference_not_created(world, tmp_path):
+    world.globals = {KEY: True}
+    _set_chat({-100: _root({KEY: False}), -200: _root({})})
+    db = await _db(tmp_path, "pref_on_off.db")
+    try:
+        for chat_id in (-100, -200):
+            await _seed_preference_feedback(db, chat_id)
+        assert await jobs.tick_experience_review(
+            db, llm=_FakeLLM()) == "completed"
+        rows = await _social_preferences(db)
+        off_rows = [r for r in rows
+                    if r["scope_chat_id"] == -100
+                    and r["status"] in ("candidate", "validated", "active")]
+        on_rows = [r for r in rows
+                   if r["scope_chat_id"] == -200 and r["status"] == "active"]
+        assert off_rows == []
+        assert on_rows
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_global_off_chat_on_preference_only_for_enabled_chat(
+        world, tmp_path):
+    world.globals = {KEY: False}
+    _set_chat({-100: _root({KEY: True}), -200: _root({})})
+    db = await _db(tmp_path, "pref_off_on.db")
+    try:
+        for chat_id in (-100, -200):
+            await _seed_preference_feedback(db, chat_id)
+        assert await jobs.tick_experience_review(
+            db, llm=_FakeLLM()) == "completed"
+        rows = await _social_preferences(db)
+        on_rows = [r for r in rows
+                   if r["scope_chat_id"] == -100 and r["status"] == "active"]
+        off_rows = [r for r in rows
+                    if r["scope_chat_id"] == -200
+                    and r["status"] in ("candidate", "validated", "active")]
+        assert on_rows
+        assert off_rows == []
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_resume_off_candidate_not_activated(world, tmp_path):
+    world.globals = {KEY: True}
+    _set_chat({-100: _root({KEY: False})})
+    db = await _db(tmp_path, "pref_resume.db")
+    try:
+        svc = me.get_service(db)
+        await _seed_preference_feedback(db, -100)
+        lesson_id, version = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="explicit_user_preference", scope_chat_id=-100,
+            scope_user_id=42,
+            applicability="user:42 pref:reply_length.short")
+        assert (await svc.get_lesson(lesson_id, version))["status"] == "candidate"
+        assert await jobs.tick_experience_review(
+            db, llm=_FakeLLM()) == "completed"
+        lesson = await svc.get_lesson(lesson_id, version)
+        assert lesson is not None
+        assert lesson["status"] == "candidate"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_validate_and_activate_defense_in_depth_off_chat(
+        world, tmp_path):
+    world.globals = {KEY: True}
+    _set_chat({-100: _root({KEY: False})})
+    db = await _db(tmp_path, "pref_defense.db")
+    try:
+        svc = me.get_service(db)
+        lesson_id, version = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="explicit_user_preference", scope_chat_id=-100,
+            scope_user_id=42,
+            applicability="user:42 pref:reply_length.short")
+        runner = jobs.ExperienceReviewRunner(db)
+        outcome = await runner._validate_and_activate([{
+            "lesson_id": lesson_id, "version": version,
+            "kind": "explicit_preference", "source_refs": (),
+            "origin_kind": "explicit"}])
+        assert outcome["activated"] == 0
+        assert (await svc.get_lesson(lesson_id, version))["status"] == "candidate"
     finally:
         await db.close()
 
