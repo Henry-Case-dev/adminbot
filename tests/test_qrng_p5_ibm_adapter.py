@@ -15,6 +15,7 @@
 """
 import asyncio
 import json
+import threading
 import time
 from types import SimpleNamespace
 
@@ -69,7 +70,7 @@ class FakeResult:
 class FakeJob:
     def __init__(self, *, job_id="ibm-job-1", states=("DONE",),
                  bitstrings=None, backend=None, usage=1.25,
-                 result=None, status_error=None):
+                 result=None, status_error=None, result_errors=None):
         self._job_id = job_id
         self._states = list(states)
         self._bitstrings = bitstrings or []
@@ -77,6 +78,7 @@ class FakeJob:
         self._usage = usage
         self._result = result
         self._status_error = status_error
+        self._result_errors = list(result_errors or [])
 
     def job_id(self):
         return self._job_id
@@ -89,6 +91,8 @@ class FakeJob:
         return self._states[0]
 
     def result(self):
+        if self._result_errors:
+            raise self._result_errors.pop(0)
         if self._result is not None:
             return self._result
         return FakeResult(self._bitstrings)
@@ -1009,6 +1013,102 @@ class TestDurableLifecycle:
             await db.close()
 
     @pytest.mark.asyncio
+    async def test_result_timeout_keeps_slot_and_recovers_later(self,
+                                                                tmp_path,
+                                                                monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 10,
+                              mrs.SETTING_BATCH_LENGTH: 8,
+                              mrs.SETTING_PROVIDER_FALLBACK_ENABLED: False})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="RETRY1", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend,
+                          result_errors=[TimeoutError(), TimeoutError()])
+            service = FakeService([backend], jobs={"RETRY1": job})
+            client, sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="failed", reason_code="expired",
+                cursor={"job": "RETRY1", "state": "completed",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": ""})
+            # Result read timeout: row/cursor остаются unresolved, не terminal.
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            rows = await _task_rows(db)
+            assert rows[0]["status"] == "failed"
+            assert mrs.RandomSourceService._ibm_cursor(rows[0])[
+                "state"] == mrs.IBM_JOB_COMPLETED
+            assert await _batch_rows(db) == []
+            # Refill видит fence и не делает новый sampler.run.
+            result = await svc.refill_if_needed(force=True)
+            assert result["status"] == "blocked"
+            assert result["reason"] == "job_in_progress"
+            assert sampler.calls == []
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            # Следующий recovery получает result и зачисляет ровно один batch.
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert len(await _batch_rows(db)) == 1
+            assert (await _task_rows(db))[0]["status"] == "completed"
+            assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_terminal_ibm_failure_releases_slot(self, tmp_path,
+                                                       monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 10,
+                              mrs.SETTING_BATCH_LENGTH: 8,
+                              mrs.SETTING_PROVIDER_FALLBACK_ENABLED: False})
+            backend = FakeBackend("ibm_hw")
+            failed_job = FakeJob(job_id="FAIL1", states=("ERROR",),
+                                 bitstrings=make_bitstrings(),
+                                 backend=backend)
+            next_job = FakeJob(job_id="FAILNEXT", states=("DONE",),
+                               bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService(
+                [backend], jobs={"FAIL1": failed_job,
+                                 "FAILNEXT": next_job})
+            client, sampler = make_client(service, failed_job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="failed", reason_code="expired",
+                cursor={"job": "FAIL1", "state": "completed",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": ""})
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            assert mrs.RandomSourceService._ibm_cursor(row)[
+                "state"] == mrs.IBM_JOB_FAILED
+            assert await _batch_rows(db) == []
+            sampler.job = next_job
+            result = await svc.refill_if_needed(force=True)
+            assert result["status"] == "completed"
+            assert len(await _batch_rows(db)) == 1
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
     async def test_config_rotation_quarantines_old_allows_new(self,
                                                               tmp_path,
                                                               monkeypatch):
@@ -1054,6 +1154,80 @@ class TestDurableLifecycle:
             batches = await _batch_rows(db)
             assert len(batches) == 1
             assert '"job":"NEWJOB"' in batches[0]["external_ref"]
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_rotation_during_recovery_does_not_mix_old_result(
+            self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            values = {mrs.SETTING_IBM_KEY: "old-key",
+                      mrs.SETTING_IBM_INSTANCE: "open-instance",
+                      mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 10,
+                      mrs.SETTING_BATCH_LENGTH: 8,
+                      mrs.SETTING_PROVIDER_FALLBACK_ENABLED: False}
+            cfg(monkeypatch, values)
+            backend = FakeBackend("ibm_hw")
+
+            class GatedResultJob(FakeJob):
+                def __init__(self, **kwargs):
+                    super().__init__(**kwargs)
+                    self.started = threading.Event()
+                    self.release = threading.Event()
+
+                def result(self):
+                    self.started.set()
+                    self.release.wait(timeout=3)
+                    return super().result()
+
+            old_job = GatedResultJob(
+                job_id="OLDGATE", states=("DONE",),
+                bitstrings=make_bitstrings(), backend=backend)
+            new_job = FakeJob(job_id="NEWGATE", states=("DONE",),
+                              bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService(
+                [backend], jobs={"OLDGATE": old_job, "NEWGATE": new_job})
+            client, sampler = make_client(service, old_job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            old_fp = svc._ibm_config_fingerprint()
+            await _insert_task_row(
+                db, status="failed", reason_code="expired",
+                cursor={"job": "OLDGATE", "state": "completed",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": old_fp})
+            await svc._recover_ibm_jobs()
+            for _ in range(100):
+                if old_job.started.is_set():
+                    break
+                await asyncio.sleep(0.01)
+            assert old_job.started.is_set()
+            # Key/CRN меняется, пока старый recovery ждёт result.
+            values[mrs.SETTING_IBM_KEY] = "new-key"
+            await svc._recover_ibm_jobs()      # quarantine old row + token bump
+            old_job.release.set()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            rows = await _task_rows(db)
+            old = next(
+                r for r in rows
+                if mrs.RandomSourceService._ibm_cursor(r).get("job")
+                == "OLDGATE")
+            assert old["status"] == "failed"
+            old_cursor = mrs.RandomSourceService._ibm_cursor(old)
+            assert old_cursor["quarantined"] is True
+            assert await _batch_rows(db) == []
+            # Новый key может submit; старый результат не зачислен.
+            sampler.job = new_job
+            result = await svc.refill_if_needed(force=True)
+            assert result["status"] == "completed"
+            assert len(sampler.calls) == 1
+            batches = await _batch_rows(db)
+            assert len(batches) == 1
+            assert '"job":"NEWGATE"' in batches[0]["external_ref"]
         finally:
             await db.close()
 

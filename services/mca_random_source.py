@@ -5586,9 +5586,11 @@ class RandomSourceService:
                 (PROVIDER_ID_IBM, needle))
             return await cursor.fetchone() is not None
         except Exception:
-            logger.warning("[random_source] ibm batch lookup failed",
-                           exc_info=True)
-            return False
+            logger.warning("[random_source] ibm batch lookup failed — "
+                           "conservative exists=True", exc_info=True)
+            # Неизвестность трактуем как «batch уже есть»: лучше не
+            # зачислить дубль, чем создать второй batch.
+            return True
 
     async def _ibm_deposit_batch(self, batch: AnuBatch,
                                  fingerprint: str | None = None) -> str:
@@ -5796,13 +5798,51 @@ class RandomSourceService:
             started += 1
         return started
 
+    async def _ibm_recovery_guard(self, row: dict, cursor: dict,
+                                  fencing_token: int) -> bool:
+        """Не разрешать старому recovery писать после quarantine/rotation."""
+        if self.db is None:
+            return False
+        from services.task_supervisor import TaskJobStore
+        current = await TaskJobStore(self.db).get(
+            str(row.get("job_id") or ""))
+        if current is None:
+            return False
+        if str(current.get("status") or "") == "completed":
+            return False
+        current_cursor = self._ibm_cursor(current)
+        if current_cursor.get("quarantined"):
+            return False
+        cursor_fp = str(cursor.get("config_fp") or "").strip()
+        current_fp = self._ibm_config_fingerprint()
+        if cursor_fp and current_fp and cursor_fp != current_fp:
+            return False
+        if int(current.get("fencing_token") or 0) != int(fencing_token or 0):
+            return False
+        return True
+
     async def _recover_ibm_job(self, *, row: dict, cursor: dict,
                                ibm_job_id: str) -> None:
         from services.task_supervisor import TaskJobStore
         try:
             if self.db is None:
                 return
+            fence_token = int(row.get("fencing_token") or 0)
+            if not await self._ibm_recovery_guard(
+                    row, cursor, fence_token):
+                return
             purpose = str(cursor.get("purpose") or "refill")
+            fingerprint = (str(cursor.get("config_fp") or "").strip()
+                           or self._ibm_config_fingerprint())
+
+            async def _deposit_guarded(batch):
+                if not await self._ibm_recovery_guard(
+                        row, cursor, fence_token):
+                    raise IbmError(
+                        "claim_revoked", "recovery claim revoked",
+                        stage="deposit", sent=False)
+                return await self._ibm_deposit_batch(batch, fingerprint)
+
             batches = await self._get_ibm_client().resume(
                 api_key=self._ibm_api_key(), crn=self._ibm_crn(),
                 instance=self._ibm_instance(), region=self._ibm_region(),
@@ -5816,8 +5856,11 @@ class RandomSourceService:
                                  or row.get("created_at") or time.time()),
                 plan=cursor.get("plan"),
                 deposit=(None if purpose == "smoke"
-                         else self._ibm_deposit_batch),
+                         else _deposit_guarded),
                 job_store=TaskJobStore(self.db))
+            if not await self._ibm_recovery_guard(
+                    row, cursor, fence_token):
+                return
             provenance = dict((batches.provenance if batches else {}) or {})
             await self._finish_ibm_row(
                 row, status="completed", reason_code="recovered",
@@ -5831,30 +5874,33 @@ class RandomSourceService:
                 usage={"usage_seconds": provenance.get("usage_seconds")}
                 if provenance.get("usage_seconds") is not None else None)
         except IbmError as exc:
+            if str(exc.code) == "claim_revoked":
+                # Rotation/quarantine уже закрыли строку — ничего не пишем.
+                return
             state = str(exc.job_state or "")
-            status = ("cancelled" if state == IBM_JOB_CANCELLED
-                      else "failed")
-            await self._finish_ibm_row(
-                row, status=status,
-                reason_code=("expired" if state == IBM_JOB_EXPIRED
-                             else exc.code),
-                error_code=exc.code)
-            if state == IBM_JOB_EXPIRED:
-                cursor_state = IBM_JOB_EXPIRED
-            elif state == IBM_JOB_CANCELLED:
-                cursor_state = IBM_JOB_CANCELLED
-            else:
-                cursor_state = IBM_JOB_FAILED
-            await self._set_ibm_cursor_state(
-                row, cursor, cursor_state)
+            if state in (IBM_JOB_FAILED, IBM_JOB_CANCELLED):
+                status = ("cancelled" if state == IBM_JOB_CANCELLED
+                          else "failed")
+                await self._finish_ibm_row(
+                    row, status=status, reason_code=exc.code,
+                    error_code=exc.code)
+                await self._set_ibm_cursor_state(
+                    row, cursor,
+                    (IBM_JOB_CANCELLED if state == IBM_JOB_CANCELLED
+                     else IBM_JOB_FAILED))
+                self._note_ibm_failure(exc.code, stage=exc.stage)
+                return
+            # result/attach/tag/timeout/network — НЕ terminal: row/cursor
+            # остаются unresolved, слот держится до следующего recovery.
             self._note_ibm_failure(exc.code, stage=exc.stage)
+            logger.info("[random_source] ibm recovery transient | "
+                        "job_id=%s | code=%s", ibm_job_id, exc.code)
         except Exception as exc:      # pragma: no cover - fail-open
-            await self._finish_ibm_row(
-                row, status="failed", reason_code="recovery_failed",
-                error_code=type(exc).__name__)
-            await self._set_ibm_cursor_state(
-                row, cursor, IBM_JOB_FAILED)
-            logger.warning("[random_source] ibm recovery failed",
+            # Неизвестная ошибка также не считается terminal: повторяем
+            # recovery, не теряя possibly-DONE result и не создавая новый job.
+            self._note_ibm_failure("provider_unavailable",
+                                   stage="recovery")
+            logger.warning("[random_source] ibm recovery transient/unknown",
                            exc_info=True)
         finally:
             self._ibm_recovering.discard(ibm_job_id)
