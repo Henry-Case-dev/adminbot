@@ -5463,7 +5463,7 @@ class RandomSourceService:
         """
         rows = await self._ibm_task_rows(
             statuses=("queued", "running", "interrupted", "failed",
-                      "expired"))
+                      "expired", "cancelled"))
         current_fp = self._ibm_config_fingerprint()
         out: list[dict] = []
         for row in rows:
@@ -5476,7 +5476,8 @@ class RandomSourceService:
             status = str(row.get("status") or "")
             if status in ("queued", "running", "interrupted"):
                 out.append(row)
-            elif self._ibm_row_unresolved(row):
+            elif status in ("failed", "expired", "cancelled") \
+                    and self._ibm_row_unresolved(row):
                 out.append(row)
         return out
 
@@ -5683,7 +5684,7 @@ class RandomSourceService:
             int(self._ibm_job_max_age()) * 2, 86400)
         rows = await self._ibm_task_rows(
             statuses=("queued", "running", "interrupted", "failed",
-                      "expired"),
+                      "expired", "cancelled"),
             since=since)
         started = 0
         for row in rows:
