@@ -144,9 +144,10 @@ class FakeService:
         return self._jobs[job_id]
 
 
-def make_bitstrings(shots=256, pattern="0110" * 4):
-    assert len(pattern) == 16
-    return [pattern for _ in range(shots)]
+def make_bitstrings(shots=256):
+    # Разные соседние shots нужны для cross-shot von Neumann debias.
+    return [("0110" * 4 if index % 2 == 0 else "1010" * 4)
+            for index in range(shots)]
 
 
 def make_client(service, job, *, poll_interval=0.0, job_max_age=60.0):
@@ -324,6 +325,12 @@ class TestReadOnlyAndSmoke:
             FakeJob())[0].check_access(api_key="k")
         assert only_sim["blocker"] == "no_backend"
         assert only_sim["stage"] == "no_backend"
+        wrong_region = await client.check_access(
+            api_key="k",
+            crn="crn:v1:bluemix:public:quantum-compute:eu-de:a/x:y::",
+            region="us-east")
+        assert wrong_region["blocker"] == "invalid_region"
+        assert wrong_region["stage"] == "region"
         assert sampler.calls == []
 
     @pytest.mark.asyncio
@@ -334,6 +341,27 @@ class TestReadOnlyAndSmoke:
         assert result["healthy"] is False
         assert result["blocker"] == "dependency_missing"
         assert result["stage"] == "dependency"
+
+    @pytest.mark.asyncio
+    async def test_service_smoke_does_not_deposit(self, tmp_path,
+                                                  monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            client, sampler = make_client(
+                FakeService([backend]), FakeJob(bitstrings=make_bitstrings(),
+                                                backend=backend))
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            result = await svc.ibm_hardware_smoke(shots=256)
+            assert result["healthy"] is True
+            assert result["deposited"] is False
+            assert len(sampler.calls) == 1
+            assert await _batch_rows(db) == []
+        finally:
+            await db.close()
 
     @pytest.mark.asyncio
     async def test_auth_failure_names_permission_stage(self):
@@ -502,7 +530,9 @@ class TestDurableLifecycle:
             cursor = mrs.RandomSourceService._ibm_cursor(row)
             assert cursor["job"] == "J1"
             assert cursor["state"] == "completed"
-            assert json.loads(row["result_ref"])["job"] == "J1"
+            ref = json.loads(row["result_ref"])
+            assert ref["job"] == "J1"
+            assert ref["batch"] == inserted[0].provenance["batch_id"]
             assert len(await _batch_rows(db)) == 1
         finally:
             await db.close()
@@ -585,6 +615,26 @@ class TestDurableLifecycle:
             assert rows[0]["status"] == "failed"
             assert rows[0]["reason_code"] == "submit_uncertain"
             assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_auth_blocker_clears_on_config_change(self, tmp_path,
+                                                        monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            values = {mrs.SETTING_IBM_KEY: "key-A",
+                      mrs.SETTING_IBM_INSTANCE: "open-instance",
+                      mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 10}
+            cfg(monkeypatch, values)
+            client, _sampler = make_client(
+                FakeService([FakeBackend("ibm_hw")]), FakeJob())
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            svc._note_ibm_failure("auth_failed", stage="permission")
+            assert await svc._ibm_skip_reason() == "auth_failed"
+            values[mrs.SETTING_IBM_KEY] = "key-B"
+            assert await svc._ibm_skip_reason() is None
         finally:
             await db.close()
 
