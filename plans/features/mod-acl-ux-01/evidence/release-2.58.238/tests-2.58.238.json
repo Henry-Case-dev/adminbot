@@ -6,6 +6,7 @@
   "base_sha": "f4040266013bb19374c24c39ed001ba1ccb815f4",
   "release_branch": "release/mod-acl-m5a3-m5b-2.58.238",
   "content_tip": "f5567fccd4d7ebd95438a3f33754ce234929fb9e",
+  "reviewed_deploy_tip": "b81ec52aa4834896c8e901269e69058612ae81bf",
   "bump_commit": "7a36f4fc847f4f51246457c02300d047acd565d6",
   "sources": {
     "m5a": {
@@ -34,10 +35,12 @@
     ["a8a3d75a2", "f5567fccd4d7ebd95438a3f33754ce234929fb9e"]
   ],
   "equality": {
-    "m5a_product_command": "git diff --quiet 0907dbae6 HEAD -- services/experience_diagnostics.py tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py",
+    "m5a_product_command": "git diff --quiet 0907dbae6 b81ec52aa -- services/experience_diagnostics.py tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py",
     "m5a_product_exit": 0,
-    "m5b_product_command": "git diff --quiet 697a28f9e HEAD -- services/mca_experience_jobs.py tests/test_mod_acl_ux_m5b_shared_review.py",
+    "m5b_product_command": "git diff --quiet 697a28f9e b81ec52aa -- services/mca_experience_jobs.py tests/test_mod_acl_ux_m5b_shared_review.py",
     "m5b_product_exit": 0,
+    "release_content_command": "git diff --quiet f5567fccd b81ec52aa -- services/experience_diagnostics.py services/mca_experience_jobs.py tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py tests/test_mod_acl_ux_m5b_shared_review.py",
+    "release_content_exit": 0,
     "merges": 0,
     "m5b_evidence_note": "mac-exp-08.md normalized CRLF->LF (N05, docs-only); other M5B files match a8a3d75a2"
   },
@@ -87,7 +90,7 @@
   ],
   "manifest": {
     "artifact": "manifest-dry-run.json",
-    "deployed_sha": "7a36f4fc847f4f51246457c02300d047acd565d6",
+    "deployed_sha": "b81ec52aa4834896c8e901269e69058612ae81bf",
     "version": "2.58.238",
     "previous_sha": "f4040266013bb19374c24c39ed001ba1ccb815f4",
     "previous_version": "2.58.237",

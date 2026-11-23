@@ -18,8 +18,12 @@ Scope: code-only — закрытие 3 REVIEW-строк M5A + M5B shared revie
   **APPROVED**; `MAC-EXP-08` REVIEW/RFL, `MAC-M5-01` PENDING.
 - Release branch: `release/mod-acl-m5a3-m5b-2.58.238` от `f40402660`.
 - Content tip (6 cherry-picks): `f5567fccd4d7ebd95438a3f33754ce234929fb9e`.
+- Reviewed/deploy tip: `b81ec52aa4834896c8e901269e69058612ae81bf`
+  — **exact deploy SHA**; относительно content tip это docs/evidence-only,
+  product bytes идентичны.
 - Bump: `7a36f4fc847f4f51246457c02300d047acd565d6`.
-- Evidence/docs commit: этот коммит (после bump).
+- Post-review docs-only correction на этой же ветке (этот коммит) не
+  деплоится; product bytes от него не меняются.
 
 ## 2. Cherry-picks (linear, 0 merges)
 
@@ -32,20 +36,27 @@ Scope: code-only — закрытие 3 REVIEW-строк M5A + M5B shared revie
 | `697a28f9e` M5B R1 F01 fix | `64bd8f3e4` |
 | `a8a3d75a2` M5B docs binding | `f5567fccd` |
 
-`d455d9025` — фактический parent `697a28f9e`; в присланном списке он
-отсутствовал, но без него R1-коммит не применяется к evidence-файлам.
-Продуктовый код/тесты от этого не меняются.
+Цепочка M5B: `4b79360c7` → `d455d9025` → `697a28f9e` → `a8a3d75a2`.
+`d455d9025` — parent `697a28f9e`, а его parent — `4b79360c7`; в
+присланном списке `d455d9025` отсутствовал, но без него R1-коммит не
+применяется к evidence-файлам. Продуктовый код/тесты от этого не
+меняются.
 
-Проверки равенства:
+Проверки равенства (на reviewed/deploy tip `b81ec52aa`):
 
 ```
-git diff --quiet 0907dbae6 HEAD -- \
+git diff --quiet f5567fccd b81ec52aa -- \
   services/experience_diagnostics.py \
-  tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py   # exit 0
-git diff --quiet 697a28f9e HEAD -- \
   services/mca_experience_jobs.py \
-  tests/test_mod_acl_ux_m5b_shared_review.py               # exit 0
-git rev-list --merges f40402660..HEAD | wc -l              # 0
+  tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py \
+  tests/test_mod_acl_ux_m5b_shared_review.py                 # exit 0
+git diff --quiet 0907dbae6 b81ec52aa -- \
+  services/experience_diagnostics.py \
+  tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py    # exit 0
+git diff --quiet 697a28f9e b81ec52aa -- \
+  services/mca_experience_jobs.py \
+  tests/test_mod_acl_ux_m5b_shared_review.py                # exit 0
+git rev-list --merges f40402660..b81ec52aa | wc -l           # 0
 ```
 
 M5B evidence-файл `evidence/m5b/mac-exp-08.md` нормализован N05
@@ -91,12 +102,17 @@ M5B evidence-файл `evidence/m5b/mac-exp-08.md` нормализован N05
 
 ## 6. Manifest dry-run
 
-`manifest-dry-run.json` (на bump-коммите, чистое tracked-дерево):
+`manifest-dry-run.json` снят на reviewed/deploy tip
+`b81ec52aa4834896c8e901269e69058612ae81bf` (чистое tracked-дерево):
 
-- `deployed_sha=7a36f4fc8…`, `version=2.58.238`;
+- `deployed_sha=b81ec52aa…`, `version=2.58.238`;
 - `previous_sha=f40402660…`, `previous_version=2.58.237`;
 - `release_branch=release/mod-acl-m5a3-m5b-2.58.238`;
 - `dirty_tracked=false`.
+
+Post-review docs-only correction commit на этой же ветке идёт после
+`b81ec52aa` и **не деплоится**; manifest/runbook фиксируют exact deploy
+SHA `b81ec52aa`, product bytes не меняются.
 
 `.deploy/release.json` production checkout не изменялся: для dry-run
 использован временный previous-manifest, удалён после прогона.
@@ -117,6 +133,8 @@ M5B evidence-файл `evidence/m5b/mac-exp-08.md` нормализован N05
   M5A не понижены.
 - M5B: `MAC-EXP-08` **REVIEW/RFL** (live preprod-проверка не выполнялась);
   `MAC-M5-01` **PENDING** (M5C/native question).
+- Deploy SHA: `b81ec52aa4834896c8e901269e69058612ae81bf`; post-review
+  docs-only correction не деплоится.
 - M5C/M6 не начаты; эпик M5 не DONE.
 - Deploy/SSH/LLM/prod не выполнялись.
 

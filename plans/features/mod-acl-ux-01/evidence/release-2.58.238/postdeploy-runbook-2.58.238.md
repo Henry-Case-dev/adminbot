@@ -7,9 +7,12 @@ Production host `192.255.209.205`, checkout `/var/www/admin_bot`, unit
 ## 1. Preconditions
 
 - Release branch `release/mod-acl-m5a3-m5b-2.58.238`; content tip
-  `f5567fccd4d7ebd95438a3f33754ce234929fb9e`; bump/manifest HEAD
-  `7a36f4fc847f4f51246457c02300d047acd565d6`. Деплоить точный bump-SHA
-  (product bytes идентичны tip; docs/evidence-коммит product-neutral).
+  `f5567fccd4d7ebd95438a3f33754ce234929fb9e`; reviewed/deploy tip
+  `b81ec52aa4834896c8e901269e69058612ae81bf`; bump
+  `7a36f4fc847f4f51246457c02300d047acd565d6`. **Деплоить exact
+  `b81ec52aa`** (docs/evidence-only относительно content tip; product
+  bytes идентичны). Post-review docs-only correction на ветке после
+  `b81ec52aa` не деплоится.
 - Base/rollback: `f4040266013bb19374c24c39ed001ba1ccb815f4` (2.58.237).
 - Schema: SQLite **48**, PG DDL **0**.
 - Review: M5A `86dc3f32e` APPROVED, 3 REVIEW → VERIFIED; M5B
@@ -39,19 +42,20 @@ Production host `192.255.209.205`, checkout `/var/www/admin_bot`, unit
 ## 3. Deploy
 
 1. `git -C /var/www/admin_bot fetch --prune`
-2. `git -C /var/www/admin_bot checkout --detach 7a36f4fc8` (или
-   `pull --ff-only` до авторизованного bump-SHA; tip содержит только
-   docs/evidence и product bytes не меняет).
+2. `git -C /var/www/admin_bot checkout --detach b81ec52aa` (exact
+   reviewed/deploy tip; branch tip может содержать post-review
+   docs-only commit, который не деплоится).
 3. Проверить: `git status --porcelain --untracked-files=no` пуст;
-   `git rev-parse HEAD` = `7a36f4fc8`; `APP_VERSION="2.58.238"`;
-   `git diff --quiet 697a28f9e HEAD -- services/mca_experience_jobs.py
-   tests/test_mod_acl_ux_m5b_shared_review.py`;
-   `git diff --quiet 0907dbae6 HEAD -- services/experience_diagnostics.py
-   tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py`.
+   `git rev-parse HEAD` = `b81ec52aa`; `APP_VERSION="2.58.238"`;
+   product-equality к release content tip:
+   `git diff --quiet f5567fccd HEAD -- services/experience_diagnostics.py
+   services/mca_experience_jobs.py
+   tests/test_mod_acl_ux01_exp_fix_semantic_checkpoint.py
+   tests/test_mod_acl_ux_m5b_shared_review.py` (exit 0).
 4. **Manifest до restart:** `python tools/release_manifest.py` (без
-   `--dry-run`). Ожидается `version=2.58.238`, `effect=deploy`,
-   `dirty_tracked=false`, `previous_sha=f40402660…`,
-   `previous_version=2.58.237`.
+   `--dry-run`). Ожидается `deployed_sha=b81ec52aa…`,
+   `version=2.58.238`, `effect=deploy`, `dirty_tracked=false`,
+   `previous_sha=f40402660…`, `previous_version=2.58.237`.
 5. `sudo systemctl restart admin_bot`.
 
 ## 4. Postdeploy verification
