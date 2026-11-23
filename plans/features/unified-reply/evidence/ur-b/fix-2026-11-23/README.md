@@ -3,7 +3,7 @@
 **Task:** `unified-reply` UR-B, depends UR-A; after UR-A F3/F4.
 **Base:** `1e9168ea8` (UR-A F3/F4 branch HEAD; code `b9b9317c7`).
 **Branch:** `fix/ur-b-tool-evidence`.
-**Code candidate:** `85cc4e7c1b51222e6b0f19328766bc4107ae0a25` (2 files).
+**Code candidate:** `462cf1b22d492c771785a0c0f3d4422ff20f3eef` (final; initial `85cc4e7c1`, follow-up tightens no-growth status).
 **Scope:** one live tool stage and one `ToolEvidence` for REPLY in both modes; no unrelated product/DDL/ACL/UI/embedding, no map/status/deploy/SSH/LLM.
 
 ## 1. The exact 7 UR-B PENDING rows
@@ -43,7 +43,7 @@ before. This is one structure for both direct and initiative because both use
 ### 2.2 Adaptive no-growth stop
 
 Added `_has_evidence_growth(results)`: true only for a non-duplicate envelope
-with `out_chars > 0` and `status in (ok, empty)`. In `run_adaptive_chain`, after
+with `out_chars > 0` and `status == ok`. In `run_adaptive_chain`, after
 each step and after the existing denied check:
 
 ```python
@@ -64,10 +64,9 @@ Commands from the worktree with the project venv, `PYTHONDONTWRITEBYTECODE=1`,
 
 | Check | Result |
 |---|---|
-| `tests/test_unified_reply_ur_b_search_first.py` | **59 passed** (including 6 new UR-B tests) |
+| `tests/test_unified_reply_ur_b_search_first.py` | **60 passed** (including 7 new UR-B tests) |
 | `tests/test_asap8_v6_wc_direct_d04.py` | **35 passed** |
-| `tests/test_ur_b_live_wiring.py tests/test_evol_evidence_routing.py` | **135 passed** |
-| `tests/test_unified_reply_ur_b_no_topic_veto.py tests/test_unified_reply_ur_b_review_fixes.py` | **65 passed** |
+| `tests/test_ur_b_live_wiring.py tests/test_evol_evidence_routing.py tests/test_unified_reply_ur_b_no_topic_veto.py tests/test_unified_reply_ur_b_review_fixes.py` | **200 passed** |
 | `tests/test_ur_turn_engine.py tests/test_ur_d_writer.py tests/test_ur_e_speech.py` | **52 passed** |
 | `tests/test_asap7_direct_l1.py` | **37 passed** |
 | `tests/test_ur_f_inspector_step2.py` | **19 passed** |
@@ -80,6 +79,7 @@ New tests:
 - `::test_provider_failure_event_carries_error_and_time`
 - `::test_event_projection_keeps_dedup_error_and_time_without_payload`
 - `TestAdaptiveNoGrowth::test_empty_tool_result_stops_adaptive_instead_of_looping`
+- `::test_empty_or_error_status_is_not_evidence_growth`
 - `::test_orchestrator_prompt_without_material_is_bounded`
 - `TestObserverNoSearch::test_observer_source_has_no_tool_or_search_path`
 
@@ -126,8 +126,7 @@ new no-growth test asserts one dispatch and one orchestrator call, with
 
 ## 6. Reviewer readiness
 
-- Branch `fix/ur-b-tool-evidence`; code candidate `85cc4e7c1`; evidence commit
-  follows.
+- Branch `fix/ur-b-tool-evidence`; code candidate `462cf1b22` (initial `85cc4e7c1`); evidence commit is on top of the code.
 - Product/test diff: `services/direct_execution.py` + `tests/test_unified_reply_ur_b_search_first.py` only.
 - Rows remain PARTIAL; ready for independent review of the two code changes and
   the new tests. No VERIFIED claim.
