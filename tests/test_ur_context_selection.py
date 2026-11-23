@@ -672,19 +672,25 @@ class TestL1SelectedWindow:
             _urc_row(2, reply),
             _urc_row(3, trigger, reply_to=2),
         ]
-        selected = l1.select_l1_window(
-            rows, budget_tokens=1600, trigger_message_id=3, reply_to_id=2)
         status: dict = {}
         ctx = l1.build_l1_context(
-            query="q", window=selected, window_limit=len(selected),
-            line_chars=0, with_ids=True, budget_tokens=1600,
-            reply_block=reply, preallocated=True, out_status=status)
-        assert "[ПОСЛЕДНИЕ СООБЩЕНИЯ]" in ctx
+            query="q", current_question=trigger, reply_block=reply,
+            window=rows, line_chars=0, with_ids=True, budget_tokens=1600,
+            trigger_message_id=3, reply_to_message_id=2,
+            preallocated=True, out_status=status)
         assert reply in ctx
         assert trigger in ctx
         assert status["window_preserved"] is True
         assert status["overflow"] is True
         assert status["used_tokens"] > status["budget_tokens"]
+        # P0 не конкурирует с окном: fixed уже больше бюджета, окно пустое,
+        # trigger/reply исключены из candidate window (они в fixed-секциях).
+        assert status["fixed_tokens"] >= status["budget_tokens"]
+        assert status["window_budget"] == 1
+        assert status["window_rows_selected"] == 0
+        assert status["window_rows_excluded_p0"] == 2
+        assert "[ПОСЛЕДНИЕ СООБЩЕНИЯ]" not in ctx
+        assert status["overflow_sections"]
 
     @pytest.mark.asyncio
     async def test_tight_budget_both_live_sites_preserve_selected_window(
@@ -728,7 +734,7 @@ class TestL1SelectedWindow:
             assert status["used_tokens"] > 0
 
     @pytest.mark.asyncio
-    async def test_both_live_call_sites_pass_selected_window_and_zero_line_cap(
+    async def test_both_live_call_sites_pass_raw_window_and_zero_line_cap(
             self, monkeypatch):
         from tests.test_ur_turn_engine import (
             _patch_fixed_tool_flags, _plan as _ur_plan, _run_direct,
@@ -738,15 +744,17 @@ class TestL1SelectedWindow:
         calls = []
         real_select = l1.select_l1_window
         real_build = l1.build_l1_context
+        select_calls = {"n": 0}
 
         def _select_spy(window, **kwargs):
-            result = real_select(window, **kwargs)
-            calls.append(("select", kwargs, result))
-            return result
+            select_calls["n"] += 1
+            return real_select(window, **kwargs)
 
         def _build_spy(**kwargs):
-            calls.append(("build", kwargs, None))
-            return real_build(**kwargs)
+            status = kwargs.get("out_status")
+            result = real_build(**kwargs)
+            calls.append((kwargs, status))
+            return result
 
         monkeypatch.setattr(l1, "select_l1_window", _select_spy)
         monkeypatch.setattr(l1, "build_l1_context", _build_spy)
@@ -757,17 +765,22 @@ class TestL1SelectedWindow:
         await _run_direct(service)
         await _run_initiative(service)
 
-        selects = [c for c in calls if c[0] == "select"]
-        builds = [c for c in calls if c[0] == "build"]
-        assert len(selects) == 2
-        assert len(builds) == 2
-        for _, kwargs, selected in selects:
-            assert kwargs["budget_tokens"] > 0
-            assert selected
-        for _, kwargs, _ in builds:
+        # Live L1 больше не вызывает legacy select_l1_window: окно выбирает
+        # `build_l1_context` через единый allocator.
+        assert select_calls["n"] == 0
+        assert len(calls) == 2
+        for kwargs, status in calls:
+            assert kwargs["preallocated"] is True
             assert kwargs["line_chars"] == 0
-            assert kwargs["window_limit"] == len(kwargs["window"])
-            assert kwargs["window_limit"] >= 1
+            assert kwargs["window"] == window
+            assert "window_limit" not in kwargs or kwargs["window_limit"] is None
+            # T8: оба live-сайта отдают честный status единственного
+            # allocator'а (fixed/window/selected/overflow).
+            assert status is not None
+            assert status["fixed_tokens"] >= 0
+            assert status["window_budget"] >= 1
+            assert status["window_rows_selected"] <= status["window_rows_raw"]
+            assert "overflow" in status
 
 
 # ═══ UR-C-2a (A2 core, offline): producers, tiers, correction P0, parity ════

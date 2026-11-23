@@ -2256,6 +2256,112 @@ def split_reply_branch(fragments, hops: int):
     return branch, thread
 
 
+def allocate_window_projection(rows, *, budget_tokens: int,
+                               p0_ids=(), fresh_count: int | None = None,
+                               aliases=None, bot_user_id=None,
+                               now_ts: int = 0,
+                               fresh_window_seconds: int = 0):
+    """L1 window projection on the ONE existing semantic allocator.
+
+    ``rows`` — candidate window; ``p0_ids`` are rows already delivered as
+    fixed P0 sections outside the window (trigger/reply) and therefore not
+    eligible to compete for the window budget. Rows become P1 fresh tail /
+    P3 background with the existing collector rules, then
+    :func:`allocate_selection` decides (P3 drop first, relevant compression,
+    whole P1 drop) — policy is unchanged.
+
+    Returns ``(selected_rows, allocated_selection)``. Selected rows keep the
+    input chronological order; ``text`` is the allocator-approved text
+    (possibly compressed with its source reference). No current/reply
+    duplication is created here.
+    """
+    try:
+        source_rows = [dict(r) for r in (rows or ())
+                       if isinstance(r, dict)]
+        p0 = set()
+        for value in p0_ids or ():
+            try:
+                p0.add(int(value))
+            except (TypeError, ValueError):
+                continue
+
+        def _row_id(row):
+            for key in ("tg_message_id", "id"):
+                value = row.get(key)
+                if value in (None, "", 0):
+                    continue
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    continue
+            return None
+
+        candidates = [row for row in source_rows
+                      if _row_id(row) is None or _row_id(row) not in p0]
+        if fresh_count is None:
+            fresh_n = fresh_tail_min_messages()
+        else:
+            try:
+                fresh_n = int(fresh_count)
+            except (TypeError, ValueError):
+                fresh_n = fresh_tail_min_messages()
+        fresh_n = max(1, min(len(candidates), fresh_n)) if candidates else 0
+        fresh: list = []
+        background: list = []
+        ids: list = []
+        by_id: dict = {}
+        used_ids: set = set()
+        for index, row in enumerate(candidates):
+            is_fresh = bool(fresh_n and index >= len(candidates) - fresh_n)
+            frag = row_to_fragment(
+                row,
+                role=(ROLE_FRESH_NEIGHBOUR if is_fresh else ROLE_BACKGROUND),
+                aliases=aliases, bot_user_id=bot_user_id, fresh=is_fresh,
+                now_ts=now_ts, fresh_window_seconds=fresh_window_seconds)
+            if not frag.text:
+                continue
+            source_id = str(frag.source_id or "")
+            if not source_id or source_id == "row:" or source_id in used_ids:
+                # Строки без tg/id (или коллизия) не склеиваются в один
+                # источник: позиция окна даёт уникальный projection-id.
+                source_id = f"l1win:{index}"
+                frag = _dc_replace(frag, source_id=source_id)
+            used_ids.add(source_id)
+            ids.append(source_id)
+            by_id.setdefault(source_id, row)
+            (fresh if is_fresh else background).append(frag)
+        current = ContextFragment(
+            kind=KIND_USER_STATEMENT, source_id="window:current", text="",
+            role=ROLE_CURRENT_QUESTION)
+        selection = ContextSelection(
+            current_question=current,
+            fresh_neighbours=tuple(fresh),
+            background=tuple(background))
+        allocated = allocate_selection(
+            selection, max(1, int(budget_tokens or 1)))
+        selected_text = {
+            str(frag.source_id): str(frag.text or "")
+            for frag in (list(allocated.fresh_neighbours)
+                         + list(allocated.background))}
+        out: list = []
+        seen: set = set()
+        for source_id in ids:
+            if source_id in seen or source_id not in selected_text:
+                continue
+            row = by_id.get(source_id)
+            if row is None:
+                continue
+            seen.add(source_id)
+            out.append(dict(row, text=selected_text[source_id]))
+        return out, allocated
+    except Exception:          # pragma: no cover - fail-open projection
+        return ([dict(r) for r in (rows or ()) if isinstance(r, dict)],
+                ContextSelection(
+                    current_question=ContextFragment(
+                        kind=KIND_USER_STATEMENT, source_id="window:current",
+                        text="", role=ROLE_CURRENT_QUESTION)))
+
+
 async def collect_memory_fragments(db, *, chat_id: int, candidates,
                                    aliases=None, bot_user_id=None,
                                    neighbours_before: int = 2,
@@ -2401,7 +2507,8 @@ __all__ = [
     "composer_on",
     "fresh_tail_min_messages", "middle_max_messages", "thread_walk_max",
     "episode_gap_seconds", "episode_max_messages", "episode_max_count",
-    "allocate_budget", "truncate_piece_text", "truncate_lines_keep_end",
+    "allocate_budget", "allocate_selection", "allocate_window_projection",
+    "truncate_piece_text", "truncate_lines_keep_end",
     "truncate_lines_keep_start", "compute_episode_span", "select_middle",
     "tail_floor_tokens",
     "WINDOW_SOURCE_MAP", "WINDOW_SOURCE_ENV", "WINDOW_SOURCE_FALLBACK",
@@ -2429,7 +2536,7 @@ __all__ = [
     "summary_map_fragment", "detect_corrections", "mark_source_conflicts",
     "resolve_corrections_across_blocks",
     "split_overflow_fragments", "compress_fragment_with_ref",
-    "allocate_selection", "build_context_selection",
+    "build_context_selection",
     "collect_window_fragments", "collect_memory_fragments",
     "collect_self_output_fragments",
     # UR-C-2a offline producers (fact rows / episode rows / middle lines /

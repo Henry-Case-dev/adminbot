@@ -4795,6 +4795,11 @@ _TURN_DIAGNOSTIC_KEYS = (
     "l1_context_chars", "l1_line_chars_cap", "l1_reply_chars_cap",
     "l1_reply_total_chars", "l1_reply_delivered_chars", "l1_reply_truncated",
     "l1_kept_mid", "l1_profile_source", "l1_profile_chars",
+    # UR-11a: единый L1 stage budget / окно / guard — числа и bool.
+    "l1_window_rows_raw", "l1_window_rows_selected",
+    "l1_window_rows_excluded_p0", "l1_window_budget", "l1_fixed_tokens",
+    "l1_window_render_overhead", "l1_context_overflow",
+    "l1_context_used_tokens", "l1_window_preserved",
     "social_attribution",
     # P0 L1 (2026-11-17): исход попытки виден в существующей диагностике
     # (числа/enum; ни prompt, ни ответа, ни reasoning).
@@ -8878,16 +8883,12 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
-        # UR-C-1 (UR-10/10.2/10.5): L1 получает уже отобранное окно из
-        # существующего allocator'а (`allocate_budget`), а не сырой хвост,
-        # который затем независимо режут L1_WINDOW_MESSAGES/line-cap.
-        _l1_window = _l1.select_l1_window(
-            window, budget_tokens=_l1_budget,
-            trigger_message_id=getattr(message, "message_id", None),
-            reply_to_id=_replied_message_id(message))
+        # UR-11a: сырое окно уходит в `build_l1_context`; окно выбирает
+        # единственный allocator (`allocate_selection` через composer-helper)
+        # уже ПОСЛЕ fixed-секций и net stage budget. `select_l1_window`
+        # остаётся legacy/fail-open и на live L1 не вызывается.
         meta["l1_window_rows_raw"] = len(tuple(window or ()))
-        meta["l1_window_rows_selected"] = len(_l1_window)
-        # ER-08-RC (§3): фактический кап строки теперь принадлежит allocator;
+        # ER-08-RC (§3): фактический кап строки принадлежит allocator;
         # отдельного 200-символьного капа на активном L1-пути нет.
         meta["l1_line_chars_cap"] = 0
         _l1_reply_text = self._l1_reply_block(message,
@@ -9019,7 +9020,9 @@ class DirectChatService:
             current_question=self._render_current_question(
                 message, extra_markers=extra_media_markers),
             reply_block=_l1_reply_text,
-            window=_l1_window, window_limit=len(_l1_window), line_chars=0,
+            window=window, line_chars=0,
+            trigger_message_id=getattr(message, "message_id", None),
+            reply_to_message_id=_replied_message_id(message),
             preallocated=True, out_status=_l1_status,
             speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
@@ -9041,6 +9044,26 @@ class DirectChatService:
         meta["l1_context_overflow"] = bool(_l1_status.get("overflow"))
         meta["l1_context_used_tokens"] = int(
             _l1_status.get("used_tokens") or 0)
+        # UR-11a: окно/бюджет — из фактического status единственного
+        # allocator'а (сырое окно уже не считается «доставленным»).
+        if "window_rows_raw" in _l1_status:
+            meta["l1_window_rows_raw"] = int(
+                _l1_status.get("window_rows_raw") or 0)
+        if "window_rows_selected" in _l1_status:
+            meta["l1_window_rows_selected"] = int(
+                _l1_status.get("window_rows_selected") or 0)
+        if "window_rows_excluded_p0" in _l1_status:
+            meta["l1_window_rows_excluded_p0"] = int(
+                _l1_status.get("window_rows_excluded_p0") or 0)
+        if "window_budget" in _l1_status:
+            meta["l1_window_budget"] = int(
+                _l1_status.get("window_budget") or 0)
+        if "window_render_overhead" in _l1_status:
+            meta["l1_window_render_overhead"] = int(
+                _l1_status.get("window_render_overhead") or 0)
+        if "fixed_tokens" in _l1_status:
+            meta["l1_fixed_tokens"] = int(
+                _l1_status.get("fixed_tokens") or 0)
         meta["l1_window_preserved"] = bool(
             _l1_status.get("window_preserved"))
         # ER-08-RC (§3): фактическая доставка цитаты в СОБРАННОМ пакете —
@@ -18825,10 +18848,9 @@ class DirectChatService:
                 "chat=%s | reason=%s", chat_id, _exc_brief(exc))
             return None
         _init_budget = int(_slot_meta.budget_tokens)
-        # UR-C-1 (UR-10/10.2/10.5): окно инициативы — тот же allocator,
-        # без сырого 20×200 хвоста и независимого line-cap.
-        _init_window = _l1.select_l1_window(
-            window, budget_tokens=_init_budget)
+        # UR-11a: окно инициативы — то же правило одного бюджета; сырое окно
+        # уходит в `build_l1_context`, allocator выбирает остаток после fixed.
+        # `select_l1_window` остаётся legacy/fail-open и здесь не вызывается.
         # ASAP-FC-VOICE-01 / B: тот же профиль решений, что у Direct (одна
         # точка сборки); кадр принимается только для ЭТОГО чата и только с
         # версией из `_initiative_ctx` (иначе — честный legacy/absent). Это
@@ -18867,8 +18889,7 @@ class DirectChatService:
             time_snapshot=snap_plan)
         _init_status: dict = {}
         context_text = _l1.build_l1_context(
-            query=task, window=_init_window,
-            window_limit=len(_init_window), line_chars=0,
+            query=task, window=window, line_chars=0,
             preallocated=True, out_status=_init_status,
             speaker="наблюдатель",
             addressee=addressee_label,
@@ -18879,8 +18900,6 @@ class DirectChatService:
             # (tests/__new__) не должен падать в L1-пути инициативы.
             with_ids=True, alias_resolver=getattr(self, "aliases", None),
             budget_tokens=_init_budget,
-            history_partial=bool(len(tuple(window or ())) >
-                                 len(_init_window)),
             time_context=_cclock.render_chat_time_context(
                 snap_plan, phase=_cclock.PHASE_PLAN))
         # ER-08-RC (§3 «Наблюдаемость»): у инициативного хода цитаты нет
@@ -18891,8 +18910,14 @@ class DirectChatService:
         meta: dict = {
             "l1_reply_chars_cap": int(_init_reply_stats["chars_cap"]),
             "l1_line_chars_cap": 0,
-            "l1_window_rows_raw": len(tuple(window or ())),
-            "l1_window_rows_selected": len(_init_window),
+            "l1_window_rows_raw": int(
+                _init_status.get("window_rows_raw") or 0),
+            "l1_window_rows_selected": int(
+                _init_status.get("window_rows_selected") or 0),
+            "l1_window_budget": int(_init_status.get("window_budget") or 0),
+            "l1_fixed_tokens": int(_init_status.get("fixed_tokens") or 0),
+            "l1_window_render_overhead": int(
+                _init_status.get("window_render_overhead") or 0),
             "l1_reply_total_chars": int(_init_reply_stats["total_chars"]),
             "l1_reply_delivered_chars": int(
                 _init_reply_stats["delivered_chars"]),
@@ -19057,6 +19082,9 @@ class DirectChatService:
             # алиасов не должен ронять инициативу — тот же fail-open, что и в
             # _refresh_turn_aliases.
             alias_resolver=getattr(self, "aliases", None),
+            # UR-11a: строка уже выбрана allocator'ом; повторный 200-симв.
+            # cap на Writer-сайте запрещён (второй cut owner).
+            line_chars=0,
             projection=_init_speech)
             if _init_window_rows else [])
         _init_labels: dict = {}

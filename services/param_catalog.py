@@ -3765,6 +3765,67 @@ EFFECTIVE_STATUS_META: dict[str, dict] = {
     "limits.chat_budget_response_ratio": {
         "status": "no_op", "consumer": "",
         "note": "Рантайм значение не читает (подтверждённый no-op)."},
+    # UR-11.7/UR-11.8 (UR-11a): legacy-капы/доли — только compat для
+    # composer OFF/fail-open; активный payload режет единый allocator.
+    # Значения/override не удаляются, UI-подписи — UR-21/UR-F.
+    "limits.chat_current_question_max_chars": {
+        "status": "no_op", "consumer": "",
+        "note": "Рантайм не читает: current идёт полным текстом через "
+                "allocator (UR-11a)."},
+    "limits.chat_budget_map_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_global_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_thread_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_rag_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_target_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_branch_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_global_context_max_tokens": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап фона; composer-ON режет единый allocator."},
+    "limits.chat_global_context_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап фона; composer-ON режет единый allocator."},
+    "limits.chat_thread_max_tokens": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап ветки; composer-ON режет единый allocator."},
+    "limits.chat_thread_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап ветки; composer-ON режет единый allocator."},
+    "limits.graph_rag_context_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап RAG; selection-путь режет единый allocator."},
+    "limits.chat_level2_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап конспекта; composer-ON режет единый allocator."},
     "limits.chat_lock_max_entries": {
         "status": "no_op", "consumer": "",
         "note": "Неиспользуемый параметр, рантайм не читает."},

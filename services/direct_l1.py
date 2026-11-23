@@ -2305,13 +2305,14 @@ def select_l1_window(window, *, budget_tokens: int,
                      trigger_message_id: int | None = None,
                      reply_to_id: int | None = None,
                      fresh_count: int | None = None) -> list[dict]:
-    """UR-C-1: отобрать окно L1 существующим allocator'ом `allocate_budget`.
+    """UR-C-1 **legacy/fail-open** window projection (`allocate_budget`).
 
-    Возвращает строки окна с полным текстом P0 (текущий/reply) и бюджетно
-    сжатыми P1/P3. Это НЕ второй аллокатор: используется
-    ``direct_context_composer.allocate_budget``; рендер остаётся
-    ``render_window_lines`` с reply-маркерами. Никогда не бросает.
-    """
+    На live L1 Direct/Initiative НЕ вызывается: окно выбирает
+    :func:`direct_context_composer.allocate_window_projection` через
+    `allocate_selection` с net-бюджетом после fixed-секций (UR-11a).
+    `allocate_budget` сжимает piece'ы до drop'а, поэтому как активный
+    cut-owner не годится; здесь сохранён для совместимости/тестов/fail-open.
+    Никогда не бросает."""
     try:
         rows = [dict(r) for r in (window or ()) if isinstance(r, dict)]
         if not rows:
@@ -2363,6 +2364,41 @@ def select_l1_window(window, *, budget_tokens: int,
         return [dict(r) for r in (window or ()) if isinstance(r, dict)]
 
 
+def _render_l1_sections(pairs) -> str:
+    """Один и тот же формат пакета L1 для сборки, счёта и отправки."""
+    return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)
+
+
+def _l1_section_tokens(pairs) -> list[dict]:
+    """R17-safe счёт по секциям (только имена/числа) для overflow-статуса."""
+    try:
+        from services.token_counter import count_tokens
+        return [{"section": str(name), "tokens": int(count_tokens(str(body)))}
+                for name, body in pairs if str(body or "").strip()]
+    except Exception:          # pragma: no cover - наблюдаемость
+        return []
+
+
+def _row_matches_message_id(row, message_id) -> bool:
+    """Строка окна относится к Telegram id (tg/id), без падения на мусоре."""
+    if message_id is None:
+        return False
+    try:
+        target = int(message_id)
+    except (TypeError, ValueError):
+        return False
+    for key in ("tg_message_id", "id"):
+        value = row.get(key) if isinstance(row, dict) else None
+        if value in (None, "", 0):
+            continue
+        try:
+            if int(value) == target:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
 def build_l1_context(*, query, current_question: str = "",
                      reply_block: str = "", window=None,
                      speaker: str = "", addressee: str = "",
@@ -2381,6 +2417,9 @@ def build_l1_context(*, query, current_question: str = "",
                      window_limit: int | None = None,
                      line_chars: int | None = None,
                      preallocated: bool = False,
+                     trigger_message_id: int | None = None,
+                     reply_to_message_id: int | None = None,
+                     window_budget_out: dict | None = None,
                      out_status: dict | None = None) -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
@@ -2410,7 +2449,17 @@ def build_l1_context(*, query, current_question: str = "",
     означает «allocator уже решил», без строкового капа. ``preallocated``
     защищает allocator-produced окно/P0 от второго semantic cut в
     ``_cap_context``; ``out_status`` честно сообщает physical overflow,
-    если полный P0 физически не влезает в бюджет."""
+    если полный P0 физически не влезает в бюджет.
+    UR-11a: при ``preallocated=True`` fixed-секции считаются ОДИН раз,
+    ``window_budget = max(1, stage - fixed)``; trigger/reply исключены из
+    candidate window (они уже в СООБЩЕНИЕ/ОТВЕТ НА); окно выбирает
+    ``allocate_window_projection`` (внутри — единственный
+    ``allocate_selection``); ``_cap_context(guard_only=True)`` не режет
+    текст, а ``out_status``/``window_budget_out`` несут fixed/window/overflow.
+    Фактический рендер строк ([msg:]/[user:]/имя/разделители) может дать
+    небольшой overhead; тот же allocator делает bounded net-fit, а
+    ``window_render_overhead`` честно показывает разницу.
+    """
     try:
         sections: list[tuple[str, str]] = []
         budget = int(budget_tokens) if budget_tokens is not None \
@@ -2447,20 +2496,14 @@ def build_l1_context(*, query, current_question: str = "",
                          else L1_WINDOW_MESSAGES)
         _line_cap = (window_line_chars(window, budget_tokens=budget)
                      if line_chars is None else int(line_chars))
-        window_lines = render_window_lines(window, _window_limit,
-                                           with_ids=with_ids,
-                                           alias_resolver=alias_resolver,
-                                           line_chars=_line_cap)
-        if window_lines:
-            sections.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ", "\n".join(window_lines)))
-        # ASAP2 T10-BOUNDARY: пометка ставится ровно по факту усечения —
-        # вызывающий сказал «в БД есть более ранние сообщения»
-        # (`history_partial`) ИЛИ окно не влезло в активный лимит.
-        if bool(history_partial) or len(tuple(window or ())) > _window_limit:
-            sections.append((HISTORY_SCOPE_SECTION, HISTORY_PARTIAL_LINE))
+        raw_window = [dict(r) for r in (window or ()) if isinstance(r, dict)]
+        # Секции ПОСЛЕ окна: их порядок не меняется; окно вставляется на
+        # своё место после выбора (preallocated) либо рендерится сразу
+        # (legacy). Так fixed-tokens считаются один раз без окна.
+        tail_sections: list[tuple[str, str]] = []
         if str(history_range_note or "").strip():
-            sections.append((HISTORY_RANGE_SECTION,
-                             str(history_range_note).strip()))
+            tail_sections.append((HISTORY_RANGE_SECTION,
+                                  str(history_range_note).strip()))
         speaker = str(speaker or "неизвестно").strip()
         addressee = str(addressee or "чат").strip()
         participants = f"Говорящий: {speaker}\nАдресат: {addressee}"
@@ -2472,14 +2515,16 @@ def build_l1_context(*, query, current_question: str = "",
         social_line = str(social_frame or "").strip()
         if social_line:
             participants = f"{participants}\n{social_line}"
-        sections.append(("УЧАСТНИКИ", participants))
+        tail_sections.append(("УЧАСТНИКИ", participants))
         if str(memory_hints or "").strip():
-            sections.append(("ПАМЯТЬ (срез)", str(memory_hints).strip()))
+            tail_sections.append(("ПАМЯТЬ (срез)",
+                                  str(memory_hints).strip()))
         if str(speech_hints or "").strip():
-            sections.append(("РЕЧЕВОЙ СИГНАЛ", str(speech_hints).strip()))
+            tail_sections.append(("РЕЧЕВОЙ СИГНАЛ",
+                                  str(speech_hints).strip()))
         caps = [str(c) for c in (capabilities or ()) if str(c).strip()]
-        sections.append(("ДОСТУПНЫЕ ВОЗМОЖНОСТИ",
-                         ", ".join(caps) if caps else "нет"))
+        tail_sections.append(("ДОСТУПНЫЕ ВОЗМОЖНОСТИ",
+                              ", ".join(caps) if caps else "нет"))
         # SELF-DIAG-01 corrective (§1/§3/§4): optional typed решение об
         # исследовании описывается Л1 как ДАННЫЕ контекста, только когда
         # существующие диагностические инструменты активны. Базовый канон/
@@ -2488,13 +2533,13 @@ def build_l1_context(*, query, current_question: str = "",
             try:
                 from services.chat_prompts import (
                     DIRECT_L1_DIAGNOSTIC_RESEARCH_ADDENDUM)
-                sections.append((
+                tail_sections.append((
                     "ДИАГНОСТИЧЕСКОЕ РЕШЕНИЕ",
                     DIRECT_L1_DIAGNOSTIC_RESEARCH_ADDENDUM.strip()))
             except Exception:      # pragma: no cover - защитная ветка
                 pass
         if str(force_line or "").strip():
-            sections.append(("УСЛОВИЯ", str(force_line).strip()))
+            tail_sections.append(("УСЛОВИЯ", str(force_line).strip()))
         if str(decision_profile or "").strip():
             # ASAP-FC-VOICE-01 / B: характер как данные решения. Секция
             # защищена в `_cap_context` (не сжимается и не вытесняется):
@@ -2502,19 +2547,166 @@ def build_l1_context(*, query, current_question: str = "",
             # переполнении бюджета первым, то есть ровно тогда, когда решение
             # труднее всего. Размер профиля структурный (закрытый набор
             # измерений + фиксированные строки), поэтому отдельного капа нет.
-            sections.append((L1_PROFILE_SECTION,
-                             str(decision_profile).strip()))
+            tail_sections.append((L1_PROFILE_SECTION,
+                                  str(decision_profile).strip()))
         # UR-C-CLOCK (UR-25.6/UR-26.2): время чата — авторитетный серверный
         # блок ChatClock (phase="plan"); защищён в `_cap_context`, потому
         # «сейчас» НЕ сжимается как стилистика (иначе L1 планировала бы
         # «сегодня/завтра» по выдуманному времени).
         if str(time_context or "").strip():
-            sections.append((L1_TIME_SECTION, str(time_context).strip()))
-        text = "\n\n".join(f"[{name}]\n{body}" for name, body in sections)
+            tail_sections.append((L1_TIME_SECTION, str(time_context).strip()))
+
+        if preallocated:
+            # UR-11a: окно — остаток ОДНОГО stage budget после fixed-секций;
+            # P0 (current/reply) не конкурирует с окном и не режется.
+            from services.token_counter import count_tokens as _count
+            p0_ids = tuple(v for v in (trigger_message_id,
+                                       reply_to_message_id)
+                           if v is not None)
+            candidate_window = [
+                row for row in raw_window
+                if not any(_row_matches_message_id(row, value)
+                           for value in p0_ids)]
+            fixed_pairs = list(sections) + list(tail_sections)
+            try:
+                fixed_tokens = int(_count(_render_l1_sections(fixed_pairs)))
+            except Exception:      # pragma: no cover - наблюдаемость
+                fixed_tokens = 0
+            try:
+                note_tokens = int(_count(_render_l1_sections(
+                    [(HISTORY_SCOPE_SECTION, HISTORY_PARTIAL_LINE)])))
+            except Exception:      # pragma: no cover - наблюдаемость
+                note_tokens = 0
+            forced_note = bool(history_partial)
+            window_budget = max(
+                1, int(budget) - fixed_tokens
+                - (note_tokens if forced_note else 0))
+
+            def _project(rows_in, window_tokens):
+                try:
+                    from services import direct_context_composer as _comp
+                    return _comp.allocate_window_projection(
+                        rows_in, budget_tokens=window_tokens,
+                        fresh_count=_comp.fresh_tail_min_messages())
+                except Exception:
+                    # Fail-open только к кандидатному окну (без второго cut):
+                    # overflow будет честно посчитан ниже.
+                    return list(rows_in), None
+
+            selected_rows, projection = _project(
+                candidate_window, window_budget)
+            dropped_window = len(candidate_window) > len(selected_rows)
+            note_needed = bool(forced_note or dropped_window)
+            if note_needed and not forced_note:
+                # Первый проход не знал о структурной пометке. Она входит в
+                # fixed однажды: тот же allocator один раз пересчитывает окно
+                # с точным net-бюджетом (не второй cut/не новый порог).
+                window_budget = max(
+                    1, int(budget) - fixed_tokens - note_tokens)
+                selected_rows, projection = _project(
+                    candidate_window, window_budget)
+            if note_needed:
+                fixed_tokens += note_tokens
+
+            def _final_package():
+                lines = (render_window_lines(
+                    selected_rows, max(1, len(selected_rows)),
+                    with_ids=with_ids, alias_resolver=alias_resolver,
+                    line_chars=0) if selected_rows else [])
+                pairs = list(sections)
+                if lines:
+                    pairs.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ",
+                                  "\n".join(lines)))
+                if note_needed:
+                    pairs.append((HISTORY_SCOPE_SECTION,
+                                  HISTORY_PARTIAL_LINE))
+                pairs.extend(tail_sections)
+                body = _render_l1_sections(pairs)
+                try:
+                    tokens = int(_count(body))
+                except Exception:      # pragma: no cover - наблюдаемость
+                    tokens = 0
+                return pairs, body, tokens
+
+            final_sections, text, used = _final_package()
+            # Фактический рендер строк содержит [msg:]/[user:]/имя и
+            # разделители, которых нет в тексте фрагментов. Тот же allocator
+            # bounded net-fit (≤3) добирает точную ёмкость; второго
+            # cut-владельца/нового порога нет.
+            fit_guard = 0
+            while (used > int(budget) and selected_rows
+                   and fit_guard < 3):
+                fit_guard += 1
+                excess = max(1, used - int(budget))
+                new_budget = max(1, window_budget - excess)
+                if new_budget >= window_budget:
+                    break
+                window_budget = new_budget
+                selected_rows, projection = _project(
+                    candidate_window, window_budget)
+                if (not note_needed
+                        and len(selected_rows) < len(candidate_window)):
+                    # Net-fit сократил окно — граница истории стала фактом;
+                    # структурная пометка входит в fixed один раз.
+                    note_needed = True
+                    fixed_tokens += note_tokens
+                    window_budget = max(1, window_budget - note_tokens)
+                    selected_rows, projection = _project(
+                        candidate_window, window_budget)
+                final_sections, text, used = _final_package()
+            overflow = bool(used > int(budget))
+            overflow_sections = (_l1_section_tokens(final_sections)
+                                 if overflow else [])
+            result = _cap_context(
+                text, sections_budget=final_sections, budget=budget,
+                preserve_sections=("ПОСЛЕДНИЕ СООБЩЕНИЯ",),
+                guard_only=True)
+            status_update = {
+                "budget_tokens": int(budget),
+                "used_tokens": used,
+                "overflow": overflow,
+                "overflow_sections": list(overflow_sections),
+                "fixed_tokens": int(fixed_tokens),
+                "window_budget": int(window_budget),
+                "window_render_overhead": max(
+                    0, int(budget) - int(fixed_tokens) - int(window_budget)),
+                "window_rows_raw": int(len(candidate_window)),
+                "window_rows_selected": int(len(selected_rows)),
+                "window_rows_excluded_p0": int(
+                    len(raw_window) - len(candidate_window)),
+                "window_preserved": True,
+            }
+            if projection is not None:
+                status_update["window_dropped"] = int(
+                    len(getattr(projection.provenance, "dropped", ()) or ()))
+            if out_status is not None:
+                try:
+                    out_status.update(status_update)
+                except Exception:      # pragma: no cover - наблюдаемость
+                    pass
+            if window_budget_out is not None:
+                try:
+                    window_budget_out.update(status_update)
+                except Exception:      # pragma: no cover - наблюдаемость
+                    pass
+            return result
+
+        # ── legacy (preallocated=False): прежний structural cap ────────────
+        window_lines = render_window_lines(
+            raw_window, _window_limit, with_ids=with_ids,
+            alias_resolver=alias_resolver, line_chars=_line_cap)
+        if window_lines:
+            sections.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ", "\n".join(window_lines)))
+        # ASAP2 T10-BOUNDARY: пометка ставится ровно по факту усечения —
+        # вызывающий сказал «в БД есть более ранние сообщения»
+        # (`history_partial`) ИЛИ окно не влезло в активный лимит.
+        if bool(history_partial) or len(raw_window) > _window_limit:
+            sections.append((HISTORY_SCOPE_SECTION, HISTORY_PARTIAL_LINE))
+        sections.extend(tail_sections)
+        text = _render_l1_sections(sections)
         result = _cap_context(
             text, sections_budget=sections, budget=budget,
-            preserve_sections=(("ПОСЛЕДНИЕ СООБЩЕНИЯ",) if preallocated
-                               else ()))
+            preserve_sections=())
         if out_status is not None:
             try:
                 from services.token_counter import count_tokens
@@ -2523,7 +2715,7 @@ def build_l1_context(*, query, current_question: str = "",
                     "budget_tokens": int(budget),
                     "used_tokens": used,
                     "overflow": bool(used > int(budget)),
-                    "window_preserved": bool(preallocated),
+                    "window_preserved": False,
                 })
             except Exception:      # pragma: no cover - наблюдаемость
                 pass
@@ -2533,7 +2725,7 @@ def build_l1_context(*, query, current_question: str = "",
 
 
 def _cap_context(text: str, *, sections_budget, budget: int,
-                 preserve_sections=()) -> str:
+                 preserve_sections=(), guard_only: bool = False) -> str:
     """Структурный кап §1.5 + §18C.5: защита СТРУКТУРНЫХ блоков
     (СООБЩЕНИЕ/ОТВЕТ НА/УЧАСТНИКИ/ДОСТУПНЫЕ ВОЗМОЖНОСТИ/УСЛОВИЯ — вопрос,
     фрагмент, на который отвечают, machine contract, direct-address metadata),
@@ -2541,9 +2733,13 @@ def _cap_context(text: str, *, sections_budget, budget: int,
     переполнении сохраняют head+tail (хвост вопроса и claim в конце цитаты
     НЕ теряются), финальная сборка верифицируется tokenizer'ом. Остаточное
     переполнение режет КРУПНЕЙШИЙ незащищённый блок, не хвост пакета.
+    ``guard_only=True`` — live preallocated путь: счётчик/overflow решает
+    вызывающий, текст не режется (единственный allocator — selection).
     Никогда не бросает."""
     try:
         from services.token_counter import count_tokens
+        if guard_only:
+            return text
         if count_tokens(text) <= budget:
             return text
         # ER-08: цитата — фрагмент, на который отвечают; сжимается вместе с
