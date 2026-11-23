@@ -11859,6 +11859,61 @@ class DirectChatService:
                     cand, priority=1,
                     fact_row=main_fact_rows.get(_cand_fact_key(cand)),
                     graph_fact=True)
+        # RC7 (B2 narrowed, 23.11.2026): episode-кандидат нового store сам
+        # сообщений не несёт. Мост — только по СУЩЕСТВУЮЩИМ
+        # `mca_story_episode_links` → `mca_episodes.message_keys_json` →
+        # валидные строки `smart_messages`; legacy-истории без links/keys
+        # честно дают пусто (RFL-7), второй mapping/DDL не создаётся.
+        # Основной retrieval этого хода идёт message-каналами (TIME-03),
+        # поэтому story-кандидаты читаются отдельной bounded-ногой через
+        # существующий фасад (`_episode_candidates` = mca-05 read-contract);
+        # порядок/состав основного результата не меняется.
+        bridge_candidates = [
+            cand for cand in result.candidates
+            if getattr(cand, "entity_type", "") == "episode"]
+        if not bridge_candidates:
+            try:
+                bridge_candidates = await _mca_rc._episode_candidates(
+                    self.db, dataclasses.replace(request, top_k=16), [])
+            except Exception:
+                logger.warning(
+                    "direct: story bridge read failed — skip | chat=%s",
+                    chat_id, exc_info=True)
+                bridge_candidates = []
+        story_ids: list[str] = []
+        story_preview: dict[str, str] = {}
+        for cand in bridge_candidates:
+            if getattr(cand, "entity_type", "") != "episode":
+                continue
+            ref = str(getattr(cand, "id", "") or "")
+            story_id = str(getattr(cand, "entity_id", "") or "")
+            if not story_id and ref.startswith("episode:"):
+                story_id = ref.split(":", 1)[1]
+            if not story_id or story_id in story_preview:
+                continue
+            story_ids.append(story_id)
+            story_preview[story_id] = str(getattr(cand, "preview", "") or "")
+        bridge_anchors: dict[str, list[str]] = {}
+        if story_ids:
+            try:
+                from services import mca_episodes as _mca_eps
+                bridge_anchors = await _mca_eps.story_message_anchors(
+                    self.db, chat_id, story_ids[:16],
+                    per_story=2,
+                    limit=max(1, int(self._RAG_EPISODE_ANCHOR_CAP)))
+            except Exception:
+                logger.warning(
+                    "direct: story anchor bridge failed — skip | chat=%s",
+                    chat_id, exc_info=True)
+                bridge_anchors = {}
+        for story_id, refs in bridge_anchors.items():
+            preview = story_preview.get(story_id, "")
+            for ref in refs or ():
+                cand = types.SimpleNamespace(
+                    id=ref, entity_type="episode", channel="episode",
+                    preview=preview, score=0.0)
+                _add_anchor(cand, priority=1)
+        stats["story_anchor_candidates"] = len(bridge_anchors)
         base_rows = []
         if (getattr(self, "_rag_last_rows_key", None)
                 == (int(chat_id), text)):

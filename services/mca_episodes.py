@@ -1798,6 +1798,74 @@ async def resolve_story_id(db, story_id: str) -> str:
     return str(target) if target else str(story_id)
 
 
+async def story_message_anchors(db, chat_id: int, story_ids,
+                                *, per_story: int = 2,
+                                limit: int = 8) -> dict[str, list[str]]:
+    """RC7 (B2 narrowed): new-story → episode links → message anchors.
+
+    Читает только существующие `mca_story_episode_links` →
+    `mca_episodes.message_keys_json` → `smart_messages` и возвращает
+    канонические `tg:<id>`/`msg:<id>` refs. Legacy lore-истории без
+    links/keys дают пустой результат (RFL-7), ничего не выдумывается.
+    Read-only, без DDL/mapping/backfill.
+    """
+    ids: list[str] = []
+    for value in story_ids or ():
+        text = str(value or "").strip()
+        if text and text not in ids:
+            ids.append(text)
+    ids = ids[:32]
+    if not ids:
+        return {}
+    placeholders = ",".join("?" for _ in ids)
+    try:
+        cursor = await db.db.execute(
+            "SELECT l.story_id, l.order_no, e.message_keys_json "
+            "FROM mca_story_episode_links l "
+            "JOIN mca_episodes e ON e.episode_id = l.episode_id "
+            "WHERE e.chat_id = ? AND l.story_id IN (" + placeholders + ") "
+            "ORDER BY l.story_id, l.order_no, e.updated_at DESC",
+            (int(chat_id), *ids))
+        rows = await cursor.fetchall()
+    except Exception:
+        logger.warning("[mca05] story anchor bridge read failed",
+                       exc_info=True)
+        return {}
+    out: dict[str, list[str]] = {}
+    total = 0
+    for row in rows:
+        story_id = str(row["story_id"])
+        if total >= max(1, int(limit)):
+            break
+        refs = out.setdefault(story_id, [])
+        if len(refs) >= max(1, int(per_story)):
+            continue
+        keys = _json_loads(row["message_keys_json"], [])
+        for key in keys or ():
+            if total >= max(1, int(limit)) or len(refs) >= max(1, int(per_story)):
+                break
+            raw = str(key or "")
+            ref = ""
+            if raw.startswith(f"{int(chat_id)}:tg:"):
+                try:
+                    tg = int(raw.rsplit(":tg:", 1)[1])
+                except (TypeError, ValueError):
+                    continue
+                if await _message_exists(db, int(chat_id), tg_message_id=tg):
+                    ref = f"tg:{tg}"
+            elif raw.startswith(f"{int(chat_id)}:db:"):
+                try:
+                    mid = int(raw.rsplit(":db:", 1)[1])
+                except (TypeError, ValueError):
+                    continue
+                if await _message_exists(db, int(chat_id), db_id=mid):
+                    ref = f"msg:{mid}"
+            if ref and ref not in refs:
+                refs.append(ref)
+                total += 1
+    return {key: value for key, value in out.items() if value}
+
+
 async def build_local_context(db, chat_id: int, trigger_tg_message_id=None,
                               trigger_message_id=None, *,
                               limit: int = 6) -> tuple[str, ...]:
