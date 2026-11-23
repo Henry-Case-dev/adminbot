@@ -9,7 +9,7 @@ live-пара GLOBAL OFF + CHAT ON / GLOBAL ON + CHAT OFF в этой задач
 
 - База: production 2.58.237 `f40402660`.
 - Ветка: `feat/m5b-exp-08`.
-- Кандидат (код + тесты + evidence): `4b79360c7a324a0a385d1d3356a71edbd634d17d` (R1: будет обновлён в binding-коммите).
+- Кандидат (код + тесты + evidence): `697a28f9ec17181377a2e219a10af34e083d1fb3`.
 - Diff: `services/mca_experience_jobs.py` +29 строк (12 initial + 17 R1 F01); один новый test-файл (11 тестов).
 - M5A 3 REVIEW (`experience_diagnostics.py`), ACL/UI/embedding/DDL,
   `progress_scope.json`, `workflow_state.md` не затрагивались.
@@ -141,7 +141,7 @@ Orchestrator после независимого review). Предложение
   "proposed_status": "REVIEW",
   "live_required": true,
   "live_when": "preprod",
-  "candidate_commit": "4b79360c7a324a0a385d1d3356a71edbd634d17d",
+  "candidate_commit": "697a28f9ec17181377a2e219a10af34e083d1fb3",
   "candidate_branch": "feat/m5b-exp-08",
   "findings": [
     {"id": "M5B-R1-F01", "status": "repaired",
