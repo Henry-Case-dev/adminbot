@@ -1,0 +1,47 @@
+{
+ "viewports": {
+  "1440": {
+   "viewport": [
+    1440,
+    900
+   ],
+   "steps_text_len": {
+    "initial": 5896,
+    "typing": 5966,
+    "save": 5956,
+    "checked": 6033,
+    "deleted": 5935,
+    "instance_reset": 6534,
+    "stale_again": 6590
+   },
+   "min_len": 5896,
+   "page_errors": [],
+   "raw_secret_visible": false,
+   "has_ibm_card": true,
+   "password_inputs": 2,
+   "state_text": "API key/CRN не настроены. Наличие полей не считается успешной проверкой."
+  },
+  "390": {
+   "viewport": [
+    390,
+    844
+   ],
+   "steps_text_len": {
+    "initial": 5738,
+    "typing": 5794,
+    "save": 5845,
+    "checked": 5922,
+    "deleted": 5824,
+    "instance_reset": 6423,
+    "stale_again": 6479
+   },
+   "min_len": 5738,
+   "page_errors": [],
+   "raw_secret_visible": false,
+   "has_ibm_card": true,
+   "password_inputs": 2,
+   "state_text": "API key/CRN не настроены. Наличие полей не считается успешной проверкой."
+  }
+ },
+ "raw_absent": true
+}

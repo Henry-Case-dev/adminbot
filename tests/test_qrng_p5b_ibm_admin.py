@@ -339,10 +339,43 @@ class TestIbmAdminFields:
                     if i["key"] == IBM_INSTANCE)
         assert item["value"] == ""
 
+    def test_whitespace_only_is_empty_and_values_are_trimmed(self, client):
+        # R2/P5B-R2-02: пробелы не являются значением. whitespace-only —
+        # clear/reset; непустое значение сохраняется без обрамляющих пробелов.
+        saved = client.post("/api/config", headers=_hdr(), json={
+            "items": [{"key": IBM_KEY, "value": f"  {GOOD_KEY}  "},
+                      {"key": IBM_CRN, "value": f" \t {GOOD_CRN} "},
+                      {"key": IBM_INSTANCE, "value": " open-instance "}]})
+        assert saved.status_code == 200, saved.text
+        read = client.get("/api/config", headers=_hdr())
+        item = next(i for i in read.json()["items"] if i["key"] == IBM_KEY)
+        assert item["value"] == {"configured": True,
+                                 "last4": GOOD_KEY[-4:]}
+        item = next(i for i in read.json()["items"] if i["key"] == IBM_CRN)
+        assert item["value"]["configured"] is True
+        item = next(i for i in read.json()["items"] if i["key"] == IBM_INSTANCE)
+        assert item["value"] == "open-instance"
+
+        for key, value in ((IBM_KEY, "   \t  "), (IBM_CRN, "  \n  "),
+                           (IBM_INSTANCE, " \t ")):
+            resp = client.post("/api/config", headers=_hdr(),
+                               json={"items": [{"key": key,
+                                                "value": value}]})
+            assert resp.status_code == 200, (key, resp.text)
+        read2 = client.get("/api/config", headers=_hdr())
+        item = next(i for i in read2.json()["items"] if i["key"] == IBM_KEY)
+        assert item["value"] == {"configured": False, "last4": None}
+        item = next(i for i in read2.json()["items"] if i["key"] == IBM_CRN)
+        assert item["value"]["configured"] is False
+        item = next(i for i in read2.json()["items"]
+                    if i["key"] == IBM_INSTANCE)
+        assert item["value"] == ""
+
     def test_422_never_echoes_submitted_secret(self, client):
         # R1/M6: даже ошибочный ввод не возвращается в теле 422.
         cases = (
             (IBM_KEY, "P5B SENTINEL KEY", "P5B SENTINEL KEY"),
+            (IBM_KEY, "P5BSECRET", "P5BSECRET"),
             (IBM_CRN,
              "crn:v1:bluemix:public:other:us-east:a/P5B-SENTINEL-CRN:x::",
              "P5B-SENTINEL-CRN"),

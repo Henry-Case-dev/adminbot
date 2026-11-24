@@ -33334,6 +33334,13 @@
       randomProviderLastSuccess: function (id) {
         var self = this;
         var act = this.randomActivityView || {};
+        var empty = {
+          available: false, kind: 'none', at: null, timeLabel: '—',
+          length: null, sourceId: null, sourceLabel: '',
+          configMatches: null, label: 'нет данных',
+        };
+        // R2: прежняя проверка не относится к новому черновику key/CRN.
+        if (id === 'ibm_quantum' && this.randomIbmStale) return empty;
         var lb = act.lastBatch;
         var lbId = qrngCanonicalProviderId(
           lb && (lb.provider_id || lb.provider));
@@ -33377,11 +33384,7 @@
             label: qrngProviderLabel(id) + ' · проверка · ' + checkLabel,
           };
         }
-        return {
-          available: false, kind: 'none', at: null, timeLabel: '—',
-          length: null, sourceId: null, sourceLabel: '',
-          configMatches: null, label: 'нет данных',
-        };
+        return empty;
       },
       randomProviderLastSwitch: function (id) {
         var self = this;
@@ -33481,9 +33484,6 @@
           length: null, sourceId: null, sourceLabel: '',
           configMatches: null, label: 'нет данных',
         };
-        if (id === 'ibm_quantum' && this.randomIbmStale) {
-          return emptySuccess;      // прежняя проверка не относится к черновику
-        }
         var emptySwitch = {
           code: null, label: 'нет данных', at: null, timeLabel: '—',
           source: '',
@@ -33521,6 +33521,10 @@
           consumableText = entry.consumable
             ? 'расходуется' : 'нет расходуемых значений';
         }
+        // R2: shape строки всегда полный; ни template, ни JS не должны
+        // получать null/частичный объект даже при неожиданном состоянии.
+        var lastSuccess = this.randomProviderLastSuccess(id) || emptySuccess;
+        var lastSwitch = this.randomProviderLastSwitch(id) || emptySwitch;
         return {
           id: id,
           label: card.label,
@@ -33538,8 +33542,8 @@
           consumableText: consumableText,
           quarantined: (hasEntry && entry.quarantined != null)
             ? entry.quarantined : 0,
-          lastSuccess: this.randomProviderLastSuccess(id),
-          lastSwitch: this.randomProviderLastSwitch(id),
+          lastSuccess: lastSuccess,
+          lastSwitch: lastSwitch,
           adapterNotImplemented: false,
         };
       },
