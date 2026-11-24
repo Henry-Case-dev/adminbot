@@ -200,11 +200,27 @@ class ImageTestRequest(BaseModel):
 
 
 class RandomTestRequest(BaseModel):
-    """Раунд 10.37 (MCA-10a, ADR-1028-14 D8/T-4977): проверка подключения ANU.
+    """Проверка подключения квантового источника.
 
     ``key`` — черновой ключ из поля формы (только POST-body, не URL; пусто →
-    проверяется сохранённый). Ключ не эхо-ится и не логируется (R17)."""
+    проверяется сохранённый). ``provider`` — канонический id; пустое значение
+    сохраняет прежний контракт ANU. ``crn`` — отдельный черновой CRN IBM
+    (только POST-body). Секреты не эхо-ятся и не логируются (R17)."""
     key: str = Field(default="", max_length=512)
+    provider: str = Field(default="", max_length=32)
+    crn: str = Field(default="", max_length=1024)
+
+
+class RandomIbmSmokeRequest(BaseModel):
+    """Отдельное явное действие «Проверить получение измерений» IBM.
+
+    ``confirm`` обязателен: это осознанное подтверждение возможного QPU job и
+    расхода квоты. ``shots`` ограничивается сервисом. Секреты — только body."""
+    key: str = Field(default="", max_length=512)
+    crn: str = Field(default="", max_length=1024)
+    shots: int = Field(default=256, ge=64, le=4096)
+    confirm: bool = False
+
 
 
 class VisionTestRequest(BaseModel):
@@ -3278,6 +3294,43 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
         except ValueError as exc:
             raise HTTPException(status_code=422,
                                 detail=f"{item.key}: {exc}")
+        # P5B: форма защищённых IBM-полей проверяется ДО записи/сети. Пустое
+        # значение допустимо (удаление/сброс); точную валидность подтверждает
+        # только ответ IBM.
+        if item.key == _random_source.SETTING_IBM_KEY:
+            shape = _random_source.ibm_key_shape_error(value)
+            if shape is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: форма ключа IBM не распознана "
+                           f"({shape})")
+        elif item.key == _random_source.SETTING_IBM_CRN:
+            shape = _random_source.ibm_crn_shape_error(value)
+            if shape is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: форма CRN IBM не распознана "
+                           f"({shape})")
+        elif item.key == _random_source.SETTING_IBM_INSTANCE:
+            shape = _random_source.ibm_instance_shape_error(value)
+            if shape is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: форма instance IBM не распознана "
+                           f"({shape})")
+        elif item.key == _random_source.SETTING_IBM_REGION:
+            text = str(value or "").strip()
+            if text and (len(text) > 32 or any(
+                    not (ch.isalnum() or ch in "-_") for ch in text)):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: форма региона IBM не распознана")
+        elif item.key == _random_source.SETTING_IBM_CHANNEL:
+            text = str(value or "").strip()
+            if text and text != _random_source.IBM_CHANNEL:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{item.key}: канал IBM не разрешён: {text[:32]}")
         # Раунд 10.4 (B-9): select-виджет — значение из набора опций
         if spec.widget == "select" and spec.select_options                 and value not in spec.select_options:
             raise HTTPException(
@@ -5020,11 +5073,48 @@ async def post_random_test(
     payload: RandomTestRequest,
     user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
-    """Проверка подключения квантового источника (ANU) по ключу из body."""
+    """Проверка подключения квантового источника (ANU или IBM).
+
+    ANU: прежний контракт (черновой ключ из body, партия только при
+    сохранённом ключе). IBM: строго read-only key/CRN/instance/region/
+    backends/queue/usage, без Sampler и без job; результат называет стадию
+    отказа и не эхо-ит секреты."""
+    from services import lore_runtime, mca_random_source
+    provider = (mca_random_source.canonical_provider_id(payload.provider)
+                if str(payload.provider or "").strip()
+                else mca_random_source.PROVIDER_ID_ANU)
+    if provider not in (mca_random_source.PROVIDER_ID_ANU,
+                        mca_random_source.PROVIDER_ID_IBM):
+        raise HTTPException(status_code=422,
+                            detail="неизвестный провайдер проверки")
+    service = mca_random_source.get_service(lore_runtime.get_lore_db())
+    return await service.test_connection(
+        draft_key=payload.key or None, provider=provider,
+        draft_crn=(payload.crn or None
+                   if provider == mca_random_source.PROVIDER_ID_IBM
+                   else None))
+
+
+@api_router.post("/random/ibm/smoke")
+async def post_random_ibm_smoke(
+    request: Request,
+    payload: RandomIbmSmokeRequest,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """«Проверить получение измерений» IBM — отдельный платный QPU job.
+
+    Требует явного ``confirm`` (предупреждение о расходе квоты показано
+    клиентом). Использует тот же durable `task_jobs`/лимиты/`max_inflight`,
+    что и refill; результат в рабочий запас НЕ зачисляется."""
+    if not payload.confirm:
+        raise HTTPException(status_code=422,
+                            detail="confirmation_required: QPU job/квота")
     from services import lore_runtime, mca_random_source
     service = mca_random_source.get_service(lore_runtime.get_lore_db())
-    result = await service.test_connection(draft_key=payload.key or None)
-    return result
+    return await service.ibm_hardware_smoke(
+        draft_key=payload.key or None, draft_crn=payload.crn or None,
+        shots=payload.shots)
+
 
 
 # ── MCA-19 (round 10.43, ADR-1028-19 D4/D15, T-5103/T-5116): /api/vision/* ──

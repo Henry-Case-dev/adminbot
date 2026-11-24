@@ -7554,12 +7554,6 @@
                           </template>
                           <span v-else>нет данных</span>
                         </div>
-                        <div v-if="p.adapterNotImplemented"
-                             class="text-xs text-gray-500 mt-1"
-                             data-random-provider-summary-adapter>
-                          P5: адаптер не реализован; защищённые поля доступа
-                          появятся после P5B.
-                        </div>
                       </article>
                     </div>
                   </div>
@@ -7568,9 +7562,11 @@
                       Подробности, ключи и проверка
                     </summary>
                   <div class="grid gap-3 md:grid-cols-2 mt-3 items-start" data-random-cards>
-                    <!-- IBM Quantum: P5 ещё не подключён — честное состояние,
-                         НИКАКИХ неработающих полей и зелёного «подключён». -->
-                    <article class="card p-3" data-random-provider="ibm_quantum">
+                    <!-- IBM Quantum: реальный адаптер P5B. Наличие ключа не
+                         считается проверкой; read-only доступ и платное
+                         измерение — раздельные действия. -->
+                    <article class="card p-3" data-random-provider="ibm_quantum"
+                             data-random-ibm-card>
                       <div class="flex items-center gap-2 flex-wrap">
                         <b class="text-sm">IBM Quantum</b>
                         <span class="badge"
@@ -7578,15 +7574,113 @@
                               data-random-provider-badge>
                           {{ randomProviderCard('ibm_quantum').stateLabel }}
                         </span>
-                        <span class="text-xs text-gray-500">аппаратный QPU</span>
+                        <span class="text-xs text-gray-500">аппаратный QPU · Open plan</span>
                       </div>
                       <div class="text-xs text-gray-400 mt-1" data-random-provider-state>
                         {{ randomProviderCard('ibm_quantum').stateText }}
                       </div>
-                      <div class="text-xs text-gray-500 mt-1">
-                        Пока доступов нет, выбор IBM разрешится в ANU или в
-                        «нет доступного источника» — это видно в статусе, без
-                        подмены на псевдослучайность.
+                      <div class="text-xs text-gray-500">
+                        Последняя проверка: {{ randomProviderCard('ibm_quantum').lastCheck }}
+                      </div>
+                      <template v-if="isGlobalAdmin">
+                        <div class="text-xs text-gray-500 mt-1" data-random-ibm-steps>
+                          Ключ и CRN → «Проверить доступ» (только чтение, без job)
+                          → «Проверить получение измерений» (реальный QPU job).
+                        </div>
+                        <template v-if="randomIbmKeyItem()">
+                          <secret-field class="mt-2" data-random-ibm-key
+                            :title="randomIbmKeyItem().title"
+                            :tech-key="randomIbmKeyItem().key"
+                            :description="randomIbmKeyItem().description"
+                            :configured="isKeyConfigured(randomIbmKeyItem())"
+                            :last4="last4(randomIbmKeyItem())"
+                            :draft="keyDrafts['keys.random_ibm_api_key'] || ''"
+                            placeholder="API key IBM (заменить)…"
+                            @update:draft="onKeyDraft(randomIbmKeyItem(), $event)"
+                            @delete="deleteKeyItem(randomIbmKeyItem())"></secret-field>
+                        </template>
+                        <template v-if="randomIbmCrnItem()">
+                          <secret-field class="mt-2" data-random-ibm-crn
+                            :title="randomIbmCrnItem().title"
+                            :tech-key="randomIbmCrnItem().key"
+                            :description="randomIbmCrnItem().description"
+                            :configured="isKeyConfigured(randomIbmCrnItem())"
+                            :last4="last4(randomIbmCrnItem())"
+                            :draft="keyDrafts['keys.random_ibm_crn'] || ''"
+                            placeholder="CRN Quantum Compute (заменить)…"
+                            @update:draft="onKeyDraft(randomIbmCrnItem(), $event)"
+                            @delete="deleteKeyItem(randomIbmCrnItem())"></secret-field>
+                        </template>
+                        <div class="flex items-center gap-2 flex-wrap mt-2">
+                          <button type="button" class="btn-ghost text-xs"
+                                  :disabled="randomIbmCheckBusy || randomIbmSmokeBusy"
+                                  data-random-ibm-save
+                                  @click="saveRandomIbmSecrets()">
+                            Сохранить ключ/CRN
+                          </button>
+                          <button type="button" class="btn-ghost text-xs"
+                                  :disabled="randomIbmCheckBusy || randomIbmSmokeBusy"
+                                  data-random-ibm-check
+                                  @click="checkRandomIbmAccess()">
+                            {{ randomIbmCheckBusy ? 'Проверка…' : 'Проверить доступ' }}
+                          </button>
+                          <button type="button" class="btn-ghost text-xs"
+                                  :disabled="randomIbmCheckBusy || randomIbmSmokeBusy"
+                                  data-random-ibm-smoke
+                                  @click="checkRandomIbmMeasurements()">
+                            {{ randomIbmSmokeBusy ? 'Измерение…' : 'Проверить получение измерений' }}
+                          </button>
+                        </div>
+                        <div class="text-xs text-amber-300 mt-1"
+                             data-random-ibm-smoke-warning>
+                          Проверка измерений ставит реальный QPU job и расходует
+                          квоту; значения не зачисляются в рабочий запас.
+                        </div>
+                        <div v-if="randomIbmCheckView()" class="text-xs mt-1"
+                             data-random-ibm-check-result>
+                          <template v-if="randomIbmCheckView().ok">
+                            <span class="text-green-300">Доступ подтверждён</span>
+                            · instance {{ randomIbmCheckView().instance || '—' }}
+                            <span v-if="randomIbmCheckView().region"> · регион {{ randomIbmCheckView().region }}</span>
+                            <span v-if="randomIbmCheckView().backend"> · QPU {{ randomIbmCheckView().backend }}</span>
+                            <span v-if="randomIbmCheckView().plan"> · план {{ randomIbmCheckView().plan }}</span>
+                            <span v-if="randomIbmCheckView().queue && randomIbmCheckView().queue.pending_jobs != null">
+                              · очередь {{ randomIbmCheckView().queue.pending_jobs }}</span>
+                          </template>
+                          <template v-else>
+                            <span class="text-red-300">Ошибка стадии «{{ randomIbmCheckView().stageLabel }}»</span>
+                            · {{ randomIbmCheckView().blockerLabel || randomIbmCheckView().reason || 'доступ не подтверждён' }}
+                          </template>
+                          <div v-if="randomIbmCheckView().persisted === false" class="text-amber-300">
+                            Черновой ключ/CRN не сохранён — нажмите «Сохранить ключ/CRN».
+                          </div>
+                        </div>
+                        <div v-if="randomIbmSmokeView()" class="text-xs mt-1"
+                             data-random-ibm-smoke-result>
+                          <template v-if="randomIbmSmokeView().ok">
+                            <span class="text-green-300">Получение подтверждено</span>
+                            · QPU {{ randomIbmSmokeView().backend || '—' }}
+                            · job {{ randomIbmSmokeView().jobId || '—' }}
+                            <span v-if="randomIbmSmokeView().shots != null"> · shots {{ randomIbmSmokeView().shots }}</span>
+                            <span v-if="randomIbmSmokeView().bits != null"> · бит {{ randomIbmSmokeView().bits }}</span>
+                            <span v-if="randomIbmSmokeView().usageSeconds != null"> · QPU {{ randomIbmSmokeView().usageSeconds }} с</span>
+                          </template>
+                          <template v-else>
+                            <span class="text-red-300">Ошибка стадии «{{ randomIbmSmokeView().stageLabel }}»</span>
+                            · {{ randomIbmSmokeView().blockerLabel || randomIbmSmokeView().reason || 'измерение не подтверждено' }}
+                          </template>
+                        </div>
+                        <details class="mt-2 text-xs" data-random-ibm-details>
+                          <summary class="cursor-pointer select-none text-gray-400">Дополнительно: instance, регион, канал</summary>
+                          <div class="grid gap-3 md:grid-cols-2 mt-2">
+                            <qrng-field v-for="it in randomIbmTechItems()" :key="'rnd-ibm-' + it.key"
+                                        :item="it" :can-edit="isGlobalAdmin && canEditConfig(it.key)"
+                                        @save="saveRandomField(it, $event)"></qrng-field>
+                          </div>
+                        </details>
+                      </template>
+                      <div v-else class="text-xs text-gray-500 mt-1">
+                        Поля и проверка IBM доступны только глобальному администратору.
                       </div>
                       <a class="text-xs underline text-violet-300 mt-1 inline-block"
                          :href="randomProviderCard('ibm_quantum').docs"

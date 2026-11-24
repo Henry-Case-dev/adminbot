@@ -66,6 +66,7 @@
     "/prompts/{prompt_key}/baseline/restore",
     "/prompts/{prompt_key}/factory/restore",
     "/prompts/{prompt_key}/versions",
+    "/random/ibm/smoke",
     "/random/test",
     "/roles",
     "/roles/tree",

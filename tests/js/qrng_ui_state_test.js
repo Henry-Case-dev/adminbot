@@ -413,7 +413,8 @@ function count(text, needle) {
     'не настроен');
 
   const ibm = methods.randomProviderCard.call(ctx, 'ibm_quantum');
-  assert.strictEqual(ibm.stateLabel, 'адаптер не реализован');
+  assert.strictEqual(ibm.stateLabel, 'не настроен',
+    'P5B: IBM без сохранённого key/CRN — «не настроен», не заглушка');
   assert.strictEqual(ibm.checked, false);
 
   const badCtx = makeCtx(status({

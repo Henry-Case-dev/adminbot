@@ -221,6 +221,15 @@ DEFAULT_IBM_HTTP_TIMEOUT_SECONDS = 10
 DEFAULT_IBM_POLL_INTERVAL_SECONDS = 30
 DEFAULT_IBM_JOB_MAX_AGE_SECONDS = 3600
 DEFAULT_IBM_MAX_INFLIGHT = 1
+# P5B: форма защищённых полей. Валидация НЕ угадывает аккаунт/квоту, а
+# отсекает заведомо неверный ввод до сети (точный ответ IBM остаётся истиной).
+IBM_KEY_MIN_CHARS = 16
+IBM_KEY_MAX_CHARS = 256
+IBM_CRN_MAX_CHARS = 512
+IBM_INSTANCE_MAX_CHARS = 64
+# Минимальный интервал между фоновыми refill-запусками по draw-триггеру:
+# один и тот же watermark не должен создавать задачу на каждый draw.
+IBM_REFILL_MIN_INTERVAL_SECONDS = 5.0
 # Open Plan — реальный расход ограничен владельцем (bounded jobs/RU), но не
 # превращён в постоянный OFF: готовый адаптер работает при наличии полей.
 DEFAULT_IBM_MAX_JOBS_PER_DAY = 4
@@ -300,14 +309,18 @@ _PROVIDER_ALIASES = {
     "lfdr qrng": PROVIDER_ID_LFDR,
 }
 
-# Все 9 ключей подключения провайдера (P1: операции с ними — только global
+# Все ключи подключения провайдера (P1: операции с ними — только global
 # admin, arch D8/`RBAC-01/02`; `keys.random_quantum_provider` — информационное
-# имя, P3 скроет его из UI).
+# имя, P3 скроет его из UI). P5B: раздельные защищённые IBM key/CRN и
+# несекретные instance/region/channel входят в тот же allowlist, иначе право
+# `key.<name>` открывало бы запись чужих credentials.
 SETTING_PROVIDER_INFO = "keys.random_quantum_provider"
 PROVIDER_KEY_SETTINGS = (
     SETTING_PROVIDER_INFO, SETTING_KEY, SETTING_ENDPOINT, SETTING_PLAN,
     SETTING_BATCH_LENGTH, SETTING_DATA_TYPE, SETTING_TIMEOUT,
     SETTING_LOW_WATERMARK, SETTING_BUFFER_MAX,
+    SETTING_IBM_KEY, SETTING_IBM_CRN, SETTING_IBM_INSTANCE,
+    SETTING_IBM_REGION, SETTING_IBM_CHANNEL,
 )
 # Провайдеры, чьи durable-партии принадлежат ANU-ключу (backfill P1 D2 +
 # фильтр расходования). Оба написания: история + каноническая запись.
@@ -683,11 +696,12 @@ def _parse_retry_after(headers) -> int | None:
     return max(0, min(seconds, 3600))
 
 
-def _clean_error_text(raw, key: str = "") -> str:
-    """Очистить error-поле провайдера: маска ключа + sanitize + bound."""
+def _clean_error_text(raw, key: str = "", crn: str = "") -> str:
+    """Очистить error-поле провайдера: маска секретов + sanitize + bound."""
     text = str(raw or "").replace("\n", " ").replace("\r", " ").strip()
-    if key and key in text:
-        text = text.replace(key, "***")
+    for secret in (key, crn):
+        if secret and secret in text:
+            text = text.replace(secret, "***")
     try:
         from services.log_ring import sanitize
         text = sanitize(text)
@@ -1434,6 +1448,8 @@ def _ibm_stage_for_code(code: str) -> str:
         "dependency_missing": "dependency",
         "invalid_channel": "channel",
         "invalid_instance": "instance",
+        "invalid_key_shape": "key",
+        "invalid_crn_shape": "instance",
         "invalid_region": "region",
         "region_not_available": "region",
         "permission_denied": "permission",
@@ -1441,6 +1457,64 @@ def _ibm_stage_for_code(code: str) -> str:
         "no_backend": "no_backend",
         "quota_exhausted": "permission",
     }.get(str(code), "request")
+
+
+def ibm_key_shape_error(value) -> str | None:
+    """Причина отказа формы API key (None — форма допустима).
+
+    IBM Cloud API key — непарольный токен из alnum/`._-`; пробелы и
+    управляющие символы означают испорченную вставку. Точный формат/валидность
+    подтверждает только IAM IBM, поэтому проверка намеренно консервативна."""
+    text = str(value or "").strip()
+    if not text:
+        return "empty"
+    if len(text) < IBM_KEY_MIN_CHARS:
+        return "too_short"
+    if len(text) > IBM_KEY_MAX_CHARS:
+        return "too_long"
+    if any(not (ch.isalnum() or ch in "._-") for ch in text):
+        return "invalid_chars"
+    return None
+
+
+def ibm_crn_shape_error(value) -> str | None:
+    """Причина отказа формы CRN Quantum Compute (None — пусто/допустимо).
+
+    Пустой CRN допустим: действует instance name (`open-instance`). Непустой
+    обязан быть CRN сервиса `quantum-compute` с регионом; реальное членство в
+    аккаунте подтверждает ответ IBM, не эта проверка."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if len(text) > IBM_CRN_MAX_CHARS:
+        return "too_long"
+    if any(ch.isspace() for ch in text):
+        return "whitespace"
+    parts = text.split(":")
+    if len(parts) < 8:
+        return "incomplete"
+    if parts[0].lower() != "crn" or parts[1].lower() != "v1":
+        return "prefix"
+    if parts[4].lower() != "quantum-compute":
+        return "service"
+    region = parts[5]
+    if not region or len(region) > 32 or any(
+            not (ch.isalnum() or ch in "-_") for ch in region):
+        return "region"
+    return None
+
+
+def ibm_instance_shape_error(value) -> str | None:
+    """Причина отказа формы имени instance (None — допустимо)."""
+    text = str(value or "").strip()
+    if not text:
+        return "empty"
+    if len(text) > IBM_INSTANCE_MAX_CHARS:
+        return "too_long"
+    if any(not (ch.isalnum() or ch in "._-") for ch in text):
+        return "invalid_chars"
+    return None
+
 
 
 def _ibm_crn_region(crn) -> str:
@@ -1968,6 +2042,13 @@ class IbmQuantumRuntimeClient:
         if not key:
             raise IbmError("provider_unconfigured", "no api key",
                            stage="key", sent=False)
+        # Строгую форму (длина/алфавит) проверяет admin-сохранение; runtime
+        # отсекает только испорченную вставку — иначе ключ, сохранённый до
+        # P5B, не смог бы даже получить честный ответ IAM.
+        if any(ch.isspace() or not ch.isprintable() for ch in key):
+            raise IbmError("invalid_key_shape",
+                           "api key contains whitespace/control chars",
+                           stage="key", sent=False)
         # Инъекция фабрики в тестах — доказательство, что зависимость не
         # требуется для контрактных проверок; в продакшене обязателен
         # установленный официальный пакет.
@@ -1990,10 +2071,6 @@ class IbmQuantumRuntimeClient:
                            stage="region", sent=False)
         instance_text = str(instance or IBM_INSTANCE_DEFAULT).strip()
         crn_text = str(crn or "").strip()
-        if not instance_text and not crn_text:
-            raise IbmError("provider_unconfigured",
-                           "instance/CRN missing", stage="instance",
-                           sent=False)
         return key, crn_text, instance_text, region_text, channel_text
 
     async def _service(self, *, api_key: str, crn: str, instance: str,
@@ -2006,7 +2083,7 @@ class IbmQuantumRuntimeClient:
             raise
         except Exception as exc:
             code = _ibm_error_code(exc, "auth_failed")
-            raise IbmError(code, _clean_error_text(str(exc), api_key),
+            raise IbmError(code, _clean_error_text(str(exc), api_key, crn),
                            stage=_ibm_stage_for_code(code), sent=False)
 
     async def _instances(self, service) -> list:
@@ -2171,7 +2248,7 @@ class IbmQuantumRuntimeClient:
             self._note_failure(now, code)
             return _ibm_error_result(
                 code=code, stage=_ibm_stage_for_code(code),
-                reason=_clean_error_text(str(exc), key),
+                reason=_clean_error_text(str(exc), key, str(crn or "")),
                 key_present=True, crn_present=crn_present,
                 instance=instance_text, region=region_text,
                 channel=channel_text, checked_at=checked_at)
@@ -2272,7 +2349,7 @@ class IbmQuantumRuntimeClient:
             self._note_failure(now, code)
             return _ibm_error_result(
                 code=code, stage=_ibm_stage_for_code(code),
-                reason=_clean_error_text(str(exc), key),
+                reason=_clean_error_text(str(exc), key, str(crn or "")),
                 key_present=True, crn_present=crn_present,
                 instance=instance_text, region=region_text,
                 channel=channel_text, checked_at=checked_at)
@@ -2633,7 +2710,7 @@ class IbmQuantumRuntimeClient:
                     raise
                 except Exception as exc:
                     code = _ibm_error_code(exc)
-                    raise IbmError(code, _clean_error_text(str(exc)),
+                    raise IbmError(code, _clean_error_text(str(exc), crn=crn),
                                    stage="result", sent=True,
                                    job_state=state)
                 actual_backend = _ibm_attr(job, "backend", None)
@@ -2831,7 +2908,7 @@ class IbmQuantumRuntimeClient:
         except Exception as exc:
             raise IbmError(
                 _ibm_error_code(exc, "validation_failed"),
-                _clean_error_text(str(exc), api_key),
+                _clean_error_text(str(exc), api_key, crn),
                 stage="transpile", sent=False)
         job_tag = (f"qrng-p5-{checkpoint_job_id}"
                    if checkpoint_job_id else "")
@@ -2880,7 +2957,7 @@ class IbmQuantumRuntimeClient:
             raise
         except Exception as exc:
             code = _ibm_error_code(exc)
-            raise IbmError(code, _clean_error_text(str(exc), api_key),
+            raise IbmError(code, _clean_error_text(str(exc), api_key, crn),
                            stage="submit", retryable=True, sent=True)
         job_id = str(getattr(job, "job_id", lambda: "")() or "").strip()
         if not job_id:
@@ -2940,7 +3017,7 @@ class IbmQuantumRuntimeClient:
             raise
         except Exception as exc:
             code = _ibm_error_code(exc)
-            raise IbmError(code, _clean_error_text(str(exc), key),
+            raise IbmError(code, _clean_error_text(str(exc), key, crn_text),
                            stage="tag", retryable=True, sent=False)
         for job in jobs or ():
             try:
@@ -2977,7 +3054,7 @@ class IbmQuantumRuntimeClient:
             raise
         except Exception as exc:
             code = _ibm_error_code(exc)
-            raise IbmError(code, _clean_error_text(str(exc)),
+            raise IbmError(code, _clean_error_text(str(exc), key, crn_text),
                            stage="attach", sent=True, job_state="unknown")
         backend = _ibm_attr(job, "backend", None)
         if callable(backend):
@@ -3939,6 +4016,7 @@ class ProviderResolution:
     blocker: str | None
     fallback_order_raw: Any = None
     fallback_order_state: str = PRIMARY_SETTING_ABSENT
+    reserve_remaining: int = 0
 
 
 class RandomSourceService:
@@ -3958,6 +4036,8 @@ class RandomSourceService:
         self._journal_dropped = 0
         self._transition_key: str | None = None
         self._refill_task: asyncio.Task | None = None
+        # P5B: throttle draw-триггера (не второй планировщик; та же задача).
+        self._last_refill_scheduled = 0.0
         self._check_lock = asyncio.Lock()
         self._check_task: asyncio.Task | None = None
         self._check_key: str | None = None
@@ -4481,6 +4561,7 @@ class RandomSourceService:
         resolved: str | None = None
         effective_provider: str | None = None
         blocker: str | None = None
+        reserve_remaining = 0
         if selected == MODE_PSEUDORANDOM:
             mode = MODE_PSEUDORANDOM
         elif not mca_gates.random_quantum_enabled():
@@ -4488,6 +4569,7 @@ class RandomSourceService:
             blocker = "disabled"
         else:
             reserve = await self._provider_reserve_map()
+            reserve_remaining = sum(int(v or 0) for v in reserve.values())
             for pid in effective:
                 configured = self.provider_configured(pid)
                 has_reserve = int(reserve.get(pid, 0) or 0) > 0
@@ -4510,7 +4592,8 @@ class RandomSourceService:
             fallback_enabled=bool(fallback_on),
             fallback_order=tuple(effective[1:]),
             effective_order=tuple(effective), blocker=blocker,
-            fallback_order_raw=raw_order, fallback_order_state=order_state)
+            fallback_order_raw=raw_order, fallback_order_state=order_state,
+            reserve_remaining=reserve_remaining)
 
     async def resolve_effective(self, chat_id=None) -> tuple[str, str | None]:
         """(effective, blocker) — совместимый фасад `resolve_selection`.
@@ -4630,6 +4713,7 @@ class RandomSourceService:
             return DrawResult(index=None, deferred=True, reason="disabled",
                               selected_source=selected, policy_version=pv)
         selection = await self.resolve_selection(chat_id)
+        self._maybe_schedule_refill(selection)
         blocker = selection.blocker
         if selection.mode == MODE_QUANTUM:
             result = await self._quantum_index_draw(
@@ -4669,6 +4753,7 @@ class RandomSourceService:
             return DrawResult(value=None, deferred=True, reason="disabled",
                               selected_source=selected, policy_version=pv)
         selection = await self.resolve_selection(chat_id)
+        self._maybe_schedule_refill(selection)
         blocker = selection.blocker
         if selection.mode == MODE_QUANTUM:
             result = await self._quantum_probability_draw(
@@ -5292,7 +5377,7 @@ class RandomSourceService:
                            type(exc).__name__)
             result = _ibm_error_result(
                 code="provider_unavailable", stage="request",
-                reason=_clean_error_text(str(exc), key),
+                reason=_clean_error_text(str(exc), key, crn),
                 key_present=bool(key), crn_present=crn_present,
                 instance=self._ibm_instance(), region=self._ibm_region(),
                 channel=self._ibm_channel(), checked_at=int(time.time()))
@@ -6813,6 +6898,26 @@ class RandomSourceService:
                               deferred=True)
         return None
 
+    def _maybe_schedule_refill(self, selection) -> None:
+        """P5B: неблокирующий refill при пустом/низком запасе IBM.
+
+        Триггер только при РЕАЛЬНО сконфигурированном IBM (key+instance/CRN):
+        иначе прежнее поведение (startup/activate/dream) не меняется. Порог —
+        существующий `low_watermark`; ниже него запас должен пополняться
+        фоном, а не ждать рестарта. Само задание выполняет существующий
+        `TaskSupervisor`/`task_jobs`; draw не ждёт QPU."""
+        if not self._auto_refill:
+            return
+        if self.db is None or self._store is None:
+            return
+        if not self._ibm_configured():
+            return
+        remaining = int(getattr(selection, "reserve_remaining", 0) or 0)
+        if (str(getattr(selection, "mode", "")) == MODE_QUANTUM
+                and remaining >= self._low_watermark()):
+            return
+        self._schedule_refill()
+
     def _schedule_refill(self) -> None:
         if not (mca_gates.random_source_enabled()
                 and mca_gates.random_quantum_enabled()
@@ -6822,6 +6927,14 @@ class RandomSourceService:
             return
         if self._refill_task is not None and not self._refill_task.done():
             return
+        # Один watermark не должен создавать задачу на каждый draw: тот же
+        # refill_if_needed сам решает по watermark/buffer и health.
+        now = self._clock()
+        if (self._last_refill_scheduled
+                and now - self._last_refill_scheduled
+                < IBM_REFILL_MIN_INTERVAL_SECONDS):
+            return
+        self._last_refill_scheduled = now
         # QRNG P3: наличие ANU-ключа больше не единственное условие — цель
         # (ANU/LfDR) выбирает refill_if_needed по действующему порядку; нет
         # запрашиваемого провайдера → честный blocked, без сети.

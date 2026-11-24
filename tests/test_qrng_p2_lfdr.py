@@ -89,7 +89,9 @@ class TestRegistry:
                    for p in mrs.PROVIDERS.values())
 
     def test_no_lfdr_api_key_setting_or_header(self):
-        assert len(mrs.PROVIDER_KEY_SETTINGS) == 9
+        # P5B: 9 базовых + 5 IBM (key/CRN/instance/region/channel); LfDR-ключа
+        # в списке нет, как и раньше.
+        assert len(mrs.PROVIDER_KEY_SETTINGS) == 14
         assert not any("lfdr" in key.lower()
                        for key in mrs.PROVIDER_KEY_SETTINGS)
         source = Path(mrs.__file__).read_text(encoding="utf-8").lower()
