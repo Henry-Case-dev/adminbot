@@ -4,6 +4,8 @@
  * Проверяет РЕАЛЬНУЮ логику web/app.js (require), не grep:
  *   (a) сохранённый primary/order, заводское значение, effective route из
  *       /api/status различимы; отсутствие строки — не пустой резерв;
+ *   (a2) явный сохранённый пустой резерв — решение «без резерва», а не
+ *       заводская цепочка (UI-08..10 R1/F-01);
  *   (b) ни один провайдер effective chain не получает «не в резерве»;
  *   (c) toggle/стрелки меняют только черновик; Save отправляет полный
  *       порядок и не теряет LfDR; Cancel не пишет;
@@ -209,16 +211,16 @@ function count(text, needle) {
     'только реально исключённый получает badge');
 }
 
-// ── (a2) live raw = [] при наследуемом primary: это не пустой резерв ──────
+// ── (a2) live raw = [] при наследуемом primary: явное «без резерва» ───────
 {
   const ctx = makeCtx(status({
     primary_provider: 'ibm_quantum',
     primary_setting_raw: '',
     primary_setting_state: 'absent',
-    fallback_order: ['anu', 'lfdr'],
+    fallback_order: [],
     fallback_order_raw: [],
     fallback_order_state: 'set',
-    effective_order: ['ibm_quantum', 'anu', 'lfdr'],
+    effective_order: ['ibm_quantum'],
   }), [
     cfg('random.primary_provider', '', 'default'),
     cfg('random.fallback_order', [], 'global'),
@@ -229,25 +231,25 @@ function count(text, needle) {
   assert.strictEqual(ov.savedLabel, 'пусто (резерв не выбран)',
     'сохранённая пустая строка показана как есть');
   assert.strictEqual(ov.savedHint, 'сохранён пустой; действует заводская цепочка',
-    'пустая строка при наследуемом primary не выдаётся за выключенный резерв');
-  assert.strictEqual(ov.effectiveLabel, label('anu') + ' → ' + label('lfdr'));
+    'подпись диагностики сохраняет историческую формулировку');
+  assert.strictEqual(ov.effectiveLabel, '—');
   assert.strictEqual(methods.randomFallbackStateChip.call(ctx).label,
     'сохранено пустым', 'явное пустое решение видно на основном экране');
   assert(methods.randomFallbackNote.call(ctx)
-    .indexOf('действует заводская цепочка') >= 0,
-    'runtime-подмена объяснена, а не скрыта');
+    .indexOf('переключений не будет') >= 0,
+    'явный пустой резерв означает отсутствие переключений');
+  assert(methods.randomFallbackNote.call(ctx)
+    .indexOf('заводская цепочка') < 0,
+    'явный пустой резерв не подменяется заводской цепочкой');
   assert.deepStrictEqual(methods.randomFallbackBaseValue.call(ctx), [],
-    'контрол показывает явное пустое решение, а не runtime-цепочку');
+    'контрол показывает явное пустое решение');
   const rows = methods.randomFallbackRows.call(ctx);
   assert.strictEqual(row(rows, 'anu').enabled, false,
     'ANU не выглядит выбранным пользователем');
   assert.strictEqual(row(rows, 'lfdr').enabled, false,
     'LfDR не выглядит выбранным пользователем');
-  assert.strictEqual(row(rows, 'anu').effective, true);
-  assert.strictEqual(row(rows, 'anu').statusLabel, 'в цепочке',
-    'runtime-цепочка честно помечена отдельно от решения');
-  assert(!rows.some(function (r) { return r.statusLabel === 'не в резерве'; }),
-    'live-случай [] не помечает ANU/LfDR «не в резерве»');
+  assert.strictEqual(row(rows, 'anu').effective, false);
+  assert.strictEqual(row(rows, 'anu').statusLabel, 'не в резерве');
   methods.randomFallbackToggleDraft.call(ctx, 'anu', true);
   assert.deepStrictEqual(ctx.randomFallbackDraft, ['anu'],
     'включение ANU из явного пустого решения не выдумывает LfDR');

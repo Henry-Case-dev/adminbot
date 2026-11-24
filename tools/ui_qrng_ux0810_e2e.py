@@ -68,6 +68,7 @@ STATE = {
     "primary": "ibm_quantum",
     "order": ["anu", "lfdr"],
     "fallback": True,
+    "inherit": False,
     "posts": [],
     "random_tests": 0,
 }
@@ -79,8 +80,7 @@ def _config_items():
     values = {
         "random.primary_provider": STATE["primary"],
         "random.fallback_order": list(STATE["order"]),
-        "random.fallback_enabled": bool(STATE["fallback"]),
-        "keys.random_quantum_api_key": {"configured": True, "last4": "Lz5l"},
+        "random.fallback_enabled": bool(STATE["fallback"]),        "keys.random_quantum_api_key": {"configured": True, "last4": "Lz5l"},
         "keys.random_ibm_api_key": {"configured": True, "last4": "AB12"},
         "keys.random_ibm_crn": {"configured": True, "last4": "XY99"},
         "keys.random_ibm_instance": "open-instance",
@@ -183,8 +183,10 @@ def _status_payload():
     return {
         "enabled": True, "available": quantum, "quantum_active": quantum,
         "effective_source": mode, "effective_provider": effective,
-        "primary_provider": primary, "primary_setting_raw": primary,
-        "primary_setting_state": "set", "resolved_primary": effective,
+        "primary_provider": primary,
+        "primary_setting_raw": "" if STATE["inherit"] else primary,
+        "primary_setting_state": "absent" if STATE["inherit"] else "set",
+        "resolved_primary": effective,
         "fallback_enabled": fallback_on,
         "fallback_order": order,
         "fallback_order_raw": list(STATE["order"]),
@@ -298,9 +300,14 @@ class Handler(BaseHTTPRequestHandler):
             if "reset=1" in q:
                 STATE.update({"primary": "ibm_quantum",
                               "order": ["anu", "lfdr"], "fallback": True,
-                              "posts": []})
+                              "inherit": False, "posts": []})
+            if "inherit=1" in q:
+                STATE.update({"primary": "ibm_quantum",
+                              "order": ["lfdr", "anu"], "fallback": True,
+                              "inherit": True})
             return self._json({"primary": STATE["primary"],
                                "order": STATE["order"],
+                               "inherit": STATE["inherit"],
                                "fallback": STATE["fallback"]})
         if p == "/api/me":
             return self._json(_me_payload())
@@ -432,6 +439,11 @@ METRICS_JS = r"""() => {
     clientW: document.documentElement.clientWidth,
     pageErrors: (window.__qrngErrors || []).slice(),
     mainText: mainText,
+    selectValue: (document.querySelector('[data-random-primary]') || {}).value,
+    primaryHint: (document.querySelector('[data-random-setting-primary]') || {}).innerText || '',
+    fallbackChip: (document.querySelector('[data-random-fallback-state]') || {}).innerText || '',
+    fallbackNote: (document.querySelector('[data-random-fallback-note]') || {}).innerText || '',
+    nowReason: (document.querySelector('[data-random-now-reason]') || {}).innerText || '',
     primaryCount: main ? main.querySelectorAll('[data-random-primary]').length : 0,
     toggleCount: main ? main.querySelectorAll(
       '[data-random-fallback-toggle]').length : 0,
@@ -490,6 +502,10 @@ def _check_page(page, viewport, shots_dir, report):
         m["mainText"].count("Последнее успешное получение") == 1)
     checks[prefix + "_no_forbidden_main"] = all(
         needle not in m["mainText"] for needle in FORBIDDEN)
+    checks[prefix + "_reason_attributed"] = (
+        "переключение с IBM Quantum:" in m["nowReason"])
+    checks[prefix + "_reason_not_unanchored"] = (
+        m["nowReason"].strip() != "источник не настроен")
     checks[prefix + "_no_workspace_duplicate_chips"] = (
         m["workspaceChips"] == 0 and not m["workspaceStateVisible"])
     checks[prefix + "_used_once_on_page"] = m["usedOnPage"] == 1
@@ -543,7 +559,7 @@ def _check_page(page, viewport, shots_dir, report):
             type="jpeg", quality=65)
 
 
-def _check_interactions(page, report):
+def _check_interactions(page, report, api_requests):
     checks = report["checks"]
     posts_before = len(STATE["posts"])
     # Draft: down arrow changes only the draft; Save posts the full order.
@@ -596,19 +612,27 @@ def _check_interactions(page, report):
         primary_posts[-1].get("value") == "lfdr")
 
     # Expanding keys does not make network requests and keeps secrets masked.
-    requests_before = report["api_requests"]
+    requests_before = len(api_requests)
     page.locator("[data-random-provider-details] > summary").click()
     page.wait_for_timeout(400)
     checks["keys_open_on_demand"] = page.locator(
         '[data-random-provider="ibm_quantum"]').is_visible()
     checks["keys_expand_zero_network"] = (
-        report["api_requests"] == requests_before)
+        len(api_requests) == requests_before)
+    report["keys_expand_request_delta"] = (
+        len(api_requests) - requests_before)
     secret_values = page.locator(
         '[data-random-provider-details] input[type="password"]'
     ).evaluate_all("els => els.map(e => e.value)")
     checks["secrets_masked"] = all(
         (v or "").strip() == "" or "•" in v for v in secret_values)
+    requests_before_collapse = len(api_requests)
     page.locator("[data-random-provider-details] > summary").click()
+    page.wait_for_timeout(300)
+    checks["keys_collapse_zero_network"] = (
+        len(api_requests) == requests_before_collapse)
+    report["keys_collapse_request_delta"] = (
+        len(api_requests) - requests_before_collapse)
 
     page.locator("[data-random-diagnostics] > summary").click()
     page.wait_for_timeout(300)
@@ -621,6 +645,38 @@ def _check_interactions(page, report):
     report["interaction_posts"] = [
         {"keys": p.get("keys"), "items": p.get("items")}
         for p in STATE["posts"]]
+    page.goto(BASE + "/__state?reset=1")
+
+
+def _check_inherited_saved(page, prefix, report):
+    """F-UI0810-R1-01: наследуемый primary + явный непустой резерв."""
+    page.goto(BASE + "/__state?reset=1&inherit=1")
+    page.goto(BASE + "/web/index.html#/modules/random")
+    page.wait_for_selector("[data-random-summary]", timeout=20000)
+    page.wait_for_timeout(900)
+    m = page.evaluate(METRICS_JS)
+    checks = report["checks"]
+    checks[prefix + "_inherited_select_factory"] = (
+        m["selectValue"] == "ibm_quantum"
+        and "По умолчанию" in m["primaryHint"])
+    checks[prefix + "_inherited_saved_chip"] = (
+        m["fallbackChip"].strip() == "сохранено вручную")
+    by_id = {r["id"]: r for r in m["rows"]}
+    checks[prefix + "_inherited_saved_effective"] = (
+        "LfDR" in (m["nowText"].splitlines()[1] if m["nowText"] else "")
+        and by_id.get("lfdr", {}).get("used") is True
+        and by_id.get("anu", {}).get("used") is False)
+    checks[prefix + "_inherited_saved_note"] = (
+        "Сохранён ваш порядок" in m["fallbackNote"]
+        and "заводская цепочка" not in m["fallbackNote"])
+    checks[prefix + "_inherited_reason_attributed"] = (
+        "переключение с IBM Quantum:" in m["nowReason"])
+    report["inherited_saved"] = {
+        "viewport": prefix, "select": m["selectValue"],
+        "hint": m["primaryHint"], "chip": m["fallbackChip"],
+        "note": m["fallbackNote"], "reason": m["nowReason"],
+        "rows": m["rows"],
+    }
     page.goto(BASE + "/__state?reset=1")
 
 
@@ -664,9 +720,12 @@ def run(shots_dir=None) -> dict:
             page = ctx.new_page()
             errors = []
             console_errors = []
+            interaction_api = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.on("console", lambda msg: console_errors.append(msg.text)
                     if msg.type == "error" else None)
+            page.on("request", lambda r: interaction_api.append(r.url)
+                    if "/api/" in r.url else None)
             page.goto(BASE + "/__state?reset=1")
             page.goto(BASE + "/web/index.html#/modules/random")
             page.wait_for_selector("[data-random-summary]", timeout=20000)
@@ -675,8 +734,18 @@ def run(shots_dir=None) -> dict:
             report["checks"]["interaction_no_console_errors"] = (
                 not console_errors)
             report["interaction_errors"] = (errors + console_errors)[:5]
-            _check_interactions(page, report)
+            _check_interactions(page, report, interaction_api)
             ctx.close()
+            # F-01 fixed-state render at desktop and mobile.
+            for viewport in ({"width": 1440, "height": 900},
+                             {"width": 390, "height": 844}):
+                vctx = browser.new_context(viewport=viewport)
+                vctx.add_init_script(TMA_STUB)
+                vpage = vctx.new_page()
+                _check_inherited_saved(
+                    vpage, "%sx%s" % (viewport["width"], viewport["height"]),
+                    report)
+                vctx.close()
             browser.close()
     finally:
         httpd.shutdown()

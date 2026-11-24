@@ -459,6 +459,43 @@ class TestResolveMatrix:
             await db.close()
 
     @pytest.mark.asyncio
+    async def test_inherited_primary_honours_saved_fallback_order(
+            self, tmp_path, cfg, mem):
+        """UI-08..10 R1/F-01: явный сохранённый порядок действует и при
+        наследуемом primary, а не подменяется заводской цепочкой."""
+        db = await _fresh_db(tmp_path)
+        try:
+            svc, _ = make_service(db, cfg, anu_key="anu-key-A")
+            cfg[ORDER] = ["lfdr", "anu"]
+            await _insert_batch(db, "lfdr", [1, 2, 3])
+            res = await svc.resolve_selection(1)
+            assert res.primary_setting_state == "absent"
+            assert res.effective_order == ("ibm_quantum", "lfdr", "anu")
+            assert res.fallback_order == ("lfdr", "anu")
+            assert res.effective_provider == "lfdr"
+            assert res.resolved_primary == "lfdr"
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_inherited_primary_explicit_empty_reserve_has_no_fallback(
+            self, tmp_path, cfg, mem):
+        """UI-08..10 R1/F-01: явный пустой резерв при наследуемом primary —
+        это решение «без резерва», а не заводская цепочка."""
+        db = await _fresh_db(tmp_path)
+        try:
+            svc, _ = make_service(db, cfg, anu_key="anu-key-A")
+            cfg[ORDER] = []
+            await _insert_batch(db, "lfdr", [1, 2, 3])
+            res = await svc.resolve_selection(1)
+            assert res.primary_setting_state == "absent"
+            assert res.effective_order == ("ibm_quantum",)
+            assert res.fallback_order == ()
+            assert res.effective_provider is None
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
     async def test_primary_lfdr_uses_lfdr_batch_not_oldest(self, tmp_path,
                                                            cfg, mem):
         db = await _fresh_db(tmp_path)

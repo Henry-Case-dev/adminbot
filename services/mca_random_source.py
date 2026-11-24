@@ -476,16 +476,19 @@ def build_effective_order(primary: str | None, order,
                           fallback_enabled: bool) -> tuple[str, ...]:
     """Действующий порядок провайдеров (D5): primary → fallback_order.
 
-    `primary` — канонический id либо None (снятое/неизвестное значение:
-    действует КАНОНИЧЕСКИЙ порядок IBM→ANU→LfDR, arch P3/EXC-03). Сохранённый
-    fallback_order при снятом primary не применяется (он был построен под
-    недействительную настройку). Дубли и сам primary из хвоста исключаются;
-    при выключенном fallback остаётся только primary."""
-    tail = list(order or ())
+    `primary is None` — primary НЕ сохранён (наследование заводского IBM).
+    Сохранённый `fallback_order` при этом действует: голова — заводской
+    primary, хвост — явный пользовательский порядок (в т.ч. пустой = «без
+    резерва»). Это требование owner §5: явное решение не подменяется
+    заводской цепочкой. Отсутствие строки (`order is None`) означает
+    наследование заводского хвоста ANU→LfDR. Недействительное сохранённое
+    primary (`requires_resolution`) передаётся вызывающим как `None` +
+    заводской хвост: сохранённый порядок под снятое значение не применяется
+    (arch P3/EXC-03). Дубли и сам primary из хвоста исключаются; при
+    выключенном fallback остаётся только primary."""
+    tail = list(DEFAULT_FALLBACK_ORDER if order is None else order)
     if primary is None:
-        if not fallback_enabled:
-            return (DEFAULT_PRIMARY_PROVIDER,)
-        return tuple(CANONICAL_PROVIDER_ORDER)
+        primary = DEFAULT_PRIMARY_PROVIDER
     if not fallback_enabled:
         return (primary,)
     head = [primary]
@@ -4551,7 +4554,9 @@ class RandomSourceService:
         order_source = saved_order
         if state == PRIMARY_SETTING_REQUIRES_RESOLUTION:
             primary_canonical = None
-            order_source = []
+            # Снятое значение: действует заводской хвост, а сохранённый
+            # порядок под недействительную настройку не применяется.
+            order_source = list(DEFAULT_FALLBACK_ORDER)
         elif raw_order is None:
             # Строки нет — действует заводской хвост (ANU→LfDR после IBM).
             order_source = list(DEFAULT_FALLBACK_ORDER)

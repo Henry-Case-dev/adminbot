@@ -33119,6 +33119,20 @@
           fallbackEnabled: this.randomFallbackOn(),
         };
       },
+      // QRNG UI-08..10 R1/F-01: сохранённый порядок обязан совпадать с
+      // действующим хвостом; расхождение нельзя прятать в диагностике.
+      randomFallbackEffectiveMismatch: function () {
+        var st = this.randomFallbackOrderState();
+        if (st.state !== 'set') return false;
+        var saved = this.randomSavedFallbackValue();
+        if (!saved.length) return false;
+        var effective = this.randomEffectiveFallbackValue();
+        if (saved.length !== effective.length) return true;
+        for (var i = 0; i < saved.length; i += 1) {
+          if (saved[i] !== effective[i]) return true;
+        }
+        return false;
+      },
       // QRNG UI-08..10: одна короткая подпись происхождения основного
       // источника. Значение контрола и есть заводское/сохранённое значение;
       // параллельные строки «заводское/сохранённое/действующее» не нужны.
@@ -33144,6 +33158,9 @@
           if (!this.randomSavedFallbackValue().length) {
             return { label: 'сохранено пустым', cls: 'badge-warn' };
           }
+          if (this.randomFallbackEffectiveMismatch()) {
+            return { label: 'сохранено, не применяется', cls: 'badge-warn' };
+          }
           return { label: 'сохранено вручную', cls: 'badge-info' };
         }
         return { label: 'по умолчанию', cls: 'badge-info' };
@@ -33162,11 +33179,12 @@
             + 'разрешения; показан действующий порядок.';
         }
         if (st.state === 'set' && !this.randomSavedFallbackValue().length) {
-          return setting.inherited
-            ? 'Сохранён пустой резерв; основной источник наследуется, '
-              + 'поэтому сейчас действует заводская цепочка. Отметьте '
-              + 'источники и сохраните, чтобы зафиксировать свой порядок.'
-            : 'Сохранён пустой резерв: переключений не будет.';
+          return 'Сохранён пустой резерв: переключений не будет.';
+        }
+        if (this.randomFallbackEffectiveMismatch()) {
+          return 'Сохранённый порядок ещё не действует: сейчас используется '
+            + 'другой порядок. Это расхождение настроек и runtime; подробности '
+            + 'в «Диагностике».';
         }
         if (st.state === 'absent') {
           return 'Показан заводской порядок; изменения сохраняются как ваш выбор.';
@@ -33182,6 +33200,22 @@
           return String(st.raw);
         }
       },
+      // QRNG UI-08..10 R1/F-02: единый источник истины для «используется».
+      // Если DTO одновременно говорит «effective=X» и «X не настроен/
+      // недоступен», UI не имеет права рисовать X как используемый: это
+      // противоречие состояний. Возвращаем null и показываем его честно.
+      randomMainEffectiveProvider: function () {
+        var act = this.randomActivityView || {};
+        var id = act.effectiveProvider || null;
+        if (!id) return null;
+        var row = this.randomProviderSummary(id);
+        if (!row) return null;
+        if (row.stateKey === 'unconfigured' || row.stateKey === 'unavailable'
+            || row.stateKey === 'disabled') {
+          return null;
+        }
+        return id;
+      },
       // QRNG UI-08..10: «сейчас используется» + человеческая причина
       // переключения. Сырые коды и время последнего fallback — в диагностике.
       randomNowView: function () {
@@ -33196,36 +33230,49 @@
         var last = this.randomLastSwitchView();
         var lastLabel = last && last.code ? last.label : '';
         var lastTime = last && last.code ? last.timeLabel : '—';
-        if (act.effectiveProvider) {
-          var isPrimary = act.effectiveProvider === this.randomPrimaryValue();
-          if (isPrimary) {
-            return { sourceLabel: qrngProviderLabel(act.effectiveProvider),
+        var primaryId = this.randomPrimaryValue();
+        var primaryLabel = qrngProviderLabel(primaryId);
+        var effectiveId = this.randomMainEffectiveProvider();
+        var rawReason = act.fallbackReason
+          ? this.randomSwitchReasonLabel(act.fallbackReason) : lastLabel;
+        var reasonLabel = rawReason || '';
+        // Причина fallback относится к источнику, с которого переключились,
+        // а не к фактическому провайдеру: явно называем субъект.
+        if (reasonLabel && act.effectiveProvider
+            && act.effectiveProvider !== primaryId) {
+          reasonLabel = 'переключение с ' + primaryLabel + ': ' + reasonLabel;
+        }
+        if (effectiveId) {
+          if (effectiveId === primaryId) {
+            return { sourceLabel: qrngProviderLabel(effectiveId),
                      reasonLabel: 'основной источник доступен',
                      reasonCls: 'badge-ok', timeLabel: '—' };
           }
-          var reason = act.fallbackReason
-            ? this.randomSwitchReasonLabel(act.fallbackReason) : lastLabel;
-          return { sourceLabel: qrngProviderLabel(act.effectiveProvider),
-                   reasonLabel: reason || 'резервный источник',
+          return { sourceLabel: qrngProviderLabel(effectiveId),
+                   reasonLabel: reasonLabel || 'резервный источник',
                    reasonCls: 'badge-warn', timeLabel: lastTime };
+        }
+        if (act.effectiveProvider) {
+          return { sourceLabel: 'нет подтверждённого источника',
+                   reasonLabel: reasonLabel
+                     || 'состояние источника противоречиво',
+                   reasonCls: 'badge-err', timeLabel: lastTime };
         }
         if (act.prngActive) {
           return { sourceLabel: 'псевдослучайный (локальный)',
-                   reasonLabel: act.fallbackReason
-                     ? this.randomSwitchReasonLabel(act.fallbackReason)
-                     : (lastLabel || 'квантовый источник недоступен'),
+                   reasonLabel: reasonLabel || 'квантовый источник недоступен',
                    reasonCls: 'badge-warn', timeLabel: lastTime };
         }
         return { sourceLabel: 'нет доступного источника',
-                 reasonLabel: act.fallbackReason
-                   ? this.randomSwitchReasonLabel(act.fallbackReason) : lastLabel,
-                 reasonCls: 'badge-err', timeLabel: lastTime };
+                 reasonLabel: reasonLabel, reasonCls: 'badge-err',
+                 timeLabel: lastTime };
       },
       // Компактная таблица провайдеров: разрешён/проверен/используется —
-      // разные признаки. Наличие ключа/CRN не выдаётся за проверку.
+      // разные признаки. Наличие ключа/CRN не выдаётся за проверку; статус
+      // «используется» и состояние подключения берутся из одного снимка.
       randomProviderMainRows: function () {
         var self = this;
-        var act = this.randomActivityView || {};
+        var effectiveId = this.randomMainEffectiveProvider();
         var shortLabels = {
           no_data: 'нет данных',
           unconfigured: 'не настроен',
@@ -33234,6 +33281,7 @@
           measured: 'проверено',
           unavailable: 'недоступен',
           disabled: 'выключен',
+          error: 'ошибка подключения',
           checking: 'проверка…',
           smoke_running: 'проверка…',
         };
@@ -33241,7 +33289,7 @@
           var row = self.randomProviderSummary(id);
           return Object.assign({}, row, {
             stateLabel: shortLabels[row.stateKey] || row.stateLabel,
-            used: !!(act.effectiveProvider && act.effectiveProvider === id),
+            used: !!(effectiveId && effectiveId === id),
           });
         });
       },

@@ -173,6 +173,10 @@ function byId(rows, id) {
   return rows.filter(function (r) { return r.id === id; })[0];
 }
 
+function label(id) {
+  return methods.randomProviderLabel.call({}, id);
+}
+
 (function () {
   // ── (a) один селектор, один тумблер, одна последовательность ────────────
   assert.strictEqual(count(INDEX, 'data-random-primary'), 1,
@@ -216,7 +220,7 @@ function byId(rows, id) {
   assert(DIAG.indexOf('data-random-fallback-factory') >= 0);
   assert(DIAG.indexOf('data-random-fallback-effective') >= 0);
   assert(DIAG.indexOf('data-random-effective-chain') >= 0);
-  assert(DIAG.indexOf('data-random-setting-primary') >= 0,
+  assert(DIAG.indexOf('data-random-setting-primary-raw') >= 0,
     'происхождение основного источника видно в диагностике');
   assert(DIAG.indexOf('data-random-fallback-raw') >= 0,
     'сырое сохранённое значение видно в диагностике');
@@ -303,6 +307,10 @@ function byId(rows, id) {
     resolved_primary: 'ibm_quantum',
     blocker: null,
     last_fallback_reason: null,
+    providers: providers({
+      ibm_quantum: { configured: true, state: 'active', reserve: 0,
+                     consumable: false },
+    }),
   }), [
     cfg('random.primary_provider', 'ibm_quantum', 'global'),
     cfg('random.fallback_order', null, 'default'),
@@ -324,8 +332,12 @@ function byId(rows, id) {
 
   const inheritedEmpty = makeCtx(status({
     primary_setting_raw: '', primary_setting_state: 'absent',
+    fallback_order: [],
     fallback_order_raw: [], fallback_order_state: 'set',
-    effective_order: ['ibm_quantum', 'anu', 'lfdr'],
+    effective_order: ['ibm_quantum'],
+    effective_provider: null,
+    resolved_primary: 'anu',
+    blocker: null,
   }), [
     cfg('random.primary_provider', '', 'default'),
     cfg('random.fallback_order', [], 'global'),
@@ -334,16 +346,17 @@ function byId(rows, id) {
   assert.strictEqual(methods.randomFallbackStateChip.call(inheritedEmpty).label,
     'сохранено пустым');
   assert(methods.randomFallbackNote.call(inheritedEmpty)
-    .indexOf('действует заводская цепочка') >= 0,
-    'наследуемый primary + пустая строка: подмена объяснена, не молчаливая');
+    .indexOf('переключений не будет') >= 0);
+  assert(methods.randomFallbackNote.call(inheritedEmpty)
+    .indexOf('заводская цепочка') < 0,
+    'явный пустой резерв больше не подменяется заводской цепочкой');
   assert.deepStrictEqual(methods.randomFallbackBaseValue.call(inheritedEmpty),
     [], 'контрол показывает явное пустое решение');
   const emptyRows = methods.randomFallbackRows.call(inheritedEmpty);
   assert.strictEqual(byId(emptyRows, 'anu').enabled, false,
     'ANU не выглядит выбранным при сохранённом пустом резерве');
   assert.strictEqual(byId(emptyRows, 'lfdr').enabled, false);
-  assert.strictEqual(byId(emptyRows, 'anu').statusLabel, 'в цепочке',
-    'runtime-использование показано отдельным badge');
+  assert.strictEqual(byId(emptyRows, 'anu').statusLabel, 'не в резерве');
 
   const explicitEmpty = makeCtx(status({
     fallback_order_raw: [], fallback_order_state: 'set',
@@ -449,6 +462,109 @@ function byId(rows, id) {
     'сырой код причины не попадает на основной экран');
 })();
 
+// ── (f2) F-UI0810-R1-02: нет «используется» + «не настроен» ───────────────
+(function () {
+  const ctx = makeCtx(status());
+  const now = methods.randomNowView.call(ctx);
+  assert.strictEqual(now.sourceLabel, 'ANU Quantum Numbers');
+  assert(now.reasonLabel.indexOf('переключение с IBM Quantum') === 0,
+    'причина fallback атрибутирована источнику, а не фактическому ANU');
+  assert(now.reasonLabel.indexOf('источник не настроен') >= 0);
+  methods.randomProviderMainRows.call(ctx).forEach(function (r) {
+    assert(!(r.used && r.stateLabel === 'не настроен'),
+      r.id + ': нельзя одновременно «используется» и «не настроен»');
+    assert(!(r.used && r.stateLabel === 'недоступен'), r.id);
+  });
+
+  const contradiction = makeCtx(status({
+    providers: providers({
+      anu: { configured: false, state: 'provider_unconfigured',
+             reserve: 0, consumable: false },
+    }),
+  }));
+  assert.strictEqual(methods.randomMainEffectiveProvider.call(contradiction),
+    null, 'противоречивый DTO не даёт права называть ANU используемым');
+  const cRows = methods.randomProviderMainRows.call(contradiction);
+  assert.strictEqual(byId(cRows, 'anu').used, false);
+  assert.strictEqual(byId(cRows, 'anu').stateLabel, 'не настроен');
+  assert(cRows.every(function (r) {
+    return !(r.used && (r.stateLabel === 'не настроен'
+      || r.stateLabel === 'недоступен' || r.stateLabel === 'выключен'));
+  }), 'ни одна строка не «используется» с нерабочим состоянием');
+  const cNow = methods.randomNowView.call(contradiction);
+  assert.strictEqual(cNow.sourceLabel, 'нет подтверждённого источника');
+  assert(cNow.reasonLabel.indexOf('переключение с IBM Quantum') === 0);
+})();
+
+// ── (f3) F-UI0810-R1-03: IBM error — человеческая подпись, стадия в keys ──
+(function () {
+  const errCtx = makeCtx(status({
+    providers: providers({
+      ibm_quantum: { configured: true, state: 'provider_unconfigured',
+                     last_error: 'invalid_instance', last_failure_at: 1700000001 },
+    }),
+  }), [
+    cfg('keys.random_ibm_api_key', { configured: true, last4: 'ABCD' },
+        'global'),
+    cfg('keys.random_ibm_instance', 'open-instance', 'global'),
+  ]);
+  const ibm = byId(methods.randomProviderMainRows.call(errCtx), 'ibm_quantum');
+  assert.strictEqual(ibm.stateLabel, 'ошибка подключения',
+    'основной экран не показывает «ошибка стадии»');
+  assert.strictEqual(ibm.used, false);
+})();
+
+// ── (f4) F-UI0810-R1-01: явный порядок при наследуемом primary действует ──
+(function () {
+  const inheritedSaved = makeCtx(status({
+    primary_setting_raw: '',
+    primary_setting_state: 'absent',
+    fallback_order: ['lfdr', 'anu'],
+    fallback_order_raw: ['lfdr', 'anu'],
+    fallback_order_state: 'set',
+    effective_order: ['ibm_quantum', 'lfdr', 'anu'],
+  }), [
+    cfg('random.primary_provider', '', 'default'),
+    cfg('random.fallback_order', ['lfdr', 'anu'], 'global'),
+    cfg('random.fallback_enabled', true, 'default'),
+  ]);
+  const ov = methods.randomFallbackOrderView.call(inheritedSaved);
+  assert.strictEqual(ov.effectiveLabel,
+    label('lfdr') + ' → ' + label('anu'),
+    'действующий резерв совпадает с сохранённым порядком');
+  assert.strictEqual(ov.effectiveChainLabel,
+    label('ibm_quantum') + ' → ' + label('lfdr') + ' → ' + label('anu'));
+  assert.strictEqual(methods.randomFallbackStateChip.call(inheritedSaved).label,
+    'сохранено вручную');
+  assert.strictEqual(methods.randomFallbackEffectiveMismatch.call(
+    inheritedSaved), false);
+  assert(methods.randomFallbackNote.call(inheritedSaved)
+    .indexOf('Сохранён ваш порядок') >= 0);
+  assert.deepStrictEqual(
+    methods.randomFallbackRows.call(inheritedSaved)
+      .filter(function (r) { return r.enabled; })
+      .map(function (r) { return r.id; }),
+    ['lfdr', 'anu'], 'строки идут в сохранённом порядке');
+
+  const mismatched = makeCtx(status({
+    fallback_order: ['lfdr', 'anu'],
+    fallback_order_raw: ['lfdr', 'anu'],
+    fallback_order_state: 'set',
+    effective_order: ['ibm_quantum', 'anu', 'lfdr'],
+  }), [
+    cfg('random.primary_provider', 'ibm_quantum', 'global'),
+    cfg('random.fallback_order', ['lfdr', 'anu'], 'global'),
+    cfg('random.fallback_enabled', true, 'global'),
+  ]);
+  assert.strictEqual(methods.randomFallbackEffectiveMismatch.call(mismatched),
+    true, 'расхождение сохранённого и действующего порядка обнаружено');
+  assert.strictEqual(methods.randomFallbackStateChip.call(mismatched).label,
+    'сохранено, не применяется');
+  assert(methods.randomFallbackNote.call(mismatched)
+    .indexOf('ещё не действует') >= 0,
+    'расхождение не прячется: основной экран предупреждает');
+})();
+
 // ── (g) причина переключения — человеческая; неизвестный код без raw ──────
 (function () {
   const unknown = makeCtx(status({
@@ -460,7 +576,8 @@ function byId(rows, id) {
   }));
   const now = methods.randomNowView.call(unknown);
   assert.strictEqual(now.sourceLabel, 'LfDR QRNG');
-  assert.strictEqual(now.reasonLabel, 'причина не описана');
+  assert.strictEqual(now.reasonLabel,
+    'переключение с IBM Quantum: причина не описана');
   assert.strictEqual(now.reasonLabel.indexOf('future_code'), -1);
   assert.strictEqual(now.timeLabel, 'T1700000500');
   assert.strictEqual(methods.randomLastSwitchView.call(unknown).code,
