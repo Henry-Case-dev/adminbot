@@ -2,7 +2,7 @@
 
 - **Owner contract:** `plans/owner_inputs/2026-11-24-embedding-vmq-ibm-qrng-ux.md` §2; rows `MODEL-SWAP-01..05` in `requirements-map.json`; slice `MODEL-SWAP` in `slice-graph.json`.
 - **Base:** production `5621bda8d` (`2.58.244`).
-- **Code candidate:** `3e079d26e` on `feat/model-swap-2026-11-25` (this evidence file is a follow-up docs commit; code candidate is the SHA above).
+- **Code candidate:** `ba761b74e` on `feat/model-swap-2026-11-25` (implementation `3e079d26e` + target-dimension alignment `ba761b74e`; this evidence file is a follow-up docs commit).
 - **No DDL, no new store, no new flag.** Reused existing tables/statuses; the only durable marker is `config_revision = "model_swap:<source_fp>"` on the existing generation row.
 
 ## Result per row
