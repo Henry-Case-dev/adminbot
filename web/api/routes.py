@@ -3294,6 +3294,13 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
         except ValueError as exc:
             raise HTTPException(status_code=422,
                                 detail=f"{item.key}: {exc}")
+        # P5B-R2: key/CRN/instance вводятся как значения без ведущих/хвостовых
+        # пробелов; whitespace-only — это пустое значение (clear/reset), а не
+        # "configured". Иначе пробел сохранялся бы как секрет/instance.
+        if item.key in (_random_source.SETTING_IBM_KEY,
+                        _random_source.SETTING_IBM_CRN,
+                        _random_source.SETTING_IBM_INSTANCE):
+            value = str(value or "").strip()
         # P5B: форма защищённых IBM-полей проверяется ДО записи/сети. Пустое
         # значение — ЯВНОЕ удаление/сброс (как у остальных провайдеров):
         # очищаем секрет/поле, а не 422. Точную валидность непустого значения

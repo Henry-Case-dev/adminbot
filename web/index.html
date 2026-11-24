@@ -7567,10 +7567,10 @@
                         </div>
                         <div class="text-xs text-gray-500 mt-1"
                              data-random-provider-summary-success>
-                          {{ p.lastSuccess.kind === 'check'
+                          {{ (p.lastSuccess && p.lastSuccess.kind === 'check')
                             ? 'Последняя успешная проверка'
                             : 'Последнее получение' }}:
-                          <template v-if="p.lastSuccess.available">
+                          <template v-if="p.lastSuccess && p.lastSuccess.available">
                             <b>{{ p.lastSuccess.sourceLabel }}</b> ·
                             {{ p.lastSuccess.timeLabel }}
                             <span v-if="p.lastSuccess.length != null">
@@ -7584,7 +7584,7 @@
                         <div class="text-xs text-gray-500"
                              data-random-provider-summary-switch>
                           Переключение:
-                          <template v-if="p.lastSwitch.code">
+                          <template v-if="p.lastSwitch && p.lastSwitch.code">
                             <code>{{ p.lastSwitch.code }}</code> ·
                             {{ p.lastSwitch.label }}
                             <span v-if="p.lastSwitch.timeLabel !== '—'">

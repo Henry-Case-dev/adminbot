@@ -105,10 +105,9 @@ ROUTES_SHA256_F11 = (
     # проверяет inherit-ключи + передаёт recheck в inherit-only retry.
     # Route-set/декораторы/пути не менялись; только тело recheck closure.
     # Предыдущий пин: 71d837c247f2e7be999f583dc91516bd19222276572c0be07c62dbe1c4479e76.
-    # P5B-R1 (24.11.2026): +1 route POST /api/random/ibm/smoke; clear/reset
-    # для IBM key/instance больше не 422; CRN/key/instance форма проверяется
-    # только для непустого значения. Route-set re-pin (L-F11S-1).
-    "d464723aa935dc69b64d6633e94c7244c06200b00d1912f340847d0cbea3f19b")
+    # P5B-R2 (25.11.2026): whitespace-only key/CRN/instance нормализуется в
+    # пустое значение (clear/reset), не в "configured". Route-set re-pin.
+    "9413f30397fd53743c8e11042b4a00a27a5e7d108012dd0d6f67c399c1a4bfb8")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

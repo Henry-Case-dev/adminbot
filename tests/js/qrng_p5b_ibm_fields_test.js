@@ -90,7 +90,7 @@ function withKey(entry) {
            { secret: true }),
       item('keys.random_ibm_instance', 'open-instance'),
     ],
-    randomActivityView: { providers: [entry] },
+    randomActivityView: { ready: true, providers: [entry] },
   };
 }
 
@@ -175,6 +175,68 @@ function providerEntry(overrides) {
   assert.strictEqual(c.randomIbmStateInfo().key, 'saved_unverified');
   assert(c.randomIbmStatusText().indexOf('instance/CRN не найден') < 0,
     'старый last_error не приписывается новому CRN');
+}
+
+// ── P5B-R2-01: shape сводки полный и null-safe во всех состояниях ─────────
+{
+  const variants = [
+    { name: 'unconfigured', entry: providerEntry({ configured: false }) },
+    { name: 'saved', entry: providerEntry({ configured: true,
+      state: 'unverified' }) },
+    { name: 'stale', entry: providerEntry({ configured: true,
+      state: 'active', last_job: { state: 'access_checked' } }),
+      stale: true },
+    { name: 'checked', entry: providerEntry({ configured: true,
+      state: 'active', last_job: { state: 'access_checked' } }) },
+    { name: 'measured', entry: providerEntry({ configured: true,
+      state: 'active', last_job: { job_id: 'J1', state: 'completed' } }) },
+    { name: 'error', entry: providerEntry({ configured: true,
+      state: 'degraded', last_error: 'invalid_instance' }) },
+  ];
+  variants.forEach(function (variant) {
+    const c = ctx(Object.assign(withKey(variant.entry), {
+      randomIbmStale: !!variant.stale,
+    }));
+    const row = methods.randomProviderSummary.call(c, 'ibm_quantum');
+    assert(row && row.lastSuccess && row.lastSwitch,
+      variant.name + ': summary shape incomplete');
+    assert.strictEqual(typeof row.lastSuccess.kind, 'string',
+      variant.name + ': lastSuccess.kind missing');
+    assert.strictEqual(typeof row.lastSwitch.code !== 'undefined', true,
+      variant.name + ': lastSwitch.code missing');
+    assert.strictEqual(typeof row.stateLabel, 'string', variant.name);
+    assert.strictEqual(typeof row.reserveText, 'string', variant.name);
+  });
+  // just-cleared: то же полное shape, без объекта lastSuccess.
+  const cleared = ctx({
+    randomIbmStale: true,
+    configItems: [
+      item('keys.random_ibm_api_key', { configured: false, last4: null },
+           { secret: true }),
+      item('keys.random_ibm_instance', 'open-instance'),
+    ],
+    randomActivityView: { ready: true, providers: [providerEntry({
+      configured: false, state: 'provider_unconfigured' })] },
+  });
+  const clearedRow = methods.randomProviderSummary.call(cleared,
+                                                        'ibm_quantum');
+  assert.strictEqual(clearedRow.stateKey, 'unconfigured');
+  assert.strictEqual(clearedRow.lastSuccess.kind, 'none');
+  assert.strictEqual(clearedRow.lastSwitch.code, null);
+
+  // Даже если источник вернул undefined, summary подставляет полный empty.
+  const nullish = ctx(withKey(providerEntry({ configured: true,
+    state: 'unverified' })));
+  nullish.randomProviderLastSuccess = function () { return undefined; };
+  nullish.randomProviderLastSwitch = function () { return undefined; };
+  const nullishRow = methods.randomProviderSummary.call(nullish,
+                                                       'ibm_quantum');
+  assert.strictEqual(nullishRow.lastSuccess.kind, 'none');
+  assert.strictEqual(nullishRow.lastSwitch.code, null);
+  assert.strictEqual(INDEX.indexOf('p.lastSuccess && p.lastSuccess.available')
+    >= 0, true);
+  assert.strictEqual(INDEX.indexOf('p.lastSwitch && p.lastSwitch.code')
+    >= 0, true);
 }
 
 async function main() {

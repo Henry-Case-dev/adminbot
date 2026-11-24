@@ -49,8 +49,8 @@
 | Команда | Результат |
 |---|---|
 | `py -m pytest tests/test_qrng_p5_ibm_adapter.py -q` | **77 passed** (68 базовых + 9 P5B: форма, CRN-redaction sentinel, instance/permission/quota, fallback, floor, draw-триггер, non-blocking) |
-| `py -m pytest tests/test_qrng_p5b_ibm_admin.py -q` | **13 passed** (RBAC, read-only, confirm, маски, форма, clear/remove, 422 secret-absence, логи) |
-| Комбинированный QRNG/F8/UI-mirror/route набор (P5, P5B, P1/P2/P3, param_catalog, round1025, f01, asap5, webapp_js_unit, mca10a C/D/JS, mca10b D, mca19 E) | **410 passed** |
+| `py -m pytest tests/test_qrng_p5b_ibm_admin.py -q` | **14 passed** (RBAC, read-only, confirm, маски, форма, clear/remove, whitespace, 422 secret-absence, логи) |
+| Комбинированный QRNG/F8/UI-mirror/route набор (P5, P5B, P1/P2/P3, param_catalog, round1025, f01, asap5, webapp_js_unit, mca10a C/D/JS, mca10b D, mca19 E) | **411 passed** |
 | `node tests/js/qrng_p5b_ibm_fields_test.js` | `QRNG-P5B-OK` |
 | `node tests/js/qrng_ui07_provider_block_test.js` / `qrng_ui_state_test.js` / `qrng_p4_random_ui_test.js` | `QRNG-UI07-OK` / `QRNG-UI06-OK` / `QRNG-P4-UI-OK` |
 | `node tests/js/round1037_random_source_test.js` / `round1025_f5_workspace_route_test.js` | `MCA10A-RANDOM-OK` / `MODULE-WORKSPACE-OK` |
@@ -81,6 +81,15 @@ node tests/js/qrng_p5b_ibm_fields_test.js
 - **P5B-R1-05 (corrected):** read-only результат теперь действительно показывает `usage_remaining_ru`/`usage_remaining_seconds`/`usage_limit_reached` (если IBM их вернул); прежняя формулировка evidence об «usage виден» была неточной до этого изменения.
 - **P5B-R1-04/R1-06:** остаются backlog (region/instance sensitivity SECRET и result-error key-only redaction); не расширяли scope.
 - **Live boundary не изменился:** hardware VERIFIED по-прежнему требует реальных key/CRN, `qiskit-ibm-runtime==0.52.1`, IAM/instance/QPU и deployed SHA; в этой корректировке live-вызовов не было.
+
+## 3b. R2 corrective (independent review r2, `P5B-R2-01/02`)
+
+- **P5B-R2-01 (fixed):** причиной blank-page был не template, а **неверный shape на источнике**: `randomProviderSummary('ibm_quantum')` при `randomIbmStale` возвращал `emptySuccess` (объект `lastSuccess`) вместо полной строки summary; template читал `p.lastSuccess.kind` → TypeError → пустая страница. Исправлено: stale-проверка перенесена в `randomProviderLastSuccess` (возвращает полный `{available,kind,at,timeLabel,length,sourceId,sourceLabel,configMatches,label}`), а `randomProviderSummary` всегда возвращает полную строку и подставляет `lastSuccess || emptySuccess`, `lastSwitch || emptySwitch`. Template дополнительно guard'ит `p.lastSuccess && p.lastSuccess.available` и `p.lastSwitch && p.lastSwitch.code`.
+- **P5B-R2-02 (fixed):** `POST /api/config` для `keys.random_ibm_api_key/crn/instance` делает `str(value).strip()`; whitespace-only сохраняется как `""` (clear/reset), не как `configured`. Непустое значение сохраняется без обрамляющих пробелов.
+- **M6b killed:** в `test_422_never_echoes_submitted_secret` добавлен `P5BSECRET` (too_short); mutation, эхо-ящая только too_short value, даёт FAIL, восстановленный код — PASS.
+- **Render/state test:** JS `randomProviderSummary` проверяется для unconfigured/saved/stale/checked/measured/error/just-cleared; `lastSuccess`/`lastSwitch` всегда полные, даже если источник вернул `undefined`. Browser re-check 1440/390: все шаги (initial → typing → save → check → delete → instance reset → stale again) дают непустой DOM (min 5896/5738 символов), `page_errors=[]`, raw key/CRN отсутствуют, 2 masked password-поля. Evidence: `p5b-visual/r2/browser.json`, `1440.png`, `390.png`.
+- **M1/M6 остаются killed** (см. §3a); M6b теперь тоже killed. R1-04/R1-06 остаются backlog.
+- **Live boundary:** не изменился; hardware VERIFIED ждёт реальных credentials/QPU/deployed SHA.
 
 ### Известные несвязанные падения
 
