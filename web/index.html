@@ -7493,7 +7493,81 @@
                     (в чатовом scope настройка скрыта сервером).
                   </div>
 
-                  <div class="grid gap-3 md:grid-cols-2 mt-4 items-start" data-random-cards>
+                  <div class="mt-4 min-w-0" data-random-provider-summary-block>
+                    <div class="flex items-center gap-2 flex-wrap mb-2">
+                      <div class="text-xs text-gray-400">Провайдеры</div>
+                      <span class="text-xs text-gray-500" data-random-last-switch>
+                        Последнее переключение:
+                        <template v-if="randomLastSwitchView().code">
+                          <code>{{ randomLastSwitchView().code }}</code> ·
+                          {{ randomLastSwitchView().label }}
+                          <span v-if="randomLastSwitchView().timeLabel !== '—'">
+                            · {{ randomLastSwitchView().timeLabel }}</span>
+                        </template>
+                        <span v-else>нет данных</span>
+                      </span>
+                    </div>
+                    <div class="grid gap-2"
+                         style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                      <article v-for="p in randomProviderSummaries()"
+                               :key="'rnd-sum-' + p.id"
+                               class="card p-3 min-w-0"
+                               :data-random-provider-summary="p.id">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <b class="text-sm">{{ p.label }}</b>
+                          <span class="badge" :class="p.stateCls"
+                                data-random-provider-summary-state>{{ p.stateLabel }}</span>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1"
+                             data-random-provider-summary-reserve>
+                          Остаток: <b>{{ p.reserveText }}</b>
+                          <span v-if="p.consumableText !== 'нет данных'">
+                            · {{ p.consumableText }}</span>
+                        </div>
+                        <div v-if="p.quarantined > 0" class="text-xs text-amber-300">
+                          Карантин: {{ p.quarantined }} (не расходуются)
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1"
+                             data-random-provider-summary-success>
+                          {{ p.lastSuccess.kind === 'check'
+                            ? 'Последняя успешная проверка'
+                            : 'Последнее получение' }}:
+                          <template v-if="p.lastSuccess.available">
+                            <b>{{ p.lastSuccess.sourceLabel }}</b> ·
+                            {{ p.lastSuccess.timeLabel }}
+                            <span v-if="p.lastSuccess.length != null">
+                              · {{ p.lastSuccess.length }} значений</span>
+                            <span v-if="p.lastSuccess.configMatches === false"
+                                  class="text-amber-300">
+                              · другая конфигурация</span>
+                          </template>
+                          <span v-else>нет данных</span>
+                        </div>
+                        <div class="text-xs text-gray-500"
+                             data-random-provider-summary-switch>
+                          Переключение:
+                          <template v-if="p.lastSwitch.code">
+                            <code>{{ p.lastSwitch.code }}</code> ·
+                            {{ p.lastSwitch.label }}
+                            <span v-if="p.lastSwitch.timeLabel !== '—'">
+                              · {{ p.lastSwitch.timeLabel }}</span>
+                          </template>
+                          <span v-else>нет данных</span>
+                        </div>
+                        <div v-if="p.adapterNotImplemented"
+                             class="text-xs text-gray-500 mt-1"
+                             data-random-provider-summary-adapter>
+                          P5: адаптер не реализован; защищённые поля доступа
+                          появятся после P5B.
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+                  <details class="mt-3 min-w-0" data-random-provider-details>
+                    <summary class="cursor-pointer select-none text-xs text-gray-400">
+                      Подробности, ключи и проверка
+                    </summary>
+                  <div class="grid gap-3 md:grid-cols-2 mt-3 items-start" data-random-cards>
                     <!-- IBM Quantum: P5 ещё не подключён — честное состояние,
                          НИКАКИХ неработающих полей и зелёного «подключён». -->
                     <article class="card p-3" data-random-provider="ibm_quantum">
@@ -7641,6 +7715,7 @@
                          target="_blank" rel="noopener">Документация LfDR →</a>
                     </article>
                   </div>
+                  </details>
                 </div>
 
                 <!-- ═══ B. Применения ══════════════════════════════════════ -->
