@@ -29,6 +29,7 @@ import asyncio
 import copy
 import json
 import logging
+import math
 import random
 import re
 import time
@@ -407,6 +408,39 @@ class LLMChatResult:
 # (`embedding_control_plane._PROBE_METADATA_FIELDS`).
 _EMPTY_EMBED_META: dict = {"model": None, "revision": None,
                            "params": None, "dims": None}
+
+
+def _validate_embed_vectors(vectors, expected: int) -> list[list[float]]:
+    """Техническая валидация ответа `/embeddings` (owner §1, 24.11.2026).
+
+    Отсекает повреждённый ответ провайдера до записи в индекс: число векторов,
+    непустые векторы, единая размерность и только конечные числа (NaN/inf/
+    нечисловые элементы). Нарушение — существующий `LLMBadResponseError`
+    (не новый класс/флаг); вызывается и legacy `embed()`, и `embed_once()`
+    контрол-плейна, поэтому оба контура защищены одинаково."""
+    if not isinstance(vectors, list) or len(vectors) != int(expected):
+        got = len(vectors) if isinstance(vectors, list) else "?"
+        raise LLMBadResponseError(
+            f"embeddings: vectors={got} != inputs={expected}")
+    dim = None
+    for idx, vector in enumerate(vectors):
+        if not isinstance(vector, (list, tuple)) or not vector:
+            raise LLMBadResponseError(
+                f"embeddings: empty/non-list vector at index {idx}")
+        if dim is None:
+            dim = len(vector)
+        elif len(vector) != dim:
+            raise LLMBadResponseError(
+                f"embeddings: ragged vectors (index {idx}: {len(vector)} != "
+                f"{dim})")
+        for value in vector:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise LLMBadResponseError(
+                    f"embeddings: non-numeric element at index {idx}")
+            if not math.isfinite(float(value)):
+                raise LLMBadResponseError(
+                    f"embeddings: non-finite element at index {idx}")
+    return vectors
 
 
 def _embed_response_meta(data, vectors) -> dict:
@@ -3012,6 +3046,7 @@ class LLMClient:
             vectors = [item["embedding"] for item in data["data"]]
         except (KeyError, TypeError) as exc:
             raise LLMBadResponseError("embeddings: no data[].embedding in response") from exc
+        vectors = _validate_embed_vectors(vectors, len(texts))
         # EMBED-META-WIRE: фактические метаданные ответа — для пробы
         # совместимости (возвращаемое значение не меняется).
         self.last_embed_meta = _embed_response_meta(data, vectors)
@@ -3070,9 +3105,7 @@ class LLMClient:
             vectors = [item["embedding"] for item in data["data"]]
         except (KeyError, TypeError) as exc:
             raise LLMBadResponseError("embeddings: no data[].embedding in response") from exc
-        if len(vectors) != len(texts):
-            raise LLMBadResponseError(
-                f"embeddings: vectors={len(vectors)} != inputs={len(texts)}")
+        vectors = _validate_embed_vectors(vectors, len(texts))
         # EMBED-META-WIRE: тот же побочный канал, что и в `embed()` —
         # контрол-плейн читает `client.last_embed_meta` после embed_fn.
         self.last_embed_meta = _embed_response_meta(data, vectors)

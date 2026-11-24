@@ -153,6 +153,12 @@ CREDENTIAL_HEALTH_STATES = frozenset({
     HEALTH_HEALTHY, HEALTH_COOLDOWN, HEALTH_AUTH_FAILED,
     HEALTH_QUOTA_EXHAUSTED, HEALTH_PROVIDER_UNAVAILABLE, HEALTH_DISABLED,
 })
+# SIMPLIFY 2026-11-24 (§1): `auth_failed` — состояние ОДНОГО значения ключа,
+# а не навсегда поражённый alias. Заменённый ключ того же alias приходит как
+# другой credential и обслуживается сразу, без рестарта процесса; TTL — это
+# нижняя граница повторной попытки для того же (не заменённого) ключа, чтобы
+# один 401 не выключал ногу до перезапуска.
+HEALTH_AUTH_FAILED_TTL_S = 900.0
 
 GROUP_HEALTHY = "healthy"
 GROUP_COOLING = "cooling_down"
@@ -254,6 +260,17 @@ def resolve_key_slot(hot_key: str, env_name: str, env_value) -> tuple:
     if env_val:
         return env_val, "env"
     return "", "absent"
+
+
+def credential_key_fingerprint(api_key) -> str:
+    """R17-safe отпечаток ЗНАЧЕНИЯ ключа (sha256[:8]; '' — ключа нет).
+
+    Нужен, чтобы health был привязан к credential, а не к alias: заменённый
+    ключ того же alias — другой отпечаток, поэтому сразу usable."""
+    raw = str(api_key or "")
+    if not raw:
+        return ""
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8]
 
 
 def parse_quota_group_labels(raw) -> dict[str, str]:
@@ -682,7 +699,10 @@ class QuotaGroupRegistry:
 
     def __init__(self) -> None:
         self._groups: dict[str, EmbeddingQuotaGroup] = {}
-        self._cred_health: dict[str, tuple[str, float]] = {}
+        # SIMPLIFY 2026-11-24 (§1): ключ — (alias, отпечаток значения ключа);
+        # '' во втором поле — прежняя alias-level запись (совместимость с
+        # существующими вызовами/тестами), она действует как fallback.
+        self._cred_health: dict[tuple[str, str], tuple[str, float]] = {}
         self._rate_events: list[float] = []          # 429-метки (окно 10 мин)
         # F8 (панель §15.3 «last 429» per-group): последняя 429-метка
         # (epoch) по group_id — R17-safe (id группы + время, без секретов).
@@ -707,34 +727,88 @@ class QuotaGroupRegistry:
 
     # ── credential health (in-memory; §11) ──
 
-    def credential_health(self, alias: str) -> str:
-        state, until = self._cred_health.get(alias, (HEALTH_HEALTHY, 0.0))
-        if state == HEALTH_COOLDOWN and until and time.time() >= until:
+    @staticmethod
+    def _effective_health(entry: tuple[str, float]) -> str:
+        state, until = entry
+        if state in (HEALTH_COOLDOWN, HEALTH_AUTH_FAILED) and until and \
+                time.time() >= until:
             return HEALTH_HEALTHY
         return state
 
+    def credential_health(self, alias: str, key_fp: str = "") -> str:
+        """Health credential'а: точный ключ, иначе alias-level запись.
+
+        `key_fp` (см. `credential_key_fingerprint`) — приоритетный ключ:
+        заменённый ключ того же alias не наследует `auth_failed` старого.
+        Без `key_fp` возвращается худшее состояние alias (панель/диагностика)."""
+        alias = str(alias or "")
+        if key_fp:
+            exact = (alias, str(key_fp))
+            if exact in self._cred_health:
+                return self._effective_health(self._cred_health[exact])
+            fallback = self._cred_health.get((alias, ""))
+            return (self._effective_health(fallback)
+                    if fallback is not None else HEALTH_HEALTHY)
+        worst = HEALTH_HEALTHY
+        for (raw_alias, _fp), entry in list(self._cred_health.items()):
+            if raw_alias != alias:
+                continue
+            state = self._effective_health(entry)
+            if state != HEALTH_HEALTHY:
+                return state
+        return worst
     def credential_cooldown_until(self, alias: str) -> int:
         """F8 (панель §15.3 «cooldown until» per-credential): epoch до
         которого ключ в cooldown; 0 — не в cooldown."""
-        state, until = self._cred_health.get(alias, (HEALTH_HEALTHY, 0.0))
-        if state == HEALTH_COOLDOWN and until and time.time() < until:
-            return int(until)
-        return 0
+        alias = str(alias or "")
+        now = time.time()
+        until_max = 0.0
+        for (raw_alias, _fp), (state, until) in list(self._cred_health.items()):
+            if raw_alias != alias or state != HEALTH_COOLDOWN:
+                continue
+            if until and now < until:
+                until_max = max(until_max, until)
+        return int(until_max)
 
     def mark_credential(self, alias: str, state: str,
-                        cooldown_s: float = 0.0) -> None:
+                        cooldown_s: float = 0.0,
+                        key_fp: str = "") -> None:
+        """Записать health. `key_fp` задан — состояние относится только к
+        этому значению ключа (alias-level запись снимается); без `key_fp` —
+        ко всему alias (совместимость с прежними вызовами/панелью).
+
+        `auth_failed` теперь истекает (`HEALTH_AUTH_FAILED_TTL_S`): повод не
+        ретраить в том же окне сохраняется, но один 401 не выключает ногу до
+        рестарта процесса."""
+        alias = str(alias or "")
         if state not in CREDENTIAL_HEALTH_STATES:
             return
-        self._cred_health[alias] = (
-            state, time.time() + max(0.0, cooldown_s) if state == HEALTH_COOLDOWN else 0.0)
+        key_fp = str(key_fp or "")
+        if key_fp:
+            self._cred_health.pop((alias, ""), None)
+        else:
+            for existing in [k for k in self._cred_health if k[0] == alias]:
+                self._cred_health.pop(existing, None)
+        if state == HEALTH_COOLDOWN:
+            # cooldown_s=0 — валидный «истёк сразу» (тесты/парковка без окна):
+            # until=now, а не «без срока».
+            until = time.time() + max(0.0, cooldown_s)
+        elif state == HEALTH_AUTH_FAILED:
+            until = time.time() + HEALTH_AUTH_FAILED_TTL_S
+        else:
+            until = 0.0
+        self._cred_health[(alias, key_fp)] = (state, until)
 
     def usable_credentials(self, pool: list[EmbeddingCredential],
                            group_id: str) -> list[EmbeddingCredential]:
         """Healthy credentials группы (cooldown/auth_failed/disabled
-        исключаются; 401/403 ≠ 429 — auth_failed без ретраев)."""
+        исключаются; 401/403 ≠ 429 — auth_failed без ретраев). Health
+        проверяется по значению ключа: заменённый ключ сразу usable."""
         return [c for c in pool
                 if c.quota_group_id == group_id
-                and self.credential_health(c.alias) == HEALTH_HEALTHY]
+                and self.credential_health(
+                    c.alias, credential_key_fingerprint(c.api_key))
+                == HEALTH_HEALTHY]
 
     # ── quota groups (§10; DB + mirror) ──
 
@@ -1667,7 +1741,10 @@ class EmbeddingExecutor:
         for credential in pool:
             if credential.alias in excluded:
                 continue
-            if self._registry.credential_health(credential.alias) != HEALTH_HEALTHY:
+            if self._registry.credential_health(
+                    credential.alias,
+                    credential_key_fingerprint(credential.api_key)) \
+                    != HEALTH_HEALTHY:
                 continue
             if self._registry.group_blocked(credential.quota_group_id):
                 continue
@@ -1694,7 +1771,9 @@ class EmbeddingExecutor:
                 continue
             if not self._registry.group_probe_due(group_id):
                 continue
-            if self._registry.credential_health(credential.alias) \
+            if self._registry.credential_health(
+                    credential.alias,
+                    credential_key_fingerprint(credential.api_key)) \
                     != HEALTH_HEALTHY:
                 continue
             self._registry.note_group_probe(group_id)
@@ -1811,7 +1890,8 @@ class EmbeddingExecutor:
         пуле не осталось (диагностика, R17: alias/provider без ключей)."""
         self._registry.mark_credential(
             credential.alias, HEALTH_COOLDOWN,
-            cooldown_s=_PROVIDER_UNAVAILABLE_COOLDOWN_S)
+            cooldown_s=_PROVIDER_UNAVAILABLE_COOLDOWN_S,
+            key_fp=credential_key_fingerprint(credential.api_key))
         if no_alternative:
             logger.warning(
                 "embed leg parked (no alternative) | alias=%s | "
@@ -1860,6 +1940,19 @@ class EmbeddingExecutor:
         return [_mean_pool(segments) for segments in
                 (collected.get(i, []) for i in range(len(texts)))]
 
+    @staticmethod
+    def _health_key(credential: EmbeddingCredential | None,
+                    stats: ExecutionStats) -> tuple[str, str]:
+        """(alias, отпечаток ключа) отказавшего credential'а для health.
+
+        Значение ключа берётся из фактического credential (передан всегда),
+        alias — фолбэк для диагностики/совместимости."""
+        if credential is not None:
+            return (str(credential.alias or ""),
+                    credential_key_fingerprint(credential.api_key))
+        alias = stats.credentials_used[-1] if stats.credentials_used else ""
+        return str(alias or ""), ""
+
     async def _on_error(self, exc: Exception, pool: list[EmbeddingCredential],
                         group_id: str, priority: Priority,
                         stats: ExecutionStats,
@@ -1885,12 +1978,13 @@ class EmbeddingExecutor:
         # 401/403 → auth_failed credential'а, БЕЗ ретраев как 429 (§11);
         # auth-fail одного credential не отключает другие группы.
         if "Auth" in name:
-            current = stats.credentials_used[-1] if stats.credentials_used else None
-            if current:
-                self._registry.mark_credential(current, HEALTH_AUTH_FAILED)
+            alias, key_fp = self._health_key(credential, stats)
+            if alias:
+                self._registry.mark_credential(
+                    alias, HEALTH_AUTH_FAILED, key_fp=key_fp)
             logger.warning(
                 "embed credential auth_failed | alias=%s | error=%s",
-                current, name)
+                alias, name)
             return "auth"
         if "RateLimit" in name or "429" in str(exc)[:120]:
             headers = getattr(exc, "headers", None)
@@ -1909,10 +2003,11 @@ class EmbeddingExecutor:
             # паузы — при OFF group-cooldown следующий выбор уходит на другой
             # ключ той же группы (перебор как сейчас), при ON группу не дёргаем
             # вообще до next_allowed_at.
-            current = stats.credentials_used[-1] if stats.credentials_used else None
-            if current:
-                self._registry.mark_credential(current, HEALTH_COOLDOWN,
-                                               cooldown_s=delay)
+            alias_h, key_fp_h = self._health_key(credential, stats)
+            if alias_h:
+                self._registry.mark_credential(
+                    alias_h, HEALTH_COOLDOWN, cooldown_s=delay,
+                    key_fp=key_fp_h)
             if quota_group_cooldown_enabled():
                 # D1-честность: парковка-оценка отличима от точного RA
                 # (`parked ... est=...` vs `429 ... ra=...`) — панель/логи не
@@ -1961,7 +2056,9 @@ class EmbeddingExecutor:
         return "transport"
 
     def _on_success(self, credential: EmbeddingCredential, items: int) -> None:
-        self._registry.mark_credential(credential.alias, HEALTH_HEALTHY)
+        self._registry.mark_credential(
+            credential.alias, HEALTH_HEALTHY,
+            key_fp=credential_key_fingerprint(credential.api_key))
         _note_served_credential(credential)
         CONTROLLER.on_success()
         CONTROLLER.on_batch_success(items)
@@ -2302,7 +2399,8 @@ def provider_panel() -> dict:
         "quota_group_source": c.quota_group_source,
         # SOUL-13.4: источник ключа слота (hot|env) — значение ключа не выходит.
         "key_source": c.key_source,
-        "health": REGISTRY.credential_health(c.alias),
+        "health": REGISTRY.credential_health(
+            c.alias, credential_key_fingerprint(c.api_key)),
         "cooldown_until": REGISTRY.credential_cooldown_until(c.alias),
     } for c in pool]
     return {
@@ -2907,7 +3005,6 @@ _COMPAT_PENDING: dict[str, float] = {}
 _PROBE_LAST: dict[tuple, float] = {}
 _COMPAT_VERDICTS: dict[str, tuple[str, str, str, str, float]] = {}
 _COMPAT_VERDICT_TTL_S = 6 * 3600
-_PAUSED_BY_COMPAT: set[str] = set()
 _COMPAT_PROBE_LOCK: asyncio.Lock | None = None
 
 
@@ -2946,7 +3043,9 @@ def model_space_identity(*, model: str, revision: str | None = None,
     Это единственный критерий совместимости векторов. `preprocessing_version`
     по умолчанию — фактическая версия предобработки (summary_memory)."""
     payload = {
-        "model": str(model or "").strip(),
+        # SIMPLIFY 2026-11-24 (§1): провайдерный namespace не является частью
+        # пространства — обе стороны сравнения используют каноническую подпись.
+        "model": _canonical_model_name(model),
         "revision": str(revision or "").strip(),
         "dimension": int(dimension) if dimension else None,
         "task_mode": str(task_mode),
@@ -3457,12 +3556,23 @@ def _split_probe_response(raw, llm=None, embed_fn=None) -> tuple[list, dict]:
     return vectors, meta
 
 
+def _canonical_model_name(value) -> str:
+    """Каноническая подпись модели для MSI и пробы: регистр/пробелы,
+    провайдерный namespace и префикс `models/` не меняют пространство.
+
+    Owner 24.11.2026 §1: провайдер/alias/endpoint — не свойство вектора;
+    `google/gemini-embedding-001`, `models/gemini-embedding-001` и
+    `gemini-embedding-001` — одна модель. Разные базовые имена остаются
+    разными (реальная смена модели по-прежнему ловится)."""
+    name = str(value or "").strip().lower()
+    if "/" in name:
+        name = name.rsplit("/", 1)[-1]
+    return name.strip()
+
+
 def _normalized_model_name(value) -> str:
     """Сравнение имён моделей: регистр/пробелы/префикс `models/` не значимы."""
-    name = str(value or "").strip().lower()
-    if name.startswith("models/"):
-        name = name[len("models/"):]
-    return name
+    return _canonical_model_name(value)
 
 
 def _probe_metadata_block(meta: dict | None, *, dims: int) -> dict:
@@ -4073,7 +4183,6 @@ def reset_compat_state() -> None:
     _COMPAT_PENDING.clear()
     _PROBE_LAST.clear()
     _COMPAT_VERDICTS.clear()
-    _PAUSED_BY_COMPAT.clear()
 
 
 def _emit_compat_event(name: str, outcome: str, *, level: str = "info",
@@ -4087,48 +4196,27 @@ def _emit_compat_event(name: str, outcome: str, *, level: str = "info",
         pass
 
 
-async def _pause_rebuild_under(db, index_name: str) -> bool:
-    """Поставить текущую сборку индекса на паузу (обратимо, §3.7).
-
-    B1 (review 23.10.2026): причина паузы — durable `reason_code`
-    (`COMPAT_PAUSE_REASON`). Операторская пауза (`paused`) остаётся
-    неотличимо-своей и НЕ снимается резолвером никогда."""
-    try:
-        from services import graphrag_rebuild as gr
-        ok = bool(await gr.pause_rebuild(
-            db, index_name, reason_code=gr.COMPAT_PAUSE_REASON))
-        if ok:
-            _PAUSED_BY_COMPAT.add(str(index_name))
-        return ok
-    except Exception:
-        return False
-
-
 async def _resume_rebuild_under(db, index_name: str) -> bool:
-    """Снять паузу, поставленную ТОЛЬКО ради ожидания вердикта (§3.7).
+    """Снять legacy-паузу, поставленную прежними версиями ради вердикта (§3.7).
 
     B1: авторитет — durable `reason_code=paused_compat_insufficient`, а не
-    process-set `_PAUSED_BY_COMPAT`: доказанная несовместимость обязана
-    возобновлять сборку и после рестарта (раньше пауза застревала навсегда).
-    Операторская `paused` не задевается (другой reason_code)."""
+    process-состояние: доказанная несовместимость обязана возобновлять сборку
+    и после рестарта. Новые паузы при `insufficient` больше НЕ ставятся
+    (SIMPLIFY 2026-11-24), поэтому это только путь восстановления уже
+    существующих строк. Операторская `paused` не задевается (другой
+    reason_code)."""
     try:
         from services import graphrag_rebuild as gr
-        resumed = int(await gr.resume_compat_paused(db, index_name) or 0)
-        if resumed:
-            _PAUSED_BY_COMPAT.discard(str(index_name))
-        return bool(resumed)
+        return bool(await gr.resume_compat_paused(db, index_name) or 0)
     except Exception:
         return False
 
 
 async def _cancel_compat_pause_under(db, index_name: str) -> int:
-    """B1: снять compat-паузу, когда сборка больше не нужна (adopt)."""
+    """B1: снять legacy-compat-паузу, когда сборка больше не нужна (adopt)."""
     try:
         from services import graphrag_rebuild as gr
-        cancelled = int(await gr.cancel_compat_paused(db, index_name) or 0)
-        if cancelled:
-            _PAUSED_BY_COMPAT.discard(str(index_name))
-        return cancelled
+        return int(await gr.cancel_compat_paused(db, index_name) or 0)
     except Exception:
         return 0
 
@@ -4149,10 +4237,12 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
     """Резолвер + (при необходимости) проба + adopt/миграция (frozen §3/§4).
 
     Вызывается из `MemoryManager.initialize()` (после регистрации поколений,
-    ДО recovery/backfill) и из тика. Пока вердикта нет — уже запущенная
-    сборка под новый fp ставится на ПАУЗУ (обратимо). При compatible —
-    adopt + отмена ненужной сборки; при incompatible — resume (существующий
-    контролируемый путь миграции). Никогда не бросает."""
+    ДО recovery/backfill) и из тика. Пока вердикта нет (`insufficient`) —
+    память продолжает работать: чтение по ACTIVE-поколению, запись text-only,
+    сборка НЕ паузится (SIMPLIFY 2026-11-24). При compatible — adopt +
+    отмена ненужной сборки; при доказанном incompatible — resume
+    legacy-паузы и существующий контролируемый путь миграции. Никогда не
+    бросает."""
     namespace = str(namespace or DEFAULT_NAMESPACE)
     try:
         compat = await resolve_index_compat(db, index_name,
@@ -4248,8 +4338,12 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
                                  "provenance_unknown")
                                 else "retry_canary")
             note_compat_pending(index_name, pending=True)
-            # Пока вердикта нет — не сжигаем 316 вызовов rebuild'а.
-            await _pause_rebuild_under(db, index_name)
+            # SIMPLIFY 2026-11-24 (§1): `insufficient` — «доказательства ещё
+            # нет», а не «векторы несовместимы». Сборку НЕ ставим на паузу и
+            # прежнего провайдера не ждём: память продолжает работать (чтение
+            # по ACTIVE-поколению, запись — text-only до вердикта), повторная
+            # проба идёт штатным тиком. Пауза/контролируемая миграция остаются
+            # только для доказанного `incompatible` (ветка выше).
             _emit_compat_event("EMBEDDING_COMPAT_INSUFFICIENT", "degraded",
                                level="warning", index=index_name,
                                reason_code=str(compat.get("reason_code")),
@@ -4308,7 +4402,6 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
                 pass
         # 4) Событие/статус.
         note_compat_pending(index_name, pending=False)
-        _PAUSED_BY_COMPAT.discard(str(index_name))
         _emit_compat_event("EMBEDDING_COMPAT_ADMITTED", "ok", index=index_name,
                            generation=int(candidate.get("generation") or 0),
                            checked=int(probe.get("checked") or 0),

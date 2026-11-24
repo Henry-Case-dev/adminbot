@@ -353,10 +353,15 @@ async def test_different_msi_is_text_only(vec0_db, monkeypatch, caplog):
     found = await vec0_db.search_graph_facts_fts(
         -100, '"s0"*', 5, int(time.time()) + 10)
     assert found, "text-only fact must remain searchable via FTS"
+    # SIMPLIFY 2026-11-24 (§1/SIMPL-02): совместимая fallback-нога того же
+    # модельного пространства может заполнить кэш (ключ — configured MSI);
+    # это НЕ допуск вектора в чужой ACTIVE. Инвариант прежний: в ACTIVE
+    # другого пространства не попадает ни один вектор, в т.ч. через cache-hit.
     cursor = await vec0_db.db.execute(
-        "SELECT COUNT(*) AS c FROM embedding_cache WHERE text = ?",
-        ("s0 p o0",))
-    assert (await cursor.fetchone())["c"] == 0, "no cache bypass"
+        "SELECT COUNT(*) AS c FROM embedding_cache")
+    assert (await cursor.fetchone())["c"] <= 1
+    assert await memory._vec_write_allowed(INDEX) is False, \
+        "cache-hit не обходит write gate"
 
 
 @pytest.mark.asyncio

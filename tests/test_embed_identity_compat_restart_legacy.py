@@ -1,10 +1,12 @@
 """EMBED-IDENTITY-COMPAT — блокеры ревью B1/B3 (LANE EMBED-IDENTITY-FIX2).
 
 B1 (рестарт): пауза «до вердикта совместимости» отличалась от операторской
-только process-set `_PAUSED_BY_COMPAT`. После рестарта доказанная
+только process-set (удалён в SIMPLIFY 2026-11-24). После рестарта доказанная
 несовместимость НЕ возобновляла сборку: job оставался `paused`, планировщик
 возвращал `[]`, индекс навсегда FTS-only, панель рапортовала сборку. Фикс:
 durable `reason_code=paused_compat_insufficient` — авторитет снятия паузы.
+С SIMPLIFY 2026-11-24 новые `insufficient` паузу не ставят; тесты проверяют
+восстановление уже существующих durable-строк и отсутствие новой паузы.
 
 B3 (legacy-метаданные): у строк реестра от 29.09 `preprocessing_version`
 может быть NULL. Прежний `generation_space_identity` возвращал MSI с пустой
@@ -95,9 +97,12 @@ async def _legacy_row(ctx, generation_id: int, **columns) -> dict:
 
 @pytest.mark.asyncio
 async def test_b1_restart_then_incompatible_resumes_migration(ctx):
-    """repro ревью: running → insufficient → paused → РЕСТАРТ →
-    incompatible. Было: job остаётся paused, планировщик `[]`. Стало:
-    job `queued`, миграция планируется, live не тронут."""
+    """Legacy-пауза (`paused_compat_insufficient`, записана прежней версией)
+    после рестарта снимается доказанным `incompatible` → миграция планируется.
+
+    SIMPLIFY 2026-11-24 (§1): новые `insufficient` такую паузу больше НЕ
+    ставят (см. соседний тест); здесь проверяется восстановление уже
+    существующих durable-строк."""
     docs = contract._docs()
     await contract._seed(ctx, docs)
     old_fp, new_fp = contract._gateway_swap(ctx)
@@ -107,12 +112,17 @@ async def test_b1_restart_then_incompatible_resumes_migration(ctx):
 
     pending = await contract._ensure(ctx, new_fp, contract._Embedder(fail=True))
     assert pending["state"] == ecp.STATE_INSUFFICIENT
+    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_RUNNING
+
+    # Эмуляция строки, оставленной 2.58.240: compat-пауза durable.
+    assert await gr.pause_rebuild(
+        ctx.db, INDEX, reason_code=gr.COMPAT_PAUSE_REASON) is True
     paused = await gr._get_job(ctx.db, job_id)
     assert paused["status"] == gr.ST_PAUSED
     assert paused["reason_code"] == gr.COMPAT_PAUSE_REASON, \
         "пауза обязана отличаться от операторской durable reason_code"
 
-    # ── РЕСТАРТ: process-состояние (в т.ч. _PAUSED_BY_COMPAT) пусто ──
+    # ── РЕСТАРТ: process-состояние пусто ──
     ecp.reset_compat_state()
     restarted = _restarted(ctx)
 
@@ -130,10 +140,13 @@ async def test_b1_restart_then_incompatible_resumes_migration(ctx):
 
 
 @pytest.mark.asyncio
-async def test_b1_restart_then_insufficient_keeps_pause_without_rebuild(
+async def test_b1_restart_then_insufficient_keeps_job_running_without_rebuild(
         ctx, monkeypatch):
-    """insufficient → рестарт → снова insufficient: пауза ОСТАЁТСЯ (никакого
-    авто-возобновления), rebuild не стартует, панель не врёт про сборку."""
+    """SIMPLIFY 2026-11-24 (§1): `insufficient` после рестарта НЕ паузит
+    сборку и не запускает новую: существующая durable-джоба продолжает идти,
+    live-индекс не тронут, панель не врёт про «требуется reindex».
+
+    Доказанный `incompatible` (отдельный тест) ведёт в controlled migration."""
     docs = contract._docs()
     await contract._seed(ctx, docs)
     old_fp, new_fp = contract._gateway_swap(ctx)
@@ -143,7 +156,7 @@ async def test_b1_restart_then_insufficient_keeps_pause_without_rebuild(
 
     assert (await contract._ensure(ctx, new_fp, contract._Embedder(fail=True)))[
         "state"] == ecp.STATE_INSUFFICIENT
-    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_PAUSED
+    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_RUNNING
 
     ecp.reset_compat_state()
     restarted = _restarted(ctx)
@@ -154,18 +167,18 @@ async def test_b1_restart_then_insufficient_keeps_pause_without_rebuild(
     assert again["state"] == ecp.STATE_INSUFFICIENT
 
     still = await gr._get_job(ctx.db, job_id)
-    assert still["status"] == gr.ST_PAUSED
-    assert still["reason_code"] == gr.COMPAT_PAUSE_REASON
+    assert still["status"] == gr.ST_RUNNING, \
+        "ожидание вердикта не останавливает уже идущую сборку"
     assert await gr.maybe_schedule_rebuilds(restarted) == []
-    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_PAUSED
+    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_RUNNING
 
     health = await gr.generation_status(ctx.db, current_fp=new_fp,
                                         current_dims=DIMS)
     graph = {i["index"]: i for i in health["indexes"]}[INDEX]
-    assert graph["state"] == "compat_insufficient"
-    assert graph["reason_code"] == gr.COMPAT_PAUSE_REASON
-    assert graph["reindex_required"] is False, \
-        "замороженная сборка не выдаётся за «требуется reindex»"
+    assert graph["state"] == "build_in_progress"
+    assert graph["reason_code"] == "build_in_progress"
+    assert graph["reindex_required"] is True, \
+        "уже идущая сборка честно видна как незавершённый reindex"
     assert await contract._count(
         ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec") == len(docs)
 
