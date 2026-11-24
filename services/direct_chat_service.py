@@ -3275,6 +3275,75 @@ def _sent_user_text(body) -> str:
     return "\n\n".join(parts)
 
 
+def _split_writer_extras(
+        blocks, selection_texts
+) -> tuple[tuple[tuple[str, str], ...], bool]:
+    """Строгий ordered-subsequence split payload на selection + anchored extras.
+
+    ``blocks`` — фактические user-блоки Writer'а; ``selection_texts`` —
+    provenance-полоса ТОЧНЫХ текстов selection из композера. Возвращает
+    ``((anchor, text), ...)`` и ``exact``. ``exact=True`` только если все
+    selection-тексты встречены по порядку и ни один кандидат не совпадает с
+    ещё не сопоставленным selection-текстом (иначе неоднозначность). Никакой
+    нормализации/склейки/эвристик: только полное посимвольное совпадение.
+    """
+    texts = tuple(str(t) for t in (selection_texts or ()))
+    items = [str(b) for b in (blocks or ()) if str(b or "")]
+    if not texts:
+        return (), False
+    extras: list[tuple[str, str]] = []
+    j = 0
+    for block in items:
+        if j < len(texts) and block == texts[j]:
+            j += 1
+            continue
+        if any(block == texts[k] for k in range(j, len(texts))):
+            return tuple(extras), False
+        anchor = ""
+        if j < len(texts):
+            anchor = str(texts[j]).lstrip().split("\n", 1)[0]
+        extras.append((anchor, block))
+    if j != len(texts):
+        return tuple(extras), False
+    return tuple(extras), True
+
+
+def _insert_writer_extras(blocks, extras, *, degraded_out=None) -> list[str]:
+    """Вставить anchored writer-extras в selection-тела, никогда не теряя их.
+
+    ``extras`` — ``((anchor, text), ...)`` из ``_split_writer_extras``. Extra
+    вставляется перед первым блоком, чей ``lstrip()`` начинается с anchor-тега;
+    ``anchor=""`` — в конец. Ненайденный anchor — в конец + WARNING +
+    ``degraded_out["degraded"]=True`` (блок не отбрасывается).
+    """
+    result = [str(b) for b in (blocks or ()) if str(b or "")]
+    for anchor, text in (extras or ()):
+        block = str(text or "")
+        if not block:
+            continue
+        tag = str(anchor or "").strip()
+        index = None
+        if tag:
+            for i, existing in enumerate(result):
+                if str(existing).lstrip().startswith(tag):
+                    index = i
+                    break
+        if index is None:
+            if tag:
+                logger.warning(
+                    "direct: writer extra anchor missing — appended | "
+                    "anchor=%s", tag)
+                if degraded_out is not None:
+                    try:
+                        degraded_out["degraded"] = True
+                    except Exception:
+                        pass
+            result.append(block)
+        else:
+            result.insert(index, block)
+    return result
+
+
 def _prepared_item_id_from_key(key, projection=None) -> str:
     """Ключ строки (``tg:``/``msg:`` либо метка прогона ``M12``) → item_id.
 
@@ -4795,6 +4864,11 @@ _TURN_DIAGNOSTIC_KEYS = (
     "l1_context_chars", "l1_line_chars_cap", "l1_reply_chars_cap",
     "l1_reply_total_chars", "l1_reply_delivered_chars", "l1_reply_truncated",
     "l1_kept_mid", "l1_profile_source", "l1_profile_chars",
+    # UR-11a: единый L1 stage budget / окно / guard — числа и bool.
+    "l1_window_rows_raw", "l1_window_rows_selected",
+    "l1_window_rows_excluded_p0", "l1_window_budget", "l1_fixed_tokens",
+    "l1_window_render_overhead", "l1_context_overflow",
+    "l1_context_used_tokens", "l1_window_preserved",
     "social_attribution",
     # P0 L1 (2026-11-17): исход попытки виден в существующей диагностике
     # (числа/enum; ни prompt, ни ответа, ни reasoning).
@@ -4843,6 +4917,400 @@ async def _l1_bounded(call, route):
         return await asyncio.wait_for(
             call, timeout=float(route.deadline_seconds))
     return await call
+
+
+# ── UR-C-2a (A2 core, offline): direct L2 selection producers/materializer ──
+# Живой `_compose_user_content` эти функции пока не вызывает. Они типизируют
+# УЖЕ собранные источники (окно/цепочка/факты/эпизоды/ledger/конспект) в один
+# `ContextSelection` и материализуют выжившие фрагменты существующими
+# рендерерами. Нового retrieval/хранилища/флага здесь нет.
+
+def _row_timestamp(row) -> int:
+    try:
+        return int(row_get(row, "timestamp") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _build_l2_selection_candidates(
+        *,
+        current_text: str,
+        media_markers=(),
+        speaker_uid: int | None = None,
+        author_label: str = "",
+        reply_to_tg: int | None = None,
+        message_tg_id: int | None = None,
+        timestamp_utc: int = 0,
+        reply_parent=None,
+        chain_items=(),
+        branch_hops: int = 0,
+        window_rows=(),
+        fresh_rows=(),
+        background_rows=(),
+        memory_fragments=(),
+        fact_rows=(),
+        episode_rows=(),
+        self_output_records=(),
+        self_output_fragments=(),
+        summary_row=None,
+        middle_lines=(),
+        aliases=None,
+        bot_user_id=None,
+        working_window_messages: int = 20,
+        fresh_window_seconds: int = 0,
+        now_ts: int = 0,
+        budget_tokens: int = 0,
+        allocate: bool = True,
+        preserve_projections: bool = False):
+    """UR-C-2a: существующие источники → ЕДИНЫЙ `ContextSelection`.
+
+    Чистая сборка без чтений: цепочка/окно/факты/эпизоды/ledger/конспект уже
+    получены вызывающим. ``chain_items`` — реальный порядок
+    `_collect_thread_chain` (**current → root**); внутри он нормализуется в
+    хронологический root → current. Роли:
+      * последние ``branch_hops`` ходов цепочки → P0 `reply_branch`,
+        остальные → P1 `thread`;
+      * свежий хвост окна → P1 `fresh_neighbour`, раннее окно → P3
+        `background`; middle-строки → P3 `background`;
+      * ``fresh_rows``/``background_rows`` — уже выбранные live-части
+        `global_parts` (tail/middle), чтобы не пересчитывать окно вторым
+        способом; ``window_rows`` используется, только если они не заданы;
+      * fact rows → P2 tier 3 (`fragment_from_fact_row`);
+      * episode rows → P2 tier 4 (`fragments_from_episode_rows`);
+      * ledger-записи → P2 `self_output` (`fragment_from_self_output`).
+
+    ``budget_tokens=0`` (заводское) — полная selection без усечения; живое
+    подключение (2b) вызовет `allocate_selection` отдельно.
+    """
+    # `_collect_thread_chain` отдаёт current→root; split_reply_branch работает
+    # на хронологическом root→current (branch — последние hops, не первые).
+    chain_fragments = [
+        _composer.chain_item_to_fragment(
+            item, role=_composer.ROLE_THREAD, aliases=aliases,
+            bot_user_id=bot_user_id)
+        for item in reversed(list(chain_items or ()))]
+    reply_branch, thread = _composer.split_reply_branch(
+        chain_fragments, branch_hops)
+    fresh, window_background = _composer.collect_window_fragments(
+        window_rows, working_window_messages=working_window_messages,
+        aliases=aliases, bot_user_id=bot_user_id, now_ts=now_ts,
+        fresh_window_seconds=fresh_window_seconds)
+    if fresh_rows:
+        fresh = tuple(
+            _composer.row_to_fragment(
+                row, role=_composer.ROLE_FRESH_NEIGHBOUR, aliases=aliases,
+                bot_user_id=bot_user_id, fresh=True, now_ts=now_ts,
+                fresh_window_seconds=fresh_window_seconds)
+            for row in fresh_rows)
+    if background_rows:
+        window_background = tuple(
+            _composer.row_to_fragment(
+                row, role=_composer.ROLE_BACKGROUND, aliases=aliases,
+                bot_user_id=bot_user_id, fresh=False, now_ts=now_ts,
+                fresh_window_seconds=fresh_window_seconds)
+            for row in background_rows)
+    memory: list = list(memory_fragments or ())
+    for row in fact_rows or ():
+        frag = _composer.fragment_from_fact_row(row)
+        if frag is not None:
+            memory.append(frag)
+    memory.extend(_composer.fragments_from_episode_rows(
+        episode_rows, aliases=aliases, bot_user_id=bot_user_id))
+    self_outputs: list = list(self_output_fragments or ())
+    for record in self_output_records or ():
+        frag = _composer.fragment_from_self_output(
+            record, aliases=aliases, bot_user_id=bot_user_id)
+        if frag is not None:
+            self_outputs.append(frag)
+    newest_ts = max(
+        (_row_timestamp(row) for row in
+         list(window_rows or ()) + list(fresh_rows or ())
+         + list(background_rows or ())), default=0)
+    summary_map = (_composer.summary_map_ref(
+        summary_row, now_ts=now_ts, newest_ts=newest_ts)
+        if summary_row is not None else None)
+    background = list(window_background)
+    background.extend(_composer.fragments_from_middle_lines(middle_lines))
+    return _composer.build_context_selection(
+        current_text=current_text, media_markers=media_markers,
+        speaker_uid=speaker_uid, author_label=author_label,
+        reply_to_tg=reply_to_tg, message_tg_id=message_tg_id,
+        timestamp_utc=timestamp_utc, reply_parent=reply_parent,
+        reply_branch=reply_branch, thread=thread,
+        fresh_neighbours=fresh, memory=tuple(memory),
+        self_outputs=tuple(self_outputs),
+        background=tuple(background), summary_map=summary_map,
+        budget_tokens=budget_tokens, allocate=allocate,
+        preserve_projections=preserve_projections)
+
+
+def _materialize_selection(
+        selection,
+        *,
+        render_chain_line,
+        render_row_line,
+        render_current=None,
+        render_fact_line=None,
+        source_index: dict | None = None,
+        chain_order: dict | None = None,
+        split_global: bool = False,
+        projection=None) -> list[tuple[str, str]]:
+    """UR-C-2a: выжившие фрагменты selection → блоки payload.
+
+    Материализатор НЕ отбирает и НЕ режет: он группирует уже выбранные
+    фрагменты и рендерит их существующими владельцами формата:
+
+      * ``render_chain_line(fragment, source)`` — `_chain_line` для
+        branch/thread (source — `thread_chain.ChainItem`);
+      * ``render_row_line(fragment, source)`` — `_context_row_line` /
+        `render_window_lines` для окна, self-outputs и episode;
+      * ``render_fact_line(fragment, source)`` — `build_rag_context` по
+        исходному fact-tuple; без исходника — явная пометка «вывод модели»;
+      * ``render_current(fragment, source)`` — `_render_current_question`.
+
+    ``source_index`` — карта ``source_id → исходный объект`` (ChainItem/row/
+    fact tuple/ledger record); рендереры получают её значение вторым
+    аргументом. ``chain_order`` — ``source_id → хронологическая позиция``
+    (root=0, current=last): branch/thread выводятся в хронологии, как старый
+    `_render_thread` (роли этого порядка не задают). Порядок блоков —
+    `CANONICAL_ORDER`, не `ROLE_ORDER`; новых тегов/промпт-текста нет.
+    ``<Global_Context>`` собирается на своём слоте (head/middle/tail),
+    self-outputs сливаются с окном по времени.
+    """
+    index = dict(source_index or {})
+
+    def _source(fragment):
+        return index.get(fragment.source_id)
+
+    def _wrap(tag: str, lines) -> str:
+        body = "\n".join(str(line) for line in lines if str(line or "").strip())
+        if not body:
+            return ""
+        return f"<{tag}>\n{escape_xml_text(body)}\n</{tag}>"
+
+    def _line(renderer, fragment) -> str:
+        return str(renderer(fragment, _source(fragment)) or "")
+
+    blocks: dict[str, str] = {}
+
+    def _merge_parts(items) -> list:
+        """Один source_id → один фрагмент; overflow-части склеиваются."""
+        grouped: dict = {}
+        order_ids: list = []
+        for frag in items:
+            key = frag.source_id
+            if key not in grouped:
+                grouped[key] = []
+                order_ids.append(key)
+            grouped[key].append(frag)
+        out: list = []
+        for key in order_ids:
+            parts = grouped[key]
+            if len(parts) == 1:
+                out.append(parts[0])
+                continue
+            first = parts[0]
+            text = "".join(str(f.text or "") for f in parts)
+            out.append(dataclasses.replace(
+                first, text=text, part_index=0, part_total=1))
+        return out
+
+    current = getattr(selection, "current_question", None)
+    current_parts = list(getattr(selection, "current_parts", ()) or ())
+    if current is not None and (current.text or "").strip():
+        if current_parts:
+            # P0 физически переполнен: все ВОШЕДШИЕ части остаются в блоке;
+            # не вошедшие названы в provenance.overflow_parts.
+            body = "\n".join(
+                str(f.text or "") for f in [current, *current_parts]
+                if str(f.text or "").strip())
+            blocks["current"] = _wrap("Current_Question", [body])
+        elif render_current is not None:
+            blocks["current"] = _line(render_current, current)
+        else:
+            blocks["current"] = _wrap("Current_Question", [current.text])
+
+    def _projection(items) -> list:
+        seen: set = set()
+        out: list = []
+        for frag in items:
+            key = frag.source_id or id(frag)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(frag)
+        return out
+
+    reply_parent = getattr(selection, "reply_parent", None)
+    branch_items = _merge_parts(
+        ([reply_parent] if reply_parent is not None else [])
+        + list(getattr(selection, "reply_parent_parts", ()) or ()))
+    branch_items.extend(getattr(selection, "reply_branch", ()) or ())
+    branch_items = _projection(branch_items)
+    if chain_order:
+        branch_items = sorted(
+            branch_items,
+            key=lambda f: chain_order.get(f.source_id, len(chain_order)))
+    thread_items = _projection(
+        branch_items + list(getattr(selection, "thread", ()) or ()))
+    if chain_order:
+        # Ветка — хвост цепочки, thread — её начало; блок обязан быть
+        # хронологическим, как старый `_render_thread`. Порядок берётся у
+        # вызывающего (исходная цепочка), а не у ролей.
+        thread_items = sorted(
+            thread_items,
+            key=lambda f: chain_order.get(f.source_id, len(chain_order)))
+    if branch_items:
+        blocks["branch"] = _wrap(
+            "Conversation_Branch", [_line(render_chain_line, f)
+                                    for f in branch_items])
+    if thread_items:
+        blocks["thread"] = _wrap(
+            "Conversation_Thread", [_line(render_chain_line, f)
+                                    for f in thread_items])
+
+    rag_fragments: list = []
+    episode_fragments: list = []
+    supplement_fragments: list = []
+    for frag in getattr(selection, "memory", ()) or ():
+        ref = str(frag.source_id or "")
+        if ref.startswith("supplement:"):
+            supplement_fragments.append(frag)
+        elif (frag.kind == _composer.KIND_SUMMARY_INFERENCE
+                and not ref.startswith(("episode:", "middle:", "summary:"))):
+            rag_fragments.append(frag)
+        else:
+            episode_fragments.append(frag)
+    if supplement_fragments:
+        blocks["history_supplement"] = "\n".join(
+            str(f.text or "") for f in supplement_fragments
+            if str(f.text or "").strip())
+    if rag_fragments:
+        fact_lines = []
+        for frag in rag_fragments:
+            source = _source(frag)
+            if render_fact_line is not None:
+                fact_lines.append(_line(render_fact_line, frag))
+            elif isinstance(source, (tuple, list)):
+                fact_lines.append(build_rag_context(
+                    [source], origin_labels=True, projection=projection))
+            else:
+                fact_lines.append("[вывод модели] " + escape_xml_text(frag.text))
+        body = "\n".join(line for line in fact_lines if line.strip())
+        blocks["rag"] = (f"<RAG_Memory>\n{body}\n</RAG_Memory>"
+                         if body else "")
+    if episode_fragments:
+        blocks["episode"] = _wrap(
+            "Old_Episode", [_line(render_row_line, f)
+                            for f in episode_fragments])
+
+    head_lines = [frag.text for frag in (getattr(selection, "summary", ())
+                                         or ()) if (frag.text or "").strip()]
+    middle_lines: list[str] = []
+    for frag in getattr(selection, "background", ()) or ():
+        if str(frag.source_id or "").startswith("middle:") \
+                and _source(frag) is None:
+            middle_lines.append(frag.text)
+        else:
+            middle_lines.append(_line(render_row_line, frag))
+    tail_fragments = list(getattr(selection, "fresh_neighbours", ()) or ())
+    self_outputs = list(getattr(selection, "self_outputs", ()) or ())
+    if self_outputs:
+        tail_fragments = sorted(
+            tail_fragments + self_outputs,
+            key=lambda f: (int(f.timestamp_utc or 0), f.source_id))
+    tail_lines = [_line(render_row_line, f) for f in tail_fragments]
+    head_body = "\n".join(
+        line for line in head_lines if str(line or "").strip())
+    middle_body = "\n".join(
+        line for line in middle_lines if str(line or "").strip())
+    tail_body = "\n".join(
+        line for line in tail_lines if str(line or "").strip())
+    if split_global:
+        # Live prepared/trace contract: прежние виды блоков
+        # global_head/middle/tail. Payload-сборщик склеит их в один
+        # <Global_Context>; тексты остаются подстроками финального тела.
+        if head_body:
+            blocks["global_head"] = escape_xml_text(head_body)
+        if middle_body:
+            blocks["global_middle"] = escape_xml_text(middle_body)
+        if tail_body:
+            blocks["global_tail"] = escape_xml_text(tail_body)
+    else:
+        global_body = "\n".join(
+            part for part in (head_body, middle_body, tail_body)
+            if part.strip())
+        if global_body:
+            blocks["global"] = (
+                f"<Global_Context>\n{escape_xml_text(global_body)}\n"
+                f"</Global_Context>")
+
+    order = _composer.CANONICAL_ORDER
+    ordered: list[tuple[str, str]] = []
+    for kind, text in blocks.items():
+        if not text:
+            continue
+        position = order.get(kind, 99)
+        if kind == "global":
+            position = order.get("global_head", 5)
+        ordered.append((position, kind, text))
+    ordered.sort(key=lambda row: (row[0], row[1]))
+    return [(kind, text) for _pos, kind, text in ordered]
+
+
+def _trace_selection_dropped(selection) -> tuple:
+    """UR-C-2b: block-kind aggregate dropped для существующей trace-схемы.
+
+    Классификация зеркалит materializer/producer:
+      * `episode:*` (даже summary_inference) → `episode`;
+      * `fact:*`/summary_inference без episode/middle/summary → `rag`;
+      * `supplement:*` → `history_supplement`;
+      * verbatim memory → `episode`.
+    """
+    agg: dict = {}
+    for item in selection.provenance.dropped or ():
+        role = str(item.get("role") or "")
+        frag_kind = str(item.get("kind") or "")
+        source = str(item.get("source_id") or "")
+        if role == _composer.ROLE_REPLY_BRANCH:
+            block = "branch"
+        elif role in (_composer.ROLE_REPLY_PARENT, _composer.ROLE_THREAD):
+            block = "thread"
+        elif role in (_composer.ROLE_FRESH_NEIGHBOUR,
+                      _composer.ROLE_SELF_OUTPUT):
+            block = "global_tail"
+        elif role == _composer.ROLE_BACKGROUND:
+            block = "global_middle"
+        elif role == _composer.ROLE_SUMMARY:
+            block = "global_head"
+        elif role == _composer.ROLE_MEMORY:
+            if source.startswith("supplement:"):
+                block = "history_supplement"
+            elif source.startswith("episode:"):
+                block = "episode"
+            elif (frag_kind == _composer.KIND_SUMMARY_INFERENCE
+                  and not source.startswith(("middle:", "summary:"))):
+                block = "rag"
+            else:
+                block = "episode"
+        elif role == _composer.ROLE_CURRENT_QUESTION:
+            block = "current"
+        else:
+            block = frag_kind or "context"
+        reason = str(item.get("reason_code") or "")
+        key = (block, reason)
+        entry = agg.get(key)
+        if entry is None:
+            entry = agg[key] = {
+                "kind": block, "role": role, "reason_code": reason,
+                "count": 0, "tokens": 0, "source_ids": []}
+        entry["count"] += int(item.get("count") or 1)
+        entry["tokens"] += int(item.get("tokens") or 0)
+        if source and source not in entry["source_ids"]:
+            entry["source_ids"].append(source)
+    for entry in agg.values():
+        entry["source_ids"] = entry["source_ids"][:_MAX_SELECTION_IDS]
+    return tuple(agg.values())
 
 
 class DirectChatService:
@@ -7260,6 +7728,15 @@ class DirectChatService:
                         speech=_speech_projection,
                         fallback_budget_tokens=(
                             _fallback_meta.get("l2_fallback_budget")),
+                        fallback_selection_factory=(
+                            _fallback_meta.get("adapter_factory")),
+                        selection_budget_tokens=(
+                            _fallback_meta.get("selection_budget")),
+                        selection_texts=(
+                            _fallback_meta.get("selection_texts")),
+                        primary_budget_tokens=(
+                            _fallback_meta.get("l2_input_budget")),
+                        out_prepared=_delivery,
                         # UR-19.2: longform-4096/16384 больше не подставляются
                         # как семантическая граница — Writer вычисляет
                         # физически допустимый output сам (общий код обоих
@@ -7720,7 +8197,8 @@ class DirectChatService:
         return _reply_total_chars(message, getattr(self, "aliases", None),
                                   getattr(self, "_build_nickname", None))
 
-    def _l1_reply_block(self, message, budget_tokens: int | None = None) -> str:
+    def _l1_reply_block(self, message, budget_tokens: int | None = None,
+                        *, preserve: bool = False) -> str:
         """§1.5: компактный срез reply-цели для L1-контекста (кап из бюджета
         пакета — пол 400 символов; имя автора + текст). Никогда не бросает.
 
@@ -7733,8 +8211,9 @@ class DirectChatService:
             head, text = self._l1_reply_source(message)
             if not head and not text:
                 return ""
-            return (head + _l1.clip_body(
-                text, _l1.reply_block_chars(budget_tokens))).strip()
+            limit = (_l1.L1_CLIP_CHARS_MAX if preserve
+                     else _l1.reply_block_chars(budget_tokens))
+            return (head + _l1.clip_body(text, limit)).strip()
         except Exception:      # pragma: no cover - защитная ветка
             return ""
 
@@ -8482,11 +8961,20 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
-        # ER-08-RC (§3): эффективный кап строки окна — рядом с бюджетом пакета.
-        meta["l1_line_chars_cap"] = int(_l1.window_line_chars(
-            window, budget_tokens=_l1_budget))
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
+        # UR-11a: сырое окно уходит в `build_l1_context`; окно выбирает
+        # единственный allocator (`allocate_selection` через composer-helper)
+        # уже ПОСЛЕ fixed-секций и net stage budget. `select_l1_window`
+        # остаётся legacy/fail-open и на live L1 не вызывается.
+        meta["l1_window_rows_raw"] = len(tuple(window or ()))
+        # ER-08-RC (§3): фактический кап строки принадлежит allocator;
+        # отдельного 200-символьного капа на активном L1-пути нет.
+        meta["l1_line_chars_cap"] = 0
         _l1_reply_text = self._l1_reply_block(message,
-                                              budget_tokens=_l1_budget)
+                                              budget_tokens=_l1_budget,
+                                              preserve=True)
         # ER-08-RC (ревью B1): база для `truncated` — ИСХОДНАЯ цитата, а не
         # уже срезанный блок (`_l1_reply_text`); иначе total == delivered и
         # флаг врал бы «не срезано». Модульная функция (не метод) — частичные
@@ -8604,6 +9092,7 @@ class DirectChatService:
         # UR-20.8 (UR-F шаг 1): планировщик реально получил TimeContext.
         if str(_l1_time_context or "").strip():
             _ttrace.note_clock_stage(correlation_id, "l1")
+        _l1_status: dict = {}
         context_text = _l1.build_l1_context(
             query=query,
             # SXR-C2-01: L1 получает ПОЛНЫЙ текст вопроса — тот же, что
@@ -8612,7 +9101,11 @@ class DirectChatService:
             current_question=self._render_current_question(
                 message, extra_markers=extra_media_markers),
             reply_block=_l1_reply_text,
-            window=window, speaker=target_name,
+            window=window, line_chars=0,
+            trigger_message_id=getattr(message, "message_id", None),
+            reply_to_message_id=_replied_message_id(message),
+            preallocated=True, out_status=_l1_status,
+            speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
             social_frame=_social_line,
             memory_hints=_bundle_scoped_slice(bundle),
@@ -8629,6 +9122,31 @@ class DirectChatService:
             time_context=_l1_time_context)
         input_chars = len(context_text)
         meta["l1_context_chars"] = int(input_chars)
+        meta["l1_context_overflow"] = bool(_l1_status.get("overflow"))
+        meta["l1_context_used_tokens"] = int(
+            _l1_status.get("used_tokens") or 0)
+        # UR-11a: окно/бюджет — из фактического status единственного
+        # allocator'а (сырое окно уже не считается «доставленным»).
+        if "window_rows_raw" in _l1_status:
+            meta["l1_window_rows_raw"] = int(
+                _l1_status.get("window_rows_raw") or 0)
+        if "window_rows_selected" in _l1_status:
+            meta["l1_window_rows_selected"] = int(
+                _l1_status.get("window_rows_selected") or 0)
+        if "window_rows_excluded_p0" in _l1_status:
+            meta["l1_window_rows_excluded_p0"] = int(
+                _l1_status.get("window_rows_excluded_p0") or 0)
+        if "window_budget" in _l1_status:
+            meta["l1_window_budget"] = int(
+                _l1_status.get("window_budget") or 0)
+        if "window_render_overhead" in _l1_status:
+            meta["l1_window_render_overhead"] = int(
+                _l1_status.get("window_render_overhead") or 0)
+        if "fixed_tokens" in _l1_status:
+            meta["l1_fixed_tokens"] = int(
+                _l1_status.get("fixed_tokens") or 0)
+        meta["l1_window_preserved"] = bool(
+            _l1_status.get("window_preserved"))
         # ER-08-RC (§3): фактическая доставка цитаты в СОБРАННОМ пакете —
         # считается по реальному тексту секции «ОТВЕТ НА», не по намерению.
         _l1_reply_stats = _l1.reply_delivery_stats(
@@ -10259,6 +10777,12 @@ class DirectChatService:
                                speech_block: str = "",
                                writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
+                               fallback_selection_factory=None,
+                               selection_budget_tokens: int | None = None,
+                               selection_texts=None,
+                               primary_budget_tokens: int | None = None,
+                               primary_payload_tokens: int | None = None,
+                               out_prepared: dict | None = None,
             primary_prepared=None,
                                max_tokens=None, diag_out: dict | None = None,
                                history_assembly_block: str = "",
@@ -10424,6 +10948,150 @@ class DirectChatService:
             {"role": "system", "content": verbalizer_system},
             {"role": "user", "content": user_content},
         ]
+        _l2_binding: dict = {}
+        # UR-11b §3.2: точный учёт writer-extras. Time/plan/tool evidence/
+        # closing входят в обязательный payload, но не в selection budget;
+        # при фактическом превышении — ОДИН final fit тем же allocator'ом на
+        # той же full_selection (не второй retrieval/build).
+        _evidence_block = ("<Tool_Evidence>\n" + evidence + "\n"
+                           "</Tool_Evidence>") if evidence else ""
+        _extra_prefix_list: list[str] = []
+        if str(plan_block or "").strip():
+            _extra_prefix_list.append(str(plan_block))
+        if not _c_on:
+            # SOUL-1 OFF: speech/lessons живут в user-части между plan и
+            # selection — сохраняем этот же порядок при recompose/final fit.
+            if str(speech_block or "").strip():
+                _extra_prefix_list.append(str(speech_block))
+            if str(lessons_block or "").strip():
+                _extra_prefix_list.append(str(lessons_block))
+        _extra_prefix = tuple(_extra_prefix_list)
+        _extra_suffix = tuple(
+            [x for x in (str(_evidence_block or ""),
+                         str(_closing or "")) if x.strip()])
+        # UR-11b F1: identity selection ↔ payload — только provenance
+        # `selection_texts` (точные materialized-тексты), не prepared.blocks.
+        _anchored_extras: tuple = ()
+        _split_exact = False
+        if selection_texts is not None:
+            try:
+                _anchored_extras, _split_exact = _split_writer_extras(
+                    [str(b) for b in (user_blocks or ()) if str(b or "")],
+                    tuple(str(t) for t in selection_texts))
+            except Exception:
+                _anchored_extras, _split_exact = (), False
+        # UR-11b §3.2: один точный проход по всем writer-extras, включая
+        # anchored media/voice/dig/ev-note и history_assembly_block (system,
+        # но физически уменьшает доступный user-бюджет).
+        _writer_extras_texts = [str(time_line or ""), str(plan_block or "")]
+        if not _c_on:
+            _writer_extras_texts.extend([str(speech_block or ""),
+                                         str(lessons_block or "")])
+        _writer_extras_texts.extend([t for _a, t in _anchored_extras])
+        _writer_extras_texts.extend([_evidence_block, str(_closing or ""),
+                                     str(history_assembly_block or "")])
+        try:
+            _writer_extras_tokens = sum(
+                count_tokens(t) for t in _writer_extras_texts if t)
+        except Exception:          # pragma: no cover - наблюдаемость
+            _writer_extras_tokens = 0
+        _live_ok = (selection_texts is not None
+                    and _split_exact
+                    and fallback_selection_factory is not None)
+        _primary_budget = 0
+        _primary_payload = 0
+        if primary_prepared is not None:
+            try:
+                _pb = dict(getattr(primary_prepared, "budget", {}) or {})
+                _primary_budget = int(_pb.get("budget") or 0)
+                _primary_payload = int(_pb.get("payload_tokens") or 0)
+            except Exception:
+                _primary_budget = 0
+                _primary_payload = 0
+        if primary_budget_tokens is not None:
+            _primary_budget = int(primary_budget_tokens)
+        if primary_payload_tokens is not None:
+            _primary_payload = int(primary_payload_tokens)
+        if (_live_ok
+                and _primary_budget
+                and _primary_payload
+                and selection_budget_tokens is not None
+                and (_primary_payload + _writer_extras_tokens
+                     > _primary_budget)):
+            try:
+                _fit = fallback_selection_factory(
+                    time_line,
+                    extra_reserve=int(_writer_extras_tokens),
+                    binding=_l2_binding,
+                    selection_budget=int(selection_budget_tokens),
+                    extra_prefix=_extra_prefix,
+                    extra_suffix=_extra_suffix,
+                    anchored=_anchored_extras,
+                    mark_fallback=False)
+                _fit_adapted, _fit_prepared = _fit(
+                    {"messages": list(base_messages)})
+                _fit_messages = _fit_adapted.get("messages") or []
+                if _fit_messages:
+                    base_messages = list(_fit_messages)
+                if _fit_prepared is not None:
+                    _fit_budget = dict(
+                        getattr(_fit_prepared, "budget", {}) or {})
+                    _fit_capacity = bool(
+                        _fit_budget.get("policy_mode")
+                        == "fallback_capacity"
+                        or _fit_budget.get("capacity_limited"))
+                    _sent_tokens = sum(
+                        count_tokens(str(m.get("content") or ""))
+                        for m in _fit_messages
+                        if str(m.get("role") or "") == "user")
+                    if not _fit_capacity:
+                        _fit_prepared = dataclasses.replace(
+                            _fit_prepared,
+                            budget=dict(
+                                _fit_budget,
+                                budget=int(_primary_budget),
+                                selection_budget=max(
+                                    1, int(selection_budget_tokens)
+                                    - int(_writer_extras_tokens)),
+                                payload_tokens=int(_sent_tokens),
+                                policy_mode="final_fit",
+                                final_fit=True,
+                                degraded=bool(
+                                    _fit_budget.get("degraded"))))
+                    else:
+                        # F9: capacity-prepared всё равно описывает PRIMARY
+                        # тело/бюджет, а не fallback-окно. selection_budget —
+                        # фактический allocator-бюджет фабрики, как есть.
+                        _fit_prepared = dataclasses.replace(
+                            _fit_prepared,
+                            budget=dict(
+                                _fit_budget,
+                                budget=int(_primary_budget),
+                                payload_tokens=int(_sent_tokens),
+                                policy_mode="fallback_capacity",
+                                degraded=True,
+                                physical_overflow=True,
+                                capacity_limited=True))
+                    _l2_binding["prepared"] = _fit_prepared
+                    _l2_binding["prepared_text"] = _sent_user_text(
+                        _fit_adapted)
+                    if out_prepared is not None:
+                        try:
+                            out_prepared["primary"] = _fit_prepared
+                        except Exception:
+                            pass
+                    logger.info(
+                        "direct: L2 final fit | chat=%s | extras=%d | "
+                        "anchored=%d | selection_budget=%d | capacity=%s",
+                        chat_id, _writer_extras_tokens,
+                        len(_anchored_extras),
+                        max(1, int(selection_budget_tokens)
+                            - int(_writer_extras_tokens)),
+                        _fit_capacity)
+            except Exception:
+                logger.warning(
+                    "direct: L2 final fit failed — primary payload kept | "
+                    "chat=%s", chat_id, exc_info=True)
         # ── UR-19/UR-19.1/UR-19.2: Writer вычисляет физически допустимый
         # output из РЕАЛЬНОГО max_output модели, окна и размера СВОЕГО входа.
         # Семантические константы (инициативный 700, longform-4096/16384)
@@ -10490,13 +11158,22 @@ class DirectChatService:
             prompt_keys=(
                 "prompts.direct_chat_verbalizer_system_prompt",
                 "prompts.direct_l1_planner_system_prompt"))
-        # ── v6 D04 (§18C.4): L2 fallback-репак под РЕАЛЬНОЕ окно
-        # fallback-модели (plan/memory/lessons/character/evidence;
-        # защищённые блоки: current request, mandatory tool evidence,
-        # safety/role system). None → прежнее поведение (без адаптера).
-        _l2_fb_adapter = None
-        if fallback_budget_tokens:
-            _l2_fb_adapter = _dx.build_l2_fallback_adapter(
+        # ── v6 D04 (§18C.4) / UR-11b: L2 fallback-репак под РЕАЛЬНОЕ окно
+        # fallback-модели. Живой selection-путь использует compose-recompose
+        # на ТОЙ ЖЕ full_selection (fallback_selection_factory); legacy
+        # `build_l2_fallback_adapter` остаётся только для fail-open/recovery.
+        _raw_l2_adapter = None
+        if _live_ok:
+            def _selection_adapter(payload):
+                return fallback_selection_factory(
+                    time_line, extra_reserve=int(_writer_extras_tokens),
+                    binding=_l2_binding,
+                    extra_prefix=_extra_prefix,
+                    extra_suffix=_extra_suffix,
+                    anchored=_anchored_extras)(payload)
+            _raw_l2_adapter = _selection_adapter
+        elif fallback_budget_tokens:
+            _raw_l2_adapter = _dx.build_l2_fallback_adapter(
                 system=verbalizer_system,
                 parts=[p for p in (list(parts) + ([_closing] if _closing else ()))
                        if not p.startswith("<Tool_Evidence>")],
@@ -10504,10 +11181,8 @@ class DirectChatService:
                 fallback_budget_tokens=int(fallback_budget_tokens),
                 on_capacity_reason=lambda reason: _l1.record_l1_diagnostics(
                     chat_id, l2_capacity_reason=str(reason)))
-        _l2_binding: dict = {}
-        if _l2_fb_adapter is not None:
-            _raw_l2_adapter = _l2_fb_adapter
-
+        _l2_fb_adapter = None
+        if _raw_l2_adapter is not None:
             def _l2_fb_adapter(payload, _raw=_raw_l2_adapter):
                 """Рекомпоз L2: тело + prepared-вариант ОДНИМ объектом (Q6)."""
                 out = _raw(payload)
@@ -10522,6 +11197,16 @@ class DirectChatService:
                                 "budget": int(fallback_budget_tokens or 0),
                                 "policy_mode": "fallback_recompose",
                                 "fallback": True})
+                elif fallback_budget_tokens:
+                    # Fallback prepared описывает окно fallback-МОДЕЛИ, а не
+                    # selection sub-budget (они различаются на fixed P0).
+                    try:
+                        prepared = dataclasses.replace(
+                            prepared,
+                            budget=dict(prepared.budget,
+                                        budget=int(fallback_budget_tokens)))
+                    except Exception:
+                        pass
                 _l2_binding["prepared"] = prepared
                 _l2_binding["prepared_text"] = _sent_user_text(adapted)
                 return adapted, prepared
@@ -11179,7 +11864,8 @@ class DirectChatService:
             chat_id, message, global_ctx, history_sample=history_sample,
             projection=projection, memory_scope=memory_scope,
             subject_name=target_name, subject_uid=target_user_id,
-            out_memory=_rag_out, trace_id=correlation_id)
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
         if rag_block:
             blocks.append(("rag", rag_block))
         if out_rag_ctx is not None:
@@ -11342,6 +12028,8 @@ class DirectChatService:
                 history_sample=history_sample, projection=projection,
                 correlation_id=correlation_id, rag_memory=_rag_out,
                 chain_rendered=_chain_rendered,
+                extra_media_markers=extra_media_markers,
+                live_selection=True,
                 out_prepared=out_prepared)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
@@ -11507,8 +12195,12 @@ class DirectChatService:
             "head_lines": [], "middle_rows": [], "tail_rows": [],
             "tail_lines": [], "window_start_ts": None, "window_end_ts": None,
             "raw_count": 0, "has_summary": False,
+            # UR-C-2b: исходная summary-строка для selection (в трассу не
+            # копируется; используется только как источник/watermark).
+            "summary_row": None,
         }
         summary_text = None
+        summary_row = None
         window_start_ts = None
         window_end_ts = None
         raw_count = 0
@@ -11516,6 +12208,7 @@ class DirectChatService:
             try:
                 row = await self.db.get_running_summary(chat_id, time.time())
                 if row is not None:
+                    summary_row = row
                     summary_text = row["summary"]
                     raw_count = int(row["raw_count"] or 0)
                     # UR-20.5 (доработка шага 1): конспект покрывает ДИАПАЗОН
@@ -11604,6 +12297,7 @@ class DirectChatService:
                 parts["head_lines"].append(
                     f"фон: дословно последние {len(tail_rows)} сообщений"
                     f"{_scope}")
+        parts["summary_row"] = summary_row
         return parts
 
     def _composer_truncate(self, piece, limit_tokens: int) -> str:
@@ -11654,7 +12348,10 @@ class DirectChatService:
         stats = {"count": 0, "messages": 0, "tokens": 0, "hits": 0,
                  # UR-F шаг 1 (UR-20.5): спаны фактически вошедших эпизодов
                  # (source_ids + первая/последняя дата) — без текста строк.
-                 "spans": []}
+                 "spans": [],
+                 # UR-C-2b: внутренний source_index для materializer (текст
+                 # в трассу не копируется).
+                 "rows": []}
         if not mca_gates.retrieval_context_enabled():
             return "", stats
         text = str(query or "").strip()
@@ -12028,6 +12725,7 @@ class DirectChatService:
                 if row_id is not None:
                     used_rows.add(row_id)
             episode_lines.extend(lines)
+            stats["rows"].extend(span_rows)
             stats["count"] += 1
             span_years_seen.update(candidate_years)
             if getattr(cand, "vector_origin", False):
@@ -12116,6 +12814,8 @@ class DirectChatService:
             correlation_id: str | None = None,
             rag_memory: dict | None = None,
             chain_rendered: dict | None = None,
+            extra_media_markers: tuple = (),
+            live_selection: bool = False,
             out_prepared: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
@@ -12166,7 +12866,9 @@ class DirectChatService:
         _sample_id = _ha_sample_id(history_sample)
         _supplement_lines = []
         if isinstance(episode_stats, dict):
-            _supplement_lines = episode_stats.pop("supplement_lines", [])
+            # Не pop: те же строки нужны selection-пути и fail-open-пути.
+            _supplement_lines = list(
+                episode_stats.get("supplement_lines") or ())
         _supplement_block = _ha_supplement_piece(_supplement_lines,
                                                  _sample_id)
         if _supplement_block:
@@ -12292,6 +12994,876 @@ class DirectChatService:
             else:
                 budget, policy_mode = apply_budget_policy(available,
                                                           raw_budget)
+
+        # ── UR-C-2b: live ContextSelection — единственный allocator ─────────
+        # Секция активна только на live-вызове из `_build_user_content`.
+        # Любое исключение → WARNING и старый блочный fail-open ниже.
+        selection_degraded = False
+        if live_selection:
+            async def _run_live_selection() -> list[str]:
+                fixed_kinds = {"map", "target", "relations", "protected",
+                               "lore", "correction", "nostalgia", "sandwich"}
+                fixed_blocks = [(kind, text) for kind, text in blocks
+                                if kind in fixed_kinds and text]
+                fixed_tokens = sum(count_tokens(text)
+                                   for _kind, text in fixed_blocks)
+                selection_budget = max(0, int(budget) - fixed_tokens)
+                # budget_tokens=0 у allocator означает «полная selection без
+                # усечения» (2a-контракт). Live-бюджет 0 — это НЕ «безлимит»:
+                # даём минимальный положительный бюджет, чтобы P0/overflow были
+                # явными, а не весь контекст проходил мимо окна.
+                allocation_budget = max(1, selection_budget)
+                fallback_selection_budget = (
+                    max(1, int(fallback_recompose_budget) - fixed_tokens)
+                    if fallback_recompose_budget is not None else None)
+
+                current_text, media_markers = self._current_question_source(
+                    message, extra_markers=extra_media_markers,
+                    projection=projection)
+                reply_msg = getattr(message, "reply_to_message", None)
+                reply_to_tg = getattr(reply_msg, "message_id", None)
+                try:
+                    current_ts = int(message.date.timestamp())
+                except Exception:
+                    current_ts = 0
+                reply_parent = None
+                if len(chain or ()) >= 2:
+                    reply_parent = _composer.chain_item_to_fragment(
+                        chain[1], role=_composer.ROLE_REPLY_PARENT,
+                        aliases=getattr(self, "aliases", None),
+                        bot_user_id=getattr(self, "bot_id", None))
+                try:
+                    branch_hops = int(hot.get(
+                        "limits.chat_branch_context_hops",
+                        settings.CHAT_BRANCH_CONTEXT_HOPS) or 3)
+                except Exception:
+                    branch_hops = 3
+                if not self._is_reply_trigger(message):
+                    branch_hops = 0
+
+                memory_fragments: list = []
+                # Canonical memory leg: ОДИН bounded read-only retrieve с
+                # адресатом/reply-parent; ошибка → источник пуст (fail-open).
+                try:
+                    if mca_gates.retrieval_context_enabled():
+                        parent_uid = None
+                        parent_text = ""
+                        if reply_msg is not None:
+                            parent_uid = getattr(
+                                getattr(reply_msg, "from_user", None), "id",
+                                None)
+                            parent_text = str(
+                                getattr(reply_msg, "text", "") or "")
+                        elif len(chain or ()) >= 2:
+                            parent_uid = getattr(chain[1], "uid", None)
+                            parent_text = str(
+                                getattr(chain[1], "text", "") or "")
+                        request = _mca_rc.build_memory_request(
+                            chat_id=chat_id, topic=query,
+                            addressee_uid=target_user_id,
+                            reply_parent_uid=parent_uid,
+                            reply_parent_text=parent_text,
+                            addressee_name=target_name,
+                            trigger_ref=trigger_message_id)
+                        mem_result = await _mca_rc.retrieve(
+                            self.db, self.memory, request)
+                        mem_frags, _raw = \
+                            await _composer.collect_memory_fragments(
+                                self.db, chat_id=chat_id,
+                                candidates=mem_result.candidates,
+                                aliases=getattr(self, "aliases", None),
+                                bot_user_id=getattr(self, "bot_id", None))
+                        memory_fragments.extend(mem_frags)
+                except Exception:
+                    logger.warning(
+                        "direct: selection memory leg failed — empty | chat=%s",
+                        chat_id, exc_info=True)
+
+                self_output_fragments: tuple = ()
+                try:
+                    self_output_fragments = \
+                        await _composer.collect_self_output_fragments(
+                            self.db, chat_id=chat_id,
+                            bot_user_id=getattr(self, "bot_id", None),
+                            aliases=getattr(self, "aliases", None))
+                except Exception:
+                    logger.warning(
+                        "direct: selection self-outputs failed — empty | chat=%s",
+                        chat_id, exc_info=True)
+
+                supplement_text = _ha_supplement_piece(
+                    list(episode_stats.get("supplement_lines") or ()),
+                    _ha_sample_id(history_sample))
+                if supplement_text:
+                    memory_fragments.append(_composer.ContextFragment(
+                        kind=_composer.KIND_CHAT_EVENT,
+                        source_id=("supplement:"
+                                   + (_ha_sample_id(history_sample) or "ha")),
+                        text=supplement_text,
+                        role=_composer.ROLE_MEMORY,
+                        authority=_composer.AUTHORITY_BACKGROUND,
+                        fresh=False, time_known=False, memory_tier=4))
+
+                summary_row = global_parts.get("summary_row")
+                head_lines = list(global_parts.get("head_lines") or ())
+                if summary_row is not None and head_lines:
+                    try:
+                        summary_row = dict(summary_row)
+                    except Exception:
+                        pass
+                    if isinstance(summary_row, dict):
+                        summary_row["summary"] = "\n".join(head_lines)
+
+                full_selection = _build_l2_selection_candidates(
+                    current_text=current_text,
+                    media_markers=media_markers,
+                    speaker_uid=getattr(
+                        getattr(message, "from_user", None), "id",
+                        target_user_id),
+                    author_label=target_name,
+                    reply_to_tg=reply_to_tg,
+                    message_tg_id=None,   # current не дедупится с thread-ходом
+                    timestamp_utc=current_ts,
+                    reply_parent=reply_parent,
+                    chain_items=tuple(chain or ()),
+                    branch_hops=branch_hops,
+                    fresh_rows=tuple(global_parts.get("tail_rows") or ()),
+                    background_rows=tuple(middle_rows or ()),
+                    memory_fragments=tuple(memory_fragments),
+                    fact_rows=tuple((rag_memory or {}).get("rows") or ()),
+                    episode_rows=tuple(episode_stats.get("rows") or ()),
+                    self_output_fragments=tuple(self_output_fragments),
+                    summary_row=summary_row,
+                    aliases=getattr(self, "aliases", None),
+                    bot_user_id=getattr(self, "bot_id", None),
+                    budget_tokens=0, allocate=False,
+                    preserve_projections=True)
+
+                # ── source_index / renderers: существующие владельцы формата ──
+                source_index: dict = {}
+                renderers: dict = {}
+                chain_order: dict = {}
+                rendered_chain_lines: list = []
+
+                def _row_sid(row, role, *, fresh, trigger, suffix,
+                             refs=None):
+                    frag = _composer.row_to_fragment(
+                        row, role=role,
+                        aliases=getattr(self, "aliases", None),
+                        bot_user_id=getattr(self, "bot_id", None),
+                        fresh=fresh)
+                    sid = str(frag.source_id)
+                    source_index[sid] = row
+
+                    def _render(f, _row, _frag=frag, _trigger=trigger,
+                                _suffix=suffix, _refs=refs):
+                        base = dict(_row)
+                        if f.text and str(base.get("text") or "") != f.text:
+                            base["text"] = f.text
+                        return self._context_row_line(
+                            base, _suffix,
+                            trigger_message_id=_trigger,
+                            projection=projection, window_items=_refs)
+
+                    renderers[sid] = _render
+                    return sid
+
+                def _synthetic_row(frag) -> dict:
+                    return {
+                        "text": frag.text, "user_id": frag.speaker_uid,
+                        "author_name": frag.author_label,
+                        "timestamp": frag.timestamp_utc,
+                        "tg_message_id": frag.tg_message_id,
+                        "reply_to_id": frag.reply_to_tg_id,
+                        "media_type": "text",
+                    }
+
+                speech = (projection is not None
+                          and speech_projection_enabled())
+                for pos, item in enumerate(reversed(list(chain or ()))):
+                    c_frag = _composer.chain_item_to_fragment(
+                        item, role=_composer.ROLE_THREAD,
+                        aliases=getattr(self, "aliases", None),
+                        bot_user_id=getattr(self, "bot_id", None))
+                    source_index[c_frag.source_id] = item
+                    chain_order[c_frag.source_id] = pos
+
+                tail_rows = list(global_parts.get("tail_rows") or ())
+                tail_refs = window_refs_by_tg(tail_rows) if speech else {}
+                for row in tail_rows:
+                    _row_sid(row, _composer.ROLE_FRESH_NEIGHBOUR,
+                             fresh=True, trigger=trigger_message_id,
+                             suffix=suffix_map, refs=tail_refs)
+                mid_refs = (window_refs_by_tg(middle_rows)
+                            if speech and middle_rows else {})
+                for row in middle_rows or ():
+                    _row_sid(row, _composer.ROLE_BACKGROUND, fresh=False,
+                             trigger=None, suffix={}, refs=mid_refs)
+                for row in episode_stats.get("rows") or ():
+                    _row_sid(row, _composer.ROLE_MEMORY, fresh=False,
+                             trigger=None, suffix=suffix_map)
+                for row in (rag_memory or {}).get("rows") or ():
+                    f_frag = _composer.fragment_from_fact_row(row)
+                    if f_frag is not None:
+                        source_index[str(f_frag.source_id)] = row
+                for frag in self_output_fragments:
+                    source_index[frag.source_id] = _synthetic_row(frag)
+                for frag in memory_fragments:
+                    if frag.source_id not in source_index:
+                        source_index[frag.source_id] = _synthetic_row(frag)
+
+                def _chain_render(frag, item):
+                    if item is None:
+                        return str(frag.text or "")
+                    text = str(frag.text or "")
+                    if text and str(getattr(item, "text", "") or "") != text:
+                        try:
+                            item = item._replace(text=text)
+                        except Exception:
+                            return text
+                    line = self._chain_line(
+                        item, suffix_map, trigger_message_id, projection,
+                        emit_quote=False)
+                    try:
+                        rendered_chain_lines.append((
+                            str(getattr(item, "item_id", "") or ""), line,
+                            thread_chain.quote_delivery_fragment(
+                                item, projection, trigger_message_id)))
+                    except Exception:
+                        pass
+                    return line
+
+                def _row_render(frag, source):
+                    renderer = renderers.get(frag.source_id)
+                    if renderer is not None:
+                        return renderer(frag, source)
+                    return self._context_row_line(
+                        _synthetic_row(frag), suffix_map,
+                        trigger_message_id=None, projection=projection)
+
+                def _current_render(frag, _source):
+                    return self._render_current_question(
+                        message, extra_markers=extra_media_markers,
+                        projection=projection)
+
+                def _fact_render(frag, fact):
+                    if isinstance(fact, (tuple, list)):
+                        seq = list(fact)
+                        if (len(seq) > 1 and frag.text
+                                and str(seq[1] or "") != frag.text):
+                            seq[1] = frag.text
+                        return build_rag_context(
+                            [tuple(seq)], origin_labels=True,
+                            projection=projection)
+                    return "[вывод модели] " + escape_xml_text(frag.text)
+
+                def _materialize(sel):
+                    rendered_chain_lines.clear()
+                    raw = _materialize_selection(
+                        sel,
+                        render_chain_line=_chain_render,
+                        render_row_line=_row_render,
+                        render_current=_current_render,
+                        render_fact_line=_fact_render,
+                        source_index=source_index,
+                        chain_order=chain_order,
+                        split_global=True,
+                        projection=projection)
+                    global_parts = [
+                        (kind, text) for kind, text in raw
+                        if kind in ("global_head", "global_middle",
+                                    "global_tail")]
+                    payload_pairs = [
+                        (kind, text) for kind, text in raw
+                        if kind not in ("global_head", "global_middle",
+                                        "global_tail")]
+                    body = "\n".join(
+                        text for _kind, text in sorted(
+                            global_parts,
+                            key=lambda kv: _composer.CANONICAL_ORDER.get(
+                                kv[0], 99)) if text.strip())
+                    if body:
+                        payload_pairs.append((
+                            "global",
+                            f"<Global_Context>\n{body}\n</Global_Context>"))
+                    payload_pairs += list(fixed_blocks)
+                    prepared_pairs = list(raw) + list(fixed_blocks)
+
+                    def _sort(pairs):
+                        return sorted(pairs, key=lambda kv: (
+                            _composer.CANONICAL_ORDER.get(
+                                "global_head" if kv[0] == "global" else kv[0],
+                                99), kv[0]))
+
+                    return _sort(payload_pairs), _sort(prepared_pairs)
+
+                def _ev(kind: str, role: str, frags) -> dict | None:
+                    items = list(frags or ())
+                    if not items:
+                        return None
+                    stamps = [int(f.timestamp_utc or 0) for f in items
+                              if int(f.timestamp_utc or 0)]
+                    ids: list = []
+                    for frag in items:
+                        sid = str(frag.source_id or "")
+                        if sid and sid not in ids:
+                            ids.append(sid)
+                    return {
+                        "kind": kind, "role": role, "rendered": True,
+                        "skip_reason": "", "source_ids": ids[:_MAX_SELECTION_IDS],
+                        "first_ts": min(stamps) if stamps else 0,
+                        "last_ts": max(stamps) if stamps else 0,
+                        "tokens": sum(f.tokens() for f in items),
+                    }
+
+                def _event_blocks(sel) -> list[dict]:
+                    branch = _merge_branch(sel)
+                    thread = _merge_thread(sel)
+                    mem = list(sel.memory)
+                    rag = [f for f in mem if (
+                        f.kind == _composer.KIND_SUMMARY_INFERENCE
+                        and not str(f.source_id or "").startswith(
+                            ("episode:", "middle:", "summary:", "supplement:")))]
+                    episode = [f for f in mem if f not in rag and not str(
+                        f.source_id or "").startswith("supplement:")]
+                    supplement = [f for f in mem if str(
+                        f.source_id or "").startswith("supplement:")]
+                    out = [
+                        _ev("branch", "p0", branch),
+                        _ev("history_supplement", "p2", supplement),
+                        _ev("episode", "p2", episode),
+                        _ev("rag", "p2", rag),
+                        _ev("global_head", "p2", sel.summary),
+                        _ev("global_middle", "p3", sel.background),
+                        _ev("global_tail", "p1",
+                            list(sel.fresh_neighbours)
+                            + list(sel.self_outputs)),
+                        _ev("thread", "p1", thread),
+                        _ev("current", "p0",
+                            [sel.current_question,
+                             *(sel.current_parts or ())]),
+                    ]
+                    head = next((item for item in out
+                                 if item and item.get("kind") == "global_head"),
+                                None)
+                    if head is not None:
+                        # Конспект покрывает ДИАПАЗОН, а не отдельное
+                        # сообщение: id не выдумываются, даты — из watermark.
+                        head["source_ids"] = []
+                        head["first_ts"] = int(
+                            global_parts.get("window_start_ts") or 0)
+                        head["last_ts"] = int(
+                            global_parts.get("window_end_ts") or 0)
+                    return [item for item in out if item]
+
+                def _merge_branch(sel) -> list:
+                    parent = getattr(sel, "reply_parent", None)
+                    items = ([parent] if parent is not None else [])
+                    items += list(getattr(sel, "reply_parent_parts", ()) or ())
+                    items += list(getattr(sel, "reply_branch", ()) or ())
+                    seen: set = set()
+                    out: list = []
+                    for frag in items:
+                        if frag.source_id in seen:
+                            continue
+                        seen.add(frag.source_id)
+                        out.append(frag)
+                    return out
+
+                def _merge_thread(sel) -> list:
+                    seen: set = set()
+                    out: list = []
+                    for frag in _merge_branch(sel) + list(sel.thread):
+                        if frag.source_id in seen:
+                            continue
+                        seen.add(frag.source_id)
+                        out.append(frag)
+                    return out
+
+                def _prepared(sel, texts, *, payload_pairs=None,
+                              fallback: bool = False,
+                              fb_budget: int | None = None,
+                              fb_model_budget: int | None = None):
+                    included = set(id(f) for f in sel.fragments())
+                    event_blocks = _event_blocks(sel)
+                    available_ids = set(_sel_row_ids(
+                        window, bot_user_id=getattr(self, "bot_id", None)))
+                    available_ids.update(
+                        str(f.source_id)
+                        for f in (full_selection.reply_branch or ())
+                        + (full_selection.thread or ()) if f.source_id)
+                    available_ids.update(
+                        str(f.source_id)
+                        for f in (full_selection.fresh_neighbours or ())
+                        + (full_selection.self_outputs or ())
+                        if f.source_id)
+                    available_ids.update(_sel_row_ids(
+                        episode_stats.get("rows") or (),
+                        bot_user_id=getattr(self, "bot_id", None)))
+                    budget_meta = {
+                        "slot": "direct.primary",
+                        "window": int(model_window),
+                        "window_source": str(window_source),
+                        "output_reserve": int(output_reserve),
+                        "available": int(available),
+                        "budget": int(
+                            fb_model_budget if (fallback and fb_model_budget)
+                            else (fb_budget if fallback else budget)),
+                        "selection_budget": int(
+                            fb_budget if fallback else selection_budget),
+                        "fixed_p0_tokens": int(fixed_tokens),
+                        "policy_mode": (
+                            "fallback_capacity"
+                            if (fallback and sel.provenance.overflow
+                                and not (sel.fresh_neighbours
+                                         or sel.background or sel.memory))
+                            else ("fallback_recompose" if fallback
+                                  else policy_mode)),
+                        "payload_tokens": sum(
+                            count_tokens(text) for _k, text in
+                            (payload_pairs if payload_pairs is not None
+                             else texts)),
+                        "fallback_window": (
+                            int(fallback_recompose_budget)
+                            if fallback_recompose_budget else None),
+                        "degraded": False,
+                        "physical_overflow": bool(
+                            sel.provenance.overflow),
+                        "capacity_limited": bool(
+                            sel.provenance.overflow
+                            and not (sel.fresh_neighbours
+                                     or sel.background or sel.memory)),
+                    }
+                    if fallback:
+                        budget_meta["fallback"] = True
+                        # Fallback prepared описывает fallback-тело: primary
+                        # window/source к нему не относятся; payload_tokens —
+                        # фактически отправленного тела — сохраняется (F3).
+                        for _meta_key in ("window", "window_source",
+                                          "output_reserve", "available"):
+                            budget_meta.pop(_meta_key, None)
+                    self_out_payload: list = []
+                    seen_self: set = set()
+                    for frag in (list(sel.self_outputs)
+                                 + list(sel.fresh_neighbours)
+                                 + list(sel.background)):
+                        if frag.kind != _composer.KIND_BOT_STATEMENT:
+                            continue
+                        sid = str(frag.source_id or "")
+                        if not sid or sid in seen_self:
+                            continue
+                        seen_self.add(sid)
+                        self_out_payload.append({
+                            "source_id": sid,
+                            "tg_message_id": frag.tg_message_id,
+                            "ts": int(frag.timestamp_utc or 0),
+                            "kind": frag.kind,
+                        })
+                    return _prepared_turn_payload(
+                        chat_id=chat_id, correlation_id=correlation_id,
+                        blocks=texts, event_blocks=event_blocks,
+                        available_item_ids=available_ids,
+                        window_messages=len(list(window or ())),
+                        budget=budget_meta,
+                        dropped=_trace_selection_dropped(sel),
+                        self_outputs=tuple(self_out_payload),
+                        chain_rendered=(
+                            {"branch": list(rendered_chain_lines),
+                             "thread": list(rendered_chain_lines)}
+                            if rendered_chain_lines else chain_rendered),
+                        projection=projection,
+                        policy_version=_composer.COMPOSER_POLICY_VERSION,
+                        memory_period=dict(
+                            (rag_memory or {}).get("period") or {}))
+
+                allocated = _composer.allocate_selection(
+                    full_selection, allocation_budget)
+                payload_pairs, prepared_pairs = _materialize(allocated)
+                texts = [text for _kind, text in payload_pairs]
+                prepared_primary = _prepared(
+                    allocated, prepared_pairs, payload_pairs=payload_pairs)
+                if out_prepared is not None:
+                    out_prepared["primary"] = prepared_primary
+                if out_excluded is not None:
+                    for item in allocated.provenance.dropped:
+                        out_excluded.append(dict(item))
+                if out_fallback is not None:
+                    try:
+                        out_fallback["l2_input_budget"] = int(budget)
+                    except Exception:
+                        pass
+                    if fallback_recompose_budget is not None:
+                        try:
+                            out_fallback["l2_fallback_budget"] = int(
+                                fallback_recompose_budget)
+                        except Exception:
+                            pass
+                    try:
+                        out_fallback["selection_budget"] = int(
+                            selection_budget)
+                        out_fallback["fixed_p0_tokens"] = int(fixed_tokens)
+                    except Exception:
+                        pass
+                    try:
+                        # UR-11b F1: единственная identity-полоса selection ↔
+                        # payload — точные тексты materialized payload.
+                        out_fallback["selection_texts"] = tuple(
+                            str(t) for t in texts)
+                        out_fallback["selection_payload_tokens"] = int(
+                            sum(count_tokens(t) for t in texts))
+                    except Exception:
+                        pass
+
+                # Fallback recompose: тот же allocator на ТОЙ ЖЕ полной
+                # selection, без повторного retrieval/сборки. Фабрика живёт
+                # и без fallback-модели: final fit primary использует её же.
+                if out_fallback is not None:
+                    def _fallback_factory(time_line: str | None,
+                                          extra_reserve: int = 0,
+                                          binding: dict | None = None,
+                                          selection_budget: int | None = None,
+                                          extra_prefix=(),
+                                          extra_suffix=(),
+                                          anchored=(),
+                                          mark_fallback: bool = True):
+                        def _base_budget() -> int:
+                            if selection_budget is not None:
+                                return int(selection_budget)
+                            if fallback_selection_budget is not None:
+                                return int(fallback_selection_budget)
+                            return int(budget)
+
+                        def _model_budget() -> int:
+                            # Effective input budget модели, получающей тело.
+                            # Final fit/вызывающий переопределяет budget сам;
+                            # wrapper fallback ставит реальное окно fallback.
+                            if fallback_recompose_budget is not None:
+                                return int(fallback_recompose_budget)
+                            return int(_base_budget()) + int(fixed_tokens)
+
+                        def _body_and_prepared(incoming, base_budget, *,
+                                               capacity: bool):
+                            fb_budget = max(
+                                1, int(base_budget)
+                                - int(extra_reserve or 0))
+                            degraded_out: dict = {}
+                            capacity_pairs: list = []
+                            capacity_prepared = None
+                            if capacity:
+                                try:
+                                    minimal = _composer.ContextSelection(
+                                        current_question=(
+                                            full_selection.current_question),
+                                        current_parts=tuple(
+                                            full_selection.current_parts
+                                            or ()),
+                                        reply_parent=(
+                                            full_selection.reply_parent),
+                                        reply_parent_parts=tuple(
+                                            full_selection.reply_parent_parts
+                                            or ()))
+                                    cap_payload, cap_prepared_pairs = \
+                                        _materialize(minimal)
+                                    capacity_pairs = list(cap_payload)
+                                    capacity_prepared = _prepared(
+                                        minimal, cap_prepared_pairs,
+                                        payload_pairs=cap_payload,
+                                        fallback=True, fb_budget=fb_budget,
+                                        fb_model_budget=_model_budget())
+                                except Exception:
+                                    logger.warning(
+                                        "direct: capacity materialize failed "
+                                        "— raw fixed/current only | chat=%s",
+                                        chat_id, exc_info=True)
+                                    capacity_pairs = list(fixed_blocks)
+                                    current = full_selection.current_question
+                                    if current.text:
+                                        capacity_pairs.append((
+                                            "current",
+                                            "<Current_Question>\n"
+                                            f"{escape_xml_text(current.text)}\n"
+                                            "</Current_Question>"))
+                                    parent = full_selection.reply_parent
+                                    ptext = str(getattr(
+                                        parent, "text", "") or "")
+                                    if full_selection.reply_parent_parts:
+                                        ptext += "".join(
+                                            str(p.text or "") for p in
+                                            full_selection.reply_parent_parts)
+                                    if ptext.strip():
+                                        capacity_pairs.append((
+                                            "thread",
+                                            "<Conversation_Thread>\n"
+                                            f"{escape_xml_text(ptext)}\n"
+                                            "</Conversation_Thread>"))
+                                    capacity_pairs.sort(key=lambda kv: (
+                                        _composer.CANONICAL_ORDER.get(
+                                            kv[0], 99), kv[0]))
+                                capacity_texts = [
+                                    t for _k, t in capacity_pairs]
+                            else:
+                                fb_sel = _composer.allocate_selection(
+                                    full_selection, fb_budget)
+                                fb_payload, fb_prepared_pairs = \
+                                    _materialize(fb_sel)
+                                capacity_texts = [t for _k, t in fb_payload]
+                                capacity_prepared = _prepared(
+                                    fb_sel, fb_prepared_pairs,
+                                    payload_pairs=fb_payload,
+                                    fallback=True, fb_budget=fb_budget,
+                                    fb_model_budget=_model_budget())
+                            body = _insert_writer_extras(
+                                capacity_texts, anchored,
+                                degraded_out=degraded_out)
+                            blocks_fb = (
+                                ([time_line] if time_line else [])
+                                + list(extra_prefix)
+                                + body
+                                + list(extra_suffix))
+                            if capacity_prepared is None:
+                                sent_fixed_tokens = sum(
+                                    count_tokens(text)
+                                    for kind, text in capacity_pairs
+                                    if kind in fixed_kinds)
+                                capacity_prepared = _prepared_turn_payload(
+                                    chat_id=chat_id,
+                                    correlation_id=correlation_id,
+                                    blocks=capacity_pairs,
+                                    event_blocks=[{
+                                        "kind": kind, "role": "p0",
+                                        "rendered": True,
+                                        "skip_reason": "",
+                                        "source_ids": [],
+                                        "first_ts": 0, "last_ts": 0,
+                                        "tokens": count_tokens(text)}
+                                        for kind, text in capacity_pairs],
+                                    available_item_ids=frozenset(),
+                                    window_messages=len(list(window or ())),
+                                    budget={
+                                        "slot": "direct.primary",
+                                        "budget": int(fb_budget),
+                                        "selection_budget": int(fb_budget),
+                                        "fixed_p0_tokens": int(
+                                            sent_fixed_tokens),
+                                        "policy_mode": "fallback_capacity",
+                                        "degraded": True,
+                                        "physical_overflow": True,
+                                        "capacity_limited": True,
+                                    },
+                                    dropped=(), self_outputs=(),
+                                    chain_rendered=chain_rendered,
+                                    projection=projection,
+                                    policy_version=(
+                                        _composer.COMPOSER_POLICY_VERSION))
+                            sent_tokens = sum(
+                                count_tokens(b) for b in blocks_fb if b)
+                            _policy_mode = (
+                                "fallback_capacity" if capacity
+                                else capacity_prepared.budget.get(
+                                    "policy_mode", "fallback_recompose"))
+                            capacity_prepared = dataclasses.replace(
+                                capacity_prepared,
+                                budget=dict(
+                                    capacity_prepared.budget,
+                                    budget=int(_model_budget()),
+                                    selection_budget=int(fb_budget),
+                                    payload_tokens=int(sent_tokens),
+                                    policy_mode=_policy_mode,
+                                    degraded=bool(
+                                        capacity
+                                        or _policy_mode == "fallback_capacity"
+                                        or degraded_out.get("degraded")),
+                                    physical_overflow=bool(
+                                        capacity
+                                        or capacity_prepared.budget.get(
+                                            "physical_overflow")),
+                                    capacity_limited=bool(
+                                        capacity
+                                        or _policy_mode == "fallback_capacity"
+                                        or capacity_prepared.budget.get(
+                                            "capacity_limited"))))
+                            messages = incoming.get("messages") or []
+                            adapted = dict(incoming)
+                            adapted["messages"] = [
+                                {"role": "system",
+                                 "content": str(
+                                     messages[0].get("content", "")
+                                     if messages else "")},
+                                {"role": "user",
+                                 "content": "\n\n".join(
+                                     b for b in blocks_fb if b)},
+                            ]
+                            if binding is not None:
+                                binding["prepared"] = capacity_prepared
+                                binding["prepared_text"] = _sent_user_text(
+                                    adapted)
+                            if out_prepared is not None and mark_fallback:
+                                out_prepared["fallback_prepared"] = \
+                                    capacity_prepared
+                                out_prepared["fallback_used"] = True
+                            logger.info(
+                                "direct: selection fallback recompose | "
+                                "chat=%s | budget=%d | blocks=%d | "
+                                "anchored=%d | capacity=%s",
+                                chat_id, fb_budget, len(capacity_texts),
+                                len(anchored), bool(capacity))
+                            return adapted, capacity_prepared
+
+                        def _adapt(incoming: dict):
+                            base_budget = _base_budget()
+                            capacity = (base_budget
+                                        - int(extra_reserve or 0)) < 1
+                            if capacity:
+                                return _body_and_prepared(
+                                    incoming, base_budget, capacity=True)
+                            try:
+                                return _body_and_prepared(
+                                    incoming, base_budget, capacity=False)
+                            except Exception:
+                                logger.warning(
+                                    "direct: selection fallback recompose "
+                                    "FAILED — capacity-only payload | "
+                                    "chat=%s", chat_id, exc_info=True)
+                                return _body_and_prepared(
+                                    incoming, base_budget, capacity=True)
+
+                        return _adapt
+                    try:
+                        out_fallback["adapter_factory"] = _fallback_factory
+                        out_fallback["selection_recompose"] = True
+                    except Exception:
+                        pass
+
+                # ── Observability (existing events; selection-derived) ──
+                used_tokens = sum(count_tokens(t) for t in texts)
+                record_context_usage(
+                    used_tokens,
+                    None if policy_mode == "unlimited" else budget,
+                    bool(allocated.provenance.dropped),
+                    unlimited=(policy_mode == "unlimited"))
+                try:
+                    _auto_budget.record_slot_observation(
+                        "direct.primary", used_tokens)
+                    if (allocated.provenance.dropped
+                            or allocated.provenance.overflow):
+                        _auto_budget.record_slot_pressure(
+                            "direct.primary",
+                            physical_overflow=bool(
+                                allocated.provenance.overflow))
+                except Exception:
+                    pass
+                summary_lag = None
+                summary_age = None
+                if global_parts.get("has_summary"):
+                    summary_lag = (len(global_parts["tail_rows"])
+                                   + len(global_parts["middle_rows"]))
+                    if global_parts.get("window_end_ts"):
+                        summary_age = max(0, int(
+                            time.time()
+                            - int(global_parts["window_end_ts"])))
+                summary_revision = await self._summary_revision(chat_id)
+                _composer.emit_context_capacity(
+                    model=model_name, window=model_window,
+                    window_source=window_source,
+                    external_tokens=external_tokens,
+                    output_reserve=output_reserve,
+                    available_context=available, budget=budget,
+                    policy_mode=policy_mode,
+                    summary_revision=summary_revision,
+                    summary_watermark=global_parts["window_end_ts"],
+                    summary_lag_messages=summary_lag,
+                    summary_age=summary_age,
+                    estimation_method=est_method)
+                rag_frags = [f for f in allocated.memory if (
+                    f.kind == _composer.KIND_SUMMARY_INFERENCE
+                    and not str(f.source_id or "").startswith(
+                        ("episode:", "middle:", "summary:", "supplement:")))]
+                episode_frags = [f for f in allocated.memory if (
+                    f not in rag_frags
+                    and not str(f.source_id or "").startswith("supplement:"))]
+                _composer.emit_context_select(
+                    chat_id=chat_id, message_id=trigger_message_id,
+                    recent_verbatim_messages=(len(allocated.fresh_neighbours)
+                                              + len(allocated.self_outputs)),
+                    recent_verbatim_tokens=sum(
+                        f.tokens() for f in
+                        list(allocated.fresh_neighbours)
+                        + list(allocated.self_outputs)),
+                    reply_thread_messages=len(_merge_thread(allocated)),
+                    old_episode_count=len(episode_frags),
+                    old_episode_messages=len(episode_frags),
+                    old_episode_tokens=sum(f.tokens()
+                                           for f in episode_frags),
+                    middle_selected_messages=len(allocated.background),
+                    compressed_background_tokens=sum(
+                        f.tokens() for f in allocated.summary),
+                    rag_tokens=sum(f.tokens() for f in rag_frags))
+                if (allocated.provenance.dropped
+                        or allocated.provenance.overflow):
+                    _composer.record_direct_metric(
+                        "direct_context_pressure_total")
+                    _composer.emit_context_pressure(
+                        chat_id=chat_id,
+                        excluded_low_priority=len(
+                            allocated.provenance.dropped),
+                        compressed_or_dropped=len(
+                            allocated.provenance.dropped),
+                        physical_overflow=bool(
+                            allocated.provenance.overflow),
+                        unsummarized_tail_messages=summary_lag or 0,
+                        unsummarized_tail_tokens=sum(
+                            f.tokens() for f in
+                            allocated.fresh_neighbours))
+                if allocated.provenance.overflow:
+                    _composer.record_direct_metric(
+                        "direct_context_physical_overflow_total")
+                    preserved = sorted({
+                        str(f.role or f.kind)
+                        for f in allocated.fragments()
+                        if f.priority == _composer.P0})
+                    _composer.emit_context_physical_overflow(
+                        chat_id=chat_id, preserved_kinds=preserved,
+                        available=int(selection_budget),
+                        needed=int(allocated.provenance.included_tokens))
+                    logger.warning(
+                        "direct: selection physical overflow | chat=%s "
+                        "available=%d needed=%d preserved=%s",
+                        chat_id, selection_budget,
+                        allocated.provenance.included_tokens,
+                        ",".join(preserved) or "-")
+                _composer.record_diagnostics(chat_id, {
+                    "model": model_name[:64], "window": int(model_window),
+                    "window_source": str(window_source),
+                    "external_tokens": int(external_tokens),
+                    "output_reserve": int(output_reserve),
+                    "available_context": int(available),
+                    "budget": int(budget),
+                    "selection_budget": int(selection_budget),
+                    "fixed_p0_tokens": int(fixed_tokens),
+                    "policy_mode": str(policy_mode),
+                    "payload": int(used_tokens),
+                    "recent_verbatim_messages": len(
+                        allocated.fresh_neighbours),
+                    "recent_verbatim_tokens": sum(
+                        f.tokens() for f in allocated.fresh_neighbours),
+                    "old_episode_count": len(episode_frags),
+                    "old_episode_messages": len(episode_frags),
+                    "middle_selected_messages": len(allocated.background),
+                    "excluded_low_priority": len(
+                        allocated.provenance.dropped),
+                    "physical_overflow": bool(
+                        allocated.provenance.overflow),
+                    "updated_at": int(time.time()),
+                })
+                return texts
+
+            try:
+                return await _run_live_selection()
+            except Exception:
+                selection_degraded = True
+                logger.warning(
+                    "direct: live selection failed — legacy fail-open | "
+                    "chat=%s", chat_id, exc_info=True)
 
         # ── Allocation (eviction P3→P2→P1; P0 не трогается) ──
         def _new_pieces() -> list:
@@ -12886,7 +14458,10 @@ class DirectChatService:
                         "output_reserve": int(output_reserve),
                         "available": int(available),
                         "budget": int(budget),
-                        "policy_mode": str(policy_mode),
+                        "policy_mode": ("legacy_fail_open"
+                                        if selection_degraded
+                                        else str(policy_mode)),
+                        "degraded": bool(selection_degraded),
                         "payload_tokens": int(used_tokens),
                         "fallback_window": (int(fallback_recompose_budget)
                                             if fallback_recompose_budget
@@ -13440,6 +15015,49 @@ class DirectChatService:
             logger.debug("direct: context config invariant check failed",
                          exc_info=True)
 
+    @staticmethod
+    def _current_question_source(message, extra_markers=(),
+                                 projection=None) -> tuple[str, tuple]:
+        """UR-C-2b: (полный текст, медиа-маркеры) без рендера блока.
+
+        Единственный источник для `_render_current_question` и для
+        `ContextSelection.current_question`; маркеры не дублируются и не
+        теряются между live-путями.
+        """
+        stripped = _strip_direct_prefix(_message_user_text(message))
+        markers: list[str] = []
+        speech = projection is not None and speech_projection_enabled()
+        if media_context_enabled():
+            own = message_media_type(message)
+            if own:
+                markers.append(
+                    media_marker(own, f"tg:{getattr(message, 'message_id', '')}",
+                                 projection=projection if speech else None))
+            reply = getattr(message, "reply_to_message", None)
+            reply_type = message_media_type(reply)
+            if reply_type:
+                markers.append(
+                    media_marker(
+                        reply_type, f"tg:{getattr(reply, 'message_id', '')}",
+                        projection=projection if speech else None))
+            for extra in extra_markers or ():
+                extra_text = str(extra or "")
+                if not extra_text:
+                    continue
+                # EVOL v5 (§4.1 P1/§4.2 п.2): доверенный маркер способа (C)
+                # приходит в сыром диалекте (`[медиа: photo tg:123]`) — он же
+                # служит явным рефом для media-readiness. В речевой проекции
+                # тот же маркер перерисовывается МЕТКОЙ прогона (тип медиа и
+                # привязка к сообщению сохраняются, служебный номер уходит).
+                parsed = MEDIA_MARKER_RE.match(extra_text.strip())
+                if parsed is not None and parsed.group("ref"):
+                    markers.append(media_marker(
+                        parsed.group("media"), parsed.group("ref"),
+                        projection=projection if speech else None))
+                else:
+                    markers.append(extra_text)
+        return stripped, tuple(markers)
+
     def _render_current_question(self, message, extra_markers=(),
                                  projection=None) -> str:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — ПОЛНЫЙ
@@ -13473,38 +15091,8 @@ class DirectChatService:
         быть частью «слов участника». Сам факт медиа, его тип и привязка к
         сообщению сохраняются. ``None``/рубильник OFF → прежний вид
         байт-в-байт (L1 — машинная стадия — всегда сырой)."""
-        stripped = _strip_direct_prefix(_message_user_text(message))
-        markers: list[str] = []
-        speech = projection is not None and speech_projection_enabled()
-        if media_context_enabled():
-            own = message_media_type(message)
-            if own:
-                markers.append(
-                    media_marker(own, f"tg:{getattr(message, 'message_id', '')}",
-                                 projection=projection if speech else None))
-            reply = getattr(message, "reply_to_message", None)
-            reply_type = message_media_type(reply)
-            if reply_type:
-                markers.append(
-                    media_marker(
-                        reply_type, f"tg:{getattr(reply, 'message_id', '')}",
-                        projection=projection if speech else None))
-            for extra in extra_markers or ():
-                extra_text = str(extra or "")
-                if not extra_text:
-                    continue
-                # EVOL v5 (§4.1 P1/§4.2 п.2): доверенный маркер способа (C)
-                # приходит в сыром диалекте (`[медиа: photo tg:123]`) — он же
-                # служит явным рефом для media-readiness. В речевой проекции
-                # тот же маркер перерисовывается МЕТКОЙ прогона (тип медиа и
-                # привязка к сообщению сохраняются, служебный номер уходит).
-                parsed = MEDIA_MARKER_RE.match(extra_text.strip())
-                if parsed is not None and parsed.group("ref"):
-                    markers.append(media_marker(
-                        parsed.group("media"), parsed.group("ref"),
-                        projection=projection if speech else None))
-                else:
-                    markers.append(extra_text)
+        stripped, markers = DirectChatService._current_question_source(
+            message, extra_markers=extra_markers, projection=projection)
         if not stripped and not markers:
             return ""
         # SXR-C2-01: полный текст без символьного потолка; медиа-маркеры —
@@ -16202,6 +17790,7 @@ class DirectChatService:
                                include_overview: bool = False,
                                plan_act: str = "",
                                trace_id: str | None = None,
+                               selection_mode: bool = False,
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -16449,14 +18038,17 @@ class DirectChatService:
         # R10.4-7 (F5 round1014, T-1518): cap — per-chat override (get_chat_param
         # → hot.get → default), иначе сохранённое для чата значение в direct-пути
         # игнорировалось. Зеркалит summary_memory.get_rag_context (_chat_limit).
-        cap = int(await _cp_g(
-            chat_id, "limits.graph_rag_context_max_chars",
-            hot.get("limits.graph_rag_context_max_chars",
-                    settings.GRAPH_RAG_CONTEXT_MAX_CHARS)) or 0)
-        if cap and len(content) > cap:
-            logger.warning("direct: rag context truncated to %d chars | chat=%s",
-                           cap, chat_id)
-            content = content[:cap]
+        # UR-C-2b: на live-selection пути это НЕ владелец отсечки — текст режет
+        # единственный allocate_selection; cap остаётся только fail-open/legacy.
+        if not selection_mode:
+            cap = int(await _cp_g(
+                chat_id, "limits.graph_rag_context_max_chars",
+                hot.get("limits.graph_rag_context_max_chars",
+                        settings.GRAPH_RAG_CONTEXT_MAX_CHARS)) or 0)
+            if cap and len(content) > cap:
+                logger.warning("direct: rag context truncated to %d chars | chat=%s",
+                               cap, chat_id)
+                content = content[:cap]
         period_trace, rag_years = _period_trace(period_stats, kept)
         logger.info(
             "direct: rag block | facts=%d | period_kept=%d | "
@@ -16528,6 +18120,10 @@ class DirectChatService:
                 # факта (R17: без текста). Раньше здесь были только id.
                 out_memory["grounds"] = _rag_ground_records(
                     rows, kept, chat_id)
+                # UR-C-2b: source_index/materializer получают ФАКТИЧЕСКИ
+                # вошедшие kept-ряды (тот же порядок рендера); в трассу это
+                # поле не копируется — только внутренний вход selection.
+                out_memory["rows"] = list(order_rag_facts_asc(kept))
             except Exception:      # pragma: no cover - наблюдение не рвёт блок
                 pass
         return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
@@ -16610,6 +18206,7 @@ class DirectChatService:
                 block, _hint = await self._build_rag_block(
                     rag_ctx["chat_id"], rag_ctx["message"],
                     rag_ctx["global_ctx"], **_rag_kwargs, **_plan_kwargs,
+                    selection_mode=True,
                     **({"include_overview": True}
                        if plan_scope == "historical" else {}))
             except TypeError:
@@ -17465,10 +19062,9 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
-        try:
-            window = [dict(r) for r in (window or ())]
-        except Exception:
-            pass
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
         # Проза личности нужна Writer'у (`_initiative_persona_block`), планеру
         # идёт только профиль решений; ctx берётся из того же резолва. Резолв
         # fail-open: сбой (PG/флаги) не должен ломать ход и не должен
@@ -17558,6 +19154,9 @@ class DirectChatService:
                 "chat=%s | reason=%s", chat_id, _exc_brief(exc))
             return None
         _init_budget = int(_slot_meta.budget_tokens)
+        # UR-11a: окно инициативы — то же правило одного бюджета; сырое окно
+        # уходит в `build_l1_context`, allocator выбирает остаток после fixed.
+        # `select_l1_window` остаётся legacy/fail-open и здесь не вызывается.
         # ASAP-FC-VOICE-01 / B: тот же профиль решений, что у Direct (одна
         # точка сборки); кадр принимается только для ЭТОГО чата и только с
         # версией из `_initiative_ctx` (иначе — честный legacy/absent). Это
@@ -17594,8 +19193,11 @@ class DirectChatService:
                 kind="text", force_reply=False, direct_request=False,
                 recheck=True, trigger="initiative"),
             time_snapshot=snap_plan)
+        _init_status: dict = {}
         context_text = _l1.build_l1_context(
-            query=task, window=window, speaker="наблюдатель",
+            query=task, window=window, line_chars=0,
+            preallocated=True, out_status=_init_status,
+            speaker="наблюдатель",
             addressee=addressee_label,
             capabilities=list(_turn_req.tool_state.capabilities),
             force_line="; ".join(_init_conditions),
@@ -17613,8 +19215,15 @@ class DirectChatService:
             context_text, _init_budget, total_chars=0)
         meta: dict = {
             "l1_reply_chars_cap": int(_init_reply_stats["chars_cap"]),
-            "l1_line_chars_cap": int(_l1.window_line_chars(
-                window, budget_tokens=_init_budget)),
+            "l1_line_chars_cap": 0,
+            "l1_window_rows_raw": int(
+                _init_status.get("window_rows_raw") or 0),
+            "l1_window_rows_selected": int(
+                _init_status.get("window_rows_selected") or 0),
+            "l1_window_budget": int(_init_status.get("window_budget") or 0),
+            "l1_fixed_tokens": int(_init_status.get("fixed_tokens") or 0),
+            "l1_window_render_overhead": int(
+                _init_status.get("window_render_overhead") or 0),
             "l1_reply_total_chars": int(_init_reply_stats["total_chars"]),
             "l1_reply_delivered_chars": int(
                 _init_reply_stats["delivered_chars"]),
@@ -17625,6 +19234,11 @@ class DirectChatService:
             "l1_profile_source": bot_persona.decision_profile_source(
                 _init_profile),
             "l1_profile_chars": int(len(_init_profile)),
+            "l1_context_overflow": bool(_init_status.get("overflow")),
+            "l1_context_used_tokens": int(
+                _init_status.get("used_tokens") or 0),
+            "l1_window_preserved": bool(
+                _init_status.get("window_preserved")),
             "input_chars": int(len(context_text)),
         }
         messages = [
@@ -17691,10 +19305,9 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
-        try:
-            window = [dict(r) for r in (window or ())]
-        except Exception:
-            pass
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
         persona_block = await self._initiative_persona_block(chat_id)
         row = intent_row or {}
         goal = str(row.get("goal") or "").strip()
@@ -17731,6 +19344,9 @@ class DirectChatService:
         # владелец формата, EVOL v5); selection решает, ЧТО видно, окно —
         # в каком порядке. Сбой общей сборки — fail-open на кандидатный
         # хвост без ручного потолка (инициативу не роняем).
+        _init_prepared_out: dict = {}
+        _init_fb_budget: int | None = None
+        _init_stage_budget = None
         try:
             # Модель/endpoint — только от инжектированного клиента (без
             # settings-fallback): двойник без атрибутов → пустые строки →
@@ -17739,6 +19355,20 @@ class DirectChatService:
                 "initiative.l2",
                 base_url=str(getattr(self.llm, "_base_url", "") or ""),
                 model=str(getattr(self.llm, "_chat_model", "") or ""))
+            _init_fb_budget = None
+            _init_fb_model = str(
+                getattr(self.llm, "_fallback_model", "") or "")
+            if _init_fb_model:
+                try:
+                    _init_fb_result = await _auto_budget.resolve_stage_budget(
+                        "initiative.l2",
+                        base_url=str(getattr(
+                            self.llm, "_fallback_base_url", "") or ""),
+                        model=_init_fb_model)
+                    _init_fb_budget = int(
+                        _init_fb_result.effective_input_budget)
+                except Exception:      # pragma: no cover - fail-open
+                    _init_fb_budget = None
             _init_fresh, _init_background = \
                 _composer.collect_window_fragments(
                     window,
@@ -17774,8 +19404,134 @@ class DirectChatService:
             # алиасов не должен ронять инициативу — тот же fail-open, что и в
             # _refresh_turn_aliases.
             alias_resolver=getattr(self, "aliases", None),
+            # UR-11a: строка уже выбрана allocator'ом; повторный 200-симв.
+            # cap на Writer-сайте запрещён (второй cut owner).
+            line_chars=0,
             projection=_init_speech)
             if _init_window_rows else [])
+        _init_window_text = (
+            "<Fresh_Chat_Window>\n" + "\n".join(window_block)
+            + "\n</Fresh_Chat_Window>") if window_block else ""
+        _init_fb_factory = None
+        if _init_fb_budget or _init_stage_budget is not None:
+            def _init_fb_factory(time_line=None, extra_reserve: int = 0,
+                                 binding: dict | None = None,
+                                 selection_budget: int | None = None,
+                                 extra_prefix=(), extra_suffix=(),
+                                 anchored=(), mark_fallback: bool = True):
+                """UR-11b: initiative L2 recompose на том же window selection."""
+                def _base_budget() -> int:
+                    if selection_budget is not None:
+                        return int(selection_budget)
+                    fixed_context = int(count_tokens(
+                        str(context_block or "")))
+                    if _init_fb_budget:
+                        return max(1, int(_init_fb_budget) - fixed_context)
+                    primary_budget = int(getattr(
+                        _init_stage_budget, "effective_input_budget", 0) or 0)
+                    return max(1, primary_budget - fixed_context)
+
+                def _body(incoming, base_budget: int, *, capacity: bool):
+                    window_budget = max(
+                        1, int(base_budget) - int(extra_reserve or 0))
+                    degraded_out: dict = {}
+                    rows: list = []
+                    if not capacity:
+                        try:
+                            fresh, background = \
+                                _composer.collect_window_fragments(
+                                    window, aliases=None,
+                                    bot_user_id=getattr(self, "bot_id", None),
+                                    now_ts=int(time.time()))
+                            sel = _composer.build_context_selection(
+                                current_text="", chat_id=chat_id,
+                                fresh_neighbours=fresh,
+                                background=background,
+                                budget_tokens=window_budget)
+                            sources = (
+                                {f.source_id for f in sel.fresh_neighbours}
+                                | {f.source_id for f in sel.background})
+                            for _row in (window or ()):
+                                if not isinstance(_row, dict):
+                                    continue
+                                _probe = _composer.row_to_fragment(
+                                    _row, role=_composer.ROLE_FRESH_NEIGHBOUR)
+                                if _probe.source_id in sources:
+                                    rows.append(_row)
+                        except Exception:  # capacity-only fallback
+                            rows = []
+                    lines = _l1.render_window_lines(
+                        rows, max(1, len(rows)) if rows else 0,
+                        with_ids=True,
+                        alias_resolver=getattr(self, "aliases", None),
+                        line_chars=0, projection=_init_speech) if rows else []
+                    win = ("<Fresh_Chat_Window>\n" + "\n".join(lines)
+                           + "\n</Fresh_Chat_Window>") if lines else ""
+                    body = _insert_writer_extras(
+                        ([str(context_block or "")]
+                         + ([win] if win else [])),
+                        anchored, degraded_out=degraded_out)
+                    blocks = (([time_line] if time_line else [])
+                              + list(extra_prefix)
+                              + body
+                              + list(extra_suffix))
+                    messages = incoming.get("messages") or []
+                    adapted = dict(incoming)
+                    adapted["messages"] = [
+                        {"role": "system",
+                         "content": str(messages[0].get("content", "")
+                                        if messages else "")},
+                        {"role": "user",
+                         "content": "\n\n".join(b for b in blocks if b)}]
+                    prepared = _prepared_turn_payload(
+                        chat_id=chat_id, correlation_id=correlation_id,
+                        blocks=[("initiative_context", str(context_block or ""))]
+                        + ([("global_tail", win)] if win else []),
+                        event_blocks=[], available_item_ids=frozenset(),
+                        window_messages=len(tuple(window or ())),
+                        budget={
+                            "slot": "initiative.l2",
+                            "budget": int(
+                                _init_fb_budget
+                                or getattr(_init_stage_budget,
+                                           "effective_input_budget", 0)
+                                or base_budget),
+                            "selection_budget": int(window_budget),
+                            "payload_tokens": sum(
+                                count_tokens(b) for b in blocks if b),
+                            "policy_mode": ("fallback_capacity" if capacity
+                                            else "fallback_recompose"),
+                            "degraded": bool(
+                                capacity or degraded_out.get("degraded")),
+                            "physical_overflow": bool(capacity),
+                            "capacity_limited": bool(capacity),
+                            "fallback": True},
+                        dropped=(), self_outputs=(),
+                        projection=_init_speech,
+                        policy_version=_composer.COMPOSER_POLICY_VERSION)
+                    if binding is not None:
+                        binding["prepared"] = prepared
+                        binding["prepared_text"] = _sent_user_text(adapted)
+                    if mark_fallback:
+                        _init_prepared_out["fallback_prepared"] = prepared
+                        _init_prepared_out["fallback_used"] = True
+                    return adapted, prepared
+
+                def _adapt(incoming):
+                    base_budget = _base_budget()
+                    capacity = (base_budget
+                                - int(extra_reserve or 0)) < 1
+                    if capacity:
+                        return _body(incoming, base_budget, capacity=True)
+                    try:
+                        return _body(incoming, base_budget, capacity=False)
+                    except Exception:
+                        logger.warning(
+                            "[f6] initiative fallback recompose failed — "
+                            "capacity-only | chat=%s", chat_id, exc_info=True)
+                        return _body(incoming, base_budget, capacity=True)
+
+                return _adapt
         _init_labels: dict = {}
         _init_names: dict = {}
         for _row in _init_window_rows:
@@ -17811,10 +19567,8 @@ class DirectChatService:
             except (TypeError, ValueError):
                 return ""
         user_blocks = [context_block]
-        if window_block:
-            user_blocks.append("<Fresh_Chat_Window>\n" +
-                               "\n".join(window_block) +
-                               "\n</Fresh_Chat_Window>")
+        if _init_window_text:
+            user_blocks.append(_init_window_text)
         try:
             plan = l1_plan or _l1.L1Plan()
             response_plan = plan.to_response_plan() \
@@ -17985,6 +19739,17 @@ class DirectChatService:
                     _initiative_blocks = _initiative_blocks + [_init_note]
             _init_answer_snap, _init_clock_refreshed = \
                 await _cclock.ensure_answer_snapshot(_init_snap, chat_id)
+            _init_primary_budget = int(getattr(
+                _init_stage_budget, "effective_input_budget", 0) or 0)
+            _init_context_tokens = int(count_tokens(context_block))
+            _init_selection_texts = tuple(
+                [str(context_block or "")]
+                + ([_init_window_text] if _init_window_text else []))
+            _init_payload_tokens = int(
+                _init_context_tokens + count_tokens(_init_window_text or ""))
+            _init_selection_budget = (
+                max(1, _init_primary_budget - _init_context_tokens)
+                if _init_primary_budget else None)
             result = await self._l2_write_answer(
                 chat_id, _goal_query, temperature=temperature,
                 correlation_id=correlation_id,
@@ -17998,7 +19763,14 @@ class DirectChatService:
                 # реального ресурса модели и размера входа (общий путь с
                 # Direct, один код).
                 writer="initiative_writer",
-                speech=_init_speech)
+                speech=_init_speech,
+                fallback_selection_factory=_init_fb_factory,
+                fallback_budget_tokens=_init_fb_budget,
+                selection_budget_tokens=_init_selection_budget,
+                selection_texts=_init_selection_texts,
+                primary_budget_tokens=_init_primary_budget or None,
+                primary_payload_tokens=_init_payload_tokens,
+                out_prepared=_init_prepared_out)
             # BGS-02: то же наблюдение, что в Direct (единый postprocess):
             # без адресного lookup, без повторной генерации и без удаления
             # предложения. Инициатива не получает «отдельного» режима.

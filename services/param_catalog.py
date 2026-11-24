@@ -2131,8 +2131,8 @@ _LIMITS: list[tuple] = [
      "Сколько данных максимум берётся для сводки. Больше — полнее, но дороже."),
     ("INFO_COOLDOWN_SECONDS", "Кулдаун /info, сек", "float", "limits_service",
      "Пауза между запросами справки. Больше — реже отдаётся справка."),
-    ("CHAT_GLOBAL_CONTEXT_LIMIT", "Сообщений фона <Global_Context>", "int", "limits_chat",
-     "Сколько сообщений бот помнит из фона разговора. Больше — контекстнее, но дороже."),
+    ("CHAT_GLOBAL_CONTEXT_LIMIT", "Мягкая граница первичного чтения <Global_Context>", "int", "limits_chat",
+     "Сколько последних сообщений первично читает Global_Context. Это мягкая граница чтения, не потолок retrieval: старые релевантные сообщения могут добираться отдельным каналом."),
     ("CHAT_BURST_LIMIT", "Обращений подряд до кулдауна", "int", "limits_chat",
      "Сколько обращений подряд без перерыва разрешено. Меньше — бот чаще уходит в паузу."),
     ("CHAT_COOLDOWN_SECONDS", "Кулдаун direct_chat, сек", "float", "limits_chat",
@@ -2195,10 +2195,10 @@ _LIMITS: list[tuple] = [
      "Сколько сообщений ПОСЛЕ проверяемого сообщения видит фактчек (реакции, уточнения). Больше — шире контекст, но дороже."),
     ("SEARCH_CONTEXT_MESSAGES", "Окно контекста поиска (сообщений)", "int", "limits_search",
      "Сколько сообщений берётся для поиска. Больше — точнее, но дороже."),
-    ("CHAT_CONTEXT_FILL_RATIO", "Порог заполнения окна (доля)", "float", "limits_chat",
-     "При заполнении доли окна бот начинает сжимать контекст. Меньше — раньше сжимает."),
-    ("CHAT_RUNNING_SUMMARY_TAIL", "Хвост бегущего конспекта", "int", "limits_chat",
-     "Сколько последних сообщений всегда держать рядом с конспектом. Больше — живее, но дороже."),
+    ("CHAT_CONTEXT_FILL_RATIO", "Порог заполнения окна (legacy, не триггер)", "float", "limits_chat",
+     "Рантайм не использует как триггер конспекта: обновление идёт по watermark и вытеснению живого хвоста. Ключ сохранён для совместимости."),
+    ("CHAT_RUNNING_SUMMARY_TAIL", "Внутренний хвост сборки конспекта", "int", "limits_chat",
+     "Сколько последних сообщений дословно добавить в запрос сборки конспекта. Это внутренний fallback сборки, а не барьер или размер окна L1/L2."),
     ("RUNNING_SUMMARY_TTL_MINUTES", "Срок жизни бегущего конспекта, минут", "int", "limits_chat",
      "Сколько живёт бегущий конспект без обновлений. Больше — дольше помнит."),
     # F3 (10.19, ADR-1019-3 D2): группа limits_chat → limits_chat_context.
@@ -2230,8 +2230,8 @@ _LIMITS: list[tuple] = [
      "L1/Writer'а (свой бюджет), как лимит вопроса ключ не редактируется "
      "(UR-21.01). Значение задаёт только дефолтный cap рендера блока "
      "<Current_Question> в сборке payload'а."),
-    ("CHAT_LEVEL2_MIN_RAW_COUNT", "Порог сжатия конспекта в широкий фон (сообщений)", "int", "limits_chat",
-     "Сколько сообщений покрывал конспект, чтобы он сжимался в широкий уровень. Меньше — уровни строятся раньше."),
+    ("CHAT_LEVEL2_MIN_RAW_COUNT", "Порог сжатия в широкий фон (legacy)", "int", "limits_chat",
+     "Рантайм не использует как порог: широкий фон продвигается по watermark и непокрытому диапазону. Ключ сохранён для совместимости."),
     ("CHAT_LEVEL2_MAX_CHARS", "Макс. длина широкого фона (символов)", "int", "limits_chat",
      "Сколько символов широкого фона показывать в Global_Context. Больше — глубже история, но дороже."),
     ("CHAT_RAG_DEDUP_OVERLAP_RATIO", "Порог совпадения факта с фоном, доля", "float", "limits_rag",
@@ -3765,6 +3765,91 @@ EFFECTIVE_STATUS_META: dict[str, dict] = {
     "limits.chat_budget_response_ratio": {
         "status": "no_op", "consumer": "",
         "note": "Рантайм значение не читает (подтверждённый no-op)."},
+    # UR-11.7/UR-11.8 (UR-11a): legacy-капы/доли — только compat для
+    # composer OFF/fail-open; активный payload режет единый allocator.
+    # Значения/override не удаляются, UI-подписи — UR-21/UR-F.
+    "limits.chat_current_question_max_chars": {
+        "status": "no_op", "consumer": "",
+        "note": "Рантайм не читает: current идёт полным текстом через "
+                "allocator (UR-11a)."},
+    # UR-12.1/12.2/12.3/12.5 — summary/watermark semantics.
+    "limits.chat_context_fill_ratio": {
+        "status": "no_op", "consumer": "",
+        "note": "Не триггер конспекта: обновление решает watermark и "
+                "вытеснение живого хвоста, а не fill ratio."},
+    "limits.chat_running_summary_tail": {
+        "status": "legacy",
+        "consumer": "services.summary_memory (сборка конспекта)",
+        "units": "сообщений",
+        "note": "Внутренний fallback сборки конспекта; окно L1/L2 от него "
+                "не зависит и им не ограничивается."},
+    "limits.chat_level2_min_raw_count": {
+        "status": "legacy",
+        "consumer": "services.summary_memory (legacy-гард)",
+        "units": "сообщений",
+        "note": "Заменён продвижением по watermark/непокрытому диапазону; "
+                "активный путь значение не использует."},
+    "limits.chat_global_context_limit": {
+        "status": "active",
+        "consumer": "services.direct_chat_service (первичное чтение "
+                    "Global_Context)",
+        "units": "сообщений",
+        "note": "Мягкая граница первичного чтения; retrieval может брать "
+                "старше, это не потолок поиска."},
+    "limits.chat_budget_map_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_global_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_thread_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_rag_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_target_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_budget_branch_ratio": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Активный путь — composer; доля влияет только на "
+                "legacy/fail-open."},
+    "limits.chat_global_context_max_tokens": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап фона; composer-ON режет единый allocator."},
+    "limits.chat_global_context_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап фона; composer-ON режет единый allocator."},
+    "limits.chat_thread_max_tokens": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап ветки; composer-ON режет единый allocator."},
+    "limits.chat_thread_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап ветки; composer-ON режет единый allocator."},
+    "limits.graph_rag_context_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап RAG; selection-путь режет единый allocator."},
+    "limits.chat_level2_max_chars": {
+        "status": "legacy",
+        "consumer": "direct_chat_service (legacy/fail-open)",
+        "note": "Legacy-кап конспекта; composer-ON режет единый allocator."},
     "limits.chat_lock_max_entries": {
         "status": "no_op", "consumer": "",
         "note": "Неиспользуемый параметр, рантайм не читает."},

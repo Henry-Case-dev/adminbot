@@ -520,12 +520,14 @@ class TestL2FallbackRepack:
         assert "CAPACITY" in user_content, "честная capacity reason в пакете"
         assert reasons == ["fallback_window_exceeded"]
 
-    def test_adapter_never_raises(self):
+    def test_adapter_raises_on_invalid_input(self):
+        """UR-11b: legacy-адаптер больше не возвращает primary as-is."""
         adapter = self._adapter(1000)
-        assert adapter(None) is None          # fail-open: вход без изменений
+        with pytest.raises(Exception):
+            adapter(None)
         broken = {"messages": "not-a-list"}
         out = adapter(broken)
-        assert isinstance(out.get("messages"), list) or out == broken
+        assert isinstance(out.get("messages"), list)
 
 
 # ── fallback capability inference (§18C.3 + P1 semantic-routing) ─────────────

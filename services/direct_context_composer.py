@@ -857,6 +857,7 @@ AUTHORITY_BACKGROUND = "background"  # конспект/вывод модели,
 # ── Роли внутри хода → приоритет UR-09 (0 = высший) ─────────────────────────
 ROLE_CURRENT_QUESTION = "current_question"
 ROLE_REPLY_PARENT = "reply_parent"
+ROLE_REPLY_BRANCH = "reply_branch"
 ROLE_THREAD = "thread"
 ROLE_FRESH_NEIGHBOUR = "fresh_neighbour"
 ROLE_MEMORY = "memory"
@@ -867,6 +868,7 @@ ROLE_BACKGROUND = "background"
 ROLE_PRIORITY: dict[str, int] = {
     ROLE_CURRENT_QUESTION: P0,
     ROLE_REPLY_PARENT: P0,
+    ROLE_REPLY_BRANCH: P0,
     ROLE_THREAD: P1,
     ROLE_FRESH_NEIGHBOUR: P1,
     ROLE_MEMORY: P2,
@@ -879,12 +881,13 @@ ROLE_PRIORITY: dict[str, int] = {
 ROLE_ORDER: dict[str, int] = {
     ROLE_CURRENT_QUESTION: 0,
     ROLE_REPLY_PARENT: 1,
-    ROLE_THREAD: 2,
-    ROLE_FRESH_NEIGHBOUR: 3,
-    ROLE_MEMORY: 4,
-    ROLE_SELF_OUTPUT: 5,
-    ROLE_SUMMARY: 6,
-    ROLE_BACKGROUND: 7,
+    ROLE_REPLY_BRANCH: 2,
+    ROLE_THREAD: 3,
+    ROLE_FRESH_NEIGHBOUR: 4,
+    ROLE_MEMORY: 5,
+    ROLE_SELF_OUTPUT: 6,
+    ROLE_SUMMARY: 7,
+    ROLE_BACKGROUND: 8,
 }
 
 
@@ -899,6 +902,8 @@ def fragment_priority(fragment: "ContextFragment") -> int:
     опускает его до фона (P3), чтобы оно исчезало первым."""
     if fragment.superseded_by:
         return P3
+    if bool(getattr(fragment, "correction", False)):
+        return P0
     role = str(fragment.role or "")
     return ROLE_PRIORITY.get(role, P2)
 
@@ -945,6 +950,10 @@ class ContextFragment:
     note: str = ""            # короткая машинная пометка (конфликт/правка)
     part_index: int = 0       # >0/part_total>1 — часть overflow-дробления
     part_total: int = 1
+    # UR-C-2a: contract additions (additive; old producers keep defaults).
+    correction: bool = False       # actuation correction -> P0
+    memory_tier: int = 0           # 2 exact/lexical/reply, 3 vector/graph, 4 episode
+    compressible: bool = True      # False for P0 reply_branch/correction
 
     @property
     def priority(self) -> int:
@@ -1027,6 +1036,7 @@ class ContextSelection:
     # связанные куски со ссылкой на источник (без потери середины/конца).
     current_parts: tuple = ()
     reply_parent_parts: tuple = ()
+    reply_branch: tuple = ()
     thread: tuple = ()
     memory: tuple = ()
     self_outputs: tuple = ()
@@ -1044,6 +1054,7 @@ class ContextSelection:
         if self.reply_parent is not None:
             items.append(self.reply_parent)
         items.extend(self.reply_parent_parts)
+        items.extend(self.reply_branch)
         items.extend(self.thread)
         items.extend(self.fresh_neighbours)
         items.extend(self.memory)
@@ -1062,6 +1073,7 @@ class ContextSelection:
                                     for f in self.reply_parent_parts],
             "reply_parent": (_fragment_ref(self.reply_parent)
                              if self.reply_parent is not None else None),
+            "reply_branch": [_fragment_ref(f) for f in self.reply_branch],
             "thread": [_fragment_ref(f) for f in self.thread],
             "fresh_neighbours": [_fragment_ref(f) for f in self.fresh_neighbours],
             "memory": [_fragment_ref(f) for f in self.memory],
@@ -1096,6 +1108,9 @@ def _fragment_ref(fragment: ContextFragment) -> dict:
                  if fragment.part_total > 1 else ""),
         "superseded_by": fragment.superseded_by,
         "note": fragment.note,
+        "correction": bool(getattr(fragment, "correction", False)),
+        "memory_tier": int(getattr(fragment, "memory_tier", 0) or 0),
+        "compressible": bool(getattr(fragment, "compressible", True)),
         "tokens": fragment.tokens(),
     }
 
@@ -1128,7 +1143,17 @@ def _row_value(row, key, default=None):
 
 def _alias_label(aliases, uid, fallback: str = "") -> str:
     if aliases and uid is not None:
-        label = aliases.get(uid)
+        label = None
+        try:
+            label = aliases.get(uid)
+        except AttributeError:
+            # AliasResolver (live) предоставляет resolve(), а не get().
+            try:
+                label = aliases.resolve(int(uid), None, None)
+            except Exception:
+                label = None
+        except Exception:
+            label = None
         if label:
             return str(label)
     return str(fallback or "")
@@ -1442,6 +1467,10 @@ def detect_corrections(fragments) -> tuple[tuple, tuple]:
             note=(f"устарело: более новая правка {frag.source_id}"
                   if not target.note else
                   f"{target.note}; устарело: правка {frag.source_id}"))
+        # UR-C-2a/UR-11.6: актуальная пользовательская правка — P0, а не
+        # обычная реплика ветки; `superseded_by` старой версии остаётся P3.
+        items[idx] = _replace_fragment(frag, correction=True,
+                                       compressible=False)
         corrections.append({"source_id": frag.source_id,
                             "target": target.source_id,
                             "reason_code": "superseded_by_user_correction"})
@@ -1603,10 +1632,16 @@ def allocate_selection(selection: ContextSelection,
     base = _replace_fragment_prov(
         provenance, budget_tokens=budget, raw_tokens=raw_total,
         selected_tokens=raw_total, selected_counts=_count_by(ordered))
+    # Дедуп-записи построены ДО аллокации; они не являются усечением и
+    # обязаны пережить единственный allocator (UR-09.2: provenance честен).
+    dedup_dropped = tuple(
+        item for item in provenance.dropped
+        if item.get("reason_code") == "duplicate_source")
     if budget <= 0 or raw_total <= budget:
         included = _replace_fragment_prov(
             base, included_counts=_count_by(ordered),
-            included_tokens=raw_total, dropped=(), overflow=False)
+            included_tokens=raw_total, dropped=dedup_dropped,
+            overflow=False)
         return _rebuild_selection(selection, ordered, included)
 
     dropped: list[dict] = []
@@ -1616,8 +1651,13 @@ def allocate_selection(selection: ContextSelection,
     def _drop(predicate, reason: str) -> None:
         nonlocal included, total
         for frag in sorted([f for f in included if predicate(f)],
-                           key=lambda f: (int(f.timestamp_utc or 0),
+                           key=lambda f: (-int(getattr(f, "memory_tier", 0) or 0),
+                                          int(f.timestamp_utc or 0),
                                           f.source_id)):
+            # P0 (current/reply-parent/branch/correction) не вытесняется
+            # НИКАКОЙ веткой drop, включая tier-4/3 и low_value_memory.
+            if frag.priority <= P0:
+                continue
             if total <= budget:
                 return
             cost = frag.tokens(measure)
@@ -1629,11 +1669,20 @@ def allocate_selection(selection: ContextSelection,
 
     # 1) нерелевантный фон (P3) — первым.
     _drop(lambda f: f.priority >= P3, "irrelevant_background")
+    # UR-C-2a memory tiers: episode/span (4) -> vector/graph (3) -> exact (2).
+    _drop(lambda f: f.role == ROLE_MEMORY
+          and int(getattr(f, "memory_tier", 0) or 0) >= 4, "memory_tier_4")
+    _drop(lambda f: f.role == ROLE_MEMORY
+          and int(getattr(f, "memory_tier", 0) or 0) >= 3, "memory_tier_3")
     # 2) вторичные конспекты/выводы модели (P2, background authority) — от
     #    старых к новым.
     _drop(lambda f: f.priority == P2
           and f.authority == AUTHORITY_BACKGROUND, "secondary_summary")
     # 3) менее важные реплики памяти (P2, после summary).
+    #     UR-C-2a/UR-09.6: supporting self-output снимается раньше exact
+    #     memory tier 2 — «бот это говорил» не вытесняет точный факт.
+    _drop(lambda f: f.priority == P2 and f.role == ROLE_SELF_OUTPUT,
+          "low_value_memory")
     _drop(lambda f: f.priority == P2, "low_value_memory")
 
     # 4) сжатие длинных релевантных материалов со ссылкой (P1/P2), от самых
@@ -1642,7 +1691,8 @@ def allocate_selection(selection: ContextSelection,
     while total > budget and guard < 24:
         guard += 1
         candidates = [f for f in included
-                      if f.priority > P0 and f.tokens(measure) > 48]
+                      if f.priority > P0 and f.tokens(measure) > 48
+                      and bool(getattr(f, "compressible", True))]
         if not candidates:
             break
         victim = max(candidates, key=lambda f: f.tokens(measure))
@@ -1720,7 +1770,8 @@ def allocate_selection(selection: ContextSelection,
     final_prov = _replace_fragment_prov(
         base, included_counts=_count_by(included),
         included_tokens=sum(f.tokens(measure) for f in included),
-        dropped=tuple(dropped), overflow=bool(overflow or overflow_parts),
+        dropped=dedup_dropped + tuple(dropped),
+        overflow=bool(overflow or overflow_parts),
         overflow_parts=tuple(overflow_parts))
     ordered_final = [f for f in included]
     return _rebuild_selection(selection, ordered_final, final_prov)
@@ -1748,6 +1799,7 @@ def _rebuild_selection(selection: ContextSelection, fragments: list,
         current_parts=tuple(current_items[1:]),
         reply_parent=reply_parent,
         reply_parent_parts=tuple(reply_items[1:]),
+        reply_branch=tuple(by_role.get(ROLE_REPLY_BRANCH, ())),
         thread=tuple(by_role.get(ROLE_THREAD, ())),
         fresh_neighbours=tuple(by_role.get(ROLE_FRESH_NEIGHBOUR, ())),
         memory=tuple(by_role.get(ROLE_MEMORY, ())),
@@ -1803,7 +1855,8 @@ def _dedup_fragments(groups) -> tuple[list, int]:
 
 
 def resolve_corrections_across_blocks(thread_items, neighbour_items,
-                                      memory_items) -> tuple:
+                                      memory_items,
+                                      reply_branch_items=()) -> tuple:
     """UR-13.5: поздняя правка ищет устаревшую версию во ВСЕХ блоках.
 
     Правка приходит из ветки, а прежний факт часто живёт в памяти или в
@@ -1813,8 +1866,8 @@ def resolve_corrections_across_blocks(thread_items, neighbour_items,
     блоки сохраняют свой порядок, устаревший фрагмент остаётся в своём
     блоке (он не стирается, а получает ``superseded_by`` → P3).
     """
-    blocks = [list(thread_items or ()), list(neighbour_items or ()),
-              list(memory_items or ())]
+    blocks = [list(reply_branch_items or ()), list(thread_items or ()),
+              list(neighbour_items or ()), list(memory_items or ())]
     combined = [frag for block in blocks for frag in block]
     resolved, corrections = detect_corrections(combined)
     resolved = list(resolved)
@@ -1823,7 +1876,75 @@ def resolve_corrections_across_blocks(thread_items, neighbour_items,
     for block in blocks:
         out.append(list(resolved[start:start + len(block)]))
         start += len(block)
-    return out[0], out[1], out[2], corrections
+    return out[0], out[1], out[2], out[3], corrections
+
+
+def _dedup_preserving_projections(groups) -> tuple[list, int]:
+    """Дедуп без слияния проекций thread/branch и окна (UR-C-2b).
+
+    Одна и та же реплика законно присутствует в `<Conversation_Thread>` и
+    `<Global_Context>` (разные проекции одного источника). Поэтому:
+      * thread/branch и окно дедупятся только внутри своей проекции;
+      * memory/self-outputs дедупятся против ОБЕИХ проекций (не дублируют
+        источник, уже показанный как реплика).
+    """
+    out: list = []
+    seen_any: dict = {}
+    duplicates = 0
+
+    def _key(frag):
+        return ((frag.tg_message_id, frag.part_index)
+                if frag.tg_message_id is not None
+                else (frag.source_id, frag.part_index))
+
+    def _merge(index: int, frag) -> None:
+        current = out[index]
+        changes: dict = {}
+        if not current.time_known and frag.time_known:
+            changes.update(time_known=True, timestamp_utc=frag.timestamp_utc)
+        if not current.correlation_id and frag.correlation_id:
+            changes["correlation_id"] = frag.correlation_id
+        if current.speaker_uid is None and frag.speaker_uid is not None:
+            changes["speaker_uid"] = frag.speaker_uid
+        if int(current.revision or 1) < int(frag.revision or 1):
+            changes["revision"] = frag.revision
+        if not current.text and frag.text:
+            changes.update(text=frag.text, media_only=False)
+        if changes:
+            out[index] = _replace_fragment(current, **changes)
+
+    for idx, group in enumerate(groups):
+        if idx in (5, 6):
+            # memory / self-outputs: против всех уже показанных источников.
+            for frag in group or ():
+                key = _key(frag)
+                hit = seen_any.get(key)
+                if hit is not None:
+                    duplicates += 1
+                    _merge(hit, frag)
+                    continue
+                seen_any[key] = len(out)
+                out.append(frag)
+            continue
+        if idx in (2, 3):
+            projection = "dialogue"
+        elif idx in (4, 8):
+            projection = "window"
+        else:
+            projection = f"group{idx}"
+        seen_projection: dict = {}
+        for frag in group or ():
+            key = _key(frag)
+            pkey = (projection, key)
+            hit = seen_projection.get(pkey)
+            if hit is not None:
+                duplicates += 1
+                _merge(hit, frag)
+                continue
+            seen_projection[pkey] = len(out)
+            seen_any.setdefault(key, len(out))
+            out.append(frag)
+    return out, duplicates
 
 
 def build_context_selection(
@@ -1833,10 +1954,13 @@ def build_context_selection(
         message_tg_id: int | None = None,
         timestamp_utc: int = 0,
         reply_parent: ContextFragment | None = None,
+        reply_branch=(),
         thread=(), fresh_neighbours=(), memory=(), self_outputs=(),
         background=(), summary_map: SummaryMapRef | None = None,
         evidence=None, memory_candidates=(), budget_tokens: int = 0,
-        raw_counts: dict | None = None) -> ContextSelection:
+        raw_counts: dict | None = None,
+        allocate: bool = True,
+        preserve_projections: bool = False) -> ContextSelection:
     """Собрать единый `ContextSelection` из готовых фрагментов (UR-09).
 
     Все данные уже типизированы существующими источниками (окно, thread_chain,
@@ -1846,7 +1970,7 @@ def build_context_selection(
     markers = [str(m) for m in (media_markers or ()) if str(m or "").strip()]
     body = str(current_text or "")
     if markers:
-        body = (body + "\n" + " ".join(markers)).strip() if body \
+        body = (body + " " + " ".join(markers)).strip() if body \
             else " ".join(markers)
     current = ContextFragment(
         kind=KIND_USER_STATEMENT,
@@ -1868,6 +1992,7 @@ def build_context_selection(
     )
 
     thread_items, thread_dups = _dedup_fragments([thread])
+    reply_branch_items, reply_branch_dups = _dedup_fragments([reply_branch])
     neighbour_items, neighbour_dups = _dedup_fragments([fresh_neighbours])
     memory_items, memory_dups = _dedup_fragments([memory])
     self_items, self_dups = _dedup_fragments([self_outputs])
@@ -1877,17 +2002,21 @@ def build_context_selection(
     # UR-13.5: детекция правок — до аллокации и по всем «разговорным» блокам,
     # а не только по ветке (иначе при большом бюджете старая версия факта из
     # памяти/окна остаётся равнозначной).
-    (thread_items, neighbour_items, memory_items,
+    (reply_branch_items, thread_items, neighbour_items, memory_items,
      corrections) = resolve_corrections_across_blocks(
-        thread_items, neighbour_items, memory_items)
+        thread_items, neighbour_items, memory_items, reply_branch_items)
 
     summary_frag = (summary_map_fragment(summary_map)
                     if isinstance(summary_map, SummaryMapRef) else None)
     groups = ([current], [reply_parent] if reply_parent is not None else [],
-              thread_items, neighbour_items, memory_items, self_items,
+              reply_branch_items, thread_items, neighbour_items, memory_items,
+              self_items,
               [summary_frag] if summary_frag is not None else [],
               background_items)
-    ordered, dups = _dedup_fragments(groups)
+    if preserve_projections:
+        ordered, dups = _dedup_preserving_projections(groups)
+    else:
+        ordered, dups = _dedup_fragments(groups)
     raw = dict(raw_counts or {})
     if not raw:
         raw = _count_by(ordered)
@@ -1906,8 +2035,8 @@ def build_context_selection(
     )
     # Собираем выборку из УЖЕ дедуплицированного списка (одна и та же реплика
     # может прийти из ветки, ledger и self-outputs — она остаётся один раз).
-    duplicated = int(dups + thread_dups + neighbour_dups + memory_dups
-                     + self_dups + background_dups)
+    duplicated = int(dups + thread_dups + reply_branch_dups + neighbour_dups
+                     + memory_dups + self_dups + background_dups)
     if duplicated:
         provenance = _replace_fragment_prov(
             provenance,
@@ -1921,7 +2050,10 @@ def build_context_selection(
         provenance=provenance,
     )
     selection = _rebuild_selection(base, ordered, provenance)
-    return allocate_selection(selection, budget_tokens)
+    # UR-C-2b: live-путь собирает ПОЛНУЮ selection и вызывает allocator сам —
+    # ровно один владелец отсечки на payload. Старые вызовы сохраняют
+    # встроенную аллокацию (allocate=True).
+    return allocate_selection(selection, budget_tokens) if allocate else selection
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1959,6 +2091,275 @@ def collect_window_fragments(rows, *, working_window_messages: int = 20,
                         fresh_window_seconds=fresh_window_seconds)
         for row in background_rows)
     return fresh, background
+
+
+def fragment_from_fact_row(row, *, role: str = ROLE_MEMORY,
+                           memory_tier: int = 3,
+                           source_prefix: str = "fact",
+                           authority: str = AUTHORITY_BACKGROUND):
+    """UR-C-2a: type an already-retrieved fact row as a memory fragment.
+
+    Accepts BOTH real shapes produced by `_build_rag_block`:
+      * canonical kept tuple
+        ``(origin, fact, rag_ts, author, item_id, forward..., expired, time_origin)``;
+      * dict/sqlite row (``text``/``preview``/``fact``,
+        ``id``/``item_id``/``source_id``, ``timestamp_utc``/``rag_ts``).
+
+    No retrieval/dedup/rerank happens here; the caller passes the kept rows
+    from the existing RAG producer. Missing text -> None.
+    """
+    origin = ""
+    ref = None
+    ts_value = 0
+    author = None
+    speaker_uid = None
+    if isinstance(row, (tuple, list)):
+        seq = list(row)
+        if len(seq) < 2:
+            return None
+        origin = str(seq[0] or "")
+        text = seq[1]
+        ts_value = seq[2] if len(seq) > 2 else 0
+        author = seq[3] if len(seq) > 3 else None
+        ref = seq[4] if len(seq) > 4 else None
+    else:
+        origin = str(_row_value(row, "origin") or "")
+        text = (_row_value(row, "text")
+                or _row_value(row, "preview")
+                or _row_value(row, "fact") or "")
+        ts_value = (_row_value(row, "timestamp_utc")
+                    or _row_value(row, "sent_at")
+                    or _row_value(row, "rag_ts") or 0)
+        author = (_row_value(row, "author")
+                  or _row_value(row, "target_user"))
+        speaker_uid = _row_value(row, "author_id")
+        ref = (_row_value(row, "source_id") or _row_value(row, "id")
+               or _row_value(row, "entity_id")
+               or _row_value(row, "item_id"))
+    text = str(text or "").strip()
+    if not text:
+        return None
+    try:
+        ts = int(ts_value or 0)
+    except (TypeError, ValueError):
+        ts = 0
+    ref_text = str(ref or "").strip()
+    if ref_text.startswith(("msg:", "fact:", "bot_output:", "tg:", "row:")):
+        source_id = ref_text
+    elif ref_text:
+        source_id = f"{source_prefix}:{ref_text}"
+    else:
+        # Нет ссылки — не склеиваем разные факты в один source_id.
+        import hashlib
+        digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
+        source_id = f"{source_prefix}:{origin or 'row'}:{digest}"
+    tg_int = None
+    if ref_text.startswith("msg:") or ref_text.startswith("tg:"):
+        digits = ref_text[4:] if ref_text.startswith("msg:") else ref_text[3:]
+        try:
+            tg_int = int(digits) if digits else None
+        except ValueError:
+            tg_int = None
+    label = (str(author).strip() if author not in (None, "")
+             else "память (вывод модели)")
+    return ContextFragment(
+        kind=KIND_SUMMARY_INFERENCE,
+        source_id=source_id,
+        timestamp_utc=ts,
+        speaker_uid=speaker_uid,
+        author_label=label,
+        text=text,
+        authority=authority,
+        fresh=False,
+        role=role,
+        tg_message_id=tg_int,
+        time_known=bool(ts),
+        memory_tier=int(memory_tier or 0),
+        note=("факт/вывод retrieval, не дословная реплика"
+              if authority == AUTHORITY_BACKGROUND else ""))
+
+
+def fragments_from_episode_rows(rows, *, role: str = ROLE_MEMORY,
+                                aliases=None, bot_user_id=None,
+                                memory_tier: int = 4):
+    """UR-C-2a: type existing verbatim episode rows (no new span search)."""
+    result: list = []
+    for row in rows or ():
+        try:
+            frag = row_to_fragment(
+                row, role=role, aliases=aliases, bot_user_id=bot_user_id,
+                fresh=False)
+        except Exception:      # pragma: no cover - fail-open producer
+            continue
+        if not frag.text:
+            continue
+        result.append(_dc_replace(
+            frag, memory_tier=int(memory_tier or 0), compressible=True))
+    return tuple(result)
+
+
+def fragments_from_middle_lines(lines, *,
+                               authority: str = AUTHORITY_BACKGROUND):
+    """UR-C-2a: type existing summary/middle lines as low-trust background."""
+    result: list = []
+    for index, line in enumerate(lines or ()):
+        text = str(line or "").strip()
+        if not text:
+            continue
+        result.append(ContextFragment(
+            kind=KIND_SUMMARY_INFERENCE,
+            source_id=f"middle:{index}",
+            timestamp_utc=0,
+            author_label="конспект/фон",
+            text=text,
+            authority=authority,
+            fresh=False,
+            role=ROLE_BACKGROUND,
+            time_known=False,
+            memory_tier=0,
+            note="фон/конспект, не исходная реплика"))
+    return tuple(result)
+
+
+def fragment_from_self_output(record, *, aliases=None, bot_user_id=None):
+    """UR-C-2a: type an existing durable ledger record as self_output."""
+    try:
+        return ledger_record_to_fragment(
+            record, role=ROLE_SELF_OUTPUT, aliases=aliases,
+            bot_user_id=bot_user_id)
+    except Exception:          # pragma: no cover - fail-open producer
+        return None
+
+
+def split_reply_branch(fragments, hops: int):
+    """UR-C-2a: last ``hops`` CHRONOLOGICAL fragments get P0 ``reply_branch``.
+
+    ``fragments`` — root→current order (caller нормализует реальный
+    current→root из `_collect_thread_chain`). The remaining fragments stay P1
+    ``thread``; the same fragment objects are not duplicated (branch is a
+    projection of the thread tail).
+    """
+    ordered = list(fragments or ())
+    try:
+        keep = max(0, int(hops or 0))
+    except (TypeError, ValueError):
+        keep = 0
+    if keep <= 0 or not ordered:
+        return (), tuple(_dc_replace(f, role=ROLE_THREAD,
+                                     compressible=True) for f in ordered)
+    cut = max(0, len(ordered) - keep)
+    branch = tuple(
+        _dc_replace(f, role=ROLE_REPLY_BRANCH, compressible=False)
+        for f in ordered[cut:])
+    thread = tuple(_dc_replace(f, role=ROLE_THREAD, compressible=True)
+                   for f in ordered[:cut])
+    return branch, thread
+
+
+def allocate_window_projection(rows, *, budget_tokens: int,
+                               p0_ids=(), fresh_count: int | None = None,
+                               aliases=None, bot_user_id=None,
+                               now_ts: int = 0,
+                               fresh_window_seconds: int = 0):
+    """L1 window projection on the ONE existing semantic allocator.
+
+    ``rows`` — candidate window; ``p0_ids`` are rows already delivered as
+    fixed P0 sections outside the window (trigger/reply) and therefore not
+    eligible to compete for the window budget. Rows become P1 fresh tail /
+    P3 background with the existing collector rules, then
+    :func:`allocate_selection` decides (P3 drop first, relevant compression,
+    whole P1 drop) — policy is unchanged.
+
+    Returns ``(selected_rows, allocated_selection)``. Selected rows keep the
+    input chronological order; ``text`` is the allocator-approved text
+    (possibly compressed with its source reference). No current/reply
+    duplication is created here.
+    """
+    try:
+        source_rows = [dict(r) for r in (rows or ())
+                       if isinstance(r, dict)]
+        p0 = set()
+        for value in p0_ids or ():
+            try:
+                p0.add(int(value))
+            except (TypeError, ValueError):
+                continue
+
+        def _row_id(row):
+            for key in ("tg_message_id", "id"):
+                value = row.get(key)
+                if value in (None, "", 0):
+                    continue
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    continue
+            return None
+
+        candidates = [row for row in source_rows
+                      if _row_id(row) is None or _row_id(row) not in p0]
+        if fresh_count is None:
+            fresh_n = fresh_tail_min_messages()
+        else:
+            try:
+                fresh_n = int(fresh_count)
+            except (TypeError, ValueError):
+                fresh_n = fresh_tail_min_messages()
+        fresh_n = max(1, min(len(candidates), fresh_n)) if candidates else 0
+        fresh: list = []
+        background: list = []
+        ids: list = []
+        by_id: dict = {}
+        used_ids: set = set()
+        for index, row in enumerate(candidates):
+            is_fresh = bool(fresh_n and index >= len(candidates) - fresh_n)
+            frag = row_to_fragment(
+                row,
+                role=(ROLE_FRESH_NEIGHBOUR if is_fresh else ROLE_BACKGROUND),
+                aliases=aliases, bot_user_id=bot_user_id, fresh=is_fresh,
+                now_ts=now_ts, fresh_window_seconds=fresh_window_seconds)
+            if not frag.text:
+                continue
+            source_id = str(frag.source_id or "")
+            if not source_id or source_id == "row:" or source_id in used_ids:
+                # Строки без tg/id (или коллизия) не склеиваются в один
+                # источник: позиция окна даёт уникальный projection-id.
+                source_id = f"l1win:{index}"
+                frag = _dc_replace(frag, source_id=source_id)
+            used_ids.add(source_id)
+            ids.append(source_id)
+            by_id.setdefault(source_id, row)
+            (fresh if is_fresh else background).append(frag)
+        current = ContextFragment(
+            kind=KIND_USER_STATEMENT, source_id="window:current", text="",
+            role=ROLE_CURRENT_QUESTION)
+        selection = ContextSelection(
+            current_question=current,
+            fresh_neighbours=tuple(fresh),
+            background=tuple(background))
+        allocated = allocate_selection(
+            selection, max(1, int(budget_tokens or 1)))
+        selected_text = {
+            str(frag.source_id): str(frag.text or "")
+            for frag in (list(allocated.fresh_neighbours)
+                         + list(allocated.background))}
+        out: list = []
+        seen: set = set()
+        for source_id in ids:
+            if source_id in seen or source_id not in selected_text:
+                continue
+            row = by_id.get(source_id)
+            if row is None:
+                continue
+            seen.add(source_id)
+            out.append(dict(row, text=selected_text[source_id]))
+        return out, allocated
+    except Exception:          # pragma: no cover - fail-open projection
+        return ([dict(r) for r in (rows or ()) if isinstance(r, dict)],
+                ContextSelection(
+                    current_question=ContextFragment(
+                        kind=KIND_USER_STATEMENT, source_id="window:current",
+                        text="", role=ROLE_CURRENT_QUESTION)))
 
 
 async def collect_memory_fragments(db, *, chat_id: int, candidates,
@@ -2029,7 +2430,8 @@ async def collect_memory_fragments(db, *, chat_id: int, candidates,
                 if not frag.text:
                     continue            # media-only строка без текста
                 seen_tg.add(row_tg)
-                fragments.append(frag)
+                fragments.append(_dc_replace(frag, memory_tier=2,
+                                             compressible=True))
                 if _cap_reached():
                     break
             continue
@@ -2052,6 +2454,7 @@ async def collect_memory_fragments(db, *, chat_id: int, candidates,
             fresh=False,
             role=role,
             time_known=bool(getattr(cand, "sent_at", 0)),
+            memory_tier=(3 if entity_type == "graph_fact" else 4),
             note="вывод/факт из памяти, не дословная реплика"))
     return tuple(fragments), raw
 
@@ -2104,7 +2507,8 @@ __all__ = [
     "composer_on",
     "fresh_tail_min_messages", "middle_max_messages", "thread_walk_max",
     "episode_gap_seconds", "episode_max_messages", "episode_max_count",
-    "allocate_budget", "truncate_piece_text", "truncate_lines_keep_end",
+    "allocate_budget", "allocate_selection", "allocate_window_projection",
+    "truncate_piece_text", "truncate_lines_keep_end",
     "truncate_lines_keep_start", "compute_episode_span", "select_middle",
     "tail_floor_tokens",
     "WINDOW_SOURCE_MAP", "WINDOW_SOURCE_ENV", "WINDOW_SOURCE_FALLBACK",
@@ -2121,7 +2525,8 @@ __all__ = [
     "KIND_USER_STATEMENT", "KIND_CHAT_EVENT", "KIND_BOT_STATEMENT",
     "KIND_SUMMARY_INFERENCE", "KIND_EXTERNAL_EVIDENCE",
     "AUTHORITY_PRIMARY", "AUTHORITY_SUPPORTING", "AUTHORITY_BACKGROUND",
-    "ROLE_CURRENT_QUESTION", "ROLE_REPLY_PARENT", "ROLE_THREAD",
+    "ROLE_CURRENT_QUESTION", "ROLE_REPLY_PARENT", "ROLE_REPLY_BRANCH",
+    "ROLE_THREAD",
     "ROLE_FRESH_NEIGHBOUR", "ROLE_MEMORY", "ROLE_SELF_OUTPUT",
     "ROLE_SUMMARY", "ROLE_BACKGROUND", "ROLE_PRIORITY", "ROLE_ORDER",
     "fragment_kind", "fragment_priority", "authority_for_kind",
@@ -2131,7 +2536,12 @@ __all__ = [
     "summary_map_fragment", "detect_corrections", "mark_source_conflicts",
     "resolve_corrections_across_blocks",
     "split_overflow_fragments", "compress_fragment_with_ref",
-    "allocate_selection", "build_context_selection",
+    "build_context_selection",
     "collect_window_fragments", "collect_memory_fragments",
     "collect_self_output_fragments",
+    # UR-C-2a offline producers (fact rows / episode rows / middle lines /
+    # ledger records / branch split); no new retrieval or store.
+    "fragment_from_fact_row", "fragments_from_episode_rows",
+    "fragments_from_middle_lines", "fragment_from_self_output",
+    "split_reply_branch",
 ]

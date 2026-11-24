@@ -88,6 +88,36 @@ _CORRECTION_PATTERNS = (
 _QUOTE_MARKERS = ("сказал, что", "сказал что", "цитирую", "по словам",
                   "мол, дескать")
 
+_ROLEPLAY_PATTERNS = (
+    # «представь (себе), что я …» / «представь: что я …»
+    r"\bпредстав(?:ь(?:-ка)?|ьте|им)(?:\s+себе\s*,?)?\s*[,\s:]\s*"
+    r"что\s+я\b",
+    # «представь, я …» / «представь: я …» — roleplay-copula/role.
+    # Literal past action («представь, я вчера поймал щуку», «я купил
+    # машину») не гейтится: bounded negative lookahead на past-маркеры/
+    # глаголы прошедшего времени. Role-noun exceptions (генерал/адмирал/
+    # маршал/капрал/акула) не считаются past-глаголами (R3-B1/R4-B1).
+    r"\bпредстав(?:ь(?:-ка)?|ьте|им)\s*[:,]\s*я\b"
+    r"(?!\s*(?:(?:вчера|позавчера|уже|только\s+что|недавно|раньше|"
+    r"давно|сначала|утром|вечером)\s+)?"
+    r"(?!(?:генерал|адмирал|маршал|капрал|акула)\b)"
+    r"\w+(?:л|ла|ло|ли)\b)",
+    # «я как будто/будто/словно <роль>», но не simile «я словно на иголках».
+    r"\bя\s+(?:как[\s-]*будто|будто|словно)\s+(?!"
+    r"на\b|в\b|с\b|со\b|у\b|от\b|под\b|над\b|за\b|по\b|из\b|"
+    r"к\b|ко\b|о\b|об\b|при\b|без\b)",
+    # Invitation: «давай/давайте поиграем/сыграем/отыграем …» или
+    # standalone «поиграем …». Literal plan «мы сыграем … в субботу»
+    # не гейтится (NB R3).
+    r"\bдавай(?:те)?\s+(?:поиграем|сыграем|отыграем)\s+"
+    r"(?:в\s+)?ролев\w*\s+игр",
+    r"(?<!мы\s)\bпоиграем\s+(?:в\s+)?ролев\w*\s+игр",
+    # Bare «сыграем/отыграем», но не утвердительный план «мы сыграем …».
+    r"(?<!мы\s)\b(?:сыграем|отыграем)\s+(?:в\s+)?ролев\w*\s+игр",
+    # «ролевая игра: я …» / «в ролевой игре я …».
+    r"\bролев\w*\s+игр\w*\s*[:,]\s*я\b",
+    r"\bв\s+ролев\w*\s+игр\w*\s+я\b",
+)
 
 @dataclasses.dataclass(frozen=True)
 class ClaimEnvelope:
@@ -162,14 +192,20 @@ def classify_speech_act(text: str | None) -> str:
     if any(m in low for m in _QUOTE_MARKERS) or low.startswith(("цитата",
                                                                 '"', "«")):
         return SPEECH_ACT_QUOTE
-    if low.startswith(("может быть", "возможно", "наверное", "кажется",
-                       "вроде бы")):
-        return SPEECH_ACT_HYPOTHESIS
+    # Joke/retell/attributed speech имеют приоритет над roleplay-кадром:
+    # «я как будто космонавт))» остаётся joke (humor guard), «говорят, как
+    # будто…» — retell. Только чистый first-person roleplay/hypothetical
+    # уходит в hypothesis (иначе терялись humor/attribution-флаги).
     if low.endswith(("))", " :)")) or any(w in low for w in ("шучу", "лол",
                                                              "кек")):
         return SPEECH_ACT_JOKE_CANDIDATE
     if low.startswith(("говорят,", "говорят ", "передавали,", "слышал,")):
         return SPEECH_ACT_RETELL
+    if _has_pattern(low, _ROLEPLAY_PATTERNS):
+        return SPEECH_ACT_HYPOTHESIS
+    if low.startswith(("может быть", "возможно", "наверное", "кажется",
+                       "вроде бы")):
+        return SPEECH_ACT_HYPOTHESIS
     return SPEECH_ACT_ASSERT
 
 

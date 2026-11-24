@@ -527,7 +527,11 @@ class TestO04SemanticHintsSingleRoute:
                 db, chat=CHAT, fact="Папаха любит рыбалку", ts=T2023,
                 target_user=SUBJECT_NAME)
             memory = _MemorySpy()
-            plain = await rc.retrieve(db, memory, _request())
+            # UR-C-3/UR-13.6: subject identity — ВХОД отбора, а не hint.
+            # Сравнение «plain vs hinted» обязано держать одинаковую identity,
+            # иначе проверяется не изоляция overview, а разница двух запросов.
+            plain = await rc.retrieve(
+                db, memory, _request(subject_entity_ids=(UID,)))
             hinted = await rc.retrieve(
                 db, memory,
                 _request(include_overview=True, subject_entity_ids=(UID,)))

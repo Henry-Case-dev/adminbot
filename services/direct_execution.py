@@ -1169,6 +1169,30 @@ def _parse_orchestrator_decision(raw) -> dict:
     }
 
 
+def _has_evidence_growth(results) -> bool:
+    """UR-07.3/UR-BAN-02: did this step add non-duplicate, non-empty evidence?
+
+    A denied/duplicate/empty/error step is not evidence growth: the adaptive
+    chain must stop instead of asking the orchestrator for another step.
+    R17-safe: reads only envelope counters/status, never args or data.
+    """
+    for row in (results or ()):
+        if not isinstance(row, dict):
+            continue
+        if bool(row.get("duplicate")):
+            continue
+        try:
+            out_chars = int(row.get("out_chars") or 0)
+        except (TypeError, ValueError):
+            out_chars = 0
+        if out_chars <= 0:
+            continue
+        if str(row.get("status") or "") != tool_result.STATUS_OK:
+            continue
+        return True
+    return False
+
+
 async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                              tool_schemas, chat_id, correlation_id,
                              reply_text: str = "",
@@ -1299,6 +1323,7 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                     "arguments": decision["arguments"], "depends_on": [],
                     "failure_policy": "optional"}
             before = len(evidence_sources)
+            results_before = len(tool_results)
             await _dispatch_step(step, router=router, ctx=ctx, budget=budget,
                                  tool_results=tool_results,
                                  tool_trace=tool_trace,
@@ -1319,6 +1344,13 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                 # stop с причиной из единого словаря, без пустого цикла.
                 stop_reason = str(denied[-1].error_code or "step_skipped")
                 limitations.append(stop_reason)
+                break
+            new_results = tool_results[results_before:]
+            if not _has_evidence_growth(new_results):
+                # UR-07.3/UR-BAN-02: шаг не дал нового материала (пустой
+                # вывод/duplicate/ошибка) — adaptive-добор останавливается,
+                # а не крутит новые prompt'ы без прироста доказательств.
+                stop_reason = "step_skipped"
                 break
             spent_tokens += sum(_safe_count_tokens(s.content)
                                 for s in new_sources)
@@ -1976,6 +2008,9 @@ class ToolEvidence:
     evidence_used: bool = False
     sources: tuple[SourceRecord, ...] = ()
     tool_trace: tuple[dict, ...] = ()
+    #: UR-03.1: R17-safe per-call projection (status/error/dedup/attempt/time)
+    #: in the SAME structure as sources/tool_trace; no raw args/data/URLs.
+    tool_events: tuple[dict, ...] = ()
     knowledge_origin: str = ""
     search_axis_source: str = ""
     search_query: str = ""
@@ -2202,6 +2237,35 @@ def _search_status_from(raw) -> tuple[bool, str, str]:
     return (True, SEARCH_STATUS_OK, "")
 
 
+def _tool_events_from(raw) -> tuple[dict, ...]:
+    """UR-03.1: R17-safe per-call projection for the one ToolEvidence.
+
+    Envelope rows already carry status/error/dedup/attempt/duration; this
+    projection keeps only those machine fields and drops ``data``/args/URLs.
+    """
+    events: list[dict] = []
+    for row in (getattr(raw, "tool_results", []) or ()):
+        if not isinstance(row, dict):
+            continue
+        try:
+            events.append({
+                "round": int(row.get("round") or 0),
+                "tool": str(row.get("tool") or "")[:64],
+                "status": str(row.get("status") or "")[:32],
+                "error_code": str(row.get("error_code") or "")[:64],
+                "error_type": str(row.get("error_type") or "")[:64],
+                "duplicate": bool(row.get("duplicate")),
+                "attempt": int(row.get("attempt") or 0),
+                "duration_ms": int(row.get("duration_ms") or 0),
+                "out_chars": int(row.get("out_chars") or 0),
+                "truncated": bool(row.get("truncated")),
+                "metered": bool(row.get("metered")),
+            })
+        except (TypeError, ValueError):
+            continue
+    return tuple(events)
+
+
 def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
                         action: str = "reply", reuse_used: bool = False,
                         reuse_sources=()) -> ToolEvidence:
@@ -2218,6 +2282,7 @@ def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
     trace = tuple(dict(item) for item in
                   (getattr(raw, "tool_trace", []) or ()))
     evidence.tool_trace = trace
+    evidence.tool_events = _tool_events_from(raw)
     if str(action or "reply").lower() in ("silent", "react"):
         evidence.search_status = SEARCH_STATUS_SKIPPED
         evidence.search_skip_reason = SKIP_PARTICIPATION_WITHOUT_TEXT
@@ -3059,8 +3124,12 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
         пустая строка наследования времени остаётся обычной сжимаемой
         строкой (в rest она просто не попадает — как раньше);
       * защищённый минимум не помещается → честная capacity reason
-        (callback + явная пометка в пакете), НЕ слепая отправка.
-    Никогда не бросает (ошибка → вход без изменений, fail-open паритет)."""
+        (callback + явная пометка в пакете), НЕ слепая отправка;
+      * любой plain-блок, не вошедший целиком, даёт
+        ``fallback_window_exceeded`` + ``[CAPACITY]`` (UR-11b §3.5).
+    Ошибка репака НЕ возвращает вход as-is: исключение пробрасывается,
+    чтобы LLMClient не отправил primary payload в fallback-транспорт
+    (UR-11b; только legacy/recovery-путь, не active writer recompose)."""
 
     def _adapt(incoming: dict):
         try:
@@ -3140,12 +3209,14 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                             min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)))
                 rest_alloc = max(0, remaining_after_clock - evidence_alloc)
                 plain_used = 0
+                plain_clipped = False
                 for part in plain_parts:
                     tokens = _safe_count_tokens(part)
                     if plain_used + tokens <= rest_alloc:
                         kept.append(part)
                         plain_used += tokens
                         continue
+                    plain_clipped = True
                     room = rest_alloc - plain_used
                     if room <= 0:
                         break
@@ -3161,6 +3232,8 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                                         if tail else "") + tail)
                     plain_used = rest_alloc
                     break
+                # UR-11b §3.5: любой не вошедший целиком plain-блок — не
+                # тихий drop: честная capacity-помика существующим маркером.
                 # Остаток доли прочих блоков — evidence (доставить больше).
                 evidence_alloc = min(
                     ev_tokens,
@@ -3179,6 +3252,10 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                         capacity_reason = "fallback_window_exceeded"
                 else:
                     capacity_reason = "fallback_repacked"
+                if plain_clipped:
+                    # Любое частичное/пропущенное plain-вхождение не может
+                    # остаться `fallback_repacked`: это видимая потеря.
+                    capacity_reason = "fallback_window_exceeded"
                 if sys_tokens + min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS) \
                         > budget or question_overflow:
                     # Защищённый минимум evidence/текущий запрос физически не
@@ -3236,9 +3313,9 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
             return adapted
         except Exception:
             logger.warning(
-                "direct: L2 fallback repack FAILED — payload AS-IS | "
+                "direct: L2 fallback repack FAILED — fallback refused | "
                 "oversized_risk=1", exc_info=True)
-            return incoming
+            raise
 
     return _adapt
 

@@ -12,15 +12,24 @@
   * UR-13.5 — поздняя правка пользователя приоритетнее, конфликт помечен;
   * UR-13.7 — при отсутствии памяти «не помню», без выдуманного recall;
   * UR-12 — условие конспекта по watermark/вытеснению, а не по числу строк;
-  * UR-11.2/11.3 — Dynamic по умолчанию и model-aware стадии инициативы.
+  * UR-11.2/11.3 — Dynamic по умолчанию и model-aware стадии инициативы;
+  * UR-C-2a (A2 core) — offline producers/materializer: роли branch/thread,
+    memory tiers 2/3/4, correction P0, parity с существующими рендерерами.
 """
+import inspect
+from types import SimpleNamespace
+
 import pytest
 
 from services import auto_budget as ab
+from services import direct_chat_service as dcs
 from services import direct_context_composer as comp
+from services import direct_l1 as l1
 from services import mca_retrieval_context as rc
 from services import summary_memory as sm
+from services import thread_chain as tchain
 from services.database import DatabaseService
+from services.summary_xml import escape_xml_text
 from services.token_counter import count_tokens
 
 CHAT = -100777
@@ -411,7 +420,10 @@ class TestCorrectionsAndConflicts:
         by_id = {f.source_id: f for f in fragments}
         assert by_id["msg:301"].superseded_by == "msg:302"
         assert by_id["msg:301"].priority == comp.P3
-        assert by_id["msg:302"].priority == comp.P1
+        # UR-C-2a/UR-11.6: актуальная правка — P0, а не обычная реплика P1.
+        assert by_id["msg:302"].priority == comp.P0
+        assert by_id["msg:302"].correction is True
+        assert by_id["msg:302"].compressible is False
         assert corrections and corrections[0]["target"] == "msg:301"
 
     @pytest.mark.parametrize("block", ["memory", "fresh_neighbours"])
@@ -441,7 +453,9 @@ class TestCorrectionsAndConflicts:
         assert by_id["msg:311"].priority == comp.P3
         assert by_id["msg:311"].authority == comp.AUTHORITY_BACKGROUND
         assert by_id["msg:311"].role == role          # блок не переписан
-        assert by_id["msg:312"].priority == comp.P1
+        # UR-C-2a/UR-11.6: правка сохраняется как P0.
+        assert by_id["msg:312"].priority == comp.P0
+        assert by_id["msg:312"].correction is True
         assert any(item["target"] == "msg:311"
                    for item in selection.provenance.corrections)
 
@@ -609,3 +623,570 @@ class TestStageBudgetPolicy:
             max(1, result.auto_input_budget)
         assert result.effective_input_budget <= result.context_window or \
             result.context_window == 0
+
+
+# ── UR-C-1 (UR-10/10.2/10.5): selected L1 window, no 20×200 re-cut ─────────
+
+def _urc_row(index: int, text: str, *, reply_to=None) -> dict:
+    return {
+        "id": index, "tg_message_id": index, "user_id": 10,
+        "author_name": "Вася", "text": text, "timestamp": 100 + index,
+        "media_type": "text", "reply_to_id": reply_to,
+    }
+
+
+class TestL1SelectedWindow:
+    def test_allocator_keeps_full_p0_reply_and_trigger(self):
+        long_reply = "ответ-родитель " + ("R" * 2000)
+        long_trigger = "текущий вопрос " + ("T" * 2000)
+        rows = [
+            _urc_row(1, "фон " + ("B" * 2000)),
+            _urc_row(2, long_reply),
+            _urc_row(3, long_trigger, reply_to=2),
+            _urc_row(4, "свежая реплика " + ("F" * 500)),
+        ]
+        selected = l1.select_l1_window(
+            rows, budget_tokens=120, trigger_message_id=3, reply_to_id=2)
+        by_id = {row["tg_message_id"]: row for row in selected}
+        assert by_id[2]["text"] == long_reply
+        assert by_id[3]["text"] == long_trigger
+        assert "B" * 2000 not in "".join(
+            row["text"] for row in selected if row["tg_message_id"] == 1)
+
+    def test_build_l1_context_uses_selected_rows_without_20x200(self):
+        rows = [_urc_row(i, f"сообщение-{i} " + ("X" * 400))
+                for i in range(1, 26)]
+        rows[5]["reply_to_id"] = 2
+        ctx = l1.build_l1_context(
+            query="q", window=rows, window_limit=len(rows), line_chars=0,
+            with_ids=True, budget_tokens=1_000_000)
+        assert ctx.count("[msg:") == 25
+        assert "X" * 400 in ctx
+        assert "(ответ на msg:2)" in ctx
+        assert "[ГРАНИЦА ИСТОРИИ]" not in ctx
+
+    def test_tight_budget_preserves_p0_and_reports_overflow(self):
+        reply = "R" * 2000
+        trigger = "T" * 2000
+        rows = [
+            _urc_row(2, reply),
+            _urc_row(3, trigger, reply_to=2),
+        ]
+        status: dict = {}
+        ctx = l1.build_l1_context(
+            query="q", current_question=trigger, reply_block=reply,
+            window=rows, line_chars=0, with_ids=True, budget_tokens=1600,
+            trigger_message_id=3, reply_to_message_id=2,
+            preallocated=True, out_status=status)
+        assert reply in ctx
+        assert trigger in ctx
+        assert status["window_preserved"] is True
+        assert status["overflow"] is True
+        assert status["used_tokens"] > status["budget_tokens"]
+        # P0 не конкурирует с окном: fixed уже больше бюджета, окно пустое,
+        # trigger/reply исключены из candidate window (они в fixed-секциях).
+        assert status["fixed_tokens"] >= status["budget_tokens"]
+        assert status["window_budget"] == 1
+        assert status["window_rows_selected"] == 0
+        assert status["window_rows_excluded_p0"] == 2
+        assert "[ПОСЛЕДНИЕ СООБЩЕНИЯ]" not in ctx
+        assert status["overflow_sections"]
+
+    @pytest.mark.asyncio
+    async def test_tight_budget_both_live_sites_preserve_selected_window(
+            self, monkeypatch):
+        from tests.test_ur_turn_engine import (
+            _patch_fixed_tool_flags, _plan as _ur_plan, _run_direct,
+            _run_initiative, _svc)
+
+        _patch_fixed_tool_flags(monkeypatch)
+        long_rows = [
+            _urc_row(2, "R" * 2000),
+            _urc_row(3, "T" * 2000, reply_to=2),
+        ]
+        monkeypatch.setattr(
+            l1, "select_l1_window",
+            lambda window, **kwargs: [dict(r) for r in long_rows])
+        captures = []
+        real_build = l1.build_l1_context
+
+        def _build_spy(**kwargs):
+            result = real_build(**kwargs)
+            captures.append((kwargs, result, kwargs.get("out_status")))
+            return result
+
+        monkeypatch.setattr(l1, "build_l1_context", _build_spy)
+        service = _svc(_ur_plan(), window=long_rows)
+
+        await _run_direct(service)
+        await _run_initiative(service)
+
+        assert len(captures) == 2
+        for kwargs, result, status in captures:
+            assert kwargs["preallocated"] is True
+            assert kwargs["line_chars"] == 0
+            assert "R" * 2000 in result
+            assert "T" * 2000 in result
+            assert "[ПОСЛЕДНИЕ СООБЩЕНИЯ]" in result
+            assert status is not None
+            assert status["window_preserved"] is True
+            assert "overflow" in status
+            assert status["used_tokens"] > 0
+
+    @pytest.mark.asyncio
+    async def test_both_live_call_sites_pass_raw_window_and_zero_line_cap(
+            self, monkeypatch):
+        from tests.test_ur_turn_engine import (
+            _patch_fixed_tool_flags, _plan as _ur_plan, _run_direct,
+            _run_initiative, _svc)
+
+        _patch_fixed_tool_flags(monkeypatch)
+        calls = []
+        real_select = l1.select_l1_window
+        real_build = l1.build_l1_context
+        select_calls = {"n": 0}
+
+        def _select_spy(window, **kwargs):
+            select_calls["n"] += 1
+            return real_select(window, **kwargs)
+
+        def _build_spy(**kwargs):
+            status = kwargs.get("out_status")
+            result = real_build(**kwargs)
+            calls.append((kwargs, status))
+            return result
+
+        monkeypatch.setattr(l1, "select_l1_window", _select_spy)
+        monkeypatch.setattr(l1, "build_l1_context", _build_spy)
+        window = [_urc_row(i, f"строка-{i} " + ("Y" * 400))
+                  for i in range(1, 6)]
+        service = _svc(_ur_plan(), window=window)
+
+        await _run_direct(service)
+        await _run_initiative(service)
+
+        # Live L1 больше не вызывает legacy select_l1_window: окно выбирает
+        # `build_l1_context` через единый allocator.
+        assert select_calls["n"] == 0
+        assert len(calls) == 2
+        for kwargs, status in calls:
+            assert kwargs["preallocated"] is True
+            assert kwargs["line_chars"] == 0
+            assert kwargs["window"] == window
+            assert "window_limit" not in kwargs or kwargs["window_limit"] is None
+            # T8: оба live-сайта отдают честный status единственного
+            # allocator'а (fixed/window/selected/overflow).
+            assert status is not None
+            assert status["fixed_tokens"] >= 0
+            assert status["window_budget"] >= 1
+            assert status["window_rows_selected"] <= status["window_rows_raw"]
+            assert "overflow" in status
+
+
+# ═══ UR-C-2a (A2 core, offline): producers, tiers, correction P0, parity ════
+
+class _Aliases:
+    def resolve(self, uid, name, username):
+        return name or f"u{uid}"
+
+
+def _dcs():
+    """Минимальный сервис: только существующие рендереры формата L2."""
+    return dcs.DirectChatService(None, None, None, _Aliases(), bot_id=BOT_UID)
+
+
+def _chain(count=4, uid=10, name="Вася"):
+    return [tchain.ChainItem(uid=uid, name=name, text=f"ход {i + 1}",
+                             is_bot=False, ts=100 + i,
+                             item_id=f"tg:{i + 1}")
+            for i in range(count)]
+
+
+class TestURC2aProducers:
+    def test_branch_is_p0_projection_without_duplicating_thread(self):
+        chronological = _chain(5)                    # root → current
+        service_chain = list(reversed(chronological))  # current → root (реальный)
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", chain_items=service_chain, branch_hops=2,
+            working_window_messages=0)
+        branch_ids = [f.source_id for f in selection.reply_branch]
+        thread_ids = [f.source_id for f in selection.thread]
+        assert branch_ids == ["msg:4", "msg:5"]
+        assert thread_ids == ["msg:1", "msg:2", "msg:3"]
+        assert set(branch_ids).isdisjoint(thread_ids)
+        assert all(f.priority == comp.P0 for f in selection.reply_branch)
+        assert all(f.priority == comp.P1 for f in selection.thread)
+        assert all(not f.compressible for f in selection.reply_branch)
+        assert selection.current_question.priority == comp.P0
+        # Правок нет — correction-флаг не выдуман.
+        assert not any(f.correction for f in selection.fragments())
+        # Граница hops=0: вся цепочка — thread, P0-ветки нет.
+        no_branch = dcs._build_l2_selection_candidates(
+            current_text="вопрос", chain_items=service_chain, branch_hops=0,
+            working_window_messages=0)
+        assert no_branch.reply_branch == ()
+        assert len(no_branch.thread) == len(chronological)
+
+    def test_fact_episode_self_output_and_summary_tiers(self):
+        fact = {"id": 7, "text": "кредит на 348 тысяч",
+                "timestamp_utc": 1000, "author_id": 21}
+        episode = _urc_row(41, "дословная старая реплика")
+        summary = {"summary": "спорили о кредите", "window_end_ts": 900,
+                   "raw_count": 12}
+        selection = dcs._build_l2_selection_candidates(
+            current_text="напомни про кредит", timestamp_utc=2000,
+            fact_rows=[fact], episode_rows=[episode],
+            self_output_records=[{
+                "output_id": 3, "tg_message_id": 55, "sent_at": 1500,
+                "content_text": "я говорил про 348 тысяч",
+                "bot_user_id": BOT_UID, "parent_message_ref": "tg:41",
+                "correlation_id": "turn-9"}],
+            summary_row=summary, working_window_messages=0)
+        by_id = {f.source_id: f for f in selection.fragments()}
+        fact_frag = by_id["fact:7"]
+        assert fact_frag.role == comp.ROLE_MEMORY
+        assert fact_frag.memory_tier == 3
+        assert fact_frag.authority == comp.AUTHORITY_BACKGROUND
+        assert "не дословная реплика" in fact_frag.note
+        episode_frag = by_id["msg:41"]
+        assert episode_frag.role == comp.ROLE_MEMORY
+        assert episode_frag.memory_tier == 4
+        assert episode_frag.authority == comp.AUTHORITY_PRIMARY
+        self_frag = by_id["bot_output:3"]
+        assert self_frag.role == comp.ROLE_SELF_OUTPUT
+        assert self_frag.authority == comp.AUTHORITY_SUPPORTING
+        assert self_frag.speaker_uid == BOT_UID
+        assert selection.summary and \
+            selection.summary[0].authority == comp.AUTHORITY_BACKGROUND
+        assert selection.provenance.memory_found is True
+        # R17-safe срез знает новые аддитивные поля.
+        summary_dict = selection.as_dict()
+        assert summary_dict["reply_branch"] == []
+        assert summary_dict["memory"][0]["memory_tier"] == 3
+        assert "correction" in summary_dict["memory"][0]
+        assert "compressible" in summary_dict["memory"][0]
+
+    def test_window_split_and_middle_lines_are_background(self):
+        rows = [_urc_row(i, f"строка {i}") for i in range(1, 9)]
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=5,
+            middle_lines=["middle-строка о деньгах"])
+        fresh_ids = [f.source_id for f in selection.fresh_neighbours]
+        assert fresh_ids == [f"msg:{i}" for i in range(4, 9)]
+        assert all(f.role == comp.ROLE_FRESH_NEIGHBOUR
+                   and f.priority == comp.P1
+                   for f in selection.fresh_neighbours)
+        background_ids = [f.source_id for f in selection.background]
+        assert background_ids[:3] == ["msg:1", "msg:2", "msg:3"]
+        assert background_ids[-1] == "middle:0"
+        assert all(f.priority == comp.P3 for f in selection.background)
+        assert selection.background[-1].text == "middle-строка о деньгах"
+
+    def test_same_source_from_window_and_episode_deduped_once(self):
+        row = _urc_row(77, "одна и та же реплика")
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=[row],
+            episode_rows=[row], working_window_messages=5)
+        matches = [f for f in selection.fragments()
+                   if f.source_id == "msg:77"]
+        assert len(matches) == 1
+        assert matches[0].role == comp.ROLE_FRESH_NEIGHBOUR
+        assert any(item.get("reason_code") == "duplicate_source"
+                   for item in selection.provenance.dropped)
+        # Даже когда allocator режет бюджет, dedup-запись не стирается.
+        tight = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=[row],
+            episode_rows=[row], working_window_messages=5,
+            budget_tokens=1)
+        assert any(item.get("reason_code") == "duplicate_source"
+                   for item in tight.provenance.dropped)
+
+    def test_missing_fact_source_is_marked_as_model_output(self):
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос",
+            fact_rows=[{"id": 8, "text": "предположение модели"}],
+            working_window_messages=0)
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, source: ""))
+        assert "rag" in blocks
+        assert "[вывод модели]" in blocks["rag"]
+        assert "предположение модели" in blocks["rag"]
+        # Не выдаётся за дословную реплику.
+        assert "<Old_Episode>" not in blocks.get("episode", "")
+
+    def test_memory_tiers_drop_episode_then_graph_then_exact(self):
+        def _tier(tier: int, sid: str):
+            return comp.ContextFragment(
+                kind=comp.KIND_SUMMARY_INFERENCE, source_id=sid,
+                timestamp_utc=100 + tier, text="факт о кредите " * 10,
+                role=comp.ROLE_MEMORY, authority=comp.AUTHORITY_BACKGROUND,
+                time_known=True, memory_tier=tier)
+
+        full = comp.build_context_selection(
+            chat_id=CHAT, current_text="вопрос", timestamp_utc=2000,
+            memory=[_tier(4, "episode:4"), _tier(3, "fact:3"),
+                    _tier(2, "msg:2")], budget_tokens=0)
+        current = full.current_question
+        tier2 = [f for f in full.memory if f.memory_tier == 2][0]
+        budget = current.tokens() + tier2.tokens() + 1
+        tight = comp.build_context_selection(
+            chat_id=CHAT, current_text="вопрос", timestamp_utc=2000,
+            memory=full.memory, budget_tokens=budget)
+        reasons = [item["reason_code"] for item in tight.provenance.dropped
+                   if item["source_id"].startswith(("episode:", "fact:"))]
+        assert reasons == ["memory_tier_4", "memory_tier_3"]
+        survivors = {f.source_id for f in tight.memory}
+        assert survivors == {"msg:2"}
+
+    def test_self_outputs_merge_with_window_tail_by_time(self):
+        rows = [_urc_row(1, "раньше"), _urc_row(3, "позже")]
+        rows[0]["timestamp"] = 100
+        rows[1]["timestamp"] = 300
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=5,
+            self_output_records=[{
+                "output_id": 2, "tg_message_id": 2, "sent_at": 200,
+                "content_text": "ответ бота", "bot_user_id": BOT_UID,
+                "parent_message_ref": "tg:1"}])
+        index = {f"msg:{row['tg_message_id']}": row for row in rows}
+        index["bot_output:2"] = {
+            "tg_message_id": 2, "timestamp": 200, "user_id": BOT_UID,
+            "author_name": "бот", "text": "ответ бота", "reply_to_id": 1}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, source: source["text"],
+            source_index=index))
+        body = blocks["global"].split("\n")[1:-1]
+        assert body == ["раньше", "ответ бота", "позже"]
+        # Собственный ответ — факт диалога, не style-anchor/подражание.
+        assert "style_anchors" not in blocks["global"]
+        assert "подражай" not in blocks["global"]
+
+
+class TestURC2aConvergence:
+    """RED/GREEN для URC2A-R1-01…R1-04 (реальные chain/tuple/pressure)."""
+
+    def test_p0_correction_in_memory_tier4_survives_pressure(self):
+        old = comp.ContextFragment(
+            kind=comp.KIND_USER_STATEMENT, source_id="msg:1",
+            text="зарплата у меня 60 тысяч", timestamp_utc=1000,
+            speaker_uid=11, author_label="u11", role=comp.ROLE_MEMORY,
+            tg_message_id=1, authority=comp.AUTHORITY_PRIMARY,
+            time_known=True, memory_tier=4)
+        new = comp.ContextFragment(
+            kind=comp.KIND_USER_STATEMENT, source_id="msg:2",
+            text="поправка: зарплата 90 тысяч, не 60", timestamp_utc=2000,
+            speaker_uid=11, author_label="u11", role=comp.ROLE_MEMORY,
+            tg_message_id=2, authority=comp.AUTHORITY_PRIMARY,
+            time_known=True, memory_tier=4)
+        full = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я получаю?",
+            timestamp_utc=3000, memory=[old, new], budget_tokens=0)
+        correction = [f for f in full.memory if f.source_id == "msg:2"][0]
+        assert correction.correction is True
+        assert correction.priority == comp.P0
+        budget = full.current_question.tokens() + 1
+        tight = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я получаю?",
+            timestamp_utc=3000, memory=full.memory, budget_tokens=budget)
+        survivors = {f.source_id for f in tight.fragments()}
+        assert "msg:2" in survivors
+        assert all(item.get("source_id") != "msg:2"
+                   for item in tight.provenance.dropped)
+        # P0 физически не влезает — честный overflow, но не потеря.
+        assert tight.provenance.overflow is True
+        assert tight.provenance.included_tokens > budget
+
+    def test_fact_row_accepts_real_kept_tuple(self):
+        row = ("chat_history", "кредит на 348 тысяч", 1000, "Петя",
+               "msg:900", "", False, "")
+        frag = comp.fragment_from_fact_row(row)
+        assert frag is not None
+        assert frag.text == "кредит на 348 тысяч"
+        assert frag.source_id == "msg:900"
+        assert frag.tg_message_id == 900
+        assert frag.timestamp_utc == 1000
+        assert frag.author_label == "Петя"
+        assert frag.role == comp.ROLE_MEMORY
+        assert frag.memory_tier == 3
+        assert frag.authority == comp.AUTHORITY_BACKGROUND
+        # Прежний dict-контракт не сломан.
+        dict_frag = comp.fragment_from_fact_row(
+            {"id": 7, "text": "кредит", "timestamp_utc": 1000})
+        assert dict_frag is not None
+        assert dict_frag.source_id == "fact:7"
+
+    def test_exact_memory_outranks_supporting_self_output(self):
+        exact = comp.ContextFragment(
+            kind=comp.KIND_USER_STATEMENT, source_id="msg:701",
+            text="точный факт о кредите " * 10, timestamp_utc=500,
+            speaker_uid=11, author_label="u11", role=comp.ROLE_MEMORY,
+            tg_message_id=701, authority=comp.AUTHORITY_PRIMARY,
+            time_known=True, memory_tier=2)
+        self_out = comp.ContextFragment(
+            kind=comp.KIND_BOT_STATEMENT, source_id="bot_output:3",
+            text="бот когда-то сказал " * 20, timestamp_utc=600,
+            speaker_uid=BOT_UID, author_label="бот",
+            role=comp.ROLE_SELF_OUTPUT,
+            authority=comp.AUTHORITY_SUPPORTING, time_known=True)
+        full = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я платил?",
+            timestamp_utc=1000, memory=[exact], self_outputs=[self_out],
+            budget_tokens=0)
+        budget = full.current_question.tokens() + exact.tokens() + 1
+        tight = comp.build_context_selection(
+            chat_id=CHAT, current_text="сколько я платил?",
+            timestamp_utc=1000, memory=[exact], self_outputs=[self_out],
+            budget_tokens=budget)
+        survivors = {f.source_id for f in tight.fragments()}
+        assert "msg:701" in survivors
+        assert "bot_output:3" not in survivors
+        reasons = {item["source_id"]: item["reason_code"]
+                   for item in tight.provenance.dropped}
+        assert reasons["bot_output:3"] == "low_value_memory"
+
+
+class TestURC2aMaterializerParity:
+    def test_branch_and_thread_match_existing_renderers(self):
+        service = _dcs()
+        chronological = _chain(4)                       # root → current
+        service_chain = list(reversed(chronological))    # реальный порядок
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", chain_items=service_chain, branch_hops=3,
+            working_window_messages=0)
+        assert [f.source_id for f in selection.reply_branch] == [
+            "msg:2", "msg:3", "msg:4"]
+        assert [f.source_id for f in selection.thread] == ["msg:1"]
+        index = {f"msg:{i + 1}": item
+                 for i, item in enumerate(chronological)}
+        chain_order = {f"msg:{i + 1}": i
+                       for i, _item in enumerate(chronological)}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, item: service._chain_line(
+                item, {}, None),
+            render_row_line=lambda frag, row: "",
+            source_index=index, chain_order=chain_order))
+        assert blocks["branch"] == service._render_branch(service_chain, {},
+                                                          None)
+        assert blocks["thread"] == service._render_thread(
+            service_chain, {}, truncate=False)
+        assert "<Conversation_Branch>" in blocks["branch"]
+        assert "<Conversation_Thread>" in blocks["thread"]
+        # Branch — проекция хвоста цепочки, не второй набор строк.
+        branch_body = blocks["branch"].split("\n")[1:-1]
+        thread_body = blocks["thread"].split("\n")[1:-1]
+        assert set(branch_body) <= set(thread_body)
+
+    def test_global_window_tail_matches_existing_row_renderer(self):
+        service = _dcs()
+        rows = [_urc_row(i, f"строка {i}") for i in range(1, 6)]
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=len(rows))
+        index = {f"msg:{row['tg_message_id']}": row for row in rows}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, row: service._context_row_line(
+                row, {}, None),
+            source_index=index))
+        expected_body = "\n".join(
+            service._context_row_line(row, {}, None) for row in rows)
+        assert blocks["global"] == (
+            f"<Global_Context>\n{escape_xml_text(expected_body)}\n"
+            f"</Global_Context>")
+
+    def test_global_summary_middle_tail_order_and_bytes(self):
+        service = _dcs()
+        rows = [_urc_row(i, f"строка {i}") for i in range(1, 6)]
+        summary = {"summary": "конспект темы", "window_end_ts": 0,
+                   "raw_count": 5}
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", window_rows=rows,
+            working_window_messages=2, summary_row=summary,
+            middle_lines=["middle-строка"])
+        index = {f"msg:{row['tg_message_id']}": row for row in rows}
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, row: service._context_row_line(
+                row, {}, None),
+            source_index=index))
+        head = ["конспект темы"]
+        middle = [service._context_row_line(row, {}, None)
+                  for row in rows[:3]] + ["middle-строка"]
+        tail = [service._context_row_line(row, {}, None)
+                for row in rows[3:]]
+        expected = "\n".join(head + middle + tail)
+        assert blocks["global"] == (
+            f"<Global_Context>\n{escape_xml_text(expected)}\n"
+            f"</Global_Context>")
+
+    def test_rag_and_episode_match_existing_renderers(self):
+        service = _dcs()
+        fact = ("chat_history", "кредит на 348 тысяч", 1000, "Петя",
+                "msg:900")
+        episode_rows = [_urc_row(41, "дословная старая реплика"),
+                        _urc_row(42, "и ещё одна")]
+        selection = dcs._build_l2_selection_candidates(
+            current_text="вопрос", fact_rows=[fact],
+            episode_rows=episode_rows, working_window_messages=0)
+        index = {"msg:900": fact}
+        index.update({f"msg:{row['tg_message_id']}": row
+                      for row in episode_rows})
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, row: service._context_row_line(
+                row, {}, None),
+            source_index=index))
+        from services.summary_memory import build_rag_context
+        assert blocks["rag"] == (
+            "<RAG_Memory>\n"
+            + build_rag_context([fact], origin_labels=True)
+            + "\n</RAG_Memory>")
+        expected_episode = "\n".join(
+            service._context_row_line(row, {}, None) for row in episode_rows)
+        assert blocks["episode"] == (
+            f"<Old_Episode>\n{escape_xml_text(expected_episode)}\n"
+            f"</Old_Episode>")
+        # CANONICAL_ORDER: episode раньше rag, current — в конце.
+        assert list(blocks) == ["episode", "rag", "current"]
+
+    def test_current_question_uses_existing_renderer(self):
+        service = _dcs()
+        message = SimpleNamespace(text="полный текущий вопрос",
+                                  message_id=99, reply_to_message=None)
+        selection = dcs._build_l2_selection_candidates(
+            current_text="полный текущий вопрос", message_tg_id=99,
+            working_window_messages=0)
+        blocks = dict(dcs._materialize_selection(
+            selection,
+            render_chain_line=lambda frag, source: "",
+            render_row_line=lambda frag, source: "",
+            render_current=lambda frag, source: service._render_current_question(
+                message)))
+        assert blocks["current"] == \
+            service._render_current_question(message)
+        assert "полный текущий вопрос" in blocks["current"]
+
+
+class TestURC2aLivePathUnchanged:
+    def test_live_compose_wires_selection_and_keeps_legacy_fail_open(self):
+        source = inspect.getsource(dcs.DirectChatService._compose_user_content)
+        # UR-C-2b: live-путь использует selection и единственный allocator.
+        assert "_build_l2_selection_candidates(" in source
+        assert "allocate_selection(" in source
+        # Старый блочный allocator остаётся ТОЛЬКО как fail-open ветка.
+        assert "allocate_budget(" in source
+        assert source.index("_run_live_selection") < \
+            source.index("allocate_budget(")
+        # Helper'ы существуют и доступны live-пути.
+        assert callable(dcs._build_l2_selection_candidates)
+        assert callable(dcs._materialize_selection)

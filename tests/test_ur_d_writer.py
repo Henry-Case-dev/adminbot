@@ -286,8 +286,8 @@ class TestUnifiedWriterPath:
         tiny = _ab.BudgetResult(
             stage="initiative.l2", model="unknown-model-xyz",
             context_window=16384, mandatory_tokens=0, output_reserve=1024,
-            safety_reserve=64, auto_input_budget=40, policy_mode="dynamic",
-            manual_cap=None, effective_input_budget=40, source="fallback")
+            safety_reserve=64, auto_input_budget=450, policy_mode="dynamic",
+            manual_cap=None, effective_input_budget=450, source="fallback")
 
         async def _tiny(stage, **kwargs):
             return tiny
