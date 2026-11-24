@@ -1,0 +1,268 @@
+{
+  "release": "2.58.242",
+  "slice": "QRNG-IBM-P5A-P5B",
+  "deploy_mode": "code-only",
+  "authorization": {
+    "delta_review_sha256": "58e82e71bed89537b25c69523ab22d486d657f8f153771b0ad9b10e471ca2576",
+    "verdict": "APPROVED_FOR_DEPLOY",
+    "blocking_findings": 0
+  },
+  "deployed": {
+    "sha": "ff226ca0ae187e8f41fa6cbb3de5317bdcce8f6e",
+    "tree_expected": "b2205b58696b98e8a03fd6f2545fa35a3d9ce9d7",
+    "tree_actual": "b2205b58696b98e8a03fd6f2545fa35a3d9ce9d7",
+    "product_tree": "703e0651802b80a5d9da0929d8b6be6d0a830a8e (dfa5118fd)",
+    "checkout_mode": "detached",
+    "dirty_tracked": 0,
+    "version": "2.58.242",
+    "base_rollback_sha": "3f42cfdd1f7ed26393ba7b793e86efe7b6f73a4c",
+    "base_version": "2.58.241",
+    "manifest": {
+      "deployed_at": "2026-11-24T14:07:50.621741Z",
+      "previous_sha": "3f42cfdd1f7ed26393ba7b793e86efe7b6f73a4c",
+      "previous_version": "2.58.241",
+      "dirty_tracked": false,
+      "effect": "deploy"
+    },
+    "manifest_before": {
+      "deployed_sha": "3f42cfdd1f7ed26393ba7b793e86efe7b6f73a4c",
+      "version": "2.58.241",
+      "previous_sha": "f7e20e15d66de5d4d2f4ab787f26c0ac7b7141c9",
+      "previous_version": "2.58.240"
+    },
+    "restart1_at": "2026-11-24T14:07:52Z",
+    "restart2_at": "2026-11-24T14:13:46Z",
+    "main_pid": 3878026
+  },
+  "delta": {
+    "files": 103,
+    "product_and_deps": 100,
+    "docs": 3,
+    "web": 3,
+    "migrations": 0,
+    "services_database_py": 0,
+    "services_pg_db_py": 0,
+    "services_mca_gates_py": 0,
+    "new_flags": 0
+  },
+  "preflight": {
+    "head": "3f42cfdd1f7ed26393ba7b793e86efe7b6f73a4c",
+    "tree": "853dd3b471034fb297753604d98367ed208dbf6f",
+    "dirty_tracked": 0,
+    "dirty_untracked": 0,
+    "health": {"local": "2.58.241", "public": "2.58.241"},
+    "service": {
+      "active": "active",
+      "nrestarts": 0,
+      "main_pid": 3849390,
+      "exec_start": "2026-11-24T12:03:23Z",
+      "procs": 1
+    },
+    "db_bytes": 5915566080,
+    "disk_avail_bytes": 54603825152,
+    "target_sha_present": false
+  },
+  "backup": {
+    "path": "backups/predeploy-258242-20261124T140248Z.db",
+    "bytes": 5642412032,
+    "sha256": "5a11a4484cddebb257b113d42cf80d56b9b665e9d3ebd7c1264a66c45132b8f1",
+    "quick_check": "ok",
+    "user_version": 48,
+    "tables": 130,
+    "schema_migrations": "37/48",
+    "graph_facts": 39839,
+    "schema_sha": "be483ef187887deb",
+    "mode": "vacuum_into_readonly",
+    "elapsed_s": 188.0,
+    "owner_mode": "adminbot:adminbot 600"
+  },
+  "dependencies": {
+    "qiskit-ibm-runtime": "0.52.1",
+    "qiskit": "2.6.2",
+    "numpy": "2.5.5",
+    "scipy": "1.18.1",
+    "ibm-platform-services": "0.77.2",
+    "pip_check": "No broken requirements found",
+    "import_smoke": "OK (numpy/scipy/qiskit/qiskit_ibm_runtime + app modules)"
+  },
+  "post": {
+    "health": {"local": "2.58.242", "public": "2.58.242", "http": 200},
+    "service": {
+      "active": "active",
+      "nrestarts": 0,
+      "main_pid": 3878026,
+      "exec_start": "2026-11-24T14:13:46Z",
+      "procs": 1,
+      "health_after_restart_s": 5
+    },
+    "identity": {
+      "code": "verified_deployed",
+      "reason": "",
+      "deployed_sha": "ff226ca0ae187e8f41fa6cbb3de5317bdcce8f6e",
+      "checkout_sha": "ff226ca0ae187e8f41fa6cbb3de5317bdcce8f6e",
+      "version_provenance": {"runtime": "2.58.242", "manifest": "2.58.242", "consistent": true},
+      "dirty": false,
+      "conflict": [],
+      "sources": ["release_manifest", "git_head", "git_cli", "runtime_app_version", "process_start"]
+    },
+    "sqlite": {
+      "user_version": 48,
+      "tables": 130,
+      "schema_migrations": "37/48",
+      "schema_sha": "be483ef187887deb",
+      "ddl": 0,
+      "ddl_schema_identical_to_backup": true,
+      "graph_facts": 39839,
+      "graph_facts_vec": 39952
+    },
+    "served": {
+      "app_js_bytes": 2676044,
+      "app_js_sha256": "52be44385c3fcddffa8f8c44c67555a6080dec8fe87a7972d58e536c264ae809",
+      "disk_eq_local_eq_public": true,
+      "index_pins": "app.css?v=2.58.242, app.js?v=2.58.242",
+      "web_root": 200,
+      "root_slash": 307,
+      "api_config_unauth": 401
+    },
+    "journal": {
+      "restart1_window": {"lines": 244, "error": 0, "critical": 0, "traceback": 0, "exception": 0},
+      "final_window": {"lines": 165, "error": 0, "critical": 0, "traceback": 0, "exception": 0},
+      "baseline_24h": {
+        "lines": 80858,
+        "error": 7,
+        "critical": 0,
+        "traceback": 23,
+        "source": "anticliche_worker wikipedia fetch; aiogram TelegramNetworkError (pre-existing)"
+      }
+    }
+  },
+  "qrng_p5": {
+    "registry": {
+      "ibm_quantum": {
+        "configured": false,
+        "state": "provider_unconfigured",
+        "reserve": 0,
+        "key_present": false,
+        "crn_present": false,
+        "dependency": true,
+        "max_inflight": 1,
+        "max_jobs_per_day": 4,
+        "max_qpu_seconds_per_day": 120,
+        "jobs": []
+      },
+      "anu": {
+        "configured": true,
+        "state": "active",
+        "reserve_before_draw": 1127,
+        "reserve_after_draw": 1126,
+        "quarantined": 0,
+        "config_matches": true
+      },
+      "lfdr": {
+        "configured": true,
+        "state": "unverified",
+        "reserve": 1023,
+        "quarantined": 0,
+        "config_matches": true
+      }
+    },
+    "effective": {
+      "selected_source": "quantum",
+      "effective_source": "quantum",
+      "resolved_primary": "anu",
+      "effective_provider": "anu",
+      "reserve_remaining": 2150,
+      "reserve_after_draw": 2149,
+      "low_watermark": 256,
+      "buffer_max": 2048,
+      "prng_active": false,
+      "last_fallback_reason": null
+    },
+    "draws": {
+      "quantum_before_draw": 5351,
+      "quantum_after_draw": 5352,
+      "pseudorandom": 44,
+      "continuity": "quantum 5348@14:02:48 -> 5349@14:09:30 (real process draw through deploy window)"
+    },
+    "live_draw": {
+      "index": 1,
+      "value": 289,
+      "source": "quantum",
+      "selected_source": "quantum",
+      "reason": null,
+      "policy_version": "mca10a-v1",
+      "provider": "anu"
+    },
+    "fallback_counters": {"auth_failed": 0, "quota": 0, "transport": 0, "error_storm": false},
+    "ibm_jobs_scheduled": {
+      "task_jobs_kind_random.ibm_job_all_time": 0,
+      "mca_random_batches_provider_ibm_all_time": 0,
+      "snapshot": []
+    },
+    "n04": "inert: refill trigger requires configured IBM; no IBM job/slot created"
+  },
+  "secrets": {
+    "journal_crn_v1": 0,
+    "journal_apikey": 0,
+    "journal_long_hex40": 0,
+    "appjs_crn_v1": 0,
+    "appjs_env_name": 0,
+    "index_crn_v1": 0,
+    "auth_errors": "401 missing init data, no secret material"
+  },
+  "auth_boundary": {
+    "GET /api/config": 401,
+    "GET /api/status": 401,
+    "GET /api/config/keys/status": 401,
+    "POST /api/config": 401,
+    "POST /api/random/test": 401,
+    "POST /api/random/ibm/smoke": 401
+  },
+  "settings_preserved": {
+    "pg_tables": 10,
+    "pg_rows": 1695,
+    "digest_before": "ee883756cef955c84ced325890d1302bd8c1fd132a9d0ae8872f8dc1a9ecf6a5",
+    "digest_after": "ee883756cef955c84ced325890d1302bd8c1fd132a9d0ae8872f8dc1a9ecf6a5",
+    "match": true
+  },
+  "disk": {
+    "avail_before": 54603825152,
+    "avail_after_backup": 48961576960,
+    "cleanup_deleted": "predeploy-258240-20261124T093140Z.db",
+    "cleanup_freed_bytes": 5585489920,
+    "deploy_pool_keep": 2,
+    "deploy_pool_remaining": [
+      "predeploy-258241-20261124T115812Z.db",
+      "predeploy-258242-20261124T140248Z.db"
+    ],
+    "avail_final": 54222434304,
+    "partial_files": 0,
+    "own_temp_files": 0
+  },
+  "deviations": [
+    "pip install -r requirements.txt first ran before checkout (old requirements, no qiskit, rc=0); installed at deployed checkout afterwards and a second manual restart (14:13:46Z) aligned the running process with the final dependency set",
+    "first QRNG sidecar read lacked ConfigCache (under-reported ANU key/quarantine); authoritative values re-read with read-only ConfigCache _load_all",
+    "sidecar forced refill fetched one LfDr batch 7433344c (1024 values, 1 consumed by probe) - real extra reserve, harmless, documented",
+    "backup verification connection lacked sqlite_vec, so graph_facts_vec count taken from live DB (39952)"
+  ],
+  "not_verified": [
+    "IBM IAM/CRN/QPU/queue/usage/RU and hardware smoke (no credentials; owner-only)",
+    "authenticated HTTP /api/config and /api/random/* (TMA session not minted)",
+    "new browser/visual run on rebased tree (reused P5B r3 per delta review)"
+  ],
+  "rows": {
+    "QAN-REC-IBM-01": "REVIEW",
+    "QAN-REC-IBM-02": "REVIEW",
+    "QAN-REC-IBM-03": "REVIEW"
+  },
+  "hardware_verified_claim": false,
+  "rollback": {
+    "executed": false,
+    "code_only_sha": "3f42cfdd1f7ed26393ba7b793e86efe7b6f73a4c",
+    "ddl": 0,
+    "migrations": 0,
+    "flags": 0,
+    "data_migration": false
+  },
+  "verdict": "DEPLOY_OK"
+}
