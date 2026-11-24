@@ -88,6 +88,8 @@ _CORRECTION_PATTERNS = (
 _QUOTE_MARKERS = ("сказал, что", "сказал что", "цитирую", "по словам",
                   "мол, дескать")
 
+_ROLEPLAY_MARKERS = ("представим", "представь", "как будто", "ролев",
+                     "отыграем", "сыграем")
 
 @dataclasses.dataclass(frozen=True)
 class ClaimEnvelope:
@@ -162,6 +164,8 @@ def classify_speech_act(text: str | None) -> str:
     if any(m in low for m in _QUOTE_MARKERS) or low.startswith(("цитата",
                                                                 '"', "«")):
         return SPEECH_ACT_QUOTE
+    if any(marker in low for marker in _ROLEPLAY_MARKERS):
+        return SPEECH_ACT_HYPOTHESIS
     if low.startswith(("может быть", "возможно", "наверное", "кажется",
                        "вроде бы")):
         return SPEECH_ACT_HYPOTHESIS
