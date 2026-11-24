@@ -1,0 +1,29 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_new_personal_fact_with_subject_ref_is_not_world _____________
+
+    @pytest.mark.asyncio
+    async def test_new_personal_fact_with_subject_ref_is_not_world():
+        db = await _db()
+        try:
+            await db.save_smart_message(
+                UID, CHAT, "╨Ы╨╡╤Е╨░ ╨╗╤О╨▒╨╕╤В ╨║╨╛╤Д╨╡", None, NOW, "text", "╨Ы╨╡╤Е╨░",
+                message_id=100)
+            fact_id = await _insert_fact(db, "╨Ы╨╡╤Е╨░ ╨╗╤О╨▒╨╕╤В ╨║╨╛╤Д╨╡")
+            host = _AttachHost(db)
+            await MemoryManager._attach_fact_provenance(
+                host, CHAT, fact_id, "chat_history", "╨Ы╨╡╤Е╨░", None, None, {},
+                declared_method="world_knowledge",
+                declared_kind="world_knowledge")
+            cursor = await db.db.execute(
+                "SELECT attribution_method, assertion_kind, subject_ref_id "
+                "FROM graph_facts WHERE id=?", (fact_id,))
+            row = await cursor.fetchone()
+            assert row["subject_ref_id"] is not None
+>           assert row["attribution_method"] in ("third_party", "self_report")
+E           AssertionError: assert 'world_knowledge' in ('third_party', 'self_report')
+
+tests\test_vmq_mem_rc5a_fact_durability.py:72: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_rc5a_fact_durability.py::test_new_personal_fact_with_subject_ref_is_not_world
+1 failed in 3.29s

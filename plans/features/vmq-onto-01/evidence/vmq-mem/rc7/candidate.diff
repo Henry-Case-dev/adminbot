@@ -1,0 +1,318 @@
+diff --git a/services/direct_chat_service.py b/services/direct_chat_service.py
+index 2d105a661..ed64573cd 100644
+--- a/services/direct_chat_service.py
++++ b/services/direct_chat_service.py
+@@ -11861,0 +11862,55 @@ class DirectChatService:
++        # RC7 (B2 narrowed, 23.11.2026): episode-кандидат нового store сам
++        # сообщений не несёт. Мост — только по СУЩЕСТВУЮЩИМ
++        # `mca_story_episode_links` → `mca_episodes.message_keys_json` →
++        # валидные строки `smart_messages`; legacy-истории без links/keys
++        # честно дают пусто (RFL-7), второй mapping/DDL не создаётся.
++        # Основной retrieval этого хода идёт message-каналами (TIME-03),
++        # поэтому story-кандидаты читаются отдельной bounded-ногой через
++        # существующий фасад (`_episode_candidates` = mca-05 read-contract);
++        # порядок/состав основного результата не меняется.
++        bridge_candidates = [
++            cand for cand in result.candidates
++            if getattr(cand, "entity_type", "") == "episode"]
++        if not bridge_candidates:
++            try:
++                bridge_candidates = await _mca_rc._episode_candidates(
++                    self.db, dataclasses.replace(request, top_k=16), [])
++            except Exception:
++                logger.warning(
++                    "direct: story bridge read failed — skip | chat=%s",
++                    chat_id, exc_info=True)
++                bridge_candidates = []
++        story_ids: list[str] = []
++        story_preview: dict[str, str] = {}
++        for cand in bridge_candidates:
++            if getattr(cand, "entity_type", "") != "episode":
++                continue
++            ref = str(getattr(cand, "id", "") or "")
++            story_id = str(getattr(cand, "entity_id", "") or "")
++            if not story_id and ref.startswith("episode:"):
++                story_id = ref.split(":", 1)[1]
++            if not story_id or story_id in story_preview:
++                continue
++            story_ids.append(story_id)
++            story_preview[story_id] = str(getattr(cand, "preview", "") or "")
++        bridge_anchors: dict[str, list[str]] = {}
++        if story_ids:
++            try:
++                from services import mca_episodes as _mca_eps
++                bridge_anchors = await _mca_eps.story_message_anchors(
++                    self.db, chat_id, story_ids[:16],
++                    per_story=2,
++                    limit=max(1, int(self._RAG_EPISODE_ANCHOR_CAP)))
++            except Exception:
++                logger.warning(
++                    "direct: story anchor bridge failed — skip | chat=%s",
++                    chat_id, exc_info=True)
++                bridge_anchors = {}
++        for story_id, refs in bridge_anchors.items():
++            preview = story_preview.get(story_id, "")
++            for ref in refs or ():
++                cand = types.SimpleNamespace(
++                    id=ref, entity_type="episode", channel="episode",
++                    preview=preview, score=0.0)
++                _add_anchor(cand, priority=1)
++        stats["story_anchor_candidates"] = len(bridge_anchors)
+diff --git a/services/mca_episodes.py b/services/mca_episodes.py
+index 8dff1cd08..001f4330c 100644
+--- a/services/mca_episodes.py
++++ b/services/mca_episodes.py
+@@ -1800,0 +1801,68 @@ async def resolve_story_id(db, story_id: str) -> str:
++async def story_message_anchors(db, chat_id: int, story_ids,
++                                *, per_story: int = 2,
++                                limit: int = 8) -> dict[str, list[str]]:
++    """RC7 (B2 narrowed): new-story → episode links → message anchors.
++
++    Читает только существующие `mca_story_episode_links` →
++    `mca_episodes.message_keys_json` → `smart_messages` и возвращает
++    канонические `tg:<id>`/`msg:<id>` refs. Legacy lore-истории без
++    links/keys дают пустой результат (RFL-7), ничего не выдумывается.
++    Read-only, без DDL/mapping/backfill.
++    """
++    ids: list[str] = []
++    for value in story_ids or ():
++        text = str(value or "").strip()
++        if text and text not in ids:
++            ids.append(text)
++    ids = ids[:32]
++    if not ids:
++        return {}
++    placeholders = ",".join("?" for _ in ids)
++    try:
++        cursor = await db.db.execute(
++            "SELECT l.story_id, l.order_no, e.message_keys_json "
++            "FROM mca_story_episode_links l "
++            "JOIN mca_episodes e ON e.episode_id = l.episode_id "
++            "WHERE e.chat_id = ? AND l.story_id IN (" + placeholders + ") "
++            "ORDER BY l.story_id, l.order_no, e.updated_at DESC",
++            (int(chat_id), *ids))
++        rows = await cursor.fetchall()
++    except Exception:
++        logger.warning("[mca05] story anchor bridge read failed",
++                       exc_info=True)
++        return {}
++    out: dict[str, list[str]] = {}
++    total = 0
++    for row in rows:
++        story_id = str(row["story_id"])
++        if total >= max(1, int(limit)):
++            break
++        refs = out.setdefault(story_id, [])
++        if len(refs) >= max(1, int(per_story)):
++            continue
++        keys = _json_loads(row["message_keys_json"], [])
++        for key in keys or ():
++            if total >= max(1, int(limit)) or len(refs) >= max(1, int(per_story)):
++                break
++            raw = str(key or "")
++            ref = ""
++            if raw.startswith(f"{int(chat_id)}:tg:"):
++                try:
++                    tg = int(raw.rsplit(":tg:", 1)[1])
++                except (TypeError, ValueError):
++                    continue
++                if await _message_exists(db, int(chat_id), tg_message_id=tg):
++                    ref = f"tg:{tg}"
++            elif raw.startswith(f"{int(chat_id)}:db:"):
++                try:
++                    mid = int(raw.rsplit(":db:", 1)[1])
++                except (TypeError, ValueError):
++                    continue
++                if await _message_exists(db, int(chat_id), db_id=mid):
++                    ref = f"msg:{mid}"
++            if ref and ref not in refs:
++                refs.append(ref)
++                total += 1
++    return {key: value for key, value in out.items() if value}
++
++
+diff --git a/tests/test_vmq_mem_rc7_story_bridge.py b/tests/test_vmq_mem_rc7_story_bridge.py
+new file mode 100644
+index 000000000..f6818bb09
+--- /dev/null
++++ b/tests/test_vmq_mem_rc7_story_bridge.py
+@@ -0,0 +1,179 @@
++"""VMQ-MEM RC7 (B2 narrowed): new-story → episode links → message anchors.
++
++Проверяет production-путь: `mca_episodes.story_message_anchors` и
++`DirectChatService._build_old_episodes` на настоящем SQLite. Legacy 5–16
++mapping — RFL-7: не воссоздаётся, пустой мост честно остаётся пустым.
++"""
++import asyncio
++import datetime
++import types
++from unittest.mock import MagicMock
++
++import pytest
++
++from services import direct_chat_service as dcs
++from services import mca_gates
++from services import mca_retrieval_context as rc
++from services.database import DatabaseService, EPISODE_UNKNOWN_OUTCOME
++from services.direct_chat_service import DirectChatService
++from services.mca_episodes import EpisodeRepository, story_message_anchors
++from services.summary_aliases import AliasResolver
++from services.tool_router import ToolContext, ToolDeps, ToolRouter
++
++CHAT = -1002661910336
++T_2024 = int(datetime.datetime(
++    2024, 6, 1, 12, tzinfo=datetime.timezone.utc).timestamp())
++T_2025 = int(datetime.datetime(
++    2025, 6, 1, 12, tzinfo=datetime.timezone.utc).timestamp())
++NOW = T_2025 + 3600
++
++
++class _NoMemory:
++    async def retrieve_fact_candidates(self, *a, **k):
++        return []
++
++
++async def _make_db() -> DatabaseService:
++    db = DatabaseService(":memory:")
++    await db.initialize()
++    return db
++
++
++async def _seed_message(db, text, ts, *, tg_id, author="Лёха"):
++    return await db.save_smart_message(
++        42, CHAT, text, None, ts, "text", author, message_id=tg_id)
++
++
++async def _seed_story(db, *, keys, title="Дроны над полем",
++                      summary="Самоделка и обломки", seg="rc7-seg"):
++    repo = EpisodeRepository(db)
++    episode_id = await repo.insert_episode(
++        chat_id=CHAT, title="Эпизод", summary=summary,
++        participants=["42"], claims=[], event_start=T_2024,
++        event_end=T_2025, outcome=EPISODE_UNKNOWN_OUTCOME,
++        outcome_known=False, open_questions=[], message_keys=keys,
++        seg_key=seg, extraction_version="rc7", now=NOW)
++    assert episode_id
++    story_id, _vid, _created = await repo.upsert_story(
++        chat_id=CHAT, title=title, summary=summary, participants=["42"],
++        claims=[], event_start=T_2024, event_end=T_2025,
++        outcome=EPISODE_UNKNOWN_OUTCOME, state="open",
++        verification="unknown", open_questions=[],
++        episode_ids=[episode_id], extractor_version="rc7", now=NOW)
++    return story_id
++
++
++def _service(db) -> DirectChatService:
++    memory = _NoMemory()
++    router = ToolRouter(ToolDeps(search=MagicMock(), memory=memory,
++                                 aliases=None, db=db))
++    return DirectChatService(memory, db, MagicMock(),
++                             AliasResolver("{}"), tool_router=router)
++
++
++@pytest.fixture
++def gates_on(monkeypatch):
++    monkeypatch.setattr(mca_gates, "retrieval_context_enabled", lambda: True)
++    monkeypatch.setattr(mca_gates, "episodes_compiler_facade_enabled",
++                        lambda: True)
++
++
++@pytest.mark.asyncio
++async def test_story_bridge_returns_message_anchors(gates_on):
++    db = await _make_db()
++    try:
++        # Тексты НЕ содержат слова запроса: exact/lexical не дадут якорей,
++        # единственный путь к строкам — story→episode→message_keys.
++        await _seed_message(db, "мы запустили самоделку в поле", T_2024,
++                            tg_id=201)
++        await _seed_message(db, "потом нашли обломки у реки", T_2025,
++                            tg_id=202)
++        story_id = await _seed_story(
++            db, keys=[f"{CHAT}:tg:201", f"{CHAT}:tg:202"])
++        anchors = await story_message_anchors(db, CHAT, [story_id])
++        assert anchors == {story_id: ["tg:201", "tg:202"]}
++
++        block, stats = await _service(db)._build_old_episodes(
++            CHAT, "дроны", [], {})
++        assert block.startswith("<Old_Episode>")
++        assert "самоделку в поле" in block
++        assert "обломки у реки" in block
++        assert stats["count"] >= 1
++        assert stats["story_anchor_candidates"] == 1
++    finally:
++        await db.close()
++
++
++@pytest.mark.asyncio
++async def test_story_bridge_skips_missing_message_keys(gates_on):
++    db = await _make_db()
++    try:
++        await _seed_message(db, "живая строка", T_2024, tg_id=301)
++        story_id = await _seed_story(
++            db, keys=[f"{CHAT}:tg:999999", f"{CHAT}:tg:301"],
++            seg="rc7-missing")
++        anchors = await story_message_anchors(db, CHAT, [story_id])
++        # Несуществующая строка не превращается в якорь.
++        assert anchors == {story_id: ["tg:301"]}
++    finally:
++        await db.close()
++
++
++@pytest.mark.asyncio
++async def test_story_without_links_or_keys_returns_empty(gates_on):
++    db = await _make_db()
++    try:
++        story_id = await _seed_story(db, keys=[], seg="rc7-nokeys")
++        # Нет ключей эпизода — нет моста.
++        assert await story_message_anchors(db, CHAT, [story_id]) == {}
++        # Нет самих links (store без связи) — тоже честно пусто.
++        await db.db.execute(
++            "DELETE FROM mca_story_episode_links WHERE story_id = ?",
++            (story_id,))
++        await db.db.commit()
++        assert await story_message_anchors(db, CHAT, [story_id]) == {}
++        block, stats = await _service(db)._build_old_episodes(
++            CHAT, "дроны", [], {})
++        assert block == ""
++        assert stats["count"] == 0
++    finally:
++        await db.close()
++
++
++@pytest.mark.asyncio
++async def test_legacy_lore_story_has_no_invented_anchor(gates_on):
++    db = await _make_db()
++    try:
++        await _seed_message(db, "старая строка", T_2024, tg_id=401)
++        legacy_id = await db.upsert_lore_story(
++            CHAT, "дроны-legacy", "Дроны над полем",
++            "старый рассказ 5-16", T_2024)
++        block, stats = await _service(db)._build_old_episodes(
++            CHAT, "дроны", [], {})
++        # RFL-7: legacy-история без новых links/keys — пусто, без выдумки.
++        assert block == ""
++        assert stats["count"] == 0
++        assert await story_message_anchors(
++            db, CHAT, [str(legacy_id)]) == {}
++        # Никакого нового mapping/backfill не создано.
++        cursor = await db.db.execute(
++            "SELECT COUNT(*) AS n FROM mca_story_legacy_links")
++        assert (await cursor.fetchone())["n"] == 0
++    finally:
++        await db.close()
++
++
++@pytest.mark.asyncio
++async def test_episode_priority_does_not_replace_facade(gates_on):
++    db = await _make_db()
++    try:
++        assert mca_gates.episodes_compiler_facade_enabled() is True
++        # E1 (subject-threshold) не менялся этим инкрементом.
++        assert rc.PERIOD_MIN_SHARED_STEMS == 2
++        story_id = await _seed_story(db, keys=[], seg="rc7-facade")
++        from services.mca_episodes import list_stories_for_retrieval
++        rows = await list_stories_for_retrieval(db, CHAT)
++        assert any(str(row.get("id")) == story_id
++                   and row.get("kind") == "story" for row in rows)
++    finally:
++        await db.close()

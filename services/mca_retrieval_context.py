@@ -710,31 +710,54 @@ def _candidate_year(cand) -> int | None:
         return None
 
 
-def period_subject_stems(text) -> set:
-    """Основы значимых слов (≥4 символов) — существующая морфология §2.
+def period_subject_stems(text, *, explicit_year: bool = False) -> set:
+    """Основы значимых слов + аддитивный 3-символьный content-stem (RC4/A2).
 
-    Никаких списков тем/годов: тот же `_tokenize` и `text_morphology.stem_word`,
-    что использует SQL-окно периодного FTS (`_period_fts_keywords`)."""
+    Никаких списков тем/годов: тот же `_tokenize`, `text_morphology.stem_word`
+    и retrieval-only `short_stem_word`, что использует SQL-окно периодного
+    FTS (`_period_fts_keywords`). `explicit_year=True` исключает годовые слова
+    и служебные предлоги (D4), но не меняет порог §2.
+    """
     try:
-        from services.text_morphology import stem_word
+        from services.text_morphology import short_stem_word, stem_word
     except Exception:                                     # pragma: no cover
         return set()
     out: set = set()
     for word in _tokenize(text):
-        stem = stem_word(str(word))
-        if len(stem) >= 4:
+        token = str(word).casefold()
+        if explicit_year and (
+                _YEAR_IN_QUERY_RE.fullmatch(token)
+                or token in _YEAR_WORD_TOKENS
+                or token in _MESSAGE_WINDOW_STOPWORDS):
+            continue
+        if token in _MESSAGE_WINDOW_STOPWORDS:
+            # RC4-R1-01: служебное слово не получает short-stem; его обычная
+            # основа (если >=4) остаётся для различения субъектов, но не
+            # может обходить порог 2 через «мен»/«что»/«для».
+            stem = stem_word(token)
+            if len(stem) >= 4:
+                out.add(stem)
+            continue
+        # Одна нормализация на слово: short-stem является АЛЬТЕРНАТИВОЙ
+        # обычной основе, а не вторым независимым stem (иначе одно слово
+        # даёт два «общих» стема и обходит порог §2).
+        short = short_stem_word(token)
+        stem = short or stem_word(token)
+        if len(stem) >= (3 if short else 4):
             out.add(stem)
     return out
 
 
-def period_subject_shared(query_stems: set, text) -> int:
+def period_subject_shared(query_stems: set, text, *,
+                          explicit_year: bool = False) -> int:
     """Сколько РАЗНЫХ основ делят вопрос и текст факта (§2).
 
     Это лексическая релевантность пары «вопрос ↔ строка», а не независимость
     оснований; значение пишется в строку (`stems_shared`) один раз."""
     if not query_stems or not str(text or "").strip():
         return 0
-    return len(set(query_stems) & period_subject_stems(text))
+    return len(set(query_stems) & period_subject_stems(
+        text, explicit_year=explicit_year))
 
 
 def period_row_proxy(row) -> str | None:
@@ -803,7 +826,8 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     """
     intent = intent or resolve_period_intent(query, memory_scope=policy)
     slots = max(1, int(slots or 1))
-    query_stems = period_subject_stems(query)
+    query_stems = period_subject_stems(
+        query, explicit_year=intent.is_explicit_year)
     rows = list(rows or ())
     vector_rows = [row for row in rows if period_row_proxy(row) == "knn"]
     lexical_rows = [row for row in rows if period_row_proxy(row) != "knn"]
@@ -875,7 +899,9 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
                 stats["dropped_out_of_target_year"] += 1
                 _mark_period_row(row, None, PERIOD_DROP_OUT_OF_TARGET_YEAR)
                 continue
-            shared = period_subject_shared(query_stems, (row or {}).get("fact"))
+            shared = period_subject_shared(
+                query_stems, (row or {}).get("fact"),
+                explicit_year=intent.is_explicit_year)
             _mark_period_row(row, shared, PERIOD_KEEP_IN_TARGET)
             in_target.append((shared, index, row))
         in_target.sort(key=lambda item: (-item[0], item[1]))
@@ -902,8 +928,9 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         for row in ordered:
             year = period_row_year(row)
             if year == current_year:
-                shared = period_subject_shared(query_stems,
-                                               (row or {}).get("fact"))
+                shared = period_subject_shared(
+                    query_stems, (row or {}).get("fact"),
+                    explicit_year=intent.is_explicit_year)
                 _mark_period_row(row, shared, PERIOD_KEEP_IN_TARGET)
                 accepted.append(row)
             else:
@@ -923,7 +950,9 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             stats["kept_vector"] += 1
             accepted.append(row)
             continue
-        shared = period_subject_shared(query_stems, (row or {}).get("fact"))
+        shared = period_subject_shared(
+            query_stems, (row or {}).get("fact"),
+            explicit_year=intent.is_explicit_year)
         _mark_period_row(row, shared, "lexical_threshold_applied")
         if shared >= PERIOD_MIN_SHARED_STEMS:
             accepted.append(row)
@@ -1094,6 +1123,12 @@ class RetrievalRequest:
     #: временному окну (`<Old_Episode>` по году вопроса); default False —
     #: все прочие вызывающие байт-идентичны.
     lexical_time_window: bool = False
+    #: VMQ-MEM RC2 (D3, 2026-11-23): explicit-year message-anchor использует
+    #: узкий content-match (без 4-значного года, годовых слов и служебных
+    #: предлогов) и `order='rank'` ВНУТРИ существующего `time_from/time_to`,
+    #: а не `order='time'` + LIMIT. Default False → прежний байт-идентичный
+    #: вызов `search_messages_fts(order='time')` для всех прочих путей.
+    lexical_window_rank: bool = False
     #: VMQ-M2 (M-04/O-04; ARCH_REUSE_CONFIRMED): запросить bounded
     #: overview-проекцию покрытия/периодов/контрпримеров/ограничений и
     #: semantic-hints в ТОМ ЖЕ `retrieve()`. Default False — прочие
@@ -1534,18 +1569,36 @@ async def _relations_projection(db, request: RetrievalRequest, limit: int
     except (TypeError, ValueError):
         uids = ()
     uid = uids[0] if len(uids) == 1 else None
+    alias_names: list[str] = []
+    for value in (name, *(request.subject_names or ())):
+        text = " ".join(str(value or "").split())
+        if text and text not in alias_names:
+            alias_names.append(text)
+    alias_names = alias_names[:8]
     try:
         if uid is not None:
             try:
                 card = await getter(int(request.chat_id), name,
                                     max(1, int(limit)), int(time.time()),
-                                    user_id=int(uid))
+                                    user_id=int(uid),
+                                    alias_names=tuple(alias_names))
+            except TypeError:
+                try:
+                    card = await getter(int(request.chat_id), name,
+                                        max(1, int(limit)), int(time.time()),
+                                        user_id=int(uid))
+                except TypeError:
+                    card = await getter(int(request.chat_id), name,
+                                        max(1, int(limit)),
+                                        int(time.time()))
+        else:
+            try:
+                card = await getter(int(request.chat_id), name,
+                                    max(1, int(limit)), int(time.time()),
+                                    alias_names=tuple(alias_names))
             except TypeError:
                 card = await getter(int(request.chat_id), name,
                                     max(1, int(limit)), int(time.time()))
-        else:
-            card = await getter(int(request.chat_id), name,
-                                max(1, int(limit)), int(time.time()))
     except Exception:
         logger.warning("[mca07] relations projection failed", exc_info=True)
         return ()
@@ -2581,14 +2634,6 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     # применяется ТОЛЬКО здесь; глобальный `build_fts_query` и все прочие
     # вызовы `retrieve` сохраняют прежнюю формулу байт-в-байт. Длинные
     # содержательные токены и их prefix/stem варианты остаются прежними.
-    period_match = ""
-    period_keywords: list = []
-    if request.period_fill:
-        period_keywords = _period_fts_keywords(keywords)
-        period_match = build_fts_query(
-            period_keywords,
-            mode=("prefix_or_stem" if request.lexical_stem else "prefix_or")
-        ) if period_keywords else ""
     now = int(time.time())
     # P0-HA ISOLATION (§3): при активной количественной связке mode НЕ
     # повышается до "history" по _HISTORY_MARKERS (список маркеров не меняет)
@@ -2612,6 +2657,20 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         period_intent = request.period_intent or resolve_period_intent(
             request.query, memory_scope=policy,
             request_intent=request.intent, request_mode=request.mode)
+    # RC4 (A2/D4): short-stem variant только для периодного content-FTS;
+    # explicit-year дополнительно исключает годовые/служебные токены.
+    period_match = ""
+    period_keywords: list = []
+    if request.period_fill:
+        period_keywords = _period_fts_keywords(
+            keywords,
+            explicit_year=bool(period_intent
+                               and period_intent.is_explicit_year))
+        period_match = build_fts_query(
+            period_keywords,
+            mode=("prefix_or_stem_short" if request.lexical_stem
+                  else "prefix_or")
+        ) if period_keywords else ""
     #: Счётчики причин исключения (§10): policy→status→expired→relevance→
     #: budget. Только числа, без текстов фактов; уходят в durable-событие.
     excluded: dict = {}
@@ -2766,22 +2825,40 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         # SQL существующего чтения, а не режет уже полученный top-N. `order=
         # "time"` — bounded план по `idx_smart_messages_chat_ts` (дефект 3);
         # default False → прежний байт-идентичный вызов.
+        # RC2 (D3): explicit-year message-anchor использует узкий
+        # content-match + `order="rank"` ВНУТРИ окна, а не time-срез.
         _fts_window: dict = {}
+        message_match = match
+        rank_window = False
         if request.lexical_time_window and request.time_from is not None \
                 and request.time_to is not None:
             _fts_window = {"since_ts": int(request.time_from),
                            "until_ts": int(request.time_to),
                            "order": "time"}
+            if getattr(request, "lexical_window_rank", False):
+                rank_window = True
+                message_match = _explicit_year_message_match(keywords)
+                _fts_window = {}
         for chat_id in chat_ids:
             try:
-                try:
-                    rows = await db.search_messages_fts(
-                        chat_id, match, max(1, fetch_k * 2), **_fts_window)
-                except TypeError:
-                    # Двойник без kw-окна: прежний вызов, окно режет
-                    # существующий пост-фильтр (не второй поиск).
-                    rows = await db.search_messages_fts(
-                        chat_id, match, max(1, fetch_k * 2))
+                if message_match:
+                    if rank_window:
+                        rows = await _ranked_message_rows(
+                            db, chat_id, message_match, max(1, fetch_k * 2),
+                            int(request.time_from), int(request.time_to),
+                            fetch_k)
+                    else:
+                        try:
+                            rows = await db.search_messages_fts(
+                                chat_id, message_match, max(1, fetch_k * 2),
+                                **_fts_window)
+                        except TypeError:
+                            # Двойник без kw-окна: прежний вызов, окно режет
+                            # существующий пост-фильтр (не второй поиск).
+                            rows = await db.search_messages_fts(
+                                chat_id, message_match, max(1, fetch_k * 2))
+                else:
+                    rows = []
                 for pos, row in enumerate(rows or []):
                     raw.append(_message_candidate(row, "lexical", pos,
                                                   resolve_item_id))
@@ -3315,7 +3392,8 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         provenance_backed=(subject_ref not in (None, "")))
 
 
-def _period_fts_keywords(keywords: list[str]) -> list[str]:
+def _period_fts_keywords(keywords: list[str], *,
+                         explicit_year: bool = False) -> list[str]:
     """§2-совместимые токены ПЕРИОДНОГО FTS-запроса (VMQ-NEXT-02 §A).
 
     §2 (`_rag_subject_stems`) считает только основы длиной `>= 4`. Токен,
@@ -3323,16 +3401,161 @@ def _period_fts_keywords(keywords: list[str]) -> list[str]:
     должен формировать периодный пул. Зеркалим §2 на той же морфологии
     (`text_morphology.stem_word`), не меняя глобальный `build_fts_query`:
     длинные содержательные токены и их prefix/stem варианты сохраняются.
-    Пустой результат — честная деградация вызывающей ветки, а не пустое
-    или неограниченное FTS-выражение.
+    `short_stem_word`-токены (`шиз`) сохраняются, если обычная основа короче
+    4; explicit-year (RC4/D4) дополнительно исключает годовые слова и
+    служебные предлоги. Пустой результат — честная деградация, а не
+    неограниченное FTS-выражение.
     """
     from services.text_morphology import stem_word
     out: list = []
     for word in keywords or ():
-        token = str(word or "")
-        if token and len(stem_word(token)) >= 4:
+        token = str(word or "").casefold()
+        if not token:
+            continue
+        if explicit_year and (
+                _YEAR_IN_QUERY_RE.fullmatch(token)
+                or token in _YEAR_WORD_TOKENS
+                or token in _MESSAGE_WINDOW_STOPWORDS):
+            continue
+        if len(stem_word(token)) >= 4:
             out.append(token)
     return out
+
+
+def _explicit_year_message_keywords(keywords: list[str]) -> list[str]:
+    """Узкий content-match explicit-year message-поиска (RC2/D3).
+
+    Год уже применён структурным `time_from/time_to`; 4-значный год,
+    годовые слова и служебные предлоги/местоимения не должны формировать
+    FTS-пул иначе `order='time'`/шумный rank выбирает нерелевантные
+    сообщения. Списка тем здесь нет — только служебные токены.
+    """
+    out: list[str] = []
+    for word in keywords or ():
+        token = str(word or "").casefold()
+        if not token:
+            continue
+        if _YEAR_IN_QUERY_RE.fullmatch(token):
+            continue
+        if token in _YEAR_WORD_TOKENS:
+            continue
+        if token in _MESSAGE_WINDOW_STOPWORDS:
+            continue
+        if token not in out:
+            out.append(token)
+    return out
+
+
+_MESSAGE_WINDOW_STOPWORDS = frozenset({
+    "а", "без", "бы", "в", "вам", "вас", "вот", "все", "всё", "вы", "где",
+    "да", "даже", "для", "до", "его", "ее", "её", "ей", "если", "есть",
+    "же", "за", "и", "из", "или", "им", "их", "к", "как", "какая", "какие",
+    "какой", "ко", "когда", "кто", "ли", "между", "меня", "мне", "мы",
+    "на", "над", "нас", "не", "него", "нее", "ней", "ни", "ним", "них",
+    "но", "о", "об", "он", "она", "они", "от", "по", "под", "при", "про",
+    "с", "себе", "со", "так", "там", "тебе", "то", "тогда", "тот", "тут",
+    "у", "чего", "чем", "через", "что", "чтобы", "эта", "эти", "это",
+    "этот", "я",
+})
+_YEAR_WORD_TOKENS = frozenset({
+    "год", "года", "годе", "годов", "годом", "году", "годы", "годах",
+})
+
+
+def _explicit_year_message_match(keywords: list[str]) -> str:
+    """Узкий selective FTS-match explicit-year message-поиска (RC2/D3).
+
+    Требует co-occurrence минимум двух content-основ (OR по парам AND), чтобы
+    короткие сообщения с одним общим словом не забивали rank. При одной
+    основе — обычный prefix. Списка тем нет; только служебные токены
+    отфильтрованы `_explicit_year_message_keywords`.
+    """
+    tokens = _explicit_year_message_keywords(keywords)
+    if not tokens:
+        return ""
+    from services.text_morphology import stem_word
+    terms: list[str] = []
+    for token in tokens:
+        stem = str(stem_word(token) or token)
+        term = stem if len(stem) >= 4 else token
+        term = term.replace('"', "").replace("*", "")
+        if term and term not in terms:
+            terms.append(term)
+    terms = terms[:8]
+    if not terms:
+        return ""
+    if len(terms) == 1:
+        return f'"{terms[0]}"*'
+    pairs: list[str] = []
+    for i, first in enumerate(terms):
+        for second in terms[i + 1:]:
+            pairs.append(f'("{first}"* AND "{second}"*)')
+    return " OR ".join(pairs)
+
+
+def _window_chunks(start: int, end: int, parts: int = 4) -> list[tuple[int, int]]:
+    """Bounded disjoint time chunks для explicit-year rank (RC2)."""
+    start, end = int(start), int(end)
+    if end <= start:
+        return [(start, end)]
+    span = end - start + 1
+    parts = max(1, min(int(parts), 8))
+    step = max(1, span // parts)
+    chunks: list[tuple[int, int]] = []
+    cursor = start
+    for _ in range(parts):
+        chunk_end = min(end, cursor + step - 1)
+        if chunk_end < cursor:
+            break
+        chunks.append((cursor, chunk_end))
+        cursor = chunk_end + 1
+        if cursor > end:
+            break
+    if not chunks or chunks[-1][1] < end:
+        chunks.append((max(start, chunks[-1][1] + 1 if chunks else start), end))
+    return chunks
+
+
+async def _ranked_message_rows(db, chat_id: int, match_query: str, limit: int,
+                               since_ts: int, until_ts: int,
+                               fetch_k: int) -> list:
+    """Bounded candidate chunks + FTS rank only for candidate rowids (RC2).
+
+    Полный `ORDER BY rank` по году дорог; здесь time-index candidate cap по
+    каждому bounded chunk, затем rank только для этих rowid. Это честный
+    sampling: `candidate_cap` ограничивает пул, финальный порядок — rank.
+    """
+    reader = getattr(db, "search_messages_fts_ranked_window", None)
+    if not callable(reader):
+        return await db.search_messages_fts(
+            int(chat_id), match_query, max(1, int(limit)),
+            since_ts=int(since_ts), until_ts=int(until_ts), order="rank")
+    cap = max(64, int(fetch_k) * 8)
+    rows: list = []
+    for chunk_start, chunk_end in _window_chunks(since_ts, until_ts):
+        try:
+            chunk = await reader(
+                int(chat_id), match_query, max(1, int(limit)),
+                chunk_start, chunk_end, candidate_cap=cap)
+        except TypeError:
+            chunk = await reader(
+                int(chat_id), match_query, max(1, int(limit)),
+                chunk_start, chunk_end)
+        rows.extend(chunk or ())
+    seen: set = set()
+    unique: list = []
+    for row in rows:
+        key = _row_get(row, "id")
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(row)
+    if any(_row_get(row, "_fts_rank", None) is not None
+           for row in unique):
+        unique.sort(key=lambda row: (
+            float(_row_get(row, "_fts_rank", 0.0) or 0.0),
+            int(_row_get(row, "id", 0) or 0)))
+    return unique[:max(1, int(limit))]
 
 
 def _exclude_years_of(request: RetrievalRequest):

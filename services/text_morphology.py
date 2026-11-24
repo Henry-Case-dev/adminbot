@@ -59,3 +59,30 @@ def stem_word(word: str) -> str:
         return low
     stem = low[: len(low) - len(suffix)]
     return stem if len(stem) >= 4 else low
+
+
+#: RC4 (A2, 2026-11-23): short-stem variants are retrieval-only and must not
+#: revive generic year/chat noise. `год` from `годах` and `чат` from `чата`
+#: are the measured E-control noise; block only these stems, not topics.
+_SHORT_STEM_BLOCKED = frozenset({"год", "чат"})
+
+
+def short_stem_word(word: str) -> str:
+    """3-символьная основа для аддитивного retrieval-варианта (RC4/A2).
+
+    Не меняет `stem_word`/глобальный min-stem 4. Возвращает основу только
+    когда обычное снятие суффикса даёт ровно 3 символа (``шизах`` → ``шиз``,
+    ``шизы`` → ``шиз``); `год`/`чат` заблокированы как измеренный E-шум.
+    Вызывающий сам решает, content ли это токен; для служебных слов вариант
+    не используется.
+    """
+    low = str(word or "").lower()
+    if len(low) < 3:
+        return ""
+    if len(low) == 3:
+        return low if low not in _SHORT_STEM_BLOCKED else ""
+    for cand in _RU_SUFFIXES:
+        if low.endswith(cand) and len(low) - len(cand) == 3:
+            stem = low[: len(low) - len(cand)]
+            return stem if stem not in _SHORT_STEM_BLOCKED else ""
+    return ""

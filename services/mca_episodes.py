@@ -1747,10 +1747,45 @@ async def list_stories_for_retrieval(db, chat_id: int,
     (verification='rejected' не выдаётся); redirect-источники скрываются
     (резолв — `resolve_story_id`). Legacy-строки `lore_stories` фильтруются
     ТЕМ ЖЕ предикатом, что baseline `list_lore_stories` (P0 corrective §3:
-    помеченный self-echo не возвращается ни одним путём)."""
+    помеченный self-echo не возвращается ни одним путём).
+
+    RC1 (VMQ-MEM): до `updated_at`-среза резервируем ёмкость под active
+    legacy. Иначе 213 новых историй вытесняют старые 2022/2023 lore из
+    top-200 (snapshot: dropped {5,6,7,8}). Сначала берём до `limit` active
+    legacy, затем добираем новые до оставшейся ёмкости; фильтры и scoring
+    не меняются."""
+    limit = max(1, int(limit))
     repo = EpisodeRepository(db)
+    legacy_rows: list[dict] = []
+    try:
+        cursor = await db.db.execute(
+            "SELECT l.* FROM lore_stories l LEFT JOIN mca_story_legacy_links "
+            "g ON g.lore_story_id = l.id WHERE l.chat_id = ? AND "
+            "COALESCE(g.mapping_status, 'unmapped') != 'mapped' AND "
+            + LORE_STORIES_RETRIEVAL_PREDICATE + " "
+            "AND NOT EXISTS (SELECT 1 FROM mca_story_redirects r "
+            "WHERE r.old_kind = 'story' AND r.old_id = CAST(l.id AS TEXT)) "
+            "ORDER BY l.updated_at DESC, l.id DESC LIMIT ?",
+            (int(chat_id), limit))
+        for row in await cursor.fetchall():
+            legacy = dict(row)
+            legacy["kind"] = "legacy_story"
+            legacy_rows.append(legacy)
+    except Exception:
+        logger.warning("[mca05] legacy facade read failed", exc_info=True)
+    redirected = {
+        str(r.get("old_id")) for r in await repo._fetch_all(
+            "SELECT old_id FROM mca_story_redirects WHERE old_kind = 'story'")
+    }
+    legacy_rows = [row for row in legacy_rows
+                   if str(row.get("id")) not in redirected]
+    if len(legacy_rows) >= limit:
+        legacy_rows.sort(
+            key=lambda r: (-int(r.get("updated_at") or 0),
+                           str(r.get("id") or "")))
+        return legacy_rows[:limit]
     out: list[dict] = []
-    stories = await repo.list_stories(int(chat_id), limit=max(1, int(limit)))
+    stories = await repo.list_stories(int(chat_id), limit=limit)
     for row in stories:
         if int(row.get("excluded_from_retrieval") or 0):
             continue
@@ -1767,27 +1802,16 @@ async def list_stories_for_retrieval(db, chat_id: int,
             "updated_at": int(story.get("updated_at") or 0),
             "kind": "story",
         })
-    redirected = {
-        str(r.get("old_id")) for r in await repo._fetch_all(
-            "SELECT old_id FROM mca_story_redirects WHERE old_kind = 'story'")
-    }
     out = [row for row in out if str(row["id"]) not in redirected]
-    try:
-        cursor = await db.db.execute(
-            "SELECT l.* FROM lore_stories l LEFT JOIN mca_story_legacy_links "
-            "g ON g.lore_story_id = l.id WHERE l.chat_id = ? AND "
-            "COALESCE(g.mapping_status, 'unmapped') != 'mapped' AND "
-            + LORE_STORIES_RETRIEVAL_PREDICATE + " "
-            "ORDER BY l.updated_at DESC LIMIT ?",
-            (int(chat_id), max(1, int(limit))))
-        for row in await cursor.fetchall():
-            legacy = dict(row)
-            legacy["kind"] = "legacy_story"
-            out.append(legacy)
-    except Exception:
-        logger.warning("[mca05] legacy facade read failed", exc_info=True)
-    out.sort(key=lambda r: int(r.get("updated_at") or 0), reverse=True)
-    return out[:max(1, int(limit))]
+    # Legacy имеет приоритет в reserved capacity; новые занимают только
+    # оставшиеся места. Дублей по id нет.
+    legacy_ids = {str(row.get("id")) for row in legacy_rows}
+    out = [row for row in out if str(row.get("id")) not in legacy_ids]
+    remaining = max(0, limit - len(legacy_rows))
+    out = legacy_rows + out[:remaining]
+    out.sort(key=lambda r: (-int(r.get("updated_at") or 0),
+                            str(r.get("id") or "")))
+    return out[:limit]
 
 
 async def resolve_story_id(db, story_id: str) -> str:
@@ -1796,6 +1820,74 @@ async def resolve_story_id(db, story_id: str) -> str:
     repo = EpisodeRepository(db)
     target = await repo.redirect_target("story", str(story_id))
     return str(target) if target else str(story_id)
+
+
+async def story_message_anchors(db, chat_id: int, story_ids,
+                                *, per_story: int = 2,
+                                limit: int = 8) -> dict[str, list[str]]:
+    """RC7 (B2 narrowed): new-story → episode links → message anchors.
+
+    Читает только существующие `mca_story_episode_links` →
+    `mca_episodes.message_keys_json` → `smart_messages` и возвращает
+    канонические `tg:<id>`/`msg:<id>` refs. Legacy lore-истории без
+    links/keys дают пустой результат (RFL-7), ничего не выдумывается.
+    Read-only, без DDL/mapping/backfill.
+    """
+    ids: list[str] = []
+    for value in story_ids or ():
+        text = str(value or "").strip()
+        if text and text not in ids:
+            ids.append(text)
+    ids = ids[:32]
+    if not ids:
+        return {}
+    placeholders = ",".join("?" for _ in ids)
+    try:
+        cursor = await db.db.execute(
+            "SELECT l.story_id, l.order_no, e.message_keys_json "
+            "FROM mca_story_episode_links l "
+            "JOIN mca_episodes e ON e.episode_id = l.episode_id "
+            "WHERE e.chat_id = ? AND l.story_id IN (" + placeholders + ") "
+            "ORDER BY l.story_id, l.order_no, e.updated_at DESC",
+            (int(chat_id), *ids))
+        rows = await cursor.fetchall()
+    except Exception:
+        logger.warning("[mca05] story anchor bridge read failed",
+                       exc_info=True)
+        return {}
+    out: dict[str, list[str]] = {}
+    total = 0
+    for row in rows:
+        story_id = str(row["story_id"])
+        if total >= max(1, int(limit)):
+            break
+        refs = out.setdefault(story_id, [])
+        if len(refs) >= max(1, int(per_story)):
+            continue
+        keys = _json_loads(row["message_keys_json"], [])
+        for key in keys or ():
+            if total >= max(1, int(limit)) or len(refs) >= max(1, int(per_story)):
+                break
+            raw = str(key or "")
+            ref = ""
+            if raw.startswith(f"{int(chat_id)}:tg:"):
+                try:
+                    tg = int(raw.rsplit(":tg:", 1)[1])
+                except (TypeError, ValueError):
+                    continue
+                if await _message_exists(db, int(chat_id), tg_message_id=tg):
+                    ref = f"tg:{tg}"
+            elif raw.startswith(f"{int(chat_id)}:db:"):
+                try:
+                    mid = int(raw.rsplit(":db:", 1)[1])
+                except (TypeError, ValueError):
+                    continue
+                if await _message_exists(db, int(chat_id), db_id=mid):
+                    ref = f"msg:{mid}"
+            if ref and ref not in refs:
+                refs.append(ref)
+                total += 1
+    return {key: value for key, value in out.items() if value}
 
 
 async def build_local_context(db, chat_id: int, trigger_tg_message_id=None,

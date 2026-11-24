@@ -1,0 +1,304 @@
+"""VMQ-MEM-RC1: facade reserves active legacy before the updated_at cap.
+
+Contract: 08851280e (corrective-contract-2026-11-23.md, RC1/B1).
+Only the facade behavior is tested here; episode scoring/thresholds are not
+touched by this increment.
+"""
+import pytest
+
+from services.database import DatabaseService, LORE_STORIES_RETRIEVAL_PREDICATE
+from services.mca_episodes import (
+    EpisodeRepository,
+    effective_story,
+    list_stories_for_retrieval,
+)
+
+CHAT = -1002661910336
+_LIMIT = 200
+
+
+async def _db(tmp_path):
+    db = DatabaseService(str(tmp_path / "rc1.db"))
+    await db.initialize()
+    return db
+
+
+async def _seed(db, *, new_count=213, rejected_ids=(3, 4)):
+    """Seed 213 new + 12 active legacy (5..16) + rejected 3/4.
+
+    Timestamps reproduce the snapshot cut: new stories 1000+i; legacy 5-8
+    at 1015 (198 newer new -> dropped by old 200-cut), legacy 9-16 at 1050
+    (survive). Rejected 3/4 are newest but excluded by the facade predicate.
+    """
+    for i in range(new_count):
+        await db.db.execute(
+            "INSERT INTO mca_stories "
+            "(story_id, chat_id, title, summary, discovered_at, updated_at, "
+            "event_end_ts) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (f"new-{i:03d}", CHAT, f"new {i}", f"summary {i}",
+             1000 + i, 1000 + i, 1000 + i))
+    for sid in range(3, 17):
+        rejected = sid in rejected_ids
+        updated = 2000 if rejected else (1050 if sid >= 9 else 1015)
+        await db.db.execute(
+            "INSERT INTO lore_stories "
+            "(id, chat_id, topic_key, topic, story, last_ts, created_at, "
+            "updated_at, origin, status, excluded_from_retrieval) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (sid, CHAT, f"legacy-{sid}", f"legacy topic {sid}",
+             f"legacy story {sid}", 1670000000 + sid, updated, updated,
+             "lore_compiler", "rejected" if rejected else None,
+             1 if rejected else 0))
+    await db.db.commit()
+
+
+async def _before_facade(db, chat_id=CHAT, limit=_LIMIT):
+    """Pre-RC1 algorithm, kept verbatim for the discriminating before check."""
+    repo = EpisodeRepository(db)
+    out = []
+    stories = await repo.list_stories(int(chat_id), limit=max(1, int(limit)))
+    for row in stories:
+        if int(row.get("excluded_from_retrieval") or 0):
+            continue
+        if str(row.get("verification") or "") == "rejected":
+            continue
+        story = effective_story(row)
+        out.append({
+            "id": story["story_id"], "chat_id": int(chat_id),
+            "topic_key": "", "topic": str(story.get("title") or ""),
+            "story": str(story.get("summary") or ""),
+            "last_ts": int(story.get("event_end_ts")
+                           or story.get("updated_at") or 0),
+            "created_at": int(story.get("discovered_at") or 0),
+            "updated_at": int(story.get("updated_at") or 0),
+            "kind": "story",
+        })
+    redirected = {
+        str(r.get("old_id")) for r in await repo._fetch_all(
+            "SELECT old_id FROM mca_story_redirects WHERE old_kind = 'story'")
+    }
+    out = [row for row in out if str(row["id"]) not in redirected]
+    cursor = await db.db.execute(
+        "SELECT l.* FROM lore_stories l LEFT JOIN mca_story_legacy_links "
+        "g ON g.lore_story_id = l.id WHERE l.chat_id = ? AND "
+        "COALESCE(g.mapping_status, 'unmapped') != 'mapped' AND "
+        + LORE_STORIES_RETRIEVAL_PREDICATE + " "
+        "ORDER BY l.updated_at DESC LIMIT ?",
+        (int(chat_id), max(1, int(limit))))
+    for row in await cursor.fetchall():
+        legacy = dict(row)
+        legacy["kind"] = "legacy_story"
+        out.append(legacy)
+    out.sort(key=lambda r: int(r.get("updated_at") or 0), reverse=True)
+    return out[:max(1, int(limit))]
+
+
+def _legacy_ids(rows):
+    return {int(r["id"]) for r in rows if r.get("kind") == "legacy_story"}
+
+
+@pytest.mark.asyncio
+async def test_rc1_reserves_active_legacy_before_cap(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db)
+        before = await _before_facade(db)
+        assert len(before) == _LIMIT
+        # Snapshot cut reproduced: 5-8 fall out, 9-16 survive.
+        assert _legacy_ids(before) == set(range(9, 17))
+
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert len(rows) == _LIMIT
+        assert _legacy_ids(rows) == set(range(5, 17))
+        assert not ({"3", "4"} & {str(r["id"]) for r in rows})
+        assert sum(1 for r in rows if r["kind"] == "story") == 188
+        # Deterministic and ordered by updated_at desc, id asc on ties.
+        again = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert [(r["kind"], r["id"], r["updated_at"]) for r in rows] == \
+            [(r["kind"], r["id"], r["updated_at"]) for r in again]
+        keys = [(-int(r["updated_at"]), str(r["id"])) for r in rows]
+        assert keys == sorted(keys)
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_repo_honors_limit_keeps_legacy_reserve(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db, new_count=200)
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert len(rows) == _LIMIT
+        assert _legacy_ids(rows) == set(range(5, 17))
+        assert sum(1 for r in rows if r["kind"] == "story") == 188
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_mapped_legacy_not_reserved(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db)
+        await db.db.execute(
+            "INSERT INTO mca_story_legacy_links "
+            "(lore_story_id, story_id, mapping_status, updated_at) "
+            "VALUES (5, 'new-000', 'mapped', 2000)")
+        await db.db.commit()
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert 5 not in _legacy_ids(rows)
+        assert set(range(6, 17)) <= _legacy_ids(rows)
+        assert len(rows) == _LIMIT
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_excluded_legacy_not_reserved(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db)
+        await db.db.execute(
+            "UPDATE lore_stories SET excluded_from_retrieval = 1 WHERE id = 5")
+        await db.db.commit()
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert 5 not in _legacy_ids(rows)
+        assert set(range(6, 17)) <= _legacy_ids(rows)
+        assert not ({3, 4} & _legacy_ids(rows))
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_redirected_legacy_not_reserved(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db)
+        await db.db.execute(
+            "INSERT INTO mca_story_redirects "
+            "(old_kind, old_id, new_kind, new_id, created_at) "
+            "VALUES ('story', '9', 'story', 'new-211', 2000)")
+        await db.db.commit()
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        legacy = _legacy_ids(rows)
+        assert 9 not in legacy
+        assert set(range(5, 9)) <= legacy
+        assert set(range(10, 17)) <= legacy
+        assert len(rows) == _LIMIT
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_redirected_new_story_not_returned(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db)
+        await db.db.execute(
+            "INSERT INTO mca_story_redirects "
+            "(old_kind, old_id, new_kind, new_id, created_at) "
+            "VALUES ('story', 'new-212', 'story', 'new-211', 2000)")
+        await db.db.commit()
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        ids = {str(r["id"]) for r in rows}
+        assert "new-212" not in ids
+        assert len(rows) == _LIMIT
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_legacy_over_limit_returns_newest_legacy_only(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        # 205 active legacy, 50 new: legacy > limit, new must not displace.
+        for sid in range(1000, 1205):
+            await db.db.execute(
+                "INSERT INTO lore_stories "
+                "(id, chat_id, topic_key, topic, story, last_ts, created_at, "
+                "updated_at, origin, status, excluded_from_retrieval) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)",
+                (sid, CHAT, f"legacy-{sid}", f"topic {sid}", f"story {sid}",
+                 1670000000 + sid, 1000 + sid, 1000 + sid, "lore_compiler"))
+        for i in range(50):
+            await db.db.execute(
+                "INSERT INTO mca_stories "
+                "(story_id, chat_id, discovered_at, updated_at) "
+                "VALUES (?, ?, ?, ?)",
+                (f"new-{i:03d}", CHAT, 3000 + i, 3000 + i))
+        await db.db.commit()
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert len(rows) == _LIMIT
+        assert all(r["kind"] == "legacy_story" for r in rows)
+        assert {int(r["id"]) for r in rows} == set(range(1005, 1205))
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_redirect_over_limit_does_not_consume_capacity(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        # 205 active legacy; ID 1000 is newest (updated_at=5000) and is a
+        # redirect source. Legacy LIMIT must exclude it BEFORE the 200-cut,
+        # otherwise 1005 is lost and one new story enters.
+        for sid in range(1000, 1205):
+            updated = 5000 if sid == 1000 else 1000 + sid
+            await db.db.execute(
+                "INSERT INTO lore_stories "
+                "(id, chat_id, topic_key, topic, story, last_ts, created_at, "
+                "updated_at, origin, status, excluded_from_retrieval) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)",
+                (sid, CHAT, f"legacy-{sid}", f"topic {sid}", f"story {sid}",
+                 1670000000 + sid, updated, updated, "lore_compiler"))
+        for i in range(50):
+            await db.db.execute(
+                "INSERT INTO mca_stories "
+                "(story_id, chat_id, discovered_at, updated_at) "
+                "VALUES (?, ?, ?, ?)",
+                (f"new-{i:03d}", CHAT, 3000 + i, 3000 + i))
+        await db.db.execute(
+            "INSERT INTO mca_story_redirects "
+            "(old_kind, old_id, new_kind, new_id, created_at) "
+            "VALUES ('story', '1000', 'story', 'new-049', 6000)")
+        await db.db.commit()
+
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert len(rows) == _LIMIT
+        assert all(r["kind"] == "legacy_story" for r in rows)
+        assert _legacy_ids(rows) == set(range(1005, 1205))
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_id_dupe_legacy_wins(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db)
+        # New story id collides with legacy id 5: output must contain one
+        # row, the legacy one, and no duplicate.
+        await db.db.execute(
+            "INSERT INTO mca_stories "
+            "(story_id, chat_id, discovered_at, updated_at) "
+            "VALUES ('5', ?, 3000, 3000)", (CHAT,))
+        await db.db.commit()
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        matching = [r for r in rows if str(r["id"]) == "5"]
+        assert len(matching) == 1
+        assert matching[0]["kind"] == "legacy_story"
+        assert len(rows) == _LIMIT
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_rc1_no_new_stories_returns_legacy(tmp_path):
+    db = await _db(tmp_path)
+    try:
+        await _seed(db, new_count=0)
+        rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+        assert _legacy_ids(rows) == set(range(5, 17))
+        assert len(rows) == 12
+    finally:
+        await db.close()

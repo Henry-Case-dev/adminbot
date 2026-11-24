@@ -1,0 +1,53 @@
+{
+ "artifact_kind": "vmq_mem_rc6a_snapshot_probe",
+ "snapshot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\accept\\p0-hc\\snapshot-2.58.225.db",
+ "snapshot_sha256_expected": "b907d4c1e24321fffa48e3719974fd2293b1b1ff721ad21661446d22033e06e7",
+ "mode": "mode=ro&immutable=1; PRAGMA query_only=ON",
+ "chat_id": -1002661910336,
+ "exact_name": {
+  "facts": 7,
+  "facts_meta": 7,
+  "meta_order_matches": true,
+  "years": {
+   "2026": 7
+  },
+  "known_years": 1,
+  "source_refs": 7,
+  "tg_sources": 6,
+  "links": 0,
+  "link_names": []
+ },
+ "alias_names": {
+  "facts": 7,
+  "facts_meta": 7,
+  "meta_order_matches": true,
+  "years": {
+   "2026": 7
+  },
+  "known_years": 1,
+  "source_refs": 7,
+  "tg_sources": 6,
+  "links": 20,
+  "link_names": [
+   "nixos (\u043d\u0438\u043a\u0441\u043e\u0441)",
+   "reddit",
+   "\u0412\u0430\u0441\u044f",
+   "\u0418\u043d\u043a\u0443\u0444\u0435\u043d",
+   "\u041a\u0438\u0440\u043e\u0432\u0441\u043a\u0438\u0439",
+   "\u0422\u043e\u043b\u044f\u043d",
+   "\u0427\u0435\u0440\u0435\u043c\u043d\u044b\u0445",
+   "\u043a\u0438\u0440\u043f\u0438\u0447\u0438 \u0432 \u0440\u044e\u043a\u0437\u0430\u043a\u0435 \u043e\u0434\u043d\u043e\u043a\u043b\u0430\u0441\u0441\u043d\u0438\u043a\u0430",
+   "\u043b\u0435\u0445\u0430 \u0432\u0434\u043e\u0432\u0438\u043d",
+   "\u0441\u0432\u043e",
+   "\u0442\u0430\u0433\u0438\u0440 \u043c\u0430\u0434\u0436\u0443\u043b\u043e\u0432",
+   "\u0442\u043e\u043b\u044f\u043d"
+  ]
+ },
+ "pass": {
+  "facts_meta_order": true,
+  "years_present": true,
+  "sources_present": true,
+  "alias_links_ge_1": true,
+  "exact_name_snapshot_has_node": false
+ }
+}

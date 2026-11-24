@@ -1,0 +1,44 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_rc1_redirect_over_limit_does_not_consume_capacity ____________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/vmq-mem-rc1-a13843763f4d-daea29ec-65d7500083eb/tmp/pytest-of-main/pytest-13/test_rc1_redirect_over_limit_d0')
+
+    @pytest.mark.asyncio
+    async def test_rc1_redirect_over_limit_does_not_consume_capacity(tmp_path):
+        db = await _db(tmp_path)
+        try:
+            # 205 active legacy; ID 1000 is newest (updated_at=5000) and is a
+            # redirect source. Legacy LIMIT must exclude it BEFORE the 200-cut,
+            # otherwise 1005 is lost and one new story enters.
+            for sid in range(1000, 1205):
+                updated = 5000 if sid == 1000 else 1000 + sid
+                await db.db.execute(
+                    "INSERT INTO lore_stories "
+                    "(id, chat_id, topic_key, topic, story, last_ts, created_at, "
+                    "updated_at, origin, status, excluded_from_retrieval) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)",
+                    (sid, CHAT, f"legacy-{sid}", f"topic {sid}", f"story {sid}",
+                     1670000000 + sid, updated, updated, "lore_compiler"))
+            for i in range(50):
+                await db.db.execute(
+                    "INSERT INTO mca_stories "
+                    "(story_id, chat_id, discovered_at, updated_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (f"new-{i:03d}", CHAT, 3000 + i, 3000 + i))
+            await db.db.execute(
+                "INSERT INTO mca_story_redirects "
+                "(old_kind, old_id, new_kind, new_id, created_at) "
+                "VALUES ('story', '1000', 'story', 'new-049', 6000)")
+            await db.db.commit()
+
+            rows = await list_stories_for_retrieval(db, CHAT, _LIMIT)
+            assert len(rows) == _LIMIT
+>           assert all(r["kind"] == "legacy_story" for r in rows)
+E           assert False
+E            +  where False = all(<generator object test_rc1_redirect_over_limit_does_not_consume_capacity.<locals>.<genexpr> at 0x000001B3921A9700>)
+
+tests\test_vmq_mem_rc1_episode_facade.py:268: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_rc1_episode_facade.py::test_rc1_redirect_over_limit_does_not_consume_capacity
+1 failed in 3.41s
