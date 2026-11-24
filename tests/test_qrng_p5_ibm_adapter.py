@@ -1070,6 +1070,15 @@ class TestDurableLifecycle:
             assert mrs.RandomSourceService._ibm_cursor(row)[
                 "state"] == "pending"
             assert await _batch_rows(db) == []
+            # Transient прошёл: tag резолвится, job attach/deposit без submit.
+            del service.jobs
+            service._listed_jobs = [job]
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert sampler.calls == []
+            assert len(await _batch_rows(db)) == 1
+            assert (await _task_rows(db))[0]["status"] == "completed"
         finally:
             await db.close()
 
