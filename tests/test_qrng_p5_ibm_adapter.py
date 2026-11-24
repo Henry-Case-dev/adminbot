@@ -198,11 +198,13 @@ async def _fresh_db(tmp_path, name="qrng_p5.db") -> DatabaseService:
 async def _insert_task_row(db, *, kind=mrs.IBM_JOB_KIND, status="running",
                            cursor=None, coalesce="random.ibm.active.0",
                            created_at=None, result_ref=None,
-                           reason_code=None):
+                           reason_code=None, stale=False,
+                           heartbeat_at=None, deadline_at=None):
     store = TaskJobStore(db)
     job_id = await store.enqueue(
         owner=mrs.IBM_JOB_OWNER, kind=kind, coalesce_key=coalesce,
-        payload=json.dumps({"probe": True}), max_attempts=1)
+        payload=json.dumps({"probe": True}), max_attempts=1,
+        deadline_at=deadline_at)
     await store.mark_running(job_id)
     if cursor is not None:
         await store.save_checkpoint(
@@ -210,6 +212,26 @@ async def _insert_task_row(db, *, kind=mrs.IBM_JOB_KIND, status="running",
     if status != "running":
         await store.finish(job_id, status=status, result_ref=result_ref,
                            reason_code=reason_code, recovery=True)
+    if stale:
+        hb = (int(heartbeat_at) if heartbeat_at is not None
+              else int(time.time()) - 3600)
+
+        async def _body(conn):
+            await conn.execute(
+                "UPDATE task_jobs SET heartbeat_at = ? WHERE job_id = ?",
+                (hb, job_id))
+            return True
+
+        await db.write_transaction(_body, op_name="test_stale_heartbeat")
+    if created_at is not None:
+
+        async def _created(conn):
+            await conn.execute(
+                "UPDATE task_jobs SET created_at = ? WHERE job_id = ?",
+                (int(created_at), job_id))
+            return True
+
+        await db.write_transaction(_created, op_name="test_created_at")
     return job_id, store
 
 
@@ -731,7 +753,7 @@ class TestDurableLifecycle:
             svc = mrs.RandomSourceService(db, auto_refill=False)
             svc.set_ibm_client(client)
             await _insert_task_row(
-                db, status="running",
+                db, status="running", stale=True,
                 cursor={"job": "J9", "shots": 256, "qubits": 16,
                         "submitted_at": int(time.time()) - 5,
                         "values": 8, "plan": "Open", "config_fp": ""})
@@ -796,7 +818,7 @@ class TestDurableLifecycle:
                           bitstrings=make_bitstrings(), backend=backend)
             service = FakeService([backend], jobs={"LIVE1": job})
             client, sampler = make_client(service, job)
-            client._job_max_age = 0.05
+            client._job_max_age = 0.2
             store = TaskJobStore(db)
             inserted = []
 
@@ -921,9 +943,10 @@ class TestDurableLifecycle:
             client, sampler = make_client(service, job)
             svc = mrs.RandomSourceService(db, auto_refill=False)
             svc.set_ibm_client(client)
-            # Crash после checkpoint completed, до deposit/finish: row running.
+            # Crash после checkpoint completed, до deposit/finish: row running,
+            # heartbeat потерян (процесс-владелец умер).
             await _insert_task_row(
-                db, status="running",
+                db, status="running", stale=True,
                 cursor={"job": "TERM1", "state": "completed",
                         "shots": 256, "qubits": 16,
                         "submitted_at": int(time.time()) - 1,
@@ -997,7 +1020,7 @@ class TestDurableLifecycle:
             svc = mrs.RandomSourceService(db, auto_refill=False)
             svc.set_ibm_client(client)
             await _insert_task_row(
-                db, status="running",
+                db, status="running", stale=True,
                 cursor={"job": "TERM3", "state": "completed",
                         "shots": 256, "qubits": 16,
                         "submitted_at": int(time.time()) - 1,
@@ -1043,7 +1066,7 @@ class TestDurableLifecycle:
             assert result["reason"] == "job_in_progress"
             assert sampler.calls == []
             row = (await _task_rows(db))[0]
-            assert row["status"] == "failed"
+            assert row["status"] == "interrupted"
             assert mrs.RandomSourceService._ibm_cursor(row)[
                 "state"] == "pending"
             assert await _batch_rows(db) == []
@@ -1065,7 +1088,7 @@ class TestDurableLifecycle:
             svc = mrs.RandomSourceService(db, auto_refill=False)
             svc.set_ibm_client(client)
             await _insert_task_row(
-                db, status="running",
+                db, status="running", stale=True,
                 cursor={"job": "DUNNO", "state": "completed",
                         "shots": 256, "qubits": 16,
                         "submitted_at": int(time.time()) - 1,
@@ -1081,7 +1104,7 @@ class TestDurableLifecycle:
             await asyncio.gather(*list(svc._ibm_recovery_tasks),
                                  return_exceptions=True)
             row = (await _task_rows(db))[0]
-            assert row["status"] == "running"
+            assert row["status"] == "interrupted"
             assert await _batch_rows(db) == []
             # DB снова доступна: batch absent → deposit/release.
             monkeypatch.setattr(svc, "_ibm_batch_exists", original)
@@ -1124,7 +1147,7 @@ class TestDurableLifecycle:
             await asyncio.gather(*list(svc._ibm_recovery_tasks),
                                  return_exceptions=True)
             rows = await _task_rows(db)
-            assert rows[0]["status"] == "failed"
+            assert rows[0]["status"] == "interrupted"
             assert mrs.RandomSourceService._ibm_cursor(rows[0])[
                 "state"] == mrs.IBM_JOB_COMPLETED
             assert await _batch_rows(db) == []
@@ -1258,7 +1281,8 @@ class TestDurableLifecycle:
                       "values": 8, "purpose": "refill",
                       "config_fp": svc._ibm_config_fingerprint()}
             job_id, store = await _insert_task_row(
-                db, status="running", cursor=cursor)
+                db, status="interrupted", reason_code="worker_lost",
+                cursor=cursor)
             row = await store.get(job_id)
             assert await svc._ibm_recovery_guard(
                 row, cursor, int(row["fencing_token"])) is True
@@ -1554,13 +1578,508 @@ class TestDurableLifecycle:
                 FakeService([FakeBackend("ibm_hw")]), FakeJob())
             svc = mrs.RandomSourceService(db, auto_refill=False)
             svc.set_ibm_client(client)
-            await _insert_task_row(db, status="running", cursor=None)
+            await _insert_task_row(
+                db, status="running", cursor=None, stale=True,
+                created_at=int(time.time()) - 7200)
             started = await svc._recover_ibm_jobs()
             assert started == 0
             rows = await _task_rows(db)
             assert rows[0]["status"] == "failed"
             assert rows[0]["reason_code"] == "submit_uncertain"
             assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_s1_prepared_barrier_aborts_before_submit(self, tmp_path,
+                                                            monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="S1FAIL", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            client, sampler = make_client(
+                FakeService([backend], jobs={"S1FAIL": job}), job)
+            original = client._checkpoint
+
+            async def checkpoint(job_store, job_id, *, fencing_token=None,
+                                 **fields):
+                if fields.get("state") == mrs.IBM_JOB_PREPARED:
+                    return False
+                return await original(job_store, job_id,
+                                      fencing_token=fencing_token, **fields)
+
+            monkeypatch.setattr(client, "_checkpoint", checkpoint)
+            with pytest.raises(mrs.IbmError) as exc:
+                await client.fetch(
+                    api_key="key", instance="open-instance", length=8,
+                    job_store=TaskJobStore(db),
+                    supervisor=TaskSupervisor(), deposit=None,
+                    account_key="ibm:open-instance", config_fp="fp")
+            assert exc.value.code == "provider_unavailable"
+            assert sampler.calls == []
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            assert row["reason_code"] == "abandoned_before_submit"
+            assert mrs.RandomSourceService._ibm_cursor(row)[
+                "state"] == mrs.IBM_JOB_FAILED
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_s2_submit_barrier_aborts_before_sampler_run(self, tmp_path,
+                                                                monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="S2FAIL", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            client, sampler = make_client(
+                FakeService([backend], jobs={"S2FAIL": job}), job)
+            original = client._checkpoint
+
+            async def checkpoint(job_store, job_id, *, fencing_token=None,
+                                 **fields):
+                if fields.get("state") == mrs.IBM_JOB_SUBMITTING:
+                    return False
+                return await original(job_store, job_id,
+                                      fencing_token=fencing_token, **fields)
+
+            monkeypatch.setattr(client, "_checkpoint", checkpoint)
+            with pytest.raises(mrs.IbmError) as exc:
+                await client.fetch(
+                    api_key="key", instance="open-instance", length=8,
+                    job_store=TaskJobStore(db),
+                    supervisor=TaskSupervisor(), deposit=None,
+                    account_key="ibm:open-instance", config_fp="fp")
+            assert exc.value.code == "abandoned_before_submit"
+            assert sampler.calls == []
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            assert row["reason_code"] == "abandoned_before_submit"
+            assert mrs.RandomSourceService._ibm_cursor(row)[
+                "state"] == mrs.IBM_JOB_FAILED
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_takeover_between_s2_and_submit_blocks_sampler(
+            self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="S2RACE", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            client, sampler = make_client(
+                FakeService([backend], jobs={"S2RACE": job}), job)
+            original = client._checkpoint
+
+            async def checkpoint(job_store, job_id, *, fencing_token=None,
+                                 **fields):
+                result = await original(job_store, job_id,
+                                        fencing_token=fencing_token,
+                                        **fields)
+                if result and fields.get("state") == mrs.IBM_JOB_SUBMITTING:
+                    async def _take(conn):
+                        await conn.execute(
+                            "UPDATE task_jobs SET status = ?, "
+                            "reason_code = ?, fencing_token = "
+                            "fencing_token + 1 WHERE job_id = ?",
+                            ("interrupted", "worker_lost", job_id))
+                        return True
+
+                    await db.write_transaction(
+                        _take, op_name="test_takeover_after_s2")
+                return result
+
+            monkeypatch.setattr(client, "_checkpoint", checkpoint)
+            with pytest.raises(mrs.IbmError) as exc:
+                await client.fetch(
+                    api_key="key", instance="open-instance", length=8,
+                    job_store=TaskJobStore(db),
+                    supervisor=TaskSupervisor(), deposit=None,
+                    account_key="ibm:open-instance", config_fp="fp")
+            assert exc.value.code == "claim_revoked"
+            assert sampler.calls == []
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "interrupted"
+            assert mrs.RandomSourceService._ibm_cursor(row)[
+                "state"] == mrs.IBM_JOB_SUBMITTING
+            assert await _batch_rows(db) == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_positive_absent_tag_waits_until_submit_bound(
+            self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_IBM_MAX_JOBS_PER_DAY: 10,
+                              mrs.SETTING_BATCH_LENGTH: 8,
+                              mrs.SETTING_PROVIDER_FALLBACK_ENABLED: False})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="ABSENT", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={}, listed_jobs=[])
+            client, sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            cursor = {"state": mrs.IBM_JOB_SUBMITTING,
+                      "job_tag": "qrng-p5-ABSENT",
+                      "submit_started_at": int(time.time()),
+                      "shots": 256, "qubits": 16, "values": 8,
+                      "purpose": "refill",
+                      "config_fp": svc._ibm_config_fingerprint()}
+            job_id, store = await _insert_task_row(
+                db, status="failed", reason_code="submit_uncertain",
+                cursor=cursor)
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "interrupted"
+            assert mrs.RandomSourceService._ibm_cursor(row)[
+                "state"] == mrs.IBM_JOB_SUBMITTING
+            assert await _batch_rows(db) == []
+            result = await svc.refill_if_needed(force=True)
+            assert result["status"] == "blocked"
+            assert result["reason"] == "job_in_progress"
+            assert sampler.calls == []
+            current = await store.get(job_id)
+            aged = dict(cursor)
+            aged["submit_started_at"] = int(time.time()) - 7200
+            assert await store.save_checkpoint(
+                job_id, cursor_token=json.dumps(aged), processed=0,
+                fencing_token=int(current["fencing_token"]))
+
+            async def _age(conn):
+                await conn.execute(
+                    "UPDATE task_jobs SET created_at = ? WHERE job_id = ?",
+                    (int(time.time()) - 7200, job_id))
+                return True
+
+            await db.write_transaction(_age, op_name="test_age_row")
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            assert row["reason_code"] == "submit_uncertain"
+            assert mrs.RandomSourceService._ibm_cursor(row)[
+                "state"] == mrs.IBM_JOB_FAILED
+            assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_recovery_skips_live_owner_with_fresh_heartbeat(
+            self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="LIVE2", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"LIVE2": job})
+            client, sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="running",
+                cursor={"job": "LIVE2", "state": "submitted",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill", "config_fp": ""})
+            started = await svc._recover_ibm_jobs()
+            assert started == 0
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert service.job_calls == 0
+            assert sampler.calls == []
+            assert (await _task_rows(db))[0]["status"] == "running"
+            assert await _batch_rows(db) == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_restart_s2_resolves_by_tag_and_attaches(self, tmp_path,
+                                                           monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="S2JOB", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"S2JOB": job},
+                                  listed_jobs=[job])
+            client, sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            job_id, store = await _insert_task_row(
+                db, status="running", stale=True,
+                cursor={"state": mrs.IBM_JOB_SUBMITTING,
+                        "job_tag": "qrng-p5-S2",
+                        "submit_started_at": int(time.time()) - 5,
+                        "shots": 256, "qubits": 16, "values": 8,
+                        "purpose": "refill", "config_fp": ""})
+            old_token = int((await store.get(job_id))["fencing_token"])
+            started = await svc._recover_ibm_jobs()
+            assert started == 1
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert sampler.calls == []
+            assert service.job_calls == 1
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "completed"
+            assert int(row["fencing_token"]) == old_token + 1
+            assert mrs.RandomSourceService._ibm_cursor(row)[
+                "job"] == "S2JOB"
+            assert len(await _batch_rows(db)) == 1
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_rotation_before_resume_quarantines_without_attach(
+            self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "new-key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="OLDRES", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"OLDRES": job})
+            client, _sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            old_fp = mrs.key_fingerprint("|".join(
+                ("old-key", "", "open-instance", "us-east",
+                 "ibm_quantum_platform")))
+            await _insert_task_row(
+                db, status="failed", reason_code="expired",
+                cursor={"job": "OLDRES", "state": "submitted",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": old_fp})
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert service.job_calls == 0
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            cursor = mrs.RandomSourceService._ibm_cursor(row)
+            assert cursor["quarantined"] is True
+            assert cursor["state"] == mrs.IBM_JOB_FAILED
+            assert await _batch_rows(db) == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_rotation_during_result_blocks_deposit(self, tmp_path,
+                                                         monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            values = {mrs.SETTING_IBM_KEY: "old-key",
+                      mrs.SETTING_IBM_INSTANCE: "open-instance"}
+            cfg(monkeypatch, values)
+            backend = FakeBackend("ibm_hw")
+
+            class RotatingJob(FakeJob):
+                def result(self):
+                    values[mrs.SETTING_IBM_KEY] = "new-key"
+                    return super().result()
+
+            job = RotatingJob(job_id="ROTDEP", states=("DONE",),
+                              bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"ROTDEP": job})
+            client, sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            old_fp = svc._ibm_config_fingerprint()
+            await _insert_task_row(
+                db, status="failed", reason_code="expired",
+                cursor={"job": "ROTDEP", "state": "submitted",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": int(time.time()) - 1,
+                        "values": 8, "purpose": "refill",
+                        "config_fp": old_fp})
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert await _batch_rows(db) == []
+            assert sampler.calls == []
+            # Старый late result не смешан с новым key; строка карантин.
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            cursor = mrs.RandomSourceService._ibm_cursor(row)
+            assert cursor["quarantined"] is True
+            assert await _batch_rows(db) == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_takeover_revokes_old_token_before_settlement(self, tmp_path,
+                                                                monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            cursor = {"job": "TAKE1", "state": "submitted",
+                      "shots": 256, "qubits": 16,
+                      "submitted_at": int(time.time()) - 1,
+                      "values": 8, "purpose": "refill",
+                      "config_fp": svc._ibm_config_fingerprint()}
+            job_id, store = await _insert_task_row(
+                db, status="running", stale=True, cursor=cursor)
+            row = await store.get(job_id)
+            old_token = int(row["fencing_token"])
+            taken = await svc._takeover_ibm_row(row)
+            assert taken is not None
+            assert taken["status"] == "interrupted"
+            assert int(taken["fencing_token"]) == old_token + 1
+            assert await svc._settle_ibm_row(
+                row, cursor, action="completed",
+                fencing_token=old_token) is False
+            assert await svc._ibm_save_cursor(
+                job_id, {"job": "TAKE1", "state": "completed"},
+                fencing_token=old_token) is False
+            current = await store.get(job_id)
+            assert current["status"] == "interrupted"
+            assert mrs.RandomSourceService._ibm_cursor(current)[
+                "state"] == "submitted"
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_ancient_job_not_polled_after_horizon(self, tmp_path,
+                                                        monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            backend = FakeBackend("ibm_hw")
+            job = FakeJob(job_id="ANCIENT", states=("DONE",),
+                          bitstrings=make_bitstrings(), backend=backend)
+            service = FakeService([backend], jobs={"ANCIENT": job})
+            client, sampler = make_client(service, job)
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            old = int(time.time()) - 8000
+            await _insert_task_row(
+                db, status="failed", reason_code="expired",
+                created_at=old,
+                cursor={"job": "ANCIENT", "state": "submitted",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": old, "values": 8,
+                        "purpose": "refill",
+                        "config_fp": svc._ibm_config_fingerprint()})
+            started = await svc._recover_ibm_jobs()
+            assert started == 0
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert service.job_calls == 0
+            assert sampler.calls == []
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            assert row["reason_code"] == "timeout"
+            assert row["error_code"] == "job_horizon_exceeded"
+            assert await _batch_rows(db) == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_ancient_queued_is_submit_uncertain(self, tmp_path,
+                                                      monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            client, sampler = make_client(
+                FakeService([FakeBackend("ibm_hw")]), FakeJob())
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            await _insert_task_row(
+                db, status="queued", cursor=None,
+                created_at=int(time.time()) - 7200)
+            started = await svc._recover_ibm_jobs()
+            assert started == 0
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "failed"
+            assert row["reason_code"] == "submit_uncertain"
+            assert row["error_code"] == "delivery_unknown"
+            assert sampler.calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_batch_lookup_tristate(self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            assert await svc._ibm_batch_exists("") == mrs.IBM_BATCH_ABSENT
+            assert await svc._ibm_batch_exists(
+                "NOT-PRESENT") == mrs.IBM_BATCH_ABSENT
+            original = svc.db
+            svc.db = None
+            try:
+                assert await svc._ibm_batch_exists(
+                    "SOMEJOB") == mrs.IBM_BATCH_UNKNOWN
+            finally:
+                svc.db = original
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_ancient_completed_batch_still_settles_completed(
+            self, tmp_path, monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            await mrs.RandomStore(db).insert_batch(
+                mrs.AnuBatch(values=[1, 2, 3], data_type="uint16",
+                             length=3, provider=mrs.PROVIDER_ID_IBM),
+                config_fingerprint="", external_ref='{"job":"ANCIENTB"}')
+            backend = FakeBackend("ibm_hw")
+            service = FakeService([backend], jobs={})
+            client, sampler = make_client(service, FakeJob())
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            svc.set_ibm_client(client)
+            old = int(time.time()) - 8000
+            await _insert_task_row(
+                db, status="failed", reason_code="expired",
+                created_at=old,
+                cursor={"job": "ANCIENTB", "state": "completed",
+                        "shots": 256, "qubits": 16,
+                        "submitted_at": old, "values": 8,
+                        "purpose": "refill",
+                        "config_fp": svc._ibm_config_fingerprint()})
+            await svc._recover_ibm_jobs()
+            await asyncio.gather(*list(svc._ibm_recovery_tasks),
+                                 return_exceptions=True)
+            assert service.job_calls == 0
+            assert sampler.calls == []
+            row = (await _task_rows(db))[0]
+            assert row["status"] == "completed"
+            assert row["reason_code"] == "recovered_pool"
+            assert len(await _batch_rows(db)) == 1
         finally:
             await db.close()
 
