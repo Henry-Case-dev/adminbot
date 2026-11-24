@@ -1,0 +1,466 @@
+{
+ "checks": {
+  "1440x900_no_page_errors": true,
+  "1440x900_no_overflow": true,
+  "1440x900_one_primary": true,
+  "1440x900_one_toggle": true,
+  "1440x900_one_sequence": true,
+  "1440x900_no_secret_on_main": true,
+  "1440x900_min_font_11_5": true,
+  "1440x900_details_closed": true,
+  "1440x900_details_present": true,
+  "1440x900_primary_once": true,
+  "1440x900_toggle_once": true,
+  "1440x900_sequence_once": true,
+  "1440x900_used_once": true,
+  "1440x900_last_draw_once": true,
+  "1440x900_no_forbidden_main": true,
+  "1440x900_no_workspace_duplicate_chips": true,
+  "1440x900_used_once_on_page": true,
+  "1440x900_no_factory_label_on_page": true,
+  "1440x900_three_provider_rows": true,
+  "1440x900_anu_used_verified": true,
+  "1440x900_lfdr_allowed_unverified": true,
+  "1440x900_ibm_not_used": true,
+  "1440x900_ibm_not_verified": true,
+  "1440x900_reserve_values": true,
+  "1440x900_sequence_has_both": true,
+  "1440x900_two_columns": true,
+  "viewport_1440x900_no_console_errors": true,
+  "1280x800_no_page_errors": true,
+  "1280x800_no_overflow": true,
+  "1280x800_one_primary": true,
+  "1280x800_one_toggle": true,
+  "1280x800_one_sequence": true,
+  "1280x800_no_secret_on_main": true,
+  "1280x800_min_font_11_5": true,
+  "1280x800_details_closed": true,
+  "1280x800_details_present": true,
+  "1280x800_primary_once": true,
+  "1280x800_toggle_once": true,
+  "1280x800_sequence_once": true,
+  "1280x800_used_once": true,
+  "1280x800_last_draw_once": true,
+  "1280x800_no_forbidden_main": true,
+  "1280x800_no_workspace_duplicate_chips": true,
+  "1280x800_used_once_on_page": true,
+  "1280x800_no_factory_label_on_page": true,
+  "1280x800_three_provider_rows": true,
+  "1280x800_anu_used_verified": true,
+  "1280x800_lfdr_allowed_unverified": true,
+  "1280x800_ibm_not_used": true,
+  "1280x800_ibm_not_verified": true,
+  "1280x800_reserve_values": true,
+  "1280x800_sequence_has_both": true,
+  "1280x800_two_columns": true,
+  "viewport_1280x800_no_console_errors": true,
+  "390x844_no_page_errors": true,
+  "390x844_no_overflow": true,
+  "390x844_one_primary": true,
+  "390x844_one_toggle": true,
+  "390x844_one_sequence": true,
+  "390x844_no_secret_on_main": true,
+  "390x844_min_font_11_5": true,
+  "390x844_details_closed": true,
+  "390x844_details_present": true,
+  "390x844_primary_once": true,
+  "390x844_toggle_once": true,
+  "390x844_sequence_once": true,
+  "390x844_used_once": true,
+  "390x844_last_draw_once": true,
+  "390x844_no_forbidden_main": true,
+  "390x844_no_workspace_duplicate_chips": true,
+  "390x844_used_once_on_page": true,
+  "390x844_no_factory_label_on_page": true,
+  "390x844_three_provider_rows": true,
+  "390x844_anu_used_verified": true,
+  "390x844_lfdr_allowed_unverified": true,
+  "390x844_ibm_not_used": true,
+  "390x844_ibm_not_verified": true,
+  "390x844_reserve_values": true,
+  "390x844_sequence_has_both": true,
+  "390x844_stacked": true,
+  "390x844_controls_fit": true,
+  "viewport_390x844_no_console_errors": true,
+  "320x700_no_page_errors": true,
+  "320x700_no_overflow": true,
+  "320x700_one_primary": true,
+  "320x700_one_toggle": true,
+  "320x700_one_sequence": true,
+  "320x700_no_secret_on_main": true,
+  "320x700_min_font_11_5": true,
+  "320x700_details_closed": true,
+  "320x700_details_present": true,
+  "320x700_primary_once": true,
+  "320x700_toggle_once": true,
+  "320x700_sequence_once": true,
+  "320x700_used_once": true,
+  "320x700_last_draw_once": true,
+  "320x700_no_forbidden_main": true,
+  "320x700_no_workspace_duplicate_chips": true,
+  "320x700_used_once_on_page": true,
+  "320x700_no_factory_label_on_page": true,
+  "320x700_three_provider_rows": true,
+  "320x700_anu_used_verified": true,
+  "320x700_lfdr_allowed_unverified": true,
+  "320x700_ibm_not_used": true,
+  "320x700_ibm_not_verified": true,
+  "320x700_reserve_values": true,
+  "320x700_sequence_has_both": true,
+  "320x700_stacked": true,
+  "320x700_controls_fit": true,
+  "viewport_320x700_no_console_errors": true,
+  "interaction_no_page_errors": true,
+  "interaction_no_console_errors": true,
+  "draft_bar_visible": true,
+  "draft_no_post": true,
+  "cancel_closes_draft": true,
+  "save_posts_full_order": true,
+  "draft_closed_after_save": true,
+  "fallback_off_posted": true,
+  "fallback_off_label": true,
+  "fallback_off_note": true,
+  "primary_posts_real_id": true,
+  "keys_open_on_demand": true,
+  "keys_expand_zero_network": true,
+  "secrets_masked": true,
+  "diagnostics_has_raw": true
+ },
+ "viewports": {
+  "1440x900": {
+   "scrollW": 1440,
+   "clientW": 1440,
+   "minFont": 11.5,
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "text": "IBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 0"
+    },
+    {
+     "id": "anu",
+     "text": "ANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512",
+     "used": true,
+     "state": "╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 512"
+    },
+    {
+     "id": "lfdr",
+     "text": "LfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 7"
+    }
+   ],
+   "sequence": [
+    {
+     "id": "anu",
+     "checked": true,
+     "text": "ANU Quantum Numbers\nтЖС\nтЖУ"
+    },
+    {
+     "id": "lfdr",
+     "checked": true,
+     "text": "LfDR QRNG\nтЖС\nтЖУ"
+    }
+   ],
+   "details": [
+    {
+     "marker": "data-random-provider-details",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-diagnostics",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-uses",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-advanced",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    }
+   ],
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "pageErrors": [],
+   "consoleErrors": []
+  },
+  "1280x800": {
+   "scrollW": 1280,
+   "clientW": 1280,
+   "minFont": 11.5,
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "text": "IBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 0"
+    },
+    {
+     "id": "anu",
+     "text": "ANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512",
+     "used": true,
+     "state": "╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 512"
+    },
+    {
+     "id": "lfdr",
+     "text": "LfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 7"
+    }
+   ],
+   "sequence": [
+    {
+     "id": "anu",
+     "checked": true,
+     "text": "ANU Quantum Numbers\nтЖС\nтЖУ"
+    },
+    {
+     "id": "lfdr",
+     "checked": true,
+     "text": "LfDR QRNG\nтЖС\nтЖУ"
+    }
+   ],
+   "details": [
+    {
+     "marker": "data-random-provider-details",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-diagnostics",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-uses",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-advanced",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    }
+   ],
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "pageErrors": [],
+   "consoleErrors": []
+  },
+  "390x844": {
+   "scrollW": 390,
+   "clientW": 390,
+   "minFont": 11.5,
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "text": "IBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 0"
+    },
+    {
+     "id": "anu",
+     "text": "ANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512",
+     "used": true,
+     "state": "╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 512"
+    },
+    {
+     "id": "lfdr",
+     "text": "LfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 7"
+    }
+   ],
+   "sequence": [
+    {
+     "id": "anu",
+     "checked": true,
+     "text": "ANU Quantum Numbers\nтЖС\nтЖУ"
+    },
+    {
+     "id": "lfdr",
+     "checked": true,
+     "text": "LfDR QRNG\nтЖС\nтЖУ"
+    }
+   ],
+   "details": [
+    {
+     "marker": "data-random-provider-details",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-diagnostics",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-uses",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-advanced",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    }
+   ],
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "pageErrors": [],
+   "consoleErrors": []
+  },
+  "320x700": {
+   "scrollW": 320,
+   "clientW": 320,
+   "minFont": 11.5,
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "text": "IBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 0"
+    },
+    {
+     "id": "anu",
+     "text": "ANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512",
+     "used": true,
+     "state": "╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 512"
+    },
+    {
+     "id": "lfdr",
+     "text": "LfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7",
+     "used": false,
+     "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+     "reserve": "╨╖╨░╨┐╨░╤Б: 7"
+    }
+   ],
+   "sequence": [
+    {
+     "id": "anu",
+     "checked": true,
+     "text": "ANU Quantum Numbers\nтЖС\nтЖУ"
+    },
+    {
+     "id": "lfdr",
+     "checked": true,
+     "text": "LfDR QRNG\nтЖС\nтЖУ"
+    }
+   ],
+   "details": [
+    {
+     "marker": "data-random-provider-details",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-diagnostics",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-uses",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    },
+    {
+     "marker": "data-random-advanced",
+     "present": true,
+     "open": false,
+     "bodyVisible": false
+    }
+   ],
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "pageErrors": [],
+   "consoleErrors": []
+  }
+ },
+ "api_requests": 28,
+ "interaction_errors": [],
+ "interaction_posts": [
+  {
+   "keys": [
+    "random.fallback_order"
+   ],
+   "items": [
+    {
+     "key": "random.fallback_order",
+     "value": [
+      "lfdr",
+      "anu"
+     ]
+    }
+   ]
+  },
+  {
+   "keys": [
+    "random.fallback_enabled"
+   ],
+   "items": [
+    {
+     "key": "random.fallback_enabled",
+     "value": false
+    }
+   ]
+  },
+  {
+   "keys": [
+    "random.fallback_enabled"
+   ],
+   "items": [
+    {
+     "key": "random.fallback_enabled",
+     "value": true
+    }
+   ]
+  },
+  {
+   "keys": [
+    "random.primary_provider",
+    "random.fallback_order"
+   ],
+   "items": [
+    {
+     "key": "random.primary_provider",
+     "value": "lfdr"
+    },
+    {
+     "key": "random.fallback_order",
+     "value": [
+      "anu"
+     ]
+    }
+   ]
+  }
+ ],
+ "ok": true
+}
