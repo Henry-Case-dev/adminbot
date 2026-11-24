@@ -9,6 +9,8 @@ import pytest
 from services import claim_envelope as ce
 from services import direct_context_composer as comp
 from services import evidence_policy
+from services import mca_gates
+from services import mca_retrieval_context as rc
 from services.database import DatabaseService
 from services.summary_memory import MemoryManager
 
@@ -248,16 +250,33 @@ async def test_large_seed_bounded_paging_and_old_retrieval():
 
         tracing = _TracingConn(db.db)
         db.db = tracing
-        recent = await db.get_recent_messages(CHAT, 2000)
-        db.db = tracing.real
+        try:
+            recent = await db.get_recent_messages(CHAT, 2000)
+            window = await db.get_smart_window(CHAT, 0, 500)
+            long_rows = await MemoryManager(db, None).search_long_term(
+                CHAT, ["СТАРЫЙМАРКЕР"], 5)
+        finally:
+            db.db = tracing.real
         assert len(recent) == 2000
         assert recent[0]["timestamp"] == 18_001
         assert recent[-1]["timestamp"] == 20_000
+        assert len(window) == 500
+        assert window[0]["timestamp"] == 19_501
+        assert window[-1]["timestamp"] == 20_000
+        assert long_rows
+        assert any(int(row["id"]) == 1 for row in long_rows)
         page_params = [params[-1] for sql, params in tracing.calls
                        if "LIMIT ?" in sql]
-        assert len(page_params) >= 4, tracing.calls
+        assert len(page_params) >= 5, tracing.calls
         assert max(page_params) <= 500, page_params
         assert 20_000 not in page_params
+        assert 5 in page_params
+        smart_reads = [(sql, params) for sql, params in tracing.calls
+                       if "FROM smart_messages" in sql]
+        assert smart_reads
+        assert all("LIMIT" in sql for sql, _params in smart_reads)
+        assert max(int(params[-1]) for _sql, params in smart_reads
+                   if "LIMIT ?" in _sql) == 500
 
         # retrieval находит сообщение старше окна последних 2000.
         found = await db.search_messages_fts(
@@ -266,6 +285,112 @@ async def test_large_seed_bounded_paging_and_old_retrieval():
         assert any(int(row["id"]) == 1 for row in found)
     finally:
         await db.close()
+
+
+# ── UR-13: real SQLite retrieval channels (messages/graph/lore/vector) ────
+
+@pytest.mark.asyncio
+async def test_real_sqlite_retrieval_channels_and_sources(monkeypatch):
+    """UR-13: реальный retrieve читает SQLite graph/lore/lexical каналы."""
+    db = DatabaseService(":memory:")
+    await db.initialize()
+    try:
+        await db.save_smart_message(
+            user_id=42, chat_id=CHAT,
+            text="ZXOLDMESSAGE архивная реплика о бюджете",
+            reply_to_id=None, timestamp=1_000, media_type="text",
+            author_name="Вася", message_id=100)
+        fact_id = await db.insert_graph_fact(
+            CHAT, "ZXGRAPHFACT бюджет проекта 348 тысяч",
+            "chat_history", None, subject_ref_id=42, target_user="42",
+            speaker_author_id=42, tg_message_id=100,
+            message_timestamp=1_000)
+        assert fact_id > 0
+        await db.upsert_lore_story(
+            CHAT, "zx-lore", "ZXLORETOPIC", "ZXLORESTORY старая сюжетная линия",
+            last_ts=1_000)
+        stored = await db.list_lore_stories(CHAT, limit=10)
+        assert any("ZXLORETOPIC" in str(row["topic"]) for row in stored)
+
+        # Реальный legacy-путь lore_stories (facade OFF), без сети/LLM.
+        monkeypatch.setattr(mca_gates, "episodes_enabled", lambda: True)
+        monkeypatch.setattr(
+            mca_gates, "episodes_compiler_facade_enabled", lambda: False)
+        mem = MemoryManager(db, None)
+        async def _no_vec() -> bool:
+            return False
+        # Сетевой embedding-edge не дергается; FTS-канал реальный.
+        monkeypatch.setattr(mem, "_ensure_vec_retry", _no_vec)
+        request = rc.RetrievalRequest(
+            chat_id=CHAT,
+            query="ZXOLDMESSAGE ZXGRAPHFACT ZXLORETOPIC",
+            channels=("lexical", "vector", "episode"), top_k=10)
+        result = await rc.retrieve(db, mem, request)
+        assert result.status == rc.RETRIEVAL_OK, result
+        assert {"lexical", "vector", "episode"} <= set(result.channels_used), \
+            result.channels_used
+        assert result.chat_ids == (CHAT,)
+        assert len(result.candidates) <= request.top_k
+
+        lexical_messages = [c for c in result.candidates
+                            if c.channel == "lexical"
+                            and c.entity_type == "message"]
+        graph_facts = [c for c in result.candidates
+                       if c.entity_type == "graph_fact"]
+        episodes = [c for c in result.candidates
+                    if c.channel == "episode"]
+        assert any("ZXOLDMESSAGE" in c.preview for c in lexical_messages)
+        assert any("ZXGRAPHFACT" in c.preview for c in graph_facts)
+        assert any("ZXLORETOPIC" in c.preview for c in episodes)
+        for candidate in result.candidates:
+            assert candidate.id
+            # SQL-выборка scoped по chat_id; у части graph_fact-строк поле
+            # chat_id не возвращается, поэтому чужой чат здесь недопустим.
+            assert candidate.chat_id in (None, CHAT)
+            assert candidate.sent_at >= 0
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_vector_search_fts_fallback_old_and_bounded(monkeypatch):
+    """UR-13: _vec_available=False → FTS fallback старого archive fact."""
+    db = DatabaseService(":memory:")
+    await db.initialize()
+    try:
+        await db.save_archive_fact(
+            CHAT, "ZXARCHIVEOLD сжатый старый факт о встрече", 1_000)
+        mem = MemoryManager(db, None)
+        assert mem._vec_available is False
+        async def _no_vec() -> bool:
+            return False
+        monkeypatch.setattr(mem, "_ensure_vec_retry", _no_vec)
+        tracing = _TracingConn(db.db)
+        db.db = tracing
+        try:
+            facts = await mem.vector_search(CHAT, "ZXARCHIVEOLD", 5)
+        finally:
+            db.db = tracing.real
+        assert facts
+        assert any("ZXARCHIVEOLD" in str(fact) for fact in facts)
+        archive_calls = [(sql, params) for sql, params in tracing.calls
+                         if "smart_archive_facts" in sql]
+        assert archive_calls
+        assert all("LIMIT" in sql for sql, _params in archive_calls)
+        assert max(int(params[-1]) for _sql, params in archive_calls) <= 5
+    finally:
+        await db.close()
+
+
+def test_pg_is_companion_not_memory_backend():
+    """UR-13: PG DDL не является вторым memory-backend."""
+    import inspect
+    from services import pg_db
+
+    source = inspect.getsource(pg_db)
+    for table in ("smart_messages", "graph_facts", "lore_stories",
+                  "mca_retrieval_context"):
+        assert table not in source, table
 
 
 def test_existing_storage_and_provider_modules_are_preserved():
