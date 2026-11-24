@@ -564,6 +564,85 @@ function label(id) {
     .indexOf('ещё не действует') >= 0,
     'расхождение не прячется: основной экран предупреждает');
 
+  // R3-01: absent/no-reserve row must not mismatch after primary filtering.
+  const absentFactory = [
+    { primary: 'ibm_quantum', effective: ['ibm_quantum', 'anu', 'lfdr'],
+      expected: ['anu', 'lfdr'] },
+    { primary: 'anu', effective: ['anu', 'lfdr'], expected: ['lfdr'] },
+    { primary: 'lfdr', effective: ['lfdr', 'anu'], expected: ['anu'] },
+    { primary: 'anu', effective: ['anu', 'lfdr', 'lfdr'],
+      expected: ['lfdr'] },  // mixed duplicates
+  ];
+  absentFactory.forEach(function (row) {
+    const ctxA = makeCtx(status({
+      primary_provider: row.primary,
+      primary_setting_raw: row.primary,
+      primary_setting_state: 'set',
+      fallback_order: row.effective.filter(function (id) {
+        return id !== row.primary;
+      }),
+      fallback_order_raw: null,
+      fallback_order_state: 'absent',
+      effective_order: row.effective,
+    }), [
+      cfg('random.primary_provider', row.primary, 'global'),
+      cfg('random.fallback_order', null, 'default'),
+      cfg('random.fallback_enabled', true, 'default'),
+    ]);
+    const cmp = methods.randomFallbackComparison.call(ctxA);
+    assert.deepStrictEqual(cmp.selection, row.expected,
+      row.primary + ': factory selection отфильтрован по primary');
+    assert.deepStrictEqual(cmp.effective, row.expected,
+      row.primary + ': effective отфильтрован по primary');
+    assert.strictEqual(cmp.mismatch, false,
+      row.primary + ': absent + доступный primary не даёт ложный mismatch');
+    assert.strictEqual(
+      methods.randomFallbackStateChip.call(ctxA).label, 'по умолчанию',
+      row.primary + ': бейдж наследования, не «не применяется»');
+  });
+
+  // R3-01 mutation killer: absent + реально другой effective должен дать
+  // mismatch; `state !== 'set' -> false` этот тест ломает.
+  const absentDifferent = makeCtx(status({
+    primary_provider: 'anu',
+    primary_setting_raw: 'anu',
+    primary_setting_state: 'set',
+    fallback_order: [],
+    fallback_order_raw: null,
+    fallback_order_state: 'absent',
+    effective_order: ['anu'],
+  }), [
+    cfg('random.primary_provider', 'anu', 'global'),
+    cfg('random.fallback_order', null, 'default'),
+    cfg('random.fallback_enabled', true, 'default'),
+  ]);
+  assert.strictEqual(
+    methods.randomFallbackComparison.call(absentDifferent).mismatch, true,
+    'absent с другим effective — реальное расхождение');
+  assert.strictEqual(
+    methods.randomFallbackStateChip.call(absentDifferent).label,
+    'сохранено, не применяется');
+  assert(methods.randomFallbackNote.call(absentDifferent)
+    .indexOf('ещё не действует') >= 0);
+
+  // R3: сохранённый список с primary внутри фильтруется так же, как effective.
+  const primaryInSaved = makeCtx(status({
+    primary_provider: 'anu',
+    primary_setting_raw: 'anu',
+    primary_setting_state: 'set',
+    fallback_order: ['lfdr'],
+    fallback_order_raw: ['anu', 'lfdr'],
+    fallback_order_state: 'set',
+    effective_order: ['anu', 'lfdr'],
+  }), [
+    cfg('random.primary_provider', 'anu', 'global'),
+    cfg('random.fallback_order', ['anu', 'lfdr'], 'global'),
+    cfg('random.fallback_enabled', true, 'global'),
+  ]);
+  assert.strictEqual(
+    methods.randomFallbackEffectiveMismatch.call(primaryInSaved), false,
+    'primary внутри сохранённого/effective не создаёт расхождение');
+
   // R2-01: пустой сохранённый выбор против непустого effective — это тоже
   // расхождение, а не «переключений не будет».
   const emptyVsEffective = makeCtx(status({

@@ -33106,26 +33106,57 @@
           fallbackEnabled: this.randomFallbackOn(),
         };
       },
-      // QRNG UI-08..10 R2/F-01: сравнение сохранённого выбора с действующим
-      // хвостом тотально — включая [] ↔ непустой в обе стороны и
-      // наследуемый/заводской случай. Расхождение нельзя прятать.
-      randomFallbackSelectionValue: function () {
+      // QRNG UI-08..10 R3: ОДИН канонический нормализатор для обеих сторон.
+      // Фильтрует primary, невалидные id и дубли, сохраняет порядок; missing
+      // field нормализуется в пустой список. Сравниваются только канонические
+      // формы, поэтому primary-фильтрация не создаёт ложных расхождений.
+      randomFallbackCanonical: function (order, primaryId) {
+        var primary = (primaryId === undefined || primaryId === null)
+          ? this.randomPrimaryValue() : primaryId;
+        var out = [];
+        (Array.isArray(order) ? order : []).forEach(function (id) {
+          if (QRNG_PROVIDERS.indexOf(id) < 0 || id === primary
+              || out.indexOf(id) >= 0) return;
+          out.push(id);
+        });
+        return out;
+      },
+      randomFallbackComparison: function () {
         var st = this.randomFallbackOrderState();
-        if (st.state === 'set') return this.randomSavedFallbackValue();
-        if (st.state === 'absent') return this.randomFactoryFallbackValue();
-        return null;
+        var rawSelection = null;
+        if (st.state === 'set') {
+          rawSelection = this.randomSavedFallbackValue();
+        } else if (st.state === 'absent') {
+          rawSelection = this.randomFactoryFallbackValue();
+        }
+        var rawEffective = this.randomEffectiveFallbackValue();
+        var primary = this.randomPrimaryValue();
+        var selection = this.randomFallbackCanonical(rawSelection, primary);
+        var effective = this.randomFallbackCanonical(rawEffective, primary);
+        var mismatch = false;
+        if (rawSelection !== null) {
+          if (selection.length !== effective.length) {
+            mismatch = true;
+          } else {
+            for (var i = 0; i < selection.length; i += 1) {
+              if (selection[i] !== effective[i]) {
+                mismatch = true;
+                break;
+              }
+            }
+          }
+        }
+        return {
+          state: st.state,
+          selectionRaw: rawSelection,
+          effectiveRaw: rawEffective,
+          selection: selection,
+          effective: effective,
+          mismatch: mismatch,
+        };
       },
       randomFallbackEffectiveMismatch: function () {
-        var st = this.randomFallbackOrderState();
-        if (st.state === 'requires_resolution') return false;
-        var selection = this.randomFallbackSelectionValue();
-        if (selection === null) return false;
-        var effective = this.randomEffectiveFallbackValue();
-        if (selection.length !== effective.length) return true;
-        for (var i = 0; i < selection.length; i += 1) {
-          if (selection[i] !== effective[i]) return true;
-        }
-        return false;
+        return this.randomFallbackComparison().mismatch;
       },
       // QRNG UI-08..10: одна короткая подпись происхождения основного
       // источника. Значение контрола и есть заводское/сохранённое значение;
