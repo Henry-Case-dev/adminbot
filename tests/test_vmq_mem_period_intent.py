@@ -412,8 +412,11 @@ class TestHistoricalSoftFallback:
 
     def test_single_weak_row_does_not_assemble_block(self):
         """Действующий контракт §2/§5: одна слабая строка блок не собирает."""
+        # RC4 (A2): «шизы» и «шизах» — один short-стем «шиз», поэтому прежний
+        # текст даёт 2 общих стема и законно проходит порог. Слабая строка —
+        # ровно 1 общий стем (порог PERIOD_MIN_SHARED_STEMS=2 не менялся).
         accepted, stats = mrc.select_period_rows(
-            [_row(1, "шизы на конфе обсуждали", year=2023)],
+            [_row(1, "обсуждали на конфе", year=2023)],
             query=OWNER_CREATIVE, policy="auto", slots=2)
         assert accepted == []
         assert stats["soft_fallback"] == 0
