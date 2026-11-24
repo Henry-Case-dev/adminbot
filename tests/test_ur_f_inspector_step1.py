@@ -157,7 +157,14 @@ def _confirm_small_window(monkeypatch, window_tokens: int) -> None:
     async def _window(base_url, model, slot=None):
         return (int(window_tokens), "runtime")
 
+    async def _limits(base_url, model, slot=None):
+        # UR-21.18: stage budget резолвит полный набор одним вызовом; окно
+        # подменяется тем же подтверждённым значением, max_output неизвестен
+        # (поведение reserve остаётся ratio — ровно как до model-aware).
+        return (int(window_tokens), "runtime", None)
+
     monkeypatch.setattr(dcs._model_capacity, "resolve_stage_window", _window)
+    monkeypatch.setattr(dcs._model_capacity, "resolve_stage_limits", _limits)
     # Legacy-контур (`resolver_on` OFF): окно берётся из
     # `resolve_effective_window` прямо в `direct_chat_service`.
     monkeypatch.setattr(

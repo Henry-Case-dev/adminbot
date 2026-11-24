@@ -115,8 +115,8 @@ methods._normalizeConfigItems.call(normCtx, ITEMS);
     'UR-21.16: legacy-доля честно названа');
   assert.strictEqual(
     byKey(ITEMS, 'limits.chat_budget_reserve_ratio').title,
-    'Технический резерв вывода (доля окна)',
-    'UR-21.18: резерв — техническая доля, не срок памяти');
+    'Fallback-доля резерва вывода (только чтение)',
+    'UR-21.18: доля — только fallback, не активная формула резерва');
 
   const group = { items: ITEMS };
   const basic = methods.basicItems.call(normCtx, group);
@@ -146,6 +146,9 @@ methods._normalizeConfigItems.call(normCtx, ITEMS);
   assert.strictEqual(methods.canEditConfig.call(normCtx,
     'limits.chat_budget_map_ratio'), false,
     'UR-21.16: legacy-доля только читается');
+  assert.strictEqual(methods.canEditConfig.call(normCtx,
+    'limits.chat_budget_reserve_ratio'), false,
+    'UR-21.18: fallback-доля только читается');
   assert.strictEqual(methods.canEditConfig.call(normCtx,
     'limits.chat_level2_max_chars'), false,
     'UR-21.11: legacy-потолок только читается');
@@ -217,8 +220,31 @@ const turnCtx = Object.assign({}, methods, {
 
   const reserve = methods.ur21ReserveLine.call(turnCtx);
   assert(reserve.indexOf('фактически 12 800') >= 0, reserve);
-  assert(reserve.indexOf('настройка доли 0.1') >= 0, reserve);
+  assert(reserve.indexOf('источник не зафиксирован') >= 0, reserve);
   assert(reserve.indexOf('доступно контексту 110 000') >= 0, reserve);
+
+  // UR-21.18: при model_capability доля не выдаётся за активную формулу.
+  const capCtx = Object.assign({}, turnCtx, {
+    turnDiag: { available: true, selection: { budget: {
+      window: 131072, output_reserve: 4352, available: 110000,
+      output_reserve_source: 'model_capability',
+      model_max_output_tokens: 8192, reserve_target_tokens: 4096,
+    } } },
+  });
+  const capLine = methods.ur21ReserveLine.call(capCtx);
+  assert(capLine.indexOf('предел вывода модели (8 192)') >= 0, capLine);
+  assert(capLine.indexOf('настройка доли') < 0, capLine);
+  // Fallback-путь честно показывает долю.
+  const fbCtx = Object.assign({}, turnCtx, {
+    turnDiag: { available: true, selection: { budget: {
+      window: 131072, output_reserve: 13107, available: 100000,
+      output_reserve_source: 'ratio_fallback',
+      model_max_output_tokens: null, reserve_target_tokens: 4096,
+    } } },
+  });
+  const fbLine = methods.ur21ReserveLine.call(fbCtx);
+  assert(fbLine.indexOf('fallback-доля 0.1') >= 0, fbLine);
+  assert(fbLine.indexOf('предел вывода модели') < 0, fbLine);
 
   const summary = methods.ur21SummaryCoverageLine.call(turnCtx);
   assert(summary.indexOf('TTL хранения 60 мин (технический)') >= 0, summary);
@@ -276,6 +302,29 @@ const turnCtx = Object.assign({}, methods, {
   assert.strictEqual(methods.directUsedSettingLine.call(
     Object.assign({}, methods, { directDiagnostics: null })), '',
   'нет прогона — пусто, без ложного нуля');
+
+  // UR-21.11: legacy-карточка читает reason_code; известный код — из
+  // существующего словаря drop_reason, неизвестный — сам код, пустой —
+  // честное «причина не зафиксирована».
+  const knownReason = methods.directDiagnosticsReasonLine.call(
+    Object.assign({}, directCtx, {
+      directDiagnostics: { available: true, reason_code: 'budget_exceeded' },
+    }));
+  assert(knownReason.indexOf('не поместилось в окно модели') >= 0,
+    knownReason);
+  assert(knownReason.indexOf('budget_exceeded') >= 0, knownReason);
+  const unknownReason = methods.directDiagnosticsReasonLine.call(
+    Object.assign({}, directCtx, {
+      directDiagnostics: { available: true, reason_code: 'mystery_reason' },
+    }));
+  assert(unknownReason.indexOf('код: mystery_reason') >= 0, unknownReason);
+  assert(unknownReason.indexOf('default') < 0, unknownReason);
+  assert.strictEqual(methods.directDiagnosticsReasonLine.call(
+    Object.assign({}, directCtx, {
+      directDiagnostics: { available: true, reason_code: '' },
+    })), 'причина не зафиксирована');
+  assert.strictEqual(methods.directDiagnosticsReasonLine.call(
+    Object.assign({}, methods, { directDiagnostics: null })), '');
 }
 
 // ── 5. статическая разметка и отсутствие секретов ───────────────────────
@@ -283,9 +332,10 @@ const turnCtx = Object.assign({}, methods, {
   ['data-ur21-inspector', 'data-ur21-used-setting', 'data-ur21-thread',
    'data-ur21-reserve', 'data-ur21-summary', 'data-ur21-reduction',
    'data-ur21-identity', 'data-ur21-summary-trigger',
-   'data-direct-used-setting'].forEach(function (sel) {
-    assert(INDEX.indexOf(sel) >= 0, 'нет разметки ' + sel);
-  });
+   'data-direct-used-setting', 'data-direct-reason'].forEach(
+    function (sel) {
+      assert(INDEX.indexOf(sel) >= 0, 'нет разметки ' + sel);
+    });
   assert(INDEX.indexOf('CHAT_CONTEXT_FILL_RATIO') < 0,
     'fill ratio не возвращается в шаблон');
   assert(INDEX.indexOf(':disabled="!canEditConfig(item.key)"') >= 0,

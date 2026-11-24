@@ -714,6 +714,14 @@ class Settings:
         "MODEL_CAPACITY_RESOLVER_ENABLED", True)
     AUTO_BUDGET_RESOLVER_ENABLED: ClassVar[bool] = _env_bool(
         "AUTO_BUDGET_RESOLVER_ENABLED", True)
+    # UR-21.18 (UR-C cluster C): model-aware output reserve для стадий
+    # `direct.primary`/`direct.fallback`. ON — резерв считается от
+    # физического `max_output` модели: max(1024, min(model_max, target+256)),
+    # где target = явный потолок ответа стадии. OFF — точная прежняя
+    # ratio-формула (rollback, byte-parity). env-only, без UI и без новой
+    # per-chat настройки; значение ratio/override не сбрасывается.
+    DIRECT_RESERVE_MODEL_AWARE_ENABLED: ClassVar[bool] = _env_bool(
+        "DIRECT_RESERVE_MODEL_AWARE_ENABLED", True)
     SUMMARY_COVERAGE_CHUNKING_ENABLED: ClassVar[bool] = _env_bool(
         "SUMMARY_COVERAGE_CHUNKING_ENABLED", True)
     DIRECT_LLM_REACTION_ENABLED: ClassVar[bool] = _env_bool(

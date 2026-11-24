@@ -2352,8 +2352,11 @@ _LIMITS: list[tuple] = [
      "Не работает: подтверждённый no-op — рантайм это значение не читает "
      "и искусственный смысл ему не назначается (UR-21.17). Сохраняется "
      "только для совместимости, из рабочего UI выведено."),
-    ("CHAT_BUDGET_RESERVE_RATIO", "Доля бюджета: Reserve", "float", "limits_chat_budgets",
-     "Запасной резерв бюджета. Больше — запас на непредвиденное."),
+    ("CHAT_BUDGET_RESERVE_RATIO", "Fallback-доля резерва вывода", "float",
+     "limits_chat_budgets",
+     "Применяется только когда провайдер не сообщает предел вывода модели "
+     "или resolver выключен. При известном пределе резерв Direct считается "
+     "по модели; значение сохраняется для совместимости."),
     # EVOL-031: параметр CHAT_DEDUP_TTL_SECONDS удалён вместе с
     # replay-веткой direct_dedup.
     # SUMMARY_ALIASES — 6-элементная запись: последний элемент widget
@@ -3801,6 +3804,16 @@ EFFECTIVE_STATUS_META: dict[str, dict] = {
         "consumer": "direct_chat_service (legacy/fail-open)",
         "note": "Активный путь — composer; доля влияет только на "
                 "legacy/fail-open."},
+    # UR-21.18 (UR-C cluster C): резерв Direct считается от физического
+    # предела вывода модели; доля — только fallback-путь, если предел
+    # неизвестен или resolver выключен. Значение/override сохраняются.
+    "limits.chat_budget_reserve_ratio": {
+        "status": "legacy",
+        "consumer": "services.auto_budget (fallback)",
+        "units": "доля",
+        "note": "Активный резерв Direct — model-aware (предел вывода "
+                "модели); доля применяется только как fallback, когда "
+                "предел неизвестен или resolver выключен."},
     "limits.chat_budget_global_ratio": {
         "status": "legacy",
         "consumer": "direct_chat_service (legacy/fail-open)",

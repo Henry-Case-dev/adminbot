@@ -173,7 +173,12 @@ EVENT_FIELDS = {
         "model", "window", "window_source", "external_tokens",
         "output_reserve", "available_context", "budget", "policy_mode",
         "summary_revision", "summary_watermark", "summary_lag_messages",
-        "summary_age", "estimation_method"}),
+        "summary_age", "estimation_method",
+        # UR-21.18/UR-RES-03: происхождение резерва и антицикл-окно
+        # (R17-safe числа/энумы, без текста сообщений).
+        "output_reserve_source", "model_max_output_tokens",
+        "reserve_target_tokens", "repetition_window", "repetition_cap",
+        "repetition_ttl_seconds", "repetition_ngram_n", "repetition_source"}),
     CONTEXT_SELECT: frozenset({
         "recent_verbatim_messages", "recent_verbatim_tokens",
         "reply_thread_messages", "old_episode_count", "old_episode_messages",
@@ -194,7 +199,10 @@ EVENT_FIELDS = {
     AUTO_CONTEXT_BUDGET: frozenset({
         "slot", "model", "context_window", "mandatory_tokens",
         "output_reserve", "safety_reserve", "auto_input_budget",
-        "effective_input_budget", "manual_cap", "policy_mode", "source"}),
+        "effective_input_budget", "manual_cap", "policy_mode", "source",
+        # UR-21.18: источник резерва (энум) и физический предел модели.
+        "output_reserve_source", "model_max_output_tokens",
+        "reserve_target_tokens"}),
     DIRECT_REACT: frozenset({
         "reaction", "trigger_type", "source", "reason"}),
     SUMMARY_L1_CHUNKED: frozenset({
@@ -232,6 +240,10 @@ _NUM_FIELDS = frozenset({
     "safety_reserve", "auto_input_budget", "effective_input_budget",
     "manual_cap", "chunks", "coverage", "source_messages",
     "processed_messages", "unprocessed_messages",
+    # UR-21.18/UR-RES-03: reserve provenance + антицикл-окно.
+    "model_max_output_tokens", "reserve_target_tokens",
+    "repetition_window", "repetition_cap", "repetition_ttl_seconds",
+    "repetition_ngram_n",
     # ASAP 7 (F1, §1.5): числовые поля L1_PLAN.
     "input_chars", "confidence",
 })

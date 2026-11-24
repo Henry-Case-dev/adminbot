@@ -277,8 +277,13 @@ PG_DB_SHA256_B07 = (
 # значение = явный override владельца). Ключи/типы/группы/счётчики/дефолты
 # каталога не менялись (REGISTRY 645 / GROUPS 121 / delta 244);
 # TSV/meta переэмитированы генератором, `--check` → OK.
+# UR-21.18 (UR-C cluster C, 24.11.2026; L-F11S-1): санкционированная дельта
+# каталога — только title/description `CHAT_BUDGET_RESERVE_RATIO` (честный
+# fallback-смысл) и `EFFECTIVE_STATUS_META["limits.chat_budget_reserve_ratio"]`
+# (status=legacy, consumer=services.auto_budget (fallback)). Новых
+# ParamSpec/GROUPS/ключей нет; TSV/meta переэмитированы штатным генератором.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "f840f68a32a1b9cf336c4b481b973e7ed246cf851b5464581bcf68c1b6dedb0c")
+    "6cd4d48b9c2d047c82435f31dbfa590ad93334eed9ee201887477bbb5afca0ad")
 
 
 def _sha256(path: Path) -> str:

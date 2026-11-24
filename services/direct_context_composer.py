@@ -715,6 +715,34 @@ def reduction_reason_code(*, dropped=(), excluded=(),
     return None
 
 
+def repetition_diagnostics(chat_id: int) -> dict:
+    """Read-only антицикл-диагностика (UR-RES-03): только числа и код.
+
+    Источник — то же in-process окно, что реально наблюдает повторы
+    (`style_policy.repetition_view`). Текст реплик и их хеши наружу не
+    попадают. Лимиты не меняются: значения читаются из существующих
+    констант style_policy."""
+    try:
+        from services import style_policy as _style
+        view = _style.repetition_view(chat_id)
+    except Exception:      # pragma: no cover - защитная ветка
+        view = {}
+
+    def _num(key: str) -> int:
+        try:
+            return max(0, int(view.get(key) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    return {
+        "window": _num("window"),
+        "cap": _num("cap"),
+        "ttl_seconds": _num("ttl_seconds"),
+        "ngram_n": _num("ngram_n"),
+        "source": "style_policy.repeat_window",
+    }
+
+
 def get_diagnostics(chat_id: int) -> dict | None:
     """Последняя диагностика чата (None — прогонов не было)."""
     try:
@@ -736,20 +764,42 @@ def emit_context_capacity(*, model: str, window: int, window_source: str,
                           available_context: int, budget: int,
                           policy_mode: str, summary_revision: str | None,
                           summary_watermark, summary_lag_messages: int | None,
-                          summary_age, estimation_method: str | None = None
-                          ) -> None:
-    """CONTEXT_CAPACITY (§32): полная вместимость прогона (числа/коды)."""
-    emit_agentic_event(
-        CONTEXT_CAPACITY, model=str(model or "")[:64], window=int(window),
-        window_source=str(window_source),
-        external_tokens=int(external_tokens),
-        output_reserve=int(output_reserve),
-        available_context=int(available_context), budget=int(budget),
-        policy_mode=str(policy_mode),
-        summary_revision=summary_revision,
-        summary_watermark=summary_watermark,
-        summary_lag_messages=summary_lag_messages, summary_age=summary_age,
-        estimation_method=estimation_method)
+                          summary_age, estimation_method: str | None = None,
+                          output_reserve_source: str | None = None,
+                          model_max_output_tokens: int | None = None,
+                          reserve_target_tokens: int | None = None,
+                          repetition: dict | None = None) -> None:
+    """CONTEXT_CAPACITY (§32): полная вместимость прогона (числа/коды).
+
+    UR-21.18/UR-RES-03: аддитивные read-only поля источника резерва и
+    антицикл-окна. Событие R17-safe: только числа/коды, без текста."""
+    fields: dict = {
+        "model": str(model or "")[:64], "window": int(window),
+        "window_source": str(window_source),
+        "external_tokens": int(external_tokens),
+        "output_reserve": int(output_reserve),
+        "available_context": int(available_context), "budget": int(budget),
+        "policy_mode": str(policy_mode),
+        "summary_revision": summary_revision,
+        "summary_watermark": summary_watermark,
+        "summary_lag_messages": summary_lag_messages,
+        "summary_age": summary_age,
+        "estimation_method": estimation_method,
+        "output_reserve_source": output_reserve_source,
+        "model_max_output_tokens": model_max_output_tokens,
+        "reserve_target_tokens": reserve_target_tokens,
+    }
+    if isinstance(repetition, dict) and repetition:
+        for api_key, event_key in (
+                ("window", "repetition_window"),
+                ("cap", "repetition_cap"),
+                ("ttl_seconds", "repetition_ttl_seconds"),
+                ("ngram_n", "repetition_ngram_n"),
+                ("source", "repetition_source")):
+            value = repetition.get(api_key)
+            if value is not None:
+                fields[event_key] = value
+    emit_agentic_event(CONTEXT_CAPACITY, **fields)
 
 
 def emit_context_select(*, recent_verbatim_messages: int = 0,
@@ -2547,7 +2597,7 @@ __all__ = [
     "DIRECT_METRIC_NAMES", "record_direct_metric",
     "direct_metrics_snapshot", "reset_direct_metrics",
     "record_diagnostics", "get_diagnostics", "reset_diagnostics",
-    "reduction_reason_code",
+    "reduction_reason_code", "repetition_diagnostics",
     "emit_context_capacity", "emit_context_select", "emit_context_pressure",
     "emit_context_physical_overflow", "emit_context_tail_floor_clamped",
     "emit_direct_trigger",

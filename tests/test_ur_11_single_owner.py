@@ -318,12 +318,17 @@ def test_effective_meta_marks_legacy_and_no_op():
         "limits.chat_thread_max_chars": "legacy",
         "limits.graph_rag_context_max_chars": "legacy",
         "limits.chat_level2_max_chars": "legacy",
+        # UR-21.18: доля — только fallback, когда предел вывода модели
+        # неизвестен/resolver выключен; активная формула model-aware.
+        "limits.chat_budget_reserve_ratio": "legacy",
     }
     for key, status in expectations.items():
         meta = param_catalog.effective_meta(key)
         assert meta["status"] == status, key
         if status in ("legacy", "no_op"):
             assert meta["reason_inactive"], key
-    for key in ("limits.chat_context_budget_tokens",
-                "limits.chat_budget_reserve_ratio"):
-        assert param_catalog.effective_meta(key)["status"] == "active"
+    assert param_catalog.effective_meta(
+        "limits.chat_context_budget_tokens")["status"] == "active"
+    ratio_meta = param_catalog.effective_meta(
+        "limits.chat_budget_reserve_ratio")
+    assert ratio_meta["active_consumer"].startswith("services.auto_budget")

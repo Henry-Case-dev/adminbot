@@ -774,8 +774,10 @@ def note_tools(correlation_id, *, tool_results=None, rounds: int = 0,
 STAGE_SELECTION = "turn_selection"
 _COUNT_KEYS = ("available_messages", "included_messages", "window_messages")
 _BUDGET_INT_KEYS = ("window", "output_reserve", "available", "budget",
-                    "payload_tokens", "fallback_window")
-_BUDGET_CODE_KEYS = ("slot", "window_source", "policy_mode")
+                    "payload_tokens", "fallback_window",
+                    "model_max_output_tokens", "reserve_target_tokens")
+_BUDGET_CODE_KEYS = ("slot", "window_source", "policy_mode",
+                     "output_reserve_source")
 
 
 def _sel_int(value):

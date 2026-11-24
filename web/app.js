@@ -2038,10 +2038,12 @@
         + 'не на что. Значение сохранено для совместимости и скрыто.'),
     },
     'limits.chat_budget_reserve_ratio': {
-      title: 'Технический резерв вывода (доля окна)',
-      description: ('Доля окна, зарезервированная под ответ. Фактический '
-        + 'резерв считается в capacity и виден в инспекторе хода; это не '
-        + 'срок жизни памяти. Обычно не трогать.'),
+      title: 'Fallback-доля резерва вывода (только чтение)',
+      description: ('Применяется только когда провайдер не сообщает предел '
+        + 'вывода модели либо resolver выключен. При известном пределе '
+        + 'резерв Direct считается по модели, поэтому доля не является '
+        + 'активной формулой; фактический резерв виден в инспекторе хода. '
+        + 'Значение сохраняется для совместимости.'),
     },
   };
   // UI-21: presentation-флаги сверх title/description. Значения/ключи/
@@ -2063,7 +2065,7 @@
     'limits.chat_budget_branch_ratio': { advanced: true, readonly: true },
     'limits.chat_budget_target_ratio': { advanced: true, readonly: true },
     'limits.chat_budget_anchors_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_reserve_ratio': { advanced: true },
+    'limits.chat_budget_reserve_ratio': { advanced: true, readonly: true },
   };
   // B01.4: виджет профиля частоты (ключ каталога — str; select добавляет
   // витрина). Значения — канон резолвера initiative_observer.
@@ -21203,11 +21205,30 @@
         var budget = selection && selection.budget;
         var reserve = budget ? turnNumText(budget.output_reserve) : '';
         var available = budget ? turnNumText(budget.available) : '';
-        var setting = this.ur21SettingText(
-          'limits.chat_budget_reserve_ratio');
+        var source = budget
+          ? String(budget.output_reserve_source || '') : '';
+        var modelMax = budget
+          ? turnNumText(budget.model_max_output_tokens) : '';
+        var detail;
+        if (source === 'model_capability') {
+          // Активная формула — физический предел вывода модели; доля здесь
+          // не участвует и не показывается как настройка резерва.
+          detail = 'предел вывода модели'
+            + (modelMax ? ' (' + modelMax + ')' : '');
+        } else if (source === 'ratio_fallback' || source === 'legacy_ratio') {
+          detail = 'fallback-доля '
+            + (this.ur21SettingText('limits.chat_budget_reserve_ratio')
+               || 'нет данных');
+        } else if (source === 'caller_max_output') {
+          detail = 'запрошенный предел ответа';
+        } else if (source === 'stage_env') {
+          detail = 'резерв стадии (env)';
+        } else {
+          detail = 'источник не зафиксирован (трасса старше версии)';
+        }
         return 'Резерв вывода: фактически '
           + (reserve || 'нет данных') + ' токенов'
-          + ' · настройка доли ' + setting
+          + ' · ' + detail
           + ' · доступно контексту ' + (available || 'нет данных');
       },
       ur21SummaryCoverageLine: function () {
@@ -21269,6 +21290,17 @@
             + turnCodeText('drop_reason', skipped.skip_reason);
         }
         return 'Сокращение: не зафиксировано';
+      },
+      // UR-21.11: причина сокращения последнего прогона из существующего
+      // read-only reason_code. Подпись — только из уже существующего словаря
+      // drop_reason; неизвестный код показывается как есть, пустой — честно
+      // «причина не зафиксирована» (без подстановки default).
+      directDiagnosticsReasonLine: function () {
+        var diag = this.directDiagnostics;
+        if (!diag || !diag.available) return '';
+        var code = String(diag.reason_code || '').trim();
+        if (!code) return 'причина не зафиксирована';
+        return turnCodeText('drop_reason', code);
       },
       // Статус-блок «Ответы в чате»: настройка vs фактическое использование
       // последнего прогона + фактический резерв. Нет данных — пусто, чтобы

@@ -13,8 +13,11 @@ Capacity Resolver (§9–§12, §133).
 
 Output reserve stage-aware (§11): 1) фактический ``max_tokens`` стадии;
 2) stage-policy (Summary L1/L2 — существующие env `SUMMARY_L1/L2_OUTPUT_
-RESERVE_TOKENS` 4000/6000 объявляются дефолтами policy; Direct — прежний
-ratio-слой `max(1024, window×ratio)`); 3) floor 1024.
+RESERVE_TOKENS` 4000/6000 объявляются дефолтами policy); 3) UR-21.18
+model-aware только для ``direct.primary``/``direct.fallback``:
+``max(1024, min(model_max, target+256))``; 4) прежний ratio-слой
+``max(1024, window×ratio)`` — fallback при неизвестном model_max или OFF;
+5) floor 1024.
 
 Stage policy metadata (§133) живёт здесь (не в разбросанных ``if summary``):
 ``summary.l1 → exhaustive/chunk_all``; ``summary.l2 → exhaustive/
@@ -40,6 +43,18 @@ from services.token_counter import safe_budget
 logger = logging.getLogger(__name__)
 
 OUTPUT_RESERVE_FLOOR = 1024
+
+# UR-21.18: источники output reserve, видимые в BudgetResult/DTO/событии.
+RESERVE_SOURCE_MODEL = "model_capability"
+RESERVE_SOURCE_RATIO_FALLBACK = "ratio_fallback"
+RESERVE_SOURCE_LEGACY_RATIO = "legacy_ratio"
+RESERVE_SOURCE_CALLER = "caller_max_output"
+RESERVE_SOURCE_STAGE_ENV = "stage_env"
+RESERVE_SOURCE_FLOOR = "floor"
+
+#: Только эти стадии получают model-aware резерв (UR-21.18); Summary,
+#: L1-планировщик, intel/initiative сохраняют прежнюю policy.
+DIRECT_MODEL_AWARE_SLOTS = frozenset({"direct.primary", "direct.fallback"})
 
 # ── Stage policy metadata (§133) ───────────────────────────────────────────
 COVERAGE_EXHAUSTIVE = "exhaustive"
@@ -156,25 +171,65 @@ def auto_budget_enabled() -> bool:
         return True
 
 
+def direct_reserve_model_aware_enabled() -> bool:
+    """Kill-switch `DIRECT_RESERVE_MODEL_AWARE_ENABLED` (env-only, default ON;
+    резолв per-call). OFF → точная прежняя ratio-формула (rollback)."""
+    try:
+        return bool(getattr(settings, "DIRECT_RESERVE_MODEL_AWARE_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
 def _stage_output_reserve(policy: StagePolicy, window: int,
-                          max_output_tokens: int | None) -> int:
-    """§11: 1) фактический max_tokens; 2) stage-policy (Summary L1 4000 /
-    L2 6000; Direct — ratio-слой D2); 3) floor 1024."""
+                          max_output_tokens: int | None,
+                          *, model_max_output_tokens: int | None = None,
+                          reserve_target_tokens: int | None = None
+                          ) -> tuple[int, str, int | None]:
+    """§11 + UR-21.18: ``(reserve, source, target_used)``.
+
+    Приоритет: 1) фактический ``max_tokens`` стадии; 2) stage-policy env
+    (Summary L1/L2); 3) model-aware Direct (``direct.primary``/
+    ``direct.fallback``): ``max(1024, min(model_max, target + margin))``;
+    4) прежний ratio-слой D2; 5) floor 1024.
+    """
     try:
         if max_output_tokens is not None and int(max_output_tokens) > 0:
-            return max(OUTPUT_RESERVE_FLOOR, int(max_output_tokens))
+            return (max(OUTPUT_RESERVE_FLOOR, int(max_output_tokens)),
+                    RESERVE_SOURCE_CALLER, None)
     except (TypeError, ValueError):
         pass
     if policy.output_reserve_env:
         try:
             value = int(getattr(settings, policy.output_reserve_env, 0))
             if value > 0:
-                return value
+                return value, RESERVE_SOURCE_STAGE_ENV, None
         except (TypeError, ValueError):
             pass
+    try:
+        model_max = (int(model_max_output_tokens)
+                     if model_max_output_tokens is not None else None)
+    except (TypeError, ValueError):
+        model_max = None
+    if (model_max is not None and model_max > 0
+            and policy.slot in DIRECT_MODEL_AWARE_SLOTS
+            and direct_reserve_model_aware_enabled()):
+        target: int | None = None
+        try:
+            if reserve_target_tokens is not None:
+                requested = int(reserve_target_tokens)
+                if requested > 0:
+                    target = requested
+        except (TypeError, ValueError):
+            target = None
+        used_target = target if target is not None else model_max
+        margin = int(getattr(capacity, "RESERVE_SAFETY_MARGIN_FLOOR", 256))
+        reserve = max(OUTPUT_RESERVE_FLOOR,
+                      min(model_max, used_target + margin))
+        return reserve, RESERVE_SOURCE_MODEL, used_target
     if policy.arithmetic == "direct":
-        return capacity.output_reserve_tokens(window)
-    return OUTPUT_RESERVE_FLOOR
+        return (capacity.output_reserve_tokens(window),
+                RESERVE_SOURCE_RATIO_FALLBACK, None)
+    return OUTPUT_RESERVE_FLOOR, RESERVE_SOURCE_FLOOR, None
 
 
 @dataclass(frozen=True)
@@ -193,6 +248,11 @@ class BudgetResult:
     manual_cap: int | None
     effective_input_budget: int
     source: str               # capacity source (developer_override|runtime|…)
+    # UR-21.18: происхождение резерва (read-only). Default — честный
+    # legacy-контур: BudgetResult там не строится, DTO-поле = legacy_ratio.
+    output_reserve_source: str = RESERVE_SOURCE_LEGACY_RATIO
+    model_max_output_tokens: int | None = None
+    reserve_target_tokens: int | None = None
 
     def as_event_fields(self) -> dict:
         return {
@@ -202,6 +262,9 @@ class BudgetResult:
             "safety_reserve": self.safety_reserve,
             "effective_input_budget": self.effective_input_budget,
             "policy_mode": self.policy_mode,
+            "output_reserve_source": self.output_reserve_source,
+            "model_max_output_tokens": self.model_max_output_tokens,
+            "reserve_target_tokens": self.reserve_target_tokens,
         }
 
 
@@ -210,13 +273,16 @@ async def resolve_stage_budget(
         mandatory_tokens: int = 0, max_output_tokens: int | None = None,
         manual_cap: int | None = None, policy_raw=None,
         dynamic_default: int | None = None,
-        marker_overhead: int = 0) -> BudgetResult:
+        marker_overhead: int = 0,
+        reserve_target_tokens: int | None = None) -> BudgetResult:
     """Единый расчёт бюджета стадии (§9/§10). Никогда не бросает.
 
     ``policy_raw`` — per-chat/raw policy-значение стадии (Direct: −1/0/>0 из
     `limits.chat_context_budget_tokens`; Summary: manual cap >0 = размер
     ОДНОГО L1-запроса, §137). ``marker_overhead`` — Δ маркеров chunk-границ
     (Summary, вычитается после safety — паритет прежнего порядка Q5).
+    ``reserve_target_tokens`` — явный потолок ответа Direct-стадии
+    (UR-21.18); учитывается только при известном ``max_output`` модели.
     """
     policy = STAGE_POLICIES.get(str(stage or ""))
     if policy is None:
@@ -232,10 +298,20 @@ async def resolve_stage_budget(
     except (TypeError, ValueError):
         markers = 0
 
-    window, source = await capacity.resolve_stage_window(
+    window, source, model_max = await capacity.resolve_stage_limits(
         base_url, model, slot=policy.slot)
     window = max(0, int(window or 0))
-    reserve = _stage_output_reserve(policy, window, max_output_tokens)
+    if model_max is not None:
+        try:
+            model_max = int(model_max)
+        except (TypeError, ValueError):
+            model_max = None
+        if model_max is not None and model_max <= 0:
+            model_max = None
+    reserve, reserve_source, target_used = _stage_output_reserve(
+        policy, window, max_output_tokens,
+        model_max_output_tokens=model_max,
+        reserve_target_tokens=reserve_target_tokens)
 
     # ── Safety reserve РОВНО ОДИН раз (единая точка `safe_budget`) ─────────
     if policy.arithmetic == "direct":
@@ -285,7 +361,10 @@ async def resolve_stage_budget(
         mandatory_tokens=mandatory, output_reserve=reserve,
         safety_reserve=safety, auto_input_budget=auto_budget,
         policy_mode=mode, manual_cap=cap_value,
-        effective_input_budget=max(1, int(effective)), source=source)
+        effective_input_budget=max(1, int(effective)), source=source,
+        output_reserve_source=reserve_source,
+        model_max_output_tokens=model_max,
+        reserve_target_tokens=target_used)
     # Наблюдаемость §49 (fail-open; R17 — только числа/enum).
     try:
         from services.agentic_events import AUTO_CONTEXT_BUDGET, \

@@ -2103,6 +2103,23 @@ def _cached_verified_window(base_url: str, model: str,
     return None
 
 
+async def resolve_stage_limits(base_url: str, model: str, *,
+                               slot: str | None = None
+                               ) -> tuple[int, str, int | None]:
+    """``(effective_window, source, max_output_tokens)`` стадии.
+
+    Тот же резолв, что `resolve_stage_window`, но сохраняет live
+    ``max_output_tokens`` (UR-21.18: model-aware reserve). Kill-switch OFF →
+    legacy-контур (`_legacy_model_window`), где ``max_output_tokens`` честно
+    неизвестен (``None``), а не выдуман."""
+    if not capacity_resolver_enabled():
+        window, source = _legacy_model_window(model)
+        return window, source, None
+    result = await resolve_capacity(base_url, model, slot=slot)
+    return (result.effective_context_window, result.source,
+            result.max_output_tokens)
+
+
 async def resolve_stage_window(base_url: str, model: str, *,
                                slot: str | None = None
                                ) -> tuple[int, str]:
@@ -2110,10 +2127,9 @@ async def resolve_stage_window(base_url: str, model: str, *,
 
     Kill-switch OFF → legacy-контур (`_legacy_model_window`: семейная карта +
     env + 1M unknown — НЕ 16384)."""
-    if not capacity_resolver_enabled():
-        return _legacy_model_window(model)
-    result = await resolve_capacity(base_url, model, slot=slot)
-    return result.effective_context_window, result.source
+    window, source, _max_output = await resolve_stage_limits(
+        base_url, model, slot=slot)
+    return window, source
 
 
 def fallback_window_for_model(model: str) -> tuple[int, str]:

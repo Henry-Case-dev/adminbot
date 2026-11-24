@@ -12959,25 +12959,42 @@ class DirectChatService:
             hot.get("limits.chat_context_budget_tokens",
                     settings.CHAT_CONTEXT_BUDGET_TOKENS))
         fallback_recompose_budget: int | None = None
+        # UR-21.18: происхождение резерва видно в DTO/событии/диагностике.
+        # OFF-ветка (resolver выключен) идёт legacy compute_available_budget,
+        # BudgetResult там не строится — честный source legacy_ratio.
+        output_reserve_source = _auto_budget.RESERVE_SOURCE_LEGACY_RATIO
+        model_max_output_tokens: int | None = None
+        reserve_target_tokens: int | None = None
         if resolver_on:
             # ADR-1028-3 §4: единый auto budget resolver (safety ×1, один
             # расчёт; breakdown — в событии AUTO_CONTEXT_BUDGET).
+            reserve_target_tokens = _extent.longform_max_output_tokens()
             budget_result = await _auto_budget.resolve_stage_budget(
                 "direct.primary", base_url=base_url, model=model_name,
                 mandatory_tokens=external_tokens,
-                policy_raw=(raw_budget if budgets_enabled else -1))
+                policy_raw=(raw_budget if budgets_enabled else -1),
+                reserve_target_tokens=reserve_target_tokens)
             model_window = budget_result.context_window
             window_source = budget_result.source
             available = budget_result.auto_input_budget
             output_reserve = budget_result.output_reserve
             budget = budget_result.effective_input_budget
             policy_mode = budget_result.policy_mode
+            output_reserve_source = str(getattr(
+                budget_result, "output_reserve_source",
+                _auto_budget.RESERVE_SOURCE_RATIO_FALLBACK)
+                or _auto_budget.RESERVE_SOURCE_RATIO_FALLBACK)
+            model_max_output_tokens = getattr(
+                budget_result, "model_max_output_tokens", None)
+            reserve_target_tokens = getattr(
+                budget_result, "reserve_target_tokens", reserve_target_tokens)
             # §14/§42: fallback-модель — своя capacity, БЕЗ preemptive-min.
             if fallback_model:
                 fb_result = await _auto_budget.resolve_stage_budget(
                     "direct.fallback", base_url=fallback_base_url,
                     model=fallback_model,
-                    mandatory_tokens=external_tokens, policy_raw=-1)
+                    mandatory_tokens=external_tokens, policy_raw=-1,
+                    reserve_target_tokens=_extent.longform_max_output_tokens())
                 if fb_result.effective_input_budget < budget:
                     fallback_recompose_budget = \
                         fb_result.effective_input_budget
@@ -13405,6 +13422,17 @@ class DirectChatService:
                         "window": int(model_window),
                         "window_source": str(window_source),
                         "output_reserve": int(output_reserve),
+                        # UR-21.18: те же read-only скаляры, что уже несёт
+                        # output_reserve; для fallback-тела primary-capacity
+                        # не выдаётся (см. удаление ниже).
+                        "output_reserve_source": str(
+                            output_reserve_source or ""),
+                        "model_max_output_tokens": (
+                            int(model_max_output_tokens)
+                            if model_max_output_tokens else None),
+                        "reserve_target_tokens": (
+                            int(reserve_target_tokens)
+                            if reserve_target_tokens else None),
                         "available": int(available),
                         "budget": int(
                             fb_model_budget if (fallback and fb_model_budget)
@@ -13439,8 +13467,11 @@ class DirectChatService:
                         # Fallback prepared описывает fallback-тело: primary
                         # window/source к нему не относятся; payload_tokens —
                         # фактически отправленного тела — сохраняется (F3).
-                        for _meta_key in ("window", "window_source",
-                                          "output_reserve", "available"):
+                        for _meta_key in (
+                                "window", "window_source", "output_reserve",
+                                "output_reserve_source",
+                                "model_max_output_tokens",
+                                "reserve_target_tokens", "available"):
                             budget_meta.pop(_meta_key, None)
                     self_out_payload: list = []
                     seen_self: set = set()
@@ -13773,7 +13804,11 @@ class DirectChatService:
                     summary_watermark=global_parts["window_end_ts"],
                     summary_lag_messages=summary_lag,
                     summary_age=summary_age,
-                    estimation_method=est_method)
+                    estimation_method=est_method,
+                    output_reserve_source=output_reserve_source,
+                    model_max_output_tokens=model_max_output_tokens,
+                    reserve_target_tokens=reserve_target_tokens,
+                    repetition=_composer.repetition_diagnostics(chat_id))
                 rag_frags = [f for f in allocated.memory if (
                     f.kind == _composer.KIND_SUMMARY_INFERENCE
                     and not str(f.source_id or "").startswith(
@@ -13856,6 +13891,15 @@ class DirectChatService:
                     "reason_code": _composer.reduction_reason_code(
                         dropped=allocated.provenance.dropped,
                         physical_overflow=allocated.provenance.overflow),
+                    "output_reserve_source": str(
+                        output_reserve_source or ""),
+                    "model_max_output_tokens": (
+                        int(model_max_output_tokens)
+                        if model_max_output_tokens else None),
+                    "reserve_target_tokens": (
+                        int(reserve_target_tokens)
+                        if reserve_target_tokens else None),
+                    "repetition": _composer.repetition_diagnostics(chat_id),
                     "updated_at": int(time.time()),
                 })
                 return texts
@@ -14154,7 +14198,11 @@ class DirectChatService:
             policy_mode=policy_mode, summary_revision=summary_revision,
             summary_watermark=global_parts["window_end_ts"],
             summary_lag_messages=summary_lag, summary_age=summary_age,
-            estimation_method=est_method)
+            estimation_method=est_method,
+            output_reserve_source=output_reserve_source,
+            model_max_output_tokens=model_max_output_tokens,
+            reserve_target_tokens=reserve_target_tokens,
+            repetition=_composer.repetition_diagnostics(chat_id))
         tail_tokens = count_tokens("\n".join(global_parts["tail_lines"]))
         _composer.emit_context_select(
             chat_id=chat_id, message_id=trigger_message_id,
@@ -14214,6 +14262,13 @@ class DirectChatService:
                 excluded=allocation.excluded,
                 compressed_or_dropped=allocation.compressed_or_dropped,
                 physical_overflow=allocation.physical_overflow),
+            "output_reserve_source": str(output_reserve_source or ""),
+            "model_max_output_tokens": (
+                int(model_max_output_tokens)
+                if model_max_output_tokens else None),
+            "reserve_target_tokens": (
+                int(reserve_target_tokens) if reserve_target_tokens else None),
+            "repetition": _composer.repetition_diagnostics(chat_id),
             "updated_at": int(time.time()),
         })
         # ── UR-F шаг 1 (UR-20.5/20.6/20.7): ЧТО реально вошло в запрос L2 ───
@@ -14463,6 +14518,14 @@ class DirectChatService:
                         "window": int(model_window),
                         "window_source": str(window_source),
                         "output_reserve": int(output_reserve),
+                        "output_reserve_source": str(
+                            output_reserve_source or ""),
+                        "model_max_output_tokens": (
+                            int(model_max_output_tokens)
+                            if model_max_output_tokens else None),
+                        "reserve_target_tokens": (
+                            int(reserve_target_tokens)
+                            if reserve_target_tokens else None),
                         "available": int(available),
                         "budget": int(budget),
                         "policy_mode": ("legacy_fail_open"
