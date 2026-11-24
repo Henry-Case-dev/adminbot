@@ -96,6 +96,8 @@ def test_claim_gate_does_not_overblock_legitimate_first_person_facts():
         "я играю в ролевые игры по выходным",
         "представь себе, я купил машину",
         "у меня голос как будто простужен",
+        "это ролевая игра, которую мы купили вчера",
+        "я словно на иголках",
     )
     for text in literal:
         assert not ce.is_deny_phrase(text)
@@ -103,8 +105,16 @@ def test_claim_gate_does_not_overblock_legitimate_first_person_facts():
         assert ce.gate_personal_text_write(text)[0] == ce.OUTCOME_ACCEPTED
     pure_roleplay = (
         "представь, что я космонавт",
+        "представь себе, что я космонавт",
+        "представьте себе, что я король",
+        "представь, я космонавт",
+        "представь: что я космонавт",
         "я как будто космонавт",
         "это ролевая игра, я король",
+        "ролевая игра: я король",
+        "в ролевой игре я король",
+        "давай поиграем в ролевую игру",
+        "сыграем в ролевую игру",
     )
     for text in pure_roleplay:
         assert ce.classify_speech_act(text) == ce.SPEECH_ACT_HYPOTHESIS, text
@@ -120,7 +130,9 @@ async def test_remember_user_fact_saves_literal_facts_real_sqlite():
         mem = MemoryManager(db, llm=None)
         for fact in ("я играю в ролевые игры по выходным",
                      "представь себе, я купил машину",
-                     "у меня голос как будто простужен"):
+                     "у меня голос как будто простужен",
+                     "это ролевая игра, которую мы купили вчера",
+                     "я словно на иголках"):
             assert await mem.remember_user_fact(
                 CHAT, fact, target_user="Вася", ttl_days=0) == "saved", fact
         assert await mem.remember_user_fact(
