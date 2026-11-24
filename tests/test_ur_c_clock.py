@@ -838,6 +838,90 @@ class TestRelativeLocalTime:
         assert meme.resolve_timezone(CHAT_A) == (tz, source)
 
 
+class TestWorkerBudgetSingleResolver:
+    """URC-CLOCK-R1 / UR-25: per-chat сутки image-лимита (`worker_budget`)
+
+    резолвятся тем же единственным кодом, что у ответов/инициатив."""
+
+    @staticmethod
+    def _legacy_chat_tz_name(chat_id):
+        """Прежняя (`URC-CLOCK-R1`) реализация — только RED-детектор.
+
+        Точная копия снятого кода (per-chat canonical → global canonical →
+        fallback `limits.summary_timezone`/`SUMMARY_TIMEZONE`, без per-chat
+        legacy): если `_chat_tz_name` вернут к ней, тест обязан упасть."""
+        from services.canonical_context import resolve_timezone
+        import services.hot_config as hot_config
+        fallback = str(hot_config.get(
+            "limits.summary_timezone",
+            getattr(settings, "SUMMARY_TIMEZONE", "")) or "")
+        global_tz = str(hot_config.get(
+            "limits.chat_timezone",
+            getattr(settings, "CHAT_TIMEZONE", "")) or "")
+        tz = global_tz
+        if chat_id is not None:
+            from services import chat_params as _cp
+            override, found = _cp.read_override_sync(
+                int(chat_id), "limits.chat_timezone")
+            if found and override:
+                tz = str(override)
+        return resolve_timezone(tz, fallback=fallback or "UTC")
+
+    @pytest.mark.asyncio
+    async def test_legacy_only_chat_same_zone_across_resolvers(self, tz_env):
+        """Кейс D2.5 (только per-chat legacy `limits.summary_timezone`):
+        ChatClock (sync), `meme_initiative` и `worker_budget` дают ОДНО
+        конкретное имя зоны; потеря per-chat legacy-слоя в budget-резолвере
+        обязана уронить тест."""
+        from services import meme_initiative as meme
+        from services import worker_budget as wb
+        _set_chat_override(CHAT_A, {
+            "limits.summary_timezone": "Asia/Almaty"})
+        # Global canonical задан намеренно: per-chat legacy специфичнее.
+        tz_env.set_global("limits.chat_timezone", "Europe/Berlin")
+
+        assert cc.resolve_chat_timezone_sync(CHAT_A) == (
+            "Asia/Almaty", "chat_legacy", "")
+        assert meme.resolve_timezone(CHAT_A) == ("Asia/Almaty", "chat_legacy")
+        assert wb._chat_tz_name(CHAT_A) == "Asia/Almaty"
+        # image_day/image_timezone (per-chat сутки лимита) — та же зона.
+        assert wb.image_timezone(CHAT_A) == "Asia/Almaty"
+
+        # RED-детектор: прежняя реализация на этом стенде даёт ДРУГОЙ пояс
+        # (`Europe/Berlin`), т.е. откат делегирования ломает тест сразу.
+        assert self._legacy_chat_tz_name(CHAT_A) == "Europe/Berlin"
+        assert wb._chat_tz_name(CHAT_A) != self._legacy_chat_tz_name(CHAT_A)
+
+    def test_nothing_configured_keeps_factory_zone(self, tz_env):
+        """Ничего не задано: все три пути → named factory-зона
+        `SUMMARY_TIMEZONE` (слой global_legacy с фабричным дефолтом; для
+        дефолтной конфигурации поведение до фикса сохранено)."""
+        from services import meme_initiative as meme
+        from services import worker_budget as wb
+        tz_env.set_factory("Europe/Moscow")
+        assert cc.resolve_chat_timezone_sync(CHAT_A) == (
+            "Europe/Moscow", "global_legacy", "")
+        assert meme.resolve_timezone(CHAT_A) == (
+            "Europe/Moscow", "global_legacy")
+        assert wb._chat_tz_name(CHAT_A) == "Europe/Moscow"
+        assert wb.image_timezone(CHAT_A) == "Europe/Moscow"
+
+    def test_canonical_per_chat_override_keeps_zone(self, tz_env):
+        """Канонический per-chat `limits.chat_timezone` — поведение до/после
+        фикса совпадает (канон выше per-chat legacy и global)."""
+        from services import meme_initiative as meme
+        from services import worker_budget as wb
+        _set_chat_override(CHAT_A, {
+            "limits.chat_timezone": "Asia/Tokyo",
+            "limits.summary_timezone": "Asia/Almaty"})
+        tz_env.set_global("limits.chat_timezone", "Europe/Berlin")
+        assert cc.resolve_chat_timezone_sync(CHAT_A) == (
+            "Asia/Tokyo", "chat", "")
+        assert meme.resolve_timezone(CHAT_A) == ("Asia/Tokyo", "chat")
+        assert wb._chat_tz_name(CHAT_A) == "Asia/Tokyo"
+        assert wb.image_timezone(CHAT_A) == "Asia/Tokyo"
+
+
 class _HistoryClockDirect:
     """Пара прогонов `_plan_direct_l1` с историей и без — discriminating
     proof UR-17.5 (блок времени не читает прошлые реплики)."""

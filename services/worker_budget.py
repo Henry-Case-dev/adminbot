@@ -579,32 +579,25 @@ class ImageReserveResult:
 
 
 def _chat_tz_name(chat_id: int | None) -> str:
-    """Раунд 10.26 (A5/D5): имя tz чата — прецедент `_chat_timezone`
-    (tool_router.py:1480–1500): per-chat override `limits.chat_timezone` из
-    НЕДОРОГОГО in-memory слоя ChatParamsCache (setting_source-семантика) →
-    global `CHAT_TIMEZONE` → fallback `limits.summary_timezone`/
-    `SUMMARY_TIMEZONE`; невалидное → UTC через `resolve_timezone` (reuse).
-    Синхронный best-effort: рассинхрон с PG-слоем возможен в окне TTL (120с)
-    кэша — документировано (evidence Q-A5-01)."""
-    from services.canonical_context import resolve_timezone
-    fallback = str(hot.get("limits.summary_timezone",
-                           getattr(settings, "SUMMARY_TIMEZONE", "")) or "")
-    global_tz = str(hot.get("limits.chat_timezone",
-                            getattr(settings, "CHAT_TIMEZONE", "")) or "")
-    tz = global_tz
-    if chat_id is not None:
-        # MOD-ACL-UX-01 M2 (E-инвентарь): единая синхронная точка чтения
-        # override — `chat_params.read_override_sync` (приватный `_items`
-        # больше не читается из потребителей).
-        try:
-            from services import chat_params as _cp
-            override, found = _cp.read_override_sync(
-                int(chat_id), "limits.chat_timezone")
-            if found and override:
-                tz = str(override)
-        except Exception:
-            tz = global_tz
-    return resolve_timezone(tz, fallback=fallback or "UTC")
+    """Действующий tz чата — ЕДИНСТВЕННЫЙ резолвер ChatClock (UR-25).
+
+    Делегирует в ``chat_clock.resolve_chat_timezone_sync``: та же
+    каноническая цепочка UR-24.3, что у ответов/инициатив/саммари
+    (per-chat canonical → per-chat legacy → global canonical → global
+    legacy → явно заданный GOODMORNING_TZ → factory). Второй цепочки
+    приоритетов здесь нет: прежняя собственная реализация (URC-CLOCK-R1)
+    не читала per-chat legacy ``limits.summary_timezone`` и для чата с
+    единственным legacy-override давала другой пояс, чем ChatClock —
+    расходились локальные сутки image-лимита и остальных контуров.
+
+    Форма прежняя: имя IANA (str), а не кортеж, — вызывающие (`image_day`,
+    `image_timezone`) не меняются. Синхронный best-effort по уже
+    прогретому in-memory слою overrides (без I/O); ``chat_id is None`` →
+    global/factory-слои той же цепочки. Резолвер не бросает (fail-open →
+    ``UTC``)."""
+    from services.chat_clock import resolve_chat_timezone_sync
+    name, _source, _cv = resolve_chat_timezone_sync(chat_id)
+    return str(name)
 
 
 def image_day(chat_id: int | None) -> datetime.date:
