@@ -137,6 +137,40 @@ def test_simpl01_msi_ignores_provider_namespace():
         model="gemini-embedding-001", dimension=DIMS + 4)
 
 
+@pytest.mark.asyncio
+async def test_simpl01_legacy_namespaced_model_is_not_a_new_space(ctx):
+    """Review r1 / F1: legacy ACTIVE без выводимого MSI, где та же модель
+    записана провайдерным namespace (`models/gemini-embedding-001`) против
+    configured `gemini-embedding-001`, — НЕ другое пространство: остаётся
+    `insufficient` (проба), без `incompatible`/controlled_migration. Реально
+    другая модель по-прежнему даёт `incompatible`."""
+    row = await _legacy_active(ctx)
+    await restart._legacy_row(
+        ctx, row["generation_id"], model=f"models/{MODEL}")
+
+    compat = await ecp.resolve_index_compat(
+        ctx.db, INDEX, current_fp=ctx.mm._identity_fingerprint(),
+        current_dims=DIMS)
+    assert compat["state"] == ecp.STATE_INSUFFICIENT, \
+        "provider-namespaced запись той же модели — не смена пространства"
+    assert compat["action"] != "controlled_migration"
+    assert compat["reason_code"] == "msi_unavailable"
+    # Наблюдаемое поведение памяти: чтение по ACTIVE, запись text-only.
+    assert await ctx.mm._index_generation_ok(INDEX) is True
+    assert await ctx.mm._index_generation_writable(INDEX) is False
+
+    # Граница: действительно другая модель — incompatible/миграция.
+    await restart._legacy_row(
+        ctx, row["generation_id"], model=contract.OTHER_MODEL)
+    proven = await ecp.resolve_index_compat(
+        ctx.db, INDEX, current_fp=ctx.mm._identity_fingerprint(),
+        current_dims=DIMS)
+    assert proven["state"] == ecp.STATE_INCOMPATIBLE
+    assert proven["reason_code"] == "identity_changed"
+    assert proven["action"] == "controlled_migration"
+    assert await ctx.mm._index_generation_ok(INDEX) is False
+
+
 def test_simpl01_auth_failed_is_per_key_and_expires():
     """`auth_failed` не перманентен для alias: заменённый ключ обслуживается
     сразу (без рестарта); тот же ключ повторяется после TTL."""

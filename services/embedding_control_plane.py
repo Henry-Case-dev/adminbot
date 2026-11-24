@@ -3147,7 +3147,12 @@ def _row_space_differs_provably(row: dict | None, *, model_now: str,
     if _dims_differ(dims, dims_now):
         return "dimension_changed"
     model = str(row.get("model") or "")
-    if model and model_now and model != str(model_now):
+    if model and model_now and \
+            _canonical_model_name(model) != _canonical_model_name(str(model_now)):
+        # SIMPLIFY 2026-11-24 (§1) / review r1 F1: единая канонизация модели
+        # (`_canonical_model_name`) на ОБЕИХ сторонах сравнения. Provider-
+        # namespace (`models/…`, `google/…`) — не другое пространство и не
+        # повод для controlled_migration legacy-строки без MSI.
         return "identity_changed"
     return ""
 
