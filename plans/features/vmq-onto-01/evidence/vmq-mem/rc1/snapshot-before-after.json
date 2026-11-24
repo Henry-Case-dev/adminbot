@@ -1,0 +1,50 @@
+{
+ "artifact_kind": "vmq_mem_rc1_snapshot_probe",
+ "snapshot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\accept\\p0-hc\\snapshot-2.58.225.db",
+ "snapshot_sha256_expected": "b907d4c1e24321fffa48e3719974fd2293b1b1ff721ad21661446d22033e06e7",
+ "chat_id": -1002661910336,
+ "limit": 200,
+ "mode": "mode=ro&immutable=1; PRAGMA query_only=ON",
+ "before": {
+  "total": 200,
+  "new_stories": 192,
+  "legacy_ids": [
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16
+  ],
+  "legacy_5_8_present": false,
+  "rejected_3_4_present": false
+ },
+ "after": {
+  "total": 200,
+  "new_stories": 188,
+  "legacy_ids": [
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16
+  ],
+  "legacy_5_8_present": true,
+  "rejected_3_4_present": false
+ },
+ "pass": {
+  "before_dropped_5_8": true,
+  "after_all_5_16": true,
+  "rejected_absent": true,
+  "total_200": true
+ }
+}
