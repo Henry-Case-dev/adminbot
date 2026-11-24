@@ -5717,17 +5717,39 @@
                       Требуется перестройка векторного индекса
                     </div>
                     <div class="text-xs text-gray-300 mb-1" data-embed-swap-models>
-                      Было: <b>{{ embedModelSwapWarn.old_model }}</b>
-                      <span v-if="embedModelSwapWarn.old_dims">({{ embedModelSwapWarn.old_dims }} изм.)</span>
-                      → станет: <b>{{ embedModelSwapWarn.new_model }}</b>
-                      <span v-if="embedModelSwapWarn.new_dims">({{ embedModelSwapWarn.new_dims }} изм.)</span>
+                      <div>Раньше: <b>{{ embedModelSwapWarn.old_model }}</b><span v-if="embedModelSwapWarn.old_dims"> · размерность {{ embedModelSwapWarn.old_dims }}</span></div>
+                      <div>Теперь: <b>{{ embedModelSwapWarn.new_model }}</b><span v-if="embedModelSwapWarn.new_dims"> · размерность {{ embedModelSwapWarn.new_dims }}</span><span v-else class="text-yellow-300"> · размерность не определена</span></div>
+                      <div v-if="embedModelSwapWarn.old_dims && embedModelSwapWarn.new_dims && embedModelSwapWarn.old_dims === embedModelSwapWarn.new_dims"
+                           class="text-gray-400" data-embed-swap-dim-same>
+                        Размерность не меняется ({{ embedModelSwapWarn.new_dims }}).
+                      </div>
                     </div>
                     <div class="text-xs text-gray-400 mb-2" data-embed-swap-reason>
                       {{ embedModelSwapWarn.reason }}
                     </div>
+                    <div v-if="!embedModelSwapWarn.dimension_known"
+                         class="text-xs text-yellow-200 mb-2"
+                         data-embed-swap-dim-required>
+                      <div class="mb-1">
+                        Не удалось определить размерность новой модели
+                        автоматической пробой. Укажите её вручную — без этого
+                        перестройка не запускается.
+                      </div>
+                      <input class="field w-32" type="number" min="1" step="1"
+                             inputmode="numeric"
+                             data-embed-swap-dim-input
+                             :value="embedModelSwapWarn.manual_dims || ''"
+                             placeholder="Размерность"
+                             @input="setEmbedSwapManualDims($event.target.value)">
+                    </div>
+                    <div v-else class="text-xs text-gray-400 mb-2"
+                         data-embed-swap-probe>
+                      Размерность проверена пробой выбранной модели:
+                      {{ embedModelSwapWarn.new_dims }}<span v-if="embedModelSwapWarn.probe && embedModelSwapWarn.probe.latency_ms"> · {{ embedModelSwapWarn.probe.latency_ms }} мс</span>.
+                    </div>
                     <div class="flex items-center gap-2 flex-wrap">
                       <button class="btn-accent text-xs" data-embed-swap-confirm
-                              :disabled="embedModelSwapBusy"
+                              :disabled="embedSwapConfirmDisabled()"
                               @click="confirmEmbedModelSwap">
                         Подтвердить и перестроить
                       </button>
@@ -5761,8 +5783,15 @@
                     <div v-if="embedModelSwap.errors && embedModelSwap.errors.length"
                          class="text-xs text-red-300 mb-1" data-embed-swap-errors>
                       <div v-for="er in embedModelSwap.errors" :key="'swap-err-' + er.index">
-                        {{ er.index }}: {{ er.reason_code }}
+                        {{ embedSwapErrorLabel(er.reason_code) }}
                       </div>
+                      <details class="mt-1 text-gray-400"
+                               data-embed-swap-diagnostics>
+                        <summary class="cursor-pointer">Диагностика</summary>
+                        <div v-for="er in embedModelSwap.errors" :key="'swap-code-' + er.index">
+                          <code>{{ er.index }}: {{ er.reason_code }}</code>
+                        </div>
+                      </details>
                     </div>
                     <div v-if="!embedModelSwap.old_model_available"
                          class="text-xs text-yellow-300 mb-1" data-embed-swap-fallback>
@@ -6492,17 +6521,39 @@
                       Требуется перестройка векторного индекса
                     </div>
                     <div class="text-xs text-gray-300 mb-1" data-embed-swap-models>
-                      Было: <b>{{ embedModelSwapWarn.old_model }}</b>
-                      <span v-if="embedModelSwapWarn.old_dims">({{ embedModelSwapWarn.old_dims }} изм.)</span>
-                      → станет: <b>{{ embedModelSwapWarn.new_model }}</b>
-                      <span v-if="embedModelSwapWarn.new_dims">({{ embedModelSwapWarn.new_dims }} изм.)</span>
+                      <div>Раньше: <b>{{ embedModelSwapWarn.old_model }}</b><span v-if="embedModelSwapWarn.old_dims"> · размерность {{ embedModelSwapWarn.old_dims }}</span></div>
+                      <div>Теперь: <b>{{ embedModelSwapWarn.new_model }}</b><span v-if="embedModelSwapWarn.new_dims"> · размерность {{ embedModelSwapWarn.new_dims }}</span><span v-else class="text-yellow-300"> · размерность не определена</span></div>
+                      <div v-if="embedModelSwapWarn.old_dims && embedModelSwapWarn.new_dims && embedModelSwapWarn.old_dims === embedModelSwapWarn.new_dims"
+                           class="text-gray-400" data-embed-swap-dim-same>
+                        Размерность не меняется ({{ embedModelSwapWarn.new_dims }}).
+                      </div>
                     </div>
                     <div class="text-xs text-gray-400 mb-2" data-embed-swap-reason>
                       {{ embedModelSwapWarn.reason }}
                     </div>
+                    <div v-if="!embedModelSwapWarn.dimension_known"
+                         class="text-xs text-yellow-200 mb-2"
+                         data-embed-swap-dim-required>
+                      <div class="mb-1">
+                        Не удалось определить размерность новой модели
+                        автоматической пробой. Укажите её вручную — без этого
+                        перестройка не запускается.
+                      </div>
+                      <input class="field w-32" type="number" min="1" step="1"
+                             inputmode="numeric"
+                             data-embed-swap-dim-input
+                             :value="embedModelSwapWarn.manual_dims || ''"
+                             placeholder="Размерность"
+                             @input="setEmbedSwapManualDims($event.target.value)">
+                    </div>
+                    <div v-else class="text-xs text-gray-400 mb-2"
+                         data-embed-swap-probe>
+                      Размерность проверена пробой выбранной модели:
+                      {{ embedModelSwapWarn.new_dims }}<span v-if="embedModelSwapWarn.probe && embedModelSwapWarn.probe.latency_ms"> · {{ embedModelSwapWarn.probe.latency_ms }} мс</span>.
+                    </div>
                     <div class="flex items-center gap-2 flex-wrap">
                       <button class="btn-accent text-xs" data-embed-swap-confirm
-                              :disabled="embedModelSwapBusy"
+                              :disabled="embedSwapConfirmDisabled()"
                               @click="confirmEmbedModelSwap">
                         Подтвердить и перестроить
                       </button>
@@ -6536,8 +6587,15 @@
                     <div v-if="embedModelSwap.errors && embedModelSwap.errors.length"
                          class="text-xs text-red-300 mb-1" data-embed-swap-errors>
                       <div v-for="er in embedModelSwap.errors" :key="'swap-err-' + er.index">
-                        {{ er.index }}: {{ er.reason_code }}
+                        {{ embedSwapErrorLabel(er.reason_code) }}
                       </div>
+                      <details class="mt-1 text-gray-400"
+                               data-embed-swap-diagnostics>
+                        <summary class="cursor-pointer">Диагностика</summary>
+                        <div v-for="er in embedModelSwap.errors" :key="'swap-code-' + er.index">
+                          <code>{{ er.index }}: {{ er.reason_code }}</code>
+                        </div>
+                      </details>
                     </div>
                     <div v-if="!embedModelSwap.old_model_available"
                          class="text-xs text-yellow-300 mb-1" data-embed-swap-fallback>

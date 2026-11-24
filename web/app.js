@@ -30344,12 +30344,12 @@
         var oldModel = this._embedSwapServerModel();
         var oldDims = this._embedSwapServerDims();
         var newModel = modelItem ? String(modelItem.value || '').trim() : oldModel;
-        var newDims = dimItem ? parseInt(dimItem.value, 10) : oldDims;
-        if (!isFinite(newDims) || newDims <= 0) newDims = oldDims;
+        var newDims = dimItem ? parseInt(dimItem.value, 10) : 0;
+        if (!isFinite(newDims) || newDims <= 0) newDims = 0;
         if (!newModel) return null;                // очистка — обычная валидация
-        if (this._embedSwapCanonModel(newModel) ===
-              this._embedSwapCanonModel(oldModel)
-            && (!oldDims || !newDims || newDims === oldDims)) {
+        var modelChanged =
+          this._embedSwapCanonModel(newModel) !== this._embedSwapCanonModel(oldModel);
+        if (!modelChanged && (!dimItem || (newDims && newDims === oldDims))) {
           return null;                             // то же пространство
         }
         try {
@@ -30357,6 +30357,27 @@
                  + (newDims ? '&dim=' + encodeURIComponent(newDims) : '');
           var preview = await this.api('/api/memory/embedding-change/preview' + qs);
           if (!preview || !preview.requires_rebuild) return null;
+          // F2: фактическая размерность НОВОЙ модели — реальной пробой.
+          // Если проба не удалась, подтверждение требует явное число.
+          var actualDims = newDims || 0;
+          var probe = null;
+          if (modelChanged && !actualDims) {
+            try {
+              probe = await this.api('/api/memory/embedding-change/probe', {
+                method: 'POST',
+                body: JSON.stringify({ model: newModel }),
+              });
+            } catch (e) {
+              probe = { ok: false, error: 'probe_failed' };
+            }
+            actualDims = (probe && probe.ok && probe.dims)
+              ? parseInt(probe.dims, 10) : 0;
+          }
+          preview.new_dims = (isFinite(actualDims) && actualDims > 0)
+            ? actualDims : null;
+          preview.dimension_known = !!preview.new_dims;
+          preview.model_changed = modelChanged;
+          preview.probe = probe;
           return preview;
         } catch (e) {
           // 403/сеть: не выдумываем предупреждение и не блокируем обычное
@@ -30406,11 +30427,54 @@
         if (total <= 0) return 0;
         return Math.max(0, Math.min(100, Math.round(done * 100 / total)));
       },
+      setEmbedSwapManualDims: function (value) {
+        if (!this.embedModelSwapWarn) return;
+        var n = parseInt(value, 10);
+        this.embedModelSwapWarn.manual_dims = isFinite(n) && n > 0 ? n : null;
+        this.embedModelSwapWarn.new_dims =
+          (isFinite(n) && n > 0) ? n : null;
+      },
+      embedSwapConfirmDisabled: function () {
+        var w = this.embedModelSwapWarn;
+        return !w || this.embedModelSwapBusy
+          || !(parseInt(w.new_dims, 10) > 0);
+      },
+      // F4: на экране — человеческая причина; сырой код остаётся только в
+      // сворачиваемой диагностике.
+      embedSwapErrorLabel: function (code) {
+        var c = String(code || '');
+        var map = {
+          source_space_changed:
+            'Настройки модели изменились во время перестройки — она остановлена',
+          source_identity_changed:
+            'Настройки модели изменились во время перестройки — она остановлена',
+          dimension_required:
+            'Не удалось определить размерность новой модели',
+          dim_changed:
+            'Провайдер вернул вектор не той размерности, что выбрана',
+          knn_dim_mismatch:
+            'Провайдер вернул вектор не той размерности, что выбрана',
+          knn_source_empty:
+            'Нет записей, которые нужно перевекторизовать',
+          missing_vectors:
+            'Часть записей не получила векторы — сборка остановлена',
+          activation_failed:
+            'Не удалось безопасно переключить индекс — работает прежний',
+          retry_horizon_exhausted:
+            'Перестройка остановлена после нескольких неудачных попыток',
+        };
+        return map[c] || 'Перестройка остановлена из-за ошибки';
+      },
       // Подтверждение: сохраняем провайдерские поля (не модель/размерность),
       // затем просим сервер создать target-поколение и фоновую перестройку.
       confirmEmbedModelSwap: async function () {
         var w = this.embedModelSwapWarn;
         if (!w || this.embedModelSwapBusy) return;
+        if (!(parseInt(w.new_dims, 10) > 0)) {
+          this.toast('Укажите размерность новой модели (целое число > 0) — '
+                     + 'без неё перестройка не запускается', 'err');
+          return;
+        }
         this.embedModelSwapBusy = true;
         try {
           var others = (w.items || []).filter(function (i) {
@@ -30537,6 +30601,9 @@
             old_dims: swapPreview.old_dims,
             new_model: swapPreview.new_model,
             new_dims: swapPreview.new_dims,
+            dimension_known: !!swapPreview.dimension_known,
+            probe: swapPreview.probe || null,
+            manual_dims: null,
             reason: swapPreview.reason,
             items: items,
           };
@@ -32588,6 +32655,9 @@
               old_dims: swapGuard.old_dims,
               new_model: swapGuard.new_model,
               new_dims: swapGuard.new_dims,
+              dimension_known: !!swapGuard.dimension_known,
+              probe: swapGuard.probe || null,
+              manual_dims: null,
               reason: swapGuard.reason,
               items: list,
             };

@@ -281,7 +281,7 @@ async def test_model_swap_03_04_05_full_flow(vec_db, monkeypatch):
     target = await _row(vec_db, target_fp)
     assert target["status"] == "building"
     assert target["config_revision"] == gr.MODEL_SWAP_PREFIX + \
-        sm.embedding_identity_fingerprint()
+        ecp.model_space_identity(model=OLD_MODEL, dimension=DIM)
 
     # Старый индекс продолжает обслуживать память; конфиг НЕ изменён.
     active = await vec_db.get_active_embedding_generation("graph_facts_vec")
@@ -344,7 +344,7 @@ async def test_model_swap_05_source_change_during_build_never_activates(
     assert active["model"] == OLD_MODEL            # старый индекс не тронут
     job = await gr._get_job(vec_db, job["job_id"])
     assert job["status"] in (gr.ST_FAILED, gr.ST_VALIDATION_FAILED)
-    assert job["reason_code"] == "source_identity_changed"
+    assert job["reason_code"] == "source_space_changed"
     assert all(v == [0.5] * DIM for v in await _live_values(vec_db))
 
 
@@ -505,6 +505,183 @@ async def test_model_swap_03_executor_uses_target_model_override(
     assert seen[0][1] == ["a", "b"]
 
 
+@pytest.mark.asyncio
+async def test_model_swap_f1_provider_change_during_build_keeps_rebuild(
+        vec_db, monkeypatch):
+    """F1: смена провайдера/URL во время сборки — пространство то же (MSI),
+    перестройка продолжается и активируется (ложного failed нет)."""
+    hot_fake = _use_hot(monkeypatch, _HotModel())
+    cache = _Cache()
+    hot_config.set_config_cache(cache)
+    await _seed_old_index(vec_db)
+    mm = _memory(vec_db)
+    monkeypatch.setattr(ecp, "execute_embed", _ModelEmbed())
+    monkeypatch.setattr(gr, "_adaptive_batch_size", lambda: 2)
+    _no_background(monkeypatch)
+
+    await gr.start_model_swap(vec_db, model=NEW_MODEL, dims=DIM)
+    target_fp = _target_row_and_fp()
+    await gr.maybe_schedule_rebuilds(mm)
+    job = await gr._find_active_job(vec_db, "graph_facts_vec", target_fp)
+
+    # UI разрешает сохранить новый «Адрес сервера» во время перестройки:
+    # provider-inclusive fingerprint меняется, канонический MSI — нет.
+    hot_fake.base_url = "https://new-provider.test/v1"
+    await gr.run_job(mm, "graph_facts_vec", str(job["job_id"]))
+
+    job = await gr._get_job(vec_db, job["job_id"])
+    assert job["status"] == gr.ST_ACTIVATED
+    active = await vec_db.get_active_embedding_generation("graph_facts_vec")
+    assert active["model"] == NEW_MODEL
+    assert cache.values["models.embedding_model_name"] == NEW_MODEL
+
+
+@pytest.mark.asyncio
+async def test_model_swap_f1_failed_resume_after_transient_space_drift(
+        vec_db, monkeypatch):
+    """F1: failed-состояние отменяемо, а Resume реально возобновляет сборку
+    после возврата пространства к подтверждённому source."""
+    hot_fake = _use_hot(monkeypatch, _HotModel())
+    hot_config.set_config_cache(_Cache())
+    await _seed_old_index(vec_db)
+    mm = _memory(vec_db)
+    monkeypatch.setattr(ecp, "execute_embed", _ModelEmbed())
+    monkeypatch.setattr(gr, "_adaptive_batch_size", lambda: 2)
+    _no_background(monkeypatch)
+
+    await gr.start_model_swap(vec_db, model=NEW_MODEL, dims=DIM)
+    target_fp = _target_row_and_fp()
+    await gr.maybe_schedule_rebuilds(mm)
+    job = await gr._find_active_job(vec_db, "graph_facts_vec", target_fp)
+
+    hot_fake.model = "transient-model"
+    await gr.run_job(mm, "graph_facts_vec", str(job["job_id"]))
+    job = await gr._get_job(vec_db, job["job_id"])
+    assert job["status"] in (gr.ST_FAILED, gr.ST_VALIDATION_FAILED)
+    assert job["reason_code"] == "source_space_changed"
+    state = await gr.model_swap_state(vec_db)
+    assert state["state"] == "failed"
+    assert state["can_cancel"] is True
+    assert state["can_resume"] is False
+
+    # Пространство вернулось к source (временный дрейф устранён).
+    hot_fake.model = OLD_MODEL
+    state = await gr.model_swap_state(vec_db)
+    assert state["can_resume"] is True
+    out = await gr.resume_model_swap(vec_db)
+    assert "graph_facts_vec" in out["resumed"] and not out["blocked"]
+    assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
+    job = await gr._find_active_job(vec_db, "graph_facts_vec", target_fp)
+    await gr.run_job(mm, "graph_facts_vec", str(job["job_id"]))
+    active = await vec_db.get_active_embedding_generation("graph_facts_vec")
+    assert active["model"] == NEW_MODEL
+
+
+@pytest.mark.asyncio
+async def test_model_swap_f1_failed_is_cancellable(vec_db, monkeypatch):
+    """F1: явный Cancel снимает failed-джобу и target, старый индекс цел."""
+    hot_fake = _use_hot(monkeypatch, _HotModel())
+    hot_config.set_config_cache(_Cache())
+    await _seed_old_index(vec_db)
+    monkeypatch.setattr(ecp, "execute_embed", _ModelEmbed())
+    _no_background(monkeypatch)
+    await gr.start_model_swap(vec_db, model=NEW_MODEL, dims=DIM)
+    target_fp = _target_row_and_fp()
+    mm = _memory(vec_db)
+    await gr.maybe_schedule_rebuilds(mm)
+    job = await gr._find_active_job(vec_db, "graph_facts_vec", target_fp)
+    hot_fake.model = "transient-model"
+    await gr.run_job(mm, "graph_facts_vec", str(job["job_id"]))
+    state = await gr.model_swap_state(vec_db)
+    assert state["state"] == "failed" and state["can_cancel"] is True
+
+    out = await gr.cancel_model_swap(vec_db)
+    assert "graph_facts_vec" in out["cancelled"]
+    job = await gr._get_job(vec_db, job["job_id"])
+    assert job["status"] == gr.ST_CANCELLED
+    assert await gr.model_swap_state(vec_db) is None
+    active = await vec_db.get_active_embedding_generation("graph_facts_vec")
+    assert active["model"] == OLD_MODEL
+    assert all(v == [0.5] * DIM for v in await _live_values(vec_db))
+
+
+@pytest.mark.asyncio
+async def test_model_swap_f2_start_without_dimension_is_blocked(
+        vec_db, monkeypatch):
+    """F2: смена модели без размерности не создаёт target/doomed rebuild."""
+    _use_hot(monkeypatch, _HotModel())
+    await _seed_old_index(vec_db)
+    res = await gr.start_model_swap(vec_db, model=NEW_MODEL)
+    assert res["ok"] is False and res["error"] == "dimension_required"
+    cur = await vec_db.db.execute(
+        "SELECT COUNT(*) AS c FROM mca_embedding_index_generations")
+    assert int((await cur.fetchone())["c"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_model_swap_f2_api_probes_actual_dimension(vec_db, monkeypatch):
+    """F2: сервер определяет реальную размерность новой модели пробой и
+    запускает перестройку именно с ней (4, не старая 8)."""
+    _use_hot(monkeypatch, _HotModel())
+    cache = _Cache()
+    hot_config.set_config_cache(cache)
+    await _seed_old_index(vec_db)
+    monkeypatch.setattr(magi, "_require_global_admin", lambda *a, **k: None)
+    monkeypatch.setattr(magi, "_db_or_503", lambda: vec_db)
+
+    async def _probe(model):
+        return {"ok": True, "dims": 4, "model": model, "latency_ms": 12}
+
+    monkeypatch.setattr(magi, "_probe_target_dimension", _probe)
+    monkeypatch.setattr(ecp, "execute_embed", _ModelEmbed(dim=4))
+    monkeypatch.setattr(gr, "_adaptive_batch_size", lambda: 2)
+    _no_background(monkeypatch)
+
+    res = await magi.memory_embedding_change_start(
+        None, magi.EmbeddingModelSwapBody(model=NEW_MODEL), object())
+    assert res["ok"] is True and res["required"] is True
+    assert res["new_dims"] == 4
+    assert res["dimension_probe"]["dims"] == 4
+    target_fp = sm.embedding_identity_fingerprint(
+        provider=sm._embedding_provider(), model=NEW_MODEL, dims=4,
+        preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
+        endpoint_fingerprint=sm._endpoint_fingerprint())
+    target = await _row(vec_db, target_fp)
+    assert int(target["dims"]) == 4
+
+    mm = _memory(vec_db)
+    await gr.maybe_schedule_rebuilds(mm)
+    job = await gr._find_active_job(vec_db, "graph_facts_vec", target_fp)
+    await gr.run_job(mm, "graph_facts_vec", str(job["job_id"]))
+    active = await vec_db.get_active_embedding_generation("graph_facts_vec")
+    assert active["model"] == NEW_MODEL and int(active["dims"]) == 4
+    assert cache.values["models.embedding_dim"] == 4
+
+
+@pytest.mark.asyncio
+async def test_model_swap_f2_api_probe_failure_blocks_confirmation(
+        vec_db, monkeypatch):
+    """F2: проба не смогла определить размерность → 422, rebuild не начат."""
+    _use_hot(monkeypatch, _HotModel())
+    await _seed_old_index(vec_db)
+    monkeypatch.setattr(magi, "_require_global_admin", lambda *a, **k: None)
+    monkeypatch.setattr(magi, "_db_or_503", lambda: vec_db)
+
+    async def _probe_fail(model):
+        return {"ok": False, "error": "dimension_probe_failed"}
+
+    monkeypatch.setattr(magi, "_probe_target_dimension", _probe_fail)
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc:
+        await magi.memory_embedding_change_start(
+            None, magi.EmbeddingModelSwapBody(model=NEW_MODEL), object())
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "dimension_required"
+    cur = await vec_db.db.execute(
+        "SELECT COUNT(*) AS c FROM mca_embedding_index_generations")
+    assert int((await cur.fetchone())["c"]) == 1
+
+
 # ── API surface: start/state/cancel/resume (admin) ──────────────────────────
 
 @pytest.mark.asyncio
@@ -555,15 +732,19 @@ def _run_ui():
         return data
 
     cfg = config_stub()
-    flags = {"preview": 0, "start": 0, "config_posts": 0, "pending": False}
+    flags = {"preview": 0, "start": 0, "probe": 0, "probe_fail": False,
+             "config_posts": 0, "pending": False, "start_body": None}
     pending_state = {
         "pending": True,
         "state": "building",
         "old_model": OLD_MODEL,
+        "old_dims": DIM,
         "new_model": NEW_MODEL,
+        "new_dims": 4,
         "processed": 123,
         "total": 500,
-        "errors": [],
+        "errors": [{"index": "graph_facts_vec",
+                    "reason_code": "knn_dim_mismatch"}],
         "old_model_available": True,
         "can_cancel": True,
         "can_resume": False,
@@ -578,16 +759,36 @@ def _run_ui():
                           body=json.dumps({
                               "requires_rebuild": True,
                               "old_model": OLD_MODEL, "old_dims": DIM,
-                              "new_model": NEW_MODEL, "new_dims": DIM,
+                              "new_model": NEW_MODEL, "new_dims": None,
+                              "dimension_known": False,
                               "reason": (
                                   f"Раньше индекс построила модель «{OLD_MODEL}», "
-                                  f"выбрана «{NEW_MODEL}». Нужна перестройка "
-                                  "векторного индекса."),
+                                  f"выбрана «{NEW_MODEL}». Размерность новой "
+                                  "модели будет определена пробой."),
                           }, ensure_ascii=False))
+            return
+        if url.endswith("/api/memory/embedding-change/probe"):
+            flags["probe"] += 1
+            if flags["probe_fail"]:
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps(
+                                  {"ok": False,
+                                   "error": "dimension_probe_failed"},
+                                  ensure_ascii=False))
+                return
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps({"ok": True, "dims": 4,
+                                           "model": NEW_MODEL,
+                                           "latency_ms": 12},
+                                          ensure_ascii=False))
             return
         if url.endswith("/api/memory/embedding-change/start"):
             flags["start"] += 1
             flags["pending"] = True
+            try:
+                flags["start_body"] = json.loads(req.post_data or "{}")
+            except Exception:
+                flags["start_body"] = {}
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps({"ok": True, "required": True,
                                            "state": pending_state},
@@ -673,10 +874,17 @@ def _run_ui():
                                            timeout=10000)
                     warn = page.locator("[data-embed-swap-models]").inner_text()
                     assert OLD_MODEL in warn and NEW_MODEL in warn
+                    assert "8" in warn and "размерность 4" in warn
+                    assert "(8 изм.)" not in warn
+                    probe_text = page.locator(
+                        "[data-embed-swap-probe]").inner_text()
+                    assert "4" in probe_text
+                    assert flags["probe"] == 1
                     assert flags["config_posts"] == 0
                     page.locator("[data-embed-swap-confirm]").click()
                     page.wait_for_selector("[data-embed-swap-progress]",
                                            timeout=15000)
+                    assert flags["start_body"] == {"model": NEW_MODEL, "dim": 4}
                 else:
                     flags["pending"] = True
                     page.evaluate("window.__adminbotVm.loadEmbeddingChange()")
@@ -687,6 +895,14 @@ def _run_ui():
                 assert page.locator(
                     "[data-embed-swap-progress]").get_attribute(
                         "data-embed-swap-state") == "building"
+                human_err = page.locator(
+                    "[data-embed-swap-errors] > div").first.inner_text()
+                assert "Провайдер вернул вектор" in human_err
+                assert "knn_dim_mismatch" not in human_err
+                diag = page.locator(
+                    "[data-embed-swap-diagnostics]").evaluate(
+                        "el => el.textContent")
+                assert "knn_dim_mismatch" in diag
                 overflow = page.evaluate(
                     "() => ({doc: document.documentElement.scrollWidth,"
                     " win: window.innerWidth})")
@@ -725,6 +941,45 @@ def _run_ui():
             assert page.locator("[data-embed-swap-warning]").count() == 0
             assert flags["preview"] == 0
             assert flags["config_posts"] >= 1
+            browser.close()
+
+        # F2 fallback: проба не смогла определить размерность → поле ввода,
+        # confirm заблокирован до валидного числа; в start уходит введённое.
+        flags.update({"preview": 0, "probe": 0, "probe_fail": True,
+                      "pending": False, "start_body": None,
+                      "config_posts": 0})
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+            ctx.route("**/api/**", handler)
+            ctx.route("**/static/vendor/telegram-web-app.js",
+                      lambda r: r.fulfill(
+                          status=200, content_type="application/javascript",
+                          body=sdk))
+            page = ctx.new_page()
+            page.goto(base + "/#/ai/llm", wait_until="load")
+            page.wait_for_selector('[data-block="embeddings"]', timeout=20000)
+            block = page.locator('[data-block="embeddings"]').first
+            if block.locator('[data-conn-configure]').count():
+                block.locator('[data-conn-configure]').first.click()
+            page.wait_for_selector('[data-block="embeddings_main"]',
+                                   timeout=10000)
+            row = page.locator(
+                '[data-block="embeddings_main"] .prov-row').filter(
+                    has_text="Модель").first
+            row.locator("input").fill(NEW_MODEL)
+            page.locator('[data-block="embeddings_main"] button').filter(
+                has_text="Сохранить").first.click()
+            page.wait_for_selector("[data-embed-swap-warning]", timeout=10000)
+            dim_input = page.locator("[data-embed-swap-dim-input]")
+            assert dim_input.count() == 1
+            confirm = page.locator("[data-embed-swap-confirm]")
+            assert confirm.is_disabled() is True
+            dim_input.fill("6")
+            assert confirm.is_disabled() is False
+            confirm.click()
+            page.wait_for_selector("[data-embed-swap-progress]", timeout=15000)
+            assert flags["start_body"] == {"model": NEW_MODEL, "dim": 6}
             browser.close()
     finally:
         httpd.shutdown()

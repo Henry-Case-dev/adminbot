@@ -593,6 +593,56 @@ class EmbeddingModelSwapBody(BaseModel):
     dim: int | None = Field(default=None, ge=1, le=65536)
 
 
+class EmbeddingModelProbeBody(BaseModel):
+    """Реальная проба выбранной модели: определяет фактическую размерность."""
+
+    model: str = Field(default="", max_length=256)
+
+
+async def _probe_target_dimension(model: str) -> dict:
+    """F2: один реальный embeddings-вызов выбранной моделью.
+
+    Использует существующий credential pool control plane (primary, затем
+    fallback'и) и `llm_probe.probe_openai(kind="embeddings")`, который уже
+    возвращает фактическую длину вектора. R17: наружу только alias/status/
+    dims/latency, без ключей и тела ответа."""
+    target = str(model or "").strip()
+    if not target:
+        return {"ok": False, "error": "model_required"}
+    try:
+        from services import embedding_control_plane as ecp
+        from services import llm_probe
+    except Exception:
+        return {"ok": False, "error": "probe_unavailable"}
+    try:
+        pool = ecp.build_credential_pool()
+    except Exception:
+        pool = []
+    usable = [c for c in pool if str(getattr(c, "api_key", "") or "")]
+    if not usable:
+        return {"ok": False, "error": "no_embedding_credential"}
+    attempts = []
+    for cred in usable:
+        try:
+            res = await llm_probe.probe_openai(
+                cred.base_url, cred.api_key, model=target,
+                kind="embeddings", timeout=20.0)
+        except Exception as exc:
+            attempts.append({"alias": cred.alias,
+                             "status": type(exc).__name__})
+            continue
+        dims = res.get("dims")
+        if res.get("ok") and dims:
+            return {"ok": True, "dims": int(dims), "model": target,
+                    "alias": cred.alias,
+                    "latency_ms": res.get("latency_ms")}
+        attempts.append({"alias": cred.alias,
+                         "status": res.get("status") or "error"})
+    return {"ok": False, "error": "dimension_probe_failed",
+            "model": target, "attempts": attempts[:4]}
+
+
+
 def _embedding_space_same(model_a: str, dims_a: int,
                           model_b: str, dims_b: int) -> bool:
     """Одно ли векторное пространство (MSI): провайдер/ключ/URL не входят."""
@@ -652,22 +702,46 @@ async def memory_embedding_change_preview(
         new_model = str(hot.get("models.embedding_model_name",
                                 settings.EMBEDDING_MODEL_NAME) or "")
     old_model, old_dims, active = await _read_embedding_space(db)
-    new_dims = int(dim or old_dims or 0)
-    if not new_dims:
-        try:
-            new_dims = int(hot.get("models.embedding_dim",
-                                   settings.EMBEDDING_DIM) or 0)
-        except Exception:
-            new_dims = 0
-    same = _embedding_space_same(old_model, old_dims, new_model, new_dims)
+    try:
+        from services import embedding_control_plane as ecp
+        same_model = (ecp._canonical_model_name(old_model)
+                      == ecp._canonical_model_name(new_model))
+    except Exception:
+        same_model = (str(old_model or "").strip().lower()
+                      == str(new_model or "").strip().lower())
+    # F2: размерность НОВОЙ модели нельзя выдавать за старую. Она либо задана
+    # явно, либо определяется реальной пробой до подтверждения (UI probe).
+    new_dims = int(dim or 0)
+    if not new_dims and same_model:
+        new_dims = int(old_dims or 0)
+    dims_known = bool(new_dims)
+    same = bool(same_model and dims_known
+                and int(old_dims or 0) == int(new_dims))
     reason = ""
     if not same:
-        if (old_model or "").strip().lower() == new_model.strip().lower():
+        if same_model and dims_known:
             reason = (
                 f"Размерность векторов меняется: {old_dims} → {new_dims}. "
                 "Векторы другой размерности нельзя использовать в одном "
                 "поисковом пространстве — существующий индекс придётся "
                 "перестроить новыми векторами.")
+        elif not dims_known:
+            reason = (
+                f"Раньше индекс построила модель «{old_model}», выбрана "
+                f"«{new_model}». Модель определяет векторное пространство. "
+                "Размерность новой модели будет определена реальной пробой "
+                "перед запуском перестройки; без неё перестройка не "
+                "начинается. Исходная история, факты, эпизоды и архив не "
+                "изменяются.")
+        elif int(old_dims or 0) == int(new_dims):
+            reason = (
+                f"Раньше индекс построила модель «{old_model}», выбрана "
+                f"«{new_model}». Даже при той же размерности ({new_dims}) "
+                "векторы разных моделей образуют разные пространства и "
+                "несопоставимы, поэтому производный векторный индекс нужно "
+                "перестроить новой моделью. Нужна перестройка индекса; "
+                "исходная история, факты, эпизоды "
+                "и архив не изменяются.")
         else:
             reason = (
                 f"Раньше индекс построила модель «{old_model}», выбрана "
@@ -682,6 +756,8 @@ async def memory_embedding_change_preview(
         "old_dims": old_dims or None,
         "new_model": new_model,
         "new_dims": new_dims or None,
+        "dimension_known": dims_known,
+        "same_model": same_model,
         "reason": reason,
         "active_index": {
             "index": "graph_facts_vec" if active is not None else None,
@@ -689,6 +765,22 @@ async def memory_embedding_change_preview(
             "dims": int((active or {}).get("dims") or 0) or None,
         },
     }
+
+
+@memory_router.post("/memory/embedding-change/probe")
+async def memory_embedding_change_probe(
+    request: Request,
+    payload: EmbeddingModelProbeBody,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Определить фактическую размерность выбранной модели реальной пробой.
+
+    F2: подтверждение смены модели не запускается с угаданной (старой)
+    размерностью. Проба лёгкая (один `POST /embeddings`), автоматическая, и
+    не является блокирующим workflow: неудача возвращает `ok=false`, UI
+    требует явную размерность."""
+    _require_global_admin(request, user)
+    return await _probe_target_dimension(payload.model)
 
 
 @memory_router.get("/memory/embedding-change")
@@ -752,6 +844,27 @@ async def memory_embedding_change_start(
         from services.graphrag_rebuild import start_model_swap
         result = await start_model_swap(db, model=payload.model,
                                         dims=payload.dim)
+        # F2: если размерность новой модели не задана, определяем её реальной
+        # пробой и только затем запускаем. Неудача → 422 с понятной причиной
+        # (doomed rebuild не стартует).
+        if (not result.get("ok")
+                and str(result.get("error") or "") == "dimension_required"):
+            probe = await _probe_target_dimension(payload.model)
+            if not probe.get("ok") or not probe.get("dims"):
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "dimension_required",
+                            "message": (
+                                "Не удалось определить размерность новой "
+                                "модели автоматической пробой. Укажите "
+                                "размерность вручную (целое число > 0) — без "
+                                "неё перестройка не запускается."),
+                            "probe": probe})
+            result = await start_model_swap(db, model=payload.model,
+                                            dims=int(probe["dims"]))
+            result["dimension_probe"] = probe
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("[memory_api] model swap start failed", exc_info=True)
         raise HTTPException(
