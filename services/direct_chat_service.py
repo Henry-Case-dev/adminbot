@@ -13853,6 +13853,9 @@ class DirectChatService:
                         allocated.provenance.dropped),
                     "physical_overflow": bool(
                         allocated.provenance.overflow),
+                    "reason_code": _composer.reduction_reason_code(
+                        dropped=allocated.provenance.dropped,
+                        physical_overflow=allocated.provenance.overflow),
                     "updated_at": int(time.time()),
                 })
                 return texts
@@ -14207,6 +14210,10 @@ class DirectChatService:
                 "\n".join(global_parts["head_lines"])),
             "excluded_low_priority": len(allocation.excluded),
             "physical_overflow": bool(allocation.physical_overflow),
+            "reason_code": _composer.reduction_reason_code(
+                excluded=allocation.excluded,
+                compressed_or_dropped=allocation.compressed_or_dropped,
+                physical_overflow=allocation.physical_overflow),
             "updated_at": int(time.time()),
         })
         # ── UR-F шаг 1 (UR-20.5/20.6/20.7): ЧТО реально вошло в запрос L2 ───

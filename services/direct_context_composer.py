@@ -683,6 +683,38 @@ def record_diagnostics(chat_id: int, data: dict) -> None:
         pass
 
 
+def reduction_reason_code(*, dropped=(), excluded=(),
+                          compressed_or_dropped: int = 0,
+                          physical_overflow: bool = False) -> str | None:
+    """Единый read-only код причины сокращения контекста (UR-21.11).
+
+    Не придумывает причину: берёт ``reason_code`` из фактических записей
+    allocator'а (context selection ``dropped`` или legacy ``excluded``);
+    физическое переполнение P0 — явный приоритет. Если записи о сокращении
+    есть, но кода в них нет — честный ``"unknown"``; без сокращения — None.
+    """
+    if physical_overflow:
+        return "physical_overflow"
+    codes: list[str] = []
+    for item in list(dropped or ()) + list(excluded or ()):
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get("reason_code") or "").strip()
+        if code and code not in codes:
+            codes.append(code)
+    if codes:
+        return codes[0]
+    if dropped or excluded:
+        return "unknown"
+    try:
+        compressed = int(compressed_or_dropped or 0)
+    except (TypeError, ValueError):
+        compressed = 0
+    if compressed > 0:
+        return "compressed"
+    return None
+
+
 def get_diagnostics(chat_id: int) -> dict | None:
     """Последняя диагностика чата (None — прогонов не было)."""
     try:
@@ -2515,6 +2547,7 @@ __all__ = [
     "DIRECT_METRIC_NAMES", "record_direct_metric",
     "direct_metrics_snapshot", "reset_direct_metrics",
     "record_diagnostics", "get_diagnostics", "reset_diagnostics",
+    "reduction_reason_code",
     "emit_context_capacity", "emit_context_select", "emit_context_pressure",
     "emit_context_physical_overflow", "emit_context_tail_floor_clamped",
     "emit_direct_trigger",
