@@ -372,6 +372,10 @@ function label(id) {
     .indexOf('переключений не будет') >= 0,
     'явный пустой резерв при явном primary не подменяется заводской цепочкой');
   assert(methods.randomFallbackNote.call(explicitEmpty)
+    .indexOf('ещё не действует') < 0);
+  assert.strictEqual(
+    methods.randomFallbackEffectiveMismatch.call(explicitEmpty), false);
+  assert(methods.randomFallbackNote.call(explicitEmpty)
     .indexOf('заводская цепочка') < 0);
   assert.deepStrictEqual(methods.randomFallbackBaseValue.call(explicitEmpty),
     [], 'сохранённое пустое решение — это и есть значение контрола');
@@ -599,6 +603,15 @@ function label(id) {
     assert.strictEqual(
       methods.randomFallbackStateChip.call(ctxA).label, 'по умолчанию',
       row.primary + ': бейдж наследования, не «не применяется»');
+    assert(methods.randomFallbackNote.call(ctxA)
+      .indexOf('Показан заводской порядок') >= 0);
+    assert.strictEqual(
+      methods.randomFallbackStateChip.call(ctxA).label.indexOf('сохран'), -1,
+      row.primary + ': absent-случай не говорит о сохранённом решении');
+    assert.strictEqual(
+      methods.randomFallbackNote.call(ctxA).indexOf('сохран'), -1);
+    assert.strictEqual(
+      methods.randomFallbackNote.call(ctxA).indexOf('ваш порядок'), -1);
   });
 
   // R3-01 mutation killer: absent + реально другой effective должен дать
@@ -619,11 +632,16 @@ function label(id) {
   assert.strictEqual(
     methods.randomFallbackComparison.call(absentDifferent).mismatch, true,
     'absent с другим effective — реальное расхождение');
-  assert.strictEqual(
-    methods.randomFallbackStateChip.call(absentDifferent).label,
-    'сохранено, не применяется');
-  assert(methods.randomFallbackNote.call(absentDifferent)
-    .indexOf('ещё не действует') >= 0);
+  const absentChip = methods.randomFallbackStateChip.call(absentDifferent);
+  const absentNote = methods.randomFallbackNote.call(absentDifferent);
+  assert.strictEqual(absentChip.label, 'действует заводской порядок');
+  assert.strictEqual(absentChip.label.indexOf('сохран'), -1,
+    'в absent-случае нет слова «сохранено»');
+  assert(absentNote.indexOf('Действует заводской порядок') >= 0);
+  assert(absentNote.indexOf('Действующий резерв') >= 0);
+  assert.strictEqual(absentNote.indexOf('сохран'), -1,
+    'в absent-случае нет утверждения о сохранённом решении');
+  assert.strictEqual(absentNote.indexOf('ваш порядок'), -1);
 
   // R3: сохранённый список с primary внутри фильтруется так же, как effective.
   const primaryInSaved = makeCtx(status({

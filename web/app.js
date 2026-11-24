@@ -33179,8 +33179,9 @@
         if (setting.invalid || st.state === 'requires_resolution') {
           return { label: 'не применяется', cls: 'badge-warn' };
         }
+        var cmp = this.randomFallbackComparison();
         if (st.state === 'set') {
-          if (this.randomFallbackEffectiveMismatch()) {
+          if (cmp.mismatch) {
             return { label: 'сохранено, не применяется', cls: 'badge-warn' };
           }
           if (!this.randomSavedFallbackValue().length) {
@@ -33188,8 +33189,8 @@
           }
           return { label: 'сохранено вручную', cls: 'badge-info' };
         }
-        if (this.randomFallbackEffectiveMismatch()) {
-          return { label: 'сохранено, не применяется', cls: 'badge-warn' };
+        if (st.state === 'absent' && cmp.mismatch) {
+          return { label: 'действует заводской порядок', cls: 'badge-warn' };
         }
         return { label: 'по умолчанию', cls: 'badge-info' };
       },
@@ -33198,6 +33199,7 @@
       randomFallbackNote: function () {
         var st = this.randomFallbackOrderState();
         var setting = this.randomPrimarySettingView();
+        var cmp = this.randomFallbackComparison();
         if (!this.randomFallbackOn()) {
           return 'Резерв отключён вручную: при недоступности основного '
             + 'источника переключения не будет.';
@@ -33206,16 +33208,25 @@
           return 'Резерв не применяется, пока основной источник требует '
             + 'разрешения; показан действующий порядок.';
         }
-        if (this.randomFallbackEffectiveMismatch()) {
+        if (st.state === 'absent') {
+          if (cmp.mismatch) {
+            var factoryText = cmp.selection.length
+              ? qrngOrderText(cmp.selection) : '—';
+            var effectiveText = cmp.effective.length
+              ? qrngOrderText(cmp.effective) : '—';
+            return 'Действует заводской порядок: ' + factoryText
+              + '. Действующий резерв: ' + effectiveText
+              + '. Это расхождение настроек и runtime; подробности в «Диагностике».';
+          }
+          return 'Показан заводской порядок из настроек по умолчанию.';
+        }
+        if (cmp.mismatch) {
           return 'Сохранённый порядок ещё не действует: сейчас используется '
             + 'другой порядок. Это расхождение настроек и runtime; подробности '
             + 'в «Диагностике».';
         }
         if (st.state === 'set' && !this.randomSavedFallbackValue().length) {
           return 'Сохранён пустой резерв: переключений не будет.';
-        }
-        if (st.state === 'absent') {
-          return 'Показан заводской порядок; изменения сохраняются как ваш выбор.';
         }
         return 'Сохранён ваш порядок резерва.';
       },
