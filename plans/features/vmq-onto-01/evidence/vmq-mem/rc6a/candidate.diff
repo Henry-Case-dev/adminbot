@@ -1,0 +1,200 @@
+diff --git a/services/database.py b/services/database.py
+index b0e397b90..ec3beb165 100644
+--- a/services/database.py
++++ b/services/database.py
+@@ -12644 +12644,2 @@ class DatabaseService:
+-                               now_ts: int, *, user_id: int | None = None
++                               now_ts: int, *, user_id: int | None = None,
++                               alias_names: tuple[str, ...] = ()
+@@ -12654 +12655,6 @@ class DatabaseService:
+-        общие знания и self-referential ответы бота исключены всегда (A85)."""
++        общие знания и self-referential ответы бота исключены всегда (A85).
++
++        RC6a (C2, 23.11.2026): facts остаются строками в прежнем порядке;
++        параллельный `facts_meta` добавляет `message_timestamp`/`created_at`/
++        `source_ref_id`/`tg_message_id`. `alias_names` расширяет links-поиск
++        канон/алиасами, не заменяя exact `name`; только read-path."""
+@@ -12658 +12664,2 @@ class DatabaseService:
+-            "SELECT fact FROM graph_facts "
++            "SELECT fact, message_timestamp, created_at, subject_ref_id, "
++            "tg_message_id FROM graph_facts "
+@@ -12664 +12671,18 @@ class DatabaseService:
+-        facts = [row["fact"] for row in await cursor.fetchall()]
++        rows = await cursor.fetchall()
++        facts = [row["fact"] for row in rows]
++        facts_meta = [{
++            "fact": row["fact"],
++            "message_timestamp": row["message_timestamp"],
++            "created_at": row["created_at"],
++            # graph_facts не имеет отдельной source_ref колонки; устойчивый
++            # subject_ref_id — существующая типизированная ссылка карточки.
++            "source_ref_id": row["subject_ref_id"],
++            "tg_message_id": row["tg_message_id"],
++        } for row in rows]
++        names: list[str] = []
++        for value in (name, *(alias_names or ())):
++            text = " ".join(str(value or "").split())
++            if text and text not in names:
++                names.append(text)
++        names = names[:8] or [str(name or "")]
++        placeholders = ",".join("?" for _ in names)
+@@ -12674,2 +12698,4 @@ class DatabaseService:
+-            "AND ((s.entity_name = ? AND s.entity_type = 'user') "
+-            "OR (t.entity_name = ? AND t.entity_type = 'user')) "
++            f"AND ((s.entity_name IN ({placeholders}) "
++            "AND s.entity_type = 'user') "
++            f"OR (t.entity_name IN ({placeholders}) "
++            "AND t.entity_type = 'user')) "
+@@ -12679 +12705 @@ class DatabaseService:
+-            (chat_id, name, name, limit))
++            (chat_id, *names, *names, limit))
+@@ -12681 +12707 @@ class DatabaseService:
+-        return {"facts": facts, "links": links}
++        return {"facts": facts, "facts_meta": facts_meta, "links": links}
+diff --git a/services/mca_retrieval_context.py b/services/mca_retrieval_context.py
+index 2ecaa88dd..13c776ffd 100644
+--- a/services/mca_retrieval_context.py
++++ b/services/mca_retrieval_context.py
+@@ -1571,0 +1572,6 @@ async def _relations_projection(db, request: RetrievalRequest, limit: int
++    alias_names: list[str] = []
++    for value in (name, *(request.subject_names or ())):
++        text = " ".join(str(value or "").split())
++        if text and text not in alias_names:
++            alias_names.append(text)
++    alias_names = alias_names[:8]
+@@ -1577 +1583,16 @@ async def _relations_projection(db, request: RetrievalRequest, limit: int
+-                                    user_id=int(uid))
++                                    user_id=int(uid),
++                                    alias_names=tuple(alias_names))
++            except TypeError:
++                try:
++                    card = await getter(int(request.chat_id), name,
++                                        max(1, int(limit)), int(time.time()),
++                                        user_id=int(uid))
++                except TypeError:
++                    card = await getter(int(request.chat_id), name,
++                                        max(1, int(limit)),
++                                        int(time.time()))
++        else:
++            try:
++                card = await getter(int(request.chat_id), name,
++                                    max(1, int(limit)), int(time.time()),
++                                    alias_names=tuple(alias_names))
+@@ -1581,3 +1601,0 @@ async def _relations_projection(db, request: RetrievalRequest, limit: int
+-        else:
+-            card = await getter(int(request.chat_id), name,
+-                                max(1, int(limit)), int(time.time()))
+diff --git a/tests/test_vmq_mem_rc6a_persona_card.py b/tests/test_vmq_mem_rc6a_persona_card.py
+new file mode 100644
+index 000000000..6d42d7ae9
+--- /dev/null
++++ b/tests/test_vmq_mem_rc6a_persona_card.py
+@@ -0,0 +1,108 @@
++"""VMQ-MEM RC6a (C2): persona card fact metadata and alias/canon links."""
++import datetime
++
++import pytest
++
++from services import mca_retrieval_context as mrc
++from services import provenance
++from services.database import DatabaseService
++from services.mca_retrieval_context import RetrievalRequest, _relations_projection
++
++CHAT = -1002661910336
++UID = 42
++
++
++def _ts(year):
++    return int(datetime.datetime(
++        year, 6, 1, tzinfo=datetime.timezone.utc).timestamp())
++
++
++async def _db():
++    db = DatabaseService(":memory:")
++    await db.initialize()
++    return db
++
++
++async def _add_fact(db, text, *, year=2024, target="Леха", ref=None,
++                    tg=None):
++    return await db.insert_graph_fact(
++        CHAT, text, "chat_history", None, target_user=target,
++        message_timestamp=_ts(year), subject_ref_id=ref,
++        tg_message_id=tg)
++
++
++@pytest.mark.asyncio
++async def test_card_facts_keep_order_and_add_metadata():
++    db = await _db()
++    try:
++        ref_id = await provenance.resolve_source_ref(
++            db, provenance.user_source_ref(CHAT, UID))
++        first = await _add_fact(db, "Леха любит кофе", year=2024,
++                                ref=ref_id, tg=101)
++        second = await _add_fact(db, "Леха любит чай", year=2025)
++        await _add_fact(db, "Леха без даты", year=2026)
++        card = await db.get_persona_card(
++            CHAT, "Леха", 20, _ts(2026), user_id=UID)
++        facts = card["facts"]
++        meta = card["facts_meta"]
++        assert len(facts) == len(meta) == 3
++        # Existing list/order/strings are preserved.
++        assert [item["fact"] for item in meta] == facts
++        assert "Леха любит кофе" in facts
++        assert "Леха любит чай" in facts
++        by_fact = {item["fact"]: item for item in meta}
++        assert by_fact["Леха любит кофе"]["message_timestamp"] == _ts(2024)
++        assert by_fact["Леха любит кофе"]["created_at"] is not None
++        assert by_fact["Леха любит кофе"]["source_ref_id"] == ref_id
++        assert by_fact["Леха любит кофе"]["tg_message_id"] == 101
++        assert by_fact["Леха любит чай"]["message_timestamp"] == _ts(2025)
++        assert by_fact["Леха без даты"]["message_timestamp"] == _ts(2026)
++        assert first and second
++    finally:
++        await db.close()
++
++
++@pytest.mark.asyncio
++async def test_alias_canon_links_and_exact_name():
++    db = await _db()
++    try:
++        exact = await db.upsert_node(CHAT, "Леха", "user")
++        alias = await db.upsert_node(CHAT, "леха вдовин", "user")
++        topic = await db.upsert_node(CHAT, "кофе", "topic")
++        await db.upsert_edge(exact, topic, "любит")
++        await db.upsert_edge(alias, topic, "обсуждает")
++
++        exact_card = await db.get_persona_card(
++            CHAT, "Леха", 20, _ts(2026))
++        assert any(link["source_name"] == "Леха" for link in exact_card["links"])
++
++        alias_only = await db.get_persona_card(
++            CHAT, "Леха", 20, _ts(2026),
++            alias_names=("леха вдовин",))
++        names = {link["source_name"] for link in alias_only["links"]}
++        assert "леха вдовин" in names
++        assert "Леха" in names
++    finally:
++        await db.close()
++
++
++@pytest.mark.asyncio
++async def test_relations_projection_passes_alias_names():
++    db = await _db()
++    try:
++        await db.upsert_node(CHAT, "леха вдовин", "user")
++        topic = await db.upsert_node(CHAT, "кофе", "topic")
++        # Alias-only node: exact "Леха" has no node.
++        await db.upsert_edge(
++            (await db.upsert_node(CHAT, "леха вдовин", "user")),
++            topic, "обсуждает")
++        req = RetrievalRequest(
++            chat_id=CHAT, query="Леха", subject_names=("леха вдовин",),
++            include_relations=True)
++        relations = await _relations_projection(db, req, 10)
++        assert relations
++        assert any("леха вдовин" in item["text"] for item in relations)
++        # E1 threshold untouched by RC6a.
++        assert mrc.PERIOD_MIN_SHARED_STEMS == 2
++    finally:
++        await db.close()

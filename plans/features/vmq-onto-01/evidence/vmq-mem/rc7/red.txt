@@ -1,0 +1,32 @@
+F....                                                                    [100%]
+================================== FAILURES ===================================
+__________________ test_story_bridge_returns_message_anchors __________________
+
+gates_on = None
+
+    @pytest.mark.asyncio
+    async def test_story_bridge_returns_message_anchors(gates_on):
+        db = await _make_db()
+        try:
+            # ╨в╨╡╨║╤Б╤В╤Л ╨Э╨Х ╤Б╨╛╨┤╨╡╤А╨╢╨░╤В ╤Б╨╗╨╛╨▓╨░ ╨╖╨░╨┐╤А╨╛╤Б╨░: exact/lexical ╨╜╨╡ ╨┤╨░╨┤╤Г╤В ╤П╨║╨╛╤А╨╡╨╣,
+            # ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ ╨┐╤Г╤В╤М ╨║ ╤Б╤В╤А╨╛╨║╨░╨╝ тАФ storyтЖТepisodeтЖТmessage_keys.
+            await _seed_message(db, "╨╝╤Л ╨╖╨░╨┐╤Г╤Б╤В╨╕╨╗╨╕ ╤Б╨░╨╝╨╛╨┤╨╡╨╗╨║╤Г ╨▓ ╨┐╨╛╨╗╨╡", T_2024,
+                                tg_id=201)
+            await _seed_message(db, "╨┐╨╛╤В╨╛╨╝ ╨╜╨░╤И╨╗╨╕ ╨╛╨▒╨╗╨╛╨╝╨║╨╕ ╤Г ╤А╨╡╨║╨╕", T_2025,
+                                tg_id=202)
+            story_id = await _seed_story(
+                db, keys=[f"{CHAT}:tg:201", f"{CHAT}:tg:202"])
+            anchors = await story_message_anchors(db, CHAT, [story_id])
+            assert anchors == {story_id: ["tg:201", "tg:202"]}
+
+            block, stats = await _service(db)._build_old_episodes(
+                CHAT, "╨┤╤А╨╛╨╜╤Л", [], {})
+>           assert block.startswith("<Old_Episode>")
+E           AssertionError: assert False
+E            +  where False = <built-in method startswith of str object at 0x00007FFA61BD1D00>('<Old_Episode>')
+E            +    where <built-in method startswith of str object at 0x00007FFA61BD1D00> = ''.startswith
+
+tests\test_vmq_mem_rc7_story_bridge.py:98: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_rc7_story_bridge.py::test_story_bridge_returns_message_anchors
+1 failed, 4 passed in 10.80s

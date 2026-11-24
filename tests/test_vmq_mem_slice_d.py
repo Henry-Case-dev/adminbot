@@ -12,7 +12,8 @@
 * `_build_rag_block`/`_rag_unified_rows` под `auto`: текущий срез цел, старых
   строк 0, `replace_allowed=0`, `period_skipped` назван; профильные чтения при
   полном срезе не выполняются; под `historical` — старые строки есть;
-* A1P: `historical` → 2023/2024; `auto` → 2026:10 без потери id;
+* A1P: `historical` → 2024 (short-stem strict subject); `auto` → 2026:10
+  без потери id;
 * план `historical_recall` (в т.ч. `memory_scope=auto`) — multi-year вклад,
   один периодный retrieve; reuse пула не платит вторую ногу;
 * `operative` — байт-паритет основного среза;
@@ -318,12 +319,12 @@ class TestCurrentStatePaths:
 
     @pytest.mark.asyncio
     async def test_a1p_historical_vs_auto(self, monkeypatch):
-        """A1P: historical — 2023/2024 через предметный fallback; auto — 2026:10.
+        """A1P: historical — 2024 через short-stem strict subject; auto — 2026:10.
 
-        TIME-03 (контракт 2026-11-20 §4.2): календарной квоты «обязательно
-        другой старый год» больше нет; строки 2023/2024 входят потому, что
-        делят с вопросом основу и проходят предметный soft-fallback, а не
-        потому, что год старый."""
+        RC4/A2: `шизах` нормализуется в `шиз`, поэтому `на шизах и конф` —
+        строгий subject-match и soft-fallback больше не добавляет unrelated
+        `конфа тогда шумела` 2023. Контракт требует ≥1 старого года; 2024
+        доставлен, auto остаётся 2026:10."""
         base = _current_rows(10)
         pool = [
             _row(1, "конфа тогда шумела", year=2023),
@@ -340,8 +341,9 @@ class TestCurrentStatePaths:
             year = mrc.period_row_year(row)
             if year:
                 years[year] = years.get(year, 0) + 1
-        assert years == {2023: 1, 2024: 1, 2026: 8}, years
-        assert service._rag_period_stats["soft_fallback"] == 2
+        assert years == {2024: 1, 2026: 9}, years
+        # RC4: строгий subject-match уже дал 2024; soft-fallback не нужен.
+        assert service._rag_period_stats["soft_fallback"] == 0
         assert service._rag_period_stats["historical_quota"] == 0
 
         calls: list = []

@@ -1,0 +1,30 @@
+{
+ "artifact_kind": "vmq_mem_rc7_snapshot_probe",
+ "snapshot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\accept\\p0-hc\\snapshot-2.58.225.db",
+ "mode": "mode=ro&immutable=1; PRAGMA query_only=ON",
+ "chat_id": -1002661910336,
+ "sample_stories": 16,
+ "stories_with_anchors": 5,
+ "anchors_total": 8,
+ "anchor_tg": 0,
+ "anchor_msg": 8,
+ "per_story_max": 2,
+ "absent_story_anchors": false,
+ "counts": {
+  "stories": 212,
+  "episode_links": 212,
+  "episodes_with_keys": 212,
+  "legacy_links_total": 0
+ },
+ "snapshot_sha256_before": "b907d4c1e24321fffa48e3719974fd2293b1b1ff721ad21661446d22033e06e7",
+ "snapshot_sha256_after": "b907d4c1e24321fffa48e3719974fd2293b1b1ff721ad21661446d22033e06e7",
+ "read_only": true,
+ "pass": {
+  "anchors_ge_1": true,
+  "anchors_are_canonical": true,
+  "per_story_bounded": true,
+  "absent_story_honest": true,
+  "legacy_not_mapped": true,
+  "snapshot_unchanged": true
+ }
+}

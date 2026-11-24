@@ -1,0 +1,146 @@
+{
+ "artifact_kind": "vmq_mem_rc4_snapshot_probe",
+ "snapshot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\accept\\p0-hc\\snapshot-2.58.225.db",
+ "snapshot_sha256_expected": "b907d4c1e24321fffa48e3719974fd2293b1b1ff721ad21661446d22033e06e7",
+ "a2_short_stem": {
+  "old_match": "\"напиши\"* OR \"напиш\"* OR \"юмористический\"* OR \"юмористическ\"* OR \"рассказ\"* OR \"основных\"* OR \"основн\"* OR \"шизах\"* OR \"конфы\"* OR \"конф\"*",
+  "new_match": "\"напиши\"* OR \"напиш\"* OR \"юмористический\"* OR \"юмористическ\"* OR \"рассказ\"* OR \"основных\"* OR \"основн\"* OR \"шизах\"* OR \"шиз\"* OR \"конфы\"* OR \"конф\"*",
+  "32": {
+   "old": {
+    "count": 32,
+    "years": {
+     "2023": 2,
+     "2024": 2,
+     "2025": 4,
+     "2026": 24
+    },
+    "shared": {
+     "1": 31,
+     "2": 1
+    },
+    "shared_ge_2": 1
+   },
+   "new": {
+    "count": 32,
+    "years": {
+     "2023": 2,
+     "2024": 2,
+     "2025": 4,
+     "2026": 24
+    },
+    "shared": {
+     "1": 28,
+     "2": 4
+    },
+    "shared_ge_2": 4
+   }
+  },
+  "64": {
+   "old": {
+    "count": 64,
+    "years": {
+     "2023": 4,
+     "2024": 4,
+     "2025": 13,
+     "2026": 43
+    },
+    "shared": {
+     "0": 2,
+     "1": 61,
+     "2": 1
+    },
+    "shared_ge_2": 1
+   },
+   "new": {
+    "count": 64,
+    "years": {
+     "2023": 3,
+     "2024": 4,
+     "2025": 11,
+     "2026": 46
+    },
+    "shared": {
+     "0": 1,
+     "1": 58,
+     "2": 5
+    },
+    "shared_ge_2": 5
+   }
+  },
+  "shizah_total": {
+   "old": 2,
+   "new": 103
+  }
+ },
+ "a2_accept": {
+  "fact_rows": 32,
+  "accepted": 4,
+  "accepted_years": {
+   "2024": 1,
+   "2026": 3
+  },
+  "accepted_ids": [
+   9552,
+   30524,
+   3775,
+   21891
+  ],
+  "strict_passed": 4,
+  "soft_fallback": 0
+ },
+ "d4_year_tokens": {
+  "old_keywords": [
+   "известно",
+   "конфликте",
+   "корсара",
+   "олей",
+   "2025",
+   "году"
+  ],
+  "new_keywords": [
+   "известно",
+   "конфликте",
+   "корсара",
+   "олей"
+  ],
+  "old_match": "\"известно\"* OR \"известн\"* OR \"конфликте\"* OR \"конфликт\"* OR \"корсара\"* OR \"корсар\"* OR \"олей\"* OR \"2025\"* OR \"году\"*",
+  "new_match": "\"известно\"* OR \"известн\"* OR \"конфликте\"* OR \"конфликт\"* OR \"корсара\"* OR \"корсар\"* OR \"олей\"*",
+  "old_has_2025": true,
+  "new_has_2025": false,
+  "old_has_godu": true,
+  "new_has_godu": false,
+  "new_pool_64": {
+   "count": 64,
+   "years": {
+    "2022": 1,
+    "2023": 2,
+    "2024": 5,
+    "2025": 28,
+    "2026": 28
+   },
+   "shared": {
+    "0": 2,
+    "1": 57,
+    "2": 5
+   },
+   "shared_ge_2": 5
+  }
+ },
+ "explicit_year_no_leak": {
+  "candidates": 32,
+  "years": {
+   "2025": 32
+  },
+  "has_2024": false,
+  "has_2026": false
+ },
+ "pass": {
+  "a2_total_103": true,
+  "a2_shared_32_up": true,
+  "a2_shared_64_up": true,
+  "a2_old_year_accepted": true,
+  "d4_2025_removed": true,
+  "d4_godu_removed": true,
+  "explicit_no_2024_2026": true
+ }
+}

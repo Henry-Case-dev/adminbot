@@ -1,0 +1,78 @@
+{
+ "artifact_kind": "vmq_mem_rc3_snapshot_probe",
+ "snapshot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\accept\\p0-hc\\snapshot-2.58.225.db",
+ "snapshot_sha256_expected": "b907d4c1e24321fffa48e3719974fd2293b1b1ff721ad21661446d22033e06e7",
+ "chat_id": -1002661910336,
+ "explicit_year": {
+  "query": "\u0447\u0442\u043e \u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e \u043e \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442\u0435 \u041a\u043e\u0440\u0441\u0430\u0440\u0430 \u0441 \u041e\u043b\u0435\u0439 \u0432 2025 \u0433\u043e\u0434\u0443?",
+  "ms": 1543.6,
+  "rows": 12,
+  "years": {
+   "2025": 12
+  },
+  "ids": [
+   6869,
+   7869,
+   7491,
+   6095,
+   8576,
+   7724,
+   8099,
+   5841,
+   7891,
+   7446,
+   7847,
+   6257
+  ],
+  "stats": {
+   "breadth_reason": "explicit_year",
+   "breadth_cap": 10,
+   "base_out_of_year_dropped": 10,
+   "base_out_of_year_candidates": 10,
+   "base_year_fallback": 0,
+   "period_message_candidates": 12,
+   "period_message_candidates_reason": "fact_only_consumer",
+   "selection_kept": 20,
+   "breadth_used": 10
+  }
+ },
+ "current_state": {
+  "query": "\u0447\u0442\u043e \u0441\u0435\u0439\u0447\u0430\u0441 \u043f\u0440\u043e\u0438\u0441\u0445\u043e\u0434\u0438\u0442 \u0441 \u0431\u043e\u0442\u043e\u043c?",
+  "rows": 12,
+  "years": {
+   "2026": 12
+  },
+  "ids": [
+   15856,
+   17506,
+   19808,
+   13836,
+   28541,
+   18259,
+   18261,
+   16864,
+   15031,
+   28300,
+   204,
+   27882
+  ],
+  "stats": {
+   "breadth_reason": "thin_base",
+   "breadth_cap": 2,
+   "base_out_of_year_dropped": 0,
+   "base_out_of_year_candidates": 0,
+   "base_year_fallback": 0,
+   "period_message_candidates": 16,
+   "period_message_candidates_reason": "fact_only_consumer",
+   "selection_kept": 0,
+   "breadth_used": 0
+  }
+ },
+ "pass": {
+  "explicit_all_2025": true,
+  "out_of_year_dropped": true,
+  "capacity_slots": true,
+  "message_candidates_accounted": true,
+  "current_state_2026": true
+ }
+}
