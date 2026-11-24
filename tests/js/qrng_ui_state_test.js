@@ -167,7 +167,6 @@ function count(text, needle) {
 
   const ov = methods.randomFallbackOrderView.call(ctx);
   assert.strictEqual(ov.state, 'absent', 'строки fallback_order нет');
-  assert.strictEqual(ov.savedHint, 'наследуется заводское');
   assert.strictEqual(ov.savedLabel, label('anu') + ' → ' + label('lfdr'),
     'сохранённый = заводской хвост, не пустой');
   assert.strictEqual(ov.effectiveLabel, label('anu') + ' → ' + label('lfdr'));
@@ -230,8 +229,6 @@ function count(text, needle) {
   assert.strictEqual(ov.state, 'set');
   assert.strictEqual(ov.savedLabel, 'пусто (резерв не выбран)',
     'сохранённая пустая строка показана как есть');
-  assert.strictEqual(ov.savedHint, 'сохранён пустой; действует заводская цепочка',
-    'подпись диагностики сохраняет историческую формулировку');
   assert.strictEqual(ov.effectiveLabel, '—');
   assert.strictEqual(methods.randomFallbackStateChip.call(ctx).label,
     'сохранено пустым', 'явное пустое решение видно на основном экране');
@@ -314,8 +311,8 @@ function count(text, needle) {
   const ov = methods.randomFallbackOrderView.call(ctx);
   assert.strictEqual(ov.savedLabel, label('lfdr') + ' → ' + label('anu'),
     'сохранённая строка всё ещё видна отдельно');
-  assert(ov.savedHint.indexOf('не применяется') >= 0,
-    'сохранённая строка не выдаётся за действующую');
+  assert.strictEqual(methods.randomFallbackStateChip.call(ctx).label,
+    'не применяется', 'сохранённая строка не выдаётся за действующую');
   assert.deepStrictEqual(methods.randomFallbackBaseValue.call(ctx),
     ['anu', 'lfdr'], 'редактор инициализирован effective цепочкой');
   const rows = methods.randomFallbackRows.call(ctx);
@@ -344,7 +341,8 @@ function count(text, needle) {
   ]);
   const ov = methods.randomFallbackOrderView.call(ctx);
   assert.strictEqual(ov.state, 'requires_resolution');
-  assert.strictEqual(ov.savedHint, 'требует разрешения');
+  assert.strictEqual(methods.randomFallbackStateChip.call(ctx).label,
+    'не применяется');
   assert.deepStrictEqual(methods.randomFallbackBaseValue.call(ctx),
     ['anu', 'lfdr'], 'invalid saved order не превращает резерв в пустой');
   const rows = methods.randomFallbackRows.call(ctx);

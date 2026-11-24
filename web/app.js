@@ -33075,30 +33075,17 @@
         var effective = this.randomEffectiveFallbackValue();
         var effectiveChain = this.randomEffectiveOrderValue();
         var savedLabel;
-        var savedHint;
         if (st.state === 'set') {
           savedLabel = saved.length ? qrngOrderText(saved)
             : 'пусто (резерв не выбран)';
-          if (setting.invalid) {
-            savedHint = 'сохранён, не применяется (основной требует разрешения)';
-          } else if (!saved.length && setting.inherited) {
-            // Live-случай UI-06: сохранённая строка [] при наследуемом
-            // основном. Runtime всё равно строит заводскую цепочку, поэтому
-            // пустая строка не должна выглядеть как выключенный резерв.
-            savedHint = 'сохранён пустой; действует заводская цепочка';
-          } else {
-            savedHint = 'сохранён';
-          }
         } else if (st.state === 'requires_resolution') {
           var rawText;
           try { rawText = JSON.stringify(st.raw); } catch (e) {
             rawText = String(st.raw);
           }
           savedLabel = 'недействительное значение: ' + (rawText || '—');
-          savedHint = 'требует разрешения';
         } else {
           savedLabel = qrngOrderText(factory);
-          savedHint = 'наследуется заводское';
         }
         var effectiveLabel;
         if (effective.length) {
@@ -33111,7 +33098,7 @@
         return {
           state: st.state, raw: st.raw, saved: saved, factory: factory,
           effective: effective, effectiveChain: effectiveChain,
-          savedLabel: savedLabel, savedHint: savedHint,
+          savedLabel: savedLabel,
           factoryLabel: qrngOrderText(factory),
           effectiveLabel: effectiveLabel,
           effectiveChainLabel: qrngOrderText(effectiveChain),
@@ -33119,17 +33106,24 @@
           fallbackEnabled: this.randomFallbackOn(),
         };
       },
-      // QRNG UI-08..10 R1/F-01: сохранённый порядок обязан совпадать с
-      // действующим хвостом; расхождение нельзя прятать в диагностике.
+      // QRNG UI-08..10 R2/F-01: сравнение сохранённого выбора с действующим
+      // хвостом тотально — включая [] ↔ непустой в обе стороны и
+      // наследуемый/заводской случай. Расхождение нельзя прятать.
+      randomFallbackSelectionValue: function () {
+        var st = this.randomFallbackOrderState();
+        if (st.state === 'set') return this.randomSavedFallbackValue();
+        if (st.state === 'absent') return this.randomFactoryFallbackValue();
+        return null;
+      },
       randomFallbackEffectiveMismatch: function () {
         var st = this.randomFallbackOrderState();
-        if (st.state !== 'set') return false;
-        var saved = this.randomSavedFallbackValue();
-        if (!saved.length) return false;
+        if (st.state === 'requires_resolution') return false;
+        var selection = this.randomFallbackSelectionValue();
+        if (selection === null) return false;
         var effective = this.randomEffectiveFallbackValue();
-        if (saved.length !== effective.length) return true;
-        for (var i = 0; i < saved.length; i += 1) {
-          if (saved[i] !== effective[i]) return true;
+        if (selection.length !== effective.length) return true;
+        for (var i = 0; i < selection.length; i += 1) {
+          if (selection[i] !== effective[i]) return true;
         }
         return false;
       },
@@ -33155,13 +33149,16 @@
           return { label: 'не применяется', cls: 'badge-warn' };
         }
         if (st.state === 'set') {
-          if (!this.randomSavedFallbackValue().length) {
-            return { label: 'сохранено пустым', cls: 'badge-warn' };
-          }
           if (this.randomFallbackEffectiveMismatch()) {
             return { label: 'сохранено, не применяется', cls: 'badge-warn' };
           }
+          if (!this.randomSavedFallbackValue().length) {
+            return { label: 'сохранено пустым', cls: 'badge-warn' };
+          }
           return { label: 'сохранено вручную', cls: 'badge-info' };
+        }
+        if (this.randomFallbackEffectiveMismatch()) {
+          return { label: 'сохранено, не применяется', cls: 'badge-warn' };
         }
         return { label: 'по умолчанию', cls: 'badge-info' };
       },
@@ -33178,13 +33175,13 @@
           return 'Резерв не применяется, пока основной источник требует '
             + 'разрешения; показан действующий порядок.';
         }
-        if (st.state === 'set' && !this.randomSavedFallbackValue().length) {
-          return 'Сохранён пустой резерв: переключений не будет.';
-        }
         if (this.randomFallbackEffectiveMismatch()) {
           return 'Сохранённый порядок ещё не действует: сейчас используется '
             + 'другой порядок. Это расхождение настроек и runtime; подробности '
             + 'в «Диагностике».';
+        }
+        if (st.state === 'set' && !this.randomSavedFallbackValue().length) {
+          return 'Сохранён пустой резерв: переключений не будет.';
         }
         if (st.state === 'absent') {
           return 'Показан заводской порядок; изменения сохраняются как ваш выбор.';

@@ -563,6 +563,66 @@ function label(id) {
   assert(methods.randomFallbackNote.call(mismatched)
     .indexOf('ещё не действует') >= 0,
     'расхождение не прячется: основной экран предупреждает');
+
+  // R2-01: пустой сохранённый выбор против непустого effective — это тоже
+  // расхождение, а не «переключений не будет».
+  const emptyVsEffective = makeCtx(status({
+    fallback_order: ['anu', 'lfdr'],
+    fallback_order_raw: [],
+    fallback_order_state: 'set',
+    effective_order: ['ibm_quantum', 'anu', 'lfdr'],
+  }), [
+    cfg('random.primary_provider', 'ibm_quantum', 'global'),
+    cfg('random.fallback_order', [], 'global'),
+    cfg('random.fallback_enabled', true, 'global'),
+  ]);
+  assert.strictEqual(
+    methods.randomFallbackEffectiveMismatch.call(emptyVsEffective), true,
+    'saved=[] против effective != [] — расхождение');
+  assert.strictEqual(
+    methods.randomFallbackStateChip.call(emptyVsEffective).label,
+    'сохранено, не применяется');
+  assert(methods.randomFallbackNote.call(emptyVsEffective)
+    .indexOf('ещё не действует') >= 0);
+  assert(methods.randomFallbackNote.call(emptyVsEffective)
+    .indexOf('переключений не будет') < 0,
+    'нельзя утверждать «переключений не будет» при непустом effective');
+
+  // R2-01: непустой сохранённый выбор против пустого effective.
+  const effectiveVsEmpty = makeCtx(status({
+    fallback_order: [],
+    fallback_order_raw: ['lfdr'],
+    fallback_order_state: 'set',
+    effective_order: ['ibm_quantum'],
+  }), [
+    cfg('random.primary_provider', 'ibm_quantum', 'global'),
+    cfg('random.fallback_order', ['lfdr'], 'global'),
+    cfg('random.fallback_enabled', true, 'global'),
+  ]);
+  assert.strictEqual(
+    methods.randomFallbackEffectiveMismatch.call(effectiveVsEmpty), true);
+  assert.strictEqual(
+    methods.randomFallbackStateChip.call(effectiveVsEmpty).label,
+    'сохранено, не применяется');
+  assert(methods.randomFallbackNote.call(effectiveVsEmpty)
+    .indexOf('Сохранён ваш порядок') < 0);
+
+  // R2-01: старый/смешанный DTO без effective_order — сравнение идёт по
+  // фактическому fallback_order, а не молчит.
+  const mixedDto = makeCtx(status({
+    fallback_order: ['anu', 'lfdr'],
+    fallback_order_raw: [],
+    fallback_order_state: 'set',
+    effective_order: [],
+  }), [
+    cfg('random.primary_provider', 'ibm_quantum', 'global'),
+    cfg('random.fallback_order', [], 'global'),
+    cfg('random.fallback_enabled', true, 'global'),
+  ]);
+  assert.strictEqual(methods.randomFallbackEffectiveMismatch.call(mixedDto),
+    true, 'old/mixed DTO с непустым fallback_order не считается пустым');
+  assert(methods.randomFallbackNote.call(mixedDto)
+    .indexOf('переключений не будет') < 0);
 })();
 
 // ── (g) причина переключения — человеческая; неизвестный код без raw ──────

@@ -612,6 +612,7 @@ def _check_interactions(page, report, api_requests):
         primary_posts[-1].get("value") == "lfdr")
 
     # Expanding keys does not make network requests and keeps secrets masked.
+    page.wait_for_timeout(1200)  # let the post-save config/status reload settle
     requests_before = len(api_requests)
     page.locator("[data-random-provider-details] > summary").click()
     page.wait_for_timeout(400)
@@ -621,6 +622,7 @@ def _check_interactions(page, report, api_requests):
         len(api_requests) == requests_before)
     report["keys_expand_request_delta"] = (
         len(api_requests) - requests_before)
+    report["keys_expand_requests"] = list(api_requests[requests_before:])
     secret_values = page.locator(
         '[data-random-provider-details] input[type="password"]'
     ).evaluate_all("els => els.map(e => e.value)")
