@@ -15,6 +15,7 @@ import time
 
 from config.settings import settings
 from services import auto_budget
+from services import chat_clock
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
@@ -58,7 +59,8 @@ class SearchService:
         self.memory = memory
 
     async def research(self, query: str, chat_id: int | None = None,
-                       chat_context: str | None = None) -> str:
+                       chat_context: str | None = None, *,
+                       snapshot: chat_clock.TimeSnapshot | None = None) -> str:
         """Смарт-поиск:
         1) results = await self.aggregator.search(query, settings.SEARCH_MAX_SYMBOLS)
         1b) Epic 65: LLM-реранкинг выдачи (SEARCH_RERANK_ENABLED, fail-open)
@@ -110,7 +112,8 @@ class SearchService:
         results = await self.aggregator.search(query, search_cap)
         if hot.get("flags.search_rerank_enabled", settings.SEARCH_RERANK_ENABLED) \
                 and results.strip():
-            results = await self._rerank_results(query, results)
+            results = await self._rerank_results(query, results,
+                                                 chat_id=chat_id)
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
                 self.memory.memorize_facts(chat_id, results, "search_fact"), "search")
@@ -130,12 +133,22 @@ class SearchService:
             f"<query>{escape_xml_text(query)}</query>\n\n"
             f"<search_results>{escape_xml_text(results)}</search_results>")
         started = time.monotonic()
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        # UR-26.6: информационный поиск — пользовательский ответ. Явный
+        # snapshot (тесты/будущие call-sites) имеет приоритет; иначе берётся
+        # ОДИН ChatClock-снапшот по chat_id. У SearchService нет технического
+        # tool-call-site (tool_router ходит в агрегатор), поэтому «магического»
+        # дефолта без chat_id здесь нет: chat_id=None → блока нет.
+        if snapshot is None and chat_id is not None:
+            snapshot = await chat_clock.snapshot(chat_id)
+        if snapshot is not None:
+            messages = chat_clock.attach_time_context(
+                messages, snapshot, phase=chat_clock.PHASE_ANSWER)
         raw = await self.llm.generate(
-            [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ]
-        )
+            messages, chat_id=chat_id, module="search_service", step="digest")
         logger.info(
             "smartsearch LLM OK | out_chars=%d | latency_ms=%.0f",
             len(raw), (time.monotonic() - started) * 1000.0,
@@ -146,9 +159,14 @@ class SearchService:
             raise LLMBadResponseError("smartsearch: empty answer")
         return raw
 
-    async def _rerank_results(self, query: str, results: str) -> str:
+    async def _rerank_results(self, query: str, results: str,
+                              *, chat_id: int | None = None) -> str:
         """Epic 65: LLM-фильтр выдачи. Fail-open: любая ошибка/слишком короткий
-        ответ → исходные результаты (WARNING). Никогда не бросает."""
+        ответ → исходные результаты (WARNING). Никогда не бросает.
+
+        UR-26.6 (D4): технический фильтр — БЕЗ блока часов; единая
+        наблюдаемость честно пишет clock_included=false (причина
+        `no_time_block`) на фактическом вызове."""
         try:
             reranked = await self.llm.generate(
                 [
@@ -157,7 +175,8 @@ class SearchService:
                         f"<query>{escape_xml_text(query)}</query>\n\n"
                         f"<search_results>{escape_xml_text(results)}</search_results>"
                     )},
-                ]
+                ],
+                chat_id=chat_id, module="search_service", step="rerank",
             )
         except Exception as exc:
             logger.warning("smartsearch rerank failed — original results | error=%s", exc)

@@ -77,6 +77,23 @@ class TimeSnapshot:
     config_version: str
 
 
+@dataclasses.dataclass(frozen=True)
+class LocalInstant:
+    """Структурный локальный instant (UR-25.4): UTC-мгновение + локальное
+    представление + правила DST.
+
+    ``gap=True`` — запрошенное настенное время не существует (spring
+    forward); ``local`` — первый валидный instant после gap в тех же
+    локальных сутках. ``ambiguous=True`` — fall back: ``fold=0`` (более
+    раннее вхождение). ``utc`` — aware UTC; ``local`` — aware в поясе чата."""
+
+    utc: datetime.datetime
+    local: datetime.datetime
+    gap: bool
+    ambiguous: bool
+    fold: int
+
+
 def _valid_iana(name: str) -> bool:
     """Строго валидное непустое IANA-имя (пустое/мусор → False)."""
     text = str(name or "").strip()
@@ -122,29 +139,15 @@ async def _config_version(chat_id) -> str:
         return ""
 
 
-async def resolve_chat_timezone(chat_id) -> tuple[str, str, str]:
-    """(iana, source, config_version) — каноническая цепочка UR-24.3.
+def _resolve_from_overrides(per_chat: dict, *, cv: str,
+                            chat_id) -> tuple[str, str, str]:
+    """ЕДИНСТВЕННЫЙ внутренний слой цепочки UR-24.3 (async и sync).
 
-    Чтение ТОЛЬКО существующих слоёв: per-chat overrides через кэш
-    chat_params (сброс при сохранении — notify-канал), global через
-    ConfigCache/hot с фаб-дефолтом настроек. Legacy-ключи — read-only
-    совместимость: они НЕ создают второй редакторской поверхности.
-    "" (пустая строка) означает наследование, НЕ зону. Конфликт явно
-    заданных зон логируется одноразово, побеждает более специфичный
-    канонический слой. Никогда не бросает."""
-    cv = await _config_version(chat_id)
+    ``per_chat`` — уже прочитанные overrides чата; global/legacy/factory
+    слои читаются здесь. Второй копии приоритетов нет: async-версия
+    передаёт сюда async-прочитанный root, sync-версия — прогретый
+    in-memory слой (`read_override_sync`)."""
     from services import hot_config as hot
-
-    per_chat: dict = {}
-    if chat_id is not None:
-        try:
-            from services.chat_params import get_chat_params_cache
-            cache = get_chat_params_cache()
-            if cache is not None:
-                root = await cache.get_chat_params(int(chat_id))
-                per_chat = dict((root or {}).get("overrides") or {})
-        except Exception:      # pragma: no cover - fail-open
-            per_chat = {}
 
     def _chat_override(key: str) -> str | None:
         """Значение per-chat override или None (нет/"" → наследование).
@@ -157,7 +160,7 @@ async def resolve_chat_timezone(chat_id) -> tuple[str, str, str]:
 
     def _global_value(key: str, factory_default: str) -> str:
         """Global-слой: ConfigCache/hot с settings-дефолтом (контракт R1
-        прежнего hot.get)."" — fail-open."""
+        прежнего hot.get) — fail-open."""
         try:
             return str(hot.get(key, factory_default) or "").strip()
         except Exception:      # pragma: no cover - fail-open
@@ -206,14 +209,195 @@ async def resolve_chat_timezone(chat_id) -> tuple[str, str, str]:
     return "UTC", "utc_fallback", cv
 
 
+async def resolve_chat_timezone(chat_id) -> tuple[str, str, str]:
+    """(iana, source, config_version) — каноническая цепочка UR-24.3.
+
+    Чтение ТОЛЬКО существующих слоёв: per-chat overrides через кэш
+    chat_params (сброс при сохранении — notify-канал), global через
+    ConfigCache/hot с фаб-дефолтом настроек. Legacy-ключи — read-only
+    совместимость: они НЕ создают второй редакторской поверхности.
+    "" (пустая строка) означает наследование, НЕ зону. Конфликт явно
+    заданных зон логируется одноразово, побеждает более специфичный
+    канонический слой. Никогда не бросает."""
+    cv = await _config_version(chat_id)
+    per_chat: dict = {}
+    if chat_id is not None:
+        try:
+            from services.chat_params import get_chat_params_cache
+            cache = get_chat_params_cache()
+            if cache is not None:
+                root = await cache.get_chat_params(int(chat_id))
+                per_chat = dict((root or {}).get("overrides") or {})
+        except Exception:      # pragma: no cover - fail-open
+            per_chat = {}
+    return _resolve_from_overrides(per_chat, cv=cv, chat_id=chat_id)
+
+
+def _read_overrides_sync(chat_id) -> dict:
+    """Прогретый in-memory слой overrides (единственная sync-точка чтения
+    `chat_params.read_override_sync`; I/O не выполняется — контракт M2)."""
+    if chat_id is None:
+        return {}
+    from services import chat_params as _cp
+    out: dict = {}
+    for key in (CANON_TZ_KEY, LEGACY_SUMMARY_TZ_KEY):
+        value, found = _cp.read_override_sync(int(chat_id), key)
+        if found:
+            out[key] = value
+    return out
+
+
+def resolve_chat_timezone_sync(chat_id, *, strict: bool = False
+                               ) -> tuple[str, str, str]:
+    """Sync-проекция той же цепочки UR-24.3 (`meme_initiative`/`day_window`).
+
+    Разделяет с async-версией `_resolve_from_overrides`: приоритеты слоёв
+    не дублируются. ``config_version`` недоступен без I/O → "" (честно, не
+    выдумывается). ``strict=True`` (витрина диагностики) пробрасывает сбой
+    чтения слоя настроек; боевой путь — fail-open ``utc_fallback``."""
+    try:
+        per_chat = _read_overrides_sync(chat_id)
+        return _resolve_from_overrides(per_chat, cv="", chat_id=chat_id)
+    except Exception:
+        if strict:
+            raise
+        return "UTC", "utc_fallback", ""
+
+
+def _zone_for(name) -> zoneinfo.ZoneInfo | datetime.timezone:
+    """Единственная зона календарной математики: IANA или честный UTC."""
+    text = str(name or "UTC")
+    try:
+        return zoneinfo.ZoneInfo(text)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, FileNotFoundError,
+            KeyError, OSError):
+        return datetime.timezone.utc
+
+
+def _offset_str(moment: datetime.datetime) -> str:
+    offset = moment.utcoffset() or datetime.timedelta(0)
+    total = int(offset.total_seconds())
+    sign = "+" if total >= 0 else "-"
+    total = abs(total)
+    return "%s%02d:%02d" % (sign, total // 3600, (total % 3600) // 60)
+
+
+def _to_utc(value) -> datetime.datetime:
+    """Абсолютная UTC-метка окна: aware datetime или epoch-секунды."""
+    if isinstance(value, datetime.datetime):
+        moment = value
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=datetime.timezone.utc)
+        return moment.astimezone(datetime.timezone.utc)
+    return datetime.datetime.fromtimestamp(float(value),
+                                           tz=datetime.timezone.utc)
+
+
+def _render_window_lines(snap: TimeSnapshot, window) -> list[str]:
+    """window_utc/window_local (UR-27.2) — только при известном окне.
+
+    Каждая граница конвертируется через ZoneInfo НА ЭТОТ instant: при DST
+    внутри окна offset границ разный; полу-/четверть-сдвиги сохраняются.
+    Порядок границ — как передано (start..end), без пересчёта от «сейчас»."""
+    try:
+        start_raw, end_raw = window
+        start_utc = _to_utc(start_raw)
+        end_utc = _to_utc(end_raw)
+    except (TypeError, ValueError):
+        return []
+    zone = _zone_for(snap.timezone)
+    start_local = start_utc.astimezone(zone)
+    end_local = end_utc.astimezone(zone)
+    fmt = "%Y-%m-%dT%H:%M:%S+00:00"
+    return [
+        "window_utc: %s..%s" % (start_utc.strftime(fmt),
+                                end_utc.strftime(fmt)),
+        "window_local: %s %s..%s %s" % (
+            start_local.strftime("%d.%m.%Y %H:%M"),
+            _offset_str(start_local),
+            end_local.strftime("%d.%m.%Y %H:%M"),
+            _offset_str(end_local)),
+    ]
+
+
+def local_date(snap: TimeSnapshot, *, day_offset: int = 0) -> datetime.date:
+    """Локальная дата чата ±N дней (UR-25.4): сегодня/вчера/завтра.
+
+    0/-1/+1 считаются от ЛОКАЛЬНОЙ даты снапшота, не от UTC-даты (Auckland
+    00:30 при UTC-дате предыдущего дня — красный тест на подмену)."""
+    return snap.local_datetime.date() + datetime.timedelta(
+        days=int(day_offset))
+
+
+def _wall_candidate(naive: datetime.datetime, zone, fold: int = 0):
+    """(epoch, roundtrip_naive) для настенного времени в зоне (fold)."""
+    aware = naive.replace(tzinfo=zone, fold=int(fold))
+    stamp = int(aware.timestamp())
+    back = datetime.datetime.fromtimestamp(stamp, zone).replace(tzinfo=None)
+    return stamp, back
+
+
+def local_wall_to_utc(snap: TimeSnapshot, *, day_offset: int = 0,
+                      day: datetime.date | None = None,
+                      hour: int = 0, minute: int = 0) -> LocalInstant:
+    """Структурное локальное время чата → точный instant (UR-25.4).
+
+    «в 4 утра» / «в 4 утра вчера» / «на прошлой неделе (day_offset=-7)»:
+    вход — уже разобранные моделью компоненты, БЕЗ фразового NLU. ``day``
+    имеет приоритет; иначе локальная дата снапшота + ``day_offset``.
+    Неоднозначное (fall back) → ``fold=0`` (более раннее вхождение);
+    несуществующее (spring gap) → первый валидный instant после gap в тех
+    же локальных сутках. ``replace(tzinfo=...)`` без обратной проверки не
+    используется.
+
+    Для обратной совместимости с единственным алгоритмом `_local_epoch`
+    (tool_router) первым аргументом допускается IANA-имя/ZoneInfo; тогда
+    ``day`` обязателен."""
+    if day is None:
+        if not isinstance(snap, TimeSnapshot):
+            raise TypeError("day обязателен для календарной математики "
+                            "без TimeSnapshot")
+        day = local_date(snap, day_offset=day_offset)
+    zone = _zone_for(snap.timezone if isinstance(snap, TimeSnapshot)
+                     else getattr(snap, "key", snap))
+    naive = datetime.datetime(int(day.year), int(day.month), int(day.day),
+                              int(hour), int(minute))
+    stamp0, back0 = _wall_candidate(naive, zone, fold=0)
+    if back0 == naive:
+        stamp1, back1 = _wall_candidate(naive, zone, fold=1)
+        ambiguous = bool(stamp1 != stamp0 and back1 == naive)
+        utc = datetime.datetime.fromtimestamp(stamp0,
+                                              tz=datetime.timezone.utc)
+        return LocalInstant(utc=utc, local=utc.astimezone(zone),
+                            gap=False, ambiguous=ambiguous, fold=0)
+    # Spring gap: идём вперёд до первого валидного настенного времени в тех
+    # же локальных сутках (та же семантика, что у tool_router._local_epoch).
+    for offset in range(1, 24 * 60 + 1):
+        candidate = naive + datetime.timedelta(minutes=offset)
+        probe_stamp, probe_back = _wall_candidate(candidate, zone, fold=0)
+        if probe_back == candidate:
+            utc = datetime.datetime.fromtimestamp(
+                probe_stamp, tz=datetime.timezone.utc)
+            return LocalInstant(utc=utc, local=utc.astimezone(zone),
+                                gap=True, ambiguous=False, fold=0)
+    utc = datetime.datetime.fromtimestamp(stamp0, tz=datetime.timezone.utc)
+    return LocalInstant(utc=utc, local=utc.astimezone(zone),
+                        gap=True, ambiguous=False, fold=0)
+
+
 def _render_block(snap: TimeSnapshot, *, phase: str,
-                  source_label: str | None = None) -> str:
+                  source_label: str | None = None,
+                  window=None, window_lines: list[str] | None = None) -> str:
     """ОДИН короткий машиночитаемый блок <Chat_Time_Context> (UR-25.6).
 
     User/data-content (НЕ system — prompt-cache); помечен как авторитетный
     серверный контекст. ``phase`` различает «время чата на момент
     планирования» и «на момент ответа»; ``source_label`` — отдельное поле
-    «время источника» (не смешивается с временем чата, UR-25.2)."""
+    «время источника» (не смешивается с временем чата, UR-25.2).
+    ``window`` — (start, end) абсолютные UTC-мгновения окна источников
+    (UR-27.2): обе границы конвертируются в пояс чата НА СВОЙ instant
+    (DST внутри окна → разные offset), без «UTC+N». ``window_lines`` —
+    уже отрендеренные строки (deferred retry сохраняет окно байт-в-байт)."""
     local = snap.local_datetime
     lines = [
         '<Chat_Time_Context source="server" phase="%s">' % str(phase),
@@ -222,6 +406,11 @@ def _render_block(snap: TimeSnapshot, *, phase: str,
             snap.weekday, snap.timezone, snap.utc_offset),
         "as_of_utc: %s" % snap.as_of_utc.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
     ]
+    rendered_window = window_lines
+    if rendered_window is None and window is not None:
+        rendered_window = _render_window_lines(snap, window)
+    if rendered_window:
+        lines.extend(rendered_window)
     if snap.config_version:
         lines.append("config: %s" % snap.config_version)
     if snap.timezone_source == "utc_fallback":
@@ -326,34 +515,43 @@ async def ensure_answer_snapshot(plan_snap: TimeSnapshot, chat_id, *,
 
 
 def render_chat_time_context(snap: TimeSnapshot, *, phase: str,
-                             source_label: str | None = None) -> str:
+                             source_label: str | None = None,
+                             window=None) -> str:
     """Публичный рендер единственного блока <Chat_Time_Context>."""
-    return _render_block(snap, phase=phase, source_label=source_label)
+    return _render_block(snap, phase=phase, source_label=source_label,
+                         window=window)
 
 
 BLOCK_OPEN = '<Chat_Time_Context source="server"'
 
+_WINDOW_LINE_PREFIXES = ("window_utc:", "window_local:")
+
 
 def append_time_block(user_content: str, snap: TimeSnapshot, *, phase: str,
-                      source_label: str | None = None) -> str:
+                      source_label: str | None = None, window=None,
+                      window_lines: list[str] | None = None) -> str:
     """Идемпотентное добавление блока в user-content стадии (ровно один
     блок на payload — UR-25.6/§3.3 seal-инвариант). Никогда не бросает."""
     try:
         text = str(user_content or "")
         if BLOCK_OPEN in text:
             return text
-        block = _render_block(snap, phase=phase, source_label=source_label)
+        block = _render_block(snap, phase=phase, source_label=source_label,
+                              window=window, window_lines=window_lines)
         return f"{text}\n\n{block}" if text.strip() else block
     except Exception:      # pragma: no cover - защитная ветка
         return str(user_content or "")
 
 
 def attach_time_context(messages, snap: TimeSnapshot, *, phase: str,
-                        source_label: str | None = None) -> list:
+                        source_label: str | None = None,
+                        window=None) -> list:
     """ЕДИНСТВЕННЫЙ helper сборки стадий (arch contract §3.1): добавляет
     блок в ПОСЛЕДНЕЕ user-сообщение payload'а (data-content, не system).
     Уровень сборки стадий — НЕ низкоуровневый llm_client (UR-26 запрещает
-    глобальный prepend). Идемпотентно, никогда не бросает."""
+    глобальный prepend). ``window`` — (start, end) для window_utc/local
+    (UR-27.2; только там, где окно известно). Идемпотентно, никогда не
+    бросает."""
     try:
         out: list = [dict(m) if isinstance(m, dict) else m
                      for m in (messages or [])]
@@ -367,7 +565,7 @@ def attach_time_context(messages, snap: TimeSnapshot, *, phase: str,
             return out
         out[last_user]["content"] = append_time_block(
             str(out[last_user].get("content") or ""), snap, phase=phase,
-            source_label=source_label)
+            source_label=source_label, window=window)
         return out
     except Exception:      # pragma: no cover - защитная ветка
         return list(messages or [])
@@ -383,7 +581,9 @@ def refresh_time_context(messages, snap: TimeSnapshot, *, phase: str,
     включая окно источников (``summary_window_end_utc``) — остаётся
     байт-в-байт прежним (не пересобирается задним числом). Блок ищется в
     ТОМ ЖЕ последнем user-сообщении, куда ставит ``attach_time_context``.
-    Идемпотентно, никогда не бросает."""
+    Строки ``window_utc``/``window_local`` (UR-27.2) переносятся из старого
+    блока байт-в-байт: дефер не «свежеет» окно. Идемпотентно, никогда не
+    бросает."""
     try:
         out: list = [dict(m) if isinstance(m, dict) else m
                      for m in (messages or [])]
@@ -396,17 +596,23 @@ def refresh_time_context(messages, snap: TimeSnapshot, *, phase: str,
         if last_user is None:
             return out
         text = str(out[last_user].get("content") or "")
+        window_lines: list[str] = []
         start = text.find(BLOCK_OPEN)
         if start >= 0:
             close = text.find("</Chat_Time_Context>", start)
             end = (close + len("</Chat_Time_Context>")) if close != -1 \
                 else len(text)
+            block = text[start:end]
+            window_lines = [line.strip() for line in block.splitlines()
+                            if line.strip().startswith(_WINDOW_LINE_PREFIXES)]
             head = text[:start].rstrip()
             tail = text[end:].strip()
             text = f"{head}\n\n{tail}".strip() if tail else head
         out[last_user]["content"] = text
-        return attach_time_context(out, snap, phase=phase,
-                                   source_label=source_label)
+        out[last_user]["content"] = append_time_block(
+            text, snap, phase=phase, source_label=source_label,
+            window_lines=window_lines or None)
+        return out
     except Exception:      # pragma: no cover - защитная ветка
         return list(messages or [])
 
@@ -456,17 +662,22 @@ def outbound_clock_meta(messages) -> dict | None:
 
 
 def log_clock_call(*, module: str, step: str, chat_id, messages,
-                   channel: str = "primary") -> None:
+                   channel: str = "primary",
+                   skip_reason: str = "no_time_block") -> None:
     """Наблюдаемость модельного вызова (UR-26.7): stage, chat_id, timezone,
     as_of_utc, config_version, clock_included и причина пропуска. R17:
-    без текстов payload'а. Никогда не бросает."""
+    без текстов payload'а. ``skip_reason`` — аддитивная причина для
+    технических/непривязанных к чату ног (`technical_rerank`,
+    `diagnostic_checkup`, `tool_host_turn`, `no_chat_id`; default
+    `no_time_block`). Никогда не бросает."""
     try:
         meta = outbound_clock_meta(messages)
         if meta is None:
             logger.info(
                 "[clock_call] module=%s | step=%s | chat_id=%s | "
-                "clock_included=false | skip_reason=no_time_block | "
-                "channel=%s", module, step, chat_id, channel)
+                "clock_included=false | skip_reason=%s | "
+                "channel=%s", module, step, chat_id,
+                str(skip_reason or "no_time_block"), channel)
             return
         logger.info(
             "[clock_call] module=%s | step=%s | chat_id=%s | timezone=%s | "
@@ -480,10 +691,12 @@ def log_clock_call(*, module: str, step: str, chat_id, messages,
 
 
 __all__ = [
-    "TimeSnapshot",
+    "TimeSnapshot", "LocalInstant",
     "CANON_TZ_KEY", "LEGACY_SUMMARY_TZ_KEY",
     "PHASE_PLAN", "PHASE_ANSWER",
-    "resolve_chat_timezone", "snapshot", "ensure_answer_snapshot",
+    "resolve_chat_timezone", "resolve_chat_timezone_sync",
+    "local_date", "local_wall_to_utc",
+    "snapshot", "ensure_answer_snapshot",
     "render_chat_time_context", "append_time_block", "attach_time_context",
     "refresh_time_context",
     "outbound_clock_meta", "log_clock_call", "BLOCK_OPEN",

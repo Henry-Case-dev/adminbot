@@ -1199,25 +1199,14 @@ def _history_zone(timezone_name):
 
 
 def _local_epoch(day, hour: int, minute: int, tz) -> int:
-    """Локальные (date, HH:MM) → epoch. Несуществующее время (spring
-    forward) сдвигается вперёд до первого валидного instant; неоднозначное
-    (fall back) — fold=0 (первое вхождение)."""
-    naive = datetime.datetime(int(day.year), int(day.month), int(day.day),
-                              int(hour), int(minute))
-    aware = naive.replace(tzinfo=tz)
-    stamp = int(aware.timestamp())
-    back = datetime.datetime.fromtimestamp(stamp, tz).replace(tzinfo=None)
-    if back == naive:
-        return stamp
-    for offset in range(1, 24 * 60 + 1):
-        candidate = naive + datetime.timedelta(minutes=offset)
-        probe = candidate.replace(tzinfo=tz)
-        probe_stamp = int(probe.timestamp())
-        probe_back = datetime.datetime.fromtimestamp(
-            probe_stamp, tz).replace(tzinfo=None)
-        if probe_back == candidate:
-            return probe_stamp
-    return stamp
+    """Локальные (date, HH:MM) → epoch. Делегирует ЕДИНСТВЕННОМУ владельцу
+    календарной математики ChatClock (UR-25/25.4): gap → первый валидный
+    instant вперёд, fold → fold=0. Сигнатура прежняя (вызывающие/тесты
+    `test_p0_hc_coverage` не меняются); поведение обязано совпадать."""
+    from services import chat_clock as _cclock
+    instant = _cclock.local_wall_to_utc(
+        tz, day=day, hour=hour, minute=minute)
+    return int(instant.utc.timestamp())
 
 
 def _history_date(value, *, year: int) -> datetime.date | None:

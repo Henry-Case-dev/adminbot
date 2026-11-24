@@ -1337,7 +1337,8 @@ def _normalise_call_result(value):
     return str(value or ""), None
 
 
-async def _dedicated_generate(llm, messages, slot: L2Slot) -> tuple[str, dict]:
+async def _dedicated_generate(llm, messages, slot: L2Slot, *,
+                              chat_id=None) -> tuple[str, dict]:
     """Выделенный слот §82 через существующий транзитный канал LLMClient.
 
     Прецедент S3 (`summary_l1_clusterizer._dedicated_generate`): per-call
@@ -1346,6 +1347,13 @@ async def _dedicated_generate(llm, messages, slot: L2Slot) -> tuple[str, dict]:
     подмены на глобальную модель.
     """
     payload = {"model": slot.model, "messages": messages}
+    # UR-26.7: dedicated-нога идёт мимо `generate` — явный часовой лог на
+    # транспортном шве (R17-safe; chat_id из контекста прогона).
+    from services import chat_clock as _cclock
+    _cclock.log_clock_call(
+        module=MODULE, step=STEP, chat_id=chat_id, messages=messages,
+        channel="dedicated",
+        skip_reason=("no_chat_id" if chat_id is None else "no_time_block"))
     try:
         response = await llm._post(  # noqa: SLF001 - документированный мост S3/S5
             "/chat/completions", payload, api_key=slot.api_key,
@@ -1372,7 +1380,8 @@ async def _dedicated_generate(llm, messages, slot: L2Slot) -> tuple[str, dict]:
     return content, (data.get("usage") if isinstance(data, dict) else None)
 
 
-def _make_llm_call(llm, slot: L2Slot, correlation_id, *, operation: str = "writer"):
+def _make_llm_call(llm, slot: L2Slot, correlation_id, *,
+                   operation: str = "writer", chat_id=None):
     """Собрать async-callable L2-канал (без внутреннего retry; число
     логических вызовов считает run_l2: happy=1, максимум=2 — attempt +
     РОВНО ОДИН correction, ASAP 8 F1 §2.4).
@@ -1383,7 +1392,7 @@ def _make_llm_call(llm, slot: L2Slot, correlation_id, *, operation: str = "write
     решает Supervisor); kill-switch OFF → прежний канал байт-в-бит.
     ``operation`` — честная метка телеметрии (writer/reviewer/revision)."""
     wrapped = _supervise_call(llm, slot, correlation_id, operation=operation,
-                              module=MODULE, step=STEP)
+                              module=MODULE, step=STEP, chat_id=chat_id)
     if wrapped is not None:
         return wrapped
     if not slot.dedicated:
@@ -1393,7 +1402,7 @@ def _make_llm_call(llm, slot: L2Slot, correlation_id, *, operation: str = "write
         return _call
 
     async def _call_dedicated(messages):
-        return await _dedicated_generate(llm, messages, slot)
+        return await _dedicated_generate(llm, messages, slot, chat_id=chat_id)
     return _call_dedicated
 
 
@@ -1404,14 +1413,15 @@ def _effective_model(llm, slot: L2Slot) -> str:
 
 
 def _supervise_call(llm, slot, correlation_id, *, operation: str,
-                    module: str | None = None, step: str | None = None):
+                    module: str | None = None, step: str | None = None,
+                    chat_id=None):
     """Точка врезки LLMExecutionSupervisor (ADR-1028-8 D5; kill-switch
     OFF → None = прежний канал байт-в-бит)."""
     try:
         from services import summary_llm_supervisor as _sup
         return _sup.make_wrapped(llm, slot, correlation_id,
                                  operation=operation, module=module,
-                                 step=step)
+                                 step=step, chat_id=chat_id)
     except Exception:      # pragma: no cover - врезка не рвёт канал
         logger.warning(
             "summary supervisor: wrap failed — legacy channel (байт-в-бит)",
@@ -1676,7 +1686,8 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
                target_chars=length["target_chars"],
                target_paragraphs=length["target_paragraphs"],
                prompt_key=PROMPT_PG_KEY, prompt_source=prompt_source)
-    call = llm_call or _make_llm_call(llm, resolved_slot, correlation_id)
+    call = llm_call or _make_llm_call(llm, resolved_slot, correlation_id,
+                                      chat_id=chat_id)
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": content},

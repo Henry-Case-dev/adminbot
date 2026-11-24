@@ -46,6 +46,10 @@ class FakeCache:
     def __init__(self, roots_by_chat):
         self._roots = dict(roots_by_chat or {})
         self.updated_at = "2026-11-05T10:00:00Z"
+        # Sync-проекция M2 (`read_override_sync`) читает тот же прогретый
+        # root из `_items`; форма записи — (ts, root, updated_at).
+        self._items = {int(cid): (0.0, root, self.updated_at)
+                       for cid, root in self._roots.items()}
 
     async def get_chat_params(self, chat_id):
         return self._roots.get(int(chat_id), {})
@@ -675,3 +679,282 @@ class TestObserverClock:
         assert user_content.count("<Chat_Time_Context") == 1
         assert 'phase="plan"' in user_content
         assert "Europe/Moscow" in user_content
+
+
+# ═══ UR-25.4: структурные относительные даты от пояса чата ═══════════════════
+
+
+def _epoch(*args, tz=datetime.timezone.utc):
+    return int(datetime.datetime(*args, tzinfo=tz).timestamp())
+
+
+class TestRelativeLocalTime:
+    @pytest.mark.asyncio
+    async def test_auckland_midnight_today_yesterday_tomorrow(self, tz_env):
+        """00:30 Auckland (UTC-дата — предыдущая): today/yesterday/tomorrow и
+        «в 4 утра» считаются от ЛОКАЛЬНОЙ даты/пояса, не от UTC."""
+        _set_chat_override(CHAT_A, {"limits.chat_timezone":
+                                    "Pacific/Auckland"})
+        snap = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 7, 14, 12, 30, tzinfo=datetime.timezone.utc))
+        assert snap.local_datetime.date() == datetime.date(2026, 7, 15)
+        assert cc.local_date(snap) == datetime.date(2026, 7, 15)
+        assert cc.local_date(snap, day_offset=-1) == datetime.date(2026, 7, 14)
+        assert cc.local_date(snap, day_offset=1) == datetime.date(2026, 7, 16)
+        at_four = cc.local_wall_to_utc(snap, hour=4)
+        assert at_four.local.date() == datetime.date(2026, 7, 15)
+        assert (at_four.local.hour, at_four.local.minute) == (4, 0)
+        assert at_four.utc == datetime.datetime(
+            2026, 7, 14, 16, 0, tzinfo=datetime.timezone.utc)
+        # Мутация «взять UTC-дату» красная: UTC-дата — 14-е, блок — 15-е.
+        assert at_four.utc.date() == datetime.date(2026, 7, 14)
+        yesterday_four = cc.local_wall_to_utc(
+            snap, day_offset=-1, hour=4)
+        assert yesterday_four.local.date() == datetime.date(2026, 7, 14)
+        assert yesterday_four.gap is False and yesterday_four.ambiguous is False
+
+    @pytest.mark.asyncio
+    async def test_berlin_gap_fold_and_kathmandu_quarter_offset(self, tz_env):
+        _set_chat_override(CHAT_A, {"limits.chat_timezone": "Europe/Berlin"})
+        berlin = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 3, 29, 10, 0, tzinfo=datetime.timezone.utc))
+        gap = cc.local_wall_to_utc(
+            berlin, day=datetime.date(2026, 3, 29), hour=2, minute=30)
+        assert gap.gap is True and gap.ambiguous is False and gap.fold == 0
+        assert (gap.local.hour, gap.local.minute) == (3, 0)
+        assert gap.local.utcoffset() == datetime.timedelta(hours=2)
+        assert gap.utc == datetime.datetime(
+            2026, 3, 29, 1, 0, tzinfo=datetime.timezone.utc)
+        fold = cc.local_wall_to_utc(
+            berlin, day=datetime.date(2026, 10, 25), hour=2, minute=30)
+        assert fold.ambiguous is True and fold.gap is False and fold.fold == 0
+        assert fold.local.utcoffset() == datetime.timedelta(hours=2)
+        assert fold.utc == datetime.datetime(
+            2026, 10, 25, 0, 30, tzinfo=datetime.timezone.utc)
+        # Полу-сдвиг: Kathmandu +05:45 — верный instant, не «UTC+5».
+        _set_chat_override(CHAT_A, {"limits.chat_timezone": "Asia/Kathmandu"})
+        kath = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 7, 14, 12, 0, tzinfo=datetime.timezone.utc))
+        local4 = cc.local_wall_to_utc(
+            kath, day=datetime.date(2026, 7, 15), hour=4, minute=0)
+        assert local4.utc == datetime.datetime(
+            2026, 7, 14, 22, 15, tzinfo=datetime.timezone.utc)
+        assert local4.local.utcoffset() == datetime.timedelta(
+            hours=5, minutes=45)
+        assert local4.local.strftime("%d.%m.%Y %H:%M") == "15.07.2026 04:00"
+
+    @pytest.mark.asyncio
+    async def test_last_week_bounds_in_chat_zone(self, tz_env):
+        """«на прошлой неделе» — day_offset=-7 от локальной даты; явный day
+        даёт те же границы (для диапазона дат)."""
+        _set_chat_override(CHAT_A, {"limits.chat_timezone":
+                                    "Pacific/Auckland"})
+        snap = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 7, 14, 12, 30, tzinfo=datetime.timezone.utc))
+        start = cc.local_wall_to_utc(snap, day_offset=-7, hour=0)
+        explicit = cc.local_wall_to_utc(
+            snap, day=datetime.date(2026, 7, 8), hour=0)
+        assert start == explicit
+        assert start.local.date() == datetime.date(2026, 7, 8)
+        assert start.utc == datetime.datetime(
+            2026, 7, 7, 12, 0, tzinfo=datetime.timezone.utc)
+        _set_chat_override(CHAT_A, {"limits.chat_timezone": "Asia/Kathmandu"})
+        kath = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 7, 14, 12, 0, tzinfo=datetime.timezone.utc))
+        kath_start = cc.local_wall_to_utc(kath, day_offset=-7, hour=0)
+        assert kath_start.local.date() == datetime.date(2026, 7, 7)
+        assert kath_start.utc == datetime.datetime(
+            2026, 7, 6, 18, 15, tzinfo=datetime.timezone.utc)
+
+    @pytest.mark.asyncio
+    async def test_local_epoch_parity_with_tool_router(self, tz_env):
+        """Единственный алгоритм: `tool_router._local_epoch` делегирует в
+        ChatClock и совпадает на regular/gap/fold/полу-сдвиге."""
+        from services.tool_router import _local_epoch
+        for tz_name in ("Europe/Berlin", "Asia/Kathmandu"):
+            _set_chat_override(CHAT_A, {"limits.chat_timezone": tz_name})
+            snap = await cc.snapshot(
+                CHAT_A, at_utc=datetime.datetime(
+                    2026, 7, 14, 12, 0, tzinfo=datetime.timezone.utc))
+            tz = zoneinfo.ZoneInfo(tz_name)
+            cases = [
+                (datetime.date(2026, 3, 29), 2, 30),
+                (datetime.date(2026, 10, 25), 2, 30),
+                (datetime.date(2026, 7, 15), 0, 0),
+                (datetime.date(2026, 7, 15), 4, 0),
+            ]
+            for day, hour, minute in cases:
+                expected = _local_epoch(day, hour, minute, tz)
+                instant = cc.local_wall_to_utc(
+                    snap, day=day, hour=hour, minute=minute)
+                assert int(instant.utc.timestamp()) == expected, (
+                    tz_name, day, hour, minute)
+
+    @pytest.mark.asyncio
+    async def test_one_resolver_with_per_chat_legacy(self, tz_env):
+        """UR-25: per-chat legacy `limits.summary_timezone` — один и тот же
+        пояс/источник у ChatClock (async/sync) и meme_initiative."""
+        from services import meme_initiative as meme
+        _set_chat_override(CHAT_A, {
+            "limits.summary_timezone": "Asia/Almaty"})
+        tz_env.set_global("limits.chat_timezone", "Europe/Berlin")
+        tz, source, _cv = await cc.resolve_chat_timezone(CHAT_A)
+        assert (tz, source) == ("Asia/Almaty", "chat_legacy")
+        sync_tz, sync_source, _cv2 = cc.resolve_chat_timezone_sync(CHAT_A)
+        assert (sync_tz, sync_source) == (tz, source)
+        assert meme.resolve_timezone(CHAT_A) == (tz, source)
+
+
+class _HistoryClockDirect:
+    """Пара прогонов `_plan_direct_l1` с историей и без — discriminating
+    proof UR-17.5 (блок времени не читает прошлые реплики)."""
+
+    @staticmethod
+    def _window_row(text: str) -> dict:
+        return {"user_id": 10, "author_name": "вася", "text": text,
+                "timestamp": 100, "media_type": "text", "reply_to_id": None,
+                "tg_message_id": None}
+
+    @classmethod
+    def _block(cls, content: str) -> str:
+        start = content.find("<Chat_Time_Context")
+        end = content.find("</Chat_Time_Context>", start)
+        assert start >= 0 and end >= 0
+        return content[start:end + len("</Chat_Time_Context>")]
+
+    @classmethod
+    async def _payload(cls, service, llm, window):
+        await service._plan_direct_l1(
+            CHAT_A, __import__("tests.test_direct_chat",
+                               fromlist=["_message"])._message(
+                                   "привет", chat_id=CHAT_A),
+            "привет", "corr-175", bundle=None, target_name="Вася",
+            user_id=10, character_block="", lore_enabled=False,
+            image_enabled=False, force_required=True, reply_bot=False)
+        return llm.messages[-1]["content"]
+
+
+class TestHistoryIsNotClock:
+    @pytest.mark.asyncio
+    async def test_past_four_am_phrase_does_not_become_current_time(
+            self, tz_env, monkeypatch):
+        """UR-17.5: «сейчас 4 утра»/«Новосибирск» в истории не становятся
+        текущим временем: frozen 21:05 Auckland, блок одинаков с прогоном без
+        этих реплик."""
+        from unittest.mock import AsyncMock
+        from tests.test_direct_chat import (
+            FakeLLM, FakeMemory, _make_service)
+        _set_chat_override(CHAT_A, {"limits.chat_timezone":
+                                    "Pacific/Auckland"})
+        frozen = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 7, 15, 9, 5, tzinfo=datetime.timezone.utc))
+
+        async def _frozen_snapshot(chat_id, **kwargs):
+            return frozen
+
+        monkeypatch.setattr(cc, "snapshot", _frozen_snapshot)
+        poisoned = [
+            _HistoryClockDirect._window_row("сейчас 4 утра"),
+            _HistoryClockDirect._window_row("я в Новосибирске, тут холодно"),
+            _HistoryClockDirect._window_row("ну и шутки у тебя"),
+        ]
+        clean: list = []
+        blocks = []
+        for window in (poisoned, clean):
+            llm = FakeLLM(text='{"action":"reply","confidence":0.9}')
+            service = _make_service(memory=FakeMemory(window=window), llm=llm)
+            monkeypatch.setattr(service, "_history_partial",
+                                AsyncMock(return_value=False))
+            content = await _HistoryClockDirect._payload(
+                service, llm, window)
+            blocks.append(_HistoryClockDirect._block(content))
+        assert blocks[0] == blocks[1], (
+            "блок часов обязан быть идентичен независимо от прошлых реплик")
+        assert "21:05" in blocks[0]
+        assert "as_of_utc: 2026-07-15T09:05:00+00:00" in blocks[0]
+        assert "4 утра" not in blocks[0]
+        assert "Новосибирск" not in blocks[0]
+        assert 'phase="plan"' in blocks[0]
+
+
+# ═══ UR-27.2: окно источников UTC + локальное представление ══════════════════
+
+
+class TestSummaryWindowLocal:
+    @staticmethod
+    def _rows(start: datetime.datetime, end: datetime.datetime) -> list:
+        return [
+            {"id": 1, "user_id": 10, "author_name": "вася",
+             "text": "первое", "timestamp": int(start.timestamp()),
+             "media_type": "text", "reply_to_id": None,
+             "tg_message_id": 11},
+            {"id": 2, "user_id": 11, "author_name": "петя",
+             "text": "второе", "timestamp": int(end.timestamp()),
+             "media_type": "text", "reply_to_id": 1,
+             "tg_message_id": 12},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_window_across_local_midnight_and_dst(self, tz_env):
+        from services.summary_l1_clusterizer import run_l1
+        _set_chat_override(CHAT_A, {"limits.chat_timezone": "Europe/Berlin"})
+        berlin = zoneinfo.ZoneInfo("Europe/Berlin")
+        start = datetime.datetime(2026, 10, 25, 0, 0, tzinfo=berlin)
+        end = datetime.datetime(2026, 10, 25, 3, 30, tzinfo=berlin)
+        captured: list[list] = []
+
+        async def _llm_call(messages):
+            captured.append(messages)
+            return "{}", None
+
+        await run_l1(rows=self._rows(start, end), chat_id=CHAT_A,
+                     llm_call=_llm_call, budget=("chars", 20000))
+        user = captured[0][-1]["content"]
+        assert user.count("<Chat_Time_Context") == 1
+        assert ("window_utc: 2026-10-24T22:00:00+00:00.."
+                "2026-10-25T02:30:00+00:00") in user
+        assert ("window_local: 25.10.2026 00:00 +02:00.."
+                "25.10.2026 03:30 +01:00") in user
+        # Каждая граница — свой offset (DST внутри окна), не «UTC+N».
+        assert "UTC+" not in user.split("window_local:", 1)[1].split(
+            "\n", 1)[0]
+
+    @pytest.mark.asyncio
+    async def test_refresh_after_midnight_keeps_window_bytes(self, tz_env):
+        _set_chat_override(CHAT_A, {"limits.chat_timezone": "Europe/Berlin"})
+        plan = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 10, 24, 23, 50, tzinfo=datetime.timezone.utc))
+        window = (
+            datetime.datetime(2026, 10, 24, 22, 0,
+                              tzinfo=datetime.timezone.utc),
+            datetime.datetime(2026, 10, 25, 2, 30,
+                              tzinfo=datetime.timezone.utc))
+        messages = cc.attach_time_context(
+            [{"role": "system", "content": "S"},
+             {"role": "user", "content": "текст окна"}],
+            plan, phase=cc.PHASE_ANSWER, window=window)
+        before = messages[-1]["content"]
+        old_window = [line for line in before.splitlines()
+                      if line.startswith(("window_utc:", "window_local:"))]
+        fresh = await cc.snapshot(
+            CHAT_A, at_utc=datetime.datetime(
+                2026, 10, 25, 0, 3, tzinfo=datetime.timezone.utc))
+        refreshed = cc.refresh_time_context(
+            messages, fresh, phase=cc.PHASE_ANSWER)
+        after = refreshed[-1]["content"]
+        new_window = [line for line in after.splitlines()
+                      if line.startswith(("window_utc:", "window_local:"))]
+        assert new_window == old_window
+        assert after != before
+        assert "as_of_utc: 2026-10-25T00:03:00+00:00" in after
+        # Вне блока — байт-в-байт прежний текст окна.
+        assert "текст окна" in after
+        assert after.replace(old_window[0], "").replace(
+            old_window[1], "").count("window_") == 0

@@ -44,6 +44,7 @@ import os
 import random
 import re
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from aiogram import Bot, Router, types
@@ -60,6 +61,8 @@ from handlers.media_common import (
     wrap_media_fact,
 )
 from services import hot_config as hot
+from services import chat_clock
+from services import youtube_summarizer_service as _ysvc
 from services import media_share
 from services import native_media
 from services import command_prefix
@@ -1009,6 +1012,29 @@ async def _inject_url_memory(message: types.Message, author: str,
 
 # ── Раунд 3 (3.4, T-691): честная выжимка и отправка ответа ──────────
 
+async def _clock_snapshot(chat_id: int):
+    """Единственный ChatClock-снапшот на границе хендлера (UR-26.6/26.7):
+    clock-scope на один пользовательский вызов; сервис не резолвит время
+    сам. Недоступность часов не рвёт маршрут — маршрут остаётся без блока."""
+    try:
+        return await chat_clock.snapshot(chat_id)
+    except Exception:      # pragma: no cover - fail-open honest
+        logger.warning("[youtube] clock snapshot unavailable | chat=%s",
+                       chat_id, exc_info=True)
+        return None
+
+
+@contextmanager
+def _clock_scope(snapshot):
+    """Открыть/закрыть task-local clock-scope пересказа (tool-путь его не
+    открывает → в tool-result блока нет)."""
+    token = _ysvc.set_reply_snapshot(snapshot)
+    try:
+        yield
+    finally:
+        _ysvc.reset_reply_snapshot(token)
+
+
 async def _summarize_and_send(bot, chat_id: int, transcript: str,
                               target_message_id: int,
                               note: str | None = None) -> bool:
@@ -1025,8 +1051,10 @@ async def _summarize_and_send(bot, chat_id: int, transcript: str,
                      target_message_id)
         return False
     try:
-        text_out = await _service.summarize_transcript(
-            chat_id=chat_id, transcript=transcript)
+        scope = await _clock_snapshot(chat_id)
+        with _clock_scope(scope):
+            text_out = await _service.summarize_transcript(
+                chat_id=chat_id, transcript=transcript)
     except LLMBadResponseError:
         # Пустой ответ модели → 🗿-молчание (прецедент URL-ветки 65.1).
         logger.warning("[youtube] video-file empty answer — silence | chat=%s",
@@ -1082,8 +1110,10 @@ async def _publish_and_cascade(bot, chat_id: int, path: str,
         return None, None
     try:
         try:
-            text_out = await _service.summarize_media_url(
-                chat_id=chat_id, video_url=ticket.abs_url, label=label)
+            scope = await _clock_snapshot(chat_id)
+            with _clock_scope(scope):
+                text_out = await _service.summarize_media_url(
+                    chat_id=chat_id, video_url=ticket.abs_url, label=label)
         except VideoLevelError as exc:
             logger.warning("[video cascade] file L1/L2 unavailable — STT "
                            "fallback | label=%s | reason=%s", label, exc)
@@ -1196,8 +1226,11 @@ async def _process_url_media(bot, message: types.Message,
             if _service.video_client is not None and \
                     _service.video_client.available:
                 try:
-                    text_out = await _service.summarize_media_url(
-                        chat_id=chat_id, video_url=url, label=_LABEL_DIRECT)
+                    scope = await _clock_snapshot(chat_id)
+                    with _clock_scope(scope):
+                        text_out = await _service.summarize_media_url(
+                            chat_id=chat_id, video_url=url,
+                            label=_LABEL_DIRECT)
                 except VideoLevelError as exc:
                     logger.warning(
                         "[video cascade] direct-url L1/L2 failed → download | "
@@ -1592,13 +1625,15 @@ async def _process_youtube_summary(bot, message: types.Message,
                             "video_id=%r", message.chat.id, video_id)
                         return
             # ── Шаг C: субтитровый фолбэк (L3-only) ──
-            text_out = await _service.summarize_cascade(
-                video_id,
-                on_retry=_make_retry_notifier(bot, message.chat.id,
-                                              target.message_id),
-                chat_id=message.chat.id,
-                rag_query=text,
-            )
+            scope = await _clock_snapshot(message.chat.id)
+            with _clock_scope(scope):
+                text_out = await _service.summarize_cascade(
+                    video_id,
+                    on_retry=_make_retry_notifier(bot, message.chat.id,
+                                                  target.message_id),
+                    chat_id=message.chat.id,
+                    rag_query=text,
+                )
             await send_chunked_reply(bot, message.chat.id, text_out,
                                      target.message_id)
             _emit_summary(correlation_id, "delivered", message, target,

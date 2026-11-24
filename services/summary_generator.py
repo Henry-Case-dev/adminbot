@@ -4100,7 +4100,8 @@ class SummaryGenerator:
 
     async def _supervised_generate(self, messages: list[dict], *,
                                    correlation_id: str | None,
-                                   step: str) -> str:
+                                   step: str,
+                                   chat_id: int | None = None) -> str:
         """Один логический LLM-вызов Summary-генератора (T-4612, ADR-1028-8
         D5): при Supervisor ON — через LLMExecutionSupervisor (attempt-
         потолок ≤4 HTTP, watchdog, provider-fallback с capacity re-plan);
@@ -4109,11 +4110,12 @@ class SummaryGenerator:
         if _sup.supervisor_enabled():
             content, _usage = await _sup.execute_supervised(
                 self.llm, messages=messages, operation="legacy",
-                correlation_id=correlation_id, chat_id=None,
+                correlation_id=correlation_id, chat_id=chat_id,
                 module="summary", step=step)
             return content
         return await self.llm.generate(messages, module="summary", step=step,
-                                       correlation_id=correlation_id)
+                                       correlation_id=correlation_id,
+                                       chat_id=chat_id)
 
     async def _llm_generate(self, payload: list[dict], chat_id: int, *,
                             correlation_id: str | None = None,
@@ -4143,7 +4145,8 @@ class SummaryGenerator:
         try:
             async with typing_active(self.bot, chat_id):
                 raw = await self._supervised_generate(
-                    payload, correlation_id=correlation_id, step=step)
+                    payload, correlation_id=correlation_id, step=step,
+                    chat_id=chat_id)
         except LLMBadResponseError as exc:
             logger.warning(
                 "summary: empty answer — silence | chat_id=%s | error=%s",
@@ -4174,7 +4177,8 @@ class SummaryGenerator:
                 started = time.monotonic()   # latency_ms — только повторная попытка
                 async with typing_active(self.bot, chat_id):
                     raw = await self._supervised_generate(
-                        payload, correlation_id=correlation_id, step=step)
+                        payload, correlation_id=correlation_id, step=step,
+                        chat_id=chat_id)
             except LLMBadResponseError as exc:
                 # 65.1: пустой ответ на повторе — тоже молчание.
                 logger.warning(
@@ -4273,7 +4277,8 @@ class SummaryGenerator:
 
         async def _generate(messages):
             return await self._supervised_generate(
-                messages, correlation_id=correlation_id, step="stage2")
+                messages, correlation_id=correlation_id, step="stage2",
+                chat_id=chat_id)
 
         # F4 — Рассказчик отдаёт plain-text R11: маркированный список
         # («- …», «1. …») вне жанра → бракуем (правило F6, вторичное).

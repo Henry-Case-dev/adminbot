@@ -963,48 +963,27 @@ def resolve_timezone(chat_id: int | None, *,
                      tz_name: str | None = None,
                      tz_source: str | None = None,
                      strict: bool = False) -> tuple[str, str]:
-    """Имя TZ и источник. Нет настроенной зоны → UTC, source=utc_fallback.
+    """Имя TZ и источник из ЕДИНОГО ChatClock-резолвера (UR-25).
+
+    Делегирует в ``chat_clock.resolve_chat_timezone_sync``: та же
+    каноническая цепочка UR-24.3, что у ответов (per-chat canonical →
+    per-chat legacy → global → GOODMORNING_TZ → factory). Второй цепочки
+    здесь больше нет. Нет настроенной зоны → UTC, source=utc_fallback.
 
     ``strict=True`` (P0IM-S6-TZ, только витрина диагностики): сбой ЧТЕНИЯ
     слоя настроек не выдаётся за «зона не задана» — исключение уходит
     вызывающему, и тот честно показывает «неизвестно» вместо подставленного
-    UTC. Отсутствие настройки (ни чатовой, ни глобальной) — это факт, а не
-    сбой: и в строгом режиме возвращается ``utc_fallback``. Боевой путь
-    (`day_window`) остаётся fail-open и вызывает без ``strict``.
+    UTC. Отсутствие настройки — факт, а не сбой: и в строгом режиме
+    возвращается ``utc_fallback``. Боевой путь (`day_window`) остаётся
+    fail-open и вызывает без ``strict``.
     """
     if tz_name:
         return str(tz_name), str(tz_source or "explicit")
+    from services import chat_clock as _chat_clock
     try:
-        from services.canonical_context import resolve_timezone as _resolve
-        from services import hot_config as hot
-        from config.settings import settings
-        fallback = str(hot.get("limits.summary_timezone",
-                               getattr(settings, "SUMMARY_TIMEZONE", "")) or "")
-        global_tz = str(hot.get("limits.chat_timezone",
-                                getattr(settings, "CHAT_TIMEZONE", "")) or "")
-        chosen = global_tz
-        source = "global" if global_tz else ""
-        if chat_id is not None:
-            # MOD-ACL-UX-01 M2 (E-инвентарь): override читается единой
-            # синхронной точкой `chat_params.read_override_sync`, а не
-            # приватным `ChatParamsCache._items` этого модуля.
-            try:
-                from services import chat_params as _cp
-                override, found = _cp.read_override_sync(
-                    int(chat_id), "limits.chat_timezone")
-                if found and override:
-                    chosen = str(override)
-                    source = "chat"
-            except Exception:
-                # Строгий режим: нечитаемый чатовый слой НЕ означает «override
-                # отсутствует» — иначе витрина выдала бы глобальное значение за
-                # собственное значение чата.
-                if strict:
-                    raise
-        if not chosen:
-            return "UTC", "utc_fallback"
-        name = _resolve(chosen, fallback=fallback or "UTC")
-        return (name or "UTC"), (source or "utc_fallback")
+        name, source, _cv = _chat_clock.resolve_chat_timezone_sync(
+            chat_id, strict=strict)
+        return name, source
     except Exception:
         if strict:
             raise

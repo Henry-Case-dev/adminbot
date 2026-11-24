@@ -356,6 +356,25 @@ def _row_ts(row):
         return 0
 
 
+def _source_window_bounds(rows, source_window=None):
+    """(start_epoch, end_epoch) окна источников (UR-27.2).
+
+    Приоритет — durable SummarySourceWindow (window_from/to), иначе min/max
+    фактических timestamp строк. Нулевые/битые метки не создают окно.
+    Возвращает None, если окно неизвестно (не выдумываем границы)."""
+    start = getattr(source_window, "window_from", None)
+    end = getattr(source_window, "window_to", None)
+    if start is None or end is None:
+        stamps = [ts for ts in (_row_ts(r) for r in (rows or [])) if ts > 0]
+        if not stamps:
+            return None
+        start, end = min(stamps), max(stamps)
+    try:
+        return int(start), int(end)
+    except (TypeError, ValueError):
+        return None
+
+
 def _row_text(row):
     value = _row_get(row, "text")
     return "" if value is None else str(value)
@@ -961,7 +980,7 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                            segment_restore: bool = False,
                            _budget_label: str | None = None,
                            _map_mode: bool = False,
-                           ctx=None) -> L1Result:
+                           ctx=None, window=None) -> L1Result:
     """Overflow-путь §120/§125: полный source set → lossless partition →
     L1 по каждому фрагменту → детерминированный merge → L2 (вызывает
     вызывающий контур). Каждый source ID ≥1 primary chunk (§121);
@@ -991,8 +1010,15 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
     source_total = len(source_rows)
     # §127 (M-ASAP31-1 rework): окно прогона и overlap-дубликаты —
     # реальные значения (не заглушки).
-    window_start = min((_row_ts(r) for r in source_rows), default=None)
-    window_end = max((_row_ts(r) for r in source_rows), default=None)
+    window_start = getattr(window, "window_from", None) \
+        if not isinstance(window, tuple) else window[0]
+    window_end = getattr(window, "window_to", None) \
+        if not isinstance(window, tuple) else window[1]
+    if window_start is None or window_end is None:
+        window_start = min((_row_ts(r) for r in source_rows), default=None)
+        window_end = max((_row_ts(r) for r in source_rows), default=None)
+    run_window = (int(window_start), int(window_end)) \
+        if window_start is not None and window_end is not None else None
     if partitions is None:
         partitions, overlap_count = _partition_lossless(source_rows, chat_id,
                                                         limit, kind)
@@ -1004,7 +1030,8 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                             budget=(kind, limit),
                             system_prompt=system_prompt, llm_call=llm_call,
                             focus_block=focus_block, _allow_chunking=False,
-                            _map_mode=_map_mode, ctx=ctx)
+                            _map_mode=_map_mode, ctx=ctx,
+                            _window=run_window)
     results: list = []
     processed_ids: set = set()
     minimal_maps_used = 0
@@ -1018,7 +1045,7 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
             correlation_id=correlation_id, budget=(kind, limit),
             system_prompt=system_prompt, llm_call=llm_call,
             focus_block=focus_block, _allow_chunking=False,
-            _map_mode=_map_mode, ctx=ctx)
+            _map_mode=_map_mode, ctx=ctx, _window=run_window)
         if segment_restore and not result.usable:
             # A.3: восстановление сегмента — re-run ТОЛЬКО проблемного,
             # ровно одна restore-попытка (последовательный сегментный
@@ -1033,7 +1060,7 @@ async def _run_l1_lossless(*, llm, rows: list, chat_id, correlation_id,
                 correlation_id=correlation_id, budget=(kind, limit),
                 system_prompt=system_prompt, llm_call=llm_call,
                 focus_block=focus_block, _allow_chunking=False,
-                _map_mode=_map_mode, ctx=ctx)
+                _map_mode=_map_mode, ctx=ctx, _window=run_window)
             if retried.usable:
                 result = retried
         seg_failed = not result.usable
@@ -1329,7 +1356,8 @@ def _normalise_call_result(value):
     return str(value or ""), None
 
 
-async def _dedicated_generate(llm, messages, slot: L1Slot) -> tuple[str, dict]:
+async def _dedicated_generate(llm, messages, slot: L1Slot, *,
+                              chat_id=None) -> tuple[str, dict]:
     """Выделенный слот §82 через существующий транзитный канал LLMClient.
 
     Контракт S3: ``llm_client`` не переписывается (T-3266 — «только чтение
@@ -1340,6 +1368,13 @@ async def _dedicated_generate(llm, messages, slot: L1Slot) -> tuple[str, dict]:
     метод клиента — кандидат на S5 (врезка) отдельной санкцией.
     """
     payload = {"model": slot.model, "messages": messages}
+    # UR-26.7: dedicated-нога идёт мимо `generate` — явный часовой лог на
+    # транспортном шве (R17-safe; chat_id из контекста прогона).
+    from services import chat_clock as _cclock
+    _cclock.log_clock_call(
+        module=MODULE, step=STEP, chat_id=chat_id, messages=messages,
+        channel="dedicated",
+        skip_reason=("no_chat_id" if chat_id is None else "no_time_block"))
     try:
         response = await llm._post(  # noqa: SLF001 - документированный мост S3
             "/chat/completions", payload, api_key=slot.api_key,
@@ -1366,7 +1401,7 @@ async def _dedicated_generate(llm, messages, slot: L1Slot) -> tuple[str, dict]:
     return content, (data.get("usage") if isinstance(data, dict) else None)
 
 
-def _make_llm_call(llm, slot: L1Slot, correlation_id):
+def _make_llm_call(llm, slot: L1Slot, correlation_id, *, chat_id=None):
     """Собрать async-callable L1 (ровно один вызов на запуск).
 
     ASAP 4.1 волна 4 (T-4612, spec §4 D.1/D.2, ADR-1028-8 D5): при
@@ -1378,7 +1413,7 @@ def _make_llm_call(llm, slot: L1Slot, correlation_id):
     fallback с capacity re-plan решает Supervisor. Kill-switch OFF →
     прежний канал байт-в-бит 2.58.46."""
     wrapped = _supervise_call(llm, slot, correlation_id, operation="l1",
-                              module=MODULE, step=STEP)
+                              module=MODULE, step=STEP, chat_id=chat_id)
     if wrapped is not None:
         return wrapped
     if not slot.dedicated:
@@ -1388,7 +1423,7 @@ def _make_llm_call(llm, slot: L1Slot, correlation_id):
         return _call
 
     async def _call_dedicated(messages):
-        return await _dedicated_generate(llm, messages, slot)
+        return await _dedicated_generate(llm, messages, slot, chat_id=chat_id)
     return _call_dedicated
 
 
@@ -1399,14 +1434,15 @@ def _effective_model(llm, slot: L1Slot) -> str:
 
 
 def _supervise_call(llm, slot, correlation_id, *, operation: str,
-                    module: str | None = None, step: str | None = None):
+                    module: str | None = None, step: str | None = None,
+                    chat_id=None):
     """Точка врезки LLMExecutionSupervisor (ADR-1028-8 D5; kill-switch
     OFF → None = прежний канал байт-в-бит)."""
     try:
         from services import summary_llm_supervisor as _sup
         return _sup.make_wrapped(llm, slot, correlation_id,
                                  operation=operation, module=module,
-                                 step=step)
+                                 step=step, chat_id=chat_id)
     except Exception:      # pragma: no cover - врезка не рвёт канал
         logger.warning(
             "summary supervisor: wrap failed — legacy channel (байт-в-бит)",
@@ -1780,7 +1816,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                  _budget_label: str | None = None,
                  _legacy_fallback: bool = False,
                  _map_mode: bool = False,
-                 source_window=None, ctx=None) -> L1Result:
+                 source_window=None, ctx=None, _window=None) -> L1Result:
     """Один прогон L1: §92-вход → §93-упаковка → LLM-вызов(ы) → §95-v2.
 
     ``llm`` — LLMClient (или совместимый мок); ``llm_call`` — инъекция канала
@@ -1834,6 +1870,8 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
             source_window=source_window, ctx=ctx)
     slot = resolve_l1_slot()
     source_rows = list(rows or [])
+    run_window = _window if _window is not None \
+        else _source_window_bounds(source_rows, source_window)
     chunk_count = 0
     if llm_call is None and llm is None:
         return error_result(REASON_INTERNAL_ERROR, duration_ms=0.0)
@@ -1914,7 +1952,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                     system_prompt=system, llm_call=llm_call,
                     focus_block=focus_block, budget_mode=budget_mode,
                     started=started, slot=slot, partitions=partitions,
-                    overlap_count=overlap, ctx=ctx)
+                    overlap_count=overlap, ctx=ctx, window=run_window)
         # ── ASAP-3.1 §120/§128: переполнение → lossless chunking, НЕ drop.
         # Semantics «skipped=N из-за budget» как normal behavior не
         # существует: место «L1 truncated input» занимает chunked-статус.
@@ -1928,7 +1966,7 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                 correlation_id=correlation_id, kind=kind, limit=limit,
                 system_prompt=system, llm_call=llm_call,
                 focus_block=focus_block, budget_mode=budget_mode,
-                started=started, slot=slot, ctx=ctx)
+                started=started, slot=slot, ctx=ctx, window=run_window)
         # ASAP-2.1 (T-3986, раздел 4 spec): L1_CONTEXT_PACK после pack_l1_input
         # (замещает FILTER_*; R17 — только числа/id; текстов нет).
         # ASAP-3.1: +budget_mode (auto/manual_cap/legacy_static, §78).
@@ -1997,7 +2035,8 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                estimated_tokens=pack.estimated_tokens,
                chunk_count=pack.chunk_count, model=model, base_url=base_url,
                dedicated=slot.dedicated)
-    call = llm_call or _make_llm_call(llm, slot, correlation_id)
+    call = llm_call or _make_llm_call(llm, slot, correlation_id,
+                                      chat_id=chat_id)
     user_content = build_l1_user_content(
         pack.payload, chunk_count=pack.chunk_count,
         chunk_starts=pack.chunk_starts, anchor_map=anchor_map)
@@ -2016,7 +2055,8 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
         if chat_id is not None:
             _s1_snap = await _cclock.snapshot(chat_id)
             messages = _cclock.attach_time_context(
-                messages, _s1_snap, phase=_cclock.PHASE_PLAN)
+                messages, _s1_snap, phase=_cclock.PHASE_PLAN,
+                window=run_window)
     except Exception:      # pragma: no cover - fail-open honest
         logger.warning("[chat_clock] L1 time block skipped | chat=%s",
                        chat_id, exc_info=True)

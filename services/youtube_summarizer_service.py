@@ -26,11 +26,13 @@ summarize_cascade. `summarize_media_url` (L1→L2 по реальному URL) �
 изменений.
 """
 import asyncio
+import contextvars
 import logging
 import time
 from typing import Awaitable, Callable
 
 from config.settings import settings
+from services import chat_clock
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.prompt_composer import speech_owner_block
@@ -51,6 +53,39 @@ from services.youtube_transcript_engine import YouTubeTranscriptEngine
 
 logger = logging.getLogger(__name__)
 
+#: Task-local снапшот часов, открытый ХЕНДЛЕРОМ на границе пользовательского
+#: пересказа (UR-26.6). Tool-путь (tool_router) scope не открывает → блока в
+#: tool-результате нет (UR-25.6). Контекст задачи, не глобальное состояние:
+#: параллельные чаты не видят чужой снапшот.
+_REPLY_SNAPSHOT: contextvars.ContextVar = contextvars.ContextVar(
+    "youtube_reply_snapshot", default=None)
+
+
+def set_reply_snapshot(snapshot):
+    """Открыть clock-scope на один пользовательский вызов; вернуть token."""
+    return _REPLY_SNAPSHOT.set(snapshot)
+
+
+def reset_reply_snapshot(token) -> None:
+    """Закрыть clock-scope (обязательно в finally хендлера)."""
+    try:
+        _REPLY_SNAPSHOT.reset(token)
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+
+
+def current_reply_snapshot():
+    """Снапшот текущего пользовательского вызова (None → tool/unit-путь)."""
+    try:
+        return _REPLY_SNAPSHOT.get()
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+
+
+def _effective_snapshot(snapshot):
+    """Явный аргумент приоритетен; иначе — clock-scope хендлера."""
+    return snapshot if snapshot is not None else current_reply_snapshot()
+
 
 class YoutubeSummarizerService:
     """YouTube: субтитры → LLM-выжимка в токсичном стиле → cleanup."""
@@ -69,6 +104,8 @@ class YoutubeSummarizerService:
         on_retry: Callable[[int, int], Awaitable[None]] | None = None,
         chat_id: int | None = None,
         rag_query: str | None = None,
+        *,
+        snapshot: chat_clock.TimeSnapshot | None = None,
     ) -> str:
         """СУБТИТРОВЫЙ ФОЛБЭК (L3). Мультимодальный L1/L2 здесь БОЛЬШЕ НЕ
         выполняется: YouTube-страница (watch?v=) не является валидным
@@ -77,7 +114,8 @@ class YoutubeSummarizerService:
         summarize_media_url) ДО вызова этого метода. Возвращает текст
         выжимки; исключения движка/LLM — наружу (фразы у хендлера)."""
         return await self.summarize(video_id, on_retry=on_retry,
-                                    chat_id=chat_id, rag_query=rag_query)
+                                    chat_id=chat_id, rag_query=rag_query,
+                                    snapshot=snapshot)
 
     async def summarize(
         self,
@@ -85,6 +123,8 @@ class YoutubeSummarizerService:
         on_retry: Callable[[int, int], Awaitable[None]] | None = None,
         chat_id: int | None = None,
         rag_query: str | None = None,
+        *,
+        snapshot: chat_clock.TimeSnapshot | None = None,
     ) -> str:
         """R41-2/D156: on_retry пробрасывается в движок как есть
         (None — ретраи без уведомлений). Остальной пайплайн — 46.8/55.5."""
@@ -117,12 +157,21 @@ class YoutubeSummarizerService:
             f"<transcript>{escape_xml_text(transcript)}</transcript>"
         )
         started = time.monotonic()
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        # UR-26.6: пересказ видео — пользовательский ответ; снапшот с
+        # границы-хендлера (clock-scope) или явный аргумент. Tool-путь
+        # snapshot не передаёт и scope не открывает — в tool-результате
+        # второго блока нет (UR-25.6).
+        snapshot = _effective_snapshot(snapshot)
+        if snapshot is not None:
+            messages = chat_clock.attach_time_context(
+                messages, snapshot, phase=chat_clock.PHASE_ANSWER)
         raw = await self.llm.generate(
-            [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ]
-        )
+            messages, chat_id=chat_id, module="youtube_summarizer_service",
+            step="subtitles")
         logger.info(
             "youtube summarizer LLM OK | out_chars=%d | latency_ms=%.0f",
             len(raw), (time.monotonic() - started) * 1000.0,
@@ -134,7 +183,9 @@ class YoutubeSummarizerService:
         return raw
 
     async def summarize_transcript(self, *, chat_id: int,
-                                   transcript: str) -> str:
+                                   transcript: str,
+                                   snapshot: chat_clock.TimeSnapshot
+                                   | None = None) -> str:
         """Bugfix 04.09.2026 (Часть 1, FR-6): выжимка по расшифровке
         ЛОКАЛЬНОГО видео-файла (нативные TG-видео). Канон — тот же
         prompts.youtube_system_prompt (текстовая расшифровка). Возвращает
@@ -161,9 +212,17 @@ class YoutubeSummarizerService:
         user = ("<video_id>tg-file</video_id>\n\n"
                 f"<transcript>{escape_xml_text(capped)}</transcript>")
         started = time.monotonic()
-        raw = await self.llm.generate([
+        messages = [
             {"role": "system", "content": system},
-            {"role": "user", "content": user}])
+            {"role": "user", "content": user},
+        ]
+        snapshot = _effective_snapshot(snapshot)
+        if snapshot is not None:
+            messages = chat_clock.attach_time_context(
+                messages, snapshot, phase=chat_clock.PHASE_ANSWER)
+        raw = await self.llm.generate(
+            messages, chat_id=chat_id, module="youtube_summarizer_service",
+            step="local_file")
         logger.info(
             "youtube file-summary LLM OK | in_chars=%d out_chars=%d | "
             "latency_ms=%.0f", len(capped), len(raw),
@@ -175,7 +234,9 @@ class YoutubeSummarizerService:
         return raw
 
     async def summarize_media_url(self, *, chat_id: int, video_url: str,
-                                  label: str = "tg-file") -> str:
+                                  label: str = "tg-file",
+                                  snapshot: chat_clock.TimeSnapshot
+                                  | None = None) -> str:
         """Раунд 3 (3.2.1, T-689): L1→L2 мультимодального каскада по
         ПРОИЗВОЛЬНОМУ video_url (опубликованный файл / прямая ссылка).
         Субтитров (L3) нет — провал обеих моделей = VideoLevelError наружу
@@ -202,6 +263,18 @@ class YoutubeSummarizerService:
             system = f"{system}\n\n{owner_block}"
         user = (f"<video_id>{label}</video_id>\n\n"
                 "посмотри ролик по ссылке и перескажи, что в нём происходит.")
+        # UR-26.6/26.7: мультимодальная выжимка — пользовательский ответ.
+        # Блок часов ставится в user_text; транспортный шов
+        # `video_client.summarize` не логируется llm_client'ом, поэтому пишем
+        # наблюдаемость явно на каждой ноге (R17: только коды/числа).
+        snapshot = _effective_snapshot(snapshot)
+        if snapshot is not None:
+            user = chat_clock.append_time_block(
+                user, snapshot, phase=chat_clock.PHASE_ANSWER)
+        clock_messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
         last_reason = "file cascade empty"
         for level, key, settings_attr in (
                 ("L1", "models.video_primary_model", settings.VIDEO_PRIMARY_MODEL),
@@ -214,6 +287,12 @@ class YoutubeSummarizerService:
                     level, label)
                 continue
             started = time.monotonic()
+            chat_clock.log_clock_call(
+                module="youtube_summarizer_service", step="multimodal",
+                chat_id=chat_id, messages=clock_messages,
+                channel="multimodal",
+                skip_reason=("no_chat_id" if chat_id is None
+                             else "no_time_block"))
             try:
                 raw = await asyncio.wait_for(
                     self.video_client.summarize(

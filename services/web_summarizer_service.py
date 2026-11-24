@@ -15,6 +15,7 @@ import logging
 import time
 
 from config.settings import settings
+from services import chat_clock
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.prompt_composer import speech_owner_block
@@ -39,7 +40,8 @@ class WebSummarizerService:
         self.memory = memory
 
     async def summarize(self, url: str, chat_id: int | None = None,
-                        rag_query: str | None = None) -> str:
+                        rag_query: str | None = None, *,
+                        snapshot: chat_clock.TimeSnapshot | None = None) -> str:
         """1) markdown = await self.extractor.extract(url,
            settings.WEBPAGE_MAX_SYMBOLS)
         2) system = WEBPAGE_SYSTEM_PROMPT.replace("{max_symbols}",
@@ -76,12 +78,22 @@ class WebSummarizerService:
             f"{escape_xml_text(markdown)}\n</webpage>"
         )
         started = time.monotonic()
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        # UR-26.6: пересказ страницы — пользовательский ответ. Явный snapshot
+        # (хендлер/тесты) приоритетен; иначе ОДИН ChatClock-снапшот по
+        # chat_id. У сервиса нет технического tool-call-site; chat_id=None →
+        # блока нет (unit-вызов не выдумывает время).
+        if snapshot is None and chat_id is not None:
+            snapshot = await chat_clock.snapshot(chat_id)
+        if snapshot is not None:
+            messages = chat_clock.attach_time_context(
+                messages, snapshot, phase=chat_clock.PHASE_ANSWER)
         raw = await self.llm.generate(
-            [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ]
-        )
+            messages, chat_id=chat_id, module="web_summarizer_service",
+            step="page")
         logger.info(
             "web summarizer LLM OK | out_chars=%d | latency_ms=%.0f",
             len(raw), (time.monotonic() - started) * 1000.0,

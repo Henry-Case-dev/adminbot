@@ -477,6 +477,23 @@ def _bad_response(message: str):
     return LLMBadResponseError(message)
 
 
+def _log_transport_clock(*, messages, chat_id, module, step,
+                         channel: str) -> None:
+    """UR-26.7: часовой лог на транспортном шве Supervisor'а (dedicated/
+    stream/fallback), который идёт мимо `llm.generate`. R17-safe; никогда
+    не бросает и не влияет на вызов модели."""
+    try:
+        from services import chat_clock as _cclock
+        _cclock.log_clock_call(
+            module=str(module or "summary_supervisor"),
+            step=str(step or "supervised"), chat_id=chat_id,
+            messages=messages, channel=channel,
+            skip_reason=("no_chat_id" if chat_id is None
+                         else "no_time_block"))
+    except Exception:      # pragma: no cover - наблюдаемость не рвёт вызов
+        pass
+
+
 async def _primary_attempt(llm, state: SupervisedCallState, *, messages,
                            payload, slot, chat_id, module, step,
                            correlation_id, deadline: float):
@@ -507,6 +524,9 @@ async def _primary_attempt(llm, state: SupervisedCallState, *, messages,
         def _touch() -> None:
             state.last_activity_at = time.monotonic()
 
+        _log_transport_clock(messages=payload.get("messages") or messages,
+                             chat_id=chat_id, module=module, step=step,
+                             channel="stream")
         content, usage = await llm.stream_chat_completion(
             payload.get("messages") or messages, model=stream_model,
             api_key=stream_key, base_url=stream_base, timeout=deadline,
@@ -516,6 +536,9 @@ async def _primary_attempt(llm, state: SupervisedCallState, *, messages,
         return content, usage, stream_model
     contract = transport_contract(deadline)
     if slot is not None and bool(getattr(slot, "dedicated", False)):
+        _log_transport_clock(messages=payload.get("messages") or messages,
+                             chat_id=chat_id, module=module, step=step,
+                             channel="dedicated")
         response = await llm._post(  # noqa: SLF001 - документированный мост S3
             "/chat/completions", payload, api_key=slot.api_key,
             base_url=slot.base_url,
@@ -534,7 +557,7 @@ async def _primary_attempt(llm, state: SupervisedCallState, *, messages,
     # но с supervised transport-контрактом.
     content = await llm.generate(
         messages, module=module, step=step, correlation_id=correlation_id,
-        supervised_transport=contract)
+        chat_id=chat_id, supervised_transport=contract)
     # http_attempts — верхняя граница supervised-ноги (≤2); точный подсчёт
     # HTTP делает transport-тест (real attempt-count внутри _post).
     state.http_attempts += PRIMARY_MAX_HTTP
@@ -543,7 +566,8 @@ async def _primary_attempt(llm, state: SupervisedCallState, *, messages,
 
 
 async def _fallback_attempt(llm, state: SupervisedCallState, *, payload,
-                            primary_exc, deadline: float):
+                            primary_exc, deadline: float,
+                            chat_id=None):
     """Fallback-нога Supervisor'а (§27–§28): resolve fallback capacity →
     compare required input → вмещает → тот же whole-window task (≤2 HTTP:
     1 fallback + ≤1 transport-retry); не вмещает → НЕ отправлять oversized
@@ -597,6 +621,9 @@ async def _fallback_attempt(llm, state: SupervisedCallState, *, payload,
         LLMAuthError,
     )
     last_exc: BaseException | None = None
+    _log_transport_clock(messages=payload.get("messages") or (),
+                         chat_id=chat_id, module=None, step=state.operation,
+                         channel="fallback")
     for http_i in range(FALLBACK_MAX_HTTP):
         try:
             response = await llm._post_fallback(payload, timeout=deadline)
@@ -915,7 +942,8 @@ async def execute_supervised(llm, *, messages, operation: str,
                 _fallback_attempt(llm, state, payload=payload,
                                   primary_exc=primary_exc,
                                   deadline=min(deadline,
-                                               hard_deadline_seconds())),
+                                               hard_deadline_seconds()),
+                                  chat_id=chat_id),
                 state, mode=mode, attempt_deadline=max(
                     1.0, min(deadline, fuse - (time.perf_counter()
                                                - started))),
@@ -1069,12 +1097,15 @@ def recent_states() -> list[dict]:
 
 
 def make_wrapped(llm, slot, correlation_id, *, operation: str,
-                 module: str | None = None, step: str | None = None):
+                 module: str | None = None, step: str | None = None,
+                 chat_id=None):
     """Вернуть supervised-callable с контрактом ``call(messages) -> str |
     (str, usage)`` — либо None (supervisor OFF → прежний канал байт-в-бит).
 
     Точка интеграции — существующие ``_make_llm_call`` (кластеризатор/
-    writer/reviewer/revision) и ``_llm_generate``/narrator генератора."""
+    writer/reviewer/revision) и ``_llm_generate``/narrator генератора.
+    ``chat_id`` — аддитивный проброс из контекста прогона: нужен для
+    наблюдаемости часов (UR-26.7) на dedicated/stream ногах."""
     if not supervisor_enabled():
         return None
 
@@ -1082,7 +1113,7 @@ def make_wrapped(llm, slot, correlation_id, *, operation: str,
         return await execute_supervised(
             llm, messages=list(messages or []), operation=operation,
             correlation_id=correlation_id,
-            chat_id=None,
+            chat_id=chat_id,
             module=module, step=step,
             slot=slot)
 
