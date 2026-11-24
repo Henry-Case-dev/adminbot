@@ -122,7 +122,9 @@
   // Неизвестный код показывается как есть с честной пометкой «причина не
   // описана»; перевод не выдумывается.
   var QRNG_SWITCH_REASON_RU = {
-    adapter_not_implemented: 'адаптер не реализован',
+    // QRNG UI-08..10 (25.11.2026): без служебной терминологии на основном
+    // экране; сырой код остаётся в раскрываемой диагностике.
+    adapter_not_implemented: 'источник ещё не подключён',
     provider_unconfigured: 'источник не настроен',
     provider_unavailable: 'источник недоступен',
     auth_failed: 'ключ отклонён (401/403)',
@@ -137,7 +139,7 @@
     scheme_not_allowed: 'схема адреса не разрешена',
     random_fallback: 'переход на локальный источник',
     no_eligible_alternative: 'нет допустимой альтернативы',
-    no_adapter: 'адаптер провайдера не реализован',
+    no_adapter: 'источник ещё не подключён',
     circuit_open: 'предохранитель LfDR открыт',
     job_in_progress: 'IBM job уже выполняется',
     config_changed: 'конфигурация изменена',
@@ -12981,6 +12983,7 @@
                    stateLabel: 'нет данных', stateCls: 'badge-muted',
                    effectiveLabel: '—', primaryLabel: '—',
                    primaryRaw: '', primaryState: '', reserveText: '—',
+                   bufferMax: null, watermark: null,
                    effectiveProvider: null, entropyClass: null,
                    providers: [], lastBatch: null, draws: null,
                    fallbackReason: null, fallbackAt: null,
@@ -13044,6 +13047,7 @@
           reserve: v.reserve,
           reserveText: (v.reserve == null) ? '—' : String(v.reserve),
           bufferMax: v.bufferMax,
+          watermark: v.watermark,
           reserveQuarantined: v.reserveQuarantined || 0,
           providers: Array.isArray(v.providersList) ? v.providersList : [],
           providerReserve: v.providerReserve || {},
@@ -25738,6 +25742,10 @@
       moduleStateChips: function (m) {
         // D3: can_read=false → ни одного значения состояния (только отказ).
         if (this.modulePermissions(m).can_read === false) return [];
+        // QRNG UI-08..10: на «Случайности» состояние источника/резерва уже
+        // показано в основном экране раздела; 5 общих осей + QRNG-чипы в
+        // шапке дублировали одну конфигурацию и читались как инспектор.
+        if (m && m.id === 'mod_random') return [];
         var st = this.moduleStateAxes(m);
         if (!st || st.desired === null || st.desired === undefined) {
           return (m && m.noToggle) ? [] : [{
@@ -32982,6 +32990,8 @@
           base = this.randomEffectiveFallbackValue();
           if (!base.length) base = this.randomFactoryFallbackValue();
         } else if (st.state === 'set') {
+          // Явная сохранённая строка — включая пустую — это решение
+          // пользователя; она не подменяется effective/заводской цепочкой.
           base = this.randomSavedFallbackValue();
         } else if (st.state === 'requires_resolution') {
           base = this.randomEffectiveFallbackValue();
@@ -32992,10 +33002,14 @@
             ? effective : this.randomFactoryFallbackValue();
         }
         // Провайдер, входящий в effective chain, не может быть «не в
-        // резерве» из-за расхождения с сохранённой строкой.
-        this.randomEffectiveFallbackValue().forEach(function (id) {
-          if (id !== primary && base.indexOf(id) < 0) base.push(id);
-        });
+        // резерве» из-за расхождения с сохранённой строкой. Для явной
+        // сохранённой строки (в т.ч. пустой) состав контрола — ровно
+        // сохранённое решение; runtime-цепочка остаётся в диагностике.
+        if (st.state !== 'set') {
+          this.randomEffectiveFallbackValue().forEach(function (id) {
+            if (id !== primary && base.indexOf(id) < 0) base.push(id);
+          });
+        }
         return base.filter(function (id, idx, arr) {
           return QRNG_PROVIDERS.indexOf(id) >= 0 && id !== primary
             && arr.indexOf(id) === idx;
@@ -33105,6 +33119,132 @@
           fallbackEnabled: this.randomFallbackOn(),
         };
       },
+      // QRNG UI-08..10: одна короткая подпись происхождения основного
+      // источника. Значение контрола и есть заводское/сохранённое значение;
+      // параллельные строки «заводское/сохранённое/действующее» не нужны.
+      randomPrimaryHint: function () {
+        var setting = this.randomPrimarySettingView();
+        if (setting.invalid) {
+          return 'Сохранённое значение не действует — выберите источник из списка.';
+        }
+        return setting.inherited ? 'По умолчанию' : 'Выбрано вручную';
+      },
+      // QRNG UI-08..10: наследование заводского порядка и намеренное
+      // отключение резерва — разные состояния (не «не в резерве»).
+      randomFallbackStateChip: function () {
+        var st = this.randomFallbackOrderState();
+        var setting = this.randomPrimarySettingView();
+        if (!this.randomFallbackOn()) {
+          return { label: 'резерв отключён', cls: 'badge-muted' };
+        }
+        if (setting.invalid || st.state === 'requires_resolution') {
+          return { label: 'не применяется', cls: 'badge-warn' };
+        }
+        if (st.state === 'set') {
+          if (!this.randomSavedFallbackValue().length) {
+            return { label: 'сохранено пустым', cls: 'badge-warn' };
+          }
+          return { label: 'сохранено вручную', cls: 'badge-info' };
+        }
+        return { label: 'по умолчанию', cls: 'badge-info' };
+      },
+      // Пояснение только для неоднозначных состояний: явное решение владельца
+      // (пустой резерв/выключенный резерв) не выдаётся за заводскую цепочку.
+      randomFallbackNote: function () {
+        var st = this.randomFallbackOrderState();
+        var setting = this.randomPrimarySettingView();
+        if (!this.randomFallbackOn()) {
+          return 'Резерв отключён вручную: при недоступности основного '
+            + 'источника переключения не будет.';
+        }
+        if (setting.invalid || st.state === 'requires_resolution') {
+          return 'Резерв не применяется, пока основной источник требует '
+            + 'разрешения; показан действующий порядок.';
+        }
+        if (st.state === 'set' && !this.randomSavedFallbackValue().length) {
+          return setting.inherited
+            ? 'Сохранён пустой резерв; основной источник наследуется, '
+              + 'поэтому сейчас действует заводская цепочка. Отметьте '
+              + 'источники и сохраните, чтобы зафиксировать свой порядок.'
+            : 'Сохранён пустой резерв: переключений не будет.';
+        }
+        if (st.state === 'absent') {
+          return 'Показан заводской порядок; изменения сохраняются как ваш выбор.';
+        }
+        return 'Сохранён ваш порядок резерва.';
+      },
+      randomFallbackRawText: function () {
+        var st = this.randomFallbackOrderState();
+        if (st.raw === null || st.raw === undefined) {
+          return 'нет строки (наследуется)';
+        }
+        try { return JSON.stringify(st.raw); } catch (e) {
+          return String(st.raw);
+        }
+      },
+      // QRNG UI-08..10: «сейчас используется» + человеческая причина
+      // переключения. Сырые коды и время последнего fallback — в диагностике.
+      randomNowView: function () {
+        var act = this.randomActivityView || {};
+        var empty = { sourceLabel: 'нет данных', reasonLabel: '',
+                      reasonCls: 'badge-muted', timeLabel: '—' };
+        if (!act.ready) return empty;
+        if (!act.enabled) {
+          return { sourceLabel: 'выключено', reasonLabel: 'новых значений нет',
+                   reasonCls: 'badge-muted', timeLabel: '—' };
+        }
+        var last = this.randomLastSwitchView();
+        var lastLabel = last && last.code ? last.label : '';
+        var lastTime = last && last.code ? last.timeLabel : '—';
+        if (act.effectiveProvider) {
+          var isPrimary = act.effectiveProvider === this.randomPrimaryValue();
+          if (isPrimary) {
+            return { sourceLabel: qrngProviderLabel(act.effectiveProvider),
+                     reasonLabel: 'основной источник доступен',
+                     reasonCls: 'badge-ok', timeLabel: '—' };
+          }
+          var reason = act.fallbackReason
+            ? this.randomSwitchReasonLabel(act.fallbackReason) : lastLabel;
+          return { sourceLabel: qrngProviderLabel(act.effectiveProvider),
+                   reasonLabel: reason || 'резервный источник',
+                   reasonCls: 'badge-warn', timeLabel: lastTime };
+        }
+        if (act.prngActive) {
+          return { sourceLabel: 'псевдослучайный (локальный)',
+                   reasonLabel: act.fallbackReason
+                     ? this.randomSwitchReasonLabel(act.fallbackReason)
+                     : (lastLabel || 'квантовый источник недоступен'),
+                   reasonCls: 'badge-warn', timeLabel: lastTime };
+        }
+        return { sourceLabel: 'нет доступного источника',
+                 reasonLabel: act.fallbackReason
+                   ? this.randomSwitchReasonLabel(act.fallbackReason) : lastLabel,
+                 reasonCls: 'badge-err', timeLabel: lastTime };
+      },
+      // Компактная таблица провайдеров: разрешён/проверен/используется —
+      // разные признаки. Наличие ключа/CRN не выдаётся за проверку.
+      randomProviderMainRows: function () {
+        var self = this;
+        var act = this.randomActivityView || {};
+        var shortLabels = {
+          no_data: 'нет данных',
+          unconfigured: 'не настроен',
+          saved_unverified: 'не проверено',
+          checked: 'проверено',
+          measured: 'проверено',
+          unavailable: 'недоступен',
+          disabled: 'выключен',
+          checking: 'проверка…',
+          smoke_running: 'проверка…',
+        };
+        return QRNG_PROVIDERS.map(function (id) {
+          var row = self.randomProviderSummary(id);
+          return Object.assign({}, row, {
+            stateLabel: shortLabels[row.stateKey] || row.stateLabel,
+            used: !!(act.effectiveProvider && act.effectiveProvider === id),
+          });
+        });
+      },
       // Упорядоченный список: сначала включённые в резерв (в сохранённом/
       // заводском/черновом порядке), затем исключённые — в каноническом
       // порядке провайдеров. Основной источник в резерв не входит.
@@ -33117,9 +33257,10 @@
         var included = this.randomFallbackBaseValue().filter(function (id) {
           return id !== primary;
         });
-        if (!editing) {
+        if (!editing && st.state !== 'set') {
           // Даже при рассинхронизации DTO effective-провайдер остаётся
-          // резервным и не получает ложный badge «не в резерве».
+          // резервным и не получает ложный badge «не в резерве». Для явной
+          // сохранённой строки контрол показывает решение пользователя.
           effective.forEach(function (id) {
             if (id !== primary && included.indexOf(id) < 0) included.push(id);
           });

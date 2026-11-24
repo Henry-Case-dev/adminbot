@@ -231,17 +231,26 @@ function count(text, needle) {
   assert.strictEqual(ov.savedHint, 'сохранён пустой; действует заводская цепочка',
     'пустая строка при наследуемом primary не выдаётся за выключенный резерв');
   assert.strictEqual(ov.effectiveLabel, label('anu') + ' → ' + label('lfdr'));
-  assert.deepStrictEqual(methods.randomFallbackBaseValue.call(ctx),
-    ['anu', 'lfdr'], 'редактор инициализирован действующей цепочкой');
+  assert.strictEqual(methods.randomFallbackStateChip.call(ctx).label,
+    'сохранено пустым', 'явное пустое решение видно на основном экране');
+  assert(methods.randomFallbackNote.call(ctx)
+    .indexOf('действует заводская цепочка') >= 0,
+    'runtime-подмена объяснена, а не скрыта');
+  assert.deepStrictEqual(methods.randomFallbackBaseValue.call(ctx), [],
+    'контрол показывает явное пустое решение, а не runtime-цепочку');
   const rows = methods.randomFallbackRows.call(ctx);
-  assert.strictEqual(row(rows, 'anu').enabled, true);
-  assert.strictEqual(row(rows, 'lfdr').enabled, true);
-  assert.strictEqual(row(rows, 'anu').statusLabel, 'действует');
+  assert.strictEqual(row(rows, 'anu').enabled, false,
+    'ANU не выглядит выбранным пользователем');
+  assert.strictEqual(row(rows, 'lfdr').enabled, false,
+    'LfDR не выглядит выбранным пользователем');
+  assert.strictEqual(row(rows, 'anu').effective, true);
+  assert.strictEqual(row(rows, 'anu').statusLabel, 'в цепочке',
+    'runtime-цепочка честно помечена отдельно от решения');
   assert(!rows.some(function (r) { return r.statusLabel === 'не в резерве'; }),
     'live-случай [] не помечает ANU/LfDR «не в резерве»');
   methods.randomFallbackToggleDraft.call(ctx, 'anu', true);
-  assert.deepStrictEqual(ctx.randomFallbackDraft, ['lfdr', 'anu'],
-    'включение ANU из live [] сохраняет LfDR в черновике');
+  assert.deepStrictEqual(ctx.randomFallbackDraft, ['anu'],
+    'включение ANU из явного пустого решения не выдумывает LfDR');
 }
 
 // ── (b) опасный toggle из «пустого» состояния: LfDR не выбрасывается ──────
