@@ -1,0 +1,68 @@
+{
+  "recorded_at": "2026-11-24",
+  "candidate_commit": "aec594fa763e5244d57c8b760be4eebb742f794a",
+  "tools": ["Playwright", "Browser Use"],
+  "source": "real web/index.html + web/app.js; local static server with honest /api/* stubs",
+  "live_tma": false,
+  "live_note": "production /api/status requires Telegram initData; no owner token was available",
+  "viewports": ["1440x900", "1280x800", "390x844", "320x700"],
+  "reduced_motion": "Playwright emulateMedia({reducedMotion:'reduce'})",
+  "mock_shape": {
+    "config": "real param catalog + target values + effective_meta; modules=registry_for_frontend()",
+    "turn_diagnostics": "UR-F turn fixture with selection.counts/budget/blocks/dropped",
+    "context_diagnostics": "available=true; recent_verbatim_messages=12; output_reserve=12800; excluded_low_priority=2"
+  },
+  "pages": {
+    "direct-limits": {
+      "no_overflow": true,
+      "fill_ratio_visible": false,
+      "legacy_badge": "legacy",
+      "legacy_numeric_disabled": true,
+      "active_limit_enabled": true,
+      "labels": {
+        "chat_global_context_limit": "Сколько последних сообщений читать первично",
+        "global_context_max_chars": "Legacy-потолок фона (символов, только чтение)",
+        "ttl": "TTL хранения конспекта (технический), минут",
+        "map_hours": "Период карты имён (вспомогательная), часов",
+        "thread_depth": "Глубина ветки для чтения (сообщений)",
+        "budget_ratio": "Legacy-доля: MAP (только чтение)"
+      },
+      "used_vs_setting": "Настройка первичного чтения: 200 сообщ. · фактически использовано: 12 · резерв вывода: 12 800 токенов · сокращено: 2 сообщ.",
+      "summary_trigger": "Конспект обновляется по вытесняемому содержанию и watermark, а не по порогу заполнения окна."
+    },
+    "direct-inspector": {
+      "no_overflow": true,
+      "used_vs_setting": "настройка 200 · доступно 25 · в окне 40 · вошло 12",
+      "thread_depth": "настройка глубины 6 · в трассе ≥3 сообщ.",
+      "reserve": "фактически 12 800 токенов · настройка доли 0.1 · доступно контексту 110 000",
+      "coverage": "TTL хранения 60 мин (технический) · в окне 40 сообщ. · есть реплики после конспекта",
+      "reduction": "не поместилось в окно модели (budget_exceeded) · 3 шт.",
+      "identity": "Авторство и алиас — по UID; карта имён — вспомогательная подсказка, не авторитетнее reply-source."
+    },
+    "budgets-limits": {
+      "no_overflow": true,
+      "compat_label": true,
+      "legacy_numeric_disabled": true,
+      "fill_ratio_visible": false
+    },
+    "memory-rag": {
+      "no_overflow": true,
+      "summary_max_label": true,
+      "summary_hours_label": true,
+      "fill_ratio_visible": false
+    }
+  },
+  "measurements": {
+    "1440x900": {"clientWidth": 1425, "scrollWidth": 1425, "no_overflow": true},
+    "1280x800": {"clientWidth": 1265, "scrollWidth": 1265, "no_overflow": true},
+    "390x844": {"clientWidth": 390, "scrollWidth": 390, "no_overflow": true},
+    "320x700": {"clientWidth": 320, "scrollWidth": 320, "no_overflow": true}
+  },
+  "page_errors": [],
+  "console_errors": [],
+  "notes": [
+    "desktop 15px difference is the classic scrollbar; documentElement.scrollWidth == clientWidth",
+    "Browser Use injected error/unhandledrejection/console.error collectors before navigation; remained empty",
+    "no screenshots committed; measurements are recorded here"
+  ]
+}
