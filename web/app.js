@@ -1899,6 +1899,171 @@
         + 'серии на весь чат. При выключенном лимите частоты режим '
         + 'не действует. Заводской выбор — «Для каждого пользователя».'),
     },
+    // ── UI-21 (UR-21.02–21.18 + UI-часть UR-12.1/12.4): честные подписи
+    // существующих параметров. Δ каталога/значений = 0; витрина объясняет
+    // фактическую роль, не выдаёт legacy/технические поля за «память».
+    'limits.chat_global_context_limit': {
+      title: 'Сколько последних сообщений читать первично',
+      description: ('Мягкая граница первичного чтения фона: сколько последних '
+        + 'сообщений бот просматривает в первую очередь. Это не «память '
+        + '200» и не потолок поиска: старые релевантные сообщения могут '
+        + 'добираться отдельным каналом. Сколько реально вошло — в '
+        + 'инспекторе хода.'),
+    },
+    'limits.summary_max_window_messages': {
+      title: 'Граница первичной выборки сводки (сообщений)',
+      description: ('Сколько сообщений максимум берётся в одну первичную '
+        + 'выборку для сводки. Это граница чтения/пагинации и свежий '
+        + 'хвост, а не источник истины для всей памяти: более старые '
+        + 'сведения живут отдельно.'),
+    },
+    'limits.summary_window_hours': {
+      title: 'Граница первичной выборки сводки (часов)',
+      description: ('За какой период берётся первичная выборка для сводки. '
+        + 'Это окно чтения/пагинации, а не срок жизни памяти; более '
+        + 'старые сведения не удаляются этим окном.'),
+    },
+    'limits.chat_global_context_max_chars': {
+      title: 'Legacy-потолок фона (символов, только чтение)',
+      description: ('Устаревший отдельный потолок размера фона. В активном '
+        + 'пути единый allocator сам распределяет контекст; значение '
+        + 'сохранено для совместимости и здесь не редактируется.'),
+    },
+    'limits.chat_global_context_max_tokens': {
+      title: 'Compat-профиль фона (только чтение)',
+      description: ('Совместимость со старым профилем фона. В Dynamic отбор '
+        + 'идёт по ёмкости модели и единому allocator, а не по этому '
+        + 'отдельному потолку. Значение сохранено, но не редактируется.'),
+    },
+    'limits.chat_thread_max_tokens': {
+      title: 'Compat-профиль ветки (только чтение)',
+      description: ('Совместимость со старым профилем ветки. В Dynamic '
+        + 'ветка выбирается по связям и ёмкости; отдельный потолок не '
+        + 'редактируется.'),
+    },
+    'limits.chat_thread_max_chars': {
+      title: 'Legacy-потолок ветки (символов, только чтение)',
+      description: ('Устаревший посимвольный потолок ветки. Ветка '
+        + 'выбирается по связям, целостности и ёмкости; значение '
+        + 'сохранено для совместимости и не редактируется.'),
+    },
+    'limits.chat_thread_max_depth': {
+      title: 'Глубина ветки для чтения (сообщений)',
+      description: ('Сколько сообщений reply-ветки бот видит в ответе. '
+        + 'Ветка выбирается по связям, целостности и ёмкости, а не '
+        + 'посимвольным срезом. Фактическая глубина — в инспекторе хода.'),
+    },
+    'limits.chat_branch_context_hops': {
+      title: 'Внутренний safety-лимит reply-цепи (debug)',
+      description: ('Служебный предел глубины завершённой reply-цепи. Это '
+        + 'не пользовательская настройка «ровно 3 хода»; обычный ответ '
+        + 'выбирает цепь по связям и целостности. Обычно не трогать.'),
+    },
+    'limits.chat_context_fill_ratio': {
+      title: 'Порог заполнения окна (снято)',
+      description: ('Не используется как триггер конспекта: обновление идёт '
+        + 'по вытесняемому содержанию и watermark. Поле скрыто из '
+        + 'пользовательской настройки, значение сохранено для совместимости.'),
+    },
+    'limits.chat_running_summary_tail': {
+      title: 'Внутренний хвост сборки конспекта (debug)',
+      description: ('Сколько последних сообщений дословно добавить в запрос '
+        + 'сборки конспекта. Это внутренний fallback сборки, а не '
+        + 'ограничение сознания L1/L2.'),
+    },
+    'limits.chat_level2_min_raw_count': {
+      title: 'Legacy-порог широкого фона (не качество)',
+      description: ('Раньше использовался как порог сжатия. Сейчас широкий '
+        + 'фон продвигается по watermark и непокрытому диапазону; '
+        + 'значение не влияет на качество ответа и только читается.'),
+    },
+    'limits.chat_level2_max_chars': {
+      title: 'Legacy-потолок широкого фона (символов)',
+      description: ('Устаревший независимый срез широкого фона; активный '
+        + 'путь режет единый allocator. Причина сокращения видна в '
+        + 'инспекторе хода; значение только читается.'),
+    },
+    'limits.running_summary_ttl_minutes': {
+      title: 'TTL хранения конспекта (технический), минут',
+      description: ('Технический срок хранения бегущего конспекта. Это не '
+        + '«время жизни памяти» и не обещание «забыть через час»: '
+        + 'актуальность определяется покрытием и watermark. Охват и '
+        + 'новые реплики видны в инспекторе хода.'),
+    },
+    'limits.chat_map_participants_hours': {
+      title: 'Период карты имён (вспомогательная), часов',
+      description: ('За сколько часов считается карта активных участников. '
+        + 'Это подсказка: авторство и алиас держатся по UID, карта не '
+        + 'авторитетнее reply-source и не заменяет идентичность.'),
+    },
+    'limits.chat_budget_map_ratio': {
+      title: 'Legacy-доля: MAP (только чтение)',
+      description: ('Совместимость со старым распределением. В Dynamic '
+        + 'интеллект распределяется по ёмкости, а не фиксированной долей; '
+        + 'значение влияет только на legacy/fail-open.'),
+    },
+    'limits.chat_budget_global_ratio': {
+      title: 'Legacy-доля: Global (только чтение)',
+      description: ('Совместимость со старым распределением. В Dynamic '
+        + 'действует единый allocator; фиксированная доля не распределяет '
+        + 'интеллект и только читается.'),
+    },
+    'limits.chat_budget_thread_ratio': {
+      title: 'Legacy-доля: Thread (только чтение)',
+      description: ('Совместимость со старым распределением. В Dynamic '
+        + 'ветка получает место по ёмкости и приоритету, а не по этой '
+        + 'доле; значение только читается.'),
+    },
+    'limits.chat_budget_rag_ratio': {
+      title: 'Legacy-доля: память (только чтение)',
+      description: ('Совместимость со старым распределением. В Dynamic '
+        + 'память конкурирует по релевантности и ёмкости; фиксированная '
+        + 'доля не распределяет интеллект и только читается.'),
+    },
+    'limits.chat_budget_branch_ratio': {
+      title: 'Legacy-доля: Branch (только чтение)',
+      description: ('Совместимость со старым распределением. В Dynamic '
+        + 'итог ветки получает место по связям и ёмкости; доля только '
+        + 'читается.'),
+    },
+    'limits.chat_budget_target_ratio': {
+      title: 'Legacy-доля: Target (только чтение)',
+      description: ('Совместимость со старым распределением. В Dynamic '
+        + 'целевое сообщение сохраняется по приоритету, а не по этой '
+        + 'доле; значение только читается.'),
+    },
+    'limits.chat_budget_anchors_ratio': {
+      title: 'Legacy-доля: Anchors (снято)',
+      description: ('Блока стилевых якорей больше нет: делить контекст '
+        + 'не на что. Значение сохранено для совместимости и скрыто.'),
+    },
+    'limits.chat_budget_reserve_ratio': {
+      title: 'Технический резерв вывода (доля окна)',
+      description: ('Доля окна, зарезервированная под ответ. Фактический '
+        + 'резерв считается в capacity и виден в инспекторе хода; это не '
+        + 'срок жизни памяти. Обычно не трогать.'),
+    },
+  };
+  // UI-21: presentation-флаги сверх title/description. Значения/ключи/
+  // override не меняются; legacy-пометки приходят из item.eff.
+  var UI21_ITEM_UI = {
+    'limits.chat_context_fill_ratio': { hidden: true },
+    'limits.chat_global_context_max_chars': { advanced: true, readonly: true },
+    'limits.chat_global_context_max_tokens': { advanced: true, readonly: true },
+    'limits.chat_thread_max_tokens': { advanced: true, readonly: true },
+    'limits.chat_thread_max_chars': { advanced: true, readonly: true },
+    'limits.chat_running_summary_tail': { advanced: true },
+    'limits.chat_level2_min_raw_count': { advanced: true, readonly: true },
+    'limits.chat_level2_max_chars': { advanced: true, readonly: true },
+    'limits.chat_branch_context_hops': { advanced: true },
+    'limits.chat_budget_map_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_global_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_thread_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_rag_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_branch_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_target_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_anchors_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_reserve_ratio': { advanced: true },
   };
   // B01.4: виджет профиля частоты (ключ каталога — str; select добавляет
   // витрина). Значения — канон резолвера initiative_observer.
@@ -14994,6 +15159,7 @@
       _syntheticGroup: function (category, gid) {
         var q = (this.configSearch || '').trim().toLowerCase();
         var items = this.configItems.filter(function (it) {
+          if (it.__uiHidden) return false;
           if (it.category !== category || it.group !== gid) return false;
           if (!q) return true;
           return (it.title || '').toLowerCase().indexOf(q) >= 0
@@ -20979,6 +21145,149 @@
         return parts.length
           ? ('запись сокращена — ' + parts.join('; '))
           : 'запись сокращена при сохранении трассы';
+      },
+      // ═══ UI-21 (UR-21.02/06/11/12/12.4/18): used-vs-setting, фактическая
+      // глубина, покрытие/watermark и причина сокращения — ТОЛЬКО из уже
+      // загруженных полей turnDiag/selection/config. Нет данных — словом,
+      // не нулём и не выдуманным статусом.
+      ur21SettingText: function (key) {
+        var item = this.configItemByKey(key);
+        if (!item || item.value == null || item.value === '') {
+          return 'нет данных';
+        }
+        return String(item.value);
+      },
+      ur21UsedVsSettingLine: function () {
+        var selection = this.turnDiag && this.turnDiag.selection;
+        var counts = selection && selection.counts;
+        var setting = this.ur21SettingText(
+          'limits.chat_global_context_limit');
+        var available = counts
+          ? turnNumText(counts.available_messages) : '';
+        var windowN = counts ? turnNumText(counts.window_messages) : '';
+        var included = counts
+          ? turnNumText(counts.included_messages) : '';
+        return 'Первичное чтение: настройка ' + setting
+          + ' · доступно ' + (available || 'нет данных')
+          + ' · в окне ' + (windowN || 'нет данных')
+          + ' · вошло ' + (included || 'нет данных');
+      },
+      ur21ThreadDepthLine: function () {
+        var selection = this.turnDiag && this.turnDiag.selection;
+        var blocks = (selection && Array.isArray(selection.blocks))
+          ? selection.blocks : [];
+        var thread = null;
+        blocks.forEach(function (block) {
+          if (!thread && block && (
+            String(block.kind) === 'thread'
+            || String(block.kind) === 'reply_branch')) {
+            thread = block;
+          }
+        });
+        var depth = null;
+        if (thread && Array.isArray(thread.source_ids)) {
+          depth = thread.source_ids.length;
+        }
+        var prefix = '';
+        if (depth != null && (selection.truncated === true || depth >= 8)) {
+          prefix = '≥';
+        }
+        var setting = this.ur21SettingText(
+          'limits.chat_thread_max_depth');
+        return 'Ветка: настройка глубины ' + setting
+          + ' · в трассе ' + (depth == null
+            ? 'нет данных' : (prefix + depth + ' сообщ.'));
+      },
+      ur21ReserveLine: function () {
+        var selection = this.turnDiag && this.turnDiag.selection;
+        var budget = selection && selection.budget;
+        var reserve = budget ? turnNumText(budget.output_reserve) : '';
+        var available = budget ? turnNumText(budget.available) : '';
+        var setting = this.ur21SettingText(
+          'limits.chat_budget_reserve_ratio');
+        return 'Резерв вывода: фактически '
+          + (reserve || 'нет данных') + ' токенов'
+          + ' · настройка доли ' + setting
+          + ' · доступно контексту ' + (available || 'нет данных');
+      },
+      ur21SummaryCoverageLine: function () {
+        var selection = this.turnDiag && this.turnDiag.selection;
+        var blocks = (selection && Array.isArray(selection.blocks))
+          ? selection.blocks : [];
+        var head = null;
+        var tail = null;
+        blocks.forEach(function (block) {
+          if (!block) return;
+          if (!head && String(block.kind) === 'global_head') head = block;
+          if (!tail && String(block.kind) === 'global_tail') tail = block;
+        });
+        var coverage = head ? this.turnBlockDates(head) : '';
+        var ttl = this.ur21SettingText(
+          'limits.running_summary_ttl_minutes');
+        var counts = selection && selection.counts;
+        var windowN = counts ? turnNumText(counts.window_messages) : '';
+        var newer = 'наличие новых реплик: нет данных';
+        if (head && tail && head.last_ts && tail.first_ts) {
+          newer = Number(tail.first_ts) > Number(head.last_ts)
+            ? 'есть реплики после конспекта'
+            : 'новых реплик в трассе нет';
+        } else if (head || tail) {
+          newer = 'даты для сравнения не зафиксированы';
+        }
+        return 'Конспект: покрытие ' + (coverage || 'нет данных')
+          + ' · TTL хранения ' + ttl + ' мин (технический)'
+          + ' · в окне ' + (windowN || 'нет данных') + ' сообщ.'
+          + ' · ' + newer;
+      },
+      ur21ReductionLine: function () {
+        var selection = this.turnDiag && this.turnDiag.selection;
+        var dropped = (selection && Array.isArray(selection.dropped))
+          ? selection.dropped : [];
+        if (dropped.length) {
+          var first = dropped[0] || {};
+          var line = 'Сокращение: ' + (first.reason_code
+            ? turnCodeText('drop_reason', first.reason_code)
+            : 'причина не указана');
+          if (first.kind) {
+            line += ' · ' + turnCodeWord('block', first.kind);
+          }
+          var count = turnNumText(first.count);
+          if (count) line += ' · ' + count + ' шт.';
+          return line;
+        }
+        var blocks = (selection && Array.isArray(selection.blocks))
+          ? selection.blocks : [];
+        var skipped = null;
+        blocks.forEach(function (block) {
+          if (!skipped && block && block.rendered === false
+              && block.skip_reason) {
+            skipped = block;
+          }
+        });
+        if (skipped) {
+          return 'Сокращение: '
+            + turnCodeText('drop_reason', skipped.skip_reason);
+        }
+        return 'Сокращение: не зафиксировано';
+      },
+      // Статус-блок «Ответы в чате»: настройка vs фактическое использование
+      // последнего прогона + фактический резерв. Нет данных — пусто, чтобы
+      // шаблон не рисовал ложные нули.
+      directUsedSettingLine: function () {
+        var diag = this.directDiagnostics;
+        if (!diag || !diag.available) return '';
+        var setting = this.ur21SettingText(
+          'limits.chat_global_context_limit');
+        var used = turnNumText(diag.recent_verbatim_messages);
+        var reserve = turnNumText(diag.output_reserve);
+        var line = 'Настройка первичного чтения: ' + setting + ' сообщ.'
+          + ' · фактически использовано: ' + (used || 'нет данных')
+          + ' · резерв вывода: ' + (reserve || 'нет данных') + ' токенов';
+        if (Number(diag.excluded_low_priority) > 0) {
+          line += ' · сокращено: '
+            + turnNumText(diag.excluded_low_priority) + ' сообщ.';
+        }
+        return line;
       },
       // Решение о поиске словами (UR-20.7); код показывается рядом, моно.
       turnSearchDecisionWord: function (search) {
@@ -30929,14 +31238,16 @@
         var self = this;
         if (!grp || !grp.items) return [];
         return grp.items.filter(function (i) {
-          return !self.itemAdvanced(i) && !self.isAdminIdHidden(i);
+          return !i.__uiHidden && !self.itemAdvanced(i)
+            && !self.isAdminIdHidden(i);
         });
       },
       advancedItems: function (grp) {
         var self = this;
         if (!grp || !grp.items) return [];
         return grp.items.filter(function (i) {
-          return self.itemAdvanced(i) && !self.isAdminIdHidden(i);
+          return !i.__uiHidden && self.itemAdvanced(i)
+            && !self.isAdminIdHidden(i);
         });
       },
 
@@ -31287,6 +31598,14 @@
       },
 
       canEditConfig: function (key) {
+        // UI-21: legacy/compat-поля из scope UI-21 не редактируются
+        // пользовательской формой (значение и override сохраняются).
+        var ui21 = UI21_ITEM_UI[key];
+        if (ui21 && ui21.readonly) return false;
+        var it = (this.configItems || []).find(function (i) {
+          return i && i.key === key;
+        });
+        if (it && it.__uiReadonly) return false;
         var p = this.permissions;
         if (p.wildcard) return true;
         var cat = String(key).split('.')[0];
@@ -31386,6 +31705,15 @@
           if (ov) {
             if (ov.title) item.title = ov.title;
             if (ov.description) item.description = ov.description;
+          }
+          // UI-21: витрина сохраняет значения/override, но убирает снятое
+          // поле, уводит внутренние safety/debug-ключи в «Расширенные» и
+          // честно делает legacy/read-only недоступными для правки.
+          var ui21 = UI21_ITEM_UI[item.key];
+          if (ui21) {
+            if (ui21.hidden) item.__uiHidden = true;
+            if (ui21.advanced) item.progressive_level = 'advanced';
+            if (ui21.readonly) item.__uiReadonly = true;
           }
           if (item.key === 'initiative.frequency_profile') {
             item.widget = INITIATIVE_PROFILE_SELECT.widget;
@@ -31615,6 +31943,7 @@
           ? this.providerCoveredKeys() : null;
         var q = (this.configSearch || '').trim().toLowerCase();
         var items = this.configItems.filter(function (it) {
+          if (it.__uiHidden) return false;
           if (!self.tabSourceForItem(tab, it)) return false;
           if (covered && covered[it.key]) return false;
           if (!q) return true;

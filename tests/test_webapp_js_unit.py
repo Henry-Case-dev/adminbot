@@ -459,6 +459,18 @@ def test_js_unit_ur_f_inspector_step3():
             ok_marker="UR-F-STEP3-OK")
 
 
+def test_js_unit_unified_ui21():
+    """UI-21: семантика настроек и used-vs-setting в инспекторе.
+
+    На РЕАЛЬНОМ web/app.js: fill ratio скрыт, legacy/read-only поля не
+    редактируются, debug-ключи уходят в «Расширенные», used-vs-setting,
+    фактическая глубина/резерв/покрытие и причина сокращения берутся из
+    существующих turnDiag/config; отсутствие данных — словом, не нулём.
+    """
+    _run_js(os.path.join("tests", "js", "unified_ui21_test.js"),
+            ok_marker="UNIFIED-UI21-OK")
+
+
 def test_js_unit_p0im_ov_honesty():
     """P0IM-OV-HONEST (2.58.193): две честности обзора инициативы.
 

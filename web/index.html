@@ -1888,6 +1888,26 @@
                           turnDiag.context.trigger) }}</template>
                     </template>
                   </div>
+                  <!-- UI-21 (UR-21.02/06/11/12/12.4/18): компактная сводка
+                       «настройка vs факт» из существующих selection/counts/
+                       blocks/dropped и config. Нет данных — словом. -->
+                  <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 min-w-0"
+                       data-ur21-inspector role="group"
+                       aria-label="Что реально использовано">
+                    <div class="text-xs font-semibold mb-1">
+                      Что реально использовано
+                    </div>
+                    <div class="text-xs text-gray-400 turn-wrap"
+                         data-ur21-used-setting>{{ ur21UsedVsSettingLine() }}</div>
+                    <div class="text-xs text-gray-400 turn-wrap"
+                         data-ur21-thread>{{ ur21ThreadDepthLine() }}</div>
+                    <div class="text-xs text-gray-400 turn-wrap"
+                         data-ur21-reserve>{{ ur21ReserveLine() }}</div>
+                    <div class="text-xs text-gray-400 turn-wrap"
+                         data-ur21-summary>{{ ur21SummaryCoverageLine() }}</div>
+                    <div class="text-xs text-amber-300 turn-wrap"
+                         data-ur21-reduction>{{ ur21ReductionLine() }}</div>
+                  </div>
                   <div class="grid gap-2 md:grid-cols-2">
                     <!-- L1 -->
                     <div class="card p-3" data-turn-stage="l1">
@@ -1898,6 +1918,11 @@
                           <div>{{ turnSourceWho(turnDiag.source) }}</div>
                           <div class="text-gray-400 mt-0.5">{{
                             turnSourceReply(turnDiag.source) }}</div>
+                        </div>
+                        <div class="text-[10px] text-gray-500 mt-0.5 turn-wrap"
+                             data-ur21-identity>
+                          Авторство и алиас — по UID; карта имён — вспомогательная
+                          подсказка, не авторитетнее reply-source.
                         </div>
                         <div class="text-xs mt-1 turn-wrap" data-turn-l1-action>
                           Действие: {{ turnCodeLine('action', turnDiag.context.l1
@@ -7245,6 +7270,12 @@
                     context window. Свежий и релевантный контекст сохраняется,
                     второстепенный фон сокращается первым.
                   </div>
+                  <div class="text-xs text-gray-500 mb-3 turn-wrap"
+                       data-ur21-summary-trigger>
+                    Конспект обновляется по вытесняемому содержанию и
+                    watermark, а не по порогу заполнения окна. TTL — только
+                    техническое хранение, не «время жизни памяти».
+                  </div>
                   <details class="text-xs text-gray-400" data-direct-diagnostics>
                     <summary class="cursor-pointer select-none text-gray-500">Диагностика последнего прогона</summary>
                     <div v-if="!directDiagnostics || !directDiagnostics.available"
@@ -7260,6 +7291,12 @@
                         <div>Excluded low-priority: <b>{{ directDiagnostics.excluded_low_priority }}</b></div>
                         <div>Policy mode: <b>{{ directDiagnostics.policy_mode }}</b></div>
                       </div>
+                      <!-- UI-21 (UR-21.02/18): настройка vs фактическое
+                           использование последнего прогона; фактический
+                           резерв — из диагностики, не из догадки. -->
+                      <div v-if="directUsedSettingLine()"
+                           class="mt-2 text-xs text-gray-400 turn-wrap"
+                           data-direct-used-setting>{{ directUsedSettingLine() }}</div>
                     </template>
                   </details>
                 </div>
@@ -8116,7 +8153,8 @@
                       <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <div class="flex items-center gap-2">
-                        <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                        <input class="field" :type="inputType(item)" :data-cfg-key="item.key"
+                               :disabled="!canEditConfig(item.key)" v-model="item.value">
                         <!-- UR-F (UR-20.9): единицы значения из effective-меты. -->
                         <span v-if="configUnitsSuffix(item)"
                               class="text-xs text-gray-500 shrink-0"
@@ -8312,6 +8350,12 @@
                          :class="{ 'is-save-failed': stickyFieldFailed(item.key) }">
                       <div class="flex items-center gap-2 min-w-0 mb-1">
                         <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                        <!-- UI-21: legacy/no-op статус обязателен и в
+                             «Расширенных», не только в базовых. -->
+                        <span v-if="configEffBadge(item)" class="badge"
+                              :class="configEffBadge(item).cls"
+                              :data-eff-badge="item.key">{{
+                          configEffBadge(item).text }}</span>
                         <!-- D07 (§9B.2): global view — avatar stack чатов с override -->
                         <override-stack :item-key="item.key" :item-title="item.title"
                                         :item-type="item.type"></override-stack>
@@ -8398,7 +8442,8 @@
                              data-image-quota-input-error>{{ imageQuotaInputError }}</div>
                       </div>
                       <div v-else>
-                        <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                        <input class="field" :type="inputType(item)" :data-cfg-key="item.key"
+                               :disabled="!canEditConfig(item.key)" v-model="item.value">
                       </div>
                     </div>
                   </div>
@@ -8802,7 +8847,8 @@
                           <template v-else>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
-                            <input class="field mt-1" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                            <input class="field mt-1" :type="inputType(item)" :data-cfg-key="item.key"
+                                   :disabled="!canEditConfig(item.key)" v-model="item.value">
                           </template>
                         </div>
                       </div>
@@ -8839,7 +8885,8 @@
                             <template v-else>
                               <div class="text-sm font-semibold">{{ item.title }}</div>
                               <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
-                              <input class="field mt-1" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                              <input class="field mt-1" :type="inputType(item)" :data-cfg-key="item.key"
+                                   :disabled="!canEditConfig(item.key)" v-model="item.value">
                             </template>
                           </div>
                         </div>
@@ -12655,7 +12702,8 @@
                             </label>
                           </div>
                           <div v-else>
-                            <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                            <input class="field" :type="inputType(item)" :data-cfg-key="item.key"
+                               :disabled="!canEditConfig(item.key)" v-model="item.value">
                             <div class="mt-2 flex justify-end">
                               <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                       @click="saveConfigItem(item)">
@@ -12698,7 +12746,8 @@
                               </label>
                             </div>
                             <div v-else>
-                              <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                              <input class="field" :type="inputType(item)" :data-cfg-key="item.key"
+                               :disabled="!canEditConfig(item.key)" v-model="item.value">
                               <div class="mt-2 flex justify-end">
                                 <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                         @click="saveConfigItem(item)">
@@ -13025,7 +13074,8 @@
                             </label>
                           </div>
                           <div v-else>
-                            <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                            <input class="field" :type="inputType(item)" :data-cfg-key="item.key"
+                               :disabled="!canEditConfig(item.key)" v-model="item.value">
                             <div class="mt-2 flex justify-end">
                               <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                       @click="saveConfigItem(item)">
@@ -13065,7 +13115,8 @@
                               </label>
                             </div>
                             <div v-else>
-                              <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
+                              <input class="field" :type="inputType(item)" :data-cfg-key="item.key"
+                               :disabled="!canEditConfig(item.key)" v-model="item.value">
                               <div class="mt-2 flex justify-end">
                                 <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                         @click="saveConfigItem(item)">
