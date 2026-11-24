@@ -8,7 +8,9 @@ import pytest
 
 from services import claim_envelope as ce
 from services import direct_context_composer as comp
+from services import evidence_policy
 from services.database import DatabaseService
+from services.summary_memory import MemoryManager
 
 pytestmark = [pytest.mark.asap3, pytest.mark.asap31, pytest.mark.asap32]
 
@@ -87,6 +89,59 @@ def test_claim_envelope_gates_joke_roleplay_question_hypothesis():
     kinds = {ce.FINDING_KIND_PARTICIPANT_CLAIM, ce.FINDING_KIND_BRIEF_EVENT,
              ce.FINDING_KIND_EXTERNAL_NEWS, comp.KIND_SUMMARY_INFERENCE}
     assert len(kinds) == 4
+
+
+def test_claim_gate_does_not_overblock_legitimate_first_person_facts():
+    literal = (
+        "я играю в ролевые игры по выходным",
+        "представь себе, я купил машину",
+        "у меня голос как будто простужен",
+    )
+    for text in literal:
+        assert not ce.is_deny_phrase(text)
+        assert ce.classify_speech_act(text) == ce.SPEECH_ACT_ASSERT, text
+        assert ce.gate_personal_text_write(text)[0] == ce.OUTCOME_ACCEPTED
+    pure_roleplay = (
+        "представь, что я космонавт",
+        "я как будто космонавт",
+        "это ролевая игра, я король",
+    )
+    for text in pure_roleplay:
+        assert ce.classify_speech_act(text) == ce.SPEECH_ACT_HYPOTHESIS, text
+        assert ce.gate_personal_text_write(text)[0] == ce.OUTCOME_REJECTED
+
+
+@pytest.mark.asyncio
+async def test_remember_user_fact_saves_literal_facts_real_sqlite():
+    """B1 positive control: real SQLite store сохраняет literal facts."""
+    db = DatabaseService(":memory:")
+    await db.initialize()
+    try:
+        mem = MemoryManager(db, llm=None)
+        for fact in ("я играю в ролевые игры по выходным",
+                     "представь себе, я купил машину",
+                     "у меня голос как будто простужен"):
+            assert await mem.remember_user_fact(
+                CHAT, fact, target_user="Вася", ttl_days=0) == "saved", fact
+        assert await mem.remember_user_fact(
+            CHAT, "это ролевая игра, я король",
+            target_user="Вася", ttl_days=0) == "skipped_gated"
+    finally:
+        await db.close()
+
+
+def test_joke_and_retell_precedence_over_roleplay_frame():
+    joke = ce.build_speech_understanding("я как будто космонавт))")
+    assert joke.speech_act == ce.SPEECH_ACT_JOKE_CANDIDATE
+    assert joke.humor_risk is True
+    assert joke.active is True
+
+    retell = ce.build_speech_understanding("говорят, как будто я уехал")
+    assert retell.speech_act == ce.SPEECH_ACT_RETELL
+    assert retell.humor_risk is False
+    assert evidence_policy.is_attributed_speech(
+        "говорят, как будто я уехал") is True
+    assert "act:retell" in retell.flags
 
 
 def test_identity_keeps_speaker_and_dedups_by_source_id():

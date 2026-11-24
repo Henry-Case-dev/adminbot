@@ -88,8 +88,13 @@ _CORRECTION_PATTERNS = (
 _QUOTE_MARKERS = ("сказал, что", "сказал что", "цитирую", "по словам",
                   "мол, дескать")
 
-_ROLEPLAY_MARKERS = ("представим", "представь", "как будто", "ролев",
-                     "отыграем", "сыграем")
+_ROLEPLAY_PATTERNS = (
+    r"\bпредстав(?:ь|ьте|им)[,\s]+(?:себе\s+)?что\s+я\b",
+    r"\bя\s+(?:как\s+будто|будто|словно)\b",
+    r"\b(?:это|мы\s+в)\s+ролев\w*\s+игр",
+    r"\bдавай(?:те)?\s+(?:сыграем|отыграем)\s+(?:в\s+)?"
+    r"ролев\w*\s+игр",
+)
 
 @dataclasses.dataclass(frozen=True)
 class ClaimEnvelope:
@@ -164,16 +169,20 @@ def classify_speech_act(text: str | None) -> str:
     if any(m in low for m in _QUOTE_MARKERS) or low.startswith(("цитата",
                                                                 '"', "«")):
         return SPEECH_ACT_QUOTE
-    if any(marker in low for marker in _ROLEPLAY_MARKERS):
-        return SPEECH_ACT_HYPOTHESIS
-    if low.startswith(("может быть", "возможно", "наверное", "кажется",
-                       "вроде бы")):
-        return SPEECH_ACT_HYPOTHESIS
+    # Joke/retell/attributed speech имеют приоритет над roleplay-кадром:
+    # «я как будто космонавт))» остаётся joke (humor guard), «говорят, как
+    # будто…» — retell. Только чистый first-person roleplay/hypothetical
+    # уходит в hypothesis (иначе терялись humor/attribution-флаги).
     if low.endswith(("))", " :)")) or any(w in low for w in ("шучу", "лол",
                                                              "кек")):
         return SPEECH_ACT_JOKE_CANDIDATE
     if low.startswith(("говорят,", "говорят ", "передавали,", "слышал,")):
         return SPEECH_ACT_RETELL
+    if _has_pattern(low, _ROLEPLAY_PATTERNS):
+        return SPEECH_ACT_HYPOTHESIS
+    if low.startswith(("может быть", "возможно", "наверное", "кажется",
+                       "вроде бы")):
+        return SPEECH_ACT_HYPOTHESIS
     return SPEECH_ACT_ASSERT
 
 
