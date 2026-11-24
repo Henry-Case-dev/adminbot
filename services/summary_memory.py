@@ -2934,17 +2934,39 @@ class MemoryManager:
         self._schedule_canary_probe()
 
     async def _index_generation_ok(self, index_name: str) -> bool:
-        """MCA-07 D4/A06 + §8.1 (ASAP 6): можно ли обслуживать vec-индекс.
+        """Можно ли ОБСЛУЖИВАТЬ (читать) vec-индекс.
 
-        Gate OFF → True (legacy). Нет метода/записи → True (нечего гейтить:
-        fail-open для тест-двойников/БД без реестра). Авторитет сёрвинга —
-        **ACTIVE-поколение** (namespace 'default'): `active` с fingerprint
-        текущего конфига → vec открыт; это позволяет controlled migration
-        (§8.4/13E.1) держать target в `building*` НЕ закрывая сёрвинг old.
-        Нет ACTIVE, но есть `building`-строка (preexisting-векторы, карантин
-        A06) → FTS-only. Мismatch/несовпадение → FTS-only (карантин)."""
+        SIMPLIFY 2026-11-24 (§1): гейт чтения и записи различаются. Чтение
+        открыто и при `insufficient` на ACTIVE-поколении с равной живой
+        размерностью: отсутствие формального допуска — не доказательство
+        несовместимости, а FTS-only деградация всей памяти из-за ожидания
+        вердикта недопустима. Запись смотрите `_index_generation_writable`:
+        она строже (mixed-space в ACTIVE запрещён даже одним вектором)."""
+        return (await self._generation_gate(index_name))[0]
+
+    async def _index_generation_writable(self, index_name: str) -> bool:
+        """Можно ли ПИСАТЬ новые векторы в live ACTIVE (строже чтения)."""
+        return (await self._generation_gate(index_name))[1]
+
+    async def _generation_gate(self, index_name: str) -> tuple[bool, bool]:
+        """(reads_ok, writes_ok) — одно решение резолвера на вызов.
+
+        MCA-07 D4/A06 + §8.1 (ASAP 6) + SIMPLIFY 2026-11-24. Gate OFF →
+        (True, True) (legacy). Нет метода/записи → (True, True) (нечего
+        гейтить: fail-open для тест-двойников/БД без реестра). Авторитет
+        сёрвинга — **ACTIVE-поколение** (namespace 'default'): `active` с
+        fingerprint текущего конфига → vec открыт; это позволяет controlled
+        migration (§8.4/13E.1) держать target в `building*` НЕ закрывая
+        сёрвинг old. Нет ACTIVE, но есть `building`-строка (preexisting-
+        векторы, карантин A06) → FTS-only.
+
+        `insufficient` (компетенция не доказана, но и не опровергнута):
+        при ACTIVE-поколении и совпадающей размерности чтение остаётся
+        открытым, запись — нет (text-only до вердикта). Доказанный
+        `incompatible` (модель/размерность/preprocessing) и неизвестный
+        провенанс без ACTIVE по-прежнему закрывают и чтение (FTS-only)."""
         if not mca_gates.retrieval_context_enabled():
-            return True
+            return True, True
         db = self.db
         get_active = getattr(db, "get_active_embedding_generation", None)
         get_latest = getattr(db, "get_latest_embedding_generation", None)
@@ -2962,13 +2984,13 @@ class MemoryManager:
             elif get_latest is not None:
                 latest = await get_latest(index_name)
         except Exception:
-            return True
+            return True, True
         if latest is None:
-            return True
+            return True, True
         current = self._identity_fingerprint()
         is_active = str(latest.get("status") or "") == "active"
         if is_active and str(latest.get("fingerprint") or "") == current:
-            return True
+            return True, True
         # EMBED-IDENTITY-COMPAT (23.10.2026): совместимость определяется MSI +
         # durable-допуском, а не совпадением URL/endpoint. Смена только
         # API-шлюза при той же модели не закрывает индекс (адаптер/квота/хост —
@@ -2980,13 +3002,30 @@ class MemoryManager:
                 compat = await _ecp.resolve_index_compat(
                     self.db, index_name, current_fp=current,
                     current_dims=self._vec_dim)
-                if str(compat.get("state") or "") == _ecp.STATE_COMPATIBLE:
+                state = str(compat.get("state") or "")
+                if state == _ecp.STATE_COMPATIBLE:
                     _GEN_LOG_STATE.pop(index_name, None)
                     logger.info(
                         "SmartModule: embedding index serviceable | index=%s | "
                         "class=%s | compat=%s", index_name,
                         compat.get("class"), compat.get("reason_code"))
-                    return True
+                    return True, True
+                if state == _ecp.STATE_INSUFFICIENT and is_active and \
+                        self._active_dims_match(latest):
+                    # SIMPLIFY 2026-11-24 (§1): проба ещё не дала вердикт —
+                    # это не «инвариант нарушен». Читаем существующий ACTIVE
+                    # индекс (размерность совпадает), пишем text-only: новый
+                    # вектор без доказанного пространства в ACTIVE не кладём.
+                    marker = ("read_pending",
+                              str(latest.get("fingerprint") or "")[:12])
+                    if _GEN_LOG_STATE.get(index_name) != marker:
+                        _GEN_LOG_STATE[index_name] = marker
+                        logger.info(
+                            "SmartModule: embedding reads served while "
+                            "compatibility probe pending | index=%s | "
+                            "reason=%s | writes=text-only", index_name,
+                            compat.get("reason_code"))
+                    return True, False
         except Exception:
             compat = None
         # ASAP-3.2 (§8/§67): BUILDING — ожидаемое состояние идущего rebuild,
@@ -3011,7 +3050,7 @@ class MemoryManager:
                 "(coalesced) | index=%s | status=%s | gen_fp=%s new_fp=%s "
                 "— FTS-only (A06)%s", index_name, latest.get("status"),
                 str(latest.get("fingerprint"))[:12], current[:12], hint)
-            return False
+            return False, False
         hint = await self._generation_hint(index_name, latest,
                                            identity_changed=identity_changed,
                                            compat=compat)
@@ -3025,7 +3064,21 @@ class MemoryManager:
             "retrieval", "skipped",
             reason_code="embedding_generation_changed",
             model=str(latest.get("model") or "")[:120])
-        return False
+        return False, False
+
+    def _active_dims_match(self, row: dict | None) -> bool:
+        """Размерность ACTIVE-поколения совпадает с живой размерностью.
+
+        Только положительное равенство двух известных значений — доказательство,
+        достаточное для чтения при `insufficient`; иначе reads остаются
+        закрытыми (нельзя читать индекс другой размерности)."""
+        try:
+            stored = int((row or {}).get("dims") or 0)
+            live = int(self._vec_dim or hot.get(
+                "models.embedding_dim", settings.EMBEDDING_DIM) or 0)
+        except Exception:
+            return False
+        return bool(stored and live and stored == live)
 
     async def _generation_hint(self, index_name: str, latest: dict, *,
                                identity_changed: bool,
@@ -3144,7 +3197,7 @@ class MemoryManager:
             from services import embedding_control_plane as ecp
         except Exception:
             return True
-        if not await self._index_generation_ok(index_name):
+        if not await self._index_generation_writable(index_name):
             return False
         fp = self._identity_fingerprint()
         try:
@@ -3155,25 +3208,37 @@ class MemoryManager:
             pass
         return True
 
-    def _serving_route_is_configured_primary(self) -> bool:
-        """P0 EMBED-503-FAILOVER: обслужила ли последняя embed-нога configured
-        primary connection. Нет metadata (legacy/cache-hit) → True (прежнее
-        поведение). Иная fallback-нога → False: её вектор нельзя класть в
-        `embedding_cache` под configured identity, иначе последующий cache-hit
-        обойдёт route-aware admission. Никогда не бросает."""
+    def _serving_route_space_matches(self) -> bool:
+        """Совпадает ли модельное пространство фактически обслужившей ноги
+        с configured identity (MSI), без сравнения host/provider/alias.
+
+        SIMPLIFY 2026-11-24 (§1): провайдерный endpoint не входит в
+        embedding-space. Совместимая резервная нога (та же модель/размерность/
+        preprocessing) пишет вектор того же пространства, поэтому его можно
+        класть в `embedding_cache` под configured identity и использовать для
+        поиска; запрещена только запись вектора ДРУГОГО пространства.
+        Нет metadata (legacy/cache-hit) → True (прежнее поведение: гейт уже
+        применён маршрутом). Никогда не бросает."""
         try:
             from services import embedding_control_plane as ecp
             meta = ecp.last_served_credential()
             if not meta:
                 return True
             profiles = ecp.resolve_embedding_profiles()
-            profile = profiles.get(str(meta.get("alias") or ""))
-            if profile is None:
+            alias = str(meta.get("alias") or "")
+            profile = profiles.get(alias)
+            model = str((profile.model if profile is not None
+                         else meta.get("model")) or "")
+            configured_model = str(hot.get(
+                "models.embedding_model_name",
+                settings.EMBEDDING_MODEL_NAME) or "")
+            dims = int(self._vec_dim or hot.get(
+                "models.embedding_dim", settings.EMBEDDING_DIM) or 0)
+            if not model or not configured_model or not dims:
                 return False
-            primary = profiles.get("primary")
-            return (primary is not None
-                    and ecp.connection_identity(profile)
-                    == ecp.connection_identity(primary))
+            return (ecp.model_space_identity(model=model, dimension=dims)
+                    == ecp.model_space_identity(model=configured_model,
+                                                dimension=dims))
         except Exception:
             return False
 
@@ -3341,11 +3406,9 @@ class MemoryManager:
         results: dict[str, list[float]] = dict(cached)
         if misses:
             fetched = await self._embed_api(misses, priority=priority)
-            # P0 EMBED-503-FAILOVER: fallback-вектор не кладём в кэш под
-            # configured identity — иначе cache-hit позже обойдёт route-admission
-            # и недоказанный вектор попадёт в ACTIVE. Immediate-use ответ
-            # возвращается как есть (write-gate проверит его отдельно).
-            if self._serving_route_is_configured_primary():
+            # SIMPLIFY 2026-11-24 (§1): кэш ключуется MSI configured identity;
+            # совместимая fallback-нога (то же пространство) не портит его.
+            if self._serving_route_space_matches():
                 await self._embed_cache_store(misses, fetched)
             results.update(zip(misses, fetched))
         return [results[text] for text in texts]

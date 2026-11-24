@@ -743,9 +743,11 @@ async def test_register_gate_and_inline_probe_wiring(ctx, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_insufficient_pauses_rebuild_until_verdict(ctx):
-    """Пока вердикта нет, уже запущенная сборка под новый fp — на паузе
-    (не сжигаем 316 вызовов); доказанная несовместимость снимает паузу."""
+async def test_insufficient_does_not_pause_rebuild_until_verdict(ctx):
+    """SIMPLIFY 2026-11-24 (§1): `insufficient` — не доказательство
+    несовместимости. Уже запущенная сборка НЕ паузится (память не стоит в
+    ожидании вердикта); доказанный `incompatible` оставляет её идущей —
+    это существующий путь контролируемой миграции."""
     docs = _docs()
     await _seed(ctx, docs)
     old_fp, new_fp = _gateway_swap(ctx)
@@ -758,12 +760,11 @@ async def test_insufficient_pauses_rebuild_until_verdict(ctx):
 
     pending = await _ensure(ctx, new_fp, _Embedder(fail=True))
     assert pending["state"] == ecp.STATE_INSUFFICIENT
-    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_PAUSED
+    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_RUNNING
 
     proven = await _ensure(ctx, new_fp, _Embedder(space="space-b"))
     assert proven["state"] == ecp.STATE_INCOMPATIBLE
-    assert (await gr._get_job(ctx.db, job_id))["status"] in (
-        gr.ST_QUEUED, gr.ST_PAUSED_RATE_LIMIT, gr.ST_PAUSED_PROVIDER)
+    assert (await gr._get_job(ctx.db, job_id))["status"] == gr.ST_RUNNING
 
 
 @pytest.mark.asyncio
