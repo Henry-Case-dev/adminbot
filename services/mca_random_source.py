@@ -2413,6 +2413,33 @@ class IbmQuantumRuntimeClient:
                                exc_info=True)
                 return False
 
+        def _post_submit(cursor: dict) -> bool:
+            """Есть durable S2/S3-доказательство оплаченного submit."""
+            return bool(str(cursor.get("job") or "").strip()
+                        or cursor.get("submit_started_at"))
+
+        async def _keep_claim(cursor: dict, *, reason_code: str,
+                              error_code: str | None = None) -> bool:
+            """Park own running claim; cursor/job/tag evidence untouched.
+
+            Non-definitive post-submit failure — не терминальный исход:
+            running → interrupted + fencing_token+1 через существующий
+            `_ibm_park_row`. Recovery один решает terminal по job/tag/bound."""
+            try:
+                current = await job_store.get(claim_id) or {}
+                if (str(current.get("status") or "") != "running"
+                        or int(current.get("fencing_token") or 0)
+                        != fence_token):
+                    return False
+                parked = await _ibm_park_row(
+                    claim_db, current, reason_code=reason_code,
+                    error_code=error_code)
+                return parked is not None
+            except Exception:
+                logger.warning("[random_source] ibm keep claim failed | "
+                               "job_id=%s", claim_id, exc_info=True)
+                return False
+
         # Strict S1 barrier: prepared + config_fp сразу после mark_running.
         # Пока durable prepared не записан, paid submit невозможен.
         prepared = await self._checkpoint(
@@ -2480,8 +2507,12 @@ class IbmQuantumRuntimeClient:
                 _job, owner=IBM_JOB_OWNER, kind=IBM_JOB_KIND,
                 job_store=None, emit_event=True, causation_id=claim_id)
         except asyncio.CancelledError:
-            await _settle_claim(JOB_CANCELLED, await _claim_cursor(),
-                                reason_code="cancelled")
+            cursor = await _claim_cursor()
+            if _post_submit(cursor):
+                await _keep_claim(cursor, reason_code="cancelled")
+            else:
+                await _settle_claim(JOB_CANCELLED, cursor,
+                                    reason_code="cancelled")
             raise
         except IbmError as exc:
             if str(exc.code) == "claim_revoked":
@@ -2495,36 +2526,45 @@ class IbmQuantumRuntimeClient:
                     ("cancelled" if state == IBM_JOB_CANCELLED
                      else "failed"),
                     cursor, reason_code=exc.code, error_code=exc.code)
-            elif exc.sent and str(exc.stage or "") in (
-                    "submit", "checkpoint"):
-                # S2/неизвестный submit: row не закрывается терминально до
-                # submit_bound; tag остаётся durable-доказательством.
-                await _ibm_park_row(
-                    claim_db, row, reason_code=exc.code,
-                    error_code=exc.code)
-            elif state == IBM_JOB_EXPIRED or str(exc.code) == "timeout":
-                await _settle_claim(
-                    "failed", cursor, reason_code=exc.code,
-                    error_code=exc.code,
-                    cursor_state_override=IBM_JOB_EXPIRED)
+            elif _post_submit(cursor) or (
+                    exc.sent and str(exc.stage or "") in
+                    ("submit", "checkpoint", "result")):
+                # Live S2/S3 non-definitive: park own claim, cursor intact;
+                # terminal решает recovery по job/tag/submit_bound/horizon.
+                await _keep_claim(
+                    cursor, reason_code=exc.code, error_code=exc.code)
             else:
+                # Pre-submit без S2-доказательства: оплаченный job не мог
+                # возникнуть, terminal failed допустим.
                 await _settle_claim(
                     "failed", cursor, reason_code=exc.code,
                     error_code=exc.code)
             raise
         except Exception as exc:
-            await _settle_claim(
-                "failed", await _claim_cursor(),
-                reason_code="task_failed", error_code=type(exc).__name__)
+            cursor = await _claim_cursor()
+            if _post_submit(cursor):
+                await _keep_claim(
+                    cursor, reason_code="task_failed",
+                    error_code=type(exc).__name__)
+            else:
+                await _settle_claim(
+                    "failed", cursor, reason_code="task_failed",
+                    error_code=type(exc).__name__)
             raise
         finally:
             if heartbeat is not None:
                 await heartbeat.stop()
         batch = box.get("batch")
         if batch is None:
-            await _settle_claim(
-                "failed", await _claim_cursor(), reason_code="no_result",
-                error_code="no_result")
+            cursor = await _claim_cursor()
+            if _post_submit(cursor):
+                await _keep_claim(
+                    cursor, reason_code="no_result",
+                    error_code="no_result")
+            else:
+                await _settle_claim(
+                    "failed", cursor, reason_code="no_result",
+                    error_code="no_result")
             raise IbmError("job_in_progress", "no ibm batch result",
                            retryable=True, sent=False, stage="job")
         settled = await _settle_claim(
@@ -6116,7 +6156,13 @@ class RandomSourceService:
                 continue
             cursor_fp = str(cursor.get("config_fp") or "").strip()
             if cursor_fp and current_fp and cursor_fp != current_fp:
-                await self._quarantine_ibm_row(raw_row, cursor, current_fp)
+                # Lease authority: fresh-heartbeat live owner (taken=None) или
+                # проигранный CAS не карантинируются и не получают token bump.
+                taken = await self._takeover_ibm_row(raw_row, now=now)
+                if taken is None:
+                    continue
+                await self._quarantine_ibm_row(
+                    taken, self._ibm_cursor(taken) or cursor, current_fp)
                 continue
             # Локальный singleflight — оптимизация, не authority: если эта
             # строка уже восстанавливается в процессе, не отзываем её токен.
