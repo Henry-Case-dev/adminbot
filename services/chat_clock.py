@@ -265,7 +265,13 @@ def resolve_chat_timezone_sync(chat_id, *, strict: bool = False
 
 
 def _zone_for(name) -> zoneinfo.ZoneInfo | datetime.timezone:
-    """Единственная зона календарной математики: IANA или честный UTC."""
+    """Единственная зона календарной математики: IANA или честный UTC.
+
+    Готовый tzinfo (ZoneInfo/fixed-offset ``datetime.timezone``) НЕ
+    пересобирается по строке: ``str(tz)`` для фиксированного сдвига дал бы
+    «UTC+05:45» и молчаливую подмену зоны на UTC."""
+    if isinstance(name, (zoneinfo.ZoneInfo, datetime.timezone)):
+        return name
     text = str(name or "UTC")
     try:
         return zoneinfo.ZoneInfo(text)

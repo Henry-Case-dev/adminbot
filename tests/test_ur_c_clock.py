@@ -570,44 +570,63 @@ class TestFallbackAdapterClock:
 
     def test_tight_budget_drops_block_whole_with_capacity(self):
         """Блок не влезает → нет блока вовсе + CAPACITY + reason; обрезка
-        (head+tail внутри тегов) запрещена."""
+        (head+tail внутри тегов) запрещена.
+
+        Бюджет строится из фактического окна шва `_adapt`: он добавляет к
+        переданному значению system+evidence-floor, поэтому «тесно» = после
+        system остаётся МЕНЬШЕ, чем токенов в самом блоке. Прежняя формула
+        ``clock_tokens - 3`` оставляла floor-запас и блок помещался — тест
+        проходил по «целой» ветке, ни разу не доказав честный drop."""
+        from services.direct_execution import (
+            L2_EVIDENCE_FLOOR_TOKENS, _safe_count_tokens)
         clock = self._clock_block()
-        clock_tokens = __import__("services.direct_execution",
-                                  fromlist=["_safe_count_tokens"]
-                                  )._safe_count_tokens(clock)
-        # remaining после system+evidence = clock_tokens - 3 → блок не влезает.
-        content, reasons = self._adapt(budget=clock_tokens - 3,
+        clock_tokens = _safe_count_tokens(clock)
+        floor = min(_safe_count_tokens("доказательство " * 400),
+                    L2_EVIDENCE_FLOOR_TOKENS)
+        # remaining после system = budget_arg + floor = clock_tokens - 3.
+        content, reasons = self._adapt(budget=clock_tokens - floor - 3,
                                        parts=[clock, "обычный текст " * 200])
         open_count = content.count("<Chat_Time_Context")
         close_count = content.count("</Chat_Time_Context>")
         assert open_count == close_count, (
             "блок часов не должен оставаться разрезанным посередине")
-        if open_count == 0:
-            # Честная ёмкость: блока нет, пометка есть, callback дёрнут.
-            assert "[CAPACITY]" in content
-            assert "fallback_clock_dropped" in reasons
-            # Обрезок тоже не уехал: точного as_of из блока в payload нет.
-            assert "as_of_utc: 2026-07-15T12:00:00+00:00" not in content
-        else:
-            # Целый блок — байт-в-байт исходный, тот же as_of_utc.
-            assert content.count("<Chat_Time_Context") == 1
-            start = content.find("<Chat_Time_Context")
-            end = content.find("</Chat_Time_Context>", start)
-            assert content[start:end + len("</Chat_Time_Context>")] == clock
+        # Честная ёмкость: блока нет, пометка есть, callback дёрнут.
+        assert open_count == 0
+        assert "[CAPACITY]" in content
+        assert "fallback_clock_dropped" in reasons
+        # Обрезок тоже не уехал: точного as_of из блока в payload нет.
+        assert "as_of_utc: 2026-07-15T12:00:00+00:00" not in content
         assert "обрезано под окно fallback</Chat_Time_Context" not in content
 
     def test_generous_budget_keeps_block_intact_same_asof(self):
+        """«Щедрое» окно = физически помещается ВСЁ (system+evidence+clock+
+        plain), поэтому репак не запускается вовсе: блок байт-в-байт, тот же
+        as_of, никаких CAPACITY-пометок.
+
+        Прежний бюджет ``clock_tokens + 50`` оставлял plain-части ~50 токенов
+        при evidence-floor 400 и честно давал ``fallback_window_exceeded`` —
+        это дефект калькуляции теста, а не контракта (UR-11b §3.5)."""
+        from services.direct_execution import _safe_count_tokens
         clock = self._clock_block()
-        clock_tokens = __import__("services.direct_execution",
-                                  fromlist=["_safe_count_tokens"]
-                                  )._safe_count_tokens(clock)
-        content, _reasons = self._adapt(budget=clock_tokens + 50,
-                                        parts=[clock, "обычный текст " * 50])
+        plain = "обычный текст " * 50
+        evidence_text = "доказательство " * 400
+        full_input = (_safe_count_tokens(clock) + _safe_count_tokens(plain)
+                      + _safe_count_tokens(evidence_text))
+        content, reasons = self._adapt(budget=full_input + 20,
+                                       parts=[clock, plain])
         assert content.count("<Chat_Time_Context") == 1
         assert content.count("</Chat_Time_Context>") == 1
         assert "as_of_utc: 2026-07-15T12:00:00+00:00" in content
         assert "Europe/Moscow" in content
         assert "[CAPACITY]" not in content
+        assert reasons == []
+        # Блок — байт-в-байт исходный (никакой head+tail внутри тегов) и
+        # обычная часть доставлена целиком.
+        start = content.find("<Chat_Time_Context")
+        end = content.find("</Chat_Time_Context>", start) \
+            + len("</Chat_Time_Context>")
+        assert content[start:end] == clock
+        assert plain.strip() in content
 
     def test_plain_strings_still_compressible(self):
         """Без блока часов поведение прежнее: длинная сжимаемая строка режется
@@ -794,6 +813,15 @@ class TestRelativeLocalTime:
                     snap, day=day, hour=hour, minute=minute)
                 assert int(instant.utc.timestamp()) == expected, (
                     tz_name, day, hour, minute)
+        # Fixed-offset tzinfo (не IANA-строка) не подменяется на UTC:
+        # тот же instant, что у эквивалентной зоны +05:45.
+        fixed = datetime.timezone(datetime.timedelta(hours=5, minutes=45))
+        expected = _local_epoch(datetime.date(2026, 7, 15), 4, 0, fixed)
+        instant = cc.local_wall_to_utc(fixed, day=datetime.date(2026, 7, 15),
+                                       hour=4, minute=0)
+        assert int(instant.utc.timestamp()) == expected
+        assert instant.utc == datetime.datetime(
+            2026, 7, 14, 22, 15, tzinfo=datetime.timezone.utc)
 
     @pytest.mark.asyncio
     async def test_one_resolver_with_per_chat_legacy(self, tz_env):
@@ -958,3 +986,140 @@ class TestSummaryWindowLocal:
         assert "текст окна" in after
         assert after.replace(old_window[0], "").replace(
             old_window[1], "").count("window_") == 0
+
+
+# ═══ UR-RES-08: один пояс и одно время во ВСЕХ контурах (D7) ════════════════
+
+
+class TestUrRes08Matrix:
+    """UR-RES-08 (D7): у одного чата ОДИН IANA-пояс и одно серверное время
+    доходят до Direct L1/L2, инициативы, фактчека, саммари, поиска, страницы
+    и видео. Мутация «убрать блок/часы из контура» краснит его строку."""
+
+    @pytest.mark.asyncio
+    async def test_same_zone_and_asof_across_contours(self, tz_env,
+                                                     frozen_settings,
+                                                     monkeypatch):
+        from unittest.mock import AsyncMock
+        from tests.test_direct_chat import (
+            FakeLLM, FakeMemory, _make_service, _message)
+        import services.search_service as search_mod
+        import services.web_summarizer_service as web_mod
+        import services.youtube_summarizer_service as yt_mod
+
+        _set_chat_override(CHAT_A, {"limits.chat_timezone": "Europe/Moscow"})
+        frozen_settings("SYSTEM2_FACTCHECK_ENABLED", False)
+        for module in (search_mod, web_mod, yt_mod):
+            monkeypatch.setattr(module, "speech_owner_block",
+                                AsyncMock(return_value=""))
+        frozen = await cc.snapshot(CHAT_A, at_utc=SUMMER)
+
+        async def _frozen_snapshot(chat_id, **_kwargs):
+            return frozen
+
+        monkeypatch.setattr(cc, "snapshot", _frozen_snapshot)
+        captured: dict[str, str] = {}
+
+        # 1) Direct L1 — живой plan-шов (phase="plan").
+        llm_direct = FakeLLM(text='{"action":"reply","confidence":0.9}')
+        service = _make_service(memory=FakeMemory(window=[]), llm=llm_direct)
+        monkeypatch.setattr(service, "_history_partial",
+                            AsyncMock(return_value=False))
+        await service._plan_direct_l1(
+            CHAT_A, _message("привет", chat_id=CHAT_A), "привет",
+            "corr-res08", bundle=None, target_name="Вася", user_id=10,
+            character_block="", lore_enabled=False, image_enabled=False,
+            force_required=True, reply_bot=False)
+        captured["direct_l1"] = llm_direct.messages[-1]["content"]
+
+        # 2) Direct L2 — финальная сборка ответа того же хода (answer).
+        from services.direct_chat_service import DirectChatService
+        llm_l2 = FakeLLM(text="ответ")
+        service_l2 = _make_service(memory=FakeMemory(window=[]), llm=llm_l2)
+        await DirectChatService._l2_write_answer(
+            service_l2, CHAT_A, "вопрос", temperature=None,
+            correlation_id="corr-res08-l2",
+            time_line=cc.render_chat_time_context(frozen,
+                                                  phase=cc.PHASE_ANSWER))
+        captured["direct_l2"] = llm_l2.messages[-1]["content"]
+
+        # 3) Инициатива — eval-окно наблюдателя.
+        from services.initiative_observer import InitiativeObserverRunner
+        runner = InitiativeObserverRunner.__new__(InitiativeObserverRunner)
+        llm_init = FakeLLM(text="{}")
+        runner._llm = llm_init
+        runner._aliases = None
+        runner._db = object()
+        monkeypatch.setattr("services.initiative_observer._memory_hints",
+                            AsyncMock(return_value=()))
+        await runner._evaluate_window(
+            CHAT_A, [{"id": 1, "user_id": 10, "text": "привет",
+                      "reply_to_id": None}])
+        captured["initiative"] = llm_init.messages[-1]["content"]
+
+        # 4) Фактчек — single-path вердикт.
+        from services.factcheck_service import FactCheckService
+        llm_fc = FakeLLM(text="вердикт: подтверждено")
+        await FactCheckService(llm=llm_fc, aggregator=_FakeSearch(),
+                               memory=None, tool_router=None).check_claim(
+            "некое утверждение", search_results="выдача", chat_id=CHAT_A)
+        captured["factcheck"] = llm_fc.messages[-1]["content"]
+
+        # 5) Саммари L1 — plan-шов кластеризатора.
+        from services.summary_l1_clusterizer import run_l1
+        l1_calls: list[list] = []
+
+        async def _l1_call(messages):
+            l1_calls.append(messages)
+            return "{}", None
+
+        await run_l1(rows=[{"id": 1, "user_id": 10, "author_name": "вася",
+                            "text": "реплика", "timestamp": 1000,
+                            "media_type": "text", "reply_to_id": None,
+                            "tg_message_id": 11}],
+                     chat_id=CHAT_A, llm_call=_l1_call,
+                     budget=("chars", 20000))
+        captured["summary_l1"] = l1_calls[0][-1]["content"]
+
+        # 6-8) Поиск, страница, видео — сервисы резолвят чат-снапшот сами.
+        class _Agg:
+            async def search(self, query, max_symbols=4000, **_kw):
+                return "результат поиска " * 30
+
+        class _Extractor:
+            async def extract(self, url, max_symbols):
+                return "# Заголовок\nстраница"
+
+        class _Engine:
+            async def fetch_transcript(self, video_id, limit=None,
+                                       on_retry=None):
+                return "[00:00] привет " * 40
+
+        llm_search = FakeLLM(text="выжимка поиска")
+        await search_mod.SearchService(_Agg(), llm_search,
+                                       memory=None).research(
+            "запрос", chat_id=CHAT_A)
+        captured["search"] = llm_search.messages[-1]["content"]
+        llm_web = FakeLLM(text="выжимка страницы")
+        await web_mod.WebSummarizerService(_Extractor(), llm_web,
+                                           memory=None).summarize(
+            "https://example.com/a", chat_id=CHAT_A, rag_query="статья")
+        captured["page"] = llm_web.messages[-1]["content"]
+        llm_yt = FakeLLM(text="выжимка видео")
+        await yt_mod.YoutubeSummarizerService(_Engine(), llm_yt,
+                                              memory=None).summarize(
+            "vid123", chat_id=CHAT_A, snapshot=frozen)
+        captured["video"] = llm_yt.messages[-1]["content"]
+
+        assert set(captured) == {"direct_l1", "direct_l2", "initiative",
+                                 "factcheck", "summary_l1", "search",
+                                 "page", "video"}
+        for name, content in captured.items():
+            assert content.count("<Chat_Time_Context") == 1, name
+            assert content.count("</Chat_Time_Context>") == 1, name
+            meta = cc.outbound_clock_meta(
+                [{"role": "user", "content": content}])
+            assert meta is not None, name
+            assert meta["clock_included"] is True, name
+            assert meta["timezone"] == "Europe/Moscow", name
+            assert meta["as_of_utc"] == "2026-07-15T12:00:00+00:00", name

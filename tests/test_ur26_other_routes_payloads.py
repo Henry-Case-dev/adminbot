@@ -341,23 +341,32 @@ class TestTechnicalRoutes:
         assert digest and "clock_included=true" in digest[-1]
 
     @pytest.mark.asyncio
-    async def test_checkup_is_technical_without_block(self, clock_env):
+    async def test_checkup_is_technical_without_block(self, clock_env,
+                                                      caplog):
         from services.checkup_service import CheckupService
         client = _client()
         client._post = AsyncMock(return_value=_Resp("диагностический отчёт"))
         service = CheckupService(llm=client, db=None, memory=None,
                                  metrics_enabled=False)
-        await service.checkup("лог диагностики", used_fallback=False,
-                              chat_id=CHAT)
+        with caplog.at_level(logging.INFO, logger="services.chat_clock"):
+            await service.checkup("лог диагностики", used_fallback=False,
+                                  chat_id=CHAT)
         sent = _post_messages(client)
         assert cc.outbound_clock_meta(sent) is None
         assert "<Chat_Time_Context" not in sent[-1]["content"]
+        # UR-26.6 (D4): технический вызов обязан оставить ЧЕСТНЫЙ след
+        # наблюдения, а не молчание: clock_included=false + причина.
+        lines = _log_lines(caplog)
+        assert lines, "технический вызов без честной записи часов"
+        assert any("clock_included=false" in line
+                   and "skip_reason=" in line for line in lines), lines
 
     @pytest.mark.asyncio
     async def test_tool_path_no_snapshot_has_no_block(self, clock_env,
-                                                     no_owner):
+                                                     no_owner, caplog):
         """Tool-путь передаёт snapshot=None: в tool-result блока нет — на
-        ходе остаётся ровно один блок (UR-25.6)."""
+        ходе остаётся ровно один блок (UR-25.6). Техническая нога обязана
+        оставить честную запись clock_included=false."""
         video = _VideoClient()
         service = YoutubeSummarizerService(
             _Engine(), _RecordingLLM(), memory=None, video_client=video)
@@ -367,10 +376,15 @@ class TestTechnicalRoutes:
         assert "<Chat_Time_Context" not in tool_user
         client = _client()
         client._post = AsyncMock(return_value=_Resp("tool-subtitles"))
-        await YoutubeSummarizerService(_Engine(), client, memory=None
-                                       ).summarize("vid-tool", chat_id=CHAT)
+        with caplog.at_level(logging.INFO, logger="services.chat_clock"):
+            await YoutubeSummarizerService(_Engine(), client, memory=None
+                                           ).summarize("vid-tool", chat_id=CHAT)
         tool_messages = _post_messages(client)
         assert "<Chat_Time_Context" not in tool_messages[-1]["content"]
+        tool_lines = [line for line in _log_lines(caplog)
+                      if "step=subtitles" in line]
+        assert tool_lines and "clock_included=false" in tool_lines[-1]
+        assert "skip_reason=" in tool_lines[-1]
         # Тот же сервисный метод в user-facing ходе (snapshot передан) —
         # ровно один блок; seal-инвариант не зависит от tool-хода.
         client2 = _client()
@@ -380,6 +394,25 @@ class TestTechnicalRoutes:
             "vid-turn", chat_id=CHAT, snapshot=await _snapshot())
         turn_messages = _post_messages(client2)
         assert turn_messages[-1]["content"].count("<Chat_Time_Context") == 1
+
+    @pytest.mark.asyncio
+    async def test_multimodal_without_chat_id_logs_honest_skip(
+            self, clock_env, monkeypatch):
+        """Без chat_id пояс не выдумывается: блока нет, запись честная
+        (clock_included=false + skip_reason=no_chat_id)."""
+        recorded: list = []
+        monkeypatch.setattr(cc, "log_clock_call",
+                            lambda **kw: recorded.append(dict(kw)))
+        video = _VideoClient()
+        service = YoutubeSummarizerService(
+            _Engine(), _RecordingLLM(), memory=None, video_client=video)
+        await service.summarize_media_url(
+            chat_id=None, video_url="https://x/nochat.mp4", label="tg-file")
+        assert "<Chat_Time_Context" not in video.calls[-1]["user_text"]
+        entry = [e for e in recorded if e.get("channel") == "multimodal"][-1]
+        assert entry["chat_id"] is None
+        assert entry["skip_reason"] == "no_chat_id"
+        assert cc.outbound_clock_meta(entry["messages"]) is None
 
 
 # ═══ UR-27.2: source date не «свежеет», окно Summary стабильно ═══════════════
@@ -524,6 +557,84 @@ class TestSummaryTransportMatrix:
         assert {entry["step"] for entry in dedicated} >= {
             l1mod.STEP, l2mod.STEP}
         assert all(entry["chat_id"] == CHAT for entry in dedicated)
+
+    @pytest.mark.asyncio
+    async def test_dedicated_node_logs_full_clock_fields(
+            self, clock_env, monkeypatch, caplog):
+        """D5: dedicated-нога (Supervisor ON sync + Supervisor OFF L1/L2)
+        пишет на транспортном шве ВСЕ обязательные поля: module/step/
+        chat_id/timezone/as_of_utc/config_version/clock_included (R17 —
+        без текстов payload)."""
+        from services.summary_l1_clusterizer import L1Slot
+        import services.summary_l1_clusterizer as l1mod
+        import services.summary_l2_writer as l2mod
+        sup = __import__("services.summary_llm_supervisor",
+                         fromlist=["execute_supervised"])
+        snap = await _snapshot()
+        messages = _blocked_messages(snap)
+        client = _client()
+        client._post = AsyncMock(return_value=_Resp("ok"))
+        slot = L1Slot("https://dedicated.example/v1", "ded-model", "k", True)
+        with caplog.at_level(logging.INFO, logger="services.chat_clock"):
+            await sup.execute_supervised(
+                client, messages=messages, operation="l1",
+                correlation_id="ur267-fields", chat_id=CHAT,
+                module="summary", step="l1_plan", slot=slot)
+            monkeypatch.setattr(sup, "supervisor_enabled", lambda: False)
+            l1_call = l1mod._make_llm_call(
+                client, l1mod.L1Slot("https://d/v1", "dm", "k", True),
+                "ur267-fields-l1", chat_id=CHAT)
+            await l1_call(messages)
+            l2_call = l2mod._make_llm_call(
+                client, l2mod.L2Slot("https://d/v1", "dm", "k", True),
+                "ur267-fields-l2", chat_id=CHAT)
+            await l2_call(messages)
+        lines = [line for line in _log_lines(caplog)
+                 if "channel=dedicated" in line]
+        assert len(lines) >= 3, lines
+        for line in lines:
+            assert "module=summary" in line, line
+            assert "chat_id=%s" % CHAT in line, line
+            assert "timezone=Europe/Moscow" in line, line
+            assert "as_of_utc=2026-07-15T12:00:00+00:00" in line, line
+            assert "config_version=2026-11-05T10:00:00Z" in line, line
+            assert "clock_included=true" in line, line
+        assert any("step=l1_plan" in line for line in lines), lines
+        assert any("step=%s" % l1mod.STEP in line for line in lines), lines
+        assert any("step=%s" % l2mod.STEP in line for line in lines), lines
+
+    @pytest.mark.asyncio
+    async def test_stream_node_logs_full_clock_fields(self, clock_env,
+                                                      monkeypatch, caplog):
+        """D5: stream-нога Supervisor'а пишет те же поля с channel=stream
+        (llm_client INS-TRACE-запись стрима chat_id не знает — честный
+        chat_id даёт именно транспортный лог supervisor'а)."""
+        from services.summary_l1_clusterizer import L1Slot
+        sup = __import__("services.summary_llm_supervisor",
+                         fromlist=["execute_supervised"])
+        snap = await _snapshot()
+        messages = _blocked_messages(snap)
+        client = _client()
+        client.stream_chat_completion = AsyncMock(return_value=("ok", None))
+        monkeypatch.setattr(sup, "select_execution_mode",
+                            lambda _caps: sup.MODE_STREAM)
+        slot = L1Slot("https://dedicated.example/v1", "ded-model", "k", True)
+        with caplog.at_level(logging.INFO, logger="services.chat_clock"):
+            await sup.execute_supervised(
+                client, messages=messages, operation="l1",
+                correlation_id="ur267-stream-fields", chat_id=CHAT,
+                module="summary", step="l1_plan", slot=slot)
+        lines = [line for line in _log_lines(caplog)
+                 if "channel=stream" in line]
+        assert len(lines) == 1, lines
+        line = lines[0]
+        assert "module=summary" in line
+        assert "step=l1_plan" in line
+        assert "chat_id=%s" % CHAT in line
+        assert "timezone=Europe/Moscow" in line
+        assert "as_of_utc=2026-07-15T12:00:00+00:00" in line
+        assert "config_version=2026-11-05T10:00:00Z" in line
+        assert "clock_included=true" in line
 
     @pytest.mark.asyncio
     async def test_supervisor_on_wrapped_l1_threads_chat_id(

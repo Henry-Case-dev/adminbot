@@ -26,7 +26,6 @@ summarize_cascade. `summarize_media_url` (L1→L2 по реальному URL) �
 изменений.
 """
 import asyncio
-import contextvars
 import logging
 import time
 from typing import Awaitable, Callable
@@ -52,39 +51,6 @@ from services.youtube_prompts import (
 from services.youtube_transcript_engine import YouTubeTranscriptEngine
 
 logger = logging.getLogger(__name__)
-
-#: Task-local снапшот часов, открытый ХЕНДЛЕРОМ на границе пользовательского
-#: пересказа (UR-26.6). Tool-путь (tool_router) scope не открывает → блока в
-#: tool-результате нет (UR-25.6). Контекст задачи, не глобальное состояние:
-#: параллельные чаты не видят чужой снапшот.
-_REPLY_SNAPSHOT: contextvars.ContextVar = contextvars.ContextVar(
-    "youtube_reply_snapshot", default=None)
-
-
-def set_reply_snapshot(snapshot):
-    """Открыть clock-scope на один пользовательский вызов; вернуть token."""
-    return _REPLY_SNAPSHOT.set(snapshot)
-
-
-def reset_reply_snapshot(token) -> None:
-    """Закрыть clock-scope (обязательно в finally хендлера)."""
-    try:
-        _REPLY_SNAPSHOT.reset(token)
-    except Exception:      # pragma: no cover - защитная ветка
-        pass
-
-
-def current_reply_snapshot():
-    """Снапшот текущего пользовательского вызова (None → tool/unit-путь)."""
-    try:
-        return _REPLY_SNAPSHOT.get()
-    except Exception:      # pragma: no cover - защитная ветка
-        return None
-
-
-def _effective_snapshot(snapshot):
-    """Явный аргумент приоритетен; иначе — clock-scope хендлера."""
-    return snapshot if snapshot is not None else current_reply_snapshot()
 
 
 class YoutubeSummarizerService:
@@ -161,11 +127,10 @@ class YoutubeSummarizerService:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        # UR-26.6: пересказ видео — пользовательский ответ; снапшот с
-        # границы-хендлера (clock-scope) или явный аргумент. Tool-путь
-        # snapshot не передаёт и scope не открывает — в tool-результате
-        # второго блока нет (UR-25.6).
-        snapshot = _effective_snapshot(snapshot)
+        # UR-26.6: пересказ видео — пользовательский ответ; снапшот явно
+        # передаёт граница-хендлер (clock-scope на один вызов). Tool-путь
+        # snapshot не передаёт — в tool-результате второго блока нет
+        # (UR-25.6).
         if snapshot is not None:
             messages = chat_clock.attach_time_context(
                 messages, snapshot, phase=chat_clock.PHASE_ANSWER)
@@ -216,7 +181,6 @@ class YoutubeSummarizerService:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        snapshot = _effective_snapshot(snapshot)
         if snapshot is not None:
             messages = chat_clock.attach_time_context(
                 messages, snapshot, phase=chat_clock.PHASE_ANSWER)
@@ -267,7 +231,6 @@ class YoutubeSummarizerService:
         # Блок часов ставится в user_text; транспортный шов
         # `video_client.summarize` не логируется llm_client'ом, поэтому пишем
         # наблюдаемость явно на каждой ноге (R17: только коды/числа).
-        snapshot = _effective_snapshot(snapshot)
         if snapshot is not None:
             user = chat_clock.append_time_block(
                 user, snapshot, phase=chat_clock.PHASE_ANSWER)
