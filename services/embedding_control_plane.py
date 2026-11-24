@@ -73,7 +73,7 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import IntEnum
 
 logger = logging.getLogger(__name__)
@@ -1519,7 +1519,8 @@ class EmbeddingExecutor:
 
     async def embed(self, texts: list[str], *, priority: Priority,
                     max_wait_s: float | None = None,
-                    stats: ExecutionStats | None = None) -> list[list[float]]:
+                    stats: ExecutionStats | None = None,
+                    model_override: str | None = None) -> list[list[float]]:
         """Логический embed-батч. Бросает:
         * `EmbeddingGroupCoolingDown` — все доступные группы cooling/exhausted
           дольше max_wait (P0 → FTS-fallback; P3 → pause job);
@@ -1544,6 +1545,12 @@ class EmbeddingExecutor:
         clear_last_served_credential()
         stats = stats or ExecutionStats()
         pool = self.pool()
+        # MODEL-SWAP-03/05: перестройка нового пространства использует
+        # target-модель на СУЩЕСТВУЮЩИХ подключениях; configured-конфиг и
+        # serving-путь при этом не меняются (proxy-адреса/ключи те же).
+        if model_override and str(model_override).strip():
+            target_model = str(model_override).strip()
+            pool = [replace(c, model=target_model) for c in pool]
         if not pool:
             # Ключей не сконфигурировано вовсе: оркестрировать нечего —
             # делегируем существующему клиенту (ровно прежний primary-only
@@ -2106,13 +2113,18 @@ def current_priority() -> Priority:
 
 async def execute_embed(llm, texts: list[str], *,
                         priority: Priority | None = None,
-                        max_wait_s: float | None = None) -> list[list[float]]:
+                        max_wait_s: float | None = None,
+                        model_override: str | None = None) -> list[list[float]]:
     """Точка входа из summary_memory (`_embed_api` при ON):Executor с
-    fallback на cooldown-исключение наверх (caller решает деградацию)."""
+    fallback на cooldown-исключение наверх (caller решает деградацию).
+
+    `model_override` — ТОЛЬКО фоновый target-rebuild смены модели
+    (MODEL-SWAP-03): векторы нового пространства строятся в shadow, конфиг
+    serving-пути не меняется."""
     executor = get_executor(llm)
     return await executor.embed(
         texts, priority=priority or current_priority(),
-        max_wait_s=max_wait_s)
+        max_wait_s=max_wait_s, model_override=model_override)
 
 
 # ── Multi-worker lease (T-4407, §22/§23) ────────────────────────────────────

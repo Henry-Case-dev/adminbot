@@ -584,6 +584,215 @@ async def memory_embeddings_panel(
             "generation": generation, "compat": compat}
 
 
+# ── MODEL-SWAP-01..05: смена embedding-модели в «Модели и подключения» ─────
+
+class EmbeddingModelSwapBody(BaseModel):
+    """Подтверждённая смена модели: target-модель и (опционально) размерность."""
+
+    model: str = Field(default="", max_length=256)
+    dim: int | None = Field(default=None, ge=1, le=65536)
+
+
+def _embedding_space_same(model_a: str, dims_a: int,
+                          model_b: str, dims_b: int) -> bool:
+    """Одно ли векторное пространство (MSI): провайдер/ключ/URL не входят."""
+    try:
+        from services import embedding_control_plane as ecp
+        return (ecp.model_space_identity(model=model_a, dimension=dims_a)
+                == ecp.model_space_identity(model=model_b, dimension=dims_b))
+    except Exception:
+        return str(model_a or "").strip().lower() == \
+            str(model_b or "").strip().lower() and int(dims_a or 0) == \
+            int(dims_b or 0)
+
+
+async def _read_embedding_space(db) -> tuple[str, int, dict | None]:
+    """(old_model, old_dims, active_row) — что реально построило live-векторы.
+
+    Приоритет — обслуживаемый `graph_facts_vec`, затем `smart_archive`, затем
+    configured-значения (индекса ещё нет)."""
+    active = None
+    for index_name in ("graph_facts_vec", "smart_archive"):
+        try:
+            row = await db.get_active_embedding_generation(index_name)
+        except Exception:
+            row = None
+        if row is not None:
+            active = row
+            break
+    current_model = str(hot.get("models.embedding_model_name",
+                                settings.EMBEDDING_MODEL_NAME) or "")
+    try:
+        current_dims = int(hot.get("models.embedding_dim",
+                                   settings.EMBEDDING_DIM) or 0)
+    except Exception:
+        current_dims = 0
+    if active is not None:
+        return (str(active.get("model") or current_model),
+                int(active.get("dims") or current_dims or 0), active)
+    return current_model, current_dims, None
+
+
+@memory_router.get("/memory/embedding-change/preview")
+async def memory_embedding_change_preview(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    model: str = Query(default="", max_length=256),
+    dim: int | None = Query(default=None, ge=1, le=65536),
+):
+    """Предупреждение ДО сохранения: меняется ли векторное пространство.
+
+    MODEL-SWAP-01: смена только провайдера/ключа/URL не попадает сюда (UI её
+    не вызывает); даже при вызове canonical-MSI той же модели → false.
+    MODEL-SWAP-02: реальная смена модели/размерности → old/new + причина."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    new_model = str(model or "").strip()
+    if not new_model:
+        new_model = str(hot.get("models.embedding_model_name",
+                                settings.EMBEDDING_MODEL_NAME) or "")
+    old_model, old_dims, active = await _read_embedding_space(db)
+    new_dims = int(dim or old_dims or 0)
+    if not new_dims:
+        try:
+            new_dims = int(hot.get("models.embedding_dim",
+                                   settings.EMBEDDING_DIM) or 0)
+        except Exception:
+            new_dims = 0
+    same = _embedding_space_same(old_model, old_dims, new_model, new_dims)
+    reason = ""
+    if not same:
+        if (old_model or "").strip().lower() == new_model.strip().lower():
+            reason = (
+                f"Размерность векторов меняется: {old_dims} → {new_dims}. "
+                "Векторы другой размерности нельзя использовать в одном "
+                "поисковом пространстве — существующий индекс придётся "
+                "перестроить новыми векторами.")
+        else:
+            reason = (
+                f"Раньше индекс построила модель «{old_model}», выбрана "
+                f"«{new_model}». Модель определяет векторное пространство, "
+                f"поэтому старые векторы ({old_dims} измерений) несовместимы "
+                f"с новыми ({new_dims}). Нужна перестройка производного "
+                "векторного индекса; исходная история, факты, эпизоды и архив "
+                "не изменяются.")
+    return {
+        "requires_rebuild": not same,
+        "old_model": old_model,
+        "old_dims": old_dims or None,
+        "new_model": new_model,
+        "new_dims": new_dims or None,
+        "reason": reason,
+        "active_index": {
+            "index": "graph_facts_vec" if active is not None else None,
+            "generation": int((active or {}).get("generation") or 0) or None,
+            "dims": int((active or {}).get("dims") or 0) or None,
+        },
+    }
+
+
+@memory_router.get("/memory/embedding-change")
+async def memory_embedding_change_state(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Состояние смены модели: предупреждение/фоновая перестройка/прогресс.
+
+    Read-only; источник истины — существующие поколения + `task_jobs`.
+    MODEL-SWAP-03/04: показывает processed/total/ошибки/состояние и что
+    старый индекс продолжает обслуживать память до переключения."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    configured_model = str(hot.get("models.embedding_model_name",
+                                   settings.EMBEDDING_MODEL_NAME) or "")
+    try:
+        configured_dims = int(hot.get("models.embedding_dim",
+                                      settings.EMBEDDING_DIM) or 0)
+    except Exception:
+        configured_dims = 0
+    old_model, old_dims, active = await _read_embedding_space(db)
+    pending = None
+    try:
+        from services.graphrag_rebuild import model_swap_state
+        pending = await model_swap_state(db)
+    except Exception:
+        logger.warning("[memory_api] model swap state failed", exc_info=True)
+    same = _embedding_space_same(old_model, old_dims,
+                                 configured_model, configured_dims)
+    return {
+        "configured": {"model": configured_model,
+                       "dims": configured_dims or None},
+        "active_index": {
+            "index": "graph_facts_vec" if active is not None else None,
+            "model": old_model or None,
+            "dims": old_dims or None,
+            "generation": int((active or {}).get("generation") or 0) or None,
+        },
+        "same_space": bool(same),
+        "pending": pending,
+        "fallback_channels": ["FTS", "графовые связи", "эпизоды", "архив",
+                              "оперативный контекст"],
+    }
+
+
+@memory_router.post("/memory/embedding-change/start")
+async def memory_embedding_change_start(
+    request: Request,
+    payload: EmbeddingModelSwapBody,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Подтверждение смены: target-поколения + фоновая перестройка.
+
+    Конфиг модели НЕ меняется до готовности (старый индекс продолжает
+    обслуживать память); переключение выполняет фоновый rebuild-тик после
+    проверки нового shadow. Повтор идемпотентен."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    try:
+        from services.graphrag_rebuild import start_model_swap
+        result = await start_model_swap(db, model=payload.model,
+                                        dims=payload.dim)
+    except Exception as exc:
+        logger.error("[memory_api] model swap start failed", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "swap_start_failed",
+                    "message": f"перестройка не запущена: "
+                               f"{type(exc).__name__}"})
+    if not result.get("ok"):
+        code = str(result.get("error") or "swap_start_failed")
+        raise HTTPException(status_code=422,
+                            detail={"code": code,
+                                    "message": "смена модели не запущена"})
+    return result
+
+
+@memory_router.post("/memory/embedding-change/cancel")
+async def memory_embedding_change_cancel(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Отмена незавершённой перестройки; прежний индекс остаётся рабочим."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    from services.graphrag_rebuild import cancel_model_swap
+    result = await cancel_model_swap(db)
+    return result
+
+
+@memory_router.post("/memory/embedding-change/resume")
+async def memory_embedding_change_resume(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Возобновление после паузы/сбоя (durable-состояние, не рестарт с нуля)."""
+    _require_global_admin(request, user)
+    db = _db_or_503()
+    from services.graphrag_rebuild import resume_model_swap
+    result = await resume_model_swap(db)
+    return result
+
+
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────
 
 # F8/ADR-1024-5 D3: единые R17-safe коды причин пустоты (spec §5.1).

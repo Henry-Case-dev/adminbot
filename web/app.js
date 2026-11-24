@@ -6798,6 +6798,14 @@
         blockResults: {},
         blockTesting: {},
         blockSaving: {},
+        // MODEL-SWAP-01..05: смена embedding-модели — предупреждение,
+        // подтверждение и фоновая перестройка. Значения — только снимки
+        // существующих API (GET /api/memory/embedding-change[/preview]);
+        // отдельного хранилища на клиенте нет.
+        embedModelSwap: null,
+        embedModelSwapWarn: null,
+        embedModelSwapBusy: false,
+        embedModelSwapTimer: null,
         // F5 (ADR-1025-15 D4/§49, T-2714): раскрытие формы настроек карточки
         // подключения («Настроить»). Значение — только UI-состояние раскрытия;
         // сохранение идёт существующим F0 write-path (`saveBlock`).
@@ -30295,6 +30303,178 @@
         return 'отдельной функциональной проверки нет — доступность API не '
           + 'доказывает, что функция работает';
       },
+      // ── MODEL-SWAP-01..05: смена embedding-модели ──────────────────────
+      // Предупреждение появляется ТОЛЬКО когда меняется векторное
+      // пространство (модель/размерность). Провайдер/ключ/адрес сюда не
+      // входят. До подтверждения модель не сохраняется: конфиг остаётся
+      // прежним, память продолжает работать старым индексом.
+      _embedSwapCfgItem: function (key) {
+        if (typeof this._findConfigItem === 'function') {
+          var it = this._findConfigItem(key);
+          if (it) return it;
+        }
+        return (this.configItems || []).find(function (i) {
+          return i && i.key === key;
+        }) || null;
+      },
+      _embedSwapCanonModel: function (value) {
+        var s = String(value || '').trim().toLowerCase();
+        if (s.indexOf('/') >= 0) s = s.split('/').pop();
+        return s.trim();
+      },
+      _embedSwapServerModel: function () {
+        var it = this._embedSwapCfgItem('models.embedding_model_name');
+        return it ? String(it.value || '') : '';
+      },
+      _embedSwapServerDims: function () {
+        var it = this._embedSwapCfgItem('models.embedding_dim');
+        var n = it ? parseInt(it.value, 10) : NaN;
+        return isFinite(n) && n > 0 ? n : 0;
+      },
+      // Guard общего write-path: если пакет меняет модель/размерность —
+      // warning вместо записи. Возвращает preview или null.
+      _embedModelSwapGuard: async function (items) {
+        var modelItem = null, dimItem = null;
+        (items || []).forEach(function (i) {
+          if (!i) return;
+          if (i.key === 'models.embedding_model_name') modelItem = i;
+          if (i.key === 'models.embedding_dim') dimItem = i;
+        });
+        if (!modelItem && !dimItem) return null;   // провайдер/ключ/URL
+        var oldModel = this._embedSwapServerModel();
+        var oldDims = this._embedSwapServerDims();
+        var newModel = modelItem ? String(modelItem.value || '').trim() : oldModel;
+        var newDims = dimItem ? parseInt(dimItem.value, 10) : oldDims;
+        if (!isFinite(newDims) || newDims <= 0) newDims = oldDims;
+        if (!newModel) return null;                // очистка — обычная валидация
+        if (this._embedSwapCanonModel(newModel) ===
+              this._embedSwapCanonModel(oldModel)
+            && (!oldDims || !newDims || newDims === oldDims)) {
+          return null;                             // то же пространство
+        }
+        try {
+          var qs = '?model=' + encodeURIComponent(newModel)
+                 + (newDims ? '&dim=' + encodeURIComponent(newDims) : '');
+          var preview = await this.api('/api/memory/embedding-change/preview' + qs);
+          if (!preview || !preview.requires_rebuild) return null;
+          return preview;
+        } catch (e) {
+          // 403/сеть: не выдумываем предупреждение и не блокируем обычное
+          // сохранение провайдера/ключа; серверный guard остаётся штатным.
+          return null;
+        }
+      },
+      loadEmbeddingChange: async function () {
+        try {
+          var data = await this.api('/api/memory/embedding-change');
+          this.embedModelSwap = data || null;
+          this._syncEmbedSwapTimer();
+        } catch (e) {
+          // non-admin/нет доступа — панель просто не показывается
+        }
+      },
+      _syncEmbedSwapTimer: function () {
+        var pending = !!(this.embedModelSwap && this.embedModelSwap.pending);
+        if (pending && !this.embedModelSwapTimer
+            && typeof setInterval === 'function') {
+          var self = this;
+          this.embedModelSwapTimer = setInterval(function () {
+            self.loadEmbeddingChange();
+          }, 5000);
+        } else if (!pending && this.embedModelSwapTimer) {
+          clearInterval(this.embedModelSwapTimer);
+          this.embedModelSwapTimer = null;
+        }
+      },
+      embedSwapStateLabel: function (st) {
+        var map = {
+          queued: 'Ожидает запуска',
+          building: 'Идёт перестройка',
+          paused: 'Приостановлена (лимит/провайдер)',
+          ready: 'Проверено, ожидает переключения',
+          active: 'Готово',
+          failed: 'Ошибка перестройки',
+          cancelled: 'Перестройка отменена',
+          pending: 'Подготовка',
+        };
+        return map[st] || 'Состояние неизвестно';
+      },
+      embedSwapPercent: function () {
+        var s = this.embedModelSwap || {};
+        var total = parseInt(s.total, 10) || 0;
+        var done = parseInt(s.processed, 10) || 0;
+        if (total <= 0) return 0;
+        return Math.max(0, Math.min(100, Math.round(done * 100 / total)));
+      },
+      // Подтверждение: сохраняем провайдерские поля (не модель/размерность),
+      // затем просим сервер создать target-поколение и фоновую перестройку.
+      confirmEmbedModelSwap: async function () {
+        var w = this.embedModelSwapWarn;
+        if (!w || this.embedModelSwapBusy) return;
+        this.embedModelSwapBusy = true;
+        try {
+          var others = (w.items || []).filter(function (i) {
+            return i && i.key !== 'models.embedding_model_name'
+                   && i.key !== 'models.embedding_dim';
+          });
+          if (others.length && typeof this.persistItems === 'function') {
+            await this.persistItems(others, { silent: true });
+          }
+          var res = await this.api('/api/memory/embedding-change/start', {
+            method: 'POST',
+            body: JSON.stringify({ model: w.new_model, dim: w.new_dims }),
+          });
+          this.embedModelSwapWarn = null;
+          // Поле модели снова показывает ДЕЙСТВУЮЩЕЕ значение: новая модель
+          // ещё не применена (переключение — после готовности индекса).
+          this.blockDrafts['models.embedding_model_name'] = null;
+          this.blockDrafts['models.embedding_dim'] = null;
+          if (res && res.state) this.embedModelSwap = res.state;
+          this.toast('Перестройка индекса запущена в фоне', 'ok');
+          await this.loadEmbeddingChange();
+          if (typeof this._preserveScroll === 'function') {
+            await this._preserveScroll(this.loadConfig);
+          }
+        } catch (e) {
+          var msg = (e && e.message && (e.message.message || e.message.code))
+            || (e && e.message) || 'ошибка';
+          this.toast('Не удалось запустить перестройку: ' + msg, 'err');
+        } finally {
+          this.embedModelSwapBusy = false;
+        }
+      },
+      cancelEmbedModelSwapWarning: function () {
+        this.embedModelSwapWarn = null;
+      },
+      cancelEmbedModelSwapRun: async function () {
+        if (this.embedModelSwapBusy) return;
+        this.embedModelSwapBusy = true;
+        try {
+          await this.api('/api/memory/embedding-change/cancel', {
+            method: 'POST', body: JSON.stringify({}),
+          });
+          this.toast('Перестройка отменена — работает прежний индекс', 'warn');
+          await this.loadEmbeddingChange();
+        } catch (e) {
+          this.toast('Не удалось отменить перестройку', 'err');
+        } finally {
+          this.embedModelSwapBusy = false;
+        }
+      },
+      resumeEmbedModelSwapRun: async function () {
+        if (this.embedModelSwapBusy) return;
+        this.embedModelSwapBusy = true;
+        try {
+          await this.api('/api/memory/embedding-change/resume', {
+            method: 'POST', body: JSON.stringify({}),
+          });
+          await this.loadEmbeddingChange();
+        } catch (e) {
+          this.toast('Не удалось возобновить перестройку', 'err');
+        } finally {
+          this.embedModelSwapBusy = false;
+        }
+      },
       // MODERATE-1: сохранение полей блока через /api/config (без потери
       // черновика). Секреты пишутся только если введён новый ключ.
       // F11 (10.24, ADR-1024-12 D4): секреты ВЫНЕСЕНЫ из общего POST —
@@ -30333,6 +30513,33 @@
         });
         if (!items.length && !secrets.length) {
           this.toast('Нет изменений', 'warn');
+          return;
+        }
+        // MODEL-SWAP-02: смена модели/размерности НЕ сохраняется молча.
+        // Показываем предупреждение (старая/новая модель + причина) и ждём
+        // явного подтверждения; провайдер/ключ сохраняются как обычно.
+        var swapPreview = await this._embedModelSwapGuard(items);
+        if (swapPreview) {
+          this.blockSaving[b.id] = true;
+          try {
+            for (var psi = 0; psi < secrets.length; psi++) {
+              await this.saveProviderSecret(secrets[psi].key,
+                                            secrets[psi].value,
+                                            { scope: 'global' });
+            }
+          } catch (e) {
+            this.toast('Ключ не сохранён: ' + (e.message || e), 'err');
+          } finally {
+            this.blockSaving[b.id] = false;
+          }
+          this.embedModelSwapWarn = {
+            old_model: swapPreview.old_model,
+            old_dims: swapPreview.old_dims,
+            new_model: swapPreview.new_model,
+            new_dims: swapPreview.new_dims,
+            reason: swapPreview.reason,
+            items: items,
+          };
           return;
         }
         this.blockSaving[b.id] = true;
@@ -31823,6 +32030,11 @@
             this.f3ApplyModuleRegistry(data.modules);
           }
           this._normalizeConfigItems(this.configItems);
+          // MODEL-SWAP: панель «Модели и подключения» получает снимок
+          // фоновой перестройки/предупреждения (read-only, fail-open).
+          if (typeof this.loadEmbeddingChange === 'function') {
+            this.loadEmbeddingChange();
+          }
           // 3.5.2: после перезагрузки KV-редакторы (компоненты) сами
           // пересоберут пары из item.value — внешних черновиков нет.
           // 10.20 (T-1900): baseline sticky-save = свежезагруженный конфиг.
@@ -32366,6 +32578,26 @@
           ? function (ep) { return self._scopeGuard(ep); }
           : function () { return true; };
         var list = (items || []).filter(Boolean);
+        // MODEL-SWAP-02: generic-путь «Расширенные» (например, размерность)
+        // подчиняется тому же подтверждению, что и блок «Эмбеддинги».
+        if (!opts.skipEmbeddingSwapGuard) {
+          var swapGuard = await this._embedModelSwapGuard(list);
+          if (swapGuard) {
+            this.embedModelSwapWarn = {
+              old_model: swapGuard.old_model,
+              old_dims: swapGuard.old_dims,
+              new_model: swapGuard.new_model,
+              new_dims: swapGuard.new_dims,
+              reason: swapGuard.reason,
+              items: list,
+            };
+            this.toast('Смена модели требует подтверждения — см. «Эмбеддинги»',
+                       'warn');
+            return { saved: [], failed: [], skipped: [], revalidated: false,
+                     state: 'requires_rebuild', operationId: operationId,
+                     guard: swapGuard };
+          }
+        }
         var drafts = {};
         var skipped = [];
         var guardBlocked = [];   // F7 D1: PERMsoc-ключи при scope=global
@@ -46892,6 +47124,10 @@
       this.stopDossierFeedPolling();   // 10.20 (T-1897): нет stale-таймера
       this.stopIncidentPolling();      // mca-17a (§4.6/SC-16): нет stale-таймера
       this.stopDossierRebuildPolling(); // F8: нет stale-таймера пересборки
+      if (this.embedModelSwapTimer) {
+        clearInterval(this.embedModelSwapTimer);
+        this.embedModelSwapTimer = null;
+      }
       this.destroyCognitionGraph();
       // F24 (ADR-1024-24 C4): снимаем подписки TMA-fullscreen при unmount.
       this.teardownFullscreen();

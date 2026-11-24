@@ -158,6 +158,47 @@ _FLOAT_DIM_RE = re.compile(r"float\[(\d+)\]")
 # (restart прошлого процесса).
 _STALE_RUNNING_SECONDS = 600
 
+# ── MODEL-SWAP-01..05 (owner §2, 24.11.2026): реальная смена модели ────────
+# Пользовательский сценарий «смена модели → предупреждение → подтверждение →
+# фоновая перестройка → переключение после готовности». Durable-состояние —
+# СУЩЕСТВУЮЩИЕ строки реестра поколений: target-строка получает
+# `config_revision = "model_swap:<source_fp>"` (схема не меняется, ΔDDL=0).
+# Пока идёт сборка, ACTIVE-поколение и его live-векторы остаются прежними:
+# retrieval продолжает работать прежней моделью (старое пространство), новые
+# векторы пишутся только в shadow. Смешивание пространств невозможно.
+MODEL_SWAP_PREFIX = "model_swap:"
+MODEL_SWAP_ROW_STATUSES = frozenset({
+    "building", "building_target", "catching_up", "ready", "validated",
+})
+MODEL_SWAP_TERMINAL_ROW_STATUSES = frozenset({
+    "active", "active_old", "superseded", "cancelled", "failed",
+})
+
+
+def _swap_source_fp(row: dict | None) -> str:
+    """source-fp подтверждённой смены модели ('' — обычное поколение)."""
+    raw = str((row or {}).get("config_revision") or "")
+    if not raw.startswith(MODEL_SWAP_PREFIX):
+        return ""
+    return raw[len(MODEL_SWAP_PREFIX):]
+
+
+def _swap_info(row: dict | None) -> dict | None:
+    """R17-safe описание target-поколения смены модели (None — обычное)."""
+    source_fp = _swap_source_fp(row)
+    if not source_fp or row is None:
+        return None
+    return {
+        "source_fp": source_fp,
+        "target_fp": str(row.get("fingerprint") or ""),
+        "model": str(row.get("model") or ""),
+        "dims": int(row.get("dims") or 0) or None,
+        "provider": str(row.get("provider") or ""),
+        "generation": int(row.get("generation") or 0),
+        "status": str(row.get("status") or ""),
+        "row": row,
+    }
+
 
 def graphrag_rebuild_enabled() -> bool:
     """Kill-switch `GRAPHRAG_SHADOW_REBUILD_ENABLED` (env-only, default ON).
@@ -742,18 +783,23 @@ def _shadow_name(index_name: str, generation: int) -> str:
     return f"{_INDEX_SPECS[index_name]['live']}_g{int(generation)}"
 
 
-def _live_ddl(memory, index_name: str) -> str:
-    """Канонический DDL live-таблицы (тот же формат, что у MemoryManager)."""
-    dim = int(memory._vec_dim or 0)
+def _live_ddl(memory, index_name: str, *, dims: int | None = None) -> str:
+    """Канонический DDL live-таблицы (тот же формат, что у MemoryManager).
+
+    `dims` — целевая размерность (MODEL-SWAP: shadow/live нового пространства
+    строятся в размерности target-поколения, пока `memory._vec_dim` ещё
+    описывает обслуживаемое старое пространство)."""
+    dim = int(dims if dims is not None else (memory._vec_dim or 0))
     if index_name == "graph_facts_vec":
         return memory._graph_vec_table_sql(dim)
     return memory._vec_table_sql(dim)
 
 
-async def _create_shadow(memory, index_name: str, shadow: str) -> None:
+async def _create_shadow(memory, index_name: str, shadow: str, *,
+                         dims: int | None = None) -> None:
     """Идемпотентный CREATE VIRTUAL TABLE IF NOT EXISTS (ΔDDL = 0, Q14)."""
     live = _INDEX_SPECS[index_name]["live"]
-    sql = _live_ddl(memory, index_name).replace(
+    sql = _live_ddl(memory, index_name, dims=dims).replace(
         f"IF NOT EXISTS {live}", f"IF NOT EXISTS {shadow}")
     async with memory.db.serialized():
         await memory.db.db.execute(sql)
@@ -841,25 +887,41 @@ def _read_vector(blob) -> list[float] | None:
 
 
 async def _validate(memory, index_name: str, shadow: str, fp: str,
-                    frontier: int) -> tuple[bool, dict]:
+                    frontier: int, *, swap: dict | None = None
+                    ) -> tuple[bool, dict]:
     """Критерии §6 (1–8; №9 — сама транзакция swap). Возвращает
-    ``(ok, report)``; report — R17-safe (числа/bool/короткие коды)."""
+    ``(ok, report)``; report — R17-safe (числа/bool/короткие коды).
+
+    ``swap`` — target-поколение подтверждённой смены модели: критерии
+    проверяют, что конфиг НЕ менялся с момента подтверждения (source_fp),
+    shadow построен в размерности target, а строка реестра описывает именно
+    target-модель. Прежний путь (``swap=None``) не меняется."""
     spec = _INDEX_SPECS[index_name]
     report: dict = {"index": index_name, "shadow": shadow,
                     "frontier": int(frontier), "criteria": {}}
     crit = report["criteria"]
     now = int(time.time())
+    expected_dims = int((swap or {}).get("dims") or memory._vec_dim or 0)
 
-    # 1. fingerprint == current (race-guard D2 — первый и самый дешёвый).
+    # 1. fingerprint == source/current (race-guard D2 — первый и самый дешёвый).
     current_fp = memory._identity_fingerprint()
-    crit["fingerprint_current"] = (fp == current_fp)
-    if fp != current_fp:
-        report["reason_code"] = "fingerprint_changed"
-        report["build_fp"] = _fp12(fp)
-        report["current_fp"] = _fp12(current_fp)
-        return False, report
+    if swap:
+        source_fp = str(swap.get("source_fp") or "")
+        crit["source_fingerprint_current"] = (source_fp == current_fp)
+        if source_fp != current_fp:
+            report["reason_code"] = "source_identity_changed"
+            report["build_source_fp"] = _fp12(source_fp)
+            report["current_fp"] = _fp12(current_fp)
+            return False, report
+    else:
+        crit["fingerprint_current"] = (fp == current_fp)
+        if fp != current_fp:
+            report["reason_code"] = "fingerprint_changed"
+            report["build_fp"] = _fp12(fp)
+            report["current_fp"] = _fp12(current_fp)
+            return False, report
 
-    # 2. dim == current (DDL shadow).
+    # 2. dim == expected (DDL shadow).
     cursor = await memory.db.db.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
         (shadow,))
@@ -870,24 +932,28 @@ async def _validate(memory, index_name: str, shadow: str, fp: str,
         if match:
             stored_dim = int(match.group(1))
     crit["dim_current"] = (stored_dim is not None
-                           and stored_dim == int(memory._vec_dim or -1))
+                           and stored_dim == expected_dims)
     if not crit["dim_current"]:
         report["reason_code"] = "dim_changed"
         report["shadow_dim"] = stored_dim
         return False, report
 
-    # 3/4. provider/model identity + preprocessing_version == текущий config.
+    # 3/4. provider/model identity + preprocessing_version == target/current.
     gen = await memory.db.get_generation_by_fingerprint(index_name, fp)
     from services import summary_memory as sm
-    want_provider = sm._embedding_provider()
-    want_model = None
-    try:
-        from services import hot_config as hot
-        from config.settings import settings
-        want_model = hot.get("models.embedding_model_name",
-                             settings.EMBEDDING_MODEL_NAME)
-    except Exception:      # pragma: no cover — конфиг не роняет validation
+    if swap:
+        want_provider = str(swap.get("provider") or "")
+        want_model = str(swap.get("model") or "")
+    else:
+        want_provider = sm._embedding_provider()
         want_model = None
+        try:
+            from services import hot_config as hot
+            from config.settings import settings
+            want_model = hot.get("models.embedding_model_name",
+                                 settings.EMBEDDING_MODEL_NAME)
+        except Exception:      # pragma: no cover — конфиг не роняет validation
+            want_model = None
     want_preproc = sm.EMBEDDING_PREPROCESSING_VERSION
     got = gen or {}
     crit["provider_model_current"] = (
@@ -895,7 +961,10 @@ async def _validate(memory, index_name: str, shadow: str, fp: str,
         and str(got.get("model") or "") == str(want_model or ""))
     crit["preprocessing_current"] = (
         str(got.get("preprocessing_version") or "") == str(want_preproc))
-    if not (crit["provider_model_current"] and crit["preprocessing_current"]):
+    crit["target_dims_match"] = (
+        (int(got.get("dims") or 0) == expected_dims) if swap else True)
+    if not (crit["provider_model_current"] and crit["preprocessing_current"]
+            and crit["target_dims_match"]):
         report["reason_code"] = "identity_changed"
         return False, report
 
@@ -971,7 +1040,7 @@ async def _validate(memory, index_name: str, shadow: str, fp: str,
     diag["source_count"] = int((await cursor.fetchone())["c"])
     cursor = await memory.db.db.execute(f"SELECT COUNT(*) AS c FROM {shadow}")
     diag["vector_count"] = int((await cursor.fetchone())["c"])
-    diag["expected_dim"] = int(memory._vec_dim or 0)
+    diag["expected_dim"] = expected_dims
     diag["gen_fp"] = _fp12(fp)
     diag["vec_extension"] = bool(memory._vec_available)
     diag["query_vector_ok"] = False
@@ -1071,20 +1140,26 @@ async def _validate(memory, index_name: str, shadow: str, fp: str,
 # ── атомарная активация (§6.9; запрет §3/§66 соблюдён — см. docstring) ──────
 
 async def _activate(memory, index_name: str, shadow: str, fp: str,
-                    generation: int) -> bool:
+                    generation: int, *, swap: dict | None = None) -> bool:
     spec = _INDEX_SPECS[index_name]
     live = spec["live"]
     int8 = bool(memory._vec_int8)
     insert_cols = spec["insert_cols"] + (", embedding_i8" if int8 else "")
     copy_cols = spec["copy_cols"] + (", embedding_i8" if int8 else "")
-    live_sql = _live_ddl(memory, index_name)
+    target_dims = ((swap or {}).get("dims") or memory._vec_dim)
+    live_sql = _live_ddl(memory, index_name, dims=target_dims)
     now = int(time.time())
 
     async def _body(conn):
         # M-ASAP32-2: re-check fp ВНУТРИ транзакции — закрывает race-окно
         # validate→activate при hot-смене embedding-конфига (rollback →
         # activation_failed, shadow цел, self-heal на следующем schedule).
-        if memory._identity_fingerprint() != fp:
+        # MODEL-SWAP: конфиг обязан остаться прежним (source_fp) до самого
+        # переключения — иначе новая live-таблица была бы построена не в том
+        # пространстве, которое сейчас обслуживается.
+        expected_fp = (str((swap or {}).get("source_fp") or "")
+                       if swap else fp)
+        if memory._identity_fingerprint() != expected_fp:
             raise RuntimeError("fingerprint_changed")
         # 1. Прежняя live-таблица (unknown-origin vectors) заменяется ЦЕЛИКОМ;
         #    raw `graph_facts`/`smart_archive_facts` НЕ трогаются (source of
@@ -1111,7 +1186,7 @@ async def _activate(memory, index_name: str, shadow: str, fp: str,
         cursor = await conn.execute(
             "UPDATE mca_embedding_index_generations SET status = 'active', "
             "activated_at = ? WHERE index_name = ? AND generation = ? AND "
-            "fingerprint = ? AND status IN ('building', 'validated')",
+            "fingerprint = ? AND status IN ('building', 'validated', 'ready')",
             (now, index_name, int(generation), fp))
         if cursor.rowcount != 1:
             raise RuntimeError("generation_row_missing")
@@ -1128,7 +1203,486 @@ async def _activate(memory, index_name: str, shadow: str, fp: str,
         return False
 
 
+# ── MODEL-SWAP-01..05: пользовательский сценарий смены модели ──────────────
+
+async def _swap_rows(db) -> list[dict]:
+    """Последняя target-строка смены модели по каждому индексу (R17-safe)."""
+    out: list[dict] = []
+    for index_name in _INDEX_SPECS:
+        try:
+            row = await db.get_latest_embedding_generation(index_name)
+        except Exception:
+            row = None
+        info = _swap_info(row)
+        if info is not None:
+            info["index"] = index_name
+            out.append(info)
+    return out
+
+
+async def _mark_generation_ready(db, index_name: str, swap: dict) -> bool:
+    """Перевести target-поколение в durable `ready` штатной машиной статусов.
+
+    `ready` — «shadow проверен, ждёт переключения». Пока ВСЕ target-индексы не
+    готовы, live/ACTIVE не трогаются (см. `_finalize_model_swap`)."""
+    row = await db.get_generation_by_fingerprint(
+        index_name, str(swap.get("target_fp") or ""))
+    if row is None:
+        return False
+    chain = {"building": "building_target",
+             "building_target": "catching_up",
+             "catching_up": "ready",
+             "ready": None}
+    guard = 0
+    while row is not None and guard < 5:
+        guard += 1
+        status = str(row.get("status") or "")
+        nxt = chain.get(status)
+        if nxt is None:
+            return status == "ready"
+        setter = getattr(db, "set_embedding_generation_status", None)
+        if setter is None:
+            return False
+        if not await setter(str(row.get("generation_id") or ""), nxt):
+            return False
+        row = await db.get_generation_by_fingerprint(
+            index_name, str(swap.get("target_fp") or ""))
+    return False
+
+
+async def _apply_swap_config(model: str, dims: int) -> bool:
+    """Атомарно применить target-модель/размерность к effective-конфигу.
+
+    Вызывается ТОЛЬКО после переключения live-индексов на новое поколение.
+    ConfigCache — существующий hot-path записи `models.*` (та же транзакция,
+    что POST /api/config); при недоступности PG/кэша возвращает False —
+    переключение завершит следующий тик (поколения уже active, смешивания нет).
+    """
+    try:
+        from services import hot_config
+        cache = hot_config.get_config_cache()
+        if cache is None or not hasattr(cache, "set_many"):
+            return False
+        items = [("models.embedding_model_name", str(model), "models")]
+        if int(dims or 0) > 0:
+            items.append(("models.embedding_dim", int(dims), "models"))
+        await cache.set_many(items)
+        return True
+    except Exception:
+        logger.warning("graphrag rebuild: model-swap config apply failed",
+                       exc_info=True)
+        return False
+
+
+async def _finalize_model_swap(memory, source_fp: str) -> bool:
+    """Завершить подтверждённую смену модели, когда ВСЕ target готовы.
+
+    Шаги (идемпотентно, durable-состояние — реестр поколений):
+    1. все target-строки одной смены обязаны быть `ready` (или уже active);
+    2. атомарный shadow-swap каждого индекса (существующий `_activate`);
+    3. только ПОСЛЕ этого — effective-конфиг переключается на target-модель;
+    4. durable-джобы помечаются activated.
+    До шага 3 retrieval использует прежний ACTIVE-индекс и прежний конфиг.
+    """
+    if not source_fp:
+        return False
+    db = memory.db
+    rows = [r for r in await _swap_rows(db)
+            if r.get("source_fp") == source_fp]
+    if not rows:
+        return False
+    target_models = {str(r.get("model") or "") for r in rows}
+    target_dims_set = {int(r.get("dims") or 0) for r in rows}
+    if len(target_models) != 1 or len(target_dims_set) != 1:
+        logger.warning("graphrag rebuild: ambiguous model-swap targets | %s",
+                       [(r.get("target_fp") or "")[:12] for r in rows])
+        return False
+    model = next(iter(target_models))
+    dims = next(iter(target_dims_set))
+    if not model or not dims:
+        return False
+
+    allowed = {"ready", "active"}
+    for row in rows:
+        status = str(row.get("status") or "")
+        if status in ("cancelled", "superseded", "failed", "active_old"):
+            return False                     # отменённая/провалившаяся смена
+        if status not in allowed:
+            return False                     # ещё строится
+
+    # Конфиг уже target (после сбоя между swap и отметкой джоб)?
+    try:
+        from services import hot_config
+        from config.settings import settings
+        configured_model = str(hot_config.get(
+            "models.embedding_model_name",
+            settings.EMBEDDING_MODEL_NAME) or "")
+        configured_dims = int(hot_config.get(
+            "models.embedding_dim", settings.EMBEDDING_DIM) or 0)
+        from services import embedding_control_plane as ecp
+        same_now = (
+            ecp.model_space_identity(model=model, dimension=dims)
+            == ecp.model_space_identity(model=configured_model,
+                                        dimension=configured_dims))
+    except Exception:
+        same_now = False
+
+    if not same_now:
+        for row in rows:
+            if str(row.get("status") or "") != "ready":
+                continue
+            index_name = str(row.get("index") or "")
+            generation = int(row.get("generation") or 0)
+            shadow = _shadow_name(index_name, generation)
+            if not await _activate(memory, index_name, shadow,
+                                   str(row.get("target_fp") or ""),
+                                   generation, swap=row):
+                return False
+        if not await _apply_swap_config(model, dims):
+            return False
+        # Живой MemoryManager этого процесса обязан использовать новую
+        # размерность сразу: KNN-запросы следующего retrieval идут в новый
+        # live-индекс (иначе sqlite-vec отвергнет вектор другой длины).
+        try:
+            memory._vec_dim = int(dims)
+        except Exception:
+            pass
+
+    for row in rows:
+        index_name = str(row.get("index") or "")
+        job = await _find_active_job(
+            db, index_name, str(row.get("target_fp") or ""))
+        if job is None:
+            continue
+        status = str(job.get("status") or "")
+        if status in (ST_ACTIVATED, ST_CANCELLED, ST_FAILED):
+            continue
+        await _job_cas(db, str(job.get("job_id") or ""), expect=status,
+                       set_status=ST_ACTIVATED, reason_code="model_swap_done",
+                       terminal=True)
+    return True
+
+
+async def start_model_swap(db, *, model: str, dims: int | None = None
+                           ) -> dict:
+    """Подтверждённая смена модели: target-поколения + durable rebuild.
+
+    Конфиг НЕ меняется до готовности (retrieval продолжает работать прежним
+    ACTIVE-индексом и прежней моделью). Возвращает снимок состояния; ошибки
+    не бросает (endpoint решает HTTP-код по `ok`)."""
+    from services import summary_memory as sm
+    from services import hot_config
+    from services import embedding_control_plane as ecp
+    from config.settings import settings
+
+    new_model = str(model or "").strip()
+    if not new_model:
+        return {"ok": False, "error": "model_required"}
+    current_model = str(hot_config.get(
+        "models.embedding_model_name", settings.EMBEDDING_MODEL_NAME) or "")
+    try:
+        current_dims = int(hot_config.get(
+            "models.embedding_dim", settings.EMBEDDING_DIM) or 0)
+    except Exception:
+        current_dims = 0
+    target_dims = int(dims or current_dims or 0)
+    same_space = (
+        ecp.model_space_identity(model=new_model, dimension=target_dims)
+        == ecp.model_space_identity(model=current_model,
+                                    dimension=current_dims))
+    if same_space:
+        return {"ok": True, "required": False, "reason": "same_space",
+                "old_model": current_model, "new_model": new_model,
+                "old_dims": current_dims, "new_dims": target_dims}
+
+    source_fp = sm.embedding_identity_fingerprint()
+    provider = sm._embedding_provider()
+    endpoint_fp = sm._endpoint_fingerprint()
+    target_fp = sm.embedding_identity_fingerprint(
+        provider=provider, model=new_model, dims=target_dims,
+        preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
+        endpoint_fingerprint=endpoint_fp)
+    if not target_fp or target_fp == source_fp:
+        return {"ok": True, "required": False, "reason": "same_space",
+                "old_model": current_model, "new_model": new_model,
+                "old_dims": current_dims, "new_dims": target_dims}
+
+    marker = MODEL_SWAP_PREFIX + source_fp
+    indexes: dict = {}
+    built = 0
+    register = getattr(db, "register_embedding_target_generation", None)
+    if register is None:
+        return {"ok": False, "error": "generation_registry_unavailable"}
+    for index_name in _INDEX_SPECS:
+        if await _source_empty(db, index_name):
+            indexes[index_name] = {"status": "source_empty", "skipped": True}
+            continue
+        generation = await register(
+            index_name, target_fp, provider=provider, model=new_model,
+            dims=target_dims,
+            preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
+            endpoint_fingerprint=endpoint_fp,
+            config_revision=marker)
+        if not generation:
+            indexes[index_name] = {"status": "register_failed"}
+            continue
+        # Строка могла существовать (идемпотентный повтор) — маркер смены
+        # обязан быть на месте, иначе recovery не узнает target.
+        try:
+            async def _mark(conn):
+                await conn.execute(
+                    "UPDATE mca_embedding_index_generations SET "
+                    "config_revision=? WHERE index_name=? AND fingerprint=? "
+                    "AND namespace='default' AND status IN "
+                    "('building','building_target','catching_up','ready')",
+                    (marker, index_name, target_fp))
+            await db.write_transaction(_mark, op_name="model_swap_mark")
+        except Exception:
+            logger.warning("graphrag rebuild: swap marker update failed | %s",
+                           index_name, exc_info=True)
+        job_id = await _ensure_job(db, index_name, target_fp, int(generation))
+        indexes[index_name] = {
+            "status": "queued" if job_id else "job_unavailable",
+            "generation": int(generation),
+            "job_id": str(job_id)[:32] if job_id else None,
+        }
+        built += 1
+
+    if not built:
+        # Все источники пусты: перестраивать нечего — смена конфига безопасна
+        # (ни одного старого вектора не существует). Конфиг меняется сразу.
+        applied = await _apply_swap_config(new_model, target_dims)
+        return {"ok": bool(applied), "required": True, "applied": bool(applied),
+                "source_fp": source_fp, "old_model": current_model,
+                "new_model": new_model, "old_dims": current_dims,
+                "new_dims": target_dims, "indexes": indexes,
+                "error": None if applied else "config_apply_failed"}
+    state = await model_swap_state(db)
+    return {"ok": True, "required": True, "source_fp": source_fp,
+            "old_model": current_model, "new_model": new_model,
+            "old_dims": current_dims, "new_dims": target_dims,
+            "indexes": indexes, "state": state}
+
+
+def _swap_item_state(row: dict, job: dict | None) -> tuple[str, str | None]:
+    """(state, error_reason) одного target-индекса для панели."""
+    status = str(row.get("status") or "")
+    job_status = str((job or {}).get("status") or "")
+    reason = str((job or {}).get("reason_code") or "") or None
+    if status == "active":
+        return "active", None
+    if job_status in FAILED_BUILD_JOB_STATUSES:
+        return "failed", reason or job_status
+    if job_status == ST_CANCELLED or status in ("cancelled", "superseded"):
+        return "cancelled", reason
+    if job_status in AUTO_RESUME_STATUSES:
+        return "paused", reason
+    if status == "ready":
+        return "ready", None
+    if job_status in (ST_RUNNING, ST_CHECKPOINT, ST_VALIDATING):
+        return "building", None
+    if job_status in (ST_QUEUED, ST_BUILDING):
+        return "queued", None
+    return "pending", None
+
+
+async def model_swap_state(db) -> dict | None:
+    """R17-safe снимок подтверждённой смены модели (None — смены нет).
+
+    Источник истины — существующие строки реестра поколений + durable
+    `task_jobs`; отдельного хранилища/флагов нет."""
+    rows = await _swap_rows(db)
+    rows = [r for r in rows if str(r.get("status") or "")
+            not in ("superseded", "cancelled")]
+    if not rows:
+        return None
+    source_fp = str(rows[0].get("source_fp") or "")
+    target_model = str(rows[0].get("model") or "")
+    target_dims = int(rows[0].get("dims") or 0)
+    items: list[dict] = []
+    old_model = ""
+    old_dims = 0
+    states: list[str] = []
+    errors: list[dict] = []
+    for row in rows:
+        index_name = str(row.get("index") or "")
+        fp = str(row.get("target_fp") or "")
+        active = None
+        try:
+            active = await db.get_active_embedding_generation(index_name)
+        except Exception:
+            active = None
+        if active is not None:
+            old_model = old_model or str(active.get("model") or "")
+            old_dims = old_dims or int(active.get("dims") or 0)
+        job = await _find_active_job(db, index_name, fp)
+        state, reason = _swap_item_state(row, job)
+        states.append(state)
+        processed = 0
+        if job is not None:
+            processed = await _job_progress(db, str(job.get("job_id") or ""))
+        total = await _source_total(db, index_name)
+        item = {
+            "index": index_name,
+            "state": state,
+            "error": reason,
+            "processed": int(processed),
+            "total": int(total),
+            "generation": int(row.get("generation") or 0),
+            "job_status": str((job or {}).get("status") or ""),
+            "can_cancel": state in ("queued", "building", "paused", "ready"),
+            "can_resume": state in ("failed", "paused"),
+        }
+        if reason:
+            errors.append({"index": index_name, "reason_code": reason})
+        items.append(item)
+    if not items:
+        return None
+
+    def _pick(*names):
+        return next((s for s in names if s in states), None) or states[0]
+
+    if any(s == "failed" for s in states):
+        state = "failed"
+    elif any(s == "cancelled" for s in states):
+        state = "cancelled"
+    elif any(s == "paused" for s in states):
+        state = "paused"
+    elif all(s == "active" for s in states):
+        state = "active"
+    elif any(s == "ready" for s in states) and all(
+            s in ("ready", "active") for s in states):
+        state = "ready"
+    elif any(s in ("building", "queued") for s in states):
+        state = _pick("building", "queued")
+    else:
+        state = _pick("pending", "ready")
+
+    primary = next((i for i in items if i["index"] == "graph_facts_vec"),
+                   items[0])
+    try:
+        from services import embedding_control_plane as ecp
+        profiles = ecp.resolve_embedding_profiles()
+        old_space = (ecp.model_space_identity(
+            model=old_model, dimension=old_dims)
+            if old_model and old_dims else "")
+        old_available = bool(old_space) and any(
+            ecp.model_space_identity(model=p.model, dimension=old_dims)
+            == old_space for p in profiles.values() if p.model)
+    except Exception:
+        old_available = False
+    old_index_serving = bool(old_model) and any(
+        i["state"] in ("queued", "building", "paused", "failed", "pending",
+                       "ready") for i in items)
+    return {
+        "source_fp": _fp12(source_fp),
+        "old_model": old_model,
+        "old_dims": old_dims or None,
+        "new_model": target_model,
+        "new_dims": target_dims or None,
+        "state": state,
+        "pending": state != "active" and state != "cancelled",
+        "processed": int(primary.get("processed") or 0),
+        "total": int(primary.get("total") or 0),
+        "errors": errors,
+        "indexes": items,
+        "can_cancel": any(i["can_cancel"] for i in items),
+        "can_resume": any(i["can_resume"] for i in items),
+        "old_model_available": bool(old_available),
+        "old_index_serving": bool(old_index_serving),
+        "fallback_channels": ["FTS", "графовые связи", "эпизоды", "архив",
+                              "оперативный контекст"],
+    }
+
+
+async def cancel_model_swap(db) -> dict:
+    """Отменить незавершённую смену модели: старый индекс остаётся живым."""
+    rows = [r for r in await _swap_rows(db)
+            if str(r.get("status") or "") not in
+            ("active", "active_old", "superseded", "cancelled")]
+    cancelled: list[str] = []
+    for row in rows:
+        index_name = str(row.get("index") or "")
+        fp = str(row.get("target_fp") or "")
+        job = await _find_active_job(db, index_name, fp)
+        if job is not None and str(job.get("status") or "") not in (
+                ST_ACTIVATED, ST_CANCELLED, ST_FAILED):
+            await _job_cas(db, str(job.get("job_id") or ""),
+                           expect=str(job.get("status") or ""),
+                           set_status=ST_CANCELLED,
+                           reason_code="model_swap_cancelled", terminal=True)
+        generation = int(row.get("generation") or 0)
+        shadow = _shadow_name(index_name, generation)
+        status = str(row.get("status") or "")
+        if status == "ready":
+            setter = getattr(db, "set_embedding_generation_status", None)
+            if setter is not None:
+                await setter(str(row.get("row", {}).get("generation_id") or ""),
+                             "cancelled")
+        try:
+            async def _cancel_target(conn, _shadow=shadow, _index=index_name,
+                                     _fp=fp):
+                await conn.execute(f"DROP TABLE IF EXISTS {_shadow}")
+                await conn.execute(
+                    "UPDATE mca_embedding_index_generations SET "
+                    "status='cancelled' WHERE index_name=? AND fingerprint=? "
+                    "AND namespace='default' AND status IN "
+                    "('building','building_target','catching_up','ready')",
+                    (_index, _fp))
+            await db.write_transaction(_cancel_target,
+                                       op_name="model_swap_cancel")
+        except Exception:
+            logger.warning("graphrag rebuild: swap cancel update failed | %s",
+                           index_name, exc_info=True)
+        cancelled.append(index_name)
+    return {"cancelled": cancelled}
+
+
+async def resume_model_swap(db) -> dict:
+    """Возобновить смену модели после паузы/сбоя (durable-состояние)."""
+    rows = [r for r in await _swap_rows(db)
+            if str(r.get("status") or "") in MODEL_SWAP_ROW_STATUSES]
+    resumed: list[str] = []
+    for row in rows:
+        index_name = str(row.get("index") or "")
+        fp = str(row.get("target_fp") or "")
+        job = await _find_active_job(db, index_name, fp)
+        if job is None:
+            generation = int(row.get("generation") or 0)
+            if generation > 0:
+                await _ensure_job(db, index_name, fp, generation)
+                resumed.append(index_name)
+            continue
+        status = str(job.get("status") or "")
+        if status in AUTO_RESUME_STATUSES or status == ST_PAUSED:
+            if await resume_rebuild(db, index_name, fp=fp):
+                resumed.append(index_name)
+        elif status in (ST_FAILED, ST_VALIDATION_FAILED):
+            if await _ensure_job(db, index_name, fp,
+                                 int(row.get("generation") or 0)):
+                resumed.append(index_name)
+    return {"resumed": resumed}
+
+
 # ── обработка джобы (D2 state machine) ──────────────────────────────────────
+
+async def _embed_rebuild_batch(memory, texts, *,
+                               swap: dict | None = None):
+    """Embed одного батча rebuild'а.
+
+    Обычный путь — `memory._embed` (текущий конфиг). MODEL-SWAP строит shadow
+    в НОВОМ пространстве, поэтому явно передаёт target-модель в
+    control-plane executor; embedding_cache/legacy-каскад не используются
+    (их ключи привязаны к текущему configured identity)."""
+    if swap is None:
+        return await memory._embed(list(texts))
+    if not _control_plane_on():
+        raise RuntimeError("model_swap_requires_control_plane")
+    from services import embedding_control_plane as ecp
+    return await ecp.execute_embed(
+        memory.llm, list(texts), priority=_rebuild_priority(),
+        model_override=str(swap.get("model") or ""))
+
 
 async def run_job(memory, index_name: str, job_id: str) -> None:
     """Полный rebuild одного индекса: батчи → checkpoint → validate → activate.
@@ -1169,6 +1723,16 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
                        set_status=ST_FAILED, reason_code="bad_payload",
                        terminal=True)
         return
+    # MODEL-SWAP-01..05: target-поколение подтверждённой смены модели —
+    # модель/размерность/provenance берутся из строки реестра, а не из
+    # текущего конфига (конфиг намеренно остаётся прежним до готовности).
+    gen_row = await db.get_generation_by_fingerprint(index_name, fp)
+    swap = _swap_info(gen_row)
+    if swap is not None and swap["model"] and swap["dims"]:
+        if int(swap["generation"] or 0) and int(swap["generation"]) != generation:
+            swap = None                # stale payload → обычный guard-путь
+    else:
+        swap = None
 
     # resume из checkpoint (restart mid-build → продолжение, §7/§70)
     last_id = 0
@@ -1273,7 +1837,8 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
                 _fp12(fp), bool(processed), str(job_id)[:16])
 
     try:
-        await _create_shadow(memory, index_name, shadow)
+        await _create_shadow(memory, index_name, shadow,
+                             dims=((swap or {}).get("dims")))
         # §28/Q10: pre-check source coverage ДО embed-стадии — пустой source
         # не должен проходить полный «build из нуля объектов» и падать на
         # smoke; честный distinct reason сразу. OFF-паритет: прежний путь.
@@ -1323,7 +1888,8 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
             if not batch:
                 break
             try:
-                vectors = await memory._embed([b["fact"] for b in batch])
+                vectors = await _embed_rebuild_batch(
+                    memory, [b["fact"] for b in batch], swap=swap)
             except Exception as exc:
                 if _control_plane_on():
                     # AM-1 (T-4408): 429/provider-quota → paused_*, НЕ
@@ -1381,7 +1947,8 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
         if not await _job_cas(db, job_id, expect=ST_RUNNING,
                               set_status=ST_CHECKPOINT):
             return
-        ok, report = await _validate(memory, index_name, shadow, fp, last_id)
+        ok, report = await _validate(memory, index_name, shadow, fp, last_id,
+                                     swap=swap)
         if not ok:
             reason = str(report.get("reason_code") or "validation_failed")
             # T-4409 (§29): validation_failure ≠ data loss — НО только для
@@ -1453,6 +2020,28 @@ async def run_job(memory, index_name: str, job_id: str) -> None:
                     "eligible=%d | criteria=%s", index_name, generation,
                     report.get("eligible_total"),
                     ",".join(k for k, v in crit.items() if v))
+
+        # MODEL-SWAP: shadow проверен, но live-индекс НЕ подменяется до
+        # готовности ВСЕХ target-индексов подтверждённой смены. Пока хотя бы
+        # один строится, retrieval продолжает использовать прежний ACTIVE
+        # (конфиг не менялся) — пространства не смешиваются.
+        if swap is not None:
+            await _mark_generation_ready(db, index_name, swap)
+            finalized = await _finalize_model_swap(memory, swap["source_fp"])
+            if finalized:
+                _emit("EMBEDDING_MODEL_SWAP_COMPLETED", "success",
+                      index=index_name, generation=generation,
+                      model=str(swap.get("model") or "")[:120],
+                      dims=int(swap.get("dims") or 0))
+                logger.info("EMBEDDING_MODEL_SWAP_COMPLETED | index=%s | "
+                            "gen=%d | model=%s | dims=%s", index_name,
+                            generation, str(swap.get("model") or "")[:80],
+                            swap.get("dims"))
+            else:
+                logger.info("EMBEDDING_MODEL_SWAP_TARGET_READY | index=%s | "
+                            "gen=%d — waiting for other target indexes",
+                            index_name, generation)
+            return
 
         if not await _activate(memory, index_name, shadow, fp, generation):
             await _job_cas(db, job_id, expect=ST_VALIDATED,
@@ -2014,6 +2603,36 @@ async def maybe_schedule_rebuilds(memory, *, include_failed: bool = True
         except Exception:
             ecp, compat_enabled = None, False
         for index_name in _INDEX_SPECS:
+            # MODEL-SWAP: target-поколение подтверждённой смены модели —
+            # отдельная ветка ДО compat-резолвера: текущий конфиг намеренно
+            # прежний (compat скажет compatible и иначе пропустил бы сборку).
+            try:
+                latest_row = await db.get_latest_embedding_generation(index_name)
+            except Exception:
+                latest_row = None
+            swap_info = _swap_info(latest_row)
+            if swap_info is not None:
+                if swap_info["status"] in ("ready",) or str(
+                        swap_info["status"]) in MODEL_SWAP_TERMINAL_ROW_STATUSES:
+                    continue          # finalizer ниже / терминал
+                if swap_info["source_fp"] != current_fp:
+                    # Конфиг уже переключён (активация завершена) — finalizer
+                    # доотметит джобы; новую сборку не запускаем.
+                    continue
+                if str(swap_info["status"]) not in (
+                        "building", "building_target", "catching_up"):
+                    continue
+                job = await _ensure_job(db, index_name,
+                                        str(swap_info["target_fp"] or ""),
+                                        int(swap_info["generation"] or 0))
+                if job is None:
+                    continue
+                progress = await _job_progress(db, job)
+                remaining = await _source_remaining(
+                    db, index_name, str(swap_info["target_fp"] or ""))
+                candidates.append((index_name, job,
+                                   -(progress * 10**6) + min(remaining, 10**6-1)))
+                continue
             if compat_enabled:
                 try:
                     compat = await ecp.resolve_index_compat(
@@ -2093,6 +2712,17 @@ async def maybe_schedule_rebuilds(memory, *, include_failed: bool = True
                                index_name, exc_info=True)
         # Остальные кандидаты остаются queued — их подберёт post-release
         # schedule первого (lease-последовательность §23).
+        # MODEL-SWAP: если ВСЕ target-индексы уже ready (последний мог
+        # завершиться в другом процессе/до рестарта) — завершить переключение.
+        for source_fp in {str(r.get("source_fp") or "")
+                          for r in await _swap_rows(db)}:
+            if not source_fp:
+                continue
+            try:
+                await _finalize_model_swap(memory, source_fp)
+            except Exception:
+                logger.warning("graphrag rebuild: swap finalize failed | %s",
+                               _fp12(source_fp), exc_info=True)
     except Exception:
         logger.warning("graphrag rebuild: schedule failed", exc_info=True)
     return scheduled
@@ -2434,4 +3064,7 @@ __all__ = [
     "pause_rebuild", "resume_rebuild", "cancel_rebuild", "rebuild_status",
     "resume_compat_paused", "cancel_compat_paused", "COMPAT_PAUSE_REASON",
     "RESUME_TICK_SECONDS", "start_resume_ticker", "resume_tick_once",
+    # MODEL-SWAP-01..05
+    "MODEL_SWAP_PREFIX", "start_model_swap", "model_swap_state",
+    "cancel_model_swap", "resume_model_swap",
 ]

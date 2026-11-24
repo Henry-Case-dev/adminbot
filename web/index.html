@@ -5708,6 +5708,76 @@
                     <span v-if="blockDisplayName(b)" class="prov-modules text-xs text-gray-500">{{ blockDisplayName(b) }}</span>
                   </header>
                   <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
+                  <!-- MODEL-SWAP-01..05: предупреждение и прогресс смены
+                       модели — в самом разделе «Модели и подключения». -->
+                  <div v-if="b.id === 'embeddings' && embedModelSwapWarn"
+                       class="embed-swap-warn card p-3 mb-3 border border-yellow-500/40"
+                       data-embed-swap-warning>
+                    <div class="text-sm font-bold text-yellow-300 mb-1">
+                      Требуется перестройка векторного индекса
+                    </div>
+                    <div class="text-xs text-gray-300 mb-1" data-embed-swap-models>
+                      Было: <b>{{ embedModelSwapWarn.old_model }}</b>
+                      <span v-if="embedModelSwapWarn.old_dims">({{ embedModelSwapWarn.old_dims }} изм.)</span>
+                      → станет: <b>{{ embedModelSwapWarn.new_model }}</b>
+                      <span v-if="embedModelSwapWarn.new_dims">({{ embedModelSwapWarn.new_dims }} изм.)</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-2" data-embed-swap-reason>
+                      {{ embedModelSwapWarn.reason }}
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button class="btn-accent text-xs" data-embed-swap-confirm
+                              :disabled="embedModelSwapBusy"
+                              @click="confirmEmbedModelSwap">
+                        Подтвердить и перестроить
+                      </button>
+                      <button class="btn-ghost text-xs" data-embed-swap-warn-cancel
+                              @click="cancelEmbedModelSwapWarning">Отмена</button>
+                    </div>
+                  </div>
+                  <div v-if="b.id === 'embeddings' && embedModelSwap && embedModelSwap.pending"
+                       class="embed-swap-progress card p-3 mb-3"
+                       data-embed-swap-progress
+                       :data-embed-swap-state="embedModelSwap.state">
+                    <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+                      <div class="text-sm font-bold text-violet-300">
+                        {{ embedSwapStateLabel(embedModelSwap.state) }}
+                      </div>
+                      <div class="text-xs text-gray-400" data-embed-swap-counts>
+                        Обработано {{ embedModelSwap.processed }} из {{ embedModelSwap.total }}
+                      </div>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-2">
+                      Прежний индекс продолжает обслуживать память
+                      (<b>{{ embedModelSwap.old_model }}</b>) до готовности
+                      нового (<b>{{ embedModelSwap.new_model }}</b>).
+                    </div>
+                    <div class="progress embed-swap-bar mb-2" role="progressbar"
+                         :aria-valuenow="embedSwapPercent()" aria-valuemin="0"
+                         aria-valuemax="100" data-embed-swap-bar>
+                      <div class="embed-swap-bar__fill"
+                           :style="{ width: embedSwapPercent() + '%' }"></div>
+                    </div>
+                    <div v-if="embedModelSwap.errors && embedModelSwap.errors.length"
+                         class="text-xs text-red-300 mb-1" data-embed-swap-errors>
+                      <div v-for="er in embedModelSwap.errors" :key="'swap-err-' + er.index">
+                        {{ er.index }}: {{ er.reason_code }}
+                      </div>
+                    </div>
+                    <div v-if="!embedModelSwap.old_model_available"
+                         class="text-xs text-yellow-300 mb-1" data-embed-swap-fallback>
+                      Прежняя модель недоступна — поиск продолжат FTS, графовые
+                      связи, эпизоды, архив и оперативный контекст.
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button v-if="embedModelSwap.can_resume" class="btn-ghost text-xs"
+                              data-embed-swap-resume :disabled="embedModelSwapBusy"
+                              @click="resumeEmbedModelSwapRun">Возобновить</button>
+                      <button v-if="embedModelSwap.can_cancel" class="btn-ghost text-xs"
+                              data-embed-swap-cancel :disabled="embedModelSwapBusy"
+                              @click="cancelEmbedModelSwapRun">Отменить перестройку</button>
+                    </div>
+                  </div>
                   <!-- MCA-19 (T-5103/T-5116): живая effective-линия карточки
                        «Распознавание изображений» (requested ≠ effective).
                        P0 Vision (D10/P0V-UI-NATIVE): `visionStateLine` —
@@ -6413,6 +6483,76 @@
                       <span v-if="blockDisplayName(b)" class="prov-modules text-xs text-gray-500">{{ blockDisplayName(b) }}</span>
                     </header>
                     <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
+                  <!-- MODEL-SWAP-01..05: предупреждение и прогресс смены
+                       модели — в самом разделе «Модели и подключения». -->
+                  <div v-if="b.id === 'embeddings' && embedModelSwapWarn"
+                       class="embed-swap-warn card p-3 mb-3 border border-yellow-500/40"
+                       data-embed-swap-warning>
+                    <div class="text-sm font-bold text-yellow-300 mb-1">
+                      Требуется перестройка векторного индекса
+                    </div>
+                    <div class="text-xs text-gray-300 mb-1" data-embed-swap-models>
+                      Было: <b>{{ embedModelSwapWarn.old_model }}</b>
+                      <span v-if="embedModelSwapWarn.old_dims">({{ embedModelSwapWarn.old_dims }} изм.)</span>
+                      → станет: <b>{{ embedModelSwapWarn.new_model }}</b>
+                      <span v-if="embedModelSwapWarn.new_dims">({{ embedModelSwapWarn.new_dims }} изм.)</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-2" data-embed-swap-reason>
+                      {{ embedModelSwapWarn.reason }}
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button class="btn-accent text-xs" data-embed-swap-confirm
+                              :disabled="embedModelSwapBusy"
+                              @click="confirmEmbedModelSwap">
+                        Подтвердить и перестроить
+                      </button>
+                      <button class="btn-ghost text-xs" data-embed-swap-warn-cancel
+                              @click="cancelEmbedModelSwapWarning">Отмена</button>
+                    </div>
+                  </div>
+                  <div v-if="b.id === 'embeddings' && embedModelSwap && embedModelSwap.pending"
+                       class="embed-swap-progress card p-3 mb-3"
+                       data-embed-swap-progress
+                       :data-embed-swap-state="embedModelSwap.state">
+                    <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+                      <div class="text-sm font-bold text-violet-300">
+                        {{ embedSwapStateLabel(embedModelSwap.state) }}
+                      </div>
+                      <div class="text-xs text-gray-400" data-embed-swap-counts>
+                        Обработано {{ embedModelSwap.processed }} из {{ embedModelSwap.total }}
+                      </div>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-2">
+                      Прежний индекс продолжает обслуживать память
+                      (<b>{{ embedModelSwap.old_model }}</b>) до готовности
+                      нового (<b>{{ embedModelSwap.new_model }}</b>).
+                    </div>
+                    <div class="progress embed-swap-bar mb-2" role="progressbar"
+                         :aria-valuenow="embedSwapPercent()" aria-valuemin="0"
+                         aria-valuemax="100" data-embed-swap-bar>
+                      <div class="embed-swap-bar__fill"
+                           :style="{ width: embedSwapPercent() + '%' }"></div>
+                    </div>
+                    <div v-if="embedModelSwap.errors && embedModelSwap.errors.length"
+                         class="text-xs text-red-300 mb-1" data-embed-swap-errors>
+                      <div v-for="er in embedModelSwap.errors" :key="'swap-err-' + er.index">
+                        {{ er.index }}: {{ er.reason_code }}
+                      </div>
+                    </div>
+                    <div v-if="!embedModelSwap.old_model_available"
+                         class="text-xs text-yellow-300 mb-1" data-embed-swap-fallback>
+                      Прежняя модель недоступна — поиск продолжат FTS, графовые
+                      связи, эпизоды, архив и оперативный контекст.
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button v-if="embedModelSwap.can_resume" class="btn-ghost text-xs"
+                              data-embed-swap-resume :disabled="embedModelSwapBusy"
+                              @click="resumeEmbedModelSwapRun">Возобновить</button>
+                      <button v-if="embedModelSwap.can_cancel" class="btn-ghost text-xs"
+                              data-embed-swap-cancel :disabled="embedModelSwapBusy"
+                              @click="cancelEmbedModelSwapRun">Отменить перестройку</button>
+                    </div>
+                  </div>
                     <div class="prov-row flex items-start gap-2 mb-2" v-for="f in b.fields" :key="f.key">
                       <label class="prov-label text-xs w-36 shrink-0 pt-2">{{ f.label }}</label>
                       <div class="flex-1 min-w-0">
