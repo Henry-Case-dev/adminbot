@@ -1,113 +1,167 @@
 {
- "viewports": {
+ "normal": {
   "1440x900": {
    "vw": 1440,
    "scrollW": 1425,
    "clientW": 1425,
    "errors": 0,
-   "providers": 3,
-   "used": 1,
-   "detailsOpen": 0,
-   "workspaceChips": 0,
-   "primary": 1,
-   "toggle": 1,
-   "order": 1,
-   "twoCols": true,
-   "stacked": false,
-   "textOK": true
-  },
-  "1280x800": {
-   "vw": 1280,
-   "scrollW": 1265,
-   "clientW": 1265,
-   "errors": 0,
-   "providers": 3,
-   "used": 1,
-   "detailsOpen": 0,
-   "workspaceChips": 0,
-   "primary": 1,
-   "toggle": 1,
-   "order": 1,
-   "twoCols": true,
-   "stacked": false,
-   "textOK": true
+   "select": "ibm_quantum",
+   "hint": "Выбрано вручную",
+   "chip": "сохранено вручную",
+   "note": "Сохранён ваш порядок резерва.",
+   "now": "Сейчас используется\nANU Quantum Numbers\nпереключение с IBM Quantum: источник не настроен\n17.11.2026, 22:05:00\nПровайдеры\nIBM Quantum\nне проверено\nзапас: 0\nANU Quantum Numbers\nиспользуется\nпроверено\nзапас: 512\nLfDR QRNG\nне проверено\nзапас: 7\nПоследнее успешное получение: 1024 значений · ANU Quantum Numbers · 17.11.2026, 22:00:00",
+   "reason": "переключение с IBM Quantum: источник не настроен",
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "used": false,
+     "state": "не проверено",
+     "reserve": "запас: 0"
+    },
+    {
+     "id": "anu",
+     "used": true,
+     "state": "проверено",
+     "reserve": "запас: 512"
+    },
+    {
+     "id": "lfdr",
+     "used": false,
+     "state": "не проверено",
+     "reserve": "запас: 7"
+    }
+   ],
+   "detailsOpen": 0
   },
   "390x844": {
    "vw": 390,
    "scrollW": 390,
    "clientW": 390,
    "errors": 0,
-   "providers": 3,
-   "used": 1,
-   "detailsOpen": 0,
-   "workspaceChips": 0,
-   "primary": 1,
-   "toggle": 1,
-   "order": 1,
-   "twoCols": false,
-   "stacked": true,
-   "textOK": true
-  },
-  "320x700": {
-   "vw": 320,
-   "scrollW": 320,
-   "clientW": 320,
-   "errors": 0,
-   "providers": 3,
-   "used": 1,
-   "detailsOpen": 0,
-   "workspaceChips": 0,
-   "primary": 1,
-   "toggle": 1,
-   "order": 1,
-   "twoCols": false,
-   "stacked": true,
-   "textOK": true
+   "select": "ibm_quantum",
+   "hint": "Выбрано вручную",
+   "chip": "сохранено вручную",
+   "note": "Сохранён ваш порядок резерва.",
+   "now": "Сейчас используется\nANU Quantum Numbers\nпереключение с IBM Quantum: источник не настроен\n17.11.2026, 22:05:00\nПровайдеры\nIBM Quantum\nне проверено\nзапас: 0\nANU Quantum Numbers\nиспользуется\nпроверено\nзапас: 512\nLfDR QRNG\nне проверено\nзапас: 7\nПоследнее успешное получение: 1024 значений · ANU Quantum Numbers · 17.11.2026, 22:00:00",
+   "reason": "переключение с IBM Quantum: источник не настроен",
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "used": false,
+     "state": "не проверено",
+     "reserve": "запас: 0"
+    },
+    {
+     "id": "anu",
+     "used": true,
+     "state": "проверено",
+     "reserve": "запас: 512"
+    },
+    {
+     "id": "lfdr",
+     "used": false,
+     "state": "не проверено",
+     "reserve": "запас: 7"
+    }
+   ],
+   "detailsOpen": 0
   }
  },
- "interactions": {
-  "order_after_save": [
-   "lfdr",
-   "anu"
-  ],
-  "fallback_after_toggle": false
+ "inherited": {
+  "1440x900": {
+   "vw": 1440,
+   "scrollW": 1425,
+   "clientW": 1425,
+   "errors": 0,
+   "select": "ibm_quantum",
+   "hint": "По умолчанию",
+   "chip": "сохранено вручную",
+   "note": "Сохранён ваш порядок резерва.",
+   "now": "Сейчас используется\nLfDR QRNG\nпереключение с IBM Quantum: источник не настроен\n17.11.2026, 22:05:00\nПровайдеры\nIBM Quantum\nне проверено\nзапас: 0\nANU Quantum Numbers\nпроверено\nзапас: 512\nLfDR QRNG\nиспользуется\nне проверено\nзапас: 7\nПоследнее успешное получение: 1024 значений · ANU Quantum Numbers · 17.11.2026, 22:00:00",
+   "reason": "переключение с IBM Quantum: источник не настроен",
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "used": false,
+     "state": "не проверено",
+     "reserve": "запас: 0"
+    },
+    {
+     "id": "anu",
+     "used": false,
+     "state": "проверено",
+     "reserve": "запас: 512"
+    },
+    {
+     "id": "lfdr",
+     "used": true,
+     "state": "не проверено",
+     "reserve": "запас: 7"
+    }
+   ],
+   "detailsOpen": 0
+  },
+  "390x844": {
+   "vw": 390,
+   "scrollW": 390,
+   "clientW": 390,
+   "errors": 0,
+   "select": "ibm_quantum",
+   "hint": "По умолчанию",
+   "chip": "сохранено вручную",
+   "note": "Сохранён ваш порядок резерва.",
+   "now": "Сейчас используется\nLfDR QRNG\nпереключение с IBM Quantum: источник не настроен\n17.11.2026, 22:05:00\nПровайдеры\nIBM Quantum\nне проверено\nзапас: 0\nANU Quantum Numbers\nпроверено\nзапас: 512\nLfDR QRNG\nиспользуется\nне проверено\nзапас: 7\nПоследнее успешное получение: 1024 значений · ANU Quantum Numbers · 17.11.2026, 22:00:00",
+   "reason": "переключение с IBM Quantum: источник не настроен",
+   "rows": [
+    {
+     "id": "ibm_quantum",
+     "used": false,
+     "state": "не проверено",
+     "reserve": "запас: 0"
+    },
+    {
+     "id": "anu",
+     "used": false,
+     "state": "проверено",
+     "reserve": "запас: 512"
+    },
+    {
+     "id": "lfdr",
+     "used": true,
+     "state": "не проверено",
+     "reserve": "запас: 7"
+    }
+   ],
+   "detailsOpen": 0
+  }
  },
  "checks": {
-  "1280_actions_page_loaded": true,
-  "1280_actions_draft_visible": true,
-  "1280_actions_save_enabled": true,
-  "1280_actions_order_saved": true,
-  "1280_actions_fallback_off_saved": true,
-  "1280_actions_note_visible": true,
-  "1280_actions_switch_label": true,
-  "1440x900_no_errors": true,
-  "1440x900_no_overflow": true,
-  "1440x900_counts": true,
-  "1440x900_details_closed": true,
-  "1440x900_no_workspace_chips": true,
-  "1440x900_layout": true,
-  "1440x900_no_forbidden_text": true,
-  "1280x800_no_errors": true,
-  "1280x800_no_overflow": true,
-  "1280x800_counts": true,
-  "1280x800_details_closed": true,
-  "1280x800_no_workspace_chips": true,
-  "1280x800_layout": true,
-  "1280x800_no_forbidden_text": true,
-  "390x844_no_errors": true,
-  "390x844_no_overflow": true,
-  "390x844_counts": true,
-  "390x844_details_closed": true,
-  "390x844_no_workspace_chips": true,
-  "390x844_layout": true,
-  "390x844_no_forbidden_text": true,
-  "320x700_no_errors": true,
-  "320x700_no_overflow": true,
-  "320x700_counts": true,
-  "320x700_details_closed": true,
-  "320x700_no_workspace_chips": true,
-  "320x700_layout": true,
-  "320x700_no_forbidden_text": true
+  "1440x900_normal_errors": true,
+  "1440x900_normal_overflow": true,
+  "1440x900_normal_reason_attributed": true,
+  "1440x900_normal_anu_used_verified": true,
+  "1440x900_normal_no_contradiction": true,
+  "1440x900_inherit_errors": true,
+  "1440x900_inherit_overflow": true,
+  "1440x900_inherit_factory_select": true,
+  "1440x900_inherit_saved_chip": true,
+  "1440x900_inherit_order_effective": true,
+  "1440x900_inherit_note_no_factory": true,
+  "1440x900_inherit_reason_attributed": true,
+  "1440x900_inherit_no_contradiction": true,
+  "390x844_normal_errors": true,
+  "390x844_normal_overflow": true,
+  "390x844_normal_reason_attributed": true,
+  "390x844_normal_anu_used_verified": true,
+  "390x844_normal_no_contradiction": true,
+  "390x844_inherit_errors": true,
+  "390x844_inherit_overflow": true,
+  "390x844_inherit_factory_select": true,
+  "390x844_inherit_saved_chip": true,
+  "390x844_inherit_order_effective": true,
+  "390x844_inherit_note_no_factory": true,
+  "390x844_inherit_reason_attributed": true,
+  "390x844_inherit_no_contradiction": true
  },
  "ok": true
 }

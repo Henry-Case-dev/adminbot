@@ -15,6 +15,8 @@
   "1440x900_used_once": true,
   "1440x900_last_draw_once": true,
   "1440x900_no_forbidden_main": true,
+  "1440x900_reason_attributed": true,
+  "1440x900_reason_not_unanchored": true,
   "1440x900_no_workspace_duplicate_chips": true,
   "1440x900_used_once_on_page": true,
   "1440x900_no_factory_label_on_page": true,
@@ -42,6 +44,8 @@
   "1280x800_used_once": true,
   "1280x800_last_draw_once": true,
   "1280x800_no_forbidden_main": true,
+  "1280x800_reason_attributed": true,
+  "1280x800_reason_not_unanchored": true,
   "1280x800_no_workspace_duplicate_chips": true,
   "1280x800_used_once_on_page": true,
   "1280x800_no_factory_label_on_page": true,
@@ -69,6 +73,8 @@
   "390x844_used_once": true,
   "390x844_last_draw_once": true,
   "390x844_no_forbidden_main": true,
+  "390x844_reason_attributed": true,
+  "390x844_reason_not_unanchored": true,
   "390x844_no_workspace_duplicate_chips": true,
   "390x844_used_once_on_page": true,
   "390x844_no_factory_label_on_page": true,
@@ -97,6 +103,8 @@
   "320x700_used_once": true,
   "320x700_last_draw_once": true,
   "320x700_no_forbidden_main": true,
+  "320x700_reason_attributed": true,
+  "320x700_reason_not_unanchored": true,
   "320x700_no_workspace_duplicate_chips": true,
   "320x700_used_once_on_page": true,
   "320x700_no_factory_label_on_page": true,
@@ -124,7 +132,18 @@
   "keys_open_on_demand": true,
   "keys_expand_zero_network": true,
   "secrets_masked": true,
-  "diagnostics_has_raw": true
+  "keys_collapse_zero_network": true,
+  "diagnostics_has_raw": true,
+  "1440x900_inherited_select_factory": true,
+  "1440x900_inherited_saved_chip": true,
+  "1440x900_inherited_saved_effective": true,
+  "1440x900_inherited_saved_note": true,
+  "1440x900_inherited_reason_attributed": true,
+  "390x844_inherited_select_factory": true,
+  "390x844_inherited_saved_chip": true,
+  "390x844_inherited_saved_effective": true,
+  "390x844_inherited_saved_note": true,
+  "390x844_inherited_reason_attributed": true
  },
  "viewports": {
   "1440x900": {
@@ -192,7 +211,7 @@
      "bodyVisible": false
     }
    ],
-   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ ╤Б IBM Quantum: ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum N",
    "pageErrors": [],
    "consoleErrors": []
   },
@@ -261,7 +280,7 @@
      "bodyVisible": false
     }
    ],
-   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ ╤Б IBM Quantum: ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum N",
    "pageErrors": [],
    "consoleErrors": []
   },
@@ -330,7 +349,7 @@
      "bodyVisible": false
     }
    ],
-   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ ╤Б IBM Quantum: ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum N",
    "pageErrors": [],
    "consoleErrors": []
   },
@@ -399,13 +418,15 @@
      "bodyVisible": false
     }
    ],
-   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum Numbers ┬╖ 17.11.2026, 22:00:0",
+   "now": "╨б╨╡╨╣╤З╨░╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\nANU Quantum Numbers\n╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ ╤Б IBM Quantum: ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜\n17.11.2026, 22:05:00\n╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Л\nIBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0\nANU Quantum Numbers\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512\nLfDR QRNG\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7\n╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╡ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╡ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╕╨╡: 1024 ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬╖ ANU Quantum N",
    "pageErrors": [],
    "consoleErrors": []
   }
  },
  "api_requests": 28,
  "interaction_errors": [],
+ "keys_expand_request_delta": 0,
+ "keys_collapse_request_delta": 0,
  "interaction_posts": [
   {
    "keys": [
@@ -462,5 +483,36 @@
    ]
   }
  ],
+ "inherited_saved": {
+  "viewport": "390x844",
+  "select": "ibm_quantum",
+  "hint": "╨Я╨╛ ╤Г╨╝╨╛╨╗╤З╨░╨╜╨╕╤О",
+  "chip": "╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛ ╨▓╤А╤Г╤З╨╜╤Г╤О",
+  "note": "╨б╨╛╤Е╤А╨░╨╜╤С╨╜ ╨▓╨░╤И ╨┐╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨╖╨╡╤А╨▓╨░.",
+  "reason": "╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ ╤Б IBM Quantum: ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜",
+  "rows": [
+   {
+    "id": "ibm_quantum",
+    "text": "IBM Quantum\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 0",
+    "used": false,
+    "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+    "reserve": "╨╖╨░╨┐╨░╤Б: 0"
+   },
+   {
+    "id": "anu",
+    "text": "ANU Quantum Numbers\n╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 512",
+    "used": false,
+    "state": "╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+    "reserve": "╨╖╨░╨┐╨░╤Б: 512"
+   },
+   {
+    "id": "lfdr",
+    "text": "LfDR QRNG\n╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П\n╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛\n╨╖╨░╨┐╨░╤Б: 7",
+    "used": true,
+    "state": "╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛",
+    "reserve": "╨╖╨░╨┐╨░╤Б: 7"
+   }
+  ]
+ },
  "ok": true
 }
