@@ -67,11 +67,14 @@ function ctx(overrides) {
       item('keys.random_ibm_channel', 'ibm_quantum_platform'),
     ],
     keyDrafts: {},
+    _opSeq: 0,
     randomCheck: null,
     randomIbmCheck: null,
     randomIbmCheckBusy: false,
     randomIbmSmoke: null,
     randomIbmSmokeBusy: false,
+    randomIbmStale: false,
+    randomIbmProbeSeq: 0,
     fmtTs: function (v) { return 'T' + v; },
     loadStatus: async function () {},
     toast: function () {},
@@ -82,6 +85,8 @@ function withKey(entry) {
   return {
     configItems: [
       item('keys.random_ibm_api_key', { configured: true, last4: 'ABCD' },
+           { secret: true }),
+      item('keys.random_ibm_crn', { configured: true, last4: 'WXYZ' },
            { secret: true }),
       item('keys.random_ibm_instance', 'open-instance'),
     ],
@@ -140,6 +145,36 @@ function providerEntry(overrides) {
   const c = ctx({ randomIbmCheckBusy: true });
   assert.strictEqual(c.randomIbmStateInfo().key, 'checking');
   assert.strictEqual(c.randomIbmStateInfo().label, 'проверка выполняется');
+}
+
+// ── P5B-R1-02: правка key/CRN сбрасывает прежнюю проверку/ошибку ───────────
+{
+  const c = ctx(withKey(providerEntry({ configured: true, state: 'active',
+    last_job: { state: 'access_checked' } })));
+  c.randomIbmCheck = { healthy: true, checked_at: 1700000001 };
+  c.randomIbmSmoke = { healthy: true, job_id: 'OLD', checked_at: 1700000002 };
+  c.onKeyDraft(c.randomIbmKeyItem(), 'new-key-draft');
+  assert.strictEqual(c.randomIbmStale, true);
+  assert.strictEqual(c.randomIbmCheck, null);
+  assert.strictEqual(c.randomIbmSmoke, null);
+  assert.strictEqual(c.randomIbmStateInfo().key, 'saved_unverified',
+    'после правки key старый доступ не показывается');
+  assert(c.randomIbmStatusText().indexOf('Черновик key/CRN изменён') >= 0);
+  assert.strictEqual(c.randomIbmLastCheck(), 'не проверялось');
+  assert.strictEqual(
+    methods.randomProviderLastSuccess.call(c, 'ibm_quantum').available,
+    false, 'старый last_success не показывается');
+  assert.strictEqual(
+    methods.randomProviderLastSwitch.call(c, 'ibm_quantum').code,
+    null, 'старый last_error не показывается');
+}
+{
+  const c = ctx(withKey(providerEntry({ configured: true, state: 'degraded',
+    last_error: 'invalid_instance' })));
+  c.onKeyDraft(c.randomIbmCrnItem(), 'changed-crn');
+  assert.strictEqual(c.randomIbmStateInfo().key, 'saved_unverified');
+  assert(c.randomIbmStatusText().indexOf('instance/CRN не найден') < 0,
+    'старый last_error не приписывается новому CRN');
 }
 
 async function main() {
@@ -223,6 +258,72 @@ async function main() {
     assert.strictEqual(err.stageLabel, 'ключ');
   }
 
+  {
+    const calls = [];
+    const c = ctx({
+      randomIbmStale: true,
+      randomIbmProbeSeq: 3,
+      keyDrafts: { 'keys.random_ibm_api_key': 'draft-ibm-key-1234567890' },
+      api: async function (url, opts) {
+        calls.push({ url: url, body: JSON.parse(opts.body) });
+        return { healthy: true, stage: null, blocker: null,
+                 instance: 'open-instance', region: 'us-east',
+                 selected_backend: 'ibm_hw', plan: 'Open',
+                 backends: [], queue: { pending_jobs: 2 },
+                 usage: { usage_remaining_ru: 590 }, persisted: false,
+                 checked_at: 1700000001 };
+      },
+    });
+    const res = await c.checkRandomIbmAccess();
+    assert(res && res.healthy);
+    assert.strictEqual(c.randomIbmStale, false,
+      'успешная проверка снимает stale для нового значения');
+    assert.strictEqual(c.randomIbmStateInfo().key, 'checked');
+    assert.strictEqual(calls.length, 1);
+  }
+
+  {
+    // In-flight ответ старого черновика не должен перетереть новый.
+    let release;
+    const c = ctx({
+      keyDrafts: { 'keys.random_ibm_api_key': 'old-draft-key-123456' },
+      api: function () {
+        return new Promise(function (resolve) { release = resolve; });
+      },
+    });
+    const pending = c.checkRandomIbmAccess();
+    c.onKeyDraft(c.randomIbmCrnItem(), 'new-crn-draft');
+    release({ healthy: true, checked_at: 1700000003 });
+    const res = await pending;
+    assert.strictEqual(res, null);
+    assert.strictEqual(c.randomIbmCheck, null,
+      'ответ старого ключа не показан для нового черновика');
+    assert.strictEqual(c.randomIbmStale, true);
+  }
+
+  {
+    // P5B-R1-01: удаление IBM key очищает проверку и обновляет статус.
+    let statusCalls = 0;
+    const c = ctx({
+      randomIbmCheck: { healthy: true, checked_at: 1 },
+      randomIbmSmoke: { healthy: true, job_id: 'OLD' },
+      persistItems: async function () {
+        return { state: 'saved', failed: [], skipped: [] };
+      },
+      loadConfig: async function () {},
+      loadStatus: async function () { statusCalls += 1; },
+      _preserveScroll: async function (fn) {
+        return (typeof fn === 'function') ? await fn() : undefined;
+      },
+    });
+    const ok = await c.deleteKeyItem(c.randomIbmKeyItem());
+    assert.strictEqual(ok, true);
+    assert.strictEqual(c.randomIbmCheck, null);
+    assert.strictEqual(c.randomIbmSmoke, null);
+    assert.strictEqual(c.randomIbmStale, true);
+    assert.strictEqual(statusCalls, 1, 'после удаления статус перечитан');
+  }
+
   // ── (d) шаблон: поля/кнопки/предупреждение; без выдуманного адаптера ────
   const markers = [
     'data-random-ibm-key', 'data-random-ibm-crn', 'data-random-ibm-save',
@@ -234,6 +335,8 @@ async function main() {
     assert(INDEX.indexOf(marker) >= 0, 'нет маркера ' + marker);
   });
   assert(INDEX.indexOf('Проверка измерений ставит реальный QPU job') >= 0);
+  assert(INDEX.indexOf('RU осталось') >= 0,
+         'read-only check показывает остаток RU из ответа');
   assert(INDEX.indexOf('адаптер не реализован') < 0,
          'P5B больше не показывает «адаптер не реализован»');
 

@@ -3295,15 +3295,18 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
             raise HTTPException(status_code=422,
                                 detail=f"{item.key}: {exc}")
         # P5B: форма защищённых IBM-полей проверяется ДО записи/сети. Пустое
-        # значение допустимо (удаление/сброс); точную валидность подтверждает
-        # только ответ IBM.
+        # значение — ЯВНОЕ удаление/сброс (как у остальных провайдеров):
+        # очищаем секрет/поле, а не 422. Точную валидность непустого значения
+        # подтверждает только ответ IBM.
         if item.key == _random_source.SETTING_IBM_KEY:
-            shape = _random_source.ibm_key_shape_error(value)
-            if shape is not None:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"{item.key}: форма ключа IBM не распознана "
-                           f"({shape})")
+            text = str(value or "").strip()
+            if text:
+                shape = _random_source.ibm_key_shape_error(text)
+                if shape is not None:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"{item.key}: форма ключа IBM не распознана "
+                               f"({shape})")
         elif item.key == _random_source.SETTING_IBM_CRN:
             shape = _random_source.ibm_crn_shape_error(value)
             if shape is not None:
@@ -3312,12 +3315,14 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
                     detail=f"{item.key}: форма CRN IBM не распознана "
                            f"({shape})")
         elif item.key == _random_source.SETTING_IBM_INSTANCE:
-            shape = _random_source.ibm_instance_shape_error(value)
-            if shape is not None:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"{item.key}: форма instance IBM не распознана "
-                           f"({shape})")
+            text = str(value or "").strip()
+            if text:
+                shape = _random_source.ibm_instance_shape_error(text)
+                if shape is not None:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"{item.key}: форма instance IBM не распознана "
+                               f"({shape})")
         elif item.key == _random_source.SETTING_IBM_REGION:
             text = str(value or "").strip()
             if text and (len(text) > 32 or any(

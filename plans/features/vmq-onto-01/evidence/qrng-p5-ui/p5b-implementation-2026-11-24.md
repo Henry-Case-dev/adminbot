@@ -48,9 +48,9 @@
 
 | Команда | Результат |
 |---|---|
-| `py -m pytest tests/test_qrng_p5_ibm_adapter.py -q` | **77 passed** (68 базовых + 9 P5B: форма, CRN-redaction, instance/permission/quota, fallback, floor, draw-триггер, non-blocking) |
-| `py -m pytest tests/test_qrng_p5b_ibm_admin.py -q` | **11 passed** (RBAC, read-only, confirm, маски, форма, логи) |
-| Комбинированный QRNG/F8/UI-mirror/route набор (P5, P5B, P1/P2/P3, param_catalog, round1025, f01, asap5, webapp_js_unit, mca10a C/D/JS, mca10b D, mca19 E) | **408 passed** |
+| `py -m pytest tests/test_qrng_p5_ibm_adapter.py -q` | **77 passed** (68 базовых + 9 P5B: форма, CRN-redaction sentinel, instance/permission/quota, fallback, floor, draw-триггер, non-blocking) |
+| `py -m pytest tests/test_qrng_p5b_ibm_admin.py -q` | **13 passed** (RBAC, read-only, confirm, маски, форма, clear/remove, 422 secret-absence, логи) |
+| Комбинированный QRNG/F8/UI-mirror/route набор (P5, P5B, P1/P2/P3, param_catalog, round1025, f01, asap5, webapp_js_unit, mca10a C/D/JS, mca10b D, mca19 E) | **410 passed** |
 | `node tests/js/qrng_p5b_ibm_fields_test.js` | `QRNG-P5B-OK` |
 | `node tests/js/qrng_ui07_provider_block_test.js` / `qrng_ui_state_test.js` / `qrng_p4_random_ui_test.js` | `QRNG-UI07-OK` / `QRNG-UI06-OK` / `QRNG-P4-UI-OK` |
 | `node tests/js/round1037_random_source_test.js` / `round1025_f5_workspace_route_test.js` | `MCA10A-RANDOM-OK` / `MODULE-WORKSPACE-OK` |
@@ -60,17 +60,27 @@
 
 Новые тесты проверяют реальное поведение, а не тавтологии: состояние адаптера и стадии отказа, отсутствие сети/ключа в ответе/логах, ровно один платный sampler-вызов у smoke, `confirm`, маску вместо raw, fallback IBM→ANU при quota, границу floor (`>= low_watermark` не триггерит), non-blocking/throttle refill.
 
-### RED (тот же worktree, продуктовые файлы временно заменены на base `d47714761`; после проверки восстановлены по hash)
+### RED (тот же worktree, продуктовые файлы временно заменены на new-work base `fa9e8b3f6`; после проверки восстановлены по hash)
 
 ```
-tests/test_qrng_p5_ibm_adapter.py::TestP5BAdminHardening ... 4 failed
-tests/test_qrng_p5b_ibm_admin.py ... 7 failed
-=> 11 failed, 8 passed
+tests/test_qrng_p5_ibm_adapter.py::TestP5BAdminHardening ... 5 failed
+tests/test_qrng_p5b_ibm_admin.py ... 8 failed
+=> 13 failed, 9 passed
 node tests/js/qrng_p5b_ibm_fields_test.js
 => TypeError: c.randomIbmStateInfo is not a function
 ```
 
-После восстановления: P5 77, P5B 11, JS `QRNG-P5B-OK`.
+После восстановления: P5 **77**, P5B admin **13**, JS `QRNG-P5B-OK`.
+
+## 3a. R1 corrective (independent review `p5b-review-r1.md`)
+
+- **P5B-R1-01 (fixed):** `POST /api/config` больше не отвечает 422 на **пустой** IBM key/instance: пустое значение — явное удаление/сброс, как у остальных провайдеров. Строгая форма проверяется только для непустого значения; GET после clear — `{configured:false,last4:null}`; instance reset возвращает пустое значение и runtime-дефолт `open-instance`. UI `deleteKeyItem` после удаления IBM key/CRN очищает check/smoke и перечитывает `loadStatus`; `saveRandomField` делает то же для instance/region/channel.
+- **P5B-R1-02 (fixed):** `onKeyDraft` для `keys.random_ibm_api_key`/`crn` инкрементирует `randomIbmProbeSeq`, сбрасывает `randomIbmCheck`, `randomIbmSmoke`, `randomIbmStale=true`; `randomIbmStateInfo`/`randomIbmStatusText`/`randomIbmLastCheck`/`randomProviderLastSuccess`/`randomProviderLastSwitch` не показывают прежние confirmed/error. In-flight ответ старого черновика отбрасывается по seq; успешная проверка снимает stale.
+- **P5B-R1-03(a) M1 (killed):** CRN-тест использует sentinel в account/instance (`p5b-sentinel-account`), а не только регион; mutation `(key,crn)→(key,)` даёт FAIL, восстановленный код — PASS. `sanitize` больше не может случайно «доказать» redaction, маскируя `us-east`.
+- **P5B-R1-03(b) M6 (killed):** `test_422_never_echoes_submitted_secret` проверяет key/CRN/instance sentinel и полное значение в теле 422; mutation с добавлением `value` в `detail` даёт FAIL, восстановленный код — PASS.
+- **P5B-R1-05 (corrected):** read-only результат теперь действительно показывает `usage_remaining_ru`/`usage_remaining_seconds`/`usage_limit_reached` (если IBM их вернул); прежняя формулировка evidence об «usage виден» была неточной до этого изменения.
+- **P5B-R1-04/R1-06:** остаются backlog (region/instance sensitivity SECRET и result-error key-only redaction); не расширяли scope.
+- **Live boundary не изменился:** hardware VERIFIED по-прежнему требует реальных key/CRN, `qiskit-ibm-runtime==0.52.1`, IAM/instance/QPU и deployed SHA; в этой корректировке live-вызовов не было.
 
 ### Известные несвязанные падения
 
@@ -87,7 +97,7 @@ node tests/js/qrng_p5b_ibm_fields_test.js
 | 390×844 | Playwright + Browser Use | 0 / 390=390 | `[]` / `[]` | нет | 2 password, masks | check + smoke |
 | 320×700 | Playwright + Browser Use | 0 / 320=320 | `[]` / `[]` | нет | 2 password, masks | check + smoke |
 
-Наблюдаемый текст после действий: «Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2», «Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с». Артефакты: `p5b-visual/playwright.json`, `p5b-visual/browseruse.json`, 4 скриншота Browser Use.
+Наблюдаемый текст (кандидат `968eec6c`): «Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2», «Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с». R1 добавляет в read-only результат inline `· RU осталось 590` (мок usage) и меняет только текст/состояние, не сетку; отдельный visual re-run R1-дельты не выполнялся, overflow-контракт и скриншоты относятся к `968eec6c`.
 
 ## 5. Effective config / границы live
 
