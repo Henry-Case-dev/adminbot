@@ -7881,6 +7881,10 @@
         randomIbmCheckBusy: false,
         randomIbmSmoke: null,
         randomIbmSmokeBusy: false,
+        // R1: после правки key/CRN прежняя проверка/ошибка не относится к
+        // новому черновику; seq отбрасывает ответ старого in-flight запроса.
+        randomIbmStale: false,
+        randomIbmProbeSeq: 0,
         // QRNG UI-06 (24.11.2026): резервная последовательность редактируется
         // ТОЛЬКО в черновике. `null` = нет редактирования; массив = черновик,
         // который уходит в POST лишь по явной кнопке «Сохранить».
@@ -32733,10 +32737,20 @@
       },
       // Черновик ключа изменился → прошлый результат проверки ANU не
       // выдаётся за новый ключ (единая точка для generic secret-field).
+      // R1: для IBM тот же правило — старый «доступ подтверждён»,
+      // «получение подтверждено» и last_error относятся к другому значению.
       onKeyDraft: function (item, value) {
         this.keyDrafts[item.key] = value;
-        if (item && item.key === 'keys.random_quantum_api_key') {
+        if (!item) return;
+        if (item.key === 'keys.random_quantum_api_key') {
           this.randomCheck = null;
+        }
+        if (item.key === 'keys.random_ibm_api_key'
+            || item.key === 'keys.random_ibm_crn') {
+          this.randomIbmProbeSeq = (this.randomIbmProbeSeq || 0) + 1;
+          this.randomIbmCheck = null;
+          this.randomIbmSmoke = null;
+          this.randomIbmStale = true;
         }
       },
       // Подпись результата проверки (очищенная причина, без ключа).
@@ -33232,7 +33246,17 @@
         } else {
           item.value = raw;
         }
-        return await this.saveConfigItem(item);
+        var ok = await this.saveConfigItem(item);
+        if (ok && item.key && item.key.indexOf('keys.random_ibm_') === 0) {
+          // R1: instance/region/channel — тоже часть идентичности проверки;
+          // старые check/smoke/last_error после изменения недействительны.
+          this.randomIbmProbeSeq = (this.randomIbmProbeSeq || 0) + 1;
+          this.randomIbmCheck = null;
+          this.randomIbmSmoke = null;
+          this.randomIbmStale = true;
+          if (typeof this.loadStatus === 'function') await this.loadStatus();
+        }
+        return ok;
       },
       randomProviderEntry: function (id) {
         var act = this.randomActivityView;
@@ -33296,6 +33320,16 @@
         if (this.randomIbmSmokeBusy) {
           return { key: 'smoke_running', label: 'измерение выполняется',
                    cls: 'badge-info', configured: configured };
+        }
+        // R1: черновик key/CRN изменён — старые verified/confirmed/error
+        // состояния не принадлежат новому значению.
+        if (this.randomIbmStale) {
+          if (!configured) {
+            return { key: 'unconfigured', label: 'не настроен',
+                     cls: 'badge-muted', configured: false };
+          }
+          return { key: 'saved_unverified', label: 'сохранён, не проверен',
+                   cls: 'badge-info', configured: true };
         }
         if (this.randomIbmSmoke && this.randomIbmSmoke.healthy) {
           return { key: 'measured', label: 'получение подтверждено',
@@ -33367,6 +33401,7 @@
         return this.randomIbmResultView(this.randomIbmSmoke);
       },
       randomIbmLastCheck: function () {
+        if (this.randomIbmStale) return 'не проверялось';
         var chk = this.randomIbmCheck;
         var smoke = this.randomIbmSmoke;
         var entry = this.randomProviderEntry('ibm_quantum');
@@ -33387,6 +33422,14 @@
         }
         if (info.key === 'smoke_running') {
           return 'Измерение на реальном QPU выполняется (shots ограничены)…';
+        }
+        if (this.randomIbmStale) {
+          if (info.key === 'unconfigured') {
+            return 'API key/CRN не настроены. Наличие полей не считается '
+              + 'успешной проверкой.';
+          }
+          return 'Черновик key/CRN изменён: прежняя проверка относится к '
+            + 'другому значению. Сохраните и проверьте заново.';
         }
         if (smoke && !smoke.ok) {
           return 'Ошибка стадии «' + smoke.stageLabel + '»: '
@@ -33443,12 +33486,24 @@
         var ok = true;
         if (keyDraft && keyItem) ok = (await this.saveKeyItem(keyItem)) && ok;
         if (crnDraft && crnItem) ok = (await this.saveKeyItem(crnItem)) && ok;
+        if (ok) {
+          // Новое сохранённое значение: старые check/smoke/last_error
+          // относятся к прежнему credential. Состояние — «сохранён, не
+          // проверен» до новой явной проверки.
+          this.randomIbmProbeSeq = (this.randomIbmProbeSeq || 0) + 1;
+          this.randomIbmCheck = null;
+          this.randomIbmSmoke = null;
+          this.randomIbmStale = true;
+          if (typeof this.loadStatus === 'function') await this.loadStatus();
+        }
         return ok;
       },
       checkRandomIbmAccess: async function () {
         if (!this.isGlobalAdmin || this.randomIbmCheckBusy) return null;
         this.randomIbmCheckBusy = true;
         this.randomIbmCheck = null;
+        var seq = (this.randomIbmProbeSeq || 0) + 1;
+        this.randomIbmProbeSeq = seq;
         try {
           var key = (this.keyDrafts['keys.random_ibm_api_key'] || '').trim();
           var crn = (this.keyDrafts['keys.random_ibm_crn'] || '').trim();
@@ -33459,14 +33514,19 @@
             body: JSON.stringify({ provider: 'ibm_quantum', key: key,
                                    crn: crn }),
           });
+          if (seq !== this.randomIbmProbeSeq) return null;
           this.randomIbmCheck = res || {};
+          this.randomIbmStale = false;
           if (typeof this.loadStatus === 'function') await this.loadStatus();
           return res;
         } catch (e) {
-          this.randomIbmCheck = {
-            healthy: false, blocker: 'client_error', stage: 'request',
-            reason: (e && e.message) || String(e),
-          };
+          if (seq === this.randomIbmProbeSeq) {
+            this.randomIbmCheck = {
+              healthy: false, blocker: 'client_error', stage: 'request',
+              reason: (e && e.message) || String(e),
+            };
+            this.randomIbmStale = false;
+          }
           return null;
         } finally {
           this.randomIbmCheckBusy = false;
@@ -33484,6 +33544,8 @@
         }
         this.randomIbmSmokeBusy = true;
         this.randomIbmSmoke = null;
+        var seq = (this.randomIbmProbeSeq || 0) + 1;
+        this.randomIbmProbeSeq = seq;
         try {
           var key = (this.keyDrafts['keys.random_ibm_api_key'] || '').trim();
           var crn = (this.keyDrafts['keys.random_ibm_crn'] || '').trim();
@@ -33494,14 +33556,19 @@
             body: JSON.stringify({ key: key, crn: crn, shots: 256,
                                    confirm: true }),
           });
+          if (seq !== this.randomIbmProbeSeq) return null;
           this.randomIbmSmoke = res || {};
+          this.randomIbmStale = false;
           if (typeof this.loadStatus === 'function') await this.loadStatus();
           return res;
         } catch (e) {
-          this.randomIbmSmoke = {
-            healthy: false, blocker: 'client_error', stage: 'request',
-            reason: (e && e.message) || String(e),
-          };
+          if (seq === this.randomIbmProbeSeq) {
+            this.randomIbmSmoke = {
+              healthy: false, blocker: 'client_error', stage: 'request',
+              reason: (e && e.message) || String(e),
+            };
+            this.randomIbmStale = false;
+          }
           return null;
         } finally {
           this.randomIbmSmokeBusy = false;
@@ -33706,6 +33773,7 @@
         // IBM: причина — фактическая ошибка health либо текущий blocker
         // выборки; выдуманного «адаптер не реализован» больше нет.
         if (id === 'ibm_quantum') {
+          if (this.randomIbmStale) return empty;
           if (entry && entry.last_error) {
             return pack(entry.last_error, entry.last_failure_at, 'health');
           }
@@ -33774,6 +33842,9 @@
           length: null, sourceId: null, sourceLabel: '',
           configMatches: null, label: 'нет данных',
         };
+        if (id === 'ibm_quantum' && this.randomIbmStale) {
+          return emptySuccess;      // прежняя проверка не относится к черновику
+        }
         var emptySwitch = {
           code: null, label: 'нет данных', at: null, timeLabel: '—',
           source: '',
@@ -34049,6 +34120,14 @@
           this.toast('Удалено: ' + title, 'ok');
           if (typeof this._preserveScroll === 'function' && this.loadConfig) {
             await this._preserveScroll(this.loadConfig);
+          }
+          if (key === 'keys.random_ibm_api_key'
+              || key === 'keys.random_ibm_crn') {
+            this.randomIbmProbeSeq = (this.randomIbmProbeSeq || 0) + 1;
+            this.randomIbmCheck = null;
+            this.randomIbmSmoke = null;
+            this.randomIbmStale = true;
+            if (typeof this.loadStatus === 'function') await this.loadStatus();
           }
           return true;
         } catch (e) {

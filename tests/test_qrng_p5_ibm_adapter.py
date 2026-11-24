@@ -613,14 +613,22 @@ class TestP5BAdminHardening:
 
     @pytest.mark.asyncio
     async def test_crn_not_echoed_in_error_reason(self):
-        crn = "crn:v1:bluemix:public:quantum-compute:us-east:a/x:y::"
+        # R1/M1: sentinel в account/instance, а не только регион. Иначе
+        # `sanitize` маскирует `us-east`/`eu-de` и тест не различает
+        # redaction от случайного совпадения.
+        sentinel = "p5b-sentinel-account"
+        crn = ("crn:v1:bluemix:public:quantum-compute:us-east:a/"
+               f"{sentinel}:p5b-sentinel-instance::")
         exc = RuntimeError(f"invalid instance {crn}")
         exc.status_code = 404
         client, _sampler = make_client(FakeService(error=exc), FakeJob())
         result = await client.check_access(api_key="key", crn=crn)
+        reason = str(result.get("reason") or "")
         assert result["healthy"] is False
-        assert crn not in str(result.get("reason") or "")
-        assert "***" in str(result.get("reason") or "")
+        assert sentinel not in reason
+        assert "p5b-sentinel-instance" not in reason
+        assert crn not in reason
+        assert "***" in reason
 
     @pytest.mark.asyncio
     async def test_quota_failure_falls_back_to_anu(self, tmp_path,

@@ -7684,6 +7684,12 @@
                             <span v-if="randomIbmCheckView().plan"> · план {{ randomIbmCheckView().plan }}</span>
                             <span v-if="randomIbmCheckView().queue && randomIbmCheckView().queue.pending_jobs != null">
                               · очередь {{ randomIbmCheckView().queue.pending_jobs }}</span>
+                            <span v-if="randomIbmCheckView().usage && randomIbmCheckView().usage.usage_remaining_ru != null">
+                              · RU осталось {{ randomIbmCheckView().usage.usage_remaining_ru }}</span>
+                            <span v-else-if="randomIbmCheckView().usage && randomIbmCheckView().usage.usage_remaining_seconds != null">
+                              · секунд осталось {{ randomIbmCheckView().usage.usage_remaining_seconds }}</span>
+                            <span v-if="randomIbmCheckView().usage && randomIbmCheckView().usage.usage_limit_reached">
+                              · лимит достигнут</span>
                           </template>
                           <template v-else>
                             <span class="text-red-300">Ошибка стадии «{{ randomIbmCheckView().stageLabel }}»</span>

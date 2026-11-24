@@ -306,6 +306,56 @@ class TestIbmAdminFields:
         assert items[IBM_INSTANCE]["value"] == "open-instance"
         assert items[IBM_REGION]["value"] == "us-east"
 
+    def test_clear_key_crn_and_reset_instance(self, client):
+        # R1/P5B-R1-01: явное удаление/сброс — НЕ 422. Секрет очищается,
+        # GET снова {configured:false}; instance возвращается к пустому
+        # значению (runtime использует заводской open-instance).
+        saved = client.post("/api/config", headers=_hdr(), json={
+            "items": [{"key": IBM_KEY, "value": GOOD_KEY},
+                      {"key": IBM_CRN, "value": GOOD_CRN},
+                      {"key": IBM_INSTANCE, "value": "open-instance"}]})
+        assert saved.status_code == 200, saved.text
+
+        cleared_key = client.post("/api/config", headers=_hdr(), json={
+            "items": [{"key": IBM_KEY, "value": ""}]})
+        assert cleared_key.status_code == 200, cleared_key.text
+        read = client.get("/api/config", headers=_hdr())
+        item = next(i for i in read.json()["items"] if i["key"] == IBM_KEY)
+        assert item["value"] == {"configured": False, "last4": None}
+
+        cleared_crn = client.post("/api/config", headers=_hdr(), json={
+            "items": [{"key": IBM_CRN, "value": ""}]})
+        assert cleared_crn.status_code == 200, cleared_crn.text
+        read_crn = client.get("/api/config", headers=_hdr())
+        item = next(i for i in read_crn.json()["items"]
+                    if i["key"] == IBM_CRN)
+        assert item["value"]["configured"] is False
+
+        reset_instance = client.post("/api/config", headers=_hdr(), json={
+            "items": [{"key": IBM_INSTANCE, "value": ""}]})
+        assert reset_instance.status_code == 200, reset_instance.text
+        read2 = client.get("/api/config", headers=_hdr())
+        item = next(i for i in read2.json()["items"]
+                    if i["key"] == IBM_INSTANCE)
+        assert item["value"] == ""
+
+    def test_422_never_echoes_submitted_secret(self, client):
+        # R1/M6: даже ошибочный ввод не возвращается в теле 422.
+        cases = (
+            (IBM_KEY, "P5B SENTINEL KEY", "P5B SENTINEL KEY"),
+            (IBM_CRN,
+             "crn:v1:bluemix:public:other:us-east:a/P5B-SENTINEL-CRN:x::",
+             "P5B-SENTINEL-CRN"),
+            (IBM_INSTANCE, "P5B SENTINEL INSTANCE", "P5B SENTINEL INSTANCE"),
+        )
+        for key, value, sentinel in cases:
+            resp = client.post("/api/config", headers=_hdr(),
+                               json={"items": [{"key": key,
+                                                "value": value}]})
+            assert resp.status_code == 422, (key, resp.text)
+            assert sentinel not in resp.text, (key, resp.text)
+            assert value not in resp.text, (key, resp.text)
+
     def test_non_admin_cannot_write_provider_fields(self, client):
         for key, value in ((IBM_KEY, GOOD_KEY), (IBM_CRN, GOOD_CRN),
                            (IBM_INSTANCE, "open-instance")):
