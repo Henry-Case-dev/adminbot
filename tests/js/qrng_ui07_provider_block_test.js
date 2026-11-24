@@ -4,7 +4,8 @@
  * Проверяет реальные методы web/app.js:
  *   (a) три провайдера, фактическое состояние, остаток, последнее получение
  *       (или успешная проверка), последняя причина переключения (код + подпись);
- *   (b) IBM до P5B — adapter_not_implemented, без выдуманных чисел;
+ *   (b) IBM P5B — состояние из факта (не настроен/сохранён/проверен), без
+ *       выдуманных чисел и без зелёного «подключён» по наличию ключа;
  *   (c) нет данных — честное «нет данных», не 0/зелёный;
  *   (d) причина переключения не приписывается провайдеру по draw-журналу:
  *       provider там — фактический источник draw, а не виновник переключения;
@@ -125,15 +126,14 @@ function assertNoneData(row) {
     ['ibm_quantum', 'anu', 'lfdr'], 'ровно три провайдера');
 
   const ibm = byId(rows, 'ibm_quantum');
-  assert.strictEqual(ibm.stateKey, 'adapter_not_implemented');
-  assert.strictEqual(ibm.stateLabel, 'адаптер не реализован');
-  assert.strictEqual(ibm.reserveText, 'нет данных',
-    'IBM резерв не выдумывается');
-  assert.strictEqual(ibm.consumableText, 'адаптер не реализован');
+  assert.strictEqual(ibm.stateKey, 'unconfigured');
+  assert.strictEqual(ibm.stateLabel, 'не настроен');
+  assert.strictEqual(ibm.reserveText, '0',
+    'IBM резерв показывается фактическим (0), не выдумывается');
+  assert.strictEqual(ibm.consumableText, 'нет расходуемых значений');
   assert.strictEqual(ibm.lastSuccess.available, false);
-  assert.strictEqual(ibm.lastSwitch.code, 'adapter_not_implemented');
-  assert.strictEqual(ibm.lastSwitch.label, 'адаптер не реализован');
-  assert.strictEqual(ibm.adapterNotImplemented, true);
+  assert.strictEqual(ibm.lastSwitch.code, null);
+  assert.strictEqual(ibm.adapterNotImplemented, false);
 
   const anu = byId(rows, 'anu');
   assert.strictEqual(anu.stateLabel, 'проверено');
@@ -294,7 +294,7 @@ function assertNoneData(row) {
     assertNoneData(row);
   });
   assert.strictEqual(byId(rows, 'ibm_quantum').stateKey,
-    'adapter_not_implemented', 'IBM adapter известен UI и без providers[]');
+    'no_data', 'без providers[] состояние IBM неизвестно, не «не настроен»');
 
   const notReady = makeCtx(null);
   const nrRows = methods.randomProviderSummaries.call(notReady);

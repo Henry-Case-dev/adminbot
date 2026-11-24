@@ -148,6 +148,17 @@
     recovered: 'IBM job восстановлен',
     recovered_pool: 'IBM job восстановлен в пул',
     task_failed: 'фоновая задача завершилась ошибкой',
+    no_backend: 'нет доступного аппаратного QPU',
+    invalid_instance: 'instance/CRN не найден у IBM',
+    invalid_region: 'регион не совпадает с instance',
+    invalid_channel: 'канал IBM не разрешён',
+    invalid_key_shape: 'форма ключа IBM не распознана',
+    invalid_crn_shape: 'форма CRN IBM не распознана',
+    permission_denied: 'нет прав у ключа IBM',
+    dependency_missing: 'пакет qiskit-ibm-runtime не установлен',
+    region_not_available: 'регион IBM недоступен',
+    daily_job_limit: 'дневной лимит IBM job',
+    daily_usage_limit: 'дневной лимит QPU-времени',
   };
   var QRNG_DRAFT_HINT = 'Проверка черновым ключом расходует квоту провайдера; '
     + 'значения не зачисляются в рабочий запас. Сохранённый ключ при '
@@ -7863,6 +7874,13 @@
         // размер/очищенная ошибка/key_present.
         randomCheck: null,
         randomCheckBusy: false,
+        // QRNG P5B (24.11.2026): отдельные read-only проверка доступа IBM и
+        // явное платное измерение. Секреты — только в POST-body; результаты
+        // не содержат ключ/CRN.
+        randomIbmCheck: null,
+        randomIbmCheckBusy: false,
+        randomIbmSmoke: null,
+        randomIbmSmokeBusy: false,
         // QRNG UI-06 (24.11.2026): резервная последовательность редактируется
         // ТОЛЬКО в черновике. `null` = нет редактирования; массив = черновик,
         // который уходит в POST лишь по явной кнопке «Сохранить».
@@ -33228,17 +33246,280 @@
       // Наличие ключа/CRN — только `keyPresent`, не «проверено». Пять
       // честных состояний: adapter_not_implemented / unconfigured /
       // unavailable / saved_unverified / checked.
+      randomIbmKeyItem: function () {
+        return this.randomCfg('keys.random_ibm_api_key');
+      },
+      randomIbmCrnItem: function () {
+        return this.randomCfg('keys.random_ibm_crn');
+      },
+      randomIbmInstanceItem: function () {
+        return this.randomCfg('keys.random_ibm_instance');
+      },
+      randomIbmRegionItem: function () {
+        return this.randomCfg('keys.random_ibm_region');
+      },
+      randomIbmChannelItem: function () {
+        return this.randomCfg('keys.random_ibm_channel');
+      },
+      randomIbmTechItems: function () {
+        var self = this;
+        return ['keys.random_ibm_instance', 'keys.random_ibm_region',
+                'keys.random_ibm_channel']
+          .map(function (k) { return self.randomCfg(k); })
+          .filter(Boolean);
+      },
+      randomIbmStageLabel: function (stage) {
+        var map = {
+          key: 'ключ', permission: 'авторизация', instance: 'instance/CRN',
+          region: 'регион', channel: 'канал', no_backend: 'доступные QPU',
+          dependency: 'пакет SDK', request: 'запрос', circuit: 'предохранитель',
+          job: 'задача', claim: 'слот', prepared: 'подготовка',
+          result: 'результат', checkpoint: 'сохранение состояния',
+          submit: 'отправка', disabled: 'отключено', shots: 'shots',
+          length: 'длина', settle: 'фиксация',
+        };
+        var key = String(stage || '');
+        return map[key] || (key || 'не определена');
+      },
+      randomIbmStateInfo: function () {
+        var keyItem = this.randomIbmKeyItem();
+        var keyPresent = !!(keyItem && this.isKeyConfigured(keyItem));
+        var entry = this.randomProviderEntry('ibm_quantum');
+        var configured = (entry ? !!entry.configured : false)
+          || (keyPresent && !!this.randomIbmInstanceItem());
+        var state = entry && entry.state ? String(entry.state) : '';
+        var lastJob = (entry && entry.last_job) || null;
+        if (this.randomIbmCheckBusy) {
+          return { key: 'checking', label: 'проверка выполняется',
+                   cls: 'badge-info', configured: configured };
+        }
+        if (this.randomIbmSmokeBusy) {
+          return { key: 'smoke_running', label: 'измерение выполняется',
+                   cls: 'badge-info', configured: configured };
+        }
+        if (this.randomIbmSmoke && this.randomIbmSmoke.healthy) {
+          return { key: 'measured', label: 'получение подтверждено',
+                   cls: 'badge-ok', configured: configured };
+        }
+        if (this.randomIbmCheck && this.randomIbmCheck.healthy) {
+          return { key: 'checked', label: 'доступ подтверждён',
+                   cls: 'badge-ok', configured: configured };
+        }
+        if (!configured) {
+          return { key: 'unconfigured', label: 'не настроен',
+                   cls: 'badge-muted', configured: false };
+        }
+        if (state === 'degraded' || state === 'unavailable'
+            || state === 'quota_exhausted') {
+          return { key: 'unavailable', label: 'недоступен',
+                   cls: 'badge-err', configured: true,
+                   error: String((entry && entry.last_error) || '') };
+        }
+        if (state === 'active') {
+          // `access_checked` — только read-only проверка; job_id — реальные
+          // измерения (refill/smoke). Ключ сам по себе проверкой не является.
+          if (lastJob && lastJob.job_id) {
+            return { key: 'measured', label: 'получение подтверждено',
+                     cls: 'badge-ok', configured: true };
+          }
+          return { key: 'checked', label: 'доступ подтверждён',
+                   cls: 'badge-ok', configured: true };
+        }
+        var lastError = entry && entry.last_error ? String(entry.last_error)
+          : '';
+        if (lastError) {
+          return { key: 'error', label: 'ошибка стадии',
+                   cls: 'badge-err', configured: true, error: lastError };
+        }
+        return { key: 'saved_unverified', label: 'сохранён, не проверен',
+                 cls: 'badge-info', configured: true };
+      },
+      randomIbmResultView: function (result) {
+        var r = result || null;
+        if (!r) return null;
+        var blocker = r.blocker ? String(r.blocker) : '';
+        return {
+          ok: !!r.healthy,
+          stage: r.stage || '',
+          stageLabel: this.randomIbmStageLabel(r.stage || ''),
+          blocker: blocker,
+          blockerLabel: blocker
+            ? (QRNG_SWITCH_REASON_RU[blocker] || blocker) : '',
+          reason: r.reason || '',
+          plan: r.plan || null,
+          instance: r.instance || '',
+          region: r.region || '',
+          backend: r.backend || r.selected_backend || '',
+          queue: r.queue || null,
+          usage: r.usage || null,
+          jobId: r.job_id || '',
+          shots: r.shots == null ? null : r.shots,
+          bits: r.bits == null ? null : r.bits,
+          usageSeconds: r.usage_seconds == null ? null : r.usage_seconds,
+          persisted: (r.persisted === undefined) ? null : !!r.persisted,
+          checkedAt: r.checked_at || null,
+        };
+      },
+      randomIbmCheckView: function () {
+        return this.randomIbmResultView(this.randomIbmCheck);
+      },
+      randomIbmSmokeView: function () {
+        return this.randomIbmResultView(this.randomIbmSmoke);
+      },
+      randomIbmLastCheck: function () {
+        var chk = this.randomIbmCheck;
+        var smoke = this.randomIbmSmoke;
+        var entry = this.randomProviderEntry('ibm_quantum');
+        var at = (smoke && smoke.checked_at) || (chk && chk.checked_at)
+          || (entry && entry.last_success_at) || null;
+        if (at == null) return 'не проверялось';
+        try {
+          return (typeof this.fmtTs === 'function')
+            ? this.fmtTs(at) : String(at);
+        } catch (e) { return String(at); }
+      },
+      randomIbmStatusText: function () {
+        var info = this.randomIbmStateInfo();
+        var check = this.randomIbmCheckView();
+        var smoke = this.randomIbmSmokeView();
+        if (info.key === 'checking') {
+          return 'Проверка доступа IBM (только чтение; job не создаётся)…';
+        }
+        if (info.key === 'smoke_running') {
+          return 'Измерение на реальном QPU выполняется (shots ограничены)…';
+        }
+        if (smoke && !smoke.ok) {
+          return 'Ошибка стадии «' + smoke.stageLabel + '»: '
+            + (smoke.blockerLabel || smoke.reason || 'измерение не подтверждено');
+        }
+        if (smoke && smoke.ok) {
+          return 'Получение подтверждено: QPU ' + (smoke.backend || '—')
+            + ', job ' + (smoke.jobId || '—')
+            + (smoke.bits != null ? ', бит ' + smoke.bits : '') + '.';
+        }
+        if (check && !check.ok) {
+          return 'Ошибка стадии «' + check.stageLabel + '»: '
+            + (check.blockerLabel || check.reason || 'доступ не подтверждён');
+        }
+        if (check && check.ok) {
+          return 'Доступ подтверждён: instance ' + (check.instance || '—')
+            + (check.backend ? ', QPU ' + check.backend : '')
+            + (check.plan ? ', план ' + check.plan : '') + '.';
+        }
+        if (info.key === 'unconfigured') {
+          return 'API key/CRN не настроены. Наличие полей не считается '
+            + 'успешной проверкой.';
+        }
+        if (info.key === 'unavailable') {
+          return 'Сохранённые поля не подтверждены: '
+            + (info.error ? (QRNG_SWITCH_REASON_RU[info.error] || info.error)
+               : 'источник недоступен') + '.';
+        }
+        if (info.key === 'measured') {
+          return 'Получение измерений подтверждено ранее (реальный QPU job); '
+            + 'нажмите «Проверить доступ» для актуальной проверки.';
+        }
+        if (info.key === 'checked') {
+          return 'Доступ подтверждён ранее; нажмите «Проверить доступ» для '
+            + 'актуальной проверки.';
+        }
+        return 'API key/CRN сохранены, но проверка не выполнялась. Наличие '
+          + 'ключа не считается проверкой.';
+      },
+      saveRandomIbmSecrets: async function () {
+        if (!this.isGlobalAdmin) return false;
+        var keyItem = this.randomIbmKeyItem();
+        var crnItem = this.randomIbmCrnItem();
+        var keyDraft = keyItem
+          ? (this.keyDrafts[keyItem.key] || '').trim() : '';
+        var crnDraft = crnItem
+          ? (this.keyDrafts[crnItem.key] || '').trim() : '';
+        if (hasSecretMask(keyDraft)) keyDraft = '';
+        if (hasSecretMask(crnDraft)) crnDraft = '';
+        if (!keyDraft && !crnDraft) {
+          this.toast('Введите новый API key или CRN', 'warn');
+          return false;
+        }
+        var ok = true;
+        if (keyDraft && keyItem) ok = (await this.saveKeyItem(keyItem)) && ok;
+        if (crnDraft && crnItem) ok = (await this.saveKeyItem(crnItem)) && ok;
+        return ok;
+      },
+      checkRandomIbmAccess: async function () {
+        if (!this.isGlobalAdmin || this.randomIbmCheckBusy) return null;
+        this.randomIbmCheckBusy = true;
+        this.randomIbmCheck = null;
+        try {
+          var key = (this.keyDrafts['keys.random_ibm_api_key'] || '').trim();
+          var crn = (this.keyDrafts['keys.random_ibm_crn'] || '').trim();
+          if (hasSecretMask(key)) key = '';
+          if (hasSecretMask(crn)) crn = '';
+          var res = await this.api('/api/random/test', {
+            method: 'POST', global: true,
+            body: JSON.stringify({ provider: 'ibm_quantum', key: key,
+                                   crn: crn }),
+          });
+          this.randomIbmCheck = res || {};
+          if (typeof this.loadStatus === 'function') await this.loadStatus();
+          return res;
+        } catch (e) {
+          this.randomIbmCheck = {
+            healthy: false, blocker: 'client_error', stage: 'request',
+            reason: (e && e.message) || String(e),
+          };
+          return null;
+        } finally {
+          this.randomIbmCheckBusy = false;
+        }
+      },
+      checkRandomIbmMeasurements: async function () {
+        if (!this.isGlobalAdmin || this.randomIbmSmokeBusy) return null;
+        var warning = 'Проверка поставит реальный QPU job IBM и может '
+          + 'израсходовать квоту. Значения не зачисляются в рабочий запас. '
+          + 'Продолжить?';
+        if (typeof window !== 'undefined'
+            && typeof window.confirm === 'function'
+            && !window.confirm(warning)) {
+          return null;
+        }
+        this.randomIbmSmokeBusy = true;
+        this.randomIbmSmoke = null;
+        try {
+          var key = (this.keyDrafts['keys.random_ibm_api_key'] || '').trim();
+          var crn = (this.keyDrafts['keys.random_ibm_crn'] || '').trim();
+          if (hasSecretMask(key)) key = '';
+          if (hasSecretMask(crn)) crn = '';
+          var res = await this.api('/api/random/ibm/smoke', {
+            method: 'POST', global: true,
+            body: JSON.stringify({ key: key, crn: crn, shots: 256,
+                                   confirm: true }),
+          });
+          this.randomIbmSmoke = res || {};
+          if (typeof this.loadStatus === 'function') await this.loadStatus();
+          return res;
+        } catch (e) {
+          this.randomIbmSmoke = {
+            healthy: false, blocker: 'client_error', stage: 'request',
+            reason: (e && e.message) || String(e),
+          };
+          return null;
+        } finally {
+          this.randomIbmSmokeBusy = false;
+        }
+      },
       randomProviderStateInfo: function (id, configured, state) {
         var st = String(state || '');
         if (id === 'ibm_quantum') {
-          // P5-адаптер ещё не реализован: это не «ключ не настроен» и не
-          // зелёная проверка. После P5B карточка обновится отдельным UI-07.
+          // P5B: IBM-адаптер реальный. Состояния различают «не настроен»,
+          // «сохранён, не проверен», «доступ подтверждён», «получение
+          // подтверждено» и ошибку стадии; наличие ключа — не проверка.
+          var info = this.randomIbmStateInfo();
           return {
-            key: 'adapter_not_implemented',
-            label: 'адаптер не реализован',
-            cls: 'badge-muted',
-            keyPresent: false,
-            checked: false,
+            key: info.key,
+            label: info.label,
+            cls: info.cls,
+            keyPresent: !!info.configured,
+            checked: info.key === 'checked' || info.key === 'measured',
           };
         }
         if (!configured) {
@@ -33293,8 +33574,7 @@
         var info = this.randomProviderStateInfo(id, configured, state);
         var stateText;
         if (id === 'ibm_quantum') {
-          stateText = 'адаптер не реализован — этап P5; ключ/CRN ещё не '
-            + 'подключены. Наличие ключа не будет считаться проверкой.';
+          stateText = this.randomIbmStatusText();
         } else if (id === 'anu') {
           stateText = configured
             ? ('ключ сохранён (наличие ключа не равно проверке) · '
@@ -33304,7 +33584,9 @@
           stateText = 'ключ не требуется · ' + info.label;
         }
         var lastCheck = 'не проверялось';
-        if (id === 'anu') {
+        if (id === 'ibm_quantum') {
+          lastCheck = this.randomIbmLastCheck();
+        } else if (id === 'anu') {
           var chk = this.randomCheck;
           if (chk && chk.checked_at) lastCheck = this.fmtTs(chk.checked_at);
         } else if (entry && entry.last_success_at) {
@@ -33322,16 +33604,19 @@
           checked: info.checked,
           keyPresent: info.keyPresent,
           stateText: stateText,
-          configured: configured,
+          configured: id === 'ibm_quantum' ? !!info.configured : configured,
           consumable: !!(entry && entry.consumable),
           quarantined: entry ? (entry.quarantined || 0) : 0,
           reserve: entry ? (entry.reserve || 0) : 0,
           lastCheck: lastCheck,
-          canCheck: id === 'anu' && this.isGlobalAdmin,
+          canCheck: (id === 'anu' || id === 'ibm_quantum')
+            && this.isGlobalAdmin,
           checkReason: id === 'lfdr'
             ? 'Проверка LfDR появится вместе с отдельным backend-маршрутом '
               + '(сейчас доступно состояние из /api/status)'
-            : '',
+            : (id === 'ibm_quantum' && !this.isGlobalAdmin
+              ? 'Проверка IBM доступна только глобальному администратору'
+              : ''),
         };
       },
       // QRNG UI-07: код причины переключения + человеческая подпись.
@@ -33418,11 +33703,9 @@
         };
         var entry = this.randomProviderEntry(id);
         var card = this.randomProviderCard(id);
-        // IBM до P5: причина не «журнал», а известное состояние адаптера.
+        // IBM: причина — фактическая ошибка health либо текущий blocker
+        // выборки; выдуманного «адаптер не реализован» больше нет.
         if (id === 'ibm_quantum') {
-          if (card.stateKey === 'adapter_not_implemented') {
-            return pack('adapter_not_implemented', null, 'adapter');
-          }
           if (entry && entry.last_error) {
             return pack(entry.last_error, entry.last_failure_at, 'health');
           }
@@ -33509,24 +33792,20 @@
         }
         var entry = this.randomProviderEntry(id);
         var card = this.randomProviderCard(id);
-        var isIbm = id === 'ibm_quantum';
         var hasEntry = !!entry;
         var stateKey = card.stateKey;
         var stateLabel = card.stateLabel;
         var stateCls = card.stateCls;
-        // IBM-адаптер известен UI и без записи providers[]; остальным
-        // провайдерам отсутствие DTO не даёт права утверждать «не настроен».
-        if (!hasEntry && !isIbm) {
+        // Отсутствие записи providers[] не даёт права утверждать «не настроен».
+        if (!hasEntry) {
           stateKey = 'no_data';
           stateLabel = 'нет данных';
           stateCls = 'badge-muted';
         }
-        var reserveText = (isIbm || !hasEntry || entry.reserve == null)
+        var reserveText = (!hasEntry || entry.reserve == null)
           ? 'нет данных' : String(entry.reserve);
         var consumableText;
-        if (isIbm) {
-          consumableText = 'адаптер не реализован';
-        } else if (!hasEntry || entry.consumable == null) {
+        if (!hasEntry || entry.consumable == null) {
           consumableText = 'нет данных';
         } else {
           consumableText = entry.consumable
@@ -33539,7 +33818,7 @@
           stateKey: stateKey,
           stateLabel: stateLabel,
           stateCls: stateCls,
-          stateText: (hasEntry || isIbm) ? card.stateText : '',
+          stateText: hasEntry ? card.stateText : '',
           configured: hasEntry ? !!card.configured : false,
           keyPresent: hasEntry ? !!card.keyPresent : false,
           reserve: (hasEntry && entry.reserve != null)
@@ -33551,7 +33830,7 @@
             ? entry.quarantined : 0,
           lastSuccess: this.randomProviderLastSuccess(id),
           lastSwitch: this.randomProviderLastSwitch(id),
-          adapterNotImplemented: stateKey === 'adapter_not_implemented',
+          adapterNotImplemented: false,
         };
       },
       randomProviderSummaries: function () {
@@ -33612,7 +33891,15 @@
         var keys = ['keys.random_quantum_endpoint',
                     'keys.random_quantum_request_timeout_seconds',
                     'keys.random_quantum_refill_low_watermark',
-                    'keys.random_quantum_buffer_max_values'];
+                    'keys.random_quantum_buffer_max_values',
+                    // P5B: лимиты/таймауты IBM — те же существующие ParamSpec
+                    // (global_only/advanced), не второй механизм настроек.
+                    'random.ibm.http_timeout_seconds',
+                    'random.ibm.poll_interval_seconds',
+                    'random.ibm.job_max_age_seconds',
+                    'random.ibm.max_inflight',
+                    'random.ibm.max_jobs_per_day',
+                    'random.ibm.max_qpu_seconds_per_day'];
         var self = this;
         return keys.map(function (k) { return self.randomCfg(k); })
           .filter(Boolean);

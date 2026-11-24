@@ -473,6 +473,7 @@ function mkCoverageCtx(m) {
           randomAnuDetailItems: methods.randomAnuDetailItems,
           randomAdvancedItems: methods.randomAdvancedItems,
           randomProbabilityItems: methods.randomProbabilityItems,
+          randomIbmTechItems: methods.randomIbmTechItems,
         });
         const rendered = {};
         // F5 review: шесть «динамических» ключей не хардкодятся в rendered —
@@ -493,6 +494,13 @@ function mkCoverageCtx(m) {
           'keys.random_quantum_api_key': [
             ':tech-key="randomAnuKeyItem().key"',
             "keyDrafts['keys.random_quantum_api_key']"],
+          // P5B: раздельные защищённые поля IBM (secret-field) в карточке.
+          'keys.random_ibm_api_key': [
+            ':tech-key="randomIbmKeyItem().key"',
+            "keyDrafts['keys.random_ibm_api_key']"],
+          'keys.random_ibm_crn': [
+            ':tech-key="randomIbmCrnItem().key"',
+            "keyDrafts['keys.random_ibm_crn']"],
         };
         Object.keys(markerOf).forEach(function (k) {
           let present = false;
@@ -517,6 +525,9 @@ function mkCoverageCtx(m) {
           rendered[it.key] = true;
         });
         methods.randomProbabilityItems.call(rctx).forEach(function (it) {
+          rendered[it.key] = true;
+        });
+        methods.randomIbmTechItems.call(rctx).forEach(function (it) {
           rendered[it.key] = true;
         });
         assert.deepStrictEqual(Object.keys(rendered).sort(), fx.page_keys,

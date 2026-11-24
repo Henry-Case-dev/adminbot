@@ -1,0 +1,67 @@
+{
+  "tool": "Browser Use (real Chrome via CDP, browser-harness)",
+  "url": "http://127.0.0.1:8897/web/index.html#/modules/random",
+  "environment": "local static server of the actual web/index.html + web/app.js; mocked /api DTOs; NOT live IBM and NOT production",
+  "secret_policy": "page text checked for the raw API key and full CRN; both absent; only masks with last4 rendered",
+  "viewports": {
+    "1440x900": {
+      "inner": [1440, 900],
+      "scroll_width": 1425,
+      "client_width": 1425,
+      "overflow": 0,
+      "pageerrors": [],
+      "console_errors": [],
+      "raw_secret_visible": false,
+      "password_inputs": 2,
+      "ibm_card": true,
+      "check": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+      "smoke": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с"
+    },
+    "1280x800": {
+      "inner": [1280, 800],
+      "scroll_width": 1265,
+      "client_width": 1265,
+      "overflow": 0,
+      "pageerrors": [],
+      "console_errors": [],
+      "raw_secret_visible": false,
+      "password_inputs": 2,
+      "ibm_card": true,
+      "check": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+      "smoke": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с"
+    },
+    "390x844": {
+      "inner": [390, 844],
+      "scroll_width": 390,
+      "client_width": 390,
+      "overflow": 0,
+      "pageerrors": [],
+      "console_errors": [],
+      "raw_secret_visible": false,
+      "password_inputs": 2,
+      "ibm_card": true,
+      "check": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+      "smoke": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с"
+    },
+    "320x700": {
+      "inner": [320, 700],
+      "scroll_width": 320,
+      "client_width": 320,
+      "overflow": 0,
+      "pageerrors": [],
+      "console_errors": [],
+      "raw_secret_visible": false,
+      "password_inputs": 2,
+      "ibm_card": true,
+      "check": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+      "smoke": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с"
+    }
+  },
+  "screenshots": [
+    "browseruse-1440.png",
+    "browseruse-1280.png",
+    "browseruse-390.png",
+    "browseruse-320.png"
+  ],
+  "not_live": "Owners credentials were not available; the mock used the real public DTO shapes but no IBM request was made."
+}

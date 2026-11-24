@@ -1,0 +1,117 @@
+{
+ "viewports": {
+  "1440": {
+   "viewport": [
+    1440,
+    900
+   ],
+   "overflow": 0,
+   "pageerrors": [],
+   "console_errors": [],
+   "secret_visible": false,
+   "ibm_state_text": "Получение подтверждено: QPU ibm_hw, job job-7, бит 128.",
+   "check_result": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+   "smoke_result": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с",
+   "password_inputs": 2,
+   "has_key_field": true,
+   "has_crn_field": true
+  },
+  "1280": {
+   "viewport": [
+    1280,
+    800
+   ],
+   "overflow": 0,
+   "pageerrors": [],
+   "console_errors": [],
+   "secret_visible": false,
+   "ibm_state_text": "Получение подтверждено: QPU ibm_hw, job job-7, бит 128.",
+   "check_result": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+   "smoke_result": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с",
+   "password_inputs": 2,
+   "has_key_field": true,
+   "has_crn_field": true
+  },
+  "390": {
+   "viewport": [
+    390,
+    844
+   ],
+   "overflow": 0,
+   "pageerrors": [],
+   "console_errors": [],
+   "secret_visible": false,
+   "ibm_state_text": "Получение подтверждено: QPU ibm_hw, job job-7, бит 128.",
+   "check_result": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+   "smoke_result": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с",
+   "password_inputs": 2,
+   "has_key_field": true,
+   "has_crn_field": true
+  },
+  "320": {
+   "viewport": [
+    320,
+    700
+   ],
+   "overflow": 0,
+   "pageerrors": [],
+   "console_errors": [],
+   "secret_visible": false,
+   "ibm_state_text": "Получение подтверждено: QPU ibm_hw, job job-7, бит 128.",
+   "check_result": "Доступ подтверждён · instance open-instance · регион us-east · QPU ibm_hw · план Open · очередь 2",
+   "smoke_result": "Получение подтверждено · QPU ibm_hw · job job-7 · shots 256 · бит 128 · QPU 0.5 с",
+   "password_inputs": 2,
+   "has_key_field": true,
+   "has_crn_field": true
+  }
+ },
+ "tests": [
+  {
+   "provider": "ibm_quantum",
+   "key": "",
+   "crn": ""
+  },
+  {
+   "provider": "ibm_quantum",
+   "key": "",
+   "crn": ""
+  },
+  {
+   "provider": "ibm_quantum",
+   "key": "",
+   "crn": ""
+  },
+  {
+   "provider": "ibm_quantum",
+   "key": "",
+   "crn": ""
+  }
+ ],
+ "smokes": [
+  {
+   "key": "",
+   "crn": "",
+   "shots": 256,
+   "confirm": true
+  },
+  {
+   "key": "",
+   "crn": "",
+   "shots": 256,
+   "confirm": true
+  },
+  {
+   "key": "",
+   "crn": "",
+   "shots": 256,
+   "confirm": true
+  },
+  {
+   "key": "",
+   "crn": "",
+   "shots": 256,
+   "confirm": true
+  }
+ ],
+ "raw_secret_absent": true
+}

@@ -563,6 +563,192 @@ class TestReadOnlyAndSmoke:
         assert sampler.calls[0]["shots"] == 256
 
 
+# ── P5B: защищённые поля, форма и фоновый refill ───────────────────────────
+class TestP5BAdminHardening:
+    def test_admin_shape_helpers(self):
+        assert mrs.ibm_key_shape_error("") == "empty"
+        assert mrs.ibm_key_shape_error("short") == "too_short"
+        assert mrs.ibm_key_shape_error("bad key with space") == "invalid_chars"
+        assert mrs.ibm_key_shape_error("A" * 44) is None
+        assert mrs.ibm_crn_shape_error("") is None
+        assert mrs.ibm_crn_shape_error("crn:full:value") == "incomplete"
+        assert mrs.ibm_crn_shape_error(
+            "crn:v1:bluemix:public:quantum-compute:us-east:a/x:y::") is None
+        assert mrs.ibm_crn_shape_error(
+            "crn:v1:bluemix:public:other:us-east:a/x:y::") == "service"
+        assert mrs.ibm_instance_shape_error("open instance") == "invalid_chars"
+        assert mrs.ibm_instance_shape_error("open-instance") is None
+
+    def test_ibm_credentials_are_provider_operations(self):
+        for key in (mrs.SETTING_IBM_KEY, mrs.SETTING_IBM_CRN,
+                    mrs.SETTING_IBM_INSTANCE, mrs.SETTING_IBM_REGION,
+                    mrs.SETTING_IBM_CHANNEL):
+            assert key in mrs.PROVIDER_KEY_SETTINGS
+
+    @pytest.mark.asyncio
+    async def test_check_access_invalid_instance_stage(self):
+        service = FakeService(
+            [FakeBackend("ibm_hw")],
+            instances=[{"name": "another-instance", "plan": "Open"}])
+        client, sampler = make_client(service, FakeJob())
+        result = await client.check_access(api_key="key",
+                                           instance="open-instance")
+        assert result["healthy"] is False
+        assert result["blocker"] == "invalid_instance"
+        assert result["stage"] == "instance"
+        assert sampler.calls == []
+
+    @pytest.mark.asyncio
+    async def test_permission_denied_and_quota_classification(self):
+        exc = RuntimeError("403 forbidden")
+        exc.status_code = 403
+        client, sampler = make_client(FakeService(error=exc), FakeJob())
+        result = await client.check_access(api_key="key")
+        assert result["blocker"] == "permission_denied"
+        assert result["stage"] == "permission"
+        assert sampler.calls == []
+        assert mrs._ibm_error_code(
+            RuntimeError("usage limit reached")) == "quota_exhausted"
+        assert mrs._ibm_stage_for_code("quota_exhausted") == "permission"
+
+    @pytest.mark.asyncio
+    async def test_crn_not_echoed_in_error_reason(self):
+        crn = "crn:v1:bluemix:public:quantum-compute:us-east:a/x:y::"
+        exc = RuntimeError(f"invalid instance {crn}")
+        exc.status_code = 404
+        client, _sampler = make_client(FakeService(error=exc), FakeJob())
+        result = await client.check_access(api_key="key", crn=crn)
+        assert result["healthy"] is False
+        assert crn not in str(result.get("reason") or "")
+        assert "***" in str(result.get("reason") or "")
+
+    @pytest.mark.asyncio
+    async def test_quota_failure_falls_back_to_anu(self, tmp_path,
+                                                   monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_KEY: "anu-key",
+                              mrs.SETTING_IBM_KEY: "ibm-key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_BATCH_LENGTH: 4})
+            svc = mrs.RandomSourceService(db, auto_refill=False)
+            ibm_client, sampler = make_client(
+                FakeService([FakeBackend("ibm_hw")]), FakeJob())
+
+            def _quota(*_args, **_kwargs):
+                raise RuntimeError("usage limit reached")
+
+            sampler.run = _quota
+            svc.set_ibm_client(ibm_client)
+
+            async def http_get(url, headers, params, timeout):
+                return mrs._HttpResponse(
+                    200, {}, json.dumps({
+                        "success": True, "type": "uint16", "length": 4,
+                        "data": [1, 2, 3, 4]}))
+
+            svc.set_client(mrs.AnuClient(http_get=http_get,
+                                         min_interval=0.0))
+            result = await svc.refill_if_needed(force=True)
+            assert result["status"] == "completed"
+            assert result["provider"] == mrs.PROVIDER_ID_ANU
+            reasons = [a.get("reason") for a in result.get("attempts", [])]
+            assert "quota_exhausted" in reasons
+            row = await (await db.db.execute(
+                "SELECT provider FROM mca_random_batches "
+                "ORDER BY created_at DESC LIMIT 1")).fetchone()
+            assert row is not None and row["provider"] == mrs.PROVIDER_ID_ANU
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_refill_trigger_respects_watermark(self, tmp_path,
+                                                     monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "ibm-key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            svc = mrs.RandomSourceService(db, auto_refill=True)
+            calls: list[int] = []
+            svc._schedule_refill = lambda: calls.append(1)
+            low = svc._low_watermark()
+            svc._maybe_schedule_refill(SimpleNamespace(
+                mode=mrs.MODE_QUANTUM, reserve_remaining=low))
+            assert calls == [], "на/выше floor фоновый refill не запускается"
+            svc._maybe_schedule_refill(SimpleNamespace(
+                mode=mrs.MODE_QUANTUM, reserve_remaining=max(0, low - 1)))
+            assert calls == [1]
+            svc._maybe_schedule_refill(SimpleNamespace(
+                mode=mrs.MODE_PSEUDORANDOM, reserve_remaining=0))
+            assert len(calls) == 2
+            svc._auto_refill = False
+            svc._maybe_schedule_refill(SimpleNamespace(
+                mode=mrs.MODE_PSEUDORANDOM, reserve_remaining=0))
+            assert len(calls) == 2, "auto_refill=False — прежнее поведение"
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_draw_schedules_refill_for_configured_ibm(self, tmp_path,
+                                                            monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "ibm-key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance",
+                              mrs.SETTING_FALLBACK: True})
+            svc = mrs.RandomSourceService(db, auto_refill=True)
+
+            async def _fallback_on(_chat_id=None):
+                return True
+
+            svc.fallback_enabled = _fallback_on
+            calls: list[int] = []
+            svc._schedule_refill = lambda: calls.append(1)
+            result = await svc.draw_index(4)
+            assert result.index is not None
+            assert calls == [1]
+            # Без сконфигурированного IBM триггер не меняет прежний путь.
+            values = {mrs.SETTING_IBM_KEY: "",
+                      mrs.SETTING_FALLBACK: True}
+            cfg(monkeypatch, values)
+            calls.clear()
+            result2 = await svc.draw_index(4)
+            assert result2.index is not None
+            assert calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_schedule_refill_nonblocking_and_throttled(self, tmp_path,
+                                                             monkeypatch):
+        db = await _fresh_db(tmp_path)
+        try:
+            cfg(monkeypatch, {mrs.SETTING_IBM_KEY: "ibm-key",
+                              mrs.SETTING_IBM_INSTANCE: "open-instance"})
+            svc = mrs.RandomSourceService(db, auto_refill=True)
+            gate = asyncio.Event()
+            started = asyncio.Event()
+            calls: list[int] = []
+
+            async def fake_refill(force: bool = False):
+                calls.append(1)
+                started.set()
+                await gate.wait()
+                return {"status": "ok"}
+
+            svc.refill_if_needed = fake_refill
+            svc._schedule_refill()
+            assert svc._refill_task is not None
+            await asyncio.wait_for(started.wait(), timeout=1.0)
+            assert calls == [1], "draw не ждёт QPU: задача уже стартовала"
+            svc._schedule_refill()
+            assert calls == [1], "повторный draw не плодит задачи"
+            gate.set()
+            await asyncio.wait_for(svc._refill_task, timeout=1.0)
+        finally:
+            await db.close()
+
+
 # ── извлечение/валидация/PRNG ──────────────────────────────────────────────
 class TestExtraction:
     @pytest.mark.asyncio
@@ -596,6 +782,9 @@ class TestExtraction:
         assert prov["is_simulator"] is False
         assert prov["instance"] == "open-instance"
         assert prov["channel"] == "ibm_quantum_platform"
+        # P5B: полный provenance реального job — время отправки/готовности.
+        assert int(prov["submitted_at"]) > 0
+        assert int(prov["completed_at"]) >= int(prov["submitted_at"])
 
     def test_debias_removes_constant_physical_bias(self):
         # 75% единиц, но пары 01/10 сбалансированы: von Neumann даёт
