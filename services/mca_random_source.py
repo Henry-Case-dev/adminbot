@@ -212,6 +212,9 @@ IBM_JOB_COMPLETED = "completed"
 IBM_JOB_FAILED = "failed"
 IBM_JOB_CANCELLED = "cancelled"
 IBM_JOB_EXPIRED = "expired"
+IBM_BATCH_EXISTS = "exists"
+IBM_BATCH_ABSENT = "absent"
+IBM_BATCH_UNKNOWN = "unknown"
 DEFAULT_IBM_HTTP_TIMEOUT_SECONDS = 10
 DEFAULT_IBM_POLL_INTERVAL_SECONDS = 30
 DEFAULT_IBM_JOB_MAX_AGE_SECONDS = 3600
@@ -2261,7 +2264,8 @@ class IbmQuantumRuntimeClient:
                 channel=channel, length=(1 if smoke else length),
                 checkpoint_job_id=claim_id, job_store=job_store,
                 purpose=("smoke" if smoke else "refill"),
-                shots_override=(shots_override if smoke else None))
+                shots_override=(shots_override if smoke else None),
+                fencing_token=fence_token)
             current = await job_store.get(claim_id) or {}
             if (str(current.get("status") or "") != "running"
                     or int(current.get("fencing_token") or 0)
@@ -2306,7 +2310,8 @@ class IbmQuantumRuntimeClient:
                                instance: str, region: str, channel: str,
                                length: int, checkpoint_job_id: str | None,
                                job_store=None, purpose: str = "refill",
-                               shots_override: int | None = None
+                               shots_override: int | None = None,
+                               fencing_token: int | None = None
                                ) -> AnuBatch:
         service = await self._service(
             api_key=api_key, crn=crn, instance=instance, region=region,
@@ -2327,7 +2332,7 @@ class IbmQuantumRuntimeClient:
             requested=length, plan=plan, crn=crn, region=region,
             channel=channel, instance=instance, api_key=api_key,
             job_store=job_store, checkpoint_job_id=checkpoint_job_id,
-            purpose=purpose)
+            purpose=purpose, fencing_token=fencing_token)
 
     async def _wait_job(self, *, job, job_id: str, backend,
                         backend_info: dict, shots: int,
@@ -2335,7 +2340,8 @@ class IbmQuantumRuntimeClient:
                         checkpoint_job_id: str | None,
                         submitted_at: int, plan: str | None, crn: str,
                         region: str, channel: str, instance: str,
-                        job_store=None, cursor_base: dict | None = None
+                        job_store=None, cursor_base: dict | None = None,
+                        fencing_token: int | None = None
                         ) -> AnuBatch:
         delay = self._poll_interval
         last_state = None
@@ -2348,7 +2354,8 @@ class IbmQuantumRuntimeClient:
                                "backend": backend_info.get("name"),
                                "instance": instance})
                 await self._checkpoint(
-                    job_store, checkpoint_job_id, **fields)
+                    job_store, checkpoint_job_id,
+                    fencing_token=fencing_token, **fields)
             if state == IBM_JOB_COMPLETED:
                 try:
                     result = await self._call(job.result)
@@ -2398,7 +2405,8 @@ class IbmQuantumRuntimeClient:
                                "backend": backend_info.get("name"),
                                "instance": instance})
                 await self._checkpoint(
-                    job_store, checkpoint_job_id, **fields)
+                    job_store, checkpoint_job_id,
+                    fencing_token=fencing_token, **fields)
                 raise IbmError("timeout", "ibm job age exceeded",
                                stage="job", retryable=True, sent=True,
                                job_state=IBM_JOB_EXPIRED)
@@ -2407,7 +2415,9 @@ class IbmQuantumRuntimeClient:
                 delay = min(max(delay * 2, self._poll_interval), 120.0)
 
     @staticmethod
-    async def _checkpoint(job_store, job_id: str | None, **fields) -> None:
+    async def _checkpoint(job_store, job_id: str | None, *,
+                          fencing_token: int | None = None,
+                          **fields) -> None:
         """Durable cursor IBM job через существующий `task_jobs.payload`."""
         if job_store is None or not job_id:
             return
@@ -2415,7 +2425,8 @@ class IbmQuantumRuntimeClient:
             cursor = json.dumps(fields, separators=(",", ":"),
                                 ensure_ascii=False)
             await job_store.save_checkpoint(
-                job_id, cursor_token=cursor, processed=0)
+                job_id, cursor_token=cursor, processed=0,
+                fencing_token=fencing_token)
         except Exception:
             # Checkpoint — диагностика/восстановление, не повод ронять job.
             logger.warning("[random_source] ibm checkpoint failed",
@@ -2534,7 +2545,8 @@ class IbmQuantumRuntimeClient:
                               channel: str = "", instance: str = "",
                               api_key: str = "", job_store=None,
                               checkpoint_job_id: str | None = None,
-                              purpose: str = "refill") -> AnuBatch:
+                              purpose: str = "refill",
+                              fencing_token: int | None = None) -> AnuBatch:
         num_qubits = int(backend_info.get("num_qubits") or 0)
         circuit = self._circuit_factory(num_qubits)
         try:
@@ -2549,10 +2561,10 @@ class IbmQuantumRuntimeClient:
         job_tag = (f"qrng-p5-{checkpoint_job_id}"
                    if checkpoint_job_id else "")
         await self._checkpoint(
-            job_store, checkpoint_job_id, state=IBM_JOB_PENDING,
-            instance=instance, backend=backend_info.get("name"),
-            shots=shots, qubits=num_qubits, purpose=purpose,
-            job_tag=job_tag or None)
+            job_store, checkpoint_job_id, fencing_token=fencing_token,
+            state=IBM_JOB_PENDING, instance=instance,
+            backend=backend_info.get("name"), shots=shots,
+            qubits=num_qubits, purpose=purpose, job_tag=job_tag or None)
         try:
             sampler = await self._call(self._sampler_factory, backend=backend)
             if job_tag:
@@ -2585,7 +2597,8 @@ class IbmQuantumRuntimeClient:
             "job_tag": job_tag or None,
         }
         await self._checkpoint(
-            job_store, checkpoint_job_id, **cursor_base)
+            job_store, checkpoint_job_id, fencing_token=fencing_token,
+            **cursor_base)
         return await self._wait_job(
             job=job, job_id=job_id, backend=backend,
             backend_info=backend_info, shots=shots,
@@ -2593,7 +2606,8 @@ class IbmQuantumRuntimeClient:
             checkpoint_job_id=checkpoint_job_id,
             submitted_at=submitted_at, plan=plan,
             crn=crn, region=region, channel=channel, instance=instance,
-            job_store=job_store, cursor_base=cursor_base)
+            job_store=job_store, cursor_base=cursor_base,
+            fencing_token=fencing_token)
 
     async def find_job_by_tag(self, *, api_key: str, crn: str = "",
                               instance: str = IBM_INSTANCE_DEFAULT,
@@ -2615,8 +2629,12 @@ class IbmQuantumRuntimeClient:
         try:
             jobs = await self._call(
                 getter, limit=5, job_tags=[tag_text], descending=True)
-        except Exception:
-            return None
+        except IbmError:
+            raise
+        except Exception as exc:
+            code = _ibm_error_code(exc)
+            raise IbmError(code, _clean_error_text(str(exc), key),
+                           stage="tag", retryable=True, sent=False)
         for job in jobs or ():
             try:
                 job_id = str(getattr(job, "job_id", lambda: "")() or "").strip()
@@ -2633,7 +2651,9 @@ class IbmQuantumRuntimeClient:
                      shots: int, num_qubits: int, requested: int,
                      submitted_at: int, plan: str | None = None,
                      deposit=None, checkpoint_job_id: str | None = None,
-                     job_store=None) -> AnuBatch:
+                     job_store=None, fencing_token: int | None = None,
+                     config_fp: str = "",
+                     purpose: str = "recovery") -> AnuBatch:
         """Присоединиться к существующему IBM job (без повторной отправки)."""
         key, crn_text, instance_text, region_text, channel_text = \
             self._validated(api_key, crn, instance, region, channel)
@@ -2677,9 +2697,11 @@ class IbmQuantumRuntimeClient:
             "shots": shots, "qubits": num_qubits,
             "submitted_at": submitted_at, "values": requested,
             "plan": plan,
-            "config_fp": key_fingerprint("|".join(
-                (key, crn_text, instance_text, region_text, channel_text))),
-            "purpose": "recovery",
+            "config_fp": (str(config_fp or "").strip()
+                          or key_fingerprint("|".join(
+                              (key, crn_text, instance_text, region_text,
+                               channel_text)))),
+            "purpose": purpose,
         }
         batch = await self._wait_job(
             job=job, job_id=job_id, backend=backend,
@@ -2689,7 +2711,7 @@ class IbmQuantumRuntimeClient:
             submitted_at=submitted_at, plan=plan, crn=crn_text,
             region=region_text, channel=channel_text,
             instance=instance_text, job_store=job_store,
-            cursor_base=cursor_base)
+            cursor_base=cursor_base, fencing_token=fencing_token)
         if deposit is not None:
             batch.provenance["batch_id"] = await deposit(batch)
         return batch
@@ -2870,8 +2892,9 @@ class RandomStore:
     async def insert_batch(self, batch: AnuBatch, *,
                            created_at: int | None = None,
                            config_fingerprint: str | None = None,
-                           external_ref: str | None = None) -> str:
-        batch_id = uuid.uuid4().hex
+                           external_ref: str | None = None,
+                           batch_id: str | None = None) -> str:
+        batch_id = str(batch_id or "").strip() or uuid.uuid4().hex
         values = [int(v) for v in batch.values]
         values_json = json.dumps(values, separators=(",", ":"))
         created = int(created_at if created_at is not None else time.time())
@@ -5575,22 +5598,28 @@ class RandomSourceService:
             })
         return out
 
-    async def _ibm_batch_exists(self, ibm_job_id: str) -> bool:
-        if self.db is None or not str(ibm_job_id or "").strip():
-            return False
+    async def _ibm_batch_exists(self, ibm_job_id: str) -> str:
+        """Tri-state batch lookup: exists / absent / unknown.
+
+        DB read error — `unknown`, НЕ `exists`: вызывающий оставляет row
+        unresolved и повторяет recovery, не теряя paid result и не создавая
+        второй batch."""
+        if not str(ibm_job_id or "").strip():
+            return IBM_BATCH_ABSENT
+        if self.db is None:
+            return IBM_BATCH_UNKNOWN
         needle = f'"job":"{str(ibm_job_id).strip()}"'
         try:
             cursor = await self.db.db.execute(
                 "SELECT 1 FROM mca_random_batches WHERE provider = ? "
                 "AND instr(COALESCE(external_ref, ''), ?) > 0 LIMIT 1",
                 (PROVIDER_ID_IBM, needle))
-            return await cursor.fetchone() is not None
+            return (IBM_BATCH_EXISTS if await cursor.fetchone() is not None
+                    else IBM_BATCH_ABSENT)
         except Exception:
-            logger.warning("[random_source] ibm batch lookup failed — "
-                           "conservative exists=True", exc_info=True)
-            # Неизвестность трактуем как «batch уже есть»: лучше не
-            # зачислить дубль, чем создать второй batch.
-            return True
+            logger.warning("[random_source] ibm batch lookup unknown",
+                           exc_info=True)
+            return IBM_BATCH_UNKNOWN
 
     async def _ibm_deposit_batch(self, batch: AnuBatch,
                                  fingerprint: str | None = None) -> str:
@@ -5598,30 +5627,97 @@ class RandomSourceService:
             raise IbmError("provider_unavailable", "store unavailable",
                            stage="deposit", sent=False)
         provenance = dict(batch.provenance or {})
+        job_id = str(provenance.get("job_id") or "").strip()
+        if not job_id:
+            raise IbmError("validation_failed",
+                           "ibm deposit without job id", stage="deposit",
+                           sent=False)
+        # Exactly-once: детерминированный PK по IBM job ID. Повторный/
+        # concurrent deposit того же job'а не создаёт вторую партию.
+        batch_id = "ibm_" + hashlib.sha256(
+            job_id.encode("utf-8")).hexdigest()[:32]
         ref = _ibm_external_ref(provenance)
         batch_id = await self._store.insert_batch(
             batch,
             config_fingerprint=(fingerprint if fingerprint is not None
                                 else self._ibm_config_fingerprint()),
-            external_ref=ref)
+            external_ref=ref, batch_id=batch_id)
         batch.provenance["batch_id"] = batch_id
         return batch_id
 
-    async def _finish_ibm_row(self, row: dict, *, status: str,
-                              reason_code: str | None = None,
+    async def _settle_ibm_row(self, row: dict, cursor: dict, *,
+                              action: str,
                               result_ref: str | None = None,
-                              error_code: str | None = None) -> None:
+                              reason_code: str | None = None,
+                              error_code: str | None = None,
+                              fencing_token: int | None = None) -> bool:
+        """Единственная идемпотентная settlement-точка IBM row.
+
+        action: completed | failed | cancelled | quarantine.
+        Все записи (finish + cursor) идут с fencing_token; stale/quarantined/
+        config_changed отклоняются. Повторный вызов — no-op/True, если row
+        уже в целевом терминальном состоянии.
+        """
         if self.db is None:
-            return
-        from services.task_supervisor import TaskJobStore
+            return False
+        from services.task_supervisor import (JOB_CANCELLED, JOB_COMPLETED,
+                                              JOB_FAILED, TaskJobStore)
+        store = TaskJobStore(self.db)
+        job_id = str(row.get("job_id") or "").strip()
+        if not job_id:
+            return False
+        current = await store.get(job_id)
+        if current is None:
+            return False
+        current_status = str(current.get("status") or "")
+        if current_status == "completed":
+            return True
+        token = (int(fencing_token) if fencing_token is not None
+                 else int(row.get("fencing_token") or 0))
+        if action == "quarantine":
+            await self._bump_ibm_fencing(job_id)
+            current = await store.get(job_id) or current
+            token = int(current.get("fencing_token") or 0)
+            target_status = JOB_FAILED
+            cursor_state = IBM_JOB_FAILED
+            cursor_extra = {"quarantined": True}
+            reason_code = reason_code or "config_changed"
+            error_code = error_code or "config_changed"
+        else:
+            if int(current.get("fencing_token") or 0) != token:
+                return False
+            current_cursor = self._ibm_cursor(current)
+            if current_cursor.get("quarantined"):
+                return False
+            cursor_fp = str(cursor.get("config_fp") or "").strip()
+            current_fp = self._ibm_config_fingerprint()
+            if cursor_fp and current_fp and cursor_fp != current_fp:
+                return False
+            if action == "completed":
+                target_status, cursor_state = JOB_COMPLETED, IBM_JOB_COMPLETED
+            elif action == "cancelled":
+                target_status, cursor_state = JOB_CANCELLED, IBM_JOB_CANCELLED
+            else:
+                target_status, cursor_state = JOB_FAILED, IBM_JOB_FAILED
+            cursor_extra = {}
+        ok = await store.finish(
+            job_id, status=target_status, reason_code=reason_code,
+            result_ref=result_ref, error_code=error_code,
+            fencing_token=token)
+        if not ok:
+            return False
+        clean = dict(cursor or {})
+        clean.update({"state": cursor_state, **cursor_extra})
         try:
-            await TaskJobStore(self.db).finish(
-                str(row.get("job_id") or ""), status=status,
-                reason_code=reason_code, result_ref=result_ref,
-                error_code=error_code, recovery=True)
+            await store.save_checkpoint(
+                job_id,
+                cursor_token=json.dumps(clean, separators=(",", ":"),
+                                        ensure_ascii=False),
+                processed=0, fencing_token=token)
         except Exception:
-            logger.warning("[random_source] ibm row finish failed | "
-                           "job_id=%s", row.get("job_id"), exc_info=True)
+            logger.warning("[random_source] ibm settlement cursor failed | "
+                           "job_id=%s", job_id, exc_info=True)
+        return True
 
     async def _bump_ibm_fencing(self, job_id: str) -> None:
         """Снять fencing-токен старого watcher'а (только существующая колонка)."""
@@ -5642,53 +5738,13 @@ class RandomSourceService:
             logger.warning("[random_source] ibm quarantine fence failed | "
                            "job_id=%s", job_id, exc_info=True)
 
-    async def _set_ibm_cursor_state(self, row: dict, cursor: dict,
-                                    state: str, *,
-                                    quarantined: bool = False) -> None:
-        """Терминально закрыть cursor, чтобы слот не остался зафенсенным."""
-        if self.db is None:
-            return
-        from services.task_supervisor import TaskJobStore
-        clean = dict(cursor or {})
-        clean["state"] = str(state)
-        if quarantined:
-            clean["quarantined"] = True
-        try:
-            await TaskJobStore(self.db).save_checkpoint(
-                str(row.get("job_id") or ""),
-                cursor_token=json.dumps(clean, separators=(",", ":"),
-                                        ensure_ascii=False),
-                processed=0)
-        except Exception:
-            logger.warning("[random_source] ibm cursor close failed | "
-                           "job_id=%s", row.get("job_id"), exc_info=True)
-
     async def _quarantine_ibm_row(self, row: dict, cursor: dict,
                                   current_fp: str) -> None:
-        """Явно карантинировать unresolved job старой конфигурации.
-
-        Старый late result НЕ смешивается с новым key/CRN и не фенсит его;
-        cursor переводится в терминальный `failed`, строка закрывается
-        `config_changed`, а старый watcher теряет fencing-токен."""
-        await self._bump_ibm_fencing(str(row.get("job_id") or ""))
-        await self._finish_ibm_row(
-            row, status="failed", reason_code="config_changed",
-            error_code="config_changed")
-        if self.db is None:
-            return
-        from services.task_supervisor import TaskJobStore
-        clean = dict(cursor or {})
-        clean.update({"state": IBM_JOB_FAILED, "quarantined": True,
-                      "config_fp": str(cursor.get("config_fp") or "")})
-        try:
-            await TaskJobStore(self.db).save_checkpoint(
-                str(row.get("job_id") or ""),
-                cursor_token=json.dumps(clean, separators=(",", ":"),
-                                        ensure_ascii=False),
-                processed=0)
-        except Exception:
-            logger.warning("[random_source] ibm quarantine cursor failed | "
-                           "job_id=%s", row.get("job_id"), exc_info=True)
+        """Явно карантинировать unresolved job старой конфигурации."""
+        await self._settle_ibm_row(
+            row, cursor, action="quarantine",
+            reason_code="config_changed", error_code="config_changed",
+            fencing_token=int(row.get("fencing_token") or 0))
 
     async def _recover_ibm_jobs(self) -> int:
         """Присоединиться к незавершённым IBM job'ам после рестарта.
@@ -5726,6 +5782,7 @@ class RandomSourceService:
             if not ibm_job_id:
                 job_tag = str(cursor.get("job_tag") or "").strip()
                 resolved = None
+                tag_unknown = False
                 if job_tag and self._ibm_configured():
                     try:
                         resolved = await self._get_ibm_client() \
@@ -5736,8 +5793,14 @@ class RandomSourceService:
                                 region=self._ibm_region(),
                                 channel=self._ibm_channel(),
                                 tag=job_tag)
+                    except IbmError:
+                        tag_unknown = True
                     except Exception:
-                        resolved = None
+                        tag_unknown = True
+                if tag_unknown:
+                    # Не «нет job»: lookup transient/unknown. Оставляем
+                    # unresolved, не submit_uncertain и не release slot.
+                    continue
                 if resolved:
                     ibm_job_id = str(resolved)
                     cursor = dict(cursor)
@@ -5749,38 +5812,46 @@ class RandomSourceService:
                         cursor_token=json.dumps(
                             cursor, separators=(",", ":"),
                             ensure_ascii=False),
-                        processed=0)
+                        processed=0,
+                        fencing_token=int(row.get("fencing_token") or 0))
                 else:
-                    if str(row.get("reason_code") or "") != \
-                            "submit_uncertain":
-                        await self._finish_ibm_row(
-                            row, status="failed",
-                            reason_code="submit_uncertain",
-                            error_code="delivery_unknown")
-                    await self._set_ibm_cursor_state(
-                        row, cursor, IBM_JOB_FAILED)
+                    await self._settle_ibm_row(
+                        row, cursor, action="failed",
+                        reason_code="submit_uncertain",
+                        error_code="delivery_unknown",
+                        fencing_token=int(row.get("fencing_token") or 0))
                     continue
-            if purpose != "smoke" and await self._ibm_batch_exists(
-                    ibm_job_id):
-                await self._finish_ibm_row(
-                    row, status="completed", reason_code="recovered_pool",
-                    result_ref="recovered_existing_batch")
-                continue
+            if purpose != "smoke":
+                batch_state = await self._ibm_batch_exists(ibm_job_id)
+                if batch_state == IBM_BATCH_UNKNOWN:
+                    # Не знаем, зачислен ли результат: row остаётся
+                    # unresolved, слот держится, повтор — на следующем refill.
+                    continue
+                if batch_state == IBM_BATCH_EXISTS:
+                    await self._settle_ibm_row(
+                        row, cursor, action="completed",
+                        reason_code="recovered_pool",
+                        result_ref="recovered_existing_batch",
+                        fencing_token=int(row.get("fencing_token") or 0))
+                    continue
             if cursor_state == IBM_JOB_COMPLETED:
                 if purpose == "smoke":
                     # Smoke не зачисляется; завершённый cursor просто
                     # освобождает слот.
-                    await self._finish_ibm_row(
-                        row, status="completed", reason_code="recovered")
+                    await self._settle_ibm_row(
+                        row, cursor, action="completed",
+                        reason_code="recovered",
+                        fencing_token=int(row.get("fencing_token") or 0))
                     continue
                 # Crash после checkpoint completed, но до deposit: идём в
                 # attach/deposit, batch ещё нет.
             elif cursor_state in (IBM_JOB_FAILED, IBM_JOB_CANCELLED):
-                await self._finish_ibm_row(
-                    row,
-                    status=("cancelled" if cursor_state ==
+                await self._settle_ibm_row(
+                    row, cursor,
+                    action=("cancelled" if cursor_state ==
                             IBM_JOB_CANCELLED else "failed"),
-                    reason_code=cursor_state)
+                    reason_code=cursor_state,
+                    fencing_token=int(row.get("fencing_token") or 0))
                 continue
             if ibm_job_id in self._ibm_recovering:
                 continue
@@ -5857,14 +5928,19 @@ class RandomSourceService:
                 plan=cursor.get("plan"),
                 deposit=(None if purpose == "smoke"
                          else _deposit_guarded),
-                job_store=TaskJobStore(self.db))
+                job_store=TaskJobStore(self.db),
+                fencing_token=fence_token,
+                config_fp=cursor.get("config_fp") or "",
+                purpose=purpose)
             if not await self._ibm_recovery_guard(
                     row, cursor, fence_token):
                 return
             provenance = dict((batches.provenance if batches else {}) or {})
-            await self._finish_ibm_row(
-                row, status="completed", reason_code="recovered",
-                result_ref=_ibm_external_ref(provenance))
+            await self._settle_ibm_row(
+                row, cursor, action="completed",
+                reason_code="recovered",
+                result_ref=_ibm_external_ref(provenance),
+                fencing_token=fence_token)
             self._note_ibm_success(
                 latency_ms=batches.latency_ms,
                 job={"job_id": ibm_job_id,
@@ -5879,15 +5955,12 @@ class RandomSourceService:
                 return
             state = str(exc.job_state or "")
             if state in (IBM_JOB_FAILED, IBM_JOB_CANCELLED):
-                status = ("cancelled" if state == IBM_JOB_CANCELLED
-                          else "failed")
-                await self._finish_ibm_row(
-                    row, status=status, reason_code=exc.code,
-                    error_code=exc.code)
-                await self._set_ibm_cursor_state(
+                await self._settle_ibm_row(
                     row, cursor,
-                    (IBM_JOB_CANCELLED if state == IBM_JOB_CANCELLED
-                     else IBM_JOB_FAILED))
+                    action=("cancelled" if state == IBM_JOB_CANCELLED
+                            else "failed"),
+                    reason_code=exc.code, error_code=exc.code,
+                    fencing_token=fence_token)
                 self._note_ibm_failure(exc.code, stage=exc.stage)
                 return
             # result/attach/tag/timeout/network — НЕ terminal: row/cursor
