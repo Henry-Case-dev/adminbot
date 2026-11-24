@@ -1385,15 +1385,27 @@ async def start_model_swap(db, *, model: str, dims: int | None = None
             "models.embedding_dim", settings.EMBEDDING_DIM) or 0)
     except Exception:
         current_dims = 0
-    target_dims = int(dims or current_dims or 0)
+    # Пространство, которое реально обслуживается, — ACTIVE-строка индекса
+    # (а не только конфиг): предупреждение и цель перестройки говорят об
+    # одном и том же старом пространстве.
+    old_model, old_dims = current_model, current_dims
+    try:
+        for _index in ("graph_facts_vec", "smart_archive"):
+            _active = await db.get_active_embedding_generation(_index)
+            if _active is not None:
+                old_model = str(_active.get("model") or current_model)
+                old_dims = int(_active.get("dims") or current_dims or 0)
+                break
+    except Exception:
+        pass
+    target_dims = int(dims or old_dims or current_dims or 0)
     same_space = (
         ecp.model_space_identity(model=new_model, dimension=target_dims)
-        == ecp.model_space_identity(model=current_model,
-                                    dimension=current_dims))
+        == ecp.model_space_identity(model=old_model, dimension=old_dims))
     if same_space:
         return {"ok": True, "required": False, "reason": "same_space",
-                "old_model": current_model, "new_model": new_model,
-                "old_dims": current_dims, "new_dims": target_dims}
+                "old_model": old_model, "new_model": new_model,
+                "old_dims": old_dims, "new_dims": target_dims}
 
     source_fp = sm.embedding_identity_fingerprint()
     provider = sm._embedding_provider()
