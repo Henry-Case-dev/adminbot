@@ -24,9 +24,12 @@ TEST-LIFECYCLE: CONTRACT owner=P0-INIT-MEME-UX-DIAG S6-FRESH
 from __future__ import annotations
 
 import asyncio
+import datetime
+import zoneinfo
 
 from types import SimpleNamespace
 
+from config.settings import settings
 from services import chat_params as params
 from services import hot_config as hot
 from services import initiative_diagnostics as diag
@@ -304,7 +307,17 @@ def test_time_block_names_chat_timezone_and_its_layer(tmp_path, monkeypatch):
 
 def test_missing_chat_timezone_falls_back_to_named_default(tmp_path,
                                                           monkeypatch):
-    """Пояс не задан ни на одном слое → названный заводской пояс, не сервер."""
+    """Пояс не задан ни на одном слое → названный заводской пояс, не сервер.
+
+    UR-C-CLOCK D2: единственный ChatClock-резолвер завершает цепочку
+    (per-chat canonical → per-chat legacy → global → goodmorning → factory)
+    НАЗВАННЫМ значением, а не `utc_fallback`. В этом стенде слой global
+    canonical явно пуст, legacy-global получает значение заводской настройки
+    через контракт `hot.get(key, settings-default)` (R1), поэтому honest
+    результат — `source="global_legacy"` и named zone
+    `settings.SUMMARY_TIMEZONE`. Прежнее ожидание (`UTC`/`utc_fallback`)
+    фиксировало старое поведение `meme_initiative`, которое D2 прямо назвал
+    дефектом «utc_fallback вместо factory»."""
     _image_ok(monkeypatch)
     _global_gates(monkeypatch)
     _chat_state(monkeypatch, source="global", runtime=True)
@@ -323,10 +336,17 @@ def test_missing_chat_timezone_falls_back_to_named_default(tmp_path,
             await svc.close()
 
     tz = asyncio.run(scenario())["time"]["timezone"]
-    assert tz["name"] == diag.TZ_DEFAULT_NAME
-    assert tz["source"] == diag.TZ_SOURCE_FALLBACK
+    assert tz["name"] == settings.SUMMARY_TIMEZONE
+    assert tz["name"] != "UTC"
+    assert tz["source"] == "global_legacy"
+    assert tz["source"] != diag.TZ_SOURCE_FALLBACK
     assert tz["default_name"] == diag.TZ_DEFAULT_NAME
-    assert tz["offset_seconds"] == 0
+    expected_offset = int(
+        datetime.datetime.fromtimestamp(NOW_TS, datetime.timezone.utc)
+        .astimezone(zoneinfo.ZoneInfo(tz["name"])).utcoffset()
+        .total_seconds())
+    assert tz["offset_seconds"] == expected_offset
+    assert tz["offset_seconds"] != 0
 
 
 def test_unreadable_timezone_is_unknown_not_utc(tmp_path, monkeypatch):
