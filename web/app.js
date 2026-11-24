@@ -87,6 +87,12 @@
   // LfDR QRNG. Селектор сохраняет РЕАЛЬНЫЙ provider id (ParamSpec P3), а не
   // произвольную строку. Снятые владельцем источники в UI отсутствуют.
   var QRNG_PROVIDERS = ['ibm_quantum', 'anu', 'lfdr'];
+  // QRNG UI-06 (24.11.2026): заводские значения — зеркало backend
+  // `DEFAULT_PRIMARY_PROVIDER` / `DEFAULT_FALLBACK_ORDER`. Нужны только для
+  // отображения «наследуется по умолчанию»; сохранённые значения не
+  // подменяются и не переписываются.
+  var QRNG_FACTORY_PRIMARY = 'ibm_quantum';
+  var QRNG_FACTORY_FALLBACK = ['anu', 'lfdr'];
   var QRNG_PROVIDER_LABELS = {
     ibm_quantum: 'IBM Quantum',
     anu: 'ANU Quantum Numbers',
@@ -112,11 +118,103 @@
     quota_exhausted: 'квота исчерпана',
     unknown: 'нет данных',
   };
+  // QRNG UI-07: человеческие подписи кодов переключения/блокировки.
+  // Неизвестный код показывается как есть с честной пометкой «причина не
+  // описана»; перевод не выдумывается.
+  var QRNG_SWITCH_REASON_RU = {
+    adapter_not_implemented: 'адаптер не реализован',
+    provider_unconfigured: 'источник не настроен',
+    provider_unavailable: 'источник недоступен',
+    auth_failed: 'ключ отклонён (401/403)',
+    quota_exhausted: 'квота исчерпана (429)',
+    validation_failed: 'ответ не прошёл проверку',
+    timeout: 'таймаут запроса',
+    rate_limit: 'слишком частые запросы',
+    delivery_unknown: 'доставка результата неизвестна',
+    disabled: 'квантовый режим выключен',
+    redirect_blocked: 'перенаправление заблокировано',
+    invalid_url: 'адрес не разрешён',
+    scheme_not_allowed: 'схема адреса не разрешена',
+    random_fallback: 'переход на локальный источник',
+    no_eligible_alternative: 'нет допустимой альтернативы',
+    no_adapter: 'адаптер провайдера не реализован',
+    circuit_open: 'предохранитель LfDR открыт',
+    job_in_progress: 'IBM job уже выполняется',
+    config_changed: 'конфигурация изменена',
+    abandoned_before_submit: 'IBM job отменён до отправки',
+    submit_uncertain: 'отправка IBM job не подтверждена',
+    late_window_expired: 'окно позднего результата истекло',
+    job_horizon_exceeded: 'лимит времени IBM job',
+    recovered: 'IBM job восстановлен',
+    recovered_pool: 'IBM job восстановлен в пул',
+    task_failed: 'фоновая задача завершилась ошибкой',
+  };
   var QRNG_DRAFT_HINT = 'Проверка черновым ключом расходует квоту провайдера; '
     + 'значения не зачисляются в рабочий запас. Сохранённый ключ при '
     + 'проверке активируется.';
   function qrngProviderLabel(id) {
     return QRNG_PROVIDER_LABELS[id] || (id || '—');
+  }
+  // QRNG UI-06: сохранённый fallback_order может прийти массивом (jsonb)
+  // или JSON-строкой. Пустой массив — ДЕЙСТВИТЕЛЬНОЕ сохранённое значение,
+  // его нельзя путать с отсутствием строки (`null`).
+  function qrngParseOrder(raw) {
+    var value = raw;
+    if (typeof value === 'string') {
+      try { value = JSON.parse(value); } catch (e) { return []; }
+    }
+    var out = [];
+    (Array.isArray(value) ? value : []).forEach(function (id) {
+      if (typeof id === 'string' && QRNG_PROVIDERS.indexOf(id) >= 0
+          && out.indexOf(id) < 0) {
+        out.push(id);
+      }
+    });
+    return out;
+  }
+  function qrngOrderStateFromRaw(raw) {
+    if (raw === null || raw === undefined) return 'absent';
+    var value = raw;
+    if (typeof value === 'string') {
+      try { value = JSON.parse(value); } catch (e) {
+        return 'requires_resolution';
+      }
+    }
+    if (!Array.isArray(value)) return 'requires_resolution';
+    var seen = [];
+    for (var i = 0; i < value.length; i++) {
+      var item = value[i];
+      if (typeof item !== 'string' || QRNG_PROVIDERS.indexOf(item) < 0
+          || seen.indexOf(item) >= 0) {
+        return 'requires_resolution';
+      }
+      seen.push(item);
+    }
+    if (seen.length > QRNG_PROVIDERS.length) return 'requires_resolution';
+    return 'set';
+  }
+  function qrngOrderText(ids) {
+    var list = Array.isArray(ids) ? ids.filter(function (id) {
+      return QRNG_PROVIDERS.indexOf(id) >= 0;
+    }) : [];
+    return list.length ? list.map(qrngProviderLabel).join(' → ') : '—';
+  }
+  // UI-07: provider id в draw/last_batch может быть каноническим или
+  // человекочитаемым (ANU Quantum Numbers / ibm_quantum). Приводим только
+  // известные значения; неизвестное не подменяем.
+  function qrngCanonicalProviderId(value) {
+    var text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    if (QRNG_PROVIDERS.indexOf(text) >= 0) return text;
+    var lower = text.toLowerCase();
+    if (lower === 'anu' || lower === 'anu quantum numbers'
+        || lower === 'anu_quantum') return 'anu';
+    if (lower === 'ibm quantum' || lower === 'ibm_quantum'
+        || lower === 'ibm qiskit' || lower === 'ibm_qiskit') {
+      return 'ibm_quantum';
+    }
+    if (lower === 'lfdr' || lower === 'lfdr qrng') return 'lfdr';
+    return '';
   }
 
   // ═══ MOD-ACL-UX-01 M4B B3 (MAC-S7-FEED-04): 5 КЛЮЧЕВЫХ стадий цепочки
@@ -7598,6 +7696,11 @@
         // размер/очищенная ошибка/key_present.
         randomCheck: null,
         randomCheckBusy: false,
+        // QRNG UI-06 (24.11.2026): резервная последовательность редактируется
+        // ТОЛЬКО в черновике. `null` = нет редактирования; массив = черновик,
+        // который уходит в POST лишь по явной кнопке «Сохранить».
+        randomFallbackDraft: null,
+        randomFallbackSaveBusy: false,
         // ── Раунд 10.46 (MCA-12, ADR-1028-21 D3/D4): блок «Истории чата» ──
         // Витрина на «Статусе» + таблица/карточка в «Памяти» (read поверх
         // /api/stories/*). enabled/manage_enabled учатся с сервера (K1/K2 —
@@ -12692,8 +12795,11 @@
                    effectiveProvider: null, entropyClass: null,
                    providers: [], lastBatch: null, draws: null,
                    fallbackReason: null, fallbackAt: null,
+                   lastFallback: null, lastFallbackAt: null,
                    fallbackReasonLabel: null,
-                   fallbackEnabled: null,
+                   fallbackEnabled: null, fallbackOrder: [],
+                   fallbackOrderRaw: null, fallbackOrderState: '',
+                   effectiveOrder: [],
                    prngActive: false, prngSetting: null,
                    reserveQuarantined: 0 };
         }
@@ -12729,10 +12835,18 @@
           primaryRaw: v.primaryRaw || '',
           primaryState: v.primaryState || '',
           resolvedPrimary: v.resolvedPrimary || null,
+          fallbackOrder: Array.isArray(v.fallbackOrder)
+            ? v.fallbackOrder.slice() : [],
+          fallbackOrderRaw: (v.fallbackOrderRaw === undefined)
+            ? null : v.fallbackOrderRaw,
           fallbackOrderState: v.fallbackOrderState || '',
+          effectiveOrder: Array.isArray(v.effectiveOrder)
+            ? v.effectiveOrder.slice() : [],
           fallbackReason: v.fallbackReason || null,
           fallbackReasonLabel: v.blockerLabel || v.fallbackReason || null,
           fallbackAt: v.lastFallbackAt || null,
+          lastFallback: v.lastFallback || null,
+          lastFallbackAt: v.lastFallbackAt || null,
           fallbackEnabled: (v.fallbackEnabled === undefined)
             ? null : v.fallbackEnabled,
           prngActive: !!v.prngActive,
@@ -16535,6 +16649,9 @@
                          providerQuarantined: {}, effectiveProvider: null,
                          primaryProvider: null, primaryRaw: '',
                          primaryState: '', resolvedPrimary: null,
+                         fallbackEnabled: null, fallbackOrder: [],
+                         fallbackOrderRaw: null, fallbackOrderState: '',
+                         effectiveOrder: [],
                          entropyClass: null, prngActive: false };
         if (!r.enabled) {
           return { ready: true, enabled: false, available: false,
@@ -16547,7 +16664,10 @@
                    providersList: [], providerReserve: {},
                    providerQuarantined: {}, effectiveProvider: null,
                    primaryProvider: null, primaryRaw: '', primaryState: '',
-                   resolvedPrimary: null, entropyClass: null,
+                   resolvedPrimary: null, fallbackEnabled: null,
+                   fallbackOrder: [], fallbackOrderRaw: null,
+                   fallbackOrderState: '', effectiveOrder: [],
+                   entropyClass: null,
                    prngActive: false, prngSetting: null,
                    fallbackReason: null, reserveQuarantined: 0 };
         }
@@ -16631,7 +16751,9 @@
           providerReserve: r.provider_reserve || {},
           providerQuarantined: r.provider_quarantined || {},
           reserveQuarantined: r.reserve_quarantined || 0,
-          fallbackReason: r.fallback_reason || null,
+          // `/api/status.random.blocker` — текущий blocker выборки (код);
+          // `fallback_reason` оставлен совместимым для старых DTO.
+          fallbackReason: r.blocker || r.fallback_reason || null,
         };
       },
       // F3 (10.24, ADR-1024-13): UI-флаг из `GET /api/me.ui_flags`.
@@ -25303,11 +25425,16 @@
         // зелёный ТОЛЬКО при подтверждённом квантовом effective.
         if (m && m.id === 'mod_random') {
           var act = this.randomActivityView || null;
-          var primaryText = act && act.primaryLabel
-            ? act.primaryLabel : 'нет данных';
-          if (act && act.primaryState === 'requires_resolution') {
-            primaryText += ' · требует разрешения';
-          }
+          var pset = (typeof this.randomPrimarySettingView === 'function')
+            ? this.randomPrimarySettingView() : null;
+          var primaryText = pset && pset.selected
+            ? qrngProviderLabel(pset.selected)
+            : (act && act.primaryLabel ? act.primaryLabel : 'нет данных');
+          if (pset && pset.inherited) primaryText += ' · заводское';
+          if (pset && pset.invalid) primaryText += ' · требует разрешения';
+          var usedText = (typeof this.randomEffectiveUsedLabel === 'function')
+            ? this.randomEffectiveUsedLabel()
+            : (act && act.effectiveLabel ? act.effectiveLabel : 'нет данных');
           chips.push({
             id: 'random_primary', icon: 'key',
             label: 'Основной (настройка)', text: primaryText,
@@ -25316,7 +25443,7 @@
           chips.push({
             id: 'random_effective', icon: 'bolt',
             label: 'Сейчас используется',
-            text: act && act.effectiveLabel ? act.effectiveLabel : 'нет данных',
+            text: usedText,
             cls: act && act.quantum ? 'badge-ok' : 'badge-warn',
           });
           chips.push({
@@ -32272,60 +32399,381 @@
         }
         return null;
       },
+      // QRNG UI-06 (24.11.2026): сохранённая настройка primary отделена от
+      // effective head. `primary_provider` в /api/status — это голова
+      // действующей цепочки, а не сохранённый выбор. Для UI берём
+      // `primary_setting_raw/_state`; отсутствие строки = заводское значение.
+      randomPrimarySettingView: function () {
+        var act = this.randomActivityView || {};
+        var raw = (act.primaryRaw == null) ? '' : String(act.primaryRaw);
+        var state = String(act.primaryState || '');
+        var item = this.randomCfg('random.primary_provider');
+        var source = item ? item.source : '';
+        var hasStoredValue = !!(item && item.value !== null
+          && item.value !== undefined);
+        if (!state) {
+          if (source === 'global' || source === 'chat'
+              || (!source && hasStoredValue)) {
+            raw = hasStoredValue ? String(item.value) : '';
+            state = raw ? 'set' : 'absent';
+          } else {
+            raw = '';
+            state = 'absent';
+          }
+        }
+        if (state === 'set' && QRNG_PROVIDERS.indexOf(raw) < 0) {
+          state = 'requires_resolution';
+        }
+        var inherited = state === 'absent';
+        var invalid = state === 'requires_resolution';
+        var selected = null;
+        if (state === 'set' && QRNG_PROVIDERS.indexOf(raw) >= 0) {
+          selected = raw;
+        }
+        if (inherited) selected = QRNG_FACTORY_PRIMARY;
+        var stateLabel = inherited ? 'наследуется по умолчанию'
+          : (invalid ? 'требует разрешения' : 'сохранён');
+        var label;
+        if (invalid) {
+          label = 'сохранена, требует разрешения: ' + (raw || '—');
+        } else if (inherited) {
+          label = 'наследуется по умолчанию: '
+            + qrngProviderLabel(selected);
+        } else {
+          label = 'сохранена: ' + qrngProviderLabel(selected);
+        }
+        return {
+          state: state, raw: raw, source: source || '',
+          inherited: inherited, invalid: invalid, selected: selected,
+          stateLabel: stateLabel, label: label,
+          factoryLabel: qrngProviderLabel(QRNG_FACTORY_PRIMARY),
+        };
+      },
       randomPrimaryValue: function () {
-        var it = this.randomCfg('random.primary_provider');
-        var raw = it && it.value != null ? String(it.value) : '';
-        if (raw && QRNG_PROVIDERS.indexOf(raw) >= 0) return raw;
-        var act = this.randomActivityView;
-        return (act && act.primaryProvider) || 'ibm_quantum';
+        var setting = this.randomPrimarySettingView();
+        if (setting && setting.selected) return setting.selected;
+        var act = this.randomActivityView || {};
+        return act.primaryProvider || QRNG_FACTORY_PRIMARY;
       },
       randomFallbackEnabledItem: function () {
         return this.randomCfg('random.fallback_enabled');
       },
       randomFallbackOn: function () {
         var it = this.randomFallbackEnabledItem();
-        if (it) return !!it.value;
-        var act = this.randomActivityView;
-        return !!(act && act.fallbackEnabled);
+        if (it && it.value !== null && it.value !== undefined) {
+          return !!it.value;
+        }
+        var act = this.randomActivityView || {};
+        if (act.fallbackEnabled !== null
+            && act.fallbackEnabled !== undefined) {
+          return !!act.fallbackEnabled;
+        }
+        // Заводское значение backend — включено.
+        return true;
+      },
+      randomFallbackSettingView: function () {
+        var it = this.randomFallbackEnabledItem();
+        var source = it ? (it.source || '') : '';
+        var on = this.randomFallbackOn();
+        var inherited = !source || source === 'default';
+        var label;
+        if (source === 'chat') {
+          label = 'сохранена для чата' + (on ? '' : ' · выключена');
+        } else if (!inherited) {
+          label = 'сохранена' + (on ? '' : ' · выключена');
+        } else {
+          label = 'наследуется по умолчанию ('
+            + (on ? 'включена' : 'выключена') + ')';
+        }
+        return {
+          enabled: on, inherited: inherited, source: source,
+          stateLabel: !on ? 'отключена' : (inherited ? 'наследуется'
+            : 'сохранена'),
+          label: label,
+        };
       },
       randomFallbackOrderItem: function () {
         return this.randomCfg('random.fallback_order');
       },
-      randomFallbackValue: function () {
-        var it = this.randomFallbackOrderItem();
-        var raw = it ? it.value : null;
-        if (typeof raw === 'string') {
-          try { raw = JSON.parse(raw); } catch (e) { raw = []; }
-        }
-        var out = [];
-        (Array.isArray(raw) ? raw : []).forEach(function (id) {
-          if (QRNG_PROVIDERS.indexOf(id) >= 0 && out.indexOf(id) < 0) {
-            out.push(id);
+      // `fallback_order_raw/_state` — единственный источник истины о
+      // сохранённой строке. Синтетический json со значением null означает
+      // «строки нет» (наследуется заводское), а не пустой резерв.
+      randomFallbackOrderState: function () {
+        var act = this.randomActivityView || {};
+        var state = String(act.fallbackOrderState || '');
+        var raw = (act.fallbackOrderRaw === undefined)
+          ? null : act.fallbackOrderRaw;
+        var item = this.randomFallbackOrderItem();
+        var source = item ? (item.source || '') : '';
+        var hasStoredValue = !!(item && item.value !== null
+          && item.value !== undefined);
+        if (!state) {
+          if (source === 'global' || source === 'chat'
+              || (!source && hasStoredValue)) {
+            raw = hasStoredValue ? item.value : null;
+            state = qrngOrderStateFromRaw(raw);
+            if (state === 'absent' && hasStoredValue) {
+              state = 'requires_resolution';
+            }
+          } else {
+            raw = null;
+            state = 'absent';
           }
-        });
-        return out;
+        }
+        if (state !== 'absent' && state !== 'set'
+            && state !== 'requires_resolution') {
+          state = 'requires_resolution';
+        }
+        return { state: state, raw: raw, source: source || '' };
       },
-      // Упорядоченный список: сначала включённые в резерв (в сохранённом
-      // порядке), затем исключённые — в каноническом порядке провайдеров.
-      // Основной источник в резерв не входит (сервер это же проверяет, 422).
+      // Сохранённое значение (не effective tail DTO). Пустое значение здесь
+      // допустимо только при реально сохранённой строке.
+      randomSavedFallbackValue: function () {
+        var st = this.randomFallbackOrderState();
+        return st.state === 'set' ? qrngParseOrder(st.raw) : [];
+      },
+      randomFallbackValue: function () {
+        return this.randomSavedFallbackValue();
+      },
+      randomFactoryFallbackValue: function () {
+        return QRNG_FACTORY_FALLBACK.slice();
+      },
+      randomEffectiveOrderValue: function () {
+        var act = this.randomActivityView || {};
+        var order = Array.isArray(act.effectiveOrder)
+          ? act.effectiveOrder.slice() : [];
+        if (order.length) return order;
+        // Совместимость с DTO без effective_order: fallback_order — уже
+        // effective[1:], поэтому голову восстанавливаем из primary_provider.
+        if (Array.isArray(act.fallbackOrder) && act.primaryProvider) {
+          return [act.primaryProvider].concat(act.fallbackOrder)
+            .filter(function (id, idx, arr) {
+              return QRNG_PROVIDERS.indexOf(id) >= 0
+                && arr.indexOf(id) === idx;
+            });
+        }
+        return [];
+      },
+      randomEffectiveFallbackValue: function () {
+        var act = this.randomActivityView || {};
+        var order = this.randomEffectiveOrderValue();
+        if (order.length) return order.slice(1);
+        return Array.isArray(act.fallbackOrder)
+          ? act.fallbackOrder.filter(function (id) {
+              return QRNG_PROVIDERS.indexOf(id) >= 0;
+            }) : [];
+      },
+      randomEffectiveUsedLabel: function () {
+        var act = this.randomActivityView || {};
+        if (act.effectiveProvider) {
+          return qrngProviderLabel(act.effectiveProvider);
+        }
+        if (act.resolvedPrimary) {
+          return qrngProviderLabel(act.resolvedPrimary)
+            + ' (настроен, нет расходуемого запаса)';
+        }
+        return 'нет доступного';
+      },
+      // База для отображения/редактирования резерва. Если сохранённой строки
+      // нет — это effective/factory цепочка, а не пустой список. Если
+      // primary требует разрешения, сохранённый fallback_order не действует.
+      randomFallbackBaseValue: function () {
+        if (Array.isArray(this.randomFallbackDraft)) {
+          return this.randomFallbackDraft.slice();
+        }
+        var setting = this.randomPrimarySettingView();
+        var st = this.randomFallbackOrderState();
+        var primary = this.randomPrimaryValue();
+        var base;
+        if (setting.invalid) {
+          base = this.randomEffectiveFallbackValue();
+          if (!base.length) base = this.randomFactoryFallbackValue();
+        } else if (st.state === 'set') {
+          base = this.randomSavedFallbackValue();
+        } else if (st.state === 'requires_resolution') {
+          base = this.randomEffectiveFallbackValue();
+          if (!base.length) base = this.randomFactoryFallbackValue();
+        } else {
+          var effective = this.randomEffectiveFallbackValue();
+          base = (this.randomFallbackOn() && effective.length)
+            ? effective : this.randomFactoryFallbackValue();
+        }
+        // Провайдер, входящий в effective chain, не может быть «не в
+        // резерве» из-за расхождения с сохранённой строкой.
+        this.randomEffectiveFallbackValue().forEach(function (id) {
+          if (id !== primary && base.indexOf(id) < 0) base.push(id);
+        });
+        return base.filter(function (id, idx, arr) {
+          return QRNG_PROVIDERS.indexOf(id) >= 0 && id !== primary
+            && arr.indexOf(id) === idx;
+        });
+      },
+      randomFallbackEditing: function () {
+        return Array.isArray(this.randomFallbackDraft);
+      },
+      randomFallbackBeginEdit: function () {
+        if (this.randomFallbackEditing()) return true;
+        this.randomFallbackDraft = this.randomFallbackBaseValue();
+        return true;
+      },
+      randomFallbackToggleDraft: function (id, enabled) {
+        if (QRNG_PROVIDERS.indexOf(id) < 0) return false;
+        if (id === this.randomPrimaryValue()) return false;
+        if (!this.randomFallbackEditing()) this.randomFallbackBeginEdit();
+        var order = this.randomFallbackDraft.filter(function (p) {
+          return p !== id;
+        });
+        if (enabled) order.push(id);
+        this.randomFallbackDraft = order;
+        return true;
+      },
+      randomFallbackMoveDraft: function (id, delta) {
+        if (!this.randomFallbackEditing()) this.randomFallbackBeginEdit();
+        var included = this.randomFallbackDraft.slice();
+        var idx = included.indexOf(id);
+        if (idx < 0) return false;
+        var target = idx + (delta > 0 ? 1 : -1);
+        if (target < 0 || target >= included.length) return false;
+        included.splice(idx, 1);
+        included.splice(target, 0, id);
+        this.randomFallbackDraft = included;
+        return true;
+      },
+      randomFallbackCancelDraft: function () {
+        this.randomFallbackDraft = null;
+        return true;
+      },
+      randomFallbackSaveDraft: async function () {
+        if (!this.isGlobalAdmin) return false;
+        if (!Array.isArray(this.randomFallbackDraft)) return false;
+        if (this.randomFallbackSaveBusy) return false;
+        this.randomFallbackSaveBusy = true;
+        try {
+          var ok = await this.saveRandomFallbackOrder(
+            this.randomFallbackDraft.slice());
+          if (ok) {
+            this.randomFallbackDraft = null;
+            this.toast('Порядок резерва сохранён', 'ok');
+          }
+          return ok;
+        } finally {
+          this.randomFallbackSaveBusy = false;
+        }
+      },
+      randomFallbackOrderView: function () {
+        var st = this.randomFallbackOrderState();
+        var setting = this.randomPrimarySettingView();
+        var saved = this.randomSavedFallbackValue();
+        var factory = this.randomFactoryFallbackValue();
+        var effective = this.randomEffectiveFallbackValue();
+        var effectiveChain = this.randomEffectiveOrderValue();
+        var savedLabel;
+        var savedHint;
+        if (st.state === 'set') {
+          savedLabel = saved.length ? qrngOrderText(saved)
+            : 'пусто (резерв не выбран)';
+          if (setting.invalid) {
+            savedHint = 'сохранён, не применяется (основной требует разрешения)';
+          } else if (!saved.length && setting.inherited) {
+            // Live-случай UI-06: сохранённая строка [] при наследуемом
+            // основном. Runtime всё равно строит заводскую цепочку, поэтому
+            // пустая строка не должна выглядеть как выключенный резерв.
+            savedHint = 'сохранён пустой; действует заводская цепочка';
+          } else {
+            savedHint = 'сохранён';
+          }
+        } else if (st.state === 'requires_resolution') {
+          var rawText;
+          try { rawText = JSON.stringify(st.raw); } catch (e) {
+            rawText = String(st.raw);
+          }
+          savedLabel = 'недействительное значение: ' + (rawText || '—');
+          savedHint = 'требует разрешения';
+        } else {
+          savedLabel = qrngOrderText(factory);
+          savedHint = 'наследуется заводское';
+        }
+        var effectiveLabel;
+        if (effective.length) {
+          effectiveLabel = qrngOrderText(effective);
+        } else if (!this.randomFallbackOn()) {
+          effectiveLabel = 'автоматический резерв выключен';
+        } else {
+          effectiveLabel = '—';
+        }
+        return {
+          state: st.state, raw: st.raw, saved: saved, factory: factory,
+          effective: effective, effectiveChain: effectiveChain,
+          savedLabel: savedLabel, savedHint: savedHint,
+          factoryLabel: qrngOrderText(factory),
+          effectiveLabel: effectiveLabel,
+          effectiveChainLabel: qrngOrderText(effectiveChain),
+          primaryInvalid: setting.invalid,
+          fallbackEnabled: this.randomFallbackOn(),
+        };
+      },
+      // Упорядоченный список: сначала включённые в резерв (в сохранённом/
+      // заводском/черновом порядке), затем исключённые — в каноническом
+      // порядке провайдеров. Основной источник в резерв не входит.
       randomFallbackRows: function () {
         var primary = this.randomPrimaryValue();
-        var included = this.randomFallbackValue().filter(function (id) {
+        var editing = this.randomFallbackEditing();
+        var setting = this.randomFallbackSettingView();
+        var st = this.randomFallbackOrderState();
+        var effective = this.randomEffectiveFallbackValue();
+        var included = this.randomFallbackBaseValue().filter(function (id) {
           return id !== primary;
         });
+        if (!editing) {
+          // Даже при рассинхронизации DTO effective-провайдер остаётся
+          // резервным и не получает ложный badge «не в резерве».
+          effective.forEach(function (id) {
+            if (id !== primary && included.indexOf(id) < 0) included.push(id);
+          });
+        }
         var rows = included.map(function (id, idx) {
           return { id: id, enabled: true, index: idx,
+                   effective: effective.indexOf(id) >= 0,
                    canUp: idx > 0, canDown: idx < included.length - 1 };
         });
         QRNG_PROVIDERS.forEach(function (id) {
           if (id === primary || included.indexOf(id) >= 0) return;
           rows.push({ id: id, enabled: false, index: rows.length,
+                      effective: effective.indexOf(id) >= 0,
                       canUp: false, canDown: false });
         });
         return rows.map(function (row) {
+          var statusLabel;
+          var statusCls;
+          if (!row.enabled) {
+            if (row.effective) {
+              statusLabel = 'в цепочке';
+              statusCls = 'badge-warn';
+            } else {
+              statusLabel = 'не в резерве';
+              statusCls = 'badge-muted';
+            }
+          } else if (!setting.enabled) {
+            statusLabel = 'резерв выключен';
+            statusCls = 'badge-muted';
+          } else if (editing) {
+            statusLabel = 'в черновике';
+            statusCls = 'badge-info';
+          } else if (st.state === 'absent') {
+            statusLabel = 'по умолчанию';
+            statusCls = 'badge-info';
+          } else if (row.effective) {
+            statusLabel = 'действует';
+            statusCls = 'badge-ok';
+          } else {
+            statusLabel = 'в резерве';
+            statusCls = 'badge-info';
+          }
           return Object.assign({}, row, {
             label: QRNG_PROVIDER_LABELS[row.id],
             type: QRNG_PROVIDER_TYPES[row.id],
+            statusLabel: statusLabel,
+            statusCls: statusCls,
           });
         });
       },
@@ -32376,28 +32824,13 @@
                                             per_chat: item.per_chat }]);
         return !!(res && (res.saved || []).indexOf(item.key) >= 0);
       },
-      setRandomFallbackIncluded: async function (id, enabled) {
-        if (QRNG_PROVIDERS.indexOf(id) < 0) return false;
-        if (id === this.randomPrimaryValue()) return false;   // основной ≠ резерв
-        var order = this.randomFallbackValue().filter(function (p) {
-          return p !== id;
-        });
-        if (enabled) order.push(id);
-        return await this.saveRandomFallbackOrder(order);
+      // Совместимые имена обработчиков: toggle/стрелки меняют ТОЛЬКО
+      // черновик. Запись в PG — исключительно `randomFallbackSaveDraft`.
+      setRandomFallbackIncluded: function (id, enabled) {
+        return this.randomFallbackToggleDraft(id, enabled);
       },
-      moveRandomFallback: async function (id, delta) {
-        var primary = this.randomPrimaryValue();
-        var included = this.randomFallbackValue().filter(function (p) {
-          return p !== primary;
-        });
-        var idx = included.indexOf(id);
-        if (idx < 0) return false;
-        var target = idx + (delta > 0 ? 1 : -1);
-        if (target < 0 || target >= included.length) return false;
-        var moved = included.slice();
-        moved.splice(idx, 1);
-        moved.splice(target, 0, id);
-        return await this.saveRandomFallbackOrder(moved);
+      moveRandomFallback: function (id, delta) {
+        return this.randomFallbackMoveDraft(id, delta);
       },
       toggleRandomFallback: async function (enabled) {
         if (!this.isGlobalAdmin) return false;
@@ -32430,22 +32863,84 @@
         }
         return null;
       },
+      // QRNG UI-06: состояние ПРОВАЙДЕРА отделено от состояния настройки.
+      // Наличие ключа/CRN — только `keyPresent`, не «проверено». Пять
+      // честных состояний: adapter_not_implemented / unconfigured /
+      // unavailable / saved_unverified / checked.
+      randomProviderStateInfo: function (id, configured, state) {
+        var st = String(state || '');
+        if (id === 'ibm_quantum') {
+          // P5-адаптер ещё не реализован: это не «ключ не настроен» и не
+          // зелёная проверка. После P5B карточка обновится отдельным UI-07.
+          return {
+            key: 'adapter_not_implemented',
+            label: 'адаптер не реализован',
+            cls: 'badge-muted',
+            keyPresent: false,
+            checked: false,
+          };
+        }
+        if (!configured) {
+          return {
+            key: 'unconfigured',
+            label: 'не настроен',
+            cls: 'badge-muted',
+            keyPresent: false,
+            checked: false,
+          };
+        }
+        if (st === 'active') {
+          return {
+            key: 'checked',
+            label: 'проверено',
+            cls: 'badge-ok',
+            keyPresent: true,
+            checked: true,
+          };
+        }
+        if (st === 'degraded' || st === 'quota_exhausted'
+            || st === 'provider_unavailable' || st === 'unavailable') {
+          return {
+            key: 'unavailable',
+            label: 'недоступен',
+            cls: 'badge-err',
+            keyPresent: true,
+            checked: false,
+          };
+        }
+        if (st === 'disabled') {
+          return {
+            key: 'disabled',
+            label: 'отключён',
+            cls: 'badge-muted',
+            keyPresent: true,
+            checked: false,
+          };
+        }
+        return {
+          key: 'saved_unverified',
+          label: id === 'anu' ? 'сохранён, не проверен' : 'не проверено',
+          cls: 'badge-info',
+          keyPresent: true,
+          checked: false,
+        };
+      },
       randomProviderCard: function (id) {
         var entry = this.randomProviderEntry(id);
         var state = entry && entry.state ? String(entry.state) : '';
         var configured = !!(entry && entry.configured);
+        var info = this.randomProviderStateInfo(id, configured, state);
         var stateText;
         if (id === 'ibm_quantum') {
-          // P5 ещё не реализован: честное «не подключён», без полей/зелени.
-          stateText = 'не подключён — ожидает доступов IBM Cloud (этап P5)';
+          stateText = 'адаптер не реализован — этап P5; ключ/CRN ещё не '
+            + 'подключены. Наличие ключа не будет считаться проверкой.';
         } else if (id === 'anu') {
           stateText = configured
-            ? ('ключ сохранён · '
-               + (QRNG_PROVIDER_STATE_RU[state] || state || 'не проверен'))
+            ? ('ключ сохранён (наличие ключа не равно проверке) · '
+               + info.label)
             : 'ключ не настроен';
         } else {
-          stateText = 'ключ не требуется · '
-            + (QRNG_PROVIDER_STATE_RU[state] || state || 'не проверено');
+          stateText = 'ключ не требуется · ' + info.label;
         }
         var lastCheck = 'не проверялось';
         if (id === 'anu') {
@@ -32460,6 +32955,11 @@
           type: QRNG_PROVIDER_TYPES[id],
           docs: QRNG_PROVIDER_DOCS[id],
           state: state,
+          stateKey: info.key,
+          stateLabel: info.label,
+          stateCls: info.cls,
+          checked: info.checked,
+          keyPresent: info.keyPresent,
           stateText: stateText,
           configured: configured,
           consumable: !!(entry && entry.consumable),
@@ -32472,6 +32972,232 @@
               + '(сейчас доступно состояние из /api/status)'
             : '',
         };
+      },
+      // QRNG UI-07: код причины переключения + человеческая подпись.
+      randomSwitchReasonLabel: function (code) {
+        var key = String(code == null ? '' : code).trim();
+        if (!key) return 'нет данных';
+        return QRNG_SWITCH_REASON_RU[key] || 'причина не описана';
+      },
+      randomProviderLastSuccess: function (id) {
+        var self = this;
+        var act = this.randomActivityView || {};
+        var lb = act.lastBatch;
+        var lbId = qrngCanonicalProviderId(
+          lb && (lb.provider_id || lb.provider));
+        if (lb && lbId === id && lb.created_at != null) {
+          var timeLabel = String(lb.created_at);
+          try {
+            if (typeof self.fmtTs === 'function') {
+              timeLabel = self.fmtTs(lb.created_at);
+            }
+          } catch (e) { /* keep raw */ }
+          var length = (lb.length == null) ? null : lb.length;
+          return {
+            available: true, kind: 'batch', at: lb.created_at,
+            timeLabel: timeLabel, length: length,
+            sourceId: id, sourceLabel: qrngProviderLabel(id),
+            configMatches: lb.config_matches !== false,
+            label: qrngProviderLabel(id)
+              + (length == null ? '' : ' · ' + length + ' значений')
+              + ' · ' + timeLabel,
+          };
+        }
+        // `last_batch` — единственная durable-запись фактического получения.
+        // Draw-журнал содержит время расхода, а не получения, поэтому сюда не
+        // подставляется. `last_success_at` провайдера (LfDR) публикует
+        // последний успешный fetch/проверку и подписывается отдельно.
+        var entry = this.randomProviderEntry(id);
+        var checkAt = entry && entry.last_success_at != null
+          ? entry.last_success_at : null;
+        if (checkAt != null) {
+          var checkLabel = String(checkAt);
+          try {
+            if (typeof self.fmtTs === 'function') {
+              checkLabel = self.fmtTs(checkAt);
+            }
+          } catch (e) { /* keep raw */ }
+          return {
+            available: true, kind: 'check', at: checkAt,
+            timeLabel: checkLabel, length: null,
+            sourceId: id, sourceLabel: qrngProviderLabel(id),
+            configMatches: null,
+            label: qrngProviderLabel(id) + ' · проверка · ' + checkLabel,
+          };
+        }
+        return {
+          available: false, kind: 'none', at: null, timeLabel: '—',
+          length: null, sourceId: null, sourceLabel: '',
+          configMatches: null, label: 'нет данных',
+        };
+      },
+      randomProviderLastSwitch: function (id) {
+        var self = this;
+        var act = this.randomActivityView || {};
+        var empty = { code: null, label: 'нет данных', at: null,
+                      timeLabel: '—', source: '' };
+        if (!act.ready) return empty;
+        var pack = function (code, at, source) {
+          var key = String(code == null ? '' : code).trim();
+          if (!key) return empty;
+          var timeLabel = '—';
+          if (at != null) {
+            timeLabel = String(at);
+            try {
+              if (typeof self.fmtTs === 'function') {
+                timeLabel = self.fmtTs(at);
+              }
+            } catch (e) { /* keep raw */ }
+          }
+          return {
+            code: key, label: self.randomSwitchReasonLabel(key),
+            at: at == null ? null : at, timeLabel: timeLabel,
+            source: source || '',
+          };
+        };
+        var entry = this.randomProviderEntry(id);
+        var card = this.randomProviderCard(id);
+        // IBM до P5: причина не «журнал», а известное состояние адаптера.
+        if (id === 'ibm_quantum') {
+          if (card.stateKey === 'adapter_not_implemented') {
+            return pack('adapter_not_implemented', null, 'adapter');
+          }
+          if (entry && entry.last_error) {
+            return pack(entry.last_error, entry.last_failure_at, 'health');
+          }
+          if (act.resolvedPrimary === id && act.fallbackReason) {
+            return pack(act.fallbackReason, null, 'selection');
+          }
+          return empty;
+        }
+        if (!entry) return empty;
+        // LfDR публикует собственную последнюю ошибку/время; это причина,
+        // по которой провайдер пропускается (breaker/деградация).
+        if (id === 'lfdr' && entry.last_error) {
+          return pack(entry.last_error, entry.last_failure_at, 'health');
+        }
+        // ANU: глобальный last_fallback_reason по контракту backend относится
+        // к ANU-состоянию (mca_random_state ANU-scoped). Показываем его на ANU
+        // только когда состояние ANU это подтверждает; иначе не приписываем
+        // чужую причину.
+        if (id === 'anu') {
+          var state = String(entry.state || '');
+          var anuAttributable = {
+            provider_unconfigured: true, provider_unavailable: true,
+            degraded: true, quota_exhausted: true, unavailable: true,
+            disabled: true,
+          };
+          var code = act.lastFallback ? String(act.lastFallback) : '';
+          if (code && anuAttributable[state]) {
+            return pack(code, act.lastFallbackAt || null, 'state');
+          }
+        }
+        // Текущий blocker выборки (`/api/status.random.blocker`) относится к
+        // resolved_primary — это безопасная per-provider атрибуция без
+        // выдумывания исторического времени переключения.
+        if (act.resolvedPrimary === id && act.fallbackReason) {
+          return pack(act.fallbackReason, null, 'selection');
+        }
+        return empty;
+      },
+      randomLastSwitchView: function () {
+        var self = this;
+        var act = this.randomActivityView || {};
+        var code = act.lastFallback ? String(act.lastFallback) : '';
+        if (!code) {
+          return { code: null, label: 'нет данных', at: null,
+                   timeLabel: '—' };
+        }
+        var at = act.lastFallbackAt || act.fallbackAt || null;
+        var timeLabel = '—';
+        if (at != null) {
+          timeLabel = String(at);
+          try {
+            if (typeof self.fmtTs === 'function') timeLabel = self.fmtTs(at);
+          } catch (e) { /* keep raw */ }
+        }
+        return {
+          code: code, label: self.randomSwitchReasonLabel(code),
+          at: at, timeLabel: timeLabel,
+        };
+      },
+      randomProviderSummary: function (id) {
+        var act = this.randomActivityView || {};
+        var label = qrngProviderLabel(id);
+        var type = QRNG_PROVIDER_TYPES[id];
+        var emptySuccess = {
+          available: false, kind: 'none', at: null, timeLabel: '—',
+          length: null, sourceId: null, sourceLabel: '',
+          configMatches: null, label: 'нет данных',
+        };
+        var emptySwitch = {
+          code: null, label: 'нет данных', at: null, timeLabel: '—',
+          source: '',
+        };
+        if (!act.ready) {
+          return {
+            id: id, label: label, type: type,
+            stateKey: 'no_data', stateLabel: 'нет данных',
+            stateCls: 'badge-muted', stateText: '',
+            configured: false, keyPresent: false, reserve: null,
+            reserveText: 'нет данных', consumable: false,
+            consumableText: 'нет данных', quarantined: 0,
+            lastSuccess: emptySuccess, lastSwitch: emptySwitch,
+            adapterNotImplemented: false,
+          };
+        }
+        var entry = this.randomProviderEntry(id);
+        var card = this.randomProviderCard(id);
+        var isIbm = id === 'ibm_quantum';
+        var hasEntry = !!entry;
+        var stateKey = card.stateKey;
+        var stateLabel = card.stateLabel;
+        var stateCls = card.stateCls;
+        // IBM-адаптер известен UI и без записи providers[]; остальным
+        // провайдерам отсутствие DTO не даёт права утверждать «не настроен».
+        if (!hasEntry && !isIbm) {
+          stateKey = 'no_data';
+          stateLabel = 'нет данных';
+          stateCls = 'badge-muted';
+        }
+        var reserveText = (isIbm || !hasEntry || entry.reserve == null)
+          ? 'нет данных' : String(entry.reserve);
+        var consumableText;
+        if (isIbm) {
+          consumableText = 'адаптер не реализован';
+        } else if (!hasEntry || entry.consumable == null) {
+          consumableText = 'нет данных';
+        } else {
+          consumableText = entry.consumable
+            ? 'расходуется' : 'нет расходуемых значений';
+        }
+        return {
+          id: id,
+          label: card.label,
+          type: card.type,
+          stateKey: stateKey,
+          stateLabel: stateLabel,
+          stateCls: stateCls,
+          stateText: (hasEntry || isIbm) ? card.stateText : '',
+          configured: hasEntry ? !!card.configured : false,
+          keyPresent: hasEntry ? !!card.keyPresent : false,
+          reserve: (hasEntry && entry.reserve != null)
+            ? entry.reserve : null,
+          reserveText: reserveText,
+          consumable: !!(hasEntry && entry.consumable),
+          consumableText: consumableText,
+          quarantined: (hasEntry && entry.quarantined != null)
+            ? entry.quarantined : 0,
+          lastSuccess: this.randomProviderLastSuccess(id),
+          lastSwitch: this.randomProviderLastSwitch(id),
+          adapterNotImplemented: stateKey === 'adapter_not_implemented',
+        };
+      },
+      randomProviderSummaries: function () {
+        var self = this;
+        return QRNG_PROVIDERS.map(function (id) {
+          return self.randomProviderSummary(id);
+        });
       },
       randomAnuKeyItem: function () {
         return this.randomCfg('keys.random_quantum_api_key');
@@ -32532,15 +33258,21 @@
       },
       randomActivityRows: function () {
         var act = this.randomActivityView;
+        var self = this;
         return (act.providers || []).filter(function (p) {
           return p && QRNG_PROVIDERS.indexOf(p.id) >= 0;
         }).map(function (p) {
+          var info = self.randomProviderStateInfo(
+            p.id, !!p.configured, p.state);
           return {
             id: p.id,
             label: qrngProviderLabel(p.id),
             type: QRNG_PROVIDER_TYPES[p.id] || '',
             configured: !!p.configured,
-            state: QRNG_PROVIDER_STATE_RU[p.state] || p.state || 'нет данных',
+            state: info.label,
+            stateKey: info.key,
+            stateCls: info.cls,
+            checked: info.checked,
             reserve: p.reserve || 0,
             consumable: !!p.consumable,
             quarantined: p.quarantined || 0,

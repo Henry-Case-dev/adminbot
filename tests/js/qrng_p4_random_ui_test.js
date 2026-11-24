@@ -115,13 +115,10 @@ const p1 = (async function () {
   const order = { key: 'random.fallback_order',
                   value: ['ibm_quantum', 'anu'], per_chat: false };
   const posts = [];
-  const ctx = {
+  const ctx = Object.assign({}, methods, {
     isGlobalAdmin: true,
     configItems: [item, order],
-    randomCfg: methods.randomCfg,
-    randomFallbackValue: methods.randomFallbackValue,
-    randomFallbackOrderItem: methods.randomFallbackOrderItem,
-    randomPrimaryValue: methods.randomPrimaryValue,
+    randomActivityView: null,
     qrngPersist: methods.qrngPersist,
     persistItems: async function (items) {
       posts.push(items);
@@ -130,7 +127,7 @@ const p1 = (async function () {
     loadConfig: async function () {},
     loadStatus: async function () {},
     toast: function () {},
-  };
+  });
   const ok = await methods.saveRandomPrimary.call(ctx, 'anu');
   assert.strictEqual(ok, true, 'селектор сохранился');
   assert.strictEqual(posts.length, 1, 'ровно один POST-батч');
@@ -155,31 +152,51 @@ const p1 = (async function () {
 const p2 = (async function () {
   const order = { key: 'random.fallback_order', value: ['anu', 'lfdr'],
                   per_chat: false };
-  const ctx = {
+  const ctx = Object.assign({}, methods, {
     isGlobalAdmin: true,
     configItems: [order],
-    randomCfg: methods.randomCfg,
-    randomFallbackValue: methods.randomFallbackValue,
-    randomFallbackOrderItem: methods.randomFallbackOrderItem,
+    randomActivityView: null,
+    randomFallbackDraft: null,
+    randomFallbackSaveBusy: false,
     randomPrimaryValue: function () { return 'ibm_quantum'; },
-    randomFallbackRows: methods.randomFallbackRows,
     saveRandomFallbackOrder: async function (value) {
       this.saved = value; return true;
     },
-    setRandomFallbackIncluded: methods.setRandomFallbackIncluded,
-    moveRandomFallback: methods.moveRandomFallback,
-  };
+    toast: function () {},
+  });
   const rows = methods.randomFallbackRows.call(ctx);
   assert.deepStrictEqual(rows.map(function (r) { return r.id; }),
     ['anu', 'lfdr'], 'в списке нет primary и нет дублей');
+  // UI-06: toggle/стрелки меняют только черновик, без POST.
   await methods.setRandomFallbackIncluded.call(ctx, 'lfdr', false);
-  assert.deepStrictEqual(ctx.saved, ['anu'], 'исключение из резерва');
+  assert.deepStrictEqual(ctx.randomFallbackDraft, ['anu'],
+    'исключение из резерва — только черновик');
+  assert.strictEqual(ctx.saved, undefined,
+    'toggle не пишет в базу');
   await methods.setRandomFallbackIncluded.call(ctx, 'lfdr', true);
-  assert.deepStrictEqual(ctx.saved, ['anu', 'lfdr'], 'включение в конец');
+  assert.deepStrictEqual(ctx.randomFallbackDraft, ['anu', 'lfdr'],
+    'включение в конец черновика');
   await methods.moveRandomFallback.call(ctx, 'lfdr', -1);
-  assert.deepStrictEqual(ctx.saved, ['lfdr', 'anu'], 'перемещение выше');
+  assert.deepStrictEqual(ctx.randomFallbackDraft, ['lfdr', 'anu'],
+    'перемещение выше в черновике');
   await methods.moveRandomFallback.call(ctx, 'anu', 1);
-  assert.deepStrictEqual(ctx.saved, ['lfdr', 'anu'], 'ниже последнего — no-op');
+  assert.deepStrictEqual(ctx.randomFallbackDraft, ['lfdr', 'anu'],
+    'ниже последнего — no-op');
+  assert.strictEqual(ctx.saved, undefined,
+    'перемещение не пишет в базу');
+  await methods.randomFallbackSaveDraft.call(ctx);
+  assert.deepStrictEqual(ctx.saved, ['lfdr', 'anu'],
+    'Save отправляет полный черновой порядок');
+  assert.strictEqual(ctx.randomFallbackDraft, null,
+    'после Save черновик закрыт');
+  await methods.setRandomFallbackIncluded.call(ctx, 'anu', false);
+  assert.deepStrictEqual(ctx.randomFallbackDraft, ['lfdr'],
+    'новый черновик после Save');
+  await methods.randomFallbackCancelDraft.call(ctx);
+  assert.strictEqual(ctx.randomFallbackDraft, null,
+    'Cancel закрывает черновик');
+  assert.deepStrictEqual(ctx.saved, ['lfdr', 'anu'],
+    'Cancel не меняет сохранённое значение');
   // Серверный guard 422: primary не может попасть в fallback_order — даже
   // если пришёл в списке, проверка сохранения его вычищает.
   const cleanPosts = [];
