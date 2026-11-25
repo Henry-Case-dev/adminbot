@@ -152,7 +152,10 @@ Regression runs (candidate tree, `-p no:cacheprovider`):
   `test_vmq_mem_*`, `test_ur_13_memory_types_scale`, `test_memory_identity`,
   `test_mca07_retrieval_context_round1027`, `test_history_isolation`,
   `test_ur_c_3_real_fts`, `test_ur_context_selection`,
-  `test_tool_router`, `test_mca15_chat_statistics` — all green.
+  `test_tool_router`, `test_mca15_chat_statistics` — green, **кроме**
+  `test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::
+  test_quota_is_bounded_by_slots_and_never_adds_current_year`, который падает
+  идентично на базе (пре-существующее; см. §6/N1).
 - `py_compile` on changed modules/tests: OK; `git diff --check`: clean.
 
 Pre-existing failures reproduced unchanged on base (not caused here):
@@ -171,19 +174,26 @@ Pre-existing failures reproduced unchanged on base (not caused here):
    bridges this only when author **and** period are explicit; without them a
    differently-worded original can still be missed. Fixing that needs a new
    message index/embedding rebuild — explicitly out of this P0.
-2. **Author argument still comes from the planner.** The tool schema already
-   exposes `author` (server resolves alias/uid/`me`), and retrieval now honours
-   it end-to-end, but no structured L1 field carries "whose speech is the
-   material". When the model does not pass `author`, retrieval cannot infer it
-   from `target_user_id` without mixing roles — that mapping is intentionally
-   absent (it is the defect RC1).
+2. **Автор материала доезжает до retrieval только при структурном сигнале
+   плана.** `author_entity_ids` заполняется (а) явным `author_uid`/`author_uids`
+   у вызывающего и (б) plan-driven пересборкой RAG-блока: `target_user_id`
+   плана считается автором материала ТОЛЬКО когда `capabilities_needed`
+   содержит read-only capability существующего материала
+   (`chat_memory`/`historical_search`). Без такого сигнала названный человек
+   остаётся получателем (смешивать роли запрещено). До плана (live-selection
+   нога) автор по построению неизвестен — там доезжает только период; это
+   честная граница, а не «honoured end-to-end» (прежняя формулировка
+   остатков была неверной, см. §6/F2).
 3. **«За прошедший год» without a calendar year** is not converted into a
    rolling window server-side; the step passes a year only when the user named
    one (existing deterministic parser). Relative-period interpretation stays
    with L1.
-4. **`author_window` is bounded sampling** (`fetch_k × 20` rows of the window,
-   newest kept). A very dense year yields the newest author's lines, not the
-   whole year — deliberate resource bound, not full export.
+4. **`author_window` — bounded выборка по автору и годам** (после review r1:
+   существующее чтение `get_author_message_periods` с аддитивным `years`,
+   берутся СВЕЖИЕ строки каждого года, а не первые строки окна). Годовая
+   квота = `limit//5`, поэтому за один год приходит ограниченное число
+   последних реплик автора, а не весь год: ресурсная граница, не полный
+   экспорт.
 5. **Prefix-only demotion is order-only.** Such material stays in the package
    (it may be the lexically different correct sample); with thin material it
    will still reach the Writer.
