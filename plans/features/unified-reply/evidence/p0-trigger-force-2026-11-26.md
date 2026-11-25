@@ -7,7 +7,8 @@
   `AGENTS.md` "BOUNDED ACCEPTANCE AND LONG-TERM PRODUCT QUALITY".
 - Base (deployed): `f2cb38c8412506261504b4000f7a7a53be143851` (2.58.247).
 - Candidate branch: `fix/p0-trigger-force`, commit
-  `4e5374536e45bcf97e9aa8544d68493fa2cbe6e0`.
+  `bbc051fe9573263d8c0f93b4161082c034953bde` (review-r1 corrective; original
+  lane commit `4e5374536e45bcf97e9aa8544d68493fa2cbe6e0`).
 - Worktree: `WorkspaceData/worktrees/c742e4de9e92c489/p0-trigger-force-a624ec521cbe-dcce6c61`
   (registered unit `P0-TRIGGER-FORCE`).
 - Builder session: `ses_ded186f3cffehgIXVIBT37AqK6`.
@@ -177,6 +178,37 @@ they keep measuring limits rather than the removed force).
 
 Checks: `git diff --check` clean; `python -m py_compile` clean for all changed
 modules and tests.
+
+### 5.1 Review-r1 corrective (P0T-R1-F1, commit `bbc051fe9`)
+
+The `force_keyword` → `keyword` rename had not been propagated to two existing
+consumers. Fixed without product-behaviour change:
+
+- `tests/test_rlr_observability.py::test_normal_turn_traces_stages_and_digests_match[False|True]`
+  now asserts `ctx["trigger"] == "keyword"` (owner 2026-11-26 §2; the old
+  `force_keyword` expectation was the previous enum value).
+- `tests/test_direct_llm_decision_asap32.py`: `test_force_keyword_reply_hard_gate`
+  (old forced-REPLY contract) replaced by
+  `test_keyword_does_not_hard_gate_reply` — `«бот, ахахах»` is a genuine keyword
+  address + MSG_LAUGHTER, the matrix arms the Decision Task, the injected
+  `REACT 💀` executes and no text is sent — plus
+  `test_explicit_request_still_gets_text_reply` — an explicit request keeps its
+  text reply via the existing request rule, with no Decision Task and no
+  keyword force. Both carry the owner-input citation; module docstring §49
+  updated to the new contract.
+- `web/app.js` `TURN_CODE_DICTS.trigger` now has a `keyword` label; the
+  historical `force_keyword` label is kept for old traces.
+- The evidence statement about `direct_force_reply_total` was corrected: the
+  counter is not removed; only the keyword-path increment was removed, and the
+  reply-to-bot + `flags.chat_autonomous_reply_enabled=false` branch still
+  records it as a metric label.
+
+Proof for this corrective: `tests/test_rlr_observability.py` +
+`tests/test_direct_llm_decision_asap32.py` — base `19 passed`, candidate
+`20 passed`; new file `20 passed`; combined affected direct/behaviour batch
+`861 passed / 1 failed` (the known pre-existing
+`test_build_l1_context_bot_replies_caps_and_limit`). `py_compile`,
+`node --check web/app.js`, `git diff --check` clean.
 
 ## 6. Configuration
 
