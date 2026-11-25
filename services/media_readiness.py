@@ -977,24 +977,71 @@ async def _expire_intent(db, job: dict, reason: str) -> None:
         logger.debug("[media_readiness] intent close failed", exc_info=True)
 
 
+def _linked_tg_message_id(job: dict) -> int:
+    """tg_message_id медиа, уже связанного с намерением (0 — связи нет)."""
+    linked = _intent_payload(job).get("linked")
+    if not isinstance(linked, dict):
+        return 0
+    try:
+        return int(linked.get("tg_message_id") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _intent_author_conflict(payload: dict, author_user_id: int | None) -> bool:
+    """Пришло медиа ЗАВЕДОМО не от того, кто просил разбор.
+
+    Та же семантика, что `_same_author`: расхождение учитывается только когда
+    авторство известно с обеих сторон (числовой `user_id`). Неизвестный автор
+    медиа или legacy-намерение без `user_id` → решение остаётся структурным
+    (чужое фото не приписывается запросу, но и запрет не выдумывается)."""
+    intent_user_id = payload.get("user_id")
+    try:
+        intent_user_id = int(intent_user_id) if intent_user_id else None
+    except (TypeError, ValueError):
+        intent_user_id = None
+    if author_user_id is None or intent_user_id is None:
+        return False
+    try:
+        return int(author_user_id) != intent_user_id
+    except (TypeError, ValueError):
+        return False
+
+
 async def link_pending_intent_for_message(db, *, chat_id: int,
                                           tg_message_id: int,
                                           media_group_id: str | None = None,
-                                          asset_ids=None) -> dict | None:
+                                          asset_ids=None,
+                                          author_user_id: int | None = None
+                                          ) -> dict | None:
     """Связать пришедшее медиа с ожидающим намерением того же чата.
 
     Связь однозначна только для намерения СТАРЕЕ сообщения в этом же чате;
-    истёкшие намерения честно закрываются (без подвисших операций)."""
+    истёкшие намерения честно закрываются (без подвисших операций).
+    Одно медиа-сообщение связывается не более чем с ОДНИМ намерением: приём
+    изображения вызывает эту функцию дважды (реестр активов и постановка
+    джоб), поэтому повторный вызов для уже связанного сообщения — no-op.
+    Медиа чужого автора не приписывается запросу (`author_user_id`)."""
     if db is None or not tg_message_id:
         return None
     now = int(time.time())
     linked = None
-    for job in await _load_intents(db, int(chat_id)):
+    intents = await _load_intents(db, int(chat_id))
+    for job in intents:
         payload = _intent_payload(job)
         expires = int(payload.get("expires_at") or 0)
         if expires and expires <= now:
             await _expire_intent(db, job, "vision_skipped_expired")
             continue
+        if _linked_tg_message_id(job) == int(tg_message_id):
+            # Первый вызов шва приёма уже связал это сообщение (§3.5): второй
+            # вызов не создаёт вторую привязку/второй ответ на то же фото.
+            return None
+    for job in intents:
+        payload = _intent_payload(job)
+        expires = int(payload.get("expires_at") or 0)
+        if expires and expires <= now:
+            continue                      # закрыто в проверке выше
         if payload.get("linked"):
             continue
         try:
@@ -1003,6 +1050,8 @@ async def link_pending_intent_for_message(db, *, chat_id: int,
             continue
         if trigger and int(tg_message_id) <= trigger:
             continue                      # медиа старше запроса — не связь
+        if _intent_author_conflict(payload, author_user_id):
+            continue                      # чужое фото не приписываем запросу
         payload["linked"] = {
             "asset_ids": [str(a) for a in (asset_ids or [])][:_MAX_ASSETS],
             "tg_message_id": int(tg_message_id),
