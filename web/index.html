@@ -1310,6 +1310,10 @@
                         class="text-gray-500" data-summary-next-run-state="error">
                     время следующего запуска недоступно
                   </span>
+                  <span v-else-if="summaryScheduleState === 'no_chat'"
+                        class="text-gray-500" data-summary-next-run-state="no_chat">
+                    выберите чат — следующий запуск считается в его поясе
+                  </span>
                   <span v-else-if="summaryScheduleState === 'off'"
                         class="text-gray-500" data-summary-next-run-state="off">
                     плановые сводки для этого чата выключены — следующего

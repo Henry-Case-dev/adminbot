@@ -7437,7 +7437,7 @@
         // Один read-only источник `/api/config/time` (summary_schedule);
         // второй настройки пояса/второго запроса планировщика нет.
         summarySchedule: null,
-        summaryScheduleState: 'idle',   // idle|loading|ready|off|error
+        summaryScheduleState: 'idle',   // idle|loading|ready|off|no_chat|error
         // ── UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ────────────
         turnDiag: null,            // GET /api/direct/turn-diagnostics
         turnDiagTurn: 1,           // выбранный ход (1 = последний)
@@ -20487,7 +20487,7 @@
         var chatId = this.activeChatId;
         if (chatId == null) {
           this.summarySchedule = null;
-          this.summaryScheduleState = 'off';
+          this.summaryScheduleState = 'no_chat';
           return;
         }
         var epoch = this.scopeEpoch;
