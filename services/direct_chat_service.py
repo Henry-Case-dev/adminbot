@@ -19501,6 +19501,15 @@ class DirectChatService:
         # (ревью W2/P1, F1).
         bot_persona.reset_turn_frame()
         await self._refresh_turn_aliases(chat_id)
+        # ── UR-RES-01 (UR-G): инициативный ход стартует ТУ ЖЕ трассу хода,
+        # что и прямой (`turn_trace`), а не остаётся только payload-событиями
+        # отдельных стадий. Один ход — одна цепочка: повторный recheck-вызов
+        # находит уже начатую трассу и не подменяет её.
+        if _ttrace.get(correlation_id) is None:
+            _ttrace.begin(
+                correlation_id, chat_id=chat_id,
+                trigger=TRIGGER_INITIATIVE,
+                flow=_ttrace.FLOW_INITIATIVE)
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -19722,6 +19731,23 @@ class DirectChatService:
             clock=_tpe.clock_meta_messages(messages, chat_id=chat_id),
             decision=(str(getattr(plan, "action", "") or "unavailable")
                       if plan is not None else "unavailable"))
+        # UR-RES-01: L1-стадия инициативного хода — в общей трассе теми же
+        # полями, что у Direct (план, не речь). Ход, закончившийся на L1
+        # (silent/react/unavailable), закрывает видимую часть цепочки честным
+        # исходом: tools/Writer не выполнялись.
+        _ttrace.note_l1(
+            correlation_id,
+            action=str(getattr(plan, "action", "") or ""),
+            response_act=str(getattr(plan, "response_act", "") or ""),
+            structure=str(getattr(plan, "structure", "") or ""),
+            plan_source=str(getattr(plan, "source", "") or ""),
+            execution_mode=str(getattr(plan, "execution_mode", "") or ""),
+            model=str(getattr(slot, "model", "") or ""),
+            fallback=str((_plan_meta or {}).get("fallback") or ""),
+            slot=str((_plan_meta or {}).get("slot") or ""))
+        if plan is None or str(getattr(plan, "action", "") or "") != "reply":
+            _ttrace.emit_context(_ttrace.get(correlation_id),
+                                 outcome="skipped")
         if plan is None:
             # Инициатива вторична: outage/невалидный JSON после общего
             # repair-маршрута → честное молчание (SILENT), не падение.
@@ -20071,6 +20097,9 @@ class DirectChatService:
                 if _preflight is not None else None)
             _initiative_evidence = ""
             _initiative_pack = None
+            # UR-RES-01: инициативная tool-фаза может не запускаться вовсе —
+            # трасса обязана сказать правду (0 инструментов), а не молчать.
+            _init_raw = None
             _initiative_caps = tuple(getattr(_initiative_decision,
                                              "required_caps", ()) or ())
             # Поисковый запрос — ТОЛЬКО из claim'ов плана: внутренняя
@@ -20172,6 +20201,19 @@ class DirectChatService:
                                  or 0))
                 self._record_evidence_delivery(
                     _initiative_decision, _initiative_pack, chat_id=chat_id)
+            # UR-RES-01: инструменты и РЕАЛЬНО доставленный пакет доказательств
+            # — в ту же трассу хода (те же поля, что у Direct: имена/статусы/
+            # объём/источники/coverage, без текстов и URL).
+            _ttrace.note_tools(
+                correlation_id,
+                tool_results=(getattr(_init_raw, "tool_results", None)
+                              if isinstance(_init_raw, ToolLoopResult) else ()),
+                rounds=(int(getattr(_init_raw, "rounds_used", 0) or 0)
+                        if isinstance(_init_raw, ToolLoopResult) else 0),
+                degraded=bool(getattr(_init_raw, "degraded", False)),
+                reason=str(getattr(_init_raw, "reason", "") or ""),
+                pack=_initiative_pack,
+                decision=_initiative_decision)
             _initiative_blocks = list(user_blocks)
             if _initiative_decision is not None:
                 _init_note = self._evidence_writer_note(
@@ -20234,8 +20276,13 @@ class DirectChatService:
             logger.warning(
                 "[f6] initiative writer failed | chat=%s", chat_id,
                 exc_info=True)
+            # UR-RES-01: L1/tools уже в трассе — эмитим видимую часть цепочки
+            # ДО выхода, чтобы сбой Writer'а не прятал выполненное.
+            _ttrace.emit_context(_ttrace.get(correlation_id), outcome="failed")
             return ""
         if not result:
+            _ttrace.emit_context(_ttrace.get(correlation_id),
+                                 outcome="skipped")
             return ""
         prepared = str(result[0] or "").strip()
         # ── SOUL-1 (W3, SOUL-16.4.1 + SOUL-AMD.3.5, fix F4 review-w3): проход
@@ -20243,6 +20290,7 @@ class DirectChatService:
         # инициативных текстов это `handle_initiative` (перед чанкованием и
         # отправкой), иначе ностальгия/`prepared_text` обходила бы проход, а
         # writer-текст проходил бы его дважды (SOUL-16.4.2 «один проход»).
+        _ttrace.emit_context(_ttrace.get(correlation_id))
         return prepared
 
 
