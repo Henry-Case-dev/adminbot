@@ -49,9 +49,13 @@ Removed (obsolete forced-text mechanisms, not re-added under another name):
   `TRIGGER_KEYWORD = "keyword"`.
 - `FORCE_LINE` ("прямое обращение к боту: текстовый ответ обязателен") and its
   injection into L1 conditions.
-- Pre-set `pre_action = ACTION_REPLY` / `REASON_FORCE_DIRECT` branch and the
-  `direct_force_reply_total` increment on keyword ("force_direct" stays in the
-  reason vocabulary as historical telemetry only).
+- Pre-set `pre_action = ACTION_REPLY` / `REASON_FORCE_DIRECT` branch for the
+  keyword and its keyword-path `direct_force_reply_total` increment. The
+  counter itself is NOT removed: it is still incremented on the independent
+  reply-to-bot branch when the per-chat
+  `flags.chat_autonomous_reply_enabled=false` (a metric label, no forced-text
+  semantics). `"force_direct"` stays in the reason vocabulary as historical
+  telemetry only and is never produced by the removed branch.
 - Post-L1 override `l1_plan.action = "reply"` for keyword triggers.
 - Service-local regex `\bбот\w*` and service-side re-classification of the same
   text.
