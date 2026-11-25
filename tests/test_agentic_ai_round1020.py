@@ -39,7 +39,6 @@ from services.llm_client import (
 )
 from services.reply_postprocess import strip_reasoning_tags, REASONING_TAGS
 from services.tool_loop import (
-    TOOL_LOOP_FALLBACK_PHRASE,
     ToolLoopResult,
     chat_with_tools,
 )
@@ -103,7 +102,6 @@ class TestToolLoopFailSafe:
         out = await chat_with_tools(llm, [{"role": "user", "content": "q"}],
                                     tools=[], router=_Router(), ctx=object())
         assert isinstance(out, ToolLoopResult)
-        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
         assert str(out) == "plain"                 # финальный LLM по evidence
         assert out.finalize_mode == "llm"
         assert out.degraded is True and out.reason == "no_progress"
@@ -151,13 +149,13 @@ class TestToolLoopFailSafe:
         out = await chat_with_tools(_Boom(), [{"role": "user", "content": "q"}],
                                     tools=[], router=_Router(), ctx=object())
         assert out.degraded is True and out.reason == "llm_error"
-        # Финальный LLM недоступен (у двойника нет Writer) → безопасный
-        # структурный partial по фактически полученным данным, не заглушка.
-        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
-        assert out.finalize_mode == "structured_partial"
-        assert "llm_error" in str(out)
-        assert "execute_web_search" in str(out)
+        # Финальный LLM недоступен (у двойника нет Writer) → остаётся последний
+        # авторский текст модели, программного «частичного отчёта» нет
+        # (P0 corrective owner 2026-11-25 §4).
+        assert str(out) == "частичный"
+        assert out.finalize_mode == "partial_text"
         assert out.tool_results
+        assert out.research_state.get("status") in ("partial", "failed")
 
     @pytest.mark.asyncio
     async def test_round_zero_llm_error_still_plain_fallback(self):

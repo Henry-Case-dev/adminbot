@@ -37,10 +37,12 @@ SMART-EXECUTION-RELIABILITY-01 §G (owner 2026-11-14, этап G) — обяза
 * если исследование остановлено до ответа, но evidence накоплено, ответ
   формирует существующий LLM (`llm.generate`, без tools) по уже собранным
   результатам; остановка по лимитам исследования этому НЕ мешает;
-* недоступен финальный LLM-вызов/пустой ответ → детерминированный
-  структурный partial из tool-результатов (подтверждённое/отказы/
-  непроверенное/provenance/причина остановки); саркастичная заглушка при
-  наличии данных не публикуется;
+* P0 corrective (owner 2026-11-25, §4): код отвечает за ФАКТ фактического
+  выполнения (структурное состояние, статусы, причины), речь — только за
+  модель. Недоступен финальный LLM-вызов/пустой ответ → программный
+  «частичный отчёт» НЕ публикуется: остаётся последний авторский текст
+  модели, иначе ход честно помечается ``no_generative_path`` (или
+  ``delivered_artifact``, если инструмент уже доставил результат);
 * `retryable=false` терминален для маршрута: идентичный вызов не повторяется
   (дедуп), а разные вызовы к тому же структурно недоступному маршруту
   (host/provider из результата) получают честный `denied` без диспетча.
@@ -53,9 +55,10 @@ SMART-EXECUTION-RELIABILITY-01 §G (owner 2026-11-14, этап G) — обяза
 Раунд 10.20 (БЛОК 7.1, ADR-1020-7 §1, T-1919): graceful degradation —
 исчерпание раундов и `LLMError` на `round_index > 0` больше НЕ роняют ответ
 в тишину+🗿. При накопленном evidence ответ формирует финальная фаза §G
-(существующий LLM/Writer либо детерминированный partial); прежний частичный
-текст/саркастичная заглушка `TOOL_LOOP_FALLBACK_PHRASE` остаются только
-когда данных нет вовсе. `NoApiKeyForChat` — без изменений.
+(существующий LLM/Writer); если генеративный путь недоступен, остаётся
+последний текст модели, иначе ход помечается честным
+``no_generative_path`` (публикуемого программного текста нет).
+`NoApiKeyForChat` — без изменений.
 
 SMART P0 checkup (16.11.2026, S1/S2/S3 + S7-обёртка) — классификация
 `LLMError` без нового клиента/пайплайна:
@@ -307,11 +310,10 @@ def _sync_claim_with_outcome(payload_messages: list, tool_name: str,
         return 0
     return _strip_stale_capability_notices(payload_messages, capability_id)
 
-# Саркастичная заглушка деградации (код-константа; каталог-Δ = 0). Показывается
-# только когда все раунды/поздние ошибки «съели» ответ, а частичного текста нет.
-TOOL_LOOP_FALLBACK_PHRASE = (
-    "Чет долго думал, аж перегрелся — и всё равно ни к чему не пришёл. "
-    "Спроси проще, что ли.")
+# P0 corrective (owner 2026-11-25, §4): программный «частичный отчёт» и
+# саркастичная заглушка как пользовательский ответ удалены. Внутреннее
+# состояние выполнения остаётся в envelope/`research_state`/trace (диагностика,
+# инспектор, админ-механизмы), а публикуемый текст формирует только модель.
 
 
 # ── SMART-EXECUTION-RELIABILITY-01 §G: финальная фаза исследования ──────────
@@ -385,15 +387,8 @@ _STOP_REASON_TEXT = {
     "empty": "финальный ответ модели пришёл пустым",
 }
 
-#: Человекочитаемое имя технической ошибки финального LLM-вызова. Значения —
-#: классы исключений (`NoApiKeyForChat`, `LLMError`) остаются как есть: это
-#: точные идентификаторы причины, а не машинные коды продукта.
-_FINALIZE_ERROR_TEXT = {
-    "empty": "ответ модели пришёл пустым",
-}
-
 #: Поля структурного payload'а, которые безопасно показывать как provenance
-#: в детерминированном partial (R17-safe: без URL с секретами/текстов ответа).
+#: во внутреннем инвентаре evidence (R17-safe: без URL с секретами/текстов).
 _PARTIAL_PROVENANCE_KEYS = ("provider", "host", "commit", "path",
                             "line_range", "verified_url", "source_id")
 
@@ -402,15 +397,6 @@ def _stop_reason_text(reason: str) -> str:
     """Человекочитаемая причина остановки (неизвестный код → сам код)."""
     key = str(reason or "")
     return _STOP_REASON_TEXT.get(key) or key or "причина не зафиксирована"
-
-
-def _finalize_error_text(error) -> str:
-    """Человекочитаемая причина отказа финального LLM-вызова.
-
-    Известные коды (`empty`) переводятся; имена классов исключений и прочие
-    технические идентификаторы остаются как есть — это точная причина."""
-    key = str(error or "").strip()
-    return _FINALIZE_ERROR_TEXT.get(key) or key or "причина не зафиксирована"
 
 
 # ── SMART-CORRECTIVE-01 §4/§6.4: состояние исследования ────────────────────
@@ -898,9 +884,10 @@ class ToolLoopResult(str):
     * ``reason`` — ``"ok" | "round_limit" | "llm_error"``;
     * ``finalize_mode`` — чем сформирован деградировавший ответ (§G):
       ``""`` (штатный финал), ``"llm"`` (финальный LLM по evidence),
-      ``"structured_partial"`` (детерминированный partial),
-      ``"partial_text"`` (последний текст модели без данных) или
-      ``"fallback_phrase"`` (заглушка без данных);
+      ``"partial_text"`` (последний текст модели) или честное состояние без
+      пользовательского текста: ``"delivered_artifact"`` (инструмент уже
+      доставил результат) / ``"no_generative_path"`` (генеративного пути нет;
+      P0 corrective owner 2026-11-25 §4 — программный partial удалён);
     * ``tool_trace`` — ``[{"round", "tool", "ok", "out_chars"}, …]``;
     * ``tool_context`` — склеенный текст выводов инструментов (нужен F2 для
       допустимых grounding-якорей: id/даты, полученные ИЗ ТУЛОВ; в логи не
@@ -1301,45 +1288,6 @@ def _usable_evidence(items) -> list[dict]:
             or item.get("partial")]
 
 
-def _item_payload(item) -> dict:
-    """Структурный payload выдачи инструмента (envelope.data либо JSON-текст).
-
-    Нужен, чтобы распознать пустой результат по самому payload'у: каноническая
-    классификация оставляет `{"status": "empty"}` в статусе `ok` (`empty` нет
-    в закрытом наборе payload-статусов пустоты), поэтому по `status` и длине
-    текста «пусто» не видно (Reviewer S7 R1)."""
-    if not isinstance(item, dict):
-        return {}
-    data = item.get("data")
-    if isinstance(data, dict) and data:
-        return data
-    text = str(item.get("output") or "").strip()
-    if not text.startswith("{"):
-        return {}
-    try:
-        value = json.loads(text)
-    except Exception:
-        return {}
-    return value if isinstance(value, dict) else {}
-
-
-def _item_has_content(item) -> bool:
-    """Есть ли в результате ФАКТИЧЕСКИ доставленные данные.
-
-    `status=ok` с нулевой длиной, `status=empty` и payload `{"status":
-    "empty"}` («не найдено») данными не являются: публиковать их как
-    «подтверждённые» нельзя (Reviewer S7 F2/R1). Пустое/пробельное
-    содержимое — тоже нет."""
-    if not isinstance(item, dict):
-        return False
-    if str(item.get("status") or "") == tool_result.STATUS_EMPTY:
-        return False
-    if str(_item_payload(item).get("status") or "").strip().lower() \
-            == tool_result.STATUS_EMPTY:
-        return False
-    return bool(str(item.get("output") or "").strip())
-
-
 def _failed_evidence(items) -> list[dict]:
     """Структурные отказы (ошибки/таймауты/отказы policy/пустые без partial)."""
     usable_ids = {id(item) for item in _usable_evidence(items)}
@@ -1373,49 +1321,6 @@ def _unchecked_text(items, stop_reason: str) -> str:
             f"остановки: {_stop_reason_text(stop_reason)}")
 
 
-def _excerpt(text, limit: int) -> str:
-    """Короткая выдержка для детерминированного partial (не пустая)."""
-    value = " ".join(str(text or "").split())
-    if limit and len(value) > limit:
-        return value[:max(1, int(limit))].rstrip() + "…"
-    return value
-
-
-#: Служебный блок времени стадии (UR-25.6, `chat_clock`). Partial цитирует
-#: ИСХОДНЫЙ запрос человека, поэтому машинный блок в цитату не попадает.
-_CLOCK_TAG_PREFIX = "<Chat_Time_Context"
-_CLOCK_BLOCK_RE = re.compile(
-    re.escape(_CLOCK_TAG_PREFIX) + r"\b[^>]*>.*?</Chat_Time_Context>",
-    re.DOTALL)
-
-
-def _strip_clock_block(text) -> str:
-    """Убрать `<Chat_Time_Context>` из текста запроса (незакрытый — до конца).
-
-    Семантика та же, что у `chat_clock.refresh_time_context`: служебный блок
-    не является частью пользовательского текста. Никогда не бросает."""
-    value = str(text or "")
-    if _CLOCK_TAG_PREFIX not in value:
-        return value
-    value = _CLOCK_BLOCK_RE.sub("", value)
-    start = value.find(_CLOCK_TAG_PREFIX)
-    if start >= 0:
-        value = value[:start]
-    return value.strip()
-
-
-def _last_user_text(messages) -> str:
-    """Исходный запрос: последнее user-сообщение входа без служебных блоков."""
-    for message in reversed(list(messages or ())):
-        try:
-            if message.get("role") == "user" \
-                    and isinstance(message.get("content"), str):
-                return _strip_clock_block(message["content"])
-        except Exception:
-            continue
-    return ""
-
-
 def _finalize_directive(stop_reason: str, items) -> str:
     """User-сообщение финальной фазы: инструкция + структурный контекст."""
     usable = _usable_evidence(items)
@@ -1433,124 +1338,32 @@ def _finalize_directive(stop_reason: str, items) -> str:
     return "\n".join(lines)
 
 
-def _structured_partial(stop_reason: str, items, messages,
-                        finalize_error: str, *, request_text: str = "",
-                        require_content: bool = False) -> str:
-    """Детерминированный безопасный partial из структурированных фактов.
+def failure_state(stop_reason: str, items=None, *, finalize_error: str = "",
+                  delivered: bool = False) -> dict:
+    """Структурное состояние незавершённого хода — БЕЗ пользовательского текста.
 
-    Используется только когда финальный LLM-вызов недоступен/пуст: ответ
-    строится по реальным tool-результатам, честно отделяет отказы и
-    непроверенное, не подменяется саркастичной заглушкой.
+    P0 corrective (owner 2026-11-25, §4): внутренние технические данные
+    (коды, статусы, причины, счётчики) остаются доступными диагностике,
+    инспектору и админ-механизмам, но больше не превращаются в готовый
+    разговорный ответ. Публикуемый текст формирует модель; когда генеративный
+    путь недоступен, ход честно помечается этим состоянием.
 
-    ``request_text`` — ИСХОДНЫЙ пользовательский запрос (если вызывающий его
-    знает: payload Writer'а — внутренняя сборка, цитировать её нельзя);
-    иначе берётся последнее user-сообщение без служебных блоков.
-
-    ``require_content`` — Reviewer S7 F2/R1 (partial-шов): «подтверждённые
-    данные» публикуются только при наличии хотя бы одного результата с
-    непустым содержимым. Пустой `ok`/`empty`/пробельный payload — не
-    доказательство, поэтому такие записи не выдаются за данные, а без них
-    partial не строится вовсе ("" → прежний silence/fallback-путь). Правило
-    общее для публичного F2-шва и внутреннего degraded-пути `_finish_degraded`."""
-    try:
-        from services.system2_handoff import redact_secrets
-    except Exception:       # pragma: no cover - защитная ветка
-        def redact_secrets(value):      # type: ignore
-            return value
-
-    request = _excerpt(
-        str(request_text or "") or _last_user_text(messages), 500)
-    usable = _usable_evidence(items)
-    if require_content:
-        usable = [item for item in usable if _item_has_content(item)]
-        if not usable:
-            return ""
-    failed = _failed_evidence(items)
-    lines = ["Исследование остановлено: "
-             f"{_stop_reason_text(stop_reason)} ({stop_reason}).",
-             "Это частичный результат: финальный LLM-вызов недоступен "
-             f"({_finalize_error_text(finalize_error)}), ниже собраны только "
-             "фактически полученные данные."]
-    if request:
-        lines.extend(["", f"Запрос: {redact_secrets(request)}"])
-    if usable:
-        lines.extend(["", "Подтверждённые данные (результаты инструментов):"])
-        for item in usable:
-            head = (f"- {item.get('tool')}: {item.get('status')}"
-                    + (" (частично)" if item.get("partial") else "")
-                    + f", {item.get('out_chars')} символов")
-            lines.append(head)
-            provenance = item.get("provenance") or {}
-            if provenance:
-                rendered = "; ".join(f"{key}={value}"
-                                     for key, value in provenance.items())
-                lines.append(f"  provenance: {redact_secrets(rendered)}")
-            refs = item.get("evidence_refs") or []
-            if refs:
-                lines.append("  источники: " + ", ".join(refs))
-            body = _excerpt(item.get("output"), 400)
-            if body:
-                lines.append("  " + redact_secrets(body))
-    failed_lines = _failure_lines(failed)
-    if failed_lines:
-        lines.extend(["", "Отказы источников/инструментов:"])
-        lines.extend(failed_lines)
-    lines.extend(["", "Непроверено: " + _unchecked_text(items, stop_reason),
-                  "", "Полные результаты вызовов сохранены в журнале прогона "
-                  f"({len(items)} вызовов)."])
-    return "\n".join(lines)
-
-
-def structured_partial_from_result(result, messages=None, *,
-                                   request_text: str = "",
-                                   stop_reason: str = "",
-                                   finalize_error: str = "") -> str:
-    """Публичная тонкая обёртка :func:`_structured_partial` для живого пути.
-
-    S7 (ARCH_DECISION SMART-CORRECTIVE, reply владельца 16.11.2026): если
-    финальный Writer (L2) вернул пусто, а tool-фаза УЖЕ получила данные,
-    пользователю отдаётся детерминированный partial из фактических
-    результатов инструментов — без нового автора/прозы и без выдуманной
-    заглушки. Тексты выводов берутся из `evidence_sources` ТОЛЬКО при
-    точном совпадении числа записей с журналом `tool_results` (порядок
-    добавления в обоих списках — один и тот же шаг); иначе excerpt пуст, а
-    статусы/provenance/refs остаются честными.
-
-    Reviewer S7 F1/F2 (16.11.2026):
-    * ``request_text`` — исходный пользовательский запрос. Строка «Запрос:»
-      цитирует ЕГО, а не внутреннюю сборку Writer'а (`<Chat_Time_Context>`,
-      план/служебные блоки): payload стадии — не речь человека;
-    * «подтверждённые данные» требуют хотя бы одного результата с непустым
-      содержимым. Пустой `ok` (0 символов), `{"status": "empty"}` и
-      пробельная выдача не публикуются: пусто → нет данных: "" (потребитель
-      сохраняет прежний silence-path — заглушку не публикуем).
-
+    ``delivered`` — инструмент уже доставил пользователю результат в этом
+    ходе (артефакт и есть ответ, повторная доставка/текст не нужны).
     Никогда не бросает."""
-    try:
-        results = list(getattr(result, "tool_results", None) or ())
-        if not results:
-            return ""
-        outputs = list(getattr(result, "tool_outputs", None) or ())
-        sources = list(getattr(result, "evidence_sources", None) or ())
-        if not outputs and len(sources) == len(results):
-            outputs = [str(getattr(src, "content", "") or "")
-                       for src in sources]
-        items = _evidence_inventory(results, outputs)
-        if not items:
-            return ""
-        reason = str(stop_reason or "").strip()
-        if not reason or reason == "ok":
-            reason = str(getattr(result, "reason", "") or "").strip()
-        if not reason or reason == "ok":
-            reason = "empty"
-        return _structured_partial(reason, items, messages,
-                                   str(finalize_error or "empty"),
-                                   request_text=request_text,
-                                   require_content=True)
-    except Exception:      # pragma: no cover - защитная ветка
-        logger.warning("[tools] structured partial from result failed",
-                       exc_info=True)
-        return ""
+    usable = _usable_evidence(items)
+    failed = _failed_evidence(items)
+    return {
+        "status": "delivered_artifact" if delivered else "no_generative_path",
+        "stop_reason": str(stop_reason or ""),
+        "stop_reason_text": _stop_reason_text(stop_reason),
+        "finalize_error": str(finalize_error or ""),
+        "usable": len(usable),
+        "failed": len(failed),
+        "calls": len(list(items or ())),
+        "failed_tools": sorted({str(item.get("tool") or "")
+                                for item in failed if item.get("tool")}),
+    }
 
 
 async def _finalize_from_evidence(llm, payload_messages, *, stop_reason,
@@ -1559,8 +1372,9 @@ async def _finalize_from_evidence(llm, payload_messages, *, stop_reason,
                                   max_output_tokens) -> tuple[str, str]:
     """Финальный LLM-вызов по накопленным данным (существующий Writer-путь).
 
-    → ``(text, error)``: пустой ``text`` = вызов недоступен/пуст, вызывающий
-    строит детерминированный partial. Инструменты не передаются."""
+    → ``(text, error)``: пустой ``text`` = вызов недоступен/пуст — вызывающий
+    оставляет честное состояние без пользовательского текста. Инструменты не
+    передаются."""
     messages = copy.deepcopy(payload_messages)
     messages.append({"role": "user",
                      "content": _finalize_directive(stop_reason, items)})
@@ -1672,12 +1486,17 @@ def _topo_order(steps: list) -> list:
 def media_delivered(result) -> bool:
     """§18-I: в envelopes прогона есть УСПЕШНЫЙ media-инструмент.
 
-    Статус — только канонический ``ok`` (тул сам доставил файл пользовате-
-    лю). Никогда не бросает; без envelopes/атрибута → False."""
-    try:
-        envelopes = getattr(result, "tool_results", None) or []
-    except Exception:
-        return False
+    Принимает ``ToolLoopResult``-подобный объект ИЛИ сам журнал envelopes
+    (внутренний degraded-путь хранит список): статус — только канонический
+    ``ok`` (тул сам доставил файл пользователю). Никогда не бросает; без
+    envelopes/атрибута → False."""
+    if isinstance(result, (list, tuple)):
+        envelopes = list(result)
+    else:
+        try:
+            envelopes = getattr(result, "tool_results", None) or []
+        except Exception:
+            return False
     for env in envelopes:
         try:
             if (str(env.get("tool") or "") in MEDIA_DELIVERY_TOOLS
@@ -1876,8 +1695,9 @@ async def chat_with_tools(llm, messages: list[dict], *,
     без единого нового исполнения); подтверждённый технический отказ;
     отмена; явная операторская политика при effective
     ``flags.budgets_enabled=true`` (``MCA_TOOL_MAX_*``); аварийный fuse
-    (``MCA_TOOL_CHAIN_TIMEOUT_SECONDS>0``). Деградация возвращает частичный
-    текст либо ``TOOL_LOOP_FALLBACK_PHRASE`` (``degraded=True``), НЕ
+    (``MCA_TOOL_CHAIN_TIMEOUT_SECONDS>0``). Деградация возвращает последний
+    авторский текст модели либо пустой ответ с честным состоянием
+    (``degraded=True``), НЕ
     исключение (ADR-1020-7 §1). Провайдер-reject на 1-м раунде —
     plain-фолбэк без tools (FR-15); ``NoApiKeyForChat`` — проброс; пустой
     финал БЕЗ evidence — прежний ``LLMBadResponseError`` (FR-14/65.1), а с
@@ -1900,12 +1720,13 @@ async def chat_with_tools(llm, messages: list[dict], *,
 
     SMART-EXECUTION-RELIABILITY-01 §G: остановка исследования до финального
     ответа (no_progress/llm_error/fuse/явная политика) не возвращает
-    последний промежуточный текст или саркастичную заглушку при наличии
-    данных. Ответ формирует финальная фаза: существующий LLM-клиент
-    (``generate``, без tools) по накопленным результатам; недоступен —
-    детерминированный структурный partial. Штатный финальный ответ модели
-    повторного вызова не делает. ``ToolLoopResult.finalize_mode`` сообщает,
-    чем сформирован деградировавший ответ.
+    последний промежуточный текст при наличии данных. Ответ формирует
+    финальная фаза: существующий LLM-клиент (``generate``, без tools) по
+    накопленным результатам; недоступен — последний авторский текст модели
+    либо честное состояние без текста (P0 corrective owner 2026-11-25 §4:
+    программный «частичный отчёт» не публикуется). Штатный финальный ответ
+    модели повторного вызова не делает. ``ToolLoopResult.finalize_mode``
+    сообщает, чем сформирован деградировавший ответ.
 
     ASAP-3.2 (ADR-1028-5 D10, §44): ``fallback_payload_adapter`` — тот же
     контракт, что у ``generate()``/``generate_chat()``; прокидывается в
@@ -2094,39 +1915,34 @@ async def chat_with_tools(llm, messages: list[dict], *,
         """Единый финал остановленного исследования (§G2–§G4).
 
         Наличие данных → финальный LLM по evidence (существующий Writer-путь);
-        недоступен → детерминированный partial; данных нет вовсе → прежний
-        частичный текст/заглушка. Лимиты исследования сюда не применяются.
+        недоступен → остаётся последний авторский текст модели, иначе пустой
+        ответ с честным состоянием. Лимиты исследования сюда не применяются.
         ``allow_llm=False`` — финальный LLM уже доказанно недоступен в этом
-        ходе (не делаем третью попытку), сразу строится partial."""
+        ходе (не делаем третью попытку).
+
+        P0 corrective (owner 2026-11-25, §4): программный «частичный отчёт»
+        и саркастичная заглушка больше не публикуются. ``finalize_mode``
+        честно называет исход: ``llm`` | ``partial_text`` |
+        ``delivered_artifact`` | ``no_generative_path``; факты остаются в
+        ``research_state``/envelope для диагностики."""
         items = _evidence_inventory(tool_results, tool_context_parts)
         text = ""
         mode = ""
-        if items:
-            finalize_error = "llm_error"
-            if allow_llm:
-                text, finalize_error = await _finalize_from_evidence(
-                    llm, payload_messages, stop_reason=reason, items=items,
-                    temperature=temperature, chat_id=chat_id, module=module,
-                    correlation_id=correlation_id,
-                    fallback_payload_adapter=fallback_payload_adapter,
-                    max_output_tokens=max_output_tokens)
+        delivered = media_delivered(tool_results)
+        if items and allow_llm:
+            text, _finalize_error = await _finalize_from_evidence(
+                llm, payload_messages, stop_reason=reason, items=items,
+                temperature=temperature, chat_id=chat_id, module=module,
+                correlation_id=correlation_id,
+                fallback_payload_adapter=fallback_payload_adapter,
+                max_output_tokens=max_output_tokens)
             if text:
                 mode = "llm"
-            else:
-                # Reviewer S7 R1: внутренний шов подчиняется тому же правилу,
-                # что публичный F2-шов — пустая/`empty`/пробельная выдача не
-                # выдаётся за «подтверждённые данные». Нет содержательных
-                # данных → "" → прежний partial_text/fallback-путь
-                # деградации (ложное «подтверждено» не публикуется).
-                text = _structured_partial(reason, items, messages,
-                                           finalize_error,
-                                           require_content=True)
-                mode = "structured_partial"
         if not text:
             text = strip_reasoning_tags(partial_text)
-            mode = "partial_text" if text else "fallback_phrase"
+            mode = "partial_text" if text else ""
         if not text:
-            text = TOOL_LOOP_FALLBACK_PHRASE
+            mode = "delivered_artifact" if delivered else "no_generative_path"
         _log_degraded(reason, llm_rounds, tool_trace, text, limits=limits,
                       finalize_mode=mode)
         return _wrap(text, degraded=True, reason=reason, finalize_mode=mode)

@@ -73,10 +73,11 @@ def db():
 
 
 class TestLoreBypassIntentGate:
-    """Дефект 1 (audit §5): lore_compiled больше не подменяет ответ на
-    ЛЮБОМ ходе; только явная story-интенция существующих полей плана.
-    Analysis/research → история остаётся материалом (Writer отвечает).
-    Fail-open при неопределённости (легаси/fallback без плана)."""
+    """Дефект 1 (audit §5) + P0 corrective (owner 2026-11-25 §2): lore_compiled
+    подменяет ответ Writer только когда результат ЯВНО является запрошенным
+    конечным продуктом (structure=story / historical_recall). Творческий акт
+    сам по себе и неопределённая интенция разрешения не дают (fail-closed):
+    история остаётся материалом для Writer."""
 
     @staticmethod
     def _plan(act: str, structure: str, extent: str = "auto") -> L1Plan:
@@ -86,10 +87,15 @@ class TestLoreBypassIntentGate:
             "capabilities_needed": ["historical_search"],
         })
 
-    def test_story_acts_allow_override(self):
+    def test_story_signals_allow_override(self):
         assert lore_story_delivery_allowed(self._plan("creative", "story"))
         assert lore_story_delivery_allowed(
             self._plan("historical_recall", "chat"))
+
+    def test_creative_without_story_form_is_not_permission(self):
+        # owner 2026-11-25 §2: творческий запрос ≠ запрос исторического
+        # рассказа; без явной story-формы подмена не разрешена.
+        assert not lore_story_delivery_allowed(self._plan("creative", "chat"))
 
     def test_analysis_acts_block_override(self):
         for act in ("research", "explanation", "comparison", "summarization",
@@ -109,14 +115,15 @@ class TestLoreBypassIntentGate:
         plan_ru = self._plan("анализ", "chat")
         assert not lore_story_delivery_allowed(plan_ru)
 
-    def test_undefined_intent_fails_open(self):
-        # Не определено полями плана → прежнее поведение (без ложных блоков).
-        assert lore_story_delivery_allowed(self._plan("answer", "chat"))
-        assert lore_story_delivery_allowed(self._plan("other", "chat"))
+    def test_undefined_intent_is_not_permission(self):
+        # owner 2026-11-25 §2: неопределённая интенция — НЕ разрешение на
+        # подмену (прежний fail-open удалён).
+        assert not lore_story_delivery_allowed(self._plan("answer", "chat"))
+        assert not lore_story_delivery_allowed(self._plan("other", "chat"))
 
-    def test_no_plan_fails_open(self):
-        assert lore_story_delivery_allowed(None, None)
-        assert lore_story_delivery_allowed(None, "не-план-объект") is True
+    def test_no_plan_is_not_permission(self):
+        assert not lore_story_delivery_allowed(None, None)
+        assert lore_story_delivery_allowed(None, "не-план-объект") is False
 
     def test_extent_is_not_a_routing_signal(self):
         # Длина/форма НЕ участвуют в маршрутизации доставки (§11: глубина
@@ -129,14 +136,17 @@ class TestLoreBypassIntentGate:
 
     def test_legacy_response_plan_kind_gate(self):
         class _RP:
-            def __init__(self, kind):
+            def __init__(self, kind, structure="chat"):
                 self.task_kind = kind
+                self.structure = structure
 
         assert not lore_story_delivery_allowed(None, _RP("research"))
         assert not lore_story_delivery_allowed(None, _RP("summarization"))
-        assert lore_story_delivery_allowed(None, _RP("creative_writing"))
+        assert not lore_story_delivery_allowed(None, _RP("creative_writing"))
+        assert lore_story_delivery_allowed(
+            None, _RP("creative_writing", "story"))
         assert lore_story_delivery_allowed(None, _RP("historical_recall"))
-        assert lore_story_delivery_allowed(None, _RP("social_chat"))
+        assert not lore_story_delivery_allowed(None, _RP("social_chat"))
 
     def test_override_delivers_story_only_for_story_intent(self):
         ctx = _ctx()
@@ -147,8 +157,8 @@ class TestLoreBypassIntentGate:
         # Analysis-план: история НЕ подменяет ответ Writer.
         assert lore_story_override(
             ctx, self._plan("research", "explanation")) == ""
-        # Без плана (легаси/fallback) — прежнее поведение.
-        assert lore_story_override(ctx, None, None) == "<b>История</b>"
+        # Без плана (легаси/fallback) подмена больше не разрешена.
+        assert lore_story_override(ctx, None, None) == ""
 
     def test_override_requires_compiled_and_nonempty(self):
         ctx = _ctx()
@@ -242,9 +252,13 @@ class TestLoreVerbatimInstructionGate:
 
     def test_verbatim_iff_delivery_allowed(self):
         for act, structure in (("creative", "story"),
-                               ("historical_recall", "chat"),
-                               ("answer", "chat")):      # fail-open
+                               ("historical_recall", "chat")):
             assert lore_verbatim_allowed(_l1_plan(act, structure)), \
+                (act, structure)
+        # owner 2026-11-25 §2: неопределённая интенция/творческий акт без
+        # story-формы разрешением не являются.
+        for act, structure in (("answer", "chat"), ("creative", "chat")):
+            assert not lore_verbatim_allowed(_l1_plan(act, structure)), \
                 (act, structure)
         for act in ("research", "explanation", "comparison",
                     "summarization", "clarification"):
@@ -257,12 +271,12 @@ class TestLoreVerbatimInstructionGate:
     def test_legacy_response_plan_kinds(self):
         assert not lore_verbatim_allowed(None, _RP("research"))
         assert not lore_verbatim_allowed(None, _RP("summarization"))
-        assert lore_verbatim_allowed(None, _RP("creative_writing"))
+        assert not lore_verbatim_allowed(None, _RP("creative_writing"))
         assert lore_verbatim_allowed(None, _RP("historical_recall"))
-        assert lore_verbatim_allowed(None, _RP("social_chat"))
+        assert not lore_verbatim_allowed(None, _RP("social_chat"))
 
-    def test_no_plan_fails_open(self):
-        assert lore_verbatim_allowed(None, None)
+    def test_no_plan_is_not_permission(self):
+        assert not lore_verbatim_allowed(None, None)
 
     def test_kill_switch_off_restores_legacy(self, monkeypatch):
         from config.settings import Settings
@@ -989,12 +1003,12 @@ class TestScenarioMatrixNoTemplate:
             ("free_reasoning",
              {"action": "reply", "response_act": "answer",
               "structure": "chat", "tool_policy": "none"},
-             "social_chat", True),
+             "social_chat", False),
             ("fact_lookup",
              {"action": "reply", "response_act": "answer",
               "structure": "answer", "tool_policy": "auto",
               "capabilities_needed": ["chat_memory"]},
-             "social_chat", True),
+             "social_chat", False),
             ("person_analysis",
              {"action": "reply", "response_act": "analysis",
               "structure": "explanation", "tool_policy": "auto",
@@ -1019,7 +1033,7 @@ class TestScenarioMatrixNoTemplate:
              {"action": "reply", "response_act": "answer",
               "structure": "answer", "tool_policy": "auto",
               "capabilities_needed": ["statistics"]},
-             "social_chat", True),
+             "social_chat", False),
             ("creative",
              {"action": "reply", "response_act": "creative",
               "structure": "story", "tool_policy": "auto"},

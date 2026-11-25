@@ -18,7 +18,6 @@ from services.llm_client import (
     LLMToolCall,
 )
 from services.tool_loop import (
-    TOOL_LOOP_FALLBACK_PHRASE,
     ToolLoopResult,
     chat_with_tools,
 )

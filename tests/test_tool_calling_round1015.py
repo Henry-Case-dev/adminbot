@@ -576,8 +576,6 @@ class TestToolLoopLimits:
         """SMART-EXECUTION-RELIABILITY-01 §B1/B4: предела 4 раунда нет;
         одинаковый вызов без изменения условий не даёт новых данных →
         честный stop `no_progress` (не квота объёма)."""
-        from services.tool_loop import TOOL_LOOP_FALLBACK_PHRASE
-
         class _AlwaysToolLLM:
             def __init__(self):
                 self.calls = 0
@@ -597,12 +595,10 @@ class TestToolLoopLimits:
                                     router=_CountingRouter(), ctx=_ctx())
         assert out.degraded is True
         assert out.reason == "no_progress"
-        # §G2/§G4: при накопленных результатах финальный ответ строится по
-        # evidence (Writer недоступен у двойника → безопасный partial),
-        # саркастичная заглушка не публикуется.
-        assert out != TOOL_LOOP_FALLBACK_PHRASE
-        assert out.finalize_mode == "structured_partial"
-        assert "no_progress" in str(out)
+        # §G2/§G4: при накопленных результатах финальный LLM-путь вызывается,
+        # публикуемого программного текста нет (owner 2026-11-25 §4).
+        assert out == ""
+        assert out.finalize_mode == "no_generative_path"
         assert out.tool_results
         assert llm.calls == 3
 

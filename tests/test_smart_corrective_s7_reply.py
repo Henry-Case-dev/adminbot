@@ -14,9 +14,10 @@
   `silent → reply` с причиной `explicit_request`.
 * **S7.4 L1 empty/bad**: для адресованного reply-to-bot ход не завершается
   молчанием — существующий fallback-план отвечает текстом.
-* **S7.5 L2 пуст + evidence**: детерминированный partial существующим
-  `_structured_partial` (тонкая публичная обёртка tool_loop), без нового
-  автора/прозы; при пустых evidence заглушка НЕ публикуется.
+* **S7.5 L2 пуст + evidence**: детерминированный partial удалён (P0
+  corrective owner 2026-11-25, §4) — программный «частичный отчёт» из
+  технических данных не публикуется; ход закрывается честным состоянием
+  (молчание 🗿), факты остаются в журнале/телеметрии.
 
 Тестовые фразы живут только в этом файле; runtime-код их не содержит.
 Сеть/БД/Telegram не используются: LLM/reader — детерминированные двойники,
@@ -33,7 +34,6 @@ import pytest
 
 from services import diagnostic_policy as diag
 from services import direct_chat_service as dcs
-from services import direct_execution as dx
 from services import direct_l1 as l1
 from services import source_reader as sr
 from services import tool_loop
@@ -392,12 +392,16 @@ class TestL1EmptyFallback:
                    for item in notes), notes
 
 
-# ── S7.5: пустой L2 + evidence → детерминированный partial, не 🗿 ───────────
+# ── S7.5: пустой L2 + evidence → честное состояние, без программного отчёта ──
+# P0 corrective (owner 2026-11-25, §4): детерминированный «частичный отчёт» из
+# технических данных удалён. Пустой Writer после существующих recovery/retry не
+# подменяется программным текстом: ход закрывается молчанием (🗿), а факты
+# (инструменты/статусы) остаются в журнале прогона и телеметрии.
 
 
 class TestEmptyL2WithEvidence:
     @pytest.mark.asyncio
-    async def test_partial_from_evidence_instead_of_silence(self, monkeypatch):
+    async def test_no_programmatic_report_instead_of_silence(self, monkeypatch):
         router = _FakeRouter(outputs={"get_recent_history":
                                       "вчера обсуждали watchdog.jobs"})
         llm = _ScriptedLLM(
@@ -410,12 +414,11 @@ class TestEmptyL2WithEvidence:
 
         await svc.handle(bot, msg, user)
 
-        react.assert_not_awaited()
-        svc._send_direct_answer.assert_awaited_once()
-        delivered = svc._send_direct_answer.await_args.args[2]
-        assert "Подтверждённые данные (результаты инструментов)" in delivered
-        assert "get_recent_history" in delivered
-        assert "🗿" not in delivered
+        # Инструмент реально исполнялся, но публикуемого программного текста
+        # нет: ни «подтверждённых данных», ни «исследование остановлено».
+        assert [d["tool"] for d in router.dispatched] == ["get_recent_history"]
+        react.assert_awaited_once()
+        svc._send_direct_answer.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_no_evidence_keeps_existing_silence(self, monkeypatch):
@@ -429,10 +432,18 @@ class TestEmptyL2WithEvidence:
         react.assert_awaited_once()
         svc._send_direct_answer.assert_not_awaited()
 
-    def test_partial_wrapper_is_honest_about_empty_results(self):
-        result = tool_loop.ToolLoopResult("", reason="ok")
-        assert tool_loop.structured_partial_from_result(
-            result, [], stop_reason="empty", finalize_error="empty") == ""
+    def test_failure_state_is_structured_not_prose(self):
+        """Внутреннее состояние остаётся структурным (без пользовательского
+        текста): коды/счётчики доступны диагностике."""
+        items = [{"tool": "get_recent_history", "status": "error",
+                  "error_code": "provider_unavailable", "output": ""}]
+        state = tool_loop.failure_state("chain_timeout", items)
+        assert state["status"] == "no_generative_path"
+        assert state["stop_reason"] == "chain_timeout"
+        assert state["failed_tools"] == ["get_recent_history"]
+        assert state["calls"] == 1
+        assert not any(isinstance(value, str) and "\n" in value
+                       for value in state.values())
 
 
 # ── Никаких захардкоженных фраз production-лейна ────────────────────────────
@@ -447,24 +458,11 @@ def test_runtime_has_no_phrase_hardcode():
         assert "посмотри по коду" not in text, name
 
 
-# ── Reviewer «Needs Fixes» F1/F2: честность partial-шва ─────────────────────
-# F1: строка «Запрос:» partial'а — исходный пользовательский запрос, а НЕ
-#     внутренняя сборка Writer'а (`<Chat_Time_Context>` и служебные блоки);
-#     причина остановки — человекочитаемая, не повтор машинного кода.
-# F2: пустой envelope (`ok` с 0 символов / `{"status":"empty"}` / пробелы) —
-#     не «подтверждённые данные»: partial не публикуется, сохраняется
-#     существующий silence-path (🗿).
-
-
-def _chain(*, results, sources, text="", reason="ok"):
-    return dx.ChainResult(text, rounds_used=1, reason=reason,
-                          tool_results=list(results),
-                          evidence_sources=list(sources))
-
-
-def _source(*, status="ok", content="", tool="get_recent_history"):
-    return dx.EvidenceSource(tool=tool, status=status, content=content,
-                             total_chars=len(content))
+# ── Reviewer «Needs Fixes» F1/F2 → P0 corrective: честность финализации ─────
+# F1/F2 фиксировали честность ДЕТЕРМИНИРОВАННОГО partial'а. P0 corrective
+# (owner 2026-11-25, §4) удалил сам механизм: внутренние технические данные не
+# становятся разговорным текстом. Здесь проверяется новое состояние:
+# структурное `failure_state` (диагностика) и отсутствие публикуемого текста.
 
 
 def _envelope(*, status="ok", out_chars=0, tool="get_recent_history"):
@@ -472,89 +470,39 @@ def _envelope(*, status="ok", out_chars=0, tool="get_recent_history"):
             "data": {}, "out_chars": out_chars}
 
 
+def _items(*envelopes):
+    return tool_loop._evidence_inventory(list(envelopes), [""] * len(envelopes))
+
+
 class TestPartialSeamHonesty:
-    @pytest.mark.asyncio
-    async def test_partial_request_is_user_query_not_internal_payload(
-            self, monkeypatch):
-        """F1: «Запрос:» — текст человека, без служебных блоков payload'а."""
-        router = _FakeRouter(outputs={"get_recent_history":
-                                      "вчера обсуждали watchdog.jobs"})
-        llm = _ScriptedLLM(
-            l1=_plan_json(tool_policy="auto",
-                          capabilities_needed=["chat_history"]),
-            l2="")                       # Writer вернул пусто
-        query = "Что мы решали по watchdog.jobs?"
-        svc, react, bot, msg, user = _drive(
-            monkeypatch, query, llm=llm, tool_router=router)
+    def test_structured_state_names_failures_for_diagnostics(self):
+        """Отказы/коды остаются доступными диагностике (не в речи)."""
+        state = tool_loop.failure_state(
+            "chain_timeout",
+            _items(_envelope(status="error"), _envelope(out_chars=15)))
+        assert state["stop_reason"] == "chain_timeout"
+        assert state["failed"] == 1
+        assert state["usable"] == 1
+        assert "get_recent_history" in state["failed_tools"]
 
-        await svc.handle(bot, msg, user)
+    def test_structured_state_has_no_publishable_text(self):
+        """Структурное состояние не содержит разговорного текста/цитаты
+        запроса: публикуемый текст формирует только модель."""
+        state = tool_loop.failure_state(
+            "empty", _items(_envelope(out_chars=15)))
+        assert "Запрос:" not in str(state)
+        assert "Исследование остановлено" not in str(state)
+        assert "Подтверждённые данные" not in str(state)
 
-        delivered = svc._send_direct_answer.await_args.args[2]
-        request_lines = [line for line in delivered.splitlines()
-                         if line.startswith("Запрос:")]
-        assert request_lines, delivered
-        assert query in request_lines[0]
-        assert "<Chat_Time_Context" not in request_lines[0]
-        # Причина остановки человекочитаемая: не «empty (empty)».
-        assert "empty (empty)" not in delivered
-        # Не тавтология: payload L2 РЕАЛЬНО содержал служебный блок времени —
-        # именно он раньше уезжал в строку «Запрос:».
-        l2_text = "".join(str(m.get("content"))
-                          for m in llm.last_messages("l2_writer"))
-        assert "<Chat_Time_Context" in l2_text
-
-    def test_partial_request_sanitized_for_internal_messages(self):
-        """F1: общая обёртка не отдаёт служебный блок даже с payload'ом."""
-        result = _chain(results=[_envelope(out_chars=15)],
-                        sources=[_source(content="данные истории")])
-        messages = [
-            {"role": "system", "content": "system"},
-            {"role": "user", "content": (
-                '<Chat_Time_Context source="server" phase="answer">\n'
-                "local: 16.11.2026 14:39, Понедельник\n"
-                "</Chat_Time_Context>\n\n"
-                "Что мы решали по watchdog.jobs?")},
-        ]
-        text = tool_loop.structured_partial_from_result(
-            result, messages, stop_reason="chain_timeout")
-
-        assert text
-        assert "<Chat_Time_Context" not in text
-        assert "Что мы решали по watchdog.jobs?" in text
-
-    def test_zero_char_ok_evidence_returns_empty(self):
-        """F2: `status=ok` с 0 символов — не доказательство."""
-        result = _chain(results=[_envelope(out_chars=0)],
-                        sources=[_source(content="")])
-        assert tool_loop.structured_partial_from_result(
-            result, [], stop_reason="") == ""
-
-    def test_empty_status_evidence_returns_empty(self):
-        """F2: `{"status": "empty"}` — отсутствие данных, не partial."""
-        result = _chain(results=[_envelope(status="empty", out_chars=17)],
-                        sources=[_source(status="empty",
-                                         content='{"status": "empty"}')])
-        assert tool_loop.structured_partial_from_result(result, []) == ""
-
-    def test_whitespace_only_evidence_returns_empty(self):
-        result = _chain(results=[_envelope(out_chars=6)],
-                        sources=[_source(content="  \n\t  ")])
-        assert tool_loop.structured_partial_from_result(result, []) == ""
-
-    def test_real_content_still_publishes_partial(self):
-        """Positive-control: реальные данные публикуются как прежде."""
-        result = _chain(results=[_envelope(out_chars=14)],
-                        sources=[_source(content="данные истории")])
-        text = tool_loop.structured_partial_from_result(result, [])
-
-        assert "Подтверждённые данные (результаты инструментов)" in text
-        assert "данные истории" in text
-        assert "get_recent_history" in text
-        assert "0 символов" not in text
+    def test_delivered_artifact_state(self):
+        state = tool_loop.failure_state("empty", _items(_envelope()),
+                                        delivered=True)
+        assert state["status"] == "delivered_artifact"
 
     @pytest.mark.asyncio
     async def test_empty_tool_output_keeps_existing_silence(self, monkeypatch):
-        """F2 e2e: инструмент вернул пусто → прежний silence-path (🗿)."""
+        """Если данных нет и Writer пуст → прежний silence-path (🗿), без
+        программной заглушки."""
         router = _FakeRouter(outputs={"get_recent_history": ""}, default="")
         llm = _ScriptedLLM(
             l1=_plan_json(tool_policy="auto",
@@ -566,23 +514,19 @@ class TestPartialSeamHonesty:
 
         await svc.handle(bot, msg, user)
 
-        # Прежний silence-path: реакция вместо выдуманного partial'а.
         react.assert_awaited_once()
         assert react.await_args.args[0] is bot
         svc._send_direct_answer.assert_not_awaited()
-        # Не тавтология: инструмент РЕАЛЬНО исполнялся (пустая выдача), т.е.
-        # evidence-журнал был, но содержательных данных в нём нет.
+        # Не тавтология: инструмент РЕАЛЬНО исполнялся (пустая выдача).
         assert [d["tool"] for d in router.dispatched] == ["get_recent_history"]
 
 
-# ── Reviewer «Needs Fixes» R1: честность ВНУТРЕННЕГО degraded-пути ──────────
-# R1: `_finish_degraded` вызывал `_structured_partial` без `require_content`,
-# поэтому пустая выдача инструмента (`""`, `{"status": "empty"}`, пробелы)
-# публиковалась как «Подтверждённые данные» с «0/N символов». Правило то же,
-# что у внешнего F2-шва: пустой/`empty`/пробельный результат — не данные; без
-# данных сохраняется прежний fallback деградации (не ложное «подтверждено»).
-# Проверяется РЕАЛЬНЫЙ `chat_with_tools` (роутер/цикл настоящие, LLM —
-# детерминированный двойник с пустым финальным Writer'ом).
+# ── Reviewer «Needs Fixes» R1 → P0 corrective: внутренний degraded-путь ─────
+# R1 требовал не публиковать пустую выдачу инструмента как «подтверждённые
+# данные». P0 corrective (owner 2026-11-25, §4) удалил программный partial
+# целиком: пустая/непустая выдача остаётся в диагностике, а публикуемого
+# текста нет. Проверяется РЕАЛЬНЫЙ `chat_with_tools` (роутер/цикл настоящие,
+# LLM — детерминированный двойник с пустым финальным Writer'ом).
 
 MESSAGES_R1 = [{"role": "user", "content": "почему упал деплой?"}]
 TOOLS_R1 = [{"type": "function", "function": {"name": "execute_web_search"}}]
@@ -597,6 +541,7 @@ class _ToolLoopLLM:
         self.finalize_error = finalize_error
         self.chat_calls = 0
         self.finalize_calls = 0
+        self.finalize_messages = []
 
     async def generate_chat(self, messages, *, tools=None, **kwargs):
         self.chat_calls += 1
@@ -611,6 +556,7 @@ class _ToolLoopLLM:
     async def generate(self, messages, temperature=None, chat_id=None,
                        **kwargs):
         self.finalize_calls += 1
+        self.finalize_messages.append(messages)
         if self.finalize_error is not None:
             raise self.finalize_error
         return self.finalize_text
@@ -626,10 +572,10 @@ async def _degraded_run(output):
     return out, router, llm
 
 
-class TestInternalDegradedPartialHonesty:
+class TestInternalDegradedHonestState:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("output", ["", '{"status": "empty"}', "  \n\t  "])
-    async def test_empty_tool_result_is_not_confirmed_data(self, output):
+    async def test_empty_tool_result_publishes_no_fake_reply(self, output):
         out, router, llm = await _degraded_run(output)
         text = str(out)
         # Не тавтология: инструмент РЕАЛЬНО исполнялся — журнал прогона есть.
@@ -638,26 +584,27 @@ class TestInternalDegradedPartialHonesty:
             "execute_web_search"
         assert out.degraded is True and out.reason == "llm_error"
         assert llm.finalize_calls == 1
-        # Пустая выдача НЕ публикуется как «подтверждённые данные».
+        # P0 corrective (owner 2026-11-25 §4): ни «подтверждённых данных», ни
+        # программной заглушки — только честное состояние.
         assert "Подтверждённые данные" not in text
         assert "0 символов" not in text
-        # Сохранён прежний fallback деградации без данных.
-        assert out.finalize_mode == "fallback_phrase"
-        assert text == tool_loop.TOOL_LOOP_FALLBACK_PHRASE
+        assert out.finalize_mode == "no_generative_path"
+        assert text == ""
 
     @pytest.mark.asyncio
-    async def test_real_tool_data_still_publishes_partial(self):
-        """Positive-control: реальные данные публикуются как прежде."""
+    async def test_real_tool_data_kept_in_diagnostics_not_in_reply(self):
+        """Реальные данные не публикуются программным текстом: они уходят в
+        существующий Writer-путь (директива) и остаются в журнале."""
         out, router, llm = await _degraded_run("данные поиска")
         text = str(out)
         assert out.degraded is True and out.reason == "llm_error"
-        assert out.finalize_mode == "structured_partial"
-        assert "Подтверждённые данные (результаты инструментов)" in text
-        assert "- execute_web_search: ok" in text
-        assert "данные поиска" in text
-        assert "0 символов" not in text
-        assert "почему упал деплой?" in text
-        assert text != tool_loop.TOOL_LOOP_FALLBACK_PHRASE
+        assert out.finalize_mode == "no_generative_path"
+        assert text == ""
+        # Данные реально были доставлены финальному LLM-вызову (payload).
+        tool_messages = [m for m in llm.finalize_messages[0]
+                         if m.get("role") == "tool"]
+        assert tool_messages and "данные поиска" in tool_messages[0]["content"]
+        assert out.tool_results and out.tool_results[0]["status"] == "ok"
 
 
 # ── Reviewer «Needs Fixes» F3/F4: телеметрия grant'а и адресность reply ─────
