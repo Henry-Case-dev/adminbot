@@ -2226,10 +2226,14 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     block = "direct.base.l1_planner"
     label, seal = pr.FACTORY_REVISION_SEALS[block]
     assert pr.FACTORY_REVISION_LABELS[block] == label
-    # Метка ревизии EVR6 (VMQ-MEM-TIME §2): политика временнóго охвата памяти.
-    assert label == "l1-planner-memory-scope"
+    # Метка ревизии P0GM (P0-GOAL-MEDIA, 25.11.2026): правило 7 «конечный
+    # результат vs материал» + поле final_goal + абзацы цели/медиа; прежняя
+    # метка l1-planner-memory-scope осталась в слепке EVR6.
+    assert label == "l1-planner-final-goal"
     assert pr.sha12(pr.factory_text(block)) == seal
     assert pr.seal_integrity() == {}
+    assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
+    assert pr.sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ce6931304b24"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR5) == "2354a5cc57c4"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR4) == "8d172f40241d"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
@@ -2248,6 +2252,8 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     rollback = pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"]
     assert (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+            cp.PREV_DIRECT_L1_PLANNER_EVR6) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR6,
             cp.PREV_DIRECT_L1_PLANNER_EVR5) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR5,
             cp.PREV_DIRECT_L1_PLANNER_EVR4) in rollback

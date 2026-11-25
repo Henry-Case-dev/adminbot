@@ -198,7 +198,16 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # сигналом поиска оставалась runtime-политика. Прежние байты —
     # PREV_DIRECT_L1_PLANNER_EVR3. Правила/участие/внешние утверждения/профиль
     # решений и тексты владельца не менялись.
-    "direct.base.l1_planner": "l1-planner-memory-scope",
+    # P0-GOAL-MEDIA (25.11.2026, P0 §2; P0I-GOAL-01/02, P0R-MEDIA-01/02):
+    # ревизия P0GM — правило 7 различает конечный результат и материал
+    # (заказ «разбери и напиши» больше не уходит в исследование вместо
+    # продукта), добавлено необязательное поле `final_goal` в той же схеме и
+    # два абзаца семантики (цель хода, действия с медиа: реплика в ответ на
+    # медиа — не операция, запрошенное преобразование не подменяется другой
+    # операцией). Прежние байты — PREV_DIRECT_L1_PLANNER_EVR6. Правила 1-6 и
+    # 8-9, секции участия/уточнений/продолжения/задачи/внешних утверждений/
+    # фазы/профиля/оси/памяти и тексты владельца не менялись.
+    "direct.base.l1_planner": "l1-planner-final-goal",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -411,8 +420,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.l2_writer": ("l2-writer-self-correction-rca1",
                               "44736968bc76"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-memory-scope",
-                               "619290834387"),
+    "direct.base.l1_planner": ("l1-planner-final-goal",
+                               "ce6931304b24"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -3006,7 +3015,14 @@ def factory_set_fingerprint() -> str:
 #: получил смысловую границу смешанного состояния (печать ``3140bb364044``);
 #: прочие каноны, включая все PREV_CHECKUP_* и тексты владельца, байт-в-байт.
 #: Было ``330952838067``, стало ``2cd38b272139``.
-FACTORY_SET_SHA256_12 = "2cd38b272139"
+#: P0-GOAL-MEDIA (25.11.2026, P0 §2; P0I-GOAL-01/02, P0R-MEDIA-01/02):
+#: changed = 1 — ``direct.base.l1_planner`` получил редакцию правил P0GM
+#: (правило 7: конечный результат vs материал), необязательное поле
+#: ``final_goal`` в схеме и абзацы «КОНЕЧНАЯ ЦЕЛЬ ХОДА» / «МАТЕРИАЛЫ И
+#: ДЕЙСТВИЯ С НИМИ» (метка ``l1-planner-final-goal``, печать
+#: ``ce6931304b24``); прочие каноны, включая тексты владельца, байт-в-байт.
+#: Было ``2cd38b272139``, стало ``10efa51a8dae``.
+FACTORY_SET_SHA256_12 = "10efa51a8dae"
 
 
 

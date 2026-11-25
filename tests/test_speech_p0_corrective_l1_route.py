@@ -55,8 +55,9 @@ def _payload(plan: l1.L1Plan) -> tuple[str, str, str]:
 # ── 1. Семантика канона ─────────────────────────────────────────────────────
 
 def test_l1_canon_separates_material_from_opinion():
-    # POST-ASAP5 W2: активные правила — ред. PA5W2 (правило 4 + поиск)
-    rules = cp._DIRECT_L1_PLANNER_RULES_PA5W2
+    # P0-GOAL-MEDIA (25.11.2026): активные правила — редакция P0GM (правило 7:
+    # конечный результат vs материал; прежняя редакция PA5W2 заморожена)
+    rules = cp._DIRECT_L1_PLANNER_RULES_P0GM
     assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT.count(rules) == 1
 
     # ветка «разобрать материал» → research
@@ -68,6 +69,9 @@ def test_l1_canon_separates_material_from_opinion():
     # тональность не меняет акт: грубость — только tone
     assert "меняют ТОЛЬКО tone" in rules
     assert "response_act - это то, что ты ДЕЛАЕШЬ по существу" in rules
+    # P0-GOAL-MEDIA: конечный результат не подменяется подготовкой
+    assert "Разделяй конечный результат и материал для него" in rules
+    assert "Такой ход не становится исследованием" in rules
     # ветка «только мнение/оценка» → answer без эссе
     assert "structure=answer" in rules
     assert "без хроники, биографии и" in rules
@@ -91,11 +95,14 @@ def test_l1_canon_separates_material_from_opinion():
         assert phrase not in low, phrase
 
     # правила 1-3 — байт-в-байт из замороженного R3b; правило 4 расширено
-    # W2 (семантика поиска), хвост после правила 4 прежний
+    # W2 (семантика поиска); правила 5-6 и 8-9 не менялись (дельта P0GM —
+    # только правило 7)
     assert cp._DIRECT_L1_PLANNER_RULES_R3B.split(
         "4. capabilities_needed")[0] == rules.split("4. capabilities_needed")[0]
-    assert rules.split("5. needs_clarification")[1] == \
-        cp._DIRECT_L1_PLANNER_RULES.split("5. needs_clarification")[1]
+    assert rules.split("7. Сначала определи")[0] == \
+        cp._DIRECT_L1_PLANNER_RULES_PA5W2.split("7. Сначала определи")[0]
+    assert rules.split("8. Глубина разбора")[1] == \
+        cp._DIRECT_L1_PLANNER_RULES_PA5W2.split("8. Глубина разбора")[1]
     # текст владельца (контракт §4.1) не менялся
     assert cp._DIRECT_L1_CLARIFICATION_CONTRACT in \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
@@ -188,7 +195,11 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     # байты — ревизия EVR5 с полем preserve_source_facts.
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR4) == "8d172f40241d"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "619290834387"
+    # P0-GOAL-MEDIA (25.11.2026): слепок EVR6 — прежние активные байты
+    # (619290834387), активная ревизия P0GM — правило 7 (продукт vs материал)
+    # + поле final_goal + абзацы цели/медиа (ce6931304b24).
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ce6931304b24"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок
@@ -210,41 +221,46 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     # UNIFIED-REPLY UR-06/UR-03: верхняя ступень снимала ТОЛЬКО ось поиска →
     # байты EVR3, ниже — прежний стек. RLR-03.3: затем верхняя ступень —
     # снятие поля preserve_source_facts → байты EVR4, ось поиска ниже.
-    # VMQ-MEM-TIME (§2): теперь верхняя ступень — снятие поля memory_scope →
-    # байты EVR5; поле preserve_source_facts ниже.
+    # VMQ-MEM-TIME (§2): ступень снятия memory_scope — байты EVR5; P0-GOAL-MEDIA
+    # (25.11.2026): верхняя ступень снимает ревизию P0GM → байты EVR6, ниже —
+    # прежний стек (правило 7 и поле memory_scope остаются в EVR6).
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][0] == (
             cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-            cp.PREV_DIRECT_L1_PLANNER_EVR5)
+            cp.PREV_DIRECT_L1_PLANNER_EVR6)
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][1] == (
+            cp.PREV_DIRECT_L1_PLANNER_EVR6,
+            cp.PREV_DIRECT_L1_PLANNER_EVR5)
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][2] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR5,
             cp.PREV_DIRECT_L1_PLANNER_EVR4)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][2] == (
+        "prompts.direct_l1_planner_system_prompt"][3] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR4,
             cp.PREV_DIRECT_L1_PLANNER_EVR3)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][3] == (
+        "prompts.direct_l1_planner_system_prompt"][4] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR3,
             cp.PREV_DIRECT_L1_PLANNER_EVR2)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][4] == (
+        "prompts.direct_l1_planner_system_prompt"][5] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR2,
             cp.PREV_DIRECT_L1_PLANNER_EVR1)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][5] == (
+        "prompts.direct_l1_planner_system_prompt"][6] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR1,
             cp.PREV_DIRECT_L1_PLANNER_EVR0)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][6] == (
+        "prompts.direct_l1_planner_system_prompt"][7] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR0, prev6)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][7] == (prev6, prev5)
+        "prompts.direct_l1_planner_system_prompt"][8] == (prev6, prev5)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][8] == (prev5, prev4)
+        "prompts.direct_l1_planner_system_prompt"][9] == (prev5, prev4)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][9] == (prev4, prev3)
+        "prompts.direct_l1_planner_system_prompt"][10] == (prev4, prev3)
 
 
 # ── 3. Payload: research 1×1, answer 0×0, без дублей ────────────────────────

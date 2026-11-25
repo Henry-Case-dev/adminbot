@@ -275,15 +275,26 @@ def test_l1_canon_persona_and_rules_bytes_preserved():
         ' "preserve_source_facts": false}', 1) \
         + cp._DIRECT_L1_SOURCE_FACTS_EVR5
     assert cp.PREV_DIRECT_L1_PLANNER_EVR5 == evr5
-    assert canon == evr5.replace(
+    # VMQ-MEM-TIME (§2): EVR6 = EVR5 + поле memory_scope (секция + строка
+    # схемы); P0-GOAL-MEDIA (25.11.2026): активный канон = EVR6 + редакция
+    # правил P0GM (правило 7) + поле final_goal + абзацы цели/медиа.
+    evr6 = evr5.replace(
         ' "preserve_source_facts": false}',
         ' "preserve_source_facts": false,\n'
         ' "memory_scope": "auto"}', 1) \
         + cp._DIRECT_L1_MEMORY_SCOPE_EVR6
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR6 == evr6
+    assert canon == (
+        evr6.replace(cp._DIRECT_L1_PLANNER_RULES_PA5W2,
+                     cp._DIRECT_L1_PLANNER_RULES_P0GM)
+        .replace(' "memory_scope": "auto"}',
+                 ' "memory_scope": "auto",\n "final_goal": ""}', 1)
+        + cp._DIRECT_L1_FINAL_GOAL_P0GM
+        + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM)
     assert canon.count(cp._DIRECT_L1_INTENT_UPDATE_PA5) == 1
     assert canon.count(cp._DIRECT_L1_CLARIFICATION_CONTRACT) == 1
     assert canon.count(cp._DIRECT_L1_CONTINUATION_R3B) == 1
-    assert canon.count(cp._DIRECT_L1_PLANNER_RULES_PA5W2) == 1
+    assert canon.count(cp._DIRECT_L1_PLANNER_RULES_P0GM) == 1
     # Core: характер сохранён, корректность не подчинена стилю (§7.2)
     assert "Резкость не заменяет мысль" in cp.PERSONALITY_CORE_FULL_TEXT
     assert "подменять проверяемое утверждение красивой догадкой" in \
@@ -338,7 +349,10 @@ def test_pa5w1_snapshot_is_exact_previous_active_bytes():
     # сохранения фактов (2354a5cc57c4) и активные байты EVR6 — VMQ-MEM-TIME
     # (§2): политика памяти (619290834387).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "619290834387"
+    # P0-GOAL-MEDIA (25.11.2026): слепок EVR6 — прежние активные байты
+    # (619290834387), активная ревизия P0GM — ce6931304b24.
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ce6931304b24"
     assert "ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ" not in prev
 
 
@@ -349,38 +363,40 @@ def test_pa5w1_migration_step_and_rollback_head():
     assert steps[cp.PREV_DIRECT_L1_PLANNER_PA5W2] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    # VMQ-MEM-TIME (§2): верхняя ступень — EVR5 → действующий канон (EVR6);
-    # откат снимает ровно поле memory_scope.
+    # P0-GOAL-MEDIA (25.11.2026): верхняя ступень снимает ревизию P0GM →
+    # байты EVR6; ниже — снятие поля memory_scope (EVR6 → EVR5).
     assert rollback[0] == (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+                           cp.PREV_DIRECT_L1_PLANNER_EVR6)
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR6,
                            cp.PREV_DIRECT_L1_PLANNER_EVR5)
     # RLR-03.3: EVR5 → EVR4 (снятие поля preserve_source_facts).
-    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR5,
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR5,
                            cp.PREV_DIRECT_L1_PLANNER_EVR4)
     # UNIFIED-REPLY UR-06/UR-03: EVR4 → EVR3 (байты правила профиля решений);
     # прежняя ступень EVR3 → EVR2 остаётся в стеке.
-    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
                            cp.PREV_DIRECT_L1_PLANNER_EVR3)
     # ASAP-FC-VOICE-01 / B: EVR3 → EVR2 (байты прода 2.58.148,
     # 09f3d533d173).
-    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
+    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
                            cp.PREV_DIRECT_L1_PLANNER_EVR2)
     # EVOL W17: EVR2 → EVR1 (байты прода 2.58.147).
-    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
                            cp.PREV_DIRECT_L1_PLANNER_EVR1)
     # Волна 5: следующая ступень — EVR1 → EVR0 (канон ред.6).
-    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
+    assert rollback[6] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
                            cp.PREV_DIRECT_L1_PLANNER_EVR0)
     # W2 откат снимает только правило 4: ред.6 → ред.5 (W1) → ред.4
-    assert rollback[6] == (cp.PREV_DIRECT_L1_PLANNER_EVR0,
+    assert rollback[7] == (cp.PREV_DIRECT_L1_PLANNER_EVR0,
                            cp.PREV_DIRECT_L1_PLANNER_PA5W2)
-    assert rollback[7] == (cp.PREV_DIRECT_L1_PLANNER_PA5W2,
+    assert rollback[8] == (cp.PREV_DIRECT_L1_PLANNER_PA5W2,
                            cp.PREV_DIRECT_L1_PLANNER_PA5W1)
-    assert rollback[8] == (cp.PREV_DIRECT_L1_PLANNER_PA5W1,
+    assert rollback[9] == (cp.PREV_DIRECT_L1_PLANNER_PA5W1,
                            cp.PREV_DIRECT_L1_PLANNER_P0CINTR2)
     from services import prompt_registry as pr
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_PA5W2)
-    assert "l1-planner-memory-scope" in pr.factory_revision(
+    assert "l1-planner-final-goal" in pr.factory_revision(
         "direct.base.l1_planner")
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
 

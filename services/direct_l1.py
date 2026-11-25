@@ -97,6 +97,9 @@ RESPONSE_ACT_MAX = 32      # §1.3: открытый словарь, ≤32
 TONE_MAX = 24              # §1.3: открытый словарь, ≤24
 CAPABILITIES_MAX = 8       # bounded список возможностей
 CLARIFY_TARGET_MAX = 64
+#: P0-GOAL-MEDIA (25.11.2026): конечная цель хода — короткая фраза, не эссе
+#: (тот же порядок, что `FUTURE_INTENT_GOAL_MAX`; поле не инвалидирует план).
+FINAL_GOAL_MAX = 200
 
 #: Канон `response_act` из схемы L1 (единственные значения, которые понимает
 #: маршрутизация; `research` включает analysis-директиву и Writer).
@@ -565,6 +568,13 @@ class L1Plan:
     # намерение-план: сервер валидирует и исполняет, инструменты вызывает
     # модель. None/needed=false — ничего не запускается.
     diagnostic_research: "DiagnosticResearch | None" = None
+    # ── P0-GOAL-MEDIA (25.11.2026, P0 §2; P0I-GOAL-01/02): конечная цель
+    # хода — что человек хочет получить в итоге. Одно необязательное
+    # allowlisted-поле ТОГО ЖЕ L1-вызова (прецедент `future_intent.goal`):
+    # промежуточный анализ/инструмент не подменяет запрошенный продукт,
+    # потому что цель едет в плане через tool-фазу в Writer. Пусто = модель
+    # цель не назвала (план валиден, выдуманной цели нет).
+    final_goal: str = ""
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -923,6 +933,13 @@ def normalize_l1_plan(data) -> L1Plan | None:
     # текста запроса — оно приходит только от модели.
     plan.diagnostic_research = normalize_diagnostic_research(
         data.get("diagnostic_research"))
+    # ── P0-GOAL-MEDIA (25.11.2026, P0 §2): конечная цель хода. Аддитивное
+    # allowlisted-поле (прецедент `future_intent.goal`): открытый короткий
+    # текст, схлопнутые пробелы, кап длины. Невалидное/отсутствующее → ""
+    # (план валиден; сервер цель не выдумывает и не подменяет ею response_act).
+    _goal = data.get("final_goal")
+    if isinstance(_goal, str) and _goal.strip():
+        plan.final_goal = _WS_RE.sub(" ", _goal).strip()[:FINAL_GOAL_MAX]
     # ── L1D (22.10.2026): форма участия. Невалидное/отсутствующее delivery →
     # "" (обычное сообщение); id — только положительные целые.
     plan.delivery = _closed(data.get("delivery"), L1_DELIVERY_MODES, "")
@@ -3189,6 +3206,16 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                       and bool(target)))
         if act and act != "other" and act_ok:
             lines.append(f"смысловой акт ответа: {act}")
+        # P0-GOAL-MEDIA (25.11.2026, P0 §2; P0I-GOAL-01/02): конечная цель
+        # хода едет в Writer ВМЕСТЕ с актом — промежуточный разбор/результат
+        # инструмента остаётся входом и не подменяет запрошенный продукт.
+        # Строка только при непустом значении: пустая цель payload не меняет.
+        goal = str(getattr(plan, "final_goal", "") or "").strip()
+        if goal:
+            lines.append(
+                f"цель хода: {goal} - ответ даёт именно это; найденный "
+                f"материал и результаты шагов служат входом, а не заменой "
+                f"этой цели")
         tone = str(plan.tone or "inherit")
         if tone and tone != "inherit":
             lines.append(f"тон: {tone}")

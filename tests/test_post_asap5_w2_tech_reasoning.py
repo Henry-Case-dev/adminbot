@@ -226,9 +226,11 @@ def test_writer_prev_snapshot_and_step():
 # ═══ §5. L1 правило 4: семантика своевременного поиска ══════════════════════
 
 def test_l1_rule4_search_decision_semantics():
-    rules_flat = _flat(cp._DIRECT_L1_PLANNER_RULES_PA5W2)
+    # P0-GOAL-MEDIA (25.11.2026): активные правила — редакция P0GM; правило 4
+    # (семантика поиска) не менялось и входит в неё байт-в-байт.
+    rules_flat = _flat(cp._DIRECT_L1_PLANNER_RULES_P0GM)
     canon = cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert canon.count(cp._DIRECT_L1_PLANNER_RULES_PA5W2) == 1
+    assert canon.count(cp._DIRECT_L1_PLANNER_RULES_P0GM) == 1
     # категории §5.2 — семантические, без слов инцидента
     for anchor in ("Запрашивай поиск (web_search)",
                    "существенно зависит от внешних сведений",
@@ -291,11 +293,22 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
         ' "preserve_source_facts": false}', 1) \
         + cp._DIRECT_L1_SOURCE_FACTS_EVR5
     assert cp.PREV_DIRECT_L1_PLANNER_EVR5 == evr5
-    assert canon == evr5.replace(
+    # VMQ-MEM-TIME (§2): EVR6 = EVR5 + поле memory_scope (суффикс + строка
+    # схемы); P0-GOAL-MEDIA (25.11.2026): активный канон = EVR6 + редакция
+    # правил P0GM + поле final_goal + абзацы цели/медиа.
+    evr6 = evr5.replace(
         ' "preserve_source_facts": false}',
         ' "preserve_source_facts": false,\n'
         ' "memory_scope": "auto"}', 1) \
         + cp._DIRECT_L1_MEMORY_SCOPE_EVR6
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR6 == evr6
+    assert canon == (
+        evr6.replace(cp._DIRECT_L1_PLANNER_RULES_PA5W2,
+                     cp._DIRECT_L1_PLANNER_RULES_P0GM)
+        .replace(' "memory_scope": "auto"}',
+                 ' "memory_scope": "auto",\n "final_goal": ""}', 1)
+        + cp._DIRECT_L1_FINAL_GOAL_P0GM
+        + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM)
     assert len(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == 9750
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == "422e9d73d316"
     assert _sha12(prev5) == "902dd00edf52"
@@ -307,34 +320,38 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     # слепок EVR2 = ровно байты прода 2.58.148 (09f3d533d173).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR2) == "09f3d533d173"
     # UNIFIED-REPLY UR-06/UR-03: слепок EVR3 = прежние активные байты
-    # (ef61a9dd6798), новые байты — с осью поиска (619290834387).
+    # (ef61a9dd6798). P0-GOAL-MEDIA: активные байты — P0GM (ce6931304b24),
+    # прежние активные — слепок EVR6 (619290834387).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
-    assert _sha12(canon) == "619290834387"
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
+    assert _sha12(canon) == "ce6931304b24"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
     assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    # VMQ-MEM-TIME (§2): верхняя ступень снимает ТОЛЬКО поле memory_scope →
-    # байты EVR5.
-    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR5)
+    # P0-GOAL-MEDIA (25.11.2026): верхняя ступень снимает ревизию P0GM →
+    # байты EVR6; ниже — снятие поля memory_scope (EVR6 → EVR5).
+    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR6)
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR6,
+                           cp.PREV_DIRECT_L1_PLANNER_EVR5)
     # RLR-03.3: затем снимается ТОЛЬКО поле preserve_source_facts → байты EVR4.
-    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR5,
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR5,
                            cp.PREV_DIRECT_L1_PLANNER_EVR4)
     # UNIFIED-REPLY UR-06/UR-03: затем снимается ось поиска → байты EVR3
     # (правило профиля решений).
-    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
                            cp.PREV_DIRECT_L1_PLANNER_EVR3)
     # ASAP-FC-VOICE-01 / B: затем снимается правило профиля решений → байты
     # прода 2.58.148 (EVR2).
-    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
+    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
                            cp.PREV_DIRECT_L1_PLANNER_EVR2)
     # EVOL W17: затем снимается контракт двух фаз → байты 2.58.147.
-    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
                            cp.PREV_DIRECT_L1_PLANNER_EVR1)
-    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
+    assert rollback[6] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
                            cp.PREV_DIRECT_L1_PLANNER_EVR0)
-    assert rollback[6] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
-    assert rollback[7] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
+    assert rollback[7] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
+    assert rollback[8] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(prev5)
 
 
@@ -495,7 +512,10 @@ def test_labels_and_fingerprint_after_bump():
     # RC v5 (2.58.155, ревью 04.11.2026): L2-писатель получил метку
     # l2-writer-self-correction-rca1 (44736968bc76) — прежняя
     # l2-writer-evidence-discipline осталась в слепке PREV_CHAT_VERBALIZER_EVR1.
-    assert "l1-planner-memory-scope" in pr.factory_revision(
+    # P0-GOAL-MEDIA (25.11.2026): метка L1 — ревизия P0GM (правило 7 «конечный
+    # результат vs материал» + поле final_goal); прежняя метка
+    # l1-planner-memory-scope осталась в слепке PREV_DIRECT_L1_PLANNER_EVR6.
+    assert "l1-planner-final-goal" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")
