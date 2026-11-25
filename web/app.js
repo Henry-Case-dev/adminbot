@@ -7445,7 +7445,8 @@
         // Один read-only источник `/api/config/time` (summary_schedule);
         // второй настройки пояса/второго запроса планировщика нет.
         summarySchedule: null,
-        summaryScheduleState: 'idle',   // idle|loading|ready|off|no_chat|error
+        // idle|loading|ready|off|no_chat|dm_no_periodic|error
+        summaryScheduleState: 'idle',
         // ── UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ────────────
         turnDiag: null,            // GET /api/direct/turn-diagnostics
         turnDiagTurn: 1,           // выбранный ход (1 = последний)
@@ -20517,6 +20518,10 @@
           self.summarySchedule = schedule;
           if (!schedule || schedule.available === false) {
             self.summaryScheduleState = 'error';
+          } else if (schedule.enabled_source === 'dm_no_periodic') {
+            // F-14: планировщик не запускает периодические сводки в ЛС —
+            // даты нет, потому что запуска не будет (ручной /summary жив).
+            self.summaryScheduleState = 'dm_no_periodic';
           } else if (schedule.enabled === false) {
             self.summaryScheduleState = 'off';
           } else {

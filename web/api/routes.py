@@ -1291,7 +1291,12 @@ async def _summary_schedule_state(chat_id: int | None, snap,
     Только читает существующие точки истины: ChatClock-снапшот (один пояс
     чата), шкалу слотов планировщика и единый per-chat резолвер включённости.
     Нового пояса/настройки для саммари не создаёт; глобальный скоуп (без
-    чата) честно не имеет «следующего запуска» (None)."""
+    чата) честно не имеет «следующего запуска» (None).
+
+    F-14: в ЛС (``chat_id > 0``) периодических сводок нет — тик планировщика
+    пропускает такие чаты до резолвера/слотов. Поэтому для ЛС блок честно
+    не содержит «следующего запуска» и помечает причину
+    ``enabled_source="dm_no_periodic"``; ручной /summary при этом работает."""
     if chat_id is None:
         return None
     try:
@@ -1314,6 +1319,18 @@ async def _summary_schedule_state(chat_id: int | None, snap,
         "enabled": None,
         "enabled_source": "",
     }
+    try:
+        is_dm = int(chat_id) > 0
+    except (TypeError, ValueError):      # pragma: no cover - нетипизированный id
+        is_dm = False
+    if is_dm:
+        # F-14 (spec §4.2): ЛС исключены из периодических саммари в самом
+        # планировщике (``SummarySchedulerService._tick``: chat_id > 0 →
+        # continue). Показывать «следующий запуск» здесь — выдуманное время:
+        # дата не наступает никогда. enabled=None: вопрос «включено?» к ЛС
+        # не относится, честная причина — в enabled_source.
+        schedule["enabled_source"] = "dm_no_periodic"
+        return schedule
     try:
         moment = now_utc or datetime.datetime.now(datetime.timezone.utc)
         if moment.tzinfo is None:
