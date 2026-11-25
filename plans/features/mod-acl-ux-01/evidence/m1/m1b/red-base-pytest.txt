@@ -1,0 +1,248 @@
+﻿FFFFFFFFFFFFF.F.F..........                                              [100%]
+================================== FAILURES ===================================
+_ TestPredicateParity.test_bot_and_admin_side_agree[role_type=global_admin, \u043f\u0440\u0430\u0432 \u043d\u0435\u0442] _
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DAB0800>
+cache = <services.config_cache.ConfigCache object at 0x0000022A40A8D010>
+label = 'role_type=global_admin, ╨┐╤А╨░╨▓ ╨╜╨╡╤В', tid = 880000111, expected = True
+
+    @pytest.mark.parametrize("label,tid,expected", PARITY_CASES,
+                             ids=[c[0] for c in PARITY_CASES])
+    def test_bot_and_admin_side_agree(self, cache, label, tid, expected):
+        admin_side = deps_mod.user_is_global_admin(cache, tid)
+>       bot_side = chat_access.is_global_admin(tid)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:176: AttributeError
+_ TestPredicateParity.test_bot_and_admin_side_agree[custom-\u0440\u043e\u043b\u044c \u0441 wildcard] _
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0D0D0>
+cache = <services.config_cache.ConfigCache object at 0x0000022A419822A0>
+label = 'custom-╤А╨╛╨╗╤М ╤Б wildcard', tid = 880000222, expected = True
+
+    @pytest.mark.parametrize("label,tid,expected", PARITY_CASES,
+                             ids=[c[0] for c in PARITY_CASES])
+    def test_bot_and_admin_side_agree(self, cache, label, tid, expected):
+        admin_side = deps_mod.user_is_global_admin(cache, tid)
+>       bot_side = chat_access.is_global_admin(tid)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:176: AttributeError
+_ TestPredicateParity.test_bot_and_admin_side_agree[legacy-\u0440\u043e\u043b\u044c admin (role_type NULL)] _
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0D340>
+cache = <services.config_cache.ConfigCache object at 0x0000022A41980E90>
+label = 'legacy-╤А╨╛╨╗╤М admin (role_type NULL)', tid = 880000333, expected = True
+
+    @pytest.mark.parametrize("label,tid,expected", PARITY_CASES,
+                             ids=[c[0] for c in PARITY_CASES])
+    def test_bot_and_admin_side_agree(self, cache, label, tid, expected):
+        admin_side = deps_mod.user_is_global_admin(cache, tid)
+>       bot_side = chat_access.is_global_admin(tid)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:176: AttributeError
+_ TestPredicateParity.test_bot_and_admin_side_agree[custom: \u0441\u0435\u043a\u0446\u0438\u044f access \u0431\u0435\u0437 wildcard] _
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0D3D0>
+cache = <services.config_cache.ConfigCache object at 0x0000022A419811C0>
+label = 'custom: ╤Б╨╡╨║╤Ж╨╕╤П access ╨▒╨╡╨╖ wildcard', tid = 880000444, expected = False
+
+    @pytest.mark.parametrize("label,tid,expected", PARITY_CASES,
+                             ids=[c[0] for c in PARITY_CASES])
+    def test_bot_and_admin_side_agree(self, cache, label, tid, expected):
+        admin_side = deps_mod.user_is_global_admin(cache, tid)
+>       bot_side = chat_access.is_global_admin(tid)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:176: AttributeError
+_ TestPredicateParity.test_bot_and_admin_side_agree[\u0432\u0441\u0442\u0440\u043e\u0435\u043d\u043d\u044b\u0439 moderator] _
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0D460>
+cache = <services.config_cache.ConfigCache object at 0x0000022A41982780>
+label = '╨▓╤Б╤В╤А╨╛╨╡╨╜╨╜╤Л╨╣ moderator', tid = 880000555, expected = False
+
+    @pytest.mark.parametrize("label,tid,expected", PARITY_CASES,
+                             ids=[c[0] for c in PARITY_CASES])
+    def test_bot_and_admin_side_agree(self, cache, label, tid, expected):
+        admin_side = deps_mod.user_is_global_admin(cache, tid)
+>       bot_side = chat_access.is_global_admin(tid)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:176: AttributeError
+_ TestPredicateParity.test_bot_and_admin_side_agree[\u0432\u0441\u0442\u0440\u043e\u0435\u043d\u043d\u044b\u0439 user] _
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0D4F0>
+cache = <services.config_cache.ConfigCache object at 0x0000022A419817C0>
+label = '╨▓╤Б╤В╤А╨╛╨╡╨╜╨╜╤Л╨╣ user', tid = 880000666, expected = False
+
+    @pytest.mark.parametrize("label,tid,expected", PARITY_CASES,
+                             ids=[c[0] for c in PARITY_CASES])
+    def test_bot_and_admin_side_agree(self, cache, label, tid, expected):
+        admin_side = deps_mod.user_is_global_admin(cache, tid)
+>       bot_side = chat_access.is_global_admin(tid)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:176: AttributeError
+_ TestPredicateParity.test_bot_and_admin_side_agree[\u043d\u0435\u0442 \u0441\u0442\u0440\u043e\u043a\u0438 \u0432 bot_admins] _
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0D580>
+cache = <services.config_cache.ConfigCache object at 0x0000022A41981F40>
+label = '╨╜╨╡╤В ╤Б╤В╤А╨╛╨║╨╕ ╨▓ bot_admins', tid = 880000999, expected = False
+
+    @pytest.mark.parametrize("label,tid,expected", PARITY_CASES,
+                             ids=[c[0] for c in PARITY_CASES])
+    def test_bot_and_admin_side_agree(self, cache, label, tid, expected):
+        admin_side = deps_mod.user_is_global_admin(cache, tid)
+>       bot_side = chat_access.is_global_admin(tid)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:176: AttributeError
+_____ TestPredicateParity.test_global_admin_by_role_type_is_admin_in_chat _____
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0DA60>
+cache = <services.config_cache.ConfigCache object at 0x0000022A41980650>
+
+    def test_global_admin_by_role_type_is_admin_in_chat(self, cache):
+        """╨Ф╨╡╤Д╨╡╨║╤В M1-B ╨▒╤Г╨║╨▓╨░╨╗╤М╨╜╨╛: ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ ╨░╨┤╨╝╨╕╨╜ Mini App тАФ ╨╜╨╡ ╨░╨┤╨╝╨╕╨╜ ╨▒╨╛╤В╨░."""
+>       assert chat_access.is_admin(GLOBAL_ADMIN_ID) is True
+E       assert False is True
+E        +  where False = <function is_admin at 0x0000022A338DDF80>(880000111)
+E        +    where <function is_admin at 0x0000022A338DDF80> = chat_access.is_admin
+
+tests\test_mod_acl_ux_01_m1_predicate.py:184: AssertionError
+__________ TestPredicateParity.test_wildcard_custom_is_admin_in_chat __________
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0DF70>
+cache = <services.config_cache.ConfigCache object at 0x0000022A41983830>
+
+    def test_wildcard_custom_is_admin_in_chat(self, cache):
+>       assert chat_access.is_admin(WILDCARD_ID) is True
+E       assert False is True
+E        +  where False = <function is_admin at 0x0000022A338DDF80>(880000222)
+E        +    where <function is_admin at 0x0000022A338DDF80> = chat_access.is_admin
+
+tests\test_mod_acl_ux_01_m1_predicate.py:188: AssertionError
+______ TestPredicateParity.test_specific_permission_is_not_global_admin _______
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0D700>
+cache = <services.config_cache.ConfigCache object at 0x0000022A408FC4D0>
+
+    def test_specific_permission_is_not_global_admin(self, cache):
+        """╨Ь╨╛╨┤╨╡╨╗╤М ╨┐╤А╨░╨▓ ╨╜╨╡ ╨╛╤Б╨╗╨░╨▒╨╗╨╡╨╜╨░: `access`-╤Б╨╡╨║╤Ж╨╕╤П тЙа ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ ╨░╨┤╨╝╨╕╨╜."""
+>       assert chat_access.is_global_admin(CUSTOM_ACCESS_ID) is False
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:193: AttributeError
+_____ TestPredicateParity.test_owner_shortcut_is_bot_only_and_documented ______
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0E390>
+cache = <services.config_cache.ConfigCache object at 0x0000022A408FCF20>
+
+    def test_owner_shortcut_is_bot_only_and_documented(self, cache):
+        """ADMIN_USER_ID тАФ ╨▒╨╛╤В-╤Д╨╛╨╗╨▒╤Н╨║ R6 (ADR ╨║╨░╨╜o╨╜╨░ `deps` ╨╡╨│╨╛ ╨╜╨╡ ╤Б╨╛╨┤╨╡╤А╨╢╨╕╤В).
+    
+        ╨н╤В╨╛ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╨╛╨╡ ╨╜╨░╨╝╨╡╤А╨╡╨╜╨╜╨╛╨╡ ╤А╨░╤Б╤Е╨╛╨╢╨┤╨╡╨╜╨╕╨╡ ╤Б╤В╨╛╤А╨╛╨╜: ╨▒╨╡╨╖ ╨╜╨╡╨│╨╛ ╨▓╨╗╨░╨┤╨╡╨╗╨╡╤Ж
+        ╤В╨╡╤А╤П╨╗ ╨▒╤Л ╨░╨┤╨╝╨╕╨╜╨║╤Г ╨▓ ╤З╨░╤В╨╡ ╨┐╤А╨╕ ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╨╝ PG/╨┐╤Г╤Б╤В╨╛╨╝ ╨║╤Н╤И╨╡. ╨д╨╕╨║╤Б╨╕╤А╤Г╨╡╨╝
+        ╨╛╨▒╨╡ ╤Б╤В╨╛╤А╨╛╨╜╤Л ╤П╨▓╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╤А╨░╤Б╤Е╨╛╨╢╨┤╨╡╨╜╨╕╨╡ ╨╜╨╡ ╤А╨░╨╖╤А╨░╤Б╤В╨░╨╗╨╛╤Б╤М ╨╝╨╛╨╗╤З╨░.
+        """
+        owner = int(settings.ADMIN_USER_ID)
+>       assert chat_access.is_global_admin(owner) is False   # ╤А╨╛╨╗╨╕ ╨▓ ╨║╤Н╤И╨╡ ╨╜╨╡╤В
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:204: AttributeError
+__ TestPredicateParity.test_admin_role_of_name_admin_with_foreign_role_type ___
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0E8A0>
+cache = <services.config_cache.ConfigCache object at 0x0000022A408FDBB0>
+
+    def test_admin_role_of_name_admin_with_foreign_role_type(self, cache):
+        """╨б╤В╤А╨╛╨║╨░ `admin` ╤Б ╤П╨▓╨╜╤Л╨╝ role_type тАФ ╤В╨░ ╨╢╨╡ ╤Б╤В╨╛╤А╨╛╨╜╨░, ╤В╨╛╤В ╨╢╨╡ ╨╛╤В╨▓╨╡╤В."""
+        cache._roles["admin"] = {"permissions": {}, "is_custom": False,
+                                 "role_type": "custom"}
+        cache._permissions["admin"] = Permissions.from_dict({})
+>       assert chat_access.is_global_admin(LEGACY_ADMIN_ID) is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:213: AttributeError
+______________ TestPredicateParity.test_no_cache_is_fail_closed _______________
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestPredicateParity object at 0x0000022A3DB0EDB0>
+
+    def test_no_cache_is_fail_closed(self):
+        """╨Ъ╤Н╤И ╨╜╨╡ ╨╕╨╜╨╕╤Ж╨╕╨░╨╗╨╕╨╖╨╕╤А╨╛╨▓╨░╨╜ тЖТ ╨╜╨╡ ╨░╨┤╨╝╨╕╨╜, ╨▒╨╡╨╖ ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╨╕╨╣."""
+        old = hot.get_config_cache()
+        hot.set_config_cache(None)
+        try:
+>           assert chat_access.is_global_admin(PLAIN_USER_ID) is False
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'services.chat_access' has no attribute 'is_global_admin'
+
+tests\test_mod_acl_ux_01_m1_predicate.py:221: AttributeError
+_________ TestConsumers.test_privilege_and_moderator_for_global_admin _________
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestConsumers object at 0x0000022A3DB0F7D0>
+cache = <services.config_cache.ConfigCache object at 0x0000022A408FFEC0>
+
+    def test_privilege_and_moderator_for_global_admin(self, cache):
+>       assert chat_access.privilege(GLOBAL_ADMIN_ID) == "admin"
+E       AssertionError: assert 'user' == 'admin'
+E         
+E         - admin
+E         + user
+
+tests\test_mod_acl_ux_01_m1_predicate.py:240: AssertionError
+____________ TestConsumers.test_mca_style_scope_chat_admin_rights _____________
+
+self = <tests.test_mod_acl_ux_01_m1_predicate.TestConsumers object at 0x0000022A3DB342C0>
+cache = <services.config_cache.ConfigCache object at 0x0000022A40918B60>
+
+    def test_mca_style_scope_chat_admin_rights(self, cache):
+        """`_has_chat_admin_rights` (mca_style_scope) ╨▓╨╕╨┤╨╕╤В ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╨╛╨│╨╛ ╨░╨┤╨╝╨╕╨╜╨░.
+    
+        ╨Ф╨╡╤Д╨╡╨║╤В: chat-scope ╨┐╤А╨╛╤Б╤М╨▒╨░ ╨┐╨╛ ╤Б╤В╨╕╨╗╤О ╨╛╤В ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╨╛╨│╨╛ ╨░╨┤╨╝╨╕╨╜╨░ Mini App
+        ╨┐╨╛╨╗╤Г╤З╨░╨╗╨░ `style_request_denied`.
+        """
+        from services import mca_style_scope
+>       assert asyncio.run(
+            mca_style_scope._has_chat_admin_rights(GLOBAL_ADMIN_ID, -100)) is True
+E       AssertionError: assert False is True
+E        +  where False = <function run at 0x0000022A323BFB00>(<coroutine object _has_chat_admin_rights at 0x0000022A4197FDE0>)
+E        +    where <function run at 0x0000022A323BFB00> = asyncio.run
+E        +    and   <coroutine object _has_chat_admin_rights at 0x0000022A4197FDE0> = <function _has_chat_admin_rights at 0x0000022A3DCDEB60>(880000111, -100)
+E        +      where <function _has_chat_admin_rights at 0x0000022A3DCDEB60> = <module 'services.mca_style_scope' from 'C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\mod-acl-ux-01-1e46be007668-ed629f84\\services\\mca_style_scope.py'>._has_chat_admin_rights
+
+tests\test_mod_acl_ux_01_m1_predicate.py:254: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[role_type=global_admin, \u043f\u0440\u0430\u0432 \u043d\u0435\u0442]
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[custom-\u0440\u043e\u043b\u044c \u0441 wildcard]
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[legacy-\u0440\u043e\u043b\u044c admin (role_type NULL)]
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[custom: \u0441\u0435\u043a\u0446\u0438\u044f access \u0431\u0435\u0437 wildcard]
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[\u0432\u0441\u0442\u0440\u043e\u0435\u043d\u043d\u044b\u0439 moderator]
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[\u0432\u0441\u0442\u0440\u043e\u0435\u043d\u043d\u044b\u0439 user]
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[\u043d\u0435\u0442 \u0441\u0442\u0440\u043e\u043a\u0438 \u0432 bot_admins]
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_global_admin_by_role_type_is_admin_in_chat
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_wildcard_custom_is_admin_in_chat
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_specific_permission_is_not_global_admin
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_owner_shortcut_is_bot_only_and_documented
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_admin_role_of_name_admin_with_foreign_role_type
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_no_cache_is_fail_closed
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestConsumers::test_privilege_and_moderator_for_global_admin
+FAILED tests/test_mod_acl_ux_01_m1_predicate.py::TestConsumers::test_mca_style_scope_chat_admin_rights
+15 failed, 12 passed, 1 warning in 4.70s

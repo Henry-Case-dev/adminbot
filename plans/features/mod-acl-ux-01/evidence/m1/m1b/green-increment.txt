@@ -1,0 +1,51 @@
+﻿============================= test session starts =============================
+collecting ... collected 40 items
+
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[role_type=global_admin, \u043f\u0440\u0430\u0432 \u043d\u0435\u0442] PASSED [  2%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[custom-\u0440\u043e\u043b\u044c \u0441 wildcard] PASSED [  5%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[legacy-\u0440\u043e\u043b\u044c admin (role_type NULL)] PASSED [  7%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[custom: \u0441\u0435\u043a\u0446\u0438\u044f access \u0431\u0435\u0437 wildcard] PASSED [ 10%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[\u0432\u0441\u0442\u0440\u043e\u0435\u043d\u043d\u044b\u0439 moderator] PASSED [ 12%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[\u0432\u0441\u0442\u0440\u043e\u0435\u043d\u043d\u044b\u0439 user] PASSED [ 15%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_bot_and_admin_side_agree[\u043d\u0435\u0442 \u0441\u0442\u0440\u043e\u043a\u0438 \u0432 bot_admins] PASSED [ 17%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_global_admin_by_role_type_is_admin_in_chat PASSED [ 20%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_wildcard_custom_is_admin_in_chat PASSED [ 22%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_specific_permission_is_not_global_admin PASSED [ 25%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_owner_shortcut_is_bot_only_and_documented PASSED [ 27%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_admin_role_of_name_admin_with_foreign_role_type PASSED [ 30%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_no_cache_is_fail_closed PASSED [ 32%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestPredicateParity::test_broken_cache_does_not_raise PASSED [ 35%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestConsumers::test_privilege_and_moderator_for_global_admin PASSED [ 37%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestConsumers::test_moderator_unchanged PASSED [ 40%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestConsumers::test_mca_style_scope_chat_admin_rights PASSED [ 42%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestAccessStates::test_401_missing_init_data PASSED [ 45%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestAccessStates::test_401_invalid_signature PASSED [ 47%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestAccessStates::test_403_authenticated_without_permission PASSED [ 50%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestAccessStates::test_404_unknown_route PASSED [ 52%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestAccessStates::test_404_missing_resource_under_valid_admin PASSED [ 55%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestAccessStates::test_503_backend_unavailable_under_valid_admin PASSED [ 57%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestAccessStates::test_four_states_are_pairwise_distinct PASSED [ 60%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestSecretsDoNotLeave::test_planted_literal_is_caught_by_literal_masking_only PASSED [ 62%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestSecretsDoNotLeave::test_planted_secrets_absent_from_served_log_payload PASSED [ 65%]
+tests/test_mod_acl_ux_01_m1_predicate.py::TestSecretsDoNotLeave::test_status_logs_requires_authentication PASSED [ 67%]
+tests/test_chat_access.py::TestIsAdmin::test_admin_user_id_always_admin_even_pg_down PASSED [ 70%]
+tests/test_chat_access.py::TestIsAdmin::test_role_admin_from_cache PASSED [ 72%]
+tests/test_chat_access.py::TestIsAdmin::test_no_cache_at_all_admin_only PASSED [ 75%]
+tests/test_chat_access.py::TestIsAdmin::test_plain_user_not_admin PASSED [ 77%]
+tests/test_chat_access.py::TestIsModerator::test_moderator_role PASSED   [ 80%]
+tests/test_chat_access.py::TestIsModerator::test_moderator_includes_admin PASSED [ 82%]
+tests/test_chat_access.py::TestIsModerator::test_admin_role_not_moderator_role_name PASSED [ 85%]
+tests/test_chat_access.py::TestIsModerator::test_other_moderator_seed_id PASSED [ 87%]
+tests/test_chat_access.py::TestIsModerator::test_unknown_role_name_is_user PASSED [ 90%]
+tests/test_chat_access.py::TestIsModerator::test_missing_role_is_user PASSED [ 92%]
+tests/test_chat_access.py::TestGlobalAdminCanon::test_role_type_global_admin_is_admin PASSED [ 95%]
+tests/test_chat_access.py::TestGlobalAdminCanon::test_wildcard_role_is_admin PASSED [ 97%]
+tests/test_chat_access.py::TestGlobalAdminCanon::test_specific_sections_are_not_global_admin PASSED [100%]
+
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 40 passed, 1 warning in 4.85s ========================

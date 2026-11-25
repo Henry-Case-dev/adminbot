@@ -1,0 +1,22 @@
+﻿FFFFFFFFFFFFF                                                            [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_generate_image_is_ninth
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_active_tools_gate
+FAILED tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools
+FAILED tests/test_mod_acl_ux_m2_tristate_write.py::test_stale_token_recovers_and_keeps_foreign_keys
+FAILED tests/test_mod_acl_ux_m2_tristate_write.py::test_inherit_survives_stale_token
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_reaches_mock_send_without_publishing
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_carries_live_ephemeral_opportunity_context
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_goal_fallback_uses_original_verdict_kind
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+FAILED tests/test_ur_f_inspector_step1.py::test_identical_quotes_credit_only_the_surviving_item
+13 failed, 1 warning in 14.48s

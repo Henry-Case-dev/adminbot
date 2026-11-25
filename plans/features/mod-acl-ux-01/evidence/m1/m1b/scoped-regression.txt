@@ -1,0 +1,442 @@
+﻿........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 31%]
+.............................F.F.........................F.............. [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 59%]
+...................................................FF................... [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 74%]
+...................................FFF.................................. [ 77%]
+....................................................F.F................. [ 80%]
+.F.........F.....................................F...................... [ 83%]
+........................................................................ [ 87%]
+........................................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:1 знак:199
++ ... -files.txt; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 15 leaked aiosqlite connection(s)
+.............                                                            [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+      
+      Left contains 2 more items, first extra item: 'inspect_runtime'
+      Use -v to get more diff
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_image_generation_round1023.py:77: AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+E   AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+      
+      Left contains 2 more items, first extra item: 'inspect_runtime'
+      Use -v to get more diff
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_image_generation_round1023.py:99: AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+E   AssertionError: assert 16 == 14
+     +  where 16 = len(['query_chat_memory', 'dig_into_lore', 'execute_web_search', 'summarize_video', 'download_media', 'get_bot_health', ...])
+------------------------------ Captured log call ------------------------------
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В тАФ ╤Б╤Л╤А╨╛╨╣ ╨┐╤Г╤В╤М (╤В╨╡╤Б╤В╨╛╨▓╤Л╨╣ ╨┤╨▓╨╛╨╣╨╜╨╕╨║?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed тАФ in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.direct_chat_service:direct_chat_service.py:17178 direct: active participants failed тАФ window only | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 17176, in _active_participants
+    return await self.db.get_active_participants(chat_id, since, cap)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_active_participants'
+WARNING  services.direct_chat_service:direct_chat_service.py:5425 direct: bot_replies read failed | chat=-1001234567890 msg=1
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 5423, in get_bot_reply
+    return await self.db.get_bot_reply(chat_id, tg_message_id, time.time())
+                 ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_bot_reply'
+WARNING  services.direct_chat_service:direct_chat_service.py:19000 direct: running summary read failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 18980, in _build_global_context
+    row = await self.db.get_running_summary(chat_id, time.time())
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_running_summary'
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3134 [mca07] lexical messages channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3118, in retrieve
+    rows = await db.search_messages_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_messages_fts'
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3188 [mca07] lexical facts channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3146, in retrieve
+    rows = await db.search_graph_facts_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_graph_facts_fts'
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable тАФ source=error | key=flags.budgets_enabled | chat=-1001234567890
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable тАФ global value used | chat=-1001234567890 | enabled=True | source=default
+WARNING  services.mca_episodes:mca_episodes.py:558 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_episodes.py", line 553, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.direct_chat_service:direct_chat_service.py:5402 direct: bot_replies persist failed | chat=-1001234567890 msg=999
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 5398, in remember_bot_reply
+    await self.db.upsert_bot_reply(chat_id, tg_message_id, text, time.time())
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'upsert_bot_reply'
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.direct_chat_service:direct_chat_service.py:16223 direct: fact batch bound failed тАФ reassign skipped | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 16216, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_image_generation_round1023.py:287: AssertionError: assert 16 == 14
+E   services.chat_params.ChatParamsConflict: chat_params conflict: chat_id=-100 current_updated_at=2026-11-09T10:00:00+00:00
+
+During handling of the above exception, another exception occurred:
+E   AttributeError: '_Conn' object has no attribute 'fetch'
+
+The above exception was the direct cause of the following exception:
+E   services.access_errors.AccessStorageUnavailable: PostgreSQL ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜: ╨╝╨░╤В╤А╨╕╤Ж╨░ ╨╜╨╡ ╤З╨╕╤В╨░╨╡╤В╤Б╤П
+
+During handling of the above exception, another exception occurred:
+E   fastapi.exceptions.HTTPException: 503: {'code': 'access_storage_unavailable', 'message': '╨┐╤А╨░╨▓╨░ ╨╜╨╡ ╨┐╨╡╤А╨╡╤З╨╕╤В╨░╨╜╤Л ╨┐╨╡╤А╨╡╨┤ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛╨╣ ╨╖╨░╨┐╨╕╤Б╤М╤О: PostgreSQL/╨║╤Н╤И ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜'}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\web\api\routes.py:1102: fastapi.exceptions.HTTPException: 503: {'code': 'access_storage_unavailable', 'message': '╨┐╤А╨░╨▓╨░ ╨╜╨╡ ╨┐╨╡╤А╨╡╤З╨╕╤В╨░╨╜╤Л ╨┐╨╡╤А╨╡╨┤ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛╨╣ ╨╖╨░╨┐╨╕╤Б╤М╤О: PostgreSQL/╨║╤Н╤И ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜'}
+E   services.chat_params.ChatParamsConflict: chat_params conflict: chat_id=-100 current_updated_at=2026-11-09T10:00:00+00:00
+
+During handling of the above exception, another exception occurred:
+E   AttributeError: '_Conn' object has no attribute 'fetch'
+
+The above exception was the direct cause of the following exception:
+E   services.access_errors.AccessStorageUnavailable: PostgreSQL ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜: ╨╝╨░╤В╤А╨╕╤Ж╨░ ╨╜╨╡ ╤З╨╕╤В╨░╨╡╤В╤Б╤П
+
+During handling of the above exception, another exception occurred:
+E   fastapi.exceptions.HTTPException: 503: {'code': 'access_storage_unavailable', 'message': '╨┐╤А╨░╨▓╨░ ╨╜╨╡ ╨┐╨╡╤А╨╡╤З╨╕╤В╨░╨╜╤Л ╨┐╨╡╤А╨╡╨┤ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛╨╣ ╨╖╨░╨┐╨╕╤Б╤М╤О: PostgreSQL/╨║╤Н╤И ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜'}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\web\api\routes.py:1102: fastapi.exceptions.HTTPException: 503: {'code': 'access_storage_unavailable', 'message': '╨┐╤А╨░╨▓╨░ ╨╜╨╡ ╨┐╨╡╤А╨╡╤З╨╕╤В╨░╨╜╤Л ╨┐╨╡╤А╨╡╨┤ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛╨╣ ╨╖╨░╨┐╨╕╤Б╤М╤О: PostgreSQL/╨║╤Н╤И ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜'}
+E   assert False is True
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=ibm_quantum
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=anu
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=lfdr
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_uses | ts=1795649492 | event_name=random_uses | outcome=silent | level=WARN | component=random | reason_code=random_fallback | stage=conversation_variant | chat_id=-2026 | pipeline_run_id=run_c89d9cc0397b47d59a639cfdbf310034 | entity_ids={"operation_id": "diag1795649492", "purpose": "conversation_variant", "policy_version": "mca10b-v1", "primary": "trigger:new_message:e582c18f967506aa", "eligible": ["form:observation", "form:question", "form:opinion", "form:joke", "form:silence"], "outcome": "deferred", "selected": "trigger:new_message:e582c18f967506aa", "actual_source": "pseudorandom", "excluded": [["form:recall", "no_eligible_alternative"]]}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_soul1_w5_initiative_vitality.py:481: assert False is True
+E   assert False is True
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=ibm_quantum
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=anu
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=lfdr
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_uses | ts=1795649492 | event_name=random_uses | outcome=silent | level=WARN | component=random | reason_code=random_fallback | stage=conversation_variant | chat_id=-2026 | pipeline_run_id=run_6fdef58ffdc340fa8b4600ab8de5f1a3 | entity_ids={"operation_id": "diag1795649492", "purpose": "conversation_variant", "policy_version": "mca10b-v1", "primary": "trigger:new_message:e582c18f967506aa", "eligible": ["form:observation", "form:question", "form:opinion", "form:joke", "form:silence"], "outcome": "deferred", "selected": "trigger:new_message:e582c18f967506aa", "actual_source": "pseudorandom", "excluded": [["form:recall", "no_eligible_alternative"]]}
+WARNING  services.direct_chat_service:direct_chat_service.py:20924 [f6] initiative context event not persisted | chat=-2026 | outcome=silent
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_soul1_w5_initiative_vitality.py:544: assert False is True
+E   assert False is True
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=ibm_quantum
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=anu
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:4636 [random_source] provider reserve read failed | provider=lfdr
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 4633, in _provider_reserve_map
+    reserve = await self._store.provider_reserve(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_random_source.py", line 3321, in provider_reserve
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_events:mca_events.py:730 mca_event=random_uses | ts=1795649493 | event_name=random_uses | outcome=silent | level=WARN | component=random | reason_code=random_fallback | stage=conversation_variant | chat_id=-2026 | pipeline_run_id=run_6e8c33fc23d84e9b941b2c64945f91fa | entity_ids={"operation_id": "diag1795649493", "purpose": "conversation_variant", "policy_version": "mca10b-v1", "primary": "trigger:new_message:54a72a11e5fbcab1", "eligible": ["form:observation", "form:question", "form:opinion", "form:joke", "form:silence"], "outcome": "deferred", "selected": "trigger:new_message:54a72a11e5fbcab1", "actual_source": "pseudorandom", "excluded": [["form:recall", "no_eligible_alternative"]]}
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_soul1_w5_initiative_vitality.py:583: assert False is True
+E   assert not True
+     +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x0000016575248930>)
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_tool_coordinator_round1026.py:581: assert not True
+E   assert 18 == 17
+     +  where 18 = len([{'type': 'function', 'function': {'name': 'query_chat_memory', 'description': "Search the bot's memory: this chat's h...mmand arrives in free form.", 'parameters': {'type': 'object', 'properties': {}, 'additionalProperties': False}}}, ...])
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_tool_coordinator_round1026.py:911: assert 18 == 17
+E   AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+      
+      Left contains 2 more items, first extra item: 'inspect_runtime'
+      Use -v to get more diff
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_unified_image_request_round1026.py:410: AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+E   assert not True
+     +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x00000165744A3D30>)
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_unified_image_request_round1026.py:703: assert not True
+E   AssertionError: ╨▓ payload ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨╛╤Б╤В╨░╤В╤М╤Б╤П ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╜╨░ ╤В╨░╨║╨░╤П ╨░╨╜╨╜╨╛╤В╨░╤Ж╨╕╤П
+    assert 0 == 1
+     +  where 0 = <built-in method count of str object at 0x000001656C857010>('QUOTED_DROP_SENTINEL_URF')
+     +    where <built-in method count of str object at 0x000001656C857010> = '╨а╨Ю╨Ы╨м ╨Ш ╨Ч╨Р╨Ф╨Р╨з╨Р\n╨в╤Л ╨┐╤А╨╡╨▓╤А╨░╤Й╨░╨╡╤И╤М ╨┐╨╛╨┤╨│╨╛╤В╨╛╨▓╨╗╨╡╨╜╨╜╤Л╨╣ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В ╨╕ ╨┐╨╗╨░╨╜ ╨╛╤В╨▓╨╡╤В╨░ ╨▓ ╨╛╨║╨╛╨╜╤З╨░╤В╨╡╨╗╤М╨╜╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╤Г ╤З╨░╤В╨░. ╨н╤В╨╛ ╤Н╤В╨░...╨С╨╡╨╖ ╨░╨╜╨╛╨╜╤Б╨░ ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╤Е ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╣: ╨╜╨╡ ╤Б╨╛╨╛╨▒╤Й╨░╨╣, ╤З╤В╨╛ ╤Б╨╡╨╣╤З╨░╤Б ╤Б╨┤╨╡╨╗╨░╨╡╤И╤М ╨╕╨╗╨╕ ╤Г╨╢╨╡ ╤Б╨┤╨╡╨╗╨░╨╗, ╨╕ ╨╜╨╡ ╨╛╨▒╨╡╤Й╨░╨╣ ╤А╨░╨╖╨╛╨▒╤А╨░╤В╤М ╨▓╨╝╨╡╤Б╤В╨╛ ╤А╨░╨╖╨▒╨╛╤А╨░.'.count
+------------------------------ Captured log call ------------------------------
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В тАФ ╤Б╤Л╤А╨╛╨╣ ╨┐╤Г╤В╤М (╤В╨╡╤Б╤В╨╛╨▓╤Л╨╣ ╨┤╨▓╨╛╨╣╨╜╨╕╨║?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed тАФ in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.direct_chat_service:direct_chat_service.py:17178 direct: active participants failed тАФ window only | chat=-1009876543210
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 17176, in _active_participants
+    return await self.db.get_active_participants(chat_id, since, cap)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_active_participants'
+WARNING  services.direct_chat_service:direct_chat_service.py:12282 direct: running summary read failed | chat=-1009876543210
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 12254, in _build_global_context_parts
+    row = await self.db.get_running_summary(chat_id, time.time())
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_running_summary'
+WARNING  services.direct_chat_service:direct_chat_service.py:12203 direct: history boundary check failed | chat=-1009876543210
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 12199, in _history_partial
+    older = await self.db.get_smart_raw(
+                  ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_smart_raw'
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3134 [mca07] lexical messages channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3118, in retrieve
+    rows = await db.search_messages_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_messages_fts'
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3188 [mca07] lexical facts channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3146, in retrieve
+    rows = await db.search_graph_facts_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_graph_facts_fts'
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3134 [mca07] lexical messages channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3118, in retrieve
+    rows = await db.search_messages_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_messages_fts'
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3188 [mca07] lexical facts channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3146, in retrieve
+    rows = await db.search_graph_facts_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_graph_facts_fts'
+WARNING  services.mca_episodes:mca_episodes.py:1775 [mca05] legacy facade read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_episodes.py", line 1761, in list_stories_for_retrieval
+    cursor = await db.db.execute(
+                   ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:558 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_episodes.py", line 553, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:558 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_episodes.py", line 553, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable тАФ source=error | key=flags.budgets_enabled | chat=-1009876543210
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable тАФ global value used | chat=-1009876543210 | enabled=True | source=default
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3134 [mca07] lexical messages channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3118, in retrieve
+    rows = await db.search_messages_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_messages_fts'
+WARNING  services.mca_retrieval_context:mca_retrieval_context.py:3188 [mca07] lexical facts channel failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_retrieval_context.py", line 3146, in retrieve
+    rows = await db.search_graph_facts_fts(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'search_graph_facts_fts'
+WARNING  services.thread_chain:thread_chain.py:264 thread_chain: bot_replies read failed | chat=-1009876543210 msg=4242
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\thread_chain.py", line 262, in _get_bot_reply
+    return await db.get_bot_reply(chat_id, tg_message_id, time.time())
+                 ^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_bot_reply'
+WARNING  services.mca_episodes:mca_episodes.py:558 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\mca_episodes.py", line 553, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.direct_chat_service:direct_chat_service.py:12203 direct: history boundary check failed | chat=-1009876543210
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 12199, in _history_partial
+    older = await self.db.get_smart_raw(
+                  ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'get_smart_raw'
+WARNING  services.direct_chat_service:direct_chat_service.py:5402 direct: bot_replies persist failed | chat=-1009876543210 msg=999
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 5398, in remember_bot_reply
+    await self.db.upsert_bot_reply(chat_id, tg_message_id, text, time.time())
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'upsert_bot_reply'
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1009876543210
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.direct_chat_service:direct_chat_service.py:16223 direct: fact batch bound failed тАФ reassign skipped | chat=-1009876543210
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\services\direct_chat_service.py", line 16216, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-ed629f84\tests\test_ur_f_inspector_step1.py:1122: AssertionError: ╨▓ payload ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨╛╤Б╤В╨░╤В╤М╤Б╤П ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╜╨░ ╤В╨░╨║╨░╤П ╨░╨╜╨╜╨╛╤В╨░╤Ж╨╕╤П
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_generate_image_is_ninth
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_active_tools_gate
+FAILED tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools
+FAILED tests/test_mod_acl_ux_m2_tristate_write.py::test_stale_token_recovers_and_keeps_foreign_keys
+FAILED tests/test_mod_acl_ux_m2_tristate_write.py::test_inherit_survives_stale_token
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_reaches_mock_send_without_publishing
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_carries_live_ephemeral_opportunity_context
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_goal_fallback_uses_original_verdict_kind
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+FAILED tests/test_ur_f_inspector_step1.py::test_identical_quotes_credit_only_the_surviving_item
+13 failed, 2304 passed, 1 warning in 194.23s (0:03:14)

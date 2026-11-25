@@ -10,15 +10,30 @@
 DEFAULT_ROLES admin/moderator/user; DEFAULT_ADMINS: 5885953495=admin,
 1313107079/134812796=moderator). is_moderator включает и админа
 (модер = moderator-роль; админ тоже подходит).
+
+MAC-S4-174 (MOD-ACL-UX-01 M1-B) — «глобальный админ» здесь и в админке это
+ОДИН канон, а не два правила: `is_global_admin` читает тот же предикат
+`services.roles.is_effective_global_admin_role` (role_type `global_admin`,
+legacy-имя роли `admin` или `permissions.wildcard`), что и
+`web/api/deps.user_is_global_admin`. До этого исправления бот знал только
+строку роли `admin`, поэтому глобальный админ Mini App с ролью другого имени
+(`role_type=global_admin`) или wildcard-роль считался в чате обычным
+пользователем (`direct_chat_service.privilege` → "user",
+`mca_style_scope._has_chat_admin_rights` → отказ).
+
+`is_admin` = этот канон ИЛИ `settings.ADMIN_USER_ID` — единственное
+намеренное расширение бот-стороны: фолбэк R6, при котором владелец сохраняет
+админку в чате при пустом кэше/недоступном PG. В `web/api/deps` такого
+клауза нет (владелец там проходит по wildcard сид-роли).
 """
 import logging
 
 from config.settings import settings
 from services import hot_config as hot
+from services.roles import is_effective_global_admin_role
 
 logger = logging.getLogger(__name__)
 
-_ROLE_ADMIN = "admin"
 _ROLE_MODERATOR = "moderator"
 
 
@@ -27,9 +42,8 @@ def _cache():
     return hot.get_config_cache()
 
 
-def role_of(telegram_id: int) -> str | None:
-    """Роль telegram_id из RAM-кэша (PG down/нет кэша → None)."""
-    cache = _cache()
+def _role_from(cache, telegram_id: int) -> str | None:
+    """Роль telegram_id из переданного снимка кэша (PG down/нет кэша → None)."""
     if cache is None:
         return None
     try:
@@ -40,14 +54,41 @@ def role_of(telegram_id: int) -> str | None:
         return None
 
 
+def role_of(telegram_id: int) -> str | None:
+    """Роль telegram_id из RAM-кэша (PG down/нет кэша → None)."""
+    return _role_from(_cache(), telegram_id)
+
+
+def is_global_admin(telegram_id: int) -> bool:
+    """Единый канон «глобальный админ» для чата (MAC-S4-174).
+
+    Разбор роли не дублируется: решение принимает
+    `services.roles.is_effective_global_admin_role` — та же функция, что
+    описывает канон админки (`role_type=global_admin`, legacy `admin`,
+    wildcard). Сбой чтения ролей → False (fail-closed, горячий путь бота не
+    падает). Роль и её данные читаются с одного снимка кэша.
+    """
+    cache = _cache()
+    role = _role_from(cache, telegram_id)
+    if role is None:
+        return False
+    try:
+        role_data = cache.roles().get(role)
+    except Exception:
+        logger.warning("chat_access: roles() failed — не админ (fail-closed)",
+                       exc_info=True)
+        return False
+    return is_effective_global_admin_role(role, role_data)
+
+
 def is_admin(telegram_id: int) -> bool:
-    """settings.ADMIN_USER_ID всегда админ; иначе — роль 'admin' из кэша."""
+    """Владелец (R6-фолбэк) или глобальный админ по общему канону."""
     try:
         if int(telegram_id) == int(settings.ADMIN_USER_ID):
             return True
     except (TypeError, ValueError):
         pass
-    return role_of(telegram_id) == _ROLE_ADMIN
+    return is_global_admin(telegram_id)
 
 
 def is_moderator(telegram_id: int) -> bool:

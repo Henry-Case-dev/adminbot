@@ -1,0 +1,604 @@
+﻿..................................................................F..... [  0%]
+........................................................................ [  0%]
+...........F............................................................ [  0%]
+................................F....................................... [  1%]
+........................................................................ [  1%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  2%]
+............................................F..........................F [  2%]
+.......F................................................................ [  3%]
+..................................F..................................... [  3%]
+........................................................................ [  3%]
+...........................F............................................ [  4%]
+.......................................FFF.FF..F...FF................... [  4%]
+........................................................................ [  4%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  5%]
+........................................................................ [  5%]
+...................................................................FFFFF [  6%]
+FFFFFFFFF............................................................... [  6%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  7%]
+......................................................F................. [  7%]
+........................................................................ [  8%]
+......................................................................F. [  8%]
+.................sFF.FFFFFFF............................................ [  8%]
+..........F............................................................. [  9%]
+........................................................................ [  9%]
+........................................................................ [  9%]
+.....................................F.................................. [  9%]
+.............FFF..........FFF.F.............FFFF.F..F................... [ 10%]
+........................................................................ [ 10%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+...........................................F............................ [ 11%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 12%]
+..................................................................F..... [ 12%]
+..................................................F..................... [ 13%]
+........................................................................ [ 13%]
+........F............................................................... [ 13%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 15%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 16%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 17%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 19%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+....................................F.................................FF [ 20%]
+F..FF........F.......................................................... [ 20%]
+........................................................................ [ 21%]
+.................................................F...................... [ 21%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+...............................................F........................ [ 23%]
+.........................................FF....FF.........F............. [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 24%]
+.............................F.......................................... [ 24%]
+s....................F.................................................. [ 25%]
+........................................................................ [ 25%]
+........................F............................................... [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 26%]
+....................................E.....E...........EE................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 27%]
+........................................................................ [ 27%]
+............+++++++++++++++++++++++++++++++++++ Timeout +++++++++++++++++++++++++++++++++++
+~~~~~~~~~~ Stack of Thread-2614 (_connection_worker_thread) (44840) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~~ Stack of Thread-2612 (_connection_worker_thread) (5684) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-2610 (_connection_worker_thread) (43276) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-2608 (_connection_worker_thread) (37512) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-2606 (_connection_worker_thread) (43996) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-2604 (_connection_worker_thread) (22884) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~~ Stack of Thread-2602 (_connection_worker_thread) (5556) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-2598 (_connection_worker_thread) (37964) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-2596 (_connection_worker_thread) (10608) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1907 (_connection_worker_thread) (30080) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1873 (_connection_worker_thread) (33272) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1871 (_connection_worker_thread) (11444) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1869 (_connection_worker_thread) (29416) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1867 (_connection_worker_thread) (42596) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1865 (_connection_worker_thread) (48584) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1863 (_connection_worker_thread) (30552) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1861 (_connection_worker_thread) (20132) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1859 (_connection_worker_thread) (43500) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1857 (_connection_worker_thread) (39228) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1855 (_connection_worker_thread) (44028) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1853 (_connection_worker_thread) (27676) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1851 (_connection_worker_thread) (23256) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1849 (_connection_worker_thread) (39300) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1847 (_connection_worker_thread) (40856) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1757 (_connection_worker_thread) (29548) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1754 (_connection_worker_thread) (43560) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1752 (_connection_worker_thread) (48880) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1749 (_connection_worker_thread) (31916) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1747 (_connection_worker_thread) (29888) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1745 (_connection_worker_thread) (25756) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1743 (_connection_worker_thread) (38868) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1741 (_connection_worker_thread) (11776) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1739 (_connection_worker_thread) (48944) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1737 (_connection_worker_thread) (28188) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1735 (_connection_worker_thread) (29932) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1733 (_connection_worker_thread) (29740) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1731 (_connection_worker_thread) (27408) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1729 (_connection_worker_thread) (37612) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1727 (_connection_worker_thread) (27476) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1725 (_connection_worker_thread) (27952) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1723 (_connection_worker_thread) (34296) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1720 (_connection_worker_thread) (36460) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1718 (_connection_worker_thread) (24588) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~~ Stack of Thread-1716 (_connection_worker_thread) (1200) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1714 (_connection_worker_thread) (24536) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1712 (_connection_worker_thread) (46752) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~ Stack of Thread-1116 (_connection_worker_thread) (49128) ~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~~ Stack of Thread-54 (_connection_worker_thread) (37176) ~~~~~~~~~~~~
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1009, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1052, in _bootstrap_inner
+    self.run()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 989, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 59, in _connection_worker_thread
+    future, function = tx.get()
+~~~~~~~~~~~~~~~~~~~~~~~~~ Stack of MainThread (34004) ~~~~~~~~~~~~~~~~~~~~~~~~~
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pytest\__main__.py", line 9, in <module>
+    raise SystemExit(_console_main())
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\config\__init__.py", line 253, in _console_main
+    code = _main(prog=_get_prog_name(sys.argv))
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\config\__init__.py", line 229, in _main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\main.py", line 377, in pytest_cmdline_main
+    return wrap_session(config, _main)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\main.py", line 330, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\main.py", line 384, in _main
+    config.hook.pytest_runtestloop(session=session)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\main.py", line 408, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\runner.py", line 139, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\runner.py", line 249, in call_and_report
+    call = CallInfo.from_call(
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\runner.py", line 361, in from_call
+    result: TResult | None = func()
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\runner.py", line 250, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\runner.py", line 184, in pytest_runtest_call
+    item.runtest()
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pytest_asyncio\plugin.py", line 569, in runtest
+    super().runtest()
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\python.py", line 1707, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\_pytest\python.py", line 167, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\pytest_asyncio\plugin.py", line 905, in inner
+    runner.run(coro, context=context)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py", line 651, in run_until_complete
+    self.run_forever()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\windows_events.py", line 321, in run_forever
+    super().run_forever()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py", line 618, in run_forever
+    self._run_once()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py", line 1913, in _run_once
+    event_list = self._selector.select(timeout)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\windows_events.py", line 444, in select
+    self._poll(timeout)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\windows_events.py", line 769, in _poll
+    status = _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
++++++++++++++++++++++++++++++++++++ Timeout +++++++++++++++++++++++++++++++++++
