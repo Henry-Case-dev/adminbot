@@ -88,21 +88,15 @@ _bot_username = ""
 # Epic 60 (67.2, T-492, правило п.49): паттерн — КОНФИГ
 # settings.CHAT_BOTWORD_PATTERN (дефолт байт-в-байт = старый литерал);
 # невалидный regex → WARNING + дефолт (D104-стиль), бот не падает.
-_BOTWORD_PATTERN_DEFAULT = (
-    r"(?i)(?<![0-9a-zа-яё_./])бот(?:ина|яра|ик|охуета|охуйня)?(?![0-9a-zа-яё_])"
-)
+# P0 DIRECT-TRIGGER (owner 26.11.2026): паттерн и триггер-типы живут в
+# services.command_prefix — один источник для хендлера и сервиса (повторной
+# независимой классификации того же текста в сервисе больше нет).
+_BOTWORD_PATTERN_DEFAULT = command_prefix.BOTWORD_PATTERN_DEFAULT
+_BOTWORD_RE = command_prefix.BOTWORD_RE
 
 
 def _compile_botword(pattern: str) -> "re.Pattern[str]":
-    try:
-        return re.compile(pattern)
-    except re.error:
-        logger.warning(
-            "CHAT_BOTWORD_PATTERN invalid regex — using default (D104)")
-        return re.compile(_BOTWORD_PATTERN_DEFAULT)
-
-
-_BOTWORD_RE = _compile_botword(hot.get("reactions.chat_botword_pattern", settings.CHAT_BOTWORD_PATTERN))
+    return command_prefix.compile_botword(pattern)
 
 # H2 (review-fix, Section 61.5.2): юзеры, за которыми закреплены свои роутеры/
 # сценарии (kostik 2, alan 3 и т.д.). Для них keyword-ветка «бот» НЕ триггерит
@@ -233,10 +227,22 @@ def _has_bot_mention(message: types.Message) -> bool:
     юзернейм извлекается из текста через entity.extract_from(text)
     (срез [offset:offset+length]), срезается '@' и приводится к нижнему
     регистру. text_mention несёт user (entity.user.id == bot.id).
-    ADD-TR.2: для подписи — caption/caption_entities (см. _message_entities)."""
+    ADD-TR.2: для подписи — caption/caption_entities (см. _message_entities).
+    P0 (26.11.2026): упоминание внутри цитируемого блока — не собственное
+    обращение участника; диапазоны entity (UTF-16) сравниваются напрямую."""
     text, entities = _message_entities(message)
+    spans = command_prefix.quoted_spans(entities)
     for entity in entities:
         etype = getattr(entity, "type", None)
+        if etype not in ("mention", "text_mention"):
+            continue
+        offset = getattr(entity, "offset", None)
+        length = getattr(entity, "length", None)
+        if spans and isinstance(offset, int) and isinstance(length, int):
+            end = offset + length
+            if any(offset < span_end and span_start < end
+                   for span_start, span_end in spans):
+                continue            # цитируемый фрагмент — не обращение
         if etype == "mention":
             raw = entity.extract_from(text)
             if raw.removeprefix("@").lower() == _bot_username:
@@ -267,13 +273,18 @@ def _is_direct_trigger(message: types.Message,
     return _is_direct_trigger_unscoped(message)
 
 
-def _is_direct_trigger_unscoped(message: types.Message) -> bool:
-    """Триггерная поверхность БЕЗ модульного master-гейта.
+def _direct_trigger_type(message: types.Message,
+                         own_text: str | None = None) -> str | None:
+    """Один раз определить тип адресации и происхождение командного текста.
 
-    Приоритет reply/mention ≥ keyword соблюдается автоматически (OR-ветки;
-    reply/mention дешевле и проверяются раньше). Гейт модуля проверяется
-    вызывающим: `_is_direct_trigger` (legacy/global) или
-    `direct_chat_handler` (per-chat резолвер).
+    P0 DIRECT-TRIGGER (owner 26.11.2026): команда «бот» срабатывает только на
+    СОбственном тексте участника (:func:`command_prefix.own_message_text`) —
+    не на пересланном содержимом/подписи, не на цитируемом фрагменте, не на
+    тексте стороннего бота. Reply-связь с ботом остаётся осознанным
+    обращением независимо от вложенного материала.
+
+    Приоритет прежний: reply → mention → имя персоны → keyword. Результат
+    передаётся в сервис как есть (без повторной классификации).
     """
     reply_to = message.reply_to_message
     if reply_to is not None:
@@ -282,33 +293,54 @@ def _is_direct_trigger_unscoped(message: types.Message) -> bool:
             # Epic 72 (74.C, T-556): расшифровка — НЕ direct chat; гейт даёт
             # 0i транскрибировать голосовой реплай на неё штатно.
             if is_reply_to_transcription(message):
-                return False
-            return True
+                return None
+            return command_prefix.TRIGGER_REPLY_TO_BOT
+    # Пересылка/чужой бот: содержимое не становится словами участника.
+    if (command_prefix.is_forwarded(message)
+            or command_prefix.sender_is_bot(message)):
+        return None
+    # Упоминание — по entities собственного события (mention без текста в
+    # реальном Telegram невозможен, но entity — структурное доказательство).
     if _has_bot_mention(message):
-        return True
-    text = _effective_text(message)
-    if _bot_username and re.search(rf"(?i)@{re.escape(_bot_username)}\b", text):
-        return True
+        return command_prefix.TRIGGER_MENTION
+    own = (own_text if own_text is not None
+           else command_prefix.own_message_text(message))
+    if not own:
+        return None
+    if _bot_username and re.search(rf"(?i)@{re.escape(_bot_username)}\b", own):
+        return command_prefix.TRIGGER_MENTION
     # Раунд 10.15 (F6, T-1598): триггер = непустое Имя персоны. Имя задано →
     # обращение по имени (со склонениями); дефолтные ботворды ОТКЛЮЧАЮТСЯ.
     # Имя пусто → дефолтная keyword-ветка «бот»/«ботик»/«ботяра».
     persona_on = hot.get("flags.persona_enabled", settings.PERSONA_ENABLED)
     name_set = bool(str(bot_persona.get_cached_global_name() or "").strip())
     if persona_on and name_set:
-        if command_prefix.name_mentioned(text):
-            return True
+        if command_prefix.name_mentioned(own):
+            return command_prefix.TRIGGER_PERSONA_NAME
     # T-411 (R52-4): keyword-ветка под тем же master-гейтом модуля (F5):
     # «бот»/«ботохуета»/«ботина»/… Активна, только если НЕ (persona_enabled
     # AND name_set); master-флаг проверён выше на входе _is_direct_trigger.
-    if (not (persona_on and name_set)) and _BOTWORD_RE.search(text):
+    if (not (persona_on and name_set)) and _BOTWORD_RE.search(own):
         # H2 (review-fix): НЕ триггеримся на сообщения юзеров, за которыми
         # закреплены свои роутеры (alan 3 / kostik 2) — их «бот»-сообщения
         # уходят дальше по цепочке (0h → UNHANDLED). Reply/mention выше —
         # осознанное обращение к боту, исключение ТОЛЬКО для keyword-ветки.
-        if message.from_user.id in _BOTWORD_EXCLUDED_USER_IDS:
-            return False
-        return True
-    return False
+        user = getattr(message, "from_user", None)
+        uid = getattr(user, "id", None) if user is not None else None
+        if uid in _BOTWORD_EXCLUDED_USER_IDS:
+            return None
+        return command_prefix.TRIGGER_KEYWORD
+    return None
+
+
+def _is_direct_trigger_unscoped(message: types.Message) -> bool:
+    """Триггерная поверхность БЕЗ модульного master-гейта.
+
+    Тонкая обёртка над единым классификатором `_direct_trigger_type`.
+    Гейт модуля проверяется вызывающим: `_is_direct_trigger` (legacy/global)
+    или `direct_chat_handler` (per-chat резолвер).
+    """
+    return _direct_trigger_type(message) is not None
 
 
 def _command_user(message: types.Message) -> bool:
@@ -593,8 +625,14 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
     user = message.from_user
     if user is None or user.id == _bot_id:
         return UNHANDLED                       # само-сообщения бота
+    if command_prefix.sender_is_bot(message):
+        # P0 (26.11.2026): текст стороннего бота — не слова участника
+        # (командный запуск по чужому тексту недопустим).
+        return UNHANDLED
     # ADD-TR.2 (ADTR-ENTRY): текст события = text ИЛИ caption подписи.
-    text = _effective_text(message)
+    # P0 (26.11.2026): для команд — собственный текст участника: пересылка
+    # и цитируемые блоки не активируют «бот»-команду.
+    text = command_prefix.own_message_text(message)
     if text.startswith("/"):
         return UNHANDLED                       # команды не перехватываются
     if not text and not _has_image_attachment(message):
@@ -612,7 +650,11 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
         default=settings.DIRECT_CHAT_BOTWORD_ENABLED)
     if not module_enabled:
         return UNHANDLED
-    if not _is_direct_trigger_unscoped(message):
+    # P0 (26.11.2026): триггер вычисляется ОДИН раз здесь и передаётся в
+    # сервис — там больше нет собственной повторной классификации текста.
+    # Собственный текст (`text`) уже посчитан выше и переиспользуется.
+    trigger_type = _direct_trigger_type(message, own_text=text)
+    if trigger_type is None:
         return UNHANDLED                       # не триггер → пропагация живёт
     # Раунд 10.15 (F6, T-1598, ADR-1015-1): «Префикс + канонический триггер» —
     # функциональная команда имеет наивысший приоритет и НЕ уходит в LLM.
@@ -631,5 +673,5 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
     if parsed is not None:
         kind, arg = parsed
         return await _handle_memory_command(bot, message, kind, arg)
-    await _service.handle(bot, message, user)
+    await _service.handle(bot, message, user, trigger_type=trigger_type)
     return

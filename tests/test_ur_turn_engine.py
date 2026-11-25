@@ -270,7 +270,9 @@ async def test_trace_carries_turn_request_with_full_source_text(monkeypatch):
     assert request.speaker_uid == USER_ID
     assert request.addressee is not None
     assert request.capabilities == request.tool_state.capabilities
-    assert request.delivery.force_reply is True
+    # P0 (26.11.2026): срабатывание «бот» больше не выставляет force_reply
+    # (поле остаётся в трассе, но не отражает обязательность текста).
+    assert request.delivery.force_reply is False
     assert request.delivery.trigger == "direct"
     assert request.model_slot.budget_tokens > 0
     assert request.turn_started_at_utc > 0

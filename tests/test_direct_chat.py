@@ -1291,7 +1291,10 @@ class TestSilenceAfterCooldowns:
             await service.handle(bot, _message(message_id=i), _user())
         assert await self._streak(d, CHAT_ID, 10) == 5
         fake_wall["now"] += 301.0                  # кулдаун истёк → допуск
-        await service.handle(bot, _message(message_id=7), _user())
+        # P0 (26.11.2026): «бот» больше не форсирует reply (вопрос — всегда
+        # содержательный REPLY, поэтому тест меряет именно сброс стачки).
+        await service.handle(bot, _message(text="как дела?", message_id=7),
+                             _user())
         assert service.llm.call_count == 2         # успех — LLM вызван
         assert await self._streak(d, CHAT_ID, 10) is None   # стачка сброшена
         await d.close()
@@ -3647,8 +3650,11 @@ class TestCfg01DirectChatLimits:
             db=d1, llm=FakeLLM(),
             throttle=PersistentThrottle(5, 300.0, "direct_chat", d1))
         bot = _bot()
+        # P0 (26.11.2026): «бот» больше не форсирует reply; тест меряет
+        # лимиты, поэтому берём содержательный вопрос (всегда REPLY).
         for i in range(5):
-            await service.handle(bot, _message(message_id=i), _user())
+            await service.handle(
+                bot, _message(text="как дела?", message_id=i), _user())
         assert bot.send_message.await_count == 5         # 5 допущенных ходов
         await service.handle(bot, _message(message_id=9), _user())
         assert bot.send_message.await_count == 6         # лимит исчерпан
@@ -3670,7 +3676,8 @@ class TestCfg01DirectChatLimits:
 
         fake_wall["now"] += 301.0                        # окно истекло
         for i in range(2):                               # новый лимит 2
-            await service2.handle(bot2, _message(message_id=20 + i), _user())
+            await service2.handle(
+                bot2, _message(text="как дела?", message_id=20 + i), _user())
         assert bot2.send_message.await_count == 3        # +2 допущенных хода
         allowed_calls = service2.llm.call_count
         await service2.handle(bot2, _message(message_id=30), _user())

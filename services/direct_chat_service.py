@@ -1590,7 +1590,9 @@ _ACK_WORDS = frozenset({
     "благодарю", "ясно", "принято", "ладно", "хорошо", "угу", "ага",
     "плюс", "👍", "🔥",
 })
-_BOTWORD_RE = re.compile(r"(?i)\bбот\w*")
+# P0 DIRECT-TRIGGER (owner 26.11.2026): собственного regex сервиса больше нет —
+# семейство «бот»-обращений и происхождение текста определяет
+# services.command_prefix (единственный источник, тот же, что у хендлера).
 _ACK_STRIP = " \t!.,…"
 
 
@@ -1629,11 +1631,14 @@ def _reaction_for_class(message_class: str, message_id=None) -> str:
 
 
 # ── ASAP-3 (ADR-1028-2 D8, §19/§20/§23): trigger-модель адресации ───────────
-TRIGGER_FORCE_KEYWORD = "force_keyword"
-TRIGGER_MENTION = "mention"
-TRIGGER_PERSONA_NAME = "persona_name"
-TRIGGER_REPLY_TO_BOT = "reply_to_bot"
-TRIGGER_FREE_WILL = "free_will"
+# P0 DIRECT-TRIGGER (owner 26.11.2026): значения живут в command_prefix —
+# их производит хендлер (один классификатор), сервис только реэкспортирует.
+TRIGGER_KEYWORD = command_prefix.TRIGGER_KEYWORD
+TRIGGER_MENTION = command_prefix.TRIGGER_MENTION
+TRIGGER_PERSONA_NAME = command_prefix.TRIGGER_PERSONA_NAME
+TRIGGER_REPLY_TO_BOT = command_prefix.TRIGGER_REPLY_TO_BOT
+TRIGGER_FREE_WILL = command_prefix.TRIGGER_FREE_WILL
+_is_genuine_address = command_prefix.is_genuine_address
 # MCA-09 (T-5038): инициативный ответ (без входящего сообщения) — свой kind
 # mca-22 ledger `initiative_reply` (аддитивно; существующий механизм).
 TRIGGER_INITIATIVE = "initiative"
@@ -1695,39 +1700,45 @@ def bot_replied_recently_window_seconds() -> int:
 
 
 def _resolve_direct_trigger(query: str, *, reply_to_bot: bool,
-                            bot_username: str, persona_name_check=None
-                            ) -> tuple[str, bool]:
-    """Матрица §4.1 (D8): ``(trigger_type, force_reply_required)``.
+                            bot_username: str, persona_name_check=None,
+                            trigger_type: str | None = None) -> str:
+    """Тип адресации хода (матрица §4.1 D8, без force-семантики).
 
-    Приоритет: (1) force — botword / persona-name / mention в тексте
-    (независимо от reply) → force_reply_required=True; (2) reply_to_bot →
-    autonomous (Decision Making); (3) прочее → free_will (в handle() не
-    попадает; фон живёт своей политикой — 🗿 запрещён). R17: текст не
-    логируется, только классификация."""
+    P0 DIRECT-TRIGGER (owner 26.11.2026): команда «бот» запускает разговорный
+    контур, но НЕ делает текстовый ответ обязательным — поэтому второго
+    элемента ``force_reply_required`` больше нет.
+
+    Runtime-путь передаёт ``trigger_type``, уже вычисленный хендлером на
+    собственном тексте участника (provenance), — сервис не переклассифицирует
+    текст повторно. Без ``trigger_type`` (прямые вызовы/тесты) используется
+    тот же резолвер ``command_prefix``, что и у хендлера.
+    """
+    if trigger_type:
+        return str(trigger_type)
     text = str(query or "")
     # (1a) бот-слово («бот, …»/«ботик»/…) — configured pattern-семья.
-    if _BOTWORD_RE.search(text):
-        return TRIGGER_FORCE_KEYWORD, True
+    if command_prefix.keyword_mentioned(text):
+        return TRIGGER_KEYWORD
     # (1b) имя персоны («Олег, …») — F6-резолв хендлера.
     if persona_name_check is not None and persona_name_check(text):
-        return TRIGGER_PERSONA_NAME, True
+        return TRIGGER_PERSONA_NAME
     # (1c) упоминание: @username в тексте (entities-ветку проверил гейт).
     if bot_username and ("@" + bot_username) in text.lower():
-        return TRIGGER_MENTION, True
+        return TRIGGER_MENTION
     # (2) Telegram reply на сообщение бота → автономное решение.
     if reply_to_bot:
-        return TRIGGER_REPLY_TO_BOT, False
-    return TRIGGER_FREE_WILL, False
+        return TRIGGER_REPLY_TO_BOT
+    return TRIGGER_FREE_WILL
 
 
 @dataclass
 class DecisionContext:
     """Контекст §47 (R17-safe признаки, без сырого текста) для Фазы P.
 
-    ASAP-3 (ADR-1028-2 D8): аддитивные поля адресации `trigger_type`
-    (force_keyword|mention|persona_name|reply_to_bot|free_will) и
-    `force_reply_required` (§20: force → ACTION_REPLY всегда; reply_to_bot →
-    Decision Making). Заполняются резолвом матрицы в handle()."""
+    ASAP-3 (ADR-1028-2 D8): аддитивное поле адресации `trigger_type`
+    (keyword|mention|persona_name|reply_to_bot|free_will). Заполняется
+    резолвом в handle(); force-семантика удалена (P0 26.11.2026 — команда
+    «бот» запускает контур, но не форсирует формат действия)."""
 
     reply_to_bot: bool = False
     reply_to_is_image: bool = False
@@ -1738,7 +1749,6 @@ class DecisionContext:
     is_private: bool = False
     addressed: bool = True
     trigger_type: str = TRIGGER_FREE_WILL
-    force_reply_required: bool = False
 
 
 @dataclass
@@ -5420,17 +5430,22 @@ class DirectChatService:
 
     def _decision_addressed(self, message, query: str, reply,
                             reply_to_bot: bool,
-                            is_private: bool = False) -> bool:
+                            is_private: bool = False,
+                            trigger_type: str | None = None) -> bool:
         """Адресовано ли сообщение боту (§45). Консервативно: при
         отсутствии явного встречного сигнала — ``True`` (handle вызывается
         только после trigger-гейта; ложное молчание недопустимо). F-2:
-        в ЛС (``private``) сообщение всегда адресовано боту."""
+        в ЛС (``private``) сообщение всегда адресовано боту.
+
+        P0 (26.11.2026): genuine-триггер (keyword/mention/имя/reply),
+        вычисленный хендлером на собственном тексте, — уже адресация;
+        повторного поиска «бот»-слова по полному query нет."""
         if reply_to_bot or is_private:
+            return True
+        if _is_genuine_address(trigger_type):
             return True
         text = str(query or "")
         if self.bot_username and ("@" + self.bot_username) in text.lower():
-            return True
-        if _BOTWORD_RE.search(text):
             return True
         if reply is None:
             return True
@@ -5499,7 +5514,9 @@ class DirectChatService:
         return await _recent_checkup_report_text(self.db, chat_id)
 
     async def _decision_context(self, chat_id: int, message,
-                                query: str) -> DecisionContext:
+                                query: str,
+                                trigger_type: str | None = None
+                                ) -> DecisionContext:
         """Контекст §47 из существующих источников (без нового хранилища).
         Fail-open → консервативный контекст (addressed=True → reply)."""
         try:
@@ -5540,7 +5557,7 @@ class DirectChatService:
                 is_private=is_private,
                 addressed=self._decision_addressed(
                     message, query, reply, reply_to_bot,
-                    is_private=is_private),
+                    is_private=is_private, trigger_type=trigger_type),
             )
         except Exception:
             logger.warning("[decision] context error — conservative reply",
@@ -5567,18 +5584,18 @@ class DirectChatService:
 
     async def _execute_silent_ack(self, bot, *, chat_id: int,
                                   trigger_id: int | None,
-                                  reply_bot: bool, addressed: bool,
+                                  addressed_trigger: bool, addressed: bool,
                                   reason: str) -> None:
         """ASAP-3.2 (ADR-1028-5 D11, §50): единый исполн conscious-SILENT.
 
-        🗿 — единственный hardcode реакции: ТОЛЬКО direct-autonomous
-        (reply_to_bot) ∧ addressed ∧ silent-ack гейты (env + per-chat);
-        фон/not_addressed → тишина без реакции. Логика идентична прежнему
-        inline-блоку (ASAP-3 D9) — метод извлечён для переиспользования
-        post-LLM SILENT-решением Decision Task. Fail-soft §28: отказ ack
-        логируется, SILENT остаётся SILENT, текст НЕ генерируется.
+        🗿 — единственный hardcode реакции: ТОЛЬКО действительное обращение
+        (keyword/mention/имя/reply на бота) ∧ addressed ∧ silent-ack гейты
+        (env + per-chat). P0 26.11.2026: разговорная команда «бот» — такое же
+        действительное обращение, как reply на бота; фоновая инициатива без
+        обращения реакции не получает. Fail-soft §28: отказ ack логируется,
+        SILENT остаётся SILENT, текст НЕ генерируется.
         """
-        if not (reply_bot and addressed
+        if not (addressed_trigger and addressed
                 and await self._silent_ack_enabled(chat_id)):
             return
         _composer.record_direct_metric("direct_autonomous_silent_total")
@@ -5643,19 +5660,26 @@ class DirectChatService:
 
     # ── Поток хендлера (58.4) ─────────────────────────────────
 
-    async def handle(self, bot, message, user) -> None:
+    async def handle(self, bot, message, user,
+                     trigger_type: str | None = None) -> None:
         """F6 (§13.1): обёртка хода Direct + детерминированный producer
         `unanswered_question`. Сам ход — в `_handle_turn` (без изменений);
         после его завершения: пользовательское сообщение с '?' и бот НЕ
         отправил текстовый reply в этом ходе → durable follow_up-намерение
         (гейты/дедуп/кап — внутри mca_intents.create_intent). Обычный шум
         (без '?', команды, URL) намерений не создаёт (I2). Producer
-        никогда не влияет на исход хода (fail-open)."""
+        никогда не влияет на исход хода (fail-open).
+
+        ``trigger_type`` — P0 DIRECT-TRIGGER (26.11.2026): тип адресации,
+        вычисленный хендлером на собственном тексте участника; передаётся
+        как есть, повторной классификации текста в сервисе нет.
+        """
         chat_id = message.chat.id
         replied = set()
         _turn_token = _turn_text_replied.set(replied)
         try:
-            await self._handle_turn(bot, message, user)
+            await self._handle_turn(bot, message, user,
+                                    trigger_type=trigger_type)
         finally:
             _turn_text_replied.reset(_turn_token)
             try:
@@ -5705,10 +5729,15 @@ class DirectChatService:
                 "[direct] alias refresh failed — previous resolver | "
                 "chat=%s", chat_id, exc_info=True)
 
-    async def _handle_turn(self, bot, message, user) -> None:
+    async def _handle_turn(self, bot, message, user,
+                           trigger_type: str | None = None) -> None:
         """Триггер уже проверен хендлером. Кулдаун → фраза R50-7; иначе —
         контекст → LLM → Reply → memorize (fire-and-forget, ПОСЛЕ отправки).
-        Epic 60 (63.2): генерация — под per-chat замком (после throttle/CB)."""
+        Epic 60 (63.2): генерация — под per-chat замком (после throttle/CB).
+
+        P0 DIRECT-TRIGGER (26.11.2026): ``trigger_type`` приходит из хендлера
+        (provenance уже проверен); None — прямой вызов/тест, тогда тип
+        определяется тем же резолвером command_prefix по тексту."""
         chat_id = message.chat.id
         # ASAP 3 Corrective §4.4: имена действуют с текущего хода.
         await self._refresh_turn_aliases(chat_id)
@@ -6071,16 +6100,16 @@ class DirectChatService:
                 _reply_bot = (isinstance(_rid, int)
                               and self.bot_id is not None
                               and _rid == self.bot_id)
-            _trigger_type, _force_required = _resolve_direct_trigger(
+            _trigger_type = _resolve_direct_trigger(
                 query, reply_to_bot=_reply_bot,
                 bot_username=self.bot_username,
-                persona_name_check=command_prefix.name_mentioned)
+                persona_name_check=command_prefix.name_mentioned,
+                trigger_type=trigger_type)
             _is_private = (getattr(getattr(message, "chat", None), "type",
                                    None) == "private")
             _composer.emit_direct_trigger(
                 chat_id=chat_id, message_id=_trigger_id,
                 trigger_type=_trigger_type,
-                force_reply_required=_force_required,
                 reply_to_bot=_reply_bot, is_private=_is_private,
                 addressed=True)
             # ── RLR-06-OBSERVABILITY (§7): трасса ОДНОГО хода по
@@ -6149,23 +6178,13 @@ class DirectChatService:
             l1_meta: dict = {}
             _l1_rejected: tuple = ()
             if decision_on:
-                _dctx = await self._decision_context(chat_id, message, query)
+                _dctx = await self._decision_context(
+                    chat_id, message, query, trigger_type=_trigger_type)
                 # Аддитивные поля адресации (контракт A7 — только расширение).
                 _dctx.trigger_type = _trigger_type
-                _dctx.force_reply_required = _force_required
                 _toggles = await self._decision_toggles(chat_id)
                 _direct_request = _direct_request or bool(_dctx.has_question)
-                if _force_required:
-                    # ── Приоритет 1 (§19A/§21, T-4019): FORCE DIRECT —
-                    # гарантированный ACTION_REPLY; шорт-каты ignore_trivial/
-                    # recent_reply/low_information НЕ применяются (гейт до
-                    # них и до LLM). Decision Maker влияет только на
-                    # стиль/длину (технические ветки ниже — единственные
-                    # исключения).
-                    pre_action = ACTION_REPLY
-                    pre_reason = REASON_FORCE_DIRECT
-                    _composer.record_direct_metric("direct_force_reply_total")
-                elif _reply_bot and not await self._autonomous_reply_enabled(
+                if _reply_bot and not await self._autonomous_reply_enabled(
                         chat_id):
                     # Per-chat `flags.chat_autonomous_reply_enabled=false`:
                     # decision-матрица не применяется → текстовый ответ.
@@ -6232,14 +6251,12 @@ class DirectChatService:
                         _decision_allowed_actions = tuple(_actions)
                 # A9 (D5/D6): DECISION_COMPLETE — уже принятое решение
                 # (A9 только наблюдает; политика A7 не дублируется). ASAP-3:
-                # аддитивные поля trigger_type/force_reply_required/
-                # message_class (контракт §31).
+                # аддитивные поля trigger_type/message_class (контракт §31).
                 emit_agentic_event(
                     "DECISION_COMPLETE", run_id=correlation_id, chat_id=chat_id,
                     message_id=_trigger_id, action=pre_action,
                     reason=pre_reason,
                     trigger_type=_trigger_type,
-                    force_reply_required=_force_required,
                     message_class=_message_class,
                     duration_ms=int((time.monotonic() - _p_started) * 1000))
                 if (pre_action == ACTION_SILENT and not decision_llm_pending
@@ -6254,13 +6271,14 @@ class DirectChatService:
                         action=ACTION_SILENT, reason=pre_reason,
                         target=pre_target)
                     # ── ASAP-3 (ADR-1028-2 D9, §25–§28, T-4023): SILENT+🗿 —
-                    # строго конъюнкция: trigger direct-autonomous
-                    # (reply_to_bot) ∧ addressed ∧ decision executed ∧ финал
-                    # SILENT + гейты (env + per-chat). Запрещён на фоне/
-                    # not_addressed/тех-ветках (те до decision не доходят).
+                    # строго конъюнкция: действительное обращение
+                    # (keyword/mention/имя/reply на бота; P0 26.11.2026) ∧
+                    # addressed ∧ decision executed ∧ финал SILENT + гейты
+                    # (env + per-chat). Запрещён на фоне/not_addressed/
+                    # тех-ветках (те до decision не доходят).
                     await self._execute_silent_ack(
                         bot, chat_id=chat_id, trigger_id=_trigger_id,
-                        reply_bot=_reply_bot,
+                        addressed_trigger=_is_genuine_address(_trigger_type),
                         addressed=(_dctx is not None and _dctx.addressed),
                         reason=pre_reason)
                     return
@@ -6291,7 +6309,7 @@ class DirectChatService:
                             reason=pre_reason)
                         return
                 # Autonomous REPLY (матрица выбрала текстовый исход).
-                if _reply_bot and not _force_required:
+                if _reply_bot:
                     _composer.record_direct_metric(
                         "direct_autonomous_reply_total")
             # MCA-07 (T-3852, ADR-1027-7 D5/D6/SC-09/SC-10): ЕДИНЫЙ
@@ -6495,7 +6513,6 @@ class DirectChatService:
                             character_ctx=_decision_ctx,
                             lore_enabled=bool(lore_enabled),
                             image_enabled=bool(image_enabled),
-                            force_required=bool(_force_required),
                             reply_bot=bool(_reply_bot),
                             extra_media_markers=_extra_media_markers,
                             bot_replies=await self._recent_bot_replies(chat_id),
@@ -6560,20 +6577,22 @@ class DirectChatService:
                     _structural_diag = l1_meta.get(
                         "structural_diagnostic_research")
                     _fallback_diag = _preserved_diag or _structural_diag
-                    # S7 (§4): для адресованного reply-to-bot пустой/битый
-                    # L1 не завершает ход молчанием — существующий
-                    # fallback-план отвечает текстом (причина честно
-                    # фиксируется ниже в мете/трассе).
+                    # S7 (§4) + P0 (26.11.2026): пустой/битый/сорванный
+                    # провайдером L1 не выдаётся за осознанное молчание. При
+                    # действительном обращении (reply на бота ИЛИ разговорная
+                    # команда «бот»/имя/mention) fallback отвечает текстом;
+                    # причина честно фиксируется в мете/трассе.
                     _fb_action = ("reply" if pre_action == ACTION_REPLY
                                   else ("react" if pre_action == ACTION_REACT
                                         else "silent"))
-                    if (_fb_action == "silent" and _reply_bot
+                    if (_fb_action == "silent"
+                            and _is_genuine_address(_trigger_type)
                             and (_dctx is None or _dctx.addressed)):
                         _fb_action = "reply"
                         l1_meta["fallback_explicit_request"] = "1"
                         logger.info(
-                            "[direct] l1 outage — addressed reply-to-bot "
-                            "fallback to reply | chat=%s", chat_id)
+                            "[direct] l1 outage — addressed direct fallback "
+                            "to reply | chat=%s", chat_id)
                     l1_plan = _l1.fallback_plan(
                         query, action=_fb_action,
                         allowed_actions=_decision_allowed_actions,
@@ -6622,12 +6641,11 @@ class DirectChatService:
                             "[f6] future_intent producer failed — skipped",
                             exc_info=True)
                 _l1_action = l1_plan.action
-                if _force_required and _l1_action != "reply":
-                    # Hard gate §0/§1.7: force → REPLY всегда (post-parse
-                    # override; L1 вызывался с force-фактом в контексте).
-                    l1_plan.action = "reply"
-                    _l1_action = "reply"
-                    l1_meta["override"] = "force"
+                # P0 (26.11.2026): принудительного переопределения решения L1
+                # после срабатывания ключевого слова больше нет — команда
+                # запускает контур, формат действия выбирает L1 (ветки ниже —
+                # только существующие продуктовые контракты: decision OFF и
+                # прямой запрос человека).
                 if not decision_on and _l1_action != "reply":
                     # decision-политика выключена → прежняя семантика: всегда
                     # текстовый ответ; L1 react/silent демотируются (§48).
@@ -6683,7 +6701,8 @@ class DirectChatService:
                             await self._execute_silent_ack(
                                 bot, chat_id=chat_id,
                                 trigger_id=_trigger_id,
-                                reply_bot=_reply_bot,
+                                addressed_trigger=_is_genuine_address(
+                                    _trigger_type),
                                 addressed=(_dctx is not None
                                            and _dctx.addressed),
                                 reason="l1_silent")
@@ -7476,7 +7495,8 @@ class DirectChatService:
                         await self._execute_silent_ack(
                             bot, chat_id=chat_id,
                             trigger_id=_trigger_id,
-                            reply_bot=_reply_bot,
+                            addressed_trigger=_is_genuine_address(
+                                _trigger_type),
                             addressed=(_dctx is not None
                                        and _dctx.addressed),
                             reason=pre_reason)
@@ -8922,8 +8942,8 @@ class DirectChatService:
                               correlation_id: str | None, *, bundle,
                               target_name: str, user_id: int | None,
                               character_block: str, lore_enabled: bool,
-                              image_enabled: bool, force_required: bool,
-                              reply_bot: bool,
+                              image_enabled: bool, reply_bot: bool,
+                              force_required: bool = False,
                               character_ctx=None,
                               extra_media_markers: tuple = (),
                               bot_replies: tuple[str, ...] = (),
@@ -8954,6 +8974,10 @@ class DirectChatService:
         UR-A (§2.1): L1 больше не отдельный код — адаптер собирает контекст
         прямого хода, строит `TurnRequest` и передаёт его единственному
         исполнителю `_execute_turn` (слот/право/бюджет — общий резолв).
+
+        P0 DIRECT-TRIGGER (26.11.2026): ``force_required`` — устаревший
+        параметр совместимости прямых вызовов; он больше не влияет ни на
+        DeliveryPolicy, ни на контекст L1 (команда «бот» не форсирует reply).
         """
         started = time.monotonic()
         meta: dict = {"source": "main", "inherited": True, "fallback": "",
@@ -9037,9 +9061,11 @@ class DirectChatService:
                         else "chat")),
             lore_enabled=bool(lore_enabled),
             image_enabled=bool(image_enabled),
+            # P0 (26.11.2026): force_reply больше не выставляется срабатыванием
+            # ключевого слова (поле остаётся в DeliveryPolicy как трасса).
             delivery=_tt.DeliveryPolicy(
-                kind="text", force_reply=bool(force_required),
-                direct_request=bool(force_required), recheck=False,
+                kind="text", force_reply=False,
+                direct_request=False, recheck=False,
                 trigger="direct"),
             time_snapshot=snap_plan)
         available_caps = list(_turn_req.tool_state.capabilities)
@@ -9084,9 +9110,10 @@ class DirectChatService:
         # force/autonomous + «бот недавно отвечал» + allowed-набор реакций
         # (правило 2 канона ссылается на «разрешённый набор, если указан в
         # контексте»; раньше набор до планера не доезжал вообще).
-        _l1_condition_parts = [
-            _l1.FORCE_LINE if force_required
-            else (_l1.AUTONOMOUS_LINE if reply_bot else "")]
+        # P0 (26.11.2026): строка «прямое обращение: текстовый ответ
+        # обязателен» удалена — L1 сам выбирает reply/silent/react; при
+        # reply-to-bot сохраняется прежняя автономная формулировка.
+        _l1_condition_parts = [_l1.AUTONOMOUS_LINE if reply_bot else ""]
         if bot_replied_recently:
             _l1_condition_parts.append("бот недавно сам отвечал в этом чате")
         if reactions_enabled:
@@ -20406,9 +20433,16 @@ async def _f6_chat_facts(db, chat_id: int, created_at: int) -> dict:
         reply_to = row.get("reply_to_id")
         replied_to_bot = (reply_to is not None
                           and int(reply_to) in bot_tg_ids)
+        # P0 (26.11.2026): «бот»-слово в пересланном сообщении — не обращение
+        # (provenance по is_forward/forward_source строки smart_messages; тот
+        # же command_prefix-паттерн, что у хендлера).
+        forwarded_row = (bool(row.get("is_forward"))
+                         or bool(str(row.get("forward_source") or "").strip()))
+        keyword_to_bot = (not forwarded_row
+                          and command_prefix.keyword_mentioned(text))
         if replied_to_bot or (bot_username and
                               ("@" + bot_username) in text.lower()) or \
-                _BOTWORD_RE.search(text):
+                keyword_to_bot:
             # прямое обращение к боту появилось, пока готовилась инициатива:
             # инициатива не соревнуется (defer, не close — chat-level
             # намерение не фиксирует свою reply-ветку, ΔDDL=0)

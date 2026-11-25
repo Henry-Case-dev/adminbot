@@ -333,12 +333,12 @@ class TestObservabilityR17:
         with caplog.at_level("INFO"):
             emit_agentic_event(
                 DIRECT_TRIGGER, chat_id=-1, message_id=1,
-                trigger_type="force_keyword", force_reply_required=True,
+                trigger_type="keyword",
                 reply_to_bot=False, is_private=False, addressed=True,
                 raw_text="секретный текст пользователя")
         logged = "\n".join(r.getMessage() for r in caplog.records
                            if "DIRECT_TRIGGER" in r.getMessage())
-        assert "trigger_type=force_keyword" in logged
+        assert "trigger_type=keyword" in logged
         assert "секретный текст" not in logged
         assert "raw_text" not in logged
 

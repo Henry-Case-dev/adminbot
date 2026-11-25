@@ -223,8 +223,9 @@ def test_l1_migration_ladder_recognizes_prod_value():
 def test_autonomous_line_names_bot_replies_and_equal_outcomes():
     assert "ОТВЕТЫ БОТА" in _l1.AUTONOMOUS_LINE
     assert "равноправные исходы" in _l1.AUTONOMOUS_LINE
-    assert _l1.FORCE_LINE == \
-        "прямое обращение к боту: текстовый ответ обязателен"
+    # P0 (26.11.2026): строка «текстовый ответ обязателен» удалена — команда
+    # «бот» не форсирует формат действия L1.
+    assert not hasattr(_l1, "FORCE_LINE")
 
 
 def test_build_l1_context_includes_bot_replies_section():

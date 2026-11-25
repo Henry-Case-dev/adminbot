@@ -453,11 +453,13 @@ class FutureIntent:
     kind: str
     goal: str
 
-# §1.5: force/direct-address факты (детерминированные, LLM их не решает).
+# §1.5: direct-address факты (детерминированные, LLM их не решает).
 # FIX-CORRECTIVE-R1 (21.10.2026, P2): autonomous-строка называет блок с
 # предыдущими ответами бота и явное равноправие silent/react (без новых
 # механизмов — только текст существующего факта).
-FORCE_LINE = "прямое обращение к боту: текстовый ответ обязателен"
+# P0 DIRECT-TRIGGER (owner 26.11.2026): строка «текстовый ответ обязателен»
+# удалена — срабатывание команды «бот» не делает текстовый ответ
+# обязательным; формат действия выбирает L1.
 AUTONOMOUS_LINE = ("автономный контекст (ответ на сообщение бота): действие "
                    "свободное; твой предыдущий ответ - в блоке ОТВЕТЫ БОТА, "
                    "если он есть; молчание и реакция - равноправные исходы")
@@ -3880,7 +3882,7 @@ def reset_turn_trace(chat_id: int | None = None) -> None:
 __all__ = [
     "ACTIONS", "L1_EXTENTS", "LONGFORM_L1_EXTENTS", "L1Plan", "L1ModelSlot",
     "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
-    "FORCE_LINE", "AUTONOMOUS_LINE", "INITIATIVE_LINE", "REPAIR_ANNOTATION",
+    "AUTONOMOUS_LINE", "INITIATIVE_LINE", "REPAIR_ANNOTATION",
     "REPAIR_ANNOTATION_NO_TEXT", "REPAIR_ANNOTATION_TRUNCATED",
     "REPAIR_REASON_INVALID_JSON", "REPAIR_REASON_REASONING_ONLY",
     "REPAIR_REASON_TRUNCATED", "L1RouteSnapshot", "resolve_l1_route",
