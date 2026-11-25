@@ -15430,8 +15430,16 @@ class DirectChatService:
         try:
             from services import media_readiness
             reply = getattr(message, "reply_to_message", None)
-            own_media = message_media_type(message) is not None
-            reply_media = message_media_type(reply) is not None
+            # P0 26.11 (C1/F1): «своё медиа» — это ВИЗУАЛЬНЫЙ актив, а не
+            # транспортный токен. Predicate берётся у канонического реестра
+            # (`extract_image_assets` — тот же вызов, что пишет intake), поэтому
+            # audio/voice/PDF-документ перестают быть «зависимыми от картинки»
+            # и не создают фантомное намерение «жду изображение». Фото/стикер/
+            # image-документ/animation/превью видео — паритет прежнего поведения.
+            from services import mca_vision as _mv
+            own_media = bool(_mv.extract_image_assets(message))
+            reply_media = (bool(_mv.extract_image_assets(reply))
+                           if reply is not None else False)
             explicit_reference = ""
             for marker in extra_markers or ():
                 text = str(marker or "")
