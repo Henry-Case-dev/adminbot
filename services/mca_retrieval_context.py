@@ -703,15 +703,13 @@ def _message_period_window(request, period_intent) -> tuple[int, int] | None:
     которому его применил пользователь. Раньше годовое окно сужало только
     граф-факты (периодный пул), а сообщения читались за всю историю — запрос
     «сообщения автора за прошедший год» незаметно становился поиском за все
-    годы. Здесь окно строится из УЖЕ принятых структурных границ запроса
-    (`time_from/time_to`) либо из существующего `PeriodIntent` явного года —
-    новых списков слов/годов нет. Нет периода → None (прежний вызов
-    байт-в-байт, произвольный горизонт не вводится)."""
-    try:
-        if request.time_from is not None and request.time_to is not None:
-            return int(request.time_from), int(request.time_to)
-    except (TypeError, ValueError):
-        return None
+    годы. Окно строится ТОЛЬКО из существующего `PeriodIntent` явного года
+    (новых списков слов/годов нет).
+
+    Количественные диапазоны (`scope='time_range'`, `time_from/time_to` из
+    `bind_quantitative_range`) сюда НЕ входят: у них принятый контракт —
+    rank-then-post-filter, и переход на time-план менял бы основание отбора.
+    Нет периода → None (прежний вызов байт-в-байт)."""
     if not getattr(period_intent, "is_explicit_year", False):
         return None
     bounds = [year_time_bounds(year) for year in period_intent.years]
@@ -720,6 +718,42 @@ def _message_period_window(request, period_intent) -> tuple[int, int] | None:
         return None
     return (min(bound[0] for bound in bounds),
             max(bound[1] for bound in bounds))
+
+
+def _author_window_bounds(request, period_intent) -> tuple[int, int] | None:
+    """Границы авторской выборки: диапазон запроса, иначе период-год.
+
+    Отдельно от `_message_period_window`, потому что авторское чтение НЕ
+    меняет план основного FTS: диапазон количественной выборки допустим
+    только как границы этого bounded-чтения."""
+    try:
+        if request.time_from is not None and request.time_to is not None:
+            return int(request.time_from), int(request.time_to)
+    except (TypeError, ValueError):
+        return None
+    return _message_period_window(request, period_intent)
+
+
+def _window_years(window) -> tuple[int, ...]:
+    """Календарные годы, которые накрывает окно `(since, until)`.
+
+    Нужны существующему авторскому чтению по годам (оно читает диапазоны
+    индекса `(chat_id, timestamp)` и берёт СВЕЖИЕ строки года). Невалидное
+    окно → пустой кортеж (честное «годов нет», без догадки)."""
+    try:
+        start, end = int(window[0]), int(window[1])
+    except (TypeError, ValueError, IndexError):
+        return ()
+    if start <= 0 or end <= 0 or end < start:
+        return ()
+    try:
+        first = datetime.datetime.fromtimestamp(
+            start, datetime.timezone.utc).year
+        last = datetime.datetime.fromtimestamp(
+            end, datetime.timezone.utc).year
+    except (ValueError, OSError, OverflowError):
+        return ()
+    return tuple(range(first, last + 1))
 
 
 def _content_query_tokens(keywords) -> list[str]:
@@ -2893,28 +2927,55 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     #     тонкий результат расширяется В ГРАНИЦАХ ограничений (не случайными
     #     воспоминаниями). Нет окна/автора → ноль новых чтений.
     if _allow("author_window") and request.author_entity_ids:
-        authors_win = {int(uid) for uid in request.author_entity_ids
-                       if uid is not None}
+        authors_win = [int(uid) for uid in request.author_entity_ids
+                       if uid is not None]
         intent_win = period_intent
         if intent_win is None:
             intent_win = resolve_period_intent(
                 request.query, memory_scope=policy,
                 request_intent=request.intent, request_mode=request.mode)
-        window_win = _message_period_window(request, intent_win)
+        window_win = _author_window_bounds(request, intent_win)
         if authors_win and window_win is not None:
+            years_win = _window_years(window_win)
             for chat_id in chat_ids:
-                try:
-                    rows = await db.get_chat_history_messages(
-                        chat_id, window_win[0], window_win[1],
-                        limit=max(1, int(fetch_k) * _AUTHOR_WINDOW_SCAN_FACTOR))
-                except Exception:
-                    logger.warning("[mca07] author window read failed",
-                                   exc_info=True)
-                    rows = []
-                picked = [row for row in (rows or ())
-                          if _row_get(row, "user_id") is not None
-                          and int(_row_get(row, "user_id")) in authors_win
-                          and str(_row_get(row, "text") or "").strip()]
+                picked: list = []
+                for uid in authors_win:
+                    try:
+                        rows = await db.get_author_message_periods(
+                            chat_id, uid,
+                            max(5, int(fetch_k) * _AUTHOR_WINDOW_SCAN_FACTOR),
+                            years=years_win)
+                    except TypeError:
+                        # Двойник без аддитивного `years`: прежняя форма
+                        # вызова — чтение остаётся bounded.
+                        try:
+                            rows = await db.get_author_message_periods(
+                                chat_id, uid,
+                                max(5, int(fetch_k)
+                                    * _AUTHOR_WINDOW_SCAN_FACTOR))
+                        except Exception:
+                            rows = []
+                    except Exception:
+                        logger.warning("[mca07] author window read failed",
+                                       exc_info=True)
+                        rows = []
+                    for row in rows or ():
+                        # Точный автор + границы окна (метод читает по годам,
+                        # поэтому частичный диапазон фильтруется здесь).
+                        author = _row_get(row, "user_id")
+                        try:
+                            author = int(author) if author is not None else None
+                        except (TypeError, ValueError):
+                            author = None
+                        if author not in authors_win:
+                            continue
+                        ts = int(_row_get(row, "timestamp")
+                                 or _row_get(row, "sent_at") or 0)
+                        if ts < window_win[0] or ts > window_win[1]:
+                            continue
+                        if not str(_row_get(row, "text") or "").strip():
+                            continue
+                        picked.append(row)
                 if picked:
                     # Свежее в окне — компактная выборка, не весь год.
                     picked = sorted(

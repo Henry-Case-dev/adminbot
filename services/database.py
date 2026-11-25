@@ -12934,8 +12934,8 @@ class DatabaseService:
 
     async def get_author_message_periods(self, chat_id: int, user_id: int,
                                          limit: int, *,
-                                         reference_year: int | None = None
-                                         ) -> list:
+                                         reference_year: int | None = None,
+                                         years=None) -> list:
         """VMQ-MEM/TIME Slice B: bounded сообщения АВТОРА по годам.
 
         Профиль человека строится не только из `graph_facts`: у известного
@@ -12944,13 +12944,15 @@ class DatabaseService:
         Это чтение по ТОЧНОМУ `user_id` (не `author=subject` fallback): каждая
         строка — его собственное сообщение с `speaker_author_id=user_id`.
 
-        Одно чтение на год (три последних завершённых года до `reference_year`,
-        от старого к новому: для 2026 это 2023/2024/2025 — целевые 2023/2024
-        входят, а ближайший завершённый год не выпадает), каждое — диапазон
-        существующего индекса `(chat_id, timestamp)` и `LIMIT` годовой квоты
-        `limit//5`; пустой текст не возвращается. `limit` не растёт; годовая
-        квота та же, что у профиля (не повышение квоты ради покрытия).
-        Read-only, без DDL."""
+        P0 memory-relevance (2026-11-25): аддитивный ``years`` — явный набор
+        лет ЗАПРОСА (retrieval берёт его из уже принятого периодного
+        намерения). Без него — прежняя семантика профиля (три последних
+        завершённых года до ``reference_year``). Чтение то же: диапазон
+        индекса `(chat_id, timestamp)` + `LIMIT` годовой квоты ``limit//5``;
+        ``ORDER BY timestamp DESC`` — берутся СВЕЖИЕ строки года, а не первые
+        строки окна (на плотном архиве один год — это первые часы суток).
+        `limit` не растёт; годовая квота та же, что у профиля. Read-only,
+        без DDL."""
         try:
             uid = int(user_id)
         except (TypeError, ValueError):
@@ -12963,13 +12965,20 @@ class DatabaseService:
         except (TypeError, ValueError):                   # pragma: no cover
             base_year = datetime.datetime.now(datetime.timezone.utc).year
         out: list = []
+        explicit_years: list = []
+        for value in (years or ()):
+            try:
+                explicit_years.append(int(value))
+            except (TypeError, ValueError):
+                continue
         # Три последних завершённых года до `reference_year` (2026 →
         # 2023/2024/2025), от старого к новому: профиль читает историю
         # человека, а освободившиеся слоты reply-среза должны получать
         # известные старые годы (2023/2024), а не вытеснять их самым свежим
         # завершённым годом. Прежний диапазон начинался с base_year-2 и вообще
         # не содержал 2025.
-        for year in range(base_year - 3, base_year):
+        for year in (sorted(set(explicit_years)) if explicit_years
+                     else range(base_year - 3, base_year)):
             bounds = None
             try:
                 start = int(datetime.datetime(
