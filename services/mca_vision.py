@@ -2154,9 +2154,12 @@ async def register_intake_assets(db, message, *, message_row_id=None) -> list[st
         # независимо от того, включена ли авто-очередь разбора.
         try:
             from services import media_readiness
+            _author_id = getattr(getattr(message, "from_user", None), "id", None)
             await media_readiness.link_pending_intent_for_message(
                 db, chat_id=chat_id, tg_message_id=int(tg_message_id),
-                media_group_id=media_group_id, asset_ids=list(asset_ids))
+                media_group_id=media_group_id, asset_ids=list(asset_ids),
+                author_user_id=(int(_author_id)
+                                if isinstance(_author_id, int) else None))
         except Exception:
             logger.debug("[vision] pending-intent link failed", exc_info=True)
     return asset_ids
@@ -3517,7 +3520,9 @@ async def enqueue_intake_jobs(db, message, asset_ids: list[str], *,
             await media_readiness.link_pending_intent_for_message(
                 db, chat_id=chat_id,
                 tg_message_id=int(getattr(message, "message_id", 0) or 0),
-                media_group_id=media_group_id, asset_ids=list(asset_ids))
+                media_group_id=media_group_id, asset_ids=list(asset_ids),
+                author_user_id=(int(user_id)
+                                if isinstance(user_id, int) else None))
         except Exception:
             logger.debug("[vision] pending-intent link failed", exc_info=True)
     return enqueued
