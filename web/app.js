@@ -15205,7 +15205,6 @@
       _syntheticGroup: function (category, gid) {
         var q = (this.configSearch || '').trim().toLowerCase();
         var items = this.configItems.filter(function (it) {
-          if (it.__uiHidden) return false;
           if (it.category !== category || it.group !== gid) return false;
           if (!q) return true;
           return (it.title || '').toLowerCase().indexOf(q) >= 0
@@ -29991,6 +29990,33 @@
         var view = this.moduleModeStatus(moduleId, activeText, offText);
         return view ? view.line : null;
       },
+      // UR-F (UR-RES-07/URF-R1-F1): статус режима для чипа — из фактического
+      // effective-состояния того же item, что формирует строку. Наличие данных
+      // больше НЕ означает «действует»: нет item → null («нет данных»),
+      // false/no-op → off, true → active, inactive-эффект → inactive.
+      modeItemStatus: function (item) {
+        if (!item || item.value === null || item.value === undefined) {
+          return null;
+        }
+        var eff = item.eff || {};
+        if (eff.status === 'inactive' || eff.status === 'no_op') {
+          return 'inactive';
+        }
+        var on = (item.value === true || item.value === 'true');
+        return on ? 'active' : 'off';
+      },
+      // Пресет речи — не bool: «действует», если поле есть и провайдер не
+      // игнорирует сэмплинг (honest reason_inactive), иначе «не применяется».
+      speechModeStatus: function (item) {
+        if (!item || item.value === null || item.value === undefined) {
+          return null;
+        }
+        var eff = item.eff || {};
+        if (eff.status === 'inactive' || eff.status === 'no_op') {
+          return 'inactive';
+        }
+        return 'active';
+      },
       directModesView: function () {
         var self = this;
         function item(key) { return self.configItemByKey(key); }
@@ -30010,7 +30036,7 @@
           search: {
             title: 'Интернет для фактов',
             line: this.itemEffLine(search, 'разрешён', 'выключен'),
-            available: !!search,
+            status: this.modeItemStatus(search),
             hint: 'Когда вопрос про внешний мир, бот проверяет факты '
               + 'поиском, используя контекст разговора.',
             controlRoute: '#/modules/search',
@@ -30020,7 +30046,7 @@
             title: 'Память',
             line: this.itemEffLine(memory, 'конспект включён',
               'конспект выключен'),
-            available: !!memory,
+            status: this.modeItemStatus(memory),
             hint: 'Бот держит краткий конспект длинного разговора и помнит '
               + 'факты — независимо от срока «кому уже отвечал».',
             controlRoute: '#/memory/rag',
@@ -30029,7 +30055,7 @@
           extent: {
             title: 'Подробность',
             line: 'выбирается планировщиком по каждому запросу',
-            available: true,
+            status: 'active',
             hint: 'Фиксированной настройки подробности нет: L1 оценивает '
               + 'запрос и выбирает компактный или развёрнутый ответ; факт '
               + 'виден в «Что бот видел».',
@@ -30044,7 +30070,7 @@
                  + (speech.eff && speech.eff.reason_inactive
                     ? ' · ' + speech.eff.reason_inactive : ''))
               : 'нет данных',
-            available: !!speech,
+            status: this.speechModeStatus(speech),
             hint: 'Свобода формулировок влияет только на подбор слов '
               + 'моделью ответов; поиск, память и контекст она не заменяет.',
             controlRoute: '#/ai/speech',
@@ -30053,8 +30079,9 @@
           initiative: {
             title: 'Инициатива',
             line: initiativeLine,
-            status: initiativeStatus ? initiativeStatus.status : null,
-            available: !!initiative,
+            status: (initiativeStatus
+              ? initiativeStatus.status
+              : this.modeItemStatus(initiative)),
             hint: 'Проактивные намерения и напоминания — отдельный механизм '
               + 'со своим журналом решений.',
             controlRoute: '#/modules/initiative',
@@ -31706,16 +31733,14 @@
         var self = this;
         if (!grp || !grp.items) return [];
         return grp.items.filter(function (i) {
-          return !i.__uiHidden && !self.itemAdvanced(i)
-            && !self.isAdminIdHidden(i);
+          return !self.itemAdvanced(i) && !self.isAdminIdHidden(i);
         });
       },
       advancedItems: function (grp) {
         var self = this;
         if (!grp || !grp.items) return [];
         return grp.items.filter(function (i) {
-          return !i.__uiHidden && self.itemAdvanced(i)
-            && !self.isAdminIdHidden(i);
+          return self.itemAdvanced(i) && !self.isAdminIdHidden(i);
         });
       },
 
@@ -32415,7 +32440,6 @@
           ? this.providerCoveredKeys() : null;
         var q = (this.configSearch || '').trim().toLowerCase();
         var items = this.configItems.filter(function (it) {
-          if (it.__uiHidden) return false;
           if (!self.tabSourceForItem(tab, it)) return false;
           if (covered && covered[it.key]) return false;
           if (!q) return true;

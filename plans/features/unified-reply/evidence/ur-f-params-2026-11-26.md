@@ -102,10 +102,60 @@ tests/js/ur_ui_settings_test.js — AssertionError: UR-22: бейдж режим
   два новых (документированный список, не ослабление).
 - `tools/ui_urf_visual_e2e.py` — визуальная приёмка: два снятых поля в
   `deadTitles`, одно IANA-поле и отсутствие вторых поясов на экране «Время»,
-  бейдж/строка «Инициативы» из backend-гейта.
+  бейдж/строка «Инициативы» из backend-гейта; стаб `/api/config` теперь
+  повторяет реальный контракт `effective_meta` (`status/active_consumer/
+  units/reason_inactive/readonly`), поэтому артефакт покрывает disabled-капы
+  и legacy/no-op-бейджи, а не только «все active».
 - `tests/js/ur_ui_settings_test.js` — убрана зависимость от календарной даты
   (`timeStateFetchedAt = Date.now()`) и от статического `MODULES`; тест
   по-прежнему проверяет серверную арифметику часов и DTO-реестр.
+
+## Корректив r1 (URF-R1-F1, IN_SCOPE)
+
+Ревью r1 (`plans/features/unified-reply/evidence/ur-f-params-review-r1.md`,
+sha256 a7526c38…): чип режима был настоящим носителем состояния только у
+«Инициативы», у остальных карточек выводился из наличия данных — на
+выключенных режимах «действует» противоречило строке.
+
+Исправлено:
+
+- `directModesView()` задаёт `status` КАЖДОЙ карточке из фактического
+  состояния: `modeItemStatus(item)` → `active` при `value=true`, `off` при
+  `false`, `inactive` при `eff.status ∈ {inactive,no_op}`, `null` при
+  отсутствии item; пресет речи — `speechModeStatus` (нет item → `null`,
+  honest `inactive` → «не применяется», иначе `active`); «Подробность» —
+  `active` (механизм без тумблера); «Инициатива» — `moduleModeStatus`, при
+  отсутствии DTO — тот же `modeItemStatus`.
+- `web/index.html`: чип рендерится ТОЛЬКО из `mode.status`
+  (`active → «действует»`, `off → «выключено»`, `blocked → «заблокировано»`,
+  `inactive → «не применяется»`, `null → «нет данных»`); `mode.available`
+  удалён как мёртвое состояние.
+- Тесты: `tests/js/ur_ui_settings_test.js` — выключенные «Интернет для
+  фактов»/«Память»/«Инициатива» дают `status=off`, согласованный со строкой;
+  нет item → `null`; активные/инактивные кейсы. `PROBE_MODES` и main()
+  Playwright-прогона требуют `выключено` для интернета/памяти,
+  `заблокировано` для инициативы и ловят любое противоречие «действует» +
+  «выключен…» в строке.
+- F2: визуальный стаб теперь отдаёт реальный `effective_meta` (включая
+  `readonly`), артефакт покрывает disabled/legacy-состояния.
+- F3: числа каталога JS исправлены (138 файлов; 7 падений на кандидате, все 7
+  базовые; на git-экспорте базы 9 = 7 + 2 RED-теста кандидата).
+- F4: изменения вне write_scope — только тесты/инструмент/evidence, без
+  продуктового кода: `tests/js/unified_ui21_test.js`,
+  `tests/test_cfg03_param_audit.py` (точный пин hidden-списка, +2 ключа),
+  `tools/ui_urf_visual_e2e.py`, `plans/**/evidence/**`.
+- F7: мёртвые проверки `__uiHidden` удалены из `_syntheticGroup`,
+  `basicItems`, `advancedItems` и tab-фильтра (свойство больше не
+  выставляется: скрытие делает backend).
+
+RED на предыдущем кандидате `90f4114f3` (те же тесты, экспорт без worktree):
+`search.status=undefined / line=выключен · заводское значение`,
+`memory.status=undefined / line=конспект выключен…` → AssertionError
+«F1: disabled search must be off»; `ur_ui_settings_test.js` падает на
+«UR-RES-07: включённый интернет — статус active». GREEN на исправлении:
+`UR-F-UI-OK`, probe `PROBE-OK`, Playwright — чипы `выключено/выключено/
+действует/не применяется/заблокировано` при строках `выключен/конспект
+выключен/…`.
 
 ## Проверки (кандидат)
 
@@ -115,7 +165,7 @@ tests/js/ur_ui_settings_test.js — AssertionError: UR-22: бейдж режим
 | Python, каталог/аудит/срезы | `pytest tests/test_param_catalog.py tests/test_cfg03_param_audit.py tests/test_ur_11_single_owner.py tests/test_ur_12_summary_watermark.py tests/test_ur_context_selection.py tests/test_ur_c_clock.py tests/test_ur_ui_effective_config.py -q` | 201 passed, 1 pre-existing failed (`test_visible_dead_knobs_are_exactly_documented`: 4 несвязанных ключа graph/dig были вне списка и до правок) |
 | Python, инспектор/срезы | `pytest tests/test_webapp_api.py tests/test_ur_f_inspector_step1.py … test_ur_e_speech.py -q` | 361 passed, 1 pre-existing failed (`test_ur_f_inspector_step1::test_identical_quotes_credit_only_the_surviving_item`, `FakeDB` — падает и на базе) |
 | JS, строки | `node tests/js/ur_ui_settings_test.js`, `node tests/js/unified_ui21_test.js` | `UR-F-UI-OK`, `UNIFIED-UI21-OK` |
-| JS, весь каталог | `node tests/js/*_test.js` (149 файлов) | 7 failed — все 7 идентично падают на базе `b01138b55` (`_cogBlitLabel`, `_embedModelSwapGuard`, oversight/menu-пины) |
+| JS, весь каталог | `node tests/js/*_test.js` (138 файлов) | 7 failed — все 7 идентично падают на базе `b01138b55` (git-инициализированный экспорт базы: 9 = эти 7 + 2 RED-теста кандидата `ur_ui_settings`/`unified_ui21`); в не-git экспорте дополнительно падают 2 glass-теста (`git show HEAD`) — артефакт окружения |
 | Визуал (Playwright) | `python tools/ui_urf_visual_e2e.py --out …/visual` | `URF-VISUAL-OK`; desktop 1440 + mobile 390; console errors = 0; `zoneInputCount=1`, `legacyTzFields=0`, `initiativeBadge=заблокировано` |
 | Синтаксис | `py_compile` (3 файла), `node --check web/app.js` | OK |
 
@@ -132,7 +182,7 @@ Telegram не выполняется). Секреты не читались и �
 | **UR-21** | implemented (два снятых поля убраны из редактирования; клиент не дублирует политику; все поля группы несут мету, no-op скрыты, legacy помечены) | `tests/test_ur_ui_effective_config.py::TestDirectGroupApplicability` (5 тестов), `TestCatalogHonesty`; `tests/js/unified_ui21_test.js`; Playwright `direct-settings/direct-limits` — `deadFound=[]`, hScroll=false |
 | **UR-22** | implemented (readonly из `eff.readonly`; режим инициативы из backend-гейта; `source` различает строку PG и дефолт при одинаковом значении) | `TestEffectiveConfigSource`, `TestDirectGroupApplicability::test_readonly_axis_is_backend_contract`, `test_every_visible_field_carries_eff`; `tests/js/ur_ui_settings_test.js` п.6; Playwright `modes-*` (бейдж «заблокировано») |
 | **UR-29** | already satisfied with proof (одно editable IANA-поле с поиском, серверные часы, offset/DST, наследование, Save/Reset; вторых часовых поясов нет) | `TestTimeSingleSurface` (4 теста), `TestTimeSurface`; Playwright `time-desktop-1440`/`time-mobile-390`: `zoneInputCount=1`, `legacyTzFields=0`, часы тикают от серверной базы |
-| **UR-RES-07** | already satisfied with proof + honest mode fix (действующий режим/источник; содержимое последнего контекста в инспекторе; декоративных no-op-полей нет) | `TestTurnDiagnostics::test_last_assembled_context_content` + существующие `test_chain_view_maps_all_stages`; `tests/js/ur_ui_settings_test.js` п.3–5; Playwright `modes-*`, `inspector-*`; `deadFound=[]` |
+| **UR-RES-07** | already satisfied with proof + honest mode fix (действующий режим/источник; содержимое последнего контекста в инспекторе; чип каждого режима — из фактического `status`, а не из наличия данных; декоративных no-op-полей нет) | `TestTurnDiagnostics::test_last_assembled_context_content` + существующие `test_chain_view_maps_all_stages`; `tests/js/ur_ui_settings_test.js` п.3–5 (off/active/inactive/нет данных) и п.6; Playwright `modes-*` (`modes` map: чип↔строка для 5 режимов), `inspector-*`; `deadFound=[]` |
 
 ## Остаточное / честные ограничения
 
