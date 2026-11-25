@@ -145,7 +145,6 @@ GREEN на кандидате:
   `test_mca23_response_plan`, `test_rlr_dcs_postprocess`, `test_scanner_fixes_round1020`
   → **249 passed**.
 * Повторный прогон ключевых после последних правок → **155 passed**.
-
 Изменённые старые тесты (контракт изменён решением владельца, не ослабление):
 * `tests/test_p0_delta_routing.py` — `creative`/unknown/без плана больше не разрешают подмену
   (owner 2026-11-25 §2); legacy `creative_writing` без `structure=story` → False;
@@ -174,15 +173,20 @@ GREEN на кандидате:
   дрейф числа инструментов (14 vs 16). FAIL на базе.
 * `test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons`,
   `test_tool_download_quality_round1017.py` (2) — FAIL на базе.
-* `test_unified_image_request_round1026.py` (канон инструментов / git-diff) — тот же класс,
-  что проверенные выше (файл не изменялся этим diff'ом).
-* `test_selfdiag_corrective_research.py` (6) — `TypeError ... unexpected keyword 'preserve'`
-  в тестовом стабе и `OSError [WinError 6]`; ни один из модулей полосы не менялся. Не
-  перезапускался на базе: этот файл стабильно роняет оболочку агента (subprocess/handle),
-  поэтому класс подтверждён по коду/сообщению, а не новым прогоном.
+* `test_unified_image_request_round1026.py` — `test_canon_unchanged`/`test_104_generator_functions_ast_identical`
+  падают в общем прогоне из-за порядка (кэш baseline-файла) и/или дрейфа канона; изолированно
+  `test_104_*` проходят и на базе, и на кандидате; `services/image_generation.py` этим diff'ом
+  не менялся.
 
-Широкий вспомогательный набор: **778 passed, 26 failed** — все перечисленные выше файлы не
-входят в diff этой полосы; новых падений в затронутых модулях нет.
+Широкий вспомогательный набор (25 файлов вне diff'а: asap5/asap7/mca/evol/unified/ur):
+**775 passed, 29 failed**. Дополнительно к перечисленным выше подтверждены на базе:
+`test_asap5_integration_w3.py` (8 nostalgia-provenance) и `test_direct_fallback_recompose_asap32.py`
+(5) — на базе те же падения. Новых падений в затронутых модулях нет.
+
+`test_selfdiag_corrective_research.py` (6) — `TypeError ... unexpected keyword 'preserve'` в
+тестовом стабе и `OSError [WinError 6]`; ни один модуль полосы не менялся, новые прогоны этого
+файла стабильно роняют оболочку агента (subprocess/handle), поэтому класс подтверждён по
+сообщению/коду, а не новым прогоном на базе.
 
 ## 5. Что осталось (короткие факты)
 
