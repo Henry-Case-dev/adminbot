@@ -227,5 +227,11 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # жанр checkup.base.system очищен от устаревшего Betterstack и получил
     # смысловую границу смешанного состояния (печать 3140bb364044); прочие
     # каноны и все PREV_CHECKUP_* байт-в-байт → 2cd38b272139.
-    assert pr.FACTORY_SET_SHA256_12 == "2cd38b272139"
+    # P0-GOAL-MEDIA (25.11.2026, P0 §2): changed = 1 — только заводской канон
+    # direct.base.l1_planner (ревизия P0GM, печать ce6931304b24); печать набора
+    # переутверждена осознанно → 10efa51a8dae.
+    assert pr.FACTORY_SET_SHA256_12 == "10efa51a8dae"
+    # Пин — литерал сторожевой функции; вторая проверка сверяет его с
+    # фактической печатью набора (неучтённая правка канона не пройдёт молча).
+    assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
 

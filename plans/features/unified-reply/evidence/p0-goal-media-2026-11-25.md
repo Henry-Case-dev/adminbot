@@ -1,6 +1,9 @@
 # P0 GOAL / MEDIA (lane C) — evidence, 2026-11-25
 
 Branch: `fix/p0-goal-media` · Base (deployed 2.58.246): `78abc866cc11ffba2ffaea2558080149859ce6ad`
+Candidate: see §6 (current tip of `fix/p0-goal-media`; r1 candidate `542f54820`, corrective commit recorded there).
+Evidence file reference: `git rev-parse HEAD:plans/features/unified-reply/evidence/p0-goal-media-2026-11-25.md`
+at r1 gave blob id `28ca7bc81baf51dcf965b41f169a47d786ed1ecd` — that is a **blob id of this file, not a commit**.
 Requirement rows: `P0I-GOAL-01`, `P0I-GOAL-02` (`plans/features/unified-reply/requirements-map-p0-2026-11-25.json`),
 `P0R-MEDIA-01`, `P0R-MEDIA-02` (`plans/features/smart-module-semantic-routing/requirements-map-p0-2026-11-25.json`).
 Owner source: `plans/owner_inputs/2026-11-25-p0-intent-memory-answer-quality.md` §2 (sha256 `0d2b3516…`);
@@ -116,7 +119,10 @@ Coverage of the required discriminating checks:
 Regression guards that must not break (green on base too): `test_explicit_download_request_still_derives_the_download_step`,
 conversation/no-substitution trio, and the positive research profile check.
 
-Affected suites, candidate vs base (same command, same worktree isolation, `-p no:cacheprovider`):
+Affected suites actually run at r1, candidate vs base (same command, same worktree isolation, `-p no:cacheprovider`).
+**Coverage statement:** the sets below were the whole of r1's test coverage. They did **not** include the
+factory-fingerprint pin files (`test_p0_prompts_core`, `test_expression_isolation_followup`), which is exactly
+how the stale-pin regression (review r1 finding F1) escaped this evidence; that gap is closed in §6.
 
 * canon/L1 ladder set (14 files: `test_speech_p0_*`, `test_asap_speech_r3b_canon`, `test_direct_l1_*`,
   `test_asap2_clar_contract`, `test_prompt_migrations`, `test_asap_fc_voice_l1_decision_profile`,
@@ -131,7 +137,8 @@ Affected suites, candidate vs base (same command, same worktree isolation, `-p n
   `test_media_execution_asap32`, `test_mca23_phase2`, `test_direct_chat`): candidate **692 passed, 3 failed**;
   base **692 passed, 3 failed** — identical failures (`test_callback_downloads_chosen_quality`,
   `test_callback_busy_keeps_pending`, `test_import_stays_light_and_has_no_db_dependency`; the last one passes
-  alone on both trees — order-dependent, pre-existing).
+  alone on both trees — order-dependent, pre-existing; re-measured in §6 where both trees give 2 failed /
+  693 passed on repeated runs, i.e. the same two pre-existing failures).
 * prompt audit/registry set (8 files incl. `test_evol018_prompt_audit`, `test_er65_sent_segment_snapshot`,
   `test_ui_verbilizer_tabs_round1023`, `test_soul1_*`): candidate **120 passed, 9 failed**; base **120 passed,
   9 failed** — identical (stale recorded dumps/line pointers on base).
@@ -190,4 +197,71 @@ tests/test_post_asap5_w2_tech_reasoning.py      active rules, canon composition,
 tests/test_evol_w17_small_canon_reqs.py         canon composition, rollback head, label
 tests/test_evol_evidence_routing.py             label, EVR6 pins, rollback head
 tests/test_prompt_migrations.py                 rollback target (EVR6), active sha
+tests/test_p0_prompts_core.py                   factory-set fingerprint pin (review F1 fix)
+tests/test_expression_isolation_followup.py     same fingerprint pin (review F1 fix)
 ```
+
+## 6. Review r1 corrective (F1 blocking, N1/N2 non-blocking)
+
+Review: `plans/features/unified-reply/evidence/p0-goal-media-review-r1.md`
+(sha256 `0e531004b09ef54e8dce0c34272b623a01aac5eb075ba5f53d7c4c8264f6b82f`), reviewer
+`ses_dedbfe383ffeBx3Cfxp65cllQH`, verdict NEEDS_FIXES with `F1` blocking and `N1`-`N4` non-blocking.
+
+**F1 (IN_SCOPE, candidate regression) — stale factory-fingerprint pins.** The canon change bumped
+`FACTORY_SET_SHA256_12` to `10efa51a8dae` but the two frozen literal pins still asserted the previous
+value, so two guards that are green on base failed on the candidate.
+
+* Reproducer before the fix (candidate `542f54820`): `tests/test_p0_prompts_core.py
+  tests/test_expression_isolation_followup.py` → **2 failed, 11 passed**
+  (`assert '10efa51a8dae' == '2cd38b272139'`); base `78abc866c` → **13 passed**.
+* Fix: both pins updated to `10efa51a8dae` (literal guard preserved — a future unaccounted canon edit still
+  fails it) plus an explicit second assertion that the constant equals `pr.factory_set_fingerprint()`, so
+  constant-vs-bytes drift is caught in the same place.
+* After the fix: both files → **13 passed, 0 failed** on base and on the candidate.
+* Fingerprint proof (candidate worktree):
+  `FACTORY_SET_SHA256_12 = 10efa51a8dae`; `factory_set_fingerprint() = 10efa51a8dae`;
+  `constant == live → True`; `seal_integrity() = {}`;
+  `FACTORY_REVISION_SEALS["direct.base.l1_planner"] = ("l1-planner-final-goal", "ce6931304b24")`;
+  `sha12(DIRECT_L1_PLANNER_SYSTEM_PROMPT) = ce6931304b24`;
+  `factory_revision("direct.base.l1_planner") = fac:ce6931304b24(l1-planner-final-goal)`.
+
+**Pin/soul set (13 files that reference the factory fingerprint)** — identical on both trees:
+
+| set | base | candidate |
+|---|---|---|
+| `test_asap_fc_voice01_verbalizer`, `test_asap_fc_voice_l1_decision_profile`, `test_asap_speech_r3b_canon`, `test_evol018_prompt_audit`, `test_expression_isolation_followup`, `test_memory_unified_retrieval_06`, `test_p0_prompts_core`, `test_post_asap5_w1_writer_core`, `test_post_asap5_w2_tech_reasoning`, `test_samples_fewshot`, `test_soul1_core_registry_api`, `test_soul1_registry_completeness`, `test_soul1_w4_humor_craft` | **5 failed, 236 passed** | **5 failed, 236 passed** — same node IDs |
+
+Pre-existing failures in this set (identical on base and candidate): `test_direct_service_l1_payload_gets_profile_from_turn_frame`,
+`test_grep_audit_counts_are_stable`, `test_samples_fewshot::test_section2_texts_are_byte_exact`,
+`test_samples_fewshot::test_rendered_layer_uses_section2_texts`,
+`test_registry_consumer_pointers_point_at_real_lines`.
+
+**Re-run of the other required sets after the fix (candidate vs base, same commands):**
+
+| set | base | candidate |
+|---|---|---|
+| canon set + both pin files (16 files) | 5 failed, 365 passed | 5 failed, 365 passed — same node IDs |
+| tool/media/direct set (18 files) | 2 failed, 693 passed (repeat run) | 2 failed, 693 passed — same node IDs |
+| prompt audit/registry set (8 files) | 9 failed, 120 passed | 9 failed, 120 passed — same node IDs |
+| new contract file `test_p0_goal_media_2026_11_25.py` | 9 failed, 6 passed (RED) | 15 passed (GREEN) |
+| UR/planning/matrix + new file (12 files) | — (no failures on candidate) | 317 passed, 0 failed |
+
+The tool/media set's third failure in the r1 table (`test_import_stays_light_and_has_no_db_dependency`)
+is order-dependent: repeated runs of the same command give 2 failed / 693 passed on **both** trees
+(base re-run confirmed), and it passes alone on both. No new failures remain.
+
+**N1 (evidence accuracy) — corrected above.** `28ca7bc8…` is the blob id of this evidence file at
+`542f54820`, not a commit; the affected-suite section now states that only the listed sets were run at r1 and
+that the pin files were missing, which is what hid F1.
+
+**N2 (cosmetic) — fixed.** The new head of the L1 rollback chain is labelled «верхняя ступень
+(P0-GOAL-MEDIA)»; the older entries keep the base convention «ступень 0 …», so no two adjacent steps share a
+label.
+
+**N3/N4** — no action in this lane (N3 is `P0I-LORE-01` in lane B; N4 is the standing EVOL-016
+release-policy behaviour, unchanged by this diff).
+
+Final tip of `fix/p0-goal-media` after this corrective: the single corrective commit on top of r1 candidate
+`542f548206be4f6d6594083e8564adaadeed9408` (exact SHA is recorded in the builder handoff — a file cannot
+contain the id of the commit that contains it; the r1-fix commit changes only test pins, one comment and this
+document, no product bytes).

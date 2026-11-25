@@ -173,7 +173,15 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # жанр checkup.base.system очищен от устаревшего Betterstack и получил
     # смысловую границу смешанного состояния (печать 3140bb364044); прочие
     # каноны и все PREV_CHECKUP_* байт-в-байт → 2cd38b272139.
-    assert pr.FACTORY_SET_SHA256_12 == "2cd38b272139"
+    # P0-GOAL-MEDIA (25.11.2026, P0 §2): changed = 1 — только заводской канон
+    # direct.base.l1_planner (правило 7 «конечный результат vs материал», поле
+    # final_goal, абзацы цели/медиа; печать ce6931304b24). Печать набора
+    # переутверждена осознанно → 10efa51a8dae; прочие каноны, включая тексты
+    # владельца, байт-в-байт.
+    assert pr.FACTORY_SET_SHA256_12 == "10efa51a8dae"
+    # Пин — литерал (сторожевая функция): он обязан совпадать с фактической
+    # печатью набора, иначе будущая неучтённая правка канона пройдёт молча.
+    assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
 
     # SMART-CORRECTIVE-01 §8.5 / S6-ACTIVATION (15.11.2026): метка бампнута
     # до checkup-p0-24-10-mixed-state — без бампа релиз видел PLAN_NOOP и
