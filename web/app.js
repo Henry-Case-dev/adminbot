@@ -7446,7 +7446,6 @@
         // второй настройки пояса/второго запроса планировщика нет.
         summarySchedule: null,
         summaryScheduleState: 'idle',   // idle|loading|ready|off|error
-        summaryScheduleError: '',
         // ── UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ────────────
         turnDiag: null,            // GET /api/direct/turn-diagnostics
         turnDiagTurn: 1,           // выбранный ход (1 = последний)
@@ -20497,12 +20496,10 @@
         if (chatId == null) {
           this.summarySchedule = null;
           this.summaryScheduleState = 'off';
-          this.summaryScheduleError = '';
           return;
         }
         var epoch = this.scopeEpoch;
         this.summaryScheduleState = 'loading';
-        this.summaryScheduleError = '';
         var self = this;
         try {
           var data = await this.api('/api/config/time?chat_id='
@@ -20530,8 +20527,6 @@
               && !this._chatBound(epoch, chatId)) return;
           self.summarySchedule = null;
           self.summaryScheduleState = 'error';
-          self.summaryScheduleError =
-            (e && e.message) || 'расписание недоступно';
         }
       },
       summaryNextRunLocal: function () {
