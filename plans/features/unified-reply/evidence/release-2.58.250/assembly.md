@@ -1,4 +1,4 @@
-# Сборка 2.58.250 — UR-G/UR-B (инициативная трасса доставки + acceptance-доказательства)
+# Сборка 2.58.250 — UR-G/UR-B (трасса доставки инициативы + F1/F2 корректива, v2)
 
 - **Роль:** Builder, локальная сборка. **Без deploy, merge в master, SSH и
   production.** Effective-state прода и post-deploy проверки — DevOps после
@@ -8,11 +8,12 @@
   (`WorkspaceData/worktrees/c742e4de9e92c489/unified-reply-41500c30aca7-4b645e38`,
   epic `unified-reply`). Интеграция — линейные cherry-pick, **без merge-коммитов**.
 - **Срез:** `UR-G/UR-B`, ветка `feat/ur-gb-rows`, tip
-  `8929f04cbc91b02ba1b2b9557b24f92a5af5d304` (предыдущий `2837a719f`,
-  функциональная часть `6d10d35de` + корректива F1 в `8929f04cb`).
-  Ревью: r1 → NEEDS_FIXES (`URGB-R1-F1`), r2 →
-  `APPROVED_FOR_RELEASE_PREPARATION`; строки `UR-RES-01`, `UR-30.2`,
-  `UR-07.3`, `UR-17.7`, `UR-17.8` — PASS.
+  `dcbe2bf18b5697d4b83df58e530bdf3a711f3025` (предыдущий `8929f04cb`;
+  функциональные части: `6d10d35de` UR-RES-01 trajectory parity, `8929f04cb`
+  корректива `URGB-R1-F1`, `dcbe2bf18` корректива `URGB-DR1-F1/F2`).
+- **Интеграционный код-кандидат:** `6cb4026f6b8bb9dc1fcb9fed2d17f98be1957e7b`
+  (6 коммитов среза/версии + прежний текст сборки; этот переписанный документ
+  идёт отдельным коммитом поверх и меняет только `plans/`).
 - **Сессия сборки:** `ses_deb67df3dffe0mJeDC3a7D0yfA`.
 
 ```json
@@ -20,34 +21,34 @@
   "release": "2.58.250",
   "base": {"sha": "af8de2ac6e59f4c0b899c0c839f02258a9e02236", "version": "2.58.249"},
   "slice": {
-    "id": "UR-G/UR-B", "name": "initiative turn-trace delivery parity + acceptance proofs",
+    "id": "UR-G/UR-B", "name": "initiative turn-trace delivery parity + acceptance proofs (incl. DR1-F1/F2)",
     "branch": "feat/ur-gb-rows",
     "base": "af8de2ac6e59f4c0b899c0c839f02258a9e02236",
-    "source_tip": "8929f04cbc91b02ba1b2b9557b24f92a5af5d304",
-    "previous_tip": "2837a719f0456085cc4d08538fd2f0638f4822a0",
-    "product_commits": ["6d10d35de", "8929f04cb"],
-    "evidence_commits": ["6d10d35de", "1599c77d0", "2837a719f", "8929f04cb"],
+    "source_tip": "dcbe2bf18b5697d4b83df58e530bdf3a711f3025",
+    "previous_tip": "8929f04cbc91b02ba1b2b9557b24f92a5af5d304",
+    "product_commits": ["6d10d35de", "8929f04cb", "dcbe2bf18"],
+    "evidence_commits": ["6d10d35de", "1599c77d0", "2837a719f", "8929f04cb",
+                         "dcbe2bf18"],
     "review": {
-      "r1": "plans/features/unified-reply/evidence/ur-gb-rows-review-r1.md",
-      "r1_sha256": "9da4c9e81dcb023e60f9acf46f84026e3307b755a097664495084fe6fe84b792",
-      "r1_verdict": "NEEDS_FIXES (URGB-R1-F1: стадия доставки инициативы не записывалась на всех терминальных путях)",
-      "r2": "plans/features/unified-reply/evidence/ur-gb-rows-review-r2.md",
-      "r2_sha256": "6f7114e84cd418b6aa2461357c960b7867eb4566762a998237328d703560713c",
-      "hash_reproduced": true,
-      "verdict": "APPROVED_FOR_RELEASE_PREPARATION"
+      "slice_r1": "ur-gb-rows-review-r1.md (NEEDS_FIXES URGB-R1-F1, закрыт 8929f04cb)",
+      "slice_r2": "ur-gb-rows-review-r2.md",
+      "slice_r2_sha256": "6f7114e84cd418b6aa2461357c960b7867eb4566762a998237328d703560713c",
+      "delta_r1": "plans/features/unified-reply/evidence/release-2.58.250/delta-review-r1.md",
+      "delta_r1_sha256": "45e04fe8df6251d71391bf2f345bfbf875d3c88f8d51db45179878847d816422",
+      "delta_r1_verdict": "NEEDS_FIXES (URGB-DR1-F1/F2) — исправлено срезом dcbe2bf18, ожидает re-review r2"
     },
     "per_row": {"UR-RES-01": "PASS", "UR-30.2": "PASS", "UR-07.3": "PASS",
                 "UR-17.7": "PASS", "UR-17.8": "PASS"}
   },
-  "integration": "linear cherry-pick: slice (4 commits), version wave (1)",
-  "commits_above_base": 5,
-  "delta_vs_base": {"files": 39, "insertions": 1771, "deletions": 39}
+  "integration": "linear cherry-pick: slice (5 commits, включая DR1-F1/F2), version wave (1); переписанный текст сборки (1)",
+  "commits_above_base": 8,
+  "code_candidate": {"sha": "6cb4026f6b8bb9dc1fcb9fed2d17f98be1957e7b",
+                     "tree": "9dfc49144a2b5f4c3275ab3f66ef7f9aeeed7d7c"},
+  "delta_vs_base": {"files": 41, "insertions": 2446, "deletions": 43}
 }
 ```
 
-sha256 воспроизведены с planning-checkout (`master`): evidence-ревью r1/r2 живут
-в плановой линии, r2 не входит в код-базу; r2-файл в срезе отсутствует и здесь
-не создавался.
+sha256 ревью воспроизведены с planning-checkout (`master`).
 
 ## 1. Порядок интеграции
 
@@ -58,85 +59,123 @@ sha256 воспроизведены с planning-checkout (`master`): evidence-р
 | 3 | `b63b6adf2` | UR-G/UR-B `2837a719f` | evidence (cleanup record, retention worktree) |
 | 4 | `4638fdc4f` | UR-G/UR-B `8929f04cb` | product + tests + evidence (URGB-R1-F1: стадия доставки на всех терминальных путях) |
 | 5 | `86dc25755` | — | version wave 2.58.250 |
+| 6 | `9b1071bff` | — | assembly v1 (заменён этим документом; delta-review r1 отметил устаревшие числа) |
+| 7 | `6cb4026f6` | UR-G/UR-B `dcbe2bf18` | product + tests + evidence (URGB-DR1-F1/F2: честный исход реакции, легальный mca-13 контекст) |
+| 8 | — | — | этот переписанный текст сборки (v2, только `plans/`) |
 
 Cherry-pick прошли без конфликтов; ручных правок кода среза при сборке не
-потребовалось. Порядок — ровно как в ветке среза (линейный). Ветка среза также
-несёт уже отслеживаемые evidence-файлы (`ur-gb-rows-2026-11-26.md`,
-`ur-gb-retention-2026-11-26.json`, `ur-gb-rows-review-r1.md`) — они взяты как
-часть reviewed tip; новых evidence-файлов сверх среза не создавалось.
+потребовалось. Порядок — ровно как в ветке среза (линейный). Ветка среза несёт
+уже отслеживаемые evidence-файлы `ur-gb-rows-2026-11-26.md`,
+`ur-gb-retention-2026-11-26.json`, `ur-gb-rows-review-r1.md` и (с `dcbe2bf18`)
+`ur-gb-rows-review-r2.md` — все взяты как часть reviewed tip; новых
+evidence-файлов сверх среза не создавалось.
 
 ## 2. Файлы среза: побайтовая идентичность
 
-Срез затрагивает **7 файлов** (`git diff --name-status af8de2ac6..8929f04cb`:
-2 product, 2 новых теста, 3 evidence). Проверка механическая (`git rev-parse`
-blob'ов на кандидате до version wave против tip'а среза):
+Срез затрагивает **8 файлов** (`git diff --name-status af8de2ac6..dcbe2bf18`:
+2 product, 2 теста, 4 evidence). Проверка механическая (`git rev-parse`
+blob'ов на интеграционном кандидате `6cb4026f6` против tip'а среза):
 
-| файл | blob (12) HEAD | blob (12) 8929f04cb |
+| файл | blob (12) 6cb4026f6 | blob (12) dcbe2bf18 |
 |---|---|---|
-| `services/direct_chat_service.py` | `70fe3320e1fd` | `70fe3320e1fd` |
-| `services/turn_trace.py` | `21738e3120d4` | `21738e3120d4` |
-| `tests/test_ur_acceptance_trace.py` | `82648e08847c` | `82648e08847c` |
+| `services/direct_chat_service.py` | `6434483550d7` | `6434483550d7` |
+| `services/turn_trace.py` | `a286142891a7` | `a286142891a7` |
+| `tests/test_ur_acceptance_trace.py` | `d8a5c6ca0f57` | `d8a5c6ca0f57` |
 | `tests/test_ur_search_first.py` | `7355d54812ab` | `7355d54812ab` |
-| `plans/features/unified-reply/evidence/ur-gb-rows-2026-11-26.md` | `65bbffcffa64` | `65bbffcffa64` |
-| `plans/features/unified-reply/evidence/ur-gb-retention-2026-11-26.json` | `29e4ffe9020e` | `29e4ffe9020e` |
+| `plans/features/unified-reply/evidence/ur-gb-rows-2026-11-26.md` | `e068642edd85` | `e068642edd85` |
+| `plans/features/unified-reply/evidence/ur-gb-retention-2026-11-26.json` | `674211f3b960` | `674211f3b960` |
 | `plans/features/unified-reply/evidence/ur-gb-rows-review-r1.md` | `f9e6cdde272e` | `f9e6cdde272e` |
+| `plans/features/unified-reply/evidence/ur-gb-rows-review-r2.md` | `feee17e3e394` | `feee17e3e394` |
 
-Итог: **7/7 файлов байт-в-байт равны blob'у среза**; `git diff --stat
-8929f04cb..<пре-bump HEAD>` пуст, дерево до version wave равно tip'у среза
-(`4638fdc4f^{tree}` = `8929f04cb^{tree}` = `44771697ce5181fc3c6f132dd62e83e2c0c00b5f`).
+Итог: **8/8 файлов байт-в-байт равны blob'у среза**; `git diff --quiet
+dcbe2bf18 HEAD -- <каждый из 8 файлов>` → rc 0, `git diff --stat dcbe2bf18 HEAD
+-- <8 файлов>` пуст. Полный `git diff --stat dcbe2bf18..HEAD` содержит только
+32 файла version wave и этот документ (версия 2.58.250 против 2.58.249 в срезе).
 
-## 3. Version wave 2.58.250 (32 файла / 35 строк)
+## 3. Version wave 2.58.250 (32 файла / 35 строк, без изменений)
 
-Байтовая замена только токена версии; BOM/переводы строк сохранены. Проверка
-обратной заменой (`2.58.250 → 2.58.249` по всем 32 файлам, для
-`config/settings.py` — обратная подстановка головы `APP_VERSION`-строки) даёт
-**byte-в-byte blob pre-bump HEAD** для каждого файла: **32/32 файлов
-reverse-byte-identical**, расхождений 0.
+Волна осталась ровно той же, что и в сборке v1; новых правок версии не было.
+Токен версии заменён байт-в-байт, BOM/переводы строк сохранены.
 
-- `config/settings.py` — 1 строка: `APP_VERSION = "2.58.250"` + релизная заметка
-  этого выпуска в той же строке; запись 2.58.249 стала `Prior (26.11.2026):
-  2.58.249 - ...` (BOM сохранён, 3665 CRLF / 3665 LF — как до bump);
-- `plans/docs/param-registry-round1025.meta.md` — 1 (`APP_VERSION`);
-- 4 × `tests/js/*` — 4 (экранированный пин `2\.58\.NNN`);
-- 24 py-файла пинов — 25 (23 × 1 + `test_webapp_round1026_polygon.py` 2);
-- `tools/ui_mod_acl_m4b2_status_e2e.py` 3 + `tools/ui_mod_acl_m4b3_status_e2e.py` 1.
+- Коммит `86dc25755`: `git diff --shortstat 86dc25755^ 86dc25755` =
+  **32 files changed, 35 insertions(+), 35 deletions(-)**.
+- Обратная замена (`2.58.250 → 2.58.249`; для `config/settings.py` — обратная
+  подстановка головы `APP_VERSION`-строки) даёт **byte-в-byte blob pre-wave**:
+  **32/32 файлов reverse-byte-identical**, расхождений 0 (проверено повторно на
+  новом кандидате).
+- После волны ни один из её 32 файлов не менялся: пересечение
+  `git show --name-only 86dc25755` с `git diff --name-only 86dc25755..HEAD`
+  пусто (0 файлов) — reverse-byte-проверка на HEAD остаётся валидной.
+- `config/settings.py` — 1 строка (`APP_VERSION = "2.58.250"` + релизная заметка
+  выпуска, запись 2.58.249 стала `Prior (26.11.2026): ...`), BOM сохранён,
+  3665 CRLF / 3665 LF; `plans/docs/param-registry-round1025.meta.md` — 1
+  (`APP_VERSION`); 4 × `tests/js/*` — 4; 24 py-файла пинов — 25
+  (`test_webapp_round1026_polygon.py` 2); `tools/ui_mod_acl_m4b2_status_e2e.py`
+  3 + `tools/ui_mod_acl_m4b3_status_e2e.py` 1.
+- JS-пины `?v=` в `web/index.html` — шаблон `__APP_VERSION__` (не литерал),
+  отдельных правок не требуют.
+- Исторические комментарии `release 2.58.249` в `tests/test_round1025_f8_registry.py`
+  (2 строки про UR-F-дельту) не bump'ились: они описывают уже выпущенный релиз.
 
-Итог: **32 файла, 35 строк**, `git diff --shortstat` подтверждает
-(`32 files changed, 35 insertions(+), 35 deletions(-)`), коммит `86dc25755`.
-JS-пины `?v=` в `web/index.html` — шаблон `__APP_VERSION__` (не литерал),
-отдельных правок не требуют; проверены тестами пинов.
+## 4. Корректива F1/F2, включённая в кандидат
 
-Исторические комментарии `release 2.58.249` в `tests/test_round1025_f8_registry.py`
-(2 строки про UR-F-дельту) **не bump'ились** — они описывают уже выпущенный
-релиз 2.58.249; поэтому волна ровно 35 строк, как и 2.58.249.
+Срез `dcbe2bf18` закрывает оба блокера delta-review r1 в той же зоне
+(`services/direct_chat_service.py`, `services/turn_trace.py`), версия не меняется.
 
-`services/param_catalog.py` в version wave **не входил**.
+**URGB-DR1-F1 — честный исход реакции.** `_execute_initiative_react` раньше
+возвращал `status="reacted"` независимо от `reaction_outcome`, и ветка реакции
+писала `delivery={"outcome":"success"}` при `forbidden`/`rate_limited`/`unknown`.
+Теперь:
+- успех реакции — **только** `reaction_outcome == REACTION_OK`; вызывается
+  `_initiative_finish(outcome="reacted", delivery={"outcome":"success",
+  "channel":"react"})`;
+- при любом ином исходе — честный stop: `note_decision(outcome="silent",
+  reason_code=<код исхода>)`, `status="silent"`, `reaction_outcome` сохранён в
+  результате, в трассе нет `delivery:success`; `_finish_initiative_react`
+  различает ветки по фактическому исходу, а не только по `status`.
+- `REACTION_OK` импортирован из модуля реакции (нет второго строкового канона
+  "ok" в новом коде).
 
-## 4. Производные артефакты: переэмиссия не требуется
+**URGB-DR1-F2 — контекст хода только с легальным mca-13 исходом.** Ранее
+`mca_events.build_event` возвращал `None` для `error`/`reacted`, а
+`emit_context` ставил `_context_emitted=True` **до** эмиссии — терминальное
+событие молча терялось на этих путях. Теперь:
+- `services/turn_trace.py::emit_context` возвращает принятое событие или
+  `None`; флаг `_context_emitted` закрывается только принятым событием, при
+  отказе контракта — WARNING и открытый флаг (закрытие хода повторит эмиссию);
+- `direct_chat_service._TRACE_OUTCOMES` приводит смысловые коды хода к словарю
+  `mca_events.ALL_OUTCOMES`: `error → failed`, `reacted → success` (доставленная
+  реакция — успешный ход), остальные тождественны; неизвестный код даёт
+  `failed`, а не потерю события;
+- `_initiative_finish` проверяет `built is None` и логирует `[f6] initiative
+  context event not persisted`; тесты `test_ur_acceptance_trace.py` теперь
+  проверяют `built is not None` и persisted-событие (а не только kwargs
+  запроса), включая путь отказа реакции.
 
-- Срез **не трогает** `services/param_catalog.py`: blob
-  `2ffce87a15d9` и на базе `af8de2ac6`, и на HEAD; `git diff --stat
-  af8de2ac6 HEAD -- services/param_catalog.py` и производные
-  (`param-registry-round1025.tsv`, `screen-map-round1025.md`,
-  `param-registry-round1025.meta.md`) — пусто (кроме version-строки meta).
+Тесты среза на новом кандидате: `tests/test_ur_acceptance_trace.py` — **7 passed**
+(было 6), `tests/test_ur_search_first.py` — **8 passed**.
+
+## 5. Производные артефакты: переэмиссия не требуется
+
+- `services/param_catalog.py`: blob `2ffce87a15d9` и на базе `af8de2ac6`, и на
+  HEAD; `git diff --stat af8de2ac6 HEAD -- services/param_catalog.py` и
+  производные (`param-registry-round1025.tsv`, `screen-map-round1025.md`) —
+  пусто (meta меняет только строку версии).
 - `python tools/gen_param_registry_round1025.py --check` → **CHECK OK**:
   реестр 659 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
-- Счётчики каталога: REGISTRY 659 / GROUPS 121 / TAB_RULES 23, Settings 477 —
-  идентично базе; новых флагов/ParamSpec нет; `config/settings.py` изменён
-  только строкой версии.
+- Счётчики: REGISTRY **659** / GROUPS **121** / TAB_RULES **23**, Settings
+  **477**, `APP_VERSION` **2.58.250** — идентично базе по структуре, новых
+  флагов/ParamSpec нет; `config/settings.py` изменён только строкой версии.
 
-Переэмиссия F8 и пересчёт frozen-пинов не потребовались; hand-edit производных
-не выполнялся.
-
-## 5. Тесты на точном кандидате `86dc25755`
+## 6. Тесты на точном код-кандидате `6cb4026f6`
 
 Прогон в этом worktree, интерпретатор `C:\Code\Python\adminbot\.venv`
 (Python 3.12, pytest), `-p no:cacheprovider`. Единственный коммит после
-код-кандидата — этот evidence-файл (код не меняется).
+код-кандидата — этот текст сборки (код не меняется).
 
 | набор | passed | failed |
 |---|---|---|
-| `tests/test_ur_acceptance_trace.py` + `tests/test_ur_search_first.py` | **14** (6 + 8) | 0 |
+| `tests/test_ur_acceptance_trace.py` + `tests/test_ur_search_first.py` | **15** (7 + 8) | 0 |
 | соседние наборы r2: `asap8_f6_initiative`, `ur_d_writer`, `ur_e_speech`, `ur_turn_engine`, `ur26_init_fc_payloads`, `ur_b_live_wiring`, `mod_acl_ux_01_m21_gates`, `nostalgia_proactive_recall` | **135** | 0 |
 | `direct_chat` + `ur_ui_effective_config` + `rlr_observability` | **203** | 0 |
 | `evol_social_frame` + `evol_evidence_routing` + `soul1_style_payload` | **143** | 0 |
@@ -147,13 +186,12 @@ JS-пины `?v=` в `web/index.html` — шаблон `__APP_VERSION__` (не �
 | структурное: `git diff --check` (worktree и диапазон base..HEAD) | rc 0 / rc 0 | 0 |
 | структурное: `tools/gen_param_registry_round1025.py --check` | CHECK OK | 0 |
 
-### 5.1 Падения: доказательство идентичности базе
+### 6.1 Падения: доказательство идентичности базе `af8de2ac6`
 
-База `af8de2ac6` прогнана в отдельном registered worktree
-(`.../unified-reply-41500c30aca7-e55b377a`, detached) тем же интерпретатором;
-списки `FAILED` сравнены построчно (`Compare-Object`, 0 различий).
+Списки `FAILED` сравнены построчно с прогонами базы (`Compare-Object`, 0
+различий в каждом наборе).
 
-| набор | на кандидате `86dc25755` | на базе `af8de2ac6` |
+| набор | на кандидате `6cb4026f6` | на базе `af8de2ac6` |
 |---|---|---|
 | `asap8_initreply_binding` + `initiative_coordination` + `mca09_intents_block_e_round1040` + `initiative_delivery_telemetry` | **25 failed / 78 passed** | **25 failed / 78 passed**, тот же список |
 | `nostalgia_worker` + `asap5_integration_w3` | **20 failed / 85 passed** | **20 failed / 85 passed**, тот же список |
@@ -168,20 +206,19 @@ test_canon_unchanged,TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline}
 
 Известный долг базы (`BACKLOG_ONLY`, не контракт релиза): устаревшие
 пин-каноны `tool_coordinator`/`unified_image_request`, счётчик секретов
-`webapp_f9`, падения `initiative_*`/`nostalgia_worker`/`asap5_integration_w3`
-(те же 45 идентификаторов на базе и кандидате).
+`webapp_f9`, падения `initiative_*`/`nostalgia_worker`/`asap5_integration_w3`.
 
-## 6. Manifest dry-run
+## 7. Manifest dry-run
 
 Прогон `python tools/release_manifest.py --dry-run` на чистом дереве
-код-кандидата `86dc25755`. В worktree нет `.deploy/release.json`, поэтому для
+код-кандидата `6cb4026f6`. В worktree нет `.deploy/release.json`, поэтому для
 `previous_*` использован локальный untracked seed с прод-идентичностью
-`af8de2ac6 / 2.58.249` (удалён сразу после прогона; ни одно поле не выдумано):
+`af8de2ac6 / 2.58.249` (удалён сразу после прогона; поля не выдуманы):
 
 ```json
 {
-  "deployed_at": "2026-11-25T21:40:37.576436Z",
-  "deployed_sha": "86dc257558bdd956476c1d54efd82a556d9d1add",
+  "deployed_at": "2026-11-25T22:29:17.421361Z",
+  "deployed_sha": "6cb4026f6b8bb9dc1fcb9fed2d17f98be1957e7b",
   "dirty_tracked": false,
   "effect": "deploy",
   "previous_sha": "af8de2ac6e59f4c0b899c0c839f02258a9e02236",
@@ -204,7 +241,7 @@ DevOps на сервере, где `deployed_sha` = HEAD выложенного 
 `services/database.py` не затронуты (0 файлов в diff base..HEAD);
 `config/settings.py` изменён только строкой версии; схема v48.
 
-## 7. Откат
+## 8. Откат
 
 - **Только код**, `git`-откат на `af8de2ac6e59f4c0b899c0c839f02258a9e02236`
   (2.58.249), `tools/release_manifest.py --effect rollback`. DDL 0, миграций 0,
@@ -213,22 +250,26 @@ DevOps на сервере, где `deployed_sha` = HEAD выложенного 
   изменены); сохранённые пользовательские правки промптов не страдают.
 - Данные production не мигрируются, восстановление БД не требуется.
 
-## 8. Что осталось непроверенным (честно)
+## 9. Что осталось непроверенным (честно)
 
+- **Delta re-review r2 нового кандидата `6cb4026f6` не проводился** — это
+  независимая роль; сборка лишь утверждает, что блокеры `URGB-DR1-F1/F2`
+  адресованы срезом `dcbe2bf18` и подтверждаются тестами среза (7 passed,
+  включая путь отказа реакции и `built is not None`).
 - Effective-state прода (фактическая версия `/healthz`, схема, identity
-  деплоя, диск) — DevOps после выкладки; здесь production не затрагивался.
-- Визуальный контракт среза: срез меняет сервисный слой и trace, не UI;
-  визуальный слой и `web/*` не изменены, поэтому повторный Playwright/Browser
-  Use не требовался (в срезе визуального evidence нет и не заявлялось).
+  деплоя, диск) — DevOps после выкладки; production здесь не затрагивался.
+- Визуальный контракт: срез меняет сервисный слой и trace, не UI; `web/*` не
+  изменён, поэтому повторный Playwright/Browser Use не требовался.
 - Реальное поведение моделей на живых чатах — не инженерный критерий приёмки
   (`BOUNDED ACCEPTANCE`), проверяется при эксплуатации.
 
-## 9. Очистка
+## 10. Очистка
 
 - Временный `.deploy/release.json` seed удалён сразу после dry-run; каталог
   `.deploy/` удалён (`git status --porcelain` пуст).
-- Базовый worktree для доказательства pre-existing
-  (`.../unified-reply-41500c30aca7-e55b377a`) удалён после прогонов.
+- Базовый worktree для доказательства pre-existing (прогоны на `af8de2ac6`)
+  удалён после сборки v1; списки `FAILED` сохранены вне репозитория и
+  использованы повторно для сравнения.
 - Вспомогательные скрипты bump/verify — в `%TEMP%\opencode`, репозиторий не
   затрагивали.
 - Новых файлов вне среза, version wave и этого документа нет. Deploy/merge в
