@@ -60,10 +60,14 @@ const ITEMS = [
     title: 'old', description: 'old' },
   { key: 'limits.chat_context_fill_ratio', value: 0.8, type: 'float',
     category: 'limits', group: 'limits_chat', progressive_level: '',
-    title: 'old', description: 'old' },
+    title: 'old', description: 'old',
+    eff: { status: 'no_op', readonly: true,
+      reason_inactive: 'Не действует как триггер.' } },
   { key: 'limits.chat_global_context_max_chars', value: 4000, type: 'int',
     category: 'limits', group: 'limits_chat', progressive_level: '',
-    title: 'old', description: 'old' },
+    title: 'old', description: 'old',
+    eff: { status: 'legacy', readonly: true,
+      reason_inactive: 'Legacy-кап фона.' } },
   { key: 'limits.chat_thread_max_depth', value: 6, type: 'int',
     category: 'limits', group: 'limits_chat', progressive_level: '',
     title: 'old', description: 'old' },
@@ -72,7 +76,9 @@ const ITEMS = [
     title: 'old', description: 'old' },
   { key: 'limits.chat_level2_max_chars', value: 4000, type: 'int',
     category: 'limits', group: 'limits_chat', progressive_level: '',
-    title: 'old', description: 'old' },
+    title: 'old', description: 'old',
+    eff: { status: 'legacy', readonly: true,
+      reason_inactive: 'Legacy-кап конспекта.' } },
   { key: 'limits.running_summary_ttl_minutes', value: 60, type: 'int',
     category: 'limits', group: 'limits_chat', progressive_level: '',
     title: 'old', description: 'old' },
@@ -81,10 +87,14 @@ const ITEMS = [
     title: 'old', description: 'old' },
   { key: 'limits.chat_budget_map_ratio', value: 0.1, type: 'float',
     category: 'limits', group: 'limits_chat_budgets',
-    progressive_level: '', title: 'old', description: 'old' },
+    progressive_level: '', title: 'old', description: 'old',
+    eff: { status: 'legacy', readonly: true,
+      reason_inactive: 'Legacy/fail-open.' } },
   { key: 'limits.chat_budget_reserve_ratio', value: 0.1, type: 'float',
     category: 'limits', group: 'limits_chat_budgets',
-    progressive_level: '', title: 'old', description: 'old' },
+    progressive_level: '', title: 'old', description: 'old',
+    eff: { status: 'legacy', readonly: true,
+      reason_inactive: 'Fallback-доля.' } },
 ];
 
 const normCtx = Object.assign({}, methods, {
@@ -100,10 +110,17 @@ methods._normalizeConfigItems.call(normCtx, ITEMS);
 // ── 1. remo/legacy/read-only/advanced semantics ──────────────────────────
 {
   const fill = byKey(ITEMS, 'limits.chat_context_fill_ratio');
-  assert.strictEqual(fill.__uiHidden, true,
-    'UR-21.08/12.1: fill ratio скрыт из пользовательской настройки');
+  // UR-22: применимость — из backend-меты. no_op → только чтение; список
+  // ключей в JS больше не решает, что скрывать/запрещать.
+  assert.strictEqual(fill.__uiReadonly, true,
+    'UR-22: readonly — из item.eff.readonly');
+  assert.strictEqual(fill.__uiHidden, undefined,
+    'UR-22: клиент не прячет ключи сам — скрытие делает backend');
+  assert.strictEqual(methods.canEditConfig.call(normCtx,
+    'limits.chat_context_fill_ratio'), false,
+    'UR-21.08/12.1: fill ratio не редактируется (мета no_op)');
   assert.strictEqual(fill.title, 'Порог заполнения окна (снято)',
-    'скрытое поле всё равно не обещает рабочий триггер');
+    'подпись снятого поля не обещает рабочий триггер');
   assert.strictEqual(byKey(ITEMS, 'limits.chat_global_context_limit').title,
     'Сколько последних сообщений читать первично',
     'UR-21.02: 200 — не «память», а мягкая граница чтения');
@@ -123,10 +140,10 @@ methods._normalizeConfigItems.call(normCtx, ITEMS);
   const advanced = methods.advancedItems.call(normCtx, group);
   assert.strictEqual(basic.some(function (it) {
     return it.key === 'limits.chat_context_fill_ratio';
-  }), false, 'fill ratio не рендерится в «Базовых»');
+  }), true, 'fill ratio виден как read-only (hidden делает backend)');
   assert.strictEqual(advanced.some(function (it) {
     return it.key === 'limits.chat_context_fill_ratio';
-  }), false, 'fill ratio не рендерится и в «Расширенных»');
+  }), false, 'fill ratio — не «расширенный» ключ');
   assert.strictEqual(basic.some(function (it) {
     return it.key === 'limits.chat_global_context_limit';
   }), true, 'основная граница чтения остаётся в базовых');
@@ -157,9 +174,11 @@ methods._normalizeConfigItems.call(normCtx, ITEMS);
     'активная граница чтения остаётся редактируемой');
   const searchCtx = Object.assign({}, normCtx, { configSearch: 'fill',
                                                 configGroups: [] });
-  assert.strictEqual(methods._syntheticGroup.call(
-    searchCtx, 'limits', 'limits_chat'), null,
-  'скрытый fill ratio не находится поиском конфигурации');
+  const searchGrp = methods._syntheticGroup.call(searchCtx, 'limits',
+    'limits_chat');
+  assert(searchGrp && searchGrp.items.some(function (it) {
+    return it.key === 'limits.chat_context_fill_ratio';
+  }), 'поиск находит поле, применимость решает backend-мета');
 
   const legacy = { key: 'limits.chat_global_context_max_chars',
     eff: { status: 'legacy',

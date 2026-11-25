@@ -167,7 +167,26 @@ def _config_stub() -> dict:
                "description": g.description, "order": g.order}
               for g in pc.GROUPS if g.category in present]
     groups.sort(key=lambda g: g["order"])
-    return {"items": items, "groups": groups}
+    # UR-22: реестр модулей — тот же DTO, что отдаёт /api/config. У
+    # «Инициативы» env-ось выключена: KV-флаг остаётся true, и UI обязан
+    # показать блокировку, а не «бот пишет первым».
+    from services.module_registry import registry_for_frontend
+    modules = registry_for_frontend({})
+    for module in modules:
+        if module.get("id") == "initiative":
+            module["gate"] = {
+                "module_id": "initiative",
+                "master_param": "flags.initiative_enabled",
+                "env_param": "MCA_INTENTS_ENABLED",
+                "requested": True, "effective": False,
+                "source": "emergency_env", "env_enabled": False,
+            }
+            module["state"] = {
+                "desired": True, "source": "global", "effective_runtime": False,
+                "global_value": True, "global_source": "global",
+                "reason_code": "emergency_block",
+            }
+    return {"items": items, "groups": groups, "modules": modules}
 
 
 TURN_DIAG_STUB = {
@@ -466,6 +485,11 @@ PROBE_TIME = r"""
           .find((b) => /Сохранить/.test(b.textContent)),
         hasReset: !!Array.from(document.querySelectorAll('[data-time-actions] button'))
           .find((b) => /Вернуть общую настройку/.test(b.textContent)),
+        // UR-29: ровно ОДНО editable IANA-поле; второго пояса на странице нет.
+        zoneInputCount: document.querySelectorAll('[data-time-zone-input]').length,
+        legacyTzFields: ['limits.chat_timezone', 'limits.summary_timezone',
+          'reactions.goodmorning_tz'].filter((k) =>
+          document.querySelector('[data-cfg-key="' + k + '"]')).length,
         editorRect: {left: Math.round(r.left), right: Math.round(r.right)},
         vw: window.innerWidth,
         hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -482,7 +506,7 @@ PROBE_DIRECT_SETTINGS = r"""
   // из /api/config → их карточки нигде не рендерятся.
   const deadTitles = ['Стилевые якоря', 'Определение настроения собеседника',
     'Доля бюджета: Anchors', 'Число стилевых якорей', 'CSV позитивных слов',
-    'Доля бюджета: Response'];
+    'Доля бюджета: Response', 'Порог заполнения окна', 'Лимит вопроса'];
   const found = deadTitles.filter((t) => txt.indexOf(t) >= 0);
   const honest = {
     speech: txt.indexOf('Свобода формулировок') >= 0,
@@ -678,6 +702,12 @@ PROBE_MODES = r"""
       return b ? b.textContent.trim() : '';
     }),
     speechNote: (wrap.textContent || '').indexOf('игнорирует temperature') >= 0,
+    // UR-22/UR-RES-07: действующий режим инициативы — из backend-гейта
+    // (env-ось), а не из KV-флага.
+    initiativeLine: (document.querySelector('[data-mode-line="Инициатива"]')
+      || {}).textContent || '',
+    initiativeBadge: (document.querySelector(
+      '[data-mode-badge="Инициатива"]') || {}).textContent || '',
     vw: window.innerWidth,
     hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
   };
@@ -741,7 +771,7 @@ def _other_screens(page, base, label, results, out_dir):
         PROBE_DIRECT_SETTINGS)
     _shoot(page, "urf-checkup-limits-" + label, out_dir)
 
-    page.goto(base + "#/modules/direct")
+    page.goto(base + "#/modules/direct/overview")
     try:
         page.wait_for_selector("[data-direct-modes]", timeout=8000)
     except Exception:
@@ -838,6 +868,12 @@ def main() -> int:
             failures.append(label + ": source line missing")
         if not r.get("hasSave") or not r.get("hasReset"):
             failures.append(label + ": save/reset buttons missing")
+        if r.get("zoneInputCount") != 1:
+            failures.append(label + ": ожидалось ровно одно IANA-поле, "
+                            + str(r.get("zoneInputCount")))
+        if r.get("legacyTzFields"):
+            failures.append(label + ": вторые поля пояса на странице "
+                            + json.dumps(r.get("legacyTzFields")))
         if r.get("hScroll"):
             failures.append(label + ": horizontal scroll")
     for label in (() if only_inspector else ("direct-settings-desktop-1440",
@@ -876,6 +912,22 @@ def main() -> int:
         r = results.get(label) or {}
         if not (r.get("honest") or {}).get("serviceGroup"):
             failures.append(label + ": «Служебное» (lock waits) отсутствует")
+        if r.get("hScroll"):
+            failures.append(label + ": horizontal scroll")
+    for label in (() if only_inspector
+                  else ("modes-desktop-1440", "modes-mobile-390")):
+        r = results.get(label) or {}
+        if not r.get("ok"):
+            failures.append(label + ": modes card missing")
+            continue
+        line = r.get("initiativeLine") or ""
+        # UR-22/UR-RES-07: KV-флаг true, но env-ось OFF → честная блокировка.
+        if "аварийный переключатель" not in line:
+            failures.append(label + ": initiative gate not honest: " + line)
+        if "бот пишет первым" in line:
+            failures.append(label + ": KV-флаг выдан за режим: " + line)
+        if "действует" in (r.get("initiativeBadge") or ""):
+            failures.append(label + ": бейдж «действует» при блокировке")
         if r.get("hScroll"):
             failures.append(label + ": horizontal scroll")
     for label in ("inspector-desktop-1440", "inspector-mobile-390"):

@@ -420,6 +420,10 @@ class TestCatalogConsistency:
         # карточка скрыта, значение владельца читается как p_max;
         # + memory.nostalgia_tick_minutes — период тика больше не влияет на
         # смысловую частоту (её задаёт квантовое расписание), значение читаемо.
+        # UR-21 (родитель, 26.11.2026): + limits.chat_context_fill_ratio
+        # (не триггер конспекта с UR-12) и limits.chat_current_question_max_chars
+        # (символьный потолок снят SXR-C2-01) — поля без ридера выведены из
+        # пользовательского редактирования, значения читаемы по PG-ключу.
         assert hidden == {
             "flags.chat_mood_enabled",
             "flags.chat_style_anchors_enabled",
@@ -430,6 +434,8 @@ class TestCatalogConsistency:
             "keys.random_quantum_provider",
             "limits.chat_budget_anchors_ratio",
             "limits.chat_budget_response_ratio",
+            "limits.chat_context_fill_ratio",
+            "limits.chat_current_question_max_chars",
             "limits.chat_lock_max_entries",
             "limits.chat_style_anchor_max_chars",
             "limits.chat_style_anchors_count",

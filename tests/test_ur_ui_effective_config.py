@@ -23,6 +23,7 @@ import json
 import time
 import types
 import urllib.parse
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +36,15 @@ from web.app import create_app
 
 TEST_TOKEN = "123456:TEST_TOKEN_FOR_API_TESTS"
 ADMIN_ID = 5885953495
+ROOT = Path(__file__).resolve().parent.parent
+
+# Группы вкладки «Ответы в чате» (mod_direct) — зеркало TABS.app.js.
+DIRECT_GROUPS = frozenset({
+    "flags_module_direct", "flags_chat_behavior", "flags_decision_making",
+    "flags_direct_l1", "limits_chat", "limits_chat_behavior",
+    "limits_chat_budgets", "limits_temperature", "limits_direct_l1",
+    "models_direct_l1", "reactions_chat",
+})
 
 # Ключи UR-F без активного рантайм-ридера (UR-14.2/21.13/21.17/21.21) + канон
 # пояса (UR-24.2). Зеркало services.param_catalog._UR_F_WITHOUT_RUNTIME_READER.
@@ -48,6 +58,10 @@ UR_F_DEAD_KEYS = (
     "reactions.chat_mood_negative_words",
     "limits.chat_budget_response_ratio",
     "limits.chat_lock_max_entries",
+    # UR-21 (родитель): снятые поля группы «Ответы в чате» — «заполнение
+    # окна» (не триггер с UR-12) и символьный лимит вопроса (SXR-C2-01).
+    "limits.chat_context_fill_ratio",
+    "limits.chat_current_question_max_chars",
 )
 
 
@@ -159,6 +173,10 @@ def client(monkeypatch, tmp_path):
             # Синтетический дефолт (строки нет) → source="default".
             {"key": "limits.chat_direct_reply_ttl_days", "value": 30,
              "category": "limits", "updated_at": None},
+            # UR-22: ТО ЖЕ значение, что у явной global-строки выше (8000),
+            # но строка синтетическая → источник обязан различаться.
+            {"key": "limits.chat_burst_limit", "value": 8000,
+             "category": "limits", "updated_at": None},
             # Пресет речи (UR-21.23): явное значение.
             {"key": "limits.chat_temperature_preset_default",
              "value": "balanced", "category": "limits",
@@ -203,12 +221,17 @@ class TestCatalogHonesty:
                      "CHAT_STYLE_ANCHOR_MAX_CHARS",
                      "CHAT_BUDGET_ANCHORS_RATIO", "CHAT_MOOD_ENABLED",
                      "CHAT_MOOD_POSITIVE_WORDS", "CHAT_MOOD_NEGATIVE_WORDS",
-                     "CHAT_BUDGET_RESPONSE_RATIO", "CHAT_LOCK_MAX_ENTRIES"):
+                     "CHAT_BUDGET_RESPONSE_RATIO", "CHAT_LOCK_MAX_ENTRIES",
+                     # UR-21 (родитель): поля без ридера честно говорят об этом.
+                     "CHAT_CONTEXT_FILL_RATIO",
+                     "CHAT_CURRENT_QUESTION_MAX_CHARS"):
             spec = param_catalog.REGISTRY.get(name)
             assert spec is not None, name
             text = (spec.title_ru + " " + spec.description).lower()
             assert ("не работает" in text or "снято" in text
-                    or "no-op" in text or "не влияет" in text), \
+                    or "no-op" in text or "не влияет" in text
+                    or "не действует" in text or "не использует" in text
+                    or "не читает" in text), \
                 f"подпись обещает поведение: {name}"
 
     def test_chat_timezone_hidden_single_surface(self):
@@ -249,7 +272,9 @@ class TestCatalogHonesty:
         assert "экспертный" in budget.description.lower()
         assert "рабочее окно" in budget.description.lower()
         l1 = param_catalog.REGISTRY["CHAT_CURRENT_QUESTION_MAX_CHARS"]
-        assert "лимит вопроса" in l1.description
+        assert "не действует" in l1.description.lower()
+        assert "не читает" in l1.description.lower()
+        assert "не работает" in l1.title_ru.lower()
         wait = param_catalog.REGISTRY["CHAT_LOCK_WAIT_SECONDS"]
         smart = param_catalog.REGISTRY["SMARTMODULE_CONCURRENCY_WAIT_SECONDS"]
         assert wait.group == "limits_service", "UR-21.20: замок → Служебное"
@@ -267,7 +292,8 @@ class TestCatalogHonesty:
         assert "chat_clock" in tz["active_consumer"]
         unknown = param_catalog.effective_meta("limits.some_unknown_key")
         assert unknown == {"status": "active", "active_consumer": "",
-                           "units": "", "reason_inactive": ""}
+                           "units": "", "reason_inactive": "",
+                           "readonly": False}
 
     def test_group_descriptions_not_promising_removed_mechanics(self):
         by_id = {g.id: g for g in param_catalog.GROUPS}
@@ -319,6 +345,123 @@ class TestEffectiveConfigAPI:
         for pg_key in UR_F_DEAD_KEYS + ("limits.chat_timezone",):
             assert pg_key not in meta["items"], \
                 f"мёртвый ключ в params-meta: {pg_key}"
+
+
+class TestDirectGroupApplicability:
+    """UR-21 (родитель): все поля «Ответов в чате» — реальная применимость.
+
+    Ни одно поле группы не остаётся редактируемым без ридера: no_op выведены
+    из пользовательского редактирования, legacy видны и помечены, активные
+    несут метаданные применимости от backend.
+    """
+
+    @staticmethod
+    def _group_specs():
+        return [s for s in param_catalog.REGISTRY.values()
+                if s.group in DIRECT_GROUPS]
+
+    def test_visible_fields_have_effective_meta(self):
+        specs = self._group_specs()
+        assert len(specs) > 25, "группа «Ответы в чате» не должна опустеть"
+        for spec in specs:
+            eff = param_catalog.effective_meta(spec.pg_key)
+            assert set(("status", "active_consumer", "units",
+                        "reason_inactive", "readonly")) <= set(eff), \
+                spec.pg_key
+            assert eff["status"] in ("active", "no_op", "legacy", "inactive")
+
+    def test_readonly_axis_is_backend_contract(self):
+        """UR-22: ось «только чтение» приходит из backend-меты, а не из
+        списка ключей на клиенте. Точечно: compat-капы/доли readonly,
+        действующий внутренний хвост конспекта — нет (без огульного правила
+        «весь legacy = readonly»)."""
+        assert param_catalog.effective_meta(
+            "limits.chat_global_context_max_chars")["readonly"] is True
+        assert param_catalog.effective_meta(
+            "limits.chat_budget_map_ratio")["readonly"] is True
+        assert param_catalog.effective_meta(
+            "limits.chat_current_question_max_chars")["readonly"] is True
+        assert param_catalog.effective_meta(
+            "limits.chat_running_summary_tail")["readonly"] is False
+        assert param_catalog.effective_meta(
+            "limits.chat_global_context_limit")["readonly"] is False
+
+    def test_noop_hidden_legacy_marked(self):
+        for spec in self._group_specs():
+            eff = param_catalog.effective_meta(spec.pg_key)
+            if eff["status"] == "no_op":
+                assert spec.hidden is True, \
+                    f"no-op остаётся редактируемым: {spec.pg_key}"
+            if eff["status"] == "legacy":
+                assert spec.hidden is False, spec.pg_key
+                assert eff["reason_inactive"], \
+                    f"legacy без честной пометки: {spec.pg_key}"
+
+    def test_removed_fields_absent_from_api(self, client):
+        keys = {it["key"] for it in
+                client.get("/api/config", headers=_hdr()).json()["items"]}
+        for key in ("limits.chat_context_fill_ratio",
+                    "limits.chat_current_question_max_chars"):
+            assert key not in keys, f"снятое поле осталось в UI: {key}"
+
+    def test_every_visible_field_carries_eff(self, client):
+        items = client.get("/api/config", headers=_hdr()).json()["items"]
+        seen = 0
+        for item in items:
+            spec = param_catalog.get_by_pg_key(item["key"])
+            if spec is None or spec.group not in DIRECT_GROUPS:
+                continue
+            seen += 1
+            assert set(("status", "active_consumer", "units",
+                        "reason_inactive", "readonly")) <= set(item["eff"]), \
+                item["key"]
+            assert item["eff"]["status"] != "no_op", item["key"]
+        assert seen >= 10, "поля группы не доехали до /api/config"
+
+
+class TestEffectiveConfigSource:
+    """UR-22 (родитель): источник правды — backend-контракт, не KV-значение."""
+
+    def test_source_is_pg_row_presence_not_value(self, client):
+        items = {it["key"]: it for it in
+                 client.get("/api/config", headers=_hdr()).json()["items"]}
+        explicit = items["limits.search_max_symbols"]
+        synthetic = items["limits.chat_burst_limit"]
+        # ОДНО И ТО ЖЕ значение (8000) в двух полях: клиент, читающий только
+        # KV, не отличит их. Backend различает источник по строке PG.
+        assert explicit["effective_value"] == synthetic["effective_value"] == 8000
+        assert explicit["source"] == "global"
+        assert synthetic["source"] == "default"
+
+
+class TestTimeSingleSurface:
+    """UR-29 (родитель): одно editable IANA-поле, без второго пояса."""
+
+    def test_legacy_timezone_fields_hidden(self):
+        for pg_key in ("limits.chat_timezone", "limits.summary_timezone",
+                       "reactions.goodmorning_tz"):
+            spec = param_catalog.get_by_pg_key(pg_key)
+            assert spec is not None and spec.hidden is True, pg_key
+
+    def test_single_iana_input_in_markup(self):
+        html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        assert html.count("data-time-zone-input") == 1
+        assert html.count("data-time-editor") == 1
+        assert html.count("data-time-actions") == 1
+
+    def test_time_tab_is_dedicated_policy_surface(self):
+        src = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+        assert "type: 'timeEditor'" in src
+        assert "data-time-editor" in (ROOT / "web" / "index.html").read_text(
+            encoding="utf-8")
+
+    def test_state_carries_offset_dst_and_inheritance(self, client):
+        body = client.get("/api/config/time", headers=_hdr()).json()
+        for field in ("iana", "source", "now_local", "as_of_utc",
+                      "utc_offset", "weekday", "is_dst", "configured"):
+            assert field in body, field
+        assert isinstance(body["is_dst"], bool)
+        assert body["utc_offset"][:1] in "+-"
 
 
 class TestTimeSurface:
@@ -444,6 +587,29 @@ class TestTurnDiagnostics:
                               "tg_message_ids": [42],
                               "idempotency_key": "direct:-100:1:r1:-"}}),
              },
+            # UR-RES-07: содержимое ПОСЛЕДНЕГО собранного контекста (снимок
+            # выбора L2) — деталь той же цепочки, а не отдельный «ход».
+            {"ts": base + 3, "event_name": "direct_turn_selection",
+             "outcome": "success", "trace_id": "corr-1", "chat_id": -100,
+             "stage": "selection",
+             "usage_json": json.dumps({
+                 "policy_version": "ur-c/selection/v1",
+                 "counts": {"available_messages": 25,
+                            "included_messages": 12},
+                 "blocks": [
+                     {"kind": "global_tail", "role": "p1",
+                      "rendered": True, "source_ids": ["msg:1", "msg:2"],
+                      "first_ts": base - 100, "last_ts": base,
+                      "tokens": 800},
+                     {"kind": "summary", "role": "p2",
+                      "rendered": False, "skip_reason": "budget",
+                      "source_ids": [], "tokens": 0},
+                 ],
+                 "dropped": [{"reason_code": "budget", "kind": "thread",
+                              "count": 2}],
+                 "self_outputs": [{"source_id": "bot_output:1",
+                                   "tg_message_id": 42, "ts": base - 10}],
+             })},
         ]
 
     @pytest.fixture(autouse=True)
@@ -479,6 +645,26 @@ class TestTurnDiagnostics:
         assert body["delivery"]["digest_match"] is True
         assert body["delivery"]["ops"][0]["op"] == "telegram_chunk"
         assert body["turns"][0]["trace_id"] == "corr-1"
+
+    def test_last_assembled_context_content(self, client, monkeypatch):
+        """UR-RES-07: панель отдаёт содержимое последнего собранного
+        контекста — блоки (даты/source IDs/причины пропуска) и потери, а не
+        только кодовые имена."""
+        self._patch_query(monkeypatch, self._seed_events())
+        body = client.get("/api/direct/turn-diagnostics?chat_id=-100",
+                          headers=_hdr()).json()
+        selection = body["selection"]
+        assert selection is not None
+        assert selection["counts"]["included_messages"] == 12
+        first = selection["blocks"][0]
+        assert first["kind"] == "global_tail"
+        assert first["source_ids"] == ["msg:1", "msg:2"]
+        assert first["first_ts"] and first["last_ts"]
+        skipped = selection["blocks"][1]
+        assert skipped["rendered"] is False
+        assert skipped["skip_reason"] == "budget"
+        assert selection["dropped"][0]["reason_code"] == "budget"
+        assert selection["self_outputs"][0]["tg_message_id"] == 42
 
     def test_missing_stages_are_honest(self, client, monkeypatch):
         """Только context-событие → Writer/delivery «нет данных» (None),
