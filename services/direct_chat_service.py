@@ -7866,6 +7866,13 @@ class DirectChatService:
                 if (self._image_delivered_this_turn(_image_delivery, tool_ctx)
                         or (isinstance(raw, ToolLoopResult)
                             and media_delivered(raw))):
+                    # F6 (review r1, P0-AQ-FIN-F6-DELIVERED-ARTIFACT):
+                    # доставленный артефакт — ответ на запрос, ход отвечен.
+                    # Та же существующая пометка, что у текстовой и
+                    # image-веток: без неё F6 создаёт durable
+                    # `unanswered_question` и позже присылает второе
+                    # сообщение по уже отвеченному запросу.
+                    self._mark_turn_text_replied(chat_id)
                     logger.info(
                         "[direct] artifact delivered — no text publication | "
                         "chat=%s | degraded=%s | reason=%s | research=%s",

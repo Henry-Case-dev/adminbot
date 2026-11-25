@@ -117,12 +117,42 @@ provenance, счётчики) **превращалось в готовую ра�
 контракт доказательности (owner §4: структура ≠ текст ответа); их пересказ моделью — вопрос
 контента/релевантности retrieval (полоса памяти), blacklist не вводился.
 
+## 2a. Коррекция по ревью r1 (2026-11-25): P0-AQ-FIN-F6-DELIVERED-ARTIFACT
+
+Reviewer r1 (`p0-answer-finalization-review-r1.md`) нашёл один IN_SCOPE блокер: ветка
+«артефакт доставлен, Writer пуст» (`services/direct_chat_service.py:7866-7881` на типе
+`7b936d75`) закрывала ход без `_mark_turn_text_replied`, а `finally` помечал только
+image-случай. Следствие: `download_media` (video/file) + пустой Writer + сообщение с `?`
+→ F6 создавал durable `unanswered_question` follow_up, то есть ход не считался отвеченным.
+
+Исправление (одна строка, существующий механизм, без нового флага/состояния/правила):
+в ветке доставленного артефакта вызывается `self._mark_turn_text_replied(chat_id)` —
+та же пометка, что у текстовых и image-веток. Покрытие видов артефактов: условие ветки —
+`_image_delivered_this_turn(...)` (image) ИЛИ `media_delivered(raw)` (download_media /
+generate_image / edit_image: video/file/image), поэтому все доставленные артефакты этой
+ветки помечают ход отвеченным; `finally` по-прежнему покрывает image-на-любом-выходе.
+F6 не отключён: ход без доставленного артефакта и без текста по-прежнему даёт follow_up
+(негативный контроль ниже). Повторной доставки нет: ветка ничего не отправляет.
+
+Новые тесты (`tests/test_p0_answer_finalization.py`):
+* `test_question_mark_artifact_turn_is_answered_no_follow_up` — сообщение с `?` +
+  `download_media` ok + пустой Writer: F6-производитель не вызван, второго текста нет,
+  реакции нет (RED на типе `7b936d75`, GREEN на новом кандидате);
+* `test_unanswered_turn_still_produces_follow_up` — негативный контроль: тот же ход без
+  артефакта и без ответа создаёт ровно один `unanswered_question` (F6 работает).
+
+Числа после коррекции: новый файл — **15 passed**; на старом типе `7b936d75` (копия файла
+в отдельном worktree) — **1 failed, 14 passed** (падает ровно `?`-вариант, негативный
+контроль проходит); затронутые наборы — **764 passed, 2 failed** (те же pre-existing,
+см. §4); `py_compile` и `git diff --check` — OK.
+
 ## 3. Тесты
 
-Новый дискриминирующий файл: `tests/test_p0_answer_finalization.py` (13 тестов) — сценарии
-owner §4/§2: доставленный артефакт + пустой Writer; промежуточный успех + recovery;
-частичные данные + рабочий Writer; отсутствие генеративного пути; гейт Летописца
-(`creative`/unknown/analysis → материал, а не ответ); пины отсутствия механизма в коде.
+Новый дискриминирующий файл: `tests/test_p0_answer_finalization.py` (15 тестов; 13 исходных
++ два F6-теста из §2a) — сценарии owner §4/§2: доставленный артефакт + пустой Writer;
+промежуточный успех + recovery; частичные данные + рабочий Writer; отсутствие генеративного
+пути; гейт Летописца (`creative`/unknown/analysis → материал, а не ответ); F6-состояние
+отвеченного артефактом хода; пины отсутствия механизма в коде.
 
 RED на базе e3467ccb (файл тестов скопирован в чистый worktree базы):
 `10 failed, 3 passed` — падают именно новые контрактные проверки (артефакт, recovery-state,
@@ -131,7 +161,7 @@ RED на базе e3467ccb (файл тестов скопирован в чис
 блокировал подмену») — это позитивные контроли, не тавтологии.
 
 GREEN на кандидате:
-* `tests/test_p0_answer_finalization.py` — **13 passed**.
+* `tests/test_p0_answer_finalization.py` — **15 passed** (после коррекции r1).
 * Затронутые наборы (tool_loop/finalization/lore/nostalgia/direct):
   `tests/test_tool_loop.py`, `test_tool_calling_round1015`, `test_smoke_round1016_tool_loop`,
   `test_agentic_ai_round1020`, `test_tool_coordinator_round1026`, `test_smart_g_finalize_round1114`,
@@ -140,7 +170,7 @@ GREEN на кандидате:
   `test_lore_compiler_round1020`, `test_lore_worker`, `test_lore_prompts`, `test_chat_lore`,
   `test_direct_chat_lore_inject`, `test_direct_chat`, `test_asap7_direct_l1`,
   `test_nostalgia_layer_a`, `test_nostalgia_prompts`, `test_p0_answer_finalization`
-  → **762 passed, 2 failed** (оба — pre-existing, см. §4).
+  → **764 passed, 2 failed** (оба — pre-existing, см. §4; после коррекции r1).
 * Дополнительно: `test_decision_making_round1026`, `test_mca15_chat_statistics_round1028`,
   `test_mca23_response_plan`, `test_rlr_dcs_postprocess`, `test_scanner_fixes_round1020`
   → **249 passed**.
@@ -188,20 +218,31 @@ GREEN на кандидате:
 файла стабильно роняют оболочку агента (subprocess/handle), поэтому класс подтверждён по
 сообщению/коду, а не новым прогоном на базе.
 
-## 5. Что осталось (короткие факты)
+## 5. Что осталось (короткие факты, включая backlog-ниты ревью r1)
 
 1. `research_partial_note`/`research_not_executed_note` по-прежнему добавляют текстовую
    пометку к **отчёту чекапа** (админ-команда, технический отчёт по запросу). Это
    существующий специализированный контракт, разрешённый owner §4; в обычные ответы не
    попадает. Если владелец захочет убрать и её — потребуется отдельный LLM-финальный проход
-   чекапа (сейчас нет).
+   чекапа (сейчас нет). (`P0-AQ-RES-CHECKUP-NOTE`)
 2. `_temporal_fallback_text` фактчека остаётся детерминированным текстом **только** при
    недоступном вербализаторе (аварийный путь специализированного режима; owner §4 разрешает
-   структуру фактчека). Не расширялось и не переносилось.
-3. `CHAT_ERROR_PHRASES`/`DEFAULT_NO_KEY_REPLY` — единственная фраза при полном отказе
-   провайдера (генеративного пути нет вовсе), не подмена выполнения запроса.
-4. Строки `[EVIDENCE]`/статусов остаются во входе Writer'а (контракт доказательности).
+   структуру фактчека). Не расширялось и не переносилось. (`P0-AQ-RES-FACTCHECK-FALLBACK`)
+3. Операционные уведомления остаются pre-existing контрактами (не подмена выполненного
+   запроса): `CHAT_ERROR_PHRASES`, `CHAT_LLM_DOWN_PHRASES`, `CHAT_COOLDOWN_PHRASES`,
+   `CHAT_LOCK_BUSY_PHRASES`, `DEFAULT_NO_KEY_REPLY`. (`P0-AQ-RES-ERROR-PHRASES`)
+4. `response_extent.clarification_question` — фиксированный уточняющий вопрос на легаси-пути
+   (L1 OFF / отказ L2). Функциональный legacy-вопрос, не документирован ранее — теперь
+   зафиксирован. (`P0-AQ-RES-CLARIFY-LEGACY`, `P0-AQ-DOC-RESIDUAL-LIST`)
+5. Строки `[EVIDENCE]`/статусов остаются во входе Writer'а (контракт доказательности).
    Пересказ статусов моделью лечится качеством retrieval/контекста (полоса памяти), не
-   постпроцессором.
-5. Выбор `download_media` в сценарии A (семантическая маршрутизация) — вне этой полосы;
+   постпроцессором. (`P0-AQ-RES-EVIDENCE-INPUT`)
+6. `_finalize_directive` считает `STATUS_EMPTY` записи в «Результатов с данными» через
+   `_usable_evidence` — pre-existing внутренняя формулировка, пользователю не публикуется;
+   backlog. (`P0-AQ-RES-DIRECTIVE-EMPTY-COUNT`)
+7. Выбор `download_media` в сценарии A (семантическая маршрутизация) — вне этой полосы;
    финализация больше не превращает его в технический отчёт и не дублирует доставку.
+8. Backlog-ниты тестов: `P0-AQ-TEST-F6-GAP` **закрыт** новым `?`-тестом (§2a);
+   `P0-AQ-TEST-SCAN-GAP` открыт — source-scan тест проверяет удалённые маркеры только в
+   `tool_loop.py`, в `direct_chat_service.py` проверяется лишь отсутствие
+   `structured_partial_from_result`.
