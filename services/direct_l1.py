@@ -631,8 +631,14 @@ class L1Plan:
 # плана (response_act/structure; task_kind легаси-плана); никаких новых
 # runtime-классов, второго роутера и речевых шаблонов. Списки — это фильтр
 # доставки, не обязательная композиция ответа.
+#
+# P0 corrective (owner 2026-11-25, §2): творческий запрос НЕ равен запросу на
+# исторический рассказ. `creative` больше не разрешает подмену ответа готовой
+# историей; разрешение даёт только ЯВНАЯ story-форма (`structure=story`) или
+# `historical_recall`. Неопределённая/незаданная интенция — НЕ разрешение
+# (fail-closed): история остаётся материалом для Writer.
 #: act/structure, ЯВНО означающие story/lore-интенцию (подмена разрешена).
-LORE_STORY_ACTS = frozenset({"creative", "historical_recall"})
+LORE_STORY_ACTS = frozenset({"historical_recall"})
 LORE_STORY_STRUCTURES = frozenset({"story"})
 #: act/structure, ЯВНО означающие analysis/research/факт-разбор (подмена
 #: запрещена: история остаётся материалом в evidence, отвечает Writer).
@@ -648,15 +654,21 @@ def lore_story_delivery_allowed(l1_plan=None, response_plan=None) -> bool:
     `plans/features/p0-delta-analysis/evidence/audit.md` §5). Никогда не
     бросает.
 
-    * Л1-план с явной story-интенцией (creative/historical_recall или
-      structure=story) → True.
-    * Л1-план с явным analysis/research/факт-разбором (research/explanation/
-      comparison/summarization/clarification или report/explanation/
-      comparison/summary/steps) → False — история идёт в evidence
-      материалом (провенанс тул-результата сохраняется), отвечает Writer.
-    * Интенция полями плана не определена или плана нет (легаси/fallback-
-      путь) → True (fail-open: прежнее поведение, сужение только по явным
-      сигналам — без ложноположительных блоков).
+    P0 corrective (owner 2026-11-25, §2): прямая публикация допустима по
+    СООТВЕТСТВИЮ результата конечной цели, а не по успешному вызову и не по
+    «творческому» акту. Творческий запрос не равнозначен историческому
+    рассказу; неопределённая интенция не даёт разрешения.
+
+    * явная story-интенция (`structure=story` или
+      `response_act=historical_recall`) → True;
+    * явный analysis/research/факт-разбор (research/explanation/comparison/
+      summarization/clarification; report/explanation/comparison/summary/
+      steps) → False — история идёт в evidence материалом, отвечает Writer;
+    * прочее (в т.ч. `creative` без story-формы), отсутствие полей плана,
+      легаси/fallback без плана → False (fail-closed: подмена не разрешена,
+      история используется как материал);
+    * kill-switch `LORE_STORY_INTENT_GATE_ENABLED` OFF (у вызывающих) →
+      прежнее поведение байт-в-байт.
     """
     try:
         if l1_plan is not None:
@@ -665,21 +677,20 @@ def lore_story_delivery_allowed(l1_plan=None, response_plan=None) -> bool:
             if act in LORE_ANALYSIS_ACTS \
                     or structure in LORE_ANALYSIS_STRUCTURES:
                 return False
-            if act in LORE_STORY_ACTS \
-                    or structure in LORE_STORY_STRUCTURES:
-                return True
-            return True      # интенция не определена → fail-open
+            return bool(act in LORE_STORY_ACTS
+                        or structure in LORE_STORY_STRUCTURES)
         if response_plan is not None:
             kind = str(getattr(response_plan, "task_kind", "") or "")
+            structure = str(getattr(response_plan, "structure", "") or "")
             if kind in ("research", "explanation", "comparison",
                         "summarization"):
                 return False
-            if kind in ("creative_writing", "historical_recall"):
-                return True
-            return True      # не определена → fail-open
-        return True          # плана нет → прежнее поведение (legacy)
+            return bool(kind == "historical_recall"
+                        or (kind == "creative_writing"
+                            and structure == "story"))
+        return False         # плана нет → подмена не разрешена
     except Exception:         # pragma: no cover - защитная ветка
-        return True
+        return False
 
 
 def plan_response_mode(plan) -> str:

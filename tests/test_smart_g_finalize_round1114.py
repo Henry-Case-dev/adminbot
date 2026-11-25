@@ -31,7 +31,6 @@ from services import budget_gate
 from services.llm_client import LLMChatResult, LLMError, LLMToolCall
 from services.tool_loop import (
     FINALIZE_STEP,
-    TOOL_LOOP_FALLBACK_PHRASE,
     ToolLoopResult,
     chat_with_tools,
 )
@@ -164,7 +163,6 @@ class TestFinalizationContract:
         assert out.tool_results and out.tool_results[0]["status"] == "ok"
         assert out.tool_results[0]["evidence_refs"] == ["src-1"]
         assert "source_id" in out.tool_context
-        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
 
     @pytest.mark.asyncio
     async def test_one_failed_source_does_not_reset_research(self):
@@ -209,7 +207,10 @@ class TestFinalizationContract:
         assert out.tool_results[0]["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_final_llm_unavailable_gives_structured_partial(self):
+    async def test_final_llm_unavailable_keeps_honest_state_no_text(self):
+        """P0 corrective (owner 2026-11-25, §4): недоступный финальный LLM не
+        превращается в программный «частичный отчёт» — публикуемого текста
+        нет, фактическое состояние остаётся в envelope/research_state."""
         llm = FakeLLM(
             [_round("r0", [("execute_web_search", {"query": "deploy"})]),
              LLMError("upstream 500")],
@@ -225,15 +226,16 @@ class TestFinalizationContract:
                                     chat_id=CHAT_ID)
         text = str(out)
         assert out.degraded is True and out.reason == "llm_error"
-        assert out.finalize_mode == "structured_partial"
-        assert text != TOOL_LOOP_FALLBACK_PHRASE
-        assert "Исследование остановлено" in text
-        assert "llm_error" in text
-        assert "почему упал деплой?" in text          # исходный запрос
-        assert "execute_web_search" in text           # источник данных
-        assert "src-9" in text and "github.com" in text  # provenance
-        assert "финальный LLM-вызов недоступен" in text
+        assert out.finalize_mode == "no_generative_path"
+        assert text == ""
         assert out.tool_results[0]["status"] == "ok"  # журнал сохранён
+        assert out.tool_results[0]["evidence_refs"] == ["src-9"]
+        assert out.research_state.get("status") in ("partial", "failed")
+        # Реальное состояние ушло в существующий Writer-путь (директива).
+        assert llm.finalize_calls == 1
+        directive = llm.finalize_messages[0][-1]["content"]
+        assert "Результатов с данными: 1" in directive
+        assert "llm_error" in directive
 
     @pytest.mark.asyncio
     async def test_exhausted_research_counters_do_not_block_finalize(
@@ -253,7 +255,6 @@ class TestFinalizationContract:
         assert out.degraded is True and out.reason == "chain_call_limit"
         assert out.finalize_mode == "llm"
         assert out == "ИТОГ: есть один результат, второй вызов ограничен"
-        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
         assert [env["status"] for env in out.tool_results] == ["ok", "denied"]
         # §G3: у отказа политики есть реальный модельно-видимый текст, и он
         # учтён в журнале (иначе финальная инвентаризация теряет причину).
@@ -476,7 +477,6 @@ class TestConsumersShareContract:
         assert raw.startswith("ОТЧЁТ: бот жив, логов новых нет")
         assert "это частичный результат" in raw
         assert "прервал исследование технической ошибкой" in raw
-        assert str(raw) != TOOL_LOOP_FALLBACK_PHRASE
         assert llm.finalize_calls == 1
 
     @pytest.mark.asyncio
@@ -513,12 +513,12 @@ SCHEMAS_TWO = [
 
 class TestPlanEvidenceCompleteness:
     @pytest.mark.asyncio
-    async def test_policy_denied_plan_step_named_in_structured_partial(
+    async def test_policy_denied_plan_step_named_in_finalize_directive(
             self, monkeypatch):
         """Явный лимит оператора обрывает шаг плана: его структурный отказ
         обязан попасть в финальную инвентаризацию (G3/G4) вместе с уже
-        полученными данными. Без этого partial ложно заявляет, что отказов
-        не было, и теряет причину частичности."""
+        полученными данными — Writer получает реальное состояние, а не
+        программный текст (P0 corrective owner 2026-11-25 §4)."""
         _patch_budgets(monkeypatch, True)
         monkeypatch.setattr(Settings, "MCA_TOOL_MAX_TOTAL_CALLS", 1)
         llm = FakeLLM([LLMError("research broke")],
@@ -536,14 +536,17 @@ class TestPlanEvidenceCompleteness:
         out = await chat_with_tools(
             llm, MESSAGES, tools=SCHEMAS_TWO, router=router, ctx=_ctx(),
             chat_id=CHAT_ID, tool_plan=plan)
-        text = str(out)
-        # второй шаг не исполнялся (явный лимит), но его отказ назван.
+        # второй шаг не исполнялся (явный лимит), но его отказ назван в
+        # директиве существующего финального LLM-пути.
         assert [call[0] for call in router.calls] == ["execute_web_search"]
-        assert out.finalize_mode == "structured_partial"
+        assert out.finalize_mode == "no_generative_path"
+        assert str(out) == ""
         assert len(out.tool_results) == 2
         assert [env["status"] for env in out.tool_results] == ["ok", "denied"]
-        assert "- fetch_article: chain_call_limit" in text
-        assert "не получены данные от: fetch_article" in text
-        # подтверждённые данные первого шага сохранены и не подменены.
-        assert "полезные данные поиска" in text
-        assert "явных отказов источников нет" not in text
+        # Причина отказа шага реально ушла в существующий Writer-путь
+        # (payload плана/финальной фазы), а не в программный отчёт.
+        payload_text = "\n".join(str(m.get("content") or "")
+                                 for m in llm.finalize_messages[0])
+        assert "ОГРАНИЧЕНИЯ" in payload_text
+        assert "chain_call_limit" in payload_text
+        assert out.tool_results[1]["tool"] == "fetch_article"

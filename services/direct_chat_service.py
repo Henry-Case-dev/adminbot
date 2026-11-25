@@ -246,7 +246,7 @@ from services.tool_loop import (
     ToolLoopResult,
     _chain_timeout_seconds,
     chat_with_tools,
-    structured_partial_from_result,
+    media_delivered,
 )
 # ── P0-HA SEGMENTS (архконтракт §0/§2): захват/парсинг выборки — reuse ──────
 # существующих механизмов волны 2 (второй reader и новый движок запрещены).
@@ -2015,10 +2015,10 @@ def lore_story_override(tool_ctx, l1_plan=None, response_plan=None) -> str:
     «Летописца» возвращается ТОЛЬКО при story-интенции хода.
 
     Успешный `compile_lore_story` (``ctx.lore_compiled``) больше не подменяет
-    ответ на ЛЮБОМ запросе: analysis/research/факт-планы (явные поля L1/
-    легаси-плана — `direct_l1.lore_story_delivery_allowed`) получают ответ
-    Writer'а, а история остаётся материалом в evidence (тул-результат с
-    provenance уже в пакете). Kill-switch
+    ответ на ЛЮБОМ запросе: analysis/research/факт-планы и прочие интенции
+    (включая творческие без story-формы и неопределённые — P0 corrective owner
+    2026-11-25 §2) получают ответ Writer'а, а история остаётся материалом в
+    evidence (тул-результат с provenance уже в пакете). Kill-switch
     `LORE_STORY_INTENT_GATE_ENABLED` (env, default ON) → прежнее поведение
     байт-в-байт. Никогда не бросает; пусто → "" (обычный путь)."""
     story = str(getattr(tool_ctx, "lore_story", "") or "").strip()
@@ -2055,8 +2055,9 @@ def lore_verbatim_allowed(l1_plan=None, response_plan=None) -> bool:
     в tool-output как provenance-материал (метки происхождения не трогаются),
     ответ компонует Writer по плану. Kill-switch
     `LORE_STORY_INTENT_GATE_ENABLED` OFF → True (прежнее поведение: подмена
-    байт-в-байт на любом ходе). Fail-open при неопределённой интенции/
-    легаси — как основной гейт (story-интенции S04/S09 не сужаются).
+    байт-в-байт на любом ходе). Неопределённая интенция/легаси — как основной
+    гейт: разрешения не даёт (P0 corrective owner 2026-11-25 §2; явные
+    story-интенции не сужаются).
     Никогда не бросает."""
     if not bool(getattr(settings, "LORE_STORY_INTENT_GATE_ENABLED", True)):
         return True               # OFF → прежнее поведение (инструкция везде)
@@ -7856,35 +7857,44 @@ class DirectChatService:
                         _ev_egress.get("char_start"),
                         _ev_egress.get("char_end"))
             if not answer:
-                # ── S7 (§5, ARCH_DECISION SMART-CORRECTIVE): пустой финал
-                # Writer'а при УЖЕ полученных данных инструментов — не 🗿, а
-                # детерминированный partial из фактических результатов
-                # (существующий `_structured_partial`, без нового автора и
-                # без выдуманной заглушки). Пустые evidence → прежний исход.
-                # Reviewer F1: строке «Запрос:» передаётся ИСХОДНЫЙ текст
-                # человека, а не внутренняя сборка Writer'а (`payload` с
-                # `<Chat_Time_Context>`/планом/служебными блоками).
-                _partial_answer = ""
-                if getattr(raw, "evidence_sources", None):
-                    _partial_answer = structured_partial_from_result(
-                        raw, request_text=str(query or ""),
-                        stop_reason="", finalize_error="")
-                if _partial_answer.strip():
-                    answer = strip_reasoning_tags(_partial_answer)
-                    logger.warning(
-                        "[direct] empty answer — deterministic partial from "
-                        "evidence | chat=%s | chars=%d", chat_id,
-                        len(answer))
-                else:
+                # ── P0 corrective (owner 2026-11-25, §4): программный
+                # «частичный результат» из технических данных удалён.
+                # (1) Инструмент уже доставил пользователю результат в этом
+                # ходе (медиа/изображение) — артефакт и есть ответ: повторной
+                # доставки, технического текста и ложного статуса
+                # незавершённого исследования нет; ход закрывается.
+                if (self._image_delivered_this_turn(_image_delivery, tool_ctx)
+                        or (isinstance(raw, ToolLoopResult)
+                            and media_delivered(raw))):
+                    logger.info(
+                        "[direct] artifact delivered — no text publication | "
+                        "chat=%s | degraded=%s | reason=%s | research=%s",
+                        chat_id, bool(getattr(raw, "degraded", False)),
+                        str(getattr(raw, "reason", "") or "-"),
+                        str((getattr(raw, "research_state", None) or {})
+                            .get("status") or "-"))
                     if coordinator is not None:
                         _log_coordinator_outcome(
-                            chat_id=chat_id, action=ACTION_REACT,
+                            chat_id=chat_id, action=ACTION_REPLY,
                             style=response_mode, chars=0)
-                    logger.warning(
-                        "[direct] empty answer — silence | chat=%s user=%s",
-                        chat_id, target_name)
-                    await react_moai(bot, chat_id, message.message_id)
+                    await self._complete_resume_intent(_resume_intent)
                     return
+                # (2) Генеративного пути нет: ход честно помечается молчанием,
+                # реальное состояние остаётся в tool-loop/трассе/телеметрии.
+                if coordinator is not None:
+                    _log_coordinator_outcome(
+                        chat_id=chat_id, action=ACTION_REACT,
+                        style=response_mode, chars=0)
+                logger.warning(
+                    "[direct] empty answer — silence | chat=%s user=%s | "
+                    "degraded=%s | finalize=%s | research=%s",
+                    chat_id, target_name,
+                    bool(getattr(raw, "degraded", False)),
+                    str(getattr(raw, "finalize_mode", "") or "-"),
+                    str((getattr(raw, "research_state", None) or {})
+                        .get("status") or "-"))
+                await react_moai(bot, chat_id, message.message_id)
+                return
             # ── RLR-04 (R-05.1–R-05.4; §4 «duplicate_guard_retry по совпадению
             # текстов»): reroll по совпадению текстов СНЯТ. Два РАЗНЫХ
             # входящих события могут законно получить одинаковый авторский

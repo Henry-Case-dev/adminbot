@@ -760,8 +760,8 @@ class CheckupService:
             if state_status and state_status != _RESEARCH_COMPLETE:
                 finalize_mode = str(
                     getattr(loop_result, "finalize_mode", "") or "")
-                if finalize_mode not in ("structured_partial",
-                                         "fallback_phrase"):
+                if finalize_mode not in ("no_generative_path",
+                                         "delivered_artifact"):
                     research_note = research_partial_note(research_state)
         else:
             raw = await self.llm.generate(

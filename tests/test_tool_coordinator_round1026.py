@@ -57,7 +57,6 @@ from services.direct_chat_service import (
 from services.llm_client import LLMChatResult, LLMError, LLMToolCall
 from services.system2_handoff import parse_direct_synthesis, stage2_payload
 from services.tool_loop import (
-    TOOL_LOOP_FALLBACK_PHRASE,
     ToolLoopResult,
     chat_with_tools,
 )
@@ -347,8 +346,7 @@ class TestChainMechanism:
         assert result.degraded is True
         assert result.reason == "no_progress"
         # §G2/§G4: финальная фаза использует накопленные данные — ответ
-        # писателя вместо саркастичной заглушки.
-        assert str(result) != TOOL_LOOP_FALLBACK_PHRASE
+        # писателя; программный partial/заглушка удалены (owner 2026-11-25 §4).
         assert result.finalize_mode == "llm"
         assert str(result) == "PLAIN"
         assert result.tool_results

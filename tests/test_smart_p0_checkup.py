@@ -330,7 +330,12 @@ class TestTransientClassification:
         assert directive, "директива продолжения не добавлена после timeout"
 
     @pytest.mark.asyncio
-    async def test_sustained_timeout_degrades_partial(self, monkeypatch):
+    async def test_sustained_timeout_publishes_no_programmatic_report(
+            self, monkeypatch):
+        """P0 corrective (owner 2026-11-25 §4): если ни финальный Writer, ни
+        retrieval не дали текста, детерминированный «частичный отчёт» НЕ
+        публикуется — фиксируется честное состояние и исключение пустого
+        ответа (существующий silence/🗿-путь хендлера)."""
         _allow_policy(monkeypatch)
         reader = _Reader([_mention_payload()])
         llm = _ScriptedLLM([
@@ -339,16 +344,18 @@ class TestTransientClassification:
             LLMTimeoutError("timeout", cause_class="ReadTimeout"),
             LLMTimeoutError("timeout", cause_class="ReadTimeout"),
         ], finalize_error=LLMTimeoutError("timeout", cause_class="ReadTimeout"))
-        report, telemetry = await _run_checkup(llm, _runtime(_router(reader)))
+        telemetry: dict = {}
+        with pytest.raises(LLMBadResponseError):
+            await CheckupService(llm).checkup(
+                "ERROR watchdog.jobs stuck", used_fallback=False,
+                telemetry=telemetry, tool_runtime=_runtime(_router(reader)))
+        # Никакого plain-ответа и никакого программного текста.
+        assert llm.plain_calls == 0
+        # Реальное состояние исследования сохранено в телеметрии.
         assert telemetry["research_status"] == RESEARCH_PARTIAL
         assert telemetry["research_cause"] == "llm_error"
         assert telemetry["research_degraded"] is True
-        # Никакого plain-ответа: финализация по evidence дала honest partial.
-        assert llm.plain_calls == 0
-        assert "Исследование остановлено" in report
         assert checkup_mod.research_verdict(telemetry) == "partial"
-        assert checkup_mod.checkup_delivery_status("partial") == \
-            "report_sent_partial"
 
     @pytest.mark.asyncio
     async def test_empty_final_with_evidence_degrades(self):
