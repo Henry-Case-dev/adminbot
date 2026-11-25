@@ -1293,6 +1293,40 @@
                   </div>
                 </template>
 
+                <!-- UR-28.4: следующий плановый запуск — отдельная строка
+                     от ручного /summary; время уже локализовано сервером в
+                     поясе ЧАТА (второй настройки времени для саммари нет).
+                     Живёт в шапке модуля: видна на любой вкладке. -->
+                <div v-if="workspaceModule.id === 'mod_summary'"
+                     class="mt-2 text-xs flex flex-wrap items-center gap-x-2 gap-y-1"
+                     data-summary-next-run>
+                  <span class="badge badge-info shrink-0">Плановый запуск</span>
+                  <span v-if="summaryScheduleState === 'idle'
+                            || summaryScheduleState === 'loading'"
+                        class="text-gray-500" data-summary-next-run-state="loading">
+                    загружаем…
+                  </span>
+                  <span v-else-if="summaryScheduleState === 'error'"
+                        class="text-gray-500" data-summary-next-run-state="error">
+                    время следующего запуска недоступно
+                  </span>
+                  <span v-else-if="summaryScheduleState === 'off'"
+                        class="text-gray-500" data-summary-next-run-state="off">
+                    плановые сводки для этого чата выключены — следующего
+                    запуска нет
+                  </span>
+                  <span v-else class="text-gray-300"
+                        data-summary-next-run-local>
+                    <strong>{{ summaryNextRunLocal() || 'время не определено' }}</strong>
+                    <span v-if="summaryNextRunZone()" class="text-gray-500">
+                      · {{ summaryNextRunZone() }}
+                    </span>
+                    <span class="text-gray-500">
+                      · локальное время чата; ручной /summary его не сдвигает
+                    </span>
+                  </span>
+                </div>
+
                 <div class="flex gap-2 flex-wrap mt-3 workspace-tabs workspace-tabs--scroll"
                      role="tablist" data-workspace-tabs
                      @keydown="onWorkspaceTabsKeydown($event)">

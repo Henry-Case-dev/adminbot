@@ -7441,6 +7441,12 @@
         timeNow: null,             // тикающие часы: {date, time, weekday}
         timeClockTimer: null,      // setInterval id (только клиентский рендер)
         timeStateFetchedAt: 0,     // момент ответа сервера (база тикающих часов)
+        // ── UR-28.4: следующий плановый запуск саммари (локальное время) ──
+        // Один read-only источник `/api/config/time` (summary_schedule);
+        // второй настройки пояса/второго запроса планировщика нет.
+        summarySchedule: null,
+        summaryScheduleState: 'idle',   // idle|loading|ready|off|error
+        summaryScheduleError: '',
         // ── UR-F (UR-20.3/R-ADM.5): инспектор «Что бот видел» ────────────
         turnDiag: null,            // GET /api/direct/turn-diagnostics
         turnDiagTurn: 1,           // выбранный ход (1 = последний)
@@ -20481,6 +20487,63 @@
         this.timeClockTimer = null;
         this.timeNow = null;
       },
+      // ═══ UR-28.4: «Следующий плановый запуск» саммари ═══════════════════
+      // Другого запроса/настройки нет: payload `/api/config/time` уже несёт
+      // `summary_schedule` (тот же чатовый пояс, локальная метка посчитана
+      // сервером — клиент зоны не пересчитывает). Ручной `/summary` этим
+      // блоком не управляет и расписание не сдвигает.
+      loadSummarySchedule: async function () {
+        var chatId = this.activeChatId;
+        if (chatId == null) {
+          this.summarySchedule = null;
+          this.summaryScheduleState = 'off';
+          this.summaryScheduleError = '';
+          return;
+        }
+        var epoch = this.scopeEpoch;
+        this.summaryScheduleState = 'loading';
+        this.summaryScheduleError = '';
+        var self = this;
+        try {
+          var data = await this.api('/api/config/time?chat_id='
+            + encodeURIComponent(chatId));
+          if (typeof this._chatBound === 'function'
+              && !this._chatBound(epoch, chatId)) return;
+          if (typeof this._payloadChatMatches === 'function'
+              && !this._payloadChatMatches(data, chatId)) {
+            // Ответ не про этот чат: чужое расписание к карточке не клеим.
+            self.summarySchedule = null;
+            self.summaryScheduleState = 'error';
+            return;
+          }
+          var schedule = (data && data.summary_schedule) || null;
+          self.summarySchedule = schedule;
+          if (!schedule || schedule.available === false) {
+            self.summaryScheduleState = 'error';
+          } else if (schedule.enabled === false) {
+            self.summaryScheduleState = 'off';
+          } else {
+            self.summaryScheduleState = 'ready';
+          }
+        } catch (e) {
+          if (typeof this._chatBound === 'function'
+              && !this._chatBound(epoch, chatId)) return;
+          self.summarySchedule = null;
+          self.summaryScheduleState = 'error';
+          self.summaryScheduleError =
+            (e && e.message) || 'расписание недоступно';
+        }
+      },
+      summaryNextRunLocal: function () {
+        var s = this.summarySchedule;
+        if (!s || s.available === false) return '';
+        return s.next_run_local || '';
+      },
+      summaryNextRunZone: function () {
+        var s = this.summarySchedule;
+        if (!s || s.available === false) return '';
+        return s.timezone || '';
+      },
       // Тикающие часы ТОЛЬКО от серверной базы: as_of_utc + зафиксированный
       // offset; браузерная timezone не используется вовсе (UR-29.2).
       timeNowTick: function () {
@@ -22650,7 +22713,14 @@
       // MAJOR-2: операционные панели Сон/Ностальгия живут в модалке —
       // данные грузятся при открытии (не только по activeTab).
       _ensureModuleData: function (m) {
-        if (!m || !this.isGlobalAdmin) return;
+        if (!m) return;
+        // UR-28.4: следующий плановый запуск саммари — read-only и полезен
+        // владельцу чата, поэтому грузится до admin-only ветки данных.
+        if (m.id === 'mod_summary'
+            && typeof this.loadSummarySchedule === 'function') {
+          this.loadSummarySchedule();
+        }
+        if (!this.isGlobalAdmin) return;
         if (m.id === 'mod_sleep') {
           if (!this.dreamBeliefs.length && !this.memoryRagBusy) {
             this.loadDreamBeliefs();
@@ -27102,7 +27172,14 @@
       _ensureHistoryForWorkspace: function () {
         var ws = this.workspace;
         var m = ws && ws.module;
-        if (!m || typeof this.historySupported !== 'function'
+        if (!m) return;
+        // UR-28.4: смена чата — перечитываем следующий плановый запуск
+        // саммари для НОВОЙ области (read-only; не исторический журнал).
+        if (m.id === 'mod_summary'
+            && typeof this.loadSummarySchedule === 'function') {
+          this.loadSummarySchedule();
+        }
+        if (typeof this.historySupported !== 'function'
             || typeof this.historyStateFor !== 'function'
             || !this.historySupported(m)
             || this.historyStateFor(m) !== 'idle') return;
