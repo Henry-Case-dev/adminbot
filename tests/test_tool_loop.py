@@ -327,4 +327,9 @@ class TestChatWithTools:
         assert out == "упоминали 7 раз"
         tool = llm.all_messages[1][-1]
         assert tool["role"] == "tool"
-        assert "Широкий поиск (префиксы, не морфология): 7 сообщений «бензин» за всё время" in tool["content"]
+        # P0 memory-relevance (25.11.2026, cross-lane composition, lane B
+        # contract): служебные метаданные поиска вынесены в блок
+        # `<поиск_служебное>` в конце результата (не открывают генеративный
+        # контекст), но число совпадений по-прежнему доезжает до модели.
+        assert "<поиск_служебное>" in tool["content"]
+        assert "совпадений=7" in tool["content"]

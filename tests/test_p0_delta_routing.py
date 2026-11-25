@@ -570,7 +570,15 @@ class TestCoverageHonesty:
         out = await router.dispatch(
             "query_chat_memory", {"query": "тема", "time_range": "all"},
             _ctx())
-        assert "Показано 1 из 312 сообщений" in out
+        # P0 memory-relevance (25.11.2026, cross-lane composition, lane B
+        # contract): метод/счётчик/показанный объём вынесены из первой строки
+        # результата в служебный блок `<поиск_служебное>` — они больше не
+        # открывают генеративный контекст, но честность покрытия сохранена:
+        # общее число и показанный объём названы, неполнота помечена.
+        assert "<поиск_служебное>" in out
+        assert "совпадений=312" in out
+        assert "показано=1" in out
+        assert "выдача неполная" in out
 
     @pytest.mark.asyncio
     async def test_no_coverage_noise_when_all_shown(self, monkeypatch):
@@ -599,8 +607,11 @@ class TestCoverageHonesty:
         out = await router.dispatch(
             "query_chat_memory", {"query": "тема", "time_range": "all"},
             _ctx())
-        assert ("Контекст из памяти (обобщённые факты и пересказ, "
-                "не дословные сообщения):") in out
+        # P0 memory-relevance (25.11.2026): метка производного блока уточнена —
+        # «отдельные сведения», а не «контекст из памяти» (тот же провенанс:
+        # обобщения/пересказ не выдаются за дословные сообщения).
+        assert ("Отдельные сведения из памяти (обобщения и "
+                "пересказ, не дословные сообщения):") in out
         assert "Обобщённый факт" in out
 
     @pytest.mark.asyncio
@@ -616,8 +627,8 @@ class TestCoverageHonesty:
         out = await router.dispatch(
             "query_chat_memory", {"query": "тема", "time_range": "all"},
             _ctx())
-        assert ("Контекст из памяти (обобщённые факты и пересказ, "
-                "не дословные сообщения):") in out
+        assert ("Отдельные сведения из памяти (обобщения и "
+                "пересказ, не дословные сообщения):") in out
         assert "Сводка RAG" in out
 
     @pytest.mark.asyncio
