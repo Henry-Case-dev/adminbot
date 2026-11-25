@@ -202,9 +202,9 @@
 | Прямые ответы | limits.chat_budget_thread_ratio | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | limits.chat_burst_limit | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Бюджеты | limits.chat_context_budget_tokens | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
-| Прямые ответы | limits.chat_context_fill_ratio | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Прямые ответы | limits.chat_context_fill_ratio | Модули | нет API (hidden) | нет API (hidden) | hidden | false | true | OK |
 | Прямые ответы | limits.chat_cooldown_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
-| Прямые ответы | limits.chat_current_question_max_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Прямые ответы | limits.chat_current_question_max_chars | Модули | нет API (hidden) | нет API (hidden) | hidden | false | true | OK |
 | Прямые ответы | limits.chat_direct_reply_ttl_days | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | limits.chat_global_context_limit | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | limits.chat_global_context_max_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |

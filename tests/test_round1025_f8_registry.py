@@ -292,8 +292,15 @@ PG_DB_SHA256_B07 = (
 # fallback-смысл) и `EFFECTIVE_STATUS_META["limits.chat_budget_reserve_ratio"]`
 # (status=legacy, consumer=services.auto_budget (fallback)). Новых
 # ParamSpec/GROUPS/ключей нет; TSV/meta переэмитированы штатным генератором.
+# UR-21/UR-22 (UR-F, 26.11.2026; L-F11S-1, release 2.58.249): санкционированная
+# дельта каталога — подписи/честные причины `CHAT_CONTEXT_FILL_RATIO` и
+# `CHAT_CURRENT_QUESTION_MAX_CHARS` (оба выведены из пользовательского
+# редактирования) и новая ось `_EFFECTIVE_READONLY`
+# (`EFFECTIVE_STATUS_META[...]["readonly"]`). Новых ParamSpec/GROUPS/ключей нет
+# (REGISTRY 659 / GROUPS 121 не менялись); TSV/meta/screen-map переэмитированы
+# штатным `tools/gen_param_registry_round1025.py`.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "c7cb2bdbd76879018df2e7e2595a8421ae102566a50ba939f312b421df0fb6ae")
+    "8e64374a7ed10bed0194b7a34f26b088aa2c13ea5044eda5f38269e274794100")
 
 
 def _sha256(path: Path) -> str:
@@ -528,7 +535,12 @@ class TestRegistry:
         # QRNG P3 (17.11.2026, arch D4): +1 hidden — keys.random_quantum_provider
         # (информационное имя провайдера; runtime читает random.primary_provider,
         # строка/значение в БД остаются) → 17.
-        assert len(hidden) == 17
+        # UR-F (26.11.2026, UR-21/21.01, release 2.58.249): +2 hidden —
+        # limits.chat_context_fill_ratio (не триггер конспекта) и
+        # limits.chat_current_question_max_chars (символьный потолок снят);
+        # значения читаемы по PG-ключу, из пользовательского редактирования
+        # выведены → 19.
+        assert len(hidden) == 19
         hidden_keys = {r["internal_key"] for r in hidden}
         assert hidden_keys == {
             "flags.chat_mood_enabled",
@@ -537,6 +549,8 @@ class TestRegistry:
             "keys.random_quantum_provider",
             "limits.chat_budget_anchors_ratio",
             "limits.chat_budget_response_ratio",
+            "limits.chat_context_fill_ratio",
+            "limits.chat_current_question_max_chars",
             "limits.chat_lock_max_entries",
             "limits.chat_style_anchor_max_chars",
             "limits.chat_style_anchors_count",
