@@ -10,7 +10,7 @@
   `4e5374536e45bcf97e9aa8544d68493fa2cbe6e0`.
 - Worktree: `WorkspaceData/worktrees/c742e4de9e92c489/p0-trigger-force-a624ec521cbe-dcce6c61`
   (registered unit `P0-TRIGGER-FORCE`).
-- Session: see handoff (Builder subagent session id).
+- Builder session: `ses_ded186f3cffehgIXVIBT37AqK6`.
 
 ## 1. Established mechanisms on the deployed code
 
