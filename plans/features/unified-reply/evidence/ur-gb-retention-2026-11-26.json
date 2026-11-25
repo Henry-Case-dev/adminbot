@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\ur-gb-rows-8d5606de2609-f35bd3b8",
+      "owner": "Orchestrator (UR-GB lane) / pending Reviewer",
+      "reason": "Candidate feat/ur-gb-rows 1599c77d0 (UR-RES-01/UR-30.2/UR-07.3/UR-17.7/UR-17.8) awaits independent review and possible corrective on the same tree; branch is pushed to origin, worktree clean.",
+      "evidence": "plans/features/unified-reply/evidence/ur-gb-rows-2026-11-26.md (11 new tests passed, RED on base for UR-RES-01, regressions identical to base)",
+      "next_event": "Reviewer verdict on 1599c77d0, then corrective reuse or unit-close after merge/close of the lane"
+    }
+  ]
+}
