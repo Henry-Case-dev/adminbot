@@ -468,6 +468,25 @@ _QUERY_CAPS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _memory_step_years(query: str) -> tuple[int, ...]:
+    """Годы периода запроса для шага `query_chat_memory` (0 LLM).
+
+    P0 memory-relevance (2026-11-25): единственный источник — существующее
+    детерминированное периодное намерение retrieval
+    (`mca_retrieval_context.resolve_period_intent`), т.е. 4-значный год,
+    который пользователь действительно назвал. Это НЕ словарь триггеров и
+    НЕ догадка о «недавнем»: без явного года кортеж пуст и шаг остаётся
+    прежним (байт-в-байт)."""
+    try:
+        from services import mca_retrieval_context as _rc
+        intent = _rc.resolve_period_intent(query)
+        if not getattr(intent, "is_explicit_year", False):
+            return ()
+        return tuple(int(year) for year in intent.years)
+    except Exception:                                  # pragma: no cover
+        return ()
+
+
 def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                         ctx=None, announced=(), addressee: str = "",
                         max_fetch_steps: int = 3, required_caps=(),
@@ -660,6 +679,18 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                     else:
                         # Внутренние инструменты видят исходный вопрос.
                         args = {"query": _boundary_cut(q, 256)}
+                        # P0 memory-relevance (2026-11-25): период, который
+                        # пользователь назвал годом, передаётся инструменту
+                        # памяти. Раньше шаг нёс только `query`, и «за 2025
+                        # год» молча превращался в поиск за всё время, а
+                        # счётчик выдавал объём четырёх лет. Год берёт
+                        # существующий детерминированный парсер периода
+                        # (`resolve_period_intent`), а не новый словарь.
+                        if tool == "query_chat_memory":
+                            years = _memory_step_years(q)
+                            if years:
+                                args["year_from"] = years[0]
+                                args["year_to"] = years[-1]
                     steps.append({
                         "step_id": f"{cap}_{index}", "tool": tool,
                         "arguments": args,

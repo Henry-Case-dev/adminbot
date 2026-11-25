@@ -435,9 +435,17 @@ _CHANNEL_WEIGHTS = {
     # чтение для профиля речи; включается только `scope='participants'`
     # + явный канал, второй поиск не создаётся.
     "recent": 70.0,
+    # P0 memory-relevance (2026-11-25): ограниченная выборка речи ЯВНОГО
+    # АВТОРА в заданном периоде (`get_chat_history_messages` + фильтр автора).
+    # Нужна потому, что исходные сообщения находятся только лексически:
+    # «поздравления»* не совпадает с «поздравляю», и материал автора
+    # систематически не находился, уступая место служебным OR-совпадениям.
+    # Вес выше lexical: это ровно запрошенный материал с верной атрибуцией
+    # и в границах периода. Читается ТОЛЬКО при `author_entity_ids` + окне.
+    "author_window": 85.0,
 }
-_CHANNEL_ORDER = ("exact", "subject", "entity", "lexical", "recent", "vector",
-                  "reply_graph", "community", "episode")
+_CHANNEL_ORDER = ("exact", "subject", "entity", "author_window", "lexical",
+                  "recent", "vector", "reply_graph", "community", "episode")
 #: SXR-C2 (финальный срез): это ТОЛЬКО граница UI-сниппета поиска памяти
 #: (`memory_contracts.preview_max_chars()`/`memory_search`), а не кап данных
 #: retrieval. Кандидат несёт полный фрагмент источника: срез 400 удалён,
@@ -446,6 +454,10 @@ _PREVIEW_MAX_CHARS = 400
 #: §7.5: во сколько раз срез `get_recent_messages` шире запрошенного top_k
 #: (bounded: окно чтения конечно и не зависит от корпуса).
 _RECENT_SCAN_FACTOR = 6
+#: P0 memory-relevance (2026-11-25): сколько строк окна читается существующим
+#: `get_chat_history_messages` ради речи ЯВНОГО автора (bounded: пул
+#: пропорционален запросу, а не корпусу; берутся свежие в окне).
+_AUTHOR_WINDOW_SCAN_FACTOR = 20
 
 # ── MEMORY-06 (§4.4/§7.1): расширение ЕДИНОГО retrieval-контракта ───────────
 # Purpose/mode/scope — REUSE закрытых наборов MEMORY-01 (`memory_contracts`);
@@ -459,7 +471,12 @@ RETRIEVAL_INTENTS = ("fact", "who", "what-happened", "history",
 UI_SEARCH_MAX_LIMIT = _mc.SEARCH_LIMIT_MAX
 #: Политика каналов по умолчанию (порядок — приоритет стабильности выдачи).
 _DEFAULT_CHANNELS = ("exact", "entity", "lexical", "vector", "reply_graph",
-                     "episode")
+                     "episode",
+                     # P0 memory-relevance (2026-11-25): политика по
+                     # умолчанию включает канал речи явного автора; он сам
+                     # включается только при `author_entity_ids` + периоде,
+                     # поэтому все прочие пути остаются байт-в-байт.
+                     "author_window")
 #: `mode` в трёх режимах MEM-06.6 → существующие ветки retrieval (§7.1).
 _INTENT_TO_MODE = {
     "fact": "specific", "who": "specific", "relationship": "specific",
@@ -677,6 +694,73 @@ def year_time_bounds(year) -> tuple[int, int] | None:
     except (ValueError, OverflowError, OSError):          # pragma: no cover
         return None
     return start, end
+
+
+def _message_period_window(request, period_intent) -> tuple[int, int] | None:
+    """Временнóе окно ОРИГИНАЛЬНЫХ сообщений для периода запроса.
+
+    P0 memory-relevance (2026-11-25): период относится к тому материалу, к
+    которому его применил пользователь. Раньше годовое окно сужало только
+    граф-факты (периодный пул), а сообщения читались за всю историю — запрос
+    «сообщения автора за прошедший год» незаметно становился поиском за все
+    годы. Здесь окно строится из УЖЕ принятых структурных границ запроса
+    (`time_from/time_to`) либо из существующего `PeriodIntent` явного года —
+    новых списков слов/годов нет. Нет периода → None (прежний вызов
+    байт-в-байт, произвольный горизонт не вводится)."""
+    try:
+        if request.time_from is not None and request.time_to is not None:
+            return int(request.time_from), int(request.time_to)
+    except (TypeError, ValueError):
+        return None
+    if not getattr(period_intent, "is_explicit_year", False):
+        return None
+    bounds = [year_time_bounds(year) for year in period_intent.years]
+    bounds = [bound for bound in bounds if bound]
+    if not bounds:
+        return None
+    return (min(bound[0] for bound in bounds),
+            max(bound[1] for bound in bounds))
+
+
+def _content_query_tokens(keywords) -> list[str]:
+    """Содержательные токены запроса (та же §2-морфология, что у периода).
+
+    Основа `>= 4` символов и не служебное слово — ровно тот набор, который
+    retrieval уже считает предметным (`_period_fts_keywords`). Нового
+    словаря нет: предикат переиспользуется."""
+    from services.text_morphology import stem_word
+    out: list = []
+    for word in keywords or ():
+        token = str(word or "").casefold()
+        if not token or token in _MESSAGE_WINDOW_STOPWORDS:
+            continue
+        if len(stem_word(token)) >= 4 and token not in out:
+            out.append(token)
+    return out
+
+
+def _prefix_only_message(text, content_tokens) -> bool:
+    """Сообщение совпало ТОЛЬКО по служебным/коротким префиксам?
+
+    `build_fts_query(prefix_or)` — генератор кандидатов: один служебный токен
+    («в», «за», «как») даёт OR-совпадение с половиной корпуса, и объём таких
+    попаданий не является релевантностью. Здесь считается покрытие
+    ПРЕДМЕТНЫХ токенов запроса по тем же правилам, что у FTS (префикс слова)
+    плюс существующая §2-морфология (`stem_word`). Пустой набор предметных
+    токенов или пустой текст → False (судить нечем, прежнее поведение)."""
+    from services.text_morphology import stem_word
+    if not content_tokens:
+        return False
+    words = _tokenize(text)
+    if not words:
+        return False
+    word_stems = {stem_word(word) for word in words}
+    for token in content_tokens:
+        if any(word.startswith(token) for word in words):
+            return False
+        if stem_word(token) in word_stems:
+            return False
+    return True
 
 
 def period_row_year(row) -> int | None:
@@ -1026,6 +1110,14 @@ class RetrievalRequest:
     subject_entity_ids: tuple[int, ...] = ()   # subject candidates запроса (uid)
     speaker_entity_id: int | None = None       # current speaker
     reply_target_entity_id: int | None = None  # reply-адресат триггера
+    #: P0 memory-relevance (2026-11-25): ЯВНОЕ ограничение АВТОРА материала
+    #: (Telegram uid). Отдельная ось от `subject_entity_ids` («о ком»),
+    #: `participants` («люди в контексте хода» → только prior) и
+    #: `reply_target_entity_id` («кому отвечают»). Запрос «сообщения,
+    #: написанные X» ставит author; «поздравления ДЛЯ X» — subject, а не
+    #: author. Пусто = ограничения по автору нет (прежнее поведение
+    #: байт-в-байт: участники/адресат больше не режут автора молча).
+    author_entity_ids: tuple[int, ...] = ()
     quote_source_ref: str | None = None        # резолвнутый источник цитаты
     # ── MEMORY-06 (§4.4/§7.1): аддитивное расширение контракта ─────────────
     #: Разрешённый ACL-набор чатов (`None` = ровно `chat_id`). Набор приходит
@@ -1805,6 +1897,15 @@ def _candidate_matches_subject(candidate: RetrievalCandidate, uids: set,
     if nodes and candidate.subject_node_id is not None \
             and int(candidate.subject_node_id) in nodes:
         return True
+    # P0 memory-relevance (2026-11-25): дословная реплика самого человека —
+    # тоже материал О НЁМ (его собственная речь), хотя subject-поле у
+    # сообщения честно пусто (subject — уровень ClaimEnvelope). Без этого
+    # вердикт уместности объявлял `subject_mismatch` для выдачи, целиком
+    # состоящей из сообщений субъекта.
+    if uids and candidate.entity_type == "message" \
+            and candidate.author_id is not None \
+            and int(candidate.author_id) in uids:
+        return True
     return False
 
 
@@ -1871,12 +1972,20 @@ def build_memory_request(*, chat_id: int, topic: str,
                          reply_parent_text: str = "", quote_text: str = "",
                          addressee_name: str = "", trigger_ref: int | None
                          = None, top_k: int = 10,
-                         participants=()) -> RetrievalRequest:
+                         participants=(), author_uid: int | None = None,
+                         author_uids=()) -> RetrievalRequest:
     """`RetrievalRequest` для памяти с identity-prior из реальных uid/reply.
 
-    Адресат и автор reply-parent становятся subject/participant кандидатами —
-    местоимения разрешаются связями, а не догадкой по семантике (UR-13.2/
-    UR-13.6: чужой человек не подставляется вместо адресата)."""
+    Роли разделены (P0 memory-relevance, 2026-11-25):
+      * `addressee_uid` — о ком/кому речь → subject (prior + subject-gate);
+      * `reply_parent_uid` — автор сообщения, на которое отвечают → reply-цель;
+      * `author_uid`/`author_uids` — чья это речь (автор материала): ТОЛЬКО
+        явный автор режет выдачу (`author_entity_ids`). Адресат автором НЕ
+        становится: «поздравления, написанные Н.» ≠ «поздравления ДЛЯ Н.».
+
+    Раньше адресат попадал в `participants`/`speaker_entity_id`, а
+    `_apply_filters` резал по ним авторов — чужие сообщения о субъекте
+    молча выпадали, а его собственное имя работало как авторский фильтр."""
     query = build_memory_query(
         topic=topic, addressee_name=addressee_name,
         reply_parent_text=reply_parent_text, quote_text=quote_text)
@@ -1895,13 +2004,24 @@ def build_memory_request(*, chat_id: int, topic: str,
             continue
         if uid not in people:
             people.append(uid)
+    authors: list[int] = []
+    for value in (author_uid,) + tuple(author_uids or ()):
+        try:
+            if value is None:
+                continue
+            uid = int(value)
+        except (TypeError, ValueError):
+            continue
+        if uid not in authors:
+            authors.append(uid)
     return RetrievalRequest(
         chat_id=int(chat_id), query=query, trigger_ref=trigger_ref,
         mode="auto", top_k=max(1, int(top_k or 1)),
         participants=tuple(people),
         subject_entity_ids=tuple(subjects),
-        speaker_entity_id=(int(addressee_uid)
-                           if addressee_uid is not None else None),
+        author_entity_ids=tuple(authors),
+        speaker_entity_id=(int(reply_parent_uid)
+                           if reply_parent_uid is not None else None),
         reply_target_entity_id=(int(reply_parent_uid)
                                 if reply_parent_uid is not None else None))
 
@@ -1944,13 +2064,19 @@ def _split_range(candidates: list, request: RetrievalRequest) -> tuple:
     диапазона). Для прочих запросов не вызывается: их поведение остаётся
     байт-в-байт в ``_apply_filters``."""
     t_from, t_to = int(request.time_from), int(request.time_to)
-    participants = (set(int(p) for p in request.participants)
-                    if request.participants else None)
+    authors = {int(uid) for uid in (request.author_entity_ids or ())
+               if uid is not None}
+    participants = ({int(p) for p in request.participants}
+                    if (request.participants
+                        and request.scope == "participants") else None)
     in_range: list = []
     outside: list = []
     for cand in candidates:
         if not cand.sent_at:
             continue                       # fail closed: время неизвестно
+        if authors and cand.author_id is not None and \
+                int(cand.author_id) not in authors:
+            continue
         if participants and cand.author_id is not None and \
                 int(cand.author_id) not in participants:
             continue
@@ -2066,7 +2192,15 @@ def _dedup(candidates: list) -> list:
 
 
 def _apply_filters(candidates: list, request: RetrievalRequest) -> list:
-    """Фильтры по времени (событийное `sent_at`) и участникам (`author_id`).
+    """Фильтры по времени (событийное `sent_at`) и автору материала.
+
+    P0 memory-relevance (2026-11-25): автор — ЯВНАЯ ось запроса
+    (`author_entity_ids`), а не «участники хода». Раньше `participants`
+    работал allowlist'ом авторов, поэтому адресат («поздравь Никиту»)
+    молча превращался в «только сообщения Никиты», а чужие поздравления
+    выпадали. `participants` — участники контекста для identity-prior;
+    жёсткий авторский фильтр остаётся только у `scope="participants"`
+    (принятая семантика среза собственной речи `recent`).
 
     VMQ-MEM/TIME Slice D (15.11.2026): при ЗАДАННОМ временном окне кандидат с
     неизвестным временем (`sent_at == 0`) отклоняется fail-closed. Раньше он
@@ -2076,6 +2210,11 @@ def _apply_filters(candidates: list, request: RetrievalRequest) -> list:
     отбрасывается — байт-паритет прежних путей, `test_history_isolation`)."""
     out = []
     windowed = request.time_from is not None or request.time_to is not None
+    authors = {int(uid) for uid in (request.author_entity_ids or ())
+               if uid is not None}
+    scope_authors = ({int(p) for p in request.participants or ()
+                      if p is not None}
+                     if request.scope == "participants" else set())
     for cand in candidates:
         if windowed and not cand.sent_at:
             continue
@@ -2085,8 +2224,11 @@ def _apply_filters(candidates: list, request: RetrievalRequest) -> list:
         if request.time_to is not None and cand.sent_at and \
                 cand.sent_at > int(request.time_to):
             continue
-        if request.participants and cand.author_id is not None and \
-                int(cand.author_id) not in set(int(p) for p in request.participants):
+        if authors and cand.author_id is not None and \
+                int(cand.author_id) not in authors:
+            continue
+        if scope_authors and cand.author_id is not None and \
+                int(cand.author_id) not in scope_authors:
             continue
         out.append(cand)
     return out
@@ -2741,6 +2883,49 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
             except Exception:
                 logger.warning("[mca07] recent channel failed", exc_info=True)
 
+    # ── author_window (P0 memory-relevance, 2026-11-25) ─────────────────────
+    #     Речь ЯВНОГО автора в ПЕРИОДЕ запроса: существующее чтение
+    #     `get_chat_history_messages` (bounded окно) + фильтр автора.
+    #     Зачем: исходные сообщения находятся только лексически, а
+    #     «поздравления»* не совпадает с «поздравляю» — материал человека
+    #     систематически не попадал в пакет, уступая служебным OR-совпадениям
+    #     других людей. Читается ТОЛЬКО при явном авторе и известном периоде;
+    #     тонкий результат расширяется В ГРАНИЦАХ ограничений (не случайными
+    #     воспоминаниями). Нет окна/автора → ноль новых чтений.
+    if _allow("author_window") and request.author_entity_ids:
+        authors_win = {int(uid) for uid in request.author_entity_ids
+                       if uid is not None}
+        intent_win = period_intent
+        if intent_win is None:
+            intent_win = resolve_period_intent(
+                request.query, memory_scope=policy,
+                request_intent=request.intent, request_mode=request.mode)
+        window_win = _message_period_window(request, intent_win)
+        if authors_win and window_win is not None:
+            for chat_id in chat_ids:
+                try:
+                    rows = await db.get_chat_history_messages(
+                        chat_id, window_win[0], window_win[1],
+                        limit=max(1, int(fetch_k) * _AUTHOR_WINDOW_SCAN_FACTOR))
+                except Exception:
+                    logger.warning("[mca07] author window read failed",
+                                   exc_info=True)
+                    rows = []
+                picked = [row for row in (rows or ())
+                          if _row_get(row, "user_id") is not None
+                          and int(_row_get(row, "user_id")) in authors_win
+                          and str(_row_get(row, "text") or "").strip()]
+                if picked:
+                    # Свежее в окне — компактная выборка, не весь год.
+                    picked = sorted(
+                        picked,
+                        key=lambda row: int(_row_get(row, "timestamp") or 0),
+                        reverse=True)[:max(1, int(fetch_k))]
+                    for pos, row in enumerate(picked):
+                        raw.append(_message_candidate(
+                            row, "author_window", pos, resolve_item_id))
+                    channels.append("author_window")
+
     # ── exact (quoted-фраза всегда доступна) ────────────────────────────────
     phrases = re.findall(r'"([^"]{2,})"', request.query)
     if _allow("exact"):
@@ -2839,6 +3024,26 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 rank_window = True
                 message_match = _explicit_year_message_match(keywords)
                 _fts_window = {}
+        else:
+            # P0 memory-relevance (2026-11-25): период заданного года
+            # применяется к ТОМУ материалу, к которому он относится —
+            # к оригинальным сообщениям, а не только к граф-фактам.
+            # Раньше периодный добор сужал год лишь у фактов, а сообщения
+            # приходили за всю историю: «сообщения автора за прошлый год»
+            # незаметно превращались в поиск за любой год.
+            _year_window = _message_period_window(request, period_intent)
+            if _year_window is not None:
+                _fts_window = {"since_ts": _year_window[0],
+                               "until_ts": _year_window[1],
+                               "order": "time"}
+        # P0 memory-relevance (2026-11-25): явное ограничение автора — в SQL
+        # ДО LIMIT (тот же существующий `author_ids`), иначе top-N съедает
+        # нужного автора. Пусто → вызов байт-в-байт прежний.
+        if request.author_entity_ids:
+            _fts_window = dict(_fts_window)
+            _fts_window["author_ids"] = [int(uid) for uid
+                                         in request.author_entity_ids
+                                         if uid is not None]
         for chat_id in chat_ids:
             try:
                 if message_match:
@@ -3097,6 +3302,22 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     # (канал + доверие + актуальность + режим), а не одна similarity.
     # P0-HA ISOLATION: при активной связке history_bias не применяется
     # (эпизоды не ставятся первыми поверх корпуса).
+    # P0 memory-relevance (2026-11-25): prefix-OR — генератор кандидатов, не
+    # вердикт релевантности. Сообщение, попавшее в пул ТОЛЬКО по служебным/
+    # коротким префиксам («в», «за», «с»), не должно опережать сообщение,
+    # совпавшее предметным токеном запроса, — иначе объём OR и свежесть
+    # решают состав пакета. Такие кандидаты не отбрасываются (лексически
+    # иначе сформулированный материал — законный: «с днюхой» без слова
+    # «поздравление»), а идут ПОСЛЕ предметных совпадений и остаются
+    # достижимыми при тонком результате.
+    _content_tokens = _content_query_tokens(keywords)
+
+    def _prefix_only(cand: RetrievalCandidate) -> bool:
+        if not _content_tokens or range_active:
+            return False
+        return (cand.entity_type == "message" and cand.channel == "lexical"
+                and _prefix_only_message(cand.preview, _content_tokens))
+
     def _sort_key(cand: RetrievalCandidate):
         history_bias = (1 if (mode in ("history", "episodic")
                               and cand.channel == "episode"
@@ -3130,6 +3351,16 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 ordered, subject_entity_ids=prior_uids,
                 participant_ids=request.participants,
                 subject_node_ids=prior_nodes)
+    # P0 memory-relevance (2026-11-25): prefix-only-совпадения — ПОСЛЕ
+    # предметных, но внутри своего слоя сохраняют прежний порядок
+    # (стабильное разбиение, не новая сортировка): объём OR не решает
+    # состав и не теряет лексически иначе сформулированный материал.
+    if _content_tokens and not range_active and not request.preserve_channel_order:
+        _subject_tier = [cand for cand in ordered if not _prefix_only(cand)]
+        _prefix_tier = [cand for cand in ordered if _prefix_only(cand)]
+        if _prefix_tier:
+            ordered = _subject_tier + _prefix_tier
+    prefix_only_ranked_low = sum(1 for cand in ordered if _prefix_only(cand))
     # VMQ-MEM next stage (§1): обход периодного пула — СНАЧАЛА строки
     # векторной ноги (они и есть смысловой путь), затем лексические: иначе
     # слоты `limit//5` забирает лексика, и смысловой добор не доходит.
@@ -3210,6 +3441,11 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     years = _year_coverage(ordered, fact_rows)
     excluded["relevance"] = (excluded.get("relevance") or 0) + len(
         subject_dropped or ())
+    if prefix_only_ranked_low:
+        # Наблюдаемость P0 memory-relevance: сколько лексических сообщений
+        # вошло ТОЛЬКО по служебным префиксам (понижены в порядке, не
+        # отброшены). Только число — ни текстов, ни id.
+        excluded["prefix_only_low"] = int(prefix_only_ranked_low)
     excluded["budget"] = (excluded.get("budget") or 0) + max(
         0, cut_before - len(ordered))
     # VMQ-MEM next stage (§4): наблюдаемость периодного добора — только
@@ -3345,19 +3581,17 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
     fact_id = _row_get(row, "id")
     tg_id = _row_get(row, "tg_message_id")
     item_id = resolve_item_id(tg_message_id=tg_id, fact_id=fact_id)
-    subject = _row_get(row, "target_user")
     speaker = _row_get(row, "speaker_author_id")
     subject_ref = _row_get(row, "subject_ref_id")
     origin = str(_row_get(row, "origin") or "")
     subject_id = _subject_entity_id_of_row(row)
-    # author-fallback остаётся прежним (числовой target_user), чтобы фикс
-    # identity не менял участниковый фильтр отдельно от subject-prior.
-    target_uid = None
-    if subject not in (None, ""):
-        try:
-            target_uid = int(subject)
-        except (TypeError, ValueError):
-            target_uid = None
+    # P0 memory-relevance (2026-11-25): АВТОР факта — только реальный
+    # speaker (`speaker_author_id`). Прежний `author-fallback` на числовой
+    # `target_user` объявлял автором того, О КОМ факт: «Никита написал
+    # поздравление брату» (сказал другой) приписывалось Никите, а
+    # участниковый фильтр/представление ролей ниже считали его источником.
+    # Неизвестный автор остаётся честным `None`, субъект живёт в
+    # `subject_entity_id` — роли не смешиваются.
     return RetrievalCandidate(
         id=item_id or f"fact:{fact_id}",
         entity_type="graph_fact", entity_id=str(fact_id),
@@ -3367,7 +3601,7 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         sent_at=int(_row_get(row, "rag_ts")
                     or _row_get(row, "message_timestamp")
                     or _row_get(row, "created_at") or 0),
-        author_id=speaker if speaker is not None else target_uid,
+        author_id=speaker,
         score=_channel_rank(channel, position), channel=channel,
         # §7.5 (фикс потери фактов): дедуп по строке факта, а не по `tg:`-
         # представлению источника — иначе 4 факта одного сообщения → 1.

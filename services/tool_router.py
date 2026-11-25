@@ -2809,6 +2809,22 @@ class ToolRouter:
                 (isinstance(stats, dict) and stats.get("count")):
             return f"По запросу «{query}» в памяти ничего не найдено."
         parts: list[str] = []
+        if lines:
+            parts.append("Сообщения участников (дословно):")
+            parts.extend(lines)
+        if indirect_lines:
+            parts.append("Отдельные сведения из памяти (обобщения и "
+                         "пересказ, не дословные сообщения):")
+            parts.extend(indirect_lines)
+        # P0 memory-relevance (2026-11-25): служебные метаданные поиска
+        # (метод/счётчик/показанный объём/диапазон) отделены от материала
+        # собственным блоком в конце. Раньше счётчик с названием метода шёл
+        # ПЕРВОЙ строкой результата и попадал в генеративный контекст как
+        # готовый «отчёт о поиске», который модель пересказывала вместо
+        # выполнения запроса. Числа сохранены (нужны для вопросов о
+        # количестве и для диагностики) — меняется только их место и роль:
+        # служебный блок, а не материал.
+        service: list[str] = []
         if isinstance(stats, dict) and stats.get("count"):
             period = _TIME_RANGE_LABELS.get(time_range, "за всё время")
             if year_from is not None or year_to is not None:
@@ -2818,34 +2834,21 @@ class ToolRouter:
                 first = _format_timestamp(stats.get("first_seen"))
                 last = _format_timestamp(stats.get("last_seen"))
                 if first and last and first != last:
-                    stamp = f" (с {first} по {last})"
-            if mca_gates.chat_statistics_enabled():
-                # MCA-15 (T-4926, §24.1 п.6): широкий prefix-OR-счёт больше
-                # не выдаётся за точное число «упоминаний»: единица (сообщения)
-                # и метод (префиксы, не морфология) названы явно.
-                parts.append(
-                    f"Широкий поиск (префиксы, не морфология): "
-                    f"{stats['count']} сообщений «{query}» {period}{stamp}")
-            else:
-                parts.append(
-                    f"Найдено {stats['count']} упоминаний «{query}» "
-                    f"{period}{stamp}")
-            # P0-DELTA (дефект 3): честное покрытие показа — счётчик
-            # корпус-полный, сниппеты — верх по релевантности; модель не
-            # принимает показанное за весь корпус.
+                    stamp = f"; диапазон {first} - {last}"
+            method = ("широкий префиксный поиск, не морфология"
+                      if mca_gates.chat_statistics_enabled()
+                      else "лексический поиск")
+            service.append(
+                f"служебное (диагностика выдачи, не содержание ответа): "
+                f"метод={method}; совпадений={stats['count']}; "
+                f"показано={fts_shown}; период={period}{stamp}")
             if fts_shown and int(stats["count"]) > fts_shown:
-                parts.append(
-                    f"Показано {fts_shown} из {stats['count']} сообщений "
-                    f"(верх по релевантности); при необходимости сузь "
-                    f"период или автора.")
-        parts.extend(lines)
-        if indirect_lines:
-            parts.append("Контекст из памяти (обобщённые факты и пересказ, "
-                         "не дословные сообщения):")
-            parts.extend(indirect_lines)
-        # SXR-C2-01: без собственного потолка 3500 — весь отобранный
-        # retrieval'ом набор доходит до ToolResult (top-K остаётся
-        # семантической выборкой, а не обрывом текста).
+                service.append(
+                    "выдача неполная (показан верх по релевантности); "
+                    "при необходимости сузьте период или автора")
+        if service:
+            parts.append("<поиск_служебное>\n" + "\n".join(service)
+                         + "\n</поиск_служебное>")
         return "\n".join(parts)
 
     # ── query_chat_memory stats-режим (MCA-15 T-4929, ADR-1028-12 D3/D4) ──

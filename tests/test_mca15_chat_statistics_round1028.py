@@ -721,7 +721,10 @@ class TestFixMeasurementPaths:
         out = await router.dispatch(
             "query_chat_memory", {"query": "шиз", "time_range": "all"},
             ToolContext(CHAT_ID, "шиз"))
-        assert "Найдено 5 упоминаний «шиз»" in out
+        # P0 memory-relevance: служебный блок вместо заголовка-отчёта;
+        # K1 OFF-паритет — метод назван «лексический поиск», число честное.
+        assert "совпадений=5" in out
+        assert "лексический поиск" in out
 
     @pytest.mark.asyncio
     async def test_dig_off_parity_payload(self, monkeypatch):
@@ -1334,7 +1337,7 @@ class TestStatsToolMode:
             "query": "шиз", "stats": {"metric": "messages",
                                       "match_mode": "prefix",
                                       "phrase": "шиз"}}, ctx)
-        assert "Найдено 5 упоминаний «шиз»" in out
+        assert "совпадений=5" in out
         assert ctx.metric_results == []
 
     def test_payload_trim_keeps_mandatory_no_bare_number(self):
