@@ -3924,9 +3924,12 @@ async def _period_vector_admission(db, memory) -> dict:
 
 def _vector_unavailable_reason(stats: dict) -> str | None:
     """Код причины, если периодная векторная нога не дала результата по
-    состоянию (не «ok»/пусто/неподдерживаемая память). Иначе None."""
+    состоянию (не «ok»/пусто/неподдерживаемая память). Иначе None.
+
+    `empty_query` (P0-EMBED-EMPTY, R247-DEP-N1) — не отказ ноги: запроса на
+    семантику не было, поэтому «недоступность» не объявляется."""
     code = str(stats.get("vector_leg") or "")
-    if code in ("", "ok", "no_rows", "unsupported_memory"):
+    if code in ("", "ok", "no_rows", "unsupported_memory", "empty_query"):
         return None
     return code
 
