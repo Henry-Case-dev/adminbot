@@ -1,0 +1,132 @@
+{
+ "ok": true,
+ "failures": [],
+ "results": {
+  "1440x900": {
+   "dm": {
+    "present": true,
+    "text": "Личные сообщения периодических сводок в ЛС нет — работает только ручной /summary",
+    "stateElement": "dm_no_periodic",
+    "localEl": false,
+    "localText": "",
+    "badge": "Личные сообщения",
+    "scrollW": 1440,
+    "innerW": 1440,
+    "set": {
+     "ok": true,
+     "state": "dm_no_periodic",
+     "isDm": true,
+     "schedule": {
+      "available": true,
+      "timezone": "Europe/Moscow",
+      "timezone_source": "chat",
+      "slots": [
+       "00:00",
+       "06:00",
+       "12:00",
+       "18:00"
+      ],
+      "next_run_utc": null,
+      "next_run_local": null,
+      "enabled": null,
+      "enabled_source": "dm_no_periodic"
+     }
+    }
+   },
+   "group": {
+    "present": true,
+    "text": "Плановый запуск 25.11.2026 18:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+    "stateElement": "",
+    "localEl": true,
+    "localText": "25.11.2026 18:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+    "badge": "Плановый запуск",
+    "scrollW": 1440,
+    "innerW": 1440,
+    "set": {
+     "ok": true,
+     "state": "ready",
+     "isDm": false,
+     "schedule": {
+      "available": true,
+      "timezone": "Europe/Moscow",
+      "timezone_source": "chat",
+      "slots": [
+       "00:00",
+       "06:00",
+       "12:00",
+       "18:00"
+      ],
+      "next_run_utc": "2026-11-25T15:00:00+00:00",
+      "next_run_local": "25.11.2026 18:00",
+      "enabled": true,
+      "enabled_source": "global"
+     }
+    }
+   },
+   "console_errors": []
+  },
+  "390x844": {
+   "dm": {
+    "present": true,
+    "text": "Личные сообщения периодических сводок в ЛС нет — работает только ручной /summary",
+    "stateElement": "dm_no_periodic",
+    "localEl": false,
+    "localText": "",
+    "badge": "Личные сообщения",
+    "scrollW": 390,
+    "innerW": 390,
+    "set": {
+     "ok": true,
+     "state": "dm_no_periodic",
+     "isDm": true,
+     "schedule": {
+      "available": true,
+      "timezone": "Europe/Moscow",
+      "timezone_source": "chat",
+      "slots": [
+       "00:00",
+       "06:00",
+       "12:00",
+       "18:00"
+      ],
+      "next_run_utc": null,
+      "next_run_local": null,
+      "enabled": null,
+      "enabled_source": "dm_no_periodic"
+     }
+    }
+   },
+   "group": {
+    "present": true,
+    "text": "Плановый запуск 25.11.2026 18:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+    "stateElement": "",
+    "localEl": true,
+    "localText": "25.11.2026 18:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+    "badge": "Плановый запуск",
+    "scrollW": 390,
+    "innerW": 390,
+    "set": {
+     "ok": true,
+     "state": "ready",
+     "isDm": false,
+     "schedule": {
+      "available": true,
+      "timezone": "Europe/Moscow",
+      "timezone_source": "chat",
+      "slots": [
+       "00:00",
+       "06:00",
+       "12:00",
+       "18:00"
+      ],
+      "next_run_utc": "2026-11-25T15:00:00+00:00",
+      "next_run_local": "25.11.2026 18:00",
+      "enabled": true,
+      "enabled_source": "global"
+     }
+    }
+   },
+   "console_errors": []
+  }
+ }
+}
