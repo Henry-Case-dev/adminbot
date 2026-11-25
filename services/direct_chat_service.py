@@ -19501,15 +19501,11 @@ class DirectChatService:
         # (ревью W2/P1, F1).
         bot_persona.reset_turn_frame()
         await self._refresh_turn_aliases(chat_id)
-        # ── UR-RES-01 (UR-G): инициативный ход стартует ТУ ЖЕ трассу хода,
+        # ── UR-RES-01 (UR-G): инициативный ход идёт в ТОЙ ЖЕ трассе хода,
         # что и прямой (`turn_trace`), а не остаётся только payload-событиями
-        # отдельных стадий. Один ход — одна цепочка: повторный recheck-вызов
-        # находит уже начатую трассу и не подменяет её.
-        if _ttrace.get(correlation_id) is None:
-            _ttrace.begin(
-                correlation_id, chat_id=chat_id,
-                trigger=TRIGGER_INITIATIVE,
-                flow=_ttrace.FLOW_INITIATIVE)
+        # отдельных стадий. Прямой unit-вызов этого метода тоже получает
+        # трассу (idempotent begin).
+        _initiative_trace_begin(chat_id, correlation_id)
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -19732,9 +19728,7 @@ class DirectChatService:
             decision=(str(getattr(plan, "action", "") or "unavailable")
                       if plan is not None else "unavailable"))
         # UR-RES-01: L1-стадия инициативного хода — в общей трассе теми же
-        # полями, что у Direct (план, не речь). Ход, закончившийся на L1
-        # (silent/react/unavailable), закрывает видимую часть цепочки честным
-        # исходом: tools/Writer не выполнялись.
+        # полями, что у Direct (план, не речь).
         _ttrace.note_l1(
             correlation_id,
             action=str(getattr(plan, "action", "") or ""),
@@ -19745,7 +19739,13 @@ class DirectChatService:
             model=str(getattr(slot, "model", "") or ""),
             fallback=str((_plan_meta or {}).get("fallback") or ""),
             slot=str((_plan_meta or {}).get("slot") or ""))
-        if plan is None or str(getattr(plan, "action", "") or "") != "reply":
+        # UR-RES-01/F1: контекст трассы эмитится В КОНЦЕ хода
+        # (`_initiative_finish`) — тем исходом, который реально случился.
+        # Здесь честно закрывается только ход, который НА L1 и закончился
+        # (silent/unavailable); react ещё исполнит реакцию, поэтому его
+        # исход пишет вызывающий.
+        if plan is None or str(getattr(plan, "action", "") or "") in (
+                "silent", ""):
             _ttrace.emit_context(_ttrace.get(correlation_id),
                                  outcome="skipped")
         if plan is None:
@@ -20276,13 +20276,8 @@ class DirectChatService:
             logger.warning(
                 "[f6] initiative writer failed | chat=%s", chat_id,
                 exc_info=True)
-            # UR-RES-01: L1/tools уже в трассе — эмитим видимую часть цепочки
-            # ДО выхода, чтобы сбой Writer'а не прятал выполненное.
-            _ttrace.emit_context(_ttrace.get(correlation_id), outcome="failed")
             return ""
         if not result:
-            _ttrace.emit_context(_ttrace.get(correlation_id),
-                                 outcome="skipped")
             return ""
         prepared = str(result[0] or "").strip()
         # ── SOUL-1 (W3, SOUL-16.4.1 + SOUL-AMD.3.5, fix F4 review-w3): проход
@@ -20290,7 +20285,6 @@ class DirectChatService:
         # инициативных текстов это `handle_initiative` (перед чанкованием и
         # отправкой), иначе ностальгия/`prepared_text` обходила бы проход, а
         # writer-текст проходил бы его дважды (SOUL-16.4.2 «один проход»).
-        _ttrace.emit_context(_ttrace.get(correlation_id))
         return prepared
 
 
@@ -20863,8 +20857,42 @@ async def _execute_initiative_react(bot, db, chat_id: int, decision,
             "reason_code": "l1_react", "decision": decision}
 
 
-async def handle_initiative(*, bot, chat_id: int, situation, candidates,
-                            prepared_text: str | None = None, db=None,
+def _initiative_finish(correlation_id, *, outcome: str, reason: str = "",
+                       delivery: dict | None = None) -> None:
+    """UR-RES-01/F1: терминальная стадия инициативного хода в ОДНОЙ трассе.
+
+    Единственная точка правды для конца хода: либо реальная доставка
+    (`note_delivery`), либо честная причина остановки (`note_stop`), затем
+    контекст с ТЕМ ЖЕ исходом и закрытие трассы. Контекст больше не эмитится
+    до отправки, поэтому «success без доставки» невозможен: failed send,
+    отказ publish_guard, недоступная цель reply, recheck-demote и реакция
+    видны своим исходом. Никогда не бросает."""
+    try:
+        trace = _ttrace.get(correlation_id)
+        if trace is None:
+            return
+        if delivery is not None:
+            _ttrace.note_delivery(correlation_id, **delivery)
+        else:
+            _ttrace.note_stop(correlation_id, outcome, reason)
+        _ttrace.emit_context(trace, outcome=outcome)
+        _ttrace.close(correlation_id)
+    except Exception:      # pragma: no cover — трасса не рвёт ход
+        pass
+
+
+def _initiative_trace_begin(chat_id: int, correlation_id) -> None:
+    """UR-RES-01: инициативный ход стартует ТУ ЖЕ трассу хода, что и прямой.
+
+    Один ход — одна цепочка: повторный recheck-вызов находит уже начатую
+    трассу и не подменяет её."""
+    if _ttrace.get(correlation_id) is None:
+        _ttrace.begin(
+            correlation_id, chat_id=chat_id, trigger=TRIGGER_INITIATIVE,
+            flow=_ttrace.FLOW_INITIATIVE)
+
+
+async def handle_initiative(*, bot, chat_id: int, situation, candidates,                            prepared_text: str | None = None, db=None,
                             correlation_id: str | None = None,
                             writer_service=None,
                             opportunity_row: dict | None = None,
@@ -20908,6 +20936,10 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         from services import initiative_observer as _io
         if not await _io.initiative_chat_enabled(chat_id):
             return {"status": "disabled", "delivery_kind": ""}
+        # UR-RES-01/F1: трасса хода начинается здесь (до L1/Writer/отправки),
+        # поэтому исход контекста пишется в самом конце — по факту, а не
+        # заранее. `prepared_text`-ходы (nostalgia) тоже получают трассу.
+        _initiative_trace_begin(chat_id, correlation_id)
         decision_candidates = tuple(
             c.to_decision_candidate() for c in (candidates or ())
             if hasattr(c, "to_decision_candidate"))
@@ -20976,6 +21008,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 decision, chat_id=chat_id, outcome="silent",
                 action="silent", delivery_kind="silent",
                 correlation_id=correlation_id)
+            _initiative_finish(correlation_id, outcome="silent",
+                               reason="decision_silent")
             return {"status": "silent", "delivery_kind": kind,
                     "decision": decision}
         if kind != _mca_intents.DELIVERY_TEXT:
@@ -20987,6 +21021,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 decision, chat_id=chat_id, outcome="silent",
                 reason_code="delivery_not_text",
                 delivery_kind=kind, correlation_id=correlation_id)
+            _initiative_finish(correlation_id, outcome="silent",
+                               reason="delivery_not_text")
             return {"status": "silent", "delivery_kind": kind,
                     "reason_code": "delivery_not_text", "decision": decision}
         if not prepared_text and writer_service is None:
@@ -21020,6 +21056,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             _mca_intents.note_decision(
                 decision, chat_id=chat_id, outcome="candidate_ready",
                 delivery_kind="text", correlation_id=correlation_id)
+            _initiative_finish(correlation_id, outcome="skipped",
+                               reason="candidate_ready")
             return {"status": "candidate_ready", "delivery_kind": kind,
                     "next_check_at": decision.next_check_at,
                     "decision": decision}
@@ -21039,6 +21077,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     decision, chat_id=chat_id, outcome="cancelled",
                     reason_code="intent_closed", delivery_kind="text",
                     correlation_id=correlation_id)
+                _initiative_finish(correlation_id, outcome="cancelled",
+                                   reason="intent_closed")
                 return {"status": "cancelled", "reason_code": "intent_closed",
                         "delivery_kind": kind, "decision": decision}
         else:
@@ -21061,6 +21101,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                         decision, chat_id=chat_id, outcome="cancelled",
                         reason_code="already_answered", delivery_kind="text",
                         correlation_id=correlation_id)
+                    _initiative_finish(correlation_id, outcome="cancelled",
+                                       reason="already_answered")
                     return {"status": "cancelled",
                             "reason_code": "already_answered",
                             "delivery_kind": kind, "decision": decision}
@@ -21070,6 +21112,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                         decision, chat_id=chat_id, outcome="cancelled",
                         reason_code="direct_pending", delivery_kind="text",
                         correlation_id=correlation_id)
+                    _initiative_finish(correlation_id, outcome="cancelled",
+                                       reason="direct_pending")
                     return {"status": "cancelled",
                             "reason_code": "direct_pending",
                             "delivery_kind": kind, "decision": decision}
@@ -21084,21 +21128,38 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     decision, chat_id=chat_id, outcome="silent",
                     reason_code="l1_unavailable", delivery_kind="text",
                     correlation_id=correlation_id)
+                _initiative_finish(correlation_id, outcome="silent",
+                                   reason="l1_unavailable")
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": "l1_unavailable",
                         "decision": decision}
             if getattr(l1_plan, "action", "") == "react":
                 # L1D §5-D: поддерживаемая реакция исполняется без текста.
-                return await _execute_initiative_react(
+                # UR-RES-01/F1: реакция — тоже терминальная доставка: исход
+                # `reacted` (не заранее «skipped») и событие delivery.
+                _react_result = await _execute_initiative_react(
                     bot, db, chat_id, decision, l1_plan, kind,
                     writer_service=writer_service,
                     correlation_id=correlation_id)
+                if str(_react_result.get("status") or "") == "reacted":
+                    _initiative_finish(
+                        correlation_id, outcome="reacted", reason="l1_react",
+                        delivery={"outcome": "success", "channel": "react",
+                                  "reason": "l1_react"})
+                else:
+                    _initiative_finish(
+                        correlation_id, outcome="silent",
+                        reason=str(_react_result.get("reason_code")
+                                   or "l1_react"))
+                return _react_result
             if getattr(l1_plan, "action", "") != "reply":
                 await _f6_plan_next_check(db, decision)
                 _mca_intents.note_decision(
                     decision, chat_id=chat_id, outcome="silent",
                     reason_code="l1_silent", action="silent",
                     delivery_kind="silent", correlation_id=correlation_id)
+                _initiative_finish(correlation_id, outcome="silent",
+                                   reason="l1_silent")
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": "l1_silent", "decision": decision}
             prepared_text = await writer_service.generate_initiative_reply(
@@ -21121,6 +21182,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 _mca_intents.note_decision(
                     decision, chat_id=chat_id, outcome="writer_failed",
                     delivery_kind="text", correlation_id=correlation_id)
+                _initiative_finish(correlation_id, outcome="failed",
+                                   reason="writer_failed")
                 return {"status": "writer_failed", "outcome": outcome,
                         "delivery_kind": kind, "decision": decision}
             # F6 (§13.3): событие генерации (trigger=initiative) для funnel.
@@ -21186,10 +21249,22 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     getattr(l1_plan, "action", "") == "react":
                 # L1D: переоценка на свежем контексте выбрала реакцию —
                 # исполняется, а не демотируется молча.
-                return await _execute_initiative_react(
+                # UR-RES-01/F1: терминальный исход реакции — в трассе.
+                _react_result = await _execute_initiative_react(
                     bot, db, chat_id, decision, l1_plan, kind,
                     writer_service=writer_service,
                     correlation_id=correlation_id)
+                if str(_react_result.get("status") or "") == "reacted":
+                    _initiative_finish(
+                        correlation_id, outcome="reacted", reason="l1_react",
+                        delivery={"outcome": "success", "channel": "react",
+                                  "reason": "l1_react"})
+                else:
+                    _initiative_finish(
+                        correlation_id, outcome="silent",
+                        reason=str(_react_result.get("reason_code")
+                                   or "l1_react"))
+                return _react_result
             if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
                 await _f6_plan_next_check(db, decision)
                 # UR-26.3: recheck понизил участие до молчания — код решения
@@ -21210,6 +21285,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     decision, chat_id=chat_id, outcome="silent",
                     reason_code="recheck_demoted", action="silent",
                     delivery_kind="silent", correlation_id=correlation_id)
+                _initiative_finish(correlation_id, outcome="silent",
+                                   reason="recheck_demoted")
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": "recheck_demoted",
                         "decision": decision}
@@ -21230,6 +21307,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 _mca_intents.note_decision(
                     decision, chat_id=chat_id, outcome="writer_failed",
                     delivery_kind="text", correlation_id=correlation_id)
+                _initiative_finish(correlation_id, outcome="failed",
+                                   reason="writer_failed")
                 return {"status": "writer_failed", "outcome": outcome,
                         "delivery_kind": kind, "decision": decision}
             _mca_intents.note_writer_generated(chat_id=chat_id,
@@ -21255,6 +21334,9 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 correlation_id=correlation_id)
             logger.info("[mca09] initiative cancelled | chat=%s | reason=%s",
                         chat_id, plan.outcome.reason_code or "-")
+            _initiative_finish(
+                correlation_id, outcome="cancelled",
+                reason=str(plan.outcome.reason_code or "recheck_cancelled"))
             return {"status": "cancelled",
                     "reason_code": plan.outcome.reason_code,
                     "delivery_kind": kind, "decision": decision}
@@ -21293,6 +21375,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     correlation_id=correlation_id)
                 logger.info("[mca09] initiative publication conflict | "
                             "chat=%s | reason=%s", chat_id, guard_code)
+                _initiative_finish(correlation_id, outcome="cancelled",
+                                   reason=str(guard_code))
                 return {"status": "cancelled",
                         "reason_code": str(guard_code),
                         "delivery_kind": kind, "decision": decision}
@@ -21336,6 +21420,10 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             target_user_id=semantic_addressee,
                             addressee_user_id=semantic_addressee,
                             correlation_id=correlation_id)
+                        _initiative_finish(correlation_id,
+                                           outcome="cancelled",
+                                           reason=str(binding_code
+                                                      or "binding_unavailable"))
                         return {"status": "cancelled",
                                 "reason_code": binding_code,
                                 "delivery_kind": kind,
@@ -21370,6 +21458,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                         target_user_id=semantic_addressee,
                         addressee_user_id=semantic_addressee,
                         correlation_id=correlation_id)
+                    _initiative_finish(correlation_id, outcome="cancelled",
+                                       reason="target_gone")
                     return {"status": "cancelled",
                             "reason_code": "target_gone",
                             "delivery_kind": kind, "decision": decision}
@@ -21489,6 +21579,14 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             "[mca09] initiative sent | chat=%s | kind=%s | chunks=%d | "
             "trigger=%s | generated=%s", chat_id, kind, sent,
             getattr(decision, "trigger_kind", "") or "-", generated)
+        # UR-RES-01/F1: доставка отправленного текста — терминальная стадия
+        # трассы (реальные id первого чанка + число чанков).
+        _initiative_finish(
+            correlation_id, outcome="success",
+            delivery={"outcome": "success", "channel": "initiative_reply",
+                      "tg_message_ids": ([sent_id]
+                                         if isinstance(sent_id, int) else []),
+                      "chunks": sent})
         return {"status": "sent", "chunks": sent, "delivery_kind": kind,
                 "generated": generated, "decision": decision}
     except Exception:
@@ -21510,9 +21608,26 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             selected_candidate_ref))[:16]})
             except Exception:
                 pass
+        # UR-RES-01/F1: сбой хода (в т.ч. send_text) — НЕ «success без
+        # доставки»: событие доставки есть, исход не-success.
         logger.warning("[mca09] initiative handling failed — no send",
                        exc_info=True)
+        _initiative_finish(correlation_id, outcome="error",
+                           reason="initiative_error")
         return {"status": "error", "delivery_kind": ""}
+    finally:
+        # UR-RES-01/F1: страховка от будущего выхода без терминальной записи —
+        # трасса не имеет права закрыться «успехом» без доставки. Штатные
+        # выходы уже записали исход в `_initiative_finish`; здесь закрываем
+        # остаточный (в т.ч. прерванный) ход честной причиной.
+        try:
+            _state = _ttrace.terminal_state(correlation_id)
+            if _state and not _state["delivery_emitted"] \
+                    and not _state["stop_outcome"]:
+                _ttrace.note_stop(correlation_id, "error", "unaccounted_exit")
+            _ttrace.close(correlation_id)
+        except Exception:      # pragma: no cover — трасса не рвёт ход
+            pass
 
 
 async def _f6_plan_next_check(db, decision) -> None:
