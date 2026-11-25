@@ -10,7 +10,11 @@
     (``next_run_local`` + ``next_run_utc`` + ``timezone``), не создавая
     второй настройки пояса для саммари;
   * у блока ``summary_schedule`` ровно один пояс (эффективный чатовый) —
-    нет дублированного tz-поля и нет нового ключа в каталоге.
+    нет дублированного tz-поля и нет нового ключа в каталоге;
+  * в ЛС (``chat_id > 0``) периодических сводок нет (F-14): payload честно
+    не содержит «следующего запуска» (``dm_no_periodic``), а групповой чат
+    в тех же условиях запуск имеет;
+  * ``enabled`` следует per-chat резолверу, а не константе (N-1).
 
 TEST-LIFECYCLE: CONTRACT owner=UNIFIED-REPLY/UR-C-SCHED (UR-28.4)
 """
@@ -31,6 +35,9 @@ pytestmark = [pytest.mark.system2]
 
 #: Групповой чат (положительные id — ЛС, периодических сводок там нет).
 CHAT = -1001234567890
+
+#: Личный чат (= user.id): периодических сводок в ЛС нет (F-14).
+DM = 12345
 
 #: 12:00 UTC = 15:00 Europe/Moscow (UTC+3, без DST).
 SUMMER = datetime.datetime(2026, 7, 15, 12, 0,
@@ -177,12 +184,12 @@ async def test_manual_summary_prompt_uses_chat_zone_not_global(tz_env):
 # ── UR-28.4(b): следующий запуск — в локальном времени чата ──────────────────
 
 
-async def _time_state(now_utc):
+async def _time_state(now_utc, chat_id=CHAT):
     from web.api import routes as routes_mod
 
     cache = SimpleNamespace(get=lambda key, default=None: None)
     state = await routes_mod._build_time_state(
-        CHAT, cache, now_utc=now_utc)
+        chat_id, cache, now_utc=now_utc)
     return state
 
 
@@ -222,6 +229,67 @@ async def test_time_payload_global_scope_has_no_fake_chat_schedule(tz_env):
     state = await routes_mod._build_time_state(
         None, cache, now_utc=SUMMER)
     assert state.get("summary_schedule") is None
+
+
+@pytest.mark.asyncio
+async def test_time_payload_dm_has_no_periodic_next_run(tz_env):
+    """B-1 (F-14): в ЛС планировщик периодические сводки НЕ запускает.
+
+    ``SummarySchedulerService._tick`` пропускает ``chat_id > 0`` до слотов,
+    поэтому «следующий запуск» в ЛС — выдуманное время. Дискриминирующий
+    контраст в том же тесте: тот же момент/пояс для группового чата даёт
+    реальную дату, значит проверка ловит не «любой None», а именно ветку ЛС.
+    """
+    _set_chat_override(DM, {"limits.chat_timezone": "Europe/Moscow"})
+    _set_chat_override(CHAT, {"limits.chat_timezone": "Europe/Moscow"})
+
+    dm_state = await _time_state(SUMMER, chat_id=DM)
+    dm_schedule = dm_state.get("summary_schedule")
+    assert dm_schedule is not None, "payload обязан нести summary_schedule"
+    assert dm_schedule["next_run_utc"] is None
+    assert dm_schedule["next_run_local"] is None
+    assert dm_schedule["enabled"] is None
+    assert dm_schedule["enabled_source"] == "dm_no_periodic"
+    # Форма блока не меняется: пояс/шкала слотов те же, второго tz-ключа нет.
+    assert dm_schedule["available"] is True
+    assert dm_schedule["timezone"] == "Europe/Moscow"
+    assert dm_schedule["timezone"] == dm_state["iana"]
+    assert dm_schedule["slots"] == ["00:00", "06:00", "12:00", "18:00"]
+    assert set(dm_schedule) == {
+        "available", "timezone", "timezone_source", "slots",
+        "next_run_utc", "next_run_local", "enabled", "enabled_source",
+    }
+
+    # Контраст: групповой чат в тех же условиях реально имеет запуск.
+    group_schedule = (await _time_state(SUMMER, chat_id=CHAT))["summary_schedule"]
+    assert group_schedule["next_run_local"] == "15.07.2026 18:00"
+    assert group_schedule["enabled_source"] != "dm_no_periodic"
+
+
+@pytest.mark.asyncio
+async def test_time_payload_enabled_follows_per_chat_resolver(tz_env):
+    """N-1: ``enabled`` — реальный per-chat резолвер, а не константа.
+
+    Явный chat override ``flags.summary_enabled=false`` обязан дать
+    ``enabled is False`` и источник ``chat``; явный ON — ``True``.
+    Мутация «всегда True» (игнор ``summary_effective_enabled``) ломает
+    первую половину; константа «всегда False» — вторую.
+    """
+    _set_chat_override(CHAT, {
+        "limits.chat_timezone": "Europe/Moscow",
+        "flags.summary_enabled": False,
+    })
+    off_schedule = (await _time_state(SUMMER))["summary_schedule"]
+    assert off_schedule["enabled"] is False
+    assert off_schedule["enabled_source"] == "chat"
+
+    _set_chat_override(CHAT, {
+        "limits.chat_timezone": "Europe/Moscow",
+        "flags.summary_enabled": True,
+    })
+    on_schedule = (await _time_state(SUMMER))["summary_schedule"]
+    assert on_schedule["enabled"] is True
+    assert on_schedule["enabled_source"] == "chat"
 
 
 def test_get_config_time_endpoint_carries_summary_schedule(client):

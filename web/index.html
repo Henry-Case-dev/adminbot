@@ -1300,7 +1300,9 @@
                 <div v-if="workspaceModule.id === 'mod_summary'"
                      class="mt-2 text-xs flex flex-wrap items-center gap-x-2 gap-y-1"
                      data-summary-next-run>
-                  <span class="badge badge-info shrink-0">Плановый запуск</span>
+                  <span v-if="summaryScheduleState === 'dm_no_periodic'"
+                        class="badge badge-info shrink-0">Личные сообщения</span>
+                  <span v-else class="badge badge-info shrink-0">Плановый запуск</span>
                   <span v-if="summaryScheduleState === 'idle'
                             || summaryScheduleState === 'loading'"
                         class="text-gray-500" data-summary-next-run-state="loading">
@@ -1318,6 +1320,11 @@
                         class="text-gray-500" data-summary-next-run-state="off">
                     плановые сводки для этого чата выключены — следующего
                     запуска нет
+                  </span>
+                  <span v-else-if="summaryScheduleState === 'dm_no_periodic'"
+                        class="text-gray-500" data-summary-next-run-state="dm_no_periodic">
+                    периодических сводок в ЛС нет — работает только ручной
+                    /summary
                   </span>
                   <span v-else class="text-gray-300"
                         data-summary-next-run-local>
