@@ -13138,6 +13138,16 @@ class DirectChatService:
                             reply_parent_text=parent_text,
                             addressee_name=target_name,
                             trigger_ref=trigger_message_id)
+                        # P0 memory-relevance (2026-11-25): период, который
+                        # пользователь назвал годом, доезжает до этого чтения.
+                        # Раньше live-нога памяти не несла период вовсе, и
+                        # «за 2025 год» оставалось поиском за все годы.
+                        # Источник — существующий детерминированный
+                        # `resolve_period_intent` (слов/годов не добавляем).
+                        _period = _mca_rc.resolve_period_intent(query)
+                        if getattr(_period, "is_explicit_year", False):
+                            request = dataclasses.replace(
+                                request, period_fill=True)
                         mem_result = await _mca_rc.retrieve(
                             self.db, self.memory, request)
                         mem_frags, _raw = \
@@ -17245,6 +17255,7 @@ class DirectChatService:
                                 subject_uid: int | None = None,
                                 include_overview: bool = False,
                                 plan_act: str = "",
+                                author_uid: int | None = None,
                                 trace_id: str | None = None):
         """MEMORY-06 (§7.5): отбор фактов direct-RAG через ЕДИНЫЙ `retrieve`.
 
@@ -17286,6 +17297,10 @@ class DirectChatService:
         # must not leave a previous turn's rows for the episode leg.
         self._rag_last_rows = []
         self._rag_last_rows_key = None
+        # P0 memory-relevance (2026-11-25): дословные сообщения автора за
+        # период — отдельный слой блока (не факты). Сбрасывается на каждый
+        # сбор, чтобы прошлый ход не «доставлялся» повторно.
+        self._rag_originals = []
         try:
             memory = getattr(self, "memory", None)
             db = getattr(self, "db", None)
@@ -17539,17 +17554,31 @@ class DirectChatService:
             # смысл. TIME-03 (§4.1): `exclude_years` прямого пути пуст —
             # календарный фильтр не сужает кандидатов.
             if extra_rows is None:
+                # P0 memory-relevance (2026-11-25): речь явного автора за
+                # период — отдельный канал ТОГО ЖЕ `retrieve` (второго поиска
+                # нет). Канал добавляется только когда автор известен из
+                # плана (`author_uid`), поэтому прочие пути байт-в-байт.
+                _period_channels = self._RAG_PERIOD_CHANNELS
+                if author_uid is not None:
+                    _period_channels = tuple(self._RAG_PERIOD_CHANNELS) + (
+                        "author_window",)
                 extra = await self._rag_retrieve(
-                    db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
+                    db, memory, chat_id, query, _period_channels,
                     self._RAG_PERIOD_POOL, policy,
                     lexical_stem=True,
                     include_archived=policy in ("historical", "auto"),
                     period_fill=True,
                     exclude_years=(),
                     period_intent=period_intent,
+                    **({"author_uids": (author_uid,)}
+                       if author_uid is not None else {}),
                     **_trace_kwargs)
                 extra_rows = self._rag_rows_from_result(
                     extra, self._RAG_PERIOD_POOL)
+                # Дословные сообщения автора из того же результата: consumer
+                # больше не «fact-only» — они доходят до блока отдельным,
+                # явно помеченным слоем (`_rag_originals`).
+                self._rag_originals = self._collect_originals(extra)
                 period_meta = dict(getattr(extra, "period_fill", None) or {})
                 # RC3: message-кандидаты period-вызова не выбрасываются
                 # молча — фиксируем число и причину fact-only consumer.
@@ -17589,10 +17618,12 @@ class DirectChatService:
                             or ""),
                         period_message_candidates=int(
                             period_message_candidates),
-                        period_message_candidates_used=0,
+                        period_message_candidates_used=len(
+                            getattr(self, "_rag_originals", None) or ()),
                         period_message_candidates_reason=(
-                            "fact_only_consumer"
-                            if period_message_candidates else ""),
+                            "" if getattr(self, "_rag_originals", None)
+                            else ("fact_only_consumer"
+                                  if period_message_candidates else "")),
                     )
                     self._rag_last_rows = list(base_rows_all or ())
                     return base_rows_all
@@ -17661,10 +17692,12 @@ class DirectChatService:
                 "period_leg_reused": int(period_reused),
                 "period_message_candidates": int(
                     period_message_candidates),
-                "period_message_candidates_used": 0,
+                "period_message_candidates_used": len(
+                    getattr(self, "_rag_originals", None) or ()),
                 "period_message_candidates_reason": (
-                    "fact_only_consumer"
-                    if period_message_candidates else ""),
+                    "" if getattr(self, "_rag_originals", None)
+                    else ("fact_only_consumer"
+                          if period_message_candidates else "")),
             }
             # (2) профиль субъекта (subject guard: имя адресата обязано быть
             #     в вопросе, иначе профиль чужого человека не читается).
@@ -17698,6 +17731,7 @@ class DirectChatService:
                             exclude_years=(),
                             period_intent=None,
                             include_overview: bool = False,
+                            author_uids=(),
                             trace_id: str | None = None):
         """Один вызов существующего `retrieve` (без второго контура).
 
@@ -17724,8 +17758,82 @@ class DirectChatService:
             exclude_years=tuple(exclude_years or ()),
             period_intent=period_intent,
             include_overview=bool(include_overview),
+            author_entity_ids=tuple(int(uid) for uid in (author_uids or ())
+                                    if uid is not None),
             trace_id=trace_id)
         return await _mca_rc.retrieve(db, memory, request)
+
+    def _render_rag_originals(self, rows, *, projection=None) -> str:
+        """Дословная речь автора за период → помеченный слой блока.
+
+        P0 memory-relevance (2026-11-25): владелец требует различать исходные
+        сообщения, факты, интерпретации и служебные метаданные в том, что
+        доходит до генеративного контекста. Здесь — исходные сообщения: те же
+        канонические строки, что и в истории (`_context_row_line`: дата/автор/
+        ID/forward), поэтому формат не изобретается. Пусто → "" (слой не
+        рисуется; пустой блок не выглядит найденным материалом)."""
+        lines: list = []
+        for row in rows or ():
+            try:
+                line = self._context_row_line(row, {}, projection=projection)
+            except Exception:
+                continue
+            if str(line or "").strip():
+                lines.append(str(line))
+        if not lines:
+            return ""
+        return ("<Memory_Originals>\n" + "\n".join(lines)
+                + "\n</Memory_Originals>")
+
+    @staticmethod
+    def _collect_originals(result, limit: int = 12) -> list:
+        """Дословные сообщения автора из результата `retrieve` → строки.
+
+        P0 memory-relevance (2026-11-25): period-вызов уже несёт канал
+        `author_window` (речь явного автора в периоде). Раньше consumer
+        оставлял только факты (`fact_only_consumer`), поэтому оригиналы не
+        доходили до блока. Здесь — только `entity_type='message'` из этого
+        результата, дедуп по tg-id, порядок канала сохраняется, размер
+        ограничен существующим `limit`. Текстов фактов не копируем."""
+        rows: list = []
+        seen: set = set()
+        for cand in getattr(result, "candidates", ()) or ():
+            if str(getattr(cand, "entity_type", "") or "") != "message":
+                continue
+            if len(rows) >= max(1, int(limit)):
+                break
+            tg = getattr(cand, "revision", None) or ""
+            text = str(getattr(cand, "preview", "") or "").strip()
+            if not text:
+                continue
+            try:
+                tg_id = int(str(tg).split(":", 1)[1]) if ":" in str(tg) else None
+            except (TypeError, ValueError):
+                tg_id = None
+            key = tg_id if tg_id is not None else str(getattr(cand, "id", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                "id": getattr(cand, "entity_id", None),
+                "user_id": getattr(cand, "author_id", None),
+                "chat_id": getattr(cand, "chat_id", None),
+                "text": text,
+                "timestamp": int(getattr(cand, "sent_at", 0) or 0),
+                "tg_message_id": tg_id,
+                "source_channel": str(getattr(cand, "channel", "") or ""),
+                # Каноническая форма строки `smart_messages`: рендерер
+                # (`_context_row_line`/`_row_speaker`) читает эти ключи.
+                # Неизвестное остаётся пустым (R16: не выдумываем).
+                "author_name": "",
+                "reply_to_id": None,
+                "reply_to_author_id": None,
+                "is_forward": 0,
+                "forward_source": None,
+                "media_type": "text",
+                "edited_at": None,
+            })
+        return rows
 
     @classmethod
     def _rag_rows_from_result(cls, result, limit: int) -> list:
@@ -18013,6 +18121,7 @@ class DirectChatService:
                                out_memory: dict | None = None,
                                include_overview: bool = False,
                                plan_act: str = "",
+                               author_uid: int | None = None,
                                trace_id: str | None = None,
                                selection_mode: bool = False,
                                ) -> tuple[str, str]:
@@ -18091,6 +18200,7 @@ class DirectChatService:
                 subject_uid=subject_uid,
                 include_overview=overview_on,
                 plan_act=plan_act,
+                author_uid=author_uid,
                 trace_id=trace_id)
         except TypeError:
             # Двойник/альтернативная реализация без поля политики/субъекта:
@@ -18121,6 +18231,13 @@ class DirectChatService:
         self._rag_last_rows_key = (int(chat_id),
                                        str(query or "").strip())
         period_stats = getattr(self, "_rag_period_stats", None) or {}
+        # P0 memory-relevance (2026-11-25): дословные сообщения автора за
+        # период — отдельный слой блока. Считается ДО фактов, потому что
+        # материал может существовать без фактов (и наоборот): пустой слой
+        # фактов не должен «съедать» найденные оригиналы.
+        originals_text = self._render_rag_originals(
+            list(getattr(self, "_rag_originals", None) or ()),
+            projection=projection)
         facts, ranks = _rag_rows_with_ranks(rows)
         # VMQ-MEM-TIME (§6): актуальность/V по тем же строкам — источник
         # as-of метки «(архив, YYYY)» для исторических фактов.
@@ -18132,12 +18249,12 @@ class DirectChatService:
         facts = [item for item in facts
                  if not _prov.is_self_referential_origin(item[0])]
         if not facts:
-            return "", ""
+            return originals_text, ""
         # F2: дубли конспекта/verbatim-хвоста фона из RAG-блока исключаются
         # (никогда не бросает — fail-open внутри).
         kept = dedup_rag_vs_global(facts, global_ctx)
         if not kept:
-            return "", ""
+            return originals_text, ""
         # F4: флаг off → 0 лишних LLM-вызовов (ранний выход ДО сериализации).
         # Гейт читается per-chat цепочкой (override чата → глобальный hot →
         # env/фабричный дефолт) — как остальные параметры этого сервиса:
@@ -18197,7 +18314,7 @@ class DirectChatService:
                     "direct: rag rerank failed — original facts | chat=%s",
                     chat_id, exc_info=True)
         if not kept:
-            return "", ""
+            return originals_text, ""
         # VMQ-MEM next stage (§4, 12.11.2026): `period_kept` считается по
         # ФАКТИЧЕСКИ показанному срезу (`kept` ∩ периодные ключи) — а не внутри
         # ветки реранка. Иначе при выключенном реранке реально отрисованная
@@ -18242,7 +18359,12 @@ class DirectChatService:
                                     origin_labels=True,
                                     projection=projection)
         if not content:
-            return "", ""
+            return originals_text, ""
+        # P0 memory-relevance (2026-11-25): оригиналы автора за период идут
+        # ПЕРЕД фактами и остаются отдельным помеченным слоем: факты — это
+        # выводы/пересказ, оригиналы — дословная речь (для манеры и стиля).
+        if originals_text:
+            content = f"{originals_text}\n{content}"
         # F1/T-1482 (ADR-1014-2 D5): анти-эхо — только когда в блоке есть
         # собственные прошлые слова бота (origin='bot_self_reply').
         # SPEECH-P0-A2: после self-origin-фильтра выше ветка недостижима и
@@ -18418,6 +18540,10 @@ class DirectChatService:
                 "memory_scope": plan_scope,
                 "subject_name": rag_ctx.get("subject_name"),
                 "subject_uid": rag_ctx.get("subject_uid"),
+                # P0 memory-relevance (2026-11-25): речь явного автора за
+                # период — из УЖЕ разрешённого планом адресата, и только когда
+                # ход действительно просит существующий материал (ниже).
+                "author_uid": _plan_material_author(l1_plan),
             }
             # VMQ-MEM/TIME Slice B: существующий plan-сигнал
             # (`L1Plan.response_act=historical_recall`) → структурный
@@ -20412,6 +20538,32 @@ def _plan_target_message_id(plan) -> int | None:
     except (TypeError, ValueError):
         return None
     return number if number > 0 else None
+
+
+#: P0 memory-relevance (2026-11-25): capabilities плана, при которых ход
+#: просит СУЩЕСТВУЮЩИЙ материал (значит, названный человек — источник/автор
+#: этого материала, а не только получатель нового текста). Закрытый набор
+#: существующих значений L1, не новый классификатор.
+_MATERIAL_CAPS = frozenset({"chat_memory", "historical_search"})
+
+
+def _plan_material_author(plan) -> int | None:
+    """Автор материала из плана: только при запросе существующего материала.
+
+    P0 memory-relevance (2026-11-25): `author_entity_ids` в retrieval был
+    недостижим из production. Источник — УЖЕ разрешённый план: `target_user_id`
+    (существующее поле) считается автором материала ТОЛЬКО когда план просит
+    read-only capability существующего материала (`chat_memory`/
+    `historical_search`) — без такого сигнала названный человек может быть
+    получателем нового текста, и роли смешивать запрещено (это и был дефект
+    RC1). Новых полей плана и словарей реплик здесь нет."""
+    if plan is None:
+        return None
+    caps = {str(cap or "").strip().lower()
+            for cap in (getattr(plan, "capabilities_needed", ()) or ())}
+    if not (caps & _MATERIAL_CAPS):
+        return None
+    return _plan_semantic_addressee(plan)
 
 
 def _plan_semantic_addressee(plan) -> int | None:
