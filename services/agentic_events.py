@@ -140,7 +140,7 @@ EVENT_FIELDS = {
     DECISION_START: frozenset(),
     # ASAP-3 (D15): аддитивные поля адресации/класса (контракт §31).
     DECISION_COMPLETE: frozenset({
-        "trigger_type", "force_reply_required", "message_class"}),
+        "trigger_type", "message_class"}),
     TOOL_PLAN_CREATED: frozenset(),
     TOOL_CALL_START: _TOOL_FIELDS,
     TOOL_CALL_COMPLETE: _TOOL_FIELDS,
@@ -163,8 +163,7 @@ EVENT_FIELDS = {
     ANTI_CLICHE_UPDATE_FAILED: _ANTI_CLICHE_EXTRA,
     # ── ASAP-3 (D15): whitelist новых событий (R17-safe поля) ──────────────
     DIRECT_TRIGGER: frozenset({
-        "trigger_type", "force_reply_required", "reply_to_bot",
-        "is_private", "addressed"}),
+        "trigger_type", "reply_to_bot", "is_private", "addressed"}),
     DIRECT_SILENT_ACK: frozenset({
         "reaction", "success", "target", "reason"}),
     DIRECT_SILENT_ACK_FAILED: frozenset({

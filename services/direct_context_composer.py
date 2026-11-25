@@ -864,14 +864,16 @@ def emit_context_tail_floor_clamped(*, chat_id: int | None,
 
 
 def emit_direct_trigger(*, chat_id: int | None, message_id: int | None,
-                        trigger_type: str, force_reply_required: bool,
-                        reply_to_bot: bool, is_private: bool,
-                        addressed: bool) -> None:
-    """DIRECT_TRIGGER (§30): trigger-наблюдаемость (без raw text)."""
+                        trigger_type: str, reply_to_bot: bool,
+                        is_private: bool, addressed: bool) -> None:
+    """DIRECT_TRIGGER (§30): trigger-наблюдаемость (без raw text).
+
+    P0 DIRECT-TRIGGER (26.11.2026): поле ``force_reply_required`` удалено —
+    команда «бот» больше не делает текстовый ответ обязательным.
+    """
     emit_agentic_event(
         DIRECT_TRIGGER, chat_id=chat_id, message_id=message_id,
         trigger_type=str(trigger_type),
-        force_reply_required=bool(force_reply_required),
         reply_to_bot=bool(reply_to_bot), is_private=bool(is_private),
         addressed=bool(addressed))
 

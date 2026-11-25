@@ -620,15 +620,17 @@ class TestGoldenFailureLadder:
 
 class TestGatesTopologyLegacy:
     @pytest.mark.asyncio
-    async def test_force_hard_override_silent_to_reply(self, monkeypatch):
-        """§1.7: force → REPLY всегда; LLM не может отменить."""
-        llm = _FakeLLM(l1=_plan_json(action="silent"), l2="ответ по force")
+    async def test_keyword_silent_is_not_overridden_to_reply(self, monkeypatch):
+        """P0 (26.11.2026): действительное обращение «бот» + L1 SILENT больше
+        НЕ переопределяется в REPLY — ставится 🗿, текст не генерируется."""
+        llm = _FakeLLM(l1=_plan_json(action="silent"), l2="не должно")
         svc, react, bot, msg, user = _drive(
-            monkeypatch, "Бот, ответь нормально", llm=llm)
+            monkeypatch, "Бот, ну такое", llm=llm)
         await svc.handle(bot, msg, user)
-        react.assert_not_awaited()
-        svc._send_direct_answer.assert_awaited_once()
-        assert svc._send_direct_answer.await_args.args[2] == "ответ по force"
+        react.assert_awaited_once()
+        assert react.await_args.kwargs.get("reaction") == "🗿"
+        svc._send_direct_answer.assert_not_awaited()
+        assert llm.calls_of("l2_writer") == []
 
     @pytest.mark.asyncio
     async def test_silent_direct_executes_moai(self, monkeypatch):

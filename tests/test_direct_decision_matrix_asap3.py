@@ -15,7 +15,7 @@ import pytest
 from config.settings import settings
 import services.direct_chat_service as dcs
 from services.direct_chat_service import (
-    MSG_ACK, MSG_LAUGHTER, REASON_ACKNOWLEDGEMENT, REASON_FORCE_DIRECT,
+    MSG_ACK, MSG_LAUGHTER, REASON_ACKNOWLEDGEMENT,
     _reaction_for_class, _resolve_direct_trigger,
     bot_replied_recently_window_seconds, silent_ack_enabled,
 )
@@ -96,60 +96,52 @@ class _FakeLLM:
 # ── §41/§20: trigger-матрица ────────────────────────────────────────────────
 
 class TestTriggerMatrix:
-    def test_botword_force(self):
-        ttype, force = _resolve_direct_trigger(
+    def test_botword_is_keyword_not_force(self):
+        # P0 (26.11.2026): тип адресации — keyword; force-исхода больше нет.
+        ttype = _resolve_direct_trigger(
             "бот, почему?", reply_to_bot=False, bot_username="test_bot")
-        assert (ttype, force) == ("force_keyword", True)
+        assert ttype == "keyword"
 
-    def test_persona_name_force(self):
-        ttype, force = _resolve_direct_trigger(
+    def test_persona_name(self):
+        ttype = _resolve_direct_trigger(
             "Олег, ты тут?", reply_to_bot=False, bot_username="test_bot",
             persona_name_check=lambda text: text.startswith("Олег"))
-        assert (ttype, force) == ("persona_name", True)
+        assert ttype == "persona_name"
 
-    def test_mention_force(self):
-        ttype, force = _resolve_direct_trigger(
+    def test_mention(self):
+        ttype = _resolve_direct_trigger(
             "эй @test_bot ответь", reply_to_bot=False,
             bot_username="test_bot")
-        assert (ttype, force) == ("mention", True)
+        assert ttype == "mention"
 
     def test_reply_to_bot_autonomous(self):
-        ttype, force = _resolve_direct_trigger(
+        ttype = _resolve_direct_trigger(
             "ну тут ты по-моему неправ", reply_to_bot=True,
             bot_username="test_bot")
-        assert (ttype, force) == ("reply_to_bot", False)
+        assert ttype == "reply_to_bot"
 
-    def test_combined_reply_to_bot_with_botword_is_force(self):
-        # §4.1: «бот, нет, ответь нормально» (reply-to-bot + ботворд) → force.
-        ttype, force = _resolve_direct_trigger(
-            "бот, нет, ответь нормально", reply_to_bot=True,
-            bot_username="test_bot")
-        assert (ttype, force) == ("force_keyword", True)
+    def test_passed_trigger_type_is_not_reclassified(self):
+        # Хендлер уже классифицировал собственный текст — сервис не сканирует
+        # повторно (здесь query вообще без «бот»).
+        ttype = _resolve_direct_trigger(
+            "пересланная подпись про скидочного бота", reply_to_bot=False,
+            bot_username="test_bot", trigger_type="keyword")
+        assert ttype == "keyword"
 
     def test_plain_free_will(self):
-        ttype, force = _resolve_direct_trigger(
+        ttype = _resolve_direct_trigger(
             "просто болтовня", reply_to_bot=False, bot_username="test_bot")
-        assert (ttype, force) == ("free_will", False)
+        assert ttype == "free_will"
 
 
-# ── §41: FORCE → гарантированный REPLY ──────────────────────────────────────
-
-class TestForceReply:
-    @pytest.mark.asyncio
-    async def test_bot_ok_gets_reply_not_silence(self):
-        # «бот, ок» — MSG_ACK; раньше ignore_trivial глушал; теперь force →
-        # REPLY до LLM (§21, T-4019).
-        llm = _FakeLLM(text="тут")
-        svc = _make_service(llm=llm)
-        bot = _bot()
-        msg = _message("бот, ок", message_id=1101)
-        await svc.handle(bot, msg, msg.from_user)
-        assert llm.calls, "force обязан дойти до LLM (REPLY)"
-        assert bot.send_message.await_count >= 1
+# ── §41/P0: ключевое слово запускает контур, но не форсирует REPLY ──────────
+# (сам отказ от force-переопределения L1 проверяется в
+# tests/test_asap7_direct_l1.py::test_keyword_silent_is_not_overridden_to_reply;
+# здесь — что матрица решает действие, а force-счётчик не растёт).
 
     @pytest.mark.asyncio
-    async def test_recent_reply_does_not_cancel_force(self):
-        # §23/§41: bot_replied_recently не отменяет force.
+    async def test_recent_reply_does_not_silence_addressed_question(self):
+        # §23: bot_replied_recently не глушит содержательный вопрос-обращение.
         llm = _FakeLLM(text="я тут")
         svc = _make_service(llm=llm)
         with patch.object(svc, "_bot_replied_recently",
@@ -157,12 +149,12 @@ class TestForceReply:
             bot = _bot()
             msg = _message("бот, ты тут?", message_id=1102)
             await svc.handle(bot, msg, msg.from_user)
-        assert llm.calls, "recent_reply не глушит force"
+        assert llm.calls, "recent_reply не глушит вопрос-обращение"
         assert bot.send_message.await_count >= 1
 
     @pytest.mark.asyncio
-    async def test_force_reply_to_bot_stays_force(self):
-        # reply-to-bot с ботвордом → force (приоритет 1 матрицы).
+    async def test_reply_to_bot_with_keyword_gets_reply(self):
+        # reply-to-bot + вопрос → обычный текстовый ответ (без force-ветки).
         llm = _FakeLLM(text="отвечаю нормально")
         svc = _make_service(llm=llm)
         bot = _bot()
@@ -173,9 +165,9 @@ class TestForceReply:
         assert bot.send_message.await_count >= 1
 
     @pytest.mark.asyncio
-    async def test_force_short_style_allowed(self):
-        # Decision Maker может задавать краткость — но не молчание: «бот,
-        # ты тут?» допускает короткий ответ (факт ответа — ключевое).
+    async def test_addressed_question_allows_short_reply(self):
+        # Длина ответа — решение модели: «бот, ты тут?» допускает короткий
+        # ответ (факт ответа — ключевое).
         llm = _FakeLLM(text="ага")
         svc = _make_service(llm=llm)
         bot = _bot()
@@ -185,15 +177,11 @@ class TestForceReply:
                       if len(c.args) >= 2]
         assert any("ага" in t for t in sent_texts)
 
-    def test_force_direct_reason_code_registered(self):
-        # Контракт A7: 16-й код аддитивен, существующие 15 целы.
+    def test_force_direct_reason_code_historical(self):
+        # Контракт A7: 16-й код остаётся в словаре (историческая телеметрия),
+        # но P0 26.11.2026 больше НЕ производит его автоматически.
         assert "force_direct" in dcs.REASON_CODES
         assert len(dcs.REASON_CODES) == 16
-        decision = dcs.CoordinatorDecision(
-            intent="chat", addressee="author", memory_need=False,
-            tool_calls=(), evaluation="none", action="reply",
-            reason_code=REASON_FORCE_DIRECT)
-        assert decision.reason_code == REASON_FORCE_DIRECT
 
 
 # ── §42: AUTONOMOUS reply-to-bot ────────────────────────────────────────────
@@ -306,19 +294,23 @@ class TestSilentAckConjunction:
         assert bot.send_message.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_force_never_reaches_silent_branch(self):
-        # §52.F: force не может закончиться SILENT/REACT — в force-ветке
-        # pre_action принудительно REPLY (без вызова _decision_pre_action).
-        llm = _FakeLLM(text="ответ")
+    async def test_keyword_goes_through_decision_matrix(self):
+        # P0 (26.11.2026): ключевое слово больше не обходит матрицу — она
+        # решает действие; genuine address + SILENT → 🗿, без текста.
+        llm = _FakeLLM(text="не должно")
         svc = _make_service(llm=llm)
+        sentinel = (dcs.ACTION_SILENT, REASON_ACKNOWLEDGEMENT, None, 1302)
         with patch.object(dcs, "_decision_pre_action",
-                          side_effect=AssertionError("шорт-каты недостижимы "
-                                                     "для force")) as sp:
+                          return_value=sentinel) as sp:
             bot = _bot()
             msg = _message("бот, ок", message_id=1302)
             await svc.handle(bot, msg, msg.from_user)
-        sp.assert_not_called()
-        assert llm.calls
+        sp.assert_called_once()
+        assert bot.send_message.await_count == 0
+        assert bot.set_message_reaction.await_count >= 1
+        emojis = [r.emoji for r in
+                  bot.set_message_reaction.await_args.kwargs["reaction"]]
+        assert emojis[0] == "🗿"
 
 
 # ── §44: fail-soft реакции ──────────────────────────────────────────────────
@@ -460,16 +452,18 @@ class TestDecisionObservability:
                 events.setdefault(c.args[0], []).append(c.kwargs)
         trigger = events.get("DIRECT_TRIGGER")
         assert trigger, "DIRECT_TRIGGER обязан эмитироваться (§30)"
-        assert trigger[0]["trigger_type"] == "force_keyword"
-        assert trigger[0]["force_reply_required"] is True
+        assert trigger[0]["trigger_type"] == "keyword"
+        # P0 (26.11.2026): force-поля в телеметрии адресации больше нет.
+        assert "force_reply_required" not in trigger[0]
         assert trigger[0]["reply_to_bot"] is False
         complete = events.get("DECISION_COMPLETE")
         assert complete, "DECISION_COMPLETE обязан нести аддитивные поля (§31)"
-        assert complete[0]["trigger_type"] == "force_keyword"
-        assert complete[0]["force_reply_required"] is True
+        assert complete[0]["trigger_type"] == "keyword"
+        assert "force_reply_required" not in complete[0]
         assert complete[0]["message_class"]
         assert complete[0]["action"] == "reply"
-        assert complete[0]["reason"] == REASON_FORCE_DIRECT
+        # Вопрос-обращение → матрица §42; force-причина не производится.
+        assert complete[0]["reason"] == dcs.REASON_QUESTION
         # R17: ни одно событие не содержит raw user text.
         blob = repr(events)
         assert "бот, ты тут" not in blob
@@ -521,12 +515,13 @@ class TestDecisionObservability:
         dcs._composer.reset_direct_metrics()
 
     @pytest.mark.asyncio
-    async def test_force_counter_incremented(self):
+    async def test_force_counter_not_incremented_by_keyword(self):
+        # P0 (26.11.2026): срабатывание «бот» больше не считается force-reply.
         llm = _FakeLLM(text="ответ")
         svc = _make_service(llm=llm)
         dcs._composer.reset_direct_metrics()
-        await svc.handle(_bot(), _message("бот, привет", message_id=1604),
-                         _message("бот, привет", message_id=1604).from_user)
+        msg = _message("бот, привет", message_id=1604)
+        await svc.handle(_bot(), msg, msg.from_user)
         stats = dcs._composer.direct_metrics_snapshot()
-        assert stats["direct_force_reply_total"] >= 1
+        assert stats.get("direct_force_reply_total", 0) == 0
         dcs._composer.reset_direct_metrics()
