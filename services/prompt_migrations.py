@@ -609,8 +609,9 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0 (P0-GOAL-MEDIA): активный канон P0GM → байты EVR6 (поле
-        # `memory_scope`, прежнее правило 7, без `final_goal` и абзацев цели)
+        # верхняя ступень (P0-GOAL-MEDIA): активный канон P0GM → байты EVR6
+        # (поле `memory_scope`, прежнее правило 7, без `final_goal` и абзацев
+        # цели); ниже — та же цепочка, что была в базе.
         (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR6),
         # ступень 0 (VMQ-MEM-TIME): байты EVR6 → байты EVR5 (поле
         # `preserve_source_facts`, без поля `memory_scope`)
