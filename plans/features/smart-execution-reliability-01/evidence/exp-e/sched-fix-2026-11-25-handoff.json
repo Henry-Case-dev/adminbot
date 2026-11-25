@@ -1,0 +1,15 @@
+{
+  "task": "EXP-E-LAG-SCHED (EXP-E-LAG-01 scheduling fix)",
+  "candidate_commit": "fbba6a60c4190b8c835036aedcdcaefd43722a94",
+  "evidence": "plans/features/smart-execution-reliability-01/evidence/exp-e/sched-fix-2026-11-25.md",
+  "retention_note": "Worktree retained until independent review and integration/merge of fix/exp-e-lag-sched-2026-11-25 is decided; review needs the exact candidate.",
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\exp-e-lag-sched-5b3d07c6398d-338cdbce",
+      "owner": "Builder (EXP-E-LAG-SCHED)",
+      "reason": "Branch fix/exp-e-lag-sched-2026-11-25 is pushed (6e9b76fe7) and awaits independent review/merge decision; worktree is the exact reviewed candidate.",
+      "evidence": "candidate fbba6a60c + evidence 6e9b76fe7; tests 5/5 GREEN, focused 302 passed (1 pre-existing fail identical on base)",
+      "next_event": "After reviewer verdict and merge/cherry-pick into master (or explicit abandon), run unit-close/unit-check on unit EXP-E-LAG-SCHED and remove this worktree with git worktree remove (no --force)."
+    }
+  ]
+}
