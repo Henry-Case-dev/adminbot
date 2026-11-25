@@ -81,9 +81,9 @@
                "ddl": 0, "migrations": 0, "flags": 0,
                "data_migration": false, "new_stores": 0, "prompts_changed": false},
   "manifest_dry_run": {
-    "at": "bump_tip_clean_tree",
+    "at": "repin_tip_clean_tree",
     "schema": 1,
-    "deployed_sha": "d66b844032b84759875f1a73f3a7e859e70f707b",
+    "deployed_sha": "da4dde28a9e5bed8a341655a5d6e752bea8d6284",
     "version": "2.58.246",
     "previous_sha": "e3467ccb787709650af3f493a88861e60ac51684",
     "previous_version": "2.58.245",
@@ -91,7 +91,16 @@
     "effect": "deploy",
     "dirty_tracked": false,
     "written": false,
-    "rollback_variant_rc": 0
+    "rollback_variant_rc": 0,
+    "note": "прогон повторён после корректива R246-DR1-F1 (re-pin на чистом дереве); на docs-tip ветки тот же прогон даёт deployed_sha = фактический HEAD"
+  },
+  "corrective": {
+    "finding": "R246-DR1-F1",
+    "commit": "da4dde28a9e5bed8a341655a5d6e752bea8d6284",
+    "file": "tests/test_round1025_f8_registry.py",
+    "pin_before": "9413f30397fd53743c8e11042b4a00a27a5e7d108012dd0d6f67c399c1a4bfb8",
+    "pin_after": "8f582128a2c7c9c8e23fd20b2e0f045236856a8297bc0480aae22607a4ac09a1",
+    "product_bytes_changed": false
   },
   "tests": {
     "slice_suites": {"total": 12, "passed": 12, "failed": 0},
@@ -100,7 +109,12 @@
                                          "status": "pre-existing on base"},
     "ur_summary_set_5_files": {"total": 156, "passed": 154, "failed": 2,
                                 "status": "pre-existing on base"},
-    "version_pins_py_k_app_version": {"total": 18, "passed": 18, "failed": 0},
+    "version_pins_py_k_app_version": {"total": 21, "passed": 20, "failed": 1,
+                                      "failed_ids": ["tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme"],
+                                      "status": "pre-existing on base (README не бамплен); прежняя строка 18/18 — узкая выборка 24 файлов"},
+    "route_pin_tests": {"total": 75, "passed": 74, "failed": 1,
+                        "failed_ids": ["tests/test_mca23_planned_vs_actual.py::TestResponseEndpoints::test_routes_pin_untouched"],
+                        "status": "pre-existing on base (собственный устаревший хеш 453e17f8…); оба route-pin теста зелёные после re-pin"},
     "js_version_pins": {"total": 4, "passed": 4, "failed": 0},
     "model_swap_ui_regression": {"total": 19, "passed": 19, "failed": 0},
     "py_compile_changed_py": {"files": 32, "ok": 32},
@@ -132,7 +146,9 @@
 - **Content tip:** `683e23a63` (tree `9ce597330043263ee0eb2ea4dbbc9f363f0f1aa6`).
 - **Bump tip:** `d66b844032b84759875f1a73f3a7e859e70f707b`
   (tree `932535ac10ebd5f09d7a4741dddcffac475f8679`).
-- Над базой 13 коммитов (3 + 9 + 1 bump) + docs-коммит этой сборки.
+- Над базой 13 коммитов (3 + 9 + 1 bump) + docs-коммит сборки + корректирующий
+  коммит delta-ревью r1 `da4dde28a` (re-pin `ROUTES_SHA256_F11`, только тест) +
+  этот evidence-коммит.
 
 ## 2. Границы дельты
 
@@ -226,7 +242,32 @@ manifest на **точном deployed SHA**. По контракту задач�
 previous `e3467ccb7`/`2.58.245`, DDL 0, миграций 0, новых флагов 0,
 rollback code-only `e3467ccb7`.
 
-## 6. Тесты на bumped tip `d66b84403`
+**Корректив delta-ревью r1 (R246-DR1-F1):** после re-pin пина
+`ROUTES_SHA256_F11` (коммит `da4dde28a`, изменён ровно один файл —
+`tests/test_round1025_f8_registry.py`; продуктовые байты не тронуты) прогон
+повторён на чистом дереве `da4dde28a` с тем же seed `e3467ccb7`/2.58.245:
+
+```json
+{
+  "schema": 1,
+  "deployed_sha": "da4dde28a9e5bed8a341655a5d6e752bea8d6284",
+  "version": "2.58.246",
+  "deployed_at": "2026-11-25T06:43:46.709328Z",
+  "effect": "deploy",
+  "previous_sha": "e3467ccb787709650af3f493a88861e60ac51684",
+  "previous_version": "2.58.245",
+  "release_branch": "release/2.58.246",
+  "dirty_tracked": false
+}
+```
+
+`--dry-run` rc 0 (файл не записан), `--effect rollback --dry-run` rc 0.
+Версия осталась **2.58.246**, previous — `e3467ccb7`/**2.58.245**,
+`dirty_tracked=false`, `effect=deploy`. На docs-tip ветки (этот
+evidence-коммит сверху) тот же прогон даёт `deployed_sha = <фактический HEAD>`
+при идентичных остальных полях.
+
+## 6. Тесты на bumped tip `d66b84403` и коррективе `da4dde28a`
 
 Окружение: Python 3.12.0 (`C:\Users\main\AppData\Local\Python\bin\python.exe`,
 pytest 9.1.1), `PYTHONPATH=<worktree>`, `PYTHONDONTWRITEBYTECODE=1`,
@@ -237,12 +278,35 @@ pytest 9.1.1), `PYTHONPATH=<worktree>`, `PYTHONDONTWRITEBYTECODE=1`,
 | `pytest tests/test_exp_e_lag_scheduling.py tests/test_ur_per_chat_schedule.py -q` | **12 passed** (6.96 s) — 5 E-LAG + 7 UR-C-SCHED |
 | Фокусный exp-e/scheduler набор (21 файл, состав из E-LAG review) | **302 passed, 1 failed** (59.27 s); fail — pre-existing (§7) |
 | UR/summary set: `test_ur_c_sched`, `test_ur_c_clock`, `test_summary_scheduler`, `test_summary_generator`, `test_ur_ui_effective_config` | **154 passed, 2 failed** (17.63 s); оба — pre-existing (§7) |
-| Version-пины: 24 файла с пинами, `-k app_version` | **18 passed**, 842 deselected, 0 failed |
-| 4 JS version-pin теста (`node --test`) | **4 pass, 0 fail** |
-| Регрессия UI 2.58.245 на слитых `app.js`/`index.html`: `test_embed_model_swap_ux.py` | **19 passed** (22.99 s) |
+| Version-пины: широкий прогон `pytest tests -k app_version` | **20 passed, 1 failed** (59.95 s); fail — `test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme` (README не бамплен), pre-existing на `e3467ccb7`. Прежняя строка «18 passed / 0 failed» была узкой выборкой 24 файлов (N2 delta-ревью), не полным прогоном |
+| Route-пины после re-pin: `test_round1025_f8_registry.py` + `test_mca23_planned_vs_actual.py` + `test_mca12_stories_round1046.py` | **1 failed, 74 passed** (8.95 s) — единственное падение pre-existing `test_mca23…::test_routes_pin_untouched` (свой устаревший хеш `453e17f8…`, §7); `TestFrozenInvariants::test_routes_file_unchanged` и `test_mca12…::test_routes_pin_unchanged_and_router_registered` **зелёные** |
+| — то же с `-k "frozen or routes or registry"` | **1 failed, 30 passed, 44 deselected** (5.48 s); тот же pre-existing mca23 |
+| 4 JS version-pin теста (`node --test`, `tests/js/round1025_hotfix{7,8,9,10}_*`) | **4 pass, 0 fail** |
+| Регрессия UI 2.58.245 на слитых `app.js`/`index.html`: `test_embed_model_swap_ux.py` | **19 passed** (23.86 s) |
 | `node --check web/app.js` | rc 0 |
 | `py_compile` по 32 изменённым `.py` дельты `e3467ccb7..HEAD` | **32 ok, 0 errors** |
 | `git diff --check` (worktree и `e3467ccb7..HEAD`) | rc 0 / rc 0 |
+
+**Почему route-пины не были пойманы раньше (честно):** ни UR-ревью r2, ни эта
+сборка не запускали route-pin наборы — в списках прогонов их не было, а re-pin
+при правке `web/api/routes.py` не входил в шаги среза. Поэтому устаревший
+`ROUTES_SHA256_F11` (значение до UR-28.4) не проявился до delta-ревью r1, где
+оба теста впервые упали на кандидате (на базе `e3467ccb7` они проходят).
+В коррективе `da4dde28a` пин пересчитан по фактическим байтам файла
+(`sha256 = 8f582128a2c7c9c8e23fd20b2e0f045236856a8297bc0480aae22607a4ac09a1`,
+пересчитано независимо `Get-FileHash`/`git hash-object` = `91b9721113…` blob,
+400 944 B), добавлена однострочная provenance-пометка в формате соседних
+пинов; route-набор и остальные byte-freeze пины (`param_catalog.py`,
+`pg_db.py`) не менялись. Продуктовые байты идентичны `b55d00ab9`: изменён
+ровно один файл — `tests/test_round1025_f8_registry.py`.
+
+**Артефакт окружения (не дефект кандидата):** при fd-capture в пайп
+PowerShell два subprocess-теста (`test_round1025_f8_registry.py::
+TestGeneratorIdempotency::test_check_subprocess_exit_zero` и
+`test_mca12_stories_round1046.py::test_js_ui_suite`) падают
+`OSError: [WinError 6] Неверный дескриптор` на `DuplicateHandle` в
+`subprocess.run`; с `--capture=sys` оба зелёные. Оба теста не трогают
+routes.py и на базе ведут себя так же — это свойство пайпа, а не кода.
 
 ## 7. Pre-existing (воспроизведено на базе `e3467ccb7`, не правилось)
 
