@@ -311,9 +311,13 @@ class TestQueryChatMemoryCount:
         out = await router.dispatch(
             "query_chat_memory",
             {"query": "бензин", "time_range": "last_week"}, _ctx())
-        assert ("Широкий поиск (префиксы, не морфология): 5 сообщений "
-                "«бензин» за неделю") in out
+        # P0 memory-relevance (2026-11-25): счётчик и метод — служебный блок
+        # в конце, материал идёт первым (не «отчёт о поиске» вместо него).
         assert "бензин вчера" in out
+        assert out.index("бензин вчера") < out.index("<поиск_служебное>")
+        assert "совпадений=5" in out
+        assert "период=за неделю" in out
+        assert "широкий префиксный поиск" in out
         memory.count_mentions.assert_awaited_once()
         args, kwargs = memory.count_mentions.await_args
         assert args[0] == CHAT_ID
@@ -332,9 +336,9 @@ class TestQueryChatMemoryCount:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "query_chat_memory", {"query": "раз", "time_range": "all"}, _ctx())
-        assert ("Широкий поиск (префиксы, не морфология): 2 сообщений "
-                "«раз» за всё время") in out
-        assert "(с " in out and " по " in out
+        assert "совпадений=2" in out
+        assert "период=за всё время" in out
+        assert "диапазон " in out
 
     @pytest.mark.asyncio
     async def test_count_zero_but_rows_empty_honest_phrase(self):
@@ -380,8 +384,8 @@ class TestQueryChatMemoryCount:
         out = await router.dispatch(
             "query_chat_memory",
             {"query": "бензин", "time_range": "last_day"}, _ctx())
-        assert ("Широкий поиск (префиксы, не морфология): 1 сообщений "
-                "«бензин» за сутки") in out
+        assert "совпадений=1" in out
+        assert "период=за сутки" in out
         memory.vector_search.assert_not_called()
 
     @pytest.mark.asyncio
@@ -407,8 +411,7 @@ class TestQueryChatMemoryCount:
         out = await router.dispatch(
             "query_chat_memory", {"query": "бензин", "time_range": "all"},
             _ctx())
-        assert ("Широкий поиск (префиксы, не морфология): 1 сообщений "
-                "«бензин»") in out
+        assert "совпадений=1" in out
         assert "про бензин" in out
 
 # ── Раунд 9 (AGI Memory, T-820, spec §3.2.1): dig_into_lore ────────────────
