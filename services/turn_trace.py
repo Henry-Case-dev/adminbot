@@ -587,6 +587,20 @@ def get(correlation_id) -> "TurnTrace | None":
         return _turns.get(str(correlation_id))
 
 
+def terminal_state(correlation_id) -> dict:
+    """UR-RES-01 (F1): что трасса уже зафиксировала как терминальное состояние.
+
+    Нужно вызывающему (инициативный ход), чтобы закрыть трассу честно: если не
+    записаны ни доставка, ни причина остановки, «успех» не подразумевается.
+    Пустой словарь — трассы нет (fail-open)."""
+    trace = get(correlation_id)
+    if trace is None:
+        return {}
+    return {"stop_outcome": str(trace.stop_outcome or ""),
+            "stop_reason": str(trace.stop_reason or ""),
+            "delivery_emitted": bool(trace._delivery_emitted)}
+
+
 def author_state(correlation_id) -> dict:
     """Пер-ходовой счётчик литературных вызовов (измерение, не литерал).
 

@@ -18,6 +18,7 @@
 TEST-LIFECYCLE: CONTRACT owner=UNIFIED-REPLY/UR-G
 """
 import json
+import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -303,7 +304,8 @@ async def _publish_direct_turn(db, monkeypatch, *, text, answer, tg_base,
 
 
 async def _publish_initiative_turn(db, monkeypatch, *, correlation_id,
-                                   tg_id):
+                                   tg_id, send_fail=False, plan=None,
+                                   target_row_id=None):
     """Инициативный ход реальным `handle_initiative` с реальной отправкой."""
     from types import SimpleNamespace
 
@@ -324,6 +326,19 @@ async def _publish_initiative_turn(db, monkeypatch, *, correlation_id,
 
     llm = _FakeLLM(l1=_plan_json(), l2="инициативный ответ")
     writer = _make_service(llm=llm, memory=FakeMemory(window=[]))
+    if plan is not None:
+        async def _plan_override(chat_id, intent_row, *, correlation_id=None):
+            return plan
+
+        monkeypatch.setattr(writer, "plan_initiative_decision",
+                            _plan_override)
+    if send_fail:
+        from services import telegram_send as _tg
+
+        async def _send_fail(bot, chat_id, text, **kwargs):
+            raise RuntimeError("telegram send failed")
+
+        monkeypatch.setattr(_tg, "send_text", _send_fail)
     monkeypatch.setattr(writer, "_evidence_preflight",
                         AsyncMock(return_value=None))
     monkeypatch.setattr(writer, "_evidence_reuse_pack",
@@ -340,12 +355,15 @@ async def _publish_initiative_turn(db, monkeypatch, *, correlation_id,
         expires_at=FROZEN_NOW + 3 * 86400, activation_condition="time_due",
         created_at=FROZEN_NOW + 60)
     intent_id = created[0] if isinstance(created, tuple) else created
+    opportunity = {"goal": "повод", "kind": "follow_up",
+                   "origin": "unanswered_question", "created_at": 1}
+    if target_row_id is not None:
+        opportunity["source_refs"] = (f"msg:{int(target_row_id)}",)
     result = await dcs.handle_initiative(
         bot=_Ibot(tg_id), chat_id=CHAT, situation=_situation(),
         candidates=[_candidate(intent_id)], db=db,
         correlation_id=correlation_id, writer_service=writer,
-        opportunity_row={"goal": "повод", "kind": "follow_up",
-                         "origin": "unanswered_question", "created_at": 1})
+        opportunity_row=opportunity)
     return result
 
 
@@ -593,3 +611,116 @@ class TestUr302SelfOutputChain:
         finally:
             bol.bind_default_db(None)
             await db.close()
+
+
+# ── UR-RES-01/F1: доставка — обязательная терминальная стадия хода ───────────
+
+def _trace_events(captured, correlation_id):
+    return [e for e in captured
+            if str(e.get("trace_id") or "") == str(correlation_id)]
+
+
+def _chain_view(captured, correlation_id):
+    """Проекция той же трассы ТЕМ ЖЕ кодом Inspector'а (web/api/routes):
+    проверяется наблюдаемый результат, а не факт вызова note_*."""
+    from web.api import routes as _routes
+
+    rows = [{"event_name": e["event_name"],
+             "usage_json": e.get("usage_json"),
+             "outcome": e.get("outcome"),
+             "stage": e.get("stage"),
+             "trace_id": e.get("trace_id"),
+             "ts": e.get("ts") or 0}
+            for e in _trace_events(captured, correlation_id)]
+    return _routes._turn_chain_view(rows)
+
+
+class TestUrRes01DeliveryStage:
+    @pytest.mark.asyncio
+    async def test_sent_initiative_turn_has_delivery_true(
+            self, captured, monkeypatch, tmp_path):
+        """Отправленный инициативный ход: контекст = success ТОЛЬКО вместе с
+        реальной стадией доставки (id первого чанка, число чанков), а не
+        «success, delivery: нет данных»."""
+        db = await _make_db(tmp_path, "ur_g_delivery.db")
+        try:
+            result = await _publish_initiative_turn(
+                db, monkeypatch, correlation_id="corr-f1-sent", tg_id=7800)
+            assert result["status"] == "sent", result
+        finally:
+            await db.close()
+
+        view = _chain_view(captured, "corr-f1-sent")
+        assert view["stages"]["delivery"] is True, view
+        assert view["delivery"]["outcome"] == "success", view["delivery"]
+        delivery = view["delivery"]["delivery"]
+        assert delivery["outcome"] == "success"
+        assert delivery["tg_message_ids"] == [7800]
+        assert view["stages"]["context"] is True
+        assert view["context"]["outcome"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_failed_send_is_not_success_without_delivery(
+            self, captured, monkeypatch, tmp_path):
+        """Сбой отправки: событие доставки есть, но исход не-success и не
+        «нет данных»; контекст не объявляет успех заранее."""
+        db = await _make_db(tmp_path, "ur_g_send_fail.db")
+        try:
+            result = await _publish_initiative_turn(
+                db, monkeypatch, correlation_id="corr-f1-fail", tg_id=7801,
+                send_fail=True)
+            assert result["status"] == "error", result
+        finally:
+            await db.close()
+
+        view = _chain_view(captured, "corr-f1-fail")
+        assert view["stages"]["delivery"] is True, view
+        # Исход события — не-success, а причина называет сбой хода; вложенный
+        # payload несёт фактический исход терминальной стадии.
+        assert view["delivery"]["outcome"] != "success", view["delivery"]
+        assert view["delivery"]["delivery"]["reason"] == "initiative_error"
+        assert view["delivery"]["delivery"]["outcome"] == "error"
+        assert view["stages"]["context"] is True
+        assert view["context"]["outcome"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_react_branch_has_own_terminal_stage(
+            self, captured, monkeypatch, tmp_path):
+        """Ветка реакции — тоже доставка: исход `reacted` и канал `react`,
+        а не заранее закрытый `skipped`."""
+        from services.direct_l1 import L1Plan
+
+        db = await _make_db(tmp_path, "ur_g_react.db")
+        cursor = await db.db.execute(
+            "INSERT INTO smart_messages (user_id, chat_id, text, timestamp, "
+            "media_type, author_name, is_forward, tg_message_id) "
+            "VALUES (?, ?, ?, ?, 'text', 'addr', 0, ?)",
+            (10, CHAT, "цель реакции", int(time.time()) - 30, 7900))
+        await db.db.commit()
+        target_row_id = cursor.lastrowid
+        reacts: list = []
+
+        async def _react(bot, chat_id, message_id, *, reaction=None,
+                         reason_code=None):
+            reacts.append((chat_id, message_id, reaction, reason_code))
+            return "ok"
+
+        monkeypatch.setattr(dcs, "react_moai", _react)
+        plan = L1Plan(action="react", reaction="👍", delivery="react",
+                      target_message_id=target_row_id, confidence=0.9,
+                      confidence_bucket="high", source="llm")
+        try:
+            result = await _publish_initiative_turn(
+                db, monkeypatch, correlation_id="corr-f1-react",
+                tg_id=7802, plan=plan, target_row_id=target_row_id)
+            assert result["status"] == "reacted", result
+        finally:
+            await db.close()
+        assert reacts and reacts[0][1] == 7900, reacts
+
+        view = _chain_view(captured, "corr-f1-react")
+        assert view["stages"]["delivery"] is True, view
+        assert view["delivery"]["delivery"]["channel"] == "react"
+        assert view["delivery"]["delivery"]["reason"] == "l1_react"
+        assert view["stages"]["context"] is True
+        assert view["context"]["outcome"] == "reacted"
