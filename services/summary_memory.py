@@ -3400,6 +3400,19 @@ class MemoryManager:
         (P1)."""
         if not texts:
             return []
+        # P0-EMBED-EMPTY (R247-DEP-N1): пустой/пробельный текст — не запрос к
+        # провайдеру. Раньше `[""]`/`["   "]` уходили в POST /embeddings и
+        # получали 400 у ВСЕХ ног (Google: "empty Part") — ноги парковались в
+        # 60-секундный cooldown и последующие факты писались text-only. Здесь
+        # (единственная точка embed для памяти) такой вход не обслуживается
+        # сетью: пустой результат → существующая деградация вызывающего
+        # (лексический путь для запроса, text-only для факта). Непустой
+        # текст — прежний путь байт-в-байт.
+        texts = list(texts)
+        if not any(str(t or "").strip() for t in texts):
+            logger.info("embed skipped | reason=empty_input | texts=%d",
+                        len(texts))
+            return []
         try:
             from services import embedding_control_plane as _ecp
             # P0 EMBED-503-FAILOVER: не наследовать provenance прошлого
@@ -3821,6 +3834,13 @@ class MemoryManager:
             processed = 0
             for start in range(0, len(rows), _BACKFILL_BATCH):
                 batch = rows[start:start + _BACKFILL_BATCH]
+                # P0-EMBED-EMPTY (R247-DEP-N1): пустая строка в БД не имеет
+                # вектора — из embed-батча исключается (zip остаётся
+                # выровненным), строка остаётся в FTS/source.
+                batch = [row for row in batch
+                         if str(row["fact"] or "").strip()]
+                if not batch:
+                    continue
                 try:
                     vectors = await self._embed(
                         [row["fact"] for row in batch], priority=_PRIO_REPAIR)
@@ -3907,6 +3927,13 @@ class MemoryManager:
             processed = 0
             for start in range(0, len(rows), _BACKFILL_BATCH):
                 batch = rows[start:start + _BACKFILL_BATCH]
+                # P0-EMBED-EMPTY (R247-DEP-N1): пустая строка в БД не имеет
+                # вектора — из embed-батча исключается (zip остаётся
+                # выровненным), строка остаётся в FTS/source.
+                batch = [row for row in batch
+                         if str(row["fact"] or "").strip()]
+                if not batch:
+                    continue
                 try:
                     vectors = await self._embed(
                         [row["fact"] for row in batch], priority=_PRIO_REPAIR)
@@ -5752,6 +5779,14 @@ class MemoryManager:
             if batch is not None and batch.unavailable:
                 batch.text_only += 1
                 return False
+            # P0-EMBED-EMPTY (R247-DEP-N1): пустой/пробельный текст факта не
+            # имеет вектора — провайдеру он не отправляется (иначе 400 и
+            # парковка всех ног). Факт остаётся text-only, как при любом
+            # embed-сбое.
+            if not str(fact or "").strip():
+                if batch is not None:
+                    batch.text_only += 1
+                return False
             # §8.2/§8.6 (ASAP 6): запись в ACTIVE только в том же embedding
             # space (fingerprint ACTIVE + canary); иначе факт остаётся
             # text-only (FTS/source) — fail-soft, без mixed-space.
@@ -6372,6 +6407,14 @@ class MemoryManager:
         (тот же include_archived-контракт, что у search_graph_facts_fts).
         Default False — обычная выдача архивных фактов не возвращает."""
         now = int(time.time())
+        # P0-EMBED-EMPTY (R247-DEP-N1): пустой запрос (медиа-сообщение без
+        # текста → `message.text is None` → `_build_rag_block(query="")`) не
+        # имеет семантического смысла: векторная нога НЕ выполняется (иначе
+        # `_embed([""])` → 400 у всех ног → 60 s cooldown и text-only факты).
+        # Та же честная деградация, что у FTS-ветки ниже (`match_query` пуст)
+        # и у `fetch_golden_facts`.
+        if not str(query or "").strip():
+            return []
         # MCA-07 D4/A06: несовпадающее поколение → FTS-only (не смешиваем).
         if await self._ensure_vec_retry() and \
                 await self._index_generation_ok("graph_facts_vec"):
@@ -7141,6 +7184,12 @@ class MemoryManager:
                     "lexical only | chat_id=%s", guard, chat_id)
                 return []
             k = max(1, int(k or _PERIOD_FILL_KNN_K))
+            # P0-EMBED-EMPTY (R247-DEP-N1): пустой запрос — не embed-запрос.
+            # Нога не принимается, вызывающий остаётся на лексическом пути
+            # (та же честная деградация, что при недоступном embed).
+            if not str(query or "").strip():
+                stats["vector_leg"] = "empty_query"
+                return []
             vectors = await self._embed([str(query or "")],
                                         priority=_PRIO_QUERY)
             if not vectors or not vectors[0]:
@@ -7970,6 +8019,10 @@ class MemoryManager:
 
     async def _save_archive_embedding(self, chat_id: int, fact_id: int, fact: str) -> None:
         try:
+            # P0-EMBED-EMPTY (R247-DEP-N1): пустой текст не отправляется
+            # провайдеру — архивный факт остаётся в FTS/source.
+            if not str(fact or "").strip():
+                return
             # §8.2/§8.6 (ASAP 6): запись в ACTIVE только в том же embedding
             # space (fingerprint ACTIVE + canary); иначе факт остаётся в
             # FTS/source (fail-soft), vec-строка — после controlled migration.
