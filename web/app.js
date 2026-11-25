@@ -2059,26 +2059,27 @@
         + 'Значение сохраняется для совместимости.'),
     },
   };
-  // UI-21: presentation-флаги сверх title/description. Значения/ключи/
-  // override не меняются; legacy-пометки приходят из item.eff.
+  // UI-21: presentation-флаги сверх title/description. ТОЛЬКО раскладка
+  // (advanced). Применимость (readonly/hidden) НЕ дублируется списком ключей:
+  // она приходит из backend-контракта (`item.eff.status`), иначе фронт снова
+  // «угадывает» (UR-22).
   var UI21_ITEM_UI = {
-    'limits.chat_context_fill_ratio': { hidden: true },
-    'limits.chat_global_context_max_chars': { advanced: true, readonly: true },
-    'limits.chat_global_context_max_tokens': { advanced: true, readonly: true },
-    'limits.chat_thread_max_tokens': { advanced: true, readonly: true },
-    'limits.chat_thread_max_chars': { advanced: true, readonly: true },
+    'limits.chat_global_context_max_chars': { advanced: true },
+    'limits.chat_global_context_max_tokens': { advanced: true },
+    'limits.chat_thread_max_tokens': { advanced: true },
+    'limits.chat_thread_max_chars': { advanced: true },
     'limits.chat_running_summary_tail': { advanced: true },
-    'limits.chat_level2_min_raw_count': { advanced: true, readonly: true },
-    'limits.chat_level2_max_chars': { advanced: true, readonly: true },
+    'limits.chat_level2_min_raw_count': { advanced: true },
+    'limits.chat_level2_max_chars': { advanced: true },
     'limits.chat_branch_context_hops': { advanced: true },
-    'limits.chat_budget_map_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_global_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_thread_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_rag_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_branch_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_target_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_anchors_ratio': { advanced: true, readonly: true },
-    'limits.chat_budget_reserve_ratio': { advanced: true, readonly: true },
+    'limits.chat_budget_map_ratio': { advanced: true },
+    'limits.chat_budget_global_ratio': { advanced: true },
+    'limits.chat_budget_thread_ratio': { advanced: true },
+    'limits.chat_budget_rag_ratio': { advanced: true },
+    'limits.chat_budget_branch_ratio': { advanced: true },
+    'limits.chat_budget_target_ratio': { advanced: true },
+    'limits.chat_budget_anchors_ratio': { advanced: true },
+    'limits.chat_budget_reserve_ratio': { advanced: true },
   };
   // B01.4: виджет профиля частоты (ключ каталога — str; select добавляет
   // витрина). Значения — канон резолвера initiative_observer.
@@ -29947,6 +29948,49 @@
         return ((on ? (activeText || 'включено') : (offText || 'выключено'))
           + src);
       },
+      // UR-F (UR-22/UR-RES-07): действующий режим — из backend-гейта модуля
+      // (env emergency важнее KV), а не из сохранённого флага. Возвращает
+      // null, если backend не отдал ни gate, ни state: UI не гадает.
+      moduleModeStatus: function (moduleId, activeText, offText) {
+        var m = (typeof this._moduleById === 'function')
+          ? this._moduleById(moduleId) : null;
+        if (!m) return null;
+        var gate = m.gate || null;
+        var st = this.moduleStateAxes(m);
+        if (!gate && !st) return null;
+        var desired = (st && st.desired !== null && st.desired !== undefined)
+          ? !!st.desired
+          : (gate && gate.requested !== null && gate.requested !== undefined
+            ? !!gate.requested : null);
+        var effective = (st && st.effective_runtime !== null
+                         && st.effective_runtime !== undefined)
+          ? !!st.effective_runtime
+          : (gate && gate.effective !== null && gate.effective !== undefined
+            ? !!gate.effective : null);
+        if (desired === null || effective === null) return null;
+        var src = (st && st.source) || '';
+        var suffix = (src === 'chat') ? ' · из настроек чата'
+          : (src === 'default' ? ' · заводское значение'
+            : (src === 'global' ? ' · глобальная настройка' : ''));
+        if (!desired) {
+          return { status: 'off', line: (offText || 'выключено') + suffix };
+        }
+        if (!effective) {
+          var why = (gate && gate.source === 'emergency_env')
+            ? this.moduleReasonText('emergency_block')
+            : this.moduleReasonText((st && st.reason_code)
+              || 'capability_off');
+          return {
+            status: 'blocked',
+            line: 'включено, но заблокировано: ' + why,
+          };
+        }
+        return { status: 'active', line: (activeText || 'включено') + suffix };
+      },
+      moduleModeLine: function (moduleId, activeText, offText) {
+        var view = this.moduleModeStatus(moduleId, activeText, offText);
+        return view ? view.line : null;
+      },
       directModesView: function () {
         var self = this;
         function item(key) { return self.configItemByKey(key); }
@@ -29954,6 +29998,14 @@
         var memory = item('flags.chat_running_summary_enabled');
         var speech = item('limits.chat_temperature_preset_default');
         var initiative = item('flags.initiative_enabled');
+        // UR-22: у «Инициативы» есть env-ось, которой нет в сохранённом
+        // флаге; фактический режим берётся из гейта модуля (backend), а
+        // флаг — только честный fallback для старого payload без DTO.
+        var initiativeStatus = this.moduleModeStatus('mod_initiative',
+          'бот пишет первым', 'выключена');
+        var initiativeLine = (initiativeStatus
+          ? initiativeStatus.line
+          : this.itemEffLine(initiative, 'бот пишет первым', 'выключена'));
         return {
           search: {
             title: 'Интернет для фактов',
@@ -30000,8 +30052,8 @@
           },
           initiative: {
             title: 'Инициатива',
-            line: this.itemEffLine(initiative, 'бот пишет первым',
-              'выключена'),
+            line: initiativeLine,
+            status: initiativeStatus ? initiativeStatus.status : null,
             available: !!initiative,
             hint: 'Проактивные намерения и напоминания — отдельный механизм '
               + 'со своим журналом решений.',
@@ -32014,10 +32066,8 @@
       },
 
       canEditConfig: function (key) {
-        // UI-21: legacy/compat-поля из scope UI-21 не редактируются
-        // пользовательской формой (значение и override сохраняются).
-        var ui21 = UI21_ITEM_UI[key];
-        if (ui21 && ui21.readonly) return false;
+        // UR-22: legacy/no-op применимость приходит из backend-меты
+        // (`item.eff.status` → `__uiReadonly`); список ключей в JS не держим.
         var it = (this.configItems || []).find(function (i) {
           return i && i.key === key;
         });
@@ -32122,14 +32172,15 @@
             if (ov.title) item.title = ov.title;
             if (ov.description) item.description = ov.description;
           }
-          // UI-21: витрина сохраняет значения/override, но убирает снятое
-          // поле, уводит внутренние safety/debug-ключи в «Расширенные» и
-          // честно делает legacy/read-only недоступными для правки.
+          // UI-21: витрина сохраняет значения/override и уводит внутренние
+          // safety/debug-ключи в «Расширенные».
           var ui21 = UI21_ITEM_UI[item.key];
-          if (ui21) {
-            if (ui21.hidden) item.__uiHidden = true;
-            if (ui21.advanced) item.progressive_level = 'advanced';
-            if (ui21.readonly) item.__uiReadonly = true;
+          if (ui21 && ui21.advanced) item.progressive_level = 'advanced';
+          // UR-22: ось редактирования — из backend-контракта (`item.eff.readonly`),
+          // список ключей в JS не держим.
+          var eff = item.eff || null;
+          if (eff && eff.readonly === true) {
+            item.__uiReadonly = true;
           }
           if (item.key === 'initiative.frequency_profile') {
             item.widget = INITIATIVE_PROFILE_SELECT.widget;

@@ -1756,9 +1756,13 @@
                     <div class="flex items-center gap-2 flex-wrap">
                       <div class="text-sm font-semibold">{{ mode.title }}</div>
                       <span class="badge shrink-0"
-                            :class="mode.available ? 'badge-ok' : 'badge-muted'"
+                            :class="(mode.status === 'blocked' || mode.status === 'off')
+                              ? 'badge-warn'
+                              : (mode.available ? 'badge-ok' : 'badge-muted')"
                             :data-mode-badge="mode.title">{{
-                        mode.available ? 'действует' : 'нет данных' }}</span>
+                        mode.status === 'blocked' ? 'заблокировано'
+                          : (mode.status === 'off' ? 'выключено'
+                            : (mode.available ? 'действует' : 'нет данных')) }}</span>
                     </div>
                     <div class="text-xs mt-1" :data-mode-line="mode.title">{{
                       mode.line }}</div>

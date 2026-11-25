@@ -2197,7 +2197,9 @@ _LIMITS: list[tuple] = [
     ("SEARCH_CONTEXT_MESSAGES", "Окно контекста поиска (сообщений)", "int", "limits_search",
      "Сколько сообщений берётся для поиска. Больше — точнее, но дороже."),
     ("CHAT_CONTEXT_FILL_RATIO", "Порог заполнения окна (legacy, не триггер)", "float", "limits_chat",
-     "Рантайм не использует как триггер конспекта: обновление идёт по watermark и вытеснению живого хвоста. Ключ сохранён для совместимости."),
+     "Не действует как триггер конспекта: обновление идёт по watermark и "
+     "вытеснению живого хвоста. Ключ сохранён для совместимости и выведен "
+     "из пользовательского редактирования (UR-21)."),
     ("CHAT_RUNNING_SUMMARY_TAIL", "Внутренний хвост сборки конспекта", "int", "limits_chat",
      "Сколько последних сообщений дословно добавить в запрос сборки конспекта. Это внутренний fallback сборки, а не барьер или размер окна L1/L2."),
     ("RUNNING_SUMMARY_TTL_MINUTES", "Срок жизни бегущего конспекта, минут", "int", "limits_chat",
@@ -2226,11 +2228,11 @@ _LIMITS: list[tuple] = [
      "Сколько участников максимум в карте имён. Больше — полнее, но дороже."),
     ("CHAT_BRANCH_CONTEXT_HOPS", "Ходов в итоге ветки <Conversation_Branch>", "int", "limits_chat",
      "Сколько последних ходов reply-цепочки показывать над фоном. Больше — полнее, но дороже."),
-    ("CHAT_CURRENT_QUESTION_MAX_CHARS", "Срез блока «текущий вопрос» (символов)", "int", "limits_chat",
-     "Ограничителя входа больше нет: полное сообщение доходит до "
-     "L1/Writer'а (свой бюджет), как лимит вопроса ключ не редактируется "
-     "(UR-21.01). Значение задаёт только дефолтный cap рендера блока "
-     "<Current_Question> в сборке payload'а."),
+    ("CHAT_CURRENT_QUESTION_MAX_CHARS", "Лимит вопроса (не работает)", "int", "limits_chat",
+     "Не действует: рантайм значение не читает (SXR-C2-01 снял символьный "
+     "потолок, полный текст доходит до L1/Writer'а). Ключ сохранён для "
+     "совместимости и выведен из пользовательского редактирования "
+     "(UR-21.01)."),
     ("CHAT_LEVEL2_MIN_RAW_COUNT", "Порог сжатия в широкий фон (legacy)", "int", "limits_chat",
      "Рантайм не использует как порог: широкий фон продвигается по watermark и непокрытому диапазону. Ключ сохранён для совместимости."),
     ("CHAT_LEVEL2_MAX_CHARS", "Макс. длина широкого фона (символов)", "int", "limits_chat",
@@ -3774,8 +3776,8 @@ EFFECTIVE_STATUS_META: dict[str, dict] = {
     # Значения/override не удаляются, UI-подписи — UR-21/UR-F.
     "limits.chat_current_question_max_chars": {
         "status": "no_op", "consumer": "",
-        "note": "Рантайм не читает: current идёт полным текстом через "
-                "allocator (UR-11a)."},
+        "note": "Рантайм не читает: символьный потолок снят (SXR-C2-01), "
+                "полный текст доходит до L1/Writer'а."},
     # UR-12.1/12.2/12.3/12.5 — summary/watermark semantics.
     "limits.chat_context_fill_ratio": {
         "status": "no_op", "consumer": "",
@@ -3924,6 +3926,36 @@ EFFECTIVE_STATUS_META: dict[str, dict] = {
         "consumer": "детектор клише (только диагностика)",
         "note": "Лимит детектора; повторную генерацию не обещает."},
 }
+# UR-22 (родитель): явная ось «только чтение» — backend решает, UI не гадает.
+# Это ТЕ ЖЕ ключи, которые раньше фронтовый `UI21_ITEM_UI` помечал readonly
+# (legacy/compat-доли и капы): значение/override сохраняются, но форма их не
+# редактирует. Новых запретов нет — политика перенесена на источник правды.
+_EFFECTIVE_READONLY: frozenset[str] = frozenset({
+    "limits.chat_global_context_max_chars",
+    "limits.chat_global_context_max_tokens",
+    "limits.chat_thread_max_tokens",
+    "limits.chat_thread_max_chars",
+    "limits.chat_level2_min_raw_count",
+    "limits.chat_level2_max_chars",
+    "limits.chat_budget_map_ratio",
+    "limits.chat_budget_global_ratio",
+    "limits.chat_budget_thread_ratio",
+    "limits.chat_budget_rag_ratio",
+    "limits.chat_budget_branch_ratio",
+    "limits.chat_budget_target_ratio",
+    "limits.chat_budget_anchors_ratio",
+    "limits.chat_budget_reserve_ratio",
+    # Снятые поля (hidden) — читаемы для диагностики, но не редактируются.
+    "limits.chat_context_fill_ratio",
+    "limits.chat_current_question_max_chars",
+})
+for _ro_key in _EFFECTIVE_READONLY:
+    _ro_meta = EFFECTIVE_STATUS_META.get(_ro_key)
+    if _ro_meta is None:
+        raise ValueError(
+            "UR-F readonly manifest: meta key missing: " + _ro_key)
+    _ro_meta["readonly"] = True
+
 # Единицы по типу — fallback для ключей вне таблицы (UR-20.9: значение с
 # единицами; берётся из суффикса ключа, не выдумывается).
 _UNITS_BY_TYPE_AND_KEY: tuple[tuple[str, str], ...] = (
@@ -3948,6 +3980,8 @@ def effective_meta(pg_key: str) -> dict:
             "active_consumer": str(meta.get("consumer") or ""),
             "units": str(meta.get("units") or ""),
             "reason_inactive": "",
+            # UR-22: ось редактирования — тоже backend-контракт.
+            "readonly": bool(meta.get("readonly")),
         }
         if not out["units"]:
             low = str(pg_key or "").lower()
@@ -3960,7 +3994,7 @@ def effective_meta(pg_key: str) -> dict:
         return out
     except Exception:      # pragma: no cover - fail-open
         return {"status": "active", "active_consumer": "", "units": "",
-                "reason_inactive": ""}
+                "reason_inactive": "", "readonly": False}
 
 
 # UR-F (UR-21.23): семейства моделей, для которых сэмплинг (temperature)
@@ -4463,6 +4497,10 @@ for _mig_row in LEGACY_REPHRASING_MIGRATION:
 # рантайм-ридера выведены из рабочего UI и каталогового API (params-meta/
 # get_config), как removed/deprecated_compat в RLR-05. Запись остаётся в
 # REGISTRY (права/пины), значение читаемо по PG-ключу, DML/миграций нет.
+# UR-21 (родитель): сюда же входят снятые поля группы «Ответы в чате» —
+# `CHAT_CONTEXT_FILL_RATIO` («заполнение окна», не триггер с UR-12) и
+# `CHAT_CURRENT_QUESTION_MAX_CHARS` (символьный потолок снят SXR-C2-01:
+# редактор лимита вопроса не нужен).
 # Отдельно сюда входит канонический `CHAT_TIMEZONE`: его единственная
 # редакторская поверхность — «Модули → Время» (UR-29.1), поэтому общий
 # каталог-контрол не показывается, но запись через /api/config/time жива.
@@ -4478,6 +4516,8 @@ _UR_F_WITHOUT_RUNTIME_READER: frozenset[str] = frozenset({
     "CHAT_MOOD_NEGATIVE_WORDS",         # UR-16
     "CHAT_BUDGET_RESPONSE_RATIO",       # UR-21.17: подтверждённый no-op
     "CHAT_LOCK_MAX_ENTRIES",            # UR-21.21: неиспользуемый параметр
+    "CHAT_CONTEXT_FILL_RATIO",          # UR-21: поле «заполнение окна» убрано
+    "CHAT_CURRENT_QUESTION_MAX_CHARS",  # UR-21.01: лимита вопроса нет
     "CHAT_TIMEZONE",                    # UR-24.2: единственная поверхность — «Время»
 })
 for _urf_name in _UR_F_WITHOUT_RUNTIME_READER:

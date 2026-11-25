@@ -69,6 +69,35 @@ const methods = captured.methods;
 const computed = captured.computed;
 const data = captured.data();
 
+// ── Каталог модулей: единственный источник — DTO backend ──────────────────
+// MOD-ACL-UX-01 M4A убрал статический MODULES: карточки приходят из
+// `GET /api/config.modules` (services/module_registry.py) и применяются
+// `f3ApplyModuleRegistry`. Тест подаёт РЕАЛЬНЫЙ DTO-шейп, а не список JS.
+const MODULE_DTO = [
+  { id: 'direct', title: 'Ответы в чате', description: 'Прямой ответ боту.',
+    master_param: 'flags.chat_botword_enabled', runtime_gate: 'per_chat',
+    config_tab: 'mod_direct', tab: 'mod_direct', catalog_order: 2,
+    gate: { requested: true, effective: true, source: 'both',
+      env_param: '', master_param: 'flags.chat_botword_enabled' } },
+  { id: 'initiative', title: 'Инициатива', description: 'Пишет первым.',
+    master_param: 'flags.initiative_enabled', runtime_gate: 'per_chat',
+    config_tab: 'mod_initiative', tab: 'mod_initiative', catalog_order: 11,
+    // UR-22: env-ось выключена — KV-флаг остаётся true, врать нельзя.
+    gate: { requested: true, effective: false, source: 'emergency_env',
+      env_param: 'MCA_INTENTS_ENABLED',
+      master_param: 'flags.initiative_enabled' },
+    state: { desired: true, source: 'global', effective_runtime: false,
+      reason_code: 'emergency_block' } },
+  { id: 'time', title: 'Время', description: 'Часовой пояс чата.',
+    master_param: '', runtime_gate: 'per_chat', config_tab: 'mod_time',
+    tab: 'mod_time', catalog_order: 21,
+    gate: { requested: true, effective: true, source: 'both' } },
+];
+methods.f3ApplyModuleRegistry.call(data, MODULE_DTO);
+const _moduleById = function (id) {
+  return data.modules.filter((m) => m.id === id)[0] || null;
+};
+
 // ── 1. «Модули → Время»: вкладка, поиск по зонам, серверные часы ──────────
 (function () {
   const tab = data.tabs.filter((t) => t.id === 'mod_time')[0];
@@ -78,7 +107,7 @@ const data = captured.data();
   assert.strictEqual(tab.menu, 'modules',
     'UR-29.1: «Время» живёт в разделе «Модули»');
   assert.strictEqual(data.modules.some((m) => m.id === 'mod_time'), true,
-    'UR-29.1: карточка «Время» в витрине модулей');
+    'UR-29.1: карточка «Время» приходит из backend-DTO реестра');
   const timeCard = data.modules.filter((m) => m.id === 'mod_time')[0];
   assert.strictEqual(timeCard.noToggle, true,
     'UR-29.1: пояс — не модуль-флаг, карточка без тумблера');
@@ -95,14 +124,16 @@ const data = captured.data();
     'UR-29.1: пустой черновик — список подсказок не раскрывается');
 
   // Часы: ТОЛЬКО от серверной базы (as_of_utc + utc_offset), без
-  // браузерной timezone. 12:00:00 UTC + 03:00 = 15:00 по поясу.
+  // браузерной timezone. 12:00:00 UTC + 03:00 = 15:00 поясу.
+  // fetchedAt = «сейчас»: проверяем арифметику серверной базы, а не дрейф
+  // между фикстурой и прогоном (иначе тест зависит от календарной даты).
   const clockCtx = {
     timeState: {
       as_of_utc: '2026-11-06T12:00:00+00:00',
       utc_offset: '+03:00',
       weekday: 'пятница',
     },
-    timeStateFetchedAt: Date.parse('2026-11-06T12:00:00+00:00'),
+    timeStateFetchedAt: Date.now(),
     timeNow: null,
   };
   methods.timeNowTick.call(clockCtx);
@@ -189,6 +220,8 @@ const data = captured.data();
     }],
     configItemByKey: methods.configItemByKey,
     itemEffLine: methods.itemEffLine,
+    moduleModeLine: methods.moduleModeLine,
+    moduleModeStatus: methods.moduleModeStatus,
   };
   const modes = methods.directModesView.call(modesCtx);
   assert.strictEqual(modes.speech.title, 'Речь и характер',
@@ -266,6 +299,58 @@ const data = captured.data();
       workspacePromptItems: function () { return []; } },
     direct, 'inspector'), true,
     'UR-20.3: инспектор — вкладка с собственным содержимым');
+})();
+
+// ── 6. UR-22/UR-RES-07: действующий режим = backend-гейт, не KV-флаг ─────
+(function () {
+  const baseCtx = {
+    configItems: [{ key: 'flags.initiative_enabled', value: true,
+      source: 'global' }],
+    configItemByKey: methods.configItemByKey,
+    itemEffLine: methods.itemEffLine,
+    moduleModeLine: methods.moduleModeLine,
+    moduleModeStatus: methods.moduleModeStatus,
+    moduleStateAxes: methods.moduleStateAxes,
+    moduleReasonText: methods.moduleReasonText,
+    _moduleById: _moduleById,
+  };
+  const blocked = methods.directModesView.call(baseCtx);
+  assert.strictEqual(blocked.initiative.status, 'blocked',
+    'UR-22: бейдж режима берёт статус из backend-гейта');
+  assert(blocked.initiative.line.indexOf('аварийный переключатель') >= 0,
+    'UR-22: env-ось из backend-гейта доезжает до строки режима');
+  assert(blocked.initiative.line.indexOf('бот пишет первым') === -1,
+    'UR-22: сохранённый KV-флаг не выдаётся за действующий режим');
+
+  // Гейт включён обоими осями → фактический режим + источник настройки.
+  const onCtx = Object.assign({}, baseCtx, {
+    _moduleById: function (id) {
+      const m = _moduleById(id);
+      if (!m || m.id !== 'mod_initiative') return m;
+      return Object.assign({}, m, {
+        gate: { requested: true, effective: true, source: 'both',
+          env_param: 'MCA_INTENTS_ENABLED',
+          master_param: 'flags.initiative_enabled' },
+        state: { desired: true, source: 'chat',
+          effective_runtime: true },
+      });
+    },
+  });
+  const on = methods.directModesView.call(onCtx);
+  assert.strictEqual(on.initiative.status, 'active',
+    'UR-22: включённый гейт → статус active');
+  assert.strictEqual(on.initiative.line,
+    'бот пишет первым · из настроек чата',
+    'UR-22: источник действующего режима — backend state.source');
+
+  // DTO без гейта/состояния → честный фолбэк на item, без выдумки.
+  const noDto = Object.assign({}, baseCtx, { _moduleById: function () {
+    return null;
+  } });
+  const legacy = methods.directModesView.call(noDto);
+  assert.strictEqual(legacy.initiative.line,
+    'бот пишет первым · глобальная настройка',
+    'UR-22: старый payload без DTO — прежняя семантика item');
 })();
 
 console.log('UR-F-UI-OK');
