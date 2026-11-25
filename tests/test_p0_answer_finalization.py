@@ -92,6 +92,65 @@ def _text_round(text):
 # ── 1. Инструмент уже доставил результат + пустой Writer ────────────────────
 
 class TestDeliveredArtifact:
+    @staticmethod
+    def _capture_f6(monkeypatch):
+        """F6-производитель не должен видеть ход неотвеченным."""
+        calls = []
+
+        async def _spy(db, chat_id, query, message_id=None):
+            calls.append((chat_id, query))
+
+        monkeypatch.setattr(dcs, "_f6_maybe_create_unanswered_question", _spy)
+        return calls
+
+    @pytest.mark.asyncio
+    async def test_question_mark_artifact_turn_is_answered_no_follow_up(
+            self, monkeypatch):
+        """P0-AQ-FIN-F6-DELIVERED-ARTIFACT (review r1): доставленный
+        видео/файл-артефакт при пустом Writer'е — отвеченный ход. Сообщение с
+        '?' не создаёт durable `unanswered_question` и второго текста."""
+        calls = self._capture_f6(monkeypatch)
+        payload = json.dumps({"status": "success",
+                              "message": "Файл успешно загружен в чат"},
+                             ensure_ascii=False)
+        router = _FakeRouter(outputs={"download_media": payload})
+        llm = _ScriptedLLM(
+            l1=_plan_json(tool_policy="auto", delivery_hint="media",
+                          capabilities_needed=["media_download"]),
+            l2="",
+            orchestrator=[
+                json.dumps({"action": "call_tool",
+                            "tool": "download_media",
+                            "arguments": {"url": "https://cdn.example/v.mp4"},
+                            "reason": "download"}),
+                json.dumps({"action": "finish", "reason": "enough"}),
+            ])
+        svc, react, bot, msg, user = _drive(
+            monkeypatch, "can you send this video?",
+            reply=_bot_reply(), llm=llm, tool_router=router)
+
+        await svc.handle(bot, msg, user)
+
+        assert [d["tool"] for d in router.dispatched] == ["download_media"]
+        assert calls == []                       # F6 follow_up не создан
+        svc._send_direct_answer.assert_not_awaited()   # второго текста нет
+        react.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_unanswered_turn_still_produces_follow_up(self, monkeypatch):
+        """F6 не отключён: ход без доставленного артефакта и без ответа
+        по-прежнему даёт `unanswered_question` (негативный контроль)."""
+        calls = self._capture_f6(monkeypatch)
+        llm = _ScriptedLLM(l1=_plan_json(), l2="")
+        svc, react, bot, msg, user = _drive(
+            monkeypatch, "что мы решили по деплою?", llm=llm)
+
+        await svc.handle(bot, msg, user)
+
+        react.assert_awaited_once()
+        svc._send_direct_answer.assert_not_awaited()
+        assert len(calls) == 1 and calls[0][1] == "что мы решили по деплою?"
+
     @pytest.mark.asyncio
     async def test_text_stub_absent_and_no_duplicate_delivery(
             self, monkeypatch):
