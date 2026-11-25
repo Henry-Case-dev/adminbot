@@ -107,7 +107,15 @@ ROUTES_SHA256_F11 = (
     # Предыдущий пин: 71d837c247f2e7be999f583dc91516bd19222276572c0be07c62dbe1c4479e76.
     # P5B-R2 (25.11.2026): whitespace-only key/CRN/instance нормализуется в
     # пустое значение (clear/reset), не в "configured". Route-set re-pin.
-    "9413f30397fd53743c8e11042b4a00a27a5e7d108012dd0d6f67c399c1a4bfb8")
+    # UR-28.4 (25.11.2026, срез UR-C-SCHED, ревью ur-28-4-review-r2): re-pin
+    # после аддитивного поля `summary_schedule` в СУЩЕСТВУЮЩЕМ ответе
+    # GET /api/config (DM — честное `dm_no_periodic` без выдуманного
+    # «следующего запуска», группа — локальное время планового запуска).
+    # Route-set/декораторы/пути не менялись (routes-инвентарь f8_baseline
+    # Δ=0), RBAC и маскировка секретов не менялись. Хэш переутверждён
+    # осознанно (L-F11S-1); предыдущий пин:
+    # 9413f30397fd53743c8e11042b4a00a27a5e7d108012dd0d6f67c399c1a4bfb8.
+    "8f582128a2c7c9c8e23fd20b2e0f045236856a8297bc0480aae22607a4ac09a1")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
