@@ -77,6 +77,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_EVR3,
     PREV_DIRECT_L1_PLANNER_EVR4,
     PREV_DIRECT_L1_PLANNER_EVR5,
+    PREV_DIRECT_L1_PLANNER_EVR6,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
@@ -269,6 +270,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
     # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
+        # P0-GOAL-MEDIA (25.11.2026, P0 §2; P0I-GOAL-01/02, P0R-MEDIA-01/02):
+        # байты ревизии EVR6 (поле memory_scope) ведут на ревизию P0GM —
+        # правило 7 различает конечный результат и материал, добавлено одно
+        # необязательное поле `final_goal` в той же схеме и два абзаца
+        # семантики (цель хода, действия с медиа). Только точное совпадение
+        # байт; кастом владельца ступень не трогает.
+        (PREV_DIRECT_L1_PLANNER_EVR6, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         # VMQ-MEM-TIME (§2, уточнение владельца 10.11.2026): байты ревизии
         # EVR5 (поле preserve_source_facts) ведут на ревизию EVR6 — одно
         # необязательное поле `memory_scope` в схеме L1 и абзац его контракта
@@ -601,9 +609,12 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0 (VMQ-MEM-TIME): активный канон EVR6 → байты EVR5 (поле
+        # ступень 0 (P0-GOAL-MEDIA): активный канон P0GM → байты EVR6 (поле
+        # `memory_scope`, прежнее правило 7, без `final_goal` и абзацев цели)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR6),
+        # ступень 0 (VMQ-MEM-TIME): байты EVR6 → байты EVR5 (поле
         # `preserve_source_facts`, без поля `memory_scope`)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR5),
+        (PREV_DIRECT_L1_PLANNER_EVR6, PREV_DIRECT_L1_PLANNER_EVR5),
         # ступень 0 (RLR-03.3): байты EVR5 → байты EVR4 (поля оси
         # поиска, без поля `preserve_source_facts`)
         (PREV_DIRECT_L1_PLANNER_EVR5, PREV_DIRECT_L1_PLANNER_EVR4),

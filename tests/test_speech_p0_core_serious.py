@@ -307,20 +307,23 @@ def test_l1_rule_routes_material_to_research_and_opinion_to_answer():
     """P0-CORRECTIVE §1.1: правило 7 больше не оценивает ОБЪЕКТ просьбы —
     оно разделяет материал («уже сказанное» → research) и quick opinion
     (→ answer без эссе). Детальные пины — test_speech_p0_corrective_l1_route.
-    POST-ASAP5 W2: активные правила — ред. PA5W2 (правило 4 + поиск),
-    маршрутизация 7 не менялась."""
-    rules = cp._DIRECT_L1_PLANNER_RULES_PA5W2
+    P0-GOAL-MEDIA (25.11.2026): активные правила — редакция P0GM; правило 7
+    дополнительно различает конечный результат и материал, ветка «разбор
+    материала» сохранена."""
+    rules = cp._DIRECT_L1_PLANNER_RULES_P0GM
     assert "Просьба оценить человека" not in rules
     assert "response_act=research" in rules
     assert "structure=answer" in rules
+    assert "Разделяй конечный результат и материал для него" in rules
     assert "9. В ответе - ровно одна JSON-строка" in rules
     assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT.count(rules) == 1
-    # прежние правила 1-3 байт-в-байт (правило 4 расширено W2, хвост прежний)
+    # прежние правила 1-3 байт-в-байт (правило 4 расширено W2), правила 8-9
+    # прежние: дельта P0GM — только правило 7
     assert cp._DIRECT_L1_PLANNER_RULES_R3B.split(
         "4. capabilities_needed")[0] == rules.split(
         "4. capabilities_needed")[0]
-    assert rules.split("5. needs_clarification")[1] == \
-        cp._DIRECT_L1_PLANNER_RULES.split("5. needs_clarification")[1]
+    assert rules.split("8. Глубина разбора")[1] == \
+        cp._DIRECT_L1_PLANNER_RULES_PA5W2.split("8. Глубина разбора")[1]
 
 
 def test_l1_frozen_r3b_rules_have_no_routing_rule():

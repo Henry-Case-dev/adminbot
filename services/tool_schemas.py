@@ -321,13 +321,19 @@ TOOL_DOWNLOAD_MEDIA = {
     "type": "function",
     "function": {
         "name": "download_media",
-        "description": ("Download a video by link and send it as a file to "
-                        "this chat. Call on a free-form request "
-                        "'download/fetch/grab <link>'. Source is a link OR the "
-                        "video from the replied message. Fill the quality field "
-                        "ONLY if the user explicitly named a quality; "
-                        "otherwise omit it - the backend will offer a quality "
-                        "menu with buttons."),
+        "description": ("Send a media FILE to this chat: a video from a link "
+                        "or the video/voice/document of the replied message. "
+                        "Call it ONLY when the user asks to get, save or send "
+                        "the file itself. A comment, joke or remark about a "
+                        "video or photo is conversation, not a request for "
+                        "this tool: without an explicit request to get the "
+                        "file, never call it just because the turn replies to "
+                        "media - re-sending the media the user is already "
+                        "looking at is not an answer. It cannot transform "
+                        "media (for a picture edit use edit_image). Fill the "
+                        "quality field ONLY if the user explicitly named a "
+                        "quality; otherwise omit it - the backend will offer "
+                        "a buttons menu."),
         "parameters": {
             "type": "object",
             "properties": {
