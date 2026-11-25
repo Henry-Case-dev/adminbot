@@ -131,11 +131,15 @@ def _config_stub() -> dict:
             value = list(spec.select_options)[0]
         else:
             value = ""
-        eff = dict(demo_eff.get(pg_key) or {})
-        eff.setdefault("status", "active")
-        eff.setdefault("active_consumer", "")
-        eff.setdefault("units", "")
-        eff.setdefault("reason_inactive", "")
+        # URF-R1-F2: eff повторяет реальный контракт /api/config
+        # (status/active_consumer/units/reason_inactive/readonly), чтобы
+        # артефакт покрывал disabled-поля и legacy/no-op-бейджи. demo_eff —
+        # только честные display-кейсы поверх реальной меты.
+        eff = dict(pc.effective_meta(pg_key))
+        demo = demo_eff.get(pg_key)
+        if demo:
+            eff.update(demo)
+        eff.setdefault("readonly", False)
         # Честный 3-статус источника: одна явная global-строка для демо.
         source = "default"
         if pg_key in ("limits.search_max_symbols",
@@ -693,6 +697,17 @@ PROBE_MODES = r"""
   const wrap = document.querySelector('[data-direct-modes]');
   if (!wrap) return {ok: false, why: 'no modes card'};
   const rows = Array.from(document.querySelectorAll('[data-mode-row]'));
+  const modes = {};
+  rows.forEach((r) => {
+    const title = r.getAttribute('data-mode-row');
+    const badge = r.querySelector('[data-mode-badge]');
+    const line = r.querySelector('[data-mode-line]');
+    modes[title] = {
+      badge: badge ? badge.textContent.trim() : '',
+      cls: badge ? badge.className : '',
+      line: line ? line.textContent.trim() : '',
+    };
+  });
   return {
     ok: true,
     titles: rows.map((r) => (r.querySelector('[data-mode-badge]')
@@ -701,6 +716,7 @@ PROBE_MODES = r"""
       const b = r.querySelector('[data-mode-badge]');
       return b ? b.textContent.trim() : '';
     }),
+    modes: modes,
     speechNote: (wrap.textContent || '').indexOf('игнорирует temperature') >= 0,
     // UR-22/UR-RES-07: действующий режим инициативы — из backend-гейта
     // (env-ось), а не из KV-флага.
@@ -920,6 +936,29 @@ def main() -> int:
         if not r.get("ok"):
             failures.append(label + ": modes card missing")
             continue
+        modes = r.get("modes") or {}
+        # URF-R1-F1: чип каждого режима — из фактического состояния. Стаб
+        # отдаёт заводские дефолты (search/memory = off), поэтому «действует»
+        # на выключенном режиме — блокер.
+        expect = {
+            "Интернет для фактов": "выключено",
+            "Память": "выключено",
+            "Инициатива": "заблокировано",
+        }
+        for title, want in expect.items():
+            got = (modes.get(title) or {}).get("badge") or ""
+            if got != want:
+                failures.append(
+                    label + ": chip " + title + " = " + got
+                    + ", ожидалось " + want)
+        for title, mode in modes.items():
+            line = mode.get("line") or ""
+            badge = mode.get("badge") or ""
+            if badge == "действует" and (
+                    "выключен" in line or "выключена" in line):
+                failures.append(
+                    label + ": chip противоречит строке " + title
+                    + ": " + badge + " / " + line)
         line = r.get("initiativeLine") or ""
         # UR-22/UR-RES-07: KV-флаг true, но env-ось OFF → честная блокировка.
         if "аварийный переключатель" not in line:

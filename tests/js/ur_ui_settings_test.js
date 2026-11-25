@@ -222,10 +222,20 @@ const _moduleById = function (id) {
     itemEffLine: methods.itemEffLine,
     moduleModeLine: methods.moduleModeLine,
     moduleModeStatus: methods.moduleModeStatus,
+    modeItemStatus: methods.modeItemStatus,
+    speechModeStatus: methods.speechModeStatus,
   };
   const modes = methods.directModesView.call(modesCtx);
   assert.strictEqual(modes.speech.title, 'Речь и характер',
     'UR-20.2: «Речь и характер» — фактически действующий режим на экране');
+  assert.strictEqual(modes.search.status, 'active',
+    'UR-RES-07: включённый интернет — статус active');
+  assert.strictEqual(modes.speech.status, 'inactive',
+    'UR-21.23: провайдер игнорирует temperature → «не применяется», не «действует»');
+  assert.strictEqual(modes.memory.status, 'off',
+    'URF-R1-F1: чип памяти не «действует» при выключенном конспекте');
+  assert.strictEqual(modes.initiative.status, 'off',
+    'URF-R1-F1: чип инициативы не «действует» при выключенном режиме');
   assert.strictEqual(modes.speech.line
     .indexOf('провайдер игнорирует temperature') >= 0, true,
     'UR-21.23: честная пометка про игнор temperature видна рядом с режимом');
@@ -236,6 +246,46 @@ const _moduleById = function (id) {
   assert.strictEqual(modes.extent.line
     .indexOf('выбирается планировщиком') >= 0, true,
     'UR-20.2: подробность — честно «выбирается L1», настройки нет');
+
+  // URF-R1-F1: чип — из фактического состояния, а НЕ из наличия данных.
+  // Оба режима выключены заводским дефолтом → ни один чип не «действует».
+  const offCtx = Object.assign({}, modesCtx, {
+    configItems: [{
+      key: 'flags.search_enabled', value: false, source: 'default',
+      eff: { status: 'active' },
+    }, {
+      key: 'flags.chat_running_summary_enabled', value: false,
+      source: 'default', eff: { status: 'active' },
+    }, {
+      key: 'limits.chat_temperature_preset_default', value: 'balanced',
+      source: 'default', eff: { status: 'active' },
+    }, {
+      key: 'flags.initiative_enabled', value: false, source: 'default',
+      eff: { status: 'active' },
+    }],
+  });
+  const off = methods.directModesView.call(offCtx);
+  assert.strictEqual(off.search.status, 'off',
+    'URF-R1-F1: «Интернет для фактов» выключен → status off');
+  assert.strictEqual(off.search.line.indexOf('выключен') >= 0, true,
+    'URF-R1-F1: строка и чип интернета согласованы');
+  assert.strictEqual(off.memory.status, 'off',
+    'URF-R1-F1: «Память» выключена → status off');
+  assert.strictEqual(off.memory.line.indexOf('конспект выключен') >= 0, true,
+    'URF-R1-F1: строка и чип памяти согласованы');
+  assert.strictEqual(off.initiative.status, 'off',
+    'URF-R1-F1: «Инициатива» выключена → status off');
+  assert.strictEqual(off.speech.status, 'active',
+    'URF-R1-F1: действующий пресет речи остаётся active');
+  assert.strictEqual(off.extent.status, 'active',
+    'URF-R1-F1: «Подробность» — действующий механизм, без тумблера');
+  // Нет item — «нет данных», а не «действует» из факта наличия карточки.
+  const unknownCtx = Object.assign({}, modesCtx, { configItems: [] });
+  const unknown = methods.directModesView.call(unknownCtx);
+  assert.strictEqual(unknown.search.status, null,
+    'URF-R1-F1: нет данных → status null (чип «нет данных»)');
+  assert.strictEqual(unknown.memory.status, null,
+    'URF-R1-F1: нет данных → status null (память)');
 })();
 
 // ── 4. Диагностика одного ответа (R-ADM.5/UR-20.3) ───────────────────────
@@ -310,6 +360,8 @@ const _moduleById = function (id) {
     itemEffLine: methods.itemEffLine,
     moduleModeLine: methods.moduleModeLine,
     moduleModeStatus: methods.moduleModeStatus,
+    modeItemStatus: methods.modeItemStatus,
+    speechModeStatus: methods.speechModeStatus,
     moduleStateAxes: methods.moduleStateAxes,
     moduleReasonText: methods.moduleReasonText,
     _moduleById: _moduleById,
