@@ -1,0 +1,26 @@
+{
+ "desktop-1440": {
+  "ok": true,
+  "state": "",
+  "text": "Плановый запуск26.11.2026 06:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+  "localText": "26.11.2026 06:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+  "zone": true,
+  "manualNote": true,
+  "hScroll": false,
+  "vw": 1440,
+  "docW": 1440
+ },
+ "mobile-390": {
+  "ok": true,
+  "state": "",
+  "text": "Плановый запуск26.11.2026 06:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+  "localText": "26.11.2026 06:00 · Europe/Moscow · локальное время чата; ручной /summary его не сдвигает",
+  "zone": true,
+  "manualNote": true,
+  "hScroll": false,
+  "vw": 390,
+  "docW": 390
+ },
+ "console_errors": [],
+ "console_error_count": 0
+}
