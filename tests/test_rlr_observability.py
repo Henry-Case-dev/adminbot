@@ -181,7 +181,9 @@ async def test_normal_turn_traces_stages_and_digests_match(monkeypatch, events,
     # ── контекст: trigger/чат/ChatClock/L1/идемпотентный ключ
     ctx = _payload(events, turn_trace.EVENT_CONTEXT)
     assert ctx["flow"] == "direct"
-    assert ctx["trigger"] == "force_keyword"      # реальное значение матрицы
+    # P0 DIRECT-TRIGGER (owner 2026-11-26 §2): код адресации переименован —
+    # ключевое слово запускает контур как `keyword`, а не `force_keyword`.
+    assert ctx["trigger"] == "keyword"            # реальное значение матрицы
     assert ctx["chat_id"] == CHAT_ID
     assert ctx["source_message_id"] == 4242
     assert ctx["clock"], "ChatClock хода не зафиксирован"

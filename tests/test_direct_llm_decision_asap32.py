@@ -2,9 +2,10 @@
 REPLY/REACT/SILENT: один Decision Maker structured output в Stage-1.
 
 §47: выбор действия решает LLM (не алгоритм); §48: алгоритм — только hard
-gates/cheap safety; §49: force → всегда REPLY; §50: SILENT direct → 🗿;
-§51: invalid → детерминированный fallback; §52: call count не растёт
-(второй LLM-call запрещён).
+gates/cheap safety; §49 (P0 owner 2026-11-26 §2/§3): ключевое слово запускает
+контур, но НЕ форсирует REPLY — действие выбирает матрица/LLM; §50: SILENT
+direct → 🗿; §51: invalid → детерминированный fallback; §52: call count не
+растёт (второй LLM-call запрещён).
 """
 from unittest.mock import AsyncMock, MagicMock
 
@@ -193,16 +194,38 @@ class TestDecisionMaker:
         assert bot.set_message_reaction.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_force_keyword_reply_hard_gate(self):
-        """§49/§74: force keyword + модель отвечает текстом → REPLY.
-        Decision Task НЕ вводится (hard gate до Decision Maker)."""
-        llm = _FakeLLM("всё будет хорошо")
+    async def test_keyword_does_not_hard_gate_reply(self):
+        """P0 owner 2026-11-26 §2/§3: «бот, ахахах» — действительное
+        обращение + MSG_LAUGHTER; матрица выбирает REACT, поэтому Decision
+        Task вооружается и исполняет решение модели. Принудительного REPLY по
+        ключевому слову больше нет."""
+        llm = _FakeLLM('{"action":"REACT","reaction":"💀","reason":"ирония"}')
         svc = _make_service(llm)
         bot = _bot()
         msg = _message("бот, ахахах", message_id=2004)
         await svc.handle(bot, msg, msg.from_user)
+        # Матрица не обойдена: решение принимает Decision Maker.
+        user_content = llm.calls[0][1]["content"]
+        assert "<Decision_Task>" in user_content
+        # Выбранная моделью реакция исполнена, текста нет.
+        assert bot.set_message_reaction.await_count >= 1
+        assert bot.send_message.await_count == 0
+        emojis = [r.emoji for r in
+                  bot.set_message_reaction.await_args.kwargs["reaction"]]
+        assert emojis[0] == "💀"
+
+    @pytest.mark.asyncio
+    async def test_explicit_request_still_gets_text_reply(self):
+        """P0 owner 2026-11-26 §3: настоящий пользовательский запрос остаётся
+        текстовым ответом (молчание — не ответ); это правило запроса, а не
+        force-механизм ключевого слова."""
+        llm = _FakeLLM("всё будет хорошо")
+        svc = _make_service(llm)
+        bot = _bot()
+        msg = _message("бот, объясни, почему небо голубое", message_id=2004)
+        await svc.handle(bot, msg, msg.from_user)
         assert bot.send_message.await_count >= 1
-        # force → матрица не доходит до REACT/SILENT: нет Decision_Task
+        assert bot.set_message_reaction.await_count == 0
         user_content = llm.calls[0][1]["content"]
         assert "<Decision_Task>" not in user_content
 
