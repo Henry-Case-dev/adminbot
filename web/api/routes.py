@@ -1283,15 +1283,78 @@ async def get_config_timezones(
     return {"zones": zones, "count": len(zones)}
 
 
-async def _build_time_state(chat_id: int | None, cache: ConfigCache
+async def _summary_schedule_state(chat_id: int | None, snap,
+                                  *, now_utc: datetime.datetime | None = None
+                                  ) -> dict | None:
+    """UR-28.4: следующий плановый запуск саммари в ЛОКАЛЬНОМ времени чата.
+
+    Только читает существующие точки истины: ChatClock-снапшот (один пояс
+    чата), шкалу слотов планировщика и единый per-chat резолвер включённости.
+    Нового пояса/настройки для саммари не создаёт; глобальный скоуп (без
+    чата) честно не имеет «следующего запуска» (None)."""
+    if chat_id is None:
+        return None
+    try:
+        from services.slot_claims import next_due_utc
+        from services.summary_scheduler import (
+            SLOT_TIMES,
+            summary_effective_enabled,
+        )
+    except Exception:      # pragma: no cover - импортная деградация
+        logger.warning("[api] summary schedule imports failed", exc_info=True)
+        return None
+    labels = ["%02d:%02d" % (h, m) for h, m in SLOT_TIMES]
+    schedule = {
+        "available": True,
+        "timezone": snap.timezone,
+        "timezone_source": snap.timezone_source,
+        "slots": labels,
+        "next_run_utc": None,
+        "next_run_local": None,
+        "enabled": None,
+        "enabled_source": "",
+    }
+    try:
+        moment = now_utc or datetime.datetime.now(datetime.timezone.utc)
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=datetime.timezone.utc)
+        moment = moment.astimezone(datetime.timezone.utc)
+        try:
+            enabled, enabled_source = await summary_effective_enabled(chat_id)
+            schedule["enabled"] = bool(enabled)
+            schedule["enabled_source"] = str(enabled_source)
+        except Exception:      # честный unknown, время всё равно считаем
+            logger.warning("[api] summary enabled resolver failed | chat=%s",
+                           chat_id, exc_info=True)
+        nxt = await next_due_utc(chat_id, SLOT_TIMES, now_utc=moment)
+        if nxt is not None:
+            nxt = nxt.astimezone(datetime.timezone.utc)
+            schedule["next_run_utc"] = nxt.isoformat()
+            try:
+                local = nxt.astimezone(zoneinfo.ZoneInfo(snap.timezone))
+            except (zoneinfo.ZoneInfoNotFoundError, ValueError,
+                    FileNotFoundError, KeyError, OSError):
+                local = nxt
+            schedule["next_run_local"] = local.strftime("%d.%m.%Y %H:%M")
+    except Exception:      # pragma: no cover - fail-open к честному статусу
+        logger.warning("[api] summary schedule computation failed | chat=%s",
+                       chat_id, exc_info=True)
+        schedule["available"] = False
+    return schedule
+
+
+async def _build_time_state(chat_id: int | None, cache: ConfigCache,
+                            *, now_utc: datetime.datetime | None = None
                             ) -> dict:
     """Рабочая сборка состояния «Времени» (GET и POST-response, UR-29.2).
 
     Эффективное значение + источник берёт ChatClock (каноническая цепочка
     UR-24.3), локальные часы — ZoneInfo на серверном UTC-инstant; сырое
     per-chat значение (``configured``) — chat_params overrides. Для
-    глобального скоупа ``configured`` — глобальное значение из кэша."""
-    snap = await chat_clock.snapshot(chat_id)
+    глобального скоупа ``configured`` — глобальное значение из кэша.
+    ``now_utc`` — инъекция мгновения (детерминированные проверки/повтор
+    ответа), прод-вызовы не передают."""
+    snap = await chat_clock.snapshot(chat_id, at_utc=now_utc)
     configured = None
     if chat_id is not None:
         try:
@@ -1331,6 +1394,10 @@ async def _build_time_state(chat_id: int | None, cache: ConfigCache
         "weekday": snap.weekday,
         # Явная деградация (UR-24.4) видна UI как отдельный статус.
         "utc_fallback": snap.timezone_source == "utc_fallback",
+        # UR-28.4: следующий плановый запуск саммари — тот же чатовый пояс,
+        # без второй настройки времени; для глобального скоупа None.
+        "summary_schedule": await _summary_schedule_state(
+            chat_id, snap, now_utc=now_utc),
     }
 
 
