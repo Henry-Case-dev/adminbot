@@ -1249,6 +1249,30 @@ def semantic_stage_report(payload: dict, counters: dict | None = None) -> dict:
     }
 
 
+def _semantic_chat_deferred(payload: dict, chat_id, *, now: int) -> bool:
+    """Чат на bounded backoff ПРЯМО СЕЙЧАС (tail retry или fresh-полоса).
+
+    EXP-E-LAG-SCHED: единственный источник правды для «строки этого чата
+    можно планировать сейчас». Готовая fresh-полоса планируется независимо
+    от tail backoff (`_semantic_chat_order(respect_retry=False)`), поэтому она
+    делает чат actionable — иначе свежие события ждали бы tail retry."""
+    key = str(int(chat_id))
+    fresh = payload.get(SEMANTIC_FRESH_KEY)
+    lane = fresh.get(key) if isinstance(fresh, dict) else None
+    if isinstance(lane, dict):
+        try:
+            if int(lane.get("retry_at") or 0) <= int(now):
+                return False
+        except (TypeError, ValueError):
+            return False
+    retry = payload.get(SEMANTIC_RETRY_KEY)
+    try:
+        info = retry.get(key) if isinstance(retry, dict) else None
+        return int((info or {}).get("retry_at") or 0) > int(now)
+    except (TypeError, ValueError, AttributeError):
+        return False
+
+
 def semantic_progress_snapshot(payload: dict, *,
                                now: int | None = None) -> dict:
     """Честный снимок throughput/lag семантического контура (EXP-FIX-02).
@@ -1298,6 +1322,7 @@ def semantic_progress_snapshot(payload: dict, *,
                 actionable_chats += 1
     deferred = 0
     next_retry_at = 0
+    retry_due = 0
     for info in retry_map.values():
         try:
             retry_at = int((info or {}).get("retry_at") or 0)
@@ -1307,6 +1332,26 @@ def semantic_progress_snapshot(payload: dict, *,
             deferred += 1
             if not next_retry_at or retry_at < next_retry_at:
                 next_retry_at = retry_at
+        else:
+            # EXP-E-LAG-SCHED: истёкший retry_at — это ГОТОВНОСТЬ к повтору,
+            # а не «нет работы». Раньше такие записи просто выпадали из
+            # next_retry_at, и due-гейт молча возвращал not_due (P0 25.11.2026).
+            retry_due += 1
+    lanes_raw = payload.get(SEMANTIC_FRESH_KEY)
+    lanes = lanes_raw if isinstance(lanes_raw, dict) else {}
+    fresh_deferred = 0
+    fresh_ready = 0
+    for lane in lanes.values():
+        if not isinstance(lane, dict):
+            continue
+        try:
+            lane_retry = int(lane.get("retry_at") or 0)
+        except (TypeError, ValueError):
+            lane_retry = 0
+        if lane_retry > now:
+            fresh_deferred += 1
+        else:
+            fresh_ready += 1
     snapshot = {
         "backlog_rows": rows,
         "backlog_chats": chats,
@@ -1326,6 +1371,11 @@ def semantic_progress_snapshot(payload: dict, *,
         # Планировщик видит его, даже если actionable/pending уже 0 — иначе
         # один retry ждал бы суточной каденции.
         "next_retry_at": int(next_retry_at),
+        # EXP-E-LAG-SCHED: retry, срок которого УЖЕ наступил (включая
+        # retry_at=0). Это планируемый повтор, а не «нет работы».
+        "retry_due_chats": int(retry_due),
+        "fresh_deferred_chats": int(fresh_deferred),
+        "fresh_ready_chats": int(fresh_ready),
         "watermark": int(payload.get(SEMANTIC_WATERMARK_KEY) or 0),
         # E-LAG/E-TRUNC: состояние полос/отказов видно числами (R17), без
         # подмены lag нулём и без содержимого сообщений.
@@ -1360,6 +1410,17 @@ def semantic_progress_snapshot(payload: dict, *,
             "lag_seconds": lag_seconds,
             "lag_seconds_source": lag_seconds_source,
         })
+        by_chat_raw = lag.get("rows_by_chat")
+        if isinstance(by_chat_raw, dict) and by_chat_raw:
+            by_chat: dict = {}
+            for chat_key, value in by_chat_raw.items():
+                try:
+                    count = max(0, int(value or 0))
+                except (TypeError, ValueError):
+                    continue
+                if count:
+                    by_chat[str(chat_key)] = count
+            snapshot["lag_rows_by_chat"] = by_chat
     else:
         # Замер не удался: не выдаём ноль за истину — источник явно pending
         # (или unknown, когда и счётчик не знает возраста).
@@ -1374,11 +1435,45 @@ def semantic_progress_snapshot(payload: dict, *,
             "lag_seconds": (now - oldest) if oldest else None,
             "lag_seconds_source": "pending" if oldest else "unknown",
         })
+    # EXP-E-LAG-SCHED: готовность ИЗМЕРЕННОГО лага к проходу ПРЯМО СЕЙЧАС.
+    # `lag_actionable_rows` посчитан в конце прошлого прохода и не
+    # переоценивается, когда истекает retry_at: на проде 25.11.2026 lag
+    # 2 033 541 при actionable_rows=0 и истёкшем retry молча не планировал
+    # проход. Здесь строки по чатам пересчитываются по durable per-chat
+    # замеру и ТЕКУЩИМ backoff-состояниям (tail retry / fresh lane).
+    by_chat = snapshot.get("lag_rows_by_chat")
+    ready_rows = 0
+    ready_chats = 0
+    ready_source = "none"
+    if isinstance(by_chat, dict) and by_chat:
+        for chat_key, count in by_chat.items():
+            if not _semantic_chat_deferred(payload, chat_key, now=now):
+                ready_rows += int(count)
+                ready_chats += 1
+        ready_source = "rows_by_chat"
+    elif int(snapshot.get("lag_rows") or 0) > 0:
+        # Payload, записанный до этого фикса (или замер без разбивки по
+        # чатам): точного распределения строк нет. Планируем, если прошлый
+        # замер видел actionable-чаты ЛИБО срок какого-то retry уже наступил;
+        # иначе ждём bounded backoff и не крутим пустые проходы.
+        if int(snapshot.get("lag_actionable_rows") or 0) > 0:
+            ready_rows = int(snapshot.get("lag_rows") or 0)
+            ready_chats = max(1, int(snapshot.get("lag_actionable_chats") or 1))
+            ready_source = "legacy_actionable"
+        elif retry_due:
+            ready_rows = int(snapshot.get("lag_rows") or 0)
+            ready_chats = max(1, int(snapshot.get("lag_chats") or 1))
+            ready_source = "legacy_retry_due"
+    snapshot.update({
+        "lag_ready_rows": int(ready_rows),
+        "lag_ready_chats": int(ready_chats),
+        "lag_ready_source": ready_source,
+    })
     return snapshot
 
 
 async def semantic_backlog(db) -> dict:
-    """Накопленный бэклог семантики из последнего терминального review-job.
+    """Планируемый бэклог семантики из последнего терминального review-job.
 
     Fail-open (нет строки/битый payload) → нули: отсутствие данных не
     превращается в выдуманный бэклог. Возвращаются ПЛАНИРУЕМЫЕ строки/чаты
@@ -1387,7 +1482,20 @@ async def semantic_backlog(db) -> dict:
     SXR-I2: учитывается и измеренное расстояние курсора до данных, иначе
     после обнуления счётчика `semantic_pending` планировщик перестал бы
     ставить проходы при реальном backlog. `interrupted` (рестарт процесса)
-    — тоже валидный носитель checkpoint: без него новый job начал бы с нуля."""
+    — тоже валидный носитель checkpoint: без него новый job начал бы с нуля.
+
+    EXP-E-LAG-SCHED (P0 25.11.2026): измеренный лаг — самостоятельный вход
+    планировщика. Опираться на `lag_actionable_rows` нельзя: он посчитан в
+    конце прошлого прохода и НЕ переоценивается, когда истекает `retry_at`.
+    На проде это дало lag 2 033 541 при `semantic_pending=0`,
+    `lag_actionable_rows=0` и истёкшем retry → молчаливый `not_due` на 17.5 ч.
+    Теперь готовность лага пересчитывается по per-chat замеру и текущим
+    backoff-состояниям (`semantic_progress_snapshot.lag_ready_rows`), и
+    наступивший срок retry даёт проход. Возвращаемая `reason` — код причины
+    для наблюдаемого лога тика (не молчание)."""
+    empty = {"rows": 0, "chats": 0, "reason": "no_data", "pending_rows": 0,
+             "lag_rows": 0, "lag_ready_rows": 0, "retry_due_chats": 0,
+             "next_retry_at": 0}
     try:
         cursor = await db.db.execute(
             "SELECT payload FROM task_jobs WHERE kind = ? AND status IN "
@@ -1396,21 +1504,43 @@ async def semantic_backlog(db) -> dict:
             "rowid DESC LIMIT 1", (REVIEW_JOB_KIND,))
         row = await cursor.fetchone()
     except Exception:
-        return {"rows": 0, "chats": 0}
+        return dict(empty)
     if row is None:
-        return {"rows": 0, "chats": 0}
+        return dict(empty)
     snapshot = semantic_progress_snapshot(_parse_json_dict(row["payload"]))
     rows = max(int(snapshot.get("actionable_rows") or 0),
                int(snapshot.get("lag_actionable_rows") or 0))
     chats = max(int(snapshot.get("actionable_chats") or 0),
                 int(snapshot.get("lag_actionable_chats") or 0))
-    if not rows and not chats:
-        # Отложенный повтор (truncated/parse/read) не должен ждать суточной
-        # каденции: когда retry_at наступил, планировщик обязан дать проход.
-        due_at = int(snapshot.get("next_retry_at") or 0)
-        if due_at and due_at <= int(time.time()):
-            return {"rows": 1, "chats": 1}
-    return {"rows": rows, "chats": chats}
+    lag_rows = max(0, int(snapshot.get("lag_rows") or 0))
+    ready_rows = max(0, int(snapshot.get("lag_ready_rows") or 0))
+    ready_chats = max(0, int(snapshot.get("lag_ready_chats") or 0))
+    retry_due = max(0, int(snapshot.get("retry_due_chats") or 0))
+    measured = str(snapshot.get("lag_source") or "") == "cursor_distance"
+    out = {"pending_rows": rows, "lag_rows": lag_rows,
+           "lag_ready_rows": ready_rows, "retry_due_chats": retry_due,
+           "next_retry_at": int(snapshot.get("next_retry_at") or 0)}
+    if rows or chats:
+        return {**out, "rows": rows, "chats": chats, "reason": "pending"}
+    if ready_rows > 0:
+        # Готовые строки измеренного лага: проход ставится не по каденции,
+        # а по фактическому отставанию (bounded-пределы прохода не меняются).
+        reason = ("retry_due"
+                  if retry_due
+                  and not int(snapshot.get("lag_actionable_rows") or 0)
+                  else "measured_lag")
+        return {**out, "rows": ready_rows, "chats": max(1, ready_chats),
+                "reason": reason}
+    if retry_due > 0:
+        # Срок отложенного повтора наступил: pass обязан быть разрешён даже
+        # если прошлый снимок не видел actionable-строк (P0 25.11.2026).
+        return {**out, "rows": 1, "chats": 1, "reason": "retry_due"}
+    if lag_rows > 0:
+        # Измеренный лаг есть, но все отстающие чаты на bounded backoff —
+        # пустые проходы каждый тик не создаём (пределы retry не меняются).
+        return {**out, "rows": 0, "chats": 0, "reason": "deferred"}
+    return {**out, "rows": 0, "chats": 0,
+            "reason": "no_lag" if measured else "lag_unmeasured"}
 
 
 async def enqueue_experience_review(db, *, max_attempts: int = 3
@@ -1475,17 +1605,34 @@ async def last_completed_review_at(db) -> int | None:
     return int(row["last"])
 
 
+def _log_tick_decision(status: str, reason: str, **numbers) -> None:
+    """Наблюдаемая причина решения тика (EXP-E-LAG-SCHED §3).
+
+    Раньше `not_due` был молчаливым: в журнале нельзя было отличить «работы
+    нет» от «проход не запланирован из-за устаревшего снимка счётчиков»
+    (прод 25.11.2026 — 17.5 ч без прохода при lag 2 033 541). Одна строка на
+    тик с кодом причины и числами (R17: только числа/коды) делает решение
+    проверяемым; отдельной таблицы/флага/счётчика нет."""
+    detail = " ".join(f"{key}={value}" for key, value in numbers.items())
+    logger.info("[mca16] experience review tick | status=%s | reason=%s | %s",
+                status, reason, detail)
+
+
 async def tick_experience_review(db, *, now: int | None = None,
                                  llm=None) -> str:
     """Один тик существующего расписания обслуживания (MemoryMaintenance).
 
     Приоритет: уже стоящая в очереди задача → выполнить; иначе — due по
-    каденции → enqueue + выполнить. Возврат — статус job или ``disabled``/
-    ``not_due``/``running`` (честные коды, без выдуманных успехов).
+    каденции/измеренному лагу/наступившему retry → enqueue + выполнить.
+    Возврат — статус job или ``disabled``/``not_due``/``running``/``error``
+    (честные коды, без выдуманных успехов). Каждое решение пишется одной
+    строкой журнала с кодом причины (``_log_tick_decision``), чтобы отсутствие
+    прохода было объяснимо без чтения кода (EXP-E-LAG-SCHED §3).
     B02 (v6.3): ``llm`` — существующий клиент (DI; интерфейс ``generate``);
     None → семантическая стадия честно недоступна (детерминированный контур
     работает, курсор семантики не двигается — retry при появлении клиента)."""
     if not review_enabled():
+        _log_tick_decision("disabled", "gate_off")
         return "disabled"
     now = int(time.time()) if now is None else int(now)
     try:
@@ -1493,11 +1640,15 @@ async def tick_experience_review(db, *, now: int | None = None,
     except Exception:
         logger.warning("[mca16] review queue read failed — skip tick",
                        exc_info=True)
+        _log_tick_decision("error", "queue_read_failed")
         return "error"
     if active is not None:
         if str(active.get("status")) == JOB_RUNNING:
+            _log_tick_decision("running", "singleflight",
+                               job_id=str(active.get("job_id") or ""))
             return "running"                     # singleflight: не дублируем
         job_id = str(active.get("job_id") or "")
+        _log_tick_decision("due", "active_queued", job_id=job_id)
     else:
         interval = CADENCE_SECONDS[review_cadence()]
         try:
@@ -1509,18 +1660,39 @@ async def tick_experience_review(db, *, now: int | None = None,
         # При накопленном бэклоге следующий ОГРАНИЧЕННЫЙ проход планируется
         # сразу (не ждём суточной каденции); объём прохода ограничивают
         # `semantic_drain_limits()` внутри job. Второго воркера нет.
-        backlog = {"rows": 0, "chats": 0}
+        # EXP-E-LAG-SCHED: «бэклог» включает ИЗМЕРЕННЫЙ лаг и наступивший
+        # retry, а не только transient `semantic_pending`.
+        backlog = {"rows": 0, "chats": 0, "reason": "cadence",
+                   "lag_rows": 0, "lag_ready_rows": 0, "retry_due_chats": 0,
+                   "next_retry_at": 0}
         if not plan_review_due:
             backlog = await semantic_backlog(db)
         if not plan_review_due and int(backlog.get("rows") or 0) <= 0 \
                 and int(backlog.get("chats") or 0) <= 0:
+            _log_tick_decision(
+                "not_due", str(backlog.get("reason") or "no_lag"),
+                pending_rows=int(backlog.get("pending_rows") or 0),
+                lag_rows=int(backlog.get("lag_rows") or 0),
+                lag_ready_rows=int(backlog.get("lag_ready_rows") or 0),
+                retry_due=int(backlog.get("retry_due_chats") or 0),
+                next_retry_at=int(backlog.get("next_retry_at") or 0))
             return "not_due"
+        _log_tick_decision(
+            "due",
+            "cadence" if plan_review_due else str(
+                backlog.get("reason") or "backlog"),
+            rows=int(backlog.get("rows") or 0),
+            lag_rows=int(backlog.get("lag_rows") or 0),
+            lag_ready_rows=int(backlog.get("lag_ready_rows") or 0),
+            retry_due=int(backlog.get("retry_due_chats") or 0))
         try:
             job_id = await enqueue_experience_review(db) or ""
         except Exception:
             logger.warning("[mca16] review enqueue failed", exc_info=True)
+            _log_tick_decision("error", "enqueue_failed")
             return "error"
         if not job_id:
+            _log_tick_decision("disabled", "enqueue_declined")
             return "disabled"
     return await ExperienceReviewRunner(db, llm=llm).run(job_id)
 
@@ -2554,6 +2726,18 @@ class ExperienceReviewRunner:
         counters = payload["counters"]
         if self._llm is None:
             # Честная недоступность: скан/курсоры не двигаются (retry позже).
+            # EXP-E-LAG-SCHED: уборка устаревшего retry не требует LLM-бюджета
+            # (иначе истёкший retry без работы планировал бы пустой проход).
+            try:
+                behind_now = await self._semantic_chats_behind(payload)
+            except Exception:
+                behind_now = {}
+            pruned = self._prune_stale_semantic_retries(
+                payload, behind=behind_now, now=now)
+            if pruned:
+                counters["semantic_stale_retries_removed"] = int(
+                    counters.get("semantic_stale_retries_removed") or 0
+                ) + pruned
             counters["semantic_llm_unavailable"] = int(
                 counters.get("semantic_llm_unavailable") or 0) + 1
             return
@@ -2583,6 +2767,15 @@ class ExperienceReviewRunner:
         # счётчик pending успел обнулиться (иначе дренаж останавливался бы
         # на несогласованном счётчике, а не на фактах).
         behind = await self._semantic_chats_behind(payload)
+        # EXP-E-LAG-SCHED: убрать retry-состояние, за которым больше нет
+        # работы (курсор догнал данные, pending пуст). Истёкший retry_at
+        # теперь сам разрешает проход; без уборки оставшаяся запись давала бы
+        # пустой проход каждый тик.
+        pruned = self._prune_stale_semantic_retries(
+            payload, behind=behind, now=now)
+        if pruned:
+            counters["semantic_stale_retries_removed"] = int(
+                counters.get("semantic_stale_retries_removed") or 0) + pruned
         self._activate_semantic_fresh_lanes(
             payload, behind, counters=counters, now=now)
         blocked: set[int] = set()      # неуспешные в ЭТОМ прогоне чаты
@@ -2640,6 +2833,9 @@ class ExperienceReviewRunner:
                     counters["semantic_chats_disabled"] = int(
                         counters.get("semantic_chats_disabled") or 0) + 1
                     behind.pop(cid, None)
+                    # EXP-E-LAG-SCHED: выключенному чату backoff не нужен —
+                    # иначе истёкший retry планировал бы пустые проходы.
+                    self._clear_semantic_retry(payload, cid)
                     advanced_any = True
                     continue
                 if state == "empty":
@@ -3571,6 +3767,10 @@ class ExperienceReviewRunner:
             "worst_chat": None, "worst_rows": 0, "worst_cursor": 0,
             "worst_max_id": 0, "measured_chats": 0, "failed_chats": 0,
             "partial": False, "oldest_ts": 0, "age_seconds": None,
+            # EXP-E-LAG-SCHED: строки по чатам — чтобы due-гейт мог заново
+            # оценить готовность, когда истекает retry_at, не делая новый
+            # COUNT и не подменяя замер счётчиком pending.
+            "rows_by_chat": {},
         }
         try:
             behind = await self._semantic_chats_behind(payload)
@@ -3578,14 +3778,9 @@ class ExperienceReviewRunner:
             logger.warning("[mca16] semantic lag measure failed",
                            exc_info=True)
             return result
-        retry = payload.get(SEMANTIC_RETRY_KEY) or {}
-
         def _deferred(chat_id: int) -> bool:
-            try:
-                return int((retry.get(str(chat_id)) or {}).get("retry_at")
-                           or 0) > now
-            except (TypeError, ValueError):
-                return False
+            # Единый источник правды: tail retry или fresh-полоса.
+            return _semantic_chat_deferred(payload, chat_id, now=now)
 
         def _cursor_of(chat_id: int) -> int:
             try:
@@ -3604,6 +3799,7 @@ class ExperienceReviewRunner:
         failed = 0
         oldest_ts = 0
         worst: tuple[int, int, int, int] | None = None
+        rows_by_chat: dict[str, int] = {}
         for chat_id, max_id in ordered[:int(SEMANTIC_LAG_MEASURE_MAX_CHATS)]:
             cursor_pos = _cursor_of(chat_id)
             lane = self._semantic_fresh_lane(payload, chat_id)
@@ -3632,6 +3828,7 @@ class ExperienceReviewRunner:
                 continue
             measured += 1
             rows_total += count
+            rows_by_chat[str(int(chat_id))] = int(count)
             if chat_oldest > 0 and (not oldest_ts or chat_oldest < oldest_ts):
                 oldest_ts = int(chat_oldest)
             if worst is None or count > worst[1]:
@@ -3670,6 +3867,8 @@ class ExperienceReviewRunner:
             "partial": bool(len(behind) > measured),
             "oldest_ts": int(oldest_ts),
             "age_seconds": age_seconds,
+            "rows_by_chat": {key: int(value)
+                             for key, value in rows_by_chat.items()},
         })
         if worst is not None:
             result.update({"worst_chat": worst[0], "worst_rows": worst[1],
@@ -3738,6 +3937,46 @@ class ExperienceReviewRunner:
     def _clear_semantic_retry(self, payload: dict, chat_id) -> None:
         retry = payload.setdefault(SEMANTIC_RETRY_KEY, {})
         retry.pop(str(int(chat_id)), None)
+
+    def _prune_stale_semantic_retries(self, payload: dict, *, behind: dict,
+                                      now: int) -> int:
+        """Убрать retry-запись, за которой больше нет работы.
+
+        EXP-E-LAG-SCHED: наступивший `retry_at` теперь сам разрешает проход,
+        поэтому запись, оставшаяся после дренажа (или выключенного чата), без
+        уборки планировала бы пустой проход каждый тик. Удаляется только
+        истёкшая запись, чей чат догнал данные (`behind` не содержит его) и
+        не имеет pending: состояние backoff для такой записи не нужно.
+        Текущий и незавершённый retry (срок в будущем) не трогается."""
+        retry = payload.get(SEMANTIC_RETRY_KEY)
+        if not isinstance(retry, dict) or not retry:
+            return 0
+        pending = payload.get(SEMANTIC_PENDING_KEY)
+        pending = pending if isinstance(pending, dict) else {}
+        removed = 0
+        for key in list(retry):
+            try:
+                cid = int(key)
+            except (TypeError, ValueError):
+                continue
+            info = retry.get(key)
+            try:
+                retry_at = int((info or {}).get("retry_at") or 0)
+            except (TypeError, ValueError, AttributeError):
+                retry_at = 0
+            if retry_at > now:
+                continue
+            if cid in (behind or {}):
+                continue
+            try:
+                pending_count = int(pending.get(key) or 0)
+            except (TypeError, ValueError):
+                pending_count = 0
+            if pending_count > 0:
+                continue
+            retry.pop(key, None)
+            removed += 1
+        return removed
 
     def _reject_semantic(self, counters: dict, reason: str) -> None:
         counters["semantic_rejected"] = int(
