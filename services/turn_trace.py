@@ -520,12 +520,26 @@ def _emit(trace: TurnTrace, event_name: str, *, stage: str, outcome: str,
                      outcome=outcome, payload=payload)
 
 
-def emit_context(trace: TurnTrace, *, outcome: str = "success") -> None:
+def emit_context(trace: TurnTrace, *, outcome: str = "success") -> dict | None:
+    """Эмитировать контекст хода; флаг закрывается ТОЛЬКО принятым событием.
+
+    UR-RES-01 (F-2): исход обязан быть из словаря mca-13 (`ALL_OUTCOMES`),
+    иначе `build_event` вернёт `None`. Раньше `_context_emitted` ставился ДО
+    эмиссии, и терминальный контекст молча терялся на путях с недопустимым
+    исходом. Теперь при отказе контракта флаг остаётся открытым (закрытие
+    хода повторит эмиссию валидным исходом), а отказ виден в логе и в
+    возвращаемом значении. Возврат — принятое событие или `None`."""
     if trace is None or trace._context_emitted:
-        return
+        return None
+    built = _emit(trace, EVENT_CONTEXT, stage="turn_context",
+                  outcome=outcome, payload=trace.context_payload())
+    if built is None:
+        logger.warning(
+            "[turn_trace] context event not accepted by mca-13 | outcome=%s"
+            " | chat=%s", outcome, trace.chat_id)
+        return None
     trace._context_emitted = True
-    _emit(trace, EVENT_CONTEXT, stage="turn_context", outcome=outcome,
-          payload=trace.context_payload())
+    return built
 
 
 def emit_writer(trace: TurnTrace, *, outcome: str = "success") -> None:

@@ -157,6 +157,8 @@ class TestUrRes01SameStagesOnBothTraces:
         await _run_direct_turn(monkeypatch)
         direct_events = _context_events(captured)
         assert direct_events, "прямой ход не дал трассы хода"
+        assert direct_events[-1].get("built") is not None, (
+            "событие контекста прямого хода не принято mca-13")
         direct = _payload(direct_events[-1])
         assert direct["flow"] == tt.FLOW_DIRECT
         assert direct["l1"]["action"] == "reply"
@@ -169,6 +171,8 @@ class TestUrRes01SameStagesOnBothTraces:
         assert initiative_events, (
             "инициативный ход не дал трассы хода: этапы L1 -> tools -> "
             "evidence на нём не наблюдаемы")
+        assert initiative_events[-1].get("built") is not None, (
+            "терминальный контекст инициативы не принят mca-13")
         initiative = _payload(initiative_events[-1])
         # Тот же набор этапов, что у прямого хода.
         assert initiative["flow"] == tt.FLOW_INITIATIVE
@@ -194,6 +198,8 @@ class TestUrRes01SameStagesOnBothTraces:
         assert plan is not None and getattr(plan, "action", "") == "silent"
         events = _context_events(captured)
         assert events, "молчаливый инициативный ход не оставил трассы"
+        assert events[-1].get("built") is not None, (
+            "контекст молчаливого хода не принят mca-13")
         payload = _payload(events[-1])
         assert payload["l1"]["action"] == "silent"
         assert payload["tools"] == []
@@ -621,17 +627,26 @@ def _trace_events(captured, correlation_id):
 
 
 def _chain_view(captured, correlation_id):
-    """Проекция той же трассы ТЕМ ЖЕ кодом Inspector'а (web/api/routes):
-    проверяется наблюдаемый результат, а не факт вызова note_*."""
+    """Проекция той же трассы ТЕМ ЖЕ кодом Inspector'а (web/api/routes).
+
+    UR-RES-01/F2: проверяется ПРИНЯТОЕ событие mca-13 (`built is not None`),
+    а не перехваченные kwargs: событие с недопустимым исходом контракт
+    отбрасывает, и «зелёный» тест по kwargs скрывал бы потерю терминального
+    контекста. Непринятое событие трассы — падение теста."""
     from web.api import routes as _routes
 
+    events = _trace_events(captured, correlation_id)
+    dropped = [{"event": e["event_name"], "outcome": e.get("outcome")}
+               for e in events if e.get("built") is None]
+    assert not dropped, (
+        f"mca-13 не принял события трассы {correlation_id}: {dropped}")
     rows = [{"event_name": e["event_name"],
              "usage_json": e.get("usage_json"),
              "outcome": e.get("outcome"),
              "stage": e.get("stage"),
              "trace_id": e.get("trace_id"),
              "ts": e.get("ts") or 0}
-            for e in _trace_events(captured, correlation_id)]
+            for e in events]
     return _routes._turn_chain_view(rows)
 
 
@@ -679,14 +694,16 @@ class TestUrRes01DeliveryStage:
         # payload несёт фактический исход терминальной стадии.
         assert view["delivery"]["outcome"] != "success", view["delivery"]
         assert view["delivery"]["delivery"]["reason"] == "initiative_error"
-        assert view["delivery"]["delivery"]["outcome"] == "error"
+        assert view["delivery"]["delivery"]["outcome"] == "failed"
+        # F-2: терминальный контекст ПЕРСИСТИТСЯ (built is not None внутри
+        # `_chain_view`) и его исход — из словаря mca-13.
         assert view["stages"]["context"] is True
-        assert view["context"]["outcome"] == "error"
+        assert view["context"]["outcome"] == "failed"
 
     @pytest.mark.asyncio
     async def test_react_branch_has_own_terminal_stage(
             self, captured, monkeypatch, tmp_path):
-        """Ветка реакции — тоже доставка: исход `reacted` и канал `react`,
+        """Ветка реакции — тоже доставка: успешный ход и канал `react`,
         а не заранее закрытый `skipped`."""
         from services.direct_l1 import L1Plan
 
@@ -720,7 +737,62 @@ class TestUrRes01DeliveryStage:
 
         view = _chain_view(captured, "corr-f1-react")
         assert view["stages"]["delivery"] is True, view
+        assert view["delivery"]["outcome"] == "success"
         assert view["delivery"]["delivery"]["channel"] == "react"
         assert view["delivery"]["delivery"]["reason"] == "l1_react"
         assert view["stages"]["context"] is True
-        assert view["context"]["outcome"] == "reacted"
+        assert view["context"]["outcome"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_refused_reaction_is_not_delivery_success(
+            self, captured, monkeypatch, tmp_path):
+        """F-1: отказ реакции (`forbidden`/`rate_limited`/`unknown`) — не
+        доставка. Успех только по `REACTION_OK`; отказ даёт честный stop с
+        фактическим кодом исхода, а не `delivery:success`."""
+        from services.direct_l1 import L1Plan
+
+        db = await _make_db(tmp_path, "ur_g_react_refused.db")
+        cursor = await db.db.execute(
+            "INSERT INTO smart_messages (user_id, chat_id, text, timestamp, "
+            "media_type, author_name, is_forward, tg_message_id) "
+            "VALUES (?, ?, ?, ?, 'text', 'addr', 0, ?)",
+            (10, CHAT, "цель реакции", int(time.time()) - 30, 7901))
+        await db.db.commit()
+        target_row_id = cursor.lastrowid
+        reacts: list = []
+
+        async def _react_forbidden(bot, chat_id, message_id, *, reaction=None,
+                                   reason_code=None):
+            reacts.append((chat_id, message_id, reaction, reason_code))
+            return "forbidden"
+
+        monkeypatch.setattr(dcs, "react_moai", _react_forbidden)
+        plan = L1Plan(action="react", reaction="👍", delivery="react",
+                      target_message_id=target_row_id, confidence=0.9,
+                      confidence_bucket="high", source="llm")
+        try:
+            result = await _publish_initiative_turn(
+                db, monkeypatch, correlation_id="corr-f1-react-refused",
+                tg_id=7803, plan=plan, target_row_id=target_row_id)
+            assert result["status"] == "silent", result
+            assert result["reason_code"] == "forbidden", result
+            assert result["reaction_outcome"] == "forbidden", result
+        finally:
+            await db.close()
+        assert reacts and reacts[0][1] == 7901, reacts
+
+        view = _chain_view(captured, "corr-f1-react-refused")
+        # Доставка зафиксирована, но НЕ как успех: причина — код отказа.
+        assert view["stages"]["delivery"] is True, view
+        assert view["delivery"]["outcome"] != "success", view["delivery"]
+        assert view["delivery"]["delivery"]["outcome"] == "silent"
+        assert view["delivery"]["delivery"]["reason"] == "forbidden"
+        # Контекст терминальный и принят контрактом (не потерян на отказе).
+        assert view["stages"]["context"] is True
+        assert view["context"]["outcome"] == "silent"
+        # Ни одного заявленного успеха реакции в durable-буфере.
+        assert not any(
+            (e.get("usage_json") or {}).get("delivery", {}).get("outcome")
+            == "success"
+            for e in _trace_events(captured, "corr-f1-react-refused")), (
+                "отказ реакции не имеет права давать delivery success")
