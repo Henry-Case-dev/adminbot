@@ -17540,7 +17540,12 @@ class DirectChatService:
             cache_key = (int(chat_id), str(query or ""))
             extra_rows = None
             period_meta: dict = {}
-            if isinstance(reuse, dict) and reuse.get("key") == cache_key:
+            # P0 memory-relevance (review r2, F3): пул переиспользуется только
+            # для ТОГО ЖЕ автора. Пул `auto` собран без автора (до плана), и
+            # его переиспользование в plan-пересборке оставляло автора вне
+            # retrieval — ровно в пересборке ради автора.
+            if isinstance(reuse, dict) and reuse.get("key") == cache_key \
+                    and reuse.get("author") == author_uid:
                 extra_rows = list(reuse.get("rows") or ())
                 period_meta = dict(reuse.get("meta") or {})
                 period_reused = 1
@@ -17589,6 +17594,7 @@ class DirectChatService:
                 # Сырой пул (до порога §2: порог зависит от политики) — на
                 # случай пересборки с политикой плана.
                 self._rag_period_pool = {"key": cache_key,
+                                         "author": author_uid,
                                          "rows": list(extra_rows),
                                          "meta": dict(period_meta)}
             accepted, selection = _mca_rc.select_period_rows(
@@ -18249,12 +18255,12 @@ class DirectChatService:
         facts = [item for item in facts
                  if not _prov.is_self_referential_origin(item[0])]
         if not facts:
-            return originals_text, ""
+            return self._wrap_rag_block(originals_text), ""
         # F2: дубли конспекта/verbatim-хвоста фона из RAG-блока исключаются
         # (никогда не бросает — fail-open внутри).
         kept = dedup_rag_vs_global(facts, global_ctx)
         if not kept:
-            return originals_text, ""
+            return self._wrap_rag_block(originals_text), ""
         # F4: флаг off → 0 лишних LLM-вызовов (ранний выход ДО сериализации).
         # Гейт читается per-chat цепочкой (override чата → глобальный hot →
         # env/фабричный дефолт) — как остальные параметры этого сервиса:
@@ -18314,7 +18320,7 @@ class DirectChatService:
                     "direct: rag rerank failed — original facts | chat=%s",
                     chat_id, exc_info=True)
         if not kept:
-            return originals_text, ""
+            return self._wrap_rag_block(originals_text), ""
         # VMQ-MEM next stage (§4, 12.11.2026): `period_kept` считается по
         # ФАКТИЧЕСКИ показанному срезу (`kept` ∩ периодные ключи) — а не внутри
         # ветки реранка. Иначе при выключенном реранке реально отрисованная
@@ -18359,7 +18365,7 @@ class DirectChatService:
                                     origin_labels=True,
                                     projection=projection)
         if not content:
-            return originals_text, ""
+            return self._wrap_rag_block(originals_text), ""
         # P0 memory-relevance (2026-11-25): оригиналы автора за период идут
         # ПЕРЕД фактами и остаются отдельным помеченным слоем: факты — это
         # выводы/пересказ, оригиналы — дословная речь (для манеры и стиля).
@@ -18472,7 +18478,25 @@ class DirectChatService:
                 out_memory["rows"] = list(order_rag_facts_asc(kept))
             except Exception:      # pragma: no cover - наблюдение не рвёт блок
                 pass
-        return f"<RAG_Memory>\n{content}\n</RAG_Memory>", hint
+        return self._wrap_rag_block(content), hint
+
+    @staticmethod
+    def _wrap_rag_block(body: str) -> str:
+        """Тело RAG-блока → `<RAG_Memory>` (идемпотентно, пустое → "").
+
+        P0 memory-relevance (review r2, F3): фактовый путь всегда отдавал
+        обёрнутый блок, а возвраты «только оригиналы» (`originals_text` без
+        фактов) — голый `<Memory_Originals>`. Планировщик (`_apply_plan_memory_scope`)
+        находит блок по префиксу `<RAG_Memory>`, поэтому в этом — ровно
+        целевом — случае автор/период плана до retrieval не доходили.
+        Обёртка одна и та же для всех выходов; для фактового пути строка
+        байт-идентична прежней."""
+        text = str(body or "")
+        if not text:
+            return ""
+        if text.startswith("<RAG_Memory>"):
+            return text
+        return f"<RAG_Memory>\n{text}\n</RAG_Memory>"
 
     async def _apply_plan_memory_scope(self, user_blocks, rag_ctx: dict,
                                        l1_plan, trace_id: str | None = None
@@ -18526,7 +18550,8 @@ class DirectChatService:
         blocks = list(user_blocks or ())
         position = next((index for index, block in enumerate(blocks)
                          if str(block).startswith("<RAG_Memory>")), None)
-        if position is None:
+        if position is None and str(rag_ctx.get("block") or "").strip():
+            # Блок был в payload, но метки нет — не угадываем и не дублируем.
             logger.info("direct: rag block absent — policy not applied | "
                         "policy=%s", plan_scope)
             return user_blocks
@@ -18574,6 +18599,22 @@ class DirectChatService:
             logger.warning("direct: rag rescope failed — keep auto block | "
                            "policy=%s", plan_scope, exc_info=True)
             return user_blocks
+        if position is None:
+            # Блока памяти в payload не было вовсе (нет фактов) — пересобранный
+            # блок вставляется на ЕГО слот из `rag_ctx["index"]`. Без этого
+            # ровно целевой случай (пустые факты) не доставлял речь автора:
+            # планировщик искал `<RAG_Memory>` и молча возвращал список.
+            if not block:
+                return user_blocks
+            try:
+                index = int(rag_ctx.get("index"))
+            except (TypeError, ValueError):
+                index = len(blocks)
+            index = max(0, min(index, len(blocks)))
+            blocks.insert(index, block)
+            logger.info("direct: rag block inserted | policy=%s | chars=%d",
+                        plan_scope, len(str(block or "")))
+            return blocks
         old = blocks[position]
         if block:
             blocks[position] = block

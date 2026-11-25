@@ -210,7 +210,15 @@ class TestOriginalsReachPayload:
                 "projection": None, "subject_name": "Вася",
                 "subject_uid": OTHER_B,
             }
-            blocks = ["<RAG_Memory>\nпрежний блок\n</RAG_Memory>"]
+            # PRE-plan блок — РЕАЛЬНЫМ методом (нулевые факты), не заглушкой:
+            # именно этот случай (голый `<Memory_Originals>`) планировщик
+            # раньше не находил (review r2 F3).
+            pre_block, _hint = await svc._build_rag_block(
+                CHAT, rag_ctx["message"], "", memory_scope="auto",
+                plan_act="", author_uid=None)
+            rag_ctx["block"] = pre_block
+            rag_ctx["index"] = 0
+            blocks = [pre_block] if pre_block else []
             out = await svc._apply_plan_memory_scope(blocks, rag_ctx, plan)
             assert seen, "пересборка обязана идти тем же retrieve"
             assert any(tuple(req.author_entity_ids) == (AUTHOR,)
