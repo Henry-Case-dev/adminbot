@@ -46,6 +46,7 @@ from services import mca_humor_feedback as humor_feedback
 from services import mca_sample_library as samples_lib
 
 from web.api.deps import can_edit_param, get_cache, get_tma_user
+from web.api import prompt_access
 from web.api.routes import (
     _chat_id_or_none,
     _persona_access,
@@ -357,6 +358,23 @@ def _can_view(ctx, chat_id: int | None) -> bool:
     return _persona_can_view(ctx, is_global=chat_id is None, chat_id=chat_id)
 
 
+async def _resource_allowed(cache, user: WebAppUser, pg_key: str | None,
+                            chat_id: int | None, *, edit: bool = False,
+                            ctx: Any = None) -> bool:
+    """Действующая матрица РЕСУРСА промпта — то же решение, что у
+    ``/api/prompts/*`` (``web.api.prompt_access``).
+
+    Речь читает/пишет блоки ``services.prompt_registry`` и документы
+    характера; поэтому visibility/запись решаются ``can_view_param`` /
+    ``can_edit_param`` на действующей матрице ключа, а не только персональным
+    гейтом. В глобальном скоупе решение не сужает (значения промптов не
+    секреты — паритет с ``GET /api/config``). ``ctx`` передаётся из уже
+    разрешённого access-пути речи — повторного чтения ролей нет."""
+    access = await prompt_access.resource_access(cache, user.id, pg_key,
+                                                 chat_id, ctx=ctx)
+    return access.edit if edit else access.view
+
+
 def _can_edit_speech(cache, user: WebAppUser, ctx, *, pg_key: str,
                      chat_id: int | None) -> bool:
     """Право правки речевого значения: чат — существующий edit-путь,
@@ -632,10 +650,14 @@ def _spec_meta(spec) -> dict:
     }
 
 
-async def _blocks_rows(cache, chat_id: int | None) -> list[dict]:
+async def _blocks_rows(cache, chat_id: int | None, allow=None) -> list[dict]:
     overrides = await _chat_overrides(chat_id)
     rows: list[dict] = []
     for spec in pr.all_blocks():
+        if allow is not None and not allow(spec):
+            # Тот же ресурс, что у /api/prompts/*: матрица чата отказала —
+            # строки (и текста) в ответе нет, как ключа в GET /api/config.
+            continue
         row = _spec_meta(spec)
         pg_value = None
         chat_value = None
@@ -2791,7 +2813,22 @@ async def get_blocks(
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
-    rows = await _blocks_rows(cache, chat_id)
+    # M1-C/R2-F01: это тот же реестр промптов — видимость каждого блока
+    # решает действующая матрица его ключа (в чате — как у /api/config).
+    res = None
+    if chat_id is not None:
+        res = await prompt_access.chat_resources(cache, user.id, chat_id,
+                                             ctx=ctx)
+    global_admin = bool(getattr(ctx, "is_global_admin", False))
+
+    def _allow(spec) -> bool:
+        if prompt_access.is_hidden_key(spec.pg_key) and not global_admin:
+            return False
+        if res is None:
+            return True
+        return res.visible(spec.pg_key)
+
+    rows = await _blocks_rows(cache, chat_id, allow=_allow)
     if family:
         rows = [r for r in rows if str(r.get("family")) == family]
     if speech_only:
@@ -2823,6 +2860,15 @@ async def get_block(
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
+    spec = pr.block(block_id)
+    if spec is None:
+        raise HTTPException(status_code=404, detail="блок не найден")
+    # M1-C/R2-F01: текст блока — тот же ресурс промпта; отказ — 403 (блок и
+    # чат существуют), как у /api/prompts/{key}/versions.
+    if not await _resource_allowed(cache, user, spec.pg_key, chat_id,
+                                   ctx=ctx):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {spec.pg_key}")
     return await _block_detail(cache, user, ctx, chat_id, block_id)
 
 
@@ -2846,6 +2892,13 @@ async def post_block(
     if not _can_edit_speech(cache, user, ctx, pg_key=spec.pg_key,
                             chat_id=scope[0]):
         raise HTTPException(status_code=403, detail="нет права на правку речи")
+    # M1-C/R2-F02: запись того же ресурса идёт через edit_roles действующей
+    # матрицы (в чате — как /api/prompts/{key}/activate), а не только через
+    # персональный speech-гейт.
+    if not await _resource_allowed(cache, user, spec.pg_key, scope[0],
+                                   edit=True, ctx=ctx):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {spec.pg_key}")
     from services import prompt_factory as pf
     try:
         result = await pf.write_speech_value(
@@ -3102,6 +3155,12 @@ async def get_core(
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
+    # M1-C/R2-F01: документ характера — ресурс промпт-реестра; в чате его
+    # видимость решает матрица ключа (как у значения в GET /api/config).
+    if not await _resource_allowed(cache, user, pr.CORE_DOC_KEY, chat_id,
+                                   ctx=ctx):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {pr.CORE_DOC_KEY}")
     return await _core_payload(cache, user, ctx, chat_id)
 
 
@@ -3118,6 +3177,10 @@ async def post_core_meta(
     if not _can_edit_speech(cache, user, ctx, pg_key=pr.CORE_DOC_KEY,
                             chat_id=scope_id):
         raise HTTPException(status_code=403, detail="нет права на правку ядра")
+    if not await _resource_allowed(cache, user, pr.CORE_DOC_KEY, scope_id,
+                                   edit=True, ctx=ctx):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {pr.CORE_DOC_KEY}")
     if body.detail_level is not None and str(body.detail_level) not in (
             pr.CORE_DETAIL_LEVELS):
         raise HTTPException(status_code=422, detail="неизвестный detail_level")
@@ -3211,6 +3274,9 @@ async def get_style(
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
+    if not await _resource_allowed(cache, user, "style.policy", chat_id,
+                                   ctx=ctx):
+        raise HTTPException(status_code=403, detail="нет права на style.policy")
     payload = await _style_payload(cache, chat_id, context=context)
     payload["can_edit"] = _can_edit_speech(cache, user, ctx, pg_key="",
                                            chat_id=chat_id)
@@ -3229,6 +3295,9 @@ async def post_style(
     scope_id, _label = _resolve_scope(body.scope, chat_id)
     if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=scope_id):
         raise HTTPException(status_code=403, detail="нет права на стиль письма")
+    if not await _resource_allowed(cache, user, "style.policy", scope_id,
+                                   edit=True, ctx=ctx):
+        raise HTTPException(status_code=403, detail="нет права на style.policy")
     from services import style_policy as sp
     result = await sp.save_policy_document(
         body.document, chat_id=scope_id, cache=cache, actor=user.id,
@@ -3270,6 +3339,9 @@ async def post_style_reset_chat(
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=chat_id):
         raise HTTPException(status_code=403, detail="нет права")
+    if not await _resource_allowed(cache, user, "style.policy", chat_id,
+                                   edit=True, ctx=ctx):
+        raise HTTPException(status_code=403, detail="нет права на style.policy")
     from services import style_policy as sp
     result = await sp.reset_chat_policy(int(chat_id), pg=_doc_pg(cache))
     if not result.get("applied") and result.get("reason") != "no_chat_override":
@@ -3309,6 +3381,10 @@ async def get_expression(
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
+    if not await _resource_allowed(cache, user, EXPRESSION_DOC_KEY, chat_id,
+                                   ctx=ctx):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {EXPRESSION_DOC_KEY}")
     payload = await _expression_payload(cache, chat_id)
     payload["can_edit"] = _can_edit_speech(cache, user, ctx, pg_key="",
                                            chat_id=chat_id)
@@ -3327,6 +3403,10 @@ async def post_expression(
     scope_id, _label = _resolve_scope(body.scope, chat_id)
     if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=scope_id):
         raise HTTPException(status_code=403, detail="нет права на выражение")
+    if not await _resource_allowed(cache, user, EXPRESSION_DOC_KEY, scope_id,
+                                   edit=True, ctx=ctx):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {EXPRESSION_DOC_KEY}")
     result = await _write_expression(cache, scope_id, body.values)
     if not result.get("applied"):
         # P0 PERSIST-FIX: отказ записи «Выражения» — инфраструктурный
@@ -3472,6 +3552,10 @@ async def post_expression_live_check(
         raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
     if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=chat_id):
         raise HTTPException(status_code=403, detail="нет права на проверку")
+    if not await _resource_allowed(cache, user, EXPRESSION_DOC_KEY, chat_id,
+                                   edit=True, ctx=ctx):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {EXPRESSION_DOC_KEY}")
     message = str(body.message or "").strip()
     if not message:
         raise HTTPException(status_code=422, detail="нужен текст пробы")
