@@ -2038,8 +2038,14 @@ INSPECTOR_RETENTION = (
     % FULL_RING_LIMIT)
 
 
-def _inspector_exact(provider_call, preview: dict) -> dict:
-    """INS-EXACT: «полный итоговый промпт» = реальный запрос провайдера."""
+def _inspector_exact(provider_call, preview: dict,
+                     *, allow_text: bool = True) -> dict:
+    """INS-EXACT: «полный итоговый промпт» = реальный запрос провайдера.
+
+    ``allow_text=False`` — запись кольца материализована без per-key
+    провенанса, поэтому её текст (``system``/``messages[*].text``) не
+    возвращается: только хеши/счётчики и явная причина (M1-C R4-F01).
+    """
     from services import prompt_composer as composer
     if provider_call:
         messages = provider_call.get("messages") or []
@@ -2062,13 +2068,17 @@ def _inspector_exact(provider_call, preview: dict) -> dict:
             "recorded_at": provider_call.get("recorded_at") or "",
             "roles": provider_call.get("roles") or [],
             "chars_total": provider_call.get("chars_total") or 0,
-            "system": _mask_text(system),
+            "system": _mask_text(system) if allow_text else "",
             "messages": [{"role": m.get("role") or "",
                           "chars": m.get("chars") or 0,
                           "sha256": m.get("sha256") or "",
                           "truncated": bool(m.get("truncated")),
-                          "text": _mask_text(m.get("text"))} for m in messages],
+                          "text": (_mask_text(m.get("text"))
+                                   if allow_text else "")}
+                         for m in messages],
             "chat_id_redacted": provider_call.get("chat_id_redacted") or "",
+            "text_restricted": ("" if allow_text
+                                else "global_admin_only_no_key_provenance"),
         }
     # Снимка реального вызова нет: показываем сборку, но это ПРЕВЬЮ.
     system = str(preview.get("system_masked") or "")
@@ -2142,7 +2152,7 @@ def _inspector_correlation_payload(chat_id: int | None,
         logger.warning("[speech] inspector correlation trace failed",
                        exc_info=True)
     exact = (_inspector_missing_exact(requested) if provider_call is None
-             else _inspector_exact(provider_call, {}))
+             else _inspector_exact(provider_call, {}, allow_text=True))
     if provider_call is not None:
         note = ("Показан фактический запрос с correlation_id «%s» из общего "
                 "in-memory кольца композера (последние %d записей процесса). "
@@ -2186,6 +2196,19 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None,
     # §P0IM-PB-ACCESS: точный correlation_id — отдельный ответ ТОЛЬКО про
     # запись кольца (Reviewer blocker 1). Текущая сборка в нём не строится.
     if requested:
+        # M1-C (R4-F01): закэшированный payload провайдера — это УЖЕ
+        # материализованный композитный system/messages (base+core+style+
+        # expression), а кольцо не хранит per-key провенанс, поэтому матрицу
+        # к нему применить нечем. Единственный актор, которому матрица не
+        # может запретить ни один ключ (`can_view_param` → True), — глобальный
+        # админ; режим ограничен им. Обычный предпросмотр доступен и роли с
+        # `edit_persona` (он проходит стражи внутри владельцев текста).
+        if not bool(getattr(ctx, "is_global_admin", False)):
+            raise prompt_text.PromptTextDenied(
+                None, chat_id=chat_id,
+                detail="нет права на сохранённый текст запроса: режим "
+                       "correlation_id доступен только глобальному "
+                       "администратору (кэш не хранит провенанс ключей)")
         return _inspector_correlation_payload(chat_id, requested)
     # Снимок «фактически отправлено» — ТОЛЬКО манифест реального хода
     # (writer'ы Direct/System2/Initiative), а не предпросмотр UI: собранный
@@ -2193,6 +2216,17 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None,
     # Рантайм пишет манифест с run_id=uuid хода → ищем самый свежий манифест
     # реального writer'а по чату, а не по ключу без run_id (review-w6 F1).
     manifest = _latest_real_turn_manifest(chat_key)
+    # M1-C (R4-F01): уже материализованный текст (снимок хода, кольцо
+    # провайдера) не несёт per-key провенанс, поэтому матрицу к нему применить
+    # нечем. Такой текст отдаётся только актору, которому матрица не может
+    # запретить ни один ключ (`can_view_param` → True), — глобальному админу.
+    # Остальные получают метаданные (chars/revision/checksum) без текста.
+    allow_cached_text = bool(getattr(ctx, "is_global_admin", False))
+    if manifest is not None:
+        # Стража провенанса вызываем ДО любого использования текста снимка:
+        # `system_masked`/`style` строятся из `manifest`, а `channel_canon`
+        # fallback несёт `base_block_id` (см. `_fallback_manifest`).
+        prompt_text.guard_manifest(manifest)
     sent_writer = str(getattr(manifest, "writer", "") or "") \
         if manifest is not None else ""
     preview_only = manifest is None and composer.get_manifest(
@@ -2266,19 +2300,27 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None,
             "conflicts": layers.get("conflicts", []),
             "skipped_layers": layers.get("skipped_layers", []),
             "diff_vs_previous": layers.get("diff_vs_previous"),
-            "system_masked": _mask_text(manifest.system),
-            "user_parts_masked": [_mask_text(p) for p in
-                                  (manifest.user_parts or ())],
+            "system_masked": (_mask_text(manifest.system)
+                              if allow_cached_text else ""),
+            "user_parts_masked": ([_mask_text(p) for p in
+                                   (manifest.user_parts or ())]
+                                  if allow_cached_text else []),
             "system_chars": len(manifest.system or ""),
             # ASAP3 §1.5: слой Style Policy в РЕАЛЬНОМ payload (chars/state) и
             # сам блок подсказки (маскирован как весь payload).
             "style": _mask_style_view(_style_sent_summary(manifest)),
         }
+        if not allow_cached_text:
+            # Текст снимка не отдаётся: остаются only-метаданные и явная причина.
+            sent["style"] = {**(sent.get("style") or {}),
+                             "hint_block_masked": ""}
+            sent["text_restricted"] = "global_admin_only_no_key_provenance"
         layer_texts = composer.render_layer_texts(manifest)
         # INS-PRIVACY (review F2): иерархия строится ТОЛЬКО по маскированным
         # текстам — сырой слой в JSON/DOM не попадает.
         sent["layer_texts"] = [
-            {**row, "text": _mask_text(row.get("text"))}
+            {**row, "text": (_mask_text(row.get("text"))
+                             if allow_cached_text else "")}
             for row in (layer_texts.get("layers") or ())]
         sent["hierarchy"] = _inspector_hierarchy(
             sent["layers"], {"layers": sent["layer_texts"]})
@@ -2306,7 +2348,8 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None,
     except Exception:
         logger.warning("[speech] inspector provider trace failed",
                        exc_info=True)
-    exact = _inspector_exact(provider_call, preview)
+    exact = _inspector_exact(provider_call, preview,
+                             allow_text=allow_cached_text)
     preview_layers = _inspector_layer_rows(preview.get("layers") or [])
     preview = dict(preview)
     preview["style"] = _mask_style_view(preview.get("style"))
@@ -2453,6 +2496,7 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
         writer="speech_ui_preview",
         chat_id=chat_id_key,
         base_prompt=base_raw,
+        base_block_id=(getattr(base_block, "block_id", "") or ""),
         core=core_ref,
         gates=gates,
         style_policy=composer.StylePolicyRef(
