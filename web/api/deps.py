@@ -141,7 +141,33 @@ async def get_tma_user(
     _tma_trace(valid=True, user=parsed.user.id,
                age=age, init_data_len=len(init_data),
                src=src, role=role, perm=perm)
+    # MOD-ACL-UX-01 M1-C (choke point): единственный момент, когда решение по
+    # тексту промпта для этого запроса известно до вызова сервисов. Скоуп
+    # ставится здесь и сбрасывается ASGI-middleware; вне HTTP действует
+    # `system`.
+    from services import prompt_text
+
+    scope = await prompt_text.build_scope(
+        cache_attr, parsed.user.id, chat_id=_chat_scope_id(request))
+    request.state.prompt_text_scope = scope
+    request.state.prompt_text_token = prompt_text.set_scope(scope)
     return parsed.user
+
+
+def _chat_scope_id(request: Request) -> int | None:
+    """Чат запроса: ``X-Chat-Id`` (как у всех ручек) → ``?chat_id=``.
+
+    Иных способов адресации чата в API нет; новый способ — предмет ревью
+    (инвариант A подставляет chat во все известные)."""
+    raw = request.headers.get("x-chat-id")
+    if raw in (None, ""):
+        raw = request.query_params.get("chat_id")
+    if raw in (None, ""):
+        return None
+    try:
+        return int(str(raw))
+    except (TypeError, ValueError):
+        return None
 
 
 def _init_data_src(request: Request, header_value: str | None) -> str:

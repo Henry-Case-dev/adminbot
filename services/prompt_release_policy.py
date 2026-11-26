@@ -59,6 +59,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, Sequence
 
 from services import prompt_registry as pr
+from services import prompt_text
 
 logger = logging.getLogger(__name__)
 
@@ -832,7 +833,7 @@ async def resolve_effective_state(spec, *, scope: str, chat_id: int | None,
     if not pg_key:
         # Кодовый блок: действует константа из кода (контракт §1.5);
         # сопоставление — по байтам константы в журнале.
-        text = pr.factory_text(spec.block_id)
+        text = pr._factory_text_raw(spec.block_id)
         content_hash = pr.sha12(text) if text else ""
         revision_id = None
         if content_hash:
@@ -849,14 +850,14 @@ async def resolve_effective_state(spec, *, scope: str, chat_id: int | None,
         state_row = await store.read_chat_state(int(chat_id))
         if state_row is not None:
             chat_value = (state_row.get("overrides") or {}).get(pg_key)
-    eff = pr.effective_prompt(pg_key, pg_value=pg_value, chat_value=chat_value)
+    eff = pr._effective_prompt_raw(pg_key, pg_value=pg_value, chat_value=chat_value)
     diagnostics = [str(d) for d in eff.diagnostics]
     raw, winner_chat = _effective_winning_value(
         spec, source=str(eff.source), pg_value=pg_value, chat_value=chat_value,
         chat_id=chat_id)
     if raw is None:
         origin = "code"
-        text = pr.factory_text(spec.block_id)
+        text = pr._factory_text_raw(spec.block_id)
     else:
         origin = "chat_override" if eff.source == "chat" else "global"
         text = raw
@@ -2156,7 +2157,7 @@ def _release_blocks(blocks: Iterable[str] | None = None) -> tuple:
         selected = tuple(s for s in selected if s.block_id in wanted)
     return tuple(s for s in sorted(selected, key=lambda s: s.block_id)
                  if (s.pg_key or pr.sealed_factory_revision(s.block_id))
-                 and pr.factory_text(s.block_id))
+                 and pr._factory_text_raw(s.block_id))
 
 
 async def apply_release(cache, *, release_id: str, store=None,
@@ -2397,7 +2398,7 @@ async def _apply_block_release(store, spec, cache, *,
     code_label = seal[0]
     if not code_label:
         return results          # управляемое сообщение без метки — вне релиза
-    factory_body = pr.factory_text(spec.block_id)
+    factory_body = pr._factory_text_raw(spec.block_id)
     doc_state = doc_state if doc_state is not None else {}
 
     if spec.pg_key:
@@ -2891,6 +2892,14 @@ async def write_prompt_values(items: Sequence[PromptWriteItem], *,
         raise ValueError(f"неизвестный scope: {scope}")
     if scope == "chat" and chat_id is None:
         raise ValueError("scope=chat требует chat_id")
+    # Запись значения чата — тот же ресурс, что чтение: в чатовом скоупе
+    # решает действующая матрица (`guard_edit`), а не только маршрут. Глобальную
+    # запись по-прежнему решает `_prompt_require_edit` в API (§8 дизайна).
+    if scope == "chat":
+        for item in items:
+            item_spec = pr.block(item.block_id) or pr.by_pg_key(item.block_id)
+            if item_spec is not None:
+                prompt_text.guard_edit(item_spec.pg_key)
 
     resolved: list[tuple] = []
     rejected: list[dict] = []
@@ -3198,6 +3207,7 @@ async def remove_prompt_override(block_id: str, *, chat_id: int, actor=None,
     if spec is None or not spec.pg_key:
         return {"applied": False, "reason": "block_not_pg_managed",
                 "block_id": block_id}
+    prompt_text.guard_edit(spec.pg_key)
     store = store if store is not None else default_journal(cache)
     if store is None:
         raise JournalUnavailable(
@@ -3394,6 +3404,9 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
                 "block_id": block_id}
     if kind is not None and kind not in pr.ACTIVATION_KINDS:
         raise ValueError(f"неизвестный вид активации: {kind}")
+    # Чатовая активация пишет значение чата — тот же ресурс, что запись в UI.
+    if str(scope or "global") == "chat":
+        prompt_text.guard_edit(spec.pg_key)
     check_permission(str(actor or ""), "prompt.activate", block_id=block_id,
                      scope=scope, chat_id=chat_id)
     store = store if store is not None else default_journal(cache)
@@ -3820,7 +3833,7 @@ async def restore_shipped_factory(block_id: str, *, scope: str = "global",
                      block_id=spec.block_id, scope=scope, chat_id=chat_id)
     seal_label, sealed_sha = (pr.FACTORY_REVISION_SEALS.get(spec.block_id)
                               or ("", ""))
-    body = pr.factory_text(spec.block_id)
+    body = pr._factory_text_raw(spec.block_id)
     if not seal_label or not sealed_sha or pr.sha12(body) != sealed_sha:
         logger.error("[prompt_release] factory_unverifiable | block=%s — "
                      "возврат к исходной из кода отклонён", spec.block_id)
@@ -4155,7 +4168,7 @@ async def list_versions(block_id: str, *, scope: str = "global",
         "sealed_revision": pr.sealed_factory_revision(block_id),
         "factory_matches_active": bool(
             active and active["sha256_12"] == pr.sha12(
-                pr.factory_text(block_id))),
+                pr._factory_text_raw(block_id))),
         "active": active,
         "baseline": baseline,
         # ── PVR-01: единый контракт эффективного состояния (плоские поля
@@ -4221,6 +4234,25 @@ def _revision_chars(revision: RevisionRow) -> int:
     return len(revision.body or "")
 
 
+def _guard_revision(revision) -> None:
+    """Страж текста ревизии: ключ блока + принадлежность чатовой ревизии.
+
+    Чат-ревизия чужого чата не отдаётся даже при разрешённом ключе: scope
+    берётся из самой ревизии, а полномочия — из ambient чата запроса.
+    Код-блоки (без ``pg_key``) — вне ресурса (см. §8 дизайна)."""
+    spec = pr.block(str(getattr(revision, "block_id", "") or ""))
+    pg_key = getattr(spec, "pg_key", None) if spec is not None else None
+    if not pg_key:
+        return
+    scope = prompt_text.current()
+    if scope.kind != "chat":
+        return
+    if (str(getattr(revision, "scope", "") or "") == "chat"
+            and getattr(revision, "chat_id", None) != scope.chat_id):
+        raise prompt_text.PromptTextDenied(pg_key, chat_id=scope.chat_id)
+    prompt_text.guard_view(pg_key)
+
+
 async def get_revision_source(revision_id: str, *, cache=None,
                               store=None, actor=None) -> dict:
     """Полный текст ревизии (просмотр/diff-источник в EVOL-017).
@@ -4230,6 +4262,10 @@ async def get_revision_source(revision_id: str, *, cache=None,
     несовместимой ревизии — «недоступно» не подменяется пустым текстом, а
     причина и запрет действия отдаются явно (``status``/``reason_text``/
     ``actionable``).
+
+    Текст отдаётся наружу → в чатовом скоупе решает ``prompt_text``: ключ
+    ревизии должен быть разрешён, а чат-ревизия — принадлежать этому чату
+    (чужая ревизия = отказ, а не «пустой текст»).
     """
     check_permission(str(actor or ""), "prompt.get_revision_source",
                      revision_id=revision_id)
@@ -4241,6 +4277,7 @@ async def get_revision_source(revision_id: str, *, cache=None,
     if revision is None:
         return {"known": False, "reason": "revision_unknown",
                 "revision_id": revision_id}
+    _guard_revision(revision)
     status = history_status(retired=bool(revision.retired),
                             schema_compat=str(revision.schema_compat or ""),
                             revision_id=revision.revision_id)
@@ -4266,9 +4303,16 @@ async def get_revision_source(revision_id: str, *, cache=None,
 async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
                          store=None, actor=None) -> dict:
     """Сравнение двух ревизий (существующий ``difflib``, не новый движок).
-    Ревью F4: доступ через hook полномочий."""
+    Ревью F4: доступ через hook полномочий. Текст отдаётся наружу → обе
+    ревизии проходят ``_guard_revision`` до сравнения."""
     check_permission(str(actor or ""), "prompt.diff_revisions",
                      revision_a=revision_a, revision_b=revision_b)
+    guard_store = store if store is not None else default_journal(cache)
+    if guard_store is not None:
+        for rev_id in (revision_a, revision_b):
+            row = await guard_store.get_revision(rev_id)
+            if row is not None:
+                _guard_revision(row)
     a = await get_revision_source(revision_a, cache=cache, store=store,
                                   actor=actor)
     b = await get_revision_source(revision_b, cache=cache, store=store,

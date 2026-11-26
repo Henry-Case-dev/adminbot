@@ -93,7 +93,19 @@ def genre_base_prompt(genre: str, legacy_canon: str) -> str:
     return f"{rules}\n\n{canon}"
 
 
-async def authorial_system(*, chat_id: int, writer: str, genre: str,
+async def authorial_system(*args, **kwargs):
+    """System-строка авторского текста (системный потребитель).
+
+    Рантайм-сборка для LLM: объявляет ``system`` scope (design choke point
+    §2 п.3), поэтому пользовательский чатовый ACL к ней не применяется.
+    """
+    from services import prompt_text
+
+    with prompt_text.system_scope("runtime_authorial_system"):
+        return await _authorial_system_impl(*args, **kwargs)
+
+
+async def _authorial_system_impl(*, chat_id: int, writer: str, genre: str,
                            legacy_canon: str, core_canon: str | None = None,
                            channel: str = "plain",
                            html_safe: bool = False) -> tuple[str, object]:

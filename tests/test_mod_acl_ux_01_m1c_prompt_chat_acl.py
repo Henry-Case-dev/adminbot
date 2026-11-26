@@ -538,3 +538,257 @@ class TestMemeSettingsPromptText:
         body = resp.json()
         assert body["prompts"]["image"]["text"]
         assert body["template"]["text"]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 9. Choke point: текст промпта закрыт в ТОЧКАХ МАТЕРИАЛИЗАЦИИ
+#    (design m1c-choke-point-design.md, §7 п.1–12)
+# ═══════════════════════════════════════════════════════════════════════════
+
+BASE_KEY = "prompts.direct_chat_verbalizer_system_prompt"
+BASE_BLOCK = "direct.base.l2_writer"
+MARK = "M1C-CHOKE-MARK"
+
+#: Роль local_admin с правом правки персоны: до choke point inspector
+#: (`_can_edit_inspector`) отдавал скомпонованный текст в обход матрицы.
+INSPECTOR_ROLES = {
+    **ROLES,
+    "local_admin": {"permissions": {"sections": ["limits", "flags", "content"],
+                                    "actions": ["edit_persona"]},
+                    "is_custom": False, "role_type": "local_admin"},
+}
+
+
+def _deny(edit: bool = True) -> dict:
+    """Матрица: просмотр local_admin, запись — либо разрешена, либо нет."""
+    return {"view_roles": ["local_admin"],
+            "edit_roles": ["local_admin"] if edit else []}
+
+
+class TestChokePointTry:
+    """`POST /api/speech/try` отдаёт скомпонованный system — значит это текст."""
+
+    @pytest.fixture(autouse=True)
+    def _policy_on(self):
+        # Чатовый override действует как эффективный слой только при активной
+        # релизной политике (иначе реестр честно удерживает значение).
+        pr.set_release_policy_active(True)
+        yield
+        pr.set_release_policy_active(False)
+        pr.reset_cache()
+
+    def _try(self, client, headers):
+        return client.post("/api/speech/try", json={"text": "привет"},
+                           headers=headers)
+
+    def test_try_denied_chat_override_marker(self, monkeypatch, edition):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=BASE_KEY)
+        _patch_chat_root(monkeypatch, overrides={BASE_KEY: MARK})
+        resp = self._try(client, _hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 403, resp.text[:300]
+        assert MARK not in resp.text
+
+    def test_try_denied_global_marker(self, monkeypatch, edition):
+        """Маркер только в глобальном слое: отказ не «вырезал override»."""
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=BASE_KEY)
+        _patch_chat_root(monkeypatch, overrides={})
+        monkeypatch.setattr(client.cache, "get",
+                            lambda key, default=None: (MARK
+                                                       if key == BASE_KEY
+                                                       else default))
+        resp = self._try(client, _hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 403, resp.text[:300]
+        assert MARK not in resp.text
+
+    @pytest.mark.parametrize("key", [pr.CORE_DOC_KEY, "style.policy",
+                                     expression.EXPRESSION_DOC_KEY])
+    def test_try_denied_by_document_key(self, monkeypatch, edition, key):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=key)
+        resp = self._try(client, _hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 403, (key, resp.text[:300])
+
+    def test_try_default_viewer_sees_marker(self, monkeypatch, edition):
+        """Контроль: с дефолтной матрицей тот же актор видит текст."""
+        client = make_client(monkeypatch)
+        _patch_chat_root(monkeypatch, overrides={BASE_KEY: MARK})
+        resp = self._try(client, _hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 200, resp.text[:300]
+        assert MARK in resp.text
+
+    def test_try_global_admin_sees_marker(self, monkeypatch, edition):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=BASE_KEY)
+        _patch_chat_root(monkeypatch, overrides={BASE_KEY: MARK})
+        resp = self._try(client, _hdr(ADMIN, CHAT_A))
+        assert resp.status_code == 200, resp.text[:300]
+        assert MARK in resp.text
+
+
+class TestChokePointWrites:
+    """reset / rollback / meme POST: запись режется `guard_edit` владельца."""
+
+    def test_reset_denied_by_edit_roles(self, monkeypatch, edition):
+        client = make_client(monkeypatch, matrix=_deny(edit=False),
+                             matrix_key=BASE_KEY)
+        root = {"overrides": {BASE_KEY: MARK}, "perm_overrides": {}}
+        _patch_chat_root(monkeypatch, overrides=root["overrides"])
+        resp = client.post(f"/api/speech/block/{BASE_BLOCK}/reset",
+                           json={"mode": "chat"},
+                           headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 403, resp.text[:300]
+        assert root["overrides"][BASE_KEY] == MARK      # override не снят
+
+    def test_rollback_denied_by_edit_roles(self, monkeypatch, edition):
+        client = make_client(monkeypatch, matrix=_deny(edit=False),
+                             matrix_key=BASE_KEY)
+        resp = client.post(f"/api/speech/block/{BASE_BLOCK}/rollback",
+                           json={"revision": "rev:abcdef123456",
+                                 "sha256_12": "abcdef123456"},
+                           headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 403, resp.text[:300]   # не 404
+
+    def test_meme_post_denied_by_edit_roles(self, monkeypatch, edition):
+        key = mi.prompt_setting_key(mi.IMAGE_PROMPT_BLOCK_ID)
+        client = make_client(monkeypatch, matrix=_deny(edit=False),
+                             matrix_key=key)
+        calls = []
+        original = chat_params.set_chat_params
+
+        async def spy(*args, **kwargs):
+            calls.append(1)
+            return await original(*args, **kwargs)
+
+        monkeypatch.setattr(chat_params, "set_chat_params", spy)
+        resp = client.post("/api/initiative/meme-settings",
+                           json={"prompt_image": "M1C-CHOKE-MEME"},
+                           headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 403, resp.text[:300]
+        assert calls == [], "запись дошла до хранилища в обход edit_roles"
+
+    def test_reset_default_viewer_passes_acl(self, monkeypatch, edition):
+        """Контроль: с дефолтной матрицей гейт не режется (ответ не 403)."""
+        client = make_client(monkeypatch, roles=CONTENT_LOCAL_ADMIN_ROLES)
+        resp = client.post(f"/api/speech/block/{BASE_BLOCK}/reset",
+                           json={"mode": "chat"},
+                           headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code != 403, resp.text[:300]
+
+
+class TestChokePointInspector:
+    def test_inspector_denied_with_capability_but_no_matrix(self, monkeypatch,
+                                                            edition):
+        """Условие r3: capability `edit_persona` больше не даёт текст."""
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=BASE_KEY, roles=INSPECTOR_ROLES)
+        _patch_chat_root(monkeypatch, overrides={BASE_KEY: MARK})
+        resp = client.get("/api/speech/inspector",
+                          headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 403, resp.text[:300]
+        assert MARK not in resp.text
+
+    def test_inspector_allowed_by_default_matrix(self, monkeypatch, edition):
+        client = make_client(monkeypatch, roles=INSPECTOR_ROLES)
+        resp = client.get("/api/speech/inspector",
+                          headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 200, resp.text[:300]
+
+
+class TestChokePointConfigUnchanged:
+    def test_config_chat_scope_same_behaviour(self, monkeypatch, edition):
+        client = make_client(monkeypatch, matrix=_deny(edit=False),
+                             matrix_key=BASE_KEY)
+        headers = _hdr(LOCAL_ADMIN, CHAT_A)
+        keys = [i.get("key") for i in client.get("/api/config",
+                                                 headers=headers).json()["items"]]
+        assert BASE_KEY in keys                      # просмотр не менялся
+        client2 = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                              matrix_key=BASE_KEY)
+        keys2 = [i.get("key") for i in client2.get("/api/config",
+                                                   headers=headers).json()["items"]]
+        assert BASE_KEY not in keys2
+
+
+class TestChokePointRuntimeUnaffected:
+    """Рантайм-сборка для LLM объявляет system scope (design §2 п.3)."""
+
+    def test_runtime_compose_returns_text_under_denying_scope(self, monkeypatch,
+                                                              edition):
+        import asyncio
+
+        from services import prompt_composer as composer
+        from services import prompt_text
+
+        denied = prompt_text.TextScope(kind="chat", chat_id=CHAT_A)
+
+        async def _go():
+            with prompt_text.use_scope(denied):
+                resolved = await pr.resolve_chat_speech_ex(
+                    BASE_KEY, "код-дефолт", chat_id=CHAT_A)
+                assert str(resolved.text or "") != ""
+                system, manifest = await composer.compose_speech_system(
+                    chat_id=CHAT_A, writer="probe", base_prompt="БАЗОВЫЙ ТЕКСТ")
+                assert system
+                assert manifest is not None and (manifest.system or "")
+
+        asyncio.run(_go())
+
+
+class TestTextScopeUnitTable:
+    """design §3.1/§7 п.12: system/global/chat × guarded/не-guarded × degrade."""
+
+    def test_denied_is_403(self):
+        from services import prompt_text
+        exc = prompt_text.PromptTextDenied("prompts.x")
+        assert exc.http_status == 403
+        assert isinstance(exc, PermissionError)
+
+    def test_system_and_global_allow(self):
+        from services import prompt_text
+        for scope in (prompt_text.SYSTEM, prompt_text.GLOBAL):
+            with prompt_text.use_scope(scope):
+                prompt_text.guard_view("prompts.x")
+                prompt_text.guard_edit("prompts.x")
+
+    def test_chat_scope_matrix(self):
+        from services import prompt_text
+        scope = prompt_text.TextScope(kind="chat", chat_id=1,
+                                      view_keys=frozenset({"prompts.a"}),
+                                      edit_keys=frozenset({"prompts.b"}))
+        with prompt_text.use_scope(scope):
+            prompt_text.guard_view("prompts.a")
+            with pytest.raises(prompt_text.PromptTextDenied):
+                prompt_text.guard_view("prompts.b")
+            prompt_text.guard_edit("prompts.b")
+            with pytest.raises(prompt_text.PromptTextDenied):
+                prompt_text.guard_edit("prompts.a")
+
+    def test_non_guarded_keys_are_free(self):
+        from services import prompt_text
+        scope = prompt_text.TextScope(kind="chat", chat_id=1)
+        with prompt_text.use_scope(scope):
+            for key in ("limits.x", "flags.x", "keys.x", "content.x",
+                        "message.x", None):
+                prompt_text.guard_view(key)
+                prompt_text.guard_edit(key)
+
+    def test_degraded_scope_is_fail_closed(self):
+        from services import prompt_text
+        scope = prompt_text.TextScope(kind="chat", chat_id=1,
+                                      degraded="storage_unavailable")
+        with prompt_text.use_scope(scope):
+            with pytest.raises(prompt_text.PromptTextDenied):
+                prompt_text.guard_view("prompts.a")
+            # запись не выдаёт текст: отдельный отказ тоже нужен
+            with pytest.raises(prompt_text.PromptTextDenied):
+                prompt_text.guard_edit("prompts.a")
+
+    def test_guarded_key_predicate(self):
+        from services import prompt_text
+        assert prompt_text.guarded_key("prompts.a")
+        assert prompt_text.guarded_key("character.core")
+        assert prompt_text.guarded_key("style.policy")
+        assert not prompt_text.guarded_key("content.info")
+        assert not prompt_text.guarded_key("limits.x")
+        assert not prompt_text.guarded_key(None)

@@ -389,7 +389,7 @@ async def load_artifact(block_id: str, chat_id: int, *, cache=None,
                 pg_value = cache.get(spec.pg_key, None)
             except Exception:                          # pragma: no cover
                 return None
-    effective = pr.effective_prompt(spec.block_id, pg_value=pg_value,
+    effective = pr._effective_prompt_raw(spec.block_id, pg_value=pg_value,
                                      chat_value=chat_value)
     source = _REGISTRY_SOURCE_TO_LABEL.get(effective.source, SOURCE_MISSING)
     if source == SOURCE_MISSING:
@@ -667,7 +667,7 @@ async def prepare(arguments, *, telegram_id: int | None, chat_id: int | None,
             pass
         elif _rev_matches(request.revision, artifact.factory_revision):
             try:
-                factory_text = pr.factory_text(artifact.block_id)
+                factory_text = pr._factory_text_raw(artifact.block_id)
             except Exception:                          # pragma: no cover
                 factory_text = ""
             artifact = dataclasses.replace(

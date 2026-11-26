@@ -10810,7 +10810,21 @@ class DirectChatService:
             speech_projection=speech_projection,
             self_correction=self_correction)
 
-    async def _l2_write_answer(self, chat_id: int, query: str, *,
+    async def _l2_write_answer(self, *args, **kwargs):
+        """Рантайм-сборка ответа бота (системный потребитель).
+
+        Текст промпта здесь нужен LLM, а не отображению: входная функция
+        сборки объявляет ``system`` scope (design choke point §2 п.3), поэтому
+        различение «системный потребитель vs пользовательское чтение» не
+        зависит от маршрута, из которого пришёл вызов.
+        """
+        from services import prompt_text
+
+        with prompt_text.system_scope("runtime_l2_write_answer"):
+            return await DirectChatService._l2_write_answer_impl(
+                self, *args, **kwargs)
+
+    async def _l2_write_answer_impl(self, chat_id: int, query: str, *,
                                temperature, correlation_id=None,
                                character_block: str = "",
                                style_directives: str = "",

@@ -47,6 +47,7 @@ from services import mca_sample_library as samples_lib
 
 from web.api.deps import can_edit_param, get_cache, get_tma_user
 from web.api import prompt_access
+from services import prompt_text
 from web.api.routes import (
     _chat_id_or_none,
     _persona_access,
@@ -57,6 +58,16 @@ from web.api.routes import (
 logger = logging.getLogger(__name__)
 
 speech_router = APIRouter()
+
+
+def _reraise_prompt_denied(exc) -> None:
+    """Отказ ACL текста промпта не превращается в 503/409/пустой payload.
+
+    Обработчики речи мапят любые сбои хранилища в честные 5xx/409; отказ
+    доступа — не сбой хранилища (choke point §9). Единая точка, чтобы не
+    размазывать `except PromptTextDenied: raise` по десятку веток."""
+    if isinstance(exc, prompt_text.PromptTextDenied):
+        raise exc
 
 #: Документ owner-контролов «Выражение» (SOUL-10.3). Один ключ = один
 #: JSON-документ на scope (R1/R3 design-source-of-truth): глобально —
@@ -646,7 +657,7 @@ def _spec_meta(spec) -> dict:
         "ui": spec.ui,
         "production_kind": pr.production_kind(spec.block_id),
         "factory_revision": pr.factory_revision(spec.block_id),
-        "factory_chars": len(pr.factory_text(spec.block_id)),
+        "factory_chars": pr.factory_chars(spec.block_id),
     }
 
 
@@ -1022,6 +1033,9 @@ async def _prompt_history_view(cache, user, block_ids, *, chat_id: int | None,
                 block_id, scope=scope, chat_id=chat_id, cache=cache,
                 store=store, actor=str(getattr(user, "id", "") or ""),
                 page_size=size)
+        except prompt_text.PromptTextDenied:
+            # Отказ ACL текста не превращается в «истории нет».
+            raise
         except Exception:
             logger.warning("[speech] история из журнала недоступна | block=%s",
                            block_id, exc_info=True)
@@ -1082,6 +1096,10 @@ async def _legacy_history_rows(cache, block_ids, *,
     for block_id in block_ids:
         try:
             rows.extend(await pf.history_for(block_id, cache=cache))
+        except prompt_text.PromptTextDenied:
+            # Отказ ACL текста — не «нет истории»: проглатывание вернуло бы
+            # строки/текст из другого источника (choke point §9).
+            raise
         except Exception:
             logger.warning("[speech] legacy history failed | block=%s",
                            block_id, exc_info=True)
@@ -2183,6 +2201,10 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None,
     try:
         preview = await _preview_manifest(cache, chat_id,
                                           text="(предпросмотр без сообщения)")
+    except prompt_text.PromptTextDenied:
+        # Отказ ACL не проглатывается: иначе inspector отдаёт
+        # `system_masked` из снимка хода — текст в обход матрицы.
+        raise
     except Exception:
         logger.warning("[speech] inspector preview failed", exc_info=True)
     core: dict = {}
@@ -2209,6 +2231,10 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None,
                     "compact_revision"),
             },
         }
+    except prompt_text.PromptTextDenied:
+        # Отказ ACL текста Core (документ `character.core`) — не «сбой
+        # inspector»: пробрасываем, а не подставляем пустой payload.
+        raise
     except Exception:
         logger.warning("[speech] inspector core failed", exc_info=True)
     sent: dict = {}
@@ -2907,6 +2933,7 @@ async def post_block(
             pg=_doc_pg(cache) if scope[0] is not None else None,
             expected_updated_at=body.expected_updated_at)
     except Exception as exc:
+        _reraise_prompt_denied(exc)
         name = type(exc).__name__
         if name == "PromptJournalBypass":
             raise               # ошибка проводки, не отказ хранилища
@@ -2987,6 +3014,7 @@ async def post_block_reset(
             result = await pf.reset_chat_override(int(chat_id), block_id,
                                                   pg=_doc_pg(cache))
         except Exception as exc:
+            _reraise_prompt_denied(exc)
             name = type(exc).__name__
             if name == "PromptJournalBypass":
                 raise
@@ -3025,6 +3053,7 @@ async def post_block_reset(
             expected_updated_at=body.expected_updated_at,
             reason=body.reason or "factory_reset")
     except Exception as exc:
+        _reraise_prompt_denied(exc)
         name = type(exc).__name__
         if name == "PromptJournalBypass":
             raise
@@ -3064,6 +3093,10 @@ async def post_block_rollback(
     if not _can_edit_speech(cache, user, ctx, pg_key=spec.pg_key,
                             chat_id=scope_id):
         raise HTTPException(status_code=403, detail="нет права на правку речи")
+    # Choke point: откат — запись значения. Отказ ACL идёт из общей точки
+    # ДО разрешения ревизии: иначе «ревизия не найдена» (404) маскировала бы
+    # запрет записи.
+    prompt_text.guard_edit(spec.pg_key if scope_id is not None else None)
     from services import prompt_factory as pf
     from services import prompt_release_policy as prp
     history = await pf.history_for(block_id, cache=cache)
@@ -3080,7 +3113,8 @@ async def post_block_rollback(
         # (чужой чат не находится — фильтр адресата как у списков).
         try:
             store = prp.default_journal(cache)
-        except Exception:
+        except Exception as exc:
+            _reraise_prompt_denied(exc)
             store = None
         revision = None
         if store is not None:
@@ -3089,7 +3123,8 @@ async def post_block_rollback(
                 try:
                     revision = await store.find_revision_by_sha(
                         block_id, str(body.sha256_12), chat_id=lookup_chat)
-                except Exception:
+                except Exception as exc:
+                    _reraise_prompt_denied(exc)
                     logger.warning("[speech] журнал ревизий недоступен при "
                                    "откате", exc_info=True)
                     revision = None
@@ -3119,6 +3154,7 @@ async def post_block_rollback(
             chat_id=scope_id,
             pg=_doc_pg(cache) if scope_id is not None else None)
     except Exception as exc:
+        _reraise_prompt_denied(exc)
         if type(exc).__name__ == "PromptJournalBypass":
             raise
         if type(exc).__name__ in ("JournalUnavailable", "PromptJournalError"):
@@ -3208,7 +3244,8 @@ async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
             return {"applied": False, "reason": "config_cache_unavailable"}
         try:
             current = _as_doc(cache.get(pr.CORE_DOC_KEY, None))
-        except Exception:
+        except Exception as exc:
+            _reraise_prompt_denied(exc)
             current = None
         doc = dict(current) if isinstance(current, dict) else {}
         doc.setdefault("full_text", "")
@@ -3224,7 +3261,8 @@ async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
         try:
             await cache.set(pr.CORE_DOC_KEY, doc,
                             category=CORE_DOC_CATEGORY)
-        except Exception:
+        except Exception as exc:
+            _reraise_prompt_denied(exc)
             logger.warning("[speech] core meta write failed", exc_info=True)
             return {"applied": False, "reason": "write_error"}
         return {"applied": True, "scope": "global", "revision": doc["revision"]}
@@ -3242,7 +3280,8 @@ async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
             if cache is not None:
                 try:
                     global_doc = _as_doc(cache.get(pr.CORE_DOC_KEY, None))
-                except Exception:
+                except Exception as exc:
+                    _reraise_prompt_denied(exc)
                     global_doc = None
             doc = dict(global_doc) if isinstance(global_doc, dict) else {}
         if body.detail_level is not None:
@@ -3258,7 +3297,8 @@ async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
                                           {"overrides": overrides}, pg=pg)
         return {"applied": True, "scope": "chat", "chat_id": int(chat_id),
                 "revision": doc["revision"]}
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         logger.warning("[speech] core meta chat write failed", exc_info=True)
         return {"applied": False, "reason": "write_error"}
 
@@ -3429,7 +3469,8 @@ async def _write_expression(cache, chat_id: int | None, values: dict) -> dict:
             return {"applied": False, "reason": "config_cache_unavailable"}
         try:
             current = _as_doc(cache.get(EXPRESSION_DOC_KEY, None))
-        except Exception:
+        except Exception as exc:
+            _reraise_prompt_denied(exc)
             current = None
         doc = dict(current) if isinstance(current, dict) else {}
         history = list(doc.get("history") or [])
@@ -3448,7 +3489,8 @@ async def _write_expression(cache, chat_id: int | None, values: dict) -> dict:
         try:
             await cache.set(EXPRESSION_DOC_KEY, doc,
                             category=EXPRESSION_DOC_CATEGORY)
-        except Exception:
+        except Exception as exc:
+            _reraise_prompt_denied(exc)
             logger.warning("[speech] expression write failed", exc_info=True)
             return {"applied": False, "reason": "write_error"}
         return {"applied": True, "scope": "global", "revision": doc["revision"]}
@@ -3470,7 +3512,8 @@ async def _write_expression(cache, chat_id: int | None, values: dict) -> dict:
                                           {"overrides": overrides}, pg=pg)
         return {"applied": True, "scope": "chat", "chat_id": int(chat_id),
                 "revision": doc["revision"]}
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         logger.warning("[speech] expression chat write failed", exc_info=True)
         return {"applied": False, "reason": "write_error"}
 
@@ -3500,7 +3543,8 @@ async def post_expression_reset_chat(
         overrides.pop(EXPRESSION_DOC_KEY, None)
         await chat_params.set_chat_params(int(chat_id),
                                           {"overrides": overrides}, pg=pg)
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         logger.warning("[speech] expression reset failed", exc_info=True)
         raise HTTPException(status_code=503,
                             detail=RESET_UNAVAILABLE_DETAIL)
@@ -3578,18 +3622,21 @@ async def post_expression_live_check(
         from services import prompt_composer as composer
         settings_ref = await composer.resolve_expression_settings(chat_id)
         mode = str(settings_ref.mode or "")
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         mode = ""
     correlation_id = None
     try:
         from services import usage_events as _ue
         correlation_id = _ue.new_correlation_id()
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         correlation_id = None
     try:
         from config.settings import settings as _settings
         temperature = _settings.tone_temperature(None)
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         temperature = 0.7
     diag_out: dict = {}
     started = time.perf_counter()
@@ -3599,7 +3646,8 @@ async def post_expression_live_check(
             chat_id, message, temperature=temperature,
             correlation_id=correlation_id, writer="speech_ui_live_check",
             diag_out=diag_out)
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         logger.warning("[speech] expression live-check failed", exc_info=True)
         expression.emit_expression_diag(
             "provider_limitation", chat_id=chat_id,
@@ -3797,7 +3845,8 @@ async def post_humor_technique_test(
                     revision=probe.layer_revision, source=cfg.source),
                 gates=gate))
             manifest = composer.manifest_for_events(composed)
-        except Exception:
+        except Exception as exc:
+            _reraise_prompt_denied(exc)
             logger.warning("[speech] humor technique preview failed",
                            exc_info=True)
     return {
@@ -4559,7 +4608,8 @@ async def _generate_variants(current: dict, cand: dict | None,
             hot.get("models.embedding_model_name",
                     settings.EMBEDDING_MODEL_NAME),
         )
-    except Exception:
+    except Exception as exc:
+        _reraise_prompt_denied(exc)
         logger.warning("[speech] try generation client failed", exc_info=True)
         return {"ok": False, "reason": "client_unavailable"}
     out: dict = {"ok": True, "variants": {}}
@@ -4581,6 +4631,7 @@ async def _generate_variants(current: dict, cand: dict | None,
                 "elapsed_ms": int((time.perf_counter() - started) * 1000),
             }
         except Exception as exc:
+            _reraise_prompt_denied(exc)
             out["variants"][name] = {"ok": False,
                                      "error": type(exc).__name__}
             out["ok"] = False

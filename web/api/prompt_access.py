@@ -1,6 +1,6 @@
 """Единое решение доступа к ресурсу промпта (MOD-ACL-UX-01 M1-C).
 
-Правило одно и живёт не здесь: сборка действующей матрицы — 
+Правило одно и живёт не здесь: сборка действующей матрицы —
 ``services.access.chat_param_matrix``, сравнение — ``can_view_param`` /
 ``can_edit_param``, скрытость ключа — каталог параметров. Этот модуль только
 склеивает «актор + scope + ключ» в одно решение, чтобы у ``/api/prompts/*``,
@@ -78,20 +78,30 @@ class ChatResources:
 
 
 async def chat_resources(cache, user_id: int, chat_id: int, *,
-                         ctx: Any = None) -> ChatResources:
-    """Контекст актора в чате + входы матрицы (fail-open на чтении входов).
+                         ctx: Any = None,
+                         strict: bool = False) -> ChatResources:
+    """Контекст актора в чате + входы матрицы.
 
     ``ctx`` можно передать уже разрешённым (``/api/speech/*`` получает его из
-    своего access-пути) — тогда повторного чтения ролей нет."""
+    своего access-пути) — тогда повторного чтения ролей нет.
+
+    ``strict=False`` (HTTP-поверхности) — прежний fail-open на ошибке чтения
+    входов: бот/UI живут, решение считается по дефолтной матрице.
+    ``strict=True`` (``services.prompt_text.build_scope``) — ошибка чтения
+    пробрасывается: снимок прав не подменяется дефолтом (fail-closed)."""
     if ctx is None:
         ctx = await roles_srv.access_for(user_id, chat_id, cache=cache)
     try:
         db_overrides = await access_srv.db_override_map(cache.pg)
     except Exception:                       # pragma: no cover — fail-open
+        if strict:
+            raise
         db_overrides = {}
     try:
         chat_root = await chat_params.get_all_chat_params(chat_id)
     except Exception:                       # pragma: no cover — fail-open
+        if strict:
+            raise
         chat_root = {}
     return ChatResources(ctx=ctx, db_overrides=db_overrides,
                          chat_root=chat_root,
