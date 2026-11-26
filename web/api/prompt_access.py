@@ -10,11 +10,13 @@
 HTTP-исключений модуль не бросает: API-слой переводит отказ в 403 со своими
 существующими формулировками (у промпт-маршрутов — ``нет права на <key>``).
 
-Паритет с ``GET /api/config``: в чатовом скоупе видимость решает матрица
-(значение ключа и текст ревизии одинаково). В глобальном скоупе значения
-промптов не секреты и ``/api/config`` отдаёт их любой роли — поэтому
-``resource_access`` там не сужает доступ, а историю глобально закрывает
-отдельное правило промпт-маршрутов (``decide``).
+Паритет с ``GET /api/config``: ключи ТЕКСТА промпта решает ресурсная
+матрица в обоих скоупах — в чатовом (``chat_resources``) и в глобальном
+(``global_resources``: дефолт ⊕ DB-override, чатовых перекрытий нет).
+Историю промпта глобально дополнительно закрывает ``decide``.
+``resource_access`` — поверхность текста (``/api/speech/*``) — в глобальном
+скоупе сохраняет прежнюю границу (сужает только hidden-ключи); это не
+видимость значения в ``/api/config``.
 """
 from __future__ import annotations
 
@@ -109,6 +111,27 @@ async def chat_resources(cache, user_id: int, chat_id: int, *,
                                                    False)))
 
 
+def global_resources(ctx: Any, db_overrides: dict | None = None) -> ChatResources:
+    """Входы ресурсной матрицы ГЛОБАЛЬНОГО скоупа (HTTP без X-Chat-Id).
+
+    Чатовых перекрытий здесь нет по определению запроса, поэтому сборка —
+    та же ``chat_param_matrix(key, db_overrides, {})``: дефолт ⊕ DB-override.
+    Возвращаем тот же ``ChatResources``, чтобы потребитель (``GET /api/config``
+    без чата) спрашивал ``visible(key)``, а не разбирал матрицу сам: одно
+    правило (hidden → только глобальный админ, иначе ``can_view_param``).
+
+    Второго правила не появляется: ``/api/config`` в чатовом скоупе решает
+    ``chat_resources(...).visible``, в глобальном — ``global_resources`` с тем
+    же ``visible``. Отличается только отсутствие ``perm_overrides`` чата.
+    """
+    return ChatResources(
+        ctx=ctx,
+        db_overrides=dict(db_overrides or {}),
+        chat_root={},
+        global_admin=bool(getattr(ctx, "is_global_admin", False)),
+    )
+
+
 def _is_admin(cache, user_id: int, ctx: Any) -> bool:
     if ctx is not None:
         return bool(getattr(ctx, "is_global_admin", False))
@@ -123,8 +146,10 @@ async def resource_access(cache, user_id: int, pg_key: str | None,
     * hidden-ключ — только глобальный админ (паритет с реестром/каталогом);
     * чатовый скоуп — действующая матрица (``can_view_param``/``can_edit_param``),
       ровно как значение в ``GET /api/config``;
-    * глобальный скоуп — не сужаем: значения промптов не секреты и видны
-      любой роли (как ``/api/config``); историю глобально закрывает ``decide``.
+    * глобальный скоуп — граница поверхности ТЕКСТА (``/api/speech/*``): не
+      сужаем, кроме hidden-ключей. Значение в ``GET /api/config`` глобально
+      решает ``global_resources.visible`` (ресурсная матрица без чатовых
+      перекрытий); это разные поверхности одного ресурса.
     """
     if is_hidden_key(pg_key) and not _is_admin(cache, user_id, ctx):
         return Access(False, False, detail="нет доступа к этому промпту")

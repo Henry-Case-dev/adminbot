@@ -59,6 +59,30 @@ def _mask_key(key: str | None) -> dict:
     return {"configured": bool(value), "last4": value[-4:] if value else None}
 
 
+def _parse_started_at(value) -> datetime.datetime | None:
+    """`started_at` (ISO-строка или datetime) → aware UTC.
+
+    Единственная точка разбора `status.started_at`. Поле публичного JSON
+    остаётся ISO-строкой (`/api/status`), но вычисления (`/api/status/
+    self-diagnosis`) берут типизированное значение: вычитание строки из
+    datetime давало TypeError → uptime=null. Naive-значение трактуется как
+    UTC (контракт `deploy_identity._parse_datetime` для этого же поля).
+    """
+    if isinstance(value, datetime.datetime):
+        parsed = value
+    elif isinstance(value, str) and value.strip():
+        text = value.strip().replace("Z", "+00:00").replace("z", "+00:00")
+        try:
+            parsed = datetime.datetime.fromisoformat(text)
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed.astimezone(datetime.timezone.utc)
+
+
 def _mask_key_for_role(key: str | None, is_global_admin: bool) -> dict:
     """ФИКС S2 (F-7 §1.2-2): глобальный admin — {configured,last4};
     local admin/moderator/user — {configured} БЕЗ last4 (маску не отдаём)."""
@@ -87,6 +111,14 @@ class StatusService:
         self.started_at = datetime.datetime.now(
             datetime.timezone.utc).isoformat()
         self.state = "starting"
+
+    def started_at_dt(self) -> datetime.datetime | None:
+        """Типизированный `started_at` (aware UTC) для расчётов аптайма.
+
+        JSON-контракт `/api/status` не меняется (там строка); потребители,
+        которым нужна арифметика, не вычитают строку из datetime.
+        """
+        return _parse_started_at(self.started_at)
 
     def set_polling_state(self, state: str) -> None:
         """starting | polling | polling_error."""
