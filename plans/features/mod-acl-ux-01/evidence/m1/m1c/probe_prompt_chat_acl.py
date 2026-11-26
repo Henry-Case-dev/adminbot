@@ -42,6 +42,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from services import prompt_registry as pr  # noqa: E402
 from services import prompt_release_policy as prp  # noqa: E402
+from services import access as access_srv  # noqa: E402
 from services.config_cache import ConfigCache  # noqa: E402
 from web.api import deps as deps_mod  # noqa: E402
 from web.api import routes as routes_mod  # noqa: E402
@@ -89,6 +90,9 @@ class ChatConn(_Conn):
 
 
 def _client(chat_grants: dict, perm_overrides: dict) -> TestClient:
+    # TTL-кэш override'ов (`param_permissions`) модульный: без сброса матрица
+    # прошлого кейса жила бы 60 с и следующий кейс проверял бы не то.
+    access_srv.reset_param_permissions_cache()
     db = _Db()
     conn = ChatConn(db, chat_grants)
     for key, value in (perm_overrides or {}).items():
@@ -150,11 +154,15 @@ def main() -> int:
         default_grants, {PG_KEY: {"view_roles": ["local_admin"],
                                   "edit_roles": []}},
         LOCAL_ADMIN_ID, CHAT_A, 200, True)
-    run("3 участник без гранта (изоляция чужого/группового чата)",
+    run("3 local_admin вне view_roles/update (просмотр режется ACL)",
+        default_grants, {PG_KEY: {"view_roles": ["moderator"],
+                                  "edit_roles": ["moderator"]}},
+        LOCAL_ADMIN_ID, CHAT_A, 403, True)
+    run("4 участник без гранта (изоляция чужого/группового чата)",
         default_grants, {}, PLAIN_USER_ID, CHAT_A, 403, True)
-    run("4 local_admin чата A читает чат B (чужой scope)",
+    run("5 local_admin чата A читает чат B (чужой scope)",
         default_grants, {}, LOCAL_ADMIN_ID, CHAT_B, 403, True)
-    run("5 глобальный админ (положительный контроль стенда)",
+    run("6 глобальный админ (положительный контроль стенда)",
         default_grants, {}, OWNER_ID, CHAT_A, 200, False)
 
     print(json.dumps(results, ensure_ascii=False, indent=2))
@@ -165,7 +173,8 @@ def main() -> int:
               % (len(bad), len(results)))
         return 1
     print("PROMPT-CHAT-ACL-ENFORCED: %d/%d строк — просмотр и запись "
-          "действительно решаются ACL в контексте группового чата"
+          "решаются ACL в контексте группового чата "
+          "(постоянный замок: tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py)"
           % (len(results), len(results)))
     return 0
 
