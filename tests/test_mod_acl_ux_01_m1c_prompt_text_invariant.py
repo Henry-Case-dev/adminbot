@@ -47,9 +47,10 @@ from services import style_policy as sp
 from services.config_cache import ConfigCache
 from tests.test_evol016_prompt_activation import FactoryEdition
 from tests.test_mod_acl_ux_01_m1c_prompt_chat_acl import (  # noqa: F401
-    BASE_BLOCK, BASE_KEY, CHAT_A, CHAT_TEXT, INSPECTOR_ROLES, LOCAL_ADMIN,
-    MARK, ROLES, TEST_TOKEN, ChatConn, CONTENT_LOCAL_ADMIN_ROLES, _Db, _Pg,
-    _patch_chat_root, _seed, make_init_data, make_client,
+    ADMIN, BASE_BLOCK, BASE_KEY, CHAT_A, CHAT_TEXT, INSPECTOR_ROLES,
+    LOCAL_ADMIN, MARK, ROLES, TEST_TOKEN, ChatConn,
+    CONTENT_LOCAL_ADMIN_ROLES, _Db, _Pg, _patch_chat_root, _seed,
+    make_init_data, make_client,
 )
 from web.api import deps as deps_mod
 from web.api import routes as routes_mod
@@ -138,6 +139,26 @@ def _make_invariant_client(monkeypatch, *, deny: bool):
     return client
 
 
+#: correlation_id прогона A/B: одна запись кольца провайдера с маркером.
+CORR_ID = "invcorr"
+
+
+def _seed_provider_ring(mark: str) -> None:
+    """Реальный след провайдера с композитным текстом в in-memory кольце."""
+    from services import prompt_composer as composer
+    composer.reset_provider_calls()
+    composer.record_provider_call(
+        payload={"probe": 1},
+        messages=[{"role": "system", "content": mark},
+                  {"role": "user", "content": "u"}],
+        correlation_id=CORR_ID, chat_id=CHAT_A)
+
+
+def _reset_provider_ring() -> None:
+    from services import prompt_composer as composer
+    composer.reset_provider_calls()
+
+
 def _seed_marker_revision(client) -> str:
     body = f"{MARK}\n"
     rid = pr.revision_id_for(BASE_BLOCK, "chat", CHAT_A, "manual",
@@ -216,8 +237,14 @@ def _substitute(path: str, revision_id: str) -> str:
     return "".join(parts)
 
 
-def _sweep(client, headers, revision_id: str) -> dict:
-    """Best-effort запрос по КАЖДОМУ маршруту таблицы; возвращает статусы."""
+def _sweep(client, headers, revision_id: str, *,
+           correlation_id: str = "") -> dict:
+    """Best-effort запрос по КАЖДОМУ маршруту таблицы; возвращает статусы.
+
+    ``correlation_id`` подставляется во все GET-маршруты (лишний query-параметр
+    для остальных безвреден): иначе режим, читающий уже материализованный кэш
+    провайдера (`GET /api/speech/inspector?correlation_id=...`), вообще не
+    попадал в прогон A."""
     statuses: dict = {}
     for route_path, route_methods in _collect_routes(client):
         methods = [m for m in (route_methods or ()) if m not in
@@ -226,7 +253,10 @@ def _sweep(client, headers, revision_id: str) -> dict:
             continue
         method = "GET" if "GET" in methods else methods[0]
         path = _substitute(route_path, revision_id)
-        kwargs = {"headers": headers, "params": {"chat_id": str(CHAT_A)}}
+        params = {"chat_id": str(CHAT_A)}
+        if correlation_id and "GET" in methods:
+            params["correlation_id"] = correlation_id
+        kwargs = {"headers": headers, "params": params}
         if method in ("POST", "PUT", "PATCH", "DELETE"):
             kwargs["json"] = {"chat_id": CHAT_A}
         try:
@@ -262,11 +292,21 @@ class TestInvariantDeniedTextNeverReturned:
         headers = {"X-Telegram-Init-Data": make_init_data(LOCAL_ADMIN),
                    "X-Chat-Id": str(CHAT_A)}
         rev = _seed_marker_revision(client)
-        statuses = _sweep(client, headers, rev)
-        bodies = _bodies(statuses)
+        _seed_provider_ring(MARK)
+        try:
+            statuses = _sweep(client, headers, rev)
+            corr_statuses = _sweep(client, headers, rev,
+                                   correlation_id=CORR_ID)
+        finally:
+            _reset_provider_ring()
+        bodies = _bodies(statuses) + _bodies(corr_statuses)
         # Санити: прогон A действительно обошёл таблицу маршрутов, а не
         # «ничего не вызвал» (иначе отсутствие маркера тривиально).
         assert len(bodies) > 50, len(bodies)
+        # Оба режима inspector пройдены и отказаны: обычный (снимок хода и
+        # последний вызов кольца того же ответа) и correlation-режим.
+        assert statuses[("GET", "/api/speech/inspector")] == 403
+        assert corr_statuses[("GET", "/api/speech/inspector")] == 403
         leaks = [k for k, body in bodies
                  if MARK in body or CHAT_TEXT.strip() in body]
         assert leaks == [], "текст промпта в теле ответа без права: %r" % leaks[:5]
@@ -300,6 +340,32 @@ class TestInvariantDeniedTextNeverReturned:
                 missing.append((method, path, resp.status_code))
         assert missing == [], "прогон B вакуумный: %r" % missing[:5]
 
+    def test_correlation_cache_is_gated_and_not_vacuous(self, monkeypatch):
+        """Кэш провайдера: отказ без права и текст у глобального админа.
+
+        Обе половины обязательны: 403 у чатовой роли доказывает страж, 200 с
+        маркером у админа — что кольцо реально содержало текст (иначе отказ
+        ничего не проверял)."""
+        client = _make_invariant_client(monkeypatch, deny=True)
+        _seed_provider_ring(MARK)
+        try:
+            local = client.get(
+                "/api/speech/inspector",
+                params={"correlation_id": CORR_ID, "chat_id": str(CHAT_A)},
+                headers={"X-Telegram-Init-Data": make_init_data(LOCAL_ADMIN),
+                         "X-Chat-Id": str(CHAT_A)})
+            admin = client.get(
+                "/api/speech/inspector",
+                params={"correlation_id": CORR_ID, "chat_id": str(CHAT_A)},
+                headers={"X-Telegram-Init-Data": make_init_data(ADMIN),
+                         "X-Chat-Id": str(CHAT_A)})
+        finally:
+            _reset_provider_ring()
+        assert local.status_code == 403, local.text[:300]
+        assert MARK not in local.text
+        assert admin.status_code == 200, admin.text[:300]
+        assert MARK in admin.text
+
 
 class TestStructuralInvariants:
     """AST: сырой материализатор — только у владельца; страж не удалён."""
@@ -309,23 +375,108 @@ class TestStructuralInvariants:
         return ast.parse(open(path, encoding="utf-8-sig").read(),
                          filename=rel)
 
+    #: Материализаторы/скоуп-API, которые web не имеет права вызывать.
+    FORBIDDEN_ATTRS = {"system_scope", "_factory_text_raw",
+                       "_effective_prompt_raw", "journal_write_scope",
+                       "legacy_migration_write"}
+    #: Кто единственный пишет scope (auth-time в deps, middleware в app).
+    SCOPE_WRITE_ALLOWED = {"set_scope": {"web/api/deps.py", "web/app.py"},
+                           "reset_scope": {"web/app.py"}}
+
+    def _prompt_text_bindings(self, tree):
+        """``{локальное имя: каноническое}`` для модуля и его членов.
+
+        Ловятся ВСЕ формы: ``import services.prompt_text [as X]``,
+        ``from services import prompt_text [as Y]``,
+        ``from services.prompt_text import system_scope [as Z]``."""
+        aliases: dict[str, str] = {}
+        direct: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    mod = alias.name or ""
+                    if mod == "services.prompt_text":
+                        aliases[alias.asname or "prompt_text"] = \
+                            "services.prompt_text"
+                    elif mod.startswith("services.prompt_text."):
+                        attr = mod.rsplit(".", 1)[1]
+                        direct[alias.asname or attr] = attr
+            elif isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                for alias in node.names:
+                    asname = alias.asname or alias.name
+                    if mod == "services.prompt_text":
+                        direct[asname] = alias.name
+                    elif mod == "services" and alias.name == "prompt_text":
+                        aliases[asname] = "services.prompt_text"
+                    elif mod == "services" \
+                            and alias.name in self.FORBIDDEN_ATTRS:
+                        direct[asname] = alias.name
+        return aliases, direct
+
     def test_web_does_not_import_system_materializers(self):
-        forbidden = {"system_scope", "_factory_text_raw", "_effective_prompt_raw",
-                     "journal_write_scope"}
         offenders = []
         for root, _dirs, files in os.walk(os.path.join(REPO, "web")):
             for name in files:
                 if not name.endswith(".py"):
                     continue
-                rel = os.path.relpath(os.path.join(root, name), REPO)
+                rel = os.path.relpath(os.path.join(root, name),
+                                      REPO).replace(os.sep, "/")
                 tree = ast.parse(open(os.path.join(root, name),
                                       encoding="utf-8-sig").read(), filename=rel)
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.ImportFrom):
-                        for alias in node.names:
-                            if alias.name in forbidden:
-                                offenders.append((rel, alias.name))
+                offenders.extend(self._scan_offenders(tree, rel))
         assert offenders == [], offenders
+
+    def _scan_offenders(self, tree, rel: str) -> list:
+        """Нарушения файла: вызов сырого материализатора/неразрешённая запись scope."""
+        aliases, direct = self._prompt_text_bindings(tree)
+        offenders = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                real = direct.get(node.id)
+                if real is not None and real in self.FORBIDDEN_ATTRS:
+                    offenders.append((rel, real))
+                if real is None:
+                    real = node.id
+                if real in self.SCOPE_WRITE_ALLOWED \
+                        and rel not in self.SCOPE_WRITE_ALLOWED[real]:
+                    offenders.append((rel, real))
+            elif isinstance(node, ast.Attribute) \
+                    and isinstance(node.value, ast.Name) \
+                    and node.value.id in aliases:
+                if node.attr in self.FORBIDDEN_ATTRS:
+                    offenders.append((rel, node.attr))
+                if node.attr in self.SCOPE_WRITE_ALLOWED \
+                        and rel not in self.SCOPE_WRITE_ALLOWED[node.attr]:
+                    offenders.append((rel, node.attr))
+        return offenders
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n", "system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt._factory_text_raw('k', 'c')\n", "_factory_text_raw"),
+        ("import services.prompt_text as ptx\n"
+         "ptx._effective_prompt_raw('k', 'c')\n", "_effective_prompt_raw"),
+        ("import services.prompt_text\n"
+         "services.prompt_text.journal_write_scope(1)\n", None),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n", "system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n", "reset_scope"),
+        ("from services import _factory_text_raw\n"
+         "_factory_text_raw('k', 'c')\n", "_factory_text_raw"),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: ``from services import prompt_text`` и
+        ``as``-алиасы не должны проходить мимо AST-инварианта."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        if expected is None:
+            assert offenders == [], offenders
+        else:
+            assert offenders and all(name == expected
+                                     for _rel, name in offenders), offenders
 
     @pytest.mark.parametrize("rel,func", [
         ("services/prompt_composer.py", "compose_speech_system"),

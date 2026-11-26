@@ -544,6 +544,11 @@ class PromptPlan:
     run_id: str | None = None
     base_prompt: str = ""
     base_source: str = "default"
+    #: M1-C (R4-F02): реестровый блок-владелец базового текста. Нужен, чтобы
+    #: fail-open-фолбэк нёс провенанс (`channel_canon` → block_id базового
+    #: блока) и `guard_manifest` мог отказать. Пусто — база вне реестра
+    #: (код-канон жанра, machine-профиль), отказ неприменим.
+    base_block_id: str = ""
     include_mode_block: bool = True
     response_mode: str = ""
     core: CoreRef | None = None
@@ -1136,6 +1141,7 @@ async def _compose_speech_system_impl(*, chat_id: int, writer: str,
             profile=profile, writer=writer, chat_id=chat_id, channel=channel,
             html_safe=html_safe, run_id=run_id, base_prompt=base_prompt,
             base_source=source, include_mode_block=include_mode_block,
+            base_block_id=_base_block_id(base_key),
             response_mode=response_mode,
             core=snapshot.core,
             identity=identity_from_text(
@@ -2230,10 +2236,28 @@ def _remember(manifest: PromptManifest) -> None:
             _last_layers.popitem(last=False)
 
 
+def _base_block_id(base_key: str) -> str:
+    """Реестровый ``block_id`` базового ключа — провенанс fail-open-фолбэка.
+
+    Нужен, чтобы слой ``channel_canon`` в `_fallback_manifest` нёс block_id
+    реального блока и `prompt_text.guard_manifest` мог отказать (M1-C R4-F02).
+    Пусто — ключ вне реестра (код-канон/машинный профиль): гейтить нечего."""
+    if not base_key:
+        return ""
+    try:
+        from services import prompt_registry as _pr
+        spec = _pr.by_pg_key(str(base_key))
+        return str(getattr(spec, "block_id", "") or "")
+    except Exception:      # pragma: no cover — диагностика не ломает сборку
+        return ""
+
+
 def _fallback_manifest(plan: PromptPlan) -> PromptManifest:
     """Последний рубеж: композер никогда не бросает."""
     base = str(plan.base_prompt or "")
-    trace = _trace(LAYER_CHANNEL_CONTRACT, block_id="channel_canon",
+    trace = _trace(LAYER_CHANNEL_CONTRACT,
+                   block_id=(str(getattr(plan, "base_block_id", "") or "")
+                             or "channel_canon"),
                    text=base, owner="channel",
                    source=str(plan.base_source or "default"),
                    revision=sha12(base), rendered=bool(base.strip()),
@@ -2263,11 +2287,14 @@ def compose_prompt(plan: PromptPlan) -> PromptManifest:
 
     Стража текста (`prompt_text.guard_manifest`) стоит ПОСЛЕ fail-open-ветки:
     отказ ACL — не «сбой сборки», его нельзя проглотить фолбэком, иначе
-    манифест вернёт текст из другого слоя."""
+    манифест вернёт текст из другого слоя. Отказ ACL поэтому **перебрасывается**
+    до общего `except Exception` (R4-F02)."""
     from services import prompt_text
 
     try:
         manifest = _compose(plan)
+    except prompt_text.PromptTextDenied:
+        raise
     except Exception:
         logger.warning("[composer] compose failed — fail-open (channel only)",
                        exc_info=True)

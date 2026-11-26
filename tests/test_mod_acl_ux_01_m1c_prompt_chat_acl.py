@@ -792,3 +792,200 @@ class TestTextScopeUnitTable:
         assert not prompt_text.guarded_key("content.info")
         assert not prompt_text.guarded_key("limits.x")
         assert not prompt_text.guarded_key(None)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 10. R4-F01/F02: кэшированный correlation-inspector и fail-open-фолбэк
+# ═══════════════════════════════════════════════════════════════════════════
+
+CORR_MARK = "M1C-R4-CORR-MARK"
+
+
+def _seed_provider_call(chat_id: int, mark: str, correlation_id: str) -> None:
+    """Реальный след провайдера в in-memory кольце композера (как llm_client)."""
+    from services import prompt_composer as pc
+    pc.reset_provider_calls()
+    pc.record_provider_call(payload={"probe": 1},
+                            messages=[{"role": "system", "content": mark},
+                                      {"role": "user", "content": "u"}],
+                            correlation_id=correlation_id, chat_id=chat_id)
+
+
+class TestInspectorCorrelationMode:
+    """Кэш провайдера — уже материализованный композит без per-key провенанса."""
+
+    def test_correlation_denied_for_persona_editor(self, monkeypatch, edition):
+        from services import prompt_composer as pc
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=BASE_KEY, roles=INSPECTOR_ROLES)
+        _seed_provider_call(CHAT_A, CORR_MARK, "r4corr")
+        try:
+            resp = client.get("/api/speech/inspector?correlation_id=r4corr",
+                              headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        finally:
+            pc.reset_provider_calls()
+        assert resp.status_code == 403, resp.text[:300]
+        assert CORR_MARK not in resp.text
+
+    def test_correlation_denied_even_when_matrix_allows(self, monkeypatch,
+                                                        edition):
+        """Режим ограничен глобальным админом: провенанса ключей в кэше нет,
+        поэтому persona-editor не получает кэш и при разрешающей матрице."""
+        from services import prompt_composer as pc
+        client = make_client(monkeypatch, roles=INSPECTOR_ROLES)
+        _seed_provider_call(CHAT_A, CORR_MARK, "r4corr")
+        try:
+            resp = client.get("/api/speech/inspector?correlation_id=r4corr",
+                              headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        finally:
+            pc.reset_provider_calls()
+        assert resp.status_code == 403, resp.text[:300]
+        assert CORR_MARK not in resp.text
+        assert "глобальн" in resp.text
+
+    def test_correlation_admin_gets_cached_text(self, monkeypatch, edition):
+        """Контроль: кэш реально содержит текст — админ его видит (иначе
+        отказ выше ничего не доказывал бы)."""
+        from services import prompt_composer as pc
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=BASE_KEY, roles=INSPECTOR_ROLES)
+        _seed_provider_call(CHAT_A, CORR_MARK, "r4corr")
+        try:
+            resp = client.get("/api/speech/inspector?correlation_id=r4corr",
+                              headers=_hdr(ADMIN, CHAT_A))
+        finally:
+            pc.reset_provider_calls()
+        assert resp.status_code == 200, resp.text[:300]
+        assert CORR_MARK in resp.text
+
+
+class TestComposeFallbackDoesNotSwallow:
+    """R4-F02: отказ ACL из `_compose` не превращается в fallback-манифест."""
+
+    def _plan(self):
+        from services import prompt_composer as composer
+        return composer.PromptPlan(
+            profile=composer.PROFILE_SPEECH_PLAIN, writer="probe",
+            chat_id=CHAT_A, base_prompt=CORR_MARK,
+            base_block_id=BASE_BLOCK)
+
+    def test_prompt_denied_from_compose_is_reraised(self, monkeypatch):
+        from services import prompt_composer as composer
+        from services import prompt_text
+
+        def boom(plan):
+            raise prompt_text.PromptTextDenied(BASE_KEY, chat_id=CHAT_A)
+
+        monkeypatch.setattr(composer, "_compose", boom)
+        with pytest.raises(prompt_text.PromptTextDenied):
+            composer.compose_prompt(self._plan())
+
+    def test_genuine_failure_fallback_is_guarded_by_provenance(self,
+                                                              monkeypatch):
+        from services import prompt_composer as composer
+        from services import prompt_text
+
+        def boom(plan):
+            raise RuntimeError("compose failure")
+
+        monkeypatch.setattr(composer, "_compose", boom)
+        denied = prompt_text.TextScope(kind="chat", chat_id=CHAT_A)
+        with prompt_text.use_scope(denied):
+            with pytest.raises(prompt_text.PromptTextDenied):
+                composer.compose_prompt(self._plan())
+        # Вне чатового скоупа фолбэк по-прежнему честный (system).
+        manifest = composer.compose_prompt(self._plan())
+        assert manifest.system == CORR_MARK
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# 11. R4-F01: уже материализованный текст (снимок хода / кольцо провайдера)
+# ───────────────────────────────────────────────────────────────────────────
+
+SNAP_MARK = "M1C-R4-SNAP-MARK"
+RING_MARK = "M1C-R4-RING-MARK"
+RESTRICTED = "global_admin_only_no_key_provenance"
+
+
+def _seed_turn_manifest(chat_id: int, mark: str,
+                        writer: str = "l2_writer") -> None:
+    """Манифест РЕАЛЬНОГО хода в in-memory кэше композера (как рантайм)."""
+    from services import prompt_composer as composer
+    plan = composer.PromptPlan(
+        profile=composer.PROFILE_SPEECH_PLAIN, writer=writer,
+        chat_id=int(chat_id), run_id="r4snapshot",
+        base_prompt=mark, gates=composer.gates_from_config())
+    composer.compose_prompt(plan)
+
+
+class TestInspectorCachedTextRestricted:
+    """Снимок и кольцо не хранят per-key провенанс → текст только админу."""
+
+    def _reset(self):
+        from services import prompt_composer as composer
+        composer.reset_state()
+
+    def test_sent_snapshot_text_hidden_from_chat_role(self, monkeypatch,
+                                                      edition):
+        client = make_client(monkeypatch, roles=INSPECTOR_ROLES)
+        _seed_turn_manifest(CHAT_A, SNAP_MARK)
+        try:
+            resp = client.get("/api/speech/inspector",
+                              headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        finally:
+            self._reset()
+        assert resp.status_code == 200, resp.text[:300]
+        body = resp.json()
+        assert SNAP_MARK not in resp.text
+        assert body["sent"]["system_masked"] == ""
+        assert body["sent"]["system_chars"] >= len(SNAP_MARK)
+        assert body["sent"]["text_restricted"] == RESTRICTED
+
+    def test_ring_text_hidden_from_chat_role(self, monkeypatch, edition):
+        from services import prompt_composer as pc
+        client = make_client(monkeypatch, roles=INSPECTOR_ROLES)
+        _seed_provider_call(CHAT_A, RING_MARK, "r4ring")
+        try:
+            resp = client.get("/api/speech/inspector",
+                              headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        finally:
+            pc.reset_provider_calls()
+            self._reset()
+        assert resp.status_code == 200, resp.text[:300]
+        exact = resp.json()["exact"]
+        assert RING_MARK not in resp.text
+        assert exact["is_actual"] is True
+        assert exact["system"] == ""
+        assert exact["text_restricted"] == RESTRICTED
+
+    def test_admin_gets_snapshot_and_ring_text(self, monkeypatch, edition):
+        from services import prompt_composer as pc
+        client = make_client(monkeypatch, roles=INSPECTOR_ROLES)
+        _seed_turn_manifest(CHAT_A, SNAP_MARK)
+        _seed_provider_call(CHAT_A, RING_MARK, "r4ring")
+        try:
+            resp = client.get("/api/speech/inspector",
+                              headers=_hdr(ADMIN, CHAT_A))
+        finally:
+            pc.reset_provider_calls()
+            self._reset()
+        assert resp.status_code == 200, resp.text[:300]
+        body = resp.json()
+        assert SNAP_MARK in str(body["sent"].get("system_masked") or "")
+        assert RING_MARK in str(body["exact"].get("system") or "")
+        assert not body["sent"].get("text_restricted")
+        assert not body["exact"].get("text_restricted")
+
+    def test_preview_text_still_visible_to_permitted_role(self, monkeypatch,
+                                                          edition):
+        """Ограничение касается только кэшей, а не текста, собранного сейчас."""
+        client = make_client(monkeypatch, roles=INSPECTOR_ROLES)
+        _patch_chat_root(monkeypatch, overrides={BASE_KEY: MARK})
+        self._reset()
+        pr.set_release_policy_active(True)
+        try:
+            resp = client.get("/api/speech/inspector",
+                              headers=_hdr(LOCAL_ADMIN, CHAT_A))
+        finally:
+            pr.set_release_policy_active(False)
+        assert resp.status_code == 200, resp.text[:300]
+        assert MARK in resp.text
