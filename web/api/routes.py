@@ -77,6 +77,8 @@ from web.api.deps import (
     user_is_global_admin,
 )
 
+from web.api import prompt_access
+
 logger = logging.getLogger(__name__)
 
 api_router = APIRouter()
@@ -6109,11 +6111,11 @@ def _prompt_value_scope(spec):
 
 
 def _prompt_is_hidden(spec) -> bool:
-    """Скрытость — свойство каталога параметров, не реестра промптов."""
-    if not getattr(spec, "pg_key", None):
-        return False
-    cat = get_by_pg_key(spec.pg_key)
-    return bool(cat is not None and getattr(cat, "hidden", False))
+    """Скрытость — свойство каталога параметров, не реестра промптов.
+
+    Правило одно (`web.api.prompt_access.is_hidden_key`); здесь — адаптер под
+    объект-спеку реестра для каталожных/ответных полей `hidden`/`manageable`."""
+    return prompt_access.is_hidden_key(getattr(spec, "pg_key", None))
 
 
 def _prompt_list_scope(spec, chat_id: int | None) -> str:
@@ -6157,84 +6159,34 @@ def _prompt_hidden_admin(request: Request, user: WebAppUser) -> bool:
     return user_is_global_admin(get_cache(request), user.id)
 
 
-async def _prompt_chat_matrix(cache: ConfigCache, chat_id: int,
-                              pg_key: str | None) -> dict:
-    """Действующая матрица ключа в этом чате.
-
-    Сборка «дефолт ⊕ DB-override ⊕ chat perm_overrides» — в
-    `services.access.chat_param_matrix` (единственный владелец правила);
-    здесь только fail-open-чтение входов, как было у записи. Просмотр и
-    запись промпта используют ОДИН результат, а не два разбора."""
-    try:
-        db_overrides = await access_srv.db_override_map(cache.pg)
-    except Exception:
-        db_overrides = {}
-    try:
-        chat_root = await chat_params.get_all_chat_params(chat_id)
-    except Exception:
-        chat_root = {}
-    return access_srv.chat_param_matrix(pg_key, db_overrides, chat_root)
-
-
 async def _prompt_require_view(request: Request, user: WebAppUser,
-                               spec, chat_id: int | None):
-    """Право ПРОСМОТРА истории/текста: hidden → global admin; chat-скоуп →
-    доступ к чату + действующая матрица ресурса (`view_roles`, то же правило,
-    что у значения в GET /config); global — любая роль (значения промптов не
-    секреты, зеркало GET /config).
+                               spec, chat_id: int | None) -> None:
+    """Право ПРОСМОТРА истории/текста промпта.
 
-    Возвращает `(ctx, matrix)` для chat-скоупа, иначе `None` — запись
-    переиспользует тот же ctx/матрицу, не собирая её второй раз."""
+    Решение целиком — в `web.api.prompt_access.decide` (один владелец правила
+    для `/api/prompts/*`, `/api/speech/*` и `GET /api/config`): hidden →
+    глобальный админ; global → админ или явное право на ключ; chat → доступ к
+    чату + грант чата + действующая матрица ресурса (`view_roles`)."""
     cache: ConfigCache = get_cache(request)
-    if _prompt_is_hidden(spec) and not _prompt_hidden_admin(request, user):
+    access = await prompt_access.decide(cache, user.id, spec.pg_key, chat_id)
+    if not access.view:
         raise HTTPException(status_code=403,
-                            detail="нет доступа к этому промпту")
-    if chat_id is None:
-        # Глобальная история — только админ (или явное право на этот ключ).
-        # Обычная роль без права на промпт сюда не проходит.
-        allowed = _prompt_hidden_admin(request, user)
-        if spec.pg_key and can_edit_param(cache, user.id, spec.pg_key):
-            allowed = True
-        if not allowed:
-            raise HTTPException(status_code=403,
-                                detail="нет права на историю промпта")
-        return None
-    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    if not access_srv.can_access_chat(ctx, chat_id):
-        raise HTTPException(status_code=403, detail="нет доступа к чату")
-    # Изоляция чатов: глобальный модератор без гранта на ЭТОТ чат не читает
-    # чужой override. Глобальный админ и владелец своих ЛС — могут.
-    if (not ctx.is_global_admin and not ctx.is_dm_owner
-            and ctx.role_chat not in ("local_admin", "moderator")):
-        raise HTTPException(status_code=403, detail="нет доступа к чату")
-    # MOD-ACL M1-C / F02: чтение истории и текста промпта решается ТОЙ ЖЕ
-    # действующей матрицей ресурса, что и значение в `GET /api/config`
-    # (`can_view_param`), а не только грантом чата. Иначе роль, исключённая
-    # из `view_roles`, не видела значения, но читала полный текст ревизии.
-    matrix = await _prompt_chat_matrix(cache, chat_id, spec.pg_key)
-    if not access_srv.can_view_param(ctx, matrix):
-        raise HTTPException(status_code=403,
-                            detail=f"нет права на {spec.pg_key}")
-    return ctx, matrix
+                            detail=access.detail or "нет доступа к промпту")
 
 
 async def _prompt_require_edit(request: Request, user: WebAppUser,
                                spec, chat_id: int | None) -> None:
-    """Право АКТИВАЦИИ (= право записи значения, как POST /api/config):
-    global — can_edit_param(cache, …); chat — доступ к чату + per-param
-    матрица чата. Нет права → 403 ДО вызова сервиса."""
+    """Право АКТИВАЦИИ (= право записи значения, как POST /api/config).
+
+    Один вызов того же решения: `view_roles |= edit_roles` гарантирует, что
+    право записи не теряется из-за проверки просмотра. Нет права → 403 ДО
+    вызова сервиса."""
     cache: ConfigCache = get_cache(request)
-    passed = await _prompt_require_view(request, user, spec, chat_id)
-    if chat_id is None:
-        if not can_edit_param(cache, user.id, spec.pg_key):
-            raise HTTPException(status_code=403,
-                                detail=f"нет права на {spec.pg_key}")
-        return
-    # Матрица и ctx — ровно те, на которых просмотр уже разрешён: второго
-    # разбора прав нет. `view_roles |= edit_roles` в сервисе прав гарантирует,
-    # что право записи не теряется из-за проверки просмотра.
-    ctx, matrix = passed
-    if not access_srv.can_edit_param(ctx, matrix):
+    access = await prompt_access.decide(cache, user.id, spec.pg_key, chat_id)
+    if not access.view:
+        raise HTTPException(status_code=403,
+                            detail=access.detail or "нет доступа к промпту")
+    if not access.edit:
         raise HTTPException(status_code=403,
                             detail=f"нет права на {spec.pg_key}")
 
@@ -7550,7 +7502,7 @@ def _random_selector_guard(cache, prepared: list[dict]) -> None:
                     "исключите его из списка"))
 
 
-async def _meme_settings_payload(chat_id: int, db) -> dict:
+async def _meme_settings_payload(chat_id: int, db, visible=None) -> dict:
     """Полный срез настроек мемов для витрины модуля «Инициатива».
 
     Всё читается существующими функциями сервиса; витрина не считает
@@ -7561,6 +7513,11 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
     с другим. `availability.reason` — конкретная причина недоступности
     (инициатива выключена / мемы выключены / image-провайдер не настроен /
     схема квоты отсутствует), а не общее «не работает».
+
+    ``visible`` — действующее решение по ключу промпта (M1-C). Текст
+    ресурса, который матрица чата не разрешает, не читается и не отдаётся:
+    поля помечаются существующим ``source: "unavailable"`` («не прочитан»),
+    как при любой недоступности чтения.
     """
     from services import meme_initiative as mi
     cfg = await mi.load_settings(chat_id)
@@ -7582,6 +7539,14 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
         ("summary", mi.SUMMARY_PROMPT_BLOCK_ID, mi.MEME_SUMMARY_SYSTEM_PROMPT),
     )
     for name, block_id, factory in prompt_specs:
+        setting_key = mi.prompt_setting_key(block_id)
+        if visible is not None and not visible(setting_key):
+            prompts[name] = {"block_id": block_id, "text": "",
+                             "source": "unavailable",
+                             "differs_from_factory": False,
+                             "factory_revision": "", "revision": 0,
+                             "setting_key": setting_key}
+            continue
         try:
             prompts[name] = await mi.effective_meme_prompt(
                 chat_id, block_id, factory=factory)
@@ -7668,7 +7633,11 @@ async def get_meme_settings(
     await _require_chat_access(request, user, chat_id)
     from services import lore_runtime
     db = lore_runtime.get_lore_db()
-    return await _meme_settings_payload(chat_id, db)
+    # M1-C: текст промптов мемов — тот же ресурс; в чате его видимость
+    # решает действующая матрица ключа (как у значения в GET /api/config).
+    res = await prompt_access.chat_resources(cache=get_cache(request),
+                                             user_id=user.id, chat_id=chat_id)
+    return await _meme_settings_payload(chat_id, db, visible=res.visible)
 
 
 @api_router.post("/initiative/meme-settings")
@@ -7855,7 +7824,10 @@ async def post_meme_settings(
                 sorted(row["key"] for row in prompt_snapshots), user.id)
     from services import lore_runtime
     db = lore_runtime.get_lore_db()
-    payload_out = await _meme_settings_payload(chat_id, db)
+    res = await prompt_access.chat_resources(cache=cache, user_id=user.id,
+                                             chat_id=chat_id)
+    payload_out = await _meme_settings_payload(chat_id, db,
+                                               visible=res.visible)
     if prompt_snapshots:
         payload_out["prompt_snapshots"] = prompt_snapshots
     skipped_same = list(prompt_result.get("skipped_same") or [])
