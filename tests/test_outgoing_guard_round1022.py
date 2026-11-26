@@ -24,7 +24,9 @@ from services.prompt_style_blocks import (
 )
 from services.telegram_send import (
     SEND_ALLOWLIST,
+    SEND_ALLOWLIST_NO_BARE_SENDS,
     SEND_POINTS,
+    WRAPPER_ALIASES,
     build_cover_article_html,
     edit_text_safe,
     send_rich_message,
@@ -173,6 +175,55 @@ class TestSendPointsCoverage:
         for rel in SEND_POINTS:
             assert found.get(rel, 0) == 0, f"{rel}: остались прямые send-вызовы"
 
+    @staticmethod
+    def _bare_sites(text: str) -> list[int]:
+        """Позиции ГОЛЫХ send-примитивов (вызовы обёрток не считаются).
+
+        ``_SEND_RE`` матчит и обёртки (``_tg_send.send_rich_message(``), потому
+        что имя метода совпадает с примитивом aiogram. Поэтому приёмник вызова
+        сверяется с ``WRAPPER_ALIASES``: вызов через алиас chokepoint'а — не
+        голый send. Без этого модуль, легально зовущий обёртку, нельзя было бы
+        потребовать «ноль прямых send'ов» (SD172-R1-F01).
+        """
+        bare: list[int] = []
+        for match in TestSendPointsCoverage._SEND_RE.finditer(text):
+            prefix = text[:match.start()]
+            found = re.search(r"([A-Za-z_][A-Za-z0-9_.]*)$", prefix)
+            receiver = (found.group(1) if found else "").split(".")[0]
+            if receiver in WRAPPER_ALIASES:
+                continue
+            bare.append(match.start())
+        return bare
+
+    def test_allowlisted_chokepoint_modules_have_no_bare_sends(self):
+        """Allowlist-модули из строгого набора ссылаются ТОЛЬКО на обёртки.
+
+        SD172-R1-F01: ``DirectChatService.resume_deferred_evidence`` слал
+        модель-текст голым ``bot.send_message`` внутри allowlist-модуля, и
+        общий тест этого не видел. Теперь такой вызов ловится."""
+        assert SEND_ALLOWLIST_NO_BARE_SENDS, "строгий набор не должен быть пуст"
+        for rel in SEND_ALLOWLIST_NO_BARE_SENDS:
+            path = Path(rel)
+            assert path.exists(), f"{rel}: файла нет"
+            bare = self._bare_sites(path.read_text(encoding="utf-8"))
+            assert not bare, (
+                f"{rel}: голый send мимо chokepoint (offset {bare})")
+
+    def test_bare_site_scan_detects_bare_and_ignores_wrappers(self):
+        """Проверка самого стража: он не слепой и не ложно-положительный."""
+        wrappers = (
+            "await _tg_send.send_text(bot, 1, 'x')\n"
+            "await _tg_send.send_rich_message(bot, 1, 'x')\n"
+            "await telegram_send.send_message(bot, 1, 'x')\n"
+        )
+        assert self._bare_sites(wrappers) == []
+        bares = (
+            "await bot.send_message(1, 'x')\n"
+            "await message.edit_text('y')\n"
+            "await msg.answer('z')\n"
+        )
+        assert len(self._bare_sites(bares)) == 3
+
     def test_registry_has_expected_points(self):
         assert "services/summary_generator.py" in SEND_POINTS
         assert "services/smartmodule_utils.py" in SEND_POINTS
@@ -180,6 +231,18 @@ class TestSendPointsCoverage:
         assert "send_rich_message" in SEND_POINTS["services/summary_generator.py"]
         # Справка шлёт rich напрямую (админ-канон/PG, не Stage-2 LLM).
         assert "handlers/info.py" in SEND_ALLOWLIST
+        # SD172-R1-F01: allowlist-модуль со строгим запретом голых send'ов.
+        assert "services/direct_chat_service.py" in SEND_ALLOWLIST_NO_BARE_SENDS
+        assert set(SEND_ALLOWLIST_NO_BARE_SENDS) <= set(SEND_ALLOWLIST)
+        assert not (set(SEND_ALLOWLIST_NO_BARE_SENDS) & set(SEND_POINTS))
+
+    def test_direct_chat_service_justification_states_chokepoint_reality(self):
+        """F01: прежнее обоснование («bare-send'ов нет») было неверным и
+        скрывало bypass, поэтому формулировка проверяется явно."""
+        reason = SEND_ALLOWLIST["services/direct_chat_service.py"].lower()
+        assert "обёртк" in reason
+        assert "send_text" in reason and "send_rich_message" in reason
+        assert "no_bare_sends" in reason.replace(" ", "_")
 
     def test_allowlist_entries_have_justification(self):
         assert SEND_ALLOWLIST

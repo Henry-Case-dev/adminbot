@@ -15813,8 +15813,13 @@ class DirectChatService:
                                chat_id=chat_id, exc_info=True)
             if not text:
                 text = self.MEDIA_RESUME_FALLBACK[0]
-            await bot.send_message(chat_id, text,
-                                   reply_to_message_id=trigger_id or None)
+            # SD172-R1-F01: модель-текст уходит ТОЛЬКО через chokepoint
+            # (`send_text` = `_maybe_sanitize` → `bot.send_message`), как и
+            # остальные ответы Direct (`_send_traced`/`send_chunked_reply`).
+            # Поведение прежнее: один send, тот же `reply_to_message_id`,
+            # возврат/исключения не меняются.
+            await _tg_send.send_text(bot, chat_id, text,
+                                     reply_to_message_id=trigger_id or None)
         except Exception:
             logger.warning("[direct] deferred resume delivery failed | "
                            "chat=%s | trigger=%s", chat_id, trigger_id,
