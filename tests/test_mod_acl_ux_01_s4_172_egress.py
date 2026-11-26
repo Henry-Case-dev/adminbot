@@ -18,6 +18,13 @@
   Тесты ниже фиксируют это как инвариант (положительный контроль +
   не-перередактирование), а не как новую правку.
 
+SD172-R1-F01 (review r1): модель-текст отложенного resume-ответа
+(`DirectChatService.resume_deferred_evidence`) уходил голым
+`bot.send_message` мимо chokepoint. Теперь он идёт тем же
+`telegram_send.send_text` (см. `TestResumeDeferredEvidenceEgress`), а модуль
+зарегистрирован в `SEND_ALLOWLIST_NO_BARE_SENDS`, чтобы новый голый send
+в нём ловил тест покрытия.
+
 Что НЕ трогаем (уже безопасно либо недостижимо — см. evidence):
 
 * `/debug_config` (`services/debug_config`): значение секрета никогда не
@@ -172,6 +179,104 @@ class TestChatEgress:
         bot.send_message = AsyncMock(return_value="sent")
         await send_text(bot, 10, PLANTED_SECRET)
         assert bot.send_message.await_args.args[1] == PLANTED_SECRET
+
+
+class TestResumeDeferredEvidenceEgress:
+    """SD172-R1-F01: модель-текст отложенного resume-ответа идёт через
+    chokepoint, а не голым `bot.send_message`.
+
+    Путь смонтирован в продукте (`media_readiness.set_resume_handler(...)` ->
+    worker sweep), поэтому проверяется поведением: фактический payload Bot API
+    у fake-bot'а. Подменяется только LLM (`persona_short_reply`), states и
+    readiness — настоящие.
+    """
+
+    @staticmethod
+    def _service():
+        from services.direct_chat_service import DirectChatService
+
+        service = object.__new__(DirectChatService)
+        service.db = object()          # методу достаточно «БД есть»
+        return service
+
+    @staticmethod
+    def _states():
+        from services import media_readiness as mr
+
+        return [mr.MediaAssetState(
+            tg_message_id=5, analysis_status=mr.ANALYSIS_READY,
+            visual_description="На фото кот")]
+
+    @staticmethod
+    def _intent():
+        return {"chat_id": 10, "trigger_message_id": 5,
+                "question": "что на фото?"}
+
+    @staticmethod
+    def _patch_reply(monkeypatch, text: str):
+        from services import factcheck_orchestrator as fo
+
+        async def _stub(service, chat_id, *, instruction, situation,
+                        fallback_phrases):
+            return text
+
+        monkeypatch.setattr(fo, "persona_short_reply", _stub)
+
+    @pytest.mark.asyncio
+    async def test_resume_reply_masks_planted_secret(self, monkeypatch):
+        self._patch_reply(monkeypatch, f"Смотри: {PLANTED_SECRET} — вот кот.")
+        bot = MagicMock()
+        bot.send_message = AsyncMock(return_value="sent")
+        delivered = await self._service().resume_deferred_evidence(
+            self._intent(), self._states(), bot=bot)
+        assert delivered is True
+        payload = bot.send_message.await_args.args[1]
+        assert PLANTED_SECRET not in payload        # позитивный контроль
+        assert "***" in payload
+        assert payload.startswith("Смотри:") and payload.endswith("вот кот.")
+
+    @pytest.mark.asyncio
+    async def test_resume_reply_masks_provider_error_shape(self, monkeypatch):
+        self._patch_reply(
+            monkeypatch,
+            "Не получилось: Authorization: Bearer gsk_live_resume_123456789 "
+            "повтори позже.")
+        bot = MagicMock()
+        bot.send_message = AsyncMock(return_value="sent")
+        await self._service().resume_deferred_evidence(
+            self._intent(), self._states(), bot=bot)
+        payload = bot.send_message.await_args.args[1]
+        assert "gsk_live_resume_123456789" not in payload
+        assert "Bearer ***" in payload
+        assert payload.startswith("Не получилось:")
+
+    @pytest.mark.asyncio
+    async def test_resume_reply_ordinary_text_byte_identical(self, monkeypatch):
+        """Не-перередактирование: обычный ответ модели не меняется ни на байт,
+        reply-таргет и chat_id сохраняются."""
+        reply = ("Смотри, на фото рыжий кот у окна. Свет падает слева, "
+                 "видно 2 растения и чашку. Чат -1001234567890, "
+                 "21:40 Europe/Moscow, https://example.com/p.jpg")
+        self._patch_reply(monkeypatch, reply)
+        bot = MagicMock()
+        bot.send_message = AsyncMock(return_value="sent")
+        await self._service().resume_deferred_evidence(
+            self._intent(), self._states(), bot=bot)
+        assert bot.send_message.await_args.args[0] == 10
+        assert bot.send_message.await_args.args[1] == reply
+        assert bot.send_message.await_args.kwargs == {
+            "reply_to_message_id": 5}
+
+    @pytest.mark.asyncio
+    async def test_resume_without_evidence_sends_nothing(self, monkeypatch):
+        """Существующее поведение не сломано: нет evidence — нет отправки."""
+        self._patch_reply(monkeypatch, "не должно уйти")
+        bot = MagicMock()
+        bot.send_message = AsyncMock(return_value="sent")
+        delivered = await self._service().resume_deferred_evidence(
+            {"chat_id": 10, "trigger_message_id": 5}, [], bot=bot)
+        assert delivered is False
+        bot.send_message.assert_not_awaited()
 
 
 class TestChatDiagnosticsAlreadySafe:

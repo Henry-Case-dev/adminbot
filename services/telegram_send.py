@@ -94,14 +94,39 @@ SEND_ALLOWLIST: dict[str, str] = {
     # в Справке — текст админ-канон/PG (не Stage-2 LLM-текст), правится только
     # `/edit_info`; rich-текст саммари идёт через обёртку `send_rich_message`.
     "handlers/info.py": "текст справки — админ-канон/PG, не Stage-2 LLM",
-    # MCA-23 (Wave 3, §Delivery Router): direct rich-ветка зовёт ТОЛЬКО
-    # обёртку `send_rich_message` (sanitize внутри, plain-фолбэк на прежних
-    # обёртках send_chunked_reply); bare-send'ов в модуле нет — в SEND_POINTS
-    # не регистрируется (нулевое matches ломает test_migrated_modules).
+    # MCA-23 (Wave 3, §Delivery Router) + SD172-R1-F01 (review r1): модуль
+    # ссылается на send-примитивы ТОЛЬКО через обёртки chokepoint'а —
+    # rich-ветка `_tg_send.send_rich_message`, plain/safe-HTML и отложенный
+    # resume-ответ (`resume_deferred_evidence`) — `_tg_send.send_text`. В
+    # SEND_POINTS не регистрируется: нулевое matches ломает
+    # `test_migrated_modules_have_no_bare_sends` (в тексте модуля остаются
+    # имена обёрток). Голых send-примитивов быть не должно — это проверяет
+    # `SEND_ALLOWLIST_NO_BARE_SENDS` (F01: прежняя формулировка «bare-send'ов
+    # нет» была неверной ровно на resume-пути и скрывала bypass).
     "services/direct_chat_service.py": (
-        "rich-ветка доставки через обёртку send_rich_message (sanitize "
-        "внутри); plain/safe-HTML — существующие обёртки"),
+        "все отправки — через обёртки chokepoint'а (_tg_send.send_rich_message/"
+        "send_text); голых send-примитивов нет — строгий контроль в "
+        "SEND_ALLOWLIST_NO_BARE_SENDS"),
 }
+
+
+#: Импорт-алиасы chokepoint'а у потребителей: ``alias.method(`` — это УЖЕ
+#: обёртка (egress-контур), а не голый send-примитив aiogram.
+WRAPPER_ALIASES: tuple[str, ...] = (
+    "telegram_send", "_tg_send", "_telegram_send",
+)
+
+
+#: Allowlist-модули, в которых ПРЯМЫХ send-примитивов быть НЕ должно.
+#:
+#: Попадание в ``SEND_ALLOWLIST`` — не индульгенция: модуль может ссылаться
+#: на примитивы только через обёртки (``_tg_send.send_text(...)``), и любой
+#: голый ``bot.send_message(...)`` — регресс egress. SD172-R1-F01: именно так
+#: ``resume_deferred_evidence`` доставлял модель-текст мимо маски, и тест
+#: покрытия этого не видел, потому что allowlist глушил весь модуль.
+SEND_ALLOWLIST_NO_BARE_SENDS: frozenset[str] = frozenset({
+    "services/direct_chat_service.py",
+})
 
 
 def _guard_enabled() -> bool:
