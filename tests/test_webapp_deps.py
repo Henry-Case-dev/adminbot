@@ -458,10 +458,18 @@ class TestFrontNoContext:
         assert "self.loadRoles()" in body
 
     def test_retry_locks_when_me_missing(self):
-        body, _ = self._src()
+        body, src = self._src()
         assert "if (!me)" in body
-        assert "self.authLocked = true" in body
+        # MOD-ACL-UX-01 M1-C: блокировка входа сведена в одну точку
+        # `lockAuth()` (её вызывают все три ветки), поэтому в теле retry
+        # проверяется сам вызов, а присваивание — в теле помощника. Это тот же
+        # контракт «!me → блокировка с текстом», но без трёх копий присваивания.
+        assert "self.lockAuth(" in body
         assert "self.authError" in body
+        helper_start = src.index("lockAuth: function")
+        helper = src[helper_start:helper_start + 400]
+        assert "this.authLocked = true" in helper
+        assert "this.authError = text" in helper
 
     def test_retry_locks_without_context(self):
         body, _ = self._src()

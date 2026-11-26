@@ -505,6 +505,24 @@ def effective_matrix(pg_key: str, db_override: dict | None = None,
     return matrix
 
 
+def chat_param_matrix(pg_key: str | None, db_overrides: dict | None = None,
+                      chat_root: dict | None = None) -> dict:
+    """Действующая матрица ресурса в контексте ЧАТА — единственная сборка.
+
+    МОД-ACL M1-C/F02: и видимость значения (`GET /api/config`), и просмотр
+    истории/текста промпта, и запись обязаны решаться одним и тем же
+    правилом. Сборка «дефолт ⊕ DB-override ⊕ chat perm_overrides» живёт здесь,
+    чтобы у потребителей не появлялось второго разбора матрицы и ручных
+    сравнений: они вызывают `can_view_param`/`can_edit_param` на результате.
+
+    ``db_overrides`` — карта `param_permissions` (`db_override_map`),
+    ``chat_root`` — корень `chat_params.get_all_chat_params(chat_id)`
+    (перекрытия берутся из его ``perm_overrides``)."""
+    overrides = (chat_root or {}).get("perm_overrides") or {}
+    return effective_matrix(pg_key, (db_overrides or {}).get(pg_key),
+                            overrides.get(pg_key))
+
+
 def _as_new_matrix(matrix: dict) -> dict:
     """Защита: матрица в новой форме — как есть; легаси — нормализуется."""
     if not isinstance(matrix, dict):
