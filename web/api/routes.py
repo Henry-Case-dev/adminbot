@@ -633,9 +633,10 @@ async def _module_states_for_config(
                                 and access_srv.can_access_chat(ctx, chat_id))
                 can_edit = bool(access_srv.can_edit_param(ctx, matrix))
             elif key:
-                matrix = access_srv.effective_matrix(
-                    key, db_overrides.get(key),
-                    (chat_root.get("perm_overrides") or {}).get(key))
+                # M1-C/F02: та же сборка матрицы, что у промпт-маршрутов
+                # (`access.chat_param_matrix`) — одно правило видимости.
+                matrix = access_srv.chat_param_matrix(
+                    key, db_overrides, chat_root)
                 can_read = bool(access_srv.can_view_param(ctx, matrix))
                 can_edit = bool(access_srv.can_edit_param(ctx, matrix))
             else:
@@ -714,9 +715,7 @@ async def get_config(
             if (not ctx.is_global_admin
                     and key in _random_source.SELECTOR_SETTING_KEYS):
                 continue
-            matrix = access_srv.effective_matrix(
-                key, db_overrides.get(key),
-                (chat_root.get("perm_overrides") or {}).get(key))
+            matrix = access_srv.chat_param_matrix(key, db_overrides, chat_root)
             if not access_srv.can_view_param(ctx, matrix):
                 continue
         elif ctx is not None:
@@ -6158,11 +6157,34 @@ def _prompt_hidden_admin(request: Request, user: WebAppUser) -> bool:
     return user_is_global_admin(get_cache(request), user.id)
 
 
+async def _prompt_chat_matrix(cache: ConfigCache, chat_id: int,
+                              pg_key: str | None) -> dict:
+    """Действующая матрица ключа в этом чате.
+
+    Сборка «дефолт ⊕ DB-override ⊕ chat perm_overrides» — в
+    `services.access.chat_param_matrix` (единственный владелец правила);
+    здесь только fail-open-чтение входов, как было у записи. Просмотр и
+    запись промпта используют ОДИН результат, а не два разбора."""
+    try:
+        db_overrides = await access_srv.db_override_map(cache.pg)
+    except Exception:
+        db_overrides = {}
+    try:
+        chat_root = await chat_params.get_all_chat_params(chat_id)
+    except Exception:
+        chat_root = {}
+    return access_srv.chat_param_matrix(pg_key, db_overrides, chat_root)
+
+
 async def _prompt_require_view(request: Request, user: WebAppUser,
-                               spec, chat_id: int | None) -> None:
-    """Право ПРОСМОТРА истории: hidden → global admin; chat-скоуп →
-    can_access_chat (изоляция чужих чатов); global — любая роль (значения
-    промптов не секреты, зеркало GET /config)."""
+                               spec, chat_id: int | None):
+    """Право ПРОСМОТРА истории/текста: hidden → global admin; chat-скоуп →
+    доступ к чату + действующая матрица ресурса (`view_roles`, то же правило,
+    что у значения в GET /config); global — любая роль (значения промптов не
+    секреты, зеркало GET /config).
+
+    Возвращает `(ctx, matrix)` для chat-скоупа, иначе `None` — запись
+    переиспользует тот же ctx/матрицу, не собирая её второй раз."""
     cache: ConfigCache = get_cache(request)
     if _prompt_is_hidden(spec) and not _prompt_hidden_admin(request, user):
         raise HTTPException(status_code=403,
@@ -6176,7 +6198,7 @@ async def _prompt_require_view(request: Request, user: WebAppUser,
         if not allowed:
             raise HTTPException(status_code=403,
                                 detail="нет права на историю промпта")
-        return
+        return None
     ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
     if not access_srv.can_access_chat(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
@@ -6185,6 +6207,15 @@ async def _prompt_require_view(request: Request, user: WebAppUser,
     if (not ctx.is_global_admin and not ctx.is_dm_owner
             and ctx.role_chat not in ("local_admin", "moderator")):
         raise HTTPException(status_code=403, detail="нет доступа к чату")
+    # MOD-ACL M1-C / F02: чтение истории и текста промпта решается ТОЙ ЖЕ
+    # действующей матрицей ресурса, что и значение в `GET /api/config`
+    # (`can_view_param`), а не только грантом чата. Иначе роль, исключённая
+    # из `view_roles`, не видела значения, но читала полный текст ревизии.
+    matrix = await _prompt_chat_matrix(cache, chat_id, spec.pg_key)
+    if not access_srv.can_view_param(ctx, matrix):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {spec.pg_key}")
+    return ctx, matrix
 
 
 async def _prompt_require_edit(request: Request, user: WebAppUser,
@@ -6193,25 +6224,16 @@ async def _prompt_require_edit(request: Request, user: WebAppUser,
     global — can_edit_param(cache, …); chat — доступ к чату + per-param
     матрица чата. Нет права → 403 ДО вызова сервиса."""
     cache: ConfigCache = get_cache(request)
-    await _prompt_require_view(request, user, spec, chat_id)
+    passed = await _prompt_require_view(request, user, spec, chat_id)
     if chat_id is None:
         if not can_edit_param(cache, user.id, spec.pg_key):
             raise HTTPException(status_code=403,
                                 detail=f"нет права на {spec.pg_key}")
         return
-    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
-    try:
-        db_overrides = await access_srv.db_override_map(cache.pg)
-    except Exception:
-        db_overrides = {}
-    try:
-        chat_root = await chat_params.get_all_chat_params(chat_id)
-        perm_overrides = dict(chat_root.get("perm_overrides") or {})
-    except Exception:
-        perm_overrides = {}
-    matrix = access_srv.effective_matrix(
-        spec.pg_key, db_overrides.get(spec.pg_key),
-        perm_overrides.get(spec.pg_key))
+    # Матрица и ctx — ровно те, на которых просмотр уже разрешён: второго
+    # разбора прав нет. `view_roles |= edit_roles` в сервисе прав гарантирует,
+    # что право записи не теряется из-за проверки просмотра.
+    ctx, matrix = passed
     if not access_srv.can_edit_param(ctx, matrix):
         raise HTTPException(status_code=403,
                             detail=f"нет права на {spec.pg_key}")
