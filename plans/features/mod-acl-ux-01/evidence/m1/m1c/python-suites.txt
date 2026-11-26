@@ -1,104 +1,84 @@
-# MOD-ACL-UX-01 M1-C — F02 corrective: прогоны Python-наборов
-# candidate = feat/mod-acl-m1c (F01 + F02)
-# base      = ffdc6eadf (код байт-в-байт; дерево развёрнуто git archive без media/ и plans/features, plans/docs включён, локальный git init)
-# cmd: .venv/Scripts/python.exe -m pytest <files> -q -p no:cacheprovider --timeout=180
+# MOD-ACL-UX-01 M1-C вЂ” R2 corrective (speech read/write, chat perm_overrides)
+# candidate = feat/mod-acl-m1c (F01+F02 r1 + R2-F01/F02/F03)
+# base      = ffdc6eadf (РєРѕРґ Р±Р°Р№С‚-РІ-Р±Р°Р№С‚; git archive Р±РµР· media/ Рё
+#             plans/features, plans/docs РІРєР»СЋС‡С‘РЅ, Р»РѕРєР°Р»СЊРЅС‹Р№ git init)
+# prev      = cc7491b35 (РґРµСЂРµРІРѕ РґР»СЏ С‚РѕС‡РЅРѕРіРѕ RED РЅРѕРІС‹С… С‚РµСЃС‚РѕРІ)
 
-## 1. Новый замок (F01) на кандидате
-13 passed, 1 warning in 4.79s
+## 1. Р—Р°РјРѕРє (29 С‚РµСЃС‚РѕРІ) РЅР° РєР°РЅРґРёРґР°С‚Рµ
+30 passed, 1 warning in 7.12s
 
-## 2. Prompt-набор (13 файлов: новый замок + baseline/activation/history/audit/field-audit/...)
-candidate: 262 passed, 2 failed, 2 skipped
-base     : 258 passed, 6 failed, 2 skipped
-базовые падения = падения кандидата + 4 кейса, которые закрывает F02:
-  TestViewIsGovernedByResourceMatrix::{test_versions_denied, test_source_denied_and_no_body,
-                                        test_diff_denied, test_baseline_metadata_denied}
-одинаковые 2 пре-существующих на базе и кандидате:
-  test_evol018_prompt_audit.py::test_grep_audit_counts_are_stable                     (пин 323, фактически 328 файлов)
-  test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface (direct.base.synthesizer)
+## 2. RED РЅРѕРІС‹С… С‚РµСЃС‚РѕРІ РЅР° РїСЂРµРґС‹РґСѓС‰РµРј tip cc7491b35 вЂ” 8 failed / 21 passed
+  (СЂРѕРІРЅРѕ 7 speech + 1 meme; РѕСЃС‚Р°Р»СЊРЅС‹Рµ 21 вЂ” СѓР¶Рµ РїСЂРёРЅСЏС‚С‹Рµ РїСЂРѕРјРїС‚-Р·Р°РјРєРё r1/r2
+   Рё РєРѕРЅС‚СЂРѕР»Рё; РЅР° Р±Р°Р·Рµ ffdc6eadf РїР°РґР°СЋС‚ 13: С‚Рµ Р¶Рµ 8 + 4 РєРµР№СЃР° РїСЂРѕСЃРјРѕС‚СЂР°
+   РїСЂРѕРјРїС‚Р° + 1 РєРµР№СЃ С‡Р°С‚РѕРІРѕРіРѕ perm_overrides)
 
-## 3. ACL/RBAC-набор (12 файлов: access, chat_access, dm_access, acl_*,
-##    webapp_access_*, webapp_api, webapp_deps)
-candidate: 509 passed, 0 failed
-base     : 509 passed, 0 failed
+## 3. Prompt-РЅР°Р±РѕСЂ (13 С„Р°Р№Р»РѕРІ: Р·Р°РјРѕРє + baseline/activation/history/audit/...)
+candidate: 2 failed, 279 passed, 2 skipped, 1 warning in 13.44s
+base     : 15 failed, 266 passed, 2 skipped, 1 warning in 13.60s
+С‚РѕР»СЊРєРѕ-РЅР°-Р±Р°Р·Рµ (13) вЂ” РєРµР№СЃС‹, РєРѕС‚РѕСЂС‹Рµ Р·Р°РєСЂС‹РІР°РµС‚ РєРѕСЂСЂРµРєС‚РёСЂСѓСЋС‰РёР№ РєРѕРјРјРёС‚:
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestChatPermOverridesLayer::test_chat_override_denies
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestMemeSettingsPromptText::test_prompt_text_denied_by_matrix
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/core-character.core]
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/expression-character.expression]
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/style-style.policy]
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_block_detail_denied
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_block_write_denied_by_edit_roles
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_blocks_list_hides_restricted_block
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_speech_hides_block_on_chat_perm_override
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_baseline_metadata_denied
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_diff_denied
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_source_denied_and_no_body
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_versions_denied
+РѕР±Р° РЅР°Р±РѕСЂР°: 2 РїСЂРµ-СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёС… (evol018 pin 323 vs 328, prompt_field_audit).
 
-## 4. MOD-ACL-набор (17 файлов: все test_mod_acl_ux_*)
-candidate: 289 passed, 3 failed
-base     : 285 passed, 7 failed (= те же 3 + 4 кейса F02)
-одинаковые 3 пре-существующих:
-  test_mod_acl_ux_01_m4_module_params.py::test_js_fixture_matches_live_contract
-  test_mod_acl_ux_m2_tristate_write.py::test_stale_token_recovers_and_keeps_foreign_keys
-  test_mod_acl_ux_m2_tristate_write.py::test_inherit_survives_stale_token
+## 4. ACL/RBAC-РЅР°Р±РѕСЂ (12 С„Р°Р№Р»РѕРІ)
+candidate: 509 passed, 1 warning in 47.00s
+base     : 509 passed, 1 warning in 47.62s
 
-## 5. Широкий UI/config-набор (84 файла: все test_webapp_*, test_cfg*,
-##    access/acl) на кандидате
-candidate: 2101 passed, 56 failed (список в конце файла)
-base (те же 26 падающих файлов в базовом дереве): 567 passed, 57 failed
-сравнение списков FAILED: 56 идентичных, только-на-базе 1, только-на-кандидате 0
-  только-на-базе: tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_audit_doc_has_inventory_and_table  (читает plans/features/** документ, исключённый из оверлея; в полном дереве кандидата PASS)
+## 5. Speech/registry-РЅР°Р±РѕСЂ (17 С„Р°Р№Р»РѕРІ: soul1 speech/style/core/expression/layers/examples/humor, inspector, persistfix, initiative layers, mca08, meme-API, Р·Р°РјРѕРє)
+candidate: 4 failed, 340 passed, 1 warning in 28.64s
+base     : 21 failed, 323 passed, 1 warning in 28.68s
+С‚РѕР»СЊРєРѕ-РЅР°-Р±Р°Р·Рµ (17):
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestChatPermOverridesLayer::test_chat_override_denies
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestMemeSettingsPromptText::test_prompt_text_denied_by_matrix
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/core-character.core]
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/expression-character.expression]
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/style-style.policy]
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_block_detail_denied
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_block_write_denied_by_edit_roles
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_blocks_list_hides_restricted_block
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_speech_hides_block_on_chat_perm_override
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_baseline_metadata_denied
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_diff_denied
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_source_denied_and_no_body
+  - tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_versions_denied
+  - tests/test_soul1_core_doc_text.py::test_compact_factory_text_is_owner_text_33_byte_exact
+  - tests/test_soul1_core_doc_text.py::test_full_factory_text_is_owner_text_32_byte_exact
+  - tests/test_soul1_core_doc_text.py::test_prev_chain_v1_v2_is_frozen_byte_exact
+  - tests/test_soul1_core_doc_text.py::test_source_snapshot_hash_matches_map
+  (13 РёР· РЅРёС… вЂ” RED Р·Р°РјРєР°; 4 вЂ” С„Р°Р№Р»С‹ plans/features/*, РёСЃРєР»СЋС‡С‘РЅРЅС‹Рµ РёР·
+   РѕРІРµСЂР»РµСЏ, РІ РїРѕР»РЅРѕРј РґРµСЂРµРІРµ РєР°РЅРґРёРґР°С‚Р° PASS)
+РѕРґРёРЅР°РєРѕРІС‹Рµ РЅР° Р±Р°Р·Рµ Рё РєР°РЅРґРёРґР°С‚Рµ 4:
+  - tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_uses_chat_level_core_style_and_expression
+  - tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[core-...]
+  - ... [style-...]
+  - ... [expression-...]
+  (РїСЂРµ-СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ: РґРІРѕР№РЅРёРє `_StubService` РЅРµ РёРјРµРµС‚
+   `_writer_evidence_capacity`, РѕС‚РІРµС‚ Writer'Р° РїСѓСЃС‚РѕР№ вЂ” Рє web/ACL РЅРµ РѕС‚РЅРѕСЃРёС‚СЃСЏ)
 
-## Список падений кандидата (84-файловый набор)
-tests/test_cfg03_param_audit.py::TestConsumerCoverage::test_visible_dead_knobs_are_exactly_documented
-tests/test_webapp_asap_cover_ui_v21.py::TestFavoritesRemoved::test_categories_search_filters_kept
-tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date
-tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_exactly_one_toggle_per_card
-tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_inheritance_and_reset_action
-tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_pending_is_scoped_by_snapshot
-tests/test_webapp_asap_cover_ui_v21_e2e.py::test_live_ui_v21_e2e
-tests/test_webapp_asap_ui02_delta.py::test_no_magic_z_index_outside_decorative_in_card
-tests/test_webapp_avatars_ui.py::TestAvatarFrontAudit::test_close_and_fullscreen_buttons
-tests/test_webapp_dm_ui.py::TestDmSummaryGateMarkers::test_s3_scheduler_skips_dm_positive_ids_behavioral
-tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_health_is_separate_from_enabled
-tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_duplicate_master_toggle_in_details
-tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_kpi_row_and_caption_present
-tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_single_scoped_toggle_on_card
-tests/test_webapp_evol_w10_sections.py::TestEvol030AccessAndAnalytics::test_audit_before_changing_rights
-tests/test_webapp_evol_w10_sections.py::test_live_render_sections_e2e
-tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_live_render_w11_e2e
-tests/test_webapp_evol_w12_internals.py::TestExecution::test_live_render_w12_e2e
-tests/test_webapp_evol_w14_states.py::TestUnifiedCheckboxes::test_every_native_checkbox_is_a_design_system_control
-tests/test_webapp_evol_w15_composition.py::test_role_classes_have_no_literal_geometry
-tests/test_webapp_evol_w7_nav.py::TestOverlayLayer::test_honest_empty_states_kept
-tests/test_webapp_evol_w7_nav.py::TestTopbar::test_no_duplicate_hub_title
-tests/test_webapp_f4_round1025.py::test_counters_present
-tests/test_webapp_f4_round1025.py::test_favorites_removed_from_modules
-tests/test_webapp_f4_round1025.py::test_module_titles_renamed_only_in_watch_case
-tests/test_webapp_f4_round1025.py::test_runtime_gate_metadata_complete
-tests/test_webapp_f5_round1025.py::test_workspace_metadata_present
-tests/test_webapp_f9_round1025.py::TestInvariants::test_secrets_count_28
-tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
-tests/test_webapp_hubs_matrix_ui.py::TestRoleMatrixUi::test_matrix_methods
-tests/test_webapp_js_unit.py::test_js_unit_round1024_image_key
-tests/test_webapp_js_unit.py::test_js_unit_round1025_f7_permsoc_local
-tests/test_webapp_js_unit.py::test_js_unit_routing_and_scope_guard
-tests/test_webapp_key_availability_ui.py::TestRoleRenameDeleteUi::test_buttons_present
-tests/test_webapp_key_availability_ui.py::TestRoleRenameDeleteUi::test_superuser_disabled_and_hint
-tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_11_modules_and_labels
-tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_modules_ui_and_modal
-tests/test_webapp_round1010_ui.py::TestRolesUi::test_avatar_name_and_small_id
-tests/test_webapp_round1010_ui.py::TestRolesUi::test_close_buttons_count_unchanged
-tests/test_webapp_round1010_ui.py::TestRolesUi::test_widths_and_button
-tests/test_webapp_round1014_ui.py::TestStatusLayoutOrderF7::test_f4_third_ribbon_kept_inside_cognition
-tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_grid_columns_responsive
-tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_third_ribbon_markup
-tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz
-tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2
-tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
-tests/test_webapp_round1020_ui.py::TestStickySave::test_no_individual_save_buttons_left_in_config
-tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon
-tests/test_webapp_round108_ui.py::TestAccessWindows108::test_no_accordion
-tests/test_webapp_round108_ui.py::TestAccessWindows108::test_three_windows
-tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme
-tests/test_webapp_round108_ui.py::TestRenames108::test_old_labels_gone
-tests/test_webapp_round109_ui.py::TestDescriptions::test_no_forbidden_jargon
-tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_navbar_and_modules_unchanged
-tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
-tests/test_webapp_ui_rework_round1020.py::TestStickySave::test_panel_inside_modal_actions_markup
+## 6. РЁРёСЂРѕРєРёР№ UI/config-РЅР°Р±РѕСЂ (84 С„Р°Р№Р»Р°)
+candidate: 56 failed, 2101 passed, 1 warning in 238.26s (0:03:58)
+base (С‚Рµ Р¶Рµ 26 РїР°РґР°СЋС‰РёС… С„Р°Р№Р»РѕРІ): 57 failed, 567 passed in 172.36s (0:02:52)
+СЃСЂР°РІРЅРµРЅРёРµ СЃРїРёСЃРєРѕРІ FAILED: 56 РёРґРµРЅС‚РёС‡РЅС‹С…, С‚РѕР»СЊРєРѕ-РЅР°-Р±Р°Р·Рµ 1, С‚РѕР»СЊРєРѕ-РЅР°-РєР°РЅРґРёРґР°С‚Рµ 0
+  С‚РѕР»СЊРєРѕ-РЅР°-Р±Р°Р·Рµ: tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_audit_doc_has_inventory_and_table  (С‡РёС‚Р°РµС‚ plans/features/** РґРѕРєСѓРјРµРЅС‚, РёСЃРєР»СЋС‡С‘РЅРЅС‹Р№ РёР· РѕРІРµСЂР»РµСЏ; РІ РїРѕР»РЅРѕРј РґРµСЂРµРІРµ PASS)
 
-## 6. Выравнивание source-пина (следствие общей точки блокировки входа)
-tests/test_webapp_deps.py::TestFrontNoContext::test_retry_locks_when_me_missing
-пиновал буквальный `self.authLocked = true` в теле retryInitData. После M1-C
-блокировка одна (`lockAuth`), поэтому пин проверяет вызов `self.lockAuth(`
-в retry и присваивание `this.authLocked = true` в теле помощника — это тот же
-контракт «!me → блокировка с текстом», без трёх копий. Мутация «убрать вызов
-lockAuth из !me-ветки» роняет пин; файл на базе и кандидате зелёный
-(на базе — своя, дорефакторная редакция пина в базовом дереве).
+## 7. РњСѓС‚Р°С†РёРё (РІСЃРµ СѓР±РёС‚С‹, С„Р°Р№Р»С‹ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅС‹ РїРѕ git-blob)
+M1  РїСЂРѕРјРїС‚-РїСЂРѕСЃРјРѕС‚СЂ Р±РµР· РјР°С‚СЂРёС†С‹ (prompt_access.decide)      -> 4 view + chat-override
+M2  chat_param_matrix РёРіРЅРѕСЂРёСЂСѓРµС‚ chat_root                  -> 3 (2 prompt + speech)
+M3  /speech/blocks РѕС‚РґР°С‘С‚ РІСЃРµ Р±Р»РѕРєРё                         -> 2 (list + chat override)
+S1  /speech/block/{id} Р±РµР· РјР°С‚СЂРёС†С‹                          -> 1 (detail)
+S2  POST /speech/block/{id} Р±РµР· edit_roles                  -> 1 (write)
+S3  /speech/core Р±РµР· РјР°С‚СЂРёС†С‹                                -> 1 (core doc)
+M4  РІРёС‚СЂРёРЅР° РјРµРјРѕРІ Р±РµР· РјР°С‚СЂРёС†С‹                               -> 1 (meme text)
+
+## 8. РРЅРІРµРЅС‚Р°СЂСЊ РїРѕС‚СЂРµР±РёС‚РµР»РµР№ РїСЂРѕРјРїС‚-С‚РµРєСЃС‚Р° вЂ” СЃРј. README В§4.4

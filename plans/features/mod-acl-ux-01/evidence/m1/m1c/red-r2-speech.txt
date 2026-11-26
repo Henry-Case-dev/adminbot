@@ -1,0 +1,189 @@
+# RED on cc7491b35 (speech surface + chat perm_overrides + meme card)
+# tree = git archive cc7491b35 (routes 16f5999a78, access 3bf957fcc8, speech 31a40eec3c = base speech)
+# test file = current tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py (30 tests)
+# cmd: pytest tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py -q
+# expected-fail: 7 speech + 1 meme (22 pass = prompt-route locks r1/r2 + controls)
+
+...............F.FF..FFFF...F.                                           [100%]
+================================== FAILURES ===================================
+_ TestSpeechSurfaceUsesPromptDecision.test_blocks_list_hides_restricted_block _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestSpeechSurfaceUsesPromptDecision object at 0x00000266C1DF44A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266C4FE7290>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266C49A8860>
+
+    def test_blocks_list_hides_restricted_block(self, monkeypatch, edition):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY)
+        _patch_chat_root(monkeypatch, overrides={PG_KEY: CHAT_TEXT})
+        status, rows, text = self._blocks(client, _hdr(LOCAL_ADMIN, CHAT_A))
+        assert status == 200
+>       assert BLOCK not in rows, "╨▒╨╗╨╛╨║ ╤А╨╡╨╡╤Б╤В╤А╨░ ╨╛╤В╨┤╨░╨╜ ╨▒╨╡╨╖ ╨┐╤А╨░╨▓╨░ ╨┐╤А╨╛╤Б╨╝╨╛╤В╤А╨░"
+E       AssertionError: ╨▒╨╗╨╛╨║ ╤А╨╡╨╡╤Б╤В╤А╨░ ╨╛╤В╨┤╨░╨╜ ╨▒╨╡╨╖ ╨┐╤А╨░╨▓╨░ ╨┐╤А╨╛╤Б╨╝╨╛╤В╤А╨░
+E       assert 'summary.base.narrator' not in {'factcheck.base.single': {'block_id': 'factcheck.base.single', 'purpose': '╨Ю╨┤╨╜╨╛╤Б╤В╨░╨┤╨╕╨╣╨╜╤Л╨╣ ╤Д╨░╨║╤В╤З╨╡╨║ (legacy-╨┐╤Г╤В╤М): ╤А╨░╨╖╨▒╨╛...╤В╤М╨╕ (╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ ╤А╨╡╨░╨╗╤М╨╜╨╛ per-chat prompt-╨║╨╗╤О╤З ╨┐╨╛ ╨░╤Г╨┤╨╕╤В╤Г ┬з1).', 'family': 'summary', 'scope': 'global_chat', ...}, ...}
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:412: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.prompt_registry:prompt_registry.py:3813 [prompt_registry] persisted speech value withheld | key=prompts.summary_narrator_system_prompt | block=summary.base.narrator | reason=provenance_unavailable | class=unclassified | stored_sha=ff3a2b2cb876 | stored_chars=52
+________ TestSpeechSurfaceUsesPromptDecision.test_block_detail_denied _________
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestSpeechSurfaceUsesPromptDecision object at 0x00000266C1DF4FE0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266CD2FFF50>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266CD2FFA40>
+
+    def test_block_detail_denied(self, monkeypatch, edition):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY)
+        _patch_chat_root(monkeypatch, overrides={PG_KEY: CHAT_TEXT})
+        resp = client.get("/api/speech/block/" + BLOCK,
+                          headers=_hdr(LOCAL_ADMIN, CHAT_A))
+>       assert resp.status_code == 403, resp.text
+E       AssertionError: {"block_id":"summary.base.narrator","purpose":"╨а╨░╤Б╤Б╨║╨░╨╖╤З╨╕╨║ ╤Б╨░╨╝╨╝╨░╤А╨╕ (╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╤П ╨┐╨╛ Markdown-╨▓╤Л╨╢╨╕╨╝╨║╨╡).","family":"summary","scope":"global","pg_key":"prompts.summary_narrator_system_prompt","editable":true,"pg_doc_field":"","consumers":["summary_generator.py:3805"],"composition_point":"speech_plain/summary_narrator","enabled_by":"","enabled_axis":"","enabled_value":null,"owner_lane":"W2","speech":true,"legacy_persona":true,"provenance_required":true,"ui":"catalog","production_kind":"factory","factory_revision":"fac:24c7e24dc5ee(narrator-a)","factory_chars":52,"effective":{"block_id":"summary.base.narrator","pg_key":"prompts.summary_narrator_system_prompt","text":"╨Ч╨Р╨Т╨Ю╨Ф╨б╨Ъ╨Ю╨Щ A: ╤А╨░╤Б╤Б╨║╨░╨╖╤З╨╕╨║ ╤Б╨░╨╝╨╝╨░╤А╨╕ (╨╖╨░╨╝╨╛╨║ MAC-S10-13).\n","source":"default","scope_label":"Factory","revision":"act:24c7e24dc5ee","factory_revision":"fac:24c7e24dc5ee(narrator-a)","differs_from_factory":false,"stored_differs_from_factory":true,"legacy_persona_present":false,"legacy_stripped":false,"legacy_removed":0,"withheld":true,"withheld_revision":"act:ff3a2b2cb876","withheld_class":"unclassified","withheld_reason":"","stored_source":"chat","provenance_reason":"provenance_unavailable","diagnostics":["persisted_value_withheld","provenance_unavailable"],"chars":52},"factory_text":"╨Ч╨Р╨Т╨Ю╨Ф╨б╨Ъ╨Ю╨Щ A: ╤А╨░╤Б╤Б╨║╨░╨╖╤З╨╕╨║ ╤Б╨░╨╝╨╝╨░╤А╨╕ (╨╖╨░╨╝╨╛╨║ MAC-S10-13).\n","stored_text":"M1C-R2-SPEECH-MARKER: ╤З╨░╤В╨╛╨▓╤Л╨╣ override ╤А╨░╤Б╤Б╨║╨░╨╖╤З╨╕╨║╨░.\n","saved":{"text":"M1C-R2-SPEECH-MARKER: ╤З╨░╤В╨╛╨▓╤Л╨╣ override ╤А╨░╤Б╤Б╨║╨░╨╖╤З╨╕╨║╨░.\n","source":"chat","revision":"act:ff3a2b2cb876","present":true,"withheld":true,"class":"unclassified","reason":"provenance_unavailable","resolution":"╨б╨╛╤Е╤А╨░╨╜╤С╨╜╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В ╨╜╨╡ ╨┐╨╛╤В╨╡╤А╤П╨╜. ╨з╤В╨╛╨▒╤Л ╤Б╨┤╨╡╨╗╨░╤В╤М ╨╡╨│╨╛ ╨┤╨╡╨╣╤Б╤В╨▓╤Г╤О╤Й╨╕╨╝, ╤Б╨╛╤Е╤А╨░╨╜╨╕╤В╨╡ ╨╜╤Г╨╢╨╜╤Г╤О ╤А╨╡╨┤╨░╨║╤Ж╨╕╤О ╤З╨╡╤А╨╡╨╖ ╤Н╤В╨╛╤В ╤А╨╡╨┤╨░╨║╤В╨╛╤А тАФ ╨╖╨░╨┐╨╕╤Б╤М ╤З╨╡╤А╨╡╨╖ API ╤А╨╡╨╡╤Б╤В╤А╨░ ╨┤╨░╤Б╤В ╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б."},"chat_value_present":true,"global_value_present":false,"history":[],"history_source":"journal","history_available":true,"history_page":{"page_size":50,"order":"newest_first","next_cursor":"","has_more":false,"returned":0,"rank_start":1,"total_known":null},"history_text_available":false,"factory_plan":{"block_id":"summary.base.narrator","pg_key":"prompts.summary_narrator_system_prompt","document_field":"","applies":true,"changed":false,"source":"default","current_present":false,"current_chars":0,"current_sha256_12":"","factory_chars":52,"factory_sha256_12":"24c7e24dc5ee","factory_revision":"fac:24c7e24dc5ee(narrator-a)","diff":{"added_lines":1,"removed_lines":0},"revision_note":"╨╖╨░╨┐╨╕╤Б╤М ╤Б╨╛╨╖╨┤╨░╤Б╤В ╨Э╨Ю╨Т╨г╨о ╨░╨║╤В╨╕╨▓╨╜╤Г╤О ╤А╨╡╨▓╨╕╨╖╨╕╤О; ╨┐╤А╨╡╨┤╤Л╨┤╤Г╤Й╨░╤П ╨╛╤Б╤В╨░╤С╤В╤Б╤П ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╨╕ character.prompt_history"},"preview_diff":{"same":true,"before_chars":52,"after_chars":52,"delta_chars":0,"changed":{"before":"","after":"","before_chars":0,"after_chars":0},"truncated":false},"document":null,"can_edit":true}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:433: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.prompt_registry:prompt_registry.py:3813 [prompt_registry] persisted speech value withheld | key=prompts.summary_narrator_system_prompt | block=summary.base.narrator | reason=provenance_unavailable | class=unclassified | stored_sha=ff3a2b2cb876 | stored_chars=52
+__ TestSpeechSurfaceUsesPromptDecision.test_block_write_denied_by_edit_roles __
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestSpeechSurfaceUsesPromptDecision object at 0x00000266C1DF5580>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266CD2FF1D0>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266CFE50560>
+
+    def test_block_write_denied_by_edit_roles(self, monkeypatch, edition):
+        """╨Я╨╡╤А╤Б╨╛╨╜╨░╨╗╤М╨╜╤Л╨╣ speech-╨│╨╡╨╣╤В ╨┐╤А╨╛╨╣╨┤╨╡╨╜ (section.content), ╨╜╨╛ `edit_roles`
+        ╨┐╤Г╤Б╤В тЖТ 403 ╨Ф╨Ю ╨╖╨░╨┐╨╕╤Б╨╕, ╨░ ╨╜╨╡ 409/503 ╤Е╤А╨░╨╜╨╕╨╗╨╕╤Й╨░."""
+        client = make_client(monkeypatch, matrix=VIEW_ONLY_LOCAL_ADMIN,
+                             roles=CONTENT_LOCAL_ADMIN_ROLES)
+        resp = client.post("/api/speech/block/" + BLOCK,
+                           json={"text": "╨╜╨╛╨▓╤Л╨╣ ╤В╨╡╨║╤Б╤В", "scope": "chat"},
+                           headers=_hdr(LOCAL_ADMIN, CHAT_A))
+>       assert resp.status_code == 403, resp.text
+E       AssertionError: {"detail":"╨╜╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╤Б╨╛╤Е╤А╨░╨╜╨╕╤В╤М: ╨┐╤А╨╛╤Д╨╕╨╗╤М ╤З╨░╤В╨░ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜ ╨╕╨╗╨╕ ╨╕╨╖╨╝╨╡╨╜╤С╨╜ тАФ ╨╛╨▒╨╜╨╛╨▓╨╕╤В╨╡ ╤Н╨║╤А╨░╨╜ ╨╕ ╨┐╨╛╨▓╤В╨╛╤А╨╕╤В╨╡"}
+E       assert 409 == 403
+E        +  where 409 = <Response [409 Conflict]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:444: AssertionError
+_ TestSpeechSurfaceUsesPromptDecision.test_speech_hides_block_on_chat_perm_override _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestSpeechSurfaceUsesPromptDecision object at 0x00000266C1DD3BC0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266CD2FF770>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266D25E7EC0>
+
+    def test_speech_hides_block_on_chat_perm_override(self, monkeypatch,
+                                                     edition):
+        """╨в╨╛╤В ╨╢╨╡ ╨╖╨░╨┐╤А╨╡╤В ╤З╨╡╤А╨╡╨╖ ╤З╨░╤В╨╛╨▓╤Л╨╣ ╤Б╨╗╨╛╨╣ `perm_overrides` (╨╜╨╡ DB)."""
+        client = make_client(monkeypatch)
+        _patch_chat_root(monkeypatch, overrides={PG_KEY: CHAT_TEXT},
+                         perm_overrides={PG_KEY: VIEW_MODERATOR_ONLY})
+        status, rows, text = self._blocks(client, _hdr(LOCAL_ADMIN, CHAT_A))
+        assert status == 200
+>       assert BLOCK not in rows
+E       AssertionError: assert 'summary.base.narrator' not in {'factcheck.base.single': {'block_id': 'factcheck.base.single', 'purpose': '╨Ю╨┤╨╜╨╛╤Б╤В╨░╨┤╨╕╨╣╨╜╤Л╨╣ ╤Д╨░╨║╤В╤З╨╡╨║ (legacy-╨┐╤Г╤В╤М): ╤А╨░╨╖╨▒╨╛...╤В╤М╨╕ (╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ ╤А╨╡╨░╨╗╤М╨╜╨╛ per-chat prompt-╨║╨╗╤О╤З ╨┐╨╛ ╨░╤Г╨┤╨╕╤В╤Г ┬з1).', 'family': 'summary', 'scope': 'global_chat', ...}, ...}
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:472: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.prompt_registry:prompt_registry.py:3813 [prompt_registry] persisted speech value withheld | key=prompts.summary_narrator_system_prompt | block=summary.base.narrator | reason=provenance_unavailable | class=unclassified | stored_sha=ff3a2b2cb876 | stored_chars=52
+_ TestSpeechDocumentSurfaces.test_document_read_obeys_matrix[/api/speech/core-character.core] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestSpeechDocumentSurfaces object at 0x00000266C1DB3B90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266D23CB7A0>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266D23C9B50>
+path = '/api/speech/core', key = 'character.core'
+
+    @pytest.mark.parametrize("path,key", [
+        ("/api/speech/core", pr.CORE_DOC_KEY),
+        ("/api/speech/style", "style.policy"),
+        ("/api/speech/expression", expression.EXPRESSION_DOC_KEY),
+    ])
+    def test_document_read_obeys_matrix(self, monkeypatch, edition, path, key):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=key)
+        resp = client.get(path, headers=_hdr(LOCAL_ADMIN, CHAT_A))
+>       assert resp.status_code == 403, (path, resp.text[:200])
+E       AssertionError: ('/api/speech/core', '{"block_ids":{"full":"core.personality","compact":"core.personality.compact"},"doc_key":"character.core","scope":"chat","chat_id":-1001000000001,"inheritance":"factory_default","global_present":false,')
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:491: AssertionError
+_ TestSpeechDocumentSurfaces.test_document_read_obeys_matrix[/api/speech/style-style.policy] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestSpeechDocumentSurfaces object at 0x00000266C1DF5790>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266D23C96A0>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266D239BD70>
+path = '/api/speech/style', key = 'style.policy'
+
+    @pytest.mark.parametrize("path,key", [
+        ("/api/speech/core", pr.CORE_DOC_KEY),
+        ("/api/speech/style", "style.policy"),
+        ("/api/speech/expression", expression.EXPRESSION_DOC_KEY),
+    ])
+    def test_document_read_obeys_matrix(self, monkeypatch, edition, path, key):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=key)
+        resp = client.get(path, headers=_hdr(LOCAL_ADMIN, CHAT_A))
+>       assert resp.status_code == 403, (path, resp.text[:200])
+E       AssertionError: ('/api/speech/style', '{"block_id":"style.policy.hint","purpose":"╨Ъ╨╛╤А╨╛╤В╨║╨╕╨╣ semantic hint Speech Style Policy ╨┤╨╗╤П Writer (╤Б╨╗╨╛╨╣ 10): ╨╢╤С╤Б╤В╨║╨╕╨╡ ╨┐╤А╨░╨▓╨╕╨╗╨░ ╤Д╨╛╤А╨╝╤Л ╨╕ ╨╝╤П╨│╨║╨╕╨╡ ╨┐╤А╨╕╨▓╤Л╤З╨║╨╕ ╨┐╨╕╤Б╤М╨╝╨░ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░. ╨Э╨Х ╨▓╤Б╤П ╨▒╨░╨╖╨░ ╨┐╤А╨░╨▓╨╕╨╗ (SOUL-16.4.1)."')
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:491: AssertionError
+_ TestSpeechDocumentSurfaces.test_document_read_obeys_matrix[/api/speech/expression-character.expression] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestSpeechDocumentSurfaces object at 0x00000266C1DF56A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266D23C98E0>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266CFF89610>
+path = '/api/speech/expression', key = 'character.expression'
+
+    @pytest.mark.parametrize("path,key", [
+        ("/api/speech/core", pr.CORE_DOC_KEY),
+        ("/api/speech/style", "style.policy"),
+        ("/api/speech/expression", expression.EXPRESSION_DOC_KEY),
+    ])
+    def test_document_read_obeys_matrix(self, monkeypatch, edition, path, key):
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=key)
+        resp = client.get(path, headers=_hdr(LOCAL_ADMIN, CHAT_A))
+>       assert resp.status_code == 403, (path, resp.text[:200])
+E       AssertionError: ('/api/speech/expression', '{"doc_key":"character.expression","scope":"chat","chat_id":-1001000000001,"document":{"enabled":true,"wit":"inherit","sharpness":"inherit","profanity":"inherit","verbosity":"inherit","note":""},"prese')
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:491: AssertionError
+________ TestMemeSettingsPromptText.test_prompt_text_denied_by_matrix _________
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestMemeSettingsPromptText object at 0x00000266C1DF6BD0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000266CFE22CC0>
+edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000266C49A8B00>
+
+    def test_prompt_text_denied_by_matrix(self, monkeypatch, edition):
+        key = mi.prompt_setting_key(mi.IMAGE_PROMPT_BLOCK_ID)
+        client = make_client(monkeypatch, matrix=VIEW_MODERATOR_ONLY,
+                             matrix_key=key)
+        # ╨а╨╡╨░╨╗╤М╨╜╨░╤П ╤Г╤В╨╡╤З╨║╨░ тАФ ╨┤╨╡╨╣╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ ╤В╨╡╨║╤Б╤В (╤З╨░╤В╨╛╨▓╤Л╨╣ override), ╨░ ╨╜╨╡
+        # ╨╖╨░╨▓╨╛╨┤╤Б╨║╨░╤П ╨║╨╛╨╜╤Б╤В╨░╨╜╤В╨░ `image_prefix`, ╨║╨╛╤В╨╛╤А╨░╤П ╨╛╤Б╤В╨░╤С╤В╤Б╤П ╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨╛╨╣ UI.
+        _patch_chat_root(monkeypatch, overrides={key: CHAT_TEXT})
+        resp = self._get(client, _hdr(LOCAL_ADMIN, CHAT_A))
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+>       assert body["prompts"]["image"]["text"] == ""
+E       AssertionError: assert '╨б╨╛╨╖╨┤╨░╨╣ ╨╝╨╡╨╝ ╤Б ╤И╤А╨╕╤Д╤В╨╛╨╝ ╨╕╨╝╨┐╨░╨║╤В:' == ''
+E         
+E         + ╨б╨╛╨╖╨┤╨░╨╣ ╨╝╨╡╨╝ ╤Б ╤И╤А╨╕╤Д╤В╨╛╨╝ ╨╕╨╝╨┐╨░╨║╤В:
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:527: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_blocks_list_hides_restricted_block
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_block_detail_denied
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_block_write_denied_by_edit_roles
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechSurfaceUsesPromptDecision::test_speech_hides_block_on_chat_perm_override
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/core-character.core]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/style-style.policy]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestSpeechDocumentSurfaces::test_document_read_obeys_matrix[/api/speech/expression-character.expression]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestMemeSettingsPromptText::test_prompt_text_denied_by_matrix
+8 failed, 22 passed, 1 warning in 7.49s
