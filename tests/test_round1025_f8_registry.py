@@ -122,9 +122,14 @@ ROUTES_SHA256_F11 = (
     # web/api/prompt_access.decide (действующая матрица ресурса), витрина
     # мемов гейтится той же матрицей. Route-set/декораторы/пути и RBAC
     # секретов не менялись (OpenAPI 221 path / 261 operation = база).
+    # SELF-DIAG-01 AC-11/D6-12 (26.11.2026, срез `fix/selfdiag-ac11-uptime`
+    # 8816dc1d1, review-r1): осознанный re-pin (L-F11S-1). Тело GET /api/config
+    # в глобальном скоупе решает ресурсную матрицу текста промпта
+    # (prompt_access.global_resources), тело /api/status/self-diagnosis берёт
+    # типизированный uptime. Route-set/декораторы/пути/RBAC не менялись.
     # Предыдущий пин:
-    # 8f582128a2c7c9c8e23fd20b2e0f045236856a8297bc0480aae22607a4ac09a1.
-    "606899ac097d3a882b13693860dbe1dad7ad09816dcdd31630eaa88b16700663")
+    # 606899ac097d3a882b13693860dbe1dad7ad09816dcdd31630eaa88b16700663.
+    "677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
