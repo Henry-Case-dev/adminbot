@@ -194,8 +194,9 @@ git-blob'ами** базы: `web/app.js` = `c1d1fa6cb…`, `web/index.html` =
 
 * Живой Telegram WebView / живой групповой чат: использовался локальный стенд,
   `initData` — **локальный тестовый** токен (`sessionStorage` сид из
-  `tools/ui_round1025_matrix.TMA_STUB`), production-идентичность и сеть не
-  применялись.
+  `tools/ui_round1025_matrix.TMA_STUB`), production-идентичность не применялась.
+  Стенд полностью офлайновый: SDK отдаётся из чекаута
+  (`/static/vendor/telegram-web-app.js`), внешней сети и production нет.
 * Реальный `PostgreSQL`-отказ и реальный 401 от Telegram-валидации: статусы
   поданы стабом на границе HTTP; серверные тела взяты дословно из `deps.py`
   (locked в M1-B).
