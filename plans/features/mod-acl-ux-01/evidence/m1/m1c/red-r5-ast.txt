@@ -1,0 +1,775 @@
+# R5-F02: AST-детектор — RED на 0a110a173 (старый сканер), GREEN после фикса
+# команда: pytest tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py -k alias_detector
+# RED = новый самотест (13 форм) против сканера 0a110a173; GREEN = текущий сканер.
+# файл восстановлен, sha256 до/после мутации совпал: d7664838fab4272485798ce1c4631e8f5c7a768dc169c945ecfe51567d26c96e
+
+=== RED (сканер 0a110a173, новые формы) ===
+FFFFFFFFFFF..                                                            [100%]
+================================== FAILURES ===================================
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[from services import prompt_text\nprompt_text.system_scope('x')\n-services.prompt_text.system_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DACF0>
+src = "from services import prompt_text\nprompt_text.system_scope('x')\n"
+expected = 'services.prompt_text.system_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: [('web/api/probe.py', 'system_scope')]
+E           assert ['system_scope'] == ['services.pr...system_scope']
+E             
+E             At index 0 diff: 'system_scope' != 'services.prompt_text.system_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[from services import prompt_text as pt\npt.system_scope('x')\n-services.prompt_text.system_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DB140>
+src = "from services import prompt_text as pt\npt.system_scope('x')\n"
+expected = 'services.prompt_text.system_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: [('web/api/probe.py', 'system_scope')]
+E           assert ['system_scope'] == ['services.pr...system_scope']
+E             
+E             At index 0 diff: 'system_scope' != 'services.prompt_text.system_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[import services.prompt_text as ptx\nptx.system_scope('x')\n-services.prompt_text.system_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DB1D0>
+src = "import services.prompt_text as ptx\nptx.system_scope('x')\n"
+expected = 'services.prompt_text.system_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: [('web/api/probe.py', 'system_scope')]
+E           assert ['system_scope'] == ['services.pr...system_scope']
+E             
+E             At index 0 diff: 'system_scope' != 'services.prompt_text.system_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[import services.prompt_text\nservices.prompt_text.system_scope('x')\n-services.prompt_text.system_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DB260>
+src = "import services.prompt_text\nservices.prompt_text.system_scope('x')\n"
+expected = 'services.prompt_text.system_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: []
+E           assert [] == ['services.pr...system_scope']
+E             
+E             Right contains one more item: 'services.prompt_text.system_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[import services\nservices.prompt_text.system_scope('x')\n-services.prompt_text.system_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DB2F0>
+src = "import services\nservices.prompt_text.system_scope('x')\n"
+expected = 'services.prompt_text.system_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: []
+E           assert [] == ['services.pr...system_scope']
+E             
+E             Right contains one more item: 'services.prompt_text.system_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[from services.prompt_text import system_scope as ss\nss('x')\n-services.prompt_text.system_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C3C49B0>
+src = "from services.prompt_text import system_scope as ss\nss('x')\n"
+expected = 'services.prompt_text.system_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: [('web/api/probe.py', 'system_scope')]
+E           assert ['system_scope'] == ['services.pr...system_scope']
+E             
+E             At index 0 diff: 'system_scope' != 'services.prompt_text.system_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[from services.prompt_text import reset_scope\nreset_scope()\n-services.prompt_text.reset_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938AEC1130>
+src = 'from services.prompt_text import reset_scope\nreset_scope()\n'
+expected = 'services.prompt_text.reset_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: [('web/api/probe.py', 'reset_scope')]
+E           assert ['reset_scope'] == ['services.pr....reset_scope']
+E             
+E             At index 0 diff: 'reset_scope' != 'services.prompt_text.reset_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[from services.prompt_registry import _FACTORY_TEXTS\n_FACTORY_TEXTS\n-services.prompt_registry._FACTORY_TEXTS] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DAC60>
+src = 'from services.prompt_registry import _FACTORY_TEXTS\n_FACTORY_TEXTS\n'
+expected = 'services.prompt_registry._FACTORY_TEXTS'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: []
+E           assert [] == ['services.pr...ACTORY_TEXTS']
+E             
+E             Right contains one more item: 'services.prompt_registry._FACTORY_TEXTS'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[from services import prompt_registry as pr\npr._factory_text_raw('k', 'c')\n-services.prompt_registry._factory_text_raw] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DA960>
+src = "from services import prompt_registry as pr\npr._factory_text_raw('k', 'c')\n"
+expected = 'services.prompt_registry._factory_text_raw'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: []
+E           assert [] == ['services.pr...ory_text_raw']
+E             
+E             Right contains one more item: 'services.prompt_registry._factory_text_raw'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[import services.prompt_registry\nservices.prompt_registry._effective_prompt_raw('k', 'c')\n-services.prompt_registry._effective_prompt_raw] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7DA8D0>
+src = "import services.prompt_registry\nservices.prompt_registry._effective_prompt_raw('k', 'c')\n"
+expected = 'services.prompt_registry._effective_prompt_raw'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: []
+E           assert [] == ['services.pr...e_prompt_raw']
+E             
+E             Right contains one more item: 'services.prompt_registry._effective_prompt_raw'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+_ TestStructuralInvariants.test_alias_detector_catches_every_import_form[from services.prompt_release_policy import journal_write_scope\njournal_write_scope(None)\n-services.prompt_release_policy.journal_write_scope] _
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_text_invariant.TestStructuralInvariants object at 0x000001938C7D9190>
+src = 'from services.prompt_release_policy import journal_write_scope\njournal_write_scope(None)\n'
+expected = 'services.prompt_release_policy.journal_write_scope'
+
+    @pytest.mark.parametrize("src,expected", [
+        ("from services import prompt_text\n"
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services import prompt_text as pt\n"
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services.prompt_text as ptx\n"
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
+        ("import services.prompt_text\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import system_scope as ss\n"
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
+        ("from services.prompt_text import reset_scope\n"
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
+    ])
+    def test_alias_detector_catches_every_import_form(self, src, expected):
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+    
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
+        offenders = self._scan_offenders(ast.parse(src),
+                                         "web/api/probe.py")
+        found = [path for _rel, path in offenders]
+        if expected is None:
+            assert found == [], offenders
+        else:
+>           assert found == [expected], offenders
+E           AssertionError: []
+E           assert [] == ['services.pr..._write_scope']
+E             
+E             Right contains one more item: 'services.prompt_release_policy.journal_write_scope'
+E             Use -v to get more diff
+
+tests\test_mod_acl_ux_01_m1c_prompt_text_invariant.py:491: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[from services import prompt_text\nprompt_text.system_scope('x')\n-services.prompt_text.system_scope]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[from services import prompt_text as pt\npt.system_scope('x')\n-services.prompt_text.system_scope]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[import services.prompt_text as ptx\nptx.system_scope('x')\n-services.prompt_text.system_scope]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[import services.prompt_text\nservices.prompt_text.system_scope('x')\n-services.prompt_text.system_scope]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[import services\nservices.prompt_text.system_scope('x')\n-services.prompt_text.system_scope]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[from services.prompt_text import system_scope as ss\nss('x')\n-services.prompt_text.system_scope]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[from services.prompt_text import reset_scope\nreset_scope()\n-services.prompt_text.reset_scope]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[from services.prompt_registry import _FACTORY_TEXTS\n_FACTORY_TEXTS\n-services.prompt_registry._FACTORY_TEXTS]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[from services import prompt_registry as pr\npr._factory_text_raw('k', 'c')\n-services.prompt_registry._factory_text_raw]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[import services.prompt_registry\nservices.prompt_registry._effective_prompt_raw('k', 'c')\n-services.prompt_registry._effective_prompt_raw]
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py::TestStructuralInvariants::test_alias_detector_catches_every_import_form[from services.prompt_release_policy import journal_write_scope\njournal_write_scope(None)\n-services.prompt_release_policy.journal_write_scope]
+11 failed, 2 passed, 23 deselected, 1 warning in 3.63s
+
+=== GREEN (сканер после R5-F02) ===
+.............                                                            [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+13 passed, 24 deselected, 1 warning in 3.48s
+

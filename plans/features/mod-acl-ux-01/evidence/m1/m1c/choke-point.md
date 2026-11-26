@@ -214,19 +214,59 @@ GET-витрине упасть в 403 вместо «ключа нет» (desig
 
 ### 8.2 Инвентарь кэшей «уже материализованный текст»
 
-| Кэш | Что хранит | HTTP-поверхность | Решение |
+**Происхождение инвентаря (воспроизводимо).** 2026-11-26, `rg` по `services/**`
+и `web/**`, шаблоны:
+
+```
+rg -n -g "services/*.py" "^_[A-Za-z0-9_]*(cache|CACHE|store|STORE|ring|RING|turns|TURNS|manifests|MANIFESTS|provider_calls|PROVIDER_CALLS|layers|LAYERS|diffs|DIFFS|refs|REFS|history|HISTORY)[A-Za-z0-9_]*\s*(:\s*[^=]+)?=" services
+rg -n -g "services/*.py" "OrderedDict\(|deque\(|maxlen=|lru_cache" services
+rg -n -g "web/**/*.py" "provider_calls|_manifests|get_all_chat_params|hot_config|ConfigCache|_FACTORY_TEXTS|_factory_text_raw|_effective_prompt_raw" web
+```
+
+плюс сверка с design §1.9 (строка 9: `ConfigCache.get/get_all`,
+`chat_params.get_all_chat_params/get_chat_param`) и проверка каждого
+web-потребителя. Ниже — каждый hit, который может нести текст промпта или
+композит, с решением; нерелевантные hit'ы сгруппированы в 8.2.2.
+
+#### 8.2.1 Кэши/сторы, несущие текст промпта
+
+| Кэш | Где живёт / что хранит | HTTP-поверхность | Решение / гейт |
 |---|---|---|---|
+| `services.hot_config.ConfigCache` (`hot_config._cache` — тот же объект; таблица `bot_settings`) | процессный RAM-кэш **всех** настроек, включая сырые тексты `prompts.*` и документы `character.core`/`style.policy`/`character.expression` | `GET /api/config` (чат: `can_view_param` на ключ, `routes.py:721`; глобально — граница §8), `GET /api/debug/config` (capability `action.debug.config`, дамп RAM без чат-слоя — граница §8), `_blocks_rows`/`_preview_manifest`/`_core_payload` (сырое значение передаётся в `pr.effective_prompt`/`core_selection`/`style_policy_view`/`guard_manifest`), рантайм через `hot_config` | сам кэш не гейтится by design (design §1.9 строка 9 — «нет»); гейт стоит на каждой **витрине**: `/api/config` — матрица, speech/prompts-владельцы — стражи, global/debug — граница §8. Новый потребитель сырого значения обязан звать `prompt_text.guard_view(key)` или владельца текста (`factory_text`/`effective_prompt`/`core_selection`/`style_policy_view`) |
+| `services.chat_params._chat_params_cache` (`ChatParamsCache`, TTL 120 с) | чатовые `overrides` из `chat_profiles`, включая тексты промптов (`prompts.*`, документы) | `/api/config` чат (`can_view_param`), `_chat_overrides` в speech/prompts-владельцах (значения → стражи `effective_prompt`/`core_selection`/`style_policy_view`/`guard_edit`), meme GET/POST (гейт r3), сервисные чтения `gates`/`oversight`/`cover/select`/`access` (не текст промпта) | сам кэш не гейтится by design; гейт на витринах и записях; новый потребитель обязан гейтить ключ (`guard_view`/`guard_edit`) или идти через владельца |
 | `prompt_composer._provider_calls` (+`provider_calls()`) | `system`/`messages[*].text` реального запроса провайдера | `GET /speech/inspector` (обычный и correlation), `initiative_publications._full_text_evidence` | inspector: текст только глобальному админу, correlation — 403 остальным; publications: только проверка наличия `correlation_id`, текст не возвращается |
 | `prompt_composer._manifests` (+`_composer_manifest_store`) | `PromptManifest` (system, user_parts, layers) | `GET /speech/inspector` (`sent`) | текст только глобальному админу; `guard_manifest` вызывается до использования |
-| `prompt_composer._last_layers`/`_diffs`/`_turn_refs` | трассы ревизий/диффы внутри композера | нет HTTP-поверхности | внутренние вычисления, текст не сериализуется |
-| `direct_l1._turn_trace` | `TurnTraceEntry` с `TurnRequest` (только входящий `raw_text`) | нет потребителя в `web/**` | текста промпта не содержит (вход пользователя) |
+| `prompt_composer._last_layers`/`_diffs`/`_turn_refs`/`_emitted_reasons` | трассы ревизий/диффы/ссылки внутри композера | нет HTTP-поверхности | внутренние вычисления; текст наружу не сериализуется |
+| `direct_l1._turn_trace` | `TurnTraceEntry` с `TurnRequest` (только входящий `raw_text`) | нет потребителя в `web/**` (`get_turn_trace` не вызывается) | текста промпта не содержит (вход пользователя) |
 | `turn_trace._turns` | трассы хода | `mca_events` | `_TEXT_KEYS` вычищаются в digest (`_scrub`) |
 | `web/api/routes.py::_PROMPT_OP_RESULTS` | результат разрешённой записи промптов (ключи/ревизии/reasons/sha) | идемпотентность `POST /prompts/*` | только после разрешённой записи; тела промпта в снимках нет |
-| `prompt_registry._FACTORY_TEXTS` | заводские тексты | публичные `factory_text`/`effective_prompt` | доступ только через стражей; `web/**` не импортирует raw (AST-инвариант) |
+| `prompt_registry._FACTORY_TEXTS` | заводские тексты (код-канон) | публичные `factory_text`/`effective_prompt` | **точная защита сегодня**: `rg -n -g "web/**/*.py" "_FACTORY_TEXTS|_factory_text_raw|_effective_prompt_raw|_factory_text_impl|_effective_prompt_impl" web` — **совпадений нет** (ни один web-модуль не читает кэш и сырые материализаторы). Дополнительно с R5-F02 AST-инвариант ловит `from services.prompt_registry import _FACTORY_TEXTS`, `pr._FACTORY_TEXTS` и `services.prompt_registry._FACTORY_TEXTS`; до R5-F02 AST этого не покрывал |
+| `prompt_registry._BLOCKS_CACHE`/`_BY_ID`/`_BY_KEY`/`_SUPERSEDED_CORE_SHA_CACHE`/`_EXACT_RULE_ALLOWLIST_CACHE` | `PromptBlockSpec` (метаданные: `code_source`, consumers), sha, allowlist | `/speech/blocks`, `/speech/block/{id}` | текст не хранят (только метаданные/хеши); сами тексты — через `_FACTORY_TEXTS`/`effective_prompt` со стражами |
 | `web/api/speech.py::_LEARNING_ERROR_DETAILS` | сообщения об ошибках обучения | `/speech/learning/*` | текста промпта не содержит |
 
-Поиск: `OrderedDict(`/`deque(`/`maxlen=`/`lru_cache`/`_manifests`/
-`provider_calls`/`turn_trace` по `services/**` и `web/**`.
+#### 8.2.2 Остальные hit'ы grep (текста промпта не несут)
+
+`access._db_override_cache` (матрицы), `capability_registry._CACHE`
+(`CapabilityState`: id/title/actions/status/reason), `image_capabilities._CACHE`
+(возможности модели), `llm_pricing._CACHE` (цены), `model_capacity._CACHE`/
+`_WINDOW_CACHE` (окна), `mca_vision._CAPABILITY_CACHE` (verdict),
+`telegram_role_check._CACHE` (роль), `oversight._cache`/`_title_cache`/
+`_activity_cache` (заголовки/счётчики), `negative_constraints._DYNAMIC_PATTERN_CACHE`
+(regex), `output_projection._secret_cache` (паттерны секретов),
+`postgen_vision._CACHE` (вердикт), `smart_cache._cache_instance`,
+`source_reuse._STORE` (внешние фрагменты источников; web не читает),
+`chat_settings_seed._seed_cache` (retention-сид из файла), `lore_runtime._store`/
+`_cache`/`lore_cache` (lore-данные памяти, не инструкции; витрина `/api/lore`
+вне §8), `style_policy._BANS`/`_BAN_ARCHIVE`/`_REPEAT_WINDOWS` (стоп-фразы
+пользователя, не инструкции), `mca_events._pending` (телеметрия с digest'ами),
+`media_group_buffer._buffer` (медиа-группы), `pemsoc_reactions._claims`,
+`meme_initiative._PROCESS_ATTEMPTS` (время), `video_intent._EVENTS`,
+`summary_llm_supervisor._RECENT_STATES` (метрики), `direct_chat_service._expression_raw`
+(bool/mode/ts), `summary_generator._rich_media_supported` (lru → bool),
+`key_history._ring` (числа), `diagnostic_policy._audit_log`, `log_ring`/
+`betterstack_handler._buffer` (логи процесса, не кэш промпта: запись в них — обычное логирование),
+`prompt_factory._HISTORY_FROZEN` (bool), `execution_graph_source._store`,
+`dossier_rebuild_jobs._store`.
 
 ### 8.3 R4-F02 — отказ ACL не проглатывается фолбэком
 
@@ -239,15 +279,38 @@ GET-витрине упасть в 403 вместо «ключа нет» (desig
 (`test_prompt_denied_from_compose_is_reraised`,
 `test_genuine_failure_fallback_is_guarded_by_provenance`).
 
-### 8.4 R4-F03 — AST-инвариант ловит все формы алиасинга
+### 8.4 AST-инвариант: все формы импорта и точечные цепочки (R4-F03 + R5-F02)
 
-`TestStructuralInvariants._prompt_text_bindings` — карта `{локальное имя:
-каноническое}` для `import services.prompt_text [as X]`,
-`from services import prompt_text [as Y]`,
-`from services.prompt_text import system_scope [as Z]`,
-`from services import <raw>`; `_scan_offenders` общий для обхода `web/**` и
-самопроверки. `test_alias_detector_catches_every_import_form` — 7 форм, включая
-`as`-алиас и `services.prompt_text.attr`. Пути нормализуются к `/` (Windows).
+`TestStructuralInvariants` держит не список имён, а карту
+`{(модуль): {запрещённые члены}}`:
+
+* `services.prompt_text` → `system_scope`;
+* `services.prompt_registry` → `_factory_text_raw`, `_effective_prompt_raw`,
+  `_FACTORY_TEXTS`;
+* `services.prompt_release_policy` → `journal_write_scope`,
+  `legacy_migration_write`.
+
+`_prompt_text_bindings` даёт `{локальное имя: путь}`: `import services.prompt_text
+[as X]` связывает корень `services` (семантика Python: `import a.b` связывает
+`a`), `import services.prompt_text as X` — только `X`, `from services import
+prompt_text [as Y]` — `Y`, `from services.prompt_text import member [as M]` —
+`M`. `_dotted` разворачивает любую `Attribute`-цепочку в полный путь, поэтому
+ловятся и `prompt_text.system_scope(...)`, и `services.prompt_text.system_scope(...)`,
+и `pr._FACTORY_TEXTS` (алиас модуля), и `services.prompt_registry._effective_prompt_raw(...)`.
+`SCOPE_WRITE_ALLOWED` проверяется по полному пути
+(`services.prompt_text.set_scope` → только `web/api/deps.py`/`web/app.py`,
+`reset_scope` → только `web/app.py`).
+
+`test_alias_detector_catches_every_import_form` — 13 форм: 11 положительных
+(включая точечные `services.prompt_text.system_scope` через корневой импорт,
+`services.prompt_registry._effective_prompt_raw`, `_FACTORY_TEXTS`,
+`journal_write_scope`) и 2 отрицательных контроля (`chat_params.get_all_chat_params`,
+`prompt_text.guard_view` не считаются нарушением). Пути нормализуются к `/`.
+
+RED/GREEN R5-F02 — `red-r5-ast.txt` (лог сгенерирован скриптом
+`r5_ast_probe.py`-методикой: новый самотест против сканера `0a110a173`,
+файл восстановлен, sha256 до/после совпал): **11 failed / 2 passed** (RED),
+**13 passed** (GREEN).
 
 ### 8.5 RED/GREEN R4 (`red-r4-cache.txt`, скрипт `r4_cache_probe.py`)
 
@@ -291,3 +354,40 @@ Set2: 3 parity + 5 `test_direct_fallback_recompose_asap32`.
   роли с частичными правами, потребуется записывать provenance ключей в
   кольцо/манифест, а не ослаблять это правило.
 * Прочие пункты §7 не изменились.
+
+### 8.9 R5 corrective (R5-F01 инвентарь, R5-F02 AST)
+
+**R5-F01 — инвентарь завершён.** В §8.2 добавлены оба сырых источника design
+§1.9 (строка 9) — `services.hot_config.ConfigCache` (`bot_settings`, включая
+`prompts.*`) и `services.chat_params._chat_params_cache` (чатовые `overrides` с
+текстами промптов) — с местом, содержимым, поверхностями, гейтами и правилом
+для будущего потребителя. Строка `_FACTORY_TEXTS` исправлена: сегодня её
+защищает **отсутствие web-потребителя** (`rg` без совпадений) плюс AST-инвариант
+(после R5-F02 он ловит и `from services.prompt_registry import _FACTORY_TEXTS`,
+и `pr._FACTORY_TEXTS`, и `services.prompt_registry._FACTORY_TEXTS`); до R5-F02
+AST этих форм не покрывал. Продуктовый код не менялся: ревьюер подтвердил, что
+все текущие витрины обоих кэшей gated, а сырые кэши не гейтятся by design
+(design §1.9 строка 9), как и `database.py`.
+
+**R5-F02 — точечные формы.** Сканер переведён с набора имён на карту
+`{(модуль): {члены}}` и разворачивает любую `Attribute`-цепочку (`_dotted`) с
+учётом семантики `import a.b` (связывает корень `a`) и `as`-алиасов. Самотест —
+13 форм: 11 положительных (точечный вызов через корень, алиас модуля, прямой
+член, `_FACTORY_TEXTS`, `journal_write_scope`) и 2 отрицательных контроля.
+RED на сканере `0a110a173` — `red-r5-ast.txt` (11 failed / 2 passed), GREEN —
+13 passed; тестовый файл восстановлен, sha256 до/после совпал (лог содержит
+строку с хешем).
+
+**Числа R5.** Замок M1-C — **60 passed**; инварианты+seam — **37 passed**
+(было 31; +6 за счёт 13 форм самотеста вместо 7). Набор 41 файла
+(prompt/ACL/inspector/soul1/composer/style/direct) на **архивных** деревьях с
+одинаковой формой (без `media`/`plans`, только `plans/docs`): база `ffdc6eadf` —
+**22 failed / 1096 passed / 2 skipped**, кандидат `0a110a173` —
+**22 failed / 1096 passed / 2 skipped**, списки падений совпадают построчно
+(`Compare-Object` пуст). Те же 41+2 файла на рабочем дереве: **16 failed /
+1199 passed / 2 skipped** — 11 известных + 5 `test_direct_fallback_recompose_asap32`;
+остальные 6 падений архивной базы — артефакты оверлея (2 `acl_legacy_inventory`
+без `.deploy`-манифеста и 4 `test_soul1_core_doc_text` без `plans/features/**`).
+Набор 40 файлов ревьюера отдельно не воспроизводился (его список не опубликован);
+использован эквивалентный по составу набор 41 файла, покрывающий все строки
+падений из r5.
