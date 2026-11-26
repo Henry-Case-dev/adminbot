@@ -219,8 +219,8 @@ def test_routes_plus3_and_registration():
 
 
 def test_routes_py_byte_freeze_pin_intact():
-    # прецедент mca-12: routes.py НЕ менялся → пин F11 цел (re-pin =
-    # осознанная верификация, L-F11S-1).
+    # пин F11 — осознанный re-pin M1-C (2.58.252, L-F11S-1): маршруты/пути
+    # не менялись, изменилось тело решений ACL промпта в routes.py.
     from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
     digest = hashlib.sha256(
         (ROOT / "web" / "api" / "routes.py").read_bytes()).hexdigest()
