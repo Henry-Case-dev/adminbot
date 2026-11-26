@@ -375,44 +375,70 @@ class TestStructuralInvariants:
         return ast.parse(open(path, encoding="utf-8-sig").read(),
                          filename=rel)
 
-    #: Материализаторы/скоуп-API, которые web не имеет права вызывать.
-    FORBIDDEN_ATTRS = {"system_scope", "_factory_text_raw",
-                       "_effective_prompt_raw", "journal_write_scope",
-                       "legacy_migration_write"}
+    #: (модуль, запрещённые члены): сырые материализаторы и scope-API,
+    #: которые web не имеет права вызывать (R5-F01/F02).
+    FORBIDDEN = {
+        "services.prompt_text": {"system_scope"},
+        "services.prompt_registry": {"_factory_text_raw",
+                                     "_effective_prompt_raw",
+                                     "_FACTORY_TEXTS"},
+        "services.prompt_release_policy": {"journal_write_scope",
+                                           "legacy_migration_write"},
+    }
     #: Кто единственный пишет scope (auth-time в deps, middleware в app).
-    SCOPE_WRITE_ALLOWED = {"set_scope": {"web/api/deps.py", "web/app.py"},
-                           "reset_scope": {"web/app.py"}}
+    SCOPE_WRITE_ALLOWED = {
+        "services.prompt_text.set_scope": {"web/api/deps.py", "web/app.py"},
+        "services.prompt_text.reset_scope": {"web/app.py"},
+    }
 
     def _prompt_text_bindings(self, tree):
-        """``{локальное имя: каноническое}`` для модуля и его членов.
+        """(модульные алиасы, прямые члены) как ``{локальное имя: путь}``.
 
-        Ловятся ВСЕ формы: ``import services.prompt_text [as X]``,
-        ``from services import prompt_text [as Y]``,
-        ``from services.prompt_text import system_scope [as Z]``."""
+        Ловятся ВСЕ формы: ``import services.prompt_text [as X]`` (связывает
+        корневое имя ``services``), ``import services [as Y]``,
+        ``from services import prompt_text [as Z]``,
+        ``from services.prompt_text import member [as M]`` — точечная запись
+        через корень и алиасы модулей тоже разрешаются в полный путь."""
         aliases: dict[str, str] = {}
         direct: dict[str, str] = {}
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     mod = alias.name or ""
-                    if mod == "services.prompt_text":
-                        aliases[alias.asname or "prompt_text"] = \
-                            "services.prompt_text"
-                    elif mod.startswith("services.prompt_text."):
-                        attr = mod.rsplit(".", 1)[1]
-                        direct[alias.asname or attr] = attr
+                    if not (mod == "services" or mod.startswith("services.")):
+                        continue
+                    if alias.asname:
+                        aliases[alias.asname] = mod
+                    else:
+                        # ``import a.b`` связывает только корень ``a``.
+                        root = mod.split(".")[0]
+                        aliases[root] = root
             elif isinstance(node, ast.ImportFrom):
                 mod = node.module or ""
                 for alias in node.names:
                     asname = alias.asname or alias.name
-                    if mod == "services.prompt_text":
-                        direct[asname] = alias.name
-                    elif mod == "services" and alias.name == "prompt_text":
-                        aliases[asname] = "services.prompt_text"
-                    elif mod == "services" \
-                            and alias.name in self.FORBIDDEN_ATTRS:
-                        direct[asname] = alias.name
+                    if mod == "services":
+                        aliases[asname] = "services." + alias.name
+                    elif mod.startswith("services."):
+                        direct[asname] = mod + "." + alias.name
         return aliases, direct
+
+    @staticmethod
+    def _dotted(node, aliases) -> str:
+        """Полный путь ``a.b.c`` с раскрытием алиасов; ``""`` — не разрешён."""
+        if isinstance(node, ast.Name):
+            return aliases.get(node.id, "")
+        if isinstance(node, ast.Attribute):
+            base = TestStructuralInvariants._dotted(node.value, aliases)
+            return base + "." + node.attr if base else ""
+        return ""
+
+    def _forbidden_path(self, path: str) -> str:
+        for mod, members in self.FORBIDDEN.items():
+            prefix = mod + "."
+            if path.startswith(prefix) and path[len(prefix):] in members:
+                return path
+        return ""
 
     def test_web_does_not_import_system_materializers(self):
         offenders = []
@@ -428,55 +454,83 @@ class TestStructuralInvariants:
         assert offenders == [], offenders
 
     def _scan_offenders(self, tree, rel: str) -> list:
-        """Нарушения файла: вызов сырого материализатора/неразрешённая запись scope."""
+        """Нарушения файла: сырой материализатор/неразрешённая запись scope.
+
+        Проверяются и ``Name`` (``from ... import x``), и любые ``Attribute``-
+        цепочки (``services.prompt_text.system_scope``, ``pr._FACTORY_TEXTS``)."""
         aliases, direct = self._prompt_text_bindings(tree)
         offenders = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-                real = direct.get(node.id)
-                if real is not None and real in self.FORBIDDEN_ATTRS:
-                    offenders.append((rel, real))
-                if real is None:
-                    real = node.id
-                if real in self.SCOPE_WRITE_ALLOWED \
-                        and rel not in self.SCOPE_WRITE_ALLOWED[real]:
-                    offenders.append((rel, real))
-            elif isinstance(node, ast.Attribute) \
-                    and isinstance(node.value, ast.Name) \
-                    and node.value.id in aliases:
-                if node.attr in self.FORBIDDEN_ATTRS:
-                    offenders.append((rel, node.attr))
-                if node.attr in self.SCOPE_WRITE_ALLOWED \
-                        and rel not in self.SCOPE_WRITE_ALLOWED[node.attr]:
-                    offenders.append((rel, node.attr))
+                path = direct.get(node.id, "")
+            elif isinstance(node, ast.Attribute):
+                path = self._dotted(node, aliases)
+            else:
+                continue
+            if not path:
+                continue
+            if self._forbidden_path(path):
+                offenders.append((rel, path))
+                continue
+            allowed = self.SCOPE_WRITE_ALLOWED.get(path)
+            if allowed is not None and rel not in allowed:
+                offenders.append((rel, path))
         return offenders
 
     @pytest.mark.parametrize("src,expected", [
         ("from services import prompt_text\n"
-         "prompt_text.system_scope('x')\n", "system_scope"),
+         "prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
         ("from services import prompt_text as pt\n"
-         "pt._factory_text_raw('k', 'c')\n", "_factory_text_raw"),
+         "pt.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
         ("import services.prompt_text as ptx\n"
-         "ptx._effective_prompt_raw('k', 'c')\n", "_effective_prompt_raw"),
+         "ptx.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        # R5-F02: точечная форма через корневой модуль.
         ("import services.prompt_text\n"
-         "services.prompt_text.journal_write_scope(1)\n", None),
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
+        ("import services\n"
+         "services.prompt_text.system_scope('x')\n",
+         "services.prompt_text.system_scope"),
         ("from services.prompt_text import system_scope as ss\n"
-         "ss('x')\n", "system_scope"),
+         "ss('x')\n",
+         "services.prompt_text.system_scope"),
         ("from services.prompt_text import reset_scope\n"
-         "reset_scope()\n", "reset_scope"),
-        ("from services import _factory_text_raw\n"
-         "_factory_text_raw('k', 'c')\n", "_factory_text_raw"),
+         "reset_scope()\n",
+         "services.prompt_text.reset_scope"),
+        ("from services.prompt_registry import _FACTORY_TEXTS\n"
+         "_FACTORY_TEXTS\n",
+         "services.prompt_registry._FACTORY_TEXTS"),
+        ("from services import prompt_registry as pr\n"
+         "pr._factory_text_raw('k', 'c')\n",
+         "services.prompt_registry._factory_text_raw"),
+        ("import services.prompt_registry\n"
+         "services.prompt_registry._effective_prompt_raw('k', 'c')\n",
+         "services.prompt_registry._effective_prompt_raw"),
+        ("from services.prompt_release_policy import journal_write_scope\n"
+         "journal_write_scope(None)\n",
+         "services.prompt_release_policy.journal_write_scope"),
+        # Отрицательные контроли: обычные чтения/вызовы не считаются.
+        ("from services import chat_params\n"
+         "chat_params.get_all_chat_params(1)\n", None),
+        ("from services import prompt_text\n"
+         "prompt_text.guard_view('k')\n", None),
     ])
     def test_alias_detector_catches_every_import_form(self, src, expected):
-        """Самопроверка детектора: ``from services import prompt_text`` и
-        ``as``-алиасы не должны проходить мимо AST-инварианта."""
+        """Самопроверка детектора: все формы импорта/алиасинга ловятся.
+
+        Включая точечную запись через корневой модуль
+        (``import services.prompt_text`` -> ``services.prompt_text.system_scope``)
+        и сырые материализаторы реестра (``_FACTORY_TEXTS``)."""
         offenders = self._scan_offenders(ast.parse(src),
                                          "web/api/probe.py")
+        found = [path for _rel, path in offenders]
         if expected is None:
-            assert offenders == [], offenders
+            assert found == [], offenders
         else:
-            assert offenders and all(name == expected
-                                     for _rel, name in offenders), offenders
+            assert found == [expected], offenders
 
     @pytest.mark.parametrize("rel,func", [
         ("services/prompt_composer.py", "compose_speech_system"),
