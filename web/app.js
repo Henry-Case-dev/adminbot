@@ -14722,13 +14722,20 @@
       // Фин. доработка (DevOps): без Telegram-контекста — блокирующая
       // заглушка вместо бессмысленных 401 (ngrok-интерстициал ломал контекст).
       if (!this.hasInitData()) {
-        this.authError = 'Миниапп открыт без Telegram-контекста — ' +
-          'откройте админку через кнопку меню в боте';
-        this.authLocked = true;
+        this.lockAuth('Миниапп открыт без Telegram-контекста — '
+          + 'откройте админку через кнопку меню в боте');
         return;
       }
       this.loadMe().then(function () {
-        if (!self.me) return;             // 401/пусто — блокировка выше
+        if (!self.me) {
+          // M1-C (MAC-S4-171): серверный 401 («нет данных входа» / «подпись не
+          // принята») раньше оставлял МОЛЧА пустую оболочку — блокировка выше
+          // срабатывала только при полностью отсутствующем initData. Теперь
+          // показывается тот же блокирующий баннер с причиной, которую назвал
+          // `api()`; неизвестная причина (сеть/иное) не выдаётся за 401.
+          self.lockAuth(self.authError || self.accessErrorHint(0, 'auth'));
+          return;
+        }
         self._syncBgLayer();              // HOTFIX8: флаги shell v3/aurora получены
         // Контекст чата (activeChatId) — ДО loadConfig: первый рендер сразу
         // в per-chat слое (F-7 T-854); без контекста — старый глобальный вид.
@@ -15223,13 +15230,23 @@
         return !!getInitData();
       },
 
+      // M1-C (MAC-S4-171): единая точка блокирующего состояния входа.
+      // Кроме баннера снимается индикатор первичной загрузки — по тому же
+      // правилу, что в finally loadConfig: «вечная загрузка» скрыла бы
+      // реальное состояние экрана (причина в баннере).
+      lockAuth: function (text) {
+        this.authLocked = true;
+        if (text) this.authError = text;
+        _markAppReady();
+        _setAppBusy(false);
+      },
+
       retryInitData: function () {
         var self = this;
         if (!this.hasInitData()) {
           // контекст так и не появился — снова блокирующая заглушка
-          this.authLocked = true;
-          this.authError = 'Миниапп открыт без Telegram-контекста — ' +
-            'откройте админку через кнопку меню в боте';
+          this.lockAuth('Миниапп открыт без Telegram-контекста — '
+            + 'откройте админку через кнопку меню в боте');
           return;
         }
         this.authLocked = false;
@@ -15239,9 +15256,11 @@
           if (!me) {
             // /api/me не вернул юзера (401/пусто) — контекст есть, но не
             // авторизован; не спамить API — блокируем с баннером.
-            self.authLocked = true;
-            self.authError = 'Не удалось авторизоваться (initData). ' +
-              'Откройте админку заново из Telegram.';
+            // M1-C (MAC-S4-171): если причина 401 уже названа в api()
+            // (нет данных / подпись не принята), не заменяем её generic-
+            // текстом — иначе различие состояний теряется на последнем шаге.
+            self.lockAuth(self.authError
+              || self.accessErrorHint(401, 'auth', 'unknown'));
             return;
           }
           self.loadAccessCtx().then(function () {
@@ -15309,8 +15328,19 @@
           throw new ApiError(0, 'network');
         }
         if (resp.status === 401) {
-          this.authError = 'Не удалось авторизоваться (initData). Откройте админку заново из Telegram.';
-          throw new ApiError(401, 'unauthorized');
+          // MOD-ACL-UX-01 M1-C (MAC-S4-171): сервер различает «данных входа
+          // нет» (`missing init data`) и «подпись не принята»
+          // (`invalid init data`). Раньше тело ответа выбрасывалось и обе
+          // причины давали один generic-баннер. Причина читается здесь и
+          // переводится существующим механизмом подписей
+          // (`accessErrorHint`), своего текста в этом месте нет.
+          var authBody = null;
+          try { authBody = await resp.json(); } catch (eAuth) { authBody = null; }
+          var authCause = this.initDataCause(authBody);
+          this.authError = this.accessErrorHint(401, 'auth', authCause);
+          var authDetail = (authBody && typeof authBody.detail === 'string')
+            ? authBody.detail : '';
+          throw new ApiError(401, authDetail || 'unauthorized');
         }
         var data = null;
         try { data = await resp.json(); } catch (e) { data = null; }
@@ -34840,7 +34870,11 @@
           if (reason && text) return String(reason) + ': ' + String(text);
           if (reason) return String(reason);
           if (text) return String(text);
-          try { return JSON.stringify(m); } catch (err) { return 'ошибка'; }
+          // MOD-ACL-UX-01 M1-C (MAC-S4-172): неизвестная форма `detail` —
+          // единственный путь «сырой payload ответа → DOM/тост» (карточки
+          // биндят этот текст). Такие объекты не сериализуются: показывается
+          // нейтральный текст, известные поля выше по-прежнему видны.
+          return 'ошибка сервера';
         }
         return String(m);
       },
@@ -34855,16 +34889,41 @@
             : 'сеть недоступна',
         };
       },
-      accessErrorTitle: function (status) {
-        if (status === 401) return 'Сессия устарела';
+      // M1-C (MAC-S4-171): причина 401 из серверного `detail` — ровно те два
+      // тела, что locked в M1-B (`missing init data` / `invalid init data`).
+      // Неизвестное/отсутствующее тело → 'unknown': UI не додумывает причину.
+      initDataCause: function (body) {
+        var detail = (body && typeof body.detail === 'string') ? body.detail : '';
+        if (detail === 'missing init data') return 'missing';
+        if (detail === 'invalid init data') return 'invalid';
+        return 'unknown';
+      },
+      accessErrorTitle: function (status, cause) {
+        if (status === 401) {
+          // M1-C (MAC-S4-171): «нет данных входа» и «подпись не принята» —
+          // разные состояния; «Сессия устарела» верна только для второго.
+          if (cause === 'missing') return 'Нет данных Telegram';
+          return 'Сессия устарела';
+        }
         if (status === 403) return 'Нет доступа';
         if (status === 404) return 'Не найдено';
         if (status === 409) return 'Конфликт';
         if (status === 503) return 'Сервис временно недоступен';
         return 'Не удалось загрузить';
       },
-      accessErrorHint: function (status, scope) {
+      accessErrorHint: function (status, scope, cause) {
         if (status === 401) {
+          if (cause === 'missing') {
+            return 'Вход не выполнен: в открытии Mini App нет данных '
+              + 'Telegram (initData), сервер не может проверить вход. '
+              + 'Откройте админку кнопкой меню в боте и нажмите '
+              + '«Попробовать снова».';
+          }
+          if (cause === 'invalid') {
+            return 'Откройте Mini App заново из Telegram — сервер не принял '
+              + 'подпись входа (устарела или повреждена); данные не '
+              + 'показываются до восстановления сессии.';
+          }
           return 'Откройте Mini App заново из Telegram — данные не показываются '
             + 'до восстановления сессии.';
         }
