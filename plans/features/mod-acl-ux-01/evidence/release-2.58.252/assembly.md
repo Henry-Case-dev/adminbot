@@ -321,6 +321,11 @@ follow-up (добавить teardown-reset).
 - Browser harness оставил `tools/_ui_m1c_out/` (15 png/json) — удалён после
   прогона; `git status` чист.
 - Overlay-скрипты (bump/reverse/blob-check) и логи наборов — во временном
-  каталоге `%TEMP%\opencode\m1c_release`, в репозиторий не копировались.
+  каталоге `%TEMP%\opencode\m1c_release` (0.4 MB, 41 файл); в репозиторий не
+  копировались. Назначение — воспроизводимость §2–§3 и повторная проверка
+  после деплоя; удалить после deploy/binding-решения по 2.58.252.
+- `workflow_housekeeping.py inventory --repo` показывает 46 записей прошлых
+  сессий (другие unit'ы epic'а); к этой сборке не относятся, не трогались — их
+  жизненный цикл у владельцев. Своих registered runs сборка не создавала.
 - `.deploy/release.json` (seed) удалён; в коммитах только код среза, version
   wave и этот файл evidence.
