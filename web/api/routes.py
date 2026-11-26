@@ -25,6 +25,7 @@ from services import access as access_srv
 from services import acl_audit
 from services import bot_persona, chat_clock, chat_keys, chat_params, chat_usage, param_catalog
 from services import hot_config as hot
+from services import prompt_text
 from services import roles as roles_srv
 from services.access_errors import AccessStorageUnavailable as _AccessStorageUnavailable
 from services.config_cache import (
@@ -694,6 +695,12 @@ async def get_config(
         # секрет-ключи (в т.ч. {configured,last4} global key) были видны
         # любой TMA-роли (фикс S1).
         ctx = await roles_srv.access_for(user.id, cache=cache)
+    # MAC-S10-13 AC11 (26.11.2026): у глобального пути нет чатовых перекрытий,
+    # поэтому ресурсная матрица ключей ТЕКСТА промпта — дефолт ⊕ DB-override
+    # (`prompt_access.global_resources.visible`). Тот же актор в чате решается
+    # `ChatResources` из `chat_resources(...)`; правило одно, scope разный.
+    global_access = (prompt_access.global_resources(ctx, db_overrides)
+                     if chat_id is None and ctx is not None else None)
     items = []
     # QRNG P3/F1 (arch D4): глобальные ключи селектора источника не
     # показываются чатовому non-admin (см. фильтр в chat-scope ниже).
@@ -725,6 +732,18 @@ async def get_config(
             # отдаются только глобальному админу; local/moderator/user не
             # видят глобальный ключ НИ в каком виде (в т.ч. без last4).
             if secret and not ctx.is_global_admin:
+                continue
+            # MAC-S10-13 AC11 (26.11.2026, SELF-DIAG postdeploy): ключи ТЕКСТА
+            # промпта (`prompt_text.guarded_key`) в глобальном скоупе
+            # подчиняются той же ресурсной матрице, что и в чате, — без
+            # чатовых перекрытий (`global_resources.visible`). Роль без гранта
+            # значения не получает и ключ в items не появляется — ровно как
+            # чатовая ветка ниже. Прочие настройки НЕ сужаем: у limits/flags/
+            # content/models нет права чтения текста промпта, и они остаются
+            # видимы любой аутентифицированной роли (кроме секретов).
+            if (global_access is not None
+                    and prompt_text.guarded_key(key)
+                    and not global_access.visible(key)):
                 continue
         chat_source = ""
         # F3/D-3 (ревью Батча C): значение ГЛОБАЛЬНОГО слоя до наложения
@@ -4607,17 +4626,23 @@ async def _self_diag_payload(chat_id: int | None) -> dict:
 
     server = _status._server_metrics()
     started_at = getattr(_status, "started_at", None)
+    # MAC-S10-13 AC11 / SELF-DIAG: `started_at` — ISO-строка (JSON-контракт
+    # `/api/status`), поэтому арифметика идёт от типизированного значения
+    # (`StatusService.started_at_dt`, одна точка разбора), а не от строки.
+    started_dt = None
+    try:
+        started_dt = _status.started_at_dt()
+    except Exception:      # pragma: no cover - защитная ветка
+        started_dt = None
     started_iso = None
     uptime_seconds = None
     if started_at is not None:
-        try:
-            started_iso = (started_at.isoformat()
-                           if hasattr(started_at, "isoformat")
-                           else str(started_at))
-            uptime_seconds = int((datetime.datetime.now(
-                datetime.timezone.utc) - started_at).total_seconds())
-        except Exception:
-            uptime_seconds = None
+        started_iso = (started_at.isoformat()
+                       if hasattr(started_at, "isoformat")
+                       else str(started_at))
+    if started_dt is not None:
+        uptime_seconds = int((datetime.datetime.now(
+            datetime.timezone.utc) - started_dt).total_seconds())
     runtime: dict = {
         "app_version": getattr(_status, "version", APP_VERSION),
         "pid": (server.get("process") or {}).get("pid"),
