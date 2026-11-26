@@ -321,7 +321,7 @@ self = <tests.test_unified_image_request_round1026.TestToolDescriptionU21 object
                                         "recognize_image", "fact_check",
                                         "edit_image", "read_source_code"]
 E       AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
-E         
+E
 E         Left contains 2 more items, first extra item: 'inspect_runtime'
 E         Use -v to get more diff
 

@@ -17,6 +17,12 @@
   (**APPROVED_FOR_RELEASE_PREPARATION**, F01 закрыт).
 - **Строка:** `MAC-S4-172` (egress-половина: чат + телеметрия). Лог-канал и
   API-ответы заперты M1-B/M1-C и не переоткрывались.
+- **Delta-ревью r1:** `…/release-2.58.254/delta-review-r1.md` sha256
+  `71d357f6f2e020e1b53f662142325cfd58353b1902c189e4f62a4b1c46d1281b`
+  (NEEDS_FIXES: `REL254-R1-F01` evidence/manifest, `REL254-R1-F04` trailing
+  whitespace). Обе адресованы этой evidence-правкой — §7 (deploy-target и
+  снимок dry-run на head'е правки) и §6 (`git diff --check` rc 0 с учётом
+  evidence-логов); продуктовый код, тесты и версия не менялись.
 
 ```json
 {
@@ -164,7 +170,7 @@ tracked-файлам worktree `54546ab5b` (unit 2.58.253), тот же инте�
 | `node --check web/app.js` | **rc 0** | — | — |
 | 4 JS version-пина (`node tests/js/round1025_hotfix{7,8,9,10}_…js`) | **4/4 rc 0** | — | — |
 | `py_compile` 31 изменённый `.py` (срез + wave) | **31/31 rc 0** | — | — |
-| `git diff --check 54546ab5b HEAD` | **rc 0** | — | — |
+| `git diff --check 54546ab5b HEAD` (код **и** evidence-логи) | **rc 0**, trailing whitespace нет | — | — |
 
 \* `test_prompt_field_audit.py`, `test_mod_acl_ux_01_m4_module_params.py`,
 `test_status_section_ui_merge_round1019.py`, `test_mca23_planned_vs_actual.py` —
@@ -199,14 +205,24 @@ tests/test_mca23_planned_vs_actual.py::TestResponseEndpoints::test_routes_pin_un
 
 ## 7. Manifest dry-run
 
-`tools/release_manifest.py --repo-root . --dry-run` на коде `de5f6cd0f`
-(временный untracked seed `.deploy/release.json` с предыдущим деплоем
-`54546ab5b / 2.58.253`; после прогона удалён, в коммит не попал):
+**Deploy target:** head ветки `release/mod-acl-egress-2.58.254` на момент
+деплоя. Замороженного deploy-SHA в evidence нет намеренно: хеш коммита зависит
+от его дерева, а дерево — от файла с записанным SHA, поэтому файл внутри
+коммита физически не может содержать SHA собственного коммита. Использована
+вторая формулировка, разрешённая delta-ревью r1 (`REL254-R1-F01`): записан
+снимок dry-run на head'е времени этой правки **плюс** явное правило
+deploy-target; первая формулировка («манифест ровно для shipping-коммита»)
+упирается в этот self-reference.
+
+`python tools/release_manifest.py --repo-root . --dry-run` на этом checkout
+(HEAD `fb3f2d221`; временный untracked seed `.deploy/release.json` с предыдущим
+деплоем `54546ab5b / 2.58.253`; после прогона seed и `.deploy/` удалены, в
+коммит не попали):
 
 ```json
 {
-  "deployed_at": "2026-11-26T20:39:17.907967Z",
-  "deployed_sha": "de5f6cd0fdb74f81a3a45236670d2f0300180fc0",
+  "deployed_at": "2026-11-26T20:55:51.216366Z",
+  "deployed_sha": "fb3f2d2216da829dc0bef3cfdc5a6cb17686fdb1",
   "dirty_tracked": false,
   "effect": "deploy",
   "previous_sha": "54546ab5b201a5d8bd169bad613e730d371fc3b9",
@@ -217,15 +233,22 @@ tests/test_mca23_planned_vs_actual.py::TestResponseEndpoints::test_routes_pin_un
 }
 ```
 
-`deployed_sha` = фактический `git rev-parse de5f6cd0f`; `version` читается
-AST-разбором `config/settings.py` этого checkout. **Повторный dry-run на
-итоговом tip** (проверенный checkout `60684c0dd`) даёт тот же манифест с
-`deployed_sha = 60684c0ddaadb2b9c4273ae7b6ee1b258f2869d3` (=
-`test-output/manifest-dry-run-final-tip.txt`), т.е. `deployed_sha` всегда
-равен фактическому HEAD того checkout, где пишется манифест. Evidence-коммит
-добавляет только документы/логи (код не меняется) — DevOps обязан записать
-манифест на проверенном checkout после деплоя. **DDL 0, миграции 0, новые
-флаги 0, новые endpoints 0**, OpenAPI 221/261 без изменений, схема v48.
+Полный вывод — `test-output/manifest-dry-run.txt`. `deployed_sha` = `git
+rev-parse HEAD` этого checkout (`release_manifest.head_sha`), `version` —
+AST-разбор `config/settings.py`; это структурное свойство инструмента, поэтому
+манифест, записанный на выложенном checkout, всегда содержит фактический
+deployed SHA. Предыдущий снимок `60684c0dd` (checkout до evidence-коммитов,
+то есть pre-evidence) **удалён** вместе с утверждением, что он «итоговый tip»;
+снимок выше — тоже снимок head'а времени правки, а не замороженный deploy
+target.
+
+Постдеплой-гейт (отдельный шаг DevOps): манифест пишется на выложенном
+checkout и обязан дать `deployed_sha == фактический deployed SHA` (head ветки
+на момент деплоя), `previous_sha 54546ab5b`, `previous_version 2.58.253`,
+`version 2.58.254`, `dirty_tracked false`.
+
+**DDL 0, миграции 0, новые флаги 0, новые endpoints 0**, OpenAPI 221/261 без
+изменений, схема v48.
 
 ## 8. Откат
 

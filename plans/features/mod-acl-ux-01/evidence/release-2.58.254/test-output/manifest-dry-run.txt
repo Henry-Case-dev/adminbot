@@ -1,0 +1,14 @@
+# python tools/release_manifest.py --repo-root . --dry-run
+# executed at HEAD=fb3f2d2216da829dc0bef3cfdc5a6cb17686fdb1 (branch head at assembly-corrective time;
+# deploy target rule and self-reference limit: assembly section 7)
+{
+  "deployed_at": "2026-11-26T20:55:51.216366Z",
+  "deployed_sha": "fb3f2d2216da829dc0bef3cfdc5a6cb17686fdb1",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "54546ab5b201a5d8bd169bad613e730d371fc3b9",
+  "previous_version": "2.58.253",
+  "release_branch": "release/mod-acl-egress-2.58.254",
+  "schema": 1,
+  "version": "2.58.254"
+}

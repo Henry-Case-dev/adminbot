@@ -19,7 +19,7 @@ app_paths = {'/api/access/audit', '/api/access/chats', '/api/access/chats/{chat_
             "промпты, которые нельзя отредактировать в админке: %s" % uncovered)
 E       AssertionError: промпты, которые нельзя отредактировать в админке: ['direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt, ui=catalog)']
 E       assert ['direct.base... ui=catalog)'] == []
-E         
+E
 E         Left contains one more item: 'direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt, ui=catalog)'
 E         Use -v to get more diff
 
@@ -30,7 +30,7 @@ client = <starlette.testclient.TestClient object at 0x00000209A427AF00>
 
     def test_js_fixture_matches_live_contract(client):
         """Drift-guard: снимок в репозитории = живой контракт сервера.
-    
+
         Тот же приём, что у `tests/fixtures/module_registry_visible.json` (M3):
         node-тест обязан запускаться БЕЗ аргументов стандартным прогоном
         `node tests/js/*.js`, поэтому ему нужен закоммиченный снимок; расхождение
@@ -46,12 +46,12 @@ client = <starlette.testclient.TestClient object at 0x00000209A427AF00>
             "пересоберите его из живого контракта (см. docstring теста)")
 E       AssertionError: tests/fixtures/mod_acl_m4_embeddings_payload.json устарел — пересоберите его из живого контракта (см. docstring теста)
 E       assert {'registry': ..., ...}, ...]}} == {'registry': ..., ...}, ...]}}
-E         
+E
 E         Omitting 1 identical items, use -vv to show
 E         Differing items:
 E         {'admin': {'items': [{'key': 'keys.embedding_api_key', 'category': 'keys', 'group': 'keys_llm', 'title': 'Ключ основно...openrouter', 'category': 'keys', 'title': 'OpenRouter', 'description': 'Ключ пересказов видео и страниц.', ...}, ...]}} != {'admin': {'items': [{'key': 'keys.embedding_api_key', 'category': 'keys', 'group': 'keys_llm', 'title': 'Ключ основно...openrouter', 'category': 'keys', 'title': 'OpenRouter', 'description': 'Ключ пересказов видео и страниц.', ...}, ...]}}
 E         {'user': {'items': [{'key': 'keys...
-E         
+E
 E         ...Full output truncated (2 lines hidden), use '-vv' to show
 
 tests\test_mod_acl_ux_01_m4_module_params.py:334: AssertionError
@@ -73,14 +73,14 @@ self = <tests.test_status_section_ui_merge_round1019.TestStatusSectionMerge obje
         assert "statusData.bot.mode" not in HTML
 >       assert "statusData.bot.version" not in HTML
 E       assert 'statusData.bot.version' not in '<!DOCTYPE h...>\n</html>\n'
-E         
+E
 E         'statusData.bot.version' is contained here:
 E                  ? (statusData.bot.version || '—') : '—' }}</b>
 E                           · проверено: <b data-status-checked-at>{{ statusCheckedAt }}</b>
 E                         </div>
-E           
+E
 E                         <div class="status-block__grid status-health__segs"...
-E         
+E
 E         ...Full output truncated (4535 lines hidden), use '-vv' to show
 
 tests\test_status_section_ui_merge_round1019.py:43: AssertionError
@@ -92,7 +92,7 @@ self = <tests.test_mca23_planned_vs_actual.TestResponseEndpoints object at 0x000
         # routes.py byte-freeze: аддитивный endpoint живёт в analytics.py.
 >       assert hashlib.sha256(_ROUTES).hexdigest() == ROUTES_SHA256_F11
 E       AssertionError: assert '677bef0bf37f...e8b1258645719' == '453e17f8a1cd...672acdeb604a5'
-E         
+E
 E         - 453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5
 E         + 677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719
 
