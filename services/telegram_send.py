@@ -7,6 +7,17 @@
 Caption-точки (``send_caption``/``edit_caption``) — вне контура egress:
 подписи к медиа формируются без модели и в реестр/скан не входят.
 
+MAC-S4-172 (egress): перед ``sanitize_outgoing`` текст проходит существующий
+R17-санитайзер журнала ``services.log_ring.sanitize`` — тот же, которым
+``handlers/youtube.py`` уже чистит текст ошибки провайдера перед показом в
+чате. Второго санитайзера нет: чат и лог-канал решают задачу одной функцией
+(значения секретов каталога, Bearer/Basic, префиксные ключи, креды в URI).
+Порядок важен: маска секрета — ДО вырезания технических тегов, иначе
+``sanitize_outgoing`` может разрезать секрет и маска перестанет совпадать.
+Структурные точки из ``SEND_ALLOWLIST`` (статические UX-фразы, медиа, ASR,
+админ-канон) этот chokepoint не используют — там нет модель-сгенерированного
+текста, кроме ``handlers/youtube.py``, который уже вызывает ``sanitize``.
+
 Рубильник ``TELEGRAM_SEND_GUARD_ENABLED`` (env-only, default ON): OFF →
 обёртки ведут себя как прямой вызов (байт-в-байт 10.21).
 """
@@ -18,6 +29,7 @@ import re
 from typing import Any
 
 from config.settings import settings
+from services.log_ring import sanitize as _sanitize_secrets
 from services.outgoing_guard import sanitize_outgoing
 
 logger = logging.getLogger(__name__)
@@ -97,9 +109,14 @@ def _guard_enabled() -> bool:
 
 
 def _maybe_sanitize(text: str) -> str:
+    """R17-маска секретов, затем вырезание технических тегов.
+
+    ``log_ring.sanitize`` никогда не бросает и при отсутствии секретов
+    возвращает вход байт-в-байт, поэтому обычный текст не меняется.
+    """
     if not _guard_enabled():
         return text
-    return sanitize_outgoing(text)
+    return sanitize_outgoing(_sanitize_secrets(text))
 
 
 async def send_text(bot, chat_id: int, text: str, **kwargs: Any):
