@@ -1073,7 +1073,7 @@ def _classify_legacy_value(key: str, block_id: str, current,
     item = (snapshots.get("items") or {}).get(key) or {}
     if item.get("normalized_sha256_12") == pr.sha12(current):
         return "already_normalized", "no-op:идемпотентно", ()
-    factory = pr.factory_text(block_id)
+    factory = pr._factory_text_raw(block_id)
     if factory and current == factory:
         cls = "canon_current"
     elif pr.is_known_canon(current):

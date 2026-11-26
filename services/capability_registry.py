@@ -1040,7 +1040,12 @@ def _template_text(block_id: str, factory: str) -> tuple[str, str]:
         text = str(row.text or "").strip()
         if text:
             return text, row.factory_source
-    except Exception:
+    except Exception as exc:
+        # Отказ ACL текста — не «сбой реестра»: fail-open на factory-константу
+        # вернул бы тот же текст в обход матрицы (choke point §9).
+        from services import prompt_text as _prompt_text
+        if isinstance(exc, _prompt_text.PromptTextDenied):
+            raise
         logger.warning("[capability] message resolve failed — factory | "
                        "block=%s", block_id, exc_info=True)
     return factory, "factory"

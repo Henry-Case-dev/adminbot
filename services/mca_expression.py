@@ -532,7 +532,14 @@ def build_expression_settings(chat_doc: Any, global_doc: Any):
 
     Preview и боевые сборки используют ЭТУ функцию — текст слоя один и тот
     же (EXP-ACCEPT.PREVIEW: «предпросмотр не врёт»).
+
+    Текст слоя — документ `character.expression` (ресурс MAC-S10-13): в
+    чатовом скоупе решает `prompt_text.guard_view` (choke point); рантайм
+    вызывает эту функцию под `system` scope.
     """
+    from services import prompt_text
+
+    prompt_text.guard_view(EXPRESSION_DOC_KEY)
     from services.prompt_composer import ExpressionSettings
 
     effective = resolve_effective(chat_doc, global_doc)

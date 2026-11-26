@@ -821,6 +821,11 @@ async def resolve_core_ref(chat_id: int) -> CoreRef:
     редакции + бюджет слоёв, без единого LLM-вызова) и видны в манифесте:
     слой ``core`` (``detail``) и ``versions["core_detail"]``.
     """
+    # Текст документа `character.core` — ресурс MAC-S10-13: в чатовом скоупе
+    # решает стража; рантайм-сборка вызывает эту функцию под `system` scope.
+    from services import prompt_text as _pt
+
+    _pt.guard_view(CORE_KEY)
     try:
         from services import hot_config as hot
         raw_global = hot.get(CORE_KEY, None)
@@ -986,7 +991,20 @@ async def speech_style_hint(chat_id: int | None) -> str:
     return str(ref.hint or "").strip()
 
 
-async def compose_speech_system(*, chat_id: int, writer: str,
+async def compose_speech_system(*args, **kwargs):
+    """Рантайм-сборка речевого system для Writer'ов (системный потребитель).
+
+    Это входная функция сборки ответа бота: текст промпта здесь нужен для
+    LLM, а не для отображения, поэтому она объявляет ``system`` scope —
+    resolution пользовательского чатового ACL к ней не применяется (design
+    choke point §2 п.3, §3.3)."""
+    from services import prompt_text
+
+    with prompt_text.system_scope("runtime_compose_speech_system"):
+        return await _compose_speech_system_impl(*args, **kwargs)
+
+
+async def _compose_speech_system_impl(*, chat_id: int, writer: str,
                                 base_prompt: str,
                                 run_id: str | None = None,
                                 base_key: str = "", base_default: str = "",
@@ -2241,23 +2259,41 @@ def _fallback_manifest(plan: PromptPlan) -> PromptManifest:
 
 
 def compose_prompt(plan: PromptPlan) -> PromptManifest:
-    """Собрать system/user + трассу слоёв. Никогда не бросает (§2 правило 1)."""
+    """Собрать system/user + трассу слоёв. Сбой сборки не бросает (§2).
+
+    Стража текста (`prompt_text.guard_manifest`) стоит ПОСЛЕ fail-open-ветки:
+    отказ ACL — не «сбой сборки», его нельзя проглотить фолбэком, иначе
+    манифест вернёт текст из другого слоя."""
+    from services import prompt_text
+
     try:
-        return _compose(plan)
+        manifest = _compose(plan)
     except Exception:
         logger.warning("[composer] compose failed — fail-open (channel only)",
                        exc_info=True)
         try:
             manifest = _fallback_manifest(plan)
             emit_layer_events(manifest)
-            return manifest
         except Exception:      # pragma: no cover — защитная ветка
-            return PromptManifest(system=str(plan.base_prompt or ""))
+            manifest = PromptManifest(system=str(plan.base_prompt or ""))
+    prompt_text.guard_manifest(manifest)
+    return manifest
 
 
-def compose_machine_system(base_prompt: str, *, writer: str,
-                           chat_id: int = 0, run_id: str | None = None,
-                           base_source: str = "default") -> PromptManifest:
+def compose_machine_system(*args, **kwargs):
+    """Профиль ``machine_json``: только канал-контракт (§2.2).
+
+    Рантайм-сборка для машинных стадий (L1/Stage-1/factcheck/...): объявляет
+    ``system`` scope — текст нужен LLM, не отображению."""
+    from services import prompt_text
+
+    with prompt_text.system_scope("runtime_compose_machine_system"):
+        return _compose_machine_system_impl(*args, **kwargs)
+
+
+def _compose_machine_system_impl(base_prompt: str, *, writer: str,
+                                 chat_id: int = 0, run_id: str | None = None,
+                                 base_source: str = "default") -> PromptManifest:
     """Профиль ``machine_json``: только канал-контракт (§2.2).
 
     Тот же владелец сборки для машинных стадий (L1/Stage-1/factcheck/...):
@@ -2433,7 +2469,13 @@ def render_layer_texts(manifest: PromptManifest) -> dict:
     Отдельный API, а не поле ``render_effective_layers``: провенанс-события и
     телеметрия остаются без сырого текста. Вызывать только из owner-gated
     поверхностей (Inspector).
+
+    Защита в глубину: та же проверка провенанса, что у ``compose_prompt`` —
+    манифест мог быть собран до появления чатового scope.
     """
+    from services import prompt_text
+
+    prompt_text.guard_manifest(manifest)
     rows = []
     for trace in manifest.layers:
         rows.append({

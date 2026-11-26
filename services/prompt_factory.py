@@ -55,6 +55,7 @@ import logging
 from typing import Mapping
 
 from services import prompt_registry as pr
+from services import prompt_text
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ def _default_cache():
 
 def factory_default(block_id: str) -> str:
     """Заводской текст блока (единый источник — код-канон каталога/модуля)."""
-    return pr.factory_text(block_id)
+    return pr._factory_text_raw(block_id)
 
 
 def _diff_summary(before: str, after: str) -> dict:
@@ -335,7 +336,14 @@ async def _mark_provenance(cache, block_id: str, *, pg_key: str, value: str,
 
 
 async def history_for(block_id: str, *, cache=None) -> list[dict]:
-    """Ревизии блока (без текста? — текст остаётся: rollback-контракт)."""
+    """Ревизии блока (без текста? — текст остаётся: rollback-контракт).
+
+    Текст истории отдаётся наружу → в чатовом скоупе решает
+    ``prompt_text.guard_view`` по ключу блока (право записи проверяет
+    ``guard_edit`` в писателях)."""
+    spec = pr.block(block_id)
+    prompt_text.guard_view(getattr(spec, "pg_key", None)
+                           if spec is not None else None)
     cache = cache if cache is not None else _default_cache()
     if cache is None:
         return []

@@ -1082,6 +1082,13 @@ class TestRecheck:
         async def access_for(telegram_id, chat_id=None, cache=None,
                             strict=False):
             if chat_id == CHAT_ID and telegram_id == LOCAL_ID:
+                if not state.get("auth_scope_seen"):
+                    # MOD-ACL M1-C: первый вызов — auth-time `build_scope`
+                    # (снимок прав запроса); сценарий «отзыв между запросом и
+                    # повторной записью» считается со следующего вызова.
+                    state["auth_scope_seen"] = True
+                    return await original_access_for(
+                        telegram_id, chat_id, cache=cache, strict=strict)
                 state["n"] += 1
                 if state["n"] == 1:
                     return await original_access_for(
@@ -1121,6 +1128,13 @@ class TestRecheck:
         async def access_for(telegram_id, chat_id=None, cache=None,
                             strict=False):
             if chat_id == CHAT_ID and telegram_id == LOCAL_ID:
+                if not state.get("auth_scope_seen"):
+                    # MOD-ACL M1-C: первый вызов — auth-time `build_scope`
+                    # (снимок прав запроса); сценарий «отзыв между запросом и
+                    # повторной записью» считается со следующего вызова.
+                    state["auth_scope_seen"] = True
+                    return await original_access_for(
+                        telegram_id, chat_id, cache=cache, strict=strict)
                 state["n"] += 1
                 if state["n"] == 1:
                     return await original_access_for(
@@ -1200,6 +1214,13 @@ class TestRecheck:
         async def access_for(telegram_id, chat_id=None, cache=None,
                             strict=False):
             if chat_id == CHAT_ID and telegram_id == LOCAL_ID:
+                if not state.get("auth_scope_seen"):
+                    # MOD-ACL M1-C: первый вызов — auth-time `build_scope`
+                    # (снимок прав запроса); сценарий «отзыв между запросом и
+                    # повторной записью» считается со следующего вызова.
+                    state["auth_scope_seen"] = True
+                    return await original_access_for(
+                        telegram_id, chat_id, cache=cache, strict=strict)
                 state["n"] += 1
                 if state["n"] == 1:
                     return await original_access_for(
@@ -1240,6 +1261,13 @@ class TestRecheck:
         async def access_for(telegram_id, chat_id=None, cache=None,
                             strict=False):
             if chat_id == CHAT_ID and telegram_id == LOCAL_ID:
+                if not state.get("auth_scope_seen"):
+                    # MOD-ACL M1-C: первый вызов — auth-time `build_scope`
+                    # (снимок прав запроса); сценарий «отзыв между запросом и
+                    # повторной записью» считается со следующего вызова.
+                    state["auth_scope_seen"] = True
+                    return await original_access_for(
+                        telegram_id, chat_id, cache=cache, strict=strict)
                 state["n"] += 1
                 if state["n"] == 1:
                     return await original_access_for(
@@ -1312,6 +1340,13 @@ class TestRecheck:
         async def access_for(telegram_id, chat_id=None, cache=None,
                             strict=False):
             if chat_id == CHAT_ID and telegram_id == LOCAL_ID:
+                if not state.get("auth_scope_seen"):
+                    # MOD-ACL M1-C: первый вызов — auth-time `build_scope`
+                    # (снимок прав запроса); сценарий «отзыв между запросом и
+                    # повторной записью» считается со следующего вызова.
+                    state["auth_scope_seen"] = True
+                    return await original_access_for(
+                        telegram_id, chat_id, cache=cache, strict=strict)
                 state["n"] += 1
                 if state["n"] == 1:
                     return await original_access_for(

@@ -707,9 +707,14 @@ def _assert_prompt_overrides_journaled(chat_id: int, old_root: dict,
     if old_overrides == new_overrides:
         return
     from services import prompt_release_policy as _policy
+    from services import prompt_text as _prompt_text
     for key in sorted(set(old_overrides) | set(new_overrides)):
         if old_overrides.get(key) == new_overrides.get(key):
             continue
+        # Тот же ресурс, что чтение: изменение ТЕКСТА промпта в чате решает
+        # действующая матрица (`edit_roles`), рядом с journal-стражем. Так
+        # «сырого» чатового писателя промпта в обход ACL быть не может.
+        _prompt_text.guard_edit(str(key))
         _policy.assert_prompt_write_allowed(
             pg_key=str(key), scope="chat", chat_id=int(chat_id),
             current=old_overrides.get(key), new=new_overrides.get(key))

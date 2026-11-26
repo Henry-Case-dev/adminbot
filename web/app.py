@@ -161,6 +161,32 @@ def create_app(cache: ConfigCache, control=None, memory=None) -> FastAPI:
     # этого middleware отказ (403/401) не привязать к запросу и пользователю.
     from web.request_status import ApiStatusLogMiddleware
     app.add_middleware(ApiStatusLogMiddleware)
+
+    # MOD-ACL-UX-01 M1-C (choke point): scope текста промпта живёт в
+    # ContextVar и должен быть сброшен даже на исключении/стриме — pure ASGI,
+    # внешний слой. Middleware добавляются «последним = самым внешним».
+    from services import prompt_text
+
+    class PromptTextScopeMiddleware:
+        def __init__(self, inner_app):
+            self.app = inner_app
+
+        async def __call__(self, scope, receive, send):
+            token = prompt_text.set_scope(prompt_text.SYSTEM)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                prompt_text.reset_scope(token)
+
+    app.add_middleware(PromptTextScopeMiddleware)
+
+    @app.exception_handler(prompt_text.PromptTextDenied)
+    async def _prompt_text_denied_handler(request: Request, exc):
+        logger.info("[webapp] prompt text denied | path=%s | key=%s | chat=%s",
+                    request.url.path, exc.pg_key, exc.chat_id)
+        return JSONResponse(status_code=403,
+                            content={"detail": exc.detail or "нет права"})
+
     app.state.cache = cache
     # MEM-08-S2: менеджер памяти — из bot.py (один инстанс на процесс); web-API
     # обязан идти в него же, а не строить второй (иначе векторный канал поиска

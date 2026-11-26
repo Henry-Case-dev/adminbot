@@ -91,6 +91,8 @@ import pathlib
 import re
 from typing import Mapping
 
+from services import prompt_text
+
 logger = logging.getLogger(__name__)
 
 REGISTRY_VERSION = "soul1-w3-1"
@@ -611,7 +613,7 @@ def seal_integrity() -> dict[str, str]:
     known: set[str] = set()
     for spec in all_blocks():
         known.add(spec.block_id)
-        text = factory_text(spec.block_id)
+        text = _factory_text_raw(spec.block_id)
         if not text:
             continue
         seal = FACTORY_REVISION_SEALS.get(spec.block_id)
@@ -2171,7 +2173,11 @@ def core_selection(doc=None, *, source: str = "default") -> dict:
     вызова (``model_capacity``), а не квотой на инструкцию.
 
     Возвращает тексты обеих редакций (для композера) и провенанс выбора.
+
+    Отдаёт ТЕКСТ редакций: в чатовом скоупе решает ``prompt_text.guard_view``
+    по ключу документа ``character.core``.
     """
+    prompt_text.guard_view(CORE_DOC_KEY)
     factory_full = factory_text(CORE_FULL_BLOCK_ID)
     factory_compact = factory_text(CORE_COMPACT_BLOCK_ID)
     document = doc if isinstance(doc, Mapping) else None
@@ -2416,8 +2422,12 @@ def sha12(text: str) -> str:
 _FACTORY_TEXTS: dict[str, str] = {}
 
 
-def factory_text(block_id: str) -> str:
-    """Фабричный текст блока (единый источник — код-канон, без дубля)."""
+def _factory_text_impl(block_id: str) -> str:
+    """Фабричный текст блока (реализация, без стража).
+
+    Единственный источник — код-канон; кэш по block_id. Публичный путь —
+    ``factory_text`` (страж + этот вызов), чтобы подмены ``factory_text``
+    (тесты/издание) видели все потребители, включая внутренние."""
     if block_id in _FACTORY_TEXTS:
         return _FACTORY_TEXTS[block_id]
     spec = block(block_id)
@@ -2443,6 +2453,31 @@ def factory_text(block_id: str) -> str:
     return text
 
 
+def factory_text(block_id: str) -> str:
+    """Фабричный текст блока (единый источник — код-канон, без дубля).
+
+    Отдаёт ТЕКСТ: в чатовом скоупе спрашивает разрешение у
+    ``prompt_text.guard_view`` (единая точка принуждения MAC-S10-13)."""
+    spec = block(block_id)
+    prompt_text.guard_view(getattr(spec, "pg_key", None))
+    return _factory_text_impl(block_id)
+
+
+def _factory_text_raw(block_id: str) -> str:
+    """Текст для ВНУТРЕННИХ нужд (длина/хеш/сравнение/запись) без чатового ACL.
+
+    Не отдаётся наружу как текст: это осознанное отключение стража для
+    метаданных (design choke point §3.2). Источник тот же — публичный
+    ``factory_text``, поэтому подмены издания/тестов действуют и здесь."""
+    with prompt_text.system_scope("internal_read:factory_text"):
+        return factory_text(block_id)
+
+
+def factory_chars(block_id: str) -> int:
+    """Длина фабричного текста — метаданные, без стража."""
+    return len(_factory_text_raw(block_id))
+
+
 def _members_text(module, members) -> str:
     """Собрать фабричный текст семейства констант модуля (для fingerprint).
 
@@ -2464,12 +2499,12 @@ def _members_text(module, members) -> str:
 
 def factory_default(block_id: str) -> str:
     """Заводской текст блока (синоним ``factory_text`` для Factory Defaults)."""
-    return factory_text(block_id)
+    return _factory_text_raw(block_id)
 
 
 def factory_revision(block_id: str) -> str:
     """Ревизия заводской редакции: ``fac:<sha256_12>`` (+ метка владельца)."""
-    text = factory_text(block_id)
+    text = _factory_text_raw(block_id)
     if not text:
         return ""
     label = FACTORY_REVISION_LABELS.get(block_id, "")
@@ -2494,7 +2529,7 @@ def factory_texts() -> dict[str, str]:
     """Все непустые фабричные тексты реестра (для fingerprint/дампов)."""
     out: dict[str, str] = {}
     for spec in all_blocks():
-        text = factory_text(spec.block_id)
+        text = _factory_text_raw(spec.block_id)
         if text:
             out[spec.block_id] = text
     return out
@@ -3174,23 +3209,22 @@ class LegacySuppression:
     labels: tuple[str, ...] = ()
 
 
-def effective_prompt(pg_key_or_id: str, *, pg_value=None,
-                     chat_value=None) -> EffectivePrompt:
-    """Собрать effective-представление блока (без I/O: значения передаются).
+def _effective_prompt_impl(pg_key_or_id: str, *, pg_value=None,
+                           chat_value=None) -> EffectivePrompt:
+    """Собрать effective-представление блока (реализация, без стража).
 
     ``pg_value``/``chat_value`` — значения ПЕРСИСТЕНТНОГО слоя (``None`` —
     слоя нет). Кодовый fallback применяется здесь же (``source="default"``):
     реестр показывает то, что реально уйдёт в LLM, а не «намерение».
     Для блока-поля JSON-документа (``pg_doc_field``, Personality Core)
-    персистентное значение — САМ документ, а эффективное значение — его поле.
-    """
+    персистентное значение — САМ документ, а эффективное значение — его поле."""
     spec = block_for(pg_key_or_id)
     if spec is None:
         return EffectivePrompt(
             block_id=str(pg_key_or_id), pg_key="", text="", source="missing",
             revision="", factory_revision="", differs_from_factory=False,
             diagnostics=("block_unknown",))
-    factory = factory_text(spec.block_id)
+    factory = _factory_text_raw(spec.block_id)
     source = "code"
     value = None
     diagnostics: list[str] = []
@@ -3258,6 +3292,38 @@ def effective_prompt(pg_key_or_id: str, *, pg_value=None,
         stored_differs_from_factory=stored_differs)
 
 
+def effective_prompt(pg_key_or_id: str, *, pg_value=None,
+                     chat_value=None) -> EffectivePrompt:
+    """Собрать effective-представление блока (без I/O: значения передаются).
+
+    ``pg_value``/``chat_value`` — значения ПЕРСИСТЕНТНОГО слоя (``None`` —
+    слоя нет). Кодовый fallback применяется здесь же (``source="default"``):
+    реестр показывает то, что реально уйдёт в LLM, а не «намерение».
+    Для блока-поля JSON-документа (``pg_doc_field``, Personality Core)
+    персистентное значение — САМ документ, а эффективное значение — его поле.
+
+    Отдаёт ТЕКСТ: в чатовом скоупе решает ``prompt_text.guard_view``."""
+    spec = block_for(pg_key_or_id)
+    prompt_text.guard_view(getattr(spec, "pg_key", None)
+                           if spec is not None else
+                           (pg_key_or_id if str(pg_key_or_id or "")
+                            .startswith(("prompts.", "character.", "style."))
+                            else None))
+    return _effective_prompt_impl(pg_key_or_id, pg_value=pg_value,
+                                  chat_value=chat_value)
+
+
+def _effective_prompt_raw(pg_key_or_id: str, *, pg_value=None,
+                          chat_value=None) -> EffectivePrompt:
+    """Effective-представление для ВНУТРЕННИХ нужд без чатового ACL.
+
+    Сравнение/хеш/запись: текст наружу не отдаётся (design §3.2). Источник и
+    подмены те же — публичный ``effective_prompt``."""
+    with prompt_text.system_scope("internal_read:effective_prompt"):
+        return effective_prompt(pg_key_or_id, pg_value=pg_value,
+                                chat_value=chat_value)
+
+
 def registry_view() -> list[dict]:
     """Вид реестра для UI/PM (W6) и тестов: метаданные + фабричная ревизия.
 
@@ -3289,7 +3355,7 @@ def registry_view() -> list[dict]:
             "ui": spec.ui,
             "production_kind": production_kind(spec.block_id),
             "factory_revision": factory_revision(spec.block_id),
-            "factory_chars": len(factory_text(spec.block_id)),
+            "factory_chars": factory_chars(spec.block_id),
             "factory_seal": {"label": seal[0], "sha256_12": seal[1]},
             "sealed_revision": sealed_factory_revision(spec.block_id),
             "retired": spec.block_id in _RETIRED_BLOCK_IDS,
@@ -3312,8 +3378,10 @@ def style_policy_view(global_doc=None, chat_doc=None, *, context: str = "",
     """Витрина Speech Style Policy + регистрация hint-блока (W6/W3).
 
     ``global_doc``/``chat_doc`` — документы ``style.policy`` (если не заданы,
-    витрина отдаёт только метаданные реестра без значений). Никогда не
-    бросает."""
+    витрина отдаёт только метаданные реестра без значений). Отдаёт ТЕКСТ
+    правил: в чатовом скоупе решает ``prompt_text.guard_view`` по ключу
+    ``style.policy``; прочие ошибки по-прежнему не бросают."""
+    prompt_text.guard_view("style.policy")
     spec = block(STYLE_POLICY_BLOCK_ID)
     base = {
         "block_id": STYLE_POLICY_BLOCK_ID,
@@ -3322,7 +3390,7 @@ def style_policy_view(global_doc=None, chat_doc=None, *, context: str = "",
         "composition_point": (spec.composition_point if spec is not None
                               else "speech_plain/speech_rich"),
         "factory_revision": factory_revision(STYLE_POLICY_BLOCK_ID),
-        "factory_chars": len(factory_text(STYLE_POLICY_BLOCK_ID)),
+        "factory_chars": factory_chars(STYLE_POLICY_BLOCK_ID),
         "ui": (spec.ui if spec is not None else "catalog_pending"),
         "registry_version": REGISTRY_VERSION,
         "doc_key": "style.policy",
@@ -3791,7 +3859,7 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
             withheld_class = (classification or {}).get(
                 "class", WITHHELD_UNCLASSIFIED_CLASS)
             if not release_policy_active():
-                factory = factory_text(spec.block_id)
+                factory = _factory_text_raw(spec.block_id)
                 # Прежний шлагбаум (до cutover): persisted-текст без
                 # провенанса не является действующим слоем.
                 text, _info = suppress_legacy_speech(factory, source="global")
@@ -3826,7 +3894,7 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
             # EVOL-016 (контракт §1.6): после cutover провенанс больше не
             # шлагбаум effective-слоя — активный PG-текст эффективен.
             if withheld_class == WITHHELD_LEGACY_CLASS:
-                factory = factory_text(spec.block_id)
+                factory = _factory_text_raw(spec.block_id)
                 _withhold_legacy_audit(spec, raw, reason)
                 text, _info = suppress_legacy_speech(factory, source="global")
                 return SpeechResolution(
@@ -3907,7 +3975,7 @@ def withheld_values(*, pg_get=None, cache=None) -> list[dict]:
         reason, entry = provenance_state(spec, value, cache=cache)
         if reason == "attested":
             continue
-        if value == factory_text(spec.block_id):
+        if value == _factory_text_raw(spec.block_id):
             # P0-PROMPTS: сохранённые байты уже равны текущей фабрике —
             # это не конфликт, ложный WARNING снят (identical_to_factory).
             continue

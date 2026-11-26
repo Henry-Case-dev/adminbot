@@ -1071,7 +1071,12 @@ def effective_policy_sync(global_doc: Any = None, chat_doc: Any = None, *,
     """Собрать эффективную политику из уже прочитанных документов.
 
     Чистая функция (без I/O) — используется и рантайм-резолвером, и тестами, и
-    Inspector'ом. Никогда не бросает."""
+    Inspector'ом. Никогда не бросает — кроме отказа ACL текста: `style.policy`
+    (ресурс MAC-S10-13) в чатовом скоупе решает `prompt_text.guard_view`
+    (choke point), и этот отказ не «пустая политика»."""
+    from services import prompt_text
+
+    prompt_text.guard_view("style.policy")
     pack = str(context or "regular").strip().lower() or "regular"
     if not enabled:
         return EffectiveStylePolicy(context=pack, source="default",
