@@ -36,14 +36,25 @@
   "pre_bump_tree": "ed59c13e1d682d590a6d8b7b051bb04f56cdeddd",
   "bump_commit": "5f09390492b254bd129edc68620c1cbece069f0c",
   "bump_tree": "95af313825739521fcd12f6eca23b7a90217b26b",
+  "post_review_fixes": [
+    {"id": "A-01", "commit": "f6140749e",
+     "why": "deliberate ROUTES_SHA256_F11 re-pin (L-F11S-1), routes.py changed by the reviewed M1-C ACL contract",
+     "old_pin": "8f582128a2c7c9c8e23fd20b2e0f045236856a8297bc0480aae22607a4ac09a1",
+     "new_pin": "606899ac097d3a882b13693860dbe1dad7ad09816dcdd31630eaa88b16700663"},
+    {"id": "A-02", "commit": "213e0431c",
+     "why": "test-only teardown reset of the process-global param_permissions cache in the M1-C invariant module"}
+  ],
+  "code_tip": "213e0431c46adce156cf5b358339dc3349f9d55d",
+  "code_tip_tree": "9a7207921c454d7ac2ec16a5ec957de45fb82331",
   "evidence_commit": "tip of release/mod-acl-m1c-2.58.252 (this file)",
-  "delta_vs_base": {"files": 80, "insertions": 6324, "deletions": 188}
+  "delta_vs_base_at_code_tip": {"files": 81, "insertions": 6682, "deletions": 193}
 }
 ```
 
-`delta_vs_base` = `git diff --shortstat ffdc6eadf 5f0939049`: 48 файлов среза +
-32 файла version wave, пересечения нет (`slice ∩ bump = 0`). Evidence-коммит
-добавляет один файл `plans/`.
+`delta_vs_base_at_code_tip` = `git diff --shortstat ffdc6eadf 213e0431c`: 48
+файлов среза + 32 файла version wave (пересечения нет) + одна правка теста
+среза A-02 (файл уже в 48) + evidence-файл предыдущей итерации; A-01 меняет
+два файла из version-wave набора. Полный список отличий от tip'а среза — §2.1.
 
 ## 1. Порядок интеграции
 
@@ -70,12 +81,30 @@ Cherry-pick выполнен диапазоном без правок; авто�
 ## 2. Byte identity среза (48 файлов)
 
 Все файлы, которые трогает срез (`git diff --name-status ffdc6eadf 681bf976d`
-= 48: 27 добавлено, 21 изменено), после version wave имеют ровно те же blob'ы,
-что и на `681bf976d`. Проверено `git rev-parse <tip>:<path>` для tip и HEAD.
-`git diff --name-only 681bf976d HEAD` на bump-коммите `5f0939049` = **ровно 32
-файла version wave**, `slice_changed = []`; evidence-коммит добавляет
-только этот файл (`plans/`, не входит в срез);
-пересечение `slice ∩ bump = 0`.
+= 48: 27 добавлено, 21 изменено), после version wave имели ровно те же blob'ы,
+что и на `681bf976d` (`git diff --name-only 681bf976d 5f0939049` = ровно 32
+файла version wave, `slice_changed = []`; пересечение `slice ∩ bump = 0`).
+После разрешения A-01/A-02 (§5.2) на финальном коде `213e0431c`:
+**47 из 48 файлов среза blob-идентичны** tip'у среза; единственное отличие —
+`tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py` (A-02, test-only
+teardown, §5.2). A-01 меняет два файла version-wave набора
+(`tests/test_round1025_f8_registry.py`, `tests/test_mca17c_invariants_round1047.py`),
+которые в 48 файлов среза не входят.
+
+### 2.1 Полный список отличий от tip'а среза (`git diff --name-only 681bf976d 213e0431c`, 34 файла)
+
+- **32 файла version wave** (§3) — ожидаемо; из них два дополнительно несут
+  осознанный re-pin A-01.
+- **1 файл среза:** `tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py`
+  (A-02: autouse-fixture сброса `param_permissions`-кэша до/после теста).
+- **1 evidence-файл:** `plans/features/mod-acl-ux-01/evidence/release-2.58.252/assembly.md`
+  (этот документ).
+
+Других отличий от среза нет: `web/api/routes.py`, `web/app.js`,
+`web/index.html`, `services/*`, `web/api/*` — byte-identical `681bf976d`.
+Blob-таблица 48 файлов ниже соответствует состоянию после version wave; для
+`…prompt_text_invariant.py` актуальный blob — см. §5.2 (единственное
+исключение).
 
 | файл | blob@681bf976d | blob@HEAD |
 |---|---|---|
@@ -128,12 +157,15 @@ Cherry-pick выполнен диапазоном без правок; авто�
 | web/app.py | `7e23e45b6a85` | `7e23e45b6a85` |
 | web/index.html | `6eeeca285ee3` | `6eeeca285ee3` |
 
-Итого: **48/48 blob'ов идентичны** (`files=48 identical=48`).
+Итого: после version wave — **48/48 blob'ов идентичны** (`files=48
+identical=48`). На финальном коде `213e0431c` — 47/48: единственное отличие
+`tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py` (A-02, §5.2);
+остальные 47 файлов среза по-прежнему равны `681bf976d`.
 
 ## 3. Version wave 2.58.252 (32 файла / 35 строк)
 
-Только версии; записан коммит `5f0939049`. `git diff --shortstat 1647fe132^..HEAD`
-для bump-шага → **32 файла, 35 insertions, 35 deletions** (`config/settings.py`
+Только версии; записан коммит `5f0939049`. `git diff --shortstat fd6eb0657
+5f0939049` для bump-шага → **32 файла, 35 insertions, 35 deletions** (`config/settings.py`
 — 1 строка: pin `APP_VERSION = "2.58.252"` + релизная заметка 2.58.252 в существующей
 цепочке `Prior (…)`; `plans/docs/param-registry-round1025.meta.md` — 1;
 4 `tests/js/*` — 4 (regex-пины `2\.58\.252`); 24 py-теста — 25
@@ -142,11 +174,16 @@ Cherry-pick выполнен диапазоном без правок; авто�
 (`config/settings.py`: BOM `EF BB BF`, 3665 CRLF / 3665 LF / 0 bare-CR — как
 на базе).
 
-**Обратная замена — byte-identical 32/32.** Обратное применение ровно внесённой
-дельты (пины `2.58.252 → 2.58.251`, удаление вставленного сегмента заметки
-2.58.252 в `config/settings.py`) даёт blob'ы, байт-в-байт равные `681bf976d`
-для всех 32 файлов. JS-пины `?v=` в `web/index.html` — шаблон `__APP_VERSION__`
-(не пинится); `web/index.html` входит только в срез (byte identity §2).
+**Обратная замена — byte-identical 32/32 на bump-коммите `5f0939049`.**
+Обратное применение ровно внесённой дельты (пины `2.58.252 → 2.58.251`,
+удаление вставленного сегмента заметки 2.58.252 в `config/settings.py`) дало
+blob'ы, байт-в-байт равные `681bf976d` для всех 32 файлов (проверено сразу
+после bump, до A-01). После A-01 два файла (`tests/test_round1025_f8_registry.py`,
+`tests/test_mca17c_invariants_round1047.py`) несут дополнительный осознанный
+re-pin (§5.2); для остальных **30/30** обратная замена к `681bf976d`
+перепроверена на финальном tip и остаётся byte-identical. JS-пины `?v=` в
+`web/index.html` — шаблон `__APP_VERSION__` (не пинится); `web/index.html`
+входит только в срез (byte identity §2).
 
 ## 4. Производные артефакты: 0 diff
 
@@ -155,35 +192,39 @@ Cherry-pick выполнен диапазоном без правок; авто�
   `widget-map-round1025.md` — **0 diff**; `param-registry-round1025.meta.md` —
   ровно `1 1` (строка `APP_VERSION`, часть version wave).
 - Frozen-фикстуры: `tests/fixtures/round1025/f8_baseline.json`,
-  `catalog_baseline.json` — **0 diff**; hash-константы (`ROUTES_SHA256_F11`,
-  `PG_DB_SHA256_B07`, `PARAM_CATALOG_SHA256_*`) **не правились**; в
-  `tests/test_round1025_f8_registry.py` единственная изменённая строка —
-  `assert APP_VERSION == "2.58.252"`.
+  `catalog_baseline.json` — **0 diff**; hash-константы `PG_DB_SHA256_B07`,
+  `PARAM_CATALOG_SHA256_*` **не правились**. `ROUTES_SHA256_F11` изменён
+  **единственный раз осознанно** (A-01, §5.2) после разрешённого изменения
+  `web/api/routes.py`; в `tests/test_round1025_f8_registry.py` остальные
+  изменения — только строка `APP_VERSION` (version wave) и комментарий A-01.
 - `python tools/gen_param_registry_round1025.py --check` → **CHECK OK**
   (реестр 659 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны).
 - Hand-edit производных не выполнялся.
 
-## 5. Тесты на точном bumped tip `5f0939049`
+## 5. Тесты на финальном коде `213e0431c`
 
 Окружение: `C:\Code\Python\adminbot\.venv` (Python 3.12, pytest), `-p no:cacheprovider`,
 cwd = worktree релиза. База для сравнения — чистый worktree `ffdc6eadf`
-(`…-a833f258`).
+(`…-a833f258`). Срез/версии на этом tip не менялись относительно `5f0939049`;
+отличия от предыдущей итерации — только тест-правки A-01/A-02 (§5.2).
 
-| Прогон | Кандидат `5f0939049` | База `ffdc6eadf` | Совпадение FAILED |
+| Прогон | Кандидат `213e0431c` | База `ffdc6eadf` | Совпадение FAILED |
 |---|---|---|---|
 | Lock+invariant (`test_mod_acl_ux_01_m1c_prompt_chat_acl.py` 60 + `…prompt_text_invariant.py` 37) | **97 passed** | файлов нет (новые) | n/a |
 | Замок ACL отдельно | **60 passed** | — | n/a |
 | AST/инвариант отдельно | **37 passed** | — | n/a |
-| Регрессия 41 файл (prompt/ACL/RBAC/speech/composer/style/direct) | **11 failed, 1070 passed, 1 skipped** | 39 общих файлов: **11 failed, 973 passed, 1 skipped** | да: `Compare-Object` — 11 == 11, расхождений 0 |
-| Prompt-набор 13 файлов (m1c-модули в алфавитном порядке — последними) | **2 failed, 345 passed, 2 skipped** | 11 общих файлов: **2 failed, 248 passed, 2 skipped** | да (2 == 2) |
+| Регрессия 41 файл — порядок «m1c первыми» | **11 failed, 1070 passed, 1 skipped** | 39 общих файлов: **11 failed, 973 passed, 1 skipped** | да: 11 == 11 |
+| Регрессия 41 файл — порядок «m1c последними» | **11 failed, 1070 passed, 1 skipped** | — | да: списки равны первому порядку |
+| Prompt-набор 13 — «m1c первыми» | **2 failed, 345 passed, 2 skipped** | 11 общих: **2 failed, 248 passed, 2 skipped** | да (2 == 2) |
+| Prompt-набор 13 — «m1c последними» | **2 failed, 345 passed, 2 skipped** | — | да: списки равны первому порядку |
 | ACL/RBAC-набор 12 файлов | **365 passed** | **365 passed** | да (0) |
-| Speech/registry-набор 17 файлов | **13 failed, 392 passed** | 16 общих файлов: **13 failed, 332 passed** | да (13 == 13); +60 passed = замок |
-| Version-pin набор 24 py-файла | **7 failed, 853 passed** | **5 failed, 855 passed** | **нет: 2 кандидат-специфичных** — см. §5.2 (A-01) |
+| Speech/registry-набор 17 файлов | **13 failed, 392 passed** | 16 общих: **13 failed, 332 passed** | да (13 == 13); +60 passed = замок |
+| Version-pin набор 24 py-файла | **5 failed, 855 passed** | **5 failed, 855 passed** | **да (5 == 5), после A-01** |
 | UI unit: `node tests/js/mod_acl_ux_m1c_ui_states_test.js` | `MOD-ACL-M1C-UI-OK` | RED (4) — evidence среза | — |
 | Browser harness: `python tools/ui_mod_acl_m1c_e2e.py` | `MOD-ACL-M1C-E2E-OK` (7 сценариев × 2 вьюпорта = 14) | `FAILED (11)` из 14 — evidence среза | — |
 | JS-набор `tests/js/**`, `node <file>` | **133 PASS / 7 FAIL / 140 файлов** | **132 PASS / 7 FAIL / 139 файлов** | да: те же 7 FAIL; единственная разница — новый `mod_acl_ux_m1c_ui_states_test.js` PASS |
 | `node --check web/app.js` + 4 js-пина + новый UI-тест | rc 0 (6/6) | — | — |
-| `py_compile` всех 55 изменённых `.py` (срез+bump) | 55/55 ok | — | — |
+| `py_compile` всех 55 изменённых `.py` (срез+bump+fix) | 55/55 ok | — | — |
 | `git diff --check` (worktree) | rc 0 | — | — |
 
 Провалы кандидата = провалы базы (11 в регрессии, 13 в speech, 2 в prompt)
@@ -237,46 +278,88 @@ Speech/registry 17: `asap_speech_i_matrix`, `asap_speech_r3b_canon`,
 `mca08_style_form`, `meme_pipeline_api`, `meme_joke_speech_layers` + замок.
 Version-pin 24: 24 py-файла из списка version wave (без 4 js, meta, settings, 2 tools).
 
-### 5.2 Отклонения от base-идентичности (обязательно к решению)
+### 5.2 Осознанные отклонения от byte identity среза — разрешены (A-01, A-02)
 
-**A-01 (release-blocking decision).** Два byte-freeze теста `web/api/routes.py`
-краснеют **только на кандидате**:
+#### A-01 — осознанный re-pin `ROUTES_SHA256_F11` (коммит `f6140749e`)
 
-- `tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged`
-- `tests/test_mca17c_invariants_round1047.py::test_routes_py_byte_freeze_pin_intact`
+**Причина.** Срез M1-C по контракту ревью меняет тело `web/api/routes.py`:
+просмотр истории/текста промпта в чатовом скоупе переведён на единое решение
+`web/api/prompt_access.decide`, витрина мемов гейтится той же матрицей.
+Route-set/декораторы/пути и RBAC секретов не менялись, поэтому byte-freeze
+переутверждён осознанно по прецеденту `L-F11S-1` (как в 2.58.246 и серии
+mca-12…UR-28.4), а не оставлен красным.
 
-Факт: `ROUTES_SHA256_F11 = 8f582128a2c7…4ac09a1`, фактический sha256
-`web/api/routes.py` = `606899ac097d3a882b13693860dbe1dad7ad09816dcdd31630eaa88b16700663`
-(401 160 B, blob `106d683eed7c`). На базе оба зелёные. Причина — разрешённый
-срезом дифф `routes.py` (F02: `_prompt_require_view/edit` через
-`prompt_access.decide`; витрина мемов). По инструкции сборки frozen hash
-**не перепинен и не редактировался** (0 diff, ручных правок нет), поэтому
-оба теста остаются красными. Прецедент проекта (`L-F11S-1`) — осознанный
-re-pin константы одним отдельным проверенным дельта-коммитом. Решение
-(перепин отдельным ревью-дельта или принятие как известного красного)
-оставлено Orchestrator/Reviewer; в текущем кандидате — **не изменено**.
+**Значение пина (пересчитано из фактических байт):**
 
-**A-02 (тест-гигиена, backlog).** `tests/test_mod_acl_ux_01_m1c_prompt_text_invariant.py`
-оставляет заполненным кэш `param_permissions` (`reset_param_permissions_cache()`
-вызывается только на входе, teardown нет). Если этот модуль выполняется **до**
-`tests/test_evol017_prompt_history_ui.py::test_chat_isolation`, последний
-получает ложный `403 {"detail":"нет права на prompts.factcheck_system_prompt"}`
-(изолированно — 200 на обеих сторонах; после замка — 200; после инварианта — 403).
-В алфавитном/полном порядке `test_evol017*` идёт раньше `test_mod_acl*`, поэтому
-prompt-набор с m1c-модулями последними base-идентичен (§5). Влияния на продукт
-нет; правка файла среза нарушила бы byte identity §2, поэтому вынесено в
-follow-up (добавить teardown-reset).
+```text
+$ python -c "import hashlib,pathlib; print(hashlib.sha256(pathlib.Path('web/api/routes.py').read_bytes()).hexdigest())"
+606899ac097d3a882b13693860dbe1dad7ad09816dcdd31630eaa88b16700663
+# size 401160 B, git blob 106d683eed7c (== blob среза 681bf976d)
+```
+
+Предыдущий пин: `8f582128a2c7…4ac09a1` (оставлен в комментарии как история
+по прецеденту). Изменения — **один коммит**, два файла:
+`tests/test_round1025_f8_registry.py` (значение константы + комментарий) и
+`tests/test_mca17c_invariants_round1047.py` (комментарий; константу импортирует).
+Assertion не ослаблен и не удалён.
+
+**Доказательство деривации и чувствительности:**
+
+| Шаг | Результат |
+|---|---|
+| `ROUTES_SHA256_F11 == sha256(web/api/routes.py)` | **True** |
+| Немутированный файл: оба теста | **2 passed** |
+| Мутация: `routes.py + b"\n"` (sha256 `3b9dcf97…0a0a`) | **2 failed** (оба теста) |
+| Восстановление байт из памяти процесса | sha256 = `606899ac…0663`, byte-identical = **True** |
+| После восстановления | **2 passed** |
+
+**Другие пины не двигались:** в `tests/test_round1025_f8_registry.py` набор
+64-hex токенов до/после A-01 отличается только добавленным `606899ac…`;
+`469775c2…`, `71d837c2…`, `8e64374a…`, `9413f303…` не изменены;
+`test_mca17c_invariants_round1047.py` хэшей не содержит (импорт);
+`services/param_catalog.py`, `services/pg_db.py`,
+`tests/fixtures/round1025/f8_baseline.json`, `…/catalog_baseline.json` —
+`git diff --quiet 49d979d83 HEAD` → **unchanged**.
+
+#### A-02 — teardown сброса `param_permissions`-кэша (коммит `213e0431c`)
+
+**Причина.** `services.access._db_override_cache` — процесс-глобальный, а
+инвариант-модуль сбрасывал его только на входе. Матрица модуля переживала
+тест, и при порядке «инвариант → `test_evol017_prompt_history_ui::test_chat_isolation`»
+последний получал ложный `403 {"detail":"нет права на prompts.factcheck_system_prompt"}`.
+Соседний новый файл (`…m1c_prompt_chat_acl.py`) teardown уже имел
+(`_api_token`), поэтому правка — только в инварианте.
+
+**Правка (test-only):** autouse-fixture `_clean_param_permissions_cache` —
+`reset_param_permissions_cache()` до и после каждого теста модуля. Продуктовый
+код не тронут.
+
+**Доказательство до/после (пара в «плохом» порядке):**
+
+| Состояние | Результат пары |
+|---|---|
+| До правки (`49d979d83`) | **1 failed, 37 passed** — ровно `test_chat_isolation` |
+| После правки (`213e0431c`) | **38 passed** (и в обратном порядке — **38 passed**) |
+
+**Отсутствие порядковой зависимости в широких наборах:**
+
+| Набор | «m1c первыми» | «m1c последними» | FAILED-списки |
+|---|---|---|---|
+| Prompt 13 | 2 failed / 345 passed / 2 skipped | 2 failed / 345 passed / 2 skipped | равны |
+| Регрессия 41 | 11 failed / 1070 passed / 1 skipped | 11 failed / 1070 passed / 1 skipped | равны |
+
+Оба списка также равны базовым (§5).
 
 ## 6. Manifest dry-run
 
-`tools/release_manifest.py --repo-root . --dry-run` на `5f0939049`
-(временный untracked seed `.deploy/release.json` с предыдущим деплоем
-`ffdc6eadf / 2.58.251`; после прогона удалён, в коммит не попал):
+`tools/release_manifest.py --repo-root . --dry-run` на финальном коде
+`213e0431c` (временный untracked seed `.deploy/release.json` с предыдущим
+деплоем `ffdc6eadf / 2.58.251`; после прогона удалён, в коммит не попал):
 
 ```json
 {
-  "deployed_at": "2026-11-26T07:37:56.519234Z",
-  "deployed_sha": "5f09390492b254bd129edc68620c1cbece069f0c",
+  "deployed_at": "2026-11-26T07:55:43.084563Z",
+  "deployed_sha": "213e0431c46adce156cf5b358339dc3349f9d55d",
   "dirty_tracked": false,
   "effect": "deploy",
   "previous_sha": "ffdc6eadf38b479509b68ba653b6b0b50200774b",
@@ -287,9 +370,11 @@ follow-up (добавить teardown-reset).
 }
 ```
 
-`deployed_sha` = фактический `git rev-parse HEAD`. После evidence-коммита
-(`plans/` only) итоговый tip изменится — DevOps обязан записать манифест
-на фактическом checkout.
+`deployed_sha` = фактический `git rev-parse 213e0431c`. Evidence-коммит
+добавляет/меняет только этот документ; на итоговом tip повторный dry-run даёт
+тот же манифест с `deployed_sha` = фактическому HEAD и тем же
+`previous_sha/previous_version` — DevOps обязан записать манифест на
+проверенном checkout после деплоя.
 
 **OpenAPI: 221 path / 261 operation — и на базе `ffdc6eadf`, и на кандидате**
 (`create_app(MagicMock()).openapi()`): **0 новых endpoints**. DDL 0, миграции 0,
@@ -328,4 +413,9 @@ follow-up (добавить teardown-reset).
   сессий (другие unit'ы epic'а); к этой сборке не относятся, не трогались — их
   жизненный цикл у владельцев. Своих registered runs сборка не создавала.
 - `.deploy/release.json` (seed) удалён; в коммитах только код среза, version
-  wave и этот файл evidence.
+  wave, две test-only правки (A-01 `f6140749e`, A-02 `213e0431c`) и этот файл
+  evidence. Продуктовый код после среза не менялся: `git diff 681bf976d
+  213e0431c -- web/ services/` пуст; в `tools/` — только version-pin строки
+  двух e2e-скриптов (`2.58.252`).
+- Browser harness снова оставил `tools/_ui_m1c_out/` (15 png/json) — удалён
+  после прогона; `git status` чист.
