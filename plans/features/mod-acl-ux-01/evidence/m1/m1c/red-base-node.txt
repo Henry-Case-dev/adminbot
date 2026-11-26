@@ -1,0 +1,22 @@
+# RED on base ffdc6eadf38b479509b68ba653b6b0b50200774b (2.58.251)
+# overlay app.js blob=c1d1fa6cbe6f5e1e59c09d8886faf8c97c4df871 index.html blob=39e740eeef09aa4d1ee9e3e3136948fc53f2f2a4 (= git blob of base, byte-identical)
+# test blob=b76cb4b57ded9e910f67ecd7bba190027ac75925 (identical to candidate tests/js/mod_acl_ux_m1c_ui_states_test.js)
+# node v24.16.0
+# cmd: node tests/js/mod_acl_ux_m1c_ui_states_test.js
+
+node : MOD-ACL-M1C-UI-FAILED (4)
+строка:1 знак:363
++ ... ml"; $out = node "$o\tests\js\mod_acl_ux_m1c_ui_states_test.js" 2>&1  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (MOD-ACL-M1C-UI-FAILED (4):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ 1. A2: ╨┐╤П╤В╤М ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╣ ╨┐╨╛╨║╨░╨╖╤Л╨▓╨░╤О╤В╤Б╤П ╨а╨Р╨Ч╨Э╨л╨Ь ╤В╨╡╨║╤Б╤В╨╛╨╝ (╨┐╨╛╨┐╨░╤А╨╜╨╛) :: ╤Б╨╛╤Б╤В╨╛
+╤П╨╜╨╕╤П 401/missing ╨╕ 401/invalid ╨┐╨╛╨║╨░╨╖╤Л╨▓╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜╨░╨║╨╛╨▓╨╛: "╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨░╨▓╤В╨╛╤А╨╕╨╖╨╛╨
+▓╨░╤В╤М╤Б╤П (initData). ╨Ю╤В╨║╤А╨╛╨╣╤В╨╡ ╨░╨┤╨╝╨╕╨╜╨║╤Г ╨╖╨░╨╜╨╛╨▓╨╛ ╨╕╨╖ Telegram."
+ 2. A5: ApiError ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В ╤Б╨╡╤А╨▓╨╡╤А╨╜╤Г╤О ╨┐╤А╨╕╤З╨╕╨╜╤Г 401 (ui ╨╜╨╡ ╨▓╤Л╨┤╤Г╨╝╤Л╨▓╨░╨╡╤В) :: A5/missing 
+(actual="unauthorized", expected="missing init data")
+ 3. B3: DOM-╨┐╤А╨╕╨▓╤П╨╖╨║╨░ ╨║╨░╤А╤В╨╛╤З╨║╨╕ ╨╛╤И╨╕╨▒╨║╨╕ ╨╜╨╡ ╤Б╨╛╨┤╨╡╤А╨╢╨╕╤В ╤Б╨╡╨║╤А╨╡╤В :: ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╨╛╨╡
+ ╨┐╨╛╨╗╨╡ detail ╨┐╨╛╨┐╨░╨╗╨╛ ╨▓ DOM-╨┐╤А╨╕╨▓╤П╨╖╨║╤Г: {"note":"M1C-PLANT-SECRET-7f3a91"}
+ 4. B4: errText ╨╜╨╡ ╤Б╨╡╤А╨╕╨░╨╗╨╕╨╖╤Г╨╡╤В ╨┐╤А╨╛╨╕╨╖╨▓╨╛╨╗╤М╨╜╤Л╨╣ ╨╛╨▒╤К╨╡╨║╤В :: errText ╨╛╤В╨┤╨░╨╗ ╤Б╨╡╨║╤А╨╡╤В ╨╕
+╨╖ ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╨╛╨│╨╛ ╨┐╨╛╨╗╤П

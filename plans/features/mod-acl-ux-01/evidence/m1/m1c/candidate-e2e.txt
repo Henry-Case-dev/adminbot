@@ -1,0 +1,9 @@
+# MOD-ACL-UX-01 M1-C — browser harness (Playwright/Chromium, local stub server)
+# base = ffdc6eadf38b479509b68ba653b6b0b50200774b (--root <base overlay>)
+# candidate = worktree HEAD at run time
+# cmd: tools/ui_mod_acl_m1c_e2e.py [--root ...]
+
+=== CANDIDATE (worktree) ===
+[matrix] config stub: items=640 groups=121
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=123
+MOD-ACL-M1C-E2E-OK (7 ╤Б╤Ж╨╡╨╜╨░╤А╨╕╨╡╨▓ ├Ч 2 ╨▓╤М╤О╨┐╨╛╤А╤В╨░, ╨╜╨░╤А╤Г╤И╨╡╨╜╨╕╨╣ ╨╜╨╡╤В)
