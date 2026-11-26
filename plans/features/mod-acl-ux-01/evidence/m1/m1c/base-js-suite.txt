@@ -1,4 +1,4 @@
-﻿PASS	app_methods_dup_keys_guard_test.js
+PASS	app_methods_dup_keys_guard_test.js
 PASS	asap_ui02_delta_test.js
 PASS	asap_ui02_status_ribbons_test.js
 PASS	asap31_oversight_render_test.js

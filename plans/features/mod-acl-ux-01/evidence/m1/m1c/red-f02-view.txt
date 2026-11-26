@@ -1,0 +1,76 @@
+# RED for F02 (view not governed by resource matrix)
+# tip: a6e55ce706f4ba038a96643a3d548219ac8b9bce (base ffdc6eadf; services/web-api byte-identical to base)
+# cmd: pytest tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py -q
+# expected-fail: the 4 view cases (versions/source/diff/baseline) with view_roles=['moderator']
+
+FFFF.........                                                            [100%]
+================================== FAILURES ===================================
+___________ TestViewIsGovernedByResourceMatrix.test_versions_denied ___________
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestViewIsGovernedByResourceMatrix object at 0x000001C1B52E9040>
+restricted = (<starlette.testclient.TestClient object at 0x000001C1B6825160>, {'X-Telegram-Init-Data': 'auth_date=1795658592&query_...367a987d2e69298753ba905a96505c989ed1d0316de49', 'X-Chat-Id': '-1001000000001'}, 'rev:ebadea787909', 'rev:08fd3d578914')
+
+    def test_versions_denied(self, restricted):
+        client, headers, _, _ = restricted
+        resp = _get(client, f"/api/prompts/{PG_KEY}/versions", headers)
+>       assert resp.status_code == 403, resp.text
+E       AssertionError: {"block_id":"summary.base.narrator","pg_key":"prompts.summary_narrator_system_prompt","known":true,"factory_revision":"fac:24c7e24dc5ee(narrator-a)","sealed_revision":"fac:b89b9af33b28","factory_matches_active":false,"active":null,"baseline":{"block_id":"summary.base.narrator","pg_key":"prompts.summary_narrator_system_prompt","scope":"chat","chat_id":-1001000000001,"source":"factory","baseline":null,"cleared_at":null,"cleared_by":""},"effective_origin":"code","effective_origin_label":"╨╕╤Б╤Е╨╛╨┤╨╜╨░╤П ╨╕╨╖ ╨║╨╛╨┤╨░","effective_content_hash":"24c7e24dc5ee","effective_revision_id":null,"effective_status":"unmatched","effective_status_label":"╨Э╨╡ ╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╛ ╤Б ╨╕╤Б╤В╨╛╤А╨╕╨╡╨╣","effective_diagnostics":["pg_key_absent","effective_unmatched"],"journal_last_activation_id":null,"journal_active_revision_id":null,"baseline_revision_id":null,"factory_revision_id":"fac:b89b9af33b28","draft_dirty":false,"entries":[{"entry_type":"revision","order":1,"created_at":"2026-11-26T00:00:00.000000+00:00","revision_id":"rev:ebadea787909","event_id":null,"source":"manual","source_label":"╤А╤Г╤З╨╜╨░╤П","origin":"manual","kind":"","outcome":"","detail_code":"","actor":"","scope":"chat","chat_id":-1001000000001,"status":"inactive","status_label":"╨╜╨╡╨░╨║╤В╨╕╨▓╨╜╨░╤П","actionable":true,"reason":"","reason_text":"","body_available":true,"chars":52,"sha256_12":"24c7e24dc5ee","release_id":"","factory_revision":"","schema_compat":"","retired":false},{"entry_type":"revision","order":2,"created_at":"2026-11-26T00:00:00.000000+00:00","revision_id":"rev:08fd3d578914","event_id":null,"source":"manual","source_label":"╤А╤Г╤З╨╜╨░╤П","origin":"manual","kind":"","outcome":"","detail_code":"","actor":"","scope":"chat","chat_id":-1001000000001,"status":"inactive","status_label":"╨╜╨╡╨░╨║╤В╨╕╨▓╨╜╨░╤П","actionable":true,"reason":"","reason_text":"","body_available":true,"chars":59,"sha256_12":"07e01d388b06","release_id":"","factory_revision":"","schema_compat":"","retired":false}],"page":{"page_size":50,"order":"newest_first","next_cursor":"","has_more":false,"returned":2,"rank_start":1,"total_known":null},"revisions":[{"created_at":"2026-11-26T00:00:00.000000+00:00","revision_id":"rev:08fd3d578914","source":"manual","source_label":"╤А╤Г╤З╨╜╨░╤П","origin":"manual","actor":"","scope":"chat","chat_id":-1001000000001,"status":"inactive","status_label":"╨╜╨╡╨░╨║╤В╨╕╨▓╨╜╨░╤П","actionable":true,"reason":"","reason_text":"","body_available":true,"chars":59,"sha256_12":"07e01d388b06","release_id":"","factory_revision":"","schema_compat":"","retired":false},{"created_at":"2026-11-26T00:00:00.000000+00:00","revision_id":"rev:ebadea787909","source":"manual","source_label":"╤А╤Г╤З╨╜╨░╤П","origin":"manual","actor":"","scope":"chat","chat_id":-1001000000001,"status":"inactive","status_label":"╨╜╨╡╨░╨║╤В╨╕╨▓╨╜╨░╤П","actionable":true,"reason":"","reason_text":"","body_available":true,"chars":52,"sha256_12":"24c7e24dc5ee","release_id":"","factory_revision":"","schema_compat":"","retired":false}],"revisions_page":{"order":"oldest_first","paging":"newest_first","next_cursor":"","has_more":false,"returned":2},"activations":[],"activations_page":{"order":"newest_first","next_cursor":"","has_more":false,"returned":0},"prompt_key":"prompts.summary_narrator_system_prompt","scope":"chat","chat_id":-1001000000001,"journal_available":true,"hidden":false,"manageable":true,"activation_time_available":false,"supported_schema_compat":[],"can_activate":false,"capabilities":{"can_assign_baseline":false,"can_clear_baseline":false,"can_restore_baseline":false,"can_restore_factory":false,"can_copy_to_global":false}}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:181: AssertionError
+______ TestViewIsGovernedByResourceMatrix.test_source_denied_and_no_body ______
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestViewIsGovernedByResourceMatrix object at 0x000001C1B53B9F10>
+restricted = (<starlette.testclient.TestClient object at 0x000001C1B6DB8620>, {'X-Telegram-Init-Data': 'auth_date=1795658592&query_...367a987d2e69298753ba905a96505c989ed1d0316de49', 'X-Chat-Id': '-1001000000001'}, 'rev:ebadea787909', 'rev:08fd3d578914')
+
+    def test_source_denied_and_no_body(self, restricted):
+        client, headers, rev, _ = restricted
+        resp = _get(client, f"/api/prompts/revisions/{rev}/source", headers)
+>       assert resp.status_code == 403, resp.text
+E       AssertionError: {"known":true,"revision_id":"rev:ebadea787909","block_id":"summary.base.narrator","origin":"manual","sha256_12":"24c7e24dc5ee","body":"╨Ч╨Р╨Т╨Ю╨Ф╨б╨Ъ╨Ю╨Щ A: ╤А╨░╤Б╤Б╨║╨░╨╖╤З╨╕╨║ ╤Б╨░╨╝╨╝╨░╤А╨╕ (╨╖╨░╨╝╨╛╨║ MAC-S10-13).\n","created_at":"2026-11-26T00:00:00+00:00","retired":false,"schema_compat":"","scope":"chat","chat_id":-1001000000001,"actor":"","reason":"","chars":52,"source":"manual","source_label":"╤А╤Г╤З╨╜╨░╤П","status":"inactive","status_label":"╨╜╨╡╨░╨║╤В╨╕╨▓╨╜╨░╤П","actionable":true,"reason_text":"","body_available":true}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:186: AssertionError
+_____________ TestViewIsGovernedByResourceMatrix.test_diff_denied _____________
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestViewIsGovernedByResourceMatrix object at 0x000001C1B53BA480>
+restricted = (<starlette.testclient.TestClient object at 0x000001C1B7F22300>, {'X-Telegram-Init-Data': 'auth_date=1795658592&query_...367a987d2e69298753ba905a96505c989ed1d0316de49', 'X-Chat-Id': '-1001000000001'}, 'rev:ebadea787909', 'rev:08fd3d578914')
+
+    def test_diff_denied(self, restricted):
+        client, headers, rev, rev2 = restricted
+        resp = _get(client, f"/api/prompts/revisions/diff?a={rev}&b={rev2}",
+                    headers)
+>       assert resp.status_code == 403, resp.text
+E       AssertionError: {"known":true,"diff":["--- rev:ebadea787909","+++ rev:08fd3d578914","@@ -1 +1 @@","-╨Ч╨Р╨Т╨Ю╨Ф╨б╨Ъ╨Ю╨Щ A: ╤А╨░╤Б╤Б╨║╨░╨╖╤З╨╕╨║ ╤Б╨░╨╝╨╝╨░╤А╨╕ (╨╖╨░╨╝╨╛╨║ MAC-S10-13).","+╨а╨г╨з╨Э╨Р╨п B: ╨▓╤В╨╛╤А╨░╤П ╤А╨╡╨▓╨╕╨╖╨╕╤П ╤В╨╛╨│╨╛ ╨╢╨╡ ╨▒╨╗╨╛╨║╨░ (╨╖╨░╨╝╨╛╨║ MAC-S10-13)."],"added_lines":1,"removed_lines":1,"statuses":{"a":"inactive","b":"inactive"},"reason_text":"","actionable":true}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:194: AssertionError
+______ TestViewIsGovernedByResourceMatrix.test_baseline_metadata_denied _______
+
+self = <tests.test_mod_acl_ux_01_m1c_prompt_chat_acl.TestViewIsGovernedByResourceMatrix object at 0x000001C1B53BA9F0>
+restricted = (<starlette.testclient.TestClient object at 0x000001C1B800C110>, {'X-Telegram-Init-Data': 'auth_date=1795658592&query_...367a987d2e69298753ba905a96505c989ed1d0316de49', 'X-Chat-Id': '-1001000000001'}, 'rev:ebadea787909', 'rev:08fd3d578914')
+
+    def test_baseline_metadata_denied(self, restricted):
+        client, headers, _, _ = restricted
+        resp = _get(client, f"/api/prompts/{PG_KEY}/baseline", headers)
+>       assert resp.status_code == 403, resp.text
+E       AssertionError: {"block_id":"summary.base.narrator","pg_key":"prompts.summary_narrator_system_prompt","scope":"chat","chat_id":-1001000000001,"source":"factory","baseline":null,"cleared_at":null,"cleared_by":"","known":true,"journal_available":true,"factory_revision":"fac:24c7e24dc5ee(narrator-a)","sealed_revision":"fac:b89b9af33b28","pg_managed":true,"capabilities":{"can_assign_baseline":false,"can_clear_baseline":false,"can_restore_baseline":false,"can_restore_factory":false},"prompt_key":"prompts.summary_narrator_system_prompt"}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:200: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_versions_denied
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_source_denied_and_no_body
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_diff_denied
+FAILED tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py::TestViewIsGovernedByResourceMatrix::test_baseline_metadata_denied
+4 failed, 9 passed, 1 warning in 4.89s

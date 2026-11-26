@@ -1,0 +1,104 @@
+# MOD-ACL-UX-01 M1-C — F02 corrective: прогоны Python-наборов
+# candidate = feat/mod-acl-m1c (F01 + F02)
+# base      = ffdc6eadf (код байт-в-байт; дерево развёрнуто git archive без media/ и plans/features, plans/docs включён, локальный git init)
+# cmd: .venv/Scripts/python.exe -m pytest <files> -q -p no:cacheprovider --timeout=180
+
+## 1. Новый замок (F01) на кандидате
+13 passed, 1 warning in 4.79s
+
+## 2. Prompt-набор (13 файлов: новый замок + baseline/activation/history/audit/field-audit/...)
+candidate: 262 passed, 2 failed, 2 skipped
+base     : 258 passed, 6 failed, 2 skipped
+базовые падения = падения кандидата + 4 кейса, которые закрывает F02:
+  TestViewIsGovernedByResourceMatrix::{test_versions_denied, test_source_denied_and_no_body,
+                                        test_diff_denied, test_baseline_metadata_denied}
+одинаковые 2 пре-существующих на базе и кандидате:
+  test_evol018_prompt_audit.py::test_grep_audit_counts_are_stable                     (пин 323, фактически 328 файлов)
+  test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface (direct.base.synthesizer)
+
+## 3. ACL/RBAC-набор (12 файлов: access, chat_access, dm_access, acl_*,
+##    webapp_access_*, webapp_api, webapp_deps)
+candidate: 509 passed, 0 failed
+base     : 509 passed, 0 failed
+
+## 4. MOD-ACL-набор (17 файлов: все test_mod_acl_ux_*)
+candidate: 289 passed, 3 failed
+base     : 285 passed, 7 failed (= те же 3 + 4 кейса F02)
+одинаковые 3 пре-существующих:
+  test_mod_acl_ux_01_m4_module_params.py::test_js_fixture_matches_live_contract
+  test_mod_acl_ux_m2_tristate_write.py::test_stale_token_recovers_and_keeps_foreign_keys
+  test_mod_acl_ux_m2_tristate_write.py::test_inherit_survives_stale_token
+
+## 5. Широкий UI/config-набор (84 файла: все test_webapp_*, test_cfg*,
+##    access/acl) на кандидате
+candidate: 2101 passed, 56 failed (список в конце файла)
+base (те же 26 падающих файлов в базовом дереве): 567 passed, 57 failed
+сравнение списков FAILED: 56 идентичных, только-на-базе 1, только-на-кандидате 0
+  только-на-базе: tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_audit_doc_has_inventory_and_table  (читает plans/features/** документ, исключённый из оверлея; в полном дереве кандидата PASS)
+
+## Список падений кандидата (84-файловый набор)
+tests/test_cfg03_param_audit.py::TestConsumerCoverage::test_visible_dead_knobs_are_exactly_documented
+tests/test_webapp_asap_cover_ui_v21.py::TestFavoritesRemoved::test_categories_search_filters_kept
+tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date
+tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_exactly_one_toggle_per_card
+tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_inheritance_and_reset_action
+tests/test_webapp_asap_cover_ui_v21.py::TestModulesOneScopedToggle::test_pending_is_scoped_by_snapshot
+tests/test_webapp_asap_cover_ui_v21_e2e.py::test_live_ui_v21_e2e
+tests/test_webapp_asap_ui02_delta.py::test_no_magic_z_index_outside_decorative_in_card
+tests/test_webapp_avatars_ui.py::TestAvatarFrontAudit::test_close_and_fullscreen_buttons
+tests/test_webapp_dm_ui.py::TestDmSummaryGateMarkers::test_s3_scheduler_skips_dm_positive_ids_behavioral
+tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_health_is_separate_from_enabled
+tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_duplicate_master_toggle_in_details
+tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_no_kpi_row_and_caption_present
+tests/test_webapp_evol_w10_sections.py::TestEvol027Catalog::test_single_scoped_toggle_on_card
+tests/test_webapp_evol_w10_sections.py::TestEvol030AccessAndAnalytics::test_audit_before_changing_rights
+tests/test_webapp_evol_w10_sections.py::test_live_render_sections_e2e
+tests/test_webapp_evol_w11_controls.py::TestAuditAndLive::test_live_render_w11_e2e
+tests/test_webapp_evol_w12_internals.py::TestExecution::test_live_render_w12_e2e
+tests/test_webapp_evol_w14_states.py::TestUnifiedCheckboxes::test_every_native_checkbox_is_a_design_system_control
+tests/test_webapp_evol_w15_composition.py::test_role_classes_have_no_literal_geometry
+tests/test_webapp_evol_w7_nav.py::TestOverlayLayer::test_honest_empty_states_kept
+tests/test_webapp_evol_w7_nav.py::TestTopbar::test_no_duplicate_hub_title
+tests/test_webapp_f4_round1025.py::test_counters_present
+tests/test_webapp_f4_round1025.py::test_favorites_removed_from_modules
+tests/test_webapp_f4_round1025.py::test_module_titles_renamed_only_in_watch_case
+tests/test_webapp_f4_round1025.py::test_runtime_gate_metadata_complete
+tests/test_webapp_f5_round1025.py::test_workspace_metadata_present
+tests/test_webapp_f9_round1025.py::TestInvariants::test_secrets_count_28
+tests/test_webapp_hubs_matrix_ui.py::TestReviewerMinorsR1R4::test_r4_custom_modules_removed
+tests/test_webapp_hubs_matrix_ui.py::TestRoleMatrixUi::test_matrix_methods
+tests/test_webapp_js_unit.py::test_js_unit_round1024_image_key
+tests/test_webapp_js_unit.py::test_js_unit_round1025_f7_permsoc_local
+tests/test_webapp_js_unit.py::test_js_unit_routing_and_scope_guard
+tests/test_webapp_key_availability_ui.py::TestRoleRenameDeleteUi::test_buttons_present
+tests/test_webapp_key_availability_ui.py::TestRoleRenameDeleteUi::test_superuser_disabled_and_hint
+tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_11_modules_and_labels
+tests/test_webapp_nav_disclosure_ui.py::TestModulesRework106::test_modules_ui_and_modal
+tests/test_webapp_round1010_ui.py::TestRolesUi::test_avatar_name_and_small_id
+tests/test_webapp_round1010_ui.py::TestRolesUi::test_close_buttons_count_unchanged
+tests/test_webapp_round1010_ui.py::TestRolesUi::test_widths_and_button
+tests/test_webapp_round1014_ui.py::TestStatusLayoutOrderF7::test_f4_third_ribbon_kept_inside_cognition
+tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_grid_columns_responsive
+tests/test_webapp_round1014_ui.py::TestTraitsRibbon::test_third_ribbon_markup
+tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz
+tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2
+tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+tests/test_webapp_round1020_ui.py::TestStickySave::test_no_individual_save_buttons_left_in_config
+tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon
+tests/test_webapp_round108_ui.py::TestAccessWindows108::test_no_accordion
+tests/test_webapp_round108_ui.py::TestAccessWindows108::test_three_windows
+tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme
+tests/test_webapp_round108_ui.py::TestRenames108::test_old_labels_gone
+tests/test_webapp_round109_ui.py::TestDescriptions::test_no_forbidden_jargon
+tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_navbar_and_modules_unchanged
+tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+tests/test_webapp_ui_rework_round1020.py::TestStickySave::test_panel_inside_modal_actions_markup
+
+## 6. Выравнивание source-пина (следствие общей точки блокировки входа)
+tests/test_webapp_deps.py::TestFrontNoContext::test_retry_locks_when_me_missing
+пиновал буквальный `self.authLocked = true` в теле retryInitData. После M1-C
+блокировка одна (`lockAuth`), поэтому пин проверяет вызов `self.lockAuth(`
+в retry и присваивание `this.authLocked = true` в теле помощника — это тот же
+контракт «!me → блокировка с текстом», без трёх копий. Мутация «убрать вызов
+lockAuth из !me-ветки» роняет пин; файл на базе и кандидате зелёный
+(на базе — своя, дорефакторная редакция пина в базовом дереве).

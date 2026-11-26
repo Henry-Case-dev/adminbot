@@ -11,18 +11,22 @@ epic `mod-acl-ux-01`, unit `m1c`), ветка `feat/mod-acl-m1c` — от деп
 тот же набор (GREEN). Всё, что уже было корректно, **заперто тестом** без
 изменения поведения.
 
-Область записи соблюдена: изменены только `web/app.js`, `web/index.html`
-(вынужденно — состояние ошибки ролей на телефоне) плюс новые
-`tests/js/mod_acl_ux_m1c_ui_states_test.js` и `tools/ui_mod_acl_m1c_e2e.py`.
-`git diff --name-only ffdc6eadf -- services web/api` пуст, т.е. серверная часть
-байт-в-байт равна деплою — все числа ниже относятся и к базе, и к кандидату на
-серверной стороне.
+**Состав диффа:** UI-коммит `b3d4b95de` (`web/app.js`, `web/index.html`,
+`tests/js/mod_acl_ux_m1c_ui_states_test.js`, `tools/ui_mod_acl_m1c_e2e.py`) и
+корректирующий коммит по ревью r1 (F01/F02): `services/access.py`,
+`web/api/routes.py`, `tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py` и
+выравнивание source-пина в `tests/test_webapp_deps.py`.
 
 ```text
-$ git diff --stat ffdc6eadf -- .
- web/app.js     | 91 ++++++++++++++++++++++++++++++++++++++++++++++++++-------
- web/index.html | 10 +++++++-
- 2 files changed, 84 insertions(+), 17 deletions(-)
+$ git diff --stat ffdc6eadf -- web services tests tools
+ services/access.py                              |  18 +
+ tests/test_webapp_deps.py                       |  12 +-
+ web/api/routes.py                               |  72 +++---
+ web/app.js                                      |  91 ++++++--
+ web/index.html                                  |  10 +-
+ (+ новые: tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py — 312 строк,
+    tests/js/mod_acl_ux_m1c_ui_states_test.js — 326, tools/ui_mod_acl_m1c_e2e.py — 316)
+ 5 files changed, 159 insertions(+), 44 deletions(-) (+ 3 новых файла)
 ```
 
 ## 1. Что именно было неверно на `ffdc6eadf`
@@ -33,7 +37,8 @@ $ git diff --stat ffdc6eadf -- .
 | `MAC-S4-171` | серверный 401 при первой загрузке **не показывался вообще**: `loadMe().then(...)` делал `if (!self.me) return;` с комментарием «блокировка выше», но выше блокировка ставилась только при полностью отсутствующем `initData` — при 401 оставалась пустая оболочка |
 | `MAC-S4-171` | на телефоне (`≤767 px`) ошибка загрузки ролей (403/404/503) была **невидима**: `.roles-page__aside{display:none}` (`web/static/app.css:7869`) скрывает единственный блок с подписью состояния |
 | `MAC-S4-172` | `errText()` при неизвестной форме `detail` делал `JSON.stringify(m)` — единственный путь «произвольный payload ответа → DOM/тост»; значение биндится в карточки (`index.html:12357`, `12625`, `12809`, панель промптов) |
-| `MAC-S10-13` | серверный ACL промптов в групповом чате **корректен** (проверено пробой, §4) |
+| `MAC-S10-13` (F02 ревью r1) | **просмотр** истории/текста промпта в чатовом скоупе не применял `view_roles`: `_prompt_require_view` проверял только грант чата, поэтому роль, исключённая из `view_roles`, получала `200` и полный текст на `/revisions/{id}/source`, тогда как `GET /api/config` тот же ключ скрывал; запись (`edit_roles`) при этом резалась правильно |
+| `MAC-S10-13` (F01 ревью r1) | постоянного pytest-замка на ACL промптов в чате не было — только evidence-проба |
 
 ## 2. MAC-S4-171 — 401 ≠ 403 ≠ 404 ≠ 503 (UI)
 
@@ -94,30 +99,89 @@ payload ответа (в `web/app.js` вообще нет вывода данн�
 
 ## 4. MAC-S10-13 — промпты по resource ACL в групповом чате
 
-**Проверено на выкаченном коде: ACL действительно применяется.** Воспроизводимая
-проба `probe_prompt_chat_acl.py` (реальные роутеры `web/api/routes.py`, реальные
-`services.roles.access_for` / `services.access.effective_matrix` /
-`can_edit_param`; двойники — только хранилище и in-memory журнал):
+### 4.1 Что было неверно (review r1, F02)
 
-| # | актор / контекст | история (`/versions`) | активация (`/activate`) |
-|---|---|---|---|
-| 1 | `local_admin` чата, дефолтная матрица | 200 | 200 (право есть) |
-| 2 | тот же + override `edit_roles: []` | 200 | **403** `нет права на prompts.…` |
-| 3 | участник без гранта | **403** `нет доступа к чату` | 403 |
-| 4 | `local_admin` чата A → чат B | **403** | 403 |
-| 5 | глобальный админ (контроль стенда) | 200 | 200 |
+`_prompt_require_view` (`web/api/routes.py`) в чатовом скоупе проверял только
+грант чата (`can_access_chat` + `role_chat ∈ {local_admin, moderator}`) и
+**не читал действующую матрицу ресурса**. Запись (`_prompt_require_edit`) и
+значение в `GET /api/config` матрицу читали. Следствие на базе `ffdc6eadf`:
 
-Строка 2 — дискриминирующая: просмотр и запись различаются, запись режется
-матрицей (`_prompt_require_edit`), а не общим отказом. Строки 3–4 — изоляция
-чужого/группового чата (`_prompt_require_view`). Итог: `PROMPT-CHAT-ACL-ENFORCED:
-5/5`, лог — `probe-prompt-chat-acl.txt`.
+| проверка | на базе |
+|---|---|
+| `view_roles: ["moderator"]`, `edit_roles: ["moderator"]`, `local_admin` чата | |
+| `GET /api/config` — ключ в списке | **нет** (правильно) |
+| `GET /api/prompts/{key}/versions` | **200**, список ревизий |
+| `GET /api/prompts/revisions/{id}/source` | **200**, `body` = полный текст промпта |
+| `GET /api/prompts/revisions/diff` | **200**, unified diff с текстом |
+| `GET /api/prompts/{key}/baseline` | **200**, метаданные ревизии |
+| `POST /api/prompts/{key}/activate` | 403 (правильно) |
 
-**Остаточное (честно).** Постоянный pytest-замок (`tests/…`) **не добавлен**:
-файл Python-теста лежит вне назначенной области записи этого инкремента
-(`tests/js/**`). Проба готова к переносу в
-`tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py` без изменения логики —
-это первое действие следующего инкремента, а не «проверено и закрыто навсегда».
-Живой групповой чат и Telegram-клиент не использовались.
+То есть роль, исключённая из `view_roles`, значения не видела, но читала
+полный текст ревизии и её историю. Это и есть утечка, которую закрывает F02.
+
+### 4.2 Исправление (одно правило, один владелец)
+
+* `services/access.py` — новая `chat_param_matrix(pg_key, db_overrides,
+  chat_root)`: **единственная** сборка «дефолт ⊕ DB-override ⊕ chat
+  `perm_overrides`». Разбора матрицы у потребителей нет: они передают
+  результат в существующие `can_view_param` / `can_edit_param`.
+* `web/api/routes.py::_prompt_require_view` — в чатовом скоупе после проверок
+  чата вызывает `can_view_param(ctx, matrix)` и при отказе отдаёт **403**
+  `нет права на <pg_key>` (та же формулировка, что у записи; не 404 — запись
+  и чат существуют, запрещён именно ресурс). Возвращает `(ctx, matrix)`.
+* `_prompt_require_edit` — использует ровно этот `(ctx, matrix)`, второй
+  сборки прав больше нет. Семантика записи не менялась: `view_roles |=
+  edit_roles` (`_normalize_perms`), поэтому право записи не может потеряться
+  из-за проверки просмотра — это отдельный кейс в тесте.
+* `GET /api/config` — решения о видимости/записи в чатовом скоупе переведены
+  на ту же `chat_param_matrix` (поведение байт-в-байт: те же
+  `effective_matrix`/`can_view_param`/`can_edit_param`, тот же вход). Глобальный
+  путь и путь `/` без `X-Chat-Id` не менялись.
+
+**Закрытые потребители текста/history промпта в чатовом скоупе** (все через
+`_prompt_require_view` → одна проверка):
+
+| маршрут | что отдаёт |
+|---|---|
+| `GET /api/prompts/{key}/versions` | история ревизий (**list**) |
+| `GET /api/prompts/revisions/{id}/source` | полный текст (**source**) |
+| `GET /api/prompts/revisions/diff` | diff двух ревизий |
+| `GET /api/prompts/{key}/baseline` | состояние baseline (метаданные) |
+| `POST /api/prompts/{key}/activate` | активация (запись; 403 остаётся) |
+| `POST/DELETE /api/prompts/{key}/baseline[/restore]`, `…/factory/restore`, `…/copy-to-global` | запись (тот же `_prompt_require_edit`) |
+| `GET /api/prompts/catalog` | только метаданные реестра, глобальный админ (не менялся) |
+| `GET /api/config` (значение) | уже решался `can_view_param`; теперь та же сборка |
+
+**Не покрыто (честно):** `GET /api/speech/inspector` и остальные
+`/api/speech/*` отдают **скомпонованный** промпт другого семейства ресурсов
+(`speech.*`, права `_persona_can_view/_persona_can_edit` + `can_edit_param`);
+это отдельный ACL и отдельная строка, в этот инкремент он не входит.
+Глобальная история (`X-Chat-Id` отсутствует) не менялась: там правило прежнее
+(админ или явное право на ключ).
+
+### 4.3 Постоянный замок (F01)
+
+`tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py` — 13 тестов на реальных
+роутерах и реальном слое прав (двойники — только хранилище и in-memory журнал):
+
+* **просмотр по матрице**: `local_admin` вне `view_roles` получает 403 на
+  `versions`, `source` (и тело ответа не содержит текста промпта), `diff`,
+  `baseline`; контроль — с дефолтной матрицей тот же актор видит всё (403 выше
+  создан override, а не безусловным отказом), и `GET /api/config` тот же ключ
+  ему не отдаёт;
+* **запись по `edit_roles`**: `view_roles: ["local_admin"]` + `edit_roles: []`
+  → просмотр 200, активация 403; дефолтная матрица → активация 200;
+  `view_roles: []` + `edit_roles: ["local_admin"]` → активация 200 (правило
+  «запись подразумевает чтение»);
+* **изоляция**: участник без гранта — 403 на просмотр и запись; чужой чат
+  (`X-Chat-Id`) — 403; ревизия чужого чата без заголовка — 403 и без текста;
+* **глобальный админ** — 200 на всех маршрутах при любой матрице.
+
+RED/GREEN: на `a6e55ce70` (и на базовом дереве) падают ровно 4 кейса
+просмотра (`versions`, `source`, `diff`, `baseline`), остальные 9 зелёные;
+после F02 — 13/13. Логи: `red-f02-view.txt`, `python-suites.txt`.
+Проба `probe_prompt_chat_acl.py` остаётся как быстрая ручная воспроизводимость
+(6/6, включая кейс просмотра) — замком является pytest-файл.
 
 ## 5. Тесты и числа
 
@@ -129,9 +193,28 @@ git-blob'ами** базы: `web/app.js` = `c1d1fa6cb…`, `web/index.html` =
 
 | Прогон | Команда | База `ffdc6eadf` | Кандидат | Файл |
 |---|---|---|---|---|
+| **Замок ACL промптов (13 тестов)** | `pytest tests/test_mod_acl_ux_01_m1c_prompt_chat_acl.py` | **4 failed** (view: versions/source/diff/baseline), 9 passed | **13 passed** | `red-f02-view.txt`, `python-suites.txt` |
+| **Prompt-набор (13 файлов)** | `pytest <13 files> -q` | 258 passed / **6 failed** (те же 2 + 4 кейса F02) | 262 passed / **2 failed** (оба пре-существующие) | `python-suites.txt` |
+| **ACL/RBAC-набор (12 файлов)** | `pytest <12 files> -q` | 509 passed / 0 failed | 509 passed / 0 failed | `python-suites.txt` |
+| **MOD-ACL-набор (17 файлов)** | `pytest <17 files> -q` | 285 passed / **7 failed** (3 пре-существующих + 4 кейса F02) | 289 passed / **3 failed** (те же 3) | `python-suites.txt` |
+| **Широкий UI/config (84 файла)** | `pytest <84 files> -q` | те же 26 файлов на базе: 567 passed / 57 failed, списки FAILED совпадают (56 идентичных + 1 документ из исключённого `plans/features/`) | 2101 passed / **56 failed** (все идентичны базе) | `python-suites.txt` |
 | Unit UI-состояний (15 проверок) | `node tests/js/mod_acl_ux_m1c_ui_states_test.js` | **FAILED (4)**: A2 (401/missing ≡ 401/invalid), A5 (`unauthorized` вместо серверной причины), B3 (литерал в DOM-привязке), B4 (`errText` отдал секрет) | **MOD-ACL-M1C-UI-OK** | `red-base-node.txt` |
 | Браузерный DOM/консоль (7 сценариев × 1440/390) | `python tools/ui_mod_acl_m1c_e2e.py [--root <base>]` | **FAILED (11)** из 14 | **OK (14/14)** | `red-base-e2e.txt`, `candidate-e2e.txt` |
 | Полный `tests/js/**` | 140 файлов, `node <file>` | 132 PASS / 8 FAIL *(7 пре-существующих + новый RED)* | 133 PASS / 7 FAIL | `base-js-suite.txt`, `candidate-js-suite.txt` |
+
+Метод базового сравнения Python: `git archive ffdc6eadf` (без `media/` и
+`plans/features`, с `plans/docs`) → отдельное дерево в `%TEMP%`, `git init` +
+локальный коммит для inventory-тестов. Проверено, что блобы изменённых файлов
+в дереве равны базовым: `web/app.js` `c1d1fa6cb…`, `web/api/routes.py`
+`91b972111…`, `services/access.py` `4a3f2afcc…`.
+
+**Выравнивание одного source-пина.** `tests/test_webapp_deps.py::
+TestFrontNoContext::test_retry_locks_when_me_missing` пиновал буквальный
+`self.authLocked = true` в теле `retryInitData`. После M1-C блокировка одна
+(`lockAuth`), поэтому пин проверяет вызов `self.lockAuth(` в retry **и**
+присваивание `this.authLocked = true` в теле помощника — тот же контракт
+«`!me` → блокировка с текстом», без трёх копий присваивания. Убирание вызова
+`lockAuth` из `!me`-ветки пин роняет.
 
 `Compare-Object base-js-suite candidate-js-suite` → **ровно одна** строка
 изменилась: `mod_acl_ux_m1c_ui_states_test.js` FAIL→PASS. Пре-существующие
@@ -153,18 +236,12 @@ git-blob'ами** базы: `web/app.js` = `c1d1fa6cb…`, `web/index.html` =
 чувствительности подтверждает, что «литерала нет» не получается ценой «ничего
 не отрисовано».
 
-### Python-регрессия затронутых швов
+### Python: пре-существующие падения, зафиксированные ранее (review r1)
 
-```
-.venv/Scripts/python.exe -m pytest tests/test_webapp_evol_w14_states.py \
-  tests/test_webapp_js_unit.py tests/test_webapp_rbac_ui.py \
-  tests/test_webapp_tma_fixes_ui.py tests/test_104_backend_additions.py \
-  tests/test_prompts_round1024.py tests/test_mod_acl_ux_01_m1_predicate.py \
-  tests/test_evol017_prompt_history_ui.py -q
-→ 5 failed, 158 passed
-```
-
-Все пять — пре-существующие, к диффу не относятся (доказательства):
+Отдельно прогнанный ранее 8-файловый набор затронутых швов давал `5 failed,
+158 passed` и на базе, и на кандидате (ревью r1 воспроизвело то же). Эти пять
+падений остаются пре-существующими и в F02-наборах — они не входят в новые
+списки, но причины те же:
 
 1. `test_webapp_js_unit.py` × 3 — те же `tests/js` файлы, что уже падают в
    `base-js-suite.txt` (`routing_test.js`, `round1024_image_key_test.js`,
@@ -176,10 +253,12 @@ git-blob'ами** базы: `web/app.js` = `c1d1fa6cb…`, `web/index.html` =
 3. `test_webapp_evol_w14_states.py::…test_every_native_checkbox_is_a_design_system_control`
    — тот же «голый» чекбокс на базе: прогон одного и того же тела теста по двум
    файлам даёт `inputs=47, raw_outside_ds=1, tags=['']` и для базы, и для
-   кандидата (мой дифф не добавляет ни одного `<input>`).
+   кандидата.
 
-Полный 23k-набор не прогонялся: правка касается двух фронтовых файлов, а
-серверная часть в диффе отсутствует вовсе.
+Полный 23k-набор не прогонялся: дифф F02 — один сервисный помощник и
+промпт-маршруты (плюс архив UI-коммита). Вместо него прогнаны четыре набора
+(84, 13, 12 и 17 файлов) с побитовым сравнением списков падений с базой —
+см. `python-suites.txt`.
 
 ## 6. Конфигурация и флаги
 
@@ -200,6 +279,13 @@ git-blob'ами** базы: `web/app.js` = `c1d1fa6cb…`, `web/index.html` =
 * Реальный `PostgreSQL`-отказ и реальный 401 от Telegram-валидации: статусы
   поданы стабом на границе HTTP; серверные тела взяты дословно из `deps.py`
   (locked в M1-B).
+* F02: запись `param_permissions` через API на стенде не упражнялась (двойник
+  хранилища не пишет) — состояние матрицы засеяно напрямую и валидно по
+  `_normalize_perms`/`tests/test_access.py`. Сквозной путь «изменили матрицу в
+  UI → промпт скрылся» проверяется существующими тестами записи матрицы, здесь
+  не повторялся.
+* F02: живой групповой чат с реальным `chat_admins` не использовался; матрица
+  ключа и грант чата поданы двойником хранилища при реальном слое прав.
 * 401-состояние теперь снимает индикатор первичной загрузки — это меняет
   картинку и для **существующего** случая «нет контекста»; проверено
   скриншотом 390 px, живой WebView не проверялся.
@@ -211,9 +297,10 @@ git-blob'ами** базы: `web/app.js` = `c1d1fa6cb…`, `web/index.html` =
 * Worktree `…m1c-75a10b81` — активная линия инкремента, зарегистрирован
   (`housekeeping register-worktree --epic mod-acl-ux-01 --unit m1c`),
   сохраняется до ревью/решения по доставке.
-* Overlay базы и служебные скрипты сравнения — во временном каталоге
-  `%TEMP%\opencode\m1c_probe`, удалены после употребления; репозиторий не
-  затрагивали.
-* Evidence: 11 файлов, ~566 КБ (логи + 3 скриншота: 2 мобильных состояния и
-  карточка аудита с известными полями). Полные JSON прогонов с консолью в
-  репозиторий не копировались (воспроизводимы командой).
+* Overlay базы и служебные скрипты сравнения — во временных каталогах
+  `%TEMP%\opencode\m1c_probe` (UI-инкремент) и `%TEMP%\opencode\m1c_f02`
+  (F02-наборы), удалены после употребления; репозиторий не затрагивали.
+* Evidence: логи RED/GREEN, сводка наборов (`python-suites.txt`), проба ACL,
+  3 скриншота. Проба и логи JS-наборов перегенерированы в UTF-8 без BOM
+  (F04 ревью r1). Полные JSON прогонов с консолью в репозиторий не
+  копировались (воспроизводимы командой).
