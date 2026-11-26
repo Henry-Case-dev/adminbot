@@ -12073,7 +12073,15 @@
               </div>
               <div v-else class="roles-page__grid">
                 <!-- Зона 1: роли (220–280 px на desktop; select на mobile) -->
-                <aside class="roles-page__aside card" id="sec-roles" data-roles-aside>
+                <!-- M1-C (MAC-S4-171): на телефоне `<aside>` скрыт правилом
+                     `.roles-page__aside{display:none}` (@media ≤767), поэтому
+                     ошибка загрузки ролей (403/404/503) не была видна вообще:
+                     оставалась пустая страница. В состоянии ошибки карточка
+                     показывается тем же существующим блоком (inline-стиль
+                     сильнее media-правила); в обычном состоянии раскладка
+                     телефона не меняется. -->
+                <aside class="roles-page__aside card" id="sec-roles" data-roles-aside
+                       :style="rolesError ? { display: 'block' } : null">
                   <div class="roles-page__aside-head">
                     <span class="roles-page__label">Роли</span>
                     <span v-if="rolesCounterText() !== ''" class="badge badge-muted"
