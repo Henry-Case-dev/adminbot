@@ -218,10 +218,14 @@ tests/test_mca23_planned_vs_actual.py::TestResponseEndpoints::test_routes_pin_un
 ```
 
 `deployed_sha` = фактический `git rev-parse de5f6cd0f`; `version` читается
-AST-разбором `config/settings.py` этого checkout. Evidence-коммит добавляет
-только документы/логи (код не меняется) — DevOps обязан записать манифест на
-проверенном checkout после деплоя. **DDL 0, миграции 0, новые флаги 0, новые
-endpoints 0**, OpenAPI 221/261 без изменений, схема v48.
+AST-разбором `config/settings.py` этого checkout. **Повторный dry-run на
+итоговом tip** (проверенный checkout `60684c0dd`) даёт тот же манифест с
+`deployed_sha = 60684c0ddaadb2b9c4273ae7b6ee1b258f2869d3` (=
+`test-output/manifest-dry-run-final-tip.txt`), т.е. `deployed_sha` всегда
+равен фактическому HEAD того checkout, где пишется манифест. Evidence-коммит
+добавляет только документы/логи (код не меняется) — DevOps обязан записать
+манифест на проверенном checkout после деплоя. **DDL 0, миграции 0, новые
+флаги 0, новые endpoints 0**, OpenAPI 221/261 без изменений, схема v48.
 
 ## 8. Откат
 

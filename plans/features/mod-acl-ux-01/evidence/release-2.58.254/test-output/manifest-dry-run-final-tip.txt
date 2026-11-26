@@ -1,0 +1,11 @@
+﻿{
+  "deployed_at": "2026-11-26T20:42:31.156768Z",
+  "deployed_sha": "60684c0ddaadb2b9c4273ae7b6ee1b258f2869d3",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "54546ab5b201a5d8bd169bad613e730d371fc3b9",
+  "previous_version": "2.58.253",
+  "release_branch": "release/mod-acl-egress-2.58.254",
+  "schema": 1,
+  "version": "2.58.254"
+}
