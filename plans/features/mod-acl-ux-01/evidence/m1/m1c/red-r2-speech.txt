@@ -167,7 +167,7 @@ edition = <tests.test_evol016_prompt_activation.FactoryEdition object at 0x00000
         body = resp.json()
 >       assert body["prompts"]["image"]["text"] == ""
 E       AssertionError: assert '╨б╨╛╨╖╨┤╨░╨╣ ╨╝╨╡╨╝ ╤Б ╤И╤А╨╕╤Д╤В╨╛╨╝ ╨╕╨╝╨┐╨░╨║╤В:' == ''
-E         
+E
 E         + ╨б╨╛╨╖╨┤╨░╨╣ ╨╝╨╡╨╝ ╤Б ╤И╤А╨╕╤Д╤В╨╛╨╝ ╨╕╨╝╨┐╨░╨║╤В:
 
 tests\test_mod_acl_ux_01_m1c_prompt_chat_acl.py:527: AssertionError

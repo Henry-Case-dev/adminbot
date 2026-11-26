@@ -1,0 +1,40 @@
+# Choke point — поведенческий RED/GREEN (6 поверхностей r3 + inspector-условие)
+# script: plans/features/mod-acl-ux-01/evidence/m1/m1c/redex_probe.py <tree-root>
+# matrix: prompts.direct_chat_verbalizer_system_prompt view_roles/edit_roles = [moderator]; actor local_admin чата;
+#         release policy ACTIVE (иначе реестр честно удерживает override)
+
+=== PREV 55948c275 (before choke point) ===
+python.exe : C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Usin
+g `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+строка:1 знак:238
++ ... 0b81"; $a = & C:\Code\Python\adminbot\.venv\Scripts\python.exe C:\Use ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Code\Python\...ttpx2` instead.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  from starlette.testclient import TestClient as TestClient  # noqa
+tree: C:\Users\main\AppData\Local\Temp\opencode\m1c_r4\prev
+TREE_ROOT_MARKER present in /api/speech/try:
+  try: 200 mark: True
+  reset: 200
+  rollback: 404
+  inspector(edit_persona): 200 mark: True
+  meme POST: 409
+
+=== CANDIDATE (choke point) ===
+python.exe : C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Usin
+g `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+строка:1 знак:383
++ ... tring; $b = & C:\Code\Python\adminbot\.venv\Scripts\python.exe C:\Use ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Code\Python\...ttpx2` instead.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  from starlette.testclient import TestClient as TestClient  # noqa
+tree: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\mod-acl-ux-01-1e46be007668-75a10b81
+TREE_ROOT_MARKER present in /api/speech/try:
+  try: 403 mark: False
+  reset: 403
+  rollback: 403
+  inspector(edit_persona): 403 mark: False
+  meme POST: 403
