@@ -62,6 +62,19 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXCLUDED_PREFIXES = ("/api/control/", "/api/summary/test/")
 
 
+@pytest.fixture(autouse=True)
+def _clean_param_permissions_cache():
+    """Процесс-глобальный TTL-кэш `param_permissions` не переживает тест.
+
+    `services.access._db_override_cache` общий для процесса: без сброса в
+    teardown матрица этого модуля остаётся видимой следующему тесту в том же
+    процессе (например, ложный 403 в
+    `test_evol017_prompt_history_ui::test_chat_isolation`)."""
+    access_srv.reset_param_permissions_cache()
+    yield
+    access_srv.reset_param_permissions_cache()
+
+
 def _chat_root(overrides: dict, perm_overrides: dict | None = None):
     async def fake(chat_id, pg=None, *args, **kwargs):
         return {"overrides": dict(overrides),
