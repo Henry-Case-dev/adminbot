@@ -175,3 +175,119 @@ GET-витрине упасть в 403 вместо «ключа нет» (desig
   вне ресурса (design §8), не гейтятся.
 * **Живой Telegram-клиент/прод** — вне инженерного acceptance (project rule);
   локальный стенд + реальные роутеры/сервисы, двойники только хранилище.
+
+## 8. R4 corrective (r4-review: F01 blocker, F02, F03)
+
+### 8.1 R4-F01 — уже материализованный текст отдавался в обход матрицы
+
+Найденная поверхность: `GET /api/speech/inspector?correlation_id=...` возвращал
+`exact.system`/`exact.messages[*].text` из кольца `prompt_composer._provider_calls`
+(200 + маркер для `local_admin` с `edit_persona`). Проверка кэшей того же класса
+нашла ещё две поверхности в том же ответе и в том же кольце: inspector **без**
+`correlation_id` отдавал `sent.system_masked`/`sent.layer_texts[*].text`/
+`sent.style.hint_block_masked` из снимка хода (`_manifests`) и `exact.*` из
+последнего вызова кольца (`calls[0]`). Блокер был шире одного параметра.
+
+**Решение (одно правило, без второго источника истины):** уже материализованный
+текст (снимок хода, кольцо провайдера) не хранит per-key провенанс → матрицу к
+нему применить нечем. Такой текст отдаётся только актору, которому матрица не
+может запретить ни один ключ (`services.access.can_view_param` → `True` при
+`ctx.is_global_admin`) — глобальному админу.
+
+* correlation-режим (явный запрос записи кольца) остальным — **403**
+  `PromptTextDenied`;
+* обычный ответ inspector остальным — **200 без текста**: `sent.system_masked=""`,
+  `sent.user_parts_masked=[]`, `sent.layer_texts[*].text=""`,
+  `sent.style.hint_block_masked=""`, `exact.system=""`,
+  `exact.messages[*].text=""`; метаданные (chars, revision, checksum, flags,
+  writer) и явная причина `text_restricted="global_admin_only_no_key_provenance"`
+  сохранены;
+* предпросмотр (`preview`) не затронут: он собирается сейчас и проходит стражи
+  владельцев (`effective_prompt`/`core_selection`/`style_policy_view`/
+  `guard_manifest`), поэтому разрешённой роли текст виден как раньше.
+
+Почему не «гейтить по ключам»: кольцо/манифест хранят уже склеенный `system`
+(base+core+style+expression) и `LayerTrace.block_id`, но не pg-key базового слоя
+(`channel_canon`) — сопоставление «текст → ключ» из кэша невосстановимо, любая
+попытка была бы догадкой. Единственный scope, который нельзя запретить, —
+глобальный админ; ограничение точное и проверяемое, а не эвристика.
+
+### 8.2 Инвентарь кэшей «уже материализованный текст»
+
+| Кэш | Что хранит | HTTP-поверхность | Решение |
+|---|---|---|---|
+| `prompt_composer._provider_calls` (+`provider_calls()`) | `system`/`messages[*].text` реального запроса провайдера | `GET /speech/inspector` (обычный и correlation), `initiative_publications._full_text_evidence` | inspector: текст только глобальному админу, correlation — 403 остальным; publications: только проверка наличия `correlation_id`, текст не возвращается |
+| `prompt_composer._manifests` (+`_composer_manifest_store`) | `PromptManifest` (system, user_parts, layers) | `GET /speech/inspector` (`sent`) | текст только глобальному админу; `guard_manifest` вызывается до использования |
+| `prompt_composer._last_layers`/`_diffs`/`_turn_refs` | трассы ревизий/диффы внутри композера | нет HTTP-поверхности | внутренние вычисления, текст не сериализуется |
+| `direct_l1._turn_trace` | `TurnTraceEntry` с `TurnRequest` (только входящий `raw_text`) | нет потребителя в `web/**` | текста промпта не содержит (вход пользователя) |
+| `turn_trace._turns` | трассы хода | `mca_events` | `_TEXT_KEYS` вычищаются в digest (`_scrub`) |
+| `web/api/routes.py::_PROMPT_OP_RESULTS` | результат разрешённой записи промптов (ключи/ревизии/reasons/sha) | идемпотентность `POST /prompts/*` | только после разрешённой записи; тела промпта в снимках нет |
+| `prompt_registry._FACTORY_TEXTS` | заводские тексты | публичные `factory_text`/`effective_prompt` | доступ только через стражей; `web/**` не импортирует raw (AST-инвариант) |
+| `web/api/speech.py::_LEARNING_ERROR_DETAILS` | сообщения об ошибках обучения | `/speech/learning/*` | текста промпта не содержит |
+
+Поиск: `OrderedDict(`/`deque(`/`maxlen=`/`lru_cache`/`_manifests`/
+`provider_calls`/`turn_trace` по `services/**` и `web/**`.
+
+### 8.3 R4-F02 — отказ ACL не проглатывается фолбэком
+
+`compose_prompt`: `except prompt_text.PromptTextDenied: raise` **до** общего
+`except Exception` — фолбэк остаётся только для настоящих сбоев сборки.
+Провенанс фолбэка тоже исправлен: `PromptPlan.base_block_id` (заполняется из
+реестра в `compose_speech_system` и в speech-preview) попадает в слой
+`channel_canon` `_fallback_manifest`, поэтому `guard_manifest` может отказать и
+на фолбэке. Тесты: `TestComposeFallbackDoesNotSwallow`
+(`test_prompt_denied_from_compose_is_reraised`,
+`test_genuine_failure_fallback_is_guarded_by_provenance`).
+
+### 8.4 R4-F03 — AST-инвариант ловит все формы алиасинга
+
+`TestStructuralInvariants._prompt_text_bindings` — карта `{локальное имя:
+каноническое}` для `import services.prompt_text [as X]`,
+`from services import prompt_text [as Y]`,
+`from services.prompt_text import system_scope [as Z]`,
+`from services import <raw>`; `_scan_offenders` общий для обхода `web/**` и
+самопроверки. `test_alias_detector_catches_every_import_form` — 7 форм, включая
+`as`-алиас и `services.prompt_text.attr`. Пути нормализуются к `/` (Windows).
+
+### 8.5 RED/GREEN R4 (`red-r4-cache.txt`, скрипт `r4_cache_probe.py`)
+
+| поверхность (`local_admin`, дефолтная матрица) | 73c38477b | кандидат |
+|---|---|---|
+| `GET /speech/inspector` → `sent.system_masked` | 200, маркер | 200, текста нет, `text_restricted` |
+| `GET /speech/inspector` → `exact.system` (кольцо) | 200, маркер | 200, текста нет |
+| `GET /speech/inspector?correlation_id=` | 200 + маркер | **403** |
+| те же поверхности у глобального админа (контроль) | текст | текст |
+
+### 8.6 Мутации R4 (файлы восстановлены побайтово из копии до мутации)
+
+| # | Мутация | Результат | Убийца |
+|---|---|---|---|
+| M6 | убрать гейт correlation-режима | **KILLED** (2 failed) | `TestInspectorCorrelationMode` |
+| M7 | вернуть проглатывание `PromptTextDenied` в фолбэк | **KILLED** (1 failed) | `test_prompt_denied_from_compose_is_reraised` |
+| M8 | `allow_cached_text = True` (текст кэшей всем) | **KILLED** (2 failed) | `TestInspectorCachedTextRestricted` |
+
+### 8.7 Числа R4
+
+| Набор | База `ffdc6eadf` | Кандидат |
+|---|---|---|
+| Замок M1-C | — | **60 passed** (51 + 9 R4) |
+| Инварианты + seam | — | **31 passed** (23 + 7 форм алиасинга + correlation-инвариант) |
+| Set1 (18 файлов на базе / 20 на кандидате: prompt/ACL/inspector/soul1) | 17 failed / 420 passed (11 общих + 2 inventory + 4 core_doc — артефакты оверлея) | **11 failed / 517 passed** — те же 11 base-identical |
+| Set2 (15 файлов composer/style/direct) | 8 failed / 380 passed | **8 failed / 380 passed** (имена совпадают) |
+| Set3 (9 файлов prompt-history/registry/webapi) | 303 passed / 1 skipped | **303 passed / 1 skipped** |
+
+Base-identical 11 в Set1: 2 prompt-пина (`test_evol018`, `test_prompt_field_audit`),
+`test_p0_llm_transport_258206::test_llm_guard_is_visible_policy_group` (сдвиг
+позиции в JS), 3 × `test_soul1_composer_parity_off`, 1 ×
+`test_soul1_registry_completeness`, 4 × `test_initiative_speech_layers_chat_overrides`.
+Set2: 3 parity + 5 `test_direct_fallback_recompose_asap32`.
+
+### 8.8 Остаток R4
+
+* Снимок/кольцо теперь **не** отдают текст чатовой роли — это осознанное
+  сужение диагностической витрины; текст виден в `preview` (собирается сейчас,
+  проходит стражи) и глобальному админу.
+* Кэш не хранит per-key провенанс; если понадобится отдавать сохранённый текст
+  роли с частичными правами, потребуется записывать provenance ключей в
+  кольцо/манифест, а не ослаблять это правило.
+* Прочие пункты §7 не изменились.
