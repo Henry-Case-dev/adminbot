@@ -1,0 +1,14 @@
+python tools/gen_param_registry_round1025.py --check -> rc 0
+CHECK OK: реестр 659 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+web/api/routes.py sha256 = 677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719
+web/api/routes.py size   = 403267
+pinned ROUTES_SHA256_F11 = 677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719
+git diff --numstat 54546ab5b HEAD -- web/api/routes.py = <empty>
+
+services/param_catalog.py                            sha256=8e64374a7ed10bed0194b7a34f26b088aa2c13ea5044eda5f38269e274794100
+services/pg_db.py                                    sha256=469775c2a363f5550e80a10b6717cec62c7cc7fce541bbc0a9e34f0437dc9dcd
+services/database.py                                 sha256=8113d3f147ff43fcae4902636bc959ca9130979064252848e5d4a34867bf903e
+plans/docs/param-registry-round1025.tsv              sha256=8e84be4eca04611a43cf04b3935d0f8a3d8178d9a9120d015b0ceba2ac4959f5
+plans/docs/screen-map-round1025.md                   sha256=e6c39e500566cdaac29944c2f2fd4832e54817fee0a6f3e4bae3c78a7576c498
+tests/fixtures/round1025/f8_baseline.json            sha256=90f627bcc50411e61bc3a832c15c768a862d4eac87c76cba9efd371427f0b08e

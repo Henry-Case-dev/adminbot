@@ -1,0 +1,111 @@
+F................F...F.....................F.......                      [100%]
+================================== FAILURES ===================================
+______________ test_every_editable_prompt_has_reachable_surface _______________
+
+app_paths = {'/api/access/audit', '/api/access/chats', '/api/access/chats/{chat_id}/admins', '/api/access/chats/{chat_id}/admins/{...}', '/api/access/chats/{chat_id}/diagnostic_policy/{capability}', '/api/access/chats/{chat_id}/param_permissions', ...}
+
+    def test_every_editable_prompt_has_reachable_surface(app_paths):
+        """PG-блок без видимой поверхности редактирования — регрессия (§1)."""
+        uncovered: list[str] = []
+        for spec in _editable_blocks():
+            key = spec.pg_key
+            if _catalog_visible(key):
+                continue
+            if key in SPECIALIZED_ROUTES or key in NON_CATALOG_SURFACES \
+                    or key in VALUE_SLOT_ROUTES:
+                continue
+            uncovered.append(f"{spec.block_id} ({key}, ui={spec.ui})")
+>       assert uncovered == [], (
+            "промпты, которые нельзя отредактировать в админке: %s" % uncovered)
+E       AssertionError: промпты, которые нельзя отредактировать в админке: ['direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt, ui=catalog)']
+E       assert ['direct.base... ui=catalog)'] == []
+E         
+E         Left contains one more item: 'direct.base.synthesizer (prompts.direct_chat_synthesizer_system_prompt, ui=catalog)'
+E         Use -v to get more diff
+
+tests\test_prompt_field_audit.py:160: AssertionError
+____________________ test_js_fixture_matches_live_contract ____________________
+
+client = <starlette.testclient.TestClient object at 0x000001F0D77E66C0>
+
+    def test_js_fixture_matches_live_contract(client):
+        """Drift-guard: снимок в репозитории = живой контракт сервера.
+    
+        Тот же приём, что у `tests/fixtures/module_registry_visible.json` (M3):
+        node-тест обязан запускаться БЕЗ аргументов стандартным прогоном
+        `node tests/js/*.js`, поэтому ему нужен закоммиченный снимок; расхождение
+        с живым контрактом ловится здесь, а не «зелёным» устаревшим снимком.
+        """
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(root, FIXTURE)
+        with open(path, encoding="utf-8") as fh:
+            saved = json.load(fh)
+        live = _fixture_payload(client)
+>       assert saved == live, (
+            "tests/fixtures/mod_acl_m4_embeddings_payload.json устарел — "
+            "пересоберите его из живого контракта (см. docstring теста)")
+E       AssertionError: tests/fixtures/mod_acl_m4_embeddings_payload.json устарел — пересоберите его из живого контракта (см. docstring теста)
+E       assert {'registry': ..., ...}, ...]}} == {'registry': ..., ...}, ...]}}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'user': {'items': [{'key': 'keys.embedding_quota_group_labels', 'category': 'keys', 'group': 'keys_llm', 'title': 'Кв...openrouter', 'category': 'keys', 'title': 'OpenRouter', 'description': 'Ключ пересказов видео и страниц.', ...}, ...]}} != {'user': {'items': [{'key': 'keys.embedding_quota_group_labels', 'category': 'keys', 'group': 'keys_llm', 'title': 'Кв...openrouter', 'category': 'keys', 'title': 'OpenRouter', 'description': 'Ключ пересказов видео и страниц.', ...}, ...]}}
+E         {'admin': {'items': [{'key': 'key...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\test_mod_acl_ux_01_m4_module_params.py:334: AssertionError
+____________ TestStatusSectionMerge.test_mode_version_line_removed ____________
+
+self = <tests.test_status_section_ui_merge_round1019.TestStatusSectionMerge object at 0x000001F0CEA3B410>
+
+    def test_mode_version_line_removed(self):
+        # ADD-EXP (4a09e29a, 20.10.2026): в другом месте страницы (блок
+        # live-check экспрессии) появилась законная метка «Режим:» — проверка
+        # по всей странице стала ложной. Контракт round1019 относится к карточке
+        # «Статус»: сужаем область до неё, сила проверки сохраняется.
+        start = HTML.index('class="card p-4 status-block status-health sg-12"')
+        end = HTML.index("</section>",
+                         HTML.index("status-block__server")) + len("</section>")
+        status_html = HTML[start:end]
+        assert "Режим:" not in status_html
+        assert "· версия" not in status_html
+        assert "statusData.bot.mode" not in HTML
+>       assert "statusData.bot.version" not in HTML
+E       assert 'statusData.bot.version' not in '<!DOCTYPE h...>\n</html>\n'
+E         
+E         'statusData.bot.version' is contained here:
+E                  ? (statusData.bot.version || '—') : '—' }}</b>
+E                           · проверено: <b data-status-checked-at>{{ statusCheckedAt }}</b>
+E                         </div>
+E           
+E                         <div class="status-block__grid status-health__segs"...
+E         
+E         ...Full output truncated (4535 lines hidden), use '-vv' to show
+
+tests\test_status_section_ui_merge_round1019.py:43: AssertionError
+_______________ TestResponseEndpoints.test_routes_pin_untouched _______________
+
+self = <tests.test_mca23_planned_vs_actual.TestResponseEndpoints object at 0x000001F0CEAAA330>
+
+    def test_routes_pin_untouched(self):
+        # routes.py byte-freeze: аддитивный endpoint живёт в analytics.py.
+>       assert hashlib.sha256(_ROUTES).hexdigest() == ROUTES_SHA256_F11
+E       AssertionError: assert '677bef0bf37f...e8b1258645719' == '453e17f8a1cd...672acdeb604a5'
+E         
+E         - 453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5
+E         + 677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719
+
+tests\test_mca23_planned_vs_actual.py:499: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface
+FAILED tests/test_mod_acl_ux_01_m4_module_params.py::test_js_fixture_matches_live_contract
+FAILED tests/test_status_section_ui_merge_round1019.py::TestStatusSectionMerge::test_mode_version_line_removed
+FAILED tests/test_mca23_planned_vs_actual.py::TestResponseEndpoints::test_routes_pin_untouched
+4 failed, 47 passed, 1 warning in 8.03s

@@ -1,0 +1,42 @@
+base            54546ab5b201a5d8bd169bad613e730d371fc3b9
+base tree       be69ba96b8defe525125f54fe0c6e1e8c673ebda
+slice tip       443a1eb764fcd3ce21d12545691f5ad8f812b6c5
+slice tree      f5ae3f24c0c9ddacc6d02ba54be246f3b063a002
+9d83cdfca commit   9d83cdfca5631cec857ab5cbe6fcdd129fc654d3
+9d83cdfca tree     d46744a8bcc97e17074d52fb421e1a0369d1f030
+1368056bb commit   1368056bbb1320d44045f3475f3de22bbfe27f62
+1368056bb tree     f5ae3f24c0c9ddacc6d02ba54be246f3b063a002
+de5f6cd0f commit   de5f6cd0fdb74f81a3a45236670d2f0300180fc0
+de5f6cd0f tree     8d0a39ed26be0a901eaf74a64286eb2a4d55ce64
+
+git diff --name-only 443a1eb76 1368056bb -> <empty> (tree identical)
+54 files changed, 973 insertions(+), 44 deletions(-)
+
+git diff --name-status 54546ab5b 443a1eb76:
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/README.md
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/base-sha.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/candidate-diff-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/candidate-diff.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/green-candidate-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/green-candidate.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/guard-base-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/guard-candidate-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/mutation-chat-redaction.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/mutation-telemetry-redaction.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/mutations-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/red-base-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/red-base.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/review-r1.md
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/suites-base-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/suites-base.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/suites-candidate-r1.txt
+A	plans/features/mod-acl-ux-01/evidence/m1/s4-172-egress/suites-candidate.txt
+M	services/direct_chat_service.py
+M	services/telegram_send.py
+A	tests/test_mod_acl_ux_01_s4_172_egress.py
+M	tests/test_outgoing_guard_round1022.py
+
+git log --oneline 54546ab5b..de5f6cd0f:
+de5f6cd0f chore(release): 2.58.254 - bump APP_VERSION and version pins (MAC-S4-172 egress)
+1368056bb fix(mod-acl): SD172-R1-F01 egress - resume-ответ модели через chokepoint + строгий страж allowlist-модуля
+9d83cdfca fix(mod-acl): MAC-S4-172 egress - секрет не уходит в чат (единый chokepoint) + доказанная безопасность телеметрии

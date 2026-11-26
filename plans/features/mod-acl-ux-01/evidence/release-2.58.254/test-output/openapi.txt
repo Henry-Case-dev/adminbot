@@ -1,0 +1,3 @@
+base      54546ab5b: {"paths": 221, "operations": 261}
+candidate de5f6cd0f: {"paths": 221, "operations": 261}
+create_app(MagicMock()).openapi(); operation = GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS
