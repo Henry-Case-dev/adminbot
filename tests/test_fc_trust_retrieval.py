@@ -134,6 +134,29 @@ class SequenceAgg:
         raise sa.AllSearchEnginesFailedException("fake", reason=kind)
 
 
+class PackThenFail:
+    """Первая попытка отдаёт пак, вторая падает (или наоборот) заданной причиной."""
+
+    def __init__(self, block: str, kind: str, *, fail_first: bool = False) -> None:
+        self.block = block
+        self.kind = kind
+        self.fail_first = fail_first
+        self.calls: list[str] = []
+
+    async def search_relevant(self, query, max_symbols=None,
+                              relevance_terms=None, timeout_budget=None,
+                              trace=None):
+        self.calls.append(query)
+        first = len(self.calls) == 1
+        if first != self.fail_first:
+            if trace is not None:
+                trace.update({"provider": "fake", "reason": "ok"})
+            return self.block
+        if trace is not None:
+            trace.update({"provider": "fake", "reason": self.kind})
+        raise sa.AllSearchEnginesFailedException("fake", reason=self.kind)
+
+
 # ── FCT-201/401: лексика — recall, не судья ────────────────────────────────
 
 def test_word_overlap_only_is_not_support_with_anchor_profile():
@@ -612,6 +635,62 @@ async def test_technical_attempt_outranks_irrelevant_attempt():
     assert cov.status_detail == fsp.CLAIM_STATUS_RATE_LIMIT
     assert cov.outcome == fsp.CLAIM_OUTCOME_TECHNICAL
     assert outcome.stop_reason == fsp.STOP_RATE_LIMIT
+
+
+#: F6 (review r2): шов «evidence у части + технический отказ на другой попытке».
+#: Технический исход НЕ должен подменять содержательный статус части, у которой
+#: есть displayable-evidence (§5). Обе полярности: пак→отказ и отказ→пак.
+EVIDENCE_SEAM_CASES = (
+    (False, "rate_limit", fsp.CLAIM_STATUS_EXACT_NUMBER),
+    (True, "rate_limit", fsp.CLAIM_STATUS_EXACT_NUMBER),
+    (False, "timeout", fsp.CLAIM_STATUS_EXACT_NUMBER),
+    (True, "timeout", fsp.CLAIM_STATUS_EXACT_NUMBER),
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_first,kind,expected_detail", EVIDENCE_SEAM_CASES)
+async def test_evidence_claim_keeps_content_status_despite_technical_attempt(
+        fail_first, kind, expected_detail):
+    """F6: evidence-часть сохраняет содержательный исход при 429/таймауте.
+
+    Пак даёт `qualifies` (событие есть, заявленного числа нет) и становится
+    evidence части; другая попытка этой же части падает технически. Ожидание:
+    `status_detail` — содержательный (`evidence_insufficient_for_exact_number`),
+    `outcome` не `not_checked_technical`, `reason_code=insufficient_evidence`, а
+    `no_relevant_sources`/технические gap-фразы не подставляются. При этом
+    run-level счётчик технического отказа сохраняется (факт не теряется).
+    """
+    block = ("S&P 500 falls on October 30\n"
+             "Инвесторы продавали акции\nhttps://m.example/1")
+    agg = PackThenFail(block, kind, fail_first=fail_first)
+    outcome = await fsp.run_retrieval(
+        _plan(_unit()), aggregator=agg,
+        limits=fsp.FactcheckLimits(budgets_enabled=True))
+    assert len(agg.calls) == 2, "нужны обе попытки: база и уточнение"
+    cov = outcome.claims[0]
+    # evidence части сохранён и не отменён техническим исходом
+    assert cov.evidence, "evidence части потерян из-за технической попытки"
+    assert [e.role for e in cov.evidence] == [sa.EVIDENCE_ROLE_QUALIFIES]
+    assert cov.citation_ids
+    assert all(e.snippet_only is True and e.opened is False
+               for e in cov.evidence)
+    # содержательный статус, а не технический/«нет источников»
+    assert cov.status_detail == expected_detail
+    assert cov.status_detail != fsp.CLAIM_STATUS_NO_RELEVANT_SOURCES
+    assert cov.outcome == fsp.CLAIM_OUTCOME_INSUFFICIENT
+    assert cov.outcome != fsp.CLAIM_OUTCOME_TECHNICAL
+    assert cov.reason_code == "insufficient_evidence"
+    assert "сумма/число" in cov.gap_note
+    assert "не нашлось" not in cov.gap_note
+    assert "ограничил частоту" not in cov.gap_note
+    assert "не ответил вовремя" not in cov.gap_note
+    # технический факт попытки не потерян на run-level
+    if kind == "rate_limit":
+        assert outcome.rate_limits == 1
+    else:
+        assert outcome.provider_timeouts == 1
+    assert outcome.queries_attempted == 2
 
 
 @pytest.mark.asyncio
