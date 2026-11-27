@@ -158,10 +158,15 @@ def test_screen_has_required_sections_and_single_screen_mode():
                    "data-speech-preview-payload", "data-speech-sent-system"):
         assert anchor in INDEX, anchor
     # §4.2 v2.1: пять рабочих вкладок + сервисные разделы, доступные из витрины.
-    for section in ("persona", "core", "style", "expression", "profanity",
+    # SAC-CORE-ON-TAB (28.11.2026): «core» больше не отдельная страница —
+    # канонический редактор Core перенесён первым блоком вкладки «Личность»
+    # (id="speech-core-editor", тот же реестр/история/области).
+    for section in ("persona", "style", "expression", "profanity",
                     "humor", "examples", "try", "learning", "all",
                     "inspector", "capabilities", "rules"):
         assert "speechSection === '%s'" % section in INDEX, section
+    assert 'id="speech-core-editor"' in INDEX
+    assert "speechSection === 'core'" not in INDEX
     # Один экран за раз: «Назад» есть, витрина скрывается при открытом разделе.
     assert "speechBack()" in INDEX and "← Назад" in INDEX
     assert 'v-else-if="!speechSection"' in INDEX
@@ -736,8 +741,9 @@ def test_factory_reset_plan_reads_real_response_shape():
     assert "factory_plan.diff.before_chars" not in INDEX
     assert "diff.after_chars" not in INDEX
     assert "speechFactoryPlanText(speechBlockDetail.factory_plan)" in INDEX
-    # Кнопка «Вернуть заводской» на «Характере» обязана знать свой блок.
-    assert "speechFactoryPlan(blockIdFor(speechCoreEdition))" in INDEX
+    # Кнопка «Вернуть заводской» на «Характере» обязана знать свой блок
+    # (второй аргумент — существующий раздел для состояния retry).
+    assert "speechFactoryPlan(blockIdFor(speechCoreEdition), 'core')" in INDEX
     assert "speechFactoryPlan()" not in INDEX
 
 

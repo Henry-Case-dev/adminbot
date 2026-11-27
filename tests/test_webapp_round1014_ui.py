@@ -100,21 +100,29 @@ class TestPersonaForm:
 
     def test_template_controls_only_static(self):
         block = _persona_section()
-        # ровно 2 textarea (Биография/Характер) + 1 input (Имя) + чекбокс.
-        assert block.count("<textarea") == 2
-        assert block.count("<input") == 2      # Имя (text) + checkbox
+        # SAC-CORE-ON-TAB / SAC-CORE-NO-MERGE (28.11.2026): на вкладке
+        # «Личность» первый блок — канонический редактор Ядра (textarea
+        # характера), второй — Идентичность (Имя/Биография/«Осознаёт себя
+        # ИИ»). Поля «Характер» (`system_prompt_overrides`) в основном UI нет.
+        assert block.count("<textarea") == 2      # Ядро + Биография
+        assert block.count("<input") == 3         # Имя + 2 чекбокса (ИИ, Core)
         assert 'type="text"' in block
         assert 'type="checkbox"' in block
         assert "Осознаёт себя ИИ" in block
         assert "personaDraft.name" in block
         assert "personaDraft.biography" in block
-        assert "personaDraft.system_prompt_overrides" in block
+        assert "personaDraft.system_prompt_overrides" not in block
+        assert "personaSetField('system_prompt_overrides'" not in block
         assert "personaDraft.is_aware_ai" in block
         assert "personaSetField('name'" in block
         assert "personaSetField('biography'" in block
-        assert "personaSetField('system_prompt_overrides'" in block
         assert "personaSetField('is_aware_ai'" in block
-        # кнопки сохранения/сброса
+        # Ядро: существующий редактор реестра + история/сохранение.
+        assert 'id="speech-core-editor"' in block
+        assert "speechCoreDraft()" in block
+        assert "saveSpeechCore()" in block
+        assert "data-speech-core-versions" in block
+        # Идентичность: кнопки сохранения/сброса.
         assert "savePersona()" in block
         assert "resetPersona()" in block
         assert "Сбросить к глобальному" in block

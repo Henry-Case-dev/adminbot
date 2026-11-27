@@ -1257,6 +1257,10 @@ def run_core_extras(browser, shots):
         open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(300)
+        # SAC-CORE-ON-TAB (28.11.2026): редакции и их переключение —
+        # в «Дополнительных настройках» блока Ядра: раскрываем details.
+        page.click("[data-speech-core-editions] summary")
+        page.wait_for_timeout(200)
         # §5.4: каждая редакция — свой черновик; ввод не теряется (§9.1 п.2).
         # Стартуем с «Полной редакции» (payload открывает компактную).
         page.locator(".speech-tab", has_text="Полная редакция").first.click()
@@ -1281,6 +1285,10 @@ def run_core_extras(browser, shots):
             fail(label, "бейдж черновика не называет редакции: %s" % badge)
         snap(page, shots, "per_edition_draft_390")
         # §9.1 п.3: режим по умолчанию и «Core включён» → POST core/meta.
+        # SAC-CORE-ON-TAB (28.11.2026): переключение редакций/runtime-режим
+        # перенесены в «Дополнительные настройки» блока Ядра — раскрываем их.
+        page.click("[data-speech-core-editions] summary")
+        page.wait_for_timeout(200)
         before = len(POSTS)
         page.select_option(
             ".speech-section select[aria-label='Редакция по умолчанию']", "full")

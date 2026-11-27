@@ -782,15 +782,25 @@ async def get_config(
         else:
             eff_source = "default"
         eff = effective_meta(key)
-        # UR-21.23: честная пометка «провайдер игнорирует температуру» —
-        # для группы limits_temperature по фактической модели ответов.
+        # UR-21.23 + SAC-S1-TEMP-KEY-ONLY (28.11.2026): честная пометка
+        # «провайдер игнорирует temperature» относится ТОЛЬКО к самим
+        # значениям температуры (float-ключи группы «Свобода формулировок»),
+        # а не к селектору режима и НЕ к применимости личности/речи. Раньше
+        # `spec.group == "limits_temperature"` помечал inactive всю группу,
+        # включая `limits.chat_temperature_preset_default` (str-селектор) —
+        # отсюда ложная плашка «Речь и характер — не применяется» при
+        # reasoning-модели. Поддержка temperature — техническая
+        # характеристика генеративного API (передача параметра), она не
+        # определяет применение текстовых инструкций (SAC-S1-TEMP-INDEPENDENT).
         if (spec is not None and spec.group == "limits_temperature"
+                and spec.type == "float"
                 and not eff["reason_inactive"]
                 and provider_ignores_temperature(_primary_model_name())):
             eff["reason_inactive"] = (
                 "Текущая модель ответов относится к reasoning-семейству: "
-                "провайдер принимает, но игнорирует temperature — режим "
-                "«Свобода формулировок» на неё не влияет.")
+                "провайдер принимает, но игнорирует temperature — значение "
+                "влияет только на подбор слов и не отключает инструкции "
+                "личности и речи.")
             eff["status"] = "inactive"
         items.append({"key": key, "value": value, "category": category,
                       "secret": secret,

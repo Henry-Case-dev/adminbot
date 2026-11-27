@@ -523,11 +523,14 @@ class TestEvol028AiHub:
     def test_persona_moved_into_speech_editor(self):
         speech = _block(INDEX, "activeTab === 'speech'", "activeTab === 'info'")
         assert 'id="speech-persona"' in speech
+        # SAC-CORE-NO-MERGE (28.11.2026): поля «Характер»
+        # (`system_prompt_overrides`) в основном UI больше нет; идентичность
+        # остаётся на существующих personaDraft/savePersona.
         for marker in ("personaDraft.name", "personaDraft.biography",
-                       "personaDraft.system_prompt_overrides",
                        "personaDraft.is_aware_ai", "savePersona()",
                        "resetPersona()"):
             assert marker in speech, marker
+        assert "personaDraft.system_prompt_overrides" not in speech
         # второго экрана/дубля нет
         assert "activeTab === 'persona'" not in INDEX
 

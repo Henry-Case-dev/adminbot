@@ -1953,6 +1953,10 @@ def run_speech_core(label, page, shots, width):
 
     # B1: «Характер» — два prompt-поля одного документа. Карточка следует за
     # активной редакцией, поэтому история каждой редакции — своя (не хардкод).
+    # SAC-CORE-ON-TAB (28.11.2026): переключение редакций — в «Дополнительных
+    # настройках» блока Ядра.
+    page.click("[data-speech-core-editions] summary")
+    page.wait_for_timeout(200)
     page.locator(".speech-tab", has_text="Компактная").first.click()
     page.wait_for_timeout(700)
     key_compact = page.evaluate(
