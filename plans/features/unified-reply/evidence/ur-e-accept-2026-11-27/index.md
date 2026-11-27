@@ -5,14 +5,19 @@
 - **База:** `9516c912554bb1062f62a63b6689f418c1cb5425` (deployed 2.58.257,
   healthz `{"status":"ok","version":"2.58.257"}` — проверено на проде)
 - **Ветка:** `feat/ur-e-accept-2026-11-27`
+- **Коммиты ветки:** `87215cb4a` — тест-онли батч (пин схемы, BAN-08 UI,
+  исторический диалог, evidence); `aeac505b4` — продуктовый корректив UR-BAN-02
+  (`services/direct_execution.py`, см. раздел 7); `f2ba0c8…`-серия — правки
+  evidence hygiene по ревью R1 (см. «Правки по ревью R1»).
 - **Worktree:** `WorkspaceData/worktrees/…/ur-e-accept-1ef96b25076e-1e7769b0`
 - **Триаж-вход:** `evidence/triage-2026-11-27.md`, sha256
   `2b5e92490ca1ae45051dfd9796cd038bab1fcb711c3b5fd54886872f2e49321f`
-- **Продуктовый код не менялся.** Изменены только тесты/фикстуры:
+- **Продуктовый код:** в коммите `87215cb4a` не менялся (только тесты/фикстуры:
   `tests/test_ur_c_sched.py`, `tests/test_webapp_js_unit.py`,
-  `tests/js/ur_ban08_ui_test.js` (новый), `tests/test_ur_17_historical_dialog.py`
-  (новый), `tests/fixtures/unified_reply/historical_dialog_2026_11_04.json`
-  (новый).
+  `tests/js/ur_ban08_ui_test.js`, `tests/test_ur_17_historical_dialog.py`,
+  `tests/fixtures/unified_reply/historical_dialog_2026_11_04.json`); в коммите
+  `aeac505b4` изменён ровно один продуктовый файл — `services/direct_execution.py`
+  (UR-BAN-02, физический предел шагов).
 - **Статус:** BUILT; доказательства ниже — фактические прогоны. VERIFIED не
   заявляется (нужен независимый Reviewer).
 
@@ -216,8 +221,7 @@ py -m pytest tests/test_ur_17_historical_dialog.py -q
 ## 5. UR-ACC-E9 — живой E2E на выложенном 2.58.257
 
 Один SSH-сеанс на прод; прогон **на сервере**, интерпретатором из systemd-unit
-(`/var/www/admin_bot/venv/bin/python`), на временной SQLite в `mktemp -d`,
-удалённой trap'ом в том же прогоне.
+(`/var/www/admin_bot/venv/bin/python`), на временной SQLite в `mktemp -d`.
 
 ```
 SHA=9516c912554bb1062f62a63b6689f418c1cb5425
@@ -236,8 +240,31 @@ UNIT={ path=/var/www/admin_bot/venv/bin/python ; ... }
 **Честные ограничения:** LLM и router в этом прогоне детерминированные
 (заглушки) — реальных вызовов модели, внешних расходов и сообщений в рабочие
 чаты не было. Независимый негативный Reviewer по строке остаётся за Reviewer,
-не за Builder. Чистота прода: `LEFTOVER=0` для `/tmp/ur-e9-*`, диск 54%
-(53G/99G свободно) — проверено после прогона.
+не за Builder.
+
+### Временные артефакты прогона (REV-UR-E-R1-01)
+
+Первая попытка прогона не удалась (`No module named pytest`: выбран не тот
+интерпретатор), и её `trap` был записан с невалидной спецификацией сигнала
+(`trap: EXITINT: invalid signal specification`), поэтому её пустой каталог
+`/tmp/ur-e9-*` остался. Успешный прогон завершился с `trap cleanup EXIT` и свой
+каталог удалил; строка `TMPD_LEFT=/tmp/ur-e9-8sW1Vi` в
+`raw/prod-e9-live-run.txt:9` — это эхо переменной, а не подтверждение
+неудаления. Оставшийся пустой каталог был удалён отдельным шагом очистки в тот
+же день; чистота проверена **повторно, отдельным read-only сеансом**:
+
+```
+raw/prod-cleanup-verification.txt
+leftover_ur_e9_count=0
+leftover_ur_e9_names=[]
+tmp_entries=133
+disk=/dev/vda1 99G 51G 44G 54% /
+```
+
+То есть: каталог удалён не в момент печати `TMPD_LEFT`, а позже отдельным шагом;
+итоговое состояние — 0 каталогов `/tmp/ur-e9-*`. Транскрипт самого шага очистки
+в raw не сохранялся — это ограничение фиксируется здесь, а не выдаётся за
+захваченный лог.
 
 ## 6. UR-BAN-02 — точная семантика adaptive-chain и минимальное предложение
 
@@ -291,15 +318,18 @@ UNBOUNDED
 
 ## Ограничения и что осталось
 
-- `tests/test_webapp_js_unit.py` целиком на 9516c9125: **7 failed / 42 passed**,
-  все 7 — pre-existing устаревшие пины, не связанные с этой задачей:
+- `tests/test_webapp_js_unit.py`: на базе `9516c9125` — **7 failed / 41 passed**;
+  на кандидате — **7 failed / 42 passed** (+1 новый зелёный
+  `test_js_unit_ur_ban08_direct_workspace`). Падают те же 7 node id, все —
+  pre-existing устаревшие пины, не связанные с этой задачей:
   4 JS-файла требуют `APP_VERSION = "2.58.255"`
   (`round1025_hotfix7/8/9/10`), остальные 3 падают на своих версионных
-  ассертах. `web/app.js` и `config/settings.py` в этом worktree не менялись
+  ассертах. `web/app.js` и `config/settings.py` в этой задаче не менялись
   (`git status` чист по ним), поэтому это класс «протухший пин релиза», а не
   регрессия; правку не делал — это поверхность релизного bump'а и чужих строк.
-- Коммит содержит только тесты/фикстуры/evidence. Продуктовые выводы по
-  UR-BAN-02 — предложение, не реализация.
+- Коммит содержит только тесты/фикстуры/evidence; продуктовый вывод по
+  UR-BAN-02 в этом коммите — предложение, реализация — в следующем коммите
+  (раздел 7).
 - Live-наблюдаемые части: UR-17.2/17.4/17.6 (сценарии отсутствуют в истории),
   UR-BAN-02 (сценарий не ограничен — нужен продуктовый предел по решению
   Architect), независимый негативный ревью UR-ACC-E9.
@@ -467,3 +497,23 @@ detached-дереве базы, идентичные node id):
   `tests/test_ur_17_historical_dialog.py` (8 passed) и
   `tests/test_ur_acceptance_trace.py` (7 passed) на кандидате подтверждён
   повторно.
+
+## Правки по ревью R1 (evidence hygiene)
+
+Ревью UR-инкремента: `APPROVED_FOR_RELEASE_PREPARATION`, 0 blocking,
+5 nonblocking. Закрыты две evidence-находки; поведение кода не менялось.
+
+| ID | Что сделано | Артефакт |
+|---|---|---|
+| **REV-UR-E-R1-01** | §5 больше не утверждает, что временный каталог E9 удалён тем же `trap`: описано, что первая (неудавшаяся) попытка оставила пустой `/tmp/ur-e9-*` из-за невалидной спецификации сигнала в `trap`, успешный прогон свой каталог удалил, остаток удалён отдельным шагом; `TMPD_LEFT=…` в raw — эхо переменной, а не доказательство неудаления. Добавлена фактическая read-only проверка пост-состояния | `raw/prod-cleanup-verification.txt` (`leftover_ur_e9_count=0`, `leftover_ur_e9_names=[]`, `tmp_entries=133`, диск 54%) |
+| **REV-UR-E-R1-05** | docstring блока констант `services/direct_execution.py:93–104` приведён к фактическому safety-пределу (только комментарии, кода поведения не касается); числа `test_webapp_js_unit.py` исправлены: база **7 failed / 41 passed**, кандидат **7 failed / 42 passed**, те же 7 node id | этот файл (§«Ограничения»), раздел 7.5 |
+| REV-UR-E-R1-03/04 | по указанию ревью — backlog, не трогались | — |
+
+Проверка, что правка REV-05 — только комментарии:
+
+```
+git diff -U0 services/direct_execution.py   # все изменённые строки начинаются с '#'
+py -m pytest tests/test_unified_reply_ur_b_search_first.py -q -k AdaptivePhysicalStepBound   # 8 passed
+py -m pytest tests/test_bgs05_budgets.py tests/test_smart_exec_ab_round1114.py -q            # 36 passed
+py -m pytest tests/test_round1025_f8_registry.py tests/test_asap7_cover_preview.py -q        # 50 passed (routes.py не менялся)
+```

@@ -1,0 +1,12 @@
+# READ-ONLY prod verification, captured 2026-11-27 (single SSH session).
+# Command: python3 -c <base64 payload> on the production host; reads only
+# /tmp listing, df, git HEAD, APP_VERSION and /healthz. No writes.
+# Closes REV-UR-E-R1-01 (UR-ACC-E9 temp dir) + release baseline for 2.58.258.
+
+leftover_ur_e9_count=0
+leftover_ur_e9_names=[]
+tmp_entries=133
+disk=/dev/vda1 99G 51G 44G 54% /
+deployed_sha=9516c912554bb1062f62a63b6689f418c1cb5425
+app_version=2.58.257
+health={"status":"ok","version":"2.58.257"}

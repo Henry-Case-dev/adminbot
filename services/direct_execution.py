@@ -93,11 +93,14 @@ REASON_EVIDENCE_REQUIRED = "evidence_required_overrides_plan"
 # ── Границы adaptive-цепочки (§18C.7) ───────────────────────────────────────
 # SMART-EXECUTION-RELIABILITY-01 (owner 2026-11-14 §B1/B3): 4 шага / 6000
 # токенов / 4 платных вызова больше НЕ заводские пределы исследования.
-# Числа ниже остаются только как нижние fallback'и ДЕРИВАЦИИ payload-срезов
-# (окно модели → сколько символов запроса/сниппета реально влезает) и как
-# наблюдаемая мета: enforcement объёма — явная операторская политика
-# (`DIRECT_ORCHESTRATOR_MAX_*`, `MCA_TOOL_MAX_*`) ТОЛЬКО при effective
-# `flags.budgets_enabled=true`; незаданная политика = ограничения нет.
+# Числа ниже — нижние fallback'и ДЕРИВАЦИИ payload-срезов (окно модели →
+# сколько символов запроса/сниппета реально влезает) и наблюдаемая мета.
+# Enforcement объёма — явная операторская политика (`DIRECT_ORCHESTRATOR_MAX_*`,
+# `MCA_TOOL_MAX_*`) ТОЛЬКО при effective `flags.budgets_enabled=true`.
+# UR-BAN-02 (2026-11-27): без явной политики объёмных квот по-прежнему нет, НО
+# действует физический анти-цикл шагов `ORCHESTRATOR_STEPS_HARD_MAX` (предел
+# adaptive-цепочки, пол — `ORCHESTRATOR_MAX_STEPS`); дедлайна исследования нет,
+# fuse не вводится.
 ORCHESTRATOR_MAX_STEPS = 4
 ORCHESTRATOR_MAX_TOTAL_TOKENS = 6000
 
