@@ -1,0 +1,7 @@
+commit: baab52324943fa55e69378fe405b43f77a94e47a (chore(release): 2.58.259 - bump APP_VERSION and version pins (FCT-S3 retrieval))
+changed lines: -34 / +34
+pairs differing ONLY by version: 34
+pairs with other changes: 0
+files in commit: 29
+VERSION-ONLY BUMP: OK (34 pairs / 29 files)
+APP_VERSION: 2.58.259

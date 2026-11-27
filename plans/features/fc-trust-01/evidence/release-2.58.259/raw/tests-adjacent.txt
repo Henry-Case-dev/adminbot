@@ -1,0 +1,1079 @@
+# 21 adjacent consumer contours
+# files: tests/test_direct_chat.py tests/test_direct_chat_concurrency.py tests/test_direct_chat_handlers.py tests/test_direct_chat_lore_inject.py tests/test_direct_chat_prompts.py tests/test_direct_chat_relations_inject.py tests/test_direct_context_capacity_asap3.py tests/test_direct_context_composer_asap3.py tests/test_direct_context_scenarios_asap3.py tests/test_direct_decision_matrix_asap3.py tests/test_direct_fallback_recompose_asap32.py tests/test_direct_l1_corrective_r1.py tests/test_direct_l1_l1d_contract.py tests/test_direct_llm_decision_asap32.py tests/test_self_diag_analytics_sources.py tests/test_self_diag_golden.py tests/test_self_diag_samples.py tests/test_self_reflection_provider_round1014.py tests/test_selfdev_word.py tests/test_selfdiag_ac11_config_uptime.py tests/test_selfdiag_corrective_research.py
+
+........................................................................ [ 11%]
+........................................................................ [ 22%]
+........................................................................ [ 33%]
+........................................................................ [ 44%]
+........................................................................ [ 55%]
+.............F.................................FFF..FF........F......... [ 67%]
+........................................................................ [ 78%]
+........................................................................ [ 89%]
+....................................................F..............F     [100%]
+================================== FAILURES ===================================
+___________ TestStaleSummary.test_lag400_middle_topk_under_pressure ___________
+
+self = <tests.test_direct_context_scenarios_asap3.TestStaleSummary object at 0x000001CC6CACFD70>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC745D1190>
+
+    @pytest.mark.asyncio
+    async def test_lag400_middle_topk_under_pressure(self, monkeypatch):
+        # H1/D5 (rework round 1): реальный путь композера, lag=400.
+        # Сплит: fresh tail = последние 20 строк (floor, P1), middle top-K ≤
+        # CHAT_MIDDLE_MAX_MESSAGES из непокрытого диапазона. Бюджет-кап
+        # создаёт давление: middle поджимается (P3 эвикция первая), НО
+        # присутствует в payload; tail стоит на floor; clamp-событие.
+        async def fake_param(chat_id, key, default=None):
+            if key == "limits.chat_context_budget_tokens":
+                return 2600         # давление: floor tail (~940) + P0 (~90)
+                #   влезают, middle (P3) поджимается с 3059 до ~1500
+            return default
+    
+        monkeypatch.setattr("services.chat_params.get_chat_param", fake_param)
+        tail_rows = [_row(7000 + i, NOW - 30 + i,
+                          f"ХВОСТ-МАРКЕР-{i} свежее сообщение хвоста диалога "
+                          f"с наполнением {i}")
+                     for i in range(20)]
+        middle_rows = [_row(6500 + i, NOW - 5000 + i,
+                            f"СЕРЕДИНА-МАРКЕР-{i} середина отставшего "
+                            f"диапазона с содержательным контекстом {i}")
+                       for i in range(400)]
+        window = middle_rows + tail_rows
+        db = Asap3FakeDB(window_rows=window,
+                         summary=_summary_row(watermark=NOW - 5000,
+                                              raw_count=500))
+    
+        async def _run_once():
+            # Свежий FakeLLM на прогон: фоновый running-summary
+            # (fire_and_forget из get_window_messages) пишет в общий llm.calls
+            # и гонкой ломает снятие payload'а (не продуктовый дефект).
+            memory = FakeMemory(window=window)
+            svc = _make_service(memory, db, FakeLLM())
+            with patch("services.direct_context_composer."
+                       "emit_agentic_event") as emit:
+                await svc.handle(_bot(), _message("бот, что там было?",
+                                                  message_id=2400),
+                                 _message("бот, что там было?",
+                                          message_id=2400).from_user)
+            events = {}
+            for c in emit.call_args_list:
+                events.setdefault(c.args[0], []).append(c.kwargs)
+            payload = "\n".join(str(m) for m in svc.llm.calls[-1])
+            return events, payload
+    
+        events1, payload1 = await _run_once()
+        # (а) middle ПРИСУТСТВУЕТ в payload (dead code устранён):
+        assert "СЕРЕДИНА-МАРКЕР-" in payload1, \
+            "middle top-K обязан отбираться из непокрытого хвостом диапазона"
+        # (б) fresh tail (floor 20, keep-end) вербатим — весь:
+        assert "ХВОСТ-МАРКЕР-19" in payload1
+        assert "ХВОСТ-МАРКЕР-0" in payload1
+        # (в) капы: middle_selected_messages > 0 и ≤ 60 (§3.7);
+        selects = [e for e in events1.get("CONTEXT_SELECT", [])]
+        assert selects and selects[0]["middle_selected_messages"] > 0
+>       assert selects[0]["middle_selected_messages"] <= 60
+E       assert 74 <= 60
+
+tests\test_direct_context_scenarios_asap3.py:415: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction отсутствует — сырой путь (тестовый двойник?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed — in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:1775 [mca05] legacy facade read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\mca_episodes.py", line 1761, in list_stories_for_retrieval
+    cursor = await db.db.execute(
+                   ^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:558 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\mca_episodes.py", line 553, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:558 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\mca_episodes.py", line 553, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'db'
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=flags.budgets_enabled | chat=-1001234567890
+WARNING  services.budget_gate:budget_gate.py:157 [budget_gate] config unavailable — last-known-valid | chat=-1001234567890 | enabled=True | source=default
+WARNING  services.mca_episodes:mca_episodes.py:558 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\mca_episodes.py", line 553, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'db'
+WARNING  services.direct_chat_service:direct_chat_service.py:12217 direct: history boundary check failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 12213, in _history_partial
+    older = await self.db.get_smart_raw(
+                  ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'get_smart_raw'
+WARNING  services.direct_chat_service:direct_chat_service.py:8819 [direct] l1 leg exhausted | chat=-1001234567890 | source=main | failure=- | finish_reason=unknown
+WARNING  services.direct_chat_service:direct_chat_service.py:8880 [direct] l1 planner outage — deterministic fallback | chat=-1001234567890 | trigger=direct | last_error=invalid
+WARNING  services.mca_events:mca_events.py:697 mca_event unmapped reason_code | event=evidence_policy_decided | marker=unmapped:a0420dd8 | chars=20
+WARNING  services.direct_chat_service:direct_chat_service.py:5402 direct: bot_replies persist failed | chat=-1001234567890 msg=999
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 5398, in remember_bot_reply
+    await self.db.upsert_bot_reply(chat_id, tg_message_id, text, time.time())
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'upsert_bot_reply'. Did you mean: 'get_bot_reply'?
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.direct_chat_service:direct_chat_service.py:16242 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 16235, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'Asap3FakeDB' object has no attribute 'db'
+_ TestGenerateChatRecompose.test_chat_recomposed_under_fallback_budget_tools_kept _
+
+path = '/chat/completions'
+payload = {'model': 'mystery-large-1m', 'messages': [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': '...писанием контракта. ', 'parameters': {'type': 'object', 'properties': {'query': {...}}}}}, ...], 'tool_choice': 'auto'}
+kwargs = {'chat_id': 1, 'key': 'k-primary', 'sent': [], 'module': None, ...}
+
+    async def fail_primary(path, payload, **kwargs):
+        seen["primary"] = payload
+>       raise LLMError("primary down")
+E       services.llm_client.LLMError: primary down
+
+tests\test_direct_fallback_recompose_asap32.py:141: LLMError
+
+During handling of the above exception, another exception occurred:
+
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x000001CC6CB17C80>
+
+    @pytest.mark.asyncio
+    async def test_chat_recomposed_under_fallback_budget_tools_kept(self):
+        """§46 (generate_chat): primary 1M fails → recomposed ≤ fallback
+        budget, tool schemas preserved, no oversized payload."""
+        client = _client()
+        seen = {}
+    
+        async def fail_primary(path, payload, **kwargs):
+            seen["primary"] = payload
+            raise LLMError("primary down")
+    
+        async def fb_retries(payload):
+            seen["fallback"] = payload
+            return _ok_response()
+    
+        client._post_with_key = fail_primary
+        client._fallback_with_retries = fb_retries
+        adapter = _recompose_adapter(FB_WINDOW_TOKENS)
+>       result = await client.generate_chat(
+            _big_messages(600_000), tools=_tools(), chat_id=1,
+            fallback_payload_adapter=adapter)
+
+tests\test_direct_fallback_recompose_asap32.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <services.llm_client.LLMClient object at 0x000001CC6FBA6BD0>
+messages = [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': 'user', 'content': 'сообщение контекста с д...ие контекста с достаточным наполнением сообщение контекста с достаточным наполнением сообщение контекста с дост'}, ...]
+temperature = None
+tools = [{'type': 'function', 'function': {'name': 'tool_0', 'description': 'Инструмент с длинным описанием контракта. Инструм...{'type': 'object', 'properties': {'query': {'type': 'string', 'description': 'поисковый запрос пользователя'}}}}}, ...]
+tool_choice = 'auto', chat_id = 1, module = None, step = None
+correlation_id = None, tool_name = ''
+fallback_payload_adapter = <function _recompose_adapter.<locals>._adapt at 0x000001CC711125C0>
+max_output_tokens = None
+
+    async def generate_chat(self, messages, *, temperature: float | None = None,
+                            tools: list[dict] | None = None,
+                            tool_choice: str | dict = "auto",
+                            chat_id: int | None = None,
+                            module: str | None = None,
+                            step: str | None = None,
+                            correlation_id: str | None = None,
+                            tool_name: str = "",
+                            fallback_payload_adapter=None,
+                            max_output_tokens: int | None = None
+                            ) -> "LLMChatResult":
+        """POST /chat/completions с tools/tool_choice (Эпик 04.09.2026, 3.3).
+    
+        Контракт {model, messages}: температура — как в generate (None →
+        ключа нет); tools/tool_choice добавляются в payload ТОЛЬКО когда
+        tools передан. Ретраи/фоллбэк _post/_fallback_with_retries — как в
+        generate (payload сквозной). Парсинг: content (может быть None при
+        tool_calls) + tool_calls + finish_reason. Легаси generate() НЕ
+        меняется (0 регрессий, FR-10/AC-2.1).
+    
+        MCA-23 фаза 2 (§Model slots): ``max_output_tokens`` — тот же
+        контракт, что в generate(): None/<=0 → ключ ``max_tokens`` в
+        payload НЕ добавляется (байт-паритет всех прежних tool-вызовов);
+        передаётся только явно longform-планами (services/response_extent).
+        Ключ переживает fallback-recompose (адаптер меняет только messages).
+        Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (см. generate). ФИКС R6:
+        key/source — per-call локалы.
+    
+        ASAP-3.2 (ADR-1028-5 D10, §44–§46): ``fallback_payload_adapter`` —
+        тот же контракт, что в ``generate()``: callable ``(payload) ->
+        payload``; вызывается РОВНО ОДИН раз при переключении на fallback
+        ДО отправки — recompose ПОЛНОГО logical context (messages +
+        tool schemas + tool state) под окно fallback-модели. Tool
+        schemas входят в fallback budget (§45) — recompose обязан их
+        учитывать (адаптер получает payload с ``tools``/``tool_choice``).
+        None/ошибка адаптера → payload байт-в-байт прежний (fail-open с
+        громкой oversized-risk диагностикой, паритет generate()).
+        """
+        # P0 SMART transport: hot-apply модели/адреса/политики на входе.
+        self._refresh_chat_model()
+        self._refresh_transport_policy()
+        key, source = await self._resolve_api_key_and_source(chat_id)
+        payload = {"model": self._chat_model, "messages": messages}
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if tools is not None:
+            payload["tools"] = tools
+            payload["tool_choice"] = tool_choice
+        # MCA-23 фаза 2 (§Model slots): модельный слот длины — тот же
+        # контракт, что в generate(); None → ключа нет (паритет).
+        if max_output_tokens is not None:
+            try:
+                _max_out = int(max_output_tokens)
+            except (TypeError, ValueError):
+                _max_out = 0
+            if _max_out > 0:
+                payload["max_tokens"] = _max_out
+        # F7 (review iter1): фактически использованная модель (фоллбэк).
+        used_model = self._chat_model
+        # INS-EXACT/INS-TRACE: тот же bounded-журнал, что у generate().
+        sent: list = []
+        try:
+            response = await self._post_with_key(
+                "/chat/completions", payload, chat_id=chat_id, key=key,
+                sent=sent, module=module, step=step)
+        except NoApiKeyForChat:
+            raise
+        except LLMError as exc:
+            # INS-TRACE: все фактические попытки primary (ретраи видны),
+            # а не только последнее тело — как в generate().
+            self._record_sent_attempts(
+                sent, payload=payload, messages=messages, module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status="error", error=type(exc).__name__)
+            if not self._fallback_active or isinstance(exc, LLMBadResponseError):
+                raise
+            _LLM_STATS["fallbacks"] += 1
+            logger.warning(
+                "LLM fallback attempt | primary_error=%s | provider=%s",
+                exc, _provider_host(self._fallback_base_url))
+            if fallback_payload_adapter is not None:
+                adapter_failed = False
+                try:
+                    adapted = fallback_payload_adapter(payload)
+                    if isinstance(adapted, tuple) and len(adapted) == 2:
+                        # UR-F шаг 1 (Q6): адаптер возвращает (body,
+                        # prepared-вариант); вариант держит сервис, здесь нужен
+                        # только body.
+                        adapted = adapted[0]
+                    if isinstance(adapted, dict) and adapted.get("messages"):
+                        payload = adapted
+                        logger.info(
+                            "LLM fallback recompose | blocks_ok=1 | "
+                            "tools=%s",
+                            "kept" if adapted.get("tools") else "none")
+                    else:
+                        # UR-11b: непригодная форма — fallback-транспорт
+                        # получать primary payload НЕ должен (honest refusal).
+                        logger.warning(
+                            "LLM fallback recompose invalid (shape) — "
+                            "fallback skipped | capacity_error=1 | "
+                            "adapted_type=%s", type(adapted).__name__)
+                        adapter_failed = True
+                except Exception:
+                    # UR-11b: recompose failure — fallback skipped, исходная
+                    # primary-ошибка пробрасывается; primary as-is запрещён.
+                    logger.warning(
+                        "LLM fallback recompose FAILED — fallback skipped | "
+                        "capacity_error=1 | tools_in_payload=%s",
+                        bool(payload.get("tools")), exc_info=True)
+                    adapter_failed = True
+                if adapter_failed:
+                    raise exc
+>           fb_response = await self._fallback_with_retries(payload, sent=sent)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: TestGenerateChatRecompose.test_chat_recomposed_under_fallback_budget_tools_kept.<locals>.fb_retries() got an unexpected keyword argument 'sent'
+
+services\llm_client.py:2891: TypeError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=flags.budgets_enabled | chat=1
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable — global value used | chat=1 | enabled=True | source=default
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_requests | chat=1
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_tokens | chat=1
+WARNING  services.llm_client:llm_client.py:2855 LLM fallback attempt | primary_error=primary down | provider=fallback.example
+_ TestGenerateChatRecompose.test_chat_no_adapter_primary_sized_payload_fallback _
+
+path = '/chat/completions'
+payload = {'model': 'mystery-large-1m', 'messages': [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': '...е контекста с достаточным наполнением сообщение контекста с достаточным наполнением сообщение контекста с дост'}, ...]}
+kwargs = {'chat_id': 1, 'key': 'k-primary', 'sent': [], 'module': None, ...}
+
+    async def fail_primary(path, payload, **kwargs):
+>       raise LLMError("primary down")
+E       services.llm_client.LLMError: primary down
+
+tests\test_direct_fallback_recompose_asap32.py:179: LLMError
+
+During handling of the above exception, another exception occurred:
+
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x000001CC6CB34320>
+
+    @pytest.mark.asyncio
+    async def test_chat_no_adapter_primary_sized_payload_fallback(self):
+        """Без адаптера — прежнее поведение (payload сквозной)."""
+        client = _client()
+        seen = {}
+    
+        async def fail_primary(path, payload, **kwargs):
+            raise LLMError("primary down")
+    
+        async def fb_retries(payload):
+            seen["p"] = payload
+            return _ok_response()
+    
+        client._post_with_key = fail_primary
+        client._fallback_with_retries = fb_retries
+>       await client.generate_chat(_big_messages(10_000), chat_id=1)
+
+tests\test_direct_fallback_recompose_asap32.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <services.llm_client.LLMClient object at 0x000001CC6FDF48F0>
+messages = [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': 'user', 'content': 'сообщение контекста с д...ие контекста с достаточным наполнением сообщение контекста с достаточным наполнением сообщение контекста с дост'}, ...]
+temperature = None, tools = None, tool_choice = 'auto', chat_id = 1
+module = None, step = None, correlation_id = None, tool_name = ''
+fallback_payload_adapter = None, max_output_tokens = None
+
+    async def generate_chat(self, messages, *, temperature: float | None = None,
+                            tools: list[dict] | None = None,
+                            tool_choice: str | dict = "auto",
+                            chat_id: int | None = None,
+                            module: str | None = None,
+                            step: str | None = None,
+                            correlation_id: str | None = None,
+                            tool_name: str = "",
+                            fallback_payload_adapter=None,
+                            max_output_tokens: int | None = None
+                            ) -> "LLMChatResult":
+        """POST /chat/completions с tools/tool_choice (Эпик 04.09.2026, 3.3).
+    
+        Контракт {model, messages}: температура — как в generate (None →
+        ключа нет); tools/tool_choice добавляются в payload ТОЛЬКО когда
+        tools передан. Ретраи/фоллбэк _post/_fallback_with_retries — как в
+        generate (payload сквозной). Парсинг: content (может быть None при
+        tool_calls) + tool_calls + finish_reason. Легаси generate() НЕ
+        меняется (0 регрессий, FR-10/AC-2.1).
+    
+        MCA-23 фаза 2 (§Model slots): ``max_output_tokens`` — тот же
+        контракт, что в generate(): None/<=0 → ключ ``max_tokens`` в
+        payload НЕ добавляется (байт-паритет всех прежних tool-вызовов);
+        передаётся только явно longform-планами (services/response_extent).
+        Ключ переживает fallback-recompose (адаптер меняет только messages).
+        Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (см. generate). ФИКС R6:
+        key/source — per-call локалы.
+    
+        ASAP-3.2 (ADR-1028-5 D10, §44–§46): ``fallback_payload_adapter`` —
+        тот же контракт, что в ``generate()``: callable ``(payload) ->
+        payload``; вызывается РОВНО ОДИН раз при переключении на fallback
+        ДО отправки — recompose ПОЛНОГО logical context (messages +
+        tool schemas + tool state) под окно fallback-модели. Tool
+        schemas входят в fallback budget (§45) — recompose обязан их
+        учитывать (адаптер получает payload с ``tools``/``tool_choice``).
+        None/ошибка адаптера → payload байт-в-байт прежний (fail-open с
+        громкой oversized-risk диагностикой, паритет generate()).
+        """
+        # P0 SMART transport: hot-apply модели/адреса/политики на входе.
+        self._refresh_chat_model()
+        self._refresh_transport_policy()
+        key, source = await self._resolve_api_key_and_source(chat_id)
+        payload = {"model": self._chat_model, "messages": messages}
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if tools is not None:
+            payload["tools"] = tools
+            payload["tool_choice"] = tool_choice
+        # MCA-23 фаза 2 (§Model slots): модельный слот длины — тот же
+        # контракт, что в generate(); None → ключа нет (паритет).
+        if max_output_tokens is not None:
+            try:
+                _max_out = int(max_output_tokens)
+            except (TypeError, ValueError):
+                _max_out = 0
+            if _max_out > 0:
+                payload["max_tokens"] = _max_out
+        # F7 (review iter1): фактически использованная модель (фоллбэк).
+        used_model = self._chat_model
+        # INS-EXACT/INS-TRACE: тот же bounded-журнал, что у generate().
+        sent: list = []
+        try:
+            response = await self._post_with_key(
+                "/chat/completions", payload, chat_id=chat_id, key=key,
+                sent=sent, module=module, step=step)
+        except NoApiKeyForChat:
+            raise
+        except LLMError as exc:
+            # INS-TRACE: все фактические попытки primary (ретраи видны),
+            # а не только последнее тело — как в generate().
+            self._record_sent_attempts(
+                sent, payload=payload, messages=messages, module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status="error", error=type(exc).__name__)
+            if not self._fallback_active or isinstance(exc, LLMBadResponseError):
+                raise
+            _LLM_STATS["fallbacks"] += 1
+            logger.warning(
+                "LLM fallback attempt | primary_error=%s | provider=%s",
+                exc, _provider_host(self._fallback_base_url))
+            if fallback_payload_adapter is not None:
+                adapter_failed = False
+                try:
+                    adapted = fallback_payload_adapter(payload)
+                    if isinstance(adapted, tuple) and len(adapted) == 2:
+                        # UR-F шаг 1 (Q6): адаптер возвращает (body,
+                        # prepared-вариант); вариант держит сервис, здесь нужен
+                        # только body.
+                        adapted = adapted[0]
+                    if isinstance(adapted, dict) and adapted.get("messages"):
+                        payload = adapted
+                        logger.info(
+                            "LLM fallback recompose | blocks_ok=1 | "
+                            "tools=%s",
+                            "kept" if adapted.get("tools") else "none")
+                    else:
+                        # UR-11b: непригодная форма — fallback-транспорт
+                        # получать primary payload НЕ должен (honest refusal).
+                        logger.warning(
+                            "LLM fallback recompose invalid (shape) — "
+                            "fallback skipped | capacity_error=1 | "
+                            "adapted_type=%s", type(adapted).__name__)
+                        adapter_failed = True
+                except Exception:
+                    # UR-11b: recompose failure — fallback skipped, исходная
+                    # primary-ошибка пробрасывается; primary as-is запрещён.
+                    logger.warning(
+                        "LLM fallback recompose FAILED — fallback skipped | "
+                        "capacity_error=1 | tools_in_payload=%s",
+                        bool(payload.get("tools")), exc_info=True)
+                    adapter_failed = True
+                if adapter_failed:
+                    raise exc
+>           fb_response = await self._fallback_with_retries(payload, sent=sent)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: TestGenerateChatRecompose.test_chat_no_adapter_primary_sized_payload_fallback.<locals>.fb_retries() got an unexpected keyword argument 'sent'
+
+services\llm_client.py:2891: TypeError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=flags.budgets_enabled | chat=1
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable — global value used | chat=1 | enabled=True | source=default
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_requests | chat=1
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_tokens | chat=1
+WARNING  services.llm_client:llm_client.py:2855 LLM fallback attempt | primary_error=primary down | provider=fallback.example
+_ TestGenerateChatRecompose.test_chat_adapter_failure_loud_oversized_diagnostic _
+
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x000001CC6CB34920>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x000001CC6FE55AC0>
+
+    @pytest.mark.asyncio
+    async def test_chat_adapter_failure_loud_oversized_diagnostic(
+            self, caplog):
+        """D10 усиление: ошибка адаптера → fail-open, но oversized-risk
+        диагностика ВИДИМА (не тихая отправка)."""
+        client = _client()
+        seen = {}
+    
+        async def fail_primary(path, payload, **kwargs):
+            raise LLMError("primary down")
+    
+        async def fb_retries(payload):
+            seen["p"] = payload
+            return _ok_response()
+    
+        client._post_with_key = fail_primary
+        client._fallback_with_retries = fb_retries
+    
+        def bad_adapter(payload):
+            raise RuntimeError("boom")
+    
+        import logging
+        with caplog.at_level(logging.WARNING, logger="services.llm_client"):
+>           await client.generate_chat(_big_messages(1_000), chat_id=1,
+                                       fallback_payload_adapter=bad_adapter)
+
+tests\test_direct_fallback_recompose_asap32.py:213: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\llm_client.py:2890: in generate_chat
+    raise exc
+services\llm_client.py:2840: in generate_chat
+    response = await self._post_with_key(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/chat/completions'
+payload = {'model': 'mystery-large-1m', 'messages': [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': '...екста с достаточным наполнением сообщение контекста с дост'}, {'role': 'user', 'content': 'бот, ответь на вопрос P0'}]}
+kwargs = {'chat_id': 1, 'key': 'k-primary', 'sent': [], 'module': None, ...}
+
+    async def fail_primary(path, payload, **kwargs):
+>       raise LLMError("primary down")
+E       services.llm_client.LLMError: primary down
+
+tests\test_direct_fallback_recompose_asap32.py:199: LLMError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=flags.budgets_enabled | chat=1
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable — global value used | chat=1 | enabled=True | source=default
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_requests | chat=1
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_tokens | chat=1
+WARNING  services.llm_client:llm_client.py:2855 LLM fallback attempt | primary_error=primary down | provider=fallback.example
+WARNING  services.llm_client:llm_client.py:2884 LLM fallback recompose FAILED — fallback skipped | capacity_error=1 | tools_in_payload=False
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\llm_client.py", line 2840, in generate_chat
+    response = await self._post_with_key(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\tests\test_direct_fallback_recompose_asap32.py", line 199, in fail_primary
+    raise LLMError("primary down")
+services.llm_client.LLMError: primary down
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\llm_client.py", line 2861, in generate_chat
+    adapted = fallback_payload_adapter(payload)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\tests\test_direct_fallback_recompose_asap32.py", line 209, in bad_adapter
+    raise RuntimeError("boom")
+RuntimeError: boom
+_ TestGenerateStrengthenedDiagnostics.test_generate_adapter_error_loud_and_payload_intact _
+
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x000001CC6CA5E990>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x000001CC6FBE1F10>
+
+    @pytest.mark.asyncio
+    async def test_generate_adapter_error_loud_and_payload_intact(
+            self, caplog):
+        """generate(): якорь ASAP-3.1 (payload прежний) + D10 (громкий лог)."""
+        client = _client()
+        seen = {}
+    
+        async def fail_primary(path, payload, **kwargs):
+            raise LLMError("down")
+    
+        async def fb_retries(payload):
+            seen["p"] = payload
+            return _ok_response("done")
+    
+        client._post_with_key = fail_primary
+        client._fallback_with_retries = fb_retries
+    
+        def bad_adapter(payload):
+            raise RuntimeError("boom")
+    
+        import logging
+        with caplog.at_level(logging.WARNING, logger="services.llm_client"):
+>           out = await client.generate(
+                [{"role": "user", "content": "hi"}], chat_id=1,
+                fallback_payload_adapter=bad_adapter)
+
+tests\test_direct_fallback_recompose_asap32.py:293: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\llm_client.py:2368: in generate
+    completion = await self.generate_with_metadata(
+services\llm_client.py:2549: in generate_with_metadata
+    raise exc
+services\llm_client.py:2489: in generate_with_metadata
+    response = await self._post_with_key(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/chat/completions'
+payload = {'model': 'mystery-large-1m', 'messages': [{'role': 'user', 'content': 'hi'}]}
+kwargs = {'chat_id': 1, 'key': 'k-primary', 'sent': [], 'module': None, ...}
+
+    async def fail_primary(path, payload, **kwargs):
+>       raise LLMError("down")
+E       services.llm_client.LLMError: down
+
+tests\test_direct_fallback_recompose_asap32.py:279: LLMError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=flags.budgets_enabled | chat=1
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable — global value used | chat=1 | enabled=True | source=default
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_requests | chat=1
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_tokens | chat=1
+WARNING  services.llm_client:llm_client.py:2516 LLM fallback attempt | primary_error=down | provider=fallback.example
+WARNING  services.llm_client:llm_client.py:2543 LLM fallback recompose FAILED — fallback skipped | capacity_error=1 | fallback_window=mystery-small-16k
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\llm_client.py", line 2489, in generate_with_metadata
+    response = await self._post_with_key(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\tests\test_direct_fallback_recompose_asap32.py", line 279, in fail_primary
+    raise LLMError("down")
+services.llm_client.LLMError: down
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\llm_client.py", line 2522, in generate_with_metadata
+    adapted = fallback_payload_adapter(payload)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\tests\test_direct_fallback_recompose_asap32.py", line 289, in bad_adapter
+    raise RuntimeError("boom")
+RuntimeError: boom
+_ TestGenerateStrengthenedDiagnostics.test_generate_adapter_invalid_shape_loud _
+
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x000001CC6CB15010>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x000001CC6FBE1A00>
+
+    @pytest.mark.asyncio
+    async def test_generate_adapter_invalid_shape_loud(self, caplog):
+        client = _client()
+    
+        async def fail_primary(path, payload, **kwargs):
+            raise LLMError("down")
+    
+        async def fb_retries(payload):
+            return _ok_response("done")
+    
+        client._post_with_key = fail_primary
+        client._fallback_with_retries = fb_retries
+        import logging
+        with caplog.at_level(logging.WARNING, logger="services.llm_client"):
+>           await client.generate(
+                [{"role": "user", "content": "hi"}], chat_id=1,
+                fallback_payload_adapter=lambda p: {"no": "messages"})
+
+tests\test_direct_fallback_recompose_asap32.py:314: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\llm_client.py:2368: in generate
+    completion = await self.generate_with_metadata(
+services\llm_client.py:2549: in generate_with_metadata
+    raise exc
+services\llm_client.py:2489: in generate_with_metadata
+    response = await self._post_with_key(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/chat/completions'
+payload = {'model': 'mystery-large-1m', 'messages': [{'role': 'user', 'content': 'hi'}]}
+kwargs = {'chat_id': 1, 'key': 'k-primary', 'sent': [], 'module': None, ...}
+
+    async def fail_primary(path, payload, **kwargs):
+>       raise LLMError("down")
+E       services.llm_client.LLMError: down
+
+tests\test_direct_fallback_recompose_asap32.py:305: LLMError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=flags.budgets_enabled | chat=1
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable — global value used | chat=1 | enabled=True | source=default
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_requests | chat=1
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=limits.chat_global_key_budget_tokens | chat=1
+WARNING  services.llm_client:llm_client.py:2516 LLM fallback attempt | primary_error=down | provider=fallback.example
+WARNING  services.llm_client:llm_client.py:2535 LLM fallback recompose invalid (shape) — fallback skipped | capacity_error=1 | adapted_type=dict
+______________ test_build_l1_context_bot_replies_caps_and_limit _______________
+
+    def test_build_l1_context_bot_replies_caps_and_limit():
+        lines = tuple(f"ответ-{i} " + "x" * 600 for i in range(5))
+        ctx = _l1.build_l1_context(query="?", bot_replies=lines)
+        section = ctx.split(f"[{_l1.BOT_REPLIES_SECTION}]")[1]
+        section = section.split("\n\n[")[0]
+        body_lines = section.splitlines()[1:]          # без заголовка секции
+        assert len(body_lines) == 3                    # максимум 3 строки
+>       assert all(len(ln) <= _l1.L1_REPLY_BLOCK_CHARS for ln in body_lines)
+E       assert False
+E        +  where False = all(<generator object test_build_l1_context_bot_replies_caps_and_limit.<locals>.<genexpr> at 0x000001CC769BD700>)
+
+tests\test_direct_l1_corrective_r1.py:247: AssertionError
+_ TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code _
+
+self = <tests.test_selfdiag_corrective_research.TestContinuationContext object at 0x000001CC6E7596D0>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1710/test_continuation_plan_uses_re0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC60E00110>
+
+    @pytest.mark.asyncio
+    async def test_continuation_plan_uses_real_ledger_report_and_reads_code(
+            self, tmp_path, monkeypatch):
+        """C: реальный DB/ledger -> `_plan_direct_l1` -> structured decision.
+    
+        Отчёт выбирается по `output_kind='checkup_report'` (не по словам),
+        попадает в canonical L1-контекст; план содержит target=self, а
+        последующее чтение идёт без URL через реальный SourceReader на
+        fixture-снимке кандидата.
+        """
+        import time
+        from config.settings import settings
+        from services import bot_output_ledger as ledger
+        from services import hot_config as hot
+        from services.database import DatabaseService
+        from services.direct_chat_service import DirectChatService
+        from services.summary_aliases import AliasResolver
+        from tests.test_diagnostic_policy import ADMIN_ID, FakeBot, FakeCache
+    
+        class _PlanLLM:
+            def __init__(self):
+                self.captured = []
+    
+            async def generate(self, messages, **kwargs):
+                self.captured.append([dict(m) for m in messages])
+                return json.dumps({
+                    "action": "reply", "confidence": 0.9,
+                    "diagnostic_research": {
+                        "needed": True, "target": "self",
+                        "sources": ["source_code"]},
+                }, ensure_ascii=False)
+    
+        class _Stub:
+            _render_current_question = DirectChatService._render_current_question
+            _l1_speech_hints = DirectChatService._l1_speech_hints
+            _build_speech_understanding = \
+                DirectChatService._build_speech_understanding
+            _attach_l1_plan_meta = DirectChatService._attach_l1_plan_meta
+            _compose_speech_system = DirectChatService._compose_speech_system
+            _resolve_turn_slot_meta = DirectChatService._resolve_turn_slot_meta
+            _resolve_turn_tool_state = \
+                DirectChatService._resolve_turn_tool_state
+            _turn_aliases_snapshot = DirectChatService._turn_aliases_snapshot
+            _build_reply_parent_ref = \
+                DirectChatService._build_reply_parent_ref
+            _build_turn_request = DirectChatService._build_turn_request
+            _execute_turn = DirectChatService._execute_turn
+    
+            def _l1_reply_block(self, message, budget_tokens=None):
+                return DirectChatService._l1_reply_block(
+                    self, message, budget_tokens=budget_tokens)
+    
+            async def _history_partial(self, chat_id, window):
+                return False
+    
+            def __init__(self, llm, db):
+                self.llm = llm
+                self.db = db
+                self.memory = type("M", (), {
+                    "get_window_messages": staticmethod(
+                        lambda chat_id: _empty())})()
+                self.bot_id = 999
+                self.aliases = AliasResolver({})
+    
+        async def _empty():
+            return []
+    
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        try:
+            await ledger.record_delivered_output(
+                db, chat_id=CHAT_ID, tg_message_id=77,
+                text="ОТЧЁТ-МАРКЕР: код проверен, строка 7541.",
+                output_kind="checkup_report", sent_at=int(time.time()),
+                parent_message_ref="tg:2", correlation_id="checkup:c")
+            root, sha = _snapshot_repo(tmp_path)
+            monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT",
+                                str(root))
+            cache = FakeCache({ADMIN_ID: "admin"})
+            hot.set_config_cache(cache)
+            try:
+                message = type("M", (), {
+                    "text": "продолжай разбор", "caption": None,
+                    "message_id": 3,
+                    "chat": type("C", (), {"type": "supergroup"})(),
+                    "reply_to_message": None, "from_user": None})()
+                llm = _PlanLLM()
+>               plan, meta = await DirectChatService._plan_direct_l1(
+                    _Stub(llm, db), CHAT_ID, message, "продолжай разбор",
+                    None, bundle=None, target_name="Аня", user_id=ADMIN_ID,
+                    character_block="", character_ctx=None,
+                    lore_enabled=False, image_enabled=False,
+                    force_required=False, reply_bot=True,
+                    bot_replied_recently=True)
+
+tests\test_selfdiag_corrective_research.py:719: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_selfdiag_corrective_research.TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code.<locals>._Stub object at 0x000001CC74236BD0>
+chat_id = -1009876543210
+message = <tests.test_selfdiag_corrective_research.M object at 0x000001CC710399A0>
+query = 'продолжай разбор', correlation_id = None, bundle = None
+target_name = 'Аня', user_id = 7000001, character_block = ''
+lore_enabled = False, image_enabled = False, reply_bot = True
+force_required = False, character_ctx = None, extra_media_markers = ()
+bot_replies = (), bot_replied_recently = True, reactions_enabled = False
+time_snapshot = None, history_range_note = ''
+
+    async def _plan_direct_l1(self, chat_id: int, message, query: str,
+                              correlation_id: str | None, *, bundle,
+                              target_name: str, user_id: int | None,
+                              character_block: str, lore_enabled: bool,
+                              image_enabled: bool, reply_bot: bool,
+                              force_required: bool = False,
+                              character_ctx=None,
+                              extra_media_markers: tuple = (),
+                              bot_replies: tuple[str, ...] = (),
+                              bot_replied_recently: bool = False,
+                              reactions_enabled: bool = False,
+                              time_snapshot=None,
+                              history_range_note: str = "") -> tuple:
+        """§1.1/§1.5/§1.6 + v6 D03: pre-tool L1 Planner — 1 LLM call →
+        L1Plan.
+    
+        Ladder: configured L1 slot (dedicated, hot-first) → (fallback ON)
+        main model → дет. fallback решает вызывающий (fallback_plan).
+        Bounded repair: ровно 1 повтор при невалидном JSON (D14).
+        D03 (§18C.1): ПЕРЕД попыткой — общий permission-резолв
+        ключей/бюджета (``authorize_l1_call``): no-own-key +
+        global-forbidden и exhausted budget БЛОКИРУЮТ попытку
+        (NoApiKeyForChat пробрасывается вызывающему — тот же sandbox-путь,
+        что у обычных вызовов); ОБЕ попытки (первая + repair) учтены
+        (usage/cost/unknown-cost + бюджетный счётчик глобального ключа).
+        D03 (§18C.6): dedicated температура реально применяется в payload;
+        провайдер отверг temperature → честный единственный retry без неё
+        + флаг ``temperature_unsupported``. usage-row ``step="l1_planner"``
+        (генерится llm.generate; для dedicated слота — вручную) + agentic
+        event ``L1_PLAN`` (§1.5). Никогда не бросает, КРОМЕ
+        NoApiKeyForChat (блок политики); ``None``-план → сигнал
+        deterministic fallback (D13/D14).
+    
+        UR-A (§2.1): L1 больше не отдельный код — адаптер собирает контекст
+        прямого хода, строит `TurnRequest` и передаёт его единственному
+        исполнителю `_execute_turn` (слот/право/бюджет — общий резолв).
+    
+        P0 DIRECT-TRIGGER (26.11.2026): ``force_required`` — устаревший
+        параметр совместимости прямых вызовов; он больше не влияет ни на
+        DeliveryPolicy, ни на контекст L1 (команда «бот» не форсирует reply).
+        """
+        started = time.monotonic()
+        meta: dict = {"source": "main", "inherited": True, "fallback": "",
+                      "repair": 0, "override": "",
+                      "credential_source": "global",
+                      "temperature_applied": False}
+        system_prompt_l1 = resolve_prompt(
+            "prompts.direct_l1_planner_system_prompt",
+            DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        # SELF-DIAG-01 corrective: typed diagnostic decision приходит как
+        # ДАННЫЕ контекста (`build_l1_context`), системный канон байт-в-байт.
+        # ── UR-A (UR-02.1): один резолв слота/ключа/бюджета на оба триггера.
+        # D03 (§18C.1): permission-политика — ПЕРЕД платными попытками
+        # (NoApiKeyForChat пробрасывается: тот же sandbox-путь).
+        _slot_meta, slot = await self._resolve_turn_slot_meta(
+            chat_id, prompt_text=system_prompt_l1)
+        meta["credential_source"] = str(_slot_meta.credential_source)
+        _l1_budget = int(_slot_meta.budget_tokens)
+        meta["l1_context_budget"] = _l1_budget
+        meta["l1_context_source"] = str(_slot_meta.budget_source or "")
+        try:
+            window = await self.memory.get_window_messages(chat_id)
+        except Exception:
+            window = []
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
+        # UR-11a: сырое окно уходит в `build_l1_context`; окно выбирает
+        # единственный allocator (`allocate_selection` через composer-helper)
+        # уже ПОСЛЕ fixed-секций и net stage budget. `select_l1_window`
+        # остаётся legacy/fail-open и на live L1 не вызывается.
+        meta["l1_window_rows_raw"] = len(tuple(window or ()))
+        # ER-08-RC (§3): фактический кап строки принадлежит allocator;
+        # отдельного 200-символьного капа на активном L1-пути нет.
+        meta["l1_line_chars_cap"] = 0
+>       _l1_reply_text = self._l1_reply_block(message,
+                                              budget_tokens=_l1_budget,
+                                              preserve=True)
+E       TypeError: TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code.<locals>._Stub._l1_reply_block() got an unexpected keyword argument 'preserve'
+
+services\direct_chat_service.py:9017: TypeError
+---------------------------- Captured stderr call -----------------------------
+warning: in the working copy of 'services/checkup_service.py', LF will be replaced by CRLF the next time Git touches it
+_________ test_direct_l1_addendum_and_outage_keeps_previous_decision __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC7450E2A0>
+
+    @pytest.mark.asyncio
+    async def test_direct_l1_addendum_and_outage_keeps_previous_decision(
+            monkeypatch):
+        """L1 пустой ответ → plan None, но предыдущее решение не потеряно.
+    
+        Проверяется фактический `_plan_direct_l1` (резолв промпта/слота/рендера
+        контекста), а не только helper. Второго классификатора/цикла нет.
+        """
+        from services import direct_chat_service as dcs
+        from services import hot_config as hot
+        from services import chat_params
+        from services import prompt_composer as pc
+        from services.summary_aliases import AliasResolver
+    
+        class _StubLLM:
+            def __init__(self):
+                self.captured = []
+    
+            async def generate(self, messages, **kwargs):
+                self.captured.append({"step": kwargs.get("step"),
+                                      "messages": [dict(m) for m in messages]})
+                raise LLMBadResponseError("empty content")
+    
+        class _Stub:
+            _render_current_question = dcs.DirectChatService._render_current_question
+            _l1_speech_hints = dcs.DirectChatService._l1_speech_hints
+            _build_speech_understanding = \
+                dcs.DirectChatService._build_speech_understanding
+            _attach_l1_plan_meta = dcs.DirectChatService._attach_l1_plan_meta
+            _compose_speech_system = dcs.DirectChatService._compose_speech_system
+            _resolve_turn_slot_meta = dcs.DirectChatService._resolve_turn_slot_meta
+            _resolve_turn_tool_state = \
+                dcs.DirectChatService._resolve_turn_tool_state
+            _turn_aliases_snapshot = dcs.DirectChatService._turn_aliases_snapshot
+            _build_reply_parent_ref = \
+                dcs.DirectChatService._build_reply_parent_ref
+            _build_turn_request = dcs.DirectChatService._build_turn_request
+            _execute_turn = dcs.DirectChatService._execute_turn
+            _recent_checkup_report = dcs.DirectChatService._recent_checkup_report
+    
+            def _l1_reply_block(self, message, budget_tokens=None):
+                return dcs.DirectChatService._l1_reply_block(
+                    self, message, budget_tokens=budget_tokens)
+    
+            async def _history_partial(self, chat_id, window):
+                return False
+    
+            def __init__(self, llm):
+                self.llm = llm
+                self.memory = type("M", (), {
+                    "get_window_messages": staticmethod(lambda chat_id: _empty())})()
+                self.db = None
+                self.bot_id = 999
+                self.aliases = AliasResolver({})
+    
+        async def _empty():
+            return []
+    
+        message = type("M", (), {
+            "text": "продолжи разбор", "caption": None, "message_id": 2,
+            "chat": type("C", (), {"type": "supergroup"})(),
+            "reply_to_message": None, "from_user": None})()
+    
+        hot.set_config_cache(None)
+        chat_params.set_chat_params_cache(None)
+        pc.reset_state()
+        # Уже установленное решение предыдущего диагностического хода.
+        l1.record_l1_diagnostics(
+            CHAT_ID, diagnostic_needed=True, diagnostic_target="self",
+            diagnostic_sources="source_code")
+        llm = _StubLLM()
+>       plan, meta = await dcs.DirectChatService._plan_direct_l1(
+            _Stub(llm), CHAT_ID, message, "продолжи разбор", None,
+            bundle=None, target_name="Аня", user_id=None,
+            character_block="", character_ctx=None, lore_enabled=False,
+            image_enabled=False, force_required=False, reply_bot=False)
+
+tests\test_selfdiag_corrective_research.py:1151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_selfdiag_corrective_research.test_direct_l1_addendum_and_outage_keeps_previous_decision.<locals>._Stub object at 0x000001CC6FBE0800>
+chat_id = -1009876543210
+message = <tests.test_selfdiag_corrective_research.M object at 0x000001CC743D40B0>
+query = 'продолжи разбор', correlation_id = None, bundle = None
+target_name = 'Аня', user_id = None, character_block = '', lore_enabled = False
+image_enabled = False, reply_bot = False, force_required = False
+character_ctx = None, extra_media_markers = (), bot_replies = ()
+bot_replied_recently = False, reactions_enabled = False, time_snapshot = None
+history_range_note = ''
+
+    async def _plan_direct_l1(self, chat_id: int, message, query: str,
+                              correlation_id: str | None, *, bundle,
+                              target_name: str, user_id: int | None,
+                              character_block: str, lore_enabled: bool,
+                              image_enabled: bool, reply_bot: bool,
+                              force_required: bool = False,
+                              character_ctx=None,
+                              extra_media_markers: tuple = (),
+                              bot_replies: tuple[str, ...] = (),
+                              bot_replied_recently: bool = False,
+                              reactions_enabled: bool = False,
+                              time_snapshot=None,
+                              history_range_note: str = "") -> tuple:
+        """§1.1/§1.5/§1.6 + v6 D03: pre-tool L1 Planner — 1 LLM call →
+        L1Plan.
+    
+        Ladder: configured L1 slot (dedicated, hot-first) → (fallback ON)
+        main model → дет. fallback решает вызывающий (fallback_plan).
+        Bounded repair: ровно 1 повтор при невалидном JSON (D14).
+        D03 (§18C.1): ПЕРЕД попыткой — общий permission-резолв
+        ключей/бюджета (``authorize_l1_call``): no-own-key +
+        global-forbidden и exhausted budget БЛОКИРУЮТ попытку
+        (NoApiKeyForChat пробрасывается вызывающему — тот же sandbox-путь,
+        что у обычных вызовов); ОБЕ попытки (первая + repair) учтены
+        (usage/cost/unknown-cost + бюджетный счётчик глобального ключа).
+        D03 (§18C.6): dedicated температура реально применяется в payload;
+        провайдер отверг temperature → честный единственный retry без неё
+        + флаг ``temperature_unsupported``. usage-row ``step="l1_planner"``
+        (генерится llm.generate; для dedicated слота — вручную) + agentic
+        event ``L1_PLAN`` (§1.5). Никогда не бросает, КРОМЕ
+        NoApiKeyForChat (блок политики); ``None``-план → сигнал
+        deterministic fallback (D13/D14).
+    
+        UR-A (§2.1): L1 больше не отдельный код — адаптер собирает контекст
+        прямого хода, строит `TurnRequest` и передаёт его единственному
+        исполнителю `_execute_turn` (слот/право/бюджет — общий резолв).
+    
+        P0 DIRECT-TRIGGER (26.11.2026): ``force_required`` — устаревший
+        параметр совместимости прямых вызовов; он больше не влияет ни на
+        DeliveryPolicy, ни на контекст L1 (команда «бот» не форсирует reply).
+        """
+        started = time.monotonic()
+        meta: dict = {"source": "main", "inherited": True, "fallback": "",
+                      "repair": 0, "override": "",
+                      "credential_source": "global",
+                      "temperature_applied": False}
+        system_prompt_l1 = resolve_prompt(
+            "prompts.direct_l1_planner_system_prompt",
+            DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        # SELF-DIAG-01 corrective: typed diagnostic decision приходит как
+        # ДАННЫЕ контекста (`build_l1_context`), системный канон байт-в-байт.
+        # ── UR-A (UR-02.1): один резолв слота/ключа/бюджета на оба триггера.
+        # D03 (§18C.1): permission-политика — ПЕРЕД платными попытками
+        # (NoApiKeyForChat пробрасывается: тот же sandbox-путь).
+        _slot_meta, slot = await self._resolve_turn_slot_meta(
+            chat_id, prompt_text=system_prompt_l1)
+        meta["credential_source"] = str(_slot_meta.credential_source)
+        _l1_budget = int(_slot_meta.budget_tokens)
+        meta["l1_context_budget"] = _l1_budget
+        meta["l1_context_source"] = str(_slot_meta.budget_source or "")
+        try:
+            window = await self.memory.get_window_messages(chat_id)
+        except Exception:
+            window = []
+        # B2/R1: MemoryManager может отдавать sqlite3.Row; нормализуем на
+        # live-сайте, чтобы окно/raw count не выглядели пустыми.
+        window = _l1.normalize_window_rows(window)
+        # UR-11a: сырое окно уходит в `build_l1_context`; окно выбирает
+        # единственный allocator (`allocate_selection` через composer-helper)
+        # уже ПОСЛЕ fixed-секций и net stage budget. `select_l1_window`
+        # остаётся legacy/fail-open и на live L1 не вызывается.
+        meta["l1_window_rows_raw"] = len(tuple(window or ()))
+        # ER-08-RC (§3): фактический кап строки принадлежит allocator;
+        # отдельного 200-символьного капа на активном L1-пути нет.
+        meta["l1_line_chars_cap"] = 0
+>       _l1_reply_text = self._l1_reply_block(message,
+                                              budget_tokens=_l1_budget,
+                                              preserve=True)
+E       TypeError: test_direct_l1_addendum_and_outage_keeps_previous_decision.<locals>._Stub._l1_reply_block() got an unexpected keyword argument 'preserve'
+
+services\direct_chat_service.py:9017: TypeError
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_direct_context_scenarios_asap3.py::TestStaleSummary::test_lag400_middle_topk_under_pressure
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud
+FAILED tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit
+FAILED tests/test_selfdiag_corrective_research.py::TestContinuationContext::test_continuation_plan_uses_real_ledger_report_and_reads_code
+FAILED tests/test_selfdiag_corrective_research.py::test_direct_l1_addendum_and_outage_keeps_previous_decision
+9 failed, 635 passed, 1 warning in 199.05s (0:03:19)

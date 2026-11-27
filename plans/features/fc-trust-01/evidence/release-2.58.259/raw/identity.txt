@@ -1,0 +1,11 @@
+release_branch = release/fct-s3-2.58.259
+head = baab52324943fa55e69378fe405b43f77a94e47a
+tree = 211c75fca22a4d0d805cdbd1ff211e8657d7a1ee
+base_deployed = 886d11073cfdaa4646597c3a2b1ae09fde42c342
+base_version = 2.58.258
+candidate_reviewed = 2c811d98b7257810c2fef5b61ce7b416798ccb40   # 2c811d98b (r2 APPROVED)
+f6_test_commit = 40866af418cab7f18e29a234444cf229f0561810
+feature_tip = d12263f35d2fafe2be4e43bfc89a7bd684b1f7e5
+bump_commit = baab52324943fa55e69378fe405b43f77a94e47a
+head_subject = chore(release): 2.58.259 - bump APP_VERSION and version pins (FCT-S3 retrieval)
+dirty_tracked = false

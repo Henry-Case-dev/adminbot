@@ -1,0 +1,39 @@
+# Product byte-identity: release tip vs reviewed candidate vs feature tip
+services/factcheck_planner.py
+  release_tip_blob   = 3099bd9c30c8ada4b6795369788ba9d19a912f3b
+  candidate_blob     = 3099bd9c30c8ada4b6795369788ba9d19a912f3b
+  feature_tip_blob   = 3099bd9c30c8ada4b6795369788ba9d19a912f3b
+  identical          = True
+services/search_aggregator.py
+  release_tip_blob   = 9a708f2c4def985ac2b168be776b741dd994911a
+  candidate_blob     = 9a708f2c4def985ac2b168be776b741dd994911a
+  feature_tip_blob   = 9a708f2c4def985ac2b168be776b741dd994911a
+  identical          = True
+
+# Zero-change guarantee (contract expects 0 changes)
+services/safe_fetch.py  base=7e7cf0a505a9 tip=7e7cf0a505a9 identical=True
+services/factcheck_attribution.py  base=bbcedf1b1db0 tip=bbcedf1b1db0 identical=True
+
+# Product/test paths changed by the feature itself (vs merge-base)
+merge_base(base,candidate) = 9516c912554bb1062f62a63b6689f418c1cb5425
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/index.md
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/green_acceptance_1.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/green_acceptance_2.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/green_acceptance_3.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/green_acceptance_4.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/green_broad.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/green_consumers.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/green_slice.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/mutations.txt
+A	plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/raw/red_base.txt
+M	services/factcheck_planner.py
+M	services/search_aggregator.py
+M	tests/test_evol_fc_evidence_style.py
+M	tests/test_factcheck_fc_r1_fix.py
+M	tests/test_factcheck_post_release_w1.py
+M	tests/test_factcheck_resources.py
+M	tests/test_factcheck_w7_acceptance_cfg06.py
+M	tests/test_fc_backend_corrective.py
+A	tests/test_fc_trust_retrieval.py
+
+BYTE_IDENTICAL_ALL = True

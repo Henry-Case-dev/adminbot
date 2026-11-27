@@ -1,0 +1,16 @@
+# 12-file contract acceptance set (§3/§8)
+# files: tests/test_factcheck_planner_cfg06.py tests/test_factcheck_p0_fc.py tests/test_factcheck_resources.py tests/test_evol_fc_evidence_style.py tests/test_search_aggregator.py tests/test_search_short_tokens.py tests/test_search_source_dates.py tests/test_unified_reply_ur_b_search_first.py tests/test_ur_search_first.py tests/test_evol_evidence_routing.py tests/test_fc_backend_corrective.py tests/test_factcheck_service.py
+
+........................................................................ [ 18%]
+........................................................................ [ 36%]
+........................................................................ [ 54%]
+........................................................................ [ 72%]
+........................................................................ [ 90%]
+.......................................                                  [100%]
+============================== warnings summary ===============================
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+  C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\search_aggregator.py:1129: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+    with DDGS(timeout=int(max(1.0, timeout))) as ddgs:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+399 passed, 1 warning in 24.29s
