@@ -15251,11 +15251,15 @@
       lockAuth: function (text) {
         this.authLocked = true;
         if (text) this.authError = text;
-        // SAC-REV-R1-F1: без авторизации контекст области не разрешится —
-        // отпускаем ожидающие speech/persona-загрузки, чтобы они честно
-        // упёрлись в 401 (`api()` бросает), а не висели «Загружаем…».
-        if (typeof this._markChatCtxReady === 'function') {
-          this._markChatCtxReady();
+        // SAC-REV-R2-F1: блокировка НЕ объявляет контекст области известным.
+        // После восстановления входа контекст должен быть разрешён заново —
+        // загрузчики speech/persona ждут `loadAccessCtx`, иначе первый запрос
+        // уходит без X-Chat-Id и цель сохранения фиксируется как global.
+        this.chatCtxReady = false;
+        // Ожидающие не подвешиваем: отпускаем их, следующий шаг — `api()`,
+        // который при authLocked честно бросает 401 (как раньше).
+        if (typeof this._releaseChatCtxWaiters === 'function') {
+          this._releaseChatCtxWaiters();
         }
         _markAppReady();
         _setAppBusy(false);
@@ -15287,6 +15291,10 @@
             self.loadConfig();
             self.loadKeyStatus();
             if (self.canViewTab('access')) self.loadLocalAdmins();
+            // SAC-REV-R2-F1: вкладку/её загрузчики запускаем ТОЛЬКО после
+            // применения области — первый Core/overview/persona запрос уже
+            // несёт X-Chat-Id, а цель сохранения — фактическая область.
+            self.setTab(self.activeTab);
           });
           if (self.canViewTab('access')) {
             self.loadAdmins();
@@ -15297,8 +15305,6 @@
           if (!self.hasPerm('section.chat_lore')) {
             self.loadChats(true);
           }
-          // ФИКС 2026-09-03: автозагрузка активной вкладки (как в mounted)
-          self.setTab(self.activeTab);
         });
       },
 
@@ -15680,18 +15686,26 @@
       // loadAccessCtx (см. chatCtxReady). Загрузчики speech/persona ждут эту
       // точку, чтобы первый запрос уже нёс X-Chat-Id и цель сохранения была
       // фактической областью, а не ложным global.
-      _markChatCtxReady: function () {
-        this.chatCtxReady = true;
+      _releaseChatCtxWaiters: function () {
         var waiters = this._chatCtxWaiters || [];
         this._chatCtxWaiters = [];
         for (var i = 0; i < waiters.length; i++) {
           try { waiters[i](); } catch (e) { /* no-op */ }
         }
       },
+      _markChatCtxReady: function () {
+        this.chatCtxReady = true;
+        this._releaseChatCtxWaiters();
+      },
       _whenChatCtxReady: function () {
         // undefined (unit-стабы без полного стейта) — считаем готовым, чтобы
         // не подвешивать существующие harness-вызовы.
         if (this.chatCtxReady !== false) return Promise.resolve();
+        // Авторизация заблокирована: область сама не разрешится, поэтому не
+        // держим «Загружаем…» — пусть загрузчик дойдёт до `api()` и получит
+        // честный 401. Готовым контекст при этом НЕ объявляется (latch
+        // сбрасывается в lockAuth до повторной инициализации).
+        if (this.authLocked) return Promise.resolve();
         var self = this;
         return new Promise(function (resolve) {
           self._chatCtxWaiters = self._chatCtxWaiters || [];
