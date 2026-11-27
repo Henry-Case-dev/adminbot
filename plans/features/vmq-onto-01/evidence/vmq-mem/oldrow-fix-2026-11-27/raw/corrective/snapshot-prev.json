@@ -1,0 +1,600 @@
+{
+ "artifact_kind": "vmq_oldrow_f1_readonly",
+ "measured_at_utc": "2026-11-27T12:16:30.565288+00:00",
+ "code_root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-oldrow-fix-d6038546e10e-5a0fd4ae",
+ "chat_id": -1002661910336,
+ "limit": 10,
+ "period_slots": 2,
+ "snapshot_sha256": "450604f133ee790eb989c06d186a5fcc24f2709000a50596a8200e479da9a89e",
+ "snapshot_bytes": 6766456832,
+ "signatures": {
+  "resolve_period_intent": "(query, *, memory_scope: 'str' = 'auto', request_intent: 'str' = '', request_mode: 'str' = '', plan_act: 'str' = '', subject_present: 'bool' = False, current_state: 'bool' = False) -> 'PeriodIntent'",
+  "select_period_rows": "(rows, *, query: 'str' = '', intent: \"'PeriodIntent | None'\" = None, policy: 'str' = 'auto', slots: 'int' = 2, reference_year: 'int | None' = None, review: 'bool' = False, subject_uids=(), subject_names=()) -> 'tuple[list, dict]'"
+ },
+ "consumer": {
+  "P1_auto": {
+   "alias": "P1",
+   "query_masked": "что ты знаешь про <subject>?",
+   "scope": "auto",
+   "fact_limit": null,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    },
+    {
+     "period_fill": true,
+     "channels": [
+      "lexical",
+      "vector",
+      "author_window"
+     ]
+    }
+   ],
+   "base_rows": 5,
+   "base_slice_full": false,
+   "base_ids_head": [
+    26724,
+    37232,
+    29291,
+    29278,
+    28241
+   ],
+   "base_ids_tail": [
+    29291,
+    29278,
+    28241
+   ],
+   "delivered_rows": 6,
+   "delivered_ids": [
+    26724,
+    37232,
+    29291,
+    29278,
+    28241,
+    32945
+   ],
+   "delivered_years": {
+    "2026": 6
+   },
+   "base_rows_preserved": 5,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 0,
+   "stats": {
+    "policy": "auto",
+    "replace_allowed": 0,
+    "breadth_allowed": 1,
+    "breadth_reason": "subject_scope",
+    "breadth_used": 1,
+    "period_skipped": "auto_no_replace",
+    "reserved_old": 0,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": 1
+   }
+  },
+  "P1_current": {
+   "alias": "P1",
+   "query_masked": "что сейчас происходит про <subject>?",
+   "scope": "auto",
+   "fact_limit": null,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    },
+    {
+     "period_fill": true,
+     "channels": [
+      "lexical",
+      "vector",
+      "author_window"
+     ]
+    }
+   ],
+   "base_rows": 5,
+   "base_slice_full": false,
+   "base_ids_head": [
+    30059,
+    36611,
+    29233,
+    15856,
+    27601
+   ],
+   "base_ids_tail": [
+    29233,
+    15856,
+    27601
+   ],
+   "delivered_rows": 7,
+   "delivered_ids": [
+    30059,
+    36611,
+    29233,
+    15856,
+    27601,
+    44445,
+    44443
+   ],
+   "delivered_years": {
+    "2026": 7
+   },
+   "base_rows_preserved": 5,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 0,
+   "stats": {
+    "policy": "auto",
+    "replace_allowed": 0,
+    "breadth_allowed": 1,
+    "breadth_reason": "thin_base",
+    "breadth_used": 0,
+    "period_skipped": "auto_thin_slice",
+    "reserved_old": 0,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": 0
+   }
+  },
+  "P2_top_author_auto": {
+   "alias": "P2_top_author",
+   "query_masked": "что ты знаешь про <subject>?",
+   "scope": "auto",
+   "fact_limit": null,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    },
+    {
+     "period_fill": true,
+     "channels": [
+      "lexical",
+      "vector",
+      "author_window"
+     ]
+    }
+   ],
+   "base_rows": 5,
+   "base_slice_full": false,
+   "base_ids_head": [
+    26724,
+    8554,
+    7758,
+    30979,
+    6766
+   ],
+   "base_ids_tail": [
+    7758,
+    30979,
+    6766
+   ],
+   "delivered_rows": 6,
+   "delivered_ids": [
+    26724,
+    8554,
+    7758,
+    30979,
+    6766,
+    14808
+   ],
+   "delivered_years": {
+    "2025": 3,
+    "2026": 3
+   },
+   "base_rows_preserved": 5,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 0,
+   "stats": {
+    "policy": "auto",
+    "replace_allowed": 0,
+    "breadth_allowed": 1,
+    "breadth_reason": "subject_scope",
+    "breadth_used": 1,
+    "period_skipped": "auto_no_replace",
+    "reserved_old": 0,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": 1
+   }
+  },
+  "P3_history_2023_2024_auto": {
+   "alias": "P3_history_2023_2024",
+   "query_masked": "что ты знаешь про <subject>?",
+   "scope": "auto",
+   "fact_limit": null,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    },
+    {
+     "period_fill": true,
+     "channels": [
+      "lexical",
+      "vector",
+      "author_window"
+     ]
+    }
+   ],
+   "base_rows": 5,
+   "base_slice_full": false,
+   "base_ids_head": [
+    26724,
+    3086,
+    30979,
+    8855,
+    4412
+   ],
+   "base_ids_tail": [
+    30979,
+    8855,
+    4412
+   ],
+   "delivered_rows": 6,
+   "delivered_ids": [
+    26724,
+    3086,
+    30979,
+    8855,
+    4412,
+    14808
+   ],
+   "delivered_years": {
+    "2023": 1,
+    "2024": 1,
+    "2025": 1,
+    "2026": 3
+   },
+   "base_rows_preserved": 5,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 0,
+   "stats": {
+    "policy": "auto",
+    "replace_allowed": 0,
+    "breadth_allowed": 1,
+    "breadth_reason": "subject_scope",
+    "breadth_used": 1,
+    "period_skipped": "auto_no_replace",
+    "reserved_old": 0,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": 1
+   }
+  },
+  "P1_operative": {
+   "alias": "P1",
+   "query_masked": "что сейчас происходит про <subject>?",
+   "scope": "operative",
+   "fact_limit": null,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    }
+   ],
+   "base_rows": 5,
+   "base_slice_full": false,
+   "base_ids_head": [
+    30059,
+    36611,
+    29233,
+    15856,
+    27601
+   ],
+   "base_ids_tail": [
+    29233,
+    15856,
+    27601
+   ],
+   "delivered_rows": 5,
+   "delivered_ids": [
+    30059,
+    36611,
+    29233,
+    15856,
+    27601
+   ],
+   "delivered_years": {
+    "2026": 5
+   },
+   "base_rows_preserved": 5,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 0,
+   "stats": {
+    "policy": null,
+    "replace_allowed": null,
+    "breadth_allowed": null,
+    "breadth_reason": null,
+    "breadth_used": null,
+    "period_skipped": null,
+    "reserved_old": null,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": null
+   }
+  },
+  "A1_historical": {
+   "alias": "A1",
+   "query_masked": "напиши юмористический рассказ об основных шизах конфы",
+   "scope": "historical",
+   "fact_limit": null,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    },
+    {
+     "period_fill": true,
+     "channels": [
+      "lexical",
+      "vector"
+     ]
+    }
+   ],
+   "base_rows": 5,
+   "base_slice_full": false,
+   "base_ids_head": [
+    30508,
+    44202,
+    31123,
+    21330,
+    27812
+   ],
+   "base_ids_tail": [
+    31123,
+    21330,
+    27812
+   ],
+   "delivered_rows": 7,
+   "delivered_ids": [
+    30508,
+    44202,
+    31123,
+    21330,
+    27812,
+    42449,
+    5880
+   ],
+   "delivered_years": {
+    "2025": 1,
+    "2026": 6
+   },
+   "base_rows_preserved": 5,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 1,
+   "stats": {
+    "policy": "historical",
+    "replace_allowed": 1,
+    "breadth_allowed": 1,
+    "breadth_reason": "policy_historical",
+    "breadth_used": 2,
+    "period_skipped": "",
+    "reserved_old": 1,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": 0
+   }
+  },
+  "P1_auto_fullbase": {
+   "alias": "P1",
+   "query_masked": "что ты знаешь про <subject>?",
+   "scope": "auto",
+   "fact_limit": 5,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    },
+    {
+     "period_fill": true,
+     "channels": [
+      "lexical",
+      "vector",
+      "author_window"
+     ]
+    }
+   ],
+   "base_rows": 2,
+   "base_slice_full": false,
+   "base_ids_head": [
+    26724,
+    37232
+   ],
+   "base_ids_tail": [
+    26724,
+    37232
+   ],
+   "delivered_rows": 3,
+   "delivered_ids": [
+    26724,
+    37232,
+    32945
+   ],
+   "delivered_years": {
+    "2026": 3
+   },
+   "base_rows_preserved": 2,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 0,
+   "stats": {
+    "policy": "auto",
+    "replace_allowed": 0,
+    "breadth_allowed": 1,
+    "breadth_reason": "subject_scope",
+    "breadth_used": 1,
+    "period_skipped": "auto_no_replace",
+    "reserved_old": 0,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": 1
+   }
+  },
+  "P1_current_fullbase": {
+   "alias": "P1",
+   "query_masked": "что сейчас происходит про <subject>?",
+   "scope": "auto",
+   "fact_limit": 5,
+   "calls": [
+    {
+     "period_fill": false,
+     "channels": [
+      "vector",
+      "lexical"
+     ]
+    }
+   ],
+   "base_rows": 2,
+   "base_slice_full": false,
+   "base_ids_head": [
+    30059,
+    36611
+   ],
+   "base_ids_tail": [
+    30059,
+    36611
+   ],
+   "delivered_rows": 3,
+   "delivered_ids": [
+    30059,
+    36611,
+    44445
+   ],
+   "delivered_years": {
+    "2026": 3
+   },
+   "base_rows_preserved": 2,
+   "base_missing": [],
+   "base_prefix_preserved": true,
+   "old_rows_added": 0,
+   "stats": {
+    "policy": "auto",
+    "replace_allowed": 0,
+    "breadth_allowed": 0,
+    "breadth_reason": "none",
+    "breadth_used": 0,
+    "period_skipped": "auto_no_replace",
+    "reserved_old": null,
+    "base_rows_dropped": null,
+    "subject_scope_no_replace": null,
+    "author_window": null
+   }
+  }
+ },
+ "controls": {
+  "P1_auto": {
+   "intent": {
+    "kind": "none",
+    "years": [],
+    "source": ""
+   },
+   "author_window": 0,
+   "channels_used": [
+    "lexical"
+   ],
+   "fact_years": {
+    "2026": 16
+   }
+  },
+  "P1_operative": {
+   "intent": {
+    "kind": "none",
+    "years": [],
+    "source": ""
+   },
+   "author_window": 0,
+   "channels_used": [
+    "lexical"
+   ],
+   "fact_years": {
+    "2026": 16
+   }
+  },
+  "P2_top_author_auto": {
+   "intent": {
+    "kind": "none",
+    "years": [],
+    "source": ""
+   },
+   "author_window": 0,
+   "channels_used": [
+    "lexical"
+   ],
+   "fact_years": {
+    "2024": 5,
+    "2025": 11
+   }
+  },
+  "P2_top_author_operative": {
+   "intent": {
+    "kind": "none",
+    "years": [],
+    "source": ""
+   },
+   "author_window": 0,
+   "channels_used": [
+    "lexical"
+   ],
+   "fact_years": {
+    "2024": 5,
+    "2025": 11
+   }
+  },
+  "P3_history_2023_2024_auto": {
+   "intent": {
+    "kind": "none",
+    "years": [],
+    "source": ""
+   },
+   "author_window": 0,
+   "channels_used": [
+    "lexical"
+   ],
+   "fact_years": {
+    "2026": 16
+   }
+  },
+  "P3_history_2023_2024_operative": {
+   "intent": {
+    "kind": "none",
+    "years": [],
+    "source": ""
+   },
+   "author_window": 0,
+   "channels_used": [
+    "lexical"
+   ],
+   "fact_years": {
+    "2026": 16
+   }
+  }
+ },
+ "snapshot_sha256_after": "450604f133ee790eb989c06d186a5fcc24f2709000a50596a8200e479da9a89e"
+}

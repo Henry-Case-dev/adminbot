@@ -1,0 +1,98 @@
+{
+ "fixture": {
+  "chat_id": -1002661910336,
+  "query_masked": "что ты знаешь про <subject:P1>?",
+  "base_ids": [
+   8000,
+   8001,
+   8002,
+   8003,
+   8004,
+   8005,
+   8006,
+   8007,
+   8008,
+   8009
+  ],
+  "limit": 10,
+  "period_slots": 2,
+  "mode": "auto subject_scope"
+ },
+ "prev_candidate_e1c70d58f": {
+  "delivered_ids": [
+   8000,
+   8001,
+   8002,
+   8003,
+   8004,
+   8005,
+   8006,
+   8007,
+   9100,
+   9201
+  ],
+  "base_ids": [
+   8000,
+   8001,
+   8002,
+   8003,
+   8004,
+   8005,
+   8006,
+   8007,
+   8008,
+   8009
+  ],
+  "base_missing": [
+   8008,
+   8009
+  ],
+  "stats": {
+   "breadth_reason": "subject_scope",
+   "replace_allowed": 0,
+   "breadth_used": 2,
+   "base_rows_dropped": null,
+   "subject_scope_no_replace": null,
+   "period_skipped": "auto_full_slice",
+   "reserved_old": 1
+  }
+ },
+ "fixed_candidate": {
+  "delivered_ids": [
+   8000,
+   8001,
+   8002,
+   8003,
+   8004,
+   8005,
+   8006,
+   8007,
+   8008,
+   8009,
+   9100,
+   9201
+  ],
+  "base_ids": [
+   8000,
+   8001,
+   8002,
+   8003,
+   8004,
+   8005,
+   8006,
+   8007,
+   8008,
+   8009
+  ],
+  "base_missing": [],
+  "stats": {
+   "breadth_reason": "subject_scope",
+   "replace_allowed": 0,
+   "breadth_used": 2,
+   "base_rows_dropped": 0,
+   "subject_scope_no_replace": 1,
+   "period_skipped": "auto_full_slice",
+   "reserved_old": 1
+  }
+ }
+}

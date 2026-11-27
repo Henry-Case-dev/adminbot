@@ -1,0 +1,62 @@
+..........FF.......                                                      [100%]
+================================== FAILURES ===================================
+_ TestSubjectScopeIntent.test_auto_person_reaches_old_row_without_replacing_base _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x0000016380AF9EE0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000163827469F0>
+
+    @pytest.mark.asyncio
+    async def test_auto_person_reaches_old_row_without_replacing_base(
+            self, monkeypatch):
+        """R3 end-to-end: `auto` + полный срез + субъект → старый год доставлен.
+    
+        F1 corrective (OLDROW-R3-BASE-01): `subject_scope` не замещает базовый
+        срез, поэтому проверяется ВЕСЬ базовый набор и его порядок, а не только
+        первая строка; периодный вклад занимает дополнительную ёмкость
+        `limit + limit//5`."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY), memory_scope="auto",
+            subject_name=NAME, subject_uid=UID)
+        assert service._oldrow_calls[1]["period_fill"] is True, (
+            "разрешённый субъект запускает тот же периодный вызов")
+        assert "author_window" in service._oldrow_calls[1]["channels"]
+        assert service._oldrow_calls[1]["subject_uids"] == (UID,)
+        stats = service._rag_period_stats
+        assert stats["breadth_reason"] == "subject_scope"
+        assert stats["replace_allowed"] == 0
+        assert stats["reserved_old"] == 1
+>       assert stats["base_rows_dropped"] == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'base_rows_dropped'
+
+tests\test_vmq_oldrow_person_delivery.py:311: KeyError
+______ TestSubjectScopeIntent.test_subject_scope_does_not_drop_base_tail ______
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x0000016380AFA420>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016382746C60>
+
+    @pytest.mark.asyncio
+    async def test_subject_scope_does_not_drop_base_tail(self, monkeypatch):
+        """F1 (OLDROW-R3-BASE-01): хвост базового среза не выбрасывается.
+    
+        Воспроизведение ревью: полный base `8000..8009`, `subject_scope`
+        (`replace_allowed=0`) — до исправления `8008/8009` выбрасывались ради
+        периодного вклада. RED на `e1c70d58`: база обрезается до 8 строк."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY), memory_scope="auto",
+            subject_name=NAME, subject_uid=UID)
+        delivered = {row["id"] for row in rows}
+        missing = {row["id"] for row in base} - delivered
+>       assert not missing, f"базовые строки выброшены: {sorted(missing)}"
+E       AssertionError: базовые строки выброшены: [8008, 8009]
+E       assert not {8008, 8009}
+
+tests\test_vmq_oldrow_person_delivery.py:337: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_auto_person_reaches_old_row_without_replacing_base
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_subject_scope_does_not_drop_base_tail
+2 failed, 17 passed in 4.22s
