@@ -6435,6 +6435,13 @@ class DatabaseService:
                             (chat_id, text, ts, target, ts, meta_json,
                              str(generation_id)))
                         fid = cursor.lastrowid
+                        # FTSI-ACC-01 (p0-fts-index-integrity-01): прямой
+                        # INSERT в обход insert_graph_fact обязан писать и
+                        # FTS-строку — иначе портрет остаётся вне индекса
+                        # (missing docsize) до следующей активации/rebuild.
+                        await self.db.execute(
+                            "INSERT INTO graph_facts_fts(rowid, fact) "
+                            "VALUES (?, ?)", (fid, text))
                     else:
                         fid = int(row["id"])
                         # FIX (инвариант 10): прежний портрет — в историю
