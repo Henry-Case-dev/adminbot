@@ -117,6 +117,7 @@ ddl_delta=0
 | Смежные, часть 3 | **164 passed** (13.9 s) | `tests-adjacent-3.txt` |
 | Смежные, часть 4 (6 файлов: `test_memory_communities_retrieval`, `test_memory_communities_maintenance`, `test_memory_identity`, `test_p0_memory_relevance`, `test_smart_exec_memory_scope`, `test_ur_13_memory_types_scale`) | **49 passed, 2 failed** (18.5 s) — оба red-а предсуществующие (ниже) | `tests-adjacent-4.txt` |
 | `tests/test_round106_ia_smoke.py` (IA smoke) | **42 passed, 3 failed** (8.2 s) — все 3 red-а предсуществующие (ниже) | `tests-round106.txt` |
+| Финальный фокусный прогон на tip (Orchestrator): FTS floor + Slice D + oldrow | **69 passed** (9.5 s) = 7 + 43 + 19, состав совпал с ожиданием | `tests-final-261.txt` |
 | Сверка red-ов на базе `7b68bd25` (тот же worktree-аналог базы) | те же **6** пин-red-ов; **3** round106; `slice_b` + 2 коалесинг-теста; **2** миграционных red-а памяти | `base-reds-4.txt`, `base-reds-5.txt`, `base-reds-2.txt`, `base-reds-1.txt` |
 
 Числа совпадают с независимыми прогонами срезов: FTS evidence — 7 passed;
@@ -237,5 +238,5 @@ sqlite3 local_database.db "SELECT COUNT(*), MAX(id), SUM(LENGTH(fact)) FROM grap
 `tests-adjacent-1.txt`, `tests-adj-2a1.txt`, `tests-adj-2a2.txt`,
 `tests-adj-2a3.txt`, `tests-adj-2a4.txt`, `tests-adjacent-3.txt`,
 `tests-adjacent-4.txt`, `base-reds-1.txt`, `base-reds-2.txt`, `base-reds-4.txt`,
-`base-reds-5.txt`, `manifest-deploy.json`, `manifest-rollback.json`,
-`SHA256SUMS`.
+`base-reds-5.txt`, `tests-final-261.txt`, `manifest-deploy.json`,
+`manifest-rollback.json`, `SHA256SUMS`.
