@@ -483,7 +483,7 @@ function summaryItem(extra) {
     });
     assert.strictEqual(
       methods.moduleStateText.call(ctxPar, checkupCard),
-      'Включено · работа ещё не подтверждена',
+      'Включено · измерение не подтверждено',
       'k: checkup работает (independent)');
     const ctxParG = mkCtx({ configItems: [
       item('flags.checkup_enabled', true,
@@ -674,7 +674,7 @@ function summaryItem(extra) {
     });
     assert.strictEqual(
       methods.moduleStateText.call(ctx, summaryCard),
-      'Включено · работа ещё не подтверждена',
+      'Включено · измерение не подтверждено',
       'o: desired=true, observed=null — нейтрально, не «Работает»');
     assert.strictEqual(
       methods.moduleStateText.call(ctx, Object.assign({}, summaryCard, {

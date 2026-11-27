@@ -25905,7 +25905,10 @@
         if (st.conflict) return 'Конфликт настроек: ' + st.conflict;
         var fresh = this.moduleFreshness(m);
         if (fresh.observed === null) {
-          return 'Включено · работа ещё не подтверждена';
+          // D5 (BL-04): отсутствует ИМЕННО измерение (observed), а не
+          // «работа» — иначе шапка спорит с лентой цепочки, где есть свежие
+          // результаты. Формулировка — copy-inventory (ось observed).
+          return 'Включено · измерение не подтверждено';
         }
         if (fresh.observed === false) {
           return fresh.activity || 'Включено · нет подтверждённой активности';
@@ -25950,17 +25953,22 @@
           { id: 'desired', icon: st.desired ? 'toggle_on' : 'toggle_off',
             label: 'Настройка', text: st.desired ? 'Включено' : 'Выключено',
             cls: st.desired ? 'badge-ok' : 'badge-muted' },
+          // D5 (BL-04): значения осей — самодостаточные формулировки
+          // copy-inventory (§5.1: `Исполняется`/`Не исполняется`,
+          // `Готово`/`Не готово: <причина>`/`Готовность не проверяется`,
+          // `Измерение не подтверждено`). Подпись оси перед ними не
+          // дублируется («Готовность: Готовность…» больше нет).
           { id: 'effective',
             icon: st.effective_runtime ? 'play_circle' : 'pause_circle',
-            label: 'Исполняется',
+            label: 'Исполняется', standalone: true,
             text: st.effective_runtime ? 'Исполняется' : 'Не исполняется',
             cls: st.effective_runtime ? 'badge-ok' : 'badge-muted' },
           { id: 'ready', icon: st.ready === false ? 'error' : 'check_circle',
-            label: 'Готовность', text: readyText,
+            label: 'Готовность', standalone: true, text: readyText,
             cls: st.ready === false ? 'badge-warn' : 'badge-muted' },
           { id: 'observed',
             icon: st.observed === true ? 'visibility' : 'help',
-            label: 'Измерение', text: observedText,
+            label: 'Измерение', standalone: true, text: observedText,
             cls: st.observed === true ? 'badge-ok' : 'badge-warn' },
           { id: 'source', icon: 'source', label: 'Источник', text: sourceText,
             cls: 'badge-muted' },
@@ -27535,8 +27543,13 @@
         if (status) parts.push(status);
         return parts.join(' · ');
       },
-      // B2: честная строка конверта уроков «уроков: N / state» (сырое
-      // состояние сервера — implemented/not_run/disabled, без подмены).
+      // B2/D2 (BL-09): честная строка конверта уроков.
+      //   `count` — сколько строк журнала вернул сервер (страница, а НЕ
+      //   «активных уроков»); `state` — закрытый серверный код
+      //   (implemented|not_run|disabled), переводится в RU, сырой англ.
+      //   токен в UI не печатается. Строка самодостаточна и не склеивается
+      //   со статусом соседней записи («активен» + «уроков: 100» больше не
+      //   читается как «активен уроков: 100»).
       historyEnvelopeText: function (m) {
         var entry = _historySourceEntry(m);
         if (!entry || entry.source !== 'memory.lessons') return '';
@@ -27552,7 +27565,13 @@
           state = env.state;
         }
         if (count == null) return '';
-        return 'уроков: ' + count + ' / ' + (state || '—');
+        var stateRu = {
+          implemented: 'есть записи', not_run: 'записей нет',
+          disabled: 'функция выключена',
+        }[state];
+        var stateText = stateRu
+          || ('состояние: ' + (state || '—'));
+        return 'записей в журнале: ' + count + ' (' + stateText + ')';
       },
       // H-6: «Сейчас: …» — самый новый факт СВОЕГО журнала.
       historyNowText: function (m) {

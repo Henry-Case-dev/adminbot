@@ -524,8 +524,10 @@ function eq(a, b, msg) {
     eq(methods.moduleActivityText.call(ctx, mNull), '',
       'activity-строка честно пуста');
     const stateNull = methods.moduleStateText.call(ctx, mNull);
-    ok(stateNull.indexOf('работа ещё не подтверждена') >= 0,
-      'observed=null → «работа ещё не подтверждена»: ' + stateNull);
+    ok(stateNull.indexOf('измерение не подтверждено') >= 0,
+      'observed=null → «измерение не подтверждено»: ' + stateNull);
+    ok(stateNull.indexOf('работа') < 0,
+      'observed=null не утверждает про «работу» (D5): ' + stateNull);
     ok(stateNull.indexOf('Последняя активность') < 0,
       'observed=null не печатает активность');
     const chipsNull = methods.moduleStateChips.call(ctx, mNull);
