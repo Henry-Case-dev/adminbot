@@ -131,9 +131,13 @@ def test_missing_case_metadata_fails_loudly(monkeypatch, capsys):
 def _run_cli(args, cwd):
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
+    # `capture_output=True` на Windows-раннере иногда падает с `WinError 6`
+    # (невалидный унаследованный handle stdin); явный DEVNULL + PIPE стабилен.
     return subprocess.run(
-        [sys.executable, *args], cwd=str(cwd), capture_output=True,
-        text=True, encoding="utf-8", errors="replace", timeout=600, env=env)
+        [sys.executable, *args], cwd=str(cwd),
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True, encoding="utf-8",
+        errors="replace", timeout=600, env=env)
 
 
 def test_cli_runs_as_plain_script_and_as_module(tmp_path):
