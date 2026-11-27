@@ -13,6 +13,10 @@
      `scope:"global"`; фикс не «прибивает» чат везде.
   C. Без авторизации (`lockAuth`) ожидание не зависает: загрузка доходит до
      401-заглушки, а не остаётся в «Загружаем…» навсегда.
+  D. Поздняя авторизация (SAC-REV-R2-F1): после `lockAuth` + навигации в
+     раздел и «Попробовать снова» первый Core/overview/persona запрос уходит
+     ТОЛЬКО после применения области (`/api/access/*`), а не синхронно из
+     `retryInitData`; цель сохранения — фактический чат.
 
 Запуск: node tests/js/speech_core_scope_ctx_test.js
         APP_JS=<path> node tests/js/speech_core_scope_ctx_test.js   # RED-прогон
@@ -84,7 +88,7 @@ function makeCtx(api) {
   Object.keys(methods).forEach(function (k) {
     if (typeof methods[k] === 'function') ctx[k] = methods[k];
   });
-  ctx.api = api;
+  if (api) ctx.api = api;
   ctx.$nextTick = function () {};
   ctx.toast = function () {};
   return ctx;
@@ -249,6 +253,223 @@ function saveBody(post) {
       'C: lockAuth отпускает ожидание — загрузка не висит в «Загружаем…»');
     assert.strictEqual(outcome, 'rejected',
       'C: без авторизации загрузка честно упирается в 401, не «успех»');
+    check(ctx.chatCtxReady === false,
+      'C: lockAuth не объявляет контекст области известным');
+  }
+
+  // ── D. Поздняя авторизация: сначала область, потом раздел ───────────────
+  {
+    setLocalStorage({ 'adminbot.active_chat_id': String(CHAT_ID) });
+    const order = [];
+    const pending = {};
+    function deferred(p, value) {
+      order.push({ path: p, at: 'sent' });
+      return new Promise(function (resolve) {
+        pending[p] = function () { resolve(value); };
+      });
+    }
+    function resolvePending(p) {
+      if (pending[p]) {
+        const fn = pending[p];
+        pending[p] = null;
+        fn();
+      }
+    }
+    let ctx = null;
+    // Управляемые промисы = честная сетевая задержка: видно, какие запросы
+    // ушли ДО того, как область применена. Пока authLocked — как в жизни,
+    // запросы не уходят, а падают в 401.
+    ctx = makeCtx(function (apiPath) {
+      if (ctx.authLocked) {
+        order.push({ path: apiPath, at: '401' });
+        const err = new Error('401');
+        err.status = 401;
+        return Promise.reject(err);
+      }
+      if (apiPath === '/api/access/me') {
+        return deferred(apiPath, { is_global_admin: true, role_name: 'owner' });
+      }
+      if (apiPath === '/api/access/chats') {
+        return deferred(apiPath, [{ chat_id: CHAT_ID, title: 'ЧАТ' }]);
+      }
+      if (apiPath === '/api/speech/overview') {
+        return deferred(apiPath, { scope: 'chat', chat_id: CHAT_ID, sections: [] });
+      }
+      if (apiPath === '/api/persona') {
+        return deferred(apiPath, {
+          scope: 'chat', chat_id: CHAT_ID, is_global: false,
+          values: { name: 'ИМЯ ЧАТА' },
+        });
+      }
+      if (apiPath === '/api/speech/core') return corePayload();
+      return Promise.resolve({});
+    });
+    // Граница сценария: вход/конфиг/прочие загрузчики не предмет проверки.
+    ctx.hasInitData = function () { return true; };
+    ctx.loadMe = async function () { this.me = { user_id: 1 }; };
+    ctx.canViewTab = function () { return false; };
+    ctx.hasPerm = function () { return true; };
+    ctx.loadConfig = function () {};
+    ctx.loadKeyStatus = function () {};
+    ctx.loadAdmins = function () {};
+    ctx.loadRoles = function () {};
+    ctx.loadChats = function () {};
+    ctx.applyRoute = function () {};
+
+    ctx.chatCtxReady = false;
+    ctx.lockAuth('нет контекста');
+    // Пользователь открывает «Личность» при блокирующем баннере (навигация
+    // живёт вне `<main v-else>`, гейта на setTab нет).
+    ctx.setTab('speech');
+    await tick(); await tick();
+
+    // «Попробовать снова» — область ещё не получена.
+    ctx.authLocked = false;
+    ctx.retryInitData();
+    await tick();
+    const sentBeforeCtx = order.filter(function (e) { return e.at === 'sent'; })
+      .map(function (e) { return e.path; });
+    check(sentBeforeCtx.indexOf('/api/access/me') >= 0,
+      'D: retry запрашивает область (/api/access/me)');
+    ['/api/speech/overview', '/api/persona', '/api/speech/core'].forEach(function (p) {
+      check(sentBeforeCtx.indexOf(p) < 0,
+        'D: ' + p + ' не должен уходить до /api/access/* (ушло: '
+        + JSON.stringify(sentBeforeCtx) + ')');
+    });
+
+    resolvePending('/api/access/me');
+    await tick();
+    const sentBeforeChats = order.filter(function (e) { return e.at === 'sent'; })
+      .map(function (e) { return e.path; });
+    check(sentBeforeChats.indexOf('/api/speech/overview') < 0,
+      'D: overview ждёт полного разрешения области (/api/access/chats)');
+
+    resolvePending('/api/access/chats');
+    await tick(); await tick();
+
+    const iChats = order.findIndex(function (e) {
+      return e.path === '/api/access/chats' && e.at === 'sent';
+    });
+    const iOverview = order.findIndex(function (e) {
+      return e.path === '/api/speech/overview' && e.at === 'sent';
+    });
+    const iPersona = order.findIndex(function (e) {
+      return e.path === '/api/persona' && e.at === 'sent';
+    });
+    check(iChats >= 0, 'D: область запрошена');
+    check(iOverview > iChats, 'D: overview только после области ('
+      + JSON.stringify(order.map(function (e) { return e.path + '@' + e.at; }))
+      + ')');
+    check(iPersona > iChats, 'D: persona только после области');
+    check(ctx.activeChatId === CHAT_ID, 'D: активный чат применён до раздела');
+
+    resolvePending('/api/speech/overview');
+    resolvePending('/api/persona');
+    await tick(); await tick();
+    check(ctx.speechScopeFor('core') === 'chat',
+      'D: цель сохранения Core = фактический чат, не global (получено: '
+      + ctx.speechScopeFor('core') + ')');
+    check(ctx.speechScopeFor('style') === 'chat',
+      'D: цель сохранения стиля = фактический чат (получено: '
+      + ctx.speechScopeFor('style') + ')');
+    check(ctx.personaMeta && ctx.personaMeta.scope === 'chat',
+      'D: personaMeta из области чата');
+    check(ctx.personaDraft && ctx.personaDraft.name === 'ИМЯ ЧАТА',
+      'D: черновик личности заполнен данными чата, а не глобальными');
+  }
+
+  // ── E. Реальный api(): первый запрос раздела уже несёт X-Chat-Id ────────
+  {
+    setLocalStorage({ 'adminbot.active_chat_id': String(CHAT_ID) });
+    sessionStorage.setItem('adminbot.initData', 'test-init');
+    const savedFetch = global.fetch;
+    const order = [];
+    const pending = {};
+    function defer(p, value) {
+      return new Promise(function (resolve) {
+        pending[p] = function () {
+          resolve({ status: 200, ok: true, json: async function () { return value; } });
+        };
+      });
+    }
+    function resolvePending(p) {
+      if (pending[p]) {
+        const fn = pending[p];
+        pending[p] = null;
+        fn();
+      }
+    }
+    global.fetch = function (p, init) {
+      const headers = (init && init.headers) || {};
+      order.push({ path: p, at: 'sent', chat: headers['X-Chat-Id'] || null });
+      if (p === '/api/access/me') return defer(p, { is_global_admin: true });
+      if (p === '/api/access/chats') return defer(p, [{ chat_id: CHAT_ID, title: 'ЧАТ' }]);
+      if (p === '/api/speech/overview') {
+        return defer(p, { scope: 'chat', chat_id: CHAT_ID, sections: [] });
+      }
+      if (p === '/api/persona') {
+        return defer(p, {
+          scope: 'chat', chat_id: CHAT_ID, is_global: false,
+          values: { name: 'ИМЯ ЧАТА' },
+        });
+      }
+      return Promise.resolve({
+        status: 200, ok: true, json: async function () { return {}; },
+      });
+    };
+    try {
+      const ctx = makeCtx();
+      ctx.hasInitData = function () { return true; };
+      ctx.loadMe = async function () { this.me = { user_id: 1 }; };
+      ctx.canViewTab = function () { return false; };
+      ctx.hasPerm = function () { return true; };
+      ctx.loadConfig = function () {};
+      ctx.loadKeyStatus = function () {};
+      ctx.loadAdmins = function () {};
+      ctx.loadRoles = function () {};
+      ctx.loadChats = function () {};
+      ctx.applyRoute = function () {};
+
+      ctx.lockAuth('нет контекста');
+      ctx.setTab('speech');
+      await tick(); await tick();
+
+      ctx.authLocked = false;
+      ctx.retryInitData();
+      await tick();
+      resolvePending('/api/access/me');
+      await tick();
+      resolvePending('/api/access/chats');
+      await tick(); await tick();
+
+      const iChats = order.findIndex(function (e) { return e.path === '/api/access/chats'; });
+      const overview = order.find(function (e) { return e.path === '/api/speech/overview'; });
+      const persona = order.find(function (e) { return e.path === '/api/persona'; });
+      check(iChats >= 0, 'E: область чата запрошена');
+      const iOverview = order.findIndex(function (e) {
+        return e.path === '/api/speech/overview';
+      });
+      const iPersona = order.findIndex(function (e) { return e.path === '/api/persona'; });
+      check(iOverview > iChats, 'E: overview уходит после области ('
+        + JSON.stringify(order.map(function (e) { return e.path; })) + ')');
+      check(iPersona > iChats, 'E: persona уходит после области');
+      check(overview && overview.chat === String(CHAT_ID),
+        'E: первый overview несёт X-Chat-Id активного чата (получено: '
+        + JSON.stringify(overview && overview.chat) + ')');
+      check(persona && persona.chat === String(CHAT_ID),
+        'E: первый persona несёт X-Chat-Id активного чата (получено: '
+        + JSON.stringify(persona && persona.chat) + ')');
+      resolvePending('/api/speech/overview');
+      resolvePending('/api/persona');
+      await tick(); await tick();
+      check(ctx.speechScopeFor('core') === 'chat',
+        'E: цель сохранения Core = чат (получено: ' + ctx.speechScopeFor('core') + ')');
+      check(ctx.personaDraft && ctx.personaDraft.name === 'ИМЯ ЧАТА',
+        'E: личность прочитана в области чата');
+    } finally {
+      global.fetch = savedFetch;
+      sessionStorage.removeItem('adminbot.initData');
+    }
   }
 
   if (failures.length) {
