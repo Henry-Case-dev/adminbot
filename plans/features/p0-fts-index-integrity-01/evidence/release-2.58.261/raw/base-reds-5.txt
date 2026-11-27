@@ -1,0 +1,56 @@
+.....F...F....F..............................                            [100%]
+================================== FAILURES ===================================
+_______________ TestRuntimeGates.test_youtube_gate_only_summary _______________
+
+self = <tests.test_round106_ia_smoke.TestRuntimeGates object at 0x0000022260D59A90>
+
+    def test_youtube_gate_only_summary(self):
+        src = open("handlers/youtube.py", encoding="utf-8").read()
+        # EVOL §4.4: единая точка исполнения `_dispatch_video_request`;
+        # master-флаг гейтит ТОЛЬКО summary-ветки (транскрипт продолжает жить).
+>       assert 'getattr(request, "mode", "") == "summary" and not hot.get(' in src
+E       assert 'getattr(request, "mode", "") == "summary" and not hot.get(' in '"""Epic 37 — YouTube handler (R37-4, Section 46.9.1).\nРоутер 0e (после 0d search, ДО 0:admin). Триггер: YT-триггер-ф...(§4.2): анализ по окну/ожиданию, «скачай» — не наша ветка (4e).\n    return await _handle_unclassified(bot, message)\n'
+
+tests\test_round106_ia_smoke.py:102: AssertionError
+__________________ TestModulesAndAi.test_modules_exactly_11 ___________________
+
+self = <tests.test_round106_ia_smoke.TestModulesAndAi object at 0x0000022260D58290>
+
+    def test_modules_exactly_11(self):
+        # 10.9: toggleKey теперь есть и в PERMSOC_OWNER_BLOCKS — считаем
+        # строго внутри массива MODULES.
+>       start = JS.index("var MODULES = [")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: substring not found
+
+tests\test_round106_ia_smoke.py:139: ValueError
+_______________________ TestA6A7A9.test_access_windows ________________________
+
+self = <tests.test_round106_ia_smoke.TestA6A7A9 object at 0x0000022260D5BD70>
+
+    def test_access_windows(self):
+        # 10.8 (§4, ADR-001): route-driven модалки вместо аккордеона.
+        assert "accessOpen" in JS
+        assert "openAccessWindow: function (id)" in JS
+        assert "closeAccessWindow: function ()" in JS
+        assert "setAccess" not in JS
+        assert 'class="modal-backdrop"' in HTML
+        assert 'class="acc-head"' not in HTML
+>       assert 'role="tabpanel"' not in HTML
+E       assert 'role="tabpanel"' not in '<!DOCTYPE h...none; }\n}\n'
+E         
+E         'role="tabpanel"' is contained here:
+E           ="rights" role="tabpanel">
+E                               <div v-if="!selectedRole()" class="roles-state text-sm text-gray-500 py-4">
+E                                 Выберите роль слева.
+E                               </div>
+E                               <template v-else>...
+E         
+E         ...Full output truncated (18653 lines hidden), use '-vv' to show
+
+tests\test_round106_ia_smoke.py:195: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_round106_ia_smoke.py::TestRuntimeGates::test_youtube_gate_only_summary
+FAILED tests/test_round106_ia_smoke.py::TestModulesAndAi::test_modules_exactly_11
+FAILED tests/test_round106_ia_smoke.py::TestA6A7A9::test_access_windows - ass...
+3 failed, 42 passed in 7.31s

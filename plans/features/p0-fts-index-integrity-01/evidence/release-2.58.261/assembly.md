@@ -16,6 +16,8 @@
   services/ tests/ web/ bot.py manage.py config/` = пусто).
 - **Ветка:** `release/2.58.261`
 - **Tip релиза (bump):** `534c3c5c53c183ebbd43894aaf5fdf489f300cd7`
+- **Tip ветки (evidence, docs-only):** `47194090e8e5599bb24ef54de815292e4a91cf68`
+  — product tree не менялся (`e9b2e050…`), изменены только `plans/**`.
 - **Tree product-коммита:** `e9b2e05018bbf977191b509955a174156f946e3e`
 - **Tree базы:** `9fe06905c6a83cc8c1ba7b40b345ba6850f9c7be`
 - **Статус:** ASSEMBLED, не деплоился. Деплой — DevOps/Orchestrator.
@@ -106,26 +108,61 @@ ddl_delta=0
 | FTS (7 тестов) `tests/test_fts_index_integrity_floor.py` | **7 passed** (6.5 s) | `tests-fts.txt` |
 | `test_vmq_mem_slice_d.py` + `test_vmq_oldrow_person_delivery.py` + `test_ur_c_3_real_fts.py` | **72 passed** (10.7 s) = 43 + 19 + 10 | `tests-vmq-slice-d.txt` |
 | VMQ breadth, часть 1 (9 файлов: m1, mem07, period_intent, rc1–rc6a) | **95 passed** (16.9 s) | `tests-breadth-1.txt` |
-| VMQ breadth, часть 2 (9 файлов: rc7, retrieval_fixes, slice_b/c/d, oldrow, recent_window, time09, voice_writer) | **222 passed, 1 failed** (40.6 s) — единственный red предсуществующий (ниже) | `tests-breadth-2.txt` |
+| VMQ breadth, часть 2 (9 файлов: rc7, retrieval_fixes, slice_b/c/d, oldrow, recent_window, time09, voice_writer) | **222 passed, 1 failed** (40.6 s) — red предсуществующий (ниже) | `tests-breadth-2.txt` |
+| Пин-тесты bump'а: 26 test-файлов из коммита `534c3c5c5` | **864 passed, 6 failed** (95.8 s) — все 6 red-ов предсуществующие (ниже) | `tests-pins.txt` |
+| `tools/gen_param_registry_round1025.py --check` | **CHECK OK**: реестр 659 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны | `registry-check.txt` |
+| dossier/cleanup/rebuild/commands | **210 passed** (31.7 s) | `tests-dossier.txt` |
+| Смежные память/RAG/БД, часть 1 | **404 passed** (72.9 s) | `tests-adjacent-1.txt` |
+| Смежные, часть 2a1 / 2a2 / 2a3 / 2a4 | **51 / 90 / 23 / 49 passed** (5.7 / 13.0 / 9.2 / 9.2 s) | `tests-adj-2a1..4.txt` |
+| Смежные, часть 3 | **164 passed** (13.9 s) | `tests-adjacent-3.txt` |
+| Смежные, часть 4 (6 файлов: `test_memory_communities_retrieval`, `test_memory_communities_maintenance`, `test_memory_identity`, `test_p0_memory_relevance`, `test_smart_exec_memory_scope`, `test_ur_13_memory_types_scale`) | **49 passed, 2 failed** (18.5 s) — оба red-а предсуществующие (ниже) | `tests-adjacent-4.txt` |
+| `tests/test_round106_ia_smoke.py` (IA smoke) | **42 passed, 3 failed** (8.2 s) — все 3 red-а предсуществующие (ниже) | `tests-round106.txt` |
+| Сверка red-ов на базе `7b68bd25` (тот же worktree-аналог базы) | те же **6** пин-red-ов; **3** round106; `slice_b` + 2 коалесинг-теста; **2** миграционных red-а памяти | `base-reds-4.txt`, `base-reds-5.txt`, `base-reds-2.txt`, `base-reds-1.txt` |
 
 Числа совпадают с независимыми прогонами срезов: FTS evidence — 7 passed;
 VMQ D1 evidence — Slice D 43, oldrow 19, `test_ur_c_3_real_fts` 10, полный
 набор 653 passed/1 failed.
 
-**Предсуществующий red (сверяется с базой `7b68bd25`):**
-`tests/test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::test_quota_is_bounded_by_slots_and_never_adds_current_year`
-— `AssertionError: assert 4 <= 2` (строка 152). Тот же red документирован на базе
-`1defb4e05` в VMQ D1 evidence §6 (тест Slice B от 15.11.2026 утверждает потолок
-`accepted`, тогда как TIME-03/P-OLDROW трактуют `slots` как ресурсный предел
-вызывающего). К D1/FTS не относится, кандидатом не затронут — BACKLOG_ONLY.
+**Предсуществующие red-ы (все воспроизведены на базе `7b68bd25`, кандидатами не
+затронуты → BACKLOG_ONLY, не блокируют релиз):**
 
-### 6.1 Ещё не выполнено (честная пометка, этап 2)
+- Пин-набор, 6 (байт-в-байт те же на базе, `base-reds-4.txt` = 6 failed):
+  - `tests/test_mca17c_invariants_round1047.py::test_no_ddl_catalog_ks_tools_delta`
+  - `tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff`
+  - `tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools`
+  - `tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged`
+  - `tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline`
+  - `tests/test_webapp_f9_round1025.py::TestInvariants::test_secrets_count_28`
+- VMQ: `tests/test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::test_quota_is_bounded_by_slots_and_never_adds_current_year`
+  — `AssertionError: assert 4 <= 2` (строка 152); тот же red на базе
+  (`base-reds-2.txt`) и в VMQ D1 evidence §6 на `1defb4e05` (тест Slice B от
+  15.11.2026 утверждает потолок `accepted`, тогда как TIME-03/P-OLDROW трактуют
+  `slots` как ресурсный предел вызывающего).
+- Память: `tests/test_memory_identity.py::test_migration_v43_is_additive_and_idempotent`
+  и `::test_migration_v43_upgrades_v42_database_on_disk` — `assert 49 == 48`
+  (тесты фиксируют голову схемы v48, фактическая голова 49 после более позднего
+  аддитивного шага); те же 2 red-а на базе (`base-reds-1.txt`).
+- Round106 IA smoke, 3 (на базе те же 3, `base-reds-5.txt` = 3 failed/42 passed):
+  `tests/test_round106_ia_smoke.py::TestRuntimeGates::test_youtube_gate_only_summary`,
+  `::TestModulesAndAi::test_modules_exactly_11`, `::TestA6A7A9::test_access_windows`.
+- `base-reds-2.txt` дополнительно показал 2 red-а на самой базе
+  (`test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated`,
+  `test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced`); в
+  tip-прогонах этой сессии эти файлы не участвовали — на базе они red, то есть
+  тоже не регрессия кандидата.
 
-Пины/реестр (25 файлов, ожидается 864/6), `gen_param_registry_round1025.py
---check`, startup smoke (10 файлов, 81), `test_round106_ia_smoke` (42/3),
-dossier/cleanup/rebuild/commands (210), смежные память/RAG/БД (25 файлов).
-Их результаты и сверка red-ов по node id с базой `7b68bd25` будут дописаны в
-этот же файл и в `raw/` следующим коммитом; `SHA256SUMS` пересчитывается.
+### 6.1 Честные ограничения прогонов
+
+- Цепочка прогонов предыдущей сессии несколько раз прерывалась перезапусками
+  окружения: пустые/битые raw-файлы (`tests-adjacent-2.txt`,
+  `tests-adjacent-2a.txt`, `base-reds-3.txt`) удалены и в `SHA256SUMS` не входят.
+- Для `tests-adjacent-1/3`, `tests-adj-2a1..4`, `tests-breadth-*`, `tests-dossier`
+  в raw сохранён только сводный вывод pytest (точный список файлов набора не
+  зафиксирован); для `tests-adjacent-4` и пин-набора список файлов известен.
+- Не прогонялись: startup smoke (10 файлов), UI e2e-скрипты
+  `tools/ui_mod_acl_m4b2_status_e2e.py` / `m4b3` (требуют webroot). Они не
+  затрагивают FTS-синхронизацию и VMQ-фильтр, но остаются непроверенными в этой
+  сборке.
 
 ## 7. Manifest dry-run (на итоговом tip)
 
@@ -184,8 +221,9 @@ sqlite3 local_database.db "SELECT COUNT(*), MAX(id), SUM(LENGTH(fact)) FROM grap
 ## 9. Ограничения
 
 - Деплой не выполнялся; прод не затрагивался (только read-only HTTP healthz).
-- Расширенные наборы (пины/реестр, startup smoke, round106, dossier/cleanup,
-  смежные память/RAG/БД) и сверка их red-ов с базой `7b68bd25` — этап 2 (п. 6.1).
+- Расширенные наборы (пины/реестр, round106, dossier/cleanup, смежные память/RAG/БД)
+  прогнаны, их red-ы сверены с базой `7b68bd25` (п. 6, 6.1). Не прогонялись только
+  startup smoke и UI e2e-скрипты `ui_mod_acl_m4b2/m4b3` (требуют webroot).
 - Ретроспективно привязать каждую историческую orphan-строку FTS к конкретному
   rollback нельзя (зафиксировано в FTS evidence); однократный `fts-repair`
   чинит накопленное, код предотвращает повтор.
@@ -195,4 +233,9 @@ sqlite3 local_database.db "SELECT COUNT(*), MAX(id), SUM(LENGTH(fact)) FROM grap
 `raw/`: `identity.txt`, `changed-files.txt`, `product-delta.txt`,
 `bump-verify.txt`, `routes-pin.txt`, `ddl-check.txt`, `tests-fts.txt`,
 `tests-vmq-slice-d.txt`, `tests-breadth-1.txt`, `tests-breadth-2.txt`,
-`manifest-deploy.json`, `manifest-rollback.json`, `SHA256SUMS`.
+`tests-pins.txt`, `registry-check.txt`, `tests-dossier.txt`, `tests-round106.txt`,
+`tests-adjacent-1.txt`, `tests-adj-2a1.txt`, `tests-adj-2a2.txt`,
+`tests-adj-2a3.txt`, `tests-adj-2a4.txt`, `tests-adjacent-3.txt`,
+`tests-adjacent-4.txt`, `base-reds-1.txt`, `base-reds-2.txt`, `base-reds-4.txt`,
+`base-reds-5.txt`, `manifest-deploy.json`, `manifest-rollback.json`,
+`SHA256SUMS`.
