@@ -1,0 +1,77 @@
+base=7b68bd25d6f35df23695090c9a049c1173210987
+head=534c3c5c53c183ebbd43894aaf5fdf489f300cd7
+product_files=35 (excluding plans/)
+
+M	config/settings.py
+M	manage.py
+M	services/database.py
+M	services/direct_chat_service.py
+M	services/dossier_rebuild_jobs.py
+M	services/memory_rebuild.py
+M	tests/test_decision_making_round1026.py
+A	tests/test_fts_index_integrity_floor.py
+M	tests/test_image_context_memory_round1026.py
+M	tests/test_mca17c_invariants_round1047.py
+M	tests/test_q07_field_stats.py
+M	tests/test_round1025_f8_registry.py
+M	tests/test_scope_selector_round1025.py
+M	tests/test_summary_deploy_round1026.py
+M	tests/test_summary_fact_package.py
+M	tests/test_summary_logging_runid.py
+M	tests/test_summary_publish_integration_round1026.py
+M	tests/test_summary_test_run.py
+M	tests/test_telegram_reactions_round1026.py
+M	tests/test_tool_coordinator_round1026.py
+M	tests/test_unified_image_request_round1026.py
+M	tests/test_vmq_mem_slice_d.py
+M	tests/test_webapp_design_tokens_round1025.py
+M	tests/test_webapp_f11_round1025.py
+M	tests/test_webapp_f6_round1025.py
+M	tests/test_webapp_f7_round1025.py
+M	tests/test_webapp_f9_round1025.py
+M	tests/test_webapp_hotfix10_round1025.py
+M	tests/test_webapp_hotfix6_round1025.py
+M	tests/test_webapp_hotfix7_round1025.py
+M	tests/test_webapp_hotfix8_round1025.py
+M	tests/test_webapp_hotfix9_round1025.py
+M	tests/test_webapp_round1026_polygon.py
+M	tools/ui_mod_acl_m4b2_status_e2e.py
+M	tools/ui_mod_acl_m4b3_status_e2e.py
+diffstat:
+ config/settings.py                                 |   2 +-
+ manage.py                                          |  82 +++++-
+ services/database.py                               |   7 +
+ services/direct_chat_service.py                    |  14 +-
+ services/dossier_rebuild_jobs.py                   |  91 +++++--
+ services/memory_rebuild.py                         | 125 +++++++++
+ tests/test_decision_making_round1026.py            |   2 +-
+ tests/test_fts_index_integrity_floor.py            | 293 +++++++++++++++++++++
+ tests/test_image_context_memory_round1026.py       |   2 +-
+ tests/test_mca17c_invariants_round1047.py          |   2 +-
+ tests/test_q07_field_stats.py                      |   6 +-
+ tests/test_round1025_f8_registry.py                |   2 +-
+ tests/test_scope_selector_round1025.py             |   2 +-
+ tests/test_summary_deploy_round1026.py             |   2 +-
+ tests/test_summary_fact_package.py                 |   2 +-
+ tests/test_summary_logging_runid.py                |   2 +-
+ .../test_summary_publish_integration_round1026.py  |   2 +-
+ tests/test_summary_test_run.py                     |   2 +-
+ tests/test_telegram_reactions_round1026.py         |   2 +-
+ tests/test_tool_coordinator_round1026.py           |   2 +-
+ tests/test_unified_image_request_round1026.py      |   2 +-
+ tests/test_vmq_mem_slice_d.py                      |  67 +++++
+ tests/test_webapp_design_tokens_round1025.py       |   2 +-
+ tests/test_webapp_f11_round1025.py                 |   2 +-
+ tests/test_webapp_f6_round1025.py                  |   2 +-
+ tests/test_webapp_f7_round1025.py                  |   2 +-
+ tests/test_webapp_f9_round1025.py                  |   2 +-
+ tests/test_webapp_hotfix10_round1025.py            |   2 +-
+ tests/test_webapp_hotfix6_round1025.py             |   2 +-
+ tests/test_webapp_hotfix7_round1025.py             |   2 +-
+ tests/test_webapp_hotfix8_round1025.py             |   2 +-
+ tests/test_webapp_hotfix9_round1025.py             |   2 +-
+ tests/test_webapp_round1026_polygon.py             |   4 +-
+ tools/ui_mod_acl_m4b2_status_e2e.py                |   6 +-
+ tools/ui_mod_acl_m4b3_status_e2e.py                |   2 +-
+ 35 files changed, 677 insertions(+), 68 deletions(-)
+

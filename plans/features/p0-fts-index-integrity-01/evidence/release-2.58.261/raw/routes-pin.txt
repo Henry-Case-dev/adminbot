@@ -1,0 +1,8 @@
+routes_sha256_head=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+routes_sha256_base_7b68bd25=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+routes_byte_identical=True
+ROUTES_SHA256_F11=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+pin_source=tests/test_round1025_f8_registry.py (multi-line literal, joined)
+pin_matches_head=True
+routes_changed_in_delta=False
+decision=no re-pin (routes.py unchanged; pin unchanged)

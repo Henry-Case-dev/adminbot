@@ -1,0 +1,10 @@
+bump_commit=534c3c5c53c183ebbd43894aaf5fdf489f300cd7  parent=740d7d6f099fdcd1915e54a6b47162da8174e5bf
+files=29  additions=34  deletions=34
+non_version_changed_lines=0
+pairs_differing_only_by_version=34 / 34
+version_only_bump=OK
+eol_settings_base_7b68bd25: crlf=3665 bare_lf=0 size=362807
+eol_settings_tip:          crlf=3665 bare_lf=0 size=362807
+APP_VERSION base: ['APP_VERSION = "2.58.260"   # (27.11.2026']
+APP_VERSION tip:  ['APP_VERSION = "2.58.261"   # (27.11.2026']
+all_other_changed_lines_are_version_literal=True

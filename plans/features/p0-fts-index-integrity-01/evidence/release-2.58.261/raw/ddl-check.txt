@@ -1,0 +1,11 @@
+base=7b68bd25d6f35df23695090c9a049c1173210987
+changed_files_total=53
+changed_migrations_or_pg_db=[]
+migrations_dir_exists=False
+services/database.py_changed=True
+services/database.py_added_lines=7
+ddl_keyword_hits_in_database.py_added_lines=[]
+max_schema_constant=49
+max_schema_constant_name=['_SCHEMA_VERSION_SELF_DIAG_SAMPLES']
+user_version_target=49  # unchanged by this release
+ddl_delta=0

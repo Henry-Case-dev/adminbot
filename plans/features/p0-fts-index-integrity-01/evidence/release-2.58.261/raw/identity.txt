@@ -1,0 +1,21 @@
+release=2.58.261
+branch=release/2.58.261
+head=534c3c5c53c183ebbd43894aaf5fdf489f300cd7
+tree_tip=e9b2e05018bbf977191b509955a174156f946e3e
+base=7b68bd25d6f35df23695090c9a049c1173210987
+base_tree=9fe06905c6a83cc8c1ba7b40b345ba6850f9c7be
+base_version=2.58.260
+tip_version=2.58.261
+
+[FTS] candidate=afaac3e58 (afaac3e5845c3c6f96c9d7b10a03e0e81da147ee)
+  manage.py  head=8fef5e067f76  cand=8fef5e067f76  equal=True
+  services/database.py  head=df600c579590  cand=df600c579590  equal=True
+  services/dossier_rebuild_jobs.py  head=2675e5a175bc  cand=2675e5a175bc  equal=True
+  services/memory_rebuild.py  head=bcf353f3071e  cand=bcf353f3071e  equal=True
+  tests/test_fts_index_integrity_floor.py  head=8edc5461a221  cand=8edc5461a221  equal=True
+
+[VMQ-D1] candidate=b34cd21d1 (b34cd21d184f28a0442eee21904eb9f8d4f69c11)
+  services/direct_chat_service.py  head=389aae2de05f  cand=389aae2de05f  equal=True
+  tests/test_vmq_mem_slice_d.py  head=b42048bb560c  cand=b42048bb560c  equal=True
+
+BYTE_IDENTICAL_ALL=True
