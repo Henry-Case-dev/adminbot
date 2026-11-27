@@ -165,7 +165,8 @@ from services.canonical_context import (
 )
 from services.database import row_get
 from services.media_marker import (
-    MEDIA_MARKER_RE, media_context_enabled, media_marker, message_media_type)
+    MEDIA_MARKER_RE, media_context_enabled, media_marker, message_media_type,
+    row_media_marker)
 from services import native_media as native_media_module
 from services.payload_builder import build_messages
 from services.persistent_throttling import (
