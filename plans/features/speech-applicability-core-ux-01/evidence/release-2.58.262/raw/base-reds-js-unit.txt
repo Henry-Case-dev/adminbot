@@ -1,0 +1,367 @@
+﻿F........F......FFFF.......F.....................                        [100%]
+================================== FAILURES ===================================
+____________________ test_js_unit_routing_and_scope_guard _____________________
+
+    def test_js_unit_routing_and_scope_guard():
+>       _run_js(os.path.join("tests", "js", "routing_test.js"))
+
+tests\test_webapp_js_unit.py:35: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\routing_test.js', ok_marker = 'JS-UNIT-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (tests\js\routing_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         [adminbot] DOMPurify ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ тАФ ╤В╨╡╨║╤Б╤В ╨▒╨╡╨╖ HTML
+E         TypeError: this._embedModelSwapGuard is not a function
+E             at Object.saveBlock (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\web\app.js:30951:38)
+E             at C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\routing_test.js:662:29
+E             at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\routing_test.js'], returncode=1, stdout='', ...sts\\js\\routing_test.js:662:29\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n').returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+______________________ test_js_unit_round1024_image_key _______________________
+
+    def test_js_unit_round1024_image_key():
+        """F11 round 10.24 (ADR-1024-12): image-╤Б╨╡╨║╤А╨╡╤В тЖТ PUT /api/config/keys/own
+        (global), ╨╜╨╡ ╨▓ ╨╛╨▒╤Й╨╕╨╣ POST; ╨╝╨░╤Б╨║╨░ тЖТ 0 ╨╖╨░╨┐╤А╨╛╤Б╨╛╨▓; GET-╤А╨╡╨╢╨╕╨╝ disable+clear."""
+>       _run_js(os.path.join("tests", "js", "round1024_image_key_test.js"),
+                ok_marker="IMAGE-KEY-OK")
+
+tests\test_webapp_js_unit.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\round1024_image_key_test.js', ok_marker = 'IMAGE-KEY-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (tests\js\round1024_image_key_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         TypeError: this._embedModelSwapGuard is not a function
+E             at Object.saveBlock (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\web\app.js:30951:38)
+E             at run (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\round1024_image_key_test.js:140:29)
+E             at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\round1024_image_key_test.js:366:3)
+E             at Module._compile (node:internal/modules/cjs/loader:1854:14)
+E             at Object..js (node:internal/modules/cjs/loader:1985:10)
+E             at Module.load (node:internal/modules/cjs/loader:1577:32)
+E             at Module._load (node:internal/modules/cjs/loader:1379:12)
+E             at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+E             at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+E             at node:internal/main/run_main_module:33:47
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\round1024_image_key_test.js'], returncode=1,...UserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47\n').returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+____________ test_js_unit_round1025_hotfix7_shell_glass_heartbeat _____________
+
+    def test_js_unit_round1025_hotfix7_shell_glass_heartbeat():
+        """hotfix7 round 10.25 (ADR-1025-13, T-2658тАжT-2694): ╨╡╨┤╨╕╨╜╤Л╨╣ `--shell-h` +
+        ╨┤╨▓╨░ ╤А╨╡╨╢╨╕╨╝╨░ normal/fullscreen (legacy-╨╛╤В╨║╨░╤В UI_SHELL_LAYOUT_V2), premium
+        ECG sweep-wipe (╨╜╨╡╤В pulseX, off-╨┐╤Г╤В╤М canvas-legacy UI_HEARTBEAT_PREMIUM),
+        ╤Б╨╡╤А╨╛-╨│╤А╨░╤Д╨╕╤В╨╛╨▓╤Л╨╣ `--shell-*`-╤Б╨╗╨╛╨╣ + specular/texture (UI_SHELL_GLASS_V2),
+        env-only ╤Д╨╗╨░╨│╨╕ ╨▓ settings/routes, ╨╝╨░╤В╤А╨╕╤Ж╨░ 5 ╤А╨╡╨╢╨╕╨╝╨╛╨▓."""
+>       _run_js(os.path.join("tests", "js",
+                             "round1025_hotfix7_shell_glass_heartbeat_test.js"),
+                ok_marker="HOTFIX7-SHELL-GLASS-HEARTBEAT-OK")
+
+tests\test_webapp_js_unit.py:169: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\round1025_hotfix7_shell_glass_heartbeat_test.js'
+ok_marker = 'HOTFIX7-SHELL-GLASS-HEARTBEAT-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (tests\js\round1025_hotfix7_shell_glass_heartbeat_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         node:internal/assert/utils:77
+E             throw err;
+E             ^
+E         
+E         AssertionError [ERR_ASSERTION]: D: APP_VERSION 2.58.34
+E             at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\round1025_hotfix7_shell_glass_heartbeat_test.js:316:10)
+E             at Module._compile (node:internal/modules/cjs/loader:1854:14)
+E             at Object..js (node:internal/modules/cjs/loader:1985:10)
+E             at Module.load (node:internal/modules/cjs/loader:1577:32)
+E             at Module._load (node:internal/modules/cjs/loader:1379:12)
+E             at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+E             at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+E             at node:internal/main/run_main_module:33:47 {
+E           generatedMessage: false,
+E           code: 'ERR_ASSERTION',
+E           actual: false,
+E           expected: true,
+E           operator: '==',
+E           diff: 'simple'
+E         }
+E         
+E         Node.js v24.16.0
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\round1025_hotfix7_shell_glass_heartbeat_test...: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n").returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+_________________ test_js_unit_round1025_hotfix8_shell_aurora _________________
+
+    def test_js_unit_round1025_hotfix8_shell_aurora():
+        """hotfix8 round 10.25 (ADR-1025-16, T-2748тАжT-2782): shell v3 ┬з4
+        (`data-glass="shell"`, ╤Б╨╜╤П╤В╨╕╨╡ ╤Ж╨▓╨╡╤В╨╜╨╛╨╣ ╨╗╨╕╨╜╨╖╤Л A, sidebar 208тАУ224px),
+        aurora/mesh (5 blob + legacy `bg-wash-legacy`), env-only ╤Д╨╗╨░╨│╨╕."""
+>       _run_js(os.path.join("tests", "js",
+                             "round1025_hotfix8_shell_aurora_test.js"),
+                ok_marker="HOTFIX8-SHELL-AURORA-OK")
+
+tests\test_webapp_js_unit.py:178: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\round1025_hotfix8_shell_aurora_test.js'
+ok_marker = 'HOTFIX8-SHELL-AURORA-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (tests\js\round1025_hotfix8_shell_aurora_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         node:internal/assert/utils:77
+E             throw err;
+E             ^
+E         
+E         AssertionError [ERR_ASSERTION]: D: APP_VERSION 2.58.34
+E             at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\round1025_hotfix8_shell_aurora_test.js:213:10)
+E             at Module._compile (node:internal/modules/cjs/loader:1854:14)
+E             at Object..js (node:internal/modules/cjs/loader:1985:10)
+E             at Module.load (node:internal/modules/cjs/loader:1577:32)
+E             at Module._load (node:internal/modules/cjs/loader:1379:12)
+E             at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+E             at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+E             at node:internal/main/run_main_module:33:47 {
+E           generatedMessage: false,
+E           code: 'ERR_ASSERTION',
+E           actual: false,
+E           expected: true,
+E           operator: '==',
+E           diff: 'simple'
+E         }
+E         
+E         Node.js v24.16.0
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\round1025_hotfix8_shell_aurora_test.js'], re...: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n").returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+___________ test_js_unit_round1025_hotfix9_shell_flex_glass_aurora ____________
+
+    def test_js_unit_round1025_hotfix9_shell_flex_glass_aurora():
+        """hotfix9 round 10.25 (ADR-1025-17, T-2793тАжT-2836): ╨╡╨┤╨╕╨╜╤Л╨╣ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║
+        `--app-usable-height` (+ ╨░╨╗╨╕╨░╤Б `--shell-h`), flex-╨║╨╛╨╗╨╛╨╜╨║╨░ shell-mobile/
+        fullscreen, nav ╨▓ ╨┐╨╛╤В╨╛╨║╨╡ (╨╜╨╡ fixed), ╨╝╨╛╨┤╨░╨╗╨║╨░ modal-actions, ╨┐╨╛╨╗╨╜╨╛╨╡ ╤Г╨┤╨░╨╗╨╡╨╜╨╕╨╡
+        `--shell-texture`, ╨│╤А╨░╤Д╨╕╤В╨╛╨▓╤Л╨╡ ╤В╨╛╨║╨╡╨╜╤Л ┬з8, vendored Liquid Glass/OGL
+        (same-origin, CSP-safe), Dark Aurora Flow, env-only ╤Д╨╗╨░╨│╨╕, APP_VERSION."""
+>       _run_js(os.path.join("tests", "js",
+                             "round1025_hotfix9_shell_flex_glass_aurora_test.js"),
+                ok_marker="HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK")
+
+tests\test_webapp_js_unit.py:189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\round1025_hotfix9_shell_flex_glass_aurora_test.js'
+ok_marker = 'HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (tests\js\round1025_hotfix9_shell_flex_glass_aurora_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         node:internal/assert/utils:77
+E             throw err;
+E             ^
+E         
+E         AssertionError [ERR_ASSERTION]: D: APP_VERSION 2.58.34
+E             at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\round1025_hotfix9_shell_flex_glass_aurora_test.js:215:10)
+E             at Module._compile (node:internal/modules/cjs/loader:1854:14)
+E             at Object..js (node:internal/modules/cjs/loader:1985:10)
+E             at Module.load (node:internal/modules/cjs/loader:1577:32)
+E             at Module._load (node:internal/modules/cjs/loader:1379:12)
+E             at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+E             at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+E             at node:internal/main/run_main_module:33:47 {
+E           generatedMessage: false,
+E           code: 'ERR_ASSERTION',
+E           actual: false,
+E           expected: true,
+E           operator: '==',
+E           diff: 'simple'
+E         }
+E         
+E         Node.js v24.16.0
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\round1025_hotfix9_shell_flex_glass_aurora_te...: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n").returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+______________ test_js_unit_round1025_hotfix10_glass_geometry_bg ______________
+
+    def test_js_unit_round1025_hotfix10_glass_geometry_bg():
+        """hotfix10 round 10.25 (ADR-1025-18, T-2843тАжT-2864): ╨╛╤В╨║╨░╤В ╤Б╤В╨╡╨║╨╗╨░ ╤Б
+        ╤Д╤Г╨╜╨║╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╤Л╤Е ╤Ж╨╡╨╗╨╡╨╣ + GlassSurface, ╨╡╨┤╨╕╨╜╨░╤П ╤А╨░╨▒╨╛╤З╨░╤П ╨┐╨╛╨▓╨╡╤А╤Е╨╜╨╛╤Б╤В╤М Main, ╨╡╨┤╨╕╨╜╨░╤П
+        ╨▓╤Л╤Б╨╛╤В╨░ ╨▒╨╡╨╖ ╨┤╨▓╨╛╨╣╨╜╨╛╨│╨╛ safe-area, resize OGL-╤Д╨╛╨╜╨░ (fullscreen/viewport),
+        APP_VERSION (bumped hotfix10тЖТF6 2.58.14)."""
+>       _run_js(os.path.join("tests", "js",
+                             "round1025_hotfix10_glass_geometry_bg_test.js"),
+                ok_marker="HOTFIX10-GLASS-GEOMETRY-BG-OK")
+
+tests\test_webapp_js_unit.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\round1025_hotfix10_glass_geometry_bg_test.js'
+ok_marker = 'HOTFIX10-GLASS-GEOMETRY-BG-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (tests\js\round1025_hotfix10_glass_geometry_bg_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         node:internal/assert/utils:77
+E             throw err;
+E             ^
+E         
+E         AssertionError [ERR_ASSERTION]: G: APP_VERSION 2.58.34
+E             at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\round1025_hotfix10_glass_geometry_bg_test.js:282:10)
+E             at Module._compile (node:internal/modules/cjs/loader:1854:14)
+E             at Object..js (node:internal/modules/cjs/loader:1985:10)
+E             at Module.load (node:internal/modules/cjs/loader:1577:32)
+E             at Module._load (node:internal/modules/cjs/loader:1379:12)
+E             at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+E             at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+E             at node:internal/main/run_main_module:33:47 {
+E           generatedMessage: false,
+E           code: 'ERR_ASSERTION',
+E           actual: false,
+E           expected: true,
+E           operator: '==',
+E           diff: 'simple'
+E         }
+E         
+E         Node.js v24.16.0
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\round1025_hotfix10_glass_geometry_bg_test.js...: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n").returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+___________________ test_js_unit_round1025_f7_permsoc_local ___________________
+
+    def test_js_unit_round1025_f7_permsoc_local():
+        """F7 round 10.25 (ADR-1025-20 D1тАУD7, ┬з60тАУ┬з67): PERMsoc тАФ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨╡
+        ╨┐╤А╨╛╤Б╤В╤А╨░╨╜╤Б╤В╨▓╨╛ ╤З╨░╤В╨░. ╨С╨╡╨╖ ╤З╨░╤В╨░ ╨▒╨╗╨╛╨║╨╛╨▓ ╨╜╨╡╤В; 6 ╨▒╨╗╨╛╨║╨╛╨▓ + partition ┬л╨║╨╗╤О╤З ╤А╨╛╨▓╨╜╨╛
+        ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╨▒╨╗╨╛╨║╨╡┬╗; guard ┬лPERMsoc-╨║╨╗╤О╤З ╨╜╨╡ ╨┐╨╕╤И╨╡╤В╤Б╤П ╨▓ global┬╗; OFF ╨▒╨╗╨╛╨║╨░
+        ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В ╨┤╨╛╤З╨╡╤А╨╜╨╕╨╡; ╨▒╨╗╨╛╨║-╨│╨╡╨╣╤В╤Л reactions/schedule + kill-switch;
+        ╨╡╨┤╨╕╨╜╨╕╤Ж╤Л kostik_reply_probability (round-trip 0тАУ1 тЖФ 0тАУ100 %)."""
+>       _run_js(os.path.join("tests", "js",
+                             "round1025_f7_permsoc_local_test.js"),
+                ok_marker="F7-PERMSOC-LOCAL-UNIT-OK")
+
+tests\test_webapp_js_unit.py:278: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\round1025_f7_permsoc_local_test.js'
+ok_marker = 'F7-PERMSOC-LOCAL-UNIT-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT ╨┐╤А╨╛╨▓╨░╨╗╨╕╨╗╤Б╤П (tests\js\round1025_f7_permsoc_local_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\web\app.js:33014
+E                   var swapGuard = await this._embedModelSwapGuard(list);
+E                                              ^
+E         
+E         TypeError: this._embedModelSwapGuard is not a function
+E             at Object.persistItems (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\web\app.js:33014:38)
+E             at C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\tests\js\round1025_f7_permsoc_local_test.js:190:42
+E         
+E         Node.js v24.16.0
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\round1025_f7_permsoc_local_test.js'], return...-integrity-2-58-261-3cf2781692f1-8cbf41de\\tests\\js\\round1025_f7_permsoc_local_test.js:190:42\n\nNode.js v24.16.0\n').returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_js_unit.py::test_js_unit_routing_and_scope_guard - A...
+FAILED tests/test_webapp_js_unit.py::test_js_unit_round1024_image_key - Asser...
+FAILED tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix7_shell_glass_heartbeat
+FAILED tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix8_shell_aurora
+FAILED tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix9_shell_flex_glass_aurora
+FAILED tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix10_glass_geometry_bg
+FAILED tests/test_webapp_js_unit.py::test_js_unit_round1025_f7_permsoc_local
+7 failed, 42 passed in 11.88s
