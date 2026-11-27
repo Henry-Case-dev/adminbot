@@ -1,0 +1,20 @@
+﻿== base f0dc7d87: row_media_marker in direct_chat_service.py ==
+f0dc7d878:services/direct_chat_service.py:19329:                text = row_media_marker(row, item_id=item_id,
+== candidate: row_media_marker in direct_chat_service.py ==
+HEAD:services/direct_chat_service.py:169:    row_media_marker)
+HEAD:services/direct_chat_service.py:19330:                text = row_media_marker(row, item_id=item_id,
+
+== repo-wide references and imports (candidate) ==
+HEAD:services/chat_context.py:19:from services.media_marker import media_context_enabled, row_media_marker
+HEAD:services/chat_context.py:256:            text = row_media_marker(row, item_id=item_id,
+HEAD:services/direct_chat_service.py:169:    row_media_marker)
+HEAD:services/direct_chat_service.py:19330:                text = row_media_marker(row, item_id=item_id,
+HEAD:services/media_marker.py:126:def row_media_marker(row, item_id=None, *, projection=None) -> str:
+HEAD:services/thread_chain.py:51:    row_media_marker,
+HEAD:services/thread_chain.py:400:                text = row_media_marker(row, item_id=item_id)
+
+== module has no local definition (candidate) ==
+no local def (expected: defined once in services/media_marker.py)
+
+== py_compile ==
+py_compile OK

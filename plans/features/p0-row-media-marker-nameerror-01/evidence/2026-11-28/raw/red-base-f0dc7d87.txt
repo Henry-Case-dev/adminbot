@@ -1,0 +1,82 @@
+﻿F.                                                                       [100%]
+================================== FAILURES ===================================
+_______ test_live_selection_renders_media_row_marker_without_fail_open ________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1839/test_live_selection_renders_me0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000025F8AFB6240>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000025F8BE0E3F0>
+speech_on = None
+
+    @pytest.mark.asyncio
+    async def test_live_selection_renders_media_row_marker_without_fail_open(
+            tmp_path, monkeypatch, caplog, speech_on):
+        """Медиа-строка окна доходит до payload меткой; live-ветка не падает."""
+        db = await _db(tmp_path, "rowmedia.db")
+        try:
+            window = [
+                _row(1, text="текстовая реплика", tg=900),
+                _media_row(2, tg=991),
+            ]
+            svc = _make_service(memory=FakeMemory(window=window), db=db,
+                                bot_id=BOT_UID)
+            _stub_episodes(svc, monkeypatch)
+            _force_budget(monkeypatch, svc, 200_000)
+            seen = {"selection": 0}
+            real_selection = comp.allocate_selection
+    
+            def _selection(*args, **kwargs):
+                seen["selection"] += 1
+                return real_selection(*args, **kwargs)
+    
+            monkeypatch.setattr(comp, "allocate_selection", _selection)
+            projection = SpeechProjection(run_id="p0-row-media")
+            msg = _message(text="что на фото?", message_id=6000)
+            caplog.clear()
+            with caplog.at_level(logging.WARNING,
+                                 logger="services.direct_chat_service"):
+                blocks = await _compose(svc, msg, window, projection)
+            payload = _text(blocks)
+            # Речевая метка выдана рендером live-ветки (после него она известна).
+            label = projection.message_label("tg:991")
+            assert label, payload[:2000]
+>           assert f"[медиа: photo {label}]" in payload, payload[:2000]
+E           AssertionError: <Global_Context>
+E             текстовая реплика
+E             
+E             </Global_Context>
+E           assert '[медиа: photo M2]' in '<Global_Context>\nтекстовая реплика\n\n</Global_Context>'
+
+tests\test_p0_row_media_marker_live_selection.py:110: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable — source=error | key=flags.budgets_enabled | chat=-100777
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable — global value used | chat=-100777 | enabled=True | source=default
+WARNING  services.direct_chat_service:direct_chat_service.py:14047 direct: live selection failed — legacy fail-open | chat=-100777
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 14044, in _compose_user_content
+    return await _run_live_selection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 13648, in _run_live_selection
+    payload_pairs, prepared_pairs = _materialize(allocated)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 13415, in _materialize
+    raw = _materialize_selection(
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 5245, in _materialize_selection
+    tail_lines = [_line(render_row_line, f) for f in tail_fragments]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 5115, in _line
+    return str(renderer(fragment, _source(fragment)) or "")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 13392, in _row_render
+    return renderer(frag, source)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 13316, in _render
+    return self._context_row_line(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fts-index-integrity-2-58-261-3cf2781692f1-8cbf41de\services\direct_chat_service.py", line 19329, in _context_row_line
+    text = row_media_marker(row, item_id=item_id,
+           ^^^^^^^^^^^^^^^^
+NameError: name 'row_media_marker' is not defined. Did you mean: 'media_marker'?
+=========================== short test summary info ===========================
+FAILED tests/test_p0_row_media_marker_live_selection.py::test_live_selection_renders_media_row_marker_without_fail_open
+1 failed, 1 passed in 4.92s

@@ -1,0 +1,27 @@
+﻿base_sha: f0dc7d87841a6f3089fb4153474768f34c567e22
+base_tree: 610f110aab68bc09792c090bf37806de02375742
+candidate_sha: 449e9ee34cd51b6c5162c765d1d371445dbde342
+candidate_tree: 716b4a0ecfd1307c524c244bf79cfbb6a2d2208c
+branch: fix/row-media-marker
+base_is_ancestor: yes
+app_version: APP_VERSION = "2.58.261"   # (
+
+changed_files:
+M	services/direct_chat_service.py
+A	tests/test_p0_row_media_marker_live_selection.py
+
+diff:
+diff --git a/services/direct_chat_service.py b/services/direct_chat_service.py
+index 6d80a672d..e74b9bda2 100644
+--- a/services/direct_chat_service.py
++++ b/services/direct_chat_service.py
+@@ -165,7 +165,8 @@ from services.canonical_context import (
+ )
+ from services.database import row_get
+ from services.media_marker import (
+-    MEDIA_MARKER_RE, media_context_enabled, media_marker, message_media_type)
++    MEDIA_MARKER_RE, media_context_enabled, media_marker, message_media_type,
++    row_media_marker)
+ from services import native_media as native_media_module
+ from services.payload_builder import build_messages
+ from services.persistent_throttling import (
