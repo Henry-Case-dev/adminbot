@@ -7645,7 +7645,9 @@
         // отметки прогонов, окна 24ч/7д/30д, причины пропусков и
         // классификатор состояния (GET /api/experience/pipeline).
         expPipeline: null,
+        expPipelineScope: null,       // F1: 'global' | 'chat:<id>' снимка
         expPipelineBusy: false,
+        _expPipelineWantScope: null,  // F1: scope, который надо догрузить
         expPipelineError: '',
         expStageOpen: {},             // раскрытая причина по стадии
         // M4B B3 (MAC-S7-FEED-01..03, MAC-AC-18, MAC-S6-311): компактная
@@ -15684,6 +15686,11 @@
             this.activeChatId = this.accessChats[0].chat_id;
           }
           this.syncActiveChatTitle();
+          // F1: scope мог восстановиться уже ПОСЛЕ первой загрузки pipeline
+          // (модуль успел прочитать глобальный снимок) — приводим к текущему.
+          if (typeof this._syncExperiencePipelineScope === 'function') {
+            this._syncExperiencePipelineScope();
+          }
         } catch (e) {
           // фолбэк: часть-1 не выкатана / 403 — глобальный режим (старое)
           this.accessChats = [];
@@ -15900,6 +15907,11 @@
         if (typeof this._resetDossierFeedScope === 'function') {
           this._resetDossierFeedScope();
         }
+        // F1 (BL-09): снимок цепочки/журнала «Опыта» принадлежит области.
+        // Без сброса глобальный total (4899) показывался как журнал чата (544).
+        if (typeof this._resetExperiencePipeline === 'function') {
+          this._resetExperiencePipeline();
+        }
         // W2b-B1 (F2): покинутая область не оставляет `loading`-мету
         // (ответ отброшен epoch-guard'ом), а история текущего экрана сразу
         // грузится для НОВОЙ области — вкладка/refresh восстанавливаются.
@@ -15967,6 +15979,12 @@
         }
         this.loadConfig();
         this.loadKeyStatus();
+        // F1: активный экран «Опыта» (или «Статус» с цепочкой) сразу читает
+        // pipeline НОВОЙ области — иначе до следующего входа показывались бы
+        // счётчики прошлого чата.
+        if (typeof this._syncExperiencePipelineScope === 'function') {
+          this._syncExperiencePipelineScope();
+        }
         // 10.20 (БЛОК 5.4, S10.19-15): реактивность «Сводки» по chat_id —
         // «Бюджет контекста» (per-chat /api/status.context) и «Дневной фон»
         // (/api/workers/budget) перечитываются при смене чата. Один запрос
@@ -18080,21 +18098,70 @@
       // прецедент существующей воронки oversight; не-админу данные не
       // запрашиваются вовсе (никаких «пустых панелей по 403»).
       loadExperiencePipeline: async function () {
-        if (!this.isGlobalAdmin || this.expPipelineBusy) return;
+        if (!this.isGlobalAdmin) return;
+        if (this.expPipelineBusy) {
+          // F1: запрос уже в полёте — запомним нужный scope, чтобы после
+          // ответа догрузить актуальный (иначе смена чата во время запроса
+          // оставляла total неизвестным).
+          this._expPipelineWantScope = this.expPipelineScopeOf();
+          return;
+        }
+        var scope = this.expPipelineScopeOf();
         this.expPipelineBusy = true;
         this.expPipelineError = '';
-        var epoch = this.scopeEpoch;
         try {
           var data = await this.api('/api/experience/pipeline'
             + this._cidQuery(true));
-          if (!this._scopeGuard(epoch)) return;
+          // F1: применяем ответ только к тому же scope, для которого он
+          // запрошен: поздний ответ прошлой области не перетирает текущую.
+          if (this.expPipelineScopeOf() !== scope) return;
           this.expPipeline = data || null;
+          this.expPipelineScope = scope;
         } catch (e) {
-          if (!this._scopeGuard(epoch)) return;
+          if (this.expPipelineScopeOf() !== scope) return;
           this.expPipeline = null;
+          this.expPipelineScope = scope;
           this.expPipelineError = (e && e.message) || 'данные недоступны';
         } finally {
-          if (this._scopeGuard(epoch)) this.expPipelineBusy = false;
+          this.expPipelineBusy = false;
+          var want = this._expPipelineWantScope;
+          this._expPipelineWantScope = null;
+          if (want && want !== this.expPipelineScope) {
+            this.loadExperiencePipeline();
+          }
+        }
+      },
+      // F1 (BL-09): scope снимка `/api/experience/pipeline` — `global` или
+      // `chat:<id>`; total журнала годится только для того же scope.
+      expPipelineScopeOf: function () {
+        return this.activeChatId == null
+          ? 'global' : ('chat:' + this.activeChatId);
+      },
+      expPipelineIsCurrent: function () {
+        return !!(this.expPipeline
+                  && this.expPipelineScope === this.expPipelineScopeOf());
+      },
+      // Смена активного чата/области: снимок прошлой области не переезжает.
+      // `expPipelineBusy` не сбрасываем: запрос в полёте реален, его ответ
+      // отсечётся проверкой scope, а `_expPipelineWantScope` догрузит новый.
+      _resetExperiencePipeline: function () {
+        this.expPipeline = null;
+        this.expPipelineScope = null;
+        this.expPipelineError = '';
+      },
+      // F1: привести снимок к текущему scope. Вызывается после смены чата и
+      // после восстановления scope при загрузке страницы: чужой снимок
+      // сбрасывается, а открытый экран «Опыта»/«Статуса» сразу перечитывает
+      // свою область (иначе total/journal показывали бы прошлый scope).
+      _syncExperiencePipelineScope: function () {
+        if (typeof this.loadExperiencePipeline !== 'function') return;
+        if (this.expPipelineIsCurrent()) return;
+        this._resetExperiencePipeline();
+        if (this.isGlobalAdmin
+            && ((this.workspaceModule
+                 && this.workspaceModule.id === 'mod_experience')
+                || this.activeTab === 'status')) {
+          this.loadExperiencePipeline();
         }
       },
       // Причина по стадии раскрывается по одной (без «стены текста»).
@@ -27576,9 +27643,11 @@
         return parts.join(' · ');
       },
       // F1: реальный размер журнала уроков (все статусы) из уже загруженного
-      // `/api/experience/pipeline` того же scope. Нет данных — null (тогда UI
-      // честно печатает только размер страницы).
+      // `/api/experience/pipeline` — ТОЛЬКО того же scope, что и страница.
+      // Снимок другой области (напр. глобальный при открытом чате) не даёт
+      // total: тогда UI честно печатает лишь размер страницы.
       lessonsJournalTotal: function () {
+        if (!this.expPipelineIsCurrent()) return null;
         var pipe = this.expPipeline;
         if (!pipe || typeof pipe !== 'object') return null;
         var la = (pipe.learning_analytics || {}).lessons;
@@ -31311,7 +31380,8 @@
         // (второго API нет). Загрузка ленивая при входе в модуль.
         if (id === 'mod_experience' && this.isGlobalAdmin
             && typeof this.loadExperiencePipeline === 'function'
-            && !this.expPipeline && !this.expPipelineBusy) {
+            && !this.expPipelineBusy
+            && !this.expPipelineIsCurrent()) {
           this.loadExperiencePipeline();
         }
         // P0 Vision (D12/P0V-UI-DISPLAY): «LLM Провайдеры» — факты

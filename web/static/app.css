@@ -8027,37 +8027,61 @@ html.w9-sheet-bottom .modal-close {
   min-height: 24px; padding: 2px 8px; position: relative;
 }
 @media (pointer: coarse), (max-width: 767px) {
-  /* F2 (BL-11/S10-18): hit-area компактного tri-state — РЕАЛЬНЫЕ ±20 px от
-     центра (проверяется elementFromPoint в
-     tests/test_mod_acl_ux_m5c_corrective_e2e.py). Контейнер больше не
-     обрезает псевдоэлемент (`overflow: visible`), скругление пилюли держат
-     крайние кнопки, поэтому визуальная высота остаётся 22 px и карточка
-     сохраняет 132–164. Горизонтальные инсеты = 0: соседние кнопки не
-     перекрываются, «Открыть» ниже остаётся вне зоны. */
-  .module-card .module-tristate { overflow: visible; }
-  .module-card .module-tristate-btn:first-child {
+  /* F2 (BL-11/S10-18, r2): кликабельная площадь = РЕАЛЬНЫЙ 44-px бокс кнопки.
+     Визуальная пилюля (24 px) рисуется псевдоэлементами контейнера/активной
+     кнопки, поэтому тап по подписи и по строке состояния (они ВНЕ бокса) не
+     меняет настройку. Горизонтальные инсеты не расширяются — соседние кнопки
+     не перекрываются; «Открыть» ниже сохраняет свой hit-area. */
+  .module-card .module-tristate {
+    position: relative; display: inline-flex; align-items: center;
+    min-height: 44px; border: 0; background: transparent;
+    border-radius: 0; overflow: visible;
+  }
+  .module-card .module-tristate::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%;
+    height: 24px; transform: translateY(-50%);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-full); pointer-events: none;
+  }
+  .module-card .module-tristate-btn {
+    position: relative; isolation: isolate;
+    min-height: 44px; padding: 0 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 0;
+  }
+  .module-card .module-tristate-btn.active { background: transparent; }
+  .module-card .module-tristate-btn.active::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%;
+    height: 24px; transform: translateY(-50%);
+    background: var(--surface-3); z-index: -1;
+  }
+  .module-card .module-tristate-btn:first-child.active::before {
     border-radius: var(--radius-full) 0 0 var(--radius-full);
   }
-  .module-card .module-tristate-btn:last-child {
+  .module-card .module-tristate-btn:last-child.active::before {
     border-radius: 0 var(--radius-full) var(--radius-full) 0;
   }
-  /* Вертикальный inset только: кнопки tri-state не перекрывают друг друга
-     по горизонтали (тап у края должен попадать в свою кнопку). */
+  .module-card .module-tristate-btn + .module-tristate-btn {
+    border-left: 0;
+  }
+  .module-card .module-tristate-btn + .module-tristate-btn::after {
+    content: ''; position: absolute; left: 0; top: 50%; height: 24px;
+    transform: translateY(-50%);
+    border-left: 1px solid var(--surface-border);
+    pointer-events: none;
+  }
   .module-card .module-toggle::before,
   .app-shell .module-card .module-card-footer .btn-ghost::after {
     content: ''; position: absolute; inset: -11px 0;
   }
-  .module-card .module-tristate-btn::after {
-    content: ''; position: absolute; inset: -20px 0;
-  }
   .module-card .module-toggle,
-  .app-shell .module-card .module-card-footer .btn-ghost,
-  .module-card .module-tristate-btn { position: relative; }
+  .app-shell .module-card .module-card-footer .btn-ghost {
+    position: relative;
+  }
   .app-shell .module-card .module-card-footer .btn-ghost {
     min-height: 24px;
   }
   .module-card .module-toggle { min-height: 28px; }
-  .module-card .module-tristate-btn { min-height: 22px; }
 }
 .module-kind { font-size: 11px; color: var(--text-3); }
 /* D3: отказ чтения — заметная строка, без контролов состояния. */
