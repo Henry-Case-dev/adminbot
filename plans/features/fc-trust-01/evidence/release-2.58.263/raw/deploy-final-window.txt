@@ -1,0 +1,41 @@
+WINDOW_START=2026-11-27T21:48:50Z
+WINDOW_END=2026-11-27T22:03:27Z
+WINDOW_LINES=794
+W_5XX=0
+W_TRACEBACK=0
+W_ERROR=2
+W_CRITICAL=0
+W_NAMEERROR=0
+W_KEYERROR=0
+W_FACTCHECK_TRACE=3
+W_FACTCHECK_ERRORS=0
+W_PRE_ANTICLICHE=10
+W_PRE_ANTICLICHE_SRCUNAVAIL=1
+W_PRE_TRUNCATED_REASONING=0
+W_ERROR_SAMPLES=Nov 27 21:53:56 vps159032-gqg python[1115581]: 2026-11-27 21:53:56,263 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=|Nov 27 21:53:56 vps159032-gqg python[1115581]: 2026-11-27 21:53:56,265 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh statu|
+W_INFO_SAMPLES=Nov 27 21:48:56 vps159032-gqg python[1115581]: 2026-11-27 21:48:56,074 - services.config_migrations - INFO - [factcheck_wide_context_migration] ╤Г╨╢╨╡ ╨┐╤А╨╕╨╝╨╡╨╜╨╡╨╜╨╛ тАФ no-op|Nov 27 21:48:56 vps159032-gqg python[1115581]: 2026-11-27 21:48:56,200 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck тАФ ╨┐╨╛╤Б╨╗╨╡ ╤Б╨▒╨╛╤А╨║╨╕ Tool|
+HEALTH_LOCAL={"status":"ok","version":"2.58.263"}
+HEALTH_PUBLIC={"status":"ok","version":"2.58.263"}
+APPJS_DISK=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+APPJS_SERVED=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+APPJS_SERVED_SIZE=2739459
+INDEX_STATUS=200
+CONFIG_NOAUTH_STATUS=401
+SETTINGS_TOTAL=558
+PROMPTS_ROWS=29
+FACTCHECK_ROWS=14
+ROWS_TOUCHED_SINCE_DEPLOY=9
+TOUCHED_KEYS=limits.factcheck_claim_portion,limits.factcheck_excerpt_chars,limits.factcheck_max_queries_total,limits.factcheck_page_size,limits.factcheck_primary_fetches,limits.factcheck_refine_calls,limits.factcheck_retrieval_seconds,limits.factcheck_retrieval_seconds_max,limits.factcheck_search_text_chars
+ROWS_TOUCHED_BEFORE=549
+MANIFEST={"deployed_at": "2026-11-27T21:52:29.576520Z", "deployed_sha": "4cdd72e17ef418c3901497dcce717d53bda1a62f", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "c0db22aa957da51ea39e75b24de3e0dbdc8c1509", "previous_version": "2.58.262", "schema": 1, "version": "2.58.263"}
+HEAD=4cdd72e17ef418c3901497dcce717d53bda1a62f
+DIRTY=0
+UNIT=active NRESTS=0 PID=1115581 PROCS=1
+PROC_START=Fri 2026-11-27 21:48:52 UTC
+/dev/vda1        99G   51G   43G  54% /
+STRAY=0
+0
+WORKTREES=/var/www/admin_bot  4cdd72e17 (detached HEAD)|
+FINAL_UTC=2026-11-27T22:03:28Z
+FINAL_END
+

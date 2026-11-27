@@ -1,0 +1,47 @@
+HEAD=4cdd72e17ef418c3901497dcce717d53bda1a62f
+DIRTY=0
+IMPORT=IMPORT_OK 2.58.263
+MANIFEST_RUN=[release-manifest] wrote .deploy/release.json | sha=4cdd72e17ef418c3901497dcce717d53bda1a62f version=2.58.263 effect=deploy deployed_at=2026-11-27T21:52:29.576520Z|
+MANIFEST_AFTER={"deployed_at": "2026-11-27T21:52:29.576520Z", "deployed_sha": "4cdd72e17ef418c3901497dcce717d53bda1a62f", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "c0db22aa957da51ea39e75b24de3e0dbdc8c1509", "previous_version": "2.58.262", "schema": 1, "version": "2.58.263"}
+-rw-r--r-- 1 adminbot adminbot 301 Nov 27 21:52 .deploy/release.json
+PG_DB=
+SETTINGS_TOTAL=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+SETTINGS_FACTCHECK=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+FACTCHECK_KEYS=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+PROMPTS_ROWS=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+MD5_A_EXCL=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+MD5_B_EXCL=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+MD5_C_EXCL=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+MD5_PROMPTS_A=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+MD5_PROMPTS_B=psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+USER_VERSION=49
+GROUP_CHECK=  File "<string>", line 5|    print('keys', sorted((getattr(s,'pg_key',None) or getattr(s,'key')), for s in items))|                                                                         ^^^|SyntaxError: invalid syntax|
+APPJS_DISK=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+ssh : curl: (22) The requested URL returned error: 404
+строка:1 знак:179
++ ... ps"; $out = ssh -n -i $key -o BatchMode=yes -o ConnectTimeout=15 root ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (curl: (22) The ...rned error: 404:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+APPJS_SERVED=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+ROUTES_SHA=b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a
+curl: (22) The requested URL returned error: 404
+SERVED_VERSION_CT=
+DISK_AUDIT=  top: rollback_6b040f01453aee38032e941e0860f8c9.jsonl bytes=5074 category=jsonl_retention|  top: cancelled_a33a636d87a686444f3b83874a34b505.jsonl bytes=2821 category=jsonl_retention|  forecast: bytes_per_day=1694796759 projected_30d=50843902775 (47.4 GiB) files=9 immutable_bytes=0 span_days=11.742|  forecast_method: sum_sizes_of_files_modified_within_window / max(MIN_FORECAST_SPAN_DAYS, observed_span)|
+DISK_CLEANUP=disk cleanup: APPLY deleted=0 bytes_freed=0 (0.0 B) skipped=0 errors=0|
+/dev/vda1        99G   51G   43G  54% /
+ROLLBACK_DRYRUN_RC=0
+ROLLBACK_DRYRUN=[release-manifest] error: git status failed: 	git config --global --add safe.directory /tmp/rb263_probe 
+RB_WORKTREE_GONE=1
+WORKTREE_LIST=/var/www/admin_bot  4cdd72e17 (detached HEAD)|
+J_LINES=330
+J_5XX=0
+J_TRACEBACK=0
+J_ERROR=0
+J_NAMEERROR=0
+J_KEYERROR=0
+J_ERROR_LINES=
+NOW_UTC=2026-11-27T21:52:32Z
+VERIFY_END
+

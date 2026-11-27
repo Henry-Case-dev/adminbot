@@ -1,0 +1,72 @@
+PRE_HEAD=c0db22aa957da51ea39e75b24de3e0dbdc8c1509
+PRE_DIRTY=0
+PRE_UTC=2026-11-27T21:48:49Z
+/dev/vda1        99G   51G   43G  54% /
+PG_DB=
+PRE_SETTINGS_TOTAL=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+PRE_SETTINGS_PROMPTS=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+PRE_PROMPTS_MD5=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+PRE_FACTCHECK_LIMITS_ROWS=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+PRE_SETTINGS_MD5_EXCL=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+FETCH_START
+From https://github.com/Henry-Case-dev/adminbot
+ * branch                release/2.58.263 -> FETCH_HEAD
+ * [new branch]          release/2.58.263 -> origin/release/2.58.263
+TARGET_PRESENT=1
+Previous HEAD position was c0db22aa9 docs(release): 2.58.262 assembly evidence - 2 approved slices, routes re-pin b8f63355, bump 29/34, DDL 0
+HEAD is now at 4cdd72e17 docs(release): 2.58.263 assembly evidence - 5 approved S3/S2 commits, byte-identical a50bcaf6a, bump 29/34, DDL 0, routes b8f63355
+DEPLOYED_HEAD=4cdd72e17ef418c3901497dcce717d53bda1a62f
+POST_CHECKOUT_DIRTY=0
+CHANGED_COUNT=92
+CHOWN_DONE=1
+UNREADABLE_BY_SERVICE_USER=0
+IMPORT_RESULT=sudo: .venv/bin/python: command not found
+sudo: .venv/bin/python: command not found
+MANIFEST_AFTER={"deployed_at": "2026-11-27T19:12:28.697861Z", "deployed_sha": "c0db22aa957da51ea39e75b24de3e0dbdc8c1509", "dirty_tracked": false, "effect": "deploy", "previous_sha": "f0dc7d87841a6f3089fb4153474768f34c567e22", "previous_version": "2.58.261", "schema": 1, "version": "2.58.262"}
+RESTART_TS=2026-11-27T21:48:50Z
+UNIT_ACTIVE=active
+UNIT_NRESTARTS=0
+UNIT_MAINPID=1115581
+PROC_COUNT=1
+APP_VERSION_SRC=2.58.263
+HEALTH_LOCAL={"status":"ok","version":"2.58.263"}
+HEALTH_PUBLIC={"status":"ok","version":"2.58.263"}
+POST_SETTINGS_TOTAL=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+POST_SETTINGS_PROMPTS=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+POST_PROMPTS_MD5=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+POST_FACTCHECK_LIMITS_ROWS=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+POST_SETTINGS_MD5_EXCL=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+FACTCHECK_SEED_KEYS=sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+USER_VERSION=sudo: .venv/bin/python: command not found
+ROUTES_SHA256=b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a
+APPJS_SHA256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+APPJS_SIZE=2739459
+PIN_TEST=sudo: .venv/bin/python: command not found
+JOURNAL_LINES_NOW=203
+JOURNAL_5XX_NOW=0
+JOURNAL_TRACEBACK_NOW=0
+JOURNAL_ERROR_NOW=0
+JOURNAL_NAMEERROR_NOW=0
+JOURNAL_KEYERROR_NOW=0
+JOURNAL_FACTCHECK_NOW=3
+JOURNAL_ERROR_SAMPLES_NOW=
+DISK_AUDIT_OUT=sudo: .venv/bin/python: command not found|
+DISK_CLEANUP_OUT=sudo: .venv/bin/python: command not found|
+/dev/vda1        99G   51G   43G  54% /
+ROLLBACK_DRYRUN_RC=0
+ROLLBACK_DRYRUN=sudo: /var/www/admin_bot/.venv/bin/python: command not found
+ROLLBACK_WORKTREE_REMOVED=1
+POST_UTC=2026-11-27T21:49:05Z
+DEPLOY_END
+

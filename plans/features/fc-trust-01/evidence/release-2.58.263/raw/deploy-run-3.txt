@@ -1,0 +1,25 @@
+PG_USER_ENV=adminbot/adminbot
+SETTINGS_TOTAL=558
+SETTINGS_FACTCHECK=14
+FACTCHECK_KEYS=limits.factcheck_claim_portion,limits.factcheck_context_after,limits.factcheck_context_before,limits.factcheck_context_messages,limits.factcheck_cooldown_seconds,limits.factcheck_excerpt_chars,limits.factcheck_max_queries_total,limits.factcheck_max_symbols,limits.factcheck_page_size,limits.factcheck_primary_fetches,limits.factcheck_refine_calls,limits.factcheck_retrieval_seconds,limits.factcheck_retrieval_seconds_max,limits.factcheck_search_text_chars
+PROMPTS_ROWS=29
+MD5_CAT_EXCL=52b32d3e2d8f4149220d392d43424d70
+MD5_NL_EXCL=465f2d0ef82e8a64b31a9ba159c7f20e
+MD5_CAT_PROMPTS=3c29f515d2b495a42df7ac963afc8b7e
+MD5_NL_PROMPTS=e13d1c498c3dfb1ee355fe47a96d552d
+FACTCHECK_VALUES=limits.factcheck_claim_portion=32; limits.factcheck_context_after=6; limits.factcheck_context_before=6; limits.factcheck_context_messages=6; limits.factcheck_cooldown_seconds=300.0; limits.factcheck_excerpt_chars=600; limits.factcheck_max_queries_total=64; limits.factcheck_max_symbols=8000; limits.factcheck_page_size=20; limits.factcheck_primary_fetches=2; limits.factcheck_refine_calls=24; limits.factcheck_retrieval_seconds=120.0; limits.factcheck_retrieval_seconds_max=600.0; limits.factcheck_search_text_chars=100000
+GROUP_CHECK=0|
+--- served bundle ---
+IDX_APPJS_REF=
+URL/app.js=404
+URL/static/app.js=404
+URL/webapp/app.js=404
+URL/app/app.js=404
+APPJS_DISK=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+--- rollback dry-run (root, read-only) ---
+RB_RC=0
+RB_OUT={   "deployed_at": "2026-11-27T21:53:24.426177Z",   "deployed_sha": "c0db22aa957da51ea39e75b24de3e0dbdc8c1509",   "dirty_tracked": false,   "effect": "rollback",   "previous_sha": "4cdd72e17ef418c3901497dcce717d53bda1a62f",   "previous_version": "2.58.263",   "schema": 1,   "version": "2.58.262" } 
+RB_GONE=1
+WORKTREES=/var/www/admin_bot  4cdd72e17 (detached HEAD)|
+FIX_END
+
