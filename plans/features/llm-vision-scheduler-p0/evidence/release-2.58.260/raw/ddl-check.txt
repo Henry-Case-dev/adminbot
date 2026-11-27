@@ -1,0 +1,5 @@
+changed files total: 42
+changed DDL/schema files: []
+services/database.py or migrations/ changed: False
+{"ddl_delta": 0}
+rollback: code-only (no schema rollback needed)

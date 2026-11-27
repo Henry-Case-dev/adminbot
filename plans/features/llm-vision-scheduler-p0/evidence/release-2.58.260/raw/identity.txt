@@ -1,0 +1,26 @@
+base=1defb4e05fc3ed5cd1566b46af4eac0abd73a814
+head=e967d1d0831c2a72af001d1a43a95a46d7ea9c36
+tree=842d302de6b69af6d6049819858157251e121804
+
+SLICE_FILES (required byte identity):
+F-STALL-01  services/loop_lag_watchdog.py                  tip=7a4a53f77db9b174ca15378723d422130bf7e611 src=7a4a53f77db9b174ca15378723d422130bf7e611 equal=True
+F-STALL-01  bot.py                                         tip=e8f1d13efa50c2fb3353082347924d9407fbe929 src=e8f1d13efa50c2fb3353082347924d9407fbe929 equal=True
+F-STALL-01  tests/test_loop_lag_watchdog.py                tip=29b801219f52bb3dc0514cd4c1d05ef2129812de src=29b801219f52bb3dc0514cd4c1d05ef2129812de equal=True
+MOD-ACL     web/static/app.css                             tip=50ef54f3f4ed252ab45c435bbfabb20bab5c1879 src=50ef54f3f4ed252ab45c435bbfabb20bab5c1879 equal=True
+MOD-ACL     tests/test_mod_acl_ux_m5c_corrective_e2e.py    tip=2c8309d4c7cbfdbf74f4ee5cfab938db2ab485fa src=2c8309d4c7cbfdbf74f4ee5cfab938db2ab485fa equal=True
+MOD-ACL     tools/ui_mod_acl_m4_catalog_e2e.py             tip=4fc9fe0e40c21ee5e76cc8ef04198ead2ba1ce7d src=4fc9fe0e40c21ee5e76cc8ef04198ead2ba1ce7d equal=True
+
+SLICE_TREE_FILES (rest of the MOD-ACL corrective, informational):
+web/app.js                                           tip=27c8b172abbedf69cea51cfc236e3327783deb31 src=27c8b172abbedf69cea51cfc236e3327783deb31 equal=True
+web/index.html                                       tip=6e3afd9220b42f674a7332dcab388ee6b8d57815 src=6e3afd9220b42f674a7332dcab388ee6b8d57815 equal=True
+tests/js/mod_acl_ux_m5c_corrective_test.js           tip=4c0dd90a216629d8a3d24acfb4092fc2bfd9b453 src=4c0dd90a216629d8a3d24acfb4092fc2bfd9b453 equal=True
+tests/js/mod_acl_ux_m4_catalog_test.js               tip=c21210ea8f85622998b4e8b5d53fc431a27e7592 src=c21210ea8f85622998b4e8b5d53fc431a27e7592 equal=True
+tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js   tip=875310d8475dd46730c769b933daeaf6a7c45e71 src=875310d8475dd46730c769b933daeaf6a7c45e71 equal=True
+tests/js/mod_acl_ux_m4a_w2b_history_test.js          tip=c08a47f68ddf97e7a7f9dedd32cdc9eec2e2d9f8 src=c08a47f68ddf97e7a7f9dedd32cdc9eec2e2d9f8 equal=True
+tests/js/round1025_f4_module_store_test.js           tip=34c035c8c20ff140423a9f21e6d88cfde3925a0b src=34c035c8c20ff140423a9f21e6d88cfde3925a0b equal=True
+
+tools/ui_mod_acl_m4_catalog_e2e.py tip=4fc9fe0e40c21ee5e76cc8ef04198ead2ba1ce7d
+tools/ui_mod_acl_m4_catalog_e2e.py base_2.58.259=4fc9fe0e40c21ee5e76cc8ef04198ead2ba1ce7d
+tools/ui_mod_acl_m4_catalog_e2e.py fork_9516c9125=4fc9fe0e40c21ee5e76cc8ef04198ead2ba1ce7d
+tool_identical_to_9516c9125=True
+BYTE_IDENTICAL_ALL=True

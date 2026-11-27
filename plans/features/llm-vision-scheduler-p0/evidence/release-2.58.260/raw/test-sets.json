@@ -1,0 +1,102 @@
+{
+  "release": "2.58.260",
+  "base": "1defb4e05fc3ed5cd1566b46af4eac0abd73a814",
+  "command_prefix": "cd <worktree>; .venv/Scripts/python.exe -m pytest",
+  "sets": {
+    "f_stall_new": {
+      "files": ["tests/test_loop_lag_watchdog.py"],
+      "result": "7 passed"
+    },
+    "mod_acl_e2e": {
+      "files": ["tests/test_mod_acl_ux_m5c_corrective_e2e.py"],
+      "result": "5 passed"
+    },
+    "mod_acl_unit_js": {
+      "files": ["tests/js/mod_acl_ux_m5c_corrective_test.js"],
+      "result": "54 checks OK"
+    },
+    "mod_acl_catalog_js": {
+      "files": ["tests/js/mod_acl_ux_m4_catalog_test.js"],
+      "result": "207 checks"
+    },
+    "mod_acl_w2a_js": {
+      "files": ["tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js"],
+      "result": "142 checks"
+    },
+    "mod_acl_store_js": {
+      "files": ["tests/js/round1025_f4_module_store_test.js"],
+      "result": "OK"
+    },
+    "mod_acl_shared": {
+      "files": [
+        "tests/test_mod_acl_ux_m5b_shared_review.py",
+        "tests/test_asap8_f5_module_truth.py"
+      ],
+      "result": "30 passed"
+    },
+    "mod_acl_m4": {
+      "files": [
+        "tests/test_mod_acl_ux_01_m4_catalog.py",
+        "tests/test_mod_acl_ux_01_m3_module_routes.py",
+        "tests/test_mod_acl_ux_01_m4_module_params.py"
+      ],
+      "result": "18 passed, 1 pre-existing failed (test_js_fixture_matches_live_contract)"
+    },
+    "pins_registry": {
+      "files": [
+        "tests/test_decision_making_round1026.py",
+        "tests/test_image_context_memory_round1026.py",
+        "tests/test_mca17c_invariants_round1047.py",
+        "tests/test_q07_field_stats.py",
+        "tests/test_round1025_f8_registry.py",
+        "tests/test_scope_selector_round1025.py",
+        "tests/test_summary_deploy_round1026.py",
+        "tests/test_summary_fact_package.py",
+        "tests/test_summary_logging_runid.py",
+        "tests/test_summary_publish_integration_round1026.py",
+        "tests/test_summary_test_run.py",
+        "tests/test_telegram_reactions_round1026.py",
+        "tests/test_tool_coordinator_round1026.py",
+        "tests/test_unified_image_request_round1026.py",
+        "tests/test_webapp_design_tokens_round1025.py",
+        "tests/test_webapp_f11_round1025.py",
+        "tests/test_webapp_f6_round1025.py",
+        "tests/test_webapp_f7_round1025.py",
+        "tests/test_webapp_f9_round1025.py",
+        "tests/test_webapp_hotfix10_round1025.py",
+        "tests/test_webapp_hotfix6_round1025.py",
+        "tests/test_webapp_hotfix7_round1025.py",
+        "tests/test_webapp_hotfix8_round1025.py",
+        "tests/test_webapp_hotfix9_round1025.py",
+        "tests/test_webapp_round1026_polygon.py"
+      ],
+      "result": "864 passed, 6 pre-existing failed (all 6 reproduced on base 1defb4e05)"
+    },
+    "f8_registry_tool": {
+      "files": ["tools/gen_param_registry_round1025.py --check"],
+      "result": "CHECK OK: реестр 659 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны"
+    },
+    "startup_smoke": {
+      "files": [
+        "tests/test_t5150_startup_migrations_round1046.py",
+        "tests/test_monitoring_smoke.py",
+        "tests/test_smoke_round1016_download.py",
+        "tests/test_smoke_round1016_fixes.py",
+        "tests/test_smoke_round1016_graph.py",
+        "tests/test_smoke_round1016_guide.py",
+        "tests/test_smoke_round1016_miniapp_selfhost.py",
+        "tests/test_smoke_round1016_nostalgia_persona.py",
+        "tests/test_smoke_round1016_sleep.py",
+        "tests/test_smoke_round1016_tool_loop.py"
+      ],
+      "result": "81 passed"
+    },
+    "round106_ia_smoke": {
+      "files": ["tests/test_round106_ia_smoke.py"],
+      "result": "42 passed, 3 pre-existing failed (same 3 node ids on base 1defb4e05)"
+    }
+  },
+  "not_rerun": {
+    "tools/ui_mod_acl_m4_catalog_e2e.py": "byte-identical to base 9516c9125 and to candidate d51b1afc5; review r4 measured 12 failures (8 unique x 2 widths) = accepted backlog R4-B1, base 4 stale failures; no code delta in this assembly, so the measurement from review r4 applies unchanged"
+  }
+}

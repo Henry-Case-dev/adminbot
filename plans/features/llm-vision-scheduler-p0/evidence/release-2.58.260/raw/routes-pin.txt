@@ -1,0 +1,7 @@
+routes_sha256_head=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+routes_sha256_base_1defb4e0=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+routes_byte_identical=True
+ROUTES_SHA256_F11=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+pin_matches_head=True
+decision=no re-pin (routes.py unchanged; route-set/inventory delta 0)
+pin_test=tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged

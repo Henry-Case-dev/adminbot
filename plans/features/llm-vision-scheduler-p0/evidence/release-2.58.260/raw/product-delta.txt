@@ -1,0 +1,47 @@
+base=1defb4e05fc3ed5cd1566b46af4eac0abd73a814
+head=e967d1d0831c2a72af001d1a43a95a46d7ea9c36
+tree=842d302de6b69af6d6049819858157251e121804
+changed_files=42
+
+M	bot.py
+M	config/settings.py
+M	plans/docs/param-registry-round1025.meta.md
+A	plans/features/llm-vision-scheduler-p0/evidence/loop-lag-watchdog-2026-11-28/index.md
+A	services/loop_lag_watchdog.py
+M	tests/js/mod_acl_ux_m4_catalog_test.js
+M	tests/js/mod_acl_ux_m4a_w2a_tabs_freshness_test.js
+M	tests/js/mod_acl_ux_m4a_w2b_history_test.js
+A	tests/js/mod_acl_ux_m5c_corrective_test.js
+M	tests/js/round1025_f4_module_store_test.js
+M	tests/test_decision_making_round1026.py
+M	tests/test_image_context_memory_round1026.py
+A	tests/test_loop_lag_watchdog.py
+M	tests/test_mca17c_invariants_round1047.py
+A	tests/test_mod_acl_ux_m5c_corrective_e2e.py
+M	tests/test_q07_field_stats.py
+M	tests/test_round1025_f8_registry.py
+M	tests/test_scope_selector_round1025.py
+M	tests/test_summary_deploy_round1026.py
+M	tests/test_summary_fact_package.py
+M	tests/test_summary_logging_runid.py
+M	tests/test_summary_publish_integration_round1026.py
+M	tests/test_summary_test_run.py
+M	tests/test_telegram_reactions_round1026.py
+M	tests/test_tool_coordinator_round1026.py
+M	tests/test_unified_image_request_round1026.py
+M	tests/test_webapp_design_tokens_round1025.py
+M	tests/test_webapp_f11_round1025.py
+M	tests/test_webapp_f6_round1025.py
+M	tests/test_webapp_f7_round1025.py
+M	tests/test_webapp_f9_round1025.py
+M	tests/test_webapp_hotfix10_round1025.py
+M	tests/test_webapp_hotfix6_round1025.py
+M	tests/test_webapp_hotfix7_round1025.py
+M	tests/test_webapp_hotfix8_round1025.py
+M	tests/test_webapp_hotfix9_round1025.py
+M	tests/test_webapp_round1026_polygon.py
+M	tools/ui_mod_acl_m4b2_status_e2e.py
+M	tools/ui_mod_acl_m4b3_status_e2e.py
+M	web/app.js
+M	web/index.html
+M	web/static/app.css
