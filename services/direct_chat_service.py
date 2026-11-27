@@ -17718,15 +17718,20 @@ class DirectChatService:
             # слоты (T2/T2b). Старое не вытесняет более релевантное новое.
             base_ids = {row.get("id") for row in rows}
             budget = max(1, int(period_slots))
-            to_append: list = []
+            # VMQ-MEM-07 (2026-11-27): бюджет — ресурс числа строк, но порядок
+            # доказательств не вправе целиком отдать его строкам верхнего
+            # периода и потерять уже принятую строку старшего периода. Резерв
+            # — не более ОДНОГО существующего слота (`reserve_period_append`);
+            # при одном периоде в кандидатах — прежний срез байт-в-байт.
+            candidates: list = []
             for row in accepted:
-                if len(to_append) >= budget:
-                    break
                 if row.get("id") in base_ids:
                     continue
                 if _prov.is_self_referential_origin(row.get("origin")):
                     continue
-                to_append.append(row)
+                candidates.append(row)
+            to_append: list = _mca_rc.reserve_period_append(
+                candidates, budget=budget)
             remaining = max(0, int(limit) - len(rows))
             drop = max(0, len(to_append) - remaining)
             keep = max(0, len(rows) - drop)

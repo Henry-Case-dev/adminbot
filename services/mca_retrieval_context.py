@@ -1118,6 +1118,48 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     return accepted, stats
 
 
+def reserve_period_append(rows, *, budget: int) -> list:
+    """Порядок добора: верхний период не вытесняет отсутствующий старший.
+
+    VMQ-MEM-07 (2026-11-27). Бюджет добора — ресурс на ЧИСЛО дополнительных
+    строк (`top_k // 5`), а не выбор года; порядок внутри бюджета —
+    существующий ранг доказательств (`_rag_evidence_rank`: основы, вес×
+    важность, исходный индекс). Дефект: когда порядок целиком заполнялся
+    строками верхнего периода, принятая строка СТАРШЕГО периода (уже
+    прошедшая `select_period_rows`) не доезжала до среза, и покрытие периодов
+    падало 0.40 → 0.20.
+
+    Правило (одно предложение): если первые `budget` кандидатов принадлежат
+    одному (верхнему) периоду, а дальше есть кандидат строго старшего периода,
+    последний слот бюджета отдаётся лучшему по существующему рангу такому
+    кандидату; остальные слоты сохраняют прежний ранг.
+
+    Гарантии: результат никогда не длиннее `budget`; бюджет не повышается;
+    при одном периоде в кандидатах возвращается прежний срез `rows[:budget]`
+    байт-в-байт; строка с неизвестным годом периодом не считается. Резерв —
+    ровно один слот: второй старший период не отнимает место у верхнего.
+    """
+    budget = max(0, int(budget or 0))
+    rows = list(rows or ())
+    if budget <= 0:
+        return []
+    selected = rows[:budget]
+    if budget < 2 or len(selected) < 2:
+        return selected
+    top_year = period_row_year(selected[0])
+    if top_year is None:
+        return selected
+    if any(period_row_year(row) != top_year for row in selected):
+        return selected
+    for row in rows[budget:]:
+        year = period_row_year(row)
+        if year is None or year >= top_year:
+            continue
+        return list(selected[:-1]) + [row]
+    return selected
+
+
+
 @dataclasses.dataclass(frozen=True)
 class RetrievalRequest:
     """Вход единого retrieval-контракта (§4.1 + §4.4/§7.1 MEMORY-06).
@@ -4403,5 +4445,6 @@ __all__ = [
     "PeriodIntent", "resolve_period_intent",
     "period_row_year", "period_row_proxy", "period_subject_stems",
     "period_subject_shared", "select_period_rows",
+    "reserve_period_append",
 ]
 
