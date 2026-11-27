@@ -978,10 +978,15 @@ def run_layout(browser, width, height, label, exp_cols, shots):
             "('.speech-menu-panel .more-menu-item'))"
             ".map((x) => x.textContent.replace(/\\s+/g, ' ').trim()))()")
         notes.append({"label": label + "/menu", "items": items})
-        for want in ("Показать diff с заводским", "Обновить",
-                     "Вернуть заводской"):
+        for want in ("Показать diff с заводским", "Обновить"):
             if not any(want in it for it in items):
                 fail(label, "в ⋯-меню нет пункта «%s»: %s" % (want, items))
+        # SAC-CORE-ON-TAB (28.11.2026): «Вернуть заводской» — видимая кнопка
+        # блока Ядра (доступ к восстановлению не спрятан в меню).
+        factory_btn = page.locator("[data-speech-core-factory]")
+        if not factory_btn.count() or "Вернуть заводской" not in \
+                factory_btn.first.inner_text():
+            fail(label, "нет видимой кнопки «Вернуть заводской» в блоке Ядра")
         snap(page, shots, "menu_%s" % label)
         page.click(".speech-menu-backdrop", position={"x": 5, "y": 5})
         page.wait_for_timeout(200)
@@ -1285,10 +1290,8 @@ def run_core_extras(browser, shots):
             fail(label, "бейдж черновика не называет редакции: %s" % badge)
         snap(page, shots, "per_edition_draft_390")
         # §9.1 п.3: режим по умолчанию и «Core включён» → POST core/meta.
-        # SAC-CORE-ON-TAB (28.11.2026): переключение редакций/runtime-режим
-        # перенесены в «Дополнительные настройки» блока Ядра — раскрываем их.
-        page.click("[data-speech-core-editions] summary")
-        page.wait_for_timeout(200)
+        # SAC-CORE-ON-TAB (28.11.2026): details уже раскрыт выше (одно
+        # открытие); повторный клик по summary закрыл бы его.
         before = len(POSTS)
         page.select_option(
             ".speech-section select[aria-label='Редакция по умолчанию']", "full")
