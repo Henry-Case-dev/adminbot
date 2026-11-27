@@ -301,7 +301,13 @@ class TestCompositeCfg06B:
     @pytest.mark.asyncio
     async def test_s2_meaningful_without_sources_honest_limit(
             self, v2_on):
-        """(2) источники без URL → честное ограничение, не самоуверенность."""
+        """(2) источники без URL → честное ограничение, не самоуверенность.
+
+        FCT-406 (S3): URL-безопасный пак без проверяемых ссылок НЕ уходит в
+        модель как ``search_results`` — это отсеянный/непригодный кандидат.
+        Честное ограничение даёт существующая оговорка, а не выдуманная
+        ссылка.
+        """
         agg = FakeAggregator(default="Рекорд осадков\n"
                                      "Сниппет без ссылки\n")
         res = await _scenario(
@@ -309,9 +315,13 @@ class TestCompositeCfg06B:
             aggregator=agg)
         assert res.decisions[0] == "checkable_in_context"
         visible = _composite_common(res)
-        assert "первоисточник" in visible.lower()
-        assert "не удалось" in visible.lower()
+        assert "не подтверждают" in visible.lower() or \
+            "недостаточно" in visible.lower()
         assert "href=" not in res.bot.sent[0]["text"]   # выдуманных ссылок нет
+        # модельный контекст не содержит непригодного пака (FCT-406)
+        sent_results = (res.service.check_claim_calls or [{}])[0].get(
+            "search_results")
+        assert not sent_results
 
     @pytest.mark.asyncio
     async def test_s3_engines_down_honest_error(self, v2_on):

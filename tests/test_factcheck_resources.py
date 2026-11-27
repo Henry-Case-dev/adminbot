@@ -32,6 +32,58 @@ def _claim(n: int) -> str:
         f"Факт номер {i} подтверждён изданием {i}." for i in range(1, n + 1))
 
 
+ANCHOR_CLAIM = "В июле 2019 в Килякете выпало 120 мм осадков за сутки."
+
+
+def _anchored_unit(claim_id: str = "c1") -> "fsp.ClaimUnit":
+    """Часть с реальным специфическим якорем (метрика/имя/период).
+
+    FCT-401 (S3): evidence-профиль требует якорь, поэтому наборы, проверяющие
+    объём/фетчи/порции, обязаны подавать материал, который действительно
+    привязывается к тезису, а не совпадает с ним только общими словами.
+    """
+    return fsp.ClaimUnit(
+        claim_id=claim_id, text=ANCHOR_CLAIM,
+        entities=("Килякете",), metrics=("120 мм",), units=("мм",),
+        timeframe="июле 2019")
+
+
+def _anchored_plan(*, needs_primary_fetch: bool = False
+                   ) -> "fsp.RetrievalPlan":
+    unit = _anchored_unit()
+    return fsp.RetrievalPlan(
+        queries=(fsp.SearchQuery(
+            text="Килякете июле 2019 120 мм осадков",
+            intent=fsp.INTENT_ENTITY_CHECK, claim_id="c1"),),
+        needs_web=True, needs_primary_fetch=needs_primary_fetch,
+        claim_text=ANCHOR_CLAIM, claims=(unit,), chat_id=CHAT)
+
+
+def _anchored_block(index: int = 1, *, filler: int = 0) -> str:
+    """Блок выдачи с якорем тезиса (и, при необходимости, длинным текстом)."""
+    head = ("В Килякете в июле 2019 выпало 120 мм осадков за сутки. "
+            "Сводка %d." % index)
+    pad = ("Подробности наблюдений за осадками в Килякете: блок %d. "
+           % index * filler).strip()
+    body = f"{head}\n{pad}" if pad else head
+    return f"{body}\nhttps://weather.example/{index}"
+
+
+class _AnchoredSupportAgg:
+    """Выдача, подтверждающая запрос якорем тезиса (не только словами)."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def search_relevant(self, query, max_symbols, relevance_terms=None,
+                              timeout_budget=None, trace=None):
+        self.calls.append(query)
+        return (f"{ANCHOR_CLAIM}\nhttps://example.org/{len(self.calls)}")
+
+    async def search(self, query, max_symbols, trace=None):
+        return await self.search_relevant(query, max_symbols)
+
+
 def _plan(n_claims: int, *, with_refine: bool = False) -> fsp.RetrievalPlan:
     claims = tuple(
         fsp.ClaimUnit(claim_id=f"c{i}", text=f"Факт номер {i} подтверждён "
@@ -95,15 +147,6 @@ class _SlowAgg(_Agg):
         super().__init__("", delay=delay)
 
 
-class _SupportAgg(_Agg):
-    """Выдача, которая подтверждает каждый запрос его же словами."""
-
-    async def search_relevant(self, query, max_symbols, relevance_terms=None,
-                              timeout_budget=None, trace=None):
-        self.calls.append(query)
-        return f"{query}\nhttps://example.org/{len(self.calls)}"
-
-
 def _env(claim: str) -> tf.TemporalClaimEnvelope:
     return tf.TemporalClaimEnvelope(
         claim_id="claim-1", chat_id=CHAT, target_tg_message_id=1,
@@ -154,44 +197,52 @@ async def test_on_deadline_and_query_budget_are_applied():
     assert outcome.refine_calls == 24
     assert outcome.budget_exhausted is True
     assert outcome.stop_reason == fsp.STOP_BUDGET_EXHAUSTED
+    assert outcome.stop_reason == fsp.STOP_RESOURCE_LIMIT
     assert len(agg.calls) == 64
     summary = outcome.coverage_summary()
-    assert summary["claims_unchecked_due_to_budget"] > 0
+    # FCT-301/302: все 40 частей получили базовую попытку, поэтому «не
+    # проверенных из-за бюджета» частей нет; исчерпан именно уточняющий/общий
+    # лимит, и это видно run-level кодом, а не подменой статуса части.
+    assert summary["claims_unchecked_due_to_budget"] == 0
+    assert outcome.refine_calls == 24
+    assert all(cov.queries_count >= 1 for cov in outcome.claims)
     # Продуктовый бюджет ON не выдаётся за технический deadline.
     assert summary["claims_unchecked_due_to_deadline"] == 0
 
 
 @pytest.mark.asyncio
 async def test_on_page_size_20_and_smaller_provider_results_used_as_is():
-    # 30 кандидатов в выдаче; страница 20 → берём 20, не «ровно 20» и не 4.
-    blocks = "\n\n".join(
-        f"факт номер 1 подтверждён изданием 1 блок {i}\n"
-        f"https://example.org/{i}" for i in range(1, 31))
+    # 30 кандидатов с якорем тезиса; страница 20 → берём 20, не «ровно 20» и не 4.
+    blocks = "\n\n".join(_anchored_block(i) for i in range(1, 31))
     agg = _Agg(blocks)
     outcome = await fsp.run_retrieval(
-        _plan(1), aggregator=agg, limits=_on_limits())
+        _anchored_plan(), aggregator=agg, limits=_on_limits())
     assert outcome.refs_collected == 20   # 20 результатов на страницу
 
     # Провайдер вернул меньше страницы — используем фактическое количество.
-    small = "\n\n".join(
-        f"факт номер 1 подтверждён изданием 1 блок {i}\n"
-        f"https://small.example/{i}" for i in range(1, 4))
+    small = "\n\n".join(_anchored_block(i) for i in range(1, 4))
     out_small = await fsp.run_retrieval(
-        _plan(1), aggregator=_Agg(small), limits=_on_limits())
+        _anchored_plan(), aggregator=_Agg(small), limits=_on_limits())
     assert out_small.refs_collected == 3
 
 
 @pytest.mark.asyncio
 async def test_on_search_text_is_a_100k_portion_without_losing_tail():
-    big = "факт номер 1 подтверждён изданием 1 " * 5000  # ≈160k символов
+    # FCT-406: модельный раздел — проекция кандидатов, поэтому «хвост» —
+    # это хвост проекции. Проверяем, что порция не теряет его.
+    blocks = [_anchored_block(i, filler=120) for i in range(1, 21)]
     outcome = await fsp.run_retrieval(
-        _plan(1), aggregator=_Agg(big), limits=_on_limits(),
-        refine_calls=0)
-    assert outcome.search_text_total_chars == len(big)
+        _anchored_plan(), aggregator=_Agg("\n\n".join(blocks)),
+        limits=_on_limits(), refine_calls=0)
+    full = "".join(outcome.search_text_portions)
+    assert len(full) > 100_000
     assert len(outcome.search_text) == 100_000
     assert outcome.search_text_truncated is True
-    assert len(outcome.search_text_portions) == 2
-    assert "".join(outcome.search_text_portions) == big
+    assert len(outcome.search_text_portions) >= 2
+    assert full == outcome.search_text_portions[0] + "".join(
+        outcome.search_text_portions[1:])
+    assert full.endswith("https://weather.example/20")
+    assert outcome.search_text_total_chars == len(full)
 
 
 def test_claim_portion_32_keeps_tail_beyond_32():
@@ -221,13 +272,16 @@ async def test_off_removes_deadline_query_and_char_caps():
     assert outcome.budget_exhausted is False
     assert outcome.stop_reason == fsp.STOP_PATHS_EXHAUSTED
 
-    big = "факт номер 1 подтверждён изданием 1 " * 5000
+    big = "\n\n".join(_anchored_block(i, filler=60) for i in range(1, 6))
     out_text = await fsp.run_retrieval(
-        _plan(1), aggregator=_Agg(big), limits=_off_limits(),
+        _anchored_plan(), aggregator=_Agg(big), limits=_off_limits(),
         refine_calls=0)
-    assert out_text.search_text == big
+    # FCT-406: OFF снимает символьную порцию; модельный раздел — проекция,
+    # поэтому сверяем именно её и её целостность.
     assert out_text.search_text_truncated is False
-    assert out_text.search_text_total_chars == len(big)
+    assert out_text.search_text == "".join(out_text.search_text_portions)
+    assert out_text.search_text_total_chars == len(out_text.search_text)
+    assert "https://weather.example/5" in out_text.search_text
 
 
 @pytest.mark.asyncio
@@ -460,9 +514,9 @@ async def test_normal_path_uses_plan_chat_limits_without_manual_args(
 
 @pytest.mark.asyncio
 async def test_stop_reason_sufficient_evidence_before_using_all_queries():
-    plan = _plan(1)
+    plan = _anchored_plan()
     outcome = await fsp.run_retrieval(
-        plan, aggregator=_SupportAgg(), limits=_on_limits())
+        plan, aggregator=_AnchoredSupportAgg(), limits=_on_limits())
     assert outcome.stop_reason == fsp.STOP_SUFFICIENT_EVIDENCE
     assert outcome.budget_exhausted is False
     # Заводской бюджет 64 не является обязательным минимумом.
@@ -491,24 +545,21 @@ async def test_technical_provider_budget_is_not_product_budget():
         reason = "budget"
 
     outcome = await fsp.run_retrieval(
-        _plan(1), aggregator=_Agg(error=_BudgetError("timeout")),
+        _anchored_plan(), aggregator=_Agg(error=_BudgetError("timeout")),
         limits=_on_limits())
     assert outcome.budget_exhausted is False
-    assert outcome.stop_reason == fsp.STOP_TECHNICAL_LIMIT
+    # FCT-301: транспортный предел вызова — provider_timeout, не «лимит
+    # исследования» и не «нет данных».
+    assert outcome.stop_reason == fsp.STOP_PROVIDER_TIMEOUT
     assert outcome.provider_failures >= 1
     assert outcome.queries_used == 0
     summary = outcome.coverage_summary()
-    assert summary["claims_unchecked_due_to_deadline"] > 0
+    assert summary["provider_timeouts"] > 0
+    assert summary["claims_unchecked_due_to_deadline"] == 0
     assert summary["claims_unchecked_due_to_budget"] == 0
 
 
 # ── 5. Политика открытий: ON — нагрузка, OFF — без потолка ─────────────────
-
-def _multi_url_chunk(n: int) -> str:
-    return "\n\n".join(
-        f"факт номер 1 подтверждён изданием 1 источник {i}\n"
-        f"https://source.example/{i}" for i in range(1, n + 1))
-
 
 @pytest.mark.asyncio
 async def test_on_fetch_policy_limits_openings_off_has_no_cap():
@@ -516,10 +567,11 @@ async def test_on_fetch_policy_limits_openings_off_has_no_cap():
 
     async def fake_fetch(url, *, max_bytes=65536, timeout=4.0):
         seen.append(url)
-        return ("факт номер 1 подтверждён изданием 1. " * 30) + f" {url}"
+        return ("В Килякете в июле 2019 выпало 120 мм осадков за сутки. "
+                "Наблюдения подтверждены станцией. " * 30) + f" {url}"
 
-    chunk = _multi_url_chunk(5)
-    plan_fetch = dataclasses.replace(_plan(1), needs_primary_fetch=True)
+    chunk = "\n\n".join(_anchored_block(i) for i in range(1, 6))
+    plan_fetch = _anchored_plan(needs_primary_fetch=True)
     on = await fsp.run_retrieval(
         plan_fetch, aggregator=_Agg(chunk), fetch_text=fake_fetch,
         limits=_on_limits(primary_fetches=2))

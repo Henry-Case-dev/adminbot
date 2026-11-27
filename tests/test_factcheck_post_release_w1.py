@@ -240,15 +240,23 @@ class TestAggregatorFailureTaxonomy:
         assert ei.value.reason == "empty_results"
         assert ei.value.reason != "provider_error"
 
-    def test_irrelevant_results_distinguished(self):
+    def test_low_overlap_pack_is_not_a_hard_failure(self):
+        """FCT-401 (S3): низкий overlap — recall-сигнал, не приговор.
+
+        Прежний жёсткий ``AllSearchEnginesFailedException`` отменён: пак
+        возвращается как low-overlap кандидат (проверено трассой), иначе
+        корректный перефразированный материал терялся на уровне провайдера.
+        """
         agg = sa.SearchAggregator(tavily_api_key="t", exa_api_key="")
         self._set_engine(agg, "Совершенно другая тема про рецепты борща"
                               "\nhttps://x.org/1")
-        with pytest.raises(sa.AllSearchEnginesFailedException) as ei:
-            asyncio.run(agg.search("заболеваемость молодёжи", 100,
-                                   relevance_terms=["заболеваемость",
-                                                    "молодёжи"]))
-        assert ei.value.reason == "irrelevant_results"
+        trace: dict = {}
+        out = asyncio.run(agg.search("заболеваемость молодёжи", 100,
+                                     relevance_terms=["заболеваемость",
+                                                      "молодёжи"],
+                                     trace=trace))
+        assert "x.org/1" in out
+        assert trace["reason"] == "low_overlap_fallback"
 
     def test_api_error_is_provider_error(self):
         agg = sa.SearchAggregator(tavily_api_key="t", exa_api_key="")
