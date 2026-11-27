@@ -15251,6 +15251,12 @@
       lockAuth: function (text) {
         this.authLocked = true;
         if (text) this.authError = text;
+        // SAC-REV-R1-F1: без авторизации контекст области не разрешится —
+        // отпускаем ожидающие speech/persona-загрузки, чтобы они честно
+        // упёрлись в 401 (`api()` бросает), а не висели «Загружаем…».
+        if (typeof this._markChatCtxReady === 'function') {
+          this._markChatCtxReady();
+        }
         _markAppReady();
         _setAppBusy(false);
       },
@@ -39710,10 +39716,9 @@
         // SAC-REV-R1-F1: после разрешения области дефолт цели сохранения —
         // фактическая область страницы (P0A-UX §6.3), не «global» из
         // начального стейта. Явный выбор владельца (touched) не трогаем.
-        if (this.activeChatId != null
-            && !(this.speechScopeTouched || {}).core) {
+        if (!(this.speechScopeTouched || {}).core) {
           var sc0 = Object.assign({}, this.speechScope || {});
-          sc0.core = 'chat';
+          sc0.core = this.speechScopeDefault();
           this.speechScope = sc0;
         }
         var core = await this.api('/api/speech/core');
