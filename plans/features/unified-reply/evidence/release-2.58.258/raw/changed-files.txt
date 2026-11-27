@@ -1,0 +1,79 @@
+changed vs base: 66
+product (1):
+  services/direct_execution.py
+tools (2):
+  tools/ui_mod_acl_m4b2_status_e2e.py
+  tools/ui_mod_acl_m4b3_status_e2e.py
+tests (32):
+  (list omitted: 32 files; see diffstat)
+docs/plans (30):
+  (list omitted: 30 files)
+
+diffstat vs base:
+config/settings.py                                 |    2 +-
+ plans/docs/param-registry-round1025.meta.md        |    2 +-
+ .../evidence/ur-e-accept-2026-11-27/index.md       |  519 ++++++++
+ .../evidence/ur-e-accept-2026-11-27/raw/SHA256SUMS |   28 +
+ .../raw/ban02-runtime-probe.txt                    |   19 +
+ .../raw/ban02-static-semantics.txt                 |   27 +
+ .../raw/ban08-1440x900-inspector.png               |  Bin 0 -> 403124 bytes
+ .../raw/ban08-1440x900-limits.png                  |  Bin 0 -> 395916 bytes
+ .../raw/ban08-1440x900-overview.png                |  Bin 0 -> 391689 bytes
+ .../raw/ban08-1440x900-settings.png                |  Bin 0 -> 403986 bytes
+ .../raw/ban08-390x844-inspector.png                |  Bin 0 -> 172202 bytes
+ .../raw/ban08-390x844-limits.png                   |  Bin 0 -> 174892 bytes
+ .../raw/ban08-390x844-overview.png                 |  Bin 0 -> 154551 bytes
+ .../raw/ban08-390x844-settings.png                 |  Bin 0 -> 170900 bytes
+ .../ur-e-accept-2026-11-27/raw/ban08-visual.json   |  585 +++++++++
+ .../evidence/ur-e-accept-2026-11-27/raw/mutate.py  |   20 +
+ .../ur-e-accept-2026-11-27/raw/node-ur-ban08.txt   |    2 +
+ .../raw/probe_ban02_after.py                       |   77 ++
+ .../raw/prod-cleanup-verification.txt              |   12 +
+ .../raw/prod-e9-live-run.txt                       |   11 +
+ .../ur-e-accept-2026-11-27/raw/pw_ban08.py         |  151 +++
+ .../raw/pytest-ur-ban08-js.txt                     |   14 +
+ .../raw/pytest-ur-c-sched-3files.txt               |   18 +
+ .../ur-e-accept-2026-11-27/raw/serve_local.py      |   67 ++
+ .../raw/ur-ban02-after-runtime.txt                 |   22 +
+ .../ur-e-accept-2026-11-27/raw/ur-ban02-green.txt  |   23 +
+ .../ur-e-accept-2026-11-27/raw/ur-ban02-red.txt    |   91 ++
+ .../raw/ur-ban02-regression-fullset.txt            | 1242 ++++++++++++++++++++
+ .../raw/ur17-fixture-red.txt                       |   18 +
+ .../raw/ur30-e5-e6-implementation.txt              |  264 +++++
+ .../raw/ur30-e5-e6-test-names.txt                  |    4 +
+ services/direct_execution.py                       |   56 +-
+ .../historical_dialog_2026_11_04.json              |  133 +++
+ tests/js/ur_ban08_ui_test.js                       |  197 ++++
+ tests/test_bgs05_budgets.py                        |   29 +-
+ tests/test_decision_making_round1026.py            |    2 +-
+ tests/test_image_context_memory_round1026.py       |    2 +-
+ tests/test_mca17c_invariants_round1047.py          |    2 +-
+ tests/test_q07_field_stats.py                      |    6 +-
+ tests/test_round1025_f8_registry.py                |    2 +-
+ tests/test_scope_selector_round1025.py             |    2 +-
+ tests/test_summary_deploy_round1026.py             |    2 +-
+ tests/test_summary_fact_package.py                 |    2 +-
+ tests/test_summary_logging_runid.py                |    2 +-
+ .../test_summary_publish_integration_round1026.py  |    2 +-
+ tests/test_summary_test_run.py                     |    2 +-
+ tests/test_telegram_reactions_round1026.py         |    2 +-
+ tests/test_tool_coordinator_round1026.py           |    2 +-
+ tests/test_unified_image_request_round1026.py      |    2 +-
+ tests/test_unified_reply_ur_b_search_first.py      |  172 +++
+ tests/test_ur_17_historical_dialog.py              |  190 +++
+ tests/test_ur_c_sched.py                           |   18 +-
+ tests/test_webapp_design_tokens_round1025.py       |    2 +-
+ tests/test_webapp_f11_round1025.py                 |    2 +-
+ tests/test_webapp_f6_round1025.py                  |    2 +-
+ tests/test_webapp_f7_round1025.py                  |    2 +-
+ tests/test_webapp_f9_round1025.py                  |    2 +-
+ tests/test_webapp_hotfix10_round1025.py            |    2 +-
+ tests/test_webapp_hotfix6_round1025.py             |    2 +-
+ tests/test_webapp_hotfix7_round1025.py             |    2 +-
+ tests/test_webapp_hotfix8_round1025.py             |    2 +-
+ tests/test_webapp_hotfix9_round1025.py             |    2 +-
+ tests/test_webapp_js_unit.py                       |   12 +-
+ tests/test_webapp_round1026_polygon.py             |    4 +-
+ tools/ui_mod_acl_m4b2_status_e2e.py                |    6 +-
+ tools/ui_mod_acl_m4b3_status_e2e.py                |    2 +-
+ 66 files changed, 4015 insertions(+), 74 deletions(-)

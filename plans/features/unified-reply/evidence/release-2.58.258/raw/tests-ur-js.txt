@@ -1,0 +1,5 @@
+cmd: node tests/js/ur_ban08_ui_test.js
+exit=0
+
+UR-BAN-08: три уровня, порядок, подписи, раскладка групп и read-only legacy проверены на реальном web/app.js
+UR-BAN08-UI-OK

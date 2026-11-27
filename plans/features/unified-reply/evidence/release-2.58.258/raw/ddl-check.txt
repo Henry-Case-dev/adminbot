@@ -1,0 +1,5 @@
+changed files total: 66
+changed DDL/schema files: []
+migration steps: 49 max version: 49
+self_diag_samples version: 49
+{"base": "9516c9125", "changed_files": 66, "ddl_changed_files": [], "migration_steps": 49, "max_schema_version": 49, "ddl_delta": 0}

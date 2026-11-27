@@ -1,0 +1,6 @@
+commit: 50df797da6f20ba4599bec7c46f43067c8a7d00e
+changed lines: -34 / +34
+pairs differing ONLY by version: 34
+pairs with other changes: 0
+files in commit: 29
+VERSION-ONLY BUMP: OK (34 pairs / 29 files)

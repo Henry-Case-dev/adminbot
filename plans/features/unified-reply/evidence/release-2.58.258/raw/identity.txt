@@ -1,0 +1,11 @@
+release_branch=release/ur-ban02-2.58.258
+head=50df797da6f20ba4599bec7c46f43067c8a7d00e
+tree=ff9c5dbae77d33e4957d3fc70669758d34bd6a07
+base=9516c912554bb1062f62a63b6689f418c1cb5425
+status_clean=True
+
+log 9516c9125..HEAD:
+50df797da chore(release): 2.58.258 - bump APP_VERSION and version pins (UR-BAN-02)
+8a41c32c0 docs(ur): close R1 evidence findings (E9 cleanup proof, safety-limit docstring)
+aeac505b4 fix(ur): UR-BAN-02 physical step bound for the adaptive chain (no new flag)
+87215cb4a test(ur): UR-E-ACCEPT evidence batch on 2.58.257 (schema pin, BAN-08 UI, historical dialog)

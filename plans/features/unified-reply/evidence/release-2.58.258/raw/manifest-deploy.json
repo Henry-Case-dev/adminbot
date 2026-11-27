@@ -1,0 +1,11 @@
+{
+  "deployed_at": "2026-11-27T11:11:35.656584Z",
+  "deployed_sha": "50df797da6f20ba4599bec7c46f43067c8a7d00e",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "9516c912554bb1062f62a63b6689f418c1cb5425",
+  "previous_version": "2.58.257",
+  "release_branch": "release/ur-ban02-2.58.258",
+  "schema": 1,
+  "version": "2.58.258"
+}
