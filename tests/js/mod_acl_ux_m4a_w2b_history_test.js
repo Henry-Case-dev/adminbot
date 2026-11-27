@@ -23,7 +23,7 @@ H-1…H-7):
   6) один автоматический фетч на источник (`_ensureModuleData`), без поллера;
      явное обновление остаётся возможным;
   7) B2/D2: конверт уроков `{enabled,state,count}` → строка
-     «записей в журнале: N (<RU-состояние>)»,
+     «на странице: N [· всего в журнале: T]»,
      detail прогона фактчека — только по run_id (существующая модалка);
   8) B3: прогоны `summary`/`random.uses` через
      `GET /api/oversight/runs?pipeline_type=…&limit=20` (global admin),
@@ -284,7 +284,7 @@ function eq(a, b, msg) {
       'F1: в коде остался запрос pipeline_type=summary.window');
     // B2: журнал фактчека (detail по run_id) и конверт уроков.
     ['data-factcheck-temporal', 'data-experience-history',
-     'data-module-history-count', 'записей в журнале: '].forEach(function (needle) {
+     'data-module-history-count', 'на странице: '].forEach(function (needle) {
       ok(APP_JS.indexOf(needle) >= 0 || INDEX_HTML.indexOf(needle) >= 0,
         'B2: нет «' + needle + '»');
     });
@@ -912,7 +912,7 @@ function eq(a, b, msg) {
     ok(methods.workspaceTabHasContent.call(ctx, EXPERIENCE, 'history'),
       'experience ready+rows: вкладка истории есть');
     eq(methods.historyEnvelopeText.call(ctx, EXPERIENCE),
-      'записей в журнале: 2 (есть записи)',
+      'на странице: 2',
       'experience: строка журнала уроков (RU-состояние, D2)');
     eq(urls[0], '/api/memory/lessons?chat_id=-100',
       'experience: чатовая область сохраняет прежний адрес');
@@ -944,7 +944,7 @@ function eq(a, b, msg) {
     eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'empty',
       'experience: пустой конверт → empty');
     eq(methods.historyEnvelopeText.call(ctx, EXPERIENCE),
-      'записей в журнале: 0 (записей нет)',
+      'на странице: 0 · записей нет',
       'experience: честное состояние not_run');
     ok(!methods.workspaceTabHasContent.call(ctx, EXPERIENCE, 'history'),
       'experience empty: вкладки нет');
@@ -956,7 +956,7 @@ function eq(a, b, msg) {
     eq(methods.historyStateFor.call(ctx, EXPERIENCE), 'off',
       'experience enabled:false → off');
     eq(methods.historyEnvelopeText.call(ctx, EXPERIENCE),
-      'записей в журнале: 0 (функция выключена)',
+      'функция выключена',
       'experience: off показывает сырое состояние конверта');
     ok(!methods.workspaceTabHasContent.call(ctx, EXPERIENCE, 'history'),
       'experience off: вкладки нет');
