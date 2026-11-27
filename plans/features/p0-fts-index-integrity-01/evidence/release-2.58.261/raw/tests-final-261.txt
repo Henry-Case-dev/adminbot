@@ -1,0 +1,4 @@
+2.58.261 focused run (Orchestrator, final tip 47194090e)
+pytest tests/test_fts_index_integrity_floor.py tests/test_vmq_mem_slice_d.py tests/test_vmq_oldrow_person_delivery.py -q
+69 passed in 9.49s
+expected composition: FTS floor 7 + VMQ slice D 43 + oldrow delivery 19 = 69
