@@ -1814,6 +1814,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             or getattr(subject, "fingerprint", "") or ""),
         subject_anchor_tg_message_id=getattr(
             subject, "request_tg_message_id", None),
+        # FCT-112 (S1): чат анкора запроса (прогон всегда в одном чате).
+        subject_anchor_chat_id=req.chat_id,
         subject_author=str(getattr(subject, "request_author", "") or ""),
         subject_request_text=str(
             getattr(subject, "request_part", "") or ""),
@@ -1824,7 +1826,13 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         # Полный сохранённый материал передаётся отдельно — из него берётся
         # предметный анкер запроса части, пришедшей из вопроса.
         subject_full_material_text=str(
-            getattr(subject, "material_text", "") or ""))
+            getattr(subject, "material_text", "") or ""),
+        # FCT-113 (S1): тип утверждения — только из СТРУКТУРНЫХ признаков:
+        # source_type конверта (caption/ocr → image_content) и результата
+        # существующего tool'а атрибуции (→ public_statement_attribution).
+        # Лексикон смысл не заменяет (owner §2.2).
+        claim_source_type=str(getattr(envelope, "source_type", "") or ""),
+        attribution_detected=attribution is not None)
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
                     "intents=%s", req.chat_id,

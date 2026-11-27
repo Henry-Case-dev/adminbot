@@ -323,6 +323,59 @@ class Candidate:
         return "\n".join(line for line in lines if line)
 
 
+#: FCT-113 (S1, 28.11.2026): единая ось ТИПА УТВЕРЖДЕНИЯ для ClaimUnit — четыре
+#: типа владельца + честный unknown. Ортогональна `claim_type` (форма тезиса:
+#: факт/число/изменение/…) и `assertion_type` (свойство passage: report_fact/
+#: attributed_quote/…): это разные представления, они не смешиваются.
+ASSERTION_PUBLIC_STATEMENT = "public_statement_attribution"
+ASSERTION_DECISION_STATUS = "decision_status"
+ASSERTION_NORMATIVE_STATE = "normative_state_on_date"
+ASSERTION_IMAGE_CONTENT = "image_content"
+ASSERTION_KIND_UNKNOWN = "unknown"
+ASSERTION_KINDS = (ASSERTION_PUBLIC_STATEMENT, ASSERTION_DECISION_STATUS,
+                   ASSERTION_NORMATIVE_STATE, ASSERTION_IMAGE_CONTENT,
+                   ASSERTION_KIND_UNKNOWN)
+#: source_type конверта, при котором тезис пришёл из изображения (структурный
+#: признак: подпись/OCR, а не догадка по словам).
+_IMAGE_CLAIM_SOURCE_TYPES = ("caption", "ocr")
+#: Источники claim-item, где тип утверждения ВАЖЕН для вывода: тезис из
+#: ЦИТАТЫ без установленной атрибуции не может дать положительный вердикт
+#: (reply_to — обычный адрес материала, не атрибуционное утверждение).
+_ATTRIBUTION_SENSITIVE_SOURCES = ("quote",)
+_NEGATION_TOKEN_RE = re.compile(r"(?<!\w)(?:не|ни)(?!\w)(?!\s+только)",
+                                re.IGNORECASE)
+
+
+def _detect_negation(text: str) -> bool | None:
+    """Грамматическое отрицание: True при явной частице, иначе unknown (None).
+
+    Это НЕ семантическая догадка и не список «смысловых» слов: детектор видит
+    только грамматическую отрицательную частицу. Нет частицы — не утверждаем
+    ложное `False`, остаётся честный unknown (owner §2.2: поля не заполняются
+    догадкой)."""
+    return True if _NEGATION_TOKEN_RE.search(str(text or "")) else None
+
+
+def _assertion_kind_for(unit_text: str, *, attribution_detected: bool,
+                        claim_source_type: str,
+                        hint: str) -> str:
+    """Детерминированный тип утверждения из СТРУКТУРНЫХ признаков.
+
+    Порядок: явная подсказка уже установленного типа → изображение
+    (source_type caption/ocr) → публичное заявление (существующий tool
+    атрибуции сработал) → unknown. Никаких списков фамилий/слов: решение о
+    смысле не подменяется лексиконом (owner §2.2)."""
+    value = str(hint or "")
+    if value and value != ASSERTION_KIND_UNKNOWN \
+            and value in ASSERTION_KINDS:
+        return value
+    if str(claim_source_type or "") in _IMAGE_CLAIM_SOURCE_TYPES:
+        return ASSERTION_IMAGE_CONTENT
+    if attribution_detected:
+        return ASSERTION_PUBLIC_STATEMENT
+    return ASSERTION_KIND_UNKNOWN
+
+
 @dataclasses.dataclass(frozen=True)
 class ClaimUnit:
     """§3.1: единица проверки составной новости (минимальный контракт).
@@ -349,12 +402,44 @@ class ClaimUnit:
     #: Запрос такой части обязан нести предметный анкер материала: сам вопрос
     #: может ссылаться на «эту традицию», не называя предмет.
     from_glued_request: bool = False
+    # ── FCT-112 (S1, 28.11.2026): контракт данных существенной части ────────
+    # Поля заполняются только из уже существующих детерминированных данных;
+    # неизвестное остаётся "" / None, а не догадкой (owner §2.2).
+    #: субъект тезиса; "" = unknown (однозначная именованная сущность или "").
+    subject: str = ""
+    #: действие/отношение; "" = unknown (обобщённого семантического парсера нет).
+    predicate: str = ""
+    #: объект действия; "" = unknown.
+    object: str = ""
+    #: отрицание: True при явной грамматической частице; None = unknown.
+    negation: bool | None = None
+    #: предполагаемый автор части; "" = unknown (никогда не из display-name).
+    author: str = ""
+    #: анкор источника части (сообщение-носитель) и его чат; None = неизвестен.
+    anchor_tg_message_id: int | None = None
+    anchor_chat_id: int | None = None
+    #: provenance части: детерминированные пары (ключ, значение) без текстов
+    #: тезиса/чата, напр. (("origin","material"),("source","literal"),
+    #: ("anchor","tg"),("assertion_signal","no"),("from_glued_request","no")).
+    provenance: tuple[tuple[str, str], ...] = ()
+    # ── FCT-113 (S1, 28.11.2026): единая ось типа утверждения ───────────────
+    #: ASSERTION_KINDS: public_statement_attribution | decision_status |
+    #: normative_state_on_date | image_content | unknown.
+    assertion_kind: str = ASSERTION_KIND_UNKNOWN
 
     def vocabulary(self) -> str:
         """Словарь привязки источника к ЭТОМУ claim (текст + латинские
         имена/тикеры + метрики): по нему считается релевантность."""
         pieces = [self.text, *self.foreign_terms, *self.metrics]
         return " ".join(p for p in pieces if p)
+
+    def provenance_dict(self) -> dict:
+        """provenance как словарь (для payload/диагностики)."""
+        return {str(k): str(v) for k, v in (self.provenance or ())}
+
+    def assertion_sensitive(self) -> bool:
+        """Тип утверждения ВАЖЕН для этого claim (цитата/reply/медиа/атрибуция)."""
+        return self.provenance_dict().get("assertion_signal") == "yes"
 
     def as_dict(self) -> dict:
         """Служебная сериализация (payload аналитика/диагностика)."""
@@ -367,6 +452,16 @@ class ClaimUnit:
             "units": list(self.units),
             "timeframe": self.timeframe,
             "timezone": self.timezone,
+            # FCT-112/113 (аддитивно): контракт части + ось типа утверждения.
+            "subject": self.subject,
+            "predicate": self.predicate,
+            "object": self.object,
+            "negation": self.negation,
+            "author": self.author,
+            "anchor_tg_message_id": self.anchor_tg_message_id,
+            "anchor_chat_id": self.anchor_chat_id,
+            "provenance": [list(pair) for pair in (self.provenance or ())],
+            "assertion_kind": self.assertion_kind,
         }
 
 
@@ -747,10 +842,14 @@ def build_retrieval_plan(decision, *,
                          subject_origin: str = "",
                          subject_fingerprint: str = "",
                          subject_anchor_tg_message_id: int | None = None,
+                         subject_anchor_chat_id: int | None = None,
                          subject_author: str = "",
                          subject_request_text: str = "",
                          subject_material_text: str = "",
                          subject_full_material_text: str = "",
+                         claim_source_type: str = "",
+                         attribution_detected: bool = False,
+                         assertion_kind_hint: str = "",
                          ) -> RetrievalPlan | None:
     """SuitabilityDecision/ClaimItem → план поисковых действий.
 
@@ -785,11 +884,16 @@ def build_retrieval_plan(decision, *,
                                  subject_fingerprint=subject_fingerprint,
                                  subject_anchor_tg_message_id=(
                                      subject_anchor_tg_message_id),
+                                 subject_anchor_chat_id=(
+                                     subject_anchor_chat_id),
                                  subject_author=subject_author,
                                  subject_request_text=subject_request_text,
                                  subject_material_text=subject_material_text,
                                  subject_full_material_text=(
-                                     subject_full_material_text))
+                                     subject_full_material_text),
+                                 claim_source_type=claim_source_type,
+                                 attribution_detected=attribution_detected,
+                                 assertion_kind_hint=assertion_kind_hint)
     except Exception:
         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
         return None
@@ -1101,14 +1205,50 @@ def _claim_type(unit: str, metrics: list[str]) -> str:
     return CLAIM_TYPE_FACT
 
 
+def _matching_item(items, unit_text):
+    """Детерминированный матч claim-item → часть (точное совпадение текста,
+    затем вложенность). Один и тот же порядок для полей ClaimUnit и для
+    анкоров: второй матчер не создаётся."""
+    text = str(unit_text or "").strip().lower()
+    by_text = {}
+    for item in items or ():
+        item_text = str(getattr(item, "text", "") or "").strip().lower()
+        if item_text:
+            by_text[item_text] = item
+    item = by_text.get(text)
+    if item is None:
+        for item_text, candidate in by_text.items():
+            if text and (text in item_text or item_text in text):
+                return candidate
+    return item
+
+
 def build_claim_units(items, claim: str, *,
                       source_link: str = "",
-                      request_text: str = "") -> tuple[ClaimUnit, ...]:
+                      request_text: str = "",
+                      attribution_detected: bool = False,
+                      claim_source_type: str = "",
+                      assertion_kind_hint: str = ""
+                      ) -> tuple[ClaimUnit, ...]:
     """§3.1: исходная новость → проверяемые claim-единицы (без LLM).
 
     Переиспользует существующую декомпозицию (`_claim_units`, те же
     claim_items/предложения), добавляя контракт: сущности, метрики/единицы,
     временной интервал/часовой пояс, тип утверждения и связь с сообщением.
+
+    FCT-112/FCT-113 (S1, 28.11.2026): каждая часть получает аддитивные поля
+    контракта (`subject/predicate/object/negation/assertion_kind/provenance`);
+    заполняются ТОЛЬКО уже существующие детерминированные данные:
+    ``_entities`` (subject — единственная однозначная сущность), грамматическая
+    отрицательная частица (negation), структурный `source_type` конверта
+    (`caption`/`ocr` → image_content), результат существующего tool'а
+    атрибуции (`attribution_detected` → public_statement_attribution). Автор и
+    анкор источника добавляются вторым проходом из `_claim_anchor_map` (там уже
+    есть item.author/anchor), поэтому догадок здесь нет. ``predicate``/
+    ``object`` остаются unknown: обобщённого смыслового парсера нет, а списки
+    слов для решения о смысле запрещены (owner §2.2). ``decision_status`` и
+    ``normative_state_on_date`` — значения оси для уже установленного типа
+    (`assertion_kind_hint`), автоматический лексикон их не выдумывает.
 
     BGS-01 (§0.1): текст части — это ЕЁ СОБСТВЕННЫЙ текст. Имена участников
     не вычищаются: упоминание человека в реплике не запрещает проверку, а
@@ -1151,6 +1291,20 @@ def build_claim_units(items, claim: str, *,
                 metrics = [m for m in metrics
                            if set(re.findall(r"\d+", m)) - frame_numbers
                            or not set(re.findall(r"\d+", m))]
+            glued = _unit_key(unit) in glued_keys
+            item = _matching_item(items, unit)
+            item_source = str(getattr(item, "source", "") or "")
+            assertion_signal = bool(
+                attribution_detected
+                or str(claim_source_type or "") in _IMAGE_CLAIM_SOURCE_TYPES
+                or item_source in _ATTRIBUTION_SENSITIVE_SOURCES)
+            assertion_kind = _assertion_kind_for(
+                unit, attribution_detected=attribution_detected,
+                claim_source_type=claim_source_type,
+                hint=assertion_kind_hint)
+            # subject: только ОДНОЗНАЧНАЯ именованная сущность; при нескольких
+            # кандидатах честное unknown (не угадываем, какая из них субъект).
+            subject = entities[0] if len(entities) == 1 else ""
             units.append(ClaimUnit(
                 claim_id=f"c{len(units) + 1}",
                 text=unit,
@@ -1163,12 +1317,80 @@ def build_claim_units(items, claim: str, *,
                 claim_type=_claim_type(unit, metrics),
                 foreign_terms=tuple(_latin_terms(unit)),
                 event_at=event_at,
-                from_glued_request=_unit_key(unit) in glued_keys))
+                from_glued_request=glued,
+                subject=subject,
+                predicate="",
+                object="",
+                negation=_detect_negation(unit),
+                assertion_kind=assertion_kind,
+                provenance=(
+                    ("source", item_source),
+                    ("from_glued_request", "yes" if glued else "no"),
+                    ("assertion_kind", assertion_kind),
+                    ("assertion_signal", "yes" if assertion_signal else "no"),
+                )))
     return tuple(units)
+
+
+def _units_with_anchor_fields(units, anchors) -> tuple[ClaimUnit, ...]:
+    """FCT-112: автор/анкор/provenance части — из уже вычисленного
+    `_claim_anchor_map` (не второй матчер). Имена/тексты в provenance НЕ
+    пишутся: только структурные факты (origin/source/anchor/author_known)."""
+    by_id = {str(row.get("claim_id") or ""): row for row in (anchors or ())}
+    enriched: list[ClaimUnit] = []
+    for unit in units or ():
+        row = by_id.get(str(getattr(unit, "claim_id", "") or ""), {})
+        author = str(row.get("author") or "")
+        anchor_tg = row.get("anchor_tg_message_id")
+        provenance = {str(k): str(v) for k, v in (unit.provenance or ())}
+        provenance["origin"] = str(row.get("origin") or "")
+        # RV-S1-01 (review r1): `source` строки анкора обязан переноситься в
+        # часть. Ветка request-origin ставит `source="user_request"` в
+        # `_claim_anchor_map`; без переноса проекция обратно в
+        # `_anchor_rows_from_units` теряла значение (base его отдавал), а
+        # `origin=user_request` соседствовал с пустым `source` — противоречие
+        # провенанс-контракта FCT-112. Пустой source строки не затирает уже
+        # известный source части (item-строки и так совпадают).
+        row_source = str(row.get("source") or "")
+        if row_source:
+            provenance["source"] = row_source
+        provenance["anchor"] = "tg" if anchor_tg not in (None, "", 0) else "none"
+        provenance["author_known"] = "yes" if author else "no"
+        enriched.append(dataclasses.replace(
+            unit,
+            author=author,
+            anchor_tg_message_id=(
+                int(anchor_tg) if anchor_tg not in (None, "", 0) else None),
+            anchor_chat_id=(
+                int(row["anchor_chat_id"])
+                if row.get("anchor_chat_id") not in (None, "", 0) else None),
+            provenance=tuple(provenance.items())))
+    return tuple(enriched)
+
+
+def _anchor_rows_from_units(units) -> tuple[dict, ...]:
+    """FCT-112: `plan.claim_anchors` строится ИЗ ClaimUnit, а не параллельно.
+
+    Форма строки сохранена байт-совместимой по ключам старого словаря
+    (claim_id/anchor_tg_message_id/author/source/origin) + аддитивный
+    `anchor_chat_id`."""
+    rows: list[dict] = []
+    for unit in units or ():
+        provenance = {str(k): str(v) for k, v in (unit.provenance or ())}
+        rows.append({
+            "claim_id": str(getattr(unit, "claim_id", "") or ""),
+            "anchor_tg_message_id": getattr(unit, "anchor_tg_message_id", None),
+            "anchor_chat_id": getattr(unit, "anchor_chat_id", None),
+            "author": str(getattr(unit, "author", "") or ""),
+            "source": provenance.get("source", ""),
+            "origin": provenance.get("origin", ""),
+        })
+    return tuple(rows)
 
 
 def _claim_anchor_map(items, units, *, subject_origin: str = "",
                       subject_anchor_tg_message_id: int | None = None,
+                      subject_anchor_chat_id: int | None = None,
                       subject_author: str = "",
                       subject_request_text: str = "",
                       subject_material_text: str = "") -> tuple[dict, ...]:
@@ -1177,6 +1399,9 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
     Часть плана сопоставляется с claim-item по совпадению текста (пункт может
     быть целым предложением части). Нет однозначного совпадения → анкор
     пустой: приписывать часть «ближайшему» сообщению запрещено §4.3.
+
+    FCT-112 (S1): строка дополнительно несёт `anchor_chat_id`; анкор части
+    происхождения запроса получает и чат (`subject_anchor_chat_id`).
 
     S13: часть самостоятельного вопроса пользователя (``subject_origin ==
     "request"``) без item-совпадения принадлежит СООБЩЕНИЮ ЗАПРОСА, а не
@@ -1187,23 +1412,14 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
     rows: list[dict] = []
     request_low = str(subject_request_text or "").strip().lower()
     material_low = str(subject_material_text or "").strip().lower()
-    by_text = {}
-    for item in items or ():
-        text = str(getattr(item, "text", "") or "").strip().lower()
-        if text:
-            by_text[text] = item
     for unit in units or ():
-        unit_text = str(getattr(unit, "text", "") or "").strip().lower()
-        item = by_text.get(unit_text)
-        if item is None:
-            for text, candidate in by_text.items():
-                if unit_text and (unit_text in text or text in unit_text):
-                    item = candidate
-                    break
+        item = _matching_item(items, getattr(unit, "text", ""))
         row = {
             "claim_id": str(getattr(unit, "claim_id", "") or ""),
             "anchor_tg_message_id": (getattr(item, "anchor_tg_message_id", None)
                                      if item is not None else None),
+            "anchor_chat_id": (getattr(item, "anchor_chat_id", None)
+                               if item is not None else None),
             "author": (str(getattr(item, "author", "") or "")
                        if item is not None else ""),
             "source": (str(getattr(item, "source", "") or "")
@@ -1222,6 +1438,9 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
             if (subject_origin == "request" and not in_material) or \
                     (from_request and not in_material):
                 row["anchor_tg_message_id"] = int(subject_anchor_tg_message_id)
+                row["anchor_chat_id"] = (
+                    int(subject_anchor_chat_id)
+                    if subject_anchor_chat_id not in (None, "", 0) else None)
                 row["author"] = str(subject_author or "")
                 row["source"] = "user_request"
                 row["origin"] = "user_request"
@@ -1288,10 +1507,14 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
                       subject_origin: str = "",
                       subject_fingerprint: str = "",
                       subject_anchor_tg_message_id: int | None = None,
+                      subject_anchor_chat_id: int | None = None,
                       subject_author: str = "",
                       subject_request_text: str = "",
                       subject_material_text: str = "",
-                      subject_full_material_text: str = ""
+                      subject_full_material_text: str = "",
+                      claim_source_type: str = "",
+                      attribution_detected: bool = False,
+                      assertion_kind_hint: str = ""
                       ) -> RetrievalPlan | None:
     if decision is None:
         return None
@@ -1333,10 +1556,24 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
     # единицах проверки, а не только в анкорах: вопрос пользователя обязан
     # получать собственный поисковый запрос даже если склеен с материалом.
     units = build_claim_units(items, claim,
-                              request_text=subject_request_text)
+                              request_text=subject_request_text,
+                              attribution_detected=attribution_detected,
+                              claim_source_type=claim_source_type,
+                              assertion_kind_hint=assertion_kind_hint)
     if not units:
         units = (ClaimUnit(claim_id="c1",
                            text=search_thesis_text(claim)),)
+    # FCT-112 (S1): автор/анкор/provenance — из уже существующего
+    # `_claim_anchor_map`; `plan.claim_anchors` затем строится ИЗ ClaimUnit
+    # (одна точка истины, а не параллельный словарь).
+    anchor_rows = _claim_anchor_map(
+        items, units, subject_origin=subject_origin,
+        subject_anchor_tg_message_id=subject_anchor_tg_message_id,
+        subject_anchor_chat_id=subject_anchor_chat_id,
+        subject_author=subject_author,
+        subject_request_text=subject_request_text,
+        subject_material_text=subject_material_text)
+    units = _units_with_anchor_fields(units, anchor_rows)
     # SFC-12-09 residual (`fc-anchor`): анкер берётся из ПОЛНОГО материала
     # предмета; склеенный вопрос может называть предмет только как «эту
     # традицию», и без анкера его запрос уходит в общий поиск. Полный материал
@@ -1494,12 +1731,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
         needs_chat_history=needs_chat,
         needs_primary_fetch=True,
         claim_text=claim, claims=tuple(units), source_link=source_link,
-        claim_anchors=_claim_anchor_map(
-            items, units, subject_origin=subject_origin,
-            subject_anchor_tg_message_id=subject_anchor_tg_message_id,
-            subject_author=subject_author,
-            subject_request_text=subject_request_text,
-            subject_material_text=subject_material_text),
+        # FCT-112: анкоры — проекция ClaimUnit (не параллельный словарь).
+        claim_anchors=_anchor_rows_from_units(units),
         subject_origin=subject_origin,
         subject_fingerprint=subject_fingerprint,
         chat_id=chat_id)

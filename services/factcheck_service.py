@@ -2631,6 +2631,62 @@ def _claim_part_match(part: dict, claim) -> bool:
         or claim_key.startswith(key[:40])
 
 
+def _assertion_kind_for_part(part, coverage) -> str:
+    """FCT-113: тип утверждения для части payload'а Analyst'а.
+
+    Часть (`ClaimPart`/dict) сопоставляется с claim-единицей тем же
+    детерминированным матчером (`_claim_part_match`), но по ТЕЗИСУ без
+    служебных обёрток изображения (`search_thesis_text`): у медиа-части
+    префикс «Текст с изображения …» есть в тексте части и отсутствует в
+    ClaimUnit. Нет однозначного сопоставления → честный unknown, а не
+    «похожий тип»."""
+    from services import factcheck_planner as fsp
+    from services.factcheck_planner import ASSERTION_KIND_UNKNOWN
+    if part is None:
+        return ASSERTION_KIND_UNKNOWN
+    probe = (part if isinstance(part, dict)
+             else {"part_id": getattr(part, "part_id", ""),
+                   "text": getattr(part, "text", "")})
+    probe_id = str(probe.get("part_id") or "")
+    probe_key = _part_text_key(fsp.search_thesis_text(probe.get("text")))
+    for cov in coverage or ():
+        claim = getattr(cov, "claim", None)
+        if claim is None:
+            continue
+        claim_id = str(getattr(claim, "claim_id", "") or "")
+        claim_key = _part_text_key(
+            fsp.search_thesis_text(getattr(claim, "text", "")))
+        matched = bool(probe_id and claim_id and probe_id == claim_id)
+        if not matched and probe_key and claim_key:
+            matched = (probe_key == claim_key
+                       or probe_key.startswith(claim_key[:40])
+                       or claim_key.startswith(probe_key[:40]))
+        if matched:
+            return (str(getattr(claim, "assertion_kind", "")
+                        or ASSERTION_KIND_UNKNOWN)
+                    or ASSERTION_KIND_UNKNOWN)
+    return ASSERTION_KIND_UNKNOWN
+
+
+def _claim_assertion_unresolved(claim) -> bool:
+    """FCT-113: тип утверждения ВАЖЕН, но не установлен.
+
+    `assertion_signal` выставляется планировщиком только для структурных
+    маршрутов, где тип влияет на смысл вывода (цитата без атрибуции). Обычный
+    факт (source=literal) unknown-типом не блокируется: его проверяет evidence,
+    а не тип утверждения."""
+    try:
+        from services.factcheck_planner import ASSERTION_KIND_UNKNOWN
+        kind = str(getattr(claim, "assertion_kind", "")
+                   or ASSERTION_KIND_UNKNOWN)
+        if kind != ASSERTION_KIND_UNKNOWN:
+            return False
+        marker = getattr(claim, "assertion_sensitive", None)
+        return bool(marker()) if callable(marker) else False
+    except Exception:          # pragma: no cover — метаданные не рвут вердикт
+        return False
+
+
 def claim_payload_rows(coverage) -> list[dict]:
     """Компактные строки покрытия для payload вербализатора (§5: подача)."""
     rows: list[dict] = []
@@ -2698,6 +2754,12 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
         metadata = {
             "claim_id": str(getattr(claim, "claim_id", "") or ""),
             "claim_type": str(getattr(claim, "claim_type", "") or ""),
+            # FCT-112/113 (S1): часть вердикта несёт тип утверждения и
+            # структурный провенанс (без текстов чата).
+            "assertion_kind": str(getattr(claim, "assertion_kind", "") or
+                                   "unknown"),
+            "anchor_tg_message_id": getattr(claim, "anchor_tg_message_id", None),
+            "author": str(getattr(claim, "author", "") or ""),
             "search_status": str(getattr(cov, "search_status", "") or ""),
             "claim_outcome": str(getattr(cov, "outcome", "") or ""),
             "status_detail": detail,
@@ -2773,6 +2835,23 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
         # §F1: агрегация не поднимает вывод модели за счёт серверных частей;
         # честная неопределённость остаётся, конкретные пробелы видны в parts.
         factual = "insufficient_evidence"
+    # FCT-113 (S1): положительный вывод при НЕУСТАНОВЛЕННОМ типе утверждения,
+    # когда тип важен для смысла (структурный маршрут: цитата без атрибуции),
+    # не допускается — понижение до существующего enum + честная оговорка.
+    # Обычный факт (без assertion_signal) не затрагивается: его держит evidence.
+    assertion_unresolved = [
+        cov for cov in (coverage or ())
+        if _claim_assertion_unresolved(getattr(cov, "claim", None))]
+    if factual in _CLAIM_POSITIVE and assertion_unresolved:
+        factual = "insufficient_evidence"
+        uncertainty = dict(verdict.uncertainty or {})
+        uncertainty.setdefault(
+            "assertion_kind_unknown",
+            "тип утверждения не установлен (атрибуция/статус не подтверждены "
+            "структурно) — положительный вывод по такому пункту не выдаётся")
+        return dataclasses.replace(verdict, factual_verdict=factual,
+                                   parts=tuple(parts), uncertainty=uncertainty,
+                                   reason=verdict.reason)
     # FC-04.7 (corrective 05.11.2026): положительный/mixed вердикт без хотя
     # бы одного ПРЯМОГО подтверждающего evidence по сути запрещён. Частичный
     # случай остаётся честным insufficient_evidence с разбором в parts;
@@ -4247,7 +4326,10 @@ class FactCheckService:
         if parts:
             sections.append("<claim_parts>" + escape_xml_text(json.dumps(
                 [{"part_id": p.part_id, "text": p.text,
-                  "period": [p.period_from, p.period_to]}
+                  "period": [p.period_from, p.period_to],
+                  # FCT-113 (S1): тип утверждения части — из ClaimUnit
+                  # (структурные признаки); нет однозначного matча → unknown.
+                  "assertion_kind": _assertion_kind_for_part(p, coverage)}
                  for p in parts], ensure_ascii=False)) + "</claim_parts>")
         if evidence:
             # §18G.3/§18G.5: каждая выдержка — со стабильным ID и датой
