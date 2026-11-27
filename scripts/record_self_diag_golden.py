@@ -28,6 +28,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Standalone-запуск (`python scripts/record_self_diag_golden.py`): Python
+# кладёт в sys.path каталог скрипта, а не корень репозитория, — golden-модуль
+# импортирует пакет `services`, поэтому корень добавляем явно (как в
+# run_golden_questions.py и disable_dm_heavy_modules.py).
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 GOLDEN_TEST_PATH = ROOT / "tests" / "test_self_diag_golden.py"
 GOLDEN_EVENT_NAME = "self_diag_golden_run"
 GOLDEN_SCHEMA = 1

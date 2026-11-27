@@ -1,10 +1,27 @@
 """SELF-DIAG-01 D6-19 (T17-T19): запись golden-прогона без выдуманных чисел."""
 
 import importlib.util
+import os
+import subprocess
+import sys
 from pathlib import Path
 
-SCRIPT = (Path(__file__).resolve().parents[1]
-          / "scripts" / "record_self_diag_golden.py")
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "record_self_diag_golden.py"
+
+# Внешний golden-модуль импортирует пакет из КОРНЯ репозитория: так проверяется,
+# что CLI сам подкладывает ROOT в `sys.path` при запуске по пути скрипта.
+FOREIGN_GOLDEN = '''
+from services import mca_events  # noqa: F401  (импорт из корня репозитория)
+import pytest
+
+CASES = [{"id": "G-PASS", "category": "style", "dimension": ["style"]}]
+
+
+@pytest.mark.parametrize("case_id", ["G-PASS"])
+def test_golden_case(case_id):
+    assert case_id == "G-PASS"
+'''
 
 
 def _load_script():
@@ -109,3 +126,36 @@ def test_missing_case_metadata_fails_loudly(monkeypatch, capsys):
     assert module.main(["--dry-run"]) != 0
     err = capsys.readouterr().err
     assert "metadata error" in err
+
+
+def _run_cli(args, cwd):
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    return subprocess.run(
+        [sys.executable, *args], cwd=str(cwd), capture_output=True,
+        text=True, encoding="utf-8", errors="replace", timeout=600, env=env)
+
+
+def test_cli_runs_as_plain_script_and_as_module(tmp_path):
+    """CLI работает и `python scripts/...`, и `python -m scripts...`.
+
+    Запуск по пути скрипта кладёт в `sys.path` каталог `scripts`, а не корень
+    репозитория; внешний golden-модуль импортирует `services`, поэтому без
+    бутстрапа корня прогон падает с metadata error (rc=2).
+    """
+    golden = tmp_path / "foreign_golden.py"
+    golden.write_text(FOREIGN_GOLDEN, encoding="utf-8")
+    args = ["--dry-run", "--golden-tests", str(golden)]
+
+    plain = _run_cli([str(SCRIPT), *args], cwd=tmp_path)
+    assert plain.returncode == 0, plain.stderr
+    assert "cases=1" in plain.stdout
+    assert "passed=1" in plain.stdout
+    assert "metadata error" not in plain.stderr
+
+    module_form = _run_cli(
+        ["-m", "scripts.record_self_diag_golden", *args], cwd=ROOT)
+    assert module_form.returncode == 0, module_form.stderr
+    assert "cases=1" in module_form.stdout
+    assert "passed=1" in module_form.stdout
+    assert "metadata error" not in module_form.stderr
