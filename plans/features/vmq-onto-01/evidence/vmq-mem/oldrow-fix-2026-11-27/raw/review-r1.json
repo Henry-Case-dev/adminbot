@@ -1,0 +1,151 @@
+{
+ "artifact_kind": "reviewer_p_oldrow_r1",
+ "created_utc": "2026-11-27T11:41:31.125464+00:00",
+ "role": "Reviewer",
+ "candidate": "e1c70d58f926ceb923594ee9bcf551e663ccb964",
+ "branch": "fix/vmq-oldrow",
+ "base": "9516c912554bb1062f62a63b6689f418c1cb5425",
+ "base_version": "2.58.257",
+ "contract_sha256": "bcce78bb31cec83f703031270af3a52ec2eb30a9a7421e726e45f0297b2e50fc",
+ "builder_index_sha256": "c72d4ebfc412337ab0e1a85409250a6a0e9bc419c0a99ca283123bd89575ce59",
+ "manifest": "all 10 listed files hash-verified true",
+ "snapshot_sha256": "450604f133ee790eb989c06d186a5fcc24f2709000a50596a8200e479da9a89e",
+ "tests": {
+  "new_candidate": "17 passed",
+  "new_base": "10 failed / 7 passed",
+  "impacted_candidate": "211 passed / 4 failed",
+  "impacted_base_same_4": [
+   "tests/test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::test_quota_is_bounded_by_slots_and_never_adds_current_year",
+   "tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_historical_plan_rebuilds_block_with_plan_scope",
+   "tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_operative_plan_narrows_block",
+   "tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_t16_research_plan_rebuilds_rag_block"
+  ]
+ },
+ "mutations_reviewer": [
+  {
+   "id": "M1",
+   "killed": true,
+   "test": "test_three_strict_plus_two_soft_reserves_exactly_one"
+  },
+  {
+   "id": "M2_R1_only_threshold",
+   "killed": false,
+   "test": "test_single_weak_row_does_not_assemble_block",
+   "note": "R1-only mutation passes; the R1 >=2 threshold is killed by test_single_soft_row_does_not_reserve (verified killed=True)"
+  },
+  {
+   "id": "M3_operative",
+   "killed": true,
+   "test": "test_t6_operative_keeps_only_current_year"
+  },
+  {
+   "id": "M4a_append_instead_of_replace",
+   "killed": true,
+   "test": "test_three_strict_plus_two_soft_reserves_exactly_one"
+  },
+  {
+   "id": "M5_unattributed",
+   "killed": true,
+   "test": "test_unattributed_old_row_is_not_attributed"
+  },
+  {
+   "id": "M7_current_state_window",
+   "killed": true,
+   "test": "test_operative_current_state_has_no_author_window"
+  },
+  {
+   "id": "M8a_no_bound",
+   "killed": true,
+   "test": "test_subject_window_is_bounded_and_multi_year"
+  },
+  {
+   "id": "M8b_no_priority",
+   "killed": true,
+   "test": "test_originals_put_author_window_first"
+  }
+ ],
+ "real_snapshot": {
+  "base": {
+   "P1_auto": {
+    "intent": "none",
+    "old_author_messages": 0,
+    "author_window": null,
+    "fact_rows": 16
+   },
+   "A1_historical": {
+    "accepted_years": [
+     2026,
+     2026,
+     2026
+    ],
+    "reserved_old": 0,
+    "coverage": 0.2
+   }
+  },
+  "candidate": {
+   "P1_auto": {
+    "intent": "multi_year/subject_scope",
+    "old_author_messages": 6,
+    "years": {
+     "2023": 2,
+     "2024": 2,
+     "2025": 2
+    },
+    "author_window_rows": 6,
+    "fact_rows": 13,
+    "replace_allowed": 0
+   },
+   "A1_historical": {
+    "accepted_years": [
+     2026,
+     2025,
+     2026
+    ],
+    "reserved_old": 1,
+    "reserved_displaced": 1,
+    "coverage": 0.4
+   },
+   "current_state": {
+    "years": [
+     2026
+    ],
+    "author_window": 0,
+    "reserved_old": 0
+   },
+   "A1P_historical": {
+    "coverage": 0.4,
+    "reserved_old": 0
+   }
+  },
+  "after_sha256": "450604f133ee790eb989c06d186a5fcc24f2709000a50596a8200e479da9a89e"
+ },
+ "base_tail_probe": {
+  "fixture": "10 base rows 8000-8009; 3 strict 2026 + 2 soft old; auto; subject_scope; limit=10; period_slots=2",
+  "result_ids": [
+   8000,
+   8001,
+   8002,
+   8003,
+   8004,
+   8005,
+   8006,
+   8007,
+   9100,
+   9201
+  ],
+  "dropped_base_ids": [
+   8008,
+   8009
+  ],
+  "replace_allowed": 0,
+  "breadth_reason": "subject_scope",
+  "breadth_used": 2,
+  "period_skipped": "auto_full_slice",
+  "reserved_old": 1,
+  "reserved_displaced": 1
+ },
+ "side_effect": {
+  "pool_p1": "fact_rows 16 -> 13; dropped 2x2026 + 1x2025 (base also dropped the unbound 2025); base fact path unchanged",
+  "verdict": "pool displacement acceptable within measured quota; base-tail replacement is a separate contract issue"
+ }
+}

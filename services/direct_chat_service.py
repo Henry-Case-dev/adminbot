@@ -2948,6 +2948,11 @@ def _period_trace(period_stats: dict, kept) -> tuple[dict, dict]:
         "reserved_displaced": int(stats.get("reserved_displaced") or 0),
         "author_window": int(stats.get("author_window") or 0),
         "author_window_rows": int(stats.get("author_window_rows") or 0),
+        # F1 corrective: сколько базовых строк вытеснено периодным вкладом
+        # (у `subject_scope` — всегда 0: базовый срез не замещается).
+        "base_rows_dropped": int(stats.get("base_rows_dropped") or 0),
+        "subject_scope_no_replace": int(
+            stats.get("subject_scope_no_replace") or 0),
         "dropped_subject": int(stats.get("rejected_subject") or 0),
         "dropped_budget": int(stats.get("dropped_budget") or 0),
         "dropped_status": int(stats.get("dropped_status") or 0),
@@ -17768,16 +17773,34 @@ class DirectChatService:
                 candidates.append(row)
             to_append: list = _mca_rc.reserve_period_append(
                 candidates, budget=budget)
-            remaining = max(0, int(limit) - len(rows))
-            drop = max(0, len(to_append) - remaining)
-            keep = max(0, len(rows) - drop)
-            trimmed = list(rows[:keep])
-            trial = self._rag_append_period_rows(
-                trimmed, to_append, limit, slots=budget)
-            breadth_used = len(trial) - len(trimmed)
+            # F1 corrective (OLDROW-R3-BASE-01, review 2026-11-27): у
+            # `subject_scope` (`replace_allowed=0`) НЕТ права замещать базовый
+            # срез — договор §3 R3. Поэтому периодный вклад занимает
+            # ДОПОЛНИТЕЛЬНУЮ ёмкость `limit + budget`: все базовые строки
+            # остаются на своих местах и в прежнем порядке, глобальный `limit`
+            # и годовые квоты не растут. Прочие пути (historical/plan-сигнал/
+            # тонкий/разбор) сохраняют прежнее замещение хвоста (T2/T2b).
+            if subject_scope and not replace_allowed:
+                capacity = int(limit) + int(budget)
+                trial = self._rag_append_period_rows(
+                    rows, to_append, capacity, slots=budget)
+                base_rows_dropped = 0
+                subject_scope_no_replace = 1
+            else:
+                remaining = max(0, int(limit) - len(rows))
+                drop = max(0, len(to_append) - remaining)
+                keep = max(0, len(rows) - drop)
+                trimmed = list(rows[:keep])
+                base_rows_dropped = len(rows) - len(trimmed)
+                subject_scope_no_replace = 0
+                trial = self._rag_append_period_rows(
+                    trimmed, to_append, limit, slots=budget)
+            breadth_used = len(trial) - len(rows) + int(base_rows_dropped)
             self._rag_period_stats = {
                 **trace_base,
                 "breadth_used": int(breadth_used),
+                "base_rows_dropped": int(base_rows_dropped),
+                "subject_scope_no_replace": int(subject_scope_no_replace),
                 "rejected_subject": rejected,
                 "vector_pool_miss": int(period_meta.get("vector_pool_miss")
                                         or 0),

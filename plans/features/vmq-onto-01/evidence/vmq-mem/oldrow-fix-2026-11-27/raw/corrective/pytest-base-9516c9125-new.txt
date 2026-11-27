@@ -1,0 +1,252 @@
+F.F..F..FFFF..FFFFF                                                      [100%]
+================================== FAILURES ===================================
+_ TestSelectorReservesOneOldRow.test_three_strict_plus_two_soft_reserves_exactly_one _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSelectorReservesOneOldRow object at 0x00000232B200DB20>
+
+    def test_three_strict_plus_two_soft_reserves_exactly_one(self):
+        """M1/M4: 3 строгих 2026 + 2 мягких старых, slots=2.
+    
+        RED на базе: старая строка уходит в `dropped_subject`, `reserved_old=0`.
+        GREEN: ровно одна строка старшего периода в первых слотах, длина
+        `accepted` не больше `max(прежняя, slots)`, квоты остаются нулями."""
+        pool = _strict_pool() + _soft_old_pool()
+        accepted, stats = mrc.select_period_rows(
+            pool, query=PERSON_QUERY, policy="historical", slots=2)
+        marked = [row for row in accepted if row.get("reserved_old")]
+>       assert len(marked) == 1, accepted
+E       AssertionError: [{'id': 9100, 'fact': 'про Аню и конфу говорили в чате', 'origin': 'history_import', 'status': 'confirmed', ...}, {'id... ...}, {'id': 9102, 'fact': 'про Аню и конфу говорили в чате', 'origin': 'history_import', 'status': 'confirmed', ...}]
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_vmq_oldrow_person_delivery.py:160: AssertionError
+__ TestSelectorReservesOneOldRow.test_unattributed_old_row_is_not_attributed __
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSelectorReservesOneOldRow object at 0x00000232B217FE00>
+
+    def test_unattributed_old_row_is_not_attributed(self):
+        """M5: строка импорта без привязки к субъекту не атрибутируется."""
+        unattributed = [
+            _row(9301, "про Аню вспоминали", year=2025, subject_uid=None),
+            _row(9302, "конфу вспоминали часто", year=2024, subject_uid=None),
+        ]
+        pool = _strict_pool() + unattributed
+>       accepted, stats = mrc.select_period_rows(
+            pool, query=PERSON_QUERY, policy="historical", slots=2,
+            subject_uids=(UID,), subject_names=(NAME,))
+E       TypeError: select_period_rows() got an unexpected keyword argument 'subject_uids'
+
+tests\test_vmq_oldrow_person_delivery.py:187: TypeError
+_____ TestAppendHonoursReservation.test_marker_wins_with_mixed_top_years ______
+
+self = <tests.test_vmq_oldrow_person_delivery.TestAppendHonoursReservation object at 0x00000232B21A4D70>
+
+    def test_marker_wins_with_mixed_top_years(self):
+        """M4: помеченная строка доезжает при смешанных годах верхних слотов."""
+        marked = _row(9501, "про Аню вспоминали", year=2023)
+        marked["reserved_old"] = True
+        rows = [_row(9502, "верхний период", year=2026),
+                _row(9503, "средний период", year=2024),
+                marked]
+        selected = mrc.reserve_period_append(rows, budget=2)
+>       assert [row["id"] for row in selected] == [9502, 9501]
+E       assert [9502, 9503] == [9502, 9501]
+E         
+E         At index 1 diff: 9503 != 9501
+E         Use -v to get more diff
+
+tests\test_vmq_oldrow_person_delivery.py:239: AssertionError
+_ TestSubjectScopeIntent.test_subject_present_yields_multi_year_subject_scope _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x00000232B21A52B0>
+
+    def test_subject_present_yields_multi_year_subject_scope(self):
+>       intent = mrc.resolve_period_intent(
+            PERSON_QUERY, memory_scope="auto", subject_present=True)
+E       TypeError: resolve_period_intent() got an unexpected keyword argument 'subject_present'
+
+tests\test_vmq_oldrow_person_delivery.py:267: TypeError
+_ TestSubjectScopeIntent.test_current_state_and_operative_have_no_subject_scope _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x00000232B21A57C0>
+
+    def test_current_state_and_operative_have_no_subject_scope(self):
+>       assert mrc.resolve_period_intent(
+            PERSON_QUERY, memory_scope="auto", subject_present=True,
+            current_state=True).kind == mrc.PERIOD_INTENT_NONE
+E       TypeError: resolve_period_intent() got an unexpected keyword argument 'subject_present'
+
+tests\test_vmq_oldrow_person_delivery.py:275: TypeError
+_ TestSubjectScopeIntent.test_auto_person_reaches_old_row_without_replacing_base _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x00000232B21A5CA0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000232A693C1D0>
+
+    @pytest.mark.asyncio
+    async def test_auto_person_reaches_old_row_without_replacing_base(
+            self, monkeypatch):
+        """R3 end-to-end: `auto` + полный срез + субъект → старый год доставлен.
+    
+        F1 corrective (OLDROW-R3-BASE-01): `subject_scope` не замещает базовый
+        срез, поэтому проверяется ВЕСЬ базовый набор и его порядок, а не только
+        первая строка; периодный вклад занимает дополнительную ёмкость
+        `limit + limit//5`."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY), memory_scope="auto",
+            subject_name=NAME, subject_uid=UID)
+>       assert service._oldrow_calls[1]["period_fill"] is True, (
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+            "разрешённый субъект запускает тот же периодный вызов")
+E       IndexError: list index out of range
+
+tests\test_vmq_oldrow_person_delivery.py:303: IndexError
+______ TestSubjectScopeIntent.test_subject_scope_does_not_drop_base_tail ______
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x00000232B21A61E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000232A693C4D0>
+
+    @pytest.mark.asyncio
+    async def test_subject_scope_does_not_drop_base_tail(self, monkeypatch):
+        """F1 (OLDROW-R3-BASE-01): хвост базового среза не выбрасывается.
+    
+        Воспроизведение ревью: полный base `8000..8009`, `subject_scope`
+        (`replace_allowed=0`) — до исправления `8008/8009` выбрасывались ради
+        периодного вклада. RED на `e1c70d58`: база обрезается до 8 строк."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY), memory_scope="auto",
+            subject_name=NAME, subject_uid=UID)
+        delivered = {row["id"] for row in rows}
+        missing = {row["id"] for row in base} - delivered
+        assert not missing, f"базовые строки выброшены: {sorted(missing)}"
+        assert {8008, 8009} <= delivered
+        assert [row["id"] for row in rows][:10] == list(range(8000, 8010))
+        old = [row for row in rows if (mrc.period_row_year(row) or 9999) <= 2025]
+>       assert old, "старый период обязан доехать"
+E       AssertionError: старый период обязан доехать
+E       assert []
+
+tests\test_vmq_oldrow_person_delivery.py:341: AssertionError
+__ TestAuthorWindowBySubject.test_subject_window_uses_reader_default_window ___
+
+self = <tests.test_vmq_oldrow_person_delivery.TestAuthorWindowBySubject object at 0x00000232B21A73E0>
+
+    def test_subject_window_uses_reader_default_window(self):
+        """F2 (OLDROW-TEST-CAL-01): окно субъекта — дефолт читателя.
+    
+        `_author_window_bounds` не фиксирует годы, а берёт существующее
+        `range(base_year - 3, base_year)`; проверка привязана к текущему году,
+        поэтому тест не устаревает со сменой календаря."""
+>       intent = mrc.resolve_period_intent(
+            PERSON_QUERY, memory_scope="auto", subject_present=True)
+E       TypeError: resolve_period_intent() got an unexpected keyword argument 'subject_present'
+
+tests\test_vmq_oldrow_person_delivery.py:426: TypeError
+___ TestAuthorWindowBySubject.test_subject_window_is_bounded_and_multi_year ___
+
+self = <tests.test_vmq_oldrow_person_delivery.TestAuthorWindowBySubject object at 0x00000232B21A7950>
+
+    @pytest.mark.asyncio
+    async def test_subject_window_is_bounded_and_multi_year(self):
+        """M8: старые сообщения субъекта ≤ `top_k//5` и из РАЗНЫХ лет."""
+        db = await _db()
+        try:
+            await _seed_author_years(db)
+            result = await mrc.retrieve(db, memory=None,
+                                        request=_subject_request())
+            own = [cand for cand in result.candidates
+                   if cand.entity_type == "message"
+                   and cand.author_id == UID]
+>           assert own, "author_window обязан исполниться по субъекту"
+E           AssertionError: author_window обязан исполниться по субъекту
+E           assert []
+
+tests\test_vmq_oldrow_person_delivery.py:449: AssertionError
+_ TestAuthorWindowBySubject.test_operative_current_state_has_no_author_window _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestAuthorWindowBySubject object at 0x00000232B21A7F50>
+
+    @pytest.mark.asyncio
+    async def test_operative_current_state_has_no_author_window(self):
+        """M7: `operative`/«что сейчас» не читает старые оригиналы."""
+        db = await _db()
+        try:
+            await _seed_author_years(db)
+            calls: list = []
+            real = db.get_author_message_periods
+    
+            async def _spy(chat_id, user_id, limit, **kwargs):
+                calls.append(int(user_id))
+                return await real(chat_id, user_id, limit, **kwargs)
+    
+            db.get_author_message_periods = _spy
+>           intent = mrc.resolve_period_intent(
+                CURRENT_QUERY, subject_present=True, current_state=True)
+E               TypeError: resolve_period_intent() got an unexpected keyword argument 'subject_present'
+
+tests\test_vmq_oldrow_person_delivery.py:481: TypeError
+______ TestAuthorWindowBySubject.test_originals_put_author_window_first _______
+
+self = <tests.test_vmq_oldrow_person_delivery.TestAuthorWindowBySubject object at 0x00000232B21B4590>
+
+    def test_originals_put_author_window_first(self):
+        """M8: авторские оригиналы не срезаются лексическими (cap 12)."""
+        def _cand(kind, index, channel):
+            return types.SimpleNamespace(
+                entity_type=kind, channel=channel, entity_id=index,
+                revision=f"tg:{5000 + index}", preview=f"строка {index}",
+                author_id=UID, chat_id=CHAT, sent_at=_ts(2025), id=str(index))
+    
+        lexical = [_cand("message", index, "lexical") for index in range(15)]
+        authors = [_cand("message", 100 + index, "author_window")
+                   for index in range(2)]
+        result = types.SimpleNamespace(candidates=lexical + authors)
+        rows = dcs.DirectChatService._collect_originals(result, 12)
+        assert len(rows) == 12
+>       assert [row["source_channel"] for row in rows[:2]] == [
+            "author_window", "author_window"], rows[:2]
+E       AssertionError: [{'id': 0, 'user_id': 485008070, 'chat_id': -1002661910336, 'text': 'строка 0', ...}, {'id': 1, 'user_id': 485008070, 'chat_id': -1002661910336, 'text': 'строка 1', ...}]
+E       assert ['lexical', 'lexical'] == ['author_wind...uthor_window']
+E         
+E         At index 0 diff: 'lexical' != 'author_window'
+E         Use -v to get more diff
+
+tests\test_vmq_oldrow_person_delivery.py:507: AssertionError
+_ TestHistoricalPersonDeliversOldRow.test_historical_person_gets_old_row_in_block _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestHistoricalPersonDeliversOldRow object at 0x00000232B21A7590>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000232A6AFB320>
+
+    @pytest.mark.asyncio
+    async def test_historical_person_gets_old_row_in_block(self, monkeypatch):
+        """RED на базе: 2026-only. GREEN: один старший subject-bound ряд."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY),
+            memory_scope="historical", subject_name=NAME, subject_uid=UID)
+        years = [mrc.period_row_year(row) for row in rows]
+>       assert years.count(2025) == 1, years
+E       AssertionError: [2026, 2026, 2026, 2026, 2026, 2026, ...]
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x00000232B301F140>(2025)
+E        +    where <built-in method count of list object at 0x00000232B301F140> = [2026, 2026, 2026, 2026, 2026, 2026, ...].count
+
+tests\test_vmq_oldrow_person_delivery.py:524: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_three_strict_plus_two_soft_reserves_exactly_one
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_unattributed_old_row_is_not_attributed
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestAppendHonoursReservation::test_marker_wins_with_mixed_top_years
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_subject_present_yields_multi_year_subject_scope
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_current_state_and_operative_have_no_subject_scope
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_auto_person_reaches_old_row_without_replacing_base
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_subject_scope_does_not_drop_base_tail
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_subject_window_uses_reader_default_window
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_subject_window_is_bounded_and_multi_year
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_operative_current_state_has_no_author_window
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_originals_put_author_window_first
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestHistoricalPersonDeliversOldRow::test_historical_person_gets_old_row_in_block
+12 failed, 7 passed in 4.20s

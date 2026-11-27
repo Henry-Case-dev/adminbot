@@ -31,6 +31,7 @@ R17: только синтетические факты/сообщения, ни
 """
 import asyncio
 import calendar
+import datetime
 import types
 
 import pytest
@@ -49,6 +50,12 @@ CURRENT_QUERY = "что сейчас происходит про Аню?"
 
 def _ts(year: int, month: int = 6, day: int = 1) -> int:
     return calendar.timegm((year, month, day, 12, 0, 0, 0, 0, 0))
+
+
+def _completed_years() -> tuple:
+    """Три последних завершённых года — окно читателя `author_window`."""
+    current = datetime.datetime.now(datetime.timezone.utc).year
+    return tuple(range(current - 3, current))
 
 
 def _row(fid, text, *, year=None, subject_uid=UID, target_user="",
@@ -284,9 +291,10 @@ class TestSubjectScopeIntent:
             self, monkeypatch):
         """R3 end-to-end: `auto` + полный срез + субъект → старый год доставлен.
 
-        Базовый срез при этом не заменяется целиком: добавление идёт в
-        существующий бюджет `limit//5`, замещение разрешено только
-        `period_replace_allowed` (для `subject_scope` — нет)."""
+        F1 corrective (OLDROW-R3-BASE-01): `subject_scope` не замещает базовый
+        срез, поэтому проверяется ВЕСЬ базовый набор и его порядок, а не только
+        первая строка; периодный вклад занимает дополнительную ёмкость
+        `limit + limit//5`."""
         base = _base_rows()
         service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
         rows = await service._rag_unified_rows(
@@ -300,11 +308,40 @@ class TestSubjectScopeIntent:
         assert stats["breadth_reason"] == "subject_scope"
         assert stats["replace_allowed"] == 0
         assert stats["reserved_old"] == 1
+        assert stats["base_rows_dropped"] == 0
+        assert stats["subject_scope_no_replace"] == 1
+        ids = [row["id"] for row in rows]
+        base_ids = [row["id"] for row in base]
+        assert ids[:len(base)] == base_ids, (
+            "базовый срез обязан сохраниться целиком и в прежнем порядке")
+        assert set(base_ids) <= set(ids)
         years = [mrc.period_row_year(row) for row in rows]
         assert years.count(2025) == 1, years
-        assert len(rows) == len(base), "срез не растёт сверх limit"
-        # Первая (базовая) строка среза остаётся на месте.
-        assert rows[0]["id"] == 8000
+        assert len(rows) == len(base) + 2, (
+            "периодный вклад добавлен сверх базы в пределах limit//5")
+
+    @pytest.mark.asyncio
+    async def test_subject_scope_does_not_drop_base_tail(self, monkeypatch):
+        """F1 (OLDROW-R3-BASE-01): хвост базового среза не выбрасывается.
+
+        Воспроизведение ревью: полный base `8000..8009`, `subject_scope`
+        (`replace_allowed=0`) — до исправления `8008/8009` выбрасывались ради
+        периодного вклада. RED на `e1c70d58`: база обрезается до 8 строк."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY), memory_scope="auto",
+            subject_name=NAME, subject_uid=UID)
+        delivered = {row["id"] for row in rows}
+        missing = {row["id"] for row in base} - delivered
+        assert not missing, f"базовые строки выброшены: {sorted(missing)}"
+        assert {8008, 8009} <= delivered
+        assert [row["id"] for row in rows][:10] == list(range(8000, 8010))
+        old = [row for row in rows if (mrc.period_row_year(row) or 9999) <= 2025]
+        assert old, "старый период обязан доехать"
+        assert service._rag_period_stats["replace_allowed"] == 0
+        assert service._rag_period_stats["base_rows_dropped"] == 0
+        assert len(rows) <= len(base) + max(1, len(base) // 5)
 
     @pytest.mark.asyncio
     async def test_auto_without_resolved_subject_keeps_full_slice(
@@ -351,13 +388,21 @@ async def _add_msg(db, user, text, ts, tg):
 
 
 async def _seed_author_years(db):
+    """Три ЗАВЕРШЁННЫХ года относительно текущего + сообщение текущего года.
+
+    F2 (OLDROW-TEST-CAL-01): окно `author_window` строится читателем как
+    `range(base_year - 3, base_year)`, поэтому тест не должен жёстко
+    фиксировать 2023–2025."""
     tg = 9000
-    for year in (2023, 2024, 2025):
+    years = _completed_years()
+    for year in years:
         for index in range(5):
             await _add_msg(db, UID, f"речь {year} номер {index}",
                            _ts(year, 3, 1) + index, tg)
             tg += 1
-    await _add_msg(db, UID, "свежая речь 2026", _ts(2026, 2, 1), tg)
+    current_year = datetime.datetime.now(datetime.timezone.utc).year
+    await _add_msg(db, UID, "свежая речь текущего года",
+                   _ts(current_year, 2, 1), tg)
     await db.db.commit()
 
 
@@ -372,6 +417,24 @@ def _subject_request(**overrides):
 
 
 class TestAuthorWindowBySubject:
+    def test_subject_window_uses_reader_default_window(self):
+        """F2 (OLDROW-TEST-CAL-01): окно субъекта — дефолт читателя.
+
+        `_author_window_bounds` не фиксирует годы, а берёт существующее
+        `range(base_year - 3, base_year)`; проверка привязана к текущему году,
+        поэтому тест не устаревает со сменой календаря."""
+        intent = mrc.resolve_period_intent(
+            PERSON_QUERY, memory_scope="auto", subject_present=True)
+        request = _subject_request(period_intent=intent)
+        current = datetime.datetime.now(datetime.timezone.utc).year
+        expected = (mrc.year_time_bounds(current - 3)[0],
+                    mrc.year_time_bounds(current - 1)[1])
+        assert mrc._author_window_bounds(request, intent) == expected
+        bare = _subject_request(period_intent=intent, subject_entity_ids=(),
+                                subject_names=())
+        assert mrc._author_window_bounds(bare, intent) is None, (
+            "без разрешённого субъекта окно не появляется")
+
     @pytest.mark.asyncio
     async def test_subject_window_is_bounded_and_multi_year(self):
         """M8: старые сообщения субъекта ≤ `top_k//5` и из РАЗНЫХ лет."""
@@ -390,8 +453,8 @@ class TestAuthorWindowBySubject:
             assert 1 <= fill["author_window_rows"] <= 32 // 5
             assert fill["author_window_years"] == 3, (
                 "вклад распределён по трём завершённым годам")
-            assert {mrc._candidate_year(cand) for cand in own} == {
-                2023, 2024, 2025}
+            assert {mrc._candidate_year(cand) for cand in own} == set(
+                _completed_years())
             # Ни один год не получает больше своей квоты.
             per_year: dict = {}
             for cand in own:
