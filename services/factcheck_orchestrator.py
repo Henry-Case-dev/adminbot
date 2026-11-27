@@ -207,6 +207,19 @@ class CheckedVerdict:
     #: поиска, роль/ссылки, причина пробела) — INTERNAL, в Presentation не
     #: попадает (egress-whitelist по построению).
     claims: tuple = ()
+    #: FCT-601/603 (S4 U2, D3): обязательный структурный технический статус
+    #: прогона — ОТДЕЛЬНАЯ ось от factual_verdict. Заполняется оркестратором
+    #: (`derive_execution_state`): complete | partial | technical_unverified |
+    #: unknown (unknown — только совместимость со старыми конструкторами).
+    execution_status: str = "unknown"
+    #: Структурная причина исполнения (существующий status_detail:
+    #: provider_error | provider_timeout | rate_limit | deadline_exceeded |
+    #: resource_limit | source_unreadable | source_extract_failed | cancelled |
+    #: claim_unidentified | ""). Не reason-код реестра: причина не теряется при
+    #: маппинге в enum.
+    execution_cause: str = ""
+    #: FCT-604: чем держится вердикт — evidence|logical (existing `basis*`).
+    proof_basis: str = "evidence"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -2003,6 +2016,106 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     return _finish(OUTCOME_VERDICT, f"v2:{verdict.route}", verdict_stage)
 
 
+# ── FCT-601/603 (S4 U2, D3): execution_status — отдельная ось вердикта ─────
+# Техническое состояние прогона вычисляется оркестратором из фактического
+# RetrievalOutcome + coverage/parts. `TemporalVerdict` не меняется (D3),
+# factual_verdict остаётся содержательной осью.
+
+EXECUTION_COMPLETE = "complete"
+EXECUTION_PARTIAL = "partial"
+EXECUTION_TECHNICAL_UNVERIFIED = "technical_unverified"
+EXECUTION_UNKNOWN = "unknown"          # только совместимость старых вызовов
+EXECUTION_STATUSES = (EXECUTION_COMPLETE, EXECUTION_PARTIAL,
+                      EXECUTION_TECHNICAL_UNVERIFIED, EXECUTION_UNKNOWN)
+
+#: Причина исполнения — существующие `status_detail` (не reason-коды реестра).
+#: Порядок — приоритет при нескольких технических причинах в одном прогоне.
+EXECUTION_CAUSES = ("cancelled", "rate_limit", "provider_timeout",
+                    "provider_error", "resource_limit", "deadline_exceeded",
+                    "source_unreadable", "source_extract_failed",
+                    "claim_unidentified")
+_CAUSE_BY_STOP_REASON = {
+    "cancelled": "cancelled",
+    "rate_limit": "rate_limit",
+    "provider_timeout": "provider_timeout",
+    "providers_unavailable": "provider_error",
+    "resource_limit": "resource_limit",
+    "global_deadline": "deadline_exceeded",
+}
+
+
+def derive_execution_state(*, retrieval, claims=(), parts=(),
+                           uncertainty=None) -> tuple[str, str, str]:
+    """(execution_status, execution_cause, proof_basis) одного прогона.
+
+    FCT-601/603 (D3): техническое состояние считается из ФАКТИЧЕСКИХ данных
+    прогона, а factual_verdict не подменяется:
+
+    * все части получили содержательный исход → ``complete``;
+    * часть проверена, часть технически нет → ``partial`` (подтверждённые
+      части не трогаются);
+    * содержательной проверки нет из-за технической причины →
+      ``technical_unverified`` + конкретная ``execution_cause`` (rate_limit не
+      превращается в provider_unavailable/deadline и наоборот);
+    * нет ни coverage, ни частей, ни retrieval → ``unknown`` (совместимость).
+
+    Технической считается часть с ``outcome == not_checked_technical`` ИЛИ с
+    техническим ``status_detail`` (те же коды, что в S3). Детерминированно,
+    без LLM/новых вызовов."""
+    from services.factcheck_planner import CLAIM_OUTCOME_TECHNICAL
+
+    cause_rank = {name: i for i, name in enumerate(EXECUTION_CAUSES)}
+
+    def _cause(detail: str) -> str:
+        detail = str(detail or "")
+        return detail if detail in cause_rank else ""
+
+    proof_basis = ("logical" if any(str(k).startswith("basis")
+                                    for k in (uncertainty or {}))
+                   else "evidence")
+
+    cov = tuple(claims or ())
+    if not cov and retrieval is not None:
+        cov = tuple(getattr(retrieval, "claims", ()) or ())
+    part_rows = [p for p in (parts or ()) if isinstance(p, dict)]
+
+    technical: list[str] = []
+    substantive = 0
+    for c in cov:
+        detail = _cause(getattr(c, "status_detail", ""))
+        outcome = str(getattr(c, "outcome", "") or "")
+        if outcome == CLAIM_OUTCOME_TECHNICAL or detail:
+            technical.append(detail or "provider_error")
+        else:
+            substantive += 1
+    if not cov:
+        for part in part_rows:
+            detail = _cause(part.get("status_detail", ""))
+            if detail:
+                technical.append(detail)
+            else:
+                substantive += 1
+    if technical and substantive:
+        status = EXECUTION_PARTIAL
+    elif technical:
+        status = EXECUTION_TECHNICAL_UNVERIFIED
+    elif cov or part_rows:
+        status = EXECUTION_COMPLETE
+    else:
+        # Ни coverage, ни частей: причина — из фактического stop_reason.
+        stop = str(getattr(retrieval, "stop_reason", "") or "")
+        cause = _CAUSE_BY_STOP_REASON.get(stop, "")
+        if cause:
+            return EXECUTION_TECHNICAL_UNVERIFIED, cause, proof_basis
+        if retrieval is None:
+            return EXECUTION_UNKNOWN, "", proof_basis
+        return EXECUTION_COMPLETE, "", proof_basis
+    cause = ""
+    if technical:
+        cause = sorted(technical, key=lambda d: cause_rank.get(d, 99))[0]
+    return status, cause, proof_basis
+
+
 def _accepts_run_id(fn) -> bool:
     """Принимает ли ``check_claim_envelope`` kwarg ``run_id`` (телеметрия §6).
 
@@ -2058,6 +2171,11 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
                     claims=((str(r.get("claim_part")),)
                             if r.get("claim_part") else ()))
         for r in (run.evidence_rows or ()))
+    claims_cov = tuple(getattr(retrieval, "claims", ()) or ())
+    parts_rows = tuple(run.verdict.parts or ())
+    execution_status, execution_cause, proof_basis = derive_execution_state(
+        retrieval=retrieval, claims=claims_cov, parts=parts_rows,
+        uncertainty=run.verdict.uncertainty)
     return CheckedVerdict(
         verdict_text=run.verdict_text, route="envelope_temporal",
         factual_verdict=run.verdict.factual_verdict,
@@ -2069,8 +2187,12 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
         reason_code=run.verdict.reason, as_of=run.verdict.as_of,
         fallback_used=run.fallback_used,
         evidence_refs=tuple(run.verdict.evidence_refs or ()),
-        parts=tuple(run.verdict.parts or ()),
-        claims=tuple(getattr(retrieval, "claims", ()) or ()))
+        parts=parts_rows,
+        claims=claims_cov,
+        # FCT-601/603/604 (S4 U2, D3): техническое состояние и basis прогона.
+        execution_status=execution_status,
+        execution_cause=execution_cause,
+        proof_basis=proof_basis)
 
 
 async def _run_legacy_branch(req: FactcheckRequest, service,
@@ -2100,9 +2222,14 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
         claim_text, req.user_hint, req.forward_source,
         chat_id=req.chat_id, chat_context=feed or None,
         search_results=search_results)
+    claims_cov = tuple(getattr(retrieval, "claims", ()) or ())
+    execution_status, execution_cause, proof_basis = derive_execution_state(
+        retrieval=retrieval, claims=claims_cov)
     return CheckedVerdict(
-        verdict_text=verdict, route="legacy_single",
-        claims=tuple(getattr(retrieval, "claims", ()) or ()))
+        verdict_text=verdict, route="legacy_single", claims=claims_cov,
+        execution_status=execution_status,
+        execution_cause=execution_cause,
+        proof_basis=proof_basis)
 
 
 def _headline_code(verdict) -> str:
@@ -2251,6 +2378,15 @@ async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
         "critical_section_enabled": bool(critical_section_enabled)
         if critical_section_enabled is not None else "",
         "fallback_reason": str(fallback_reason or ""),
+        # FCT-601/603/604 (S4 U2): техническое состояние прогона — отдельная
+        # ось (complete|partial|technical_unverified|unknown), причина и basis.
+        # Только коды, без текстов (R17).
+        "execution_status": str(getattr(verdict, "execution_status", "") or "")
+        if verdict is not None else "",
+        "execution_cause": str(getattr(verdict, "execution_cause", "") or "")
+        if verdict is not None else "",
+        "proof_basis": str(getattr(verdict, "proof_basis", "") or "")
+        if verdict is not None else "",
         # §11.3/§10.3: итоговый код заголовка и состояние медиа — из
         # фактического прогона (пустое значение = «не установлено»).
         "final_headline_code": str(final_headline_code or ""),
@@ -2285,6 +2421,9 @@ async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
             pipeline_run_id=str(pipeline_run_id or trace_id or "") or None,
             entity_ids={
                 **summary,
+                "execution_status": fields.get("execution_status", ""),
+                "execution_cause": fields.get("execution_cause", ""),
+                "proof_basis": fields.get("proof_basis", ""),
                 "claims": [_claim_telemetry_row(cov) for cov in coverage],
             })
     except Exception:      # события не рвут доставку

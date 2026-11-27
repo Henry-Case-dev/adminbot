@@ -111,10 +111,17 @@ CLAIM_OUTCOMES = (CLAIM_OUTCOME_CONFIRMED, CLAIM_OUTCOME_REFUTED,
 
 #: §4: сопоставление итога claim существующему verdict-enum (параллельной
 #: системы вердиктов нет).
+#:
+#: FCT-193/FC-04.5 (S4 U2, 28.11.2026): ``PARTIAL`` — это ОДНОСТОРОННЕЕ
+#: подтверждение (`_finalize_claim` ставит PARTIAL при supports|qualifies БЕЗ
+#: contradicts), поэтому он не может маппиться в ``mixed``: агрегатор считает
+#: ``mixed``-часть обеими сторонами, и один односторонний partial давал ложный
+#: верхний ``mixed``. Честный partial остаётся ``insufficient_evidence``;
+#: ``mixed`` — только для ``CONFLICTING`` (там действительно обе стороны).
 CLAIM_OUTCOME_TO_VERDICT = {
     CLAIM_OUTCOME_CONFIRMED: "supported",
     CLAIM_OUTCOME_REFUTED: "refuted",
-    CLAIM_OUTCOME_PARTIAL: "mixed",
+    CLAIM_OUTCOME_PARTIAL: "insufficient_evidence",
     CLAIM_OUTCOME_CONFLICTING: "mixed",
     CLAIM_OUTCOME_INSUFFICIENT: "insufficient_evidence",
     CLAIM_OUTCOME_TECHNICAL: "insufficient_evidence",

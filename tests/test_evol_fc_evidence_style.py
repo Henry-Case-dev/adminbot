@@ -294,6 +294,26 @@ async def _offline_fetch(url, max_bytes=None, timeout=None):
     raise RuntimeError("offline test")
 
 
+def _open_blocks(agg):
+    """Открыть «первоисточник» по URL: HTML из соответствующего блока выдачи.
+
+    S4 U2/§2.4 (28.11.2026): подтверждённая часть требует ОТКРЫТОГО документа;
+    сниппет (`snippet_only`) больше не является прямым подтверждением. Блок
+    выдачи содержит title/snippet/url — отдаём его текст как страницу, чтобы
+    claim-specific passage находился по якорям (это и есть реальный документ
+    в офлайн-тесте).
+    """
+    async def fetch(url, max_bytes=None, timeout=None):
+        for _needle, block in agg.routes:
+            if str(url) and str(url) in block:
+                body = " ".join(line.strip() for line in block.splitlines()
+                                if line.strip() and str(url) not in line)
+                return f"<html><body><p>{body}</p></body></html>"
+        raise RuntimeError("offline test: no block for url")
+
+    return fetch
+
+
 async def _retrieve(plan, aggregator, *, fetch=_offline_fetch, **kw):
     return await fsp.run_retrieval(plan, aggregator=aggregator,
                                    fetch_text=fetch, **kw)
@@ -440,7 +460,13 @@ async def test_sc2_four_confirmed_two_concrete_gaps(planner_on):
     routes = tuple((n, (BLOCK_ALPHABET_NO_NUMBER if n == "alphabet" else b))
                    for n, b in routes)
     agg = RoutedAggregator(routes, fail_needles=("мировые",))
-    outcome = await _retrieve(plan, agg)
+    # S4 U2/§2.4: подтверждённые части требуют ОТКРЫТОГО документа (сниппет
+    # больше не прямое подтверждение) — открываем блоки офлайн-«страницей».
+    # fetch-кап поднят, чтобы открыть все четыре подтверждаемые части.
+    outcome = await _retrieve(
+        plan, agg, fetch=_open_blocks(agg),
+        limits=fsp.FactcheckLimits(budgets_enabled=False,
+                                   primary_fetches=6))
 
     by_id = {cov.claim.claim_id: cov for cov in outcome.claims}
     # c1 — технический сбой провайдера, c6 — числа нет в источнике
@@ -722,9 +748,10 @@ async def test_sc10_partial_verdict_live_style_within_structure(
     units = ("Индекс S&P 500 упал 30 октября 2026 года.",
              "Alphabet потеряла $658 млрд капитализации.")
     plan = _plan(*units)
-    outcome = await _retrieve(
-        plan, RoutedAggregator((("s&p", BLOCK_SP),
-                                ("alphabet", BLOCK_ALPHABET_NO_NUMBER))))
+    _agg = RoutedAggregator((("s&p", BLOCK_SP),
+                             ("alphabet", BLOCK_ALPHABET_NO_NUMBER)))
+    # S4 U2/§2.4: подтверждённая часть требует открытого документа.
+    outcome = await _retrieve(plan, _agg, fetch=_open_blocks(_agg))
     writer = (
         "Коротко: индекс действительно просел, а вот сумма потерь — фантазия.\n\n"
         "S&P 500 в тот день упал, это подтверждается источником.\n\n"

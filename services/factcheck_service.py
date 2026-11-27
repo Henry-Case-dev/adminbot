@@ -2741,12 +2741,17 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
         bound = [str(x) for x in (getattr(cov, "citation_ids", ()) or ())]
         # Роль ссылки важнее её наличия: «событие есть, числа нет»
         # (qualifies) не может удерживать положительный вердикт части (§3.3/§6).
-        supporting = [str(getattr(e, "evidence_id", "") or "")
-                      for e in (getattr(cov, "displayable_evidence", ()) or ())
-                      if str(getattr(e, "role", "")) == "supports"]
-        contradicting = [str(getattr(e, "evidence_id", "") or "")
-                         for e in (getattr(cov, "displayable_evidence", ()) or ())
-                         if str(getattr(e, "role", "")) == "contradicts"]
+        # FCT-603/§2.4 (S4 U2): неоткрытый сниппет (`snippet_only`) — не
+        # прямое подтверждение/опровержение: он может быть qualifies/
+        # background, но НЕ основанием positive части.
+        def _direct(role: str) -> list[str]:
+            return [str(getattr(e, "evidence_id", "") or "")
+                    for e in (getattr(cov, "displayable_evidence", ()) or ())
+                    if str(getattr(e, "role", "")) == role
+                    and not bool(getattr(e, "snippet_only", False))]
+
+        supporting = _direct("supports")
+        contradicting = _direct("contradicts")
         index = next((i for i, part in enumerate(parts)
                       if _claim_part_match(part, claim)), None)
         detail = str(getattr(cov, "status_detail", "") or "")
@@ -2861,6 +2866,7 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
             str(k).startswith("basis") for k in (verdict.uncertainty or {})):
         direct_exists = any(
             str(getattr(e, "role", "")) == "supports"
+            and not bool(getattr(e, "snippet_only", False))
             for cov in coverage or ()
             for e in (getattr(cov, "displayable_evidence", ()) or ()))
         if not direct_exists:
@@ -3276,6 +3282,16 @@ def deterministic_temporal_report(env, verdict, *, evidence=(),
     return " ".join(pieces).strip()
 
 
+def _merge_user_context(*blocks: str | None) -> str | None:
+    """Склеить готовые user-context блоки (оба — типизированные wrapper'ы).
+
+    FCT-315 (S4 U2): контекст чата из conversation-feed и факты/RAG чата идут
+    ОТДЕЛЬНЫМИ `<chat_context>`-секциями (не сырым текстом и не в
+    `<search_results>`). Пустые блоки отбрасываются; всё пусто → None."""
+    parts = [str(b).strip() for b in blocks if str(b or "").strip()]
+    return "\n\n".join(parts) if parts else None
+
+
 class FactCheckService:
     """Фактчек: поиск фактов по целевому тексту → LLM-вердикт → cleanup."""
 
@@ -3378,7 +3394,20 @@ class FactCheckService:
         user = self.build_user_content(target_text, user_hint, forward_source,
                                        results, chat_context=chat_context)
         if rag:
-            user = f"{rag}\n\n{user}"
+            # FCT-315 (S4 U2, MAN-FCT-22): данные чата — КОНТЕКСТ и внутренние
+            # сведения, а не внешнее доказательство публичного тезиса. Раньше
+            # RAG шёл СЫРЫМ префиксом user-content (перед <claim>), из-за чего
+            # читался как найденные материалы. Теперь — типизированный
+            # <chat_context> с явной пометкой «не доказательство»; в
+            # <search_results>/<evidence> он не попадает.
+            rag_block = (
+                '<chat_context note="факты и заметки этого чата — контекст и '
+                'внутренние сведения; это НЕ внешнее доказательство '
+                'публичного утверждения">\n'
+                f"{escape_xml_text(rag)}\n</chat_context>")
+            user = self.build_user_content(
+                target_text, user_hint, forward_source, results,
+                chat_context=_merge_user_context(chat_context, rag_block))
         # UR-C-CLOCK (UR-26.4): время ОЦЕНКИ из ChatClock чата — единый
         # снапшот на проверку (single/stage1/stage2); дата публикации
         # источника остаётся отдельным полем в СВОЁМ поясе (UR-27 не

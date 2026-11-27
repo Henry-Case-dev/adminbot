@@ -220,8 +220,12 @@ class TestSchemaFreeze:
             # привязки ссылок к утверждениям; internal, в egress не входят
             "evidence_refs", "parts",
             # ASAP-FC-EVIDENCE-STYLE-02 §3.1/§6: покрытие по claim
-            # (internal — в FactcheckPresentation не попадает)
-            "claims")
+            # (internal - в FactcheckPresentation не попадает)
+            "claims",
+            # FCT-601/603/604 (S4 U2, D3): техническое состояние прогона —
+            # отдельная ось, вычисляется оркестратором; internal, в
+            # FactcheckPresentation не входит (публикация — U3)
+            "execution_status", "execution_cause", "proof_basis")
 
     def test_presentation_fields_frozen_and_service_free(self):
         import dataclasses

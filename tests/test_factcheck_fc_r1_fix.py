@@ -674,7 +674,8 @@ class TestVapingReplayOffline:
     async def _run(self, monkeypatch, llm, claim=VAPING_CLAIM,
                    verbalized="EVALI у вейперов подтверждается источниками. "
                               "Конкретные числа публикации в выдержках не "
-                              "нашли. Даты части источников не распознались."):
+                              "нашли. Даты части источников не распознались.",
+                   *, fetch_body=None):
         object.__setattr__(settings, "FACTCHECK_PIPELINE_V2_ENABLED", True)
         _patch_verbalize(monkeypatch, verbalized)
 
@@ -692,6 +693,8 @@ class TestVapingReplayOffline:
         agg = VapingAggregator()
 
         async def fake_fetch(url, max_bytes=None, timeout=None):
+            if fetch_body is not None:
+                return fetch_body
             return CDC_HTML
 
         import services.factcheck_planner as planner_mod
@@ -760,20 +763,58 @@ class TestVapingReplayOffline:
                                       ensure_ascii=False)
                 return await super().generate(messages, **kw)
 
+        # S4 U2/§2.4: положительная часть требует ОТКРЫТОГО документа —
+        # сниппет больше не прямое подтверждение. Один открытый первоисточник
+        # покрывает единственную часть; validator согласен → supported.
+        bridge_claim = "в городе N открыли новый мост длиной 500 метров."
+        llm = AgreeLLM(parts_payload=[
+            {"part_id": "p1", "factual_verdict": "supported",
+             "evidence_refs": ["ev-1"]},
+        ], top="insufficient_evidence")
+        _agg, db, bot = await self._run(
+            monkeypatch, llm, claim=bridge_claim,
+            fetch_body=f"<html><body><p>{bridge_claim}</p></body></html>",
+            verbalized="Мост открыт. Параметры подтверждаются.")
+        # §3.5: все части подтверждены → supported; C1.9: validator согласен,
+        # поэтому понижения нет и статус не теряется.
+        assert db.runs[0]["factual_verdict"] == "supported"
+
+    @pytest.mark.asyncio
+    async def test_one_sided_open_support_is_partial_not_supported(
+            self, monkeypatch, planner_on, date_fetch_off):
+        """S4 U2/§2.4: открыт один источник из двух частей.
+
+        Прежнее ожидание «все части supported → supported» держалось на
+        сниппетах (не открытых). Теперь сниппет не подтверждает: часть без
+        открытого источника честно insufficient, подтверждённая часть
+        сохраняется, верхний вердикт — insufficient (FC-04.5)."""
+        class AgreeLLM(ReplayLLM):
+            async def generate(self, messages, **kw):
+                if kw.get("step") == "temporal_validator":
+                    return json.dumps({"agree": True,
+                                       "corrected_factual_verdict": None,
+                                       "corrected_temporal_status": None,
+                                       "note": "ok"}, ensure_ascii=False)
+                return await super().generate(messages, **kw)
+
+        bridge_claim = ("в городе N открыли новый мост длиной 500 метров. "
+                        "строительство шло три года и стоило 10 млрд рублей")
         llm = AgreeLLM(parts_payload=[
             {"part_id": "p1", "factual_verdict": "supported",
              "evidence_refs": ["ev-1"]},
             {"part_id": "p2", "factual_verdict": "supported",
              "evidence_refs": ["ev-2"]},
         ], top="insufficient_evidence")
-        _agg, db, bot = await self._run(
-            monkeypatch, llm,
-            claim="в городе N открыли новый мост длиной 500 метров. "
-                  "строительство шло три года и стоило 10 млрд рублей",
+        _agg, db, _bot = await self._run(
+            monkeypatch, llm, claim=bridge_claim,
+            fetch_body=f"<html><body><p>{bridge_claim}</p></body></html>",
             verbalized="Мост открыт. Параметры подтверждаются.")
-        # §3.5: все части подтверждены → supported; C1.9: validator согласен,
-        # поэтому понижения нет и статус не теряется.
-        assert db.runs[0]["factual_verdict"] == "supported"
+        run = db.runs[0]
+        assert run["factual_verdict"] == "insufficient_evidence"
+        # Подтверждённые части не затираются: это проверяется на уровне
+        # merge/CheckedVerdict в tests/test_fc_trust_verdict.py
+        # (test_checked_and_technical_is_partial_and_keeps_parts) и в SC2
+        # test_evol_fc_evidence_style.py — db-запись прогона parts не хранит.
 
     @pytest.mark.asyncio
     async def test_validator_downgrade_wins_over_supported_parts(

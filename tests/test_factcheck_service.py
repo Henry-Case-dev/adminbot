@@ -164,7 +164,13 @@ class TestGraphRagV2Hooks:
 
     @pytest.mark.asyncio
     async def test_rag_context_prefixed_to_user_content(self, monkeypatch):
-        """55.5/55.6: RAG-контекст — префикс user-контента (до <claim>)."""
+        """55.5/55.6 + FCT-315 (S4 U2): RAG — типизированный chat-контекст.
+
+        Прежнее ожидание «RAG сырым префиксом перед <claim>» было ровно тем
+        дефектом, который закрывает FCT-315: данные чата читались как
+        найденные материалы. Теперь RAG идёт отдельным `<chat_context>` с
+        пометкой «НЕ внешнее доказательство», а user-content начинается с
+        <claim>; в <search_results> RAG не попадает."""
         spy = []
         monkeypatch.setattr(
             "services.summary_memory.asyncio.create_task", lambda coro: spy.append(coro)
@@ -174,4 +180,10 @@ class TestGraphRagV2Hooks:
         await service.check_claim("текст", None, None, chat_id=-100)
         await spy[0]        # выполняем фоновую задачу вручную (детерминизм)
         user = llm.generate.await_args.args[0][1]["content"]
-        assert user.startswith("<context>ctx</context>\n\n<claim>текст</claim>")
+        assert user.startswith("<claim>текст</claim>")
+        assert "<chat_context" in user
+        assert "НЕ внешнее доказательство" in user
+        rag_block = user.split("</chat_context>")[0]
+        assert "ctx" in rag_block                       # RAG внутри контекста
+        assert "&lt;context&gt;" in rag_block           # экранирован, как данные
+        assert "ctx" not in user.split("<search_results>")[-1]
