@@ -18225,10 +18225,20 @@ class DirectChatService:
         # лишь свободные слоты и не трогает текущий срез.
         bound = any(row.get("subject_role") or row.get("authored_by_subject")
                     for row in profile_rows)
-        if allow_replace and bound:
+        # D1 (VMQ-MEM-07 five-class 2026-11-28): origin-отбор идёт ПЕРВЫМ.
+        # Прошлые ответы бота (`bot_direct_reply`/`bot_self_reply`) не являются
+        # сведениями о человеке; если после origin-фильтра допустимых
+        # профильных строк не осталось, заменять `period_fill` нечем, и уже
+        # принятая периодным селектором строка (в т.ч. единственная старшая)
+        # обязана остаться в срезе. Прежний порядок удалял её до этой проверки
+        # и терял найденный материал (5 классов, класс 3).
+        admissible = [row for row in profile_rows
+                      if not _prov.is_self_referential_origin(
+                          row.get("origin"))]
+        if allow_replace and bound and admissible:
             rows = [row for row in rows
                     if not (isinstance(row, dict) and row.get("period_fill"))]
-        return self._rag_append_period_rows(rows, profile_rows, limit)
+        return self._rag_append_period_rows(rows, admissible, limit)
 
     @staticmethod
     def _rag_meta_from_record(row, fact_id: int, position: int,

@@ -1005,6 +1005,73 @@ class TestSubjectHalf:
             "Лёха", UID, 10, allow_replace=True)
         assert generic in out3
 
+    # ── D1 (VMQ-MEM-07 five-class 2026-11-28) ────────────────────────────
+    # Причина: `bound=True` удалял `period_fill`-строки ДО origin-отбора
+    # профиля. Профиль, целиком состоящий из собственных прошлых ответов бота
+    # (`bot_direct_reply`), после origin-фильтра даёт 0 допустимых строк, но
+    # уже принятая строка старшего периода к этому моменту уничтожена.
+    # Инвариант: origin-отбор не может приводить к потере уже найденной
+    # периодной строки; заменять `period_fill` вправе только профиль, у
+    # которого после origin-фильтра остался хотя бы один кандидат.
+
+    @staticmethod
+    def _d1_base():
+        return _current_rows(8, ids=range(9100, 9108))
+
+    @staticmethod
+    def _d1_old_row():
+        """Единственная строка старшего периода (архивный случай 5567/2025)."""
+        return {"id": 5567, "fact": "Вася Поляна, 2025", "rag_ts": _ts(2025),
+                "message_timestamp": _ts(2025), "origin": "history_import",
+                "period_fill": True}
+
+    @pytest.mark.asyncio
+    async def test_bot_origin_profile_keeps_accepted_old_period_row(self, db):
+        """D1 RED→GREEN: профильные чтения вернули только выводы бота —
+        старшая периодная строка остаётся в срезе, новых строк не появляется,
+        базовый срез не замещается."""
+        import services.direct_chat_service as _dcs2
+        for text, year in (("в 2026 Вася уточняет детали", 2026),
+                           ("в 2025 Вася сказал про Поляну", 2025)):
+            await _fact(db, text, year=year, target="Вася", speaker=UID,
+                        origin="bot_direct_reply")
+        service = _dcs2.DirectChatService(memory=object(), db=db, llm=None,
+                                          aliases=None)
+        base = self._d1_base()
+        old = self._d1_old_row()
+        out = await service._rag_append_profile_rows(
+            db, base + [old], CHAT,
+            "расскажи, что за человек Вася, по его сообщениям",
+            "Вася", UID, 10, allow_replace=True)
+        assert old in out, "принятая строка старшего периода потеряна"
+        assert out[:len(base)] == base, "базовый срез замещён профилем"
+        assert len(out) == len(base) + 1, [row.get("id") for row in out]
+        assert not any(row.get("origin") == "bot_direct_reply" for row in out)
+
+    @pytest.mark.asyncio
+    async def test_admissible_profile_replaces_period_row_but_not_base(self, db):
+        """Дифференциальный контроль к D1: тот же профиль с нейтральным
+        origin вытесняет ТОЛЬКО `period_fill`-строку и не трогает базу."""
+        import services.direct_chat_service as _dcs2
+        for text, year in (("в 2026 Вася уточняет детали", 2026),
+                           ("в 2025 Вася сказал про Поляну", 2025)):
+            await _fact(db, text, year=year, target="Вася", speaker=UID,
+                        origin="chat_history")
+        service = _dcs2.DirectChatService(memory=object(), db=db, llm=None,
+                                          aliases=None)
+        base = self._d1_base()
+        old = self._d1_old_row()
+        out = await service._rag_append_profile_rows(
+            db, base + [old], CHAT,
+            "расскажи, что за человек Вася, по его сообщениям",
+            "Вася", UID, 10, allow_replace=True)
+        assert old not in out, "допустимый профиль не вытеснил period-строку"
+        assert out[:len(base)] == base, "базовый срез замещён профилем"
+        added = [row for row in out if row.get("id") not in
+                 {r["id"] for r in base}]
+        assert added, "допустимый профиль не добрал ни одной строки"
+        assert len(out) <= 10
+
 
 # ── TIME-04: окно и трасса ───────────────────────────────────────────────
 
