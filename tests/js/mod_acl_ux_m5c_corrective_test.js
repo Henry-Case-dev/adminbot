@@ -129,8 +129,11 @@ assert(EXPERIENCE, 'каталог DTO должен содержать mod_exper
     const c = Object.assign({}, methods);
     METHODS_BIND(c);
     const o = opts || {};
+    c.activeChatId = o.chatId === undefined ? null : o.chatId;
     c.lessonsData = null;
     c.expPipeline = o.pipeline === undefined ? null : o.pipeline;
+    c.expPipelineScope = o.pipelineScope === undefined
+      ? (o.pipeline ? 'global' : null) : o.pipelineScope;
     if (o.meta !== false) {
       c._wsHistoryMeta = function () {
         return { count: count, state: state };
@@ -183,6 +186,73 @@ assert(EXPERIENCE, 'каталог DTO должен содержать mod_exper
     'D2: disabled → «функция выключена»');
   ok(env(7, 'weird_code', {}).indexOf('состояние: weird_code') >= 0,
     'D2: неизвестный код назван как состояние, а не выдуман');
+
+  // ── F1 (r2): total только того же scope, что и страница ──────────────────
+  //
+  // deep link/refresh в GLOBAL грузит глобальный pipeline; после
+  // setActiveChat(B) тот же снимок НЕ должен выдаваться за журнал чата B.
+  const GLOBAL_PIPE = {
+    counters: { lessons: { active: 4000, suspended: 800, superseded: 99 } },
+  };
+  const CHAT_PIPE = {
+    counters: { lessons: { active: 1, suspended: 464, superseded: 79 } },
+  };
+  const CHAT = -1004482340693;
+  const OTHER = -1009999999999;
+
+  const globalCtx = Object.assign({}, methods);
+  globalCtx.activeChatId = null;
+  globalCtx.expPipeline = GLOBAL_PIPE;
+  globalCtx.expPipelineScope = 'global';
+  eq(methods.lessonsJournalTotal.call(globalCtx), 4899,
+    'F1: глобальный scope — глобальный total 4899');
+
+  // Страница чата, а снимок всё ещё глобальный (репорт r2: 100 · 611).
+  globalCtx.activeChatId = CHAT;
+  eq(methods.lessonsJournalTotal.call(globalCtx), null,
+    'F1: чужой (глобальный) снимок не даёт total для чата');
+  eq(methods.historyEnvelopeText.call(Object.assign({}, methods, {
+    activeChatId: CHAT, expPipeline: GLOBAL_PIPE,
+    expPipelineScope: 'global', lessonsData: null,
+    _wsHistoryMeta: function () { return { count: 3, state: 'implemented' }; },
+  }), EXPERIENCE), 'на странице: 3',
+  'F1: при неизвестном scope total не показывается (только страница)');
+
+  // После перезагрузки pipeline для этого чата total = 544.
+  globalCtx.expPipeline = CHAT_PIPE;
+  globalCtx.expPipelineScope = 'chat:' + CHAT;
+  eq(methods.lessonsJournalTotal.call(globalCtx), 544,
+    'F1: total чата 544 после скоуп-корректной загрузки');
+
+  // Переключение на другой чат — снова неизвестный scope, а не 544.
+  globalCtx.activeChatId = OTHER;
+  eq(methods.lessonsJournalTotal.call(globalCtx), null,
+    'F1: после переключения чата чужой total не показывается');
+
+  // Сброс снимка чистит и данные, и scope.
+  const resetCtx = Object.assign({}, methods);
+  resetCtx.activeChatId = CHAT;
+  resetCtx.expPipeline = CHAT_PIPE;
+  resetCtx.expPipelineScope = 'chat:' + CHAT;
+  resetCtx.expPipelineError = 'x';
+  resetCtx.expPipelineBusy = true;
+  ok(typeof methods._resetExperiencePipeline === 'function',
+    'F1: есть метод сброса снимка pipeline');
+  if (typeof methods._resetExperiencePipeline === 'function') {
+    methods._resetExperiencePipeline.call(resetCtx);
+    ok(resetCtx.expPipeline === null && resetCtx.expPipelineScope === null,
+      'F1: _resetExperiencePipeline чистит снимок и scope');
+  }
+  eq(methods.lessonsJournalTotal.call(resetCtx), null,
+    'F1: после сброса total неизвестен');
+
+  // Миграция со старым снимком без scope-метки: total не выдумывается.
+  const legacyCtx = Object.assign({}, methods);
+  legacyCtx.activeChatId = CHAT;
+  legacyCtx.expPipeline = CHAT_PIPE;
+  legacyCtx.expPipelineScope = undefined;
+  eq(methods.lessonsJournalTotal.call(legacyCtx), null,
+    'F1: снимок без scope-метки не выдаётся за журнал чата');
 
   // Соседняя строка «Сейчас:» не образует фразу «активен уроков: N».
   const row = Object.assign({}, methods);
@@ -278,15 +348,15 @@ assert(EXPERIENCE, 'каталог DTO должен содержать mod_exper
     /@media\s*\(pointer:\s*coarse\),\s*\(max-width:\s*767px\)\s*\{[\s\S]*?\n\}/);
   ok(coarse, 'D3: блок coarse/mobile-правил hit-area найден');
   const block = coarse ? coarse[0] : '';
-  ok(/\.module-card \.module-tristate\s*\{[^}]*overflow:\s*visible/.test(block)
-    || !/\.module-card \.module-tristate\s*\{[^}]*overflow:\s*hidden/.test(block),
-  'D3/F2: карточный tri-state не обрезает hit-area псевдоэлемент');
-  ok(/inset:\s*-2[0-9]px 0/.test(block) || /inset:\s*-20px 0/.test(block),
-    'D3/F2: вертикальный hit-area tri-state расширен до ±20 px');
+  // F2 (r2): кликабельная площадь = РЕАЛЬНЫЙ 44-px бокс кнопки; текст
+  // (подпись/состояние) вне его, поэтому никакого вертикального
+  // псевдоэлемента-перекрытия быть не должно.
+  ok(/\.module-card \.module-tristate-btn\s*\{[^}]*min-height:\s*44px/.test(block),
+    'D3/F2: кнопка tri-state реально ≥44 px');
+  ok(!/module-tristate-btn::after\s*\{[^}]*inset:\s*-2\dpx/.test(block),
+    'D3/F2: hit-area не расширяется псевдоэлементом поверх текста');
   ok(block.indexOf('.module-card-footer .btn-ghost::after') >= 0,
     'D3: hit-area кнопки «Открыть» расширяется псевдоэлементом');
-  ok(/\.module-card \.module-tristate-btn\s*\{\s*min-height:\s*22px/.test(block),
-    'D3: визуальная высота компактного tri-state сохранена (22 px)');
   ok(/async def learning_state\(/.test(JOBS),
     'D6: единый резолвер обучения присутствует');
   ok(/resolve_param_capability\(/.test(JOBS),
