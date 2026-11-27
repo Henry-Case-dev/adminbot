@@ -1056,3 +1056,135 @@ async def test_run_retrieval_never_raises_on_broken_aggregator():
                                       limits=_off_limits())
     assert outcome.stop_reason == fsp.STOP_PROVIDERS_UNAVAILABLE
     assert outcome.evidence_map is None
+
+
+# ── FCT-301 (run-level): коды S3 доходят до публичного класса без смешения ──
+#
+# Shard S3 различает исходы на уровне части/планировщика (`stop_reason`,
+# `status_detail`). Прежний run-level классификатор `factcheck_service`
+# пересчитывал исход по счётчикам в своём порядке и при пустой/нерелевантной
+# выдаче ЛЮБОЙ технический отказ (429/таймаут) превращал в «провайдеры
+# ответили, материалов нет». Тесты ниже — тот самый шов: одна и та же
+# наблюдаемая причина должна давать различимый публичный класс.
+
+def _run_outcome(**overrides) -> "fsp.RetrievalOutcome":
+    base = dict(
+        evidence_map=None, search_text="", queries_attempted=0,
+        queries_used=0, refs_collected=0, fetch_errors=0,
+        budget_exhausted=False)
+    base.update(overrides)
+    return fsp.RetrievalOutcome(**base)
+
+
+def test_rate_limit_run_is_not_reported_as_no_results():
+    """429 без единого результата — не «поиск ответил, материалов нет»."""
+    from services import factcheck_service as fsvc
+    outcome = _run_outcome(
+        queries_attempted=2, queries_used=0, provider_failures=2,
+        rate_limits=2, empty_results=0,
+        stop_reason=fsp.STOP_RATE_LIMIT)
+    state = fsvc.classify_retrieval(outcome)
+    assert state == fsvc.RETRIEVAL_RATE_LIMIT
+    assert state != fsvc.RETRIEVAL_NO_RESULTS
+    assert "429" in fsvc._RETRIEVAL_CAVEAT[state]
+    assert "материалов не дал" not in fsvc._RETRIEVAL_CAVEAT[state]
+    assert "429" in fsvc._RETRIEVAL_SEARCH_NOTE[state]
+    assert fsvc._RETRIEVAL_REASON[state] == "provider_unavailable"
+
+
+def test_mixed_empty_and_rate_limit_keeps_technical_cause():
+    """Пустая выдача соседней попытки не маскирует реальный 429.
+
+    Публичный класс называет техническую причину; счётчик пустых попыток
+    остаётся в диагностике (`empty_results`), т.е. деталь не теряется.
+    """
+    from services import factcheck_service as fsvc
+    outcome = _run_outcome(
+        queries_attempted=3, queries_used=0, provider_failures=1,
+        rate_limits=1, empty_results=2,
+        stop_reason=fsp.STOP_RATE_LIMIT)
+    assert fsvc.classify_retrieval(outcome) == fsvc.RETRIEVAL_RATE_LIMIT
+    diag = fsvc.evidence_diagnostics(
+        retrieval=outcome, retrieval_state=fsvc.RETRIEVAL_RATE_LIMIT,
+        evidence=(), verdict=None)
+    assert diag["empty_results"] == 2
+    assert diag["rate_limits"] == 1
+
+
+def test_timeout_mixed_with_empty_is_search_failed():
+    from services import factcheck_service as fsvc
+    outcome = _run_outcome(
+        queries_attempted=3, queries_used=0, provider_failures=1,
+        provider_timeouts=1, empty_results=2,
+        stop_reason=fsp.STOP_PROVIDER_TIMEOUT)
+    assert fsvc.classify_retrieval(outcome) == fsvc.RETRIEVAL_SEARCH_FAILED
+    # Совместимый путь без stop_reason (внутренний поиск ветки/тестовые
+    # исходы): тот же порядок — техсбой материальнее соседней пустой выдачи.
+    legacy = _run_outcome(queries_attempted=3, provider_failures=1,
+                          empty_results=2)
+    assert fsvc.classify_retrieval(legacy) == fsvc.RETRIEVAL_SEARCH_FAILED
+    rate_only = _run_outcome(queries_attempted=2, provider_failures=1,
+                             rate_limits=1)
+    assert fsvc.classify_retrieval(rate_only) == fsvc.RETRIEVAL_RATE_LIMIT
+
+
+def test_resource_limit_is_distinct_from_global_deadline():
+    from services import factcheck_service as fsvc
+    resource = _run_outcome(queries_attempted=3, budget_exhausted=True,
+                            stop_reason=fsp.STOP_RESOURCE_LIMIT)
+    deadline = _run_outcome(queries_attempted=3, budget_exhausted=True,
+                            stop_reason=fsp.STOP_GLOBAL_DEADLINE)
+    assert fsvc.classify_retrieval(resource) == fsvc.RETRIEVAL_RESOURCE_LIMIT
+    assert fsvc.classify_retrieval(deadline) == fsvc.RETRIEVAL_BUDGET
+    assert (fsvc._RETRIEVAL_CAVEAT[fsvc.RETRIEVAL_RESOURCE_LIMIT]
+            != fsvc._RETRIEVAL_CAVEAT[fsvc.RETRIEVAL_BUDGET])
+
+
+def test_cancelled_run_is_distinct_from_provider_failure():
+    from services import factcheck_service as fsvc
+    outcome = _run_outcome(queries_attempted=2, cancelled=True,
+                           stop_reason=fsp.STOP_CANCELLED)
+    state = fsvc.classify_retrieval(outcome)
+    assert state == fsvc.RETRIEVAL_CANCELLED
+    assert state != fsvc.RETRIEVAL_SEARCH_FAILED
+    assert "остановлен" in fsvc._RETRIEVAL_CAVEAT[state]
+
+
+def test_success_path_ignores_stop_reason_and_counters():
+    """Успешный путь не меняется: есть evidence refs → ok при любом stop."""
+    from services import factcheck_service as fsvc
+    ref = fsp.EvidenceRef(evidence_id="ev-1", url="https://e/1",
+                          support="подтверждение", claims=("c1",))
+    outcome = _run_outcome(
+        evidence_map=fsp.EvidenceMap(refs=(ref,)), search_text="x",
+        queries_attempted=2, queries_used=1, provider_failures=1,
+        rate_limits=1, stop_reason=fsp.STOP_RATE_LIMIT)
+    assert fsvc.classify_retrieval(outcome) == fsvc.RETRIEVAL_OK
+
+
+def test_envelope_internal_causes_map_to_distinct_classes():
+    """Ветка без RetrievalOutcome (`internal_failure_cause`) — те же классы."""
+    from services import factcheck_service as fsvc
+
+    def state(cause):
+        return fsvc.envelope_retrieval_state(
+            evidence=(), retrieval=None, results_text="",
+            internal_failure_cause=cause)
+
+    assert state("budget") == fsvc.RETRIEVAL_BUDGET
+    assert state("rate_limit") == fsvc.RETRIEVAL_RATE_LIMIT
+    assert state("timeout") == fsvc.RETRIEVAL_SEARCH_FAILED
+    assert state("empty_results") == fsvc.RETRIEVAL_NO_RESULTS
+    assert state("irrelevant_results") == fsvc.RETRIEVAL_NO_RESULTS
+
+
+@pytest.mark.asyncio
+async def test_run_level_class_matches_planner_stop_reason_end_to_end():
+    """Настоящий run_retrieval → настоящий класс сервиса (без моков класса)."""
+    from services import factcheck_service as fsvc
+    outcome = await fsp.run_retrieval(
+        _plan(_unit()), aggregator=Routed(fail_needles=("индекс",),
+                                          fail_reason="rate_limit"),
+        limits=_off_limits())
+    assert outcome.stop_reason == fsp.STOP_RATE_LIMIT
+    assert fsvc.classify_retrieval(outcome) == fsvc.RETRIEVAL_RATE_LIMIT

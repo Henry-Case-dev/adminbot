@@ -1846,18 +1846,32 @@ async def resolve_claim_publication(
 RETRIEVAL_OK = "ok"
 RETRIEVAL_NOT_RUN = "not_run"
 RETRIEVAL_BUDGET = "budget_exhausted"
+#: FCT-301 (S3→run): продуктовый лимит объёма (запросы/фетчи) — НЕ то же
+#: самое, что wall-clock дедлайн: пользовательская оговорка называет предел,
+#: который реально сработал, а не «время».
+RETRIEVAL_RESOURCE_LIMIT = "resource_limited"
+#: FCT-301 (S3→run): 429/квота провайдера — отдельный класс, иначе сбой
+#: провайдера читался бы как «поиск ответил, материалов нет».
+RETRIEVAL_RATE_LIMIT = "rate_limited"
+#: FCT-301 (S3→run): прогон остановлен внешней отменой/остановкой — не
+#: отказ провайдеров и не отсутствие материалов.
+RETRIEVAL_CANCELLED = "cancelled"
 RETRIEVAL_SEARCH_FAILED = "search_failed"
 RETRIEVAL_PROCESSING_FAILED = "processing_failed"
 RETRIEVAL_INSUFFICIENT = "insufficient_evidence"
 # P0-FACTCHECK-CORRECTIVE (§5.1/§5.2): провайдеры ОТВЕТИЛИ, но пригодных
 # материалов нет (пустая и/или нерелевантная выдача) — это НЕ «поисковики
-# недоступны» и не «самих фактов нет».
+# недоступны» и не «самых фактов нет».
 RETRIEVAL_NO_RESULTS = "no_usable_results"
 
 #: Класс → существующий reason-код реестра (новые коды не выдумываются:
-#: `verdict_from_payload` пропускает только REASON_CODES).
+#: `verdict_from_payload` пропускает только REASON_CODES). `cancelled` в
+#: реестре reasons нет: остановка не выдаётся за техническую причину
+#: вердикта, её формулирует оговорка (`_RETRIEVAL_CAVEAT`).
 _RETRIEVAL_REASON = {
     RETRIEVAL_BUDGET: "deadline_exceeded",
+    RETRIEVAL_RESOURCE_LIMIT: "deadline_exceeded",
+    RETRIEVAL_RATE_LIMIT: "provider_unavailable",
     RETRIEVAL_SEARCH_FAILED: "provider_unavailable",
     RETRIEVAL_PROCESSING_FAILED: "source_missing",
     RETRIEVAL_INSUFFICIENT: "insufficient_evidence",
@@ -1868,6 +1882,13 @@ _RETRIEVAL_REASON = {
 _RETRIEVAL_CAVEAT = {
     RETRIEVAL_BUDGET: ("поиск прерван по лимиту времени — проверены не все "
                        "запросы"),
+    RETRIEVAL_RESOURCE_LIMIT: ("поиск остановлен по лимиту объёма (число "
+                               "запросов/материалов) — проверены не все "
+                               "запросы"),
+    RETRIEVAL_RATE_LIMIT: ("провайдер ограничил частоту запросов (429) — "
+                           "проверены не все запросы"),
+    RETRIEVAL_CANCELLED: ("проверка остановлена до завершения — результат "
+                          "неполный"),
     RETRIEVAL_SEARCH_FAILED: ("поисковые сервисы не ответили — это "
                               "технический сбой, а не отсутствие фактов"),
     RETRIEVAL_PROCESSING_FAILED: ("поиск дал материалы, но пригодных для "
@@ -1882,6 +1903,12 @@ _RETRIEVAL_CAVEAT = {
 _RETRIEVAL_SITUATION = {
     RETRIEVAL_BUDGET: ("внешний поиск прерван по лимиту времени — проверены "
                        "не все запросы"),
+    RETRIEVAL_RESOURCE_LIMIT: ("внешний поиск остановлен по лимиту объёма — "
+                               "проверены не все запросы"),
+    RETRIEVAL_RATE_LIMIT: ("провайдер ограничил частоту запросов (429) — "
+                           "проверены не все запросы"),
+    RETRIEVAL_CANCELLED: ("внешний поиск остановлен до завершения — "
+                          "проверены не все запросы"),
     RETRIEVAL_SEARCH_FAILED: ("внешний поиск не удался: поисковые сервисы "
                               "не ответили"),
     RETRIEVAL_PROCESSING_FAILED: ("поиск дал материалы, но пригодных для "
@@ -1893,6 +1920,9 @@ _RETRIEVAL_SITUATION = {
 #: внешний evidence пуст (человекочитаемо, в <analysis_context>).
 _RETRIEVAL_SEARCH_NOTE = {
     RETRIEVAL_BUDGET: "внешний поиск прерван по лимиту времени",
+    RETRIEVAL_RESOURCE_LIMIT: "внешний поиск остановлен по лимиту объёма",
+    RETRIEVAL_RATE_LIMIT: "провайдер ограничил частоту запросов (429)",
+    RETRIEVAL_CANCELLED: "внешний поиск остановлен до завершения",
     RETRIEVAL_SEARCH_FAILED: "поисковые сервисы не ответили (технический "
                              "сбой)",
     RETRIEVAL_PROCESSING_FAILED: "материалы найдены, но пригодных для "
@@ -1910,6 +1940,31 @@ _TECHNICAL_RETRIEVAL_REASONS = frozenset({
 })
 
 
+def _stop_reason_class(stop_reason: str) -> str | None:
+    """FCT-301 (S3→run): закрытый код остановки планировщика → публичный класс.
+
+    Единственный источник правды о причине — `RetrievalOutcome.stop_reason`
+    (S3 уже различил `cancelled`/`resource_limit`/`global_deadline`/
+    `rate_limit`/`provider_timeout`/`providers_unavailable`). Сервис не
+    пересчитывает причину своим порядком счётчиков: иначе 429/таймаут с
+    соседней пустой попыткой превращались в «провайдеры ответили, материалов
+    нет». Пусто/неизвестно → ``None`` (ниже — совместимый разбор счётчиков).
+    """
+    try:
+        from services import factcheck_planner as fsp
+        mapping = {
+            fsp.STOP_CANCELLED: RETRIEVAL_CANCELLED,
+            fsp.STOP_RESOURCE_LIMIT: RETRIEVAL_RESOURCE_LIMIT,
+            fsp.STOP_GLOBAL_DEADLINE: RETRIEVAL_BUDGET,
+            fsp.STOP_RATE_LIMIT: RETRIEVAL_RATE_LIMIT,
+            fsp.STOP_PROVIDER_TIMEOUT: RETRIEVAL_SEARCH_FAILED,
+            fsp.STOP_PROVIDERS_UNAVAILABLE: RETRIEVAL_SEARCH_FAILED,
+        }
+        return mapping.get(str(stop_reason or ""))
+    except Exception:          # pragma: no cover — метрики не рвут вердикт
+        return None
+
+
 def classify_retrieval(retrieval) -> str:
     """RetrievalOutcome → класс исхода (§11.2, FC-EVIDENCE-STATUS-01).
 
@@ -1920,7 +1975,18 @@ def classify_retrieval(retrieval) -> str:
     ``None`` → not_run (внутренний поиск ветки, прежний контракт). Есть
     evidence → ok. Дальше — по фактическим счётчикам стадии:
 
-    бюджет без единого результата → бюджет; провайдеры ответили пустой или
+    FCT-301 (S3→run): при наличии ``stop_reason`` (реальный прогон
+    планировщика) класс берётся из закрытого кода остановки — отмена,
+    продуктовый лимит объёма, wall-clock дедлайн, 429, таймаут и недоступность
+    различимы. Счётчики остаются совместимым путём для контрактов, которые
+    `stop_reason` не заполняют (внутренний поиск ветки, тестовые исходы);
+    там технический отказ проверяется ДО пустой/нерелевантной выдачи, чтобы
+    подтверждённый 429/таймаут не читался как «материалов нет».
+
+    Детали (сколько пустых попыток было рядом) не теряются — они остаются в
+    `evidence_diagnostics`, а класс называет материальную причину.
+
+    Бюджет без единого результата → лимит; провайдеры ответили пустой или
     нерелевантной выдачей → «нет подходящих материалов» (НЕ «недоступны»,
     §11.2 п.4/5); запросы упали/не выполнены → «поиск недоступен» (§11.2 п.1);
     материалы были, но извлечение реально сломалось (``fetch_errors>0``) →
@@ -1938,8 +2004,28 @@ def classify_retrieval(retrieval) -> str:
         empties = int(getattr(retrieval, "empty_results", 0) or 0)
         irrelevant = int(getattr(retrieval, "irrelevant_results", 0) or 0)
         fetch_errors = int(getattr(retrieval, "fetch_errors", 0) or 0)
+        timeouts = int(getattr(retrieval, "provider_timeouts", 0) or 0)
+        rate_limits = int(getattr(retrieval, "rate_limits", 0) or 0)
+        cancelled = bool(getattr(retrieval, "cancelled", False))
+        if cancelled:
+            return RETRIEVAL_CANCELLED
+        # FCT-301: реальный прогон различает причину сам. Пределы (лимит
+        # объёма/дедлайн) и отказы провайдера классифицируются только когда
+        # пригодных результатов нет: частичный успех остаётся прежним
+        # (evidence → ok, материалы без ссылок → ограничение цитируемости).
+        if used == 0:
+            mapped = _stop_reason_class(
+                str(getattr(retrieval, "stop_reason", "") or ""))
+            if mapped is not None:
+                return mapped
         if getattr(retrieval, "budget_exhausted", False) and used == 0:
             return RETRIEVAL_BUDGET
+        if used == 0 and failures > 0:
+            # Технический отказ материальнее соседней пустой выдачи: 429 без
+            # таймаутов → отдельный класс; таймаут/общий отказ → недоступность.
+            if rate_limits and not timeouts:
+                return RETRIEVAL_RATE_LIMIT
+            return RETRIEVAL_SEARCH_FAILED
         if used == 0 and (empties > 0 or irrelevant > 0):
             # §11.2 п.4/5: провайдеры ОТВЕТИЛИ — техсбоя нет
             return RETRIEVAL_NO_RESULTS
@@ -2009,6 +2095,19 @@ def evidence_diagnostics(*, retrieval, retrieval_state: str,
             getattr(retrieval, "empty_results", None) if known else None),
         "irrelevant_results": _diag_count(
             getattr(retrieval, "irrelevant_results", None) if known else None),
+        # FCT-301 (S3→run): технические исходы различимы и в диагностике
+        # прогона, а не только в coverage частей. Только счётчики/флаг.
+        "provider_timeouts": _diag_count(
+            getattr(retrieval, "provider_timeouts", None) if known else None),
+        "rate_limits": _diag_count(
+            getattr(retrieval, "rate_limits", None) if known else None),
+        "cancelled": (bool(getattr(retrieval, "cancelled", False))
+                      if known else _DIAG_UNKNOWN),
+        "source_unreadable": _diag_count(
+            getattr(retrieval, "source_unreadable", None) if known else None),
+        "source_extract_failed": _diag_count(
+            getattr(retrieval, "source_extract_failed", None)
+            if known else None),
         "off_topic_sources_dropped": _diag_count(
             getattr(retrieval, "off_topic_sources_dropped", None)
             if known else None),
@@ -2083,9 +2182,18 @@ def envelope_retrieval_state(*, evidence, retrieval, results_text: str,
         return classify_retrieval(retrieval)
     if str(results_text or "").strip():
         return RETRIEVAL_NO_RESULTS
-    if internal_failure_cause in ("empty_results", "irrelevant_results"):
+    # FCT-301: причина внутреннего поиска ветки (`AllSearchEnginesFailedException
+    # .reason`) уже различима в агрегаторе — лимит/429/таймаут не выдаются за
+    # недоступность провайдеров. Пустая/нерелевантная выдача — по-прежнему
+    # «провайдеры ответили, материалов нет».
+    cause = str(internal_failure_cause or "")
+    if cause in ("empty_results", "irrelevant_results"):
         return RETRIEVAL_NO_RESULTS
-    if internal_failure_cause:
+    if cause == "budget":
+        return RETRIEVAL_BUDGET
+    if cause == "rate_limit":
+        return RETRIEVAL_RATE_LIMIT
+    if cause:
         return RETRIEVAL_SEARCH_FAILED
     return RETRIEVAL_NOT_RUN
 

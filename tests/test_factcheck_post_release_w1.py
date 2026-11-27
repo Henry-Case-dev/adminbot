@@ -287,10 +287,22 @@ class TestClassifyRetrieval:
         outcome = _outcome(queries_attempted=2, provider_failures=2)
         assert classify_retrieval(outcome) == RETRIEVAL_SEARCH_FAILED
 
-    def test_mixed_failure_and_empty_is_no_results(self):
+    def test_mixed_failure_and_empty_keeps_technical_cause(self):
+        """FCT-301 (run-level, 28.11.2026): подтверждённый отказ провайдера
+        материальнее соседней пустой выдачи.
+
+        Прежнее ожидание (`NO_RESULTS` при `provider_failures=1` +
+        `empty_results=2`) фиксировало ровно тот дефект, который закрывает
+        FCT-301: публичный заголовок читался как «провайдеры ответили,
+        материалов нет», хотя одна попытка реально упала. Пустая выдача
+        остаётся различимой в `evidence_diagnostics.empty_results`.
+        """
         outcome = _outcome(queries_attempted=3, provider_failures=1,
                            empty_results=2)
-        assert classify_retrieval(outcome) == RETRIEVAL_NO_RESULTS
+        assert classify_retrieval(outcome) == RETRIEVAL_SEARCH_FAILED
+        assert classify_retrieval(outcome) != RETRIEVAL_NO_RESULTS
+        # Полярность сохраняется: без технической попытки — по-прежнему
+        # «провайдеры ответили, материалов нет» (соседний тест выше).
 
     def test_used_but_no_refs_is_not_a_parser_break(self):
         """EVOL-REPLY-CONTEXT-INTEGRITY-01 §11.2 п.6: сылка нет — это
