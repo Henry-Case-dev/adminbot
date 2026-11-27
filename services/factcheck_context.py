@@ -284,8 +284,8 @@ class ConversationContext:
             digest_budget = _DIGEST_BUDGET_CHARS
             verbatim_budget = _VERBATIM_BUDGET_CHARS
         sections: list[str] = [wrapper_head]
-        digest = _render_digest(self, digest_budget, projection,
-                                relations_by_item)
+        digest, digest_omitted = _render_digest(
+            self, digest_budget, projection, relations_by_item)
         verbatim, omitted = _render_verbatim(self, verbatim_budget, projection,
                                              relations_by_item)
         if digest:
@@ -294,10 +294,23 @@ class ConversationContext:
         if verbatim:
             sections.append("фон: дословные фрагменты, существенные для "
                             "тезиса:\n" + verbatim)
+        # FCT-314: оконные/символьные пределы остаются физическими, но потеря
+        # называется — «молча выпало» больше нет. Reply-цель при этом всегда
+        # в фиде (якорь), цепочка reply идёт отдельным блоком.
+        if digest_omitted > 0:
+            sections.append(
+                f"фон: ещё {digest_omitted} сообщений хронологии не показаны "
+                "(остаток ёмкости окна); это не означает, что их не было.")
         if omitted > 0:
             sections.append(
                 f"фон: ещё {omitted} существенных фрагментов не показаны "
                 "(остаток ёмкости окна); это не означает, что их нет.")
+        cap_dropped = int(self.window.get("cap_dropped") or 0)
+        if cap_dropped > 0:
+            sections.append(
+                f"фон: ещё {cap_dropped} сообщений за пределами окна "
+                f"({int(self.window.get('cap') or _WIDE_WINDOW_MAX)}); "
+                "проверяемое сообщение и его Reply-цепочка сохранены.")
         if len(sections) == 1:
             return ""
         sections.append("</chat_context>")
@@ -332,11 +345,16 @@ def _render_line(m: ContextMessage, *, text: str, projection=None,
 
 
 def _render_digest(ctx: ConversationContext, budget: int,
-                   projection=None, relations_by_item=None) -> str:
+                   projection=None, relations_by_item=None
+                   ) -> tuple[str, int]:
     """Уровень 1: сообщения окна каноническими строками с обрезкой текста до
     ``_DIGEST_LINE_MAX_CHARS``. Приоритет усечения — как в узком окне
     (R1023F2-10): якорь сохраняется всегда (рассматривается первым), затем
-    свежие к старым (keep-end); первыми вытесняются самые старые before."""
+    свежие к старым (keep-end); первыми вытесняются самые старые before.
+
+    FCT-314: возвращает и число строк, не вошедших в бюджет. Предел окна
+    остаётся физическим, но потеря не немая — вызывающий печатает её в фиде.
+    """
     lines: list[tuple[int, str, bool]] = []   # (msg_idx, line, is_anchor)
     for idx, m in enumerate(ctx.messages):
         line = _render_line(
@@ -346,7 +364,7 @@ def _render_digest(ctx: ConversationContext, budget: int,
         if line:
             lines.append((idx, line, _is_anchor(m, ctx)))
     if not lines:
-        return ""
+        return "", 0
     anchor_idx = next((i for i, (_idx, _l, a) in enumerate(lines) if a), None)
     order: list[int] = []
     if anchor_idx is not None:
@@ -354,17 +372,17 @@ def _render_digest(ctx: ConversationContext, budget: int,
     order += [i for i in range(len(lines) - 1, -1, -1) if i != anchor_idx]
     selected: list[int] = []
     used = 0
-    for i in order:
+    for pos, i in enumerate(order):
         addition = len(lines[i][1]) + (1 if selected else 0)
         if used + addition > max(0, int(budget)):
-            break
+            return "", 0 if not selected else len(order) - pos
         selected.append(i)
         used += addition
     if not selected:
-        return ""
+        return "", 0
     by_msg_idx = {idx: line for idx, line, _a in lines}
     ordered = sorted(lines[i][0] for i in selected)
-    return "\n".join(by_msg_idx[i] for i in ordered)
+    return "\n".join(by_msg_idx[i] for i in ordered), 0
 
 
 def _render_verbatim(ctx: ConversationContext, budget: int,
@@ -727,7 +745,10 @@ async def build_wide_context(db, chat_id: int, *,
         for i, item in enumerate(messages):
             if _is_anchor(item, probe):
                 keep_idx.add(i)
+        cap_dropped = len(messages) - len(keep_idx)
         messages = [item for i, item in enumerate(messages) if i in keep_idx]
+    else:
+        cap_dropped = 0
     if not messages:
         return None
     ctx = ConversationContext(
@@ -736,7 +757,10 @@ async def build_wide_context(db, chat_id: int, *,
         trigger_tg_message_id=trigger_tg_message_id,
         messages=tuple(messages),
         window={"before": before, "after": after,
-                "fetched": len(messages), "verbatim": 0},
+                "fetched": len(messages), "verbatim": 0,
+                # FCT-314: сколько сообщений не вошло в физический предел
+                # окна — потеря видна в фиде, а не только в коде.
+                "cap": _WIDE_WINDOW_MAX, "cap_dropped": cap_dropped},
         newest_message_id=newest)
     ctx = select_verbatim(ctx, claim_text)
     ctx = dataclasses.replace(
@@ -800,6 +824,16 @@ async def build_factcheck_context(db, chat_id: int, *,
             chain_block = render_reply_chains(
                 chain, trigger_message_id, projection=projection,
                 chat_id=int(chat_id))
+            # FCT-314: цепочка ограничена глубиной (физический предел обхода).
+            # Если у самого старого найденного звена известен родитель —
+            # цепочка оборвана пределом, и это называется, а не теряется.
+            if chain and int(depth or 0) > 0 \
+                    and len(chain) >= int(depth) \
+                    and str(getattr(chain[-1], "reply_to_item_id", "") or ""):
+                marker = (f"фон: Reply-цепочка длиннее предела {int(depth)} — "
+                          "более ранние сообщения не запрошены.")
+                chain_block = (f"{chain_block}\n\n{marker}".strip()
+                               if chain_block else marker)
         except Exception:
             logger.warning("[factcheck_context] reply chain failed | chat=%s",
                            chat_id, exc_info=True)

@@ -386,3 +386,96 @@ class TestDegradationAndCache:
         fourth = await fcx.build_wide_context(db3, CHAT_ID, **kwargs)
         assert fourth is not None
         assert any(q[0] == "around" for q in db3.queries)
+
+
+# ── FCT-314: пределы окна видны, Reply-цель и цепочка не теряются ────────────
+
+class _ChainDB(FakeDB):
+    """DB со структурной Reply-цепочкой (get_smart_message_by_tg_id)."""
+
+    async def get_smart_message_by_tg_id(self, chat_id, tg_message_id):
+        by_tg = {row["tg_message_id"]: row for row in self._rows}
+        return by_tg.get(int(tg_message_id))
+
+    async def get_bot_reply(self, chat_id, tg_message_id):
+        return None
+
+    async def get_bot_reply_parent(self, chat_id, tg_message_id):
+        return None
+
+
+class TestWindowLimitsAreVisible:
+    """FCT-314: физический предел не прячет потерю.
+
+    Приёмочная строка: «при усечении видно, что именно потеряно». Reply-цель
+    (якорь) сохраняется всегда; цепочка reply идёт отдельным блоком; число
+    вытесненных строк хронологии и сообщений за пределом окна называется.
+    """
+
+    @pytest.mark.asyncio
+    async def test_digest_omission_is_named(self):
+        rows = [_row(i, "реплика болтовни номер %d" % i, tg=100 + i)
+                for i in range(60)]
+        rows.append(_row(60, "целевое сообщение спора", tg=TARGET_TG))
+        db = FakeDB(rows)
+        ctx = await fcx.build_wide_context(
+            db, CHAT_ID, target_tg_message_id=TARGET_TG,
+            trigger_tg_message_id=TRIGGER_TG, claim_text=None,
+            cache=FakeCache())
+        feed = ctx.render_feed(char_budget=400)
+        # потеря названа и посчитана, а не скрыта
+        match = re.search(r"ещё (\d+) сообщений хронологии не показаны", feed)
+        assert match and int(match.group(1)) > 0
+        # предмет проверки при этом в фиде
+        assert "целевое сообщение спора" in feed
+
+    @pytest.mark.asyncio
+    async def test_window_cap_drop_is_named(self):
+        count = fcx._WIDE_WINDOW_MAX + 20
+        rows = [_row(i, "реплика болотни %d" % i, tg=100 + i)
+                for i in range(count)]
+        rows[count - 2] = _row(count - 2, "целевое сообщение спора",
+                               tg=TARGET_TG)
+        db = FakeDB(rows)
+        ctx = await fcx.build_wide_context(
+            db, CHAT_ID, target_tg_message_id=TARGET_TG,
+            trigger_tg_message_id=TRIGGER_TG, claim_text=None,
+            cache=FakeCache())
+        assert ctx is not None
+        assert ctx.window["cap_dropped"] == 20
+        feed = ctx.render_feed(char_budget=200_000)
+        assert "за пределами окна" in feed
+        assert "ещё 20 сообщений" in feed
+        assert "целевое сообщение спора" in feed
+
+    @pytest.mark.asyncio
+    async def test_reply_chain_depth_truncation_is_named(self):
+        depth = int(hot.get("limits.chat_thread_max_depth",
+                            getattr(settings, "CHAT_THREAD_MAX_DEPTH", 6)))
+        hops = depth + 2         # цепочка длиннее предела обхода
+        rows = []
+        for i in range(hops + 1):
+            tg = TARGET_TG - i
+            reply_to = (TARGET_TG - i - 1) if i < hops else None
+            rows.append(_row(i, f"звено цепочки {i}", tg=tg,
+                             reply_to=reply_to))
+        db = _ChainDB(rows)
+        feed = await fcx.build_factcheck_context(
+            db, CHAT_ID, target_tg_message_id=TARGET_TG,
+            trigger_message_id=TRIGGER_TG, claim_text=None, cache=FakeCache())
+        assert "Reply-цепочка длиннее предела" in feed
+        assert str(depth) in feed
+
+    @pytest.mark.asyncio
+    async def test_short_reply_chain_has_no_truncation_marker(self):
+        rows = [
+            _row(0, "корень без родителя", tg=TARGET_TG - 1),
+            _row(1, "целевое сообщение спора", tg=TARGET_TG,
+                 reply_to=TARGET_TG - 1),
+        ]
+        db = _ChainDB(rows)
+        feed = await fcx.build_factcheck_context(
+            db, CHAT_ID, target_tg_message_id=TARGET_TG,
+            trigger_message_id=TRIGGER_TG, claim_text=None, cache=FakeCache())
+        assert "Reply-цепочка длиннее предела" not in feed
+        assert "целевое сообщение спора" in feed
