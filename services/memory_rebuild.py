@@ -905,6 +905,131 @@ async def cleanup_confirmed_dossier_facts(
     return out
 
 
+# ── FTSI-ACC-03 (p0-fts-index-integrity-01): целостность FTS-индекса фактов ──
+# `graph_facts_fts` — external-content FTS5 над `graph_facts`. Обычный
+# `DELETE FROM graph_facts_fts WHERE rowid = ?` после замены/удаления
+# content-строки снимает docsize, но не старые токены, а `INSERT OR REPLACE`
+# вообще скрывает DELETE от FTS. Наблюдаемые симптомы: `docsize` > строк
+# графа и MATCH на удалённый текст. Эти функции — read-only проверка и
+# идемпотентная починка через штатный `'rebuild'`; без демона/планировщика.
+
+_FTS_FACTS_TABLE = "graph_facts"
+_FTS_TABLE = "graph_facts_fts"
+_FTS_DOCSIZE_TABLE = "graph_facts_fts_docsize"
+
+
+async def inspect_graph_facts_fts(db, *, sample: int = 20) -> dict:
+    """READ-ONLY: сверка `graph_facts` ↔ `graph_facts_fts` ↔ `_docsize`.
+
+    Возвращает counts и явные расхождения:
+      * `facts` / `fts_docs` (вид FTS без висячих строк) / `docsize`;
+      * `orphan_docsize` — docsize-rowid'ы, которых нет в `graph_facts`
+        (следствие скрытого DELETE/REPLACE без синхронизации FTS);
+      * `missing_docsize` — строки `graph_facts` без docsize-записи;
+      * `fts_integrity` — штатный `'integrity-check'` FTS5 (на read-only
+        соединении недоступен → `skipped_readonly`);
+      * `db_integrity` — первый результат `PRAGMA integrity_check`
+        (`malformed inverted index for FTS5 table main.graph_facts_fts` и т.п.);
+      * `ok` — счётчики сходятся, висячих/пропущенных нет, обе проверки ок.
+    R17: только числа/идентификаторы, без текстов фактов и путей."""
+    sample = max(0, int(sample or 0))
+    ok_sample = max(1, sample) if sample else 0
+
+    async def _one(sql: str, params=()) -> int:
+        cursor = await db.db.execute(sql, params)
+        row = await cursor.fetchone()
+        return int((row[0] if row else 0) or 0)
+
+    async def _ids(sql: str) -> list:
+        if ok_sample == 0:
+            return []
+        cursor = await db.db.execute(sql, (ok_sample,))
+        return [int(r[0]) for r in await cursor.fetchall()]
+
+    facts = await _one(f"SELECT COUNT(*) FROM {_FTS_FACTS_TABLE}")
+    fts_docs = await _one(f"SELECT COUNT(*) FROM {_FTS_TABLE}")
+    try:
+        docsize = await _one(f"SELECT COUNT(*) FROM {_FTS_DOCSIZE_TABLE}")
+    except Exception:
+        # FTS-таблицы может не быть в урезанной фикстуре: честный ноль.
+        docsize = 0
+    orphan_docsize = await _one(
+        f"SELECT COUNT(*) FROM {_FTS_DOCSIZE_TABLE} "
+        f"WHERE rowid NOT IN (SELECT id FROM {_FTS_FACTS_TABLE})")
+    missing_docsize = await _one(
+        f"SELECT COUNT(*) FROM {_FTS_FACTS_TABLE} "
+        f"WHERE id NOT IN (SELECT rowid FROM {_FTS_DOCSIZE_TABLE})")
+    orphan_sample = await _ids(
+        f"SELECT rowid FROM {_FTS_DOCSIZE_TABLE} "
+        f"WHERE rowid NOT IN (SELECT id FROM {_FTS_FACTS_TABLE}) "
+        f"ORDER BY rowid LIMIT ?")
+    missing_sample = await _ids(
+        f"SELECT id FROM {_FTS_FACTS_TABLE} "
+        f"WHERE id NOT IN (SELECT rowid FROM {_FTS_DOCSIZE_TABLE}) "
+        f"ORDER BY id LIMIT ?")
+
+    fts_integrity = "ok"
+    try:
+        await db.db.execute(
+            f"INSERT INTO {_FTS_TABLE}({_FTS_TABLE}) VALUES('integrity-check')")
+        await db.db.commit()
+    except Exception as exc:
+        if "readonly" in str(exc).lower():
+            fts_integrity = "skipped_readonly"
+        else:
+            fts_integrity = f"error:{type(exc).__name__}"
+
+    db_integrity = "error"
+    try:
+        cursor = await db.db.execute("PRAGMA integrity_check")
+        row = await cursor.fetchone()
+        db_integrity = str(row[0]) if row else "error"
+    except Exception as exc:
+        db_integrity = f"error:{type(exc).__name__}"
+
+    counts_ok = (facts == docsize == fts_docs
+                 and orphan_docsize == 0 and missing_docsize == 0)
+    return {
+        "facts": facts,
+        "fts_docs": fts_docs,
+        "docsize": docsize,
+        "orphan_docsize": orphan_docsize,
+        "missing_docsize": missing_docsize,
+        "orphan_sample": orphan_sample,
+        "missing_sample": missing_sample,
+        "fts_integrity": fts_integrity,
+        "db_integrity": db_integrity,
+        "ok": bool(counts_ok
+                   and fts_integrity in ("ok", "skipped_readonly")
+                   and db_integrity == "ok"),
+    }
+
+
+async def repair_graph_facts_fts(db, *, sample: int = 20) -> dict:
+    """Идемпотентная починка `graph_facts_fts` штатным FTS5 `'rebuild'`.
+
+    Rebuild перестраивает external-content индекс из актуальной
+    `graph_facts`: уходят висячие docsize-строки и stale-токены. Возвращает
+    `{rebuilt, before, after}` для честного отчёта «было/стало». Повторный
+    запуск без расхождений — no-op (`rebuilt=False`, `after == before`).
+    Без DDL, без нового демона/планировщика; пишет только производный индекс."""
+    before = await inspect_graph_facts_fts(db, sample=sample)
+    need_rebuild = (not before["ok"]) or (
+        "graph_facts_fts" in str(before.get("db_integrity") or ""))
+    rebuilt = False
+    if need_rebuild:
+        async def _body(conn):
+            await conn.execute(
+                f"INSERT INTO {_FTS_TABLE}({_FTS_TABLE}) VALUES('rebuild')")
+            return 1
+
+        await db.write_transaction(_body, op_name="graph_facts_fts_rebuild")
+        rebuilt = True
+    after = (await inspect_graph_facts_fts(db, sample=sample)
+             if rebuilt else before)
+    return {"rebuilt": rebuilt, "before": before, "after": after}
+
+
 def _effective_window(window_hours: int, oldest_created_at, now: float) -> tuple:
     """F1/§2.2: `(window_hours_used, source_age_days)`.
 
