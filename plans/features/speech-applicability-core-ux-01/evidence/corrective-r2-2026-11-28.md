@@ -136,3 +136,102 @@ RED: статический тест `test_runtime_edition_label_is_not_the_view
 - P0A-UX §6.3 (дефолт цели сохранения = текущая область), §6.4 (изоляция чатов),
   §5.2 (409/503), §5.3/§5.4 (черновики редакций) — прогнаны на кандидате
 - SAC-CORE-FIRST / SAC-CORE-ON-TAB (единый редактор на вкладке «Личность») — без регрессий
+
+---
+
+# Корректива r3 (28.11.2026) — SAC-REV-R2-F1
+
+- Исправляющий кодовый коммит: `b404d7b1f4e8b6cf3f289d1831c3c3f595425841`
+  (tree `1435310b194f53eccb777a84a7f214f5ded5bb2d`); `b404d7b1f..HEAD` — этот md
+  и его `.sha256`.
+- Предыдущий кандидат ревью r3: `1b28fa4d602d3d61592f59c532cfe79d422eacff`
+  (tree `ef483c6edf315cc4be097762c072275522250dff`); ревью:
+  `evidence/review-r2/review-r1.md` (коммит `470a645b`).
+- Закрываемая находка: `SAC-REV-R2-F1` (IN_SCOPE, MEDIUM, блокирующая) — latch
+  `chatCtxReady` после `lockAuth`: после «Попробовать снова» `retryInitData()`
+  синхронно вызывал `setTab()`, и первый `/api/speech/overview` `/api/persona`
+  уходили до `/api/access/*` без `X-Chat-Id`; `scope` оставался `global` при
+  активном чате. Остальные находки r2 (`SAC-REV-R1-F1` основной путь, F2 e2e,
+  F2b подпись) в ревью r3 уже RESOLVED и не переделывались.
+- Политика: PET_PROJECT; production не разворачивался и не использовался
+  (read-only, никаких SSH/БД/деплой-действий). Карты/progress не менялись.
+
+## 1. Фикс (минимальный, без переделки закрытого)
+
+| Файл | Изменение |
+|---|---|
+| `web/app.js` | `lockAuth()` больше НЕ вызывает `_markChatCtxReady()`: сбрасывает `chatCtxReady=false` и отпускает ожидающих через новый `_releaseChatCtxWaiters()` (следующий шаг загрузчика — `api()`, который при `authLocked` честно бросает 401, вечного «Загружаем…» нет). `_markChatCtxReady()` = готовность + отпускание ожидающих. `_whenChatCtxReady()` не ждёт, когда `authLocked` (область сама не разрешится), но готовой её не объявляет. `retryInitData()`: `setTab(self.activeTab)` перенесён внутрь `loadAccessCtx().then(...)` — вкладка/её загрузчики стартуют только после применения области. |
+| `tests/js/speech_core_scope_ctx_test.js` | Сценарий C ужесточён (`chatCtxReady === false` после `lockAuth`); добавлены D (lockAuth → навигация в «Личность» → retry с управляемыми промисами области: overview/persona/Core не уходят до `/api/access/*`, `scope = chat`) и E (реальный `api()`, `fetch`-рекордер: первый overview/persona после retry несёт `X-Chat-Id = -100500`, личность читается в области чата). Существующие A/B/C сохранены. |
+
+`makeCtx()` в тесте теперь не подменяет `api` при пустом аргументе (нужно для E);
+поведение A–D не изменилось.
+
+## 2. RED/GREEN (node v24.16.0)
+
+RED — тест против неизменённого кандидата `1b28fa4d` (`git show 1b28fa4d:web/app.js`,
+`APP_JS=<файл> node tests/js/speech_core_scope_ctx_test.js`), 10 провалов:
+
+```
+- C: lockAuth не объявляет контекст области известным
+- D: /api/speech/overview не должен уходить до /api/access/* (ушло: ["/api/access/me","/api/speech/overview","/api/persona"])
+- D: /api/persona не должен уходить до /api/access/* (ушло: …)
+- D: overview ждёт полного разрешения области (/api/access/chats)
+- D: overview только после области (["/api/speech/overview@401","/api/speech/core@401","/api/persona@401","/api/persona/self-model@401","/api/access/me@sent","/api/speech/overview@sent","/api/persona@sent","/api/access/chats@sent"])
+- D: persona только после области
+- E: overview уходит после области (["/api/access/me","/api/speech/overview","/api/persona","/api/access/chats"])
+- E: persona уходит после области
+- E: первый overview несёт X-Chat-Id активного чата (получено: null)
+- E: первый persona несёт X-Chat-Id активного чата (получено: null)
+```
+
+Это ровно `SENT_BEFORE_ACCESS_CTX` из ревью: overview/persona уходят раньше области
+и без заголовка. GREEN — `SPEECH-CORE-SCOPE-CTX-OK`, rc=0 (5 сценариев A–E).
+
+Повтор ревьюерской пробы `evidence/review-r2/probe_retry_ctx5.js` на фиксе:
+
+```
+SENT_BEFORE_ACCESS_CTX=["/api/access/me"]
+PROBE=OK
+```
+
+(в этой пробе стаб `api()` намеренно всегда отдаёт глобальные payload'ы — она
+показывает только порядок; фактический `X-Chat-Id`/`scope=chat` доказывает сценарий E).
+
+## 3. Прогоны (worktree ветки, `.venv` py3.12, node v24.16.0)
+
+| Прогон | Результат |
+|---|---|
+| `node tests/js/speech_core_scope_ctx_test.js` | **OK** (`SPEECH-CORE-SCOPE-CTX-OK`, rc 0) |
+| `pytest tests/test_webapp_js_unit.py -q` | **43 passed, 7 failed** — ровно те же предсуществующие (см. §4) |
+| `pytest tests/test_speech_applicability_core_ux.py -q` | **15 passed** |
+| `pytest tests/test_webapp_deps.py tests/test_webapp_back_button.py -q` | **passed** (статические контракты `retryInitData`/`lockAuth`/`setTab` сохранены) |
+| `pytest tests/test_webapp_js_unit.py tests/test_speech_applicability_core_ux.py tests/test_webapp_deps.py tests/test_webapp_back_button.py -q` | **125 passed, 7 failed** (те же 7) |
+| `python tests/ui_p0a_ux_speech_compact_e2e.py` | **failures=0, POST=21** |
+| `node --check web/app.js`, `node --check tests/js/speech_core_scope_ctx_test.js` | rc 0 |
+
+Предсуществующие red — без изменений и не связаны с диффом:
+`test_js_unit_routing_and_scope_guard`, `test_js_unit_round1024_image_key`,
+`test_js_unit_round1025_hotfix7_shell_glass_heartbeat`, `...hotfix8...`,
+`...hotfix9...`, `...hotfix10...`, `test_js_unit_round1025_f7_permsoc_local`
+(`_embedModelSwapGuard is not a function` — метод отсутствует и в базовом `app.js`;
+hotfix7–10 — пины `APP_VERSION = 2.58.255` при фактической 2.58.258).
+
+## 4. Ограничения
+
+- Проверки — реальные `web/app.js|index.html|css` + route-стабы `/api/*` и
+  node-пробы с реальными `methods`; production/бэкенд не использовались.
+- Визуальная компоновка не менялась (правка поведения инициализации), поэтому
+  отдельный Browser Use/Playwright визуальный проход не требовался; e2e-харнесс
+  (обязательный) зелёный.
+- Проверен и известный перекрёстный сценарий из ревью: после 401 раздел сам не
+  перезагружается при повторном входе (нужен «Обновить данные») — это
+  предсуществующее свойство экрана (BACKLOG_ONLY в ревью), фиксом не
+  затрагивалось; запись в неверную область при этом устранена.
+- Временная копия кандидатского `app.js` лежала в `%TEMP%` и удалена после
+  фиксации результатов.
+
+## 5. Covered IDs
+
+- `SAC-REV-R2-F1` (закрыт), регрессии `SAC-REV-R1-F1`/`F2`/`F2b` — сохранены
+- P0A-UX §6.3 (цель сохранения = фактическая область), §6.4 (изоляция чатов),
+  SAC-CORE-FIRST / SAC-CORE-ON-TAB — без изменений
