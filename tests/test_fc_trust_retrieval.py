@@ -83,7 +83,6 @@ def _off_limits(**overrides) -> "fsp.FactcheckLimits":
 
 class Routed:
     """Агрегатор-двойник: пак по игле, отказы по причине, учёт вызовов."""
-
     def __init__(self, routes=(), *, default="", fail_needles=(),
                  fail_reason="provider_error", empty_needles=(),
                  slow_needles=(), sleep=0.0):
@@ -116,6 +115,23 @@ class Routed:
         if not self.default:
             raise sa.AllSearchEnginesFailedException("fake", reason="empty_results")
         return self.default
+
+
+class SequenceAgg:
+    """Агрегатор, падающий заданной последовательностью причин (по попыткам)."""
+
+    def __init__(self, kinds) -> None:
+        self.kinds = list(kinds)
+        self.calls: list[str] = []
+
+    async def search_relevant(self, query, max_symbols=None,
+                              relevance_terms=None, timeout_budget=None,
+                              trace=None):
+        self.calls.append(query)
+        kind = self.kinds.pop(0) if self.kinds else "empty_results"
+        if trace is not None:
+            trace.update({"provider": "fake", "reason": kind})
+        raise sa.AllSearchEnginesFailedException("fake", reason=kind)
 
 
 # ── FCT-201/401: лексика — recall, не судья ────────────────────────────────
@@ -529,6 +545,73 @@ async def test_provider_error_stays_provider_error():
         limits=_off_limits())
     assert outcome.claims[0].status_detail == fsp.CLAIM_STATUS_PROVIDER_ERROR
     assert outcome.stop_reason == fsp.STOP_PROVIDERS_UNAVAILABLE
+
+
+#: FCT-301 / review F1: смешанные попытки (база ↔ уточнение) не отменяют
+#: технический исход. Ожидание: (status_detail, run-level stop_reason, маркер
+#: технического gap_note).
+MIXED_CASES = (
+    (("empty_results", "rate_limit"), fsp.CLAIM_STATUS_RATE_LIMIT,
+     fsp.STOP_RATE_LIMIT, "ограничил частоту"),
+    (("rate_limit", "empty_results"), fsp.CLAIM_STATUS_RATE_LIMIT,
+     fsp.STOP_RATE_LIMIT, "ограничил частоту"),
+    (("empty_results", "timeout"), fsp.CLAIM_STATUS_PROVIDER_TIMEOUT,
+     fsp.STOP_PROVIDER_TIMEOUT, "не ответил вовремя"),
+    (("timeout", "empty_results"), fsp.CLAIM_STATUS_PROVIDER_TIMEOUT,
+     fsp.STOP_PROVIDER_TIMEOUT, "не ответил вовремя"),
+    (("empty_results", "provider_error"), fsp.CLAIM_STATUS_PROVIDER_ERROR,
+     fsp.STOP_PROVIDERS_UNAVAILABLE, "технический сбой"),
+    (("provider_error", "empty_results"), fsp.CLAIM_STATUS_PROVIDER_ERROR,
+     fsp.STOP_PROVIDERS_UNAVAILABLE, "технический сбой"),
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kinds,expected_detail,expected_stop,gap_marker",
+                         MIXED_CASES)
+async def test_mixed_attempts_keep_technical_claim_outcome(
+        kinds, expected_detail, expected_stop, gap_marker):
+    """Смешанные попытки: технический отказ приоритетнее empty/irrelevant.
+
+    Одна попытка (база или уточнение) падает технически, другая отвечает
+    пустой выдачей — часть обязана остаться техническим исходом
+    (`outcome=not_checked_technical`), а не «подходящих источников не
+    нашлось» (§3.3/§9 FCT-301). Проверяются обе полярности и все три причины.
+    """
+    agg = SequenceAgg(kinds)
+    outcome = await fsp.run_retrieval(
+        _plan(_unit()), aggregator=agg, limits=fsp.FactcheckLimits(
+            budgets_enabled=True))
+    assert len(agg.calls) == 2, "нужны обе попытки: база и уточнение"
+    cov = outcome.claims[0]
+    assert cov.status_detail == expected_detail
+    assert cov.outcome == fsp.CLAIM_OUTCOME_TECHNICAL
+    assert cov.reason_code in ("provider_unavailable", "deadline_exceeded")
+    assert gap_marker in cov.gap_note
+    assert "не нашлось" not in cov.gap_note
+    assert outcome.stop_reason == expected_stop
+    assert outcome.stop_reason != fsp.STOP_NO_PROGRESS
+    summary = outcome.coverage_summary()
+    assert summary["stop_reason"] == expected_stop
+    if expected_detail == fsp.CLAIM_STATUS_RATE_LIMIT:
+        assert outcome.rate_limits == 1
+    elif expected_detail == fsp.CLAIM_STATUS_PROVIDER_TIMEOUT:
+        assert outcome.provider_timeouts == 1
+    else:
+        assert outcome.provider_failures >= 1
+
+
+@pytest.mark.asyncio
+async def test_technical_attempt_outranks_irrelevant_attempt():
+    """Та же граница для «нерелевантной» причины, а не только пустой."""
+    agg = SequenceAgg(("irrelevant_results", "rate_limit"))
+    outcome = await fsp.run_retrieval(
+        _plan(_unit()), aggregator=agg, limits=fsp.FactcheckLimits(
+            budgets_enabled=True))
+    cov = outcome.claims[0]
+    assert cov.status_detail == fsp.CLAIM_STATUS_RATE_LIMIT
+    assert cov.outcome == fsp.CLAIM_OUTCOME_TECHNICAL
+    assert outcome.stop_reason == fsp.STOP_RATE_LIMIT
 
 
 @pytest.mark.asyncio

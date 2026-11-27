@@ -318,9 +318,13 @@ class TestSourceClassification:
                                           fetch_text=fake_fetch)
         assert outcome.ok and outcome.evidence_map is not None
         refs = outcome.evidence_map.refs
-        # FCT-302/§5: порядок выдачи — по покрытию (сильные привязки и число
-        # частей), а не «какой домен оказался первым по алфавиту».
-        assert len(refs[0].claims) >= max(len(r.claims) for r in refs)
+        # FCT-302/§5: порядок выдачи — по покрытию (сильное подтверждение и
+        # число частей), а не «какой домен оказался первым по алфавиту».
+        coverage_counts = [len(r.claims) for r in refs]
+        assert max(coverage_counts) > min(coverage_counts), (
+            "фикстура должна содержать ссылки с разным охватом частей")
+        assert len(refs[0].claims) == max(coverage_counts)
+        assert refs[0].url == "https://www.cdc.gov/tobacco/evali.html"
         assert any(r.source_kind == "reference" for r in refs)
         assert any(r.source_kind == "primary" for r in refs)
         # primary-fetch существующим SafeFetcher-инъекцией: URL ≠ доказательство

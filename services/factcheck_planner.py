@@ -2498,9 +2498,9 @@ def _technical_detail(run: _ClaimRun) -> tuple[str, str]:
         # Wall-clock бюджет прогона истёк до завершения части — это именно
         # deadline (публичная подпись существует), а не «нет источников».
         return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_DEADLINE
-    if run.provider_timeouts and not (run.empty or run.irrelevant):
+    if run.provider_timeouts:
         return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_PROVIDER_TIMEOUT
-    if run.rate_limits and not (run.empty or run.irrelevant):
+    if run.rate_limits:
         return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_RATE_LIMIT
     if run.unreadable:
         return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_SOURCE_UNREADABLE
@@ -2553,17 +2553,16 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         # FCT-301: часть без попытки — именно «не проверялась», если нет
         # более точной технической причины (лимит/дедлайн/отмена).
         outcome, detail = _technical_detail(run)
-    elif run.empty or run.irrelevant:
-        # Провайдер ответил, но пригодного по этому пункту нет: содержательная
-        # недостаточность, не технический сбой и не run-level лимит.
-        outcome, detail = (CLAIM_OUTCOME_INSUFFICIENT,
-                           CLAIM_STATUS_NO_RELEVANT_SOURCES)
-    elif run.provider_failed or run.provider_timeouts or run.rate_limits \
-            or run.unreadable or run.fetch_failed or run.extract_failed:
-        outcome, detail = _technical_detail(run)
     else:
-        outcome, detail = (CLAIM_OUTCOME_INSUFFICIENT,
-                           CLAIM_STATUS_NO_RELEVANT_SOURCES)
+        # FCT-301 (review F1): технический исход попытки приоритетнее
+        # содержательной недостаточности при ЛЮБОЙ смешанной комбинации
+        # (база/уточнение, empty/429/timeout/provider_error в обе стороны):
+        # часть, где поиск не завершился технически, нельзя выдавать за
+        # «подходящих источников не нашлось» (§3.3).
+        outcome, detail = _technical_detail(run)
+        if detail == CLAIM_STATUS_SEARCH_NOT_STARTED:
+            outcome, detail = (CLAIM_OUTCOME_INSUFFICIENT,
+                               CLAIM_STATUS_NO_RELEVANT_SOURCES)
 
     if run.opened or any(str(r.source_kind) == "primary" for r in
                          (item[0] for item in roles)):
@@ -3216,8 +3215,10 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         stop_reason = STOP_SUFFICIENT_EVIDENCE
     elif counters["attempted"] == 0:
         stop_reason = STOP_PATHS_EXHAUSTED
-    elif counters["used"] == 0 and counters["provider_failures"] > 0 \
-            and not (counters["empty"] or counters["irrelevant"]):
+    elif counters["used"] == 0 and counters["provider_failures"] > 0:
+        # FCT-301 (review F1): технический отказ провайдера не маскируется
+        # пустой/нерелевантной выдачей других попыток — иначе run-level
+        # `stop_reason` лгал бы «no_progress» при реальном 429/таймауте.
         if counters["rate_limits"] and not counters["timeouts"]:
             stop_reason = STOP_RATE_LIMIT
         elif counters["timeouts"]:
