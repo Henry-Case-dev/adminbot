@@ -240,3 +240,18 @@ sqlite3 local_database.db "SELECT COUNT(*), MAX(id), SUM(LENGTH(fact)) FROM grap
 `tests-adjacent-4.txt`, `base-reds-1.txt`, `base-reds-2.txt`, `base-reds-4.txt`,
 `base-reds-5.txt`, `tests-final-261.txt`, `manifest-deploy.json`,
 `manifest-rollback.json`, `SHA256SUMS`.
+
+
+## 11. Independent delta review (2026-11-28)
+
+Вердикт: **APPROVED_FOR_DEPLOY** по продуктовому SHA `534c3c5c53c183ebbd43894aaf5fdf489f300cd7`.
+Отчёт ревьюера: `rev-261/review-r1.md`, sha256 `fb58b2b5e128f3bdc78208d62b6a429f9cafc82d24d8c8343102c498d75c89b7`.
+
+Ссылки на ревью срезов (на release-ветке этих файлов нет — они в docs-линиях; sha256 сверены ревьюером):
+
+- FTS index integrity: коммит `8f6ab3749`, отчёт sha256 `a9f57fa6b1e4d39cbd9d7cf4ad89c0f258dfc0eabcea9ae805e01f29e96959d5`.
+- VMQ D1: коммит `30189d858`, отчёт sha256 `fd36cf158b6c1d53fd15418b8560a89b6c74545923274ce5214148b9bb302f7e`.
+
+Проверено ревьюером независимо: байтовая идентичность 7 файлов reviewed-кандидатам, `web/api/routes.py` == база, bump 29/34 version-only, DDL 0, manifest previous `7b68bd25` + code-only rollback, `SHA256SUMS` 28/28, фокусный прогон 69 passed (7 + 43 + 19), RED FTS на базе — 6 failed / 1 passed.
+
+Открытые замечания ревью: F-261-DR2 (6 пин/allowlist-падений предсуществующие, воспроизведены на базе) — BACKLOG_ONLY; F-261-DR1 (пути ревью отсутствуют на release-ветке) — закрыт этим разделом; F-261-DR3 (untracked probe-хвосты) — закрыт.
