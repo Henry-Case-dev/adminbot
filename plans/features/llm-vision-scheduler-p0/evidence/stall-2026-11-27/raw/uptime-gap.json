@@ -1,0 +1,15 @@
+{
+  "source": "PostgreSQL uptime_events, read-only SELECT on vps159032-gqg",
+  "query_window": "2026-11-27 02:00:00+00 .. 03:00:00+00",
+  "rows_per_minute_02_10_to_02_45": {
+    "02:10:19": 1, "02:11:19": 1, "02:12:19": 1, "02:13:19": 1, "02:14:19": 1,
+    "02:15:19": 1, "02:16:19": 1, "02:32:19": 1, "02:33:19": 1, "02:34:19": 1,
+    "02:35:19": 1, "02:36:19": 1, "02:37:19": 1, "02:38:19": 1, "02:39:19": 1,
+    "02:40:19": 1, "02:41:19": 1, "02:42:19": 1, "02:43:19": 1, "02:44:19": 1
+  },
+  "gaps_gt_120_seconds": [
+    {"prev": "02:16:19", "next": "02:32:19", "gap_seconds": 960.000198}
+  ],
+  "rows_in_gap_02_16_25__02_32_16": 0,
+  "interpretation": "the 60-second heartbeat cron wrote nothing for 16 minutes: the asyncio loop did not run scheduler callbacks, although the process stayed alive (no restart, no OOM, journald alive)"
+}

@@ -1,0 +1,118 @@
+{
+  "source": "read-only probes on vps159032-gqg (192.255.209.205), 2026-11-27, sqlite mode=ro + PG SELECT",
+  "deployed_release_note": {
+    "stall_process_pid": 753466,
+    "stall_process_started_utc": "2026-11-27T01:09:05Z",
+    "release_9516c9125_committed_utc": "2026-11-27T07:14:08Z",
+    "parent_diff": "29 files, 34 insertions(+), 34 deletions(-) - version pins only",
+    "verdict": "stall happened on 9516c9125^ functionally identical code"
+  },
+  "uptime_events_gap": {
+    "table": "uptime_events (PostgreSQL)",
+    "per_minute_02_10_02_45": [
+      "02:10:19", "02:11:19", "02:12:19", "02:13:19", "02:14:19", "02:15:19",
+      "02:16:19", "02:32:19", "02:33:19", "02:34:19", "02:35:19", "02:36:19",
+      "02:37:19", "02:38:19", "02:39:19", "02:40:19", "02:41:19", "02:42:19",
+      "02:43:19", "02:44:19"
+    ],
+    "gaps_gt_120s_in_hour": [
+      {"from": "02:16:19", "to": "02:32:19", "gap_seconds": 960.000198}
+    ],
+    "rows_inside_02_16_25__02_32_16": 0
+  },
+  "journald": {
+    "unit_LogRateLimitIntervalUSec": 0,
+    "unit_LogRateLimitBurst": 0,
+    "suppressed_markers_in_window": 0,
+    "other_units_logging_02_20_02_32": {"_COMM=sudo": 708, "_COMM=CRON": 1},
+    "admin_bot_lines_02_20_02_32": 1,
+    "journal_disk_usage": "510.3M"
+  },
+  "systemd": {
+    "NRestarts": 0,
+    "MemoryCurrent": 2782662656,
+    "MemoryPeak": 2802298880,
+    "cgroup_memory_max": "max",
+    "CPUUsageNSec": 545438434000,
+    "WatchdogUSec": 0,
+    "RuntimeMaxUSec": "infinity",
+    "OOMPolicy": "stop",
+    "TasksCurrent": 34,
+    "LimitNOFILE": 524288,
+    "host_RAM_MB": 3916,
+    "host_swap_used_MB": 509,
+    "df_root": "99G total, 51G used, 44G avail, 54%"
+  },
+  "review_job_8c414411": {
+    "status": "completed",
+    "created_at": 1795745766,
+    "heartbeat_at": 1795745766,
+    "progress_at": 1795746737,
+    "updated_at": 1795746737,
+    "finished_at": 1795746737,
+    "duration_seconds": 971,
+    "payload_length_bytes": 5558,
+    "payload_keys": 29,
+    "top_payload_sizes_bytes": {
+      "counters": 2307, "semantic_progress": 768, "semantic_lag": 373,
+      "analytics": 371, "semantic_truncation": 204, "archive_stats": 188,
+      "archive_visits": 113, "semantic_last_ts": 112, "semantic_retry": 89,
+      "archive_cursor:-1004482340693": 64
+    },
+    "archive_ranges": {
+      "archive_start:-1004482340693": 2391910,
+      "archive_cursor:-1004482340693": {"rowid": 2391900},
+      "archive_start:1313107079": 2404611,
+      "archive_cursor:1313107079": {"rowid": 2352197}
+    },
+    "counters_excerpt": {
+      "detector_scanned": 100, "detector_detected": 0, "detector_skipped": 100,
+      "semantic_scanned": 1, "semantic_selected": 0, "batches": 1,
+      "recheck_suspended": 1, "proposed": 1, "skipped_existing": 54,
+      "validated": 1, "activated": 1, "suspended": 0, "errors": 0
+    }
+  },
+  "other_jobs": {
+    "no_task_jobs_created_02_16_15__02_16_50": true,
+    "review_job_previous_run_187e7a2d_duration_seconds": 510,
+    "top_durations_02_00_03_00": [
+      {"kind": "experience.review", "duration": 971, "created_at": 1795745766},
+      {"kind": "experience.review", "duration": 510, "created_at": 1795744865},
+      {"kind": "experience.review", "duration": 136, "created_at": 1795747565},
+      {"kind": "initiative.observe", "duration": 97, "created_at": 1795747565}
+    ]
+  },
+  "data_sizes": {
+    "graph_facts_per_chat": {"chat_id": -1002661910336, "rows": 42094,
+                             "total_chars": 2818354, "max_chars": 619},
+    "graph_facts_total": 43666,
+    "mca_episodes_per_chat": {"rows": 270, "total_chars": 37723,
+                              "max_chars": 528, "avg_chars": 139.71},
+    "smart_messages_recent2000": {"max_chars": 1297, "avg_chars": 38.377},
+    "task_jobs_rows": 81972
+  },
+  "effective_hot_config_PG": {
+    "limits.graph_rag_facts_limit": 10,
+    "limits.graph_mmr_fetch_k": 20,
+    "limits.graph_mmr_fetch_k_historical": 30,
+    "limits.graph_mmr_lambda": 0.6,
+    "limits.deep_sleep_top_k": 100,
+    "flags.graph_mmr_enabled": true,
+    "flags.vec_int8_enabled": true,
+    "absent": ["limits.graph_mmr_enabled", "flags.dream_historical_profile_enabled"]
+  },
+  "vec_ddl": {
+    "graph_facts_vec": "CREATE VIRTUAL TABLE graph_facts_vec USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)",
+    "smart_archive": "CREATE VIRTUAL TABLE smart_archive USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER)"
+  },
+  "derived_rag_parameters_for_the_stalled_call": {
+    "caller": "mca_dream_history.select_historical_candidates -> memory.retrieve_fact_candidates(limit=pre_limit)",
+    "want_from_log": 800,
+    "since_graph_mmr_fetch_k_is_20": "want=800 implies limit(pre_limit)=800 (max(limit, 20))",
+    "sims_upper_bound": 523,
+    "mmr_applied": false,
+    "reason": "len(sims) <= limit -> _mmr_select early return",
+    "observed_log": "graphrag RAG int8: chat-scope KNN partial | own=11/800 | attempts=1 | k_last=512 | overfetch_used=0 | filtered_other_chat=501 | scope=rowid",
+    "observed_pool_evidence": "topic packets bounded | packets=3 | merged=667 (pool ~670 = ~400 facts + 270 episodes)"
+  }
+}

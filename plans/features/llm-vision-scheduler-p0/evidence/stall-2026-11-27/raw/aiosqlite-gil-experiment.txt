@@ -1,0 +1,2 @@
+heavy_sql_seconds=5.15 ticks=169 max_loop_gap=0.047s p95=0.032s
+VERDICT: loop free during SQL
