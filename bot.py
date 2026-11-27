@@ -317,6 +317,9 @@ _vision_worker = None
 # worker-thread (не демон) не даёт процессу выйти после graceful-фаз →
 # SIGKILL по TimeoutStopSec (см. `_close_runtime_sqlite_db`).
 _runtime_sqlite_db = None
+# F-STALL-01 — ref для on_shutdown: bounded loop-lag watchdog (наблюдаемость;
+# продуктовое поведение не меняет, см. `services/loop_lag_watchdog.py`).
+_loop_lag_watchdog = None
 
 
 async def on_startup():
@@ -325,7 +328,16 @@ async def on_startup():
     Возвращает созданный `MemoryManager` — единственный инстанс процесса:
     `main()` передаёт его в web-приложение (гибридный поиск памяти).
     """
-    global _runtime_sqlite_db
+    global _runtime_sqlite_db, _loop_lag_watchdog
+    # ── F-STALL-01: сторож задержек event loop. Только наблюдение: при лаге
+    # снимает стеки всех потоков в одну WARNING-запись (антифлуд). Выключен
+    # при LOOP_LAG_WARN_S=0; любая ошибка — fail-open, старт не роняем.
+    try:
+        from services.loop_lag_watchdog import start_from_env
+        _loop_lag_watchdog = start_from_env()
+    except Exception:
+        logger.warning("[loop_lag] watchdog start failed — fail-open",
+                       exc_info=True)
     db = DatabaseService(settings.DB_PATH)
     # INC-FIX-RESIDUAL: ref сразу (даже если initialize() упадёт) — соединение
     # обязан закрыть on_shutdown, иначе процесс не выйдет (не-демон-thread).
@@ -1095,6 +1107,10 @@ async def on_shutdown():
             logger.warning("[shutdown] closer failed | resource=%s", name,
                            exc_info=True)
 
+    # F-STALL-01: снять loop-lag таймер до closers, чтобы штатная остановка
+    # не давала ложных срабатываний на синхронных shutdown-операциях.
+    await _safe("loop_lag_watchdog",
+                _loop_lag_watchdog.shutdown if _loop_lag_watchdog else None)
     await _safe("nostalgia_worker",
                 _nostalgia_worker.stop if _nostalgia_worker else None)
     await _safe("anticliche_worker",
