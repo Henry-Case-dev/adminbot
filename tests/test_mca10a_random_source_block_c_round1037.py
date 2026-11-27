@@ -97,7 +97,7 @@ class TestCatalogContract:
         # QRNG P4 (17.11.2026, arch D4/§9): +1 config-вкладка mod_random
         # (TAB_RULES 22→23); группы перенесены, не добавлены.
         # QRNG P5 (24.11.2026): +5 ключей IBM +6 лимитов → 659.
-        assert len(pc.REGISTRY) == 659
+        assert len(pc.REGISTRY) == 668
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23

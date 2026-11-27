@@ -1188,3 +1188,174 @@ async def test_run_level_class_matches_planner_stop_reason_end_to_end():
         limits=_off_limits())
     assert outcome.stop_reason == fsp.STOP_RATE_LIMIT
     assert fsvc.classify_retrieval(outcome) == fsvc.RETRIEVAL_RATE_LIMIT
+
+
+# ── FCT-303 (S3): owner-параметры в существующей админке фактчека ──────────
+#
+# Ключи `limits.factcheck_*` уже читались планировщиком; до 28.11.2026 их не
+# было в каталоге, поэтому админка их не показывала (`get_config`/чат-popover
+# отбрасывают ключи без spec), а PG-only сид их не создавал. Теперь они в
+# существующей группе `limits_factcheck`, заводские значения — код-канон
+# планировщика, поэтому сид даёт реальные значения, а не пустоту.
+
+FCT303_KEYS = (
+    "limits.factcheck_retrieval_seconds",
+    "limits.factcheck_retrieval_seconds_max",
+    "limits.factcheck_refine_calls",
+    "limits.factcheck_max_queries_total",
+    "limits.factcheck_search_text_chars",
+    "limits.factcheck_page_size",
+    "limits.factcheck_claim_portion",
+    "limits.factcheck_primary_fetches",
+    "limits.factcheck_excerpt_chars",
+)
+
+
+def test_factcheck_owner_params_are_registered_for_admin():
+    from services import param_catalog as pc
+    specs = {key: pc.get_by_pg_key(key) for key in FCT303_KEYS}
+    for key, spec in specs.items():
+        assert spec is not None, key
+        # существующая группа/вкладка фактчека — без новой панели
+        assert spec.group == "limits_factcheck", key
+        assert spec.category == pc.CATEGORY_LIMITS, key
+        # гейты админки: не hidden и per-chat (иначе ключ не показывается)
+        assert not spec.hidden, key
+        assert spec.per_chat is True, key
+        assert not spec.secret, key
+
+
+def test_factcheck_owner_param_types_match_planner_contract():
+    from services import param_catalog as pc
+    expected = {
+        "limits.factcheck_retrieval_seconds": ("float", fsp._LIMIT_BASE),
+        "limits.factcheck_retrieval_seconds_max": ("float", fsp._LIMIT_BASE_MAX),
+        "limits.factcheck_refine_calls": ("int", fsp._LIMIT_REFINE),
+        "limits.factcheck_max_queries_total": ("int", fsp._LIMIT_TOTAL_QUERIES),
+        "limits.factcheck_search_text_chars": ("int", fsp._LIMIT_SEARCH_CHARS),
+        "limits.factcheck_page_size": ("int", fsp._LIMIT_PAGE_SIZE),
+        "limits.factcheck_claim_portion": ("int", fsp._LIMIT_CLAIM_PORTION),
+        "limits.factcheck_primary_fetches": ("int", fsp._LIMIT_PRIMARY_FETCHES),
+        "limits.factcheck_excerpt_chars": ("int", fsp._LIMIT_EXCERPT_CHARS),
+    }
+    for key, (typ, planner_key) in expected.items():
+        spec = pc.get_by_pg_key(key)
+        assert spec is not None, key
+        assert spec.type == typ, key
+        # ключ каталога и ключ, который читает планировщик, — один и тот же
+        assert planner_key == key
+
+
+def test_factcheck_owner_param_defaults_come_from_code_canon():
+    """Заводские значения — существующие константы, а не дубли чисел."""
+    from services import param_catalog as pc
+    from services.pg_db import resolve_code_source
+    expected = {
+        "limits.factcheck_retrieval_seconds": fsp.FACTCHECK_BUDGET_SECONDS,
+        "limits.factcheck_retrieval_seconds_max":
+            fsp.FACTCHECK_BUDGET_SECONDS_MAX,
+        "limits.factcheck_refine_calls": fsp.FACTCHECK_REFINE_CALLS,
+        "limits.factcheck_max_queries_total": fsp.FACTCHECK_QUERIES_TOTAL,
+        "limits.factcheck_search_text_chars": fsp.FACTCHECK_SEARCH_TEXT_CHARS,
+        "limits.factcheck_page_size": fsp.FACTCHECK_PAGE_SIZE,
+        "limits.factcheck_claim_portion": fsp.FACTCHECK_CLAIM_PORTION,
+        "limits.factcheck_primary_fetches": fsp.FACTCHECK_PRIMARY_FETCHES,
+        "limits.factcheck_excerpt_chars": fsp.FACTCHECK_EXCERPT_CHARS,
+    }
+    for key, value in expected.items():
+        spec = pc.get_by_pg_key(key)
+        assert spec is not None and spec.code_source
+        assert resolve_code_source(spec.code_source) == value, key
+
+
+@pytest.mark.asyncio
+async def test_factcheck_owner_params_are_seeded_with_defaults():
+    """Реальный сид каталога создаёт строки bot_settings с заводскими
+    значениями — иначе ключ не виден в админке (её список идёт из PG)."""
+    from services import pg_db
+
+    class _Conn:
+        def __init__(self):
+            self.rows = {}
+
+        async def execute(self, sql, *args):
+            if "INSERT INTO bot_settings" in sql:
+                self.rows.setdefault(args[0], args[1])
+
+    conn = _Conn()
+    await pg_db._seed_settings_into(conn)
+    for key in FCT303_KEYS:
+        assert key in conn.rows, key
+        assert json.loads(conn.rows[key]) is not None, key
+    import json as _json
+    assert _json.loads(conn.rows["limits.factcheck_refine_calls"]) == \
+        fsp.FACTCHECK_REFINE_CALLS
+    # повторный сид не перетирает owner-значения (штатный ON CONFLICT)
+    assert "ON CONFLICT (key) DO NOTHING" in pg_db.INSERT_SETTING_SQL
+
+
+@pytest.mark.asyncio
+async def test_owner_value_reaches_effective_limits_with_provenance():
+    """Значение владельца (чат) реально доходит до тракта + провенанс."""
+    from services import worker_settings
+    key = "limits.factcheck_retrieval_seconds"
+    value, source = await worker_settings.resolve_setting_with_source(
+        key, chat_id=None, default=fsp.FACTCHECK_BUDGET_SECONDS)
+    assert source in ("chat", "global", "default", "error")
+    limits = fsp._limits_from_values(
+        enabled=True, budget_source="default", budget_known=True,
+        values={"base": 300.0, "max": 900.0, "refine": 12, "total": 100,
+                "chars": 100000, "page": 20, "portion": 32, "fetches": 2,
+                "excerpt": 600},
+        sources={key: "chat"})
+    assert limits.base_seconds == 300.0
+    assert dict(limits.sources)[key] == "chat"
+
+
+def test_admin_config_shows_factcheck_defaults_before_first_save():
+    """Существующая админка рисует карточку ДО первой записи владельца.
+
+    `/api/config` строит items из `ConfigCache.get_all()`; PG-only ключи без
+    строки в bot_settings синтезируются из каталога (D08), иначе карточка
+    выглядела бы как «Параметр недоступен». Источник честно `default`.
+    """
+    from services import config_cache
+
+    class _Conn:
+        async def fetch(self, sql, *args):
+            return []
+
+        async def execute(self, *args, **kwargs):
+            return "OK"
+
+    class _Pool:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def acquire(self):
+            conn = self._conn
+
+            class _CM:
+                async def __aenter__(self):
+                    return conn
+
+                async def __aexit__(self, *exc):
+                    return False
+
+            return _CM()
+
+    class _Pg:
+        def __init__(self, conn):
+            self.pool = _Pool(conn)
+
+    cache = config_cache.ConfigCache(
+        pg=_Pg(_Conn()), retry_attempts=1, retry_delay=0)
+    snapshot = cache.get_all()
+    for key in FCT303_KEYS:
+        assert key in snapshot, key
+    assert snapshot["limits.factcheck_refine_calls"] == \
+        fsp.FACTCHECK_REFINE_CALLS
+    assert snapshot["limits.factcheck_retrieval_seconds"] == \
+        fsp.FACTCHECK_BUDGET_SECONDS
+    # строки БД нет → админка покажет источник default, а не «global»
+    assert cache.get_updated_at("limits.factcheck_refine_calls") is None

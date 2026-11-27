@@ -1804,8 +1804,9 @@ _BUDGET_SECONDS_MAX = FACTCHECK_BUDGET_SECONDS_MAX
 _REFINE_CALLS_DEFAULT = FACTCHECK_REFINE_CALLS
 
 #: PG/hot-ключи ресурсного контракта (chat → global → default). Значения —
-#: числа; каталог их не объявляет (аудит S14), поэтому резолвер сам приводит
-#: типы и НЕ создаёт новую admin-панель.
+#: числа; FCT-303 (28.11.2026) регистрирует их в существующем каталоге
+#: (`limits_factcheck`) с заводскими значениями `FACTCHECK_*` выше, поэтому
+#: владелец задаёт их в админке, а чатовый override штатно наследуется.
 _LIMIT_BASE = "limits.factcheck_retrieval_seconds"
 _LIMIT_BASE_MAX = "limits.factcheck_retrieval_seconds_max"
 _LIMIT_REFINE = "limits.factcheck_refine_calls"

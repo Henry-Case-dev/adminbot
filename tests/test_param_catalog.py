@@ -449,6 +449,13 @@ class TestPromptsContentPgOnly:
                 continue
             module_name, attr = spec.code_source.rsplit(".", 1)
             value = getattr(importlib.import_module(module_name), attr)
+            # FCT-303 (28.11.2026): код-канон больше не только текст промпта —
+            # ресурсные лимиты фактчека берут ЧИСЛОВОЙ заводской дефолт из
+            # планировщика. Тип значения обязан совпадать с типом параметра.
+            if spec.type in ("int", "float"):
+                assert isinstance(value, (int, float)) and \
+                    not isinstance(value, bool), spec.pg_key
+                continue
             assert isinstance(value, str)
             if attr not in _empty_ok:
                 assert value
@@ -718,8 +725,11 @@ class TestGroups8424:
         # селектора) → memory 62.
         # QRNG P5 (24.11.2026): +5 keys (IBM key/CRN/instance/region/channel)
         # +6 memory (random.ibm.* лимиты) → keys 38, memory 68.
+        # FCT-303 (28.11.2026, FC-TRUST-01 S3): +9 PG-only limits
+        # (limits.factcheck_* ресурсного контракта retrieval; группа
+        # limits_factcheck in-place) → limits 278, итого 668.
         assert counts == {"prompts": 29, "models": 74, "keys": 38,
-                          "limits": 269, "flags": 109, "reactions": 39,
+                          "limits": 278, "flags": 109, "reactions": 39,
                           "content": 5, "memory": 68, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

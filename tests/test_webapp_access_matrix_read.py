@@ -245,7 +245,7 @@ class TestStrictMatrix:
         assert resp.status_code == 200
         items = resp.json()["items"]
         categorized = [s for s in REGISTRY.values() if s.category is not None]
-        assert len(items) == len(categorized) == 633
+        assert len(items) == len(categorized) == 642
         assert items["limits.search_max_symbols"]["default"] is True
 
     def test_non_global_is_403_before_strict_read(self, monkey_settings):

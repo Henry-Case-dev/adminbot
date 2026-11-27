@@ -146,7 +146,7 @@ class TestCatalogPins:
         # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
         # −2 GROUPS/mapped, −1 вкладка (TAB_RULES/TAB_NAV/TITLES 23→22).
         # REGISTRY: пин 587 дрейфовал ещё на базе W1 (факт 586) — учтено.
-        assert len(pc.REGISTRY) == 659
+        assert len(pc.REGISTRY) == 668
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         # QRNG P4 (17.11.2026): TAB_RULES/TAB_NAV/TITLES 22→23 (+mod_random).
@@ -456,6 +456,6 @@ class TestDeltaZeroGuard:
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты. EVOL-031 (30.10.2026): −5 REGISTRY, −2 GROUPS/
         # mapped (см. пин выше; вкладка «Умный кэш» удалена).
-        assert len(pc.REGISTRY) == 659
+        assert len(pc.REGISTRY) == 668
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119

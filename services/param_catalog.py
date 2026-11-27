@@ -2955,6 +2955,60 @@ _MEMORY: list[tuple] = [
 ]
 
 
+# ── FCT-303 (S3, 28.11.2026): ресурсный контракт retrieval в существующем
+# каталоге фактчека. Ключи `limits.factcheck_*` уже читались планировщиком
+# (chat → global → default) и теперь зарегистрированы: они видны в уже
+# существующей вкладке «Фактчек: лимиты», допускают чатовый override и
+# сидятся из код-канона `services.factcheck_planner.FACTCHECK_*` (заводские
+# значения — 120 с / 600 с / 24 уточнения / 64 запроса / …). Новых групп,
+# тумблеров, гейтов и DDL нет.
+# Формат: (pg_id, title, type, code_source, progressive_level, description).
+_FACTCHECK_RETRIEVAL_PG_ONLY: list[tuple[str, str, str, str, str, str]] = [
+    ("limits.factcheck_retrieval_seconds",
+     "Целевая задержка поиска фактчека, сек", "float",
+     "services.factcheck_planner.FACTCHECK_BUDGET_SECONDS", "",
+     "Сколько времени отводится на внешний поиск при проверке. Больше — "
+     "полнее проверка, но ответ дольше. При выключенных бюджетах не "
+     "ограничивает."),
+    ("limits.factcheck_retrieval_seconds_max",
+     "Предел задержки поиска фактчека, сек", "float",
+     "services.factcheck_planner.FACTCHECK_BUDGET_SECONDS_MAX", "",
+     "Верхняя граница целевой задержки, когда в проверке несколько "
+     "утверждений. Больше — просторнее поиск, но дольше ответ."),
+    ("limits.factcheck_refine_calls",
+     "Уточняющих запросов за проверку", "int",
+     "services.factcheck_planner.FACTCHECK_REFINE_CALLS", "",
+     "Сколько дополнительных уточняющих запросов разрешено сверх базовых. "
+     "Больше — глубже уточнение, но больше расход источников."),
+    ("limits.factcheck_max_queries_total",
+     "Максимум поисковых запросов за проверку", "int",
+     "services.factcheck_planner.FACTCHECK_QUERIES_TOTAL", "",
+     "Потолок расхода поисковых запросов на один прогон проверки."),
+    ("limits.factcheck_search_text_chars",
+     "Порция текста поиска в анализ, символов", "int",
+     "services.factcheck_planner.FACTCHECK_SEARCH_TEXT_CHARS", "advanced",
+     "Размер одной порции текстовой выдачи для анализа. Остаток не "
+     "уничтожается: он остаётся в следующих порциях и в диагностике."),
+    ("limits.factcheck_page_size",
+     "Строк выдачи на один запрос", "int",
+     "services.factcheck_planner.FACTCHECK_PAGE_SIZE", "advanced",
+     "Сколько строк выдачи запрашивается у провайдера за один запрос."),
+    ("limits.factcheck_claim_portion",
+     "Частей тезиса за порцию", "int",
+     "services.factcheck_planner.FACTCHECK_CLAIM_PORTION", "advanced",
+     "Размер порции при разборе длинного тезиса на части."),
+    ("limits.factcheck_primary_fetches",
+     "Открытий первоисточников за проверку", "int",
+     "services.factcheck_planner.FACTCHECK_PRIMARY_FETCHES", "advanced",
+     "Сколько страниц-первоисточников открывается, чтобы подтвердить "
+     "выдержку. Больше — надёжнее, но дороже."),
+    ("limits.factcheck_excerpt_chars",
+     "Длина выдержки из источника, символов", "int",
+     "services.factcheck_planner.FACTCHECK_EXCERPT_CHARS", "advanced",
+     "Сколько символов выдержки берётся из открытой страницы для проверки."),
+]
+
+
 # ── MOD-ACL-UX-01 amendment (09.11.2026): настраиваемые пороги/бюджеты
 # семантического контракта уроков. PG-only (Settings-поля нет, прецедент
 # `memory.random_enabled`): значения читаются hot через chat_params →
@@ -4274,6 +4328,15 @@ def _build_registry() -> dict[str, ParamSpec]:
             widget = ""
         add(ParamSpec(field, field, CATEGORY_LIMITS, title, typ,
                       group=group, description=desc, widget=widget))
+    # FCT-303 (S3): существующий ресурсный контракт retrieval-контура
+    # фактчека — в уже существующей группе «Фактчек: лимиты» (см. список;
+    # заводские значения из код-канона, чатовое наследование штатное).
+    for (pg_id, title, typ, code_source, level, desc
+         ) in _FACTCHECK_RETRIEVAL_PG_ONLY:
+        add(ParamSpec(None, None, CATEGORY_LIMITS, title, typ, secret=False,
+                      code_source=code_source, pg_id=pg_id,
+                      group="limits_factcheck", description=desc,
+                      progressive_level=level))
     for row in _REACTIONS:
         if len(row) == 6:      # (field, title, type, group, desc, widget)
             field, title, typ, group, desc, widget = row
