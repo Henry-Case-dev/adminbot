@@ -1875,6 +1875,13 @@ _SCHEMA_VERSION_SEMANTIC_SCHEDULE = 47
 # ложным provenance.
 _SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE = 48
 
+# SELF-DIAG-01 D6 (`SD1-D6-20`): v49 — одна аддитивная таблица числовых
+# срезов `self_diag_samples` (+ индекс по `ts`). DDL — дословно в
+# модуле-владельце (`services.self_diag_samples`), шаг его только применяет
+# (прецедент v42 `slot_claims`). Backfill нет, существующие таблицы не
+# меняются, старый код таблицу не читает (cold revert безопасен).
+_SCHEMA_VERSION_SELF_DIAG_SAMPLES = 49
+
 _RANDOM_BATCHES_PROVENANCE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("config_fingerprint", "TEXT"),
     ("external_ref", "TEXT"),
@@ -2929,6 +2936,7 @@ class DatabaseService:
         from services import slot_claims  # v42: имя шага у владельца DDL
         from services import entity_resolver  # v43: DDL идентичности у владельца
         from services import memory_communities  # v44: DDL сообществ у владельца
+        from services import self_diag_samples  # v49: DDL срезов у владельца
         return [
             MigrationStep(1, "graphrag_v2",
                           lambda svc: svc._migrate_graphrag_v2()),
@@ -3196,6 +3204,14 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE,
                           "random_batch_provenance_v48",
                           lambda svc: svc._migrate_random_batch_provenance_v48()),
+            # SELF-DIAG-01 D6 (`SD1-D6-20`): v49 — одна аддитивная таблица
+            # derived-срезов `self_diag_samples` + индекс `ts`. DDL — в
+            # модуле-владельце (`services.self_diag_samples`); шаг только
+            # применяет его. Backfill нет, PG — no-op, старый код таблицу не
+            # читает (cold git revert безопасен).
+            MigrationStep(_SCHEMA_VERSION_SELF_DIAG_SAMPLES,
+                          self_diag_samples.SELF_DIAG_SAMPLES_MIGRATION_STEP_NAME,
+                          lambda svc: svc._migrate_self_diag_samples_v49()),
         ]
 
     @staticmethod
@@ -3815,6 +3831,31 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE}")
+        await self.db.commit()
+
+    async def _migrate_self_diag_samples_v49(self) -> None:
+        """v49 (SELF-DIAG-01 D6, `SD1-D6-20`): таблица derived-срезов
+        `self_diag_samples` (+ индекс `ts`).
+
+        Аддитивно: одна новая таблица, ни одной правки существующих таблиц,
+        ни одного UPDATE/DELETE/backfill. DDL — дословно в модуле-владельце
+        (`services.self_diag_samples.SELF_DIAG_SAMPLES_DDL_SQLITE`), шаг
+        применяет именно его; второй копии выражений здесь нет. Повтор и
+        legacy-БД — no-op (`CREATE ... IF NOT EXISTS`).
+
+        PG — no-op: числовой ряд операционной SQLite. Откат поведенческий:
+        старый код таблицу не читает, `user_version=49` не мешает старому
+        раннеру (он применяет только шаги выше текущей версии)."""
+        from services import self_diag_samples
+        await self.db.executescript(
+            self_diag_samples.SELF_DIAG_SAMPLES_DDL_SQLITE)
+        for statement in self_diag_samples.SELF_DIAG_SAMPLES_INDEX_DDL:
+            await self.db.execute(statement)
+        await self.db.commit()
+        logger.info("[database] migration v49: %s table ready",
+                    self_diag_samples.SELF_DIAG_SAMPLES_TABLE)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_SELF_DIAG_SAMPLES}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:

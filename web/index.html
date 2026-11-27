@@ -17553,14 +17553,112 @@
                     раскрытий секретов:
                     <b>{{ selfDiag.analytics.secret_value_disclosures.value === null
                           ? '— (не измерено)' : selfDiag.analytics.secret_value_disclosures.value }}</b>
-                    · golden eval:
-                    {{ selfDiag.analytics.golden_eval.available ? 'есть' : 'ещё нет (D7)' }}
                     · retry/cache/stale: не инструментированы
                   </div>
-                  <div>
-                    ресурсы по времени: {{ (selfDiag.resources.samples || []).length }}
-                    срез(ов) с временем и PID (история — нет стора)
-                  </div>
+                  <template v-if="selfDiag.analytics.incidents && selfDiag.analytics.db_growth">
+                    <div data-self-diag-incidents>
+                      <template v-if="!selfDiag.analytics.incidents.available">
+                        Инциденты: источник недоступен
+                        ({{ selfDiag.analytics.incidents.reason || 'store_unavailable' }})
+                      </template>
+                      <template v-else-if="selfDiag.analytics.incidents.active">
+                        Инциденты:
+                        <b>{{ selfDiag.analytics.incidents.active }}</b> активных
+                        (watchdog задач) · по подсистемам:
+                        <span v-for="(row, idx) in selfDiag.analytics.incidents.by_subsystem"
+                              :key="'sd-inc-' + row.subsystem"><span v-if="idx">, </span>{{ row.subsystem }}: {{ row.active }}</span>
+                        · ошибки по компонентам:
+                        <span v-if="!(selfDiag.analytics.incidents.errors_by_component || []).length">нет</span>
+                        <span v-for="(row, idx) in selfDiag.analytics.incidents.errors_by_component"
+                              :key="'sd-err-' + row.component"><span v-if="idx">, </span>{{ row.component }}: {{ row.errors }}</span>
+                      </template>
+                      <template v-else>
+                        Инциденты: 0 активных (watchdog задач) — стор прочитан,
+                        записей нет
+                      </template>
+                    </div>
+                    <div data-self-diag-observed>
+                      <template v-if="!selfDiag.analytics.observed_vs_hypothesis.available">
+                        Доля observed: источник недоступен
+                        ({{ selfDiag.analytics.observed_vs_hypothesis.reason || 'store_unavailable' }})
+                      </template>
+                      <template v-else-if="selfDiag.analytics.observed_vs_hypothesis.measured">
+                        Наблюдаемые/связанные/не проверено:
+                        <b>{{ selfDiag.analytics.observed_vs_hypothesis.observed }}/{{ selfDiag.analytics.observed_vs_hypothesis.correlated }}/{{ selfDiag.analytics.observed_vs_hypothesis.not_checked }}</b>
+                        · доля observed:
+                        <b>{{ selfDiagShare(selfDiag.analytics.observed_vs_hypothesis.observed_share) }}</b>
+                        · гипотезы диагностикой не классифицируются
+                      </template>
+                      <template v-else>
+                        Доля observed не измерена: диагностических прогонов в
+                        окне нет
+                      </template>
+                    </div>
+                    <div data-self-diag-golden>
+                      <template v-if="selfDiag.analytics.golden_eval.available && selfDiag.analytics.golden_eval.measured">
+                        Golden eval:
+                        <b>{{ selfDiag.analytics.golden_eval.passed }}/{{ selfDiag.analytics.golden_eval.case_total }}</b>
+                        · false diagnosis:
+                        <b>{{ selfDiagNumber(selfDiag.analytics.golden_eval.false_diagnosis) }}</b>
+                        · прогон {{ selfDiagTs(selfDiag.analytics.golden_eval.run_ts) }}
+                        · код
+                        <span class="font-mono">{{ (selfDiag.analytics.golden_eval.code_sha || '—').slice(0, 12) }}</span>
+                      </template>
+                      <template v-else-if="selfDiag.analytics.golden_eval.reason === 'no_golden_run_recorded'">
+                        Golden eval: прогонов не записано (запускается скриптом,
+                        не таймером)
+                      </template>
+                      <template v-else>
+                        Golden eval: источник недоступен
+                        ({{ selfDiag.analytics.golden_eval.reason || 'store_unavailable' }})
+                      </template>
+                    </div>
+                    <div data-self-diag-code-checks>
+                      <template v-if="selfDiag.analytics.code_checks.available && selfDiag.analytics.code_checks.measured">
+                        Проверки кода:
+                        <b>{{ selfDiag.analytics.code_checks.reads }}</b>
+                        · подтверждённый SHA:
+                        <b>{{ selfDiag.analytics.code_checks.sha_verified_reads }}</b>
+                        · SHA не подтверждён:
+                        <b>{{ selfDiag.analytics.code_checks.sha_unproven_reads }}</b>
+                        · против неправильного SHA:
+                        <b>{{ selfDiag.analytics.code_checks.wrong_sha_reads }}</b>
+                      </template>
+                      <template v-else-if="selfDiag.analytics.code_checks.available">
+                        Проверок кода в окне нет — счётчик не измерен
+                      </template>
+                      <template v-else>
+                        Проверки кода: источник недоступен
+                        ({{ selfDiag.analytics.code_checks.reason || 'store_unavailable' }})
+                      </template>
+                    </div>
+                    <div data-self-diag-growth>
+                      <template v-if="!selfDiag.analytics.db_growth.available">
+                        История ресурсов: источник недоступен
+                        ({{ selfDiag.analytics.db_growth.reason || 'store_unavailable' }})
+                      </template>
+                      <template v-else-if="selfDiag.analytics.db_growth.measured">
+                        Рост за 24 ч: БД
+                        {{ selfDiag.analytics.db_growth.db_growth_bytes > 0 ? '+' : '' }}{{ selfDiagBytes(selfDiag.analytics.db_growth.db_growth_bytes) }},
+                        WAL
+                        {{ selfDiag.analytics.db_growth.wal_growth_bytes > 0 ? '+' : '' }}{{ selfDiagBytes(selfDiag.analytics.db_growth.wal_growth_bytes) }},
+                        свободно
+                        {{ selfDiag.analytics.db_growth.free_delta_bytes > 0 ? '+' : '' }}{{ selfDiagBytes(selfDiag.analytics.db_growth.free_delta_bytes) }}
+                        · срезов: {{ selfDiag.analytics.db_growth.sample_count }}
+                        · сегментов процессов: {{ selfDiag.analytics.db_growth.segments }}
+                      </template>
+                      <template v-else-if="selfDiag.analytics.db_growth.reason === 'single_sample'">
+                        История копится: срезов:
+                        {{ selfDiag.analytics.db_growth.sample_count }}
+                        · для роста нужен ещё один срез
+                      </template>
+                      <template v-else>
+                        История начнёт копиться после выкладки: срезов:
+                        {{ selfDiag.analytics.db_growth.sample_count }}
+                        (следующий — через ≤5 мин)
+                      </template>
+                    </div>
+                  </template>
                 </div>
               </template>
             </section>

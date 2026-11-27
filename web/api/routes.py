@@ -4428,6 +4428,418 @@ async def _self_diag_event_rows(db, since: int, *, limit: int = 2000):
         return []
 
 
+# ── SELF-DIAG-01 D6-19/D6-20: аналитика с честными null ────────────────────
+#
+# Каждый блок читает ТОЛЬКО существующий стор (mca_incidents/mca_events/
+# self_diag_samples). Пустой или нечитаемый источник — `null` + `measured=false`
+# + `reason`; ноль выдаётся исключительно после реально прочитанного стора.
+
+_SELF_DIAG_CLAIM_EVENTS = ("checkup_triggered", "inspect_runtime_called")
+_SELF_DIAG_READ_EVENTS = ("read_source_verified", "code_unavailable")
+_SELF_DIAG_CLAIM_KINDS = ("observed", "correlated", "not_checked")
+_SELF_DIAG_MISMATCH_REASONS = frozenset({
+    "commit_mismatch", "requested_commit_unavailable", "commit_not_available",
+    "repo_origin_mismatch", "version_conflict",
+})
+_SELF_DIAG_SEVERITY_RANK = {4: "CRITICAL", 3: "ERROR", 2: "WARN", 1: "INFO"}
+
+
+async def _self_diag_rows_or_none(db, sql: str, params=()):
+    """Bounded SELECT: список строк или `None` (источник не прочитан)."""
+    if db is None:
+        return None
+    try:
+        cursor = await db.db.execute(sql, params)
+        return [dict(row) for row in await cursor.fetchall()]
+    except Exception:
+        logger.warning("[api] self-diagnosis source query failed",
+                       exc_info=True)
+        return None
+
+
+def _self_diag_int(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def _self_diag_sha40(value) -> str | None:
+    text = str(value or "").strip().lower()
+    return text if re.fullmatch(r"[0-9a-f]{40}", text) else None
+
+
+def _self_diag_claim_counts(raw) -> dict | None:
+    """Счётчики claim-kind из `source_ref_json` (statements не читаются)."""
+    if isinstance(raw, str):
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return None
+    elif isinstance(raw, dict):
+        data = raw
+    else:
+        return None
+    if not isinstance(data, dict):
+        return None
+    claims = data.get("claims")
+    if isinstance(claims, dict):
+        counts = {}
+        for kind in _SELF_DIAG_CLAIM_KINDS:
+            value = claims.get(kind)
+            counts[kind] = (int(value)
+                            if isinstance(value, int)
+                            and not isinstance(value, bool) else None)
+        return counts if any(v is not None for v in counts.values()) else None
+    if isinstance(claims, list):
+        counts = {kind: 0 for kind in _SELF_DIAG_CLAIM_KINDS}
+        for item in claims:
+            if not isinstance(item, dict):
+                continue
+            kind = str(item.get("kind") or "")
+            if kind in counts:
+                counts[kind] += 1
+        return counts if any(counts.values()) else None
+    return None
+
+
+async def _self_diag_incidents(db, since: int) -> dict:
+    """`SD1-D6-19`: инциденты durable-очереди + отдельная ось ошибок.
+
+    Стор `mca_incidents` наполняет ТОЛЬКО watchdog задач, поэтому это
+    `scope=job_watchdog`, а не «все подсистемы». `errors_by_component` —
+    ошибки (`level='ERROR'`), не инциденты.
+    """
+    block = {
+        "available": False, "measured": False, "reason": "store_unavailable",
+        "scope": "job_watchdog", "active": None, "unacknowledged": None,
+        "in_window": None, "by_subsystem": [], "errors_by_component": [],
+        "source": "mca_incidents+mca_events",
+    }
+    if db is None:
+        return block
+    try:
+        from services import mca_gates
+        enabled = bool(mca_gates.incidents_enabled())
+    except Exception:
+        enabled = False
+    if not enabled:
+        block["reason"] = "incidents_disabled"
+        return block
+    rows = await _self_diag_rows_or_none(
+        db,
+        "SELECT COALESCE(pipeline_type, process_id, 'unknown') AS subsystem, "
+        "COUNT(*) AS active, "
+        "SUM(CASE WHEN acknowledged_at IS NULL THEN 1 ELSE 0 END) "
+        "AS unacknowledged, SUM(repeat_count) AS repeats, "
+        "MAX(CASE severity WHEN 'CRITICAL' THEN 4 WHEN 'ERROR' THEN 3 "
+        "WHEN 'WARN' THEN 2 WHEN 'INFO' THEN 1 ELSE 0 END) AS worst_rank, "
+        "MAX(last_ts) AS last_ts FROM mca_incidents "
+        "WHERE resolved_at IS NULL GROUP BY subsystem "
+        "ORDER BY active DESC, subsystem ASC LIMIT 20")
+    if rows is None:
+        return block
+    errors = await _self_diag_rows_or_none(
+        db,
+        "SELECT component, COUNT(*) AS errors FROM mca_events "
+        "WHERE ts >= ? AND level = 'ERROR' GROUP BY component "
+        "ORDER BY errors DESC LIMIT 10", (int(since),))
+    if errors is None:
+        return block
+    window_rows = await _self_diag_rows_or_none(
+        db, "SELECT COUNT(*) AS c FROM mca_incidents WHERE last_ts >= ?",
+        (int(since),))
+    if window_rows is None:
+        return block
+    by_subsystem = []
+    for row in rows:
+        by_subsystem.append({
+            "subsystem": str(row.get("subsystem") or "unknown")[:120],
+            "active": _self_diag_int(row.get("active")) or 0,
+            "unacknowledged": _self_diag_int(row.get("unacknowledged")) or 0,
+            "repeats": _self_diag_int(row.get("repeats")) or 0,
+            "worst_severity": _SELF_DIAG_SEVERITY_RANK.get(
+                _self_diag_int(row.get("worst_rank"))),
+            "last_ts": _self_diag_int(row.get("last_ts")),
+        })
+    block.update({
+        "available": True,
+        "measured": True,
+        "reason": None,
+        "active": sum(item["active"] for item in by_subsystem),
+        "unacknowledged": sum(item["unacknowledged"]
+                              for item in by_subsystem),
+        "in_window": _self_diag_int(window_rows[0].get("c")) or 0,
+        "by_subsystem": by_subsystem,
+        "errors_by_component": [{
+            "component": str(row.get("component") or "unknown")[:120],
+            "errors": _self_diag_int(row.get("errors")) or 0,
+        } for row in errors],
+    })
+    return block
+
+
+async def _self_diag_observed_vs_hypothesis(db, since: int) -> dict:
+    """`SD1-D6-19`: доли observed по счётчикам claims в существующих событиях.
+
+    `hypothesis` — честный парк: прод-коллектор не порождает таких claims,
+    поэтому значение `null` и `hypothesis_available=false` (без «0 гипотез»).
+    """
+    block = {
+        "available": False, "measured": False, "reason": "store_unavailable",
+        "observed": None, "correlated": None, "not_checked": None,
+        "hypothesis": None, "hypothesis_available": False,
+        "hypothesis_share": None, "note": "no_hypothesis_producer",
+        "runs": None, "observed_share": None,
+        "source": "mca_events.source_ref_json.claims",
+    }
+    if db is None:
+        return block
+    rows = await _self_diag_rows_or_none(
+        db,
+        "SELECT source_ref_json FROM mca_events WHERE ts >= ? "
+        "AND event_name IN (?, ?) AND source_ref_json IS NOT NULL "
+        "ORDER BY ts DESC LIMIT 5000",
+        (int(since), *_SELF_DIAG_CLAIM_EVENTS))
+    if rows is None:
+        return block
+    totals = {kind: 0 for kind in _SELF_DIAG_CLAIM_KINDS}
+    runs = 0
+    for row in rows:
+        counts = _self_diag_claim_counts(row.get("source_ref_json"))
+        if counts is None:
+            continue
+        runs += 1
+        for kind in _SELF_DIAG_CLAIM_KINDS:
+            value = counts.get(kind)
+            if value:
+                totals[kind] += value
+    denominator = (totals["observed"] + totals["correlated"]
+                   + totals["not_checked"])
+    measured = denominator > 0
+    block.update({
+        "available": True,
+        "measured": measured,
+        "reason": None if measured else "no_diagnostic_runs_in_window",
+        "runs": runs,
+        "observed": totals["observed"] if runs else None,
+        "correlated": totals["correlated"] if runs else None,
+        "not_checked": totals["not_checked"] if runs else None,
+        "observed_share": (round(totals["observed"] / denominator, 4)
+                           if measured else None),
+    })
+    return block
+
+
+async def _self_diag_golden_eval(db, since: int) -> dict:
+    """`SD1-D6-19`: последний записанный прогон golden-набора (без LLM)."""
+    block = {
+        "available": False, "measured": False, "reason": "store_unavailable",
+        "run_ts": None, "case_total": None, "passed": None, "failed": None,
+        "false_diagnosis": None, "false_diagnosis_ids": [],
+        "by_category": None, "code_sha": None, "schema": None,
+    }
+    if db is None:
+        return block
+    rows = await _self_diag_rows_or_none(
+        db,
+        "SELECT ts, source_ref_json FROM mca_events "
+        "WHERE ts >= ? AND event_name = 'self_diag_golden_run' "
+        "ORDER BY ts DESC LIMIT 1", (int(since),))
+    if rows is None:
+        return block
+    if not rows:
+        block["reason"] = "no_golden_run_recorded"
+        return block
+    try:
+        data = json.loads(str(rows[0].get("source_ref_json") or ""))
+    except Exception:
+        data = None
+    if not isinstance(data, dict):
+        return block
+    ids = [str(item)[:40] for item in (data.get("false_diagnosis_ids") or [])
+           if isinstance(item, str)][:20]
+    by_category = data.get("by_category")
+    if not isinstance(by_category, dict):
+        by_category = None
+    else:
+        by_category = {str(key)[:60]: _self_diag_int(value) or 0
+                       for key, value in by_category.items()}
+    block.update({
+        "available": True,
+        "measured": True,
+        "reason": None,
+        "run_ts": _self_diag_int(rows[0].get("ts")),
+        "case_total": _self_diag_int(data.get("case_total")),
+        "passed": _self_diag_int(data.get("passed")),
+        "failed": _self_diag_int(data.get("failed")),
+        "false_diagnosis": _self_diag_int(data.get("false_diagnosis")),
+        "false_diagnosis_ids": ids,
+        "by_category": by_category,
+        "code_sha": _self_diag_sha40(data.get("code_sha")),
+        "schema": _self_diag_int(data.get("schema")),
+    })
+    return block
+
+
+async def _self_diag_code_checks(db, since: int) -> dict:
+    """`SD1-D6-19`: чтения кода против неправильного/недоказанного SHA."""
+    block = {
+        "available": False, "measured": False, "reason": "store_unavailable",
+        "window_hours": 24, "reads": None, "sha_verified_reads": None,
+        "sha_unproven_reads": None, "wrong_sha_reads": None,
+        "mismatch_reasons": {},
+    }
+    if db is None:
+        return block
+    rows = await _self_diag_rows_or_none(
+        db,
+        "SELECT source_ref_json FROM mca_events WHERE ts >= ? "
+        "AND event_name IN (?, ?) AND source_ref_json IS NOT NULL "
+        "ORDER BY ts DESC LIMIT 5000",
+        (int(since), *_SELF_DIAG_READ_EVENTS))
+    if rows is None:
+        return block
+    reads = verified = unproven = wrong = 0
+    mismatch: dict = {}
+    for row in rows:
+        raw = row.get("source_ref_json")
+        try:
+            data = json.loads(str(raw or ""))
+        except Exception:
+            continue
+        if not isinstance(data, dict) or data.get("check") != "source_identity":
+            continue
+        reads += 1
+        reason = str(data.get("reason") or "")
+        revision_kind = str(data.get("revision_kind") or "none")
+        sha_match = data.get("sha_match")
+        version_verified = data.get("version_verified")
+        if sha_match is False or reason in _SELF_DIAG_MISMATCH_REASONS:
+            wrong += 1
+            if reason in _SELF_DIAG_MISMATCH_REASONS:
+                mismatch[reason] = mismatch.get(reason, 0) + 1
+        elif version_verified is True or sha_match is True:
+            verified += 1
+        elif revision_kind in ("deployed_files", "files"):
+            # SHA не доказан — это НЕ «неправильный SHA».
+            unproven += 1
+    measured = reads > 0
+    block.update({
+        "available": True,
+        "measured": measured,
+        "reason": None if measured else "no_reads_in_window",
+        "reads": reads if measured else None,
+        "sha_verified_reads": verified if measured else None,
+        "sha_unproven_reads": unproven if measured else None,
+        "wrong_sha_reads": wrong if measured else None,
+        "mismatch_reasons": mismatch if measured else {},
+    })
+    return block
+
+
+async def _self_diag_samples_block(db, since: int) -> dict:
+    """`SD1-D6-20`: окно `self_diag_samples` + сводка роста.
+
+    `process_segments` — число различных `(pid, process_started_at)`:
+    процессные поля через рестарт не усредняются.
+    """
+    from services import self_diag_samples
+    block = {"available": False, "samples": [], "process_segments": None,
+             "summary": None}
+    rows = await self_diag_samples.series(
+        db, since=int(since),
+        limit=self_diag_samples.SELF_DIAG_SAMPLE_WINDOW_MAX_POINTS)
+    if rows is None:
+        return block
+    samples = []
+    for row in rows:
+        total = _self_diag_int(row.get("disk_total_bytes"))
+        used = _self_diag_int(row.get("disk_used_bytes"))
+        disk_percent = (round(used / total * 100, 1)
+                        if total and used is not None else None)
+        samples.append({
+            "ts": _self_diag_int(row.get("ts")),
+            "pid": _self_diag_int(row.get("pid")),
+            "process_started_at": _self_diag_int(row.get("process_started_at")),
+            "cpu_percent": row.get("cpu_percent"),
+            "mem_percent": row.get("mem_percent"),
+            "rss_mb": row.get("rss_mb"),
+            "disk_percent": disk_percent,
+            "disk_free_bytes": _self_diag_int(row.get("disk_free_bytes")),
+            "db_bytes": _self_diag_int(row.get("db_bytes")),
+            "wal_bytes": _self_diag_int(row.get("wal_bytes")),
+            "queue_depth": _self_diag_int(row.get("queue_depth")),
+            "app_version": row.get("app_version"),
+            "source": row.get("sample_source"),
+        })
+    summary = self_diag_samples.summarize(rows)
+    block.update({
+        "available": True,
+        "samples": samples,
+        "process_segments": summary["segments"],
+        "summary": summary,
+    })
+    return block
+
+
+def _self_diag_growth_blocks(samples_block: dict) -> tuple[dict, dict]:
+    """Собрать `db_growth`/`queue_growth` из сводки окна срезов."""
+    available = bool(samples_block.get("available"))
+    summary = samples_block.get("summary")
+    if not available or not isinstance(summary, dict):
+        base = {
+            "available": False, "measured": False,
+            "reason": "store_unavailable", "window_hours": 24,
+            "sample_count": None, "segments": None,
+        }
+        db_block = {**base, "first": None, "last": None,
+                    "db_bytes_now": None, "wal_bytes_now": None,
+                    "free_bytes_now": None, "db_growth_bytes": None,
+                    "wal_growth_bytes": None, "free_delta_bytes": None,
+                    "source": "self_diag_samples", "db_scope": "sqlite"}
+        queue_block = {**base, "current": None, "first": None, "last": None,
+                       "peak_depth": None, "delta_depth": None}
+        return db_block, queue_block
+    db_block = {
+        "available": True,
+        "window_hours": 24,
+        "sample_count": summary["sample_count"],
+        "segments": summary["segments"],
+        **summary["db"],
+        "source": "self_diag_samples",
+        "db_scope": "sqlite",
+    }
+    queue_block = {
+        "available": True,
+        "window_hours": 24,
+        "sample_count": summary["sample_count"],
+        "segments": summary["segments"],
+        **summary["queue"],
+    }
+    return db_block, queue_block
+
+
+async def _self_diag_extras(db, since: int, *,
+                            samples_block: dict | None = None) -> dict:
+    """Шесть новых блоков аналитики (D6-19 + D6-20) без новых маршрутов."""
+    incidents = await _self_diag_incidents(db, since)
+    observed = await _self_diag_observed_vs_hypothesis(db, since)
+    golden = await _self_diag_golden_eval(db, since)
+    code_checks = await _self_diag_code_checks(db, since)
+    if samples_block is None:
+        samples_block = await _self_diag_samples_block(db, since)
+    db_growth, queue_growth = _self_diag_growth_blocks(samples_block)
+    return {
+        "incidents": incidents,
+        "observed_vs_hypothesis": observed,
+        "golden_eval": golden,
+        "code_checks": code_checks,
+        "db_growth": db_growth,
+        "queue_growth": queue_growth,
+    }
+
+
+
 #: SELF-DIAG-01 D6 B2: закрытый маппинг статусов существующих событий.
 #: `report_sent` (чекап) и `called` (get_bot_health) — это УСПЕХ, а не partial;
 #: `clean`/`delivered` — тоже закрытый успех. Всё остальное решается по
@@ -4736,19 +5148,11 @@ async def _self_diag_payload(chat_id: int | None) -> dict:
         "retries": {"value": None, "measured": False},
         "cache_hits": {"value": None, "measured": False},
         "stale_reads": {"value": None, "measured": False},
-        "observed_vs_hypothesis": {
-            "observed": inspect["complete"],
-            "hypothesis": None,
-            "measured": bool(inspect["calls"]),
-            "note": ("доли hypothesis считаются Writer'ом на живых ответах "
-                     "(D7), в событиях их нет"),
-        },
-        "golden_eval": {"available": False, "reason": "golden_set_d7"},
-        "db_growth": {"available": False,
-                      "reason": "no_time_series_store"},
-        "queue_growth": {"available": False,
-                         "reason": "no_time_series_store"},
     }
+    # SELF-DIAG-01 D6-19/D6-20: инциденты/доли/golden/проверки SHA/рост.
+    samples_block = await _self_diag_samples_block(db, since)
+    analytics.update(await _self_diag_extras(
+        db, since, samples_block=samples_block))
     resources: dict = {"available": bool(server), "source": "psutil"}
     if server:
         resources.update({
@@ -4758,15 +5162,12 @@ async def _self_diag_payload(chat_id: int | None) -> dict:
             "disk": server.get("disk"),
             "process": server.get("process"),
             "loadavg": server.get("loadavg"),
-            "samples": [{
-                "ts": int(time.time()),
-                "pid": (server.get("process") or {}).get("pid"),
-                "cpu_percent": server.get("cpu_percent"),
-                "mem_percent": (server.get("memory") or {}).get("percent"),
-                "disk_percent": (server.get("disk") or {}).get("percent"),
-                "source": "psutil",
-            }],
         })
+    # SELF-DIAG-01 D6-20: ряд срезов из существующего тика (окно 24 ч,
+    # <=288 точек). Пустой/нечитаемый стор → пустой список и null-сегменты,
+    # а не выдуманный «срез сейчас».
+    resources["samples"] = samples_block["samples"]
+    resources["process_segments"] = samples_block["process_segments"]
     try:
         metrics = await _me.metrics(db)
     except Exception:

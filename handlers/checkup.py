@@ -469,6 +469,29 @@ async def _send_checkup_report(bot, message: types.Message, report: str
     return sent_id, sent_ids, "plain_raw"
 
 
+def _claim_kind_counts(claims) -> dict | None:
+    """SELF-DIAG-01 D6 (`SD1-D6-19`): счётчики claim-kind без statements."""
+    kinds = ("observed", "correlated", "not_checked", "unknown")
+    if isinstance(claims, dict):
+        counts: dict = {}
+        for kind in kinds:
+            value = claims.get(kind)
+            counts[kind] = (int(value)
+                            if isinstance(value, (int, float))
+                            and not isinstance(value, bool) else None)
+        return counts if any(v is not None for v in counts.values()) else None
+    if isinstance(claims, (list, tuple)):
+        counts = {kind: 0 for kind in kinds}
+        for item in claims:
+            if not isinstance(item, dict):
+                continue
+            kind = str(item.get("kind") or "")
+            if kind in counts:
+                counts[kind] += 1
+        return counts if any(counts.values()) else None
+    return None
+
+
 def emit_checkup_event(*, outcome: str, chat_id: int | None, status: str = "",
                        duration_ms: int = 0, bundle: dict | None = None,
                        telemetry: dict | None = None) -> None:
@@ -502,6 +525,12 @@ def emit_checkup_event(*, outcome: str, chat_id: int | None, status: str = "",
                 "sources": len(bundle.get("sources") or ()),
                 "not_checked": len(bundle.get("not_checked") or ()),
             })
+            # SELF-DIAG-01 D6: доли observed/hypothesis считаются по
+            # счётчикам claim-kind. Текстов claims (statements) в событии
+            # нет — только числа.
+            claims = _claim_kind_counts(bundle.get("claims"))
+            if claims:
+                payload["claims"] = claims
         else:
             payload["bundle_delivered"] = False
         status_text = str(status or "")[:40]

@@ -129,7 +129,13 @@ ROUTES_SHA256_F11 = (
     # типизированный uptime. Route-set/декораторы/пути/RBAC не менялись.
     # Предыдущий пин:
     # 606899ac097d3a882b13693860dbe1dad7ad09816dcdd31630eaa88b16700663.
-    "677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719")
+    # SELF-DIAG-01 D6-19/D6-20 (27.11.2026, срез `feat/selfdiag-d6-analytics`):
+    # осознанный re-pin (L-F11S-1). Тело GET /api/status/self-diagnosis
+    # дополнено СУЩЕСТВУЮЩИМИ источниками (mca_incidents/mca_events +
+    # новая таблица self_diag_samples) в analytics/resources; route-set,
+    # декораторы, пути, RBAC и маскировка секретов не менялись. Предыдущий
+    # пин: 677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719.
+    "6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

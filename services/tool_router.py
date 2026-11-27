@@ -2455,7 +2455,13 @@ class ToolRouter:
                                        status=status)
 
     def _emit_read_source_outcome(self, result, ctx, duration_ms: int) -> None:
-        """`read_source_attempted/verified` и `code_unavailable` по payload."""
+        """`read_source_attempted/verified` и `code_unavailable` по payload.
+
+        SELF-DIAG-01 D6 (`SD1-D6-19`): в `source_ref_json` существующего
+        события кладётся ТОЛЬКО identity (`revision_kind`, `deployed_sha`,
+        `checkout_sha`, `sha_match`, `version_verified`, `reason`) —
+        уже имеющиеся поля payload, без путей/URL/текста кода.
+        """
         try:
             payload = json.loads(str(result or ""))
         except Exception:
@@ -2463,17 +2469,86 @@ class ToolRouter:
         if not isinstance(payload, dict):
             return
         status = str(payload.get("status") or "")
+        identity = self._read_source_identity(payload)
         if bool(payload.get("verified")):
             self._emit_diag_tool_event(
                 "read_source_verified", ctx,
                 status=str(payload.get("read_level") or status)[:40],
-                duration_ms=duration_ms)
+                duration_ms=duration_ms, source_ref_json=identity)
         if status in ("unavailable", "not_configured", "permission_denied",
                       "unsupported") or payload.get("error") == "disabled":
             self._emit_diag_tool_event(
                 "code_unavailable", ctx,
                 status=status or str(payload.get("error") or "")[:40],
-                duration_ms=duration_ms)
+                duration_ms=duration_ms, source_ref_json=identity)
+
+    @staticmethod
+    def _read_source_identity(payload: dict) -> dict:
+        """Identity чтения кода из СУЩЕСТВУЮЩЕГО payload (без путей/кода).
+
+        Пустой/непроверяемый SHA остаётся `None` — «не доказан», а не
+        выдуманный commit.
+        """
+        provenance = payload.get("provenance")
+        provenance = provenance if isinstance(provenance, dict) else {}
+
+        def _sha(value):
+            text = str(value or "").strip().lower()
+            return text if re.fullmatch(r"[0-9a-f]{40}", text) else None
+
+        deployed = _sha(provenance.get("deployed_sha")
+                        or payload.get("deployed_sha")
+                        or payload.get("exact_remote_commit"))
+        checkout = _sha(provenance.get("checkout_sha")
+                        or payload.get("checkout_sha"))
+        version_verified = provenance.get("version_verified")
+        if not isinstance(version_verified, bool):
+            version_verified = None
+        revision_kind = str(provenance.get("revision_kind")
+                            or payload.get("revision_kind")
+                            or "none")[:40]
+        sha_match = None
+        if deployed and checkout:
+            sha_match = deployed == checkout
+        reason = ""
+        for key in ("reason", "reason_code", "detail", "error"):
+            candidate = payload.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                reason = candidate.strip()[:64]
+                break
+        return {
+            "check": "source_identity",
+            "revision_kind": revision_kind,
+            "version_verified": version_verified,
+            "deployed_sha": deployed,
+            "checkout_sha": checkout,
+            "sha_match": sha_match,
+            "reason": reason or None,
+        }
+
+    @staticmethod
+    def _claim_kind_counts(claims) -> dict | None:
+        """Счётчики claim-kind без самих statements (текстов не пишем)."""
+        kinds = ("observed", "correlated", "not_checked", "unknown")
+        if isinstance(claims, dict):
+            counts: dict = {}
+            for kind in kinds:
+                value = claims.get(kind)
+                counts[kind] = (int(value)
+                                if isinstance(value, (int, float))
+                                and not isinstance(value, bool) else None)
+            return counts if any(v is not None for v in counts.values()) \
+                else None
+        if isinstance(claims, (list, tuple)):
+            counts = {kind: 0 for kind in kinds}
+            for item in claims:
+                if not isinstance(item, dict):
+                    continue
+                kind = str(item.get("kind") or "")
+                if kind in counts:
+                    counts[kind] += 1
+            return counts if any(counts.values()) else None
+        return None
 
     def _emit_tool_outcome(self, name: str, arguments, result, ctx,
                            started: float) -> None:
@@ -2485,7 +2560,8 @@ class ToolRouter:
     @staticmethod
     def _emit_diag_tool_event(event_name: str, ctx, *, status: str = "",
                               duration_ms: int = 0,
-                              stage: str = "tool") -> None:
+                              stage: str = "tool",
+                              source_ref_json: dict | None = None) -> None:
         """Существующий контракт `mca_events` (код/числа, без payloads)."""
         try:
             _mca_events.emit_mca_event(
@@ -2493,7 +2569,8 @@ class ToolRouter:
                 stage=str(stage or "tool")[:120],
                 status=str(status or "")[:40] or None,
                 duration_ms=int(duration_ms or 0),
-                chat_id=getattr(ctx, "chat_id", None))
+                chat_id=getattr(ctx, "chat_id", None),
+                source_ref_json=source_ref_json)
         except Exception:      # pragma: no cover - телеметрия fail-open
             return
 
@@ -6527,19 +6604,25 @@ class ToolRouter:
 
     @staticmethod
     def _emit_inspect_event(ctx: ToolContext, page: dict) -> None:
-        """Существующая телеметрия §13.3: код/числа, без payloads."""
+        """Существующая телеметрия §13.3: код/числа, без payloads.
+
+        SELF-DIAG-01 D6 (`SD1-D6-19`): счётчики claim-kind из уже
+        существующего `page["claims"]` — без statements и текста вывода.
+        """
         try:
             status = str(page.get("status") or "")
             outcome = ("success" if status in ("ok", "degraded")
                        else "failed" if status == "unavailable" else "skipped")
             level = ("INFO" if status == "ok" else "WARN")
+            counts = ToolRouter._claim_kind_counts(page.get("claims"))
             _mca_events.emit_mca_event(
                 "inspect_runtime_called", outcome=outcome, level=level,
                 component="self_diag",
                 stage=str(page.get("probe") or "inspect_runtime")[:120],
                 status=status[:40],
                 duration_ms=int(page.get("latency_ms") or 0),
-                chat_id=getattr(ctx, "chat_id", None))
+                chat_id=getattr(ctx, "chat_id", None),
+                source_ref_json=({"claims": counts} if counts else None))
         except Exception:      # pragma: no cover - телеметрия fail-open
             return
 

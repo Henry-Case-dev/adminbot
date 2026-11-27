@@ -546,6 +546,7 @@ EXPECTED_GRACE = {
     "embed_recovery_tick": 60,        # interval 600 s
     "initiative_observer_tick": 60,   # interval 300 s
     "memory_communities_build": 60,   # interval 3600 s
+    "self_diag_samples": 60,          # interval 300 s (D6-20: срез ресурсов)
     "legacy_traits_parse_tick": 60,   # interval 3600 s (если K3 ON)
 }
 

@@ -173,6 +173,11 @@ _INITIATIVE_OBSERVER_TICK_SECONDS = 300
 # раз в час достаточно, а при выключенном гейте тик даже не читает БД.
 _COMMUNITIES_TICK_SECONDS = 3600
 
+# SELF-DIAG-01 D6 (`SD1-D6-20`): один числовой срез ресурсов/очереди/БД за
+# тик. Тот же ритм, что у intent-heartbeat (300 с): series витрины ограничен
+# 288 точками = ровно сутки при этой каденции. Нового планировщика нет.
+_SELF_DIAG_SAMPLE_TICK_SECONDS = 300
+
 #: Явный grace джоб обслуживания (P0 scheduler, LVS-SCH-01/03): заводской
 #: 1 s APScheduler 3.x превращал поздний тик (event-loop lag) в «missed».
 #: 60 s для 5–15-минутных тиков, 300 s для часового WAL, 3600 s для суточных
@@ -362,6 +367,10 @@ class MemoryMaintenanceService:
     # инертен (0 SQL). `max_instances=1, coalesce=True` обязательны: два
     # параллельных прохода одного чата могут потерять linkage `prev_build_id`.
     JOB_COMMUNITIES_ID = "memory_communities_build"
+    # SELF-DIAG-01 D6 (`SD1-D6-20`): derived-срезы ресурсов/очереди/БД.
+    # Регистрируется всегда (прецедент intent_heartbeat/communities): ряда
+    # истории не существует в других таблицах, а гейтов у замера нет.
+    JOB_SELF_DIAG_SAMPLES_ID = "self_diag_samples"
 
     def __init__(self, db, memory, llm, bot=None) -> None:
         self.db = db
@@ -505,6 +514,18 @@ class MemoryMaintenanceService:
             id=self.JOB_COMMUNITIES_ID, replace_existing=True,
             max_instances=1, coalesce=True,
             misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
+        # SELF-DIAG-01 D6 (`SD1-D6-20`): срез ресурсов/очереди/БД. Ряд
+        # истории начинается с момента выкладки; прошлое не восстанавливается
+        # и не имитируется. Ошибка тика не рвёт планировщик (fail-open).
+        self._scheduler.add_job(
+            self._tick_self_diag_samples,
+            IntervalTrigger(
+                seconds=_SELF_DIAG_SAMPLE_TICK_SECONDS,
+                timezone=hot.get("limits.summary_timezone",
+                                 settings.SUMMARY_TIMEZONE)),
+            id=self.JOB_SELF_DIAG_SAMPLES_ID, replace_existing=True,
+            max_instances=1, coalesce=True,
+            misfire_grace_time=_MAINTENANCE_TICK_MISFIRE_GRACE_SECONDS)
         self._scheduler.start()
         # v6 C06A: сервис запущен → registered/next_tick доступны Status;
         # durable-штамп последнего тика восстанавливается (fail-open) —
@@ -555,6 +576,20 @@ class MemoryMaintenanceService:
                         row[2] if row else "?")
         except Exception:
             logger.warning("WAL checkpoint failed", exc_info=True)
+
+    async def _tick_self_diag_samples(self) -> None:
+        """SELF-DIAG-01 D6 (`SD1-D6-20`): один срез + ретенция 30 суток.
+
+        Существующий планировщик/БД; новых демонов, флагов и LLM нет.
+        Ошибка не рвёт планировщик — только WARNING (прецедент
+        `_tick_intent_heartbeat`).
+        """
+        try:
+            from services import self_diag_samples
+            await self_diag_samples.record(self.db)
+            await self_diag_samples.prune(self.db)
+        except Exception:
+            logger.warning("self-diag samples: tick failed", exc_info=True)
 
     async def _tick_merge(self) -> None:
         try:

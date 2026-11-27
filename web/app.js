@@ -37612,6 +37612,24 @@
         if (value === null || value === undefined) return '—';
         return String(value) + (suffix || '');
       },
+      // SELF-DIAG-01 D6: форматирование байт/долей. `null` — «—», не 0:
+      // неизмеренное значение не выдаётся за ноль.
+      selfDiagBytes: function (value) {
+        if (value === null || value === undefined) return '—';
+        var n = Number(value);
+        if (!isFinite(n)) return '—';
+        var abs = Math.abs(n);
+        if (abs >= 1073741824) return (n / 1073741824).toFixed(2) + ' ГБ';
+        if (abs >= 1048576) return (n / 1048576).toFixed(1) + ' МБ';
+        if (abs >= 1024) return (n / 1024).toFixed(0) + ' КБ';
+        return n + ' Б';
+      },
+      selfDiagShare: function (value) {
+        if (value === null || value === undefined) return '—';
+        var n = Number(value);
+        if (!isFinite(n)) return '—';
+        return (n * 100).toFixed(1) + '%';
+      },
       selfDiagCount: function (name) {
         var counts = (this.selfDiag && this.selfDiag.analytics
                       && this.selfDiag.analytics.event_counts) || {};
