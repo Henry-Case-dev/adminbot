@@ -153,6 +153,38 @@ async def test_clean_database_has_no_fts_discrepancy(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_dossier_portrait_insert_is_fts_indexed(tmp_path):
+    """FTSI-ACC-01 (RED на базе): прямой INSERT портрета в
+    `activate_dossier_generation` обходил `insert_graph_fact` и не писал
+    FTS-строку — факт оставался вне индекса (`missing_docsize`, MATCH пуст)
+    до следующей активации или rebuild."""
+    db = await _db(tmp_path)
+    try:
+        await db.db.execute(
+            "INSERT INTO mca_dossier_generations (generation_id, chat_id, "
+            "subject_ref_id, state, extractor_version, created_at) "
+            "VALUES (?,?,?,?,?,?)",
+            ("gen-fts-1", CHAT, 555, "building", "test", TS))
+        await db.db.commit()
+        await db.insert_dossier_staging_item(
+            "gen-fts-1", "portrait", subject_ref_id=555,
+            payload={"target_user": "Мария",
+                     "portrait": "Мария любит утренний кофе"},
+            now=TS)
+        out = await db.activate_dossier_generation("gen-fts-1", now=TS)
+        assert out["applied"] == 1
+
+        fact_id = await _scalar(db, "SELECT id FROM graph_facts")
+        facts = await _scalar(db, "SELECT COUNT(*) FROM graph_facts")
+        docsize = await _scalar(
+            db, "SELECT COUNT(*) FROM graph_facts_fts_docsize")
+        assert facts == docsize == 1          # RED на базе: docsize 0 != 1
+        assert await _match_ids(db, "утренний") == [fact_id]
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
 async def test_fts_repair_heals_artificial_orphan_and_is_idempotent(tmp_path):
     """FTSI-ACC-03: maintenance находит искусственную порчу, чинит штатным
     `'rebuild'` и не делает ничего при повторном запуске."""
