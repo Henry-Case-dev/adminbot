@@ -345,8 +345,115 @@ class TestClaimSegments:
         assert "изображения 3" not in publication.text
         trace = publication.trace_fields()
         assert trace["claim_count"] == 1
-        assert trace["claim_anchor_ids"] == [71]
+        # §7 (review-fix F1): трасса обязана показать ВСЕ носители схлопнутого
+        # тезиса, по возрастанию — иначе «один тезис на трёх носителях» и
+        # «один носитель» в проде неразличимы.
+        assert trace["claim_anchor_ids"] == [71, 72, 73]
         _ = ocr_lower
+
+    @pytest.mark.asyncio
+    async def test_anchor_ids_descending_reply_matches_ascending_contract(
+            self, env, monkeypatch):
+        """F1(b)/TP4: ответ на ПОЗДНИЙ элемент не делает трассу убывающей.
+
+        Тот же схлопнутый тезис, но Reply адресован элементу 73: члены
+        сегмента обязаны остаться (71,72,73), анкор — 71 (минимальный)."""
+        thesis = DATA["thesis"]
+        payloads = {
+            element: _analysis(ocr=[thesis.lower()])
+            for element in DATA["thesis_ocr_elements"]
+        }
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render(payloads))
+        service = _admin_service()
+        rows = [
+            _row(71, mgid=DATA["album_id"]),
+            _row(72, caption=thesis, mgid=DATA["album_id"]),
+            _row(73, mgid=DATA["album_id"]),
+        ]
+        db = FakeDb(rows_by_tg={row["tg_message_id"]: row for row in rows},
+                    group_rows={DATA["album_id"]: rows})
+        target = _make_msg(message_id=73, media_group_id=DATA["album_id"],
+                           photo=[object()])
+        _use_temporal(monkeypatch)
+        captured = []
+        monkeypatch.setattr(fcs, "emit_target_trace",
+                            lambda publication, **kw: captured.append(publication))
+        await _run(env, service, db, target)
+        publication = captured[0]
+        trace = publication.trace_fields()
+        assert trace["target_tg_message_id"] == 73        # цель = Reply
+        assert trace["claim_anchor_tg_message_id"] == 71  # носитель тезиса
+        assert trace["claim_count"] == 1
+        assert trace["claim_anchor_ids"] == [71, 72, 73]
+        assert list(trace["claim_anchor_ids"]) == sorted(trace["claim_anchor_ids"])
+
+    @pytest.mark.asyncio
+    async def test_anchor_ids_ascending_for_distinct_theses_late_reply(
+            self, env, monkeypatch):
+        """F1(b)/анти-переслияние: два носителя, Reply на поздний → [71,72]."""
+        first = "Курс доллара 95 рублей"
+        second = "Курс доллара 96 рублей"
+        album = "fc-trust-album-03"
+        monkeypatch.setattr(
+            mca_vision, "render_media_context_async",
+            _render({71: _analysis(ocr=[first]), 72: _analysis(ocr=[second])}))
+        service = _admin_service()
+        rows = [_row(71, mgid=album), _row(72, mgid=album)]
+        db = FakeDb(rows_by_tg={71: rows[0], 72: rows[1]},
+                    group_rows={album: rows})
+        target = _make_msg(message_id=72, media_group_id=album,
+                           photo=[object()])
+        _use_temporal(monkeypatch)
+        captured = []
+        monkeypatch.setattr(fcs, "emit_target_trace",
+                            lambda publication, **kw: captured.append(publication))
+        await _run(env, service, db, target)
+        trace = captured[0].trace_fields()
+        assert trace["claim_count"] == 2
+        assert trace["claim_anchor_ids"] == [71, 72]
+
+    @pytest.mark.asyncio
+    async def test_buffered_caption_not_attributed_to_replied_element(
+            self, env, monkeypatch):
+        """B1/F1: caption из same-turn буфера не делает адресат Reply носителем.
+
+        Ответ на 72, caption на 71 (durable-строка 71 несёт текст, буфер
+        отдаёт его как base): член сегмента и анкор — 71, лишнего 72 нет."""
+        from services import media_group_buffer as mgb
+
+        thesis = DATA["thesis"]
+        album = "fc-trust-album-b1"
+        mgb._buffer.clear()
+        try:
+            mgb.record_media_group_message(_make_msg(
+                caption=thesis, message_id=71, media_group_id=album))
+            monkeypatch.setattr(mca_vision, "render_media_context_async",
+                                _render({71: _analysis(), 72: _analysis()}))
+            service = _admin_service()
+            rows = [_row(71, caption=thesis, mgid=album),
+                    _row(72, mgid=album)]
+            db = FakeDb(rows_by_tg={71: rows[0], 72: rows[1]},
+                        group_rows={album: rows})
+            target = _make_msg(message_id=72, media_group_id=album,
+                               photo=[object()])
+            _use_temporal(monkeypatch)
+            captured = []
+            monkeypatch.setattr(
+                fcs, "emit_target_trace",
+                lambda publication, **kw: captured.append(publication))
+            await _run(env, service, db, target)
+            publication = captured[0]
+            trace = publication.trace_fields()
+            assert trace["claim_anchor_tg_message_id"] == 71
+            assert trace["claim_count"] == 1
+            assert trace["claim_anchor_ids"] == [71]
+            segments = [dict(segment)
+                        for segment in publication.claim_segments]
+            assert len(segments) == 1
+            assert segments[0]["member_tg_message_ids"] == (71,)
+        finally:
+            mgb._buffer.clear()
 
     @pytest.mark.asyncio
     async def test_distinct_theses_stay_separate(self, env, monkeypatch):

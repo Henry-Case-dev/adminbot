@@ -1050,21 +1050,41 @@ class ClaimPublication:
     hint_resolution: str = "none"
 
     def _claim_anchor_ids(self) -> tuple[int, ...]:
-        """Упорядоченные анкоры сегментов (FCT-701, наблюдаемое в трассе).
+        """Все носители сегментов, по возрастанию tg id (FCT-701, §4/§6/§7).
+
+        Трасса `factcheck_target` — единственная поверхность приёмки среза,
+        поэтому она обязана различать «один тезис на трёх носителях» и «один
+        носитель»: §7 требует для caption#2 + OCR#1/#3 с одним текстом
+        ``claim_count=1`` и ``claim_anchor_ids=(71,72,73)``. Отсюда — все
+        ``member_tg_message_ids`` схлопнутых сегментов (а не по одному анкору
+        на сегмент), отсортированные по возрастанию (TP4: порядок — по
+        возрастанию ``tg_message_id``). При анти-переслиянии у каждого
+        сегмента ровно один носитель, поэтому тот же контракт даёт «по одному
+        анкору на сегмент».
 
         Без сегментов, но с тезисом — один анкор: сегментного учёта не было
         (одиночный материал), и выдумывать второй анкор запрещено."""
         anchors: list[int] = []
         for segment in self.claim_segments or ():
             try:
-                value = int(segment.get("anchor_tg_message_id"))
-            except (TypeError, ValueError, AttributeError):
-                continue
-            if value and value not in anchors:
-                anchors.append(value)
+                members = tuple(segment.get("member_tg_message_ids") or ())
+            except (TypeError, AttributeError):
+                members = ()
+            if not members:
+                members = (segment.get("anchor_tg_message_id"),)
+            for value in members:
+                try:
+                    carrier = int(value)
+                except (TypeError, ValueError):
+                    continue
+                if carrier and carrier not in anchors:
+                    anchors.append(carrier)
         if not anchors and self.claim_anchor_tg_message_id not in (None, "", 0):
-            anchors.append(int(self.claim_anchor_tg_message_id))
-        return tuple(anchors)
+            try:
+                anchors.append(int(self.claim_anchor_tg_message_id))
+            except (TypeError, ValueError):
+                pass
+        return tuple(sorted(anchors))
 
     def _claim_count(self) -> int:
         if self.claim_segments:
@@ -1365,8 +1385,38 @@ async def resolve_claim_publication(
     # схлопнуть (один сегмент на нормализованный текст), ни привязать к тому
     # элементу альбома, который его реально несёт.
     carriers: list[tuple[int | None, str, str]] = []
+    # Review-fix F1/B1: `base_text` может прийти из same-turn буфера альбома
+    # (caption лежит на ДРУГОМ элементе группы). Тогда адрес Reply не является
+    # носителем тезиса — его нельзя объявлять анкором/членом сегмента.
+    buffered_caption = None
+    if media_group_id:
+        try:
+            buffered_caption = get_media_group_caption(str(media_group_id))
+        except Exception:      # pragma: no cover — буфер не бросает
+            buffered_caption = None
+    buffered_caption = str(buffered_caption or "").strip() or None
+    target_own_text = ""
+    if target_row is not None:
+        target_own_text = (str(_row_value(target_row, "caption") or "").strip()
+                           or str(_row_value(target_row, "text") or "").strip())
     if base:
-        carriers.append((tg_id, "text", base))
+        base_carrier = tg_id
+        if (buffered_caption is not None and str(base).strip() ==
+                buffered_caption and target_own_text != str(base).strip()):
+            # Текст не принадлежит адресату Reply: носитель — элемент, чья
+            # сохранённая строка несёт ровно этот текст; если durable-строки
+            # ещё нет (истинно same-turn), носитель честно неизвестен.
+            base_carrier = None
+            for row in element_rows:
+                row_value = (str(_row_value(row, "caption") or "").strip()
+                             or str(_row_value(row, "text") or "").strip())
+                if row_value and row_value == str(base).strip():
+                    try:
+                        base_carrier = int(_row_value(row, "tg_message_id"))
+                    except (TypeError, ValueError):
+                        base_carrier = None
+                    break
+        carriers.append((base_carrier, "text", base))
     for row in element_rows:
         row_id = _row_value(row, "tg_message_id")
         try:
@@ -1385,10 +1435,9 @@ async def resolve_claim_publication(
         elif row_text:
             carriers.append((row_id, "text", row_text))
     if not carriers and media_group_id:
-        buffered = get_media_group_caption(str(media_group_id))
-        if buffered:
+        if buffered_caption:
             # Носитель в буфере неизвестен — анкор не выдумывается (None).
-            carriers.append((None, "caption", str(buffered).strip()))
+            carriers.append((None, "caption", buffered_caption))
     # Текст поста отдельным сообщением (уточнение 25.10): подключается по
     # структурной связи reply_to — альбом отвечает на текст публикации.
     # Это НЕ соседнее сообщение (§3.8): связь явная и одношаговая; чужие
