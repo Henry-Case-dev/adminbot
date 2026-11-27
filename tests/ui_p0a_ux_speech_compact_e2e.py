@@ -1701,7 +1701,7 @@ def run_runtime_vs_view(browser, shots):
         if "Просмотр" not in view0 or "компактная" not in view0:
             fail(label, "просматриваемая редакция не названа отдельно: %s"
                  % view0)
-        # Открываем выбор просмотра и переключаемся на полную редакцию
+        snap(page, shots, "runtime_vs_view_390")
         # (владельческую). Это ТОЛЬКО просмотр — runtime-выбор не меняется.
         page.click("[data-speech-core-editions] summary")
         page.wait_for_timeout(200)
@@ -1726,7 +1726,11 @@ def run_runtime_vs_view(browser, shots):
         if runtime_sel != "compact":
             fail(label, "просмотр подменил runtime-выбор (select=%s)"
                  % runtime_sel)
-        snap(page, shots, "runtime_vs_view_390")
+        page.evaluate(
+            "document.querySelector('#speech-core-editor')"
+            ".scrollIntoView({block: 'start'})")
+        page.wait_for_timeout(150)
+        snap(page, shots, "runtime_vs_view_full_390")
     finally:
         STATE["runtime_factory_compact"] = False
         ctx.close()
