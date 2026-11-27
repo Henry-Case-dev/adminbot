@@ -315,6 +315,24 @@ class TestClassifyRetrieval:
                           search_text="материалы без ссылок", fetch_errors=1)
         assert classify_retrieval(broken) == RETRIEVAL_PROCESSING_FAILED
 
+    @pytest.mark.asyncio
+    async def test_rate_limited_run_reaches_public_text_as_technical(self):
+        """FCT-301 (публичный текст): 429 без результата не читается как
+        «подходящих материалов не нашлось» ни в payload вербализатора, ни в
+        оговорках вердикта — виден именно лимит провайдера."""
+        outcome = _outcome(queries_attempted=2, queries_used=0,
+                           provider_failures=2, rate_limits=2,
+                           empty_results=1, stop_reason=fsp.STOP_RATE_LIMIT)
+        llm = RoutedLLM()
+        run = await _service(llm).check_claim_envelope(
+            await _envelope(), retrieval=outcome)
+        payload = llm.user_payloads["temporal_verdict"]
+        assert "ограничил частоту запросов" in payload
+        assert "подходящих материалов не дал" not in payload
+        caveats = " ".join(str(v) for v in (run.verdict.uncertainty or {}).values())
+        assert "428" not in caveats and "429" in caveats
+        assert "материалов не дал" not in caveats
+
     def test_budget_precedence_kept(self):
         outcome = _outcome(queries_attempted=1, budget_exhausted=True)
         assert classify_retrieval(outcome) == RETRIEVAL_BUDGET
