@@ -196,6 +196,63 @@ class TestFC01Composite:
         assert {p["part_id"] for p in parts} >= {"p1", "p2"}
 
 
+# ── FCT-013 (28.11.2026): убраны скрытые смысловые потолки ──────────────────
+#
+# Скрытая обрезка = потеря содержания без следа для читателя. Физические
+# пределы (Telegram-деление, размер выдачи, ёмкость маршрута) сохранены; здесь
+# проверяются места, где частей/выдержек ИСЧЕЗАЛО больше, чем показывалось.
+
+SIX_PARTS = (
+    "В Telegram добавят ИИ-агентов. "
+    "Claude подключат через API. "
+    "Функция появится в сборке 283365. "
+    "Релиз запланирован на macOS 13.1.0. "
+    "Дуров убил Claude Code. "
+    "Модерация станет автоматической.")
+
+
+class TestFCT013HiddenCuts:
+    def test_all_claim_parts_reach_server_verdict_basis(self):
+        """Раньше `decompose_claim(...)[:4]` молча выбрасывал 5-ю и далее
+        части тезиса: разбор выглядел полным, хотя двух частей не было."""
+        env, _ = await_envelope(SIX_PARTS)
+        parts = _server_parts(env, [])
+        assert len(parts) == 6
+        assert {p["part_id"] for p in parts} == {
+            "p1", "p2", "p3", "p4", "p5", "p6"}
+        texts = " ".join(p["text"] for p in parts)
+        assert "автоматической" in texts          # 6-я часть не потеряна
+
+    def test_all_matching_passages_attach_to_a_part(self):
+        """Раньше `scored[:2]` оставлял у части только две совпавшие выдержки,
+        остальные молча выпадали из основания части."""
+        env, _ = await_envelope(SIX_PARTS)
+        evidence = [
+            {"evidence_id": f"ev-{i}", "url": f"https://e/{i}",
+             "support": "Telegram добавят ИИ-агентов через API"}
+            for i in range(1, 5)
+        ]
+        parts = _server_parts(env, evidence)
+        first = next(p for p in parts if p["part_id"] == "p1")
+        assert len(first["evidence_refs"]) == 4
+        assert set(first["evidence_refs"]) == {f"ev-{i}" for i in range(1, 5)}
+
+    def test_deterministic_report_shows_every_part(self):
+        """Публичный детерминированный отчёт резал части на 4-й без пометки."""
+        import types
+        from services.factcheck_service import deterministic_temporal_report
+        parts = tuple({"text": f"часть {i}", "factual_verdict":
+                       "insufficient_evidence"} for i in range(1, 7))
+        verdict = types.SimpleNamespace(
+            factual_verdict="insufficient_evidence", evaluated_period=None,
+            parts=parts)
+        env = types.SimpleNamespace(original_published_at=None,
+                                    date_source="unknown")
+        report = deterministic_temporal_report(env, verdict)
+        for i in range(1, 7):
+            assert f"часть {i}" in report
+
+
 def await_envelope(text):
     import asyncio
     return asyncio.run(_envelope(text))

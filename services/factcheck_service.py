@@ -2249,10 +2249,19 @@ def _server_parts(envelope, evidence) -> tuple:
     """FC-PERCLAIM (§3.5): части из СЕРВЕРНОЙ декомпозиции, когда модель их
     не дала. Вердикт части — не выше insufficient_evidence (положительный
     без доказательства запрещён); evidence привязывается к части по
-    содержательному перекрытию, а не «ко всему прогону»."""
+    содержательному перекрытию, а не «ко всему прогону».
+
+    FCT-013 (28.11.2026): прежние скрытые потолки ``parts[:4]`` и
+    ``scored[:2]`` удалены. Они молча выбрасывали части тезиса (5-я и далее
+    исчезала из разбора) и совпавшие выдержки (третья и далее не попадали в
+    основание части) — вывод выглядел полнее, чем был. Физических пределов
+    здесь нет: декомпозиция ограничена самим текстом тезиса, а число
+    evidence-строк — ёмкостью маршрута. Порядок остаётся детерминированным
+    (счёт совпадений, затем id).
+    """
     try:
         from services import temporal_factcheck as tf
-        parts = list(tf.decompose_claim(envelope))[:4]
+        parts = list(tf.decompose_claim(envelope))
     except Exception:
         return ()
     if len(parts) < 2:
@@ -2282,7 +2291,7 @@ def _server_parts(envelope, evidence) -> tuple:
             "part_id": part.part_id,
             "text": part.text,
             "factual_verdict": "insufficient_evidence",
-            "evidence_refs": [rid for _s, rid in scored[:2]],
+            "evidence_refs": [rid for _s, rid in scored],
         })
     return tuple(result)
 
@@ -3169,9 +3178,11 @@ def deterministic_temporal_report(env, verdict, *, evidence=(),
             continue
         label = _PART_FACTUAL_WORDS.get(
             str(part.get("factual_verdict") or ""), "")
+        # FCT-013: прежний потолок 4 строк молча выбрасывал части тезиса из
+        # публичного отчёта (пользователь не знал, что разбор неполный).
+        # Все части вердикта печатаются как есть; длина ограничена самим
+        # текстом тезиса, а доставка режется существующим Telegram-делением.
         part_lines.append(f"• {text}" + (f" — {label}" if label else ""))
-        if len(part_lines) >= 4:
-            break
     if part_lines:
         pieces.append("Утверждения:\n" + "\n".join(part_lines))
     links = report_sources_from_text(
