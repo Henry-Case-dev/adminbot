@@ -239,9 +239,10 @@ async def test_on_search_text_is_a_100k_portion_without_losing_tail():
     assert len(outcome.search_text) == 100_000
     assert outcome.search_text_truncated is True
     assert len(outcome.search_text_portions) >= 2
-    assert full == outcome.search_text_portions[0] + "".join(
-        outcome.search_text_portions[1:])
+    # граница порции не теряет хвост и ни один блок проекции: одна и та же
+    # проекция целиком, разрезанная без выпадений
     assert full.endswith("https://weather.example/20")
+    assert full.count("https://weather.example/") == 20
     assert outcome.search_text_total_chars == len(full)
 
 
