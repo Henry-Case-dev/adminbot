@@ -183,7 +183,7 @@ const MODULES = data.modules;
     const ctx = mkCtx();
     const summary = byId('mod_summary');
     eq(methods.moduleStateText.call(ctx, withState(summary, {})),
-      'Включено · работа ещё не подтверждена',
+      'Включено · измерение не подтверждено',
       '3: observed=null — нейтрально, не «Работает»');
     eq(methods.moduleStateText.call(ctx,
       withState(summary, { desired: false, effective_runtime: false })),

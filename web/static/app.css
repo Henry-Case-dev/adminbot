@@ -1215,6 +1215,11 @@
       margin: 0 auto;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* D4 (S10-18): при prefers-reduced-motion ожидание остаётся видимым
+       (статичный индикатор), но бесконечное вращение прекращается. */
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; }
+    }
 
     .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
     .scroll-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }

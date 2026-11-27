@@ -1171,10 +1171,8 @@
                   <span v-else-if="workspaceModule.noToggle"
                         class="badge badge-muted shrink-0" data-workspace-kind>Без тумблера</span>
                 </div>
-                <!-- Одна человеческая фраза ≤120 (из DTO; H1 не повторяет). -->
-                <div class="workspace-phrase" data-workspace-phrase>
-                  {{ workspaceModule.subtitle }}
-                </div>
+                <!-- D1 (BL-03): описание модуля живёт в карточке каталога
+                     (`module-card-phrase`); шапка его дословно не повторяет. -->
 
                 <!-- D3: без права чтения — только отказ с ролью, без
                      контролов/чипов/значений состояния. -->
@@ -1243,7 +1241,7 @@
                           :key="'wsc-' + c.id" class="badge workspace-chip" :class="c.cls"
                           :data-workspace-chip="c.id">
                       <span class="msr" aria-hidden="true">{{ iconGlyph(c.icon) }}</span>
-                      {{ c.label }}: {{ c.text }}
+                      {{ c.standalone ? c.text : (c.label + ': ' + c.text) }}
                     </span>
                   </div>
                   <div v-if="moduleEffectiveBadge(workspaceModule)
@@ -1477,7 +1475,7 @@
                     </span>
                     <span v-if="historyEnvelopeText(workspaceModule)"
                           class="text-gray-500" data-overview-history-count>
-                      {{ historyEnvelopeText(workspaceModule) }}
+                      · {{ historyEnvelopeText(workspaceModule) }}
                     </span>
                     <button type="button" class="btn-ghost text-xs shrink-0 ml-auto"
                             :disabled="historyStateFor(workspaceModule) === 'loading'"
@@ -9389,9 +9387,6 @@
               <div class="workspace-title-row">
                 <h1 class="workspace-h1" data-workspace-title>{{ workspaceModule.title }}</h1>
                 <span class="badge badge-muted shrink-0" data-workspace-kind>Без тумблера</span>
-              </div>
-              <div class="workspace-phrase" data-workspace-phrase>
-                {{ workspaceModule.subtitle }}
               </div>
               <div class="workspace-controls" data-workspace-controls
                    data-workspace-no-toggle>
