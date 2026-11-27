@@ -193,25 +193,32 @@ class TestCoreOnPersonaTab:
         """SAC-REV-R1B-F2: «действует» описывает runtime, просмотр — отдельно."""
         section = _persona_section()
         # Подпись о действующей редакции не зависит от просматриваемой.
-        assert "editions[speechCoreEdition]" not in section
+        assert "editions[speechCoreEdition]" not in section, \
+            "подпись «действует» не должна читать просматриваемую редакцию"
         runtime = section[section.index("data-speech-core-runtime"):]
         runtime = runtime[:runtime.index("data-speech-core-view-state")]
-        assert "speechEditionReasonText(speechCore.selection" in runtime
-        assert "editions[speechCore.selection.level]" in runtime
+        assert "speechEditionReasonText(speechCore.selection" in runtime, \
+            "runtime-строка читает speechCore.selection"
+        assert "editions[speechCore.selection.level]" in runtime, \
+            "«ваша/заводская редакция» — только для действующей редакции"
         # Просмотр назван явно и не выдаётся за действующую редакцию.
         view = section[section.index("data-speech-core-view-state"):]
         view = view[:view.index("</div>", view.index("Просмотр"))]
-        assert "Просмотр:" in view
-        assert "speechCoreEdition" in view
-        assert "не влияет на ответы" in view
+        assert "Просмотр:" in view, "просматриваемая редакция названа отдельно"
+        assert "speechCoreEdition" in view, "строка просмотра — про просмотр"
+        assert "не влияет на ответы" in view, \
+            "сказано, что просмотр не влияет на ответы"
 
     def test_speech_loaders_wait_for_chat_context(self):
         """SAC-REV-R1-F1: первый Core/persona/overview запрос — после области."""
-        assert "chatCtxReady: false" in APP_JS
+        assert "chatCtxReady: false" in APP_JS, \
+            "до loadAccessCtx контекст области неизвестен"
         access = APP_JS[APP_JS.index("loadAccessCtx: async function"):]
         access = access[:access.index("syncActiveChatTitle: function")]
-        assert "this._markChatCtxReady();" in access
-        assert "this.activeChatId" in access
+        assert "this._markChatCtxReady();" in access, \
+            "loadAccessCtx разрешает ожидание области"
+        assert "this.activeChatId" in access, \
+            "ожидание разрешается после применения activeChatId"
         # Каждый загрузчик ждёт готовности контекста ДО первого api-запроса.
         for marker, end in (
                 ("_loadSpeechCore: async function", "var core = await this.api"),
@@ -219,17 +226,18 @@ class TestCoreOnPersonaTab:
                 ("loadPersona: async function", "var epoch = this.scopeEpoch")):
             block = APP_JS[APP_JS.index(marker):]
             block = block[:block.index(end)]
-            assert "await this._whenChatCtxReady();" in block, marker
+            assert "await this._whenChatCtxReady();" in block, \
+                "%s ждёт область до api-запроса" % marker
         # Готовность разрешает ожидание; в unit-стабах без стейта — сразу.
         waiter = APP_JS[APP_JS.index("_whenChatCtxReady: function"):]
         waiter = waiter[:waiter.index("loadAccessCtx: async function")]
         assert "if (this.chatCtxReady !== false) return Promise.resolve();" \
-            in waiter
+            in waiter, "без стейта области загрузчик не подвешивается"
         # Дефолт цели сохранения после готовности — фактическая область.
         core = APP_JS[APP_JS.index("_loadSpeechCore: async function"):]
         core = core[:core.index("var core = await this.api")]
-        assert "this.activeChatId != null" in core
-        assert "sc0.core = 'chat';" in core
+        assert "sc0.core = this.speechScopeDefault();" in core, \
+            "цель сохранения по умолчанию = фактическая область страницы"
 
     def test_editor_height_and_mobile_without_global_redesign(self):
         assert ".speech-editor.speech-editor-core" in CSS

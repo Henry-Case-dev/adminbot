@@ -516,3 +516,13 @@ def test_js_unit_ur_ban08_direct_workspace():
             ok_marker="UR-BAN08-UI-OK")
 
 
+def test_js_unit_speech_core_scope_ctx():
+    """SAC-REV-R1-F1 (28.11.2026): первый вход в чат — Core не грузится до
+    применения chat-контекста, дефолт «Куда сохранить» = этот чат, первый Save
+    уходит scope="chat"; негативный контроль — в глобальной области
+    сохраняется scope="global"; без авторизации ожидание не зависает.
+    RED на базовом app.js: Core уходит первым, save scope="global"."""
+    _run_js(os.path.join("tests", "js", "speech_core_scope_ctx_test.js"),
+            ok_marker="SPEECH-CORE-SCOPE-CTX-OK")
+
+

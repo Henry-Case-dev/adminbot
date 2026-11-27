@@ -122,7 +122,10 @@ DIALOGS = []        # тексты подтверждений (guard при см
 FAIL = {"core": None, "style": None}
 # Управляемое состояние стабов (сценарии «сохранить всё» §9.1).
 STATE = {"examples_available": False, "can_edit": True,
-         "learning_enabled": False, "style_rules": True}
+         "learning_enabled": False, "style_rules": True,
+         # SAC-REV-R1B-F2: runtime-редакция = компактная заводская, а
+         # просматриваемая полная — владельческая (разные редакции).
+         "runtime_factory_compact": False}
 
 EXAMPLE_ROW = {
     "id": 11, "technique": "deadpan", "input_text": "привет",
@@ -188,7 +191,8 @@ def _core(chat_key):
                      "factory_revision": "fac:040"},
             "compact": {"text": CORE_TEXT[chat_key], "withheld": False,
                         "source": "global" if chat_key == "global" else "chat",
-                        "differs_from_factory": True,
+                        "differs_from_factory":
+                            not STATE.get("runtime_factory_compact"),
                         "factory_revision": "fac:041"},
         },
         "history": [{"kind": "owner_edit", "scope": "global", "chars": 30,
@@ -1661,6 +1665,73 @@ def run_readonly(browser):
         ctx.close()
 
 
+def flat_text(value):
+    return " ".join((value or "").split())
+
+
+def run_runtime_vs_view(browser, shots):
+    """SAC-REV-R1B-F2: подпись «действует … редакция» описывает ТОЛЬКО
+    runtime (`selection.level`), просматриваемая редакция названа отдельно и
+    при переключении просмотра первая строка не меняется.
+
+    Стаб в этом сценарии отдаёт runtime=компактная+заводская
+    (`differs_from_factory=False`), просмотр полной = владельческая
+    (`differs_from_factory=True`) — ровно случай из ревью r1b, где подпись
+    «действует» противоречила runtime-строке.
+    """
+    label = "runtime-vs-view"
+    STATE["runtime_factory_compact"] = True
+    ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
+    try:
+        open_speech(page)
+        open_speech_section(page, "core")
+        page.wait_for_selector("[data-speech-core-runtime]", state="visible")
+        page.wait_for_timeout(300)
+        runtime0 = flat_text(page.inner_text("[data-speech-core-runtime]"))
+        view0 = flat_text(page.inner_text("[data-speech-core-view-state]"))
+        if "компактная" not in runtime0:
+            fail(label, "runtime-строка не называет действующую редакцию: %s"
+                 % runtime0)
+        if "заводская редакция" not in runtime0:
+            fail(label, "runtime-строка не отражает заводскую редакцию "
+                 "(selection.level compact): %s" % runtime0)
+        if "ваша редакция" in runtime0:
+            fail(label, "runtime-строка выдаёт просматриваемую редакцию за "
+                 "действующую: %s" % runtime0)
+        if "Просмотр" not in view0 or "компактная" not in view0:
+            fail(label, "просматриваемая редакция не названа отдельно: %s"
+                 % view0)
+        # Открываем выбор просмотра и переключаемся на полную редакцию
+        # (владельческую). Это ТОЛЬКО просмотр — runtime-выбор не меняется.
+        page.click("[data-speech-core-editions] summary")
+        page.wait_for_timeout(200)
+        page.click("[data-speech-core-view='full']")
+        page.wait_for_timeout(300)
+        runtime1 = flat_text(page.inner_text("[data-speech-core-runtime]"))
+        view1 = flat_text(page.inner_text("[data-speech-core-view-state]"))
+        if runtime1 != runtime0:
+            fail(label, "переключение просмотра изменило подпись «действует»: "
+                 "%r -> %r" % (runtime0, runtime1))
+        if "ваша редакция" in runtime1:
+            fail(label, "подпись «действует» стала владельческой из-за "
+                 "просмотра полной редакции: %s" % runtime1)
+        if "полная" not in view1:
+            fail(label, "просмотр полной редакции не отражён отдельной "
+                 "строкой: %s" % view1)
+        if "не влияет" not in view1:
+            fail(label, "не сказано, что просмотр не влияет на ответы: %s"
+                 % view1)
+        runtime_sel = page.input_value(
+            ".speech-section select[aria-label='Редакция по умолчанию']")
+        if runtime_sel != "compact":
+            fail(label, "просмотр подменил runtime-выбор (select=%s)"
+                 % runtime_sel)
+        snap(page, shots, "runtime_vs_view_390")
+    finally:
+        STATE["runtime_factory_compact"] = False
+        ctx.close()
+
+
 def open_speech_section(page, section_id):
     """Открыть раздел «Речи и характера» ТЕМ ЖЕ продуктовым путём, что и
     карточка витрины (§4.2 v2.1: витрина не является экраном по умолчанию)."""
@@ -1700,6 +1771,7 @@ def main() -> int:
             run_save_flows(browser, args.shots)
             run_scope_and_chat_isolation(browser, args.shots)
             run_core_extras(browser, args.shots)
+            run_runtime_vs_view(browser, args.shots)
             run_humor_and_learning(browser, args.shots)
             run_examples_crud(browser, args.shots)
             run_expression_flow(browser, args.shots)
