@@ -765,25 +765,12 @@ def main() -> int:
                       f"{w}: колонок {probe['firstRowColumns']} вместо "
                       f"{want_cols}", bucket)
                 if w >= 390:
-                    # MOD-ACL corrective r2: на coarse/mobile tri-state —
-                    # РЕАЛЬНЫЙ 44-px контрол (без псевдоэлемента поверх
-                    # подписи), поэтому карточки С ЧАТОВЫМ контролом там
-                    # 182 px; карточки без него и desktop сохраняют
-                    # компактный диапазон 132–164.
-                    lo, hi = (131, 200) if w <= 767 else (131, 165)
                     bad = [c for c in probe["cards"]
-                           if not (lo <= c["h"] <= hi)]
+                           if not (131 <= c["h"] <= 165)]
                     check(not bad,
-                          f"{w}: высота карточек вне {lo}–{hi}: "
+                          f"{w}: высота карточек вне 132–164: "
                           f"{[(c['id'], round(c['h'], 1)) for c in bad][:4]}",
                           bucket)
-                    if w <= 767:
-                        exp = next((c for c in probe["cards"]
-                                    if c.get("id") == "mod_experience"), None)
-                        check(exp is not None and exp["h"] >= 178,
-                              f"{w}: карточка с tri-state не выросла под "
-                              f"44-px контрол: {exp and round(exp['h'], 1)}",
-                              bucket)
                 check(probe["scrollWidth"] <= probe["vw"] + 1,
                       f"{w}: горизонтальный скролл "
                       f"({probe['scrollWidth']} > {probe['vw']})", bucket)
@@ -1249,8 +1236,8 @@ def main() -> int:
                 "'.module-catalog [data-mod=mod_summary] "
                 "[data-module-effective]')||{}).innerText || ''")
             report["flows"]["r1_badge_%dx%d" % (bw, bh)] = badge_meas
-            check(131 <= badge_meas["maxCard"] <= 200
-                  and badge_meas["maxRow"] <= 200,
+            check(131 <= badge_meas["maxCard"] <= 165
+                  and badge_meas["maxRow"] <= 165,
                   f"R1 {bw}: badge-state height card={badge_meas['maxCard']:.1f} "
                   f"row={badge_meas['maxRow']:.1f}", failures)
             check("Отдельно для чата" in badge_badge,
@@ -1347,7 +1334,7 @@ def main() -> int:
             check(m2 and m2["btnH"] >= 44 and m2["rowH"] >= 44
                   and m2["visibleHit"],
                   f"D2 {cw}: hit-area «Разрешить» {m2}", failures)
-            check(m2 and m2["maxCard"] <= 200 and m2["maxRow"] <= 200,
+            check(m2 and m2["maxCard"] <= 164 and m2["maxRow"] <= 164,
                   f"D2 {cw}: card/row {m2 and m2['maxCard']}/"
                   f"{m2 and m2['maxRow']}", failures)
             check(len(posts) == 1,
@@ -1789,7 +1776,7 @@ def main() -> int:
                   failures)
             check(meas["openOut"] == 0,
                   f"W2a {nw}: «Открыть» выходит за футер", wfails)
-            check(131 <= meas["minCard"] and meas["maxCard"] <= 200,
+            check(131 <= meas["minCard"] and meas["maxCard"] <= 165,
                   f"W2a {nw}: высота карточки "
                   f"{meas['minCard']:.1f}–{meas['maxCard']:.1f}", wfails)
             check(meas["scrollWidth"] <= meas["vw"] + 1,

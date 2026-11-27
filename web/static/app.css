@@ -8027,11 +8027,16 @@ html.w9-sheet-bottom .modal-close {
   min-height: 24px; padding: 2px 8px; position: relative;
 }
 @media (pointer: coarse), (max-width: 767px) {
-  /* F2 (BL-11/S10-18, r2): кликабельная площадь = РЕАЛЬНЫЙ 44-px бокс кнопки.
-     Визуальная пилюля (24 px) рисуется псевдоэлементами контейнера/активной
-     кнопки, поэтому тап по подписи и по строке состояния (они ВНЕ бокса) не
-     меняет настройку. Горизонтальные инсеты не расширяются — соседние кнопки
-     не перекрываются; «Открыть» ниже сохраняет свой hit-area. */
+  /* r3 (контракт D7/Visual Preservation Map): карточка обязана остаться
+     natural-height 132–164 и при реальном 44-px контроле. Возвращаем
+     вертикаль внутренними отступами и межстрочными интервалами; кегли
+     (11px подпись, 12px состояние/фраза, 14px заголовок) не уменьшаются,
+     текст не перекрывается. */
+  .module-card { padding: 6px 12px; gap: 0; }
+  .module-card-body { gap: 2px; }
+  .module-card .module-state { line-height: 14px; }
+  .module-card-phrase { line-height: 1.25; }
+  .module-card-footer { padding-top: 0; }
   .module-card .module-tristate {
     position: relative; display: inline-flex; align-items: center;
     min-height: 44px; border: 0; background: transparent;
