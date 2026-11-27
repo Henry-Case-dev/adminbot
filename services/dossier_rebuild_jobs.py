@@ -572,10 +572,60 @@ async def archive_user_derived(db, chat_id: int, target_user: str,
     return len(rows), int(deleted)
 
 
+# FTSI-ACC-02 (p0-fts-index-integrity-01): штатная команда FTS5 `'delete'`
+# для external-content индекса. Обязателен ЯВНЫЙ старый текст: обычный
+# `DELETE FROM graph_facts_fts WHERE rowid = ?` читает актуальную
+# content-строку, поэтому после `INSERT OR REPLACE` снимает docsize-строку,
+# но НЕ старые токены (проверено probe: удалённый текст продолжал находиться
+# MATCH'ем). Команда `'delete'` снимает именно переданные токены.
+_FTS_DELETE_TOKENS_SQL = (
+    "INSERT INTO graph_facts_fts(graph_facts_fts, rowid, fact) "
+    "VALUES('delete', ?, ?)")
+
+
+async def _fts_delete_tokens(conn, fact_id: int, fact: str) -> None:
+    """Best-effort снятие СТАРЫХ токенов факта из external-content FTS."""
+    try:
+        await conn.execute(_FTS_DELETE_TOKENS_SQL,
+                           (int(fact_id), str(fact or "")))
+    except Exception:
+        logger.debug("[dossier_jobs] fts delete skipped | id=%s", fact_id)
+
+
+async def _fts_insert_tokens(conn, fact_id: int, fact: str) -> None:
+    """Best-effort запись токенов факта в external-content FTS."""
+    try:
+        await conn.execute(
+            "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+            (int(fact_id), str(fact or "")))
+    except Exception:
+        logger.debug("[dossier_jobs] fts insert skipped | id=%s", fact_id)
+
+
+async def _snapshot_fact_texts(conn) -> dict:
+    """`{id: fact}` по всей `graph_facts` (id+текст; без остальных колонок)."""
+    cursor = await conn.execute("SELECT id, fact FROM graph_facts")
+    rows = await cursor.fetchall()
+    return {int(r["id"]): str(r["fact"] or "") for r in rows}
+
+
 async def restore_user_snapshot(db, path) -> int:
     """Восстановить строки `graph_facts` из снапшота (`INSERT OR REPLACE` по
-    `id`) + FTS (best-effort). `FileNotFoundError` — снапшота нет; пустой
-    снапшот → 0. vec — не восстанавливаем (best-effort, embeddings не храним)."""
+    `id`) + синхронизировать FTS. `FileNotFoundError` — снапшота нет; пустой
+    снапшот → 0.
+
+    FTSI-ACC-02: `INSERT OR REPLACE` — это скрытый DELETE. Внешний
+    content-FTS5 не видит его, а также не видит замену текста у PK-конфликта:
+      * конфликт по НЕ-PK UNIQUE (например,
+        `idx_graph_facts_history_import(chat_id, fact, message_timestamp)`)
+        удаляет ЧУЖУЮ строку — её FTS-строка остаётся навсегда (`docsize` >
+        фактов, MATCH находит удалённый id);
+      * замена текста по PK оставляет в индексе СТАРЫЕ токены.
+    Поэтому FTS выравнивается по фактическому diff `{id: fact}` ДО/ПОСЛЕ
+    REPLACE в ОДНОЙ транзакции: удалённые id → `'delete'` старым текстом,
+    изменённые → `'delete'` старого + INSERT нового, новые → INSERT.
+    Повторный прогон с тем же снапшотом — no-op (diff пуст). vec — не
+    восстанавливаем (best-effort, embeddings не храним)."""
     rows = await asyncio.to_thread(_read_jsonl, Path(path))
     if rows is None:
         raise FileNotFoundError("snapshot_missing")
@@ -588,8 +638,10 @@ async def restore_user_snapshot(db, path) -> int:
     cursor = await db.db.execute("PRAGMA table_info(graph_facts)")
     allowed_cols = {str(info[1]) for info in await cursor.fetchall()}
 
-    # B-MCA01-1 (D3): INSERT-фаза — через общий write-механизм.
-    async def _insert_body(conn):
+    # B-MCA01-1 (D3): INSERT + FTS-reconcile — одна транзакция общего
+    # write-механизма (атомарно: нет окна «содержимое обновлено, FTS — нет»).
+    async def _restore_body(conn):
+        before = await _snapshot_fact_texts(conn)
         n = 0
         for row in rows:
             if not isinstance(row, dict) or row.get("id") is None:
@@ -604,27 +656,20 @@ async def restore_user_snapshot(db, path) -> int:
                 f"VALUES ({placeholders})",
                 [row[c] for c in cols])
             n += 1
+        after = await _snapshot_fact_texts(conn)
+        # Скрытые DELETE от REPLACE (не-PK UNIQUE конфликты) — снимаем токены.
+        for fact_id in before.keys() - after.keys():
+            await _fts_delete_tokens(conn, fact_id, before[fact_id])
+        for fact_id, fact in after.items():
+            if fact_id not in before:
+                await _fts_insert_tokens(conn, fact_id, fact)
+            elif before[fact_id] != fact:
+                await _fts_delete_tokens(conn, fact_id, before[fact_id])
+                await _fts_insert_tokens(conn, fact_id, fact)
         return n
 
-    restored = int(await db.write_transaction(
-        _insert_body, op_name="dossier_restore_facts") or 0)
-    # B-MCA01-1 (D3): FTS-фаза (best-effort) — под тем же single-writer.
-    async with db.serialized():
-        for row in rows:
-            if not isinstance(row, dict) or row.get("id") is None:
-                continue
-            try:
-                await db.db.execute(
-                    "DELETE FROM graph_facts_fts WHERE rowid = ?",
-                    (int(row["id"]),))
-                await db.db.execute(
-                    "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
-                    (int(row["id"]), str(row.get("fact") or "")))
-            except Exception:
-                logger.debug("[dossier_jobs] fts restore skipped | id=%s",
-                             row.get("id"))
-        await db.db.commit()
-    return restored
+    return int(await db.write_transaction(
+        _restore_body, op_name="dossier_restore_facts") or 0)
 
 
 # ── раннер фоновой пересборки ───────────────────────────────────────────────

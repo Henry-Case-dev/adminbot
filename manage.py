@@ -662,13 +662,15 @@ def build_parser() -> argparse.ArgumentParser:
     # обстоятельствах (guard allowlist в services/memory_rebuild.py).
     mem = sub.add_parser(
         "memory",
-        help="память: rebuild-dossiers | sanitize-beliefs | consolidate | audit",
+        help="память: rebuild-dossiers | sanitize-beliefs | consolidate | "
+             "audit | fts-check | fts-repair",
         description="Деструктивный контур памяти: пересборка досье "
                     "(двухслойный пайплайн F1), санитария убеждений/фактов, "
                     "консолидация убеждений в парадигмы и READ-ONLY аудит. "
-                    "Только сгенерированные производные; сырая история "
-                    "неприкосновенна; авто-бэкап + JSONL-архив до DELETE; "
-                    "без авто-кронов.")
+                    "FTS-целостность: fts-check (read-only) / fts-repair "
+                    "(штатный rebuild, идемпотентно). Только сгенерированные "
+                    "производные; сырая история неприкосновенна; авто-бэкап "
+                    "+ JSONL-архив до DELETE; без авто-кронов.")
     mem_sub = mem.add_subparsers(dest="memory_command",
                                  metavar="<подкоманда>")
     mem_sub.required = True
@@ -751,6 +753,32 @@ def build_parser() -> argparse.ArgumentParser:
                     "spec §3.3. Ничего не меняет.")
     aud.add_argument("--db", default=None,
                      help=f"путь SQLite-БД (дефолт: {settings.DB_PATH})")
+
+    # FTSI-ACC-03 (p0-fts-index-integrity-01): целостность FTS-индекса фактов.
+    fts_chk = mem_sub.add_parser(
+        "fts-check",
+        help="READ-ONLY: сверка graph_facts ↔ graph_facts_fts (docsize/MATCH)",
+        description="READ-ONLY сверка external-content FTS `graph_facts_fts` "
+                    "с таблицей `graph_facts`: counts facts/FTS/docsize, "
+                    "висячие и пропущенные docsize-rowid, FTS "
+                    "'integrity-check' и PRAGMA integrity_check. Ничего не "
+                    "меняет, DDL не выполняет.")
+    fts_chk.add_argument("--db", default=None,
+                         help=f"путь SQLite-БД (дефолт: {settings.DB_PATH})")
+    fts_chk.add_argument("--sample", type=int, default=20,
+                         help="сколько rowid показать в выборках (дефолт 20)")
+
+    fts_rep = mem_sub.add_parser(
+        "fts-repair",
+        help="идемпотентная починка FTS-индекса фактов (rebuild, было/стало)",
+        description="Идемпотентно сверяет `graph_facts` ↔ `graph_facts_fts` "
+                    "и при расхождении перестраивает индекс штатной командой "
+                    "FTS5 'rebuild'. Повторный запуск — no-op. Меняется "
+                    "только производный индекс; строки graph_facts целы.")
+    fts_rep.add_argument("--db", default=None,
+                         help=f"путь SQLite-БД (дефолт: {settings.DB_PATH})")
+    fts_rep.add_argument("--sample", type=int, default=20,
+                         help="сколько rowid показать в выборках (дефолт 20)")
 
     # ── F9 (10.24, ADR-1024-2): retention диска ─────────────────────
     disk = sub.add_parser(
@@ -1591,6 +1619,32 @@ def _print_memory_report(command: str, report: dict) -> None:
               f"last_run={report.get('last_run')}")
         print(f"  beliefs={report.get('beliefs_by_status')}")
         return
+    if command in ("fts-check", "fts-repair"):
+        summary = (report.get("after") if command == "fts-repair" else report) or {}
+        if command == "fts-repair":
+            print(f"memory fts-repair: rebuilt="
+                  f"{'yes' if report.get('rebuilt') else 'no'} "
+                  f"ok_before={(report.get('before') or {}).get('ok')} "
+                  f"ok_after={summary.get('ok')}")
+            for label, part in (("before", report.get("before") or {}),
+                                ("after", summary)):
+                print(f"  {label}: facts={part.get('facts')} "
+                      f"fts_docs={part.get('fts_docs')} "
+                      f"docsize={part.get('docsize')} "
+                      f"orphan_docsize={part.get('orphan_docsize')} "
+                      f"missing_docsize={part.get('missing_docsize')} "
+                      f"fts_integrity={part.get('fts_integrity')} "
+                      f"db_integrity={part.get('db_integrity')}")
+        else:
+            print(f"memory fts-check: ok={report.get('ok')} "
+                  f"facts={report.get('facts')} "
+                  f"fts_docs={report.get('fts_docs')} "
+                  f"docsize={report.get('docsize')} "
+                  f"orphan_docsize={report.get('orphan_docsize')} "
+                  f"missing_docsize={report.get('missing_docsize')} "
+                  f"fts_integrity={report.get('fts_integrity')} "
+                  f"db_integrity={report.get('db_integrity')}")
+        return
     mode = "dry-run" if report.get("dry_run") else "APPLY"
     if command == "consolidate":
         print(f"memory consolidate: mode={mode} chats={report.get('chats')} "
@@ -1633,6 +1687,9 @@ def _print_memory_report(command: str, report: dict) -> None:
 def _memory_exit_code(command: str, report: dict) -> int:
     """F1 round1022: ненулевой exit, если что-то сброшено, но не пересобрано
     (`rebuild_empty`, R1b/ADR-1022-1 §5). Молчаливый «успех» запрещён."""
+    if command in ("fts-check", "fts-repair"):
+        summary = (report.get("after") if command == "fts-repair" else report) or {}
+        return 0 if summary.get("ok") else 1
     if command == "rebuild-dossiers":
         reasons = report.get("reasons") or {}
         if reasons.get("rebuild_empty"):
@@ -1704,10 +1761,15 @@ def _cmd_memory(args) -> int:
 
     async def _run() -> dict:
         # S10.21-6: `audit` — строго read-only (без DDL/WAL/создания файла).
-        db = await _open_memory_db(db_path, readonly=(command == "audit"))
+        db = await _open_memory_db(
+            db_path, readonly=(command in ("audit", "fts-check")))
         try:
             if command == "audit":
                 return await mm.collect_paradigm_audit(db)
+            if command == "fts-check":
+                return await mr.inspect_graph_facts_fts(db)
+            if command == "fts-repair":
+                return await mr.repair_graph_facts_fts(db)
             available = await db.get_graph_chat_ids()
             if command == "consolidate":
                 chats = _memory_scope(args, available, required=False)
@@ -1735,11 +1797,11 @@ def _cmd_memory(args) -> int:
     try:
         report = asyncio.run(_run())
     except (FileNotFoundError, RuntimeError):
-        # S10.21-6: audit НЕ создаёт схему — при отсутствии файла/таблиц
-        # сообщаем явно (R17: без пути) и выходим с ошибкой.
-        if command == "audit":
-            print("memory audit: error=db_unavailable — файл БД не найден "
-                  "или схема отсутствует (ничего не создано)")
+        # S10.21-6: audit/fts-check НЕ создают схему — при отсутствии
+        # файла/таблиц сообщаем явно (R17: без пути) и выходим с ошибкой.
+        if command in ("audit", "fts-check"):
+            print(f"memory {command}: error=db_unavailable — файл БД не "
+                  "найден или схема отсутствует (ничего не создано)")
             return 1
         raise
     if outcome["locked_chat"] is not None:
