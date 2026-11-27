@@ -844,6 +844,21 @@ def _is_irrelevant_target(text: str) -> bool:
         return False
 
 
+def _is_referential_target(text: str) -> bool:
+    """TP2 (FCT-103): текст цели — референциальный/эллиптичный намёк.
+
+    Существующий предикат ``factcheck_suitability._is_referential`` (без новой
+    семантики и без новых регулярок в ingress): непустой текст намёка не
+    становится тезисом, если структурный антецедент разрешается."""
+    if not str(text or "").strip():
+        return False
+    try:
+        from services.factcheck_suitability import _is_referential
+        return bool(_is_referential(text))
+    except Exception:      # pragma: no cover — предикат не роняет хендлер
+        return False
+
+
 async def _resolve_publication(message: types.Message, target: types.Message,
                                user_hint: str | None = None):
     """Текст + все элементы альбома + материал изображений одной публикации.
@@ -1126,9 +1141,14 @@ def _transcription_claim_text(target: types.Message) -> str | None:
 async def _transcription_forward_author(chat_id: int,
                                         target: types.Message) -> str | None:
     """Epic 72 (74.C.3, D275): автор оригинального голосового из smart_messages
-    (цепочка расшифровка→reply_to_message). Приоритет forward_source →
-    author_name. Fail-open: нет DI/нет цепочки/нет записи/ошибка БД → None
-    (= клейм без атрибуции, прежнее поведение)."""
+    (цепочка расшифровка→reply_to_message).
+
+    FCT-S2-TARGET (TP8, FCT-101/106): приоритет — структурная атрибуция
+    ``forward_source`` (её пишет существующий origin-резолвер из
+    ``forward_origin``). ``author_name`` — display-name участника чата, а не
+    идентичность источника: из него forward_source НЕ выводится (имя не
+    связывается с персоной/каналом). Fail-open: нет DI/нет цепочки/нет
+    записи/ошибка БД → None (= клейм без атрибуции)."""
     orig_id = getattr(getattr(target, "reply_to_message", None),
                       "message_id", None)
     if _db is None or orig_id is None:
@@ -1142,7 +1162,7 @@ async def _transcription_forward_author(chat_id: int,
     if row is None:
         return None
     try:
-        return row["forward_source"] or row["author_name"] or None
+        return row["forward_source"] or None
     except (KeyError, IndexError, TypeError):
         return None
 
@@ -1208,7 +1228,14 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                          else target.message_id)
     context_feed = None
     irrelevant = bool(target_text) and _is_irrelevant_target(target_text)
-    if not target_text or irrelevant:
+    # TP2 (FCT-103): референциальный намёк с НЕПУСТЫМ текстом («ну и что там?»)
+    # — тоже повод искать структурный оригинал. Непустой текст намёка не
+    # становится тезисом, если антецедент реально разрешён. Поиск аддитивный:
+    # неразрешённый намёк не превращается в отказ (FCT-102), а идёт прежним
+    # путём собственного текста.
+    referential = (target is not message) and bool(target_text) \
+        and not irrelevant and _is_referential_target(target_text)
+    if not target_text or irrelevant or referential:
         # Уточнения №2/№6 (owner 25.10.2026): пустая ИЛИ консервативно
         # нерелевантная цель («лол», «ага», эмодзи) — не отказ. Сначала
         # обязательный широкий контекст (цепочка ответов + окно 200–300) БЕЗ
@@ -1233,11 +1260,14 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 association_attempted=False,
                 association_status="not_attempted",
                 association_reason="contextual_target",
-                media_ambiguous=False)
+                media_ambiguous=False,
+                # TP2/TP5: чем разрешён антецедент — structural|topic|tiebreak.
+                hint_resolution=str(probe.claim.basis
+                                    or probe.claim_basis or "structural"))
             delivery_reply_to = message.message_id
-            _emit_target_trace(publication, chat_id=message.chat.id,
-                               trigger_tg_message_id=message.message_id,
-                               delivery_reply_to=delivery_reply_to)
+            # Единственная поверхность трассы — исполняющая ветка (§6): одна
+            # запись `factcheck_target` на (chat, цель, claim), без дубля из
+            # ingress. Legacy-путь объявляет её перед своей проверкой ниже.
             logger.info(
                 "[factcheck] claim from context | chat=%s | target=%s | "
                 "source=%s | basis=%s | anchor=%s | author=%s | window=%d | "
@@ -1246,9 +1276,13 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 probe.claim.basis or probe.claim_basis,
                 probe.claim.tg_message_id, probe.claim.author,
                 probe.window_messages, probe.chain_len, irrelevant)
-        elif probe is not None and probe.ambiguous:
+        elif probe is not None and probe.ambiguous \
+                and (not target_text or irrelevant):
             # §4.3: сопоставимые кандидаты — уточнение, а не вердикт по
-            # угаданному тезису (выбор «ближайшего» запрещён).
+            # угаданному тезису (выбор «ближайшего» запрещён). Для цели с
+            # СВОИМ текстом (в т.ч. референциальным) уточнение не навязывается:
+            # TP2 аддитивен и срабатывает только при реально разрешённом
+            # антецеденте.
             _emit_target_trace(publication, chat_id=message.chat.id,
                                trigger_tg_message_id=message.message_id,
                                delivery_reply_to=delivery_reply_to,
@@ -1263,6 +1297,14 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 len(probe.candidates))
             await _settle_cooldown(message.chat.id, user_id, "ambiguous")
             return
+        elif referential and target_text:
+            # TP2 аддитивен: структурный/контекстный антецедент не разрешён —
+            # собственный текст цели проверяется прежним путём. Отказа из-за
+            # «референциальности» нет: сомнение не становится отказом
+            # (FCT-102 / ASAP-FC-ADMISSION-01 §2.1).
+            logger.info("[factcheck] referential target unresolved | chat=%s "
+                        "| target=%s | hint_resolution=none",
+                        message.chat.id, target.message_id)
         else:
             phrase = _empty_content_phrase(publication, probe)
             # P1 (§4.6, review-fix2): пока картинка читается, просьба «повтори
@@ -1363,6 +1405,12 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     # Раунд N (T-841): слот пула per-chat перед LLM-вызовом check_claim
     # (cache-hit и пустой-контекст выше — быстрые пути БЕЗ пула). Таймаут →
     # SMARTMODULE_BUSY_PHRASES (реплай на ВЫЗОВ, как 5.1).
+    # FCT-S2-TARGET §6: legacy-ветка объявляет уже разрешённую цель/claim
+    # ОДИН раз (temporal/v2 объявляют её внутри себя) — единственная трасса на
+    # вход, без дубля и без собственных эвристик цели.
+    _emit_target_trace(publication, chat_id=message.chat.id,
+                       trigger_tg_message_id=message.message_id,
+                       delivery_reply_to=delivery_reply_to, route="handler_legacy")
     pool = get_smartmodule_concurrency_pool()
     permit = await pool.try_acquire(message.chat.id,
                                     timeout=smartmodule_wait_seconds())

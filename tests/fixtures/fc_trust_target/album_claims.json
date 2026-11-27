@@ -1,0 +1,27 @@
+{
+  "chat_id": -1001234567890,
+  "album_id": "fc-trust-album-01",
+  "thesis": "Релиз 2.58.256 вышел 27.11.2026",
+  "thesis_anchor_element": 71,
+  "thesis_caption_element": 72,
+  "thesis_ocr_elements": [71, 73],
+  "thesis_elements": [71, 72, 73],
+  "distinct": {
+    "album_id": "fc-trust-album-02",
+    "elements": [81, 82],
+    "theses": {
+      "81": "Курс доллара 95 рублей",
+      "82": "Курс доллара 96 рублей"
+    }
+  },
+  "hint": {
+    "hint_element": 50,
+    "hint_text": "ну и что там?",
+    "news_element": 60,
+    "decoy_element": 51,
+    "news_text": "Мост через Волгу обрушился 26.11.2026",
+    "decoy_text": "Курс доллара вырос до 101 рубля 26.11.2026",
+    "trigger_element": 11
+  },
+  "note": "FCT-S2-TARGET fixtures: album thesis repeated on three carriers (caption on the middle element, OCR on the outer ones), anti-merge pair of distinct numeric theses, and a referential-hint decoy whose tg id is closer to the hint than the structural original."
+}

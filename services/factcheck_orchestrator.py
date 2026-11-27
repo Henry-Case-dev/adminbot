@@ -1470,7 +1470,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                 claim_anchor_source=(found.source or "window"),
                 target_source="contextual",
                 target_tg_message_id=found.tg_message_id,
-                text_sufficient=True)
+                text_sufficient=True,
+                # TP2/TP5 (FCT-S2-TARGET): основание антецедента объявлено в
+                # той же публикации, что увидит temporal-ветка, — паритет
+                # target/provenance-полей при обоих состояниях флага.
+                hint_resolution=str(basis or "structural"))
             logger.info("[factcheck_v2] claim from related material | "
                         "chat=%s | source=%s | basis=%s | anchor=%s", req.chat_id,
                         found.source, basis, found.tg_message_id)
