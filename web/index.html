@@ -17387,6 +17387,19 @@
                         </div>
                       </div>
                     </div>
+                    <!-- Q-07 (VMQ-Q0, 2026-11-27): «Поле допустимых фокусов» —
+                         один аддитивный абзац внутри существующей аналитики.
+                         Только счётчики и порог нулевой модели: без процентов
+                         без знаменателя и без «силы»; `blind` не называется
+                         аномалией. -->
+                    <div class="mt-2" data-quantum-field
+                         :data-quantum-field-state="quantumAnalytics.field.uiState">
+                      <div class="text-gray-500">
+                        Поле допустимых фокусов · окно {{ quantumAnalytics.field.windowDays }} дней
+                      </div>
+                      <div v-for="(line, i) in quantumAnalytics.field.lines"
+                           :key="'qf-' + i" class="text-gray-400">{{ line }}</div>
+                    </div>
                   </div>
                 </div>
               </div>

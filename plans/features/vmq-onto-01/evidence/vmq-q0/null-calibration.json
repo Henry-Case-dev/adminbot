@@ -1,0 +1,254 @@
+{
+  "row": "Q-07",
+  "slice": "VMQ-Q0",
+  "policy_version": "mca-field-v1",
+  "generated_by": "services/mca_random_source.py::null_thresholds (the shipped function, real run)",
+  "command": ".venv\\Scripts\\python.exe C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d\\probe-b6de4b0d2f\\gen_null_calibration.py",
+  "generator_code": "cells=('cell:%03d'%i for i in range(M)); fp=map_fingerprint(cells); null_thresholds(observations=N, cells=M, sims=1000|20000, fingerprint=fp)",
+  "method": {
+    "null": "max_i |z_i| monte-carlo with the same N, M, p_i",
+    "sims": 1000,
+    "alpha": 0.99,
+    "rng": "local random.Random(seed).random() only",
+    "seed": "int(sha256(f'{fingerprint}|{N}|{M}|{policy_version}').hexdigest()[:16], 16)",
+    "quantile": "linear interpolation on sorted replicate maxima",
+    "min_expected": 5.0
+  },
+  "thresholds_1000_sims": [
+    {
+      "M": 3,
+      "N": 20,
+      "expected": 6.6667,
+      "fingerprint": "3e87e2592079c073",
+      "quantile": 2.6879,
+      "sims": 1000,
+      "alpha": 0.99,
+      "seed": 6036738241532068818,
+      "seconds": 0.0017,
+      "converged_reference": {
+        "sims": 20000,
+        "quantile": 3.0042,
+        "seconds": 0.0316
+      }
+    },
+    {
+      "M": 5,
+      "N": 50,
+      "expected": 10.0,
+      "fingerprint": "12fe9b201bee496e",
+      "quantile": 3.182,
+      "sims": 1000,
+      "alpha": 0.99,
+      "seed": 16313577671494135731,
+      "seconds": 0.0034,
+      "converged_reference": {
+        "sims": 20000,
+        "quantile": 3.182,
+        "seconds": 0.0717
+      }
+    },
+    {
+      "M": 10,
+      "N": 100,
+      "expected": 10.0,
+      "fingerprint": "d7d3bd805b086c47",
+      "quantile": 3.3333,
+      "sims": 1000,
+      "alpha": 0.99,
+      "seed": 4169727677249598466,
+      "seconds": 0.0076,
+      "converged_reference": {
+        "sims": 20000,
+        "quantile": 3.3333,
+        "seconds": 0.1267
+      }
+    },
+    {
+      "M": 20,
+      "N": 100,
+      "expected": 5.0,
+      "fingerprint": "252eee2d19f80b9b",
+      "quantile": 3.6707,
+      "sims": 1000,
+      "alpha": 0.99,
+      "seed": 10709711783771635963,
+      "seconds": 0.007,
+      "converged_reference": {
+        "sims": 20000,
+        "quantile": 3.6707,
+        "seconds": 0.1367
+      }
+    },
+    {
+      "M": 50,
+      "N": 500,
+      "expected": 10.0,
+      "fingerprint": "2fa96fb53afb39a6",
+      "quantile": 3.8333,
+      "sims": 1000,
+      "alpha": 0.99,
+      "seed": 4954416530377739265,
+      "seconds": 0.0349,
+      "converged_reference": {
+        "sims": 20000,
+        "quantile": 4.1527,
+        "seconds": 0.643
+      }
+    }
+  ],
+  "acceptance_band_M10_N100": {
+    "low": 3.0,
+    "high": 3.6,
+    "observed": 3.3333,
+    "in_band": true
+  },
+  "contract_table_check": {
+    "note": "§3 table matches the CONVERGED quantile; a 1000-replicate run is a single draw of that quantile and can differ by ~0.3 for large M (discrete z grid). Both numbers are reported honestly.",
+    "pairs": [
+      {
+        "M": 3,
+        "N": 20,
+        "contract_t": 3.0,
+        "converged_20000": 3.0042,
+        "single_1000_run": 2.6879
+      },
+      {
+        "M": 5,
+        "N": 50,
+        "contract_t": 3.18,
+        "converged_20000": 3.182,
+        "single_1000_run": 3.182
+      },
+      {
+        "M": 10,
+        "N": 100,
+        "contract_t": 3.33,
+        "converged_20000": 3.3333,
+        "single_1000_run": 3.3333
+      },
+      {
+        "M": 20,
+        "N": 100,
+        "contract_t": 3.67,
+        "converged_20000": 3.6707,
+        "single_1000_run": 3.6707
+      },
+      {
+        "M": 50,
+        "N": 500,
+        "contract_t": 4.15,
+        "converged_20000": 4.1527,
+        "single_1000_run": 3.8333
+      }
+    ]
+  },
+  "tests": {
+    "file": "tests/test_q07_field_stats.py",
+    "command": ".venv\\Scripts\\python.exe -m pytest tests/test_q07_field_stats.py -q",
+    "runs": [
+      {
+        "date": "2026-11-27",
+        "result": "10 passed",
+        "seconds": 7.65
+      },
+      {
+        "date": "2026-11-27",
+        "result": "10 passed",
+        "seconds": 7.3,
+        "note": "final candidate run (after the last two robustness edits)"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "T1",
+        "node": "tests/test_q07_field_stats.py::test_map_fingerprint_order_independent"
+      },
+      {
+        "id": "T2",
+        "node": "tests/test_q07_field_stats.py::test_no_data_never_anomaly",
+        "kind": "negative_control"
+      },
+      {
+        "id": "T3",
+        "node": "tests/test_q07_field_stats.py::test_uncalibrated_baseline_refuses_claim",
+        "kind": "negative_control"
+      },
+      {
+        "id": "T4",
+        "node": "tests/test_q07_field_stats.py::test_small_expected_not_anomaly"
+      },
+      {
+        "id": "T5",
+        "node": "tests/test_q07_field_stats.py::test_void_requires_eligible_cell_with_data"
+      },
+      {
+        "id": "T6",
+        "node": "tests/test_q07_field_stats.py::test_multiple_comparisons_not_per_cell",
+        "kills_mutation": "M1"
+      },
+      {
+        "id": "T7",
+        "node": "tests/test_q07_field_stats.py::test_null_baseline_property",
+        "false_positives": "1/200"
+      },
+      {
+        "id": "T8",
+        "node": "tests/test_q07_field_stats.py::test_truncated_and_malformed_rows_are_counted"
+      },
+      {
+        "id": "T9",
+        "node": "tests/test_q07_field_stats.py::test_snapshot_is_read_only_and_bounded"
+      },
+      {
+        "id": "T10",
+        "node": "tests/test_q07_field_stats.py::test_status_block_fail_open"
+      }
+    ]
+  },
+  "mutations": [
+    {
+      "id": "M1",
+      "change": "replace `abs(z) > threshold` with `abs(z) > 2.58` (per-cell)",
+      "killed_by": "test_multiple_comparisons_not_per_cell",
+      "result": "1 failed"
+    },
+    {
+      "id": "M2",
+      "change": "drop the `expected >= min_expected` gate (`if False`)",
+      "killed_by": "test_small_expected_not_anomaly + test_void_requires_eligible_cell_with_data",
+      "result": "2 failed"
+    },
+    {
+      "id": "M3",
+      "change": "canonical_cells returns stored order (no sort/dedupe)",
+      "killed_by": "test_map_fingerprint_order_independent",
+      "result": "1 failed"
+    }
+  ],
+  "performance": {
+    "harness": "python 3.12, local sqlite, this machine (no production)",
+    "t9_fixture": {
+      "rows": 5000,
+      "used": 2400,
+      "maps": 6,
+      "cold_seconds": 0.1893,
+      "warm_p50_seconds": 0.061,
+      "warm_p95_seconds": 0.0678,
+      "command": "probe-b6de4b0d2f/perf_q07.py"
+    },
+    "worst_case_single_map": {
+      "M": 50,
+      "N": 5000,
+      "cold_seconds": 0.2967,
+      "warm_p50_seconds": 0.0001,
+      "command": "probe-b6de4b0d2f/perf_q07_worst.py"
+    },
+    "note": "calibration is memoised in memory per (fingerprint, N, M, p, sims, alpha); identical deterministic result, no disk cache. Cold cost is paid once per new N/M."
+  },
+  "not_verified": [
+    "real attractor/void/power on production journal volume (honest no_data/insufficient_history at personal-bot volume; observed by natural accumulation)",
+    "semantic topic x time cell grouping (UI-01/§6.5; math unchanged)",
+    "within-run k-of-M dependence is modelled as independent (conservative under the min_expected gate)",
+    "live rendered UI on the deployed admin surface (authenticated); render checked in a local harness instead"
+  ]
+}

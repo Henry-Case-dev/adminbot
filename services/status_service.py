@@ -450,6 +450,9 @@ class StatusService:
     _USES_EVENT_FIELDS = ("ts", "event_name", "outcome", "level",
                           "reason_code", "stage", "chat_id",
                           "pipeline_run_id", "operation_id")
+    # Q-07 (VMQ-Q0): окно аддитивного подблока `random.field` — то же чтение
+    # журнала, что у `recent_draws` (30 дней), без нового маршрута/поллера.
+    _FIELD_WINDOW_DAYS = 30
 
     @classmethod
     def _public_uses_event(cls, row: dict, seq: int) -> dict:
@@ -543,6 +546,55 @@ class StatusService:
         out["candidates"] = candidates
         return out
 
+    @classmethod
+    async def _field_block(cls, service, *, chat_id: int | None,
+                           is_global_admin: bool,
+                           chat_scope_allowed: bool) -> dict:
+        """Q-07: аддитивный подблок `random.field` внутри `/api/status.random`.
+
+        Read-only производное от существующего журнала `mca_random_draws`;
+        scope повторяет правило `recent_draws` (чат → global admin →
+        restricted). Ошибка чтения НЕ ломает остальной статус: блок
+        деградирует в `{ready: False, state: "unavailable"}`."""
+        try:
+            from services import mca_random_source as _mrs
+            scope = "restricted"
+            query_chat = None
+            include_refs = False
+            if chat_id is not None and chat_scope_allowed:
+                scope, query_chat, include_refs = "chat", chat_id, True
+            elif chat_id is None and is_global_admin:
+                scope, include_refs = "global", True
+            if scope == "restricted":
+                # Без права на журнал — честный пустой снимок, без чтения
+                # чужих/глобальных строк.
+                return {
+                    "ready": True,
+                    "policy_version": _mrs.FIELD_POLICY,
+                    "window_days": cls._FIELD_WINDOW_DAYS,
+                    "generated_at": int(time.time()),
+                    "scope": scope,
+                    "maps": 0,
+                    "records": {"rows": 0, "used": 0,
+                                "skipped_no_selection": 0,
+                                "skipped_unmappable": 0,
+                                "skipped_malformed": 0,
+                                "by_source": {"quantum": 0,
+                                              "pseudorandom": 0}},
+                    "primary": _mrs.classify_field(
+                        cells=(), observed={}, include_refs=False),
+                    "others": [],
+                }
+            snap = await service.field_snapshot(
+                chat_id=query_chat, include_refs=include_refs,
+                window_days=cls._FIELD_WINDOW_DAYS)
+            snap["scope"] = scope
+            return snap
+        except Exception:
+            logger.warning("[status] random field block failed — fail-open",
+                           exc_info=True)
+            return {"ready": False, "state": "unavailable"}
+
     async def random_source_snapshot(self, *, chat_id: int | None = None,
                                      is_global_admin: bool = False,
                                      chat_scope_allowed: bool = True) -> dict:
@@ -563,6 +615,7 @@ class StatusService:
         if not enabled:
             return {"enabled": False, "available": False,
                     "state": "disabled", "quantum_active": False,
+                    "field": {"ready": False, "state": "unavailable"},
                     "uses": {"enabled": False, "events": [], "cursor": None,
                              "scope": ""}}
         try:
@@ -657,6 +710,13 @@ class StatusService:
                 "policy_version": snap.get("policy_version"),
                 "recent_draws": [self._public_draw(r) for r in recent],
                 "recent_draws_scope": scope,
+                # Q-07 (VMQ-Q0): производная карта поля допустимых фокусов —
+                # один bounded SELECT по журналу; при ошибке `unavailable`,
+                # остальной статус не меняется.
+                "field": await self._field_block(
+                    service, chat_id=chat_id,
+                    is_global_admin=is_global_admin,
+                    chat_scope_allowed=chat_scope_allowed),
                 # Раунд 10.41 (MCA-10b, D11/T-5060): живая лента применений —
                 # расширение ЭТОГО блока (второго виджета/маршрута нет).
                 "uses": await self.random_uses_snapshot(
@@ -668,6 +728,7 @@ class StatusService:
                            "fail-open", exc_info=True)
             return {"enabled": True, "available": False,
                     "state": "unavailable", "quantum_active": False,
+                    "field": {"ready": False, "state": "unavailable"},
                     "uses": {"enabled": False, "events": [], "cursor": None,
                              "scope": ""}}
 

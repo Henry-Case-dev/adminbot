@@ -13090,7 +13090,11 @@
       quantumAnalytics: function () {
         var v = this.initiativeVitality || null;
         var q = (v && v.quantum) || null;
-        if (!q || !q.enabled) return { ready: false, mechanisms: [] };
+        var rnd = (this.statusData && this.statusData.random) || null;
+        var field = this._quantumFieldView((rnd && rnd.field) || null);
+        if (!q || !q.enabled) {
+          return { ready: false, mechanisms: [], field: field };
+        }
         var base = this._quantumRitmView(q);
         var self = this;
         var mechs = (base.mechanisms || []).map(function (m) {
@@ -13111,7 +13115,8 @@
             },
           });
         });
-        return { ready: true, hours: q.hours || 24, mechanisms: mechs };
+        return { ready: true, hours: q.hours || 24, mechanisms: mechs,
+                 field: field };
       },
       // Раунд 10.41 (MCA-10b, ADR-1028-17 D11/T-5060): живая лента
       // применений — read-only проекция random.uses. Bounded history (20)
@@ -16883,6 +16888,65 @@
         });
         return { ready: true, enabled: true, mechanisms: mechs,
                  hours: q.hours || null };
+      },
+      // Q-07 (VMQ-Q0, 2026-11-27): «Поле допустимых фокусов» — read-only
+      // проекция аддитивного `random.field` из /api/status. Шесть честных
+      // состояний (`no_data`, `insufficient_history`, `baseline_uncalibrated`,
+      // `ok_blind`, `ok_anomaly`, `unavailable`); без процентов без
+      // знаменателя и без «силы»: счётчики, z-порог и ярлык вида.
+      _quantumFieldView: function (f) {
+        if (!f || !f.ready) {
+          return { uiState: 'unavailable', windowDays: 30,
+                   lines: ['Поле недоступно — данные журнала не прочитаны'] };
+        }
+        var kindRu = { attractor: 'притяжение', void: 'разрежение',
+                       power: 'сильнейшая', blind: 'слепое пятно' };
+        var primary = f.primary || {};
+        var lines = [];
+        var observations = primary.observations || 0;
+        lines.push('Наблюдений ' + observations +
+                   ' · ячеек ' + (primary.cells || 0) +
+                   ' · карт ' + (f.maps || 0));
+        var state = primary.state || 'no_data';
+        var kind = primary.anomaly_kind || 'none';
+        var threshold = primary.null_quantile;
+        var uiState = 'no_data';
+        if (state === 'ok' && kind === 'blind') {
+          uiState = 'ok_blind';
+          lines.push('Состояние: норма · порог нулевой модели ' +
+                     threshold + ' · аномалий 0');
+        } else if (state === 'ok') {
+          uiState = 'ok_anomaly';
+          var strongest = (primary.top_cells || [])[0] || null;
+          var head = 'Аномалия: ' + (kindRu[kind] || kind) + ' (' + kind + ')';
+          if (strongest && strongest.ref) {
+            head += ' · сильнейшая ячейка ' + strongest.ref;
+          }
+          lines.push(head);
+          var direction = primary.power_direction
+            ? ' (' + (kindRu[primary.power_direction] ||
+                      primary.power_direction) + ')'
+            : '';
+          lines.push('отклонение ' + primary.anomaly_score +
+                     ' при пороге ' + threshold + direction +
+                     ' · аномалий за порогом: ' +
+                     (primary.qualifying_cells || 0));
+        } else if (state === 'insufficient_history') {
+          uiState = 'insufficient_history';
+          lines.push('Мало истории: ожидаемое на ячейку меньше 5 — '
+                     + 'нулевая модель не применяется');
+        } else if (state === 'baseline_uncalibrated') {
+          uiState = 'baseline_uncalibrated';
+          lines.push('Нулевая модель не рассчитана — аномалия не оценивается');
+        } else if (observations === 0) {
+          uiState = 'no_data';
+          lines.push('Нет наблюдений в окне — аномалия не оценивается');
+        } else {
+          uiState = 'no_data';
+          lines.push('Нет данных для оценки — аномалия не оценивается');
+        }
+        return { uiState: uiState,
+                 windowDays: f.window_days || 30, lines: lines };
       },
       _randomSourceView: function (r) {
         if (!r) return { ready: false, enabled: false, quantum: false,
