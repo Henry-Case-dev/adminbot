@@ -5,3 +5,6 @@ pairs with other changes: 0
 files in commit: 29
 VERSION-ONLY BUMP: OK (34 pairs / 29 files)
 APP_VERSION: 2.58.259
+settings_py_identical_to_bump = True
+bump_set_files_touched_since_bump = []
+pin_set_expanded = False

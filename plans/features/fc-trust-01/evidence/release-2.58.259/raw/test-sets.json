@@ -1,5 +1,35 @@
 {
-  "acceptance": [
+  "vmq_new": [
+    "tests/test_vmq_oldrow_person_delivery.py"
+  ],
+  "vmq_impacted": [
+    "tests/test_vmq_mem_period_intent.py",
+    "tests/test_vmq_mem07_oldrow_reservation.py",
+    "tests/test_vmq_mem_slice_b.py",
+    "tests/test_vmq_mem_slice_c.py",
+    "tests/test_vmq_mem_slice_d.py",
+    "tests/test_p0_memory_relevance_r1.py",
+    "tests/test_mem_time_profile.py",
+    "tests/test_mem_time_policy.py",
+    "tests/test_mem_time_asof.py",
+    "tests/test_mem_time_l1_scope.py",
+    "tests/test_mem_time_natural_scenarios.py"
+  ],
+  "vmq_consumers": [
+    "tests/test_direct_chat.py",
+    "tests/test_ur_c_3_real_fts.py",
+    "tests/test_memory_unified_retrieval.py",
+    "tests/test_memory_unified_retrieval_06.py",
+    "tests/test_p0_memory_relevance.py",
+    "tests/test_p0_memory_relevance_r2.py",
+    "tests/test_vmq_mem_retrieval_fixes.py",
+    "tests/test_vmq_mem_rc3_period_slots.py",
+    "tests/test_memory_period_vector_leg.py",
+    "tests/test_mca18_memory_subject_block_b_round1042.py",
+    "tests/test_memory_attribution.py",
+    "tests/test_mca07_retrieval_context_round1027.py"
+  ],
+  "s3_acceptance": [
     "tests/test_factcheck_planner_cfg06.py",
     "tests/test_factcheck_p0_fc.py",
     "tests/test_factcheck_resources.py",
@@ -13,7 +43,7 @@
     "tests/test_fc_backend_corrective.py",
     "tests/test_factcheck_service.py"
   ],
-  "broad": [
+  "s3_broad": [
     "tests/factcheck_acceptance/test_s17_subject_acceptance.py",
     "tests/test_asap8_v6_p1_d10_temporal.py",
     "tests/test_bgs01_factcheck_no_name_strip.py",

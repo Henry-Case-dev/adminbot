@@ -1,5 +1,4 @@
-# 12-file contract acceptance set (§3/§8)
-# files: tests/test_factcheck_planner_cfg06.py tests/test_factcheck_p0_fc.py tests/test_factcheck_resources.py tests/test_evol_fc_evidence_style.py tests/test_search_aggregator.py tests/test_search_short_tokens.py tests/test_search_source_dates.py tests/test_unified_reply_ur_b_search_first.py tests/test_ur_search_first.py tests/test_evol_evidence_routing.py tests/test_fc_backend_corrective.py tests/test_factcheck_service.py
+# FCT-S3 contract acceptance (12 files)
 
 ........................................................................ [ 18%]
 ........................................................................ [ 36%]
@@ -13,4 +12,4 @@ tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_aft
     with DDGS(timeout=int(max(1.0, timeout))) as ddgs:
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-399 passed, 1 warning in 24.29s
+399 passed, 1 warning in 19.71s

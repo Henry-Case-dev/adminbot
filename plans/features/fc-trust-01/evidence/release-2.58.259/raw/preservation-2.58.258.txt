@@ -1,11 +1,11 @@
-# 2.58.258 (UR-BAN-02) preservation check
-direct_execution.py blob @ release tip = f138c7a737036a7cb30e354722019ba38d5c1cb3
-direct_execution.py blob @ base 886d11073  = f138c7a737036a7cb30e354722019ba38d5c1cb3
+# 2.58.258 (UR-BAN-02) preservation
+direct_execution.py blob @ release tip          = f138c7a737036a7cb30e354722019ba38d5c1cb3
+direct_execution.py blob @ base 886d11073          = f138c7a737036a7cb30e354722019ba38d5c1cb3
 direct_execution.py blob @ 9516c9125 (2.58.257) = c77f127f976b7cb66e1ba326e4396e358a1f978e
 identical_to_deployed_base = True
 differs_from_2.58.257      = True
 
-# UR-BAN-02 physical step bound markers still present
+# UR-BAN-02 markers still present
 ``window_tokens`` (:func:`orchestrator_budget_for_window`) плюс жёсткие
 def orchestrator_budget_for_window(window_tokens: int) -> OrchestratorBudget:
 limits = orchestrator_budget_for_window(window)
@@ -17,5 +17,6 @@ max_steps = explicit_steps or safety_steps
 # routes.py (2.58.258 carrier) unchanged
 routes_byte_identical_to_base = True
 
-# Version-only bump proves no service file reverted
-bump_commit_only_touched = config settings.py + param registry meta + 25 tests + 2 tools
+# FCT-S3 product bytes preserved after VMQ cherry-pick
+services/factcheck_planner.py: tip=3099bd9c30c8 s3_candidate=3099bd9c30c8 identical=True
+services/search_aggregator.py: tip=9a708f2c4def s3_candidate=9a708f2c4def identical=True

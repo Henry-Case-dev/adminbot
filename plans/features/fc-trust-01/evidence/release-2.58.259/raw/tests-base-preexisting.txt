@@ -1,8 +1,7 @@
 # Pre-existing red reproduction on deployed base 886d11073 (2.58.258)
-# base worktree HEAD = 886d11073
-# The SAME 17 node ids fail here as in the release run -> not caused by FCT-S3.
+# The SAME node ids must fail here as in the release run -> not caused by this release.
 
-===== PINS (6 node ids) on base 886d11073 =====
+===== S3-PINS (6 node ids) on base 886d11073 =====
 FFFFFF                                                                   [100%]
 ================================== FAILURES ===================================
 _____________________ test_no_ddl_catalog_ks_tools_delta ______________________
@@ -72,7 +71,7 @@ E            +  where 49 = int(49)
 tests\test_mca17c_invariants_round1047.py:120: AssertionError
 _________________ TestBounds.test_forbidden_paths_out_of_diff _________________
 
-self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x0000023A1027E5D0>
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x000001E0D1C48110>
 
     def test_forbidden_paths_out_of_diff(self):
         names = self._diff_names()
@@ -327,12 +326,12 @@ self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x0000023A102
                                              "web/api/mechanism_diagnostics.py"))
                        for n in names)
 E       assert not True
-E        +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x0000023A102DF440>)
+E        +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x000001E0D28D3440>)
 
 tests\test_tool_coordinator_round1026.py:581: AssertionError
 _____________________ TestBounds.test_canon_twelve_tools ______________________
 
-self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x0000023A1027F260>
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x000001E0D2872FC0>
 
     def test_canon_twelve_tools(self):
         # A2 (ADR-1026-15 D5): канон 10 → 11 (+fetch_article);
@@ -348,7 +347,7 @@ E        +  where 18 = len([{'type': 'function', 'function': {'name': 'query_cha
 tests\test_tool_coordinator_round1026.py:911: AssertionError
 _________________ TestToolDescriptionU21.test_canon_unchanged _________________
 
-self = <tests.test_unified_image_request_round1026.TestToolDescriptionU21 object at 0x0000023A1027E9F0>
+self = <tests.test_unified_image_request_round1026.TestToolDescriptionU21 object at 0x000001E0D2872CF0>
 
     def test_canon_unchanged(self):
         # A6 (ADR-1026-18 D1): канон 11 → 12 (+get_user_context, в хвост).
@@ -368,7 +367,7 @@ E         Use -v to get more diff
 tests\test_unified_image_request_round1026.py:410: AssertionError
 __________ TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline __________
 
-self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x0000023A102C4170>
+self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x000001E0D289FE30>
 
     def test_forbidden_paths_out_of_diff_vs_baseline(self):
         forbidden = [
@@ -598,12 +597,12 @@ self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x0000
                                               ))
                        for ln in self._diff_names())
 E       assert not True
-E        +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x0000023A10830E10>)
+E        +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x000001E0D2E30E10>)
 
 tests\test_unified_image_request_round1026.py:703: AssertionError
 ____________________ TestInvariants.test_secrets_count_28 _____________________
 
-self = <tests.test_webapp_f9_round1025.TestInvariants object at 0x0000023A102C5550>
+self = <tests.test_webapp_f9_round1025.TestInvariants object at 0x000001E0D28B9190>
 
     def test_secrets_count_28(self):
         # 20 category=keys (UI) + 8 env-only infra — состав НЕ изменён.
@@ -623,9 +622,9 @@ FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_t
 FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
 FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
 FAILED tests/test_webapp_f9_round1025.py::TestInvariants::test_secrets_count_28
-6 failed in 11.75s
+6 failed in 9.66s
 
-===== BROAD (2 node ids) on base 886d11073 =====
+===== S3-BROAD (2 node ids) on base 886d11073 =====
 FF                                                                       [100%]
 ================================== FAILURES ===================================
 _________________ test_write_points_go_through_single_writer __________________
@@ -868,7 +867,7 @@ E         Use -v to get more diff
 tests\test_mca01_tx_task_supervisor_round1027.py:1079: AssertionError
 ___ TestValidatorStage.test_evidence_injection_stays_data_not_instructions ____
 
-self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000001F26D92D610>
+self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x0000021A790856D0>
 
     @pytest.mark.asyncio
     async def test_evidence_injection_stays_data_not_instructions(self):
@@ -888,21 +887,21 @@ self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000001F26D
         assert v_user.count("<evidence>") == 1
         assert v_user.count("</evidence>") == 1
 >       assert "&lt;/evidence&gt;" in v_user
-E       assert '&lt;/evidence&gt;' in '<claim>в 2022 году ввели новый налог</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 27.11.2026 17:30, Пятница (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-27T12:30:20+00:00\n</Chat_Time_Context>'
+E       assert '&lt;/evidence&gt;' in '<claim>в 2022 году ввели новый налог</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 27.11.2026 17:48, Пятница (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-27T12:48:18+00:00\n</Chat_Time_Context>'
 
 tests\test_mca20_rework1_f1_f2.py:253: AssertionError
 =========================== short test summary info ===========================
 FAILED tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
 FAILED tests/test_mca20_rework1_f1_f2.py::TestValidatorStage::test_evidence_injection_stays_data_not_instructions
-2 failed in 8.14s
+2 failed in 7.45s
 
-===== ADJACENT (9 node ids) on base 886d11073 =====
+===== S3-ADJACENT (9 node ids) on base 886d11073 =====
 FFFFFFFFF                                                                [100%]
 ================================== FAILURES ===================================
 ___________ TestStaleSummary.test_lag400_middle_topk_under_pressure ___________
 
-self = <tests.test_direct_context_scenarios_asap3.TestStaleSummary object at 0x00000168C8DC2270>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000168BD57C560>
+self = <tests.test_direct_context_scenarios_asap3.TestStaleSummary object at 0x0000029C221361B0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000029C168DC8C0>
 
     @pytest.mark.asyncio
     async def test_lag400_middle_topk_under_pressure(self, monkeypatch):
@@ -1042,7 +1041,7 @@ tests\test_direct_fallback_recompose_asap32.py:141: LLMError
 
 During handling of the above exception, another exception occurred:
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x00000168C8DC1BB0>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x0000029C22137E90>
 
     @pytest.mark.asyncio
     async def test_chat_recomposed_under_fallback_budget_tools_kept(self):
@@ -1069,13 +1068,13 @@ self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose ob
 tests\test_direct_fallback_recompose_asap32.py:150: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <services.llm_client.LLMClient object at 0x00000168C9BB1250>
+self = <services.llm_client.LLMClient object at 0x0000029C22A31E20>
 messages = [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': 'user', 'content': 'сообщение контекста с д...ие контекста с достаточным наполнением сообщение контекста с достаточным наполнением сообщение контекста с дост'}, ...]
 temperature = None
 tools = [{'type': 'function', 'function': {'name': 'tool_0', 'description': 'Инструмент с длинным описанием контракта. Инструм...{'type': 'object', 'properties': {'query': {'type': 'string', 'description': 'поисковый запрос пользователя'}}}}}, ...]
 tool_choice = 'auto', chat_id = 1, module = None, step = None
 correlation_id = None, tool_name = ''
-fallback_payload_adapter = <function _recompose_adapter.<locals>._adapt at 0x00000168C9B03560>
+fallback_payload_adapter = <function _recompose_adapter.<locals>._adapt at 0x0000029C229D4720>
 max_output_tokens = None
 
     async def generate_chat(self, messages, *, temperature: float | None = None,
@@ -1216,7 +1215,7 @@ tests\test_direct_fallback_recompose_asap32.py:179: LLMError
 
 During handling of the above exception, another exception occurred:
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x00000168C8DC3CB0>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x0000029C22160440>
 
     @pytest.mark.asyncio
     async def test_chat_no_adapter_primary_sized_payload_fallback(self):
@@ -1238,7 +1237,7 @@ self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose ob
 tests\test_direct_fallback_recompose_asap32.py:187: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <services.llm_client.LLMClient object at 0x00000168C9BB2C90>
+self = <services.llm_client.LLMClient object at 0x0000029C22A33F50>
 messages = [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': 'user', 'content': 'сообщение контекста с д...ие контекста с достаточным наполнением сообщение контекста с достаточным наполнением сообщение контекста с дост'}, ...]
 temperature = None, tools = None, tool_choice = 'auto', chat_id = 1
 module = None, step = None, correlation_id = None, tool_name = ''
@@ -1370,8 +1369,8 @@ WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer un
 WARNING  services.llm_client:llm_client.py:2855 LLM fallback attempt | primary_error=primary down | provider=fallback.example
 _ TestGenerateChatRecompose.test_chat_adapter_failure_loud_oversized_diagnostic _
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x00000168C8DF87A0>
-caplog = <_pytest.logging.LogCaptureFixture object at 0x00000168C9BB67B0>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x0000029C221609B0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000029C22A30F50>
 
     @pytest.mark.asyncio
     async def test_chat_adapter_failure_loud_oversized_diagnostic(
@@ -1442,8 +1441,8 @@ Traceback (most recent call last):
 RuntimeError: boom
 _ TestGenerateStrengthenedDiagnostics.test_generate_adapter_error_loud_and_payload_intact _
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x00000168C8DF8DA0>
-caplog = <_pytest.logging.LogCaptureFixture object at 0x00000168C9BB5B80>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x0000029C22160F80>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000029C22B46930>
 
     @pytest.mark.asyncio
     async def test_generate_adapter_error_loud_and_payload_intact(
@@ -1516,8 +1515,8 @@ Traceback (most recent call last):
 RuntimeError: boom
 _ TestGenerateStrengthenedDiagnostics.test_generate_adapter_invalid_shape_loud _
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x00000168C8DF93A0>
-caplog = <_pytest.logging.LogCaptureFixture object at 0x00000168C9BB4410>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x0000029C22161580>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000029C169D3B60>
 
     @pytest.mark.asyncio
     async def test_generate_adapter_invalid_shape_loud(self, caplog):
@@ -1574,14 +1573,14 @@ ______________ test_build_l1_context_bot_replies_caps_and_limit _______________
         assert len(body_lines) == 3                    # максимум 3 строки
 >       assert all(len(ln) <= _l1.L1_REPLY_BLOCK_CHARS for ln in body_lines)
 E       assert False
-E        +  where False = all(<generator object test_build_l1_context_bot_replies_caps_and_limit.<locals>.<genexpr> at 0x00000168CEDCB1D0>)
+E        +  where False = all(<generator object test_build_l1_context_bot_replies_caps_and_limit.<locals>.<genexpr> at 0x0000029C24149FF0>)
 
 tests\test_direct_l1_corrective_r1.py:247: AssertionError
 _ TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code _
 
-self = <tests.test_selfdiag_corrective_research.TestContinuationContext object at 0x00000168C8E9A360>
-tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1714/test_continuation_plan_uses_re0')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000168C9BB5760>
+self = <tests.test_selfdiag_corrective_research.TestContinuationContext object at 0x0000029C22214470>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1722/test_continuation_plan_uses_re0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000029C23054EC0>
 
     @pytest.mark.asyncio
     async def test_continuation_plan_uses_real_ledger_report_and_reads_code(
@@ -1681,9 +1680,9 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000168C9BB5760>
 tests\test_selfdiag_corrective_research.py:719: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <tests.test_selfdiag_corrective_research.TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code.<locals>._Stub object at 0x00000168CACD7CB0>
+self = <tests.test_selfdiag_corrective_research.TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code.<locals>._Stub object at 0x0000029C22D3D040>
 chat_id = -1009876543210
-message = <tests.test_selfdiag_corrective_research.M object at 0x00000168CACD7530>
+message = <tests.test_selfdiag_corrective_research.M object at 0x0000029C22B7F5F0>
 query = 'продолжай разбор', correlation_id = None, bundle = None
 target_name = 'Аня', user_id = 7000001, character_block = ''
 lore_enabled = False, image_enabled = False, reply_bot = True
@@ -1776,7 +1775,7 @@ services\direct_chat_service.py:9017: TypeError
 warning: in the working copy of 'services/checkup_service.py', LF will be replaced by CRLF the next time Git touches it
 _________ test_direct_l1_addendum_and_outage_keeps_previous_decision __________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000168C9A4FC80>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000029C23057A70>
 
     @pytest.mark.asyncio
     async def test_direct_l1_addendum_and_outage_keeps_previous_decision(
@@ -1858,9 +1857,9 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000168C9A4FC80>
 tests\test_selfdiag_corrective_research.py:1151: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <tests.test_selfdiag_corrective_research.test_direct_l1_addendum_and_outage_keeps_previous_decision.<locals>._Stub object at 0x00000168C9BB77D0>
+self = <tests.test_selfdiag_corrective_research.test_direct_l1_addendum_and_outage_keeps_previous_decision.<locals>._Stub object at 0x0000029C22B46C30>
 chat_id = -1009876543210
-message = <tests.test_selfdiag_corrective_research.M object at 0x00000168C9BB5B50>
+message = <tests.test_selfdiag_corrective_research.M object at 0x0000029C2311FC20>
 query = 'продолжи разбор', correlation_id = None, bundle = None
 target_name = 'Аня', user_id = None, character_block = '', lore_enabled = False
 image_enabled = False, reply_bot = False, force_required = False
@@ -1959,4 +1958,160 @@ FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedD
 FAILED tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit
 FAILED tests/test_selfdiag_corrective_research.py::TestContinuationContext::test_continuation_plan_uses_real_ledger_report_and_reads_code
 FAILED tests/test_selfdiag_corrective_research.py::test_direct_l1_addendum_and_outage_keeps_previous_decision
-9 failed in 10.41s
+9 failed in 8.18s
+
+===== VMQ (4 node ids) on base 886d11073 =====
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+_ TestHistoricalMeaningSelection.test_quota_is_bounded_by_slots_and_never_adds_current_year _
+
+self = <tests.test_vmq_mem_slice_b.TestHistoricalMeaningSelection object at 0x00000221F017CAA0>
+
+    def test_quota_is_bounded_by_slots_and_never_adds_current_year(self):
+        pool = [_row(1, "шизы конфе", year=2024),
+                _row(2, "шиза конфе", year=2023),
+                _row(3, "шиза конфе", year=2022),
+                _row(4, "шиза конфе", year=2026)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query=OWNER_CREATIVE, policy="auto", slots=2,
+            reference_year=2026)
+        years = [mrc.period_row_year(row) for row in accepted]
+>       assert len(accepted) <= 2
+E       AssertionError: assert 4 <= 2
+E        +  where 4 = len([{'id': 1, 'fact': 'шизы конфе', 'origin': 'history_import', 'status': 'confirmed', ...}, {'id': 2, 'fact': 'шиза конф..., 'status': 'confirmed', ...}, {'id': 4, 'fact': 'шиза конфе', 'origin': 'history_import', 'status': 'confirmed', ...}])
+
+tests\test_vmq_mem_slice_b.py:140: AssertionError
+_ TestPlanScopeReachesRagBlock.test_historical_plan_rebuilds_block_with_plan_scope _
+
+self = <tests.test_mem_time_l1_scope.TestPlanScopeReachesRagBlock object at 0x00000221EFE71160>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000221F01B1A60>
+
+    @pytest.mark.asyncio
+    async def test_historical_plan_rebuilds_block_with_plan_scope(self,
+                                                                 monkeypatch):
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        plan = _plan(memory_scope="historical")
+        blocks = ["<Global_Context>фон</Global_Context>",
+                  "<RAG_Memory>auto</RAG_Memory>"]
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+>       assert calls == [{"scope": "historical", "name": "Aleksey", "uid": 7}]
+E       AssertionError: assert [] == [{'scope': 'h...y', 'uid': 7}]
+E         
+E         Right contains one more item: {'scope': 'historical', 'name': 'Aleksey', 'uid': 7}
+E         Use -v to get more diff
+
+tests\test_mem_time_l1_scope.py:301: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:18676 direct: rag rescope failed — keep auto block | policy=historical
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18658, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18666, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18672, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+_______ TestPlanScopeReachesRagBlock.test_operative_plan_narrows_block ________
+
+self = <tests.test_mem_time_l1_scope.TestPlanScopeReachesRagBlock object at 0x00000221EFE71790>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000221F025FEF0>
+
+    @pytest.mark.asyncio
+    async def test_operative_plan_narrows_block(self, monkeypatch):
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        plan = _plan(memory_scope="operative")
+        blocks = ["<RAG_Memory>auto</RAG_Memory>", "<Target_User>U1</Target_User>"]
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+>       assert calls and calls[0]["scope"] == "operative"
+E       assert ([])
+
+tests\test_mem_time_l1_scope.py:312: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:18676 direct: rag rescope failed — keep auto block | policy=operative
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18658, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18666, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18672, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+___ TestPlanScopeReachesRagBlock.test_t16_research_plan_rebuilds_rag_block ____
+
+self = <tests.test_mem_time_l1_scope.TestPlanScopeReachesRagBlock object at 0x00000221EFE73950>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000221F025EC00>
+
+    @pytest.mark.asyncio
+    async def test_t16_research_plan_rebuilds_rag_block(self, monkeypatch):
+        """TIME-03 §4.1: существующий L1-сигнал `research` разрешает
+        пересборку `<RAG_Memory>` тем же чтением (не historical-режим)."""
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        blocks = ["<Global_Context>фон</Global_Context>",
+                  "<RAG_Memory>auto</RAG_Memory>"]
+        plan = _plan(memory_scope="auto", response_act="research")
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+>       assert calls == [{"scope": "auto", "name": "Aleksey", "uid": 7}]
+E       AssertionError: assert [] == [{'scope': 'a...y', 'uid': 7}]
+E         
+E         Right contains one more item: {'scope': 'auto', 'name': 'Aleksey', 'uid': 7}
+E         Use -v to get more diff
+
+tests\test_mem_time_l1_scope.py:348: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:18676 direct: rag rescope failed — keep auto block | policy=auto
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18658, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18666, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\ur-ban02-release-d0268de5d9b5-b1e09b9c\services\direct_chat_service.py", line 18672, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::test_quota_is_bounded_by_slots_and_never_adds_current_year
+FAILED tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_historical_plan_rebuilds_block_with_plan_scope
+FAILED tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_operative_plan_narrows_block
+FAILED tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_t16_research_plan_rebuilds_rag_block
+4 failed in 3.64s

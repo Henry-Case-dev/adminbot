@@ -1,11 +1,10 @@
 {
-  "deployed_at": "2026-11-27T12:30:32.679415Z",
-  "deployed_sha": "baab52324943fa55e69378fe405b43f77a94e47a",
+  "deployed_at": "2026-11-27T12:52:04.899529Z",
+  "deployed_sha": "bca5563be764dd3999b0cced9011e1e945bd9c0f",
   "dirty_tracked": false,
   "effect": "deploy",
   "previous_sha": "886d11073cfdaa4646597c3a2b1ae09fde42c342",
   "previous_version": "2.58.258",
-  "release_branch": "release/fct-s3-2.58.259",
   "schema": 1,
   "version": "2.58.259"
 }

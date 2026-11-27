@@ -1,5 +1,4 @@
-# 44 test modules importing factcheck_planner/search_aggregator
-# files: tests/factcheck_acceptance/test_s17_subject_acceptance.py tests/test_asap8_v6_p1_d10_temporal.py tests/test_bgs01_factcheck_no_name_strip.py tests/test_caps_tool_results.py tests/test_cfg07_egress_dictionary.py tests/test_evol_evidence_routing.py tests/test_evol_factcheck_critical.py tests/test_evol_fc_admission.py tests/test_evol_fc_evidence_style.py tests/test_evol_w17_small_canon_reqs.py tests/test_factcheck_evidence_delivery.py tests/test_factcheck_fc_r1_fix.py tests/test_factcheck_finalization.py tests/test_factcheck_handlers.py tests/test_factcheck_orchestrator_cfg06.py tests/test_factcheck_p0_fc.py tests/test_factcheck_planner_cfg06.py tests/test_factcheck_post_release_w1.py tests/test_factcheck_post_release_w2.py tests/test_factcheck_resources.py tests/test_factcheck_service.py tests/test_factcheck_subject_contract.py tests/test_factcheck_w6_cfg06.py tests/test_factcheck_w7_acceptance_cfg06.py tests/test_fc_backend_corrective.py tests/test_fc_trust_retrieval.py tests/test_hot_migration.py tests/test_mca01_tx_task_supervisor_round1027.py tests/test_mca17_perimeter_events.py tests/test_mca20_integration_round1045.py tests/test_mca20_rework1_f1_f2.py tests/test_mca20_temporal_round1044.py tests/test_mem_time_policy.py tests/test_rc_target_media_evidence.py tests/test_rlr_acceptance_rows.py tests/test_search_aggregator.py tests/test_search_short_tokens.py tests/test_search_source_dates.py tests/test_smartsearch_handlers.py tests/test_smartsearch_service.py tests/test_tool_router.py tests/test_unified_reply_ur_b_search_first.py tests/test_web_content_extractor.py tests/test_youtube_transcript_engine.py
+# 44 S3 consumer modules
 
 ........................................................................ [  5%]
 ........................................................................ [ 10%]
@@ -252,9 +251,9 @@ E       assert {'chat_migrat...e.py': 1, ...} == {'database.py...n.py': 4, ...}
 E         
 E         Omitting 6 identical items, use -vv to show
 E         Differing items:
-E         {'database.py': 235} != {'database.py': 207}
-E         {'memory_maintenance.py': 3} != {'memory_maintenance.py': 1}
 E         {'summary_memory.py': 15} != {'summary_memory.py': 13}
+E         {'memory_maintenance.py': 3} != {'memory_maintenance.py': 1}
+E         {'database.py': 235} != {'database.py': 207}
 E         Left contains 2 more items:
 E         {'meme_initiative.py': 1, 'prompt_release_policy.py': 1}
 E         Use -v to get more diff
@@ -262,7 +261,7 @@ E         Use -v to get more diff
 tests\test_mca01_tx_task_supervisor_round1027.py:1079: AssertionError
 ___ TestValidatorStage.test_evidence_injection_stays_data_not_instructions ____
 
-self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000001D0418D63F0>
+self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000001A71F5DE630>
 
     @pytest.mark.asyncio
     async def test_evidence_injection_stays_data_not_instructions(self):
@@ -282,7 +281,7 @@ self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000001D041
         assert v_user.count("<evidence>") == 1
         assert v_user.count("</evidence>") == 1
 >       assert "&lt;/evidence&gt;" in v_user
-E       assert '&lt;/evidence&gt;' in '<claim>в 2022 году ввели новый налог</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 27.11.2026 17:26, Пятница (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-27T12:26:05+00:00\n</Chat_Time_Context>'
+E       assert '&lt;/evidence&gt;' in '<claim>в 2022 году ввели новый налог</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 27.11.2026 17:43, Пятница (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-27T12:43:08+00:00\n</Chat_Time_Context>'
 
 tests\test_mca20_rework1_f1_f2.py:253: AssertionError
 ============================== warnings summary ===============================
@@ -294,6 +293,6 @@ tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_aft
 =========================== short test summary info ===========================
 FAILED tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
 FAILED tests/test_mca20_rework1_f1_f2.py::TestValidatorStage::test_evidence_injection_stays_data_not_instructions
-2 failed, 1392 passed, 1 warning in 85.13s (0:01:25)
+2 failed, 1392 passed, 1 warning in 85.71s (0:01:25)
 
 WARNING: closed 2 leaked aiosqlite connection(s)

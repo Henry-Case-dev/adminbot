@@ -1,68 +1,80 @@
-# Release 2.58.259 — FCT-S3-RETRIEVAL (retrieval-контракт S3: якоря, типизированная секция кандидатов, структурные даты провайдера, точные коды исхода)
+# Release 2.58.259 — FCT-S3-RETRIEVAL + VMQ P-OLDROW (два reviewed-кандидата одним релизом)
 
 - **Дата сборки:** 2026-11-27
 - **Роль:** Builder (сборка релиза, **без деплоя**)
-- **Основание:** независимое ревью среза FCT-S3 **r2 APPROVED** (`review cc774ec0…`),
-  находка F6 закрыта тестом `40866af41` (test-only).
+- **Основание:** два независимо одобренных кандидата; файлы не пересекаются.
+  - FCT-S3-RETRIEVAL — review **r2 APPROVED** (`cc774ec0…`), F6 закрыт тестом.
+  - VMQ P-OLDROW — review **r2 APPROVED_FOR_RELEASE_PREPARATION** (`3fb377d3…`).
 - **База (deployed):** `886d11073cfdaa4646597c3a2b1ae09fde42c342` = **2.58.258** (UR-BAN-02)
-- **Ветка:** `release/fct-s3-2.58.259`
-- **Кандидат (reviewed):** `2c811d98b7257810c2fef5b61ce7b416798ccb40` (`feat/fct-s3-retrieval`, r2 APPROVED)
-- **F6-тест:** `40866af418cab7f18e29a234444cf229f0561810` (только `tests/test_fc_trust_retrieval.py`, продукт не меняет)
-- **Feature tip:** `d12263f35d2fafe2be4e43bfc89a7bd684b1f7e5`
-- **Tip релиза (bump):** `baab52324943fa55e69378fe405b43f77a94e47a`
-- **Tree релиза (bump):** `211c75fca22a4d0d805cdbd1ff211e8657d7a1ee`
-- **Контракт:** `plans/features/fc-trust-01/evidence/fct-s3-s4-contract-2026-11-27.md`,
-  sha256 `adb3bc325c4c4048d79d16b62f5b47c941a356ab4ee1c7b7953a5f3050630190` — совпадает.
+- **Ветка:** `release/fct-s3-2.58.259` (содержит оба среза)
+- **Tip релиза (продуктовый):** `bca5563be764dd3999b0cced9011e1e945bd9c0f`
+- **Tree:** `dd2bd55cfc6ca9b91d643cb6c52541872fab694b`
 - **Статус:** ASSEMBLED, не деплоился. Деплой — DevOps/Orchestrator.
 
-> Evidence-коммит идёт отдельной поверхностью (`plans/` only, прецедент
-> `release-2.58.258`). Продуктовые байты от него не меняются — проверяется
-> `git diff baab52324..<tip> -- services/` = пусто. Поэтому manifest dry-run
-> снят на `baab52324`, а боевой манифест DevOps пишет на сервере по фактическому HEAD.
+## 1. Кандидаты
 
-## 1. Состав релиза
+| # | Срез | Кандидат (reviewed) | Ветка | Контракт | Ревью |
+|---|---|---|---|---|---|
+| 1 | FCT-S3-RETRIEVAL | `2c811d98b7257810c2fef5b61ce7b416798ccb40` (+ F6-тест `40866af41`) | `feat/fct-s3-retrieval` (tip `d12263f35`) | `fct-s3-s4-contract-2026-11-27.md` sha256 `adb3bc325c4c4048d79d16b62f5b47c941a356ab4ee1c7b7953a5f3050630190` | r2 APPROVED |
+| 2 | VMQ P-OLDROW | `77350314752882da1c718e20fa14d5484c42adb2` | `fix/vmq-oldrow` | `vmq-mem/selector-rootcause-2026-11-27.md` sha256 `bcce78bb31cec83f703031270af3a52ec2eb30a9a7421e726e45f0297b2e50fc` | r2 APPROVED_FOR_RELEASE_PREPARATION |
 
-База `886d11073` **не является предком** кандидата: feature-ветка отведена от
-`9516c9125` (2.58.257), а 2.58.258 стоит на нём же. Поэтому перенос сделан
-cherry-pick'ом шести reviewed-коммитов (`-x`, provenance сохранён) поверх
-`886d11073`, **без единого конфликта**:
+История ветки релиза:
 
 ```
-4c4c41301 feat(fct-s3): retrieval contract S3 — anchors, typed candidate section, ...
-090361c22 docs(fct-s3): implementation evidence — RED/GREEN, 18 mutations, ...
-e813ae11c fix(fct-s3): technical claim outcome outranks empty/irrelevant ... (review F1)
-00c4dbfcf docs(fct-s3): corrective F1 evidence ...
-b06af5193 test(fct-s3): distinguishing seam test ... (review r2 F6)
-bb3c958fb docs(fct-s3): F6 evidence — seam test, M-F1-R1 killed, GREEN 56/391
+bca5563be fix(vmq-mem): P-OLDROW F1 — subject_scope не замещает базовый срез   [cherry-pick -x]
+b8081dbbc feat(vmq-mem): P-OLDROW — старший subject-bound период доходит до Writer
+55167ddcf chore(release): 2.58.259 assembly evidence (FCT-S3 retrieval)
+baab52324 chore(release): 2.58.259 - bump APP_VERSION and version pins (FCT-S3 retrieval)
+bb3c958fb … 4c4c41301  (6 reviewed-коммитов FCT-S3, cherry-pick -x)
+886d11073 chore(release): 2.58.258 assembly evidence (UR-BAN-02)   ← deployed base
 ```
 
-Сверху — один version-only bump-коммит `baab52324`.
+Оба переноса — `cherry-pick -x`, **без единого конфликта**: feature-ветки отведены от
+`9516c9125` (2.58.257), а все затрагиваемые ими файлы байт-идентичны этой точке
+(проверено до переноса).
 
-**Байтовая идентичность reviewed-кода (доказано, `raw/product-delta.txt`):**
+## 2. Байтовая идентичность reviewed-кода (доказано)
 
-| Файл | release tip blob | candidate `2c811d98` | feature tip | identical |
-|---|---|---|---|---|
-| `services/factcheck_planner.py` | `3099bd9c30c8…` | `3099bd9c30c8…` | `3099bd9c30c8…` | **True** |
-| `services/search_aggregator.py` | `9a708f2c4def…` | `9a708f2c4def…` | `9a708f2c4def…` | **True** |
+`raw/product-delta.txt`, `BYTE_IDENTICAL_ALL = True`:
 
-**Нулевые изменения (как требует контракт):**
-`services/safe_fetch.py` = `7e7cf0a505a9…`, `services/factcheck_attribution.py` = `bbcedf1b1db0…`
-— байт-идентичны базе.
+| Срез | Файл | release tip blob | candidate blob |
+|---|---|---|---|
+| FCT-S3 | `services/factcheck_planner.py` | `3099bd9c30c8…` | `3099bd9c30c8…` |
+| FCT-S3 | `services/search_aggregator.py` | `9a708f2c4def…` | `9a708f2c4def…` |
+| VMQ | `services/mca_retrieval_context.py` | `1f9bca3cb2a6…` | `1f9bca3cb2a6…` |
+| VMQ | `services/direct_chat_service.py` | `2fbf8ba30e21…` | `2fbf8ba30e21…` |
 
-**Дельта `886d11073..baab52324` (61 файл, `raw/changed-files.txt`):**
+**Носители, которые обязаны остаться нетронутыми (байт-идентичны базе):**
 
-| Категория | Файлы | Суть |
+| Файл | blob | статус |
 |---|---|---|
-| **Продукт** | `services/factcheck_planner.py`, `services/search_aggregator.py` | S3: recall-кандидаты, evidence-профиль с обязательным якорем (`require_anchor=True`), claim-specific passage + провенанс, `basis`/`assertion_type`/`material_role`/`independence_group`/`evidence_version`, структурные даты провайдера, закрытый словарь `stop_reason`/`status_detail`, per-claim проекция `search_text`, распределение открытий, журнал запросов, `is_cancelled`, `coverage_summary`; мягкий recall (low-overlap пак не выбрасывается), `rate_limit` в `_REASON_PRECEDENCE` |
-| Тесты | **6 изменённых + 1 новый** | `test_fc_trust_retrieval.py` (новый, 56 тестов), `test_factcheck_resources.py`, `test_factcheck_fc_r1_fix.py`, `test_factcheck_post_release_w1.py`, `test_factcheck_w7_acceptance_cfg06.py`, `test_evol_fc_evidence_style.py`, `test_fc_backend_corrective.py` |
-| Bump | 29 файлов | 2.58.258 → 2.58.259 (`config/settings.py`, `plans/docs/param-registry-round1025.meta.md`, 25 test-файлов, 2 tools) |
-| Evidence инкремента | `plans/features/fc-trust-01/evidence/fct-s3-implementation-2026-11-27/**` (23 файла) | RED/GREEN, 18 мутаций + F1/F6 |
+| `services/safe_fetch.py` | `7e7cf0a505a9…` | без изменений (контракт S3) |
+| `services/factcheck_attribution.py` | `bbcedf1b1db0…` | без изменений (контракт S3) |
+| `services/direct_execution.py` | `f138c7a73703…` | без изменений (2.58.258 UR-BAN-02) |
+| `web/api/routes.py` | `fa354eb402d0…` | без изменений |
 
-**Не входит:** `web/api/routes.py`, `services/database.py`, `services/pg_db.py`,
-`migrations/`, `services/direct_execution.py`, `services/safe_fetch.py`,
-`services/factcheck_attribution.py`, `web/app.js`, промпты — не менялись (п. 3–5).
+Пересечений между срезами нет: S3 — `factcheck_planner`/`search_aggregator`,
+VMQ — `mca_retrieval_context`/`direct_chat_service`.
 
-## 2. Bump — version-only (доказано)
+## 3. Состав релиза от базы (111 файлов)
+
+`raw/changed-files.txt`:
+
+| Часть | Файлов | Состав |
+|---|---|---|
+| FCT-S3 продукт + тесты + impl-evidence | 32 | `factcheck_planner.py`, `search_aggregator.py`; `test_fc_trust_retrieval.py` (новый, 56 тестов) + **6** изменённых наборов; `fc-trust-01/evidence/fct-s3-implementation-2026-11-27/**` (23) |
+| Bump 2.58.259 | 29 | `config/settings.py`, `param-registry-round1025.meta.md`, 25 test-пинов, 2 tools |
+| S3 release-evidence | 18 | `fc-trust-01/evidence/release-2.58.259/**` (этот пакет) |
+| **VMQ P-OLDROW** | **32** | `mca_retrieval_context.py`, `direct_chat_service.py`; `test_vmq_oldrow_person_delivery.py` (новый, 19) + **3** обновлённых ожидания; `vmq-onto-01/evidence/vmq-mem/oldrow-fix-2026-11-27/**` (26) |
+
+Итого `886d11073..bca5563be` = **111 файлов**, DDL 0.
+
+VMQ обновил ровно три существующих ожидания (со ссылкой на контракт, без снятия тестов):
+`test_vmq_mem_slice_b.py::test_strict_row_is_not_diluted_by_weak_old_year`,
+`test_vmq_mem_slice_d.py::test_a1p_historical_vs_auto`,
+`test_mem_time_policy.py::test_historical_adds_period_channels_and_profile`.
+
+## 4. Bump — version-only, набор не расширился
 
 ```
 raw/bump-verify.txt
@@ -73,40 +85,30 @@ pairs with other changes: 0
 files in commit: 29
 VERSION-ONLY BUMP: OK (34 pairs / 29 files)
 APP_VERSION: 2.58.259
+settings_py_identical_to_bump = True
+bump_set_files_touched_since_bump = []
+pin_set_expanded = False
 ```
 
-- Набор пинов = ровно список файлов предыдущего релизного bump-коммита
-  `50df797da` (2.58.258): 29 файлов / 34 вхождения — те же числа.
-- `config/settings.py`: `APP_VERSION = "2.58.259"` — единственная изменённая строка;
-  **CRLF сохранены** (3665 CRLF, 0 bare LF), иначе файл дал бы 3665-строчный diff.
-- Замена выполнена побайтово (`b"2.58.258"` → `b"2.58.259"`), поэтому окончания
-  строк не затронуты.
-- Провенанс-файлы **намеренно** остаются на 2.58.258:
-  `plans/features/unified-reply/evidence/release-2.58.258/**` (4),
-  `plans/features/unified-reply/evidence/ur-e-accept-2026-11-27/raw/prod-cleanup-verification.txt`.
-- В тестах самого FCT-S3 версионных пинов нет (проверено: `2.58.25\d`/`APP_VERSION`
-  в 7 тест-файлах среза отсутствуют) — расширять pin-набор не требовалось.
+- Bump сделан один раз (на FCT-S3), для VMQ **не повторялся**: версия уже 2.58.259.
+- `config/settings.py` байт-идентичен bump-коммиту; ни один файл пин-набора не
+  менялся после bump → **набор пинов не расширился** (29 файлов / 34 вхождения).
+- CRLF сохранены (3665 CRLF, 0 bare LF) — замена выполнялась побайтово.
 
-## 3. Routes-пин (ROUTES_SHA256_F11) — re-pin не нужен
+## 5. Routes-пин — re-pin не нужен
 
 ```
 raw/routes-pin.txt
-routes_sha256_head=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
-routes_sha256_base_886d11073=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
-routes_byte_identical=True
-ROUTES_SHA256_F11=6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
-pin_matches_head=True
-decision=no re-pin
-pin_test=tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_file_unchanged (29/29 passed)
+routes_sha256_head = routes_sha256_base = 6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+ROUTES_SHA256_F11 = 6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30
+pin_matches_head = True   decision = no re-pin
 ```
 
-`web/api/routes.py` байт-идентичен базе; route-set/inventory Δ=0.
-
-## 4. DDL Δ = 0
+## 6. DDL Δ = 0
 
 ```
 raw/ddl-check.txt
-changed files total: 61
+changed files total: 111
 changed DDL/schema files: []
 services/database.py changed: False
 services/pg_db.py changed: False
@@ -114,90 +116,80 @@ migrations/ changed: False
 {"ddl_delta": 0}
 ```
 
-Прод уже на текущей схеме (выложен 2.58.258) → миграций при деплое нет,
-**rollback code-only безопасен по схеме**.
+→ миграций при деплое нет, **rollback code-only**.
 
-## 5. Сохранение 2.58.258 (UR-BAN-02) — подтверждено
+## 7. Сохранение 2.58.258 (UR-BAN-02) и FCT-S3
 
 ```
 raw/preservation-2.58.258.txt
-direct_execution.py blob @ release tip          = f138c7a737036a7cb30e354722019ba38d5c1cb3
-direct_execution.py blob @ base 886d11073       = f138c7a737036a7cb30e354722019ba38d5c1cb3
-direct_execution.py blob @ 9516c9125 (2.58.257) = c77f127f976b7cb66e1ba326e4396e358a1f978e
-identical_to_deployed_base = True
-differs_from_2.58.257      = True
+direct_execution.py blob: tip = base 886d11073 = f138c7a737036a7cb30e354722019ba38d5c1cb3
+                          (2.58.257 = c77f127f…)  → отличается
 ```
+- Маркеры UR-BAN-02 на месте (`safety_steps = orchestrator_budget_for_window(...).max_steps`,
+  `max_steps = explicit_steps or safety_steps`, `stop_reason="max_steps"`).
+- `routes.py` и `direct_execution.py` — байт-идентичны базе.
+- **FCT-S3 не затронут VMQ-переносом:** `factcheck_planner.py`/`search_aggregator.py`
+  в tip = кандидат `2c811d98` (`identical=True`).
 
-- Маркеры UR-BAN-02 на месте: `safety_steps = orchestrator_budget_for_window(...).max_steps`,
-  `max_steps = explicit_steps or safety_steps`, `stop_reason="max_steps"`.
-- `routes.py` (носитель 2.58.258) байт-идентичен базе.
-- Release **не откатывает** 2.58.258: bump-коммит касается только версии, а весь
-  остальной дельта-набор — файлы FCT-S3 + evidence. `git diff` по `services/`
-  вне двух S3-файлов пуст.
+## 8. Прогоны
 
-## 6. Прогоны
-
-| Набор | Команда (в worktree релиза) | Результат |
+| Набор | Результат | Raw |
 |---|---|---|
-| FCT-S3 срез | `pytest tests/test_fc_trust_retrieval.py -q` | **56 passed** (`raw/tests-slice.txt`) |
-| Контрактные наборы §3/§8 (12 файлов) | `pytest <12 files> -q` | **399 passed** (`raw/tests-acceptance.txt`) |
-| Широкий набор потребителей (44 файла: все, кто импортирует planner/aggregator) | `pytest <44 files> -q` | **1392 passed, 2 failed** — оба предсуществующие (`raw/tests-broad-consumers.txt`) |
-| Пины/реестр (25 файлов) | `pytest <25 files> -q` | **864 passed, 6 failed** — те же 6, что у 2.58.258 на его базе (`raw/tests-pins.txt`) |
-| Смежные контуры (21 файл: direct/self-diag) | `pytest <21 files> -q` | **635 passed, 9 failed** — все предсуществующие (`raw/tests-adjacent.txt`) |
+| VMQ новый модуль | **19 passed** | `vmq-tests-new.txt` |
+| VMQ затронутые (11 файлов) | **211 passed, 4 failed** (все предсуществующие) | `vmq-tests-impacted.txt` |
+| VMQ потребители (12 файлов: 171 + 245) | **416 passed** | `vmq-tests-consumers.txt` |
+| FCT-S3 срез | **56 passed** | `tests-slice.txt` |
+| FCT-S3 контрактные 12 наборов | **399 passed** | `tests-acceptance.txt` |
+| S3 широкие потребители (44 файла) | **1392 passed, 2 failed** (предсуществующие) | `tests-broad-consumers.txt` |
+| Пины/реестр (25 файлов) | **864 passed, 6 failed** (те же, что у 2.58.258) | `tests-pins.txt` |
+| Смежные контуры (21 файл: direct/self-diag) | **635 passed, 9 failed** (предсуществующие) | `tests-adjacent.txt` |
 
-### 6.1 Почему 399, а не 391
+### 8.1 Предсуществующие red-ы — 21 node id, воспроизведены на базе `886d11073`
 
-391 — результат F6 на базе 2.58.257. База 2.58.259 = 2.58.258, который добавил
-**+8 тестов** в `tests/test_unified_reply_ur_b_search_first.py` (UR-BAN-02).
-Проверено: `def test_` в этом файле = 58 на релизе против 50 на `9516c9125`
-(delta **+8**), и файл сам зелёный 68/68. То есть **391 + 8 = 399** — расхождение
-объяснено полностью и является признаком того, что предыдущий релиз в сборке присутствует.
+`raw/tests-base-preexisting.txt` — на базе падают **те же** node id:
 
-### 6.2 Предсуществующие red-ы (17 уникальных node id) — воспроизведены на базе
+**Пины (6):** `test_mca17c_invariants_round1047.py::test_no_ddl_catalog_ks_tools_delta`,
+`test_tool_coordinator_round1026.py::TestBounds::{test_forbidden_paths_out_of_diff,test_canon_twelve_tools}`,
+`test_unified_image_request_round1026.py::{TestToolDescriptionU21::test_canon_unchanged,TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline}`,
+`test_webapp_f9_round1025.py::TestInvariants::test_secrets_count_28`.
 
-`raw/tests-base-preexisting.txt` — те же node id на `886d11073`:
+**S3-потребители (2):** `test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer`,
+`test_mca20_rework1_f1_f2.py::TestValidatorStage::test_evidence_injection_stays_data_not_instructions`.
 
-- Пины (6): `test_mca17c_invariants_round1047.py::test_no_ddl_catalog_ks_tools_delta`,
-  `test_tool_coordinator_round1026.py::TestBounds::{test_forbidden_paths_out_of_diff,test_canon_twelve_tools}`,
-  `test_unified_image_request_round1026.py::{TestToolDescriptionU21::test_canon_unchanged,TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline}`,
-  `test_webapp_f9_round1025.py::TestInvariants::test_secrets_count_28` — **6 failed on base**.
-- Потребители (2): `test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer`,
-  `test_mca20_rework1_f1_f2.py::TestValidatorStage::test_evidence_injection_stays_data_not_instructions` — **2 failed on base**.
-- Смежные (9): `test_direct_context_scenarios_asap3`, 5× `test_direct_fallback_recompose_asap32`,
-  `test_direct_l1_corrective_r1`, 2× `test_selfdiag_corrective_research` — **9 failed on base**.
+**Смежные (9):** `test_direct_context_scenarios_asap3.py::TestStaleSummary::test_lag400_middle_topk_under_pressure`,
+5 × `test_direct_fallback_recompose_asap32.py::{TestGenerateChatRecompose,TestGenerateStrengthenedDiagnostics}`,
+`test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit`,
+2 × `test_selfdiag_corrective_research.py`.
 
-Ни один red не связан с FCT-S3; пины 2.58.259 зелёные (864 passed — ровно как у
-2.58.258, версионные пины не «протухли»).
+**VMQ (4):** `test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::test_quota_is_bounded_by_slots_and_never_adds_current_year`,
+`test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::{test_historical_plan_rebuilds_block_with_plan_scope,test_operative_plan_narrows_block,test_t16_research_plan_rebuilds_rag_block}`.
 
-## 7. Manifest dry-run
+Ни один red не связан с обоими срезами; пины 2.58.259 зелёные (864 passed — как у 2.58.258).
+`test_unified_reply_ur_b_search_first.py` (UR 2.58.258) — 68/68 passed.
 
-Затравка «предыдущего» манифеста: в базовом checkout на `886d11073` однократно
-выполнен `tools/release_manifest.py` (не `--dry-run`), что записало
-`.deploy/release.json` с фактическим состоянием прода
-(`deployed_sha=886d11073`, `version=2.58.258`). `.deploy/` gitignored, в коммит не входит.
+## 9. Manifest dry-run
+
+Снят в отдельном чистом detached-worktree на продуктовом tip `bca5563be`
+(не на evidence-tip — прецедент 2.58.258). Затравка `.deploy/release.json`
+описывает фактическое состояние прода: `deployed_sha=886d11073`, `version=2.58.258`.
 
 ```
 raw/manifest-deploy.json
 {
-  "deployed_sha": "baab52324943fa55e69378fe405b43f77a94e47a",
+  "deployed_sha": "bca5563be764dd3999b0cced9011e1e945bd9c0f",
   "dirty_tracked": false,
   "effect": "deploy",
   "previous_sha": "886d11073cfdaa4646597c3a2b1ae09fde42c342",
   "previous_version": "2.58.258",
-  "release_branch": "release/fct-s3-2.58.259",
   "schema": 1,
   "version": "2.58.259"
 }
 ```
 
-`raw/manifest-rollback.json` — тот же прогон с `--effect rollback`:
-`deployed_sha`/`version` те же, `effect=rollback`, `previous_*=886d11073/2.58.258`,
-то есть откат возвращает на выложенную версию.
+`raw/manifest-rollback.json` — то же с `effect=rollback`; `previous_*=886d11073/2.58.258`
+(откат возвращает на выложенную версию). **Rollback = code-only:** DDL Δ=0.
 
-**Rollback = code-only:** DDL Δ=0 (п. 4) → `git checkout 886d11073` +
-`systemctl restart admin_bot`; миграции/данные не откатываются.
-
-## 8. План выката (НЕ выполнен, для DevOps)
+## 10. План выката (НЕ выполнен, для DevOps)
 
 ```bash
 cd /var/www/admin_bot
@@ -210,38 +202,40 @@ curl -fsS http://127.0.0.1:8000/healthz       # ожидается version 2.58.
 python manage.py disk audit && python manage.py disk cleanup --apply   # P0-PROD-DISK-01
 ```
 
-После рестарта проверить: `healthz.version=2.58.259`, `deployed_sha=<фактический HEAD>`,
-`.deploy/release.json` (`previous_sha=886d11073`), отсутствие ошибок схемы
-(DDL не ожидается), свободное место.
+После рестарта: `healthz.version=2.58.259`, `deployed_sha=<фактический HEAD>`,
+`.deploy/release.json` (`previous_sha=886d11073`), ошибок схемы нет (DDL не ожидается),
+свободное место.
 
-Наблюдаемый эффект S3 на проде: cross-провайдерная выдача больше не выдаётся за
-evidence без якоря (`word_overlap_only` → `background_only` с `basis`), в модельный
-раздел не попадают отсеянные кандидаты, у даты — `published_at_source=provider`,
-а исходы части различают `resource_limit`/`global_deadline`/`provider_timeout`/`rate_limit`.
+Наблюдаемые эффекты: (S3) cross-провайдерная выдача без якоря не становится evidence
+(`word_overlap_only` → `background_only` с `basis`), отсеянные кандидаты не попадают в
+модельный раздел, дата несёт `published_at_source=provider`, исходы части различают
+`resource_limit`/`global_deadline`/`provider_timeout`/`rate_limit`;
+(VMQ) старший subject-bound период доходит до Writer и R1-резерв не замещает базовый срез.
 
-## 9. Ограничения и честные расхождения с формулировкой задания
+## 11. Ограничения и честные пометки
 
-- Деплой не выполнялся; прод не затрагивался (только read-only и локальные прогоны).
-- **«Правки 5 существующих наборов»** — фактически **6** существующих наборов
-  (`test_factcheck_resources`, `test_factcheck_fc_r1_fix`, `test_factcheck_post_release_w1`,
-  `test_factcheck_w7_acceptance_cfg06`, `test_evol_fc_evidence_style`, `test_fc_backend_corrective`)
-  плюс 1 новый. Это зафиксировано в `index.md` §5/§10 самого среза (9 путей).
-- **391 vs 399** — объяснено в §6.1 (+8 тестов UR-BAN-02 из базы 2.58.258).
-- Контракт-файл `fct-s3-s4-contract-2026-11-27.md` в release-ветке отсутствует:
-  он живёт только в docs-линии (`master`, коммит `d0964e19d`). Его sha256 сверен
-  через `git show` и совпадает (`adb3bc32…`); в дельту релиза он не добавлялся,
-  чтобы не расширять состав сверх продуктового контракта.
-- `master` не является потомком `886d11073` (`origin/master` ≈ 2.58.128): в проекте
-  релизы живут на `release/*`, а `master` — накопительная docs/state-линия.
-  База сборки задана явно и проверена (`git rev-parse 886d11073` = deployed 2.58.258).
-- 17 предсуществующих red-ов остаются backlog'ом (не связаны с S3, доказано на базе).
-- Модельное поведение (качество исследования на якорях) — live-наблюдение;
-  детерминированно доказаны коды исходов, типизация секции, даты и сохранение evidence.
+- Деплой не выполнялся; прод не затрагивался.
+- Evidence-коммит идёт отдельной поверхностью (`plans/` only): продуктовые байты от него
+  не меняются, проверяется `git diff bca5563be..<final tip> -- services/ tests/` = пусто.
+  Поэтому manifest снят на `bca5563be`; боевой манифест DevOps пишет по фактическому HEAD.
+- **«Правки 5 существующих наборов» (S3)** — фактически **6** + 1 новый (9 путей, как в
+  `index.md` §10 среза).
+- **391 → 399** для S3-контракта: база 2.58.259 = 2.58.258, который добавил **+8** тестов
+  в `test_unified_reply_ur_b_search_first.py` (58 против 50 на `9516c9125`; файл 68/68).
+- Контракт S3 (`fct-s3-s4-contract-2026-11-27.md`) в release-ветке отсутствует — живёт
+  только в docs-линии `master` (коммит `d0964e19d`); sha256 сверен через `git show`,
+  совпадает. В дельту релиза не добавлялся.
+- Контракт VMQ (`selector-rootcause-2026-11-27.md`) — в `vmq-onto-01/evidence/vmq-mem/**`,
+  входит в 26 evidence-файлов VMQ-переноса.
+- 21 предсуществующий red остаётся backlog'ом (доказано на базе).
+- Модельное поведение — live-наблюдение; детерминированно доказаны коды исходов,
+  типизация секции, даты, сохранение evidence и R1-резерв старшего периода.
 
 ## Артефакты
 
 `raw/`: `identity.txt`, `changed-files.txt`, `product-delta.txt`, `routes-pin.txt`,
 `ddl-check.txt`, `bump-verify.txt`, `preservation-2.58.258.txt`,
+`vmq-tests-new.txt`, `vmq-tests-impacted.txt`, `vmq-tests-consumers.txt`,
 `tests-slice.txt`, `tests-acceptance.txt`, `tests-broad-consumers.txt`,
 `tests-pins.txt`, `tests-adjacent.txt`, `tests-base-preexisting.txt`,
 `manifest-deploy.json`, `manifest-rollback.json`, `test-sets.json`, `SHA256SUMS`.

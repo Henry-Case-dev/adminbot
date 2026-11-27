@@ -1,5 +1,4 @@
-# 21 adjacent consumer contours
-# files: tests/test_direct_chat.py tests/test_direct_chat_concurrency.py tests/test_direct_chat_handlers.py tests/test_direct_chat_lore_inject.py tests/test_direct_chat_prompts.py tests/test_direct_chat_relations_inject.py tests/test_direct_context_capacity_asap3.py tests/test_direct_context_composer_asap3.py tests/test_direct_context_scenarios_asap3.py tests/test_direct_decision_matrix_asap3.py tests/test_direct_fallback_recompose_asap32.py tests/test_direct_l1_corrective_r1.py tests/test_direct_l1_l1d_contract.py tests/test_direct_llm_decision_asap32.py tests/test_self_diag_analytics_sources.py tests/test_self_diag_golden.py tests/test_self_diag_samples.py tests/test_self_reflection_provider_round1014.py tests/test_selfdev_word.py tests/test_selfdiag_ac11_config_uptime.py tests/test_selfdiag_corrective_research.py
+# 21 adjacent contours (direct/self-diag)
 
 ........................................................................ [ 11%]
 ........................................................................ [ 22%]
@@ -13,8 +12,8 @@
 ================================== FAILURES ===================================
 ___________ TestStaleSummary.test_lag400_middle_topk_under_pressure ___________
 
-self = <tests.test_direct_context_scenarios_asap3.TestStaleSummary object at 0x000001CC6CACFD70>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC745D1190>
+self = <tests.test_direct_context_scenarios_asap3.TestStaleSummary object at 0x0000020DFA1E7800>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020D825B9C70>
 
     @pytest.mark.asyncio
     async def test_lag400_middle_topk_under_pressure(self, monkeypatch):
@@ -111,18 +110,18 @@ Traceback (most recent call last):
     cursor = await self._db.db.execute(sql, params)
                    ^^^^^^^^^^^
 AttributeError: 'Asap3FakeDB' object has no attribute 'db'
-WARNING  services.direct_chat_service:direct_chat_service.py:12217 direct: history boundary check failed | chat=-1001234567890
+WARNING  services.direct_chat_service:direct_chat_service.py:12228 direct: history boundary check failed | chat=-1001234567890
 Traceback (most recent call last):
-  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 12213, in _history_partial
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 12224, in _history_partial
     older = await self.db.get_smart_raw(
                   ^^^^^^^^^^^^^^^^^^^^^
 AttributeError: 'Asap3FakeDB' object has no attribute 'get_smart_raw'
-WARNING  services.direct_chat_service:direct_chat_service.py:8819 [direct] l1 leg exhausted | chat=-1001234567890 | source=main | failure=- | finish_reason=unknown
-WARNING  services.direct_chat_service:direct_chat_service.py:8880 [direct] l1 planner outage — deterministic fallback | chat=-1001234567890 | trigger=direct | last_error=invalid
+WARNING  services.direct_chat_service:direct_chat_service.py:8830 [direct] l1 leg exhausted | chat=-1001234567890 | source=main | failure=- | finish_reason=unknown
+WARNING  services.direct_chat_service:direct_chat_service.py:8891 [direct] l1 planner outage — deterministic fallback | chat=-1001234567890 | trigger=direct | last_error=invalid
 WARNING  services.mca_events:mca_events.py:697 mca_event unmapped reason_code | event=evidence_policy_decided | marker=unmapped:a0420dd8 | chars=20
-WARNING  services.direct_chat_service:direct_chat_service.py:5402 direct: bot_replies persist failed | chat=-1001234567890 msg=999
+WARNING  services.direct_chat_service:direct_chat_service.py:5413 direct: bot_replies persist failed | chat=-1001234567890 msg=999
 Traceback (most recent call last):
-  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 5398, in remember_bot_reply
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 5409, in remember_bot_reply
     await self.db.upsert_bot_reply(chat_id, tg_message_id, text, time.time())
           ^^^^^^^^^^^^^^^^^^^^^^^^
 AttributeError: 'Asap3FakeDB' object has no attribute 'upsert_bot_reply'. Did you mean: 'get_bot_reply'?
@@ -132,9 +131,9 @@ Traceback (most recent call last):
     output_id = await target_db.record_bot_output(
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AttributeError: 'Asap3FakeDB' object has no attribute 'record_bot_output'
-WARNING  services.direct_chat_service:direct_chat_service.py:16242 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
+WARNING  services.direct_chat_service:direct_chat_service.py:16253 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
 Traceback (most recent call last):
-  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 16235, in _memorize_direct_reply
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fct-s3-2-58-259-283094bf500a-36555664\services\direct_chat_service.py", line 16246, in _memorize_direct_reply
     cursor = await self.db.db.execute(
                    ^^^^^^^^^^
 AttributeError: 'Asap3FakeDB' object has no attribute 'db'
@@ -153,7 +152,7 @@ tests\test_direct_fallback_recompose_asap32.py:141: LLMError
 
 During handling of the above exception, another exception occurred:
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x000001CC6CB17C80>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x0000020DFA227A70>
 
     @pytest.mark.asyncio
     async def test_chat_recomposed_under_fallback_budget_tools_kept(self):
@@ -180,13 +179,13 @@ self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose ob
 tests\test_direct_fallback_recompose_asap32.py:150: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <services.llm_client.LLMClient object at 0x000001CC6FBA6BD0>
+self = <services.llm_client.LLMClient object at 0x0000020D81AAB680>
 messages = [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': 'user', 'content': 'сообщение контекста с д...ие контекста с достаточным наполнением сообщение контекста с достаточным наполнением сообщение контекста с дост'}, ...]
 temperature = None
 tools = [{'type': 'function', 'function': {'name': 'tool_0', 'description': 'Инструмент с длинным описанием контракта. Инструм...{'type': 'object', 'properties': {'query': {'type': 'string', 'description': 'поисковый запрос пользователя'}}}}}, ...]
 tool_choice = 'auto', chat_id = 1, module = None, step = None
 correlation_id = None, tool_name = ''
-fallback_payload_adapter = <function _recompose_adapter.<locals>._adapt at 0x000001CC711125C0>
+fallback_payload_adapter = <function _recompose_adapter.<locals>._adapt at 0x0000020D824B9D00>
 max_output_tokens = None
 
     async def generate_chat(self, messages, *, temperature: float | None = None,
@@ -327,7 +326,7 @@ tests\test_direct_fallback_recompose_asap32.py:179: LLMError
 
 During handling of the above exception, another exception occurred:
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x000001CC6CB34320>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x0000020DFA23C110>
 
     @pytest.mark.asyncio
     async def test_chat_no_adapter_primary_sized_payload_fallback(self):
@@ -349,7 +348,7 @@ self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose ob
 tests\test_direct_fallback_recompose_asap32.py:187: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <services.llm_client.LLMClient object at 0x000001CC6FDF48F0>
+self = <services.llm_client.LLMClient object at 0x0000020D81D6A420>
 messages = [{'role': 'system', 'content': 'Ты Летописец. Системный канон.'}, {'role': 'user', 'content': 'сообщение контекста с д...ие контекста с достаточным наполнением сообщение контекста с достаточным наполнением сообщение контекста с дост'}, ...]
 temperature = None, tools = None, tool_choice = 'auto', chat_id = 1
 module = None, step = None, correlation_id = None, tool_name = ''
@@ -481,8 +480,8 @@ WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer un
 WARNING  services.llm_client:llm_client.py:2855 LLM fallback attempt | primary_error=primary down | provider=fallback.example
 _ TestGenerateChatRecompose.test_chat_adapter_failure_loud_oversized_diagnostic _
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x000001CC6CB34920>
-caplog = <_pytest.logging.LogCaptureFixture object at 0x000001CC6FE55AC0>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateChatRecompose object at 0x0000020DFA23C710>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000020D81A8EA80>
 
     @pytest.mark.asyncio
     async def test_chat_adapter_failure_loud_oversized_diagnostic(
@@ -553,8 +552,8 @@ Traceback (most recent call last):
 RuntimeError: boom
 _ TestGenerateStrengthenedDiagnostics.test_generate_adapter_error_loud_and_payload_intact _
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x000001CC6CA5E990>
-caplog = <_pytest.logging.LogCaptureFixture object at 0x000001CC6FBE1F10>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x0000020DFA16E8D0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000020D81A8C380>
 
     @pytest.mark.asyncio
     async def test_generate_adapter_error_loud_and_payload_intact(
@@ -627,8 +626,8 @@ Traceback (most recent call last):
 RuntimeError: boom
 _ TestGenerateStrengthenedDiagnostics.test_generate_adapter_invalid_shape_loud _
 
-self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x000001CC6CB15010>
-caplog = <_pytest.logging.LogCaptureFixture object at 0x000001CC6FBE1A00>
+self = <tests.test_direct_fallback_recompose_asap32.TestGenerateStrengthenedDiagnostics object at 0x0000020DFA224DD0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000020DFBB7AE40>
 
     @pytest.mark.asyncio
     async def test_generate_adapter_invalid_shape_loud(self, caplog):
@@ -685,14 +684,14 @@ ______________ test_build_l1_context_bot_replies_caps_and_limit _______________
         assert len(body_lines) == 3                    # максимум 3 строки
 >       assert all(len(ln) <= _l1.L1_REPLY_BLOCK_CHARS for ln in body_lines)
 E       assert False
-E        +  where False = all(<generator object test_build_l1_context_bot_replies_caps_and_limit.<locals>.<genexpr> at 0x000001CC769BD700>)
+E        +  where False = all(<generator object test_build_l1_context_bot_replies_caps_and_limit.<locals>.<genexpr> at 0x0000020D84A82190>)
 
 tests\test_direct_l1_corrective_r1.py:247: AssertionError
 _ TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code _
 
-self = <tests.test_selfdiag_corrective_research.TestContinuationContext object at 0x000001CC6E7596D0>
-tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1710/test_continuation_plan_uses_re0')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC60E00110>
+self = <tests.test_selfdiag_corrective_research.TestContinuationContext object at 0x0000020DFBE55550>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1721/test_continuation_plan_uses_re0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020D81A450D0>
 
     @pytest.mark.asyncio
     async def test_continuation_plan_uses_real_ledger_report_and_reads_code(
@@ -792,9 +791,9 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC60E00110>
 tests\test_selfdiag_corrective_research.py:719: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <tests.test_selfdiag_corrective_research.TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code.<locals>._Stub object at 0x000001CC74236BD0>
+self = <tests.test_selfdiag_corrective_research.TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code.<locals>._Stub object at 0x0000020D82126210>
 chat_id = -1009876543210
-message = <tests.test_selfdiag_corrective_research.M object at 0x000001CC710399A0>
+message = <tests.test_selfdiag_corrective_research.M object at 0x0000020D81C9DAF0>
 query = 'продолжай разбор', correlation_id = None, bundle = None
 target_name = 'Аня', user_id = 7000001, character_block = ''
 lore_enabled = False, image_enabled = False, reply_bot = True
@@ -882,12 +881,12 @@ time_snapshot = None, history_range_note = ''
                                               preserve=True)
 E       TypeError: TestContinuationContext.test_continuation_plan_uses_real_ledger_report_and_reads_code.<locals>._Stub._l1_reply_block() got an unexpected keyword argument 'preserve'
 
-services\direct_chat_service.py:9017: TypeError
+services\direct_chat_service.py:9028: TypeError
 ---------------------------- Captured stderr call -----------------------------
 warning: in the working copy of 'services/checkup_service.py', LF will be replaced by CRLF the next time Git touches it
 _________ test_direct_l1_addendum_and_outage_keeps_previous_decision __________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC7450E2A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020D82315D90>
 
     @pytest.mark.asyncio
     async def test_direct_l1_addendum_and_outage_keeps_previous_decision(
@@ -969,9 +968,9 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC7450E2A0>
 tests\test_selfdiag_corrective_research.py:1151: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <tests.test_selfdiag_corrective_research.test_direct_l1_addendum_and_outage_keeps_previous_decision.<locals>._Stub object at 0x000001CC6FBE0800>
+self = <tests.test_selfdiag_corrective_research.test_direct_l1_addendum_and_outage_keeps_previous_decision.<locals>._Stub object at 0x0000020D81A8FFB0>
 chat_id = -1009876543210
-message = <tests.test_selfdiag_corrective_research.M object at 0x000001CC743D40B0>
+message = <tests.test_selfdiag_corrective_research.M object at 0x0000020D81DBA2D0>
 query = 'продолжи разбор', correlation_id = None, bundle = None
 target_name = 'Аня', user_id = None, character_block = '', lore_enabled = False
 image_enabled = False, reply_bot = False, force_required = False
@@ -1059,7 +1058,7 @@ history_range_note = ''
                                               preserve=True)
 E       TypeError: test_direct_l1_addendum_and_outage_keeps_previous_decision.<locals>._Stub._l1_reply_block() got an unexpected keyword argument 'preserve'
 
-services\direct_chat_service.py:9017: TypeError
+services\direct_chat_service.py:9028: TypeError
 ============================== warnings summary ===============================
 ..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
   C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
@@ -1076,4 +1075,4 @@ FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedD
 FAILED tests/test_direct_l1_corrective_r1.py::test_build_l1_context_bot_replies_caps_and_limit
 FAILED tests/test_selfdiag_corrective_research.py::TestContinuationContext::test_continuation_plan_uses_real_ledger_report_and_reads_code
 FAILED tests/test_selfdiag_corrective_research.py::test_direct_l1_addendum_and_outage_keeps_previous_decision
-9 failed, 635 passed, 1 warning in 199.05s (0:03:19)
+9 failed, 635 passed, 1 warning in 201.92s (0:03:21)
