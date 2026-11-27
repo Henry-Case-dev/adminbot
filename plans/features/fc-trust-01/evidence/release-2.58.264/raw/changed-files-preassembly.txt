@@ -1,0 +1,5 @@
+ services/factcheck_orchestrator.py |  10 +-
+ services/factcheck_planner.py      | 279 ++++++++++++++++++++++---
+ services/factcheck_service.py      |  84 +++++++-
+ tests/test_fc_trust_s1_contract.py | 403 +++++++++++++++++++++++++++++++++++++
+ 4 files changed, 751 insertions(+), 25 deletions(-)

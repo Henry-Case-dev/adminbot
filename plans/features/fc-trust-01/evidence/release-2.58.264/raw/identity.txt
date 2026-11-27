@@ -1,0 +1,21 @@
+services/factcheck_service.py
+  index_blob=12c74ebc578ec6b8e27b0b9015c78189592c9c10
+  cand=12c74ebc578ec6b8e27b0b9015c78189592c9c10
+  base=3e056460162e966e4c4cdc7b6fd71d7e6e5ebb5d
+  byte_identical_to_candidate=True
+services/factcheck_planner.py
+  index_blob=b143e4a7713c3bc960444a389629df64f0d7347a
+  cand=b143e4a7713c3bc960444a389629df64f0d7347a
+  base=2ba5df49e40d65ace10487f6adc5a7f404ed2e19
+  byte_identical_to_candidate=True
+services/factcheck_orchestrator.py
+  index_blob=485bbe38cef2206e2869aa49eeaeb7c56aefb1b2
+  cand=485bbe38cef2206e2869aa49eeaeb7c56aefb1b2
+  base=d1a4567f026c57e1fd0a480a97cbb8cf1f9bae62
+  byte_identical_to_candidate=True
+tests/test_fc_trust_s1_contract.py
+  index_blob=5d5affc9ef6b2a9c60fb2364ab300293eb026e9b
+  cand=5d5affc9ef6b2a9c60fb2364ab300293eb026e9b
+  base=4cdd72e17:tests/test_fc_trust_s1_contract.py
+  byte_identical_to_candidate=True
+

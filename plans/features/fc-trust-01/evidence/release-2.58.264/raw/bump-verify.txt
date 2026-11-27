@@ -1,0 +1,38 @@
+files=29 additions=34 deletions=34
+removed_lines=34 added_lines=34
+all_removed_map_to_added_by_version=True  (+2.58.264 == corresponding -line)
+non_version_changed_pairs=0
+pairs_differing_only_by_version=34/34
+version_only_bump=OK
+eol_settings: crlf=3665 bare_lf=0 size=362807
+APP_VERSION=2.58.264
+
+1	1	config/settings.py
+1	1	plans/docs/param-registry-round1025.meta.md
+1	1	tests/test_decision_making_round1026.py
+1	1	tests/test_image_context_memory_round1026.py
+1	1	tests/test_mca17c_invariants_round1047.py
+3	3	tests/test_q07_field_stats.py
+1	1	tests/test_round1025_f8_registry.py
+1	1	tests/test_scope_selector_round1025.py
+1	1	tests/test_summary_deploy_round1026.py
+1	1	tests/test_summary_fact_package.py
+1	1	tests/test_summary_logging_runid.py
+1	1	tests/test_summary_publish_integration_round1026.py
+1	1	tests/test_summary_test_run.py
+1	1	tests/test_telegram_reactions_round1026.py
+1	1	tests/test_tool_coordinator_round1026.py
+1	1	tests/test_unified_image_request_round1026.py
+1	1	tests/test_webapp_design_tokens_round1025.py
+1	1	tests/test_webapp_f11_round1025.py
+1	1	tests/test_webapp_f6_round1025.py
+1	1	tests/test_webapp_f7_round1025.py
+1	1	tests/test_webapp_f9_round1025.py
+1	1	tests/test_webapp_hotfix10_round1025.py
+1	1	tests/test_webapp_hotfix6_round1025.py
+1	1	tests/test_webapp_hotfix7_round1025.py
+1	1	tests/test_webapp_hotfix8_round1025.py
+1	1	tests/test_webapp_hotfix9_round1025.py
+2	2	tests/test_webapp_round1026_polygon.py
+3	3	tools/ui_mod_acl_m4b2_status_e2e.py
+1	1	tools/ui_mod_acl_m4b3_status_e2e.py

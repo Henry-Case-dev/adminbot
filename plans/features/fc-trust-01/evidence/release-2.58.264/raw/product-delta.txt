@@ -1,0 +1,4 @@
+9	1	services/factcheck_orchestrator.py
+256	23	services/factcheck_planner.py
+83	1	services/factcheck_service.py
+403	0	tests/test_fc_trust_s1_contract.py

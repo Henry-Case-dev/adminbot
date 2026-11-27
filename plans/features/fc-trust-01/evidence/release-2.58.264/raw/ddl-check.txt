@@ -1,0 +1,41 @@
+changed_files_total=33
+migration_or_db_files_changed=0 []
+ddl_added_lines_in_services_config_web_handlers=0
+max_schema_constant=49 (regex over services/database.py _SCHEMA_VERSION_* == 49)
+param_catalog_changed=False
+factcheck_limit_keys_changed=False
+
+=== changed file list ===
+config/settings.py
+plans/docs/param-registry-round1025.meta.md
+services/factcheck_orchestrator.py
+services/factcheck_planner.py
+services/factcheck_service.py
+tests/test_decision_making_round1026.py
+tests/test_fc_trust_s1_contract.py
+tests/test_image_context_memory_round1026.py
+tests/test_mca17c_invariants_round1047.py
+tests/test_q07_field_stats.py
+tests/test_round1025_f8_registry.py
+tests/test_scope_selector_round1025.py
+tests/test_summary_deploy_round1026.py
+tests/test_summary_fact_package.py
+tests/test_summary_logging_runid.py
+tests/test_summary_publish_integration_round1026.py
+tests/test_summary_test_run.py
+tests/test_telegram_reactions_round1026.py
+tests/test_tool_coordinator_round1026.py
+tests/test_unified_image_request_round1026.py
+tests/test_webapp_design_tokens_round1025.py
+tests/test_webapp_f11_round1025.py
+tests/test_webapp_f6_round1025.py
+tests/test_webapp_f7_round1025.py
+tests/test_webapp_f9_round1025.py
+tests/test_webapp_hotfix10_round1025.py
+tests/test_webapp_hotfix6_round1025.py
+tests/test_webapp_hotfix7_round1025.py
+tests/test_webapp_hotfix8_round1025.py
+tests/test_webapp_hotfix9_round1025.py
+tests/test_webapp_round1026_polygon.py
+tools/ui_mod_acl_m4b2_status_e2e.py
+tools/ui_mod_acl_m4b3_status_e2e.py

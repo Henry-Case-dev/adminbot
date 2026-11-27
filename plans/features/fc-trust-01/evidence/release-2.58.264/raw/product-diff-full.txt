@@ -1,0 +1,973 @@
+diff --git a/services/factcheck_orchestrator.py b/services/factcheck_orchestrator.py
+index d1a4567f0..485bbe38c 100644
+--- a/services/factcheck_orchestrator.py
++++ b/services/factcheck_orchestrator.py
+@@ -1814,6 +1814,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
+             or getattr(subject, "fingerprint", "") or ""),
+         subject_anchor_tg_message_id=getattr(
+             subject, "request_tg_message_id", None),
++        # FCT-112 (S1): TÇ¦-TÂ ¦-¦-¦¦¦-TÀ¦- ¦¬¦-¦¬TÀ¦-TÁ¦- (¦¬TÀ¦-¦¦¦-¦- ¦-TÁ¦¦¦¦¦+¦- ¦- ¦-¦+¦-¦-¦- TÇ¦-TÂ¦¦).
++        subject_anchor_chat_id=req.chat_id,
+         subject_author=str(getattr(subject, "request_author", "") or ""),
+         subject_request_text=str(
+             getattr(subject, "request_part", "") or ""),
+@@ -1824,7 +1826,13 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
+         # ¦ß¦-¦¬¦-TË¦¦ TÁ¦-TÅTÀ¦-¦-TÑ¦-¦-TË¦¦ ¦-¦-TÂ¦¦TÀ¦¬¦-¦¬ ¦¬¦¦TÀ¦¦¦+¦-TÑTÂTÁTÏ ¦-TÂ¦+¦¦¦¬TÌ¦-¦- òÀÔ ¦¬¦¬ ¦-¦¦¦¦¦- ¦-¦¦TÀTÑTÂTÁTÏ
+         # ¦¬TÀ¦¦¦+¦-¦¦TÂ¦-TË¦¦ ¦-¦-¦¦¦¦TÀ ¦¬¦-¦¬TÀ¦-TÁ¦- TÇ¦-TÁTÂ¦¬, ¦¬TÀ¦¬TÈ¦¦¦+TÈ¦¦¦¦ ¦¬¦¬ ¦-¦-¦¬TÀ¦-TÁ¦-.
+         subject_full_material_text=str(
+-            getattr(subject, "material_text", "") or ""))
++            getattr(subject, "material_text", "") or ""),
++        # FCT-113 (S1): TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ òÀÔ TÂ¦-¦¬TÌ¦¦¦- ¦¬¦¬ ¦á¦â¦à¦ã¦Ú¦â¦ã¦à¦Ý¦ë¦å ¦¬TÀ¦¬¦¬¦-¦-¦¦¦-¦-:
++        # source_type ¦¦¦-¦-¦-¦¦TÀTÂ¦- (caption/ocr òÆÒ image_content) ¦¬ TÀ¦¦¦¬TÃ¦¬TÌTÂ¦-TÂ¦-
++        # TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦¦- tool'¦- ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬ (òÆÒ public_statement_attribution).
++        # ¦Û¦¦¦¦TÁ¦¬¦¦¦-¦- TÁ¦-TËTÁ¦¬ ¦-¦¦ ¦¬¦-¦-¦¦¦-TÏ¦¦TÂ (owner Tç2.2).
++        claim_source_type=str(getattr(envelope, "source_type", "") or ""),
++        attribution_detected=attribution is not None)
+     if retrieval_plan is not None and retrieval_plan.queries:
+         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
+                     "intents=%s", req.chat_id,
+diff --git a/services/factcheck_planner.py b/services/factcheck_planner.py
+index 2ba5df49e..b143e4a77 100644
+--- a/services/factcheck_planner.py
++++ b/services/factcheck_planner.py
+@@ -323,6 +323,59 @@ class Candidate:
+         return "\n".join(line for line in lines if line)
+ 
+ 
++#: FCT-113 (S1, 28.11.2026): ¦¦¦+¦¬¦-¦-TÏ ¦-TÁTÌ ¦â¦Ø¦ß¦Ð ¦ã¦â¦Ò¦Õ¦à¦Ö¦Ô¦Õ¦Ý¦Ø¦ï ¦+¦¬TÏ ClaimUnit òÀÔ TÇ¦¦TÂTËTÀ¦¦
++#: TÂ¦¬¦¬¦- ¦-¦¬¦-¦+¦¦¦¬TÌTÆ¦- + TÇ¦¦TÁTÂ¦-TË¦¦ unknown. ¦ÞTÀTÂ¦-¦¦¦-¦-¦-¦¬TÌ¦-¦- `claim_type` (TÄ¦-TÀ¦-¦- TÂ¦¦¦¬¦¬TÁ¦-:
++#: TÄ¦-¦¦TÂ/TÇ¦¬TÁ¦¬¦-/¦¬¦¬¦-¦¦¦-¦¦¦-¦¬¦¦/òÀæ) ¦¬ `assertion_type` (TÁ¦-¦-¦¦TÁTÂ¦-¦- passage: report_fact/
++#: attributed_quote/òÀæ): TÍTÂ¦- TÀ¦-¦¬¦-TË¦¦ ¦¬TÀ¦¦¦+TÁTÂ¦-¦-¦¬¦¦¦-¦¬TÏ, ¦-¦-¦¬ ¦-¦¦ TÁ¦-¦¦TÈ¦¬¦-¦-TÎTÂTÁTÏ.
++ASSERTION_PUBLIC_STATEMENT = "public_statement_attribution"
++ASSERTION_DECISION_STATUS = "decision_status"
++ASSERTION_NORMATIVE_STATE = "normative_state_on_date"
++ASSERTION_IMAGE_CONTENT = "image_content"
++ASSERTION_KIND_UNKNOWN = "unknown"
++ASSERTION_KINDS = (ASSERTION_PUBLIC_STATEMENT, ASSERTION_DECISION_STATUS,
++                   ASSERTION_NORMATIVE_STATE, ASSERTION_IMAGE_CONTENT,
++                   ASSERTION_KIND_UNKNOWN)
++#: source_type ¦¦¦-¦-¦-¦¦TÀTÂ¦-, ¦¬TÀ¦¬ ¦¦¦-TÂ¦-TÀ¦-¦- TÂ¦¦¦¬¦¬TÁ ¦¬TÀ¦¬TÈTÑ¦¬ ¦¬¦¬ ¦¬¦¬¦-¦-TÀ¦-¦¦¦¦¦-¦¬TÏ (TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-TË¦¦
++#: ¦¬TÀ¦¬¦¬¦-¦-¦¦: ¦¬¦-¦+¦¬¦¬TÁTÌ/OCR, ¦- ¦-¦¦ ¦+¦-¦¦¦-¦+¦¦¦- ¦¬¦- TÁ¦¬¦-¦-¦-¦-).
++_IMAGE_CLAIM_SOURCE_TYPES = ("caption", "ocr")
++#: ¦ØTÁTÂ¦-TÇ¦-¦¬¦¦¦¬ claim-item, ¦¦¦+¦¦ TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦Ò¦Ð¦Ö¦Õ¦Ý ¦+¦¬TÏ ¦-TË¦-¦-¦+¦-: TÂ¦¦¦¬¦¬TÁ ¦¬¦¬
++#: ¦æ¦Ø¦â¦Ð¦â¦ë ¦-¦¦¦¬ TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦-¦-¦-¦¦ ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬ ¦-¦¦ ¦-¦-¦¦¦¦TÂ ¦+¦-TÂTÌ ¦¬¦-¦¬¦-¦¦¦¬TÂ¦¦¦¬TÌ¦-TË¦¦ ¦-¦¦TÀ¦+¦¬¦¦TÂ
++#: (reply_to òÀÔ ¦-¦-TËTÇ¦-TË¦¦ ¦-¦+TÀ¦¦TÁ ¦-¦-TÂ¦¦TÀ¦¬¦-¦¬¦-, ¦-¦¦ ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦-¦-¦-¦-¦¦ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬¦¦).
++_ATTRIBUTION_SENSITIVE_SOURCES = ("quote",)
++_NEGATION_TOKEN_RE = re.compile(r"(?<!\w)(?:¦-¦¦|¦-¦¬)(?!\w)(?!\s+TÂ¦-¦¬TÌ¦¦¦-)",
++                                re.IGNORECASE)
++
++
++def _detect_negation(text: str) -> bool | None:
++    """¦ÓTÀ¦-¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦¦-¦¦ ¦-TÂTÀ¦¬TÆ¦-¦-¦¬¦¦: True ¦¬TÀ¦¬ TÏ¦-¦-¦-¦¦ TÇ¦-TÁTÂ¦¬TÆ¦¦, ¦¬¦-¦-TÇ¦¦ unknown (None).
++
++    ¦íTÂ¦- ¦Ý¦Õ TÁ¦¦¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦¦-TÏ ¦+¦-¦¦¦-¦+¦¦¦- ¦¬ ¦-¦¦ TÁ¦¬¦¬TÁ¦-¦¦ TëTÁ¦-TËTÁ¦¬¦-¦-TËTÅT¬ TÁ¦¬¦-¦-: ¦+¦¦TÂ¦¦¦¦TÂ¦-TÀ ¦-¦¬¦+¦¬TÂ
++    TÂ¦-¦¬TÌ¦¦¦- ¦¦TÀ¦-¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦TÃTÎ ¦-TÂTÀ¦¬TÆ¦-TÂ¦¦¦¬TÌ¦-TÃTÎ TÇ¦-TÁTÂ¦¬TÆTÃ. ¦Ý¦¦TÂ TÇ¦-TÁTÂ¦¬TÆTË òÀÔ ¦-¦¦ TÃTÂ¦-¦¦TÀ¦¦¦+¦-¦¦¦-
++    ¦¬¦-¦¦¦-¦-¦¦ `False`, ¦-TÁTÂ¦-TÑTÂTÁTÏ TÇ¦¦TÁTÂ¦-TË¦¦ unknown (owner Tç2.2: ¦¬¦-¦¬TÏ ¦-¦¦ ¦¬¦-¦¬¦-¦¬¦-TÏTÎTÂTÁTÏ
++    ¦+¦-¦¦¦-¦+¦¦¦-¦¦)."""
++    return True if _NEGATION_TOKEN_RE.search(str(text or "")) else None
++
++
++def _assertion_kind_for(unit_text: str, *, attribution_detected: bool,
++                        claim_source_type: str,
++                        hint: str) -> str:
++    """¦Ô¦¦TÂ¦¦TÀ¦-¦¬¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦¬¦¬ ¦á¦â¦à¦ã¦Ú¦â¦ã¦à¦Ý¦ë¦å ¦¬TÀ¦¬¦¬¦-¦-¦¦¦-¦-.
++
++    ¦ß¦-TÀTÏ¦+¦-¦¦: TÏ¦-¦-¦-TÏ ¦¬¦-¦+TÁ¦¦¦-¦¬¦¦¦- TÃ¦¦¦¦ TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦-¦-¦-¦¦¦- TÂ¦¬¦¬¦- òÆÒ ¦¬¦¬¦-¦-TÀ¦-¦¦¦¦¦-¦¬¦¦
++    (source_type caption/ocr) òÆÒ ¦¬TÃ¦-¦¬¦¬TÇ¦-¦-¦¦ ¦¬¦-TÏ¦-¦¬¦¦¦-¦¬¦¦ (TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬¦¦ tool
++    ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬ TÁTÀ¦-¦-¦-TÂ¦-¦¬) òÆÒ unknown. ¦Ý¦¬¦¦¦-¦¦¦¬TÅ TÁ¦¬¦¬TÁ¦¦¦-¦- TÄ¦-¦-¦¬¦¬¦¬¦¦/TÁ¦¬¦-¦-: TÀ¦¦TÈ¦¦¦-¦¬¦¦ ¦-
++    TÁ¦-TËTÁ¦¬¦¦ ¦-¦¦ ¦¬¦-¦+¦-¦¦¦-TÏ¦¦TÂTÁTÏ ¦¬¦¦¦¦TÁ¦¬¦¦¦-¦-¦-¦- (owner Tç2.2)."""
++    value = str(hint or "")
++    if value and value != ASSERTION_KIND_UNKNOWN \
++            and value in ASSERTION_KINDS:
++        return value
++    if str(claim_source_type or "") in _IMAGE_CLAIM_SOURCE_TYPES:
++        return ASSERTION_IMAGE_CONTENT
++    if attribution_detected:
++        return ASSERTION_PUBLIC_STATEMENT
++    return ASSERTION_KIND_UNKNOWN
++
++
+ @dataclasses.dataclass(frozen=True)
+ class ClaimUnit:
+     """Tç3.1: ¦¦¦+¦¬¦-¦¬TÆ¦- ¦¬TÀ¦-¦-¦¦TÀ¦¦¦¬ TÁ¦-TÁTÂ¦-¦-¦-¦-¦¦ ¦-¦-¦-¦-TÁTÂ¦¬ (¦-¦¬¦-¦¬¦-¦-¦¬TÌ¦-TË¦¦ ¦¦¦-¦-TÂTÀ¦-¦¦TÂ).
+@@ -349,6 +402,30 @@ class ClaimUnit:
+     #: ¦×¦-¦¬TÀ¦-TÁ TÂ¦-¦¦¦-¦¦ TÇ¦-TÁTÂ¦¬ ¦-¦-TÏ¦¬¦-¦- ¦-¦¦TÁTÂ¦¬ ¦¬TÀ¦¦¦+¦-¦¦TÂ¦-TË¦¦ ¦-¦-¦¦¦¦TÀ ¦-¦-TÂ¦¦TÀ¦¬¦-¦¬¦-: TÁ¦-¦- ¦-¦-¦¬TÀ¦-TÁ
+     #: ¦-¦-¦¦¦¦TÂ TÁTÁTË¦¬¦-TÂTÌTÁTÏ ¦-¦- TëTÍTÂTÃ TÂTÀ¦-¦+¦¬TÆ¦¬TÎT¬, ¦-¦¦ ¦-¦-¦¬TË¦-¦-TÏ ¦¬TÀ¦¦¦+¦-¦¦TÂ.
+     from_glued_request: bool = False
++    # òÔÀòÔÀ FCT-112 (S1, 28.11.2026): ¦¦¦-¦-TÂTÀ¦-¦¦TÂ ¦+¦-¦-¦-TËTÅ TÁTÃTÉ¦¦TÁTÂ¦-¦¦¦-¦-¦-¦¦ TÇ¦-TÁTÂ¦¬ òÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀ
++    # ¦ß¦-¦¬TÏ ¦¬¦-¦¬¦-¦¬¦-TÏTÎTÂTÁTÏ TÂ¦-¦¬TÌ¦¦¦- ¦¬¦¬ TÃ¦¦¦¦ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬TÅ ¦+¦¦TÂ¦¦TÀ¦-¦¬¦-¦¬TÀ¦-¦-¦-¦-¦-TËTÅ ¦+¦-¦-¦-TËTÅ;
++    # ¦-¦¦¦¬¦¬¦-¦¦TÁTÂ¦-¦-¦¦ ¦-TÁTÂ¦-TÑTÂTÁTÏ "" / None, ¦- ¦-¦¦ ¦+¦-¦¦¦-¦+¦¦¦-¦¦ (owner Tç2.2).
++    #: TÁTÃ¦-TÊ¦¦¦¦TÂ TÂ¦¦¦¬¦¬TÁ¦-; "" = unknown (¦-¦+¦-¦-¦¬¦-¦-TÇ¦-¦-TÏ ¦¬¦-¦¦¦-¦-¦-¦-¦-¦-¦-TÏ TÁTÃTÉ¦-¦-TÁTÂTÌ ¦¬¦¬¦¬ "").
++    subject: str = ""
++    #: ¦+¦¦¦¦TÁTÂ¦-¦¬¦¦/¦-TÂ¦-¦-TÈ¦¦¦-¦¬¦¦; "" = unknown (¦-¦-¦-¦-TÉTÑ¦-¦-¦-¦¦¦- TÁ¦¦¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦¦-¦¦¦- ¦¬¦-TÀTÁ¦¦TÀ¦- ¦-¦¦TÂ).
++    predicate: str = ""
++    #: ¦-¦-TÊ¦¦¦¦TÂ ¦+¦¦¦¦TÁTÂ¦-¦¬TÏ; "" = unknown.
++    object: str = ""
++    #: ¦-TÂTÀ¦¬TÆ¦-¦-¦¬¦¦: True ¦¬TÀ¦¬ TÏ¦-¦-¦-¦¦ ¦¦TÀ¦-¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦¦-¦¦ TÇ¦-TÁTÂ¦¬TÆ¦¦; None = unknown.
++    negation: bool | None = None
++    #: ¦¬TÀ¦¦¦+¦¬¦-¦¬¦-¦¦¦-¦¦¦-TË¦¦ ¦-¦-TÂ¦-TÀ TÇ¦-TÁTÂ¦¬; "" = unknown (¦-¦¬¦¦¦-¦¦¦+¦- ¦-¦¦ ¦¬¦¬ display-name).
++    author: str = ""
++    #: ¦-¦-¦¦¦-TÀ ¦¬TÁTÂ¦-TÇ¦-¦¬¦¦¦- TÇ¦-TÁTÂ¦¬ (TÁ¦-¦-¦-TÉ¦¦¦-¦¬¦¦-¦-¦-TÁ¦¬TÂ¦¦¦¬TÌ) ¦¬ ¦¦¦¦¦- TÇ¦-TÂ; None = ¦-¦¦¦¬¦¬¦-¦¦TÁTÂ¦¦¦-.
++    anchor_tg_message_id: int | None = None
++    anchor_chat_id: int | None = None
++    #: provenance TÇ¦-TÁTÂ¦¬: ¦+¦¦TÂ¦¦TÀ¦-¦¬¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ ¦¬¦-TÀTË (¦¦¦¬TÎTÇ, ¦¬¦-¦-TÇ¦¦¦-¦¬¦¦) ¦-¦¦¦¬ TÂ¦¦¦¦TÁTÂ¦-¦-
++    #: TÂ¦¦¦¬¦¬TÁ¦-/TÇ¦-TÂ¦-, ¦-¦-¦¬TÀ. (("origin","material"),("source","literal"),
++    #: ("anchor","tg"),("assertion_signal","no"),("from_glued_request","no")).
++    provenance: tuple[tuple[str, str], ...] = ()
++    # òÔÀòÔÀ FCT-113 (S1, 28.11.2026): ¦¦¦+¦¬¦-¦-TÏ ¦-TÁTÌ TÂ¦¬¦¬¦- TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ òÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀ
++    #: ASSERTION_KINDS: public_statement_attribution | decision_status |
++    #: normative_state_on_date | image_content | unknown.
++    assertion_kind: str = ASSERTION_KIND_UNKNOWN
+ 
+     def vocabulary(self) -> str:
+         """¦á¦¬¦-¦-¦-TÀTÌ ¦¬TÀ¦¬¦-TÏ¦¬¦¦¦¬ ¦¬TÁTÂ¦-TÇ¦-¦¬¦¦¦- ¦¦ ¦í¦â¦Þ¦Ü¦ã claim (TÂ¦¦¦¦TÁTÂ + ¦¬¦-TÂ¦¬¦-TÁ¦¦¦¬¦¦
+@@ -356,6 +433,14 @@ class ClaimUnit:
+         pieces = [self.text, *self.foreign_terms, *self.metrics]
+         return " ".join(p for p in pieces if p)
+ 
++    def provenance_dict(self) -> dict:
++        """provenance ¦¦¦-¦¦ TÁ¦¬¦-¦-¦-TÀTÌ (¦+¦¬TÏ payload/¦+¦¬¦-¦¦¦-¦-TÁTÂ¦¬¦¦¦¬)."""
++        return {str(k): str(v) for k, v in (self.provenance or ())}
++
++    def assertion_sensitive(self) -> bool:
++        """¦â¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦Ò¦Ð¦Ö¦Õ¦Ý ¦+¦¬TÏ TÍTÂ¦-¦¦¦- claim (TÆ¦¬TÂ¦-TÂ¦-/reply/¦-¦¦¦+¦¬¦-/¦-TÂTÀ¦¬¦-TÃTÆ¦¬TÏ)."""
++        return self.provenance_dict().get("assertion_signal") == "yes"
++
+     def as_dict(self) -> dict:
+         """¦á¦¬TÃ¦¦¦¦¦-¦-¦-TÏ TÁ¦¦TÀ¦¬¦-¦¬¦¬¦¬¦-TÆ¦¬TÏ (payload ¦-¦-¦-¦¬¦¬TÂ¦¬¦¦¦-/¦+¦¬¦-¦¦¦-¦-TÁTÂ¦¬¦¦¦-)."""
+         return {
+@@ -367,6 +452,16 @@ class ClaimUnit:
+             "units": list(self.units),
+             "timeframe": self.timeframe,
+             "timezone": self.timezone,
++            # FCT-112/113 (¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-): ¦¦¦-¦-TÂTÀ¦-¦¦TÂ TÇ¦-TÁTÂ¦¬ + ¦-TÁTÌ TÂ¦¬¦¬¦- TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ.
++            "subject": self.subject,
++            "predicate": self.predicate,
++            "object": self.object,
++            "negation": self.negation,
++            "author": self.author,
++            "anchor_tg_message_id": self.anchor_tg_message_id,
++            "anchor_chat_id": self.anchor_chat_id,
++            "provenance": [list(pair) for pair in (self.provenance or ())],
++            "assertion_kind": self.assertion_kind,
+         }
+ 
+ 
+@@ -747,10 +842,14 @@ def build_retrieval_plan(decision, *,
+                          subject_origin: str = "",
+                          subject_fingerprint: str = "",
+                          subject_anchor_tg_message_id: int | None = None,
++                         subject_anchor_chat_id: int | None = None,
+                          subject_author: str = "",
+                          subject_request_text: str = "",
+                          subject_material_text: str = "",
+                          subject_full_material_text: str = "",
++                         claim_source_type: str = "",
++                         attribution_detected: bool = False,
++                         assertion_kind_hint: str = "",
+                          ) -> RetrievalPlan | None:
+     """SuitabilityDecision/ClaimItem òÆÒ ¦¬¦¬¦-¦- ¦¬¦-¦¬TÁ¦¦¦-¦-TËTÅ ¦+¦¦¦¦TÁTÂ¦-¦¬¦¦.
+ 
+@@ -785,11 +884,16 @@ def build_retrieval_plan(decision, *,
+                                  subject_fingerprint=subject_fingerprint,
+                                  subject_anchor_tg_message_id=(
+                                      subject_anchor_tg_message_id),
++                                 subject_anchor_chat_id=(
++                                     subject_anchor_chat_id),
+                                  subject_author=subject_author,
+                                  subject_request_text=subject_request_text,
+                                  subject_material_text=subject_material_text,
+                                  subject_full_material_text=(
+-                                     subject_full_material_text))
++                                     subject_full_material_text),
++                                 claim_source_type=claim_source_type,
++                                 attribution_detected=attribution_detected,
++                                 assertion_kind_hint=assertion_kind_hint)
+     except Exception:
+         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
+         return None
+@@ -1101,15 +1205,51 @@ def _claim_type(unit: str, metrics: list[str]) -> str:
+     return CLAIM_TYPE_FACT
+ 
+ 
++def _matching_item(items, unit_text):
++    """¦Ô¦¦TÂ¦¦TÀ¦-¦¬¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ ¦-¦-TÂTÇ claim-item òÆÒ TÇ¦-TÁTÂTÌ (TÂ¦-TÇ¦-¦-¦¦ TÁ¦-¦-¦¬¦-¦+¦¦¦-¦¬¦¦ TÂ¦¦¦¦TÁTÂ¦-,
++    ¦¬¦-TÂ¦¦¦- ¦-¦¬¦-¦¦¦¦¦-¦-¦-TÁTÂTÌ). ¦Þ¦+¦¬¦- ¦¬ TÂ¦-TÂ ¦¦¦¦ ¦¬¦-TÀTÏ¦+¦-¦¦ ¦+¦¬TÏ ¦¬¦-¦¬¦¦¦¦ ClaimUnit ¦¬ ¦+¦¬TÏ
++    ¦-¦-¦¦¦-TÀ¦-¦-: ¦-TÂ¦-TÀ¦-¦¦ ¦-¦-TÂTÇ¦¦TÀ ¦-¦¦ TÁ¦-¦¬¦+¦-TÑTÂTÁTÏ."""
++    text = str(unit_text or "").strip().lower()
++    by_text = {}
++    for item in items or ():
++        item_text = str(getattr(item, "text", "") or "").strip().lower()
++        if item_text:
++            by_text[item_text] = item
++    item = by_text.get(text)
++    if item is None:
++        for item_text, candidate in by_text.items():
++            if text and (text in item_text or item_text in text):
++                return candidate
++    return item
++
++
+ def build_claim_units(items, claim: str, *,
+                       source_link: str = "",
+-                      request_text: str = "") -> tuple[ClaimUnit, ...]:
++                      request_text: str = "",
++                      attribution_detected: bool = False,
++                      claim_source_type: str = "",
++                      assertion_kind_hint: str = ""
++                      ) -> tuple[ClaimUnit, ...]:
+     """Tç3.1: ¦¬TÁTÅ¦-¦+¦-¦-TÏ ¦-¦-¦-¦-TÁTÂTÌ òÆÒ ¦¬TÀ¦-¦-¦¦TÀTÏ¦¦¦-TË¦¦ claim-¦¦¦+¦¬¦-¦¬TÆTË (¦-¦¦¦¬ LLM).
+ 
+     ¦ß¦¦TÀ¦¦¦¬TÁ¦¬¦-¦¬TÌ¦¬TÃ¦¦TÂ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉTÃTÎ ¦+¦¦¦¦¦-¦-¦¬¦-¦¬¦¬TÆ¦¬TÎ (`_claim_units`, TÂ¦¦ ¦¦¦¦
+     claim_items/¦¬TÀ¦¦¦+¦¬¦-¦¦¦¦¦-¦¬TÏ), ¦+¦-¦-¦-¦-¦¬TÏTÏ ¦¦¦-¦-TÂTÀ¦-¦¦TÂ: TÁTÃTÉ¦-¦-TÁTÂ¦¬, ¦-¦¦TÂTÀ¦¬¦¦¦¬/¦¦¦+¦¬¦-¦¬TÆTË,
+     ¦-TÀ¦¦¦-¦¦¦-¦-¦-¦¦ ¦¬¦-TÂ¦¦TÀ¦-¦-¦¬/TÇ¦-TÁ¦-¦-¦-¦¦ ¦¬¦-TÏTÁ, TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦¬ TÁ¦-TÏ¦¬TÌ TÁ TÁ¦-¦-¦-TÉ¦¦¦-¦¬¦¦¦-.
+ 
++    FCT-112/FCT-113 (S1, 28.11.2026): ¦¦¦-¦¦¦+¦-TÏ TÇ¦-TÁTÂTÌ ¦¬¦-¦¬TÃTÇ¦-¦¦TÂ ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ ¦¬¦-¦¬TÏ
++    ¦¦¦-¦-TÂTÀ¦-¦¦TÂ¦- (`subject/predicate/object/negation/assertion_kind/provenance`);
++    ¦¬¦-¦¬¦-¦¬¦-TÏTÎTÂTÁTÏ ¦â¦Þ¦Û¦ì¦Ú¦Þ TÃ¦¦¦¦ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬¦¦ ¦+¦¦TÂ¦¦TÀ¦-¦¬¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ ¦+¦-¦-¦-TË¦¦:
++    ``_entities`` (subject òÀÔ ¦¦¦+¦¬¦-TÁTÂ¦-¦¦¦-¦-¦-TÏ ¦-¦+¦-¦-¦¬¦-¦-TÇ¦-¦-TÏ TÁTÃTÉ¦-¦-TÁTÂTÌ), ¦¦TÀ¦-¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦¦-TÏ
++    ¦-TÂTÀ¦¬TÆ¦-TÂ¦¦¦¬TÌ¦-¦-TÏ TÇ¦-TÁTÂ¦¬TÆ¦- (negation), TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-TË¦¦ `source_type` ¦¦¦-¦-¦-¦¦TÀTÂ¦-
++    (`caption`/`ocr` òÆÒ image_content), TÀ¦¦¦¬TÃ¦¬TÌTÂ¦-TÂ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦¦- tool'¦-
++    ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬ (`attribution_detected` òÆÒ public_statement_attribution). ¦Ð¦-TÂ¦-TÀ ¦¬
++    ¦-¦-¦¦¦-TÀ ¦¬TÁTÂ¦-TÇ¦-¦¬¦¦¦- ¦+¦-¦-¦-¦-¦¬TÏTÎTÂTÁTÏ ¦-TÂ¦-TÀTË¦- ¦¬TÀ¦-TÅ¦-¦+¦-¦- ¦¬¦¬ `_claim_anchor_map` (TÂ¦-¦- TÃ¦¦¦¦
++    ¦¦TÁTÂTÌ item.author/anchor), ¦¬¦-TÍTÂ¦-¦-TÃ ¦+¦-¦¦¦-¦+¦-¦¦ ¦¬¦+¦¦TÁTÌ ¦-¦¦TÂ. ``predicate``/
++    ``object`` ¦-TÁTÂ¦-TÎTÂTÁTÏ unknown: ¦-¦-¦-¦-TÉTÑ¦-¦-¦-¦¦¦- TÁ¦-TËTÁ¦¬¦-¦-¦-¦¦¦- ¦¬¦-TÀTÁ¦¦TÀ¦- ¦-¦¦TÂ, ¦- TÁ¦¬¦¬TÁ¦¦¦¬
++    TÁ¦¬¦-¦- ¦+¦¬TÏ TÀ¦¦TÈ¦¦¦-¦¬TÏ ¦- TÁ¦-TËTÁ¦¬¦¦ ¦¬¦-¦¬TÀ¦¦TÉ¦¦¦-TË (owner Tç2.2). ``decision_status`` ¦¬
++    ``normative_state_on_date`` òÀÔ ¦¬¦-¦-TÇ¦¦¦-¦¬TÏ ¦-TÁ¦¬ ¦+¦¬TÏ TÃ¦¦¦¦ TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦-¦-¦-¦¦¦- TÂ¦¬¦¬¦-
++    (`assertion_kind_hint`), ¦-¦-TÂ¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦¦¬¦¦ ¦¬¦¦¦¦TÁ¦¬¦¦¦-¦- ¦¬TÅ ¦-¦¦ ¦-TË¦+TÃ¦-TË¦-¦-¦¦TÂ.
++
+     BGS-01 (Tç0.1): TÂ¦¦¦¦TÁTÂ TÇ¦-TÁTÂ¦¬ òÀÔ TÍTÂ¦- ¦Õ¦Á ¦á¦Þ¦Ñ¦á¦â¦Ò¦Õ¦Ý¦Ý¦ë¦Ù TÂ¦¦¦¦TÁTÂ. ¦Ø¦-¦¦¦-¦- TÃTÇ¦-TÁTÂ¦-¦¬¦¦¦-¦-
+     ¦-¦¦ ¦-TËTÇ¦¬TÉ¦-TÎTÂTÁTÏ: TÃ¦¬¦-¦-¦¬¦-¦-¦-¦¬¦¦ TÇ¦¦¦¬¦-¦-¦¦¦¦¦- ¦- TÀ¦¦¦¬¦¬¦¬¦¦¦¦ ¦-¦¦ ¦¬¦-¦¬TÀ¦¦TÉ¦-¦¦TÂ ¦¬TÀ¦-¦-¦¦TÀ¦¦TÃ, ¦-
+     TÃ¦+¦-¦¬¦¦¦-¦¬¦¦ ¦¬¦-¦¦¦-¦¬ ¦¬¦¬ TÂ¦¦¦¬¦¬TÁ¦- ¦¬¦-¦-¦-¦¬¦- TÁ¦-TËTÁ¦¬ ¦¬¦-¦¬TÀ¦-TÁ¦-.
+@@ -1151,6 +1291,20 @@ def build_claim_units(items, claim: str, *,
+                 metrics = [m for m in metrics
+                            if set(re.findall(r"\d+", m)) - frame_numbers
+                            or not set(re.findall(r"\d+", m))]
++            glued = _unit_key(unit) in glued_keys
++            item = _matching_item(items, unit)
++            item_source = str(getattr(item, "source", "") or "")
++            assertion_signal = bool(
++                attribution_detected
++                or str(claim_source_type or "") in _IMAGE_CLAIM_SOURCE_TYPES
++                or item_source in _ATTRIBUTION_SENSITIVE_SOURCES)
++            assertion_kind = _assertion_kind_for(
++                unit, attribution_detected=attribution_detected,
++                claim_source_type=claim_source_type,
++                hint=assertion_kind_hint)
++            # subject: TÂ¦-¦¬TÌ¦¦¦- ¦Þ¦Ô¦Ý¦Þ¦×¦Ý¦Ð¦ç¦Ý¦Ð¦ï ¦¬¦-¦¦¦-¦-¦-¦-¦-¦-¦-TÏ TÁTÃTÉ¦-¦-TÁTÂTÌ; ¦¬TÀ¦¬ ¦-¦¦TÁ¦¦¦-¦¬TÌ¦¦¦¬TÅ
++            # ¦¦¦-¦-¦+¦¬¦+¦-TÂ¦-TÅ TÇ¦¦TÁTÂ¦-¦-¦¦ unknown (¦-¦¦ TÃ¦¦¦-¦+TË¦-¦-¦¦¦-, ¦¦¦-¦¦¦-TÏ ¦¬¦¬ ¦-¦¬TÅ TÁTÃ¦-TÊ¦¦¦¦TÂ).
++            subject = entities[0] if len(entities) == 1 else ""
+             units.append(ClaimUnit(
+                 claim_id=f"c{len(units) + 1}",
+                 text=unit,
+@@ -1163,12 +1317,80 @@ def build_claim_units(items, claim: str, *,
+                 claim_type=_claim_type(unit, metrics),
+                 foreign_terms=tuple(_latin_terms(unit)),
+                 event_at=event_at,
+-                from_glued_request=_unit_key(unit) in glued_keys))
++                from_glued_request=glued,
++                subject=subject,
++                predicate="",
++                object="",
++                negation=_detect_negation(unit),
++                assertion_kind=assertion_kind,
++                provenance=(
++                    ("source", item_source),
++                    ("from_glued_request", "yes" if glued else "no"),
++                    ("assertion_kind", assertion_kind),
++                    ("assertion_signal", "yes" if assertion_signal else "no"),
++                )))
+     return tuple(units)
+ 
+ 
++def _units_with_anchor_fields(units, anchors) -> tuple[ClaimUnit, ...]:
++    """FCT-112: ¦-¦-TÂ¦-TÀ/¦-¦-¦¦¦-TÀ/provenance TÇ¦-TÁTÂ¦¬ òÀÔ ¦¬¦¬ TÃ¦¦¦¦ ¦-TËTÇ¦¬TÁ¦¬¦¦¦-¦-¦-¦¦¦-
++    `_claim_anchor_map` (¦-¦¦ ¦-TÂ¦-TÀ¦-¦¦ ¦-¦-TÂTÇ¦¦TÀ). ¦Ø¦-¦¦¦-¦-/TÂ¦¦¦¦TÁTÂTË ¦- provenance ¦Ý¦Õ
++    ¦¬¦¬TÈTÃTÂTÁTÏ: TÂ¦-¦¬TÌ¦¦¦- TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-TË¦¦ TÄ¦-¦¦TÂTË (origin/source/anchor/author_known)."""
++    by_id = {str(row.get("claim_id") or ""): row for row in (anchors or ())}
++    enriched: list[ClaimUnit] = []
++    for unit in units or ():
++        row = by_id.get(str(getattr(unit, "claim_id", "") or ""), {})
++        author = str(row.get("author") or "")
++        anchor_tg = row.get("anchor_tg_message_id")
++        provenance = {str(k): str(v) for k, v in (unit.provenance or ())}
++        provenance["origin"] = str(row.get("origin") or "")
++        # RV-S1-01 (review r1): `source` TÁTÂTÀ¦-¦¦¦¬ ¦-¦-¦¦¦-TÀ¦- ¦-¦-TÏ¦¬¦-¦- ¦¬¦¦TÀ¦¦¦-¦-TÁ¦¬TÂTÌTÁTÏ ¦-
++        # TÇ¦-TÁTÂTÌ. ¦Ò¦¦TÂ¦¦¦- request-origin TÁTÂ¦-¦-¦¬TÂ `source="user_request"` ¦-
++        # `_claim_anchor_map`; ¦-¦¦¦¬ ¦¬¦¦TÀ¦¦¦-¦-TÁ¦- ¦¬TÀ¦-¦¦¦¦TÆ¦¬TÏ ¦-¦-TÀ¦-TÂ¦-¦- ¦-
++        # `_anchor_rows_from_units` TÂ¦¦TÀTÏ¦¬¦- ¦¬¦-¦-TÇ¦¦¦-¦¬¦¦ (base ¦¦¦¦¦- ¦-TÂ¦+¦-¦-¦-¦¬), ¦-
++        # `origin=user_request` TÁ¦-TÁ¦¦¦+TÁTÂ¦-¦-¦-¦-¦¬ TÁ ¦¬TÃTÁTÂTË¦- `source` òÀÔ ¦¬TÀ¦-TÂ¦¬¦-¦-TÀ¦¦TÇ¦¬¦¦
++        # ¦¬TÀ¦-¦-¦¦¦-¦-¦-TÁ-¦¦¦-¦-TÂTÀ¦-¦¦TÂ¦- FCT-112. ¦ßTÃTÁTÂ¦-¦¦ source TÁTÂTÀ¦-¦¦¦¬ ¦-¦¦ ¦¬¦-TÂ¦¬TÀ¦-¦¦TÂ TÃ¦¦¦¦
++        # ¦¬¦¬¦-¦¦TÁTÂ¦-TË¦¦ source TÇ¦-TÁTÂ¦¬ (item-TÁTÂTÀ¦-¦¦¦¬ ¦¬ TÂ¦-¦¦ TÁ¦-¦-¦¬¦-¦+¦-TÎTÂ).
++        row_source = str(row.get("source") or "")
++        if row_source:
++            provenance["source"] = row_source
++        provenance["anchor"] = "tg" if anchor_tg not in (None, "", 0) else "none"
++        provenance["author_known"] = "yes" if author else "no"
++        enriched.append(dataclasses.replace(
++            unit,
++            author=author,
++            anchor_tg_message_id=(
++                int(anchor_tg) if anchor_tg not in (None, "", 0) else None),
++            anchor_chat_id=(
++                int(row["anchor_chat_id"])
++                if row.get("anchor_chat_id") not in (None, "", 0) else None),
++            provenance=tuple(provenance.items())))
++    return tuple(enriched)
++
++
++def _anchor_rows_from_units(units) -> tuple[dict, ...]:
++    """FCT-112: `plan.claim_anchors` TÁTÂTÀ¦-¦¬TÂTÁTÏ ¦Ø¦× ClaimUnit, ¦- ¦-¦¦ ¦¬¦-TÀ¦-¦¬¦¬¦¦¦¬TÌ¦-¦-.
++
++    ¦ä¦-TÀ¦-¦- TÁTÂTÀ¦-¦¦¦¬ TÁ¦-TÅTÀ¦-¦-¦¦¦-¦- ¦-¦-¦¦TÂ-TÁ¦-¦-¦-¦¦TÁTÂ¦¬¦-¦-¦¦ ¦¬¦- ¦¦¦¬TÎTÇ¦-¦- TÁTÂ¦-TÀ¦-¦¦¦- TÁ¦¬¦-¦-¦-TÀTÏ
++    (claim_id/anchor_tg_message_id/author/source/origin) + ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦
++    `anchor_chat_id`."""
++    rows: list[dict] = []
++    for unit in units or ():
++        provenance = {str(k): str(v) for k, v in (unit.provenance or ())}
++        rows.append({
++            "claim_id": str(getattr(unit, "claim_id", "") or ""),
++            "anchor_tg_message_id": getattr(unit, "anchor_tg_message_id", None),
++            "anchor_chat_id": getattr(unit, "anchor_chat_id", None),
++            "author": str(getattr(unit, "author", "") or ""),
++            "source": provenance.get("source", ""),
++            "origin": provenance.get("origin", ""),
++        })
++    return tuple(rows)
++
++
+ def _claim_anchor_map(items, units, *, subject_origin: str = "",
+                       subject_anchor_tg_message_id: int | None = None,
++                      subject_anchor_chat_id: int | None = None,
+                       subject_author: str = "",
+                       subject_request_text: str = "",
+                       subject_material_text: str = "") -> tuple[dict, ...]:
+@@ -1178,6 +1400,9 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
+     ¦-TËTÂTÌ TÆ¦¦¦¬TË¦- ¦¬TÀ¦¦¦+¦¬¦-¦¦¦¦¦-¦¬¦¦¦- TÇ¦-TÁTÂ¦¬). ¦Ý¦¦TÂ ¦-¦+¦-¦-¦¬¦-¦-TÇ¦-¦-¦¦¦- TÁ¦-¦-¦¬¦-¦+¦¦¦-¦¬TÏ òÆÒ ¦-¦-¦¦¦-TÀ
+     ¦¬TÃTÁTÂ¦-¦¦: ¦¬TÀ¦¬¦¬¦¬TÁTË¦-¦-TÂTÌ TÇ¦-TÁTÂTÌ Të¦-¦¬¦¬¦¦¦-¦¦TÈ¦¦¦-TÃT¬ TÁ¦-¦-¦-TÉ¦¦¦-¦¬TÎ ¦¬¦-¦¬TÀ¦¦TÉ¦¦¦-¦- Tç4.3.
+ 
++    FCT-112 (S1): TÁTÂTÀ¦-¦¦¦- ¦+¦-¦¬¦-¦¬¦-¦¬TÂ¦¦¦¬TÌ¦-¦- ¦-¦¦TÁTÑTÂ `anchor_chat_id`; ¦-¦-¦¦¦-TÀ TÇ¦-TÁTÂ¦¬
++    ¦¬TÀ¦-¦¬TÁTÅ¦-¦¦¦+¦¦¦-¦¬TÏ ¦¬¦-¦¬TÀ¦-TÁ¦- ¦¬¦-¦¬TÃTÇ¦-¦¦TÂ ¦¬ TÇ¦-TÂ (`subject_anchor_chat_id`).
++
+     S13: TÇ¦-TÁTÂTÌ TÁ¦-¦-¦-TÁTÂ¦-TÏTÂ¦¦¦¬TÌ¦-¦-¦¦¦- ¦-¦-¦¬TÀ¦-TÁ¦- ¦¬¦-¦¬TÌ¦¬¦-¦-¦-TÂ¦¦¦¬TÏ (``subject_origin ==
+     "request"``) ¦-¦¦¦¬ item-TÁ¦-¦-¦¬¦-¦+¦¦¦-¦¬TÏ ¦¬TÀ¦¬¦-¦-¦+¦¬¦¦¦¦¦¬TÂ ¦á¦Þ¦Þ¦Ñ¦é¦Õ¦Ý¦Ø¦î ¦×¦Ð¦ß¦à¦Þ¦á¦Ð, ¦- ¦-¦¦
+     ¦-¦-TÂ¦¦TÀ¦¬¦-¦¬TÃ: ¦¬¦-¦¬TÌ¦¬¦-¦-¦-TÂ¦¦¦¬TÌTÁ¦¦¦¬¦¦ ¦-¦-¦¬TÀ¦-TÁ ¦-¦¦ TÁTÂ¦-¦-¦-¦-¦¬TÂTÁTÏ TÆ¦¬TÂ¦-TÂ¦-¦¦ ¦¬TÁTÅ¦-¦+¦-¦-¦¦¦- ¦-¦-TÂ¦-TÀ¦-.
+@@ -1187,23 +1412,14 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
+     rows: list[dict] = []
+     request_low = str(subject_request_text or "").strip().lower()
+     material_low = str(subject_material_text or "").strip().lower()
+-    by_text = {}
+-    for item in items or ():
+-        text = str(getattr(item, "text", "") or "").strip().lower()
+-        if text:
+-            by_text[text] = item
+     for unit in units or ():
+-        unit_text = str(getattr(unit, "text", "") or "").strip().lower()
+-        item = by_text.get(unit_text)
+-        if item is None:
+-            for text, candidate in by_text.items():
+-                if unit_text and (unit_text in text or text in unit_text):
+-                    item = candidate
+-                    break
++        item = _matching_item(items, getattr(unit, "text", ""))
+         row = {
+             "claim_id": str(getattr(unit, "claim_id", "") or ""),
+             "anchor_tg_message_id": (getattr(item, "anchor_tg_message_id", None)
+                                      if item is not None else None),
++            "anchor_chat_id": (getattr(item, "anchor_chat_id", None)
++                               if item is not None else None),
+             "author": (str(getattr(item, "author", "") or "")
+                        if item is not None else ""),
+             "source": (str(getattr(item, "source", "") or "")
+@@ -1222,6 +1438,9 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
+             if (subject_origin == "request" and not in_material) or \
+                     (from_request and not in_material):
+                 row["anchor_tg_message_id"] = int(subject_anchor_tg_message_id)
++                row["anchor_chat_id"] = (
++                    int(subject_anchor_chat_id)
++                    if subject_anchor_chat_id not in (None, "", 0) else None)
+                 row["author"] = str(subject_author or "")
+                 row["source"] = "user_request"
+                 row["origin"] = "user_request"
+@@ -1288,10 +1507,14 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
+                       subject_origin: str = "",
+                       subject_fingerprint: str = "",
+                       subject_anchor_tg_message_id: int | None = None,
++                      subject_anchor_chat_id: int | None = None,
+                       subject_author: str = "",
+                       subject_request_text: str = "",
+                       subject_material_text: str = "",
+-                      subject_full_material_text: str = ""
++                      subject_full_material_text: str = "",
++                      claim_source_type: str = "",
++                      attribution_detected: bool = False,
++                      assertion_kind_hint: str = ""
+                       ) -> RetrievalPlan | None:
+     if decision is None:
+         return None
+@@ -1333,10 +1556,24 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
+     # ¦¦¦+¦¬¦-¦¬TÆ¦-TÅ ¦¬TÀ¦-¦-¦¦TÀ¦¦¦¬, ¦- ¦-¦¦ TÂ¦-¦¬TÌ¦¦¦- ¦- ¦-¦-¦¦¦-TÀ¦-TÅ: ¦-¦-¦¬TÀ¦-TÁ ¦¬¦-¦¬TÌ¦¬¦-¦-¦-TÂ¦¦¦¬TÏ ¦-¦-TÏ¦¬¦-¦-
+     # ¦¬¦-¦¬TÃTÇ¦-TÂTÌ TÁ¦-¦-TÁTÂ¦-¦¦¦-¦-TË¦¦ ¦¬¦-¦¬TÁ¦¦¦-¦-TË¦¦ ¦¬¦-¦¬TÀ¦-TÁ ¦+¦-¦¦¦¦ ¦¦TÁ¦¬¦¬ TÁ¦¦¦¬¦¦¦¦¦- TÁ ¦-¦-TÂ¦¦TÀ¦¬¦-¦¬¦-¦-.
+     units = build_claim_units(items, claim,
+-                              request_text=subject_request_text)
++                              request_text=subject_request_text,
++                              attribution_detected=attribution_detected,
++                              claim_source_type=claim_source_type,
++                              assertion_kind_hint=assertion_kind_hint)
+     if not units:
+         units = (ClaimUnit(claim_id="c1",
+                            text=search_thesis_text(claim)),)
++    # FCT-112 (S1): ¦-¦-TÂ¦-TÀ/¦-¦-¦¦¦-TÀ/provenance òÀÔ ¦¬¦¬ TÃ¦¦¦¦ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦¦-
++    # `_claim_anchor_map`; `plan.claim_anchors` ¦¬¦-TÂ¦¦¦- TÁTÂTÀ¦-¦¬TÂTÁTÏ ¦Ø¦× ClaimUnit
++    # (¦-¦+¦-¦- TÂ¦-TÇ¦¦¦- ¦¬TÁTÂ¦¬¦-TË, ¦- ¦-¦¦ ¦¬¦-TÀ¦-¦¬¦¬¦¦¦¬TÌ¦-TË¦¦ TÁ¦¬¦-¦-¦-TÀTÌ).
++    anchor_rows = _claim_anchor_map(
++        items, units, subject_origin=subject_origin,
++        subject_anchor_tg_message_id=subject_anchor_tg_message_id,
++        subject_anchor_chat_id=subject_anchor_chat_id,
++        subject_author=subject_author,
++        subject_request_text=subject_request_text,
++        subject_material_text=subject_material_text)
++    units = _units_with_anchor_fields(units, anchor_rows)
+     # SFC-12-09 residual (`fc-anchor`): ¦-¦-¦¦¦¦TÀ ¦-¦¦TÀTÑTÂTÁTÏ ¦¬¦¬ ¦ß¦Þ¦Û¦Ý¦Þ¦Ó¦Þ ¦-¦-TÂ¦¦TÀ¦¬¦-¦¬¦-
+     # ¦¬TÀ¦¦¦+¦-¦¦TÂ¦-; TÁ¦¦¦¬¦¦¦¦¦-¦-TË¦¦ ¦-¦-¦¬TÀ¦-TÁ ¦-¦-¦¦¦¦TÂ ¦-¦-¦¬TË¦-¦-TÂTÌ ¦¬TÀ¦¦¦+¦-¦¦TÂ TÂ¦-¦¬TÌ¦¦¦- ¦¦¦-¦¦ TëTÍTÂTÃ
+     # TÂTÀ¦-¦+¦¬TÆ¦¬TÎT¬, ¦¬ ¦-¦¦¦¬ ¦-¦-¦¦¦¦TÀ¦- ¦¦¦¦¦- ¦¬¦-¦¬TÀ¦-TÁ TÃTÅ¦-¦+¦¬TÂ ¦- ¦-¦-TÉ¦¬¦¦ ¦¬¦-¦¬TÁ¦¦. ¦ß¦-¦¬¦-TË¦¦ ¦-¦-TÂ¦¦TÀ¦¬¦-¦¬
+@@ -1494,12 +1731,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
+         needs_chat_history=needs_chat,
+         needs_primary_fetch=True,
+         claim_text=claim, claims=tuple(units), source_link=source_link,
+-        claim_anchors=_claim_anchor_map(
+-            items, units, subject_origin=subject_origin,
+-            subject_anchor_tg_message_id=subject_anchor_tg_message_id,
+-            subject_author=subject_author,
+-            subject_request_text=subject_request_text,
+-            subject_material_text=subject_material_text),
++        # FCT-112: ¦-¦-¦¦¦-TÀTË òÀÔ ¦¬TÀ¦-¦¦¦¦TÆ¦¬TÏ ClaimUnit (¦-¦¦ ¦¬¦-TÀ¦-¦¬¦¬¦¦¦¬TÌ¦-TË¦¦ TÁ¦¬¦-¦-¦-TÀTÌ).
++        claim_anchors=_anchor_rows_from_units(units),
+         subject_origin=subject_origin,
+         subject_fingerprint=subject_fingerprint,
+         chat_id=chat_id)
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index 3e0564601..12c74ebc5 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -2631,6 +2631,62 @@ def _claim_part_match(part: dict, claim) -> bool:
+         or claim_key.startswith(key[:40])
+ 
+ 
++def _assertion_kind_for_part(part, coverage) -> str:
++    """FCT-113: TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦+¦¬TÏ TÇ¦-TÁTÂ¦¬ payload'¦- Analyst'¦-.
++
++    ¦ç¦-TÁTÂTÌ (`ClaimPart`/dict) TÁ¦-¦¬¦-TÁTÂ¦-¦-¦¬TÏ¦¦TÂTÁTÏ TÁ claim-¦¦¦+¦¬¦-¦¬TÆ¦¦¦¦ TÂ¦¦¦- ¦¦¦¦
++    ¦+¦¦TÂ¦¦TÀ¦-¦¬¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦- ¦-¦-TÂTÇ¦¦TÀ¦-¦- (`_claim_part_match`), ¦-¦- ¦¬¦- ¦â¦Õ¦×¦Ø¦á¦ã ¦-¦¦¦¬
++    TÁ¦¬TÃ¦¦¦¦¦-¦-TËTÅ ¦-¦-TÑTÀTÂ¦-¦¦ ¦¬¦¬¦-¦-TÀ¦-¦¦¦¦¦-¦¬TÏ (`search_thesis_text`): TÃ ¦-¦¦¦+¦¬¦--TÇ¦-TÁTÂ¦¬
++    ¦¬TÀ¦¦TÄ¦¬¦¦TÁ Të¦â¦¦¦¦TÁTÂ TÁ ¦¬¦¬¦-¦-TÀ¦-¦¦¦¦¦-¦¬TÏ òÀæT¬ ¦¦TÁTÂTÌ ¦- TÂ¦¦¦¦TÁTÂ¦¦ TÇ¦-TÁTÂ¦¬ ¦¬ ¦-TÂTÁTÃTÂTÁTÂ¦-TÃ¦¦TÂ ¦-
++    ClaimUnit. ¦Ý¦¦TÂ ¦-¦+¦-¦-¦¬¦-¦-TÇ¦-¦-¦¦¦- TÁ¦-¦¬¦-TÁTÂ¦-¦-¦¬¦¦¦-¦¬TÏ òÆÒ TÇ¦¦TÁTÂ¦-TË¦¦ unknown, ¦- ¦-¦¦
++    Të¦¬¦-TÅ¦-¦¦¦¬¦¦ TÂ¦¬¦¬T¬."""
++    from services import factcheck_planner as fsp
++    from services.factcheck_planner import ASSERTION_KIND_UNKNOWN
++    if part is None:
++        return ASSERTION_KIND_UNKNOWN
++    probe = (part if isinstance(part, dict)
++             else {"part_id": getattr(part, "part_id", ""),
++                   "text": getattr(part, "text", "")})
++    probe_id = str(probe.get("part_id") or "")
++    probe_key = _part_text_key(fsp.search_thesis_text(probe.get("text")))
++    for cov in coverage or ():
++        claim = getattr(cov, "claim", None)
++        if claim is None:
++            continue
++        claim_id = str(getattr(claim, "claim_id", "") or "")
++        claim_key = _part_text_key(
++            fsp.search_thesis_text(getattr(claim, "text", "")))
++        matched = bool(probe_id and claim_id and probe_id == claim_id)
++        if not matched and probe_key and claim_key:
++            matched = (probe_key == claim_key
++                       or probe_key.startswith(claim_key[:40])
++                       or claim_key.startswith(probe_key[:40]))
++        if matched:
++            return (str(getattr(claim, "assertion_kind", "")
++                        or ASSERTION_KIND_UNKNOWN)
++                    or ASSERTION_KIND_UNKNOWN)
++    return ASSERTION_KIND_UNKNOWN
++
++
++def _claim_assertion_unresolved(claim) -> bool:
++    """FCT-113: TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦Ò¦Ð¦Ö¦Õ¦Ý, ¦-¦- ¦-¦¦ TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦-.
++
++    `assertion_signal` ¦-TËTÁTÂ¦-¦-¦¬TÏ¦¦TÂTÁTÏ ¦¬¦¬¦-¦-¦¬TÀ¦-¦-TÉ¦¬¦¦¦-¦- TÂ¦-¦¬TÌ¦¦¦- ¦+¦¬TÏ TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-TËTÅ
++    ¦-¦-TÀTÈTÀTÃTÂ¦-¦-, ¦¦¦+¦¦ TÂ¦¬¦¬ ¦-¦¬¦¬TÏ¦¦TÂ ¦-¦- TÁ¦-TËTÁ¦¬ ¦-TË¦-¦-¦+¦- (TÆ¦¬TÂ¦-TÂ¦- ¦-¦¦¦¬ ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬). ¦Þ¦-TËTÇ¦-TË¦¦
++    TÄ¦-¦¦TÂ (source=literal) unknown-TÂ¦¬¦¬¦-¦- ¦-¦¦ ¦-¦¬¦-¦¦¦¬TÀTÃ¦¦TÂTÁTÏ: ¦¦¦¦¦- ¦¬TÀ¦-¦-¦¦TÀTÏ¦¦TÂ evidence,
++    ¦- ¦-¦¦ TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ."""
++    try:
++        from services.factcheck_planner import ASSERTION_KIND_UNKNOWN
++        kind = str(getattr(claim, "assertion_kind", "")
++                   or ASSERTION_KIND_UNKNOWN)
++        if kind != ASSERTION_KIND_UNKNOWN:
++            return False
++        marker = getattr(claim, "assertion_sensitive", None)
++        return bool(marker()) if callable(marker) else False
++    except Exception:          # pragma: no cover òÀÔ ¦-¦¦TÂ¦-¦+¦-¦-¦-TË¦¦ ¦-¦¦ TÀ¦-TÃTÂ ¦-¦¦TÀ¦+¦¬¦¦TÂ
++        return False
++
++
+ def claim_payload_rows(coverage) -> list[dict]:
+     """¦Ú¦-¦-¦¬¦-¦¦TÂ¦-TË¦¦ TÁTÂTÀ¦-¦¦¦¬ ¦¬¦-¦¦TÀTËTÂ¦¬TÏ ¦+¦¬TÏ payload ¦-¦¦TÀ¦-¦-¦¬¦¬¦¬¦-TÂ¦-TÀ¦- (Tç5: ¦¬¦-¦+¦-TÇ¦-)."""
+     rows: list[dict] = []
+@@ -2698,6 +2754,12 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
+         metadata = {
+             "claim_id": str(getattr(claim, "claim_id", "") or ""),
+             "claim_type": str(getattr(claim, "claim_type", "") or ""),
++            # FCT-112/113 (S1): TÇ¦-TÁTÂTÌ ¦-¦¦TÀ¦+¦¬¦¦TÂ¦- ¦-¦¦TÁTÑTÂ TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦¬
++            # TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-TË¦¦ ¦¬TÀ¦-¦-¦¦¦-¦-¦-TÁ (¦-¦¦¦¬ TÂ¦¦¦¦TÁTÂ¦-¦- TÇ¦-TÂ¦-).
++            "assertion_kind": str(getattr(claim, "assertion_kind", "") or
++                                   "unknown"),
++            "anchor_tg_message_id": getattr(claim, "anchor_tg_message_id", None),
++            "author": str(getattr(claim, "author", "") or ""),
+             "search_status": str(getattr(cov, "search_status", "") or ""),
+             "claim_outcome": str(getattr(cov, "outcome", "") or ""),
+             "status_detail": detail,
+@@ -2773,6 +2835,23 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
+         # TçF1: ¦-¦¦TÀ¦¦¦¦¦-TÆ¦¬TÏ ¦-¦¦ ¦¬¦-¦+¦-¦¬¦-¦-¦¦TÂ ¦-TË¦-¦-¦+ ¦-¦-¦+¦¦¦¬¦¬ ¦¬¦- TÁTÇTÑTÂ TÁ¦¦TÀ¦-¦¦TÀ¦-TËTÅ TÇ¦-TÁTÂ¦¦¦¦;
+         # TÇ¦¦TÁTÂ¦-¦-TÏ ¦-¦¦¦-¦¬TÀ¦¦¦+¦¦¦¬TÑ¦-¦-¦-TÁTÂTÌ ¦-TÁTÂ¦-TÑTÂTÁTÏ, ¦¦¦-¦-¦¦TÀ¦¦TÂ¦-TË¦¦ ¦¬TÀ¦-¦-¦¦¦¬TË ¦-¦¬¦+¦-TË ¦- parts.
+         factual = "insufficient_evidence"
++    # FCT-113 (S1): ¦¬¦-¦¬¦-¦¦¦¬TÂ¦¦¦¬TÌ¦-TË¦¦ ¦-TË¦-¦-¦+ ¦¬TÀ¦¬ ¦Ý¦Õ¦ã¦á¦â¦Ð¦Ý¦Þ¦Ò¦Û¦Õ¦Ý¦Ý¦Þ¦Ü TÂ¦¬¦¬¦¦ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ,
++    # ¦¦¦-¦¦¦+¦- TÂ¦¬¦¬ ¦-¦-¦¦¦¦¦- ¦+¦¬TÏ TÁ¦-TËTÁ¦¬¦- (TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-TË¦¦ ¦-¦-TÀTÈTÀTÃTÂ: TÆ¦¬TÂ¦-TÂ¦- ¦-¦¦¦¬ ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬),
++    # ¦-¦¦ ¦+¦-¦¬TÃTÁ¦¦¦-¦¦TÂTÁTÏ òÀÔ ¦¬¦-¦-¦¬¦¦¦¦¦-¦¬¦¦ ¦+¦- TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦¦- enum + TÇ¦¦TÁTÂ¦-¦-TÏ ¦-¦¦¦-¦-¦-TÀ¦¦¦-.
++    # ¦Þ¦-TËTÇ¦-TË¦¦ TÄ¦-¦¦TÂ (¦-¦¦¦¬ assertion_signal) ¦-¦¦ ¦¬¦-TÂTÀ¦-¦¦¦¬¦-¦-¦¦TÂTÁTÏ: ¦¦¦¦¦- ¦+¦¦TÀ¦¦¦¬TÂ evidence.
++    assertion_unresolved = [
++        cov for cov in (coverage or ())
++        if _claim_assertion_unresolved(getattr(cov, "claim", None))]
++    if factual in _CLAIM_POSITIVE and assertion_unresolved:
++        factual = "insufficient_evidence"
++        uncertainty = dict(verdict.uncertainty or {})
++        uncertainty.setdefault(
++            "assertion_kind_unknown",
++            "TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ ¦-¦¦ TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦- (¦-TÂTÀ¦¬¦-TÃTÆ¦¬TÏ/TÁTÂ¦-TÂTÃTÁ ¦-¦¦ ¦¬¦-¦+TÂ¦-¦¦TÀ¦¦¦+¦¦¦-TË "
++            "TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-¦-) òÀÔ ¦¬¦-¦¬¦-¦¦¦¬TÂ¦¦¦¬TÌ¦-TË¦¦ ¦-TË¦-¦-¦+ ¦¬¦- TÂ¦-¦¦¦-¦-TÃ ¦¬TÃ¦-¦¦TÂTÃ ¦-¦¦ ¦-TË¦+¦-TÑTÂTÁTÏ")
++        return dataclasses.replace(verdict, factual_verdict=factual,
++                                   parts=tuple(parts), uncertainty=uncertainty,
++                                   reason=verdict.reason)
+     # FC-04.7 (corrective 05.11.2026): ¦¬¦-¦¬¦-¦¦¦¬TÂ¦¦¦¬TÌ¦-TË¦¦/mixed ¦-¦¦TÀ¦+¦¬¦¦TÂ ¦-¦¦¦¬ TÅ¦-TÂTÏ
+     # ¦-TË ¦-¦+¦-¦-¦¦¦- ¦ß¦à¦ï¦Ü¦Þ¦Ó¦Þ ¦¬¦-¦+TÂ¦-¦¦TÀ¦¦¦+¦-TÎTÉ¦¦¦¦¦- evidence ¦¬¦- TÁTÃTÂ¦¬ ¦¬¦-¦¬TÀ¦¦TÉTÑ¦-. ¦ç¦-TÁTÂ¦¬TÇ¦-TË¦¦
+     # TÁ¦¬TÃTÇ¦-¦¦ ¦-TÁTÂ¦-TÑTÂTÁTÏ TÇ¦¦TÁTÂ¦-TË¦- insufficient_evidence TÁ TÀ¦-¦¬¦-¦-TÀ¦-¦- ¦- parts;
+@@ -4247,7 +4326,10 @@ class FactCheckService:
+         if parts:
+             sections.append("<claim_parts>" + escape_xml_text(json.dumps(
+                 [{"part_id": p.part_id, "text": p.text,
+-                  "period": [p.period_from, p.period_to]}
++                  "period": [p.period_from, p.period_to],
++                  # FCT-113 (S1): TÂ¦¬¦¬ TÃTÂ¦-¦¦TÀ¦¦¦+¦¦¦-¦¬TÏ TÇ¦-TÁTÂ¦¬ òÀÔ ¦¬¦¬ ClaimUnit
++                  # (TÁTÂTÀTÃ¦¦TÂTÃTÀ¦-TË¦¦ ¦¬TÀ¦¬¦¬¦-¦-¦¦¦¬); ¦-¦¦TÂ ¦-¦+¦-¦-¦¬¦-¦-TÇ¦-¦-¦¦¦- matTÇ¦- òÆÒ unknown.
++                  "assertion_kind": _assertion_kind_for_part(p, coverage)}
+                  for p in parts], ensure_ascii=False)) + "</claim_parts>")
+         if evidence:
+             # Tç18G.3/Tç18G.5: ¦¦¦-¦¦¦+¦-TÏ ¦-TË¦+¦¦TÀ¦¦¦¦¦- òÀÔ TÁ¦- TÁTÂ¦-¦-¦¬¦¬TÌ¦-TË¦- ID ¦¬ ¦+¦-TÂ¦-¦¦
+diff --git a/tests/test_fc_trust_s1_contract.py b/tests/test_fc_trust_s1_contract.py
+new file mode 100644
+index 000000000..5d5affc9e
+--- /dev/null
++++ b/tests/test_fc_trust_s1_contract.py
+@@ -0,0 +1,403 @@
++"""FCT-S1-CONTRACT òÀÔ ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ TÀ¦-¦¬TÀTË¦-TË FCT-112/FCT-113 (Builder, 28.11.2026).
++
++¦ß¦-¦¦TÀTË¦-¦-¦¦TÂTÁTÏ TÀ¦-¦-¦-¦- ¦+¦-¦- TÀ¦-¦¬TÀTË¦-¦- ¦¦¦-¦-TÂTÀ¦-¦¦TÂ¦- (contract-freeze Tç4/Tç6):
++
++* **FCT-112** òÀÔ `ClaimUnit` ¦¦¦-¦¦¦+¦-¦¦ TÁTÃTÉ¦¦TÁTÂ¦-¦¦¦-¦-¦-¦¦ TÇ¦-TÁTÂ¦¬ ¦-¦¦TÁTÑTÂ TÁTÃ¦-TÊ¦¦¦¦TÂ,
++  ¦+¦¦¦¦TÁTÂ¦-¦¬¦¦/¦-TÂ¦-¦-TÈ¦¦¦-¦¬¦¦, ¦-¦-TÊ¦¦¦¦TÂ, ¦-TÂTÀ¦¬TÆ¦-¦-¦¬¦¦, ¦-¦-TÂ¦-TÀ¦-, ¦-¦-¦¦¦-TÀ ¦¬TÁTÂ¦-TÇ¦-¦¬¦¦¦- ¦¬
++  provenance; ¦-¦¦¦¬¦¬¦-¦¦TÁTÂ¦-¦-¦¦ ¦-TÁTÂ¦-TÑTÂTÁTÏ unknown (`""`/`None`), ¦- `plan.claim_anchors`
++  TÁTÂTÀ¦-¦¬TÂTÁTÏ ¦Ø¦× `ClaimUnit`, ¦- ¦-¦¦ ¦¬¦-TÀ¦-¦¬¦¬¦¦¦¬TÌ¦-TË¦- TÁ¦¬¦-¦-¦-TÀTÑ¦-.
++* **FCT-113** òÀÔ ¦¦¦+¦¬¦-¦-TÏ ¦-TÁTÌ `assertion_kind` TÁ TÇ¦¦TÂTËTÀTÌ¦-TÏ TÂ¦¬¦¬¦-¦-¦¬ ¦-¦¬¦-¦+¦¦¦¬TÌTÆ¦- +
++  `unknown`; TÂ¦¬¦¬ TÀ¦-¦¬¦¬¦¬TÇ¦-¦¦TÂTÁTÏ ¦¬¦- ¦á¦â¦à¦ã¦Ú¦â¦ã¦à¦Ý¦ë¦Ü ¦¬TÀ¦¬¦¬¦-¦-¦¦¦-¦- (source_type ¦¦¦-¦-¦-¦¦TÀTÂ¦-,
++  TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬¦¦ tool ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬), ¦-¦¦ ¦¬¦- TÁ¦¬¦¬TÁ¦¦¦-¦- TÁ¦¬¦-¦- (owner Tç2.2), ¦+¦-TÅ¦-¦+¦¬TÂ ¦+¦-
++  `<claim_parts>` Analyst'¦- ¦¬ `parts` ¦-¦¦TÀ¦+¦¬¦¦TÂ¦-, ¦¬ ¦¬¦-¦¬¦-¦¦¦¬TÂ¦¦¦¬TÌ¦-TË¦¦ ¦-TË¦-¦-¦+ ¦¬TÀ¦¬
++  ¦-¦¦TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦-¦-¦-¦- TÂ¦¬¦¬¦¦ (TÂ¦-¦-, ¦¦¦+¦¦ TÂ¦¬¦¬ ¦-¦-¦¦¦¦¦-) ¦¬¦-¦-¦¬¦¦¦-¦¦TÂTÁTÏ.
++
++¦ßTÀ¦-¦-¦¦TÀ¦¦¦¬ ¦¬¦-¦-¦¦¦+¦¦¦-TÇ¦¦TÁ¦¦¦¬¦¦: ¦-¦-TÁTÂ¦-TÏTÉ¦¬¦¦ `build_claim_units`/`build_retrieval_plan`/
++`merge_claim_coverage`/`_temporal_user_payload`, ¦-¦¦¦¬ ¦-¦-¦¦¦-¦- TÂ¦¦TÁTÂ¦¬TÀTÃ¦¦¦-¦-¦¦ ¦¬¦-¦¦¦¬¦¦¦¬.
++"""
++from __future__ import annotations
++
++import dataclasses
++
++import pytest
++
++from services import factcheck_planner as fsp
++from services import factcheck_service as fsvc
++from services import temporal_factcheck as tf
++from config.settings import settings
++from services.factcheck_suitability import ClaimItem
++
++CHAT_ID = -100777
++
++CLAIM_MARKETS = "¦Ø¦-¦+¦¦¦¦TÁ S&P 500 TÃ¦¬¦-¦¬ ¦-¦- 2,1% 30 ¦-¦¦TÂTÏ¦-TÀTÏ 2026 ¦¦¦-¦+¦-."
++CLAIM_PLURAL = ("¦Ò¦¦¦+¦-¦-TÁTÂ¦-¦- ¦-¦+¦-¦-TÀ¦¬¦¬¦- ¦¬TÀ¦-¦¦TÀ¦-¦-¦-TÃ. "
++                "¦ßTÀ¦-¦-¦¬¦¬¦- ¦+¦¦¦¦TÁTÂ¦-TÃ¦¦TÂ TÁ 2024 ¦¦¦-¦+¦-.")
++CLAIM_NEGATED = "¦Ô¦¦¦¬TÃTÂ¦-TÂTË ¦-¦¦ ¦¬TÀ¦¬¦-TÏ¦¬¦¬ ¦¬¦-¦¦¦-¦- ¦- ¦-TÎ¦+¦¦¦¦TÂ¦¦."
++CLAIM_PLAIN = "¦Ú¦¬¦¬TÏ¦¦¦¦TÂTÁ¦¦¦¬¦¦ ¦+¦-¦¦¦+¦¬ AcidLand ¦-TË¦¬¦-¦¬¦¬ ¦- ¦¬TÎ¦¬¦¦."
++
++
++def _item(text, *, source="literal", author=None, anchor=None, chat=None,
++          claim_type="checkable_factual_claim"):
++    return ClaimItem(text=text, claim_type=claim_type, verifiable=True,
++                     source=source, author=author,
++                     anchor_tg_message_id=anchor, anchor_chat_id=chat)
++
++
++def _decision(items, *, scope="web", temporal_hint=False):
++    from services.factcheck_suitability import (CHECKABLE_FACTUAL_CLAIM,
++                                                DECISION_CHECKABLE,
++                                                SuitabilityDecision)
++    return SuitabilityDecision(
++        decision=DECISION_CHECKABLE, claim_type=CHECKABLE_FACTUAL_CLAIM,
++        claim_items=tuple(items), scope=scope, reason_code=None,
++        confidence=0.9, target_ref={"target_tg_message_id": 7712},
++        temporal_hint=temporal_hint)
++
++
++def _coverage(claim, *, evidence_id="ev-1", role="supports", detail="verified",
++              outcome="supported", status="source_read"):
++    ev = fsp.ClaimEvidence(
++        claim_id=claim.claim_id, evidence_id=evidence_id,
++        url="https://example.org/a", role=role, strength="direct",
++        opened=True, basis=("entity",), snippet_only=False,
++        independence_group="", independent=True,
++        published_at_source="page", date_status="known")
++    return fsp.ClaimCoverage(
++        claim=claim, search_status=status, status_detail=detail,
++        outcome=outcome, reason_code="supported", gap_note="",
++        evidence=(ev,), citation_ids=(evidence_id,))
++
++
++def _verdict(parts, *, factual="supported"):
++    return tf.TemporalVerdict(
++        factual_verdict=factual, temporal_status="current",
++        evaluated_period={}, assessment_mode="data_only", as_of=0,
++        parts=tuple(parts))
++
++
++@pytest.fixture
++def planner_on():
++    """¦ß¦¬¦-¦- TÁTÂTÀ¦-¦¬TÂTÁTÏ TÂ¦-¦¬TÌ¦¦¦- ¦¬TÀ¦¬ ¦-¦¦¦¬TÎTÇTÑ¦-¦-¦-¦- planner'¦¦ (¦¬¦-¦-¦-¦+TÁ¦¦¦-¦¦ OFF)."""
++    old = getattr(settings, "FACTCHECK_PIPELINE_V2_ENABLED", False)
++    object.__setattr__(settings, "FACTCHECK_PIPELINE_V2_ENABLED", True)
++    yield
++    object.__setattr__(settings, "FACTCHECK_PIPELINE_V2_ENABLED", old)
++
++
++# òÔÀòÔÀ FCT-112: ¦¦¦-¦-TÂTÀ¦-¦¦TÂ TÇ¦-TÁTÂ¦¬ ClaimUnit òÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀ
++
++class TestFCT112ClaimUnitContract:
++
++    def test_old_constructor_keeps_unknown_defaults(self):
++        """¦Þ¦-TÀ¦-TÂ¦-¦-TÏ TÁ¦-¦-¦-¦¦TÁTÂ¦¬¦-¦-TÁTÂTÌ: TÁTÂ¦-TÀTË¦¦ ¦¦¦-¦-TÁTÂTÀTÃ¦¦TÂ¦-TÀ TÀ¦-¦-¦-TÂ¦-¦¦TÂ, ¦-¦-¦-¦-¦¦ òÀÔ unknown."""
++        unit = fsp.ClaimUnit(claim_id="c1", text=CLAIM_MARKETS)
++        assert unit.subject == ""
++        assert unit.predicate == ""
++        assert unit.object == ""
++        assert unit.negation is None
++        assert unit.author == ""
++        assert unit.anchor_tg_message_id is None
++        assert unit.anchor_chat_id is None
++        assert unit.provenance == ()
++        assert unit.assertion_kind == fsp.ASSERTION_KIND_UNKNOWN
++        # TÁTÂ¦-TÀTË¦¦ ¦¦¦¬TÎTÇ¦¬ TÁ¦¦TÀ¦¬¦-¦¬¦¬¦¬¦-TÆ¦¬¦¬ ¦-¦¦ ¦¬¦-TÂ¦¦TÀTÏ¦-TË, ¦-¦-¦-TË¦¦ òÀÔ ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË
++        data = unit.as_dict()
++        assert data["claim_id"] == "c1" and data["text"] == CLAIM_MARKETS
++        assert "subject" in data and "assertion_kind" in data
++
++    def test_build_claim_units_fills_subject_negation_and_provenance(self):
++        units = fsp.build_claim_units([_item(CLAIM_MARKETS)], CLAIM_MARKETS)
++        assert len(units) == 1
++        unit = units[0]
++        # ¦¦¦+¦¬¦-TÁTÂ¦-¦¦¦-¦-¦-TÏ ¦-¦+¦-¦-¦¬¦-¦-TÇ¦-¦-TÏ ¦¬¦-¦¦¦-¦-¦-¦-¦-¦-¦-TÏ TÁTÃTÉ¦-¦-TÁTÂTÌ òÆÒ TÁTÃ¦-TÊ¦¦¦¦TÂ
++        assert unit.subject == "S&P"
++        # ¦¦TÀ¦-¦-¦-¦-TÂ¦¬TÇ¦¦TÁ¦¦¦-¦¦ ¦-TÂTÀ¦¬TÆ¦-¦-¦¬¦¦: TÄTÀ¦-¦¬¦- ¦-¦¦¦¬ TÇ¦-TÁTÂ¦¬TÆTË òÆÒ unknown, ¦-¦¦ False
++        assert unit.negation is None
++        # TÁ¦-TËTÁ¦¬¦-¦-¦-¦¦¦- ¦¬¦-TÀTÁ¦¦TÀ¦- ¦-¦¦TÂ: ¦¬TÀ¦¦¦+¦¬¦¦¦-TÂ/¦-¦-TÊ¦¦¦¦TÂ TÇ¦¦TÁTÂ¦-¦- unknown
++        assert unit.predicate == "" and unit.object == ""
++        prov = unit.provenance_dict()
++        assert prov["source"] == "literal"
++        assert prov["from_glued_request"] == "no"
++        assert prov["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
++
++    def test_negation_is_grammatical_not_guessed(self):
++        unit = fsp.build_claim_units([_item(CLAIM_NEGATED)], CLAIM_NEGATED)[0]
++        assert unit.negation is True
++        # Të¦¬TÀ¦¦¦+¦¬¦-¦¦¦¬¦¬/¦¬TÀ¦¬¦-TÏ¦¬¦¬T¬ ¦-¦¦¦¬ TÇ¦-TÁTÂ¦¬TÆTË ¦-¦¦ ¦-TË¦+TÃ¦-TË¦-¦-TÎTÂ ¦-TÂTÀ¦¬TÆ¦-¦-¦¬¦¦
++        plain = fsp.build_claim_units([_item("¦á¦-¦-¦¦TÂ ¦¬TÀ¦¬¦-TÏ¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.")],
++                                      "¦á¦-¦-¦¦TÂ ¦¬TÀ¦¬¦-TÏ¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.")[0]
++        assert plain.negation is None
++
++    def test_author_and_anchor_filled_from_item_provenance(self, planner_on):
++        items = [_item(CLAIM_MARKETS, source="reply_to", author="¦Ð¦-TÏ",
++                       anchor=7712, chat=CHAT_ID)]
++        plan = fsp.build_retrieval_plan(
++            _decision(items), claim_text=CLAIM_MARKETS)
++        assert plan is not None and plan.claims
++        unit = plan.claims[0]
++        assert unit.author == "¦Ð¦-TÏ"
++        assert unit.anchor_tg_message_id == 7712
++        assert unit.anchor_chat_id == CHAT_ID
++        assert unit.provenance_dict()["origin"] == "material"
++
++    def test_part_without_author_keeps_empty_author(self, planner_on):
++        items = [_item(CLAIM_MARKETS)]
++        plan = fsp.build_retrieval_plan(
++            _decision(items), claim_text=CLAIM_MARKETS)
++        assert plan is not None and plan.claims
++        assert plan.claims[0].author == ""
++        assert plan.claims[0].provenance_dict()["author_known"] == "no"
++
++    def test_claim_anchors_are_projection_of_claim_units(self, planner_on):
++        """¦Ð¦-¦¦¦-TÀTË TÁTÂTÀ¦-TÏTÂTÁTÏ ¦¬¦¬ ClaimUnit ¦¬ ¦¬¦¦TÀ¦¦¦-¦-TÁTÏTÂ ¦Ú¦Ð¦Ö¦Ô¦Þ¦Õ ¦¬¦-¦¬¦¦.
++
++        B-2 (review r1): ¦¬TÀ¦¦¦¦¦-¦¦¦¦ TÁTÀ¦-¦-¦-¦¦¦-¦¬¦¦ TÁ `_anchor_rows_from_units(claims)`
++        ¦-TË¦¬¦- TÂ¦-¦-TÂ¦-¦¬¦-¦¦¦¬TÇ¦-TË¦- (TÂ¦- ¦¦¦¦ TÀ¦¦¦-¦¬¦¬¦¬¦-TÆ¦¬TÏ) ¦¬ ¦-¦¦ ¦¬¦-¦-¦¬¦¬¦- ¦¬¦-TÂ¦¦TÀTÎ ¦¬¦-¦-TÇ¦¦¦-¦¬TÏ.
++        ¦â¦¦¦¬¦¦TÀTÌ ¦-¦¦¦¬¦+¦-¦¦¦-TË¦¦ TÁTÂTÀ¦-¦¦¦¬ ¦¬¦-¦+¦-¦-TË ¦¬¦¬TÂ¦¦TÀ¦-¦¬TÌ¦-¦-.
++        """
++        items = [_item("¦Ò¦¦¦+¦-¦-TÁTÂ¦-¦- ¦-¦+¦-¦-TÀ¦¬¦¬¦- ¦¬TÀ¦-¦¦TÀ¦-¦-¦-TÃ.", author="¦Ð¦-TÏ",
++                       anchor=7710, chat=CHAT_ID),
++                 _item("¦ßTÀ¦-¦-¦¬¦¬¦- ¦+¦¦¦¦TÁTÂ¦-TÃ¦¦TÂ TÁ 2024 ¦¦¦-¦+¦-.", author="¦Ñ¦-TÀ¦¬TÁ",
++                       anchor=7711, chat=CHAT_ID)]
++        plan = fsp.build_retrieval_plan(
++            _decision(items), claim_text=CLAIM_PLURAL)
++        assert plan is not None
++        assert plan.claim_anchors == (
++            {"claim_id": "c1", "anchor_tg_message_id": 7710,
++             "anchor_chat_id": CHAT_ID, "author": "¦Ð¦-TÏ",
++             "source": "literal", "origin": "material"},
++            {"claim_id": "c2", "anchor_tg_message_id": 7711,
++             "anchor_chat_id": CHAT_ID, "author": "¦Ñ¦-TÀ¦¬TÁ",
++             "source": "literal", "origin": "material"},
++        )
++
++    def test_request_origin_anchor_keeps_source_user_request(self, planner_on):
++        """RV-S1-01 (review r1): ¦¬¦¬TÂ¦¦TÀ¦-¦¬TÌ¦-¦-¦¦ ¦¬¦-¦-TÇ¦¦¦-¦¬¦¦ `source` request-TÇ¦-TÁTÂ¦¬.
++
++        ¦Ô¦- TÄ¦¬¦¦TÁ¦- ¦¬TÀ¦-¦¦¦¦TÆ¦¬TÏ ¦-¦-¦¦¦-TÀ¦-¦- TÂ¦¦TÀTÏ¦¬¦- `source="user_request"` (¦- provenance
++        ¦-TÁTÂ¦-¦-¦-¦¬TÁTÏ `""`), TÅ¦-TÂTÏ `_claim_anchor_map` ¦¦¦¦¦- TÁTÂ¦-¦-¦¬¦¬, ¦- ¦-¦-¦¬¦-
++        `4cdd72e17` ¦-TÂ¦+¦-¦-¦-¦¬¦-. ¦ßTÀ¦-¦-¦¦TÀTÏ¦¦¦- ¦¦¦-¦-¦¦TÀ¦¦TÂ¦-TË¦¦ ¦¬¦-¦-TÇ¦¦¦-¦¬TÏ, ¦-¦¦ TÀ¦¦¦-¦¬¦¬¦¬¦-TÆ¦¬TÎ.
++        """
++        claim = "¦ßTÀ¦-¦-¦+¦- ¦¬¦¬, TÇTÂ¦- TÂ¦-TÀ¦¬TÄ ¦-TËTÀ¦-TÁ?"
++        plan = fsp.build_retrieval_plan(
++            _decision([]), claim_text=claim, subject_origin="request",
++            subject_request_text=claim, subject_anchor_tg_message_id=55,
++            subject_anchor_chat_id=CHAT_ID, subject_author="¦Ð¦-TÏ")
++        assert plan is not None and plan.claim_anchors
++        row = plan.claim_anchors[0]
++        assert row["claim_id"] == "c1"
++        assert row["anchor_tg_message_id"] == 55
++        assert row["author"] == "¦Ð¦-TÏ"
++        assert row["source"] == "user_request"      # RV-S1-01
++        assert row["origin"] == "user_request"
++        unit = plan.claims[0]
++        provenance = unit.provenance_dict()
++        assert provenance["source"] == "user_request"
++        assert provenance["origin"] == "user_request"
++        assert provenance["anchor"] == "tg"
++
++    def test_request_origin_anchor_records_chat(self, planner_on):
++        """FCT-112: request-TÇ¦-TÁTÂTÌ ¦-¦¦TÁTÑTÂ ¦¬ TÇ¦-TÂ ¦-¦-¦¦¦-TÀ¦- (¦-¦+¦+¦¬TÂ¦¬¦-¦-¦- ¦¦ ¦-¦-¦¬¦¦)."""
++        claim = "¦ßTÀ¦-¦-¦+¦- ¦¬¦¬, TÇTÂ¦- TÂ¦-TÀ¦¬TÄ ¦-TËTÀ¦-TÁ?"
++        plan = fsp.build_retrieval_plan(
++            _decision([]), claim_text=claim, subject_origin="request",
++            subject_request_text=claim, subject_anchor_tg_message_id=55,
++            subject_anchor_chat_id=CHAT_ID, subject_author="¦Ð¦-TÏ")
++        assert plan is not None and plan.claim_anchors
++        assert plan.claim_anchors[0]["anchor_chat_id"] == CHAT_ID
++        assert plan.claims[0].anchor_chat_id == CHAT_ID
++
++    def test_unknown_author_is_never_filled_from_display_name(self, planner_on):
++        """¦ÜTÃTÂ¦-TÆ¦¬TÏ M-S1-1: display-name ¦-¦¦ TÁTÂ¦-¦-¦-¦-¦¬TÂTÁTÏ ¦-¦-TÂ¦-TÀ¦-¦- TÇ¦-TÁTÂ¦¬."""
++        items = [_item(CLAIM_MARKETS, source="topic")]
++        plan = fsp.build_retrieval_plan(
++            _decision(items), claim_text=CLAIM_MARKETS,
++            subject_author="¦Ò¦¬¦-¦+¦¦¦¬¦¦TÆ¦Ú¦-¦-¦-¦¬¦-")
++        assert plan is not None
++        assert plan.claims[0].author == ""
++
++
++# òÔÀòÔÀ FCT-113: ¦¦¦+¦¬¦-¦-TÏ ¦-TÁTÌ assertion_kind òÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀòÔÀ
++
++class TestFCT113AssertionKind:
++
++    def test_axis_is_closed_with_five_values(self):
++        assert set(fsp.ASSERTION_KINDS) == {
++            "public_statement_attribution", "decision_status",
++            "normative_state_on_date", "image_content", "unknown"}
++        assert fsp.ASSERTION_KIND_UNKNOWN in fsp.ASSERTION_KINDS
++
++    def test_attribution_tool_marks_public_statement(self):
++        units = fsp.build_claim_units(
++            [_item("¦ß¦-¦¬¦¬TÂ¦¬¦¦ ¦Ø¦-¦-¦-¦-¦- ¦¬TÀ¦¦¦+¦¬¦-¦¦¦¬¦¬ ¦¬¦-¦-TËTÁ¦¬TÂTÌ ¦-¦-¦¬¦-¦¦.")],
++            "¦ß¦-¦¬¦¬TÂ¦¬¦¦ ¦Ø¦-¦-¦-¦-¦- ¦¬TÀ¦¦¦+¦¬¦-¦¦¦¬¦¬ ¦¬¦-¦-TËTÁ¦¬TÂTÌ ¦-¦-¦¬¦-¦¦.",
++            attribution_detected=True)
++        assert units[0].assertion_kind == fsp.ASSERTION_PUBLIC_STATEMENT
++        assert units[0].assertion_kind != fsp.ASSERTION_DECISION_STATUS
++        assert units[0].assertion_kind != fsp.ASSERTION_NORMATIVE_STATE
++        # ¦-TÂTÀ¦¬¦-TÃTÆ¦¬TÏ ¦¬TÃ¦-¦¬¦¬TÇ¦-¦-¦¦¦- ¦¬¦-TÏ¦-¦¬¦¦¦-¦¬TÏ ¦-¦¦ ¦¬¦-¦¬TÀ¦¦TÉ¦¦¦-¦- ¦¬ ¦-¦¦ TëTÈTÃ¦-T¬
++        assert units[0].provenance_dict()["assertion_signal"] == "yes"
++
++    @pytest.mark.parametrize("source_type,expected", [
++        ("caption", fsp.ASSERTION_IMAGE_CONTENT),
++        ("ocr", fsp.ASSERTION_IMAGE_CONTENT),
++        ("text", fsp.ASSERTION_KIND_UNKNOWN),
++        ("free_text", fsp.ASSERTION_KIND_UNKNOWN),
++    ])
++    def test_image_claim_kind_comes_from_structural_source_type(
++            self, source_type, expected):
++        units = fsp.build_claim_units(
++            [_item("¦Ú¦-TÀTÂ¦¬¦-¦¦¦- ¦¬¦-¦¦¦-¦¬TË¦-¦-¦¦TÂ TÀ¦-TÁ¦¬¦¬TÁ¦-¦-¦¬¦¦ ¦-¦- ¦¬¦-¦-TÂTÀ¦-.")],
++            "¦Ú¦-TÀTÂ¦¬¦-¦¦¦- ¦¬¦-¦¦¦-¦¬TË¦-¦-¦¦TÂ TÀ¦-TÁ¦¬¦¬TÁ¦-¦-¦¬¦¦ ¦-¦- ¦¬¦-¦-TÂTÀ¦-.",
++            claim_source_type=source_type)
++        assert units[0].assertion_kind == expected
++
++    @pytest.mark.parametrize("kind", [
++        fsp.ASSERTION_DECISION_STATUS, fsp.ASSERTION_NORMATIVE_STATE])
++    def test_established_kind_hint_is_preserved(self, kind):
++        units = fsp.build_claim_units(
++            [_item("¦á¦-¦-¦¦TÂ ¦-¦+¦-¦-TÀ¦¬¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.")], "¦á¦-¦-¦¦TÂ ¦-¦+¦-¦-TÀ¦¬¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.",
++            assertion_kind_hint=kind)
++        assert units[0].assertion_kind == kind
++
++    def test_unknown_hint_does_not_invent_type(self):
++        units = fsp.build_claim_units(
++            [_item(CLAIM_MARKETS)], CLAIM_MARKETS,
++            assertion_kind_hint="not_a_kind")
++        assert units[0].assertion_kind == fsp.ASSERTION_KIND_UNKNOWN
++
++    def test_quote_without_attribution_is_sensitive_unknown(self):
++        """¦æ¦¬TÂ¦-TÂ¦- ¦-¦¦¦¬ TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦-¦-¦-¦¦ ¦-TÂTÀ¦¬¦-TÃTÆ¦¬¦¬: TÂ¦¬¦¬ ¦-¦-¦¦¦¦¦- ¦¬ ¦-¦¦ TÃTÁTÂ¦-¦-¦-¦-¦¬¦¦¦-."""
++        items = [_item("¦ÔTÃTÀ¦-¦- TÁ¦¦¦-¦¬¦-¦¬ ¦¬TÀ¦- TÁ¦-¦-¦-¦-¦+TÃ.", source="quote")]
++        units = fsp.build_claim_units(items, "¦ÔTÃTÀ¦-¦- TÁ¦¦¦-¦¬¦-¦¬ ¦¬TÀ¦- TÁ¦-¦-¦-¦-¦+TÃ.")
++        unit = units[0]
++        assert unit.assertion_kind == fsp.ASSERTION_KIND_UNKNOWN
++        assert unit.provenance_dict()["assertion_signal"] == "yes"
++        assert fsvc._claim_assertion_unresolved(unit) is True
++
++    def test_plain_claim_is_not_sensitive(self):
++        units = fsp.build_claim_units([_item(CLAIM_PLAIN)], CLAIM_PLAIN)
++        assert units[0].assertion_kind == fsp.ASSERTION_KIND_UNKNOWN
++        assert fsvc._claim_assertion_unresolved(units[0]) is False
++
++
++class TestFCT113PropagationToAnalystAndVerdict:
++
++    def test_claim_part_payload_carries_assertion_kind(self):
++        unit = fsp.ClaimUnit(
++            claim_id="c1", text="¦á¦-¦-¦¦TÂ ¦-¦+¦-¦-TÀ¦¬¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.",
++            assertion_kind=fsp.ASSERTION_DECISION_STATUS)
++        cov = _coverage(unit)
++        part = tf.ClaimPart(part_id="p1", text="¦á¦-¦-¦¦TÂ ¦-¦+¦-¦-TÀ¦¬¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.")
++        assert fsvc._assertion_kind_for_part(part, (cov,)) == \
++            fsp.ASSERTION_DECISION_STATUS
++        other = tf.ClaimPart(part_id="p2", text="¦á¦-¦-TÁ¦¦¦- ¦+TÀTÃ¦¦¦-¦¦ TÂ¦¦¦¬¦¬TÁ.")
++        assert fsvc._assertion_kind_for_part(other, (cov,)) == \
++            fsp.ASSERTION_KIND_UNKNOWN
++
++    def test_media_part_matches_unit_by_stripped_thesis(self):
++        """¦Ü¦¦¦+¦¬¦--TÇ¦-TÁTÂTÌ ¦-¦¦TÁTÑTÂ TÁ¦¬TÃ¦¦¦¦¦-¦-TÃTÎ ¦-¦-TÑTÀTÂ¦¦TÃ OCR, ClaimUnit òÀÔ ¦-¦¦TÂ.
++
++        ¦Ü¦-TÂTÇ ¦¬¦- TÂ¦¦¦¬¦¬TÁTÃ ¦-¦¦¦¬ ¦-¦-TÑTÀTÂ¦¦¦¬ ¦-¦-TÏ¦¬¦-TÂ¦¦¦¬¦¦¦-: ¦¬¦-¦-TÇ¦¦ image_content ¦-¦¦ ¦+¦-TÅ¦-¦+¦¬¦¬
++        ¦-TË ¦+¦- `<claim_parts>` ¦¬¦-¦¦¦-¦-¦- TÃ ¦-¦¦¦+¦¬¦--TÂ¦¦¦¬¦¬TÁ¦-¦-."""
++        unit = fsp.ClaimUnit(
++            claim_id="c1", text="¦à¦-TÁ¦¬¦¬TÁ¦-¦-¦¬¦¦ ¦-¦- ¦¬¦-¦-TÂTÀ¦- 09:00.",
++            assertion_kind=fsp.ASSERTION_IMAGE_CONTENT)
++        cov = _coverage(unit)
++        part = tf.ClaimPart(
++            part_id="p1",
++            text=("¦â¦¦¦¦TÁTÂ TÁ ¦¬¦¬¦-¦-TÀ¦-¦¦¦¦¦-¦¬TÏ (OCR, ¦-¦¦ TÁ¦¬¦-¦-¦- ¦-¦-TÂ¦-TÀ¦-): "
++                  "¦à¦-TÁ¦¬¦¬TÁ¦-¦-¦¬¦¦ ¦-¦- ¦¬¦-¦-TÂTÀ¦- 09:00."))
++        assert fsvc._assertion_kind_for_part(part, (cov,)) == \
++            fsp.ASSERTION_IMAGE_CONTENT
++
++    def test_verdict_part_metadata_carries_assertion_kind_and_anchor(self):
++        unit = fsp.ClaimUnit(
++            claim_id="c1", text="¦á¦-¦-¦¦TÂ ¦-¦+¦-¦-TÀ¦¬¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.",
++            author="¦Ð¦-TÏ", anchor_tg_message_id=7712,
++            assertion_kind=fsp.ASSERTION_DECISION_STATUS)
++        cov = _coverage(unit)
++        verdict = _verdict([{"part_id": "c1", "text": unit.text,
++                             "factual_verdict": "supported",
++                             "evidence_refs": ["ev-1"]}])
++        merged = fsvc.merge_claim_coverage(verdict, (cov,), ())
++        part = merged.parts[0]
++        assert part["assertion_kind"] == fsp.ASSERTION_DECISION_STATUS
++        assert part["anchor_tg_message_id"] == 7712
++        assert part["author"] == "¦Ð¦-TÏ"
++
++    def test_positive_verdict_degrades_when_kind_unresolved(self):
++        """FCT-113: unknown-TÂ¦¬¦¬ TÂ¦-¦-, ¦¦¦+¦¦ ¦-¦- ¦-¦-¦¦¦¦¦-, ¦-¦¦ ¦+¦-TÑTÂ ¦¬¦-¦¬¦-¦¦¦¬TÂ¦¦¦¬TÌ¦-¦-¦¦¦- ¦-TË¦-¦-¦+¦-."""
++        unit = fsp.ClaimUnit(
++            claim_id="c1", text="¦ÔTÃTÀ¦-¦- TÁ¦¦¦-¦¬¦-¦¬ ¦¬TÀ¦- TÁ¦-¦-¦-¦-¦+TÃ.",
++            provenance=(("source", "quote"),
++                        ("assertion_signal", "yes"),
++                        ("assertion_kind", "unknown")))
++        cov = _coverage(unit)
++        verdict = _verdict([{"part_id": "c1", "text": unit.text,
++                             "factual_verdict": "supported",
++                             "evidence_refs": ["ev-1"]}])
++        merged = fsvc.merge_claim_coverage(verdict, (cov,), ())
++        assert merged.factual_verdict == "insufficient_evidence"
++        assert "assertion_kind_unknown" in (merged.uncertainty or {})
++
++    def test_ordinary_claim_positive_is_not_degraded(self):
++        """¦Þ¦-TËTÇ¦-TË¦¦ TÄ¦-¦¦TÂ ¦-¦¦ ¦-¦¬¦-¦¦¦¬TÀTÃ¦¦TÂTÁTÏ unknown-TÂ¦¬¦¬¦-¦-: ¦¦¦¦¦- ¦+¦¦TÀ¦¦¦¬TÂ evidence.
++
++        ¦íTÂ¦- ¦¬¦-TÉ¦¬TÂ¦- ¦-TÂ TÀ¦¦¦¦TÀ¦¦TÁTÁ¦¬¦¬: ¦-¦-TÁTÁ¦-¦-¦-¦¦ ¦¬¦-¦-¦¬¦¦¦¦¦-¦¬¦¦ ¦-TÁ¦¦TÅ ¦¬¦-¦¬¦-¦¦¦¬TÂ¦¦¦¬TÌ¦-TËTÅ
++        ¦-TË¦-¦-¦+¦-¦- TÁ¦+¦¦¦¬¦-¦¬¦- ¦-TË ¦¬TÀ¦-¦-¦¦TÀ¦¦TÃ TÄ¦-¦¦TÂ¦-¦- ¦-¦¦TÀ¦-¦-¦-TÇ¦¦¦¦."""
++        unit = fsp.ClaimUnit(claim_id="c1", text=CLAIM_MARKETS)
++        cov = _coverage(unit)
++        verdict = _verdict([{"part_id": "c1", "text": unit.text,
++                             "factual_verdict": "supported",
++                             "evidence_refs": ["ev-1"]}])
++        merged = fsvc.merge_claim_coverage(verdict, (cov,), ())
++        assert merged.factual_verdict == "supported"
++        assert "assertion_kind_unknown" not in (merged.uncertainty or {})
++
++    def test_known_kind_positive_is_not_degraded(self):
++        unit = fsp.ClaimUnit(
++            claim_id="c1", text="¦á¦-¦-¦¦TÂ ¦-¦+¦-¦-TÀ¦¬¦¬ ¦¬TÀ¦-¦-¦¬¦¬¦-.",
++            assertion_kind=fsp.ASSERTION_DECISION_STATUS)
++        cov = _coverage(unit)
++        verdict = _verdict([{"part_id": "c1", "text": unit.text,
++                             "factual_verdict": "supported",
++                             "evidence_refs": ["ev-1"]}])
++        merged = fsvc.merge_claim_coverage(verdict, (cov,), ())
++        assert merged.factual_verdict == "supported"
++
++
++class TestFCT113EndToEndPlanToParts:
++
++    def test_plan_to_analyst_payload_end_to_end(self, planner_on):
++        """¦Ý¦-TÁTÂ¦-TÏTÉ¦¬¦¦ ¦¬¦¬¦-¦- (image/caption) òÆÒ ¦-¦-TÁTÂ¦-TÏTÉ¦¬¦¦ <claim_parts> payload'¦-."""
++        claim = "¦Ú¦-TÀTÂ¦¬¦-¦¦¦- ¦¬¦-¦¦¦-¦¬TË¦-¦-¦¦TÂ TÀ¦-TÁ¦¬¦¬TÁ¦-¦-¦¬¦¦ ¦-¦- ¦¬¦-¦-TÂTÀ¦-."
++        items = [_item(claim)]
++        plan = fsp.build_retrieval_plan(
++            _decision(items), claim_text=claim, claim_source_type="ocr")
++        assert plan is not None
++        unit = plan.claims[0]
++        assert unit.assertion_kind == fsp.ASSERTION_IMAGE_CONTENT
++
++        env = _envelope(claim)
++        parts = tf.decompose_claim(env)
++        payload = fsvc.FactCheckService(aggregator=None, llm=None) \
++            ._temporal_user_payload(env, parts, (), None, coverage=(
++                _coverage(unit),))
++        assert "<claim_parts>" in payload
++        assert fsp.ASSERTION_IMAGE_CONTENT in payload
++
++
++def _envelope(text):
++    return tf.TemporalClaimEnvelope(
++        claim_id="c1", chat_id=CHAT_ID, target_tg_message_id=7712,
++        target_revision=None, target_content_hash=None,
++        trigger_tg_message_id=7713, claim_text=text, claim_span=None,
++        source_type="text", attribution={}, origin_type=None,
++        origin_sender_user_id=None, origin_chat_id=None,
++        origin_display_name=None, repost_received_at=None,
++        original_published_at=None, original_published_precision=None,
++        claim_period_from=None, claim_period_to=None,
++        claim_period_precision=None, date_source="unknown",
++        date_precision="unknown", date_timezone=None, date_uncertainty={},
++        requested_mode="", analysis_as_of=0)

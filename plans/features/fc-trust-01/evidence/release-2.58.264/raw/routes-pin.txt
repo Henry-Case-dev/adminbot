@@ -1,0 +1,6 @@
+routes_sha256_head = b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a
+routes_blob_head = a851e4f857b13ea1851ebfcc00aec940b867a896
+routes_blob_candidate = a851e4f857b13ea1851ebfcc00aec940b867a896
+routes_blob_unchanged_base_eq_cand = True
+ROUTES_SHA256_pin_matches_head = True
+pin_occurrences_test_webapp_f11 = 0
