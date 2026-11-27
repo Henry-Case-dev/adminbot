@@ -200,8 +200,10 @@ PROBE_JS = r"""() => {
 }"""
 
 
-CARD_MIN_H = 170
-CARD_MAX_H = 215
+# Контракт дизайна (design-m3 D7 / Visual Preservation Map): карточка
+# каталога — natural height 132–164 px. Гейт держит именно контракт.
+CARD_MIN_H = 131
+CARD_MAX_H = 164
 
 
 @pytest.mark.parametrize("width,height", [(390, 844), (320, 568)])
