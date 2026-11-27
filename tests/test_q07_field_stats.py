@@ -1,7 +1,7 @@
 """Q-07 (VMQ-Q0) — статистический слой поля допустимых фокусов.
 
 Контракт: `plans/features/vmq-onto-01/evidence/q-07-contract-2026-11-27.md`
-(sha256 `6beab458…c0688`), §2/§3/§7.4/§8. Прод-база: `aa4e9098a` (2.58.263).
+(sha256 `6beab458…c0688`), §2/§3/§7.4/§8. Прод-база: `aa4e9098a` (2.58.264).
 
 Проверяется ровно то, что объявлено в контракте:
   * T1 стабильность карты/fingerprint/классификации к порядку строк;
@@ -75,7 +75,7 @@ def _rows(cells, counts, *, chat_id=1, source="quantum",
                 "policy_version": "mca10a-v1",
                 "selected_id": str(position),
                 "fallback_reason": None,
-                "config_version": "2.58.263",
+                "config_version": "2.58.264",
             })
     return out
 
@@ -96,7 +96,7 @@ def _raw_row(**over) -> dict:
         "policy_version": "mca10a-v1",
         "selected_id": "0",
         "fallback_reason": None,
-        "config_version": "2.58.263",
+        "config_version": "2.58.264",
     }
     row.update(over)
     return row
