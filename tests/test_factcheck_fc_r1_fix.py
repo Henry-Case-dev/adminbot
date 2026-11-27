@@ -210,7 +210,16 @@ class TestRelevanceCascade:
         assert "t.example/1" not in out        # нерелевантный уровень пропущен
 
     @pytest.mark.asyncio
-    async def test_all_irrelevant_is_honest_failure(self, monkeypatch):
+    async def test_all_low_overlap_returns_pack_not_failure(self, monkeypatch):
+        """FCT-401 (S3): низкий overlap пака — recall-сигнал.
+
+        Прежнее поведение (жёсткий ``AllSearchEnginesFailedException`` при
+        нерелевантной выдаче всех уровней) отменено контрактом: потеря
+        перефразированного материала недопустима, поэтому каскад возвращает
+        первый пак как low-overlap кандидат, а доказательность решает
+        claim-aware профиль. Типизированная шапка/роль не даёт ему стать
+        evidence (см. tests/test_fc_trust_retrieval.py).
+        """
         agg = _make_relevance_aggregator(
             monkeypatch,
             {"results": [{"title": "Борщ", "content":
@@ -220,9 +229,19 @@ class TestRelevanceCascade:
                           "осадки температура ветер прогноз",
                           "url": "https://e.example/1"}]})
         terms = content_terms("всплеск хобл вейперы лёгких", limit=10)
-        with pytest.raises(AllSearchEnginesFailedException):
-            await agg.search_relevant("всплеск хобл", 4000,
-                                      relevance_terms=terms)
+
+        async def _no_ddg(query, timeout_budget=None):
+            raise ValueError("ddg: empty results")
+
+        monkeypatch.setattr(agg, "_search_ddg", _no_ddg)
+        trace: dict = {}
+        out = await agg.search_relevant("всплеск хобл", 4000,
+                                        relevance_terms=terms, trace=trace)
+        assert "t.example/1" in out          # первый пак не выброшен
+        assert trace.get("reason") == "low_overlap_fallback"
+        # Оба уровня были опрошены: жёсткого отказа после первого нет.
+        assert any("low_overlap" in str(level)
+                   for level in (trace.get("levels") or ()))
 
     @pytest.mark.asyncio
     async def test_search_without_terms_unchanged(self, monkeypatch):
@@ -299,7 +318,11 @@ class TestSourceClassification:
                                           fetch_text=fake_fetch)
         assert outcome.ok and outcome.evidence_map is not None
         refs = outcome.evidence_map.refs
-        assert refs[0].source_kind == "reference"   # сортировка по overlap'
+        # FCT-302/§5: порядок выдачи — по покрытию (сильные привязки и число
+        # частей), а не «какой домен оказался первым по алфавиту».
+        assert len(refs[0].claims) >= max(len(r.claims) for r in refs)
+        assert any(r.source_kind == "reference" for r in refs)
+        assert any(r.source_kind == "primary" for r in refs)
         # primary-fetch существующим SafeFetcher-инъекцией: URL ≠ доказательство
         assert any(u.startswith("https://www.cdc.gov") for u in fetched)
         primary = [r for r in refs if r.source_kind == "primary"]

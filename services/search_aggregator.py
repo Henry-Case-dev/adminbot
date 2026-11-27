@@ -87,8 +87,9 @@ class AllSearchEnginesFailedException(Exception):
 
     P0-FACTCHECK-CORRECTIVE (§5.1): ``reason`` — машинная причина ПОСЛЕДНЕГО
     неудачного уровня: ``provider_error`` (недоступность/ошибка API) |
-    ``timeout`` | ``empty_results`` (провайдер ответил пустой выдачей) |
-    ``irrelevant_results`` (выдача не прошла relevance-фильтр) | ``budget``.
+    ``timeout`` | ``rate_limit`` (429/квота провайдера) | ``empty_results``
+    (провайдер ответил пустой выдачей) | ``irrelevant_results`` (выдача не
+    прошла relevance-фильтр) | ``budget``.
     Пустая/нерелевантная выдача — НЕ «провайдеры недоступны»."""
 
     def __init__(self, msg: str = "all search engines failed",
@@ -98,12 +99,23 @@ class AllSearchEnginesFailedException(Exception):
 
 
 def level_failure_reason(exc: BaseException) -> str:
-    """Классификация неудачи уровня каскада (§5.1): timeout / API-ошибка /
-    пустая выдача / нерелевантная выдача / прочая ошибка провайдера.
-    Детерминированно, без новых вызовов."""
+    """Классификация неудачи уровня каскада (§5.1): timeout / rate_limit /
+    API-ошибка / пустая выдача / нерелевантная выдача / прочая ошибка
+    провайдера. Детерминированно, без новых вызовов.
+
+    FCT-301 (S3): 429/квота провайдера — отдельная причина ``rate_limit``,
+    а не общий ``provider_error``: иначе limit провайдера смешивается с его
+    недоступностью и на claim-уровне становится неразличимым."""
     if isinstance(exc, httpx.TimeoutException):
         return "timeout"
+    response = getattr(exc, "response", None)
+    if isinstance(exc, httpx.HTTPStatusError) and response is not None and \
+            int(getattr(response, "status_code", 0) or 0) == 429:
+        return "rate_limit"
     text = str(exc or "").lower()
+    if "429" in text or "rate limit" in text or "too many requests" in text \
+            or "quota" in text:
+        return "rate_limit"
     if "irrelevant" in text:
         return "irrelevant_results"
     if "empty" in text:
@@ -112,9 +124,9 @@ def level_failure_reason(exc: BaseException) -> str:
 
 
 #: Порядок информативности причин каскада: «ответили, но пусто/нерелевантно»
-#: честнее «не ответили», timeout конкретнее общей ошибки провайдера.
-_REASON_PRECEDENCE = ("irrelevant_results", "empty_results", "timeout",
-                      "provider_error")
+#: честнее «не ответили», rate_limit/timeout конкретнее общей ошибки провайдера.
+_REASON_PRECEDENCE = ("irrelevant_results", "empty_results", "rate_limit",
+                      "timeout", "provider_error")
 
 
 def _most_informative_reason(reasons) -> str:
@@ -481,6 +493,35 @@ def strip_publication_labels(text: str) -> str:
         return str(text or "")
 
 
+def extract_publication_date(text) -> tuple[str, int | None]:
+    """Разобрать печатную метку даты провайдера → (текст без метки, unix ts).
+
+    FCT-502 (S3) переиспользует контракт UR-SRC-DATE: формат пака и константа
+    ``PUBLISHED_LABEL`` не меняются, второй парсер дат не заводится —
+    нормализация идёт существующими ``normalise_publication_date`` (внутри —
+    ``temporal_factcheck._parse_date_value``). Метка со СВОИМ значением
+    удаляется из текста (метаданные «когда» не являются утверждением), а
+    неразбираемое/отсутствующее значение честно даёт ``None`` — никакой
+    подстановки now()/года по смыслу. Никогда не бросает."""
+    try:
+        raw = str(text or "")
+        if not raw:
+            return "", None
+        match = _PUBLISHED_LABEL_RE.search(raw)
+        if match is None:
+            return raw, None
+        cleaned = _PUBLISHED_LABEL_RE.sub(" ", raw)
+        iso = normalise_publication_date(
+            match.group(0)[len(PUBLISHED_LABEL):])
+        if not iso:
+            return cleaned, None
+        from services import temporal_factcheck as _tf
+        stamp = _tf._parse_date_value(iso)
+        return cleaned, (int(stamp) if stamp is not None else None)
+    except Exception:      # pragma: no cover — дата не рвёт разбор пака
+        return str(text or ""), None
+
+
 def _directions(text: str) -> tuple[bool, bool]:
     """(есть_падение, есть_рост) по морфологии направления."""
     low = str(text or "").lower()
@@ -516,6 +557,17 @@ class ClaimRelevance:
     #: тема/сущность совпали, но число тезиса в источнике ДРУГОЕ
     #: (расхождение оценок: «2,8%» против заявленных «3,4%»)
     number_mismatch: bool = False
+    #: FCT-402 (S3): объяснимое основание роли — какие проверяемые признаки
+    #: реально совпали. Пустой basis у displayable-роли запрещён контрактом.
+    basis: tuple[str, ...] = ()
+    #: шлюз темы отбросил документ (ни одной тематической основы/якоря)
+    topic_miss: bool = False
+    #: найден специфический якорь (сущность/имя, число+совместимая единица,
+    #: цитата/тикер). Именно он, а не количество общих слов, разрешает
+    #: supports/contradicts в evidence-профиле (FCT-201/401).
+    anchor: bool = False
+    quoted_hit: bool = False
+    causal_link: bool = False
 
     @property
     def displayable(self) -> bool:
@@ -542,9 +594,26 @@ class ClaimRelevance:
         return ""
 
 
+_QUOTED_CLAIM_RE = re.compile(r"«([^«»]{8,200})»|\"([^\"]{8,200})\"")
+
+
+def _quoted_fragment_hit(claim_text: str, body_low: str) -> str:
+    """Дословная цитата тезиса, найденная в источнике (FCT-402 basis).
+
+    Якорь-цитата: если тезис цитирует фразу и она дословно есть в passage —
+    это специфический признак, разрешающий supports в evidence-профиле.
+    Пустая строка → цитаты нет/не найдена."""
+    for match in _QUOTED_CLAIM_RE.finditer(str(claim_text or "")):
+        fragment = (match.group(1) or match.group(2) or "").strip()
+        if fragment and fragment.lower() in body_low:
+            return fragment
+    return ""
+
+
 def claim_relevance(text: str, *, claim_text: str = "",
                     anchor_terms=(), metrics=(), entities=(),
-                    claim_type: str = "") -> ClaimRelevance:
+                    claim_type: str = "", timeframe: str = "",
+                    require_anchor: bool = False) -> ClaimRelevance:
     """Релевантность источника КОНКРЕТНОМУ claim (§3.3), затем пригодность.
 
     Порядок: сначала связь с тезисом (якоря: числа/метрики тезиса, латинские
@@ -572,6 +641,14 @@ def claim_relevance(text: str, *, claim_text: str = "",
     потребителя с тем же дефектом («11» из «2025-03-11» подтверждает «11 %»).
 
     Детерминированно, без LLM. Никогда не бросает.
+
+    FCT-201/401 (S3, evidence-профиль): ``require_anchor=True`` разрешает
+    ``supports``/``contradicts`` только при специфическом якоре (сущность/имя,
+    число с совместимой единицей, дословная цитата/тикер). Совпадение только
+    общих слов (``word_hits>=2`` без якоря) понижается до ``background_only``
+    с основанием ``word_overlap_only``: лексика — recall/предфильтр, не судья
+    доказательности. Профиль по умолчанию (False) сохраняет прежний
+    байт-паттерн для ``direct_execution``/``evidence_policy``.
     """
     try:
         body = strip_publication_labels(str(text or ""))
@@ -601,6 +678,22 @@ def claim_relevance(text: str, *, claim_text: str = "",
         units_conflict = bool(claim_classes and not units_ok)
         causal_missing = (str(claim_type or "") == "cause"
                           and not _CAUSAL_RE.search(body))
+        causal_link = (str(claim_type or "") == "cause"
+                       and not causal_missing)
+        quoted_fragment = _quoted_fragment_hit(claim_text, body_low)
+        #: FCT-201: временной интервал тезиса — специфический анкер, когда в
+        #: источнике совпали минимум две его компоненты (день + месяц/год):
+        #: иначе «мировые рынки обвалились» не имеет ни одного якоря.
+        timeframe_hit = False
+        if str(timeframe or "").strip():
+            parts = re.findall(r"\d{1,4}|[а-яёa-z]{4,}",
+                               str(timeframe).lower())
+            if len(parts) >= 2 and sum(1 for p in set(parts)
+                                       if p in body_low) >= 2:
+                timeframe_hit = True
+        #: FCT-201/401: специфический якорь, а не количество слов
+        anchor_hit = bool((number_hits and units_ok) or entity_hit
+                          or quoted_fragment or timeframe_hit)
         # FC-03.1: тематический пол. Другая тема (ни одной тематической
         # основы тезиса в документе) — off_topic, а не evidence, при любом
         # словесном пересечении. Якорные совпадения (латинское имя/тикер,
@@ -610,11 +703,49 @@ def claim_relevance(text: str, *, claim_text: str = "",
         topic_miss = bool(topic) and not (topic & body_keys) \
             and not entity_hit and not number_hits
 
+        def _basis(role: str) -> tuple[str, ...]:
+            """FCT-402: какие проверяемые признаки реально совпали."""
+            items: list[str] = []
+            if entity_hit:
+                hit = next((a for a in anchors if a and a in body_low), "")
+                if not hit:
+                    hit = next((str(e) for e in (entities or ())
+                                if len(str(e)) >= 3
+                                and str(e).lower() in body_low), "")
+                items.append("entity:" + (hit[:60] or "match"))
+            if number_hits:
+                hit_number = sorted(claim_numbers & body_numbers)[0]
+                classes = ",".join(sorted(claim_classes)) or "unitless"
+                items.append(f"number:{hit_number}+{classes}")
+            if quoted_fragment:
+                items.append("quoted:" + quoted_fragment[:60])
+            if timeframe_hit:
+                items.append("time:" + str(timeframe)[:60])
+            if causal_link:
+                items.append("causal_link")
+            if opposite:
+                items.append("opposite_direction")
+            if role in (EVIDENCE_ROLE_BACKGROUND, EVIDENCE_ROLE_QUALIFIES) \
+                    and not items:
+                items.append("word_overlap_only")
+            return tuple(items)
+
         def _result(role: str, *, mismatch: bool = False) -> ClaimRelevance:
-            return ClaimRelevance(role=role, score=len(matched) + number_hits,
+            effective = role
+            if require_anchor and role in (EVIDENCE_ROLE_SUPPORTS,
+                                           EVIDENCE_ROLE_CONTRADICTS) \
+                    and not anchor_hit:
+                # Только общие слова: контекст, не доказательство (FCT-401).
+                effective = EVIDENCE_ROLE_BACKGROUND
+            return ClaimRelevance(role=effective,
+                                  score=len(matched) + number_hits,
                                   word_hits=word_hits, number_hits=number_hits,
                                   entity_hit=entity_hit, opposite=opposite,
-                                  number_mismatch=mismatch)
+                                  number_mismatch=mismatch,
+                                  basis=_basis(effective),
+                                  topic_miss=topic_miss, anchor=anchor_hit,
+                                  quoted_hit=bool(quoted_fragment),
+                                  causal_link=causal_link)
 
         if topic_miss:
             return _result(EVIDENCE_ROLE_IRRELEVANT)
@@ -747,7 +878,15 @@ class SearchAggregator:
 
         ``trace`` (ASAP-FC-EVIDENCE-STYLE-02 §6): необязательный словарь для
         телеметрии хода — заполняется фактическим ``provider``/``latency_ms``/
-        ``reason``/``levels``. None → прежнее поведение байт-в-байт."""
+        ``reason``/``levels``. None → прежнее поведение байт-в-байт.
+
+        FCT-401 (S3, мягкий recall): пак, не прошедший overlap-предфильтр, не
+        выбрасывается окончательно — каскад сначала пробует следующих
+        провайдеров, а если все ответили только слабым overlap, возвращается
+        первый такой пак с ``trace.reason="low_overlap_fallback"``. Жёсткий
+        отброс терял корректный перефразированный материал; окончательное
+        решение о доказательности принимает claim-aware профиль, а не
+        recall-эвристика."""
         levels: list[tuple[str, Callable[[str], Awaitable[str]], str | None]] = [
             ("tavily", self._search_tavily, self._tavily_api_key),
             ("exa", self._search_exa, self._exa_api_key),
@@ -759,6 +898,8 @@ class SearchAggregator:
         # «недоступно»: ddg-уровень без библиотеки не затирает причину
         # ответивших уровней)
         reasons: list[str] = []
+        #: FCT-401: первый пак со слабым overlap — резерв, а не отброс
+        low_overlap: tuple[str, str, list[str], float] | None = None
 
         def _left() -> float | None:
             if timeout_budget is None:
@@ -803,10 +944,24 @@ class SearchAggregator:
                     raise ValueError("empty result")
                 if relevance_terms and not is_relevant_result(
                         text, relevance_terms):
-                    # §3.4: URL/непустой текст ≠ доказательство — пробуем
-                    # следующего провайдера
-                    raise ValueError(
-                        "irrelevant results (low query overlap)")
+                    # §3.4/FCT-401: низкий overlap — recall-сигнал, не приговор:
+                    # запоминаем пак и продолжаем каскад, чтобы не потерять
+                    # перефразированный материал при живом провайдере.
+                    if low_overlap is None:
+                        low_overlap = (name, text,
+                                       list(reasons) + ["low_overlap"],
+                                       (time.monotonic() - started) * 1000.0)
+                    reasons.append("irrelevant_results")
+                    logger.info(
+                        "SearchAggregator: level low overlap → next provider | "
+                        "provider=%s | chars=%d", name, len(text))
+                    if trace is not None:
+                        trace.update({
+                            "provider": name, "reason": "low_overlap",
+                            "latency_ms": round(
+                                (time.monotonic() - started) * 1000.0, 1),
+                            "levels": list(reasons)})
+                    continue
                 latency_ms = (time.monotonic() - started) * 1000.0
                 logger.info(
                     "SearchAggregator: level ok | provider=%s | latency_ms=%.0f | chars=%d",
@@ -832,6 +987,19 @@ class SearchAggregator:
                                   "latency_ms": round(
                                       (time.monotonic() - started) * 1000.0, 1),
                                   "levels": list(reasons)})
+        if low_overlap is not None:
+            # Все уровни ответили, но ни один не прошёл overlap-предфильтр:
+            # возвращаем первый пак как low-overlap кандидат-контекст, а не
+            # «провайдеры недоступны». Claim-aware профиль сам понизит его.
+            name, text, prior, latency_ms = low_overlap
+            logger.info(
+                "SearchAggregator: low overlap fallback | provider=%s | chars=%d",
+                name, len(text))
+            if trace is not None:
+                trace.update({"provider": name, "reason": "low_overlap_fallback",
+                              "latency_ms": round(latency_ms, 1),
+                              "levels": prior})
+            return text
         if trace is not None:
             trace.update({"provider": "", "reason": "provider_error",
                           "levels": list(reasons)})
@@ -848,7 +1016,11 @@ class SearchAggregator:
         """Явный relevance-вход контура фактчека (FC-EVIDQ): тот же каскад
         с проверкой содержательной релевантности выдачи. Существующие
         вызовы `search()` (сводки и пр.) не меняются. ``max_symbols`` не
-        режет выдачу (см. ``search``)."""
+        режет выдачу (см. ``search``).
+
+        FCT-401 (S3): низкий overlap пака больше не обрывает поиск — при
+        отсутствии лучшего провайдера возвращается сам пак (recall), а
+        доказательность решает claim-aware профиль планировщика."""
         return await self.search(query, max_symbols,
                                  relevance_terms=relevance_terms,
                                  timeout_budget=timeout_budget, trace=trace)

@@ -492,7 +492,11 @@ def test_fc05_budget_deadline_is_technical_status():
     outcome = _retrieve(plan, agg, budget_seconds=0.05)
     cov = outcome.claims[0]
     assert outcome.budget_exhausted is True
+    # FCT-301: истёкший бюджет — технический исход (лимит/дедлайн/таймаут),
+    # а не «данных нет» и не содержательное опровержение.
+    assert cov.outcome == fsp.CLAIM_OUTCOME_TECHNICAL
     assert cov.status_detail in (fsp.CLAIM_STATUS_DEADLINE,
+                                 fsp.CLAIM_STATUS_PROVIDER_TIMEOUT,
                                  fsp.CLAIM_STATUS_PROVIDER_ERROR)
     assert cov.gap_note
 

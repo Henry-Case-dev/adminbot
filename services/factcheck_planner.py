@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import datetime
+import hashlib
 import logging
 import re
 
@@ -43,6 +44,7 @@ from services.search_aggregator import (      # noqa: F401 — реэкспор�
     ClaimRelevance,
     claim_relevance,
     classify_source_kind,
+    extract_publication_date,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,6 +70,9 @@ CLAIM_SEARCH_SOURCE_READ = "source_read"
 CLAIM_SEARCH_SOURCE_FAILED = "source_failed"
 CLAIM_SEARCH_DEADLINE = "deadline_exceeded"
 CLAIM_SEARCH_PROVIDER_FAILED = "provider_failed"
+#: FCT-301 (S3): часть не проверена продуктовым лимитом — это не wall-clock
+#: дедлайн и не «нет источников».
+CLAIM_SEARCH_RESOURCE_LIMIT = "resource_limit"
 
 #: §4: детализированный исход, который нельзя схлопывать в «данных
 #: недостаточно». Публичные формулировки различают эти состояния; итоговый
@@ -83,6 +88,14 @@ CLAIM_STATUS_PROVIDER_ERROR = "provider_error"
 CLAIM_STATUS_DEADLINE = "deadline_exceeded"
 CLAIM_STATUS_SEARCH_NOT_STARTED = "search_not_started"
 CLAIM_STATUS_CLAIM_UNIDENTIFIED = "claim_unidentified"
+#: FCT-301 (S3): точные коды исходов. Технический исход больше не маскируется
+#: под «не проверялось»/«нет источников»: лимит, таймаут провайдера, его 429 и
+#: отмена различимы машинно.
+CLAIM_STATUS_SOURCE_UNREADABLE = "source_unreadable"
+CLAIM_STATUS_PROVIDER_TIMEOUT = "provider_timeout"
+CLAIM_STATUS_RATE_LIMIT = "rate_limit"
+CLAIM_STATUS_RESOURCE_LIMIT = "resource_limit"
+CLAIM_STATUS_CANCELLED = "cancelled"
 
 # ── Итог проверки claim (§3.1; сопоставлен с FACTUAL_VERDICTS) ──────────────
 CLAIM_OUTCOME_CONFIRMED = "confirmed"
@@ -108,11 +121,17 @@ CLAIM_OUTCOME_TO_VERDICT = {
 }
 
 #: Итог claim → существующий reason-код реестра (mca_events.REASON_CODES).
+#: FCT-301: новые ``status_detail`` маппятся только в существующие коды;
+#: новых reason-кодов реестра не вводится (`cancelled` остаётся без reason).
 CLAIM_OUTCOME_REASON = {
     CLAIM_STATUS_CONFLICTING: "contradictory_evidence",
     CLAIM_STATUS_DEADLINE: "deadline_exceeded",
     CLAIM_STATUS_PROVIDER_ERROR: "provider_unavailable",
+    CLAIM_STATUS_PROVIDER_TIMEOUT: "provider_unavailable",
+    CLAIM_STATUS_RATE_LIMIT: "provider_unavailable",
     CLAIM_STATUS_SOURCE_EXTRACT: "source_missing",
+    CLAIM_STATUS_SOURCE_UNREADABLE: "source_missing",
+    CLAIM_STATUS_RESOURCE_LIMIT: "deadline_exceeded",
     CLAIM_STATUS_NO_RELEVANT_SOURCES: "insufficient_evidence",
     CLAIM_STATUS_EXACT_NUMBER: "insufficient_evidence",
     CLAIM_STATUS_PARTIAL: "insufficient_evidence",
@@ -143,6 +162,45 @@ INTENTS = (INTENT_ENTITY_CHECK, INTENT_NUMERIC, INTENT_TEMPORAL,
 QUERY_PURPOSE_BASE = "base"
 QUERY_PURPOSE_REFINE = "refine"
 
+#: ── FCT-S3 §2.1: уровни Candidate/Evidence ────────────────────────────────
+#: Candidate — recall-уровень с НУЛЕВОЙ доказательной властью: хит провайдера,
+#: привязанный к запросу и claim. В EvidenceMap/citation_ids не попадает.
+RECALL_ROLE_ON_TOPIC = "on_topic"
+RECALL_ROLE_LOW_OVERLAP = "low_overlap"
+RECALL_ROLE_OFF_TOPIC = "off_topic"
+RECALL_ROLES = (RECALL_ROLE_ON_TOPIC, RECALL_ROLE_LOW_OVERLAP,
+                RECALL_ROLE_OFF_TOPIC)
+
+#: FCT-406: типизированная шапка модельного раздела с кандидатами. Раздел
+#: явно помечен как НЕ доказательства: проверяемые ссылки — только EvidenceMap.
+_CANDIDATE_CONTEXT_HEADER = (
+    "[Непроверенные поисковые кандидаты — НЕ доказательства. "
+    "Проверяемые ссылки и выдержки — только в EvidenceMap текущего прогона.]")
+
+#: FCT-402: тип утверждения САМОГО passage (не тезиса); unknown — честный
+#: дефолт, когда детерминированных маркеров нет.
+ASSERTION_REPORT_FACT = "report_fact"
+ASSERTION_ATTRIBUTED_QUOTE = "attributed_quote"
+ASSERTION_OPINION = "opinion"
+ASSERTION_CAUSAL = "causal_claim"
+ASSERTION_STATISTIC = "statistic"
+ASSERTION_LEGAL = "legal_status"
+ASSERTION_UNKNOWN = "unknown"
+ASSERTION_TYPES = (ASSERTION_REPORT_FACT, ASSERTION_ATTRIBUTED_QUOTE,
+                   ASSERTION_OPINION, ASSERTION_CAUSAL, ASSERTION_STATISTIC,
+                   ASSERTION_LEGAL, ASSERTION_UNKNOWN)
+
+#: FCT-403: вторая ось — роль материала по происхождению, независимая от
+#: «официальности домена». Успешный fetch роль НЕ повышает (FC-03.3).
+MATERIAL_ROLE_ORIGINAL = "original"
+MATERIAL_ROLE_REPRINT = "reprint"
+MATERIAL_ROLE_ATTRIBUTED_REPRINT = "attributed_reprint"
+MATERIAL_ROLE_SUMMARY = "summary"
+MATERIAL_ROLE_UNKNOWN = "unknown"
+MATERIAL_ROLES = (MATERIAL_ROLE_ORIGINAL, MATERIAL_ROLE_REPRINT,
+                  MATERIAL_ROLE_ATTRIBUTED_REPRINT, MATERIAL_ROLE_SUMMARY,
+                  MATERIAL_ROLE_UNKNOWN)
+
 #: Стартовое число запросов для КОРОТКОГО клейма (одна-две части). Это НЕ
 #: общий потолок исследования: составной клейм получает по запросу на часть,
 #: а общий/уточняющий бюджеты задаются `FactcheckLimits` (S14).
@@ -151,9 +209,16 @@ _MAX_QUERIES = 3
 #: запросов (базовые + уточняющие ВМЕСТЕ), применяется только при
 #: effective budgets ON.
 _MAX_QUERIES_TOTAL_DEFAULT = 64
-_QUERY_MAX_CHARS = 200            # технический предел формулировки запроса
+#: FCT-302 (S3): композиционная граница формулировки запроса. Не «увеличить
+#: вслепую»: запрос собирается из термов/якорей/периода, режется по границе
+#: слова, а якоря/метрики/период при нехватке места не отрезаются (см.
+#: `_make_query`). 320 — обоснованный верхний предел композиции.
+_QUERY_MAX_CHARS = 320
 _MAX_PRIMARY_FETCHES = 2          # политика нагрузки при budgets ON
-_EXCERPT_MAX_CHARS = 600          # размер выдержки открытой страницы
+#: FCT-404 (S3): начальный размер окна claim-specific выдержки. Окно
+#: расширяется до полного предложения/абзаца, если якорь найден за его
+#: границей; жёсткой обрезкой якорь не теряется.
+_EXCERPT_MAX_CHARS = 600          # размер стартового окна выдержки
 
 
 _NUMERIC_PHRASE_RE = re.compile(
@@ -169,6 +234,13 @@ _NUMERIC_PHRASE_RE = re.compile(
     r")?", re.IGNORECASE)
 _CAPITALIZED_RE = re.compile(
     r"(?<![.!?…]\s)(?<!^)\b[А-ЯЁA-Z][а-яёa-z]{3,}\b", re.UNICODE)
+#: FCT-201 (S3): имена-аббревиатуры и тикеры (S&P, NASA, ЦБ, GPT4) — тоже
+#: специфические анкеры тезиса: без них «S&P 500 упал» не имеет ни одного
+#: якоря и корректный материал терял доказательную силу. Детерминированно,
+#: без словарей: только структура токена (заглавные/&/+).
+_ABBR_RE = re.compile(
+    r"\b[A-ZА-ЯЁ][A-Za-zА-ЯЁ0-9]*(?:[&+][A-Za-zА-ЯЁ0-9]+)+\b"
+    r"|\b[A-ZА-ЯЁ]{2,}[0-9]*\b", re.UNICODE)
 _QUOTED_RE = re.compile(r"[«\"]([^«»\"]{12,160})[»\"]")
 _TAG_RE = re.compile(r"<[^>]+>")
 
@@ -198,6 +270,57 @@ class SearchQuery:
     claim_id: str = ""
     #: §3.2: базовая попытка по claim vs уточнение непокрытой части
     purpose: str = QUERY_PURPOSE_BASE
+
+
+@dataclasses.dataclass(frozen=True)
+class Candidate:
+    """FCT-S3 §2.1: recall-кандидат с НУЛЕВОЙ доказательной властью.
+
+    Один хит провайдера, привязанный к запросу и (после claim-aware прохода)
+    к claim. Кандидат не попадает в `EvidenceMap`/`citation_ids` и не
+    участвует в `CLAIM_OUTCOME_TO_VERDICT`; в модельный контекст он может
+    попасть только как типизированный раздел «непроверенные кандидаты»
+    (FCT-406). `recall_role`/`recall_anchors` заполняет claim-aware проход.
+    """
+    url: str | None
+    title: str = ""
+    snippet: str = ""
+    intent: str = ""
+    claim_id: str = ""
+    provider: str = ""
+    #: только то, что сообщил провайдер (UR-SRC-DATE); догадок нет
+    published_at: int | None = None
+    published_at_source: str = ""
+    date_status: str = "unknown"
+    recall_role: str = RECALL_ROLE_ON_TOPIC
+    recall_anchors: tuple[str, ...] = ()
+    snippet_only: bool = True
+
+    @property
+    def support(self) -> str:
+        """Строка кандидата для EvidenceRef (title + snippet, без URL)."""
+        joined = f"{self.title}. {self.snippet}".strip(". ")
+        return joined[:400]
+
+    def evidence_ref(self, *, claims: tuple[str, ...] = (),
+                     event_at: int | None = None) -> EvidenceRef:
+        return EvidenceRef(
+            evidence_id="", url=self.url, support=self.support,
+            source_kind=classify_source_kind(self.url),
+            published_at=self.published_at, claims=claims,
+            event_at=event_at)
+
+    def block_text(self) -> str:
+        """Блок модельного раздела: title → passage → дата → URL."""
+        lines = [self.title or self.snippet or "",
+                 self.snippet if self.title and self.snippet else ""]
+        if self.published_at:
+            lines.append("дата публикации: " + datetime.datetime.fromtimestamp(
+                int(self.published_at), datetime.timezone.utc
+            ).strftime("%Y-%m-%d"))
+        if self.url:
+            lines.append(str(self.url))
+        return "\n".join(line for line in lines if line)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -256,7 +379,16 @@ class ClaimEvidence:
     в ClaimCoverage), дата/тип источника, relation (роль) и strength
     (direct/indirect), плюс факт открытия страницы. Нечитаемая страница не
     помечается прочитанной (``opened=False``), одна ссылка не доказывает
-    все части (claim_id входящей части)."""
+    все части (claim_id входящей части).
+
+    FCT-S3 §2.2/§7: аддитивные поля уровня Evidence — ``basis`` (реально
+    совпавшие якоря; пустой запрещён для displayable-ролей),
+    ``assertion_type`` (тип утверждения САМОГО passage), ``snippet_only``/
+    ``full_text_available``/``evidence_version`` (провенанс фрагмента),
+    ``material_role``/``role_basis`` (официальность ≠ первичность),
+    ``independence_group``/``independent`` (копии одной публикации),
+    ``published_at_source``/``date_status`` (источник даты).
+    """
     claim_id: str
     evidence_id: str
     url: str | None = None
@@ -271,6 +403,25 @@ class ClaimEvidence:
     title: str = ""
     #: страница кандидата была открыта и прочитана в этом прогоне
     opened: bool = False
+    #: FCT-402: объяснимое основание роли (перечень совпавших признаков)
+    basis: tuple[str, ...] = ()
+    #: FCT-402: тип утверждения passage (не claim); unknown — честный дефолт
+    assertion_type: str = ASSERTION_UNKNOWN
+    #: FCT-404: страница не открывалась (кандидат — только сниппет)
+    snippet_only: bool = True
+    #: FCT-404: открытый текст длиннее выдержки
+    full_text_available: bool = False
+    #: FCT-404: стабильная версия выдержки (url+дата+нормализованный passage)
+    evidence_version: str = ""
+    #: FCT-403: роль материала по происхождению (не по «официальности домена»)
+    material_role: str = MATERIAL_ROLE_UNKNOWN
+    role_basis: str = ""
+    #: FCT-405: группа копий одной публикации и независимость в её пределах
+    independence_group: str = ""
+    independent: bool = True
+    #: FCT-502: откуда дата (provider|page|"") и её статус (known|unknown)
+    published_at_source: str = ""
+    date_status: str = "unknown"
 
     def as_dict(self) -> dict:
         return {
@@ -284,6 +435,17 @@ class ClaimEvidence:
             "strength": self.strength,
             "title": self.title,
             "opened": self.opened,
+            "basis": list(self.basis),
+            "assertion_type": self.assertion_type,
+            "snippet_only": self.snippet_only,
+            "full_text_available": self.full_text_available,
+            "evidence_version": self.evidence_version,
+            "material_role": self.material_role,
+            "role_basis": self.role_basis,
+            "independence_group": self.independence_group,
+            "independent": self.independent,
+            "published_at_source": self.published_at_source,
+            "date_status": self.date_status,
         }
 
 
@@ -306,6 +468,11 @@ class ClaimCoverage:
     #: техническим дедлайном/отказом провайдера. Различает причины в
     #: метриках, не меняя пользовательский enum-статус.
     budget_exhausted: bool = False
+    #: FCT-203 (S3): журнал запросов ЭТОЙ части — план (text/intent/purpose)
+    #: плюс фактический исход попытки (provider/cause/latency). Тексты
+    #: запросов — деперсонализированные поисковые строки; в публичное
+    #: событие они не попадают (там только счётчики/коды).
+    queries: tuple[dict, ...] = ()
 
     @property
     def displayable_evidence(self) -> tuple[ClaimEvidence, ...]:
@@ -328,6 +495,7 @@ class ClaimCoverage:
             "evidence": [e.as_dict() for e in self.evidence],
             "citation_ids": list(self.citation_ids),
             "budget_exhausted": bool(self.budget_exhausted),
+            "queries": [dict(q) for q in self.queries],
         }
 
 
@@ -460,12 +628,18 @@ def _with_material_anchor(terms: list[str],
 
 def _entities(text: str) -> list[str]:
     """Потенциальные именованные сущности: капитализированные токены НЕ в
-    начале предложения (детерминированно, без LLM)."""
+    начале предложения (детерминированно, без LLM) + имена-аббревиатуры/
+    тикеры (S&P, NASA, ЦБ)."""
     out: list[str] = []
     for match in _CAPITALIZED_RE.finditer(str(text or "")):
         token = match.group(0)
         if token.lower() not in {t.lower() for t in out}:
             out.append(token)
+    for match in _ABBR_RE.finditer(str(text or "")):
+        token = match.group(0)
+        if token.lower() in {t.lower() for t in out}:
+            continue
+        out.append(token)
     return out[:4]
 
 
@@ -522,6 +696,16 @@ def search_thesis_text(text: str) -> str:
 def _make_query(terms: list[str], intent: str, *, tail: str = "",
                 quoted: str = "", claim_id: str = "",
                 purpose: str = QUERY_PURPOSE_BASE) -> SearchQuery | None:
+    """Собрать запрос; длину ограничивает композиционная граница.
+
+    FCT-302 (S3): прежний ``text[:200]`` резал строку посередине слова и мог
+    отрезать метрику/период/тикер в хвосте. Теперь:
+    * при превышении лимита режем по границе слова;
+    * якоря (цитата/метрика/период) сохраняются: при нехватке места
+      урезаются обычные термы, а не хвост запроса;
+    * общая граница композиции — ``_QUERY_MAX_CHARS`` (обоснованный верхний
+      предел, а не «увеличить вслепую»).
+    """
     parts = list(terms)
     if quoted:
         parts.insert(0, f"«{quoted}»")
@@ -529,10 +713,32 @@ def _make_query(terms: list[str], intent: str, *, tail: str = "",
         parts.append(tail)
     text = " ".join(p for p in parts if p)
     text = re.sub(r"\s{2,}", " ", text).strip()
+    if len(text) > _QUERY_MAX_CHARS:
+        essentials = [p for p in (f"«{quoted}»" if quoted else "", tail) if p]
+        essence = " ".join(essentials).strip()
+        if essence and len(essence) < _QUERY_MAX_CHARS:
+            head_room = _QUERY_MAX_CHARS - len(essence) - 1
+            head = _cut_on_word_boundary(" ".join(terms), head_room)
+            text = (head + " " + essence).strip() if head else essence
+        text = _cut_on_word_boundary(text, _QUERY_MAX_CHARS)
     if len(text) < 6:
         return None
-    return SearchQuery(text=text[:_QUERY_MAX_CHARS], intent=intent,
+    return SearchQuery(text=text, intent=intent,
                        claim_id=claim_id, purpose=purpose)
+
+
+def _cut_on_word_boundary(text: str, limit: int) -> str:
+    """Урезать строку до ``limit`` по границе слова (не рвать токен)."""
+    value = str(text or "")
+    if limit <= 0:
+        return ""
+    if len(value) <= limit:
+        return value
+    cut = value[:limit]
+    space = cut.rfind(" ")
+    if space > 0:
+        cut = cut[:space]
+    return cut.rstrip(" ,;:—-")
 
 
 def build_retrieval_plan(decision, *,
@@ -1302,24 +1508,28 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
 
 # ── Структурный evidence (06C.5/06D.4) ───────────────────────────────────────
 
-def evidence_refs_from_search(results_text: str, *,
-                              intent: str | None = None,
-                              max_rows: int = 6) -> tuple[EvidenceRef, ...]:
-    """Структурированные EvidenceRef из выдачи агрегатора: URL отдельно от
-    текста (06D.4), support = заголовок+сниппет (без URL-дублирования).
-    FC-EVIDQ (§3.4): тип источника — classify_source_kind (первоисточник/
-    исследование/энциклопедия/пересказ); дубли-блоки (url=None дубль) со
-    срезаны."""
+def search_candidates(results_text: str, *,
+                      intent: str | None = None,
+                      max_rows: int = 6) -> tuple[Candidate, ...]:
+    """Пак агрегатора → recall-кандидаты (FCT-S3 §2.1).
+
+    Формат пака не меняется (контракт UR-SRC-DATE): блок = title / snippet /
+    ``дата публикации: <значение>`` / URL. Дата разбирается существующим
+    `search_aggregator.extract_publication_date` и в support не входит;
+    отсутствие даты — честный ``unknown`` (год по смыслу не создаётся).
+    Кандидаты — только recall: роль/якоря определяет claim-aware проход.
+    Никогда не бросает."""
     if not results_text or not str(results_text).strip():
         return ()
     blocks = [b.strip() for b in re.split(r"\n\s*\n", str(results_text))
               if b.strip()]
-    refs: list[EvidenceRef] = []
+    candidates: list[Candidate] = []
     seen: set[str] = set()
     for block in blocks:
-        if len(refs) >= max(1, int(max_rows)):
+        if len(candidates) >= max(1, int(max_rows)):
             break
-        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        cleaned, stamp = extract_publication_date(block)
+        lines = [ln.strip() for ln in cleaned.splitlines() if ln.strip()]
         if not lines:
             continue
         url = None
@@ -1336,23 +1546,124 @@ def evidence_refs_from_search(results_text: str, *,
         support = f"{title}. {snippet}".strip(". ")[:400]
         if not support:
             continue
-        key = re.sub(r"\W+", "", support.lower())[:100]
-        if key in seen:                 # url=None дубли (FC-EVIDQ §3.4)
+        # FC-EVIDQ §3.4: url=None дубли срезаются по тексту. Копии одной
+        # публикации на РАЗНЫХ URL — не дубль пака, а групповая
+        # независимость (FCT-405): их группирует `independence_group`.
+        key = (f"u:{url}" if url
+               else "s:" + re.sub(r"\W+", "", support.lower())[:100])
+        if key in seen:
             continue
         seen.add(key)
-        refs.append(EvidenceRef(
-            evidence_id="",            # проставляется в EvidenceMap-сборке
-            url=url, support=support,
-            source_kind=classify_source_kind(url), published_at=None))
-    return tuple(refs)
+        candidates.append(Candidate(
+            url=url, title=title, snippet=snippet, intent=str(intent or ""),
+            published_at=stamp,
+            published_at_source="provider" if stamp else "",
+            date_status="known" if stamp else "unknown"))
+    return tuple(candidates)
+
+
+def evidence_refs_from_search(results_text: str, *,
+                              intent: str | None = None,
+                              max_rows: int = 6) -> tuple[EvidenceRef, ...]:
+    """Структурированные EvidenceRef из выдачи агрегатора: URL отдельно от
+    текста (06D.4), support = заголовок+сниппет (без URL-дублирования).
+    FC-EVIDQ (§3.4): тип источника — classify_source_kind (первоисточник/
+    исследование/энциклопедия/пересказ); дубли-блоки (url=None дубль) со
+    срезаны.
+
+    FCT-502 (S3): дата провайдера больше не теряется — разбирается
+    существующим `extract_publication_date` и пишется в ``published_at``;
+    метка из support исключена. Совместимая обёртка над `search_candidates`
+    (единый разбор пака, второго нет)."""
+    return tuple(
+        cand.evidence_ref()
+        for cand in search_candidates(results_text, intent=intent,
+                                      max_rows=max_rows))
+
+
+def _sentence_windows(text: str) -> list[str]:
+    """Разбить текст на предложения-кандидаты (детерминированно)."""
+    cleaned = re.sub(r"\s{2,}", " ", str(text or "")).strip()
+    if not cleaned:
+        return []
+    return [part.strip() for part in re.split(r"(?<=[.!?…])\s+", cleaned)
+            if part.strip()]
+
+
+def _claim_anchor_tokens(claim) -> tuple[str, ...]:
+    """Токены-анкеры claim для выбора passage (метрики/имена/термы)."""
+    tokens: list[str] = []
+    if claim is None:
+        return ()
+    for metric in getattr(claim, "metrics", ()) or ():
+        tokens.append(str(metric).lower())
+        for number in re.findall(r"\d+(?:[.,]\d+)?", str(metric)):
+            tokens.append(number)
+    for term in getattr(claim, "foreign_terms", ()) or ():
+        tokens.append(str(term).lower())
+    for entity in getattr(claim, "entities", ()) or ():
+        tokens.append(str(entity).lower())
+    for word in _claim_terms(getattr(claim, "text", ""), limit=8):
+        if len(word) >= 4:
+            tokens.append(word)
+    unique: list[str] = []
+    for token in tokens:
+        if token and token not in unique:
+            unique.append(token)
+    return tuple(unique)
+
+
+def _score_passage(window: str, tokens: tuple[str, ...]) -> int:
+    low = str(window or "").lower()
+    return sum(1 for token in tokens if token and token in low)
+
+
+def _claim_passage_from_html(html_text: str, *, claim=None,
+                             limit: int | None = _EXCERPT_MAX_CHARS
+                             ) -> tuple[str, bool]:
+    """FCT-404: claim-specific окно открытого документа.
+
+    Выбирается предложение (или пара соседних), где реально есть якоря
+    тезиса (метрика/число/имя/терм), а не «первый абзац ≥80 символов».
+    Якорь за границей стартового окна не теряется: окно расширяется до
+    полного предложения. Если анкеров в документе нет — возвращается первый
+    содержательный фрагмент с ``matched=False`` (честная пометка, что это НЕ
+    claim-specific passage). ``limit=None`` — бюджеты OFF: не режем."""
+    tokens = _claim_anchor_tokens(claim)
+    windows = _sentence_windows(_TAG_RE.sub(" ", str(html_text or "")))
+    if not windows:
+        return "", False
+    scored = [(_score_passage(window, tokens), -index, window)
+              for index, window in enumerate(windows)]
+    best_score, neg_index, best = max(scored)
+    if best_score <= 0:
+        fallback = next((window for window in windows if len(window) >= 80),
+                        windows[0])
+        return (fallback if limit is None
+                else fallback[:limit].rstrip()), False
+    passage = best
+    if len(passage) < 80:
+        # Короткое предложение с анкером: расширяем СЛЕДУЮЩИМ, чтобы сохранить
+        # смысл (предыдущее может быть чужой темой — расширять назад нельзя).
+        index = -neg_index
+        neighbours = windows[index:index + 2]
+        passage = " ".join(neighbours).strip()
+    if limit is not None and len(passage) > limit:
+        cut = _cut_on_word_boundary(passage, limit)
+        if _score_passage(cut, tokens) <= 0:
+            # Обрезка съела анкер — отдаём предложение целиком (якорь важнее
+            # формального размера выдержки).
+            return passage, True
+        passage = cut
+    return passage, True
 
 
 def _excerpt_from_html(html_text: str, *, limit: int | None = _EXCERPT_MAX_CHARS
                        ) -> str:
-    """Первый содержательный абзац страницы (теги срезаны); предел порции.
+    """Совместимая обёртка: текст выдержки без claim-профиля.
 
-    ``limit=None`` — бюджеты OFF: выдержка не обрезается искусственно.
-    """
+    Оставлена для существующих вызовов/тестов; выбор claim-specific окна
+    делает `_claim_passage_from_html` (FCT-404)."""
     text = _TAG_RE.sub(" ", str(html_text or ""))
     text = re.sub(r"\s{2,}", " ", text)
     for chunk in re.split(r"(?<=[.!?])\s+", text.strip()):
@@ -1367,7 +1678,9 @@ def _excerpt_from_html(html_text: str, *, limit: int | None = _EXCERPT_MAX_CHARS
 async def fetch_primary_evidence(url: str, *, fetch_text=None,
                                  max_bytes: int = 65536,
                                  timeout: float = 4.0,
-                                 excerpt_chars: int | None = _EXCERPT_MAX_CHARS
+                                 excerpt_chars: int | None = _EXCERPT_MAX_CHARS,
+                                 claim=None,
+                                 meta: dict | None = None
                                  ) -> EvidenceRef | None:
     """Открыть страницу-кандидат через СУЩЕСТВУЮЩИЙ SafeFetcher (REUSE;
     инъекция `fetch_text` — прецедент enrich_evidence_dates). Fail-open →
@@ -1377,8 +1690,21 @@ async def fetch_primary_evidence(url: str, *, fetch_text=None,
     ``source_kind`` до primary. Тип источника — по происхождению
     (``classify_source_kind``: gov/edu/research/reference/secondary), поэтому
     форум, соцпост или SEO-пересказ после открытия страницы остаются
-    secondary и «первоисточником» не становятся."""
+    secondary и «первоисточником» не становятся.
+
+    FCT-404/FCT-502 (S3): из открытого документа берётся claim-specific
+    фрагмент (`_claim_passage_from_html`), а не первый абзац; в ``meta``
+    (out-параметр, старые вызывающие не меняются) возвращаются
+    ``passage_matched``/``full_text_available``/``published_at_source``/
+    ``date_status``/``failure`` для провенанса ClaimEvidence."""
+    if meta is not None:
+        meta.clear()
+        meta.update({"passage_matched": False, "full_text_available": False,
+                     "published_at_source": "", "date_status": "unknown",
+                     "failure": ""})
     if not url or not str(url).lower().startswith(("http://", "https://")):
+        if meta is not None:
+            meta["failure"] = "unreadable"
         return None
     try:
         if fetch_text is None:
@@ -1386,17 +1712,29 @@ async def fetch_primary_evidence(url: str, *, fetch_text=None,
             fetch_text = SafeFetcher().fetch_text
         html_text = await fetch_text(str(url), max_bytes=max_bytes,
                                      timeout=timeout)
-    except Exception:
+    except Exception as exc:
         logger.info("[factcheck_planner] primary fetch failed | url=%s",
                     url, exc_info=True)
+        if meta is not None:
+            meta["failure"] = "unreadable"
+            meta["failure_code"] = str(getattr(exc, "code", "") or "")
         return None
-    excerpt = _excerpt_from_html(
-        html_text,
+    passage, matched = _claim_passage_from_html(
+        html_text, claim=claim,
         limit=excerpt_chars if excerpt_chars is not None else None)
-    if not excerpt or len(excerpt) < 40:
+    if not passage or len(passage) < 40:
+        if meta is not None:
+            meta["failure"] = "extract"
         return None
     published_at, _source = tf.parse_publication_date(html_text, url)
-    return EvidenceRef(evidence_id="", url=str(url), support=excerpt,
+    if meta is not None:
+        meta["passage_matched"] = bool(matched)
+        full_length = len(re.sub(r"\s{2,}", " ", _TAG_RE.sub(" ", str(
+            html_text or ""))).strip())
+        meta["full_text_available"] = full_length > len(passage)
+        meta["published_at_source"] = "page" if published_at else ""
+        meta["date_status"] = "known" if published_at else "unknown"
+    return EvidenceRef(evidence_id="", url=str(url), support=passage,
                        source_kind=classify_source_kind(str(url)),
                        published_at=published_at)
 
@@ -1806,6 +2144,13 @@ class RetrievalOutcome:
     search_text_portions: tuple[str, ...] = ()
     search_text_total_chars: int = 0
     search_text_truncated: bool = False
+    #: FCT-301 (S3): различимые run-level причины (не смешиваются с
+    #: `providers_unavailable` и не выдаются за отсутствие фактов).
+    provider_timeouts: int = 0
+    rate_limits: int = 0
+    cancelled: bool = False
+    source_unreadable: int = 0
+    source_extract_failed: int = 0
 
     @property
     def ok(self) -> bool:
@@ -1839,6 +2184,16 @@ class RetrievalOutcome:
             "budgets_enabled": bool(self.budgets_enabled),
             "budget_source": str(self.budget_source),
             "planner_version": self.planner_version,
+            # FCT-203/301 (S3): новые run-level поля видны в диагностике;
+            # query_log_count — только счётчик (тексты запросов в событие не
+            # уходят: они остаются в приватном журнале планировщика).
+            "provider_timeouts": int(self.provider_timeouts),
+            "rate_limits": int(self.rate_limits),
+            "cancelled": bool(self.cancelled),
+            "source_unreadable": int(self.source_unreadable),
+            "source_extract_failed": int(self.source_extract_failed),
+            "query_log_count": sum(len(getattr(c, "queries", ()) or ())
+                                   for c in self.claims),
         }
 
 
@@ -1882,6 +2237,18 @@ class _ClaimRun:
         self.opened_urls: set[str] = set()
         #: найденая публикация оказалась старше заявленного события (§3.3)
         self.stale_hit = False
+        #: FCT-301 (S3): различимые технические исходы этой части
+        self.provider_timeouts = 0
+        self.rate_limits = 0
+        self.unreadable = 0
+        self.extract_failed = 0
+        self.cancelled = False
+        #: FCT-203: журнал запросов части (план + фактический исход попытки)
+        self.query_log: list[dict] = []
+        #: FCT-406: кандидаты, пережившие recall-гейт (для модельного раздела)
+        self.kept_candidates: list[Candidate] = []
+        #: FCT-404: провенанс открытых страниц (ключ — URL)
+        self.opening_meta: dict[str, dict] = {}
 
     def key(self, ref: EvidenceRef) -> str:
         return (str(ref.url) if ref.url
@@ -1902,14 +2269,37 @@ def _is_stale(ref: EvidenceRef, claim: ClaimUnit) -> bool:
 def _relevance_for(ref: EvidenceRef, claim: ClaimUnit) -> ClaimRelevance:
     """Роль доказательства для КОНКРЕТНОЙ части (словарь: текст части +
     латинские имена/тикеры + метрики; тип тезиса — причина требует причинной
-    связки в источнике)."""
+    связки в источнике).
+
+    FCT-201/401 (S3): фактчековый путь использует evidence-профиль
+    ``require_anchor=True`` — supports/contradicts только при специфическом
+    якоре (сущность/тикер, число с единицей, цитата, совпавший временной
+    интервал); совпадение общих слов понижается до background_only. Профиль
+    по умолчанию у ``claim_relevance`` сохраняет байт-паритет для
+    ``direct_execution``/``evidence_policy``.
+    """
     return claim_relevance(
         str(getattr(ref, "support", "") or ""),
         claim_text=claim.vocabulary(),
         anchor_terms=claim.foreign_terms,
         metrics=claim.metrics,
         entities=claim.entities,
-        claim_type=claim.claim_type)
+        claim_type=claim.claim_type,
+        timeframe=claim.timeframe,
+        require_anchor=True)
+
+
+def _recall_role(relevance: ClaimRelevance) -> str:
+    """FCT-S3 §2.1: recall-роль кандидата из claim-aware оценки.
+
+    off_topic — шлюз темы/роль irrelevant: в модельный раздел не попадает;
+    low_overlap — контекст (background_only/слабый overlap), но не evidence;
+    on_topic — displayable-роль, может стать Evidence при открытии/якоре."""
+    if relevance.topic_miss or relevance.role == EVIDENCE_ROLE_IRRELEVANT:
+        return RECALL_ROLE_OFF_TOPIC
+    if relevance.role == EVIDENCE_ROLE_BACKGROUND:
+        return RECALL_ROLE_LOW_OVERLAP
+    return RECALL_ROLE_ON_TOPIC
 
 
 def _strong_binding(ref: EvidenceRef, claim: ClaimUnit) -> bool:
@@ -1932,7 +2322,10 @@ def _claim_settled(run: "_ClaimRun") -> bool:
 
 def _gap_note(status_detail: str, *, stale: bool = False,
               number_mismatch: bool = False) -> str:
-    """§3.1/§4: КОНКРЕТНАЯ причина пробела (не «данных недостаточно»)."""
+    """§3.1/§4: КОНКРЕТНАЯ причина пробела (не «данных недостаточно»).
+
+    FCT-301 (S3): технический исход называется своим именем и не выдаётся за
+    отсутствие факта; коды не печатаются, печатается понятная причина."""
     notes = {
         CLAIM_STATUS_CONFLICTING: (
             "источники расходятся в числе/единице: заявленное значение не "
@@ -1948,8 +2341,18 @@ def _gap_note(status_detail: str, *, stale: bool = False,
         CLAIM_STATUS_SOURCE_EXTRACT: ("источник найден, но содержимое открыть "
                                       "или извлечь не удалось — технический "
                                       "исход, а не отсутствие данных"),
+        CLAIM_STATUS_SOURCE_UNREADABLE: ("источник найден, но страницу не "
+                                         "удалось прочитать — технический "
+                                         "исход, а не отсутствие данных"),
         CLAIM_STATUS_PROVIDER_ERROR: ("поиск не ответил (технический сбой) — "
                                       "это не отсутствие данных"),
+        CLAIM_STATUS_PROVIDER_TIMEOUT: ("поиск не ответил вовремя — пункт не "
+                                        "проверен"),
+        CLAIM_STATUS_RATE_LIMIT: ("провайдер ограничил частоту запросов — "
+                                  "пункт не проверен"),
+        CLAIM_STATUS_RESOURCE_LIMIT: ("исчерпан лимит поиска/источников — "
+                                      "пункт не проверен полностью"),
+        CLAIM_STATUS_CANCELLED: ("проверка отменена — пункт не проверен"),
         CLAIM_STATUS_DEADLINE: ("поиск прерван по лимиту времени — пункт не "
                                 "проверен"),
         CLAIM_STATUS_SEARCH_NOT_STARTED: "пункт не проверялся",
@@ -1972,8 +2375,149 @@ def _normalized_title(support: str, *, limit: int = 200) -> str:
     return first[:limit].strip()
 
 
+# ── FCT-S3 §2.2/§7: детерминированные провенанс-признаки evidence ─────────
+
+_LEGAL_RE = re.compile(
+    r"\b(?:закон\w*|законопроект\w*|указ\w*|постановлени\w*|поправк\w*|"
+    r"нормативн\w*|вступил\w*\s+в\s+силу|ратифик\w*)\b", re.IGNORECASE)
+_STATISTIC_RE = re.compile(
+    r"(?:\d+(?:[.,]\d+)?\s*%|\bопрос\w*|\bисследован\w*|\bстатистик\w*|"
+    r"\bвыборк\w*|в\s+среднем)", re.IGNORECASE)
+_CAUSAL_TEXT_RE = re.compile(
+    r"(?:потому\s+что|из-за|в\s+результате|вследствие|причин\w*|"
+    r"привел\w*\s+к)", re.IGNORECASE)
+_OPINION_RE = re.compile(
+    r"(?:\bсчитает\b|\bполагает\b|\bмнени\w*|по-моему|по\s+мнению|"
+    r"\bоценива\w*|\bвероятно\b)", re.IGNORECASE)
+_QUOTE_MARK_RE = re.compile(r"«[^«»]{8,200}»|\"[^\"]{8,200}\"")
+_SPEECH_VERB_RE = re.compile(
+    r"\b(?:сказа\w*|заяви\w*|сообщи\w*|цитиру\w*|отметил\w*|"
+    r"подчеркну\w*|написал\w*)\b", re.IGNORECASE)
+_DECLARATIVE_RE = re.compile(
+    r"\b\w{3,}(?:л|ла|ло|ли|ет|ют|ит|ат|ся|тся)\b", re.IGNORECASE)
+_ATTRIBUTION_RE = re.compile(
+    r"(?:сообща\w*|сообщи\w*|по\s+сообщению|передаёт|передает|цитиру\w*|"
+    r"по\s+данным|пресс-служб\w*|со\s+ссылкой\s+на|как\s+пиш\w*|"
+    r"агентств\w*)", re.IGNORECASE)
+_SUMMARY_RE = re.compile(
+    r"(?:\bсводк\w*|\bитог\w*|\bдайджест\w*|\bобзор\w*)", re.IGNORECASE)
+_HOST_RE = re.compile(r"^[a-z0-9.-]+", re.IGNORECASE)
+
+
+def _assertion_type(support: str) -> tuple[str, str]:
+    """FCT-402: тип утверждения САМОГО passage → (тип, basis-признак).
+
+    Детерминированные маркеры; при их отсутствии — ``unknown``, а не
+    догадка. Тип берётся из passage, не из claim (M-S3-18)."""
+    text = str(support or "")
+    if _QUOTE_MARK_RE.search(text) and _SPEECH_VERB_RE.search(text):
+        return ASSERTION_ATTRIBUTED_QUOTE, "quote+speech_verb"
+    if _LEGAL_RE.search(text):
+        return ASSERTION_LEGAL, "legal_marker"
+    if _CAUSAL_TEXT_RE.search(text):
+        return ASSERTION_CAUSAL, "causal_marker"
+    if _STATISTIC_RE.search(text):
+        return ASSERTION_STATISTIC, "statistic_marker"
+    if _OPINION_RE.search(text):
+        return ASSERTION_OPINION, "opinion_marker"
+    if _DECLARATIVE_RE.search(text):
+        return ASSERTION_REPORT_FACT, "declarative"
+    return ASSERTION_UNKNOWN, ""
+
+
+def _material_role(url: str | None, support: str,
+                   source_kind: str) -> tuple[str, str]:
+    """FCT-403: роль материала по происхождению (официальность ≠ первичность).
+
+    Гос-домен сам по себе ``original`` не даёт: страница с признаками чужой
+    атрибуции — пресс-сводка/перепечатка. Успешный fetch роль не повышает
+    (FC-03.3). ``role_basis`` — какие признаки сработали (без них ``unknown``).
+    """
+    text = str(support or "")
+    if _SUMMARY_RE.search(text):
+        return MATERIAL_ROLE_SUMMARY, "summary_marker"
+    if _ATTRIBUTION_RE.search(text):
+        return MATERIAL_ROLE_ATTRIBUTED_REPRINT, "attribution_marker"
+    kind = str(source_kind or "secondary")
+    if kind in ("primary", "research"):
+        return MATERIAL_ROLE_ORIGINAL, f"host:{kind}"
+    if kind == "reference":
+        return MATERIAL_ROLE_SUMMARY, "host:reference"
+    return MATERIAL_ROLE_UNKNOWN, f"host:{kind}"
+
+
+def _host_of(url: str | None) -> str:
+    raw = str(url or "").strip().lower()
+    if not raw:
+        return ""
+    raw = re.sub(r"^https?://", "", raw)
+    host = _HOST_RE.match(raw).group(0) if _HOST_RE.match(raw) else raw
+    host = host.strip(".")
+    parts = [p for p in host.split(".") if p]
+    if len(parts) >= 2:
+        return ".".join(parts[-2:])
+    return host
+
+
+def _independence_group(support: str, url: str | None) -> str:
+    """FCT-405: детерминированная группа копий одной публикации.
+
+    Ядро заголовка/первого предложения — общий признак перепечатки на разных
+    доменах; короткое/пустое ядро группу не создаёт (тогда — домен)."""
+    core = re.sub(r"\W+", " ", _normalized_title(support, limit=120).lower())
+    core = " ".join(core.split())[:80]
+    if len(core) >= 24:
+        digest = hashlib.sha1(core.encode("utf-8")).hexdigest()[:12]
+        return "t:" + digest
+    host = _host_of(url)
+    return ("h:" + host) if host else ""
+
+
+def _evidence_version(url: str | None, published_at: int | None,
+                      support: str) -> str:
+    """FCT-404: стабильная версия выдержки (не зависит от времени прогона)."""
+    normalized = " ".join(str(support or "").lower().split())
+    payload = f"{url or ''}|{int(published_at or 0)}|{normalized}"
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+
+
+
+def _technical_detail(run: _ClaimRun) -> tuple[str, str]:
+    """Технический `status_detail` части по фактическим причинам попыток.
+
+    FCT-301 (S3): лимит, wall-clock дедлайн, таймаут провайдера, его 429,
+    нечитаемая страница и непрочитанная страница различимы; «не проверялось»
+    не выдаётся ни за «нет источников», ни за лимит."""
+    if run.cancelled:
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_CANCELLED
+    # Причины КОНКРЕТНЫХ попыток важнее run-level лимита: часть, чей провайдер
+    # ответил отказом, не должна называться «исчерпан лимит».
+    if run.provider_failed:
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_PROVIDER_ERROR
+    if run.deadline_hit:
+        # Wall-clock бюджет прогона истёк до завершения части — это именно
+        # deadline (публичная подпись существует), а не «нет источников».
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_DEADLINE
+    if run.provider_timeouts and not (run.empty or run.irrelevant):
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_PROVIDER_TIMEOUT
+    if run.rate_limits and not (run.empty or run.irrelevant):
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_RATE_LIMIT
+    if run.unreadable:
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_SOURCE_UNREADABLE
+    if run.fetch_failed or run.extract_failed:
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_SOURCE_EXTRACT
+    if run.budget_hit:
+        return CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_RESOURCE_LIMIT
+    return CLAIM_OUTCOME_INSUFFICIENT, CLAIM_STATUS_SEARCH_NOT_STARTED
+
+
 def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
-    """Итог части: статус поиска, детализированный исход, роль/ссылки, пробел."""
+    """Итог части: статус поиска, детализированный исход, роль/ссылки, пробел.
+
+    FCT-S3 §5: coverage части НЕ выводится из run-level статуса. Часть без
+    попытки получает `claim_not_searched`, часть с evidence сохраняет его при
+    любом run-level лимите. Технический исход (лимит/таймаут/429/отмена) не
+    смешивается с содержательной недостаточностью."""
     claim = run.claim
     roles = [(ref, role, note) for ref, role, note in run.bound.values()]
     supports = [(r, n) for r, role, n in roles if role == EVIDENCE_ROLE_SUPPORTS]
@@ -2005,15 +2549,18 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
                                CLAIM_STATUS_EXACT_NUMBER)
         else:
             outcome, detail = CLAIM_OUTCOME_PARTIAL, CLAIM_STATUS_PARTIAL
-    elif run.deadline_hit:
-        outcome, detail = CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_DEADLINE
-    elif run.provider_failed:
-        outcome, detail = CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_PROVIDER_ERROR
-    elif run.fetch_failed:
-        outcome, detail = (CLAIM_OUTCOME_TECHNICAL, CLAIM_STATUS_SOURCE_EXTRACT)
     elif run.attempts == 0:
+        # FCT-301: часть без попытки — именно «не проверялась», если нет
+        # более точной технической причины (лимит/дедлайн/отмена).
+        outcome, detail = _technical_detail(run)
+    elif run.empty or run.irrelevant:
+        # Провайдер ответил, но пригодного по этому пункту нет: содержательная
+        # недостаточность, не технический сбой и не run-level лимит.
         outcome, detail = (CLAIM_OUTCOME_INSUFFICIENT,
-                           CLAIM_STATUS_SEARCH_NOT_STARTED)
+                           CLAIM_STATUS_NO_RELEVANT_SOURCES)
+    elif run.provider_failed or run.provider_timeouts or run.rate_limits \
+            or run.unreadable or run.fetch_failed or run.extract_failed:
+        outcome, detail = _technical_detail(run)
     else:
         outcome, detail = (CLAIM_OUTCOME_INSUFFICIENT,
                            CLAIM_STATUS_NO_RELEVANT_SOURCES)
@@ -2023,12 +2570,14 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         search_status = CLAIM_SEARCH_SOURCE_READ
     elif run.bound:
         search_status = CLAIM_SEARCH_SEARCHED
+    elif run.provider_failed or run.provider_timeouts or run.rate_limits:
+        search_status = CLAIM_SEARCH_PROVIDER_FAILED
+    elif run.fetch_failed or run.unreadable or run.extract_failed:
+        search_status = CLAIM_SEARCH_SOURCE_FAILED
+    elif run.budget_hit:
+        search_status = CLAIM_SEARCH_RESOURCE_LIMIT
     elif run.deadline_hit:
         search_status = CLAIM_SEARCH_DEADLINE
-    elif run.provider_failed:
-        search_status = CLAIM_SEARCH_PROVIDER_FAILED
-    elif run.fetch_failed:
-        search_status = CLAIM_SEARCH_SOURCE_FAILED
     elif run.attempts:
         search_status = CLAIM_SEARCH_SEARCHED
     else:
@@ -2042,26 +2591,62 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
                              CLAIM_OUTCOME_REFUTED) else _gap_note(
         detail_for_note, stale=stale,
         number_mismatch=bool(mismatched and not strong_supports))
-    evidence_items = tuple(ClaimEvidence(
-        claim_id=claim.claim_id, evidence_id=str(getattr(ref, "evidence_id", "")
-                                                or ""),
-        url=ref.url, role=role, published_at=getattr(ref, "published_at", None),
-        event_at=claim.event_at, note=note_item,
-        strength=_relevance_for(ref, claim).strength,
-        title=_normalized_title(ref.support),
-        opened=(str(ref.url or "") in run.opened_urls))
-        for ref, role, note_item in roles)
+
+    seen_groups: set[str] = set()
+    evidence_items: list[ClaimEvidence] = []
+    for ref, role, note_item in roles:
+        url = ref.url
+        support = str(getattr(ref, "support", "") or "")
+        relevance = _relevance_for(ref, claim)
+        opening = run.opening_meta.get(str(url or ""), {})
+        opened = str(url or "") in run.opened_urls
+        source_kind = str(getattr(ref, "source_kind", "") or "secondary")
+        material_role, role_basis = _material_role(url, support, source_kind)
+        assertion_type, assertion_basis = _assertion_type(support)
+        group = _independence_group(support, url)
+        independent = not (group and group in seen_groups)
+        if group:
+            seen_groups.add(group)
+        published_at = getattr(ref, "published_at", None)
+        published_source = str(opening.get("published_at_source") or "")
+        if not published_source and published_at:
+            published_source = "provider"
+        basis = tuple(relevance.basis)
+        if role in DISPLAYABLE_EVIDENCE_ROLES and not basis:
+            # FCT-402: displayable-роль без объяснимого основания запрещена
+            basis = (assertion_basis or "anchor",)
+        evidence_items.append(ClaimEvidence(
+            claim_id=claim.claim_id,
+            evidence_id=str(getattr(ref, "evidence_id", "") or ""),
+            url=url, role=role, published_at=published_at,
+            event_at=claim.event_at, note=note_item,
+            strength=("indirect" if (not opened and relevance.strength
+                                     == "direct") else relevance.strength),
+            title=_normalized_title(support),
+            opened=opened,
+            basis=basis,
+            assertion_type=assertion_type,
+            snippet_only=not opened,
+            full_text_available=bool(opening.get("full_text_available")),
+            evidence_version=_evidence_version(url, published_at, support),
+            material_role=material_role,
+            role_basis=role_basis,
+            independence_group=group,
+            independent=independent,
+            published_at_source=published_source,
+            date_status=("known" if published_at else "unknown")))
+    evidence_tuple = tuple(evidence_items)
     return ClaimCoverage(
         claim=claim, search_status=search_status, status_detail=detail,
         outcome=outcome, reason_code=CLAIM_OUTCOME_REASON.get(detail_for_note),
         gap_note=note, queries_count=run.attempts,
         candidates=run.candidates, opened=run.opened,
         provider_status=tuple(run.providers),
-        evidence=evidence_items,
-        citation_ids=tuple(str(getattr(ref, "evidence_id", "") or "")
-                           for ref, _role, _n in roles
-                           if str(getattr(ref, "evidence_id", "") or "")),
-        budget_exhausted=bool(run.budget_hit))
+        evidence=evidence_tuple,
+        citation_ids=tuple(e.evidence_id for e in evidence_tuple
+                           if e.evidence_id),
+        budget_exhausted=bool(run.budget_hit),
+        queries=tuple(dict(entry) for entry in run.query_log))
 
 
 #: S14 §6.3: содержательные причины завершения retrieval. Значения —
@@ -2071,8 +2656,16 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
 STOP_SUFFICIENT_EVIDENCE = "sufficient_evidence"
 STOP_NO_PROGRESS = "no_progress"
 STOP_PROVIDERS_UNAVAILABLE = "providers_unavailable"
-STOP_BUDGET_EXHAUSTED = "budget_exhausted"
-STOP_TECHNICAL_LIMIT = "technical_limit"
+#: FCT-301 (S3): продуктовый лимит и wall-clock бюджет различимы; сам
+#: `budget_exhausted` остаётся совместимым агрегатом для старых потребителей.
+STOP_RESOURCE_LIMIT = "resource_limit"
+STOP_GLOBAL_DEADLINE = "global_deadline"
+STOP_PROVIDER_TIMEOUT = "provider_timeout"
+STOP_RATE_LIMIT = "rate_limit"
+#: Совместимые псевдонимы прежних значений (не эмитятся новым кодом):
+#: оставлены, чтобы старые читатели/тесты импортировались без NameError.
+STOP_BUDGET_EXHAUSTED = STOP_RESOURCE_LIMIT
+STOP_TECHNICAL_LIMIT = STOP_PROVIDER_TIMEOUT
 STOP_PATHS_EXHAUSTED = "paths_exhausted"
 STOP_CANCELLED = "cancelled"
 STOP_UNEXPLAINED = "unexplained_stop"
@@ -2097,11 +2690,11 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                         budget_seconds: float | None = None,
                         refine_calls: int | None = None,
                         limits: "FactcheckLimits | None" = None,
+                        is_cancelled=None,
                         ) -> RetrievalOutcome:
     """Единый контур: план → запросы ПО КАЖДОЙ части → структурный evidence +
-    строка выдачи для user-content. Дедлайн бюджета/ошибки запросов —
-    честная деградация (partial результат, пусто → ok=False). Никогда
-    не бросает.
+    типизированный раздел кандидатов. Дедлайн бюджета/ошибки запросов —
+    честная деградация (partial результат, пусто → ok=False).
 
     ASAP-FC-EVIDENCE-STYLE-02 §3: каждая claim-единица получает базовую
     попытку; далее coverage-loop добавляет уточнение ТОЛЬКО для непокрытых
@@ -2115,6 +2708,14 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     ВМЕСТЕ), 100 000 символов — размер порции, 20 результатов на страницу,
     32 claim units — размер порции. Поиск завершается по содержательному
     состоянию (`stop_reason`), а не по счётчику.
+
+    FCT-S3 §3/§5/§6: run-level лимит (`resource_limit`/`global_deadline`) и
+    явная отмена (`is_cancelled`) различимы; `search_text` — проекция
+    переживших recall-гейт кандидатов с типизированной шапкой, а не сырой
+    пак (отсеянные кандидаты в модель не попадают); фетчи распределяются по
+    частям, а не забираются первой. `CancelledError` наружу пробрасывается
+    (семантика asyncio не ломается), фактическая отмена фиксируется
+    вызывающим через `is_cancelled`.
     """
     loop = asyncio.get_running_loop()
     claims = tuple(plan.claims) if plan is not None and plan.claims else ()
@@ -2138,7 +2739,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     refine_limit = (max(0, int(refine_calls)) if refine_calls is not None
                     else limits.refine_calls)
     total_limit = limits.total_queries
-    fetch_limit = limits.primary_fetches
+    #: FCT-302 §5: открытий не больше, чем частей (при ON); OFF — без cap.
+    if limits.primary_fetches is None:
+        fetch_limit = None
+    else:
+        fetch_limit = min(int(limits.primary_fetches),
+                          max(1, len(claims) or 1))
     excerpt_chars = limits.excerpt_chars
     outcome_empty = RetrievalOutcome(
         evidence_map=None, search_text="", queries_attempted=0,
@@ -2154,16 +2760,27 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
 
     relevance_search = getattr(aggregator, "search_relevant", None)
     runs: list[_ClaimRun] = [_ClaimRun(claim) for claim in claims]
-    blocks: list[str] = []
     counters = {"attempted": 0, "used": 0, "fetch_errors": 0,
                 "provider_failures": 0, "empty": 0, "irrelevant": 0,
-                "off_topic": 0, "stale": 0, "refine": 0}
-    product_budget_hit = False
+                "off_topic": 0, "stale": 0, "refine": 0,
+                "timeouts": 0, "rate_limits": 0, "unreadable": 0,
+                "extract_failed": 0}
+    resource_limit_hit = False
+    global_deadline_hit = False
     technical_deadline = False
+    cancelled = False
     stop_reason = ""
 
     def _deadline_now() -> bool:
         return deadline is not None and loop.time() >= deadline
+
+    def _cancel_requested() -> bool:
+        if is_cancelled is None:
+            return False
+        try:
+            return bool(is_cancelled())
+        except Exception:      # pragma: no cover — отмена не рвёт контур
+            return False
 
     async def _invoke(query: SearchQuery, query_terms, timeout_budget, trace):
         if relevance_search is not None:
@@ -2196,18 +2813,23 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             return await aggregator.search(query.text, query.max_symbols)
 
     async def _attempt(query: SearchQuery, run: _ClaimRun) -> None:
-        nonlocal product_budget_hit, technical_deadline
+        nonlocal resource_limit_hit, global_deadline_hit, technical_deadline
+        nonlocal cancelled
         if total_limit is not None and counters["attempted"] >= int(total_limit):
-            product_budget_hit = True
+            resource_limit_hit = True
             run.budget_hit = True
             return
         remaining = None
         if deadline is not None:
             remaining = deadline - loop.time()
             if remaining <= 0:
-                product_budget_hit = True
+                global_deadline_hit = True
                 run.budget_hit = True
                 return
+        if _cancel_requested():
+            cancelled = True
+            run.cancelled = True
+            return
         counters["attempted"] += 1
         run.attempts += 1
         run.attempted_texts.add(str(query.text).lower())
@@ -2220,6 +2842,11 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             # фактический сетевой timeout провайдера сохраняется внутри
             # агрегатора, а дедлайн проверяется после вызова.
             per_query_budget = max(1.0, remaining)
+        log_entry = {"claim_id": run.claim.claim_id, "text": str(query.text)[:160],
+                     "intent": query.intent, "purpose": query.purpose,
+                     "provider": "", "outcome": "", "cause": "",
+                     "latency_ms": None}
+        run.query_log.append(log_entry)
         trace: dict = {}
         started_at = loop.time()
         try:
@@ -2227,17 +2854,26 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         except Exception as exc:
             cause = str(getattr(exc, "reason", "") or "")
             provider = str(trace.get("provider") or "") or "search"
+            log_entry.update({"provider": provider,
+                              "outcome": "failed", "cause": cause or "provider_error",
+                              "latency_ms": int((loop.time() - started_at) * 1000)})
             if cause == "empty_results":
                 counters["empty"] += 1
                 run.empty += 1
             elif cause == "irrelevant_results":
                 counters["irrelevant"] += 1
                 run.irrelevant += 1
-            elif cause == "budget":
+            elif cause == "rate_limit":
+                # FCT-301: 429/квота провайдера — отдельный исход, не общий сбой.
+                counters["rate_limits"] += 1
+                run.rate_limits += 1
+                counters["provider_failures"] += 1
+            elif cause in ("timeout", "budget"):
                 # Транспортный/провайдерский предел конкретного вызова —
                 # НЕ продуктовый бюджет всего исследования (SFC-13-03).
                 technical_deadline = True
-                run.deadline_hit = True
+                counters["timeouts"] += 1
+                run.provider_timeouts += 1
                 counters["provider_failures"] += 1
             else:
                 counters["provider_failures"] += 1
@@ -2249,43 +2885,61 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                         run.claim.claim_id, query.intent, provider,
                         cause or "provider_error")
             if _deadline_now():
-                product_budget_hit = True
-                run.budget_hit = True
+                global_deadline_hit = True
+                run.deadline_hit = True
             return
         if not chunk or not str(chunk).strip():
             counters["empty"] += 1
             run.empty += 1
+            log_entry.update({"provider": "", "outcome": "empty",
+                              "cause": "empty_results",
+                              "latency_ms": int(
+                                  (loop.time() - started_at) * 1000)})
             run.providers.append(f"{query.intent}:empty")
             return
         counters["used"] += 1
-        blocks.append(str(chunk))
         if _deadline_now():
-            # §3.2/§5.2: продуктовый бюджет ИСЧЕРПАН этим вызовом — честно
+            # §3.2/§5.2: wall-clock бюджет ИСЧЕРПАН этим вызовом — честно
             # фиксируем, чтобы оставшиеся части не выдавались за проверенные.
-            product_budget_hit = True
-            run.budget_hit = True
-        refs = evidence_refs_from_search(str(chunk), intent=query.intent,
-                                        max_rows=page_limit)
-        run.candidates += len(refs)
+            global_deadline_hit = True
+            run.deadline_hit = True
+        candidates = search_candidates(str(chunk), intent=query.intent,
+                                       max_rows=page_limit)
+        run.candidates += len(candidates)
         provider = str(trace.get("provider") or "") or "search"
         latency = int((loop.time() - started_at) * 1000)
+        log_entry.update({"provider": provider, "outcome": "ok",
+                          "latency_ms": latency})
         run.providers.append(f"{query.intent}:{provider}:ok:{latency}ms")
-        for ref in refs:
-            if not ref.url:
+        for cand in candidates:
+            if not cand.url:
                 # Строка без URL не может быть доказательством (её нельзя
-                # открыть и проверить) — остаётся контекстом search_text.
+                # открыть и проверить) и в модельный раздел не идёт: это
+                # некандидат, а не «контекст».
+                counters["irrelevant"] += 1
+                run.irrelevant += 1
                 continue
+            ref = cand.evidence_ref()
             key = run.key(ref)
             if key in run.bound:
                 continue
             relevance = _relevance_for(ref, run.claim)
-            if relevance.role not in DISPLAYABLE_EVIDENCE_ROLES:
-                counters["off_topic"] += 1
-                continue
             if _is_stale(ref, run.claim):
                 counters["stale"] += 1
+                run.stale_hit = True
+                continue
+            recall_role = _recall_role(relevance)
+            if recall_role == RECALL_ROLE_OFF_TOPIC:
                 counters["off_topic"] += 1
                 continue
+            # FCT-406: в модельный раздел попадают только пережившие
+            # recall-гейт кандидаты; отсеянные — только счётчиком.
+            run.kept_candidates.append(dataclasses.replace(
+                cand, claim_id=run.claim.claim_id,
+                recall_role=recall_role,
+                recall_anchors=tuple(relevance.basis)))
+            if recall_role == RECALL_ROLE_LOW_OVERLAP:
+                continue            # контекст, но не evidence
             note = ""
             if relevance.role == EVIDENCE_ROLE_QUALIFIES and run.claim.metrics:
                 note = "число/сумма тезиса в источнике не найдены"
@@ -2301,27 +2955,31 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             # структурная аномалия вызывающего (честно отмечаем, не прячем).
             if total_limit is not None:
                 run.budget_hit = True
-                product_budget_hit = True
+                resource_limit_hit = True
             continue
         for query in queries:
             if query.purpose == QUERY_PURPOSE_REFINE:
                 continue
             if _deadline_now():
-                product_budget_hit = True
-                run.budget_hit = True
+                global_deadline_hit = True
+                run.deadline_hit = True
                 break
             if total_limit is not None and \
                     counters["attempted"] >= int(total_limit):
-                product_budget_hit = True
+                resource_limit_hit = True
                 run.budget_hit = True
                 break
             await _attempt(query, run)
     # Части, до которых общий бюджет не дошёл, честно помечаются лимитом
-    # (а не «источников не нашлось»).
-    if product_budget_hit:
+    # (а не «источников не нашлось»); wall-clock дедлайн — отдельной причиной.
+    if resource_limit_hit:
         for run in runs:
             if run.attempts == 0 and not _claim_settled(run):
                 run.budget_hit = True
+    if global_deadline_hit:
+        for run in runs:
+            if run.attempts == 0 and not _claim_settled(run):
+                run.deadline_hit = True
 
     # Проход 2 (§3.2/§6.4): уточнения — только непокрытым частям; при ON
     # 24 уточняющих и общий 64 включают и базовые, и уточняющие запросы.
@@ -2331,13 +2989,13 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             continue
         if total_limit is not None and \
                 counters["attempted"] >= int(total_limit):
-            product_budget_hit = True
+            resource_limit_hit = True
             break
         if _deadline_now():
-            product_budget_hit = True
+            global_deadline_hit = True
             break
         if refine_left is not None and refine_left <= 0:
-            product_budget_hit = True
+            resource_limit_hit = True
             break
         # Reviewer F5: уточнение нужно, пока тезис НЕ подтверждён сильно и не
         # опровергнут. Любая показанная ссылка (в т.ч. `qualifies` — «событие
@@ -2356,50 +3014,84 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             refine_left -= 1
         counters["refine"] += 1
         await _attempt(query, run)
-    if product_budget_hit:
+    if resource_limit_hit:
         for run in runs:
-            if not _claim_settled(run):
+            if run.attempts == 0 and not _claim_settled(run):
                 run.budget_hit = True
+    if global_deadline_hit:
+        for run in runs:
+            if run.attempts == 0 and not _claim_settled(run):
+                run.deadline_hit = True
 
     # §3.3: URL ≠ доказательство — содержимое достаётся только для строк,
     # привязанных к своей части; превышение бюджета больше не маскируется.
     # ES-3: кандидаты, не открытые ИМЕННО из-за дедлайна, считаются отдельно.
+    eligible: dict[str, list[tuple[EvidenceRef, str]]] = {}
     eligible_urls: list[str] = []
-    seen_urls: set[str] = set()
     if plan.needs_primary_fetch:
         for run in runs:
-            for ref, role, _n in run.bound.values():
-                if role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_QUALIFIES) \
-                        and ref.url and ref.url not in eligible_urls:
+            queued = sorted(
+                ((ref, role) for ref, role, _n in run.bound.values()
+                 if role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_QUALIFIES)
+                 and ref.url),
+                key=lambda pair: 0 if pair[1] == EVIDENCE_ROLE_SUPPORTS else 1)
+            eligible[run.claim.claim_id] = queued
+            for ref, _role in queued:
+                if ref.url not in eligible_urls:
                     eligible_urls.append(ref.url)
-    fetched_total = 0
     fetch_skipped_budget = 0
     fetch_limit_reached = False
-    if plan.needs_primary_fetch and not _deadline_now():
-        for run in runs:
-            if fetch_limit is not None and fetched_total >= int(fetch_limit):
-                fetch_limit_reached = True
-                break
-            if _deadline_now():
-                break
-            candidates = sorted(
-                ((ref, role) for ref, role, _n in run.bound.values()
-                 if role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_QUALIFIES)),
-                key=lambda pair: 0 if pair[1] == EVIDENCE_ROLE_SUPPORTS else 1)
-            for ref, _role in candidates:
+    fetched_total = 0
+    fetch_attempts = 0
+    seen_urls: set[str] = set()
+    queues = [eligible.get(run.claim.claim_id, []) for run in runs]
+    if plan.needs_primary_fetch:
+        stop_fetch = False
+        while not stop_fetch:
+            progressed = False
+            for index, run in enumerate(runs):
                 if fetch_limit is not None and \
-                        fetched_total >= int(fetch_limit):
+                        fetch_attempts >= int(fetch_limit):
                     fetch_limit_reached = True
+                    stop_fetch = True
                     break
-                if not ref.url or ref.url in seen_urls:
+                if _deadline_now() or _cancel_requested():
+                    if _cancel_requested():
+                        cancelled = True
+                        run.cancelled = True
+                    else:
+                        global_deadline_hit = True
+                    stop_fetch = True
+                    break
+                queue = queues[index]
+                ref = None
+                while queue:
+                    candidate_ref, _role = queue.pop(0)
+                    if candidate_ref.url and candidate_ref.url not in seen_urls:
+                        ref = candidate_ref
+                        break
+                if ref is None:
                     continue
+                # FCT-302: одно открытие на часть за раунд — первая часть не
+                # забирает весь cap, неразрешённые части получают попытку.
                 seen_urls.add(ref.url)
+                fetch_attempts += 1
+                fetch_meta: dict = {}
                 primary = await fetch_primary_evidence(
                     ref.url, fetch_text=fetch_text,
-                    excerpt_chars=excerpt_chars)
+                    excerpt_chars=excerpt_chars, claim=run.claim,
+                    meta=fetch_meta)
+                run.opening_meta[str(ref.url)] = dict(fetch_meta)
+                progressed = True
                 if primary is None:
                     counters["fetch_errors"] += 1
                     run.fetch_failed += 1
+                    if fetch_meta.get("failure") == "unreadable":
+                        counters["unreadable"] += 1
+                        run.unreadable += 1
+                    else:
+                        counters["extract_failed"] += 1
+                        run.extract_failed += 1
                     continue
                 relevance = _relevance_for(primary, run.claim)
                 key = run.key(primary)
@@ -2434,6 +3126,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                 run.bound[key] = (dataclasses.replace(
                     primary, claims=(run.claim.claim_id,),
                     event_at=run.claim.event_at), relevance.role, "")
+            if not progressed:
+                break
     if fetch_limit_reached:
         # Политика нагрузки ON: сколько релевантных кандидатов осталось
         # неоткрытыми именно из-за предела (не «источников не нашлось»).
@@ -2479,11 +3173,29 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         run.bound = {f"{i}": item for i, item in enumerate(remapped)}
         coverage.append(_finalize_claim(run))
 
-    full_text = "\n\n".join(blocks)
+    # FCT-406: модельный раздел — проекция recall-выживших кандидатов с
+    # типизированной шапкой. Отсеянные (off_topic) в текст не попадают;
+    # проверяемые ссылки живут только в EvidenceMap.
+    projection: list[str] = []
+    projected_urls: set[str] = set()
+    for run in runs:
+        for cand in run.kept_candidates:
+            key = str(cand.url or "")
+            if key and key in projected_urls:
+                continue
+            if key:
+                projected_urls.add(key)
+            block = cand.block_text().strip()
+            if block:
+                projection.append(block)
+    if projection:
+        full_text = _CANDIDATE_CONTEXT_HEADER + "\n\n" + "\n\n".join(projection)
+    else:
+        full_text = ""
     portions = _text_portions(full_text, limits.search_text_chars)
     search_text = portions[0] if portions else ""
     fetch_skipped = 0
-    if eligible_urls and _deadline_now():
+    if eligible_urls and (global_deadline_hit or _deadline_now()):
         # Дедлайн — фактическая причина, по которой открытие не состоялось.
         fetch_skipped = len([u for u in eligible_urls if u not in seen_urls])
 
@@ -2492,29 +3204,55 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         1 for run in runs
         for query in plan.queries_for(run.claim.claim_id)
         if query.purpose != QUERY_PURPOSE_REFINE)
-    if product_budget_hit:
-        stop_reason = STOP_BUDGET_EXHAUSTED
+    # FCT-301: закрытый словарь stop_reason; лимит и дедлайн различимы, а
+    # provider_timeout/rate_limit не маскируются под «недоступность».
+    if cancelled:
+        stop_reason = STOP_CANCELLED
+    elif resource_limit_hit:
+        stop_reason = STOP_RESOURCE_LIMIT
+    elif global_deadline_hit:
+        stop_reason = STOP_GLOBAL_DEADLINE
     elif all_settled:
         stop_reason = STOP_SUFFICIENT_EVIDENCE
     elif counters["attempted"] == 0:
         stop_reason = STOP_PATHS_EXHAUSTED
-    elif counters["used"] == 0 and technical_deadline \
-            and counters["provider_failures"] > 0 \
-            and not (counters["empty"] or counters["irrelevant"]):
-        stop_reason = STOP_TECHNICAL_LIMIT
     elif counters["used"] == 0 and counters["provider_failures"] > 0 \
             and not (counters["empty"] or counters["irrelevant"]):
-        stop_reason = STOP_PROVIDERS_UNAVAILABLE
+        if counters["rate_limits"] and not counters["timeouts"]:
+            stop_reason = STOP_RATE_LIMIT
+        elif counters["timeouts"]:
+            stop_reason = STOP_PROVIDER_TIMEOUT
+        else:
+            stop_reason = STOP_PROVIDERS_UNAVAILABLE
     elif counters["used"] == 0:
         stop_reason = STOP_NO_PROGRESS
     elif planned_base and counters["attempted"] < planned_base \
-            and not product_budget_hit:
+            and not (resource_limit_hit or global_deadline_hit):
         # Скрытый enforcement: запросы плана остались без попытки без
         # отслеженного бюджета/дедлайна/содержательной причины.
         stop_reason = STOP_UNEXPLAINED
     else:
         stop_reason = STOP_PATHS_EXHAUSTED
-    budget_exhausted = bool(product_budget_hit)
+    budget_exhausted = bool(resource_limit_hit or global_deadline_hit)
+    # FCT-203 (S3): приватная диагностика хода — по каждой части видны
+    # запросы (claim_id/intent/purpose), фактический провайдер/исход и причина
+    # остановки. Тексты запросов остаются в приватном журнале и в событие не
+    # уходят; URL/текстов чата здесь нет.
+    for run in runs:
+        if not run.query_log:
+            continue
+        logger.info(
+            "[factcheck_retrieval] claim=%s | queries=%d | intents=%s | "
+            "providers=%s | stop=%s | plan_queries=%d",
+            run.claim.claim_id, len(run.query_log),
+            ",".join(sorted({str(q.get("intent") or "")
+                             for q in run.query_log})),
+            ",".join(f"{q.get('provider') or '-'}:"
+                     f"{q.get('outcome') or q.get('cause') or '-'}"
+                     for q in run.query_log[:8]),
+            stop_reason,
+            sum(1 for q in plan.queries
+                if q.claim_id == run.claim.claim_id))
     # FC-07.1: attempted queries прогона (порядок попыток, без повторов).
     attempted: list[str] = []
     for run in runs:
@@ -2545,7 +3283,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         limit_sources=tuple(limits.sources),
         search_text_portions=portions,
         search_text_total_chars=len(full_text),
-        search_text_truncated=len(portions) > 1)
+        search_text_truncated=len(portions) > 1,
+        provider_timeouts=counters["timeouts"],
+        rate_limits=counters["rate_limits"],
+        cancelled=cancelled,
+        source_unreadable=counters["unreadable"],
+        source_extract_failed=counters["extract_failed"])
 
 
 def _strong_binding_count(ref: EvidenceRef, runs: list[_ClaimRun]) -> int:

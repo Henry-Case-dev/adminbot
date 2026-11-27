@@ -659,10 +659,14 @@ async def test_sc8_provider_and_deadline_are_technical(planner_on):
     by_id = {cov.claim.claim_id: cov for cov in outcome.claims}
     assert by_id["c1"].status_detail == fsp.CLAIM_STATUS_VERIFIED
     assert by_id["c2"].status_detail == fsp.CLAIM_STATUS_PROVIDER_ERROR
+    # FCT-301: транспортный таймаут конкретного вызова — свой код, не
+    # «провайдер недоступен» и не отсутствие фактов.
     assert by_id["c3"].status_detail in (fsp.CLAIM_STATUS_DEADLINE,
+                                         fsp.CLAIM_STATUS_PROVIDER_TIMEOUT,
                                          fsp.CLAIM_STATUS_PROVIDER_ERROR)
     deadline_claims = [cov for cov in outcome.claims
-                       if cov.status_detail == fsp.CLAIM_STATUS_DEADLINE]
+                       if cov.status_detail == fsp.CLAIM_STATUS_DEADLINE
+                       or cov.search_status == fsp.CLAIM_SEARCH_DEADLINE]
     assert outcome.coverage_summary()["claims_unchecked_due_to_deadline"] == \
         len(deadline_claims)
 
