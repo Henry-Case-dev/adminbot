@@ -44,11 +44,13 @@ per-call через `services.mca_gates` (никогда не бросает).
 from __future__ import annotations
 
 import asyncio
+import bisect
 import collections
 import hashlib
 import importlib.util
 import json
 import logging
+import math
 import platform
 import random
 import time
@@ -6841,6 +6843,88 @@ class RandomSourceService:
         except Exception:
             return []
 
+    async def field_snapshot(self, *, chat_id=None, include_refs: bool = True,
+                             window_days: int | None = None) -> dict:
+        """Q-07: читающий снимок поля допустимых фокусов (без записи).
+
+        Один bounded `SELECT` по `mca_random_draws` (окно + LIMIT 5000,
+        существующие индексы), группировка строк по `map_fingerprint`, затем
+        чистая классификация (`classify_field`). Ничего не пишет, провайдеров
+        не зовёт; ошибка чтения пробрасывается — статус сам отдаёт
+        `unavailable` (fail-open остального `/api/status`)."""
+        window = FIELD_WINDOW_DAYS if window_days is None else int(window_days)
+        window = max(1, min(window, 90))
+        generated_at = int(time.time())
+        rows = (await field_rows_from_journal(
+            self._store, chat_id=chat_id, window_days=window, limit=FIELD_ROW_LIMIT)
+            if self._store is not None else [])
+        records = {
+            "rows": len(rows), "used": 0, "skipped_no_selection": 0,
+            "skipped_unmappable": 0, "skipped_malformed": 0,
+            "by_source": {"quantum": 0, "pseudorandom": 0},
+        }
+        groups: dict[str, dict] = {}
+        for row in rows:
+            raw_selected = row.get("selected_id")
+            if raw_selected is None or str(raw_selected).strip() == "":
+                records["skipped_no_selection"] += 1
+                continue
+            selected = _field_row_selection(raw_selected)
+            if selected is None:
+                # Индекс не число — строку нельзя сопоставить ячейке.
+                records["skipped_unmappable"] += 1
+                continue
+            ordered, why = _field_row_cells(row.get("candidates_json"))
+            if why is not None:
+                records["skipped_malformed"] += 1
+                continue
+            if selected >= len(ordered):
+                records["skipped_unmappable"] += 1
+                continue
+            ref = ordered[selected]
+            cells = canonical_cells(ordered)
+            fingerprint = map_fingerprint(cells)
+            group = groups.get(fingerprint)
+            if group is None:
+                group = {"cells": cells, "counts": {}, "fingerprint": fingerprint}
+                groups[fingerprint] = group
+            group["counts"][ref] = group["counts"].get(ref, 0) + 1
+            records["used"] += 1
+            source = str(row.get("source") or "unknown")
+            records["by_source"][source] = records["by_source"].get(source, 0) + 1
+        ordered_groups = sorted(
+            groups.values(),
+            key=lambda g: (-sum(g["counts"].values()), g["fingerprint"]))
+        primary_group = ordered_groups[0] if ordered_groups else None
+        primary = classify_field(
+            cells=(primary_group["cells"] if primary_group else ()),
+            observed=(primary_group["counts"] if primary_group else {}),
+            fingerprint=(primary_group["fingerprint"] if primary_group else ""),
+            include_refs=bool(include_refs))
+        others = []
+        for group in ordered_groups[1:FIELD_OTHERS_LIMIT + 1]:
+            verdict = classify_field(
+                cells=group["cells"], observed=group["counts"],
+                fingerprint=group["fingerprint"], include_refs=False)
+            others.append({
+                "map_fingerprint": group["fingerprint"],
+                "cells": verdict.get("cells"),
+                "observations": verdict.get("observations"),
+                "state": verdict.get("state"),
+                "anomaly_kind": verdict.get("anomaly_kind"),
+            })
+        return {
+            "ready": True,
+            "policy_version": FIELD_POLICY,
+            "window_days": window,
+            "generated_at": generated_at,
+            "scope": "",
+            "maps": len(ordered_groups),
+            "records": records,
+            "primary": primary,
+            "others": others,
+        }
+
     # ── стык mca-06 (D7): async-фабрика + sync pick ────────────────────────
     async def build_dream_source(self, pipeline_run_id: int | None,
                                  *, k_hint: int = 10, chat_id=None):
@@ -6954,6 +7038,348 @@ class RandomSourceService:
             self._refill_task = asyncio.create_task(_runner())
         except RuntimeError:       # нет running loop (sync-контекст)
             self._refill_task = None
+
+
+# ── Q-07: статистика поля допустимых фокусов (VMQ-Q0) ───────────────────────
+# Производное чтение СУЩЕСТВУЮЩЕГО журнала `mca_random_draws`: карта
+# допустимых фокусов (cells + fingerprint), наблюдаемое/ожидаемое по ячейкам
+# и нуль-модель = max-statistic Монте-Карло на тех же N, M, p_i. Слой ничего
+# не пишет, провайдеров не зовёт и на решения не влияет (влияние — Q-09).
+# Контракт: plans/features/vmq-onto-01/evidence/q-07-contract-2026-11-27.md.
+FIELD_POLICY = "mca-field-v1"
+FIELD_WINDOW_DAYS = 30
+FIELD_ROW_LIMIT = 5000
+FIELD_MIN_EXPECTED = 5.0
+FIELD_NULL_SIMS = 1000
+FIELD_NULL_ALPHA = 0.99
+FIELD_OTHERS_LIMIT = 4
+FIELD_TOP_CELLS_LIMIT = 3
+
+FIELD_STATE_NO_DATA = "no_data"
+FIELD_STATE_INSUFFICIENT = "insufficient_history"
+FIELD_STATE_UNCALIBRATED = "baseline_uncalibrated"
+FIELD_STATE_OK = "ok"
+
+FIELD_KIND_NONE = "none"
+FIELD_KIND_BLIND = "blind"
+FIELD_KIND_ATTRACTOR = "attractor"
+FIELD_KIND_VOID = "void"
+FIELD_KIND_POWER = "power"
+
+#: Кэш in-memory (не персистентность): калибровка детерминирована по
+#: (fingerprint, N, M, p, sims, alpha), поэтому повторное чтение статуса не
+#: платит за ту же симуляцию снова. На диск ничего не пишется.
+_FIELD_NULL_CACHE: dict[tuple, dict] = {}
+_FIELD_NULL_CACHE_LIMIT = 64
+
+
+class FieldCalibrationError(ValueError):
+    """Нуль-модель не рассчитана — честный `baseline_uncalibrated`."""
+
+
+def _canonical_json(payload) -> str:
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                      separators=(",", ":"))
+
+
+def canonical_cells(candidates) -> tuple[str, ...]:
+    """Карта кандидатов без порядка и дублей (строка JSON тоже принимается)."""
+    if isinstance(candidates, str):
+        try:
+            candidates = json.loads(candidates)
+        except Exception:
+            return ()
+    if not isinstance(candidates, (list, tuple)):
+        return ()
+    refs = []
+    for item in candidates:
+        if isinstance(item, (dict, list)) or item is None:
+            continue
+        ref = str(item).strip()
+        if ref:
+            refs.append(ref[:120])
+    return tuple(sorted(set(refs)))
+
+
+def map_fingerprint(cells) -> str:
+    """sha256[:16] канонического {v: FIELD_POLICY, cells: [...]}.
+
+    Не зависит от порядка строк БД, порядка вставки, `created_at`, `draw_id`
+    и `chat_id`: вход приводится к отсортированному уникальному набору."""
+    refs = ([cells] if isinstance(cells, str)
+            else [str(c) for c in (cells or ())])
+    payload = {"v": FIELD_POLICY, "cells": sorted(set(refs))}
+    return hashlib.sha256(
+        _canonical_json(payload).encode("utf-8")).hexdigest()[:16]
+
+
+def _field_row_cells(raw) -> tuple[tuple[str, ...], str | None]:
+    """`candidates_json` строки журнала → (refs_в_порядке_индексов, причина).
+
+    Порядок СОХРАНЯЕТСЯ: `selected_id` — индекс в этом списке (прод пишет
+    `str(index)`). Дубли и нестроковые элементы — malformed: такая строка не
+    маппится в чужую ячейку и не раздувает `N` (`records.skipped_malformed`)."""
+    if raw is None or raw == "":
+        return (), "missing"
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        return (), "unparsable"
+    if not isinstance(parsed, list) or not parsed:
+        return (), "not_a_list"
+    refs = []
+    for item in parsed:
+        if isinstance(item, (dict, list)) or item is None:
+            return (), "bad_item"
+        ref = str(item).strip()
+        if not ref:
+            return (), "empty_ref"
+        refs.append(ref[:120])
+    if len(set(refs)) != len(refs):
+        return (), "duplicates"
+    return tuple(refs), None
+
+
+def _field_row_selection(raw) -> int | None:
+    """`selected_id` — индекс выбора; None/мусор → не выборка."""
+    if raw is None or raw == "":
+        return None
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return value if value >= 0 else None
+
+
+def _field_probabilities(m: int, weights=None) -> list[float]:
+    if weights is None:
+        return [1.0 / m] * m
+    try:
+        values = [float(w) for w in weights]
+    except (TypeError, ValueError):
+        raise FieldCalibrationError("bad_weights")
+    if len(values) != m or any(v <= 0.0 for v in values):
+        raise FieldCalibrationError("bad_weights")
+    total = sum(values)
+    if not math.isfinite(total) or total <= 0.0:
+        raise FieldCalibrationError("bad_weights")
+    return [v / total for v in values]
+
+
+def null_thresholds(*, observations: int, cells: int, weights=None,
+                    sims: int = FIELD_NULL_SIMS,
+                    alpha: float = FIELD_NULL_ALPHA, fingerprint: str = "",
+                    min_expected: float = FIELD_MIN_EXPECTED) -> dict:
+    """Порог `t` = квантиль `alpha` распределения `max_i |z_i|` при H0.
+
+    Калибровка: `sims` реплик по `observations` независимых выборок ячейки с
+    вероятностями `p_i`, затем тот же максимум по тем же ячейкам. Генерация —
+    только `random.Random(seed).random()` (без `randrange`/`choices`/
+    `shuffle`); сид фиксирован `sha256(f"{fp}|{N}|{M}|{policy}")[:16]`."""
+    try:
+        n = int(observations)
+        m = int(cells)
+        reps = int(sims)
+        a = float(alpha)
+    except (TypeError, ValueError):
+        raise FieldCalibrationError("bad_arguments")
+    if n <= 0 or m < 2 or reps <= 0 or not (0.0 < a < 1.0):
+        raise FieldCalibrationError("bad_arguments")
+    p = _field_probabilities(m, weights)
+    expected = [n * pi for pi in p]
+    if min(expected) < float(min_expected):
+        raise FieldCalibrationError("expected_below_min")
+    key = (str(fingerprint), n, m, reps, round(a, 6),
+           tuple(round(x, 12) for x in p), float(min_expected))
+    cached = _FIELD_NULL_CACHE.get(key)
+    if cached is not None:
+        return dict(cached)
+    seed_text = "%s|%d|%d|%s" % (str(fingerprint), n, m, FIELD_POLICY)
+    seed = int(hashlib.sha256(
+        seed_text.encode("utf-8")).hexdigest()[:16], 16)
+    draw = random.Random(seed).random
+    scales = [math.sqrt(e * (1.0 - pi)) for e, pi in zip(expected, p)]
+    uniform = all(abs(pi - 1.0 / m) < 1e-12 for pi in p)
+    cumulative: list[float] = []
+    if not uniform:
+        acc = 0.0
+        for pi in p:
+            acc += pi
+            cumulative.append(acc)
+        cumulative[-1] = 1.0
+    maxima: list[float] = []
+    for _ in range(reps):
+        counts = [0] * m
+        if uniform:
+            for _ in range(n):
+                counts[int(draw() * m)] += 1
+        else:
+            for _ in range(n):
+                counts[bisect.bisect_right(cumulative, draw())] += 1
+        top = 0.0
+        for i in range(m):
+            z = (counts[i] - expected[i]) / scales[i]
+            if z < 0:
+                z = -z
+            if z > top:
+                top = z
+        maxima.append(top)
+    maxima.sort()
+    pos = a * (len(maxima) - 1)
+    low = int(math.floor(pos))
+    high = min(low + 1, len(maxima) - 1)
+    quantile = maxima[low] + (maxima[high] - maxima[low]) * (pos - low)
+    if not math.isfinite(quantile):
+        raise FieldCalibrationError("non_finite_quantile")
+    result = {"quantile": quantile, "alpha": a, "sims": reps,
+              "seed": seed, "min_expected": float(min_expected),
+              "policy_version": FIELD_POLICY}
+    if len(_FIELD_NULL_CACHE) >= _FIELD_NULL_CACHE_LIMIT:
+        _FIELD_NULL_CACHE.pop(next(iter(_FIELD_NULL_CACHE)))
+    _FIELD_NULL_CACHE[key] = dict(result)
+    return result
+
+
+def _field_base(*, refs, n, fingerprint, weights, alpha) -> dict:
+    return {
+        "map_fingerprint": str(fingerprint or map_fingerprint(refs)),
+        "cells": len(refs),
+        "observations": n,
+        "weighting": "uniform" if weights is None else "weighted",
+        "state": FIELD_STATE_NO_DATA,
+        "anomaly_kind": FIELD_KIND_NONE,
+        "anomaly_score": None,
+        "null_quantile": None,
+        "null_alpha": float(alpha),
+        "null_sims": 0,
+        "qualifying_cells": 0,
+        "power_direction": None,
+        "top_cells": [],
+        "note": None,
+    }
+
+
+def classify_field(*, cells, observed, fingerprint: str = "", weights=None,
+                   min_expected: float = FIELD_MIN_EXPECTED,
+                   sims: int = FIELD_NULL_SIMS,
+                   alpha: float = FIELD_NULL_ALPHA,
+                   include_refs: bool = True) -> dict:
+    """Чистая классификация карты: attractor|void|power|blind|none.
+
+    Никакого утверждения об аномалии без посчитанного порога: при `N = 0`,
+    малом ожидаемом (`< min_expected`) и при отказе калибровки состояние —
+    `no_data`/`insufficient_history`/`baseline_uncalibrated`, вид — `none`."""
+    refs = canonical_cells(list(cells) if not isinstance(cells, str) else [cells])
+    ordered_refs = ([cells] if isinstance(cells, str)
+                    else [str(c) for c in (cells or ())])
+    counts: dict[str, int] = {}
+    if isinstance(observed, dict):
+        items = observed.items()
+    else:
+        # Последовательность выровнена по ПОРЯДКУ переданных ячеек, а не по
+        # канонической сортировке (иначе счётчики разъехались бы с refs).
+        items = zip(ordered_refs, list(observed or ()))
+    for ref, value in items:
+        try:
+            counts[str(ref)] = max(0, int(value))
+        except (TypeError, ValueError):
+            continue
+    m = len(refs)
+    n = sum(counts.get(ref, 0) for ref in refs)
+    out = _field_base(refs=refs, n=n, fingerprint=fingerprint,
+                      weights=weights, alpha=alpha)
+    if m == 0:
+        out["note"] = "no_cells"
+        return out
+    if n == 0:
+        out["note"] = "no_observations"
+        return out
+    if m < 2:
+        out["state"] = FIELD_STATE_UNCALIBRATED
+        out["note"] = "single_cell"
+        return out
+    p = _field_probabilities(m, weights)
+    expected = [n * pi for pi in p]
+    if min(expected) < float(min_expected):
+        out["state"] = FIELD_STATE_INSUFFICIENT
+        out["note"] = "expected_per_cell_below_min"
+        return out
+    try:
+        null = null_thresholds(
+            observations=n, cells=m, weights=weights, sims=sims, alpha=alpha,
+            fingerprint=out["map_fingerprint"], min_expected=min_expected)
+    except Exception:
+        out["state"] = FIELD_STATE_UNCALIBRATED
+        out["note"] = "null_calibration_failed"
+        return out
+    threshold = float(null["quantile"])
+    graded = []
+    for ref, pi, exp in zip(refs, p, expected):
+        z = (counts.get(ref, 0) - exp) / math.sqrt(exp * (1.0 - pi))
+        graded.append((ref, counts.get(ref, 0), exp, z))
+    top = 0.0
+    above = []
+    for ref, observed_i, exp, z in graded:
+        if abs(z) > top:
+            top = abs(z)
+        if abs(z) > threshold:
+            above.append((ref, observed_i, exp, z))
+    out["state"] = FIELD_STATE_OK
+    out["anomaly_score"] = round(top, 3)
+    out["null_quantile"] = round(threshold, 3)
+    out["null_sims"] = int(null["sims"])
+    out["qualifying_cells"] = len(above)
+    if not above:
+        out["anomaly_kind"] = FIELD_KIND_BLIND
+        out["note"] = "no_cell_above_threshold"
+    elif len(above) == 1:
+        ref, observed_i, exp, z = above[0]
+        out["anomaly_kind"] = (
+            FIELD_KIND_ATTRACTOR if z > 0 else FIELD_KIND_VOID)
+    else:
+        strongest = max(above, key=lambda item: abs(item[3]))
+        out["anomaly_kind"] = FIELD_KIND_POWER
+        out["power_direction"] = (
+            FIELD_KIND_ATTRACTOR if strongest[3] > 0 else FIELD_KIND_VOID)
+    ranked = sorted(graded, key=lambda item: (-abs(item[3]), item[0]))
+    out["top_cells"] = [{
+        "ref": (ref if include_refs else None),
+        "observed": int(observed_i),
+        "expected": round(exp, 3),
+        "z": round(z, 3),
+    } for ref, observed_i, exp, z in ranked[:FIELD_TOP_CELLS_LIMIT]]
+    return out
+
+
+async def field_rows_from_journal(store, *, chat_id=None,
+                                  window_days: int = FIELD_WINDOW_DAYS,
+                                  limit: int = FIELD_ROW_LIMIT) -> list[dict]:
+    """Один bounded `SELECT` по `mca_random_draws` (окно + LIMIT, без записи).
+
+    Внутренние purpose (`activation_selfcheck`) исключаются в SQL; прочие
+    строки не отбрасываются молча — их видно в `records.skipped_*`."""
+    db = getattr(store, "_db", None)
+    conn = getattr(db, "db", None)
+    if conn is None:
+        return []
+    window = max(1, int(window_days or FIELD_WINDOW_DAYS))
+    since = int(time.time()) - window * 86400
+    internal = tuple(sorted(INTERNAL_PURPOSES))
+    sql = ("SELECT draw_id, created_at, chat_id, purpose, source, provider, "
+           "candidates_json, pool_size, selected_id FROM mca_random_draws "
+           "WHERE created_at >= ?")
+    params: list[Any] = [since]
+    if chat_id is not None:
+        sql += " AND chat_id = ?"
+        params.append(int(chat_id))
+    if internal:
+        sql += (" AND (purpose IS NULL OR purpose NOT IN ("
+                + ",".join("?" * len(internal)) + "))")
+        params.extend(internal)
+    sql += " ORDER BY created_at DESC, draw_id DESC LIMIT ?"
+    params.append(max(1, min(int(limit), FIELD_ROW_LIMIT)))
+    cursor = await conn.execute(sql, tuple(params))
+    return [dict(row) for row in await cursor.fetchall()]
 
 
 # ── модульный синглтон + точки входа ────────────────────────────────────────
