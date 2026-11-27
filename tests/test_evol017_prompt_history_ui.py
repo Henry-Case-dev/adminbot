@@ -329,8 +329,12 @@ def test_editor_page_contains_history_area():
     assert html.count("<prompt-version-card") == 8
     # PVR-S4 B1: «Характер» (prompt-field core.personality /
     # core.personality.compact) — тот же компонент, без legacy-списка.
-    core = html.split("speechSection === 'core' && speechCore", 1)[1] \
-               .split("speechSection === 'style' && speechStyle", 1)[0]
+    # SAC-CORE-ON-TAB (28.11.2026): блок перенесён первым на вкладку
+    # «Личность» — граница блока теперь data-speech-core-editor (отдельной
+    # страницы `speechSection === 'core'` больше нет), компонент истории и
+    # его prompt-key не изменились.
+    core = html.split('id="speech-core-editor"', 1)[1] \
+               .split("data-speech-identity-editor", 1)[0]
     assert "<prompt-version-card" in core
     assert "speechCore.block_ids" in core
     assert "data-speech-core-more" not in core

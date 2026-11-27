@@ -109,7 +109,7 @@ ROUTES_SHA256_F11 = (
     # 5 write-маршрутов ACL только для effective global admin + S2-инварианты
     # назначенных админов и per-app lock; Δ routes=0, DDL=0. Канон пина —
     # tests/test_round1025_f8_registry.py (L-F11S-1).
-    "453e17f8a1cd29d54fcdb187a6c6ccac53673426d3c284e6db2672acdeb604a5")
+    "b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a")
 
 
 @pytest.fixture(autouse=True)

@@ -99,10 +99,12 @@ assert.strictEqual((INDEX.match(/<prompt-version-card/g) || []).length, 8,
 // (`core.personality` / `core.personality.compact`), поэтому он использует
 // тот же компонент, а не свой bounded-список с сырым sha и «Откатить».
 {
-  const coreStart = INDEX.indexOf("speechSection === 'core' && speechCore");
-  assert.ok(coreStart >= 0, 'раздел «Характер» не найден в разметке');
-  const coreEnd = INDEX.indexOf("speechSection === 'style' && speechStyle",
-                                coreStart);
+  // SAC-CORE-ON-TAB (28.11.2026): «Характер» — первый блок вкладки
+  // «Личность» (граница — data-speech-core-editor), отдельной страницы
+  // `speechSection === 'core'` больше нет. Компонент истории тот же.
+  const coreStart = INDEX.indexOf('id="speech-core-editor"');
+  assert.ok(coreStart >= 0, 'блок «Ядро личности» не найден в разметке');
+  const coreEnd = INDEX.indexOf('data-speech-identity-editor', coreStart);
   const coreBlock = INDEX.slice(coreStart, coreEnd > coreStart
     ? coreEnd : coreStart + 20000);
   assert.ok(coreBlock.indexOf('<prompt-version-card') >= 0,

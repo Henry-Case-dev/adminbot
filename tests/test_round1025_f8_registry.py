@@ -135,7 +135,15 @@ ROUTES_SHA256_F11 = (
     # новая таблица self_diag_samples) в analytics/resources; route-set,
     # декораторы, пути, RBAC и маскировка секретов не менялись. Предыдущий
     # пин: 677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719.
-    "6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30")
+    # SAC-S1 (28.11.2026, speech-applicability-core-ux): осознанный re-pin
+    # (L-F11S-1). Тело GET /api/config: техническая пометка «провайдер
+    # игнорирует temperature» сужена с группы `limits_temperature` до
+    # float-значений самой temperature; селектор «Свобода формулировок»
+    # (`limits.chat_temperature_preset_default`) больше не получает
+    # `status=inactive`. Route-set/декораторы/пути/RBAC/маскировка не
+    # менялись (routes-инвентарь f8_baseline Δ=0). Предыдущий пин —
+    # 6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30.
+    "b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

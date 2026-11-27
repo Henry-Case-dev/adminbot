@@ -13529,23 +13529,205 @@
 
               <!-- ═══ EVOL-028 v0.8 (W10): «Личность и стиль» переехала СЮДА.
                    «Речь и характер» — единственное основное место редактирования
-                   личности/характера/манеры речи. Поля (имя, биография, характер,
-                   «осознаёт себя ИИ») и сохранение — те же самые (personaDraft/
-                   savePersona), уникальные значения не потеряны. Старый адрес
-                   `#/ai/persona` ведёт в эту секцию, второго редактора нет. ═══ -->
-              <!-- EVOL-034/041 (W12): «Личность» живёт в единственном
-                   каноническом редакторе «Речи и характера». Дубль шапки
-                   (второй одинаковый заголовок с тем же scope) удалён;
-                   id/data-speech-persona остаются на самом редакторе —
-                   deep-link #/ai/persona и палитра фокусируют его. -->
+                   личности/характера/манеры речи. Старый адрес `#/ai/persona`
+                   ведёт в эту секцию, второго редактора нет. ═══ -->
+              <!-- SAC-CORE-FIRST / SAC-CORE-ON-TAB (28.11.2026): вкладка
+                   «Личность» — основной интерфейс управления личностью.
+                   Порядок блоков: 1) Ядро личности (канонический редактор
+                   Personality Core, тот же реестр/история/области — перенесён
+                   сюда, второй копии нет), 2) Идентичность (имя/биография/
+                   самопредставление; поля «Характер» больше нет), 3)
+                   Приобретённые черты (ссылка в «Статус»), 4) Дополнительные
+                   настройки (редакции ядра, техника, legacy только при
+                   фактическом наличии). -->
               <section v-if="speechSection === 'persona'" id="speech-persona"
                        data-speech-persona tabindex="-1"
-                       class="speech-persona-section">
-            <div class="card p-5 col-span-full" style="max-width: 760px;"
-                 data-speech-persona-editor>
+                       class="speech-persona-section speech-section">
+            <!-- ═══ Блок 1. Ядро личности (Personality Core) ═══ -->
+            <div v-if="speechCore" id="speech-core-editor" tabindex="-1"
+                 class="card speech-pad speech-core-block"
+                 data-speech-core-editor>
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span>
+                  Ядро личности
+                  <span class="text-xs text-gray-500">(Personality Core)</span>
+                </div>
+                <span class="badge"
+                      :class="speechCore.document.enabled ? 'badge-info' : 'badge-warn'">
+                  {{ speechCore.document.enabled ? 'включено в речь' : 'выключено' }}
+                </span>
+                <span class="badge badge-info" title="Область настроек">{{ personaScopeBadge }}</span>
+              </div>
+              <div class="text-xs text-gray-500">
+                Основной характер, взгляды и особенности личности бота —
+                единственный постоянный текстовый источник характера.
+              </div>
+              <div class="text-xs text-gray-500" data-speech-source>
+                {{ speechSourceText(speechCore.inheritance) }}
+                · {{ (speechCore.editions[speechCoreEdition] || {}).differs_from_factory
+                     ? 'действует ваша редакция' : 'действует заводская редакция' }}
+              </div>
+              <div class="text-xs text-gray-500 speech-note">{{ speechCore.permanent_note }}</div>
+              <div class="text-xs text-gray-500 speech-note">
+                {{ speechEditionReasonText(speechCore.selection, speechCore.selection.level) }}
+              </div>
+              <div v-if="speechCore.editions.full.withheld || speechCore.editions.compact.withheld"
+                   class="speech-warn">
+                Сохранённое значение удержано: действует заводская редакция, сохранённый текст не потерян
+                (провенанс ревизии отсутствует — запись шла не через API реестра).
+              </div>
+              <label class="block">
+                <span class="text-xs text-gray-400">
+                  {{ speechCoreEdition === 'full' ? 'Полная редакция' : 'Компактная редакция (runtime)' }}
+                  · {{ speechCoreEditionChars() }} зн.
+                </span>
+                <textarea class="field w-full speech-editor speech-editor-core scroll-thin"
+                          :class="{ dirty: speechCoreDirtyCurrent() }" rows="12"
+                          spellcheck="false" data-autogrow
+                          :readonly="!speechCore.can_edit"
+                          aria-label="Текст редакции характера"
+                          :value="speechCoreDraft()"
+                          @input="setSpeechCoreDraft($event.target.value); autoGrowEditor($event)"></textarea>
+              </label>
+              <div class="speech-editor-tools">
+                <button type="button" class="btn-ghost speech-expand-btn"
+                        aria-label="Развернуть редактор" title="Развернуть редактор"
+                        @click="openSpeechEditorFull()">⤢ Развернуть</button>
+                <span v-if="speechCoreDirtyText()" class="badge badge-warn"
+                      data-speech-core-dirty>{{ speechCoreDirtyText() }}</span>
+                <span v-if="speechSavedText('core')" class="text-xs speech-saved"
+                      data-speech-saved>{{ speechSavedText('core') }}</span>
+              </div>
+              <!-- Существующая настройка включения ядра — в основном блоке. -->
+              <label class="flex items-center gap-2">
+                <input type="checkbox" class="ctl-check__box"
+                       data-speech-core-enabled
+                       :checked="speechCore.document.enabled"
+                       @change="saveSpeechCoreEnabled($event.target.checked)">
+                <span class="text-sm">Ядро включено в речь</span>
+              </label>
+              <!-- Куда сохранить — рядом с действиями: последствия однозначны,
+                   чатовая правка не меняет глобальный характер. -->
+              <div class="speech-split">
+                <div>
+                  <label class="block">
+                    <span class="text-xs text-gray-400">Куда сохранить</span>
+                    <select class="field w-full" :value="speechScopeFor('core')"
+                            aria-label="Куда сохранить правку характера"
+                            @change="setSpeechScope('core', $event.target.value)">
+                      <option value="global">Глобально (все чаты)</option>
+                      <option value="chat" :disabled="!speechChatId">Только этот чат</option>
+                    </select>
+                  </label>
+                  <div class="text-xs text-gray-500 mt-1">
+                    {{ speechScopeNow(speechCore) }} · правка чата не меняет глобальный характер
+                  </div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-400 mb-1">Восстановление</div>
+                  <div class="speech-actions">
+                    <button type="button" class="btn-ghost text-sm"
+                            data-speech-core-factory
+                            :disabled="speechBusy || !speechCore.can_edit"
+                            @click="speechFactoryPlan(blockIdFor(speechCoreEdition), 'core')">
+                      Вернуть заводской
+                    </button>
+                    <button type="button" class="btn-ghost speech-menu-btn" data-speech-menu="core"
+                            aria-label="Действия раздела" aria-haspopup="menu"
+                            :aria-expanded="speechMenu === 'core' ? 'true' : 'false'"
+                            @click="openSpeechMenu('core')">⋯</button>
+                  </div>
+                </div>
+              </div>
+              <div v-if="speechMenu === 'core'" class="speech-menu-root" role="menu" tabindex="-1" @keydown.esc="closeSpeechMenu()"
+                   aria-label="Действия раздела «Характер»">
+                <div class="speech-menu-backdrop" @click="closeSpeechMenu()"></div>
+                <div class="speech-menu-panel">
+                  <button type="button" class="more-menu-item" role="menuitem"
+                          @click="closeSpeechMenu(); toggleSpeechDiff()">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('visibility') }}</span>
+                    <span class="more-menu-label">{{ speechDiffOpen ? 'Скрыть diff с заводским' : 'Показать diff с заводским' }}</span>
+                  </button>
+                  <button type="button" class="more-menu-item" role="menuitem"
+                          @click="closeSpeechMenu(); loadSpeechSection('core', true)">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span>
+                    <span class="more-menu-label">Обновить</span>
+                  </button>
+                  <button v-if="speechChatId && speechCore.inheritance === 'chat'"
+                          type="button" class="more-menu-item" role="menuitem"
+                          :disabled="speechBusy"
+                          @click="closeSpeechMenu(); resetSpeechChat(blockIdFor('full'), 'core')">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('swap_horiz') }}</span>
+                    <span class="more-menu-label">Наследовать глобальные настройки</span>
+                  </button>
+                </div>
+              </div>
+              <div v-if="speechDiffOpen" class="speech-diff" data-speech-diff>
+                <div v-for="row in speechDiffRows()" :key="row.id" class="speech-diff-row">
+                  <div class="text-xs text-gray-400">{{ row.label }}</div>
+                  <div class="speech-diff-line before">− {{ row.before || '(пусто)' }}</div>
+                  <div class="speech-diff-line after">+ {{ row.after || '(пусто)' }}</div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500 speech-note">
+                {{ speechCoreEdition === 'full'
+                   ? 'Владельческий первоисточник: им можно править характер, не теряя биографию, память и контракты.'
+                   : 'Компактная редакция экономит контекст и сохраняет тот же смысл: заводская — согласованная, не LLM-пересказ на ходу.' }}
+              </div>
+              <div v-if="speechCoreDirtyCurrent() || speechCanRetry('core') || speechSavedText('core') || speechConflictFor('core')"
+                   class="sticky-save speech-savebar" data-speech-savebar
+                   :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('core') ? 'conflict' : (speechCanRetry('core') ? 'error' : (speechCoreDirtyCurrent() ? 'dirty' : 'saved')))">
+                <span class="text-xs">
+                  <template v-if="speechConflictFor('core')">Конфликт: {{ speechConflictFor('core').text }}</template>
+                  <template v-else-if="speechCanRetry('core')">Сохранить не удалось — ввод сохранён</template>
+                  <template v-else-if="speechCoreDirtyCurrent()">Не сохранено:
+                    {{ speechCoreEdition === 'full' ? 'полная редакция' : 'компактная редакция' }}
+                    ({{ speechCoreEditionChars() }} зн.)</template>
+                  <template v-else>{{ speechSavedText('core') }}</template>
+                </span>
+                <button v-if="speechConflictFor('core')" type="button"
+                        class="btn-ghost text-sm" data-speech-save-refresh
+                        @click="loadSpeechSection('core', true)">Обновить данные</button>
+                <!-- B2 (ревью W4): ровно ОДИН главный CTA на состояние:
+                     error → повтор той же отправки; dirty → сохранить;
+                     conflict → только обновление данных (без повтора). -->
+                <button v-else-if="speechCanRetry('core') && !speechConflictFor('core')" type="button"
+                        class="btn-ghost text-sm" data-speech-save-retry
+                        :disabled="speechBusy"
+                        @click="retrySpeechSave()">Повторить сохранение</button>
+                <button v-else-if="speechCoreDirtyCurrent()"
+                        type="button" class="btn-accent text-sm" data-speech-save-primary
+                        :disabled="speechBusy || !speechCore.can_edit"
+                        @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+              </div>
+              <!-- История версий и восстановление — в том же блоке, рядом с
+                   редактором (существующий компонент реестра промптов). -->
+              <div class="mt-2" data-speech-core-versions>
+                <prompt-version-card
+                  variant="bar"
+                  :title="speechCoreEdition === 'full'
+                          ? 'Ядро личности: полная редакция'
+                          : 'Ядро личности: компактная редакция'"
+                  :prompt-key="(speechCore.block_ids || {})[speechCoreEdition] || ''"
+                  :chat-id="speechScopeFor('core') === 'chat' ? speechChatId : null"
+                  :chat-title="activeChatTitle || 'этот чат'"
+                  :can-edit="!!speechCore.can_edit"
+                  :reload-token="promptVersionReload"
+                  @refresh="afterSpeechPromptVersionChange()"></prompt-version-card>
+              </div>
+            </div>
+            <div v-else-if="speechSectionLoading" class="card speech-pad"
+                 data-speech-core-loading>
+              <div class="spinner my-4"></div>
+            </div>
+
+            <!-- ═══ Блок 2. Идентичность ═══ -->
+            <div class="card p-5" style="max-width: 760px;"
+                 data-speech-identity-editor data-speech-persona-editor>
               <div class="flex items-center gap-2 flex-wrap mb-3">
                 <div class="text-sm font-bold">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Личность
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('badge') }}</span> Идентичность
                 </div>
                 <span class="badge badge-info" title="Область настроек">{{ personaScopeBadge }}</span>
                 <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
@@ -13553,13 +13735,14 @@
                       class="badge" :class="personaMeta.is_global ? 'badge-muted' : 'badge-warn'">
                   {{ personaMeta.is_global ? 'унаследовано от глобального' : 'переопределено для чата' }}
                 </span>
-                <span v-else-if="personaMeta" class="badge badge-muted">глобальная личность</span>
+                <span v-else-if="personaMeta" class="badge badge-muted">глобальная идентичность</span>
                 <span v-if="personaDisabled" class="badge badge-err">Фича выключена</span>
               </div>
               <div v-if="personaLoading" class="spinner my-6"></div>
               <template v-else>
                 <div class="text-xs text-gray-500 mb-3">
-                  Только статические параметры. Динамические черты и метрики — в разделе «Статус».
+                  Имя и биография дополняют ядро: имя используется и в обращениях,
+                  биография — как история бота. Динамические черты и метрики — в разделе «Статус».
                 </div>
                 <label class="block mb-2">
                   <span class="text-xs text-gray-400">Имя</span>
@@ -13568,6 +13751,7 @@
                          :value="personaDraft ? personaDraft.name : ''"
                          :disabled="personaDisabled"
                          @input="personaSetField('name', $event.target.value)">
+                  <span class="text-xs text-gray-500">Как бот представляется и как его называют в чате.</span>
                 </label>
                 <label class="block mb-2">
                   <span class="text-xs text-gray-400">Биография</span>
@@ -13576,14 +13760,7 @@
                             :value="personaDraft ? personaDraft.biography : ''"
                             :disabled="personaDisabled"
                             @input="personaSetField('biography', $event.target.value)"></textarea>
-                </label>
-                <label class="block mb-2">
-                  <span class="text-xs text-gray-400">Характер</span>
-                  <textarea class="field w-full scroll-thin" rows="4"
-                            placeholder="Не задано — характер по умолчанию (system prompt overrides)"
-                            :value="personaDraft ? personaDraft.system_prompt_overrides : ''"
-                            :disabled="personaDisabled"
-                            @input="personaSetField('system_prompt_overrides', $event.target.value)"></textarea>
+                  <span class="text-xs text-gray-500">Сведения о собственной истории бота. Это не второй промпт характера.</span>
                 </label>
                 <label class="ctl-check flex items-center gap-2 mb-4">
                   <input type="checkbox" class="ctl-check__box"
@@ -13601,7 +13778,103 @@
                           :disabled="personaBusy || personaDisabled"
                           @click="resetPersona()">Сбросить к глобальному</button>
                 </div>
+                <div class="text-xs text-gray-500 mt-2">
+                  Сохранение идентичности не меняет ядро личности и не переключает его редакцию.
+                </div>
               </template>
+            </div>
+
+            <!-- ═══ Блок 3. Приобретённые черты личности ═══ -->
+            <div class="card p-5" style="max-width: 760px;"
+                 data-speech-acquired>
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('auto_awesome') }}</span>
+                  Приобретённые черты личности
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">
+                Формируются и меняются в процессе эксплуатации: саморефлексия,
+                опыт, отношения и настроение. Ядро личности они не переписывают.
+              </div>
+              <div class="speech-actions mt-2">
+                <button type="button" class="btn-ghost text-sm"
+                        data-speech-acquired-open
+                        @click="navigateTo('#/status')">Открыть в «Статусе» →</button>
+              </div>
+            </div>
+
+            <!-- ═══ Блок 4. Дополнительные настройки ═══ -->
+            <div class="card p-5" style="max-width: 760px;"
+                 data-speech-persona-advanced>
+              <div class="text-sm font-bold mb-1">Дополнительные настройки</div>
+              <div class="text-xs text-gray-500 mb-2">
+                Второстепенные параметры ядра и идентичности — не нужны при обычном редактировании.
+              </div>
+              <template v-if="speechCore">
+                <details class="speech-adv" data-speech-core-editions>
+                  <summary>Редакции ядра и runtime-выбор</summary>
+                  <div class="speech-tabs" role="tablist">
+                    <button type="button" class="speech-tab"
+                            :class="{ active: speechCoreEdition === 'full' }"
+                            role="tab" :aria-selected="speechCoreEdition === 'full'"
+                            data-speech-core-view="full"
+                            @click="speechCoreEdition = 'full'">Полная редакция</button>
+                    <button type="button" class="speech-tab"
+                            :class="{ active: speechCoreEdition === 'compact' }"
+                            role="tab" :aria-selected="speechCoreEdition === 'compact'"
+                            data-speech-core-view="compact"
+                            @click="speechCoreEdition = 'compact'">Компактная (runtime)</button>
+                  </div>
+                  <div class="text-xs text-gray-500 speech-note">
+                    Просмотр другой редакции не меняет то, что используется в ответах.
+                  </div>
+                  <label class="block mt-2">
+                    <span class="text-xs text-gray-400">Режим по умолчанию (какая редакция действует)</span>
+                    <select class="field w-full" aria-label="Редакция по умолчанию"
+                            :value="speechCore.document.detail_level"
+                            @change="saveSpeechCoreLevel($event.target.value)">
+                      <option value="compact">Компактная</option>
+                      <option value="full">Полная</option>
+                    </select>
+                  </label>
+                </details>
+                <details class="speech-adv mt-2" data-speech-core-tech>
+                  <summary>Техническая информация</summary>
+                  <div class="text-xs text-gray-500">
+                    {{ speechSourceText(speechCore.inheritance) }} ·
+                    <span v-if="speechCore.document.updated_at">
+                      последнее сохранение: {{ speechCore.document.updated_at }} ·
+                    </span>
+                    действует: {{ speechEditionReasonText(speechCore.selection, speechCore.selection.level) }}
+                  </div>
+                  <div class="speech-actions mt-2">
+                    <button type="button" class="btn-ghost text-xs"
+                            data-speech-rules-link="inspector"
+                            @click="openSpeechSection('inspector')">Эффективный промпт (инспектор)</button>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-speech-rules-link="all"
+                            @click="openSpeechSection('all')">Все инструкции</button>
+                  </div>
+                </details>
+              </template>
+              <!-- SAC-CORE-CHARACTER-FIELD: legacy-значение показывается только
+                   там, где оно реально есть в этой области, и только как факт.
+                   Новые значения через устаревший механизм не создаются. -->
+              <div v-if="personaLegacyCharacterText()" class="speech-warn mt-2"
+                   data-speech-legacy-character>
+                <div class="text-xs font-semibold">Сохранён устаревший текст «Характера»</div>
+                <div class="text-xs text-gray-500">
+                  В этой области сохранён прежний текст характера
+                  ({{ personaLegacyCharacterText().length }} зн.). Он всё ещё
+                  передаётся модели как раньше; отдельного поля для правки больше нет.
+                  Перенесите нужный текст в «Ядро личности» выше и сохраните.
+                </div>
+                <details>
+                  <summary>Показать сохранённый текст</summary>
+                  <pre class="speech-pre" data-speech-legacy-text>{{ personaLegacyCharacterText() }}</pre>
+                </details>
+              </div>
             </div>
               </section>
 
@@ -13840,208 +14113,6 @@
               <!-- ── Раздел (один за раз) ── -->
               <div v-else class="speech-section">
                 <div v-if="speechSectionBusy" class="spinner my-4"></div>
-
-                <!-- ═ Характер ═ -->
-                <template v-if="speechSection === 'core' && speechCore">
-                  <div class="card speech-pad">
-                    <div class="speech-row">
-                      <div class="text-sm font-bold">Постоянный характер (Personality Core)</div>
-                      <span class="badge" :class="speechCore.document.enabled ? 'badge-info' : 'badge-warn'">
-                        {{ speechCore.document.enabled ? 'включён' : 'выключен' }}
-                      </span>
-                    </div>
-                    <div class="text-xs text-gray-500" data-speech-source>
-                      {{ speechSourceText(speechCore.inheritance) }}
-                      · {{ (speechCore.editions[speechCore.selection.level] || {}).differs_from_factory
-                           ? 'действует ваша редакция' : 'действует заводская редакция' }}
-                    </div>
-                    <div class="text-xs text-gray-500 speech-note">{{ speechCore.permanent_note }}</div>
-                    <div class="text-xs text-gray-500 speech-note">
-                      {{ speechEditionReasonText(speechCore.selection, speechCore.selection.level) }}
-                    </div>
-                    <div v-if="speechCore.document.updated_at" class="text-xs text-gray-500 speech-note">
-                      Последнее сохранение: {{ speechCore.document.updated_at }}
-                    </div>
-                    <div v-if="speechCore.editions.full.withheld || speechCore.editions.compact.withheld"
-                         class="speech-warn">
-                      Сохранённое значение удержано: действует заводская редакция, сохранённый текст не потерян
-                      (провенанс ревизии отсутствует — запись шла не через API реестра).
-                    </div>
-
-                    <div class="speech-tabs" role="tablist">
-                      <button type="button" class="speech-tab"
-                              :class="{ active: speechCoreEdition === 'full' }"
-                              role="tab" :aria-selected="speechCoreEdition === 'full'"
-                              @click="speechCoreEdition = 'full'">Полная редакция</button>
-                      <button type="button" class="speech-tab"
-                              :class="{ active: speechCoreEdition === 'compact' }"
-                              role="tab" :aria-selected="speechCoreEdition === 'compact'"
-                              @click="speechCoreEdition = 'compact'">Компактная (runtime)</button>
-                    </div>
-                    <label class="block">
-                      <span class="text-xs text-gray-400">
-                        {{ speechCoreEdition === 'full' ? 'Полный текст характера' : 'Компактная runtime-редакция' }}
-                        · {{ speechCoreEditionChars() }} зн.
-                      </span>
-                      <textarea class="field w-full speech-editor scroll-thin"
-                                :class="{ dirty: speechCoreDirtyCurrent() }" rows="4"
-                                spellcheck="false" data-autogrow
-                                :readonly="!speechCore.can_edit"
-                                aria-label="Текст редакции характера"
-                                :value="speechCoreDraft()"
-                                @input="setSpeechCoreDraft($event.target.value); autoGrowEditor($event)"></textarea>
-                    </label>
-                    <div class="speech-editor-tools">
-                      <button type="button" class="btn-ghost speech-expand-btn"
-                              aria-label="Развернуть редактор" title="Развернуть редактор"
-                              @click="openSpeechEditorFull()">⤢ Развернуть</button>
-                      <span v-if="speechCoreDirtyText()" class="badge badge-warn"
-                            data-speech-core-dirty>{{ speechCoreDirtyText() }}</span>
-                      <span v-if="speechSavedText('core')" class="text-xs speech-saved"
-                            data-speech-saved>{{ speechSavedText('core') }}</span>
-                    </div>
-                    <div class="text-xs text-gray-500 speech-note">
-                      {{ speechCoreEdition === 'full'
-                         ? 'Владельческий первоисточник: им можно править характер, не теряя биографию, память и контракты.'
-                         : 'Компактная редакция экономит контекст и сохраняет тот же смысл: заводская — согласованная, не LLM-пересказ на ходу.' }}
-                    </div>
-                    <!-- U-07 (§8): единственный CTA сохранения — панель
-                         `.speech-savebar` ниже (появляется ровно при
-                         dirty/ошибке, после успеха показывает статус 10 с).
-                         Здесь — только честное объяснение режима «только
-                         чтение»; второй активной кнопки Save нет. -->
-                    <div class="speech-actions">
-                      <button v-if="!speechCore.can_edit" type="button"
-                              class="btn-accent text-sm" disabled>Сохранить</button>
-                      <span v-if="!speechCore.can_edit" class="text-xs text-gray-500">
-                        Только чтение: нет прав на правку характера
-                      </span>
-                      <button type="button" class="btn-ghost speech-menu-btn" data-speech-menu="core"
-                              aria-label="Действия раздела" aria-haspopup="menu"
-                              :aria-expanded="speechMenu === 'core' ? 'true' : 'false'"
-                              @click="openSpeechMenu('core')">⋯</button>
-                    </div>
-                    <div v-if="speechMenu === 'core'" class="speech-menu-root" role="menu" tabindex="-1" @keydown.esc="closeSpeechMenu()"
-                         aria-label="Действия раздела «Характер»">
-                      <div class="speech-menu-backdrop" @click="closeSpeechMenu()"></div>
-                      <div class="speech-menu-panel">
-                        <button type="button" class="more-menu-item" role="menuitem"
-                                @click="closeSpeechMenu(); toggleSpeechDiff()">
-                          <span class="msr" aria-hidden="true">{{ iconGlyph('visibility') }}</span>
-                          <span class="more-menu-label">{{ speechDiffOpen ? 'Скрыть diff с заводским' : 'Показать diff с заводским' }}</span>
-                        </button>
-                        <button type="button" class="more-menu-item" role="menuitem"
-                                @click="closeSpeechMenu(); loadSpeechSection('core', true)">
-                          <span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span>
-                          <span class="more-menu-label">Обновить</span>
-                        </button>
-                        <button type="button" class="more-menu-item" role="menuitem"
-                                :disabled="speechBusy || !speechCore.can_edit"
-                                @click="closeSpeechMenu(); speechFactoryPlan(blockIdFor(speechCoreEdition))">
-                          <span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span>
-                          <span class="more-menu-label">Вернуть заводской</span>
-                        </button>
-                        <button v-if="speechChatId && speechCore.inheritance === 'chat'"
-                                type="button" class="more-menu-item" role="menuitem"
-                                :disabled="speechBusy"
-                                @click="closeSpeechMenu(); resetSpeechChat(blockIdFor('full'), 'core')">
-                          <span class="msr" aria-hidden="true">{{ iconGlyph('swap_horiz') }}</span>
-                          <span class="more-menu-label">Наследовать глобальные настройки</span>
-                        </button>
-                      </div>
-                    </div>
-                    <div v-if="speechDiffOpen" class="speech-diff" data-speech-diff>
-                      <div v-for="row in speechDiffRows()" :key="row.id" class="speech-diff-row">
-                        <div class="text-xs text-gray-400">{{ row.label }}</div>
-                        <div class="speech-diff-line before">− {{ row.before || '(пусто)' }}</div>
-                        <div class="speech-diff-line after">+ {{ row.after || '(пусто)' }}</div>
-                      </div>
-                    </div>
-
-                    <div class="speech-split">
-                      <div>
-                        <div class="text-xs text-gray-400 mb-1">Режим по умолчанию</div>
-                        <label class="block mb-2">
-                          <select class="field w-full" aria-label="Редакция по умолчанию"
-                                  :value="speechCore.document.detail_level"
-                                  @change="saveSpeechCoreLevel($event.target.value)">
-                            <option value="compact">Компактная</option>
-                            <option value="full">Полная</option>
-                          </select>
-                        </label>
-                        <label class="flex items-center gap-2">
-                          <input type="checkbox" class="ctl-check__box" :checked="speechCore.document.enabled"
-                                 @change="saveSpeechCoreEnabled($event.target.checked)">
-                          <span class="text-sm">Core включён в речь</span>
-                        </label>
-                      </div>
-                      <div>
-                        <label class="block">
-                          <span class="text-xs text-gray-400">Куда сохранить</span>
-                          <select class="field w-full" :value="speechScopeFor('core')"
-                                  aria-label="Куда сохранить правку характера"
-                                  @change="setSpeechScope('core', $event.target.value)">
-                            <option value="global">Глобально (все чаты)</option>
-                            <option value="chat" :disabled="!speechChatId">Только этот чат</option>
-                          </select>
-                        </label>
-                        <div class="text-xs text-gray-500 mt-1">
-                          {{ speechScopeNow(speechCore) }} · правка чата не меняет глобальный характер
-                        </div>
-                      </div>
-                    </div>
-
-                    <div v-if="speechCoreDirtyCurrent() || speechCanRetry('core') || speechSavedText('core') || speechConflictFor('core')"
-                         class="sticky-save speech-savebar" data-speech-savebar
-                         :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('core') ? 'conflict' : (speechCanRetry('core') ? 'error' : (speechCoreDirtyCurrent() ? 'dirty' : 'saved')))">
-                      <span class="text-xs">
-                        <template v-if="speechConflictFor('core')">Конфликт: {{ speechConflictFor('core').text }}</template>
-                        <template v-else-if="speechCanRetry('core')">Сохранить не удалось — ввод сохранён</template>
-                        <template v-else-if="speechCoreDirtyCurrent()">Не сохранено:
-                          {{ speechCoreEdition === 'full' ? 'полная редакция' : 'компактная редакция' }}
-                          ({{ speechCoreEditionChars() }} зн.)</template>
-                        <template v-else>{{ speechSavedText('core') }}</template>
-                      </span>
-                      <button v-if="speechConflictFor('core')" type="button"
-                              class="btn-ghost text-sm" data-speech-save-refresh
-                              @click="loadSpeechSection('core', true)">Обновить данные</button>
-                      <!-- B2 (ревью W4): ровно ОДИН главный CTA на состояние:
-                           error → повтор той же отправки; dirty → сохранить;
-                           conflict → только обновление данных (без повтора). -->
-                      <button v-else-if="speechCanRetry('core') && !speechConflictFor('core')" type="button"
-                              class="btn-ghost text-sm" data-speech-save-retry
-                              :disabled="speechBusy"
-                              @click="retrySpeechSave()">Повторить сохранение</button>
-                      <button v-else-if="speechCoreDirtyCurrent()"
-                              type="button" class="btn-accent text-sm" data-speech-save-primary
-                              :disabled="speechBusy || !speechCore.can_edit"
-                              @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
-                    </div>
-
-                    <!-- PVR-S4 B1 (§2 / §2.2 п.1 ТЗ): «Характер» — тоже
-                         prompt-field (`core.personality` /
-                         `core.personality.compact`), поэтому история версий
-                         живёт в ТОМ ЖЕ компоненте, что библиотека, мемы и
-                         блоки речи. Прежний bounded-список «Дополнительно:
-                         версии и откат» с сырым sha и отдельным «Откатить»
-                         удалён: вторая реализация истории запрещена (arch §6).
-                         Ключ = активная редакция; переключение вкладки
-                         переключает и историю этой редакции. -->
-                    <div class="mt-2" data-speech-core-versions>
-                      <prompt-version-card
-                        variant="bar"
-                        :title="speechCoreEdition === 'full'
-                                ? 'Характер: полная редакция'
-                                : 'Характер: компактная редакция'"
-                        :prompt-key="(speechCore.block_ids || {})[speechCoreEdition] || ''"
-                        :chat-id="speechScopeFor('core') === 'chat' ? speechChatId : null"
-                        :chat-title="activeChatTitle || 'этот чат'"
-                        :can-edit="!!speechCore.can_edit"
-                        :reload-token="promptVersionReload"
-                        @refresh="afterSpeechPromptVersionChange()"></prompt-version-card>
-                    </div>
-                  </div>
-                </template>
 
                 <!-- ═ Стиль письма ═ -->
                 <template v-if="speechSection === 'style' && speechStyle">

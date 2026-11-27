@@ -22040,8 +22040,15 @@
         if (route === '#/ai/persona') {
           // §4.2 v2.1: секция личности — самостоятельная вкладка «Личность»;
           // deep-link открывает ИМЕННО её (второго редактора нет).
-          this.speechSection = 'persona';
-          this.speechSectionTouched = true;
+          // SAC-CORE-ON-TAB (28.11.2026): через канонический openSpeechSection,
+          // чтобы вместе с личностью загрузился и первый блок — Ядро (тот же
+          // endpoint/состояние; прямые присваивания обходили загрузчик).
+          if (typeof this.openSpeechSection === 'function') {
+            this.openSpeechSection('persona');
+          } else {
+            this.speechSection = 'persona';
+            this.speechSectionTouched = true;
+          }
           var focusPersona = function () {
             try {
               if (typeof document === 'undefined' || !document
@@ -30212,16 +30219,19 @@
         var on = (item.value === true || item.value === 'true');
         return on ? 'active' : 'off';
       },
-      // Пресет речи — не bool: «действует», если поле есть и провайдер не
-      // игнорирует сэмплинг (honest reason_inactive), иначе «не применяется».
+      // SAC-S1-CARD-STATE (28.11.2026): карточка «Речь и характер» показывает
+      // состояние САМИХ речевых настроек. Применимость temperature — свойство
+      // отдельного параметра сэмплинга, а не речи/личности, поэтому
+      // temperature-пометка (`inactive` от reasoning-модели) сюда не
+      // переносится: она живёт у самой температурной настройки
+      // (`configEffBadge`). Own-статус настройки (no_op/legacy) остаётся
+      // честным для пресета.
       speechModeStatus: function (item) {
         if (!item || item.value === null || item.value === undefined) {
           return null;
         }
-        var eff = item.eff || {};
-        if (eff.status === 'inactive' || eff.status === 'no_op') {
-          return 'inactive';
-        }
+        var status = (item.eff && item.eff.status) || 'active';
+        if (status === 'no_op' || status === 'legacy') return 'inactive';
         return 'active';
       },
       directModesView: function () {
@@ -30273,13 +30283,12 @@
             title: 'Речь и характер',
             item: speech,
             line: speech
-              ? ('режим: ' + (speech.value || 'сбалансированный (по умолчанию)')
-                 + (speech.eff && speech.eff.reason_inactive
-                    ? ' · ' + speech.eff.reason_inactive : ''))
+              ? ('режим: ' + (speech.value || 'сбалансированный (по умолчанию)'))
               : 'нет данных',
             status: this.speechModeStatus(speech),
             hint: 'Свобода формулировок влияет только на подбор слов '
-              + 'моделью ответов; поиск, память и контекст она не заменяет.',
+              + 'моделью ответов; поиск, память и контекст она не заменяет. '
+              + 'На инструкции личности и речи поддержка temperature не влияет.',
             controlRoute: '#/ai/speech',
             controlLabel: 'Речь и характер',
           },
@@ -38838,6 +38847,20 @@
         // переходе между вкладками (черновик не сбрасывается).
         this.personaDirty = true;
       },
+      // SAC-CORE-CHARACTER-FIELD (28.11.2026): legacy-значение
+      // `system_prompt_overrides` — только ЕГО собственная область. Для
+      // глобального скоупа это глобальное значение; для чата — только
+      // собственный override (унаследованное глобальное в чате не
+      // дублируется). Пусто → '' (никакой плашки).
+      personaLegacyCharacterText: function () {
+        var meta = this.personaMeta || {};
+        var v = meta.values || {};
+        var text = String(v.system_prompt_overrides || '');
+        if (!text.trim()) return '';
+        var scope = meta.scope === 'chat' ? 'chat' : 'global';
+        if (scope === 'chat' && meta.is_global) return '';
+        return text;
+      },
       loadPersona: async function () {
         var epoch = this.scopeEpoch;
         this.personaLoading = true;
@@ -39512,6 +39535,12 @@
         // §P0IM-PB-ACCESS: обычный вход в Inspector показывает последний ход
         // чата; точный correlation_id приходит только действием из трассы.
         if (id === 'inspector') this.speechInspectorCorrelation = '';
+        // SAC-CORE-LINKS (28.11.2026): отдельной страницы «Редактор Core»
+        // больше нет — Core живёт первым блоком вкладки «Личность». Все
+        // прежние ссылки (хаб «ИИ», «Правила и источники», карточка витрины,
+        // карта сборки) ведут к тому же каноническому редактору.
+        var focusCore = id === 'core';
+        if (focusCore) id = 'persona';
         this.speechSection = id;
         this.speechSectionTouched = true;
         var key = this._speechSectionLoadKey(id);
@@ -39521,7 +39550,29 @@
         // DOM (иначе detail «прыгает» после прихода списка).
         var load = this.speechLoaded[key] ? null : this.loadSpeechSection(key);
         this.scrollSpeechTop();
+        if (focusCore) {
+          this._focusSpeechCore(load);
+        }
         return load;
+      },
+      // SAC-CORE-LINKS: переход по прежней ссылке «Редактор Core» приводит к
+      // тому же блоку на вкладке «Личность» (фокус на секции, не на textarea —
+      // на мобиле не вызываем клавиатуру без явного действия владельца).
+      _focusSpeechCore: function (load) {
+        var self = this;
+        var reveal = function () {
+          try {
+            var el = document.querySelector('#speech-core-editor');
+            if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+            if (el && el.focus) el.focus();
+          } catch (e) { /* вне DOM */ }
+        };
+        var after = function () {
+          if (self.$nextTick) self.$nextTick(reveal);
+          else reveal();
+        };
+        if (load && typeof load.then === 'function') load.then(after, after);
+        else after();
       },
       // ASAP-speech-arch U-02 (§8): каждый ряд карты сборки либо реально
       // открывает своё место редактирования, либо честно помечен read-only.
@@ -39608,6 +39659,34 @@
           this.speechLoaded = {};
         }
       },
+      // SAC-CORE-ON-TAB (28.11.2026): единая загрузка реестра Core — тот же
+      // `/api/speech/core` и тот же существующий контракт версионирования.
+      // Используется и разделом core (прямой id), и вкладкой «Личность», где
+      // Core теперь первый блок. Второго редактора/источника нет.
+      _loadSpeechCore: async function () {
+        var core = await this.api('/api/speech/core');
+        this.speechCore = core;
+        var levels = (core && core.editions) || {};
+        // P0A-UX §5.3/§5.4: серверный снапшот заполняет редакцию, только
+        // если у НЕЁ нет несохранённого черновика (вторая редакция своё
+        // состояние не теряет).
+        var drafts = Object.assign({}, this.speechDrafts.core || {});
+        if (!this.speechDirty.coreFull) {
+          drafts.full = (levels.full && levels.full.text) || '';
+        }
+        if (!this.speechDirty.coreCompact) {
+          drafts.compact = (levels.compact && levels.compact.text) || '';
+        }
+        this.speechDrafts = { core: drafts };
+        if (core && core.selection && core.selection.level) {
+          // SAC-CORE-FIRST: при открытии вкладки показывается фактически
+          // действующая редакция; просмотр другой редакции runtime-выбор не
+          // меняет (его меняет только явный saveSpeechCoreLevel).
+          this.speechCoreEdition = core.selection.level;
+        }
+        this.speechScopeHint('core', core && core.inheritance);
+        this.speechLoaded.core = true;
+      },
       loadSpeechSection: async function (id, force) {
         var self = this;
         // §4.2: «Мат» — та же серверная сущность, что «Речь и стиль»
@@ -39621,24 +39700,7 @@
         this.speechSectionLoading = true;
         try {
           if (id === 'core') {
-            var core = await this.api('/api/speech/core');
-            this.speechCore = core;
-            var levels = (core && core.editions) || {};
-            // P0A-UX §5.3/§5.4: серверный снапшот заполняет редакцию, только
-            // если у НЕЁ нет несохранённого черновика (вторая редакция своё
-            // состояние не теряет).
-            var drafts = Object.assign({}, this.speechDrafts.core || {});
-            if (!this.speechDirty.coreFull) {
-              drafts.full = (levels.full && levels.full.text) || '';
-            }
-            if (!this.speechDirty.coreCompact) {
-              drafts.compact = (levels.compact && levels.compact.text) || '';
-            }
-            this.speechDrafts = { core: drafts };
-            if (core && core.selection && core.selection.level) {
-              this.speechCoreEdition = core.selection.level;
-            }
-            this.speechScopeHint('core', core && core.inheritance);
+            await this._loadSpeechCore();
           } else if (id === 'style') {
             var style = await this.api('/api/speech/style');
             this.speechStyle = style;
@@ -39697,6 +39759,12 @@
             // §4.2: «Личность» и «Правила и источники» питаются уже
             // существующими endpoint'ами (`/api/persona` +
             // `/api/persona/self-model`), вторая истина не создаётся.
+            // SAC-CORE-ON-TAB (28.11.2026): Core — первый блок вкладки
+            // «Личность», поэтому данные реестра грузятся вместе с ней, ровно
+            // тем же существующим endpoint'ом (отдельного хранилища нет).
+            if (id === 'persona' && (force || !this.speechLoaded.core)) {
+              await this._loadSpeechCore();
+            }
             await this.loadPersona();
           }
           this.speechLoaded[id] = true;
@@ -41480,7 +41548,11 @@
         var body = {
           name: this.personaDraft.name || '',
           biography: this.personaDraft.biography || '',
-          system_prompt_overrides: this.personaDraft.system_prompt_overrides || '',
+          // SAC-CORE-NO-MERGE (28.11.2026): отдельного поля «Характер»
+          // (`system_prompt_overrides`) больше нет в основном UI. Поле НЕ
+          // отправляется: partial-PUT сохраняет существующее legacy-значение
+          // как есть (bot_persona._field: отсутствие ключа = не менять), и
+          // сохранение идентичности не может перезаписать или обнулить его.
           is_aware_ai: !!this.personaDraft.is_aware_ai,
           // H1/F2 §5: optimistic-токен строки персоны (GET отдаёт updated_at).
           updated_at: (this.personaMeta && this.personaMeta.updated_at) || null,

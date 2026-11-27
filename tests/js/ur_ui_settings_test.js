@@ -11,8 +11,9 @@
  *   2. Мёртвые ключи (UR-14.2/UR-21.13/UR-21.17): фронт не угадывает —
  *      honest-нотис/бейдж идут из item.eff бэкенда; no-op/legacy не
  *      рендерятся как «активные».
- *   3. Честные подписи речи (UR-21.23): «Свобода формулировок» на
- *      CHAT_TEMPERATURE_PRESET_DEFAULT + reason_inactive от бэкенда.
+ *   3. Честные подписи речи (UR-21.23 + SAC-S1-CARD-STATE): «Свобода
+ *      формулировок» на CHAT_TEMPERATURE_PRESET_DEFAULT; temperature-пометка
+ *      backend'а не отменяет речевой режим (она — у самой temperature).
  *   4. Диагностика одного ответа (R-ADM.5/UR-20.3): строки стадий
  *      L1 → tools → Writer → ops → delivery собираются из полей
  *      существующей трассы (direct_turn_*), «нет данных» без выдумок.
@@ -202,7 +203,7 @@ const _moduleById = function (id) {
     'legacy-payload без source: прежняя семантика сохранена');
 })();
 
-// ── 3. Честные подписи речи (UR-21.23) ───────────────────────────────────
+// ── 3. Честные подписи речи (UR-21.23 + SAC-S1-CARD-STATE) ───────────────
 (function () {
   const modesCtx = {
     configItems: [{
@@ -213,6 +214,9 @@ const _moduleById = function (id) {
     }, {
       key: 'limits.chat_temperature_preset_default', value: 'balanced',
       source: 'chat',
+      // SAC-S1-CARD-STATE (28.11.2026): temperature-пометка backend'а
+      // (reasoning-модель) больше не делает «неприменяемыми» сами речевые
+      // настройки — она относится только к значению temperature.
       eff: { status: 'inactive',
         reason_inactive: 'провайдер игнорирует temperature' },
     }, {
@@ -230,15 +234,28 @@ const _moduleById = function (id) {
     'UR-20.2: «Речь и характер» — фактически действующий режим на экране');
   assert.strictEqual(modes.search.status, 'active',
     'UR-RES-07: включённый интернет — статус active');
-  assert.strictEqual(modes.speech.status, 'inactive',
-    'UR-21.23: провайдер игнорирует temperature → «не применяется», не «действует»');
+  assert.strictEqual(modes.speech.status, 'active',
+    'SAC-S1-CARD-STATE: применимость temperature не отменяет речевой режим');
+  assert.strictEqual(modes.speech.line
+    .indexOf('провайдер игнорирует temperature'), -1,
+    'SAC-S1-NOTE-PLACEMENT: technical temperature note не дублируется в карточке');
   assert.strictEqual(modes.memory.status, 'off',
     'URF-R1-F1: чип памяти не «действует» при выключенном конспекте');
   assert.strictEqual(modes.initiative.status, 'off',
     'URF-R1-F1: чип инициативы не «действует» при выключенном режиме');
-  assert.strictEqual(modes.speech.line
-    .indexOf('провайдер игнорирует temperature') >= 0, true,
-    'UR-21.23: честная пометка про игнор temperature видна рядом с режимом');
+  // Пометка живёт у САМОЙ температурной настройки (configEffBadge).
+  const tempBadge = methods.configEffBadge.call({}, {
+    eff: { status: 'inactive',
+      reason_inactive: 'провайдер игнорирует temperature' } });
+  assert.strictEqual(tempBadge.text, 'не применяется',
+    'UR-21.23: temperature-ключ сохраняет собственный честный статус');
+  assert.strictEqual(methods.configEffBadge.call({}, {
+    eff: { status: 'active' } }), null,
+    'UR-20.9: active-ключ не шумит бейджем');
+  // Own-статус речевой настройки (no_op) остаётся честным.
+  assert.strictEqual(methods.speechModeStatus.call({}, {
+    value: 'balanced', eff: { status: 'no_op' } }), 'inactive',
+    'SAC-S1-CARD-STATE: собственный no_op настройки не маскируется');
   assert.strictEqual(modes.search.line.indexOf('разрешён') >= 0, true,
     'UR-20.2: интернет-режим показывает фактическое состояние');
   assert.strictEqual(modes.memory.line.indexOf('конспект выключен') >= 0,
