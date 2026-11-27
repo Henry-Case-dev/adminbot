@@ -2942,6 +2942,12 @@ def _period_trace(period_stats: dict, kept) -> tuple[dict, dict]:
         "breadth_used": int(stats.get("breadth_used") or 0),
         "historical_quota": int(stats.get("historical_quota") or 0),
         "multi_year_quota": int(stats.get("multi_year_quota") or 0),
+        # P-OLDROW (контракт 2026-11-27 §3): вклад старшего периода и канала
+        # собственных сообщений субъекта — только числа.
+        "reserved_old": int(stats.get("reserved_old") or 0),
+        "reserved_displaced": int(stats.get("reserved_displaced") or 0),
+        "author_window": int(stats.get("author_window") or 0),
+        "author_window_rows": int(stats.get("author_window_rows") or 0),
         "dropped_subject": int(stats.get("rejected_subject") or 0),
         "dropped_budget": int(stats.get("dropped_budget") or 0),
         "dropped_status": int(stats.get("dropped_status") or 0),
@@ -17389,10 +17395,25 @@ class DirectChatService:
                 return None
             policy = _mca_rc._mc.normalize_memory_scope(
                 memory_scope if memory_scope is not None else "auto").value
+            # P-OLDROW R3 (контракт 2026-11-27 §3): субъект считается
+            # разрешённым только если он пришёл существующим L1/планом
+            # (`subject_name`/`subject_uid`) И имя прозвучало в вопросе — тот
+            # же guard, что у профиля (`_rag_append_profile_rows`). Нового
+            # словаря имён/алиасов нет; неразрешённое третье лицо остаётся
+            # названным остатком.
+            subject_ok = bool(str(subject_name or "").strip()) \
+                and str(subject_name).strip().casefold() \
+                in str(query or "").casefold()
+            subject_uids = ((subject_uid,) if subject_ok
+                            and subject_uid is not None else ())
+            subject_names = ((str(subject_name).strip(),) if subject_ok else ())
+            current_state = bool(_is_current_state_query(query))
             # VMQ-MEM RC3 (D2): одно вычисление периодного намерения — им
             # пользуются и explicit-year base-фильтр, и периодный добор.
             period_intent = _mca_rc.resolve_period_intent(
-                query, memory_scope=policy, plan_act=plan_act)
+                query, memory_scope=policy, plan_act=plan_act,
+                subject_present=bool(subject_ok),
+                current_state=current_state)
             # VMQ-TIME-09: при `trace_id=None` вызов байт-паритетен — kwarg не
             # добавляется (двойники/тесты с узкой подписью `_rag_retrieve`
             # продолжают работать обычным путём).
@@ -17514,6 +17535,15 @@ class DirectChatService:
                              row.get("origin")))
             review = str(plan_act or "").strip().lower() == "research"
             thin = usable < max(1, int(limit) // 2)
+            # P-OLDROW R3 (контракт 2026-11-27 §3): разрешённый не-«сейчас»
+            # субъект выбирает периодный селектор и author_window, но НЕ
+            # замещает базовый срез (`period_replace_allowed` не менялся:
+            # `subject_scope` не входит в `PERIOD_REPLACE_SOURCES`).
+            subject_scope = (bool(subject_ok) and not current_state
+                             and period_intent.kind
+                             == _mca_rc.PERIOD_INTENT_MULTI_YEAR
+                             and str(period_intent.source or "")
+                             == "subject_scope")
             breadth_reason = "none"
             if replace_allowed:
                 intent_source = str(period_intent.source or "")
@@ -17528,6 +17558,8 @@ class DirectChatService:
                     # request_intent/request_mode — тоже структурный
                     # multi-year сигнал (не словарь запроса).
                     breadth_reason = "plan_historical"
+            elif subject_scope:
+                breadth_reason = "subject_scope"
             elif review:
                 breadth_reason = "plan_research"
             elif thin:
@@ -17636,7 +17668,7 @@ class DirectChatService:
                 # нет). Канал добавляется только когда автор известен из
                 # плана (`author_uid`), поэтому прочие пути байт-в-байт.
                 _period_channels = self._RAG_PERIOD_CHANNELS
-                if author_uid is not None:
+                if author_uid is not None or subject_uids:
                     _period_channels = tuple(self._RAG_PERIOD_CHANNELS) + (
                         "author_window",)
                 extra = await self._rag_retrieve(
@@ -17649,6 +17681,9 @@ class DirectChatService:
                     period_intent=period_intent,
                     **({"author_uids": (author_uid,)}
                        if author_uid is not None else {}),
+                    **({"subject_uids": subject_uids,
+                        "subject_names": subject_names}
+                       if subject_uids else {}),
                     **_trace_kwargs)
                 extra_rows = self._rag_rows_from_result(
                     extra, self._RAG_PERIOD_POOL)
@@ -17671,7 +17706,8 @@ class DirectChatService:
                                          "meta": dict(period_meta)}
             accepted, selection = _mca_rc.select_period_rows(
                 extra_rows, query=str(query or ""), intent=period_intent,
-                policy=policy, slots=period_slots, review=review)
+                policy=policy, slots=period_slots, review=review,
+                subject_uids=subject_uids, subject_names=subject_names)
             accepted = self._rag_evidence_rank(
                 list(accepted or ()), str(query or ""))
             selection = dict(selection or {})
@@ -17755,6 +17791,14 @@ class DirectChatService:
                     period_meta.get("vector_unavailable_reason") or ""),
                 "kept_in_target": int(selection.get("kept_in_target") or 0),
                 "soft_fallback": int(selection.get("soft_fallback") or 0),
+                # P-OLDROW R1: один зарезервированный старший период — только
+                # числа (сколько помечено / сколько вытеснено), без текстов.
+                "reserved_old": int(selection.get("reserved_old") or 0),
+                "reserved_displaced": int(
+                    selection.get("reserved_displaced") or 0),
+                "author_window": int(period_meta.get("author_window") or 0),
+                "author_window_rows": int(
+                    period_meta.get("author_window_rows") or 0),
                 "historical_quota": int(
                     selection.get("historical_quota") or 0),
                 "multi_year_quota": int(
@@ -17815,6 +17859,8 @@ class DirectChatService:
                             period_intent=None,
                             include_overview: bool = False,
                             author_uids=(),
+                            subject_uids=(),
+                            subject_names=(),
                             trace_id: str | None = None):
         """Один вызов существующего `retrieve` (без второго контура).
 
@@ -17826,7 +17872,12 @@ class DirectChatService:
         overview-проекция того же вызова; default False = паритет.
         `trace_id` (VMQ-TIME-09) — correlation_id ЭТОГО хода: durable-событие
         `mca07_retrieval` обязано быть связано с Writer-блоками того же хода;
-        default None — прежнее событие без поля."""
+        default None — прежнее событие без поля.
+
+        P-OLDROW R2 (контракт 2026-11-27 §3): `subject_uids`/`subject_names`
+        — уже разрешённый L1/планом субъект («о ком»): тот же структурный
+        вход `RetrievalRequest.subject_entity_ids`/`subject_names`, которым
+        пользуется канал `subject`. Пусто → вызов прежний байт-в-байт."""
         request = _mca_rc.RetrievalRequest(
             chat_id=int(chat_id), query=str(query or ""),
             mode="specific", purpose="reply", top_k=max(1, int(limit)),
@@ -17843,6 +17894,10 @@ class DirectChatService:
             include_overview=bool(include_overview),
             author_entity_ids=tuple(int(uid) for uid in (author_uids or ())
                                     if uid is not None),
+            subject_entity_ids=tuple(int(uid) for uid in (subject_uids or ())
+                                     if uid is not None),
+            subject_names=tuple(str(name) for name in (subject_names or ())
+                                if str(name or "").strip()),
             trace_id=trace_id)
         return await _mca_rc.retrieve(db, memory, request)
 
@@ -17877,10 +17932,23 @@ class DirectChatService:
         оставлял только факты (`fact_only_consumer`), поэтому оригиналы не
         доходили до блока. Здесь — только `entity_type='message'` из этого
         результата, дедуп по tg-id, порядок канала сохраняется, размер
-        ограничен существующим `limit`. Текстов фактов не копируем."""
+        ограничен существующим `limit`. Текстов фактов не копируем.
+
+        P-OLDROW R2 (контракт 2026-11-27 §3): сообщения канала
+        `author_window` идут ПЕРВЫМИ (стабильная партиция; порядок внутри
+        канала сохраняется). Иначе cap в 12 строк мог срезать старые строки
+        после лексических сообщений, и доставка до Writer переставала быть
+        детерминированной."""
+        candidates = list(getattr(result, "candidates", ()) or ())
+        candidates = (
+            [cand for cand in candidates
+             if str(getattr(cand, "channel", "") or "") == "author_window"]
+            + [cand for cand in candidates
+               if str(getattr(cand, "channel", "") or "") != "author_window"]
+        )
         rows: list = []
         seen: set = set()
-        for cand in getattr(result, "candidates", ()) or ():
+        for cand in candidates:
             if str(getattr(cand, "entity_type", "") or "") != "message":
                 continue
             if len(rows) >= max(1, int(limit)):

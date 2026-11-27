@@ -1,0 +1,590 @@
+{
+ "artifact_kind": "vmq_oldrow_red_green_readonly",
+ "measured_at_utc": "2026-11-27T11:06:40.432255+00:00",
+ "code_root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-oldrow-fix-d6038546e10e-5a0fd4ae",
+ "snapshot_path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-oldrow-fix-d6038546e10e\\probe-4a1bbe200c\\snapshot.db",
+ "chat_id": -1002661910336,
+ "errors": [],
+ "snapshot_sha256": "450604f133ee790eb989c06d186a5fcc24f2709000a50596a8200e479da9a89e",
+ "snapshot_bytes": 6766456832,
+ "people": {
+  "P1": {
+   "alias": "P1",
+   "uid": 485008070,
+   "name_present": true,
+   "old_messages_before_2026": 61803,
+   "query_masked": "что ты знаешь про <subject:P1>?",
+   "auto": {
+    "intent": {
+     "kind": "multi_year",
+     "years": [],
+     "source": "subject_scope"
+    },
+    "replace_allowed": 0,
+    "period_fill": {
+     "author_window": 1,
+     "author_window_rows": 6,
+     "author_window_years": 3,
+     "vector_leg": "no_rows"
+    },
+    "channels_used": [
+     "author_window",
+     "lexical"
+    ],
+    "message_candidates": 19,
+    "old_author_messages_delivered": 6,
+    "old_author_message_years": {
+     "2023": 2,
+     "2024": 2,
+     "2025": 2
+    },
+    "old_author_message_bound": {
+     "le_limit_div_5": true,
+     "le_12": true
+    },
+    "fact_rows": 13,
+    "fact_row_years": {
+     "2026": 13
+    },
+    "old_fact_rows": 0,
+    "selector": {
+     "pool": 13,
+     "kept": 1,
+     "accepted_years": [
+      2026
+     ],
+     "soft_fallback": 0,
+     "dropped_subject": 12,
+     "dropped_out_of_target_year": 0,
+     "pool_expired": 2,
+     "reserved_old": 0,
+     "reserved_displaced": 0,
+     "historical_quota": 0,
+     "multi_year_quota": 0
+    },
+    "reserve_period_append": {
+     "budget": 6,
+     "delivered_years": [
+      2026
+     ],
+     "old_period_in_budget": false,
+     "length_le_budget": true
+    }
+   },
+   "historical": {
+    "intent": {
+     "kind": "historical",
+     "years": [],
+     "source": "memory_scope"
+    },
+    "replace_allowed": 1,
+    "period_fill": {
+     "author_window": 1,
+     "author_window_rows": 6,
+     "author_window_years": 3,
+     "vector_leg": "no_rows"
+    },
+    "channels_used": [
+     "author_window",
+     "lexical"
+    ],
+    "message_candidates": 19,
+    "old_author_messages_delivered": 6,
+    "old_author_message_years": {
+     "2023": 2,
+     "2024": 2,
+     "2025": 2
+    },
+    "old_author_message_bound": {
+     "le_limit_div_5": true,
+     "le_12": true
+    },
+    "fact_rows": 13,
+    "fact_row_years": {
+     "2026": 13
+    },
+    "old_fact_rows": 0,
+    "selector": {
+     "pool": 13,
+     "kept": 1,
+     "accepted_years": [
+      2026
+     ],
+     "soft_fallback": 0,
+     "dropped_subject": 12,
+     "dropped_out_of_target_year": 0,
+     "pool_expired": 2,
+     "reserved_old": 0,
+     "reserved_displaced": 0,
+     "historical_quota": 0,
+     "multi_year_quota": 0
+    },
+    "reserve_period_append": {
+     "budget": 6,
+     "delivered_years": [
+      2026
+     ],
+     "old_period_in_budget": false,
+     "length_le_budget": true
+    }
+   },
+   "current_auto": {
+    "intent": {
+     "kind": "none",
+     "years": [],
+     "source": ""
+    },
+    "author_window": 0,
+    "author_window_rows": 0,
+    "channels_used": [
+     "lexical"
+    ],
+    "reserved_old": 0,
+    "fact_row_years": {
+     "2026": 16
+    }
+   },
+   "current_operative": {
+    "intent": {
+     "kind": "none",
+     "years": [],
+     "source": ""
+    },
+    "author_window": 0,
+    "author_window_rows": 0,
+    "channels_used": [
+     "lexical"
+    ],
+    "reserved_old": 0,
+    "fact_row_years": {
+     "2026": 16
+    }
+   }
+  },
+  "P2_top_author": {
+   "alias": "P2_top_author",
+   "uid": 138811255,
+   "name_present": true,
+   "old_messages_before_2026": 146755,
+   "query_masked": "что ты знаешь про <subject:P2_top_author>?",
+   "auto": {
+    "intent": {
+     "kind": "multi_year",
+     "years": [],
+     "source": "subject_scope"
+    },
+    "replace_allowed": 0,
+    "period_fill": {
+     "author_window": 1,
+     "author_window_rows": 6,
+     "author_window_years": 2,
+     "vector_leg": "no_rows"
+    },
+    "channels_used": [
+     "author_window",
+     "lexical"
+    ],
+    "message_candidates": 19,
+    "old_author_messages_delivered": 6,
+    "old_author_message_years": {
+     "2024": 3,
+     "2025": 3
+    },
+    "old_author_message_bound": {
+     "le_limit_div_5": true,
+     "le_12": true
+    },
+    "fact_rows": 13,
+    "fact_row_years": {
+     "2024": 1,
+     "2025": 8,
+     "2026": 4
+    },
+    "old_fact_rows": 9,
+    "selector": {
+     "pool": 13,
+     "kept": 6,
+     "accepted_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2025,
+      2025
+     ],
+     "soft_fallback": 6,
+     "dropped_subject": 7,
+     "dropped_out_of_target_year": 0,
+     "pool_expired": 2,
+     "reserved_old": 0,
+     "reserved_displaced": 0,
+     "historical_quota": 0,
+     "multi_year_quota": 0
+    },
+    "reserve_period_append": {
+     "budget": 6,
+     "delivered_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2025,
+      2025
+     ],
+     "old_period_in_budget": true,
+     "length_le_budget": true
+    }
+   },
+   "historical": {
+    "intent": {
+     "kind": "historical",
+     "years": [],
+     "source": "memory_scope"
+    },
+    "replace_allowed": 1,
+    "period_fill": {
+     "author_window": 1,
+     "author_window_rows": 6,
+     "author_window_years": 2,
+     "vector_leg": "no_rows"
+    },
+    "channels_used": [
+     "author_window",
+     "lexical"
+    ],
+    "message_candidates": 19,
+    "old_author_messages_delivered": 6,
+    "old_author_message_years": {
+     "2024": 3,
+     "2025": 3
+    },
+    "old_author_message_bound": {
+     "le_limit_div_5": true,
+     "le_12": true
+    },
+    "fact_rows": 13,
+    "fact_row_years": {
+     "2024": 1,
+     "2025": 8,
+     "2026": 4
+    },
+    "old_fact_rows": 9,
+    "selector": {
+     "pool": 13,
+     "kept": 6,
+     "accepted_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2025,
+      2025
+     ],
+     "soft_fallback": 6,
+     "dropped_subject": 7,
+     "dropped_out_of_target_year": 0,
+     "pool_expired": 2,
+     "reserved_old": 0,
+     "reserved_displaced": 0,
+     "historical_quota": 0,
+     "multi_year_quota": 0
+    },
+    "reserve_period_append": {
+     "budget": 6,
+     "delivered_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2025,
+      2025
+     ],
+     "old_period_in_budget": true,
+     "length_le_budget": true
+    }
+   },
+   "current_auto": {
+    "intent": {
+     "kind": "none",
+     "years": [],
+     "source": ""
+    },
+    "author_window": 0,
+    "author_window_rows": 0,
+    "channels_used": [
+     "lexical"
+    ],
+    "reserved_old": 0,
+    "fact_row_years": {
+     "2026": 16
+    }
+   },
+   "current_operative": {
+    "intent": {
+     "kind": "none",
+     "years": [],
+     "source": ""
+    },
+    "author_window": 0,
+    "author_window_rows": 0,
+    "channels_used": [
+     "lexical"
+    ],
+    "reserved_old": 0,
+    "fact_row_years": {
+     "2026": 16
+    }
+   }
+  },
+  "P3_history_2023_2024": {
+   "alias": "P3_history_2023_2024",
+   "uid": 1313107079,
+   "name_present": true,
+   "old_messages_before_2026": 81180,
+   "query_masked": "что ты знаешь про <subject:P3_history_2023_2024>?",
+   "auto": {
+    "intent": {
+     "kind": "multi_year",
+     "years": [],
+     "source": "subject_scope"
+    },
+    "replace_allowed": 0,
+    "period_fill": {
+     "author_window": 1,
+     "author_window_rows": 6,
+     "author_window_years": 3,
+     "vector_leg": "no_rows"
+    },
+    "channels_used": [
+     "author_window",
+     "lexical"
+    ],
+    "message_candidates": 19,
+    "old_author_messages_delivered": 6,
+    "old_author_message_years": {
+     "2023": 2,
+     "2024": 2,
+     "2025": 2
+    },
+    "old_author_message_bound": {
+     "le_limit_div_5": true,
+     "le_12": true
+    },
+    "fact_rows": 13,
+    "fact_row_years": {
+     "2023": 1,
+     "2026": 12
+    },
+    "old_fact_rows": 1,
+    "selector": {
+     "pool": 13,
+     "kept": 6,
+     "accepted_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2026,
+      2023
+     ],
+     "soft_fallback": 6,
+     "dropped_subject": 7,
+     "dropped_out_of_target_year": 0,
+     "pool_expired": 3,
+     "reserved_old": 0,
+     "reserved_displaced": 0,
+     "historical_quota": 0,
+     "multi_year_quota": 0
+    },
+    "reserve_period_append": {
+     "budget": 6,
+     "delivered_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2026,
+      2023
+     ],
+     "old_period_in_budget": true,
+     "length_le_budget": true
+    }
+   },
+   "historical": {
+    "intent": {
+     "kind": "historical",
+     "years": [],
+     "source": "memory_scope"
+    },
+    "replace_allowed": 1,
+    "period_fill": {
+     "author_window": 1,
+     "author_window_rows": 6,
+     "author_window_years": 3,
+     "vector_leg": "no_rows"
+    },
+    "channels_used": [
+     "author_window",
+     "lexical"
+    ],
+    "message_candidates": 19,
+    "old_author_messages_delivered": 6,
+    "old_author_message_years": {
+     "2023": 2,
+     "2024": 2,
+     "2025": 2
+    },
+    "old_author_message_bound": {
+     "le_limit_div_5": true,
+     "le_12": true
+    },
+    "fact_rows": 13,
+    "fact_row_years": {
+     "2023": 1,
+     "2026": 12
+    },
+    "old_fact_rows": 1,
+    "selector": {
+     "pool": 13,
+     "kept": 6,
+     "accepted_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2026,
+      2023
+     ],
+     "soft_fallback": 6,
+     "dropped_subject": 7,
+     "dropped_out_of_target_year": 0,
+     "pool_expired": 3,
+     "reserved_old": 0,
+     "reserved_displaced": 0,
+     "historical_quota": 0,
+     "multi_year_quota": 0
+    },
+    "reserve_period_append": {
+     "budget": 6,
+     "delivered_years": [
+      2026,
+      2026,
+      2026,
+      2026,
+      2026,
+      2023
+     ],
+     "old_period_in_budget": true,
+     "length_le_budget": true
+    }
+   },
+   "current_auto": {
+    "intent": {
+     "kind": "none",
+     "years": [],
+     "source": ""
+    },
+    "author_window": 0,
+    "author_window_rows": 0,
+    "channels_used": [
+     "lexical"
+    ],
+    "reserved_old": 0,
+    "fact_row_years": {
+     "2026": 16
+    }
+   },
+   "current_operative": {
+    "intent": {
+     "kind": "none",
+     "years": [],
+     "source": ""
+    },
+    "author_window": 0,
+    "author_window_rows": 0,
+    "channels_used": [
+     "lexical"
+    ],
+    "reserved_old": 0,
+    "fact_row_years": {
+     "2026": 16
+    }
+   }
+  }
+ },
+ "A1_historical": {
+  "intent": {
+   "kind": "historical",
+   "years": [],
+   "source": "memory_scope"
+  },
+  "pool": 16,
+  "pool_years": {
+   "2025": 1,
+   "2026": 15
+  },
+  "selector": {
+   "kept": 3,
+   "accepted_years": [
+    2026,
+    2025,
+    2026
+   ],
+   "soft_fallback": 0,
+   "dropped_subject": 12,
+   "pool_expired": 2,
+   "reserved_old": 1,
+   "reserved_displaced": 1,
+   "historical_quota": 0,
+   "multi_year_quota": 0
+  },
+  "delivered_years": [
+   2026,
+   2025
+  ],
+  "coverage_period": 0.4
+ },
+ "A1P_historical": {
+  "intent": {
+   "kind": "historical",
+   "years": [],
+   "source": "memory_scope"
+  },
+  "pool": 16,
+  "pool_years": {
+   "2025": 1,
+   "2026": 15
+  },
+  "selector": {
+   "kept": 7,
+   "accepted_years": [
+    2025,
+    2026,
+    2026,
+    2026,
+    2026,
+    2026,
+    2026
+   ],
+   "soft_fallback": 0,
+   "dropped_subject": 9,
+   "pool_expired": 1,
+   "reserved_old": 0,
+   "reserved_displaced": 0,
+   "historical_quota": 0,
+   "multi_year_quota": 0
+  },
+  "delivered_years": [
+   2025,
+   2026
+  ],
+  "coverage_period": 0.4
+ },
+ "versions": {
+  "module_file": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\\services\\mca_retrieval_context.py",
+  "resolve_period_intent": "(query, *, memory_scope: 'str' = 'auto', request_intent: 'str' = '', request_mode: 'str' = '', plan_act: 'str' = '', subject_present: 'bool' = False, current_state: 'bool' = False) -> 'PeriodIntent'",
+  "select_period_rows": "(rows, *, query: 'str' = '', intent: \"'PeriodIntent | None'\" = None, policy: 'str' = 'auto', slots: 'int' = 2, reference_year: 'int | None' = None, review: 'bool' = False, subject_uids=(), subject_names=()) -> 'tuple[list, dict]'",
+  "reserve_period_append": "(rows, *, budget: 'int') -> 'list'"
+ },
+ "snapshot_sha256_after": "450604f133ee790eb989c06d186a5fcc24f2709000a50596a8200e479da9a89e"
+}

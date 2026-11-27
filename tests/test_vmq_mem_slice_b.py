@@ -108,9 +108,18 @@ def _router(db, aliases=None):
 
 class TestHistoricalMeaningSelection:
     def test_strict_row_is_not_diluted_by_weak_old_year(self):
-        """TIME-03 (контракт 2026-11-20 §3.3/§4.2): при уже принятой строгой
-        строке мягкий fallback не подмешивает слабую строку другого года —
-        календарной квоты `historical_quota` больше нет."""
+        """Строгая строка сохраняется; добавляется НЕ БОЛЕЕ одной старшей.
+
+        TIME-03 (контракт 2026-11-20 §3.3/§4.2): календарной квоты
+        `historical_quota` нет, и мягкий fallback сам по себе блок не собирает.
+
+        P-OLDROW R1 (контракт `selector-rootcause-2026-11-27.md` §3): при
+        `historical` и не меньше двух soft-строк ОДНА строка с годом СТРОГО
+        старше минимального года принятых входит в первые `slots` (здесь
+        единственная такая — 2023; 2025 новее принятой 2024 и потому не
+        выбирается). Строгая строка 2024 остаётся первой и не вытесняется;
+        строка без общей основы (2022) по-прежнему не добавляется. Поэтому
+        ожидание обновлено с явной ссылкой на контракт."""
         pool = [
             _row(1, "шизах на конфе обсуждали", year=2024),   # strict: 2 основы
             _row(2, "шизах был знатный", year=2023),          # 1 основа
@@ -123,8 +132,11 @@ class TestHistoricalMeaningSelection:
         assert stats["intent"]["kind"] == mrc.PERIOD_INTENT_HISTORICAL
         assert stats["soft_fallback"] == 0
         assert stats["historical_quota"] == 0
-        assert [row["id"] for row in accepted] == [1]
-        assert {mrc.period_row_year(row) for row in accepted} == {2024}
+        assert stats["multi_year_quota"] == 0
+        assert accepted[0]["id"] == 1, "строгая строка остаётся первой"
+        assert [row["id"] for row in accepted] == [1, 2], accepted
+        assert stats["reserved_old"] == 1
+        assert {mrc.period_row_year(row) for row in accepted} == {2024, 2023}
         # Строка без общей основы не добирается и без квоты.
         assert 4 not in [row["id"] for row in accepted]
 

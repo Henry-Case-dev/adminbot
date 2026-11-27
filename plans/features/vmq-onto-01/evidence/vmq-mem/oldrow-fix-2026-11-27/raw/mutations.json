@@ -1,0 +1,165 @@
+﻿[
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_three_strict_plus_two_soft_reserves_exactly_one",
+      "1 failed in 4.09s"
+    ],
+    "id": "M1",
+    "note": "R1 reserve removed entirely",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_three_strict_plus_two_soft_reserves_exactly_one"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_mem_period_intent.py::TestHistoricalSoftFallback::test_single_weak_row_does_not_assemble_block",
+      "1 failed in 4.09s"
+    ],
+    "id": "M2",
+    "note": ">=2 soft-row threshold removed (fallback+R1)",
+    "nodes": [
+      "tests/test_vmq_mem_period_intent.py::TestHistoricalSoftFallback::test_single_weak_row_does_not_assemble_block"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t6_operative_keeps_only_current_year",
+      "1 failed, 2 passed in 4.13s"
+    ],
+    "id": "M3",
+    "note": "R1 applied to operative (older row enters current slice)",
+    "nodes": [
+      "tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t6_operative_keeps_only_current_year",
+      "tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_2026_rows_do_not_masquerade_as_2023",
+      "tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t5_explicit_year_is_target_filter_not_calendar_quota"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t5_explicit_year_is_target_filter_not_calendar_quota",
+      "1 failed, 1 passed in 4.29s"
+    ],
+    "id": "M3b",
+    "note": "R1 applied to explicit_year (foreign year enters target slice)",
+    "nodes": [
+      "tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_2026_rows_do_not_masquerade_as_2023",
+      "tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t5_explicit_year_is_target_filter_not_calendar_quota"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_2026_rows_do_not_masquerade_as_2023",
+      "FAILED tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t5_explicit_year_is_target_filter_not_calendar_quota",
+      "2 failed in 4.44s"
+    ],
+    "id": "M3c",
+    "note": "explicit-year target filter removed (R1-like crossing)",
+    "nodes": [
+      "tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_2026_rows_do_not_masquerade_as_2023",
+      "tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t5_explicit_year_is_target_filter_not_calendar_quota"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_three_strict_plus_two_soft_reserves_exactly_one",
+      "1 failed in 4.02s"
+    ],
+    "id": "M4a",
+    "note": "reserved row appended instead of replacing a slot",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_three_strict_plus_two_soft_reserves_exactly_one"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestAppendHonoursReservation::test_marker_wins_with_mixed_top_years",
+      "1 failed in 3.99s"
+    ],
+    "id": "M4b",
+    "note": "reserved_old marker ignored by reserve_period_append",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestAppendHonoursReservation::test_marker_wins_with_mixed_top_years"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_unattributed_old_row_is_not_attributed",
+      "1 failed in 4.21s"
+    ],
+    "id": "M5",
+    "note": "unattributed rows attributed to the subject",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_unattributed_old_row_is_not_attributed"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_three_strict_plus_two_soft_reserves_exactly_one",
+      "FAILED tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t4_yearless_pool_keeps_relevant_year_including_current",
+      "2 failed in 4.39s"
+    ],
+    "id": "M6a",
+    "note": "calendar quota raised instead of R1",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestSelectorReservesOneOldRow::test_three_strict_plus_two_soft_reserves_exactly_one",
+      "tests/test_vmq_mem_period_intent.py::TestNaturalYearSelection::test_t4_yearless_pool_keeps_relevant_year_including_current"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_mem_time_profile.py::TestHistoricalScope::test_m1_profile_spans_periods",
+      "1 failed in 4.75s"
+    ],
+    "id": "M6b",
+    "note": "per-year reader quota raised (user context historical)",
+    "nodes": [
+      "tests/test_mem_time_profile.py::TestHistoricalScope::test_m1_profile_spans_periods"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_operative_current_state_has_no_author_window",
+      "1 failed in 4.61s"
+    ],
+    "id": "M7",
+    "note": "subject author_window enabled for operative/current-state",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_operative_current_state_has_no_author_window"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_subject_window_is_bounded_and_multi_year",
+      "1 failed in 4.24s"
+    ],
+    "id": "M8a",
+    "note": "author_window bound removed",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_subject_window_is_bounded_and_multi_year"
+    ]
+  },
+  {
+    "returncode": 1,
+    "tail": [
+      "FAILED tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_originals_put_author_window_first",
+      "1 failed in 4.55s"
+    ],
+    "id": "M8b",
+    "note": "author_window priority in _collect_originals removed",
+    "nodes": [
+      "tests/test_vmq_oldrow_person_delivery.py::TestAuthorWindowBySubject::test_originals_put_author_window_first"
+    ]
+  }
+]

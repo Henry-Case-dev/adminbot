@@ -682,7 +682,12 @@ class TestPeriodSlots:
         rows = await service._rag_unified_rows(
             CHAT, "что говорил Aleksey?", None, memory_scope="historical",
             subject_name="Aleksey", subject_uid=7)
-        assert calls == [("vector",), ("lexical", "vector")], calls
+        # P-OLDROW R2 (контракт `selector-rootcause-2026-11-27.md` §3): у
+        # периода с РАЗРЕШЁННЫМ субъектом (имя есть в вопросе) тот же
+        # периодный вызов читает его собственные сообщения — канал
+        # `author_window` аддитивен, второго retrieval нет.
+        assert calls == [("vector",),
+                         ("lexical", "vector", "author_window")], calls
         # TIME-03 §4.1/§4.4: профиль читается одним `whole`-запросом без
         # календарного окна; имя субъекта есть в вопросе (subject guard).
         assert profile_calls == [("Aleksey", 7, "whole")]

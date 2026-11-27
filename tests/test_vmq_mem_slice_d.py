@@ -322,9 +322,13 @@ class TestCurrentStatePaths:
         """A1P: historical — 2024 через short-stem strict subject; auto — 2026:10.
 
         RC4/A2: `шизах` нормализуется в `шиз`, поэтому `на шизах и конф` —
-        строгий subject-match и soft-fallback больше не добавляет unrelated
-        `конфа тогда шумела` 2023. Контракт требует ≥1 старого года; 2024
-        доставлен, auto остаётся 2026:10."""
+        строгий subject-match. P-OLDROW R1 (контракт
+        `selector-rootcause-2026-11-27.md` §3): при `historical` и ≥2 soft-
+        строках в первые слоты входит РОВНО ОДНА строка с годом строго старше
+        принятого (принята 2024 → 2023; 2025 новее и не выбирается), поэтому
+        состав — 2026:8 + 2024:1 + 2023:1 при том же бюджете `limit//5=2`;
+        календарной квоты по-прежнему нет. Ожидание обновлено с явной ссылкой
+        на контракт; auto остаётся 2026:10."""
         base = _current_rows(10)
         pool = [
             _row(1, "конфа тогда шумела", year=2023),
@@ -341,10 +345,11 @@ class TestCurrentStatePaths:
             year = mrc.period_row_year(row)
             if year:
                 years[year] = years.get(year, 0) + 1
-        assert years == {2024: 1, 2026: 9}, years
+        assert years == {2026: 8, 2024: 1, 2023: 1}, years
         # RC4: строгий subject-match уже дал 2024; soft-fallback не нужен.
         assert service._rag_period_stats["soft_fallback"] == 0
         assert service._rag_period_stats["historical_quota"] == 0
+        assert service._rag_period_stats["reserved_old"] == 1
 
         calls: list = []
         service = _service(monkeypatch, base, pool, calls=calls)
