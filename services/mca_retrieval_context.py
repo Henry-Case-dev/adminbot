@@ -608,17 +608,26 @@ class PeriodIntent:
 
 def resolve_period_intent(query, *, memory_scope: str = "auto",
                           request_intent: str = "", request_mode: str = "",
-                          plan_act: str = "") -> PeriodIntent:
+                          plan_act: str = "",
+                          subject_present: bool = False,
+                          current_state: bool = False) -> PeriodIntent:
     """Детерминированное периодное намерение запроса (без LLM и без словаря
     «сейчас»). Приоритет: явный год → СТРУКТУРНЫЙ request/plan-сигнал →
     `memory_scope=historical` → маркеры исторического/мемуарного запроса →
-    `none` (прежний путь).
+    разрешённый субъект (`subject_scope`) → `none` (прежний путь).
 
     Slice B: `request_intent` (`what-happened|history`), `request_mode`
     (`history|episodic`) и `plan_act` (`historical_recall`) — существующие
     закрытые значения retrieval/L1-плана, а не новый список слов. Вопрос о
     событии без года получает `multi_year` независимо от того, назван ли год
-    или слово «вспомни»."""
+    или слово «вспомни».
+
+    P-OLDROW R3 (контракт 2026-11-27 §3): `subject_present` — уже разрешённый
+    существующим L1/планом субъект (имя есть в вопросе), `current_state` —
+    существующий предикат «что сейчас». Разрешённый не-«сейчас» субъект даёт
+    `multi_year` с `source='subject_scope'`: он выбирает периодный селектор и
+    author_window, но НЕ получает права замещать базовый срез
+    (`PERIOD_REPLACE_SOURCES` не расширяется)."""
     text = str(query or "").casefold()
     years = tuple(sorted({int(y) for y in _YEAR_IN_QUERY_RE.findall(text)}))
     if years:
@@ -642,6 +651,11 @@ def resolve_period_intent(query, *, memory_scope: str = "auto",
     for marker in _PERIOD_HISTORY_MARKERS:
         if marker in text:
             return PeriodIntent(PERIOD_INTENT_HISTORICAL, (), "query_marker")
+    # P-OLDROW R3: разрешённый субъект (уже извлечённый L1/планом) — самый
+    # слабый структурный сигнал: он ниже явного года и любого исторического
+    # решения и не действует для `operative`/«что сейчас».
+    if subject_present and not current_state and scope != "operative":
+        return PeriodIntent(PERIOD_INTENT_MULTI_YEAR, (), "subject_scope")
     return PeriodIntent()
 
 
@@ -725,13 +739,32 @@ def _author_window_bounds(request, period_intent) -> tuple[int, int] | None:
 
     Отдельно от `_message_period_window`, потому что авторское чтение НЕ
     меняет план основного FTS: диапазон количественной выборки допустим
-    только как границы этого bounded-чтения."""
+    только как границы этого bounded-чтения.
+
+    P-OLDROW R2 (контракт 2026-11-27 §3): если явного года/диапазона нет, но
+    у хода есть РАЗРЕШЁННЫЙ субъект и много-летнее периодное намерение, окно —
+    существующий дефолт читателя (`get_author_message_periods`: три последних
+    завершённых года, `range(base_year - 3, base_year)`), а не новый список
+    годов. Явный год/диапазон всегда сильнее этого дефолта."""
     try:
         if request.time_from is not None and request.time_to is not None:
             return int(request.time_from), int(request.time_to)
     except (TypeError, ValueError):
         return None
-    return _message_period_window(request, period_intent)
+    window = _message_period_window(request, period_intent)
+    if window is not None:
+        return window
+    if (getattr(request, "subject_entity_ids", ())
+            and getattr(period_intent, "wants_year_diverse", False)):
+        base_year = datetime.datetime.now(datetime.timezone.utc).year
+        bounds = [year_time_bounds(year)
+                  for year in range(base_year - 3, base_year)]
+        bounds = [bound for bound in bounds if bound]
+        if not bounds:
+            return None
+        return (min(bound[0] for bound in bounds),
+                max(bound[1] for bound in bounds))
+    return None
 
 
 def _window_years(window) -> tuple[int, ...]:
@@ -754,6 +787,55 @@ def _window_years(window) -> tuple[int, ...]:
     except (ValueError, OSError, OverflowError):
         return ()
     return tuple(range(first, last + 1))
+
+
+def _row_year(row) -> int | None:
+    """Календарный год строки сообщения по её `timestamp` (UTC).
+
+    Тот же смысл, что у `_candidate_year`, но для строк `smart_messages` из
+    `get_author_message_periods`. Неизвестное время — None (не догадка)."""
+    try:
+        ts = int(_row_get(row, "timestamp") or _row_get(row, "sent_at") or 0)
+    except (TypeError, ValueError):
+        return None
+    if ts <= 0:
+        return None
+    try:
+        return datetime.datetime.fromtimestamp(
+            ts, datetime.timezone.utc).year
+    except (OSError, OverflowError, ValueError):            # pragma: no cover
+        return None
+
+
+def _author_window_bounded(rows, *, per_year_cap: int,
+                           total_cap: int | None = None) -> list:
+    """Bounded много-летняя выборка авторских сообщений (P-OLDROW R2).
+
+    Ограничение — существующая ресурсная доля `limit // 5`: не больше
+    `per_year_cap` строк каждого года и не больше `total_cap` всего. Порядок
+    добора — по кругу от СТАРШЕГО года (внутри года — как пришло, то есть
+    свежее первым), поэтому вклад остаётся много-летним, а не сводится к
+    одному свежему году. Строка с неизвестным годом в окно не входит."""
+    per_year = max(1, int(per_year_cap or 1))
+    by_year: dict = {}
+    for row in rows or ():
+        year = _row_year(row)
+        if year is None:
+            continue
+        bucket = by_year.setdefault(year, [])
+        if len(bucket) < per_year:
+            bucket.append(row)
+    chosen: list = []
+    limit_total = None if total_cap is None else max(1, int(total_cap))
+    for round_index in range(per_year):
+        for year in sorted(by_year):
+            bucket = by_year[year]
+            if round_index >= len(bucket):
+                continue
+            chosen.append(bucket[round_index])
+            if limit_total is not None and len(chosen) >= limit_total:
+                return chosen
+    return chosen
 
 
 def _content_query_tokens(keywords) -> list[str]:
@@ -811,6 +893,46 @@ def period_row_year(row) -> int | None:
             int(ts), datetime.timezone.utc).year
     except (TypeError, ValueError, OSError, OverflowError):
         return None
+
+
+def _period_subject_uids(values) -> set:
+    """Telegram uid разрешённого субъекта (числа; мусор отбрасывается)."""
+    out: set = set()
+    for value in values or ():
+        try:
+            out.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _period_subject_names(values) -> set:
+    """Нормализованные имена разрешённого субъекта (без нового словаря)."""
+    out: set = set()
+    for value in values or ():
+        name = " ".join(str(value or "").split()).casefold()
+        if name:
+            out.add(name)
+    return out
+
+
+def _row_subject_bound(row, uids, names) -> bool:
+    """Строка ПРИВЯЗАНА к разрешённому субъекту существующими колонками.
+
+    P-OLDROW R1 (контракт 2026-11-27 §3): только `subject_ref_id`,
+    `speaker_author_id` (точный uid) или legacy `target_user` (имя). Строка
+    импорта без этих привязок (`unattributed`) остаётся безымянной: никакой
+    догадки «похоже, это о нём» нет (`person-question-decision.md` §3)."""
+    if not isinstance(row, dict):
+        return False
+    for key in ("subject_ref_id", "speaker_author_id"):
+        try:
+            if int(row.get(key)) in uids:
+                return True
+        except (TypeError, ValueError):
+            continue
+    target = " ".join(str(row.get("target_user") or "").split()).casefold()
+    return bool(target) and target in names
 
 
 def _candidate_year(cand) -> int | None:
@@ -904,7 +1026,8 @@ def _mark_period_row(row, shared, reason: str) -> None:
 def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" = None,
                        policy: str = "auto", slots: int = 2,
                        reference_year: int | None = None,
-                       review: bool = False) -> tuple[list, dict]:
+                       review: bool = False,
+                       subject_uids=(), subject_names=()) -> tuple[list, dict]:
     """Отбор периодного пула: время-цель ПЕРВЫМ, предмет — с мягким fallback.
 
     VMQ-MEM/TIME Slice A (15.11.2026). Прежний безусловный порог ≥2 основ
@@ -941,6 +1064,16 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     `age_policy=not_applied`), `dropped_subject` (релевантность),
     `dropped_pool_cap` и `dropped_budget` (бюджет),
     `dropped_out_of_target_year`/`dropped_unknown_year` (время).
+
+    P-OLDROW R1 (контракт 2026-11-27 §3): для `historical`/`multi_year`/
+    `review` после строгого отбора и мягкого fallback в ПЕРВЫЕ `slots`
+    ставится НЕ БОЛЕЕ ОДНОЙ soft-строки с известным годом строго старше
+    минимального года принятых (при переданных `subject_uids`/`subject_names`
+    — только subject-bound по `subject_ref_id`/`speaker_author_id`/
+    `target_user`). Строка помечается `reserved_old=True`; длина `accepted` не
+    превышает `max(прежняя длина, slots)`; `historical_quota`/`multi_year_quota`
+    остаются 0. Без `>=2` soft-строк правило не действует. `none`/`operative`/
+    `explicit_year` не затрагиваются.
     """
     intent = intent or resolve_period_intent(query, memory_scope=policy)
     slots = max(1, int(slots or 1))
@@ -976,6 +1109,8 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         "historical_quota": 0,
         "multi_year_quota": 0,
         "lexical_strict_passed": 0,
+        "reserved_old": 0,
+        "reserved_displaced": 0,
     }
     now_ts = int(time.time())
     eligible: list = []
@@ -1109,6 +1244,60 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             accepted.append(row)
             stats["soft_fallback"] += 1
             stats["dropped_subject"] -= 1
+    # ── P-OLDROW R1 (контракт 2026-11-27 §3): один зарезервированный старший ─
+    # период. Работает ТОЛЬКО для исторического/много-летнего/разборного
+    # вклада (review — существующий сигнал `research`); `none`/`operative`/
+    # `explicit_year` до этого места не доходят или исключены выше. Условие
+    # «не меньше двух soft-строк» — действующий контракт §2: одна слабая
+    # строка блок не собирает. Старший год лишь отличает уже прошедшую
+    # предметную близость строку от УЖЕ принятого периода; календарной квоты
+    # не появляется (`historical_quota`/`multi_year_quota` остаются 0).
+    if (intent.is_historical or intent.is_multi_year or review) \
+            and accepted \
+            and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
+        accepted_years = [year for year in
+                          (period_row_year(item) for item in accepted)
+                          if year is not None]
+        if accepted_years:
+            oldest = min(accepted_years)
+            uids = _period_subject_uids(subject_uids)
+            names = _period_subject_names(subject_names)
+            picked = None
+            candidates = []
+            for shared, index, row in soft_pool:
+                year = period_row_year(row)
+                if year is None or year >= oldest:
+                    continue
+                if any(row is item for item in accepted):
+                    continue
+                if (uids or names) and not _row_subject_bound(row, uids,
+                                                              names):
+                    continue
+                candidates.append((year, shared, index, row))
+            if candidates:
+                # Ближайший старший период первым (он и есть «предыдущий»
+                # вклад), затем лучшая предметная близость и порядок пула.
+                # Ровно одна строка: второй старший период место не отнимает.
+                candidates.sort(
+                    key=lambda item: (-item[0], -item[1], item[2]))
+                picked = candidates[0][3]
+            if picked is not None:
+                picked["reserved_old"] = True
+                stats["reserved_old"] = 1
+                stats["dropped_subject"] = max(
+                    0, stats["dropped_subject"] - 1)
+                if len(accepted) < slots:
+                    accepted = accepted + [picked]
+                else:
+                    displaced = accepted[slots - 1]
+                    if str(displaced.get("stems_shared_reason") or "") \
+                            == PERIOD_KEEP_SOFT_FALLBACK:
+                        stats["soft_fallback"] = max(
+                            0, stats["soft_fallback"] - 1)
+                        stats["dropped_subject"] += 1
+                    accepted = list(accepted)
+                    accepted[slots - 1] = picked
+                    stats["reserved_displaced"] = 1
     # TIME-03 natural memory (§4.2): календарной квоты (`historical_quota`/
     # `multi_year_quota`) больше нет — ключи остаются нулями только для
     # совместимости существующих читателей трассы. Строки, не вошедшие из-за
@@ -1138,12 +1327,30 @@ def reserve_period_append(rows, *, budget: int) -> list:
     при одном периоде в кандидатах возвращается прежний срез `rows[:budget]`
     байт-в-байт; строка с неизвестным годом периодом не считается. Резерв —
     ровно один слот: второй старший период не отнимает место у верхнего.
+
+    P-OLDROW R1: помеченная селектором строка (`reserved_old`) имеет
+    приоритет над прежним правилом — она доезжает и при смешанных годах
+    верхних слотов, занимая последний слот бюджета (бюджет не растёт). Если
+    она уже в `selected`, срез не меняется.
     """
     budget = max(0, int(budget or 0))
     rows = list(rows or ())
     if budget <= 0:
         return []
     selected = rows[:budget]
+    # P-OLDROW R1 (контракт 2026-11-27 §3): помеченная строка старшего периода
+    # обязана доехать даже при СМЕШАННЫХ годах верхних слотов, где прежнее
+    # правило возвращало срез без резерва. Место — последний слот бюджета; если
+    # строка уже внутри `selected`, состав и порядок не меняются. Бюджет не
+    # растёт.
+    marked = next((row for row in rows
+                   if isinstance(row, dict) and row.get("reserved_old")), None)
+    if marked is not None:
+        if any(row is marked for row in selected):
+            return selected
+        if selected:
+            return list(selected[:-1]) + [marked]
+        return [marked]
     if budget < 2 or len(selected) < 2:
         return selected
     top_year = period_row_year(selected[0])
@@ -2968,17 +3175,36 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     #     других людей. Читается ТОЛЬКО при явном авторе и известном периоде;
     #     тонкий результат расширяется В ГРАНИЦАХ ограничений (не случайными
     #     воспоминаниями). Нет окна/автора → ноль новых чтений.
-    if _allow("author_window") and request.author_entity_ids:
-        authors_win = [int(uid) for uid in request.author_entity_ids
+    if _allow("author_window") and (request.author_entity_ids
+                                    or request.subject_entity_ids):
+        # P-OLDROW R2 (контракт 2026-11-27 §3): явный автор остаётся главным;
+        # без него читается РАЗРЕШЁННЫЙ субъект — его собственные сообщения по
+        # ТОЧНОМУ uid (не name-fallback). `author_entity_ids` в запросе НЕ
+        # выставляется, поэтому FTS-фильтр фактов (`_fts_window["author_ids"]`)
+        # не меняется: это bounded-чтение сообщений, а не фактов о человеке.
+        authors_win = [int(uid) for uid
+                       in (request.author_entity_ids
+                           or request.subject_entity_ids or ())
                        if uid is not None]
         intent_win = period_intent
         if intent_win is None:
+            # Структурное решение о субъекте принадлежит вызывающему
+            # (L1/плану): здесь intent разрешается без `subject_present`.
             intent_win = resolve_period_intent(
                 request.query, memory_scope=policy,
                 request_intent=request.intent, request_mode=request.mode)
         window_win = _author_window_bounds(request, intent_win)
         if authors_win and window_win is not None:
             years_win = _window_years(window_win)
+            # Окно субъекта (без явного года/диапазона) — ресурсная доля
+            # `limit // 5`: не больше этой доли строк на год и столько же
+            # всего. Распределение по годам — по кругу от старшего, поэтому
+            # вклад остаётся много-летним, а не одним свежим годом. Явный
+            # автор/год сохраняет прежнее поведение канала.
+            subject_window = bool(request.subject_entity_ids) \
+                and not request.author_entity_ids
+            per_year_cap = max(1, int(fetch_k) // 5)
+            total_cap = per_year_cap if subject_window else None
             for chat_id in chat_ids:
                 picked: list = []
                 for uid in authors_win:
@@ -3019,14 +3245,23 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                             continue
                         picked.append(row)
                 if picked:
-                    # Свежее в окне — компактная выборка, не весь год.
-                    picked = sorted(
+                    latest_first = sorted(
                         picked,
                         key=lambda row: int(_row_get(row, "timestamp") or 0),
-                        reverse=True)[:max(1, int(fetch_k))]
-                    for pos, row in enumerate(picked):
+                        reverse=True)
+                    if subject_window:
+                        chosen = _author_window_bounded(
+                            latest_first, per_year_cap=per_year_cap,
+                            total_cap=total_cap)
+                    else:
+                        chosen = latest_first[:max(1, int(fetch_k))]
+                    for pos, row in enumerate(chosen):
                         raw.append(_message_candidate(
                             row, "author_window", pos, resolve_item_id))
+                    period_stats["author_window"] = 1
+                    period_stats["author_window_rows"] = len(chosen)
+                    period_stats["author_window_years"] = len({
+                        _row_year(row) for row in chosen} - {None})
                     channels.append("author_window")
 
     # ── exact (quoted-фраза всегда доступна) ────────────────────────────────
@@ -3592,6 +3827,13 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
             "vector_admission": (dict(period_stats["vector_admission"])
                                  if isinstance(period_stats.get(
                                      "vector_admission"), dict) else None),
+            # P-OLDROW R2: канал собственных сообщений автора/субъекта —
+            # только числа (выполнен/строк/годов), без текстов.
+            "author_window": int(bool(period_stats.get("author_window"))),
+            "author_window_rows": int(
+                period_stats.get("author_window_rows") or 0),
+            "author_window_years": int(
+                period_stats.get("author_window_years") or 0),
         }
         for _field in ("knn_ms", "fts_ms"):
             if period_usage[_field] is None:

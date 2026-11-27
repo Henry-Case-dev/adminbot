@@ -1,0 +1,158 @@
+....................................F................................... [ 33%]
+........................................................................ [ 66%]
+.........................................................FF..F.........  [100%]
+================================== FAILURES ===================================
+_ TestHistoricalMeaningSelection.test_quota_is_bounded_by_slots_and_never_adds_current_year _
+
+self = <tests.test_vmq_mem_slice_b.TestHistoricalMeaningSelection object at 0x000002C97415BA70>
+
+    def test_quota_is_bounded_by_slots_and_never_adds_current_year(self):
+        pool = [_row(1, "шизы конфе", year=2024),
+                _row(2, "шиза конфе", year=2023),
+                _row(3, "шиза конфе", year=2022),
+                _row(4, "шиза конфе", year=2026)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query=OWNER_CREATIVE, policy="auto", slots=2,
+            reference_year=2026)
+        years = [mrc.period_row_year(row) for row in accepted]
+>       assert len(accepted) <= 2
+E       AssertionError: assert 4 <= 2
+E        +  where 4 = len([{'id': 1, 'fact': 'шизы конфе', 'origin': 'history_import', 'status': 'confirmed', ...}, {'id': 2, 'fact': 'шиза конф..., 'status': 'confirmed', ...}, {'id': 4, 'fact': 'шиза конфе', 'origin': 'history_import', 'status': 'confirmed', ...}])
+
+tests\test_vmq_mem_slice_b.py:140: AssertionError
+_ TestPlanScopeReachesRagBlock.test_historical_plan_rebuilds_block_with_plan_scope _
+
+self = <tests.test_mem_time_l1_scope.TestPlanScopeReachesRagBlock object at 0x000002C9744DB230>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C976458BF0>
+
+    @pytest.mark.asyncio
+    async def test_historical_plan_rebuilds_block_with_plan_scope(self,
+                                                                 monkeypatch):
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        plan = _plan(memory_scope="historical")
+        blocks = ["<Global_Context>фон</Global_Context>",
+                  "<RAG_Memory>auto</RAG_Memory>"]
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+>       assert calls == [{"scope": "historical", "name": "Aleksey", "uid": 7}]
+E       AssertionError: assert [] == [{'scope': 'h...y', 'uid': 7}]
+E         
+E         Right contains one more item: {'scope': 'historical', 'name': 'Aleksey', 'uid': 7}
+E         Use -v to get more diff
+
+tests\test_mem_time_l1_scope.py:301: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:18676 direct: rag rescope failed — keep auto block | policy=historical
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18658, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18666, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18672, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+_______ TestPlanScopeReachesRagBlock.test_operative_plan_narrows_block ________
+
+self = <tests.test_mem_time_l1_scope.TestPlanScopeReachesRagBlock object at 0x000002C9745296D0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C9764647D0>
+
+    @pytest.mark.asyncio
+    async def test_operative_plan_narrows_block(self, monkeypatch):
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        plan = _plan(memory_scope="operative")
+        blocks = ["<RAG_Memory>auto</RAG_Memory>", "<Target_User>U1</Target_User>"]
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+>       assert calls and calls[0]["scope"] == "operative"
+E       assert ([])
+
+tests\test_mem_time_l1_scope.py:312: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:18676 direct: rag rescope failed — keep auto block | policy=operative
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18658, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18666, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18672, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+___ TestPlanScopeReachesRagBlock.test_t16_research_plan_rebuilds_rag_block ____
+
+self = <tests.test_mem_time_l1_scope.TestPlanScopeReachesRagBlock object at 0x000002C97452A8D0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C976464260>
+
+    @pytest.mark.asyncio
+    async def test_t16_research_plan_rebuilds_rag_block(self, monkeypatch):
+        """TIME-03 §4.1: существующий L1-сигнал `research` разрешает
+        пересборку `<RAG_Memory>` тем же чтением (не historical-режим)."""
+        calls: list = []
+        service = self._service(monkeypatch, calls)
+        blocks = ["<Global_Context>фон</Global_Context>",
+                  "<RAG_Memory>auto</RAG_Memory>"]
+        plan = _plan(memory_scope="auto", response_act="research")
+        out = await service._apply_plan_memory_scope(blocks, self._ctx(), plan)
+>       assert calls == [{"scope": "auto", "name": "Aleksey", "uid": 7}]
+E       AssertionError: assert [] == [{'scope': 'a...y', 'uid': 7}]
+E         
+E         Right contains one more item: {'scope': 'auto', 'name': 'Aleksey', 'uid': 7}
+E         Use -v to get more diff
+
+tests\test_mem_time_l1_scope.py:348: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:18676 direct: rag rescope failed — keep auto block | policy=auto
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18658, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18666, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-oldrow-fix-d6038546e10e-5a0fd4ae\services\direct_chat_service.py", line 18672, in _apply_plan_memory_scope_locked
+    block, _hint = await self._build_rag_block(
+                         ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TestPlanScopeReachesRagBlock._service.<locals>.fake_build() got an unexpected keyword argument 'author_uid'
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::test_quota_is_bounded_by_slots_and_never_adds_current_year
+FAILED tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_historical_plan_rebuilds_block_with_plan_scope
+FAILED tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_operative_plan_narrows_block
+FAILED tests/test_mem_time_l1_scope.py::TestPlanScopeReachesRagBlock::test_t16_research_plan_rebuilds_rag_block
+4 failed, 211 passed in 15.67s
+
+WARNING: closed 4 leaked aiosqlite connection(s)

@@ -1,0 +1,83 @@
+{
+ "query_masked": "что ты знаешь про <subject:P1>?",
+ "chat_id": -1002661910336,
+ "uid": 485008070,
+ "snapshot_sha256": "450604f133ee790eb989c06d186a5fcc24f2709000a50596a8200e479da9a89e",
+ "candidate": {
+  "lexical+vector": {
+   "candidates": 32,
+   "by_kind": {
+    "message": 16,
+    "graph_fact": 16
+   },
+   "by_channel": {
+    "lexical": 32
+   },
+   "fact_rows": 16,
+   "fact_years": {
+    "2025": 2,
+    "2026": 14
+   },
+   "channels_used": [
+    "lexical"
+   ]
+  },
+  "lexical+vector+author_window": {
+   "candidates": 32,
+   "by_kind": {
+    "message": 19,
+    "graph_fact": 13
+   },
+   "by_channel": {
+    "author_window": 6,
+    "lexical": 26
+   },
+   "fact_rows": 13,
+   "fact_years": {
+    "2026": 13
+   },
+   "channels_used": [
+    "author_window",
+    "lexical"
+   ]
+  }
+ },
+ "base_9516c9125": {
+  "lexical+vector": {
+   "candidates": 32,
+   "by_kind": {
+    "message": 16,
+    "graph_fact": 16
+   },
+   "by_channel": {
+    "lexical": 32
+   },
+   "fact_rows": 16,
+   "fact_years": {
+    "2025": 2,
+    "2026": 14
+   },
+   "channels_used": [
+    "lexical"
+   ]
+  },
+  "lexical+vector+author_window": {
+   "candidates": 32,
+   "by_kind": {
+    "message": 16,
+    "graph_fact": 16
+   },
+   "by_channel": {
+    "lexical": 32
+   },
+   "fact_rows": 16,
+   "fact_years": {
+    "2025": 2,
+    "2026": 14
+   },
+   "channels_used": [
+    "lexical"
+   ]
+  }
+ }
+}
