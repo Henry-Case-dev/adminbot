@@ -1,0 +1,33 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+____ TestSubjectHalf.test_bot_origin_profile_keeps_accepted_old_period_row ____
+
+self = <tests.test_vmq_mem_slice_d.TestSubjectHalf object at 0x000002CEC1F97500>
+db = <services.database.DatabaseService object at 0x000002CEC17FFA10>
+
+    @pytest.mark.asyncio
+    async def test_bot_origin_profile_keeps_accepted_old_period_row(self, db):
+        """D1 REDтЖТGREEN: ╨┐╤А╨╛╤Д╨╕╨╗╤М╨╜╤Л╨╡ ╤З╤В╨╡╨╜╨╕╤П ╨▓╨╡╤А╨╜╤Г╨╗╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓╤Л╨▓╨╛╨┤╤Л ╨▒╨╛╤В╨░ тАФ
+        ╤Б╤В╨░╤А╤И╨░╤П ╨┐╨╡╤А╨╕╨╛╨┤╨╜╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨╛╤Б╤В╨░╤С╤В╤Б╤П ╨▓ ╤Б╤А╨╡╨╖╨╡, ╨╜╨╛╨▓╤Л╤Е ╤Б╤В╤А╨╛╨║ ╨╜╨╡ ╨┐╨╛╤П╨▓╨╗╤П╨╡╤В╤Б╤П,
+        ╨▒╨░╨╖╨╛╨▓╤Л╨╣ ╤Б╤А╨╡╨╖ ╨╜╨╡ ╨╖╨░╨╝╨╡╤Й╨░╨╡╤В╤Б╤П."""
+        import services.direct_chat_service as _dcs2
+        for text, year in (("╨▓ 2026 ╨Т╨░╤Б╤П ╤Г╤В╨╛╤З╨╜╤П╨╡╤В ╨┤╨╡╤В╨░╨╗╨╕", 2026),
+                           ("╨▓ 2025 ╨Т╨░╤Б╤П ╤Б╨║╨░╨╖╨░╨╗ ╨┐╤А╨╛ ╨Я╨╛╨╗╤П╨╜╤Г", 2025)):
+            await _fact(db, text, year=year, target="╨Т╨░╤Б╤П", speaker=UID,
+                        origin="bot_direct_reply")
+        service = _dcs2.DirectChatService(memory=object(), db=db, llm=None,
+                                          aliases=None)
+        base = self._d1_base()
+        old = self._d1_old_row()
+        out = await service._rag_append_profile_rows(
+            db, base + [old], CHAT,
+            "╤А╨░╤Б╤Б╨║╨░╨╢╨╕, ╤З╤В╨╛ ╨╖╨░ ╤З╨╡╨╗╨╛╨▓╨╡╨║ ╨Т╨░╤Б╤П, ╨┐╨╛ ╨╡╨│╨╛ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П╨╝",
+            "╨Т╨░╤Б╤П", UID, 10, allow_replace=True)
+>       assert old in out, "╨┐╤А╨╕╨╜╤П╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╤Б╤В╨░╤А╤И╨╡╨│╨╛ ╨┐╨╡╤А╨╕╨╛╨┤╨░ ╨┐╨╛╤В╨╡╤А╤П╨╜╨░"
+E       AssertionError: ╨┐╤А╨╕╨╜╤П╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╤Б╤В╨░╤А╤И╨╡╨│╨╛ ╨┐╨╡╤А╨╕╨╛╨┤╨░ ╨┐╨╛╤В╨╡╤А╤П╨╜╨░
+E       assert {'id': 5567, 'fact': '╨Т╨░╤Б╤П ╨Я╨╛╨╗╤П╨╜╨░, 2025', 'rag_ts': 1748779200, 'message_timestamp': 1748779200, ...} in [{'id': 9100, 'fact': '╤В╨╡╨║╤Г╤Й╨╕╨╣ ╤Д╨░╨║╤В 0', 'origin': 'chat_history', 'status': 'confirmed', ...}, {'id': 9101, 'fact': '╤В...: 'confirmed', ...}, {'id': 9105, 'fact': '╤В╨╡╨║╤Г╤Й╨╕╨╣ ╤Д╨░╨║╤В 5', 'origin': 'chat_history', 'status': 'confirmed', ...}, ...]
+
+tests\test_vmq_mem_slice_d.py:1046: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_slice_d.py::TestSubjectHalf::test_bot_origin_profile_keeps_accepted_old_period_row
+1 failed, 42 deselected in 6.55s

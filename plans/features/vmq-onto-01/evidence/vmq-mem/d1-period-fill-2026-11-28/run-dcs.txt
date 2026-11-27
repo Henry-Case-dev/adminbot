@@ -1,0 +1,1987 @@
+........................................................................ [ 35%]
+........................................................................ [ 70%]
+C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:1 знак:113
++ ... -a43b0a38"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 11 leaked aiosqlite connection(s)
+..................FFF..............................FFFFFFFF              [100%]
+================================== FAILURES ===================================
+___________ TestMasterPriority.test_master_off_overrides_context_on ___________
+
+self = <tests.test_budget_global_toggle_round1024.TestMasterPriority object at 0x00000251F24E8DD0>
+
+    @pytest.mark.asyncio
+    async def test_master_off_overrides_context_on(self):
+        runner = _StubDirectChat()
+>       cap = await runner.run(-100, master=False, context_on=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_budget_global_toggle_round1024.py:537: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_budget_global_toggle_round1024.py:527: in run
+    await self._stub._build_user_content(chat_id, _Msg(), "╨▓╨░╤Б╤П", None)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_budget_global_toggle_round1024._StubDirectChat._make.<locals>._Svc object at 0x00000251F2E31850>
+chat_id = -100
+message = <tests.test_budget_global_toggle_round1024._StubDirectChat.run.<locals>._Msg object at 0x00000251F2E31910>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = None, projection = None, memory_scope = None
+out_rag_ctx = None, correlation_id = None, out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _StubDirectChat._make.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+________________ TestMasterPriority.test_master_on_context_off ________________
+
+self = <tests.test_budget_global_toggle_round1024.TestMasterPriority object at 0x00000251F24E9910>
+
+    @pytest.mark.asyncio
+    async def test_master_on_context_off(self):
+        runner = _StubDirectChat()
+>       cap = await runner.run(-100, master=True, context_on=False)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_budget_global_toggle_round1024.py:543: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_budget_global_toggle_round1024.py:527: in run
+    await self._stub._build_user_content(chat_id, _Msg(), "╨▓╨░╤Б╤П", None)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_budget_global_toggle_round1024._StubDirectChat._make.<locals>._Svc object at 0x00000251F2E32AB0>
+chat_id = -100
+message = <tests.test_budget_global_toggle_round1024._StubDirectChat.run.<locals>._Msg object at 0x00000251F2E32B70>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = None, projection = None, memory_scope = None
+out_rag_ctx = None, correlation_id = None, out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _StubDirectChat._make.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+________________ TestMasterPriority.test_master_on_context_on _________________
+
+self = <tests.test_budget_global_toggle_round1024.TestMasterPriority object at 0x00000251F24E9FD0>
+
+    @pytest.mark.asyncio
+    async def test_master_on_context_on(self):
+        runner = _StubDirectChat()
+>       cap = await runner.run(-100, master=True, context_on=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_budget_global_toggle_round1024.py:549: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_budget_global_toggle_round1024.py:527: in run
+    await self._stub._build_user_content(chat_id, _Msg(), "╨▓╨░╤Б╤П", None)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_budget_global_toggle_round1024._StubDirectChat._make.<locals>._Svc object at 0x00000251F2E30980>
+chat_id = -100
+message = <tests.test_budget_global_toggle_round1024._StubDirectChat.run.<locals>._Msg object at 0x00000251F2E30140>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = None, projection = None, memory_scope = None
+out_rag_ctx = None, correlation_id = None, out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _StubDirectChat._make.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+_ TestComposerOffBannerPlacement.test_banner_on_conspect_only_in_range_lines_unlabeled _
+
+self = <tests.test_history_w4_fixes.TestComposerOffBannerPlacement object at 0x00000251F24F1D00>
+
+    @pytest.mark.asyncio
+    async def test_banner_on_conspect_only_in_range_lines_unlabeled(self):
+        """OFF + ╨▓╤Л╨▒╨╛╤А╨║╨░ + ╨║╨╛╨╜╤Б╨┐╨╡╨║╤В: ╨▒╨░╨╜╨╜╨╡╤А ╨▓╨╛╨╖╨│╨╗╨░╨▓╨╗╤П╨╡╤В ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╤А╨╡╨│╨╕╨╛╨╜
+        ╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨░ (╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░); ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╨╛╨║╨╜╨░ ╨╕╨┤╤Г╤В ╨┐╨╛╤Б╨╗╨╡ ╤П╨▓╨╜╨╛╨╣
+        ╨│╤А╨░╨╜╨╕╤З╨╜╨╛╨╣ ╤Б╤В╤А╨╛╨║╨╕ in-range ╤А╨╡╨│╨╕╨╛╨╜╨░ тАФ ┬л╨╜╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В ╤Б╨╛╨▒╤Л╤В╨╕╤П
+        ╨▓╨╜╤Г╤В╤А╨╕ ╨╖╨░╨┐╤А╨╛╤И╨╡╨╜╨╜╨╛╨│╨╛ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░┬╗ ╨╕╤Е ╨╜╨╡ ╨╜╨░╨║╤А╤Л╨▓╨░╨╡╤В (╨▒╨╗╨╛╨║╨╡╤А A
+        review-w4-fix: ╨▒╨░╨╜╨╜╨╡╤А ╨╜╨░╨┤ ╤Б╨║╨╗╨╡╨╣╨║╨╛╨╣ head+tail ╨▒╤Л╨╗ ╨┤╨╡╤Д╨╡╨║╤В╨╛╨╝)."""
+        window = [_window_row(10, "╨▓╨░╤Б╤П", "╤Б╨▓╨╡╨╢╨╡╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╕╨╖ ╨╛╨║╨╜╨░", 500, 7)]
+>       blocks = await self._global_block(
+            window, {"summary": "╨║╨╛╨╜╤Б╨┐╨╡╨║╤В ╨┐╤А╨╛╤И╨╗╨╛╨│╨╛ ╤Д╨╛╨╜╨░", "raw_count": 7,
+                     "window_end_ts": 0}, with_sample=True)
+
+tests\test_history_w4_fixes.py:770: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F2E41670>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2E404D0>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = {'sample_id': 'hs_ab12cd34ef56'}, projection = None
+memory_scope = None, out_rag_ctx = None, correlation_id = None
+out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+_ TestComposerOffBannerPlacement.test_inrange_region_covers_all_window_lines __
+
+self = <tests.test_history_w4_fixes.TestComposerOffBannerPlacement object at 0x00000251F24F2420>
+
+    @pytest.mark.asyncio
+    async def test_inrange_region_covers_all_window_lines(self):
+        """╨Т╤Б╨╡ ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╨╛╨║╨╜╨░ тАФ ╨▓ in-range ╤А╨╡╨│╨╕╨╛╨╜╨╡ ╨┐╨╛╤Б╨╗╨╡ ╨│╤А╨░╨╜╨╕╤З╨╜╨╛╨╣
+        ╤Б╤В╤А╨╛╨║╨╕, ╨╜╨╕ ╨╛╨┤╨╜╨░ ╨╜╨╡ ╨╛╤Б╤В╨░╨╗╨░╤Б╤М ╨┐╨╛╨┤ ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П."""
+        window = [_window_row(10, "╨▓╨░╤Б╤П", "╨┐╨╡╤А╨▓╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╛╨║╨╜╨░", 500, 7),
+                  _window_row(11, "╨┐╨╡╤В╤П", "╨▓╤В╨╛╤А╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╛╨║╨╜╨░", 510, 8)]
+>       blocks = await self._global_block(
+            window, {"summary": "╨║╨╛╨╜╤Б╨┐╨╡╨║╤В ╨┐╤А╨╛╤И╨╗╨╛╨│╨╛ ╤Д╨╛╨╜╨░", "raw_count": 7,
+                     "window_end_ts": 0}, with_sample=True)
+
+tests\test_history_w4_fixes.py:802: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F2E37CE0>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2E36B70>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = {'sample_id': 'hs_ab12cd34ef56'}, projection = None
+memory_scope = None, out_rag_ctx = None, correlation_id = None
+out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+___ TestComposerOffBannerPlacement.test_verbatim_only_global_gets_no_banner ___
+
+self = <tests.test_history_w4_fixes.TestComposerOffBannerPlacement object at 0x00000251F24F2B40>
+
+    @pytest.mark.asyncio
+    async def test_verbatim_only_global_gets_no_banner(self):
+        """OFF + ╨▓╤Л╨▒╨╛╤А╨║╨░ ╨С╨Х╨Ч ╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨░: ╨▓╤Б╤С ╤В╨╡╨╗╨╛ тАФ ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╨╛╨║╨╜╨░
+        (╨▓╨╜╤Г╤В╤А╨╕ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) тАФ ╨▒╨░╨╜╨╜╨╡╤А╨░ ╨╜╨╡╤В ╨▓╨╛╨▓╤Б╨╡."""
+        window = [_window_row(10, "╨▓╨░╤Б╤П", "╤Б╨▓╨╡╨╢╨╡╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╕╨╖ ╨╛╨║╨╜╨░", 500, 7)]
+>       blocks = await self._global_block(window, None, with_sample=True)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_history_w4_fixes.py:822: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F2E35C10>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2E35880>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = {'sample_id': 'hs_ab12cd34ef56'}, projection = None
+memory_scope = None, out_rag_ctx = None, correlation_id = None
+out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+_______ TestComposerOffBannerPlacement.test_no_sample_parity_no_banner ________
+
+self = <tests.test_history_w4_fixes.TestComposerOffBannerPlacement object at 0x00000251F24F3230>
+
+    @pytest.mark.asyncio
+    async def test_no_sample_parity_no_banner(self):
+        """OFF ╨▒╨╡╨╖ ╨▓╤Л╨▒╨╛╤А╨║╨╕: ╨▒╨░╨╜╨╜╨╡╤А╨░ ╨╜╨╡╤В (╨┐╤А╨╡╨╢╨╜╨╕╨╣ ╤Е╨╛╨┤)."""
+        window = [_window_row(10, "╨▓╨░╤Б╤П", "╨╛╨▒╤Л╤З╨╜╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡", 500, 7)]
+>       blocks = await self._global_block(window, None, with_sample=False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_history_w4_fixes.py:831: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F2E369C0>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2E37EF0>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = None, projection = None, memory_scope = None
+out_rag_ctx = None, correlation_id = None, out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+_ TestComposerOffBannerPlacement.test_overflow_conspect_remainder_stays_under_banner _
+
+self = <tests.test_history_w4_fixes.TestComposerOffBannerPlacement object at 0x00000251F24F3920>
+
+    @pytest.mark.asyncio
+    async def test_overflow_conspect_remainder_stays_under_banner(self):
+        """╨Ъ╨╛╨╜╤Б╨┐╨╡╨║╤В ╨┤╨╗╨╕╨╜╨╜╨╡╨╡ ╨┐╨╛╤В╨╛╨╗╨║╨░ ╤Д╨╛╨╜╨░ (╤И╤В╨░╤В╨╜╨░╤П keep-head ╨▓╨╡╤В╨║╨░
+        ╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П, ╨▒╨╗╨╛╨║╨╡╤А A review-w4-fix2): ╨▓╤Л╨╢╨╕╨▓╤И╨╕╨╣ ╨╛╤Б╤В╨░╤В╨╛╨║ ╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨░
+        ╨╛╤Б╤В╨░╤С╤В╤Б╤П ╨┐╨╛╨┤ ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П; ╨│╤А╨░╨╜╨╕╤З╨╜╨╛╨╣ ╤Б╤В╤А╨╛╨║╨╕ ╨╜╨╡╤В тАФ ╨╡╤С ╨╝╨╛╨╢╨╡╤В
+        ╨╛╤В╨║╤А╤Л╤В╤М ╤В╨╛╨╗╤М╨║╨╛ ╨▓╤Л╨╢╨╕╨▓╤И╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨╛╨║╨╜╨░, ╨░ ╤Г╤Б╨╡╤З╨╡╨╜╨╕╨╡ ╨╡╤С ╤Г╨╜╨╡╤Б╨╗╨╛.
+        ╨Ш╨╜╨▓╨░╤А╨╕╨░╨╜╤В: ╨┐╨╛╤Б╨╗╨╡ ╨│╤А╨░╨╜╨╕╤Ж╤Л ╨╜╨╡ ╨▒╤Л╨▓╨░╨╡╤В ╨╜╨╡-╨╛╨║╨╛╨╜╨╜╨╛╨│╨╛ ╨║╨╛╨╜╤В╨╡╨╜╤В╨░."""
+        long_summary = ("CONSPECTUS_TAIL_MARKER ╨╛╤Б╤В╨░╤В╨╛╨║ ╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨░ "
+                        + "╨╖╨░╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╤Д╨╛╨╜╨░ " * 300)
+        window = [_window_row(10, "╨▓╨░╤Б╤П", "╤Б╨▓╨╡╨╢╨╡╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╕╨╖ ╨╛╨║╨╜╨░", 500, 7)]
+>       blocks = await self._global_block(
+            window, {"summary": long_summary, "raw_count": 100,
+                     "window_end_ts": 0}, with_sample=True, max_tokens=40)
+
+tests\test_history_w4_fixes.py:846: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F2E3E120>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2B13BF0>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = {'sample_id': 'hs_ab12cd34ef56'}, projection = None
+memory_scope = None, out_rag_ctx = None, correlation_id = None
+out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:19211 direct: global context truncated | tokens=1267 -> 34
+WARNING  services.token_counter:token_counter.py:197 token_counter: keep-head truncated to 34 tokens (was 1238)
+______ TestComposerOffBannerPlacement.test_no_inrange_lines_no_boundary _______
+
+self = <tests.test_history_w4_fixes.TestComposerOffBannerPlacement object at 0x00000251F24F3FB0>
+
+    @pytest.mark.asyncio
+    async def test_no_inrange_lines_no_boundary(self):
+        """╨Т╤Б╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╨╛╨║╨╜╨░ ╤Б╤В╨░╤А╤И╨╡ window_end_ts (╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨┐╤Г╤Б╤В):
+        ╨▒╨░╨╜╨╜╨╡╤А ╨╜╨░╨┤ ╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝, ╨│╤А╨░╨╜╨╕╤З╨╜╨╛╨╣ ╤Б╤В╤А╨╛╨║╨╕ ╨╜╨╡╤В тАФ ╨╕╨╜╨▓╨░╤А╨╕╨░╨╜╤В ┬л╨│╤А╨░╨╜╨╕╤Ж╨░
+        ╤В╨╛╨╗╤М╨║╨╛ ╨┐╨╡╤А╨╡╨┤ ╤Б╤В╤А╨╛╨║╨░╨╝╨╕ ╨╛╨║╨╜╨░┬╗."""
+        window = [_window_row(10, "╨▓╨░╤Б╤П", "╤Б╤В╨░╤А╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╛╨║╨╜╨░", 500, 7)]
+>       blocks = await self._global_block(
+            window, {"summary": "╨║╨╛╨╜╤Б╨┐╨╡╨║╤В ╨┐╤А╨╛╤И╨╗╨╛╨│╨╛ ╤Д╨╛╨╜╨░", "raw_count": 7,
+                     "window_end_ts": 10 ** 9}, with_sample=True)
+
+tests\test_history_w4_fixes.py:870: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F2E40560>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2E40500>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = {'sample_id': 'hs_ab12cd34ef56'}, projection = None
+memory_scope = None, out_rag_ctx = None, correlation_id = None
+out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+_ TestStandardCeilingBoundaryRecount.test_partial_trim_boundary_before_first_survivor _
+
+self = <tests.test_history_w4_fixes.TestStandardCeilingBoundaryRecount object at 0x00000251F24F2CF0>
+
+    @pytest.mark.asyncio
+    async def test_partial_trim_boundary_before_first_survivor(self):
+        """5699тЖТ4347-╤Б╤В╨╕╨╗╤М: ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╤Б╤А╨╡╨╖╨░╨╡╤В ╨з╨Р╨б╨в╨м ╤Б╤В╤А╨╛╨║ ╨╛╨║╨╜╨░ ╤И╤В╨░╤В╨╜╤Л╨╝
+        ╤В╤А╨╕╨╝╨╛╨╝. ╨У╤А╨░╨╜╨╕╤Ж╨░ тАФ ╨┐╨╡╤А╨╡╨┤ ╨Я╨Х╨а╨Т╨Ю╨Щ ╨▓╤Л╨╢╨╕╨▓╤И╨╡╨╣ ╤Б╤В╤А╨╛╨║╨╛╨╣ ╨╛╨║╨╜╨░; ╨┤╨╛ ╨│╤А╨░╨╜╨╕╤Ж╤Л
+        ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╤Е ╤Б╤В╤А╨╛╨║ ╨╜╨╡╤В; ╨▓╤Л╨╢╨╕╨▓╤И╨╕╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╨╜╨╡ ╨┤╤Г╨▒╨╗╨╕╤А╤Г╤О╤В╤Б╤П."""
+        words = ("╨Ю╨Ф╨Ш╨Э", "╨Ф╨Т╨Р", "╨в╨а╨Ш", "╨з╨Х╨в╨л╨а╨Х", "╨Я╨п╨в╨м")
+        window = [_window_row(10, "╨▓╨░╤Б╤П",
+                              f"╨┤╨╛╤Б╨╗╨╛╨▓╨╜╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╛╨║╨╜╨░ {w} " + "╤Е" * 120,
+                              500 + i, 7 + i)
+                  for i, w in enumerate(words)]
+        summary = "╤Д╨╛╨╜-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В ╨┐╤А╨╛╤И╨╗╨╛╨│╨╛ " * 4
+        rendered = self._rendered(window)
+        head_units = self._head_units(summary)
+        join_m = {m: count_tokens("\n".join(rendered[-m:]))
+                  for m in (2, 3, 4, 5)}
+        # ╨▓╤Л╨╢╨╕╨▓╨░╤О╤В ╤А╨╛╨▓╨╜╨╛ 3 ╤Б╤В╤А╨╛╨║╨╕  тЗФ  mu = budget тИТ head тИИ [join_3, join_4)
+        low = head_units + join_m[3]
+        high = head_units + join_m[4]
+        assert high - low >= 8, "╤Б╤В╤А╨╛╨║╨╕ ╨╛╨║╨╜╨░ ╤Б╨╗╨╕╤И╨║╨╛╨╝ ╨║╨╛╤А╨╛╤В╨║╨╕ ╨┤╨╗╤П ╤Б╤В╨╡╨╜╨┤╨░"
+        budget = (low + high) // 2
+        assert head_units + join_m[5] > budget, \
+            "╤И╤В╨░╤В╨╜╨╛╨╡ ╤Г╤Б╨╡╤З╨╡╨╜╨╕╨╡ ╨╜╨╡ ╨╖╨░╨┐╤Г╤Б╨║╨░╨╡╤В╤Б╤П тАФ ╤Б╤В╨╡╨╜╨┤ ╨╜╨╡╨▓╨╡╤А╨╡╨╜"
+>       blocks = await self._block(
+            window, {"summary": summary, "raw_count": 7, "window_end_ts": 0},
+            budget)
+
+tests\test_history_w4_fixes.py:948: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:908: in _block
+    return await helper._global_block(
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F2E41EE0>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2E402F0>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = {'sample_id': 'hs_ab12cd34ef56'}, projection = None
+memory_scope = None, out_rag_ctx = None, correlation_id = None
+out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:19211 direct: global context truncated | tokens=806 -> 572
+_ TestStandardCeilingBoundaryRecount.test_fully_trimmed_tail_emits_no_boundary _
+
+self = <tests.test_history_w4_fixes.TestStandardCeilingBoundaryRecount object at 0x00000251F24F1910>
+
+    @pytest.mark.asyncio
+    async def test_fully_trimmed_tail_emits_no_boundary(self):
+        """4532тЖТ4347-╤Б╤В╨╕╨╗╤М: ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╤Б╤А╨╡╨╖╨░╨╡╤В ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ ╨ж╨Х╨Ы╨Ш╨Ъ╨Ю╨Ь (╨║╨╛╨╜╤Б╨┐╨╡╨║╤В
+        ╤Б╨░╨╝ ╨┐╨╛╨╝╨╡╤Й╨░╨╡╤В╤Б╤П ╨▓ ╨▒╤О╨┤╨╢╨╡╤В). ╨У╤А╨░╨╜╨╕╤З╨╜╨╛╨╣ ╤Б╤В╤А╨╛╨║╨╕ ╨╜╨╡╤В ╨▓╨╛╨▓╤Б╨╡ тАФ ╨┐╤Г╤Б╤В╨╛╨╣
+        in-range ╤А╨╡╨│╨╕╨╛╨╜ (┬л╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░┬╗ ╨▒╨╡╨╖ ╨╡╨┤╨╕╨╜╨╛╨╣
+        ╤Б╤В╤А╨╛╨║╨╕) ╨╖╨░╨┐╤А╨╡╤Й╤С╨╜; ╤А╨╛╨┤╨╕╤В╨╡╨╗╤М 6d800b07 ╨│╤А╨░╨╜╨╕╤Ж╤Л ╨╜╨╡ ╤Б╤В╨░╨▓╨╕╨╗."""
+        window = [_window_row(10, "╨▓╨░╤Б╤П",
+                              "╨Ь╨Р╨а╨Ъ╨Х╨а╨Я╨Ю╨Ы╨Э╨л╨Щ╨Я╨Х╨а╨Т╨л╨Щ " + "╤Е" * 300, 500, 7),
+                  _window_row(11, "╨┐╨╡╤В╤П",
+                              "╨Ь╨Р╨а╨Ъ╨Х╨а╨Я╨Ю╨Ы╨Э╨л╨Щ╨Т╨в╨Ю╨а╨Ю╨Щ " + "╤Е" * 300, 510, 8)]
+        summary = "╤Д╨╛╨╜-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В ╨┐╤А╨╛╤И╨╗╨╛╨│╨╛ " * 4
+        rendered = self._rendered(window)
+        head_units = self._head_units(summary)
+        line_units = count_tokens(rendered[0])
+        tail_join = count_tokens("\n".join(rendered))
+        # mu = budget тИТ head < line_units тЗТ ╨╛╨▒╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╤Г╤Е╨╛╨┤╤П╤В ╤Ж╨╡╨╗╨╕╨║╨╛╨╝;
+        # budget тЙе head тЗТ keep-head ╤А╨╡╨╖╨╡╤А╨▓ ╨╜╨╡ ╨╖╨░╨┐╤Г╤Б╨║╨░╨╡╤В╤Б╤П
+        budget = head_units + max(1, line_units // 2)
+        assert head_units + tail_join > budget, \
+            "╤И╤В╨░╤В╨╜╨╛╨╡ ╤Г╤Б╨╡╤З╨╡╨╜╨╕╨╡ ╨╜╨╡ ╨╖╨░╨┐╤Г╤Б╨║╨░╨╡╤В╤Б╤П тАФ ╤Б╤В╨╡╨╜╨┤ ╨╜╨╡╨▓╨╡╤А╨╡╨╜"
+>       blocks = await self._block(
+            window, {"summary": summary, "raw_count": 7, "window_end_ts": 0},
+            budget)
+
+tests\test_history_w4_fixes.py:990: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_history_w4_fixes.py:908: in _block
+    return await helper._global_block(
+tests\test_history_w4_fixes.py:748: in _global_block
+    blocks = await svc._build_user_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_history_w4_fixes._off_service.<locals>._Svc object at 0x00000251F24F35C0>
+chat_id = -1001234567890
+message = <tests.test_history_w4_fixes._Msg object at 0x00000251F2E3E4B0>
+target_name = '╨▓╨░╤Б╤П', target_user_id = None, out_excluded = None
+out_fallback = None, style_directives = '', extra_media_markers = ()
+history_sample = {'sample_id': 'hs_ab12cd34ef56'}, projection = None
+memory_scope = None, out_rag_ctx = None, correlation_id = None
+out_prepared = None
+
+    async def _build_user_content(self, chat_id: int, message,
+                                  target_name: str,
+                                  target_user_id: int | None = None,
+                                  out_excluded: list | None = None,
+                                  out_fallback: dict | None = None,
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None,
+                                  projection=None,
+                                  memory_scope: str | None = None,
+                                  out_rag_ctx: dict | None = None,
+                                  correlation_id: str | None = None,
+                                  out_prepared: dict | None = None
+                                  ) -> list[str]:
+        """╨Я╨╛╤А╤П╨┤╨╛╨║ ╤Б╨▒╨╛╤А╨║╨╕ user-╨║╨╛╨╜╤В╨╡╨╜╤В╨░ (╨а╨░╤Г╨╜╨┤ 8, B2/T-791, spec ┬з3.B2) тАФ
+        ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗ (FR-22/╨┐.24): map тЖТ branch тЖТ rag тЖТ global тЖТ thread тЖТ
+        target тЖТ relations тЖТ protected тЖТ lore тЖТ current тЖТ sandwich. ╨б╤В╨░╤В╨╕╨║╨░
+        ╨▓╨▓╨╡╤А╤Е, ╨║╤А╨╕╤В╨╕╤З╨╜╨╛╨╡ (target/relations/protected/current) ╨▒╨╗╨╕╨╢╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г.
+        ╨а╨░╤Г╨╜╨┤ 9 (T-819/B4, spec ┬з3.1.4): ╨▒╨╗╨╛╨║
+        <user_relations> (kind "relations") тАФ ╨б╨а╨Р╨Ч╨г ╨Я╨Ю╨б╨Ы╨Х ("target", тАж), ╨┤╨╛
+        protected/lore; ╨║╨░╨┐ ╨┐╨╛ ╤Б╨╕╨╝╨▓╨╛╨╗╨░╨╝ тАФ ╨┤╨╛ ╨╕╨╜╨╢╨╡╨║╤В╨░; uncuttable (╨▓╨╜╨╡
+        ╨║╨╛╨╜╤В╨╡╨║╤Б╤В-╨▒╤О╨┤╨╢╨╡╤В╨░). ╨а╨░╤Г╨╜╨┤ 8 (C5/T-796): <Target_User> ╤Б uid ╨░╨▓╤В╨╛╤А╨░
+        ╨╖╨░╨┐╤А╨╛╤Б╨░ (NFR-2: ╤Б╨║╨╛╨▒╨║╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╜╤Л╤Е ╨▒╨╗╨╛╨║╨░╤Е direct_chat).
+        ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╨╕ ╤А╨╛╤Г╤В╨╡╤А╨╛╨▓/╤Е╨╡╨╜╨┤╨╗╨╡╤А╨╛╨▓ ╨Э╨Х ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П тАФ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛
+        ╤Н╤В╨░ ╤Б╨▒╨╛╤А╨║╨░. ╨а╨░╤Г╨╜╨┤ 8 (F2/T-808): ╨┤╨▓╤Г╤Е╨┐╤А╨╛╤Е╨╛╨┤╨╜╨╛╤Б╤В╤М тАФ <Global_Context>
+        ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В╤Б╤П ╨а╨Р╨Э╨м╨и╨Х <RAG_Memory> (╤В╨╡╨║╤Б╤В ╤Д╨╛╨╜╨░ ╨╜╤Г╨╢╨╡╨╜ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛
+        ╨┤╨╡╨┤╤Г╨┐╨░ RAG), ╨║╨╛╨╜╤В╨╡╨╜╤В-╨┐╨╛╤А╤П╨┤╨╛╨║ blocks (rag тЖТ global) ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П.
+        ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826, spec ┬з3.5.1): ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗ (kind "nostalgia")
+        ╨▓╤Б╤В╨░╤С╤В ╨Я╨Ю╨б╨Ы╨Х relations, ╨┤╨╛ current (╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨░ ┬л╨▓╨░╨╢╨╜╨╛╨╡ ╨║ ╨║╨╛╨╜╤Ж╤Г┬╗).
+        UR-E (UNIFIED-REPLY, owner 2026-11-05): mood (65.9) ╨╕ style_anchors
+        (65.4) ╨Э╨Х ╨┤╨╛╨▒╨░╨▓╨╗╤П╤О╤В╤Б╤П тАФ ╨╗╨╡╨║╤Б╨╕╤З╨╡╤Б╨║╨╕╨╣ mood-╤П╤А╨╗╤Л╨║ ╨╜╨╡ ╨┐╨╛╨┤╨╝╨╡╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ L2
+        ╨║╨░╨║ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П (╤В╨╛╨╜ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В L1, UR-16), ╨░╨▓╤В╨╛╨┐╨╛╨┤╤А╨░╨╢╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╤Л╨╝
+        ╨╛╤В╨▓╨╡╤В╨░╨╝ ╨▒╨╛╤В╨░ ╤Б╨╜╤П╤В╨╛ (UR-14); ╤А╨╡╨┐╨╗╨╕╨║╨╕ ╨▒╨╛╤В╨░ ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╛╨▒╤Л╤З╨╜╤Л╨╝╨╕
+        ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕╤Б╤В╨╛╤А╨╕╨╕."""
+        window = await self.memory.get_window_messages(chat_id)
+        # ╨а╨░╤Г╨╜╨┤ 10.23 (F1, ADR-1023-1): ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Е╨╛╨┤ тАФ
+        # ╤В╤А╨╕╨│╨│╨╡╤А ╨╝╨░╤А╨║╨╕╤А╨╛╨▓╨║╨╕ (╤Б╨╛╨┐╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛ Telegram message_id).
+        # R1023F1-01: ╨╝╨░╤А╨║╨╡╤А ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨а╨Ю╨Т╨Э╨Ю ╨Ю╨Ф╨Ш╨Э ╤А╨░╨╖ ╨╜╨░ ╨▓╤Б╤О ╤Б╨▒╨╛╤А╨║╤Г.
+        # SPEECH-P0-A2 (┬зcurrent-turn boundary): ╤В╨╡╨║╤Г╤Й╨░╤П ╤А╨╡╨┐╨╗╨╕╨║╨░ ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        # ╨▓╤Е╨╛╨┤╨╕╤В ╨▓ ╨╕╤Б╤В╨╛╤А╨╕╤О (<Global_Context>), ╨┐╨╛╤Н╤В╨╛╨╝╤Г legacy-╨┐╤Г╤В╤М ╤Б╤В╨░╨▓╨╕╤В
+        # ╨╝╨░╤А╨║╨╡╤А ╨▓ <Current_Question>, ╨░ composer-╨┐╤Г╤В╤М тАФ ╨▓ thread (walk ╨┤╨╛
+        # ╤В╤А╨╕╨│╨│╨╡╤А╨░); ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨▒╨╗╨╛╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨░╤О╤В trigger_message_id=None.
+        trigger_message_id = getattr(message, "message_id", None)
+        # ╨а╨░╤Г╨╜╨┤ 8 (C2/T-793): ╨║╨░╤А╤В╨░ ╨┐╨╛ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╝ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ (24 ╤З) + ╨╛╨║╨╜╨╛;
+        # ╤Б╤Г╤Д╤Д╨╕╨║╤Б╤Л-╨┤╨╕╤Б╨║╤А╨╕╨╝╨╕╨╜╨░╤В╨╛╤А╤Л (C3/T-794) ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤А╨╡╨╜╨┤╨╡╤А.
+        active = await self._active_participants(chat_id)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
+        blocks: list[tuple[str, str]] = []
+        alias_map = self._alias_map_block(roster)
+        if alias_map:
+            blocks.append(("map", alias_map))
+        # ASAP-3 (ADR-1028-2 D3/D7): ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А тАФ walk ╨┤╨╛ CHAT_THREAD_WALK_MAX,
+        # ╨▒╨╕╨╗╨┤╨╡╤А╤Л global/thread ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ ┬л╨▒╨╡╨╖ self-╤Г╤Б╨╡╤З╨╡╨╜╨╕╤П┬╗.
+        composer_mode = _composer.composer_on()
+        if composer_mode:
+            chain = await self._collect_thread_chain(
+                chat_id, message, depth=_composer.thread_walk_max())
+        else:
+            chain = await self._collect_thread_chain(chat_id, message)
+        # EVOL-015 (╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤П ╨┐╨╛ ╤В╨╛╨╢╨┤╨╡╤Б╤В╨▓╤Г): ╨▒╤Г╤Е╨│╨░╨╗╤В╨╡╤А╨╕╤П ╤А╨╡╨╜╨┤╨╡╤А╨░ ╤Ж╨╡╨┐╨╛╤З╨║╨╕ тАФ
+        # ╨║╨░╨║╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В ╨║╨░╨║╨╛╨╝╤Г ╤Е╨╛╨┤╤Г. ╨Ч╨░╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨в╨Х╨Ь ╨Ц╨Х
+        # ╨┐╤А╨╛╤Е╨╛╨┤╨╛╨╝ ╤А╨╡╨╜╨┤╨╡╤А╨░ (╨┐╨╡╤А╨╡╤А╨╡╨╜╨┤╨╡╤А ╤Б╨╗╨╛╨╝╨░╨╗ ╨▒╤Л ┬лrender = delivery┬╗).
+        _chain_rendered: dict = {}
+        if self._is_reply_trigger(message) and len(chain) >= 2:
+            # EVOL-015: ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ┬л╤Ж╨╕╤В╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨░┬╗ ╨╛╤В╨║╨╗╨░╨┤╤Л╨▓╨░╨╡╤В╤Б╤П ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░,
+            # ╨║╨╛╨│╨┤╨░ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ payload ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╜╨░ ╤Е╨╛╨┤) тАФ ╤А╨╡╨╜╨┤╨╡╤А
+            # ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨╕ ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╤А╨╡╨╢╨╕╨╝╨╡.
+            branch = self._render_branch(
+                chain, suffix_map, projection=projection,
+                emit_quote=False,
+                out_lines=_chain_rendered.setdefault("branch", []))
+            if branch:
+                blocks.append(("branch", branch))
+        # F2: global ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╤А╨░╨╜╤М╤И╨╡ RAG (╤В╨╡╨╗╨╛ ╤Д╨╛╨╜╨░ тАФ ╨┤╨╗╤П ╤Б╨╗╨╛╨▓╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╡╨┤╤Г╨┐╨░).
+        global_parts: dict | None = None
+        if composer_mode:
+            global_parts = await self._build_global_context_parts(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+            global_ctx = "\n".join(
+                global_parts["head_lines"] + global_parts["tail_lines"])
+        else:
+            global_ctx = await self._build_global_context(
+                chat_id, window, roster, suffix_map,
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample, projection=projection)
+        # ╨а╨░╤Г╨╜╨┤ 9 (E1/T-826): ╨▓╤В╨╛╤А╨╛╨╣ ╤Н╨╗╨╡╨╝╨╡╨╜╤В ╨║╨╛╤А╤В╨╡╨╢╨░ тАФ ╨╝╨░╤А╨║╨╡╤А ┬л╨╖╨╛╨╗╨╛╤В╤Л╤Е┬╗
+        # (╨▒╨╗╨╛╨║ kind "nostalgia" ╤Б╤В╨░╨▓╨╕╤В╤Б╤П ╨Я╨Ю╨Ч╨Ц╨Х: ╨┐╨╛╤Б╨╗╨╡ relations).
+        # P0-HA ISOLATION (┬з3): ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╣ ╨▓╤Л╨▒╨╛╤А╨║╨╡ RAG-╨┐╨░╨╝╤П╤В╤М (╨▓╨║╨╗╤О╤З╨░╤П
+        # ╨│╤А╨░╤Д-╨░╨║╤В╨╕╨▓╨░╤Ж╨╕╤О/golden/self-echo) тАФ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░,
+        # ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╨▒╨░╨╜╨╜╨╡╤А╨╛╨╝ (╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨▓╤Л╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П, ╨╝╨╡╤В╨║╨╕ ╨╛╤Б╤В╨░╤О╤В╤Б╤П).
+        _rag_out: dict = {}
+        rag_block, nostalgia_hint = await self._build_rag_block(
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection, memory_scope=memory_scope,
+            subject_name=target_name, subject_uid=target_user_id,
+            out_memory=_rag_out, trace_id=correlation_id,
+            selection_mode=composer_mode)
+        if rag_block:
+            blocks.append(("rag", rag_block))
+        if out_rag_ctx is not None:
+            # VMQ-MEM-TIME (┬з2, ╨▒╨╗╨╛╨║╨╡╤А 1 ╤А╨╡-╤А╨╡╨▓╤М╤О 10.11.2026): ╨▒╨╗╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕
+            # ╤Б╨╛╨▒╤А╨░╨╜ ╨Ф╨Ю ╨┐╨╗╨░╨╜╨░ L1 (╨╛╨╜ ╨╜╤Г╨╢╨╡╨╜ ╤Б╨░╨╝╨╛╨╝╤Г L1). ╨Ч╨┤╨╡╤Б╤М ╨╖╨░╨┐╨╛╨╝╨╕╨╜╨░╨╡╤В╤Б╤П
+            # ╤А╨╛╨▓╨╜╨╛ ╤В╨╛, ╤З╤В╨╛ ╨╜╤Г╨╢╨╜╨╛, ╤З╤В╨╛╨▒╤Л ╨Я╨Ю╨б╨Ы╨Х ╨┐╨╗╨░╨╜╨░ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╤В╤М ╨Ю╨Ф╨Ш╨Э ╤Н╤В╨╛╤В
+            # ╨▒╨╗╨╛╨║ ╤Б ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╛╨╣ ╨╕╨╖ ╨┐╨╗╨░╨╜╨░; ╨╛╤Б╤В╨░╨╗╤М╨╜╨░╤П ╤Б╨▒╨╛╤А╨║╨░ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П.
+            out_rag_ctx.update({
+                "chat_id": chat_id, "message": message,
+                "global_ctx": global_ctx, "history_sample": history_sample,
+                "projection": projection, "subject_name": target_name,
+                "subject_uid": target_user_id,
+                "index": len(blocks) - 1 if rag_block else len(blocks),
+                "block": rag_block,
+            })
+        if composer_mode:
+            # <Global_Context> materializ╨╕╤А╤Г╨╡╤В╤Б╤П ╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А╨╛╨╝ ╨╕╨╖ ╤З╨░╤Б╤В╨╡╨╣
+            # (head=P2 / middle=P3 / tail=P1) ╨╜╨░ ╤Б╨╗╨╛╤В╨╡ global.
+            pass
+        elif global_ctx:
+            # P0-HA ISOLATION (╨▒╨╗╨╛╨║╨╡╤А 3 review-w4): legacy-╨┐╤Г╤В╤М (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А
+            # OFF) тАФ ╨▒╨░╨╜╨╜╨╡╤А ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П ╤Б╤В╨░╨▓╨╕╤В ╤Б╨░╨╝ `_build_global_context`
+            # ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╜╨░╨┤ head-╨║╨╛╨╜╤Б╨┐╨╡╨║╤В╨╛╨╝; ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╣ ╤Е╨▓╨╛╤Б╤В ╨╛╨║╨╜╨░ (╨▓╨╜╤Г╤В╤А╨╕
+            # ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╨░) ╨╜╨╡ ╨╝╨╡╤В╨╕╤В╤Б╤П. ╨Ф╨╡╨┤╤Г╨┐ RAG ╤Г╨╢╨╡ ╨┐╤А╨╛╤И╤С╨╗, ╨▒╨░╨╜╨╜╨╡╤А ╨▓ ╨╜╨╡╨│╨╛
+            # ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В.
+            blocks.append(("global", global_ctx))
+        if composer_mode:
+            # EVOL-015: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╨▒╨╡╨╖ ╤Н╨╝╨╕╤Б╤Б╨╕╨╕ тАФ ╨▓╤Л╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╤Б╤В╤А╨╛╨║
+            # ╤А╨╡╤И╨░╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В payload (╤Н╨╝╨╕╤Б╤Б╨╕╤П ╨╛╨┤╨╜╨░, ╨▓ ╨║╨╛╨╜╤Ж╨╡ ╤Е╨╛╨┤╨░).
+            thread = self._render_thread(chain, suffix_map, None,
+                                         trigger_message_id, truncate=False,
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+        else:
+            # Legacy (╨║╨╛╨╝╨┐╨╛╨╖╨╡╤А OFF): ╤А╨╡╨╜╨┤╨╡╤А ╤Б╨░╨╝ ╤Г╤Б╨╡╨║╨░╨╡╤В ╤В╨╡╨╗╨╛, ╨╜╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╛╨╣
+            # ╤Н╤В╨╛ ╨╜╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П тАФ ╤Б╨╛╨▒╤Л╤В╨╕╨╡ ╤Н╨╝╨╕╤В╨╕╤В╤Б╤П ╨┐╨╛ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╝╤Г ╤В╨╡╨║╤Б╤В╤Г.
+>           thread = self._render_thread(chain, suffix_map,
+                                         await self._thread_limit(chat_id),
+                                         projection=projection,
+                                         emit_quote=False,
+                                         out_lines=_chain_rendered.setdefault(
+                                             "thread", []))
+E           TypeError: _off_service.<locals>._Svc._render_thread() got an unexpected keyword argument 'projection'
+
+services\direct_chat_service.py:11977: TypeError
+------------------------------ Captured log call ------------------------------
+WARNING  services.direct_chat_service:direct_chat_service.py:19211 direct: global context truncated | tokens=718 -> 208
+=========================== short test summary info ===========================
+FAILED tests/test_budget_global_toggle_round1024.py::TestMasterPriority::test_master_off_overrides_context_on
+FAILED tests/test_budget_global_toggle_round1024.py::TestMasterPriority::test_master_on_context_off
+FAILED tests/test_budget_global_toggle_round1024.py::TestMasterPriority::test_master_on_context_on
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_banner_on_conspect_only_in_range_lines_unlabeled
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_inrange_region_covers_all_window_lines
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_verbatim_only_global_gets_no_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_sample_parity_no_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_overflow_conspect_remainder_stays_under_banner
+FAILED tests/test_history_w4_fixes.py::TestComposerOffBannerPlacement::test_no_inrange_lines_no_boundary
+FAILED tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_partial_trim_boundary_before_first_survivor
+FAILED tests/test_history_w4_fixes.py::TestStandardCeilingBoundaryRecount::test_fully_trimmed_tail_emits_no_boundary
+11 failed, 192 passed in 24.47s

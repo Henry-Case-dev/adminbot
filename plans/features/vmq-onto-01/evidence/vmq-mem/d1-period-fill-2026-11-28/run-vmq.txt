@@ -1,0 +1,35 @@
+...........................................................F............ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 67%]
+........................................................................ [ 90%]
+C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:1 знак:239
++ ... | Out-Null; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 8 leaked aiosqlite connection(s)
+..............................                                           [100%]
+================================== FAILURES ===================================
+_ TestHistoricalMeaningSelection.test_quota_is_bounded_by_slots_and_never_adds_current_year _
+
+self = <tests.test_vmq_mem_slice_b.TestHistoricalMeaningSelection object at 0x00000221868A65A0>
+
+    def test_quota_is_bounded_by_slots_and_never_adds_current_year(self):
+        pool = [_row(1, "╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╨╡", year=2024),
+                _row(2, "╤И╨╕╨╖╨░ ╨║╨╛╨╜╤Д╨╡", year=2023),
+                _row(3, "╤И╨╕╨╖╨░ ╨║╨╛╨╜╤Д╨╡", year=2022),
+                _row(4, "╤И╨╕╨╖╨░ ╨║╨╛╨╜╤Д╨╡", year=2026)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query=OWNER_CREATIVE, policy="auto", slots=2,
+            reference_year=2026)
+        years = [mrc.period_row_year(row) for row in accepted]
+>       assert len(accepted) <= 2
+E       AssertionError: assert 4 <= 2
+E        +  where 4 = len([{'id': 1, 'fact': '╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╨╡', 'origin': 'history_import', 'status': 'confirmed', ...}, {'id': 2, 'fact': '╤И╨╕╨╖╨░ ╨║╨╛╨╜╤Д..., 'status': 'confirmed', ...}, {'id': 4, 'fact': '╤И╨╕╨╖╨░ ╨║╨╛╨╜╤Д╨╡', 'origin': 'history_import', 'status': 'confirmed', ...}])
+
+tests\test_vmq_mem_slice_b.py:152: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_mem_slice_b.py::TestHistoricalMeaningSelection::test_quota_is_bounded_by_slots_and_never_adds_current_year
+1 failed, 317 passed in 49.15s

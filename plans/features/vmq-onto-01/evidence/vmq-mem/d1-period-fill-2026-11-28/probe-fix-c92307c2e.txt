@@ -1,0 +1,2 @@
+﻿{"profile_origin": "bot_direct_reply", "after_period_append": [9100, 9101, 9102, 9103, 9104, 9105, 9106, 9107, 30709, 5567], "after_profile_step": [9100, 9101, 9102, 9103, 9104, 9105, 9106, 9107, 30709, 5567], "lost": [], "added": [], "base_rows_kept": true, "len": 10}
+{"profile_origin": "chat_history", "after_period_append": [9100, 9101, 9102, 9103, 9104, 9105, 9106, 9107, 30709, 5567], "after_profile_step": [9100, 9101, 9102, 9103, 9104, 9105, 9106, 9107, 12, 11], "lost": [5567, 30709], "added": [11, 12], "base_rows_kept": true, "len": 10}

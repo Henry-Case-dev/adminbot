@@ -1,0 +1,227 @@
+﻿.....F.F..FF......FF..F..F...F                                           [100%]
+================================== FAILURES ===================================
+_____ TestAppendHonoursReservation.test_marker_wins_with_mixed_top_years ______
+
+self = <tests.test_vmq_oldrow_person_delivery.TestAppendHonoursReservation object at 0x000002346AA45EB0>
+
+    def test_marker_wins_with_mixed_top_years(self):
+        """M4: ╨┐╨╛╨╝╨╡╤З╨╡╨╜╨╜╨░╤П ╤Б╤В╤А╨╛╨║╨░ ╨┤╨╛╨╡╨╖╨╢╨░╨╡╤В ╨┐╤А╨╕ ╤Б╨╝╨╡╤И╨░╨╜╨╜╤Л╤Е ╨│╨╛╨┤╨░╤Е ╨▓╨╡╤А╤Е╨╜╨╕╤Е ╤Б╨╗╨╛╤В╨╛╨▓."""
+        marked = _row(9501, "╨┐╤А╨╛ ╨Р╨╜╤О ╨▓╤Б╨┐╨╛╨╝╨╕╨╜╨░╨╗╨╕", year=2023)
+        marked["reserved_old"] = True
+        rows = [_row(9502, "╨▓╨╡╤А╤Е╨╜╨╕╨╣ ╨┐╨╡╤А╨╕╨╛╨┤", year=2026),
+                _row(9503, "╤Б╤А╨╡╨┤╨╜╨╕╨╣ ╨┐╨╡╤А╨╕╨╛╨┤", year=2024),
+                marked]
+        selected = mrc.reserve_period_append(rows, budget=2)
+>       assert [row["id"] for row in selected] == [9502, 9501]
+E       assert [9502, 9503] == [9502, 9501]
+E         
+E         At index 1 diff: 9503 != 9501
+E         Use -v to get more diff
+
+tests\test_vmq_oldrow_person_delivery.py:239: AssertionError
+____ TestAppendHonoursReservation.test_no_marker_keeps_previous_behaviour _____
+
+self = <tests.test_vmq_oldrow_person_delivery.TestAppendHonoursReservation object at 0x000002346AA44BF0>
+
+    def test_no_marker_keeps_previous_behaviour(self):
+        """╨С╨╡╨╖ ╨┐╨╛╨╝╨╡╤В╨║╨╕ ╨┤╨╡╨╣╤Б╤В╨▓╤Г╨╡╤В ╨┐╤А╨╡╨╢╨╜╨╡╨╡ ╨┐╤А╨░╨▓╨╕╨╗╨╛ MEM-07 (╨╛╨┤╨╕╨╜ ╤Б╨╗╨╛╤В ╤Б╤В╨░╤А╤И╨╡╨╝╤Г)."""
+        rows = [_row(9521, "╨▓╨╡╤А╤Е╨╜╨╕╨╣ ╨┐╨╡╤А╨╕╨╛╨┤", year=2026),
+                _row(9522, "╨▓╨╡╤А╤Е╨╜╨╕╨╣ ╨┐╨╡╤А╨╕╨╛╨┤ 2", year=2026),
+                _row(9523, "╤Б╤В╨░╤А╤Л╨╣ ╨┐╨╡╤А╨╕╨╛╨┤", year=2021)]
+>       assert [row["id"] for row in
+                mrc.reserve_period_append(rows, budget=2)] == [9521, 9523]
+E       assert [9521, 9522] == [9521, 9523]
+E         
+E         At index 1 diff: 9522 != 9523
+E         Use -v to get more diff
+
+tests\test_vmq_oldrow_person_delivery.py:254: AssertionError
+_ TestSubjectScopeIntent.test_auto_person_reaches_old_row_without_replacing_base _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x000002346AA46DB0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002346B4EC290>
+
+    @pytest.mark.asyncio
+    async def test_auto_person_reaches_old_row_without_replacing_base(
+            self, monkeypatch):
+        """R3 end-to-end: `auto` + ╨┐╨╛╨╗╨╜╤Л╨╣ ╤Б╤А╨╡╨╖ + ╤Б╤Г╨▒╤К╨╡╨║╤В тЖТ ╤Б╤В╨░╤А╤Л╨╣ ╨│╨╛╨┤ ╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜.
+    
+        F1 corrective (OLDROW-R3-BASE-01): `subject_scope` ╨╜╨╡ ╨╖╨░╨╝╨╡╤Й╨░╨╡╤В ╨▒╨░╨╖╨╛╨▓╤Л╨╣
+        ╤Б╤А╨╡╨╖, ╨┐╨╛╤Н╤В╨╛╨╝╤Г ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В╤Б╤П ╨Т╨Х╨б╨м ╨▒╨░╨╖╨╛╨▓╤Л╨╣ ╨╜╨░╨▒╨╛╤А ╨╕ ╨╡╨│╨╛ ╨┐╨╛╤А╤П╨┤╨╛╨║, ╨░ ╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛
+        ╨┐╨╡╤А╨▓╨░╤П ╤Б╤В╤А╨╛╨║╨░; ╨┐╨╡╤А╨╕╨╛╨┤╨╜╤Л╨╣ ╨▓╨║╨╗╨░╨┤ ╨╖╨░╨╜╨╕╨╝╨░╨╡╤В ╨┤╨╛╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М╨╜╤Г╤О ╤С╨╝╨║╨╛╤Б╤В╤М
+        `limit + limit//5`."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY), memory_scope="auto",
+            subject_name=NAME, subject_uid=UID)
+        assert service._oldrow_calls[1]["period_fill"] is True, (
+            "╤А╨░╨╖╤А╨╡╤И╤С╨╜╨╜╤Л╨╣ ╤Б╤Г╨▒╤К╨╡╨║╤В ╨╖╨░╨┐╤Г╤Б╨║╨░╨╡╤В ╤В╨╛╤В ╨╢╨╡ ╨┐╨╡╤А╨╕╨╛╨┤╨╜╤Л╨╣ ╨▓╤Л╨╖╨╛╨▓")
+        assert "author_window" in service._oldrow_calls[1]["channels"]
+        assert service._oldrow_calls[1]["subject_uids"] == (UID,)
+        stats = service._rag_period_stats
+        assert stats["breadth_reason"] == "subject_scope"
+        assert stats["replace_allowed"] == 0
+        assert stats["reserved_old"] == 1
+        assert stats["base_rows_dropped"] == 0
+        assert stats["subject_scope_no_replace"] == 1
+        ids = [row["id"] for row in rows]
+        base_ids = [row["id"] for row in base]
+        assert ids[:len(base)] == base_ids, (
+            "╨▒╨░╨╖╨╛╨▓╤Л╨╣ ╤Б╤А╨╡╨╖ ╨╛╨▒╤П╨╖╨░╨╜ ╤Б╨╛╤Е╤А╨░╨╜╨╕╤В╤М╤Б╤П ╤Ж╨╡╨╗╨╕╨║╨╛╨╝ ╨╕ ╨▓ ╨┐╤А╨╡╨╢╨╜╨╡╨╝ ╨┐╨╛╤А╤П╨┤╨║╨╡")
+        assert set(base_ids) <= set(ids)
+        years = [mrc.period_row_year(row) for row in rows]
+>       assert years.count(2025) == 1, years
+E       AssertionError: [2026, 2026, 2026, 2026, 2026, 2026, ...]
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000002346B4FD240>(2025)
+E        +    where <built-in method count of list object at 0x000002346B4FD240> = [2026, 2026, 2026, 2026, 2026, 2026, ...].count
+
+tests\test_vmq_oldrow_person_delivery.py:319: AssertionError
+______ TestSubjectScopeIntent.test_subject_scope_does_not_drop_base_tail ______
+
+self = <tests.test_vmq_oldrow_person_delivery.TestSubjectScopeIntent object at 0x000002346AA472F0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002346B4EC620>
+
+    @pytest.mark.asyncio
+    async def test_subject_scope_does_not_drop_base_tail(self, monkeypatch):
+        """F1 (OLDROW-R3-BASE-01): ╤Е╨▓╨╛╤Б╤В ╨▒╨░╨╖╨╛╨▓╨╛╨│╨╛ ╤Б╤А╨╡╨╖╨░ ╨╜╨╡ ╨▓╤Л╨▒╤А╨░╤Б╤Л╨▓╨░╨╡╤В╤Б╤П.
+    
+        ╨Т╨╛╤Б╨┐╤А╨╛╨╕╨╖╨▓╨╡╨┤╨╡╨╜╨╕╨╡ ╤А╨╡╨▓╤М╤О: ╨┐╨╛╨╗╨╜╤Л╨╣ base `8000..8009`, `subject_scope`
+        (`replace_allowed=0`) тАФ ╨┤╨╛ ╨╕╤Б╨┐╤А╨░╨▓╨╗╨╡╨╜╨╕╤П `8008/8009` ╨▓╤Л╨▒╤А╨░╤Б╤Л╨▓╨░╨╗╨╕╤Б╤М ╤А╨░╨┤╨╕
+        ╨┐╨╡╤А╨╕╨╛╨┤╨╜╨╛╨│╨╛ ╨▓╨║╨╗╨░╨┤╨░. RED ╨╜╨░ `e1c70d58`: ╨▒╨░╨╖╨░ ╨╛╨▒╤А╨╡╨╖╨░╨╡╤В╤Б╤П ╨┤╨╛ 8 ╤Б╤В╤А╨╛╨║."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY), memory_scope="auto",
+            subject_name=NAME, subject_uid=UID)
+        delivered = {row["id"] for row in rows}
+        missing = {row["id"] for row in base} - delivered
+        assert not missing, f"╨▒╨░╨╖╨╛╨▓╤Л╨╡ ╤Б╤В╤А╨╛╨║╨╕ ╨▓╤Л╨▒╤А╨╛╤И╨╡╨╜╤Л: {sorted(missing)}"
+        assert {8008, 8009} <= delivered
+        assert [row["id"] for row in rows][:10] == list(range(8000, 8010))
+        old = [row for row in rows if (mrc.period_row_year(row) or 9999) <= 2025]
+>       assert old, "╤Б╤В╨░╤А╤Л╨╣ ╨┐╨╡╤А╨╕╨╛╨┤ ╨╛╨▒╤П╨╖╨░╨╜ ╨┤╨╛╨╡╤Е╨░╤В╤М"
+E       AssertionError: ╤Б╤В╨░╤А╤Л╨╣ ╨┐╨╡╤А╨╕╨╛╨┤ ╨╛╨▒╤П╨╖╨░╨╜ ╨┤╨╛╨╡╤Е╨░╤В╤М
+E       assert []
+
+tests\test_vmq_oldrow_person_delivery.py:341: AssertionError
+_ TestHistoricalPersonDeliversOldRow.test_historical_person_gets_old_row_in_block _
+
+self = <tests.test_vmq_oldrow_person_delivery.TestHistoricalPersonDeliversOldRow object at 0x000002346AA47530>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002346B541D60>
+
+    @pytest.mark.asyncio
+    async def test_historical_person_gets_old_row_in_block(self, monkeypatch):
+        """RED ╨╜╨░ ╨▒╨░╨╖╨╡: 2026-only. GREEN: ╨╛╨┤╨╕╨╜ ╤Б╤В╨░╤А╤И╨╕╨╣ subject-bound ╤А╤П╨┤."""
+        base = _base_rows()
+        service = _service(monkeypatch, base, _strict_pool() + _soft_old_pool())
+        rows = await service._rag_unified_rows(
+            CHAT, PERSON_QUERY, _stub(PERSON_QUERY),
+            memory_scope="historical", subject_name=NAME, subject_uid=UID)
+        years = [mrc.period_row_year(row) for row in rows]
+>       assert years.count(2025) == 1, years
+E       AssertionError: [2026, 2026, 2026, 2026, 2026, 2026, ...]
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000002345F543C80>(2025)
+E        +    where <built-in method count of list object at 0x000002345F543C80> = [2026, 2026, 2026, 2026, 2026, 2026, ...].count
+
+tests\test_vmq_oldrow_person_delivery.py:524: AssertionError
+_____ TestA1HistoricalOldPeriodKept.test_a1_historical_covers_old_period ______
+
+self = <tests.test_vmq_mem07_oldrow_reservation.TestA1HistoricalOldPeriodKept object at 0x000002346AA58A70>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002346B5414F0>
+
+    @pytest.mark.asyncio
+    async def test_a1_historical_covers_old_period(self, monkeypatch):
+        """RED ╨╜╨░ ╨▓╤Л╨╗╨╛╨╢╨╡╨╜╨╜╨╛╨╝ ╨║╨╛╨┤╨╡: 2026:12 (0.20) ╨▓╨╝╨╡╤Б╤В╨╛ 2024:1+2026:11."""
+        service = _service(monkeypatch, _base(), A1_POOL)
+        rows = await service._rag_unified_rows(
+            CHAT, A1, _stub(A1), memory_scope="historical")
+        appended = _period_rows(rows)
+        years = [mrc.period_row_year(row) for row in appended]
+        delivered = [mrc.period_row_year(row) for row in rows]
+>       assert sorted(years) == [2024, 2026], (
+            "╨┐╤А╨╕╨╜╤П╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░ 2024 ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨┐╨╛╨┐╨░╤Б╤В╤М ╨▓ ╨┤╨╛╨▒╨╛╤А: " + str(years))
+E       AssertionError: ╨┐╤А╨╕╨╜╤П╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░ 2024 ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨┐╨╛╨┐╨░╤Б╤В╤М ╨▓ ╨┤╨╛╨▒╨╛╤А: [2026, 2026]
+E       assert [2026, 2026] == [2024, 2026]
+E         
+E         At index 0 diff: 2026 != 2024
+E         Use -v to get more diff
+
+tests\test_vmq_mem07_oldrow_reservation.py:145: AssertionError
+____ TestA1PHistoricalOldPeriodKept.test_a1p_historical_covers_old_period _____
+
+self = <tests.test_vmq_mem07_oldrow_reservation.TestA1PHistoricalOldPeriodKept object at 0x000002346AA5AD20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345F5C1C10>
+
+    @pytest.mark.asyncio
+    async def test_a1p_historical_covers_old_period(self, monkeypatch):
+        """RED ╨╜╨░ ╨▓╤Л╨╗╨╛╨╢╨╡╨╜╨╜╨╛╨╝ ╨║╨╛╨┤╨╡: 2026:12 (0.20) ╨▓╨╝╨╡╤Б╤В╨╛ 2025:1+2026:11."""
+        service = _service(monkeypatch, _base(), A1P_POOL)
+        rows = await service._rag_unified_rows(
+            CHAT, A1P, _stub(A1P), memory_scope="historical")
+        appended = _period_rows(rows)
+        years = sorted(mrc.period_row_year(row) for row in appended)
+        delivered = [mrc.period_row_year(row) for row in rows]
+>       assert years == [2025, 2026], (
+            "╨┐╤А╨╕╨╜╤П╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░ 2025 ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨┐╨╛╨┐╨░╤Б╤В╤М ╨▓ ╨┤╨╛╨▒╨╛╤А: " + str(years))
+E       AssertionError: ╨┐╤А╨╕╨╜╤П╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░ 2025 ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨┐╨╛╨┐╨░╤Б╤В╤М ╨▓ ╨┤╨╛╨▒╨╛╤А: [2026, 2026]
+E       assert [2026, 2026] == [2025, 2026]
+E         
+E         At index 0 diff: 2026 != 2025
+E         Use -v to get more diff
+
+tests\test_vmq_mem07_oldrow_reservation.py:199: AssertionError
+_______ TestReservationBounded.test_never_exceeds_budget_and_keeps_rank _______
+
+self = <tests.test_vmq_mem07_oldrow_reservation.TestReservationBounded object at 0x000002346AA5BE30>
+
+    def test_never_exceeds_budget_and_keeps_rank(self):
+        candidates = [
+            _row(1, "╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╤Л ╨╛╨┤╨╕╨╜", year=2026, weight=0.9, importance=9),
+            _row(2, "╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╤Л ╨┤╨▓╨░", year=2026, weight=0.8, importance=9),
+            _row(3, "╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╤Л ╤В╤А╨╕", year=2026, weight=0.7, importance=9),
+            _row(4, "╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╤Л ╤З╨╡╤В╤Л╤А╨╡", year=2026, weight=0.6, importance=9),
+            _row(5, "╤Б╤В╨░╤А╨╛╨╡ ╨┐╤А╨╛ ╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╤Л", year=2021, weight=0.1,
+                 importance=1),
+        ]
+        for budget in (1, 2, 3, 4):
+            selected = mrc.reserve_period_append(candidates, budget=budget)
+            assert len(selected) <= budget, budget
+            if budget >= 2:
+>               assert selected[-1]["id"] == 5, (budget, selected)
+E               AssertionError: (2, [{'id': 1, 'fact': '╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╤Л ╨╛╨┤╨╕╨╜', 'origin': 'history_import', 'status': 'confirmed', ...}, {'id': 2, 'fact': '╤И╨╕╨╖╤Л ╨║╨╛╨╜╤Д╤Л ╨┤╨▓╨░', 'origin': 'history_import', 'status': 'confirmed', ...}])
+E               assert 2 == 5
+
+tests\test_vmq_mem07_oldrow_reservation.py:286: AssertionError
+_______ TestReservationBounded.test_multiple_old_periods_take_one_slot ________
+
+self = <tests.test_vmq_mem07_oldrow_reservation.TestReservationBounded object at 0x000002346AA58140>
+
+    def test_multiple_old_periods_take_one_slot(self):
+        rows = [_row(1, "╨▓╨╡╤А╤Е╨╜╨╕╨╣ ╨┐╨╡╤А╨╕╨╛╨┤", year=2026),
+                _row(2, "╨▓╨╡╤А╤Е╨╜╨╕╨╣ ╨┐╨╡╤А╨╕╨╛╨┤ 2", year=2026),
+                _row(3, "╤Б╤В╨░╤А╤Л╨╣ 2022", year=2022),
+                _row(4, "╤Б╤В╨░╤А╤Л╨╣ 2021", year=2021)]
+        selected = mrc.reserve_period_append(rows, budget=2)
+>       assert [row["id"] for row in selected] == [1, 3], (
+            "╤А╨╡╨╖╨╡╤А╨▓╨╕╤А╤Г╨╡╤В╤Б╤П ╨Ю╨Ф╨Ш╨Э ╤Б╨╗╨╛╤В тАФ ╨╗╤Г╤З╤И╨╕╨╣ ╤А╨░╨╜╨│ ╤Б╤А╨╡╨┤╨╕ ╤Б╤В╨░╤А╤И╨╕╤Е ╨┐╨╡╤А╨╕╨╛╨┤╨╛╨▓")
+E       AssertionError: ╤А╨╡╨╖╨╡╤А╨▓╨╕╤А╤Г╨╡╤В╤Б╤П ╨Ю╨Ф╨Ш╨Э ╤Б╨╗╨╛╤В тАФ ╨╗╤Г╤З╤И╨╕╨╣ ╤А╨░╨╜╨│ ╤Б╤А╨╡╨┤╨╕ ╤Б╤В╨░╤А╤И╨╕╤Е ╨┐╨╡╤А╨╕╨╛╨┤╨╛╨▓
+E       assert [1, 2] == [1, 3]
+E         
+E         At index 1 diff: 2 != 3
+E         Use -v to get more diff
+
+tests\test_vmq_mem07_oldrow_reservation.py:320: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestAppendHonoursReservation::test_marker_wins_with_mixed_top_years
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestAppendHonoursReservation::test_no_marker_keeps_previous_behaviour
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_auto_person_reaches_old_row_without_replacing_base
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestSubjectScopeIntent::test_subject_scope_does_not_drop_base_tail
+FAILED tests/test_vmq_oldrow_person_delivery.py::TestHistoricalPersonDeliversOldRow::test_historical_person_gets_old_row_in_block
+FAILED tests/test_vmq_mem07_oldrow_reservation.py::TestA1HistoricalOldPeriodKept::test_a1_historical_covers_old_period
+FAILED tests/test_vmq_mem07_oldrow_reservation.py::TestA1PHistoricalOldPeriodKept::test_a1p_historical_covers_old_period
+FAILED tests/test_vmq_mem07_oldrow_reservation.py::TestReservationBounded::test_never_exceeds_budget_and_keeps_rank
+FAILED tests/test_vmq_mem07_oldrow_reservation.py::TestReservationBounded::test_multiple_old_periods_take_one_slot
+9 failed, 21 passed in 7.95s
