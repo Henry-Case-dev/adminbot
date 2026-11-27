@@ -6,10 +6,11 @@
                 каталога (`module-card-phrase`) и шапке страницы
                 (`data-workspace-phrase` не рендерится);
   D2 `BL-09`  — конверт журнала уроков не склеивается со статусом соседней
-                записи в ложное «активен уроков: 100»: счётчик — это
-                ВОЗВРАЩЁННЫЕ строки («записей в журнале: N»), серверный код
-                `implemented|not_run|disabled` печатается по-русски, а не
-                сырым англ. токеном; 1 и 100 различимы;
+                записи в ложное «активен уроков: 100»: размер страницы
+                назван страницей («на странице: N»), реальный total журнала
+                берётся из `/api/experience/pipeline` и печатается отдельно
+                («всего в журнале: T»); 100 и 500 строк страницы различимы
+                и не выдаются за число записей журнала;
   D4 `S10-18` — `prefers-reduced-motion: reduce` останавливает `.spinner`;
   D5 `BL-04`  — чипы осей не дублируют подпись («Готовность: Готовность…»,
                 «Измерение: Измерение…», «Исполняется: Исполняется»), а
@@ -116,17 +117,21 @@ assert(EXPERIENCE, 'каталог DTO должен содержать mod_exper
   eq(occurrences, 1, 'D1: ровно один шаблонный вывод m.subtitle (карточка)');
 }
 
-// ── D2 (BL-09): конверт журнала уроков честный и не склеивается ────────────
+// ── D2 (BL-09) / F1: размер страницы ≠ число записей журнала ───────────────
+//
+// `/api/memory/lessons` отдаёт страницу (`count` = len(rows), limit≤500) —
+// это НЕ размер журнала. UI обязан называть страницу страницей, а реальный
+// total брать из существующего источника (`/api/experience/pipeline`
+// counters.lessons) и печатать отдельно. Тест различает 100 и 500 строк
+// страницы при одном и том же журнале (544).
 {
-  const ctx = Object.assign({}, methods);
-  METHODS_BIND(ctx);
-  ctx.lessonsData = null;
-
-  function env(count, state, meta) {
+  function env(count, state, opts) {
     const c = Object.assign({}, methods);
     METHODS_BIND(c);
+    const o = opts || {};
     c.lessonsData = null;
-    if (meta) {
+    c.expPipeline = o.pipeline === undefined ? null : o.pipeline;
+    if (o.meta !== false) {
       c._wsHistoryMeta = function () {
         return { count: count, state: state };
       };
@@ -138,20 +143,45 @@ assert(EXPERIENCE, 'каталог DTO должен содержать mod_exper
     return methods.historyEnvelopeText.call(c, EXPERIENCE);
   }
 
-  const one = env(1, 'implemented', true);
-  eq(one, 'записей в журнале: 1 (есть записи)',
-    'D2: count=1 печатается как 1 запись журнала');
-  const hundred = env(100, 'implemented', true);
-  eq(hundred, 'записей в журнале: 100 (есть записи)',
-    'D2: count=100 печатается как 100 записей журнала');
-  ok(one !== hundred, 'D2: 1 и 100 различимы');
-  ok(hundred.indexOf('implemented') < 0,
+  const journal = {
+    counters: { lessons: { active: 1, suspended: 464, superseded: 79 } },
+  };
+  const page100 = env(100, 'implemented', { pipeline: journal });
+  const page500 = env(500, 'implemented', { pipeline: journal });
+
+  eq(page100, 'на странице: 100 · всего в журнале: 544',
+    'F1: limit=100 — это страница, total отдельно (544)');
+  eq(page500, 'на странице: 500 · всего в журнале: 544',
+    'F1: limit=500 — та же подпись страницы, total не меняется');
+  ok(page100 !== page500, 'F1: разные страницы различимы');
+  ok(page100.indexOf('в журнале: 100') < 0
+    && page500.indexOf('в журнале: 500') < 0,
+    'F1: размер страницы не выдаётся за число записей журнала');
+  ok(page100.indexOf('implemented') < 0,
     'D2: сырой англ. код состояния не печатается');
-  ok(env(0, 'not_run', true).indexOf('записей нет') >= 0,
-    'D2: not_run → «записей нет»');
-  ok(env(0, 'disabled', true).indexOf('функция выключена') >= 0,
+  ok(/всего в журнале: 544/.test(page100)
+    && /всего в журнале: 544/.test(page500),
+    'F1: total берётся из pipeline counters, а не из страницы');
+
+  // Total неизвестен (pipeline ещё не загружен) — честно только страница.
+  const noTotal = env(100, 'implemented', { pipeline: null });
+  eq(noTotal, 'на странице: 100',
+    'F1: без total печатается только размер страницы');
+  ok(noTotal.indexOf('журнале') < 0,
+    'F1: без total нет утверждения о размере журнала');
+
+  // fallback: learning_analytics.lessons.total
+  const pageAnalytics = env(100, 'implemented', {
+    pipeline: { learning_analytics: { lessons: { total: 544 } } },
+  });
+  ok(/всего в журнале: 544/.test(pageAnalytics),
+    'F1: total берётся и из learning_analytics.lessons.total');
+
+  ok(env(0, 'not_run', { pipeline: null }).indexOf('записей нет') >= 0,
+    'D2: not_run без total → «записей нет»');
+  eq(env(0, 'disabled', {}), 'функция выключена',
     'D2: disabled → «функция выключена»');
-  ok(env(7, 'weird_code', true).indexOf('состояние: weird_code') >= 0,
+  ok(env(7, 'weird_code', {}).indexOf('состояние: weird_code') >= 0,
     'D2: неизвестный код назван как состояние, а не выдуман');
 
   // Соседняя строка «Сейчас:» не образует фразу «активен уроков: N».
@@ -165,11 +195,13 @@ assert(EXPERIENCE, 'каталог DTO должен содержать mod_exper
   const nowLine = methods.historyRowLine.call(row, EXPERIENCE, lesson);
   eq(nowLine.indexOf(' · активен'), nowLine.length - ' · активен'.length,
     'D2: строка записи заканчивается статусом «активен»');
-  const composed = 'Сейчас: ' + nowLine + ' · ' + hundred;
-  ok(!/активен\s+уроков/.test(composed),
-    'D2: «активен уроков: N» не возникает из склейки двух фактов');
-  ok(/записей в журнале: 100/.test(composed),
-    'D2: счётчик журнала присутствует в строке «Сейчас»');
+  const composed = 'Сейчас: ' + nowLine + ' · ' + page100;
+  ok(!/активен\s+(уроков|на странице)/.test(composed),
+    'D2/F1: статус записи не склеивается со счётчиком страницы');
+  ok(/на странице: 100/.test(composed),
+    'F1: строка «Сейчас» несёт размер страницы, а не «уроков: N»');
+  ok(composed.indexOf('в журнале: 100') < 0,
+    'F1: размер страницы не читается как число записей журнала');
   ok(INDEX.indexOf('· {{ historyEnvelopeText') >= 0,
     'D2: шаблон ставит разделитель перед счётчиком журнала');
 }
@@ -235,18 +267,24 @@ assert(EXPERIENCE, 'каталог DTO должен содержать mod_exper
     'D4: базовая анимация спиннера не удалена');
 }
 
-// ── D3/D6: инварианты «не воспроизводится» нельзя потерять молча ──────────
+// ── D3/D6: поведенческий гейт — в e2e (реальный DOM), здесь только CSS-факты ─
+//
+// F3: текстовые проверки НЕ доказывают hit-area (они проходят и на дефектной
+// базе), поэтому поведение ±20 px проверяет
+// `tests/test_mod_acl_ux_m5c_corrective_e2e.py` (Chromium + elementFromPoint).
+// Здесь остаются инварианты, которые нельзя потерять молча.
 {
   const coarse = CSS.match(
     /@media\s*\(pointer:\s*coarse\),\s*\(max-width:\s*767px\)\s*\{[\s\S]*?\n\}/);
   ok(coarse, 'D3: блок coarse/mobile-правил hit-area найден');
   const block = coarse ? coarse[0] : '';
-  ok(block.indexOf('.module-card .module-tristate-btn::after') >= 0,
-    'D3: hit-area 22-px tri-state расширяется псевдоэлементом');
+  ok(/\.module-card \.module-tristate\s*\{[^}]*overflow:\s*visible/.test(block)
+    || !/\.module-card \.module-tristate\s*\{[^}]*overflow:\s*hidden/.test(block),
+  'D3/F2: карточный tri-state не обрезает hit-area псевдоэлемент');
+  ok(/inset:\s*-2[0-9]px 0/.test(block) || /inset:\s*-20px 0/.test(block),
+    'D3/F2: вертикальный hit-area tri-state расширен до ±20 px');
   ok(block.indexOf('.module-card-footer .btn-ghost::after') >= 0,
     'D3: hit-area кнопки «Открыть» расширяется псевдоэлементом');
-  ok(/inset:\s*-11px 0/.test(block),
-    'D3: расширение ровно ±11px по вертикали (22+2*11 = 44)');
   ok(/\.module-card \.module-tristate-btn\s*\{\s*min-height:\s*22px/.test(block),
     'D3: визуальная высота компактного tri-state сохранена (22 px)');
   ok(/async def learning_state\(/.test(JOBS),

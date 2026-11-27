@@ -27543,13 +27543,12 @@
         if (status) parts.push(status);
         return parts.join(' · ');
       },
-      // B2/D2 (BL-09): честная строка конверта уроков.
-      //   `count` — сколько строк журнала вернул сервер (страница, а НЕ
-      //   «активных уроков»); `state` — закрытый серверный код
-      //   (implemented|not_run|disabled), переводится в RU, сырой англ.
-      //   токен в UI не печатается. Строка самодостаточна и не склеивается
-      //   со статусом соседней записи («активен» + «уроков: 100» больше не
-      //   читается как «активен уроков: 100»).
+      // B2/D2/F1 (BL-09): честная строка журнала уроков.
+      //   `count` — сколько строк вернул сервер (СТРАНИЦА: limit≤500), это НЕ
+      //   размер журнала; поэтому печатается «на странице: N». Реальный total
+      //   берётся из существующего источника (`/api/experience/pipeline`
+      //   counters.lessons / learning_analytics.lessons.total) и печатается
+      //   отдельно как «всего в журнале: T». `disabled` — без чисел.
       historyEnvelopeText: function (m) {
         var entry = _historySourceEntry(m);
         if (!entry || entry.source !== 'memory.lessons') return '';
@@ -27565,13 +27564,39 @@
           state = env.state;
         }
         if (count == null) return '';
-        var stateRu = {
-          implemented: 'есть записи', not_run: 'записей нет',
-          disabled: 'функция выключена',
-        }[state];
-        var stateText = stateRu
-          || ('состояние: ' + (state || '—'));
-        return 'записей в журнале: ' + count + ' (' + stateText + ')';
+        if (state === 'disabled') return 'функция выключена';
+        var total = (typeof this.lessonsJournalTotal === 'function')
+          ? this.lessonsJournalTotal() : null;
+        var parts = ['на странице: ' + count];
+        if (total != null) parts.push('всего в журнале: ' + total);
+        if (state === 'not_run' && total == null) parts.push('записей нет');
+        if (state && state !== 'implemented' && state !== 'not_run') {
+          parts.push('состояние: ' + state);
+        }
+        return parts.join(' · ');
+      },
+      // F1: реальный размер журнала уроков (все статусы) из уже загруженного
+      // `/api/experience/pipeline` того же scope. Нет данных — null (тогда UI
+      // честно печатает только размер страницы).
+      lessonsJournalTotal: function () {
+        var pipe = this.expPipeline;
+        if (!pipe || typeof pipe !== 'object') return null;
+        var la = (pipe.learning_analytics || {}).lessons;
+        if (la && typeof la.total === 'number' && isFinite(la.total)) {
+          return la.total;
+        }
+        var counters = (pipe.counters || {}).lessons;
+        if (!counters || typeof counters !== 'object') return null;
+        var sum = 0;
+        var seen = false;
+        Object.keys(counters).forEach(function (key) {
+          var value = counters[key];
+          if (typeof value === 'number' && isFinite(value)) {
+            sum += value;
+            seen = true;
+          }
+        });
+        return seen ? sum : null;
       },
       // H-6: «Сейчас: …» — самый новый факт СВОЕГО журнала.
       historyNowText: function (m) {
