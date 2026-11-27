@@ -664,6 +664,13 @@ class ClaimMediaMaterial:
     # текста»); причина нормализована, а не пустая.
     image_unchecked: bool = False
     unchecked_reason: str = ""
+    #: FCT-701 (TP4): материал КАЖДОГО элемента публикации в порядке
+    #: сообщений — `(tg_message_id, kind, block)`, где `block` — ровно тот
+    #: кусок, который вошёл в ``text_suffix`` (метка + (обрезанное) тело).
+    #: Нужен, чтобы claim-сегмент имел честный анкор элемента-носителя, а не
+    #: приписывался первому сообщению цели. Только OCR: визуальное описание —
+    #: материал, но не тезис.
+    element_segments: tuple[tuple[int, str, str], ...] = ()
 
     def notice(self) -> str:
         """Человеческое ограничение (никогда не выдумывает распознавание)."""
@@ -808,6 +815,7 @@ async def load_claim_media(db, chat_id: int | None,
         if mid and mid not in ids:
             ids.append(mid)
     rendered: list[dict] = []
+    rendered_ids: list[int] = []
     # ASAP-VISION-SYNC-01 §4 («Фактчек — специальное обязательное правило»):
     # ДО извлечения тезиса и до suitability-gate связанные изображения
     # доводятся до фактического анализа (bounded; reuse durable jobs, без
@@ -840,6 +848,7 @@ async def load_claim_media(db, chat_id: int | None,
             continue
         if media:
             rendered.append(media)
+            rendered_ids.append(int(mid))
     expected = max(0, int(expected_images or 0))
     if not rendered:
         # Изображения ожидались, но ни одного не прочитали — техническая
@@ -862,7 +871,9 @@ async def load_claim_media(db, chat_id: int | None,
     element_budget = max(200, int(max_chars or 2000))
     unchecked = False
     unchecked_reason = ""
-    for index, media in enumerate(rendered, start=1):
+    element_segments: list[tuple[int, str, str]] = []
+    for index, (element_id, media) in enumerate(
+            zip(rendered_ids, rendered), start=1):
         caption = str(media.get("caption") or "").strip()
         if caption and caption not in captions:
             captions.append(caption)
@@ -907,6 +918,22 @@ async def load_claim_media(db, chat_id: int | None,
             truncated = True
         if ocr_part:
             ocr_blocks.append(ocr_part)
+            # FCT-701: ровно те OCR-блоки этого элемента, что вошли в
+            # ``text_suffix`` (после возможной обрезки по лимиту) — с его
+            # собственным tg id, чтобы анкор тезиса указывал на носителя.
+            offset = 0
+            for block in element_ocr:
+                if offset >= len(ocr_part):
+                    break
+                end = offset + len(block)
+                if end <= len(ocr_part):
+                    element_segments.append((element_id, "ocr_block", block))
+                else:
+                    head = ocr_part[offset:]
+                    if head.strip():
+                        element_segments.append(
+                            (element_id, "ocr_block", head))
+                offset = end + 2
         if desc_part:
             desc_blocks.append(desc_part)
     ocr_suffix = "\n\n".join(ocr_blocks).strip()
@@ -950,7 +977,8 @@ async def load_claim_media(db, chat_id: int | None,
                               description_suffix=desc_suffix,
                               truncated=truncated,
                               image_unchecked=unchecked,
-                              unchecked_reason=unchecked_reason)
+                              unchecked_reason=unchecked_reason,
+                              element_segments=tuple(element_segments))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -998,6 +1026,70 @@ class ClaimPublication:
     association_status: str = ""      # resolved|ambiguous|missing|not_attempted
     association_reason: str = ""
     association_candidates: tuple[int, ...] = ()
+    # ── FCT-S2-TARGET (fc-trust-01): одна правда о тезисе, его носителе и
+    # происхождении. Всё аддитивно; пустая строка/None = «резолвер не
+    # установил», а не правдоподобный флаг (TP8).
+    #: Один сегмент = один уникальный нормализованный текст (TP4/§4).
+    #: ``{"anchor_tg_message_id", "member_tg_message_ids", "text", "source"}``;
+    #: анкор — минимальный tg id среди носителей, members — все носители по
+    #: возрастанию.
+    claim_segments: tuple[dict, ...] = ()
+    #: per-element provenance альбома: минимальные коды/ID без текстов.
+    target_elements: tuple[dict, ...] = ()
+    #: ``user``|``hidden_user``|``chat``|``channel`` (пусто = не пересылка).
+    forward_origin_type: str = ""
+    forward_sender_user_id: int | None = None
+    forward_chat_id: int | None = None
+    forward_message_id: int | None = None
+    #: Только отображение источника; персоной/идентичностью не является.
+    forward_display_name: str = ""
+    #: chat_participant|public_user|public_chat|hidden_name|unknown
+    author_identity_kind: str = "unknown"
+    author_user_id: int | None = None
+    #: structural|topic|tiebreak|ambiguous|none — чем разрешён намёк (TP2/TP5).
+    hint_resolution: str = "none"
+
+    def _claim_anchor_ids(self) -> tuple[int, ...]:
+        """Все носители сегментов, по возрастанию tg id (FCT-701, §4/§6/§7).
+
+        Трасса `factcheck_target` — единственная поверхность приёмки среза,
+        поэтому она обязана различать «один тезис на трёх носителях» и «один
+        носитель»: §7 требует для caption#2 + OCR#1/#3 с одним текстом
+        ``claim_count=1`` и ``claim_anchor_ids=(71,72,73)``. Отсюда — все
+        ``member_tg_message_ids`` схлопнутых сегментов (а не по одному анкору
+        на сегмент), отсортированные по возрастанию (TP4: порядок — по
+        возрастанию ``tg_message_id``). При анти-переслиянии у каждого
+        сегмента ровно один носитель, поэтому тот же контракт даёт «по одному
+        анкору на сегмент».
+
+        Без сегментов, но с тезисом — один анкор: сегментного учёта не было
+        (одиночный материал), и выдумывать второй анкор запрещено."""
+        anchors: list[int] = []
+        for segment in self.claim_segments or ():
+            try:
+                members = tuple(segment.get("member_tg_message_ids") or ())
+            except (TypeError, AttributeError):
+                members = ()
+            if not members:
+                members = (segment.get("anchor_tg_message_id"),)
+            for value in members:
+                try:
+                    carrier = int(value)
+                except (TypeError, ValueError):
+                    continue
+                if carrier and carrier not in anchors:
+                    anchors.append(carrier)
+        if not anchors and self.claim_anchor_tg_message_id not in (None, "", 0):
+            try:
+                anchors.append(int(self.claim_anchor_tg_message_id))
+            except (TypeError, ValueError):
+                pass
+        return tuple(sorted(anchors))
+
+    def _claim_count(self) -> int:
+        if self.claim_segments:
+            return len(self.claim_segments)
+        return 1 if str(self.text or "").strip() else 0
 
     def _notice_parts(self) -> list[tuple[str, str]]:
         """(typed reason, текст) — единственный источник оговорок входа.
@@ -1075,17 +1167,40 @@ class ClaimPublication:
 
     def trace_fields(self) -> dict:
         """§10.3: типизированная трасса входа — только коды/ID, без текстов."""
+        url_count = 0
+        try:
+            from services.smartmodule_urls import extract_urls
+            url_count = len(extract_urls(str(self.text or "")))
+        except Exception:      # pragma: no cover — счётчик не рвёт трассу
+            url_count = 0
         return {
             "target_source": str(self.target_source or ""),
             "target_kind": self.target_kind(),
+            "target_chat_id": self.target_chat_id,
             "target_tg_message_id": self.target_tg_message_id,
+            "reply_to_tg_id": self.reply_to_tg_id,
+            "media_group_id": str(self.media_group_id or ""),
             "claim_origin": str(self.claim_origin or ""),
             "claim_anchor_tg_message_id": self.claim_anchor_tg_message_id,
             "claim_anchor_source": str(self.claim_anchor_source or ""),
+            "claim_count": self._claim_count(),
+            "claim_anchor_ids": list(self._claim_anchor_ids()),
+            "target_elements": [dict(element)
+                                for element in (self.target_elements or ())],
+            "forward_origin_type": str(self.forward_origin_type or "none"),
+            "forward_sender_user_id": self.forward_sender_user_id,
+            "forward_chat_id": self.forward_chat_id,
+            "forward_message_id": self.forward_message_id,
+            "forward_display_name": str(self.forward_display_name or ""),
+            "author_identity_kind": str(self.author_identity_kind or "unknown"),
+            "author_user_id": self.author_user_id,
+            "url_count": url_count,
+            "hint_resolution": str(self.hint_resolution or "none"),
             "text_claim_resolved": bool(self.text_sufficient),
             "media_expected": bool(self.has_image
                                    or self.media_group_id
                                    or self.association_attempted),
+            "media_dependency": self.media_dependency(),
             "media_dependency_source": self.media_dependency_source(),
             "association_attempted": bool(self.association_attempted),
             "association_status": str(self.association_status or ""),
@@ -1265,9 +1380,43 @@ async def resolve_claim_publication(
     element_rows = list(album_rows)
     if target_row is not None and tg_id is not None and tg_id not in by_id:
         element_rows.append(target_row)
-    caption_values: list[str] = []
+    # FCT-S2-TARGET §3/§4 (TP1/TP4/TP7): каждый кусок текста публикации
+    # хранится ВМЕСТЕ с элементом-носителем. Иначе повторённый тезис нельзя ни
+    # схлопнуть (один сегмент на нормализованный текст), ни привязать к тому
+    # элементу альбома, который его реально несёт.
+    carriers: list[tuple[int | None, str, str]] = []
+    # Review-fix F1/B1: `base_text` может прийти из same-turn буфера альбома
+    # (caption лежит на ДРУГОМ элементе группы). Тогда адрес Reply не является
+    # носителем тезиса — его нельзя объявлять анкором/членом сегмента.
+    buffered_caption = None
+    if media_group_id:
+        try:
+            buffered_caption = get_media_group_caption(str(media_group_id))
+        except Exception:      # pragma: no cover — буфер не бросает
+            buffered_caption = None
+    buffered_caption = str(buffered_caption or "").strip() or None
+    target_own_text = ""
+    if target_row is not None:
+        target_own_text = (str(_row_value(target_row, "caption") or "").strip()
+                           or str(_row_value(target_row, "text") or "").strip())
     if base:
-        caption_values.append(base)
+        base_carrier = tg_id
+        if (buffered_caption is not None and str(base).strip() ==
+                buffered_caption and target_own_text != str(base).strip()):
+            # Текст не принадлежит адресату Reply: носитель — элемент, чья
+            # сохранённая строка несёт ровно этот текст; если durable-строки
+            # ещё нет (истинно same-turn), носитель честно неизвестен.
+            base_carrier = None
+            for row in element_rows:
+                row_value = (str(_row_value(row, "caption") or "").strip()
+                             or str(_row_value(row, "text") or "").strip())
+                if row_value and row_value == str(base).strip():
+                    try:
+                        base_carrier = int(_row_value(row, "tg_message_id"))
+                    except (TypeError, ValueError):
+                        base_carrier = None
+                    break
+        carriers.append((base_carrier, "text", base))
     for row in element_rows:
         row_id = _row_value(row, "tg_message_id")
         try:
@@ -1279,14 +1428,16 @@ async def resolve_claim_publication(
             # дубль в тезис не тянем. Репост-вариант (D121): caption самого
             # триггера — это команда «фактчек», а не публикация.
             continue
-        value = (str(_row_value(row, "caption") or "").strip()
-                 or str(_row_value(row, "text") or "").strip())
-        if value and value not in caption_values:
-            caption_values.append(value)
-    if not caption_values and media_group_id:
-        buffered = get_media_group_caption(str(media_group_id))
-        if buffered:
-            caption_values.append(str(buffered).strip())
+        row_caption = str(_row_value(row, "caption") or "").strip()
+        row_text = str(_row_value(row, "text") or "").strip()
+        if row_caption:
+            carriers.append((row_id, "caption", row_caption))
+        elif row_text:
+            carriers.append((row_id, "text", row_text))
+    if not carriers and media_group_id:
+        if buffered_caption:
+            # Носитель в буфере неизвестен — анкор не выдумывается (None).
+            carriers.append((None, "caption", buffered_caption))
     # Текст поста отдельным сообщением (уточнение 25.10): подключается по
     # структурной связи reply_to — альбом отвечает на текст публикации.
     # Это НЕ соседнее сообщение (§3.8): связь явная и одношаговая; чужие
@@ -1313,8 +1464,66 @@ async def resolve_claim_publication(
         if parent is not None and not _row_is_image(parent):
             parent_text = (str(_row_value(parent, "text") or "").strip()
                            or str(_row_value(parent, "caption") or "").strip())
-            if parent_text and parent_text not in caption_values:
-                caption_values.insert(0, parent_text)
+            if parent_text:
+                carriers.insert(0, (int(parent_id), "text", parent_text))
+    # §4: claim-идентичность — уникальный нормализованный текст сегмента.
+    # Нормализация детерминированная (без LLM): casefold, схлопывание
+    # пробелов, снятие обрамляющей пунктуации и служебных меток OCR/vision.
+    # Перефразировка намеренно НЕ угадывается — semantic merge это S4.
+    def _norm_claim(value: str) -> str:
+        raw = str(value or "")
+        raw = re.sub(
+            r"^(?:Текст с изображения(?:\s+\d+)? \(OCR, не слова автора\)|"
+            r"Визуальное описание изображения(?:\s+\d+)? "
+            r"\([^)]*\))\s*:\s*", "", raw, flags=re.IGNORECASE)
+        raw = re.sub(r"\s+", " ", raw).strip()
+        raw = raw.strip("\"'«»“”„`.,;:!?—–…()[]{}")
+        return raw.casefold().strip()
+
+    caption_values: list[str] = []
+    claim_segments: list[dict] = []
+    seen_claims: dict[str, dict] = {}
+
+    def _segment_of(value: str, source: str,
+                    element_id) -> tuple[dict, bool]:
+        """Сегмент для тезиса: (запись, впервые ли встретился)."""
+        key = _norm_claim(value)
+        if key and key in seen_claims:
+            return seen_claims[key], False
+        segment = {"anchor_tg_message_id": element_id,
+                   "member_tg_message_ids": (),
+                   "text": value,
+                   "source": source}
+        if key:
+            seen_claims[key] = segment
+        claim_segments.append(segment)
+        return segment, True
+
+    def _add_member(segment: dict, element_id) -> None:
+        try:
+            carrier = int(element_id)
+        except (TypeError, ValueError):
+            return
+        if not carrier:
+            return
+        members = tuple(segment["member_tg_message_ids"]) + (carrier,)
+        segment["member_tg_message_ids"] = tuple(sorted(set(members)))
+        anchor = segment["anchor_tg_message_id"]
+        try:
+            anchor_value = int(anchor)
+        except (TypeError, ValueError):
+            anchor_value = None
+        if not anchor_value or carrier < anchor_value:
+            segment["anchor_tg_message_id"] = carrier
+
+    for element_id, source, value in carriers:
+        value = str(value or "").strip()
+        if not value:
+            continue
+        segment, first = _segment_of(value, source, element_id)
+        if first:
+            caption_values.append(value)
+        _add_member(segment, element_id)
     caption_text = "\n\n".join(value for value in caption_values if value)
     expected_ids: set[int] = set()
     if hint_image and tg_id is not None:
@@ -1402,8 +1611,11 @@ async def resolve_claim_publication(
                 extra_row = None
             value = (str(_row_value(extra_row, "caption") or "").strip()
                      or str(_row_value(extra_row, "text") or "").strip())
-            if value and value not in caption_values:
-                caption_values.append(value)
+            if value:
+                segment, first = _segment_of(value, "caption", extra_id)
+                if first:
+                    caption_values.append(value)
+                _add_member(segment, extra_id)
         if caption_values:
             caption_text = "\n\n".join(v for v in caption_values if v)
     media = await load_claim_media(
@@ -1413,10 +1625,115 @@ async def resolve_claim_publication(
     has_image = hint_image or bool(expected_ids) or media.image_present
     if expected_ids and not media.image_present and not media.vision_failed:
         media = dataclasses.replace(media, vision_failed=True)
+    # §4 (FCT-701): OCR-блок каждого элемента — отдельный носитель тезиса.
+    # Повторённый после нормализации текст схлопывается: блок НЕ попадает в
+    # текст второй раз, а элемент остаётся членом того же сегмента. При
+    # отсутствии повторов склейка блоков байт-в-байт равна ``text_suffix``.
+    kept_ocr: list[str] = []
+    for element_id, kind, block in (media.element_segments or ()):
+        if kind != "ocr_block":
+            continue
+        segment, first = _segment_of(block, "ocr_block", element_id)
+        _add_member(segment, element_id)
+        if first:
+            kept_ocr.append(block)
+    media_suffix = media.text_suffix
+    ocr_blocks_present = [block for _element, kind, block
+                          in (media.element_segments or ())
+                          if kind == "ocr_block"]
+    if ocr_blocks_present:
+        # Сборка из фактических блоков: без повторов она байт-в-байт равна
+        # ``text_suffix``, при повторе — тезис остаётся один раз.
+        media_suffix = "\n\n".join(kept_ocr).strip()
+        if media.description_suffix:
+            media_suffix = (f"{media_suffix}\n\n{media.description_suffix}"
+                            .strip() if media_suffix
+                            else media.description_suffix)
     text = caption_text
-    if media.text_suffix:
-        text = (f"{caption_text}\n\n{media.text_suffix}".strip()
-                if caption_text else media.text_suffix)
+    if media_suffix:
+        text = (f"{caption_text}\n\n{media_suffix}".strip()
+                if caption_text else media_suffix)
+    # TP3/TP8: происхождение пересылки — ТОЛЬКО структурное (`forward_origin`
+    # либо сохранённые origin-колонки). Строка display-name — отображение, а
+    # не идентичность: персону по имени не устанавливаем.
+    origin_type = ""
+    origin_sender_uid = None
+    forward_chat_id = None
+    forward_message_id = None
+    forward_display_name = ""
+    origin = (getattr(target, "forward_origin", None)
+              if target is not None else None)
+    if origin is not None:
+        sender_user = getattr(origin, "sender_user", None)
+        sender_chat = getattr(origin, "sender_chat", None)
+        hidden_name = getattr(origin, "sender_user_name", None)
+        origin_chat = getattr(origin, "chat", None)
+        if sender_user is not None:
+            origin_type = "user"
+            origin_sender_uid = getattr(sender_user, "id", None)
+            forward_display_name = " ".join(
+                part for part in (
+                    str(getattr(sender_user, "first_name", "") or ""),
+                    str(getattr(sender_user, "last_name", "") or ""))
+                if part).strip()
+        elif isinstance(hidden_name, str) and hidden_name.strip():
+            origin_type = "hidden_user"
+            forward_display_name = hidden_name.strip()
+        elif sender_chat is not None:
+            origin_type = "chat"
+            forward_chat_id = getattr(sender_chat, "id", None)
+            forward_display_name = str(getattr(sender_chat, "title", "") or "")
+        elif origin_chat is not None:
+            origin_type = "channel"
+            forward_chat_id = getattr(origin_chat, "id", None)
+            forward_message_id = getattr(origin, "message_id", None)
+            forward_display_name = str(getattr(origin_chat, "title", "") or "")
+    if not origin_type:
+        for row in ([target_row] if target_row is not None else []) + \
+                element_rows:
+            value = str(_row_value(row, "origin_type") or "").strip()
+            if value in ("user", "hidden_user", "chat", "channel"):
+                origin_type = value
+                origin_sender_uid = _row_value(row, "origin_sender_user_id")
+                forward_chat_id = _row_value(row, "origin_chat_id")
+                forward_message_id = _row_value(row, "origin_message_id")
+                forward_display_name = str(
+                    _row_value(row, "origin_display_name") or "")
+                break
+    if origin_type == "user":
+        identity_kind = "public_user"
+        identity_uid = origin_sender_uid
+    elif origin_type in ("chat", "channel"):
+        identity_kind = "public_chat"
+        identity_uid = None
+    elif origin_type == "hidden_user":
+        identity_kind = "hidden_name"
+        identity_uid = None
+    else:
+        # Не пересылка: автор материала — участник чата, сопоставляемый по
+        # user_id. Display-name идентичностью не является (FCT-106).
+        participant_uid = None
+        sender_user_obj = (getattr(target, "from_user", None)
+                           if target is not None else None)
+        if sender_user_obj is not None:
+            participant_uid = getattr(sender_user_obj, "id", None)
+        if participant_uid in (None, "", 0):
+            for row in [target_row] + element_rows:
+                value = _row_value(row, "user_id")
+                if value not in (None, "", 0):
+                    participant_uid = value
+                    break
+        if participant_uid in (None, "", 0):
+            identity_kind = "unknown"
+            identity_uid = None
+        else:
+            identity_kind = "chat_participant"
+            identity_uid = int(participant_uid)
+    try:
+        identity_uid = (int(identity_uid)
+                        if identity_uid not in (None, "", 0) else None)
+    except (TypeError, ValueError):
+        identity_uid = None
     forward_source = None
     for row in ([target_row] if target_row is not None else []) + element_rows:
         source = str(_row_value(row, "forward_source") or "").strip()
@@ -1424,6 +1741,40 @@ async def resolve_claim_publication(
             source = str(_row_value(row, "origin_display_name") or "").strip()
         if source:
             forward_source = source
+            break
+    # Per-element provenance (FCT-101): порядок — по возрастанию tg id.
+    target_elements: list[dict] = []
+    seen_element_ids: list[int] = []
+    for row in list(album_rows) + (
+            [target_row] if target_row is not None
+            and tg_id is not None and tg_id not in by_id else []):
+        try:
+            row_tg = int(_row_value(row, "tg_message_id"))
+        except (TypeError, ValueError):
+            continue
+        if row_tg in seen_element_ids:
+            continue
+        seen_element_ids.append(row_tg)
+        target_elements.append({
+            "tg_message_id": row_tg,
+            "material": ("image" if _row_is_image(row)
+                         else ("caption" if str(_row_value(
+                             row, "caption") or "").strip() else "text")),
+            "media_group_id": str(_row_value(row, "media_group_id") or ""),
+            "origin_type": str(_row_value(row, "origin_type") or ""),
+            "origin_sender_user_id": _row_value(
+                row, "origin_sender_user_id"),
+            "author_user_id": _row_value(row, "user_id"),
+        })
+    target_elements.sort(key=lambda element: element["tg_message_id"])
+    primary_anchor = None
+    for segment in claim_segments:
+        value = segment.get("anchor_tg_message_id")
+        if value not in (None, "", 0):
+            try:
+                primary_anchor = int(value)
+            except (TypeError, ValueError):
+                primary_anchor = None
             break
     reply_to_tg_id = None
     reply_obj = (getattr(target, "reply_to_message", None)
@@ -1472,13 +1823,22 @@ async def resolve_claim_publication(
         target_tg_message_id=tg_id,
         target_source=resolved_source,
         claim_origin=resolved_origin,
-        claim_anchor_tg_message_id=tg_id,
+        claim_anchor_tg_message_id=(primary_anchor or tg_id),
         claim_anchor_author=str(requester_name or "") or None,
         text_sufficient=text_sufficient,
         association_attempted=association_attempted,
         association_status=association_status,
         association_reason=association_reason,
-        association_candidates=association_candidates)
+        association_candidates=association_candidates,
+        claim_segments=tuple(claim_segments),
+        target_elements=tuple(target_elements),
+        forward_origin_type=origin_type,
+        forward_sender_user_id=origin_sender_uid,
+        forward_chat_id=forward_chat_id,
+        forward_message_id=forward_message_id,
+        forward_display_name=forward_display_name,
+        author_identity_kind=identity_kind,
+        author_user_id=identity_uid)
 
 
 # ── P0-FACTCHECK (§3.6): классы исхода retrieval — сбой ≠ «нет данных» ───────

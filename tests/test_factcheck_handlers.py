@@ -550,7 +550,13 @@ class TestTranscriptionClaimAttribution:
     @pytest.mark.asyncio
     async def test_claim_clean_and_attributed_to_original_author(
             self, factcheck_cleanup, transcription_bot_id):
-        """Клейм = текст после «🗣:»; forward_source = author_name из БД."""
+        """Клейм = текст после «🗣:»; без origin-атрибуции forward_source пуст.
+
+        FCT-S2-TARGET (fc-trust-01, TP8/FCT-101/106) ОТМЕНЯЕТ прежнее
+        ожидание «forward_source = author_name из БД»: display-name участника
+        чата не является идентичностью источника и не становится
+        forward_source. Структурная атрибуция (`forward_source` из
+        forward_origin) сохраняется — см. следующий тест."""
         service = MagicMock()
         service.check_claim = AsyncMock(return_value="вердикт")
         db = MagicMock()
@@ -562,7 +568,7 @@ class TestTranscriptionClaimAttribution:
         msg = _make_msg(text="фактчек", message_id=11, reply_to_message=target)
         await factcheck_mod.factcheck_handler(msg, bot=AsyncMock())
         service.check_claim.assert_awaited_once_with(
-            "заявление о дате", None, "Гена",
+            "заявление о дате", None, None,
             chat_id=CHAT_ID, chat_context=None)
 
     @pytest.mark.asyncio
