@@ -1,0 +1,28 @@
+base=c0db22aa9
+reviewed_candidate=a50bcaf6a
+
+services/factcheck_service.py
+  head=3e056460162e966e4c4cdc7b6fd71d7e6e5ebb5d
+  cand=3e056460162e966e4c4cdc7b6fd71d7e6e5ebb5d
+  base=7058327d914ff2437d5c05810c77224caa865129
+  byte_identical_to_candidate=True
+services/factcheck_context.py
+  head=f7bbe5991c91a817d92eeb3dd48966b880fe0dd8
+  cand=f7bbe5991c91a817d92eeb3dd48966b880fe0dd8
+  base=aa4e52b8aa3dff49c2ecc2ea108912dd64241377
+  byte_identical_to_candidate=True
+services/param_catalog.py
+  head=d4b0a884c738f5e2c18d94c518c7398e731dec36
+  cand=d4b0a884c738f5e2c18d94c518c7398e731dec36
+  base=2ffce87a15d9c817c563dd9567c1b04a278d93e5
+  byte_identical_to_candidate=True
+services/factcheck_planner.py
+  head=2ba5df49e40d65ace10487f6adc5a7f404ed2e19
+  cand=2ba5df49e40d65ace10487f6adc5a7f404ed2e19
+  base=3099bd9c30c8ada4b6795369788ba9d19a912f3b
+  byte_identical_to_candidate=True
+
+tree_head=ee5a947e7f767a572decc6275aa700471b82022b
+tree_candidate=609f8151960846ee8dd5f4da3bbed24b86546156
+tree_identical=False
+full_diff_vs_candidate_empty=False

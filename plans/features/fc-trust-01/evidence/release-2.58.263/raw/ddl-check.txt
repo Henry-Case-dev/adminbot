@@ -1,0 +1,5 @@
+changed_migrations_or_db_files=[]
+ddl_keyword_added_lines=0
+max_schema_constant=49
+user_version_target=49
+ddl_delta=0

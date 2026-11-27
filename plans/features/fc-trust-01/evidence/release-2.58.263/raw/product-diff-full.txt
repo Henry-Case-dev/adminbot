@@ -1,0 +1,469 @@
+diff --git a/services/factcheck_context.py b/services/factcheck_context.py
+index aa4e52b8a..f7bbe5991 100644
+--- a/services/factcheck_context.py
++++ b/services/factcheck_context.py
+@@ -284,8 +284,8 @@ class ConversationContext:
+             digest_budget = _DIGEST_BUDGET_CHARS
+             verbatim_budget = _VERBATIM_BUDGET_CHARS
+         sections: list[str] = [wrapper_head]
+-        digest = _render_digest(self, digest_budget, projection,
+-                                relations_by_item)
++        digest, digest_omitted = _render_digest(
++            self, digest_budget, projection, relations_by_item)
+         verbatim, omitted = _render_verbatim(self, verbatim_budget, projection,
+                                              relations_by_item)
+         if digest:
+@@ -294,10 +294,23 @@ class ConversationContext:
+         if verbatim:
+             sections.append("фон: дословные фрагменты, существенные для "
+                             "тезиса:\n" + verbatim)
++        # FCT-314: оконные/символьные пределы остаются физическими, но потеря
++        # называется — «молча выпало» больше нет. Reply-цель при этом всегда
++        # в фиде (якорь), цепочка reply идёт отдельным блоком.
++        if digest_omitted > 0:
++            sections.append(
++                f"фон: ещё {digest_omitted} сообщений хронологии не показаны "
++                "(остаток ёмкости окна); это не означает, что их не было.")
+         if omitted > 0:
+             sections.append(
+                 f"фон: ещё {omitted} существенных фрагментов не показаны "
+                 "(остаток ёмкости окна); это не означает, что их нет.")
++        cap_dropped = int(self.window.get("cap_dropped") or 0)
++        if cap_dropped > 0:
++            sections.append(
++                f"фон: ещё {cap_dropped} сообщений за пределами окна "
++                f"({int(self.window.get('cap') or _WIDE_WINDOW_MAX)}); "
++                "проверяемое сообщение и его Reply-цепочка сохранены.")
+         if len(sections) == 1:
+             return ""
+         sections.append("</chat_context>")
+@@ -332,11 +345,16 @@ def _render_line(m: ContextMessage, *, text: str, projection=None,
+ 
+ 
+ def _render_digest(ctx: ConversationContext, budget: int,
+-                   projection=None, relations_by_item=None) -> str:
++                   projection=None, relations_by_item=None
++                   ) -> tuple[str, int]:
+     """Уровень 1: сообщения окна каноническими строками с обрезкой текста до
+     ``_DIGEST_LINE_MAX_CHARS``. Приоритет усечения — как в узком окне
+     (R1023F2-10): якорь сохраняется всегда (рассматривается первым), затем
+-    свежие к старым (keep-end); первыми вытесняются самые старые before."""
++    свежие к старым (keep-end); первыми вытесняются самые старые before.
++
++    FCT-314: возвращает и число строк, не вошедших в бюджет. Предел окна
++    остаётся физическим, но потеря не немая — вызывающий печатает её в фиде.
++    """
+     lines: list[tuple[int, str, bool]] = []   # (msg_idx, line, is_anchor)
+     for idx, m in enumerate(ctx.messages):
+         line = _render_line(
+@@ -346,7 +364,7 @@ def _render_digest(ctx: ConversationContext, budget: int,
+         if line:
+             lines.append((idx, line, _is_anchor(m, ctx)))
+     if not lines:
+-        return ""
++        return "", 0
+     anchor_idx = next((i for i, (_idx, _l, a) in enumerate(lines) if a), None)
+     order: list[int] = []
+     if anchor_idx is not None:
+@@ -354,17 +372,17 @@ def _render_digest(ctx: ConversationContext, budget: int,
+     order += [i for i in range(len(lines) - 1, -1, -1) if i != anchor_idx]
+     selected: list[int] = []
+     used = 0
+-    for i in order:
++    for pos, i in enumerate(order):
+         addition = len(lines[i][1]) + (1 if selected else 0)
+         if used + addition > max(0, int(budget)):
+-            break
++            return "", 0 if not selected else len(order) - pos
+         selected.append(i)
+         used += addition
+     if not selected:
+-        return ""
++        return "", 0
+     by_msg_idx = {idx: line for idx, line, _a in lines}
+     ordered = sorted(lines[i][0] for i in selected)
+-    return "\n".join(by_msg_idx[i] for i in ordered)
++    return "\n".join(by_msg_idx[i] for i in ordered), 0
+ 
+ 
+ def _render_verbatim(ctx: ConversationContext, budget: int,
+@@ -727,7 +745,10 @@ async def build_wide_context(db, chat_id: int, *,
+         for i, item in enumerate(messages):
+             if _is_anchor(item, probe):
+                 keep_idx.add(i)
++        cap_dropped = len(messages) - len(keep_idx)
+         messages = [item for i, item in enumerate(messages) if i in keep_idx]
++    else:
++        cap_dropped = 0
+     if not messages:
+         return None
+     ctx = ConversationContext(
+@@ -736,7 +757,10 @@ async def build_wide_context(db, chat_id: int, *,
+         trigger_tg_message_id=trigger_tg_message_id,
+         messages=tuple(messages),
+         window={"before": before, "after": after,
+-                "fetched": len(messages), "verbatim": 0},
++                "fetched": len(messages), "verbatim": 0,
++                # FCT-314: сколько сообщений не вошло в физический предел
++                # окна — потеря видна в фиде, а не только в коде.
++                "cap": _WIDE_WINDOW_MAX, "cap_dropped": cap_dropped},
+         newest_message_id=newest)
+     ctx = select_verbatim(ctx, claim_text)
+     ctx = dataclasses.replace(
+@@ -800,6 +824,16 @@ async def build_factcheck_context(db, chat_id: int, *,
+             chain_block = render_reply_chains(
+                 chain, trigger_message_id, projection=projection,
+                 chat_id=int(chat_id))
++            # FCT-314: цепочка ограничена глубиной (физический предел обхода).
++            # Если у самого старого найденного звена известен родитель —
++            # цепочка оборвана пределом, и это называется, а не теряется.
++            if chain and int(depth or 0) > 0 \
++                    and len(chain) >= int(depth) \
++                    and str(getattr(chain[-1], "reply_to_item_id", "") or ""):
++                marker = (f"фон: Reply-цепочка длиннее предела {int(depth)} — "
++                          "более ранние сообщения не запрошены.")
++                chain_block = (f"{chain_block}\n\n{marker}".strip()
++                               if chain_block else marker)
+         except Exception:
+             logger.warning("[factcheck_context] reply chain failed | chat=%s",
+                            chat_id, exc_info=True)
+diff --git a/services/factcheck_planner.py b/services/factcheck_planner.py
+index 3099bd9c3..2ba5df49e 100644
+--- a/services/factcheck_planner.py
++++ b/services/factcheck_planner.py
+@@ -1804,8 +1804,9 @@ _BUDGET_SECONDS_MAX = FACTCHECK_BUDGET_SECONDS_MAX
+ _REFINE_CALLS_DEFAULT = FACTCHECK_REFINE_CALLS
+ 
+ #: PG/hot-ключи ресурсного контракта (chat → global → default). Значения —
+-#: числа; каталог их не объявляет (аудит S14), поэтому резолвер сам приводит
+-#: типы и НЕ создаёт новую admin-панель.
++#: числа; FCT-303 (28.11.2026) регистрирует их в существующем каталоге
++#: (`limits_factcheck`) с заводскими значениями `FACTCHECK_*` выше, поэтому
++#: владелец задаёт их в админке, а чатовый override штатно наследуется.
+ _LIMIT_BASE = "limits.factcheck_retrieval_seconds"
+ _LIMIT_BASE_MAX = "limits.factcheck_retrieval_seconds_max"
+ _LIMIT_REFINE = "limits.factcheck_refine_calls"
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index 7058327d9..3e0564601 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -1846,18 +1846,32 @@ async def resolve_claim_publication(
+ RETRIEVAL_OK = "ok"
+ RETRIEVAL_NOT_RUN = "not_run"
+ RETRIEVAL_BUDGET = "budget_exhausted"
++#: FCT-301 (S3→run): продуктовый лимит объёма (запросы/фетчи) — НЕ то же
++#: самое, что wall-clock дедлайн: пользовательская оговорка называет предел,
++#: который реально сработал, а не «время».
++RETRIEVAL_RESOURCE_LIMIT = "resource_limited"
++#: FCT-301 (S3→run): 429/квота провайдера — отдельный класс, иначе сбой
++#: провайдера читался бы как «поиск ответил, материалов нет».
++RETRIEVAL_RATE_LIMIT = "rate_limited"
++#: FCT-301 (S3→run): прогон остановлен внешней отменой/остановкой — не
++#: отказ провайдеров и не отсутствие материалов.
++RETRIEVAL_CANCELLED = "cancelled"
+ RETRIEVAL_SEARCH_FAILED = "search_failed"
+ RETRIEVAL_PROCESSING_FAILED = "processing_failed"
+ RETRIEVAL_INSUFFICIENT = "insufficient_evidence"
+ # P0-FACTCHECK-CORRECTIVE (§5.1/§5.2): провайдеры ОТВЕТИЛИ, но пригодных
+ # материалов нет (пустая и/или нерелевантная выдача) — это НЕ «поисковики
+-# недоступны» и не «самих фактов нет».
++# недоступны» и не «самых фактов нет».
+ RETRIEVAL_NO_RESULTS = "no_usable_results"
+ 
+ #: Класс → существующий reason-код реестра (новые коды не выдумываются:
+-#: `verdict_from_payload` пропускает только REASON_CODES).
++#: `verdict_from_payload` пропускает только REASON_CODES). `cancelled` в
++#: реестре reasons нет: остановка не выдаётся за техническую причину
++#: вердикта, её формулирует оговорка (`_RETRIEVAL_CAVEAT`).
+ _RETRIEVAL_REASON = {
+     RETRIEVAL_BUDGET: "deadline_exceeded",
++    RETRIEVAL_RESOURCE_LIMIT: "deadline_exceeded",
++    RETRIEVAL_RATE_LIMIT: "provider_unavailable",
+     RETRIEVAL_SEARCH_FAILED: "provider_unavailable",
+     RETRIEVAL_PROCESSING_FAILED: "source_missing",
+     RETRIEVAL_INSUFFICIENT: "insufficient_evidence",
+@@ -1868,6 +1882,13 @@ _RETRIEVAL_REASON = {
+ _RETRIEVAL_CAVEAT = {
+     RETRIEVAL_BUDGET: ("поиск прерван по лимиту времени — проверены не все "
+                        "запросы"),
++    RETRIEVAL_RESOURCE_LIMIT: ("поиск остановлен по лимиту объёма (число "
++                               "запросов/материалов) — проверены не все "
++                               "запросы"),
++    RETRIEVAL_RATE_LIMIT: ("провайдер ограничил частоту запросов (429) — "
++                           "проверены не все запросы"),
++    RETRIEVAL_CANCELLED: ("проверка остановлена до завершения — результат "
++                          "неполный"),
+     RETRIEVAL_SEARCH_FAILED: ("поисковые сервисы не ответили — это "
+                               "технический сбой, а не отсутствие фактов"),
+     RETRIEVAL_PROCESSING_FAILED: ("поиск дал материалы, но пригодных для "
+@@ -1882,6 +1903,12 @@ _RETRIEVAL_CAVEAT = {
+ _RETRIEVAL_SITUATION = {
+     RETRIEVAL_BUDGET: ("внешний поиск прерван по лимиту времени — проверены "
+                        "не все запросы"),
++    RETRIEVAL_RESOURCE_LIMIT: ("внешний поиск остановлен по лимиту объёма — "
++                               "проверены не все запросы"),
++    RETRIEVAL_RATE_LIMIT: ("провайдер ограничил частоту запросов (429) — "
++                           "проверены не все запросы"),
++    RETRIEVAL_CANCELLED: ("внешний поиск остановлен до завершения — "
++                          "проверены не все запросы"),
+     RETRIEVAL_SEARCH_FAILED: ("внешний поиск не удался: поисковые сервисы "
+                               "не ответили"),
+     RETRIEVAL_PROCESSING_FAILED: ("поиск дал материалы, но пригодных для "
+@@ -1893,6 +1920,9 @@ _RETRIEVAL_SITUATION = {
+ #: внешний evidence пуст (человекочитаемо, в <analysis_context>).
+ _RETRIEVAL_SEARCH_NOTE = {
+     RETRIEVAL_BUDGET: "внешний поиск прерван по лимиту времени",
++    RETRIEVAL_RESOURCE_LIMIT: "внешний поиск остановлен по лимиту объёма",
++    RETRIEVAL_RATE_LIMIT: "провайдер ограничил частоту запросов (429)",
++    RETRIEVAL_CANCELLED: "внешний поиск остановлен до завершения",
+     RETRIEVAL_SEARCH_FAILED: "поисковые сервисы не ответили (технический "
+                              "сбой)",
+     RETRIEVAL_PROCESSING_FAILED: "материалы найдены, но пригодных для "
+@@ -1910,6 +1940,31 @@ _TECHNICAL_RETRIEVAL_REASONS = frozenset({
+ })
+ 
+ 
++def _stop_reason_class(stop_reason: str) -> str | None:
++    """FCT-301 (S3→run): закрытый код остановки планировщика → публичный класс.
++
++    Единственный источник правды о причине — `RetrievalOutcome.stop_reason`
++    (S3 уже различил `cancelled`/`resource_limit`/`global_deadline`/
++    `rate_limit`/`provider_timeout`/`providers_unavailable`). Сервис не
++    пересчитывает причину своим порядком счётчиков: иначе 429/таймаут с
++    соседней пустой попыткой превращались в «провайдеры ответили, материалов
++    нет». Пусто/неизвестно → ``None`` (ниже — совместимый разбор счётчиков).
++    """
++    try:
++        from services import factcheck_planner as fsp
++        mapping = {
++            fsp.STOP_CANCELLED: RETRIEVAL_CANCELLED,
++            fsp.STOP_RESOURCE_LIMIT: RETRIEVAL_RESOURCE_LIMIT,
++            fsp.STOP_GLOBAL_DEADLINE: RETRIEVAL_BUDGET,
++            fsp.STOP_RATE_LIMIT: RETRIEVAL_RATE_LIMIT,
++            fsp.STOP_PROVIDER_TIMEOUT: RETRIEVAL_SEARCH_FAILED,
++            fsp.STOP_PROVIDERS_UNAVAILABLE: RETRIEVAL_SEARCH_FAILED,
++        }
++        return mapping.get(str(stop_reason or ""))
++    except Exception:          # pragma: no cover — метрики не рвут вердикт
++        return None
++
++
+ def classify_retrieval(retrieval) -> str:
+     """RetrievalOutcome → класс исхода (§11.2, FC-EVIDENCE-STATUS-01).
+ 
+@@ -1920,7 +1975,18 @@ def classify_retrieval(retrieval) -> str:
+     ``None`` → not_run (внутренний поиск ветки, прежний контракт). Есть
+     evidence → ok. Дальше — по фактическим счётчикам стадии:
+ 
+-    бюджет без единого результата → бюджет; провайдеры ответили пустой или
++    FCT-301 (S3→run): при наличии ``stop_reason`` (реальный прогон
++    планировщика) класс берётся из закрытого кода остановки — отмена,
++    продуктовый лимит объёма, wall-clock дедлайн, 429, таймаут и недоступность
++    различимы. Счётчики остаются совместимым путём для контрактов, которые
++    `stop_reason` не заполняют (внутренний поиск ветки, тестовые исходы);
++    там технический отказ проверяется ДО пустой/нерелевантной выдачи, чтобы
++    подтверждённый 429/таймаут не читался как «материалов нет».
++
++    Детали (сколько пустых попыток было рядом) не теряются — они остаются в
++    `evidence_diagnostics`, а класс называет материальную причину.
++
++    Бюджет без единого результата → лимит; провайдеры ответили пустой или
+     нерелевантной выдачей → «нет подходящих материалов» (НЕ «недоступны»,
+     §11.2 п.4/5); запросы упали/не выполнены → «поиск недоступен» (§11.2 п.1);
+     материалы были, но извлечение реально сломалось (``fetch_errors>0``) →
+@@ -1938,8 +2004,28 @@ def classify_retrieval(retrieval) -> str:
+         empties = int(getattr(retrieval, "empty_results", 0) or 0)
+         irrelevant = int(getattr(retrieval, "irrelevant_results", 0) or 0)
+         fetch_errors = int(getattr(retrieval, "fetch_errors", 0) or 0)
++        timeouts = int(getattr(retrieval, "provider_timeouts", 0) or 0)
++        rate_limits = int(getattr(retrieval, "rate_limits", 0) or 0)
++        cancelled = bool(getattr(retrieval, "cancelled", False))
++        if cancelled:
++            return RETRIEVAL_CANCELLED
++        # FCT-301: реальный прогон различает причину сам. Пределы (лимит
++        # объёма/дедлайн) и отказы провайдера классифицируются только когда
++        # пригодных результатов нет: частичный успех остаётся прежним
++        # (evidence → ok, материалы без ссылок → ограничение цитируемости).
++        if used == 0:
++            mapped = _stop_reason_class(
++                str(getattr(retrieval, "stop_reason", "") or ""))
++            if mapped is not None:
++                return mapped
+         if getattr(retrieval, "budget_exhausted", False) and used == 0:
+             return RETRIEVAL_BUDGET
++        if used == 0 and failures > 0:
++            # Технический отказ материальнее соседней пустой выдачи: 429 без
++            # таймаутов → отдельный класс; таймаут/общий отказ → недоступность.
++            if rate_limits and not timeouts:
++                return RETRIEVAL_RATE_LIMIT
++            return RETRIEVAL_SEARCH_FAILED
+         if used == 0 and (empties > 0 or irrelevant > 0):
+             # §11.2 п.4/5: провайдеры ОТВЕТИЛИ — техсбоя нет
+             return RETRIEVAL_NO_RESULTS
+@@ -2009,6 +2095,19 @@ def evidence_diagnostics(*, retrieval, retrieval_state: str,
+             getattr(retrieval, "empty_results", None) if known else None),
+         "irrelevant_results": _diag_count(
+             getattr(retrieval, "irrelevant_results", None) if known else None),
++        # FCT-301 (S3→run): технические исходы различимы и в диагностике
++        # прогона, а не только в coverage частей. Только счётчики/флаг.
++        "provider_timeouts": _diag_count(
++            getattr(retrieval, "provider_timeouts", None) if known else None),
++        "rate_limits": _diag_count(
++            getattr(retrieval, "rate_limits", None) if known else None),
++        "cancelled": (bool(getattr(retrieval, "cancelled", False))
++                      if known else _DIAG_UNKNOWN),
++        "source_unreadable": _diag_count(
++            getattr(retrieval, "source_unreadable", None) if known else None),
++        "source_extract_failed": _diag_count(
++            getattr(retrieval, "source_extract_failed", None)
++            if known else None),
+         "off_topic_sources_dropped": _diag_count(
+             getattr(retrieval, "off_topic_sources_dropped", None)
+             if known else None),
+@@ -2083,9 +2182,18 @@ def envelope_retrieval_state(*, evidence, retrieval, results_text: str,
+         return classify_retrieval(retrieval)
+     if str(results_text or "").strip():
+         return RETRIEVAL_NO_RESULTS
+-    if internal_failure_cause in ("empty_results", "irrelevant_results"):
++    # FCT-301: причина внутреннего поиска ветки (`AllSearchEnginesFailedException
++    # .reason`) уже различима в агрегаторе — лимит/429/таймаут не выдаются за
++    # недоступность провайдеров. Пустая/нерелевантная выдача — по-прежнему
++    # «провайдеры ответили, материалов нет».
++    cause = str(internal_failure_cause or "")
++    if cause in ("empty_results", "irrelevant_results"):
+         return RETRIEVAL_NO_RESULTS
+-    if internal_failure_cause:
++    if cause == "budget":
++        return RETRIEVAL_BUDGET
++    if cause == "rate_limit":
++        return RETRIEVAL_RATE_LIMIT
++    if cause:
+         return RETRIEVAL_SEARCH_FAILED
+     return RETRIEVAL_NOT_RUN
+ 
+@@ -2141,10 +2249,19 @@ def _server_parts(envelope, evidence) -> tuple:
+     """FC-PERCLAIM (§3.5): части из СЕРВЕРНОЙ декомпозиции, когда модель их
+     не дала. Вердикт части — не выше insufficient_evidence (положительный
+     без доказательства запрещён); evidence привязывается к части по
+-    содержательному перекрытию, а не «ко всему прогону»."""
++    содержательному перекрытию, а не «ко всему прогону».
++
++    FCT-013 (28.11.2026): прежние скрытые потолки ``parts[:4]`` и
++    ``scored[:2]`` удалены. Они молча выбрасывали части тезиса (5-я и далее
++    исчезала из разбора) и совпавшие выдержки (третья и далее не попадали в
++    основание части) — вывод выглядел полнее, чем был. Физических пределов
++    здесь нет: декомпозиция ограничена самим текстом тезиса, а число
++    evidence-строк — ёмкостью маршрута. Порядок остаётся детерминированным
++    (счёт совпадений, затем id).
++    """
+     try:
+         from services import temporal_factcheck as tf
+-        parts = list(tf.decompose_claim(envelope))[:4]
++        parts = list(tf.decompose_claim(envelope))
+     except Exception:
+         return ()
+     if len(parts) < 2:
+@@ -2174,7 +2291,7 @@ def _server_parts(envelope, evidence) -> tuple:
+             "part_id": part.part_id,
+             "text": part.text,
+             "factual_verdict": "insufficient_evidence",
+-            "evidence_refs": [rid for _s, rid in scored[:2]],
++            "evidence_refs": [rid for _s, rid in scored],
+         })
+     return tuple(result)
+ 
+@@ -3061,9 +3178,11 @@ def deterministic_temporal_report(env, verdict, *, evidence=(),
+             continue
+         label = _PART_FACTUAL_WORDS.get(
+             str(part.get("factual_verdict") or ""), "")
++        # FCT-013: прежний потолок 4 строк молча выбрасывал части тезиса из
++        # публичного отчёта (пользователь не знал, что разбор неполный).
++        # Все части вердикта печатаются как есть; длина ограничена самим
++        # текстом тезиса, а доставка режется существующим Telegram-делением.
+         part_lines.append(f"• {text}" + (f" — {label}" if label else ""))
+-        if len(part_lines) >= 4:
+-            break
+     if part_lines:
+         pieces.append("Утверждения:\n" + "\n".join(part_lines))
+     links = report_sources_from_text(
+diff --git a/services/param_catalog.py b/services/param_catalog.py
+index 2ffce87a1..d4b0a884c 100644
+--- a/services/param_catalog.py
++++ b/services/param_catalog.py
+@@ -2955,6 +2955,60 @@ _MEMORY: list[tuple] = [
+ ]
+ 
+ 
++# ── FCT-303 (S3, 28.11.2026): ресурсный контракт retrieval в существующем
++# каталоге фактчека. Ключи `limits.factcheck_*` уже читались планировщиком
++# (chat → global → default) и теперь зарегистрированы: они видны в уже
++# существующей вкладке «Фактчек: лимиты», допускают чатовый override и
++# сидятся из код-канона `services.factcheck_planner.FACTCHECK_*` (заводские
++# значения — 120 с / 600 с / 24 уточнения / 64 запроса / …). Новых групп,
++# тумблеров, гейтов и DDL нет.
++# Формат: (pg_id, title, type, code_source, progressive_level, description).
++_FACTCHECK_RETRIEVAL_PG_ONLY: list[tuple[str, str, str, str, str, str]] = [
++    ("limits.factcheck_retrieval_seconds",
++     "Целевая задержка поиска фактчека, сек", "float",
++     "services.factcheck_planner.FACTCHECK_BUDGET_SECONDS", "",
++     "Сколько времени отводится на внешний поиск при проверке. Больше — "
++     "полнее проверка, но ответ дольше. При выключенных бюджетах не "
++     "ограничивает."),
++    ("limits.factcheck_retrieval_seconds_max",
++     "Предел задержки поиска фактчека, сек", "float",
++     "services.factcheck_planner.FACTCHECK_BUDGET_SECONDS_MAX", "",
++     "Верхняя граница целевой задержки, когда в проверке несколько "
++     "утверждений. Больше — просторнее поиск, но дольше ответ."),
++    ("limits.factcheck_refine_calls",
++     "Уточняющих запросов за проверку", "int",
++     "services.factcheck_planner.FACTCHECK_REFINE_CALLS", "",
++     "Сколько дополнительных уточняющих запросов разрешено сверх базовых. "
++     "Больше — глубже уточнение, но больше расход источников."),
++    ("limits.factcheck_max_queries_total",
++     "Максимум поисковых запросов за проверку", "int",
++     "services.factcheck_planner.FACTCHECK_QUERIES_TOTAL", "",
++     "Потолок расхода поисковых запросов на один прогон проверки."),
++    ("limits.factcheck_search_text_chars",
++     "Порция текста поиска в анализ, символов", "int",
++     "services.factcheck_planner.FACTCHECK_SEARCH_TEXT_CHARS", "advanced",
++     "Размер одной порции текстовой выдачи для анализа. Остаток не "
++     "уничтожается: он остаётся в следующих порциях и в диагностике."),
++    ("limits.factcheck_page_size",
++     "Строк выдачи на один запрос", "int",
++     "services.factcheck_planner.FACTCHECK_PAGE_SIZE", "advanced",
++     "Сколько строк выдачи запрашивается у провайдера за один запрос."),
++    ("limits.factcheck_claim_portion",
++     "Частей тезиса за порцию", "int",
++     "services.factcheck_planner.FACTCHECK_CLAIM_PORTION", "advanced",
++     "Размер порции при разборе длинного тезиса на части."),
++    ("limits.factcheck_primary_fetches",
++     "Открытий первоисточников за проверку", "int",
++     "services.factcheck_planner.FACTCHECK_PRIMARY_FETCHES", "advanced",
++     "Сколько страниц-первоисточников открывается, чтобы подтвердить "
++     "выдержку. Больше — надёжнее, но дороже."),
++    ("limits.factcheck_excerpt_chars",
++     "Длина выдержки из источника, символов", "int",
++     "services.factcheck_planner.FACTCHECK_EXCERPT_CHARS", "advanced",
++     "Сколько символов выдержки берётся из открытой страницы для проверки."),
++]
++
++
+ # ── MOD-ACL-UX-01 amendment (09.11.2026): настраиваемые пороги/бюджеты
+ # семантического контракта уроков. PG-only (Settings-поля нет, прецедент
+ # `memory.random_enabled`): значения читаются hot через chat_params →
+@@ -4274,6 +4328,15 @@ def _build_registry() -> dict[str, ParamSpec]:
+             widget = ""
+         add(ParamSpec(field, field, CATEGORY_LIMITS, title, typ,
+                       group=group, description=desc, widget=widget))
++    # FCT-303 (S3): существующий ресурсный контракт retrieval-контура
++    # фактчека — в уже существующей группе «Фактчек: лимиты» (см. список;
++    # заводские значения из код-канона, чатовое наследование штатное).
++    for (pg_id, title, typ, code_source, level, desc
++         ) in _FACTCHECK_RETRIEVAL_PG_ONLY:
++        add(ParamSpec(None, None, CATEGORY_LIMITS, title, typ, secret=False,
++                      code_source=code_source, pg_id=pg_id,
++                      group="limits_factcheck", description=desc,
++                      progressive_level=level))
+     for row in _REACTIONS:
+         if len(row) == 6:      # (field, title, type, group, desc, widget)
+             field, title, typ, group, desc, widget = row
