@@ -13570,13 +13570,20 @@
               </div>
               <div class="text-xs text-gray-500" data-speech-source>
                 {{ speechSourceText(speechCore.inheritance) }}
-                · {{ (speechCore.editions[speechCoreEdition] || {}).differs_from_factory
-                     ? 'действует ваша редакция' : 'действует заводская редакция' }}
+              </div>
+              <div class="text-xs text-gray-500 speech-note" data-speech-core-runtime>
+                {{ speechEditionReasonText(speechCore.selection, speechCore.selection.level) }}
+                · {{ (speechCore.editions[speechCore.selection.level] || {}).differs_from_factory
+                     ? 'ваша редакция' : 'заводская редакция' }}
+              </div>
+              <!-- SAC-REV-R1B-F2: просматриваемая редакция показывается
+                   отдельно и НЕ называется «действующей»: runtime-выбор выше
+                   читается только из selection.level. -->
+              <div class="text-xs text-gray-500 speech-note" data-speech-core-view-state>
+                Просмотр: {{ speechCoreEdition === 'full' ? 'полная редакция' : 'компактная редакция' }}
+                <span v-if="speechCoreEdition !== speechCore.selection.level">· не влияет на ответы</span>
               </div>
               <div class="text-xs text-gray-500 speech-note">{{ speechCore.permanent_note }}</div>
-              <div class="text-xs text-gray-500 speech-note">
-                {{ speechEditionReasonText(speechCore.selection, speechCore.selection.level) }}
-              </div>
               <div v-if="speechCore.editions.full.withheld || speechCore.editions.compact.withheld"
                    class="speech-warn">
                 Сохранённое значение удержано: действует заводская редакция, сохранённый текст не потерян
@@ -13614,6 +13621,13 @@
               </label>
               <!-- Куда сохранить — рядом с действиями: последствия однозначны,
                    чатовая правка не меняет глобальный характер. -->
+              <div v-if="!speechCore.can_edit" class="speech-actions"
+                   data-speech-core-readonly>
+                <button type="button" class="btn-accent text-sm" disabled>Сохранить</button>
+                <span class="text-xs text-gray-500">
+                  Только чтение: нет прав на правку характера
+                </span>
+              </div>
               <div class="speech-split">
                 <div>
                   <label class="block">

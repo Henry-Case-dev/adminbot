@@ -6853,6 +6853,13 @@
         activeChatId: null,
         accessChats: [],              // GET /api/access/chats (селектор F-11)
         accessMy: null,               // GET /api/access/me
+        // SAC-REV-R1-F1 (28.11.2026): контекст области считается известным
+        // только после loadAccessCtx. До этого activeChatId=null означает НЕ
+        // «глобально», а «ещё не разрешено»: speech/persona-загрузчики ждут
+        // готовности, иначе первый Core/persona запрос уходит без X-Chat-Id и
+        // цель сохранения фиксируется как global.
+        chatCtxReady: false,
+        _chatCtxWaiters: [],
         // S9 round1026 (ADR-1026-8 D1/D3, §113): dry-run «Тестирование» пайплайна
         // Сводок чатов. available=null → probe ещё не выполнен (секция скрыта).
         summaryTest: {
@@ -15661,6 +15668,28 @@
 
       // ═══ Раунд 10 (F-7 T-854): контекст чата ═══
       // activeChatId: persist localStorage; NULL = «Весь бот» (глобальный).
+      // SAC-REV-R1-F1: контекст области считается известным только после
+      // loadAccessCtx (см. chatCtxReady). Загрузчики speech/persona ждут эту
+      // точку, чтобы первый запрос уже нёс X-Chat-Id и цель сохранения была
+      // фактической областью, а не ложным global.
+      _markChatCtxReady: function () {
+        this.chatCtxReady = true;
+        var waiters = this._chatCtxWaiters || [];
+        this._chatCtxWaiters = [];
+        for (var i = 0; i < waiters.length; i++) {
+          try { waiters[i](); } catch (e) { /* no-op */ }
+        }
+      },
+      _whenChatCtxReady: function () {
+        // undefined (unit-стабы без полного стейта) — считаем готовым, чтобы
+        // не подвешивать существующие harness-вызовы.
+        if (this.chatCtxReady !== false) return Promise.resolve();
+        var self = this;
+        return new Promise(function (resolve) {
+          self._chatCtxWaiters = self._chatCtxWaiters || [];
+          self._chatCtxWaiters.push(resolve);
+        });
+      },
       loadAccessCtx: async function () {
         try {
           var data = await this.api('/api/access/me');
@@ -15692,6 +15721,11 @@
             this.activeChatId = null;
           }
           this.syncActiveChatTitle();
+        }
+        // Контекст области разрешён (в т.ч. честный fallback global) —
+        // отпускаем ожидающие speech/persona-загрузки ровно один раз.
+        if (typeof this._markChatCtxReady === 'function') {
+          this._markChatCtxReady();
         }
       },
       syncActiveChatTitle: function () {
@@ -38748,6 +38782,9 @@
         return text;
       },
       loadPersona: async function () {
+        if (typeof this._whenChatCtxReady === 'function') {
+          await this._whenChatCtxReady();
+        }
         var epoch = this.scopeEpoch;
         this.personaLoading = true;
         try {
@@ -39509,6 +39546,9 @@
         } catch (e) { /* вне DOM */ }
       },
       loadSpeechOverview: async function () {
+        if (typeof this._whenChatCtxReady === 'function') {
+          await this._whenChatCtxReady();
+        }
         this.speechLoading = true;
         this.speechError = '';
         try {
@@ -39550,6 +39590,18 @@
       // Используется и разделом core (прямой id), и вкладкой «Личность», где
       // Core теперь первый блок. Второго редактора/источника нет.
       _loadSpeechCore: async function () {
+        if (typeof this._whenChatCtxReady === 'function') {
+          await this._whenChatCtxReady();
+        }
+        // SAC-REV-R1-F1: после разрешения области дефолт цели сохранения —
+        // фактическая область страницы (P0A-UX §6.3), не «global» из
+        // начального стейта. Явный выбор владельца (touched) не трогаем.
+        if (this.activeChatId != null
+            && !(this.speechScopeTouched || {}).core) {
+          var sc0 = Object.assign({}, this.speechScope || {});
+          sc0.core = 'chat';
+          this.speechScope = sc0;
+        }
         var core = await this.api('/api/speech/core');
         this.speechCore = core;
         var levels = (core && core.editions) || {};
