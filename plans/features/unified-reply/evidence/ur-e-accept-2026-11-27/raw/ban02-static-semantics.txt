@@ -1,0 +1,27 @@
+﻿services/direct_execution.py:101: ORCHESTRATOR_MAX_STEPS = 4
+services/direct_execution.py:118: ORCHESTRATOR_STEPS_HARD_MAX = 16
+services/direct_execution.py:174: def orchestrator_max_steps() -> int:
+services/direct_execution.py:185: def orchestrator_max_time_seconds() -> float:
+services/direct_execution.py:764: self.deadline = (time.monotonic() + self.fuse_seconds
+services/direct_execution.py:786: def limit_skip(self, *, metered: bool) -> str:
+services/direct_execution.py:793: if self.deadline is not None and time.monotonic() > self.deadline:
+services/direct_execution.py:1011: budget = ChainBudget(budgets_enabled=_limits.budgets_enabled)
+services/direct_execution.py:1203: def _has_evidence_growth(results) -> bool:
+services/direct_execution.py:1259: limits = await resolve_orchestrator_budget(llm=llm)
+services/direct_execution.py:1261: budget = ChainBudget(budgets_enabled=chain_limits.budgets_enabled,
+services/direct_execution.py:1265: max_steps = (orchestrator_max_steps() or None) \
+services/direct_execution.py:1267: max_tokens = (orchestrator_max_total_tokens() or None) \
+services/direct_execution.py:1286: while True:
+services/direct_execution.py:1287: if max_steps is not None and step_index >= max_steps:
+services/direct_execution.py:1291: skip = budget.limit_skip(metered=False)
+services/direct_execution.py:1330: if decision["action"] == "finish":
+services/direct_execution.py:1335: if tool not in allow_names:
+services/direct_execution.py:1346: stop_reason = "cycle_detected"
+services/direct_execution.py:1369: stop_reason = "step_skipped"
+services/direct_execution.py:1373: if denied:
+services/direct_execution.py:1380: if not _has_evidence_growth(new_results):
+services/direct_execution.py:1384: stop_reason = "step_skipped"
+
+services/tool_loop.py:995: def _chain_fuse_seconds() -> float:
+services/tool_loop.py:1062: fuse_seconds=_chain_fuse_seconds())
+services/tool_loop.py:1007: return value if value > 0 else 0.0

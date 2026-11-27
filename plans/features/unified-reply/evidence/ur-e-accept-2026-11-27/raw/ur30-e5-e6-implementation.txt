@@ -1,0 +1,264 @@
+﻿==============================================================================
+services/summary_scheduler.py:61-61  тАФ SLOT_TIMES 00/06/12/18
+==============================================================================
+   61: SLOT_TIMES: tuple[tuple[int, int], ...] = ((0, 0), (6, 0), (12, 0), (18, 0))
+
+==============================================================================
+services/summary_scheduler.py:243-257  тАФ per-chat local slot + atomic claim in the tick
+==============================================================================
+  243:             # UR-C-SCHED (┬з4.2тАУ4.5): ╨╗╨╛╨║╨░╨╗╤М╨╜╤Л╨╣ ╤Б╨╗╨╛╤В ╤З╨░╤В╨░ ╤З╨╡╤А╨╡╨╖ ChatClock +
+  244:             # ╨░╤В╨╛╨╝╨░╤А╨╜╤Л╨╣ claim. 'fire' тАФ claim ╨╜╨░╤И, ╨╖╨░╨┐╤Г╤Б╨║╨░╨╡╨╝ ╨│╨╡╨╜╨╡╤А╨░╤В╨╛╤А;
+  245:             # ╨╛╤Б╤В╨░╨╗╤М╨╜╤Л╨╡ ╨▓╨╡╤А╨┤╨╕╨║╤В╤Л (╨╖╨░╨╜╤П╤В/╨┐╤А╨╛╤Б╤А╨╛╤З╨╡╨╜/╤В╨╕╤Е╨╛) тАФ ╨▒╨╡╨╖ ╨╖╨░╨┐╤Г╤Б╨║╨░.
+  246:             try:
+  247:                 verdict = await claim_slot_if_due(
+  248:                     kind=CLAIM_KIND, db=self._db, chat_id=chat_id,
+  249:                     now_utc=now, slot_seq=SLOT_TIMES,
+  250:                     due_window_s=SUMMARY_DUE_WINDOW_SECONDS)
+  251:             except Exception:
+  252:                 logger.exception(
+  253:                     "summary: slot resolution failed тАФ tick continues | "
+  254:                     "chat_id=%s", chat_id)
+  255:                 continue
+  256:             if verdict.action == "fire":
+  257:                 due_chats.append(chat_id)
+
+==============================================================================
+services/slot_claims.py:58-69  тАФ PK (kind, chat_id, local_date, local_slot)
+==============================================================================
+   58: SLOT_CLAIMS_DDL_SQLITE = (
+   59:     f"CREATE TABLE IF NOT EXISTS {SLOT_CLAIMS_TABLE} ("
+   60:     "kind TEXT NOT NULL, "                 # 'summary' | 'goodmorning'
+   61:     "chat_id INTEGER NOT NULL, "
+   62:     "local_date TEXT NOT NULL, "           # ISO-╨┤╨░╤В╨░ ╨▓ ╨┐╨╛╤П╤Б╨╡ ╤З╨░╤В╨░
+   63:     "local_slot TEXT NOT NULL, "           # '00','06','12','18' | 'HH:MM'
+   64:     "slot_utc_instant INTEGER NOT NULL, "  # ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ UTC instant (epoch s)
+   65:     "config_version TEXT NOT NULL DEFAULT '', "
+   66:     "claimed_at INTEGER NOT NULL, "
+   67:     "fired INTEGER NOT NULL DEFAULT 1, "   # 1 = ╨╖╨░╨┐╤Г╤Б╨║; 0 = ╤З╨╡╤Б╤В╨╜╤Л╨╣ skip
+   68:     "reason_code TEXT NOT NULL DEFAULT '', "
+   69:     "PRIMARY KEY (kind, chat_id, local_date, local_slot))",
+
+==============================================================================
+services/slot_claims.py:112-153  тАФ DST gap/fold math
+==============================================================================
+  112: def slot_instant_for(local_date: datetime.date, hour: int, minute: int,
+  113:                      tz) -> tuple[datetime.datetime, str]:
+  114:     """UTC-instant ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨│╨╛ ``HH:MM`` ╨╜╨░ ╨┤╨░╤В╤Г ╨▓ ╨┐╨╛╤П╤Б╨╡ + ╤А╨╡╨╢╨╕╨╝.
+  115: 
+  116:     ╨Т╨╛╨╖╨▓╤А╨░╤Й╨░╨╡╤В ``(aware_utc_datetime, mode)``. ╨Э╨╡╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨╡ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨╡
+  117:     ╨▓╤А╨╡╨╝╤П (gap) тЖТ ╨┐╨╡╤А╨▓╤Л╨╣ ╨▓╨░╨╗╨╕╨┤╨╜╤Л╨╣ instant ╤В╨╛╨│╨╛ ╨╢╨╡ ╨║╨░╨╗╨╡╨╜╨┤╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╜╤П
+  118:     (``mode='gap_shifted'``); ╨┐╨╛╨▓╤В╨╛╤А╤П╤О╤Й╨╡╨╡╤Б╤П (fold) тЖТ ╤А╨░╨╜╨╜╨╡╨╡ ╨┐╨╛╤П╨▓╨╗╨╡╨╜╨╕╨╡
+  119:     (``mode='fold_earlier'``). ``tz`` ╨╝╨╛╨╢╨╡╤В ╨▒╤Л╤В╤М ╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╝ offset
+  120:     (UTC-╨┤╨╡╨│╤А╨░╨┤╨░╤Ж╨╕╤П ChatClock) тАФ ╤В╨╛╨│╨┤╨░ gap/fold ╨╜╨╡╨▓╨╛╨╖╨╝╨╛╨╢╨╜╤Л."""
+  121: 
+  122:     def _instant(naive: datetime.datetime, fold: int) -> datetime.datetime:
+  123:         return naive.replace(tzinfo=tz, fold=fold).astimezone(
+  124:             datetime.timezone.utc)
+  125: 
+  126:     naive = datetime.datetime.combine(local_date, datetime.time(hour, minute))
+  127:     direct = _instant(naive, 0)
+  128:     if direct.astimezone(tz).replace(tzinfo=None) == naive:
+  129:         # ╨Т╨░╨╗╨╕╨┤╨╜╨╛╨╡ ╨▓╤А╨╡╨╝╤П; fold=0 ╤Г╨╢╨╡ ╨┤╨░╤С╤В ╤А╨░╨╜╨╜╨╡╨╡ ╨┐╨╛╤П╨▓╨╗╨╡╨╜╨╕╨╡.
+  130:         if _instant(naive, 1) != direct:
+  131:             return direct, "fold_earlier"
+  132:         return direct, "normal"
+  133:     # Spring gap: ╨┐╨╡╤А╨▓╤Л╨╣ ╨▓╨░╨╗╨╕╨┤╨╜╤Л╨╣ instant ╨в╨Ю╨У╨Ю ╨Ц╨Х ╨║╨░╨╗╨╡╨╜╨┤╨░╤А╨╜╨╛╨│╨╛ ╨┤╨╜╤П.
+  134:     probe = naive + datetime.timedelta(minutes=1)
+  135:     day_end = datetime.datetime.combine(
+  136:         local_date + datetime.timedelta(days=1), datetime.time(0, 0))
+  137:     while probe < day_end:
+  138:         cand = _instant(probe, 0)
+  139:         if cand.astimezone(tz).replace(tzinfo=None) == probe:
+  140:             return cand, "gap_shifted"
+  141:         probe += datetime.timedelta(minutes=1)
+  142:     # ╨Я╨░╤В╨╛╨╗╨╛╨│╨╕╤П ╨┐╨╛╤П╤Б╨░ (╨╜╨╡╤В ╨▓╨░╨╗╨╕╨┤╨╜╨╛╨│╨╛ ╨▓╤А╨╡╨╝╨╡╨╜╨╕ ╨┤╨╛ ╨║╨╛╨╜╤Ж╨░ ╨┤╨╜╤П) тАФ ╤З╨╡╤Б╤В╨╜╤Л╨╣
+  143:     # fallback: ╨┐╨╡╤А╨▓╤Л╨╣ ╨▓╨░╨╗╨╕╨┤╨╜╤Л╨╣ instant ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨│╨╛ ╨┤╨╜╤П (╨╗╨╛╨│╨╕╤А╤Г╨╡╤В ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╕╨╣
+  144:     # resolve; ╨╖╨┤╨╡╤Б╤М ╨▒╨╡╨╖ ╨╗╨╛╨│╨│╨╡╤А╨░ тАФ ╤З╨╕╤Б╤В╨░╤П ╤Д╤Г╨╜╨║╤Ж╨╕╤П).
+  145:     probe = day_end
+  146:     for _ in range(24 * 60):
+  147:         cand = _instant(probe, 0)
+  148:         if cand.astimezone(tz).replace(tzinfo=None) == probe:
+  149:             return cand, "gap_shifted"
+  150:         probe += datetime.timedelta(minutes=1)
+  151:     # ╨Ф╨╛╤И╨╗╨╕ ╤Б╤О╨┤╨░ ╤В╨╛╨╗╤М╨║╨╛ ╨┐╤А╨╕ ╨┐╨╛╨╗╨╜╨╛╤Б╤В╤М╤О ╤Б╨╗╨╛╨╝╨░╨╜╨╜╨╛╨╝ tz тАФ ╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ UTC.
+  152:     return naive.replace(
+  153:         tzinfo=datetime.timezone.utc), "gap_shifted"
+
+==============================================================================
+services/slot_claims.py:411-425  тАФ claim_slot_if_due тЖТ ChatClock zone тЖТ slot тЖТ due window
+==============================================================================
+  411: async def claim_slot_if_due(*, kind: str, db, chat_id, now_utc,
+  412:                             slot_seq, due_window_s: float) -> SlotVerdict:
+  413:     """╨Ю╨Ф╨Э╨Р ╤В╨╛╤З╨║╨░ ╤А╨╡╤И╨╡╨╜╨╕╤П ╤Б╨╗╨╛╤В╨░ (arch contract ┬з4.2тАУ4.5).
+  414: 
+  415:     ╨Я╨╛╤А╤П╨┤╨╛╨║ ╤В╨╕╨║╨░ ╨╜╨░ ╤З╨░╤В: ╤А╨╡╨╖╨╛╨╗╨▓ ╨┐╨╛╤П╤Б╨░ ╤З╨╡╤А╨╡╨╖ ChatClock тЖТ ╤Б╨╗╨╛╤В ╤И╨║╨░╨╗╤Л тЖТ
+  416:     due-╨╛╨║╨╜╨╛ тЖТ ╨░╤В╨╛╨╝╨░╤А╨╜╤Л╨╣ claim (╤Д╨░╨╣╨╗ ╨С╨Ф) тЖТ ╨▓╨╡╤А╨┤╨╕╨║╤В. ╨Я╤А╨╛╤Б╤А╨╛╤З╨╡╨╜╨╜╤Л╨╣ ╤Б╨╗╨╛╤В
+  417:     ╤Д╨╕╨║╤Б╨╕╤А╤Г╨╡╤В╤Б╤П ╤З╨╡╤Б╤В╨╜╤Л╨╝ skip (``fired=0``, ``reason_code=
+  418:     'missed_slot_expired'``) ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╕╨╜ ╤А╨░╨╖. ╨Э╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╨╛╤Б╤В╤М ╤А╨╡╤И╨╡╨╜╨╕╤П тАФ
+  419:     ╨╖╨┤╨╡╤Б╤М (chat_id/╨┐╨╛╤П╤Б/╨╕╤Б╤В╨╛╤З╨╜╨╕╨║/╤Б╨╗╨╛╤В/instant/config, ╨▒╨╡╨╖ ╤В╨╡╨║╤Б╤В╨╛╨▓).
+  420:     ╨Э╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В: ╤Б╨▒╨╛╨╣ claim тЖТ degraded fail-open c in-process
+  421:     ╨┤╨╡╨┤╤Г╨┐╨╛╨╝."""
+  422:     try:
+  423:         tz, iana, tz_source, cv = await resolve_chat_zone(chat_id)
+  424:         now = _ensure_utc(now_utc)
+  425:         slot = latest_slot(now, tz, tuple(slot_seq))
+
+==============================================================================
+services/slot_claims.py:520-538  тАФ next_due_utc (UI next run, chat zone)
+==============================================================================
+  520: async def next_due_utc(chat_id, slot_seq, *,
+  521:                        now_utc: datetime.datetime | None = None
+  522:                        ) -> datetime.datetime | None:
+  523:     """╨С╨╗╨╕╨╢╨░╨╣╤И╨╕╨╣ ╨С╨г╨Ф╨г╨й╨Ш╨Щ instant ╤Б╨╗╨╛╤В╨░ ╤З╨░╤В╨░ (╨┤╨╗╤П UI ┬л╨б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣ ╨╖╨░╨┐╤Г╤Б╨║┬╗,
+  524:     UR-28.4/UR-29; ╤Б╨░╨╝ ╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║ ╨╡╨│╨╛ ╨╜╨╡ ╤В╤А╨╡╨▒╤Г╨╡╤В). ╨Э╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В."""
+  525:     try:
+  526:         tz, _iana, _src, _cv = await resolve_chat_zone(chat_id)
+  527:         now = _ensure_utc(now_utc or datetime.datetime.now(
+  528:             datetime.timezone.utc))
+  529:         day = now.astimezone(tz).date()
+  530:         for offset_days in (0, 1, 2):
+  531:             for ref in sorted(_slots_for_date(
+  532:                     day + datetime.timedelta(days=offset_days), slot_seq, tz),
+  533:                     key=lambda r: r.slot_utc):
+  534:                 if ref.slot_utc > now:
+  535:                     return ref.slot_utc
+  536:         return None
+  537:     except Exception:      # pragma: no cover - fail-open
+  538:         return None
+
+==============================================================================
+services/chat_clock.py:212-221  тАФ canonical per-chat zone chain
+==============================================================================
+  212: async def resolve_chat_timezone(chat_id) -> tuple[str, str, str]:
+  213:     """(iana, source, config_version) тАФ ╨║╨░╨╜╨╛╨╜╨╕╤З╨╡╤Б╨║╨░╤П ╤Ж╨╡╨┐╨╛╤З╨║╨░ UR-24.3.
+  214: 
+  215:     ╨з╤В╨╡╨╜╨╕╨╡ ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╤Е ╤Б╨╗╨╛╤С╨▓: per-chat overrides ╤З╨╡╤А╨╡╨╖ ╨║╤Н╤И
+  216:     chat_params (╤Б╨▒╤А╨╛╤Б ╨┐╤А╨╕ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╕╨╕ тАФ notify-╨║╨░╨╜╨░╨╗), global ╤З╨╡╤А╨╡╨╖
+  217:     ConfigCache/hot ╤Б ╤Д╨░╨▒-╨┤╨╡╤Д╨╛╨╗╤В╨╛╨╝ ╨╜╨░╤Б╤В╤А╨╛╨╡╨║. Legacy-╨║╨╗╤О╤З╨╕ тАФ read-only
+  218:     ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╤М: ╨╛╨╜╨╕ ╨Э╨Х ╤Б╨╛╨╖╨┤╨░╤О╤В ╨▓╤В╨╛╤А╨╛╨╣ ╤А╨╡╨┤╨░╨║╤В╨╛╤А╤Б╨║╨╛╨╣ ╨┐╨╛╨▓╨╡╤А╤Е╨╜╨╛╤Б╤В╨╕.
+  219:     "" (╨┐╤Г╤Б╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░) ╨╛╨╖╨╜╨░╤З╨░╨╡╤В ╨╜╨░╤Б╨╗╨╡╨┤╨╛╨▓╨░╨╜╨╕╨╡, ╨Э╨Х ╨╖╨╛╨╜╤Г. ╨Ъ╨╛╨╜╤Д╨╗╨╕╨║╤В ╤П╨▓╨╜╨╛
+  220:     ╨╖╨░╨┤╨░╨╜╨╜╤Л╤Е ╨╖╨╛╨╜ ╨╗╨╛╨│╨╕╤А╤Г╨╡╤В╤Б╤П ╨╛╨┤╨╜╨╛╤А╨░╨╖╨╛╨▓╨╛, ╨┐╨╛╨▒╨╡╨╢╨┤╨░╨╡╤В ╨▒╨╛╨╗╨╡╨╡ ╤Б╨┐╨╡╤Ж╨╕╤Д╨╕╤З╨╜╤Л╨╣
+  221:     ╨║╨░╨╜╨╛╨╜╨╕╤З╨╡╤Б╨║╨╕╨╣ ╤Б╨╗╨╛╨╣. ╨Э╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В."""
+
+==============================================================================
+services/chat_clock.py:198-209  тАФ legacy GOODMORNING_TZ fallback layer
+==============================================================================
+  198:     # ╨╛╨▒╤Л╤З╨╜╨╛╨╡ ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨╕╨╖ env-╨┤╨╡╤Д╨╛╨╗╤В╨░ ╨║╨╛╨┤╨░ ╨Э╨Х ╨▓╤Л╨┤╨░╤С╤В╤Б╤П ╨╖╨░ ╨╛╤Б╨╛╨╖╨╜╨░╨╜╨╜╤Л╨╣
+  199:     # override; ╨┐╨╛╤Н╤В╨╛╨╝╤Г ╤З╨╕╤В╨░╨╡╨╝ os.environ, ╨░ ╨╜╨╡ settings).
+  200:     gm = str(os.environ.get("GOODMORNING_TZ", "") or "").strip()
+  201:     if gm and _valid_iana(gm):
+  202:         return gm, "legacy_goodmorning", cv
+  203: 
+  204:     # ╨б╨╗╨╛╨╣ 6: ╨┐╤А╨╡╨╢╨╜╨╕╨╣ ╨║╨╛╨┤╨╛╨▓╤Л╨╣ ╨┤╨╡╤Д╨╛╨╗╤В.
+  205:     fallback = str(getattr(settings, "SUMMARY_TIMEZONE", "") or "").strip()
+  206:     if fallback and _valid_iana(fallback):
+  207:         return fallback, "factory", cv
+  208:     # ╨б╨╛╨▓╤Б╨╡╨╝ ╨▒╨╡╨╖ tzdata/╨╜╨░╤Б╤В╤А╨╛╨╡╨║ тАФ ╤З╨╡╤Б╤В╨╜╤Л╨╣ UTC.
+  209:     return "UTC", "utc_fallback", cv
+
+==============================================================================
+services/goodmorning_scheduler.py:165-174  тАФ goodmorning claim per chat local slot
+==============================================================================
+  165:                 verdict = await claim_slot_if_due(
+  166:                     kind=CLAIM_KIND, db=self._db, chat_id=int(chat_id),
+  167:                     now_utc=now, slot_seq=self._slot_seq,
+  168:                     due_window_s=GOODMORNING_DUE_WINDOW_SECONDS)
+  169:                 if verdict.action != "fire":
+  170:                     logger.info(
+  171:                         "Goodmorning tick skipped (slot=%s) | chat_id=%s",
+  172:                         verdict.action, chat_id)
+  173:                     skipped += 1
+  174:                     continue
+
+==============================================================================
+services/param_catalog.py:4458-4466  тАФ GOODMORNING_TZ / SUMMARY_TIMEZONE hidden (read-only legacy)
+==============================================================================
+ 4458: _HIDDEN_CATALOG_PG_KEYS: frozenset[str] = frozenset({
+ 4459:     "prompts.summary_cover_style_id",
+ 4460:     # UR-24.2: ╤А╨░╨╖╤А╨╛╨╖╨╜╨╡╨╜╨╜╤Л╨╣ legacy-╤А╨╡╨┤╨░╨║╤В╨╛╤А ╨┐╨╛╤П╤Б╨░ ╤Б╨░╨╝╨╝╨░╤А╨╕ ╨▓╤Л╨▓╨╡╨┤╨╡╨╜ ╨╕╨╖
+ 4461:     # ╤А╨░╨▒╨╛╤З╨╡╨│╨╛ UI (╨║╨╗╤О╤З read-only, ChatClock ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В ╨╡╨│╨╛ ╨║╨░╨║ fallback).
+ 4462:     "SUMMARY_TIMEZONE",
+ 4463:     # UR-24.2/┬з4: GOODMORNING_TZ тАФ ╤Б╨░╨╝╨╛╤Б╤В╨╛╤П╤В╨╡╨╗╤М╨╜╨╛╨╡ ╤Б╤В╨░╤А╨╛╨╡ timezone-╨┐╨╛╨╗╨╡,
+ 4464:     # ╨┐╨╛╤Б╨╗╨╡ ╨┐╨╡╤А╨╡╤Е╨╛╨┤╨░ ╨Э╨Х ╨╛╤Б╤В╨░╤С╤В╤Б╤П ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╨╝ ╤А╨░╨▒╨╛╤З╨╕╨╝ ╨┐╨╛╤П╤Б╨╛╨╝ ╤З╨░╤В╨░.
+ 4465:     "GOODMORNING_TZ",
+ 4466: })
+
+==============================================================================
+web/api/routes.py:1306-1380  тАФ _summary_schedule_state: chat zone slots + next_run_local + dm_no_periodic
+==============================================================================
+ 1306: async def _summary_schedule_state(chat_id: int | None, snap,
+ 1307:                                   *, now_utc: datetime.datetime | None = None
+ 1308:                                   ) -> dict | None:
+ 1309:     """UR-28.4: ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣ ╨┐╨╗╨░╨╜╨╛╨▓╤Л╨╣ ╨╖╨░╨┐╤Г╤Б╨║ ╤Б╨░╨╝╨╝╨░╤А╨╕ ╨▓ ╨Ы╨Ю╨Ъ╨Р╨Ы╨м╨Э╨Ю╨Ь ╨▓╤А╨╡╨╝╨╡╨╜╨╕ ╤З╨░╤В╨░.
+ 1310: 
+ 1311:     ╨в╨╛╨╗╤М╨║╨╛ ╤З╨╕╤В╨░╨╡╤В ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╡ ╤В╨╛╤З╨║╨╕ ╨╕╤Б╤В╨╕╨╜╤Л: ChatClock-╤Б╨╜╨░╨┐╤И╨╛╤В (╨╛╨┤╨╕╨╜ ╨┐╨╛╤П╤Б
+ 1312:     ╤З╨░╤В╨░), ╤И╨║╨░╨╗╤Г ╤Б╨╗╨╛╤В╨╛╨▓ ╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║╨░ ╨╕ ╨╡╨┤╨╕╨╜╤Л╨╣ per-chat ╤А╨╡╨╖╨╛╨╗╨▓╨╡╤А ╨▓╨║╨╗╤О╤З╤С╨╜╨╜╨╛╤Б╤В╨╕.
+ 1313:     ╨Э╨╛╨▓╨╛╨│╨╛ ╨┐╨╛╤П╤Б╨░/╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╨┤╨╗╤П ╤Б╨░╨╝╨╝╨░╤А╨╕ ╨╜╨╡ ╤Б╨╛╨╖╨┤╨░╤С╤В; ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ ╤Б╨║╨╛╤Г╨┐ (╨▒╨╡╨╖
+ 1314:     ╤З╨░╤В╨░) ╤З╨╡╤Б╤В╨╜╨╛ ╨╜╨╡ ╨╕╨╝╨╡╨╡╤В ┬л╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨│╨╛ ╨╖╨░╨┐╤Г╤Б╨║╨░┬╗ (None).
+ 1315: 
+ 1316:     F-14: ╨▓ ╨Ы╨б (``chat_id > 0``) ╨┐╨╡╤А╨╕╨╛╨┤╨╕╤З╨╡╤Б╨║╨╕╤Е ╤Б╨▓╨╛╨┤╨╛╨║ ╨╜╨╡╤В тАФ ╤В╨╕╨║ ╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║╨░
+ 1317:     ╨┐╤А╨╛╨┐╤Г╤Б╨║╨░╨╡╤В ╤В╨░╨║╨╕╨╡ ╤З╨░╤В╤Л ╨┤╨╛ ╤А╨╡╨╖╨╛╨╗╨▓╨╡╤А╨░/╤Б╨╗╨╛╤В╨╛╨▓. ╨Я╨╛╤Н╤В╨╛╨╝╤Г ╨┤╨╗╤П ╨Ы╨б ╨▒╨╗╨╛╨║ ╤З╨╡╤Б╤В╨╜╨╛
+ 1318:     ╨╜╨╡ ╤Б╨╛╨┤╨╡╤А╨╢╨╕╤В ┬л╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨│╨╛ ╨╖╨░╨┐╤Г╤Б╨║╨░┬╗ ╨╕ ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В ╨┐╤А╨╕╤З╨╕╨╜╤Г
+ 1319:     ``enabled_source="dm_no_periodic"``; ╤А╤Г╤З╨╜╨╛╨╣ /summary ╨┐╤А╨╕ ╤Н╤В╨╛╨╝ ╤А╨░╨▒╨╛╤В╨░╨╡╤В."""
+ 1320:     if chat_id is None:
+ 1321:         return None
+ 1322:     try:
+ 1323:         from services.slot_claims import next_due_utc
+ 1324:         from services.summary_scheduler import (
+ 1325:             SLOT_TIMES,
+ 1326:             summary_effective_enabled,
+ 1327:         )
+ 1328:     except Exception:      # pragma: no cover - ╨╕╨╝╨┐╨╛╤А╤В╨╜╨░╤П ╨┤╨╡╨│╤А╨░╨┤╨░╤Ж╨╕╤П
+ 1329:         logger.warning("[api] summary schedule imports failed", exc_info=True)
+ 1330:         return None
+ 1331:     labels = ["%02d:%02d" % (h, m) for h, m in SLOT_TIMES]
+ 1332:     schedule = {
+ 1333:         "available": True,
+ 1334:         "timezone": snap.timezone,
+ 1335:         "timezone_source": snap.timezone_source,
+ 1336:         "slots": labels,
+ 1337:         "next_run_utc": None,
+ 1338:         "next_run_local": None,
+ 1339:         "enabled": None,
+ 1340:         "enabled_source": "",
+ 1341:     }
+ 1342:     try:
+ 1343:         is_dm = int(chat_id) > 0
+ 1344:     except (TypeError, ValueError):      # pragma: no cover - ╨╜╨╡╤В╨╕╨┐╨╕╨╖╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ id
+ 1345:         is_dm = False
+ 1346:     if is_dm:
+ 1347:         # F-14 (spec ┬з4.2): ╨Ы╨б ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╤Л ╨╕╨╖ ╨┐╨╡╤А╨╕╨╛╨┤╨╕╤З╨╡╤Б╨║╨╕╤Е ╤Б╨░╨╝╨╝╨░╤А╨╕ ╨▓ ╤Б╨░╨╝╨╛╨╝
+ 1348:         # ╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║╨╡ (``SummarySchedulerService._tick``: chat_id > 0 тЖТ
+ 1349:         # continue). ╨Я╨╛╨║╨░╨╖╤Л╨▓╨░╤В╤М ┬л╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣ ╨╖╨░╨┐╤Г╤Б╨║┬╗ ╨╖╨┤╨╡╤Б╤М тАФ ╨▓╤Л╨┤╤Г╨╝╨░╨╜╨╜╨╛╨╡ ╨▓╤А╨╡╨╝╤П:
+ 1350:         # ╨┤╨░╤В╨░ ╨╜╨╡ ╨╜╨░╤Б╤В╤Г╨┐╨░╨╡╤В ╨╜╨╕╨║╨╛╨│╨┤╨░. enabled=None: ╨▓╨╛╨┐╤А╨╛╤Б ┬л╨▓╨║╨╗╤О╤З╨╡╨╜╨╛?┬╗ ╨║ ╨Ы╨б
+ 1351:         # ╨╜╨╡ ╨╛╤В╨╜╨╛╤Б╨╕╤В╤Б╤П, ╤З╨╡╤Б╤В╨╜╨░╤П ╨┐╤А╨╕╤З╨╕╨╜╨░ тАФ ╨▓ enabled_source.
+ 1352:         schedule["enabled_source"] = "dm_no_periodic"
+ 1353:         return schedule
+ 1354:     try:
+ 1355:         moment = now_utc or datetime.datetime.now(datetime.timezone.utc)
+ 1356:         if moment.tzinfo is None:
+ 1357:             moment = moment.replace(tzinfo=datetime.timezone.utc)
+ 1358:         moment = moment.astimezone(datetime.timezone.utc)
+ 1359:         try:
+ 1360:             enabled, enabled_source = await summary_effective_enabled(chat_id)
+ 1361:             schedule["enabled"] = bool(enabled)
+ 1362:             schedule["enabled_source"] = str(enabled_source)
+ 1363:         except Exception:      # ╤З╨╡╤Б╤В╨╜╤Л╨╣ unknown, ╨▓╤А╨╡╨╝╤П ╨▓╤Б╤С ╤А╨░╨▓╨╜╨╛ ╤Б╤З╨╕╤В╨░╨╡╨╝
+ 1364:             logger.warning("[api] summary enabled resolver failed | chat=%s",
+ 1365:                            chat_id, exc_info=True)
+ 1366:         nxt = await next_due_utc(chat_id, SLOT_TIMES, now_utc=moment)
+ 1367:         if nxt is not None:
+ 1368:             nxt = nxt.astimezone(datetime.timezone.utc)
+ 1369:             schedule["next_run_utc"] = nxt.isoformat()
+ 1370:             try:
+ 1371:                 local = nxt.astimezone(zoneinfo.ZoneInfo(snap.timezone))
+ 1372:             except (zoneinfo.ZoneInfoNotFoundError, ValueError,
+ 1373:                     FileNotFoundError, KeyError, OSError):
+ 1374:                 local = nxt
+ 1375:             schedule["next_run_local"] = local.strftime("%d.%m.%Y %H:%M")
+ 1376:     except Exception:      # pragma: no cover - fail-open ╨║ ╤З╨╡╤Б╤В╨╜╨╛╨╝╤Г ╤Б╤В╨░╤В╤Г╤Б╤Г
+ 1377:         logger.warning("[api] summary schedule computation failed | chat=%s",
+ 1378:                        chat_id, exc_info=True)
+ 1379:         schedule["available"] = False
+ 1380:     return schedule
+

@@ -1,0 +1,19 @@
+﻿py : model_capacity: unknown model 'deepseek-v4-flash' тАФ planning window=1000000 (CHAT_UNKNOWN_MODEL_WINDOW, estimate
+d, ╨Э╨Х provider-verified); ╤В╨╛╤З╨╜╨╛╨╡ ╨╛╨║╨╜╨╛ ╨┤╨░╤Б╤В ╨║╨░╤В╨░╨╗╨╛╨│ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░/╤А╨╡╨╡╤Б╤В╤А
+строка:6 знак:1
++ py "$tmp\probe_ban02_runtime.py" 2>&1 | Out-File -FilePath "$dir\ban0 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (model_capacity:...╨░/╤А╨╡╨╡╤Б╤В╤А:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[settings] chat layer unavailable тАФ source=error | key=flags.budgets_enabled | chat=-1001234567890
+[budget_gate] chat layer unavailable тАФ global value used | chat=-1001234567890 | enabled=True | source=default
+PROBE_CAP: 40
+llm_calls: 41
+dispatched_steps: 40
+stop_reason: finish
+steps: 40 tokens: 1893
+hard_max_constant: 16
+factory_max_steps_policy: 0
+factory_fuse_seconds: 0.0
+UNBOUNDED

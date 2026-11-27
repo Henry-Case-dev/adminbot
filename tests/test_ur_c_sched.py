@@ -34,7 +34,7 @@ import pytest
 
 import services.chat_params as chat_params
 from config.settings import settings
-from services.database import DatabaseService
+from services.database import DatabaseService, _SCHEMA_VERSION_SLOT_CLAIMS
 from services import slot_claims
 from services.goodmorning_scheduler import GoodmorningSchedulerService
 from services.summary_scheduler import SummarySchedulerService
@@ -440,12 +440,16 @@ class TestSlotClaimsMigrationV42:
         db = DatabaseService(path)
         await db.initialize()
         cursor = await db.db.execute("PRAGMA user_version")
-        # Хвост схемы: v42 (эта полоса) + v43 (MEMORY-02, mca_entity_canonical)
-        # + v44 (MEMORY-07, mca_community_*) + v45 (VMQ-V, transcript revision)
-        # + v46 (MOD-ACL-UX-01, семантика уроков) + v47 (QND-NONDET,
-        # semantic_schedule) + v48 (QRNG P1, провенанс партий RandomSource).
+        # Номер последней ревизии НЕ зашит: схема продолжает расти (v49 —
+        # self_diag_samples), и жёсткий пин на 48 ломал тест при каждой новой
+        # миграции, ничего не доказывая о v42. Дискриминирующая проверка —
+        # фактический user_version равен последней ОБЪЯВЛЕННОЙ ревизии
+        # (независимые источники: PRAGMA после initialize() vs migration_steps())
+        # и v42-таблица реально существует; ниже — отдельный якорь на v42.
         latest = max(s.version for s in DatabaseService.migration_steps())
-        assert (await cursor.fetchone())[0] == latest == 48
+        assert _SCHEMA_VERSION_SLOT_CLAIMS == 42
+        assert _SCHEMA_VERSION_SLOT_CLAIMS <= latest
+        assert (await cursor.fetchone())[0] == latest
         cursor = await db.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
             (SLOT_CLAIMS_TABLE,))
@@ -455,7 +459,7 @@ class TestSlotClaimsMigrationV42:
         db2 = DatabaseService(path)
         await db2.initialize()
         cursor = await db2.db.execute("PRAGMA user_version")
-        assert (await cursor.fetchone())[0] == latest == 48
+        assert (await cursor.fetchone())[0] == latest
         await db2.close()
 
 

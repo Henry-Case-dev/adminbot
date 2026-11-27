@@ -1,0 +1,18 @@
+﻿=== MUTATION addressed_wrong_participant
+E               AssertionError: assert 'u2' == 'u5'
+E           AssertionError: m13: ╨╛╤В╨▓╨╡╤В ╨░╨┤╤А╨╡╤Б╨╛╨▓╨░╨╜ ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╨╛╨╝╤Г ╨░╨▓╤В╨╛╤А╤Г
+FAILED tests/test_ur_17_historical_dialog.py::test_reply_edges_resolve_to_the_real_target_author
+FAILED tests/test_ur_17_historical_dialog.py::test_reply_never_targets_the_sender_himself
+2 failed, 6 passed, 2 warnings in 3.88s
+=== MUTATION invented_edge
+E       AssertionError: assert {'m1': 'ext1'...: 'ext2', ...} == {'m1': 'ext1'...: 'ext2', ...}
+FAILED tests/test_ur_17_historical_dialog.py::test_reply_edges_resolve_to_the_real_target_author
+1 failed, 7 passed, 2 warnings in 3.64s
+=== MUTATION dropped_message
+E               AssertionError: m15: ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╨░╤П ╤Ж╨╡╨╗╤М m14
+FAILED tests/test_ur_17_historical_dialog.py::test_fixture_provenance_is_complete_and_not_invented
+FAILED tests/test_ur_17_historical_dialog.py::test_reply_edges_resolve_to_the_real_target_author
+2 failed, 6 passed, 2 warnings in 3.19s
+=== MUTATION false_refrain_claim
+FAILED tests/test_ur_17_historical_dialog.py::test_refrain_is_not_claimed_where_it_is_unobservable
+1 failed, 7 passed, 2 warnings in 3.11s

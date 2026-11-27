@@ -1,0 +1,585 @@
+{
+  "url": "http://127.0.0.1:8871/web/#/modules/direct/overview",
+  "viewports": {
+    "1440x900": {
+      "tabs": [
+        [
+          "overview",
+          "Как бот отвечает"
+        ],
+        [
+          "inspector",
+          "Что бот видел"
+        ],
+        [
+          "settings",
+          "Дополнительные настройки"
+        ]
+      ],
+      "tab_count": 8,
+      "order_ok": true,
+      "settings_groups": [
+        "flags_decision_making",
+        "flags_direct_l1"
+      ],
+      "settings_group_count": 2,
+      "settings_param_count": 3,
+      "limits_param_count": 4,
+      "inspector_blocks": [
+        "class,data-turn-inspector,data-glass-downgraded,data-glass-tier,data-glass-reason"
+      ],
+      "legacy_tz_keys_visible": [],
+      "overflow_overview": {
+        "sw": 1440,
+        "cw": 1440
+      },
+      "overflow_settings": {
+        "sw": 1440,
+        "cw": 1440
+      },
+      "overview_has_action_line": true,
+      "shots": [
+        "ban08-1440x900-overview.png",
+        "ban08-1440x900-settings.png",
+        "ban08-1440x900-inspector.png",
+        "ban08-1440x900-limits.png"
+      ]
+    },
+    "390x844": {
+      "tabs": [
+        [
+          "overview",
+          "Как бот отвечает"
+        ],
+        [
+          "inspector",
+          "Что бот видел"
+        ],
+        [
+          "settings",
+          "Дополнительные настройки"
+        ]
+      ],
+      "tab_count": 8,
+      "order_ok": true,
+      "settings_groups": [
+        "flags_decision_making",
+        "flags_direct_l1"
+      ],
+      "settings_group_count": 2,
+      "settings_param_count": 3,
+      "limits_param_count": 4,
+      "inspector_blocks": [
+        "class,data-turn-inspector,data-glass-downgraded,data-glass-tier,data-glass-reason"
+      ],
+      "legacy_tz_keys_visible": [],
+      "overflow_overview": {
+        "sw": 390,
+        "cw": 390
+      },
+      "overflow_settings": {
+        "sw": 390,
+        "cw": 390
+      },
+      "overview_has_action_line": true,
+      "shots": [
+        "ban08-390x844-overview.png",
+        "ban08-390x844-settings.png",
+        "ban08-390x844-inspector.png",
+        "ban08-390x844-limits.png"
+      ]
+    }
+  },
+  "console": [
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_header_color {color_key: bg_color}",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_bottom_bar_color {color: #ffffff}",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_theme ",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_viewport ",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_safe_area ",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_content_safe_area ",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_ready ",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_expand ",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Header color is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Background color is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Bottom bar color is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "1440x900"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_header_color {color_key: bg_color}",
+      "viewport": "390x844"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_bottom_bar_color {color: #ffffff}",
+      "viewport": "390x844"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_theme ",
+      "viewport": "390x844"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_viewport ",
+      "viewport": "390x844"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_safe_area ",
+      "viewport": "390x844"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_content_safe_area ",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_ready ",
+      "viewport": "390x844"
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_expand ",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Header color is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Background color is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] Bottom bar color is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "viewport": "390x844"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "390x844"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "390x844"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "390x844"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "390x844"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "390x844"
+    },
+    {
+      "type": "warning",
+      "text": "[Telegram.WebApp] BackButton is not supported in version 6.0",
+      "viewport": "390x844"
+    }
+  ],
+  "pageerrors": [],
+  "http": [
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/me",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/access/me",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 503,
+      "url": "http://127.0.0.1:8871/api/chat_lore/chats",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status/logs?level=ERROR%2BWARNING&limit=200",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/analytics/viz/activity?days=14",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/oversight/dossier_feed?limit=16",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/stories/summary",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/stories/feed?cursor=0&limit=50",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/vision/state",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/factcheck/temporal/runs?limit=1",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/persona/self-model",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/access/chats",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status/logs?level=ALL&limit=1",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status/key-history",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/config",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/config/keys/status",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/memory/embedding-change",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/direct/context-diagnostics?chat_id=111111111",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/direct/turn-diagnostics?chat_id=111111111&turn=1",
+      "viewport": "1440x900"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/me",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/access/me",
+      "viewport": "390x844"
+    },
+    {
+      "status": 503,
+      "url": "http://127.0.0.1:8871/api/chat_lore/chats",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status/logs?level=ERROR%2BWARNING&limit=200",
+      "viewport": "390x844"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/analytics/viz/activity?days=14",
+      "viewport": "390x844"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/oversight/dossier_feed?limit=16",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/stories/summary",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/stories/feed?cursor=0&limit=50",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status",
+      "viewport": "390x844"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/vision/state",
+      "viewport": "390x844"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/factcheck/temporal/runs?limit=1",
+      "viewport": "390x844"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/persona/self-model",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/access/chats",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status/logs?level=ALL&limit=1",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/status/key-history",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/config",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/config/keys/status",
+      "viewport": "390x844"
+    },
+    {
+      "status": 403,
+      "url": "http://127.0.0.1:8871/api/memory/embedding-change",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/direct/context-diagnostics?chat_id=111111111",
+      "viewport": "390x844"
+    },
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8871/api/direct/turn-diagnostics?chat_id=111111111&turn=1",
+      "viewport": "390x844"
+    }
+  ],
+  "summary": {
+    "order_ok_all": true,
+    "console_errors": 14,
+    "pageerrors": 0,
+    "api_non_2xx": [
+      [
+        403,
+        "http://127.0.0.1:8871/api/analytics/viz/activity"
+      ],
+      [
+        403,
+        "http://127.0.0.1:8871/api/factcheck/temporal/runs"
+      ],
+      [
+        403,
+        "http://127.0.0.1:8871/api/memory/embedding-change"
+      ],
+      [
+        403,
+        "http://127.0.0.1:8871/api/oversight/dossier_feed"
+      ],
+      [
+        403,
+        "http://127.0.0.1:8871/api/persona/self-model"
+      ],
+      [
+        403,
+        "http://127.0.0.1:8871/api/vision/state"
+      ],
+      [
+        503,
+        "http://127.0.0.1:8871/api/chat_lore/chats"
+      ]
+    ],
+    "no_h_overflow_all": true,
+    "legacy_tz_hidden_all": true
+  }
+}

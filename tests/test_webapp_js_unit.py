@@ -506,3 +506,13 @@ def test_js_unit_p0_disk_status_thresholds():
             ok_marker="P0-DISK-STATUS-OK")
 
 
+def test_js_unit_ur_ban08_direct_workspace():
+    """UR-BAN-08 (UNIFIED-REPLY): витрина «Прямых ответов» — три смысловых
+    уровня в порядке overview→inspector→settings с боевыми подписями,
+    параметры не на посадочной вкладке (settings/limits/models), legacy
+    read-only, inspector только у mod_direct. Мутационно защищено (RED в
+    evidence ur-e-accept-2026-11-27)."""
+    _run_js(os.path.join("tests", "js", "ur_ban08_ui_test.js"),
+            ok_marker="UR-BAN08-UI-OK")
+
+
