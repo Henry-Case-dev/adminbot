@@ -817,6 +817,178 @@ class TestAdaptiveNoGrowth:
         assert "EVIDENCE SO FAR:\nнет" in user
 
 
+# ── UR-BAN-02: физический предел числа шагов adaptive-цепочки ───────────────
+
+
+class _EndlessOrchestratorLLM:
+    """Каждый раунд просит НОВЫЙ запрос (аргументы не повторяются).
+
+    ``SAFETY`` — предохранитель самого теста: без продуктового предела шагов
+    прогон падает быстро и с внятной причиной, а не зависает.
+    """
+
+    SAFETY = 200
+
+    def __init__(self):
+        self.calls = 0
+
+    async def generate(self, messages, **kwargs):
+        self.calls += 1
+        if self.calls > self.SAFETY:
+            raise AssertionError(
+                "adaptive chain сделал >%d вызовов оркестратора: физического "
+                "предела шагов нет (UR-BAN-02)" % self.SAFETY)
+        return json.dumps({
+            "action": "call_tool", "tool": "execute_web_search",
+            "arguments": {"query": "запрос-%d" % self.calls},
+            "reason": "новый материал"})
+
+
+class _FreshMaterialRouter:
+    """Каждый вызов отдаёт НОВЫЙ непустой материал → прирост доказательств."""
+
+    def __init__(self, text: str | None = None):
+        self.text = text
+        self.dispatched: list[str] = []
+
+    async def dispatch(self, name, arguments, ctx):
+        self.dispatched.append(str(name))
+        if self.text is not None:
+            return self.text
+        n = len(self.dispatched)
+        return ("Результаты\nНовый факт %d\nhttps://example.com/%d" % (n, n))
+
+
+async def _run_endless(llm=None, router=None):
+    llm = llm if llm is not None else _EndlessOrchestratorLLM()
+    router = router if router is not None else _FreshMaterialRouter()
+    result = await _dx.run_adaptive_chain(
+        llm=llm, router=router, ctx=None,
+        plan=_plan(execution_mode="adaptive_tool_chain"),
+        query="собери материал", tool_schemas=_schemas("execute_web_search"),
+        chat_id=CHAT_ID, correlation_id="corr-ban02-steps")
+    return llm, router, result
+
+
+class TestAdaptivePhysicalStepBound:
+    """UR-BAN-02: adaptive-chain не крутится без предела шагов.
+
+    Сценарий, который до правки не был ограничен ничем: модель каждый раунд
+    просит новый запрос, инструмент каждый раз отдаёт новый непустой материал.
+    Ни повтора аргументов, ни отсутствия прироста нет — сработать может только
+    физический анти-цикл `ORCHESTRATOR_STEPS_HARD_MAX`, а не продуктовая квота
+    на объём исследования.
+    """
+
+    @pytest.mark.asyncio
+    async def test_new_material_every_round_stops_at_physical_limit(self):
+        llm, router, result = await _run_endless()
+        # Предел — существующий анти-цикл из окна модели: не больше
+        # ORCHESTRATOR_STEPS_HARD_MAX и не меньше ORCHESTRATOR_MAX_STEPS.
+        assert _dx.ORCHESTRATOR_STEPS_HARD_MAX == 16
+        assert llm.calls == result.chain_meta["max_steps"], (
+            "фактических вызовов %d, наблюдаемый предел %d"
+            % (llm.calls, result.chain_meta["max_steps"]))
+        assert _dx.ORCHESTRATOR_MAX_STEPS <= llm.calls \
+            <= _dx.ORCHESTRATOR_STEPS_HARD_MAX
+        # Ровно предел вызовов: 17-го нет (проверка стоит ДО очередного шага).
+        assert len(router.dispatched) == llm.calls
+        assert result.chain_meta["reason"] == "max_steps"
+        assert result.chain_meta["steps"] == llm.calls
+        # Полученный материал не выброшен и не заменён ложным успехом.
+        assert len(result.evidence_sources) == llm.calls
+        assert all(s.content for s in result.evidence_sources)
+        assert result.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_hard_cycle_cap_is_the_enforced_bound(self, monkeypatch):
+        """Предел применяется как есть: при пределе 16 — ровно 16 шагов.
+
+        Окно модели здесь инъектируется (верхнеуровневый резолвер каталога
+        моделей), решение «без явной политики ограничить шаги этим пределом»
+        выполняется настоящим кодом.
+        """
+
+        async def _budget(*, llm):      # noqa: A002 - контракт резолвера
+            return _dx.OrchestratorBudget(
+                window_tokens=262144, window_source="test_injected",
+                max_steps=16, max_total_tokens=16384,
+                query_chars=800, snippet_chars=400)
+
+        monkeypatch.setattr(_dx, "resolve_orchestrator_budget", _budget)
+        llm, router, result = await _run_endless()
+        assert llm.calls == 16
+        assert len(router.dispatched) == 16
+        assert result.chain_meta["reason"] == "max_steps"
+        assert result.chain_meta["max_steps"] == 16
+        # Никакого 17-го вызова оркестратора.
+        assert llm.calls < _EndlessOrchestratorLLM.SAFETY
+
+    @pytest.mark.asyncio
+    async def test_material_is_kept_after_the_limit(self):
+        llm, router, result = await _run_endless()
+        assert result.tool_context.count("Новый факт") == llm.calls
+        assert len(result.tool_trace) == len(router.dispatched)
+
+    @pytest.mark.asyncio
+    async def test_explicit_operator_policy_larger_than_window_cap_is_applied(
+            self, monkeypatch):
+        """Явная политика оператора авторитетна и может быть больше предела
+        окна модели: она не зажимается анти-циклом."""
+        monkeypatch.setenv("DIRECT_ORCHESTRATOR_MAX_STEPS", "25")
+        llm, router, result = await _run_endless()
+        assert llm.calls == 25
+        assert len(router.dispatched) == 25
+        assert result.chain_meta["reason"] == "max_steps"
+
+    @pytest.mark.asyncio
+    async def test_explicit_operator_policy_smaller_is_applied(self, monkeypatch):
+        monkeypatch.setenv("DIRECT_ORCHESTRATOR_MAX_STEPS", "3")
+        llm, router, result = await _run_endless()
+        assert llm.calls == 3
+        assert len(router.dispatched) == 3
+        assert result.chain_meta["reason"] == "max_steps"
+
+    @pytest.mark.asyncio
+    async def test_finish_still_wins_before_the_limit(self):
+        class _FinishAt3(_EndlessOrchestratorLLM):
+            async def generate(self, messages, **kwargs):
+                self.calls += 1
+                if self.calls >= 3:
+                    return json.dumps({"action": "finish",
+                                       "reason": "материала достаточно"})
+                return json.dumps({
+                    "action": "call_tool", "tool": "execute_web_search",
+                    "arguments": {"query": "запрос-%d" % self.calls},
+                    "reason": "новый материал"})
+
+        llm, router, result = await _run_endless(llm=_FinishAt3())
+        assert llm.calls == 3
+        assert result.chain_meta["reason"] == "finish"
+        assert len(router.dispatched) == 2
+
+    @pytest.mark.asyncio
+    async def test_repeated_arguments_still_stop_before_the_limit(self):
+        class _SameArgs(_EndlessOrchestratorLLM):
+            async def generate(self, messages, **kwargs):
+                self.calls += 1
+                return json.dumps({
+                    "action": "call_tool", "tool": "execute_web_search",
+                    "arguments": {"query": "один и тот же"}, "reason": "loop"})
+
+        llm, router, result = await _run_endless(llm=_SameArgs())
+        assert llm.calls == 2
+        assert len(router.dispatched) == 1
+        assert result.chain_meta["reason"] == "cycle_detected"
+
+    @pytest.mark.asyncio
+    async def test_empty_material_still_stops_before_the_limit(self):
+        router = _FreshMaterialRouter(text="")
+        llm, router, result = await _run_endless(router=router)
+        assert llm.calls == 1
+        assert result.chain_meta["reason"] == "step_skipped"
+
+
 # ── UR-06.5: Observer has no search path before participation ───────────────
 
 class TestObserverNoSearch:

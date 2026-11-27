@@ -174,11 +174,11 @@ def _apply_ceiling(value: int, ceiling: int) -> int:
 def orchestrator_max_steps() -> int:
     """ЖЁСТКИЙ потолок шагов adaptive-цепочки (BGS-05).
 
-    Env/settings ``DIRECT_ORCHESTRATOR_MAX_STEPS``; не задан → ``0`` —
-    потолка нет, действует динамическое значение из окна модели
-    (:func:`resolve_orchestrator_budget`). Динамические шаги всегда
-    ≥ :data:`ORCHESTRATOR_MAX_STEPS`, поэтому старое поведение «без env»
-    сохраняется как нижняя граница, а не как молчаливый потолок."""
+    Env/settings ``DIRECT_ORCHESTRATOR_MAX_STEPS``; не задан → ``0`` — явной
+    операторской политики объёма нет (UR-BAN-02: тогда действует физический
+    анти-цикл шагов из окна модели, ``resolve_orchestrator_budget`` →
+    ``ORCHESTRATOR_STEPS_HARD_MAX``). Динамические шаги всегда
+    ≥ :data:`ORCHESTRATOR_MAX_STEPS`."""
     return _explicit_ceiling("DIRECT_ORCHESTRATOR_MAX_STEPS")
 
 
@@ -327,10 +327,12 @@ async def _orchestrator_window(llm) -> tuple[int, str]:
 async def resolve_orchestrator_budget(*, llm) -> OrchestratorBudget:
     """Деривация bounds из окна модели для payload-срезов и наблюдаемости.
 
-    SMART-EXECUTION-RELIABILITY-01 §B1: ``max_steps``/``max_total_tokens``
-    здесь — ПЛАНИРОВОЧНЫЕ/наблюдаемые числа (окно модели → доли), а не
-    enforcement: объём исследования ограничивает только явная операторская
-    политика при budgets ON (см. ``run_adaptive_chain``). Реальные
+    SMART-EXECUTION-RELIABILITY-01 §B1: ``max_total_tokens`` здесь —
+    ПЛАНИРОВОЧНОЕ/наблюдаемое число (окно → доли), а не enforcement:
+    объём исследования по токенам ограничивает только явная операторская
+    политика при budgets ON. ``max_steps`` — иное: это физический анти-цикл
+    (UR-BAN-02), он применяется как предел шагов, когда оператор не задал
+    явную политику (см. ``run_adaptive_chain``). Реальные
     ``query_chars``/``snippet_chars`` — физический размер payload под окно.
     Никогда не бросает."""
     window, source = await _orchestrator_window(llm)
@@ -1234,9 +1236,11 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
     SMART-EXECUTION-RELIABILITY-01 (§A/B): завершение — по прогрессу, а не по
     числу шагов. Явная операторская политика (`DIRECT_ORCHESTRATOR_MAX_STEPS`
     / `_MAX_TOTAL_TOKENS` / `_MAX_METERED_CALLS`, `MCA_TOOL_*`) применяется
-    ТОЛЬКО при effective `flags.budgets_enabled=true`; незаданная политика =
-    ограничения нет (заводские 4/6000/4 больше не пределы). Окно модели
-    определяет только размер payload-срезов (query/snippet). Cycle-защита
+    ТОЛЬКО при effective `flags.budgets_enabled=true` и авторитетна как задана.
+    Без явной политики объёмных квот нет, но действует физический анти-цикл
+    шагов из окна модели (`ORCHESTRATOR_STEPS_HARD_MAX`) — UR-BAN-02: safety,
+    а не продуктовая квота на объём исследования (универсального дедлайна
+    исследования нет). Cycle-защита
     (повтор того же tool+args), invalid output, отказ LLM, `finish`,
     отсутствие прогресса (`step_skipped`) и аварийный fuse (`>0`) — остаются.
     tool output untrusted; orchestrator никогда не пишет прозу (L2 — Writer).
@@ -1261,11 +1265,19 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
     budget = ChainBudget(budgets_enabled=chain_limits.budgets_enabled,
                          timeout_seconds=orchestrator_max_time_seconds(),
                          max_metered=orchestrator_max_metered_calls())
-    # Объёмные потолки — только явная политика оператора при budgets ON.
-    max_steps = (orchestrator_max_steps() or None) \
+    # Явная объёмная политика оператора — только при budgets ON (как раньше).
+    explicit_steps = (orchestrator_max_steps() or None) \
         if budget.limits_on else None
     max_tokens = (orchestrator_max_total_tokens() or None) \
         if budget.limits_on else None
+    # UR-BAN-02 (safety, не продуктовая квота объёма): физический анти-цикл
+    # шагов из окна модели (`ORCHESTRATOR_STEPS_HARD_MAX`, пол —
+    # `ORCHESTRATOR_MAX_STEPS`). Считается ЧИСТОЙ деривацией окна
+    # (`orchestrator_budget_for_window`): env-политика оператора в safety-предел
+    # не протекает, поэтому при budgets OFF она, как и раньше, не применяется
+    # (контракт `limits_enforced`); универсального дедлайна исследования нет.
+    safety_steps = orchestrator_budget_for_window(limits.window_tokens).max_steps
+    max_steps = explicit_steps or safety_steps
     logger.info(
         "[direct-exec] adaptive chain budget | chat=%s | window=%d | "
         "source=%s | budgets_on=%s | max_steps=%s | max_tokens=%s | "
@@ -1414,6 +1426,9 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
             "tokens_spent": spent_tokens}
     # Наблюдаемость: окно модели (payload-срезы) + явная политика цепочки.
     meta.update(limits.as_meta())
+    # UR-BAN-02: наблюдаемый ФАКТИЧЕСКИЙ предел шагов (анти-цикл окна модели
+    # либо явная политика оператора), а не только деривация окна.
+    meta["max_steps"] = int(max_steps)
     meta["limits"] = budget.as_meta()
     meta["max_metered"] = int(budget.max_metered)
     return ChainResult("", rounds_used=len(steps_done), degraded=degraded,

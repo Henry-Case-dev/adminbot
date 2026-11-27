@@ -1,0 +1,91 @@
+﻿FFF.....                                                                 [100%]
+================================== FAILURES ===================================
+_ TestAdaptivePhysicalStepBound.test_new_material_every_round_stops_at_physical_limit _
+
+self = <tests.test_unified_reply_ur_b_search_first.TestAdaptivePhysicalStepBound object at 0x0000024D6D4C42C0>
+
+    @pytest.mark.asyncio
+    async def test_new_material_every_round_stops_at_physical_limit(self):
+        llm, router, result = await _run_endless()
+        # ╨Я╤А╨╡╨┤╨╡╨╗ тАФ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ ╨░╨╜╤В╨╕-╤Ж╨╕╨║╨╗ ╨╕╨╖ ╨╛╨║╨╜╨░ ╨╝╨╛╨┤╨╡╨╗╨╕: ╨╜╨╡ ╨▒╨╛╨╗╤М╤И╨╡
+        # ORCHESTRATOR_STEPS_HARD_MAX ╨╕ ╨╜╨╡ ╨╝╨╡╨╜╤М╤И╨╡ ORCHESTRATOR_MAX_STEPS.
+        assert _dx.ORCHESTRATOR_STEPS_HARD_MAX == 16
+>       assert llm.calls == result.chain_meta["max_steps"], (
+            "╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╤Е ╨▓╤Л╨╖╨╛╨▓╨╛╨▓ %d, ╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╤Л╨╣ ╨┐╤А╨╡╨┤╨╡╨╗ %d"
+            % (llm.calls, result.chain_meta["max_steps"]))
+E       AssertionError: ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╤Е ╨▓╤Л╨╖╨╛╨▓╨╛╨▓ 201, ╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╤Л╨╣ ╨┐╤А╨╡╨┤╨╡╨╗ 8
+E       assert 201 == 8
+E        +  where 201 = <tests.test_unified_reply_ur_b_search_first._EndlessOrchestratorLLM object at 0x0000024D6D8FA390>.calls
+
+tests\test_unified_reply_ur_b_search_first.py:889: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable тАФ source=error | key=flags.budgets_enabled | chat=-1001234567890
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable тАФ global value used | chat=-1001234567890 | enabled=True | source=default
+WARNING  services.direct_execution:direct_execution.py:1313 [direct-exec] orchestrator llm failed | chat=-1001234567890 | error=AssertionError: adaptive chain ╤Б╨┤╨╡╨╗╨░╨╗ >200 ╨▓╤Л╨╖╨╛╨▓╨╛╨▓ ╨╛╤А╨║╨╡╤Б╤В╤А╨░╤В╨╛╤А╨░: ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ ╨┐╤А╨╡╨┤╨╡╨╗╨░ ╤И╨░╨│╨╛╨▓ ╨╜╨╡╤В (UR-BAN-02)
+___ TestAdaptivePhysicalStepBound.test_hard_cycle_cap_is_the_enforced_bound ___
+
+self = <tests.test_unified_reply_ur_b_search_first.TestAdaptivePhysicalStepBound object at 0x0000024D6D4C53A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024D6DCD1FA0>
+
+    @pytest.mark.asyncio
+    async def test_hard_cycle_cap_is_the_enforced_bound(self, monkeypatch):
+        """╨Я╤А╨╡╨┤╨╡╨╗ ╨┐╤А╨╕╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╨║╨░╨║ ╨╡╤Б╤В╤М: ╨┐╤А╨╕ ╨┐╤А╨╡╨┤╨╡╨╗╨╡ 16 тАФ ╤А╨╛╨▓╨╜╨╛ 16 ╤И╨░╨│╨╛╨▓.
+    
+        ╨Ю╨║╨╜╨╛ ╨╝╨╛╨┤╨╡╨╗╨╕ ╨╖╨┤╨╡╤Б╤М ╨╕╨╜╤К╨╡╨║╤В╨╕╤А╤Г╨╡╤В╤Б╤П (╨▓╨╡╤А╤Е╨╜╨╡╤Г╤А╨╛╨▓╨╜╨╡╨▓╤Л╨╣ ╤А╨╡╨╖╨╛╨╗╨▓╨╡╤А ╨║╨░╤В╨░╨╗╨╛╨│╨░
+        ╨╝╨╛╨┤╨╡╨╗╨╡╨╣), ╤А╨╡╤И╨╡╨╜╨╕╨╡ ┬л╨▒╨╡╨╖ ╤П╨▓╨╜╨╛╨╣ ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╕ ╨╛╨│╤А╨░╨╜╨╕╤З╨╕╤В╤М ╤И╨░╨│╨╕ ╤Н╤В╨╕╨╝ ╨┐╤А╨╡╨┤╨╡╨╗╨╛╨╝┬╗
+        ╨▓╤Л╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨╜╨░╤Б╤В╨╛╤П╤Й╨╕╨╝ ╨║╨╛╨┤╨╛╨╝.
+        """
+    
+        async def _budget(*, llm):      # noqa: A002 - ╨║╨╛╨╜╤В╤А╨░╨║╤В ╤А╨╡╨╖╨╛╨╗╨▓╨╡╤А╨░
+            return _dx.OrchestratorBudget(
+                window_tokens=262144, window_source="test_injected",
+                max_steps=16, max_total_tokens=16384,
+                query_chars=800, snippet_chars=400)
+    
+        monkeypatch.setattr(_dx, "resolve_orchestrator_budget", _budget)
+        llm, router, result = await _run_endless()
+>       assert llm.calls == 16
+E       assert 201 == 16
+E        +  where 201 = <tests.test_unified_reply_ur_b_search_first._EndlessOrchestratorLLM object at 0x0000024D6EA8A870>.calls
+
+tests\test_unified_reply_ur_b_search_first.py:920: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable тАФ source=error | key=flags.budgets_enabled | chat=-1001234567890
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable тАФ global value used | chat=-1001234567890 | enabled=True | source=default
+WARNING  services.direct_execution:direct_execution.py:1313 [direct-exec] orchestrator llm failed | chat=-1001234567890 | error=AssertionError: adaptive chain ╤Б╨┤╨╡╨╗╨░╨╗ >200 ╨▓╤Л╨╖╨╛╨▓╨╛╨▓ ╨╛╤А╨║╨╡╤Б╤В╤А╨░╤В╨╛╤А╨░: ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ ╨┐╤А╨╡╨┤╨╡╨╗╨░ ╤И╨░╨│╨╛╨▓ ╨╜╨╡╤В (UR-BAN-02)
+_____ TestAdaptivePhysicalStepBound.test_material_is_kept_after_the_limit _____
+
+self = <tests.test_unified_reply_ur_b_search_first.TestAdaptivePhysicalStepBound object at 0x0000024D6D4C59A0>
+
+    @pytest.mark.asyncio
+    async def test_material_is_kept_after_the_limit(self):
+        llm, router, result = await _run_endless()
+>       assert result.tool_context.count("╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В") == llm.calls
+E       AssertionError: assert 200 == 201
+E        +  where 200 = <built-in method count of str object at 0x0000024D716D6870>('╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В')
+E        +    where <built-in method count of str object at 0x0000024D716D6870> = '╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 1\nhttps://example.com/1\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 2\nhttps://example.com/2\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д...mple.com/198\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 199\nhttps://example.com/199\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 200\nhttps://example.com/200'.count
+E        +      where '╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 1\nhttps://example.com/1\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 2\nhttps://example.com/2\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д...mple.com/198\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 199\nhttps://example.com/199\n╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В╤Л\n╨Э╨╛╨▓╤Л╨╣ ╤Д╨░╨║╤В 200\nhttps://example.com/200' = ''.tool_context
+E        +  and   201 = <tests.test_unified_reply_ur_b_search_first._EndlessOrchestratorLLM object at 0x0000024D6DD90A70>.calls
+
+tests\test_unified_reply_ur_b_search_first.py:930: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable тАФ source=error | key=flags.budgets_enabled | chat=-1001234567890
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable тАФ global value used | chat=-1001234567890 | enabled=True | source=default
+WARNING  services.direct_execution:direct_execution.py:1313 [direct-exec] orchestrator llm failed | chat=-1001234567890 | error=AssertionError: adaptive chain ╤Б╨┤╨╡╨╗╨░╨╗ >200 ╨▓╤Л╨╖╨╛╨▓╨╛╨▓ ╨╛╤А╨║╨╡╤Б╤В╤А╨░╤В╨╛╤А╨░: ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ ╨┐╤А╨╡╨┤╨╡╨╗╨░ ╤И╨░╨│╨╛╨▓ ╨╜╨╡╤В (UR-BAN-02)
+============================== warnings summary ===============================
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_unified_reply_ur_b_search_first.py::TestAdaptivePhysicalStepBound::test_new_material_every_round_stops_at_physical_limit
+FAILED tests/test_unified_reply_ur_b_search_first.py::TestAdaptivePhysicalStepBound::test_hard_cycle_cap_is_the_enforced_bound
+FAILED tests/test_unified_reply_ur_b_search_first.py::TestAdaptivePhysicalStepBound::test_material_is_kept_after_the_limit
+3 failed, 5 passed, 60 deselected, 2 warnings in 3.43s

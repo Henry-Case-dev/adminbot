@@ -161,11 +161,12 @@ class TestDynamicWindowResolution:
         assert limits.max_total_tokens >= 6000
 
     @pytest.mark.asyncio
-    async def test_chain_not_capped_by_window_derived_steps(self, monkeypatch):
-        """SMART-EXECUTION-RELIABILITY-01 §B1: число шагов больше не берётся
-        из «окна модели» как потолок — все 9 решений оркестратора исполнены,
-        остановка по `finish`. Деривация остаётся наблюдаемой метой
-        (payload-срезы + `max_steps` как расчётное число), а не enforcement."""
+    async def test_window_derived_steps_are_a_safety_limit(self, monkeypatch):
+        """UR-BAN-02 (заменяет прежнее «шаги не ограничены окном»): без явной
+        операторской политики действует физический анти-цикл шагов из окна
+        модели — при окне 128k это 8 шагов, 9-е решение не исполняется,
+        остановка честная (`max_steps`). Деривация остаётся наблюдаемой метой
+        (payload-срезы + `max_steps`), но теперь ещё и пределом."""
         async def _fake_stage_window(base_url, model, *, slot=None):
             return 131072, "runtime"
 
@@ -174,18 +175,19 @@ class TestDynamicWindowResolution:
         llm = _OrchLLM(_tool_decisions(9), chat_model="big-model",
                        base_url="http://llm.example")
         result = await _run_chain(llm)
-        assert len(result.tool_trace) == 9                  # ни один не срезан
-        assert result.chain_meta["reason"] == "finish"
+        assert len(result.tool_trace) == 8                  # предел анти-цикла
+        assert result.chain_meta["reason"] == "max_steps"
         assert result.chain_meta["window_tokens"] == 131072
         assert result.chain_meta["window_source"] == "runtime"
-        assert result.chain_meta["max_steps"] == 8           # деривация, не cap
+        assert result.chain_meta["max_steps"] == 8
         assert result.chain_meta["limits"]["limits_enforced"] is True
         assert result.chain_meta["limits"]["max_total_calls"] == 0
 
     @pytest.mark.asyncio
-    async def test_chain_without_window_not_capped_to_legacy(self, monkeypatch):
-        """Резолвер недоступен → честный source, но legacy-число 4 больше не
-        обрывает цепочку: исполняются все 9 решений до `finish`."""
+    async def test_chain_without_window_uses_legacy_floor_as_limit(
+            self, monkeypatch):
+        """Резолвер недоступен → честный source и нижний пол шагов (4):
+        цепочка завершается на нём с `max_steps`, а не крутится без предела."""
         def _no_window(model=None):
             return 0, "fallback_default"
 
@@ -193,8 +195,9 @@ class TestDynamicWindowResolution:
         monkeypatch.setattr(dx, "orchestrator_max_metered_calls", lambda: 0)
         llm = _OrchLLM(_tool_decisions(9))                  # без _base_url
         result = await _run_chain(llm)
-        assert len(result.tool_trace) == 9
-        assert result.chain_meta["reason"] == "finish"
+        assert len(result.tool_trace) == dx.ORCHESTRATOR_MAX_STEPS
+        assert result.chain_meta["reason"] == "max_steps"
+        assert result.chain_meta["max_steps"] == dx.ORCHESTRATOR_MAX_STEPS
         assert result.chain_meta["window_tokens"] == 0
         assert result.chain_meta["window_source"] == "fallback_default"
 

@@ -25,7 +25,7 @@
 | 3. UI «Прямых ответов» | UR-BAN-08 | JS-тест + живой Playwright на реальном backend: структура соответствует строке, дефекта UI нет | `raw/pytest-ur-ban08-js.txt`, `raw/node-ur-ban08.txt`, `raw/ban08-visual.json`, `raw/ban08-*.png` |
 | 4. Исторический диалог | UR-17, UR-17.3, UR-17.6, UR-ACC-D6 | Фикстура из прод-БД (read-only) + replay: 8 passed; мутационная защита 4/4 | `raw/ur17-fixture-red.txt`, фикстура, тест |
 | 5. Живой E2E | UR-ACC-E9 | Прогон на проде через боевой venv systemd-unit: 7 passed (в т.ч. негативные) | `raw/prod-e9-live-run.txt` |
-| 6. Adaptive chain | UR-BAN-02 | Продукт НЕ менялся. Точная семантика (file:line) + runtime-факт: 40 шагов без предела | `raw/ban02-static-semantics.txt`, `raw/ban02-runtime-probe.txt` |
+| 6. Adaptive chain | UR-BAN-02 | Реализовано: физический анти-цикл шагов применяется без явной политики; 16 вызовов / reason `max_steps` (было 201 при предохранителе) | `raw/ur-ban02-*.txt`, раздел 7 |
 
 ---
 
@@ -307,3 +307,163 @@ UNBOUNDED
 ## Артефакты
 
 `raw/` — фактические выводы прогонов и скрипты-обвязки; хеши — `raw/SHA256SUMS`.
+
+---
+
+# 7. UR-BAN-02 — реализация физического предела шагов (коммит 2)
+
+Раздел выше (п. 6) фиксирует состояние ДО правки и предложение; номера строк в
+нём относятся к базе `9516c9125` (после правки они сместились на ~+8). Решение
+Orchestrator от 2026-11-27 принято: предел реализован узким коррективом без
+нового флага и без изменения owner-политики «продуктового дедлайна
+исследования нет». Fuse/время не трогались.
+
+## 7.1 Изменение продукта (единственный файл)
+
+`services/direct_execution.py`, `run_adaptive_chain` (`:1265-1280`):
+
+```python
+    # Явная объёмная политика оператора — только при budgets ON (как раньше).
+    explicit_steps = (orchestrator_max_steps() or None) \
+        if budget.limits_on else None
+    max_tokens = (orchestrator_max_total_tokens() or None) \
+        if budget.limits_on else None
+    # UR-BAN-02 (safety, не продуктовая квота объёма): физический анти-цикл
+    # шагов из окна модели (`ORCHESTRATOR_STEPS_HARD_MAX`, пол —
+    # `ORCHESTRATOR_MAX_STEPS`). Считается ЧИСТОЙ деривацией окна ...
+    safety_steps = orchestrator_budget_for_window(limits.window_tokens).max_steps
+    max_steps = explicit_steps or safety_steps
+```
+
+- прежний код: `max_steps = (orchestrator_max_steps() or None) if budget.limits_on else None`
+  → без env-политики `None` (цикл не ограничен ничем);
+- новый: без явной политики действует **чистая** деривация окна
+  (`ORCHESTRATOR_MAX_STEPS=4` — пол, `ORCHESTRATOR_STEPS_HARD_MAX=16` —
+  потолок); env-политика оператора авторитетна и не зажимается этим пределом.
+- `safety_steps` считается из `orchestrator_budget_for_window(limits.window_tokens)`,
+  а НЕ из `limits.max_steps`: в `resolve_orchestrator_budget` уже применён
+  `_apply_ceiling(..., orchestrator_max_steps())`, из-за чего env-значение
+  протекало бы в safety-предел и при `budgets OFF` (регрессия контракта
+  `limits_enforced=false`, которую поймал существующий
+  `test_env_step_ceiling_ignored_when_off`).
+- останов по пределу — существующая ветка `:1299-1302`: `stop_reason="max_steps"`
+  в существующем словаре причин, `limitations.append`, `degraded=True`;
+  накопленные `evidence_sources` сохраняются и попадают в `tool_context`.
+- наблюдаемость: `chain_meta["max_steps"]` теперь = **фактический** предел
+  (анти-цикл либо явная политика), а не только деривация окна; лог
+  `[direct-exec] adaptive chain budget | max_steps=…` показывает то же число.
+- обновлены устаревшие docstring'и (`orchestrator_max_steps`,
+  `resolve_orchestrator_budget`, `run_adaptive_chain`), которые утверждали
+  «число шагов не ограничивает».
+
+Диффы: `services/direct_execution.py` (+28/−15 строк по существу),
+`tests/test_unified_reply_ur_b_search_first.py` (+172, новый класс),
+`tests/test_bgs05_budgets.py` (2 теста переписаны под новый контракт).
+Новых флагов, таблиц, эндпоинтов, промптов и квот инструкций нет.
+
+## 7.2 Новый дискриминирующий тест
+
+`tests/test_unified_reply_ur_b_search_first.py::TestAdaptivePhysicalStepBound`
+(7 тестов): fake-LLM каждый раунд просит новый запрос, fake-router отдаёт новый
+непустой материал — единственный возможный ограничитель это предел шагов.
+
+| Тест | Проверяет |
+|---|---|
+| `test_new_material_every_round_stops_at_physical_limit` | вызовов ровно `chain_meta["max_steps"]`, `4 ≤ N ≤ 16`, `reason=max_steps`, материал сохранён, `degraded=True` |
+| `test_hard_cycle_cap_is_the_enforced_bound` | при инъекции окна 262144 — ровно 16 шагов и ни одного 17-го вызова |
+| `test_material_is_kept_after_the_limit` | `tool_context` содержит все полученные факты, `tool_trace` не обрезан |
+| `test_explicit_operator_policy_larger_than_window_cap_is_applied` | env=25 → 25 шагов (политика не зажимается анти-циклом) |
+| `test_explicit_operator_policy_smaller_is_applied` | env=3 → 3 шага |
+| `test_finish_still_wins_before_the_limit` | `finish` на 3-м раунде → 3 вызова, 2 инструмента |
+| `test_repeated_arguments_still_stop_before_the_limit` | повтор args → `cycle_detected` на 2-м вызове |
+| `test_empty_material_still_stops_before_the_limit` | пустой результат → `step_skipped` на 1-м вызове |
+
+Предохранитель `_EndlessOrchestratorLLM.SAFETY=200` — свойство теста (чтобы RED
+падал, а не зависал), не продуктовое поведение.
+
+## 7.3 RED → GREEN (фактические прогоны)
+
+**RED** — новый тест на коде базы `9516c9125` (временное дерево, скопирован
+только тест-файл):
+
+```
+py -m pytest tests/test_unified_reply_ur_b_search_first.py -q -k "AdaptivePhysicalStepBound"
+E  AssertionError: фактических вызовов 201, наблюдаемый предел 8   # assert 201 == 8
+E  assert 201 == 16
+3 failed, 4 passed
+```
+
+**GREEN** — тот же тест на кандидате: `8 passed`
+(`raw/ur-ban02-green.txt`).
+
+**Runtime-проба после правки** (`raw/probe_ban02_after.py`,
+`raw/ur-ban02-after-runtime.txt`), тот же сценарий, что и RED-проба:
+
+| Метрика | ДО (проба на 9516c9125) | ПОСЛЕ |
+|---|---|---|
+| вызовов оркестратора | 40 (остановлена только пробой) / 201 в тесте | **16** |
+| шагов инструмента | 40 | **16** |
+| `stop_reason` | `finish` (искусственный) | **`max_steps`** |
+| `chain_meta["max_steps"]` | — (деривация 16, не применялась) | **16** |
+| материал | — | 16 источников, все с контентом |
+
+Примечание по числу: предел = `min(16, max(4, window/16384))`. В прод-подобном
+окне 1 000 000 токенов это 16 (проба), при окне 131 072 — 8 (контекст
+`test_bgs05_budgets`); тест «ровно 16» фиксируется инъекцией окна 262144.
+
+## 7.4 Затронутые наборы и предсуществующие падения
+
+Полный прогон 36 файлов, импортирующих `direct_execution`/`tool_loop`
+(`raw/ur-ban02-regression-fullset.txt`):
+
+```
+9 failed, 1062 passed in 53.74s
+```
+
+Все 9 падений **предсуществующие на 9516c9125** (проверены в отдельном
+detached-дереве базы, идентичные node id):
+
+| node id | Причина (на базе тоже) |
+|---|---|
+| `test_addtr_tools_minifix.py::test_l1_seam_announce_then_execute_once` | `AttributeError: 'DirectChatService' object has no attribute 'llm'` |
+| `test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept` | `TypeError: fb_retries() got an unexpected keyword argument 'sent'` |
+| `…::test_chat_no_adapter_primary_sized_payload_fallback` | то же |
+| `…::test_chat_adapter_failure_loud_oversized_diagnostic` | то же |
+| `…::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact` | `LLMError: primary down` (устаревший двойник) |
+| `…::test_generate_adapter_invalid_shape_loud` | то же |
+| `test_selfdiag_corrective_research.py::TestContinuationContext::test_continuation_plan_uses_real_ledger_report_and_reads_code` | падает на базе |
+| `test_selfdiag_corrective_research.py::test_direct_l1_addendum_and_outage_keeps_previous_decision` | падает на базе |
+| `test_ur_f_inspector_step1.py::test_identical_quotes_credit_only_the_surviving_item` | падает на базе |
+
+Известный `tests/test_webapp_js_unit.py` (7 failed) не входит в этот набор и
+не мой (см. ограничения выше).
+
+## 7.5 Заменённое покрытие (обоснование)
+
+Два теста `tests/test_bgs05_budgets.py` кодировали прежний owner-контракт
+«шаги не ограничены деривацией окна» и после решения по UR-BAN-02 стали
+неверными. Они переписаны, а не удалены — покрытие сохранено, но проверяет
+новый контракт:
+
+- `test_chain_not_capped_by_window_derived_steps` →
+  `test_window_derived_steps_are_a_safety_limit`: при окне 128k исполняется
+  8 шагов, 9-е решение не исполняется, `reason=max_steps`,
+  `limits_enforced=True`, `max_total_calls=0` (объёмных квот по-прежнему нет);
+- `test_chain_without_window_not_capped_to_legacy` →
+  `test_chain_without_window_uses_legacy_floor_as_limit`: без резолвера окна
+  действует нижний пол 4 шага, `reason=max_steps`, `window_source` остаётся
+  честным `fallback_default`.
+
+## 7.6 Остаточные ограничения
+
+- Предел шагов — физический анти-цикл, а не дедлайн: цепочка из 16 дорогих
+  шагов по времени не ограничена (owner-политика «дедлайна исследования нет»
+  сохранена; fuse остаётся `0`).
+- `meta["max_steps"]` теперь фактический предел; прежнее «деривация окна»
+  видно там же только когда явной политики нет (значения совпадают).
+- Правка не деплоилась; на 2.58.257 поведение прежнее до релиза.
+- Пункт 4/5 (исторический диалог и live E2E) в этом коммите не перепрогонялись
+  заново — продуктовое изменение не касается этих путей; прогон
+  `tests/test_ur_17_historical_dialog.py` (8 passed) и
+  `tests/test_ur_acceptance_trace.py` (7 passed) на кандидате подтверждён
+  повторно.
