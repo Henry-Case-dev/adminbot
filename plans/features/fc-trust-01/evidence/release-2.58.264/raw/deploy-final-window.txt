@@ -1,0 +1,170 @@
+== NOW ==
+2026-11-27T23:14:17Z
+== PRODUCT SHA ON PROD ==
+services/factcheck_planner.py b143e4a7713c3bc960444a389629df64f0d7347a
+services/factcheck_service.py 12c74ebc578ec6b8e27b0b9015c78189592c9c10
+services/factcheck_orchestrator.py 485bbe38cef2206e2869aa49eeaeb7c56aefb1b2
+tests/test_fc_trust_s1_contract.py 5d5affc9ef6b2a9c60fb2364ab300293eb026e9b
+candidate_blobs: planner=b143e4a7713c3bc960444a389629df64f0d7347a service=12c74ebc578ec6b8e27b0b9015c78189592c9c10 orchestrator=485bbe38cef2206e2869aa49eeaeb7c56aefb1b2 test=5d5affc9ef6b2a9c60fb2364ab300293eb026e9b
+== UNIT/PROCS ==
+active=active restarts=0 mainpid=1137172
+    PID    PPID     ELAPSED CMD
+1137172       1       13:07 /var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py
+== BUNDLE ==
+disk=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+served=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+match=true
+web_root_http=200
+== EFFECTIVE FACTCHECK CONFIG (read-only) ==
+flags.factcheck_enabled=true
+-- factcheck key names (first 40) --
+flags.factcheck_enabled
+flags.factcheck_pipeline_v2
+flags.factcheck_suitability_gate
+flags.factcheck_wide_context
+flags.factcheck_wide_context_default_v1
+limits.factcheck_claim_portion
+limits.factcheck_context_after
+limits.factcheck_context_before
+limits.factcheck_context_messages
+limits.factcheck_cooldown_seconds
+limits.factcheck_excerpt_chars
+limits.factcheck_max_queries_total
+limits.factcheck_max_symbols
+limits.factcheck_page_size
+limits.factcheck_primary_fetches
+limits.factcheck_refine_calls
+limits.factcheck_retrieval_seconds
+limits.factcheck_retrieval_seconds_max
+limits.factcheck_search_text_chars
+prompts.factcheck_analyst_system_prompt
+prompts.factcheck_critique_directive
+prompts.factcheck_subject_system_prompt
+prompts.factcheck_system_prompt
+prompts.factcheck_verbalizer_system_prompt
+api_config_http=401
+== JOURNAL WINDOW ==
+window_start=2026-11-27T23:01:09Z window_end=2026-11-27T23:14:17Z
+lines=687
+ERROR=2
+Traceback=0
+CRITICAL=0
+KeyError=0
+AttributeError=0
+TypeError=0
+http_5xx=0
+factcheck_lines=3
+-- factcheck lines with error markers --
+-- ERROR lines --
+Nov 27 23:06:14 vps159032-gqg python[1137172]: 2026-11-27 23:06:14,040 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+Nov 27 23:06:14 vps159032-gqg python[1137172]: 2026-11-27 23:06:14,043 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-12-05 04:17:46.448730+05:00
+assertion_kind_or_ClaimUnit_mentions=0
+== ROLLBACK DRY-RUN (not executed) ==
+Updating files:  30% (3371/11191)
+Updating files:  31% (3470/11191)
+Updating files:  32% (3582/11191)
+Updating files:  33% (3694/11191)
+Updating files:  34% (3805/11191)
+Updating files:  35% (3917/11191)
+Updating files:  36% (4029/11191)
+Updating files:  37% (4141/11191)
+Updating files:  38% (4253/11191)
+Updating files:  39% (4365/11191)
+Updating files:  40% (4477/11191)
+Updating files:  41% (4589/11191)
+Updating files:  42% (4701/11191)
+Updating files:  43% (4813/11191)
+Updating files:  44% (4925/11191)
+Updating files:  45% (5036/11191)
+Updating files:  46% (5148/11191)
+Updating files:  47% (5260/11191)
+Updating files:  48% (5372/11191)
+Updating files:  49% (5484/11191)
+Updating files:  50% (5596/11191)
+Updating files:  51% (5708/11191)
+Updating files:  52% (5820/11191)
+Updating files:  53% (5932/11191)
+Updating files:  54% (6044/11191)
+Updating files:  55% (6156/11191)
+Updating files:  56% (6267/11191)
+Updating files:  57% (6379/11191)
+Updating files:  58% (6491/11191)
+Updating files:  59% (6603/11191)
+Updating files:  60% (6715/11191)
+Updating files:  61% (6827/11191)
+Updating files:  62% (6939/11191)
+Updating files:  63% (7051/11191)
+Updating files:  64% (7163/11191)
+Updating files:  65% (7275/11191)
+Updating files:  66% (7387/11191)
+Updating files:  67% (7498/11191)
+Updating files:  68% (7610/11191)
+Updating files:  69% (7722/11191)
+Updating files:  70% (7834/11191)
+Updating files:  71% (7946/11191)
+Updating files:  72% (8058/11191)
+Updating files:  73% (8170/11191)
+Updating files:  74% (8282/11191)
+Updating files:  75% (8394/11191)
+Updating files:  76% (8506/11191)
+Updating files:  77% (8618/11191)
+Updating files:  78% (8729/11191)
+Updating files:  79% (8841/11191)
+Updating files:  80% (8953/11191)
+Updating files:  81% (9065/11191)
+Updating files:  82% (9177/11191)
+Updating files:  83% (9289/11191)
+Updating files:  84% (9401/11191)
+Updating files:  85% (9513/11191)
+Updating files:  86% (9625/11191)
+Updating files:  87% (9737/11191)
+Updating files:  88% (9849/11191)
+Updating files:  89% (9960/11191)
+Updating files:  90% (10072/11191)
+Updating files:  91% (10184/11191)
+Updating files:  92% (10296/11191)
+Updating files:  93% (10408/11191)
+Updating files:  94% (10520/11191)
+Updating files:  95% (10632/11191)
+Updating files:  96% (10744/11191)
+Updating files:  97% (10856/11191)
+Updating files:  98% (10968/11191)
+Updating files:  98% (11024/11191)
+Updating files:  99% (11080/11191)
+Updating files: 100% (11191/11191)
+Updating files: 100% (11191/11191), done.
+HEAD is now at 4cdd72e17 docs(release): 2.58.263 assembly evidence - 5 approved S3/S2 commits, byte-identical a50bcaf6a, bump 29/34, DDL 0, routes b8f63355
+{
+  "deployed_at": "2026-11-27T23:14:21.185004Z",
+  "deployed_sha": "4cdd72e17ef418c3901497dcce717d53bda1a62f",
+  "deployer": "devops",
+  "dirty_tracked": false,
+  "effect": "rollback",
+  "previous_sha": "c67683dd68dc4e2e3d48bff06c6568b3448cbc20",
+  "previous_version": "2.58.264",
+  "schema": 1,
+  "version": "2.58.263"
+}
+rollback_dryrun_rc=0
+probe_leftover=no
+worktrees_extra=1
+== DISK ==
+/dev/vda1        99G   51G   43G  55% /
+  top: predeploy-258258-20261127T115028Z.db bytes=6816780288 category=deploy_backup
+  top: predeploy-258257-20261127T072559Z.db bytes=6766456832 category=deploy_backup
+  top: local_database_20261127.db bytes=6308028416 category=db_backup
+  top: facts_20261127.txt bytes=8381769 category=facts_export
+  top: predeploy-258234-pg-20261122T075222Z.dump bytes=107847 category=other
+  top: config-tables-2.58.205.json.gz bytes=92356 category=other
+  top: rollback_a33a636d87a686444f3b83874a34b505.jsonl bytes=16048 category=jsonl_retention
+  top: rollback_986658c776e0510b3c25d151a6b07131.jsonl bytes=7143 category=jsonl_retention
+  top: rollback_6b040f01453aee38032e941e0860f8c9.jsonl bytes=5074 category=jsonl_retention
+  top: cancelled_a33a636d87a686444f3b83874a34b505.jsonl bytes=2821 category=jsonl_retention
+  forecast: bytes_per_day=1686631609 projected_30d=50598948286 (47.1 GiB) files=9 immutable_bytes=0 span_days=11.799
+  forecast_method: sum_sizes_of_files_modified_within_window / max(MIN_FORECAST_SPAN_DAYS, observed_span)
+disk cleanup: APPLY deleted=0 bytes_freed=0 (0.0 B) skipped=0 errors=0
+/dev/vda1        99G   51G   43G  55% /
+== TMP LEFTOVERS ==
+-rw-r--r-- 1 root root 168603 Nov 27 23:14 /tmp/ab264_journal.txt
+leftovers_done
+== DONE ==
