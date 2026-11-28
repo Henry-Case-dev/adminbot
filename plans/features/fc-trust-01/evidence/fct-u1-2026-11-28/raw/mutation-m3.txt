@@ -1,0 +1,21 @@
+........F.................                                               [100%]
+================================== FAILURES ===================================
+_________ TestYearConflict.test_year_inside_url_is_not_a_passage_year _________
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x00000209D8578AD0>
+
+    def test_year_inside_url_is_not_a_passage_year(self):
+        """╨У╨╛╨┤ ╨╕╨╖ ╨░╨┤╤А╨╡╤Б╨░ ╨┐╨░╤Б╤Б╨░╨╢╨░ тАФ ╨╜╨╡ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╡ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░."""
+        passage = ("╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨┐╨╛ ╨┤╨░╨╜╨╜╤Л╨╝ ╨╛╤В╤З╤С╤В╨░ "
+                   "https://eco.example/2024/report")
+        rel = _relevance(passage)
+>       assert rel.role == sa.EVIDENCE_ROLE_SUPPORTS
+E       AssertionError: assert 'qualifies' == 'supports'
+E         
+E         - supports
+E         + qualifies
+
+tests\test_fc_trust_relation_binding.py:136: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_year_inside_url_is_not_a_passage_year
+1 failed, 25 passed in 3.47s

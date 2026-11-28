@@ -1,0 +1,19 @@
+.......F..................                                               [100%]
+================================== FAILURES ===================================
+____ TestYearConflict.test_year_interval_of_the_claim_covers_passage_year _____
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x0000027C3C8C4D10>
+
+    def test_year_interval_of_the_claim_covers_passage_year(self):
+        """╨Ф╨╕╨░╨┐╨░╨╖╨╛╨╜ ╤В╨╡╨╖╨╕╤Б╨░ (2023тАУ2025) ╨╜╨╡ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╤Г╨╡╤В ╤Б ╨│╨╛╨┤╨╛╨╝ ╨▓╨╜╤Г╤В╤А╨╕ ╨╜╨╡╨│╨╛."""
+        rel = _relevance(PASSAGE_2024, timeframe="2023тАУ2025")
+>       assert rel.role == sa.EVIDENCE_ROLE_SUPPORTS
+E       AssertionError: assert 'qualifies' == 'supports'
+E         
+E         - supports
+E         + qualifies
+
+tests\test_fc_trust_relation_binding.py:128: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_year_interval_of_the_claim_covers_passage_year
+1 failed, 25 passed in 3.41s

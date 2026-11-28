@@ -1,0 +1,15 @@
+﻿tests/test_factcheck_wide_context_default_2026_10_25.py
+tests/test_fc_trust_assertion_kind.py
+tests/test_fc_trust_relation_binding.py
+tests/test_fc_trust_render.py
+tests/test_fc_trust_retrieval.py
+tests/test_fc_trust_s1_contract.py
+tests/test_fc_trust_s4_evidence.py
+tests/test_fc_trust_s5_writer.py
+tests/test_fc_trust_s6_aggregate_api.py
+tests/test_fc_trust_s6_aggregates.py
+tests/test_fc_trust_s6_run_link.py
+tests/test_fc_trust_target.py
+tests/test_fc_trust_verdict.py
+tests/test_mca20_temporal_round1044.py
+tests/test_mem08_search_read_model.py

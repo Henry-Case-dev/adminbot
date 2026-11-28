@@ -1,0 +1,58 @@
+diff --git a/services/prompt_registry.py b/services/prompt_registry.py
+index 0f4ce403d..d24667d65 100644
+--- a/services/prompt_registry.py
++++ b/services/prompt_registry.py
+@@ -384,7 +384,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
+     "internal.image_stage": "image-stage-w2a",
+     # EVOL-018 (W2B, ╤А╨╡╨▓╤М╤О F3): ╨╢╨╕╨▓╤Л╨╡ LLM-╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╨╕ ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╜╨╛╨│╨╛ ╨░╤Г╨┤╨╕╤В╨░.
+     # FC-04 (corrective 05.11.2026): ╨▒╨░╨╝╨┐ ╨╝╨╡╤В╨╛╨║ ╤А╨╡╨▓╨╕╨╖╨╕╨╕ (╨┐╤А╨░╨▓╨╕╨╗╨╛ mixed/causality).
+-    "temporal.analyst": "temporal-analyst-fc04-corrective",
++    "temporal.analyst": "temporal-analyst-fct113-192-u1",
+     "temporal.validator": "temporal-validator-fc04-corrective",
+     "temporal.fallback": "temporal-fallback-fc08",
+     "memory.fact_retry": "fact-retry-evol006",
+@@ -563,7 +563,7 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
+     # (╨┐╤А╨╕╨▓╨░╤В╨╜╤Л╨╡ ╨╕╨╝╨╡╨╜╨░ + ╤Б╨║╨╛╨▒╨╛╤З╨╜╤Л╨╡ ╨║╨╛╨╜╨║╨░╤В╨╡╨╜╨░╤Ж╨╕╨╕ ╨▒╨╡╨╖ ╤В╤А╨╛╨╣╨╜╤Л╤Е ╨║╨░╨▓╤Л╤З╨╡╨║).
+     # FC-04 (corrective 05.11.2026): ╨┐╤А╨░╨▓╨╕╨╗╨╛ mixed/causality ╨▓ analyst ╨╕
+     # validator ╨┐╨╡╤А╨╡╨┐╨╕╤Б╨░╨╜╨╛ тАФ ╨▒╨░╨╝╨┐ ╨╝╨╡╤В╨║╨╕ ╤А╨╡╨▓╨╕╨╖╨╕╨╕ ╨╕ ╨┐╨╡╤З╨░╤В╨╕ sha12 (seal).
+-    "temporal.analyst": ("temporal-analyst-fc04-corrective", "5baf6afaf2d8"),
++    "temporal.analyst": ("temporal-analyst-fct113-192-u1", "3f7ecbff8509"),
+     "temporal.validator": ("temporal-validator-fc04-corrective", "e1c2038a835d"),
+     "temporal.fallback": ("temporal-fallback-fc08", "c14641150137"),
+     "memory.fact_retry": ("fact-retry-evol006", "e04f4b32ef63"),
+@@ -3057,7 +3057,16 @@ def factory_set_fingerprint() -> str:
+ #: ╨Ф╨Х╨Щ╨б╨в╨Т╨Ш╨п ╨б ╨Э╨Ш╨Ь╨Ш┬╗ (╨╝╨╡╤В╨║╨░ ``l1-planner-final-goal``, ╨┐╨╡╤З╨░╤В╤М
+ #: ``ce6931304b24``); ╨┐╤А╨╛╤З╨╕╨╡ ╨║╨░╨╜╨╛╨╜╤Л, ╨▓╨║╨╗╤О╤З╨░╤П ╤В╨╡╨║╤Б╤В╤Л ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░, ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В.
+ #: ╨С╤Л╨╗╨╛ ``2cd38b272139``, ╤Б╤В╨░╨╗╨╛ ``10efa51a8dae``.
+-FACTORY_SET_SHA256_12 = "10efa51a8dae"
++#: FCT-113/FCT-192 U1 (28.11.2026, Architect decisions ┬з1/┬з2): changed = 1 тАФ
++#: ``temporal.analyst`` ╨┐╨╛╨╗╤Г╤З╨╕╨╗ ╨┤╨▓╨░ ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╤Е ╨┐╨╛╨╗╤П ╤З╨░╤Б╤В╨╕ JSON
++#: (``assertion_kind`` тАФ ╤В╨╛╨╗╤М╨║╨╛ ╤Б╨╝╤Л╤Б╨╗╨╛╨▓╤Л╨╡ ╨╖╨╜╨░╤З╨╡╨╜╨╕╤П, ``evidence_quotes`` тАФ
++#: ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╨░╤П ╤Д╤А╨░╨╖╨░ ╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╤П) ╨╕ ╨┐╤А╨░╨▓╨╕╨╗╨░ 14/15 ╨║ ╨╜╨╕╨╝. ╨б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╡ ╨┐╤А╨░╨▓╨╕╨╗╨░ ╨╕
++#: ╨┤╨╕╤А╨╡╨║╤В╨╕╨▓╨░ ╨╜╨╡ ╤Б╨╛╨║╤А╨░╤Й╨╡╨╜╤Л, ╨╝╨╛╨┤╨╡╨╗╤М/╨╗╨╕╨╝╨╕╤В╤Л ╨╜╨╡ ╨╝╨╡╨╜╤П╨╗╨╕╤Б╤М (╨╝╨╡╤В╨║╨░
++#: ``temporal-analyst-fct113-192-u1``, ╨┐╨╡╤З╨░╤В╤М ``3f7ecbff8509``); ╨┐╤А╨╡╨╢╨╜╨╕╨╡ ╨▒╨░╨╣╤В╤Л
++#: (╨┐╤А╨╛╨┤ 2.58.272) тАФ ╨┐╨╡╤З╨░╤В╤М ``5baf6afaf2d8``, ╨╝╨╡╤В╨║╨░
++#: ``temporal-analyst-fc04-corrective``; ╨┐╤А╨╛╤З╨╕╨╡ ╨║╨░╨╜╨╛╨╜╤Л ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В.
++#: ╨С╤Л╨╗╨╛ ``10efa51a8dae``, ╤Б╤В╨░╨╗╨╛ ``bd06a8a1a782``.
++FACTORY_SET_SHA256_12 = "bd06a8a1a782"
+ 
+ 
+ 
+diff --git a/tests/test_asap_fc_voice01_verbalizer.py b/tests/test_asap_fc_voice01_verbalizer.py
+index 983e9d97e..73788305e 100644
+--- a/tests/test_asap_fc_voice01_verbalizer.py
++++ b/tests/test_asap_fc_voice01_verbalizer.py
+@@ -240,9 +240,11 @@ class TestVoiceCanonRevision:
+ 
+     def test_temporal_analyst_seal(self):
+         """╨б╤Е╨╡╨╝╨░ ╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛╨│╨╛ ╨░╨╜╨░╨╗╨╕╤В╨╕╨║╨░ (v2-envelope); FC-04 (corrective
+-        05.11.2026) ╨┐╨╡╤А╨╡╨┐╨╕╤Б╨░╨╗ ╨┐╤А╨░╨▓╨╕╨╗╨╛ mixed/causality тАФ ╤А╨╡╨▓╨╕╨╖╨╕╤П ╨╖╨░╨▒╨░╨╝╨┐╨╗╨╡╨╜╨░."""
++        05.11.2026) ╨┐╨╡╤А╨╡╨┐╨╕╤Б╨░╨╗ ╨┐╤А╨░╨▓╨╕╨╗╨╛ mixed/causality, FCT-113/192 U1
++        (28.11.2026) ╨┤╨╛╨▒╨░╨▓╨╕╨╗ ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╡ ╨┐╨╛╨╗╤П ╤З╨░╤Б╤В╨╕ (`assertion_kind`,
++        `evidence_quotes`) ╨▒╨╡╨╖ ╤Б╨╛╨║╤А╨░╤Й╨╡╨╜╨╕╤П ╨┐╤А╨░╨▓╨╕╨╗ тАФ ╤А╨╡╨▓╨╕╨╖╨╕╤П ╨╖╨░╨▒╨░╨╝╨┐╨╗╨╡╨╜╨░."""
+         label, seal = pr.FACTORY_REVISION_SEALS["temporal.analyst"]
+-        assert label == "temporal-analyst-fc04-corrective"
++        assert label == "temporal-analyst-fct113-192-u1"
+         assert pr.sha12(pr.factory_text("temporal.analyst")) == seal
+ 
+     def test_single_canon_conflicting_directives_removed(self):

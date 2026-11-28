@@ -1,0 +1,16 @@
+﻿tests/test_asap_fc_voice_l1_decision_profile.py
+tests/test_asap_fc_voice01_verbalizer.py
+tests/test_asap8_v6_p1_d10_temporal.py
+tests/test_asap8_v63_b07_temporal_factcheck.py
+tests/test_bgs01_factcheck_no_name_strip.py
+tests/test_evol_factcheck_critical.py
+tests/test_factcheck_attribution_cfg06.py
+tests/test_factcheck_context_cfg06.py
+tests/test_factcheck_deep_context_round1023.py
+tests/test_factcheck_evidence_delivery.py
+tests/test_factcheck_fc_r1_fix.py
+tests/test_factcheck_finalization.py
+tests/test_factcheck_gate_cfg06.py
+tests/test_factcheck_grounding_cove_round1021.py
+tests/test_factcheck_handlers.py
+tests/test_factcheck_media_2026_10_25.py

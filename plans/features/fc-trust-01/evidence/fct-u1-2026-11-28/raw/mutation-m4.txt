@@ -1,0 +1,38 @@
+......................FF..                                               [100%]
+================================== FAILURES ===================================
+______ TestEvidenceQuotesForm.test_quote_for_foreign_evidence_is_dropped ______
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x000002DAB6017050>
+
+    def test_quote_for_foreign_evidence_is_dropped(self):
+        """ID ╨▓╤Л╨┤╨╡╤А╨╢╨║╨╕ ╨▓╨╜╨╡ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░ ╨╜╨╡ ╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤Б╤П ╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╨╡╨╝."""
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-9": "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%"}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-9': '╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'}}
+
+tests\test_fc_trust_relation_binding.py:195: AssertionError
+___ TestEvidenceQuotesForm.test_mixed_quotes_keep_only_current_run_evidence ___
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x000002DAB60175C0>
+
+    def test_mixed_quotes_keep_only_current_run_evidence(self):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%",
+                                      "ev-9": "╤З╤Г╨╢╨░╤П ╨▓╤Л╨┤╨╡╤А╨╢╨║╨░"}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["evidence_quotes"] == {
+            "ev-1": "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%"}
+E       AssertionError: assert {'ev-1': '╤Б╨╜╨╕...╨╢╨░╤П ╨▓╤Л╨┤╨╡╤А╨╢╨║╨░'} == {'ev-1': '╤Б╨╜╨╕...╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'ev-9': '╤З╤Г╨╢╨░╤П ╨▓╤Л╨┤╨╡╤А╨╢╨║╨░'}
+E         Use -v to get more diff
+
+tests\test_fc_trust_relation_binding.py:202: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_quote_for_foreign_evidence_is_dropped
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_mixed_quotes_keep_only_current_run_evidence
+2 failed, 24 passed in 3.56s

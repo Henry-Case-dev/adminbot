@@ -1,0 +1,219 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+______________________ test_grep_audit_counts_are_stable ______________________
+
+    def test_grep_audit_counts_are_stable():
+        """╨ж╨╕╤Д╤А╤Л ┬л╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░┬╗ ╨▓ ╨║╨╛╨╜╤В╤А╨░╨║╤В╨╡ ┬з5 ╨╖╨░╨┐╨╕╨╜╨╡╨╜╤Л (PVR-S5, F1).
+    
+        ╨Ф╨╛╨║╤Г╨╝╨╡╨╜╤В ╨╛╨▒╤П╨╖╨░╨╜ ╨╛╨┐╨╕╤Б╤Л╨▓╨░╤В╤М ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨╡ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╡; ╤З╨╕╤Б╨╗╨░, ╤Б╨╜╤П╤В╤Л╨╡ ╤А╤Г╨║╨░╨╝╨╕,
+        ╤В╨╕╤Е╨╛ ╤Г╤Б╤В╨░╤А╨╡╨▓╨░╤О╤В (╨╕╨╝╨╡╨╜╨╜╨╛ ╤В╨░╨║ ┬з5 ╤А╨░╨╖╨╛╤И╤С╨╗╤Б╤П ╨╜╨░ 3 ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░). ╨Я╨╕╨╜ ╨┤╨╡╨╗╨░╨╡╤В
+        ╨┤╤А╨╡╨╣╤Д ╨│╤А╨╛╨╝╨║╨╕╨╝: ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╤Б╨╛╤Б╤В╨░╨▓ ``services/``/``handlers/`` ╨╕╨╗╨╕ ╤А╨╡╨╡╤Б╤В╤А╨░ тАФ
+        ╨┐╨░╨┤╨░╨╡╤В ╤Н╤В╨╛╤В ╤В╨╡╤Б╤В ╨╕ ╨╖╨░╤Б╤В╨░╨▓╨╗╤П╨╡╤В ╨╛╨▒╨╜╨╛╨▓╨╕╤В╤М ┬з5 ╨▓ ╤В╨╛╨╝ ╨╢╨╡ ╨║╨╛╨╝╨╝╨╕╤В╨╡.
+    
+        ╨Ъ╨░╨║ ╤Б╤З╨╕╤В╨░╨╡╨╝: ``audit_unregistered_prompt_constants`` ╤Б ╨┐╤Г╤Б╤В╤Л╨╝ ╤А╨╡╨╡╤Б╤В╤А╨╛╨╝ ╨╕
+        ╨┐╤Г╤Б╤В╤Л╨╝ allowlist ╨┤╨░╤С╤В ╨▓╤Б╨╡╤Е ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨╛╨▓ (72); ╤Б ╤А╨╡╨░╨╗╤М╨╜╤Л╨╝ allowlist тАФ
+        ╨╛╤Б╤В╨░╨╗╤М╨╜╤Л╤Е (71), ╨╖╨╜╨░╤З╨╕╤В 1 ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╨▓ allowlist; ╨╜╨░ ╤А╨╡╨░╨╗╤М╨╜╨╛╨╝ ╤А╨╡╨╡╤Б╤В╤А╨╡ тАФ
+        0 ╨╜╨░╤А╤Г╤И╨╡╨╜╨╕╨╣, ╨╖╨╜╨░╤З╨╕╤В ╨╛╤Б╤В╨░╨╗╤М╨╜╤Л╨╡ 71 ╨╖╨░╨║╤А╤Л╤В╤Л ``code_source``.
+        """
+        files = sum(len(list((ROOT / sub).glob("*.py")))
+                    for sub in pr._AUDIT_SCAN_MODULES)
+        # QND-NONDET (10.11.2026): +3 ╤Д╨░╨╣╨╗╨░ services/ (semantic_schedule,
+        # quantum_publication, qnd_diagnostics). ╨Я╨╕╨╜ ╨Ф╨Ю ╤Н╤В╨╛╨╣ ╨▓╨╛╨╗╨╜╤Л ╤Г╨╢╨╡ ╨┤╤А╨╡╨╣╤Д╨╛╨▓╨░╨╗
+        # (╨╜╨░ ╨┐╤А╨╛╨┤╨╡ 2.58.179 ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╡ 309 ╨┐╤А╨╛╤В╨╕╨▓ ╨┐╨╕╨╜╨░ 294; ╨╜╨░ ╨▓╨╡╤В╨║╨╡ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░
+        # 312 ╨╕╨╖-╨╖╨░ ╤В╤А╤С╤Е ╤Д╨░╨╣╨╗╨╛╨▓ SELF-DIAG-01 D2 ╨▓╨╜╨╡ ╤Н╤В╨╛╨│╨╛ ╤Б╤А╨╡╨╖╨░) тАФ ╨╖╨░╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╨╜╨╛
+        # ╨д╨Р╨Ъ╨в╨Ш╨з╨Х╨б╨Ъ╨Ю╨Х ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╡ ╤А╨╡╨╗╨╕╨╖╨╜╨╛╨│╨╛ ╨┤╨╡╤А╨╡╨▓╨░: 309 + 3 = 312.
+        # SMART release train 01 (14.11.2026): ╨▓ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╨▓╨╛╤И╨╗╨╕ SELF-DIAG-01 ╨╕
+        # SMART-EXECUTION-RELIABILITY-01 (S13тАУS16, H ╨╕ ╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨╝╨╛╨┤╤Г╨╗╨╕):
+        # ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╤Е ╤Д╨░╨╣╨╗╨╛╨▓ ╨┐╨╛╨┤ ╨░╤Г╨┤╨╕╤В╨╛╨╝ 323 (╨┐╨╕╨╜ 312 ╤З╨╡╤Б╤В╨╜╨╛ ╨┐╨░╨┤╨░╨╗ ╨╜╨░ ╨▓╨╡╤В╨║╨╡,
+        # ╤Б╨╝. ┬з5 docs/prompt-versioning-contract.md).
+>       assert files == 323, (
+            f"╤Д╨░╨╣╨╗╨╛╨▓ ╨┐╨╛╨┤ ╨░╤Г╨┤╨╕╤В╨╛╨╝ {files}: ╨╛╨▒╨╜╨╛╨▓╨╕╤В╨╡ ┬з5 ╨║╨╛╨╜╤В╤А╨░╨║╤В╨░ ╨╕ ╤Н╤В╨╛╤В ╨┐╨╕╨╜")
+E       AssertionError: ╤Д╨░╨╣╨╗╨╛╨▓ ╨┐╨╛╨┤ ╨░╤Г╨┤╨╕╤В╨╛╨╝ 331: ╨╛╨▒╨╜╨╛╨▓╨╕╤В╨╡ ┬з5 ╨║╨╛╨╜╤В╤А╨░╨║╤В╨░ ╨╕ ╤Н╤В╨╛╤В ╨┐╨╕╨╜
+E       assert 331 == 323
+
+tests\test_evol018_prompt_audit.py:106: AssertionError
+_________ test_direct_service_l1_payload_gets_profile_from_turn_frame _________
+
+pinned_frame = BehaviorFrame(snapshot_version='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', scope_chat_id=424242, addressee=None, agent_id='bot...ns=(), mood=None, factual_constraints=(), scoped_request=(), rejected_rules=(), stale=False, fallback='', created_at=0)
+
+    @pytest.mark.asyncio
+    async def test_direct_service_l1_payload_gets_profile_from_turn_frame(
+            pinned_frame):
+        """╨а╨╡╨░╨╗╤М╨╜╤Л╨╣ ╨┐╤Г╤В╤М Direct L1: ╤Б╨╡╨║╤Ж╨╕╤П ╤Г╤Е╨╛╨┤╨╕╤В ╨▓ user-payload ╨▓╨╝╨╡╤Б╤В╨╡ ╤Б
+        ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨╝ ╨▓ ╤В╤А╨░╤Б╤Б╨╡; ╤Б╨╕╤Б╤В╨╡╨╝╨╜╤Л╨╣ ╨┐╤А╨╛╨╝╨┐╤В тАФ ╨║╨░╨╜╨╛╨╜ ╨▒╨╡╨╖ Core/╨┐╤А╨╛╨╖╤Л."""
+        from services import prompt_style_blocks as psb
+        from services.summary_aliases import AliasResolver
+        from services.direct_chat_service import DirectChatService as D
+        from services import hot_config as hot
+        from services import chat_params
+    
+        class StubLLM:
+            def __init__(self):
+                self.captured = []
+    
+            async def generate(self, messages, **kwargs):
+                self.captured.append({"step": kwargs.get("step"),
+                                      "messages": [dict(m) for m in messages]})
+                if kwargs.get("step") == "l1_planner":
+                    return json.dumps({
+                        "action": "reply", "response_act": "explanation",
+                        "tone": "inherit", "extent": "detailed",
+                        "structure": "answer", "delivery_hint": "plain",
+                        "tool_policy": "none", "confidence": 0.8,
+                        "capabilities_needed": [],
+                    }, ensure_ascii=False)
+                return "╨в╨Х╨Ъ╨б╨в"
+    
+            def _pg(self):
+                return None
+    
+        class Stub:
+            _render_current_question = D._render_current_question
+            _l1_speech_hints = D._l1_speech_hints
+            _build_speech_understanding = D._build_speech_understanding
+            _attach_l1_plan_meta = D._attach_l1_plan_meta
+            _compose_speech_system = D._compose_speech_system
+            # UR-A: ╨║╨╛╨╜╤В╤А╨░╨║╤В/╨┤╨▓╨╕╨╢╨╛╨║ ╤Е╨╛╨┤╨░ тАФ ╤В╨╡ ╨╢╨╡ ╨╝╨╡╤В╨╛╨┤╤Л ╤А╨╡╨░╨╗╤М╨╜╨╛╨│╨╛ ╤Б╨╡╤А╨▓╨╕╤Б╨░.
+            _resolve_turn_slot_meta = D._resolve_turn_slot_meta
+            _resolve_turn_tool_state = D._resolve_turn_tool_state
+            _turn_aliases_snapshot = D._turn_aliases_snapshot
+            _build_reply_parent_ref = D._build_reply_parent_ref
+            _build_turn_request = D._build_turn_request
+            _execute_turn = D._execute_turn
+    
+            def _l1_reply_block(self, message, budget_tokens=None):
+                return D._l1_reply_block(self, message, budget_tokens=budget_tokens)
+    
+            async def _history_partial(self, chat_id, window):
+                return False
+    
+            def __init__(self, llm):
+                self.llm = llm
+                self.memory = type("M", (), {
+                    "get_window_messages": staticmethod(
+                        lambda chat_id: _empty())})()
+                self.db = None
+                self.bot_id = 999
+                self.aliases = AliasResolver({})
+    
+        async def _empty():
+            return []
+    
+        message = type("M", (), {
+            "text": "╨▒╨╛╤В: ╨┐╨╛╤З╨╡╨╝╤Г ╤Г╨┐╨░╨╗ ╤Б╨╡╤А╨▓╨╕╤Б", "caption": None, "message_id": 1,
+            "chat": type("C", (), {"type": "supergroup"})(),
+            "reply_to_message": None, "from_user": None})()
+    
+        hot.set_config_cache(None)
+        chat_params.set_chat_params_cache(None)
+        pc.reset_state()
+        try:
+            llm = StubLLM()
+            # ctx ╤Е╨╛╨┤╨░ тАФ ╨║╨░╨║ ╨╕╨╖ `resolve_character_context`: ╤Б ╨▓╨╡╤А╤Б╨╕╨╡╨╣ ╨║╨░╨┤╤А╨░
+            # (╤А╨╡╨▓╤М╤О W2/P1 ┬з6╨▓: ╨┐╤А╨╛╨▒╨░ ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨┐╨╛╨║╤А╤Л╨▓╨░╤В╤М ╨╕╨╝╨╡╨╜╨╜╨╛ ╤Н╤В╨╛╤В ╨┐╤Г╤В╤М).
+>           _plan, meta = await D._plan_direct_l1(
+                Stub(llm), CHAT, message, "╨┐╨╛╤З╨╡╨╝╤Г ╤Г╨┐╨░╨╗ ╤Б╨╡╤А╨▓╨╕╤Б", None,
+                bundle=None, target_name="╨Р╨╜╤П", user_id=None,
+                character_block=CORE,
+                character_ctx=turn_ctx(pinned_frame), lore_enabled=False,
+                image_enabled=False, force_required=False, reply_bot=False)
+
+tests\test_asap_fc_voice_l1_decision_profile.py:297: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_asap_fc_voice_l1_decision_profile.test_direct_service_l1_payload_gets_profile_from_turn_frame.<locals>.Stub object at 0x0000024024B331A0>
+chat_id = 424242
+message = <tests.test_asap_fc_voice_l1_decision_profile.M object at 0x0000024024B33110>
+query = '╨┐╨╛╤З╨╡╨╝╤Г ╤Г╨┐╨░╨╗ ╤Б╨╡╤А╨▓╨╕╤Б', correlation_id = None, bundle = None
+target_name = '╨Р╨╜╤П', user_id = None, character_block = '╨п╨Ф╨а╨Ю_╨е╨Р╨а╨Р╨Ъ╨в╨Х╨а╨Р_╨Т╨Х╨б╨Б╨Ы╨Ю╨Х'
+lore_enabled = False, image_enabled = False, reply_bot = False
+force_required = False
+character_ctx = CharacterReadContext(persona=BotPersona(name='', biography='', overrides='', is_aware_ai=True, scope_chat_id=None, is_global=False, updated_at=None), traits=(), traits_scope='global', frame_version='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+extra_media_markers = (), bot_replies = (), bot_replied_recently = False
+reactions_enabled = False, time_snapshot = None, history_range_note = ''
+
+    async def _plan_direct_l1(self, chat_id: int, message, query: str,
+                              correlation_id: str | None, *, bundle,
+                              target_name: str, user_id: int | None,
+                              character_block: str, lore_enabled: bool,
+                              image_enabled: bool, reply_bot: bool,
+                              force_required: bool = False,
+                              character_ctx=None,
+                              extra_media_markers: tuple = (),
+                              bot_replies: tuple[str, ...] = (),
+                              bot_replied_recently: bool = False,
+                              reactions_enabled: bool = False,
+                              time_snapshot=None,
+                              history_range_note: str = "") -> tuple:
+        """┬з1.1/┬з1.5/┬з1.6 + v6 D03: pre-tool L1 Planner тАФ 1 LLM call тЖТ
+        L1Plan.
+    
+        Ladder: configured L1 slot (dedicated, hot-first) тЖТ (fallback ON)
+        main model тЖТ ╨┤╨╡╤В. fallback ╤А╨╡╤И╨░╨╡╤В ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╕╨╣ (fallback_plan).
+        Bounded repair: ╤А╨╛╨▓╨╜╨╛ 1 ╨┐╨╛╨▓╤В╨╛╤А ╨┐╤А╨╕ ╨╜╨╡╨▓╨░╨╗╨╕╨┤╨╜╨╛╨╝ JSON (D14).
+        D03 (┬з18C.1): ╨Я╨Х╨а╨Х╨Ф ╨┐╨╛╨┐╤Л╤В╨║╨╛╨╣ тАФ ╨╛╨▒╤Й╨╕╨╣ permission-╤А╨╡╨╖╨╛╨╗╨▓
+        ╨║╨╗╤О╤З╨╡╨╣/╨▒╤О╨┤╨╢╨╡╤В╨░ (``authorize_l1_call``): no-own-key +
+        global-forbidden ╨╕ exhausted budget ╨С╨Ы╨Ю╨Ъ╨Ш╨а╨г╨о╨в ╨┐╨╛╨┐╤Л╤В╨║╤Г
+        (NoApiKeyForChat ╨┐╤А╨╛╨▒╤А╨░╤Б╤Л╨▓╨░╨╡╤В╤Б╤П ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╡╨╝╤Г тАФ ╤В╨╛╤В ╨╢╨╡ sandbox-╨┐╤Г╤В╤М,
+        ╤З╤В╨╛ ╤Г ╨╛╨▒╤Л╤З╨╜╤Л╤Е ╨▓╤Л╨╖╨╛╨▓╨╛╨▓); ╨Ю╨С╨Х ╨┐╨╛╨┐╤Л╤В╨║╨╕ (╨┐╨╡╤А╨▓╨░╤П + repair) ╤Г╤З╤В╨╡╨╜╤Л
+        (usage/cost/unknown-cost + ╨▒╤О╨┤╨╢╨╡╤В╨╜╤Л╨╣ ╤Б╤З╤С╤В╤З╨╕╨║ ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╨╛╨│╨╛ ╨║╨╗╤О╤З╨░).
+        D03 (┬з18C.6): dedicated ╤В╨╡╨╝╨┐╨╡╤А╨░╤В╤Г╤А╨░ ╤А╨╡╨░╨╗╤М╨╜╨╛ ╨┐╤А╨╕╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╨▓ payload;
+        ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А ╨╛╤В╨▓╨╡╤А╨│ temperature тЖТ ╤З╨╡╤Б╤В╨╜╤Л╨╣ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ retry ╨▒╨╡╨╖ ╨╜╨╡╤С
+        + ╤Д╨╗╨░╨│ ``temperature_unsupported``. usage-row ``step="l1_planner"``
+        (╨│╨╡╨╜╨╡╤А╨╕╤В╤Б╤П llm.generate; ╨┤╨╗╤П dedicated ╤Б╨╗╨╛╤В╨░ тАФ ╨▓╤А╤Г╤З╨╜╤Г╤О) + agentic
+        event ``L1_PLAN`` (┬з1.5). ╨Э╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В, ╨Ъ╨а╨Ю╨Ь╨Х
+        NoApiKeyForChat (╨▒╨╗╨╛╨║ ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╕); ``None``-╨┐╨╗╨░╨╜ тЖТ ╤Б╨╕╨│╨╜╨░╨╗
+        deterministic fallback (D13/D14).
+    
+        UR-A (┬з2.1): L1 ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╨╣ ╨║╨╛╨┤ тАФ ╨░╨┤╨░╨┐╤В╨╡╤А ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В ╨║╨╛╨╜╤В╨╡╨║╤Б╤В
+        ╨┐╤А╤П╨╝╨╛╨│╨╛ ╤Е╨╛╨┤╨░, ╤Б╤В╤А╨╛╨╕╤В `TurnRequest` ╨╕ ╨┐╨╡╤А╨╡╨┤╨░╤С╤В ╨╡╨│╨╛ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╨╛╨╝╤Г
+        ╨╕╤Б╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤О `_execute_turn` (╤Б╨╗╨╛╤В/╨┐╤А╨░╨▓╨╛/╨▒╤О╨┤╨╢╨╡╤В тАФ ╨╛╨▒╤Й╨╕╨╣ ╤А╨╡╨╖╨╛╨╗╨▓).
+    
+        P0 DIRECT-TRIGGER (26.11.2026): ``force_required`` тАФ ╤Г╤Б╤В╨░╤А╨╡╨▓╤И╨╕╨╣
+        ╨┐╨░╤А╨░╨╝╨╡╤В╤А ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╨╕ ╨┐╤А╤П╨╝╤Л╤Е ╨▓╤Л╨╖╨╛╨▓╨╛╨▓; ╨╛╨╜ ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨▓╨╗╨╕╤П╨╡╤В ╨╜╨╕ ╨╜╨░
+        DeliveryPolicy, ╨╜╨╕ ╨╜╨░ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В L1 (╨║╨╛╨╝╨░╨╜╨┤╨░ ┬л╨▒╨╛╤В┬╗ ╨╜╨╡ ╤Д╨╛╤А╤Б╨╕╤А╤Г╨╡╤В reply).
+        """
+        started = time.monotonic()
+        meta: dict = {"source": "main", "inherited": True, "fallback": "",
+                      "repair": 0, "override": "",
+                      "credential_source": "global",
+                      "temperature_applied": False}
+        system_prompt_l1 = resolve_prompt(
+            "prompts.direct_l1_planner_system_prompt",
+            DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        # SELF-DIAG-01 corrective: typed diagnostic decision ╨┐╤А╨╕╤Е╨╛╨┤╨╕╤В ╨║╨░╨║
+        # ╨Ф╨Р╨Э╨Э╨л╨Х ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨░ (`build_l1_context`), ╤Б╨╕╤Б╤В╨╡╨╝╨╜╤Л╨╣ ╨║╨░╨╜╨╛╨╜ ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В.
+        # тФАтФА UR-A (UR-02.1): ╨╛╨┤╨╕╨╜ ╤А╨╡╨╖╨╛╨╗╨▓ ╤Б╨╗╨╛╤В╨░/╨║╨╗╤О╤З╨░/╨▒╤О╨┤╨╢╨╡╤В╨░ ╨╜╨░ ╨╛╨▒╨░ ╤В╤А╨╕╨│╨│╨╡╤А╨░.
+        # D03 (┬з18C.1): permission-╨┐╨╛╨╗╨╕╤В╨╕╨║╨░ тАФ ╨Я╨Х╨а╨Х╨Ф ╨┐╨╗╨░╤В╨╜╤Л╨╝╨╕ ╨┐╨╛╨┐╤Л╤В╨║╨░╨╝╨╕
+        # (NoApiKeyForChat ╨┐╤А╨╛╨▒╤А╨░╤Б╤Л╨▓╨░╨╡╤В╤Б╤П: ╤В╨╛╤В ╨╢╨╡ sandbox-╨┐╤Г╤В╤М).
+        _slot_meta, slot = await self._resolve_turn_slot_meta(
+            chat_id, prompt_text=system_prompt_l1)
+        meta["credential_source"] = str(_slot_meta.credential_source)
+        _l1_budget = int(_slot_meta.budget_tokens)
+        meta["l1_context_budget"] = _l1_budget
+        meta["l1_context_source"] = str(_slot_meta.budget_source or "")
+        try:
+            window = await self.memory.get_window_messages(chat_id)
+        except Exception:
+            window = []
+        # B2/R1: MemoryManager ╨╝╨╛╨╢╨╡╤В ╨╛╤В╨┤╨░╨▓╨░╤В╤М sqlite3.Row; ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╤Г╨╡╨╝ ╨╜╨░
+        # live-╤Б╨░╨╣╤В╨╡, ╤З╤В╨╛╨▒╤Л ╨╛╨║╨╜╨╛/raw count ╨╜╨╡ ╨▓╤Л╨│╨╗╤П╨┤╨╡╨╗╨╕ ╨┐╤Г╤Б╤В╤Л╨╝╨╕.
+        window = _l1.normalize_window_rows(window)
+        # UR-11a: ╤Б╤Л╤А╨╛╨╡ ╨╛╨║╨╜╨╛ ╤Г╤Е╨╛╨┤╨╕╤В ╨▓ `build_l1_context`; ╨╛╨║╨╜╨╛ ╨▓╤Л╨▒╨╕╤А╨░╨╡╤В
+        # ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ allocator (`allocate_selection` ╤З╨╡╤А╨╡╨╖ composer-helper)
+        # ╤Г╨╢╨╡ ╨Я╨Ю╨б╨Ы╨Х fixed-╤Б╨╡╨║╤Ж╨╕╨╣ ╨╕ net stage budget. `select_l1_window`
+        # ╨╛╤Б╤В╨░╤С╤В╤Б╤П legacy/fail-open ╨╕ ╨╜╨░ live L1 ╨╜╨╡ ╨▓╤Л╨╖╤Л╨▓╨░╨╡╤В╤Б╤П.
+        meta["l1_window_rows_raw"] = len(tuple(window or ()))
+        # ER-08-RC (┬з3): ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╣ ╨║╨░╨┐ ╤Б╤В╤А╨╛╨║╨╕ ╨┐╤А╨╕╨╜╨░╨┤╨╗╨╡╨╢╨╕╤В allocator;
+        # ╨╛╤В╨┤╨╡╨╗╤М╨╜╨╛╨│╨╛ 200-╤Б╨╕╨╝╨▓╨╛╨╗╤М╨╜╨╛╨│╨╛ ╨║╨░╨┐╨░ ╨╜╨░ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╝ L1-╨┐╤Г╤В╨╕ ╨╜╨╡╤В.
+        meta["l1_line_chars_cap"] = 0
+>       _l1_reply_text = self._l1_reply_block(message,
+                                              budget_tokens=_l1_budget,
+                                              preserve=True)
+E       TypeError: test_direct_service_l1_payload_gets_profile_from_turn_frame.<locals>.Stub._l1_reply_block() got an unexpected keyword argument 'preserve'
+
+services\direct_chat_service.py:9029: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_evol018_prompt_audit.py::test_grep_audit_counts_are_stable
+FAILED tests/test_asap_fc_voice_l1_decision_profile.py::test_direct_service_l1_payload_gets_profile_from_turn_frame
+2 failed in 4.09s
