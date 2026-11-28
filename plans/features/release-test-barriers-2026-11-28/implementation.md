@@ -6,6 +6,7 @@
 - **Worktree:** `WorkspaceData/worktrees/…/release-test-barriers-2026-11--19f1987d0616-5da2a6da`
 - **Кодовый кандидат:** `7e8eb8a05a8ea0bfefbef4b7a277328d9189f61d` (tests/contracts + `plans/project.md`; evidence-коммит идёт следом)
 - **Corrective r1 (review-r1, F-BAR-01/02/03):** code `222ad0046` (routes contract: уникальность маршрутов, guard-эвристика, CLI `--emit/--check`), evidence — этот коммит; см. §10.
+- **Corrective r2 (review-r2, F-BAR-07):** code `114c6b4b4` (`can_access_chat` и аналогичные access-хелперы), evidence — этот коммит; см. §11.
 - **Прямое поручение владельца:** убрать повторяющиеся механические барьеры тестов и релиза (2026-11-28).
 
 ## 1. Полнофайловые sha256-пины продуктовых файлов — найдено и заменено
@@ -150,12 +151,20 @@ fixture 2.58.15 сохранён, runtime проверяется контрак�
 - Проверки прав нормализованы по guard-вызовам (`_ctx_global_admin`, `requires_permission:<право>`,
   `_prompt_require_*`, `_require_chat_access`, `_is_global_admin`, …); смена *семантики* самого guard-хелпера
   контрактом маршрутов не покрывается — это зона тестов ACL/ролей.
-- Guard-набор выводится эвристикой имени (`_require*`/`_assert*`/`*_guard`/`*_rights`/`*_admin`) плюс явный
-  whitelist; guard внутри module-level хелпера, который вызывается из маршрута, раскрывается на **один**
-  уровень. Глубже контракт не идёт (маршрутный, не граф всего модуля). Побочный эффект одного уровня:
-  `_prompt_require_edit` внутри capability-probe `_prompt_can_activate` пинится и для
-  `GET /prompts/{prompt_key}/versions` (вызов реально исполняется, но отказ проглатывается) — это осознанное
-  over-approximation, а не заявленная enforcement-точка.
+- Guard-набор выводится эвристикой имени в контексте вызова (`(?:^|_)requires?_`, `^_?assert`,
+  `_guard$`, `_rights$`, `^can_`, `^guard_`, `*_admin`) плюс явный whitelist (`can_access_chat`,
+  `gate_authorization`, `guard_admin_lockout`, `guard_last_wildcard`, `validate_permissions`,
+  `match_permission`, …). Guard внутри module-level хелпера, который вызывается из маршрута,
+  раскрывается на **один** уровень. Глубже контракт не идёт (маршрутный, не граф всего модуля).
+  Побочный эффект одного уровня: `_prompt_require_edit` внутри capability-probe `_prompt_can_activate`
+  пинится и для `GET /prompts/{prompt_key}/versions` (вызов реально исполняется, но отказ проглатывается) —
+  это осознанное over-approximation, а не заявленная enforcement-точка.
+- **Вне контракта (честно, corrective r2):** `_persona_access` — резолвер ctx, а не enforcement;
+  `gate_snapshot`/`gate_state` — состояние модулей, не авторизация; `validate_value_rule` — валидация
+  значения; `get_permissions` — чтение; локальные capability-переменные (`can_read`/`can_edit`/`can_write`,
+  модуль `prompt_access`, `global_access`) в `checks` не попадают (для callback-ссылок используется
+  отдельное узкое правило `_is_guard_callback_name`). Также не покрывается смена семантики внутри самого
+  guard-хелпера и порядок/кратность одинаковых вызовов (`checks` — множество).
 - 3 UI-снимка 10.8 остаются красными (см. §4), не входят в контракт этой задачи.
 - `test_webapp_round108_ui` содержит и исправленный version-тест, и 3 несвязанных падения; в прогонах выше они
   явно отделены deselect'ом.
@@ -263,3 +272,86 @@ sha256 `2f2e6774…81ac31ba` до и после двух `--emit` (`raw/correcti
 формулировка §1 этого отчёта), JS-литералы версии в `tests/js/*` вне pytest-гейта, четвёртый
 предсуществующий красный UI-снимок `test_status_section_ui_merge_round1019`. В этой задаче не
 исправлялись осознанно.
+
+## 11. corrective r2: F-BAR-07 (`can_access_chat` и аналогичные access-хелперы)
+
+Ревью r2 (`review-r2.md`, коммитится без изменений) подтвердило F-BAR-01/03 CLOSED и F-BAR-02 CLOSED
+для пяти перечисленных имён, но нашло тот же класс: производная эвристика не классифицировала
+`can_access_chat`, поэтому снятие chat-isolation gate у 7 маршрутов оставляло контракт зелёным.
+Corrective r2 code — `114c6b4b4`.
+
+### 11.1 Что изменено
+
+`tests/routes_contract.py`:
+
+- `is_guard_call_name()` (контекст **вызова**) расширен: `^can_` (can_access_chat, can_edit_param,
+  can_view_key_value, can_view_param), `^guard_` (guard_admin_lockout, guard_last_wildcard) + явные
+  `can_access_chat`, `gate_authorization`, `guard_admin_lockout`, `guard_last_wildcard`,
+  `validate_permissions`, `match_permission`. Явные имена гарантируют покрытие даже при будущей
+  правке шаблонов.
+- Для guard'ов, переданных **по ссылке** (`recheck=_recheck_meme_rights`), введено отдельное узкое
+  правило `_is_guard_callback_name()`: широкие call-only шаблоны (`^can_`) там не применяются, иначе
+  модуль `prompt_access` и локальные `can_read`/`can_edit`/`can_write`/`global_access` попали бы в
+  `checks`. Это проверено тестами (`test_references_are_not_guard_callbacks`).
+- `_persona_access` намеренно **не** guard: это резолвер `ctx`, а не enforcement-проверка.
+- `tests/fixtures/routes_contract.json` переэмитирован: изменения в 25 маршрутах. Ключевое:
+  - 7 маршрутов chat-isolation теперь пинят `can_access_chat`: `GET/POST /config/time`,
+    `GET /direct/context-diagnostics`, `GET /direct/turn-diagnostics`, `GET /config/keys/status`,
+    `GET /config/overrides-map`, `GET /status` (+ `GET/POST /config`, `GET /experience/pipeline`,
+    `GET /persona`, `GET /persona/rules/{rule_id}/sources`, `GET /persona/self-model` — там он тоже
+    присутствует и теперь виден);
+  - per-key права: `can_edit_param`, `can_view_param`, `can_view_key_value` у config/vision-маршрутов;
+  - роли: `guard_admin_lockout`, `guard_last_wildcard`, `validate_permissions`, `match_permission`;
+  - `GET /config`: `gate_authorization`.
+- `tests/test_routes_contract_barriers.py` (+23 теста, всего 50): новые guard-имена, негативные
+  проверки callback-правила (модули/локальные переменные не guard'ы), синтетический X1
+  (`_source_checks` видит/не видит `can_access_chat`), манифест фиксирует `can_access_chat` у всех 7
+  маршрутов и аналогичные хелперы у roles/config.
+
+### 11.2 Мутации r2 (все RED, `raw/mutation-r2-*.txt`)
+
+| # | Мутация | Результат |
+|---|---|---|
+| X1 | `GET /direct/context-diagnostics`: удалён только `if not access_srv.can_access_chat(...)` | **RED**: `изменены проверки прав /direct/context-diagnostics ('GET',): ['can_access_chat','get_tma_user'] -> ['get_tma_user']` |
+| X2 | `GET /prompts/{prompt_key}/versions`: удалён `await _prompt_require_view(...)` | **RED** (checks теряют `_prompt_require_view`; over-approximation `_prompt_require_edit` не маскирует) |
+| X3 | `POST /admins`: удалён `guard_admin_lockout(...)` | **RED** `/admins` |
+| X4 | `POST /roles`: удалён `validate_permissions(...)` | **RED** `/roles` |
+| X5 | `GET /config`: удалён `fc.gate_authorization(...)` | **RED** `/config` |
+| X6 | `POST /roles`: удалён `guard_last_wildcard(...)` | **RED** `/roles` |
+| M1 | `GET /admins`: право `access` → `admin` | **RED** |
+| M2 | `GET /health`: добавлен `Depends(get_tma_user)` | **RED** |
+| M3 | rename `/persona/rules/{rule_id}/sources` | **RED** |
+| M4 | `POST /vision/test`: убран `_ctx_global_admin` | **RED** |
+| M5 | shadow-дубль `GET /admins` без RBAC | **RED** `неуникальные (path, methods)` |
+| M6 | `_prompt_hidden_admin(...)` → `if False:` | **RED** |
+| M7 | удалён `_random_selector_guard` | **RED** |
+| M8 | убран `recheck=_recheck_config_chat_rights` | **RED** |
+| M9 | убран `recheck=_recheck_meme_rights` | **RED** |
+
+Все мутации правили только `web/api/routes.py` с восстановлением; после прогона изменены только
+`tests/**`/`plans/**`.
+
+### 11.3 Прогоны r2
+
+| Прогон | Результат | Raw |
+|---|---|---|
+| self-check `tests/test_routes_contract_barriers.py` + `test_routes_contract_intact` | **51 passed** | — |
+| 32 изменённых `tests/test_*.py` (cf. `fa4ba6292`) | **1024 passed, 3 failed** — только известные `test_webapp_round108_ui` (`test_old_labels_gone`, `test_three_windows`, `test_no_accordion`) | `corrective-r2-changed-files.txt` |
+| `tests/test_status_section_ui_merge_round1019.py` | **1 failed, 6 passed** — четвёртый предсуществующий red (F-BAR-06), не регрессия | `corrective-r2-status-section-round1019.txt` |
+| `pytest --collect-only -q` | **23 734 collected, exit 0**, ошибок коллекции нет | `corrective-r2-collect-only.txt` |
+| `python tools/gen_param_registry_round1025.py --check` | **EXIT 0** (`реестр 668 == REGISTRY`) | `corrective-r2-manifest-parity.txt` |
+| `--emit` ×2 + `--check` | sha256 манифеста `1e126646…a3c5b9f` неизменен, CHECK OK; испорченная копия → `CHECK FAILED`, exit 1 | `corrective-r2-manifest-parity.txt` |
+| `collect_routes()` vs манифест | **78 == 78, equal=True**, дублей/пересечений нет, public без initData = `['/health']` | `corrective-r2-manifest-parity.txt` |
+
+### 11.4 Что теперь покрыто контрактом и что осталось вне него
+
+Покрыто: все 7 chat-isolation маршрутов (`can_access_chat`), per-key проверки `can_edit_param`/
+`can_view_param`/`can_view_key_value`, `gate_authorization`, `guard_admin_lockout`,
+`guard_last_wildcard`, `validate_permissions`, `match_permission`.
+
+Осталось вне контракта (честно; см. §9): `_persona_access` (резолвер ctx), `gate_snapshot`/
+`gate_state` (состояние модулей), `validate_value_rule` (валидация значения), `get_permissions`
+(чтение), локальные capability-переменные; семантика внутри guard-хелпера и порядок/кратность
+одинаковых вызовов (`checks` — множество). Повторный аудит всего модуля на новые имена не
+проводился; класс закрыт для перечисленных соглашений (`^can_`, `^guard_`, `*_admin`,
+`(?:^|_)requires?_`, `*_guard`, `*_rights`) и явного списка.
