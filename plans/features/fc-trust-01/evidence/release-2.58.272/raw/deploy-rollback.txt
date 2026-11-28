@@ -1,0 +1,5 @@
+# verbatim slice: run1 rollback dry-run to 3a78484b9 (effect=rollback)
+RB_VERSION=
+RB_RC=0
+RB_WORKTREE_LEFT=0
+{  "deployed_at": "2026-11-28T08:20:31.213654Z",  "deployed_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1",  "dirty_tracked": false,  "effect": "rollback",  "previous_sha": null,  "previous_version": null,  "schema": 1,  "version": "2.58.271"}

@@ -1,0 +1,164 @@
+PY=python3
+== PRE ==
+PRE_HEAD=3a78484b92a6f3ba1273360e4a34de396dcf52f1
+PRE_REF=detached
+PRE_MANIFEST={"deployed_at": "2026-11-28T06:39:44.516790Z", "deployed_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1", "dirty_tracked": false, "effect": "deploy", "previous_sha": "438ad790eb998d1af6d6731be4392ea1d6179b4e", "previous_version": "2.58.270", "schema": 1, "version": "2.58.271"}
+PRE_DIRTY_TRACKED=0
+PRE_UNTRACKED=0
+PRE_UNIT=active NRESTS=0
+PG_ERROR=ModuleNotFoundError
+SQLITE_USER_VERSION=50
+== POST_CHECKOUT ==
+REMOTE_SHA=a2195fe3f9289d75461f27c7278d52779e2b812a
+NEW_HEAD=a2195fe3f9289d75461f27c7278d52779e2b812a
+POST_CHECKOUT_DIRTY_TRACKED=0
+[release-manifest] wrote .deploy/release.json | sha=a2195fe3f9289d75461f27c7278d52779e2b812a version=2.58.272 effect=deploy deployed_at=2026-11-28T08:14:34.348403Z
+MANIFEST={"deployed_at": "2026-11-28T08:14:34.348403Z", "deployed_sha": "a2195fe3f9289d75461f27c7278d52779e2b812a", "dirty_tracked": false, "effect": "deploy", "previous_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1", "previous_version": "2.58.271", "schema": 1, "version": "2.58.272"}
+RESTART_MARK=2026-11-28T08:14:35Z
+LOCAL_HEALTHZ_HTTP=200
+LOCAL_HEALTHZ={"status":"ok","version":"2.58.272"}
+PUBLIC_HEALTHZ_HTTP=200
+PUBLIC_HEALTHZ={"status":"ok","version":"2.58.272"}
+UNIT=active NRESTS=0 MAINPID=1294405 BOTPROCS=1
+== VERSION (three sources) ==
+ssh.exe : Traceback (most recent call last):
+строка:8 знак:8
++ $raw | & ssh -i $key -o IdentitiesOnly=yes -o BatchMode=yes -o Connec ...
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "<stdin>", line 5, in <module>
+  File "/usr/lib/python3.12/ast.py", line 52, in parse
+    return compile(source, filename, mode, flags,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<unknown>", line 1
+    я╗┐import logging
+    ^
+SyntaxError: invalid non-printable character U+FEFF
+Error in sys.excepthook:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 228, in partial_apport_excepthook
+    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 114, in apport_excepthook
+    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
+                                            ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/admin_bot/-'
+
+Original exception was:
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+  File "/usr/lib/python3.12/ast.py", line 52, in parse
+    return compile(source, filename, mode, flags,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<unknown>", line 1
+    я╗┐import logging
+    ^
+SyntaxError: invalid non-printable character U+FEFF
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/var/www/admin_bot/config/settings.py", line 5, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+Error in sys.excepthook:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 228, in partial_apport_excepthook
+    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 114, in apport_excepthook
+    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
+                                            ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/admin_bot/-c'
+
+Original exception was:
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/var/www/admin_bot/config/settings.py", line 5, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+VER_IMPORT=
+VER_MANIFEST=2.58.272
+== FILE IDENTITY ==
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+  File "/usr/lib/python3.12/ast.py", line 52, in parse
+    return compile(source, filename, mode, flags,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<unknown>", line 1
+    я╗┐import logging
+    ^
+SyntaxError: invalid non-printable character U+FEFF
+Error in sys.excepthook:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 228, in partial_apport_excepthook
+    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 114, in apport_excepthook
+    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
+                                            ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/admin_bot/-'
+
+Original exception was:
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+  File "/usr/lib/python3.12/ast.py", line 52, in parse
+    return compile(source, filename, mode, flags,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<unknown>", line 1
+    я╗┐import logging
+    ^
+SyntaxError: invalid non-printable character U+FEFF
+5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf  web/api/routes.py
+20e87aa86fd888114ba706282021a4fcb10331e2672c0aec12d8b61f04b28e74  web/app.js
+b8570e5deb8136756dba402719d9530d6e3ff4ed17a45f18ed0d99b001323907  web/index.html
+ca3bc66df1c0b0de34f15b450d006c27a452c1e696e744c3801c2e79f44bdd7f  config/settings.py
+01bb941b0d5a2b64dedb34f2600baf467ae6255bdd2e3c2a66f3db39e6b03650  services/factcheck_orchestrator.py
+4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4  services/factcheck_prompts.py
+APPJS_BYTES=2744085
+== EFFECTIVE FLAG v2 ==
+FACTORY_LITERAL=
+ENV_UNIT=0
+ENV_UNIT_VALUE=
+ENV_FILE=0
+0
+FRESH_EFFECTIVE=ModuleNotFoundError: No module named 'aiosqlite'
+== AGGREGATE ENDPOINT (no initData) ==
+{"detail":"missing init data"}
+HTTP_CODE=401
+BODY_HAS_TRACEBACK=0
+BODY_HAS_SECRET_WORD=0
+BODY_HAS_PY_PATH=0
+== DB QUICK_CHECK (bounded) ==
+QUICK_CHECK=ok elapsed=338.5s
+USER_VERSION_AFTER=50
+== DISK ==
+/dev/vda1        99G   51G   44G  54% /
+Traceback (most recent call last):
+  File "/var/www/admin_bot/manage.py", line 42, in <module>
+    from config.settings import settings
+  File "/var/www/admin_bot/config/settings.py", line 5, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+Traceback (most recent call last):
+  File "/var/www/admin_bot/manage.py", line 42, in <module>
+    from config.settings import settings
+  File "/var/www/admin_bot/config/settings.py", line 5, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+== ROLLBACK DRY-RUN (3a78484b92a6f3ba1273360e4a34de396dcf52f1) ==
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+  File "/usr/lib/python3.12/ast.py", line 52, in parse
+    return compile(source, filename, mode, flags,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<unknown>", line 1
+    я╗┐import logging
+    ^
+SyntaxError: invalid non-printable character U+FEFF
+RB_VERSION=
+{  "deployed_at": "2026-11-28T08:20:31.213654Z",  "deployed_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1",  "dirty_tracked": false,  "effect": "rollback",  "previous_sha": null,  "previous_version": null,  "schema": 1,  "version": "2.58.271"}
+RB_RC=0
+RB_WORKTREE_LEFT=0
+== DONE ==
+bash: line 212: $'\r': command not found

@@ -1,0 +1,20 @@
+# verbatim slice: run1/run2/run4 health, unit, public endpoint
+LOCAL_HEALTHZ_HTTP=200
+LOCAL_HEALTHZ={"status":"ok","version":"2.58.272"}
+PUBLIC_HEALTHZ_HTTP=200
+PUBLIC_HEALTHZ={"status":"ok","version":"2.58.272"}
+UNIT=active NRESTS=0 MAINPID=1294405 BOTPROCS=1
+{"detail":"missing init data"}
+HTTP_CODE=401
+BODY_HAS_TRACEBACK=0
+BODY_HAS_SECRET_WORD=0
+BODY_HAS_PY_PATH=0
+UNIT=active NRESTS=0 MAINPID=1294405 SINCE=Sat 2026-11-28 08:14:41 UTC
+BOTPROCS=1
+HEALTHZ={"status":"ok","version":"2.58.272"}
+AGG_HTTP=401
+APPJS_HTTP=200
+APPJS_REMOTE_BYTES=2744085
+UNIT=active NRESTS=0 MAINPID=1294405
+HEALTHZ={"status":"ok","version":"2.58.272"}
+DF=/dev/vda1        99G   51G   44G  54% /

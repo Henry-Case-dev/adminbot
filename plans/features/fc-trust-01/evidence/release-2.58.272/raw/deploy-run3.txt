@@ -1,0 +1,34 @@
+== GIT STATE ==
+HEAD=a2195fe3f9289d75461f27c7278d52779e2b812a
+REF=detached
+DIRTY_TRACKED=0
+WORKTREES=1
+/var/www/admin_bot  a2195fe3f (detached HEAD)
+UNTRACKED_TOP=
+== FACTORY LITERAL (walk, BOM-safe) ==
+FACTORY_LITERAL=True
+== SETTINGS MD5 VARIANTS (find the recorded method) ==
+ROWS=558
+MD5_kv_nl=6f6d6624f5f676a1f26dc4be75128aed
+MD5_kv_tab_nl=428b1f7f85047c9818ce06279887a0c2
+MD5_kv_nl_trailing=4824fd4a7f94cfd756176ff5d8739767
+MD5_kcv_tab_nl=544eb26d4ecc87401489da099ffac076
+MD5_kv_nl_nospace=971d7fe68f33baf1bf94f38f254b4fa3
+MD5_value_only_nl=5d6521f731d3e83637002b5627d0a6e0
+== NO ORPHAN PROCESSES / TEMP ARTIFACTS ==
+PYTEST_PROCS=0
+TMP_WT=0
+TMP_FILES_MINE=3
+PPID1_PYTEST=0
+== FINAL HEALTH ==
+HEALTHZ_LOCAL={"status":"ok","version":"2.58.272"}
+HEALTHZ_PUBLIC={"status":"ok","version":"2.58.272"}
+UNIT=active NRESTS=0 MAINPID=1294405
+== DONE3 ==
+ssh.exe : bash: line 80: $'\r': command not found
+строка:6 знак:28
++ ... w $script | & ssh -i $key -o IdentitiesOnly=yes -o BatchMode=yes -o C ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (bash: line 80: $'\r': command not found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

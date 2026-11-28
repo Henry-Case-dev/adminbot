@@ -1,0 +1,34 @@
+== /tmp AUDIT ==
+-rw-r--r-- 1 root root 74554 2026-11-11 20:56 /tmp/j258193b.txt
+-rw-r--r-- 1 root root 25634 2026-11-11 20:51 /tmp/j258193.txt
+-rw-r--r-- 1 root root 30724 2026-11-27 15:22 /tmp/jstart.txt
+TMP_AUDIT_COUNT=3
+TMP_DIRS=0
+== REMOVE ONLY DOCUMENTED 2.58.271 SCRATCH ==
+REMOVING /tmp/j258193b.txt size=74554 mtime=2026-11-11 20:56:05.285897801 +0000
+REMOVING /tmp/j258193.txt size=25634 mtime=2026-11-11 20:51:30.115776978 +0000
+REMOVING /tmp/jstart.txt size=30724 mtime=2026-11-27 15:22:51.638300354 +0000
+TMP_AFTER=0
+== SETTINGS MD5 PROBES ==
+ROWS=558 SCALARISH=526
+MD5_all_kv_sorted_value=4daee3106c92272c13b614ee05c365b1 len=20483
+MD5_all_kv_file_order=4daee3106c92272c13b614ee05c365b1 len=20483
+MD5_json_compact=774acc8941bdedfd360bea455f42f22f len=23995
+MD5_json_default=757617dedfb5e51b5bff5496d4c48597 len=25046
+TARGET=50887d362fe93bf7646beae77cce32c6 (2.58.264/2.58.271 recorded)
+== FINAL STATE ==
+HEAD=a2195fe3f9289d75461f27c7278d52779e2b812a
+DIRTY_TRACKED=0
+WORKTREES=1
+MANIFEST={"deployed_at": "2026-11-28T08:14:34.348403Z", "deployed_sha": "a2195fe3f9289d75461f27c7278d52779e2b812a", "dirty_tracked": false, "effect": "deploy", "previous_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1", "previous_version": "2.58.271", "schema": 1, "version": "2.58.272"}
+UNIT=active NRESTS=0 MAINPID=1294405
+HEALTHZ={"status":"ok","version":"2.58.272"}
+DF=/dev/vda1        99G   51G   44G  54% /
+== DONE4 ==
+ssh.exe : bash: line 70: $'\r': command not found
+строка:6 знак:28
++ ... w $script | & ssh -i $key -o IdentitiesOnly=yes -o BatchMode=yes -o C ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (bash: line 70: $'\r': command not found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

@@ -1,0 +1,14 @@
+# verbatim slice: run2 journal window since the restart mark (2026-11-28T08:14:35Z)
+NOW=2026-11-28T08:36:23Z
+JOURNAL_LINES=2273
+JOURNAL_TRACEBACK=0
+JOURNAL_ERROR_LEVEL=2
+JOURNAL_SQL_ERRORS=0
+JOURNAL_HTTP_5XX=0
+Nov 28 08:19:45 vps159032-gqg python[1294405]: 2026-11-28 08:19:45,583 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problem
+Nov 28 08:19:45 vps159032-gqg python[1294405]: 2026-11-28 08:19:45,589 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 v
+Nov 28 08:36:11 vps159032-gqg python[1294405]: 2026-11-28 08:36:11,323 - services.mca_events - INFO - mca_event=initiative_event_signal | ts=1795854971 | event_name=initiative_event_signal | outcome=skipped | level=INFO 
+Nov 28 08:36:15 vps159032-gqg python[1294405]: 2026-11-28 08:36:15,719 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:20 +05)" (sc
+Nov 28 08:36:15 vps159032-gqg python[1294405]: 2026-11-28 08:36:15,719 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:20 +05)" executed su
+Nov 28 08:36:20 vps159032-gqg python[1294405]: 2026-11-28 08:36:20,719 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:25 +05)" (sc
+Nov 28 08:36:20 vps159032-gqg python[1294405]: 2026-11-28 08:36:20,720 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:25 +05)" executed su

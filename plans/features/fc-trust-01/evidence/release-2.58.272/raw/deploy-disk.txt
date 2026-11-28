@@ -1,0 +1,19 @@
+# verbatim slice: run1 + run2 disk audit / cleanup --apply
+/dev/vda1        99G   51G   44G  54% /
+/dev/vda1        99G   51G   44G  54% /
+  total_bytes=19179296958 (17.9 GiB)
+  log_retention_days=7 (journald: docs/runbook-disk-retention.md)
+  top: predeploy-258258-20261127T115028Z.db bytes=6816780288 category=deploy_backup
+  top: predeploy-258257-20261127T072559Z.db bytes=6766456832 category=deploy_backup
+  top: local_database_20261128.db bytes=5587439616 category=db_backup
+  top: facts_20261127.txt bytes=8381769 category=facts_export
+  top: predeploy-258234-pg-20261122T075222Z.dump bytes=107847 category=other
+  top: config-tables-2.58.205.json.gz bytes=92356 category=other
+  top: rollback_a33a636d87a686444f3b83874a34b505.jsonl bytes=16048 category=jsonl_retention
+  top: rollback_986658c776e0510b3c25d151a6b07131.jsonl bytes=7143 category=jsonl_retention
+  top: rollback_6b040f01453aee38032e941e0860f8c9.jsonl bytes=5074 category=jsonl_retention
+  top: cancelled_a33a636d87a686444f3b83874a34b505.jsonl bytes=2821 category=jsonl_retention
+  forecast: bytes_per_day=1573504943 projected_30d=47205148319 (44.0 GiB) files=10 immutable_bytes=0 span_days=12.189
+  forecast_method: sum_sizes_of_files_modified_within_window / max(MIN_FORECAST_SPAN_DAYS, observed_span)
+disk cleanup: APPLY deleted=0 bytes_freed=0 (0.0 B) skipped=0 errors=0
+/dev/vda1        99G   51G   44G  54% /

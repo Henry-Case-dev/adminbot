@@ -1,0 +1,69 @@
+PY=/var/www/admin_bot/venv/bin/python
+PY_VERSION=Python 3.12.3
+== VERSION (three sources, BOM-safe AST) ==
+VER_AST=2.58.272
+FACTORY_LITERAL=None
+VER_IMPORT=2.58.272
+VER_MANIFEST=2.58.272
+FRESH_EFFECTIVE=True
+== ENV SURFACE ==
+ENV_UNIT_ROWS=0
+ENV_UNIT_VALUE=
+ENV_FILE_ROWS=0
+== PG SETTINGS FINGERPRINT / HOT FLAG ==
+SETTINGS_ROWS=558
+SETTINGS_MD5_KV=6f6d6624f5f676a1f26dc4be75128aed
+SETTINGS_MD5_KCV=544eb26d4ecc87401489da099ffac076
+SETTINGS_MAXUPD=2026-11-27 21:48:55.892740+00:00
+PROMPTS_KEYS=29
+HOT_FLAG=present value='true' category='flags' updated_at=2026-10-20 09:44:06.723000+00:00
+== JOURNAL SINCE 2026-11-28T08:14:35Z ==
+NOW=2026-11-28T08:36:23Z
+JOURNAL_LINES=2273
+JOURNAL_TRACEBACK=0
+JOURNAL_ERROR_LEVEL=2
+JOURNAL_SQL_ERRORS=0
+JOURNAL_HTTP_5XX=0
+--- error-level sample (masked) ---
+Nov 28 08:19:45 vps159032-gqg python[1294405]: 2026-11-28 08:19:45,583 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problem
+Nov 28 08:19:45 vps159032-gqg python[1294405]: 2026-11-28 08:19:45,589 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 v
+--- last 5 lines ---
+Nov 28 08:36:11 vps159032-gqg python[1294405]: 2026-11-28 08:36:11,323 - services.mca_events - INFO - mca_event=initiative_event_signal | ts=1795854971 | event_name=initiative_event_signal | outcome=skipped | level=INFO 
+Nov 28 08:36:15 vps159032-gqg python[1294405]: 2026-11-28 08:36:15,719 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:20 +05)" (sc
+Nov 28 08:36:15 vps159032-gqg python[1294405]: 2026-11-28 08:36:15,719 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:20 +05)" executed su
+Nov 28 08:36:20 vps159032-gqg python[1294405]: 2026-11-28 08:36:20,719 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:25 +05)" (sc
+Nov 28 08:36:20 vps159032-gqg python[1294405]: 2026-11-28 08:36:20,720 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 13:36:25 +05)" executed su
+== UNIT ==
+UNIT=active NRESTS=0 MAINPID=1294405 SINCE=Sat 2026-11-28 08:14:41 UTC
+BOTPROCS=1
+== DISK ==
+/dev/vda1        99G   51G   44G  54% /
+  total_bytes=19179296958 (17.9 GiB)
+  log_retention_days=7 (journald: docs/runbook-disk-retention.md)
+  top: predeploy-258258-20261127T115028Z.db bytes=6816780288 category=deploy_backup
+  top: predeploy-258257-20261127T072559Z.db bytes=6766456832 category=deploy_backup
+  top: local_database_20261128.db bytes=5587439616 category=db_backup
+  top: facts_20261127.txt bytes=8381769 category=facts_export
+  top: predeploy-258234-pg-20261122T075222Z.dump bytes=107847 category=other
+  top: config-tables-2.58.205.json.gz bytes=92356 category=other
+  top: rollback_a33a636d87a686444f3b83874a34b505.jsonl bytes=16048 category=jsonl_retention
+  top: rollback_986658c776e0510b3c25d151a6b07131.jsonl bytes=7143 category=jsonl_retention
+  top: rollback_6b040f01453aee38032e941e0860f8c9.jsonl bytes=5074 category=jsonl_retention
+  top: cancelled_a33a636d87a686444f3b83874a34b505.jsonl bytes=2821 category=jsonl_retention
+  forecast: bytes_per_day=1573504943 projected_30d=47205148319 (44.0 GiB) files=10 immutable_bytes=0 span_days=12.189
+  forecast_method: sum_sizes_of_files_modified_within_window / max(MIN_FORECAST_SPAN_DAYS, observed_span)
+disk cleanup: APPLY deleted=0 bytes_freed=0 (0.0 B) skipped=0 errors=0
+/dev/vda1        99G   51G   44G  54% /
+== SMOKE (public) ==
+HEALTHZ={"status":"ok","version":"2.58.272"}
+AGG_HTTP=401
+APPJS_HTTP=200
+APPJS_REMOTE_BYTES=2744085
+== DONE2 ==
+ssh.exe : bash: line 124: $'\r': command not found
+строка:6 знак:28
++ ... w $script | & ssh -i $key -o IdentitiesOnly=yes -o BatchMode=yes -o C ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (bash: line 124: $'\r': command not found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

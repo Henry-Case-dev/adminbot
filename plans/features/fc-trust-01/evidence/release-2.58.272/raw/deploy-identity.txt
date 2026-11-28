@@ -1,0 +1,39 @@
+# verbatim slices: run1 (PRE/POST_CHECKOUT/MANIFEST/RESTART/health/unit) + run2 (VERSION/ENV/UNIT) + run3 (GIT STATE/FACTORY) + run4 (FINAL STATE)
+PY=python3
+PRE_HEAD=3a78484b92a6f3ba1273360e4a34de396dcf52f1
+PRE_REF=detached
+PRE_MANIFEST={"deployed_at": "2026-11-28T06:39:44.516790Z", "deployed_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1", "dirty_tracked": false, "effect": "deploy", "previous_sha": "438ad790eb998d1af6d6731be4392ea1d6179b4e", "previous_version": "2.58.270", "schema": 1, "version": "2.58.271"}
+PRE_DIRTY_TRACKED=0
+PRE_UNTRACKED=0
+PRE_UNIT=active NRESTS=0
+REMOTE_SHA=a2195fe3f9289d75461f27c7278d52779e2b812a
+NEW_HEAD=a2195fe3f9289d75461f27c7278d52779e2b812a
+POST_CHECKOUT_DIRTY_TRACKED=0
+[release-manifest] wrote .deploy/release.json | sha=a2195fe3f9289d75461f27c7278d52779e2b812a version=2.58.272 effect=deploy deployed_at=2026-11-28T08:14:34.348403Z
+MANIFEST={"deployed_at": "2026-11-28T08:14:34.348403Z", "deployed_sha": "a2195fe3f9289d75461f27c7278d52779e2b812a", "dirty_tracked": false, "effect": "deploy", "previous_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1", "previous_version": "2.58.271", "schema": 1, "version": "2.58.272"}
+RESTART_MARK=2026-11-28T08:14:35Z
+LOCAL_HEALTHZ_HTTP=200
+LOCAL_HEALTHZ={"status":"ok","version":"2.58.272"}
+PUBLIC_HEALTHZ_HTTP=200
+PUBLIC_HEALTHZ={"status":"ok","version":"2.58.272"}
+UNIT=active NRESTS=0 MAINPID=1294405 BOTPROCS=1
+PY=/var/www/admin_bot/venv/bin/python
+PY_VERSION=Python 3.12.3
+VER_AST=2.58.272
+VER_IMPORT=2.58.272
+VER_MANIFEST=2.58.272
+FRESH_EFFECTIVE=True
+ENV_UNIT_ROWS=0
+ENV_UNIT_VALUE=
+ENV_FILE_ROWS=0
+UNIT=active NRESTS=0 MAINPID=1294405 SINCE=Sat 2026-11-28 08:14:41 UTC
+HEAD=a2195fe3f9289d75461f27c7278d52779e2b812a
+REF=detached
+DIRTY_TRACKED=0
+WORKTREES=1
+FACTORY_LITERAL=True
+HEAD=a2195fe3f9289d75461f27c7278d52779e2b812a
+DIRTY_TRACKED=0
+MANIFEST={"deployed_at": "2026-11-28T08:14:34.348403Z", "deployed_sha": "a2195fe3f9289d75461f27c7278d52779e2b812a", "dirty_tracked": false, "effect": "deploy", "previous_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1", "previous_version": "2.58.271", "schema": 1, "version": "2.58.272"}
+UNIT=active NRESTS=0 MAINPID=1294405
+HEALTHZ={"status":"ok","version":"2.58.272"}

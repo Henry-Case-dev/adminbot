@@ -1,0 +1,8 @@
+# verbatim slice: run1 sha256 of deployed files (compare assembly.md); plus sizes
+5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf  web/api/routes.py
+20e87aa86fd888114ba706282021a4fcb10331e2672c0aec12d8b61f04b28e74  web/app.js
+b8570e5deb8136756dba402719d9530d6e3ff4ed17a45f18ed0d99b001323907  web/index.html
+ca3bc66df1c0b0de34f15b450d006c27a452c1e696e744c3801c2e79f44bdd7f  config/settings.py
+01bb941b0d5a2b64dedb34f2600baf467ae6255bdd2e3c2a66f3db39e6b03650  services/factcheck_orchestrator.py
+4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4  services/factcheck_prompts.py
+APPJS_BYTES=2744085
