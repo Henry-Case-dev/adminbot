@@ -1,0 +1,6 @@
+﻿candidate_product=936bc31a76971e47e7f101bcddc1e7656d7c7270
+candidate_tip=199405d290354045a999fbc7f973c43ddc9bb5e2
+review_file=plans/features/fc-trust-01/evidence/fct-s6-u2-2026-11-28/review-r1/review-r1.md
+review_sha256=56573ea6fab85e89033c503aa8c8a6398a1473801e775a59bcc0923b37b86498
+review_verdict=APPROVED_FOR_RELEASE_PREPARATION
+review_location=master planning line (not copied into release tree)

@@ -1,0 +1,3 @@
+services/temporal_factcheck.py       | 236 +++++++++++++++++++++++++++++++++++
+ tests/test_fc_trust_s6_aggregates.py | 220 ++++++++++++++++++++++++++++++++
+ 2 files changed, 456 insertions(+)

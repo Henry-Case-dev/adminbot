@@ -1,0 +1,5 @@
+base=438ad790e candidate=936bc31a76971e47e7f101bcddc1e7656d7c7270
+product_paths_changed=2
+  M	services/temporal_factcheck.py
+  A	tests/test_fc_trust_s6_aggregates.py
+protection_guards: web/api/routes.py sha256=b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a, web/app.js sha256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a, services/factcheck_prompts.py sha256=4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4
