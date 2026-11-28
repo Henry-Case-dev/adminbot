@@ -43,6 +43,8 @@ tests/test_fc_trust_render.py       idx=0b2c70491789d3723fe779f1b41ade18c215b2cb
 Итого `git diff --numstat cd2245fdb` = 4 файла, 544+/23−. `raw/product-delta.txt`:
 `product_files_changed=4`, вне перечисленных файлов и bump-набора изменений **нет**
 (`outside=(none)`), `bump_touched_files=29`, `non_version_bump_files=(none)`.
+`raw/identity-committed.txt` — те же блобы на коммите релиза (не только в index) ⇒ байтовая
+идентичность сохраняется в задеплоенном дереве.
 DDL/миграции не менялись (`raw/ddl-check.txt`). `factcheck_prompts.py`, handlers, web,
 `config/settings.py` (кроме bump-строки) не тронуты.
 
