@@ -1,0 +1,66 @@
+
+=== M-FCT1001-PARK | services/embedding_control_plane.py | ╤Г╨▒╤А╨░╤В╤М ╨┐╨░╤А╨║╨╛╨▓╨║╤Г ╨╛╤В╨║╨░╨╖╨░╨▓╤И╨╡╨╣ ╨╜╨╛╨│╨╕ ╨▓ credential_health
+anchor_occurrences=1
+_ TestFCT1001ProviderFallback.test_failed_leg_is_parked_and_serving_leg_is_healthy _
+    async def test_failed_leg_is_parked_and_serving_leg_is_healthy(
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001ProviderFallback::test_failed_leg_is_parked_and_serving_leg_is_healthy
+1 failed in 3.95s
+RESULT: RED (ok)
+
+=== M-FCT1001-SPEND-PARK | services/embedding_control_plane.py | ╤Г╨▒╤А╨░╤В╤М kind-aware ╨┐╨░╤А╨║╨╛╨▓╨║╤Г 429 spend (╤Б╤В╨░╤А╤Л╨╣ ╨║╨╛╤А╨╛╤В╨║╨╕╨╣ ╨║╤Г╨╗╨┤╨░╤Г╨╜)
+anchor_occurrences=1
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001ProviderFallback::test_all_legs_spend_parked_is_bounded_and_honest
+1 failed in 3.76s
+RESULT: RED (ok)
+
+=== M-FCT1001-BACKOFF | services/embedding_control_plane.py | ╤Г╨▒╤А╨░╤В╤М ╤В╤А╨░╨╜╤Б╨┐╨╛╤А╤В╨╜╤Л╨╣ backoff (╨╜╨╡╨╝╨╡╨┤╨╗╨╡╨╜╨╜╤Л╨╣ ╨┐╨╛╨▓╤В╨╛╤А)
+anchor_occurrences=1
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001ProviderFallback::test_single_leg_transport_backoff_is_bounded
+1 failed in 3.71s
+RESULT: RED (ok)
+
+=== M-FCT1001-CANCEL-REFUND | handlers/factcheck.py | ╨╛╤В╨╝╨╡╨╜╨░ ╨╜╨╡ ╨▓╨╛╨╖╨▓╤А╨░╤Й╨░╨╡╤В ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Б╨╗╨╛╤В
+anchor_occurrences=1
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001CooperativeCancel::test_cancelled_check_stops_and_refunds_user_limit
+1 failed in 3.69s
+RESULT: RED (ok)
+
+=== M-FCT1001-SINGLEFLIGHT | services/persistent_throttling.py | ╨▓╨╡╤А╨╜╤Г╤В╤М ╨╜╨╡╨░╤В╨╛╨╝╨░╤А╨╜╤Г╤О ╨┐╨░╤А╤Г remaining()+touch()
+anchor_occurrences=1
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001SingleFlight::test_persistent_tracker_does_not_double_provider_call
+1 failed in 3.86s
+RESULT: RED (ok)
+
+=== M-FCT1001-LIMIT-EARLY | handlers/factcheck.py | ╨╜╨╡ ╨▓╨╛╨╖╨▓╤А╨░╤Й╨░╤В╤М ╤Б╨╗╨╛╤В ╨┐╨╛╤Б╨╗╨╡ ╤В╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╛╨│╨╛/╤А╨░╨╜╨╜╨╡╨│╨╛ ╨╛╤В╨║╨░╨╖╨░
+anchor_occurrences=1
+WARNING  handlers.factcheck:factcheck.py:1579 [factcheck] LLM failed | chat=-100777 | error=provider down
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001LimitAccounting::test_technical_error_refunds_and_verdict_keeps
+1 failed in 3.72s
+RESULT: RED (ok)
+
+=== M-FCT1002-CACHE | services/factcheck_context.py | ╤Г╨▒╤А╨░╤В╤М chat_id ╨╕╨╖ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╨╛╤Б╤В╨╕ ╨║╤Н╤И╨░ ╤Б╤А╨╡╨╖╨░
+anchor_occurrences=1
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1002ChatIsolation::test_slice_cache_never_serves_another_chat
+1 failed in 3.67s
+RESULT: RED (ok)
+
+=== M-FCT1002-EGRESS | services/factcheck_orchestrator.py | ╨┐╤А╨╛╤Б╨╛╤З╨╕╤В╤М ╨▓╨╜╤Г╤В╤А╨╡╨╜╨╜╨╕╨╡ evidence_refs ╨▓ ╨┐╤Г╨▒╨╗╨╕╨║╤Г╨╡╨╝╤Л╨╣ ╤В╨╡╨║╤Б╤В
+anchor_occurrences=1
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1002ChatIsolation::test_published_payload_has_no_internal_fields_or_foreign_links
+1 failed in 3.67s
+RESULT: RED (ok)
+
+=== M-FCT1002-MIX | services/factcheck_service.py | ╨╛╨▒╤Й╨╕╨╣ ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ coverage ╨╝╨╡╨╢╨┤╤Г ╨╛╨┤╨╜╨╛╨▓╤А╨╡╨╝╨╡╨╜╨╜╤Л╨╝╨╕ ╨┐╤А╨╛╨│╨╛╨╜╨░╨╝╨╕ ╤З╨░╤В╨╛╨▓
+anchor_occurrences=1
+FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1002ChatIsolation::test_roles_and_sources_do_not_mix_between_chats
+1 failed in 4.88s
+RESULT: RED (ok)
+
+=== M-FCT1001-PLANNER-CANCEL | services/factcheck_planner.py | ╨╕╨│╨╜╨╛╤А╨╕╤А╨╛╨▓╨░╤В╤М ╨║╨╛╨╛╨┐╨╡╤А╨░╤В╨╕╨▓╨╜╤Г╤О ╨╛╤В╨╝╨╡╨╜╤Г ╨▓ retrieval-╨║╨╛╨╜╤В╤Г╤А╨╡
+anchor_occurrences=1
+E        +  where False = RetrievalOutcome(evidence_map=EvidenceMap(refs=(EvidenceRef(evidence_id='ev-1', url='https://m.example/2', support='Na...ext_truncated=False, provider_timeouts=0, rate_limits=0, cancelled=False, source_unreadable=0, source_extract_failed=0).cancelled
+FAILED tests/test_fc_trust_retrieval.py::test_cancelled_run_is_reported_as_cancelled
+1 failed in 3.23s
+RESULT: RED (ok)
+
+mutations=10 unexpected=0
