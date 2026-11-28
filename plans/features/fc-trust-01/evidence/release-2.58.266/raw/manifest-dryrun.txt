@@ -1,0 +1,12 @@
+{
+  "deployed_at": "2026-11-28T01:01:46.962184Z",
+  "deployed_sha": "9ffa5495440b58dfd9d9157b156ea498ec002f4c",
+  "deployer": "devops",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "55178d5bd1c7f21f2c4966195df7cb7a93096503",
+  "previous_version": "2.58.265",
+  "release_branch": "release/2.58.266",
+  "schema": 1,
+  "version": "2.58.266"
+}

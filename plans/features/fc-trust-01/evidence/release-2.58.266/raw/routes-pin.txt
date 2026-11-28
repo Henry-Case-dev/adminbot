@@ -1,0 +1,10 @@
+routes_sha256_head=b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a
+routes_blob_head=a851e4f857b13ea1851ebfcc00aec940b867a896
+routes_blob_base=a851e4f857b13ea1851ebfcc00aec940b867a896
+routes_changed=(none)
+pin_matches_b8f63355=True
+--- pin source lines:
+tests/test_round1025_f8_registry.py: ROUTES_SHA256_F11 = (
+tests/test_round1025_f8_registry.py: "b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a")
+tests/test_round1025_f8_registry.py: # новый baseline-хэш F11 зафиксирован константой `ROUTES_SHA256_F11`
+tests/test_round1025_f8_registry.py: assert _sha256(ROOT / "web/api/routes.py") == ROUTES_SHA256_F11, (
