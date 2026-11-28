@@ -1,0 +1,43 @@
+RED/GREEN mutations — UR-B tests (base 74ef57ef4, product reverted after each run)
+All mutations are temporary edits to tracked product files, restored with
+`git checkout -- <file>`; final `git status` shows only the three new test files.
+
+1) UR-03.1 dedup — services/direct_execution.py::_dispatch_step
+   MUT: `cached_reason = budget.dedup_skip(name, fp)` -> `cached_reason = ""`
+   CMD: pytest tests/test_ur_b_tool_evidence.py::TestOneToolEvidenceStructure::test_duplicate_call_projected_as_duplicate_in_same_evidence -q
+   RED: AssertionError "дубль сходил в провайдер"; assert ['биткоин','биткоин'] == ['биткоин']
+   (test line 184)
+
+2) UR-03.1 error projection — services/direct_execution.py::_tool_events_from
+   MUT: `"error_type": str(row.get("error_type") or "")[:64]` -> `""`
+   CMD: pytest ...::test_error_event_carries_code_type_and_time -q
+   RED: FAILED (event["error_type"] assertion)
+
+3) UR-03.1 provider state before planning — direct_chat_service.py::_resolve_turn_tool_state
+   MUT: `search_available=("web_search" in capabilities)` -> `True`
+   CMD: pytest ...::TestProviderStateBeforePlanning -q
+   RED: FAILED (slim runtime set still reports search_available=True)
+
+4) UR-04.3 source identity — direct_context_composer.py::allocate_window_projection
+   MUT: L1 projection source_id `str(frag.source_id)` -> `f"win:{index}"`
+   CMD: pytest ...::TestSharedL1L2SourceSet -q
+   RED: FAILED (test line 300; L1 refs != L2 refs)
+
+5) UR-06.5 SILENT/REACT — services/direct_execution.py::run_tool_phase
+   MUT: `if action in ("silent", "react"):` -> `if action in ("__never__",):`
+   CMD: pytest tests/test_ur_b_observer_no_search.py::TestSilentReactNoSearch -q
+   RED: 2 failed; tests/test_ur_b_observer_no_search.py:44 AssertionError
+   (provider queries non-empty for silent and react)
+
+6) UR-06.5 Observer no-search — services/initiative_observer.py::observe_tick
+   MUT: inserted direct provider call before the gate:
+        writer_service.tool_router.deps.search.search("observer-mutation")
+   CMD: pytest tests/test_ur_b_observer_no_search.py::TestObserverCheckMakesNoSearch -q
+   RED: FAILED; tests/test_ur_b_observer_no_search.py:206 AssertionError
+   (search.queries non-empty during observer check)
+
+7) UR-14.1 bot_output source marker — direct_context_composer.py::ledger_record_to_fragment
+   MUT: source_id prefix `bot_output:` -> `self_output:`
+   CMD: pytest tests/test_ur_14_bot_output_history.py -q
+   RED: FAILED; tests/test_ur_14_bot_output_history.py:102 AssertionError
+   (fragment source_id / selection source not `bot_output:<id>`)

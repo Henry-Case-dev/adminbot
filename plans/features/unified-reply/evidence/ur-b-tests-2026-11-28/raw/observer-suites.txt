@@ -1,0 +1,10 @@
+﻿CMD: py -3 -m pytest tests/test_asap8_v63_b01_initiative_observer.py tests/test_p0_init_arch_fix_observer.py tests/test_p0_initfix_initiative_observer.py tests/test_soul1_w5_observer_gates.py -q
+BASE: 74ef57ef4; product diff empty (only tests/evidence changed)
+WARNING  services.mca_random_source:mca_random_source.py:4638 [random_source] provider reserve read failed | provider=anu
+WARNING  services.mca_random_source:mca_random_source.py:4638 [random_source] provider reserve read failed | provider=lfdr
+WARNING  services.direct_chat_service:direct_chat_service.py:20404 [f6] initiative writer failed | chat=-2026
+FAILED tests/test_p0_initfix_initiative_observer.py::test_opportunity_carries_context_into_writer_and_sends
+FAILED tests/test_p0_initfix_initiative_observer.py::test_pending_direct_request_stops_observer_initiative
+FAILED tests/test_soul1_w5_observer_gates.py::test_day_cap_still_hard_with_soft_target
+FAILED tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona
+4 failed, 53 passed, 2 warnings in 14.10s
