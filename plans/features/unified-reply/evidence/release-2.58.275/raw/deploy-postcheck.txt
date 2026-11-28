@@ -1,0 +1,39 @@
+== JOURNAL TRACEBACK CONTEXT (since 2026-11-28T14:29:06Z) ==
+536-Nov 28 14:34:51 vps159032-gqg python[1397601]: 2026-11-28 14:34:51,241 - services.llm_client - INFO - LLM usage in=8239 out=300
+537-Nov 28 14:34:51 vps159032-gqg python[1397601]: 2026-11-28 14:34:51,245 - services.chat_clock - INFO - [clock_call] module=initiative | step=opportunity_eval | chat_id=-1002661910336 | timezone=Asia/Yekaterinburg | as_of_utc=2026-11-28T14:34:46+00:00 | config_version=2026-11-27T14:18:40.154369+00:00 | phase=plan | clock_included=true | channel=primary
+538-Nov 28 14:34:51 vps159032-gqg python[1397601]: 2026-11-28 14:34:51,245 - services.initiative_observer - WARNING - [b01] opportunity eval failed | chat=-1002661910336
+539:Nov 28 14:34:51 vps159032-gqg python[1397601]: Traceback (most recent call last):
+540-Nov 28 14:34:51 vps159032-gqg python[1397601]:   File "/var/www/admin_bot/services/initiative_observer.py", line 2975, in _evaluate_window
+541-Nov 28 14:34:51 vps159032-gqg python[1397601]:     raw = await asyncio.wait_for(
+542-Nov 28 14:34:51 vps159032-gqg python[1397601]:           ^^^^^^^^^^^^^^^^^^^^^^^
+543-Nov 28 14:34:51 vps159032-gqg python[1397601]:   File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+544-Nov 28 14:34:51 vps159032-gqg python[1397601]:     return await fut
+545-Nov 28 14:34:51 vps159032-gqg python[1397601]:            ^^^^^^^^^
+546-Nov 28 14:34:51 vps159032-gqg python[1397601]:   File "/var/www/admin_bot/services/llm_client.py", line 2368, in generate
+547-Nov 28 14:34:51 vps159032-gqg python[1397601]:     completion = await self.generate_with_metadata(
+548-Nov 28 14:34:51 vps159032-gqg python[1397601]:                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+549-Nov 28 14:34:51 vps159032-gqg python[1397601]:   File "/var/www/admin_bot/services/llm_client.py", line 2592, in generate_with_metadata
+550-Nov 28 14:34:51 vps159032-gqg python[1397601]:     raise exc
+551-Nov 28 14:34:51 vps159032-gqg python[1397601]: services.llm_client.LLMBadResponseError: chat/completions: no final text | kind=truncated_reasoning | finish_reason=length
+552-Nov 28 14:34:51 vps159032-gqg python[1397601]: 2026-11-28 14:34:51,255 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1795876491 | event_name=quantum_schedule_due | outcome=success | level=INFO | component=qnd | chat_id=-1002661910336 | usage_json={"mechanism": "initiative", "chat_id": -1002661910336, "planned_at": 1795876118, "executed_at": 1795876491, "lateness_seconds": 367, "missed_count": 2, "executed": true, "trigger": "event"} | stage=initiative
+553-Nov 28 14:34:51 vps159032-gqg python[1397601]: 2026-11-28 14:34:51,262 - services.mca_events - INFO - mca_event=quantum_schedule_draw | ts=1795876491 | event_name=quantum_schedule_draw | outcome=success | level=INFO | component=qnd | chat_id=-1002661910336 | usage_json={"mechanism": "initiative", "chat_id": -1002661910336, "lo": 7200.0, "hi": 7200.0, "shape": 1.0, "u": 0.32226205, "delay_seconds": 7200, "next_due_ts": 1795883691, "source": "pseudorandom", "provider": "python-random", "draw_id": "cde7b17439f745e18ec2904e43345fbf", "fallback_reason": "provider_unconfigured", "settings_hash": "a2eb7bb7bab2da1a3fed5b9ac94dc4882f892bf5f55f22642d9a94ad29e1e9d3", "trigger": "event"} | stage=initiative
+554-Nov 28 14:34:51 vps159032-gqg python[1397601]: 2026-11-28 14:34:51,622 - services.mca_events - INFO - mca_event=initiative_event_signal | ts=1795876491 | event_name=initiative_event_signal | outcome=success | level=INFO | component=qnd | chat_id=-1002661910336 | usage_json={"chat_id": -1002661910336, "reason": "live_message", "mechanism": "initiative", "decision": "dispatched"}
+555-Nov 28 14:34:51 vps159032-gqg python[1397601]: 2026-11-28 14:34:51,623 - handlers.alan - INFO - F7v2: silence threshold not reached | chat=-1002661910336 | elapsed=0.0h | threshold=2.0h — timer reset without greeting
+556-Nov 28 14:34:52 vps159032-gqg python[1397601]: 2026-11-28 14:34:52,770 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 19:34:57 +05)" (scheduled at 2026-11-28 19:34:52.767817+05:00)
+557-Nov 28 14:34:52 vps159032-gqg python[1397601]: 2026-11-28 14:34:52,770 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-28 19:34:57 +05)" executed successfully
+== JOURNAL TRACEBACK LINE COUNT ==
+1
+== SETTINGS ROWS CHANGED AT RESTART ==
+CHANGED_ROWS=1
+CHANGED key=prompts.direct_l1_planner_system_prompt cat=prompts upd=2026-11-28 14:29:17.324367+00:00 value='"СИСТЕМНАЯ РОЛЬ:\\nТы - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь ответ\\nпользователю. Ты анализируешь сообщ...'
+== PROMPTS SUMMARY ==
+PROMPTS_KEYS=29 EMPTY=0
+PROMPTS_MAXUPD=2026-11-28 14:29:17.324367+00:00
+== FINAL STATE ==
+UNIT=active NRESTS=0 MAINPID=1397601
+LOCAL_HEALTHZ={"status":"ok","version":"2.58.275"}
+PUBLIC_HEALTHZ={"status":"ok","version":"2.58.275"}
+HEAD=8daef97c86307327d93a932de9cb2e6f11f1dbb2 TREE=087b8888614fff3b3fb6f4027f66230d193fd579 REF=refs/heads/release/2.58.275 DIRTY_TRACKED=0
+DISK=/dev/vda1        99G   51G   43G  54% /
+TMP=0
+== DONE ==

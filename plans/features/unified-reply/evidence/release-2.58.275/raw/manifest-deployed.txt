@@ -1,0 +1,18 @@
+deployed_sha=8daef97c86307327d93a932de9cb2e6f11f1dbb2
+deployed_branch=release/2.58.275
+deployed_tree=087b8888614fff3b3fb6f4027f66230d193fd579
+deployed_version=2.58.275
+built_code=5c16e8e73478a7aea0e2781bcf89ecacc6c06bc0
+built_code_tree=260358d8e653febf1098bf877d4da8e5c960e8d8
+diff_built_to_deployed=only plans/features/unified-reply/evidence/release-2.58.275/** (5 файлов)
+previous_sha=731a7e51cdb747fb3c0507ec80b885e4217766b0
+previous_version=2.58.274
+dirty_tracked=false
+effect=deploy
+deployed_at=2026-11-28T14:29:05.889182Z
+release_manifest=.deploy/release.json (prod)
+remote_branch_sha_at_deploy=8daef97c86307327d93a932de9cb2e6f11f1dbb2
+schema_user_version=50 (до и после), quick_check=ok
+active_canon_sha12=64a80fb8c4ff
+factory_set=1c03efc3e98b
+rollback_target=731a7e51c (dry-run rc 0)
