@@ -190,3 +190,35 @@ RESTORED suite: exit=0
 
 Итог: новых тестов в файле **16**; продукт `services/*` этим дополнением не
 менялся (`git diff --quiet cb387ee88 HEAD -- services` → rc 0).
+
+## 8. Predeploy 2.58.275 — F-275-01/F-275-02 (stale oracles, только тесты)
+
+Заблокированный predeploy дал два candidate-only падения (на 2.58.274 зелены).
+Оба — устаревшие тест-оракулы, не дефекты продукта; продукт не менялся.
+
+**F-275-01** `test_direct_l1_corrective_r1.py::test_l1_rules_positive_criteria_present`:
+слепок канона не знал P0GM/R4. Реконструкция доведена до полного контракта:
+`PREV_DIRECT_L1_PLANNER_P0GM == p0gm_canon` и активный канон ==
+`p0gm_canon.replace(R3, R4)` — проверка не ослаблена, а стала точнее (пин
+фиксирует и слепок прода 2.58.273, и единственную дельту R4).
+
+**F-275-02** `test_rlr_proof_restart.py::test_marker_is_written_before_delivery_not_after`:
+оракул читал маркер по `reply_to`, но план без `delivery=reply` больше не
+привязывается (`reply_to=None`). Маркер R-08.20 ключуется ТРИГГЕРОМ хода
+(`direct_chat_service.py:5889` `_trigger_tg_id`) и по-прежнему пишется до
+отправки. Оракул переведён на явный `trigger_id` (тот же id, что у
+`_message`), поэтому проверка «маркер виден в момент доставки» сохранена и не
+зависит от формы reply-привязки.
+
+Проверки (локально, venv; `raw/f275-stale-oracles-fix.txt`):
+
+| Прогон | Результат |
+|---|---|
+| два целевых теста (оба файла) | **2 passed** |
+| `tests/test_direct_l1_corrective_r1.py` | **11 passed, 1 failed** — только предсуществующий `test_build_l1_context_bot_replies_caps_and_limit` (красный и на 2.58.273, и на 2.58.274: DevOps `base-venv-batch-canon-rest.txt`) |
+| `tests/test_rlr_proof_restart.py` | **4 passed** |
+| `tests/test_p0t_reply_target.py` | **16 passed** |
+| прод-база 2.58.274 (detached checkout `731a7e51c`, родные прод-версии тестов) | оба целевых теста **2 passed** |
+
+Продукт этим разделом не менялся; коммит содержит только два тест-файла и
+evidence.
