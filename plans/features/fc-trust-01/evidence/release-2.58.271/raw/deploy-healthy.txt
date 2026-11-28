@@ -1,0 +1,6 @@
+﻿local http://127.0.0.1:8000/healthz = 200 {"status":"ok","version":"2.58.271"}
+public https://admin-bot.duckdns.org/healthz = 200 t=1.13s {"status":"ok","version":"2.58.271"}
+/web/app.js local: 200 bytes=2739459 sha256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+public /web/app.js: 200 bytes=2739459 sha256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+disk  web/app.js: 2739459 sha256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+listeners: caddy :80/:443 -> reverse_proxy 127.0.0.1:8000; uvicorn 127.0.0.1:8000 (pid 1267547)

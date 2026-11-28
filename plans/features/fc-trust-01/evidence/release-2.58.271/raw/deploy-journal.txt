@@ -1,0 +1,11 @@
+﻿window: 2026-11-28 06:39:47 -> 07:00Z (~20 min, post-restart)
+journal_lines=716
+tracebacks=0
+error_lines=3
+err_prio=0
+http_5xx=0
+temporal_factcheck_or_aggregate_lines=0
+sqlite_errors=0
+error_breakdown:
+  2 x services.anticliche_worker [pipeline] step=fetch/refresh status=error reason=sources_unavailable source=wikipedia (pre-existing)
+  1 x services.mca_events INCIDENT mca16 worker_lost -> WATCHDOG_TAKEOVER requeued attempt=1 (consequence of the planned restart)

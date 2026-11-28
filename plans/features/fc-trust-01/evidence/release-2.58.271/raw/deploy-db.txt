@@ -1,0 +1,6 @@
+﻿user_version=50 (unchanged; DDL 0, no migration)
+quick_check=ok (298.4 s, bounded timeout 900 s, sqlite URI mode=ro)
+bot_settings: rows=558 md5=50887d362fe93bf7646beae77cce32c6 max_updated_at=2026-11-27 21:48:55.89274+00
+prompts keys (bot_settings key like 'prompts.%')=29
+prompt_revisions=196 (informational)
+baseline_note: md5 identical to the value recorded at release 2.58.264 deploy and max_updated_at unchanged => settings untouched

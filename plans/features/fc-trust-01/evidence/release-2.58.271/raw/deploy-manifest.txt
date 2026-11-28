@@ -1,0 +1,1 @@
+﻿{"deployed_at": "2026-11-28T06:39:44.516790Z", "deployed_sha": "3a78484b92a6f3ba1273360e4a34de396dcf52f1", "dirty_tracked": false, "effect": "deploy", "previous_sha": "438ad790eb998d1af6d6731be4392ea1d6179b4e", "previous_version": "2.58.270", "schema": 1, "version": "2.58.271"}

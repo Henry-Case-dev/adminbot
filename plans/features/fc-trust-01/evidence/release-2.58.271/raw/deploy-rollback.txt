@@ -1,0 +1,7 @@
+﻿target=438ad790eb998d1af6d6731be4392ea1d6179b4e (2.58.270)
+git archive 438ad790e | tar -x : archive_rc=0
+APP_VERSION from rollback tree = 2.58.270 (rb_settings_rc=0)
+import services.temporal_factcheck (rollback tree) = OK, aggregates absent as expected (rb_import_rc=0)
+tools/release_manifest.py --dry-run --effect rollback in detached worktree @438ad790e (rb_manifest_rc=0):
+  {"deployed_sha": "438ad790eb998d1af6d6731be4392ea1d6179b4e", "effect": "rollback", "version": "2.58.270", "dirty_tracked": false, "schema": 1}
+cleanup: temp tree and worktree removed, git worktree prune executed, only main checkout remains

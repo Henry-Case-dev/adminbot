@@ -1,0 +1,10 @@
+﻿df -h / : /dev/vda1 99G size, 51G used, 44G avail (54%)
+disk audit:
+  db_backup: count=1 bytes=5587439616 (5.2 GiB)
+  deploy_backup: count=2 bytes=13583237120 (12.7 GiB)
+  facts_export: count=1 bytes=8381769 (8.0 MiB)
+  jsonl_retention: count=5 bytes=32570
+  other: count=7 bytes=205883
+  total_bytes=19179296958 (17.9 GiB)
+disk cleanup --apply (deploy pool keep=2): deleted=0 bytes_freed=0 skipped=0 errors=0
+usable_backups: predeploy-258257-20261127T072559Z.db (6.4G), predeploy-258258-20261128... (6.4G), local_database_20261128.db (5.3G)
