@@ -30,6 +30,7 @@ import datetime
 import hashlib
 import logging
 import re
+import time
 
 from services import temporal_factcheck as tf
 from services.factcheck_orchestrator import EvidenceMap, EvidenceRef
@@ -43,8 +44,11 @@ from services.search_aggregator import (      # noqa: F401 — реэкспор�
     EVIDENCE_ROLES,
     ClaimRelevance,
     claim_relevance,
+    classify_publication_kind,
     classify_source_kind,
     extract_publication_date,
+    PUBLICATION_KIND_UNKNOWN,
+    PUBLICATION_NON_DIRECT_KINDS,
 )
 
 logger = logging.getLogger(__name__)
@@ -433,6 +437,19 @@ class ClaimUnit:
     #: ASSERTION_KINDS: public_statement_attribution | decision_status |
     #: normative_state_on_date | image_content | unknown.
     assertion_kind: str = ASSERTION_KIND_UNKNOWN
+    # ── FCT-501 (S4 U1): аддитивные поля времени ────────────────────────────
+    #: Период действия тезиса из УЖЕ установленного предмета (envelope
+    #: claim_period_*): отсутствует → None (unknown; now() не подставляется).
+    valid_from: int | None = None
+    valid_to: int | None = None
+    #: Дата публикации ОРИГИНАЛА (envelope original_published_at); None =
+    #: неизвестна (не заменяется датой запроса).
+    original_posted_at: int | None = None
+    # ── FCT-702 (S4 U1): per-claim структурный флаг медиа ───────────────────
+    #: Часть пришла из медиа-материала (caption/OCR-сегмент), который в этом
+    #: прогоне остался нераспознанным/непроверенным. Текстовая часть не
+    #: помечается (оговорка — только про затронутую часть).
+    unverified_media: bool = False
 
     def vocabulary(self) -> str:
         """Словарь привязки источника к ЭТОМУ claim (текст + латинские
@@ -469,6 +486,11 @@ class ClaimUnit:
             "anchor_chat_id": self.anchor_chat_id,
             "provenance": [list(pair) for pair in (self.provenance or ())],
             "assertion_kind": self.assertion_kind,
+            # FCT-501/702 (аддитивно): время и медиа-флаг части.
+            "valid_from": self.valid_from,
+            "valid_to": self.valid_to,
+            "original_posted_at": self.original_posted_at,
+            "unverified_media": bool(self.unverified_media),
         }
 
 
@@ -524,6 +546,30 @@ class ClaimEvidence:
     #: FCT-502: откуда дата (provider|page|"") и её статус (known|unknown)
     published_at_source: str = ""
     date_status: str = "unknown"
+    # ── FCT-023 (S4 U1, D2): форма публикации — отдельная ось ───────────────
+    #: preprint | press_release | journal_article | secondary_report |
+    #: interpretation | unknown. `source_kind` не расширяется.
+    publication_kind: str = PUBLICATION_KIND_UNKNOWN
+    #: Короткая метка признака (host:/path:/default:), без текстов/секретов.
+    publication_kind_basis: str = ""
+    # ── FCT-501 (S4 U1): раздельные поля времени ────────────────────────────
+    #: Период действия тезиса (из установленного предмета); None = unknown.
+    claim_valid_from: int | None = None
+    claim_valid_to: int | None = None
+    #: Момент фактического получения документа в этом прогоне; None = неизвестен
+    #: (для неоткрытого сниппета получения не было).
+    retrieved_at: int | None = None
+    #: Дата публикации ОРИГИНАЛА (не дата запроса); None = unknown.
+    original_posted_at: int | None = None
+    #: Часовой пояс предмета/даты, если он реально известен; "" = unknown.
+    timezone: str = ""
+    #: Откуда взята published_at (provider|page|planner_fetch|html_meta|…|"").
+    timestamp_source: str = ""
+    #: high | medium | low | unknown — детерминированная оценка надёжности
+    #: источника даты (не «уверенность модели»).
+    timestamp_confidence: str = "unknown"
+    # ── FCT-702 (S4 U1): per-evidence медиа-флаг ────────────────────────────
+    unverified_media: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -548,6 +594,17 @@ class ClaimEvidence:
             "independent": self.independent,
             "published_at_source": self.published_at_source,
             "date_status": self.date_status,
+            # FCT-023/501/702 (аддитивно): форма, раздельные даты, медиа.
+            "publication_kind": self.publication_kind,
+            "publication_kind_basis": self.publication_kind_basis,
+            "claim_valid_from": self.claim_valid_from,
+            "claim_valid_to": self.claim_valid_to,
+            "retrieved_at": self.retrieved_at,
+            "original_posted_at": self.original_posted_at,
+            "timezone": self.timezone,
+            "timestamp_source": self.timestamp_source,
+            "timestamp_confidence": self.timestamp_confidence,
+            "unverified_media": bool(self.unverified_media),
         }
 
 
@@ -857,6 +914,11 @@ def build_retrieval_plan(decision, *,
                          claim_source_type: str = "",
                          attribution_detected: bool = False,
                          assertion_kind_hint: str = "",
+                         claim_valid_from: int | None = None,
+                         claim_valid_to: int | None = None,
+                         original_posted_at: int | None = None,
+                         media_unverified: bool = False,
+                         media_segments: tuple[str, ...] = (),
                          ) -> RetrievalPlan | None:
     """SuitabilityDecision/ClaimItem → план поисковых действий.
 
@@ -900,7 +962,12 @@ def build_retrieval_plan(decision, *,
                                      subject_full_material_text),
                                  claim_source_type=claim_source_type,
                                  attribution_detected=attribution_detected,
-                                 assertion_kind_hint=assertion_kind_hint)
+                                 assertion_kind_hint=assertion_kind_hint,
+                                 claim_valid_from=claim_valid_from,
+                                 claim_valid_to=claim_valid_to,
+                                 original_posted_at=original_posted_at,
+                                 media_unverified=media_unverified,
+                                 media_segments=media_segments)
     except Exception:
         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
         return None
@@ -1235,7 +1302,12 @@ def build_claim_units(items, claim: str, *,
                       request_text: str = "",
                       attribution_detected: bool = False,
                       claim_source_type: str = "",
-                      assertion_kind_hint: str = ""
+                      assertion_kind_hint: str = "",
+                      claim_valid_from: int | None = None,
+                      claim_valid_to: int | None = None,
+                      original_posted_at: int | None = None,
+                      media_unverified: bool = False,
+                      media_segments: tuple[str, ...] = ()
                       ) -> tuple[ClaimUnit, ...]:
     """§3.1: исходная новость → проверяемые claim-единицы (без LLM).
 
@@ -1279,11 +1351,21 @@ def build_claim_units(items, claim: str, *,
     #: SFC-12-09 residual (`fc-anchor`): ключи предложений запроса, склеенных
     #: с материалом. Их запрос обязан нести предметный анкер материала.
     glued_keys = _request_glued_keys(claim, request_text)
+    # FCT-702 (S4 U1): нормализованные тексты медиа-материала, оставшегося
+    # непроверенным (caption/OCR-блоки). Часть помечается только если её текст
+    # происходит из такого сегмента — текстовая часть не затрагивается.
+    media_norm = [
+        " ".join(str(seg or "").lower().split())
+        for seg in (media_segments or ()) if str(seg or "").strip()]
     for start in range(0, len(raw_units), _CLAIM_UNITS_PORTION):
         for raw_unit in raw_units[start:start + _CLAIM_UNITS_PORTION]:
             unit = str(raw_unit or "").strip()
             if not unit:
                 continue
+            unit_norm = " ".join(unit.lower().split())
+            media_derived = bool(unit_norm) and len(unit_norm) >= 8 and any(
+                unit_norm in seg or (len(seg) >= 8 and seg in unit_norm)
+                for seg in media_norm)
             uterms = _claim_terms(unit, limit=8)
             entities = [e for e in _entities(unit)
                         if e.lower() not in {t.lower() for t in uterms}][:3]
@@ -1335,7 +1417,12 @@ def build_claim_units(items, claim: str, *,
                     ("from_glued_request", "yes" if glued else "no"),
                     ("assertion_kind", assertion_kind),
                     ("assertion_signal", "yes" if assertion_signal else "no"),
-                )))
+                ),
+                # FCT-501/702 (S4 U1): время предмета и медиа-флаг части.
+                valid_from=claim_valid_from,
+                valid_to=claim_valid_to,
+                original_posted_at=original_posted_at,
+                unverified_media=bool(media_unverified and media_derived)))
     return tuple(units)
 
 
@@ -1521,7 +1608,12 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
                       subject_full_material_text: str = "",
                       claim_source_type: str = "",
                       attribution_detected: bool = False,
-                      assertion_kind_hint: str = ""
+                      assertion_kind_hint: str = "",
+                      claim_valid_from: int | None = None,
+                      claim_valid_to: int | None = None,
+                      original_posted_at: int | None = None,
+                      media_unverified: bool = False,
+                      media_segments: tuple[str, ...] = ()
                       ) -> RetrievalPlan | None:
     if decision is None:
         return None
@@ -1566,10 +1658,18 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
                               request_text=subject_request_text,
                               attribution_detected=attribution_detected,
                               claim_source_type=claim_source_type,
-                              assertion_kind_hint=assertion_kind_hint)
+                              assertion_kind_hint=assertion_kind_hint,
+                              claim_valid_from=claim_valid_from,
+                              claim_valid_to=claim_valid_to,
+                              original_posted_at=original_posted_at,
+                              media_unverified=media_unverified,
+                              media_segments=media_segments)
     if not units:
         units = (ClaimUnit(claim_id="c1",
-                           text=search_thesis_text(claim)),)
+                           text=search_thesis_text(claim),
+                           valid_from=claim_valid_from,
+                           valid_to=claim_valid_to,
+                           original_posted_at=original_posted_at),)
     # FCT-112 (S1): автор/анкор/provenance — из уже существующего
     # `_claim_anchor_map`; `plan.claim_anchors` затем строится ИЗ ClaimUnit
     # (одна точка истины, а не параллельный словарь).
@@ -1974,6 +2074,9 @@ async def fetch_primary_evidence(url: str, *, fetch_text=None,
         meta["full_text_available"] = full_length > len(passage)
         meta["published_at_source"] = "page" if published_at else ""
         meta["date_status"] = "known" if published_at else "unknown"
+        # FCT-501 (S4 U1): момент фактического получения документа — отдельная
+        # ось от published_at; НЕ подставляется как дата публикации.
+        meta["retrieved_at"] = int(time.time())
     return EvidenceRef(evidence_id="", url=str(url), support=passage,
                        source_kind=classify_source_kind(str(url)),
                        published_at=published_at)
@@ -2752,6 +2855,54 @@ def _technical_detail(run: _ClaimRun) -> tuple[str, str]:
     return CLAIM_OUTCOME_INSUFFICIENT, CLAIM_STATUS_SEARCH_NOT_STARTED
 
 
+#: FCT-501 (S4 U1): детерминированная оценка надёжности источника даты.
+#: Это НЕ «уверенность модели»: только тип метаданных, из которых дата взята.
+_TIMESTAMP_CONFIDENCE = {
+    "json_ld": "high",
+    "html_meta": "high",
+    "page": "high",
+    "planner_fetch": "high",
+    "html_time": "medium",
+    "url_path": "medium",
+    "provider": "medium",
+}
+
+
+def _timestamp_confidence(source: str) -> str:
+    """high|medium|low|unknown по фактическому источнику даты."""
+    return _TIMESTAMP_CONFIDENCE.get(str(source or ""), "unknown")
+
+
+#: FCT-023 (S4 U1): форма публикации влияет на ДОКАЗАТЕЛЬНУЮ силу. Пресс-релиз
+#: (не официальный первичный источник) и авторская интерпретация не дают прямой
+#: силы — на ЛЮБОМ пути привязки evidence (сниппет И открытая страница).
+_NON_DIRECT_NOTE = ("пресс-релиз/интерпретация — не прямое подтверждение "
+                    "факта")
+
+
+def _non_direct_publication(ref, relevance) -> bool:
+    """Форма публикации запрещает прямую силу этой привязке?"""
+    pub_kind, _basis = classify_publication_kind(getattr(ref, "url", None))
+    if pub_kind not in PUBLICATION_NON_DIRECT_KINDS:
+        return False
+    if relevance.role not in (EVIDENCE_ROLE_SUPPORTS,
+                              EVIDENCE_ROLE_CONTRADICTS):
+        return False
+    return (pub_kind == "interpretation"
+            or str(getattr(ref, "source_kind", "") or "") != "primary")
+
+
+def _bound_role(ref, relevance) -> tuple[str, str]:
+    """(эффективная роль, note) — единая точка демоции формы публикации.
+
+    RV-S4U1-01 (review r1): путь открытия страницы пересчитывает relevance
+    заново, поэтому демоция обязана применяться и там; `strength` выводится из
+    роли (`qualifies → indirect`), note не теряется."""
+    if _non_direct_publication(ref, relevance):
+        return EVIDENCE_ROLE_QUALIFIES, _NON_DIRECT_NOTE
+    return relevance.role, ""
+
+
 def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
     """Итог части: статус поиска, детализированный исход, роль/ссылки, пробел.
 
@@ -2855,13 +3006,26 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         if role in DISPLAYABLE_EVIDENCE_ROLES and not basis:
             # FCT-402: displayable-роль без объяснимого основания запрещена
             basis = (assertion_basis or "anchor",)
+        # FCT-023 (S4 U1): сила выводится из ЭФФЕКТИВНОЙ роли привязки (с
+        # учётом демоции формы публикации), а не из свежего пересчёта:
+        # qualifies/неоткрытый сниппет — indirect; supports+opened — direct
+        # (кроме расхождения числа).
+        if role == EVIDENCE_ROLE_QUALIFIES:
+            strength = "indirect"
+        elif role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_CONTRADICTS):
+            strength = relevance.strength if opened else "indirect"
+        else:
+            strength = relevance.strength
+        # FCT-023 (S4 U1, D2): форма публикации — отдельная ось; source_kind
+        # не меняется. Пресс-релиз/интерпретация не дают прямой силы (роль
+        # понижена при привязке), но остаются видимыми с честной меткой.
+        pub_kind, pub_basis = classify_publication_kind(url)
         evidence_items.append(ClaimEvidence(
             claim_id=claim.claim_id,
             evidence_id=str(getattr(ref, "evidence_id", "") or ""),
             url=url, role=role, published_at=published_at,
             event_at=claim.event_at, note=note_item,
-            strength=("indirect" if (not opened and relevance.strength
-                                     == "direct") else relevance.strength),
+            strength=strength,
             title=_normalized_title(support),
             opened=opened,
             basis=basis,
@@ -2874,7 +3038,20 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
             independence_group=group,
             independent=independent,
             published_at_source=published_source,
-            date_status=("known" if published_at else "unknown")))
+            date_status=("known" if published_at else "unknown"),
+            publication_kind=pub_kind,
+            publication_kind_basis=pub_basis,
+            # FCT-501: раздельные даты; неизвестное остаётся None/unknown.
+            claim_valid_from=getattr(claim, "valid_from", None),
+            claim_valid_to=getattr(claim, "valid_to", None),
+            retrieved_at=(int(opening["retrieved_at"])
+                          if opening.get("retrieved_at") is not None else None),
+            original_posted_at=getattr(claim, "original_posted_at", None),
+            timezone=str(getattr(claim, "timezone", "") or ""),
+            timestamp_source=published_source,
+            timestamp_confidence=_timestamp_confidence(published_source),
+            # FCT-702: медиа-флаг только у затронутой части.
+            unverified_media=bool(getattr(claim, "unverified_media", False))))
     evidence_tuple = tuple(evidence_items)
     return ClaimCoverage(
         claim=claim, search_status=search_status, status_detail=detail,
@@ -3164,6 +3341,14 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             if key in run.bound:
                 continue
             relevance = _relevance_for(ref, run.claim)
+            # FCT-023 (S4 U1, D2): форма публикации влияет на ДОКАЗАТЕЛЬНУЮ
+            # силу, не только на подпись: пресс-релиз (если это не
+            # официальный первичный источник) и авторская интерпретация не
+            # дают прямой силы — роль понижается до qualifies (strength →
+            # indirect). `source_kind` не меняется.
+            bound_role, non_direct_note = _bound_role(ref, relevance)
+            if bound_role != relevance.role:
+                relevance = dataclasses.replace(relevance, role=bound_role)
             if _is_stale(ref, run.claim):
                 counters["stale"] += 1
                 run.stale_hit = True
@@ -3180,8 +3365,9 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                 recall_anchors=tuple(relevance.basis)))
             if recall_role == RECALL_ROLE_LOW_OVERLAP:
                 continue            # контекст, но не evidence
-            note = ""
-            if relevance.role == EVIDENCE_ROLE_QUALIFIES and run.claim.metrics:
+            note = non_direct_note
+            if not note and relevance.role == EVIDENCE_ROLE_QUALIFIES \
+                    and run.claim.metrics:
                 note = "число/сумма тезиса в источнике не найдены"
             run.bound[key] = (dataclasses.replace(
                 ref, claims=(run.claim.claim_id,),
@@ -3334,6 +3520,13 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                         run.extract_failed += 1
                     continue
                 relevance = _relevance_for(primary, run.claim)
+                # RV-S4U1-01 (review r1): открытая страница пересчитывает
+                # relevance заново — демоция формы публикации обязана
+                # применяться и здесь, иначе открытый пресс-релиз/интерпретация
+                # получают supports/direct в обход контракта.
+                bound_role, non_direct_note = _bound_role(primary, relevance)
+                if bound_role != relevance.role:
+                    relevance = dataclasses.replace(relevance, role=bound_role)
                 key = run.key(primary)
                 if _is_stale(primary, run.claim):
                     # Открытый первоисточник ДОКАЗАЛ, что материал старее
@@ -3365,7 +3558,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                 primary = dataclasses.replace(primary, source_kind=kind)
                 run.bound[key] = (dataclasses.replace(
                     primary, claims=(run.claim.claim_id,),
-                    event_at=run.claim.event_at), relevance.role, "")
+                    event_at=run.claim.event_at), relevance.role,
+                    non_direct_note)
             if not progressed:
                 break
     if fetch_limit_reached:

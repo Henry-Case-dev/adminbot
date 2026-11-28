@@ -48,7 +48,8 @@ import uuid
 
 from config.settings import settings
 from services import mca_events
-from services.search_aggregator import classify_source_kind
+from services.search_aggregator import (classify_publication_kind,
+                                        classify_source_kind)
 from services.smart_cache import normalize_text
 
 logger = logging.getLogger(__name__)
@@ -1433,10 +1434,12 @@ def evidence_rows_from_results(results: str, *,
             continue
         seen.add(key)
         url_m = _URL_RE.search(block)
+        _url = url_m.group(0)[:512] if url_m else None
+        _kind, _kind_basis = classify_publication_kind(_url)
         rows.append({
             "evidence_id": f"ev-{len(rows) + 1}",
             "claim_part": None,
-            "url": url_m.group(0)[:512] if url_m else None,
+            "url": _url,
             "support": block[:1200],
             "source_ref": None,
             "published_at": None,
@@ -1445,8 +1448,17 @@ def evidence_rows_from_results(results: str, *,
             "retrieved_at": int(time.time()),
             "temporal_relevance": None,
             "relation": None,
-            "source_kind": classify_source_kind(
-                url_m.group(0) if url_m else None)})
+            "source_kind": classify_source_kind(_url),
+            # FCT-023/501/702 (S4 U1): те же поля, что в ClaimEvidence.
+            "publication_kind": _kind,
+            "publication_kind_basis": _kind_basis,
+            "claim_valid_from": None,
+            "claim_valid_to": None,
+            "original_posted_at": None,
+            "timezone": "",
+            "timestamp_source": "",
+            "timestamp_confidence": "unknown",
+            "unverified_media": False})
     return tuple(rows)
 
 
@@ -1465,6 +1477,10 @@ def evidence_rows_from_refs(refs, *, fallback_results: str | None = None,
         url = getattr(ref, "url", None) or None
         published_at = getattr(ref, "published_at", None)
         source_kind = str(getattr(ref, "source_kind", "") or "secondary")
+        pub_kind, pub_basis = classify_publication_kind(url)
+        timestamp_source = ("planner_fetch" if published_at
+                            and source_kind == "primary" else
+                            ("provider" if published_at else ""))
         rows.append({
             "evidence_id": str(getattr(ref, "evidence_id", "")
                                or f"ev-{len(rows) + 1}"),
@@ -1480,7 +1496,21 @@ def evidence_rows_from_refs(refs, *, fallback_results: str | None = None,
             "retrieved_at": int(time.time()),
             "temporal_relevance": None,
             "relation": None,
-            "source_kind": source_kind})
+            "source_kind": source_kind,
+            # FCT-023/501/702 (S4 U1): форма публикации, раздельные даты
+            # (оригинал/период/получение) и медиа-флаг — те же поля, что в
+            # ClaimEvidence; отсутствующее остаётся None/unknown.
+            "publication_kind": pub_kind,
+            "publication_kind_basis": pub_basis,
+            "claim_valid_from": None,
+            "claim_valid_to": None,
+            "original_posted_at": None,
+            "timezone": "",
+            "timestamp_source": timestamp_source,
+            "timestamp_confidence": ("high" if timestamp_source in (
+                "planner_fetch", "page", "html_meta", "json_ld") else
+                ("medium" if timestamp_source == "provider" else "unknown")),
+            "unverified_media": False})
     if not rows and fallback_results:
         return evidence_rows_from_results(fallback_results, max_rows=max_rows)
     return tuple(rows)

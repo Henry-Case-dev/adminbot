@@ -1845,7 +1845,15 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         # существующего tool'а атрибуции (→ public_statement_attribution).
         # Лексикон смысл не заменяет (owner §2.2).
         claim_source_type=str(getattr(envelope, "source_type", "") or ""),
-        attribution_detected=attribution is not None)
+        attribution_detected=attribution is not None,
+        # FCT-501 (S4 U1): раздельные даты предмета (unknown → None).
+        claim_valid_from=getattr(envelope, "claim_period_from", None),
+        claim_valid_to=getattr(envelope, "claim_period_to", None),
+        original_posted_at=getattr(envelope, "original_published_at", None),
+        # FCT-702 (S4 U1): медиа-флаг только для затронутых частей; сегменты —
+        # caption/OCR-блоки, которые реально вошли в материал.
+        media_unverified=_media_unverified(publication),
+        media_segments=_media_segments(publication))
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
                     "intents=%s", req.chat_id,
@@ -2114,6 +2122,34 @@ def derive_execution_state(*, retrieval, claims=(), parts=(),
     if technical:
         cause = sorted(technical, key=lambda d: cause_rank.get(d, 99))[0]
     return status, cause, proof_basis
+
+
+def _media_unverified(publication) -> bool:
+    """FCT-702 (S4 U1): медиа-материал публикации остался непроверенным.
+
+    Только фактическое состояние материала (никаких догадок): изображение не
+    распознано/не прочитано/ещё не готово/обрезано по лимиту."""
+    media = getattr(publication, "media", None)
+    if media is None:
+        return False
+    return bool(getattr(media, "image_unchecked", False)
+                or getattr(media, "vision_failed", False)
+                or getattr(media, "image_not_analyzed", False)
+                or getattr(media, "truncated", False))
+
+
+def _media_segments(publication) -> tuple[str, ...]:
+    """Тексты caption/OCR-блоков, вошедших в материал (для per-part флага)."""
+    media = getattr(publication, "media", None)
+    if media is None or not _media_unverified(publication):
+        return ()
+    blocks = [str(block) for _eid, _kind, block in
+              (getattr(media, "element_segments", ()) or ())
+              if str(block or "").strip()]
+    caption = str(getattr(media, "caption", "") or "").strip()
+    if caption:
+        blocks.append(caption)
+    return tuple(blocks)
 
 
 def _accepts_run_id(fn) -> bool:

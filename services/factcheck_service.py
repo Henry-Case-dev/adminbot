@@ -2765,6 +2765,9 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
                                    "unknown"),
             "anchor_tg_message_id": getattr(claim, "anchor_tg_message_id", None),
             "author": str(getattr(claim, "author", "") or ""),
+            # FCT-702 (S4 U1): per-part медиа-флаг (только затронутая часть;
+            # рендер-оговорка — U3, здесь меняется только структура).
+            "unverified_media": bool(getattr(claim, "unverified_media", False)),
             "search_status": str(getattr(cov, "search_status", "") or ""),
             "claim_outcome": str(getattr(cov, "outcome", "") or ""),
             "status_detail": detail,

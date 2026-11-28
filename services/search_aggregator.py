@@ -824,6 +824,78 @@ def classify_source_kind(url: str) -> str:
     return "secondary"
 
 
+# ── FCT-023 (S4 U1, D2): тип публикации — ОТДЕЛЬНАЯ ось ClaimEvidence ──────
+# `source_kind` (4 значения) не расширяется: это доступность/официальность
+# источника. `publication_kind` различает ФОРМУ публикации (статья/препринт/
+# пресс-релиз/пересказ/интерпретация). Детерминированно по метаданным URL
+# (host/path), без новых запросов и без LLM; значение по умолчанию — unknown.
+PUBLICATION_PREPRINT = "preprint"
+PUBLICATION_PRESS_RELEASE = "press_release"
+PUBLICATION_JOURNAL = "journal_article"
+PUBLICATION_SECONDARY = "secondary_report"
+PUBLICATION_INTERPRETATION = "interpretation"
+PUBLICATION_KIND_UNKNOWN = "unknown"
+PUBLICATION_KINDS = (PUBLICATION_PREPRINT, PUBLICATION_PRESS_RELEASE,
+                     PUBLICATION_JOURNAL, PUBLICATION_SECONDARY,
+                     PUBLICATION_INTERPRETATION, PUBLICATION_KIND_UNKNOWN)
+#: Значения, которые НЕ могут быть прямым подтверждением факта: пресс-релиз
+#: (вторичная упаковка чужого заявления) и авторская интерпретация.
+PUBLICATION_NON_DIRECT_KINDS = frozenset({PUBLICATION_PRESS_RELEASE,
+                                          PUBLICATION_INTERPRETATION})
+
+_PREPRINT_HOST_RE = re.compile(
+    r"(arxiv\.org|medrxiv\.org|biorxiv\.org|ssrn\.com|researchsquare\.com|"
+    r"preprints\.org|chemrxiv\.org|techrxiv\.org|osf\.io/preprints)",
+    re.IGNORECASE)
+_JOURNAL_HOST_RE = re.compile(
+    r"(doi\.org|pubmed\.ncbi\.nlm\.nih\.gov|ncbi\.nlm\.nih\.gov|"
+    r"nature\.com|science\.org|cell\.com|sciencedirect\.com|"
+    r"link\.springer\.com|onlinelibrary\.wiley\.com|tandfonline\.com|"
+    r"sagepub\.com|jamanetwork\.com|nejm\.org|bmj\.com|thelancet\.com|"
+    r"journals\.plos\.org|frontiersin\.org|mdpi\.com|"
+    r"academic\.oup\.com|cambridge\.org/core|jstor\.org)",
+    re.IGNORECASE)
+_JOURNAL_PATH_RE = re.compile(
+    r"/(?:doi|pmc|pubmed|abstract|full|pdf|articles?|records?|"
+    r"content/[^/]+/)/", re.IGNORECASE)
+_PRESS_HOST_RE = re.compile(
+    r"(eurekalert\.org|prnewswire\.com|businesswire\.com|globenewswire\.com|"
+    r"newswise\.com|prweb\.com|pressrelease|newsroom\.)",
+    re.IGNORECASE)
+_PRESS_PATH_RE = re.compile(
+    r"/(?:press[-_]?releases?|newsroom|media[-_]?releases?)",
+    re.IGNORECASE)
+_INTERPRETATION_PATH_RE = re.compile(
+    r"/(?:opinion|opinions|commentary|editorial|viewpoint|analysis|blog)"
+    r"(?:/|$|\?)", re.IGNORECASE)
+
+
+def classify_publication_kind(url: str) -> tuple[str, str]:
+    """(publication_kind, basis) — ФОРМА публикации по метаданным URL.
+
+    Порядок: препринт → интерпретация (path) → журнальная статья → пресс-релиз
+    → вторичный пересказ (http-страница) → unknown (нет URL/не http).
+    Только host/path: смысл текста не угадывается (owner §2.2), LLM/сеть не
+    используются. ``basis`` — короткая метка совпавшего признака для
+    диагностики (без текстов и секретов)."""
+    low = str(url or "").strip().lower()
+    if not low.startswith(("http://", "https://")):
+        return PUBLICATION_KIND_UNKNOWN, "no_url"
+    if _PREPRINT_HOST_RE.search(low):
+        return PUBLICATION_PREPRINT, "host:preprint"
+    if _INTERPRETATION_PATH_RE.search(low):
+        return PUBLICATION_INTERPRETATION, "path:interpretation"
+    if _JOURNAL_HOST_RE.search(low):
+        return PUBLICATION_JOURNAL, "host:journal"
+    if _JOURNAL_PATH_RE.search(low):
+        return PUBLICATION_JOURNAL, "path:journal"
+    if _PRESS_HOST_RE.search(low):
+        return PUBLICATION_PRESS_RELEASE, "host:press_release"
+    if _PRESS_PATH_RE.search(low):
+        return PUBLICATION_PRESS_RELEASE, "path:press_release"
+    return PUBLICATION_SECONDARY, "default:secondary_report"
+
+
 
 class SearchAggregator:
     def __init__(
