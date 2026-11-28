@@ -1,0 +1,96 @@
+== PRE ==
+55178d5bd1c7f21f2c4966195df7cb7a93096503
+pre_dirty=0
+== SETTINGS BEFORE ==
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/dotenv/main.py", line 419, in load_dotenv
+    dotenv_path = find_dotenv()
+                  ^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/dotenv/main.py", line 367, in find_dotenv
+    assert frame.f_back is not None
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+== DISK BEFORE ==
+/dev/vda1        99G   50G   44G  54% /
+backups/predeploy-258258-20261127T115028Z.db
+backups/predeploy-258257-20261127T072559Z.db
+== FETCH ==
+From https://github.com/Henry-Case-dev/adminbot
+ * branch                release/2.58.266 -> FETCH_HEAD
+ * [new branch]          release/2.58.266 -> origin/release/2.58.266
+== CHECKOUT ==
+Previous HEAD position was 55178d5bd docs(release): 2.58.265 assembly evidence - FCT-S4 U2 from candidate 6ab3b718a, byte-identical 3 product files + 5 tests, bump 29/34, DDL 0, routes b8f63355
+HEAD is now at cd2245fdb docs(release): 2.58.266 assembly evidence - S4 U1 from candidate 282151269, byte-identical 5 product files + test, bump 29/34, DDL 0, routes b8f63355
+post_head=cd2245fdbc50b764843aa1f6128cae824f054af7
+post_dirty=0
+== PERMS ==
+changed=54
+unreadable=0
+== IMPORT_OK ==
+IMPORT_OK 2.58.266
+import_rc=0
+== MANIFEST + RESTART ==
+2026-11-28T01:05:44Z
+[release-manifest] wrote .deploy/release.json | sha=cd2245fdbc50b764843aa1f6128cae824f054af7 version=2.58.266 effect=deploy deployed_at=2026-11-28T01:05:44.851535Z
+manifest_rc=0
+-- manifest content:
+{"deployed_at": "2026-11-28T01:05:44.851535Z", "deployed_sha": "cd2245fdbc50b764843aa1f6128cae824f054af7", "dirty_tracked": false, "effect": "deploy", "previous_sha": "55178d5bd1c7f21f2c4966195df7cb7a93096503", "previous_version": "2.58.265", "schema": 1, "version": "2.58.266"}
+
+== UNIT ==
+active
+nrestarts=0
+mainpid=1172938
+Sat 2026-11-28 01:06:45 UTC
+procs=1
+== VERSION 3 SOURCES ==
+APP_VERSION = "2.58.266"   # (27.11.2026): 2.58.
+{"status":"ok","version":"2.58.266"}
+{"status":"ok","version":"2.58.266"}
+== ROUTES/BUNDLE ==
+b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a  web/api/routes.py
+3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a  web/app.js
+2739459
+served_app_js=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+web_index_http=200
+== PRODUCT SHA ON DISK ==
+ec49ca27fe14a4745fe0ededf7947b3b7335d1336274ea8e977394a8f9a08c3c  services/factcheck_planner.py
+dea2538f6336f5098ab4b6495042b669da2cb0daf759eabe77f0ae4bb9cd4e6d  services/search_aggregator.py
+a3e5ec65a14550ae3e999f9be2fbe1edd3b0605a0bf90f0a3c30a6ff0ac5b52b  services/temporal_factcheck.py
+ad7ef57300c74696a22979e30f405eff34b83298c449f902e5815d26e7e394c9  services/factcheck_orchestrator.py
+4afb4e54e4d26a25aa545b81f2285bbff1a289fdf660be728b3941c114062dde  services/factcheck_service.py
+f9d6fba69f9d89b36e0f5ed6235b694cdb2589016d7cb4fb47f6018028bb1735  tests/test_fc_trust_s4_evidence.py
+== SETTINGS AFTER ==
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/dotenv/main.py", line 419, in load_dotenv
+    dotenv_path = find_dotenv()
+                  ^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/dotenv/main.py", line 367, in find_dotenv
+    assert frame.f_back is not None
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+== SCHEMA user_version ==
+db_path= local_database.db
+user_version= 49
+== DISK AUDIT/CLEANUP ==
+/dev/vda1        99G   50G   44G  54% /
+  top: predeploy-258234-pg-20261122T075222Z.dump bytes=107847 category=other
+  top: config-tables-2.58.205.json.gz bytes=92356 category=other
+  top: rollback_a33a636d87a686444f3b83874a34b505.jsonl bytes=16048 category=jsonl_retention
+  top: rollback_986658c776e0510b3c25d151a6b07131.jsonl bytes=7143 category=jsonl_retention
+  top: rollback_6b040f01453aee38032e941e0860f8c9.jsonl bytes=5074 category=jsonl_retention
+  top: cancelled_a33a636d87a686444f3b83874a34b505.jsonl bytes=2821 category=jsonl_retention
+  forecast: bytes_per_day=1614849934 projected_30d=48445498021 (45.1 GiB) files=10 immutable_bytes=0 span_days=11.877
+  forecast_method: sum_sizes_of_files_modified_within_window / max(MIN_FORECAST_SPAN_DAYS, observed_span)
+-- cleanup:
+disk cleanup: APPLY deleted=0 bytes_freed=0 (0.0 B) skipped=0 errors=0
+/dev/vda1        99G   50G   44G  54% /
+-- backups after cleanup:
+-rw------- 1 adminbot adminbot 6.4G Nov 27 07:26 backups/predeploy-258257-20261127T072559Z.db
+-rw------- 1 adminbot adminbot 6.4G Nov 27 11:51 backups/predeploy-258258-20261127T115028Z.db
+2
+== TEMP CLEANUP ==
+0
+== DONE ==
+bash: line 134: $'\r': command not found

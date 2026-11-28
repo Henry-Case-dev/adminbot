@@ -1,0 +1,20 @@
+wt_rc=0
+== ROLLBACK DRY-RUN (target 55178d5bd) ==
+{
+  "deployed_at": "2026-11-28T01:19:31.606192Z",
+  "deployed_sha": "55178d5bd1c7f21f2c4966195df7cb7a93096503",
+  "dirty_tracked": false,
+  "effect": "rollback",
+  "previous_sha": "cd2245fdbc50b764843aa1f6128cae824f054af7",
+  "previous_version": "2.58.266",
+  "schema": 1,
+  "version": "2.58.265"
+}
+rc=0
+== MANIFEST (prod, unchanged) ==
+{"deployed_at": "2026-11-28T01:05:44.851535Z", "deployed_sha": "cd2245fdbc50b764843aa1f6128cae824f054af7", "dirty_tracked": false, "effect": "deploy", "previous_sha": "55178d5bd1c7f21f2c4966195df7cb7a93096503", "previous_version": "2.58.265", "schema": 1, "version": "2.58.266"}
+
+== CLEANUP WORKTREE ==
+remove_rc=0
+/var/www/admin_bot  cd2245fdb (detached HEAD)
+temp_left=0

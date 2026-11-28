@@ -1,0 +1,46 @@
+== WINDOW ==
+2026-11-28T01:18:46Z
+lines=681
+first_ts=Nov 28 01:06:45 vps159032
+last_ts=Nov 28 01:18:44 vps159032
+== COUNTS ==
+ERROR=4
+CRITICAL=0
+Traceback=0
+KeyError=0
+AttributeError=0
+TypeError=0
+http_5xx=0
+factcheck_lines=3
+== ERROR LINES ==
+Nov 28 01:06:49 vps159032-gqg python[1172938]: 2026-11-28 01:06:49,175 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1795828009 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stag
+Nov 28 01:06:49 vps159032-gqg python[1172938]: 2026-11-28 01:06:49,178 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1795828009 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stag
+Nov 28 01:11:48 vps159032-gqg python[1172938]: 2026-11-28 01:11:48,887 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problem
+Nov 28 01:11:48 vps159032-gqg python[1172938]: 2026-11-28 01:11:48,889 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 v
+== FACTCHECK TRACE LINES ==
+Nov 28 01:06:48 vps159032-gqg python[1172938]: 2026-11-28 01:06:48,423 - services.config_migrations - INFO - [factcheck_context_migration] legacy == ╨┤╨╡╤Д╨╛╨╗╤В тАФ ╨╝╨╕╨│╤А╨╕╤А╨╛╨▓╨░╤В╤М ╨╜╨╡╤З╨╡╨│╨
+Nov 28 01:06:48 vps159032-gqg python[1172938]: 2026-11-28 01:06:48,423 - services.config_migrations - INFO - [factcheck_wide_context_migration] ╤Г╨╢╨╡ ╨┐╤А╨╕╨╝╨╡╨╜╨╡╨╜╨╛ тАФ no-op
+Nov 28 01:06:48 vps159032-gqg python[1172938]: 2026-11-28 01:06:48,533 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck тАФ ╨┐╨╛╤Б╨╗╨╡ ╤Б╨▒╨╛╤А╨║╨╕ ToolRouter)
+== ROLLBACK DRY-RUN (not executed) ==
+usage: release_manifest.py [-h] [--repo-root REPO_ROOT]
+                           [--effect {deploy,rollback}] [--deployer DEPLOYER]
+                           [--restart] [--unit UNIT] [--dry-run]
+
+Record the deployed release manifest (.deploy/release.json) for the current
+checkout.
+
+options:
+  -h, --help            show this help message and exit
+  --repo-root REPO_ROOT
+                        path to the deployed git checkout
+  --effect {deploy,rollback}
+  "previous_version": "2.58.266",
+  "schema": 1,
+  "version": "2.58.266"
+}
+rollback_dryrun_rc=0
+== HEAD AFTER (unchanged) ==
+cd2245fdbc50b764843aa1f6128cae824f054af7
+temp_left=0
+== DONE ==
+bash: line 30: $'\r': command not found

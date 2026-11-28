@@ -1,0 +1,20 @@
+== SETTINGS NOW (post-restart) ==
+rows=558|md5=50887d362fe93bf7646beae77cce32c6|maxupd=2026-11-27 21:48:55.892740+00:00
+prompts=29
+flags.factcheck_enabled=true
+flags.factcheck_pipeline_v2=true
+flags.factcheck_wide_context=true
+== BLOB IDENTITY ON DISK (git hash-object) ==
+1fdc8333544a6ad7f974be82bd5de96b333fe63d  services/factcheck_planner.py
+cba937d970b0da5d7bd378a94ef4588d86fc1d8b  services/search_aggregator.py
+3c5aa47f7ccab782698ed085f2929614e5572d72  services/temporal_factcheck.py
+54c9e3004dfdf5cec497ba3b26e53a4323a4c318  services/factcheck_orchestrator.py
+64cedab6a708a12393699f55a00e88b281c7f2c8  services/factcheck_service.py
+28eeb7d99e379f59d675d4a4ef24d47f7f437dd9  tests/test_fc_trust_s4_evidence.py
+== HEAD/VERSION ==
+cd2245fdbc50b764843aa1f6128cae824f054af7
+APP_VERSION = "2.58.266"   # (27
+== MANIFEST ==
+{"deployed_at": "2026-11-28T01:05:44.851535Z", "deployed_sha": "cd2245fdbc50b764843aa1f6128cae824f054af7", "dirty_tracked": false, "effect": "deploy", "previous_sha": "55178d5bd1c7f21f2c4966195df7cb7a93096503", "previous_version": "2.58.265", "schema": 1, "version": "2.58.266"}
+
+bash: line 35: $'\r': command not found
