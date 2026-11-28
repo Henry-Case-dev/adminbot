@@ -1,0 +1,622 @@
+# base worktree HEAD = 3a78484b9 (deployed 2.58.271); same 6 node ids as on release HEAD
+FF.F..F..F....F                                                          [100%]
+================================== FAILURES ===================================
+_____________________ test_no_ddl_catalog_ks_tools_delta ______________________
+
+    def test_no_ddl_catalog_ks_tools_delta():
+        # +Ô DDL = 0 TÁ¦-¦¦TÀTÅ TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-¦-¦¦¦- TÅ¦-¦-TÁTÂ¦-: TÁ¦-¦¦¦¦¦-TÏ ¦Ñ¦Ô ¦¬¦-¦¬TÆ¦¬¦-¦¬¦¬¦¬¦¬TÀTÃ¦¦TÂTÁTÏ
+        # TÀ¦-¦-¦-¦- ¦- v34 (user_version).
+        # NOTE (P2-D, ASAP 6 Tç8, TÁ¦-¦-¦¦TÆ¦¬TÏ `mca-14` TÀ¦¦¦¦TÁTÂTÀ): v34
+        # (embedding_generation_namespace_v34) òÀÔ ownership-¦-¦¬¦¦TÀ¦-TÆ¦¬TÏ ¦¬¦-¦¦¦-¦¬¦¦¦-¦¬¦¦
+        # ¦-¦¦¦¦TÂ¦-TÀ¦-¦-; ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ v21òÆÒòÀæòÆÒv33.
+        # ASAP 7 (F2, Tç1.10, Wave 3): v35 (llm_usage_plan_meta_v35) òÀÔ
+        # ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-TÏ nullable-¦¦¦-¦¬¦-¦-¦¦¦- plan_meta JSONB ¦- PG-only
+        # `llm_usage_events`; SQLite-TÈ¦-¦¦ òÀÔ TÇ¦¦TÁTÂ¦-TË¦¦ bookkeeping no-op (guard
+        # sqlite_master), TÄ¦-¦¦TÂ¦¬TÇ¦¦TÁ¦¦¦¬¦¦ DDL òÀÔ PgDatabase.init (DDL_STATEMENTS,
+        # ADD COLUMN IF NOT EXISTS). ¦â¦-TÇ¦-¦-¦¦ TÀ¦-¦-¦¦¦-TÁTÂ¦-¦- TÁ¦-TÅTÀ¦-¦-¦¦¦-¦-.
+        # SOUL-1 / W4 (SOUL-07, design Tç2.3): v36 (humor_samples_v36) òÀÔ
+        # ¦¦¦+¦¬¦-TÁTÂ¦-¦¦¦-¦-¦-TÏ ¦-¦-¦-¦-TÏ TÂ¦-¦-¦¬¦¬TÆ¦- TÁ¦¬¦-¦¦TÁ¦-: Few-Shot ¦-¦¬¦-¦¬¦¬¦-TÂ¦¦¦¦¦- ¦¬TÀ¦¬¦-¦¦TÀ¦-¦-
+        # (¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-, CREATE TABLE IF NOT EXISTS ¦¬¦-¦+ self-guard; PG no-op ¦¬¦-
+        # GEN-R4 òÀÔ memory-¦¦¦-¦-TÂTÃTÀ SQLite-only). ¦á¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ TÅ¦-¦-TÁTÂ = 36;
+        # +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-/KS/TÂTÃ¦¬¦-¦- ¦-TÁTÂ¦-TÑTÂTÁTÏ ¦-TÃ¦¬¦¦¦-TË¦- (¦¬TÀ¦-¦-¦¦TÀ¦¦¦¬ ¦-¦¬¦¦¦¦).
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            from services.database import DatabaseService
+            d = DatabaseService(":memory:")
+            loop.run_until_complete(d.initialize())
+            cur = loop.run_until_complete(d.db.execute("PRAGMA user_version"))
+            row = loop.run_until_complete(cur.fetchone())
+            # ADD-SAMPLES-UX (samples-ux, 20.10): v37 òÀÔ ¦¦¦-TÂ¦¦¦¦¦-TÀ¦¬¦¬ ¦¬TÀ¦¬¦-¦¦TÀ¦-¦- +
+            # expression_mode + tombstone seed_key; ¦¬¦¦TÀ¦¦TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦- 20.10
+            # EVOL-015 (e7443fad, 30.10.2026): v38 òÀÔ additive-¦-¦¬¦¦TÀ¦-TÆ¦¬TÏ quote_*.
+            # EVOL-016 (30.10.2026): v39 (prompt_revision_journal_v39) òÀÔ ¦¦TÃTÀ¦-¦-¦¬
+            # TÀ¦¦¦-¦¬¦¬¦¬¦¦/¦-¦¦TÂ¦¬¦-¦-TÆ¦¬¦¦ ¦¬TÀ¦-¦-¦¬TÂ¦-¦-, ¦¦¦+¦¬¦-TÁTÂ¦-¦¦¦-¦-¦-TÏ ¦-¦-¦-¦-TÏ ¦¬¦-TÀ¦- TÂ¦-¦-¦¬¦¬TÆ TÁ¦¬¦-¦¦TÁ¦-
+            # (¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-, TÂ¦-TÂ ¦¦¦¦ DDL ¦+¦-TÁ¦¬¦-¦-¦-¦- ¦- pg_db.DDL_STATEMENTS).
+            # EVOL-014 (30.10.2026): v40 (meme_quota_journal_v40) òÀÔ TÁTÇTÑTÂTÇ¦¬¦¦ ¦¦¦-¦-TÂTË
+            # ¦-¦¦¦-¦-¦- (¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-, PG no-op ¦¬¦- GEN-R4). ¦á¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ TÅ¦-¦-TÁTÂ = 40;
+            # +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-/KS/TÂTÃ¦¬¦-¦- ¦-TÁTÂ¦-TÑTÂTÁTÏ ¦-TÃ¦¬¦¦¦-TË¦- (¦¬TÀ¦-¦-¦¦TÀ¦¦¦¬ ¦-¦¬¦¦¦¦).
+            # MEME-PIPELINE-REFactor-01 / INIT-COORD (03.11.2026): v41
+            # (chat_publish_claim_v41) òÀÔ ¦-TÀ¦-¦-TÌ ¦¬TÃ¦-¦¬¦¬¦¦¦-TÆ¦¬¦¬ (¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-TÏ TÂ¦-¦-¦¬¦¬TÆ¦-,
+            # PG no-op). ¦á¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ TÅ¦-¦-TÁTÂ = 41; +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-/KS/TÂTÃ¦¬¦-¦-
+            # ¦¬¦--¦¬TÀ¦¦¦¦¦-¦¦¦-TÃ ¦-TÃ¦¬¦¦¦-¦-¦¦.
+            # UNIFIED-REPLY UR-C-SCHED (06.11.2026, 1ca13926, TÃ¦¦¦¦ ¦- 2.58.161):
+            # v42 (slot_claims_v42) òÀÔ ¦-TÀ¦-¦-TÌ TÁ¦¬¦-TÂ¦-¦- TÀ¦-TÁ¦¬¦¬TÁ¦-¦-¦¬TÏ (¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-TÏ TÂ¦-¦-¦¬¦¬TÆ¦-
+            # services/slot_claims.py, PG no-op). ¦á¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ TÅ¦-¦-TÁTÂ = 42;
+            # +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-/KS/TÂTÃ¦¬¦-¦- ¦¬¦--¦¬TÀ¦¦¦¦¦-¦¦¦-TÃ ¦-TÃ¦¬¦¦¦-¦-¦¦.
+            # EPIC-MEMORY-COGNITIVE-02 / MEMORY-02 (contracts Tç5.1, 07.11.2026):
+            # v43 (entity_canonical_v43) òÀÔ ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-TÏ TÂ¦-¦-¦¬¦¬TÆ¦- ¦¦¦-¦-¦-¦-¦¬TÇ¦¦TÁ¦¦¦-¦¦
+            # ¦¬¦+¦¦¦-TÂ¦¬TÇ¦-¦-TÁTÂ¦¬ `mca_entity_canonical` (DDL TÃ ¦-¦¬¦-¦+¦¦¦¬TÌTÆ¦-
+            # services/entity_resolver.py, PG no-op). ¦á¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ TÅ¦-¦-TÁTÂ = 43;
+            # +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-/KS/TÂTÃ¦¬¦-¦- ¦¬¦--¦¬TÀ¦¦¦¦¦-¦¦¦-TÃ ¦-TÃ¦¬¦¦¦-¦-¦¦.
+            # EPIC-MEMORY-COGNITIVE-02 / MEMORY-07 (contracts Tç5.1, 08.11.2026):
+            # v44 (memory_communities_v44) òÀÔ ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ TÂ¦-¦-¦¬¦¬TÆTË TÁ¦-¦-¦-TÉ¦¦TÁTÂ¦-
+            # `mca_community_builds`/`mca_community_members` (DDL TÃ ¦-¦¬¦-¦+¦¦¦¬TÌTÆ¦-
+            # services/memory_communities.py, PG no-op). ¦á¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ TÅ¦-¦-TÁTÂ
+            # ¦-TË¦¬ = 44; VMQ-V (09.11.2026): v45 (voice_transcript_v45) òÀÔ ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦
+            # ¦¦¦-¦¬¦-¦-¦¦¦¬ ¦-¦¦TÀTÁ¦¬¦¬ TÀ¦-TÁTÈ¦¬TÄTÀ¦-¦-¦¦¦¬ ¦- `smart_messages` (PG no-op), TÅ¦-¦-TÁTÂ = 45;
+            # MOD-ACL-UX-01 amendment (09.11.2026): v46 (lesson_semantic_v46) òÀÔ
+            # ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ ¦¬¦-¦¬TÏ TÃTÀ¦-¦¦¦-¦- + TÂ¦-¦-¦¬¦¬TÆ¦- TÈ¦-¦-¦¬¦-¦-¦-¦- (PG no-op), TÅ¦-¦-TÁTÂ = 46.
+            # +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-/KS/TÂTÃ¦¬¦-¦- ¦¬¦--¦¬TÀ¦¦¦¦¦-¦¦¦-TÃ ¦-TÃ¦¬¦¦¦-¦-¦¦.
+            # ¦â¦-TÇ¦-¦-¦¦ TÀ¦-¦-¦¦¦-TÁTÂ¦-¦- TÁ¦-TÅTÀ¦-¦-¦¦¦-¦-; ¦-TÂ¦-TÀ¦-¦¦ assert ¦¬¦-¦-¦¬TÂ TÀ¦-TÁTÅ¦-¦¦¦+¦¦¦-¦¬¦¦
+            # TÀ¦¦¦¦TÁTÂTÀ¦- TÈ¦-¦¦¦-¦- ¦¬ TÄ¦-¦¦TÂ¦¬TÇ¦¦TÁ¦¦¦-¦¦¦- `user_version` TÁ¦-¦¦¦¦¦¦¦¦ ¦Ñ¦Ô.
+            # QRNG P1 (17.11.2026): ¦¦¦-¦¬¦-¦-¦- 47 -> 48 (¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ ¦¬TÀ¦-¦-¦¦¦-¦-¦-TÁ ¦¬¦-TÀTÂ¦¬¦¦).
+>           assert int(row[0]) == 48
+E           assert 50 == 48
+E            +  where 50 = int(50)
+
+tests\test_mca17c_invariants_round1047.py:120: AssertionError
+_________________ TestBounds.test_forbidden_paths_out_of_diff _________________
+
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x0000024DF91B7E90>
+
+    def test_forbidden_paths_out_of_diff(self):
+        names = self._diff_names()
+        forbidden = [
+            # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
+            # ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ TÁ¦-¦-ction A3 (ImageRequest-¦¦¦-¦-TÂTÀ¦-¦¦TÂ); Tç104 ¦¦¦¦¦¦TÂ¦¬TÂTÁTÏ
+            # AST-¦¦¦¦¦¦TÂ¦-¦- A3 (test_unified_image_request_round1026.py).
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, ¦¦¦-¦-TÂTÀ¦-¦¦TÂ (l)/
+            # ADR-1027-10): `services/summary_prompts.py` ¦¬
+            # `services/prompt_migrations.py` ¦Ø¦á¦Ú¦Û¦î¦ç¦Õ¦Ý¦ë ¦¬¦¬ ¦¬¦-¦¬TÀ¦¦TÉTÑ¦-¦-TËTÅ òÀÔ
+            # TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-TË ¦¦¦-¦-¦-¦-TË R1027 L1/L2 (many-to-many Tç95-v2, ¦Ô¦Û¦Ø¦Ý¦Ð/
+            # ¦Ô¦Õ¦Ô¦ã¦ß/¦-¦-TÂ¦-TÀTË; PREV_SUMMARY_*_R1027 + ROLLBACK, ADR-1013-3).
+            # NOTE (MCA-23, Wave 3, TçDelivery Router): `services/telegram_send.py`
+            # ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ ¦¦¦+¦¬¦-TÁTÂ¦-¦¦¦-¦-¦-TÏ ¦+¦¦¦¬TÌTÂ¦-: ¦¬¦-¦¬¦¬TÁTÌ `services/direct_chat_service.py`
+            # ¦- SEND_ALLOWLIST (rich-¦-¦¦TÂ¦¦¦- direct ¦¬¦-¦-TÑTÂ ¦-¦-TÑTÀTÂ¦¦TÃ
+            # `send_rich_message`, sanitize ¦-¦-TÃTÂTÀ¦¬; bare-send'¦-¦- ¦-¦¦TÂ).
+            # ¦ß¦-¦-¦¦¦+¦¦¦-¦¬¦¦ guard'¦-/¦-¦-TÑTÀTÂ¦-¦¦ ¦-¦¦ ¦-¦¦¦-TÏ¦¬¦-TÁTÌ (+Ô registry=1 ¦¬¦-¦¬¦¬TÁTÌ).
+            # NOTE (MCA-23, Wave 3, `mca-23-unified-response-orchestrator`,
+            # Tç10/Tç11 current_task): `services/chat_prompts.py` ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ
+            # TÍ¦¬¦¬¦¦ TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀTÃ¦¦TÂ TÁ¦-TÏTÂ¦¬¦¦ ¦¦¦¬¦-¦-¦-¦¬TÌ¦-¦-¦¦¦- cap Të1-2 ¦¬TÀ¦¦¦+¦¬¦-¦¦¦¦¦-¦¬TÏT¬
+            # (¦¦¦-¦-¦-¦- MCA23 + TÁ¦¬¦¦¦¬¦¦¦¬ PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23,
+            # TÁTÂTÃ¦¬¦¦¦-¦¬ ¦-¦¬¦¦TÀ¦-TÆ¦¬¦¬ ¦- prompt_migrations, ADR-1013-3). ¦ßTÀ¦¦TÆ¦¦¦+¦¦¦-TÂ
+            # NOTE-¦-¦-¦+¦¦¦¬¦¬: summary_prompts/prompt_migrations (round1027).
+            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
+            # ¦¬ `web/static/execution_graph.js` ¦¬TÁ¦¦¦¬TÎTÇ¦¦¦-TË òÀÔ A9 TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀTÃ¦¦TÂ
+            # ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-¦¦ TÀ¦-TÁTÈ¦¬TÀ¦¦¦-¦¬¦¦ ¦á¦ã¦é¦Õ¦á¦â¦Ò¦ã¦î¦é¦Õ¦Ó¦Þ ExecutionGraph (9 TÍTÂ¦-¦¬¦-¦- Tç51,
+            # display-only; ¦-TÂ¦-TÀ¦-¦¦ ¦-¦-¦-¦¬¦¬TÂ¦¬¦¦¦¬/endpoint/¦¬¦-¦-¦¦¦¬¦¬ ¦-¦¦TÂ; +Ô DDL=0;
+            # +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-=0). ¦Ó¦¦¦¦TÂ¦¬TÂTÁTÏ A9-TÂ¦¦TÁTÂ¦-¦-¦¬ (test_agentic_events_round1026.py
+            # + round1026_s8_execution_graph_test.js).
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/Tç4.10): `web/api/routes.py`
+            # ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-TË ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ query-TÄ¦¬¦¬TÌTÂTÀTË TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦¦-
+            # `GET /api/status/logs` (REUSE viewer).
+            "plans/current_task.md",
+        ]
+        for path in forbidden:
+            assert path not in names, path
+        assert not any(n.startswith("db/") for n in names)
+        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-TË
+        # ¦+¦¬TÏ UI-¦-TÀ¦¦¦¬¦¦¦¬ Tç27/Tç50; A9 (ADR-1026-22 D10): + web/static/
+        # execution_graph.js (display-only 9 TÍTÂ¦-¦¬¦-¦- Tç51); mca-17a (ADR-1027-8
+        # D13/Tç4.10): + web/api/routes.py (TÄ¦¬¦¬TÌTÂTÀTË log viewer) ¦¬
+        # web/api/oversight.py (¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ mca_metrics ¦-¦- TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦ ¦-¦¬TÂTÀ¦¬¦-¦¦).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (TÂ¦-TÇ-TÆ¦¦¦¬TÌ ¦¦¦-¦-¦¬¦¦¦¬
+        # TëòÆÐ ¦Ú TÁ¦¬¦¬TÁ¦¦TÃT¬ òÉå44px; TÂ¦-¦¦¦¦¦-TË/¦¬¦-¦¬¦¬TÂTÀ¦- ¦-¦¦ ¦-¦¦¦-TÏ¦¬¦¬TÁTÌ).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ ¦-¦-¦-¦-¦¦¦- TÀ¦-TÃTÂ¦¦TÀ¦- Style Registry/Editor òÀÔ
+        # `web/api/cover_styles.py`, TÂ¦-¦¬TÌ¦¦¦- ¦¦¦¬¦-¦-¦-¦¬TÌ¦-TË¦¦ ¦-¦+¦-¦¬¦-; kill-switch
+        # `COVER_STYLES_ENABLED`). ¦ßTÀ¦¦TÆ¦¦¦+¦¦¦-TÂ: ¦+TÀTÃ¦¦¦¬¦¦ TÀ¦-TÃTÂ¦¦TÀTË ¦-¦¦¦¬TÎTÇ¦-TÎTÂTÁTÏ TÂ¦-¦- ¦¦¦¦.
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: ¦¦¦+¦¬¦-TË¦¦ ¦¦¦-¦-TÂTÀ¦-¦¦TÂ full rebuild òÀÔ ¦¬TÀ¦-¦¦TÀ¦¦TÁTÁ ¦-TÂ ¦¬¦-¦¬¦-¦-¦¦¦- ¦+¦¬¦-¦¬¦-¦¬¦-¦-¦-,
+        # resume-on-paused, read-time reconstruction; admin/TÇ¦-TÂ-¦¦¦¦¦¦TÂ¦¬¦-¦¦
+        # TÁ¦-TÅTÀ¦-¦-TÑ¦-; +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦- = 0).
+        # NOTE (round1027, mca-22 / ADR-1028-6): + `web/api/memory_agi.py`
+        # (TÀ¦-TÁTÈ¦¬TÀ¦¦¦-¦¬¦¦ ¦á¦ã¦é¦Õ¦á¦â¦Ò¦ã¦î¦é¦Ø¦å Memory-¦-¦¬¦+¦¦¦¦TÂ¦-¦- TÍ¦-¦+¦¬¦-¦¬¦-TÂ¦-¦-¦¬ attribution
+        # trace/metrics Tç24; ¦-¦-¦-TË¦¦ ¦¦¦-TÀ¦-¦¦¦-¦-¦¦ dashboard ¦¬¦-¦¬TÀ¦¦TÉTÑ¦- ¦¬ ¦-¦¦ TÁ¦-¦¬¦+¦-¦-;
+        # admin-only; +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦- = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`, ADR-1028-10
+        # D1/D5.5/D5.7; TÁ¦-¦-¦¦TÆ¦¬TÏ Reviewer, NOTE-¦-¦-¦+¦¦¦¬TÌ ADR-1026-17 D9 /
+        # ADR-1026-22 D10 / ADR-1027-8 D13 / ADR-1027-9 / ADR-1028-6):
+        # + `web/api/cover_styles.py` (round1029 EXTRA ADR-1028-4 D12 TÁ¦-¦¬¦+¦-¦¬
+        # TÀ¦-TÃTÂ¦¦TÀ òÀÔ TÄ¦-¦¦¦¬ ¦-¦¦ ¦-TË¦¬ ¦+¦-¦-¦-¦-¦¬¦¦¦- ¦- allowlist; ASAP 4.2 òÀÔ Test Style
+        # no-picker/real base, RBAC seeded backend, `_public_profile.can_edit`,
+        # backend-guard `cover_test_style` M-ASAP42-1) ¦¬ + `web/api/deps.py`
+        # (round1030 asap-4 control plane; ASAP 4.2 òÀÔ `user_is_global_admin`,
+        # `_assert_can_edit_seeded`). Test-only allowlist-¦+¦¦¦¬TÌTÂ¦-, ¦-¦¦ ¦-TÁ¦¬¦-¦-¦¬TÏ¦¦TÂ
+        # Tç104/¦¬¦-¦¬TÀ¦¦TÂTË; ¦-¦¦TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦ web/ ¦¬TÃTÂ¦¬ ¦¬¦--¦¬TÀ¦¦¦¦¦-¦¦¦-TÃ ¦-¦-¦¦ diff.
+        # NOTE (¦+¦-¦¬¦-¦¬¦-¦¦¦-¦¬¦¦ Builder, TÂ¦-TÂ ¦¦¦¦ NOTE-TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦-TË¦¦ ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ òÀÔ
+        # TÀ¦¦¦-TÌTÎ-¦¬¦¦TÀ¦¦TÇ¦¦¦-TÌ ¦-TË¦¬ ¦-¦¦¦¬¦-¦¬¦-¦-: `_diff_names` ¦-¦¦TÀTÑTÂ diff ¦-TÂ TÁTÂ¦-TÀ¦-¦¦¦-
+        # baseline `pre-round1026-a1` ¦¬ ¦-¦¬¦+¦¬TÂ ¦×¦Ð¦Ú¦Þ¦Ü¦Ü¦Ø¦ç¦Õ¦Ý¦Ý¦ë¦Ù ¦+TÀ¦¦¦¦TÄ ¦¬TÀ¦-TÈ¦¬TËTÅ
+        # TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TËTÅ ¦-¦-¦¬¦-, ¦-¦¦ TÂ¦-¦¬TÌ¦¦¦- TÀ¦-¦-¦-TÇTÃTÎ ¦+¦¦¦¬TÌTÂTÃ ASAP 4.2):
+        # + `web/api/analytics.py` (round1028 ASAP-3.1 autobudgets + round1030
+        # pipeline analytics; TÀ¦-TÁTÈ¦¬TÀ¦¦¦-¦¬¦¦ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦¦- Analytics-¦+¦-TÈ¦-¦-TÀ¦+¦-),
+        # + `web/static/polygon-background.js` (round1026/1028 ¦-¦¬¦¬TÃ¦-¦¬TÌ¦-TË¦¦
+        # TÍ¦¬¦¬¦¦, UI_POLYGON_BG_ENABLED), + `web/static/telegram-init.js`
+        # (round1028 TMA-init). ¦ÒTÁ¦¦ TÂTÀ¦¬ òÀÔ TÃ¦¦¦¦ ¦-TË¦¬TÃTÉ¦¦¦-¦-TË¦¦/TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TË¦¦
+        # ¦-¦-¦¬¦-TË; ¦¬¦-TËTÅ ¦-¦¦TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TËTÅ web/-¦¬TÃTÂ¦¦¦¦ ¦-¦¦TÂ.
+>       assert not any(n.startswith("web/")
+                       and not n.startswith(("web/app.js", "web/index.html",
+                                             "web/app.py",
+                                             "web/static/execution_graph.js",
+                                             "web/static/app.css",
+                                             "web/api/routes.py",
+                                             "web/api/oversight.py",
+                                             "web/api/chat_lore.py",
+                                             "web/api/memory_agi.py",
+                                             "web/api/cover_styles.py",
+                                             "web/api/deps.py",
+                                             "web/api/analytics.py",
+                                             "web/static/polygon-background.js",
+                                             "web/static/telegram-init.js",
+                                             # mca-12 (round 10.46,
+                                             # ADR-1028-21 Tç7.5/D2): NEW
+                                             # `web/api/stories.py` (TÀ¦-TÃTÂ¦¦TÀ
+                                             # Të¦ØTÁTÂ¦-TÀ¦¬¦¬ TÇ¦-TÂ¦-T¬, 5 ¦-¦-TÀTÈTÀTÃTÂ¦-¦-) +
+                                             # re-export ¦- `web/api/__init__.py`
+                                             # (TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ òÀÔ web/app.py;
+                                             # routes.py ¦Ý¦Õ ¦-¦¦¦-TÏ¦¬TÁTÏ).
+                                             "web/api/stories.py",
+                                             # mca-17c (round 10.47,
+                                             # ADR-1028-23 D11/Tç1.2.12): NEW
+                                             # `web/api/oversight_router.py`
+                                             # (TÀ¦-¦-¦-¦- 3 ¦-¦-TÀTÈTÀTÃTÂ¦-; ¦¬TÀ¦-¦+-
+                                             # ¦-¦¦TÀ¦¬TÄ¦¬TÆ¦¬TÀ¦-¦-¦-¦- 2.58.66;
+                                             # routes.py byte-freeze òÀÔ
+                                             # ¦¬¦¬¦- 8153b8bdòÀæ TÆ¦¦¦¬).
+                                             "web/api/oversight_router.py",
+                                             # asap7 wave3 (2.58.74, REV-3
+                                             # Approved): ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-¦¦
+                                             # TÀ¦-TÁTÈ¦¬TÀ¦¦¦-¦¬¦¦ ¦á¦ã¦é¦Õ¦á¦â¦Ò¦ã¦î¦é¦Õ¦Ó¦Þ
+                                             # `web/api/summary_test.py`
+                                             # (dry-run test-¦¦¦-¦-TÂTÃTÀ Testing,
+                                             # Tç113; ¦+¦- ¦-¦-¦¬¦-TË TÄ¦-¦¦¦¬ ¦-TË¦¬
+                                             # ¦-¦-¦¦TÂ-¦--¦-¦-¦¦TÂ TÁ baseline
+                                             # pre-round1026-a1 ¦¬ ¦- diff
+                                             # ¦-¦¦ ¦-TÅ¦-¦+¦¬¦¬).
+                                             "web/api/summary_test.py",
+                                             # ASAP 8 v6.3 (Wave 3a/3b,
+                                             # REQ-B03-block/REQ-U05; TÂ¦-TÂ ¦¦¦¦
+                                             # NOTE-TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦-TË¦¦ ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ):
+                                             # + `web/api/memory_overview.py`
+                                             # (read-only expired-overview +
+                                             # intel-funnels ¦+¦¬TÏ ¦áTÂ¦-TÂTÃTÁ¦-;
+                                             # global-admin RBAC, R17-safe,
+                                             # fail-open) ¦¬ + `web/api/
+                                             # analytics_viz.py` (read-only
+                                             # ¦+¦-¦-¦-TË¦¦ 7 ¦-¦¬¦¬TÃ¦-¦¬¦¬¦¬¦-TÆ¦¬¦¦ D12 U05:
+                                             # activity heatmap ¦¬ ¦+TÀ.; ¦-¦¦¦¬
+                                             # ¦-¦-¦-TËTÅ ¦¬¦-¦¬¦¬¦¦TÀ¦-¦-, ¦¦TÍTÈ 60TÁ).
+                                             "web/api/memory_overview.py",
+                                             "web/api/analytics_viz.py",
+                                             # ASAP 8 v6.3 Wave 2 (U07/U08;
+                                             # CORR-1 òÀÔ TÄ¦-¦- ¦-¦¦ TÂTÀ¦-¦-TÃTÂ):
+                                             # + fullscreen-policy.js ¦¬
+                                             # + glass-probe.js (¦-¦-¦-TË¦¦
+                                             # first-party ¦-¦-¦+TÃ¦¬¦¬ ¦¬¦-¦¬¦¬TÂ¦¬¦¦/
+                                             # probe) ¦¬ + vendor/lg-lens-map.png
+                                             # (feImage-¦¦¦-TÀTÂ¦- ¦¬¦¬¦-¦¬TË; ¦-¦- ¦-¦¦TÑ
+                                             # TÁTÁTË¦¬¦-¦¦TÂTÁTÏ app.js).
+                                             "web/static/fullscreen-policy.js",
+                                             "web/static/glass-probe.js",
+                                             "web/static/vendor/lg-lens-map.png",
+                                             # SOUL-13.2 / v6.3 Tç14
+                                             # (REV-W2-N3): glass-teststand
+                                             # (¦¦¦-¦-TÂTÀ¦-¦¬¦¬TÀTÃ¦¦¦-TË¦¦ TÁTÂ¦¦¦-¦+
+                                             # edge-refraction) ¦-TË¦-¦¦TÁ¦¦¦- ¦¬¦¬
+                                             # ¦¬TÃ¦-¦¬¦¬TÇ¦-¦-¦¦¦- static ¦-
+                                             # tests/glass-teststand/;
+                                             # ¦¬¦-¦¬¦¬TÁ¦¬ web/static/
+                                             # glass-teststand.* ¦¬¦¬
+                                             # allowlist ¦ã¦Ô¦Ð¦Û¦Õ¦Ý¦ë òÀÔ ¦-¦-¦¬¦-TÀ¦-TÂ
+                                             # TÁTÂTÀ¦-¦-¦¬TÆTË ¦- web/ TÁ¦-¦-¦-¦- ¦-¦-¦¬¦¬TÂ
+                                             # TÍTÂ¦-TÂ TÂ¦¦TÁTÂ.
+                                             "web/api/__init__.py",
+                                             # NOTE (SOUL-1 W6, review-w6.md
+                                             # RECHECK-W6-2 Approved, ¦¦¦-¦-¦+¦¬¦+¦-TÂ
+                                             # a5902b15): + web/api/speech.py
+                                             # (NEW TÀ¦-TÃTÂ¦¦TÀ Të¦à¦¦TÇTÌ ¦¬ TÅ¦-TÀ¦-¦¦TÂ¦¦TÀT¬,
+                                             # 21 ¦-¦-TÀTÈTÀTÃTÂ; TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ òÀÔ
+                                             # web/app.py; web/api/routes.py
+                                             # ¦Ý¦Õ ¦-¦¦¦-TÏ¦¬TÁTÏ òÀÔ byte-freeze
+                                             # ¦+¦¦TÀ¦¦¦¬TÂTÁTÏ; RBAC òÀÔ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬¦¦
+                                             # ¦¬TÀ¦-¦-¦- ¦¬¦¦TÀTÁ¦-¦-TË/¦¦¦¬TÎTÇ¦-). Test-only
+                                             # allowlist-¦+¦¦¦¬TÌTÂ¦-; Tç104/A3-¦¦¦¦¦¦TÂ
+                                             # ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ.
+                                             "web/api/speech.py",
+                                             # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
+                                             # Approved, ¦¦¦-¦-¦+¦¬¦+¦-TÂ 0ca661fe): + web/static/
+                                             # glass-refraction.js (NEW TÁ¦¬¦-¦¦ ¦¬TÀ¦¦¦¬¦-¦-¦¬¦¦¦-¦¬TÏ
+                                             # ¦¦¦-¦-TÂTÀ¦-¦¬¦¬TÀTÃ¦¦¦-¦-¦¦¦- TÄ¦-¦-¦- ¦+¦¬TÏ ¦¦¦¬¦¬¦¦¦-TÂ¦-¦- ¦-¦¦¦¬
+                                             # backdrop-filter url(); Tier A-only,
+                                             # pointer-events:none, z-index:-1; e2e 37/37
+                                             # ¦-¦- ¦¬¦-¦+¦¦¦¬¦¬¦-¦¦¦-¦-TËTÅ ¦-¦-¦¦TÂ¦-TÅ). Test-only
+                                             # allowlist-¦+¦¦¦¬TÌTÂ¦-.
+                                             "web/static/glass-refraction.js",
+                                             # NOTE (SOUL-1 W5, review-w5.md RECHECK
+                                             # Approved, ¦¦¦-¦-¦+¦¬¦+¦-TÂ bc277a3d): +
+                                             # web/api/initiative_vitality.py (NEW
+                                             # TÀ¦-TÃTÂ¦¦TÀ Të¦Ø¦-¦¬TÆ¦¬¦-TÂ¦¬¦-¦-/¦¦¦¬¦-¦-TÁTÂTÌT¬ MiniApp:
+                                             # GET /api/memory/initiative-vitality +
+                                             # POST /api/memory/initiative-check,
+                                             # TÂ¦-¦¬TÌ¦¦¦- global-admin; TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ òÀÔ
+                                             # web/app.py; web/api/routes.py ¦Ý¦Õ
+                                             # ¦-¦¦¦-TÏ¦¬TÁTÏ òÀÔ byte-freeze ¦+¦¦TÀ¦¦¦¬TÂTÁTÏ;
+                                             # TÀ¦¦¦-¦¬TÌ¦-¦-TÏ ¦-TÂ¦¬TÀ¦-¦-¦¦¦- òÀÔ TÂ¦-¦¬TÌ¦¦¦- ¦-TÁTÌ ON +
+                                             # confirm, ¦¬¦- TÃ¦-¦-¦¬TÇ¦-¦-¦¬TÎ mock).
+                                             # Test-only allowlist-¦+¦¦¦¬TÌTÂ¦-; Tç104/A3-¦¦¦¦¦¦TÂ
+                                             # ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ.
+                                             "web/api/initiative_vitality.py",
+                                             # NOTE (CFG-02B, 19.10.2026,
+                                             # requirements-map TÁ¦¬¦-¦¦TÁ CFG-02B,
+                                             # ADR-1031-1): + web/api/gates.py òÀÔ
+                                             # ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-TÏ ¦¬¦¦TÀ¦¦¦+¦-TÇ¦- ¦¬¦-¦¬TÀ¦-TÁ¦¬¦-TÈ¦¦¦¦¦-
+                                             # ¦-¦+¦-¦¬¦-¦- (viewer_user_id) ¦-
+                                             # ¦á¦ã¦é¦Õ¦á¦â¦Ò¦ã¦î¦é¦Ø¦Ù GET /api/workers/
+                                             # budget TÀ¦-¦+¦¬ TÇ¦¦TÁTÂ¦-¦-¦¦¦- ¦-TÁTÂ¦-TÂ¦¦¦-
+                                             # TÇ¦-TÁTÂ¦-TÂ¦-¦-¦¦¦- ¦¬¦¬¦-¦¬TÂ¦- Të¦+¦¬TÏ
+                                             # ¦-TË¦-TÀ¦-¦-¦-¦-¦¦¦- ¦¬¦-¦¬TÌ¦¬¦-¦-¦-TÂ¦¦¦¬TÏT¬ (Tç02B.8).
+                                             # ¦Ý¦-¦-TËTÅ endpoint'¦-¦-/RBAC-¦¬TÀ¦-¦-¦-¦¦ ¦-¦¦TÂ;
+                                             # routes.py ¦Ý¦Õ ¦-¦¦¦-TÏ¦¬TÁTÏ. Test-only
+                                             # allowlist-¦+¦¦¦¬TÌTÂ¦-.
+                                             "web/api/gates.py",
+                                             # NOTE (PINS-258151, 03.11.2026 òÀÔ
+                                             # TÂ¦-TÂ ¦¦¦¦ NOTE-TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦-TË¦¦ ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ:
+                                             # allowlist ¦-TÂTÁTÂ¦-¦-¦-¦¬ ¦-TÂ TÃ¦¦¦¦
+                                             # ¦Ò¦ë¦ß¦ã¦é¦Õ¦Ý¦Ý¦Þ¦Ó¦Þ ¦¦¦-¦+¦-, ¦-¦¦ ¦-TÂ ¦-¦-¦-¦-¦¦
+                                             # ¦-¦¦TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-¦-¦¦ ¦¬TÀ¦-¦-¦¦¦¬):
+                                             # EVOL-COG-MAP (`770f53c1` W7-S1,
+                                             # ancestor release/2.58.151) òÀÔ
+                                             # NEW TÄ¦-¦¦¦¬-¦¬¦-¦-¦-
+                                             # `web/api/cognitive_map.py`
+                                             # (TÁ¦-¦-¦¦ router, TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ ¦-
+                                             # `web/app.py`; `web/api/routes.py`
+                                             # ¦Ý¦Õ ¦-¦¦¦-TÏ¦¬TÁTÏ òÀÔ F11 byte-freeze
+                                             # ¦+¦¦TÀ¦¦¦¬TÂTÁTÏ) + ¦¦¦¬¦¬¦¦¦-TÂTÁ¦¦¦¬¦¦ ¦-¦+¦-¦¬TÂ¦¦TÀ
+                                             # `web/static/cognitive-map.js`;
+                                             # MEME-PIPELINE-REFACTOR-01 P4
+                                             # (`e25bd479`, ancestor
+                                             # release/2.58.151) òÀÔ NEW TÄ¦-¦¦¦¬-¦¬¦-¦-¦-
+                                             # `web/api/mechanism_diagnostics.py`
+                                             # (¦-¦-TÀTÈTÀTÃTÂ ¦+¦¬¦-¦¦¦-¦-TÁTÂ¦¬¦¦¦¬ ¦-¦¦¦-¦-¦- ¦-TË¦-¦¦TÁ¦¦¦-
+                                             # ¦Ø¦× routes.py, +Ô routes=0;
+                                             # ¦¬¦¦TÀ¦¦¦¬¦¬¦+¦-¦-¦¬¦¦ F11 òÀÔ ¦-
+                                             # tools/_meme_p4_reissue_f8.py).
+                                             # ¦Ø¦-TËTÅ web/-¦¬TÃTÂ¦¦¦¦ ¦- diff ¦-¦¦TÂ.
+                                             "web/api/cognitive_map.py",
+                                             "web/static/cognitive-map.js",
+                                             # NOTE (PINS-258164, 08.11.2026 òÀÔ TÂ¦-TÂ ¦¦¦¦
+                                             # NOTE-TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦-TË¦¦ ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ: allowlist
+                                             # ¦-TÂTÁTÂ¦-¦-¦-¦¬ ¦-TÂ TÃ¦¦¦¦ ¦Ò¦ë¦ß¦ã¦é¦Õ¦Ý¦Ý¦Þ¦Ó¦Þ ¦¦¦-¦+¦-, ¦-¦¦ ¦-TÂ
+                                             # ¦-¦-¦-¦-¦¦ ¦-¦¦TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-¦-¦¦ ¦¬TÀ¦-¦-¦¦¦¬):
+                                             # + `web/api/anticliche.py` òÀÔ round1023 F4
+                                             # `dynamic-anticliche-cache` (ADR-1023-4:
+                                             # TÁ¦-¦-¦¦ TÀ¦-TÃTÂ¦¦TÀ `/api/anticliche`, global
+                                             # admin; baseline `pre-round1026-a1`
+                                             # TÁTÂ¦-TÀTÈ¦¦ TÁ¦-¦-¦-¦¦¦- TÄ¦-¦¦¦¬¦-);
+                                             # + `web/api/initiative_publications.py` òÀÔ
+                                             # p0-meme-publication-hotfix (read-only
+                                             # ¦¬TÃ¦-¦¬¦¬¦¦¦-TÆ¦¬¦-¦-¦-TË¦¦ TÁTÂTÀ¦-¦¦¦¬ ¦¬¦-¦¬TÆ¦¬¦-TÂ¦¬¦-TË, RBAC
+                                             # ¦¬¦- TÇ¦-TÂTÃ; ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ
+                                             # mechanism_diagnostics.py òÀÔ routes.py ¦-¦¦
+                                             # TÂTÀ¦-¦-TÃTÂ);
+                                             # + `web/static/cog-visual.js` òÀÔ
+                                             # epic-cm-visual-01 (CMV, ¦-¦-TÈTÑ¦¬ ¦-
+                                             # release/2.58.160).
+                                             # ¦ÒTÁ¦¦ TÂTÀ¦¬ TÄ¦-¦¦¦¬¦- TÃ¦¦¦¦ ¦-TË¦¬TÃTÉ¦¦¦-TË ¦¬ ¦-TÂTÀ¦¦¦-TÌTÎ¦¦¦-TË;
+                                             # ¦¬¦-TËTÅ ¦-¦¦TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-¦-TËTÅ web/-¦¬TÃTÂ¦¦¦¦ ¦-¦¦TÂ
+                                             # (¦-¦- 2.58.169: TÀ¦-¦-¦-¦- 33 web/-¦¬TÃTÂ¦¬ ¦- diff
+                                             # = 30 ¦¬TÀ¦¦¦¦¦-¦¬TÅ + TÍTÂ¦¬ 3).
+                                             "web/api/anticliche.py",
+                                             "web/api/initiative_publications.py",
+                                             "web/static/cog-visual.js",
+                                             "web/api/mechanism_diagnostics.py"))
+                       for n in names)
+E       assert not True
+E        +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x0000024DFB1EFC60>)
+
+tests\test_tool_coordinator_round1026.py:581: AssertionError
+_____________________ TestBounds.test_canon_twelve_tools ______________________
+
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x0000024DF91B5FA0>
+
+    def test_canon_twelve_tools(self):
+        # A2 (ADR-1026-15 D5): ¦¦¦-¦-¦-¦- 10 òÆÒ 11 (+fetch_article);
+        # A6 (ADR-1026-18 D1): 11 òÆÒ 12 (+get_user_context, ¦- TÅ¦-¦-TÁTÂ).
+        # MCA-19 (10.43): 12 òÆÒ 13 (+recognize_image).
+        # MCA-20 (10.44, ADR-1028-20 Tç7.5): 13 òÆÒ 14 (+fact_check).
+        # ASAP5 Tç20 (edit-route): 14 òÆÒ 15 (+edit_image);
+        # EVOL-SRC-READER (W6): 15 òÆÒ 16 (+read_source_code).
+>       assert len(TOOL_CALLING_TOOLS) == 17
+E       assert 18 == 17
+E        +  where 18 = len([{'type': 'function', 'function': {'name': 'query_chat_memory', 'description': "Search the bot's memory: this chat's h...mmand arrives in free form.", 'parameters': {'type': 'object', 'properties': {}, 'additionalProperties': False}}}, ...])
+
+tests\test_tool_coordinator_round1026.py:911: AssertionError
+_________________ TestToolDescriptionU21.test_canon_unchanged _________________
+
+self = <tests.test_unified_image_request_round1026.TestToolDescriptionU21 object at 0x0000024DF917FDA0>
+
+    def test_canon_unchanged(self):
+        # A6 (ADR-1026-18 D1): ¦¦¦-¦-¦-¦- 11 òÆÒ 12 (+get_user_context, ¦- TÅ¦-¦-TÁTÂ).
+        # MCA-19 (ADR-1028-19 Tç8.6): ¦¦¦-¦-¦-¦- òÆÒ 13 (+recognize_image, ¦- TÅ¦-¦-TÁTÂ).
+        # ASAP5 Tç20 (edit-route): ¦¦¦-¦-¦-¦- òÆÒ 15 (+edit_image, ¦- TÅ¦-¦-TÁTÂ;
+        # ¦¬¦¦TÀ¦-TË¦¦ 14 ¦¬¦-TÑ¦- òÀÔ ¦-¦-¦¦TÂ-¦--¦-¦-¦¦TÂ, generate_image ¦-TÁTÂ¦-TÑTÂTÁTÏ 9-¦-).
+        names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
+>       assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video",
+                                        "fetch_article", "get_user_context",
+                                        "recognize_image", "fact_check",
+                                        "edit_image", "read_source_code"]
+E       AssertionError: assert ['query_chat_..._health', ...] == ['query_chat_..._health', ...]
+E         
+E         Left contains 2 more items, first extra item: 'inspect_runtime'
+E         Use -v to get more diff
+
+tests\test_unified_image_request_round1026.py:410: AssertionError
+__________ TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline __________
+
+self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x0000024DF91C5370>
+
+    def test_forbidden_paths_out_of_diff_vs_baseline(self):
+        forbidden = [
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, ¦¦¦-¦-TÂTÀ¦-¦¦TÂ (l)/
+            # ADR-1027-10): `services/summary_prompts.py` ¦¬
+            # `services/prompt_migrations.py` ¦Ø¦á¦Ú¦Û¦î¦ç¦Õ¦Ý¦ë òÀÔ TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-TË ¦¦¦-¦-¦-¦-TË
+            # R1027 L1/L2 (PREV_*/ROLLBACK, ADR-1013-3); Tç104/A3-¦¦¦-¦-TÂTÀ¦-¦¦TÂ ¦-¦¦
+            # ¦¬¦-TÂTÀ¦-¦-TÃTÂTË (AST-¦¦¦¦¦¦TÂ A3 ¦-¦¬¦¦¦¦ TÁ¦-TÅTÀ¦-¦-TÏ¦¦TÂ ¦¬¦¬¦-).
+            # NOTE (MCA-23, Wave 3, Tç10/Tç11 current_task):
+            # `services/chat_prompts.py` ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ TÍ¦¬¦¬¦¦ TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀTÃ¦¦TÂ TÁ¦-TÏTÂ¦¬¦¦
+            # ¦¦¦¬¦-¦-¦-¦¬TÌ¦-¦-¦¦¦- cap Të1-2 ¦¬TÀ¦¦¦+¦¬¦-¦¦¦¦¦-¦¬TÏT¬ (¦¦¦-¦-¦-¦- MCA23 + TÁ¦¬¦¦¦¬¦¦¦¬
+            # PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23, TÁTÂTÃ¦¬¦¦¦-¦¬ ¦-¦¬¦¦TÀ¦-TÆ¦¬¦¬ ¦-
+            # prompt_migrations, ADR-1013-3). Tç104/A3-¦¦¦-¦-TÂTÀ¦-¦¦TÂ ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ
+            # (AST-¦¦¦¦¦¦TÂ ¦-TËTÈ¦¦ TÁ¦-TÅTÀ¦-¦-TÏ¦¦TÂ ¦¬¦¬¦-). ¦ßTÀ¦¦TÆ¦¦¦+¦¦¦-TÂ NOTE-¦-¦-¦+¦¦¦¬¦¬:
+            # test_tool_coordinator_round1026.TestBounds.
+            # NOTE (MCA-23, Wave 3, TçDelivery Router): `services/telegram_send.py`
+            # ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ ¦¦¦+¦¬¦-TÁTÂ¦-¦¦¦-¦-¦-TÏ ¦+¦¦¦¬TÌTÂ¦-: ¦¬¦-¦¬¦¬TÁTÌ
+            # `services/direct_chat_service.py` ¦- SEND_ALLOWLIST (rich-¦-¦¦TÂ¦¦¦-
+            # direct ¦¬¦-¦-TÑTÂ ¦-¦-TÑTÀTÂ¦¦TÃ `send_rich_message`, sanitize ¦-¦-TÃTÂTÀ¦¬;
+            # bare-send'¦-¦- ¦-¦¦TÂ). ¦ß¦-¦-¦¦¦+¦¦¦-¦¬¦¦ guard'¦-/¦-¦-TÑTÀTÂ¦-¦¦ ¦-¦¦ ¦-¦¦¦-TÏ¦¬¦-TÁTÌ
+            # (+Ô registry = 1 ¦¬¦-¦¬¦¬TÁTÌ); ¦¦¦¦¦¦TÂ¦¬TÂTÁTÏ test_outgoing_guard_round1022 +
+            # rich-fallback TÂ¦¦TÁTÂ¦-¦-¦¬ test_mca23_response_plan.
+            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ
+            # A5 TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀTÃ¦¦TÂ +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦- +1 ParamSpec +1 GroupSpec.
+            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
+            # ¦¬ `web/static/execution_graph.js` ¦¬TÁ¦¦¦¬TÎTÇ¦¦¦-TË òÀÔ A9 TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀTÃ¦¦TÂ
+            # ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-¦¦ TÀ¦-TÁTÈ¦¬TÀ¦¦¦-¦¬¦¦ ¦á¦ã¦é¦Õ¦á¦â¦Ò¦ã¦î¦é¦Õ¦Ó¦Þ ExecutionGraph (9 TÍTÂ¦-¦¬¦-¦- Tç51,
+            # display-only; +Ô DDL=0; +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦-=0). Tç104 ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ (A3 AST).
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/Tç4.10): `web/api/routes.py`
+            # ¦¬TÁ¦¦¦¬TÎTÇTÑ¦- òÀÔ TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-TË ¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ query-TÄ¦¬¦¬TÌTÂTÀTË TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦¦-
+            # `GET /api/status/logs` (REUSE viewer, ¦-¦-¦-TËTÅ endpoint'¦-¦- ¦-¦¦TÂ).
+            "plans/current_task.md",
+        ]
+        proc = subprocess.run(
+            ["git", "-C", str(self._root()), "diff", "--name-only",
+             self._BASELINE, "--", *forbidden],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30)
+        changed = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+        assert changed == [], f"¦¬¦-¦¬TÀ¦¦TÉTÑ¦-¦-TË¦¦ ¦¬TÃTÂ¦¬ ¦¬¦¬¦-¦¦¦-¦¦¦-TË: {changed}"
+        assert not any(ln.startswith("db/") for ln in self._diff_names())
+        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦¬TÀ¦-¦-¦-¦-TË
+        # ¦+¦¬TÏ UI-¦-TÀ¦¦¦¬¦¦¦¬ Tç27/Tç50; A9 (ADR-1026-22 D10): + web/static/
+        # execution_graph.js (display-only 9 TÍTÂ¦-¦¬¦-¦- Tç51); mca-17a (ADR-1027-8
+        # D13/Tç4.10): + web/api/routes.py (TÄ¦¬¦¬TÌTÂTÀTË log viewer) ¦¬
+        # web/api/oversight.py (¦-¦+¦+¦¬TÂ¦¬¦-¦-TË¦¦ mca_metrics ¦-¦- TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¦¦¦ ¦-¦¬TÂTÀ¦¬¦-¦¦).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (TÂ¦-TÇ-TÆ¦¦¦¬TÌ ¦¦¦-¦-¦¬¦¦¦¬
+        # TëòÆÐ ¦Ú TÁ¦¬¦¬TÁ¦¦TÃT¬ òÉå44px ¦- mobile media-query; ¦-¦¦¦¬ ¦¬TÀ¦-¦-¦-¦¦ TÂ¦-¦¦¦¦¦-¦-¦-/¦¬¦-¦¬¦¬TÂTÀTË).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ TÀ¦-TÃTÂ¦¦TÀ¦- Style Registry/Editor).
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: full rebuild ¦¦¦-¦-TÂTÀ¦-¦¦TÂ òÀÔ ¦¬TÀ¦-¦¦TÀ¦¦TÁTÁ ¦-TÂ ¦¬¦-¦¬¦-¦-¦¦¦- ¦+¦¬¦-¦¬¦-¦¬¦-¦-¦-,
+        # resume-on-paused, read-time reconstruction; +Ô ¦¦¦-TÂ¦-¦¬¦-¦¦¦- = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`,
+        # ADR-1028-10 D1/D5.5/D5.7; TÁ¦-¦-¦¦TÆ¦¬TÏ Reviewer, NOTE-¦-¦-¦+¦¦¦¬TÌ):
+        # + `web/api/cover_styles.py` (Test Style no-picker/real base, RBAC
+        # seeded backend, `_public_profile.can_edit`, backend-guard
+        # `cover_test_style` M-ASAP42-1) ¦¬ + `web/api/deps.py`
+        # (`user_is_global_admin`, `_assert_can_edit_seeded`). Test-only
+        # allowlist-¦+¦¦¦¬TÌTÂ¦-; Tç104/A3-¦¦¦-¦-TÂTÀ¦-¦¦TÂ ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ (AST-¦¦¦¦¦¦TÂ ¦-TËTÈ¦¦).
+        # NOTE (¦+¦-¦¬¦-¦¬¦-¦¦¦-¦¬¦¦ Builder, TÂ¦-TÂ ¦¦¦¦ NOTE-TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦-TË¦¦ ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ òÀÔ
+        # TÀ¦¦¦-TÌTÎ-¦¬¦¦TÀ¦¦TÇ¦¦¦-TÌ ¦-TË¦¬ ¦-¦¦¦¬¦-¦¬¦-¦-: `_diff_names` (diff ¦-TÂ `e8646af`) ¦-¦¬¦+¦¬TÂ
+        # ¦¬¦-¦¦¦-¦-¦-¦¬TÇ¦¦¦-¦-TË¦¦ ¦+TÀ¦¦¦¦TÄ ¦¬TÀ¦-TÈ¦¬TËTÅ ¦-¦-¦¬¦-): + `web/api/analytics.py`
+        # (round1028 ASAP-3.1 + round1030 ASAP-4), +
+        # `web/static/polygon-background.js` (round1026/1028 ¦-¦¬¦¬TÃ¦-¦¬TÌ¦-TË¦¦ TÍ¦¬¦¬¦¦),
+        # + `web/static/telegram-init.js` (round1028 TMA-init). ¦ã¦¦¦¦ ¦-TË¦¬TÃTÉ¦¦¦-TË.
+        # NOTE (mca-12, round 10.46, ADR-1028-21 Tç7.5/D2, TÁ¦-¦-¦¦TÆ¦¬TÏ T-5154):
+        # + `web/api/stories.py` (NEW TÀ¦-TÃTÂ¦¦TÀ Të¦ØTÁTÂ¦-TÀ¦¬¦¬ TÇ¦-TÂ¦-T¬, 5 ¦-¦-TÀTÈTÀTÃTÂ¦-¦-) ¦¬ +
+        # `web/api/__init__.py` (re-export TÀ¦-TÃTÂ¦¦TÀ¦-; TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ òÀÔ web/app.py,
+        # ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ ¦¬¦-¦-). `web/api/routes.py` ¦Ý¦Õ ¦-¦¦¦-TÏ¦¬TÁTÏ (byte-freeze
+        # ROUTES_SHA256_F11 ¦+¦¦TÀ¦¦¦¬TÂTÁTÏ).
+>       assert not any(ln.startswith("web/")
+                       and not ln.startswith(("web/app.js", "web/index.html",
+                                              "web/app.py",
+                                              "web/static/execution_graph.js",
+                                              "web/static/app.css",
+                                              "web/api/routes.py",
+                                              "web/api/oversight.py",
+                                              "web/api/chat_lore.py",
+                                              # mca-22 (ADR-1028-6): Tç24 òÀÔ
+                                              # TÀ¦-TÁTÈ¦¬TÀ¦¦¦-¦¬¦¦ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬TÅ
+                                              # Memory-¦-¦¬¦+¦¦¦¦TÂ¦-¦- (trace/
+                                              # metrics), ¦-¦¦ ¦-¦-¦-TË¦¦ dashboard.
+                                              "web/api/memory_agi.py",
+                                              "web/api/cover_styles.py",
+                                              "web/api/deps.py",
+                                              "web/api/analytics.py",
+                                              "web/static/polygon-background.js",
+                                              "web/static/telegram-init.js",
+                                              # mca-12 (ADR-1028-21 Tç7.5/D2)
+                                              "web/api/stories.py",
+                                              # mca-17c (round 10.47,
+                                              # ADR-1028-23 D11/Tç1.2.12): NEW
+                                              # `web/api/oversight_router.py`
+                                              # (TÀ¦-¦-¦-¦- 3 ¦-¦-TÀTÈTÀTÃTÂ¦-; ¦¬TÀ¦-¦+-
+                                              # ¦-¦¦TÀ¦¬TÄ¦¬TÆ¦¬TÀ¦-¦-¦-¦- 2.58.66;
+                                              # routes.py byte-freeze òÀÔ
+                                              # ¦¬¦¬¦- 8153b8bdòÀæ TÆ¦¦¦¬).
+                                              "web/api/oversight_router.py",
+                                              # asap7 wave3 (2.58.74, REV-3
+                                              # Approved): ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-¦¦
+                                              # TÀ¦-TÁTÈ¦¬TÀ¦¦¦-¦¬¦¦ ¦á¦ã¦é¦Õ¦á¦â¦Ò¦ã¦î¦é¦Õ¦Ó¦Þ
+                                              # `web/api/summary_test.py`
+                                              # (dry-run test-¦¦¦-¦-TÂTÃTÀ Testing,
+                                              # Tç113; ¦+¦- ¦-¦-¦¬¦-TË TÄ¦-¦¦¦¬ ¦-TË¦¬
+                                              # ¦-¦-¦¦TÂ-¦--¦-¦-¦¦TÂ TÁ baseline
+                                              # pre-round1026-a1 ¦¬ ¦- diff
+                                              # ¦-¦¦ ¦-TÅ¦-¦+¦¬¦¬).
+                                              "web/api/summary_test.py",
+                                              # ASAP 8 v6.3 (Wave 3a/3b;
+                                              # TÂ¦-TÂ ¦¦¦¦ NOTE-TÁ¦-¦-¦¦TÆ¦¬¦-¦-¦-TË¦¦
+                                              # ¦¬TÀ¦¦TÆ¦¦¦+¦¦¦-TÂ): +
+                                              # `web/api/memory_overview.py`
+                                              # (read-only expired-overview,
+                                              # ¦áTÂ¦-TÂTÃTÁ) ¦¬ +
+                                              # `web/api/analytics_viz.py`
+                                              # (read-only ¦+¦-¦-¦-TË¦¦ 7
+                                              # ¦-¦¬¦¬TÃ¦-¦¬¦¬¦¬¦-TÆ¦¬¦¦ U05).
+                                              "web/api/memory_overview.py",
+                                              "web/api/analytics_viz.py",
+                                              # Wave 2 (U07/U08): ¦¬¦-¦¬¦¬TÂ¦¬¦¦¦-
+                                              # fullscreen, render-probe,
+                                              # feImage-¦¦¦-TÀTÂ¦- ¦¬¦¬¦-¦¬TË.
+                                              "web/static/fullscreen-policy.js",
+                                              "web/static/glass-probe.js",
+                                              "web/static/vendor/lg-lens-map.png",
+                                              # SOUL-13.2 / v6.3 Tç14
+                                              # (REV-W2-N3): TÁTÂTÀ¦-¦-¦¬TÆ¦- TÁTÂ¦¦¦-¦+¦-
+                                              # ¦-TË¦-¦¦TÁ¦¦¦-¦- ¦¬¦¬ ¦¬TÃ¦-¦¬¦¬TÇ¦-¦-¦¦¦-
+                                              # static ¦-
+                                              # tests/glass-teststand/ òÀÔ
+                                              # ¦¬¦-¦¬¦¬TÁ¦¬ web/static/
+                                              # glass-teststand.* ¦¬¦¬
+                                              # allowlist ¦ã¦Ô¦Ð¦Û¦Õ¦Ý¦ë: ¦¬TÎ¦-¦-¦¦
+                                              # ¦-¦-¦¬¦-TÀ¦-TÉ¦¦¦-¦¬¦¦ TÁTÂTÀ¦-¦-¦¬TÆTË ¦-
+                                              # web/ TÁ¦-¦-¦-¦- ¦-¦-¦¬¦¬TÂ TÍTÂ¦-TÂ TÂ¦¦TÁTÂ.
+                                              "web/api/__init__.py",
+                                              # NOTE (SOUL-1 W6, review-w6.md
+                                              # RECHECK-W6-2 Approved, ¦¦¦-¦-¦+¦¬¦+¦-TÂ
+                                              # a5902b15): + web/api/speech.py
+                                              # (NEW TÀ¦-TÃTÂ¦¦TÀ Të¦à¦¦TÇTÌ ¦¬ TÅ¦-TÀ¦-¦¦TÂ¦¦TÀT¬,
+                                              # 21 ¦-¦-TÀTÈTÀTÃTÂ; TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ òÀÔ
+                                              # web/app.py; web/api/routes.py
+                                              # ¦Ý¦Õ ¦-¦¦¦-TÏ¦¬TÁTÏ òÀÔ byte-freeze
+                                              # ¦+¦¦TÀ¦¦¦¬TÂTÁTÏ; RBAC òÀÔ TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬¦¦
+                                              # ¦¬TÀ¦-¦-¦- ¦¬¦¦TÀTÁ¦-¦-TË/¦¦¦¬TÎTÇ¦-). Test-only
+                                              # allowlist-¦+¦¦¦¬TÌTÂ¦-; Tç104/A3-¦¦¦¦¦¦TÂ
+                                              # ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ.
+                                              "web/api/speech.py",
+                                              # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
+                                              # Approved, ¦¦¦-¦-¦+¦¬¦+¦-TÂ 0ca661fe): + web/static/
+                                              # glass-refraction.js (NEW TÁ¦¬¦-¦¦ ¦¬TÀ¦¦¦¬¦-¦-¦¬¦¦¦-¦¬TÏ
+                                              # ¦¦¦-¦-TÂTÀ¦-¦¬¦¬TÀTÃ¦¦¦-¦-¦¦¦- TÄ¦-¦-¦- ¦+¦¬TÏ ¦¦¦¬¦¬¦¦¦-TÂ¦-¦- ¦-¦¦¦¬
+                                              # backdrop-filter url(); Tier A-only,
+                                              # pointer-events:none, z-index:-1; e2e 37/37
+                                              # ¦-¦- ¦¬¦-¦+¦¦¦¬¦¬¦-¦¦¦-¦-TËTÅ ¦-¦-¦¦TÂ¦-TÅ). Test-only
+                                              # allowlist-¦+¦¦¦¬TÌTÂ¦-.
+                                              "web/static/glass-refraction.js",
+                                              # NOTE (SOUL-1 W5, review-w5.md RECHECK
+                                              # Approved, ¦¦¦-¦-¦+¦¬¦+¦-TÂ bc277a3d): +
+                                              # web/api/initiative_vitality.py (NEW
+                                              # TÀ¦-TÃTÂ¦¦TÀ Të¦Ø¦-¦¬TÆ¦¬¦-TÂ¦¬¦-¦-/¦¦¦¬¦-¦-TÁTÂTÌT¬ MiniApp:
+                                              # GET /api/memory/initiative-vitality +
+                                              # POST /api/memory/initiative-check,
+                                              # TÂ¦-¦¬TÌ¦¦¦- global-admin; TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ òÀÔ
+                                              # web/app.py; web/api/routes.py ¦Ý¦Õ
+                                              # ¦-¦¦¦-TÏ¦¬TÁTÏ òÀÔ byte-freeze ¦+¦¦TÀ¦¦¦¬TÂTÁTÏ;
+                                              # TÀ¦¦¦-¦¬TÌ¦-¦-TÏ ¦-TÂ¦¬TÀ¦-¦-¦¦¦- òÀÔ TÂ¦-¦¬TÌ¦¦¦- ¦-TÁTÌ ON +
+                                              # confirm, ¦¬¦- TÃ¦-¦-¦¬TÇ¦-¦-¦¬TÎ mock).
+                                              # Test-only allowlist-¦+¦¦¦¬TÌTÂ¦-; Tç104/A3-¦¦¦¦¦¦TÂ
+                                              # ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ.
+                                              "web/api/initiative_vitality.py",
+                                              # CFG-02B (Tç02B.8, ADR-1031-1,
+                                              # requirements-map TÁ¦¬¦-¦¦TÁ CFG-02B):
+                                              # + web/api/gates.py òÀÔ ¦-¦+¦+¦¬TÂ¦¬¦-¦-¦-TÏ
+                                              # ¦¬¦¦TÀ¦¦¦+¦-TÇ¦- ¦¬¦-¦¬TÀ¦-TÁ¦¬¦-TÈ¦¦¦¦¦- ¦-¦+¦-¦¬¦-¦- ¦-
+                                              # TÁTÃTÉ¦¦TÁTÂ¦-TÃTÎTÉ¦¬¦¦ GET /api/workers/
+                                              # budget (viewer_user_id) TÀ¦-¦+¦¬
+                                              # TÇ¦¦TÁTÂ¦-¦-¦¦¦- Të¦-TÁTÂ¦-TÂ¦¦¦- ¦+¦¬TÏ ¦-TË¦-TÀ¦-¦-¦-¦-¦¦¦-
+                                              # ¦¬¦-¦¬TÌ¦¬¦-¦-¦-TÂ¦¦¦¬TÏT¬ ¦- TÁ¦¦¦¦TÆ¦¬¦¬ Të¦Û¦¬¦-¦¬TÂTË
+                                              # ¦¦¦¦¦-¦¦TÀ¦-TÆ¦¬¦¬T¬; ¦-¦-¦-TËTÅ endpoint'¦-¦-
+                                              # ¦¬ ¦¬TÀ¦-¦-¦-¦¦ RBAC ¦-¦¦TÂ. Test-only
+                                              # allowlist-¦+¦¦¦¬TÌTÂ¦-; Tç104/A3-¦¦¦¦¦¦TÂ
+                                              # ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ.
+                                              "web/api/gates.py",
+                                              # NOTE (PINS-258151, 03.11.2026 òÀÔ
+                                              # allowlist ¦-TÂTÁTÂ¦-¦-¦-¦¬ ¦-TÂ TÃ¦¦¦¦
+                                              # ¦Ò¦ë¦ß¦ã¦é¦Õ¦Ý¦Ý¦Þ¦Ó¦Þ ¦¦¦-¦+¦-): EVOL-COG-MAP
+                                              # (`770f53c1` W7-S1, ancestor
+                                              # release/2.58.151) òÀÔ NEW
+                                              # TÄ¦-¦¦¦¬-¦¬¦-¦-¦- web/api/cognitive_map.py
+                                              # (TÁ¦-¦-¦¦ router, TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ ¦-
+                                              # web/app.py; web/api/routes.py ¦Ý¦Õ
+                                              # ¦-¦¦¦-TÏ¦¬TÁTÏ òÀÔ F11 byte-freeze TÆ¦¦¦¬) +
+                                              # ¦-¦+¦-¦¬TÂ¦¦TÀ web/static/cognitive-map.js;
+                                              # MEME-PIPELINE-REFACTOR-01 P4
+                                              # (`e25bd479`) òÀÔ NEW TÄ¦-¦¦¦¬-¦¬¦-¦-¦-
+                                              # web/api/mechanism_diagnostics.py
+                                              # (+Ô routes = 0). Tç104/A3 ¦-¦¦
+                                              # ¦¬¦-TÂTÀ¦-¦-TÃTÂ: ¦¬TÀ¦-¦-¦¦¦¬ òÀÔ ¦- ¦-TÂ¦+¦¦¦¬TÌ¦-TËTÅ
+                                              # TÄ¦-¦¦¦¬¦-TÅ-¦¬¦-¦-¦-TÅ, ¦-¦¦ ¦- ¦¬TÃTÂTÏTÅ ¦-TËTÈ¦¦.
+                                              "web/api/cognitive_map.py",
+                                              "web/static/cognitive-map.js",
+                                              "web/api/mechanism_diagnostics.py",
+                                              # PINS-258161 (07.11.2026 òÀÔ allowlist
+                                              # ¦-TÂTÁTÂ¦-¦-¦-¦¬ ¦-TÂ TÃ¦¦¦¦ ¦Ò¦ë¦ß¦ã¦é¦Õ¦Ý¦Ý¦Þ¦Ó¦Þ ¦¦¦-¦+¦-;
+                                              # ¦-TÁ¦¦ TÂTÀ¦¬ ¦¬TÃTÂ¦¬ òÀÔ ¦¬TÀ¦¦¦+¦¦¦¬
+                                              # release/2.58.161):
+                                              # * web/api/anticliche.py òÀÔ NEW
+                                              #   TÄ¦-¦¦¦¬-¦¬¦-¦-¦- TÀ¦-TÃ¦-¦+¦- 10.23 F4
+                                              #   (766f8a53, ¦+¦¬¦-¦-¦-¦¬TÇ¦¦TÁ¦¦¦¬¦¦
+                                              #   ¦-¦-TÂ¦¬-¦¦¦¬¦¬TÈ¦¦ ¦¦TÍTÈ; TÁ¦-¦-¦¦ TÀ¦-TÃTÂ¦¦TÀ,
+                                              #   routes.py ¦-¦¦ TÂTÀ¦-¦-TÃTÂ);
+                                              # * web/api/initiative_publications.py òÀÔ
+                                              #   NEW TÀ¦-TÃTÂ¦¦TÀ Të¦Ü¦-¦+TÃ¦¬¦¬ òÆÒ ¦Ø¦-¦¬TÆ¦¬¦-TÂ¦¬¦-¦-T¬
+                                              #   ¦- ¦¬TÏTÂ¦¬ ¦-¦¦¦¬¦-¦+¦¦¦-TÅ (1c7f030f,
+                                              #   owner P1; TÀ¦¦¦¦¦¬TÁTÂTÀ¦-TÆ¦¬TÏ òÀÔ web/app.py);
+                                              # * web/static/cog-visual.js òÀÔ
+                                              #   NEW ¦-¦¬¦¬TÃ¦-¦¬TÌ¦-TË¦¦ TÁ¦¬¦-¦¦ ¦¦TÀ¦-TÄ¦-
+                                              #   (8867a2ad, CMV-A; TÁ¦-¦¦¦+TÑ¦- ¦-
+                                              #   TÀ¦¦¦¬¦¬¦¬ ¦-¦¦TÀ¦¦¦¦¦- aa8afdde).
+                                              # Tç104/A3-¦¦¦-¦-TÂTÀ¦-¦¦TÂ ¦-¦¦ ¦¬¦-TÂTÀ¦-¦-TÃTÂ:
+                                              # ¦¬TÀ¦-¦-¦¦¦¬ òÀÔ ¦- ¦-TÂ¦+¦¦¦¬TÌ¦-TËTÅ TÄ¦-¦¦¦¬¦-TÅ-¦¬¦-¦-¦-TÅ.
+                                              "web/api/anticliche.py",
+                                              "web/api/initiative_publications.py",
+                                              "web/static/cog-visual.js",
+                                              ))
+                       for ln in self._diff_names())
+E       assert not True
+E        +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x0000024DFB3631D0>)
+
+tests\test_unified_image_request_round1026.py:703: AssertionError
+____________________ TestInvariants.test_secrets_count_28 _____________________
+
+self = <tests.test_webapp_f9_round1025.TestInvariants object at 0x0000024DF91B69C0>
+
+    def test_secrets_count_28(self):
+        # 20 category=keys (UI) + 8 env-only infra òÀÔ TÁ¦-TÁTÂ¦-¦- ¦Ý¦Õ ¦¬¦¬¦-¦¦¦-TÑ¦-.
+        # ASAP-2 round1027 (¦¦¦-¦-TÂTÀ¦-¦¦TÂ (j)): +2 UI-TÁ¦¦¦¦TÀ¦¦TÂ¦- (keys.summary_l1/
+        # l2_api_key, masked-¦-¦¬¦+¦¦¦¦TÂ adr-1025-22) òÆÒ 30.
+        # ASAP 7 F2 (Tç1.6): +1 keys.direct_l1_api_key òÆÒ 34.
+>       assert len(pc_secret_names()) == 32
+E       AssertionError: assert 34 == 32
+E        +  where 34 = len({'API_TOKEN', 'COBALT_HTTP_PROXY', 'EMBEDDING_API_KEY', 'EMBEDDING_FALLBACK_API_KEY', 'EMBEDDING_FALLBACK_API_KEY_2', 'EXA_API_KEY', ...})
+E        +    where {'API_TOKEN', 'COBALT_HTTP_PROXY', 'EMBEDDING_API_KEY', 'EMBEDDING_FALLBACK_API_KEY', 'EMBEDDING_FALLBACK_API_KEY_2', 'EXA_API_KEY', ...} = pc_secret_names()
+
+tests\test_webapp_f9_round1025.py:173: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_mca17c_invariants_round1047.py::test_no_ddl_catalog_ks_tools_delta
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+FAILED tests/test_webapp_f9_round1025.py::TestInvariants::test_secrets_count_28
+6 failed, 9 passed in 10.23s
