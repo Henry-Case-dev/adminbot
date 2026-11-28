@@ -1,0 +1,40 @@
+diff --git a/tests/test_direct_l1_corrective_r1.py b/tests/test_direct_l1_corrective_r1.py
+index 4c82a4d4b..15cf789ae 100644
+--- a/tests/test_direct_l1_corrective_r1.py
++++ b/tests/test_direct_l1_corrective_r1.py
+@@ -130,7 +130,7 @@ def test_l1_rules_positive_criteria_present():
+         ' "memory_scope": "auto"}', 1) \
+         + _DIRECT_L1_MEMORY_SCOPE_EVR6
+     assert cp.PREV_DIRECT_L1_PLANNER_EVR6 == evr6_canon
+-    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
++    _p0gm = (
+         evr6_canon
+         .replace(cp._DIRECT_L1_PLANNER_RULES_PA5W2,
+                  cp._DIRECT_L1_PLANNER_RULES_P0GM)
+@@ -138,6 +138,9 @@ def test_l1_rules_positive_criteria_present():
+                  ' "memory_scope": "auto",\n "final_goal": ""}', 1)
+         + cp._DIRECT_L1_FINAL_GOAL_P0GM
+         + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM)
++    assert cp.PREV_DIRECT_L1_PLANNER_P0GM == _p0gm
++    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == _p0gm.replace(
++        cp._DIRECT_L1_PARTICIPATION_R3, cp._DIRECT_L1_PARTICIPATION_R4)
+     assert '"action": "reply|react|silent"' in new_canon
+ 
+ 
+diff --git a/tests/test_rlr_proof_restart.py b/tests/test_rlr_proof_restart.py
+index 7b9c32abd..f870e8723 100644
+--- a/tests/test_rlr_proof_restart.py
++++ b/tests/test_rlr_proof_restart.py
+@@ -208,8 +208,11 @@ async def test_marker_is_written_before_delivery_not_after(tmp_path,
+     observed: list = []
+ 
+     async def _send(bot, chat_id, answer, reply_to=None, **kwargs):
++        # P0T-REPLY-01: ╤Б╨╝╤Л╤Б╨╗╨╛╨▓╨░╤П ╤Ж╨╡╨╗╤М reply. ╨Я╨╗╨░╨╜ ╨▒╨╡╨╖ delivery=reply ╨╜╨╡
++        # ╨┐╤А╨╕╨▓╤П╨╖╤Л╨▓╨░╨╡╤В╤Б╤П ╨▓╨╛╨▓╤Б╨╡ (reply_to=None) тАФ ╨╝╨░╤А╨║╨╡╤А ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╨╝ ╨┐╨╛ id
++        # ╨в╨а╨Ш╨У╨У╨Х╨а╨Р ╤Е╨╛╨┤╨░, ╨░ ╨╜╨╡ ╨┐╨╛ reply_to.
+         observed.append(await check_update_seen(
+-            cache, chat_id, reply_to, revision=1, user_id=user.id))
++            cache, chat_id, 1411, revision=1, user_id=user.id))
+         return 777
+ 
+     svc._send_direct_answer = AsyncMock(side_effect=_send)

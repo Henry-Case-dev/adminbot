@@ -1,0 +1,10 @@
+﻿seal_integrity: {}
+factory_set_fingerprint: 1c03efc3e98b const: 1c03efc3e98b
+sha12 active: 64a80fb8c4ff len: 21617
+label: ?
+R4 present: True
+R3 particip section present in active: False
+R3 initiative narrowing present: False
+R4 target source phrase present: True
+seal key: n/a
+is_known_canon(active): True

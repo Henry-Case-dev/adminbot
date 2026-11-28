@@ -1,0 +1,1 @@
+﻿CHECK OK: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\release-2-58-275-1e93594d8edc-386fb7e8\tests\fixtures\routes_contract.json ╤Б╨╛╨╛╤В╨▓╨╡╤В╤Б╤В╨▓╤Г╨╡╤В web/api/routes.py

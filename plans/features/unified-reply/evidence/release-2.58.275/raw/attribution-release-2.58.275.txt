@@ -1,0 +1,6 @@
+﻿
+FAILED tests/test_direct_l1_corrective_r1.py::test_l1_rules_positive_criteria_present
+FAILED tests/test_rlr_proof_restart.py::test_marker_is_written_before_delivery_not_after
+2 failed in 6.47s
+
+
